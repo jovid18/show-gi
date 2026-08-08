@@ -71,7 +71,16 @@ create index on edges using gin (tags);
 
 USI 엔진은 iterative deepening 중 `info depth 1 score cp … / info depth 2 …`를 계속 뱉는다. **`go` 한 번의 info 라인을 깊이별로 주워담으면 그게 곧 이 배열이다.** 별도 탐색을 14번 돌릴 필요가 없다.
 
-그리고 이 배열이 제품의 교육 콘텐츠다 — 초보자는 깊게 보지 않는다. **"1수만 보면 +200인데 조금만 더 가면 −300"** 이 초심자 실수의 정체이고, 개입 설명과 [리뷰 화면 스파크라인](03-frontend.md#리뷰-화면)에 그대로 쓴다.
+**이 배열은 표시용 데이터가 아니라 개입 판정의 입력이다.** 초보자는 깊게 읽지 않으므로, 얕은 평가와 깊은 평가의 차이가 곧 **"초보자에게 보이는 것과 실제의 격차"**다. 그 격차의 부호가 양쪽 개입을 그대로 정의한다.
+
+| shallow (d2) | deep (d14) | 정체                        | 개입            |
+| ------------ | ---------- | --------------------------- | --------------- |
+| 좋아 보임    | 실은 나쁨  | **함정** — 얕은 이득에 낚임 | 제지형 (블런더) |
+| 나빠 보임    | 실은 좋음  | **手筋** — 捨て駒·踏み込み  | 제안형 (힌트)   |
+
+하나의 배열이 개입의 두 방향을 동시에 정의한다. 조건 판정도, 설명 문장도(「여기까지만 보면 이득입니다」), [리뷰 화면 스파크라인](03-frontend.md#3-리뷰-화면)도 전부 이 배열 하나에서 나온다. 자세한 조건은 [개입 엔진 §7.1](01-core.md#71-어떤-手筋을-알릴-것인가--여기가-제품의-감각이다).
+
+> **단 얕은 값은 MultiPV info 라인에서 못 줍는다.** 捨て駒는 얕은 깊이에서 상위 k에 들지 못해 애초에 라인에 안 나온다 — 손해로 보이는 것이 그 수의 정의다. shallow는 그 수를 둔 국면을 따로 depth 2로 평가해서 얻는다.
 
 > **단 이식해 오는 파서는 이걸 버린다.** `../shogi`의 `usi.parseScore`는 `depth` 필드를 아예 읽지 않고, 같은 multipv 순위의 라인을 계속 **덮어쓴다** — 마지막(가장 깊은) iteration만 남는다. 깊이별 배열을 얻으려면 `SearchLine`에 `Depth`를 추가하고 순위별로 append하도록 고쳐야 한다. 공짜인 것은 **엔진의 출력**이지 저쪽 코드가 아니다.
 
@@ -82,7 +91,10 @@ users        (id, provider, provider_uid, display_name, created_at)
 games        (id, user_id, my_color, started_at, result, opening_tag, root_key)
 game_moves   (game_id, ply, usi, sfen_key, eval_cp, intervened bool, retracted_usi text)
              -- retracted_usi = 개입으로 물러진 "원래 두려던 수" = 순수 실력 신호
-interventions(id, game_id, ply, category, delta_win, level_bucket, explain_tier, cost_yen)
+interventions(id, game_id, ply, kind, category, delta_win, level_bucket,
+              retracted_usi, hinted_tag, taken bool, explain_tier, cost_yen)
+             -- kind: 'blunder'(제지형, 착수 후 롤백) | 'tesuji'(제안형, 착수 전 알림)
+             -- retracted_usi는 blunder만, hinted_tag/taken은 tesuji만 채운다
 skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at)
 explain_cache(key text primary key, body text, model text, hits int)
              -- key = hash(category, level_bucket, piece, 국면특징 버킷)
