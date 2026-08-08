@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 120,
+  "tabWidth": 2,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "endOfLine": "lf",
+
+  // 본문을 다시 감싸지 않는다. 기본값이 바뀌어도 한글 문단 전체가 재배치되지 않게 명시한다.
+  "proseWrap": "preserve",
+
+  // 마크다운도 포맷한다. 단 oxfmt는 표를 채울 때 CJK 문자 폭을 1칸으로 세므로,
+  // 한글·일본어가 든 표는 원문에서 파이프가 어긋나 보인다. 렌더 결과는 정상이다.
+  // 이 레포는 docs 전체가 한글이고 일본어 용어(飛車, 詰み)가 섞이므로 거의 모든 표가 그렇다.
+  // 손으로 맞춘 정렬이 저장할 때마다 틀어지는 것보다, 결과가 하나로 정해지는 쪽을 택했다.
+  // 되돌리려면 ignorePatterns에 "**/*.md"를 추가한다.
+  //
+  // Go 코드는 gofmt가 맡는다. oxfmt는 .go를 아예 모르므로 따로 뺄 필요가 없고,
+  // apps/server 아래 마크다운은 여기서 같이 포맷된다.
+  "ignorePatterns": ["node_modules", "dist", "coverage"],
+}

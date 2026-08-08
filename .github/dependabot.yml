@@ -1,0 +1,37 @@
+# 업데이트를 주마다 한 번, 생태계별로 묶어서 받는다.
+# 파편화된 PR 열 개보다 묶인 PR 하나가 낫다 — 혼자 머지하는 레포다.
+
+version: 2
+
+updates:
+  - package-ecosystem: gomod
+    directory: /apps/server
+    schedule:
+      interval: weekly
+    groups:
+      go:
+        patterns: ['*']
+    commit-message:
+      prefix: chore
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # major는 따로 열게 둔다. 부술 가능성이 있는 것을 묶으면 원인을 못 가린다.
+      npm-minor:
+        patterns: ['*']
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: chore

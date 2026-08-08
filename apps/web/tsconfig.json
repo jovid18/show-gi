@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+
+    // node는 vite.config.ts 때문에 필요하다. 브라우저 코드에서는 쓰지 않는다.
+    "types": ["vite/client", "node"],
+
+    // `@`는 src다. vite.config.ts의 alias와 짝을 맞춰야 한다.
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}

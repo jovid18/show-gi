@@ -1,0 +1,100 @@
+#!/bin/sh
+#
+# 1. main에서 커밋하는 것을 막는다. 작업은 브랜치를 파서 한다.
+# 2. 스테이징된 파일을 포맷하고(oxfmt / gofmt) TS는 oxlint까지 돌린다.
+#
+# main으로의 푸시와 force push는 이 훅이 아니라 GitHub 룰셋이 막는다.
+# public 레포라 서버에서 강제할 수 있고, 그쪽이 --no-verify로 뚫리지 않는다.
+# 이 훅은 CI 왕복 없이 즉시 알려주는 편의 장치다.
+#
+# origin/main에서 받아오는 것은 막지 않는다:
+#   - fast-forward pull은 커밋을 만들지 않으므로 이 훅을 타지 않는다
+#   - 머지 커밋은 pre-commit이 아니라 pre-merge-commit을 탄다
+#     (애초에 pull.ff=only라 머지 자체가 일어나지 않는다)
+#
+# 활성화 (클론마다 한 번):
+#   git config core.hooksPath .githooks
+
+branch="$(git symbolic-ref --short HEAD 2>/dev/null)"
+
+# detached HEAD면 브랜치가 아니므로 통과
+[ -z "$branch" ] && exit 0
+
+if [ "$branch" = "main" ]; then
+	echo "✗ main에서는 커밋하지 않는다. 브랜치를 파서 작업할 것."
+	echo
+	echo "  스테이징한 내용은 그대로 따라온다:"
+	echo "    git switch -c <type>/<이름>"
+	echo "    git commit ..."
+	echo
+	echo "  정말 필요하면: git commit --no-verify"
+	exit 1
+fi
+
+# ─── 포맷 · 린트 ────────────────────────────────────────────
+#
+# 에디터의 다른 포매터가 끼어들어도 커밋에는 oxfmt/gofmt 결과만 들어가게 한다.
+# 1차 방어는 .vscode/settings.json(포매터 고정)이고 이건 2차 방어다.
+
+oxfmt="node_modules/.bin/oxfmt"
+oxlint="node_modules/.bin/oxlint"
+
+staged="$(git diff --cached --name-only --diff-filter=ACMR)"
+web_files="$(printf '%s\n' "$staged" | grep -E '\.(ts|tsx|js|jsx|mjs|cjs|json|jsonc|css|html|md)$')"
+go_files="$(printf '%s\n' "$staged" | grep -E '\.go$')"
+lint_files="$(printf '%s\n' "$staged" | grep -E '\.(ts|tsx|js|jsx|mjs|cjs)$')"
+
+# pnpm install 전이면 검사할 수단이 없다. 커밋을 막지는 않는다
+if [ -n "$web_files" ] && { [ ! -x "$oxfmt" ] || [ ! -x "$oxlint" ]; }; then
+	echo "! oxfmt/oxlint가 없어 웹 쪽 검사를 건너뛴다 — pnpm install"
+	web_files=""
+	lint_files=""
+fi
+
+if [ -n "$go_files" ] && ! command -v gofmt >/dev/null 2>&1; then
+	echo "! gofmt가 없어 Go 쪽 검사를 건너뛴다"
+	go_files=""
+fi
+
+fmt_files="$(printf '%s\n%s\n' "$web_files" "$go_files" | grep -v '^$')"
+[ -z "$fmt_files" ] && exit 0
+
+# 일부만 스테이징된 파일이 있으면 자동 수정하지 않는다. 고친 뒤 git add로
+# 되돌리면 스테이징하지 않은 변경까지 커밋에 끌려 들어간다
+partial="$(printf '%s\n' "$fmt_files" | xargs git diff --name-only --)"
+
+if [ -n "$partial" ]; then
+	bad=""
+	if [ -n "$web_files" ] && ! printf '%s\n' "$web_files" | xargs "$oxfmt" --check >/dev/null 2>&1; then
+		bad="yes"
+	fi
+	if [ -n "$go_files" ] && [ -n "$(printf '%s\n' "$go_files" | xargs gofmt -l)" ]; then
+		bad="yes"
+	fi
+
+	if [ -n "$bad" ]; then
+		echo "✗ 포맷이 맞지 않는다. 아래 파일은 일부만 스테이징돼서 자동으로 고치지 않았다:"
+		printf '%s\n' "$partial" | sed 's/^/    /'
+		echo
+		echo "  pnpm lint:fix / gofmt -w 후 다시 스테이징할 것."
+		exit 1
+	fi
+else
+	[ -n "$web_files" ] && printf '%s\n' "$web_files" | xargs "$oxfmt" >/dev/null
+	[ -n "$go_files" ] && printf '%s\n' "$go_files" | xargs gofmt -w
+
+	fixed="$(printf '%s\n' "$fmt_files" | xargs git diff --name-only --)"
+	if [ -n "$fixed" ]; then
+		printf '%s\n' "$fixed" | xargs git add --
+		echo "· 포매터가 정리해 다시 스테이징했다:"
+		printf '%s\n' "$fixed" | sed 's/^/    /'
+	fi
+fi
+
+if [ -n "$lint_files" ] && ! printf '%s\n' "$lint_files" | xargs "$oxlint" --quiet; then
+	echo "✗ oxlint 오류. 고치고 다시 커밋할 것."
+	echo "  정말 필요하면: git commit --no-verify"
+	exit 1
+fi
+
+exit 0
