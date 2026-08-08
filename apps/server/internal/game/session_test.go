@@ -165,8 +165,9 @@ func TestSessionAnswersWhileEngineThinks(t *testing.T) {
 	}
 }
 
-// 투료 뒤에 늦게 도착한 탐색 결과가 기보에 붙으면 안 된다.
-func TestLateEngineResultIsDropped(t *testing.T) {
+// 투료로 국면이 바뀐 뒤 도착한 탐색 결과는 그 국면에 대한 답이 아니다. 기보에 붙으면 안 된다.
+// 판정 기준은 걸린 시간이 아니라 국면이다 — 오래 걸려도 국면이 그대로면 유효하다.
+func TestStaleEngineResultIsDropped(t *testing.T) {
 	opp := &scriptedOpponent{moves: []string{"3c3d"}, delay: 200 * time.Millisecond}
 	s := newSession(t, Config{Opponent: opp, HumanColor: shogi.Black})
 
