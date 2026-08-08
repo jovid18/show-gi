@@ -16,32 +16,6 @@ variable "domain" {
   default     = "show-gi.com"
 }
 
-variable "instance_type" {
-  description = <<-EOT
-    엔진 3개(상대 수 / 선행 계산 / mate 탐색)와 postgres가 한 대에 올라간다.
-    엔진 탐색은 지속 CPU 부하라 버스터블(t계열)은 크레딧이 떨어지는 순간 느려진다 —
-    데모 영상을 찍는 중에 그렇게 되면 되돌릴 방법이 없다.
-  EOT
-  type        = string
-  default     = "c7g.xlarge" # 4 vCPU / 8 GiB, Graviton3
-}
-
-variable "root_volume_gb" {
-  description = "루트 EBS 크기(GiB). 도커 이미지와 postgres 데이터가 여기 들어간다"
-  type        = number
-  default     = 30
-}
-
-variable "ssh_cidr" {
-  description = <<-EOT
-    22번 포트를 열어줄 CIDR. 기본은 null = **포트를 아예 열지 않는다.**
-    평소 접속은 SSM Session Manager로 한다 (deploy/README.md).
-    SSM이 죽었을 때의 비상용으로만 자기 IP를 넣는다: ["1.2.3.4/32"]
-  EOT
-  type        = list(string)
-  default     = null
-}
-
 variable "db_instance_class" {
   description = <<-EOT
     RDS 인스턴스 클래스. 데이터가 작고(코퍼스 50행, 국면 캐시 수천 건) 질의도
@@ -50,4 +24,29 @@ variable "db_instance_class" {
   EOT
   type        = string
   default     = "db.t4g.micro" # 2 vCPU(버스터블) / 1 GiB
+}
+
+variable "task_cpu" {
+  description = <<-EOT
+    Fargate vCPU (1024 = 1 vCPU). 엔진 셋(상대 수·선행 계산·mate 탐색)이 동시에
+    돌아야 개입 판정이 착수 흐름을 끊지 않는다. 느려지면 올린다 — EC2와 달리
+    인스턴스를 갈아엎지 않고 태스크 정의만 바꾸면 된다.
+  EOT
+  type        = string
+  default     = "4096"
+}
+
+variable "task_memory" {
+  description = "Fargate 메모리(MiB). 4096 vCPU에서 허용되는 최소치가 8192다"
+  type        = string
+  default     = "8192"
+}
+
+variable "image_tag" {
+  description = <<-EOT
+    태스크 정의가 처음 참조할 이미지 태그. 이후 배포는 CI가 커밋 SHA로 새 리비전을
+    등록하므로 이 값은 최초 생성에만 쓰인다 (서비스는 task_definition 변경을 무시한다).
+  EOT
+  type        = string
+  default     = "latest"
 }

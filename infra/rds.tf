@@ -18,26 +18,18 @@ resource "aws_db_subnet_group" "main" {
   subnet_ids = data.aws_subnets.default.ids
 }
 
-data "aws_subnets" "default" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
-}
-
 resource "aws_security_group" "db" {
   name        = "show-gi-db"
   description = "show-gi: postgres from the app instance only"
   vpc_id      = data.aws_vpc.default.id
 }
 
-# **앱 보안그룹에서만** 들어올 수 있다. CIDR이 아니라 보안그룹을 참조하는 것이
-# 요점이다 — 인스턴스 IP가 바뀌어도 규칙을 고칠 필요가 없고, 같은 VPC의 다른
-# 자원이 열리지도 않는다.
+# **태스크 보안그룹에서만** 들어올 수 있다. CIDR이 아니라 보안그룹을 참조하는 것이
+# 요점이다 — Fargate 태스크는 배포마다 IP가 바뀌므로 CIDR로는 애초에 표현할 수 없다.
 resource "aws_vpc_security_group_ingress_rule" "db_from_app" {
   security_group_id            = aws_security_group.db.id
-  description                  = "postgres from app"
-  referenced_security_group_id = aws_security_group.web.id
+  description                  = "postgres from the ECS task"
+  referenced_security_group_id = aws_security_group.task.id
   from_port                    = 5432
   to_port                      = 5432
   ip_protocol                  = "tcp"

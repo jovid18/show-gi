@@ -11,7 +11,7 @@
 | 엔진     | fairy-stockfish로 시작, `ENGINE_CMD`로 교체 가능하게 | §3                                                                   |
 | LLM      | OrcaRouter (`model="auto"`, `temperature=0`)         | 해커톤 요구사항. [LLM 계층](04-llm.md)                               |
 | 인증     | **Google OAuth만**                                   | LINE은 심사 서류·채널 개설에 시간이 든다. 여유가 나면 D6에 추가      |
-| 배포     | AWS EC2 1대 + docker compose, Terraform, Route53     | §6                                                                   |
+| 배포     | AWS ECS Fargate + ALB, Terraform, Route53            | §6                                                                   |
 | 모노레포 | pnpm 워크스페이스 + `apps/server`(Go 별도 go.mod)    | `../more-more`와 동일 구조. oxfmt/oxlint, `.githooks`, CI까지 그대로 |
 
 ---
@@ -137,12 +137,15 @@ kb_chunks    (id, title, body, tags text[], source_url, source_license, verified
 
 ## 6. 인프라
 
-- AWS EC2 1대에 docker compose (web · api · engine 동봉 · postgres), 앞에 Caddy로 TLS
-- **RDS를 쓰지 않는다** — 비용·프로비저닝 시간 대비 이득이 없다
-- Terraform으로 전부 코드화. Route53 도메인 **[미확정]**
+- **ECS Fargate**(ARM64) 태스크 하나에 web(Caddy) + api 컨테이너. 앞에 ALB가 ACM 인증서로 TLS를 끝낸다
+- **RDS postgres 17.** 앱 태스크의 보안그룹에서만 접근 가능하고, 7일 자동 백업이 붙는다
+- 비밀은 SSM Parameter Store → 태스크 정의의 `secrets`로 주입. 디스크에 남지 않는다
+- Terraform으로 전부 코드화. state는 S3 + DynamoDB 잠금
 - 레포는 **퍼블릭**
 
-SSH는 **포트를 아예 열지 않는다.** 인스턴스 접속은 SSM Session Manager로 하므로 키 관리도 22번 포트도 없다 — 열려 있지 않은 포트는 공격당하지 않는다.
+EC2 + docker compose로 시작했다가 갈아탔다. 비용은 거의 같은데(주 $2 차이), **직접 쓴 배포 글루가 통째로 사라진다** — 배포 스크립트, 비밀을 셸로 내보내는 스크립트, compose 오버레이, 헬스체크 루프, 인증서 볼륨이 전부 ECS·ALB의 기본 기능으로 대체된다. 직접 쓴 것만 직접 유지보수해야 한다.
+
+**관리할 서버가 없다.** SSH 포트도, 패치할 OS도, 접속 키도 없다. 디버깅이 필요하면 ECS Exec으로 컨테이너에 들어간다.
 
 state는 S3 + DynamoDB 잠금에 둔다. 로컬 state는 날리면 복구가 안 되고, **퍼블릭 레포에서는 실수로 커밋될 위험**도 있다.
 

@@ -1,19 +1,14 @@
-# 이 파일 하나가 TLS · 정적 서빙 · API/WS 프록시를 전부 맡는다.
+# 정적 파일 서빙 + API/WS 프록시. **TLS는 여기서 안 한다.**
 #
-# 앞단에 ALB를 두지 않는 이유: ALB는 TLS는 대신해주지만 정적 서빙과 경로 라우팅은
-# 대신하지 못해서, 결국 박스 안에 프록시가 하나 더 남는다. EKS처럼 ALB가 이미
-# 있는 구성이면 반대 결론이 난다 (docs/02-architecture.md).
+# 앞단 ALB가 ACM 인증서로 TLS를 끝낸다. Fargate는 로컬 디스크가 휘발성이라
+# Caddy가 받아둔 인증서가 배포마다 사라지고, 재발급을 반복하면 Let's Encrypt의
+# 주당 실패 한도에 걸려 사이트가 평문으로 떨어진다. 인증서 보관은 AWS가 맡는 편이 낫다.
 
-{
-	# 인증서 발급 실패를 조용히 넘기지 않는다
-	email {$ACME_EMAIL}
-}
-
-{$SITE_ADDRESS} {
+:80 {
 	encode gzip zstd
 
 	header {
-		# .com은 .app과 달리 브라우저가 HTTPS를 강제해주지 않는다. 직접 건다.
+		# ALB가 TLS를 끝내므로 여기서 나가는 응답에 붙여야 브라우저에 도달한다
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
@@ -22,19 +17,21 @@
 		-Server
 	}
 
-	# 대국은 WebSocket 하나로 오래 열려 있다. Caddy는 Upgrade 처리와 유휴 타임아웃을
-	# 알아서 하므로 여기 적을 것이 없다 — nginx나 ALB였다면 타임아웃을 손으로 올려야 하고,
-	# 빠뜨리면 플레이어가 한 수를 오래 고민할 때 연결이 끊긴다.
+	# 같은 태스크의 컨테이너라 네트워크 네임스페이스를 공유한다 — localhost로 닿는다.
+	# 대국은 WebSocket 하나로 오래 열려 있는데, Caddy는 업그레이드와 유휴 타임아웃을
+	# 알아서 처리한다. ALB 쪽 타임아웃은 idle_timeout으로 따로 올려뒀다.
 	handle /ws* {
-		reverse_proxy api:8080
+		reverse_proxy localhost:8080
 	}
 
 	handle /api/* {
-		reverse_proxy api:8080
+		reverse_proxy localhost:8080
 	}
 
+	# ALB 헬스체크가 여기를 본다. **api까지 닿는 경로**여야 한다 —
+	# Caddy만 살아 있고 api가 죽은 상태를 정상으로 보면 배포가 성공한 척하고 끝난다
 	handle /healthz {
-		reverse_proxy api:8080
+		reverse_proxy localhost:8080
 	}
 
 	# 나머지는 SPA. 새로고침으로 깊은 경로에 들어와도 index.html로 떨어뜨린다.

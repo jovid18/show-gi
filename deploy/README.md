@@ -1,16 +1,15 @@
 # 배포 런북
 
-도쿄(`ap-northeast-1`) EC2 한 대에 `docker compose`. Caddy가 TLS를 끝내고 정적 파일을 서빙하며 api로 프록시한다. 구조와 그 선택의 근거는 [docs/02-architecture.md](../docs/02-architecture.md).
+도쿄(`ap-northeast-1`) ECS Fargate. ALB가 TLS를 끝내고, 태스크 안의 Caddy가 정적 파일을 서빙하며 api로 프록시한다. 구조와 그 선택의 근거는 [docs/02-architecture.md](../docs/02-architecture.md).
 
 ```
-Route53 (show-gi.com) → EIP → EC2 c7g.xlarge
-                                └ docker compose
-                                    ├ web (Caddy)  :80 :443   TLS · 정적 · /api·/ws 프록시
-                                    ├ api          :8080      Go + fairy-stockfish 동봉
-                                    └ db           :5432      postgres 17 + pgvector
+Route53 (show-gi.com) → ALB (ACM TLS) → ECS Fargate 태스크 (ARM64)
+                                          ├ web  :80    Caddy — 정적 + /api·/ws 프록시
+                                          └ api  :8080  Go + 엔진 동봉
+                                        → RDS postgres 17 (비공개)
 ```
 
-**22번 포트는 열려 있지 않다.** 인스턴스에는 SSM Session Manager로 들어간다.
+**관리할 서버가 없다.** 22번 포트도, 패치할 OS도 없고, 컨테이너에는 ECS Exec으로 들어간다.
 
 ---
 
@@ -120,35 +119,41 @@ aws ssm put-parameter --name $P/GOOGLE_CLIENT_SECRET --type SecureString --value
 
 ## 3. 배포
 
-**사람이 서버에 들어가지 않는다.** main에 머지되면 GitHub Actions가 이미지를 굽고, 이어서 SSM Run Command로 인스턴스의 `deploy/deploy.sh`를 실행한다.
+**사람이 서버에 들어가지 않는다.** main에 머지되면 GitHub Actions가 이미지를 굽고, 새 태스크 정의 리비전을 등록해 ECS 서비스를 굴린다.
 
 ```
-main 머지 → 이미지 빌드(arm64) → ECR push → SSM으로 배포 실행 → 헬스체크 → 완료
+main 머지 → 이미지 빌드(arm64) → ECR push → 태스크 정의 새 리비전 → 롤링 배포 → 안정될 때까지 대기
 ```
 
-**커밋 SHA 하나가 배포 전체를 정의한다.** 그 커밋의 compose 파일로, 그 커밋에서 구운 이미지를 띄운다. 둘이 갈라지면 "코드는 고쳤는데 왜 그대로지"가 생기고, 그건 마감 주에 가장 비싼 혼란이다.
+**배포 스크립트가 없다.** 예전 EC2 구성에서는 60줄짜리 셸이 체크아웃·비밀 로드·ECR 로그인·pull·헬스체크를 손으로 했는데, 그 일이 전부 ECS의 기본 동작으로 대체됐다. 직접 쓴 것만 직접 유지보수해야 한다.
 
-배포가 실패하면 워크플로가 빨개진다 — `ssm wait` 뒤에 상태를 확인하고, 인스턴스의 stdout/stderr를 Actions 로그로 가져온다. 기다리지 않으면 배포가 실패해도 초록으로 남는다.
+| 예전에 스크립트가 하던 일       | 지금                           |
+| ------------------------------- | ------------------------------ |
+| Parameter Store → 셸 → 컨테이너 | 태스크 정의의 `secrets`        |
+| ECR 로그인                      | 실행 역할이 처리               |
+| 헬스체크 루프                   | ALB 타깃 그룹 헬스체크         |
+| 실패 시 수동 복구               | 배포 서킷 브레이커가 자동 롤백 |
+| 인증서 발급·보관                | ACM                            |
 
 ### 되돌리기
 
-같은 스크립트에 이전 SHA를 준다. 인스턴스에 들어갈 필요 없이 로컬에서:
-
 ```sh
-aws ssm send-command --instance-ids <id> --document-name AWS-RunShellScript \
-  --parameters "commands=['sudo -u ec2-user /opt/show-gi/deploy/deploy.sh <이전-SHA>']" \
+aws ecs list-task-definitions --family-prefix show-gi --sort DESC --max-items 5 \
   --region ap-northeast-1 --profile show-gi
+
+aws ecs update-service --cluster show-gi --service show-gi \
+  --task-definition show-gi:<리비전> --region ap-northeast-1 --profile show-gi
 ```
 
-GitHub Actions에서 이전 커밋으로 `workflow_dispatch`를 돌려도 된다.
-
-### 수동으로 해야 할 때
-
-CI가 죽었거나 디버깅 중이라면:
+### 들여다보기
 
 ```sh
-aws ssm start-session --target <instance-id> --region ap-northeast-1 --profile show-gi
-sudo -u ec2-user /opt/show-gi/deploy/deploy.sh <sha>
+aws logs tail /ecs/show-gi --follow --region ap-northeast-1 --profile show-gi
+
+# 컨테이너 안에서 셸. SSH도 배스천도 없다
+aws ecs execute-command --cluster show-gi --container api \
+  --interactive --command /bin/sh --task <task-id> \
+  --region ap-northeast-1 --profile show-gi
 ```
 
 ## 4. 스키마 변경
@@ -161,28 +166,19 @@ sudo -u ec2-user /opt/show-gi/deploy/deploy.sh <sha>
 
 ### RDS에 붙는 법
 
-RDS는 인터넷에 열려 있지 않다(`publicly_accessible = false`). 노트북에서 직접 붙지 못하고, EC2를 통해 터널을 뚫는다.
+RDS는 인터넷에 열려 있지 않다(`publicly_accessible = false`). EC2가 없어졌으므로 예전의 SSM 포트 포워딩도 쓸 수 없다. DDL은 앱 태스크 안에서 넣는다.
 
 ```sh
-aws ssm start-session \
-  --target "$(aws ec2 describe-instances --profile show-gi --region ap-northeast-1 \
-      --filters 'Name=tag:Project,Values=show-gi' 'Name=instance-state-name,Values=running' \
-      --query 'Reservations[0].Instances[0].InstanceId' --output text)" \
-  --document-name AWS-StartPortForwardingSessionToRemoteHost \
-  --parameters "{\"host\":[\"$(terraform -chdir=infra output -raw db_endpoint | cut -d: -f1)\"],\"portNumber\":[\"5432\"],\"localPortNumber\":[\"15432\"]}" \
-  --region ap-northeast-1 --profile show-gi
+TASK=$(aws ecs list-tasks --cluster show-gi --service-name show-gi \
+  --query 'taskArns[0]' --output text --region ap-northeast-1 --profile show-gi)
+
+aws ecs execute-command --cluster show-gi --container api --task "$TASK" \
+  --interactive --command /bin/sh --region ap-northeast-1 --profile show-gi
 ```
 
-이제 DataGrip이든 psql이든 `localhost:15432`로 붙으면 된다. **포트를 열지 않고, 키도 두지 않고 붙는다** — 터널은 SSM 세션 위에 얹혀 있고 세션을 닫으면 사라진다.
+컨테이너 안에서 `$DATABASE_URL`이 이미 환경변수로 들어와 있다. SQL 파일을 붙여넣는 일이라 이걸로 충분하다.
 
-접속 정보:
-
-```sh
-aws ssm get-parameter --name /show-gi/prod/DATABASE_URL --with-decryption \
-  --query 'Parameter.Value' --output text --region ap-northeast-1 --profile show-gi
-```
-
-호스트만 `localhost:15432`로 바꿔 쓴다.
+DataGrip처럼 GUI로 붙어야 한다면 터널이 필요하고, 그건 배스천 태스크를 하나 띄우는 일이다 — **[미확정]** 실제로 필요해지는 시점에 정한다.
 
 ### 순서
 
@@ -214,18 +210,26 @@ docker compose logs -f web                      # 인증서 발급 로그
 
 ## 비용과 정리
 
-|                     |                        |
-| ------------------- | ---------------------- |
-| c7g.xlarge 24시간   | 주 **$28** 내외 (추정) |
-| EBS 30GB + EIP + 존 | 주 $2 미만             |
-| 도메인              | $16/년                 |
+|                                   | 주              |
+| --------------------------------- | --------------- |
+| Fargate ARM 4 vCPU / 8 GiB (상시) | **~$26** (추정) |
+| ALB                               | ~$4             |
+| RDS db.t4g.micro + 20GB           | ~$6             |
+| ECR, 로그, Parameter Store        | $1 미만         |
+| **합계**                          | **~$37 / 주**   |
+| 도메인 (1년치, 1회)               | $16             |
 
-**대회가 끝나면 반드시 정리한다.** c7g.xlarge를 켜둔 채 잊으면 **월 $120**이 계속 나간다.
+**대회가 끝나면 반드시 정리한다.** 켜둔 채 잊으면 **월 $150** 정도가 계속 나간다.
 
 ```sh
-cd infra && terraform destroy     # 전부 지운다
-# 또는 잠시 멈추기만:
-aws ec2 stop-instances --instance-ids <id> --region ap-northeast-1 --profile show-gi
+cd infra && terraform destroy      # 전부 지운다
 ```
 
-개발 중에도 밤에 인스턴스를 멈추면 컴퓨트 요금이 멈춘다(EBS·EIP는 남는다). 다만 데모 영상을 찍기 시작하는 D5부터는 계속 켜두는 편이 안전하다.
+개발 중 비용을 줄이려면 서비스를 0으로 내린다. Fargate는 태스크가 없으면 컴퓨트 요금이 멈추고 ALB·RDS만 남는다.
+
+```sh
+aws ecs update-service --cluster show-gi --service show-gi --desired-count 0 \
+  --region ap-northeast-1 --profile show-gi
+```
+
+다만 데모 영상을 찍기 시작하는 D5부터는 계속 켜두는 편이 안전하다.
