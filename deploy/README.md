@@ -90,18 +90,29 @@ terraform apply
 
 `terraform output connect`가 인스턴스 접속 명령을 알려준다.
 
-## 2. 코드 올리고 띄우기
+## 2. 띄우기
+
+이미지는 **인스턴스에서 굽지 않는다.** main에 머지되면 GitHub Actions가 arm64로 구워 ECR에 올리고(`.github/workflows/images.yml`), 인스턴스는 받아서 띄우기만 한다.
 
 ```sh
 aws ssm start-session --target <instance-id> --region ap-northeast-1 --profile show-gi
 
 sudo -iu ec2-user
-git clone https://github.com/jovid18/show-gi.git && cd show-gi
-cp .env.example .env && vi .env      # SITE_ADDRESS, ACME_EMAIL, 키들
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+git clone https://github.com/jovid18/show-gi.git && cd show-gi   # compose 파일만 쓴다
+cp .env.example .env && vi .env      # SITE_ADDRESS, ACME_EMAIL, REGISTRY, 키들
+
+# ECR 로그인. 인스턴스 역할에 읽기 권한이 있어서 키를 따로 두지 않는다.
+# 토큰은 12시간짜리라 배포할 때마다 다시 받는다
+aws ecr get-login-password --region ap-northeast-1 \
+  | docker login --username AWS --password-stdin "$REGISTRY"
+
+docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
-`session-manager-plugin`이 없다면 [AWS 문서](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)대로 설치한다. macOS는 `brew install --cask session-manager-plugin`.
+다시 배포할 때는 마지막 두 줄만 반복한다. 되돌리려면 `.env`의 `IMAGE_TAG`에 이전 커밋 SHA를 넣고 같은 명령을 돌린다 — `latest`가 어디를 가리키는지 추측할 필요가 없다.
+
+`session-manager-plugin`이 없다면 macOS는 `brew install --cask session-manager-plugin`.
 
 ## 3. 확인
 

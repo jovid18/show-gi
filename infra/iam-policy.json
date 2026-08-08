@@ -21,7 +21,11 @@
       "Effect": "Allow",
       "Action": ["ec2:Describe*", "ssm:GetParameter", "ssm:GetParameters"],
       "Resource": "*",
-      "Condition": { "StringEquals": { "aws:RequestedRegion": "ap-northeast-1" } }
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-northeast-1"
+        }
+      }
     },
     {
       "Sid": "ReadOnlyGlobalLookups",
@@ -63,7 +67,11 @@
         "ec2:DisassociateAddress"
       ],
       "Resource": "*",
-      "Condition": { "StringEquals": { "aws:RequestedRegion": "ap-northeast-1" } }
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-northeast-1"
+        }
+      }
     },
     {
       "Sid": "ManageInstanceRole",
@@ -75,17 +83,27 @@
         "iam:CreateInstanceProfile",
         "iam:DeleteInstanceProfile",
         "iam:AddRoleToInstanceProfile",
-        "iam:RemoveRoleFromInstanceProfile"
+        "iam:RemoveRoleFromInstanceProfile",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:ListRoleTags"
       ],
       "Resource": ["arn:aws:iam::058264445568:role/show-gi-*", "arn:aws:iam::058264445568:instance-profile/show-gi-*"]
     },
     {
-      "Sid": "AttachOnlySsmCorePolicy",
+      "Sid": "AttachOnlyApprovedPolicies",
       "Effect": "Allow",
       "Action": ["iam:AttachRolePolicy", "iam:DetachRolePolicy"],
       "Resource": "arn:aws:iam::058264445568:role/show-gi-*",
       "Condition": {
-        "ArnEquals": { "iam:PolicyARN": "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore" }
+        "ArnEquals": {
+          "iam:PolicyARN": [
+            "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+            "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+          ]
+        }
       }
     },
     {
@@ -93,7 +111,55 @@
       "Effect": "Allow",
       "Action": "iam:PassRole",
       "Resource": "arn:aws:iam::058264445568:role/show-gi-*",
-      "Condition": { "StringEquals": { "iam:PassedToService": "ec2.amazonaws.com" } }
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "ec2.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sid": "ManageProjectEcrInTokyo",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:CreateRepository",
+        "ecr:DeleteRepository",
+        "ecr:DescribeRepositories",
+        "ecr:TagResource",
+        "ecr:UntagResource",
+        "ecr:ListTagsForResource",
+        "ecr:PutLifecyclePolicy",
+        "ecr:DeleteLifecyclePolicy",
+        "ecr:GetLifecyclePolicy",
+        "ecr:PutImageScanningConfiguration",
+        "ecr:PutImageTagMutability",
+        "ecr:GetRepositoryPolicy",
+        "ecr:SetRepositoryPolicy",
+        "ecr:DeleteRepositoryPolicy",
+        "ecr:GetAuthorizationToken",
+        "ecr:BatchGetImage",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:ListImages"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-northeast-1"
+        }
+      }
+    },
+    {
+      "Sid": "ManageGithubOidcProvider",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateOpenIDConnectProvider",
+        "iam:DeleteOpenIDConnectProvider",
+        "iam:GetOpenIDConnectProvider",
+        "iam:ListOpenIDConnectProviders",
+        "iam:TagOpenIDConnectProvider",
+        "iam:UpdateOpenIDConnectProviderThumbprint"
+      ],
+      "Resource": "*"
     },
     {
       "Sid": "ManageProjectDNS",
@@ -106,7 +172,11 @@
       "Effect": "Allow",
       "Action": ["ssm:StartSession", "ssm:TerminateSession", "ssm:ResumeSession", "ssm:DescribeSessions"],
       "Resource": "*",
-      "Condition": { "StringEquals": { "aws:RequestedRegion": "ap-northeast-1" } }
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-northeast-1"
+        }
+      }
     }
   ]
 }

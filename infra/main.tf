@@ -86,6 +86,13 @@ resource "aws_iam_role_policy_attachment" "ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+# 이미지를 받아오기만 한다. 인스턴스가 이미지를 밀어 넣을 수 있으면, 서버가
+# 뚫렸을 때 다음 배포에 그 이미지가 실려 나간다 — 읽기 전용이 그 경로를 끊는다.
+resource "aws_iam_role_policy_attachment" "ecr_read" {
+  role       = aws_iam_role.instance.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
 resource "aws_iam_instance_profile" "instance" {
   name = "show-gi-instance"
   role = aws_iam_role.instance.name
