@@ -14,62 +14,66 @@ Route53 (show-gi.com) → EIP → EC2 c7g.xlarge
 
 ---
 
-## 0. 한 번만 (부트스트랩)
+## 0. 한 번만 (부트스트랩) — **완료됨**
 
-### IAM 사용자
+아래는 이미 만들어져 있다. 기록으로 남기는 것이고, 계정을 새로 판다면 이 순서대로 하면 된다.
 
-관리자 자격으로 콘솔이나 CLI에서 만든다. Terraform이 자기 자신을 만들 수는 없다.
+### IAM
+
+`show-gi-operator` 사용자와 같은 이름의 **관리형 정책**. 정책 문서는 [`infra/iam-policy.json`](../infra/iam-policy.json)에 있다.
 
 ```sh
 aws iam create-user --user-name show-gi-operator
-aws iam put-user-policy --user-name show-gi-operator \
-  --policy-name show-gi-operator --policy-document file://infra/iam-policy.json
-aws iam create-access-key --user-name show-gi-operator
+aws iam create-policy --policy-name show-gi-operator \
+  --policy-document file://infra/iam-policy.json
+aws iam attach-user-policy --user-name show-gi-operator \
+  --policy-arn arn:aws:iam::058264445568:policy/show-gi-operator
 ```
 
-정책은 [`infra/iam-policy.json`](../infra/iam-policy.json)에 있고, **이 프로젝트가 만드는 자원만** 만질 수 있다. 같은 계정에 다른 프로젝트가 살아 있으므로 관리자 권한을 주지 않는다.
+> **인라인 정책(`put-user-policy`)으로는 안 된다.** 사용자 인라인 정책은 2048바이트가 상한이고 이 정책은 그보다 크다. 관리형 정책은 6144자까지 되고 버전 관리도 된다.
+>
+> 그리고 정책 JSON에 `Comment` 같은 임의 키를 넣으면 거부된다. IAM 문법은 `Version`·`Id`·`Statement`만 허용한다.
 
-발급받은 키를 `~/.aws/credentials`에 넣는다. **키를 레포에 커밋하거나 대화에 붙여넣지 않는다.**
+정책이 실제로 막는 것 (확인함):
 
-```ini
-[show-gi]
-aws_access_key_id = ...
-aws_secret_access_key = ...
-region = ap-northeast-1
-```
+| 시도                                      | 결과                                                       |
+| ----------------------------------------- | ---------------------------------------------------------- |
+| 도쿄 EC2 조회                             | 통과                                                       |
+| **서울** EC2 조회                         | `UnauthorizedOperation` — 리전 조건에 걸린다               |
+| 계정 전체 S3 버킷 목록                    | `AccessDenied` — 다른 프로젝트가 안 보인다                 |
+| show-gi 역할에 `AdministratorAccess` 부착 | 거부 — `AttachRolePolicy`가 SSM Core 정책 하나로 묶여 있다 |
 
-> 기본 프로파일의 리전이 서울(`ap-northeast-2`)이라, `--region`이나 프로파일 리전을 빠뜨리면 **자원이 조용히 서울에 생긴다.** 위처럼 프로파일에 리전을 박아두는 것이 그 방어다.
+마지막 줄이 요점이다. 역할에 아무 정책이나 붙일 수 있으면 최소권한이 의미가 없다 — 그 역할을 EC2에 넘겨 인스턴스에서 관리자 권한을 쓸 수 있기 때문이다. `PassRole`도 `ec2.amazonaws.com`으로만 제한했다.
 
-### state 버킷
+액세스 키는 `~/.aws/credentials`의 `[show-gi]` 프로파일에 있다. **키를 레포에 커밋하거나 채팅에 붙여넣지 않는다.**
 
-state를 담을 자원을 state로 관리할 수 없으므로 이것만 손으로 만든다.
+> 기본 프로파일의 리전이 서울(`ap-northeast-2`)이라, 프로파일을 빠뜨리면 **자원이 조용히 서울에 생긴다.** 프로파일에 리전을 박아두는 것이 그 방어이고, `backend.tf`에도 프로파일을 한 번 더 적은 이유가 같다 — 백엔드는 `variables.tf`를 읽지 못한다.
+
+### state 버킷과 잠금 테이블
+
+버킷은 버전 관리·기본 암호화·퍼블릭 접근 차단을 켰다. 버전 관리는 잘못된 apply로 state가 깨졌을 때 되돌릴 수 있는 유일한 수단이다.
 
 ```sh
-aws s3api create-bucket --bucket show-gi-terraform-state-058264445568 \
-  --region ap-northeast-1 --create-bucket-configuration LocationConstraint=ap-northeast-1 \
-  --profile show-gi
-aws s3api put-bucket-versioning --bucket show-gi-terraform-state-058264445568 \
-  --versioning-configuration Status=Enabled --profile show-gi
-aws s3api put-public-access-block --bucket show-gi-terraform-state-058264445568 \
-  --public-access-block-configuration \
-  BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true \
-  --profile show-gi
-```
+B=show-gi-terraform-state-058264445568
+aws s3api create-bucket --bucket $B --region ap-northeast-1 \
+  --create-bucket-configuration LocationConstraint=ap-northeast-1
+aws s3api put-bucket-versioning --bucket $B --versioning-configuration Status=Enabled
+aws s3api put-public-access-block --bucket $B --public-access-block-configuration \
+  BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+aws s3api put-bucket-encryption --bucket $B --server-side-encryption-configuration \
+  '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
 
-버전 관리를 켜는 것은 잘못된 apply로 state가 깨졌을 때 되돌릴 수 있는 유일한 수단이기 때문이다.
-
-잠금 테이블도 만든다. S3 네이티브 잠금이 이걸 없애주지만 Terraform 1.11+가 필요하고 로컬은 1.5.7이다.
-
-```sh
 aws dynamodb create-table --table-name show-gi-terraform-lock \
   --attribute-definitions AttributeName=LockID,AttributeType=S \
   --key-schema AttributeName=LockID,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST --region ap-northeast-1 --profile show-gi
+  --billing-mode PAY_PER_REQUEST --region ap-northeast-1
 ```
+
+**부트스트랩은 관리자 자격으로 한다.** `show-gi-operator`에게는 버킷을 만들 권한이 없다 — 자기가 쓸 state 저장소를 자기가 만들 수 있으면 그건 최소권한이 아니다.
 
 ### 도메인
 
-Route53에서 `show-gi.com`을 등록하면 호스팅 존이 **자동으로 생긴다.** 따로 만들지 말 것 — 존이 둘이면 NS가 갈려서 도메인이 뜨지 않는다.
+`show-gi.com` 등록 완료. 호스팅 존(`Z00883671JMPHNULHF2GS`)이 자동으로 생겼다. **따로 만들지 말 것** — 존이 둘이면 NS가 갈려서 도메인이 뜨지 않는다.
 
 **등록자 이메일 인증을 반드시 끝낸다.** ICANN 규정이라 15일 안에 인증하지 않으면 도메인이 정지된다.
 

@@ -13,6 +13,11 @@ terraform {
     region         = "ap-northeast-1"
     encrypt        = true
     dynamodb_table = "show-gi-terraform-lock"
+
+    # 백엔드는 variables.tf를 읽지 못한다 — 변수가 평가되기 전에 초기화되기 때문이다.
+    # 그래서 프로파일을 여기 한 번 더 적는다. 안 적으면 기본 프로파일로 붙으려 하고,
+    # 이 기계의 기본 프로파일은 만료된 회사 자격증명이라 init에서 403이 난다.
+    profile = "show-gi"
   }
 }
 
