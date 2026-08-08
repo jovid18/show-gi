@@ -166,21 +166,39 @@ aws ecs execute-command --cluster show-gi --container api \
 
 `apps/server/internal/store/migrations/*.sql`이 **정본**이다. 손으로 넣더라도 넣은 것과 같은 내용이 레포에 있어야 한다 — 새 환경을 세울 때, 그리고 코드 생성기가 읽을 때 이 파일들이 기준이 된다.
 
-### RDS에 붙는 법
+### 스키마를 넣는 법 — 일회용 태스크
 
-RDS는 인터넷에 열려 있지 않다(`publicly_accessible = false`). EC2가 없어졌으므로 예전의 SSM 포트 포워딩도 쓸 수 없다. DDL은 앱 태스크 안에서 넣는다.
+RDS는 인터넷에 열려 있지 않다(`publicly_accessible = false`). 노트북에서 직접 못 붙는다.
+
+**ECS Exec으로 앱 컨테이너에 들어가는 방법도 있지만 `session-manager-plugin` 설치가 필요하고, 그 설치에는 sudo가 든다.** 아래 방법은 아무것도 안 깔고 되며, 실제로 초기 스키마를 이렇게 넣었다.
+
+`show-gi-migrate` 태스크 정의가 이미 등록돼 있다 — postgres 이미지에 `DATABASE_URL`만 주입된 것이고, 명령은 실행할 때마다 덮어쓴다.
 
 ```sh
-TASK=$(aws ecs list-tasks --cluster show-gi --service-name show-gi \
-  --query 'taskArns[0]' --output text --region ap-northeast-1 --profile show-gi)
+SUBNETS=$(aws ec2 describe-subnets --profile show-gi --region ap-northeast-1 \
+  --filters "Name=default-for-az,Values=true" --query 'Subnets[].SubnetId' --output text | tr '\t' ',')
+SG=$(aws ec2 describe-security-groups --profile show-gi --region ap-northeast-1 \
+  --filters "Name=group-name,Values=show-gi-task" --query 'SecurityGroups[0].GroupId' --output text)
+URL='https://raw.githubusercontent.com/jovid18/show-gi/main/apps/server/internal/store/migrations/002_something.sql'
 
-aws ecs execute-command --cluster show-gi --container api --task "$TASK" \
-  --interactive --command /bin/sh --region ap-northeast-1 --profile show-gi
+aws ecs run-task --cluster show-gi --task-definition show-gi-migrate --launch-type FARGATE \
+  --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SG],assignPublicIp=ENABLED}" \
+  --overrides "{\"containerOverrides\":[{\"name\":\"psql\",\"command\":[\"sh\",\"-c\",\"wget -qO /tmp/s.sql '$URL' && psql \\\"\$DATABASE_URL\\\" -v ON_ERROR_STOP=1 -f /tmp/s.sql\"]}]}" \
+  --profile show-gi --region ap-northeast-1 --query 'tasks[0].taskArn' --output text
 ```
 
-컨테이너 안에서 `$DATABASE_URL`이 이미 환경변수로 들어와 있다. SQL 파일을 붙여넣는 일이라 이걸로 충분하다.
+SQL을 **퍼블릭 레포의 raw URL에서 받아오는 것**이 요점이다 — 파일을 컨테이너에 넣을 방법을 따로 만들 필요가 없다. 레포가 퍼블릭이라 자격증명도 필요 없다.
 
-DataGrip처럼 GUI로 붙어야 한다면 터널이 필요하고, 그건 배스천 태스크를 하나 띄우는 일이다 — **[미확정]** 실제로 필요해지는 시점에 정한다.
+결과는 종료 코드로 본다. `ON_ERROR_STOP=1` 때문에 **한 문장이라도 실패하면 0이 아니다.**
+
+```sh
+aws ecs describe-tasks --cluster show-gi --tasks <task-arn> \
+  --query 'tasks[0].containers[0].exitCode' --region ap-northeast-1 --profile show-gi
+```
+
+> `show-gi-migrate` 태스크 정의는 **Terraform 밖에서 등록됐다.** 새 환경을 세울 때는 다시 등록해야 한다 — `docs/06-status.md` §7의 부채 목록에 있다.
+
+조회만 할 때도 같은 방법을 쓴다. 명령의 `wget … && psql -f` 자리를 `psql "$DATABASE_URL" -c '…'`로 바꾸면 된다.
 
 ### 순서
 
