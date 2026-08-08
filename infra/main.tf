@@ -1,6 +1,8 @@
 # EC2 한 대에 docker compose. 모듈로 쪼개지 않은 것은 자원이 10개 남짓이라
 # 쪼개면 오히려 읽기 어려워지기 때문이다.
 
+data "aws_caller_identity" "current" {}
+
 data "aws_vpc" "default" {
   default = true
 }
@@ -84,6 +86,35 @@ resource "aws_iam_role" "instance" {
 resource "aws_iam_role_policy_attachment" "ssm" {
   role       = aws_iam_role.instance.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+# 배포용 환경변수와 비밀은 Parameter Store에 있다. 인스턴스는 자기 것만 읽는다 —
+# 서버 디스크에 평문 .env를 두지 않기 위한 것이고, 인스턴스를 다시 만들어도
+# 비밀을 손으로 다시 넣을 필요가 없다.
+resource "aws_iam_role_policy" "instance_params" {
+  name = "read-own-parameters"
+  role = aws_iam_role.instance.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath"]
+        Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/show-gi/*"
+      },
+      {
+        # SecureString을 푸는 데 필요하다. AWS 관리형 SSM 키로만 제한한다 —
+        # 계정의 다른 키로 암호화된 것은 못 푼다
+        Effect   = "Allow"
+        Action   = "kms:Decrypt"
+        Resource = "*"
+        Condition = {
+          StringEquals = { "kms:ViaService" = "ssm.${var.aws_region}.amazonaws.com" }
+        }
+      },
+    ]
+  })
 }
 
 # 이미지를 받아오기만 한다. 인스턴스가 이미지를 밀어 넣을 수 있으면, 서버가

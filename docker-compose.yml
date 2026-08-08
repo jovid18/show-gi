@@ -8,7 +8,8 @@ services:
     ports:
       - '127.0.0.1:8080:8080' # 로컬 개발용. 외부에 열지 않는다
     environment:
-      DATABASE_URL: postgres://showgi:showgi@db:5432/showgi?sslmode=disable
+      # 기본값은 로컬 개발용이다. 배포에서는 Parameter Store에서 온 값이 덮는다
+      DATABASE_URL: postgres://showgi:${POSTGRES_PASSWORD:-showgi}@db:5432/showgi?sslmode=disable
       ENGINE_CMD: fairy-stockfish
     # OrcaRouter 키와 OAuth 시크릿. 없으면 해당 기능만 비활성이고 나머지는 뜬다
     env_file:
@@ -26,7 +27,7 @@ services:
     container_name: show-gi-db
     environment:
       POSTGRES_USER: showgi
-      POSTGRES_PASSWORD: showgi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-showgi}
       POSTGRES_DB: showgi
     ports:
       - '127.0.0.1:5432:5432' # psql로 붙어볼 때만. 루프백에만 바인딩한다

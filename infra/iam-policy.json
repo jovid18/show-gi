@@ -162,6 +162,22 @@
       "Resource": "*"
     },
     {
+      "Sid": "ManageProjectParameters",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:PutParameter",
+        "ssm:DeleteParameter",
+        "ssm:DeleteParameters",
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParametersByPath",
+        "ssm:DescribeParameters",
+        "ssm:AddTagsToResource",
+        "ssm:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:ssm:ap-northeast-1:058264445568:parameter/show-gi/*"
+    },
+    {
       "Sid": "ManageProjectDNS",
       "Effect": "Allow",
       "Action": ["route53:ChangeResourceRecordSets"],

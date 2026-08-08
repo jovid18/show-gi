@@ -90,7 +90,35 @@ terraform apply
 
 `terraform output connect`가 인스턴스 접속 명령을 알려준다.
 
-## 2. 띄우기
+## 2. 환경변수 등록 (한 번, 값이 바뀔 때마다)
+
+배포용 값은 **SSM Parameter Store**에 둔다. 서버 디스크에 평문 `.env`를 두지 않기 위한 것이고, 인스턴스를 다시 만들어도 비밀을 손으로 옮길 필요가 없다.
+
+Secrets Manager를 쓰지 않은 이유는 단순하다 — 우리에게 필요한 건 로테이션이 아니라 보관이고, Parameter Store의 표준 파라미터는 무료다.
+
+```sh
+P=/show-gi/prod
+
+# 비밀 아님
+aws ssm put-parameter --name $P/SITE_ADDRESS --type String --value show-gi.com --overwrite
+aws ssm put-parameter --name $P/ACME_EMAIL   --type String --value '<주소>'      --overwrite
+aws ssm put-parameter --name $P/REGISTRY     --type String \
+  --value 058264445568.dkr.ecr.ap-northeast-1.amazonaws.com --overwrite
+aws ssm put-parameter --name $P/IMAGE_TAG    --type String --value latest --overwrite
+
+# 비밀 — SecureString으로. 셸 히스토리에 남지 않게 값은 파일이나 stdin으로 넣는다
+aws ssm put-parameter --name $P/POSTGRES_PASSWORD --type SecureString \
+  --value "$(openssl rand -base64 24)" --overwrite
+aws ssm put-parameter --name $P/SESSION_SECRET --type SecureString \
+  --value "$(openssl rand -base64 32)" --overwrite
+aws ssm put-parameter --name $P/ORCA_API_KEY --type SecureString --value "$(cat orca.key)" --overwrite
+aws ssm put-parameter --name $P/GOOGLE_CLIENT_ID     --type String       --value '<id>'     --overwrite
+aws ssm put-parameter --name $P/GOOGLE_CLIENT_SECRET --type SecureString --value '<secret>' --overwrite
+```
+
+> `POSTGRES_PASSWORD`를 반드시 넣는다. 안 넣으면 compose의 기본값(`showgi`)이 쓰이는데 그건 **퍼블릭 레포에 적혀 있는 값**이다. 5432는 루프백에만 열려 있지만, 기본값으로 운영하지 않는다.
+
+## 3. 띄우기
 
 이미지는 **인스턴스에서 굽지 않는다.** main에 머지되면 GitHub Actions가 arm64로 구워 ECR에 올리고(`.github/workflows/images.yml`), 인스턴스는 받아서 띄우기만 한다.
 
@@ -99,10 +127,9 @@ aws ssm start-session --target <instance-id> --region ap-northeast-1 --profile s
 
 sudo -iu ec2-user
 git clone https://github.com/jovid18/show-gi.git && cd show-gi   # compose 파일만 쓴다
-cp .env.example .env && vi .env      # SITE_ADDRESS, ACME_EMAIL, REGISTRY, 키들
 
-# ECR 로그인. 인스턴스 역할에 읽기 권한이 있어서 키를 따로 두지 않는다.
-# 토큰은 12시간짜리라 배포할 때마다 다시 받는다
+. deploy/env.sh          # Parameter Store → 셸 환경 (파일로 떨어뜨리지 않는다)
+
 aws ecr get-login-password --region ap-northeast-1 \
   | docker login --username AWS --password-stdin "$REGISTRY"
 
@@ -110,11 +137,13 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
-다시 배포할 때는 마지막 두 줄만 반복한다. 되돌리려면 `.env`의 `IMAGE_TAG`에 이전 커밋 SHA를 넣고 같은 명령을 돌린다 — `latest`가 어디를 가리키는지 추측할 필요가 없다.
+다시 배포할 때는 마지막 세 줄만 반복한다. 되돌리려면 `IMAGE_TAG` 파라미터에 이전 커밋 SHA를 넣고 같은 명령을 돌린다 — `latest`가 어디를 가리키는지 추측할 필요가 없다.
+
+**ECR 로그인 토큰은 12시간짜리**라 배포할 때마다 다시 받는다. 자격증명은 인스턴스 역할에서 오므로 키를 서버에 두지 않는다.
 
 `session-manager-plugin`이 없다면 macOS는 `brew install --cask session-manager-plugin`.
 
-## 3. 확인
+## 4. 확인
 
 ```sh
 curl -sI https://show-gi.com | head -3          # 200 + HSTS 헤더
