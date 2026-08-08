@@ -23,6 +23,13 @@ systemctl enable --now docker
 usermod -aG docker ec2-user || true
 usermod -aG docker ssm-user || true
 
+# 배포 스크립트가 여기서 돈다. 퍼블릭 레포라 자격증명이 필요 없다.
+# 첫 배포가 이 클론에 의존하므로 부팅 시 미리 받아둔다 — CI는 checkout만 한다.
+if [ ! -d /opt/show-gi/.git ]; then
+	git clone --quiet https://github.com/jovid18/show-gi.git /opt/show-gi
+fi
+chown -R ec2-user:ec2-user /opt/show-gi
+
 # 엔진 3개가 동시에 도는 동안 postgres가 메모리를 못 잡으면 OOM 킬러가
 # 엉뚱한 프로세스를 죽인다. 스왑을 조금 둬서 완충한다
 if [ ! -f /swapfile ]; then

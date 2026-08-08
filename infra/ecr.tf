@@ -121,6 +121,50 @@ resource "aws_iam_role_policy" "github_actions_push" {
   })
 }
 
+# 배포까지 CI가 한다. 사람이 서버에 들어가 명령을 치는 것은 재현되지 않고,
+# 기억에 의존하는 절차는 마감 주 새벽에 틀린다.
+#
+# 인바운드 포트를 열지 않고 배포하기 위해 SSM Run Command를 쓴다 — SSH를 여는
+# 순간 키 관리와 22번 포트가 같이 돌아온다.
+resource "aws_iam_role_policy" "github_actions_deploy" {
+  name = "ssm-deploy"
+  role = aws_iam_role.github_actions.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        # 문서는 AWS 관리형 셸 실행 문서 하나로 한정한다
+        Effect   = "Allow"
+        Action   = "ssm:SendCommand"
+        Resource = "arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript"
+      },
+      {
+        # 대상은 이 프로젝트 태그가 붙은 인스턴스뿐이다. 인스턴스 ID를 워크플로에
+        # 박아두면 인스턴스를 다시 만들 때마다 CI를 고쳐야 한다
+        Effect   = "Allow"
+        Action   = "ssm:SendCommand"
+        Resource = "arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:instance/*"
+        Condition = {
+          StringEquals = { "ssm:resourceTag/Project" = "show-gi" }
+        }
+      },
+      {
+        # 실행 결과를 폴링해서 실패하면 CI를 빨갛게 만든다.
+        # 이게 없으면 배포가 조용히 실패하고 워크플로는 초록으로 남는다
+        Effect   = "Allow"
+        Action   = ["ssm:GetCommandInvocation", "ssm:ListCommandInvocations", "ssm:ListCommands"]
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = "ec2:DescribeInstances"
+        Resource = "*"
+      },
+    ]
+  })
+}
+
 output "ecr_registry" {
   description = "docker login 대상"
   value       = split("/", aws_ecr_repository.app["api"].repository_url)[0]

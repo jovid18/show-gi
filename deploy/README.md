@@ -118,30 +118,38 @@ aws ssm put-parameter --name $P/GOOGLE_CLIENT_SECRET --type SecureString --value
 
 > `POSTGRES_PASSWORD`를 반드시 넣는다. 안 넣으면 compose의 기본값(`showgi`)이 쓰이는데 그건 **퍼블릭 레포에 적혀 있는 값**이다. 5432는 루프백에만 열려 있지만, 기본값으로 운영하지 않는다.
 
-## 3. 띄우기
+## 3. 배포
 
-이미지는 **인스턴스에서 굽지 않는다.** main에 머지되면 GitHub Actions가 arm64로 구워 ECR에 올리고(`.github/workflows/images.yml`), 인스턴스는 받아서 띄우기만 한다.
+**사람이 서버에 들어가지 않는다.** main에 머지되면 GitHub Actions가 이미지를 굽고, 이어서 SSM Run Command로 인스턴스의 `deploy/deploy.sh`를 실행한다.
+
+```
+main 머지 → 이미지 빌드(arm64) → ECR push → SSM으로 배포 실행 → 헬스체크 → 완료
+```
+
+**커밋 SHA 하나가 배포 전체를 정의한다.** 그 커밋의 compose 파일로, 그 커밋에서 구운 이미지를 띄운다. 둘이 갈라지면 "코드는 고쳤는데 왜 그대로지"가 생기고, 그건 마감 주에 가장 비싼 혼란이다.
+
+배포가 실패하면 워크플로가 빨개진다 — `ssm wait` 뒤에 상태를 확인하고, 인스턴스의 stdout/stderr를 Actions 로그로 가져온다. 기다리지 않으면 배포가 실패해도 초록으로 남는다.
+
+### 되돌리기
+
+같은 스크립트에 이전 SHA를 준다. 인스턴스에 들어갈 필요 없이 로컬에서:
+
+```sh
+aws ssm send-command --instance-ids <id> --document-name AWS-RunShellScript \
+  --parameters "commands=['sudo -u ec2-user /opt/show-gi/deploy/deploy.sh <이전-SHA>']" \
+  --region ap-northeast-1 --profile show-gi
+```
+
+GitHub Actions에서 이전 커밋으로 `workflow_dispatch`를 돌려도 된다.
+
+### 수동으로 해야 할 때
+
+CI가 죽었거나 디버깅 중이라면:
 
 ```sh
 aws ssm start-session --target <instance-id> --region ap-northeast-1 --profile show-gi
-
-sudo -iu ec2-user
-git clone https://github.com/jovid18/show-gi.git && cd show-gi   # compose 파일만 쓴다
-
-. deploy/env.sh          # Parameter Store → 셸 환경 (파일로 떨어뜨리지 않는다)
-
-aws ecr get-login-password --region ap-northeast-1 \
-  | docker login --username AWS --password-stdin "$REGISTRY"
-
-docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+sudo -u ec2-user /opt/show-gi/deploy/deploy.sh <sha>
 ```
-
-다시 배포할 때는 마지막 세 줄만 반복한다. 되돌리려면 `IMAGE_TAG` 파라미터에 이전 커밋 SHA를 넣고 같은 명령을 돌린다 — `latest`가 어디를 가리키는지 추측할 필요가 없다.
-
-**ECR 로그인 토큰은 12시간짜리**라 배포할 때마다 다시 받는다. 자격증명은 인스턴스 역할에서 오므로 키를 서버에 두지 않는다.
-
-`session-manager-plugin`이 없다면 macOS는 `brew install --cask session-manager-plugin`.
 
 ## 4. 확인
 
