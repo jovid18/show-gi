@@ -19,16 +19,27 @@ Open a PR with `gh` using this repo's template. **Do not use `git-workflow:creat
 
 ### 1. Build context
 
-Run these in parallel — the commits and diff tell you what the PR is about, so don't make the user re-explain:
+Run these in parallel — the diff tells you what the PR is about, so don't make the user re-explain:
 
 ```bash
 git branch --show-current
-git log main..HEAD --oneline
-git diff main..HEAD --stat
+git diff main...HEAD --stat
+git diff main...HEAD --name-status
 ```
 
 If the branch is `main`, stop and tell the user to move to a feature branch.
 If the branch isn't pushed, push it: `git push -u origin HEAD`.
+
+**Describe the diff, not the branch history.** This repo squash-merges, so what lands on `main` is one commit containing the final state. Read the diff; `git log` is for your own orientation only.
+
+Concretely, this means:
+
+- A file created and then deleted on the branch **does not appear in the diff** and must not appear in the body. From `main`'s point of view it never existed.
+- Never write "switched from X to Y", "initially did X", "refactored to", or "removed the earlier". If the branch went EC2 → ECS, the PR added ECS. There was no EC2.
+- Deletions belong in the body only when the file exists on `main` today.
+- Design decisions are worth stating; the order you arrived at them is not. "Deploys run on ECS because the alternative needs bespoke scripts" is useful — "we tried compose first" is noise.
+
+This matters most when **updating** an existing PR, since the body was usually written for an earlier shape of the branch. Rewrite it from the current diff rather than appending to it.
 
 ### 2. Draft the body
 
