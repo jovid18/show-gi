@@ -4,8 +4,7 @@
 
 FROM golang:1.26-bookworm AS build
 WORKDIR /src
-COPY go.mod ./
-# go.sum은 외부 의존성이 생기면 추가된다. 지금은 없어서 COPY 대상에서 뺐다.
+COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o /out/api ./cmd/api

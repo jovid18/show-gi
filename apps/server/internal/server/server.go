@@ -11,14 +11,26 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/jovid18/show-gi/apps/server/internal/game"
 )
 
 // shutdownGrace 는 종료 신호를 받고 진행 중인 요청을 기다려주는 시간이다.
 // 엔진 탐색이 걸린 요청이 있어도 이 안에서는 끝난다.
 const shutdownGrace = 10 * time.Second
 
+// Options 는 서버가 밖에서 받아야 하는 것들이다.
+type Options struct {
+	// NewOpponent 는 대국마다 상대를 하나 만든다.
+	//
+	// nil이면 /ws 가 503을 준다. 엔진이 없다고 프로세스를 죽이지 않는 이유는,
+	// 그러면 ECS가 재시작을 반복하며 /healthz 까지 같이 죽어 사이트 전체가 내려가기 때문이다.
+	// 엔진 고장은 대국만 막고 나머지는 살려둔다.
+	NewOpponent func() game.Opponent
+}
+
 // Handler 는 라우팅만 조립한다. 테스트가 서버를 띄우지 않고 이걸 그대로 쓴다.
-func Handler() http.Handler {
+func Handler(opts Options) http.Handler {
 	mux := http.NewServeMux()
 
 	// 로드밸런서와 배포 스크립트가 보는 곳. 인증 뒤에 두지 않는다.
@@ -26,17 +38,31 @@ func Handler() http.Handler {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	})
 
+	if opts.NewOpponent != nil {
+		mux.Handle("GET /ws/game", &gameHandler{newOpponent: opts.NewOpponent})
+	} else {
+		mux.HandleFunc("GET /ws/game", func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+				"error":   "engine_unavailable",
+				"message": "対局エンジンを利用できません。",
+			})
+		})
+	}
+
 	return mux
 }
 
 // Run 은 서버를 띄우고 ctx가 취소될 때까지 막힌다.
-func Run(ctx context.Context, addr string) error {
+func Run(ctx context.Context, addr string, opts Options) error {
 	srv := &http.Server{
 		Addr:    addr,
-		Handler: Handler(),
+		Handler: Handler(opts),
 
 		// 기본값이 없으면 느린 클라이언트 하나가 연결을 무한정 붙들 수 있다.
-		// WebSocket은 나중에 붙을 때 이 타임아웃에서 빼야 한다 — 대국은 오래 열려 있다.
+		//
+		// WebSocket 대국에는 영향이 없다. 이건 헤더를 다 읽을 때까지의 시한이고,
+		// 업그레이드 헤더는 즉시 오며 그 뒤로는 연결이 하이재킹되어 이 시한 밖이다.
+		// 그래서 ReadTimeout(본문 전체)은 여전히 걸지 않는다 — 대국은 오래 열려 있다.
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
