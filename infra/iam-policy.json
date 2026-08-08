@@ -1,0 +1,215 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "TerraformState",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": [
+        "arn:aws:s3:::show-gi-terraform-state-058264445568",
+        "arn:aws:s3:::show-gi-terraform-state-058264445568/*"
+      ]
+    },
+    {
+      "Sid": "TerraformStateLock",
+      "Effect": "Allow",
+      "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"],
+      "Resource": "arn:aws:dynamodb:ap-northeast-1:058264445568:table/show-gi-terraform-lock"
+    },
+    {
+      "Sid": "ManageProjectComputeInTokyo",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:Describe*",
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ecs:*",
+        "elasticloadbalancing:*",
+        "logs:CreateLogGroup",
+        "logs:DeleteLogGroup",
+        "logs:DescribeLogGroups",
+        "logs:PutRetentionPolicy",
+        "logs:TagResource",
+        "logs:ListTagsForResource",
+        "acm:RequestCertificate",
+        "acm:DeleteCertificate",
+        "acm:DescribeCertificate",
+        "acm:ListCertificates",
+        "acm:AddTagsToCertificate",
+        "acm:ListTagsForCertificate",
+        "ec2:CreateSecurityGroup",
+        "ec2:DeleteSecurityGroup",
+        "ec2:AuthorizeSecurityGroupIngress",
+        "ec2:AuthorizeSecurityGroupEgress",
+        "ec2:RevokeSecurityGroupIngress",
+        "ec2:RevokeSecurityGroupEgress",
+        "ec2:ModifySecurityGroupRules",
+        "ec2:CreateTags",
+        "ec2:DeleteTags"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-northeast-1"
+        }
+      }
+    },
+    {
+      "Sid": "ReadOnlyGlobalLookups",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:GetInstanceProfile",
+        "iam:ListInstanceProfilesForRole",
+        "iam:ListRolePolicies",
+        "iam:ListAttachedRolePolicies",
+        "route53:Get*",
+        "route53:List*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageProjectRoles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:TagRole",
+        "iam:CreateInstanceProfile",
+        "iam:DeleteInstanceProfile",
+        "iam:AddRoleToInstanceProfile",
+        "iam:RemoveRoleFromInstanceProfile",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:ListRoleTags"
+      ],
+      "Resource": ["arn:aws:iam::058264445568:role/show-gi-*", "arn:aws:iam::058264445568:instance-profile/show-gi-*"]
+    },
+    {
+      "Sid": "AttachOnlyApprovedPolicies",
+      "Effect": "Allow",
+      "Action": ["iam:AttachRolePolicy", "iam:DetachRolePolicy"],
+      "Resource": "arn:aws:iam::058264445568:role/show-gi-*",
+      "Condition": {
+        "ArnEquals": {
+          "iam:PolicyARN": ["arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"]
+        }
+      }
+    },
+    {
+      "Sid": "PassRoleToEcsOnly",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::058264445568:role/show-gi-*",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "ecs-tasks.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sid": "ManageProjectEcrInTokyo",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:CreateRepository",
+        "ecr:DeleteRepository",
+        "ecr:DescribeRepositories",
+        "ecr:TagResource",
+        "ecr:UntagResource",
+        "ecr:ListTagsForResource",
+        "ecr:PutLifecyclePolicy",
+        "ecr:DeleteLifecyclePolicy",
+        "ecr:GetLifecyclePolicy",
+        "ecr:PutImageScanningConfiguration",
+        "ecr:PutImageTagMutability",
+        "ecr:GetRepositoryPolicy",
+        "ecr:SetRepositoryPolicy",
+        "ecr:DeleteRepositoryPolicy",
+        "ecr:GetAuthorizationToken",
+        "ecr:BatchGetImage",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:ListImages"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-northeast-1"
+        }
+      }
+    },
+    {
+      "Sid": "ManageGithubOidcProvider",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateOpenIDConnectProvider",
+        "iam:DeleteOpenIDConnectProvider",
+        "iam:GetOpenIDConnectProvider",
+        "iam:ListOpenIDConnectProviders",
+        "iam:TagOpenIDConnectProvider",
+        "iam:UpdateOpenIDConnectProviderThumbprint"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageProjectParameters",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:PutParameter",
+        "ssm:DeleteParameter",
+        "ssm:DeleteParameters",
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParametersByPath",
+        "ssm:AddTagsToResource",
+        "ssm:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:ssm:ap-northeast-1:058264445568:parameter/show-gi/*"
+    },
+    {
+      "Sid": "ListParametersAccountWide",
+      "Effect": "Allow",
+      "Action": ["ssm:DescribeParameters"],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-northeast-1"
+        }
+      }
+    },
+    {
+      "Sid": "ManageProjectRdsInTokyo",
+      "Effect": "Allow",
+      "Action": [
+        "rds:CreateDBInstance",
+        "rds:DeleteDBInstance",
+        "rds:ModifyDBInstance",
+        "rds:DescribeDBInstances",
+        "rds:CreateDBSubnetGroup",
+        "rds:DeleteDBSubnetGroup",
+        "rds:DescribeDBSubnetGroups",
+        "rds:AddTagsToResource",
+        "rds:ListTagsForResource",
+        "rds:RemoveTagsFromResource",
+        "rds:DescribeDBEngineVersions",
+        "rds:DescribeOrderableDBInstanceOptions",
+        "rds:CreateDBSnapshot",
+        "rds:DescribeDBSnapshots"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-northeast-1"
+        }
+      }
+    },
+    {
+      "Sid": "ManageProjectDNS",
+      "Effect": "Allow",
+      "Action": ["route53:ChangeResourceRecordSets"],
+      "Resource": "arn:aws:route53:::hostedzone/*"
+    }
+  ]
+}

@@ -1,0 +1,253 @@
+# 배포 런북
+
+도쿄(`ap-northeast-1`) ECS Fargate. ALB가 TLS를 끝내고, 태스크 안의 Caddy가 정적 파일을 서빙하며 api로 프록시한다. 구조와 그 선택의 근거는 [docs/02-architecture.md](../docs/02-architecture.md).
+
+```
+Route53 (show-gi.com) → ALB (ACM TLS) → ECS Fargate 태스크 (ARM64)
+                                          ├ web  :80    Caddy — 정적 + /api·/ws 프록시
+                                          └ api  :8080  Go + 엔진 동봉
+                                        → RDS postgres 17 (비공개)
+```
+
+**관리할 서버가 없다.** 22번 포트도, 패치할 OS도 없고, 컨테이너에는 ECS Exec으로 들어간다.
+
+---
+
+## 0. 한 번만 (부트스트랩) — **완료됨**
+
+아래는 이미 만들어져 있다. 기록으로 남기는 것이고, 계정을 새로 판다면 이 순서대로 하면 된다.
+
+### IAM
+
+`show-gi-operator` 사용자와 같은 이름의 **관리형 정책**. 정책 문서는 [`infra/iam-policy.json`](../infra/iam-policy.json)에 있다.
+
+```sh
+aws iam create-user --user-name show-gi-operator
+aws iam create-policy --policy-name show-gi-operator \
+  --policy-document file://infra/iam-policy.json
+aws iam attach-user-policy --user-name show-gi-operator \
+  --policy-arn arn:aws:iam::058264445568:policy/show-gi-operator
+```
+
+> **인라인 정책(`put-user-policy`)으로는 안 된다.** 사용자 인라인 정책은 2048바이트가 상한이고 이 정책은 그보다 크다. 관리형 정책은 6144자까지 되고 버전 관리도 된다.
+>
+> 그리고 정책 JSON에 `Comment` 같은 임의 키를 넣으면 거부된다. IAM 문법은 `Version`·`Id`·`Statement`만 허용한다.
+
+정책이 실제로 막는 것 (확인함):
+
+| 시도                                      | 결과                                                       |
+| ----------------------------------------- | ---------------------------------------------------------- |
+| 도쿄 EC2 조회                             | 통과                                                       |
+| **서울** EC2 조회                         | `UnauthorizedOperation` — 리전 조건에 걸린다               |
+| 계정 전체 S3 버킷 목록                    | `AccessDenied` — 다른 프로젝트가 안 보인다                 |
+| show-gi 역할에 `AdministratorAccess` 부착 | 거부 — `AttachRolePolicy`가 SSM Core 정책 하나로 묶여 있다 |
+
+마지막 줄이 요점이다. 역할에 아무 정책이나 붙일 수 있으면 최소권한이 의미가 없다 — 그 역할을 태스크에 넘겨 컨테이너 안에서 관리자 권한을 쓸 수 있기 때문이다. `PassRole`도 `ecs-tasks.amazonaws.com`으로만 제한했다.
+
+액세스 키는 `~/.aws/credentials`의 `[show-gi]` 프로파일에 있다. **키를 레포에 커밋하거나 채팅에 붙여넣지 않는다.**
+
+> 기본 프로파일의 리전이 서울(`ap-northeast-2`)이라, 프로파일을 빠뜨리면 **자원이 조용히 서울에 생긴다.** 프로파일에 리전을 박아두는 것이 그 방어이고, `backend.tf`에도 프로파일을 한 번 더 적은 이유가 같다 — 백엔드는 `variables.tf`를 읽지 못한다.
+
+### state 버킷과 잠금 테이블
+
+버킷은 버전 관리·기본 암호화·퍼블릭 접근 차단을 켰다. 버전 관리는 잘못된 apply로 state가 깨졌을 때 되돌릴 수 있는 유일한 수단이다.
+
+```sh
+B=show-gi-terraform-state-058264445568
+aws s3api create-bucket --bucket $B --region ap-northeast-1 \
+  --create-bucket-configuration LocationConstraint=ap-northeast-1
+aws s3api put-bucket-versioning --bucket $B --versioning-configuration Status=Enabled
+aws s3api put-public-access-block --bucket $B --public-access-block-configuration \
+  BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+aws s3api put-bucket-encryption --bucket $B --server-side-encryption-configuration \
+  '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
+
+aws dynamodb create-table --table-name show-gi-terraform-lock \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST --region ap-northeast-1
+```
+
+**부트스트랩은 관리자 자격으로 한다.** `show-gi-operator`에게는 버킷을 만들 권한이 없다 — 자기가 쓸 state 저장소를 자기가 만들 수 있으면 그건 최소권한이 아니다.
+
+### 도메인
+
+`show-gi.com` 등록 완료. 호스팅 존(`Z00883671JMPHNULHF2GS`)이 자동으로 생겼다. **따로 만들지 말 것** — 존이 둘이면 NS가 갈려서 도메인이 뜨지 않는다.
+
+**등록자 이메일 인증을 반드시 끝낸다.** ICANN 규정이라 15일 안에 인증하지 않으면 도메인이 정지된다.
+
+---
+
+## 1. 인프라 올리기
+
+```sh
+cd infra
+terraform init
+terraform plan
+terraform apply
+```
+
+ACM 인증서 검증과 RDS 생성 때문에 10분쯤 걸린다. `aws_acm_certificate_validation`에서 오래 멈춰 있으면 DNS 전파를 기다리는 중이다.
+
+**파라미터를 먼저 등록해야 한다(§2).** 태스크 정의가 `/show-gi/prod/*`를 `secrets`로 참조하므로, 없으면 태스크가 시작조차 못 한다.
+
+## 2. 환경변수 등록 (한 번, 값이 바뀔 때마다)
+
+배포용 값은 **SSM Parameter Store**에 둔다. ECS 태스크 정의가 `secrets`로 참조해 컨테이너에 직접 주입하므로, 값이 어느 디스크에도 남지 않고 로그에도 찍히지 않는다.
+
+Secrets Manager를 쓰지 않은 이유는 단순하다 — 우리에게 필요한 건 로테이션이 아니라 보관이고, Parameter Store의 표준 파라미터는 무료다.
+
+```sh
+P=/show-gi/prod
+
+# 비밀 아님
+aws ssm put-parameter --name $P/SITE_ADDRESS --type String --value show-gi.com --overwrite
+aws ssm put-parameter --name $P/ACME_EMAIL   --type String --value '<주소>'      --overwrite
+aws ssm put-parameter --name $P/REGISTRY     --type String \
+  --value 058264445568.dkr.ecr.ap-northeast-1.amazonaws.com --overwrite
+aws ssm put-parameter --name $P/IMAGE_TAG    --type String --value latest --overwrite
+
+# 비밀 — SecureString으로. 셸 히스토리에 남지 않게 값은 파일이나 stdin으로 넣는다
+aws ssm put-parameter --name $P/POSTGRES_PASSWORD --type SecureString \
+  --value "$(openssl rand -base64 24)" --overwrite
+aws ssm put-parameter --name $P/SESSION_SECRET --type SecureString \
+  --value "$(openssl rand -base64 32)" --overwrite
+aws ssm put-parameter --name $P/ORCA_API_KEY --type SecureString --value "$(cat orca.key)" --overwrite
+aws ssm put-parameter --name $P/GOOGLE_CLIENT_ID     --type String       --value '<id>'     --overwrite
+aws ssm put-parameter --name $P/GOOGLE_CLIENT_SECRET --type SecureString --value '<secret>' --overwrite
+```
+
+> `POSTGRES_PASSWORD`를 반드시 넣는다. 안 넣으면 compose의 기본값(`showgi`)이 쓰이는데 그건 **퍼블릭 레포에 적혀 있는 값**이다. 5432는 루프백에만 열려 있지만, 기본값으로 운영하지 않는다.
+
+## 3. 배포
+
+**사람이 서버에 들어가지 않는다.** main에 머지되면 GitHub Actions가 이미지를 굽고, 새 태스크 정의 리비전을 등록해 ECS 서비스를 굴린다.
+
+```
+main 머지 → 이미지 빌드(arm64) → ECR push → 태스크 정의 새 리비전 → 롤링 배포 → 안정될 때까지 대기
+```
+
+**배포 스크립트가 없다.** 예전 EC2 구성에서는 60줄짜리 셸이 체크아웃·비밀 로드·ECR 로그인·pull·헬스체크를 손으로 했는데, 그 일이 전부 ECS의 기본 동작으로 대체됐다. 직접 쓴 것만 직접 유지보수해야 한다.
+
+| 예전에 스크립트가 하던 일       | 지금                           |
+| ------------------------------- | ------------------------------ |
+| Parameter Store → 셸 → 컨테이너 | 태스크 정의의 `secrets`        |
+| ECR 로그인                      | 실행 역할이 처리               |
+| 헬스체크 루프                   | ALB 타깃 그룹 헬스체크         |
+| 실패 시 수동 복구               | 배포 서킷 브레이커가 자동 롤백 |
+| 인증서 발급·보관                | ACM                            |
+
+### 되돌리기
+
+```sh
+aws ecs list-task-definitions --family-prefix show-gi --sort DESC --max-items 5 \
+  --region ap-northeast-1 --profile show-gi
+
+aws ecs update-service --cluster show-gi --service show-gi \
+  --task-definition show-gi:<리비전> --region ap-northeast-1 --profile show-gi
+```
+
+### 들여다보기
+
+```sh
+aws logs tail /ecs/show-gi --follow --region ap-northeast-1 --profile show-gi
+
+# 컨테이너 안에서 셸. SSH도 배스천도 없다
+aws ecs execute-command --cluster show-gi --container api \
+  --interactive --command /bin/sh --task <task-id> \
+  --region ap-northeast-1 --profile show-gi
+```
+
+## 4. 스키마 변경
+
+**DDL은 배포가 하지 않는다.** 사람이 DB 클라이언트로 직접 넣는다.
+
+배포 스크립트가 테이블을 바꾸기 시작하면 되돌릴 수 없는 변경이 자동으로 실행된다 — 컬럼 삭제 한 줄이 머지되는 순간 데이터가 사라지고, 그때 롤백할 수 있는 것은 코드뿐이다. 스키마는 코드보다 수명이 길고, 그래서 사람이 본다.
+
+`apps/server/internal/store/migrations/*.sql`이 **정본**이다. 손으로 넣더라도 넣은 것과 같은 내용이 레포에 있어야 한다 — 새 환경을 세울 때, 그리고 코드 생성기가 읽을 때 이 파일들이 기준이 된다.
+
+### RDS에 붙는 법
+
+RDS는 인터넷에 열려 있지 않다(`publicly_accessible = false`). EC2가 없어졌으므로 예전의 SSM 포트 포워딩도 쓸 수 없다. DDL은 앱 태스크 안에서 넣는다.
+
+```sh
+TASK=$(aws ecs list-tasks --cluster show-gi --service-name show-gi \
+  --query 'taskArns[0]' --output text --region ap-northeast-1 --profile show-gi)
+
+aws ecs execute-command --cluster show-gi --container api --task "$TASK" \
+  --interactive --command /bin/sh --region ap-northeast-1 --profile show-gi
+```
+
+컨테이너 안에서 `$DATABASE_URL`이 이미 환경변수로 들어와 있다. SQL 파일을 붙여넣는 일이라 이걸로 충분하다.
+
+DataGrip처럼 GUI로 붙어야 한다면 터널이 필요하고, 그건 배스천 태스크를 하나 띄우는 일이다 — **[미확정]** 실제로 필요해지는 시점에 정한다.
+
+### 순서
+
+스키마를 **먼저**, 배포를 **나중에** 한다. 새 코드가 없는 컬럼을 읽으면 즉시 터지지만, 옛 코드가 새 컬럼을 모르는 것은 아무 일도 아니다.
+
+컬럼을 지울 때는 반대다 — 그 컬럼을 안 쓰는 코드를 먼저 배포하고, 며칠 두고 보다가 지운다.
+
+## 5. 확인
+
+```sh
+curl -sI https://show-gi.com | head -3          # 200 + HSTS 헤더
+curl -s  https://show-gi.com/healthz            # {"ok":true}
+docker compose logs -f web                      # 인증서 발급 로그
+```
+
+---
+
+## 자주 물리는 곳
+
+**태스크가 시작하자마자 죽는다.** 대부분 비밀 주입 실패다. `secrets`에 적힌 파라미터가 하나라도 없으면 ECS는 컨테이너를 띄우지 못하고, 그 실패는 애플리케이션 로그가 아니라 **태스크 중지 이유**에 남는다.
+
+```sh
+aws ecs describe-tasks --cluster show-gi --tasks <task-id> \
+  --query 'tasks[0].{stopped:stoppedReason,containers:containers[].reason}' \
+  --region ap-northeast-1 --profile show-gi
+```
+
+**타깃이 unhealthy다.** 헬스체크는 `/healthz`인데 이 경로는 web(Caddy)이 api로 프록시한다. 즉 **api가 죽으면 unhealthy가 된다** — 의도한 것이다. 어느 컨테이너가 문제인지는 로그 스트림 접두어(`web` / `api`)로 갈린다.
+
+```sh
+aws logs tail /ecs/show-gi --follow --region ap-northeast-1 --profile show-gi
+```
+
+**인증서가 안 나온다.** ACM은 DNS 검증이라 Route53에 검증 레코드가 들어가야 한다. Terraform이 자동으로 넣지만, 호스팅 존이 둘이면 엉뚱한 존에 들어가 영원히 검증되지 않는다 — 도메인 등록 시 자동 생성된 존 하나만 있어야 한다.
+
+**WebSocket이 몇 분 뒤 끊긴다.** ALB의 `idle_timeout`이다. 900초로 올려뒀는데, 그보다 오래 생각하는 대국이 있으면 더 올린다.
+
+**스키마를 고쳤는데 반영이 안 된다.** DDL은 배포가 하지 않는다. 사람이 넣는다(§4).
+
+**엔진이 안 뜬다.** `fairy-stockfish`는 데비안에서 `/usr/games`에 깔리고 그 경로는 기본 PATH에 없다. Dockerfile이 PATH를 넣어주고 있으니, 직접 실행해볼 때만 주의하면 된다.
+
+**로컬에서 8080이 안 잡힌다.** `../shogi` 프로젝트 컨테이너가 쓰고 있다. `cd ../shogi && docker compose down`.
+
+---
+
+## 비용과 정리
+
+|                                   | 주              |
+| --------------------------------- | --------------- |
+| Fargate ARM 4 vCPU / 8 GiB (상시) | **~$26** (추정) |
+| ALB                               | ~$4             |
+| RDS db.t4g.micro + 20GB           | ~$6             |
+| ECR, 로그, Parameter Store        | $1 미만         |
+| **합계**                          | **~$37 / 주**   |
+| 도메인 (1년치, 1회)               | $16             |
+
+**대회가 끝나면 반드시 정리한다.** 켜둔 채 잊으면 **월 $150** 정도가 계속 나간다.
+
+```sh
+cd infra && terraform destroy      # 전부 지운다
+```
+
+개발 중 비용을 줄이려면 서비스를 0으로 내린다. Fargate는 태스크가 없으면 컴퓨트 요금이 멈추고 ALB·RDS만 남는다.
+
+```sh
+aws ecs update-service --cluster show-gi --service show-gi --desired-count 0 \
+  --region ap-northeast-1 --profile show-gi
+```
+
+다만 데모 영상을 찍기 시작하는 D5부터는 계속 켜두는 편이 안전하다.

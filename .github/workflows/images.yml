@@ -1,0 +1,116 @@
+# main에 들어온 것을 굽고, 그대로 배포한다.
+#
+# pull_request에서는 아무것도 하지 않는다. 퍼블릭 레포라 아무나 PR을 열 수 있고,
+# PR에서 이미지를 밀거나 배포를 걸 수 있으면 배포되는 것의 출처가 열린다.
+# 코드 검증은 Web/Server 워크플로가 PR에서 하고, 여기는 통과한 main만 다룬다.
+
+name: Images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # OIDC로 AWS 단기 자격증명을 받는다. 장기 키를 CI에 두지 않는다
+
+# 배포가 겹치면 나중 것이 먼저 끝나 옛 커밋이 살아남을 수 있다.
+# 취소하지 않고 줄을 세우는 것은, 중간 커밋도 배포 이력에 남는 편이 낫기 때문이다.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-1
+  REGISTRY: 058264445568.dkr.ecr.ap-northeast-1.amazonaws.com
+  ROLE: arn:aws:iam::058264445568:role/show-gi-github-actions
+
+jobs:
+  build:
+    # arm64 러너. Fargate 태스크가 ARM64라 아키텍처가 그대로 맞고,
+    # QEMU 에뮬레이션을 쓰지 않으므로 빌드가 몇 배 빠르다.
+    # (퍼블릭 레포라 이 러너는 무료다)
+    runs-on: ubuntu-24.04-arm
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            dockerfile: apps/server/Dockerfile
+            context: apps/server
+          - name: web
+            dockerfile: apps/web/Dockerfile
+            context: . # pnpm 워크스페이스라 루트의 lockfile이 필요하다
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ env.ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          # 커밋 SHA 태그가 배포의 진짜 이름이다. latest는 편의용이고,
+          # 무엇이 떠 있는지 확인할 때는 SHA를 본다
+          tags: |
+            ${{ env.REGISTRY }}/show-gi/${{ matrix.name }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/show-gi/${{ matrix.name }}:latest
+          # 레이어 캐시를 GitHub Actions 캐시에 둔다. 없으면 매번 pnpm install부터 다시 한다
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  deploy:
+    needs: build # 두 이미지가 다 올라간 뒤에만
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ env.ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 지금 떠 있는 태스크 정의를 그대로 가져와 이미지만 갈아끼운다.
+      # describe 응답에는 register가 거부하는 필드(revision, status 등)가 섞여 있어
+      # 필요한 것만 골라 뽑는다.
+      - name: 현재 태스크 정의 가져오기
+        run: |
+          aws ecs describe-task-definition --task-definition show-gi \
+            --query 'taskDefinition | {family, taskRoleArn, executionRoleArn, networkMode,
+                     containerDefinitions, requiresCompatibilities, cpu, memory, runtimePlatform}' \
+            > task-definition.json
+
+      - uses: aws-actions/amazon-ecs-render-task-definition@v1
+        id: render-api
+        with:
+          task-definition: task-definition.json
+          container-name: api
+          image: ${{ env.REGISTRY }}/show-gi/api:${{ github.sha }}
+
+      - uses: aws-actions/amazon-ecs-render-task-definition@v1
+        id: render-web
+        with:
+          task-definition: ${{ steps.render-api.outputs.task-definition }}
+          container-name: web
+          image: ${{ env.REGISTRY }}/show-gi/web:${{ github.sha }}
+
+      # 새 리비전을 등록하고 서비스를 굴린다. 롤링 배포·헬스체크·실패 시 롤백은
+      # ECS가 한다 — 예전에 deploy.sh가 손으로 하던 일이다.
+      - uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-web.outputs.task-definition }}
+          service: show-gi
+          cluster: show-gi
+          # 안정될 때까지 기다린다. 기다리지 않으면 배포가 실패해도 워크플로가 초록으로 남는다
+          wait-for-service-stability: true
+          wait-for-minutes: 10

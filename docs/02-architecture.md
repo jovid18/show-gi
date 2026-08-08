@@ -11,7 +11,7 @@
 | 엔진     | fairy-stockfish로 시작, `ENGINE_CMD`로 교체 가능하게 | §3                                                                   |
 | LLM      | OrcaRouter (`model="auto"`, `temperature=0`)         | 해커톤 요구사항. [LLM 계층](04-llm.md)                               |
 | 인증     | **Google OAuth만**                                   | LINE은 심사 서류·채널 개설에 시간이 든다. 여유가 나면 D6에 추가      |
-| 배포     | AWS EC2 1대 + docker compose, Terraform, Route53     | §6                                                                   |
+| 배포     | AWS ECS Fargate + ALB, Terraform, Route53            | §6                                                                   |
 | 모노레포 | pnpm 워크스페이스 + `apps/server`(Go 별도 go.mod)    | `../more-more`와 동일 구조. oxfmt/oxlint, `.githooks`, CI까지 그대로 |
 
 ---
@@ -137,12 +137,19 @@ kb_chunks    (id, title, body, tags text[], source_url, source_license, verified
 
 ## 6. 인프라
 
-- AWS EC2 1대에 docker compose (web · api · engine 동봉 · postgres), 앞에 Caddy로 TLS
-- **RDS를 쓰지 않는다** — 비용·프로비저닝 시간 대비 이득이 없다
-- Terraform으로 전부 코드화. Route53 도메인 **[미확정]**
+- **ECS Fargate**(ARM64) 태스크 하나에 web(Caddy) + api 컨테이너. 앞에 ALB가 ACM 인증서로 TLS를 끝낸다
+- **RDS postgres 17.** 앱 태스크의 보안그룹에서만 접근 가능하고, 7일 자동 백업이 붙는다
+- 비밀은 SSM Parameter Store → 태스크 정의의 `secrets`로 주입. 디스크에 남지 않는다
+- Terraform으로 전부 코드화. state는 S3 + DynamoDB 잠금
 - 레포는 **퍼블릭**
 
-`../shogi/deploy/terraform`이 거의 같은 구성이라 그대로 가져온다.
+EC2 + docker compose로 시작했다가 갈아탔다. 비용은 거의 같은데(주 $2 차이), **직접 쓴 배포 글루가 통째로 사라진다** — 배포 스크립트, 비밀을 셸로 내보내는 스크립트, compose 오버레이, 헬스체크 루프, 인증서 볼륨이 전부 ECS·ALB의 기본 기능으로 대체된다. 직접 쓴 것만 직접 유지보수해야 한다.
+
+**관리할 서버가 없다.** SSH 포트도, 패치할 OS도, 접속 키도 없다. 디버깅이 필요하면 ECS Exec으로 컨테이너에 들어간다.
+
+state는 S3 + DynamoDB 잠금에 둔다. 로컬 state는 날리면 복구가 안 되고, **퍼블릭 레포에서는 실수로 커밋될 위험**도 있다.
+
+절차와 부트스트랩은 [deploy/README.md](../deploy/README.md).
 
 ---
 
@@ -171,7 +178,6 @@ kb_chunks    (id, title, body, tags text[], source_url, source_license, verified
 | **룰 엔진**          | `server/internal/shogi/*`       | 합법수 생성·`ValidateMove`·반칙 전부(二歩, 打ち歩詰め, 行き所のない駒, 王手放置, 강제 승격) + `RepetitionKey`(千日手) + 말 개수 검증. **테스트 13개가 반칙 케이스를 직접 찍는다.** 처음부터 쓰면 이틀치다 |
 | **USI 클라이언트**   | `server/internal/usi/client.go` | 값어치는 기능이 아니라 **방어 코드**다 — fail-high/low 속보 라인 무시, 잘린 PV가 완전한 PV를 덮어쓰지 않게 하는 처리, `USI_Variant` 강제, 프로세스 재기동+옵션 복원. 전부 한 번씩 물려본 흔적이다         |
 | **기보 일본어 표기** | `server/internal/shogi/kifu.go` | `MoveJa`가 USI를 「▲7六歩」「同 銀成」「打」로 바꾼다. **출력이 원래 일본어라 UI에 그대로 나간다** — 저쪽이 한국어 앱이었는데도 이건 손댈 데가 없다                                                       |
-| **인프라 골격**      | `deploy/terraform/`             | al2023 arm64 + EIP + Route53 + SG. 도메인과 볼륨만 갈면 된다                                                                                                                                              |
 
 ### 고쳐서 쓴다
 
@@ -190,6 +196,7 @@ kb_chunks    (id, title, body, tags text[], source_url, source_license, verified
 | `src/lib/moves.ts`, `src/components/Board.tsx` | 좌표계가 다르고(row/col + 자체 `BoardState`), Board는 **학습용 샌드박스**라 대국용이 아니다. 코드에도 "대국용과 다른 자체 타입"이라 적혀 있다. 합법수는 서버가 준다 |
 | `server/internal/swars/`                       | 将棋ウォーズ 스크래핑. 이 제품에 필요 없고, **외부 대국 연동은 보안 §7 위협 1과 정면으로 어긋난다**                                                                 |
 | `src/pages/Ch0~16`                             | 한국어 강의 콘텐츠. 이 제품은 강의가 아니다                                                                                                                         |
+| `deploy/terraform/` (EC2·EIP 구성)             | 우리는 ECS Fargate라 자원 구성이 겹치지 않는다                                                                                                                      |
 | **`src/data/*` 전부**                          | 囲い·전법·手筋 데이터. **한 줄도 쓰지 않는다** — 원전이 개인 블로그이고, 手筋 208문은 시판 서적 디지털화다. 퍼블릭 레포에서는 신뢰성 이전에 저작권 문제다           |
 
 참고만 할 것: `src/components/Koma.tsx`(기물 한 글자 렌더), 판 그리드 CSS.

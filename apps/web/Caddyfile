@@ -1,0 +1,43 @@
+# 정적 파일 서빙 + API/WS 프록시. **TLS는 여기서 안 한다.**
+#
+# 앞단 ALB가 ACM 인증서로 TLS를 끝낸다. Fargate는 로컬 디스크가 휘발성이라
+# Caddy가 받아둔 인증서가 배포마다 사라지고, 재발급을 반복하면 Let's Encrypt의
+# 주당 실패 한도에 걸려 사이트가 평문으로 떨어진다. 인증서 보관은 AWS가 맡는 편이 낫다.
+
+:80 {
+	encode gzip zstd
+
+	header {
+		# ALB가 TLS를 끝내므로 여기서 나가는 응답에 붙여야 브라우저에 도달한다
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		# 이 앱은 iframe에 들어갈 일이 없다. 부정행위용 오버레이를 구조적으로 막는 것이기도 하다
+		X-Frame-Options DENY
+		-Server
+	}
+
+	# 같은 태스크의 컨테이너라 네트워크 네임스페이스를 공유한다 — localhost로 닿는다.
+	# 대국은 WebSocket 하나로 오래 열려 있는데, Caddy는 업그레이드와 유휴 타임아웃을
+	# 알아서 처리한다. ALB 쪽 타임아웃은 idle_timeout으로 따로 올려뒀다.
+	handle /ws* {
+		reverse_proxy localhost:8080
+	}
+
+	handle /api/* {
+		reverse_proxy localhost:8080
+	}
+
+	# ALB 헬스체크가 여기를 본다. **api까지 닿는 경로**여야 한다 —
+	# Caddy만 살아 있고 api가 죽은 상태를 정상으로 보면 배포가 성공한 척하고 끝난다
+	handle /healthz {
+		reverse_proxy localhost:8080
+	}
+
+	# 나머지는 SPA. 새로고침으로 깊은 경로에 들어와도 index.html로 떨어뜨린다.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

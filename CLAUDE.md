@@ -4,6 +4,8 @@
 
 설계는 [docs/](docs/)에 있다. 하나만 읽는다면 [docs/01-core.md](docs/01-core.md).
 
+**작업을 이어받는다면 [docs/06-status.md](docs/06-status.md)를 먼저 읽는다** — 지금 무엇이 떠 있고, 무엇이 아직 검증되지 않았고, 다음 순서가 무엇인지가 거기 있다. 상태가 바뀌면 같은 PR에서 그 문서를 갱신한다.
+
 |               |                                                          |
 | ------------- | -------------------------------------------------------- |
 | `apps/server` | Go. HTTP·WebSocket·USI 엔진 브리지. `go.mod`가 여기 있다 |
@@ -22,7 +24,10 @@
 ```sh
 pnpm lint && pnpm typecheck && pnpm test && pnpm build   # 루트. 웹 전체 + 마크다운 포맷
 cd apps/server && gofmt -l . && go vet ./... && go test -race ./...
+terraform -chdir=infra fmt -check && terraform -chdir=infra validate
 ```
+
+로컬에서 앱을 띄울 때는 `docker compose up -d`(api + db) 후 `pnpm dev`. **`../shogi` 컨테이너가 8080을 잡고 있으면 실패한다** — 그쪽을 먼저 내린다.
 
 `-race`를 빼지 않는다. 엔진 프로세스와 세션 goroutine이 동시에 도는 구조라 데이터 경합이 가장 값비싼 버그이고, 그것만 도구가 사람보다 확실히 잘 잡는다.
 
@@ -76,7 +81,7 @@ git config pull.ff only
 `.env`는 커밋하지 않는다. **레포가 퍼블릭이다.** 특히 조심할 것:
 
 - OrcaRouter API 키, Google OAuth 클라이언트 시크릿
-- Terraform state — DB 비밀번호와 인스턴스 주소가 평문으로 들어간다
+- Terraform state — DB 비밀번호가 평문으로 들어간다 (그래서 S3 백엔드에 둔다)
 - `../shogi`에서 파일을 가져올 때 `server/.env` · `deploy/.env.prod` · `terraform.tfstate`가 딸려오지 않게 할 것
 
 ## 언어 — 사용자에게 보이는 것은 전부 일본어

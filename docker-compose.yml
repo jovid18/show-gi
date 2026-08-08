@@ -1,0 +1,52 @@
+# **로컬 개발용이다.** 배포는 ECS Fargate라 이 파일과 무관하다 (deploy/README.md).
+#
+# 웹은 여기 없다 — `pnpm dev`로 띄우고 Vite가 :8080의 api로 프록시한다.
+# 배포에서는 Caddy 컨테이너가 그 자리를 대신하지만, 개발 중에는 HMR이 훨씬 중요하다.
+#
+#   docker compose up -d      # api + db
+#   pnpm dev                  # 웹 (레포 루트에서)
+
+services:
+  api:
+    build: ./apps/server
+    container_name: show-gi-api
+    ports:
+      - '127.0.0.1:8080:8080' # 루프백에만 바인딩한다
+    environment:
+      DATABASE_URL: postgres://showgi:showgi@db:5432/showgi?sslmode=disable
+      ENGINE_CMD: ${ENGINE_CMD:-fairy-stockfish}
+      # 없으면 해당 기능만 비활성이고 나머지는 정상으로 뜬다
+      ORCA_API_KEY: ${ORCA_API_KEY:-}
+      ORCA_BASE_URL: ${ORCA_BASE_URL:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      SESSION_SECRET: ${SESSION_SECRET:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    # postgres가 아니라 pgvector 이미지다. kb_chunks의 임베딩 컬럼에 vector 확장이
+    # 필요하고, 확장은 이미지에 들어 있어야 CREATE EXTENSION이 먹는다.
+    # RDS PostgreSQL 17도 같은 확장을 지원하므로 로컬과 배포가 갈리지 않는다
+    image: pgvector/pgvector:pg17
+    container_name: show-gi-db
+    environment:
+      # 로컬 전용 값이다. 배포는 RDS이고 비밀번호는 Parameter Store에 있다
+      POSTGRES_USER: showgi
+      POSTGRES_PASSWORD: showgi
+      POSTGRES_DB: showgi
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - show-gi-dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U showgi']
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    restart: unless-stopped
+
+volumes:
+  show-gi-dbdata:
