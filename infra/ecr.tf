@@ -83,7 +83,21 @@ resource "aws_iam_role" "github_actions" {
           # **main 브랜치로 한정한다.** 퍼블릭 레포라 아무나 PR을 열 수 있고,
           # 조건을 `repo:jovid18/show-gi:*`로 열어두면 남의 브랜치에서 이미지를
           # 밀어 넣을 수 있다. 배포되는 이미지는 main에서만 나온다.
-          "token.actions.githubusercontent.com:sub" = "repo:jovid18/show-gi:ref:refs/heads/main"
+          #
+          # 값이 둘인 이유: GitHub이 subject claim에 **불변 ID**를 넣기 시작했다.
+          # 실제로 오는 sub는 `repo:jovid18@143411145/show-gi@1327659382:ref:...` 형태이고,
+          # 문서에 흔히 적힌 `repo:소유자/레포:ref:...`가 아니다. 소유자나 레포 이름을
+          # 바꿔도 신뢰가 끊기지 않게 하려는 변경이라 ID 쪽이 오히려 더 안전하다.
+          #
+          # 현재 형식을 확인하는 법:
+          #   gh api /repos/jovid18/show-gi/actions/oidc/customization/sub
+          #
+          # 목록으로 두면 OR로 평가되므로, GitHub이 어느 쪽을 보내도 통과한다.
+          # 와일드카드를 쓰지 않는 것은 두 값 다 정확히 아는 이상 느슨하게 둘 이유가 없어서다.
+          "token.actions.githubusercontent.com:sub" = [
+            "repo:jovid18/show-gi:ref:refs/heads/main",
+            "repo:jovid18@143411145/show-gi@1327659382:ref:refs/heads/main",
+          ]
         }
       }
     }]

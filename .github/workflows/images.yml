@@ -84,10 +84,12 @@ jobs:
       # describe 응답에는 register가 거부하는 필드(revision, status 등)가 섞여 있어
       # 필요한 것만 골라 뽑는다.
       - name: 현재 태스크 정의 가져오기
+        # JMESPath의 multi-select hash는 `{key: value}` 쌍만 받는다 — `{family, cpu}` 같은
+        # 축약 표기가 없다. 그리고 describe 응답에는 register가 거부하는 필드
+        # (revision, status, taskDefinitionArn 등)가 섞여 있어 필요한 것만 골라 뽑는다.
         run: |
           aws ecs describe-task-definition --task-definition show-gi \
-            --query 'taskDefinition | {family, taskRoleArn, executionRoleArn, networkMode,
-                     containerDefinitions, requiresCompatibilities, cpu, memory, runtimePlatform}' \
+            --query 'taskDefinition.{family: family, taskRoleArn: taskRoleArn, executionRoleArn: executionRoleArn, networkMode: networkMode, containerDefinitions: containerDefinitions, requiresCompatibilities: requiresCompatibilities, cpu: cpu, memory: memory, runtimePlatform: runtimePlatform}' \
             > task-definition.json
 
       - uses: aws-actions/amazon-ecs-render-task-definition@v1
