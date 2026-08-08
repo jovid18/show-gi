@@ -6,7 +6,9 @@
 # 이미지는 인스턴스에서 굽지 않는다. GitHub Actions가 arm64로 구워 ECR에 올리고
 # 여기서는 받아 오기만 한다 — 8GiB 박스에서 빌드하면 postgres·엔진과 메모리를 다툰다.
 #
-# 환경변수는 .env에서 온다 (deploy/README.md).
+# 환경변수는 SSM Parameter Store에서 온다 (deploy/env.sh).
+#
+# postgres 서비스가 없다 — 배포에서는 RDS다.
 
 services:
   web:
@@ -34,10 +36,6 @@ services:
     build: !reset null # 개발용 compose의 build를 지운다. 여기서는 받아 온 이미지만 쓴다
     ports: !override
       - '127.0.0.1:8080:8080'
-
-  db:
-    ports: !override
-      - '127.0.0.1:5432:5432'
 
 volumes:
   caddy-data:

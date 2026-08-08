@@ -152,6 +152,15 @@ resource "aws_instance" "app" {
   }
 
   tags = { Name = "show-gi" }
+
+  lifecycle {
+    # AMI를 무시한다. `data.aws_ssm_parameter`는 항상 최신 AL2023을 가리키는데,
+    # `ami`는 바뀌면 인스턴스를 **강제로 다시 만드는** 속성이다. AWS가 새 이미지를
+    # 내놓은 뒤 아무 생각 없이 apply하면 postgres 데이터가 함께 사라진다.
+    #
+    # OS를 갱신하고 싶을 때는 이 줄을 잠시 지우고, 데이터를 옮길 준비를 한 뒤 한다.
+    ignore_changes = [ami]
+  }
 }
 
 # ─── DNS ────────────────────────────────────────────────────

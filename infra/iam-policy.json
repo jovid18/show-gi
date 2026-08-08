@@ -178,6 +178,32 @@
       "Resource": "arn:aws:ssm:ap-northeast-1:058264445568:parameter/show-gi/*"
     },
     {
+      "Sid": "ManageProjectRdsInTokyo",
+      "Effect": "Allow",
+      "Action": [
+        "rds:CreateDBInstance",
+        "rds:DeleteDBInstance",
+        "rds:ModifyDBInstance",
+        "rds:DescribeDBInstances",
+        "rds:CreateDBSubnetGroup",
+        "rds:DeleteDBSubnetGroup",
+        "rds:DescribeDBSubnetGroups",
+        "rds:AddTagsToResource",
+        "rds:ListTagsForResource",
+        "rds:RemoveTagsFromResource",
+        "rds:DescribeDBEngineVersions",
+        "rds:DescribeOrderableDBInstanceOptions",
+        "rds:CreateDBSnapshot",
+        "rds:DescribeDBSnapshots"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-northeast-1"
+        }
+      }
+    },
+    {
       "Sid": "ManageProjectDNS",
       "Effect": "Allow",
       "Action": ["route53:ChangeResourceRecordSets"],

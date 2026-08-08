@@ -41,3 +41,13 @@ variable "ssh_cidr" {
   type        = list(string)
   default     = null
 }
+
+variable "db_instance_class" {
+  description = <<-EOT
+    RDS 인스턴스 클래스. 데이터가 작고(코퍼스 50행, 국면 캐시 수천 건) 질의도
+    단순해서 가장 작은 것으로 시작한다. 개입 판정이 착수 경로에 있으므로 느려지면
+    바로 체감되는데, 그때 올리면 된다 — 스토리지와 달리 클래스는 줄일 수도 있다.
+  EOT
+  type        = string
+  default     = "db.t4g.micro" # 2 vCPU(버스터블) / 1 GiB
+}

@@ -151,7 +151,46 @@ aws ssm start-session --target <instance-id> --region ap-northeast-1 --profile s
 sudo -u ec2-user /opt/show-gi/deploy/deploy.sh <sha>
 ```
 
-## 4. 확인
+## 4. 스키마 변경
+
+**DDL은 배포가 하지 않는다.** 사람이 DB 클라이언트로 직접 넣는다.
+
+배포 스크립트가 테이블을 바꾸기 시작하면 되돌릴 수 없는 변경이 자동으로 실행된다 — 컬럼 삭제 한 줄이 머지되는 순간 데이터가 사라지고, 그때 롤백할 수 있는 것은 코드뿐이다. 스키마는 코드보다 수명이 길고, 그래서 사람이 본다.
+
+`apps/server/internal/store/migrations/*.sql`이 **정본**이다. 손으로 넣더라도 넣은 것과 같은 내용이 레포에 있어야 한다 — 새 환경을 세울 때, 그리고 코드 생성기가 읽을 때 이 파일들이 기준이 된다.
+
+### RDS에 붙는 법
+
+RDS는 인터넷에 열려 있지 않다(`publicly_accessible = false`). 노트북에서 직접 붙지 못하고, EC2를 통해 터널을 뚫는다.
+
+```sh
+aws ssm start-session \
+  --target "$(aws ec2 describe-instances --profile show-gi --region ap-northeast-1 \
+      --filters 'Name=tag:Project,Values=show-gi' 'Name=instance-state-name,Values=running' \
+      --query 'Reservations[0].Instances[0].InstanceId' --output text)" \
+  --document-name AWS-StartPortForwardingSessionToRemoteHost \
+  --parameters "{\"host\":[\"$(terraform -chdir=infra output -raw db_endpoint | cut -d: -f1)\"],\"portNumber\":[\"5432\"],\"localPortNumber\":[\"15432\"]}" \
+  --region ap-northeast-1 --profile show-gi
+```
+
+이제 DataGrip이든 psql이든 `localhost:15432`로 붙으면 된다. **포트를 열지 않고, 키도 두지 않고 붙는다** — 터널은 SSM 세션 위에 얹혀 있고 세션을 닫으면 사라진다.
+
+접속 정보:
+
+```sh
+aws ssm get-parameter --name /show-gi/prod/DATABASE_URL --with-decryption \
+  --query 'Parameter.Value' --output text --region ap-northeast-1 --profile show-gi
+```
+
+호스트만 `localhost:15432`로 바꿔 쓴다.
+
+### 순서
+
+스키마를 **먼저**, 배포를 **나중에** 한다. 새 코드가 없는 컬럼을 읽으면 즉시 터지지만, 옛 코드가 새 컬럼을 모르는 것은 아무 일도 아니다.
+
+컬럼을 지울 때는 반대다 — 그 컬럼을 안 쓰는 코드를 먼저 배포하고, 며칠 두고 보다가 지운다.
+
+## 5. 확인
 
 ```sh
 curl -sI https://show-gi.com | head -3          # 200 + HSTS 헤더

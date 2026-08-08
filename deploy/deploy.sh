@@ -34,6 +34,10 @@ echo "· ECR 로그인"
 aws ecr get-login-password --region "$REGION" \
 	| docker login --username AWS --password-stdin "$REGISTRY" >/dev/null
 
+# 스키마는 여기서 건드리지 않는다. DDL은 사람이 DB 클라이언트로 넣는다 —
+# 배포가 테이블을 바꾸기 시작하면, 되돌릴 수 없는 변경이 자동으로 실행된다.
+# 절차는 deploy/README.md의 "스키마 변경".
+
 echo "· 이미지 받기"
 "${COMPOSE[@]}" pull --quiet
 
