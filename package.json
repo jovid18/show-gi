@@ -1,0 +1,22 @@
+{
+  "name": "show-gi",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @show-gi/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "oxfmt --check . && oxlint",
+    "lint:fix": "oxfmt . && oxlint --fix"
+  },
+  "devDependencies": {
+    "oxfmt": "^0.62.0",
+    "oxlint": "^1.77.0",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.20.0"
+}

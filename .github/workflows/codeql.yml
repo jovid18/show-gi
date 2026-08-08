@@ -1,0 +1,44 @@
+# CodeQL 코드 스캐닝. public 레포에서만 무료다.
+#
+# 결과는 Security 탭에 쌓인다. PR에서도 돌지만 필수 체크로 걸지는 않았다 —
+# 스캔이 CI 대기시간을 좌우하게 두지 않으려는 것이고, 놓친 건 주간 스캔이 잡는다.
+#
+# 이 레포에서 특히 볼 것: OAuth 콜백 처리와 실력 프로파일 조회 경로.
+# 프로필은 본인만 읽을 수 있어야 한다 (docs/02-architecture.md §7).
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # 매주 월요일 03:17 UTC. 정각을 피하는 건 GitHub의 크론 혼잡을 피하려는 것이다.
+    - cron: '17 3 * * 1'
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [go, javascript-typescript]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: github/codeql-action/init@v4
+        with:
+          language: ${{ matrix.language }}
+
+      # Go는 빌드해야 분석된다. autobuild가 apps/server의 go.mod를 찾아낸다.
+      - uses: github/codeql-action/autobuild@v4
+
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}

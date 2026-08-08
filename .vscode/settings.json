@@ -1,0 +1,79 @@
+{
+  // 이 레포의 TS·마크다운 포매터는 oxfmt 하나다. Go는 gopls(gofmt)가 맡는다.
+  //
+  // 전역 설정이 Prettier를 기본 포매터로 두고 formatOnSave를 켜둔 상태라면,
+  // 그대로 저장할 때 Prettier(printWidth 100)와 oxfmt(120)가 매번 싸운다.
+  // 저장할 때마다 diff가 생기고 CI의 `oxfmt --check`가 떨어진다.
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "oxc.oxc-vscode",
+
+  "[typescript]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[typescriptreact]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[javascript]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[json]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[jsonc]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[css]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[html]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[markdown]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+
+  // 확장이 내장한 버전이 아니라 lockfile이 고정한 버전을 쓴다.
+  // 버전이 갈리면 에디터와 CI의 판정이 달라진다.
+  "oxc.path.oxlint": "./node_modules/.bin/oxlint",
+  "oxc.path.oxfmt": "./node_modules/.bin/oxfmt",
+
+  // ─── Go ──────────────────────────────────────────────────
+  // go.mod가 루트가 아니라 apps/server에 있다. 이걸 알려주지 않으면
+  // gopls가 워크스페이스 루트에서 모듈을 못 찾고 기능이 절반만 돈다.
+  "gopls": {
+    "build.directoryFilters": ["-node_modules"]
+  },
+  "[go]": {
+    "editor.defaultFormatter": "golang.go",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": { "source.organizeImports": "explicit" }
+  },
+  "go.lintTool": "staticcheck",
+
+  // ─── 맞춤법 ───────────────────────────────────────────────
+  // 쇼기 도메인 용어와 툴 이름은 사전에 없다. 등록하지 않으면 문서 한 장에
+  // 경고가 수십 개 뜨고, 그 소음에 묻혀 진짜 오타를 놓친다.
+  "cSpell.words": [
+    // 도메인
+    "sfen",
+    "usi",
+    "shogi",
+    "lishogi",
+    "gote",
+    "sente",
+    "kifu",
+    "joseki",
+    "tesuji",
+    "senpou",
+    "taiou",
+    "castles",
+    "koma",
+    "mino",
+    "bougin",
+    "ryoudori",
+    "tsume",
+    "multipv",
+    "stockfish",
+    "yaneuraou",
+    "dlshogi",
+    // 스택
+    "pgvector",
+    "pgx",
+    "orca",
+    "orcarouter",
+    "oxfmt",
+    "oxlint",
+    "vite",
+    "vitest",
+    "tfstate",
+    "healthz",
+    "msdf",
+    "zenn"
+  ],
+  // 한글·일본어는 검사하지 않는다. 사전이 없어 문장 전체가 오타로 잡힌다.
+  "cSpell.ignoreRegExpList": ["/[\\u3040-\\u30ff\\u3400-\\u9fff\\uac00-\\ud7af]+/g"]
+}

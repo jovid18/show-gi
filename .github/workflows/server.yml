@@ -1,0 +1,54 @@
+# apps/server 검증. 로컬에서 그 디렉터리에 들어가 돌리는 것과 같다.
+#
+# -race는 빼지 않는다. 대국 세션 하나를 goroutine 하나가 소유하고 엔진 프로세스가
+# 여러 개 동시에 도는 구조라, 가장 값비싼 버그가 데이터 경합이다.
+
+name: Server
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 체크아웃에 필요한 것만 준다. 레포 기본값도 현재 read지만 그건 설정이라
+# 언제든 바뀌고 포크에는 따라가지 않는다. 파일에 박아두는 쪽이 실제 보증이다.
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: apps/server
+
+jobs:
+  # job 이름이 그대로 필수 체크의 컨텍스트가 된다. web.yml과 겹치면 룰셋이
+  # 어느 쪽을 가리키는지 알 수 없어 체크가 영원히 대기 상태로 남는다.
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: apps/server/go.mod
+          # 아직 외부 의존성이 없어 go.sum이 없다. 캐시를 켜두면 setup-go가
+          # 키로 쓸 파일을 못 찾아 잡 자체가 실패한다.
+          #
+          # 의존성(pgx, websocket)이 들어오는 PR에서 다음으로 바꾼다:
+          #   cache-dependency-path: apps/server/go.sum
+          # go.mod를 키로 삼지 않는 것은, 간접 의존성 버전이 go.mod에 다 적히지
+          # 않아 캐시가 실제 의존성 집합과 어긋날 수 있어서다.
+          cache: false
+
+      # gofmt는 어긋난 파일 이름을 출력할 뿐 실패하지 않는다. 출력이 있으면 여기서 멈춘다.
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "✗ gofmt가 어긋난 파일:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - run: go vet ./...
+      - run: go test -race ./...
+      - run: go build ./...

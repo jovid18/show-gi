@@ -1,0 +1,9 @@
+packages:
+  - apps/web
+
+# apps/server는 Go다. 이 워크스페이스에 들어오지 않고 `apps/server/go.mod`가 따로 관리한다.
+# 두 앱을 잇는 건 빌드 도구가 아니라 HTTP/WebSocket 프로토콜 하나뿐이다.
+#
+# pnpm 10+는 의존성의 빌드 스크립트를 기본으로 막고, 필요한 것만
+# onlyBuiltDependencies에 적게 한다. 설치할 때 pnpm이 차단한 스크립트를
+# 알려주면 그때 추가한다.

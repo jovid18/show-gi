@@ -1,0 +1,15 @@
+server:
+  - changed-files:
+      - any-glob-to-any-file: 'apps/server/**'
+
+web:
+  - changed-files:
+      - any-glob-to-any-file: 'apps/web/**'
+
+infra:
+  - changed-files:
+      - any-glob-to-any-file: ['.github/**', '.githooks/**', 'deploy/**', 'docker-compose*.yml', 'Dockerfile*']
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file: ['docs/**', '**/*.md']

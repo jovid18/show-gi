@@ -1,0 +1,7 @@
+{
+  "recommendations": ["oxc.oxc-vscode", "golang.go", "streetsidesoftware.code-spell-checker"],
+
+  // Prettier가 켜져 있으면 저장할 때마다 oxfmt와 싸운다.
+  // settings.json이 포매터를 덮어쓰긴 하지만, 애초에 안 켜지는 편이 낫다.
+  "unwantedRecommendations": ["esbenp.prettier-vscode"]
+}
