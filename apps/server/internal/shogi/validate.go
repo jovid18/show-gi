@@ -1,6 +1,9 @@
 package shogi
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 // Reason 은 수가 불법인 사유다.
 //
@@ -150,10 +153,8 @@ func (pos Position) InventoryExcess() map[PieceType]int {
 func (pos Position) ValidateMove(m Move) error {
 	me := pos.Turn
 
-	for _, lm := range pos.LegalMoves() {
-		if lm == m {
-			return nil
-		}
+	if slices.Contains(pos.LegalMoves(), m) {
+		return nil
 	}
 
 	// 이하는 진단: 왜 불법인지 이유를 찾는다.
