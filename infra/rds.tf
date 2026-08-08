@@ -19,7 +19,10 @@ resource "aws_db_subnet_group" "main" {
 }
 
 resource "aws_security_group" "db" {
-  name        = "show-gi-db"
+  name = "show-gi-db"
+  # 보안그룹의 description은 **불변**이다. 고치면 Terraform이 SG를 다시 만들려 하고,
+  # RDS가 그 SG를 쓰고 있으면 ENI를 떼지 못해 apply가 중간에 멈춘다.
+  # 문구가 낡았더라도 그대로 두는 편이 싸다.
   description = "show-gi: postgres from the app instance only"
   vpc_id      = data.aws_vpc.default.id
 }

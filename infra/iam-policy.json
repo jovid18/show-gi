@@ -88,6 +88,17 @@
       "Resource": ["arn:aws:iam::058264445568:role/show-gi-*", "arn:aws:iam::058264445568:instance-profile/show-gi-*"]
     },
     {
+      "Sid": "AttachOnlyApprovedPolicies",
+      "Effect": "Allow",
+      "Action": ["iam:AttachRolePolicy", "iam:DetachRolePolicy"],
+      "Resource": "arn:aws:iam::058264445568:role/show-gi-*",
+      "Condition": {
+        "ArnEquals": {
+          "iam:PolicyARN": ["arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"]
+        }
+      }
+    },
+    {
       "Sid": "PassRoleToEcsOnly",
       "Effect": "Allow",
       "Action": "iam:PassRole",
@@ -152,11 +163,21 @@
         "ssm:GetParameter",
         "ssm:GetParameters",
         "ssm:GetParametersByPath",
-        "ssm:DescribeParameters",
         "ssm:AddTagsToResource",
         "ssm:ListTagsForResource"
       ],
       "Resource": "arn:aws:ssm:ap-northeast-1:058264445568:parameter/show-gi/*"
+    },
+    {
+      "Sid": "ListParametersAccountWide",
+      "Effect": "Allow",
+      "Action": ["ssm:DescribeParameters"],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-northeast-1"
+        }
+      }
     },
     {
       "Sid": "ManageProjectRdsInTokyo",

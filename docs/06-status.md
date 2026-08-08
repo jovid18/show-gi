@@ -2,14 +2,14 @@
 
 **이 문서는 사실 기록이다.** 설계는 다른 문서에 있고, 여기에는 "지금 실제로 어떤 상태인가"만 적는다. 상태가 바뀌면 같은 PR에서 갱신한다. 오래된 상태 문서는 없는 것보다 나쁘다.
 
-- 마지막 갱신: 2026-08-08
+- 마지막 갱신: 2026-08-09
 - 마감: **2026-08-15 15:00**
 
 ---
 
 ## 1. 한 줄
 
-**설계와 인프라 코드는 다 썼고, 아직 한 번도 AWS에 올라간 적이 없다.** `terraform apply`와 PR #2 머지가 다음 관문이다.
+**인프라는 올라가 있고 도메인은 HTTPS로 응답한다. 앱만 아직 없다.** ECR이 비어 있어서 태스크가 못 뜨고, 이미지는 main 머지로 만들어진다 — 그래서 **PR #2 머지가 유일하게 남은 관문**이다.
 
 ---
 
@@ -43,73 +43,85 @@ Terraform으로 관리하지 않는다. state를 담을 자원을 state로 관�
 | DynamoDB `show-gi-terraform-lock`                        | ✅                              |
 | 도메인 `show-gi.com` + 호스팅 존 `Z00883671JMPHNULHF2GS` | ✅ 등록 완료                    |
 
-### Terraform이 관리할 것 (아직 **아무것도 없음**)
+### Terraform이 만든 것 — **apply 완료**
 
-`terraform state list`가 비어 있다. ECS·ALB·ACM·RDS·ECR·OIDC 전부 코드만 있고 생성되지 않았다.
+| 자원                             | 상태                                                 |
+| -------------------------------- | ---------------------------------------------------- |
+| ECS 클러스터 `show-gi` + 서비스  | ✅ 생성됨 (태스크는 아직 0개, 아래 참조)             |
+| ALB `show-gi` + ACM 인증서       | ✅ 인증서 **ISSUED / InUse**, HTTPS 응답 확인        |
+| RDS `show-gi`                    | ✅ **available**, PostgreSQL 17.10, 비공개, 백업 7일 |
+| ECR `show-gi/api`, `show-gi/web` | ✅ 생성됨 — **이미지 0개**                           |
+| GitHub OIDC 프로바이더 + CI 역할 | ✅                                                   |
+| Route53 A 레코드 (apex/www)      | ✅ ALB 별칭                                          |
 
 ```
-terraform -chdir=infra plan   →   40 to add, 0 to change, 0 to destroy
+alb_dns      show-gi-1946256776.ap-northeast-1.elb.amazonaws.com
+db_endpoint  show-gi.cry8ysuywulv.ap-northeast-1.rds.amazonaws.com:5432
+ecr_registry 058264445568.dkr.ecr.ap-northeast-1.amazonaws.com
 ```
 
-### 아직 등록 안 된 파라미터
+### 왜 아직 사이트가 안 뜨나
 
-`/show-gi/prod/*`가 **비어 있다.** ECS 태스크가 이 값들을 읽으므로 apply 전후에 넣어야 첫 배포가 뜬다.
+`https://show-gi.com`은 **ALB가 503**을 준다. 정상적인 중간 상태다 — TLS는 끝나는데 뒤에 붙을 태스크가 없다.
 
-| 이름                   | 타입         | 누가                               |
-| ---------------------- | ------------ | ---------------------------------- |
-| `DATABASE_URL`         | SecureString | **Terraform이 자동 생성** (rds.tf) |
-| `SESSION_SECRET`       | SecureString | 아무나 — `openssl rand -base64 32` |
-| `ORCA_API_KEY`         | SecureString | **사람** — OrcaRouter에서 발급     |
-| `GOOGLE_CLIENT_ID`     | String       | **사람** — GCP 콘솔                |
-| `GOOGLE_CLIENT_SECRET` | SecureString | **사람**                           |
+```
+ECR 이미지 0개  →  태스크가 이미지를 못 받음  →  실행 중 태스크 0  →  ALB에 healthy 타깃 없음  →  503
+```
 
-> 태스크 정의가 이 다섯 개를 `secrets`로 참조한다. **없으면 태스크가 시작하지 못한다** — 값을 비워두는 것과 파라미터가 없는 것은 다르다. 아직 발급 못 받은 것은 빈 문자열로라도 넣어둔다.
+이미지는 `images.yml`이 만들고, 그건 **main 푸시에만 돈다.** 즉 PR #2를 머지하면 그 자리에서 채워진다.
 
----
+### 파라미터 — 등록 완료
+
+| 이름                                                         | 값                                            |
+| ------------------------------------------------------------ | --------------------------------------------- |
+| `DATABASE_URL`                                               | Terraform이 RDS 접속 문자열로 생성            |
+| `SESSION_SECRET`                                             | 랜덤 생성                                     |
+| `ORCA_API_KEY` · `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | **`unset` 자리표시자** — 발급되면 값만 덮는다 |
+
+> SSM은 **빈 문자열을 거부한다.** 그래서 아직 없는 키도 자리표시자를 넣어야 한다 — 파라미터가 없으면 태스크가 `invalid ssm parameters`로 시작조차 못 한다. 실제로 한 번 물렸다.
 
 ## 4. 검증된 것 (실제로 돌려봄)
 
-| 항목                     | 증거                                             |
-| ------------------------ | ------------------------------------------------ |
-| 웹·API 이미지 빌드       | 두 이미지 모두 로컬에서 빌드 성공                |
-| 엔진이 컨테이너에서 동작 | `fairy-stockfish`가 USI 핸드셰이크 응답          |
-| 스키마 적용              | pgvector 컨테이너에 9개 테이블 생성              |
-| API 헬스체크             | `GET /healthz` → `{"ok":true}`, POST는 405       |
-| 좌표 변환                | 81칸 전부 왕복 테스트 통과                       |
-| Terraform                | `validate` 통과, `plan` 40개 생성                |
-| IAM 최소권한             | 서울 리전 조회 거부, 계정 전체 S3 목록 거부 확인 |
-| CI                       | `server`·`web`·CodeQL 전부 통과                  |
+| 항목                     | 증거                                                                      |
+| ------------------------ | ------------------------------------------------------------------------- |
+| 웹·API 이미지 빌드       | 두 이미지 모두 로컬에서 빌드 성공                                         |
+| 엔진이 컨테이너에서 동작 | `fairy-stockfish`가 USI 핸드셰이크 응답                                   |
+| 스키마 적용              | pgvector 컨테이너에 9개 테이블 생성                                       |
+| API 헬스체크             | `GET /healthz` → `{"ok":true}`, POST는 405                                |
+| 좌표 변환                | 81칸 전부 왕복 테스트 통과                                                |
+| Terraform                | `validate` 통과, `plan` 40개 생성                                         |
+| IAM 최소권한             | 서울 리전 조회 거부, 계정 전체 S3 목록 거부 확인                          |
+| CI                       | `server`·`web`·CodeQL 전부 통과                                           |
+| **DNS**                  | `show-gi.com` → ALB IP 3개로 해석                                         |
+| **TLS / ACM**            | 인증서 ISSUED·InUse, `https://show-gi.com`이 ALB 응답 반환                |
+| **RDS**                  | `available`, 17.10, 비공개, 백업 7일                                      |
+| **IAM (실전)**           | apply가 부족한 권한을 세 번 잡아냄 — 최소권한이 실제로 조여져 있다는 증거 |
 
 ## 5. **검증 안 된 것** ← 새 세션이 먼저 볼 곳
 
-전부 `apply` 또는 머지 이후에만 확인 가능하다. 여기서 문제가 나올 가능성이 높다.
+전부 **첫 배포 이후에만** 확인 가능하다.
 
-| 항목                  | 왜 아직 모르나                                                  | 터지면 어디를 보나                                                                                                                                       |
-| --------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **OIDC 신뢰관계**     | `images.yml`이 main 푸시에만 돌아 머지 전에는 실행 자체가 안 됨 | 에러가 `Not authorized to perform sts:AssumeRoleWithWebIdentity`로만 나온다. `sub` 조건이 `repo:jovid18/show-gi:ref:refs/heads/main`과 정확히 일치하는지 |
-| **ECS 첫 배포**       | 태스크가 실제로 뜬 적 없음                                      | `aws logs tail /ecs/show-gi`. 비밀 주입 실패는 태스크가 시작조차 못 하는 형태로 나타난다                                                                 |
-| **ACM 발급**          | 검증 레코드가 Route53에 들어가야 완료됨                         | apply가 `aws_acm_certificate_validation`에서 멈춰 있으면 DNS 전파 대기 중이다                                                                            |
-| **RDS + pgvector**    | 인스턴스 생성 전                                                | `CREATE EXTENSION vector` 가 되는지. RDS PostgreSQL 15.2+ 지원이지만 실측 안 함                                                                          |
-| **ALB 헬스체크 경로** | `/healthz`가 web(Caddy)→api로 프록시되는 경로를 실제로 안 타봄  | 타깃이 unhealthy면 Caddy는 살고 api가 죽은 상태일 수 있다                                                                                                |
-| **ECR pull**          | 태스크 실행 역할의 권한을 실제로 안 써봄                        |                                                                                                                                                          |
+| 항목                  | 왜 아직 모르나                                        | 터지면 어디를 보나                                                                                                                                       |
+| --------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **OIDC 신뢰관계**     | `images.yml`이 main 푸시에만 돌아 아직 실행된 적 없음 | 에러가 `Not authorized to perform sts:AssumeRoleWithWebIdentity`로만 나온다. `sub` 조건이 `repo:jovid18/show-gi:ref:refs/heads/main`과 정확히 일치하는지 |
+| **ECS 태스크 기동**   | ECR이 비어 있어 아직 뜬 적 없음                       | `aws ecs describe-services ... --query 'services[0].events[0:3].message'`. 비밀·이미지 문제는 애플리케이션 로그가 아니라 **서비스 이벤트**에 나온다      |
+| **ECR pull**          | 실행 역할 권한을 실제로 써본 적 없음                  | 같은 곳                                                                                                                                                  |
+| **ALB 헬스체크 경로** | `/healthz`가 web(Caddy)→api로 가는 경로를 안 타봄     | 타깃이 unhealthy면 Caddy는 살고 api가 죽은 상태일 수 있다                                                                                                |
+| **pgvector**          | RDS는 떴지만 비공개라 태스크 없이는 못 붙는다         | 첫 태스크가 뜨면 ECS Exec으로 들어가 `CREATE EXTENSION vector`                                                                                           |
+| **스키마**            | 위와 같은 이유로 아직 안 넣음                         | `001_init.sql`                                                                                                                                           |
 
----
-
-## 6. 다음 단계 (순서가 중요)
+## 6. 다음 단계
 
 ```
-① 파라미터 5개 등록          없으면 태스크가 못 뜬다
-② terraform apply            40개 생성. ACM 검증 + RDS 때문에 10분쯤
-③ 스키마 수동 적용            001_init.sql — DDL은 배포가 하지 않는다
-④ PR #2 머지                 → images.yml 첫 실행 → ECS 배포
-⑤ https://show-gi.com 확인
+① PR #2 머지        ← 지금 여기. 사람만 할 수 있다 (룰셋)
+     → images.yml 첫 실행 → ECR에 이미지 → ECS 롤링 배포
+② 태스크가 뜨면 ECS Exec으로 들어가 스키마 적용 + CREATE EXTENSION vector
+③ https://show-gi.com 확인
 ```
 
-**②를 ④보다 먼저 한다.** `images.yml`의 배포 job이 ECS 서비스를 찾는데, 서비스가 없으면 실패해서 CI가 빨개진다.
+머지 외에는 막는 것이 없다. 파라미터·인프라는 준비돼 있다.
 
 절차는 [deploy/README.md](../deploy/README.md).
-
----
 
 ## 7. 열린 결정
 
@@ -133,6 +145,15 @@ terraform -chdir=infra plan   →   40 to add, 0 to change, 0 to destroy
 | `ARMV8_DOTPROD` + clang++ | ❌ 링커(lld) 없음                                             |
 
 즉 **YaneuraOu는 arm64에서 문제없이 빌드된다.** dotprod는 NNUE 추론 속도 최적화라 없어도 된다. 남은 것은 평가함수 파일(水匠, ~60MB)을 이미지에 굽는 일.
+
+**apply에서 실제로 물린 것들** (2026-08-09)
+
+| 증상                                              | 원인                                                                                                                           |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `InvalidParameterValue: Invalid rule description` | 보안그룹 규칙 `description`에 **한글을 넣을 수 없다.** 허용 문자 집합이 정해져 있다                                            |
+| SG 삭제가 ENI 분리에서 실패                       | 보안그룹 `description`은 **불변**이다. 고치면 SG 재생성을 시도하는데 RDS가 붙어 있으면 못 지운다. 문구가 낡아도 두는 편이 싸다 |
+| `ssm:DescribeParameters` 거부                     | 리소스 단위 권한을 지원하지 않는 **계정 단위 API**라 `Resource: "*"`가 필요하다                                                |
+| `iam:AttachRolePolicy` 거부                       | 정책을 ECS용으로 재작성할 때 해당 statement를 통째로 빠뜨렸다. **없는 Sid를 수정하는 스크립트는 조용히 아무것도 하지 않는다**  |
 
 **로컬 8080 포트 충돌**
 

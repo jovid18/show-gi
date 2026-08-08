@@ -11,9 +11,12 @@ resource "aws_security_group" "alb" {
   vpc_id      = data.aws_vpc.default.id
 }
 
+# HTTPS로 넘기기 위한 리다이렉트를 받는다.
+# description에는 ASCII만 넣는다 — AWS가 허용하는 문자 집합이 정해져 있어
+# 한글을 넣으면 InvalidParameterValue로 규칙 생성이 실패한다.
 resource "aws_vpc_security_group_ingress_rule" "alb_http" {
   security_group_id = aws_security_group.alb.id
-  description       = "HTTPS로 넘기기 위한 리다이렉트"
+  description       = "redirect to HTTPS"
   cidr_ipv4         = "0.0.0.0/0"
   from_port         = 80
   to_port           = 80
