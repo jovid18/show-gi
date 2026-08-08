@@ -142,7 +142,11 @@ kb_chunks    (id, title, body, tags text[], source_url, source_license, verified
 - Terraform으로 전부 코드화. Route53 도메인 **[미확정]**
 - 레포는 **퍼블릭**
 
-`../shogi/deploy/terraform`이 거의 같은 구성이라 그대로 가져온다.
+SSH는 **포트를 아예 열지 않는다.** 인스턴스 접속은 SSM Session Manager로 하므로 키 관리도 22번 포트도 없다 — 열려 있지 않은 포트는 공격당하지 않는다.
+
+state는 S3 + DynamoDB 잠금에 둔다. 로컬 state는 날리면 복구가 안 되고, **퍼블릭 레포에서는 실수로 커밋될 위험**도 있다.
+
+절차와 부트스트랩은 [deploy/README.md](../deploy/README.md).
 
 ---
 

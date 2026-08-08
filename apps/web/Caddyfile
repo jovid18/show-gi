@@ -1,0 +1,46 @@
+# 이 파일 하나가 TLS · 정적 서빙 · API/WS 프록시를 전부 맡는다.
+#
+# 앞단에 ALB를 두지 않는 이유: ALB는 TLS는 대신해주지만 정적 서빙과 경로 라우팅은
+# 대신하지 못해서, 결국 박스 안에 프록시가 하나 더 남는다. EKS처럼 ALB가 이미
+# 있는 구성이면 반대 결론이 난다 (docs/02-architecture.md).
+
+{
+	# 인증서 발급 실패를 조용히 넘기지 않는다
+	email {$ACME_EMAIL}
+}
+
+{$SITE_ADDRESS} {
+	encode gzip zstd
+
+	header {
+		# .com은 .app과 달리 브라우저가 HTTPS를 강제해주지 않는다. 직접 건다.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		# 이 앱은 iframe에 들어갈 일이 없다. 부정행위용 오버레이를 구조적으로 막는 것이기도 하다
+		X-Frame-Options DENY
+		-Server
+	}
+
+	# 대국은 WebSocket 하나로 오래 열려 있다. Caddy는 Upgrade 처리와 유휴 타임아웃을
+	# 알아서 하므로 여기 적을 것이 없다 — nginx나 ALB였다면 타임아웃을 손으로 올려야 하고,
+	# 빠뜨리면 플레이어가 한 수를 오래 고민할 때 연결이 끊긴다.
+	handle /ws* {
+		reverse_proxy api:8080
+	}
+
+	handle /api/* {
+		reverse_proxy api:8080
+	}
+
+	handle /healthz {
+		reverse_proxy api:8080
+	}
+
+	# 나머지는 SPA. 새로고침으로 깊은 경로에 들어와도 index.html로 떨어뜨린다.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
