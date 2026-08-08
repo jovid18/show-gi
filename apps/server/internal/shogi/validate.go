@@ -85,6 +85,15 @@ var reasonMessages = map[Reason]string{
 	ReasonLeavesKingInCheck: "その手を指すと自分の玉が取られてしまいます。",
 }
 
+// String 은 사유의 영어 이름이다. 로그와 API 응답의 코드로 쓴다.
+// 화면에 보일 문구는 IllegalMoveError.Message() 쪽이다.
+func (r Reason) String() string {
+	if name, ok := reasonNames[r]; ok {
+		return name
+	}
+	return reasonNames[ReasonUnknown]
+}
+
 // IllegalMoveError 는 불법수와 그 사유다.
 type IllegalMoveError struct {
 	Reason Reason
