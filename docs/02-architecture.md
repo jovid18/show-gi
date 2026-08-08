@@ -5,7 +5,7 @@
 | 항목     | 결정                                                 | 근거                                                                 |
 | -------- | ---------------------------------------------------- | -------------------------------------------------------------------- |
 | 서버     | **Go 단일 서비스**                                   | §2                                                                   |
-| 프론트   | React + TS + Vite                                    | 확정 사항. `../shogi`의 보드/기물 컴포넌트·데이터 재활용             |
+| 프론트   | React + TS + Vite                                    | 확정 사항. 판 렌더는 새로 쓴다 (§8)                                  |
 | 3D       | three.js, **정사영 + 2컷 한정**                      | [프론트엔드](03-frontend.md)                                         |
 | DB       | **PostgreSQL 단일. 그래프 DB 쓰지 않는다**           | §4                                                                   |
 | 엔진     | fairy-stockfish로 시작, `ENGINE_CMD`로 교체 가능하게 | §3                                                                   |
@@ -86,7 +86,8 @@ interventions(id, game_id, ply, category, delta_win, level_bucket, explain_tier,
 skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at)
 explain_cache(key text primary key, body text, model text, hits int)
              -- key = hash(category, level_bucket, piece, 국면특징 버킷)
-kb_chunks    (id, title, body, tags text[], embedding vector(1536))  -- pgvector
+kb_chunks    (id, title, body, tags text[], source_url, source_license, verified_by,
+              embedding vector(1536))  -- pgvector. 출처 없는 chunk는 프롬프트에 붙이지 않는다
 ```
 
 ---
@@ -177,9 +178,10 @@ kb_chunks    (id, title, body, tags text[], embedding vector(1536))  -- pgvector
 | `src/lib/moves.ts`, `src/components/Board.tsx` | 좌표계가 다르고(row/col + 자체 `BoardState`), Board는 **학습용 샌드박스**라 대국용이 아니다. 코드에도 "대국용과 다른 자체 타입"이라 적혀 있다. 합법수는 서버가 준다 |
 | `server/internal/swars/`                       | 将棋ウォーズ 스크래핑. 이 제품에 필요 없고, **외부 대국 연동은 보안 §7 위협 1과 정면으로 어긋난다**                                                                 |
 | `src/pages/Ch0~16`                             | 한국어 강의 콘텐츠. 이 제품은 강의가 아니다                                                                                                                         |
+| **`src/data/*` 전부**                          | 囲い·전법·手筋 데이터. **한 줄도 쓰지 않는다** — 원전이 개인 블로그이고, 手筋 208문은 시판 서적 디지털화다. 퍼블릭 레포에서는 신뢰성 이전에 저작권 문제다           |
 
 참고만 할 것: `src/components/Koma.tsx`(기물 한 글자 렌더), 판 그리드 CSS.
 
 > `../shogi`의 `server/.env`, `deploy/.env.prod`, `terraform.tfstate`는 **절대 딸려오지 않게 한다.** 이 레포는 public이다.
 
-**데이터 파일은 설명문이 한국어다.** 저쪽은 한국인 학습자용이었다. 가져오는 것은 수순·좌표·태그·용어(원래 일본어)뿐이고, **사용자에게 보이거나 LLM에 들어가는 문장은 전부 일본어로 새로 쓴다** — [LLM 계층 §4](04-llm.md#4-rag--축소해서-넣는다).
+**지식 데이터는 전부 새로 만든다.** 수순은 공개 정석 파일 + 자체 엔진 검증, 서술문은 공식 자료와 라이선스가 명확한 소스에서 일본어로 새로 쓴다. 신뢰 계층과 `kb_chunks` 스키마는 [LLM 계층 §4](04-llm.md#4-rag--코퍼스는-처음부터-새로-만든다).
