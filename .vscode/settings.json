@@ -72,7 +72,19 @@
     "tfstate",
     "healthz",
     "msdf",
-    "zenn"
+    "zenn",
+    "sqlc",
+    "gorm",
+    "chdir",
+    "armv",
+    "dotprod",
+    "nnue",
+    "yaneuraou",
+    "fargate",
+    "awsvpc",
+    "awslogs",
+    "ssmmessages",
+    "elbv"
   ],
   // 한글·일본어는 검사하지 않는다. 사전이 없어 문장 전체가 오타로 잡힌다.
   "cSpell.ignoreRegExpList": ["/[\\u3040-\\u30ff\\u3400-\\u9fff\\uac00-\\ud7af]+/g"]

@@ -178,7 +178,6 @@ state는 S3 + DynamoDB 잠금에 둔다. 로컬 state는 날리면 복구가 안
 | **룰 엔진**          | `server/internal/shogi/*`       | 합법수 생성·`ValidateMove`·반칙 전부(二歩, 打ち歩詰め, 行き所のない駒, 王手放置, 강제 승격) + `RepetitionKey`(千日手) + 말 개수 검증. **테스트 13개가 반칙 케이스를 직접 찍는다.** 처음부터 쓰면 이틀치다 |
 | **USI 클라이언트**   | `server/internal/usi/client.go` | 값어치는 기능이 아니라 **방어 코드**다 — fail-high/low 속보 라인 무시, 잘린 PV가 완전한 PV를 덮어쓰지 않게 하는 처리, `USI_Variant` 강제, 프로세스 재기동+옵션 복원. 전부 한 번씩 물려본 흔적이다         |
 | **기보 일본어 표기** | `server/internal/shogi/kifu.go` | `MoveJa`가 USI를 「▲7六歩」「同 銀成」「打」로 바꾼다. **출력이 원래 일본어라 UI에 그대로 나간다** — 저쪽이 한국어 앱이었는데도 이건 손댈 데가 없다                                                       |
-| **인프라 골격**      | `deploy/terraform/`             | al2023 arm64 + EIP + Route53 + SG. 도메인과 볼륨만 갈면 된다                                                                                                                                              |
 
 ### 고쳐서 쓴다
 
@@ -197,6 +196,7 @@ state는 S3 + DynamoDB 잠금에 둔다. 로컬 state는 날리면 복구가 안
 | `src/lib/moves.ts`, `src/components/Board.tsx` | 좌표계가 다르고(row/col + 자체 `BoardState`), Board는 **학습용 샌드박스**라 대국용이 아니다. 코드에도 "대국용과 다른 자체 타입"이라 적혀 있다. 합법수는 서버가 준다 |
 | `server/internal/swars/`                       | 将棋ウォーズ 스크래핑. 이 제품에 필요 없고, **외부 대국 연동은 보안 §7 위협 1과 정면으로 어긋난다**                                                                 |
 | `src/pages/Ch0~16`                             | 한국어 강의 콘텐츠. 이 제품은 강의가 아니다                                                                                                                         |
+| `deploy/terraform/` (EC2·EIP 구성)             | 우리는 ECS Fargate라 자원 구성이 겹치지 않는다                                                                                                                      |
 | **`src/data/*` 전부**                          | 囲い·전법·手筋 데이터. **한 줄도 쓰지 않는다** — 원전이 개인 블로그이고, 手筋 208문은 시판 서적 디지털화다. 퍼블릭 레포에서는 신뢰성 이전에 저작권 문제다           |
 
 참고만 할 것: `src/components/Koma.tsx`(기물 한 글자 렌더), 판 그리드 CSS.

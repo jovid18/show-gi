@@ -18,10 +18,11 @@
 | [03-frontend](docs/03-frontend.md)         | 판 렌더링 방침 · 개입 연출 · 리뷰 화면                                   |
 | [04-llm](docs/04-llm.md)                   | LLM 계층 · OrcaRouter · 비용 3단 캐시 · RAG                              |
 | [05-roadmap](docs/05-roadmap.md)           | D-7 일정 · 발표 구성 · 미결 사항 · 참고 링크                             |
+| [06-status](docs/06-status.md)             | **지금 어디까지 왔나** — 검증된 것 / 안 된 것 / 다음 순서                |
 
 읽는 순서는 번호대로. 하나만 읽는다면 [01-core](docs/01-core.md).
 
-배포 절차는 [deploy/README.md](deploy/README.md).
+작업을 이어받는다면 [06-status](docs/06-status.md)부터. 배포 절차는 [deploy/README.md](deploy/README.md).
 
 ## 원칙 두 가지
 

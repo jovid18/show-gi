@@ -42,7 +42,7 @@ aws iam attach-user-policy --user-name show-gi-operator \
 | 계정 전체 S3 버킷 목록                    | `AccessDenied` — 다른 프로젝트가 안 보인다                 |
 | show-gi 역할에 `AdministratorAccess` 부착 | 거부 — `AttachRolePolicy`가 SSM Core 정책 하나로 묶여 있다 |
 
-마지막 줄이 요점이다. 역할에 아무 정책이나 붙일 수 있으면 최소권한이 의미가 없다 — 그 역할을 EC2에 넘겨 인스턴스에서 관리자 권한을 쓸 수 있기 때문이다. `PassRole`도 `ec2.amazonaws.com`으로만 제한했다.
+마지막 줄이 요점이다. 역할에 아무 정책이나 붙일 수 있으면 최소권한이 의미가 없다 — 그 역할을 태스크에 넘겨 컨테이너 안에서 관리자 권한을 쓸 수 있기 때문이다. `PassRole`도 `ecs-tasks.amazonaws.com`으로만 제한했다.
 
 액세스 키는 `~/.aws/credentials`의 `[show-gi]` 프로파일에 있다. **키를 레포에 커밋하거나 채팅에 붙여넣지 않는다.**
 
@@ -87,11 +87,13 @@ terraform plan
 terraform apply
 ```
 
-`terraform output connect`가 인스턴스 접속 명령을 알려준다.
+ACM 인증서 검증과 RDS 생성 때문에 10분쯤 걸린다. `aws_acm_certificate_validation`에서 오래 멈춰 있으면 DNS 전파를 기다리는 중이다.
+
+**파라미터를 먼저 등록해야 한다(§2).** 태스크 정의가 `/show-gi/prod/*`를 `secrets`로 참조하므로, 없으면 태스크가 시작조차 못 한다.
 
 ## 2. 환경변수 등록 (한 번, 값이 바뀔 때마다)
 
-배포용 값은 **SSM Parameter Store**에 둔다. 서버 디스크에 평문 `.env`를 두지 않기 위한 것이고, 인스턴스를 다시 만들어도 비밀을 손으로 옮길 필요가 없다.
+배포용 값은 **SSM Parameter Store**에 둔다. ECS 태스크 정의가 `secrets`로 참조해 컨테이너에 직접 주입하므로, 값이 어느 디스크에도 남지 않고 로그에도 찍히지 않는다.
 
 Secrets Manager를 쓰지 않은 이유는 단순하다 — 우리에게 필요한 건 로테이션이 아니라 보관이고, Parameter Store의 표준 파라미터는 무료다.
 
@@ -198,13 +200,29 @@ docker compose logs -f web                      # 인증서 발급 로그
 
 ## 자주 물리는 곳
 
-**인증서가 안 나온다.** Caddy가 `show-gi.com`으로 요청을 받아야 발급이 된다. DNS가 아직 이 서버를 안 가리키거나, 80번 포트가 막혀 있으면 ACME 챌린지가 실패한다. `dig show-gi.com +short`로 EIP와 맞는지 먼저 본다.
+**태스크가 시작하자마자 죽는다.** 대부분 비밀 주입 실패다. `secrets`에 적힌 파라미터가 하나라도 없으면 ECS는 컨테이너를 띄우지 못하고, 그 실패는 애플리케이션 로그가 아니라 **태스크 중지 이유**에 남는다.
 
-**인증서를 반복해서 못 받는다.** Let's Encrypt는 **같은 도메인에 주당 5회** 발급 실패 한도가 있다. `caddy-data` 볼륨을 지우고 재시작을 반복하면 여기 걸린다 — 볼륨은 그대로 두고 로그부터 읽는다.
+```sh
+aws ecs describe-tasks --cluster show-gi --tasks <task-id> \
+  --query 'tasks[0].{stopped:stoppedReason,containers:containers[].reason}' \
+  --region ap-northeast-1 --profile show-gi
+```
 
-**스키마를 고쳤는데 반영이 안 된다.** `docker-entrypoint-initdb.d`의 SQL은 **데이터 볼륨이 비어 있을 때만** 실행된다. 개발 중이면 `docker compose down -v`, 운영이면 `002_*.sql`을 새로 만든다.
+**타깃이 unhealthy다.** 헬스체크는 `/healthz`인데 이 경로는 web(Caddy)이 api로 프록시한다. 즉 **api가 죽으면 unhealthy가 된다** — 의도한 것이다. 어느 컨테이너가 문제인지는 로그 스트림 접두어(`web` / `api`)로 갈린다.
+
+```sh
+aws logs tail /ecs/show-gi --follow --region ap-northeast-1 --profile show-gi
+```
+
+**인증서가 안 나온다.** ACM은 DNS 검증이라 Route53에 검증 레코드가 들어가야 한다. Terraform이 자동으로 넣지만, 호스팅 존이 둘이면 엉뚱한 존에 들어가 영원히 검증되지 않는다 — 도메인 등록 시 자동 생성된 존 하나만 있어야 한다.
+
+**WebSocket이 몇 분 뒤 끊긴다.** ALB의 `idle_timeout`이다. 900초로 올려뒀는데, 그보다 오래 생각하는 대국이 있으면 더 올린다.
+
+**스키마를 고쳤는데 반영이 안 된다.** DDL은 배포가 하지 않는다. 사람이 넣는다(§4).
 
 **엔진이 안 뜬다.** `fairy-stockfish`는 데비안에서 `/usr/games`에 깔리고 그 경로는 기본 PATH에 없다. Dockerfile이 PATH를 넣어주고 있으니, 직접 실행해볼 때만 주의하면 된다.
+
+**로컬에서 8080이 안 잡힌다.** `../shogi` 프로젝트 컨테이너가 쓰고 있다. `cd ../shogi && docker compose down`.
 
 ---
 
