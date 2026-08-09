@@ -15,8 +15,31 @@ export interface Destination {
   promote: boolean;
 }
 
+/**
+ * USI 한 수를 풀어 놓은 것.
+ *
+ * **규칙 판단이 아니라 문자열 해석이다.** 둘 수 있는 수인지는 여기서 알 수 없고 알 필요도
+ * 없다 — 합법수는 서버가 목록으로 주고, 물러진 수는 서버가 이미 판정을 끝낸 것이다.
+ */
+export type ParsedMove =
+  | { kind: 'board'; from: string; to: string; promote: boolean }
+  | { kind: 'drop'; piece: string; to: string };
+
 const DROP = /^([PLNSGBR])\*([1-9][a-i])$/;
 const BOARD = /^([1-9][a-i])([1-9][a-i])(\+?)$/;
+
+/** 읽을 수 없으면 null. 판 전체를 못 그리게 되는 것보다 그 한 수를 버리는 편이 낫다. */
+export function parseUsi(usi: string): ParsedMove | null {
+  const drop = DROP.exec(usi);
+  if (drop?.[1] && drop[2]) {
+    return { kind: 'drop', piece: drop[1], to: drop[2] };
+  }
+  const board = BOARD.exec(usi);
+  if (board?.[1] && board[2]) {
+    return { kind: 'board', from: board[1], to: board[2], promote: board[3] === '+' };
+  }
+  return null;
+}
 
 /**
  * 합법수를 출발점별로 묶는다.
@@ -40,17 +63,10 @@ export function groupByOrigin(legalMoves: readonly string[]): Map<Origin, Destin
   };
 
   for (const usi of legalMoves) {
-    const drop = DROP.exec(usi);
-    if (drop) {
-      const [, kind, to] = drop;
-      if (kind && to) put(`${kind}*`, to, false);
-      continue;
-    }
-    const board = BOARD.exec(usi);
-    if (board) {
-      const [, from, to, plus] = board;
-      if (from && to) put(from, to, plus === '+');
-    }
+    const move = parseUsi(usi);
+    if (!move) continue;
+    if (move.kind === 'drop') put(`${move.piece}*`, move.to, false);
+    else put(move.from, move.to, move.promote);
   }
 
   return new Map([...grouped].map(([origin, dests]) => [origin, [...dests.values()]]));

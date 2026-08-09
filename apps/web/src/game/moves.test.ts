@@ -1,6 +1,25 @@
 import { describe, expect, it } from 'vitest';
 
-import { groupByOrigin, toUsiMove } from './moves';
+import { groupByOrigin, parseUsi, toUsiMove } from './moves';
+
+describe('parseUsi', () => {
+  it('반상의 수는 출발·도착·승격으로 갈린다', () => {
+    expect(parseUsi('7g7f')).toEqual({ kind: 'board', from: '7g', to: '7f', promote: false });
+    // 개입 연출이 되짚는 것이 이 모양이다 — ▲3三角成
+    expect(parseUsi('8h3c+')).toEqual({ kind: 'board', from: '8h', to: '3c', promote: true });
+  });
+
+  it('打은 출발 칸이 없다', () => {
+    expect(parseUsi('P*5e')).toEqual({ kind: 'drop', piece: 'P', to: '5e' });
+  });
+
+  it('읽을 수 없으면 null', () => {
+    // 물러진 수를 못 읽었다고 판이 안 그려지면 안 된다
+    expect(parseUsi('nonsense')).toBeNull();
+    expect(parseUsi('7g7z')).toBeNull();
+    expect(parseUsi('K*5e')).toBeNull(); // 玉은 持ち駒가 되지 않는다
+  });
+});
 
 describe('groupByOrigin', () => {
   it('반상의 수를 출발칸별로 묶는다', () => {
