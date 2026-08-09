@@ -166,6 +166,45 @@ aws ecs execute-command --cluster show-gi --container api \
 
 `apps/server/internal/store/migrations/*.sql`이 **정본**이다. 손으로 넣더라도 넣은 것과 같은 내용이 레포에 있어야 한다 — 새 환경을 세울 때, 그리고 코드 생성기가 읽을 때 이 파일들이 기준이 된다.
 
+### 절차 — 다섯 줄
+
+|     |                                                                                                                |
+| --- | -------------------------------------------------------------------------------------------------------------- |
+| 1   | 질의를 `apps/server/internal/store/migrations/NNN_이름.sql` 에 넣고 **PR로 올린다.** 실행 기록이 곧 히스토리다 |
+| 2   | **실행은 DB 클라이언트로 직접 한다** (DataGrip 등, [아래](#스키마를-넣는-법--노트북에서-직접) 접속 정보)       |
+| 3   | 그 PR에는 **`migration` 라벨**이 붙는다 — 경로를 보고 자동으로 붙으므로 손댈 것이 없다                         |
+| 4   | **PR 본문에 실행해야 할 파일명을 적는다.** 파일명만이면 된다                                                   |
+| 5   | 순서는 **스키마 먼저, 머지 나중**                                                                              |
+
+번호는 **적용 순서**다. 파일 이름이 곧 정렬 순서이므로 별도의 순서표를 두지 않는다.
+
+4번이 필요한 이유는, PR을 나중에 다시 볼 때 **"이 변경이 DB를 건드렸는가"를 diff로 찾게 하지 않기 위해서**다. 라벨이 있다는 것과 무엇을 돌려야 했는지는 다른 정보다.
+
+> **어느 마이그레이션이 적용됐는지 기록하는 곳이 없다.** 지금은 파일이 몇 개뿐이라 사람이 기억하면 되고, 이미 적용된 것을 다시 돌리면 시끄럽게 실패하므로(`relation ... already exists`) 사고로 이어지지는 않는다. 파일이 늘면 `schema_migrations` 테이블이 필요하다. **[미확정]**
+
+### 컨테이너 안에서 돌리지 않는다 — 넣지 말 것
+
+**지금 그런 코드는 없다.** 확인한 자리는 넷이고, 새로 넣지 않는 한 계속 없다.
+
+| 자리                           | 상태                                                                 |
+| ------------------------------ | -------------------------------------------------------------------- |
+| `apps/server/Dockerfile`       | `CMD ["api", …]` — 바이너리 직행. 진입 스크립트도 `.sql` 복사도 없다 |
+| `cmd/api/main.go`              | DB는 `Open` → `Ping` 뿐이다                                          |
+| `docker-compose.yml` 의 db     | `/docker-entrypoint-initdb.d` 를 **안 마운트한다** (아래)            |
+| `.github/workflows/server.yml` | CI 테스트용 DB에만 적용한다. 프로덕션과 무관                         |
+
+기동 스크립트나 배포 파이프가 마이그레이션을 실행하는 방식은 **앞으로도 쓰지 않는다.**
+
+> **`/docker-entrypoint-initdb.d` 는 우리가 켠 것이 아니라 postgres 이미지의 기본 동작이다.** `docker-entrypoint.sh` 가 거기 있는 `.sql`·`.sh` 를 알파벳 순으로 실행한다. 그래서 「로컬 편하게 하자」고 마이그레이션을 걸어두기 쉬운 자리인데, **데이터 디렉터리가 비어 있을 때만 돈다**(`if [ -z "$DATABASE_ALREADY_EXISTS" ]`).
+>
+> 새로 clone한 사람은 스키마가 들어가고 **기존 볼륨을 가진 사람은 안 들어가는데 에러도 안 난다.** 「내 컴퓨터에선 되는데」가 정확히 그렇게 만들어진다.
+
+- 되돌릴 수 없는 변경이 **아무도 안 보는 사이에** 실행된다. 컬럼 삭제 한 줄이 머지되는 순간 데이터가 사라지고, 그때 롤백할 수 있는 것은 코드뿐이다
+- 태스크가 여러 개면 **같은 DDL이 동시에 여러 번** 돈다
+- 실패하면 기동 실패로 나타나서, 스키마 문제인지 앱 문제인지가 로그에서 갈리지 않는다
+
+아래의 일회용 ECS 태스크는 **접근이 막혔을 때의 대비책**으로만 남긴다. 평소 경로가 아니다.
+
 ## 엔진이 떴는지 보는 법
 
 `/healthz` 는 **엔진이 없어도 200이다.** 여기서 실패를 내면 ECS가 태스크를 죽이고 재시작을 반복해 사이트 전체가 내려가기 때문이다. 대신 필드로 드러낸다.
@@ -189,9 +228,39 @@ aws iam create-policy-version \
   --set-as-default --profile <관리자 프로파일>
 ```
 
-### 스키마를 넣는 법 — 일회용 태스크
+### 스키마를 넣는 법 — 노트북에서 직접
 
-RDS는 인터넷에 열려 있지 않다(`publicly_accessible = false`). 노트북에서 직접 못 붙는다.
+**RDS에 노트북에서 바로 붙는다.** `publicly_accessible = true` 이고, 들어올 수 있는 것은 보안그룹에 등록된 주소(`admin_cidr`)와 태스크 보안그룹뿐이다.
+
+접속 정보를 한 번에 뽑는다. **접속 문자열의 비밀번호는 URL 인코딩되어 있으므로**(`rds.tf` 가 `urlencode` 를 건다) GUI 클라이언트에 넣을 때는 디코딩된 값이 필요하다.
+
+```sh
+aws ssm get-parameter --name /show-gi/prod/DATABASE_URL --with-decryption \
+  --profile show-gi --region ap-northeast-1 --query Parameter.Value --output text \
+| python3 -c "
+import sys, urllib.parse as u
+p = u.urlsplit(sys.stdin.read().strip())
+print('Host    ', p.hostname); print('Port    ', p.port)
+print('Database', p.path.lstrip('/')); print('User    ', p.username)
+print('Password', u.unquote(p.password))
+"
+```
+
+`psql` 은 접속 문자열을 그대로 받는다(libpq가 디코딩한다).
+
+```sh
+psql "$(aws ssm get-parameter --name /show-gi/prod/DATABASE_URL --with-decryption \
+  --profile show-gi --region ap-northeast-1 --query Parameter.Value --output text)" \
+  -v ON_ERROR_STOP=1 -f apps/server/internal/store/migrations/002_anonymous_games.sql
+```
+
+> **`psql` 이 없어도 된다.** GUI 클라이언트(DataGrip 등)로 붙어 `.sql` 파일을 그대로 실행하면 같은 일이다. SSL은 **필수**다 — 서버가 `rds.force_ssl` 로 강제하므로 끄면 거부당한다.
+
+> **공인 IP가 바뀌면 못 붙는다.** `infra/terraform.tfvars` 의 `admin_cidr` 을 고치고 apply 한다(보안그룹 규칙 하나라 수십 초). 그 파일은 `.gitignore` 가 막는다 — **퍼블릭 레포라 IP를 커밋하면 그대로 공개된다.**
+
+### 그래도 남겨두는 길 — 일회용 태스크
+
+위 통로가 막혔을 때(집 밖에서 작업, IP를 아직 등록 안 함) 쓴다. **다만 조회에는 못 쓴다** — 결과가 CloudWatch로만 나가는데 운영자 정책에 로그 읽기 권한이 없다([상태 문서](../docs/06-status.md) §7). 넣을 수는 있고 볼 수는 없다.
 
 **ECS Exec으로 앱 컨테이너에 들어가는 방법도 있지만 `session-manager-plugin` 설치가 필요하고, 그 설치에는 sudo가 든다.** 아래 방법은 아무것도 안 깔고 되며, 실제로 초기 스키마를 이렇게 넣었다.
 
@@ -202,7 +271,9 @@ SUBNETS=$(aws ec2 describe-subnets --profile show-gi --region ap-northeast-1 \
   --filters "Name=default-for-az,Values=true" --query 'Subnets[].SubnetId' --output text | tr '\t' ',')
 SG=$(aws ec2 describe-security-groups --profile show-gi --region ap-northeast-1 \
   --filters "Name=group-name,Values=show-gi-task" --query 'SecurityGroups[0].GroupId' --output text)
-URL='https://raw.githubusercontent.com/jovid18/show-gi/main/apps/server/internal/store/migrations/002_something.sql'
+# **브랜치 이름을 쓴다.** 「스키마를 먼저, 배포를 나중에」(아래 순서)를 지키려면
+# 아직 main에 없는 파일을 받아야 하고, main을 가리키면 그 시점에 404다.
+URL='https://raw.githubusercontent.com/jovid18/show-gi/<브랜치>/apps/server/internal/store/migrations/002_something.sql'
 
 aws ecs run-task --cluster show-gi --task-definition show-gi-migrate --launch-type FARGATE \
   --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SG],assignPublicIp=ENABLED}" \

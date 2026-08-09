@@ -2,6 +2,15 @@ server:
   - changed-files:
       - any-glob-to-any-file: 'apps/server/**'
 
+# **손으로 적용해야 하는 것이 있다는 표시다.** 배포는 DDL을 돌리지 않으므로(deploy/README.md §4)
+# 이 라벨이 붙은 PR은 머지 전에 사람이 DB에 붙어 파일을 실행해야 한다.
+#
+# 경로로 붙인다 — 사람이 기억해서 붙이는 라벨은 바쁠 때 빠지고, 빠지면 스키마가 없는 채로
+# 새 코드가 뜬다. 마이그레이션 파일이 들어온 PR에는 예외 없이 붙는다.
+migration:
+  - changed-files:
+      - any-glob-to-any-file: 'apps/server/internal/store/migrations/**'
+
 web:
   - changed-files:
       - any-glob-to-any-file: 'apps/web/**'

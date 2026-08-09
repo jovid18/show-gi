@@ -38,6 +38,29 @@ resource "aws_vpc_security_group_ingress_rule" "db_from_app" {
   ip_protocol                  = "tcp"
 }
 
+# 운영자 노트북에서 직접 붙는 통로.
+#
+# **NAT나 bastion이 필요한 상황이 아니다.** RDS가 default VPC의 default 서브넷에 있고
+# 그 서브넷은 이미 IGW가 붙은 퍼블릭 서브넷이라(Fargate를 assignPublicIp=ENABLED로
+# 띄우는 것과 같은 이유), 막고 있는 것은 `publicly_accessible` 과 이 규칙뿐이다.
+# NAT는 프라이빗 서브넷의 **아웃바운드**용이라 여기에 끼지 않는다.
+#
+# **실질 방어선은 이 규칙이다.** 여기 없는 주소는 포트에 닿지도 못한다. 비밀번호는
+# 그 다음 겹이다.
+#
+# admin_cidr 이 없으면 규칙 자체가 안 생긴다 — 값을 안 준 apply가 통로를 열어두지
+# 않는다. 반대로 **값을 안 주고 apply하면 이미 있던 규칙이 지워진다.** 그게 의도다.
+resource "aws_vpc_security_group_ingress_rule" "db_from_admin" {
+  count = var.admin_cidr == null ? 0 : 1
+
+  security_group_id = aws_security_group.db.id
+  description       = "postgres from the operator laptop"
+  cidr_ipv4         = var.admin_cidr
+  from_port         = 5432
+  to_port           = 5432
+  ip_protocol       = "tcp"
+}
+
 resource "aws_db_instance" "main" {
   identifier     = "show-gi"
   engine         = "postgres"
@@ -54,8 +77,16 @@ resource "aws_db_instance" "main" {
 
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.db.id]
-  # 인터넷에서 직접 붙을 수 없다. 접근 경로는 앱 인스턴스뿐이다
-  publicly_accessible = false
+
+  # **공개 엔드포인트를 준다. 누가 닿을 수 있는지는 보안그룹이 정한다.**
+  #
+  # 닫아두면 프로덕션 데이터를 보거나 고칠 방법이 일회용 ECS 태스크뿐인데, 그 방식은
+  # 조회 결과가 CloudWatch로만 나가고 지금 운영자 정책에는 로그 읽기 권한이 없다
+  # (docs/06-status.md §7). 즉 **넣을 수는 있고 볼 수는 없는** 상태가 된다.
+  #
+  # 담기는 것이 본인 대국 기록이고, 접근이 단일 IP로 제한되며, 대회가 끝나면 통째로
+  # 지운다는 세 조건에서 감수한다. 운영 서비스라면 반대로 둔다.
+  publicly_accessible = true
 
   # 7일치는 무료다. 이게 RDS로 옮기는 이유의 절반이다 —
   # 시점 복구가 되면 잘못된 마이그레이션도 되돌릴 수 있다

@@ -40,12 +40,16 @@ terraform -chdir=infra fmt -check && terraform -chdir=infra validate
 **`go test` 만으로는 다 안 돈다.** DB·엔진 테스트는 환경변수가 없으면 **조용히 skip 되고 초록으로 보인다.** 무엇이 필요한지는 [apps/server/README.md](apps/server/README.md)에 표로 있다.
 
 ```sh
-docker compose up -d db && docker exec -i show-gi-db psql -U showgi -d showgi \
-  -v ON_ERROR_STOP=1 < apps/server/internal/store/migrations/001_init.sql
+docker compose up -d db
+for f in apps/server/internal/store/migrations/*.sql; do   # 번호 순서대로 전부
+  docker exec -i show-gi-db psql -U showgi -d showgi -v ON_ERROR_STOP=1 < "$f"
+done
 SHOWGI_TEST_DATABASE_URL='postgres://showgi:showgi@localhost:5432/showgi' go test -race ./...
 ```
 
 **스키마나 질의를 고치면 `go tool sqlc generate`.** `internal/store/db/`는 생성물이라 손으로 고치지 않는다.
+
+**마이그레이션은 배포가 돌리지 않는다.** 파일을 `internal/store/migrations/`에 넣어 PR로 올리고, **실행은 DB 클라이언트로 사람이 직접 한다.** `migration` 라벨은 경로를 보고 자동으로 붙고, **PR 본문에 실행해야 할 파일명을 적는다.** 절차는 [deploy/README.md](deploy/README.md) §4.
 
 로컬에서 앱을 띄울 때는 `docker compose up -d`(api + db) 후 `pnpm dev`. **`../shogi` 컨테이너가 8080을 잡고 있으면 실패한다** — 그쪽을 먼저 내린다.
 

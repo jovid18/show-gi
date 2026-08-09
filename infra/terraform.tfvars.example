@@ -1,0 +1,9 @@
+# 이 파일을 terraform.tfvars 로 복사하고 값을 채운다.
+#
+# terraform.tfvars 는 .gitignore 가 막는다 — **퍼블릭 레포라 IP를 커밋하면 그대로
+# 공개된다.** 여기(.example)에는 문서용 예시 주소만 둔다(RFC 5737 TEST-NET).
+#
+#   curl -s https://checkip.amazonaws.com     # 지금 공인 IP
+#
+# 비워 두면 노트북에서 RDS로 들어오는 통로가 안 열린다.
+admin_cidr = "203.0.113.9/32"

@@ -98,6 +98,10 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.opts.NewAnalyst != nil {
 		cfg.Analyst = h.opts.NewAnalyst()
 	}
+	// DB가 없으면 기록하지 않고 대국은 그대로 된다 — 엔진·캐시와 같은 판단이다.
+	if h.opts.Store != nil {
+		cfg.Recorder = newDBRecorder(ctx, h.opts.Store, h.opts.Level)
+	}
 	sess, err := game.New(ctx, cfg)
 	if err != nil {
 		log.Printf("ws: cannot start session: %v", err)
