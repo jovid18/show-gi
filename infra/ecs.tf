@@ -111,6 +111,18 @@ resource "aws_iam_role_policy" "task_exec_channel" {
 # ─── 태스크 ─────────────────────────────────────────────────
 
 resource "aws_ecs_task_definition" "app" {
+  # 옛 리비전을 지우지 않는다.
+  #
+  # 기본값은 새 리비전을 만들면서 예전 것을 deregister 하는데, 그러면 두 가지가 깨진다.
+  # ① **롤백 경로가 사라진다** — 런북의 "이전 리비전으로 서비스를 돌린다"가
+  #    INACTIVE 리비전을 가리키게 된다.
+  # ② apply 직후 잠깐, 서비스가 가리키는 리비전이 INACTIVE가 된다. 그 사이 태스크가
+  #    죽으면 ECS가 새 태스크를 못 띄운다.
+  #
+  # 배포 워크플로가 Terraform 밖에서 리비전을 계속 쌓으므로, 여기서 정리하려 해봐야
+  # 자기가 만든 하나만 지운다. 얻는 것 없이 위 둘만 잃는다.
+  skip_destroy = true
+
   family                   = "show-gi"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
@@ -150,9 +162,15 @@ resource "aws_ecs_task_definition" "app" {
       essential    = true
       portMappings = [{ containerPort = 8080, protocol = "tcp" }]
 
-      environment = [
-        { name = "ENGINE_CMD", value = "fairy-stockfish" },
-      ]
+      # **ENGINE_CMD 를 여기 두지 않는다.** 엔진 실행 경로는 이미지 내부 구조라
+      # Terraform이 알 수 없는 값이고, 태스크 정의의 environment 는 이미지의 ENV 를
+      # 덮어쓴다. 양쪽에 적어두면 이미지를 바꿀 때 조용히 어긋난다 —
+      # 실제로 엔진을 やねうら王로 바꾼 배포에서 여기 남아 있던 `fairy-stockfish` 가
+      # 이겨서, 배포는 성공했는데 대국만 안 되는 상태가 됐다.
+      #
+      # 운영 손잡이(ENGINE_POOL_SIZE·ENGINE_HASH_MB 등)는 여기 둬도 된다.
+      # 이미지 안에 없는 값이라 덮어쓸 대상이 없다.
+      environment = []
 
       # **여기가 env.sh를 대체하는 지점이다.** ECS가 Parameter Store에서 읽어
       # 컨테이너에 직접 넣는다. 값이 디스크에 남지 않고, 로그에도 안 찍힌다.

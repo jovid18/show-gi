@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/jovid18/show-gi/apps/server/internal/game"
 )
 
 func TestHealthz(t *testing.T) {
@@ -18,13 +20,37 @@ func TestHealthz(t *testing.T) {
 	}
 
 	var body struct {
-		OK bool `json:"ok"`
+		OK     bool `json:"ok"`
+		Engine bool `json:"engine"`
 	}
 	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	if !body.OK {
 		t.Errorf("ok = false, want true")
+	}
+	// 엔진 없이 만든 Handler다. 200이되 engine 은 false여야 한다 —
+	// 여기가 true면 "배포는 성공했는데 대국만 안 되는" 상태를 다시 못 잡는다.
+	if body.Engine {
+		t.Errorf("engine = true, want false (엔진 없이 만든 Handler)")
+	}
+}
+
+// 엔진이 있으면 engine:true 여야 한다. 배포 워크플로가 이 값을 보고 막는다.
+func TestHealthzReportsEngine(t *testing.T) {
+	h := Handler(Options{NewOpponent: func() game.Opponent { return &scriptedOpponent{} }})
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	var body struct {
+		Engine bool `json:"engine"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !body.Engine {
+		t.Error("engine = false, want true")
 	}
 }
 

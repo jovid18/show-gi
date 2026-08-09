@@ -34,8 +34,15 @@ func Handler(opts Options) http.Handler {
 	mux := http.NewServeMux()
 
 	// 로드밸런서와 배포 스크립트가 보는 곳. 인증 뒤에 두지 않는다.
+	//
+	// **엔진이 없어도 200이다.** 여기서 실패를 내면 ECS가 태스크를 죽이고 재시작을
+	// 반복해 사이트 전체가 내려간다. 대신 `engine` 필드로 상태를 드러낸다 —
+	// 없으면 "배포는 성공했는데 대국만 안 되는" 상태를 아무도 못 알아챈다.
+	// 실제로 한 번 그렇게 됐다(엔진 교체 배포에서 태스크 정의의 낡은 ENGINE_CMD가
+	// 이미지의 값을 덮어썼다). 배포 워크플로가 이 필드를 확인한다.
+	engineReady := opts.NewOpponent != nil
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "engine": engineReady})
 	})
 
 	if opts.NewOpponent != nil {
