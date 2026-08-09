@@ -109,6 +109,57 @@ func (pos *Position) IsAttacked(sq int, by Color) bool {
 	return false
 }
 
+// AttackCount: sq를 노리는 by 색 말의 개수.
+//
+// IsAttacked 가 「있는가」라면 이쪽은 「몇 개인가」다. 玉 주변의 攻め와 守り를 견줄 때
+// bool로는 「지키던 말이 하나 줄었다」가 안 보인다 — 0이 되기 전까지 아무 일도 없는 것이
+// 되어버린다.
+//
+// **자기 말이 있는 칸도 센다**(attackTargets 와 같은 규칙). 방어 利き을 세는 것이
+// 이 함수의 용도이므로, 지키는 말 위의 利き을 빼면 셀 것이 없어진다.
+//
+// 핀은 보지 않는다. 「그 말이 실제로 갈 수 있는가」가 아니라 「노리고 있는가」를 세는
+// 것이고, 후자가 玉의 안전을 재는 데 쓰는 값이다.
+func (pos *Position) AttackCount(sq int, by Color) int {
+	n := 0
+	for s := 0; s < 81; s++ {
+		p := pos.Board[s]
+		if p.Empty() || p.Color() != by {
+			continue
+		}
+		pos.attackTargets(s, func(to int) bool {
+			if to == sq {
+				n++
+				return false
+			}
+			return true
+		})
+	}
+	return n
+}
+
+// Neighbors8 은 sq 를 둘러싼 8칸이다. 판 밖은 빠지므로 모서리에서는 3칸이다.
+//
+// 玉 주변의 넓이를 여기서 한 번만 정한다 — 부르는 쪽마다 8방향을 다시 적으면
+// 「玉 주변」의 뜻이 조금씩 갈린다.
+func Neighbors8(sq int) []int {
+	row, col := sq/9, sq%9
+	out := make([]int, 0, 8)
+	for dr := -1; dr <= 1; dr++ {
+		for dc := -1; dc <= 1; dc++ {
+			if dr == 0 && dc == 0 {
+				continue
+			}
+			r, c := row+dr, col+dc
+			if r < 0 || r > 8 || c < 0 || c > 8 {
+				continue
+			}
+			out = append(out, r*9+c)
+		}
+	}
+	return out
+}
+
 func (pos *Position) KingSquare(c Color) int {
 	target := MakePiece(King, c)
 	for s := 0; s < 81; s++ {

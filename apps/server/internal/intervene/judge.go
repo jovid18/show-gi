@@ -75,6 +75,10 @@ type Input struct {
 	// MateAfter 는 착수 후에도 남아 있는 詰み 거리. 없으면 0.
 	MateAfter int
 
+	// Features 는 카테고리를 정하는 국면 사실들이다. 비어 있으면(Known=false)
+	// 판정은 그대로 돌고 카테고리만 other 가 된다 — 개입이 카테고리에 매이지 않는다.
+	Features Features
+
 	Level Level
 }
 
@@ -86,6 +90,8 @@ type Verdict struct {
 	DeltaWin float64
 	// LostMate 는 종반 판정으로 걸렸는가. 설명 문구가 갈린다.
 	LostMate bool
+	// Category 는 **왜** 나쁜가다. Kind 가 KindNone 이면 비어 있다.
+	Category Category
 }
 
 // JudgeMatePlies 는 **판정에 쓰는** 詰み 거리의 상한이다.
@@ -110,6 +116,7 @@ func Judge(in Input) Verdict {
 				Kind:     KindBlunder,
 				DeltaWin: WinRate(in.BestCp) - WinRate(in.AfterCp),
 				LostMate: true,
+				Category: classify(in, true),
 			}
 		}
 		return Verdict{}
@@ -117,7 +124,7 @@ func Judge(in Input) Verdict {
 
 	delta := WinRate(in.BestCp) - WinRate(in.AfterCp)
 	if delta > in.Level.Threshold() {
-		return Verdict{Kind: KindBlunder, DeltaWin: delta}
+		return Verdict{Kind: KindBlunder, DeltaWin: delta, Category: classify(in, false)}
 	}
 	return Verdict{}
 }

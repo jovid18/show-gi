@@ -85,6 +85,10 @@ type Analyst interface {
 // Intervention 은 제지형 개입 하나다. 스냅샷에 실려 화면으로 간다.
 type Intervention struct {
 	Kind string `json:"kind"` // "blunder"
+	// Category 는 **왜** 나쁜가다(intervene.Category). 화면은 이걸로 문장을 짓지 않고
+	// Message 를 그대로 그린다 — 표기가 두 벌이 되지 않게. 나중에 DB의
+	// interventions.category 와 약점 프로파일이 이 값을 쓴다.
+	Category string `json:"category"`
 	// RetractedUSI 는 물러진 수. **개입 없는 순수 실력 신호**라 나중에 DB로 간다
 	// (game_moves.retracted_usi).
 	RetractedUSI string `json:"retractedUsi"`
@@ -412,6 +416,7 @@ func (st *state) rollback(r judgeResult) {
 
 	st.intervention = &Intervention{
 		Kind:         string(r.verdict.Kind),
+		Category:     string(r.verdict.Category),
 		RetractedUSI: r.move.USI,
 		RetractedJa:  r.move.Ja,
 		DeltaWin:     r.verdict.DeltaWin,
@@ -420,17 +425,30 @@ func (st *state) rollback(r judgeResult) {
 	}
 }
 
-// interventionMessage 는 화면에 나갈 일본어 문구다.
+// categoryMessages 는 카테고리별 일본어 문구다.
 //
 // **최선수를 말하지 않는다**(§1). 「왜 나쁜가」까지이고, 어느 수를 뒀어야 했는지는
-// 알려주지 않는다 — 짚어주는 순간 플레이어는 생각을 멈춘다.
+// 알려주지 않는다 — 짚어주는 순간 플레이어는 생각을 멈춘다. 그래서 어느 문구도
+// 수를 짚지 않고 **무엇을 보라**까지만 말한다.
 //
-// LLM이 붙기 전까지의 고정 문구다. 판단은 여기까지 이미 끝나 있고 LLM은 이 사실을
-// 문장으로 바꾸는 일만 하게 된다(D5).
+// LLM이 붙기 전까지의 고정 문구다. 판단은 여기까지 이미 끝나 있고, LLM은 이 사실을
+// 그 사람의 수준에 맞는 문장으로 바꾸는 일만 하게 된다(D5).
+var categoryMessages = map[intervene.Category]string{
+	intervene.CategoryMissedMate:    "詰みがありました。今の手で逃してしまいます。",
+	intervene.CategoryHangsPiece:    "その駒は取り返せない場所に置かれています。相手の利きを確かめてみてください。",
+	intervene.CategoryShallowTrap:   "一手だけ見ると得に見えますが、その先で形勢が入れ替わります。",
+	intervene.CategoryGreedyCapture: "駒は取れますが、払う代償のほうが大きくなります。",
+	intervene.CategoryIdleCheck:     "王手はかかりますが続きがなく、手番を渡すだけになります。",
+	intervene.CategoryKingExposed:   "自玉のまわりが手薄になり、相手の攻めが届きます。",
+}
+
+// interventionMessage 는 화면에 나갈 일본어 문구다.
 func interventionMessage(v intervene.Verdict) string {
-	if v.LostMate {
-		return "詰みがありました。今の手で逃してしまいます。"
+	if m, ok := categoryMessages[v.Category]; ok {
+		return m
 	}
+	// 미분류. **틀린 이유를 지어내지 않는다** — 형세가 나빠졌다는 것만은 확실하고,
+	// 그 이상은 모르므로 그 이상 말하지 않는다.
 	return "その手は形勢を大きく損ねます。もう一度考えてみてください。"
 }
 

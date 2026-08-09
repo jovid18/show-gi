@@ -22,6 +22,14 @@ export interface KifuMove {
  */
 export interface Intervention {
   kind: 'blunder';
+  /**
+   * **왜** 나쁜가. 서버가 결정적 룰로 정한다(docs/01-core.md §3).
+   *
+   * 화면은 이걸로 문장을 짓지 않는다 — 문구는 `message`에 이미 들어 있고, 두 벌이
+   * 되면 어긋났을 때 어느 쪽이 맞는지 알 수 없다. 연출을 카테고리별로 갈라야 할 때
+   * 쓰는 자리다. 서버가 새 카테고리를 늘려도 화면이 안 깨지게 문자열로 열어 둔다.
+   */
+  category: string;
   /** 물러진 수의 USI. 판 위에서 어느 칸에서 어느 칸이었는지를 되짚는 데 쓴다. */
   retractedUsi: string;
   /** 그 수의 棋譜 표기(▲3三角成). 서버가 만든 것을 그대로 그린다. */
