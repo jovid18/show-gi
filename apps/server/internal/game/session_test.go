@@ -422,7 +422,7 @@ func TestBlunderIsRolledBack(t *testing.T) {
 	an := &fixedAnalyst{verdict: blunder()}
 	s := newSession(t, Config{
 		Opponent: &scriptedOpponent{moves: []string{"3c3d"}}, Analyst: an,
-		HumanColor: shogi.Black, ObservePlies: -1,
+		HumanColor: shogi.Black,
 	})
 	ch, cancel, err := s.Subscribe(t.Context())
 	if err != nil {
@@ -459,10 +459,9 @@ func TestBlunderIsRolledBack(t *testing.T) {
 
 func TestCleanMoveIsNotRolledBack(t *testing.T) {
 	s := newSession(t, Config{
-		Opponent:     &scriptedOpponent{moves: []string{"3c3d"}},
-		Analyst:      &fixedAnalyst{},
-		HumanColor:   shogi.Black,
-		ObservePlies: -1,
+		Opponent:   &scriptedOpponent{moves: []string{"3c3d"}},
+		Analyst:    &fixedAnalyst{},
+		HumanColor: shogi.Black,
 	})
 	ch, cancel, _ := s.Subscribe(t.Context())
 	defer cancel()
@@ -479,10 +478,9 @@ func TestCleanMoveIsNotRolledBack(t *testing.T) {
 // 판정 중에는 다음 수를 못 둔다 — 두면 물러질 수가 둘이 된다.
 func TestCannotMoveWhileJudging(t *testing.T) {
 	s := newSession(t, Config{
-		Opponent:     &scriptedOpponent{moves: []string{"3c3d"}},
-		Analyst:      &fixedAnalyst{delay: 300 * time.Millisecond},
-		HumanColor:   shogi.Black,
-		ObservePlies: -1,
+		Opponent:   &scriptedOpponent{moves: []string{"3c3d"}},
+		Analyst:    &fixedAnalyst{delay: 300 * time.Millisecond},
+		HumanColor: shogi.Black,
 	})
 	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
 		t.Fatalf("Play: %v", err)
@@ -499,10 +497,9 @@ func TestCannotMoveWhileJudging(t *testing.T) {
 // 판정이 고장 나도 대국은 계속된다. 개입은 부가 기능이고 대국이 본체다.
 func TestJudgeFailureLetsTheMoveStand(t *testing.T) {
 	s := newSession(t, Config{
-		Opponent:     &scriptedOpponent{moves: []string{"3c3d"}},
-		Analyst:      &fixedAnalyst{err: errors.New("engine down")},
-		HumanColor:   shogi.Black,
-		ObservePlies: -1,
+		Opponent:   &scriptedOpponent{moves: []string{"3c3d"}},
+		Analyst:    &fixedAnalyst{err: errors.New("engine down")},
+		HumanColor: shogi.Black,
 	})
 	ch, cancel, _ := s.Subscribe(t.Context())
 	defer cancel()
@@ -521,7 +518,7 @@ func TestInterventionClearsOnNextMove(t *testing.T) {
 	an := &fixedAnalyst{verdict: blunder()}
 	s := newSession(t, Config{
 		Opponent: &scriptedOpponent{moves: []string{"3c3d"}}, Analyst: an,
-		HumanColor: shogi.Black, ObservePlies: -1,
+		HumanColor: shogi.Black,
 	})
 	ch, cancel, _ := s.Subscribe(t.Context())
 	defer cancel()
@@ -546,7 +543,7 @@ func TestRollbackRestoresRepetitionCount(t *testing.T) {
 	an := &fixedAnalyst{verdict: blunder()}
 	s := newSession(t, Config{
 		Opponent: &scriptedOpponent{moves: []string{"3c3d"}}, Analyst: an,
-		HumanColor: shogi.Black, ObservePlies: -1,
+		HumanColor: shogi.Black,
 	})
 	ch, cancel, _ := s.Subscribe(t.Context())
 	defer cancel()
@@ -569,12 +566,15 @@ func hasHangulInGame(s string) bool {
 	return false
 }
 
-// 관측 구간에서는 판정 자체를 안 부른다. 초반은 어차피 개입하지 않으므로
-// 매 수 두 번씩 도는 탐색이 여기서 사라져야 한다.
-func TestObservationWindowSkipsJudging(t *testing.T) {
+// 관측 구간은 **기본값이 없다** — 첫 수부터 판정한다. 명시적으로 준 경우에만 건너뛴다.
+//
+// 원래 20수를 비워뒀는데 그건 「오프닝의 다양성을 인정한다」를 수 번호로 잘못 옮긴
+// 것이었다. 다양성은 임계치가 지킨다(intervene 쪽 테스트).
+func TestObservePliesIsOptInAndSkipsJudging(t *testing.T) {
 	an := &fixedAnalyst{verdict: blunder()}
 	s := newSession(t, Config{
-		Opponent: &scriptedOpponent{moves: []string{"3c3d"}}, Analyst: an, HumanColor: shogi.Black,
+		Opponent: &scriptedOpponent{moves: []string{"3c3d"}}, Analyst: an,
+		HumanColor: shogi.Black, ObservePlies: 4,
 	})
 	ch, cancel, _ := s.Subscribe(t.Context())
 	defer cancel()
@@ -588,5 +588,23 @@ func TestObservationWindowSkipsJudging(t *testing.T) {
 	}
 	if an.calls.Load() != 0 {
 		t.Fatalf("관측 구간인데 판정을 %d번 불렀다", an.calls.Load())
+	}
+}
+
+// 기본값에서는 첫 수부터 판정한다.
+func TestJudgesFromTheFirstMoveByDefault(t *testing.T) {
+	an := &fixedAnalyst{verdict: blunder()}
+	s := newSession(t, Config{
+		Opponent: &scriptedOpponent{moves: []string{"3c3d"}}, Analyst: an, HumanColor: shogi.Black,
+	})
+	ch, cancel, _ := s.Subscribe(t.Context())
+	defer cancel()
+
+	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
+		t.Fatalf("Play: %v", err)
+	}
+	got := waitFor(t, ch, func(s Snapshot) bool { return s.Intervention != nil }, "1수째 개입")
+	if got.Intervention.RetractedUSI != "7g7f" {
+		t.Fatalf("%+v", got.Intervention)
 	}
 }

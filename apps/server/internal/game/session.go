@@ -111,8 +111,12 @@ type Config struct {
 	Opponent Opponent
 	// Analyst 가 nil이면 개입하지 않는다. 대국은 그대로 된다.
 	Analyst Analyst
-	// ObservePlies 는 개입하지 않는 초반 구간이다. 0이면 intervene.ObservePlies.
-	// 중반 국면에서 시작하는 대국(리뷰·테스트)은 여기를 0으로 준다.
+	// ObservePlies 는 개입하지 않는 초반 구간이다. **기본값은 0 — 첫 수부터 판정한다.**
+	//
+	// 원래 20수를 비워뒀는데 그건 「오프닝의 다양성을 인정한다」를 수 번호로 잘못 옮긴
+	// 것이었다. 그러면 5수째에 飛를 던져도 안 잡히고 25수째의 정당한 전법 선택은 못 봐준다.
+	// 임계치가 이미 그 일을 한다 — 오프닝 선택은 50~200cp(Δ 2~8%p)라 어느 레벨도 안 걸리고,
+	// 銀 이상을 공짜로 주면 Δ 34%p라 입문에서도 걸린다 (01-core.md §2).
 	ObservePlies int
 	// HumanColor 는 사람이 잡는 쪽. 기본은 先手(Black).
 	HumanColor shogi.Color
@@ -346,7 +350,7 @@ func (st *state) startJudging(ctx context.Context, judgeDone chan judgeResult) b
 	if st.cfg.Analyst == nil || st.status != StatusPlaying {
 		return false
 	}
-	if len(st.usis) <= st.observePlies() {
+	if len(st.usis) <= st.cfg.ObservePlies {
 		return false
 	}
 	st.judging = true
@@ -370,17 +374,6 @@ func (st *state) startJudging(ctx context.Context, judgeDone chan judgeResult) b
 }
 
 // applyVerdict 는 판정 결과를 반영한다. 걸렸으면 **되무른다.**
-// observePlies 는 이 세션의 관측 구간이다.
-func (st *state) observePlies() int {
-	if st.cfg.ObservePlies > 0 {
-		return st.cfg.ObservePlies
-	}
-	if st.cfg.ObservePlies < 0 {
-		return 0 // 음수 = 관측 구간 없음
-	}
-	return intervene.ObservePlies
-}
-
 func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone chan engineResult) {
 	if !st.judging || r.gen != st.judgeGen {
 		return // 그 사이 국면이 움직였다. 버린다

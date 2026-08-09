@@ -48,11 +48,6 @@ func (l Level) Threshold() float64 {
 	}
 }
 
-// ObservePlies 는 개입하지 않는 초반 구간이다.
-//
-// 요구사항이자 **실력 관측 구간**이기도 하다 — 개입이 없는 수가 순수한 실력 신호다.
-const ObservePlies = 20
-
 // Kind 는 개입의 종류다. DB의 interventions.kind 와 같은 값을 쓴다.
 type Kind string
 
@@ -62,10 +57,10 @@ const (
 )
 
 // Input 은 한 수를 판정하는 데 필요한 전부다.
+//
+// 수 번호가 없다. **"언제 두었나"는 판정의 입력이 아니다** — 오프닝을 봐주는 것은
+// 수 번호가 아니라 무엇을 뒀는가로 갈려야 하고(01-core.md §2), 그건 부르는 쪽이 정한다.
 type Input struct {
-	// Ply 는 이 수가 몇 번째인가(1부터). 관측 구간 판정에 쓴다.
-	Ply int
-
 	// BestCp 는 착수 **전** 국면의 최선수 평가치. 두는 쪽 관점.
 	BestCp int
 	// AfterCp 는 착수 **후** 국면의 평가치를 **둔 쪽 관점으로 뒤집은 것**.
@@ -104,10 +99,6 @@ const JudgeMatePlies = 5
 
 // Judge 는 한 수를 판정한다.
 func Judge(in Input) Verdict {
-	if in.Ply <= ObservePlies {
-		return Verdict{}
-	}
-
 	// 종반 — 승률이 포화해 낙폭이 판정력을 잃는 구간이다.
 	//
 	// 이 규칙이 필요한 쪽은 **이기고 있는 쪽뿐**이다. 지는 쪽(詰まされる 수를 둔 경우)은

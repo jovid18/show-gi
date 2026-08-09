@@ -31,21 +31,30 @@ func TestWinRateSaturatesWhenWinning(t *testing.T) {
 	}
 }
 
-func TestObservationWindow(t *testing.T) {
-	// 초반 20수는 아무리 나빠도 개입하지 않는다
-	bad := Input{Ply: ObservePlies, BestCp: 500, AfterCp: -2000, Level: Intermediate}
-	if v := Judge(bad); v.Kind != KindNone {
-		t.Fatalf("관측 구간에서 개입했다: %+v", v)
+// 오프닝의 다양성은 수 번호가 아니라 **임계치**가 지킨다.
+//
+// 전법 선택은 보통 50~200cp 손해라 어느 레벨도 안 걸리고, 銀 이상을 공짜로 주면
+// 입문에서도 걸린다. 그래서 "초반 N수는 안 본다" 같은 구간이 필요 없다 —
+// 그런 구간은 5수째의 飛 헌납을 놓치면서 25수째의 정당한 선택은 못 봐준다.
+func TestOpeningVarietyIsProtectedByThresholds(t *testing.T) {
+	for _, cp := range []int{50, 100, 200} {
+		in := Input{BestCp: 0, AfterCp: -cp, Level: Intermediate}
+		if v := Judge(in); v.Kind != KindNone {
+			t.Errorf("%dcp 손해에 개입했다 — 오프닝 선택 폭이 죽는다: Δ=%.3f", cp, v.DeltaWin)
+		}
 	}
-	bad.Ply = ObservePlies + 1
-	if v := Judge(bad); v.Kind != KindBlunder {
-		t.Fatalf("관측 구간이 끝났는데 안 걸렸다: %+v", v)
+	// 銀(약 1000cp) 이상을 공짜로 주면 제일 너그러운 입문에서도 걸린다
+	for _, cp := range []int{1000, 1600, 2000} {
+		in := Input{BestCp: 0, AfterCp: -cp, Level: Beginner}
+		if v := Judge(in); v.Kind != KindBlunder {
+			t.Errorf("%dcp 헌납이 안 걸렸다: Δ=%.3f", cp, v.DeltaWin)
+		}
 	}
 }
 
 func TestLevelThresholds(t *testing.T) {
 	// 승률을 약 15%p 떨어뜨리는 수. 중급·초급은 걸리고 입문은 안 걸린다.
-	in := Input{Ply: 40, BestCp: 0, AfterCp: -350}
+	in := Input{BestCp: 0, AfterCp: -350}
 	delta := WinRate(in.BestCp) - WinRate(in.AfterCp)
 	if delta < 0.12 || delta > 0.18 {
 		t.Fatalf("테스트 전제가 깨졌다: Δ=%.3f (0.12~0.18 기대)", delta)
@@ -69,7 +78,6 @@ func TestLevelThresholds(t *testing.T) {
 // 종반 — 승률로는 안 걸리는 수가 詰み 거리로는 걸려야 한다.
 func TestLostMateIsCaughtEvenThoughWinRateBarelyMoves(t *testing.T) {
 	in := Input{
-		Ply:        60,
 		BestCp:     29970, // 詰み
 		AfterCp:    2000,  // 여전히 이기고 있다
 		MateBefore: 3,
@@ -86,7 +94,7 @@ func TestLostMateIsCaughtEvenThoughWinRateBarelyMoves(t *testing.T) {
 }
 
 func TestMateStillThereIsNotABlunder(t *testing.T) {
-	in := Input{Ply: 60, BestCp: 29970, AfterCp: 29950, MateBefore: 3, MateAfter: 3, Level: Beginner}
+	in := Input{BestCp: 29970, AfterCp: 29950, MateBefore: 3, MateAfter: 3, Level: Beginner}
 	if v := Judge(in); v.Kind != KindNone {
 		t.Fatalf("詰み이 남아 있는데 걸렸다: %+v", v)
 	}
@@ -104,7 +112,7 @@ func TestMateStillThereIsNotABlunder(t *testing.T) {
 
 // 탐색은 11까지 하지만 판정은 5까지만 한다.
 func TestLongMateIsNotJudged(t *testing.T) {
-	in := Input{Ply: 60, BestCp: 29900, AfterCp: 2000, MateBefore: 9, MateAfter: 0, Level: Beginner}
+	in := Input{BestCp: 29900, AfterCp: 2000, MateBefore: 9, MateAfter: 0, Level: Beginner}
 	if v := Judge(in); v.Kind != KindNone {
 		t.Fatalf("9手詰을 놓친 것으로 개입했다 — 8급에게 실수가 아니다: %+v", v)
 	}
@@ -116,7 +124,7 @@ func TestLongMateIsNotJudged(t *testing.T) {
 
 // 詰まされる 수는 종반 규칙이 아니라 승률 낙폭이 잡는다 — 그래서 규칙이 겹치지 않는다.
 func TestBeingMatedIsCaughtByWinRate(t *testing.T) {
-	in := Input{Ply: 60, BestCp: -500, AfterCp: -29970, Level: Beginner}
+	in := Input{BestCp: -500, AfterCp: -29970, Level: Beginner}
 	v := Judge(in)
 	if v.Kind != KindBlunder || v.LostMate {
 		t.Fatalf("詰まされる 수는 낙폭으로 걸려야 한다: %+v", v)

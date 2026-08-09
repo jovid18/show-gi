@@ -34,7 +34,7 @@ func NewEngineAnalyst(s Searcher, mate MateSearcher, level intervene.Level) Anal
 	return &engineAnalyst{search: s, mate: mate, depth: JudgeDepth, level: level}
 }
 
-func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []string, ply int) (intervene.Verdict, error) {
+func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []string, _ int) (intervene.Verdict, error) {
 	if len(moves) == 0 {
 		return intervene.Verdict{}, fmt.Errorf("judge: no move to judge")
 	}
@@ -53,9 +53,6 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	}
 
 	in := intervene.Input{
-		// 관측 구간은 세션이 이미 걸렀다(Config.ObservePlies). 여기서 또 보면
-		// 두 군데가 되고, 중반부터 시작하는 대국에서 어긋난다.
-		Ply:     intervene.ObservePlies + 1,
 		BestCp:  best.ScoreCp,
 		AfterCp: -after.ScoreCp, // 사람 관점으로 뒤집는다
 		Level:   a.level,
