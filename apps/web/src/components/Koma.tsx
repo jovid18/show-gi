@@ -2,7 +2,7 @@ import { kanjiOf, type Side } from '@/shogi/piece';
 import { isPromoted, mobilityOf, type Direction } from '@/shogi/mobility';
 
 /**
- * 駒 하나. 판 위·駒台·검토 페이지가 전부 이것을 쓴다.
+ * 駒 하나. 판 위와 駒台가 같은 것을 쓴다.
  *
  * **성한 駒는 붉은 글자**이고, **움직임이 표식으로 새겨져 있다** — 한 칸 가는 곳은 점,
  * 쭉 가는 곳은 화살표. 실물 초심자용 駒가 하는 것과 같고, 「香車가 어떻게 가더라」를
