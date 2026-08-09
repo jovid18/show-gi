@@ -9,6 +9,14 @@ export interface GameState {
   snapshot: Snapshot | null;
   /** 서버가 착수를 거절한 이유. 일본어 문구가 그대로 온다. */
   rejection: string | null;
+  /**
+   * 개입 **회차**. 개입이 실려 온 스냅샷마다 하나씩 오른다.
+   *
+   * `snapshot.intervention` 이 있는지만 보면 안 된다 — 서버는 다음 착수까지 그걸 들고
+   * 있으므로, 같은 자리에서 같은 수로 또 걸렸을 때 화면이 "아까 그거"로 착각한다.
+   * 회차로 세면 연출을 다시 돌릴지가 명확해진다.
+   */
+  interventionEpisode: number;
   play: (usi: string) => void;
   resign: () => void;
   dismissRejection: () => void;
@@ -31,13 +39,17 @@ export function useGame(): GameState {
   const [connection, setConnection] = useState<Connection>('connecting');
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [rejection, setRejection] = useState<string | null>(null);
+  const [interventionEpisode, setInterventionEpisode] = useState(0);
   // 새 대국은 새 연결이다. 서버가 연결 하나에 대국 하나를 여니, 다시 붙는 것이 곧 새 판이다.
   const [generation, setGeneration] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
+  // 직전 스냅샷에 개입이 실려 있었는가. 회차를 세는 데만 쓴다.
+  const hadIntervention = useRef(false);
 
   useEffect(() => {
     const socket = new WebSocket(socketUrl());
     socketRef.current = socket;
+    hadIntervention.current = false;
 
     socket.addEventListener('open', () => setConnection('open'));
     socket.addEventListener('close', () => setConnection('closed'));
@@ -51,6 +63,12 @@ export function useGame(): GameState {
         return; // 우리가 못 읽는 것은 무시한다. 판을 지우는 것보다 낫다
       }
       if (msg.type === 'snapshot') {
+        // 서버는 착수 하나에 개입 하나를 싣고 다음 착수까지 들고 있는다. 그래서 "있다"가
+        // 아니라 **없다가 생긴 순간**이 새 개입이다.
+        const has = Boolean(msg.snapshot.intervention);
+        if (has && !hadIntervention.current) setInterventionEpisode((n) => n + 1);
+        hadIntervention.current = has;
+
         setSnapshot(msg.snapshot);
         setRejection(null);
       } else if (msg.type === 'error') {
@@ -81,5 +99,14 @@ export function useGame(): GameState {
     setGeneration((n) => n + 1);
   }, []);
 
-  return { connection, snapshot, rejection, play, resign, dismissRejection, restart };
+  return {
+    connection,
+    snapshot,
+    rejection,
+    interventionEpisode,
+    play,
+    resign,
+    dismissRejection,
+    restart,
+  };
 }

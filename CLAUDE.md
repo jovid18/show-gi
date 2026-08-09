@@ -17,6 +17,8 @@
 
 판을 통째로 프롬프트에 넣고 "이 수 어때?"를 물어보는 코드가 들어오는 순간 이 레포의 이유가 사라진다.
 
+**개입 판정은 엔진을 모른다.** `internal/intervene`의 입력은 이미 구해진 평가치와 詰み 거리뿐이다. 상수(K·임계치)를 흔들어 보는 데 엔진이 필요 없어야 하고, 그 상수들은 실측으로 잡아야 한다.
+
 **대국 상태는 세션 goroutine 하나가 소유한다.** 롤백이 있는 이상 상태 변경 순서가 곧 제품 정합성이다. HTTP 핸들러가 상태를 직접 읽기 시작하면 그 순간 구조가 무너진다.
 
 **엔진 탐색은 무조건 깊이(`go depth`)로 건다. 시간(`go movetime`)을 쓰지 않는다.**
@@ -34,6 +36,16 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build   # 루트. 웹 전체 + 
 cd apps/server && gofmt -l . && go vet ./... && go test -race ./...
 terraform -chdir=infra fmt -check && terraform -chdir=infra validate
 ```
+
+**`go test` 만으로는 다 안 돈다.** DB·엔진 테스트는 환경변수가 없으면 **조용히 skip 되고 초록으로 보인다.** 무엇이 필요한지는 [apps/server/README.md](apps/server/README.md)에 표로 있다.
+
+```sh
+docker compose up -d db && docker exec -i show-gi-db psql -U showgi -d showgi \
+  -v ON_ERROR_STOP=1 < apps/server/internal/store/migrations/001_init.sql
+SHOWGI_TEST_DATABASE_URL='postgres://showgi:showgi@localhost:5432/showgi' go test -race ./...
+```
+
+**스키마나 질의를 고치면 `go tool sqlc generate`.** `internal/store/db/`는 생성물이라 손으로 고치지 않는다.
 
 로컬에서 앱을 띄울 때는 `docker compose up -d`(api + db) 후 `pnpm dev`. **`../shogi` 컨테이너가 8080을 잡고 있으면 실패한다** — 그쪽을 먼저 내린다.
 

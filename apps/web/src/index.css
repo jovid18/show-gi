@@ -22,13 +22,29 @@
   /* 빛. rgb 트리플릿으로 두고 알파만 바꾼다. */
   --light: 255 246 224;
 
-  /* 한자 최소 크기를 먼저 정하고 나머지를 역산한다.
-     초심자가 읽어야 하는 글자라 20px 아래로 내려가지 않고, 칸은 거기서 나온다. */
-  --kanji-min: 20px;
-  /* 뺄셈에 들어가는 것: .app 좌우 여백(2.5rem) + 段 라벨 열과 그 사이(1rem) + 판 테두리.
+  /* 직전 수 표식. 판 위에서 --light 를 안 쓰는 유일한 자리다 — 이유는 아래 규칙에 적었다. */
+  --last-mark: 122 78 40;
+
+  /* 駒에 새기는 붉은 먹. 성한 駒의 글자와 움직임 표식이 이 색이다.
+     실물 駒가 뒷면을 붉게 쓰는 그 색이고, **판 위의 신호가 아니라 駒의 인쇄**다. */
+  --koma-mark: 178 46 38;
+
+  /* 원래 여기가 「한자 최소 크기를 먼저 정하고 칸을 역산한다」였다. 20px에 0.52.
+     **움직임 표식이 駒에 새겨지면서 그 순서가 뒤집혔다** — 점이 글자 둘레의 3×3 격자에
+     놓이므로, 글자가 가운데 칸을 넘으면 점과 겹쳐 둘 다 못 읽는다. 이제 **글자가
+     표식에 자리를 맞춘다.**
+
+     바꿀 만했다. 초심자가 판에서 얻어야 하는 것은 「이 글자가 무엇인가」보다
+     「이 駒가 어떻게 가는가」이고, 후자는 글자를 못 읽어도 통한다.
+
+     하한은 좁은 화면(--sq 32px)에서만 물린다. 그보다 넓으면 아래 비율이 지배한다. */
+  --kanji-min: 13px;
+  /* 아래 32px은 **360px 화면이 실제로 주는 값**이다((360-72)/9). 한자 하한에서 나온 것이
+     아니다 — 그 관계는 위 주석대로 끊겼다.
+     뺄셈에 들어가는 것: .app 좌우 여백(2.5rem) + 段 라벨 열과 그 사이(1rem) + 판 테두리.
      이걸 빼먹으면 좁은 화면에서 판이 넘쳐 段 라벨이 화면 밖으로 밀린다. */
   --sq: clamp(32px, calc((100vw - 4.5rem) / 9), 56px);
-  --kanji: max(var(--kanji-min), calc(var(--sq) * 0.52));
+  --kanji: max(var(--kanji-min), calc(var(--sq) * 0.4));
 
   /* 駒는 明朝. 붓에서 온 굵기 대비가 있어야 「버튼에 쓴 글자」가 아니라 駒로 읽힌다.
      UI는 ゴシック으로 둬서 판과 화면이 섞이지 않는다. */
@@ -112,10 +128,24 @@ body {
   margin-inline: auto;
 }
 
+/* 개입 때 판만 빛 위에 남는다. 그래서 판은 늘 겹의 위쪽에 둔다 — 개입 시점에 올리면
+   기울기가 풀리는 동안 판이 장막 아래로 한 번 내려갔다 온다.
+   값을 1·2·3으로 붙여 쓰면 안 된다. 판이 3D 변형으로 합성 레이어가 되는 순간
+   position:fixed 인 장막과 순서가 뒤집혀 판이 같이 어두워졌다(실제로 물렸다). */
 .game-board {
+  position: relative;
+  z-index: 50;
   display: grid;
   gap: 0.6rem;
   justify-items: center;
+  transform-origin: 50% 58%;
+  transition: transform 900ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* 카메라가 살짝 기운다(docs/03-frontend.md §2). 판을 원근으로 바꾸는 것이 아니라
+   **시점이 움직였다**는 신호만 준다 — 각도를 더 주면 뒷줄 한자가 뭉개진다. */
+.game[data-intervening] .game-board {
+  transform: perspective(1600px) rotateX(7deg) rotateZ(-1.1deg) scale(1.015);
 }
 
 /* ── 판 ───────────────────────────────────────────────── */
@@ -209,26 +239,44 @@ body {
   opacity: 0;
 }
 
-/* 착수 후보 — 빈 칸은 가운데가 밝은 빛 웅덩이 */
+/* 착수 후보 — **칸 전체에 빛이 든다.**
+   흰 원을 판 위에 얹는 것이 아니라 판 자체가 밝아지는 것이다. 원은 판 위에 뜬
+   다른 물건처럼 보이고, 여러 칸이 켜지면 물방울이 흩어진 것처럼 읽힌다.
+   칸을 통째로 밝히면 나뭇결이 그대로 비치면서 「여기까지 갈 수 있다」가 한눈에 온다. */
 .square[data-lit]::after {
   opacity: 1;
-  background: radial-gradient(circle at 50% 50%, rgb(var(--light) / 0.9), rgb(var(--light) / 0) 62%);
+  background: rgb(var(--light) / 0.26);
 }
 
-/* 말이 있는 칸(잡는 수)은 빛을 가장자리로 돌린다 — 한자를 가리면 읽을 수 없다 */
+/* 잡는 수 — 駒가 칸의 대부분을 덮어 빛이 테두리로만 남는다. 그만큼 더 세게 준다.
+   한자 위에 빛을 얹지 않는 것은 그대로다 — 가리면 읽을 수 없다. */
 .square[data-lit][data-occupied]::after {
-  background: radial-gradient(
-    circle at 50% 50%,
-    rgb(var(--light) / 0) 46%,
-    rgb(var(--light) / 0.95) 72%,
-    rgb(var(--light) / 0) 100%
-  );
+  background: rgb(var(--light) / 0.42);
 }
 
-/* 직전 수 — 남은 잔광. 지금 둘 수 있는 곳보다 반드시 어두워야 한다 */
-.square[data-last]::before {
+/* 직전 수 — **출발 칸과 도착 칸을 함께** 덮는다. 도착만 짚으면 「저기 뭔가 있다」까지이고,
+   초심자가 알아야 하는 것은 **무엇이 어디서 왔나**다.
+
+   여기가 판에서 빛을 안 쓰는 유일한 자리다. 채널이 갈려 있어야 읽힌다 —
+   **빛은 「지금 할 수 있는 것·지금 벌어지는 것」**(착수 후보·王手·개입)이고,
+   **색은 「방금 벌어진 것」**이다. 직전 수까지 빛으로 칠하면 駒를 집어 든 순간
+   착수 후보와 섞여서 둘 다 뜻을 잃는다. */
+.square[data-last='to']::before,
+.square[data-last='from']::before {
   opacity: 1;
-  background: radial-gradient(circle at 50% 50%, rgb(var(--light) / 0.3), rgb(var(--light) / 0) 72%);
+  background: rgb(var(--last-mark) / 0.34);
+}
+
+/* 출발 칸은 「비었다」는 사실이라 옅다. 시선은 도착 칸이 먼저 받아야 한다 */
+.square[data-last='from']::before {
+  background: rgb(var(--last-mark) / 0.2);
+}
+
+/* 테는 칸에 두른다. 駒에 두르면 clip-path 가 잘라낸다 —
+   **CSS는 filter·box-shadow 를 먼저 그리고 그 다음에 clip 한다.** 오각형이 사각형에
+   닿는 곳은 아랫변뿐이라, 駒에 건 테는 밑줄 하나로만 남는다(실제로 물렸다). */
+.square[data-last='to'] {
+  box-shadow: inset 0 0 0 2px rgb(var(--last-mark) / 0.62);
 }
 
 /* 王手 — 유일하게 또렷한 빛. 퍼지지 않고 테를 두른다.
@@ -246,14 +294,23 @@ body {
 /* ── 駒 ───────────────────────────────────────────────── */
 
 .koma {
+  position: relative;
   width: 80%;
   height: 84%;
   display: grid;
   place-items: center;
   /* 위가 좁은 오각형. 선후수는 방향으로 구분한다 — 게임 자신의 규칙이다. */
   clip-path: polygon(50% 0%, 87% 15%, 100% 100%, 0% 100%, 13% 15%);
-  background: linear-gradient(178deg, var(--koma-face) 55%, var(--koma-shade));
-  border-top: 1px solid var(--koma-edge);
+  /* 위쪽 모서리의 빛을 **테두리가 아니라 그라디언트**로 준다.
+     `border-top` 은 상자 맨 위를 가로지르는 1px 선이라, 오각형으로 자르면 꼭짓점
+     부근에 그 색의 작은 삼각형만 남아 **끝이 잘린 것처럼 보인다.** 실제로 그랬다. */
+  background: linear-gradient(
+    178deg,
+    var(--koma-edge) 0%,
+    var(--koma-face) 4%,
+    var(--koma-face) 55%,
+    var(--koma-shade) 100%
+  );
   filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / 0.45));
 }
 
@@ -262,6 +319,12 @@ body {
 }
 
 .koma-kanji {
+  position: relative; /* 움직임 표식 위에 온다 — 글자가 먼저 읽혀야 한다 */
+  /* **글자를 아래로 내린다.** 두 가지가 겹쳐서 글자가 높아 보인다 — 표식 격자의
+     가운데 줄이 오각형의 좁은 위쪽을 피해 아래에 있고(Koma.tsx), 明朝 글자가
+     line-height:1 안에서 위로 붙는다. 격자 한가운데에 글자가 앉아야 점이 「그 칸」을
+     가리키는 것으로 읽힌다. %는 --sq 기준이라 어느 크기에서나 같은 비율로 내려간다. */
+  top: 5%;
   font-family: var(--font-koma);
   font-size: var(--kanji);
   font-weight: 600;
@@ -270,12 +333,34 @@ body {
   user-select: none;
 }
 
-/* 成香·成桂·成銀은 두 글자라 세로로 쌓는다. 실제 駒도 그렇게 쓴다. */
-.koma-kanji[data-wide] {
-  writing-mode: vertical-rl;
-  font-size: calc(var(--kanji) * 0.54);
-  letter-spacing: -0.06em;
+/* 성한 駒는 붉은 먹. 실물 駒가 뒷면을 그렇게 쓴다.
+   **글자를 읽지 못해도 「뒤집힌 駒」인 것은 색으로 안다** — 초심자에게는 그게 먼저다. */
+.koma-kanji[data-promoted] {
+  color: rgb(var(--koma-mark));
 }
+
+/* 움직임 표식 — 한 칸은 점, 쭉 가는 곳은 화살표.
+   駒 안에 있으므로 後手 駒에서는 통째로 뒤집혀 상대 쪽을 가리킨다. */
+.koma-marks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.koma-mark {
+  fill: rgb(var(--koma-mark) / 0.88);
+}
+
+/* 두 글자짜리를 세로로 쌓던 규칙이 여기 있었다. **없앴다** — 성한 銀·桂·香가 실물 駒와
+   같은 한 글자 약자(全·圭·杏)가 되면서 판 위에 두 글자짜리가 없다 (shogi/piece.ts). */
+
+/* ── 직전 수 표식 ─────────────────────────────────────── */
+
+/* 여기 원래 방금 움직인 駒 위에 붉은 점을 찍었다. **뺐다** — 駒에 움직임 표식이
+   새겨지면서 붉은 점이 판에 가득해졌고, 그 안에서 점 하나가 「직전 수」로 안 읽힌다.
+   칸의 색이 이미 그 일을 하고 있으므로 표식을 하나 줄이는 쪽이 낫다. */
 
 /* 고른 駒 — 밝은 駒에 밝은 빛을 얹으면 대비가 없어 안 보인다.
    그래서 칸에 빛의 테를 두르고, 駒는 판에서 들어올린다. 집어 든 것처럼 보여야 한다. */
@@ -286,6 +371,233 @@ body {
 .square[data-selected] .koma {
   transform: translateY(-2px);
   filter: drop-shadow(0 4px 5px rgb(0 0 0 / 0.5));
+}
+
+/* ── 개입 연출 ────────────────────────────────────────── */
+
+/* 「혼나는 것」이 아니라 「슬로모션 리플레이」로 느껴져야 한다(docs/03-frontend.md §2).
+   그래서 여기서 쓰는 것은 전부 이미 있는 것들이다 — 같은 --light 를 더 세게, 이미
+   있는 판을 조금 기울여서. 새 색을 꺼내면 그 순간 「경고창」이 된다. */
+
+/* 판 말고 전부 어두워진다. 빛으로 강조하는 설계에서 무엇을 밝히는 가장 싼 방법이다.
+   클릭은 안 막는다 — 착수는 판 쪽에서 이미 잠겼고 투료까지 막을 이유가 없다. */
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  background: rgb(6 5 4 / 0.72);
+  animation: veil-in 520ms ease both;
+}
+
+@keyframes veil-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 물러진 수가 지나간 두 칸. 王手보다 세다 — 이 순간 판에서 제일 밝은 것이 여기여야 한다.
+   숨쉬듯 오르내려서 「멈춰 있지만 살아 있는」 화면이 된다. */
+.blunder-mark {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  animation: blunder-breathe 2.4s ease-in-out infinite;
+}
+
+/* 출발 칸 — 던질 뻔한 駒가 되돌아와 서 있다. 테로 감싸서 「이 駒」를 짚는다 */
+.blunder-mark[data-role='from'] {
+  box-shadow:
+    inset 0 0 0 2px rgb(var(--light) / 1),
+    inset 0 0 20px rgb(var(--light) / 0.8);
+}
+
+/* 도착 칸 — 가려던 자리. 가운데를 비우는 것은 잡는 수와 같은 이유다. 한자를 가리면 못 읽는다 */
+.blunder-mark[data-role='to'] {
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgb(var(--light) / 0) 42%,
+    rgb(var(--light) / 1) 66%,
+    rgb(var(--light) / 0) 88%
+  );
+}
+
+/* 아래로 너무 내려가면 깜빡이는 것이 되고, 그러면 「경고등」이다. 살짝만 오간다 */
+@keyframes blunder-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* 물러진 수를 한 번 되짚는 유령 駒. 판의 격자에 그대로 얹혀 있어서 이동 거리를
+   **칸 수**로 받는다 — 픽셀로 주면 --sq 가 화면 폭에 따라 변하는 만큼 어긋난다. */
+.replay-koma {
+  --dx: calc(var(--dcol, 0) * (var(--sq) + 1px));
+  --dy: calc(var(--drow, 0) * (var(--sq) + 1px));
+
+  /* 격자의 자식이지만 격자에 얹히지 않는다 — 칸을 차지하면 81칸이 한 칸씩 밀린다.
+     1px 은 .board 의 padding 이자 칸 사이 gap 이다. */
+  position: absolute;
+  left: calc(1px + var(--col, 0) * (var(--sq) + 1px));
+  top: calc(1px + var(--row, 0) * (var(--sq) + 1px));
+  z-index: 2;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  width: var(--sq);
+  height: var(--sq);
+  animation: blunder-replay 2.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* 유령이라 실물보다 옅고, 대신 빛을 끌고 간다 */
+.replay-koma .koma {
+  opacity: 0.9;
+  filter: drop-shadow(0 0 12px rgb(var(--light) / 0.8));
+}
+
+/* 느리게 한 번. 두 번 돌리면 재생이 아니라 잔소리가 된다 */
+@keyframes blunder-replay {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1);
+  }
+  8% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.1);
+  }
+  46% {
+    opacity: 1;
+    transform: translate(var(--dx), var(--dy)) scale(1.1);
+  }
+  66% {
+    opacity: 1;
+    transform: translate(var(--dx), var(--dy)) scale(1.1);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+/* 打은 출발 칸이 없다. 駒台에서 떨어지는 것으로 그린다 */
+.replay-koma[data-drop] {
+  animation-name: blunder-drop;
+}
+
+@keyframes blunder-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(calc(var(--sq) * -0.9)) scale(1.3);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(0) scale(1.1);
+  }
+  66% {
+    opacity: 1;
+    transform: translateY(0) scale(1.1);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 문구는 **판을 가리지 않는다.** 짚는 것이 판 위인데 그 판을 덮으면 말이 안 된다.
+   그래서 넓은 화면에서는 옆 패널 맨 위, 즉 원래 상태 문구가 뜨던 자리에 그대로 앉는다.
+   판이 화면보다 길어서 화면 아래에 붙이면 반드시 판과 겹친다.
+   유령 駒가 도착하는 즈음(2.4s의 46% ≈ 1.1s)에 맞춰 늦게 들어온다. */
+.intervention {
+  position: relative;
+  z-index: 60;
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  padding: 1rem 1.15rem 1.1rem;
+  background: linear-gradient(180deg, #241f18, #17130f);
+  border: 1px solid rgb(var(--light) / 0.24);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.6);
+  animation: intervention-in 560ms 1050ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes intervention-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.intervention-label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  color: rgb(var(--light) / 0.7);
+}
+
+.intervention-move {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+/* 棋譜 표기는 판의 駒와 같은 明朝다. 판에서 벌어진 일이라는 것이 서체로 이어진다 */
+.intervention-move-ja {
+  font-family: var(--font-koma);
+  font-size: 1.375rem;
+  line-height: 1.2;
+}
+
+.intervention-move-tail {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.intervention-message {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+/* 낙폭. 「왜 나쁜가」의 크기까지가 여기이고, 무엇을 뒀어야 했는지는 없다 */
+.intervention-delta {
+  margin: 0;
+  width: 100%;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.intervention-delta-text {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.intervention-delta-track {
+  height: 2px;
+  background: rgb(var(--light) / 0.12);
+}
+
+.intervention-delta-fill {
+  display: block;
+  height: 100%;
+  background: rgb(var(--light) / 0.75);
 }
 
 /* ── 駒台 ─────────────────────────────────────────────── */
@@ -489,6 +801,17 @@ body {
   .game-side {
     justify-items: stretch;
   }
+
+  /* 옆 패널이 판 아래로 내려가 화면 밖에 있다. 개입 문구만은 보여야 하므로 띄운다.
+     좁은 화면에서는 판이 화면보다 짧아서 아래에 붙여도 겹치지 않는다. */
+  .intervention {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: clamp(0.75rem, 3vh, 1.5rem);
+    width: min(30rem, calc(100vw - 1.5rem));
+    margin-inline: auto;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -496,6 +819,11 @@ body {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    /* 지연도 같이 지운다. 개입 문구는 연출이 끝날 즈음 뜨도록 1초 늦춰져 있어서,
+       길이만 지우면 「빈 화면을 1초 보다가 갑자기 뜨는」 것이 된다. */
+    animation-delay: 0ms !important;
+    /* 숨쉬는 강조는 무한 반복이다. 길이가 0에 가까운 채로 반복하게 두지 않는다. */
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

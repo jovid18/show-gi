@@ -14,7 +14,9 @@ services:
       - '127.0.0.1:8080:8080' # 루프백에만 바인딩한다
     environment:
       DATABASE_URL: postgres://showgi:showgi@db:5432/showgi?sslmode=disable
-      ENGINE_CMD: ${ENGINE_CMD:-fairy-stockfish}
+      # ENGINE_CMD 를 여기 적지 않는다. 엔진 실행 경로는 **이미지 내부 구조**라
+      # 밖에서 적어두면 이미지를 바꿀 때 조용히 어긋난다 — 프로덕션에서 실제로 물렸고
+      # (docs/06-status.md §11) 태스크 정의에서도 같은 이유로 뺐다.
       # 없으면 해당 기능만 비활성이고 나머지는 정상으로 뜬다
       ORCA_API_KEY: ${ORCA_API_KEY:-}
       ORCA_BASE_URL: ${ORCA_BASE_URL:-}

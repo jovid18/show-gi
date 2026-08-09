@@ -1,4 +1,5 @@
-import { HAND_ORDER, kanjiOf, type Side } from '@/shogi/piece';
+import { Koma } from './Koma';
+import { HAND_ORDER, nameOf, type Side } from '@/shogi/piece';
 
 interface HandProps {
   side: Side;
@@ -40,12 +41,12 @@ export function Hand({ side, pieces, label, selected, playable, onPick }: HandPr
               className="hand-piece"
               data-selected={selected === origin || undefined}
               disabled={!canDrop}
-              aria-label={`${kanjiOf(kind)} ${count}枚`}
+              aria-label={`${nameOf(kind)} ${count}枚`}
               onClick={() => onPick(origin)}
             >
-              <span className="koma" data-side={side}>
-                <span className="koma-kanji">{kanjiOf(kind)}</span>
-              </span>
+              {/* 駒台에서는 움직임 표식을 끈다. 아직 판 위가 아니라 방향이 뜻을 갖지 않고,
+                  持ち駒는 성하지 않은 것뿐이라 붉은 글자도 나오지 않는다. */}
+              <Koma kind={kind} side={side} marks={false} />
               {count > 1 && <span className="hand-count">{count}</span>}
             </button>
           );

@@ -8,44 +8,76 @@ API 서버. 대국 진행, 개입 판정, USI 엔진 브리지를 맡는다. 설
 cd apps/server
 
 go run ./cmd/api                # :8080
-go run ./cmd/api -addr :9000
-
-go test -race ./...             # 엔진 프로세스와 세션이 동시에 도므로 -race는 항상 켠다
-go vet ./...
-gofmt -l .                      # 출력이 있으면 포맷이 어긋난 파일이다
+go vet ./... && gofmt -l .      # gofmt 는 출력이 있으면 어긋난 파일이다
 ```
+
+`ENGINE_CMD` 가 없으면 대국이 막히고 `/healthz` 가 `engine:false` 를 준다 — 서버는 그래도 뜬다. `DATABASE_URL` 도 마찬가지다(`db:false`). **둘 다 없어도 죽지 않는 것이 의도다** — 죽이면 ECS가 재시작을 반복해 사이트 전체가 내려간다.
 
 ```sh
-curl localhost:8080/healthz     # {"ok":true}
+curl localhost:8080/healthz     # {"ok":true,"engine":true,"db":true}
 ```
+
+## 테스트
+
+세 층이고, **아래로 갈수록 CI에서 안 돈다.**
+
+```sh
+# ① 항상 — 엔진도 DB도 없이 돈다. DB 테스트는 조용히 skip 된다
+go test -race ./...
+
+# ② DB — 규칙이 SQL의 WHERE 절에만 있어 가짜로는 검증이 안 된다
+docker compose up -d db
+docker exec -i show-gi-db psql -U showgi -d showgi -v ON_ERROR_STOP=1 \
+  < internal/store/migrations/001_init.sql
+SHOWGI_TEST_DATABASE_URL='postgres://showgi:showgi@localhost:5432/showgi' go test -race ./...
+
+# ③ 실엔진 — 이미지가 필요하다. enginetest.Dockerfile 참조
+docker build --platform linux/arm64 -t show-gi-api .
+docker build --platform linux/arm64 -t show-gi-enginetest -f enginetest.Dockerfile .
+docker run --rm --platform linux/arm64 --cpus 4 -v "$PWD:/src:ro" show-gi-enginetest sh -c '
+  cp -r /src /work && cd /work &&
+  SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./... -run RealEngine -v'
+```
+
+**`-race` 를 빼지 않는다.** 엔진 프로세스와 세션 goroutine이 동시에 도는 구조라 데이터 경합이 가장 값비싼 버그다.
+
+| 환경변수                   | 없으면             | 쓰는 곳                                     |
+| -------------------------- | ------------------ | ------------------------------------------- |
+| `SHOWGI_TEST_DATABASE_URL` | DB 테스트 skip     | `internal/store`                            |
+| `SHOWGI_USI_CMD`           | 실엔진 테스트 skip | `TestRealEngine`, `TestWSAgainstRealEngine` |
+| `SHOWGI_MATE_CMD`          | 詰み 측정 skip     | `TestMeasureMateSearch`                     |
+| `SHOWGI_MEASURE`           | 측정 전부 skip     | `TestMeasure*` — 몇 분 걸린다               |
+
+> **엔진이나 평가함수를 바꾸면 ③이 첫 관문이다.** 실제로 `PvInterval` 문제를 거기서 잡았다 — 안 돌렸으면 D3에서 "개입이 왜 안 걸리지"로 나타났을 것이다 ([docs/06-status.md](../../docs/06-status.md) §10).
+
+## 스키마를 바꿀 때
+
+`internal/store/migrations/*.sql` 이 정본이고 **sqlc가 거기서 코드를 만든다.** 질의를 추가하거나 스키마를 고치면 생성물을 다시 만들어야 한다.
+
+```sh
+go tool sqlc generate           # internal/store/db/ 를 다시 만든다
+```
+
+sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다.
 
 ## 배치
 
-|                   |                                        |
-| ----------------- | -------------------------------------- |
-| `cmd/api`         | 플래그·시그널 처리. 로직은 두지 않는다 |
-| `internal/server` | HTTP 표면과 프로세스 수명              |
+|                      |                                                                |
+| -------------------- | -------------------------------------------------------------- |
+| `cmd/api`            | 플래그·시그널·배선. 로직은 두지 않는다                         |
+| `internal/server`    | HTTP 표면, WebSocket 대국 프로토콜, 프로세스 수명              |
+| `internal/game`      | 대국 세션 상태머신 — **goroutine 1개가 상태를 소유**한다       |
+| `internal/intervene` | 개입 판정. **엔진을 모른다** — 입력이 평가치와 詰み 거리뿐이다 |
+| `internal/shogi`     | 룰 엔진 — SFEN, 합법수, 반칙 검증, 棋譜 표기                   |
+| `internal/usi`       | 엔진 프로세스 풀. MultiPV·깊이별 평가치·詰み 탐색              |
+| `internal/store`     | postgres (pgx + sqlc). `db/` 는 생성물이라 손대지 않는다       |
+
+아직 없는 것: `internal/coach`(적응형 상대), `internal/tag`(囲い·전법), `internal/profile`(실력 추정), `internal/llm`(OrcaRouter).
 
 `go.mod`는 레포 루트가 아니라 여기 있다. `apps/web`이 Node 워크스페이스라 루트를 한쪽 언어에 내주지 않으려는 것이고, 대신 Go 명령은 전부 이 디렉터리에서 돌린다.
 
-## 앞으로 들어올 것
+## 알아두면 좋은 것
 
-[docs/02-architecture.md](../../docs/02-architecture.md)의 패키지 구성을 따른다.
-
-|                      |                                                        |
-| -------------------- | ------------------------------------------------------ |
-| `internal/shogi`     | 룰 엔진 — SFEN, 합법수, 반칙 검증. `../shogi`에서 이식 |
-| `internal/usi`       | 엔진 프로세스 풀. MultiPV·mate 파싱                    |
-| `internal/game`      | 대국 세션 상태머신 (goroutine 1/세션)                  |
-| `internal/intervene` | 개입 판정 — 임계치, 롤백, 블런더 카테고리              |
-| `internal/coach`     | 적응형 상대 수 선택                                    |
-| `internal/tag`       | 囲い·전법·手筋 패턴 감지                               |
-| `internal/profile`   | 실력 추정, 약점 프로파일                               |
-| `internal/llm`       | OrcaRouter 클라이언트 + 3단 캐시                       |
-| `internal/store`     | postgres (pgx)                                         |
-
-## 아직 없는 것
-
-외부 의존성이 하나도 없다(stdlib만). 그래서 `go.sum`이 없고, CI의 `setup-go` 캐시도 꺼둔 상태다 — pgx나 websocket이 들어오는 PR에서 `.github/workflows/server.yml`의 주석대로 되돌린다.
-
-WebSocket은 `http.Server`의 `ReadHeaderTimeout`에서 빼야 한다. 대국 연결은 오래 열려 있다.
+- **탐색은 깊이로만 건다.** 시간(`go movetime`)을 쓰지 않아서 `usi` 패키지에 그 API가 아예 없다. 이유는 [CLAUDE.md](../../CLAUDE.md)에 있다
+- **엔진 실행 경로(`ENGINE_CMD`)를 태스크 정의에 두지 않는다.** 이미지 내부 구조라 두 곳에 적으면 조용히 어긋난다 — 실제로 한 번 물렸다(docs/06-status.md §11)
+- 대국 세션은 **서버 메모리에 있고 연결에 매여 있다.** 배포하면 진행 중인 대국이 끊긴다

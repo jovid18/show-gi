@@ -13,6 +13,27 @@ export interface KifuMove {
   by: Player;
 }
 
+/**
+ * 제지형 개입 하나. **직전 수가 물러졌을 때만** 실려 오고, 다음 착수에서 서버가 지운다.
+ *
+ * 판단은 이미 서버에서 끝나 있다. 화면이 하는 일은 이걸 그리는 것뿐이고,
+ * **최선수는 여기 없다** — 어느 수를 뒀어야 했는지는 알려주지 않는 것이 설계다
+ * (docs/01-core.md §1).
+ */
+export interface Intervention {
+  kind: 'blunder';
+  /** 물러진 수의 USI. 판 위에서 어느 칸에서 어느 칸이었는지를 되짚는 데 쓴다. */
+  retractedUsi: string;
+  /** 그 수의 棋譜 표기(▲3三角成). 서버가 만든 것을 그대로 그린다. */
+  retractedJa: string;
+  /** 승률 낙폭(0~1). */
+  deltaWin: number;
+  /** 詰み을 놓쳐서 걸렸는가. */
+  lostMate: boolean;
+  /** 화면에 그대로 나가는 일본어 문구. */
+  message: string;
+}
+
 export interface Snapshot {
   sfen: string;
   ply: number;
@@ -24,6 +45,9 @@ export interface Snapshot {
   moves: KifuMove[] | null;
   status: Status;
   winner?: Player;
+  /** 방금 둔 수를 판정하는 중. 이 동안은 `yourTurn`이 내려가 입력이 잠긴다. */
+  judging: boolean;
+  intervention?: Intervention;
 }
 
 export type ServerMessage =
