@@ -35,6 +35,16 @@ while read -r line; do
       kill "$loop" 2>/dev/null
       echo "bestmove 7g7f"
       ;;
+    "go mate infinite")
+      echo "info string mate search"
+      echo "checkmate G*5b"
+      ;;
+    "go mate nomate")
+      echo "checkmate nomate"
+      ;;
+    "go mate timeout")
+      echo "checkmate timeout"
+      ;;
     "go deaf")
       # stop 을 무시하는 엔진. 취소가 재기동으로 떨어지는 경로를 만든다.
       while :; do sleep 0.2; done

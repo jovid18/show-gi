@@ -326,6 +326,93 @@ func (e *Engine) SearchDepth(ctx context.Context, startSFEN string, moves []stri
 	return e.search(ctx, startSFEN, moves, "go depth "+strconv.Itoa(depth), 0)
 }
 
+// MateResult 는 詰み 탐색 한 번의 결과다.
+type MateResult struct {
+	// Moves 는 찾은 詰み 수순. 비어 있으면 못 찾았다.
+	Moves []string
+
+	// Proven 은 탐색이 한계 안에서 **결론을 냈다**는 뜻이다.
+	//
+	// 이 구분이 캐시의 전부다. `checkmate <수순>`과 `checkmate nomate`는 증명이라
+	// 언제 재봐도 같다 — 캐시해도 된다. `checkmate timeout`은 "이 한계 안에서는
+	// 모른다"이지 "없다"가 아니다. 그걸 "없다"로 저장하면 있는 詰み을 놓친 채로
+	// 종반 판정(01-core.md §2)이 돈다.
+	Proven bool
+}
+
+// Found 는 詰み을 찾았는지.
+func (r MateResult) Found() bool { return len(r.Moves) > 0 }
+
+// SearchMate 는 詰み을 찾는다. **詰将棋 solver 에디션에만 있다** —
+// 탐색부에 보내면 checkmate 대신 bestmove가 돌아온다(02-architecture.md §3).
+//
+// 탐색 한계는 풀을 만들 때 `DepthLimit`(詰み手数 상한)으로 준다. 시간(`go mate <ms>`)이
+// 아니라 수로 자르는 이유는 다른 탐색과 같다 — **같은 국면이 같은 답을 줘야 캐시할 수 있다.**
+// DepthLimit 없이 부르면 詰み이 없는 국면에서 돌아오지 않는다.
+func (e *Engine) SearchMate(ctx context.Context, startSFEN string, moves []string) (MateResult, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	res, err := e.searchMateLocked(ctx, startSFEN, moves)
+	if err == nil {
+		return res, nil
+	}
+	if ctx.Err() != nil {
+		return MateResult{}, err
+	}
+	if rerr := e.restart(); rerr != nil {
+		return MateResult{}, fmt.Errorf("mate search failed (%v) and restart failed: %w", err, rerr)
+	}
+	return e.searchMateLocked(ctx, startSFEN, moves)
+}
+
+func (e *Engine) searchMateLocked(ctx context.Context, startSFEN string, moves []string) (MateResult, error) {
+	pos := "position sfen " + startSFEN
+	if len(moves) > 0 {
+		pos += " moves " + strings.Join(moves, " ")
+	}
+	if err := e.send(pos); err != nil {
+		return MateResult{}, err
+	}
+	if err := e.send("go mate infinite"); err != nil {
+		return MateResult{}, err
+	}
+
+	for {
+		select {
+		case line, ok := <-e.lines:
+			if !ok {
+				return MateResult{}, errors.New("engine exited during mate search")
+			}
+			rest, isMate := strings.CutPrefix(line, "checkmate")
+			if !isMate {
+				continue
+			}
+			switch fields := strings.Fields(rest); {
+			case len(fields) == 0:
+				return MateResult{}, errors.New("empty checkmate response")
+			case fields[0] == "nomate":
+				return MateResult{Proven: true}, nil
+			case fields[0] == "timeout":
+				return MateResult{}, nil // 모른다. Proven=false
+			case fields[0] == "notimplemented":
+				return MateResult{}, errors.New("engine does not implement go mate")
+			default:
+				return MateResult{Moves: filterMoves(fields), Proven: true}, nil
+			}
+
+		case <-ctx.Done():
+			if err := e.stopLocked(); err != nil {
+				log.Printf("usi: engine did not answer stop during mate search (%v), restarting", err)
+				if rerr := e.restart(); rerr != nil {
+					log.Printf("usi: restart after stop failed: %v", rerr)
+				}
+			}
+			return MateResult{}, ctx.Err()
+		}
+	}
+}
+
 func (e *Engine) search(ctx context.Context, startSFEN string, moves []string, goCmd string, timeout time.Duration) (SearchResult, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -397,7 +484,11 @@ func (e *Engine) searchLocked(ctx context.Context, startSFEN string, moves []str
 	}
 }
 
-// stopLocked 는 탐색을 중단시키고 bestmove까지 읽어 버린다. mu를 잡은 상태에서 호출.
+// stopLocked 는 탐색을 중단시키고 그 응답까지 읽어 버린다. mu를 잡은 상태에서 호출.
+//
+// **끝맺는 말이 탐색 종류마다 다르다** — 일반 탐색은 `bestmove`, 詰み 탐색은 `checkmate`다.
+// 하나만 기다리면 다른 쪽에서 매번 시한을 넘겨 엔진을 버리게 되고, 삼키지 못한 응답이
+// 다음 탐색의 결과로 읽힌다.
 func (e *Engine) stopLocked() error {
 	if err := e.send("stop"); err != nil {
 		return err
@@ -407,13 +498,13 @@ func (e *Engine) stopLocked() error {
 		select {
 		case line, ok := <-e.lines:
 			if !ok {
-				return errors.New("engine exited before bestmove")
+				return errors.New("engine exited before it answered stop")
 			}
-			if strings.HasPrefix(line, "bestmove") {
+			if strings.HasPrefix(line, "bestmove") || strings.HasPrefix(line, "checkmate") {
 				return nil
 			}
 		case <-deadline:
-			return errors.New("bestmove timeout after stop")
+			return errors.New("no bestmove/checkmate after stop")
 		}
 	}
 }
