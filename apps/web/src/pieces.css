@@ -81,7 +81,7 @@
      값이 정해져 상속된다** — `--kanji` 가 `:root` 에 있으니 그 안의 `var(--sq)` 도
      `:root` 의 것으로 굳는다. 여기서 다시 선언해야 이 줄의 `--sq` 로 다시 계산된다.
      index.css 와 같은 식이다. 한쪽을 고치면 다른 쪽도 고칠 것. */
-  --kanji: max(var(--kanji-min), calc(var(--sq) * 0.42));
+  --kanji: max(var(--kanji-min), calc(var(--sq) * 0.4));
 }
 
 .review-size-label {

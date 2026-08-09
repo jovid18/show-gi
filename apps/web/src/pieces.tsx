@@ -88,8 +88,8 @@ function Pieces() {
       <section>
         <h2>大きさ</h2>
         <p className="review-note">
-          画面幅で 32〜56px の間を動きます。漢字は 17px を下回りません。成った銀・桂・香は実物の駒と同じ
-          一文字（全・圭・杏）です。
+          画面幅で 32〜56px の間を動きます。狭い画面では漢字の下限のほうが効きます。成った銀・桂・香は
+          実物の駒と同じ一文字（全・圭・杏）です。
         </p>
         {SIZES.map((size) => (
           <div key={size} className="review-size" style={{ '--sq': `${size}px` } as CSSProperties}>
