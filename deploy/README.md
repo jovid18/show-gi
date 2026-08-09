@@ -186,14 +186,18 @@ aws ecs execute-command --cluster show-gi --container api \
 
 **지금 그런 코드는 없다.** 확인한 자리는 넷이고, 새로 넣지 않는 한 계속 없다.
 
-| 자리                           | 상태                                                                    |
-| ------------------------------ | ----------------------------------------------------------------------- |
-| `apps/server/Dockerfile`       | `CMD ["api", …]` — 바이너리 직행. 진입 스크립트도 `.sql` 복사도 없다    |
-| `cmd/api/main.go`              | DB는 `Open` → `Ping` 뿐이다                                             |
-| `docker-compose.yml` 의 db     | `/docker-entrypoint-initdb.d` 를 **안 마운트한다** — 걸면 자동 실행된다 |
-| `.github/workflows/server.yml` | CI 테스트용 DB에만 적용한다. 프로덕션과 무관                            |
+| 자리                           | 상태                                                                 |
+| ------------------------------ | -------------------------------------------------------------------- |
+| `apps/server/Dockerfile`       | `CMD ["api", …]` — 바이너리 직행. 진입 스크립트도 `.sql` 복사도 없다 |
+| `cmd/api/main.go`              | DB는 `Open` → `Ping` 뿐이다                                          |
+| `docker-compose.yml` 의 db     | `/docker-entrypoint-initdb.d` 를 **안 마운트한다** (아래)            |
+| `.github/workflows/server.yml` | CI 테스트용 DB에만 적용한다. 프로덕션과 무관                         |
 
 기동 스크립트나 배포 파이프가 마이그레이션을 실행하는 방식은 **앞으로도 쓰지 않는다.**
+
+> **`/docker-entrypoint-initdb.d` 는 우리가 켠 것이 아니라 postgres 이미지의 기본 동작이다.** `docker-entrypoint.sh` 가 거기 있는 `.sql`·`.sh` 를 알파벳 순으로 실행한다. 그래서 「로컬 편하게 하자」고 마이그레이션을 걸어두기 쉬운 자리인데, **데이터 디렉터리가 비어 있을 때만 돈다**(`if [ -z "$DATABASE_ALREADY_EXISTS" ]`).
+>
+> 새로 clone한 사람은 스키마가 들어가고 **기존 볼륨을 가진 사람은 안 들어가는데 에러도 안 난다.** 「내 컴퓨터에선 되는데」가 정확히 그렇게 만들어진다.
 
 - 되돌릴 수 없는 변경이 **아무도 안 보는 사이에** 실행된다. 컬럼 삭제 한 줄이 머지되는 순간 데이터가 사라지고, 그때 롤백할 수 있는 것은 코드뿐이다
 - 태스크가 여러 개면 **같은 DDL이 동시에 여러 번** 돈다
