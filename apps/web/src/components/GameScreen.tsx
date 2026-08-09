@@ -31,10 +31,18 @@ function resultText(snapshot: Snapshot): string | null {
 }
 
 export function GameScreen() {
-  const { connection, snapshot, rejection, play, resign, dismissRejection } = useGame();
+  const { connection, snapshot, rejection, play, resign, dismissRejection, restart } = useGame();
   const [origin, setOrigin] = useState<string | null>(null);
   const [pending, setPending] = useState<{ origin: string; to: string } | null>(null);
   const [confirmingResign, setConfirmingResign] = useState(false);
+
+  // 새 대국은 판만이 아니라 고르던 것까지 전부 비우고 시작한다.
+  const newGame = (): void => {
+    setOrigin(null);
+    setPending(null);
+    setConfirmingResign(false);
+    restart();
+  };
 
   const board = useMemo(() => {
     if (!snapshot) return null;
@@ -63,9 +71,12 @@ export function GameScreen() {
 
   if (connection === 'closed') {
     return (
-      <p className="notice" role="status">
-        接続が切れました。ページを再読み込みしてください。
-      </p>
+      <div className="notice" role="status">
+        <p>接続が切れました。</p>
+        <button type="button" className="btn" onClick={newGame}>
+          もう一度つなぐ
+        </button>
+      </div>
     );
   }
   if (!snapshot || !board) {
@@ -174,6 +185,12 @@ export function GameScreen() {
         )}
 
         <Kifu moves={moves} />
+
+        {snapshot.status !== 'playing' && (
+          <button type="button" className="btn btn--primary" onClick={newGame}>
+            もう一局
+          </button>
+        )}
 
         {snapshot.status === 'playing' &&
           (confirmingResign ? (

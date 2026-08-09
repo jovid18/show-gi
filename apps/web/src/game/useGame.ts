@@ -12,6 +12,8 @@ export interface GameState {
   play: (usi: string) => void;
   resign: () => void;
   dismissRejection: () => void;
+  /** 새 대국을 시작한다. 끊긴 연결을 다시 붙일 때도 같은 것을 쓴다. */
+  restart: () => void;
 }
 
 function socketUrl(): string {
@@ -29,6 +31,8 @@ export function useGame(): GameState {
   const [connection, setConnection] = useState<Connection>('connecting');
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [rejection, setRejection] = useState<string | null>(null);
+  // 새 대국은 새 연결이다. 서버가 연결 하나에 대국 하나를 여니, 다시 붙는 것이 곧 새 판이다.
+  const [generation, setGeneration] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -58,7 +62,7 @@ export function useGame(): GameState {
       socketRef.current = null;
       socket.close();
     };
-  }, []);
+  }, [generation]);
 
   const send = useCallback((msg: ClientMessage) => {
     const socket = socketRef.current;
@@ -69,5 +73,13 @@ export function useGame(): GameState {
   const resign = useCallback(() => send({ type: 'resign' }), [send]);
   const dismissRejection = useCallback(() => setRejection(null), []);
 
-  return { connection, snapshot, rejection, play, resign, dismissRejection };
+  const restart = useCallback(() => {
+    // 판을 먼저 비운다. 끝난 대국이 남아 있으면 새 판이 오기 전 한 순간 그게 보인다.
+    setSnapshot(null);
+    setRejection(null);
+    setConnection('connecting');
+    setGeneration((n) => n + 1);
+  }, []);
+
+  return { connection, snapshot, rejection, play, resign, dismissRejection, restart };
 }

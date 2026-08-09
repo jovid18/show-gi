@@ -8,12 +8,15 @@
   --fg: #ede8df;
   --muted: #8e857a;
 
-  /* 판은 무광이고 near-white가 아니다. 빛을 얹을 여지를 남겨야 빛이 빛으로 보인다. */
-  --board: #e8e2d3;
-  --grid: #2b2620;
-  --koma-face: #f6efdf;
-  --koma-shade: #e9dfc7;
-  --koma-edge: #c4b79a;
+  /* 판은 榧(카야) 계열의 꿀색 나무다. 실제 대국에서 駒가 판보다 밝고, 그 관계가
+     선후수 구분보다 먼저 눈에 들어온다.
+     오프화이트로 두면 판·駒·빛이 전부 밝은 값이 되어 셋이 안 갈린다 —
+     특히 빛으로 강조하는 설계에서는 판이 밝을수록 빛이 얹힐 여지가 사라진다. */
+  --board: #cbab78;
+  --grid: #2b2015;
+  --koma-face: #f7f0e0;
+  --koma-shade: #ece0c6;
+  --koma-edge: #b39a72;
   --ink: #17140f;
 
   /* 빛. rgb 트리플릿으로 두고 알파만 바꾼다. */
@@ -86,9 +89,16 @@ body {
 }
 
 .notice {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
   padding: 4rem 1rem;
   text-align: center;
   color: var(--muted);
+}
+
+.notice p {
+  margin: 0;
 }
 
 /* 판과 옆 패널을 한 덩어리로 묶어 가운데에 둔다. 컨테이너 폭에 맞춰 늘리면
