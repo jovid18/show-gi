@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import { Board, type Replay } from './Board';
+import { Board, type LastMove, type Replay } from './Board';
 import { Hand } from './Hand';
 import { Intervention } from './Intervention';
 import { Kifu } from './Kifu';
@@ -10,9 +10,21 @@ import { useGame } from '@/game/useGame';
 import { parseSfen } from '@/shogi/sfen';
 import { fromIndex, fromUsi, toIndex, toUsi } from '@/shogi/square';
 
-/** 직전 수가 도착한 칸. `P*5e` → `5e`, `8h2b+` → `2b` — 어느 쪽이든 3·4번째 글자다. */
-function destinationOf(usi: string): string {
-  return usi.slice(2, 4);
+/**
+ * 직전 수가 지나간 두 칸.
+ *
+ * **도착만 짚으면 「저기 뭔가 있다」까지다.** 초심자가 알아야 하는 것은 무엇이 어디서
+ * 왔나이고, 출발 칸이 비었다는 사실이 그 절반이다.
+ */
+function lastMoveOf(usi: string): LastMove | null {
+  const move = parseUsi(usi);
+  if (!move) return null;
+  try {
+    const to = toIndex(fromUsi(move.to));
+    return { from: move.kind === 'drop' ? null : toIndex(fromUsi(move.from)), to };
+  } catch {
+    return null; // 못 읽는 좌표로 엉뚱한 칸을 칠하느니 안 칠한다
+  }
 }
 
 function resultText(snapshot: Snapshot): string | null {
@@ -64,7 +76,7 @@ export function GameScreen() {
 
   const moves = snapshot?.moves ?? [];
   const last = moves.at(-1);
-  const lastMove = last ? destinationOf(last.usi) : null;
+  const lastMove = useMemo(() => (last ? lastMoveOf(last.usi) : null), [last]);
 
   // 王手를 받고 있는 玉의 칸. 강조는 판 위에서만 하고 글로는 반복하지 않는다.
   const checked = useMemo(() => {

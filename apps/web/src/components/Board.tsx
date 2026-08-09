@@ -21,14 +21,20 @@ export interface Replay {
   side: Side;
 }
 
+/** 직전 수가 지나간 두 칸. 화면 배열 인덱스이고, 打이면 `from` 이 null. */
+export interface LastMove {
+  from: number | null;
+  to: number;
+}
+
 interface BoardProps {
   board: BoardModel;
   /** 지금 빛나는 칸(착수 가능). USI 좌표. */
   lit: ReadonlySet<string>;
   /** 고른 기물이 서 있는 칸. */
   selected: string | null;
-  /** 직전 수가 도착한 칸. */
-  lastMove: string | null;
+  /** 직전 수. 출발 칸과 도착 칸을 함께 짚는다. */
+  lastMove: LastMove | null;
   /** 王手를 받고 있는 玉의 칸. */
   checked: string | null;
   /** 개입 연출 동안만 채워진다. */
@@ -81,6 +87,7 @@ export function Board({ board, lit, selected, lastMove, checked, replay, interac
           const label = `${FILES[index % BOARD_SIZE]}${RANKS[Math.floor(index / BOARD_SIZE)]}`;
           // 한 칸이 出発と到着을 겸하는 수는 없다. 겸치면 그릴 것도 없다.
           const mark = replay?.from === index ? 'from' : replay?.to === index ? 'to' : null;
+          const last = lastMove?.to === index ? 'to' : lastMove?.from === index ? 'from' : undefined;
 
           return (
             <button
@@ -90,7 +97,7 @@ export function Board({ board, lit, selected, lastMove, checked, replay, interac
               data-lit={lit.has(usi) || undefined}
               data-occupied={piece ? true : undefined}
               data-selected={selected === usi || undefined}
-              data-last={lastMove === usi || undefined}
+              data-last={last}
               data-check={checked === usi || undefined}
               disabled={!interactive}
               aria-label={piece ? `${label} ${kanjiOf(piece.kind)}` : label}
