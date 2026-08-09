@@ -112,16 +112,9 @@ func replay(startSFEN string, moves []string) (shogi.Position, shogi.Move, error
 	if len(moves) == 0 {
 		return shogi.Position{}, shogi.Move{}, errors.New("replay: no moves")
 	}
-	pos, err := shogi.ParseSFEN(startSFEN)
+	pos, err := positionAfter(startSFEN, moves[:len(moves)-1])
 	if err != nil {
 		return pos, shogi.Move{}, err
-	}
-	for _, u := range moves[:len(moves)-1] {
-		m, err := shogi.ParseUSIMove(u)
-		if err != nil {
-			return pos, shogi.Move{}, err
-		}
-		pos = pos.Apply(m)
 	}
 	last, err := shogi.ParseUSIMove(moves[len(moves)-1])
 	if err != nil {

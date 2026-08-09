@@ -52,7 +52,7 @@ func main() {
 		}
 
 		opts.NewOpponent = func() game.Opponent {
-			return game.NewEngineOpponent(pool, engineDepth())
+			return game.NewAdaptiveOpponent(pool, engineDepth(), opponentBand())
 		}
 		opts.NewAnalyst = func() game.Analyst {
 			var mate game.MateSearcher
@@ -181,9 +181,35 @@ func envOr(name, fallback string) string {
 	return fallback
 }
 
+// opponentBand 는 상대가 겨냥할 형세 구간이다. 플레이어 관점 cp.
+//
+// **상수를 실측으로 잡는 동안 흔들어 볼 손잡이라 환경변수로 뺐다.** 값이 정해지면
+// 기본값이 되고 여기는 남는다 — 레이팅이 붙으면 플레이어마다 달라질 자리다.
+func opponentBand() game.Band {
+	lo, hi := envInt("OPPONENT_BAND_LO", game.DefaultBand.LoCp), envInt("OPPONENT_BAND_HI", game.DefaultBand.HiCp)
+	if lo > hi {
+		log.Printf("OPPONENT_BAND_LO(%d) > HI(%d), using default", lo, hi)
+		return game.DefaultBand
+	}
+	return game.Band{LoCp: lo, HiCp: hi}
+}
+
+func envInt(name string, fallback int) int {
+	v := os.Getenv(name)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		log.Printf("%s=%q is not an integer, using %d", name, v, fallback)
+		return fallback
+	}
+	return n
+}
+
 // engineDepth 는 상대 수를 고를 때의 탐색 깊이다.
 //
-// 시간이 아니라 깊이인 이유는 game.NewEngineOpponent 주석에 있다. 지연이 문제가 되면
+// 시간이 아니라 깊이인 이유는 game.NewAdaptiveOpponent 주석에 있다. 지연이 문제가 되면
 // **여기를 줄인다**(14→12). 시간 상한을 걸어 중간에 자르는 쪽이 아니다.
 func engineDepth() int {
 	v := os.Getenv("ENGINE_DEPTH")

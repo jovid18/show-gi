@@ -85,6 +85,15 @@ type Features struct {
 	HasShallow bool
 }
 
+// HangsPiece 는 놓인 駒를 그냥 내주는가다.
+//
+// **두 곳이 같은 정의를 쓴다.** 개입의 タダ捨て 판정이자 적응형 상대의 「던지지 않는다」
+// 필터다(01-core.md §6). 정의가 갈리면 화면이 「その駒は取り返せない場所に置かれています」
+// 라고 가르쳐놓고 컴퓨터가 바로 그 수를 두는 일이 생긴다 — 그 순간 배운 것이 무너진다.
+func (f Features) HangsPiece() bool {
+	return f.Known && f.LandsAttacked && !f.LandsDefended && f.MovedValue > f.CapturedValue
+}
+
 // ShallowTrapCp 는 「얕게 보면 이득」과 「깊게 보면 손해」 사이의 최소 반전 폭이다.
 //
 // 이만큼 안 벌어지면 그냥 평가가 흔들린 것이지 함정이 아니다. 제안형의 reversal
@@ -107,9 +116,9 @@ func classify(in Input, lostMate bool) Category {
 	}
 
 	switch {
-	// タダ捨て가 맨 앞이다. 상대 利き 아래에 놓인 駒는 판에서 그대로 보이고,
+	// タダ捨て가 맨 앞이다. 그냥 잡히는 駒는 판에서 그대로 보이고,
 	// 딴 것보다 잃는 것이 클 때만 걸리므로 정당한 駒交換은 여기 안 들어온다.
-	case f.LandsAttacked && !f.LandsDefended && f.MovedValue > f.CapturedValue:
+	case f.HangsPiece():
 		return CategoryHangsPiece
 
 	// 얕은 이득에 낚임. 위에서 안 걸렸다는 것은 놓인 駒가 그냥 잡히지는 않는다는
