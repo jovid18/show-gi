@@ -166,6 +166,29 @@ aws ecs execute-command --cluster show-gi --container api \
 
 `apps/server/internal/store/migrations/*.sql`이 **정본**이다. 손으로 넣더라도 넣은 것과 같은 내용이 레포에 있어야 한다 — 새 환경을 세울 때, 그리고 코드 생성기가 읽을 때 이 파일들이 기준이 된다.
 
+## 엔진이 떴는지 보는 법
+
+`/healthz` 는 **엔진이 없어도 200이다.** 여기서 실패를 내면 ECS가 태스크를 죽이고 재시작을 반복해 사이트 전체가 내려가기 때문이다. 대신 필드로 드러낸다.
+
+```sh
+curl -s https://show-gi.com/healthz
+# {"ok":true,"engine":true}    ← engine 이 false 면 사이트는 살아 있고 대국만 안 된다
+```
+
+배포 워크플로가 마지막에 이 값을 확인하고 false면 실패시킨다. 손으로 볼 때도 여기부터 본다.
+
+## 운영자 정책에 로그 읽기 권한 올리기
+
+**운영자는 자기 정책을 못 고친다**(권한 상승 방지). 관리자 자격으로 한 번 올려야 한다.
+
+```sh
+# 버전은 5개가 상한이라, 차면 오래된 것을 지우면서 올린다
+aws iam create-policy-version \
+  --policy-arn arn:aws:iam::058264445568:policy/show-gi-operator \
+  --policy-document file://infra/iam-policy.json \
+  --set-as-default --profile <관리자 프로파일>
+```
+
 ### 스키마를 넣는 법 — 일회용 태스크
 
 RDS는 인터넷에 열려 있지 않다(`publicly_accessible = false`). 노트북에서 직접 못 붙는다.

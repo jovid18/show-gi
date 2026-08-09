@@ -116,3 +116,15 @@ jobs:
           # 안정될 때까지 기다린다. 기다리지 않으면 배포가 실패해도 워크플로가 초록으로 남는다
           wait-for-service-stability: true
           wait-for-minutes: 10
+
+      # ECS가 "안정"이라고 해도 대국이 되는지는 모른다 — 헬스체크는 엔진을 안 건드린다.
+      # 엔진이 안 뜨면 사이트는 살아 있고 /ws/game 만 503이라 배포가 초록으로 끝난다.
+      # 실제로 한 번 그렇게 통과했으므로 여기서 막는다.
+      - name: Verify the engine came up
+        run: |
+          body="$(curl -fsS --retry 5 --retry-delay 5 https://show-gi.com/healthz)"
+          echo "$body"
+          if [ "$(printf '%s' "$body" | jq -r .engine)" != "true" ]; then
+            echo "✗ 배포는 됐지만 엔진이 안 떴다 — 대국이 불가능한 상태다"
+            exit 1
+          fi
