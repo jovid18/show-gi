@@ -27,8 +27,9 @@ go test -race ./...
 
 # ② DB — 규칙이 SQL의 WHERE 절에만 있어 가짜로는 검증이 안 된다
 docker compose up -d db
-docker exec -i show-gi-db psql -U showgi -d showgi -v ON_ERROR_STOP=1 \
-  < internal/store/migrations/001_init.sql
+for f in internal/store/migrations/*.sql; do   # 번호 순서대로 전부
+  docker exec -i show-gi-db psql -U showgi -d showgi -v ON_ERROR_STOP=1 < "$f"
+done
 SHOWGI_TEST_DATABASE_URL='postgres://showgi:showgi@localhost:5432/showgi' go test -race ./...
 
 # ③ 실엔진 — 이미지가 필요하다. enginetest.Dockerfile 참조

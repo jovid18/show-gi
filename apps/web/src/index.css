@@ -724,6 +724,35 @@ body {
   color: var(--muted);
 }
 
+/* 棋譜 머리. 제목과 복사 버튼이 같은 줄에 앉는다 — 복사는 棋譜에 딸린 동작이라
+   따로 떨어뜨리면 무엇을 복사하는지가 흐려진다. */
+.kifu-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+/* 평시엔 조용하게. .btn 보다 한 단 낮은 무게다 — 판에서 벌어지는 일이 아니라
+   棋譜에 딸린 보조 동작이라, 「もう一局」·「投了」와 같은 크기로 서면 안 된다. */
+.kifu-copy {
+  flex: none;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid rgb(var(--light) / 0.14);
+  background: none;
+  font: inherit;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.kifu-copy:hover,
+.kifu-copy:focus-visible {
+  border-color: rgb(var(--light) / 0.4);
+  color: var(--fg);
+}
+
 .kifu-empty {
   margin: 0;
   font-size: 0.8125rem;

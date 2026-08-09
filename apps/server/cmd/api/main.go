@@ -34,7 +34,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	opts := server.Options{}
+	// 실력 추정이 붙기 전까지는 제일 너그러운 쪽이 기본이다 — 학습 앱에서 과잉 개입은
+	// 잔소리가 되고, 이 제품이 피하려는 바로 그것이다(intervene.Beginner 주석).
+	//
+	// **판정과 기록이 같은 값을 봐야 한다.** 갈리면 「어느 임계치에서 걸린 개입인가」가
+	// 기록에서 틀리고, 그 위에서 상수를 흔들어 보게 된다.
+	opts := server.Options{Level: intervene.Beginner}
 
 	if st := openStore(ctx); st != nil {
 		defer st.Close()
@@ -59,7 +64,7 @@ func main() {
 			if matePool != nil {
 				mate = matePool
 			}
-			return game.NewEngineAnalyst(pool, mate, intervene.Beginner)
+			return game.NewEngineAnalyst(pool, mate, opts.Level)
 		}
 	}
 

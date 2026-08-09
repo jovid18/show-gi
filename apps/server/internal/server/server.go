@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/game"
+	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
@@ -39,9 +40,14 @@ type Options struct {
 	HumanColor   shogi.Color
 	ObservePlies int
 
-	// Store 는 국면 캐시다. nil이어도 대국은 된다 — 캐시가 없으면 매번 계산할 뿐이다.
-	// 엔진과 같은 이유로 여기서도 프로세스를 죽이지 않고 /healthz 로 드러낸다.
+	// Store 는 국면 캐시이자 **대국 기록**이다. nil이어도 대국은 된다 — 캐시가 없으면
+	// 매번 계산하고, 기록이 없으면 남지 않을 뿐이다. 엔진과 같은 이유로 여기서도
+	// 프로세스를 죽이지 않고 /healthz 로 드러낸다.
 	Store *store.Store
+
+	// Level 은 개입 임계치를 정하는 실력 구간이다. 기록에도 같이 남는다 —
+	// 어느 임계치에서 걸린 개입인지를 모르면 나중에 상수를 흔들어 볼 수 없다.
+	Level intervene.Level
 }
 
 // Handler 는 라우팅만 조립한다. 테스트가 서버를 띄우지 않고 이걸 그대로 쓴다.

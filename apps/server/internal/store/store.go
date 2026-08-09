@@ -123,3 +123,98 @@ func (s *Store) PutPosition(ctx context.Context, p Position) (stored bool, err e
 func (s *Store) CountPositions(ctx context.Context) (int64, error) {
 	return s.q.CountPositions(ctx)
 }
+
+// ── 대국 기록 ────────────────────────────────────────────
+
+// GameResult 는 games.result 에 들어가는 값이다. DDL의 주석과 같은 어휘를 쓴다.
+type GameResult string
+
+const (
+	ResultWin       GameResult = "win"
+	ResultLoss      GameResult = "loss"
+	ResultDraw      GameResult = "draw"
+	ResultAbandoned GameResult = "abandoned" // 끝나지 않고 연결이 끊겼다
+)
+
+// CreateGame 은 대국 하나를 연다. userID 가 nil이면 로그인 전 대국이다.
+func (s *Store) CreateGame(ctx context.Context, userID *int64, myColor, startSFEN string) (int64, error) {
+	id, err := s.q.CreateGame(ctx, db.CreateGameParams{
+		UserID:    userID,
+		MyColor:   myColor,
+		StartSfen: &startSFEN,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("create game: %w", err)
+	}
+	return id, nil
+}
+
+// FinishGame 은 대국을 닫는다.
+func (s *Store) FinishGame(ctx context.Context, gameID int64, result GameResult) error {
+	r := string(result)
+	if err := s.q.FinishGame(ctx, db.FinishGameParams{ID: gameID, Result: &r}); err != nil {
+		return fmt.Errorf("finish game: %w", err)
+	}
+	return nil
+}
+
+// InsertMove 는 **확정된** 수 하나를 기보에 넣는다.
+func (s *Store) InsertMove(ctx context.Context, gameID int64, ply int, usi string) error {
+	if err := s.q.InsertMove(ctx, db.InsertMoveParams{
+		GameID: gameID,
+		Ply:    int32(ply),
+		USI:    usi,
+	}); err != nil {
+		return fmt.Errorf("insert move: %w", err)
+	}
+	return nil
+}
+
+// Intervention 은 기록할 개입 하나다.
+type Intervention struct {
+	Ply         int
+	Kind        string
+	Category    string
+	DeltaWin    float64
+	LevelBucket string
+	// RetractedUSI 는 개입이 막지 않았다면 실제로 뒀을 수다.
+	RetractedUSI string
+}
+
+// InsertIntervention 은 개입 하나를 남긴다.
+//
+// **같은 ply에 여러 번 불릴 수 있다.** 한 국면에서 몇 수를 시도하고 전부 물러지는 일이
+// 실제로 있고, 그 반복이 곧 「그 국면이 그 사람에게 얼마나 어려웠나」다.
+func (s *Store) InsertIntervention(ctx context.Context, gameID int64, iv Intervention) error {
+	arg := db.InsertInterventionParams{
+		GameID: gameID,
+		Ply:    int32(iv.Ply),
+		Kind:   iv.Kind,
+	}
+	if iv.Category != "" {
+		arg.Category = &iv.Category
+	}
+	if iv.LevelBucket != "" {
+		arg.LevelBucket = &iv.LevelBucket
+	}
+	if iv.RetractedUSI != "" {
+		arg.RetractedUsi = &iv.RetractedUSI
+	}
+	d := iv.DeltaWin
+	arg.DeltaWin = &d
+
+	if err := s.q.InsertIntervention(ctx, arg); err != nil {
+		return fmt.Errorf("insert intervention: %w", err)
+	}
+	return nil
+}
+
+// CountGames · CountInterventions 는 기록이 실제로 쌓이는지 확인하는 데 쓴다.
+func (s *Store) CountGames(ctx context.Context) (int64, error) { return s.q.CountGames(ctx) }
+func (s *Store) CountInterventions(ctx context.Context) (int64, error) {
+	return s.q.CountInterventions(ctx)
+}
+
+// Pool 은 생성된 질의로 표현되지 않는 것을 테스트가 직접 물어보는 통로다.
+// 프로덕션 코드는 쓰지 않는다 — 규칙은 SQL 파일에 있어야 한다.
+func (s *Store) Pool() *pgxpool.Pool { return s.pool }

@@ -115,6 +115,8 @@ type Config struct {
 	Opponent Opponent
 	// Analyst 가 nil이면 개입하지 않는다. 대국은 그대로 된다.
 	Analyst Analyst
+	// Recorder 가 nil이면 기록하지 않는다. 대국은 그대로 된다.
+	Recorder Recorder
 	// ObservePlies 는 개입하지 않는 초반 구간이다. **기본값은 0 — 첫 수부터 판정한다.**
 	//
 	// 원래 20수를 비워뒀는데 그건 「오프닝의 다양성을 인정한다」를 수 번호로 잘못 옮긴
@@ -251,6 +253,11 @@ func (s *Session) run(ctx context.Context, st *state) {
 	engineDone := make(chan engineResult, 1)
 	judgeDone := make(chan judgeResult, 1)
 
+	// 기록도 세션 goroutine 안에서 시작한다 — 상태를 만지는 순서와 같은 줄에 둔다.
+	if st.cfg.Recorder != nil {
+		st.cfg.Recorder.Started(st.start, st.cfg.HumanColor)
+	}
+
 	// 엔진이 선수면 시작하자마자 생각한다.
 	st.maybeThink(ctx, engineDone)
 
@@ -342,6 +349,8 @@ func (st *state) playHuman(ctx context.Context, usi string, engineDone chan engi
 	if st.startJudging(ctx, judgeDone) {
 		return st.snapshot(), nil
 	}
+	// 판정하지 않으면 그 자리에서 확정이다.
+	st.recordLastMove()
 	st.maybeThink(ctx, engineDone)
 	return st.snapshot(), nil
 }
@@ -395,6 +404,8 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 		return
 	}
 
+	// 판정을 통과했다. 여기가 사람의 수가 확정되는 자리다.
+	st.recordLastMove()
 	st.maybeThink(ctx, engineDone)
 	st.broadcast()
 }
@@ -413,6 +424,12 @@ func (st *state) rollback(r judgeResult) {
 	st.moves = st.moves[:len(st.moves)-1]
 	st.usis = st.usis[:len(st.usis)-1]
 	st.searchGen++ // 물러진 국면에 대한 늦은 결과를 버리기 위해
+
+	// **물러진 수는 여기서만 남는다.** 기보에는 안 들어가므로, 이 한 줄을 안 쓰면
+	// 개입에 오염되지 않은 유일한 실력 신호가 그대로 사라진다(01-core.md §5).
+	if st.cfg.Recorder != nil {
+		st.cfg.Recorder.Retracted(len(st.usis)+1, r.move.USI, r.verdict)
+	}
 
 	st.intervention = &Intervention{
 		Kind:         string(r.verdict.Kind),
@@ -485,6 +502,21 @@ func (st *state) finish(status Status, winner Side) {
 	st.thinking = false
 	st.judging = false
 	st.searchGen++
+	if st.cfg.Recorder != nil {
+		st.cfg.Recorder.Finished(status, winner)
+	}
+}
+
+// recordLastMove 는 **확정된** 직전 수를 기록에 넘긴다.
+//
+// `apply` 안이 아니라 확정되는 자리마다 부른다 — 착수와 확정이 같은 순간이 아니기
+// 때문이다. 사람의 수는 판정을 통과해야 확정되고, 물러지면 기보에서 사라진다.
+func (st *state) recordLastMove() {
+	if st.cfg.Recorder == nil || len(st.moves) == 0 {
+		return
+	}
+	last := st.moves[len(st.moves)-1]
+	st.cfg.Recorder.Moved(len(st.moves), last.USI, last.By)
 }
 
 // maybeThink 는 엔진 차례면 탐색을 띄운다.
@@ -546,6 +578,7 @@ func (st *state) applyEngineMove(ctx context.Context, r engineResult, engineDone
 	}
 
 	st.apply(m, SideEngine)
+	st.recordLastMove() // 상대 수는 판정하지 않으므로 두는 즉시 확정이다
 	st.maybeThink(ctx, engineDone)
 	st.broadcast()
 }

@@ -62,10 +62,16 @@ jobs:
 
       - run: go vet ./...
 
+      # 마이그레이션을 **전부, 번호 순서대로** 적용한다.
+      #
+      # 001만 적으면 새 마이그레이션이 CI에서 안 돌아 「로컬은 통과하는데 CI만 깨지는」
+      # 상태가 된다. 파일 이름이 정렬 순서를 정하므로 glob 하나면 된다.
       - name: 스키마 적용
         run: |
-          PGPASSWORD=showgi psql -h localhost -U showgi -d showgi \
-            -v ON_ERROR_STOP=1 -f internal/store/migrations/001_init.sql
+          for f in internal/store/migrations/*.sql; do
+            echo "→ $f"
+            PGPASSWORD=showgi psql -h localhost -U showgi -d showgi -v ON_ERROR_STOP=1 -f "$f"
+          done
 
       - run: go test -race ./...
         env:

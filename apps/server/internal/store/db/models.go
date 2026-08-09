@@ -27,13 +27,14 @@ type ExplainCache struct {
 
 type Game struct {
 	ID         int64
-	UserID     int64
+	UserID     *int64
 	MyColor    string
 	StartedAt  pgtype.Timestamptz
 	FinishedAt pgtype.Timestamptz
 	Result     *string
 	OpeningTag *string
 	RootKey    *string
+	StartSfen  *string
 }
 
 type GameMove struct {

@@ -138,3 +138,131 @@ func TestPingAndCount(t *testing.T) {
 		t.Fatalf("CountPositions: %v", err)
 	}
 }
+
+// ── 대국 기록 ────────────────────────────────────────────
+
+// newGame 은 빈 대국을 하나 열고, 끝나면 지운다.
+//
+// 지우는 것은 **다음 실행이 이전 행을 세지 않게** 하기 위해서다. game_moves 와
+// interventions 는 ON DELETE CASCADE 라 대국만 지우면 같이 지워진다.
+func newGame(t *testing.T, s *Store) int64 {
+	t.Helper()
+	id, err := s.CreateGame(t.Context(), nil, "b", "startpos-for-"+t.Name())
+	if err != nil {
+		t.Fatalf("CreateGame: %v", err)
+	}
+	t.Cleanup(func() {
+		if _, err := s.pool.Exec(context.Background(), `DELETE FROM games WHERE id = $1`, id); err != nil {
+			t.Errorf("정리: %v", err)
+		}
+	})
+	return id
+}
+
+// **로그인 전에도 남아야 한다.** user_id 가 NOT NULL이던 동안에는 한 판도 못 남겼고,
+// 그 사이에 둔 판은 되살릴 수 없다 (002_anonymous_games.sql).
+func TestGameWithoutUser(t *testing.T) {
+	s := open(t)
+	id := newGame(t, s)
+	if id == 0 {
+		t.Fatal("대국 id가 0이다")
+	}
+
+	if err := s.InsertMove(t.Context(), id, 1, "7g7f"); err != nil {
+		t.Fatalf("InsertMove: %v", err)
+	}
+	if err := s.FinishGame(t.Context(), id, ResultWin); err != nil {
+		t.Fatalf("FinishGame: %v", err)
+	}
+
+	var result string
+	var finished *string
+	row := s.pool.QueryRow(t.Context(), `SELECT result, finished_at::text FROM games WHERE id = $1`, id)
+	if err := row.Scan(&result, &finished); err != nil {
+		t.Fatalf("조회: %v", err)
+	}
+	if result != string(ResultWin) || finished == nil {
+		t.Fatalf("result=%q finished=%v", result, finished)
+	}
+}
+
+// **같은 ply에 여러 개입이 들어간다.**
+//
+// 한 국면에서 몇 수를 시도하고 전부 물러지는 일이 실제로 있다(docs/06-status.md §17).
+// (game_id, ply) 가 유니크였다면 두 번째 시도부터 조용히 사라지고, 「그 국면이 그 사람에게
+// 얼마나 어려웠나」가 통째로 없어진다.
+func TestManyInterventionsAtOnePly(t *testing.T) {
+	s := open(t)
+	id := newGame(t, s)
+
+	tried := []string{"8h3c+", "2g2f", "1i1g"}
+	for _, usi := range tried {
+		err := s.InsertIntervention(t.Context(), id, Intervention{
+			Ply: 81, Kind: "blunder", Category: "hangs_piece",
+			DeltaWin: 0.5, LevelBucket: "beginner", RetractedUSI: usi,
+		})
+		if err != nil {
+			t.Fatalf("InsertIntervention(%s): %v", usi, err)
+		}
+	}
+
+	rows, err := s.pool.Query(t.Context(),
+		`SELECT retracted_usi FROM interventions WHERE game_id = $1 AND ply = 81 ORDER BY id`, id)
+	if err != nil {
+		t.Fatalf("조회: %v", err)
+	}
+	defer rows.Close()
+	var got []string
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			t.Fatalf("Scan: %v", err)
+		}
+		got = append(got, u)
+	}
+	if len(got) != len(tried) {
+		t.Fatalf("시도 %d개 중 %d개만 남았다: %v", len(tried), len(got), got)
+	}
+	for i := range tried {
+		if got[i] != tried[i] {
+			t.Errorf("%d번째: %q 기대, got %q", i, tried[i], got[i])
+		}
+	}
+}
+
+// 기보는 **지금 판에 남아 있는 수순**이다. 물러진 뒤 다시 둔 수가 같은 ply를 덮어쓴다.
+func TestReplayedPlyOverwritesTheKifu(t *testing.T) {
+	s := open(t)
+	id := newGame(t, s)
+
+	if err := s.InsertMove(t.Context(), id, 81, "2g2f"); err != nil {
+		t.Fatalf("InsertMove: %v", err)
+	}
+	if err := s.InsertMove(t.Context(), id, 81, "B*4a"); err != nil {
+		t.Fatalf("다시 둔 수: %v", err)
+	}
+
+	var usi string
+	var n int
+	if err := s.pool.QueryRow(t.Context(),
+		`SELECT usi, count(*) OVER () FROM game_moves WHERE game_id = $1 AND ply = 81`, id).Scan(&usi, &n); err != nil {
+		t.Fatalf("조회: %v", err)
+	}
+	if n != 1 || usi != "B*4a" {
+		t.Fatalf("행 %d개, usi=%q — 마지막 수 하나만 남아야 한다", n, usi)
+	}
+}
+
+// interventions 는 kind별로 채우는 컬럼이 다르고 **DB가 그걸 막는다.**
+// 섞이면 실력 추정이 조용히 틀어지므로 Go 쪽 실수가 여기서 걸려야 한다.
+func TestInterventionKindConstraint(t *testing.T) {
+	s := open(t)
+	id := newGame(t, s)
+
+	// 제안형(tesuji)에는 물러진 수가 있을 수 없다
+	_, err := s.pool.Exec(t.Context(),
+		`INSERT INTO interventions (game_id, ply, kind, retracted_usi) VALUES ($1, 1, 'tesuji', '7g7f')`, id)
+	if err == nil {
+		t.Fatal("tesuji 에 retracted_usi 가 들어갔다 — CHECK 제약이 안 걸린다")
+	}
+}
