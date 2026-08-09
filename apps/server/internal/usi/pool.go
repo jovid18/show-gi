@@ -16,9 +16,9 @@ var ErrPoolClosed = errors.New("usi: pool closed")
 // 동시 탐색이 여러 개 필요하다. Engine을 고치는 대신 여러 개를 두고 빌려준다 —
 // 엔진의 직렬성은 프로세스의 성질이지 코드의 결함이 아니다.
 //
-// **빌린 동안에는 그 Engine을 혼자 쓴다.** 옵션(Skill Level, MultiPV)을 걸어야 하면
-// 빌린 뒤 탐색 직전에 건다. 옵션은 Engine에 남아서 다음에 빌리는 쪽이 그대로 물려받으므로,
-// 값에 기대는 쪽은 매번 직접 걸어야 한다. 이걸 어기면 A 대국의 강함이 B 대국에 새어 나간다.
+// **빌린 동안에는 그 Engine을 혼자 쓴다.** 대국마다 달라지는 옵션(MultiPV 등)은 빌린 뒤
+// 탐색 직전에 건다. 옵션은 Engine에 남아서 다음에 빌리는 쪽이 그대로 물려받으므로,
+// 값에 기대는 쪽은 매번 직접 걸어야 한다. 엔진 전체 설정은 NewPool 로 준다.
 type Pool struct {
 	free chan *Engine
 	all  []*Engine
@@ -28,7 +28,10 @@ type Pool struct {
 }
 
 // NewPool 은 엔진 size개를 띄운다. 하나라도 실패하면 이미 띄운 것을 정리하고 에러를 낸다.
-func NewPool(size int, path string, args ...string) (*Pool, error) {
+//
+// opts 는 엔진마다 핸드셰이크 중에 걸린다(New 참조). **엔진 전체의 설정만 여기 둔다** —
+// USI_Hash 는 엔진 하나가 통째로 잡는 메모리라 풀 크기를 곱한 만큼 쓴다.
+func NewPool(size int, path string, opts map[string]string, args ...string) (*Pool, error) {
 	if size < 1 {
 		return nil, errors.New("usi: pool size must be at least 1")
 	}
@@ -38,7 +41,7 @@ func NewPool(size int, path string, args ...string) (*Pool, error) {
 		done: make(chan struct{}),
 	}
 	for range size {
-		e, err := New(path, args...)
+		e, err := New(path, opts, args...)
 		if err != nil {
 			p.Close()
 			return nil, err
@@ -93,18 +96,8 @@ func (p *Pool) Do(ctx context.Context, fn func(*Engine) error) error {
 	return fn(e)
 }
 
-// Search 는 엔진을 빌려 movetime 탐색을 한 번 돌린다.
-func (p *Pool) Search(ctx context.Context, startSFEN string, moves []string, movetimeMs int) (SearchResult, error) {
-	var res SearchResult
-	err := p.Do(ctx, func(e *Engine) error {
-		var err error
-		res, err = e.Search(ctx, startSFEN, moves, movetimeMs)
-		return err
-	})
-	return res, err
-}
-
 // SearchDepth 는 엔진을 빌려 고정 깊이 탐색을 한 번 돌린다.
+// 시간 기반 탐색은 이 패키지에 없다 — Engine.SearchDepth 주석 참조.
 func (p *Pool) SearchDepth(ctx context.Context, startSFEN string, moves []string, depth int) (SearchResult, error) {
 	var res SearchResult
 	err := p.Do(ctx, func(e *Engine) error {

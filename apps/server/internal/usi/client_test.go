@@ -12,7 +12,7 @@ const testSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 
 
 func newFake(t *testing.T) *Engine {
 	t.Helper()
-	e, err := New("sh", "testdata/fakeengine.sh")
+	e, err := New("sh", nil, "testdata/fakeengine.sh")
 	if err != nil {
 		t.Fatalf("가짜 엔진 기동 실패: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestHandshakeAndName(t *testing.T) {
 
 func TestSearch(t *testing.T) {
 	e := newFake(t)
-	res, err := e.Search(t.Context(), testSFEN, nil, 100)
+	res, err := e.SearchDepth(t.Context(), testSFEN, nil, 6)
 	if err != nil {
 		t.Fatalf("Search: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestSearch(t *testing.T) {
 
 func TestSearchWithMoves(t *testing.T) {
 	e := newFake(t)
-	res, err := e.Search(t.Context(), testSFEN, []string{"7g7f", "3c3d"}, 50)
+	res, err := e.SearchDepth(t.Context(), testSFEN, []string{"7g7f", "3c3d"}, 6)
 	if err != nil || res.Best == "" {
 		t.Fatalf("Search(moves): %v %+v", err, res)
 	}
@@ -63,7 +63,7 @@ func TestRestartAfterDeath(t *testing.T) {
 	_ = e.send("die")
 	e.mu.Unlock()
 	// 다음 Search는 실패 → 자동 재기동 → 성공해야 함
-	res, err := e.Search(t.Context(), testSFEN, nil, 50)
+	res, err := e.SearchDepth(t.Context(), testSFEN, nil, 6)
 	if err != nil {
 		t.Fatalf("재기동 후 Search 실패: %v", err)
 	}
@@ -72,22 +72,23 @@ func TestRestartAfterDeath(t *testing.T) {
 	}
 }
 
-func TestSetSkillSurvivesRestart(t *testing.T) {
+// 재기동 뒤에도 옵션이 남아야 한다. 안 그러면 살아난 엔진만 다른 설정으로 돈다.
+func TestSetOptionSurvivesRestart(t *testing.T) {
 	e := newFake(t)
-	if err := e.SetSkill(4); err != nil {
+	if err := e.SetMultiPV(4); err != nil {
 		t.Fatal(err)
 	}
 	e.mu.Lock()
 	_ = e.send("die")
 	e.mu.Unlock()
-	if _, err := e.Search(t.Context(), testSFEN, nil, 50); err != nil {
+	if _, err := e.SearchDepth(t.Context(), testSFEN, nil, 6); err != nil {
 		t.Fatalf("재기동 실패: %v", err)
 	}
 	e.mu.Lock()
-	saved := e.saved["Skill Level"]
+	saved := e.saved["MultiPV"]
 	e.mu.Unlock()
 	if saved != "4" {
-		t.Fatalf("Skill 저장값 = %q", saved)
+		t.Fatalf("MultiPV 저장값 = %q", saved)
 	}
 }
 
@@ -148,7 +149,7 @@ func TestParseScoreTruncatedFinalIterationKeepsFullPv(t *testing.T) {
 // 깊이별로 남지 않으면 "얕게는 좋아 보이는데 깊게는 나쁜 수"를 못 찾는다.
 func TestEvalByDepth(t *testing.T) {
 	e := newFake(t)
-	res, err := e.Search(t.Context(), testSFEN, nil, 50)
+	res, err := e.SearchDepth(t.Context(), testSFEN, nil, 6)
 	if err != nil {
 		t.Fatalf("Search: %v", err)
 	}
@@ -210,7 +211,7 @@ func TestSearchCancelSwallowsBestmove(t *testing.T) {
 	}
 
 	// 엔진이 그대로 쓸 수 있어야 한다. 이전 탐색의 bestmove가 남아 있으면 여기서 드러난다.
-	res, err := e.Search(t.Context(), testSFEN, nil, 50)
+	res, err := e.SearchDepth(t.Context(), testSFEN, nil, 6)
 	if err != nil {
 		t.Fatalf("취소 후 Search 실패: %v", err)
 	}
@@ -234,7 +235,7 @@ func TestRealEngine(t *testing.T) {
 		t.Skip("SHOWGI_USI_CMD 미설정 — 실엔진 검증 건너뜀")
 	}
 
-	e, err := New(cmd)
+	e, err := New(cmd, nil)
 	if err != nil {
 		t.Fatalf("엔진 기동 실패 (%s): %v", cmd, err)
 	}
@@ -288,7 +289,7 @@ func TestSearchCancelRestartsDeafEngine(t *testing.T) {
 		t.Fatalf("취소 에러 기대, got %v", err)
 	}
 	// 재기동됐으므로 다음 탐색이 정상이어야 한다
-	res, err := e.Search(t.Context(), testSFEN, nil, 50)
+	res, err := e.SearchDepth(t.Context(), testSFEN, nil, 6)
 	if err != nil {
 		t.Fatalf("재기동 후 Search 실패: %v", err)
 	}

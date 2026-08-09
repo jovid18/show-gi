@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"os/exec"
 	"regexp"
 	"slices"
@@ -109,8 +110,15 @@ type Engine struct {
 }
 
 // New 는 엔진 프로세스를 시작하고 usi/isready 핸드셰이크를 마친다.
-func New(path string, args ...string) (*Engine, error) {
-	e := &Engine{path: path, args: args, saved: map[string]string{}}
+//
+// opts 는 **usiok 뒤, isready 앞**에 걸린다. `USI_Hash` 처럼 isready 시점에 반영되는
+// 옵션은 반드시 여기로 줘야 한다 — 나중에 SetOption 으로 걸면 다음 isready 까지
+// 반영되지 않고, 그동안 엔진은 기본값으로 메모리를 잡고 있다.
+func New(path string, opts map[string]string, args ...string) (*Engine, error) {
+	saved := make(map[string]string, len(opts))
+	maps.Copy(saved, opts)
+
+	e := &Engine{path: path, args: args, saved: saved}
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if err := e.start(); err != nil {
@@ -141,6 +149,11 @@ func (e *Engine) start() error {
 		for sc.Scan() {
 			lines <- sc.Text()
 		}
+		// 읽기가 에러로 끝났으면 남긴다. 채널이 닫히는 것은 프로세스가 죽었을 때와
+		// 같아서, 안 남기면 "엔진이 죽었다"로만 보이고 원인(예: 한 줄이 너무 길다)이 묻힌다.
+		if err := sc.Err(); err != nil {
+			log.Printf("usi: reading engine output failed (%s): %v", e.path, err)
+		}
 		close(lines)
 		_ = cmd.Wait()
 	}()
@@ -153,12 +166,6 @@ func (e *Engine) start() error {
 	if err := e.handshake(); err != nil {
 		e.kill()
 		return err
-	}
-	// 재기동 시 이전 옵션 복원
-	for name, val := range e.saved {
-		if err := e.setOptionLocked(name, val); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -174,11 +181,10 @@ func (e *Engine) handshake() error {
 			if !ok {
 				return errors.New("engine exited before usiok")
 			}
-			if strings.HasPrefix(line, "id name ") {
-				e.name = strings.TrimPrefix(line, "id name ")
+			if name, ok := strings.CutPrefix(line, "id name "); ok {
+				e.name = name
 			}
-			if strings.HasPrefix(line, "option name ") {
-				rest := strings.TrimPrefix(line, "option name ")
+			if rest, ok := strings.CutPrefix(line, "option name "); ok {
 				if i := strings.Index(rest, " type "); i > 0 {
 					e.opts[rest[:i]] = true
 				}
@@ -203,6 +209,26 @@ ready:
 	}
 	if e.opts["USI_Ponder"] {
 		_ = e.send("setoption name USI_Ponder value false")
+	}
+
+	// PV 출력을 시간으로 솎아내지 않는다. **이건 배포 설정이 아니라 이 파서가 동작하기
+	// 위한 조건이다.** YaneuraOu의 기본값 300(ms)은 그 간격으로만 PV를 찍는데, 우리
+	// 탐색은 그보다 빨리 끝나서 마지막 깊이 하나만 남는다 — SearchResult.History 가
+	// 통째로 비고, 개입 판정의 입력인 깊이별 격차가 사라진다.
+	if e.opts["PvInterval"] {
+		_ = e.send("setoption name PvInterval value 0")
+	}
+
+	// 저장된 옵션은 **isready 앞**에서 건다. 재기동 때 복원되는 경로도 여기다 —
+	// USI_Hash 처럼 isready 에서 반영되는 옵션이 재기동 후에 빠지면, 살아난 엔진만
+	// 조용히 다른 설정으로 돌게 된다.
+	for name, val := range e.saved {
+		if !e.opts[name] {
+			continue // 엔진이 모르는 옵션은 보내지 않는다
+		}
+		if err := e.setOptionLocked(name, val); err != nil {
+			return err
+		}
 	}
 	return e.syncReady()
 }
@@ -265,19 +291,6 @@ func (e *Engine) SetOption(name, value string) error {
 	return e.setOptionLocked(name, value)
 }
 
-// SetSkill 은 Skill Level을 설정한다 (fairy-stockfish 기준 0..20).
-//
-// **적응형 상대에는 쓰지 않는다.** 엔진이 스스로 실수를 섞으면 고른 수가 얼마나
-// 나쁜지를 우리가 모르게 된다 — 밴드 제어도, 「최선보다 180cp 나쁜 수였습니다」라는
-// 설명도 같이 무너진다. 약화는 후보 중에서 고르는 우리 코드가 한다 (01-core.md §6).
-//
-// 게다가 이 값은 saved에 남아 재기동 때도 복원되므로, 풀에서 다음에 빌려가는 쪽이
-// 그대로 물려받는다. **약해진 엔진으로 플레이어의 블런더를 판정하게 된다** —
-// 학습 앱에서 이보다 나쁜 고장은 없다.
-func (e *Engine) SetSkill(level int) error {
-	return e.SetOption("Skill Level", strconv.Itoa(level))
-}
-
 // SetMultiPV 는 후보 수를 몇 개까지 받을지 정한다.
 func (e *Engine) SetMultiPV(n int) error {
 	return e.SetOption("MultiPV", strconv.Itoa(n))
@@ -299,18 +312,16 @@ func (e *Engine) Name() string {
 	return e.name
 }
 
-// Search 는 국면(시작 SFEN + 수순)을 주고 movetime 만큼 탐색시킨다.
-func (e *Engine) Search(ctx context.Context, startSFEN string, moves []string, movetimeMs int) (SearchResult, error) {
-	return e.search(ctx, startSFEN, moves,
-		"go movetime "+strconv.Itoa(movetimeMs),
-		time.Duration(movetimeMs)*time.Millisecond+10*time.Second)
-}
-
 // SearchDepth 는 고정 깊이까지 탐색시킨다.
 //
-// movetime과 달리 국면마다 품질이 균일한 대신 소요 시간이 복잡도에 따라 달라진다.
-// 그래서 자체 시한이 없다 — 언제 끝날지는 국면이 정한다. **대신 ctx로 끊을 수 있어야 한다.**
+// **이 패키지에 시간 기반 탐색(`go movetime`)은 일부러 없다.** 시간 기반은 같은 국면이
+// 같은 답을 주지 않아서, positions 캐시("같은 국면 = 같은 결과")도 밴드 제어(후보들의
+// cp를 믿을 수 있어야 한다)도 성립하지 않는다. 지연은 캐시·선행 계산·**깊이를 줄이는 것**
+// 으로 잡는다 (CLAUDE.md, 01-core.md §4). 넣고 싶어지면 왜 안 되는지부터 읽을 것.
+//
+// 자체 시한이 없다 — 언제 끝날지는 국면이 정한다. **대신 ctx로 끊을 수 있다.**
 // 풀에 넣고 쓰는 이상 끝나지 않는 탐색 하나가 슬롯을 영구히 물고 있으면 안 된다.
+// 끊으면 결과는 **버린다**. 중간까지의 결과는 depth N 결과가 아니라서 쓸 수 없다.
 func (e *Engine) SearchDepth(ctx context.Context, startSFEN string, moves []string, depth int) (SearchResult, error) {
 	return e.search(ctx, startSFEN, moves, "go depth "+strconv.Itoa(depth), 0)
 }
@@ -536,15 +547,4 @@ func (e *Engine) Close() {
 	_ = e.send("quit")
 	time.Sleep(50 * time.Millisecond)
 	e.kill()
-}
-
-// Probe 는 엔진 실행 가능 여부 확인용: 기동→이름 획득→종료.
-func Probe(path string, args ...string) (string, error) {
-	e, err := New(path, args...)
-	if err != nil {
-		return "", err
-	}
-	name := e.Name()
-	e.Close()
-	return name, nil
 }
