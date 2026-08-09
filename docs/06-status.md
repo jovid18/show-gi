@@ -570,6 +570,8 @@ WHERE positions.computed_depth < EXCLUDED.computed_depth
 
 `intervene.ObservePlies`(20수) 상수였는데 `Config.ObservePlies` 로 뺐다. **중반 국면에서 시작하는 대국**(리뷰 화면·테스트)에서 20수 규칙이 다시 걸리기 때문이고, 레벨별로 달라질 값이기도 하다.
 
+> **sqlc를 들이면서 취약점 경고 3건이 떴다**(grpc 1건 high, x/net·cel-go 각 1건). 셋 다 **sqlc를 통해서만 들어오는 코드 생성 도구의 전이 의존성**이라 API 바이너리에는 안 들어간다(`go mod why` 로 확인). 그래도 올렸다 — 도구 의존성이라고 방치하면 다음에 오는 진짜 경고가 묻힌다.
+
 ### 남은 것
 
 - **프론트 연출** — 지금은 스냅샷에 `intervention` 이 실려 나갈 뿐 화면이 안 그린다
