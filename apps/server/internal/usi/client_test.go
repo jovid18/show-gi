@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -295,5 +296,54 @@ func TestSearchCancelRestartsDeafEngine(t *testing.T) {
 	}
 	if res.Best != "7g7f" {
 		t.Fatalf("재기동 후 Best = %q", res.Best)
+	}
+}
+
+// 詰み 탐색의 세 응답을 전부 가른다. **timeout 을 "없음"으로 읽으면 안 된다** —
+// 있는 詰み을 놓친 채 종반 판정이 돈다.
+func TestSearchMateResponses(t *testing.T) {
+	e := newFake(t)
+
+	got, err := e.SearchMate(t.Context(), testSFEN, nil)
+	if err != nil {
+		t.Fatalf("SearchMate: %v", err)
+	}
+	if !got.Found() || got.Moves[0] != "G*5b" || !got.Proven {
+		t.Fatalf("詰み 응답 = %+v", got)
+	}
+
+	// nomate / timeout 은 가짜 엔진에 직접 물어본다
+	for _, tc := range []struct {
+		cmd    string
+		found  bool
+		proven bool
+	}{
+		{"go mate nomate", false, true},
+		{"go mate timeout", false, false},
+	} {
+		e.mu.Lock()
+		_ = e.send("position sfen " + testSFEN)
+		_ = e.send(tc.cmd)
+		var res MateResult
+		for line := range e.lines {
+			rest, ok := strings.CutPrefix(line, "checkmate")
+			if !ok {
+				continue
+			}
+			f := strings.Fields(rest)
+			switch f[0] {
+			case "nomate":
+				res = MateResult{Proven: true}
+			case "timeout":
+				res = MateResult{}
+			default:
+				res = MateResult{Moves: filterMoves(f), Proven: true}
+			}
+			break
+		}
+		e.mu.Unlock()
+		if res.Found() != tc.found || res.Proven != tc.proven {
+			t.Errorf("%s → %+v (found=%v proven=%v 기대)", tc.cmd, res, tc.found, tc.proven)
+		}
 	}
 }

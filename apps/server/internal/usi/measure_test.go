@@ -185,3 +185,57 @@ func TestMeasureDepthMultiPV(t *testing.T) {
 		}
 	}
 }
+
+// TestMeasureMateSearch 는 詰み 탐색 비용을 잰다.
+//
+// **매 수 돌아야 하는 탐색이다** — 종반 판정(01-core.md §2)과 詰み 게이지(§7)가 둘 다 쓴다.
+// 그래서 여기 드는 시간이 그대로 모든 수에 얹힌다. 탐색부와 별도 바이너리라
+// TestMeasureDepthMultiPV 의 표에 안 들어 있고, D3 상수를 잡기 전에 알아야 한다.
+//
+// 한계는 `DepthLimit`(詰み手数)으로 준다 — 시간이 아니라 수로 잘라야 같은 국면이 같은 답을 준다.
+//
+//	SHOWGI_MATE_CMD=/opt/yaneuraou/run-mate SHOWGI_MEASURE=1 go test ./internal/usi/ -run MeasureMate -timeout 1h
+func TestMeasureMateSearch(t *testing.T) {
+	cmd := os.Getenv("SHOWGI_MATE_CMD")
+	if cmd == "" || os.Getenv("SHOWGI_MEASURE") == "" {
+		t.Skip("SHOWGI_MATE_CMD + SHOWGI_MEASURE 가 있어야 돈다")
+	}
+
+	// 대국 전체를 훑는다. 매 수 도는 비용이 궁금한 것이라 표본도 매 수여야 한다.
+	all := strings.Fields(kifuB)
+
+	for _, limit := range []int{3, 5, 7, 9} {
+		e, err := New(cmd, map[string]string{
+			"USI_Hash": "128", "Threads": "1", "DepthLimit": fmt.Sprint(limit),
+		})
+		if err != nil {
+			t.Fatalf("mate solver 기동 실패: %v", err)
+		}
+
+		var total, longest time.Duration
+		found, unproven := 0, 0
+		for ply := 0; ply <= len(all); ply++ {
+			start := time.Now()
+			res, err := e.SearchMate(t.Context(), shogi.StartSFEN, all[:ply])
+			elapsed := time.Since(start)
+			if err != nil {
+				t.Fatalf("%d수 DepthLimit=%d: %v", ply, limit, err)
+			}
+			total += elapsed
+			if elapsed > longest {
+				longest = elapsed
+			}
+			if res.Found() {
+				found++
+			}
+			if !res.Proven {
+				unproven++
+			}
+		}
+		e.Close()
+
+		fmt.Printf("DepthLimit=%-2d  %d국면  합계 %-9s 최장 %-9s 평균 %-8s 詰みあり %d  미증명 %d\n",
+			limit, len(all)+1, total.Round(time.Millisecond), longest.Round(time.Millisecond),
+			(total / time.Duration(len(all)+1)).Round(time.Millisecond), found, unproven)
+	}
+}
