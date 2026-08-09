@@ -1,21 +1,42 @@
-/* 다크모드가 기본이다 (docs/03-frontend.md). 판은 무광 오프화이트고,
-   강조는 색이 아니라 빛으로 준다 — 배경이 어두워야 그 대비가 산다. */
+/* 어두운 방에 판만 밝다. 강조는 색이 아니라 빛으로 준다 (docs/03-frontend.md).
+   그래서 강조에 쓰는 색은 --light 하나뿐이고, 세기(알파)만 바꾼다.
+   색으로 구분하기 시작하면 D3의 개입 연출이 얹힐 자리가 사라진다. */
 
 :root {
   --bg: #14120f;
+  --surface: #1c1915;
   --fg: #ede8df;
   --muted: #8e857a;
-  --board: #f5f1e6;
-  --up: #8fd6a4;
-  --down: #e0857a;
+
+  /* 판은 榧(카야) 계열의 꿀색 나무다. 실제 대국에서 駒가 판보다 밝고, 그 관계가
+     선후수 구분보다 먼저 눈에 들어온다.
+     오프화이트로 두면 판·駒·빛이 전부 밝은 값이 되어 셋이 안 갈린다 —
+     특히 빛으로 강조하는 설계에서는 판이 밝을수록 빛이 얹힐 여지가 사라진다. */
+  --board: #cbab78;
+  --grid: #2b2015;
+  --koma-face: #f7f0e0;
+  --koma-shade: #ece0c6;
+  --koma-edge: #b39a72;
+  --ink: #17140f;
+
+  /* 빛. rgb 트리플릿으로 두고 알파만 바꾼다. */
+  --light: 255 246 224;
+
+  /* 한자 최소 크기를 먼저 정하고 나머지를 역산한다.
+     초심자가 읽어야 하는 글자라 20px 아래로 내려가지 않고, 칸은 거기서 나온다. */
+  --kanji-min: 20px;
+  /* 뺄셈에 들어가는 것: .app 좌우 여백(2.5rem) + 段 라벨 열과 그 사이(1rem) + 판 테두리.
+     이걸 빼먹으면 좁은 화면에서 판이 넘쳐 段 라벨이 화면 밖으로 밀린다. */
+  --sq: clamp(32px, calc((100vw - 4.5rem) / 9), 56px);
+  --kanji: max(var(--kanji-min), calc(var(--sq) * 0.52));
+
+  /* 駒는 明朝. 붓에서 온 굵기 대비가 있어야 「버튼에 쓴 글자」가 아니라 駒로 읽힌다.
+     UI는 ゴシック으로 둬서 판과 화면이 섞이지 않는다. */
+  --font-koma: 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', 'Songti SC', serif;
+  --font-ui: system-ui, -apple-system, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
 
   color-scheme: dark;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Hiragino Kaku Gothic ProN',
-    'Noto Sans JP',
-    sans-serif;
+  font-family: var(--font-ui);
   background: var(--bg);
   color: var(--fg);
 }
@@ -27,41 +48,454 @@
 body {
   margin: 0;
   min-height: 100dvh;
-  display: grid;
-  place-items: center;
+  background: radial-gradient(ellipse at 50% 30%, #1b1813, var(--bg) 70%);
 }
 
-main {
-  text-align: center;
-  padding: 2rem;
+:focus-visible {
+  outline: 2px solid rgb(var(--light) / 0.85);
+  outline-offset: 2px;
 }
 
-h1 {
+/* ── 뼈대 ─────────────────────────────────────────────── */
+
+.app {
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: clamp(1rem, 3vw, 2rem) 1.25rem 3rem;
+}
+
+.app-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.75rem;
+  margin-bottom: clamp(1rem, 3vw, 1.75rem);
+}
+
+.app-title {
   margin: 0;
-  font-size: clamp(2rem, 8vw, 3.5rem);
+  /* 좁은 화면에서 제품 이름이 단어 중간(show-/gi)에서 끊기지 않게 한다. */
+  white-space: nowrap;
+  font-size: 1.125rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.08em;
   color: var(--board);
 }
 
-.tagline {
-  margin: 0.5rem 0 2rem;
+.app-tagline {
+  margin: 0;
+  font-size: 0.8125rem;
   color: var(--muted);
 }
 
-.health {
-  font-size: 0.875rem;
+.notice {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  padding: 4rem 1rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.notice p {
+  margin: 0;
+}
+
+/* 판과 옆 패널을 한 덩어리로 묶어 가운데에 둔다. 컨테이너 폭에 맞춰 늘리면
+   넓은 화면에서 둘 사이가 벌어져 관계가 없는 두 물건처럼 보인다. */
+.game {
+  display: grid;
+  grid-template-columns: auto minmax(13rem, 17rem);
+  gap: clamp(1rem, 3vw, 2.25rem);
+  align-items: start;
+  width: fit-content;
+  margin-inline: auto;
+}
+
+.game-board {
+  display: grid;
+  gap: 0.6rem;
+  justify-items: center;
+}
+
+/* ── 판 ───────────────────────────────────────────────── */
+
+.board-frame {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto;
+  gap: 0.3rem 0.35rem;
+}
+
+.board-files,
+.board-ranks {
+  display: grid;
+  color: var(--muted);
+  font-size: 0.6875rem;
   font-variant-numeric: tabular-nums;
 }
 
-.health--checking {
+.board-files {
+  grid-column: 1;
+  grid-template-columns: repeat(9, var(--sq));
+  justify-items: center;
+}
+
+.board-ranks {
+  grid-column: 2;
+  grid-row: 2;
+  grid-template-rows: repeat(9, var(--sq));
+  align-items: center;
+}
+
+.board {
+  grid-column: 1;
+  grid-row: 2;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(9, var(--sq));
+  gap: 1px;
+  padding: 1px;
+  background: var(--grid);
+  border: 2px solid var(--grid);
+  box-shadow: 0 18px 40px rgb(0 0 0 / 0.55);
+}
+
+/* 星. 3·6번째 선이 만나는 네 점이다. 없으면 판이 판처럼 안 보인다.
+   레이어마다 background-size 를 작게 줘야 position 이 먹는다 — 100%로 두면
+   그라디언트가 상자를 꽉 채워서 네 위치가 전부 가운데로 뭉친다. */
+.board::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle, var(--grid) 1.6px, transparent 1.8px),
+    radial-gradient(circle, var(--grid) 1.6px, transparent 1.8px),
+    radial-gradient(circle, var(--grid) 1.6px, transparent 1.8px),
+    radial-gradient(circle, var(--grid) 1.6px, transparent 1.8px);
+  background-position:
+    33.33% 33.33%,
+    66.67% 33.33%,
+    33.33% 66.67%,
+    66.67% 66.67%;
+  background-size: 8px 8px;
+  background-repeat: no-repeat;
+}
+
+.square {
+  position: relative;
+  width: var(--sq);
+  height: var(--sq);
+  padding: 0;
+  border: 0;
+  background: var(--board);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.square:disabled {
+  cursor: default;
+}
+
+/* 빛은 두 겹이다. ::before 는 상시 상태(직전 수·王手), ::after 는 지금 고른 수의 후보. */
+.square::before,
+.square::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* 착수 후보 — 빈 칸은 가운데가 밝은 빛 웅덩이 */
+.square[data-lit]::after {
+  opacity: 1;
+  background: radial-gradient(circle at 50% 50%, rgb(var(--light) / 0.9), rgb(var(--light) / 0) 62%);
+}
+
+/* 말이 있는 칸(잡는 수)은 빛을 가장자리로 돌린다 — 한자를 가리면 읽을 수 없다 */
+.square[data-lit][data-occupied]::after {
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgb(var(--light) / 0) 46%,
+    rgb(var(--light) / 0.95) 72%,
+    rgb(var(--light) / 0) 100%
+  );
+}
+
+/* 직전 수 — 남은 잔광. 지금 둘 수 있는 곳보다 반드시 어두워야 한다 */
+.square[data-last]::before {
+  opacity: 1;
+  background: radial-gradient(circle at 50% 50%, rgb(var(--light) / 0.3), rgb(var(--light) / 0) 72%);
+}
+
+/* 王手 — 유일하게 또렷한 빛. 퍼지지 않고 테를 두른다.
+   개입 연출(D3)은 이걸 더 세게 쓰는 것이지 다른 색을 쓰는 것이 아니다. */
+.square[data-check]::before {
+  opacity: 1;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgb(var(--light) / 0) 50%,
+    rgb(var(--light) / 1) 61%,
+    rgb(var(--light) / 0) 76%
+  );
+}
+
+/* ── 駒 ───────────────────────────────────────────────── */
+
+.koma {
+  width: 80%;
+  height: 84%;
+  display: grid;
+  place-items: center;
+  /* 위가 좁은 오각형. 선후수는 방향으로 구분한다 — 게임 자신의 규칙이다. */
+  clip-path: polygon(50% 0%, 87% 15%, 100% 100%, 0% 100%, 13% 15%);
+  background: linear-gradient(178deg, var(--koma-face) 55%, var(--koma-shade));
+  border-top: 1px solid var(--koma-edge);
+  filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / 0.45));
+}
+
+.koma[data-side='white'] {
+  transform: rotate(180deg);
+}
+
+.koma-kanji {
+  font-family: var(--font-koma);
+  font-size: var(--kanji);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink);
+  user-select: none;
+}
+
+/* 成香·成桂·成銀은 두 글자라 세로로 쌓는다. 실제 駒도 그렇게 쓴다. */
+.koma-kanji[data-wide] {
+  writing-mode: vertical-rl;
+  font-size: calc(var(--kanji) * 0.54);
+  letter-spacing: -0.06em;
+}
+
+/* 고른 駒 — 밝은 駒에 밝은 빛을 얹으면 대비가 없어 안 보인다.
+   그래서 칸에 빛의 테를 두르고, 駒는 판에서 들어올린다. 집어 든 것처럼 보여야 한다. */
+.square[data-selected] {
+  box-shadow: inset 0 0 0 2px rgb(var(--light) / 0.9);
+}
+
+.square[data-selected] .koma {
+  transform: translateY(-2px);
+  filter: drop-shadow(0 4px 5px rgb(0 0 0 / 0.5));
+}
+
+/* ── 駒台 ─────────────────────────────────────────────── */
+
+.hand {
+  width: 100%;
+  max-width: calc(var(--sq) * 9 + 6px);
+  min-height: calc(var(--sq) * 0.92);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0.6rem;
+  background: var(--surface);
+  border: 1px solid rgb(var(--light) / 0.07);
+}
+
+.hand-label {
+  flex: none;
+  width: 3.2em;
+  font-size: 0.75rem;
   color: var(--muted);
 }
 
-.health--up {
-  color: var(--up);
+.hand-pieces {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
 }
 
-.health--down {
-  color: var(--down);
+.hand-empty {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.hand-piece {
+  position: relative;
+  width: calc(var(--sq) * 0.82);
+  height: calc(var(--sq) * 0.82);
+  padding: 0;
+  border: 0;
+  background: none;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.hand-piece:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.hand-piece .koma-kanji {
+  font-size: calc(var(--kanji) * 0.86);
+}
+
+.hand-piece[data-selected] {
+  box-shadow: inset 0 0 0 2px rgb(var(--light) / 0.9);
+}
+
+.hand-piece[data-selected] .koma {
+  transform: translateY(-2px);
+  filter: drop-shadow(0 4px 5px rgb(0 0 0 / 0.5));
+}
+
+.hand-count {
+  position: absolute;
+  right: -0.1rem;
+  bottom: -0.2rem;
+  padding: 0 0.25em;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 옆 패널 ──────────────────────────────────────────── */
+
+.game-side {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+
+.status {
+  margin: 0;
+  font-size: 0.9375rem;
+}
+
+.status[data-tone='wait'] {
+  color: var(--muted);
+}
+
+.status[data-tone='result'] {
+  color: var(--board);
+  font-weight: 600;
+}
+
+.rejection {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface);
+  border-left: 2px solid rgb(var(--light) / 0.5);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.promotion,
+.resign-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface);
+  font-size: 0.8125rem;
+}
+
+.panel-title {
+  margin: 0 0 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+
+.kifu-empty {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.kifu-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: min(20rem, 40vh);
+  overflow-y: auto;
+}
+
+.kifu-row {
+  display: grid;
+  grid-template-columns: 2.5ch 1fr;
+  gap: 0.75rem;
+  padding: 0.3rem 0.25rem;
+  border-bottom: 1px solid rgb(var(--light) / 0.06);
+}
+
+.kifu-number {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.kifu-move {
+  font-family: var(--font-koma);
+  font-size: 0.9375rem;
+}
+
+.kifu-row[data-by='engine'] .kifu-move {
+  color: #cfc7ba;
+}
+
+/* ── 버튼 ─────────────────────────────────────────────── */
+
+.btn {
+  padding: 0.4rem 0.9rem;
+  background: none;
+  border: 1px solid rgb(var(--light) / 0.18);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.btn:hover {
+  border-color: rgb(var(--light) / 0.4);
+}
+
+.btn--primary {
+  border-color: rgb(var(--light) / 0.55);
+}
+
+.btn--danger {
+  border-color: #7a4a42;
+  color: #e0a49a;
+}
+
+.game-side > .btn {
+  justify-self: start;
+}
+
+/* ── 좁은 화면 ────────────────────────────────────────── */
+
+@media (max-width: 60rem) {
+  .game {
+    grid-template-columns: 1fr;
+  }
+
+  .game-side {
+    justify-items: stretch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
