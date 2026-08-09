@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/jovid18/show-gi/apps/server/internal/game"
+	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/server"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -42,8 +43,23 @@ func main() {
 
 	if pool := startEngines(); pool != nil {
 		defer pool.Close()
+
+		// 詰み solver 는 **다른 바이너리**라 따로 띄운다(02-architecture.md §3).
+		// 없어도 대국과 승률 낙폭 판정은 그대로 돌고, 종반 판정만 빠진다.
+		matePool := startMateEngines()
+		if matePool != nil {
+			defer matePool.Close()
+		}
+
 		opts.NewOpponent = func() game.Opponent {
 			return game.NewEngineOpponent(pool, engineDepth())
+		}
+		opts.NewAnalyst = func() game.Analyst {
+			var mate game.MateSearcher
+			if matePool != nil {
+				mate = matePool
+			}
+			return game.NewEngineAnalyst(pool, mate, intervene.Beginner)
 		}
 	}
 
@@ -99,6 +115,30 @@ func startEngines() *usi.Pool {
 		return nil
 	}
 	log.Printf("engine pool ready: %s x%d %v", cmd, size, opts)
+	return pool
+}
+
+// startMateEngines 는 詰将棋 solver 풀을 띄운다. 없으면 nil.
+//
+// 탐색 한계는 **手数(DepthLimit)** 로 준다. 시간이 아니라 수로 자르는 이유는 다른 탐색과
+// 같다 — 같은 국면이 같은 답을 줘야 캐시할 수 있다. 11인 것은 실측 결과다(06-status.md).
+func startMateEngines() *usi.Pool {
+	cmd := os.Getenv("ENGINE_MATE_CMD")
+	if cmd == "" {
+		log.Print("ENGINE_MATE_CMD is not set — endgame judgment is disabled")
+		return nil
+	}
+	// 매 수 한 번이라 상대 수 계산만큼 동시에 돌 필요가 없다.
+	pool, err := usi.NewPool(1, cmd, map[string]string{
+		"USI_Hash":   envOr("ENGINE_HASH_MB", "128"),
+		"Threads":    envOr("ENGINE_THREADS", "1"),
+		"DepthLimit": envOr("ENGINE_MATE_PLIES", "11"),
+	})
+	if err != nil {
+		log.Printf("cannot start the mate solver — endgame judgment is disabled: %v", err)
+		return nil
+	}
+	log.Printf("mate solver ready: %s", cmd)
 	return pool
 }
 

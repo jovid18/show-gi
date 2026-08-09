@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/game"
+	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
@@ -28,6 +29,15 @@ type Options struct {
 	// 그러면 ECS가 재시작을 반복하며 /healthz 까지 같이 죽어 사이트 전체가 내려가기 때문이다.
 	// 엔진 고장은 대국만 막고 나머지는 살려둔다.
 	NewOpponent func() game.Opponent
+
+	// NewAnalyst 가 nil이면 개입 없이 대국만 한다.
+	NewAnalyst func() game.Analyst
+
+	// StartSFEN·HumanColor·ObservePlies 는 대국을 어디서 시작할지 정한다.
+	// 비어 있으면 평수 초기 국면·先手·기본 관측 구간이다. 리뷰와 테스트가 쓴다.
+	StartSFEN    string
+	HumanColor   shogi.Color
+	ObservePlies int
 
 	// Store 는 국면 캐시다. nil이어도 대국은 된다 — 캐시가 없으면 매번 계산할 뿐이다.
 	// 엔진과 같은 이유로 여기서도 프로세스를 죽이지 않고 /healthz 로 드러낸다.
@@ -61,7 +71,7 @@ func Handler(opts Options) http.Handler {
 	})
 
 	if opts.NewOpponent != nil {
-		mux.Handle("GET /ws/game", &gameHandler{newOpponent: opts.NewOpponent})
+		mux.Handle("GET /ws/game", &gameHandler{opts: opts})
 	} else {
 		mux.HandleFunc("GET /ws/game", func(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusServiceUnavailable, map[string]any{

@@ -14,6 +14,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
@@ -64,6 +65,37 @@ type Snapshot struct {
 	Moves  []Move `json:"moves"`
 	Status Status `json:"status"`
 	Winner Side   `json:"winner,omitempty"`
+
+	// Judging 은 방금 둔 수를 판정하는 중인가. 화면이 입력을 잠그는 데 쓴다.
+	Judging bool `json:"judging"`
+	// Intervention 은 직전 수가 물러졌을 때만 채워진다. 다음 착수에서 지워진다.
+	Intervention *Intervention `json:"intervention,omitempty"`
+}
+
+// Analyst 는 착수 한 수를 판정하는 데 필요한 숫자를 구해 온다.
+//
+// 엔진을 직접 부르지 않고 인터페이스로 두는 이유는 **판정과 탐색을 갈라두기 위해서**다.
+// 세션은 "이 수가 블런더인가"만 알면 되고, 그 답을 어떻게 구했는지는 모른다.
+type Analyst interface {
+	// Judge 는 startSFEN + moves 로 도달한 국면에서 **마지막 한 수**를 판정한다.
+	// 판정에 필요한 탐색이 오래 걸릴 수 있으므로 세션 goroutine 밖에서 불린다.
+	Judge(ctx context.Context, startSFEN string, moves []string, ply int) (intervene.Verdict, error)
+}
+
+// Intervention 은 제지형 개입 하나다. 스냅샷에 실려 화면으로 간다.
+type Intervention struct {
+	Kind string `json:"kind"` // "blunder"
+	// RetractedUSI 는 물러진 수. **개입 없는 순수 실력 신호**라 나중에 DB로 간다
+	// (game_moves.retracted_usi).
+	RetractedUSI string `json:"retractedUsi"`
+	// RetractedJa 는 그 수의 棋譜 표기. 화면에 그대로 나간다.
+	RetractedJa string `json:"retractedJa"`
+	// DeltaWin 은 승률 낙폭(0~1).
+	DeltaWin float64 `json:"deltaWin"`
+	// LostMate 는 詰み을 놓쳐서 걸렸는가. 문구가 갈린다.
+	LostMate bool `json:"lostMate"`
+	// Message 는 화면에 그대로 나가는 일본어 문구다.
+	Message string `json:"message"`
 }
 
 // Opponent 는 상대(컴퓨터)의 수를 고른다.
@@ -77,6 +109,11 @@ type Opponent interface {
 // Config 는 세션 하나의 설정이다.
 type Config struct {
 	Opponent Opponent
+	// Analyst 가 nil이면 개입하지 않는다. 대국은 그대로 된다.
+	Analyst Analyst
+	// ObservePlies 는 개입하지 않는 초반 구간이다. 0이면 intervene.ObservePlies.
+	// 중반 국면에서 시작하는 대국(리뷰·테스트)은 여기를 0으로 준다.
+	ObservePlies int
 	// HumanColor 는 사람이 잡는 쪽. 기본은 先手(Black).
 	HumanColor shogi.Color
 	// StartSFEN 이 비면 평수 초기 국면.
@@ -119,6 +156,13 @@ type engineResult struct {
 	err error
 }
 
+type judgeResult struct {
+	gen     int
+	verdict intervene.Verdict
+	move    Move
+	err     error
+}
+
 // Session 은 대국 하나다. 모든 메서드는 안전하게 동시 호출할 수 있다 —
 // 실제로 하는 일은 세션 goroutine에 명령을 보내고 답을 기다리는 것뿐이다.
 type Session struct {
@@ -146,6 +190,15 @@ type state struct {
 	// D3에서 롤백이 들어오면 이게 실제로 값을 한다.
 	searchGen  int
 	pendingGen int
+
+	// 판정도 세션 goroutine 밖에서 돈다(탐색과 같은 이유). 늦게 온 결과는 세대로 버린다.
+	judging      bool
+	judgeGen     int
+	intervention *Intervention
+
+	// 물러질 수 있으므로 착수 직전 국면을 들고 있는다. Position 이 값 타입이라 복사면 끝이다.
+	prevPos    shogi.Position
+	prevPrevTo int
 
 	subs map[chan Snapshot]struct{}
 }
@@ -188,6 +241,7 @@ func (s *Session) run(ctx context.Context, st *state) {
 	defer close(s.closed)
 
 	engineDone := make(chan engineResult, 1)
+	judgeDone := make(chan judgeResult, 1)
 
 	// 엔진이 선수면 시작하자마자 생각한다.
 	st.maybeThink(ctx, engineDone)
@@ -203,15 +257,18 @@ func (s *Session) run(ctx context.Context, st *state) {
 			return
 
 		case c := <-s.cmds:
-			st.handle(ctx, c, engineDone)
+			st.handle(ctx, c, engineDone, judgeDone)
 
 		case r := <-engineDone:
 			st.applyEngineMove(ctx, r, engineDone)
+
+		case r := <-judgeDone:
+			st.applyVerdict(ctx, r, engineDone)
 		}
 	}
 }
 
-func (st *state) handle(ctx context.Context, c command, engineDone chan engineResult) {
+func (st *state) handle(ctx context.Context, c command, engineDone chan engineResult, judgeDone chan judgeResult) {
 	switch c.kind {
 	case cmdSnapshot:
 		c.reply <- result{snap: st.snapshot()}
@@ -238,7 +295,7 @@ func (st *state) handle(ctx context.Context, c command, engineDone chan engineRe
 		st.broadcast()
 
 	case cmdMove:
-		snap, err := st.playHuman(ctx, c.usi, engineDone)
+		snap, err := st.playHuman(ctx, c.usi, engineDone, judgeDone)
 		c.reply <- result{snap: snap, err: err}
 		if err == nil {
 			st.broadcast()
@@ -246,9 +303,12 @@ func (st *state) handle(ctx context.Context, c command, engineDone chan engineRe
 	}
 }
 
-func (st *state) playHuman(ctx context.Context, usi string, engineDone chan engineResult) (Snapshot, error) {
+func (st *state) playHuman(ctx context.Context, usi string, engineDone chan engineResult, judgeDone chan judgeResult) (Snapshot, error) {
 	if st.status != StatusPlaying {
 		return st.snapshot(), ErrFinished
+	}
+	if st.judging {
+		return st.snapshot(), ErrNotYourTurn // 판정 중에는 다음 수를 못 둔다
 	}
 	if st.pos.Turn != st.cfg.HumanColor {
 		return st.snapshot(), ErrNotYourTurn
@@ -260,9 +320,125 @@ func (st *state) playHuman(ctx context.Context, usi string, engineDone chan engi
 	if err := st.pos.ValidateMove(m); err != nil {
 		return st.snapshot(), err
 	}
+
+	// 새 수를 두면 직전 개입은 지운다 — 화면에 남아 있으면 방금 둔 수를 가리키는 것처럼 보인다.
+	st.intervention = nil
+
+	// 물러질 수 있으니 착수 전 국면을 들고 있는다.
+	st.prevPos, st.prevPrevTo = st.pos, st.prevTo
+
 	st.apply(m, SideHuman)
+
+	// 판정할 것이 있으면 엔진을 부르기 전에 먼저 묻는다. **롤백이 있는 이상
+	// 상대 수를 먼저 두면 되돌릴 것이 두 개가 된다.**
+	if st.startJudging(ctx, judgeDone) {
+		return st.snapshot(), nil
+	}
 	st.maybeThink(ctx, engineDone)
 	return st.snapshot(), nil
+}
+
+// startJudging 은 방금 둔 사람의 수를 판정시킨다. 판정에 들어갔으면 true.
+//
+// 탐색과 같은 이유로 세션 goroutine 밖에서 돈다 — 여기서 기다리면 판정하는 동안
+// 투료도 스냅샷도 못 받는다.
+func (st *state) startJudging(ctx context.Context, judgeDone chan judgeResult) bool {
+	if st.cfg.Analyst == nil || st.status != StatusPlaying {
+		return false
+	}
+	if len(st.usis) <= st.observePlies() {
+		return false
+	}
+	st.judging = true
+	st.judgeGen = st.searchGen
+
+	gen := st.judgeGen
+	analyst := st.cfg.Analyst
+	start := st.start
+	moves := append([]string(nil), st.usis...)
+	played := st.moves[len(st.moves)-1]
+	ply := len(st.usis)
+
+	go func() {
+		v, err := analyst.Judge(ctx, start, moves, ply)
+		select {
+		case judgeDone <- judgeResult{gen: gen, verdict: v, move: played, err: err}:
+		case <-ctx.Done():
+		}
+	}()
+	return true
+}
+
+// applyVerdict 는 판정 결과를 반영한다. 걸렸으면 **되무른다.**
+// observePlies 는 이 세션의 관측 구간이다.
+func (st *state) observePlies() int {
+	if st.cfg.ObservePlies > 0 {
+		return st.cfg.ObservePlies
+	}
+	if st.cfg.ObservePlies < 0 {
+		return 0 // 음수 = 관측 구간 없음
+	}
+	return intervene.ObservePlies
+}
+
+func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone chan engineResult) {
+	if !st.judging || r.gen != st.judgeGen {
+		return // 그 사이 국면이 움직였다. 버린다
+	}
+	st.judging = false
+
+	if r.err != nil {
+		// 판정이 실패했다고 대국을 멈추지 않는다. 개입은 부가 기능이고 대국이 본체다.
+		log.Printf("game: judging failed, letting the move stand: %v", r.err)
+	}
+
+	if r.err == nil && r.verdict.Kind == intervene.KindBlunder {
+		st.rollback(r)
+		st.broadcast()
+		return
+	}
+
+	st.maybeThink(ctx, engineDone)
+	st.broadcast()
+}
+
+// rollback 은 직전 사람의 수를 물린다.
+//
+// **되돌리는 것은 국면·기보·표기·千日手 계수까지 전부다.** 하나라도 남으면 물러진 수가
+// 있었다는 흔적이 남아 다음 판정이 그 위에서 돈다.
+func (st *state) rollback(r judgeResult) {
+	key := st.pos.RepetitionKey()
+	if n := st.repeats[key]; n > 0 {
+		st.repeats[key] = n - 1
+	}
+
+	st.pos, st.prevTo = st.prevPos, st.prevPrevTo
+	st.moves = st.moves[:len(st.moves)-1]
+	st.usis = st.usis[:len(st.usis)-1]
+	st.searchGen++ // 물러진 국면에 대한 늦은 결과를 버리기 위해
+
+	st.intervention = &Intervention{
+		Kind:         string(r.verdict.Kind),
+		RetractedUSI: r.move.USI,
+		RetractedJa:  r.move.Ja,
+		DeltaWin:     r.verdict.DeltaWin,
+		LostMate:     r.verdict.LostMate,
+		Message:      interventionMessage(r.verdict),
+	}
+}
+
+// interventionMessage 는 화면에 나갈 일본어 문구다.
+//
+// **최선수를 말하지 않는다**(§1). 「왜 나쁜가」까지이고, 어느 수를 뒀어야 했는지는
+// 알려주지 않는다 — 짚어주는 순간 플레이어는 생각을 멈춘다.
+//
+// LLM이 붙기 전까지의 고정 문구다. 판단은 여기까지 이미 끝나 있고 LLM은 이 사실을
+// 문장으로 바꾸는 일만 하게 된다(D5).
+func interventionMessage(v intervene.Verdict) string {
+	if v.LostMate {
+		return "詰みがありました。今の手で逃してしまいます。"
+	}
+	return "その手は形勢を大きく損ねます。もう一度考えてみてください。"
 }
 
 // apply 는 검증이 끝난 수를 반영한다. 표기는 착수 전 국면에서 만들어야 한다.
@@ -296,6 +472,7 @@ func (st *state) finish(status Status, winner Side) {
 	st.status = status
 	st.winner = winner
 	st.thinking = false
+	st.judging = false
 	st.searchGen++
 }
 
@@ -374,18 +551,20 @@ func (st *state) snapshot() Snapshot {
 	if st.pos.Turn == shogi.White {
 		turn = "w"
 	}
-	yours := st.status == StatusPlaying && st.pos.Turn == st.cfg.HumanColor
+	yours := st.status == StatusPlaying && !st.judging && st.pos.Turn == st.cfg.HumanColor
 
 	snap := Snapshot{
-		SFEN:     st.pos.SFEN(),
-		Ply:      len(st.moves),
-		Turn:     turn,
-		YourTurn: yours,
-		InCheck:  st.pos.InCheck(st.pos.Turn),
-		Thinking: st.thinking,
-		Moves:    append([]Move(nil), st.moves...),
-		Status:   st.status,
-		Winner:   st.winner,
+		SFEN:         st.pos.SFEN(),
+		Ply:          len(st.moves),
+		Turn:         turn,
+		YourTurn:     yours,
+		InCheck:      st.pos.InCheck(st.pos.Turn),
+		Thinking:     st.thinking,
+		Moves:        append([]Move(nil), st.moves...),
+		Status:       st.status,
+		Winner:       st.winner,
+		Judging:      st.judging,
+		Intervention: st.intervention,
 	}
 	if yours {
 		for _, m := range st.pos.LegalMoves() {
