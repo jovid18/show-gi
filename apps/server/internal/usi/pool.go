@@ -96,11 +96,28 @@ func (p *Pool) Do(ctx context.Context, fn func(*Engine) error) error {
 	return fn(e)
 }
 
-// SearchDepth 는 엔진을 빌려 고정 깊이 탐색을 한 번 돌린다.
+// SearchDepth 는 엔진을 빌려 고정 깊이 탐색을 한 번 돌린다. 후보는 1개다.
 // 시간 기반 탐색은 이 패키지에 없다 — Engine.SearchDepth 주석 참조.
 func (p *Pool) SearchDepth(ctx context.Context, startSFEN string, moves []string, depth int) (SearchResult, error) {
+	return p.SearchMultiPV(ctx, startSFEN, moves, depth, 1)
+}
+
+// SearchMultiPV 는 상위 multiPV개의 후보를 함께 받아온다. 적응형 상대가 고를 후보 풀이다.
+//
+// **MultiPV를 탐색 직전에 매번 건다.** 옵션은 Engine에 남으므로, 한 번 k=10으로 걸어두면
+// 그 엔진을 다음에 빌리는 쪽까지 k=10으로 돈다 — 개입 판정이 후보 1개면 될 자리에서
+// 10개를 받아 400ms가 2초가 된다. 대국 A의 설정이 대국 B로 새는 것과 같은 문제다.
+//
+// 그래서 SearchDepth 도 여기를 지나며 1을 명시한다. 「안 건드리면 그대로」에 기대지 않는다.
+func (p *Pool) SearchMultiPV(ctx context.Context, startSFEN string, moves []string, depth, multiPV int) (SearchResult, error) {
+	if multiPV < 1 {
+		multiPV = 1
+	}
 	var res SearchResult
 	err := p.Do(ctx, func(e *Engine) error {
+		if err := e.SetMultiPV(multiPV); err != nil {
+			return err
+		}
 		var err error
 		res, err = e.SearchDepth(ctx, startSFEN, moves, depth)
 		return err
