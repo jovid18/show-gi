@@ -110,6 +110,14 @@ func (p *Pool) SearchDepth(ctx context.Context, startSFEN string, moves []string
 
 // Close 는 엔진을 전부 종료한다. 빌려나간 엔진도 함께 죽는다 —
 // 서버가 내려가는 중이므로 진행 중인 탐색을 기다려줄 이유가 없다.
+//
+// **다만 탐색 중인 엔진이 있으면 그 탐색이 끝날 때까지 막힌다.** Engine.Close 가
+// 같은 mutex를 잡기 때문이다. 지금은 모든 탐색이 세션 ctx를 타고, 서버가 내려갈 때
+// 그 ctx가 먼저 취소되므로 풀린다. **`context.Background()` 로 탐색을 걸면 종료가 걸린다.**
+//
+// goroutine이 엔진을 소유하는 구조였다면 명령 채널을 닫아 "하던 것만 끝내고 나가라"를
+// 직접 표현할 수 있다. 지금은 그것을 ctx에 암묵적으로 기대고 있다 — 실제로 물린 적은
+// 없지만, 탐색을 세션 밖에서 걸기 시작하면 여기부터 본다.
 func (p *Pool) Close() {
 	p.closeOnce.Do(func() {
 		close(p.done)

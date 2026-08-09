@@ -14,6 +14,7 @@ import (
 
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/server"
+	"github.com/jovid18/show-gi/apps/server/internal/store"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
@@ -34,6 +35,11 @@ func main() {
 
 	opts := server.Options{}
 
+	if st := openStore(ctx); st != nil {
+		defer st.Close()
+		opts.Store = st
+	}
+
 	if pool := startEngines(); pool != nil {
 		defer pool.Close()
 		opts.NewOpponent = func() game.Opponent {
@@ -44,6 +50,25 @@ func main() {
 	if err := server.Run(ctx, *addr, opts); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// openStore 는 DB에 붙는다. 실패하면 nil을 돌려주고 서버는 그냥 뜬다.
+//
+// 엔진과 같은 판단이다 — **DB가 없다고 프로세스를 죽이지 않는다.** 국면 캐시가 없으면
+// 매번 계산할 뿐이지 대국은 된다. 죽이면 ECS 재시작 루프로 사이트 전체가 내려간다.
+func openStore(ctx context.Context) *store.Store {
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		log.Print("DATABASE_URL is not set — the position cache is disabled")
+		return nil
+	}
+	st, err := store.Open(ctx, url)
+	if err != nil {
+		log.Printf("cannot open the database — the position cache is disabled: %v", err)
+		return nil
+	}
+	log.Print("database ready")
+	return st
 }
 
 // startEngines 는 USI 엔진 풀을 띄운다. 실패하면 nil을 돌려주고 서버는 그냥 뜬다.

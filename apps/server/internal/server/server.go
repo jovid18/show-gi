@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/game"
+	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
 // shutdownGrace 는 종료 신호를 받고 진행 중인 요청을 기다려주는 시간이다.
@@ -27,6 +28,10 @@ type Options struct {
 	// 그러면 ECS가 재시작을 반복하며 /healthz 까지 같이 죽어 사이트 전체가 내려가기 때문이다.
 	// 엔진 고장은 대국만 막고 나머지는 살려둔다.
 	NewOpponent func() game.Opponent
+
+	// Store 는 국면 캐시다. nil이어도 대국은 된다 — 캐시가 없으면 매번 계산할 뿐이다.
+	// 엔진과 같은 이유로 여기서도 프로세스를 죽이지 않고 /healthz 로 드러낸다.
+	Store *store.Store
 }
 
 // Handler 는 라우팅만 조립한다. 테스트가 서버를 띄우지 않고 이걸 그대로 쓴다.
@@ -42,7 +47,17 @@ func Handler(opts Options) http.Handler {
 	// 이미지의 값을 덮어썼다). 배포 워크플로가 이 필드를 확인한다.
 	engineReady := opts.NewOpponent != nil
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "engine": engineReady})
+		// DB는 기동 때 붙었어도 나중에 끊길 수 있으므로 매번 확인한다.
+		// 엔진은 프로세스라 살아 있으면 살아 있는 것이고, 죽으면 다음 탐색에서 재기동된다.
+		dbReady := false
+		if opts.Store != nil {
+			ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+			dbReady = opts.Store.Ping(ctx) == nil
+			cancel()
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ok": true, "engine": engineReady, "db": dbReady,
+		})
 	})
 
 	if opts.NewOpponent != nil {

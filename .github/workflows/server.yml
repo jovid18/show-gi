@@ -24,6 +24,22 @@ jobs:
   # 어느 쪽을 가리키는지 알 수 없어 체크가 영원히 대기 상태로 남는다.
   server:
     runs-on: ubuntu-latest
+
+    # 국면 캐시의 "얕은 결과가 깊은 결과를 못 덮는다"는 규칙은 **SQL의 WHERE 절에만**
+    # 있다. Go 쪽에 옮겨 적지 않았으므로 진짜 postgres 없이는 검증할 수 없다.
+    # pgvector 이미지인 것은 kb_chunks 때문이다(로컬 compose·RDS와 같은 확장).
+    services:
+      db:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: showgi
+          POSTGRES_PASSWORD: showgi
+          POSTGRES_DB: showgi
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U showgi"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
     steps:
       - uses: actions/checkout@v7
 
@@ -45,5 +61,13 @@ jobs:
           fi
 
       - run: go vet ./...
+
+      - name: 스키마 적용
+        run: |
+          PGPASSWORD=showgi psql -h localhost -U showgi -d showgi \
+            -v ON_ERROR_STOP=1 -f internal/store/migrations/001_init.sql
+
       - run: go test -race ./...
+        env:
+          SHOWGI_TEST_DATABASE_URL: postgres://showgi:showgi@localhost:5432/showgi
       - run: go build ./...
