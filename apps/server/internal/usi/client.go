@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"os/exec"
 	"regexp"
 	"slices"
@@ -109,8 +110,15 @@ type Engine struct {
 }
 
 // New 는 엔진 프로세스를 시작하고 usi/isready 핸드셰이크를 마친다.
-func New(path string, args ...string) (*Engine, error) {
-	e := &Engine{path: path, args: args, saved: map[string]string{}}
+//
+// opts 는 **usiok 뒤, isready 앞**에 걸린다. `USI_Hash` 처럼 isready 시점에 반영되는
+// 옵션은 반드시 여기로 줘야 한다 — 나중에 SetOption 으로 걸면 다음 isready 까지
+// 반영되지 않고, 그동안 엔진은 기본값으로 메모리를 잡고 있다.
+func New(path string, opts map[string]string, args ...string) (*Engine, error) {
+	saved := make(map[string]string, len(opts))
+	maps.Copy(saved, opts)
+
+	e := &Engine{path: path, args: args, saved: saved}
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if err := e.start(); err != nil {
@@ -153,12 +161,6 @@ func (e *Engine) start() error {
 	if err := e.handshake(); err != nil {
 		e.kill()
 		return err
-	}
-	// 재기동 시 이전 옵션 복원
-	for name, val := range e.saved {
-		if err := e.setOptionLocked(name, val); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -203,6 +205,26 @@ ready:
 	}
 	if e.opts["USI_Ponder"] {
 		_ = e.send("setoption name USI_Ponder value false")
+	}
+
+	// PV 출력을 시간으로 솎아내지 않는다. **이건 배포 설정이 아니라 이 파서가 동작하기
+	// 위한 조건이다.** YaneuraOu의 기본값 300(ms)은 그 간격으로만 PV를 찍는데, 우리
+	// 탐색은 그보다 빨리 끝나서 마지막 깊이 하나만 남는다 — SearchResult.History 가
+	// 통째로 비고, 개입 판정의 입력인 깊이별 격차가 사라진다.
+	if e.opts["PvInterval"] {
+		_ = e.send("setoption name PvInterval value 0")
+	}
+
+	// 저장된 옵션은 **isready 앞**에서 건다. 재기동 때 복원되는 경로도 여기다 —
+	// USI_Hash 처럼 isready 에서 반영되는 옵션이 재기동 후에 빠지면, 살아난 엔진만
+	// 조용히 다른 설정으로 돌게 된다.
+	for name, val := range e.saved {
+		if !e.opts[name] {
+			continue // 엔진이 모르는 옵션은 보내지 않는다
+		}
+		if err := e.setOptionLocked(name, val); err != nil {
+			return err
+		}
 	}
 	return e.syncReady()
 }
@@ -540,7 +562,7 @@ func (e *Engine) Close() {
 
 // Probe 는 엔진 실행 가능 여부 확인용: 기동→이름 획득→종료.
 func Probe(path string, args ...string) (string, error) {
-	e, err := New(path, args...)
+	e, err := New(path, nil, args...)
 	if err != nil {
 		return "", err
 	}

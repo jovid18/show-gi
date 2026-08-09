@@ -10,7 +10,7 @@ import (
 
 func newFakePool(t *testing.T, size int) *Pool {
 	t.Helper()
-	p, err := NewPool(size, "sh", "testdata/fakeengine.sh")
+	p, err := NewPool(size, "sh", nil, "testdata/fakeengine.sh")
 	if err != nil {
 		t.Fatalf("풀 기동 실패: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestPoolAcquireRespectsContext(t *testing.T) {
 }
 
 func TestPoolClosed(t *testing.T) {
-	p, err := NewPool(1, "sh", "testdata/fakeengine.sh")
+	p, err := NewPool(1, "sh", nil, "testdata/fakeengine.sh")
 	if err != nil {
 		t.Fatalf("풀 기동 실패: %v", err)
 	}
@@ -89,14 +89,14 @@ func TestPoolClosed(t *testing.T) {
 }
 
 func TestPoolRejectsBadSize(t *testing.T) {
-	if _, err := NewPool(0, "sh", "testdata/fakeengine.sh"); err == nil {
+	if _, err := NewPool(0, "sh", nil, "testdata/fakeengine.sh"); err == nil {
 		t.Fatal("size 0 이 통과함")
 	}
 }
 
 // 없는 엔진으로 풀을 만들면 이미 띄운 프로세스를 남기지 않고 실패해야 한다.
 func TestPoolFailsCleanly(t *testing.T) {
-	if _, err := NewPool(2, "definitely-not-an-engine-binary"); err == nil {
+	if _, err := NewPool(2, "definitely-not-an-engine-binary", nil); err == nil {
 		t.Fatal("없는 바이너리로 풀이 만들어짐")
 	}
 }

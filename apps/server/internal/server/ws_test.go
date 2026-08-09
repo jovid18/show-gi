@@ -192,7 +192,7 @@ func TestWSAgainstRealEngine(t *testing.T) {
 		t.Skip("SHOWGI_USI_CMD 미설정 — 실엔진 대국 건너뜀")
 	}
 
-	pool, err := usi.NewPool(2, cmd)
+	pool, err := usi.NewPool(2, cmd, nil)
 	if err != nil {
 		t.Fatalf("엔진 풀 기동 실패: %v", err)
 	}

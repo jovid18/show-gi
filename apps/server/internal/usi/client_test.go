@@ -12,7 +12,7 @@ const testSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 
 
 func newFake(t *testing.T) *Engine {
 	t.Helper()
-	e, err := New("sh", "testdata/fakeengine.sh")
+	e, err := New("sh", nil, "testdata/fakeengine.sh")
 	if err != nil {
 		t.Fatalf("가짜 엔진 기동 실패: %v", err)
 	}
@@ -234,7 +234,7 @@ func TestRealEngine(t *testing.T) {
 		t.Skip("SHOWGI_USI_CMD 미설정 — 실엔진 검증 건너뜀")
 	}
 
-	e, err := New(cmd)
+	e, err := New(cmd, nil)
 	if err != nil {
 		t.Fatalf("엔진 기동 실패 (%s): %v", cmd, err)
 	}

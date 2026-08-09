@@ -28,7 +28,10 @@ type Pool struct {
 }
 
 // NewPool 은 엔진 size개를 띄운다. 하나라도 실패하면 이미 띄운 것을 정리하고 에러를 낸다.
-func NewPool(size int, path string, args ...string) (*Pool, error) {
+//
+// opts 는 엔진마다 핸드셰이크 중에 걸린다(New 참조). **엔진 전체의 설정만 여기 둔다** —
+// USI_Hash 는 엔진 하나가 통째로 잡는 메모리라 풀 크기를 곱한 만큼 쓴다.
+func NewPool(size int, path string, opts map[string]string, args ...string) (*Pool, error) {
 	if size < 1 {
 		return nil, errors.New("usi: pool size must be at least 1")
 	}
@@ -38,7 +41,7 @@ func NewPool(size int, path string, args ...string) (*Pool, error) {
 		done: make(chan struct{}),
 	}
 	for range size {
-		e, err := New(path, args...)
+		e, err := New(path, opts, args...)
 		if err != nil {
 			p.Close()
 			return nil, err
@@ -51,6 +54,22 @@ func NewPool(size int, path string, args ...string) (*Pool, error) {
 
 // Size 는 풀에 있는 엔진 수다.
 func (p *Pool) Size() int { return len(p.all) }
+
+// SetOption 은 풀의 모든 엔진에 같은 옵션을 건다.
+//
+// **엔진 전체의 보정값에만 쓴다** — 평가함수가 요구하는 FV_SCALE 같은 것. 대국마다
+// 달라지는 값(Skill Level 등)은 여기가 아니라 빌린 쪽이 자기 차례에 걸어야 한다.
+// 여기서 걸면 다른 대국에도 그대로 적용된다.
+//
+// 탐색 중인 엔진이 있으면 그 탐색이 끝날 때까지 기다린다. 기동 직후에 부르는 것을 전제한다.
+func (p *Pool) SetOption(name, value string) error {
+	for _, e := range p.all {
+		if err := e.SetOption(name, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // Acquire 는 엔진 하나를 빌린다. 빈 게 없으면 ctx가 끝날 때까지 기다린다.
 // 빌린 쪽은 반드시 Release 해야 한다.
