@@ -144,7 +144,7 @@ func refutationLine(startSFEN string, moves []string, pv []string, limit int) []
 	by := SideEngine
 
 	line := make([]Move, 0, limit)
-	var settles []bool // 그 수에서 손익이 확정되는가 — 자르는 자리를 여기서 찾는다
+	var steps []refutationStep // 자르는 자리를 여기서 찾는다
 	for _, u := range pv {
 		if len(line) == limit {
 			break
@@ -156,12 +156,16 @@ func refutationLine(startSFEN string, moves []string, pv []string, limit int) []
 		if err := pos.ValidateMove(m); err != nil {
 			break
 		}
-		captures := !m.IsDrop() && !pos.Board[m.To].Empty()
+		step := refutationStep{captureSq: -1}
+		if !m.IsDrop() && !pos.Board[m.To].Empty() {
+			step.captureSq = int(m.To)
+		}
 		line = append(line, Move{USI: u, Ja: pos.MoveJa(m, prevTo), By: by})
 
 		pos = pos.Apply(m)
 		prevTo = int(m.To)
-		settles = append(settles, captures || pos.InCheck(pos.Turn))
+		step.settles = step.captureSq >= 0 || pos.InCheck(pos.Turn)
+		steps = append(steps, step)
 		if by == SideEngine {
 			by = SideHuman
 		} else {
@@ -171,31 +175,51 @@ func refutationLine(startSFEN string, moves []string, pv []string, limit int) []
 	if len(line) == 0 {
 		return nil
 	}
-	return line[:trimRefutation(settles)]
+	return line[:trimRefutation(steps)]
 }
 
-// trimRefutation 은 수순을 **처음으로 손익이 바뀌는 수**에서 끊는다.
+// refutationStep 은 반박 수순의 한 수에서 **자를 자리를 정하는 데 필요한 사실**이다.
+type refutationStep struct {
+	// settles 는 그 수에서 손익이 바뀌는가 — 駒를 따거나 王手를 건다.
+	settles bool
+	// captureSq 는 딴 칸. 안 땄으면 -1. **교환은 한 칸에서 벌어지는 것**이라 이어지는지를
+	// 이 값이 정한다.
+	captureSq int
+}
+
+// trimRefutation 은 **처음 벌어지는 교환이 끝나는 자리**에서 수순을 끊는다.
 //
 // 길이를 상수로 박으면 국면마다 틀린다. 角을 던지면 되따는 한 수로 이유가 끝나는데
 // 거기에 세 수를 더 붙이면 뒤는 정보가 아니라 잡음이고, 반대로 몇 수 앞에서 벌어지는
 // 국면(06-status.md §17)에서는 그 상수가 이유가 나오기 전에 끊는다.
 //
-// **駒를 따거나 王手를 거는 첫 수까지가 그 자리다.** 그 전까지는 판 위에서 아직 아무
-// 일도 안 일어나서 준비 수순으로 필요하고, 거기서부터는 이미 벌어진 손해 위에서 두는
-// 이어지는 수다. 판단에 엔진이 필요 없다 — 룰 엔진으로 재생하면서 공짜로 알 수 있고,
-// 그래서 개입 판정에 비용이 붙지 않는다.
+// 손익이 바뀌는 수(駒를 따거나 王手를 거는 수)를 처음 만날 때까지가 준비 수순이다 —
+// 그 전에는 판 위에서 아직 아무 일도 안 일어난다. 거기서 교환이 시작되고, **같은 칸에서
+// 주고받는 동안**이 그 교환이다.
 //
-// **「마지막」이 아니라 「처음」인 것은 실측으로 뒤집혔다.** 마지막까지 따라가면 날카로운
-// 중반에서는 계속 따기 때문에 상한까지 그대로 가고(§17 국면에서 89개 중 66개가 7~8수),
-// 그건 초심자에게 이유가 아니라 강의다.
+// **교환을 중간에 끊으면 거짓말이 된다.** `△7六飛成` 만 보여주면 飛가 馬를 그냥 딴 것으로
+// 읽히는데 실제로는 `▲同角` 으로 되딴다. 반쪽이 틀린 것보다 한 수 긴 편이 낫다.
 //
-// 하나도 없으면 벌하는 첫 수만 남긴다. 조용한 수만 늘어놓아 봐야 「왜 나쁜가」가
-// 거기 없기는 마찬가지이고, **모르는 것을 길이로 메우지 않는다.**
-func trimRefutation(settles []bool) int {
-	for i, settled := range settles {
-		if settled {
-			return i + 1
+// **「같은 칸」이 조건인 것이 요점이다.** 그냥 「따는 수가 이어지는 동안」으로 두면 다른
+// 자리에서 벌어지는 별개의 교환까지 붙어서, 마지막 따는 수까지 가는 것과 같아진다 —
+// 실측에서 두 규칙이 8수짜리 같은 줄을 냈다(06-status.md §20).
+//
+// 판단에 엔진이 필요 없다. 룰 엔진으로 재생하면서 공짜로 알 수 있고, 그래서 개입
+// 판정에 비용이 붙지 않는다.
+//
+// 손익이 바뀌는 수가 하나도 없으면 벌하는 첫 수만 남긴다. 조용한 수를 늘어놓아 봐야
+// 「왜 나쁜가」가 거기 없기는 마찬가지이고, **모르는 것을 길이로 메우지 않는다.**
+func trimRefutation(steps []refutationStep) int {
+	for i, s := range steps {
+		if !s.settles {
+			continue
 		}
+		// 王手는 교환이 아니다. captureSq 가 -1이라 아래 조건이 바로 거짓이 된다.
+		end := i + 1
+		for end < len(steps) && steps[end].captureSq >= 0 && steps[end].captureSq == steps[end-1].captureSq {
+			end++
+		}
+		return end
 	}
 	return 1
 }

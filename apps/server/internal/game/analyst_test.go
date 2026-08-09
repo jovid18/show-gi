@@ -38,6 +38,28 @@ func TestRefutationLineRunsUntilTheDamageLands(t *testing.T) {
 	}
 }
 
+// **시작한 교환은 끝까지 보여준다.** `△同金` 만 그리면 金이 銀을 그냥 딴 것으로 읽히는데
+// 실제로는 되따고 또 되딴다. 반쪽이 틀린 것보다 두 수 긴 편이 낫다.
+func TestRefutationLineShowsTheWholeExchange(t *testing.T) {
+	pv := []string{"4c5d", "5i5d", "8a5d", "1i2i"}
+
+	line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies)
+
+	want := []Move{
+		{USI: "4c5d", Ja: "△同金", By: SideEngine},
+		{USI: "5i5d", Ja: "▲同飛", By: SideHuman},
+		{USI: "8a5d", Ja: "△同角", By: SideEngine},
+	}
+	if len(line) != len(want) {
+		t.Fatalf("수순 길이 %d, 기대 %d: %+v", len(line), len(want), line)
+	}
+	for i, m := range line {
+		if m != want[i] {
+			t.Errorf("%d번째 수 %+v, 기대 %+v", i, m, want[i])
+		}
+	}
+}
+
 // 첫 수는 언제나 상대의 수다. 판정하는 것이 사람의 수이기 때문이고, 사람이 어느 색을
 // 잡았는지와 무관하다. 화면은 이 성질에 기대어 **첫 수만** 판에 긋는다.
 func TestRefutationLineStartsWithTheOpponent(t *testing.T) {
@@ -102,20 +124,26 @@ func TestRefutationLineIsEmptyWithoutAPV(t *testing.T) {
 }
 
 func TestTrimRefutation(t *testing.T) {
+	quiet := refutationStep{captureSq: -1}
+	check := refutationStep{settles: true, captureSq: -1}
+	takes := func(sq int) refutationStep { return refutationStep{settles: true, captureSq: sq} }
+
 	cases := map[string]struct {
-		settles []bool
-		want    int
+		steps []refutationStep
+		want  int
 	}{
-		"바로 벌한다":        {[]bool{true, false, false}, 1},
-		"몇 수 앞에서 벌어진다":  {[]bool{false, false, true, false}, 3},
-		"계속 따도 처음까지만":   {[]bool{true, true, true, true}, 1},
-		"조용한 수뿐이면 첫 수만": {[]bool{false, false, false}, 1},
+		"바로 벌하고 끝난다":     {[]refutationStep{takes(30), quiet, quiet}, 1},
+		"몇 수 앞에서 벌어진다":   {[]refutationStep{quiet, quiet, takes(30), quiet}, 3},
+		"같은 칸의 교환은 끝까지":  {[]refutationStep{quiet, takes(30), takes(30), takes(30), quiet}, 4},
+		"다른 칸이면 별개 교환이다": {[]refutationStep{takes(30), takes(41), takes(41)}, 1},
+		"王手는 교환이 아니다":    {[]refutationStep{check, takes(30), takes(30)}, 1},
+		"조용한 수뿐이면 첫 수만":  {[]refutationStep{quiet, quiet, quiet}, 1},
 	}
 
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			if got := trimRefutation(c.settles); got != c.want {
-				t.Errorf("trimRefutation(%v) = %d, 기대 %d", c.settles, got, c.want)
+			if got := trimRefutation(c.steps); got != c.want {
+				t.Errorf("trimRefutation(%v) = %d, 기대 %d", c.steps, got, c.want)
 			}
 		})
 	}
