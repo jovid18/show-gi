@@ -56,9 +56,15 @@ type Features struct {
 	// 지어내지 않는다.
 	Known bool
 
-	// LandsAttacked 는 착수 후 그 칸을 상대가 노리는가.
+	// LandsAttacked 는 상대가 그 칸의 駒를 **실제로 딸 수 있는가**(합법수로).
+	//
+	// 「노리고 있는가」가 아니다. 핀에 묶여 못 움직이는 駒는 노리기만 할 뿐이고,
+	// 그걸 잡힌다고 말하면 화면의 단언이 거짓이 된다.
 	LandsAttacked bool
-	// LandsDefended 는 착수 후 그 칸을 내가 지키는가.
+	// LandsDefended 는 따인 뒤에 **되딸 수 있는가**.
+	//
+	// 상대는 되따이지 않는 쪽으로 딸 것이므로, 되딸 수 없는 따는 수가 하나라도 있으면
+	// false 다.
 	LandsDefended bool
 
 	// MovedValue 는 그 칸에 놓인 내 駒의 가치다(성했으면 성한 값).
@@ -113,7 +119,13 @@ func classify(in Input, lostMate bool) Category {
 		return CategoryShallowTrap
 
 	// 駒는 땄는데 형세가 나빠졌다. 「손해가 아닌데 왜?」가 그대로 설명이 된다.
-	case f.CapturedValue > 0:
+	//
+	// **딴 것만으로는 부족하다.** 다른 쪽에서 벌어진 일 때문에 나쁜 수인데 마침 歩를
+	// 하나 공짜로 땄다면, 딴 것은 이유가 아니다 — 그걸 이유라고 말하면 틀린 설명이 된다.
+	// 그래서 딴 대가가 실제로 보이는 두 경우로 좁힌다: **되따일 수 있거나**(위에서
+	// 안 걸렸으니 교환 자체는 유리해 보이는 쪽이다) **玉이 더 밀리거나**.
+	// 카테고리 이름의 「옥 안전 무시」가 뒤쪽이다.
+	case f.CapturedValue > 0 && (f.LandsAttacked || f.ThreatGain > 0):
 		return CategoryGreedyCapture
 
 	// 追う手. 딴 것도 없이 王手만 걸었다 — 위에서 CapturedValue > 0 이 이미 빠졌다.

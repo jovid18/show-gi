@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -401,8 +402,12 @@ func TestRealEngineIntervention(t *testing.T) {
 // 정당하게 미분류다.
 //
 // 수는 프로덕션에서 실제로 걸린 것을 그대로 쓴다(06-status.md §13). 角을 아무도
-// 지켜주지 않는 3三에 던지는 수라 **상대가 무엇을 두든 8h3c+ 는 합법이고 블런더다** —
-// △3四歩면 빈 칸이고, 아니면 3三歩를 딴다. 어느 쪽이든 角이 그냥 잡힌다.
+// 지켜주지 않는 3三에 던지는 수다.
+//
+// **국면을 ▲7六歩 △3四歩 뒤로 고정해서 시작한다.** 상대에게 한 수를 맡기면
+// △4四歩로 8八–3三 대각선이 막혀 8h3c+ 가 아예 불법이 되고, 그때 나오는 것은
+// 「거절됨」이라 서버 버그처럼 보인다. 엔진이 그 수를 고를 일은 거의 없지만
+// **거의 없는 것을 테스트의 전제로 삼지 않는다.**
 //
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/server/ -run RealEngineHangingPiece -v
 func TestRealEngineHangingPiece(t *testing.T) {
@@ -419,11 +424,23 @@ func TestRealEngineHangingPiece(t *testing.T) {
 	}
 	defer pool.Close()
 
+	// ▲7六歩 △3四歩 뒤. 여기서 사람이 두는 첫 수가 곧 판정 대상이다.
+	pos := shogi.StartPosition()
+	for _, u := range []string{"7g7f", "3c3d"} {
+		m, err := shogi.ParseUSIMove(u)
+		if err != nil {
+			t.Fatalf("기보 파싱 %s: %v", u, err)
+		}
+		pos = pos.Apply(m)
+	}
+
 	srv := httptest.NewServer(Handler(Options{
 		NewOpponent: func() game.Opponent { return game.NewEngineOpponent(pool, 8) },
 		NewAnalyst: func() game.Analyst {
 			return game.NewEngineAnalyst(pool, nil, intervene.Intermediate)
 		},
+		StartSFEN:  pos.SFEN(),
+		HumanColor: pos.Turn,
 	}))
 	defer srv.Close()
 
@@ -436,30 +453,23 @@ func TestRealEngineHangingPiece(t *testing.T) {
 	}
 	defer conn.CloseNow()
 
-	if snap := read(t, ctx, conn).Snapshot; snap == nil || !snap.YourTurn {
+	snap := read(t, ctx, conn).Snapshot
+	if snap == nil || !snap.YourTurn {
 		t.Fatalf("시작 스냅샷: %+v", snap)
 	}
-
-	// ▲7六歩 — 角道를 연다. 이 수 자체는 개입에 안 걸린다.
-	if err := wsjson.Write(ctx, conn, clientMsg{Type: "move", USI: "7g7f"}); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-	got := readUntil(t, ctx, conn, func(m serverMsg) bool {
-		return m.Type == "snapshot" && m.Snapshot.YourTurn && m.Snapshot.Ply == 2
-	}, "상대 응수")
-	if iv := got.Snapshot.Intervention; iv != nil {
-		t.Fatalf("▲7六歩에 개입했다: %+v", iv)
+	if !slices.Contains(snap.LegalMoves, "8h3c+") {
+		t.Fatalf("8h3c+ 가 합법수 목록에 없다 — 시작 국면이 의도와 다르다: %s", pos.SFEN())
 	}
 
 	// ▲3三角成 — 角을 던진다.
 	if err := wsjson.Write(ctx, conn, clientMsg{Type: "move", USI: "8h3c+"}); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
-	got = readUntil(t, ctx, conn, func(m serverMsg) bool {
+	got := readUntil(t, ctx, conn, func(m serverMsg) bool {
 		if m.Type == "error" {
 			t.Fatalf("8h3c+ 가 거절됨: %s", m.Reason)
 		}
-		return m.Snapshot.Intervention != nil || (!m.Snapshot.Judging && m.Snapshot.Ply > 3)
+		return m.Snapshot.Intervention != nil || (!m.Snapshot.Judging && m.Snapshot.Ply > 1)
 	}, "판정 결과")
 
 	iv := got.Snapshot.Intervention

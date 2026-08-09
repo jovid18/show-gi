@@ -68,23 +68,55 @@ func TestCaptureValueIsRead(t *testing.T) {
 	}
 }
 
-// 王手와 「지켜져 있는가」가 같이 나온다. 打의 경우도 반상 이동과 같은 길로 간다.
+// 王手와 「되딸 수 있는가」가 같이 나온다. 打의 경우도 반상 이동과 같은 길로 간다.
 func TestDroppedGoldGivesSupportedCheck(t *testing.T) {
-	// 4k4/9/4P4/9/9/9/9/9/8K b G 1 의 1手詰め. ▲5二金打는 5一玉의 利き 아래지만
-	// 5三歩가 받치고 있다 — 그래서 タダ捨て가 아니다.
-	f := featuresAfter(t, "4k4/9/4P4/9/9/9/9/9/8K b G 1", "G*5b")
+	// 6一銀 · 5一玉 · 5三歩. ▲5二金打는 王手이고 6一銀이 딸 수 있지만,
+	// 5三歩가 되딴다 — 그래서 タダ捨て가 아니다.
+	f := featuresAfter(t, "3sk4/9/4P4/9/9/9/9/9/8K b G 1", "G*5b")
 
 	if !f.GivesCheck {
 		t.Error("5二金은 王手다")
 	}
 	if !f.LandsAttacked {
-		t.Error("5一玉이 5二를 노린다")
+		t.Error("6一銀이 5二를 딸 수 있다")
 	}
 	if !f.LandsDefended {
-		t.Error("5三歩가 5二를 받친다")
+		t.Error("銀이 딴 뒤 5三歩가 되딴다")
 	}
 	if f.MovedValue != pieceValue[shogi.Gold] {
 		t.Errorf("金 값이 아니다: %d", f.MovedValue)
+	}
+}
+
+// **利き이 아니라 합법수로 센다.**
+//
+// 핀에 묶인 駒는 노리기만 하고 못 딴다. 그걸 「잡힌다」고 세면 화면이
+// 「その駒は取り返せない場所に置かれています」라고 **거짓을 단언**하고,
+// 초심자에게는 그것을 검증할 수단이 없다 — 이 제품이 피하려는 바로 그 실패다.
+func TestPinnedAttackerCannotHangAPiece(t *testing.T) {
+	// 5三 飛(後手)는 5一玉과 5九飛 사이에 묶여 있다. 4三을 노리지만 움직이면 玉이 잡힌다
+	const sfen = "4k4/9/4r4/9/9/9/9/9/4R3K b G 1"
+	f := featuresAfter(t, sfen, "G*4c")
+
+	if f.LandsAttacked {
+		t.Error("핀에 묶여 못 움직이는 飛를 「딸 수 있다」로 셌다")
+	}
+	if got := intervene.Judge(intervene.Input{BestCp: 0, AfterCp: -1600, Features: f}).Category; got == intervene.CategoryHangsPiece {
+		t.Error("아무도 못 잡는 駒를 タダ捨て라고 했다")
+	}
+}
+
+// 詰み 국면에서는 상대에게 합법수가 하나도 없다 — 노리는 것과 딸 수 있는 것의 차이가
+// 제일 크게 벌어지는 자리다.
+func TestNothingCapturesWhenItIsCheckmate(t *testing.T) {
+	// 4k4/9/4P4/9/9/9/9/9/8K b G 1 의 1手詰め. 5一玉이 5二를 노리지만 5三歩 때문에 못 딴다
+	f := featuresAfter(t, "4k4/9/4P4/9/9/9/9/9/8K b G 1", "G*5b")
+
+	if !f.GivesCheck {
+		t.Fatal("테스트 전제가 깨졌다 — 5二金은 王手다")
+	}
+	if f.LandsAttacked {
+		t.Error("詰み인데 5二를 딸 수 있다고 했다")
 	}
 }
 

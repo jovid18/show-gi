@@ -36,8 +36,13 @@ func TestCategoryPicksTheMostConcreteReason(t *testing.T) {
 			CategoryShallowTrap,
 		},
 		{
-			"駒는 땄는데 형세가 나빠졌다",
-			Features{Known: true, CapturedValue: 6},
+			"駒는 땄는데 되따이고 형세가 나빠졌다",
+			Features{Known: true, CapturedValue: 10, MovedValue: 6, LandsAttacked: true, LandsDefended: true},
+			CategoryGreedyCapture,
+		},
+		{
+			"駒는 땄는데 그 사이 玉이 밀렸다",
+			Features{Known: true, CapturedValue: 6, ThreatGain: 2},
 			CategoryGreedyCapture,
 		},
 		{
@@ -65,6 +70,17 @@ func TestCategoryPicksTheMostConcreteReason(t *testing.T) {
 				t.Errorf("카테고리 %q 기대, got %q", tc.want, v.Category)
 			}
 		})
+	}
+}
+
+// **공짜로 딴 것은 이유가 아니다.**
+//
+// 반대쪽에서 벌어진 일 때문에 나쁜 수인데 마침 歩를 하나 공짜로 땄다면, 딴 것을
+// 이유라고 말하는 순간 설명이 틀린다. 짚을 것이 없으면 미분류로 두는 편이 낫다.
+func TestACleanCaptureIsNotTheReason(t *testing.T) {
+	f := Features{Known: true, CapturedValue: 1, MovedValue: 6} // 되따이지도, 玉이 밀리지도 않았다
+	if got := Judge(blunderInput(f)).Category; got == CategoryGreedyCapture {
+		t.Error("공짜로 딴 歩를 블런더의 이유라고 했다")
 	}
 }
 
