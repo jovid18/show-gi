@@ -1,0 +1,267 @@
+# 기사 — Zenn 시리즈 계획
+
+**발표 슬라이드의 재료를 먼저 글로 쌓는다.** [로드맵](05-roadmap.md)의 D7이 「Zenn 기사 초안(발표 슬라이드와 내용 재사용)」인데 그 슬라이드가 아직 없다. 그래서 순서가 뒤집혔다 — 글이 먼저고 슬라이드가 거기서 나온다.
+
+- 작성일: 2026-08-10
+- 마감: **2026-08-15 15:00**
+- 작업 브랜치: `docs/zenn-article`
+
+## 1. 확정된 것
+
+| 결정      | 내용                                                    |
+| --------- | ------------------------------------------------------- |
+| 플랫폼    | **Zenn.** Qiita가 아니다 ([제품 §5](00-product.md))     |
+| 기사 위치 | **이 리포 루트의 `articles/`.** 별도 리포로 빼지 않는다 |
+| 형태      | **여러 편의 시리즈.** 한 편에 다 넣지 않는다            |
+| 공개      | 전부 `published: false`로 시작. 공개 시점은 따로 정한다 |
+| 본문 언어 | **일본어.** 개발 비중이 높은 글을 우선한다              |
+
+## 2. 어디에 무엇이 있나
+
+```
+articles/   기사 마크다운. 파일 하나가 기사 하나
+images/     스크린샷·그래프. 아직 없다 — 첫 이미지가 생길 때 만든다
+```
+
+`images/`를 미리 만들지 않는 이유는 **Zenn이 확장자를 검사**하기 때문이다. 빈 디렉터리를 유지하려고 `.gitkeep`을 넣으면 배포에서 걸릴 수 있다.
+
+```sh
+pnpm zenn:new        # articles/ 에 새 기사. --slug --title --type --emoji
+pnpm zenn:preview    # localhost:8000, 라이브 리로드
+pnpm lint            # oxfmt가 articles/ 도 포맷한다 (§4)
+```
+
+`zenn-cli`는 루트 `devDependencies`에 고정했다. `npx`로 매번 받으면 버전이 안 정해진다.
+
+## 3. Zenn 사양 — 공식 문서로 확인한 것
+
+출처: [CLI](https://zenn.dev/zenn/articles/zenn-cli-guide) · [Markdown](https://zenn.dev/zenn/articles/markdown-guide) · [GitHub 연동](https://zenn.dev/zenn/articles/connect-to-github) · [이미지](https://zenn.dev/zenn/articles/deploy-github-images)
+
+### front matter
+
+```yaml
+---
+title: 'デプロイは緑なのに対局だけできなかった'
+emoji: '🩺' # 1자. 썸네일이 된다
+type: 'tech' # tech | idea
+topics: ['aws', 'ecs', 'go']
+published: false
+published_at: '2026-08-15 10:00' # 선택. JST
+---
+```
+
+### 제약
+
+| 항목     | 값                                                         |
+| -------- | ---------------------------------------------------------- |
+| **slug** | 파일명이 곧 URL. **`a-z0-9`·`-`·`_`로 12~50자**            |
+| 디렉터리 | `articles/`·`images/` 둘 다 **리포 루트**                  |
+| 이미지   | 본문에서 **`/images/...` 절대경로**. 상대경로 금지         |
+| 이미지   | **3MB 상한**, `.png .jpg .jpeg .gif .webp` 만              |
+| 연동     | 계정당 **리포 최대 2개**. 등록 브랜치에 push하면 자동 배포 |
+| Mermaid  | 블록당 **2000자**, 체인 연산자(`&`) 최대 10개              |
+
+**[미확정]** `topics` 최대 개수. 문서에 없고 **로컬 CLI는 검증하지 않는다** — 6개를 넣어도 `zenn list:articles`도 `zenn preview`도 통과했다. 서버 쪽에서만 걸리므로 **5개로 두고** 동기화가 실제로 돌 때 확인한다.
+
+## 4. oxfmt는 Zenn 문법을 안 망가뜨린다 — 실측
+
+`.oxfmtrc.jsonc`가 `**/*.md`를 전부 포맷하므로 `articles/`도 대상이다. 40편을 쓰고 나서 알면 늦어서 **미리 시험했다.**
+
+Zenn 고유 문법을 한 파일에 다 넣고 `oxfmt`를 돌린 결과, **본문에서 바뀐 것은 표 정렬 한 곳뿐이었다.** 그건 [CLAUDE.md](../CLAUDE.md)에 이미 정상 동작으로 적혀 있다.
+
+살아남은 것: `![](x.png =400x)` 폭 지정 · `:::message` 와 `::::details` 중첩 · `@[card]` · `@[gist]` · GitHub URL 임베드 · ` ```go:파일명 ` · ` ```diff go ` · ` ```mermaid ` · KaTeX `$$` 와 인라인 `$K = 600$` · 각주.
+
+**그래서 `articles/`를 `ignorePatterns`에 넣지 않았다.** 표는 손으로 맞추지 않는다.
+
+### 다만 front matter의 따옴표는 바뀐다
+
+`zenn new:article`이 만드는 템플릿은 큰따옴표인데 **oxfmt가 작은따옴표로 바꾼다**(`singleQuote: true`).
+
+```diff yaml
+- title: "【テスト】GitHub 連携と記法の動作確認"
++ title: '【テスト】GitHub 連携と記法の動作確認'
+```
+
+둘 다 유효한 YAML이고 zenn-cli도 정상 파싱한다. **고칠 것이 아니라 알고 있으면 되는 동작**이다 — 새 기사를 만들면 첫 `pnpm lint`에서 한 번 바뀌고 그 뒤로는 안 바뀐다.
+
+### 물결표는 본문에서 쓰지 않는다 — 이건 진짜 함정이다
+
+`~`가 한 문단에 두 개 있으면 마크다운이 **취소선으로 짝짓는다.** oxfmt는 그걸 정규 형태인 `~~`로 굳혀버려서, 범위 표기가 조용히 취소선이 된다.
+
+```diff md
+- 전법 선택은 50~200cp(Δ 2~8%p)라
++ 전법 선택은 50~~200cp(Δ 2~~8%p)라
+```
+
+**이미 `docs/06-status.md`에서 벌어져 있었다**(이 PR에서 고쳤다). 저장하면 굳어지므로 사람 눈으로는 거의 못 잡는다.
+
+범위는 `50-200cp`처럼 붙임표로 쓴다. 일본어 본문에서는 애초에 전각 물결표 `〜`를 쓰므로 걸리지 않는다.
+
+## 5. 시각 자료 — 글만 있으면 안 읽힌다
+
+| 무기                   | 쓸 곳                                                           |
+| ---------------------- | --------------------------------------------------------------- |
+| **Mermaid**            | 아키텍처·시퀀스·상태 전이. **네이티브라 이미지 파일이 0개**     |
+| **GitHub 파일 임베드** | 퍼블릭 리포라 **실제 소스를 그대로** 박는다. `#L10-L30` 행 범위 |
+| 코드 블럭 파일명 라벨  | ` ```go:internal/usi/client.go ` — 어느 파일인지가 항상 보인다  |
+| **diff 하이라이트**    | ` ```diff go ` — 「고치기 전 / 후」. B·C 테마의 주력            |
+| KaTeX                  | cp→승률 로지스틱 식 (A11)                                       |
+| `:::message` / `alert` | 함정 경고. C 테마 전용                                          |
+| `:::details`           | 긴 엔진 로그·SFEN 덤프                                          |
+| 이미지 폭·캡션         | `![](/images/x.png =400x)` 다음 줄에 `*캡션*`                   |
+
+**GitHub 임베드는 반드시 커밋 SHA 퍼머링크로 건다.** 브랜치 링크는 코드가 바뀌면 글이 조용히 틀려진다.
+
+### 실제로 만들어야 하는 이미지는 셋뿐이다
+
+| 무엇          | 어떻게                                                                                | 상태           |
+| ------------- | ------------------------------------------------------------------------------------- | -------------- |
+| 실측 그래프   | depth × MultiPV 15칸 데이터가 이미 있다([상태 §10](06-status.md)). 표보다 그림이 세다 | 지금 가능      |
+| 화면 스크린샷 | `https://show-gi.com`이 살아 있다                                                     | 지금 가능      |
+| 개입 연출 GIF | 판이 기울고 유령 駒가 갔다 돌아오는 건 **정지 이미지로 안 산다**                      | 녹화 필요. 3MB |
+
+## 6. slug 명명 체계
+
+전부 **`showgi-` 접두어**를 붙인다. 시리즈로 묶이고, 12자 하한이 자동으로 채워진다. 본문은 일본어지만 slug는 `a-z0-9`만 되므로 영어로 쓴다.
+
+## 7. 태그
+
+공통으로 `将棋` · `Go` · `AWS` · `個人開発`을 깔고 글마다 특화 태그를 얹는다. 개수 상한은 §3의 **[미확정]**.
+
+## 8. 글 목록
+
+근거 강도 **◎** = [상태](06-status.md)에 실측·사고 기록 있음 / **○** = 코드·설계 문서에 있음
+
+### A. 개념 해설 (15편)
+
+Zenn에는 pgvector 해설도 OIDC 해설도 이미 많다. **「개념 + 이 프로젝트에서 실제로 물린 것」** 이어야 남의 글과 달라진다.
+
+|     | slug                                     | 축                                                            |     |
+| --- | ---------------------------------------- | ------------------------------------------------------------- | --- |
+| A1  | `showgi-github-oidc-aws-keyless-deploy`  | subject claim에 **불변 ID**가 박힌다. 찾는 데 실행 2번        | ◎   |
+| A2  | `showgi-pgvector-embeddings-in-postgres` | sqlc가 `vector` 타입을 어떻게 다루나                          | ○   |
+| A3  | `showgi-usi-protocol-shogi-engine`       | UCI와의 차이. 옵션이 `USI_Variant`가 아니라 `UCI_Variant`     | ◎   |
+| A4  | `showgi-sfen-board-as-a-string`          | 캐시 키가 되는 순간 생기는 요구사항                           | ○   |
+| A5  | `showgi-nnue-eval-function-fv-scale`     | `FV_SCALE`이 틀리면 cp 척도가 통째로 바뀐다                   | ◎   |
+| A6  | `showgi-go-mate-is-a-different-search`   | 탐색부에 보내면 `bestmove`가 온다. **에러 없이**              | ◎   |
+| A7  | `showgi-multipv-candidate-moves`         | k가 무엇을 지배하고 무엇을 안 지배하나                        | ◎   |
+| A8  | `showgi-sqlc-schema-generates-code`      | 규칙을 SQL에 두고 Go로 옮겨 적지 않는다                       | ◎   |
+| A9  | `showgi-terraform-state-s3-backend`      | state를 담을 자원은 state로 관리 못 한다                      | ○   |
+| A10 | `showgi-ecs-task-definition-revisions`   | `skip_destroy` 없으면 롤백 경로가 INACTIVE를 가리킨다         | ◎   |
+| A11 | `showgi-centipawn-to-winrate-logistic`   | 왜 cp 차이로 판정하면 안 되나. 상수 K                         | ◎   |
+| A12 | `showgi-clip-path-clips-after-filter`    | `filter`·`box-shadow`를 **먼저 그리고** 자른다. 세 번 물렸다  | ◎   |
+| A13 | `showgi-compositing-layer-z-index`       | 3D 변형이 걸린 판이 `position: fixed` 장막을 덮었다           | ◎   |
+| A14 | `showgi-websocket-through-alb`           | 업그레이드가 ALB·Caddy를 지나기까지                           | ○   |
+| A15 | `showgi-yaneuraou-shogi-ai-ecosystem`    | **별도 조사 필요.** 探索部/評価関数 분리, NNUE, 水匠, dlshogi | △   |
+
+> **A15는 기억으로 쓰지 않는다.** 연혁·버전·대회 결과는 틀리기 쉽고 일본 독자가 제일 먼저 알아챈다. 원전(GitHub·공식 사이트·대회 기록)을 훑는 조사 패스를 먼저 돌린다. 확인 못 한 것은 `[미확정]`.
+
+### B. 개발 전략 (11편)
+
+전부 **「왜 그렇게 정했나 + 안 그랬으면 무엇이 깨졌나」** 구조다.
+
+|     | slug                                     | 축                                                        |     |
+| --- | ---------------------------------------- | --------------------------------------------------------- | --- |
+| B1  | `showgi-engine-judges-llm-explains`      | 설명이 틀리면 초심자는 검증할 능력이 없다                 | ○   |
+| B2  | `showgi-fixed-depth-never-movetime`      | 재현성이 캐시·밴드 제어·상대 강함 셋을 동시에 떠받친다    | ◎   |
+| B3  | `showgi-one-goroutine-owns-the-state`    | 롤백이 있는 이상 상태 변경 **순서**가 곧 제품 정합성      | ◎   |
+| B4  | `showgi-client-knows-no-rules`           | 二歩도 打ち歩詰め도 모른다. 서버가 준 `legalMoves`만      | ◎   |
+| B5  | `showgi-single-source-of-notation`       | 棋譜 표기가 두 벌이면 어긋났을 때 어느 쪽이 맞는지 모른다 | ◎   |
+| B6  | `showgi-always-full-snapshot`            | 부분 갱신을 보내면 롤백 후 화면과 서버가 어긋나도 모른다  | ◎   |
+| B7  | `showgi-never-trust-engine-output`       | 돌려준 수를 룰 엔진으로 검증하고, 안 되면 대국을 끝낸다   | ◎   |
+| B8  | `showgi-degrade-do-not-die`              | 엔진 없이도 서버는 산다 — 이 결정이 §11에서 값을 했다     | ◎   |
+| B9  | `showgi-intervene-knows-no-engine`       | 입력이 스칼라뿐이라 상수 튜닝에 엔진이 안 든다            | ◎   |
+| B10 | `showgi-measure-before-tuning-constants` | 엔진을 먼저 갈아끼운 이유 — 상수가 cp 척도에 종속         | ◎   |
+| B11 | `showgi-deploy-pipeline-on-day-one`      | 마지막 날 인프라를 만지면 데모 영상을 못 찍는다           | ○   |
+
+### C. 사고 기록 (6편)
+
+B와 달리 **결론이 아니라 과정**을 쓴다. 읽는 재미가 제일 크다.
+
+|     | slug                                     | 축                                                                       |     |
+| --- | ---------------------------------------- | ------------------------------------------------------------------------ | --- |
+| C1  | `showgi-green-deploy-broken-game`        | 태스크 정의 `environment`가 이미지 `ENV`를 덮어쓴다                      | ◎   |
+| C2  | `showgi-five-silent-engine-options`      | `PvInterval=0`이 없으면 깊이별 평가치가 하나만 남는데 **에러가 안 난다** | ◎   |
+| C3  | `showgi-removing-the-observation-window` | 「초반 20수는 개입 안 함」을 뺐더니 프로덕션에서 **2수째**에 걸렸다      | ◎   |
+| C4  | `showgi-winrate-saturates-when-losing`   | 20수 만에 절망적 형세가 되어 한 번도 개입 안 한 이야기                   | ◎   |
+| C5  | `showgi-aws-apply-gotchas`               | SG description 불변, SSM이 빈 문자열 거부, 한글을 거부하는 필드          | ◎   |
+| C6  | `showgi-all-green-board-misaligned`      | 타입도 테스트도 통과인데 판이 한 칸씩 밀려 있었다                        | ◎   |
+
+### D. 디자인·UX (5편)
+
+CSS 글이 아니라 **판단 글**이다.
+
+|     | slug                                    | 축                                                              |     |
+| --- | --------------------------------------- | --------------------------------------------------------------- | --- |
+| D1  | `showgi-board-speaks-light-color-print` | 빛·색·인쇄 3채널. 안 가르면 서로를 지운다                       | ◎   |
+| D2  | `showgi-highlight-with-light-not-color` | 「오프화이트 판」대로 만드니 대비가 1.13이 나와서 뒤집은 이야기 | ◎   |
+| D3  | `showgi-glyph-size-versus-move-marks`   | 「이 글자가 무엇인가」보다 「이 駒가 어떻게 가는가」            | ◎   |
+| D4  | `showgi-what-not-to-tell-a-beginner`    | 최선수를 알려주지 않는다. 물러진 수·이유·낙폭까지만             | ◎   |
+| D5  | `showgi-testing-for-language-leaks`     | 언어 규칙을 사람 눈으로 지키면 샌다. 테스트로 박았다            | ◎   |
+
+### E. 도메인·제품 (3편)
+
+|     | slug                                  | 축                                                             |     |
+| --- | ------------------------------------- | -------------------------------------------------------------- | --- |
+| E1  | `showgi-why-shogi`                    | 한국에는 쇼기 문화가 없다. 「정답이 객관적으로 존재하는 영역」 | ○   |
+| E2  | `showgi-shogi-learning-market-survey` | 기능은 다 있는데 **「둘 때 개입」만 비어 있다**                | ○   |
+| E3  | `showgi-when-should-ai-interrupt`     | 시리즈의 간판. **제목에 「将棋」를 넣지 않는다**               | ○   |
+
+## 9. 쓰면 거짓말이 되는 것
+
+[상태 §5](06-status.md)와 같은 목록이지만, 기사는 **밖으로 나가므로** 여기 다시 적는다.
+
+- **LLM이 한 줄도 안 붙었다.** `ORCA_API_KEY`는 SSM에 `unset` 자리표시자고, 개입 문구는 전부 카테고리별 고정 일본어 템플릿이다. **「AIが説明してくれる」는 현재 사실이 아니다.** B1은 「こう設計した」까지만 쓴다
+- 상수 K(600)·레벨별 임계치가 전부 초기값이고 실측 전이다
+- 개입이 DB에 기록되지 않는다 / 국면 캐시를 쓰는 곳이 없다 / 상대 공격선을 못 그린다
+- 적응형 상대(D4) 없음, 詰み 게이지 없음, Google 로그인 없음, three.js 없음(2D 보드만), 리뷰 화면 없음
+
+## 10. 진행
+
+| 상태 | 항목                                                         |
+| ---- | ------------------------------------------------------------ |
+| ✅   | 플랫폼·위치 확정, `articles/` 생성, `zenn-cli` 고정          |
+| ✅   | Zenn 사양 공식 문서 확인, oxfmt 안전성 실측                  |
+| ✅   | 연동 테스트 기사 작성, 로컬 렌더 전부 확인 (§11)             |
+| ⬜   | **동기화 브랜치 확인** — 여기서 막힌다 (§11)                 |
+| ⬜   | **C1을 한 편 완성** — 시리즈의 밀도와 형식을 여기서 고정한다 |
+| ⬜   | A15 조사 패스                                                |
+| ⬜   | 나머지 38편                                                  |
+| ⬜   | `topics` 상한 확인, 이미지 3종 제작, 공개 시점 결정          |
+
+**D4·D5·D6이 들어오면 A·B에 각각 서너 편이 더 붙는다** — 적응형 상대(밴드 제어), LLM 계층, 리뷰 화면, three.js. 그때 이 목록을 갱신한다.
+
+## 11. 연동 테스트
+
+`articles/showgi-zenn-integration-test.md`. **확인이 끝나면 지운다.**
+
+### 로컬에서 확인된 것
+
+`zenn preview`가 만든 HTML(`/api/articles/<slug>`)을 직접 읽어 확인했다. 계획한 무기가 전부 살아 있다.
+
+| 기능                         | 결과 |
+| ---------------------------- | ---- |
+| `:::message alert`           | ✅   |
+| `::::details` 중첩           | ✅   |
+| 링크 카드 `@[card]`          | ✅   |
+| GitHub 파일 임베드 (행 범위) | ✅   |
+| Mermaid                      | ✅   |
+| KaTeX (블록·인라인)          | ✅   |
+| 코드 블럭 파일명 라벨        | ✅   |
+| ` ```diff hcl `              | ✅   |
+| 각주                         | ✅   |
+
+**이미지는 이 기사에서 안 다뤘다.** 아직 올릴 도판이 하나도 없어서다. 첫 도판을 만들 때 같이 확인한다.
+
+### 막히는 곳 — 동기화 브랜치
+
+공식 문서는 **「등록한 브랜치에 변경이 있으면 자동으로 동기화된다」**고 한다. 그런데 작업 브랜치는 `docs/zenn-article`이라, Zenn에 등록된 브랜치가 `main`이면 여기에 push해도 **아무 일도 일어나지 않는다.**
+
+그리고 [CLAUDE.md](../CLAUDE.md)상 `main` 머지는 사람이 GitHub PR 화면에서 한다.
+
+| 길                                                      | 대가                                           |
+| ------------------------------------------------------- | ---------------------------------------------- |
+| **Zenn 설정에서 동기화 브랜치를 `docs/zenn-article`로** | 머지 없이 확인된다. 끝나면 `main`으로 되돌린다 |
+| PR을 열고 `main`에 머지                                 | 확인되기 전에 머지하는 셈이 된다               |
+
+**[미확정]** 지금 등록된 브랜치가 무엇인지는 Zenn 대시보드에서만 볼 수 있다.
