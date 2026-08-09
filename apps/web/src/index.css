@@ -228,20 +228,19 @@ body {
   opacity: 0;
 }
 
-/* 착수 후보 — 빈 칸은 가운데가 밝은 빛 웅덩이 */
+/* 착수 후보 — **칸 전체에 빛이 든다.**
+   흰 원을 판 위에 얹는 것이 아니라 판 자체가 밝아지는 것이다. 원은 판 위에 뜬
+   다른 물건처럼 보이고, 여러 칸이 켜지면 물방울이 흩어진 것처럼 읽힌다.
+   칸을 통째로 밝히면 나뭇결이 그대로 비치면서 「여기까지 갈 수 있다」가 한눈에 온다. */
 .square[data-lit]::after {
   opacity: 1;
-  background: radial-gradient(circle at 50% 50%, rgb(var(--light) / 0.9), rgb(var(--light) / 0) 62%);
+  background: rgb(var(--light) / 0.26);
 }
 
-/* 말이 있는 칸(잡는 수)은 빛을 가장자리로 돌린다 — 한자를 가리면 읽을 수 없다 */
+/* 잡는 수 — 駒가 칸의 대부분을 덮어 빛이 테두리로만 남는다. 그만큼 더 세게 준다.
+   한자 위에 빛을 얹지 않는 것은 그대로다 — 가리면 읽을 수 없다. */
 .square[data-lit][data-occupied]::after {
-  background: radial-gradient(
-    circle at 50% 50%,
-    rgb(var(--light) / 0) 46%,
-    rgb(var(--light) / 0.95) 72%,
-    rgb(var(--light) / 0) 100%
-  );
+  background: rgb(var(--light) / 0.42);
 }
 
 /* 직전 수 — **출발 칸과 도착 칸을 함께** 덮는다. 도착만 짚으면 「저기 뭔가 있다」까지이고,
