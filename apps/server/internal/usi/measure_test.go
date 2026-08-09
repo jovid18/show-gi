@@ -204,7 +204,7 @@ func TestMeasureMateSearch(t *testing.T) {
 	// 대국 전체를 훑는다. 매 수 도는 비용이 궁금한 것이라 표본도 매 수여야 한다.
 	all := strings.Fields(kifuB)
 
-	for _, limit := range []int{3, 5, 7, 9} {
+	for _, limit := range []int{7, 9, 11, 13, 15} {
 		e, err := New(cmd, map[string]string{
 			"USI_Hash": "128", "Threads": "1", "DepthLimit": fmt.Sprint(limit),
 		})
