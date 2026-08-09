@@ -21,21 +21,14 @@ var tookThePawn = []string{"5e5d"}
 func TestRefutationLineRunsUntilTheDamageLands(t *testing.T) {
 	pv := []string{"5a4a", "1i2i", "4c5d"}
 
-	line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies)
+	_, line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies)
 
-	want := []Move{
+	want := []RefutationMove{
 		{USI: "5a4a", Ja: "△4一玉", By: SideEngine},
 		{USI: "1i2i", Ja: "▲2九玉", By: SideHuman},
 		{USI: "4c5d", Ja: "△5四金", By: SideEngine},
 	}
-	if len(line) != len(want) {
-		t.Fatalf("수순 길이 %d, 기대 %d: %+v", len(line), len(want), line)
-	}
-	for i, m := range line {
-		if m != want[i] {
-			t.Errorf("%d번째 수 %+v, 기대 %+v", i, m, want[i])
-		}
-	}
+	assertLine(t, line, want)
 }
 
 // **시작한 교환은 끝까지 보여준다.** `△同金` 만 그리면 金이 銀을 그냥 딴 것으로 읽히는데
@@ -43,27 +36,20 @@ func TestRefutationLineRunsUntilTheDamageLands(t *testing.T) {
 func TestRefutationLineShowsTheWholeExchange(t *testing.T) {
 	pv := []string{"4c5d", "5i5d", "8a5d", "1i2i"}
 
-	line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies)
+	_, line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies)
 
-	want := []Move{
+	want := []RefutationMove{
 		{USI: "4c5d", Ja: "△同金", By: SideEngine},
 		{USI: "5i5d", Ja: "▲同飛", By: SideHuman},
 		{USI: "8a5d", Ja: "△同角", By: SideEngine},
 	}
-	if len(line) != len(want) {
-		t.Fatalf("수순 길이 %d, 기대 %d: %+v", len(line), len(want), line)
-	}
-	for i, m := range line {
-		if m != want[i] {
-			t.Errorf("%d번째 수 %+v, 기대 %+v", i, m, want[i])
-		}
-	}
+	assertLine(t, line, want)
 }
 
 // 첫 수는 언제나 상대의 수다. 판정하는 것이 사람의 수이기 때문이고, 사람이 어느 색을
 // 잡았는지와 무관하다. 화면은 이 성질에 기대어 **첫 수만** 판에 긋는다.
 func TestRefutationLineStartsWithTheOpponent(t *testing.T) {
-	line := refutationLine(exchangeSFEN, tookThePawn, []string{"4c5d"}, RefutationPlies)
+	_, line := refutationLine(exchangeSFEN, tookThePawn, []string{"4c5d"}, RefutationPlies)
 	if len(line) != 1 || line[0].By != SideEngine {
 		t.Fatalf("첫 수가 상대의 수가 아니다: %+v", line)
 	}
@@ -76,7 +62,7 @@ func TestRefutationLineStopsWhenTheFirstMovePunishes(t *testing.T) {
 	thrownBishop := []string{"7g7f", "3c3d", "8h2b+"}
 	pv := []string{"3a2b", "B*5e", "2b3c"}
 
-	line := refutationLine(shogi.StartSFEN, thrownBishop, pv, RefutationPlies)
+	_, line := refutationLine(shogi.StartSFEN, thrownBishop, pv, RefutationPlies)
 
 	if len(line) != 1 {
 		t.Fatalf("수순 길이 %d, 기대 1: %+v", len(line), line)
@@ -92,7 +78,7 @@ func TestRefutationLineStopsWhenTheFirstMovePunishes(t *testing.T) {
 func TestRefutationLineOnlyLooksAsFarAsTheLimit(t *testing.T) {
 	pv := []string{"5a4a", "1i2i", "4c5d"} // 따는 수가 상한 밖이다
 
-	line := refutationLine(exchangeSFEN, tookThePawn, pv, 2)
+	_, line := refutationLine(exchangeSFEN, tookThePawn, pv, 2)
 
 	if len(line) != 1 {
 		t.Fatalf("수순 길이 %d, 기대 1: %+v", len(line), line)
@@ -109,7 +95,7 @@ func TestRefutationLineCutsAtAnUnplayableMove(t *testing.T) {
 
 	for name, pv := range cases {
 		t.Run(name, func(t *testing.T) {
-			line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies)
+			_, line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies)
 			if len(line) != 1 {
 				t.Fatalf("수순 길이 %d, 기대 1: %+v", len(line), line)
 			}
@@ -118,7 +104,7 @@ func TestRefutationLineCutsAtAnUnplayableMove(t *testing.T) {
 }
 
 func TestRefutationLineIsEmptyWithoutAPV(t *testing.T) {
-	if line := refutationLine(exchangeSFEN, tookThePawn, nil, RefutationPlies); line != nil {
+	if _, line := refutationLine(exchangeSFEN, tookThePawn, nil, RefutationPlies); line != nil {
 		t.Errorf("PV가 없는데 수순이 나왔다: %+v", line)
 	}
 }
@@ -146,5 +132,29 @@ func TestTrimRefutation(t *testing.T) {
 				t.Errorf("trimRefutation(%v) = %d, 기대 %d", c.steps, got, c.want)
 			}
 		})
+	}
+}
+
+// assertLine 은 수와 표기를 견준다. **국면은 값으로 안 박는다** — SFEN 문자열을 테스트에
+// 적어두면 룰 엔진이 아니라 그 문자열을 지키게 된다. 있는지와 매 수 달라지는지만 본다.
+func assertLine(t *testing.T, got, want []RefutationMove) {
+	t.Helper()
+
+	if len(got) != len(want) {
+		t.Fatalf("수순 길이 %d, 기대 %d: %+v", len(got), len(want), got)
+	}
+	seen := map[string]bool{}
+	for i, m := range got {
+		if m.USI != want[i].USI || m.Ja != want[i].Ja || m.By != want[i].By {
+			t.Errorf("%d번째 수 %+v, 기대 %+v", i, m, want[i])
+		}
+		// 화면이 이 값으로 판을 그린다. 비어 있으면 넘기기가 통째로 안 된다.
+		if m.SFEN == "" {
+			t.Errorf("%d번째 수(%s)에 국면이 없다", i, m.USI)
+		}
+		if seen[m.SFEN] {
+			t.Errorf("%d번째 수(%s)에서 국면이 안 나아갔다", i, m.USI)
+		}
+		seen[m.SFEN] = true
 	}
 }

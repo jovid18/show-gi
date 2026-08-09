@@ -40,6 +40,8 @@ export interface Intervention {
   lostMate: boolean;
   /** 화면에 그대로 나가는 일본어 문구. */
   message: string;
+  /** 물러진 수를 **둔 직후**의 국면. 되돌아온 지금 판(`Snapshot.sfen`)과는 다르다. */
+  retractedSfen: string;
   /**
    * 「상대는 이렇게 벌한다」. 물러진 수를 그대로 뒀을 때의 수순이고 **첫 수가 상대의
    * 수**다. 서버가 못 구했으면 아예 오지 않는다.
@@ -48,7 +50,19 @@ export interface Intervention {
    * 있는 어느 수도 「지금 이렇게 두라」가 되지 않는다. 카테고리가 이유를 못 대는
    * 국면에서도 이쪽은 나오고, 그게 이 절이 있는 이유다(docs/06-status.md §17).
    */
-  refutation?: KifuMove[];
+  refutation?: RefutationMove[];
+}
+
+/**
+ * 반박 수순의 한 수.
+ *
+ * `sfen`이 있어서 **화면은 수를 두지 않는다.** 한 수씩 넘겨 볼 때 판은 이 값을 그대로
+ * 그리면 된다 — 클라이언트가 스스로 두면 규칙 엔진을 한 벌 더 갖는 것이고, 그건
+ * D2에서 「클라이언트는 규칙을 모른다」로 정해둔 자리다.
+ */
+export interface RefutationMove extends KifuMove {
+  /** 이 수를 둔 **뒤**의 국면. 持ち駒까지 들어 있어 駒台도 이 값으로 맞는다. */
+  sfen: string;
 }
 
 export interface Snapshot {

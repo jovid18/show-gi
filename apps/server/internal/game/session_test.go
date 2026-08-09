@@ -396,7 +396,7 @@ func TestEngineOpponentReturnsBest(t *testing.T) {
 // fixedAnalyst 는 정해진 판정을 돌려준다. 엔진 없이 롤백 흐름만 본다.
 type fixedAnalyst struct {
 	verdict    intervene.Verdict
-	refutation []Move
+	refutation []RefutationMove
 	err        error
 	delay      time.Duration
 	calls      atomic.Int32
@@ -460,7 +460,7 @@ func TestBlunderIsRolledBack(t *testing.T) {
 
 // 반박 수순은 판정이 아니라 **화면에 그릴 재료**다. 세션은 손대지 않고 그대로 싣는다.
 func TestRefutationRidesAlongToTheSnapshot(t *testing.T) {
-	line := []Move{{USI: "3c3d", Ja: "△3四歩", By: SideEngine}}
+	line := []RefutationMove{{USI: "3c3d", Ja: "△3四歩", By: SideEngine, SFEN: "after-3c3d"}}
 	s := newSession(t, Config{
 		Opponent: &scriptedOpponent{moves: []string{"3c3d"}},
 		Analyst:  &fixedAnalyst{verdict: blunder(), refutation: line}, HumanColor: shogi.Black,

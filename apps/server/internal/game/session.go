@@ -90,9 +90,26 @@ type Analyst interface {
 // 어차피 손에 들어온 **그리기 재료**다.
 type Judgement struct {
 	Verdict intervene.Verdict
+	// RetractedSFEN 은 물러진 수를 **둔 직후**의 국면이다. 수순을 넘겨 보는 첫 장면이고,
+	// 되돌아온 지금 판과는 다르다.
+	RetractedSFEN string
 	// Refutation 은 「상대는 이렇게 벌한다」 — 착수 후 국면의 최선 수순이다.
 	// 개입이 안 걸렸으면 비어 있다.
-	Refutation []Move
+	Refutation []RefutationMove
+}
+
+// RefutationMove 는 반박 수순의 한 수다.
+//
+// 기보의 Move 와 달리 **그 수를 둔 뒤의 국면을 함께 싣는다.** 화면이 수순을 한 수씩
+// 넘겨 보여주는데, 클라이언트가 스스로 수를 두면 규칙 엔진을 한 벌 더 갖는 것이라
+// D2에서 「클라이언트는 규칙을 모른다」로 정해둔 것과 어긋난다. 판은 서버가 만든다.
+//
+// 持ち駒도 SFEN에 들어 있으므로 駒台까지 이 한 줄로 맞는다.
+type RefutationMove struct {
+	USI  string `json:"usi"`
+	Ja   string `json:"ja"`
+	By   Side   `json:"by"`
+	SFEN string `json:"sfen"`
 }
 
 // Intervention 은 제지형 개입 하나다. 스냅샷에 실려 화면으로 간다.
@@ -113,13 +130,16 @@ type Intervention struct {
 	LostMate bool `json:"lostMate"`
 	// Message 는 화면에 그대로 나가는 일본어 문구다.
 	Message string `json:"message"`
+	// RetractedSFEN 은 물러진 수를 **둔 직후**의 국면이다. 화면이 수순을 넘겨 볼 때의
+	// 첫 장면이고, 되돌아온 지금 판(`Snapshot.SFEN`)과는 다르다.
+	RetractedSFEN string `json:"retractedSfen"`
 	// Refutation 은 「상대는 이렇게 벌한다」. 물러진 수를 그대로 뒀을 때의 최선 수순이고,
-	// 첫 수가 상대의 수다. 못 구했으면 비어 있다 — 화면은 그때 이 절을 안 그린다.
+	// 첫 수가 상대의 수다. 못 구했으면 비어 있다 — 화면은 그때 넘기기를 안 띄운다.
 	//
 	// **이것은 최선수가 아니다.** 이 수순이 시작하는 국면은 되물러서 이미 사라졌으므로,
 	// 여기 있는 어느 수도 「지금 이렇게 두라」가 되지 않는다. 금지된 것은 플레이어가
 	// 뒀어야 할 수이고 이쪽은 **왜 나쁜가**에 속한다(01-core.md §1).
-	Refutation []Move `json:"refutation,omitempty"`
+	Refutation []RefutationMove `json:"refutation,omitempty"`
 }
 
 // Opponent 는 상대(컴퓨터)의 수를 고른다.
@@ -453,14 +473,15 @@ func (st *state) rollback(r judgeResult) {
 
 	v := r.judgement.Verdict
 	st.intervention = &Intervention{
-		Kind:         string(v.Kind),
-		Category:     string(v.Category),
-		RetractedUSI: r.move.USI,
-		RetractedJa:  r.move.Ja,
-		DeltaWin:     v.DeltaWin,
-		LostMate:     v.LostMate,
-		Message:      interventionMessage(v),
-		Refutation:   r.judgement.Refutation,
+		Kind:          string(v.Kind),
+		Category:      string(v.Category),
+		RetractedUSI:  r.move.USI,
+		RetractedJa:   r.move.Ja,
+		DeltaWin:      v.DeltaWin,
+		LostMate:      v.LostMate,
+		Message:       interventionMessage(v),
+		RetractedSFEN: r.judgement.RetractedSFEN,
+		Refutation:    r.judgement.Refutation,
 	}
 }
 

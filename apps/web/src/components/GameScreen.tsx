@@ -1,13 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Board, type LastMove, type Ray, type Replay } from './Board';
 import { Hand } from './Hand';
 import { Intervention } from './Intervention';
 import { Kifu } from './Kifu';
 import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/game/moves';
-import type { Snapshot } from '@/game/protocol';
+import type { Player, Snapshot } from '@/game/protocol';
 import { useGame } from '@/game/useGame';
-import { parseSfen } from '@/shogi/sfen';
+import { parseSfen, type Board as BoardModel } from '@/shogi/sfen';
 import { fromIndex, fromUsi, toIndex, toUsi } from '@/shogi/square';
 
 /**
@@ -24,6 +24,32 @@ function lastMoveOf(usi: string): LastMove | null {
     return { from: move.kind === 'drop' ? null : toIndex(fromUsi(move.from)), to };
   } catch {
     return null; // 못 읽는 좌표로 엉뚱한 칸을 칠하느니 안 칠한다
+  }
+}
+
+/**
+ * 회상 한 장면 — **그 수를 둔 뒤의 판**과, 그 수가 지나간 길.
+ *
+ * 국면은 서버가 준 SFEN 그대로다. 화면은 수를 두지 않는다.
+ */
+interface Scene {
+  board: BoardModel;
+  ray: Ray;
+  /** 반박 수순의 몇 번째인가. -1이면 물러진 수 자체다. */
+  index: number;
+}
+
+function sceneOf(sfen: string, usi: string, by: Player, index: number): Scene | null {
+  const move = parseUsi(usi);
+  if (!move) return null;
+  try {
+    return {
+      board: parseSfen(sfen),
+      ray: { from: move.kind === 'drop' ? null : toIndex(fromUsi(move.from)), to: toIndex(fromUsi(move.to)), by },
+      index,
+    };
+  } catch {
+    return null; // 못 읽는 국면·좌표로 엉뚱한 판을 그리느니 그 장면을 버린다
   }
 }
 
@@ -51,6 +77,8 @@ export function GameScreen() {
   // 어느 회차까지 봤는가. 서버는 다음 착수까지 개입을 들고 있으므로 「있다」로 판정하면
   // 닫아도 다시 뜬다. 회차를 비교하면 같은 수로 또 걸렸을 때만 다시 연다.
   const [seenEpisode, setSeenEpisode] = useState(0);
+  // 회상의 몇 번째 장면을 보고 있는가. 0이 물러진 수 자체다.
+  const [scene, setScene] = useState(0);
 
   // 새 대국은 판만이 아니라 고르던 것까지 전부 비우고 시작한다.
   const newGame = (): void => {
@@ -60,7 +88,8 @@ export function GameScreen() {
     restart();
   };
 
-  const board = useMemo(() => {
+  // 지금 대국의 판. 회상 중에는 화면에 안 나오지만 착수 후보와 유령 駒는 여기서 나온다.
+  const live = useMemo(() => {
     if (!snapshot) return null;
     try {
       return parseSfen(snapshot.sfen);
@@ -80,22 +109,53 @@ export function GameScreen() {
 
   // 王手를 받고 있는 玉의 칸. 강조는 판 위에서만 하고 글로는 반복하지 않는다.
   const checked = useMemo(() => {
-    if (!board || !snapshot?.inCheck) return null;
-    const index = board.squares.findIndex((p) => p?.kind === 'K' && p.side === board.turn);
+    if (!live || !snapshot?.inCheck) return null;
+    const index = live.squares.findIndex((p) => p?.kind === 'K' && p.side === live.turn);
     return index < 0 ? null : toUsi(fromIndex(index));
-  }, [board, snapshot?.inCheck]);
+  }, [live, snapshot?.inCheck]);
 
   const intervention = snapshot?.intervention ?? null;
   const intervening = intervention !== null && interventionEpisode > seenEpisode;
 
   /**
+   * 회상의 각 장면.
+   *
+   * 0번이 **물러진 수를 둔 직후**이고 그 뒤가 상대의 반박 수순이다. 판은 장면마다 서버가
+   * 준 국면을 그대로 그린다 — **화면이 수를 두지 않는다.** 두게 하면 규칙 엔진을 한 벌
+   * 더 갖는 것이고, 그건 D2에서 「클라이언트는 규칙을 모른다」로 정해둔 자리다.
+   *
+   * 넘겨 보게 만드는 것이 곧 정직해지는 길이기도 하다. 한 판 위에 수순을 겹쳐 그리면
+   * 「상대가 아직 손에 없는 駒를 놓는 수」까지 그리게 된다.
+   */
+  const scenes = useMemo<Scene[]>(() => {
+    if (!intervention?.refutation?.length) return [];
+
+    const first = sceneOf(intervention.retractedSfen, intervention.retractedUsi, 'human', -1);
+    if (!first) return [];
+
+    const rest = intervention.refutation.map((m, i) => sceneOf(m.sfen, m.usi, m.by, i));
+    // 하나라도 못 읽으면 거기서 멈춘다. 어긋난 장면으로 넘기느니 짧게 보여준다.
+    const cut = rest.findIndex((s) => s === null);
+    return [first, ...(cut < 0 ? rest : rest.slice(0, cut))].filter((s) => s !== null);
+  }, [intervention]);
+
+  // 같은 수로 또 걸렸을 때도 처음부터 본다. 회차가 오르면 장면도 돌아간다.
+  useEffect(() => setScene(0), [interventionEpisode]);
+
+  const walking = intervening && scenes.length > 0;
+  const current = walking ? scenes[Math.min(scene, scenes.length - 1)] : null;
+
+  /**
    * 물러진 수가 지나간 두 칸.
    *
-   * 판은 이미 되돌아와 있으므로 **던질 뻔한 駒는 출발 칸에 그대로 서 있다.** 그걸 읽어서
-   * 유령 駒를 만든다 — 서버가 준 USI 말고는 아무것도 추론하지 않는다.
+   * 판은 이미 그 수를 둔 국면이므로 **유령 駒는 첫 장면에서 한 번만** 난다. 어느 駒였는지는
+   * 되돌아온 판(`snapshot.sfen`)의 출발 칸에서 읽는다 — 성한 수라면 도착 칸에는 이미
+   * 성한 駒가 서 있어서, 날아가는 것이 무엇이었는지가 거기엔 없다.
    */
   const replay = useMemo<Replay | null>(() => {
-    if (!intervening || !intervention || !board) return null;
+    if (!intervening || !intervention || !live) return null;
+    if (walking && scene !== 0) return null;
+
     const move = parseUsi(intervention.retractedUsi);
     if (!move) return null;
 
@@ -103,44 +163,20 @@ export function GameScreen() {
       const to = toIndex(fromUsi(move.to));
       if (move.kind === 'drop') {
         // 打은 출발 칸이 없다. 잡는 쪽은 지금 차례인 사람이다.
-        return { from: null, to, kind: move.piece, side: board.turn };
+        return { from: null, to, kind: move.piece, side: live.turn };
       }
       const from = toIndex(fromUsi(move.from));
-      const piece = board.squares[from];
+      const piece = live.squares[from];
       // 비어 있으면 판과 개입이 어긋난 것이다. 틀린 것을 그리느니 안 그린다.
       if (!piece) return null;
       return { from, to, kind: piece.kind, side: piece.side };
     } catch {
       return null;
     }
-  }, [intervening, intervention, board]);
+  }, [intervening, intervention, live, walking, scene]);
 
-  /**
-   * 상대가 그 수를 벌하는 한 수.
-   *
-   * **수순의 첫 수만 긋는다.** 판에 그릴 수 있는 것은 지금 판에서 사실인 수뿐이고, 그
-   * 조건을 만족하는 것은 첫 수 하나다 — 그 다음부터는 오지 않을 응수를 전제한다.
-   * 수순 전체는 옆의 문구가 棋譜로 이미 말한다.
-   */
-  const ray = useMemo<Ray | null>(() => {
-    const first = intervention?.refutation?.[0];
-    if (!intervening || !first) return null;
-
-    // 서버가 늘 상대의 수부터 채우지만, 어긋났을 때 나가는 것이 「이렇게 두라」라서
-    // 여기서도 확인한다. 판에 긋지 않는 것이 틀린 선을 긋는 것보다 언제나 낫다.
-    if (first.by !== 'engine') return null;
-
-    const parsed = parseUsi(first.usi);
-    if (!parsed) return null;
-    try {
-      return {
-        from: parsed.kind === 'drop' ? null : toIndex(fromUsi(parsed.from)),
-        to: toIndex(fromUsi(parsed.to)),
-      };
-    } catch {
-      return null; // 못 읽는 좌표로 엉뚱한 선을 긋느니 안 긋는다
-    }
-  }, [intervening, intervention]);
+  // 화면에 그리는 판. 회상 중에는 그 장면의 국면이고, 아니면 지금 대국의 판이다.
+  const board = current?.board ?? live;
 
   if (connection === 'closed') {
     return (
@@ -231,10 +267,11 @@ export function GameScreen() {
           board={board}
           lit={lit}
           selected={origin && !origin.endsWith('*') ? origin : null}
-          lastMove={lastMove}
-          checked={checked}
+          lastMove={walking ? null : lastMove}
+          checked={walking ? null : checked}
           replay={replay}
-          ray={ray}
+          ray={current?.ray ?? null}
+          dimmed={walking}
           interactive={playable}
           onSquare={onSquare}
         />
@@ -257,6 +294,9 @@ export function GameScreen() {
             <Intervention
               key={interventionEpisode}
               intervention={intervention}
+              scene={walking ? Math.min(scene, scenes.length - 1) : null}
+              scenes={scenes.length}
+              onStep={setScene}
               onDismiss={() => setSeenEpisode(interventionEpisode)}
             />
           )}

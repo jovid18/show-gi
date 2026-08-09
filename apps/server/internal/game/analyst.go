@@ -104,7 +104,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		// 이미 손에 든 탐색의 PV가 그대로 「상대는 이렇게 벌한다」다. **추가 탐색이 없고
 		// 분류도 필요 없다** — 카테고리가 이유를 못 대는 3분의 2(06-status.md §17)가
 		// 여기서 설명을 갖는다.
-		j.Refutation = refutationLine(startSFEN, moves, after.PV, RefutationPlies)
+		j.RetractedSFEN, j.Refutation = refutationLine(startSFEN, moves, after.PV, RefutationPlies)
 	}
 	return j, nil
 }
@@ -115,27 +115,29 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 // 강의가 된다. 여기는 그 두 가지를 막는 한도이고, 보통은 이보다 훨씬 앞에서 잘린다.
 const RefutationPlies = 8
 
-// refutationLine 은 착수 후 탐색의 PV를 棋譜 표기가 붙은 수순으로 옮긴다.
+// refutationLine 은 착수 후 탐색의 PV를 棋譜 표기와 국면이 붙은 수순으로 옮긴다.
+// 첫 값은 물러진 수를 둔 직후의 국면 — 화면이 수순을 넘겨 볼 때의 첫 장면이다.
 //
 // **엔진 출력을 믿지 않는다.** PV의 각 수를 룰 엔진으로 검증하고, 못 두는 수가 나오면
 // 거기서 끊어 그때까지의 수순만 돌려준다 — 대국 루프가 상대 수를 검증하는 것과 같은
 // 이유다. 화면에 나가는 단언이라 틀린 것을 그리느니 짧게 그린다.
 //
-// 표기를 여기서 만드는 이유도 같다. 화면이 USI에서 다시 만들면 표기가 두 벌이 되고,
-// 어긋났을 때 어느 쪽이 맞는지 알 수 없다(06-status.md §6 ④).
-func refutationLine(startSFEN string, moves []string, pv []string, limit int) []Move {
+// 표기와 국면을 여기서 만드는 이유도 같다. 화면이 USI에서 다시 만들면 표기가 두 벌이
+// 되고, 국면은 아예 클라이언트에 규칙 엔진을 들이는 일이 된다(06-status.md §6 ④).
+func refutationLine(startSFEN string, moves []string, pv []string, limit int) (string, []RefutationMove) {
 	if len(pv) == 0 || limit <= 0 {
-		return nil
+		return "", nil
 	}
 
 	pos, err := positionAfter(startSFEN, moves)
 	if err != nil {
 		log.Printf("game: could not replay for refutation: %v", err)
-		return nil
+		return "", nil
 	}
+	retracted := pos.SFEN()
 	last, err := shogi.ParseUSIMove(moves[len(moves)-1])
 	if err != nil {
-		return nil
+		return "", nil
 	}
 	// 물러진 수의 도착 칸. 벌하는 수는 대개 그 자리를 되따는 수라 「同」이 여기서 나온다.
 	prevTo := int(last.To)
@@ -143,7 +145,7 @@ func refutationLine(startSFEN string, moves []string, pv []string, limit int) []
 	// 판정하는 수는 늘 사람의 수이므로, 그 다음은 어느 색을 잡았든 상대다.
 	by := SideEngine
 
-	line := make([]Move, 0, limit)
+	line := make([]RefutationMove, 0, limit)
 	var steps []refutationStep // 자르는 자리를 여기서 찾는다
 	for _, u := range pv {
 		if len(line) == limit {
@@ -160,10 +162,13 @@ func refutationLine(startSFEN string, moves []string, pv []string, limit int) []
 		if !m.IsDrop() && !pos.Board[m.To].Empty() {
 			step.captureSq = int(m.To)
 		}
-		line = append(line, Move{USI: u, Ja: pos.MoveJa(m, prevTo), By: by})
+		mv := RefutationMove{USI: u, Ja: pos.MoveJa(m, prevTo), By: by}
 
 		pos = pos.Apply(m)
 		prevTo = int(m.To)
+		mv.SFEN = pos.SFEN()
+		line = append(line, mv)
+
 		step.settles = step.captureSq >= 0 || pos.InCheck(pos.Turn)
 		steps = append(steps, step)
 		if by == SideEngine {
@@ -173,9 +178,9 @@ func refutationLine(startSFEN string, moves []string, pv []string, limit int) []
 		}
 	}
 	if len(line) == 0 {
-		return nil
+		return "", nil
 	}
-	return line[:trimRefutation(steps)]
+	return retracted, line[:trimRefutation(steps)]
 }
 
 // refutationStep 은 반박 수순의 한 수에서 **자를 자리를 정하는 데 필요한 사실**이다.

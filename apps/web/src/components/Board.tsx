@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 
 import { Koma } from './Koma';
+import type { Player } from '@/game/protocol';
 import type { Board as BoardModel } from '@/shogi/sfen';
 import { nameOf, type Side } from '@/shogi/piece';
 import { fromIndex, toUsi } from '@/shogi/square';
@@ -29,21 +30,18 @@ export interface LastMove {
 }
 
 /**
- * 상대가 그 수를 벌하는 **한 수**를 판 위에 그은 선. 반박 수순의 첫 수다.
+ * 방금 그 화면에서 벌어진 한 수를 판 위에 그은 선.
  *
- * **수순 전체를 긋지 않는다.** 판에 그릴 수 있는 것은 지금 판이 사실인 수뿐인데, 그 조건을
- * 만족하는 것은 첫 수 하나다 — 두 번째 상대 수부터는 사이에 오지 않을 응수를 전제하고,
- * 실제로 「아직 손에 없는 駒를 놓는 수」가 나온다. 그것을 지금 판 위에 그리면 연출이
- * 아니라 국면에 대한 거짓말이 된다. 수순 전체는 옆의 문구가 棋譜로 말한다.
- *
- * **사람의 수도 긋지 않는다.** 지금 판에 서 있는 내 駒에서 뻗는 광선은 문구가 무엇이라고
- * 적혀 있든 「이렇게 두라」로 읽힌다. 그 선은 이 제품이 긋지 않기로 한 자리다
- * (docs/01-core.md §1).
+ * **판은 언제나 이 수를 둔 뒤의 국면이다.** 그래서 이 선은 지금 화면에 대한 사실이다 —
+ * 수순을 넘겨 보지 않고 한 판 위에 여러 수를 겹쳐 그으면 그 순간 거짓말이 된다.
+ * 실제로 「상대가 아직 손에 없는 駒를 놓는 수」를 그리고 있었다.
  */
 export interface Ray {
   /** 출발 칸. 打이면 null이고, 그때는 도착점만 찍힌다. */
   from: number | null;
   to: number;
+  /** 누가 둔 수인가. 읽어야 하는 것은 상대의 수라 사람의 수는 물러난다. */
+  by: Player;
 }
 
 interface BoardProps {
@@ -56,10 +54,12 @@ interface BoardProps {
   lastMove: LastMove | null;
   /** 王手를 받고 있는 玉의 칸. */
   checked: string | null;
-  /** 개입 연출 동안만 채워진다. */
+  /** 물러진 수를 되짚는 유령 駒. 넘겨 보기의 첫 장면에서만 채워진다. */
   replay: Replay | null;
-  /** 상대가 그 수를 어떻게 벌하는가. 개입 연출 동안만 채워진다. */
+  /** 지금 화면의 한 수가 지나간 길. 넘겨 보는 동안 채워진다. */
   ray: Ray | null;
+  /** 회상 중인가. 판이 색을 잃고 낮아져서 그 위의 빛이 읽힌다. */
+  dimmed: boolean;
   interactive: boolean;
   onSquare: (usi: string) => void;
 }
@@ -96,23 +96,52 @@ function ReplayKoma({ replay }: { replay: Replay }) {
  * 들어왔는지가 갈리는데, 판이 안 그려지는 대가로 얻을 것이 없다. 자리는 유령 駒와 같이
  * **칸 수**로 준다 — 픽셀로 주면 `--sq` 가 화면 폭을 따라 변하는 만큼 어긋난다.
  */
-function RefutationRay({ ray }: { ray: Ray }) {
-  // 打은 출발 칸이 없다. 길이 0으로 두면 도착점만 남는다 — 그것이 打의 사실 그대로다.
-  const start = ray.from ?? ray.to;
-  const dcol = ray.from === null ? 0 : (ray.to % BOARD_SIZE) - (start % BOARD_SIZE);
-  const drow = ray.from === null ? 0 : Math.floor(ray.to / BOARD_SIZE) - Math.floor(start / BOARD_SIZE);
+function RefutationRay({ ray, waitForGhost }: { ray: Ray; waitForGhost: boolean }) {
+  const col = ray.to % BOARD_SIZE;
+  const row = Math.floor(ray.to / BOARD_SIZE);
+
+  // 打도 어디선가 온다 — **駒台에서 온다.** 도착점만 찍으면 「저기 뭔가 있다」까지이고,
+  // 초심자가 알아야 하는 것은 그 駒가 반상에 없던 것이라는 사실이다. 그래서 판 밖,
+  // 그 사람의 駒台 쪽에서 시작해 판으로 들어온다. 화면은 늘 相手가 위·あなた가 아래다.
+  const drop = ray.from === null;
+  const fromCol = ray.from === null ? col : ray.from % BOARD_SIZE;
+  const fromRow = ray.from === null ? (ray.by === 'engine' ? -1 : BOARD_SIZE) : Math.floor(ray.from / BOARD_SIZE);
+
+  const dcol = col - fromCol;
+  const drow = row - fromRow;
 
   const style = {
-    '--col': start % BOARD_SIZE,
-    '--row': Math.floor(start / BOARD_SIZE),
+    '--col': fromCol,
+    '--row': fromRow,
     '--len': Math.hypot(dcol, drow),
     '--angle': `${(Math.atan2(drow, dcol) * 180) / Math.PI}deg`,
   } as CSSProperties;
 
-  return <span className="refutation-ray" style={style} aria-hidden="true" />;
+  return (
+    <span
+      className="refutation-ray"
+      data-by={ray.by}
+      data-drop={drop || undefined}
+      // 유령 駒가 나는 장면에서만 기다렸다 켜진다. 넘기며 보는 동안에는 기다릴 것이 없다.
+      data-wait={waitForGhost || undefined}
+      style={style}
+      aria-hidden="true"
+    />
+  );
 }
 
-export function Board({ board, lit, selected, lastMove, checked, replay, ray, interactive, onSquare }: BoardProps) {
+export function Board({
+  board,
+  lit,
+  selected,
+  lastMove,
+  checked,
+  replay,
+  ray,
+  dimmed,
+  interactive,
+  onSquare,
+}: BoardProps) {
   return (
     <div className="board-frame">
       <div className="board-files" aria-hidden="true">
@@ -126,7 +155,7 @@ export function Board({ board, lit, selected, lastMove, checked, replay, ray, in
           const usi = toUsi(fromIndex(index));
           const label = `${FILES[index % BOARD_SIZE]}${RANKS[Math.floor(index / BOARD_SIZE)]}`;
           // 한 칸이 出発と到着을 겸하는 수는 없다. 겸치면 그릴 것도 없다.
-          const mark = replay?.from === index ? 'from' : replay?.to === index ? 'to' : null;
+          const mark = ray?.from === index ? 'from' : ray?.to === index ? 'to' : null;
           const last = lastMove?.to === index ? 'to' : lastMove?.from === index ? 'from' : undefined;
 
           return (
@@ -149,7 +178,11 @@ export function Board({ board, lit, selected, lastMove, checked, replay, ray, in
           );
         })}
 
-        {ray && <RefutationRay ray={ray} />}
+        {/* 판만 낮춘다. 빛과 광선은 이 겹 위에 있어서 낮아진 판 위에서 오히려 또렷해진다.
+            판을 밝게 둔 채로는 흰 광선이 榧색 나무에 묻힌다 — D2에서 한 번 겪은 일이다. */}
+        {dimmed && <span className="board-tint" aria-hidden="true" />}
+
+        {ray && <RefutationRay ray={ray} waitForGhost={replay !== null} />}
 
         {replay && <ReplayKoma replay={replay} />}
       </div>
