@@ -149,6 +149,11 @@ func (e *Engine) start() error {
 		for sc.Scan() {
 			lines <- sc.Text()
 		}
+		// 읽기가 에러로 끝났으면 남긴다. 채널이 닫히는 것은 프로세스가 죽었을 때와
+		// 같아서, 안 남기면 "엔진이 죽었다"로만 보이고 원인(예: 한 줄이 너무 길다)이 묻힌다.
+		if err := sc.Err(); err != nil {
+			log.Printf("usi: reading engine output failed (%s): %v", e.path, err)
+		}
 		close(lines)
 		_ = cmd.Wait()
 	}()
@@ -176,11 +181,10 @@ func (e *Engine) handshake() error {
 			if !ok {
 				return errors.New("engine exited before usiok")
 			}
-			if strings.HasPrefix(line, "id name ") {
-				e.name = strings.TrimPrefix(line, "id name ")
+			if name, ok := strings.CutPrefix(line, "id name "); ok {
+				e.name = name
 			}
-			if strings.HasPrefix(line, "option name ") {
-				rest := strings.TrimPrefix(line, "option name ")
+			if rest, ok := strings.CutPrefix(line, "option name "); ok {
 				if i := strings.Index(rest, " type "); i > 0 {
 					e.opts[rest[:i]] = true
 				}
@@ -321,18 +325,16 @@ func (e *Engine) Name() string {
 	return e.name
 }
 
-// Search 는 국면(시작 SFEN + 수순)을 주고 movetime 만큼 탐색시킨다.
-func (e *Engine) Search(ctx context.Context, startSFEN string, moves []string, movetimeMs int) (SearchResult, error) {
-	return e.search(ctx, startSFEN, moves,
-		"go movetime "+strconv.Itoa(movetimeMs),
-		time.Duration(movetimeMs)*time.Millisecond+10*time.Second)
-}
-
 // SearchDepth 는 고정 깊이까지 탐색시킨다.
 //
-// movetime과 달리 국면마다 품질이 균일한 대신 소요 시간이 복잡도에 따라 달라진다.
-// 그래서 자체 시한이 없다 — 언제 끝날지는 국면이 정한다. **대신 ctx로 끊을 수 있어야 한다.**
+// **이 패키지에 시간 기반 탐색(`go movetime`)은 일부러 없다.** 시간 기반은 같은 국면이
+// 같은 답을 주지 않아서, positions 캐시("같은 국면 = 같은 결과")도 밴드 제어(후보들의
+// cp를 믿을 수 있어야 한다)도 성립하지 않는다. 지연은 캐시·선행 계산·**깊이를 줄이는 것**
+// 으로 잡는다 (CLAUDE.md, 01-core.md §4). 넣고 싶어지면 왜 안 되는지부터 읽을 것.
+//
+// 자체 시한이 없다 — 언제 끝날지는 국면이 정한다. **대신 ctx로 끊을 수 있다.**
 // 풀에 넣고 쓰는 이상 끝나지 않는 탐색 하나가 슬롯을 영구히 물고 있으면 안 된다.
+// 끊으면 결과는 **버린다**. 중간까지의 결과는 depth N 결과가 아니라서 쓸 수 없다.
 func (e *Engine) SearchDepth(ctx context.Context, startSFEN string, moves []string, depth int) (SearchResult, error) {
 	return e.search(ctx, startSFEN, moves, "go depth "+strconv.Itoa(depth), 0)
 }

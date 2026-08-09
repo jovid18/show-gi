@@ -33,7 +33,7 @@ func TestPoolConcurrentSearches(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			results[i], errs[i] = p.Search(t.Context(), testSFEN, nil, 20)
+			results[i], errs[i] = p.SearchDepth(t.Context(), testSFEN, nil, 6)
 		}()
 	}
 	wg.Wait()
@@ -83,7 +83,7 @@ func TestPoolClosed(t *testing.T) {
 	if _, err := p.Acquire(t.Context()); !errors.Is(err, ErrPoolClosed) {
 		t.Fatalf("ErrPoolClosed 기대, got %v", err)
 	}
-	if _, err := p.Search(t.Context(), testSFEN, nil, 20); !errors.Is(err, ErrPoolClosed) {
+	if _, err := p.SearchDepth(t.Context(), testSFEN, nil, 6); !errors.Is(err, ErrPoolClosed) {
 		t.Fatalf("Search에서 ErrPoolClosed 기대, got %v", err)
 	}
 }

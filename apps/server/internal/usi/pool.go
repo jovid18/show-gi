@@ -112,18 +112,8 @@ func (p *Pool) Do(ctx context.Context, fn func(*Engine) error) error {
 	return fn(e)
 }
 
-// Search 는 엔진을 빌려 movetime 탐색을 한 번 돌린다.
-func (p *Pool) Search(ctx context.Context, startSFEN string, moves []string, movetimeMs int) (SearchResult, error) {
-	var res SearchResult
-	err := p.Do(ctx, func(e *Engine) error {
-		var err error
-		res, err = e.Search(ctx, startSFEN, moves, movetimeMs)
-		return err
-	})
-	return res, err
-}
-
 // SearchDepth 는 엔진을 빌려 고정 깊이 탐색을 한 번 돌린다.
+// 시간 기반 탐색은 이 패키지에 없다 — Engine.SearchDepth 주석 참조.
 func (p *Pool) SearchDepth(ctx context.Context, startSFEN string, moves []string, depth int) (SearchResult, error) {
 	var res SearchResult
 	err := p.Do(ctx, func(e *Engine) error {
