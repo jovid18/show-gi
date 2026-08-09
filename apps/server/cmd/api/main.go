@@ -11,7 +11,6 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
-	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/server"
@@ -38,7 +37,7 @@ func main() {
 	if pool := startEngines(); pool != nil {
 		defer pool.Close()
 		opts.NewOpponent = func() game.Opponent {
-			return game.NewEngineOpponent(pool, engineMoveTime())
+			return game.NewEngineOpponent(pool, engineDepth())
 		}
 	}
 
@@ -117,19 +116,19 @@ func envOr(name, fallback string) string {
 	return fallback
 }
 
-// engineMoveTime 은 상대가 한 수를 생각하는 시간이다.
+// engineDepth 는 상대 수를 고를 때의 탐색 깊이다.
 //
-// D2에서는 고정값이다. D4의 적응형 상대가 들어오면 레벨이 이걸 정하게 된다.
-func engineMoveTime() time.Duration {
-	const fallback = 700 * time.Millisecond
-	v := os.Getenv("ENGINE_MOVETIME_MS")
+// 시간이 아니라 깊이인 이유는 game.NewEngineOpponent 주석에 있다. 지연이 문제가 되면
+// **여기를 줄인다**(14→12). 시간 상한을 걸어 중간에 자르는 쪽이 아니다.
+func engineDepth() int {
+	v := os.Getenv("ENGINE_DEPTH")
 	if v == "" {
-		return fallback
+		return game.DefaultDepth
 	}
-	ms, err := strconv.Atoi(v)
-	if err != nil || ms <= 0 {
-		log.Printf("ENGINE_MOVETIME_MS=%q is not a positive integer, using %v", v, fallback)
-		return fallback
+	d, err := strconv.Atoi(v)
+	if err != nil || d < 1 {
+		log.Printf("ENGINE_DEPTH=%q is not a positive integer, using %d", v, game.DefaultDepth)
+		return game.DefaultDepth
 	}
-	return time.Duration(ms) * time.Millisecond
+	return d
 }

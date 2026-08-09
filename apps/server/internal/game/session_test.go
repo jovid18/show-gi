@@ -374,12 +374,12 @@ type stubSearcher struct {
 	err error
 }
 
-func (s stubSearcher) Search(context.Context, string, []string, int) (usi.SearchResult, error) {
+func (s stubSearcher) SearchDepth(context.Context, string, []string, int) (usi.SearchResult, error) {
 	return s.res, s.err
 }
 
 func TestEngineOpponentReturnsBest(t *testing.T) {
-	o := NewEngineOpponent(stubSearcher{res: usi.SearchResult{Best: "7g7f"}}, 50*time.Millisecond)
+	o := NewEngineOpponent(stubSearcher{res: usi.SearchResult{Best: "7g7f"}}, 12)
 	got, err := o.Choose(t.Context(), shogi.StartSFEN, nil)
 	if err != nil || got != "7g7f" {
 		t.Fatalf("Choose = %q, %v", got, err)

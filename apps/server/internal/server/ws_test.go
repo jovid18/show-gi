@@ -200,7 +200,7 @@ func TestWSAgainstRealEngine(t *testing.T) {
 
 	srv := httptest.NewServer(Handler(Options{
 		NewOpponent: func() game.Opponent {
-			return game.NewEngineOpponent(pool, 200*time.Millisecond)
+			return game.NewEngineOpponent(pool, 10)
 		},
 	}))
 	defer srv.Close()
