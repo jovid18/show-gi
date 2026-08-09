@@ -72,9 +72,10 @@ func TestRestartAfterDeath(t *testing.T) {
 	}
 }
 
-func TestSetSkillSurvivesRestart(t *testing.T) {
+// 재기동 뒤에도 옵션이 남아야 한다. 안 그러면 살아난 엔진만 다른 설정으로 돈다.
+func TestSetOptionSurvivesRestart(t *testing.T) {
 	e := newFake(t)
-	if err := e.SetSkill(4); err != nil {
+	if err := e.SetMultiPV(4); err != nil {
 		t.Fatal(err)
 	}
 	e.mu.Lock()
@@ -84,10 +85,10 @@ func TestSetSkillSurvivesRestart(t *testing.T) {
 		t.Fatalf("재기동 실패: %v", err)
 	}
 	e.mu.Lock()
-	saved := e.saved["Skill Level"]
+	saved := e.saved["MultiPV"]
 	e.mu.Unlock()
 	if saved != "4" {
-		t.Fatalf("Skill 저장값 = %q", saved)
+		t.Fatalf("MultiPV 저장값 = %q", saved)
 	}
 }
 

@@ -16,9 +16,9 @@ var ErrPoolClosed = errors.New("usi: pool closed")
 // 동시 탐색이 여러 개 필요하다. Engine을 고치는 대신 여러 개를 두고 빌려준다 —
 // 엔진의 직렬성은 프로세스의 성질이지 코드의 결함이 아니다.
 //
-// **빌린 동안에는 그 Engine을 혼자 쓴다.** 옵션(Skill Level, MultiPV)을 걸어야 하면
-// 빌린 뒤 탐색 직전에 건다. 옵션은 Engine에 남아서 다음에 빌리는 쪽이 그대로 물려받으므로,
-// 값에 기대는 쪽은 매번 직접 걸어야 한다. 이걸 어기면 A 대국의 강함이 B 대국에 새어 나간다.
+// **빌린 동안에는 그 Engine을 혼자 쓴다.** 대국마다 달라지는 옵션(MultiPV 등)은 빌린 뒤
+// 탐색 직전에 건다. 옵션은 Engine에 남아서 다음에 빌리는 쪽이 그대로 물려받으므로,
+// 값에 기대는 쪽은 매번 직접 걸어야 한다. 엔진 전체 설정은 NewPool 로 준다.
 type Pool struct {
 	free chan *Engine
 	all  []*Engine
@@ -54,22 +54,6 @@ func NewPool(size int, path string, opts map[string]string, args ...string) (*Po
 
 // Size 는 풀에 있는 엔진 수다.
 func (p *Pool) Size() int { return len(p.all) }
-
-// SetOption 은 풀의 모든 엔진에 같은 옵션을 건다.
-//
-// **엔진 전체의 보정값에만 쓴다** — 평가함수가 요구하는 FV_SCALE 같은 것. 대국마다
-// 달라지는 값(Skill Level 등)은 여기가 아니라 빌린 쪽이 자기 차례에 걸어야 한다.
-// 여기서 걸면 다른 대국에도 그대로 적용된다.
-//
-// 탐색 중인 엔진이 있으면 그 탐색이 끝날 때까지 기다린다. 기동 직후에 부르는 것을 전제한다.
-func (p *Pool) SetOption(name, value string) error {
-	for _, e := range p.all {
-		if err := e.SetOption(name, value); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 // Acquire 는 엔진 하나를 빌린다. 빈 게 없으면 ctx가 끝날 때까지 기다린다.
 // 빌린 쪽은 반드시 Release 해야 한다.

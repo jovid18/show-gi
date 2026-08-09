@@ -291,19 +291,6 @@ func (e *Engine) SetOption(name, value string) error {
 	return e.setOptionLocked(name, value)
 }
 
-// SetSkill 은 Skill Level을 설정한다 (fairy-stockfish 기준 0..20).
-//
-// **적응형 상대에는 쓰지 않는다.** 엔진이 스스로 실수를 섞으면 고른 수가 얼마나
-// 나쁜지를 우리가 모르게 된다 — 밴드 제어도, 「최선보다 180cp 나쁜 수였습니다」라는
-// 설명도 같이 무너진다. 약화는 후보 중에서 고르는 우리 코드가 한다 (01-core.md §6).
-//
-// 게다가 이 값은 saved에 남아 재기동 때도 복원되므로, 풀에서 다음에 빌려가는 쪽이
-// 그대로 물려받는다. **약해진 엔진으로 플레이어의 블런더를 판정하게 된다** —
-// 학습 앱에서 이보다 나쁜 고장은 없다.
-func (e *Engine) SetSkill(level int) error {
-	return e.SetOption("Skill Level", strconv.Itoa(level))
-}
-
 // SetMultiPV 는 후보 수를 몇 개까지 받을지 정한다.
 func (e *Engine) SetMultiPV(n int) error {
 	return e.SetOption("MultiPV", strconv.Itoa(n))
@@ -560,15 +547,4 @@ func (e *Engine) Close() {
 	_ = e.send("quit")
 	time.Sleep(50 * time.Millisecond)
 	e.kill()
-}
-
-// Probe 는 엔진 실행 가능 여부 확인용: 기동→이름 획득→종료.
-func Probe(path string, args ...string) (string, error) {
-	e, err := New(path, nil, args...)
-	if err != nil {
-		return "", err
-	}
-	name := e.Name()
-	e.Close()
-	return name, nil
 }

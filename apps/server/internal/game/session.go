@@ -479,6 +479,3 @@ func (s *Session) Close() {
 	s.closeOnce.Do(func() { close(s.done) })
 	<-s.closed
 }
-
-// Done 은 세션이 끝나면 닫힌다.
-func (s *Session) Done() <-chan struct{} { return s.closed }
