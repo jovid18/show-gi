@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -370,7 +371,18 @@ func TestRealEngineIntervention(t *testing.T) {
 		t.Fatalf("엔진이 제일 싫어하는 수를 뒀는데 개입하지 않았다: %+v", got.Snapshot)
 	}
 	t.Logf("개입: %s (%s)  Δ승률=%.3f  詰み=%v", iv.RetractedJa, iv.RetractedUSI, iv.DeltaWin, iv.LostMate)
+	t.Logf("카테고리: %s", iv.Category)
 	t.Logf("문구: %s", iv.Message)
+
+	// **여기서 나오는 것은 실제로 `other` 다.** 엔진이 제일 싫어하는 수가 ▲1七香 —
+	// 駒를 던지지도, 王手를 걸지도, 玉을 열지도 않고 그냥 손해인 수다. 짚을 이유가
+	// 없으므로 짚지 않는 것이 맞다(01-core.md §3). **억지로 끼워 맞추면 설명이 틀리고,
+	// 그게 이 제품에서 가장 큰 실패다.** 그래서 값을 못 박지 않는다.
+	//
+	// 이유가 붙는 쪽은 TestRealEngineHangingPiece 가 본다 — 결과가 정해진 수로 묻는다.
+	if iv.Category == "" {
+		t.Error("개입했는데 카테고리가 비어 있다")
+	}
 
 	if iv.RetractedUSI != worst {
 		t.Fatalf("다른 수가 물러졌다: %s", iv.RetractedUSI)
@@ -380,6 +392,99 @@ func TestRealEngineIntervention(t *testing.T) {
 	}
 	if !iv.LostMate && iv.DeltaWin <= intervene.Intermediate.Threshold() {
 		t.Fatalf("임계치를 안 넘었는데 걸렸다: Δ=%.3f", iv.DeltaWin)
+	}
+}
+
+// TestRealEngineHangingPiece 는 **이유가 화면까지 가는지**를 본다.
+//
+// 앞 테스트는 「개입이 걸리는가」이고 여기는 「왜 나쁜지를 말하는가」다. 갈라 두는
+// 이유는 최악수가 늘 짚을 만한 수는 아니기 때문이다 — 저쪽에서 나오는 ▲1七香은
+// 정당하게 미분류다.
+//
+// 수는 프로덕션에서 실제로 걸린 것을 그대로 쓴다(06-status.md §13). 角을 아무도
+// 지켜주지 않는 3三에 던지는 수다.
+//
+// **국면을 ▲7六歩 △3四歩 뒤로 고정해서 시작한다.** 상대에게 한 수를 맡기면
+// △4四歩로 8八–3三 대각선이 막혀 8h3c+ 가 아예 불법이 되고, 그때 나오는 것은
+// 「거절됨」이라 서버 버그처럼 보인다. 엔진이 그 수를 고를 일은 거의 없지만
+// **거의 없는 것을 테스트의 전제로 삼지 않는다.**
+//
+//	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/server/ -run RealEngineHangingPiece -v
+func TestRealEngineHangingPiece(t *testing.T) {
+	cmd := os.Getenv("SHOWGI_USI_CMD")
+	if cmd == "" {
+		t.Skip("SHOWGI_USI_CMD 미설정")
+	}
+	pool, err := usi.NewPool(2, cmd, map[string]string{
+		"USI_Hash": "128", "Threads": "1", "FV_SCALE": "24",
+		"BookFile": "no_book", "USI_OwnBook": "false",
+	})
+	if err != nil {
+		t.Fatalf("엔진 풀: %v", err)
+	}
+	defer pool.Close()
+
+	// ▲7六歩 △3四歩 뒤. 여기서 사람이 두는 첫 수가 곧 판정 대상이다.
+	pos := shogi.StartPosition()
+	for _, u := range []string{"7g7f", "3c3d"} {
+		m, err := shogi.ParseUSIMove(u)
+		if err != nil {
+			t.Fatalf("기보 파싱 %s: %v", u, err)
+		}
+		pos = pos.Apply(m)
+	}
+
+	srv := httptest.NewServer(Handler(Options{
+		NewOpponent: func() game.Opponent { return game.NewEngineOpponent(pool, 8) },
+		NewAnalyst: func() game.Analyst {
+			return game.NewEngineAnalyst(pool, nil, intervene.Intermediate)
+		},
+		StartSFEN:  pos.SFEN(),
+		HumanColor: pos.Turn,
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(srv.URL, "http")+"/ws/game", nil)
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	defer conn.CloseNow()
+
+	snap := read(t, ctx, conn).Snapshot
+	if snap == nil || !snap.YourTurn {
+		t.Fatalf("시작 스냅샷: %+v", snap)
+	}
+	if !slices.Contains(snap.LegalMoves, "8h3c+") {
+		t.Fatalf("8h3c+ 가 합법수 목록에 없다 — 시작 국면이 의도와 다르다: %s", pos.SFEN())
+	}
+
+	// ▲3三角成 — 角을 던진다.
+	if err := wsjson.Write(ctx, conn, clientMsg{Type: "move", USI: "8h3c+"}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	got := readUntil(t, ctx, conn, func(m serverMsg) bool {
+		if m.Type == "error" {
+			t.Fatalf("8h3c+ 가 거절됨: %s", m.Reason)
+		}
+		return m.Snapshot.Intervention != nil || (!m.Snapshot.Judging && m.Snapshot.Ply > 1)
+	}, "판정 결과")
+
+	iv := got.Snapshot.Intervention
+	if iv == nil {
+		t.Fatalf("角을 던졌는데 개입하지 않았다: %+v", got.Snapshot)
+	}
+	t.Logf("개입: %s  Δ승률=%.3f  카테고리=%s", iv.RetractedJa, iv.DeltaWin, iv.Category)
+	t.Logf("문구: %s", iv.Message)
+
+	if iv.Category != string(intervene.CategoryHangsPiece) {
+		t.Errorf("카테고리 %q 기대, got %q", intervene.CategoryHangsPiece, iv.Category)
+	}
+	// 문구가 카테고리를 따라가야 한다. 여기가 갈리면 화면에는 예전 문구가 그대로 나간다.
+	if !strings.Contains(iv.Message, "利き") {
+		t.Errorf("タダ捨て인데 相手の利き을 안 짚는다: %q", iv.Message)
 	}
 }
 

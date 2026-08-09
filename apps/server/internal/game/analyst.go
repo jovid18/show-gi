@@ -3,6 +3,7 @@ package game
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -26,6 +27,13 @@ type engineAnalyst struct {
 // 실측(06-status.md)에서 `depth 10 × k=1`이 최장 144ms, 12가 400ms다. 판정은 정밀도보다
 // 속도가 중요하고 **착수 직후에 도는 유일한 탐색**이라 여기를 짧게 잡는다.
 const JudgeDepth = 12
+
+// ShallowDepth 는 **초보자의 시야를 모사하는** 깊이다.
+//
+// 「얕은 이득에 낚임」은 여기서 좋아 보이는데 JudgeDepth 에서 나쁜 수다(01-core.md §3).
+// 2인 이유는 捨て駒가 얕게 보면 반드시 손해로 보이기 때문이다 — 그게 捨て駒의 정의이고,
+// 그 거울상이 「한 수만 보면 이득」이다.
+const ShallowDepth = 2
 
 // NewEngineAnalyst 는 엔진으로 판정하는 Analyst 를 만든다.
 //
@@ -56,6 +64,20 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		BestCp:  best.ScoreCp,
 		AfterCp: -after.ScoreCp, // 사람 관점으로 뒤집는다
 		Level:   a.level,
+	}
+
+	// 카테고리에 쓸 국면 사실. **판정 자체는 여기에 매이지 않는다** — 못 읽으면
+	// Known 이 false로 남고 카테고리만 other 가 된다. 개입은 그대로 걸린다.
+	if pos, m, err := replay(startSFEN, moves); err == nil {
+		in.Features = MoveFeatures(pos, m)
+		// 얕은 평가는 **이미 받아 둔 info 라인**에 있다. PvInterval=0 덕에 depth 12
+		// 탐색 한 번이 depth 1~12를 전부 돌려주므로 추가 탐색이 없다(01-core.md §4).
+		if cp, ok := after.ScoreAtDepth(ShallowDepth); ok {
+			in.Features.ShallowCp, in.Features.HasShallow = -cp, true // 사람 관점
+		}
+	} else {
+		// 판을 못 읽은 것은 우리 버그다. 판정은 계속하되 조용히 넘기지 않는다.
+		log.Printf("game: could not replay for features, category will be other: %v", err)
 	}
 
 	if a.mate != nil {

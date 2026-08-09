@@ -93,6 +93,26 @@ func (r SearchResult) EvalByDepth(move string) []DepthEval {
 	return out
 }
 
+// ScoreAtDepth 는 **국면 자체**의 얕은 평가다 — 그 깊이에서 1위였던 줄의 점수를 준다.
+//
+// EvalByDepth 와 묻는 것이 다르다. 저쪽은 「이 수가 깊이별로 어떻게 평가됐나」이고
+// 이쪽은 「이 국면을 여기까지만 읽으면 얼마로 보이나」다. 초보자의 시야를 모사하는 것은
+// 후자다 — 얕은 깊이에서 1위였던 수가 깊은 깊이의 1위와 다른 것이 정상이고, 특정
+// 수를 따라가면 그 수가 순위 밖으로 밀린 깊이에서 값이 사라진다(01-core.md §7.1).
+//
+// **추가 탐색이 없다.** PvInterval=0 덕에 한 번의 depth N 탐색이 depth 1~N을 전부
+// 돌려주므로, 「얕게 보면 이득」의 판정이 공짜로 나온다.
+//
+// 못 찾으면 false. 없는 깊이를 이웃 값으로 메우지 않는다 — EvalByDepth 와 같은 이유다.
+func (r SearchResult) ScoreAtDepth(depth int) (int, bool) {
+	for _, l := range r.History {
+		if l.Depth == depth && l.MultiPV == 1 {
+			return l.ScoreCp, true
+		}
+	}
+	return 0, false
+}
+
 // Engine 은 USI 엔진 1개. 프로세스가 죽으면 다음 호출에서 재기동한다.
 // 모든 공개 메서드는 mu로 직렬화된다 — 즉 프로세스 1개 = 동시 탐색 1개.
 type Engine struct {

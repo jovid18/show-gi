@@ -358,3 +358,50 @@ func hasHangul(s string) bool {
 	}
 	return false
 }
+
+// AttackCount 는 IsAttacked 가 못 하는 「몇 개인가」를 답한다. 玉 주변의 攻め와 守り를
+// 견주는 데 쓰므로, 여기서 세다 말면 위에서 「지키던 말이 하나 줄었다」가 안 보인다.
+func TestAttackCount(t *testing.T) {
+	// 5五에 선수 金 둘이 5六·4六에서 닿고, 후수 飛가 5一에서 세로로 닿는다.
+	pos := mustPos(t, "4r4/9/9/9/9/4GG3/9/9/4K4 b - 1")
+
+	if got := pos.AttackCount(SquareOf(5, 5), Black); got != 2 {
+		t.Errorf("5五를 노리는 선수 말은 金 둘이다: %d", got)
+	}
+	if got := pos.AttackCount(SquareOf(5, 5), White); got != 1 {
+		t.Errorf("5五를 노리는 후수 말은 飛 하나다: %d", got)
+	}
+
+	// **자기 말이 있는 칸도 센다.** 방어 利き을 세는 것이 이 함수의 용도라,
+	// 지키는 말 위의 利き을 빼면 셀 것이 없어진다.
+	if got := pos.AttackCount(SquareOf(5, 6), Black); got != 1 {
+		t.Errorf("5六金은 4六金이 지킨다: %d", got)
+	}
+
+	// 노는 칸은 0. IsAttacked 와 답이 갈리면 둘 중 하나가 틀린 것이다.
+	for _, sq := range []int{SquareOf(1, 1), SquareOf(9, 9), SquareOf(5, 5)} {
+		for _, c := range []Color{Black, White} {
+			if (pos.AttackCount(sq, c) > 0) != pos.IsAttacked(sq, c) {
+				t.Errorf("sq=%d %v: AttackCount와 IsAttacked가 갈린다", sq, c)
+			}
+		}
+	}
+}
+
+func TestNeighbors8ClipsAtTheEdge(t *testing.T) {
+	if got := len(Neighbors8(SquareOf(5, 5))); got != 8 {
+		t.Errorf("한가운데는 8칸이다: %d", got)
+	}
+	if got := len(Neighbors8(SquareOf(9, 1))); got != 3 {
+		t.Errorf("모서리는 3칸이다: %d", got)
+	}
+	if got := len(Neighbors8(SquareOf(5, 1))); got != 5 {
+		t.Errorf("가장자리는 5칸이다: %d", got)
+	}
+	// 자기 자신은 안 들어간다 — 玉 자신의 칸은 「주변」이 아니다
+	for _, sq := range Neighbors8(SquareOf(5, 5)) {
+		if sq == SquareOf(5, 5) {
+			t.Error("자기 칸이 이웃에 들어갔다")
+		}
+	}
+}
