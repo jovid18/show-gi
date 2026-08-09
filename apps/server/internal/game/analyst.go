@@ -109,13 +109,11 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	return j, nil
 }
 
-// RefutationPlies 는 화면에 그리는 반박 수순의 길이다.
+// RefutationPlies 는 반박 수순의 **상한**이다. 실제 길이는 국면이 정한다(trimRefutation).
 //
-// 한 수로는 모자란다 — 카테고리가 이미 착수 한 수의 전후를 보고 있고, 그것으로 이유가
-// 안 나오는 국면이 이 기능이 겨냥하는 자리다(§17). 반대로 길게 늘이면 두 가지가 같이
-// 나빠진다: 깊이 12 탐색의 PV는 뒤로 갈수록 확실하지 않고, 화면에서는 「왜 나쁜가」가
-// 아니라 강의가 된다. 相手·自分을 두 번 주고받는 데까지 끊는다.
-const RefutationPlies = 4
+// 깊이 12 탐색의 PV는 뒤로 갈수록 확실하지 않고, 화면에서는 「왜 나쁜가」가 아니라
+// 강의가 된다. 여기는 그 두 가지를 막는 한도이고, 보통은 이보다 훨씬 앞에서 잘린다.
+const RefutationPlies = 8
 
 // refutationLine 은 착수 후 탐색의 PV를 棋譜 표기가 붙은 수순으로 옮긴다.
 //
@@ -146,6 +144,7 @@ func refutationLine(startSFEN string, moves []string, pv []string, limit int) []
 	by := SideEngine
 
 	line := make([]Move, 0, limit)
+	var settles []bool // 그 수에서 손익이 확정되는가 — 자르는 자리를 여기서 찾는다
 	for _, u := range pv {
 		if len(line) == limit {
 			break
@@ -157,9 +156,12 @@ func refutationLine(startSFEN string, moves []string, pv []string, limit int) []
 		if err := pos.ValidateMove(m); err != nil {
 			break
 		}
+		captures := !m.IsDrop() && !pos.Board[m.To].Empty()
 		line = append(line, Move{USI: u, Ja: pos.MoveJa(m, prevTo), By: by})
+
 		pos = pos.Apply(m)
 		prevTo = int(m.To)
+		settles = append(settles, captures || pos.InCheck(pos.Turn))
 		if by == SideEngine {
 			by = SideHuman
 		} else {
@@ -169,5 +171,31 @@ func refutationLine(startSFEN string, moves []string, pv []string, limit int) []
 	if len(line) == 0 {
 		return nil
 	}
-	return line
+	return line[:trimRefutation(settles)]
+}
+
+// trimRefutation 은 수순을 **처음으로 손익이 바뀌는 수**에서 끊는다.
+//
+// 길이를 상수로 박으면 국면마다 틀린다. 角을 던지면 되따는 한 수로 이유가 끝나는데
+// 거기에 세 수를 더 붙이면 뒤는 정보가 아니라 잡음이고, 반대로 몇 수 앞에서 벌어지는
+// 국면(06-status.md §17)에서는 그 상수가 이유가 나오기 전에 끊는다.
+//
+// **駒를 따거나 王手를 거는 첫 수까지가 그 자리다.** 그 전까지는 판 위에서 아직 아무
+// 일도 안 일어나서 준비 수순으로 필요하고, 거기서부터는 이미 벌어진 손해 위에서 두는
+// 이어지는 수다. 판단에 엔진이 필요 없다 — 룰 엔진으로 재생하면서 공짜로 알 수 있고,
+// 그래서 개입 판정에 비용이 붙지 않는다.
+//
+// **「마지막」이 아니라 「처음」인 것은 실측으로 뒤집혔다.** 마지막까지 따라가면 날카로운
+// 중반에서는 계속 따기 때문에 상한까지 그대로 가고(§17 국면에서 89개 중 66개가 7~8수),
+// 그건 초심자에게 이유가 아니라 강의다.
+//
+// 하나도 없으면 벌하는 첫 수만 남긴다. 조용한 수만 늘어놓아 봐야 「왜 나쁜가」가
+// 거기 없기는 마찬가지이고, **모르는 것을 길이로 메우지 않는다.**
+func trimRefutation(settles []bool) int {
+	for i, settled := range settles {
+		if settled {
+			return i + 1
+		}
+	}
+	return 1
 }

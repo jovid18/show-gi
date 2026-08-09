@@ -128,6 +128,11 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 	// 그중 몇 개가 반전 폭 임계치별로 shallow_trap 이 되는가
 	reversalHits := map[int]int{}
 
+	// 반박 수순이 실제로 몇 수가 되는가. **길이를 상수로 박지 않기로 한 근거**이고,
+	// 여기서 전부 1수로 쪼그라들면 이 기능이 겨냥한 자리(§17)를 못 덮는다는 뜻이다.
+	lineLen := map[int]int{}
+	var lineSamples []string
+
 	for _, m := range legal {
 		next := append(append([]string{}, usis...), m.USI())
 		after, err := pool.SearchDepth(t.Context(), shogi.StartSFEN, next, JudgeDepth)
@@ -152,6 +157,18 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 					cats[v.Category]++
 					blunder = true
 				}
+			}
+		}
+
+		if blunder {
+			line := refutationLine(shogi.StartSFEN, next, after.PV, RefutationPlies)
+			lineLen[len(line)]++
+			if len(line) > 1 && len(lineSamples) < 6 {
+				var ja []string
+				for _, mv := range line {
+					ja = append(ja, mv.Ja)
+				}
+				lineSamples = append(lineSamples, fmt.Sprintf("%s → %s", m.USI(), strings.Join(ja, " ")))
 			}
 		}
 
@@ -187,6 +204,16 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 		reversalHits[100], reversalHits[200], reversalHits[300], reversalHits[500])
 	fmt.Printf("  **얕은 평가(depth %d)가 잡힌 수: %d/%d**\n", ShallowDepth, haveShallow, n)
 	for _, s := range samples {
+		fmt.Printf("    %s\n", s)
+	}
+	fmt.Printf("  반박 수순 길이(입문 블런더 %d개): ", counts[intervene.Beginner])
+	for i := 1; i <= RefutationPlies; i++ {
+		if lineLen[i] > 0 {
+			fmt.Printf("%d수 %d개  ", i, lineLen[i])
+		}
+	}
+	fmt.Println()
+	for _, s := range lineSamples {
 		fmt.Printf("    %s\n", s)
 	}
 }
