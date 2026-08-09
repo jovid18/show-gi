@@ -1,7 +1,8 @@
 import type { CSSProperties } from 'react';
 
+import { Koma } from './Koma';
 import type { Board as BoardModel } from '@/shogi/sfen';
-import { isWideKanji, kanjiOf, type Side } from '@/shogi/piece';
+import { nameOf, type Side } from '@/shogi/piece';
 import { fromIndex, toUsi } from '@/shogi/square';
 
 const FILES = [9, 8, 7, 6, 5, 4, 3, 2, 1];
@@ -63,11 +64,7 @@ function ReplayKoma({ replay }: { replay: Replay }) {
 
   return (
     <span className="replay-koma" data-drop={replay.from === null || undefined} style={style} aria-hidden="true">
-      <span className="koma" data-side={replay.side}>
-        <span className="koma-kanji" data-wide={isWideKanji(replay.kind) || undefined}>
-          {kanjiOf(replay.kind)}
-        </span>
-      </span>
+      <Koma kind={replay.kind} side={replay.side} />
     </span>
   );
 }
@@ -100,16 +97,10 @@ export function Board({ board, lit, selected, lastMove, checked, replay, interac
               data-last={last}
               data-check={checked === usi || undefined}
               disabled={!interactive}
-              aria-label={piece ? `${label} ${kanjiOf(piece.kind)}` : label}
+              aria-label={piece ? `${label} ${nameOf(piece.kind)}` : label}
               onClick={() => onSquare(usi)}
             >
-              {piece && (
-                <span className="koma" data-side={piece.side}>
-                  <span className="koma-kanji" data-wide={isWideKanji(piece.kind) || undefined}>
-                    {kanjiOf(piece.kind)}
-                  </span>
-                </span>
-              )}
+              {piece && <Koma kind={piece.kind} side={piece.side} />}
               {mark && <span className="blunder-mark" data-role={mark} aria-hidden="true" />}
             </button>
           );
