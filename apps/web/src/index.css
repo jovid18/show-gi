@@ -297,8 +297,16 @@ body {
   place-items: center;
   /* 위가 좁은 오각형. 선후수는 방향으로 구분한다 — 게임 자신의 규칙이다. */
   clip-path: polygon(50% 0%, 87% 15%, 100% 100%, 0% 100%, 13% 15%);
-  background: linear-gradient(178deg, var(--koma-face) 55%, var(--koma-shade));
-  border-top: 1px solid var(--koma-edge);
+  /* 위쪽 모서리의 빛을 **테두리가 아니라 그라디언트**로 준다.
+     `border-top` 은 상자 맨 위를 가로지르는 1px 선이라, 오각형으로 자르면 꼭짓점
+     부근에 그 색의 작은 삼각형만 남아 **끝이 잘린 것처럼 보인다.** 실제로 그랬다. */
+  background: linear-gradient(
+    178deg,
+    var(--koma-edge) 0%,
+    var(--koma-face) 4%,
+    var(--koma-face) 55%,
+    var(--koma-shade) 100%
+  );
   filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / 0.45));
 }
 
@@ -308,6 +316,11 @@ body {
 
 .koma-kanji {
   position: relative; /* 움직임 표식 위에 온다 — 글자가 먼저 읽혀야 한다 */
+  /* **글자를 아래로 내린다.** 두 가지가 겹쳐서 글자가 높아 보인다 — 표식 격자의
+     가운데 줄이 오각형의 좁은 위쪽을 피해 아래에 있고(Koma.tsx), 明朝 글자가
+     line-height:1 안에서 위로 붙는다. 격자 한가운데에 글자가 앉아야 점이 「그 칸」을
+     가리키는 것으로 읽힌다. %는 --sq 기준이라 어느 크기에서나 같은 비율로 내려간다. */
+  top: 5%;
   font-family: var(--font-koma);
   font-size: var(--kanji);
   font-weight: 600;
