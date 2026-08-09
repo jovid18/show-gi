@@ -111,6 +111,18 @@ resource "aws_iam_role_policy" "task_exec_channel" {
 # ─── 태스크 ─────────────────────────────────────────────────
 
 resource "aws_ecs_task_definition" "app" {
+  # 옛 리비전을 지우지 않는다.
+  #
+  # 기본값은 새 리비전을 만들면서 예전 것을 deregister 하는데, 그러면 두 가지가 깨진다.
+  # ① **롤백 경로가 사라진다** — 런북의 "이전 리비전으로 서비스를 돌린다"가
+  #    INACTIVE 리비전을 가리키게 된다.
+  # ② apply 직후 잠깐, 서비스가 가리키는 리비전이 INACTIVE가 된다. 그 사이 태스크가
+  #    죽으면 ECS가 새 태스크를 못 띄운다.
+  #
+  # 배포 워크플로가 Terraform 밖에서 리비전을 계속 쌓으므로, 여기서 정리하려 해봐야
+  # 자기가 만든 하나만 지운다. 얻는 것 없이 위 둘만 잃는다.
+  skip_destroy = true
+
   family                   = "show-gi"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
