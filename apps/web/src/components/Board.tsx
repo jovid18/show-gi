@@ -28,6 +28,24 @@ export interface LastMove {
   to: number;
 }
 
+/**
+ * 상대가 그 수를 벌하는 **한 수**를 판 위에 그은 선. 반박 수순의 첫 수다.
+ *
+ * **수순 전체를 긋지 않는다.** 판에 그릴 수 있는 것은 지금 판이 사실인 수뿐인데, 그 조건을
+ * 만족하는 것은 첫 수 하나다 — 두 번째 상대 수부터는 사이에 오지 않을 응수를 전제하고,
+ * 실제로 「아직 손에 없는 駒를 놓는 수」가 나온다. 그것을 지금 판 위에 그리면 연출이
+ * 아니라 국면에 대한 거짓말이 된다. 수순 전체는 옆의 문구가 棋譜로 말한다.
+ *
+ * **사람의 수도 긋지 않는다.** 지금 판에 서 있는 내 駒에서 뻗는 광선은 문구가 무엇이라고
+ * 적혀 있든 「이렇게 두라」로 읽힌다. 그 선은 이 제품이 긋지 않기로 한 자리다
+ * (docs/01-core.md §1).
+ */
+export interface Ray {
+  /** 출발 칸. 打이면 null이고, 그때는 도착점만 찍힌다. */
+  from: number | null;
+  to: number;
+}
+
 interface BoardProps {
   board: BoardModel;
   /** 지금 빛나는 칸(착수 가능). USI 좌표. */
@@ -40,6 +58,8 @@ interface BoardProps {
   checked: string | null;
   /** 개입 연출 동안만 채워진다. */
   replay: Replay | null;
+  /** 상대가 그 수를 어떻게 벌하는가. 개입 연출 동안만 채워진다. */
+  ray: Ray | null;
   interactive: boolean;
   onSquare: (usi: string) => void;
 }
@@ -69,7 +89,30 @@ function ReplayKoma({ replay }: { replay: Replay }) {
   );
 }
 
-export function Board({ board, lit, selected, lastMove, checked, replay, interactive, onSquare }: BoardProps) {
+/**
+ * 상대의 벌하는 수를 칸 중심에서 칸 중심으로 잇는 광선.
+ *
+ * **길이와 각도는 여기서 계산해 CSS로 넘긴다.** `sqrt()`·`atan2()` 는 브라우저마다 언제
+ * 들어왔는지가 갈리는데, 판이 안 그려지는 대가로 얻을 것이 없다. 자리는 유령 駒와 같이
+ * **칸 수**로 준다 — 픽셀로 주면 `--sq` 가 화면 폭을 따라 변하는 만큼 어긋난다.
+ */
+function RefutationRay({ ray }: { ray: Ray }) {
+  // 打은 출발 칸이 없다. 길이 0으로 두면 도착점만 남는다 — 그것이 打의 사실 그대로다.
+  const start = ray.from ?? ray.to;
+  const dcol = ray.from === null ? 0 : (ray.to % BOARD_SIZE) - (start % BOARD_SIZE);
+  const drow = ray.from === null ? 0 : Math.floor(ray.to / BOARD_SIZE) - Math.floor(start / BOARD_SIZE);
+
+  const style = {
+    '--col': start % BOARD_SIZE,
+    '--row': Math.floor(start / BOARD_SIZE),
+    '--len': Math.hypot(dcol, drow),
+    '--angle': `${(Math.atan2(drow, dcol) * 180) / Math.PI}deg`,
+  } as CSSProperties;
+
+  return <span className="refutation-ray" style={style} aria-hidden="true" />;
+}
+
+export function Board({ board, lit, selected, lastMove, checked, replay, ray, interactive, onSquare }: BoardProps) {
   return (
     <div className="board-frame">
       <div className="board-files" aria-hidden="true">
@@ -105,6 +148,8 @@ export function Board({ board, lit, selected, lastMove, checked, replay, interac
             </button>
           );
         })}
+
+        {ray && <RefutationRay ray={ray} />}
 
         {replay && <ReplayKoma replay={replay} />}
       </div>

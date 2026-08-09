@@ -513,6 +513,65 @@ body {
   }
 }
 
+/* 상대가 그 수를 어떻게 벌하는가. 칸 한가운데에서 칸 한가운데로 뻗는 광선이다.
+   **수순의 첫 수만, 그것도 상대의 수만 긋는다** — 이유는 Board.tsx 의 Ray 에 적었다.
+
+   길이(--len)와 각도(--angle)는 컴포넌트가 계산해 넘긴다. sqrt()·atan2() 를 CSS에서
+   쓰면 브라우저에 따라 판 위에 엉뚱한 선이 그어지는데, 그 대가로 얻을 것이 없다.
+
+   자라나는 대신 밝아진다. 뻗는 연출은 이 순간 판에서 제일 센 것(물러진 두 칸)과
+   움직임을 두고 다투고, 그러면 무엇을 보라는 화면인지가 흐려진다. */
+.refutation-ray {
+  --glow: 0.9;
+
+  /* 1px 은 .board 의 padding 이자 칸 사이 gap 이다. 유령 駒와 같은 계산이고,
+     거기에 반 칸을 더해 칸의 한가운데에서 출발한다. */
+  position: absolute;
+  left: calc(1px + var(--col, 0) * (var(--sq) + 1px) + var(--sq) / 2);
+  top: calc(1px + var(--row, 0) * (var(--sq) + 1px) + var(--sq) / 2);
+  z-index: 3;
+  pointer-events: none;
+  width: calc(var(--len, 0) * (var(--sq) + 1px));
+  height: 2px;
+  margin-top: -1px;
+  transform-origin: 0 50%;
+  rotate: var(--angle, 0deg);
+  background: linear-gradient(
+    90deg,
+    rgb(var(--light) / 0) 0%,
+    rgb(var(--light) / var(--glow)) 26%,
+    rgb(var(--light) / var(--glow)) 100%
+  );
+  filter: drop-shadow(0 0 6px rgb(var(--light) / 0.5));
+
+  /* 유령 駒가 도착하는 즈음(2.4s의 46% ≈ 1.1s)에 맞춰 늦게 들어온다. 던진 駒가 자리에
+     닿기 전에 벌하는 선이 먼저 켜지면 순서가 뒤집힌다 */
+  animation: refutation-in 620ms 1150ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/* 도착점. 광선만 그으면 어디서 끝나는지가 안 읽힌다. 打은 --len 이 0이라 이것만 남는데,
+   출발 칸이 없다는 사실이 그대로 그려지는 것이라 따로 갈라 쓸 것이 없다. */
+.refutation-ray::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: calc(var(--sq) * 0.4);
+  height: calc(var(--sq) * 0.4);
+  translate: 50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(var(--light) / var(--glow)) 0%, rgb(var(--light) / 0) 68%);
+}
+
+@keyframes refutation-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* 문구는 **판을 가리지 않는다.** 짚는 것이 판 위인데 그 판을 덮으면 말이 안 된다.
    그래서 넓은 화면에서는 옆 패널 맨 위, 즉 원래 상태 문구가 뜨던 자리에 그대로 앉는다.
    판이 화면보다 길어서 화면 아래에 붙이면 반드시 판과 겹친다.
@@ -573,6 +632,41 @@ body {
   margin: 0;
   font-size: 0.875rem;
   line-height: 1.7;
+}
+
+/* 반박 수순. 카테고리가 이유를 못 대는 국면에서 위 문구가 남기는 빈자리를 메운다.
+   판 위의 광선과 짝이고, 이쪽은 수순 전체를 棋譜로 말한다 — 광선은 상대의 수만 긋는다 */
+.refutation {
+  width: 100%;
+  display: grid;
+  gap: 0.4rem;
+  padding-top: 0.15rem;
+  border-top: 1px solid rgb(var(--light) / 0.12);
+}
+
+.refutation-label {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* 棋譜는 판의 駒와 같은 明朝다. 판에서 벌어질 일이라는 것이 서체로 이어진다 */
+.refutation-line {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.55rem;
+  font-family: var(--font-koma);
+  font-size: 1.0625rem;
+  line-height: 1.4;
+}
+
+/* 받는 쪽 수는 물러난다. **이 수순에서 읽어야 하는 것은 상대가 무엇을 하는가**이고,
+   내 수를 같은 세기로 쓰면 그 줄이 「이렇게 두라」로 읽힌다 */
+.refutation-line li[data-by='human'] {
+  color: var(--muted);
 }
 
 /* 낙폭. 「왜 나쁜가」의 크기까지가 여기이고, 무엇을 뒀어야 했는지는 없다 */

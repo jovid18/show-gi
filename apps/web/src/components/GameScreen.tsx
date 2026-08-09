@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import { Board, type LastMove, type Replay } from './Board';
+import { Board, type LastMove, type Ray, type Replay } from './Board';
 import { Hand } from './Hand';
 import { Intervention } from './Intervention';
 import { Kifu } from './Kifu';
@@ -115,6 +115,33 @@ export function GameScreen() {
     }
   }, [intervening, intervention, board]);
 
+  /**
+   * 상대가 그 수를 벌하는 한 수.
+   *
+   * **수순의 첫 수만 긋는다.** 판에 그릴 수 있는 것은 지금 판에서 사실인 수뿐이고, 그
+   * 조건을 만족하는 것은 첫 수 하나다 — 그 다음부터는 오지 않을 응수를 전제한다.
+   * 수순 전체는 옆의 문구가 棋譜로 이미 말한다.
+   */
+  const ray = useMemo<Ray | null>(() => {
+    const first = intervention?.refutation?.[0];
+    if (!intervening || !first) return null;
+
+    // 서버가 늘 상대의 수부터 채우지만, 어긋났을 때 나가는 것이 「이렇게 두라」라서
+    // 여기서도 확인한다. 판에 긋지 않는 것이 틀린 선을 긋는 것보다 언제나 낫다.
+    if (first.by !== 'engine') return null;
+
+    const parsed = parseUsi(first.usi);
+    if (!parsed) return null;
+    try {
+      return {
+        from: parsed.kind === 'drop' ? null : toIndex(fromUsi(parsed.from)),
+        to: toIndex(fromUsi(parsed.to)),
+      };
+    } catch {
+      return null; // 못 읽는 좌표로 엉뚱한 선을 긋느니 안 긋는다
+    }
+  }, [intervening, intervention]);
+
   if (connection === 'closed') {
     return (
       <div className="notice" role="status">
@@ -207,6 +234,7 @@ export function GameScreen() {
           lastMove={lastMove}
           checked={checked}
           replay={replay}
+          ray={ray}
           interactive={playable}
           onSquare={onSquare}
         />

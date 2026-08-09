@@ -486,6 +486,21 @@ func TestRealEngineHangingPiece(t *testing.T) {
 	if !strings.Contains(iv.Message, "利き") {
 		t.Errorf("タダ捨て인데 相手の利き을 안 짚는다: %q", iv.Message)
 	}
+
+	// 반박 수순 — 「상대는 이렇게 벌한다」. 문구가 카테고리를 못 잡는 국면에서도
+	// 이쪽은 늘 나와야 하는 것이라, 여기서는 화면까지 오는지만 본다.
+	t.Logf("반박 수순: %+v", iv.Refutation)
+	if len(iv.Refutation) == 0 {
+		t.Fatal("반박 수순이 비어 있다")
+	}
+	if iv.Refutation[0].By != "engine" {
+		t.Errorf("반박 수순의 첫 수는 상대의 수여야 한다: %+v", iv.Refutation[0])
+	}
+	// 取り返せない라고 말해놓고 되따는 수가 안 나오면 화면이 자기 문구와 어긋난다.
+	// 「同」이 곧 「방금 그 자리를」이다.
+	if !strings.Contains(iv.Refutation[0].Ja, "同") {
+		t.Errorf("던진 駒를 되따는 수가 아니다: %q", iv.Refutation[0].Ja)
+	}
 }
 
 // worstMove 는 합법수 중 엔진 평가가 제일 나쁜 것을 고른다.

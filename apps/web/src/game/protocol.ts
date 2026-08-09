@@ -40,6 +40,15 @@ export interface Intervention {
   lostMate: boolean;
   /** 화면에 그대로 나가는 일본어 문구. */
   message: string;
+  /**
+   * 「상대는 이렇게 벌한다」. 물러진 수를 그대로 뒀을 때의 수순이고 **첫 수가 상대의
+   * 수**다. 서버가 못 구했으면 아예 오지 않는다.
+   *
+   * **최선수가 아니다.** 이 수순이 시작하는 국면은 되물러서 이미 사라졌으므로 여기
+   * 있는 어느 수도 「지금 이렇게 두라」가 되지 않는다. 카테고리가 이유를 못 대는
+   * 국면에서도 이쪽은 나오고, 그게 이 절이 있는 이유다(docs/06-status.md §17).
+   */
+  refutation?: KifuMove[];
 }
 
 export interface Snapshot {

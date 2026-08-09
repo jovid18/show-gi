@@ -26,6 +26,10 @@ export function Intervention({ intervention, onDismiss }: InterventionProps) {
     dismissRef.current?.focus();
   }, []);
 
+  // 서버가 못 구했으면 아예 오지 않는다. 그때는 이 절이 통째로 빠지고 나머지는 그대로다 —
+  // 반박 수순은 개입의 조건이 아니라 개입에 얹히는 재료다.
+  const refutation = intervention.refutation ?? [];
+
   // 낙폭은 서버가 준 0~1이다. 여기서 다시 계산하지 않고 보이는 단위로만 바꾼다.
   // 막대가 넘치지 않게만 자른다 — 숫자를 손보기 시작하면 화면과 판정이 갈라진다.
   const drop = Math.min(100, Math.max(0, Math.round(intervention.deltaWin * 100)));
@@ -40,6 +44,22 @@ export function Intervention({ intervention, onDismiss }: InterventionProps) {
       </p>
 
       <p className="intervention-message">{intervention.message}</p>
+
+      {refutation.length > 0 && (
+        // 카테고리가 이유를 못 대는 국면이 3분의 2다(docs/06-status.md §17). 그때 위의
+        // 문구는 「형세를 손해본다」까지밖에 못 말하고, **여기가 그 빈자리를 메운다.**
+        <div className="refutation">
+          <p className="refutation-label">相手はこう咎めてきます</p>
+          <ol className="refutation-line">
+            {refutation.map((move, i) => (
+              // 같은 수가 수순에 두 번 나올 수 있다(千日手·왕복). 자리까지 키에 넣는다.
+              <li key={`${i}-${move.usi}`} data-by={move.by}>
+                {move.ja}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
 
       <p className="intervention-delta">
         <span className="intervention-delta-text">勝率 −{drop}%</span>

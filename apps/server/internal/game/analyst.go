@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
+	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
@@ -42,22 +43,22 @@ func NewEngineAnalyst(s Searcher, mate MateSearcher, level intervene.Level) Anal
 	return &engineAnalyst{search: s, mate: mate, depth: JudgeDepth, level: level}
 }
 
-func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []string, _ int) (intervene.Verdict, error) {
+func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []string, _ int) (Judgement, error) {
 	if len(moves) == 0 {
-		return intervene.Verdict{}, fmt.Errorf("judge: no move to judge")
+		return Judgement{}, fmt.Errorf("judge: no move to judge")
 	}
 	before := moves[:len(moves)-1]
 
 	// 착수 **전** 국면의 최선수. 두는 쪽(=사람) 관점이다.
 	best, err := a.search.SearchDepth(ctx, startSFEN, before, a.depth)
 	if err != nil {
-		return intervene.Verdict{}, fmt.Errorf("judge: search before: %w", err)
+		return Judgement{}, fmt.Errorf("judge: search before: %w", err)
 	}
 
 	// 착수 **후** 국면. 엔진은 늘 수번 측 관점으로 답하므로 지금은 상대 관점이다.
 	after, err := a.search.SearchDepth(ctx, startSFEN, moves, a.depth)
 	if err != nil {
-		return intervene.Verdict{}, fmt.Errorf("judge: search after: %w", err)
+		return Judgement{}, fmt.Errorf("judge: search after: %w", err)
 	}
 
 	in := intervene.Input{
@@ -97,5 +98,76 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		in.MateAfter = -after.MateIn
 	}
 
-	return intervene.Judge(in), nil
+	v := intervene.Judge(in)
+	j := Judgement{Verdict: v}
+	if v.Kind != intervene.KindNone {
+		// 이미 손에 든 탐색의 PV가 그대로 「상대는 이렇게 벌한다」다. **추가 탐색이 없고
+		// 분류도 필요 없다** — 카테고리가 이유를 못 대는 3분의 2(06-status.md §17)가
+		// 여기서 설명을 갖는다.
+		j.Refutation = refutationLine(startSFEN, moves, after.PV, RefutationPlies)
+	}
+	return j, nil
+}
+
+// RefutationPlies 는 화면에 그리는 반박 수순의 길이다.
+//
+// 한 수로는 모자란다 — 카테고리가 이미 착수 한 수의 전후를 보고 있고, 그것으로 이유가
+// 안 나오는 국면이 이 기능이 겨냥하는 자리다(§17). 반대로 길게 늘이면 두 가지가 같이
+// 나빠진다: 깊이 12 탐색의 PV는 뒤로 갈수록 확실하지 않고, 화면에서는 「왜 나쁜가」가
+// 아니라 강의가 된다. 相手·自分을 두 번 주고받는 데까지 끊는다.
+const RefutationPlies = 4
+
+// refutationLine 은 착수 후 탐색의 PV를 棋譜 표기가 붙은 수순으로 옮긴다.
+//
+// **엔진 출력을 믿지 않는다.** PV의 각 수를 룰 엔진으로 검증하고, 못 두는 수가 나오면
+// 거기서 끊어 그때까지의 수순만 돌려준다 — 대국 루프가 상대 수를 검증하는 것과 같은
+// 이유다. 화면에 나가는 단언이라 틀린 것을 그리느니 짧게 그린다.
+//
+// 표기를 여기서 만드는 이유도 같다. 화면이 USI에서 다시 만들면 표기가 두 벌이 되고,
+// 어긋났을 때 어느 쪽이 맞는지 알 수 없다(06-status.md §6 ④).
+func refutationLine(startSFEN string, moves []string, pv []string, limit int) []Move {
+	if len(pv) == 0 || limit <= 0 {
+		return nil
+	}
+
+	pos, err := positionAfter(startSFEN, moves)
+	if err != nil {
+		log.Printf("game: could not replay for refutation: %v", err)
+		return nil
+	}
+	last, err := shogi.ParseUSIMove(moves[len(moves)-1])
+	if err != nil {
+		return nil
+	}
+	// 물러진 수의 도착 칸. 벌하는 수는 대개 그 자리를 되따는 수라 「同」이 여기서 나온다.
+	prevTo := int(last.To)
+
+	// 판정하는 수는 늘 사람의 수이므로, 그 다음은 어느 색을 잡았든 상대다.
+	by := SideEngine
+
+	line := make([]Move, 0, limit)
+	for _, u := range pv {
+		if len(line) == limit {
+			break
+		}
+		m, err := shogi.ParseUSIMove(u)
+		if err != nil {
+			break
+		}
+		if err := pos.ValidateMove(m); err != nil {
+			break
+		}
+		line = append(line, Move{USI: u, Ja: pos.MoveJa(m, prevTo), By: by})
+		pos = pos.Apply(m)
+		prevTo = int(m.To)
+		if by == SideEngine {
+			by = SideHuman
+		} else {
+			by = SideEngine
+		}
+	}
+	if len(line) == 0 {
+		return nil
+	}
+	return line
 }
