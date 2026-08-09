@@ -63,6 +63,20 @@ If the change touches both `apps/server` and `apps/web`, group the Changes bulle
 
 Deadline is 2026-08-15. If a PR knowingly leaves something for a later PR, say so in one line at the end of Impact rather than opening a tracking issue.
 
+#### Migrations
+
+If the diff adds or edits anything under `apps/server/internal/store/migrations/`, the body **must** name the files that have to be run, as the last line of Impact:
+
+```markdown
+**Migration:** `002_anonymous_games.sql`
+```
+
+Filenames only — the runbook already says how to run them, and the diff already shows what they contain. The point is that someone re-reading the PR later can see it touched the database without hunting through the diff.
+
+Deploys never run DDL (`deploy/README.md` §4). Schema goes in **before** the merge, applied by hand through a database client, so a merged PR whose migration was skipped leaves the new code running against an old schema.
+
+The `migration` label attaches automatically from the path — don't add it by hand, and don't remove it.
+
 ### 3. Create
 
 ```bash
