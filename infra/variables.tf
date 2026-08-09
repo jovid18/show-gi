@@ -50,3 +50,25 @@ variable "image_tag" {
   type        = string
   default     = "latest"
 }
+
+variable "admin_cidr" {
+  description = <<-EOT
+    운영자 노트북에서 RDS에 붙을 주소(CIDR). 예: "203.0.113.9/32".
+
+    **레포에 커밋하지 않는다.** 퍼블릭 레포라 집 IP가 그대로 공개된다. `.gitignore` 가
+    `*.tfvars` 를 막으므로 `infra/terraform.tfvars` 에 두면 커밋되지 않고 매 apply 에
+    자동으로 먹는다 (terraform.tfvars.example 참조).
+
+    비우면 그 통로가 아예 안 열린다. **값을 안 주고 apply 하면 이미 있던 규칙이
+    지워진다** — 통로가 조용히 남아 있지 않게 하려는 것이다.
+
+    공인 IP가 바뀌면 여기를 고치고 apply 한다. 보안그룹 규칙 하나라 수십 초다.
+  EOT
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.admin_cidr == null ? true : can(cidrhost(var.admin_cidr, 0))
+    error_message = "admin_cidr 은 CIDR 표기여야 한다 (예: 203.0.113.9/32)."
+  }
+}

@@ -166,6 +166,8 @@ aws ecs execute-command --cluster show-gi --container api \
 
 `apps/server/internal/store/migrations/*.sql`이 **정본**이다. 손으로 넣더라도 넣은 것과 같은 내용이 레포에 있어야 한다 — 새 환경을 세울 때, 그리고 코드 생성기가 읽을 때 이 파일들이 기준이 된다.
 
+> **어느 마이그레이션이 적용됐는지 기록하는 곳이 없다.** 지금은 파일이 둘이라 사람이 기억하면 되고, 이미 적용된 것을 다시 돌리면 시끄럽게 실패하므로(`relation ... already exists`) 사고로 이어지지는 않는다. 파일이 늘면 `schema_migrations` 테이블이 필요하다. **[미확정]**
+
 ## 엔진이 떴는지 보는 법
 
 `/healthz` 는 **엔진이 없어도 200이다.** 여기서 실패를 내면 ECS가 태스크를 죽이고 재시작을 반복해 사이트 전체가 내려가기 때문이다. 대신 필드로 드러낸다.
@@ -189,9 +191,39 @@ aws iam create-policy-version \
   --set-as-default --profile <관리자 프로파일>
 ```
 
-### 스키마를 넣는 법 — 일회용 태스크
+### 스키마를 넣는 법 — 노트북에서 직접
 
-RDS는 인터넷에 열려 있지 않다(`publicly_accessible = false`). 노트북에서 직접 못 붙는다.
+**RDS에 노트북에서 바로 붙는다.** `publicly_accessible = true` 이고, 들어올 수 있는 것은 보안그룹에 등록된 주소(`admin_cidr`)와 태스크 보안그룹뿐이다.
+
+접속 정보를 한 번에 뽑는다. **접속 문자열의 비밀번호는 URL 인코딩되어 있으므로**(`rds.tf` 가 `urlencode` 를 건다) GUI 클라이언트에 넣을 때는 디코딩된 값이 필요하다.
+
+```sh
+aws ssm get-parameter --name /show-gi/prod/DATABASE_URL --with-decryption \
+  --profile show-gi --region ap-northeast-1 --query Parameter.Value --output text \
+| python3 -c "
+import sys, urllib.parse as u
+p = u.urlsplit(sys.stdin.read().strip())
+print('Host    ', p.hostname); print('Port    ', p.port)
+print('Database', p.path.lstrip('/')); print('User    ', p.username)
+print('Password', u.unquote(p.password))
+"
+```
+
+`psql` 은 접속 문자열을 그대로 받는다(libpq가 디코딩한다).
+
+```sh
+psql "$(aws ssm get-parameter --name /show-gi/prod/DATABASE_URL --with-decryption \
+  --profile show-gi --region ap-northeast-1 --query Parameter.Value --output text)" \
+  -v ON_ERROR_STOP=1 -f apps/server/internal/store/migrations/002_anonymous_games.sql
+```
+
+> **`psql` 이 없어도 된다.** GUI 클라이언트(DataGrip 등)로 붙어 `.sql` 파일을 그대로 실행하면 같은 일이다. SSL은 **필수**다 — 서버가 `rds.force_ssl` 로 강제하므로 끄면 거부당한다.
+
+> **공인 IP가 바뀌면 못 붙는다.** `infra/terraform.tfvars` 의 `admin_cidr` 을 고치고 apply 한다(보안그룹 규칙 하나라 수십 초). 그 파일은 `.gitignore` 가 막는다 — **퍼블릭 레포라 IP를 커밋하면 그대로 공개된다.**
+
+### 그래도 남겨두는 길 — 일회용 태스크
+
+위 통로가 막혔을 때(집 밖에서 작업, IP를 아직 등록 안 함) 쓴다. **다만 조회에는 못 쓴다** — 결과가 CloudWatch로만 나가는데 운영자 정책에 로그 읽기 권한이 없다([상태 문서](../docs/06-status.md) §7). 넣을 수는 있고 볼 수는 없다.
 
 **ECS Exec으로 앱 컨테이너에 들어가는 방법도 있지만 `session-manager-plugin` 설치가 필요하고, 그 설치에는 sudo가 든다.** 아래 방법은 아무것도 안 깔고 되며, 실제로 초기 스키마를 이렇게 넣었다.
 
@@ -202,7 +234,9 @@ SUBNETS=$(aws ec2 describe-subnets --profile show-gi --region ap-northeast-1 \
   --filters "Name=default-for-az,Values=true" --query 'Subnets[].SubnetId' --output text | tr '\t' ',')
 SG=$(aws ec2 describe-security-groups --profile show-gi --region ap-northeast-1 \
   --filters "Name=group-name,Values=show-gi-task" --query 'SecurityGroups[0].GroupId' --output text)
-URL='https://raw.githubusercontent.com/jovid18/show-gi/main/apps/server/internal/store/migrations/002_something.sql'
+# **브랜치 이름을 쓴다.** 「스키마를 먼저, 배포를 나중에」(아래 순서)를 지키려면
+# 아직 main에 없는 파일을 받아야 하고, main을 가리키면 그 시점에 404다.
+URL='https://raw.githubusercontent.com/jovid18/show-gi/<브랜치>/apps/server/internal/store/migrations/002_something.sql'
 
 aws ecs run-task --cluster show-gi --task-definition show-gi-migrate --launch-type FARGATE \
   --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SG],assignPublicIp=ENABLED}" \
