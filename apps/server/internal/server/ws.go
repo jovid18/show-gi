@@ -75,7 +75,7 @@ func reject(reason string) serverMsg {
 
 // gameHandler 는 연결 하나당 대국 하나를 연다.
 type gameHandler struct {
-	newOpponent func() game.Opponent
+	opts Options
 }
 
 func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -89,10 +89,16 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
-	sess, err := game.New(ctx, game.Config{
-		Opponent:   h.newOpponent(),
-		HumanColor: shogi.Black,
-	})
+	cfg := game.Config{
+		Opponent:     h.opts.NewOpponent(),
+		HumanColor:   h.opts.HumanColor,
+		StartSFEN:    h.opts.StartSFEN,
+		ObservePlies: h.opts.ObservePlies,
+	}
+	if h.opts.NewAnalyst != nil {
+		cfg.Analyst = h.opts.NewAnalyst()
+	}
+	sess, err := game.New(ctx, cfg)
 	if err != nil {
 		log.Printf("ws: cannot start session: %v", err)
 		_ = conn.Close(websocket.StatusInternalError, "session")

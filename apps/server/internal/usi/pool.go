@@ -108,6 +108,18 @@ func (p *Pool) SearchDepth(ctx context.Context, startSFEN string, moves []string
 	return res, err
 }
 
+// SearchMate 는 엔진을 빌려 詰み 탐색을 한 번 돌린다.
+// **詰将棋 solver 로 만든 풀에만 쓴다** — 탐색부는 checkmate 로 답하지 않는다.
+func (p *Pool) SearchMate(ctx context.Context, startSFEN string, moves []string) (MateResult, error) {
+	var res MateResult
+	err := p.Do(ctx, func(e *Engine) error {
+		var err error
+		res, err = e.SearchMate(ctx, startSFEN, moves)
+		return err
+	})
+	return res, err
+}
+
 // Close 는 엔진을 전부 종료한다. 빌려나간 엔진도 함께 죽는다 —
 // 서버가 내려가는 중이므로 진행 중인 탐색을 기다려줄 이유가 없다.
 //

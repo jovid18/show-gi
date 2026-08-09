@@ -13,6 +13,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 
 	"github.com/jovid18/show-gi/apps/server/internal/game"
+	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
@@ -289,3 +290,118 @@ func hasHangul(s string) bool {
 	}
 	return false
 }
+
+// TestRealEngineIntervention 은 진짜 엔진으로 **블런더를 두면 물러지는지** 본다.
+// D3의 완료 기준이고, 가짜 판정으로는 증명이 안 된다 — 우리가 적어둔 답이 돌아올 뿐이다.
+//
+// **실제 8급 대국의 중반 국면에서 시작한다.** 초기 국면부터 아무 수나 두면 20수 만에
+// 절망적인 형세가 되는데, **지고 있을 때도 승률이 포화해** 개입이 안 걸린다 —
+// 이기고 있을 때와 같은 이유다(01-core.md §2). 판정이 의미를 갖는 것은 형세가
+// 팽팽한 구간이고, 그게 실제 사용자가 있는 곳이다.
+//
+//	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/server/ -run RealEngineIntervention -v
+func TestRealEngineIntervention(t *testing.T) {
+	cmd := os.Getenv("SHOWGI_USI_CMD")
+	if cmd == "" {
+		t.Skip("SHOWGI_USI_CMD 미설정")
+	}
+	pool, err := usi.NewPool(2, cmd, map[string]string{
+		"USI_Hash": "128", "Threads": "1", "FV_SCALE": "24",
+		"BookFile": "no_book", "USI_OwnBook": "false",
+	})
+	if err != nil {
+		t.Fatalf("엔진 풀: %v", err)
+	}
+	defer pool.Close()
+
+	// 대국 B의 30수째 — 서로 진영을 짜고 형세가 팽팽한 지점이다.
+	pos := shogi.StartPosition()
+	for _, u := range strings.Fields(kifuBOpening) {
+		m, err := shogi.ParseUSIMove(u)
+		if err != nil {
+			t.Fatalf("기보 파싱 %s: %v", u, err)
+		}
+		pos = pos.Apply(m)
+	}
+	start := pos.SFEN()
+	t.Logf("시작 국면(B-30手): %s", start)
+
+	srv := httptest.NewServer(Handler(Options{
+		NewOpponent: func() game.Opponent { return game.NewEngineOpponent(pool, 8) },
+		NewAnalyst: func() game.Analyst {
+			return game.NewEngineAnalyst(pool, nil, intervene.Intermediate)
+		},
+		StartSFEN:    start,
+		HumanColor:   pos.Turn,
+		ObservePlies: -1, // 중반부터 시작하므로 관측 구간을 끈다
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(srv.URL, "http")+"/ws/game", nil)
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	defer conn.CloseNow()
+
+	snap := read(t, ctx, conn).Snapshot
+	if snap == nil || !snap.YourTurn {
+		t.Fatalf("시작 스냅샷: %+v", snap)
+	}
+
+	// 엔진이 제일 싫어하는 수를 골라 일부러 블런더를 둔다.
+	worst := worstMove(t, ctx, pool, start, snap)
+	t.Logf("일부러 두는 수: %s", worst)
+	if err := wsjson.Write(ctx, conn, clientMsg{Type: "move", USI: worst}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	got := readUntil(t, ctx, conn, func(m serverMsg) bool {
+		if m.Type == "error" {
+			t.Fatalf("합법수 %s 가 거절됨: %s", worst, m.Reason)
+		}
+		return m.Snapshot.Intervention != nil || (!m.Snapshot.Judging && m.Snapshot.Ply > 1)
+	}, "판정 결과")
+
+	iv := got.Snapshot.Intervention
+	if iv == nil {
+		t.Fatalf("엔진이 제일 싫어하는 수를 뒀는데 개입하지 않았다: %+v", got.Snapshot)
+	}
+	t.Logf("개입: %s (%s)  Δ승률=%.3f  詰み=%v", iv.RetractedJa, iv.RetractedUSI, iv.DeltaWin, iv.LostMate)
+	t.Logf("문구: %s", iv.Message)
+
+	if iv.RetractedUSI != worst {
+		t.Fatalf("다른 수가 물러졌다: %s", iv.RetractedUSI)
+	}
+	if got.Snapshot.Ply != 0 || !got.Snapshot.YourTurn {
+		t.Fatalf("물러진 뒤 상태가 틀렸다: ply=%d yourTurn=%v", got.Snapshot.Ply, got.Snapshot.YourTurn)
+	}
+	if !iv.LostMate && iv.DeltaWin <= intervene.Intermediate.Threshold() {
+		t.Fatalf("임계치를 안 넘었는데 걸렸다: Δ=%.3f", iv.DeltaWin)
+	}
+}
+
+// worstMove 는 합법수 중 엔진 평가가 제일 나쁜 것을 고른다.
+func worstMove(t *testing.T, ctx context.Context, pool *usi.Pool, start string, snap *game.Snapshot) string {
+	t.Helper()
+	worst, worstCp := snap.LegalMoves[0], 1<<30
+	for _, mv := range snap.LegalMoves {
+		res, err := pool.SearchDepth(ctx, start, []string{mv}, 6)
+		if err != nil {
+			t.Fatalf("worstMove: %v", err)
+		}
+		// 착수 후 국면은 상대 관점이다. 상대에게 좋을수록 나에게 나쁘다.
+		if mine := -res.ScoreCp; mine < worstCp {
+			worst, worstCp = mv, mine
+		}
+	}
+	return worst
+}
+
+// 将棋ウォーズ 8급 대국의 첫 30수. internal/usi 의 측정 기보와 같은 대국이고,
+// 거기서는 전 수가 룰 엔진으로 검증된다(TestMeasureKifuIsLegal).
+const kifuBOpening = `7g7f 8b4b 2h6h 4c4d 5i4h 3c3d 4h3h 2b3c 6i5h 3a3b
+4i4h 7a7b 3i2h 3b4c 6g6f 4a5b 7i7h 5a6b 7h6g 6b7a
+8h7g 3d3e 9g9f 4c3d 1g1f 3d4e 9f9e 3e3f 3g3f 4e3f`

@@ -3,9 +3,11 @@ package game
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
@@ -388,5 +390,221 @@ func TestEngineOpponentReturnsBest(t *testing.T) {
 	o2 := NewEngineOpponent(stubSearcher{err: errors.New("boom")}, 0)
 	if _, err := o2.Choose(t.Context(), shogi.StartSFEN, nil); err == nil {
 		t.Fatal("탐색 실패가 전달되지 않음")
+	}
+}
+
+// fixedAnalyst 는 정해진 판정을 돌려준다. 엔진 없이 롤백 흐름만 본다.
+type fixedAnalyst struct {
+	verdict intervene.Verdict
+	err     error
+	delay   time.Duration
+	calls   atomic.Int32
+}
+
+func (a *fixedAnalyst) Judge(ctx context.Context, _ string, _ []string, _ int) (intervene.Verdict, error) {
+	a.calls.Add(1)
+	if a.delay > 0 {
+		select {
+		case <-time.After(a.delay):
+		case <-ctx.Done():
+			return intervene.Verdict{}, ctx.Err()
+		}
+	}
+	return a.verdict, a.err
+}
+
+func blunder() intervene.Verdict {
+	return intervene.Verdict{Kind: intervene.KindBlunder, DeltaWin: 0.42}
+}
+
+// 제지형 개입의 전부 — 두면 물러지고 이유가 뜬다. D3의 완료 기준이다.
+func TestBlunderIsRolledBack(t *testing.T) {
+	an := &fixedAnalyst{verdict: blunder()}
+	s := newSession(t, Config{
+		Opponent: &scriptedOpponent{moves: []string{"3c3d"}}, Analyst: an,
+		HumanColor: shogi.Black,
+	})
+	ch, cancel, err := s.Subscribe(t.Context())
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	defer cancel()
+
+	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
+		t.Fatalf("Play: %v", err)
+	}
+	got := waitFor(t, ch, func(s Snapshot) bool { return s.Intervention != nil }, "개입")
+
+	if got.Ply != 0 || len(got.Moves) != 0 {
+		t.Fatalf("물러지지 않았다: %+v", got.Moves)
+	}
+	if got.Intervention.RetractedUSI != "7g7f" || got.Intervention.RetractedJa != "▲7六歩" {
+		t.Fatalf("물러진 수 기록이 틀렸다: %+v", got.Intervention)
+	}
+	if got.Intervention.Message == "" || hasHangulInGame(got.Intervention.Message) {
+		t.Fatalf("화면 문구: %q", got.Intervention.Message)
+	}
+	if !got.YourTurn || got.Judging {
+		t.Fatalf("물러진 뒤에는 다시 사람 차례여야 한다: %+v", got)
+	}
+	// **엔진이 두면 안 된다.** 물러질 수가 있는데 상대가 먼저 두면 되돌릴 것이 둘이 된다.
+	if an.calls.Load() != 1 {
+		t.Fatalf("판정 호출 = %d", an.calls.Load())
+	}
+	snap, _ := s.Snapshot(t.Context())
+	if snap.Ply != 0 {
+		t.Fatalf("엔진이 물러진 국면에서 뒀다: %+v", snap.Moves)
+	}
+}
+
+func TestCleanMoveIsNotRolledBack(t *testing.T) {
+	s := newSession(t, Config{
+		Opponent:   &scriptedOpponent{moves: []string{"3c3d"}},
+		Analyst:    &fixedAnalyst{},
+		HumanColor: shogi.Black,
+	})
+	ch, cancel, _ := s.Subscribe(t.Context())
+	defer cancel()
+
+	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
+		t.Fatalf("Play: %v", err)
+	}
+	got := waitFor(t, ch, func(s Snapshot) bool { return s.Ply == 2 }, "엔진 응수")
+	if got.Intervention != nil {
+		t.Fatalf("멀쩡한 수에 개입했다: %+v", got.Intervention)
+	}
+}
+
+// 판정 중에는 다음 수를 못 둔다 — 두면 물러질 수가 둘이 된다.
+func TestCannotMoveWhileJudging(t *testing.T) {
+	s := newSession(t, Config{
+		Opponent:   &scriptedOpponent{moves: []string{"3c3d"}},
+		Analyst:    &fixedAnalyst{delay: 300 * time.Millisecond},
+		HumanColor: shogi.Black,
+	})
+	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
+		t.Fatalf("Play: %v", err)
+	}
+	snap, _ := s.Snapshot(t.Context())
+	if !snap.Judging || snap.YourTurn || len(snap.LegalMoves) != 0 {
+		t.Fatalf("판정 중 상태가 틀렸다: %+v", snap)
+	}
+	if _, err := s.Play(t.Context(), "2g2f"); !errors.Is(err, ErrNotYourTurn) {
+		t.Fatalf("판정 중 착수가 통과했다: %v", err)
+	}
+}
+
+// 판정이 고장 나도 대국은 계속된다. 개입은 부가 기능이고 대국이 본체다.
+func TestJudgeFailureLetsTheMoveStand(t *testing.T) {
+	s := newSession(t, Config{
+		Opponent:   &scriptedOpponent{moves: []string{"3c3d"}},
+		Analyst:    &fixedAnalyst{err: errors.New("engine down")},
+		HumanColor: shogi.Black,
+	})
+	ch, cancel, _ := s.Subscribe(t.Context())
+	defer cancel()
+
+	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
+		t.Fatalf("Play: %v", err)
+	}
+	got := waitFor(t, ch, func(s Snapshot) bool { return s.Ply == 2 }, "엔진 응수")
+	if got.Intervention != nil {
+		t.Fatalf("판정 실패로 개입했다: %+v", got.Intervention)
+	}
+}
+
+// 다음 수를 두면 직전 개입 표시는 사라진다.
+func TestInterventionClearsOnNextMove(t *testing.T) {
+	an := &fixedAnalyst{verdict: blunder()}
+	s := newSession(t, Config{
+		Opponent: &scriptedOpponent{moves: []string{"3c3d"}}, Analyst: an,
+		HumanColor: shogi.Black,
+	})
+	ch, cancel, _ := s.Subscribe(t.Context())
+	defer cancel()
+
+	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
+		t.Fatalf("Play: %v", err)
+	}
+	waitFor(t, ch, func(s Snapshot) bool { return s.Intervention != nil }, "개입")
+
+	an.verdict = intervene.Verdict{} // 이번엔 통과시킨다
+	snap, err := s.Play(t.Context(), "2g2f")
+	if err != nil {
+		t.Fatalf("다시 두기: %v", err)
+	}
+	if snap.Intervention != nil {
+		t.Fatalf("새 수를 뒀는데 이전 개입이 남았다: %+v", snap.Intervention)
+	}
+}
+
+// 물러진 국면은 千日手 계수까지 되돌아가야 한다. 남으면 다음 판정이 그 위에서 돈다.
+func TestRollbackRestoresRepetitionCount(t *testing.T) {
+	an := &fixedAnalyst{verdict: blunder()}
+	s := newSession(t, Config{
+		Opponent: &scriptedOpponent{moves: []string{"3c3d"}}, Analyst: an,
+		HumanColor: shogi.Black,
+	})
+	ch, cancel, _ := s.Subscribe(t.Context())
+	defer cancel()
+
+	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
+		t.Fatalf("Play: %v", err)
+	}
+	got := waitFor(t, ch, func(s Snapshot) bool { return s.Intervention != nil }, "개입")
+	if got.SFEN != shogi.StartSFEN {
+		t.Fatalf("국면이 초기 상태로 안 돌아왔다: %s", got.SFEN)
+	}
+}
+
+func hasHangulInGame(s string) bool {
+	for _, r := range s {
+		if r >= 0xAC00 && r <= 0xD7A3 {
+			return true
+		}
+	}
+	return false
+}
+
+// 관측 구간은 **기본값이 없다** — 첫 수부터 판정한다. 명시적으로 준 경우에만 건너뛴다.
+//
+// 원래 20수를 비워뒀는데 그건 「오프닝의 다양성을 인정한다」를 수 번호로 잘못 옮긴
+// 것이었다. 다양성은 임계치가 지킨다(intervene 쪽 테스트).
+func TestObservePliesIsOptInAndSkipsJudging(t *testing.T) {
+	an := &fixedAnalyst{verdict: blunder()}
+	s := newSession(t, Config{
+		Opponent: &scriptedOpponent{moves: []string{"3c3d"}}, Analyst: an,
+		HumanColor: shogi.Black, ObservePlies: 4,
+	})
+	ch, cancel, _ := s.Subscribe(t.Context())
+	defer cancel()
+
+	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
+		t.Fatalf("Play: %v", err)
+	}
+	got := waitFor(t, ch, func(s Snapshot) bool { return s.Ply == 2 }, "엔진 응수")
+	if got.Intervention != nil {
+		t.Fatalf("관측 구간에서 개입했다: %+v", got.Intervention)
+	}
+	if an.calls.Load() != 0 {
+		t.Fatalf("관측 구간인데 판정을 %d번 불렀다", an.calls.Load())
+	}
+}
+
+// 기본값에서는 첫 수부터 판정한다.
+func TestJudgesFromTheFirstMoveByDefault(t *testing.T) {
+	an := &fixedAnalyst{verdict: blunder()}
+	s := newSession(t, Config{
+		Opponent: &scriptedOpponent{moves: []string{"3c3d"}}, Analyst: an, HumanColor: shogi.Black,
+	})
+	ch, cancel, _ := s.Subscribe(t.Context())
+	defer cancel()
+
+	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
+		t.Fatalf("Play: %v", err)
+	}
+	got := waitFor(t, ch, func(s Snapshot) bool { return s.Intervention != nil }, "1수째 개입")
+	if got.Intervention.RetractedUSI != "7g7f" {
+		t.Fatalf("%+v", got.Intervention)
 	}
 }
