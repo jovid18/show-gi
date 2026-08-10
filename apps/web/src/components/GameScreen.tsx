@@ -227,9 +227,16 @@ export function GameScreen() {
     return r && { ...r, hint: true };
   }, [hint?.usi]);
 
+  /** 회상에서 지금 판에 놓이는 持ち駒. **초록 링은 이쪽만 켠다** — 상대 쪽 채널이다. */
+  const recallDrop = current?.dropping ?? null;
+
   /**
-   * 駒台에서 출발하는 화살표는 회상(打)과 힌트가 **같은 장치를 쓴다.** 둘은 동시에
-   * 뜨지 않는다 — 힌트는 넘겨 보는 동안 꺼진다.
+   * 駒台에서 출발하는 화살표의 **자리를 재야 하는 駒.** 회상(打)과 힌트가 같은 장치를
+   * 쓰고, 둘은 동시에 뜨지 않는다 — 힌트는 넘겨 보는 동안 꺼진다.
+   *
+   * **재는 것과 빛나는 것을 갈라 뒀다.** 한때 이 값을 `<Hand dropping>` 에도 그대로
+   * 넘겼는데, 그러면 힌트가 `data-dropping` 을 켜서 駒台 駒에 **초록** 링이 붙었다 —
+   * 파란 테와 초록 링이 같은 駒에 동시에 걸리고, 초록은 「상대가 무엇을 하는가」다.
    *
    * **여기서 객체를 새로 만들면 안 된다.** 이 값이 아래 `useLayoutEffect` 의 의존성이라,
    * 매 렌더마다 identity가 바뀌면 효과가 다시 돌고 `setDropFrom` 이 또 새 객체를 넣어
@@ -237,8 +244,8 @@ export function GameScreen() {
    * 원래 안정적이었고, 힌트를 얹으면서 그 성질이 깨졌다 — 실제로 打 힌트에서 터졌다.
    */
   const dropping = useMemo(
-    () => current?.dropping ?? (hint?.drop ? { side: 'black' as Side, kind: hint.drop } : null),
-    [current?.dropping, hint?.drop],
+    () => recallDrop ?? (hint?.drop ? { side: 'black' as Side, kind: hint.drop } : null),
+    [recallDrop, hint?.drop],
   );
 
   // 화면 폭이 바뀌면 `--sq` 가 따라 변하므로 그때마다 다시 잰다.
@@ -397,10 +404,11 @@ export function GameScreen() {
           pieces={board.hands.white}
           selected={null}
           playable={new Set()}
-          dropping={dropping?.side === 'white' ? dropping.kind : null}
+          dropping={recallDrop?.side === 'white' ? recallDrop.kind : null}
           droppingRef={(el) => {
             dropPieceRef.current = el;
           }}
+          measure={dropping?.side === 'white' ? dropping.kind : null}
           onPick={() => {}}
         />
 
@@ -429,10 +437,11 @@ export function GameScreen() {
           pieces={board.hands.black}
           selected={origin?.endsWith('*') ? origin : null}
           playable={new Set([...grouped.keys()].filter((o) => o.endsWith('*')))}
-          dropping={dropping?.side === 'black' ? dropping.kind : null}
+          dropping={recallDrop?.side === 'black' ? recallDrop.kind : null}
           droppingRef={(el) => {
             dropPieceRef.current = el;
           }}
+          measure={dropping?.side === 'black' ? dropping.kind : null}
           hintDrop={hint?.drop ?? null}
           onPick={playable ? pick : () => {}}
         />

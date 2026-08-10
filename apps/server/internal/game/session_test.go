@@ -726,8 +726,19 @@ func TestStuckHintOpensAndResets(t *testing.T) {
 	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
 		t.Fatalf("통과할 Play: %v", err)
 	}
-	passed := waitFor(t, ch, func(s Snapshot) bool { return s.Ply > 0 }, "착수 확정")
-	if passed.Hint != nil {
-		t.Fatalf("통과했으면 힌트가 없어야 한다: %+v", passed.Hint)
+	// 상대 응수까지 기다린다 — 그 전에는 내 차례가 아니다.
+	waitFor(t, ch, func(s Snapshot) bool { return s.YourTurn && s.Ply >= 2 }, "상대 응수 뒤 내 차례")
+
+	// **여기서 「힌트가 없다」만 보면 아무것도 안 지킨다** — `playHuman` 이 착수마다
+	// 힌트를 지우므로 계수가 6이어도 그 스냅샷은 비어 있다. 계수가 실제로 0으로
+	// 돌아갔는지는 **한 번 더 물러져 봐야** 갈린다. 안 돌아갔으면 그 한 번이 6회가 되어
+	// 곧바로 수까지 실린 힌트가 온다.
+	an.verdict = blunder()
+	if _, err := s.Play(t.Context(), "2g2f"); err != nil {
+		t.Fatalf("새 국면에서 Play: %v", err)
+	}
+	again := waitFor(t, ch, func(s Snapshot) bool { return s.Intervention != nil }, "새 국면의 개입")
+	if again.Hint != nil {
+		t.Fatalf("계수가 0으로 안 돌아갔다 — 1회에 힌트가 떴다: %+v", again.Hint)
 	}
 }

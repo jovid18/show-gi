@@ -20,6 +20,14 @@ interface HandProps {
   /** 그 駒의 실제 DOM. 화살표가 **어디서 출발하는지**를 여기서 잰다. */
   droppingRef?: (el: HTMLButtonElement | null) => void;
   /**
+   * 자리를 **재야 하는** 駒. 회상이면 `dropping` 과 같고, 갇힘 힌트면 힌트가 짚는 駒다.
+   *
+   * `dropping` 과 갈라 둔 것은 **빛이 채널이기 때문**이다. `dropping` 은 초록 링을 켜는데
+   * 그건 「상대가 무엇을 하는가」이고, 힌트는 파란 테다. 한때 하나로 쓰다가 힌트가 걸린
+   * 駒에 초록 링과 파란 테가 동시에 붙었다.
+   */
+  measure?: string | null;
+  /**
    * 갇힘 힌트가 짚는 持ち駒의 종류. 파란 테를 두른다.
    *
    * 최선수가 打일 때 「그 駒」는 판 위에 없다. 駒台를 짚지 않으면 3회 단계가 打에서만
@@ -35,7 +43,18 @@ interface HandProps {
  * 빈 받침도 자리를 지킨다 — 말이 늘고 줄 때마다 판이 위아래로 흔들리면
  * 초심자는 무엇이 변했는지 못 본다.
  */
-export function Hand({ side, pieces, label, selected, playable, dropping, droppingRef, hintDrop, onPick }: HandProps) {
+export function Hand({
+  side,
+  pieces,
+  label,
+  selected,
+  playable,
+  dropping,
+  droppingRef,
+  measure,
+  hintDrop,
+  onPick,
+}: HandProps) {
   const held = HAND_ORDER.filter((kind) => (pieces[kind] ?? 0) > 0);
 
   return (
@@ -57,7 +76,7 @@ export function Hand({ side, pieces, label, selected, playable, dropping, droppi
               className="hand-piece"
               data-selected={selected === origin || undefined}
               data-dropping={dropping === kind || undefined}
-              ref={dropping === kind ? droppingRef : undefined}
+              ref={(measure ?? dropping) === kind ? droppingRef : undefined}
               disabled={!canDrop}
               aria-label={`${nameOf(kind)} ${count}枚`}
               onClick={() => onPick(origin)}
