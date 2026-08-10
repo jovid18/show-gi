@@ -589,9 +589,13 @@ func (st *state) rollback(r judgeResult) {
 // LLM이 붙기 전까지의 고정 문구다. 판단은 여기까지 이미 끝나 있고, LLM은 이 사실을
 // 그 사람의 수준에 맞는 문장으로 바꾸는 일만 하게 된다(D5).
 var categoryMessages = map[intervene.Category]string{
-	intervene.CategoryMissedMate:    "詰みがありました。今の手で逃してしまいます。",
-	intervene.CategoryHangsPiece:    "その駒は取り返せない場所に置かれています。相手の利きを確かめてみてください。",
-	intervene.CategoryShallowTrap:   "一手だけ見ると得に見えますが、その先で形勢が入れ替わります。",
+	intervene.CategoryMissedMate:  "詰みがありました。今の手で逃してしまいます。",
+	intervene.CategoryHangsPiece:  "その駒は取り返せない場所に置かれています。相手の利きを確かめてみてください。",
+	intervene.CategoryShallowTrap: "一手だけ見ると得に見えますが、その先で形勢が入れ替わります。",
+	// **잡는 것도 가는 곳도 맞았다고 먼저 말한다.** 여기서 「その手は」로 시작하면
+	// 플레이어는 이동 자체를 의심하고, 실제로 그렇게 세 수를 헤맸다(08-playtest.md §8).
+	// 그리고 놓친 규칙을 한 줄 붙인다 — 敵陣에서 **나오는** 수도 成れる 쪽이다.
+	intervene.CategoryUnpromoted:    "その一手で合っていますが、成っていません。敵陣から出る手も成れます。",
 	intervene.CategoryGreedyCapture: "駒は取れますが、払う代償のほうが大きくなります。",
 	intervene.CategoryIdleCheck:     "王手はかかりますが続きがなく、手番を渡すだけになります。",
 	intervene.CategoryKingExposed:   "自玉のまわりが手薄になり、相手の攻めが届きます。",

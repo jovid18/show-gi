@@ -22,6 +22,31 @@ var pieceValue = map[shogi.PieceType]int{
 	shogi.King: 100,
 }
 
+// UnpromotedOnly 는 둔 수가 **최선수와 같은 이동인데 成하지 않은 것**인지 본다.
+//
+// 이 하나가 없어서 제품이 **틀린 것을 가르쳤다**(08-playtest.md §8). `▲同銀不成` 에
+// 「駒は取れますが、払う代償のほうが大きくなります」가 나갔는데, 잡는 것이 정답이었고
+// 문제는 成하지 않은 것이었다. 플레이어는 그 문장을 「잡으면 안 되는구나」로 읽고 세 수를
+// 더 헤맸다 — 초심자는 설명을 검증할 수단이 없으니 틀린 것을 그대로 배운다.
+//
+// **판정은 여기서 하고 `intervene` 에는 참거짓만 간다.** 저쪽에 USI 문자열을 넘기면
+// 「입력은 이미 구해진 숫자뿐」이 깨진다 — 카테고리를 스칼라로 받게 만든 것과 같은
+// 이유다(06-status.md §15).
+//
+// **거울상(成하지 말아야 했던 수)은 안 본다.** 「成らずの妙手」는 초심자의 실수 모양이
+// 아니고, 문구도 「成れます」로 끝낼 수 없다. 그쪽까지 한 카테고리에 넣으면 다시 뭉뚱그린
+// 설명이 된다. **[미확정]** 실제로 나오는지는 표본이 더 필요하다.
+func UnpromotedOnly(played shogi.Move, bestUSI string) bool {
+	if played.IsDrop() || played.Promote || bestUSI == "" {
+		return false
+	}
+	best, err := shogi.ParseUSIMove(bestUSI)
+	if err != nil || best.IsDrop() || !best.Promote {
+		return false
+	}
+	return played.From == best.From && played.To == best.To
+}
+
 // MoveFeatures 는 착수 전 국면과 그 한 수에서 카테고리 판정에 쓸 사실을 뽑는다.
 //
 // **여기가 판을 읽는 유일한 자리다.** intervene 은 여기서 나온 숫자만 받는다 —
