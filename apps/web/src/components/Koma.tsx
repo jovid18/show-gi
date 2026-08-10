@@ -1,12 +1,12 @@
 import { kanjiOf, type Side } from '@/shogi/piece';
-import { isPromoted, mobilityOf, type Direction } from '@/shogi/mobility';
+import { isPromoted, mobilityOf, type GridDirection, type JumpDirection } from '@/shogi/mobility';
 
 /**
  * 駒 하나. 판 위와 駒台가 같은 것을 쓴다.
  *
  * **성한 駒는 붉은 글자**이고, **움직임이 표식으로 새겨져 있다** — 한 칸 가는 곳은 점,
- * 쭉 가는 곳은 화살표. 실물 초심자용 駒가 하는 것과 같고, 「香車가 어떻게 가더라」를
- * 외우지 않아도 되게 하는 것이 이 앱이 하려는 일이다.
+ * 쭉 가는 곳은 화살표, 뛰어넘는 곳은 점선. 실물 초심자용 駒가 하는 것과 같고,
+ * 「香車가 어떻게 가더라」를 외우지 않아도 되게 하는 것이 이 앱이 하려는 일이다.
  *
  * 표식은 駒와 함께 돈다 — 後手 駒는 통째로 180° 뒤집히므로 화살표도 상대 쪽을 가리킨다.
  */
@@ -23,7 +23,7 @@ import { isPromoted, mobilityOf, type Direction } from '@/shogi/mobility';
 const COL = { west: 19, center: 50, east: 81 };
 const ROW = { north: 22, middle: 53, south: 84 };
 
-const SPOT: Record<Direction, [number, number]> = {
+const SPOT: Record<GridDirection, [number, number]> = {
   n: [COL.center, ROW.north],
   ne: [COL.east, ROW.north],
   e: [COL.east, ROW.middle],
@@ -32,13 +32,10 @@ const SPOT: Record<Direction, [number, number]> = {
   sw: [COL.west, ROW.south],
   w: [COL.west, ROW.middle],
   nw: [COL.west, ROW.north],
-  // 桂가 뛰는 두 자리. 격자 밖이지만 「앞의 좌우」라는 뜻은 같은 칸에 실린다.
-  nne: [COL.east, ROW.north],
-  nnw: [COL.west, ROW.north],
 };
 
 /** 화살표가 향하는 각도. `n` 이 0이고 시계 방향이다. */
-const ANGLE: Record<Direction, number> = {
+const ANGLE: Record<GridDirection, number> = {
   n: 0,
   ne: 45,
   e: 90,
@@ -47,8 +44,27 @@ const ANGLE: Record<Direction, number> = {
   sw: 225,
   w: 270,
   nw: 315,
-  nne: 0,
-  nnw: 0,
+};
+
+/**
+ * 桂가 뛰는 길. 두 칸 앞의 좌우는 **격자 밖이라 점을 찍을 자리가 없고**, 없다고 `ne`·`nw`
+ * 자리에 찍으면 대각선 한 칸으로 읽힌다 — 銀과 같은 그림이 되어 규칙을 틀리게 가르친다.
+ * 실제로 그렇게 그려져 있었다.
+ *
+ * 그래서 뜀은 **자리가 아니라 길**로 그린다. 기울기가 실제 뜀과 같은 1:2(두 칸 앞의 한 칸
+ * 옆)라 銀의 45°와 눈으로 갈리고, **끊긴 선**이 사이 칸을 지나지 않는다는 뜻을 싣는다.
+ * 将棋ウォーズ와 ぴよ将棋도 桂에만 다른 표식을 쓴다.
+ *
+ * 양끝은 **재서 잡았다.** 안쪽은 글자 상자가 끝나는 곳(viewBox 30)이다 — 더 내리면 글자가
+ * 첫 마디를 덮어 점선이 두 마디로 보인다. 바깥쪽은 오각형이 좁아지기 전이다.
+ *
+ * 이 자를 대려면 **letterbox를 빼먹으면 안 된다.** 駒는 0.8×0.84라 세로가 길고, SVG가
+ * `meet` 로 맞추면서 viewBox 100칸이 가로에만 꽉 찬다 — `clip-path` 의 %는 駒 상자 기준이라
+ * 오각형의 어깨가 viewBox 자로는 y=13.3에 있지 15가 아니다.
+ */
+const JUMP: Record<JumpDirection, [number, number, number, number]> = {
+  nne: [55, 30, 66, 8],
+  nnw: [45, 30, 34, 8],
 };
 
 interface KomaProps {
@@ -66,18 +82,23 @@ export function Koma({ kind, side, marks = true }: KomaProps) {
     <span className="koma" data-side={side}>
       {mobility.length > 0 && (
         <svg className="koma-marks" viewBox="0 0 100 100" aria-hidden="true">
-          {mobility.map(({ direction, slide }) => {
-            const [x, y] = SPOT[direction];
+          {mobility.map((mark) => {
+            if (mark.reach === 'jump') {
+              const [x1, y1, x2, y2] = JUMP[mark.direction];
+              return <line key={mark.direction} className="koma-jump" x1={x1} y1={y1} x2={x2} y2={y2} />;
+            }
+
+            const [x, y] = SPOT[mark.direction];
             // 화살표는 점과 같은 무게로 보여야 한다. 크게 그리면 글자를 덮는다.
-            return slide ? (
+            return mark.reach === 'slide' ? (
               <path
-                key={direction}
+                key={mark.direction}
                 className="koma-mark"
                 d="M0,-6.5 L5,4 L-5,4 Z"
-                transform={`translate(${x} ${y}) rotate(${ANGLE[direction]})`}
+                transform={`translate(${x} ${y}) rotate(${ANGLE[mark.direction]})`}
               />
             ) : (
-              <circle key={direction} className="koma-mark" cx={x} cy={y} r="5" />
+              <circle key={mark.direction} className="koma-mark" cx={x} cy={y} r="5" />
             );
           })}
         </svg>
