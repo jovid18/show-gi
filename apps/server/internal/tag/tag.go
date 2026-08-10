@@ -76,6 +76,7 @@ const (
 	wikiKani   = "https://ja.wikipedia.org/wiki/カニ囲い"
 	wikiGangi  = "https://ja.wikipedia.org/wiki/雁木囲い"
 	wikiAna    = "https://ja.wikipedia.org/wiki/穴熊囲い"
+	wikiHidari = "https://ja.wikipedia.org/wiki/左美濃"
 )
 
 // castles 는 囲い 정의다. 순서는 상관없다 — 고르는 것은 **필수 칸이 가장 많은 쪽**이고
@@ -151,6 +152,30 @@ var castles = []shape{
 			{9, 9, shogi.King}, {8, 8, shogi.Silver}, {7, 9, shogi.Gold},
 		},
 		source: wikiAna,
+	},
+	{
+		// 左美濃(8八玉型) — 玉8八·金7八·金6八·銀7七.
+		//
+		// 金矢倉와 필수 칸 수가 같아서(넷) `pick` 의 「구체적인 쪽」으로는 안 갈리는데,
+		// **동시에 성립할 수 없어서 문제가 되지 않는다** — 둘 다 金7八을 요구하고 나머지
+		// 金의 자리가 6八 대 6七로 갈리므로, 걸리려면 金이 세 장이어야 한다.
+		//
+		// 穴熊와 같은 이유로 도달 확인을 붙였다(`TestHidariMinoIsReachableFromTheStart`).
+		tag: Tag{Code: "hidari_mino", NameJa: "左美濃", Kind: KindCastle},
+		squares: []square{
+			{8, 8, shogi.King}, {7, 8, shogi.Gold}, {6, 8, shogi.Gold}, {7, 7, shogi.Silver},
+		},
+		source: wikiHidari,
+	},
+	{
+		// 天守閣美濃 — 「8六に歩を突き8七の位置に玉を構える」. 金銀은 左美濃와 같다.
+		//
+		// 玉이 한 段 올라간 것이 이름을 갈라서, 左美濃와 동시에 성립하지 않는다.
+		tag: Tag{Code: "tenshukaku_mino", NameJa: "天守閣美濃", Kind: KindCastle},
+		squares: []square{
+			{8, 7, shogi.King}, {7, 8, shogi.Gold}, {6, 8, shogi.Gold}, {7, 7, shogi.Silver},
+		},
+		source: wikiHidari,
 	},
 	{
 		// 振り飛車穴熊 — 居飛車穴熊를 **좌우로 뒤집은** 자리다. 振り飛車는 飛를 왼쪽으로

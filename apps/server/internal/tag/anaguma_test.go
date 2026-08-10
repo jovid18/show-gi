@@ -109,3 +109,70 @@ func TestFuribishaAnagumaIsReachableFromTheStart(t *testing.T) {
 		t.Fatalf("%v 를 기대했는데 %v (%s)", want, codes(got), pos.SFEN())
 	}
 }
+
+// 左美濃도 도달로 확인한다. 위키백과가 玉8八만 본문에 적고 金銀은 그림에 두었다.
+//
+// 순서가 빡빡하다 — 銀이 7七로 가려면 7七歩가 먼저 나가야 하고, 玉이 8八에 서려면
+// 角이 8八을 비워야 하고, 金이 6八에 오려면 玉이 그 칸을 지나가 있어야 한다.
+// **그 제약을 사람이 세지 않고 룰 엔진이 세게 한다.**
+func TestHidariMinoIsReachableFromTheStart(t *testing.T) {
+	moves := []string{
+		"7g7f", "3c3d", // ▲7六歩  △3四歩   ← 7七を空ける
+		"8h6f", "8c8d", // ▲6六角  △8四歩   ← 角が8八を空ける
+		"7i7h", "4a3b", // ▲7八銀  △3二金
+		"7h7g", "7a6b", // ▲7七銀  △6二銀
+		"5i6h", "6c6d", // ▲6八玉  △6四歩
+		"6i7h", "5c5d", // ▲7八金  △5四歩
+		"6h7i", "4c4d", // ▲7九玉  △4四歩
+		"7i8h", "2b3c", // ▲8八玉  △3三角
+		"4i5h", "3a2b", // ▲5八金  △2二銀
+		"5h6h", "6b5c", // ▲6八金  △5三銀   ← 左美濃が完成する
+	}
+
+	pos := shogi.StartPosition()
+	for i, usi := range moves {
+		m, err := shogi.ParseUSIMove(usi)
+		if err != nil {
+			t.Fatalf("%d수 %s: 파싱 실패 %v", i+1, usi, err)
+		}
+		if err := pos.ValidateMove(m); err != nil {
+			t.Fatalf("%d수 %s: 반칙 — %v", i+1, usi, err)
+		}
+		pos = pos.Apply(m)
+	}
+
+	got := Detect(Input{Pos: pos, Color: shogi.Black, PlayerMoves: blackMoves(moves)})
+	if want := []string{"hidari_mino", "ibisha"}; len(got) != 2 ||
+		got[0].Code != want[0] || got[1].Code != want[1] {
+		t.Fatalf("%v 를 기대했는데 %v (%s)", want, codes(got), pos.SFEN())
+	}
+}
+
+// 天守閣美濃는 左美濃에서 玉을 한 段 올린 것이다. 8七에 서려면 8七歩가 먼저 나가야 한다.
+func TestTenshukakuMinoIsReachableFromTheStart(t *testing.T) {
+	moves := []string{
+		"7g7f", "3c3d", "8h6f", "8c8d", "7i7h", "4a3b", "7h7g", "7a6b",
+		"5i6h", "6c6d", "6i7h", "5c5d", "6h7i", "4c4d", "7i8h", "2b3c",
+		"4i5h", "3a2b", "5h6h", "6b5c",
+		"8g8f", "5c6b", // ▲8六歩  △6二銀   ← 8七を空ける
+		"8h8g", "6b5c", // ▲8七玉  △5三銀   ← 天守閣美濃が完成する
+	}
+
+	pos := shogi.StartPosition()
+	for i, usi := range moves {
+		m, err := shogi.ParseUSIMove(usi)
+		if err != nil {
+			t.Fatalf("%d수 %s: 파싱 실패 %v", i+1, usi, err)
+		}
+		if err := pos.ValidateMove(m); err != nil {
+			t.Fatalf("%d수 %s: 반칙 — %v", i+1, usi, err)
+		}
+		pos = pos.Apply(m)
+	}
+
+	got := Detect(Input{Pos: pos, Color: shogi.Black, PlayerMoves: blackMoves(moves)})
+	if want := []string{"tenshukaku_mino", "ibisha"}; len(got) != 2 ||
+		got[0].Code != want[0] || got[1].Code != want[1] {
+		t.Fatalf("%v 를 기대했는데 %v (%s)", want, codes(got), pos.SFEN())
+	}
+}

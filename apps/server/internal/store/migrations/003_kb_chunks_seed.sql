@@ -32,6 +32,7 @@ DELETE FROM kb_chunks WHERE tags && ARRAY[
     'kin_musou', 'kata_mino', 'hon_mino', 'taka_mino', 'ginkanmuri',
     'kin_yagura', 'gin_yagura', 'kata_yagura', 'fune', 'kani', 'gangi',
     'ibisha_anaguma', 'yonmai_anaguma', 'furibisha_anaguma',
+    'hidari_mino', 'tenshukaku_mino',
     'naka_bisha', 'shiken_bisha', 'sanken_bisha', 'mukai_bisha',
     'sode_bisha', 'migi_shiken_bisha', 'ibisha',
     'kaku_gawari', 'ai_furibisha', 'kakukan_furibisha',
@@ -83,6 +84,16 @@ INSERT INTO kb_chunks (title, body, tags, source_url, source_license, verified_b
  '二枚金とも呼ばれ、玉を3八、左金を5八、右金を4八に動かして作る囲いです。相振り飛車でよく用いられ、金が二枚横に並ぶため横からの攻めに強い構えです。右銀を2八へ上がる形もありますが、側面から攻められると壁銀になって玉の逃げ道がなくなるため、上がるかどうかは局面によって選びます。上部が薄いので、上から押し潰される攻めには注意が必要です。',
  ARRAY['kin_musou', 'castle'],
  'https://ja.wikipedia.org/wiki/金無双', 'CC-BY-SA-4.0', 'engine'),
+
+('左美濃',
+ '玉を8八に置き、金を7八と6八、銀を7七に配置した囲いです。振り飛車に対して居飛車が用いる囲いで、舟囲いより堅く、穴熊ほど手数がかからないのが持ち味です。玉の上に銀がかぶさるため上部からの攻めに強く、端を攻められたときの備えが課題になります。ここから玉を8七へ上げると天守閣美濃になります。',
+ ARRAY['hidari_mino', 'castle', 'mino'],
+ 'https://ja.wikipedia.org/wiki/左美濃', 'CC-BY-SA-4.0', 'engine'),
+
+('天守閣美濃',
+ '8六に歩を突いて8七の位置に玉を構える囲いです。金銀の配置は左美濃と同じで、玉が一段上がっているぶん相手の飛車の横利きから遠くなります。玉が高い位置にいるので上部からの攻めには注意が必要で、そこに右銀を足して固めると四枚の形になります。',
+ ARRAY['tenshukaku_mino', 'castle', 'mino'],
+ 'https://ja.wikipedia.org/wiki/左美濃', 'CC-BY-SA-4.0', 'engine'),
 
 ('居飛車穴熊',
  '玉を9九の隅に入れ、銀を8八でかぶせ、金を7九に置いた囲いです。端の香車を9八に上げて隅を空けることで玉が入る「穴」ができます。玉が戦場から遠く、金銀が密に連結するため横からの攻めに非常に強く、寄せるのに多くの手数がかかります。組むのに手数がかかるので、その間に急戦を仕掛けられないよう手順に注意します。',
