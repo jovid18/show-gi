@@ -99,7 +99,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	}
 
 	v := intervene.Judge(in)
-	j := Judgement{Verdict: v}
+	j := Judgement{Verdict: v, BestUSI: best.Best}
 	if v.Kind != intervene.KindNone {
 		// 이미 손에 든 탐색의 PV가 그대로 「상대는 이렇게 벌한다」다. **추가 탐색이 없고
 		// 분류도 필요 없다** — 카테고리가 이유를 못 대는 3분의 2(06-status.md §17)가

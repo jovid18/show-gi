@@ -215,7 +215,38 @@ export function GameScreen() {
 
   const walking = intervening && scenes.length > 0;
   const current = walking ? scenes[Math.min(scene, scenes.length - 1)] : null;
-  const dropping = current?.dropping ?? null;
+
+  /**
+   * 갇힘 힌트. **수순을 넘겨 보는 동안에는 안 띄운다** — 그때 판은 물러진 수 뒤의
+   * 국면이라, 지금 판에 대한 안내를 그 위에 얹으면 판이 거짓을 말한다.
+   */
+  const hint = walking ? undefined : snapshot?.hint;
+  const hintRay = useMemo(() => {
+    if (!hint?.usi) return null;
+    const r = rayOf(hint.usi, 'human');
+    return r && { ...r, hint: true };
+  }, [hint?.usi]);
+
+  /** 회상에서 지금 판에 놓이는 持ち駒. **초록 링은 이쪽만 켠다** — 상대 쪽 채널이다. */
+  const recallDrop = current?.dropping ?? null;
+
+  /**
+   * 駒台에서 출발하는 화살표의 **자리를 재야 하는 駒.** 회상(打)과 힌트가 같은 장치를
+   * 쓰고, 둘은 동시에 뜨지 않는다 — 힌트는 넘겨 보는 동안 꺼진다.
+   *
+   * **재는 것과 빛나는 것을 갈라 뒀다.** 한때 이 값을 `<Hand dropping>` 에도 그대로
+   * 넘겼는데, 그러면 힌트가 `data-dropping` 을 켜서 駒台 駒에 **초록** 링이 붙었다 —
+   * 파란 테와 초록 링이 같은 駒에 동시에 걸리고, 초록은 「상대가 무엇을 하는가」다.
+   *
+   * **여기서 객체를 새로 만들면 안 된다.** 이 값이 아래 `useLayoutEffect` 의 의존성이라,
+   * 매 렌더마다 identity가 바뀌면 효과가 다시 돌고 `setDropFrom` 이 또 새 객체를 넣어
+   * **무한 루프**가 된다(화면이 통째로 하얘진다). 회상 쪽은 `scenes` 의 useMemo 에서 와서
+   * 원래 안정적이었고, 힌트를 얹으면서 그 성질이 깨졌다 — 실제로 打 힌트에서 터졌다.
+   */
+  const dropping = useMemo(
+    () => recallDrop ?? (hint?.drop ? { side: 'black' as Side, kind: hint.drop } : null),
+    [recallDrop, hint?.drop],
+  );
 
   // 화면 폭이 바뀌면 `--sq` 가 따라 변하므로 그때마다 다시 잰다.
   const measureDrop = useCallback(() => {
@@ -233,12 +264,16 @@ export function GameScreen() {
       setDropFrom(null);
       return;
     }
-    setDropFrom({
+    // 같은 값이면 상태를 안 건드린다. **재는 일이 리렌더를 부르고 리렌더가 다시 재게
+    // 되는 고리가 이 함수에서 실제로 생겼다** — 새 객체를 넣는 것만으로 identity가
+    // 바뀌므로, 위쪽 의존성이 또 흔들리는 날에도 흰 화면 대신 아무 일도 안 일어나게 둔다.
+    const next = {
       // 판의 테두리 안쪽이 기준이다 — 화살표가 그 안에 놓이므로.
       x: at.x + piece.offsetWidth / 2 - (of.x + board.clientLeft),
       y: at.y + piece.offsetHeight / 2 - (of.y + board.clientTop),
       sq: square.offsetWidth,
-    });
+    };
+    setDropFrom((prev) => (prev && prev.x === next.x && prev.y === next.y && prev.sq === next.sq ? prev : next));
   }, []);
 
   useLayoutEffect(() => {
@@ -369,10 +404,11 @@ export function GameScreen() {
           pieces={board.hands.white}
           selected={null}
           playable={new Set()}
-          dropping={dropping?.side === 'white' ? dropping.kind : null}
+          dropping={recallDrop?.side === 'white' ? recallDrop.kind : null}
           droppingRef={(el) => {
             dropPieceRef.current = el;
           }}
+          measure={dropping?.side === 'white' ? dropping.kind : null}
           onPick={() => {}}
         />
 
@@ -388,6 +424,8 @@ export function GameScreen() {
           checks={current?.checks ?? []}
           dimmed={walking}
           dropFrom={dropFrom}
+          hintSquare={hint?.square ?? null}
+          hintRay={hintRay}
           boardRef={boardRef}
           interactive={playable}
           onSquare={onSquare}
@@ -399,10 +437,12 @@ export function GameScreen() {
           pieces={board.hands.black}
           selected={origin?.endsWith('*') ? origin : null}
           playable={new Set([...grouped.keys()].filter((o) => o.endsWith('*')))}
-          dropping={dropping?.side === 'black' ? dropping.kind : null}
+          dropping={recallDrop?.side === 'black' ? recallDrop.kind : null}
           droppingRef={(el) => {
             dropPieceRef.current = el;
           }}
+          measure={dropping?.side === 'black' ? dropping.kind : null}
+          hintDrop={hint?.drop ?? null}
           onPick={playable ? pick : () => {}}
         />
       </div>
