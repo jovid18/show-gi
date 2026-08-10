@@ -91,7 +91,7 @@ func TestOpponentPiecesDoNotFormMyCastle(t *testing.T) {
 		// 先手 좌표에 後手 駒를 놓는다.
 		pos.Board[squareFor(s, shogi.Black)] = shogi.MakePiece(s.pt, shogi.White)
 	}
-	if got := Detect(pos, nil, shogi.Black); len(got) != 0 {
+	if got := Detect(Input{Pos: pos, Color: shogi.Black}); len(got) != 0 {
 		t.Errorf("상대 駒로 짜인 형태가 내 것으로 뜬다: %v", codes(got))
 	}
 }
@@ -117,7 +117,7 @@ func TestMoreSpecificCastleWins(t *testing.T) {
 // 축이 서로 **다른 입력**에서 나온다는 것도 여기서 못 박힌다 — 囲い는 국면, 전법은 수순.
 func TestDetectReturnsOnePerAxisCastleFirst(t *testing.T) {
 	pos := place(shogi.Black, shapeByCode(t, "hon_mino").squares...)
-	got := Detect(pos, []string{"2h6h"}, shogi.Black) // 飛2八 → 6八
+	got := Detect(Input{Pos: pos, Color: shogi.Black, PlayerMoves: []string{"2h6h"}}) // 飛2八 → 6八
 
 	if want := []string{"hon_mino", "shiken_bisha"}; len(got) != 2 ||
 		got[0].Code != want[0] || got[1].Code != want[1] {
@@ -204,12 +204,12 @@ func TestIbishaNeedsACastleFirst(t *testing.T) {
 	rook := square{2, 8, shogi.Rook} // 初形의 飛. 振っていない
 
 	bare := place(shogi.Black, rook) // 囲い이 없다
-	if got := Detect(bare, []string{"7g7f"}, shogi.Black); len(got) != 0 {
+	if got := Detect(Input{Pos: bare, Color: shogi.Black, PlayerMoves: []string{"7g7f"}}); len(got) != 0 {
 		t.Errorf("囲い도 없는데 %v 가 떴다", codes(got))
 	}
 
 	ss := append(append([]square{}, shapeByCode(t, "kin_yagura").squares...), rook)
-	got := Detect(place(shogi.Black, ss...), []string{"7g7f"}, shogi.Black)
+	got := Detect(Input{Pos: place(shogi.Black, ss...), Color: shogi.Black, PlayerMoves: []string{"7g7f"}})
 	if want := []string{"kin_yagura", "ibisha"}; len(got) != 2 ||
 		got[0].Code != want[0] || got[1].Code != want[1] {
 		t.Fatalf("%v 를 기대했는데 %v", want, codes(got))
@@ -224,7 +224,7 @@ func TestIbishaIsNotClaimedWhenTheHistoryIsMissing(t *testing.T) {
 	ss := append(append([]square{}, shapeByCode(t, "kin_yagura").squares...),
 		square{6, 8, shogi.Rook}) // 이미 振ってある 국면
 
-	if got := Detect(place(shogi.Black, ss...), nil, shogi.Black); len(got) != 1 {
+	if got := Detect(Input{Pos: place(shogi.Black, ss...), Color: shogi.Black}); len(got) != 1 {
 		t.Errorf("囲い 하나만 기대했는데 %v", codes(got))
 	}
 }
@@ -242,7 +242,7 @@ func TestADroppedRookIsNotASwing(t *testing.T) {
 func TestStartPositionHasNoTags(t *testing.T) {
 	pos := shogi.StartPosition()
 	for _, c := range []shogi.Color{shogi.Black, shogi.White} {
-		if got := Detect(pos, nil, c); len(got) != 0 {
+		if got := Detect(Input{Pos: pos, Color: c}); len(got) != 0 {
 			t.Errorf("%v: 初期配置인데 %v 가 떴다", c, codes(got))
 		}
 	}
@@ -264,7 +264,7 @@ func TestDetectsFromAHandWrittenSFEN(t *testing.T) {
 		t.Fatalf("2八에 玉이 없다 — 좌표 읽기가 어긋났다 (got %v)", got)
 	}
 
-	got := Detect(pos, []string{"2h6h"}, shogi.Black)
+	got := Detect(Input{Pos: pos, Color: shogi.Black, PlayerMoves: []string{"2h6h"}})
 	if want := []string{"hon_mino", "shiken_bisha"}; len(got) != 2 ||
 		got[0].Code != want[0] || got[1].Code != want[1] {
 		t.Fatalf("%v 를 기대했는데 %v", want, codes(got))

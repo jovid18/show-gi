@@ -23,7 +23,17 @@ type Kind string
 const (
 	KindCastle    Kind = "castle"    // 囲い — 玉 주변의 배치
 	KindFormation Kind = "formation" // 戦法 — 飛의 筋
+	KindOpening   Kind = "opening"   // 戦型 — 판 전체의 상태 (角換わり 등)
 )
+
+// 세 축은 **정의 방식이 다르고, 그 차이가 입력을 정한다.**
+//
+//	囲い    상태 — 지금 판의 배치. 깨지면 진짜로 그 囲い가 아니다
+//	戦法    수순 — 「飛를 그 筋으로 振った」. 한 번 일어나면 그 판 내내 참이다
+//	戦型    상태 — 角の有無처럼 판 전체를 보는 조건. 상대 쪽까지 본다
+//
+// 셋을 한 함수에 뭉치면 어느 것이 국면에서 오고 어느 것이 수순에서 오는지가 흐려진다.
+// 실제로 처음에는 전법을 국면에서 읽었고, 그래서 飛를 올린 순간 이름이 꺼졌다.
 
 // Tag 는 붙은 이름 하나다.
 //
@@ -132,13 +142,10 @@ var castles = []shape{
 	},
 }
 
-// formations 는 전법 정의다 — **飛의 筋 하나로 정해진다.**
-//
-// 囲い처럼 여러 칸을 요구하지 않는 이유는 전법의 정의가 실제로 그렇기 때문이다.
-// 四間飛車는 「飛が6八にある」이 곧 정의이고, 거기까지 가는 수순은 여러 가지다.
-// 반대로 **좌표만으로 결정적이지 않은 전법은 여기 넣지 않는다** — 棒銀·藤井システム은
-// 배치가 아니라 수순으로 정의되므로, 좌표로 흉내내면 틀린 이름을 가르친다.
 // formationByFile 는 飛를 振った 筋으로 전법을 정한다. 키는 **先手 기준 筋**이다.
+//
+// **좌표만으로 결정적이지 않은 전법은 여기 넣지 않는다** — 棒銀·藤井システム은 배치가
+// 아니라 수순 사전으로 정의되므로, 筋으로 흉내내면 틀린 이름을 가르친다([09-tags.md](../../../../docs/09-tags.md)).
 //
 // **段을 안 본다.** 처음에는 `{6, 8, Rook}` 처럼 칸으로 적었는데, 출처가 전부 筋으로
 // 말하고 있었다 — 袖飛車는 「先手ならば飛車を3筋に」이고 ▲3八飛에서 ▲3五飛까지 段이
@@ -262,22 +269,105 @@ func pick(shapes []shape, pos shogi.Position, c shogi.Color) (Tag, bool) {
 // **호출하는 쪽이 플레이어 색만 넘긴다.** 컴퓨터 쪽 태그는 화면에 그리지 않는다
 // (01-core.md §7 — 상대의 계획을 알려주지 않는다). 그 규칙을 이 함수가 강제하지 않는
 // 이유는, 리뷰 화면이 끝난 판을 양쪽 다 보여주는 자리에서는 반대가 맞기 때문이다.
-func Detect(pos shogi.Position, playerMoves []string, c shogi.Color) []Tag {
+// Input 은 태그 판정에 필요한 것 전부다.
+//
+// 인자를 늘리는 대신 구조체로 둔 이유는 **축마다 보는 것이 다르기 때문**이다. 戦型은
+// 상대의 수순까지 봐야 하고(相振り飛車), 앞으로 붙을 手筋은 또 다른 것을 본다.
+// 인자로 늘리면 호출부가 `Detect(pos, mine, theirs, c)` 처럼 순서로만 구별되는 슬라이스
+// 둘을 넘기게 되고, **바꿔 넘겨도 컴파일된다.**
+type Input struct {
+	Pos shogi.Position
+	// Color 는 태그를 붙일 쪽. 보통 플레이어다.
+	Color shogi.Color
+	// PlayerMoves · OpponentMoves 는 각 쪽이 둔 수만 순서대로. 물러진 수는 없다.
+	PlayerMoves   []string
+	OpponentMoves []string
+}
+
+func Detect(in Input) []Tag {
 	var out []Tag
 
-	castle, castled := pick(castles, pos, c)
+	castle, castled := pick(castles, in.Pos, in.Color)
 	if castled {
 		out = append(out, castle)
 	}
 
-	switch t, swung := DetectFormation(playerMoves, c); {
+	mine, swung := DetectFormation(in.PlayerMoves, in.Color)
+	switch {
 	case swung:
-		out = append(out, t)
-	case castled && rookOnStartFile(pos, c):
+		out = append(out, mine)
+	case castled && rookOnStartFile(in.Pos, in.Color):
 		// 振っていない + 囲った = 居飛車. 囲い이 없으면 아직 아무 선택도 안 드러났다.
 		out = append(out, ibisha)
 	}
+
+	if t, ok := detectOpening(in, mine, swung); ok {
+		out = append(out, t)
+	}
 	return out
+}
+
+var (
+	kakuGawari       = Tag{Code: "kaku_gawari", NameJa: "角換わり", Kind: KindOpening}
+	aiFuribisha      = Tag{Code: "ai_furibisha", NameJa: "相振り飛車", Kind: KindOpening}
+	kakukanFuribisha = Tag{Code: "kakukan_furibisha", NameJa: "角交換振り飛車", Kind: KindOpening}
+)
+
+// detectOpening 은 판 **전체**의 상태로 戦型을 정한다.
+//
+// 순서가 규칙의 일부다 — 좁은 것이 먼저다. 角交換振り飛車는 角換わり이면서 振り飛車라,
+// 뒤에 두면 언제나 角換わり로 먼저 걸려서 영원히 안 나온다. 블런더 카테고리에서
+// 판정 순서가 규칙인 것과 같은 자리다([01-core.md §3](01-core.md)).
+func detectOpening(in Input, mine Tag, swung bool) (Tag, bool) {
+	theirs, theySwung := DetectFormation(in.OpponentMoves, in.Color.Other())
+
+	mineFuri := swung && isFuribisha(mine)
+	theirsFuri := theySwung && isFuribisha(theirs)
+	traded := bishopsTraded(in.Pos)
+
+	switch {
+	case traded && mineFuri:
+		return kakukanFuribisha, true
+	case mineFuri && theirsFuri:
+		return aiFuribisha, true
+	case traded:
+		return kakuGawari, true
+	}
+	return Tag{}, false
+}
+
+// isFuribisha 는 그 전법이 **飛를 왼쪽으로 振った** 쪽인지. 袖飛車(3筋)·右四間飛車(4筋)는
+// 飛를 옮기지만 居飛車系라 여기 안 든다 — 相振り飛車를 셀 때 그 둘을 세면 틀린다.
+func isFuribisha(t Tag) bool {
+	switch t.Code {
+	case "naka_bisha", "shiken_bisha", "sanken_bisha", "mukai_bisha":
+		return true
+	}
+	return false
+}
+
+// bishopsTraded 는 角交換이 끝난 상태인지 본다 — **양쪽이 角을 持ち駒로 하나씩 들고
+// 있고, 판 위에는 角도 馬도 없다.**
+//
+// 처음에는 「판에 角이 없다」만 봤는데, **駒를 몇 개만 놓은 판에서 角換わり가 떴다.**
+// 없는 것과 交換된 것을 구별하지 못한 것이고, `StartSFEN` 으로 만든 국면이 바로 그렇다.
+// 交換이란 **서로 상대의 角을 딴 것**이라, 그 증거는 판의 빈자리가 아니라 持ち駒에 있다.
+//
+// 두 조건을 함께 보는 이유는 한쪽만으로는 각각 새기 때문이다 — 持ち駒만 보면 아직 판에
+// 角이 남은 국면(한쪽이 二枚目를 든 경우)이 걸리고, 판만 보면 위의 빈 판이 걸린다.
+//
+// **상태로 묻는 것의 대가**는 나중에 어느 쪽이 角을 打つと 이름이 사라지는 것이다.
+// 囲い이 깨지면 그 囲い가 아니게 되는 것과 같은 성질이고, 戦型을 상태 축에 둔 결과다.
+func bishopsTraded(pos shogi.Position) bool {
+	if pos.Hands[shogi.Black][shogi.Bishop] < 1 || pos.Hands[shogi.White][shogi.Bishop] < 1 {
+		return false
+	}
+	for sq := range pos.Board {
+		if t := pos.Board[sq].Type(); t == shogi.Bishop || t == shogi.PromBishop {
+			return false
+		}
+	}
+	return true
 }
 
 // rookOnStartFile 은 그 색의 飛(또는 龍)가 아직 처음 筋에 있는지 본다.
@@ -312,7 +402,8 @@ func All() []Tag {
 			out = append(out, t)
 		}
 	}
-	return append(out, ibisha)
+	out = append(out, ibisha)
+	return append(out, kakuGawari, aiFuribisha, kakukanFuribisha)
 }
 
 // SourceOf 는 그 囲い의 좌표 출처다. 없으면 빈 문자열.

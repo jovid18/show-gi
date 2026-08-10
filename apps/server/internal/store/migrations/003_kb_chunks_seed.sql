@@ -33,6 +33,7 @@ DELETE FROM kb_chunks WHERE tags && ARRAY[
     'kin_yagura', 'gin_yagura', 'kata_yagura', 'fune',
     'naka_bisha', 'shiken_bisha', 'sanken_bisha', 'mukai_bisha',
     'sode_bisha', 'migi_shiken_bisha', 'ibisha',
+    'kaku_gawari', 'ai_furibisha', 'kakukan_furibisha',
     'missed_mate', 'hangs_piece', 'shallow_trap', 'unpromoted',
     'greedy_capture', 'idle_check', 'king_exposed', 'other'
 ];
@@ -121,6 +122,24 @@ INSERT INTO kb_chunks (title, body, tags, source_url, source_license, verified_b
 ('向かい飛車',
  '飛車を8八へ振り、相手の飛車と正面から向き合う振り飛車です。相手の飛車の筋に自分の飛車を置くため、飛車先の歩を突き合う激しい展開になりやすい戦法です。角の交換から一気に攻め合う形が多く、深い読みの力が求められます。',
  ARRAY['mukai_bisha', 'formation', 'furibisha'],
+ 'https://github.com/jovid18/show-gi/blob/main/apps/server/internal/tag/tag.go', 'engine-derived', 'engine'),
+
+-- ── 戦型 ─────────────────────────────────────────────────────────────────────
+-- 판 전체의 상태로 정한다. 持ち駒와 駒の有無라 좌표조차 안 쓴다.
+
+('角換わり',
+ 'お互いの角を交換して、双方が角を持ち駒にした状態で戦う戦型です。盤上に角がなくなるため、いつどこに角を打ち込まれるかを常に気にしなければならず、隙のない陣形を作ることが大切になります。とくに自陣に打ち込まれる隙を作らないよう、金銀の連結を保ちながら囲うのが基本です。',
+ ARRAY['kaku_gawari', 'opening'],
+ 'https://github.com/jovid18/show-gi/blob/main/apps/server/internal/tag/tag.go', 'engine-derived', 'engine'),
+
+('相振り飛車',
+ 'お互いが飛車を振って戦う戦型です。両者の玉が同じ側に来ることが多く、通常の対抗形とは玉の位置も囲いも変わります。金無双や矢倉のように上部に厚い囲いが好まれるのは、横からではなく上から攻め合う形になりやすいからです。',
+ ARRAY['ai_furibisha', 'opening'],
+ 'https://github.com/jovid18/show-gi/blob/main/apps/server/internal/tag/tag.go', 'engine-derived', 'engine'),
+
+('角交換振り飛車',
+ '角を交換したうえで飛車を振る戦型です。角がお互いの持ち駒にあるため、振り飛車側は打ち込まれる隙を作らないように注意しながら組む必要があります。そのぶん角を手持ちにしている強みもあり、相手の陣形が乱れた瞬間に打ち込んで一気に攻めることを狙えます。',
+ ARRAY['kakukan_furibisha', 'opening'],
  'https://github.com/jovid18/show-gi/blob/main/apps/server/internal/tag/tag.go', 'engine-derived', 'engine'),
 
 -- ── 블런더 카테고리 ───────────────────────────────────────────────────────────
