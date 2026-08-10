@@ -138,16 +138,84 @@ var castles = []shape{
 // 四間飛車는 「飛が6八にある」이 곧 정의이고, 거기까지 가는 수순은 여러 가지다.
 // 반대로 **좌표만으로 결정적이지 않은 전법은 여기 넣지 않는다** — 棒銀·藤井システム은
 // 배치가 아니라 수순으로 정의되므로, 좌표로 흉내내면 틀린 이름을 가르친다.
-// **居飛車는 여기 없다.** 정의가 「飛が2八のまま」인데 그 칸은 初期配置라서, 넣으면
-// 첫 수를 두기도 전에 「居飛車」가 뜬다 — 플레이어가 아직 하지 않은 선택에 이름을
-// 붙이는 것이다. 振り飛車 넷은 전부 飛를 실제로 옮겨야 성립하므로 그 문제가 없다.
-// 居飛車를 태그하려면 「飛를 안 옮긴 채 玉을 囲った」처럼 **선택이 드러난 뒤**를
-// 조건으로 해야 하고, 그건 좌표 하나로 안 된다.
-var formations = []shape{
-	{tag: Tag{Code: "naka_bisha", NameJa: "中飛車", Kind: KindFormation}, squares: []square{{5, 8, shogi.Rook}}},
-	{tag: Tag{Code: "shiken_bisha", NameJa: "四間飛車", Kind: KindFormation}, squares: []square{{6, 8, shogi.Rook}}},
-	{tag: Tag{Code: "sanken_bisha", NameJa: "三間飛車", Kind: KindFormation}, squares: []square{{7, 8, shogi.Rook}}},
-	{tag: Tag{Code: "mukai_bisha", NameJa: "向かい飛車", Kind: KindFormation}, squares: []square{{8, 8, shogi.Rook}}},
+// formationByFile 는 飛를 振った 筋으로 전법을 정한다. 키는 **先手 기준 筋**이다.
+//
+// **段을 안 본다.** 처음에는 `{6, 8, Rook}` 처럼 칸으로 적었는데, 출처가 전부 筋으로
+// 말하고 있었다 — 袖飛車는 「先手ならば飛車を3筋に」이고 ▲3八飛에서 ▲3五飛까지 段이
+// 움직인다. 段을 고정하면 四間飛車를 짜고 飛를 6五로 올린 순간 이름이 꺼진다.
+// 전법은 그대로인데 라벨만 사라지는 것이라, 그건 잡고 있던 것이 전법이 아니라
+// **전법을 짜는 순간**이었다는 뜻이다.
+//
+// 그리고 筋만 보는 것으로 바꾸면 국면이 아니라 **수순**을 봐야 한다. 국면에서 「飛가
+// 6筋에 있다」를 물으면 종반에 우연히 6筋을 지나가는 飛까지 四間飛車가 된다.
+// 振り飛車의 정의는 「飛를 그 筋으로 振った」이고, 그건 한 번 일어나면 그 판 내내
+// 참인 **수순의 사실**이다. 将棋ウォーズ가 그 수를 둔 순간에 이름을 주는 이유이기도 하다.
+var formationByFile = map[int]Tag{
+	3: {Code: "sode_bisha", NameJa: "袖飛車", Kind: KindFormation},
+	4: {Code: "migi_shiken_bisha", NameJa: "右四間飛車", Kind: KindFormation},
+	5: {Code: "naka_bisha", NameJa: "中飛車", Kind: KindFormation},
+	6: {Code: "shiken_bisha", NameJa: "四間飛車", Kind: KindFormation},
+	7: {Code: "sanken_bisha", NameJa: "三間飛車", Kind: KindFormation},
+	8: {Code: "mukai_bisha", NameJa: "向かい飛車", Kind: KindFormation},
+}
+
+// ibisha 는 「飛를 끝까지 振らなかった」쪽이다.
+//
+// **없음과 구별해야 하므로 조건이 하나 더 붙는다.** 振っていない은 初期配置에서도
+// 참이라, 그대로 태그하면 첫 수 전에 「居飛車」가 뜬다 — 플레이어가 아직 하지 않은
+// 선택에 이름을 붙이는 것이다. 그래서 **囲いが組めている** 것을 함께 요구한다:
+// 「玉を囲ったのに飛車は振っていない」은 그 자체로 드러난 선택이다.
+var ibisha = Tag{Code: "ibisha", NameJa: "居飛車", Kind: KindFormation}
+
+// rookStartFile 는 平手에서 그 색의 飛가 서 있는 筋이다 (先手 2八 · 後手 8二).
+func rookStartFile(c shogi.Color) int {
+	if c == shogi.Black {
+		return 2
+	}
+	return 8
+}
+
+// senteFile 는 그 색의 筋을 先手 기준으로 옮긴다. formationByFile 의 키가 先手 기준이다.
+func senteFile(file int, c shogi.Color) int {
+	if c == shogi.Black {
+		return file
+	}
+	return 10 - file
+}
+
+// DetectFormation 은 **플레이어 자신의 수만** 순서대로 받아 전법을 읽는다.
+//
+// 飛를 좇다가 **처음으로 筋을 바꾼 수**를 찾는다. 그 도착 筋이 곧 전법이고, 먼저
+// 나온 것이 이긴다 — 振り直し(예: 四間에서 三間으로)는 그 판의 전법을 바꾸지 않는다.
+//
+// 飛가 잡혔다가 다시 打たれる 경우는 걸리지 않는다. 打은 `From < 0` 이라 좇던 칸과
+// 절대 안 맞고, 그 뒤로는 아무것도 반환하지 않는다 — **거짓으로 붙이는 것보다 안 붙는
+// 쪽이 낫다.**
+func DetectFormation(playerMoves []string, c shogi.Color) (Tag, bool) {
+	rook := shogi.SquareOf(rookStartFile(c), rookStartRank(c))
+
+	for _, usi := range playerMoves {
+		m, err := shogi.ParseUSIMove(usi)
+		if err != nil || m.IsDrop() || int(m.From) != rook {
+			continue
+		}
+		rook = int(m.To)
+
+		if from, to := shogi.FileOf(int(m.From)), shogi.FileOf(int(m.To)); from != to {
+			if t, ok := formationByFile[senteFile(to, c)]; ok {
+				return t, true
+			}
+			return Tag{}, false // 1筋 등 이름이 없는 筋. 억지로 붙이지 않는다
+		}
+	}
+	return Tag{}, false
+}
+
+func rookStartRank(c shogi.Color) int {
+	if c == shogi.Black {
+		return 8
+	}
+	return 2
 }
 
 // squareFor 는 先手 좌표를 그 색의 좌표로 옮긴다.
@@ -194,35 +262,65 @@ func pick(shapes []shape, pos shogi.Position, c shogi.Color) (Tag, bool) {
 // **호출하는 쪽이 플레이어 색만 넘긴다.** 컴퓨터 쪽 태그는 화면에 그리지 않는다
 // (01-core.md §7 — 상대의 계획을 알려주지 않는다). 그 규칙을 이 함수가 강제하지 않는
 // 이유는, 리뷰 화면이 끝난 판을 양쪽 다 보여주는 자리에서는 반대가 맞기 때문이다.
-func Detect(pos shogi.Position, c shogi.Color) []Tag {
+func Detect(pos shogi.Position, playerMoves []string, c shogi.Color) []Tag {
 	var out []Tag
-	if t, ok := pick(castles, pos, c); ok {
-		out = append(out, t)
+
+	castle, castled := pick(castles, pos, c)
+	if castled {
+		out = append(out, castle)
 	}
-	if t, ok := pick(formations, pos, c); ok {
+
+	switch t, swung := DetectFormation(playerMoves, c); {
+	case swung:
 		out = append(out, t)
+	case castled && rookOnStartFile(pos, c):
+		// 振っていない + 囲った = 居飛車. 囲い이 없으면 아직 아무 선택도 안 드러났다.
+		out = append(out, ibisha)
 	}
 	return out
+}
+
+// rookOnStartFile 은 그 색의 飛(또는 龍)가 아직 처음 筋에 있는지 본다.
+//
+// **居飛車에만 필요한 확인이다.** 「振っていない」를 수순으로만 물으면 수순이 없을 때
+// 참이 되어 버린다 — `StartSFEN` 으로 중간 국면부터 시작한 세션이 그렇고, 거기서는
+// 飛가 6筋에 있는데도 居飛車라고 말한다. 振り飛車 쪽은 이 문제가 없다: 振った 수가
+// 수순에 실제로 있어야 하므로, 수순이 없으면 아무 이름도 안 붙는다.
+//
+// 飛가 잡혀서 판에 없으면 false다. **모르는 것을 居飛車로 세지 않는다.**
+func rookOnStartFile(pos shogi.Position, c shogi.Color) bool {
+	file := rookStartFile(c)
+	for rank := 1; rank <= 9; rank++ {
+		p := pos.Board[shogi.SquareOf(file, rank)]
+		if p.Color() == c && (p.Type() == shogi.Rook || p.Type() == shogi.PromRook) {
+			return true
+		}
+	}
+	return false
 }
 
 // All 은 정의된 모든 태그다. 코퍼스(`kb_chunks`)가 태그마다 항목을 갖는지 기계로
 // 확인하는 데 쓴다 — 태그는 있는데 설명이 없으면 화면에 이름만 뜨고 배울 것이 없다.
 func All() []Tag {
-	out := make([]Tag, 0, len(castles)+len(formations))
+	out := make([]Tag, 0, len(castles)+len(formationByFile)+1)
 	for _, sh := range castles {
 		out = append(out, sh.tag)
 	}
-	for _, sh := range formations {
-		out = append(out, sh.tag)
+	// 筋 순서로 낸다. map 순회는 순서가 없어서 그대로 쓰면 테스트 출력이 매번 달라진다.
+	for file := 1; file <= 9; file++ {
+		if t, ok := formationByFile[file]; ok {
+			out = append(out, t)
+		}
 	}
-	return out
+	return append(out, ibisha)
 }
 
-// SourceOf 는 그 태그의 좌표 출처다. 없는 태그면 빈 문자열.
+// SourceOf 는 그 囲い의 좌표 출처다. 없으면 빈 문자열.
 //
-// 전법은 출처가 없다 — 飛의 筋 하나라서 옮겨올 서술이 없고, 정의가 곧 좌표다.
+// **전법에는 출처가 없다.** 필수 칸을 옮겨온 것이 아니라 「飛를 그 筋으로 振った」가
+// 정의 전부라서, 가리킬 서술이 없고 우리 코드가 곧 정의다.
 func SourceOf(code string) string {
-	for _, sh := range append(append([]shape{}, castles...), formations...) {
+	for _, sh := range castles {
 		if sh.tag.Code == code {
 			return sh.source
 		}

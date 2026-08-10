@@ -22,7 +22,7 @@ func place(c shogi.Color, ss ...square) shogi.Position {
 
 func shapeByCode(t *testing.T, code string) shape {
 	t.Helper()
-	for _, sh := range append(append([]shape{}, castles...), formations...) {
+	for _, sh := range castles {
 		if sh.tag.Code == code {
 			return sh
 		}
@@ -41,7 +41,7 @@ func codes(tags []Tag) []string {
 
 // 각 정의가 자기 좌표에서 실제로 뜨는지. 정의를 추가하면 여기가 자동으로 늘어난다.
 func TestEveryShapeMatchesItsOwnSquares(t *testing.T) {
-	for _, sh := range append(append([]shape{}, castles...), formations...) {
+	for _, sh := range castles {
 		pos := place(shogi.Black, sh.squares...)
 		if !sh.matches(pos, shogi.Black) {
 			t.Errorf("%s: 자기 좌표에서 안 뜬다", sh.tag.Code)
@@ -54,7 +54,7 @@ func TestEveryShapeMatchesItsOwnSquares(t *testing.T) {
 //
 // 미러가 맞는지를 값으로도 못 박는다: 先手 玉2八의 거울은 後手 玉8二다.
 func TestShapesMirrorForGote(t *testing.T) {
-	for _, sh := range append(append([]shape{}, castles...), formations...) {
+	for _, sh := range castles {
 		pos := place(shogi.White, sh.squares...)
 		if !sh.matches(pos, shogi.White) {
 			t.Errorf("%s: 後手 진영에서 안 뜬다", sh.tag.Code)
@@ -91,7 +91,7 @@ func TestOpponentPiecesDoNotFormMyCastle(t *testing.T) {
 		// 先手 좌표에 後手 駒를 놓는다.
 		pos.Board[squareFor(s, shogi.Black)] = shogi.MakePiece(s.pt, shogi.White)
 	}
-	if got := Detect(pos, shogi.Black); len(got) != 0 {
+	if got := Detect(pos, nil, shogi.Black); len(got) != 0 {
 		t.Errorf("상대 駒로 짜인 형태가 내 것으로 뜬다: %v", codes(got))
 	}
 }
@@ -113,10 +113,11 @@ func TestMoreSpecificCastleWins(t *testing.T) {
 }
 
 // 축마다 하나씩, 囲い가 먼저. 「四間飛車 + 本美濃囲い」는 한 국면의 정상 상태다.
+//
+// 축이 서로 **다른 입력**에서 나온다는 것도 여기서 못 박힌다 — 囲い는 국면, 전법은 수순.
 func TestDetectReturnsOnePerAxisCastleFirst(t *testing.T) {
-	ss := append(append([]square{}, shapeByCode(t, "hon_mino").squares...),
-		shapeByCode(t, "shiken_bisha").squares...)
-	got := Detect(place(shogi.Black, ss...), shogi.Black)
+	pos := place(shogi.Black, shapeByCode(t, "hon_mino").squares...)
+	got := Detect(pos, []string{"2h6h"}, shogi.Black) // 飛2八 → 6八
 
 	if want := []string{"hon_mino", "shiken_bisha"}; len(got) != 2 ||
 		got[0].Code != want[0] || got[1].Code != want[1] {
@@ -127,13 +128,121 @@ func TestDetectReturnsOnePerAxisCastleFirst(t *testing.T) {
 	}
 }
 
-// **初期配置에서는 전법이 뜨지 않는다.** 居飛車를 정의에 넣으면 첫 수 전에 뜬다 —
-// 플레이어가 아직 하지 않은 선택에 이름이 붙는다. 그래서 표에서 뺐고, 그 결정이
-// 되돌려지면 이 테스트가 실패한다.
+// **筋만 본다.** 段을 고정하면 飛를 올린 순간 이름이 꺼지는데, 전법은 그대로다.
+func TestFormationSurvivesTheRookAdvancing(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		moves []string
+	}{
+		{"振っただけ", []string{"2h6h"}},
+		{"振って上がった", []string{"2h6h", "6h6e"}},
+		{"振って下がった", []string{"2h6h", "6h6i"}},
+		{"振って何度も動いた", []string{"2h6h", "6h6e", "6e6c"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := DetectFormation(tc.moves, shogi.Black)
+			if !ok || got.Code != "shiken_bisha" {
+				t.Errorf("四間飛車를 기대했는데 %v (ok=%v)", got.Code, ok)
+			}
+		})
+	}
+}
+
+// 筋마다 이름이 갈린다. 袖飛車·右四間飛車가 특별 취급 없이 같은 규칙에서 나온다.
+func TestEachFileNamesItsFormation(t *testing.T) {
+	for _, tc := range []struct {
+		usi  string
+		want string
+	}{
+		{"2h3h", "sode_bisha"},
+		{"2h4h", "migi_shiken_bisha"},
+		{"2h5h", "naka_bisha"},
+		{"2h6h", "shiken_bisha"},
+		{"2h7h", "sanken_bisha"},
+		{"2h8h", "mukai_bisha"},
+	} {
+		got, ok := DetectFormation([]string{tc.usi}, shogi.Black)
+		if !ok || got.Code != tc.want {
+			t.Errorf("%s → %v (%s 기대)", tc.usi, got.Code, tc.want)
+		}
+	}
+}
+
+// 飛를 **筋 안에서** 움직인 것은 振ったのではない. 居飛車의 飛先の歩交換이 그렇다.
+func TestMovingTheRookWithinItsFileIsNotASwing(t *testing.T) {
+	if got, ok := DetectFormation([]string{"2h2f", "2f2d"}, shogi.Black); ok {
+		t.Errorf("2八→2六→2四 는 振り飛車가 아닌데 %v 가 떴다", got.Code)
+	}
+}
+
+// 振り直し는 그 판의 전법을 바꾸지 않는다 — **처음** 振った 筋이 이긴다.
+func TestTheFirstSwingWins(t *testing.T) {
+	got, ok := DetectFormation([]string{"2h6h", "6h7h"}, shogi.Black)
+	if !ok || got.Code != "shiken_bisha" {
+		t.Errorf("四間에서 三間으로 옮겼어도 四間飛車여야 하는데 %v", got.Code)
+	}
+}
+
+// 後手도 같은 규칙에서 나와야 한다. 8二 → 4二 는 先手의 6筋에 해당한다.
+func TestFormationMirrorsForGote(t *testing.T) {
+	got, ok := DetectFormation([]string{"8b4b"}, shogi.White)
+	if !ok || got.Code != "shiken_bisha" {
+		t.Errorf("後手 8二→4二 는 四間飛車인데 %v (ok=%v)", got.Code, ok)
+	}
+	// 先手의 수를 後手로 재면 안 맞아야 한다 — 좇는 시작 칸이 다르다.
+	if _, ok := DetectFormation([]string{"2h6h"}, shogi.White); ok {
+		t.Error("先手의 수순을 後手 것으로 읽었다")
+	}
+}
+
+// 居飛車는 **囲った 뒤에만** 뜬다. 振っていない은 初期配置에서도 참이라 그것만으로는
+// 아직 아무 선택도 안 드러났다.
+//
+// 矢倉로 재는 이유가 있다 — 本美濃는 玉이 2八에 서므로 飛가 그 筋에 함께 있을 수 없고,
+// 애초에 振り飛車의 囲い다. 「居飛車 + 矢倉」가 실제로 함께 나오는 짝이다.
+func TestIbishaNeedsACastleFirst(t *testing.T) {
+	rook := square{2, 8, shogi.Rook} // 初形의 飛. 振っていない
+
+	bare := place(shogi.Black, rook) // 囲い이 없다
+	if got := Detect(bare, []string{"7g7f"}, shogi.Black); len(got) != 0 {
+		t.Errorf("囲い도 없는데 %v 가 떴다", codes(got))
+	}
+
+	ss := append(append([]square{}, shapeByCode(t, "kin_yagura").squares...), rook)
+	got := Detect(place(shogi.Black, ss...), []string{"7g7f"}, shogi.Black)
+	if want := []string{"kin_yagura", "ibisha"}; len(got) != 2 ||
+		got[0].Code != want[0] || got[1].Code != want[1] {
+		t.Fatalf("%v 를 기대했는데 %v", want, codes(got))
+	}
+}
+
+// **수순이 없으면 居飛車라고 말하지 않는다.** `StartSFEN` 으로 중간부터 시작한 세션이
+// 그렇다 — 振った 기록이 없다는 것이 振っていない는 뜻이 아니다.
+//
+// 판을 함께 보는 것이 그것을 막는다. 飛가 6筋에 있으면 수순이 비어 있어도 居飛車가 아니다.
+func TestIbishaIsNotClaimedWhenTheHistoryIsMissing(t *testing.T) {
+	ss := append(append([]square{}, shapeByCode(t, "kin_yagura").squares...),
+		square{6, 8, shogi.Rook}) // 이미 振ってある 국면
+
+	if got := Detect(place(shogi.Black, ss...), nil, shogi.Black); len(got) != 1 {
+		t.Errorf("囲い 하나만 기대했는데 %v", codes(got))
+	}
+}
+
+// 打는 좇던 칸과 안 맞는다. 飛가 잡혔다가 6筋에 打たれても 四間飛車가 아니다.
+func TestADroppedRookIsNotASwing(t *testing.T) {
+	if got, ok := DetectFormation([]string{"R*6h"}, shogi.Black); ok {
+		t.Errorf("打으로 전법이 붙었다: %v", got.Code)
+	}
+}
+
+// **初期配置에서는 아무것도 뜨지 않는다.** 居飛車가 「飛を振っていない」だけ로 성립하면
+// 첫 수 전에 뜬다 — 플레이어가 아직 하지 않은 선택에 이름이 붙는다. 囲い을 함께
+// 요구하는 것이 그것을 막고, 그 조건이 풀리면 이 테스트가 실패한다.
 func TestStartPositionHasNoTags(t *testing.T) {
 	pos := shogi.StartPosition()
 	for _, c := range []shogi.Color{shogi.Black, shogi.White} {
-		if got := Detect(pos, c); len(got) != 0 {
+		if got := Detect(pos, nil, c); len(got) != 0 {
 			t.Errorf("%v: 初期配置인데 %v 가 떴다", c, codes(got))
 		}
 	}
@@ -155,7 +264,7 @@ func TestDetectsFromAHandWrittenSFEN(t *testing.T) {
 		t.Fatalf("2八에 玉이 없다 — 좌표 읽기가 어긋났다 (got %v)", got)
 	}
 
-	got := Detect(pos, shogi.Black)
+	got := Detect(pos, []string{"2h6h"}, shogi.Black)
 	if want := []string{"hon_mino", "shiken_bisha"}; len(got) != 2 ||
 		got[0].Code != want[0] || got[1].Code != want[1] {
 		t.Fatalf("%v 를 기대했는데 %v", want, codes(got))

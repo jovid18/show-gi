@@ -32,6 +32,7 @@ DELETE FROM kb_chunks WHERE tags && ARRAY[
     'kin_musou', 'kata_mino', 'hon_mino', 'taka_mino', 'ginkanmuri',
     'kin_yagura', 'gin_yagura', 'kata_yagura', 'fune',
     'naka_bisha', 'shiken_bisha', 'sanken_bisha', 'mukai_bisha',
+    'sode_bisha', 'migi_shiken_bisha', 'ibisha',
     'missed_mate', 'hangs_piece', 'shallow_trap', 'unpromoted',
     'greedy_capture', 'idle_check', 'king_exposed', 'other'
 ];
@@ -86,6 +87,21 @@ INSERT INTO kb_chunks (title, body, tags, source_url, source_license, verified_b
 
 -- ── 戦法 ─────────────────────────────────────────────────────────────────────
 -- 定義が飛の筋ひとつなので、옮겨온 서술이 없다. 그래서 出典은 우리 정의 파일이다.
+
+('居飛車',
+ '飛車を振らずに、初形の2筋のまま戦う指し方です。飛車が自陣の右側にとどまるため、右側から攻めて左側に玉を囲うという役割分担がはっきりします。振り飛車と違って飛車と玉が近い側にあるので、玉を左へ動かして矢倉や穴熊に組むのが基本の流れです。振らないこと自体は初形と同じなので、玉を囲ったところで初めて「居飛車を選んだ」と言えます。',
+ ARRAY['ibisha', 'formation'],
+ 'https://github.com/jovid18/show-gi/blob/main/apps/server/internal/tag/tag.go', 'engine-derived', 'engine'),
+
+('袖飛車',
+ '先手ならば飛車を3筋に、後手ならば飛車を7筋に振る戦法です。飛車を大きく振らずに一つ隣へ寄せる形で、居飛車に分類されます。3筋の歩を突いて相手の弱点を狙ったり、飛車を3五まで進めて横から圧力をかけたりと、段は局面に応じて動きます。振る筋が浅いため組み替えが速く、急戦を狙いやすいのが特徴です。',
+ ARRAY['sode_bisha', 'formation'],
+ 'https://ja.wikipedia.org/wiki/袖飛車', 'CC-BY-SA-4.0', 'engine'),
+
+('右四間飛車',
+ '先手ならば飛車を4筋に据える戦法です。飛車を初期位置から動かしますが、振り飛車には分類されず居飛車に含まれます。4筋に飛車・角・銀・桂を集めて一点を集中攻撃する形が分かりやすく、狙いが明快なので覚えやすい戦法とされます。攻めが受け止められると反動が大きいため、玉をしっかり囲ってから仕掛けるのが大切です。',
+ ARRAY['migi_shiken_bisha', 'formation'],
+ 'https://ja.wikipedia.org/wiki/右四間飛車', 'CC-BY-SA-4.0', 'engine'),
 
 ('中飛車',
  '飛車を5八へ振る振り飛車です。盤の中央に飛車を構えるため攻めの的が分かりやすく、初心者にも扱いやすい戦法とされます。中央から一気に押し込む力が強い一方、飛車が相手の攻めの目標にもなりやすいので、玉を美濃囲いなどでしっかり囲ってから動くのが基本です。',
