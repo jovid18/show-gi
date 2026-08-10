@@ -247,6 +247,12 @@ writeJSON(w, http.StatusOK, map[string]any{
 })
 ```
 
+この記事を書いている時点の本番は、こう答えます。
+
+```
+/healthz  →  {"db":true,"engine":true,"ok":true}
+```
+
 そのうえで、**デプロイワークフローがこのフィールドを確認して落ちるように**しました。人間が気づくかどうかに任せません。
 
 ```yaml:.github/workflows/images.yml
