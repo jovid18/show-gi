@@ -120,11 +120,14 @@ func forkSurvives(pos shogi.Position, sq int, c shogi.Color, mine int) bool {
 		if int(m.To) != sq {
 			continue
 		}
-		taker := shogi.PieceValue(after.Board[m.From].Type())
+		// **打은 여기 올 수 없다.** 打는 빈 칸에만 놓으므로 내 駒가 선 sq 를 겨냥할 수
+		// 없고, 위의 `m.To != sq` 에서 이미 걸러진다. 그런데 `m.From` 은 打일 때 -1 이라
+		// 방어 없이 `Board[m.From]` 을 읽으면 **범위 밖 접근으로 죽는다** — 지금은 도달할
+		// 수 없어 안전할 뿐이라, 그 사실을 조건으로 적어 둔다.
 		if m.IsDrop() {
-			taker = shogi.PieceValue(m.Drop)
+			continue
 		}
-		if taker <= mine {
+		if taker := shogi.PieceValue(after.Board[m.From].Type()); taker <= mine {
 			return false // 싸거나 같은 駒로 치워진다 — 노린 둘이 다 살아남는다
 		}
 		// 비싼 駒로 딴다. 되딸 수 없으면 공짜로 잃는 것이라 이것도 아니다.
