@@ -111,7 +111,12 @@ export interface Hint {
 export interface StyleTag {
   code: string;
   nameJa: string;
-  kind: 'castle' | 'formation';
+  /**
+   * 축. **서버의 `tag.Kind` 와 같은 값이어야 한다** — 여기가 뒤처지면 서버가 보낸 태그를
+   * 화면이 모르는 종류로 받는다. 실제로 `opening`·`tesuji` 를 서버에 추가하고 이쪽을
+   * 안 고쳤다가 타입 검사가 잡았다.
+   */
+  kind: 'castle' | 'formation' | 'opening' | 'tesuji';
 }
 
 export interface Snapshot {
