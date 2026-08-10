@@ -61,7 +61,7 @@ published_at: '2026-08-15 10:00' # 선택. JST
 | 연동     | 계정당 **리포 최대 2개**. 등록 브랜치에 push하면 자동 배포 |
 | Mermaid  | 블록당 **2000자**, 체인 연산자(`&`) 최대 10개              |
 
-**[미확정]** `topics` 최대 개수. 문서에 없고 **로컬 CLI는 검증하지 않는다** — 6개를 넣어도 `zenn list:articles`도 `zenn preview`도 통과했다. 서버 쪽에서만 걸리므로 **5개로 두고** 동기화가 실제로 돌 때 확인한다.
+**[미확정]** `topics` 최대 개수. **본(book)에는 「5つまで」가 명시돼 있는데 기사에는 그 문장이 없다**([CLI 가이드](https://zenn.dev/zenn/articles/zenn-cli-guide)). 그리고 **로컬 CLI는 검증하지 않는다** — 6개를 넣어도 `zenn list:articles`도 `zenn preview`도 통과했다. 서버 쪽에서만 걸리므로 **5개로 두고** 동기화가 실제로 돌 때 확인한다.
 
 ## 4. oxfmt는 Zenn 문법을 안 망가뜨린다 — 실측
 

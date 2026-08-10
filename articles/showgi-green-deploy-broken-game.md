@@ -84,7 +84,9 @@ func startEngines() *usi.Pool {
 
 Docker の基本ルールです。`docker run -e` で渡した値は、イメージの `ENV` を上書きします。
 
-そして **ECS のタスク定義の `environment` は、ちょうどこの `-e` の位置にいます。**
+そして **ECS のタスク定義の `environment` は、ちょうどこの `-e` の位置にいます。** これは推測ではなく、AWS のドキュメントが `environment` は `--env` に、`environmentFiles` は `--env-file` に**マップされる**と明記しています[^envdoc]。
+
+[^envdoc]: [Pass an individual environment variable to an Amazon ECS container](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/taskdef-envfiles.html) — 「This maps to the `--env` option to **docker container run**」
 
 ```mermaid
 flowchart LR
@@ -277,7 +279,11 @@ resource "aws_ecs_task_definition" "app" {
 - 手順書に書いた**ロールバック先 (「一つ前のリビジョンに戻す」) が INACTIVE を指す**
 - apply 直後の一瞬、サービスが指しているリビジョンが INACTIVE になり、その間にタスクが死ぬと**復帰できない**
 
-実際 apply は `1 destroyed` と表示しましたが、古いリビジョンは ACTIVE のまま残っていました。デプロイワークフローが Terraform の外でリビジョンを積み続ける構成なので、ここで整理しても得るものはありません。
+実際 apply は `1 destroyed` と表示しましたが、古いリビジョンは ACTIVE のまま残っていました。
+
+ただし、これを「`skip_destroy` が全部守ってくれた」と読むのは間違いです。**Terraform が deregister できるのは、自分の state に入っている一つだけ**です。残っていたリビジョンはデプロイワークフローが Terraform の外で積んだもので、もともと Terraform の管理外でした。
+
+`skip_destroy` が守るのは、その「自分の一つ」がロールバック先になっている場合です。そして Terraform の外でリビジョンが積み上がる構成である以上、**ここで整理しきることは最初からできません。**
 
 ## 5. まとめ
 
