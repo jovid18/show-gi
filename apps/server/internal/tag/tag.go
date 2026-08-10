@@ -77,6 +77,7 @@ const (
 	wikiGangi  = "https://ja.wikipedia.org/wiki/雁木囲い"
 	wikiAna    = "https://ja.wikipedia.org/wiki/穴熊囲い"
 	wikiHidari = "https://ja.wikipedia.org/wiki/左美濃"
+	wikiMille  = "https://ja.wikipedia.org/wiki/ミレニアム囲い"
 )
 
 // castles 는 囲い 정의다. 순서는 상관없다 — 고르는 것은 **필수 칸이 가장 많은 쪽**이고
@@ -202,6 +203,18 @@ var castles = []shape{
 			{8, 8, shogi.King}, {7, 8, shogi.Gold}, {6, 8, shogi.Gold}, {7, 7, shogi.Silver},
 		},
 		source: wikiHidari,
+	},
+	{
+		// ミレニアム囲い(トーチカ) — 「▲8九玉。玉を深く囲う」「▲7九金。玉の脇を固める」
+		//
+		// **桂7七이 이 囲い를 이 囲い로 만든다.** 先手 桂는 8九에서 출발하므로, 그 桂가
+		// 7七로 뛰어야 玉이 8九에 들어갈 자리가 생긴다 — 조건이 서로를 요구한다.
+		// 菊水矢倉도 玉8九인데 그쪽은 7七에 銀을 요구하므로 동시에 성립하지 않는다.
+		tag: Tag{Code: "millennium", NameJa: "ミレニアム囲い", Kind: KindCastle},
+		squares: []square{
+			{8, 9, shogi.King}, {7, 9, shogi.Gold}, {7, 7, shogi.Knight},
+		},
+		source: wikiMille,
 	},
 	{
 		// 天守閣美濃 — 「8六に歩を突き8七の位置に玉を構える」. 金銀은 左美濃와 같다.

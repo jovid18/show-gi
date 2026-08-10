@@ -33,7 +33,7 @@ DELETE FROM kb_chunks WHERE tags && ARRAY[
     'kin_yagura', 'gin_yagura', 'kata_yagura', 'fune', 'kani', 'gangi',
     'sou_yagura', 'gindachi_yagura', 'hishi_yagura', 'kikusui_yagura',
     'ibisha_anaguma', 'yonmai_anaguma', 'furibisha_anaguma',
-    'hidari_mino', 'tenshukaku_mino',
+    'hidari_mino', 'tenshukaku_mino', 'millennium',
     'naka_bisha', 'shiken_bisha', 'sanken_bisha', 'mukai_bisha',
     'sode_bisha', 'migi_shiken_bisha', 'ibisha',
     'kaku_gawari', 'ai_furibisha', 'kakukan_furibisha',
@@ -105,6 +105,11 @@ INSERT INTO kb_chunks (title, body, tags, source_url, source_license, verified_b
  '二枚金とも呼ばれ、玉を3八、左金を5八、右金を4八に動かして作る囲いです。相振り飛車でよく用いられ、金が二枚横に並ぶため横からの攻めに強い構えです。右銀を2八へ上がる形もありますが、側面から攻められると壁銀になって玉の逃げ道がなくなるため、上がるかどうかは局面によって選びます。上部が薄いので、上から押し潰される攻めには注意が必要です。',
  ARRAY['kin_musou', 'castle'],
  'https://ja.wikipedia.org/wiki/金無双', 'CC-BY-SA-4.0', 'engine'),
+
+('ミレニアム囲い',
+ 'トーチカとも呼ばれ、桂馬を7七へ跳ねてから玉を8九へ深く囲い、金で玉の脇を固める囲いです。先手の桂馬はもともと8九にいるので、その桂が跳ねることで玉の入る場所ができます。玉の上に桂と金が重なるため上部からの攻めに強く、振り飛車の角のにらみを受けにくいのが特徴です。',
+ ARRAY['millennium', 'castle'],
+ 'https://ja.wikipedia.org/wiki/ミレニアム囲い', 'CC-BY-SA-4.0', 'engine'),
 
 ('左美濃',
  '玉を8八に置き、金を7八と6八、銀を7七に配置した囲いです。振り飛車に対して居飛車が用いる囲いで、舟囲いより堅く、穴熊ほど手数がかからないのが持ち味です。玉の上に銀がかぶさるため上部からの攻めに強く、端を攻められたときの備えが課題になります。ここから玉を8七へ上げると天守閣美濃になります。',

@@ -176,3 +176,35 @@ func TestTenshukakuMinoIsReachableFromTheStart(t *testing.T) {
 		t.Fatalf("%v 를 기대했는데 %v (%s)", want, codes(got), pos.SFEN())
 	}
 }
+
+// ミレニアム囲い — 桂가 8九를 비워야 玉이 들어간다. 그 순서가 곧 이 囲い의 정의다.
+func TestMillenniumIsReachableFromTheStart(t *testing.T) {
+	moves := []string{
+		"7g7f", "3c3d", // ▲7六歩  △3四歩   ← 7七を空ける
+		"8h6f", "8c8d", // ▲6六角  △8四歩   ← 角が7七を通って出る
+		"8i7g", "4a3b", // ▲7七桂  △3二金   ← 桂が8九を空ける
+		"7i8h", "7a6b", // ▲8八銀  △6二銀   ← 銀が7九を空ける
+		"5i6h", "6c6d", // ▲6八玉  △6四歩
+		"6h7i", "5c5d", // ▲7九玉  △5四歩
+		"7i8i", "4c4d", // ▲8九玉  △4四歩   ← 玉が深く入る
+		"6i7i", "2b3c", // ▲7九金  △3三角   ← ミレニアムが完成する
+	}
+
+	pos := shogi.StartPosition()
+	for i, usi := range moves {
+		m, err := shogi.ParseUSIMove(usi)
+		if err != nil {
+			t.Fatalf("%d수 %s: 파싱 실패 %v", i+1, usi, err)
+		}
+		if err := pos.ValidateMove(m); err != nil {
+			t.Fatalf("%d수 %s: 반칙 — %v", i+1, usi, err)
+		}
+		pos = pos.Apply(m)
+	}
+
+	got := Detect(Input{Pos: pos, Color: shogi.Black, PlayerMoves: blackMoves(moves)})
+	if want := []string{"millennium", "ibisha"}; len(got) != 2 ||
+		got[0].Code != want[0] || got[1].Code != want[1] {
+		t.Fatalf("%v 를 기대했는데 %v (%s)", want, codes(got), pos.SFEN())
+	}
+}
