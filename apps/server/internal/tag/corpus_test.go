@@ -33,7 +33,7 @@ func bodies(t *testing.T) []string {
 	t.Helper()
 
 	var out []string
-	for _, line := range strings.Split(corpusSQL(t), "\n") {
+	for line := range strings.SplitSeq(corpusSQL(t), "\n") {
 		s := strings.TrimSpace(line)
 		if strings.HasPrefix(s, "--") || !strings.HasPrefix(s, "'") {
 			continue
