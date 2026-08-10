@@ -230,8 +230,16 @@ export function GameScreen() {
   /**
    * 駒台에서 출발하는 화살표는 회상(打)과 힌트가 **같은 장치를 쓴다.** 둘은 동시에
    * 뜨지 않는다 — 힌트는 넘겨 보는 동안 꺼진다.
+   *
+   * **여기서 객체를 새로 만들면 안 된다.** 이 값이 아래 `useLayoutEffect` 의 의존성이라,
+   * 매 렌더마다 identity가 바뀌면 효과가 다시 돌고 `setDropFrom` 이 또 새 객체를 넣어
+   * **무한 루프**가 된다(화면이 통째로 하얘진다). 회상 쪽은 `scenes` 의 useMemo 에서 와서
+   * 원래 안정적이었고, 힌트를 얹으면서 그 성질이 깨졌다 — 실제로 打 힌트에서 터졌다.
    */
-  const dropping = current?.dropping ?? (hint?.drop ? { side: 'black' as Side, kind: hint.drop } : null);
+  const dropping = useMemo(
+    () => current?.dropping ?? (hint?.drop ? { side: 'black' as Side, kind: hint.drop } : null),
+    [current?.dropping, hint?.drop],
+  );
 
   // 화면 폭이 바뀌면 `--sq` 가 따라 변하므로 그때마다 다시 잰다.
   const measureDrop = useCallback(() => {
@@ -249,12 +257,16 @@ export function GameScreen() {
       setDropFrom(null);
       return;
     }
-    setDropFrom({
+    // 같은 값이면 상태를 안 건드린다. **재는 일이 리렌더를 부르고 리렌더가 다시 재게
+    // 되는 고리가 이 함수에서 실제로 생겼다** — 새 객체를 넣는 것만으로 identity가
+    // 바뀌므로, 위쪽 의존성이 또 흔들리는 날에도 흰 화면 대신 아무 일도 안 일어나게 둔다.
+    const next = {
       // 판의 테두리 안쪽이 기준이다 — 화살표가 그 안에 놓이므로.
       x: at.x + piece.offsetWidth / 2 - (of.x + board.clientLeft),
       y: at.y + piece.offsetHeight / 2 - (of.y + board.clientTop),
       sq: square.offsetWidth,
-    });
+    };
+    setDropFrom((prev) => (prev && prev.x === next.x && prev.y === next.y && prev.sq === next.sq ? prev : next));
   }, []);
 
   useLayoutEffect(() => {
