@@ -1,6 +1,7 @@
 package game
 
 import (
+	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
@@ -42,7 +43,11 @@ type Recorder interface {
 	//
 	// **같은 ply에 여러 번 올 수 있다.** 한 국면에서 몇 수를 시도하고 전부 물러지는 일이
 	// 실제로 있고(06-status.md §17), 그 반복 자체가 기록할 값이다.
-	Retracted(ply int, usi string, v intervene.Verdict)
+	//
+	// e 는 화면에 나간 설명이 **어느 계층에서 얼마에** 나왔는지다. 문장 자체는 안 남긴다 —
+	// 그것은 `explain_cache` 에 키로 들어 있고, 여기 또 적으면 두 벌이 된다.
+	// `Evaluated` 와 달리 나중에 오지 않는다: 판정이 끝난 뒤 카드가 뜨기 전에 이미 정해진다.
+	Retracted(ply int, usi string, v intervene.Verdict, e explain.Result)
 
 	// Finished 는 대국이 끝날 때 한 번. 끝나지 않고 연결이 끊기면 오지 않는다 —
 	// 그 경우를 어떻게 남길지는 구현이 정한다.

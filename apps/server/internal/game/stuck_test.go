@@ -176,7 +176,7 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 		}
 
 		if blunder {
-			_, _, line := refutationLine(shogi.StartSFEN, next, after.PV, RefutationPlies)
+			line := refutationLine(shogi.StartSFEN, next, after.PV, RefutationPlies).line
 			lineLen[len(line)]++
 			if len(line) > 1 && len(lineSamples) < 6 {
 				var ja []string

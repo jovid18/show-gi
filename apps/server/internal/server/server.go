@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
@@ -48,6 +49,12 @@ type Options struct {
 	// Level 은 개입 임계치를 정하는 실력 구간이다. 기록에도 같이 남는다 —
 	// 어느 임계치에서 걸린 개입인지를 모르면 나중에 상수를 흔들어 볼 수 없다.
 	Level intervene.Level
+
+	// Explainer 는 개입 문구를 만든다. nil이면 결정적 문구가 나간다.
+	//
+	// **대국마다 만들지 않는다**(NewOpponent 와 다른 점이다). 캐시와 HTTP 클라이언트를
+	// 들고 있어서 대국 사이에 공유되는 것이 이득이고, 대국별 상태가 없다.
+	Explainer explain.Explainer
 }
 
 // Handler 는 라우팅만 조립한다. 테스트가 서버를 띄우지 않고 이걸 그대로 쓴다.

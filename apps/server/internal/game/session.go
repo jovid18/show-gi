@@ -14,6 +14,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
@@ -112,6 +113,13 @@ type Judgement struct {
 	SenteCpBefore int
 	SenteCpAfter  int
 	HasEvals      bool
+
+	// Facts 는 설명 계층이 문장으로 바꿀 사실들이다. 개입이 안 걸렸으면 비어 있다.
+	//
+	// **판정의 출력이지 입력이 아니다.** 무엇을 말해도 되는지가 카테고리에 달려 있어서
+	// (explain.Facts.used) 카테고리가 정해진 뒤에야 닫힌다. 그리고 여기 실리는 것은 이미
+	// 결정적으로 구해진 사실뿐이라, 설명이 판을 다시 읽는 일이 없다.
+	Facts explain.Facts
 
 	// BestUSI 는 착수 **전** 국면의 최선수다. 판정하면서 어차피 손에 들어온 값이고
 	// 추가 탐색이 없다.
@@ -249,6 +257,11 @@ type Config struct {
 	Analyst Analyst
 	// Recorder 가 nil이면 기록하지 않는다. 대국은 그대로 된다.
 	Recorder Recorder
+	// Explainer 가 nil이면 결정적 문구가 그대로 나간다 — `explain.Render` 와 같은 문장이다.
+	//
+	// **비어 있어도 카드가 완성된다**는 것이 이 자리의 규약이다. LLM은 문장의 품질을 올리는
+	// 층이지 제품의 부품이 아니고, 그래서 키가 없어도 라우터가 죽어도 대국이 그대로 선다.
+	Explainer explain.Explainer
 	// ObservePlies 는 개입하지 않는 초반 구간이다. **기본값은 0 — 첫 수부터 판정한다.**
 	//
 	// 원래 20수를 비워뒀는데 그건 「오프닝의 다양성을 인정한다」를 수 번호로 잘못 옮긴
@@ -302,7 +315,9 @@ type judgeResult struct {
 	gen       int
 	judgement Judgement
 	move      Move
-	err       error
+	// explanation 은 카드에 나갈 문장이다. 개입이 걸렸을 때만 채워진다.
+	explanation explain.Result
+	err         error
 }
 
 // Session 은 대국 하나다. 모든 메서드는 안전하게 동시 호출할 수 있다 —
@@ -511,6 +526,7 @@ func (st *state) startJudging(ctx context.Context, judgeDone chan judgeResult) b
 
 	gen := st.judgeGen
 	analyst := st.cfg.Analyst
+	explainer := st.cfg.Explainer
 	start := st.start
 	moves := append([]string(nil), st.usis...)
 	played := st.moves[len(st.moves)-1]
@@ -518,12 +534,33 @@ func (st *state) startJudging(ctx context.Context, judgeDone chan judgeResult) b
 
 	go func() {
 		j, err := analyst.Judge(ctx, start, moves, ply)
+
+		// **문장도 여기서 만든다.** 세션 goroutine 밖이라는 조건이 판정과 똑같고, 무엇보다
+		// 카드가 뜨기 **전**에 문장이 손에 들어와야 한다 — 나중에 올려 보내 갈아끼우면
+		// 플레이어가 읽는 도중에 글자가 바뀐다. 대신 이 시간이 카드 지연에 더해지므로
+		// explain 쪽이 시한을 걸고, 넘기면 결정적 문구로 간다(explain.Deadline).
+		var e explain.Result
+		if err == nil && j.Verdict.Kind == intervene.KindBlunder {
+			e = describe(ctx, explainer, j.Facts)
+		}
+
 		select {
-		case judgeDone <- judgeResult{gen: gen, judgement: j, move: played, err: err}:
+		case judgeDone <- judgeResult{gen: gen, judgement: j, move: played, explanation: e, err: err}:
 		case <-ctx.Done():
 		}
 	}()
 	return true
+}
+
+// describe 는 사실을 문장으로 바꾼다. Explainer 가 없으면 결정적 문구를 쓴다.
+//
+// nil 처리를 한 곳에 모아 두는 이유는 **문장이 비는 경로를 만들지 않기 위해서**다.
+// 부르는 쪽마다 nil을 보면 그중 하나가 언젠가 빈 문자열을 그대로 카드에 싣는다.
+func describe(ctx context.Context, e explain.Explainer, f explain.Facts) explain.Result {
+	if e == nil {
+		return explain.Result{Body: explain.Render(f), Tier: explain.TierTemplate}
+	}
+	return e.Explain(ctx, f)
 }
 
 // applyVerdict 는 판정 결과를 반영한다. 걸렸으면 **되무른다.**
@@ -570,7 +607,7 @@ func (st *state) rollback(r judgeResult) {
 	// **물러진 수는 여기서만 남는다.** 기보에는 안 들어가므로, 이 한 줄을 안 쓰면
 	// 개입에 오염되지 않은 유일한 실력 신호가 그대로 사라진다(01-core.md §5).
 	if st.cfg.Recorder != nil {
-		st.cfg.Recorder.Retracted(len(st.usis)+1, r.move.USI, r.judgement.Verdict)
+		st.cfg.Recorder.Retracted(len(st.usis)+1, r.move.USI, r.judgement.Verdict, r.explanation)
 	}
 
 	st.stuck++
@@ -584,43 +621,18 @@ func (st *state) rollback(r judgeResult) {
 		RetractedJa:     r.move.Ja,
 		DeltaWin:        v.DeltaWin,
 		LostMate:        v.LostMate,
-		Message:         interventionMessage(v),
+		Message:         r.explanation.Body,
 		RetractedSFEN:   r.judgement.RetractedSFEN,
 		RetractedChecks: r.judgement.RetractedChecks,
 		Refutation:      r.judgement.Refutation,
 	}
 }
 
-// categoryMessages 는 카테고리별 일본어 문구다.
+// 카테고리별 문구는 `internal/explain` 이 갖는다.
 //
-// **최선수를 말하지 않는다**(§1). 「왜 나쁜가」까지이고, 어느 수를 뒀어야 했는지는
-// 알려주지 않는다 — 짚어주는 순간 플레이어는 생각을 멈춘다. 그래서 어느 문구도
-// 수를 짚지 않고 **무엇을 보라**까지만 말한다.
-//
-// LLM이 붙기 전까지의 고정 문구다. 판단은 여기까지 이미 끝나 있고, LLM은 이 사실을
-// 그 사람의 수준에 맞는 문장으로 바꾸는 일만 하게 된다(D5).
-var categoryMessages = map[intervene.Category]string{
-	intervene.CategoryMissedMate:  "詰みがありました。今の手で逃してしまいます。",
-	intervene.CategoryHangsPiece:  "その駒は取り返せない場所に置かれています。相手の利きを確かめてみてください。",
-	intervene.CategoryShallowTrap: "一手だけ見ると得に見えますが、その先で形勢が入れ替わります。",
-	// **잡는 것도 가는 곳도 맞았다고 먼저 말한다.** 여기서 「その手は」로 시작하면
-	// 플레이어는 이동 자체를 의심하고, 실제로 그렇게 세 수를 헤맸다(08-playtest.md §8).
-	// 그리고 놓친 규칙을 한 줄 붙인다 — 敵陣에서 **나오는** 수도 成れる 쪽이다.
-	intervene.CategoryUnpromoted:    "その一手で合っていますが、成っていません。敵陣から出る手も成れます。",
-	intervene.CategoryGreedyCapture: "駒は取れますが、払う代償のほうが大きくなります。",
-	intervene.CategoryIdleCheck:     "王手はかかりますが続きがなく、手番を渡すだけになります。",
-	intervene.CategoryKingExposed:   "自玉のまわりが手薄になり、相手の攻めが届きます。",
-}
-
-// interventionMessage 는 화면에 나갈 일본어 문구다.
-func interventionMessage(v intervene.Verdict) string {
-	if m, ok := categoryMessages[v.Category]; ok {
-		return m
-	}
-	// 미분류. **틀린 이유를 지어내지 않는다** — 형세가 나빠졌다는 것만은 확실하고,
-	// 그 이상은 모르므로 그 이상 말하지 않는다.
-	return "その手は形勢を大きく損ねます。もう一度考えてみてください。"
-}
+// 여기 있던 map을 옮긴 것이다. 문장을 만드는 일이 세션 상태머신의 일이 아니고, 무엇보다
+// **같은 사실에서 결정적 문구와 LLM 문장이 갈라져 나와야** 하기 때문이다 — 두 벌로 두면
+// LLM이 없을 때와 있을 때 담기는 정보가 달라진다.
 
 // apply 는 검증이 끝난 수를 반영한다. 표기는 착수 전 국면에서 만들어야 한다.
 func (st *state) apply(m shogi.Move, by Side) {

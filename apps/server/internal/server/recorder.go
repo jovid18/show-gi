@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
@@ -38,6 +39,7 @@ type recordEvent struct {
 	by        game.Side
 	cp        int
 	verdict   intervene.Verdict
+	explained explain.Result
 	status    game.Status
 	winner    game.Side
 }
@@ -79,8 +81,8 @@ func (r *dbRecorder) Evaluated(ply int, senteCp int) {
 	r.send(recordEvent{kind: evEvaluated, ply: ply, cp: senteCp})
 }
 
-func (r *dbRecorder) Retracted(ply int, usi string, v intervene.Verdict) {
-	r.send(recordEvent{kind: evRetracted, ply: ply, usi: usi, verdict: v})
+func (r *dbRecorder) Retracted(ply int, usi string, v intervene.Verdict, e explain.Result) {
+	r.send(recordEvent{kind: evRetracted, ply: ply, usi: usi, verdict: v, explained: e})
 }
 
 func (r *dbRecorder) Finished(status game.Status, winner game.Side) {
@@ -139,6 +141,8 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 				DeltaWin:     ev.verdict.DeltaWin,
 				LevelBucket:  levelBucket(level),
 				RetractedUSI: ev.usi,
+				ExplainTier:  explainTier(ev.explained),
+				CostYen:      ev.explained.CostYen,
 			}); err != nil {
 				log.Printf("game record: intervention %d: %v", ev.ply, err)
 			}
@@ -194,6 +198,19 @@ func resultOf(status game.Status, winner game.Side) store.GameResult {
 	default:
 		return store.ResultAbandoned
 	}
+}
+
+// explainTier 는 계층을 DB의 어휘로 옮긴다.
+//
+// **LLM을 안 거쳤으면 nil(=NULL)이다.** `explain.TierTemplate` 을 그대로 -1로 적으면
+// 「0=캐시 히트」와 같은 칸에서 음수가 섞이고, 무엇보다 그 둘의 뜻이 정반대다 —
+// 히트는 부를 것을 아껴서 0엔이고 NULL은 애초에 부르지 않은 것이다.
+func explainTier(e explain.Result) *int {
+	if e.Tier < 0 {
+		return nil
+	}
+	t := e.Tier
+	return &t
 }
 
 func levelBucket(l intervene.Level) string {

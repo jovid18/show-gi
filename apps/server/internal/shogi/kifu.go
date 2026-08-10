@@ -18,6 +18,12 @@ var kanjiPiece = map[PieceType]string{
 
 var kanjiRank = [...]string{"", "一", "二", "三", "四", "五", "六", "七", "八", "九"}
 
+// PieceJa 는 駒 종류의 한자다 — 「銀」「成銀」「と」.
+//
+// 개입 문구가 駒를 이름으로 부를 때 쓴다. **棋譜와 같은 표를 본다**: 카드가 「▲8四銀不成」
+// 이라고 적어놓고 문장이 그 駒를 다른 이름으로 부르면 초심자는 둘이 같은 것인 줄 모른다.
+func PieceJa(t PieceType) string { return kanjiPiece[t] }
+
 // squareJa 는 「2四」 형식으로 칸을 적는다.
 func squareJa(sq int) string {
 	return fmt.Sprintf("%d%s", FileOf(sq), kanjiRank[RankOf(sq)])
