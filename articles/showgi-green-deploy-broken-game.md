@@ -24,7 +24,7 @@ https://show-gi.com/ws/game  503  {"error":"engine_unavailable"}
 
 同じ設定値が「イメージの中」と「オーケストレータの中」の二箇所にあると、三つのことが同時に起こります。
 
-- どちらが勝つかを覚えていないとコードが読めない
+- どちらが勝つかを知らないと、両方を読んでも結論が出ない
 - 片方だけ直しても直らない
 - そして **何のエラーも出ない**
 
@@ -65,7 +65,7 @@ func startEngines() *usi.Pool {
 
 ## 2. コンテナの環境変数はどこから来るのか
 
-ここが本題です。ECS の話に入る前に、Docker の一般則から確認します。
+ここが本題です。まず経路を全部並べて、そのあとで優先順位を見ます。
 
 ### 2.1 経路は四つある
 
@@ -106,9 +106,9 @@ ENV ENGINE_CMD=/opt/engine/run
 CMD ["sh", "-c", "echo ENGINE_CMD=$ENGINE_CMD"]
 EOF
 
-docker run --rm envdemo                            # ENGINE_CMD=/opt/engine/run
+docker run --rm envdemo                                # ENGINE_CMD=/opt/engine/run
 docker run --rm -e ENGINE_CMD=fairy-stockfish envdemo  # ENGINE_CMD=fairy-stockfish
-docker run --rm -e ENGINE_CMD= envdemo             # ENGINE_CMD=
+docker run --rm -e ENGINE_CMD= envdemo                 # ENGINE_CMD=
 ```
 
 三行目が落とし穴です。空文字を渡すと、イメージの `ENV` は**空文字で上書きされます**。消えるのではありません。
@@ -125,14 +125,13 @@ ECS のタスク定義は上書き更新されません。`show-gi:8`、`show-gi
 
 ```
 show-gi:6  ACTIVE
-show-gi:7  ACTIVE
-show-gi:8  ACTIVE   ← Terraform が登録した
-show-gi:9  ACTIVE   ← サービスが今指しているのはここ
+show-gi:7  ACTIVE   ← サービスが今指しているのはここ
+show-gi:8  ACTIVE   ← terraform apply が登録したばかり。まだ誰も使っていない
 ```
 
 したがって Terraform でタスク定義を直しても、それは**新しいリビジョンが一つ増えるだけ**です。サービスが指す先が切り替わらない限り、本番のコンテナは何も変わりません。
 
-### 2.5 デプロイは「今のリビジョン」を引き継ぐ
+### 2.5 デプロイは「最新のリビジョン」を引き継ぐ
 
 ここが最後のピースです。
 
@@ -141,18 +140,18 @@ ECS へのデプロイでよく使われる方法は、**現在のタスク定�
 ```mermaid
 flowchart TD
   M["main にマージ"] --> W["デプロイワークフロー"]
-  W -->|"① describe-task-definition"| R8["リビジョン 8<br/>environment を含む全設定"]
+  W -->|"① describe-task-definition"| R8["最新リビジョン 8<br/>environment を含む全設定"]
   R8 -->|"② イメージのタグだけ差し替え"| R9["リビジョン 9 を登録"]
   R9 --> S["サービスを更新"]
 ```
 
 つまり、**タスク定義に一度書かれた環境変数は、以後のデプロイに自動で引き継がれていきます。** 誰かが明示的に消すまで、永遠に。
 
-2.2 と 2.5 を並べると、今回の状態が説明できます。
+2.2 から 2.5 までを並べると、今回の状態が説明できます。
 
 - イメージの `ENV` を直しても、タスク定義の値が勝つので効かない (2.2)
 - Terraform を直しても、新リビジョンが増えるだけで本番は変わらない (2.4)
-- マージしても、ワークフローが**古いリビジョンを読んで**引き継ぐので変わらない (2.5)
+- マージしても、ワークフローが**`ENGINE_CMD` を持ったままの最新リビジョン**を読んで引き継ぐので変わらない (2.5)
 
 三方向どれからやっても直らない、という状況でした。
 
@@ -232,8 +231,8 @@ writeJSON(w, http.StatusOK, map[string]any{
 そのうえで、**デプロイワークフローがこのフィールドを確認して落ちるように**しました。人間が気づくかどうかに任せません。
 
 ```yaml:.github/workflows/images.yml
-# ECS が「安定」と言っても対局できるかは分からない。ヘルスチェックはエンジンを
-# 触らないので、エンジンが上がらなくてもデプロイは緑で終わる。実際に一度そうなった。
+# ECS が「安定」と言っても対局できるかは分からない。/healthz は engine が false でも
+# 200 を返すので、ALB もワークフローも緑のままだ。実際に一度そうなった。
 - name: Verify the engine came up
   run: |
     body="$(curl -fsS --retry 5 --retry-delay 5 https://show-gi.com/healthz)"
@@ -244,7 +243,7 @@ writeJSON(w, http.StatusOK, map[string]any{
     fi
 ```
 
-ヘルスチェックが「プロセスが生きているか」しか答えないなら、それは**プロセスの死だけを検知する仕掛け**です。プロセスが生きたまま機能を失う設計なら、検知する対象もそちらに合わせる必要があります。
+ヘルスチェックは、**それが見ているものしか守れません。** プロセスが生きたまま機能だけを失う設計を選んだなら、見る対象もそこに合わせる必要があります。
 
 ### 4.2 直す順番が決まっている
 
