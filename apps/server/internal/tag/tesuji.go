@@ -84,18 +84,31 @@ func Fork(pos shogi.Position, sq int, c shogi.Color) (Tag, bool) {
 	if worth < 2 {
 		return Tag{}, false
 	}
-	if hangs(pos, sq, c) {
+	if !forkSurvives(pos, sq, c, mine) {
 		return Tag{}, false
 	}
 	return name, true
 }
 
-// hangs 는 그 칸의 駒를 상대가 공짜로 딸 수 있는지 본다 — 딸 수 있고 되딸 수 없으면 참.
+// forkSurvives 는 **両取り가 실제로 성립하는지**를 본다 — 상대가 그 駒를 치워 버리고
+// 끝낼 수 있으면 성립하지 않는다.
 //
-// タダ捨て 판정과 같은 질문이라 **정의가 갈리면 안 된다**([01-core.md §6](../../../../docs/01-core.md)이
-// 적응형 상대의 자살수 필터에 대해 말하는 것과 같은 이유다). 여기서는 `game` 을 import할
-// 수 없으므로(순환) 같은 방식으로 다시 묻는다 — 利き이 아니라 **합법수**로.
-func hangs(pos shogi.Position, sq int, c shogi.Color) bool {
+// 처음에는 タダ捨て와 같은 질문(「딸 수 있고 되딸 수 없는가」)으로 물었는데 **틀렸다.**
+// 桂로 金 둘을 노렸지만 그 桂가 상대 歩에 잡히는 자리였던 경우가 통과했다 — 내가 되딸
+// 수 있으니 「공짜」는 아니어서다. 그런데 両取り의 성립은 그것과 다른 문제다:
+//
+//	상대 차례가 먼저 온다. 저쪽은 歩로 桂를 따고, 나는 桂(4)를 주고 歩(1)를 얻는다.
+//	되따는 것과 両取り가 성립하는 것은 별개다 — **노린 둘 중 아무것도 못 딴다.**
+//
+// 그래서 조건이 두 갈래다. 상대가 그 駒를 딸 수 있을 때,
+//
+//	싼 駒로 딴다   → 되따도 손해다. 両取り가 아니다
+//	비싼 駒로 딴다 → 되딸 수 있으면 저쪽이 손해라 안 딴다. 両取り는 살아 있다
+//	              → 되딸 수 없으면 그냥 공짜다. 両取り가 아니다
+//
+// **같은 값으로 따는 것도 탈락이다.** 銀으로 銀을 따고 내가 되따면 駒는 본전이지만
+// 노린 둘은 그대로 살아 있어서, 「両取りです」라고 말한 것이 결과적으로 거짓이 된다.
+func forkSurvives(pos shogi.Position, sq int, c shogi.Color, mine int) bool {
 	after := pos
 	after.Turn = c.Other()
 
@@ -103,16 +116,27 @@ func hangs(pos shogi.Position, sq int, c shogi.Color) bool {
 		if int(m.To) != sq {
 			continue
 		}
-		// 딴 뒤에 내가 되딸 수 있으면 공짜가 아니다.
+		taker := shogi.PieceValue(after.Board[m.From].Type())
+		if m.IsDrop() {
+			taker = shogi.PieceValue(m.Drop)
+		}
+		if taker <= mine {
+			return false // 싸거나 같은 駒로 치워진다 — 노린 둘이 다 살아남는다
+		}
+		// 비싼 駒로 딴다. 되딸 수 없으면 공짜로 잃는 것이라 이것도 아니다.
 		next := after.Apply(m)
+		recapture := false
 		for _, back := range next.LegalMoves() {
 			if int(back.To) == sq {
-				return false
+				recapture = true
+				break
 			}
 		}
-		return true
+		if !recapture {
+			return false
+		}
 	}
-	return false
+	return true
 }
 
 // FindForks 는 그 색이 지금 걸고 있는 両取り 전부를 낸다.

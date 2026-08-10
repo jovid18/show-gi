@@ -74,8 +74,8 @@ func TestAForkerThatHangsIsNotATesuji(t *testing.T) {
 	// 5五角이 3三金·7三金을 노리는데, 5四에 後手 歩가 있어 角을 공짜로 딴다.
 	pos := forkBoard(t, "8k/9/2g3g2/4p4/4B4/9/9/9/8K b - 1")
 
-	if !hangs(pos, shogi.SquareOf(5, 5), shogi.Black) {
-		t.Fatal("전제가 깨졌다: 5五의 角이 공짜로 잡히지 않는다")
+	if forkSurvives(pos, shogi.SquareOf(5, 5), shogi.Black, shogi.PieceValue(shogi.Bishop)) {
+		t.Fatal("전제가 깨졌다: 5五의 角이 치워지지 않는다")
 	}
 	if got, ok := Fork(pos, shogi.SquareOf(5, 5), shogi.Black); ok {
 		t.Errorf("공짜로 잡히는 角인데 %s 가 떴다", got.Code)
@@ -126,5 +126,52 @@ func TestFindForksScansTheBoardWithoutDuplicates(t *testing.T) {
 	}
 	if none := FindForks(shogi.StartPosition(), shogi.Black); len(none) != 0 {
 		t.Errorf("初期配置에 両取り가 있다고 한다: %v", codes(none))
+	}
+}
+
+// **사람이 짚은 구멍이다.** 桂로 金 둘을 노렸는데 그 桂가 상대 歩에 잡히는 자리였다.
+//
+// 처음 판정은 이것을 **통과시켰다** — 내가 되딸 수 있으니 「공짜」가 아니어서다.
+// 그런데 상대 차례가 먼저 오므로 저쪽은 歩로 桂를 따고, 나는 桂(4)를 주고 歩(1)를
+// 얻으며 **노린 金 둘은 그대로 살아남는다.** 되따는 것과 両取り가 성립하는 것은 별개다.
+func TestAForkTakenByACheaperPieceIsNotAFork(t *testing.T) {
+	// 4三金·6三金을 5五桂가 노린다. 5四에 後手 歩가 있어 桂를 딸 수 있고,
+	// 5九에 先手 香를 둬서 **되딸 수 있게** 만든다 — 옛 판정이 통과했던 조건이다.
+	//
+	// 香를 5三에 두려 했다가 틀렸다. 先手 香는 위로만 가므로 5三에서 5五를 되딸 수 없다.
+	pos := forkBoard(t, "8k/9/3g1g3/4p4/4N4/9/9/9/4L3K b - 1")
+
+	sq := shogi.SquareOf(5, 5)
+	if _, ok := Fork(pos, sq, shogi.Black); ok {
+		t.Error("歩에 잡히는 桂인데 両取り로 떴다")
+	}
+
+	// 되딸 수 있다는 전제를 못 박는다. 이것이 거짓이면 위 테스트가 다른 이유로 통과한다.
+	after := pos
+	after.Turn = shogi.White
+	took := false
+	for _, m := range after.LegalMoves() {
+		if int(m.To) == sq && after.Board[m.From].Type() == shogi.Pawn {
+			next := after.Apply(m)
+			for _, back := range next.LegalMoves() {
+				if int(back.To) == sq {
+					took = true
+				}
+			}
+		}
+	}
+	if !took {
+		t.Fatal("전제가 깨졌다: 歩가 桂를 따고 내가 되따는 경로가 없다")
+	}
+}
+
+// 비싼 駒로만 치울 수 있고 되딸 수 있으면 両取り는 살아 있다. 저쪽이 손해라서 안 딴다.
+func TestAForkOnlyTakeableAtALossSurvives(t *testing.T) {
+	// 5五桂를 5四金이 딸 수 있는데(金 6 > 桂 4), 5九香가 되딴다.
+	// 6三金은 5五에 닿지 않는다 — 金은 한 칸이다.
+	pos := forkBoard(t, "8k/9/3g1g3/4g4/4N4/9/9/9/4L3K b - 1")
+
+	if _, ok := Fork(pos, shogi.SquareOf(5, 5), shogi.Black); !ok {
+		t.Error("비싼 駒로만 치울 수 있는 桂인데 両取り가 아니라고 한다")
 	}
 }
