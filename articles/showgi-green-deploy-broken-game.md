@@ -281,7 +281,7 @@ resource "aws_ecs_task_definition" "app" {
 
 実際 apply は `1 destroyed` と表示しましたが、古いリビジョンは ACTIVE のまま残っていました。
 
-ただし、これを「`skip_destroy` が全部守ってくれた」と読むのは間違いです。**Terraform が deregister できるのは、自分の state に入っている一つだけ**です。残っていたリビジョンはデプロイワークフローが Terraform の外で積んだもので、もともと Terraform の管理外でした。
+ただし、これを「`skip_destroy` が全部守ってくれた」と読むのは間違いです。**Terraform が deregister できるのは、自分の state に入っている一つだけ**です。残っていたリビジョンは state の中にいないものでした。デプロイワークフローが Terraform の外でリビジョンを積み続ける構成なので、そもそも大半が管理の外にあります。
 
 `skip_destroy` が守るのは、その「自分の一つ」がロールバック先になっている場合です。そして Terraform の外でリビジョンが積み上がる構成である以上、**ここで整理しきることは最初からできません。**
 
