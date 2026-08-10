@@ -133,6 +133,8 @@ show-gi:7  ACTIVE   ← サービスが今指しているのはここ
 show-gi:8  ACTIVE   ← terraform apply が登録したばかり。まだ誰も使っていない
 ```
 
+これは作り話ではなく、事故を直している最中に実際にあった状態です。
+
 したがって Terraform でタスク定義を直しても、それは**新しいリビジョンが一つ増えるだけ**です。サービスが指す先が切り替わらない限り、本番のコンテナは何も変わりません。
 
 ### 2.5 デプロイは「最新のリビジョン」を引き継ぐ
@@ -150,6 +152,17 @@ flowchart TD
 ```
 
 つまり、**タスク定義に一度書かれた環境変数は、以後のデプロイに自動で引き継がれていきます。** 誰かが明示的に消すまで、永遠に。
+
+その履歴が、いまも AWS にそのまま残っています。`registeredBy` を見れば誰が登録したかまで分かります。
+
+```
+rev 6   GitHubActions   ENGINE_CMD=fairy-stockfish   イメージ:差し替え前
+rev 7   GitHubActions   ENGINE_CMD=fairy-stockfish   イメージ:やねうら王   ← 壊れたデプロイ
+rev 8   show-gi-operator (terraform)   environment: []                    ← ここで消した
+rev 9   GitHubActions   environment: []                                   ← 消えた状態を引き継いだ
+```
+
+rev 7 までは、ワークフローが登録するたびに `fairy-stockfish` が黙って運ばれています。**rev 6 と rev 7 の違いはイメージだけ**です。環境変数は前のリビジョンから来ているので、イメージを差し替えても付いてきました。
 
 2.2 から 2.5 までを並べると、今回の状態が説明できます。
 
@@ -261,7 +274,17 @@ terraform -chdir=infra apply   # ① ENGINE_CMD を持たない新リビジョ�
 # ② そのあとマージ。ワークフローが①のリビジョンを読んでデプロイする
 ```
 
-順番を逆にすると、ワークフローが古いリビジョンを読んで**同じように壊れたものを配り直します**。直すにはもう一度 apply して、さらにワークフローを再実行することになり、三手かかります。
+実際の記録がこの順番です。
+
+```
+15:11  ワークフローが rev 7 を登録   ← エンジンを差し替えたデプロイ。ここで壊れた
+15:39  terraform apply → rev 8      ← environment を空にした
+15:45  ワークフローが rev 9 を登録   ← rev 8 を読んで引き継いだ。直った
+```
+
+順番を逆にすると、ワークフローが `ENGINE_CMD` を持ったままのリビジョンを読んで**同じように壊れたものを配り直します**。直すにはもう一度 apply して、さらにワークフローを再実行することになり、三手かかります。
+
+**apply だけで終わらない**のは、もう一つ理由があります。rev 8 のイメージタグは `latest` でした。Terraform 側の `image_tag` は最初の作成にしか使わない値で、実際のイメージはワークフローがコミット SHA で差し替えます。rev 8 に直接サービスを向けても、狙ったイメージにはなりません。
 
 ### 4.3 古いリビジョンを消させない
 
@@ -279,11 +302,18 @@ resource "aws_ecs_task_definition" "app" {
 - 手順書のロールバック手順が**空振りする。** 戻り先を探す `aws ecs list-task-definitions` は**既定で ACTIVE しか返さない**ので、deregister された瞬間にリストから消える
 - apply 直後の一瞬、サービスが指しているリビジョンが INACTIVE になり、その間にタスクが死ぬと**復帰できない**
 
-実際 apply は `1 destroyed` と表示しましたが、古いリビジョンは ACTIVE のまま残っていました。
+apply は `1 destroyed` と表示しました。**その一つは本当に消えていました。**
 
-ただし、これを「`skip_destroy` が全部守ってくれた」と読むのは間違いです。**Terraform が deregister できるのは、自分の state に入っている一つだけ**です。残っていたリビジョンは state の中にいないものでした。デプロイワークフローが Terraform の外でリビジョンを積み続ける構成なので、そもそも大半が管理の外にあります。
+```sh
+aws ecs list-task-definitions --family-prefix show-gi --status INACTIVE
+# show-gi:1
+```
 
-`skip_destroy` が守るのは、その「自分の一つ」がロールバック先になっている場合です。そして Terraform の外でリビジョンが積み上がる構成である以上、**ここで整理しきることは最初からできません。**
+INACTIVE になった rev 1 は、**`skip_destroy` を書き足したその apply の時点で state に入っていた**リビジョンです。プロバイダには「最初の apply では `skip_destroy` が効かない」という報告があり[^skipdestroy]、この観測はそれと一致します。**この設定は、書いた次の apply から効く**と考えておくのが安全です。
+
+[^skipdestroy]: [hashicorp/terraform-provider-aws#24791](https://github.com/hashicorp/terraform-provider-aws/issues/24791)
+
+そして rev 2 以降はすべて ACTIVE のまま残っています。これは `skip_destroy` の手柄というより、**Terraform が deregister できるのは自分の state にある一つだけ**だからです。ワークフローが Terraform の外で積んだリビジョンには、最初から手が届きません。
 
 ## 5. まとめ
 
