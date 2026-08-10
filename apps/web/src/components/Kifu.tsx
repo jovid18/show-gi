@@ -13,11 +13,22 @@ interface KifuProps {
  * 어긋났을 때 어느 쪽이 맞는지 알 수 없다.
  */
 export function Kifu({ moves }: KifuProps) {
-  const endRef = useRef<HTMLLIElement>(null);
+  const listRef = useRef<HTMLOListElement>(null);
   const [copied, setCopied] = useState(false);
 
+  /**
+   * 새 수가 오면 목록을 끝까지 내린다.
+   *
+   * **`scrollIntoView` 를 쓰지 않는다.** 그쪽은 「그 요소가 보이게」가 목적이라, 목록이
+   * 아직 넘치지 않으면 **페이지를** 스크롤한다. 좁은 화면에서는 棋譜가 판 아래 화면 밖에
+   * 있으므로 **매 수마다 페이지가 아래로 끌려가 판이 시야에서 사라졌다.**
+   *
+   * 목록의 `scrollTop` 을 직접 움직이면 페이지는 건드리지 않는다 — 판이 있던 자리에
+   * 그대로 있고, 최신 수는 목록 안에서 보인다.
+   */
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'nearest' });
+    const list = listRef.current;
+    if (list) list.scrollTop = list.scrollHeight;
   }, [moves.length]);
 
   /**
@@ -54,14 +65,9 @@ export function Kifu({ moves }: KifuProps) {
       {moves.length === 0 ? (
         <p className="kifu-empty">最初の一手を指してください。</p>
       ) : (
-        <ol className="kifu-list">
+        <ol className="kifu-list" ref={listRef}>
           {moves.map((move, i) => (
-            <li
-              key={`${i}-${move.usi}`}
-              className="kifu-row"
-              data-by={move.by}
-              ref={i === moves.length - 1 ? endRef : undefined}
-            >
+            <li key={`${i}-${move.usi}`} className="kifu-row" data-by={move.by}>
               <span className="kifu-number">{i + 1}</span>
               <span className="kifu-move">{move.ja}</span>
             </li>
