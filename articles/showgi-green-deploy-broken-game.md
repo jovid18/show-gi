@@ -276,6 +276,9 @@ resource "aws_ecs_task_definition" "app" {
 
 ---
 
-検証は 2026-08-09 に発生した事象を、2026-08-10 時点のコードで確認したものです。この記事のコードは以下のコミット時点のものを、コメントだけ日本語に訳して引用しています。
+検証は 2026-08-09 に発生した事象を、2026-08-10 時点のコードで確認したものです。本文で引用したコードは、以下のコミット時点のものです。
 
-https://github.com/jovid18/show-gi/blob/0b4bc30ab62b8a3ae10e57950eeecaf0a48e0919/infra/ecs.tf#L163-L174
+- [`infra/ecs.tf` — タスク定義の `environment`](https://github.com/jovid18/show-gi/blob/0b4bc30ab62b8a3ae10e57950eeecaf0a48e0919/infra/ecs.tf#L163-L174)
+- [`apps/server/cmd/api/main.go` — エンジンが無くても起動する](https://github.com/jovid18/show-gi/blob/0b4bc30ab62b8a3ae10e57950eeecaf0a48e0919/apps/server/cmd/api/main.go#L95-L106)
+- [`apps/server/internal/server/server.go` — `/healthz`](https://github.com/jovid18/show-gi/blob/0b4bc30ab62b8a3ae10e57950eeecaf0a48e0919/apps/server/internal/server/server.go#L57-L77)
+- [`.github/workflows/images.yml` — デプロイ後にエンジンを確認する](https://github.com/jovid18/show-gi/blob/0b4bc30ab62b8a3ae10e57950eeecaf0a48e0919/.github/workflows/images.yml#L120-L130)
