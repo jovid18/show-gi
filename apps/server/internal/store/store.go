@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -198,6 +199,17 @@ type Intervention struct {
 	LevelBucket string
 	// RetractedUSI 는 개입이 막지 않았다면 실제로 뒀을 수다.
 	RetractedUSI string
+
+	// ExplainTier 는 설명이 어느 계층에서 나왔나(0=캐시 1=소형 2=대형)다.
+	//
+	// **nil이면 NULL로 들어간다** — LLM을 아예 안 거친 것이다. 0으로 적으면 「캐시 히트」와
+	// 섞이는데, 그 둘은 「호출을 아꼈다」와 「붙이지 않았다」로 뜻이 정반대다.
+	ExplainTier *int
+	// CostYen 은 그 설명 하나에 든 돈이다. 캐시 히트와 템플릿은 0이다.
+	//
+	// 칸이 numeric(10,4) 라 **0.0001엔 미만은 0으로 떨어진다.** 소형 모델 한 번이 그보다
+	// 싸질 수 있으므로, 합계를 볼 때는 이 칸이 아니라 라우터의 analytics 를 본다.
+	CostYen float64
 }
 
 // InsertIntervention 은 개입 하나를 남긴다.
@@ -222,10 +234,53 @@ func (s *Store) InsertIntervention(ctx context.Context, gameID int64, iv Interve
 	d := iv.DeltaWin
 	arg.DeltaWin = &d
 
+	if iv.ExplainTier != nil {
+		t := int16(*iv.ExplainTier)
+		arg.ExplainTier = &t
+	}
+	if err := arg.CostYen.Scan(strconv.FormatFloat(iv.CostYen, 'f', 4, 64)); err != nil {
+		return fmt.Errorf("insert intervention: cost %v: %w", iv.CostYen, err)
+	}
+
 	if err := s.q.InsertIntervention(ctx, arg); err != nil {
 		return fmt.Errorf("insert intervention: %w", err)
 	}
 	return nil
+}
+
+// CachedExplanation 은 설명 캐시(Tier 0)를 찾는다. **찾으면서 히트를 센다.**
+//
+// 없는 키는 에러가 아니다 — 그것이 정상 경로의 절반이고, 부르는 쪽은 그때 LLM으로 내려간다.
+func (s *Store) CachedExplanation(ctx context.Context, key string) (string, bool, error) {
+	body, err := s.q.CachedExplanation(ctx, key)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("cached explanation: %w", err)
+	}
+	return body, true, nil
+}
+
+// SaveExplanation 은 만든 문장을 캐시에 넣는다. 같은 키가 있으면 아무 일도 안 한다.
+func (s *Store) SaveExplanation(ctx context.Context, key, body, model string) error {
+	arg := db.SaveExplanationParams{Key: key, Body: body}
+	if model != "" {
+		arg.Model = &model
+	}
+	if err := s.q.SaveExplanation(ctx, arg); err != nil {
+		return fmt.Errorf("save explanation: %w", err)
+	}
+	return nil
+}
+
+// ExplainCacheStats 는 (항목 수, 누적 히트)다. 발표의 캐시 히트율이 여기서 나온다.
+func (s *Store) ExplainCacheStats(ctx context.Context) (entries, hits int64, err error) {
+	row, err := s.q.ExplainCacheStats(ctx)
+	if err != nil {
+		return 0, 0, fmt.Errorf("explain cache stats: %w", err)
+	}
+	return row.Entries, row.Hits, nil
 }
 
 // CountGames · CountInterventions 는 기록이 실제로 쌓이는지 확인하는 데 쓴다.

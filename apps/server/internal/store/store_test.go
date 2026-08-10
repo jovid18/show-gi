@@ -308,3 +308,106 @@ func TestSetMoveEvalFillsOnlyTheEval(t *testing.T) {
 		t.Fatalf("행이 생겼다: %d", n)
 	}
 }
+
+// 설명 캐시는 **히트를 세면서** 문장을 준다. 그 숫자가 발표의 캐시 히트율의 분자다.
+//
+// 그리고 **먼저 만들어진 문장을 덮지 않는다.** 같은 사실에 다른 문장이 나오기 시작하면
+// 「같은 실수에는 같은 설명」이 깨지고, 문구를 고쳤을 때 무엇이 달라졌는지도 못 본다.
+func TestExplainCacheCountsHitsAndKeepsTheFirstSentence(t *testing.T) {
+	s := open(t)
+	k := "test/" + t.Name()
+	if _, err := s.pool.Exec(t.Context(), `DELETE FROM explain_cache WHERE key = $1`, k); err != nil {
+		t.Fatalf("이전 실행 정리: %v", err)
+	}
+	t.Cleanup(func() {
+		if _, err := s.pool.Exec(context.Background(), `DELETE FROM explain_cache WHERE key = $1`, k); err != nil {
+			t.Errorf("정리: %v", err)
+		}
+	})
+
+	// 없는 키는 에러가 아니다 — 정상 경로의 절반이다.
+	if _, ok, err := s.CachedExplanation(t.Context(), k); err != nil || ok {
+		t.Fatalf("빈 캐시: ok=%v err=%v", ok, err)
+	}
+
+	const first = "その銀を取れる相手の駒が2枚あります。"
+	if err := s.SaveExplanation(t.Context(), k, first, "tiny-jp"); err != nil {
+		t.Fatalf("SaveExplanation: %v", err)
+	}
+	// 같은 키로 다시 저장해도 덮이지 않는다.
+	if err := s.SaveExplanation(t.Context(), k, "べつの文", "other-model"); err != nil {
+		t.Fatalf("SaveExplanation(2): %v", err)
+	}
+
+	for i := 1; i <= 3; i++ {
+		body, ok, err := s.CachedExplanation(t.Context(), k)
+		if err != nil || !ok {
+			t.Fatalf("%d번째 조회: ok=%v err=%v", i, ok, err)
+		}
+		if body != first {
+			t.Fatalf("%d번째 조회에서 문장이 바뀌었다: %q", i, body)
+		}
+	}
+
+	var hits int
+	var model string
+	row := s.pool.QueryRow(t.Context(), `SELECT hits, model FROM explain_cache WHERE key = $1`, k)
+	if err := row.Scan(&hits, &model); err != nil {
+		t.Fatalf("조회: %v", err)
+	}
+	if hits != 3 {
+		t.Errorf("hits=%d, want 3 — 히트를 세지 않으면 히트율을 못 낸다", hits)
+	}
+	if model != "tiny-jp" {
+		t.Errorf("model=%q — 먼저 만든 문장의 모델이어야 한다", model)
+	}
+}
+
+// 개입 행에 **계층과 비용**이 남는다. 없으면 「1회당 ○엔」을 사후에 낼 수 없다.
+//
+// **LLM을 안 거친 개입은 NULL이다.** 0으로 적으면 「캐시 히트」와 섞이는데, 그 둘은
+// 「호출을 아꼈다」와 「붙이지 않았다」로 뜻이 정반대다.
+func TestInterventionRecordsTierAndCost(t *testing.T) {
+	s := open(t)
+	id := newGame(t, s)
+
+	tier := 2
+	if err := s.InsertIntervention(t.Context(), id, Intervention{
+		Ply: 1, Kind: "blunder", Category: "hangs_piece", DeltaWin: 0.5,
+		LevelBucket: "beginner", RetractedUSI: "8h3c+", ExplainTier: &tier, CostYen: 0.1234,
+	}); err != nil {
+		t.Fatalf("InsertIntervention: %v", err)
+	}
+	if err := s.InsertIntervention(t.Context(), id, Intervention{
+		Ply: 3, Kind: "blunder", Category: "other", DeltaWin: 0.4,
+		LevelBucket: "beginner", RetractedUSI: "2g2f", // 계층 없음 = 템플릿
+	}); err != nil {
+		t.Fatalf("InsertIntervention(템플릿): %v", err)
+	}
+
+	var gotTier *int
+	var gotCost string
+	row := s.pool.QueryRow(t.Context(),
+		`SELECT explain_tier, cost_yen::text FROM interventions WHERE game_id = $1 AND ply = 1`, id)
+	if err := row.Scan(&gotTier, &gotCost); err != nil {
+		t.Fatalf("조회: %v", err)
+	}
+	if gotTier == nil || *gotTier != 2 {
+		t.Errorf("explain_tier=%v, want 2", gotTier)
+	}
+	if gotCost != "0.1234" {
+		t.Errorf("cost_yen=%q, want 0.1234", gotCost)
+	}
+
+	row = s.pool.QueryRow(t.Context(),
+		`SELECT explain_tier, cost_yen::text FROM interventions WHERE game_id = $1 AND ply = 3`, id)
+	if err := row.Scan(&gotTier, &gotCost); err != nil {
+		t.Fatalf("조회(템플릿): %v", err)
+	}
+	if gotTier != nil {
+		t.Errorf("explain_tier=%v — LLM을 안 거쳤으면 NULL이어야 한다", *gotTier)
+	}
+	if gotCost != "0.0000" {
+		t.Errorf("cost_yen=%q, want 0.0000", gotCost)
+	}
+}

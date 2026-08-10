@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/server"
@@ -46,6 +47,8 @@ func main() {
 		opts.Store = st
 	}
 
+	opts.Explainer = startExplainer(opts.Store)
+
 	if pool := startEngines(); pool != nil {
 		defer pool.Close()
 
@@ -71,6 +74,47 @@ func main() {
 	if err := server.Run(ctx, *addr, opts); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// startExplainer 는 개입 문구를 만드는 계층을 세운다.
+//
+// **키가 없으면 결정적 문구만 나가고 대국은 그대로 된다.** 엔진·DB와 같은 판단이다 —
+// 없는 것으로 프로세스를 죽이지 않는다. 지금 프로덕션의 `ORCA_API_KEY` 가 `unset`
+// 자리표시자라(06-status.md §3) 실제로 이 경로로 돈다.
+//
+// st 가 nil이면 캐시가 없다. 그러면 **같은 설명을 매번 다시 산다** — 로그에 한 줄 남긴다.
+func startExplainer(st *store.Store) explain.Explainer {
+	client := explain.NewClient(
+		os.Getenv("ORCA_API_KEY"),
+		os.Getenv("ORCA_BASE_URL"),
+		os.Getenv("ORCA_MODEL_SMALL"),
+		os.Getenv("ORCA_MODEL_LARGE"),
+		envFloat("ORCA_USDJPY", explain.DefaultUSDJPY),
+	)
+	if client == nil {
+		log.Print("ORCA_API_KEY is not set — interventions will use the built-in Japanese templates")
+		return explain.TemplateOnly()
+	}
+	if st == nil {
+		log.Print("explain: no database — every explanation will be generated again (no Tier 0)")
+		return explain.NewLayered(nil, client)
+	}
+	log.Print("explain: OrcaRouter ready, cached explanations come from the database")
+	return explain.NewLayered(st, client)
+}
+
+// envFloat 는 소수 환경변수를 읽는다. 틀린 값은 기본값으로 되돌리고 조용히 넘기지 않는다.
+func envFloat(name string, fallback float64) float64 {
+	v := os.Getenv(name)
+	if v == "" {
+		return fallback
+	}
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil || f <= 0 {
+		log.Printf("%s=%q is not a positive number, using %v", name, v, fallback)
+		return fallback
+	}
+	return f
 }
 
 // openStore 는 DB에 붙는다. 실패하면 nil을 돌려주고 서버는 그냥 뜬다.

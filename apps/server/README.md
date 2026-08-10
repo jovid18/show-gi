@@ -17,6 +17,8 @@ go vet ./... && gofmt -l .      # gofmt 는 출력이 있으면 어긋난 파일
 curl localhost:8080/healthz     # {"ok":true,"engine":true,"db":true}
 ```
 
+`ORCA_API_KEY` 도 같다. 없으면 개입 문구가 **결정적 일본어 템플릿**으로 나가고 나머지는 그대로 돈다 — 그 문구도 사실(利き 매수·잡히는 駒)을 담으므로 화면이 비지 않는다. 기동 로그가 어느 쪽으로 돌고 있는지 한 줄로 말한다. 값은 [.env.example](../../.env.example) 참조.
+
 ## 테스트
 
 세 층이고, **아래로 갈수록 CI에서 안 돈다.**
@@ -63,17 +65,18 @@ sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다
 
 ## 배치
 
-|                      |                                                                |
-| -------------------- | -------------------------------------------------------------- |
-| `cmd/api`            | 플래그·시그널·배선. 로직은 두지 않는다                         |
-| `internal/server`    | HTTP 표면, WebSocket 대국 프로토콜, 프로세스 수명              |
-| `internal/game`      | 대국 세션 상태머신 — **goroutine 1개가 상태를 소유**한다       |
-| `internal/intervene` | 개입 판정. **엔진을 모른다** — 입력이 평가치와 詰み 거리뿐이다 |
-| `internal/shogi`     | 룰 엔진 — SFEN, 합법수, 반칙 검증, 棋譜 표기                   |
-| `internal/usi`       | 엔진 프로세스 풀. MultiPV·깊이별 평가치·詰み 탐색              |
-| `internal/store`     | postgres (pgx + sqlc). `db/` 는 생성물이라 손대지 않는다       |
+|                      |                                                                  |
+| -------------------- | ---------------------------------------------------------------- |
+| `cmd/api`            | 플래그·시그널·배선. 로직은 두지 않는다                           |
+| `internal/server`    | HTTP 표면, WebSocket 대국 프로토콜, 프로세스 수명                |
+| `internal/game`      | 대국 세션 상태머신 — **goroutine 1개가 상태를 소유**한다         |
+| `internal/intervene` | 개입 판정. **엔진을 모른다** — 입력이 평가치와 詰み 거리뿐이다   |
+| `internal/explain`   | 설명 문구. **판단하지 않는다** — 정해진 사실을 문장으로만 바꾼다 |
+| `internal/shogi`     | 룰 엔진 — SFEN, 합법수, 반칙 검증, 棋譜 표기                     |
+| `internal/usi`       | 엔진 프로세스 풀. MultiPV·깊이별 평가치·詰み 탐색                |
+| `internal/store`     | postgres (pgx + sqlc). `db/` 는 생성물이라 손대지 않는다         |
 
-아직 없는 것: `internal/coach`(적응형 상대), `internal/tag`(囲い·전법), `internal/profile`(실력 추정), `internal/llm`(OrcaRouter).
+아직 없는 것: `internal/tag`(囲い·전법), `internal/profile`(실력 추정), `internal/kb`(RAG 코퍼스).
 
 `go.mod`는 레포 루트가 아니라 여기 있다. `apps/web`이 Node 워크스페이스라 루트를 한쪽 언어에 내주지 않으려는 것이고, 대신 Go 명령은 전부 이 디렉터리에서 돌린다.
 

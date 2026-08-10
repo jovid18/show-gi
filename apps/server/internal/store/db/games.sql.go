@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countGames = `-- name: CountGames :one
@@ -73,8 +75,8 @@ func (q *Queries) FinishGame(ctx context.Context, arg FinishGameParams) error {
 }
 
 const insertIntervention = `-- name: InsertIntervention :exec
-INSERT INTO interventions (game_id, ply, kind, category, delta_win, level_bucket, retracted_usi)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO interventions (game_id, ply, kind, category, delta_win, level_bucket, retracted_usi, explain_tier, cost_yen)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `
 
 type InsertInterventionParams struct {
@@ -85,11 +87,17 @@ type InsertInterventionParams struct {
 	DeltaWin     *float64
 	LevelBucket  *string
 	RetractedUsi *string
+	ExplainTier  *int16
+	CostYen      pgtype.Numeric
 }
 
 // **같은 ply에 여러 행이 들어간다.** 한 국면에서 몇 수를 시도하고 전부 물러지는 일이
 // 실제로 있고(docs/06-status.md §17), 그 반복 자체가 기록할 값이다. 그래서
 // (game_id, ply) 는 유니크가 아니다.
+//
+// `explain_tier` 는 **LLM을 안 거쳤으면 NULL** 이다. 0으로 적으면 「캐시 히트」와 구별이
+// 안 되는데, 그 둘은 비용 계측에서 정반대의 뜻이다 — 히트는 아껴서 0엔이고 NULL은 애초에
+// 부르지 않은 것이다(docs/04-llm.md §2).
 func (q *Queries) InsertIntervention(ctx context.Context, arg InsertInterventionParams) error {
 	_, err := q.db.Exec(ctx, insertIntervention,
 		arg.GameID,
@@ -99,6 +107,8 @@ func (q *Queries) InsertIntervention(ctx context.Context, arg InsertIntervention
 		arg.DeltaWin,
 		arg.LevelBucket,
 		arg.RetractedUsi,
+		arg.ExplainTier,
+		arg.CostYen,
 	)
 	return err
 }

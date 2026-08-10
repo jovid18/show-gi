@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -71,10 +72,12 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	// Known 이 false로 남고 카테고리만 other 가 된다. 개입은 그대로 걸린다.
 	// 둔 쪽의 색. 평가치를 先手 관점으로 옮기는 데 쓴다 — 판을 못 읽으면 안 적는다.
 	mover, moverKnown := shogi.Black, false
+	// 설명에 쓸 사실. 판정용과 **같은 자리에서 한 번에** 나온다(moveFacts).
+	var facts explain.Facts
 
 	if pos, m, err := replay(startSFEN, moves); err == nil {
 		mover, moverKnown = pos.Turn, true
-		in.Features = MoveFeatures(pos, m)
+		in.Features, facts = moveFacts(pos, m)
 		in.Features.UnpromotedOnly = UnpromotedOnly(m, best.Best)
 		// 얕은 평가는 **이미 받아 둔 info 라인**에 있다. PvInterval=0 덕에 depth 12
 		// 탐색 한 번이 depth 1~12를 전부 돌려주므로 추가 탐색이 없다(01-core.md §4).
@@ -118,7 +121,14 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		// 이미 손에 든 탐색의 PV가 그대로 「상대는 이렇게 벌한다」다. **추가 탐색이 없고
 		// 분류도 필요 없다** — 카테고리가 이유를 못 대는 3분의 2(06-status.md §17)가
 		// 여기서 설명을 갖는다.
-		j.RetractedSFEN, j.RetractedChecks, j.Refutation = refutationLine(startSFEN, moves, after.PV, RefutationPlies)
+		r := refutationLine(startSFEN, moves, after.PV, RefutationPlies)
+		j.RetractedSFEN, j.RetractedChecks, j.Refutation = r.retractedSFEN, r.checks, r.line
+
+		// 설명이 쓸 사실을 여기서 닫는다. **판정이 끝난 뒤여야 한다** — 무엇을 말해도
+		// 되는지가 카테고리에 달려 있고(explain.Facts.used), 카테고리는 방금 정해졌다.
+		facts.Kind, facts.Category, facts.Level, facts.LostMate = v.Kind, v.Category, a.level, v.LostMate
+		facts.Threatened = r.threatened
+		j.Facts = facts
 	}
 	return j, nil
 }
@@ -150,20 +160,20 @@ const RefutationPlies = 8
 //
 // 표기와 국면을 여기서 만드는 이유도 같다. 화면이 USI에서 다시 만들면 표기가 두 벌이
 // 되고, 국면은 아예 클라이언트에 규칙 엔진을 들이는 일이 된다(06-status.md §6 ④).
-func refutationLine(startSFEN string, moves []string, pv []string, limit int) (string, []Attack, []RefutationMove) {
+func refutationLine(startSFEN string, moves []string, pv []string, limit int) refutation {
 	if len(pv) == 0 || limit <= 0 {
-		return "", nil, nil
+		return refutation{}
 	}
 
 	pos, err := positionAfter(startSFEN, moves)
 	if err != nil {
 		log.Printf("game: could not replay for refutation: %v", err)
-		return "", nil, nil
+		return refutation{}
 	}
-	retracted, retractedChecks := pos.SFEN(), checkLines(pos)
+	out := refutation{retractedSFEN: pos.SFEN(), checks: checkLines(pos)}
 	last, err := shogi.ParseUSIMove(moves[len(moves)-1])
 	if err != nil {
-		return "", nil, nil
+		return refutation{}
 	}
 	// 물러진 수의 도착 칸. 벌하는 수는 대개 그 자리를 되따는 수라 「同」이 여기서 나온다.
 	prevTo := int(last.To)
@@ -187,6 +197,12 @@ func refutationLine(startSFEN string, moves []string, pv []string, limit int) (s
 		step := refutationStep{captureSq: -1}
 		if !m.IsDrop() && !pos.Board[m.To].Empty() {
 			step.captureSq = int(m.To)
+			// **첫 수가 따는 수면 그것이 「무엇을 잃는가」다.** 첫 수는 언제나 상대의
+			// 수이고(판정하는 것은 늘 사람의 수다), 거기서 따이는 것은 내 駒다.
+			// 두 번째 수부터는 내 되따기가 섞여 「내가 무엇을 잃는가」가 아니게 된다.
+			if len(line) == 0 {
+				out.threatened = shogi.PieceJa(pos.Board[m.To].Type())
+			}
 		}
 		mv := RefutationMove{USI: u, Ja: pos.MoveJa(m, prevTo), By: by}
 
@@ -206,9 +222,26 @@ func refutationLine(startSFEN string, moves []string, pv []string, limit int) (s
 		}
 	}
 	if len(line) == 0 {
-		return "", nil, nil
+		return refutation{}
 	}
-	return retracted, retractedChecks, line[:trimRefutation(steps)]
+	out.line = line[:trimRefutation(steps)]
+	return out
+}
+
+// refutation 은 반박 수순 하나와, 그것을 그리고 설명하는 데 필요한 것들이다.
+//
+// 값을 넷이나 돌려주게 되어 묶었다. 묶인 것들의 공통점은 **PV를 한 번 재생하면서 공짜로
+// 알게 되는 것**이라는 점이다 — 어느 하나를 위해 다시 재생하는 코드가 생기면 그때부터
+// 둘이 어긋날 수 있다.
+type refutation struct {
+	// retractedSFEN 은 물러진 수를 둔 직후의 국면. 수순을 넘겨 볼 때의 첫 장면이다.
+	retractedSFEN string
+	// checks 는 그 국면에서 玉을 잡으러 오는 말들.
+	checks []Attack
+	// line 은 「상대는 이렇게 벌한다」.
+	line []RefutationMove
+	// threatened 는 그 수순의 **첫 수로 상대가 딸 수 있는 내 駒**다. 없으면 빈 값.
+	threatened string
 }
 
 // checkLines 는 지금 수번인 쪽의 玉을 잡으러 오는 말들을 판 위의 선으로 옮긴다.

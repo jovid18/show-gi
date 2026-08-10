@@ -3,6 +3,7 @@ package game
 import (
 	"errors"
 
+	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
@@ -54,19 +55,36 @@ func UnpromotedOnly(played shogi.Move, bestUSI string) bool {
 //
 // 엔진에서 오는 두 값(얕은 평가)은 부르는 쪽이 채운다. 이 함수는 룰 엔진만 쓴다.
 func MoveFeatures(before shogi.Position, m shogi.Move) intervene.Features {
+	f, _ := moveFacts(before, m)
+	return f
+}
+
+// moveFacts 는 판정에 쓸 사실과 **설명에 쓸 사실을 한 번에** 뽑는다.
+//
+// 갈라서 두 번 세면 조용히 어긋난다 — 카테고리는 タダ捨て가 아니라고 판정했는데 문장은
+// 「取れる相手の駒が2枚あります」라고 말하는 식이다. 같은 것을 두 곳에서 세는 것이 그
+// 어긋남의 원인이므로 **세는 자리를 하나로 둔다.**
+//
+// 둘의 성격은 다르다. 판정용은 임계치와 견줄 **값**이고(歩 1, 飛 10), 설명용은 화면에 그대로
+// 나갈 **이름과 매수**다. 그래서 타입이 갈려 있고, 여기서만 만난다.
+func moveFacts(before shogi.Position, m shogi.Move) (intervene.Features, explain.Facts) {
 	me := before.Turn
 	to := int(m.To)
 
 	f := intervene.Features{Known: true}
+	d := explain.Facts{Known: true}
 
 	if cap := before.Board[to]; !cap.Empty() && cap.Color() != me {
 		f.CapturedValue = pieceValue[cap.Type()]
+		d.Captured = shogi.PieceJa(cap.Type())
 	}
 
 	after := before.Apply(m)
 
 	f.MovedValue = pieceValue[after.Board[to].Type()]
 	f.GivesCheck = after.InCheck(me.Other())
+	// 성했으면 성한 이름이다. 판이 그렇게 그리고 棋譜도 그렇게 적는다.
+	d.MovedPiece = shogi.PieceJa(after.Board[to].Type())
 
 	// **利き이 아니라 합법수로 묻는다.** IsAttacked 는 핀을 안 본다 — 玉 앞에 묶여
 	// 움직일 수 없는 駒도 「노리고 있다」로 센다. 玉 주변의 압력을 재는 데는 그걸로
@@ -75,6 +93,12 @@ func MoveFeatures(before shogi.Position, m shogi.Move) intervene.Features {
 	// 잡힌다고 말하면 초심자는 그것을 검증할 수단이 없다.
 	capturers := legalCapturesOn(after, to)
 	f.LandsAttacked = len(capturers) > 0
+
+	// **수가 아니라 매수를 센다.** 같은 駒의 成·不成은 수로 둘이지만 판 위에서는 한 장이라,
+	// 수로 세면 화면이 「2枚あります」라고 거짓을 말한다. 그리고 이 값은 「노리는 매수」가
+	// 아니라 **실제로 딸 수 있는 매수**다 — 위에서 합법수로 물었기 때문이고, 핀에 묶인 駒를
+	// 두고 잡힌다고 말하면 초심자는 그것을 검증할 수단이 없다.
+	d.Attackers = distinctSources(capturers)
 
 	// 되딸 수 있는가는 **따인 뒤의 국면**에서 묻는다. 상대는 되따이지 않는 쪽으로
 	// 딸 것이므로, 되딸 수 없는 따는 수가 하나라도 있으면 그 駒는 그냥 잡히는 것이다.
@@ -85,6 +109,7 @@ func MoveFeatures(before shogi.Position, m shogi.Move) intervene.Features {
 			break
 		}
 	}
+	d.Defended = f.LandsDefended
 
 	// 玉 주변은 착수 전후로 **각자의 玉 위치**를 기준으로 센다. 玉이 움직이는 수에서
 	// 착수 전 자리를 계속 보면 「빈 칸 주변이 허술해졌다」는 엉뚱한 사실이 나온다.
@@ -93,7 +118,24 @@ func MoveFeatures(before shogi.Position, m shogi.Move) intervene.Features {
 	f.ShieldLoss = beforeDefend - afterDefend
 	f.ThreatGain = afterThreat - beforeThreat
 
-	return f
+	return f, d
+}
+
+// distinctSources 는 수 목록에 등장하는 **駒의 매수**를 센다.
+//
+// 같은 출발 칸에서 나온 수는 한 장이다 — 成·不成이 두 수로 오는 것이 흔하다. 打는 그
+// 자리에 駒가 있으면 애초에 둘 수 없으므로 따는 수에는 들어오지 않지만, 들어와도 한 장으로
+// 세도록 -1을 하나의 출처로 취급한다.
+func distinctSources(moves []shogi.Move) int {
+	seen := make(map[int]struct{}, len(moves))
+	for _, m := range moves {
+		from := -1
+		if !m.IsDrop() {
+			from = int(m.From)
+		}
+		seen[from] = struct{}{}
+	}
+	return len(seen)
 }
 
 // legalCapturesOn 은 sq 위의 駒를 **실제로 딸 수 있는** 합법수를 모은다.

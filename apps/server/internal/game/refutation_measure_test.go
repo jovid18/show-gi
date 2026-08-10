@@ -120,7 +120,7 @@ func TestRealEngineRefutationDiag(t *testing.T) {
 			m.USI(), -r.ScoreCp, r.Best, strings.Join(r.PV[:min(4, len(r.PV))], " "))
 	}
 
-	_, _, line := refutationLine(shogi.StartSFEN, moves, after.PV, RefutationPlies)
+	line := refutationLine(shogi.StartSFEN, moves, after.PV, RefutationPlies).line
 	var ja []string
 	for _, mv := range line {
 		ja = append(ja, mv.Ja)

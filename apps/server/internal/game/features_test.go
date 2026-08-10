@@ -1,7 +1,10 @@
 package game
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/jovid18/show-gi/apps/server/internal/explain"
 
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
@@ -198,5 +201,75 @@ func TestUnpromotedOnly(t *testing.T) {
 				t.Fatalf("%v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+// **매수를 센다. 수를 세지 않는다.**
+//
+// 같은 駒가 成·不成으로 두 수를 내는 것이 흔하고, 수로 세면 화면이 「2枚が…」라고 거짓을
+// 말한다. 여기 쓰는 국면이 정확히 그 모양이다 — 4六銀 하나가 5七에 놓인 金을 두 수로 딸 수
+// 있다(敵陣이라 成·不成이 둘 다 합법이다).
+//
+// **에러가 안 나는 종류의 거짓말이라 기계로만 잡힌다.**
+func TestFactsCountPiecesNotMoves(t *testing.T) {
+	// 4六에 後手 銀, 5八에 先手 金. 金이 5七로 나가면 그 銀에게 잡힌다.
+	const sfen = "4k4/9/9/9/9/5s3/9/4G4/4K4 b - 1"
+
+	pos, m, err := replay(sfen, []string{"5h5g"})
+	if err != nil {
+		t.Fatalf("replay: %v", err)
+	}
+	f, d := moveFacts(pos, m)
+
+	// 먼저 전제를 확인한다. 두 수가 나오지 않으면 이 테스트가 아무것도 안 지킨다.
+	after := pos.Apply(m)
+	if got := len(legalCapturesOn(after, int(m.To))); got != 2 {
+		t.Fatalf("전제가 깨졌다: 5七을 따는 수가 %d개다 (成·不成 둘을 기대)", got)
+	}
+
+	if d.Attackers != 1 {
+		t.Errorf("Attackers=%d, want 1 — 銀 한 장이 두 수를 낸 것이다", d.Attackers)
+	}
+	if !f.LandsAttacked || f.LandsDefended {
+		t.Errorf("그냥 잡히는 金인데 attacked=%v defended=%v", f.LandsAttacked, f.LandsDefended)
+	}
+	if d.MovedPiece != "金" {
+		t.Errorf("MovedPiece=%q, want 金", d.MovedPiece)
+	}
+
+	// 그리고 그 숫자가 그대로 문장이 된다.
+	d.Category = intervene.CategoryHangsPiece
+	if got := explain.Render(d); !strings.Contains(got, "1枚") {
+		t.Errorf("문장이 매수를 틀리게 말한다: %q", got)
+	}
+}
+
+// 성했으면 성한 이름으로 부른다 — 판과 棋譜가 그렇게 적으므로 문장도 같아야 한다.
+func TestFactsNameThePromotedPiece(t *testing.T) {
+	pos, m, err := replay(shogi.StartSFEN, []string{"7g7f", "3c3d", "8h3c+"})
+	if err != nil {
+		t.Fatalf("replay: %v", err)
+	}
+	_, d := moveFacts(pos, m)
+	if d.MovedPiece != "馬" {
+		t.Errorf("MovedPiece=%q, want 馬", d.MovedPiece)
+	}
+}
+
+// 반박 수순의 첫 수가 따는 수면 **그것이 「무엇을 잃는가」다.**
+//
+// 카테고리가 이유를 못 대는 3분의 2가 이 한 값으로 「相手は歩を取れます」를 갖는다
+// (06-status.md §25). 두 번째 수부터는 내 되따기가 섞이므로 첫 수만 본다.
+func TestRefutationNamesWhatCanBeTaken(t *testing.T) {
+	// △同金 — 5四의 銀을 金이 딴다.
+	got := refutationLine(exchangeSFEN, tookThePawn, []string{"4c5d", "5i5d"}, RefutationPlies)
+	if got.threatened != "銀" {
+		t.Errorf("threatened=%q, want 銀", got.threatened)
+	}
+
+	// 조용한 수로 시작하면 잡히는 것이 없다. **지어내지 않는다.**
+	quiet := refutationLine(exchangeSFEN, tookThePawn, []string{"5a4a"}, RefutationPlies)
+	if quiet.threatened != "" {
+		t.Errorf("threatened=%q — 따는 수가 아닌데 駒 이름이 나왔다", quiet.threatened)
 	}
 }
