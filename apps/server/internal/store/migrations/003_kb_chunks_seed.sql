@@ -31,6 +31,7 @@ BEGIN;
 DELETE FROM kb_chunks WHERE tags && ARRAY[
     'kin_musou', 'kata_mino', 'hon_mino', 'taka_mino', 'ginkanmuri',
     'kin_yagura', 'gin_yagura', 'kata_yagura', 'fune', 'kani', 'gangi',
+    'sou_yagura', 'gindachi_yagura', 'hishi_yagura', 'kikusui_yagura',
     'ibisha_anaguma', 'yonmai_anaguma', 'furibisha_anaguma',
     'hidari_mino', 'tenshukaku_mino',
     'naka_bisha', 'shiken_bisha', 'sanken_bisha', 'mukai_bisha',
@@ -73,6 +74,26 @@ INSERT INTO kb_chunks (title, body, tags, source_url, source_license, verified_b
 ('銀矢倉',
  '金矢倉の右金を銀に置き換えた形で、玉8八、金7八、銀7七、銀6七となります。銀が二枚並ぶため上部の耐久力が高く、押し潰されにくい構えです。一方で金が一枚少ないぶん横からの攻めや詰めの局面では金矢倉より脆くなります。',
  ARRAY['gin_yagura', 'castle', 'yagura'],
+ 'https://ja.wikipedia.org/wiki/矢倉囲い', 'CC-BY-SA-4.0', 'engine'),
+
+('総矢倉',
+ '金矢倉に右銀を5七まで足して、金銀四枚で玉を囲った形です。四枚で囲うぶん非常に堅く、上部からの攻めにも横からの攻めにも強い構えになります。そのかわり攻めに使える駒が減るので、堅さを活かして受けきる指し方に向いています。',
+ ARRAY['sou_yagura', 'castle', 'yagura'],
+ 'https://ja.wikipedia.org/wiki/矢倉囲い', 'CC-BY-SA-4.0', 'engine'),
+
+('銀立ち矢倉',
+ '金矢倉から左銀を7六へ上げた形です。銀が前に出るので玉の上に厚みができ、上から押し潰される攻めに強くなります。銀が離れたぶん玉のすぐそばは薄くなるため、横からの攻めには金二枚で受けることになります。',
+ ARRAY['gindachi_yagura', 'castle', 'yagura'],
+ 'https://ja.wikipedia.org/wiki/矢倉囲い', 'CC-BY-SA-4.0', 'engine'),
+
+('菱矢倉',
+ '金矢倉から右銀が6六の位置まで来た形です。金銀が菱形に並んで互いを支え合うため上部が厚く、相手の攻めを受け止めながら反撃を狙えます。組むのに手数がかかるので、途中で仕掛けられたときの対応を用意しておく必要があります。',
+ ARRAY['hishi_yagura', 'castle', 'yagura'],
+ 'https://ja.wikipedia.org/wiki/矢倉囲い', 'CC-BY-SA-4.0', 'engine'),
+
+('菊水矢倉',
+ '玉が8九に、左銀が8八にいる矢倉です。玉が一段下がって銀の下に潜るため、上からの攻めに対して玉が直接狙われにくくなります。穴熊に近い感覚の堅さがありますが、玉の逃げ道が狭いので詰めの形に入られたときは早く決まることもあります。',
+ ARRAY['kikusui_yagura', 'castle', 'yagura'],
  'https://ja.wikipedia.org/wiki/矢倉囲い', 'CC-BY-SA-4.0', 'engine'),
 
 ('片矢倉',

@@ -119,6 +119,42 @@ var castles = []shape{
 		source:  wikiYagura,
 	},
 	{
+		// 「金銀4枚で囲っているため堅い」 — 金矢倉 + 銀5七
+		tag: Tag{Code: "sou_yagura", NameJa: "総矢倉", Kind: KindCastle},
+		squares: []square{
+			{8, 8, shogi.King}, {7, 8, shogi.Gold}, {6, 7, shogi.Gold},
+			{7, 7, shogi.Silver}, {5, 7, shogi.Silver},
+		},
+		source: wikiYagura,
+	},
+	{
+		// 「左銀が7六に移れば銀立ち矢倉となる」
+		tag: Tag{Code: "gindachi_yagura", NameJa: "銀立ち矢倉", Kind: KindCastle},
+		squares: []square{
+			{8, 8, shogi.King}, {7, 8, shogi.Gold}, {6, 7, shogi.Gold},
+			{7, 7, shogi.Silver}, {7, 6, shogi.Silver},
+		},
+		source: wikiYagura,
+	},
+	{
+		// 「右銀が6六の位置までくると菱矢倉となる」
+		tag: Tag{Code: "hishi_yagura", NameJa: "菱矢倉", Kind: KindCastle},
+		squares: []square{
+			{8, 8, shogi.King}, {7, 8, shogi.Gold}, {6, 7, shogi.Gold},
+			{7, 7, shogi.Silver}, {6, 6, shogi.Silver},
+		},
+		source: wikiYagura,
+	},
+	{
+		// 「玉が8九に、左銀が8八にいる」
+		tag: Tag{Code: "kikusui_yagura", NameJa: "菊水矢倉", Kind: KindCastle},
+		squares: []square{
+			{8, 9, shogi.King}, {7, 8, shogi.Gold}, {6, 7, shogi.Gold},
+			{8, 8, shogi.Silver}, {7, 7, shogi.Silver},
+		},
+		source: wikiYagura,
+	},
+	{
 		// 片矢倉(天野矢倉)
 		tag:     Tag{Code: "kata_yagura", NameJa: "片矢倉", Kind: KindCastle},
 		squares: []square{{7, 8, shogi.King}, {6, 8, shogi.Gold}, {7, 7, shogi.Silver}, {6, 7, shogi.Gold}},
