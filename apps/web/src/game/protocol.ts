@@ -100,6 +100,20 @@ export interface Hint {
   usi?: string;
 }
 
+/**
+ * 국면에 붙은 이름 하나 — 囲い나 전법.
+ *
+ * `nameJa`를 그대로 그린다. **화면이 코드를 문자열로 바꾸지 않는다** — 그러면 이름이
+ * 두 벌이 되고, 어긋났을 때 어느 쪽이 맞는지 알 수 없다(棋譜 표기를 서버에서만
+ * 만드는 것과 같은 자리다). `code`는 화면에 안 나가고, 나중에 그 항목의 해설을
+ * 꺼내오는 검색 키로만 쓴다.
+ */
+export interface StyleTag {
+  code: string;
+  nameJa: string;
+  kind: 'castle' | 'formation';
+}
+
 export interface Snapshot {
   sfen: string;
   ply: number;
@@ -115,6 +129,13 @@ export interface Snapshot {
   judging: boolean;
   intervention?: Intervention;
   hint?: Hint;
+  /**
+   * 플레이어가 지금 짜고 있는 囲い·전법. **상대 쪽은 오지 않는다** — 서버가 안 보낸다.
+   *
+   * 初期配置에서는 비어 있다. 첫 수 전에 라벨을 그리면 플레이어가 아직 하지 않은
+   * 선택에 이름을 붙이는 것이 된다.
+   */
+  styleTags?: StyleTag[];
 }
 
 export type ServerMessage =

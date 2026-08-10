@@ -966,6 +966,29 @@ body {
   font-weight: 600;
 }
 
+/*
+  짜고 있는 형태의 이름. **色을 쓰지 않는다** — 판 위의 강조는 빛이고, 이 자리는
+  평시에 조용해야 하는 곳이다(03-frontend.md). 이름이 붙은 것은 좋은 소식도 나쁜
+  소식도 아니라 그냥 사실이라, 눈에 먼저 들어오면 안 된다.
+
+  駒와 같은 明朝로 둔다. 囲い 이름은 판 위의 것을 가리키는 말이라 기보와 한 서체로
+  이어져야 「UI가 붙인 라벨」이 아니라 「판을 읽은 말」로 읽힌다.
+*/
+.style-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  font-family: var(--font-koma);
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+/* 囲い가 전법보다 또렷하다 — 玉의 안전이 플레이어가 지금 신경 쓰는 쪽이다. */
+.style-tag[data-kind='castle'] {
+  color: var(--fg);
+}
+
 .rejection {
   margin: 0;
   padding: 0.6rem 0.75rem;

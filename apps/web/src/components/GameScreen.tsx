@@ -467,6 +467,23 @@ export function GameScreen() {
           {statusText}
         </p>
 
+        {/*
+          지금 짜고 있는 형태의 이름. **평시에 조용해야 하는 자리**라 색을 쓰지 않고
+          글자만 둔다(03-frontend.md) — 개입 카드와 같은 세기로 그리면 「이름이 붙었다」가
+          「무언가 잘못됐다」로 읽힌다.
+
+          상대 쪽은 서버가 보내지 않으므로 여기서 걸러낼 것이 없다.
+        */}
+        {snapshot.styleTags && snapshot.styleTags.length > 0 && (
+          <p className="style-tags" role="status">
+            {snapshot.styleTags.map((t) => (
+              <span key={t.code} className="style-tag" data-kind={t.kind}>
+                {t.nameJa}
+              </span>
+            ))}
+          </p>
+        )}
+
         {rejection && (
           <p className="rejection" role="alert">
             {rejection}
