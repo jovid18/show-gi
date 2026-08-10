@@ -163,3 +163,88 @@ func deleteGame(t *testing.T, st *store.Store, id int64) {
 		t.Errorf("정리: %v", err)
 	}
 }
+
+// 평가치가 **실제로 DB까지 간다.**
+//
+// 사람의 수 뒤와 **그 직전 상대 수 뒤** 두 행이 채워진다. 앞쪽은 판정의 「착수 전」
+// 국면이라 상대 수의 평가치가 한 수 늦게 들어가는 구조다(session.recordEvals).
+//
+// 세션·store 는 각자 테스트가 있지만 **그 사이의 이벤트 배선은 여기서만 지켜진다** —
+// dbRecorder 가 evEvaluated 를 흘리면 아무 데서도 안 터지고 칸만 계속 NULL 로 남는다.
+// 실제로 그 상태로 109수 한 판이 기록됐다(docs/08-playtest.md §11).
+func TestRecordFillsEvalTrajectory(t *testing.T) {
+	st := openStoreForTest(t)
+
+	before, err := st.CountGames(t.Context())
+	if err != nil {
+		t.Fatalf("CountGames: %v", err)
+	}
+
+	srv := httptest.NewServer(Handler(Options{
+		NewOpponent: func() game.Opponent { return &scriptedOpponent{moves: []string{"3c3d", "8c8d"}} },
+		// 평가치는 판정이 들고 온다. 개입은 안 걸리게 두고 값만 흘린다.
+		NewAnalyst: func() game.Analyst { return &evalOnlyAnalyst{} },
+		Store:      st,
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(srv.URL, "http")+"/ws/game", nil)
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	read(t, ctx, conn)
+
+	for _, u := range []string{"7g7f", "2g2f"} {
+		if err := wsjson.Write(ctx, conn, clientMsg{Type: "move", USI: u}); err != nil {
+			t.Fatalf("Write %s: %v", u, err)
+		}
+	}
+	readUntil(t, ctx, conn, func(m serverMsg) bool {
+		return m.Type == "snapshot" && m.Snapshot.Ply == 4
+	}, "4수까지")
+
+	gameID := waitForNewGame(t, st, before)
+	t.Cleanup(func() { deleteGame(t, st, gameID) })
+
+	// 기록은 비동기라 채워질 때까지 기다린다.
+	deadline := time.Now().Add(10 * time.Second)
+	var filled int
+	for time.Now().Before(deadline) {
+		row := st.Pool().QueryRow(t.Context(),
+			`SELECT count(*) FROM game_moves WHERE game_id = $1 AND eval_cp IS NOT NULL`, gameID)
+		if err := row.Scan(&filled); err != nil {
+			t.Fatalf("조회: %v", err)
+		}
+		if filled >= 3 {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	// 1·2·3수가 채워진다. 4수째(상대의 마지막 수)는 그 뒤에 사람의 수가 없어서 비어 있다.
+	if filled < 3 {
+		t.Fatalf("평가치가 %d행만 채워졌다 — 3행이어야 한다", filled)
+	}
+
+	// 부호가 뒤집혀 들어가면 궤적이 상하로 뒤집힌다. 사람이 先手이므로 그대로여야 한다.
+	var cp int
+	row := st.Pool().QueryRow(t.Context(), `SELECT eval_cp FROM game_moves WHERE game_id=$1 AND ply=1`, gameID)
+	if err := row.Scan(&cp); err != nil {
+		t.Fatalf("1수 평가치: %v", err)
+	}
+	if cp != evalOnlyAfterSente {
+		t.Fatalf("1수 평가치 %+d — %+d 여야 한다", cp, evalOnlyAfterSente)
+	}
+}
+
+// evalOnlyAfterSente 는 evalOnlyAnalyst 가 돌려주는 착수 후 평가치(先手 관점)다.
+const evalOnlyAfterSente = 120
+
+// evalOnlyAnalyst 는 개입 없이 평가치만 돌려준다. 엔진을 띄우지 않는다.
+type evalOnlyAnalyst struct{}
+
+func (evalOnlyAnalyst) Judge(_ context.Context, _ string, _ []string, _ int) (game.Judgement, error) {
+	return game.Judgement{SenteCpBefore: 40, SenteCpAfter: evalOnlyAfterSente, HasEvals: true}, nil
+}

@@ -69,7 +69,11 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 
 	// 카테고리에 쓸 국면 사실. **판정 자체는 여기에 매이지 않는다** — 못 읽으면
 	// Known 이 false로 남고 카테고리만 other 가 된다. 개입은 그대로 걸린다.
+	// 둔 쪽의 색. 평가치를 先手 관점으로 옮기는 데 쓴다 — 판을 못 읽으면 안 적는다.
+	mover, moverKnown := shogi.Black, false
+
 	if pos, m, err := replay(startSFEN, moves); err == nil {
+		mover, moverKnown = pos.Turn, true
 		in.Features = MoveFeatures(pos, m)
 		in.Features.UnpromotedOnly = UnpromotedOnly(m, best.Best)
 		// 얕은 평가는 **이미 받아 둔 info 라인**에 있다. PvInterval=0 덕에 depth 12
@@ -101,6 +105,15 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 
 	v := intervene.Judge(in)
 	j := Judgement{Verdict: v, BestUSI: best.Best}
+
+	// **판정에 쓴 두 탐색이 그대로 기보의 평가치가 된다.** 추가 탐색이 없다.
+	// 앞쪽은 착수 **전** 국면이라 그것이 곧 **직전 상대 수 뒤**의 평가치다 —
+	// 상대가 둘 때는 그 값을 아는 코드가 없으므로 여기서 한 수 늦게 채워진다.
+	if moverKnown {
+		j.SenteCpBefore = senteCp(best.ScoreCp, mover)
+		j.SenteCpAfter = senteCp(-after.ScoreCp, mover) // after 는 상대 관점이다
+		j.HasEvals = true
+	}
 	if v.Kind != intervene.KindNone {
 		// 이미 손에 든 탐색의 PV가 그대로 「상대는 이렇게 벌한다」다. **추가 탐색이 없고
 		// 분류도 필요 없다** — 카테고리가 이유를 못 대는 3분의 2(06-status.md §17)가
@@ -108,6 +121,18 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		j.RetractedSFEN, j.RetractedChecks, j.Refutation = refutationLine(startSFEN, moves, after.PV, RefutationPlies)
 	}
 	return j, nil
+}
+
+// senteCp 는 **둔 쪽 관점** cp를 先手 관점으로 옮긴다.
+//
+// 저장 관점을 先手로 고정하는 것은 `edges.eval_by_depth` 와 같은 규약이다
+// (02-architecture.md §4). 대국마다 사람의 색이 달라지므로 「플레이어 관점」으로 적으면
+// 색이 다른 두 판을 나란히 못 놓는다.
+func senteCp(moverCp int, mover shogi.Color) int {
+	if mover == shogi.Black {
+		return moverCp
+	}
+	return -moverCp
 }
 
 // RefutationPlies 는 반박 수순의 **상한**이다. 실제 길이는 국면이 정한다(trimRefutation).

@@ -103,6 +103,16 @@ type Judgement struct {
 	// 개입이 안 걸렸으면 비어 있다.
 	Refutation []RefutationMove
 
+	// SenteCpBefore·SenteCpAfter 는 착수 전·후 국면의 평가치다. **先手 관점 cp**이고
+	// HasEvals 가 false면 판을 못 읽어 구하지 못한 것이다.
+	//
+	// **판정에는 안 쓴다** — 기보에 남기기 위한 값이다. cp를 원본으로 남겨두면 승률
+	// 상수 K를 바꿔 지난 대국을 다시 채점할 수 있다(01-core.md §2의 K는 아직 실측 전이다).
+	// 승률만 남기면 그 길이 닫힌다.
+	SenteCpBefore int
+	SenteCpAfter  int
+	HasEvals      bool
+
 	// BestUSI 는 착수 **전** 국면의 최선수다. 판정하면서 어차피 손에 들어온 값이고
 	// 추가 탐색이 없다.
 	//
@@ -537,6 +547,7 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 	// 판정을 통과했다. 여기가 사람의 수가 확정되는 자리다. 갇힘도 여기서 풀린다.
 	st.stuck = 0
 	st.recordLastMove()
+	st.recordEvals(r.judgement)
 	st.maybeThink(ctx, engineDone)
 	st.broadcast()
 }
@@ -659,6 +670,24 @@ func (st *state) recordLastMove() {
 	}
 	last := st.moves[len(st.moves)-1]
 	st.cfg.Recorder.Moved(len(st.moves), last.USI, last.By)
+}
+
+// recordEvals 는 판정이 손에 들고 온 평가치 둘을 기보에 채운다.
+//
+// **두 手数를 한 번에 채운다.** 판정의 「착수 전」 국면이 곧 직전 상대 수 뒤의 국면이라,
+// 상대 수의 평가치가 여기서 한 수 늦게 들어간다 — `Opponent` 는 자기가 고른 수의
+// 평가치를 돌려주지 않고, 그것 때문에 인터페이스를 넓히는 것보다 이쪽이 싸다.
+//
+// 그래서 **마지막 수의 평가치는 안 채워진다.** 그 뒤에 사람의 수가 없으면 판정도 없다.
+func (st *state) recordEvals(j Judgement) {
+	if st.cfg.Recorder == nil || !j.HasEvals {
+		return
+	}
+	ply := len(st.moves)
+	st.cfg.Recorder.Evaluated(ply, j.SenteCpAfter)
+	if ply >= 2 {
+		st.cfg.Recorder.Evaluated(ply-1, j.SenteCpBefore)
+	}
 }
 
 // maybeThink 는 엔진 차례면 탐색을 띄운다.

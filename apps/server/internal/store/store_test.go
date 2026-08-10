@@ -266,3 +266,45 @@ func TestInterventionKindConstraint(t *testing.T) {
 		t.Fatal("tesuji 에 retracted_usi 가 들어갔다 — CHECK 제약이 안 걸린다")
 	}
 }
+
+// 평가치는 **수를 덮지 않고** 그 행에만 들어간다.
+//
+// 한 질의로 upsert 하면 수까지 다시 쓰게 되고, 그러면 물러진 수로 기보를 덮는 길이
+// 생긴다. 그리고 **없는 ply에는 행을 만들지 않는다** — 평가치가 수보다 먼저 오는 경로가
+// 없으므로, 만들어 메우면 기보에 없던 행이 생긴다.
+func TestSetMoveEvalFillsOnlyTheEval(t *testing.T) {
+	s := open(t)
+	id := newGame(t, s)
+
+	if err := s.InsertMove(t.Context(), id, 1, "7g7f"); err != nil {
+		t.Fatalf("InsertMove: %v", err)
+	}
+	if err := s.SetMoveEval(t.Context(), id, 1, -137); err != nil {
+		t.Fatalf("SetMoveEval: %v", err)
+	}
+
+	var usi string
+	var cp *int32
+	row := s.pool.QueryRow(t.Context(), `SELECT usi, eval_cp FROM game_moves WHERE game_id=$1 AND ply=1`, id)
+	if err := row.Scan(&usi, &cp); err != nil {
+		t.Fatalf("조회: %v", err)
+	}
+	if usi != "7g7f" {
+		t.Fatalf("수가 바뀌었다: %q", usi)
+	}
+	if cp == nil || *cp != -137 {
+		t.Fatalf("평가치가 안 들어갔다: %v", cp)
+	}
+
+	// 없는 ply — 조용히 아무 일도 없어야 한다.
+	if err := s.SetMoveEval(t.Context(), id, 99, 500); err != nil {
+		t.Fatalf("없는 ply에서 에러: %v", err)
+	}
+	var n int
+	if err := s.pool.QueryRow(t.Context(), `SELECT count(*) FROM game_moves WHERE game_id=$1`, id).Scan(&n); err != nil {
+		t.Fatalf("개수 조회: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("행이 생겼다: %d", n)
+	}
+}

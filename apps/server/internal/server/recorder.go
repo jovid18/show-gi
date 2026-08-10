@@ -24,6 +24,7 @@ type recordKind int
 const (
 	evStarted recordKind = iota
 	evMoved
+	evEvaluated
 	evRetracted
 	evFinished
 )
@@ -35,6 +36,7 @@ type recordEvent struct {
 	ply       int
 	usi       string
 	by        game.Side
+	cp        int
 	verdict   intervene.Verdict
 	status    game.Status
 	winner    game.Side
@@ -69,6 +71,12 @@ func (r *dbRecorder) Started(startSFEN string, humanColor shogi.Color) {
 
 func (r *dbRecorder) Moved(ply int, usi string, by game.Side) {
 	r.send(recordEvent{kind: evMoved, ply: ply, usi: usi, by: by})
+}
+
+// **Moved 와 같은 채널로 보낸다.** 평가치는 그 수가 들어간 뒤에 와야 하고, 한 채널이면
+// 순서가 저절로 지켜진다. 큐를 갈라 두면 평가치가 먼저 도착해 조용히 버려질 수 있다.
+func (r *dbRecorder) Evaluated(ply int, senteCp int) {
+	r.send(recordEvent{kind: evEvaluated, ply: ply, cp: senteCp})
 }
 
 func (r *dbRecorder) Retracted(ply int, usi string, v intervene.Verdict) {
@@ -110,6 +118,14 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 			}
 			if err := st.InsertMove(write, gameID, ev.ply, ev.usi); err != nil {
 				log.Printf("game record: move %d: %v", ev.ply, err)
+			}
+
+		case evEvaluated:
+			if gameID == 0 {
+				return
+			}
+			if err := st.SetMoveEval(write, gameID, ev.ply, ev.cp); err != nil {
+				log.Printf("game record: eval %d: %v", ev.ply, err)
 			}
 
 		case evRetracted:
