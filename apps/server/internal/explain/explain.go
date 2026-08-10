@@ -23,6 +23,7 @@ package explain
 import (
 	"context"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -42,7 +43,7 @@ const TierTemplate = -1
 // 않고 결정적 문구로 간다 — 카드가 늦게 뜨는 것이 문장이 좋아지는 것보다 나쁘다.
 //
 // **[미확정]** 실측 전이다. `ORCA_API_KEY` 가 아직 자리표시자라 한 번도 재보지 못했다.
-const Deadline = 1500 * time.Millisecond
+const Deadline = 3 * time.Second
 
 // MaxRunes 는 받아들일 문장의 상한이다.
 //
@@ -196,7 +197,27 @@ func clean(s string) (string, bool) {
 			return "", false
 		}
 	}
+	// **칸이나 수가 적혀 있으면 버린다 — 지어낸 것이다.**
+	//
+	// `Facts` 에는 칸도 수도 없다. 준 적이 없으므로 문장에 나타났다면 모델이 만든 것이고,
+	// 초심자는 그것을 검증할 수단이 없다. 프롬프트가 「指し手は書かない」로 부탁하지만
+	// **부탁은 규칙이 아니다.**
+	//
+	// 이것이 「최선수를 보여주지 않는다」(01-core.md §1)가 LLM 쪽으로 내려온 형태다 —
+	// 모델은 최선수를 모르지만 그럴듯한 수를 적을 수는 있고, 그게 더 나쁘다.
+	if invented.MatchString(body) {
+		return "", false
+	}
 	// 줄바꿈은 카드 레이아웃을 깨뜨린다. 한 줄로 만든다.
 	body = strings.Join(strings.Fields(body), " ")
 	return body, true
 }
+
+// invented 는 **우리가 준 적 없는 것**의 모양이다 — 칸(`8四`)과 棋譜의 수번 기호(`▲`·`△`).
+//
+// 칸은 「숫자 + 段」으로 본다. 段의 한자만 찾으면 「一手」「二枚換え」에 걸리고, 숫자만 찾으면
+// 「2枚」에 걸린다 — 붙어 있는 것만이 칸이다.
+//
+// **[미확정]** 「八四」처럼 筋까지 한자로 적는 표기는 안 걸린다. 그렇게 적는 기보가 드물어
+// 지금은 두는데, 段만으로 거르면 정상 문장이 대량으로 버려진다.
+var invented = regexp.MustCompile(`[0-9０-９][一二三四五六七八九]|[▲△]`)

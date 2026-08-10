@@ -13,14 +13,24 @@ import (
 // DefaultBaseURL 은 OrcaRouter의 호스팅 엔드포인트다. 자체 호스팅이면 여기를 바꾼다.
 const DefaultBaseURL = "https://api.orcarouter.ai/v1"
 
-// DefaultModel 은 `auto` 다 — 요구 능력을 충족하는 **가장 싼 모델**을 라우터가 고른다
-// (docs/04-llm.md §3). Tier 1·2가 둘 다 기본값 `auto` 인 것은, 어느 모델이 실제로 싸고
-// 충분한지를 아직 안 재봤기 때문이다.
+// DefaultModel 은 **실측으로 고른 모델**이다(06-status.md §28).
 //
-// 그래서 지금 Tier는 **모델의 크기가 아니라 프롬프트의 재사용성**을 가른다 — Tier 1은 키가
-// 스물넷이라 거의 캐시로 덮이고 Tier 2는 국면마다 갈린다. 모델을 고정하고 싶으면
-// `ORCA_MODEL_SMALL`·`ORCA_MODEL_LARGE` 로 박는다. **[미확정]** 실측 후 정한다.
-const DefaultModel = "auto"
+// `orcarouter/auto` 를 기본값으로 두면 안 된다. 실제로 보내 보니 추론 모델로 라우팅되어
+// 한 문장에 **추론 토큰 1000개 이상**을 쓰고 15~23초가 걸렸다 — 라우터는 「요구 능력을
+// 충족하는 가장 싼 모델」을 고르지만, 우리 요구는 능력이 아니라 **짧고 빠른 것**이라 그
+// 기준과 어긋난다.
+//
+// 재본 값(카테고리 8개 × 1회):
+//
+//	anthropic/claude-haiku-4.5      1.7~3.2초   ✅ 사실을 다 싣고 지시를 지킨다
+//	google/gemini-3.5-flash-lite    1.9~6.7초   흔들린다
+//	orcarouter/fusion-mini          15~23초     추론 모델(qwen3.7-flash)로 간다
+//	orcarouter/auto                 위와 같다
+//
+// Tier 1·2가 같은 모델인 것은 실측 결과다. **Tier를 가르는 것은 모델 크기가 아니라 키의
+// 재사용성**이고(Tier 1은 24가지뿐이다), 지금 문장 품질에 모델을 키울 이유가 안 보였다.
+// **[미확정]** Tier 2에 더 큰 모델이 필요한 국면이 있는지.
+const DefaultModel = "anthropic/claude-haiku-4.5"
 
 // DefaultUSDJPY 는 `usage.cost_usd` 를 `interventions.cost_yen` 으로 옮기는 환율이다.
 //
@@ -179,13 +189,14 @@ func (c *Client) complete(ctx context.Context, tier int, f Facts) (completion, e
 
 // costYen 은 이 호출에 든 돈이다.
 //
-// **비용은 응답 본문에만 있다.** OrcaRouter가 돌려주는 `x-orca-*` 헤더는 캐시 여부와 어느
-// 모델이 답했는지까지이고 비용 헤더는 없다(라우터 소스에서 확인했다). 그래서 원당 비용을 알
-// 수 있는 유일한 길이 `usage.cost_usd`(또는 `_orca_meta.cost_usd`)이다.
+// **호스팅 라우터는 원당 비용을 안 준다 — 실측이다**(06-status.md §28). 헤더는
+// `x-orca-request-id`·`x-orca-resolved-model`·`x-orca-router`·`x-orca-version` 이고
+// (`x-orca-cache` 조차 안 온다), 본문 `usage` 에는 토큰 수만 있다. Lite 소스가 읽는
+// `usage.cost_usd`·`_orca_meta.cost_usd` 경로는 남겨 뒀지만 **지금은 언제나 비어 있다.**
 //
-// **상위 프로바이더가 그것을 안 주면 0으로 적는다.** 토큰 수와 가격표로 추정해 채우면
-// 발표에 나가는 「개입 1회당 ○엔」이 우리가 만든 숫자가 되고, 그 순간 그 숫자는 근거가 없다.
-// 총액 쪽은 라우터의 `/v1/analytics/spend`·`savings` 가 따로 답한다(docs/04-llm.md §5).
+// 그래서 이 함수는 실질적으로 0을 돌려주고, `interventions.cost_yen` 도 0으로 남는다.
+// **토큰 수와 가격표로 추정해 채우지 않는다** — 발표에 나가는 「개입 1회당 ○엔」이 우리가
+// 만든 숫자가 되면 그 숫자는 근거가 없다. 총액은 라우터의 `/v1/analytics/spend` 가 답한다.
 func (c *Client) costYen(out chatResponse, routerCached bool) float64 {
 	// 라우터 캐시에 맞았으면 상위 모델을 안 불렀으므로 0이다. 이때 본문의 usage 는 원래
 	// 호출의 것이 그대로 실려 오므로(라우터 소스), 그대로 곱하면 **같은 돈을 두 번 센다.**

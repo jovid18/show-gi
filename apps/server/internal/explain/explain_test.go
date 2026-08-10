@@ -250,6 +250,11 @@ func TestCleanRejectsUnusableSentences(t *testing.T) {
 		{"빈 문장은 버린다", "   ", "", false},
 		{"한글이 섞이면 버린다", "その銀은 取られます。", "", false},
 		{"너무 길면 자르지 않고 버린다", strings.Repeat("長", MaxRunes+1), "", false},
+		// **칸과 수는 우리가 준 적이 없다.** 나타났다면 모델이 지어낸 것이다.
+		{"칸을 지어내면 버린다", "8四の銀が取られます。", "", false},
+		{"수를 지어내면 버린다", "▲7六歩と指すべきでした。", "", false},
+		{"매수의 숫자는 칸이 아니다", "相手の駒が2枚利いています。", "相手の駒が2枚利いています。", true},
+		{"一手는 段이 아니다", "その一手で合っています。", "その一手で合っています。", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
