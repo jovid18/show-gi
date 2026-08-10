@@ -120,11 +120,11 @@ func TestOnlyNamedPiecesGetAForkName(t *testing.T) {
 func TestFindForksScansTheBoardWithoutDuplicates(t *testing.T) {
 	pos := forkBoard(t, "8k/9/3g1g3/9/4N4/9/9/9/8K b - 1")
 
-	got := FindForks(pos, shogi.Black)
+	got := FindTesuji(pos, shogi.Black)
 	if len(got) != 1 || got[0].Code != "fundoshi_no_kei" {
 		t.Fatalf("[fundoshi_no_kei] 를 기대했는데 %v", codes(got))
 	}
-	if none := FindForks(shogi.StartPosition(), shogi.Black); len(none) != 0 {
+	if none := FindTesuji(shogi.StartPosition(), shogi.Black); len(none) != 0 {
 		t.Errorf("初期配置에 両取り가 있다고 한다: %v", codes(none))
 	}
 }

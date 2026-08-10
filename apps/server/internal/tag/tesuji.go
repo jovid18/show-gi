@@ -195,18 +195,23 @@ func Skewer(pos shogi.Position, sq int, c shogi.Color) (Tag, bool) {
 	return dengaku, true
 }
 
-// FindForks 는 그 색이 지금 걸고 있는 両取り·串刺し 전부를 낸다.
+// tesujiFinders 는 자리·관계로 정해지는 手筋 전부다. 추가하면 FindTesuji 가 자동으로 훑는다.
+var tesujiFinders = []func(shogi.Position, int, shogi.Color) (Tag, bool){
+	Fork, Skewer, BellySilver, KnightHeadSilver, BottomPawn,
+}
+
+// FindTesuji 는 그 색이 지금 걸고 있는 手筋 전부를 낸다.
 //
-// **「둘 수 있는 両取り」가 아니라 「이미 걸린 両取り」다.** 후보 수를 전부 둬 보며 찾는
+// **「둘 수 있는 手筋」이 아니라 「이미 걸린 手筋」이다.** 후보 수를 전부 둬 보며 찾는
 // 쪽이 제안형 힌트가 원하는 것이지만(착수 前에 알려야 한다), 그것은 합법수마다 판을
-// 만들어 이 술어를 돌리는 것이라 비용이 다르고 빈도 게이트가 함께 있어야 한다.
+// 만들어 술어를 돌리는 것이라 비용이 다르고 빈도 게이트가 함께 있어야 한다.
 // 지금 필요한 것은 술어가 맞는지이고, 그건 이쪽으로 잰다.
-func FindForks(pos shogi.Position, c shogi.Color) []Tag {
+func FindTesuji(pos shogi.Position, c shogi.Color) []Tag {
 	var out []Tag
 	seen := map[string]bool{}
 
 	for sq := range pos.Board {
-		for _, find := range []func(shogi.Position, int, shogi.Color) (Tag, bool){Fork, Skewer} {
+		for _, find := range tesujiFinders {
 			t, ok := find(pos, sq, c)
 			if !ok || seen[t.Code] {
 				continue

@@ -547,7 +547,7 @@ func All() []Tag {
 	for _, pt := range []shogi.PieceType{shogi.Knight, shogi.Silver, shogi.Rook, shogi.Bishop} {
 		out = append(out, forkNames[pt])
 	}
-	return append(out, dengaku)
+	return append(out, dengaku, haraGin, keitouGin, soko_no_fu)
 }
 
 // SourceOf 는 그 囲い의 좌표 출처다. 없으면 빈 문자열.

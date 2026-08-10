@@ -38,7 +38,7 @@ DELETE FROM kb_chunks WHERE tags && ARRAY[
     'sode_bisha', 'migi_shiken_bisha', 'ibisha',
     'kaku_gawari', 'ai_furibisha', 'kakukan_furibisha',
     'fundoshi_no_kei', 'wariuchi_no_gin', 'juji_bisha', 'kaku_ryodori',
-    'dengaku_zashi',
+    'dengaku_zashi', 'hara_gin', 'keitou_no_gin', 'soko_no_fu',
     'missed_mate', 'hangs_piece', 'shallow_trap', 'unpromoted',
     'greedy_capture', 'idle_check', 'king_exposed', 'other'
 ];
@@ -229,6 +229,21 @@ INSERT INTO kb_chunks (title, body, tags, source_url, source_license, verified_b
 ('角による両取り',
  '角が斜めの二方向に相手の駒を同時に狙う両取りの手筋です。角は盤の端から端まで斜めに利くため、離れた二枚を同時に狙えるのが特徴です。とくに相手の陣形が斜めに揺らいだ瞬間に打ち込む形が多く、打った角が取り返されないかを先に確かめる必要があります。',
  ARRAY['kaku_ryodori', 'tesuji', 'ryodori'],
+ 'https://ja.wikipedia.org/wiki/手筋_(将棋)', 'CC-BY-SA-4.0', 'engine'),
+
+('腹銀',
+ '相手の玉の横に銀を打ち込む寄せの手筋です。玉の上ではなく「腹」つまり真横に着けるのが要点で、玉が横に逃げる道をふさぎます。打った銀は取られることが多いのですが、取らせた駒を使ってさらに寄せる形が多く、駒損をしても寄せが早くなるなら十分です。両取りのように駒得を狙う手筋とは目的が違います。',
+ ARRAY['hara_gin', 'tesuji', 'yose'],
+ 'https://ja.wikipedia.org/wiki/手筋_(将棋)', 'CC-BY-SA-4.0', 'engine'),
+
+('桂頭の銀',
+ '相手の桂馬の真上のマスに銀を置く手筋です。桂馬は跳ぶ動きしかできないので、自分の頭に置かれた駒を取ることができません。そのため置かれた銀は桂馬に対して安全で、相手は桂馬を逃がすか取られるかを選ばされます。桂馬が前に跳ねて戻れないという性質を突いた手筋です。',
+ ARRAY['keitou_no_gin', 'tesuji'],
+ 'https://ja.wikipedia.org/wiki/手筋_(将棋)', 'CC-BY-SA-4.0', 'engine'),
+
+('底歩',
+ '金底の歩とも呼ばれ、自陣のいちばん下の段に歩を打って上の金を支える受けの手筋です。「金底の歩、岩より堅し」と言われるほど堅く、飛車でその段を狙われても金が押し込まれません。歩一枚で飛車の打ち込みを受けられるので、終盤で手番を渡さずに受けたいときに使います。',
+ ARRAY['soko_no_fu', 'tesuji', 'uke'],
  'https://ja.wikipedia.org/wiki/手筋_(将棋)', 'CC-BY-SA-4.0', 'engine'),
 
 ('田楽刺し',
