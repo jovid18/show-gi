@@ -35,6 +35,7 @@ DELETE FROM kb_chunks WHERE tags && ARRAY[
     'sode_bisha', 'migi_shiken_bisha', 'ibisha',
     'kaku_gawari', 'ai_furibisha', 'kakukan_furibisha',
     'fundoshi_no_kei', 'wariuchi_no_gin', 'juji_bisha', 'kaku_ryodori',
+    'dengaku_zashi',
     'missed_mate', 'hangs_piece', 'shallow_trap', 'unpromoted',
     'greedy_capture', 'idle_check', 'king_exposed', 'other'
 ];
@@ -165,6 +166,11 @@ INSERT INTO kb_chunks (title, body, tags, source_url, source_license, verified_b
 ('角による両取り',
  '角が斜めの二方向に相手の駒を同時に狙う両取りの手筋です。角は盤の端から端まで斜めに利くため、離れた二枚を同時に狙えるのが特徴です。とくに相手の陣形が斜めに揺らいだ瞬間に打ち込む形が多く、打った角が取り返されないかを先に確かめる必要があります。',
  ARRAY['kaku_ryodori', 'tesuji', 'ryodori'],
+ 'https://ja.wikipedia.org/wiki/手筋_(将棋)', 'CC-BY-SA-4.0', 'engine'),
+
+('田楽刺し',
+ '香車が一つの筋に並んだ相手の駒二枚を串刺しにする手筋です。両取りと違って二枚が同じ線上に重なっているため、前の駒をどけると後ろの駒がそのまま当たりになります。安い香車で後ろの飛車や金を狙えるのが強みで、後ろにあるのが香車より安い駒では刺しても得になりません。自分の駒が途中にあると香車の利きが止まるので、間が通っているかを確かめます。',
+ ARRAY['dengaku_zashi', 'tesuji'],
  'https://ja.wikipedia.org/wiki/手筋_(将棋)', 'CC-BY-SA-4.0', 'engine'),
 
 -- ── 블런더 카테고리 ───────────────────────────────────────────────────────────

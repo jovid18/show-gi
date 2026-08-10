@@ -5,9 +5,13 @@ import "github.com/jovid18/show-gi/apps/server/internal/shogi"
 // 手筋은 **관계**다 — 囲い처럼 「어느 칸에 무엇이 있나」가 아니라 「이 駒가 무엇을
 // 동시에 노리는가」다. 그래서 좌표 집합으로 못 적고, 대신 룰 엔진에 물어야 한다.
 //
-// 両取り 하나가 **将棋ウォーズ의 이름 넷을 덮는다** — ふんどしの桂·割打ちの銀·十字飛車·
-// 角による両取り는 「어느 駒가 두 개를 동시에 노리는가」의 駒 종류만 다른 같은 手筋이다
-// ([09-tags.md](../../../../docs/09-tags.md)). 그래서 술어를 하나 쓰고 이름을 駒로 고른다.
+// 両取り 하나가 **이름 넷을 덮는다** — ふんどしの桂·割打ちの銀·十字飛車·角による両取り는
+// 「어느 駒가 두 개를 동시에 노리는가」의 駒 종류만 다른 같은 手筋이다. 그래서 술어를
+// 하나 쓰고 이름을 駒로 고른다.
+//
+// **串刺し(田楽刺し)는 술어가 다르다.** 両取り는 두 방향으로 갈라 노리는 것이라 상대가
+// 하나를 구할 수 있는데, 串刺し는 한 줄에 둘이 겹쳐 있어 앞을 치우면 뒤가 드러난다.
+// 같은 함수로 묶으면 「둘을 노린다」가 되어 그 차이가 사라진다([09-tags.md](../../../../docs/09-tags.md)).
 //
 // **화면에 바로 안 붙인다.** 이것을 그대로 스냅샷에 실으면 힌트가 되는데, 제안형 힌트에는
 // 빈도 상한과 레벨 연동이 조건으로 걸려 있고([01-core.md §7](../../../../docs/01-core.md))
@@ -139,7 +143,56 @@ func forkSurvives(pos shogi.Position, sq int, c shogi.Color, mine int) bool {
 	return true
 }
 
-// FindForks 는 그 색이 지금 걸고 있는 両取り 전부를 낸다.
+var dengaku = Tag{Code: "dengaku_zashi", NameJa: "田楽刺し", Kind: KindTesuji}
+
+// Skewer 는 田楽刺し를 본다 — **香가 한 筋의 상대 駒 둘을 串刺し로 꿰는 것.**
+//
+// 両取り와 형태가 다르다. 両取り는 두 방향으로 갈라 노리는 것이라 상대가 하나를 구할 수
+// 있는데, 串刺し는 **앞의 駒를 치우면 뒤가 그대로 드러난다** — 뒤의 駒는 도망갈 데가
+// 없으면 못 구한다. 그래서 조건이 「둘을 노린다」가 아니라 **「한 줄에 둘이 있다」**다.
+//
+// 값을 앞뒤로 나눠 본다. 앞은 香보다 싸도 되지만 **뒤는 香보다 비싸야 한다** — 香를
+// 던져 얻는 것이 뒤의 駒라서, 그것이 香보다 싸면 꿰어도 남는 것이 없다. 실제 田楽刺し가
+// 飛나 金을 뒤에 두고 걸리는 이유가 그것이다.
+func Skewer(pos shogi.Position, sq int, c shogi.Color) (Tag, bool) {
+	p := pos.Board[sq]
+	if p.Empty() || p.Color() != c || p.Type() != shogi.Lance {
+		return Tag{}, false
+	}
+
+	step := -1 // 先手 香는 段이 줄어드는 쪽으로 간다
+	if c == shogi.White {
+		step = 1
+	}
+
+	var found []shogi.Piece
+	for rank := shogi.RankOf(sq) + step; rank >= 1 && rank <= 9; rank += step {
+		q := pos.Board[shogi.SquareOf(shogi.FileOf(sq), rank)]
+		if q.Empty() {
+			continue
+		}
+		if q.Color() == c {
+			break // 자기 駒에 막힌다. 그 뒤는 안 보인다
+		}
+		if found = append(found, q); len(found) == 2 {
+			break
+		}
+	}
+	if len(found) < 2 {
+		return Tag{}, false
+	}
+
+	mine := shogi.PieceValue(shogi.Lance)
+	if shogi.PieceValue(found[1].Type()) <= mine {
+		return Tag{}, false // 뒤가 香보다 싸면 꿰어도 남는 것이 없다
+	}
+	if !forkSurvives(pos, sq, c, mine) {
+		return Tag{}, false
+	}
+	return dengaku, true
+}
+
+// FindForks 는 그 색이 지금 걸고 있는 両取り·串刺し 전부를 낸다.
 //
 // **「둘 수 있는 両取り」가 아니라 「이미 걸린 両取り」다.** 후보 수를 전부 둬 보며 찾는
 // 쪽이 제안형 힌트가 원하는 것이지만(착수 前에 알려야 한다), 그것은 합법수마다 판을
@@ -150,12 +203,14 @@ func FindForks(pos shogi.Position, c shogi.Color) []Tag {
 	seen := map[string]bool{}
 
 	for sq := range pos.Board {
-		t, ok := Fork(pos, sq, c)
-		if !ok || seen[t.Code] {
-			continue
+		for _, find := range []func(shogi.Position, int, shogi.Color) (Tag, bool){Fork, Skewer} {
+			t, ok := find(pos, sq, c)
+			if !ok || seen[t.Code] {
+				continue
+			}
+			seen[t.Code] = true
+			out = append(out, t)
 		}
-		seen[t.Code] = true
-		out = append(out, t)
 	}
 	return out
 }
