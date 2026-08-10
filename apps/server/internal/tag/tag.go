@@ -60,6 +60,7 @@ const (
 	wikiYagura = "https://ja.wikipedia.org/wiki/矢倉囲い"
 	wikiFune   = "https://ja.wikipedia.org/wiki/舟囲い"
 	wikiGinkan = "https://ja.wikipedia.org/wiki/銀冠"
+	wikiMusou  = "https://ja.wikipedia.org/wiki/金無双"
 )
 
 // castles 는 囲い 정의다. 순서는 상관없다 — 고르는 것은 **필수 칸이 가장 많은 쪽**이고
@@ -106,6 +107,16 @@ var castles = []shape{
 		tag:     Tag{Code: "kata_yagura", NameJa: "片矢倉", Kind: KindCastle},
 		squares: []square{{7, 8, shogi.King}, {6, 8, shogi.Gold}, {7, 7, shogi.Silver}, {6, 7, shogi.Gold}},
 		source:  wikiYagura,
+	},
+	{
+		// 「玉を3八に、左金を5八に、右金を4八に動かして作られる」
+		//
+		// 銀은 넣지 않았다. 원문이 右銀2八을 「ただし…壁銀となり玉の逃げ道がなくなって
+		// しまう」로 적어 **필수가 아니라 선택**임을 밝히고 있다. 필수 칸에 넣으면
+		// 銀을 안 올린 정상적인 金無双에서 이름이 안 뜬다.
+		tag:     Tag{Code: "kin_musou", NameJa: "金無双", Kind: KindCastle},
+		squares: []square{{3, 8, shogi.King}, {5, 8, shogi.Gold}, {4, 8, shogi.Gold}},
+		source:  wikiMusou,
 	},
 	{
 		// 「8八角、7八玉、7九銀、6九金、5八金、4八銀型である」

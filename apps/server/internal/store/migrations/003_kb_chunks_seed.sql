@@ -4,7 +4,10 @@
 -- 블런더 카테고리 7 ≈ 50항목」이라고 적었는데, 手筋은 **감지하는 코드가 없다.**
 -- 같은 문서가 「코퍼스를 먼저 만들어도 붙일 곳이 없다」고 적은 그 이유가 手筋에는
 -- 아직 그대로 적용된다 — 항목을 넣어도 꺼내올 키가 없어서 검색에 걸리지 않는다.
--- 그래서 이번에는 `internal/tag` 가 내는 12개 + 블런더 카테고리 8개 = 20항목이다.
+-- 그래서 이번에는 `internal/tag` 가 내는 13개 + 블런더 카테고리 8개 = 21항목이다.
+--
+-- **将棋ウォーズ 기준으로는 囲い 42종·전법 106종이다.** 여기 9종뿐인 것은 좌표를
+-- 확인할 수 있는 것만 넣었기 때문이고, 남은 목록은 06-status.md §30에 적어 뒀다.
 --
 -- `source_url` 이 NOT NULL 인 것을 두 가지로 나눠 채웠다.
 --
@@ -26,7 +29,7 @@ BEGIN;
 -- 두 번 돌려도 같은 상태가 되게. 마이그레이션을 사람이 손으로 돌리므로(deploy/README.md §4)
 -- 중간에 끊겨 다시 돌리는 일이 실제로 생긴다.
 DELETE FROM kb_chunks WHERE tags && ARRAY[
-    'kata_mino', 'hon_mino', 'taka_mino', 'ginkanmuri',
+    'kin_musou', 'kata_mino', 'hon_mino', 'taka_mino', 'ginkanmuri',
     'kin_yagura', 'gin_yagura', 'kata_yagura', 'fune',
     'naka_bisha', 'shiken_bisha', 'sanken_bisha', 'mukai_bisha',
     'missed_mate', 'hangs_piece', 'shallow_trap', 'unpromoted',
@@ -70,6 +73,11 @@ INSERT INTO kb_chunks (title, body, tags, source_url, source_license, verified_b
  '天野矢倉とも呼ばれる形で、玉7八、金6八、銀7七、金6七の配置です。金矢倉より玉が中央寄りにいるため、終盤で玉が広く使える利点があります。そのぶん端からの攻めに対する備えは金矢倉に劣ります。',
  ARRAY['kata_yagura', 'castle', 'yagura'],
  'https://ja.wikipedia.org/wiki/矢倉囲い', 'CC-BY-SA-4.0', 'engine'),
+
+('金無双',
+ '二枚金とも呼ばれ、玉を3八、左金を5八、右金を4八に動かして作る囲いです。相振り飛車でよく用いられ、金が二枚横に並ぶため横からの攻めに強い構えです。右銀を2八へ上がる形もありますが、側面から攻められると壁銀になって玉の逃げ道がなくなるため、上がるかどうかは局面によって選びます。上部が薄いので、上から押し潰される攻めには注意が必要です。',
+ ARRAY['kin_musou', 'castle'],
+ 'https://ja.wikipedia.org/wiki/金無双', 'CC-BY-SA-4.0', 'engine'),
 
 ('舟囲い',
  '8八角、7八玉、7九銀、6九金、5八金、4八銀の形で、居飛車が振り飛車に対して用いるもっとも基本的な囲いです。三手ほどで組めるため急戦に向いており、相手が本格的に囲う前に仕掛けることができます。堅さは美濃囲いや穴熊に劣るので、長い戦いになる前に決着をつけるか、穴熊や左美濃へ発展させるのが定跡です。',
