@@ -148,3 +148,40 @@ func TestNoCategoryWhenNotIntervening(t *testing.T) {
 		t.Fatalf("개입하지 않았는데 카테고리가 붙었다: %+v", v)
 	}
 }
+
+// 成 여부만 다른 수는 **다른 무엇으로도 분류되지 않아야 한다.**
+//
+// 실측에서 이 수가 greedy_capture 로 떨어져 「잡는 것이 문제」라고 가르쳤고, 플레이어가
+// 그 문장을 믿고 세 수를 더 헤맸다(08-playtest.md §8). 그래서 이 테스트가 지키는 것은
+// 「unpromoted 로 간다」가 아니라 **「다른 이유를 대지 않는다」**다.
+func TestUnpromotedBeatsEveryOtherReason(t *testing.T) {
+	// 딴 것도 있고(greedy_capture), 그냥 잡히기도 하고(hangs_piece), 王手까지 거는
+	// 수를 만든다. 이 셋이 전부 켜져 있어도 成 여부가 이유여야 한다.
+	in := Input{
+		BestCp:  120,
+		AfterCp: -900,
+		Level:   Beginner,
+		Features: Features{
+			Known:          true,
+			UnpromotedOnly: true,
+			CapturedValue:  10,
+			MovedValue:     6,
+			LandsAttacked:  true,
+			LandsDefended:  false,
+			GivesCheck:     true,
+			ShieldLoss:     3,
+			ThreatGain:     2,
+		},
+	}
+	if got := Judge(in).Category; got != CategoryUnpromoted {
+		t.Fatalf("%s — 成 여부가 이유여야 한다", got)
+	}
+
+	// **칸을 내리면 실측에서 나갔던 그 오분류가 그대로 돌아온다.** 이 줄이 있어야
+	// 위의 단정이 무엇을 막고 있는지가 코드에 남는다 — greedy_capture 는 「잡는 것이
+	// 문제」라고 말하는데 그 국면에서 잡는 것은 정답이었다.
+	in.Features.UnpromotedOnly = false
+	if got := Judge(in).Category; got != CategoryGreedyCapture {
+		t.Fatalf("%s — 끄면 옛 분류(greedy_capture)로 돌아가야 한다", got)
+	}
+}

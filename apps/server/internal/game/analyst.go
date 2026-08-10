@@ -71,6 +71,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	// Known 이 false로 남고 카테고리만 other 가 된다. 개입은 그대로 걸린다.
 	if pos, m, err := replay(startSFEN, moves); err == nil {
 		in.Features = MoveFeatures(pos, m)
+		in.Features.UnpromotedOnly = UnpromotedOnly(m, best.Best)
 		// 얕은 평가는 **이미 받아 둔 info 라인**에 있다. PvInterval=0 덕에 depth 12
 		// 탐색 한 번이 depth 1~12를 전부 돌려주므로 추가 탐색이 없다(01-core.md §4).
 		if cp, ok := after.ScoreAtDepth(ShallowDepth); ok {

@@ -156,3 +156,47 @@ func TestReplayRejectsGarbage(t *testing.T) {
 		t.Error("깨진 SFEN을 받아들였다")
 	}
 }
+
+// UnpromotedOnly 는 **틀린 설명을 막는 한 칸**이다(08-playtest.md §8).
+//
+// 이동이 최선수와 같고 成 여부만 다를 때만 참이어야 한다. 넓으면 정상적인 不成까지
+// 「成れます」로 몰고, 좁으면 다시 greedy_capture 로 떨어져 잡는 것을 문제라고 말한다.
+func TestUnpromotedOnly(t *testing.T) {
+	must := func(u string) shogi.Move {
+		t.Helper()
+		m, err := shogi.ParseUSIMove(u)
+		if err != nil {
+			t.Fatalf("%s: %v", u, err)
+		}
+		return m
+	}
+
+	for _, tc := range []struct {
+		name   string
+		played string
+		best   string
+		want   bool
+	}{
+		// 실제로 물린 그 수다. 기보 103手.
+		{"같은 이동, 成만 다르다", "7c8d", "7c8d+", true},
+		// 이미 성한 수는 이 카테고리가 아니다.
+		{"성해서 뒀으면 아니다", "7c8d+", "7c8d+", false},
+		// 최선수가 不成이면 「成れます」가 거짓이 된다.
+		{"최선수가 不成이면 아니다", "7c8d", "7c8d", false},
+		// 도착 칸이 다르면 이동 자체가 다르다 — 成이 이유일 수 없다.
+		{"도착이 다르면 아니다", "7c8d", "7c7d+", false},
+		{"출발이 다르면 아니다", "7c8d", "9c8d+", false},
+		// 打은 성할 수 없다. 어느 쪽이든 이 카테고리가 아니다.
+		{"둔 수가 打이면 아니다", "S*8d", "7c8d+", false},
+		{"최선수가 打이면 아니다", "7c8d", "S*8d", false},
+		// 최선수를 못 구했을 때 지어내지 않는다.
+		{"최선수가 없으면 아니다", "7c8d", "", false},
+		{"최선수를 못 읽으면 아니다", "7c8d", "resign", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := UnpromotedOnly(must(tc.played), tc.best); got != tc.want {
+				t.Fatalf("%v, want %v", got, tc.want)
+			}
+		})
+	}
+}

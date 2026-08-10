@@ -28,6 +28,13 @@ const (
 	// 제안형 힌트의 「깊이 반전형」(§7.1)과 정확한 거울상이다.
 	CategoryShallowTrap Category = "shallow_trap"
 
+	// CategoryUnpromoted 는 **成하지 않은 것**이 문제인 수다. 이동은 최선수와 같다.
+	//
+	// 다른 카테고리보다 앞에 온다. 이동이 최선수와 같다면 나쁜 이유는 成 여부뿐이고,
+	// 다른 무엇을 이유로 대면 그 설명이 **틀린다** — 실제로 「잡는 것이 문제」라고
+	// 가르쳤다(08-playtest.md §8).
+	CategoryUnpromoted Category = "unpromoted"
+
 	// CategoryGreedyCapture 는 駒得에 눈이 멀어 대가를 못 본 것이다.
 	CategoryGreedyCapture Category = "greedy_capture"
 
@@ -75,6 +82,13 @@ type Features struct {
 	// GivesCheck 는 이 수가 王手인가.
 	GivesCheck bool
 
+	// UnpromotedOnly 는 **최선수와 같은 이동인데 成하지 않은** 수인가.
+	//
+	// 이 한 칸이 없어서 `▲同銀不成` 이 greedy_capture 로 분류되어 「잡는 것이
+	// 문제」라고 가르쳤다 — 잡는 것이 정답이었다(08-playtest.md §8). 뽑아 오는 쪽은
+	// game.UnpromotedOnly 이고, 여기로는 참거짓만 온다.
+	UnpromotedOnly bool
+
 	// ShieldLoss 는 내 玉 주변 8칸의 **내 방어 利き** 감소량. 늘었으면 음수다.
 	ShieldLoss int
 	// ThreatGain 은 같은 칸들의 **상대 공격 利き** 증가량. 줄었으면 음수다.
@@ -116,7 +130,13 @@ func classify(in Input, lostMate bool) Category {
 	}
 
 	switch {
-	// タダ捨て가 맨 앞이다. 그냥 잡히는 駒는 판에서 그대로 보이고,
+	// **成 여부만 다른 수가 맨 앞이다.** 이동이 최선수와 같으면 나쁜 이유는 그것뿐이라,
+	// 아래 어느 분기로 보내도 설명이 틀린다. タダ捨て보다도 앞인 것은, 不成으로 놓인 駒가
+	// 마침 잡히는 자리여도 배울 것은 「成れた」쪽이기 때문이다.
+	case f.UnpromotedOnly:
+		return CategoryUnpromoted
+
+	// タダ捨て가 그다음이다. 그냥 잡히는 駒는 판에서 그대로 보이고,
 	// 딴 것보다 잃는 것이 클 때만 걸리므로 정당한 駒交換은 여기 안 들어온다.
 	case f.HangsPiece():
 		return CategoryHangsPiece
