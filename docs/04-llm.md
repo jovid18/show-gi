@@ -61,20 +61,19 @@ Tier 2   + 駒·매수·잡히는 駒            국면마다 갈리지만 문�
 
 OpenAI 호환 메타 라우터 / AI 게이트웨이. 해커톤 요구사항이기도 하다.
 
+**아래 목록은 광고된 것이고, 그중 절반이 호스팅에 없다** — 실측은 바로 다음 절이다. 이 목록은 **무엇을 기대하고 골랐는지의 기록**으로 남긴다.
+
 - 200+ 모델을 엔드포인트 하나로, 토큰 마크업 0
 - `model="auto"` → 요구 능력(tools/vision/JSON)을 충족하는 **가장 싼 모델** 자동 선택
 - LinUCB 컨텍스추얼 밴딧 + 오프라인/온라인 하이브리드 학습. RouterArena 정확도 75.5%
 - 가드레일, 에이전트 방화벽, 자동 failover, 관측성
 
+실제로 우리가 보내는 것은 이렇다.
+
 ```js
-import OpenAI from "openai";
-const client = new OpenAI({
-  baseURL: "http://localhost:8000/v1",
-  apiKey: "sk-orca-...",
-});
 const r = await client.chat.completions.create({
-  model: "auto",
-  temperature: 0,        // 캐시 히트 유도
+  model: "anthropic/claude-haiku-4.5",  // 실측으로 고정. "auto" 는 503이고
+  temperature: 0,                       // "orcarouter/auto" 는 15~23초다 (아래)
   messages: [...],
 });
 ```

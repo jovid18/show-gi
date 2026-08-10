@@ -2,17 +2,17 @@
 
 ## 1. 기술 결정 (확정)
 
-| 항목     | 결정                                              | 근거                                                                 |
-| -------- | ------------------------------------------------- | -------------------------------------------------------------------- |
-| 서버     | **Go 단일 서비스**                                | §2                                                                   |
-| 프론트   | React + TS + Vite                                 | 확정 사항. 판 렌더는 새로 쓴다 (§8)                                  |
-| 3D       | three.js, **정사영 + 2컷 한정**                   | [프론트엔드](03-frontend.md)                                         |
-| DB       | **PostgreSQL 단일. 그래프 DB 쓰지 않는다**        | §4                                                                   |
-| 엔진     | **やねうら王 + 水匠5**. `ENGINE_CMD`로 교체 가능  | §3                                                                   |
-| LLM      | OrcaRouter (`model="auto"`, `temperature=0`)      | 해커톤 요구사항. [LLM 계층](04-llm.md)                               |
-| 인증     | **Google OAuth만**                                | LINE은 심사 서류·채널 개설에 시간이 든다. 여유가 나면 D6에 추가      |
-| 배포     | AWS ECS Fargate + ALB, Terraform, Route53         | §6                                                                   |
-| 모노레포 | pnpm 워크스페이스 + `apps/server`(Go 별도 go.mod) | `../more-more`와 동일 구조. oxfmt/oxlint, `.githooks`, CI까지 그대로 |
+| 항목     | 결정                                                   | 근거                                                                 |
+| -------- | ------------------------------------------------------ | -------------------------------------------------------------------- |
+| 서버     | **Go 단일 서비스**                                     | §2                                                                   |
+| 프론트   | React + TS + Vite                                      | 확정 사항. 판 렌더는 새로 쓴다 (§8)                                  |
+| 3D       | three.js, **정사영 + 2컷 한정**                        | [프론트엔드](03-frontend.md)                                         |
+| DB       | **PostgreSQL 단일. 그래프 DB 쓰지 않는다**             | §4                                                                   |
+| 엔진     | **やねうら王 + 水匠5**. `ENGINE_CMD`로 교체 가능       | §3                                                                   |
+| LLM      | OrcaRouter (`temperature=0`). 모델은 **실측으로 고정** | 해커톤 요구사항. `auto` 를 쓰면 안 된다 — [LLM 계층 §3](04-llm.md)   |
+| 인증     | **Google OAuth만**                                     | LINE은 심사 서류·채널 개설에 시간이 든다. 여유가 나면 D6에 추가      |
+| 배포     | AWS ECS Fargate + ALB, Terraform, Route53              | §6                                                                   |
+| 모노레포 | pnpm 워크스페이스 + `apps/server`(Go 별도 go.mod)      | `../more-more`와 동일 구조. oxfmt/oxlint, `.githooks`, CI까지 그대로 |
 
 ---
 
@@ -102,19 +102,29 @@ USI 엔진은 iterative deepening 중 `info depth 1 score cp … / info depth 2 
 
 ```sql
 users        (id, provider, provider_uid, display_name, created_at)
-games        (id, user_id, my_color, started_at, result, opening_tag, root_key)
-game_moves   (game_id, ply, usi, sfen_key, eval_cp, intervened bool, retracted_usi text)
-             -- retracted_usi = 개입으로 물러진 "원래 두려던 수" = 순수 실력 신호
+games        (id, user_id, my_color, started_at, finished_at, result, opening_tag,
+              root_key, start_sfen)
+             -- user_id는 nullable. 로그인 전에도 남긴다 (002_anonymous_games.sql)
+game_moves   (game_id, ply, usi, sfen_key, eval_cp)
+             -- **지금 판에 남아 있는 수순만.** 물러진 수는 여기 안 들어온다
 interventions(id, game_id, ply, kind, category, delta_win, level_bucket,
-              retracted_usi, hinted_tag, taken bool, explain_tier, cost_yen)
+              retracted_usi, hinted_tag, taken bool, explain_tier, cost_yen, created_at)
              -- kind: 'blunder'(제지형, 착수 후 롤백) | 'tesuji'(제안형, 착수 전 알림)
-             -- retracted_usi는 blunder만, hinted_tag/taken은 tesuji만 채운다
+             -- retracted_usi는 blunder만, hinted_tag/taken은 tesuji만 (CHECK 제약이 막는다)
+             -- (game_id, ply)는 유니크가 아니다 — 한 국면에서 여러 번 물러지는 일이 있다
 skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at)
 explain_cache(key text primary key, body text, model text, hits int)
-             -- key = hash(category, level_bucket, piece, 국면특징 버킷)
+             -- key = hash(kind, category, level_bucket, 카테고리가 허용한 사실들)
 kb_chunks    (id, title, body, tags text[], source_url, source_license, verified_by,
               embedding vector(1536))  -- pgvector. 출처 없는 chunk는 프롬프트에 붙이지 않는다
 ```
+
+> **`game_moves` 에 `retracted_usi` 를 두지 않는다.** 원래 여기 `intervened bool` 과 함께 적혀 있었는데, 구현하면서 갈랐다([06-status.md §18](06-status.md)) — 기보는 **지금 판에 남아 있는 수순**이라 물러진 수가 들어가면 롤백이 롤백이 아니게 된다. 같은 ply가 두 표에 다른 값으로 들어가는 것이 정상이다.
+>
+> ```
+> game_moves    ply 3 = 2g2f    ← 다시 둔 수
+> interventions ply 3 = 8h3c+   ← 원래 두려던 수
+> ```
 
 ---
 
@@ -128,13 +138,15 @@ kb_chunks    (id, title, body, tags text[], source_url, source_license, verified
    │  Go API (apps/server)                        │
    │                                              │
    │  game      대국 세션 상태머신 (goroutine 1/세션)│
+   │            + 적응형 상대(지도 대국) · 판정 배선  │
    │  intervene 개입 판정 — 임계치·롤백·카테고리     │
-   │  coach     적응형 상대 수 선택 (지도 대국)      │
-   │  tag       囲い·전법·手筋 패턴 감지            │
+   │  explain   설명 문구 — OrcaRouter + 3단 캐시    │
+   │  shogi     룰 엔진 — 합법수·반칙·棋譜 표기      │
    │  usi       엔진 프로세스 풀 (MultiPV, mate)    │
-   │  profile   실력 추정 · 약점 프로파일           │
-   │  llm       OrcaRouter 클라 + 3단 캐시          │
-   │  store     pgx                                │
+   │  store     pgx + sqlc                         │
+   │                                              │
+   │  (아직 없다: tag 囲い·전법 / profile 실력 추정 /│
+   │              kb  RAG 코퍼스)                   │
    └───────┬───────────────────────┬──────────────┘
            │ stdin/stdout          │
    ┌───────▼─────────┐     ┌───────▼────────┐

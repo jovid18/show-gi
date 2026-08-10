@@ -19,10 +19,12 @@
 | [04-llm](docs/04-llm.md)                   | LLM 계층 · OrcaRouter · 비용 3단 캐시 · RAG                              |
 | [05-roadmap](docs/05-roadmap.md)           | D-7 일정 · 발표 구성 · 미결 사항 · 참고 링크                             |
 | [06-status](docs/06-status.md)             | **지금 어디까지 왔나** — 검증된 것 / 안 된 것 / 다음 순서                |
+| [07-articles](docs/07-articles.md)         | Zenn 시리즈 계획 · 형식 · 낡지 않게 쓰는 법                              |
+| [08-playtest](docs/08-playtest.md)         | 한 판 끝까지 두고 본 것 — 문구가 실제로 통했는가                         |
 
 읽는 순서는 번호대로. 하나만 읽는다면 [01-core](docs/01-core.md).
 
-작업을 이어받는다면 [06-status](docs/06-status.md)부터. 배포 절차는 [deploy/README.md](deploy/README.md).
+**작업을 이어받는다면 [06-status §1](docs/06-status.md)의 「지금 실제로 도는 것」 표부터.** 「무엇이 없나」(§5)를 읽기 전에 「무엇이 있나」를 알아야 이미 있는 것을 다시 만들지 않는다. 배포 절차는 [deploy/README.md](deploy/README.md).
 
 ## 원칙 두 가지
 
