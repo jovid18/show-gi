@@ -93,6 +93,8 @@ type Judgement struct {
 	// RetractedSFEN 은 물러진 수를 **둔 직후**의 국면이다. 수순을 넘겨 보는 첫 장면이고,
 	// 되돌아온 지금 판과는 다르다.
 	RetractedSFEN string
+	// RetractedChecks 는 물러진 수가 王手였다면 그것을 거는 말들이다.
+	RetractedChecks []Attack
 	// Refutation 은 「상대는 이렇게 벌한다」 — 착수 후 국면의 최선 수순이다.
 	// 개입이 안 걸렸으면 비어 있다.
 	Refutation []RefutationMove
@@ -110,6 +112,18 @@ type RefutationMove struct {
 	Ja   string `json:"ja"`
 	By   Side   `json:"by"`
 	SFEN string `json:"sfen"`
+	// Checks 는 그 수 뒤에 **玉을 잡으러 오는 말들**이다. 王手가 아니면 비어 있다.
+	//
+	// 「王手다」까지는 국면만 봐도 알지만 **어느 말이 걸고 있는지**는 규칙을 알아야 하고,
+	// 그건 클라이언트가 갖지 않기로 한 것이다(D2). 両王手가 여기서 둘로 나오고,
+	// 그 둘이 곧 「먹어서 풀 수 없다」의 이유다.
+	Checks []Attack `json:"checks,omitempty"`
+}
+
+// Attack 은 판 위에 그을 한 줄이다. 칸은 USI 좌표(`4i`).
+type Attack struct {
+	From string `json:"from"`
+	To   string `json:"to"`
 }
 
 // Intervention 은 제지형 개입 하나다. 스냅샷에 실려 화면으로 간다.
@@ -133,6 +147,8 @@ type Intervention struct {
 	// RetractedSFEN 은 물러진 수를 **둔 직후**의 국면이다. 화면이 수순을 넘겨 볼 때의
 	// 첫 장면이고, 되돌아온 지금 판(`Snapshot.SFEN`)과는 다르다.
 	RetractedSFEN string `json:"retractedSfen"`
+	// RetractedChecks 는 물러진 수가 王手였다면 그것을 거는 말들이다.
+	RetractedChecks []Attack `json:"retractedChecks,omitempty"`
 	// Refutation 은 「상대는 이렇게 벌한다」. 물러진 수를 그대로 뒀을 때의 최선 수순이고,
 	// 첫 수가 상대의 수다. 못 구했으면 비어 있다 — 화면은 그때 넘기기를 안 띄운다.
 	//
@@ -473,15 +489,16 @@ func (st *state) rollback(r judgeResult) {
 
 	v := r.judgement.Verdict
 	st.intervention = &Intervention{
-		Kind:          string(v.Kind),
-		Category:      string(v.Category),
-		RetractedUSI:  r.move.USI,
-		RetractedJa:   r.move.Ja,
-		DeltaWin:      v.DeltaWin,
-		LostMate:      v.LostMate,
-		Message:       interventionMessage(v),
-		RetractedSFEN: r.judgement.RetractedSFEN,
-		Refutation:    r.judgement.Refutation,
+		Kind:            string(v.Kind),
+		Category:        string(v.Category),
+		RetractedUSI:    r.move.USI,
+		RetractedJa:     r.move.Ja,
+		DeltaWin:        v.DeltaWin,
+		LostMate:        v.LostMate,
+		Message:         interventionMessage(v),
+		RetractedSFEN:   r.judgement.RetractedSFEN,
+		RetractedChecks: r.judgement.RetractedChecks,
+		Refutation:      r.judgement.Refutation,
 	}
 }
 

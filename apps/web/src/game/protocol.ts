@@ -42,6 +42,8 @@ export interface Intervention {
   message: string;
   /** 물러진 수를 **둔 직후**의 국면. 되돌아온 지금 판(`Snapshot.sfen`)과는 다르다. */
   retractedSfen: string;
+  /** 물러진 수가 王手였다면 그것을 거는 말들. */
+  retractedChecks?: Attack[];
   /**
    * 「상대는 이렇게 벌한다」. 물러진 수를 그대로 뒀을 때의 수순이고 **첫 수가 상대의
    * 수**다. 서버가 못 구했으면 아예 오지 않는다.
@@ -63,6 +65,20 @@ export interface Intervention {
 export interface RefutationMove extends KifuMove {
   /** 이 수를 둔 **뒤**의 국면. 持ち駒까지 들어 있어 駒台도 이 값으로 맞는다. */
   sfen: string;
+  /**
+   * 그 수 뒤에 玉을 잡으러 오는 말들. 王手가 아니면 오지 않는다.
+   *
+   * 「王手다」까지는 국면만 봐도 알지만 **어느 말이 걸고 있는지**는 규칙을 알아야 하고,
+   * 그건 화면이 갖지 않기로 한 것이다. 両王手가 여기서 둘로 오고, 그 둘이 곧
+   * 「먹어서 풀 수 없다」의 이유다.
+   */
+  checks?: Attack[];
+}
+
+/** 판 위에 그을 한 줄. 칸은 USI 좌표(`4i`). */
+export interface Attack {
+  from: string;
+  to: string;
 }
 
 export interface Snapshot {

@@ -104,7 +104,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		// 이미 손에 든 탐색의 PV가 그대로 「상대는 이렇게 벌한다」다. **추가 탐색이 없고
 		// 분류도 필요 없다** — 카테고리가 이유를 못 대는 3분의 2(06-status.md §17)가
 		// 여기서 설명을 갖는다.
-		j.RetractedSFEN, j.Refutation = refutationLine(startSFEN, moves, after.PV, RefutationPlies)
+		j.RetractedSFEN, j.RetractedChecks, j.Refutation = refutationLine(startSFEN, moves, after.PV, RefutationPlies)
 	}
 	return j, nil
 }
@@ -124,20 +124,20 @@ const RefutationPlies = 8
 //
 // 표기와 국면을 여기서 만드는 이유도 같다. 화면이 USI에서 다시 만들면 표기가 두 벌이
 // 되고, 국면은 아예 클라이언트에 규칙 엔진을 들이는 일이 된다(06-status.md §6 ④).
-func refutationLine(startSFEN string, moves []string, pv []string, limit int) (string, []RefutationMove) {
+func refutationLine(startSFEN string, moves []string, pv []string, limit int) (string, []Attack, []RefutationMove) {
 	if len(pv) == 0 || limit <= 0 {
-		return "", nil
+		return "", nil, nil
 	}
 
 	pos, err := positionAfter(startSFEN, moves)
 	if err != nil {
 		log.Printf("game: could not replay for refutation: %v", err)
-		return "", nil
+		return "", nil, nil
 	}
-	retracted := pos.SFEN()
+	retracted, retractedChecks := pos.SFEN(), checkLines(pos)
 	last, err := shogi.ParseUSIMove(moves[len(moves)-1])
 	if err != nil {
-		return "", nil
+		return "", nil, nil
 	}
 	// 물러진 수의 도착 칸. 벌하는 수는 대개 그 자리를 되따는 수라 「同」이 여기서 나온다.
 	prevTo := int(last.To)
@@ -167,9 +167,11 @@ func refutationLine(startSFEN string, moves []string, pv []string, limit int) (s
 		pos = pos.Apply(m)
 		prevTo = int(m.To)
 		mv.SFEN = pos.SFEN()
+		mv.Checks = checkLines(pos)
 		line = append(line, mv)
 
-		step.settles = step.captureSq >= 0 || pos.InCheck(pos.Turn)
+		step.gaveCheck = len(mv.Checks) > 0
+		step.settles = step.captureSq >= 0 || step.gaveCheck
 		steps = append(steps, step)
 		if by == SideEngine {
 			by = SideHuman
@@ -178,9 +180,31 @@ func refutationLine(startSFEN string, moves []string, pv []string, limit int) (s
 		}
 	}
 	if len(line) == 0 {
-		return "", nil
+		return "", nil, nil
 	}
-	return retracted, line[:trimRefutation(steps)]
+	return retracted, retractedChecks, line[:trimRefutation(steps)]
+}
+
+// checkLines 는 지금 수번인 쪽의 玉을 잡으러 오는 말들을 판 위의 선으로 옮긴다.
+//
+// **「王手다」와 「누가 걸고 있는가」는 다른 질문이다.** 앞은 국면만 봐도 알지만 뒤는
+// 규칙을 알아야 하고, 그건 클라이언트가 갖지 않기로 한 것이다(D2). 両王手가 여기서 두 줄로
+// 나오고, 그 둘이 곧 「먹어서 풀 수 없다」의 이유다 — 실제로 그 물음이 나왔다(§20).
+func checkLines(pos shogi.Position) []Attack {
+	king := pos.KingSquare(pos.Turn)
+	if king < 0 {
+		return nil
+	}
+	from := pos.Attackers(king, pos.Turn.Other())
+	if len(from) == 0 {
+		return nil
+	}
+	out := make([]Attack, 0, len(from))
+	to := shogi.SquareUSI(king)
+	for _, sq := range from {
+		out = append(out, Attack{From: shogi.SquareUSI(sq), To: to})
+	}
+	return out
 }
 
 // refutationStep 은 반박 수순의 한 수에서 **자를 자리를 정하는 데 필요한 사실**이다.
@@ -190,6 +214,8 @@ type refutationStep struct {
 	// captureSq 는 딴 칸. 안 땄으면 -1. **교환은 한 칸에서 벌어지는 것**이라 이어지는지를
 	// 이 값이 정한다.
 	captureSq int
+	// gaveCheck 는 王手를 걸었는가. 王手는 응수가 강제라 **혼자 서지 못한다.**
+	gaveCheck bool
 }
 
 // trimRefutation 은 **처음 벌어지는 교환이 끝나는 자리**에서 수순을 끊는다.
@@ -205,6 +231,10 @@ type refutationStep struct {
 // **교환을 중간에 끊으면 거짓말이 된다.** `△7六飛成` 만 보여주면 飛가 馬를 그냥 딴 것으로
 // 읽히는데 실제로는 `▲同角` 으로 되딴다. 반쪽이 틀린 것보다 한 수 긴 편이 낫다.
 //
+// **王手도 혼자 서지 못한다.** 응수가 강제라, 답을 빼고 던져 놓으면 화면이 「먹으면 되는
+// 것 아닌가」를 부른다 — 실측한 両王手 국면에서 그 「먹는 수」는 아예 합법수가 아니었다.
+// 그래서 王手가 나오면 그 응수까지, 王手가 이어지면 이어지는 동안 함께 보여준다.
+//
 // **「같은 칸」이 조건인 것이 요점이다.** 그냥 「따는 수가 이어지는 동안」으로 두면 다른
 // 자리에서 벌어지는 별개의 교환까지 붙어서, 마지막 따는 수까지 가는 것과 같아진다 —
 // 실측에서 두 규칙이 8수짜리 같은 줄을 냈다(06-status.md §20).
@@ -219,9 +249,20 @@ func trimRefutation(steps []refutationStep) int {
 		if !s.settles {
 			continue
 		}
-		// 王手는 교환이 아니다. captureSq 가 -1이라 아래 조건이 바로 거짓이 된다.
 		end := i + 1
-		for end < len(steps) && steps[end].captureSq >= 0 && steps[end].captureSq == steps[end-1].captureSq {
+		for end < len(steps) {
+			prev, cur := steps[end-1], steps[end]
+			switch {
+			// 王手에는 응수가 강제다. 답을 빼고 보여주면 「먹으면 되지 않나」가 되는데,
+			// 실측한 両王手 국면에서는 그 「먹는 수」가 아예 합법수가 아니었다.
+			case prev.gaveCheck:
+			// 이어지는 王手도 같은 수순이다. 連続王手는 거기서 이야기가 끝난다.
+			case cur.gaveCheck:
+			// 같은 칸에서 주고받는 동안이 교환이다.
+			case cur.captureSq >= 0 && cur.captureSq == prev.captureSq:
+			default:
+				return end
+			}
 			end++
 		}
 		return end

@@ -5,7 +5,7 @@ import { Hand } from './Hand';
 import { Intervention } from './Intervention';
 import { Kifu } from './Kifu';
 import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/game/moves';
-import type { Player, Snapshot } from '@/game/protocol';
+import type { Attack, Player, Snapshot } from '@/game/protocol';
 import { useGame } from '@/game/useGame';
 import type { Side } from '@/shogi/piece';
 import { parseSfen, type Board as BoardModel } from '@/shogi/sfen';
@@ -43,10 +43,26 @@ interface Scene {
   played: LastMove;
   /** 다음에 올 수. 마지막 장면에는 없다. */
   ray: Ray | null;
+  /** 이 장면에서 玉을 잡으러 오는 말들. 王手가 아니면 비어 있다. */
+  checks: Ray[];
   /** 화살표가 가리키는 수가 수순의 몇 번째인가. 마지막 장면이면 -1. */
   next: number;
   /** 다음 수가 打이면 그 駒. 駒台에서 같이 빛나 화살표의 짝이 된다. */
   dropping: { side: Side; kind: string } | null;
+}
+
+/** 王手를 거는 줄. 서버가 준 두 칸을 그대로 옮긴다 — 화면은 누가 王手인지 계산하지 않는다. */
+function checkRays(checks: Attack[] | undefined): Ray[] {
+  if (!checks?.length) return [];
+  const out: Ray[] = [];
+  for (const c of checks) {
+    try {
+      out.push({ from: toIndex(fromUsi(c.from)), to: toIndex(fromUsi(c.to)), by: 'engine', check: true });
+    } catch {
+      // 못 읽는 좌표로 엉뚱한 선을 긋느니 그 한 줄을 버린다
+    }
+  }
+  return out;
 }
 
 function rayOf(usi: string, by: Player): Ray | null {
@@ -163,6 +179,8 @@ export function GameScreen() {
     // i번째 장면 = i수까지 진행한 판. 0번은 물러진 수를 둔 직후다.
     const sfenAt = (i: number): string => (i === 0 ? intervention.retractedSfen : (line[i - 1]?.sfen ?? ''));
     const playedAt = (i: number): string => (i === 0 ? intervention.retractedUsi : (line[i - 1]?.usi ?? ''));
+    const checksAt = (i: number): Attack[] | undefined =>
+      i === 0 ? intervention.retractedChecks : line[i - 1]?.checks;
 
     const out: Scene[] = [];
     for (let i = 0; i <= line.length; i++) {
@@ -179,6 +197,7 @@ export function GameScreen() {
       out.push({
         board,
         played,
+        checks: checkRays(checksAt(i)),
         ray: upcoming ? rayOf(upcoming.usi, upcoming.by) : null,
         next: upcoming ? i : -1,
         // 화면은 늘 相手가 白·あなた가 黑이다.
@@ -366,6 +385,7 @@ export function GameScreen() {
           played={current?.played ?? null}
           replay={replay}
           ray={current?.ray ?? null}
+          checks={current?.checks ?? []}
           dimmed={walking}
           dropFrom={dropFrom}
           boardRef={boardRef}

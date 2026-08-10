@@ -138,6 +138,34 @@ func (pos *Position) AttackCount(sq int, by Color) int {
 	return n
 }
 
+// Attackers 는 sq 를 노리는 by 색 말이 **어느 칸에** 있는지다.
+//
+// AttackCount 가 「몇 개인가」라면 이쪽은 「어디인가」다. 王手를 화면에 그리려면 그 값이
+// 필요하다 — 「王手다」까지는 InCheck 가 말하지만, **어느 말이 걸고 있는지**를 모르면
+// 초심자는 판에서 그것을 찾아야 하고, 両王手인지 아닌지도 알 수 없다.
+//
+// 핀은 보지 않는다. AttackCount 와 같은 규칙이고, 王手를 거는 말은 애초에 핀에 걸릴 수 없다.
+func (pos *Position) Attackers(sq int, by Color) []int {
+	var out []int
+	for s := 0; s < 81; s++ {
+		p := pos.Board[s]
+		if p.Empty() || p.Color() != by {
+			continue
+		}
+		pos.attackTargets(s, func(to int) bool {
+			if to == sq {
+				out = append(out, s)
+				return false
+			}
+			return true
+		})
+	}
+	return out
+}
+
+// SquareUSI 는 칸 번호를 USI 좌표(`7g`)로 적는다. 화면이 칸을 짚을 때 쓰는 표기다.
+func SquareUSI(sq int) string { return sqUSI(int8(sq)) }
+
 // Neighbors8 은 sq 를 둘러싼 8칸이다. 판 밖은 빠지므로 모서리에서는 3칸이다.
 //
 // 玉 주변의 넓이를 여기서 한 번만 정한다 — 부르는 쪽마다 8방향을 다시 적으면

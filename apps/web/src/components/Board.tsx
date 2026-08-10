@@ -53,8 +53,10 @@ export interface Ray {
   /** 출발 칸. 打이면 null이고, 그때는 도착점만 찍힌다. */
   from: number | null;
   to: number;
-  /** 누가 둔 수인가. 읽어야 하는 것은 상대의 수라 사람의 수는 물러난다. */
+  /** 누가 둔 수인가. */
   by: Player;
+  /** 王手를 거는 줄인가. 다음 수(초록)와 색만 다르고 모양은 같다. */
+  check?: boolean;
 }
 
 interface BoardProps {
@@ -73,6 +75,13 @@ interface BoardProps {
   played: LastMove | null;
   /** 다음에 올 한 수. 초록 화살표로 긋는다 — **다음에 벌어질 것**이다. */
   ray: Ray | null;
+  /**
+   * 지금 玉을 잡으러 오는 말들. 붉은 화살표로 긋는다.
+   *
+   * **몇 줄인지가 곧 답이다.** 둘이면 両王手라 玉을 움직일 수밖에 없고, 「먹어서 풀면
+   * 되지 않나」가 거기서 닫힌다 — 실제로 그 물음이 나왔다.
+   */
+  checks: readonly Ray[];
   /** 회상 중인가. 판이 색을 잃고 낮아져서 그 위의 빛이 읽힌다. */
   dimmed: boolean;
   /** 打 화살표의 출발점. 재기 전이거나 打이 아니면 null. */
@@ -172,6 +181,7 @@ function RefutationRay({
     <span
       className="refutation-ray"
       data-by={ray.by}
+      data-check={ray.check || undefined}
       // 유령 駒가 나는 장면에서만 기다렸다 켜진다. 넘기며 보는 동안에는 기다릴 것이 없다.
       data-wait={waitForGhost || undefined}
       style={style}
@@ -189,6 +199,7 @@ export function Board({
   replay,
   played,
   ray,
+  checks,
   dimmed,
   dropFrom,
   boardRef,
@@ -234,6 +245,12 @@ export function Board({
         {/* 판만 낮춘다. 빛과 광선은 이 겹 위에 있어서 낮아진 판 위에서 오히려 또렷해진다.
             판을 밝게 둔 채로는 흰 광선이 榧색 나무에 묻힌다 — D2에서 한 번 겪은 일이다. */}
         {dimmed && <span className="board-tint" aria-hidden="true" />}
+
+        {/* 王手가 먼저 켜진다. 「지금 이 판이 어떤 상태인가」가 「다음에 무엇이 오는가」보다
+            앞이다 — 王手인 줄 모르면 다음 수가 왜 그것인지도 안 읽힌다. */}
+        {checks.map((c) => (
+          <RefutationRay key={`${c.from}-${c.to}`} ray={c} waitForGhost={false} dropFrom={null} />
+        ))}
 
         {ray && <RefutationRay ray={ray} waitForGhost={replay !== null} dropFrom={dropFrom} />}
 

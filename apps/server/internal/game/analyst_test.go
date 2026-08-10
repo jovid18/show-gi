@@ -21,7 +21,7 @@ var tookThePawn = []string{"5e5d"}
 func TestRefutationLineRunsUntilTheDamageLands(t *testing.T) {
 	pv := []string{"5a4a", "1i2i", "4c5d"}
 
-	_, line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies)
+	_, _, line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies)
 
 	want := []RefutationMove{
 		{USI: "5a4a", Ja: "△4一玉", By: SideEngine},
@@ -36,7 +36,7 @@ func TestRefutationLineRunsUntilTheDamageLands(t *testing.T) {
 func TestRefutationLineShowsTheWholeExchange(t *testing.T) {
 	pv := []string{"4c5d", "5i5d", "8a5d", "1i2i"}
 
-	_, line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies)
+	_, _, line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies)
 
 	want := []RefutationMove{
 		{USI: "4c5d", Ja: "△同金", By: SideEngine},
@@ -49,7 +49,7 @@ func TestRefutationLineShowsTheWholeExchange(t *testing.T) {
 // 첫 수는 언제나 상대의 수다. 판정하는 것이 사람의 수이기 때문이고, 사람이 어느 색을
 // 잡았는지와 무관하다. 화면은 이 성질에 기대어 **첫 수만** 판에 긋는다.
 func TestRefutationLineStartsWithTheOpponent(t *testing.T) {
-	_, line := refutationLine(exchangeSFEN, tookThePawn, []string{"4c5d"}, RefutationPlies)
+	_, _, line := refutationLine(exchangeSFEN, tookThePawn, []string{"4c5d"}, RefutationPlies)
 	if len(line) != 1 || line[0].By != SideEngine {
 		t.Fatalf("첫 수가 상대의 수가 아니다: %+v", line)
 	}
@@ -62,7 +62,7 @@ func TestRefutationLineStopsWhenTheFirstMovePunishes(t *testing.T) {
 	thrownBishop := []string{"7g7f", "3c3d", "8h2b+"}
 	pv := []string{"3a2b", "B*5e", "2b3c"}
 
-	_, line := refutationLine(shogi.StartSFEN, thrownBishop, pv, RefutationPlies)
+	_, _, line := refutationLine(shogi.StartSFEN, thrownBishop, pv, RefutationPlies)
 
 	if len(line) != 1 {
 		t.Fatalf("수순 길이 %d, 기대 1: %+v", len(line), line)
@@ -78,7 +78,7 @@ func TestRefutationLineStopsWhenTheFirstMovePunishes(t *testing.T) {
 func TestRefutationLineOnlyLooksAsFarAsTheLimit(t *testing.T) {
 	pv := []string{"5a4a", "1i2i", "4c5d"} // 따는 수가 상한 밖이다
 
-	_, line := refutationLine(exchangeSFEN, tookThePawn, pv, 2)
+	_, _, line := refutationLine(exchangeSFEN, tookThePawn, pv, 2)
 
 	if len(line) != 1 {
 		t.Fatalf("수순 길이 %d, 기대 1: %+v", len(line), line)
@@ -95,7 +95,7 @@ func TestRefutationLineCutsAtAnUnplayableMove(t *testing.T) {
 
 	for name, pv := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies)
+			_, _, line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies)
 			if len(line) != 1 {
 				t.Fatalf("수순 길이 %d, 기대 1: %+v", len(line), line)
 			}
@@ -104,14 +104,67 @@ func TestRefutationLineCutsAtAnUnplayableMove(t *testing.T) {
 }
 
 func TestRefutationLineIsEmptyWithoutAPV(t *testing.T) {
-	if _, line := refutationLine(exchangeSFEN, tookThePawn, nil, RefutationPlies); line != nil {
+	if _, _, line := refutationLine(exchangeSFEN, tookThePawn, nil, RefutationPlies); line != nil {
 		t.Errorf("PV가 없는데 수순이 나왔다: %+v", line)
+	}
+}
+
+const doubleCheckKifu = `▲7六歩 △5二玉 ▲6六歩 △4二銀 ▲2六歩 △8四歩 ▲2五歩 △3四歩
+▲7七角 △3二金 ▲7八銀 △3三銀 ▲6八飛 △6四歩 ▲4八玉 △5四歩
+▲3八玉 △8五歩 ▲2八玉 △9四歩 ▲3八銀 △8四飛 ▲5八金左 △1四歩
+▲1六歩 △5一金 ▲9六歩 △7四歩 ▲6七銀 △4四歩 ▲5六銀 △7三桂
+▲8八角 △7二銀 ▲7七桂 △1三角 ▲6五歩 △8六歩 ▲同歩 △同飛
+▲6四歩 △8七飛成 ▲8五歩 △9五歩 ▲6三歩成 △同銀 ▲9五歩 △4二金寄
+▲8四歩 △3一角 ▲8三歩成 △6二金 ▲7三と △同金 ▲6四歩 △同銀
+▲6五歩 △5三銀 ▲9四歩 △3二金 ▲9三歩成 △4二角 ▲9二と △6二銀
+▲9一と △9八歩 ▲同香 △4一玉 ▲9七角 △同角成 ▲同香 △7七龍
+▲8二角 △4二金 ▲6四歩 △2六桂 ▲2七銀 △7二金 ▲9三角成 △9七龍
+▲8四馬 △3二玉 ▲6六桂 △5三香 ▲2六銀 △7三銀 ▲8五馬 △7七龍
+▲6三歩成 △6七歩 ▲同飛 △7九龍 ▲4八金寄 △6三金 ▲6四歩 △同金
+▲7四桂 △8九龍 ▲8六歩 △7八角 ▲6八飛 △8四歩 ▲9四馬 △6五歩
+▲同銀 △5五金 ▲5六歩 △6五金 ▲同飛 △6四歩 ▲7五飛 △5五歩
+▲同歩 △1五歩 ▲同歩 △5六歩 ▲6二桂成 △6七角成 ▲7三飛成 △4九龍
+▲同金 △同馬 ▲6四龍 △3九金 ▲5四歩 △3八金打 ▲2七玉 △2二玉
+▲5一銀 △3二金 ▲5三歩成 △5七歩成`
+
+// 両王手는 **먹어서 풀 수 없다.** 플레이 테스트에서 「同銀으로 먹으면 되는 것 아닌가」가
+// 나온 국면이고, 그때 화면이 그 이유를 말하지 못했다(06-status.md §20).
+//
+// ▲1七銀 뒤 △2八金은 金이 3八에서 나가면서 **4九馬의 대각선을 연다** — 金과 馬가 동시에
+// 王手라 玉을 움직일 수밖에 없다. 붉은 화살표 두 줄이 곧 그 사실이다.
+//
+// **엔진 없이 돈다.** 王手를 거는 말을 찾는 것은 룰 엔진의 일이고, 화면에 나가는 단언이라
+// 환경변수가 없으면 조용히 skip 되는 자리에 두지 않는다.
+func TestCheckLinesFindsBothCheckersOfADoubleCheck(t *testing.T) {
+	usis, _ := kifuToUSI(t, doubleCheckKifu)
+
+	pos, err := positionAfter(shogi.StartSFEN, append(usis, "2f1g", "3h2h"))
+	if err != nil {
+		t.Fatalf("국면 복원: %v", err)
+	}
+
+	got := checkLines(pos)
+	want := []Attack{{From: "2h", To: "2g"}, {From: "4i", To: "2g"}}
+	if len(got) != len(want) {
+		t.Fatalf("王手 줄 %d개, 기대 %d개: %+v", len(got), len(want), got)
+	}
+	for i, a := range got {
+		if a != want[i] {
+			t.Errorf("%d번째 줄 %+v, 기대 %+v", i, a, want[i])
+		}
+	}
+
+	// 두 줄이라는 것과 「먹어서 못 푼다」가 같은 사실이어야 한다. 玉을 움직이는 수뿐이다.
+	for _, m := range pos.LegalMoves() {
+		if pos.Board[m.From].Type() != shogi.King {
+			t.Errorf("両王手인데 玉 말고 두는 수가 있다: %s", m.USI())
+		}
 	}
 }
 
 func TestTrimRefutation(t *testing.T) {
 	quiet := refutationStep{captureSq: -1}
-	check := refutationStep{settles: true, captureSq: -1}
+	check := refutationStep{settles: true, captureSq: -1, gaveCheck: true}
 	takes := func(sq int) refutationStep { return refutationStep{settles: true, captureSq: sq} }
 
 	cases := map[string]struct {
@@ -122,8 +175,10 @@ func TestTrimRefutation(t *testing.T) {
 		"몇 수 앞에서 벌어진다":   {[]refutationStep{quiet, quiet, takes(30), quiet}, 3},
 		"같은 칸의 교환은 끝까지":  {[]refutationStep{quiet, takes(30), takes(30), takes(30), quiet}, 4},
 		"다른 칸이면 별개 교환이다": {[]refutationStep{takes(30), takes(41), takes(41)}, 1},
-		"王手는 교환이 아니다":    {[]refutationStep{check, takes(30), takes(30)}, 1},
-		"조용한 수뿐이면 첫 수만":  {[]refutationStep{quiet, quiet, quiet}, 1},
+		// **王手는 혼자 서지 못한다.** 응수가 강제라, 답을 빼면 「먹으면 되지 않나」가 된다.
+		"王手는 응수까지":      {[]refutationStep{check, quiet, quiet}, 2},
+		"連続王手는 이어지는 동안": {[]refutationStep{check, takes(30), check, quiet, quiet}, 4},
+		"조용한 수뿐이면 첫 수만": {[]refutationStep{quiet, quiet, quiet}, 1},
 	}
 
 	for name, c := range cases {

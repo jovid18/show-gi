@@ -473,7 +473,7 @@ func TestRefutationRidesAlongToTheSnapshot(t *testing.T) {
 	}
 	got := waitFor(t, ch, func(s Snapshot) bool { return s.Intervention != nil }, "개입")
 
-	if len(got.Intervention.Refutation) != 1 || got.Intervention.Refutation[0] != line[0] {
+	if len(got.Intervention.Refutation) != 1 || got.Intervention.Refutation[0].USI != line[0].USI {
 		t.Fatalf("반박 수순이 그대로 실리지 않았다: %+v", got.Intervention.Refutation)
 	}
 	// 기보는 물러진 상태 그대로다 — 반박 수순은 판에 둔 수가 아니다.
