@@ -74,3 +74,38 @@ func blackMoves(all []string) []string {
 	}
 	return out
 }
+
+// 振り飛車穴熊도 같은 방법으로 확인한다 — 玉이 반대쪽 隅(1九)에 들어간다.
+//
+// 좌우를 뒤집은 자리라 `squareFor` 의 거울(後手용 180° 회전)로는 안 나온다. 그래서
+// 정의를 따로 적었고, 그 좌표를 여기서 룰 엔진에 다시 물어 확인한다.
+func TestFuribishaAnagumaIsReachableFromTheStart(t *testing.T) {
+	moves := []string{
+		"2h6h", "3c3d", // ▲6八飛  △3四歩   ← 四間に振る
+		"5i4h", "8c8d", // ▲4八玉  △8四歩
+		"4h3h", "4a3b", // ▲3八玉  △3二金
+		"3h2h", "7a6b", // ▲2八玉  △6二銀   ← 飛が居た2八に入る
+		"1i1h", "6c6d", // ▲1八香  △6四歩   ← 香が1九を空ける
+		"2h1i", "5c5d", // ▲1九玉  △5四歩   ← 玉が隅に入る
+		"3i2h", "4c4d", // ▲2八銀  △4四歩
+		"4i3i", "2b3c", // ▲3九金  △3三角   ← 振り飛車穴熊が完成する
+	}
+
+	pos := shogi.StartPosition()
+	for i, usi := range moves {
+		m, err := shogi.ParseUSIMove(usi)
+		if err != nil {
+			t.Fatalf("%d수 %s: 파싱 실패 %v", i+1, usi, err)
+		}
+		if err := pos.ValidateMove(m); err != nil {
+			t.Fatalf("%d수 %s: 반칙 — %v", i+1, usi, err)
+		}
+		pos = pos.Apply(m)
+	}
+
+	got := Detect(Input{Pos: pos, Color: shogi.Black, PlayerMoves: blackMoves(moves)})
+	if want := []string{"furibisha_anaguma", "shiken_bisha"}; len(got) != 2 ||
+		got[0].Code != want[0] || got[1].Code != want[1] {
+		t.Fatalf("%v 를 기대했는데 %v (%s)", want, codes(got), pos.SFEN())
+	}
+}

@@ -153,6 +153,18 @@ var castles = []shape{
 		source: wikiAna,
 	},
 	{
+		// 振り飛車穴熊 — 居飛車穴熊를 **좌우로 뒤집은** 자리다. 振り飛車는 飛를 왼쪽으로
+		// 振るので玉が右へ行き、隅も1九になる。
+		//
+		// `squareFor` 의 거울(後手용 180° 회전)과 **다른 뒤집기**라 따로 적어야 한다.
+		// 좌우 대칭은 先手 안에서의 이야기이고, 그걸 회전으로 얻을 수는 없다.
+		tag: Tag{Code: "furibisha_anaguma", NameJa: "振り飛車穴熊", Kind: KindCastle},
+		squares: []square{
+			{1, 9, shogi.King}, {2, 8, shogi.Silver}, {3, 9, shogi.Gold},
+		},
+		source: wikiAna,
+	},
+	{
 		// 4枚穴熊 — 3枚에 金7八을 더한 형태
 		tag: Tag{Code: "yonmai_anaguma", NameJa: "四枚穴熊", Kind: KindCastle},
 		squares: []square{

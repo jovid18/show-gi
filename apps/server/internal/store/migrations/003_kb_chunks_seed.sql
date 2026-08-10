@@ -31,7 +31,7 @@ BEGIN;
 DELETE FROM kb_chunks WHERE tags && ARRAY[
     'kin_musou', 'kata_mino', 'hon_mino', 'taka_mino', 'ginkanmuri',
     'kin_yagura', 'gin_yagura', 'kata_yagura', 'fune', 'kani', 'gangi',
-    'ibisha_anaguma', 'yonmai_anaguma',
+    'ibisha_anaguma', 'yonmai_anaguma', 'furibisha_anaguma',
     'naka_bisha', 'shiken_bisha', 'sanken_bisha', 'mukai_bisha',
     'sode_bisha', 'migi_shiken_bisha', 'ibisha',
     'kaku_gawari', 'ai_furibisha', 'kakukan_furibisha',
@@ -87,6 +87,11 @@ INSERT INTO kb_chunks (title, body, tags, source_url, source_license, verified_b
 ('居飛車穴熊',
  '玉を9九の隅に入れ、銀を8八でかぶせ、金を7九に置いた囲いです。端の香車を9八に上げて隅を空けることで玉が入る「穴」ができます。玉が戦場から遠く、金銀が密に連結するため横からの攻めに非常に強く、寄せるのに多くの手数がかかります。組むのに手数がかかるので、その間に急戦を仕掛けられないよう手順に注意します。',
  ARRAY['ibisha_anaguma', 'castle', 'anaguma'],
+ 'https://ja.wikipedia.org/wiki/穴熊囲い', 'CC-BY-SA-4.0', 'engine'),
+
+('振り飛車穴熊',
+ '振り飛車から玉を1九の隅に入れ、銀を2八でかぶせ、金を3九に置いた囲いです。居飛車穴熊とは左右が反対になった形で、飛車を左に振るぶん玉が右の隅へ向かいます。堅さは穴熊そのままで横からの攻めに強く、美濃囲いから組み替えて到達することもあります。端を攻められると玉の逃げ道が狭いので、端歩の突き合いには注意します。',
+ ARRAY['furibisha_anaguma', 'castle', 'anaguma'],
  'https://ja.wikipedia.org/wiki/穴熊囲い', 'CC-BY-SA-4.0', 'engine'),
 
 ('四枚穴熊',
