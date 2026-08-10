@@ -3,8 +3,8 @@
 **발표 슬라이드의 재료를 먼저 글로 쌓는다.** [로드맵](05-roadmap.md)의 D7이 「Zenn 기사 초안(발표 슬라이드와 내용 재사용)」인데 그 슬라이드가 아직 없다. 그래서 순서가 뒤집혔다 — 글이 먼저고 슬라이드가 거기서 나온다.
 
 - 작성일: 2026-08-10
+- 마지막 재싱크: **2026-08-10** — [상태 §22](06-status.md)까지 반영 (PR #23)
 - 마감: **2026-08-15 15:00**
-- 작업 브랜치: `docs/zenn-article`
 
 ## 1. 확정된 것
 
@@ -65,7 +65,7 @@ published_at: '2026-08-15 10:00' # 선택. JST
 
 ## 4. oxfmt는 Zenn 문법을 안 망가뜨린다 — 실측
 
-`.oxfmtrc.jsonc`가 `**/*.md`를 전부 포맷하므로 `articles/`도 대상이다. 40편을 쓰고 나서 알면 늦어서 **미리 시험했다.**
+`.oxfmtrc.jsonc`가 `**/*.md`를 전부 포맷하므로 `articles/`도 대상이다. 기사를 다 쓰고 나서 알면 늦어서 **미리 시험했다.**
 
 Zenn 고유 문법을 한 파일에 다 넣고 `oxfmt`를 돌린 결과, **본문에서 바뀐 것은 표 정렬 한 곳뿐이었다.** 그건 [CLAUDE.md](../CLAUDE.md)에 이미 정상 동작으로 적혀 있다.
 
@@ -155,89 +155,117 @@ Zenn 고유 문법을 한 파일에 다 넣고 `oxfmt`를 돌린 결과, **본�
 - 전제 지식이 필요하면 **첫머리에 링크로 밝힌다.** 중간에서 갑자기 요구하지 않는다
 - 쇼기 용어(持ち駒·成り·詰み)는 일본 독자에게 설명이 필요 없다. **반대로 USI·SFEN·NNUE는 쇼기를 알아도 모른다**
 
-### A. 개념 해설 (15편)
+### A. 개념 해설 (19편)
 
 Zenn에는 pgvector 해설도 OIDC 해설도 이미 많다. **개념 설명을 제대로 하고, 그 위에 「이 프로젝트에서 실제로 물린 것」을 얹어야** 남의 글과 달라진다. 아래 표의 「축」은 그 얹는 부분만 적은 것이다 — **개념 설명을 생략한다는 뜻이 아니다.**
 
-|     | slug                                     | 축                                                            |     |
-| --- | ---------------------------------------- | ------------------------------------------------------------- | --- |
-| A1  | `showgi-github-oidc-aws-keyless-deploy`  | subject claim에 **불변 ID**가 박힌다. 찾는 데 실행 2번        | ◎   |
-| A2  | `showgi-pgvector-embeddings-in-postgres` | sqlc가 `vector` 타입을 어떻게 다루나                          | ○   |
-| A3  | `showgi-usi-protocol-shogi-engine`       | UCI와의 차이. 옵션이 `USI_Variant`가 아니라 `UCI_Variant`     | ◎   |
-| A4  | `showgi-sfen-board-as-a-string`          | 캐시 키가 되는 순간 생기는 요구사항                           | ○   |
-| A5  | `showgi-nnue-eval-function-fv-scale`     | `FV_SCALE`이 틀리면 cp 척도가 통째로 바뀐다                   | ◎   |
-| A6  | `showgi-go-mate-is-a-different-search`   | 탐색부에 보내면 `bestmove`가 온다. **에러 없이**              | ◎   |
-| A7  | `showgi-multipv-candidate-moves`         | k가 무엇을 지배하고 무엇을 안 지배하나                        | ◎   |
-| A8  | `showgi-sqlc-schema-generates-code`      | 규칙을 SQL에 두고 Go로 옮겨 적지 않는다                       | ◎   |
-| A9  | `showgi-terraform-state-s3-backend`      | state를 담을 자원은 state로 관리 못 한다                      | ○   |
-| A10 | `showgi-ecs-task-definition-revisions`   | `skip_destroy` 없으면 롤백 경로가 INACTIVE를 가리킨다         | ◎   |
-| A11 | `showgi-centipawn-to-winrate-logistic`   | 왜 cp 차이로 판정하면 안 되나. 상수 K                         | ◎   |
-| A12 | `showgi-clip-path-clips-after-filter`    | `filter`·`box-shadow`를 **먼저 그리고** 자른다. 세 번 물렸다  | ◎   |
-| A13 | `showgi-compositing-layer-z-index`       | 3D 변형이 걸린 판이 `position: fixed` 장막을 덮었다           | ◎   |
-| A14 | `showgi-websocket-through-alb`           | 업그레이드가 ALB·Caddy를 지나기까지                           | ○   |
-| A15 | `showgi-yaneuraou-shogi-ai-ecosystem`    | **별도 조사 필요.** 探索部/評価関数 분리, NNUE, 水匠, dlshogi | △   |
+|     | slug                                     | 축                                                                            |     |
+| --- | ---------------------------------------- | ----------------------------------------------------------------------------- | --- |
+| A1  | `showgi-github-oidc-aws-keyless-deploy`  | subject claim에 **불변 ID**가 박힌다. 찾는 데 실행 2번                        | ◎   |
+| A2  | `showgi-pgvector-embeddings-in-postgres` | sqlc가 `vector` 타입을 어떻게 다루나                                          | ○   |
+| A3  | `showgi-usi-protocol-shogi-engine`       | UCI와의 차이. 옵션이 `USI_Variant`가 아니라 `UCI_Variant`                     | ◎   |
+| A4  | `showgi-sfen-board-as-a-string`          | 캐시 키가 되는 순간 생기는 요구사항                                           | ○   |
+| A5  | `showgi-nnue-eval-function-fv-scale`     | `FV_SCALE`이 틀리면 cp 척도가 통째로 바뀐다                                   | ◎   |
+| A6  | `showgi-go-mate-is-a-different-search`   | 탐색부에 보내면 `bestmove`가 온다. **에러 없이**                              | ◎   |
+| A7  | `showgi-multipv-candidate-moves`         | k가 무엇을 지배하고 무엇을 안 지배하나                                        | ◎   |
+| A8  | `showgi-sqlc-schema-generates-code`      | 규칙을 SQL에 두고 Go로 옮겨 적지 않는다                                       | ◎   |
+| A9  | `showgi-terraform-state-s3-backend`      | state를 담을 자원은 state로 관리 못 한다                                      | ○   |
+| A10 | `showgi-ecs-task-definition-revisions`   | `skip_destroy` 없으면 롤백 경로가 INACTIVE를 가리킨다                         | ◎   |
+| A11 | `showgi-centipawn-to-winrate-logistic`   | 왜 cp 차이로 판정하면 안 되나. 상수 K                                         | ◎   |
+| A12 | `showgi-clip-path-clips-after-filter`    | `filter`·`box-shadow`를 **먼저 그리고** 자른다. 세 번 물렸다                  | ◎   |
+| A13 | `showgi-compositing-layer-z-index`       | 3D 변형이 걸린 판이 `position: fixed` 장막을 덮었다                           | ◎   |
+| A14 | `showgi-websocket-through-alb`           | 업그레이드가 ALB·Caddy를 지나기까지                                           | ○   |
+| A15 | `showgi-yaneuraou-shogi-ai-ecosystem`    | **별도 조사 필요.** 探索部/評価関数 분리, NNUE, 水匠, dlshogi                 | △   |
+| A16 | `showgi-shallow-trap-costs-no-search`    | 이미 받아 둔 info 라인만으로 판정한다 — **추가 탐색 0**                       | ◎   |
+| A17 | `showgi-stroke-dasharray-period`         | 점선 주기는 **마디 + 간격**이다. `0.01 4`는 4.01이라 점이 사라진다            | ◎   |
+| A18 | `showgi-offset-versus-bounding-rect`     | 3D 변형 아래에서 좌표를 재는 법. `getBoundingClientRect`는 변형 **후**를 준다 | ◎   |
+| A19 | `showgi-rds-public-without-bastion`      | default VPC의 서브넷은 이미 퍼블릭이다. **NAT는 방향이 반대**                 | ◎   |
 
 > **A15는 기억으로 쓰지 않는다.** 연혁·버전·대회 결과는 틀리기 쉽고 일본 독자가 제일 먼저 알아챈다. 원전(GitHub·공식 사이트·대회 기록)을 훑는 조사 패스를 먼저 돌린다. 확인 못 한 것은 `[미확정]`.
 
-### B. 개발 전략 (11편)
+### B. 개발 전략 (20편)
 
 전부 **「왜 그렇게 정했나 + 안 그랬으면 무엇이 깨졌나」** 구조다.
 
-|     | slug                                     | 축                                                        |     |
-| --- | ---------------------------------------- | --------------------------------------------------------- | --- |
-| B1  | `showgi-engine-judges-llm-explains`      | 설명이 틀리면 초심자는 검증할 능력이 없다                 | ○   |
-| B2  | `showgi-fixed-depth-never-movetime`      | 재현성이 캐시·밴드 제어·상대 강함 셋을 동시에 떠받친다    | ◎   |
-| B3  | `showgi-one-goroutine-owns-the-state`    | 롤백이 있는 이상 상태 변경 **순서**가 곧 제품 정합성      | ◎   |
-| B4  | `showgi-client-knows-no-rules`           | 二歩도 打ち歩詰め도 모른다. 서버가 준 `legalMoves`만      | ◎   |
-| B5  | `showgi-single-source-of-notation`       | 棋譜 표기가 두 벌이면 어긋났을 때 어느 쪽이 맞는지 모른다 | ◎   |
-| B6  | `showgi-always-full-snapshot`            | 부분 갱신을 보내면 롤백 후 화면과 서버가 어긋나도 모른다  | ◎   |
-| B7  | `showgi-never-trust-engine-output`       | 돌려준 수를 룰 엔진으로 검증하고, 안 되면 대국을 끝낸다   | ◎   |
-| B8  | `showgi-degrade-do-not-die`              | 엔진 없이도 서버는 산다 — 이 결정이 §11에서 값을 했다     | ◎   |
-| B9  | `showgi-intervene-knows-no-engine`       | 입력이 스칼라뿐이라 상수 튜닝에 엔진이 안 든다            | ◎   |
-| B10 | `showgi-measure-before-tuning-constants` | 엔진을 먼저 갈아끼운 이유 — 상수가 cp 척도에 종속         | ◎   |
-| B11 | `showgi-deploy-pipeline-on-day-one`      | 마지막 날 인프라를 만지면 데모 영상을 못 찍는다           | ○   |
+|     | slug                                     | 축                                                                                              |     |
+| --- | ---------------------------------------- | ----------------------------------------------------------------------------------------------- | --- |
+| B1  | `showgi-engine-judges-llm-explains`      | 설명이 틀리면 초심자는 검증할 능력이 없다                                                       | ○   |
+| B2  | `showgi-fixed-depth-never-movetime`      | 재현성이 캐시·밴드 제어·상대 강함 셋을 동시에 떠받친다                                          | ◎   |
+| B3  | `showgi-one-goroutine-owns-the-state`    | 롤백이 있는 이상 상태 변경 **순서**가 곧 제품 정합성                                            | ◎   |
+| B4  | `showgi-client-knows-no-rules`           | 二歩도 打ち歩詰め도 모른다. 서버가 준 `legalMoves`만                                            | ◎   |
+| B5  | `showgi-single-source-of-notation`       | 棋譜 표기가 두 벌이면 어긋났을 때 어느 쪽이 맞는지 모른다                                       | ◎   |
+| B6  | `showgi-always-full-snapshot`            | 부분 갱신을 보내면 롤백 후 화면과 서버가 어긋나도 모른다                                        | ◎   |
+| B7  | `showgi-never-trust-engine-output`       | 돌려준 수를 룰 엔진으로 검증하고, 안 되면 대국을 끝낸다                                         | ◎   |
+| B8  | `showgi-degrade-do-not-die`              | 엔진 없이도 서버는 산다 — 이 결정이 §11에서 값을 했다                                           | ◎   |
+| B9  | `showgi-intervene-knows-no-engine`       | 입력이 스칼라뿐이라 상수 튜닝에 엔진이 안 든다. 카테고리도 같은 성질을 지켰다(3층 분리)         | ◎   |
+| B10 | `showgi-measure-before-tuning-constants` | 엔진을 먼저 갈아끼운 이유 — 상수가 cp 척도에 종속                                               | ◎   |
+| B11 | `showgi-deploy-pipeline-on-day-one`      | 마지막 날 인프라를 만지면 데모 영상을 못 찍는다                                                 | ○   |
+| B12 | `showgi-category-priority-is-the-rule`   | 한 수가 여러 조건에 걸리는 건 예외가 아니라 보통이다. **무엇을 말할지의 순서가 곧 제품 판단**   | ◎   |
+| B13 | `showgi-attack-count-versus-legal-moves` | 같은 「노린다」가 자리마다 다른 뜻이어야 했다. 압력은 利き, **화면의 단언은 합법수**            | ◎   |
+| B14 | `showgi-piece-value-is-not-an-eval`      | 駒값은 교환 손익용 눈금이다. cp로 바꾸면 엔진 평가와 두 벌이 된다                               | ◎   |
+| B15 | `showgi-band-control-not-best-move`      | 「밴드 밖이면 최선수」를 뺐다. 거리 최소화가 **불리할 땐 저절로 최선을 다하게** 만든다          | ◎   |
+| B16 | `showgi-one-definition-of-throwing`      | 「던진다」를 개입과 상대가 **같은 함수**로 판정한다. 두 벌이면 방금 가르친 것을 컴퓨터가 어긴다 | ◎   |
+| B17 | `showgi-retracted-moves-are-the-signal`  | 물러진 수를 기보와 갈라 둔다. **개입에 오염되지 않은 유일한 실력 신호**                         | ◎   |
+| B18 | `showgi-drop-events-do-not-queue`        | 기록은 버퍼 채널로 보내고 **차면 버린다.** 기다리면 대국이 멈춘다                               | ◎   |
+| B19 | `showgi-refutation-is-not-best-move`     | 「왜 나쁜가」와 「뒀어야 할 수」의 경계를 어디에 긋나                                           | ◎   |
+| B20 | `showgi-server-advances-the-board`       | 수마다 그 뒤의 SFEN을 같이 싣는다. 화면이 규칙 엔진을 한 벌 더 갖지 않게                        | ◎   |
 
-### C. 사고 기록 (6편)
+### C. 사고 기록 (14편)
 
 B와 달리 **결론이 아니라 과정**을 쓴다. 읽는 재미가 제일 크다.
 
-|     | slug                                     | 축                                                                       |     |
-| --- | ---------------------------------------- | ------------------------------------------------------------------------ | --- |
-| C1  | `showgi-green-deploy-broken-game`        | 태스크 정의 `environment`가 이미지 `ENV`를 덮어쓴다                      | ◎   |
-| C2  | `showgi-five-silent-engine-options`      | `PvInterval=0`이 없으면 깊이별 평가치가 하나만 남는데 **에러가 안 난다** | ◎   |
-| C3  | `showgi-removing-the-observation-window` | 「초반 20수는 개입 안 함」을 뺐더니 프로덕션에서 **2수째**에 걸렸다      | ◎   |
-| C4  | `showgi-winrate-saturates-when-losing`   | 20수 만에 절망적 형세가 되어 한 번도 개입 안 한 이야기                   | ◎   |
-| C5  | `showgi-aws-apply-gotchas`               | SG description 불변, SSM이 빈 문자열 거부, 한글을 거부하는 필드          | ◎   |
-| C6  | `showgi-all-green-board-misaligned`      | 타입도 테스트도 통과인데 판이 한 칸씩 밀려 있었다                        | ◎   |
+|     | slug                                     | 축                                                                                     |     |
+| --- | ---------------------------------------- | -------------------------------------------------------------------------------------- | --- |
+| C1  | `showgi-green-deploy-broken-game`        | 태스크 정의 `environment`가 이미지 `ENV`를 덮어쓴다                                    | ◎   |
+| C2  | `showgi-five-silent-engine-options`      | `PvInterval=0`이 없으면 깊이별 평가치가 하나만 남는데 **에러가 안 난다**               | ◎   |
+| C3  | `showgi-removing-the-observation-window` | 「초반 20수는 개입 안 함」을 뺐더니 프로덕션에서 **2수째**에 걸렸다                    | ◎   |
+| C4  | `showgi-winrate-saturates-when-losing`   | 20수 만에 절망적 형세가 되어 한 번도 개입 안 한 이야기                                 | ◎   |
+| C5  | `showgi-aws-apply-gotchas`               | SG description 불변, SSM이 빈 문자열 거부, 한글을 거부하는 필드                        | ◎   |
+| C6  | `showgi-all-green-board-misaligned`      | 타입도 테스트도 통과인데 판이 한 칸씩 밀려 있었다                                      | ◎   |
+| C7  | `showgi-capturing-is-not-a-reason`       | 「駒를 땄다」만으로 이유를 만들었더니, 딴 것과 무관하게 나쁜 수에까지 그 문구가 붙었다 | ◎   |
+| C8  | `showgi-when-not-to-name-the-mistake`    | 최악수인데 짚을 것이 없었다. **「이유를 못 짚었다」를 실패로 잡던 단언을 지웠다**      | ◎   |
+| C9  | `showgi-tests-that-skip-silently`        | 환경변수가 없으면 조용히 skip 되고 초록으로 보인다. CI가 첫 마이그레이션만 돌리던 것도 | ◎   |
+| C10 | `showgi-most-moves-get-taken-back`       | 한 국면의 합법수 89%가 블런더였다. **보고와 이 숫자는 다른 주장이다**                  | ◎   |
+| C11 | `showgi-shallow-trap-premise-was-wrong`  | 「depth 2가 초보자의 시야」가 틀렸다. 깊이 반전이 **187개 중 0건**                     | ◎   |
+| C12 | `showgi-vite-proxy-held-the-socket`      | 탭을 닫아도 세션이 안 끝났다. 버그가 아니라 **프록시가 소켓을 붙들고 있었다**          | ◎   |
+| C13 | `showgi-refutation-length-measured`      | 수순을 어디서 자를 것인가. 규칙 셋을 재서 **두 번 고쳐 잡았다**                        | ◎   |
+| C14 | `showgi-double-check-cannot-be-captured` | 「同銀으로 먹으면 되지 않나」 — **両王手라 애초에 합법수가 아니었다**                  | ◎   |
 
-### D. 디자인·UX (5편)
+### D. 디자인·UX (8편)
 
 CSS 글이 아니라 **판단 글**이다.
 
-|     | slug                                    | 축                                                              |     |
-| --- | --------------------------------------- | --------------------------------------------------------------- | --- |
-| D1  | `showgi-board-speaks-light-color-print` | 빛·색·인쇄 3채널. 안 가르면 서로를 지운다                       | ◎   |
-| D2  | `showgi-highlight-with-light-not-color` | 「오프화이트 판」대로 만드니 대비가 1.13이 나와서 뒤집은 이야기 | ◎   |
-| D3  | `showgi-glyph-size-versus-move-marks`   | 「이 글자가 무엇인가」보다 「이 駒가 어떻게 가는가」            | ◎   |
-| D4  | `showgi-what-not-to-tell-a-beginner`    | 최선수를 알려주지 않는다. 물러진 수·이유·낙폭까지만             | ◎   |
-| D5  | `showgi-testing-for-language-leaks`     | 언어 규칙을 사람 눈으로 지키면 샌다. 테스트로 박았다            | ◎   |
+|     | slug                                    | 축                                                               |     |
+| --- | --------------------------------------- | ---------------------------------------------------------------- | --- |
+| D1  | `showgi-board-speaks-light-color-print` | 빛·색·인쇄 3채널. 안 가르면 서로를 지운다                        | ◎   |
+| D2  | `showgi-highlight-with-light-not-color` | 「오프화이트 판」대로 만드니 대비가 1.13이 나와서 뒤집은 이야기  | ◎   |
+| D3  | `showgi-glyph-size-versus-move-marks`   | 「이 글자가 무엇인가」보다 「이 駒가 어떻게 가는가」             | ◎   |
+| D4  | `showgi-what-not-to-tell-a-beginner`    | 최선수를 알려주지 않는다. 물러진 수·이유·낙폭까지만              | ◎   |
+| D5  | `showgi-testing-for-language-leaks`     | 언어 규칙을 사람 눈으로 지키면 샌다. 테스트로 박았다             | ◎   |
+| D6  | `showgi-knight-was-drawn-as-a-diagonal` | **판이 규칙을 틀리게 가르치고 있었다.** 도착은 점, 거기까지는 길 | ◎   |
+| D7  | `showgi-one-move-at-a-time`             | 수순을 겹쳐 그리면 국면에 대한 거짓말이 된다. 넘겨 보면 사라진다 | ◎   |
+| D8  | `showgi-desaturate-instead-of-color`    | 회상 중에는 판이 색을 잃는다. 빛을 더하지 않고 바닥을 낮춘다     | ◎   |
 
-### E. 도메인·제품 (3편)
+### E. 도메인·제품 (4편)
 
 |     | slug                                  | 축                                                             |     |
 | --- | ------------------------------------- | -------------------------------------------------------------- | --- |
 | E1  | `showgi-why-shogi`                    | 한국에는 쇼기 문화가 없다. 「정답이 객관적으로 존재하는 영역」 | ○   |
 | E2  | `showgi-shogi-learning-market-survey` | 기능은 다 있는데 **「둘 때 개입」만 비어 있다**                | ○   |
 | E3  | `showgi-when-should-ai-interrupt`     | 시리즈의 간판. **제목에 「将棋」를 넣지 않는다**               | ○   |
+| E4  | `showgi-adaptive-adapts-to-position`  | 「적응형」이 적응하는 대상이 **사람이 아니라 국면**이었다      | ◎   |
 
 ## 9. 쓰면 거짓말이 되는 것
 
 [상태 §5](06-status.md)와 같은 목록이지만, 기사는 **밖으로 나가므로** 여기 다시 적는다.
 
 - **LLM이 한 줄도 안 붙었다.** `ORCA_API_KEY`는 SSM에 `unset` 자리표시자고, 개입 문구는 전부 카테고리별 고정 일본어 템플릿이다. **「AIが説明してくれる」는 현재 사실이 아니다.** B1은 「こう設計した」까지만 쓴다
-- 상수 K(600)·레벨별 임계치가 전부 초기값이고 실측 전이다
-- 개입이 DB에 기록되지 않는다 / 국면 캐시를 쓰는 곳이 없다 / 상대 공격선을 못 그린다
-- 적응형 상대(D4) 없음, 詰み 게이지 없음, Google 로그인 없음, three.js 없음(2D 보드만), 리뷰 화면 없음
+- 상수 K(600)·레벨별 임계치·상대 밴드가 전부 초기값이고 실측 전이다
+- **「적응형 상대」가 사람에게 적응하지 않는다.** 고정 밴드에 국면을 맞출 뿐이고, 판정 결과를 쌓아 사람으로 만드는 코드가 없다. 실시간 조절은 설계만 있다 — E4가 바로 이 이야기다
+- **카테고리가 온톨로지 전부는 아니다.** 二枚換え 손해와 정석 이탈은 안 들어갔다 — 앞은 여러 수에 걸친 교환을 봐야 하고 뒤는 정석 북이 있어야 한다. 「모든 블런더를 분류한다」고 쓰면 거짓말이 된다
+- **개입이 여전히 사람을 가둔다.** 반박 수순이 「왜 나쁜가」를 채웠어도 한 국면에서 89%가 튕기는 것은 그대로다. 「개입이 학습을 돕는다」를 결과로 쓸 근거가 아직 없다
+- 국면 캐시를 쓰는 곳이 없다 / 詰み 게이지 없음 / Google 로그인 없음(익명 대국만) / three.js 없음(2D 보드만) / 리뷰 화면 없음 / 정석 북 없음
+- 반박 수순은 **DB에 안 남는다.** `interventions`는 카테고리와 Δ승률까지다
 
 ## 10. 진행
 
@@ -251,7 +279,7 @@ CSS 글이 아니라 **판단 글**이다.
 | ⬜   | 이미지 경로 확인 — 첫 도판을 만들 때 `zenn:preview`로 본다   |
 | ⬜   | **C1을 한 편 완성** — 시리즈의 밀도와 형식을 여기서 고정한다 |
 | ⬜   | A15 조사 패스                                                |
-| ⬜   | 나머지 38편                                                  |
+| ⬜   | 나머지 46편                                                  |
 | ⬜   | `topics` 상한 확인, 이미지 3종 제작, 공개 시점 결정          |
 
 **D4·D5·D6이 들어오면 A·B에 각각 서너 편이 더 붙는다** — 적응형 상대(밴드 제어), LLM 계층, 리뷰 화면, three.js. 그때 이 목록을 갱신한다.
@@ -336,14 +364,18 @@ CSS 글이 아니라 **판단 글**이다.
 
 브랜치 링크는 코드가 바뀌면 **글이 조용히 틀려진다.** SHA는 GitHub가 영구 보존하므로 링크가 죽지도 않는다.
 
-### ⑤ 영향 추적 — D4~D6이 들어올 때 손볼 기사
+### ⑤ 영향 추적 — 남은 D4~D6이 들어올 때 손볼 기사
 
-| 무엇이 들어오면    | 손봐야 하는 기사                             |
-| ------------------ | -------------------------------------------- |
-| LLM 계층 (D5)      | B1 — 「설계」까지만 쓴 부분을 다시 본다      |
-| 상수 실측          | A11 · B9 — K와 임계치가 초기값이 아니게 된다 |
-| 엔진·`nn.bin` 교체 | A5 · A7 · B2 — 실측 표를 다시 돌린다         |
-| 적응형 상대 (D4)   | A7 — k=10의 근거가 실제 구현으로 이어진다    |
+| 무엇이 들어오면    | 손봐야 하는 기사                                            |
+| ------------------ | ----------------------------------------------------------- |
+| LLM 계층 (D5)      | B1 — 「설계」까지만 쓴 부분을 다시 본다                     |
+| 상수·밴드 실측     | A11 · B9 · B15 — 초기값이 아니게 된다                       |
+| 엔진·`nn.bin` 교체 | A5 · A7 · B2 · C11 — 실측 표를 다시 돌린다                  |
+| 실시간 실력 추정   | **E4가 통째로 바뀐다** — 「국면에 적응한다」가 끝난다       |
+| 갇힘 해소          | C10 · C11 — 89%가 줄면 그 숫자가 그 국면의 것이 아니게 된다 |
+| 詰み 게이지 · 리뷰 | D4 — 「무엇을 말하지 않는가」의 목록이 바뀐다               |
+
+**이 표가 §12 ②(부재를 단정하지 않는다)와 짝이다.** 여기 있는 글은 「아직 없다」를 쓰면 반드시 틀려진다.
 
 > **초안으로 쌓는 것이 여기서 값을 한다.** `published: false`로 모아뒀다가 공개 시점에 한 번 훑을 기회가 생긴다. 쓰는 족족 공개하면 못 하는 일이다.
 
@@ -354,6 +386,13 @@ CSS 글이 아니라 **판단 글**이다.
 ### 재싱크
 
 [상태](06-status.md)가 갱신될 때마다 §8의 목록을 훑는다. 새 소재가 나오면 더하고, 근거 강도가 올라가면 고친다. **이 문서는 계획이 아니라 살아 있는 목록이다.**
+
+돌린 뒤에는 문서 맨 위의 **「마지막 재싱크」**를 갱신한다. 그게 없으면 다음 사람이 어디까지 반영됐는지 알 수 없어 처음부터 다시 읽게 된다.
+
+| 날짜       | 반영한 것                                                                                | 결과                                                                                                           |
+| ---------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 2026-08-10 | [§15](06-status.md) 블런더 카테고리 (PR #17)                                             | 40편 → **47편.** A16 · B12-B14 · C7-C9 추가, B9 보강                                                           |
+| 2026-08-10 | [§16-§22](06-status.md) 적응형 상대 · 대국 기록 · 반박 수순 · 플레이 테스트 (PR #20-#23) | 47편 → **65편.** A17-A19 · B15-B20 · C10-C14 · D6-D8 · E4 추가. **§9에서 세 항목이 사실이 아니게 되어 지웠다** |
 
 ### 제외 목록은 재싱크보다 강하다
 
