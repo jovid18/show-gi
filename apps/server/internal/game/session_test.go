@@ -3,6 +3,8 @@ package game
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -398,12 +400,14 @@ type fixedAnalyst struct {
 	verdict    intervene.Verdict
 	refutation []RefutationMove
 	bestUSI    string
+	evalBefore int
+	evalAfter  int
 	err        error
 	delay      time.Duration
 	calls      atomic.Int32
 }
 
-func (a *fixedAnalyst) Judge(ctx context.Context, _ string, _ []string, _ int) (Judgement, error) {
+func (a *fixedAnalyst) Judge(ctx context.Context, startSFEN string, moves []string, _ int) (Judgement, error) {
 	a.calls.Add(1)
 	if a.delay > 0 {
 		select {
@@ -412,7 +416,17 @@ func (a *fixedAnalyst) Judge(ctx context.Context, _ string, _ []string, _ int) (
 			return Judgement{}, ctx.Err()
 		}
 	}
-	return Judgement{Verdict: a.verdict, Refutation: a.refutation, BestUSI: a.bestUSI}, a.err
+	// 실제 analyst 와 같은 규약으로 뒤집는다 — 여기서 그냥 넘기면 부호 테스트가 무의미해진다.
+	j := Judgement{Verdict: a.verdict, Refutation: a.refutation, BestUSI: a.bestUSI}
+	if a.evalAfter != 0 || a.evalBefore != 0 {
+		pos, _, err := replay(startSFEN, moves)
+		if err == nil {
+			j.SenteCpBefore = senteCp(a.evalBefore, pos.Turn)
+			j.SenteCpAfter = senteCp(-a.evalAfter, pos.Turn)
+			j.HasEvals = true
+		}
+	}
+	return j, a.err
 }
 
 func blunder() intervene.Verdict {
@@ -740,5 +754,66 @@ func TestStuckHintOpensAndResets(t *testing.T) {
 	again := waitFor(t, ch, func(s Snapshot) bool { return s.Intervention != nil }, "새 국면의 개입")
 	if again.Hint != nil {
 		t.Fatalf("계수가 0으로 안 돌아갔다 — 1회에 힌트가 떴다: %+v", again.Hint)
+	}
+}
+
+// 평가치는 **先手 관점**으로 기보에 들어간다.
+//
+// 부호를 틀리면 아무 데서도 안 터진다 — 궤적이 상하로 뒤집힌 채 그려지고, 밴드가
+// 지켜졌는지 물었을 때 정확히 반대 답이 나온다. 그래서 사람이 後手인 판까지 본다.
+func TestEvalsAreRecordedFromSentesSide(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		human shogi.Color
+		// 사람이 두는 수, 그리고 상대가 둘 수들. 상대의 색이 반대라 목록도 갈린다.
+		first  string
+		engine []string
+		// 사람 관점 +200 을 겨냥한다. 사람이 先手면 그대로, 後手면 뒤집혀 들어간다.
+		wantAfter int
+	}{
+		{"사람이 先手", shogi.Black, "7g7f", []string{"3c3d"}, +200},
+		{"사람이 後手", shogi.White, "3c3d", []string{"7g7f", "2g2f"}, -200},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// after 는 **상대 관점**으로 오는 값이라, 사람 관점 +200 은 상대 관점 −200 이다.
+			an := &fixedAnalyst{evalAfter: -200, evalBefore: 50}
+			rec := &fakeRecorder{}
+			cfg := Config{
+				Opponent: &scriptedOpponent{moves: tc.engine},
+				Analyst:  an, HumanColor: tc.human, Recorder: rec,
+			}
+			s := newSession(t, cfg)
+			ch, cancel, err := s.Subscribe(t.Context())
+			if err != nil {
+				t.Fatalf("Subscribe: %v", err)
+			}
+			defer cancel()
+
+			// 사람이 後手면 상대가 먼저 둔다. 내 차례가 될 때까지 기다린다.
+			waitFor(t, ch, func(s Snapshot) bool { return s.YourTurn }, "내 차례")
+			if _, err := s.Play(t.Context(), tc.first); err != nil {
+				t.Fatalf("Play: %v", err)
+			}
+			waitFor(t, ch, func(s Snapshot) bool { return len(s.Moves) >= 1 && !s.Judging }, "착수 확정")
+
+			var got []string
+			for _, l := range rec.all() {
+				if strings.HasPrefix(l, "eval ") {
+					got = append(got, l)
+				}
+			}
+			if len(got) == 0 {
+				t.Fatalf("평가치가 기록되지 않았다: %v", rec.all())
+			}
+			// 사람의 수 뒤 평가치. ply 는 사람이 後手면 2다.
+			ply := 1
+			if tc.human == shogi.White {
+				ply = 2
+			}
+			want := fmt.Sprintf("eval %d %+d", ply, tc.wantAfter)
+			if got[0] != want {
+				t.Fatalf("%q, want %q (전체 %v)", got[0], want, got)
+			}
+		})
 	}
 }

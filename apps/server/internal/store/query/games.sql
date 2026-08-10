@@ -38,3 +38,12 @@ SELECT count(*) FROM games;
 
 -- name: CountInterventions :one
 SELECT count(*) FROM interventions;
+
+-- name: SetMoveEval :exec
+--
+-- 평가치만 나중에 채운다. **수를 덮지 않는다** — 그 수는 이미 확정되어 들어가 있고,
+-- 여기서 다시 쓰면 물러진 수로 덮을 길이 생긴다.
+--
+-- 없는 ply면 아무 일도 안 한다. 평가치가 수보다 먼저 오는 경로는 없으므로 그때는
+-- 기록이 실패한 것이고, 그걸 여기서 만들어 메우면 기보에 없는 행이 생긴다.
+UPDATE game_moves SET eval_cp = $3 WHERE game_id = $1 AND ply = $2;

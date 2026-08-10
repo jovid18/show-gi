@@ -170,6 +170,25 @@ func (s *Store) InsertMove(ctx context.Context, gameID int64, ply int, usi strin
 	return nil
 }
 
+// SetMoveEval 은 그 手数의 평가치를 나중에 채운다. **先手 관점 cp** 다.
+//
+// 관점을 先手로 고정하는 것은 `edges.eval_by_depth` 와 같은 규약이다(02-architecture.md §4).
+// 대국마다 사람의 색이 달라지므로 「플레이어 관점」으로 적으면 두 판을 나란히 못 놓는다 —
+// 뒤집는 일은 질의하는 쪽이 `games.my_color` 로 한다.
+//
+// 수가 먼저 들어가 있어야 한다. 없는 ply면 아무 일도 일어나지 않는다.
+func (s *Store) SetMoveEval(ctx context.Context, gameID int64, ply, cp int) error {
+	v := int32(cp)
+	if err := s.q.SetMoveEval(ctx, db.SetMoveEvalParams{
+		GameID: gameID,
+		Ply:    int32(ply),
+		EvalCp: &v,
+	}); err != nil {
+		return fmt.Errorf("set move eval: %w", err)
+	}
+	return nil
+}
+
 // Intervention 은 기록할 개입 하나다.
 type Intervention struct {
 	Ply         int
