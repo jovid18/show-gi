@@ -8,6 +8,8 @@ interface InterventionProps {
   scene: number | null;
   /** 장면이 모두 몇 개인가. */
   scenes: number;
+  /** 수순에서 지금 짚고 있는 수. 판의 화살표가 가리키는 것과 같은 자리다. */
+  highlight: number;
   onStep: (scene: number) => void;
   onDismiss: () => void;
 }
@@ -22,7 +24,7 @@ interface InterventionProps {
  * 판 위의 연출(빛·유령 駒·광선·기운 시점)은 `Board`와 `index.css`에 있다. 여기는 그 위에
  * 얹히는 마지막 한 겹이라 판을 가리지 않는 자리에 뜬다.
  */
-export function Intervention({ intervention, scene, scenes, onStep, onDismiss }: InterventionProps) {
+export function Intervention({ intervention, scene, scenes, highlight, onStep, onDismiss }: InterventionProps) {
   const dismissRef = useRef<HTMLButtonElement>(null);
 
   // 입력이 잠겨 있는 동안이라 초점이 갈 곳은 여기 하나뿐이다. 키보드·스크린리더
@@ -78,8 +80,8 @@ export function Intervention({ intervention, scene, scenes, onStep, onDismiss }:
               <li
                 key={`${i}-${move.usi}`}
                 data-by={move.by}
-                data-current={scene === i + 1 || undefined}
-                aria-current={scene === i + 1 || undefined}
+                data-current={highlight === i || undefined}
+                aria-current={highlight === i || undefined}
               >
                 {move.ja}
               </li>

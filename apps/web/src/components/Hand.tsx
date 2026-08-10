@@ -10,6 +10,15 @@ interface HandProps {
   selected: string | null;
   /** 둘 수 있는 持ち駒의 출발점 집합. `P*` 모양. */
   playable: ReadonlySet<string>;
+  /**
+   * 회상에서 지금 판에 놓이는 持ち駒의 종류.
+   *
+   * 打은 판 위에 출발 칸이 없어서 화살표가 「어디서 왔는지」를 말할 수 없다. 그 자리를
+   * 여기가 메운다 — **어느 駒가 나가는지는 駒台가 말한다.**
+   */
+  dropping?: string | null;
+  /** 그 駒의 실제 DOM. 화살표가 **어디서 출발하는지**를 여기서 잰다. */
+  droppingRef?: (el: HTMLButtonElement | null) => void;
   onPick: (origin: string) => void;
 }
 
@@ -19,7 +28,7 @@ interface HandProps {
  * 빈 받침도 자리를 지킨다 — 말이 늘고 줄 때마다 판이 위아래로 흔들리면
  * 초심자는 무엇이 변했는지 못 본다.
  */
-export function Hand({ side, pieces, label, selected, playable, onPick }: HandProps) {
+export function Hand({ side, pieces, label, selected, playable, dropping, droppingRef, onPick }: HandProps) {
   const held = HAND_ORDER.filter((kind) => (pieces[kind] ?? 0) > 0);
 
   return (
@@ -40,6 +49,8 @@ export function Hand({ side, pieces, label, selected, playable, onPick }: HandPr
               type="button"
               className="hand-piece"
               data-selected={selected === origin || undefined}
+              data-dropping={dropping === kind || undefined}
+              ref={dropping === kind ? droppingRef : undefined}
               disabled={!canDrop}
               aria-label={`${nameOf(kind)} ${count}枚`}
               onClick={() => onPick(origin)}

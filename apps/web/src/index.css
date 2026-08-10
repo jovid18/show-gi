@@ -22,6 +22,11 @@
   /* 빛. rgb 트리플릿으로 두고 알파만 바꾼다. */
   --light: 255 246 224;
 
+  /* 반박 수순의 광선. 판 위에서 색을 쓰는 네 번째 자리이고, **회상 중에만 나온다.**
+     평시 화면에는 없으므로 착수 후보·王手와 자리를 다투지 않고, 회상 중에 판이 탈색되어
+     있어서 이 색만 남는다 — 그래서 「무엇이 벌하는 선인가」가 待った 표식(흰빛)과 갈린다. */
+  --ray: 124 214 96;
+
   /* 직전 수 표식. 판 위에서 --light 를 안 쓰는 유일한 자리다 — 이유는 아래 규칙에 적었다. */
   --last-mark: 122 78 40;
 
@@ -539,7 +544,7 @@ body {
    자라나는 대신 밝아진다. 뻗는 연출은 이 순간 판에서 제일 센 것(물러진 두 칸)과
    움직임을 두고 다투고, 그러면 무엇을 보라는 화면인지가 흐려진다. */
 .refutation-ray {
-  --glow: 0.95;
+  --glow: 1;
 
   /* 1px 은 .board 의 padding 이자 칸 사이 gap 이다. 유령 駒와 같은 계산이고,
      거기에 반 칸을 더해 칸의 한가운데에서 출발한다. */
@@ -555,14 +560,12 @@ body {
   border-radius: 999px;
   transform-origin: 0 50%;
   rotate: var(--angle, 0deg);
-  background: linear-gradient(
-    90deg,
-    rgb(var(--light) / 0) 0%,
-    rgb(var(--light) / calc(var(--glow) * 0.55)) 14%,
-    rgb(var(--light) / var(--glow)) 100%
-  );
-  /* 어두운 테를 같이 둔다. 낮아진 판 위에서도, 밝은 駒 위를 지날 때도 선이 안 끊긴다 */
-  filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.85)) drop-shadow(0 0 10px rgb(var(--light) / 0.45));
+  /* 그라디언트를 안 쓴다. 출발 칸이 흐리면 「어느 駒가 벌하는가」가 안 읽히는데,
+     그것이 도착 칸만큼 중요하다 — 직전 수 표식이 출발 칸을 함께 칠하는 것과 같은 이유다 */
+  background: rgb(var(--ray) / var(--glow));
+  /* 어두운 테를 먼저, 번짐은 옅게. 낮아진 판 위에서도 밝은 駒 위를 지날 때도 선이
+     안 끊기고, 번짐이 세면 화살촉의 각이 뭉개져서 방향이 흐려진다 */
+  filter: drop-shadow(0 0 2px rgb(0 0 0 / 0.95)) drop-shadow(0 0 8px rgb(var(--ray) / 0.4));
 
   /* 유령 駒가 도착하는 즈음(2.4s의 46% ≈ 1.1s)에 맞춰 늦게 들어온다. 던진 駒가 자리에
      닿기 전에 벌하는 선이 먼저 켜지면 순서가 뒤집힌다 */
@@ -574,35 +577,39 @@ body {
   animation-delay: 1150ms;
 }
 
-/* 사람의 수는 물러난다. 읽어야 하는 것은 **상대가 무엇을 하는가**이고, 내 수를 같은
-   세기로 그으면 그 선이 「이렇게 두라」로 읽힌다(01-core.md §1) */
-.refutation-ray[data-by='human'] {
-  --glow: 0.4;
+/* **양쪽 화살표가 같다.** 한때 사람의 수를 옅게 뒀는데, 그건 되돌아온 판 위에 그리던
+   때의 이유였다 — 내 駒에서 뻗는 선이 「이렇게 두라」로 읽힐까 봐서였다. 넘겨 보는
+   지금은 어느 장면이든 **일어나지 않을 가정 국면**이라 그 위험이 없고, 밝기 차이는
+   뜻이 안 읽혀서 그냥 「덜 중요한 것」이나 고장으로 보인다.
+
+   누구의 수인지는 옆 문구의 ▲△가 이미 말한다. */
+
+/* 打은 **駒台에 놓인 그 駒에서** 출발한다. 자리를 재어 px로 받으므로 칸 산수를 덮는다 —
+   판 밖의 형제 요소라 칸으로는 표현할 수 없고, 도착 칸 위에서 시작하게 두면
+   「持ち駒가 없는 자리에서 가져오는 것」으로 보인다(실제로 그렇게 보였다). */
+.refutation-ray[data-anchored] {
+  left: var(--x);
+  top: var(--y);
+  width: var(--len-px);
 }
 
-/* 打도 어디선가 온다 — 판 밖, 그 사람의 駒台 쪽에서 들어온다. 도착점만 찍으면
-   「저기 뭔가 있다」까지이고, 그 駒가 반상에 없던 것이라는 사실이 빠진다.
-   들어오는 쪽이 판 밖이라 시작을 더 흐리게 해서 「밖에서」가 읽히게 한다 */
-.refutation-ray[data-drop] {
-  background: linear-gradient(
-    90deg,
-    rgb(var(--light) / 0) 0%,
-    rgb(var(--light) / calc(var(--glow) * 0.3)) 45%,
-    rgb(var(--light) / var(--glow)) 100%
-  );
-}
+/* 화살촉. 선만 그으면 **어느 쪽으로 가는 수인지**가 안 읽힌다 — 8八→3三과 3三→8八이
+   같은 그림이 된다. 점으로 끝을 찍어도 그건 「여기서 끝난다」까지이고 방향이 아니다.
 
-/* 도착점. 광선만 그으면 어디서 끝나는지가 안 읽힌다 */
+   회전은 부모가 이미 하고 있다(--angle). 그래서 여기서는 오른쪽을 향한 삼각형 하나면
+   되고, 촉 끝이 도착 칸 한가운데에 닿는다. */
 .refutation-ray::after {
   content: '';
   position: absolute;
   right: 0;
   top: 50%;
-  width: calc(var(--sq) * 0.44);
-  height: calc(var(--sq) * 0.44);
-  translate: 50% -50%;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgb(var(--light) / var(--glow)) 0%, rgb(var(--light) / 0) 66%);
+  /* 자루(0.13칸)보다 확실히 커야 「촉」으로 읽힌다. 도착 칸에는 待った 표식의 흰빛이
+     같이 켜져 있어서, 작으면 그 안에서 묻힌다 */
+  width: calc(var(--sq) * 0.42);
+  height: calc(var(--sq) * 0.56);
+  translate: 0 -50%;
+  background: rgb(var(--ray) / var(--glow));
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
 }
 
 @keyframes refutation-in {
@@ -705,10 +712,17 @@ body {
   line-height: 1.4;
 }
 
-/* 지금 보고 있는 수. 판과 문구가 같은 곳을 가리켜야 넘기는 것이 읽힌다 */
+/* 지금 판에 놓이러 가는 持ち駒. 화살표의 출발점이라 **같은 초록**으로 짚는다 */
+.hand-piece[data-dropping] {
+  box-shadow:
+    0 0 0 2px rgb(var(--ray) / 0.9),
+    0 0 14px rgb(var(--ray) / 0.5);
+}
+
+/* 지금 보고 있는 수. **판의 광선과 같은 색**이라 문구와 판이 같은 곳을 가리키는 것이 읽힌다 */
 .refutation-line li[data-current] {
-  color: rgb(var(--light) / 0.95);
-  text-shadow: 0 0 10px rgb(var(--light) / 0.45);
+  color: rgb(var(--ray) / 0.95);
+  text-shadow: 0 0 10px rgb(var(--ray) / 0.35);
 }
 
 /* 받는 쪽 수는 물러난다. **이 수순에서 읽어야 하는 것은 상대가 무엇을 하는가**이고,
