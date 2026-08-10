@@ -395,22 +395,23 @@ func TestEngineOpponentReturnsBest(t *testing.T) {
 
 // fixedAnalyst 는 정해진 판정을 돌려준다. 엔진 없이 롤백 흐름만 본다.
 type fixedAnalyst struct {
-	verdict intervene.Verdict
-	err     error
-	delay   time.Duration
-	calls   atomic.Int32
+	verdict    intervene.Verdict
+	refutation []RefutationMove
+	err        error
+	delay      time.Duration
+	calls      atomic.Int32
 }
 
-func (a *fixedAnalyst) Judge(ctx context.Context, _ string, _ []string, _ int) (intervene.Verdict, error) {
+func (a *fixedAnalyst) Judge(ctx context.Context, _ string, _ []string, _ int) (Judgement, error) {
 	a.calls.Add(1)
 	if a.delay > 0 {
 		select {
 		case <-time.After(a.delay):
 		case <-ctx.Done():
-			return intervene.Verdict{}, ctx.Err()
+			return Judgement{}, ctx.Err()
 		}
 	}
-	return a.verdict, a.err
+	return Judgement{Verdict: a.verdict, Refutation: a.refutation}, a.err
 }
 
 func blunder() intervene.Verdict {
@@ -454,6 +455,30 @@ func TestBlunderIsRolledBack(t *testing.T) {
 	snap, _ := s.Snapshot(t.Context())
 	if snap.Ply != 0 {
 		t.Fatalf("엔진이 물러진 국면에서 뒀다: %+v", snap.Moves)
+	}
+}
+
+// 반박 수순은 판정이 아니라 **화면에 그릴 재료**다. 세션은 손대지 않고 그대로 싣는다.
+func TestRefutationRidesAlongToTheSnapshot(t *testing.T) {
+	line := []RefutationMove{{USI: "3c3d", Ja: "△3四歩", By: SideEngine, SFEN: "after-3c3d"}}
+	s := newSession(t, Config{
+		Opponent: &scriptedOpponent{moves: []string{"3c3d"}},
+		Analyst:  &fixedAnalyst{verdict: blunder(), refutation: line}, HumanColor: shogi.Black,
+	})
+	ch, cancel, _ := s.Subscribe(t.Context())
+	defer cancel()
+
+	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
+		t.Fatalf("Play: %v", err)
+	}
+	got := waitFor(t, ch, func(s Snapshot) bool { return s.Intervention != nil }, "개입")
+
+	if len(got.Intervention.Refutation) != 1 || got.Intervention.Refutation[0].USI != line[0].USI {
+		t.Fatalf("반박 수순이 그대로 실리지 않았다: %+v", got.Intervention.Refutation)
+	}
+	// 기보는 물러진 상태 그대로다 — 반박 수순은 판에 둔 수가 아니다.
+	if len(got.Moves) != 0 {
+		t.Fatalf("반박 수순이 기보에 섞였다: %+v", got.Moves)
 	}
 }
 

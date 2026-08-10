@@ -79,7 +79,51 @@ type Snapshot struct {
 type Analyst interface {
 	// Judge 는 startSFEN + moves 로 도달한 국면에서 **마지막 한 수**를 판정한다.
 	// 판정에 필요한 탐색이 오래 걸릴 수 있으므로 세션 goroutine 밖에서 불린다.
-	Judge(ctx context.Context, startSFEN string, moves []string, ply int) (intervene.Verdict, error)
+	Judge(ctx context.Context, startSFEN string, moves []string, ply int) (Judgement, error)
+}
+
+// Judgement 는 판정 결과와, 그것을 화면에 그리는 데 쓸 재료다.
+//
+// **반박 수순이 Verdict 안에 없는 것이 요점이다.** 거기 넣으면 intervene 이 USI 문자열을
+// 받게 되어 「입력은 이미 구해진 숫자뿐」이 깨진다 — 카테고리를 스칼라로 받게 만든 것과
+// 같은 이유다(06-status.md §15). 반박 수순은 판정의 입력도 출력도 아니고, 판정하면서
+// 어차피 손에 들어온 **그리기 재료**다.
+type Judgement struct {
+	Verdict intervene.Verdict
+	// RetractedSFEN 은 물러진 수를 **둔 직후**의 국면이다. 수순을 넘겨 보는 첫 장면이고,
+	// 되돌아온 지금 판과는 다르다.
+	RetractedSFEN string
+	// RetractedChecks 는 물러진 수가 王手였다면 그것을 거는 말들이다.
+	RetractedChecks []Attack
+	// Refutation 은 「상대는 이렇게 벌한다」 — 착수 후 국면의 최선 수순이다.
+	// 개입이 안 걸렸으면 비어 있다.
+	Refutation []RefutationMove
+}
+
+// RefutationMove 는 반박 수순의 한 수다.
+//
+// 기보의 Move 와 달리 **그 수를 둔 뒤의 국면을 함께 싣는다.** 화면이 수순을 한 수씩
+// 넘겨 보여주는데, 클라이언트가 스스로 수를 두면 규칙 엔진을 한 벌 더 갖는 것이라
+// D2에서 「클라이언트는 규칙을 모른다」로 정해둔 것과 어긋난다. 판은 서버가 만든다.
+//
+// 持ち駒도 SFEN에 들어 있으므로 駒台까지 이 한 줄로 맞는다.
+type RefutationMove struct {
+	USI  string `json:"usi"`
+	Ja   string `json:"ja"`
+	By   Side   `json:"by"`
+	SFEN string `json:"sfen"`
+	// Checks 는 그 수 뒤에 **玉을 잡으러 오는 말들**이다. 王手가 아니면 비어 있다.
+	//
+	// 「王手다」까지는 국면만 봐도 알지만 **어느 말이 걸고 있는지**는 규칙을 알아야 하고,
+	// 그건 클라이언트가 갖지 않기로 한 것이다(D2). 両王手가 여기서 둘로 나오고,
+	// 그 둘이 곧 「먹어서 풀 수 없다」의 이유다.
+	Checks []Attack `json:"checks,omitempty"`
+}
+
+// Attack 은 판 위에 그을 한 줄이다. 칸은 USI 좌표(`4i`).
+type Attack struct {
+	From string `json:"from"`
+	To   string `json:"to"`
 }
 
 // Intervention 은 제지형 개입 하나다. 스냅샷에 실려 화면으로 간다.
@@ -100,6 +144,18 @@ type Intervention struct {
 	LostMate bool `json:"lostMate"`
 	// Message 는 화면에 그대로 나가는 일본어 문구다.
 	Message string `json:"message"`
+	// RetractedSFEN 은 물러진 수를 **둔 직후**의 국면이다. 화면이 수순을 넘겨 볼 때의
+	// 첫 장면이고, 되돌아온 지금 판(`Snapshot.SFEN`)과는 다르다.
+	RetractedSFEN string `json:"retractedSfen"`
+	// RetractedChecks 는 물러진 수가 王手였다면 그것을 거는 말들이다.
+	RetractedChecks []Attack `json:"retractedChecks,omitempty"`
+	// Refutation 은 「상대는 이렇게 벌한다」. 물러진 수를 그대로 뒀을 때의 최선 수순이고,
+	// 첫 수가 상대의 수다. 못 구했으면 비어 있다 — 화면은 그때 넘기기를 안 띄운다.
+	//
+	// **이것은 최선수가 아니다.** 이 수순이 시작하는 국면은 되물러서 이미 사라졌으므로,
+	// 여기 있는 어느 수도 「지금 이렇게 두라」가 되지 않는다. 금지된 것은 플레이어가
+	// 뒀어야 할 수이고 이쪽은 **왜 나쁜가**에 속한다(01-core.md §1).
+	Refutation []RefutationMove `json:"refutation,omitempty"`
 }
 
 // Opponent 는 상대(컴퓨터)의 수를 고른다.
@@ -167,10 +223,10 @@ type engineResult struct {
 }
 
 type judgeResult struct {
-	gen     int
-	verdict intervene.Verdict
-	move    Move
-	err     error
+	gen       int
+	judgement Judgement
+	move      Move
+	err       error
 }
 
 // Session 은 대국 하나다. 모든 메서드는 안전하게 동시 호출할 수 있다 —
@@ -377,9 +433,9 @@ func (st *state) startJudging(ctx context.Context, judgeDone chan judgeResult) b
 	ply := len(st.usis)
 
 	go func() {
-		v, err := analyst.Judge(ctx, start, moves, ply)
+		j, err := analyst.Judge(ctx, start, moves, ply)
 		select {
-		case judgeDone <- judgeResult{gen: gen, verdict: v, move: played, err: err}:
+		case judgeDone <- judgeResult{gen: gen, judgement: j, move: played, err: err}:
 		case <-ctx.Done():
 		}
 	}()
@@ -398,7 +454,7 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 		log.Printf("game: judging failed, letting the move stand: %v", r.err)
 	}
 
-	if r.err == nil && r.verdict.Kind == intervene.KindBlunder {
+	if r.err == nil && r.judgement.Verdict.Kind == intervene.KindBlunder {
 		st.rollback(r)
 		st.broadcast()
 		return
@@ -428,17 +484,21 @@ func (st *state) rollback(r judgeResult) {
 	// **물러진 수는 여기서만 남는다.** 기보에는 안 들어가므로, 이 한 줄을 안 쓰면
 	// 개입에 오염되지 않은 유일한 실력 신호가 그대로 사라진다(01-core.md §5).
 	if st.cfg.Recorder != nil {
-		st.cfg.Recorder.Retracted(len(st.usis)+1, r.move.USI, r.verdict)
+		st.cfg.Recorder.Retracted(len(st.usis)+1, r.move.USI, r.judgement.Verdict)
 	}
 
+	v := r.judgement.Verdict
 	st.intervention = &Intervention{
-		Kind:         string(r.verdict.Kind),
-		Category:     string(r.verdict.Category),
-		RetractedUSI: r.move.USI,
-		RetractedJa:  r.move.Ja,
-		DeltaWin:     r.verdict.DeltaWin,
-		LostMate:     r.verdict.LostMate,
-		Message:      interventionMessage(r.verdict),
+		Kind:            string(v.Kind),
+		Category:        string(v.Category),
+		RetractedUSI:    r.move.USI,
+		RetractedJa:     r.move.Ja,
+		DeltaWin:        v.DeltaWin,
+		LostMate:        v.LostMate,
+		Message:         interventionMessage(v),
+		RetractedSFEN:   r.judgement.RetractedSFEN,
+		RetractedChecks: r.judgement.RetractedChecks,
+		Refutation:      r.judgement.Refutation,
 	}
 }
 
