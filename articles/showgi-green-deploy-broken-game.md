@@ -49,6 +49,13 @@ func startEngines() *usi.Pool {
 		return nil
 	}
 	// ...
+	pool, err := usi.NewPool(size, cmd, opts)
+	if err != nil {
+		// 今回通ったのはここです。存在しないバイナリなので起動に失敗します
+		log.Printf("cannot start engine pool (%s x%d) — games are disabled: %v", cmd, size, err)
+		return nil
+	}
+	return pool
 }
 ```
 
@@ -84,7 +91,7 @@ flowchart LR
   C["タスク定義の secrets"] -->|"上書きする"| P
 ```
 
-**同じキーが両側にあれば、必ずタスク定義が勝ちます。**
+**同じキーが両側にあれば、必ずタスク定義が勝ちます。** 図には描いていませんが `environmentFiles` も同じ側です。
 
 言い方を変えると、タスク定義に一度キーを書いた瞬間、**そのキーについてイメージ側の記述は意味を失います**。イメージを差し替えても、`ENV` を書き換えても、コンテナに入る値は変わりません。
 
@@ -129,7 +136,7 @@ show-gi:9  ACTIVE   ← サービスが今指しているのはここ
 
 ここが最後のピースです。
 
-ECS へのデプロイでよく使われる方法は、**今動いているタスク定義を読み出して、イメージのタグだけ差し替えて登録し直す**というものです。AWS 公式のアクション (`amazon-ecs-render-task-definition`) がまさにこれをします。
+ECS へのデプロイでよく使われる方法は、**現在のタスク定義 (最新リビジョン) を読み出して、イメージのタグだけ差し替えて登録し直す**というものです。読み出しは `aws ecs describe-task-definition`、差し替えは AWS 公式のアクション `amazon-ecs-render-task-definition` が担当します。
 
 ```mermaid
 flowchart TD
@@ -176,21 +183,24 @@ flowchart TD
 
 ## 3. 今そこに何が入っているのかを見る
 
-事故のときに一番知りたかったのは「**本番のコンテナに今どの値が入っているのか**」でした。タスク定義を直接読むのが確実です。
-
-```sh
-aws ecs describe-task-definition --task-definition show-gi \
-  --query 'taskDefinition.containerDefinitions[?name==`api`].environment'
-```
-
-サービスがどのリビジョンを指しているかは別に見ます。
+事故のときに一番知りたかったのは「**本番のコンテナに今どの値が入っているのか**」でした。順番があります。**先にサービスが使っているリビジョンを特定してから**、そのリビジョンを読みます。
 
 ```sh
 aws ecs describe-services --cluster show-gi --services show-gi \
-  --query 'services[0].taskDefinition'
+  --query 'services[0].taskDefinition' --output text
+# arn:aws:ecs:ap-northeast-1:...:task-definition/show-gi:9
 ```
 
-この二つを並べれば、「イメージは新しいのに設定が古い」状態がその場で見えます。
+```sh
+aws ecs describe-task-definition --task-definition show-gi:9 \
+  --query 'taskDefinition.containerDefinitions[?name==`api`].environment'
+```
+
+:::message alert
+`--task-definition` に **family 名だけ** (`show-gi`) を渡すと、そのファミリーの**最新の ACTIVE リビジョン**が返ります。サービスが動かしているものとは限りません。`terraform apply` で新しいリビジョンを登録した直後は、まさにこの二つがずれています。
+:::
+
+リビジョン番号まで指定して読めば、「イメージは新しいのに設定が古い」状態がその場で見えます。
 
 ## 4. 踏んだこと
 
@@ -204,7 +214,7 @@ aws ecs describe-services --cluster show-gi --services show-gi \
 /healthz  →  {"ok":true}
 ```
 
-結果、ECS のヘルスチェックは通り、ロードバランサも健全と判断し、デプロイワークフローも緑で終わりました。サイトを開いても普通に表示されます。壊れているのは `/ws/game` だけで、そこは**実際に対局を始めようとした人にしか見えません**。
+結果、ALB のヘルスチェック (`/healthz`) は通り、ECS はタスクを健全と見なし、「安定」を待っていたデプロイワークフローも緑で終わりました。サイトを開いても普通に表示されます。壊れているのは `/ws/game` だけで、そこは**実際に対局を始めようとした人にしか見えません**。
 
 「エンジンが無くてもプロセスを殺さない」という判断は正しかったのです。殺していればサイト全体が落ちていました。しかし**穏やかな劣化は、劣化を見えなくもします。**
 
@@ -238,7 +248,7 @@ writeJSON(w, http.StatusOK, map[string]any{
 
 ### 4.2 直す順番が決まっている
 
-`ecs.tf` を直してマージすれば終わり、とはいきません。2.5 の通り、ワークフローは**AWS にある現在のタスク定義を読む**からです。
+`ecs.tf` を直してマージすれば終わり、とはいきません。2.5 の通り、ワークフローは**AWS にある最新のリビジョンを読む**からです。
 
 ```sh
 terraform -chdir=infra apply   # ① ENGINE_CMD を持たない新リビジョンを登録する
@@ -270,13 +280,13 @@ resource "aws_ecs_task_definition" "app" {
 
 - **タスク定義の `environment` は、イメージの `ENV` を上書きする。** 同じキーを両方に書いた時点で、イメージ側の記述は効かなくなる
 - **タスク定義はデプロイのたびに引き継がれる。** イメージを直しても Terraform を直しても、そこに残った値は消えない
-- **穏やかに劣化する設計には、劣化を外に出す義務がセットで付いてくる。** ヘルスチェックが機能を見ていないなら、それは緑になれる嘘です
+- **穏やかに劣化する設計には、劣化を外に出す義務がセットで付いてくる。** 機能を見ていないヘルスチェックは、緑になれる嘘でしかない
 
 ---
 
 検証は 2026-08-09 に発生した事象を、2026-08-10 時点のコードで確認しました。本文で引用したコードは、以下のコミット時点のものです。
 
 - [`infra/ecs.tf` — タスク定義の `environment`](https://github.com/jovid18/show-gi/blob/0b4bc30ab62b8a3ae10e57950eeecaf0a48e0919/infra/ecs.tf#L163-L174)
-- [`apps/server/cmd/api/main.go` — エンジンが無くても起動する](https://github.com/jovid18/show-gi/blob/0b4bc30ab62b8a3ae10e57950eeecaf0a48e0919/apps/server/cmd/api/main.go#L95-L106)
+- [`apps/server/cmd/api/main.go` — エンジンが無くても起動する](https://github.com/jovid18/show-gi/blob/0b4bc30ab62b8a3ae10e57950eeecaf0a48e0919/apps/server/cmd/api/main.go#L95-L123)
 - [`apps/server/internal/server/server.go` — `/healthz`](https://github.com/jovid18/show-gi/blob/0b4bc30ab62b8a3ae10e57950eeecaf0a48e0919/apps/server/internal/server/server.go#L57-L77)
 - [`.github/workflows/images.yml` — デプロイ後にエンジンを確認する](https://github.com/jovid18/show-gi/blob/0b4bc30ab62b8a3ae10e57950eeecaf0a48e0919/.github/workflows/images.yml#L120-L130)
