@@ -30,7 +30,7 @@ BEGIN;
 -- 중간에 끊겨 다시 돌리는 일이 실제로 생긴다.
 DELETE FROM kb_chunks WHERE tags && ARRAY[
     'kin_musou', 'kata_mino', 'hon_mino', 'taka_mino', 'ginkanmuri',
-    'kin_yagura', 'gin_yagura', 'kata_yagura', 'fune',
+    'kin_yagura', 'gin_yagura', 'kata_yagura', 'fune', 'kani', 'gangi',
     'naka_bisha', 'shiken_bisha', 'sanken_bisha', 'mukai_bisha',
     'sode_bisha', 'migi_shiken_bisha', 'ibisha',
     'kaku_gawari', 'ai_furibisha', 'kakukan_furibisha',
@@ -82,6 +82,16 @@ INSERT INTO kb_chunks (title, body, tags, source_url, source_license, verified_b
  '二枚金とも呼ばれ、玉を3八、左金を5八、右金を4八に動かして作る囲いです。相振り飛車でよく用いられ、金が二枚横に並ぶため横からの攻めに強い構えです。右銀を2八へ上がる形もありますが、側面から攻められると壁銀になって玉の逃げ道がなくなるため、上がるかどうかは局面によって選びます。上部が薄いので、上から押し潰される攻めには注意が必要です。',
  ARRAY['kin_musou', 'castle'],
  'https://ja.wikipedia.org/wiki/金無双', 'CC-BY-SA-4.0', 'engine'),
+
+('雁木囲い',
+ '玉を6九に置き、銀を6七と5七に並べ、金を7八と5八に置いた金銀四枚の囲いです。銀が二枚前に出て斜めに支え合う形なので上部からの攻めに強く、矢倉とは違った受けの形になります。近年また指されるようになった囲いで、玉の上に厚みを作れるのが持ち味です。横からの攻めには金二枚で受けます。',
+ ARRAY['gangi', 'castle'],
+ 'https://ja.wikipedia.org/wiki/雁木囲い', 'CC-BY-SA-4.0', 'engine'),
+
+('カニ囲い',
+ '玉を6九に置き、金を7八と5八、銀を6八に配置した囲いです。相居飛車で矢倉や穴熊へ発展させる途中の形として現れることが多く、三手ほどで組めるので急戦に対応しやすいのが利点です。横に広く構える形なので上部は薄く、そのまま長い戦いに入るよりは矢倉などへ組み替えるのが一般的です。',
+ ARRAY['kani', 'castle'],
+ 'https://ja.wikipedia.org/wiki/カニ囲い', 'CC-BY-SA-4.0', 'engine'),
 
 ('舟囲い',
  '8八角、7八玉、7九銀、6九金、5八金、4八銀の形で、居飛車が振り飛車に対して用いるもっとも基本的な囲いです。三手ほどで組めるため急戦に向いており、相手が本格的に囲う前に仕掛けることができます。堅さは美濃囲いや穴熊に劣るので、長い戦いになる前に決着をつけるか、穴熊や左美濃へ発展させるのが定跡です。',

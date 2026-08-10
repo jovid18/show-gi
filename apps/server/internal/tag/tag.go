@@ -73,6 +73,8 @@ const (
 	wikiFune   = "https://ja.wikipedia.org/wiki/舟囲い"
 	wikiGinkan = "https://ja.wikipedia.org/wiki/銀冠"
 	wikiMusou  = "https://ja.wikipedia.org/wiki/金無双"
+	wikiKani   = "https://ja.wikipedia.org/wiki/カニ囲い"
+	wikiGangi  = "https://ja.wikipedia.org/wiki/雁木囲い"
 )
 
 // castles 는 囲い 정의다. 순서는 상관없다 — 고르는 것은 **필수 칸이 가장 많은 쪽**이고
@@ -129,6 +131,27 @@ var castles = []shape{
 		tag:     Tag{Code: "kin_musou", NameJa: "金無双", Kind: KindCastle},
 		squares: []square{{3, 8, shogi.King}, {5, 8, shogi.Gold}, {4, 8, shogi.Gold}},
 		source:  wikiMusou,
+	},
+	{
+		// 「先手番であれば6七銀、5七銀、7八金、5八金の金銀4枚の形であり、その場合玉は
+		// 基本的には6九に置いていた」 — 旧型(相居飛車二枚銀雁木)의 배치다.
+		//
+		// カニ囲い와 玉6九·金7八·金5八을 공유하는데 銀의 자리가 갈린다(6八 vs 6七·5七).
+		// 銀은 두 장뿐이라 두 囲い가 동시에 성립할 수 없다.
+		tag: Tag{Code: "gangi", NameJa: "雁木囲い", Kind: KindCastle},
+		squares: []square{
+			{6, 9, shogi.King}, {7, 8, shogi.Gold}, {5, 8, shogi.Gold},
+			{6, 7, shogi.Silver}, {5, 7, shogi.Silver},
+		},
+		source: wikiGangi,
+	},
+	{
+		// 「通常は『▲7八金・▲6八銀・▲5八金・▲6九王』の形」
+		tag: Tag{Code: "kani", NameJa: "カニ囲い", Kind: KindCastle},
+		squares: []square{
+			{6, 9, shogi.King}, {7, 8, shogi.Gold}, {5, 8, shogi.Gold}, {6, 8, shogi.Silver},
+		},
+		source: wikiKani,
 	},
 	{
 		// 「8八角、7八玉、7九銀、6九金、5八金、4八銀型である」
