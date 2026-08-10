@@ -19,6 +19,13 @@ interface HandProps {
   dropping?: string | null;
   /** 그 駒의 실제 DOM. 화살표가 **어디서 출발하는지**를 여기서 잰다. */
   droppingRef?: (el: HTMLButtonElement | null) => void;
+  /**
+   * 갇힘 힌트가 짚는 持ち駒의 종류. 파란 테를 두른다.
+   *
+   * 최선수가 打일 때 「그 駒」는 판 위에 없다. 駒台를 짚지 않으면 3회 단계가 打에서만
+   * 통째로 사라진다 — 실측한 국면 둘 중 하나가 바로 打이었다(06-status.md §22).
+   */
+  hintDrop?: string | null;
   onPick: (origin: string) => void;
 }
 
@@ -28,7 +35,7 @@ interface HandProps {
  * 빈 받침도 자리를 지킨다 — 말이 늘고 줄 때마다 판이 위아래로 흔들리면
  * 초심자는 무엇이 변했는지 못 본다.
  */
-export function Hand({ side, pieces, label, selected, playable, dropping, droppingRef, onPick }: HandProps) {
+export function Hand({ side, pieces, label, selected, playable, dropping, droppingRef, hintDrop, onPick }: HandProps) {
   const held = HAND_ORDER.filter((kind) => (pieces[kind] ?? 0) > 0);
 
   return (
@@ -57,6 +64,7 @@ export function Hand({ side, pieces, label, selected, playable, dropping, droppi
             >
               {/* 駒台에서는 움직임 표식을 끈다. 아직 판 위가 아니라 방향이 뜻을 갖지 않고,
                   持ち駒는 성하지 않은 것뿐이라 붉은 글자도 나오지 않는다. */}
+              {hintDrop === kind && <span className="hint-outline" aria-hidden="true" />}
               <Koma kind={kind} side={side} marks={false} />
               {count > 1 && <span className="hand-count">{count}</span>}
             </button>

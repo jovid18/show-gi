@@ -117,6 +117,21 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 		t.Fatalf("착수 전 탐색: %v", err)
 	}
 
+	// 후보 사다리. **「우세를 지키는 수가 하나뿐」이 사실인지**를 여기서만 알 수 있다.
+	// 2위부터 음수면 진짜 바늘이고, 2위도 +500대면 바늘이 아니라 후보를 못 찾는 문제다.
+	ladder, err := pool.SearchMultiPV(t.Context(), shogi.StartSFEN, usis, JudgeDepth, CandidateK)
+	if err != nil {
+		t.Fatalf("후보 사다리: %v", err)
+	}
+
+	// 최선수가 움직이는 駒. 板 위의 수는 출발 칸, 打는 駒 종류로 잡는다.
+	//
+	// **「그 駒를 짚어주면 웬만하면 잘 둔다」가 계단식 힌트의 전제**다. 그 駒를 움직이는
+	// 수 중 통과가 하나뿐이면 1단계는 도움이 아니라 2단계로 가는 계단일 뿐이다.
+	bestMove, bestErr := shogi.ParseUSIMove(before.Best)
+	samePiece, samePieceOK := 0, 0
+	var samePieceSurvivors []string
+
 	legal := pos.LegalMoves()
 	counts := map[intervene.Level]int{}
 	cats := map[intervene.Category]int{}
@@ -172,6 +187,17 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 			}
 		}
 
+		// 최선수와 같은 駒를 움직이는 수인가.
+		if bestErr == nil && sameMover(bestMove, m) {
+			samePiece++
+			if !blunder {
+				samePieceOK++
+				if len(samePieceSurvivors) < 8 {
+					samePieceSurvivors = append(samePieceSurvivors, fmt.Sprintf("%s(%+d)", m.USI(), in.AfterCp))
+				}
+			}
+		}
+
 		if in.Features.HasShallow {
 			haveShallow++
 			if len(samples) < 6 {
@@ -198,6 +224,20 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 			lv.Threshold(), counts[lv], n, 100*float64(counts[lv])/float64(n))
 	}
 	fmt.Printf("  카테고리(입문): %v\n", cats)
+
+	fmt.Printf("  후보 사다리(depth %d × k=%d):\n", JudgeDepth, CandidateK)
+	for i, line := range ladder.Lines {
+		if line.Move == "" {
+			continue
+		}
+		fmt.Printf("    %2d위  %-6s %+d\n", i+1, line.Move, line.ScoreCp)
+	}
+
+	fmt.Printf("  **최선수(%s)와 같은 駒를 움직이는 수: %d개, 그중 통과 %d개**\n",
+		before.Best, samePiece, samePieceOK)
+	if len(samePieceSurvivors) > 0 {
+		fmt.Printf("    통과: %s\n", strings.Join(samePieceSurvivors, " "))
+	}
 	fmt.Printf("  얕게 봐서 괜찮아 보이는 수 %d개 중 블런더 %d개 (%.0f%%)\n",
 		plausible, plausibleBlunder, 100*float64(plausibleBlunder)/float64(max(plausible, 1)))
 	fmt.Printf("  그중 shallow_trap 이 될 것: 100cp %d · 200cp %d · 300cp(현재) %d · 500cp %d\n",
@@ -216,4 +256,18 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 	for _, s := range lineSamples {
 		fmt.Printf("    %s\n", s)
 	}
+}
+
+// sameMover 는 두 수가 **같은 駒를 움직이는가**다.
+//
+// 板 위의 수는 출발 칸이 같으면 같은 駒이고, 打는 손에서 나오므로 종류가 같으면 같은
+// 駒다(같은 종류가 둘 있으면 어느 쪽인지 구분할 수 없고, 구분할 필요도 없다).
+func sameMover(a, b shogi.Move) bool {
+	if a.IsDrop() != b.IsDrop() {
+		return false
+	}
+	if a.IsDrop() {
+		return a.Drop == b.Drop
+	}
+	return a.From == b.From
 }

@@ -81,6 +81,25 @@ export interface Attack {
   to: string;
 }
 
+/**
+ * 같은 국면에서 여러 번 물러졌을 때 열리는 계단식 안내.
+ *
+ * **단계는 서버가 자른다.** 3회에서 `usi` 는 아예 오지 않는다 — 화면이 출발 칸만 그리는
+ * 것으로는 계단이 안 되고, 답이 페이로드에 그대로 있으면 힌트를 아낀 의미가 없다.
+ *
+ * 개입(`intervention`)과 수명은 같지만 **방향이 반대**다. 저쪽은 방금 둔 수를 말하고
+ * 이쪽은 지금 둘 수를 말한다. 그래서 판 위에서도 색이 갈린다 — 상대 쪽이 초록·빨강,
+ * 이쪽이 파랑이다.
+ */
+export interface Hint {
+  /** 움직일 駒가 서 있는 칸(`5d`). 打이면 오지 않는다. */
+  square?: string;
+  /** 駒台에서 집을 駒(`B`). 판 위의 수면 오지 않는다. */
+  drop?: string;
+  /** 그 수 전체. **마지막 단계에서만 온다.** */
+  usi?: string;
+}
+
 export interface Snapshot {
   sfen: string;
   ply: number;
@@ -95,6 +114,7 @@ export interface Snapshot {
   /** 방금 둔 수를 판정하는 중. 이 동안은 `yourTurn`이 내려가 입력이 잠긴다. */
   judging: boolean;
   intervention?: Intervention;
+  hint?: Hint;
 }
 
 export type ServerMessage =

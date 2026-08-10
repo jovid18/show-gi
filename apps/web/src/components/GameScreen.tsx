@@ -215,7 +215,23 @@ export function GameScreen() {
 
   const walking = intervening && scenes.length > 0;
   const current = walking ? scenes[Math.min(scene, scenes.length - 1)] : null;
-  const dropping = current?.dropping ?? null;
+
+  /**
+   * 갇힘 힌트. **수순을 넘겨 보는 동안에는 안 띄운다** — 그때 판은 물러진 수 뒤의
+   * 국면이라, 지금 판에 대한 안내를 그 위에 얹으면 판이 거짓을 말한다.
+   */
+  const hint = walking ? undefined : snapshot?.hint;
+  const hintRay = useMemo(() => {
+    if (!hint?.usi) return null;
+    const r = rayOf(hint.usi, 'human');
+    return r && { ...r, hint: true };
+  }, [hint?.usi]);
+
+  /**
+   * 駒台에서 출발하는 화살표는 회상(打)과 힌트가 **같은 장치를 쓴다.** 둘은 동시에
+   * 뜨지 않는다 — 힌트는 넘겨 보는 동안 꺼진다.
+   */
+  const dropping = current?.dropping ?? (hint?.drop ? { side: 'black' as Side, kind: hint.drop } : null);
 
   // 화면 폭이 바뀌면 `--sq` 가 따라 변하므로 그때마다 다시 잰다.
   const measureDrop = useCallback(() => {
@@ -388,6 +404,8 @@ export function GameScreen() {
           checks={current?.checks ?? []}
           dimmed={walking}
           dropFrom={dropFrom}
+          hintSquare={hint?.square ?? null}
+          hintRay={hintRay}
           boardRef={boardRef}
           interactive={playable}
           onSquare={onSquare}
@@ -403,6 +421,7 @@ export function GameScreen() {
           droppingRef={(el) => {
             dropPieceRef.current = el;
           }}
+          hintDrop={hint?.drop ?? null}
           onPick={playable ? pick : () => {}}
         />
       </div>

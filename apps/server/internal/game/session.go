@@ -70,6 +70,10 @@ type Snapshot struct {
 	Judging bool `json:"judging"`
 	// Intervention 은 직전 수가 물러졌을 때만 채워진다. 다음 착수에서 지워진다.
 	Intervention *Intervention `json:"intervention,omitempty"`
+	// Hint 는 같은 국면에서 여러 번 물러졌을 때 열리는 안내다. Intervention 과 수명이
+	// 같지만 **뜻이 반대 방향**이라 따로 둔다 — 저쪽은 방금 둔 수를 말하고 이쪽은
+	// 지금 둘 수를 말한다. 화면도 다른 색으로 그린다.
+	Hint *Hint `json:"hint,omitempty"`
 }
 
 // Analyst 는 착수 한 수를 판정하는 데 필요한 숫자를 구해 온다.
@@ -98,6 +102,14 @@ type Judgement struct {
 	// Refutation 은 「상대는 이렇게 벌한다」 — 착수 후 국면의 최선 수순이다.
 	// 개입이 안 걸렸으면 비어 있다.
 	Refutation []RefutationMove
+
+	// BestUSI 는 착수 **전** 국면의 최선수다. 판정하면서 어차피 손에 들어온 값이고
+	// 추가 탐색이 없다.
+	//
+	// **이것은 화면으로 그냥 나가지 않는다.** 갇힘 힌트(§22)가 단계에 따라 여기서
+	// 출발 칸만 떼거나 수 전체를 쓴다. 자르는 일은 세션이 하고, 3회 단계에서 수를
+	// 통째로 실어 보내면 계단이 화면에만 있고 페이로드에는 없는 것이 된다.
+	BestUSI string
 }
 
 // RefutationMove 는 반박 수순의 한 수다.
@@ -156,6 +168,60 @@ type Intervention struct {
 	// 여기 있는 어느 수도 「지금 이렇게 두라」가 되지 않는다. 금지된 것은 플레이어가
 	// 뒀어야 할 수이고 이쪽은 **왜 나쁜가**에 속한다(01-core.md §1).
 	Refutation []RefutationMove `json:"refutation,omitempty"`
+}
+
+// 갇힘 힌트가 열리는 지점. **같은 국면에서 연속으로 물러진 횟수**다.
+//
+// 한 판 누적으로 세면 40수에 걸쳐 서로 다른 이유로 실수한 사람에게 엉뚱한 힌트가 열린다.
+// 갇힘은 국면의 문제이지 사람의 문제가 아니다 — 통과하는 수를 두면 0으로 돌아간다.
+//
+// **[미확정]** 3과 5는 초기값이다. 실측(06-status.md §22)에서 龍을 짚어줬을 때 통과가
+// 11수 중 3수였으므로 한 번에 맞히기를 기대하는 값은 아니고, 두 번을 준 뒤 수를 보여준다.
+const (
+	HintPieceAfter = 3
+	HintMoveAfter  = 5
+)
+
+// Hint 는 갇혔을 때 열리는 계단식 안내다.
+//
+// **단계마다 실리는 것이 다르다.** 3회 단계에서 최선수를 통째로 내려보내고 화면이
+// 출발 칸만 그리면, 계단이 화면에만 있고 답은 devtools에 그대로 있다. 그래서 자르는
+// 일을 서버가 한다.
+//
+// 이것이 [§1](01-core.md)의 「최선수를 보여주지 않는다」에 어긋나지 않는 것은 **문이
+// 다섯 번 실패해야 열리기 때문**이다. 기댈 수 있는 힌트가 아니고, 3회 단계는 어디로
+// 갈지를 여전히 플레이어가 찾는다. 발동 조건이 곧 설계다(01-core.md §7).
+type Hint struct {
+	// Square 는 움직일 駒가 있는 칸(`5d`). 打면 비어 있다.
+	Square string `json:"square,omitempty"`
+	// Drop 은 駒台에서 집을 駒(`B`). 판 위의 수면 비어 있다.
+	Drop string `json:"drop,omitempty"`
+	// USI 는 그 수 전체. **마지막 단계에서만 채워진다.**
+	USI string `json:"usi,omitempty"`
+}
+
+// buildHint 는 연속 되무르기 횟수와 최선수로 그 단계의 힌트를 만든다. 아직이면 nil.
+func buildHint(stuck int, bestUSI string) *Hint {
+	if stuck < HintPieceAfter || bestUSI == "" {
+		return nil
+	}
+	m, err := shogi.ParseUSIMove(bestUSI)
+	if err != nil {
+		return nil
+	}
+
+	// 打의 駒 글자는 USI 문자열의 첫 글자(`B*4a`)다. 여기서 떼는 것은 shogi 에 역방향
+	// 표를 새로 만들지 않기 위해서이고, 위에서 파싱이 이미 형식을 보증한다.
+	var h Hint
+	if m.IsDrop() {
+		h.Drop = bestUSI[:1]
+	} else {
+		h.Square = shogi.SquareUSI(int(m.From))
+	}
+	if stuck >= HintMoveAfter {
+		h.USI = bestUSI
+	}
+	return &h
 }
 
 // Opponent 는 상대(컴퓨터)의 수를 고른다.
@@ -261,6 +327,13 @@ type state struct {
 	judging      bool
 	judgeGen     int
 	intervention *Intervention
+
+	// stuck 은 **같은 국면에서 연속으로 물러진 횟수**다. 통과하는 수를 두면 0으로 돌아가고,
+	// 되무르기는 국면을 그대로 되돌리므로 「연속」이 곧 「같은 국면」이 된다.
+	stuck int
+	// hint 는 그 횟수에 열린 안내다. intervention 과 수명이 같지만 뜻이 다르다 —
+	// intervention 은 **방금 무엇을 했나**이고 이쪽은 **지금 무엇을 할까**다.
+	hint *Hint
 
 	// 물러질 수 있으므로 착수 직전 국면을 들고 있는다. Position 이 값 타입이라 복사면 끝이다.
 	prevPos    shogi.Position
@@ -393,7 +466,8 @@ func (st *state) playHuman(ctx context.Context, usi string, engineDone chan engi
 	}
 
 	// 새 수를 두면 직전 개입은 지운다 — 화면에 남아 있으면 방금 둔 수를 가리키는 것처럼 보인다.
-	st.intervention = nil
+	// 힌트도 같이 내린다. 또 물러지면 한 단계 올라간 것이 새로 뜬다.
+	st.intervention, st.hint = nil, nil
 
 	// 물러질 수 있으니 착수 전 국면을 들고 있는다.
 	st.prevPos, st.prevPrevTo = st.pos, st.prevTo
@@ -460,7 +534,8 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 		return
 	}
 
-	// 판정을 통과했다. 여기가 사람의 수가 확정되는 자리다.
+	// 판정을 통과했다. 여기가 사람의 수가 확정되는 자리다. 갇힘도 여기서 풀린다.
+	st.stuck = 0
 	st.recordLastMove()
 	st.maybeThink(ctx, engineDone)
 	st.broadcast()
@@ -486,6 +561,9 @@ func (st *state) rollback(r judgeResult) {
 	if st.cfg.Recorder != nil {
 		st.cfg.Recorder.Retracted(len(st.usis)+1, r.move.USI, r.judgement.Verdict)
 	}
+
+	st.stuck++
+	st.hint = buildHint(st.stuck, r.judgement.BestUSI)
 
 	v := r.judgement.Verdict
 	st.intervention = &Intervention{
@@ -669,6 +747,7 @@ func (st *state) snapshot() Snapshot {
 		Winner:       st.winner,
 		Judging:      st.judging,
 		Intervention: st.intervention,
+		Hint:         st.hint,
 	}
 	if yours {
 		for _, m := range st.pos.LegalMoves() {

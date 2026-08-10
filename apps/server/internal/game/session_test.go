@@ -397,6 +397,7 @@ func TestEngineOpponentReturnsBest(t *testing.T) {
 type fixedAnalyst struct {
 	verdict    intervene.Verdict
 	refutation []RefutationMove
+	bestUSI    string
 	err        error
 	delay      time.Duration
 	calls      atomic.Int32
@@ -411,7 +412,7 @@ func (a *fixedAnalyst) Judge(ctx context.Context, _ string, _ []string, _ int) (
 			return Judgement{}, ctx.Err()
 		}
 	}
-	return Judgement{Verdict: a.verdict, Refutation: a.refutation}, a.err
+	return Judgement{Verdict: a.verdict, Refutation: a.refutation, BestUSI: a.bestUSI}, a.err
 }
 
 func blunder() intervene.Verdict {
@@ -631,5 +632,102 @@ func TestJudgesFromTheFirstMoveByDefault(t *testing.T) {
 	got := waitFor(t, ch, func(s Snapshot) bool { return s.Intervention != nil }, "1수째 개입")
 	if got.Intervention.RetractedUSI != "7g7f" {
 		t.Fatalf("%+v", got.Intervention)
+	}
+}
+
+// 갇힘 힌트는 **단계마다 실리는 것이 달라야 한다.** 3회 단계에서 수를 통째로 내려보내면
+// 계단이 화면에만 있고 답은 페이로드에 그대로 있다.
+func TestBuildHintStaysBehindItsStage(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		stuck int
+		best  string
+		want  *Hint
+	}{
+		{"아직 안 열린다", 2, "5d5f", nil},
+		{"3회 — 칸만", 3, "5d5f", &Hint{Square: "5d"}},
+		{"4회 — 그대로", 4, "5d5f", &Hint{Square: "5d"}},
+		{"5회 — 수까지", 5, "5d5f", &Hint{Square: "5d", USI: "5d5f"}},
+		{"打는 駒台를 짚는다", 3, "B*4a", &Hint{Drop: "B"}},
+		{"打도 5회에 수까지", 5, "B*4a", &Hint{Drop: "B", USI: "B*4a"}},
+		// 최선수를 못 구했으면 힌트도 없다. 판정이 고장 나도 대국은 계속된다는 것과 같은 판단이다.
+		{"최선수가 없으면 없다", 9, "", nil},
+		{"읽을 수 없으면 없다", 9, "zzzz", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := buildHint(tc.stuck, tc.best)
+			switch {
+			case tc.want == nil && got != nil:
+				t.Fatalf("없어야 한다: %+v", got)
+			case tc.want == nil:
+				return
+			case got == nil:
+				t.Fatalf("있어야 한다: %+v", tc.want)
+			case *got != *tc.want:
+				t.Fatalf("%+v, want %+v", *got, *tc.want)
+			}
+		})
+	}
+}
+
+// 갇힘 힌트는 **같은 국면에서 연속으로** 물러진 횟수로 열린다.
+//
+// 한 판 누적으로 세면 서로 다른 이유로 실수한 사람에게 엉뚱한 힌트가 열린다. 그래서
+// 이 테스트가 지키는 것은 계단이 열리는 것과, **통과하는 수 하나로 닫히는 것** 둘이다.
+func TestStuckHintOpensAndResets(t *testing.T) {
+	an := &fixedAnalyst{verdict: blunder(), bestUSI: "2g2f"}
+	s := newSession(t, Config{
+		Opponent: &scriptedOpponent{moves: []string{"3c3d"}}, Analyst: an,
+		HumanColor: shogi.Black,
+	})
+	ch, cancel, err := s.Subscribe(t.Context())
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	defer cancel()
+
+	// 같은 국면에서 계속 물러진다. 되무르기가 국면을 그대로 되돌리므로 매번 같은 수를 쓴다.
+	bounce := func(n int) Snapshot {
+		t.Helper()
+		if _, err := s.Play(t.Context(), "7g7f"); err != nil {
+			t.Fatalf("%d회 Play: %v", n, err)
+		}
+		return waitFor(t, ch, func(s Snapshot) bool { return s.Intervention != nil }, "개입")
+	}
+
+	for i := 1; i < HintPieceAfter; i++ {
+		if got := bounce(i); got.Hint != nil {
+			t.Fatalf("%d회에는 아직 없어야 한다: %+v", i, got.Hint)
+		}
+	}
+
+	// 3회 — 駒만. **수는 오지 않는다.** 오면 계단이 화면에만 있고 답은 페이로드에 있다.
+	got := bounce(HintPieceAfter)
+	if got.Hint == nil || got.Hint.Square != "2g" {
+		t.Fatalf("3회에 칸을 짚어야 한다: %+v", got.Hint)
+	}
+	if got.Hint.USI != "" {
+		t.Fatalf("3회에 수가 실렸다: %+v", got.Hint)
+	}
+
+	for i := HintPieceAfter + 1; i < HintMoveAfter; i++ {
+		if got := bounce(i); got.Hint == nil || got.Hint.USI != "" {
+			t.Fatalf("%d회는 3회와 같아야 한다: %+v", i, got.Hint)
+		}
+	}
+
+	// 5회 — 수까지.
+	if got := bounce(HintMoveAfter); got.Hint == nil || got.Hint.USI != "2g2f" {
+		t.Fatalf("5회에 수를 줘야 한다: %+v", got.Hint)
+	}
+
+	// 통과하는 수 하나로 닫힌다.
+	an.verdict = intervene.Verdict{}
+	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
+		t.Fatalf("통과할 Play: %v", err)
+	}
+	passed := waitFor(t, ch, func(s Snapshot) bool { return s.Ply > 0 }, "착수 확정")
+	if passed.Hint != nil {
+		t.Fatalf("통과했으면 힌트가 없어야 한다: %+v", passed.Hint)
 	}
 }

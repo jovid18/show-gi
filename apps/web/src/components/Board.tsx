@@ -57,6 +57,14 @@ export interface Ray {
   by: Player;
   /** 王手를 거는 줄인가. 다음 수(초록)와 색만 다르고 모양은 같다. */
   check?: boolean;
+  /**
+   * 갇힘 힌트인가. 파랑으로 긋는다.
+   *
+   * 모양을 초록·빨강과 같이 두는 것은 「한 수를 잇는 선」이라는 뜻이 같기 때문이고,
+   * 색을 가르는 것은 **가리키는 쪽이 반대**이기 때문이다. 저 둘은 상대가 무엇을 하는가,
+   * 이쪽은 네가 무엇을 두면 되는가다. 같은 색으로 두면 판이 정반대를 같은 말로 한다.
+   */
+  hint?: boolean;
 }
 
 interface BoardProps {
@@ -86,6 +94,10 @@ interface BoardProps {
   dimmed: boolean;
   /** 打 화살표의 출발점. 재기 전이거나 打이 아니면 null. */
   dropFrom: DropFrom | null;
+  /** 갇힘 힌트가 짚는 칸. 파란 테를 두른다. 打이거나 아직 안 열렸으면 null. */
+  hintSquare: string | null;
+  /** 갇힘 힌트의 마지막 단계 — 그 수 자체. 파란 화살표로 긋는다. */
+  hintRay: Ray | null;
   /** 판 요소. 駒台와의 거리를 재는 쪽이 잡는다. */
   boardRef?: RefObject<HTMLDivElement | null>;
   interactive: boolean;
@@ -158,6 +170,7 @@ function RefutationRay({
         className="refutation-ray"
         data-by={ray.by}
         data-anchored
+        data-hint={ray.hint || undefined}
         data-wait={waitForGhost || undefined}
         style={style}
         aria-hidden="true"
@@ -182,6 +195,7 @@ function RefutationRay({
       className="refutation-ray"
       data-by={ray.by}
       data-check={ray.check || undefined}
+      data-hint={ray.hint || undefined}
       // 유령 駒가 나는 장면에서만 기다렸다 켜진다. 넘기며 보는 동안에는 기다릴 것이 없다.
       data-wait={waitForGhost || undefined}
       style={style}
@@ -202,6 +216,8 @@ export function Board({
   checks,
   dimmed,
   dropFrom,
+  hintSquare,
+  hintRay,
   boardRef,
   interactive,
   onSquare,
@@ -236,6 +252,8 @@ export function Board({
               aria-label={piece ? `${label} ${nameOf(piece.kind)}` : label}
               onClick={() => onSquare(usi)}
             >
+              {/* 駒보다 먼저 그린다. 뒤에 오는 .koma 가 position:relative 라 그 위에 얹힌다 */}
+              {hintSquare === usi && <span className="hint-outline" aria-hidden="true" />}
               {piece && <Koma kind={piece.kind} side={piece.side} />}
               {mark && <span className="blunder-mark" data-role={mark} aria-hidden="true" />}
             </button>
@@ -253,6 +271,9 @@ export function Board({
         ))}
 
         {ray && <RefutationRay ray={ray} waitForGhost={replay !== null} dropFrom={dropFrom} />}
+
+        {/* 힌트는 마지막에 켠다. 상대 쪽 광선과 겹치는 국면에서 가려지면 안 되는 쪽이 이쪽이다 */}
+        {hintRay && <RefutationRay ray={hintRay} waitForGhost={false} dropFrom={dropFrom} />}
 
         {replay && <ReplayKoma replay={replay} />}
       </div>
