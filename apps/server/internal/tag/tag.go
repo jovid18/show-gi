@@ -75,6 +75,7 @@ const (
 	wikiMusou  = "https://ja.wikipedia.org/wiki/金無双"
 	wikiKani   = "https://ja.wikipedia.org/wiki/カニ囲い"
 	wikiGangi  = "https://ja.wikipedia.org/wiki/雁木囲い"
+	wikiAna    = "https://ja.wikipedia.org/wiki/穴熊囲い"
 )
 
 // castles 는 囲い 정의다. 순서는 상관없다 — 고르는 것은 **필수 칸이 가장 많은 쪽**이고
@@ -131,6 +132,33 @@ var castles = []shape{
 		tag:     Tag{Code: "kin_musou", NameJa: "金無双", Kind: KindCastle},
 		squares: []square{{3, 8, shogi.King}, {5, 8, shogi.Gold}, {4, 8, shogi.Gold}},
 		source:  wikiMusou,
+	},
+	{
+		// 穴熊 — **여기만 출처의 성격이 다르다.**
+		//
+		// 위키백과 본문에 배치 서술이 없고 그림에만 있다. 그림을 읽히니 좌표가 깨져
+		// 나와서 한 번 보류했던 자리다(06-status.md §30). 그래서 다른 근거로 넣는다:
+		//
+		//	① 여러 출처가 玉9九·銀8八·金7九로 일치한다 (連盟 칼럼·해설 사이트들)
+		//	② **룰 엔진이 확인한다** — 04-llm.md §4의 신뢰 계층 1이 「수순·국면은 자체
+		//	   엔진으로 재검증」이라고 정한 그 방식이고, 사람 글보다 위에 있는 근거다.
+		//	   `TestAnagumaIsReachableFromTheStart` 가 平手에서 합법수만으로 이 배치에
+		//	   도달하는 것을 실제로 둬 보고 확인한다
+		//
+		// 玉이 9九에 서는 것 자체가 香가 9九를 비웠다는 뜻이고, 그것이 「穴」이다.
+		tag: Tag{Code: "ibisha_anaguma", NameJa: "居飛車穴熊", Kind: KindCastle},
+		squares: []square{
+			{9, 9, shogi.King}, {8, 8, shogi.Silver}, {7, 9, shogi.Gold},
+		},
+		source: wikiAna,
+	},
+	{
+		// 4枚穴熊 — 3枚에 金7八을 더한 형태
+		tag: Tag{Code: "yonmai_anaguma", NameJa: "四枚穴熊", Kind: KindCastle},
+		squares: []square{
+			{9, 9, shogi.King}, {8, 8, shogi.Silver}, {7, 9, shogi.Gold}, {7, 8, shogi.Gold},
+		},
+		source: wikiAna,
 	},
 	{
 		// 「先手番であれば6七銀、5七銀、7八金、5八金の金銀4枚の形であり、その場合玉は

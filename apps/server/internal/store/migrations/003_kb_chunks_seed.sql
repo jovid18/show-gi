@@ -31,6 +31,7 @@ BEGIN;
 DELETE FROM kb_chunks WHERE tags && ARRAY[
     'kin_musou', 'kata_mino', 'hon_mino', 'taka_mino', 'ginkanmuri',
     'kin_yagura', 'gin_yagura', 'kata_yagura', 'fune', 'kani', 'gangi',
+    'ibisha_anaguma', 'yonmai_anaguma',
     'naka_bisha', 'shiken_bisha', 'sanken_bisha', 'mukai_bisha',
     'sode_bisha', 'migi_shiken_bisha', 'ibisha',
     'kaku_gawari', 'ai_furibisha', 'kakukan_furibisha',
@@ -82,6 +83,16 @@ INSERT INTO kb_chunks (title, body, tags, source_url, source_license, verified_b
  '二枚金とも呼ばれ、玉を3八、左金を5八、右金を4八に動かして作る囲いです。相振り飛車でよく用いられ、金が二枚横に並ぶため横からの攻めに強い構えです。右銀を2八へ上がる形もありますが、側面から攻められると壁銀になって玉の逃げ道がなくなるため、上がるかどうかは局面によって選びます。上部が薄いので、上から押し潰される攻めには注意が必要です。',
  ARRAY['kin_musou', 'castle'],
  'https://ja.wikipedia.org/wiki/金無双', 'CC-BY-SA-4.0', 'engine'),
+
+('居飛車穴熊',
+ '玉を9九の隅に入れ、銀を8八でかぶせ、金を7九に置いた囲いです。端の香車を9八に上げて隅を空けることで玉が入る「穴」ができます。玉が戦場から遠く、金銀が密に連結するため横からの攻めに非常に強く、寄せるのに多くの手数がかかります。組むのに手数がかかるので、その間に急戦を仕掛けられないよう手順に注意します。',
+ ARRAY['ibisha_anaguma', 'castle', 'anaguma'],
+ 'https://ja.wikipedia.org/wiki/穴熊囲い', 'CC-BY-SA-4.0', 'engine'),
+
+('四枚穴熊',
+ '穴熊に金をもう一枚足して、玉9九・銀8八・金7九・金7八の四枚で固めた囲いです。金銀四枚が密に連結するため将棋でもっとも堅い囲いのひとつとされ、多少の駒損をしても攻め合いで勝てる展開に持ち込めます。そのぶん手数がかかり、攻めに使える駒が減るので、囲いきる前に動かれたときの対応を用意しておく必要があります。',
+ ARRAY['yonmai_anaguma', 'castle', 'anaguma'],
+ 'https://ja.wikipedia.org/wiki/穴熊囲い', 'CC-BY-SA-4.0', 'engine'),
 
 ('雁木囲い',
  '玉を6九に置き、銀を6七と5七に並べ、金を7八と5八に置いた金銀四枚の囲いです。銀が二枚前に出て斜めに支え合う形なので上部からの攻めに強く、矢倉とは違った受けの形になります。近年また指されるようになった囲いで、玉の上に厚みを作れるのが持ち味です。横からの攻めには金二枚で受けます。',
