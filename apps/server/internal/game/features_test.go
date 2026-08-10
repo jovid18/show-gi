@@ -66,8 +66,8 @@ func TestPromotionCountsAsThePromotedPiece(t *testing.T) {
 func TestCaptureValueIsRead(t *testing.T) {
 	// ▲7六歩 △3四歩 ▲2二角成 — 角으로 角을 딴다
 	f := featuresAfter(t, shogi.StartSFEN, "7g7f", "3c3d", "8h2b+")
-	if f.CapturedValue != pieceValue[shogi.Bishop] {
-		t.Errorf("角을 땄는데 CapturedValue=%d (기대 %d)", f.CapturedValue, pieceValue[shogi.Bishop])
+	if f.CapturedValue != pieceValue(shogi.Bishop) {
+		t.Errorf("角을 땄는데 CapturedValue=%d (기대 %d)", f.CapturedValue, pieceValue(shogi.Bishop))
 	}
 }
 
@@ -86,7 +86,7 @@ func TestDroppedGoldGivesSupportedCheck(t *testing.T) {
 	if !f.LandsDefended {
 		t.Error("銀이 딴 뒤 5三歩가 되딴다")
 	}
-	if f.MovedValue != pieceValue[shogi.Gold] {
+	if f.MovedValue != pieceValue(shogi.Gold) {
 		t.Errorf("金 값이 아니다: %d", f.MovedValue)
 	}
 }

@@ -34,6 +34,7 @@ DELETE FROM kb_chunks WHERE tags && ARRAY[
     'naka_bisha', 'shiken_bisha', 'sanken_bisha', 'mukai_bisha',
     'sode_bisha', 'migi_shiken_bisha', 'ibisha',
     'kaku_gawari', 'ai_furibisha', 'kakukan_furibisha',
+    'fundoshi_no_kei', 'wariuchi_no_gin', 'juji_bisha', 'kaku_ryodori',
     'missed_mate', 'hangs_piece', 'shallow_trap', 'unpromoted',
     'greedy_capture', 'idle_check', 'king_exposed', 'other'
 ];
@@ -141,6 +142,30 @@ INSERT INTO kb_chunks (title, body, tags, source_url, source_license, verified_b
  '角を交換したうえで飛車を振る戦型です。角がお互いの持ち駒にあるため、振り飛車側は打ち込まれる隙を作らないように注意しながら組む必要があります。そのぶん角を手持ちにしている強みもあり、相手の陣形が乱れた瞬間に打ち込んで一気に攻めることを狙えます。',
  ARRAY['kakukan_furibisha', 'opening'],
  'https://github.com/jovid18/show-gi/blob/main/apps/server/internal/tag/tag.go', 'engine-derived', 'engine'),
+
+-- ── 手筋 ─────────────────────────────────────────────────────────────────────
+-- 좌표가 아니라 **관계**다. 「이 駒가 값나가는 둘을 동시に狙い、自分は取られない」가
+-- 조건이고, 駒 종류가 이름을 정한다.
+
+('ふんどしの桂',
+ '桂馬が相手の駒二枚を同時に狙う両取りの手筋です。桂馬は前方の二つのマスへ跳ねるので、その二つに金や銀が並んでいると片方しか助けられません。安い桂馬で高い駒を狙えるのが強みで、跳ねた桂馬がすぐに取られない場所かどうかを先に確かめることが大切です。',
+ ARRAY['fundoshi_no_kei', 'tesuji', 'ryodori'],
+ 'https://ja.wikipedia.org/wiki/手筋_(将棋)', 'CC-BY-SA-4.0', 'engine'),
+
+('割打ちの銀',
+ '銀を打って相手の駒二枚を同時に狙う両取りの手筋です。銀は斜め後ろにも利くため、横に並んだ金や飛車の間に打ち込むと二方向を同時に狙えます。相手の陣形が横に並んでいるときに現れやすく、打った銀が取り返されない場所かどうかを確かめてから打ちます。',
+ ARRAY['wariuchi_no_gin', 'tesuji', 'ryodori'],
+ 'https://ja.wikipedia.org/wiki/手筋_(将棋)', 'CC-BY-SA-4.0', 'engine'),
+
+('十字飛車',
+ '飛車が縦と横の両方向に相手の駒を同時に狙う両取りの手筋です。飛車は縦横に長く利くため、駒が十字の形に配置されたときに二枚を同時に狙えます。相手が駒を横に並べたときや、こちらの飛車が敵陣に回り込んだときに生まれやすい形です。',
+ ARRAY['juji_bisha', 'tesuji', 'ryodori'],
+ 'https://ja.wikipedia.org/wiki/手筋_(将棋)', 'CC-BY-SA-4.0', 'engine'),
+
+('角による両取り',
+ '角が斜めの二方向に相手の駒を同時に狙う両取りの手筋です。角は盤の端から端まで斜めに利くため、離れた二枚を同時に狙えるのが特徴です。とくに相手の陣形が斜めに揺らいだ瞬間に打ち込む形が多く、打った角が取り返されないかを先に確かめる必要があります。',
+ ARRAY['kaku_ryodori', 'tesuji', 'ryodori'],
+ 'https://ja.wikipedia.org/wiki/手筋_(将棋)', 'CC-BY-SA-4.0', 'engine'),
 
 -- ── 블런더 카테고리 ───────────────────────────────────────────────────────────
 -- 判定は `internal/intervene` の決定的なルールで、엔진 평가치와 詰み 거리만 입력이다.

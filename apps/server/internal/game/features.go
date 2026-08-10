@@ -8,20 +8,9 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// pieceValue 는 駒交換의 손익을 견주기 위한 값이다. 歩를 1로 잡은 흔한 눈금이다.
-//
-// **평가치가 아니다.** 형세를 재는 것은 엔진이고 여기서 하는 일은 「이 수로 딴 것보다
-// 놓은 것이 비싼가」를 묻는 것뿐이다. cp로 바꾸려 들면 엔진의 평가와 두 벌이 되고,
-// 어긋났을 때 어느 쪽이 맞는지 알 수 없다.
-//
-// 玉은 잡히지 않으므로 값이 의미를 갖는 자리가 없다. 인위 국면 방어로만 크게 둔다.
-var pieceValue = map[shogi.PieceType]int{
-	shogi.Pawn: 1, shogi.Lance: 4, shogi.Knight: 4, shogi.Silver: 6,
-	shogi.Gold: 6, shogi.Bishop: 8, shogi.Rook: 10,
-	shogi.PromPawn: 6, shogi.PromLance: 6, shogi.PromKnight: 6, shogi.PromSilver: 6,
-	shogi.PromBishop: 11, shogi.PromRook: 13,
-	shogi.King: 100,
-}
+// pieceValue 는 `shogi.PieceValue` 를 가리킨다. 표는 저쪽에 한 벌만 둔다 — `tag` 도
+// 같은 값을 쓰는데 그쪽에서 이 패키지를 import하면 순환이 된다.
+func pieceValue(t shogi.PieceType) int { return shogi.PieceValue(t) }
 
 // UnpromotedOnly 는 둔 수가 **최선수와 같은 이동인데 成하지 않은 것**인지 본다.
 //
@@ -75,13 +64,13 @@ func moveFacts(before shogi.Position, m shogi.Move) (intervene.Features, explain
 	d := explain.Facts{Known: true}
 
 	if cap := before.Board[to]; !cap.Empty() && cap.Color() != me {
-		f.CapturedValue = pieceValue[cap.Type()]
+		f.CapturedValue = pieceValue(cap.Type())
 		d.Captured = shogi.PieceJa(cap.Type())
 	}
 
 	after := before.Apply(m)
 
-	f.MovedValue = pieceValue[after.Board[to].Type()]
+	f.MovedValue = pieceValue(after.Board[to].Type())
 	f.GivesCheck = after.InCheck(me.Other())
 	// 성했으면 성한 이름이다. 판이 그렇게 그리고 棋譜도 그렇게 적는다.
 	d.MovedPiece = shogi.PieceJa(after.Board[to].Type())
