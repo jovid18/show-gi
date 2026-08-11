@@ -49,10 +49,19 @@ func (s *Store) Close() { s.pool.Close() }
 func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 
 // Candidate 는 한 국면의 후보 수 하나다. positions.candidates 에 JSON으로 들어간다.
+//
+// **Cp 는 수번 측 관점이다** — 엔진이 답하는 그대로다. 여기서 플레이어 관점으로 돌려놓으면
+// 같은 국면이 사람의 색에 따라 두 행이 되어 캐시가 성립하지 않는다.
 type Candidate struct {
 	USI string   `json:"usi"`
 	Cp  int      `json:"cp"`
 	PV  []string `json:"pv,omitempty"`
+	// MateIn 은 詰み까지의 手数다(수번 측이 이기면 양수). 詰み이 아니면 0.
+	//
+	// **cp만으로는 복원할 수 없다.** mate 는 30000에서 手数를 뺀 값으로 환산되어 들어오므로,
+	// 캐시에서 꺼낼 때 그 숫자를 그대로 화면에 쓰면 「+29995」가 나간다.
+	// 칸을 늘리는 것이 아니라 jsonb 안이라 **마이그레이션이 필요 없다.**
+	MateIn int `json:"mate,omitempty"`
 }
 
 // Position 은 캐시된 국면 하나다.
@@ -99,6 +108,12 @@ func (s *Store) GetPosition(ctx context.Context, sfenKey string) (Position, erro
 // 덮지 않았으면 stored=false 로 알려준다 — 호출 측이 "내 결과가 더 얕았다"를 알 수 있어야
 // 조용히 버려지지 않는다.
 func (s *Store) PutPosition(ctx context.Context, p Position) (stored bool, err error) {
+	// **`null` 을 넣지 않는다.** 질의가 `jsonb_array_length` 로 후보 수를 견주는데
+	// (같은 깊이면 많은 쪽이 이긴다) 그 함수는 배열이 아닌 값에서 에러를 낸다 —
+	// 후보를 모르는 채로 국면만 남기는 자리가 실제로 있다(archive 의 부모 국면).
+	if p.Candidates == nil {
+		p.Candidates = []Candidate{}
+	}
 	payload, err := json.Marshal(p.Candidates)
 	if err != nil {
 		return false, fmt.Errorf("encode candidates: %w", err)
@@ -126,6 +141,45 @@ func (s *Store) PutPosition(ctx context.Context, p Position) (stored bool, err e
 func (s *Store) CountPositions(ctx context.Context) (int64, error) {
 	return s.q.CountPositions(ctx)
 }
+
+// Edge 는 국면 사이의 한 수다. **분석을 버리지 않기 위한 자리다.**
+//
+// 한 수의 사실이 두 번에 걸쳐 온다 — 후보를 잴 때는 깊이별 평가치를 알고, 그 수를 실제로
+// 두어 자식 국면을 잴 때는 도착 국면과 태그를 안다. 그래서 **비어 있는 칸은 「모른다」**이고,
+// 질의가 그 칸을 지우지 않는다(query/positions.sql).
+type Edge struct {
+	ParentKey string
+	USI       string
+	// ChildKey 는 도착 국면의 키다. 비어 있으면 아직 그 국면을 재지 않았다.
+	//
+	// **`positions` 를 참조한다.** 없는 키를 넣으면 FK가 거절하므로, 부르는 쪽이 자식
+	// 국면을 먼저 넣어야 한다.
+	ChildKey string
+	// Tags 는 이 수가 **새로 만든** 囲い·전법·手筋의 코드다.
+	Tags []string
+	// EvalByDepth 는 깊이 1..N의 **先手 관점** cp다(schema 주석과 같은 규약).
+	//
+	// 추가 탐색이 없다 — `PvInterval=0` 덕에 depth N 탐색 한 번이 1..N을 전부 준다.
+	EvalByDepth []int
+}
+
+// PutEdge 는 한 수의 분석을 남긴다. 이미 있는 칸은 덮지 않는다.
+func (s *Store) PutEdge(ctx context.Context, e Edge) error {
+	arg := db.UpsertEdgeParams{ParentKey: e.ParentKey, USI: e.USI, Tags: e.Tags}
+	if e.ChildKey != "" {
+		arg.ChildKey = &e.ChildKey
+	}
+	if arg.Tags == nil {
+		arg.Tags = []string{} // NOT NULL 칸이다. nil을 보내면 거절된다
+	}
+	for _, cp := range e.EvalByDepth {
+		arg.EvalByDepth = append(arg.EvalByDepth, int32(cp))
+	}
+	return s.q.UpsertEdge(ctx, arg)
+}
+
+// CountEdges 는 쌓인 수의 개수다. 캐시와 같은 자리에서 발표 숫자로 쓴다.
+func (s *Store) CountEdges(ctx context.Context) (int64, error) { return s.q.CountEdges(ctx) }
 
 // ── 대국 기록 ────────────────────────────────────────────
 

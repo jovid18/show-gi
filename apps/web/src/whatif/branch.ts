@@ -1,10 +1,15 @@
-// 되짚기와 가정 수순이 함께 쓰는 순수 계산들. **여기에 규칙 판단이 없다** —
+// 가정 수순과 되짚기가 함께 쓰는 순수 계산들. **여기에 규칙 판단이 없다** —
 // 합법수도 국면도 서버가 주고, 이 파일이 하는 것은 좌표와 문구뿐이다.
 
 import type { Motion } from '@/components/Board';
 import { parseUsi } from '@/game/moves';
-import type { ReviewMove, WhatIfNode } from './protocol';
+import type { WhatIfNode } from './protocol';
 import { fromUsi, toIndex } from '@/shogi/square';
+
+/** 手数 하나를 넘어갈 때 볼 수 있는 것 — USI 하나면 된다. 기보든 분기든 같다. */
+interface Played {
+  usi: string;
+}
 
 /**
  * 한 수의 움직임. `undo`면 **되감는 쪽**이라 방향이 뒤집힌다.
@@ -35,7 +40,7 @@ function motionOf(usi: string, undo: boolean, id: number): Motion | null {
  * 그리면 있지도 않았던 한 수를 그리는 것이 된다. 뒤로 한 칸이면 그 수를 **되감는다** —
  * 판이 그 방향으로 돌아가는 것이 사실이다.
  */
-export function stepMotion(moves: readonly ReviewMove[], from: number, to: number, id: number): Motion | null {
+export function stepMotion(moves: readonly Played[], from: number, to: number, id: number): Motion | null {
   if (to === from + 1) {
     const usi = moves[to - 1]?.usi;
     return usi ? motionOf(usi, false, id) : null;
@@ -47,13 +52,13 @@ export function stepMotion(moves: readonly ReviewMove[], from: number, to: numbe
   return null;
 }
 
-/** 분기가 방금 둔 수의 움직임. 분기는 언제나 앞으로만 간다 — 물리는 것은 판을 새로 받는다. */
+/** 분기가 방금 둔 수의 움직임. 분기는 앞으로만 간다 — 물리는 것은 판을 새로 받는다. */
 export function branchMotion(node: WhatIfNode, id: number): Motion | null {
   const usi = node.line.at(-1)?.usi;
   return usi ? motionOf(usi, false, id) : null;
 }
 
-/** 평가치를 부호까지 읽히게 적는다. **플레이어 관점**이다. */
+/** 평가치를 부호까지 읽히게 적는다. */
 export function evalText(cp: number): string {
   return cp > 0 ? `+${cp}` : `${cp}`;
 }
@@ -64,11 +69,20 @@ export function evalText(cp: number): string {
  * **詰み은 cp로 말하지 않는다.** 30000은 평가치가 아니라 환산값이고, 초심자에게
  * 「+30000」은 아무것도 아니다 — 「몇 手で詰み」이 그 자리에서 유일하게 뜻이 있는 말이다.
  */
-export function scoreJa(cp: number | undefined, mateIn: number | undefined): string {
+export function scoreJa(cp: number | undefined, mateIn?: number): string {
   if (mateIn) {
     return mateIn > 0 ? `${mateIn}手で詰み` : `${-mateIn}手で詰まされる`;
   }
   return cp === undefined ? '' : evalText(cp);
+}
+
+/**
+ * 최선수 대비 낙폭.
+ *
+ * **최선수에는 안 적는다.** 「0」이 붙어 있으면 그것도 무언가를 잃은 것처럼 읽힌다.
+ */
+export function lossJa(lossCp: number): string {
+  return lossCp > 0 ? `−${lossCp}` : '';
 }
 
 /**
@@ -87,6 +101,8 @@ export function branchStatusJa(node: WhatIfNode, pending: boolean): string {
     case 'resigned':
       return '相手が投了しました。';
     default:
-      return 'あなたの番です。盤の上で指してみてください。';
+      // **어느 쪽이든 사람이 둔다.** 상대 차례면 「상대라면 어떻게 둘까」를 직접 둬 보는 것이
+      // 이 화면의 내용이고, 그때 초록 화살표가 엔진의 답을 짚고 있다.
+      return node.yourTurn ? 'あなたの番。盤の上で指してみてください。' : '相手の番。相手の手も指してみられます。';
   }
 }

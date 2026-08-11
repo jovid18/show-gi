@@ -82,64 +82,6 @@ export interface GameListResponse {
   games: GameSummary[];
 }
 
-/**
- * 「そのとき、こう指していたら」 — 가정 수순 한 걸음의 요청.
- *
- * **판을 보내지 않는다.** 뿌리 국면은 서버가 기록에서 다시 둬서 만든다 — SFEN을 받는
- * 표면이었다면 그건 아무 국면이나 깊이 12로 재 주는 공개 엔진이 된다(whatif.go).
- *
- * `moves`에는 **상대의 응수도 함께** 들어 있다. 사람의 수만 보내고 서버가 매번 다시
- * 답하게 하면, 되돌아갈 때마다 상대가 다른 수를 둘 수 있다(06-status.md §34 ②).
- */
-export interface WhatIfRequest {
-  ply: number;
-  moves: string[];
-}
-
-/** 분기의 한 수. `ReviewMove`와 같은 어휘다 — 실제 기보와 가정 수순이 다른 타입이면 화면이 갈린다. */
-export interface WhatIfMove {
-  ply: number;
-  usi: string;
-  ja: string;
-  by: Player;
-  /** 이 수를 **둔 뒤**의 국면. 화면은 그대로 그린다. */
-  sfen: string;
-  checked?: string;
-}
-
-/** ↖ 방향의 한 수 — 「최선수 Top 3」. */
-export interface WhatIfCandidate {
-  usi: string;
-  ja: string;
-  /** 그 수를 둔 쪽(=사람) 관점 cp. */
-  evalCp: number;
-  /** 詰み까지의 手数. 없으면 詰み이 아니다 — cp로 보내면 30000이 그대로 화면에 나간다. */
-  mateIn?: number;
-}
-
-/**
- * 분기에서 지금 서 있는 자리.
- *
- * **언제나 사람 차례이거나 끝난 국면이다.** 상대 차례면 서버가 그 자리에서 두게 하고
- * 그 수를 `line` 끝에 붙여서 준다.
- */
-export interface WhatIfNode {
-  /** 분기가 갈라져 나온 기보의 手数. 실제로 둔 판으로 돌아가는 자리다. */
-  basePly: number;
-  ply: number;
-  sfen: string;
-  yourTurn: boolean;
-  checked?: string;
-  status: 'playing' | 'checkmate' | 'stalemate' | 'resigned';
-  /** **화면이 규칙을 모르기 때문에** 온다. 대국의 스냅샷과 같은 자리다. */
-  legalMoves: string[];
-  /** 사람 관점 cp. 끝난 국면이면 없다. */
-  evalCp?: number;
-  mateIn?: number;
-  line: WhatIfMove[];
-  candidates: WhatIfCandidate[];
-}
-
 /** 서버가 실패를 말하는 모양. `message`는 그대로 화면에 나간다. */
 export interface ApiError {
   error: string;

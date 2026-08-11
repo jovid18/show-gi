@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { branchMotion, branchStatusJa, scoreJa, stepMotion } from './branch';
-import type { ReviewMove, WhatIfNode } from './protocol';
+import { branchMotion, branchStatusJa, lossJa, scoreJa, stepMotion } from './branch';
+import type { WhatIfNode } from './protocol';
 import { fromUsi, toIndex } from '@/shogi/square';
 
 const sq = (usi: string): number => toIndex(fromUsi(usi));
 
-function moves(...usis: string[]): ReviewMove[] {
-  return usis.map((usi, i) => ({ ply: i + 1, usi, ja: '', by: i % 2 === 0 ? 'human' : 'engine' }));
+// 手数 하나를 넘어갈 때 필요한 것은 USI 하나뿐이다 — 기보든 분기든 같은 함수가 본다.
+function moves(...usis: string[]): { usi: string }[] {
+  return usis.map((usi) => ({ usi }));
 }
 
 describe('stepMotion', () => {
@@ -49,6 +50,7 @@ const node = (over: Partial<WhatIfNode> = {}): WhatIfNode => ({
   basePly: 4,
   ply: 4,
   sfen: '',
+  turn: 'b',
   yourTurn: true,
   status: 'playing',
   legalMoves: [],
@@ -106,5 +108,19 @@ describe('branchStatusJa', () => {
 
   it('둘 차례면 판 위에서 두라고 말한다', () => {
     expect(branchStatusJa(node(), false)).toContain('あなたの番');
+  });
+
+  // **상대 차례에도 못 두게 하지 않는다.** 「상대라면 어떻게 둘까」를 둬 보는 것이
+  // 이 화면의 내용이라, 그 자리에서 손을 놓게 만들면 절반이 사라진다.
+  it('상대 차례면 상대의 수도 둬 보라고 말한다', () => {
+    expect(branchStatusJa(node({ turn: 'w', yourTurn: false }), false)).toContain('相手の手も');
+  });
+});
+
+// 낙폭은 **최선수에는 안 적는다.** 「0」이 붙어 있으면 그것도 무언가를 잃은 것처럼 읽힌다.
+describe('lossJa', () => {
+  it('최선수는 빈칸, 나머지는 뺀 만큼', () => {
+    expect(lossJa(0)).toBe('');
+    expect(lossJa(40)).toBe('−40');
   });
 });

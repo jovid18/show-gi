@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jovid18/show-gi/apps/server/internal/archive"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -29,15 +30,16 @@ import (
 // 풀을 남이 마음대로 쓰게 된다는 뜻이고, 그건 기능이 아니라 구멍이다.
 
 const (
-	// whatifDepth 는 가정 수순에서 상대가 두는 깊이다.
+	// whatifDepth 는 가정 수순을 재는 깊이다.
 	//
-	// 대국의 상대와 **같은 깊이지만 적응형이 아니다**(NewAdaptiveOpponent 를 안 쓴다).
-	// 적응형은 판을 접전으로 유지하려고 밴드 안에서 일부러 최선이 아닌 수를 고르는데,
-	// 가정 수순이 답해야 하는 것은 「그 수가 왜 나빴나」다 — 봐준 응수로 그리면 나쁜
-	// 수가 안 나쁜 것으로 보인다(06-status.md §25).
+	// **대국이 쓰는 것과 같은 값이어야 한다.** 다르면 `positions` 에 쌓인 분석이 서로
+	// 못 쓰는 두 무리로 갈리고(캐시는 깊이로 견준다), 같은 국면의 값이 어디서 왔느냐에
+	// 따라 달라진다 — 그건 데이터로 남기는 뜻을 없앤다. 상대의 수(DefaultDepth)와 개입
+	// 판정(JudgeDepth)이 12이므로 여기도 12다.
 	whatifDepth = game.DefaultDepth
 
-	// whatifCandidates 는 ↖ 방향에 내놓는 최선수의 수다(03-frontend.md §3).
+	// whatifCandidates 는 한 국면에 내놓는 후보의 수다. 첫 번째가 화면의 초록 화살표이고,
+	// 셋이 되짚기의 「최선수 Top 3」이다(03-frontend.md §3).
 	whatifCandidates = 3
 
 	// whatifMaxLine 은 분기 한 줄의 상한이다. 「그 다음엔 어떻게 됐을지」를 따라가기에
@@ -47,7 +49,7 @@ const (
 	// whatifBodyLimit 은 본문 상한이다. 手数 하나와 수순 한 줄이 전부라 이보다 클 이유가 없다.
 	whatifBodyLimit = 8 << 10
 
-	// whatifTimeout 은 탐색 두 번에 주는 시한이다.
+	// whatifTimeout 은 탐색 하나에 주는 시한이다.
 	//
 	// **요청 ctx만으로는 안 된다.** `http.Server.Shutdown` 은 진행 중인 요청의 ctx를
 	// 취소하지 않아서, 엔진이 물리면 그 탐색이 풀 슬롯을 붙든 채 종료까지 막는다
@@ -57,10 +59,37 @@ const (
 
 // Searcher 는 가정 수순이 엔진에 묻는 것 전부다. `*usi.Pool` 이 이걸 만족한다.
 //
-// **MultiPV 하나로 족하다.** k=1이면 상대의 수이고 k=3이면 ↖ 최선수 Top 3이라, 두 자리가
-// 같은 질문의 크기만 다른 것이다.
+// **MultiPV 하나로 족하다.** 한 번의 탐색이 이 국면의 값과 최선수(화면의 화살표)와
+// 다음 후보들을 함께 준다.
 type Searcher interface {
 	SearchMultiPV(ctx context.Context, startSFEN string, moves []string, depth, multiPV int) (usi.SearchResult, error)
+}
+
+// Cache 는 **이미 잰 국면을 다시 꺼내는** 자리다. `*store.Store` 가 이걸 만족한다.
+//
+// **쓰는 쪽은 여기 없다.** 기록은 탐색 자체에 붙어 있어서(`internal/archive`) 이 표면이
+// 신경 쓸 것이 아니다 — 네 자리 중 하나를 빠뜨리지 않는 방법이 그것이었다.
+//
+// nil이면 매번 다시 재고 답은 같다. 대신 둘을 잃는다:
+//
+//  1. **같은 국면을 두 번 재지 않는다.** 탐색은 물렀다 나아가기·다른 분기에서 같은 국면으로
+//     같은 자리를 계속 밟는다
+//  2. **숫자가 안 흔들린다.** 같은 국면·같은 깊이가 치환표 상태에 따라 ±150cp 갈리는데
+//     (06-status.md §34 ②), 한 번 잰 값을 들고 있으면 물러도 후보가 글자까지 같다
+type Cache interface {
+	GetPosition(ctx context.Context, sfenKey string) (store.Position, error)
+}
+
+// cacheOf 는 캐시가 있으면 그것을, 없으면 nil을 준다.
+//
+// **`*store.Store` 를 그대로 인터페이스에 넣지 않는다.** nil 포인터를 넣으면 인터페이스
+// 값 자체는 non-nil이 되어 `== nil` 검사를 통과하고 다음 줄에서 죽는다 — main.go 가
+// mate solver 에서 같은 자리를 이미 밟았다.
+func cacheOf(st *store.Store) Cache {
+	if st == nil {
+		return nil
+	}
+	return st
 }
 
 // whatifHandler 는 분기를 한 걸음 진행시킨다.
@@ -75,13 +104,46 @@ type whatifHandler struct {
 	search Searcher
 }
 
-// whatifRequest 는 「기보의 ply 手目에서 이 수순을 뒀다면」이다.
+// whatifRequest 는 「ply 手目에서 이 수순을 뒀다면」이다.
 //
 // Moves 에는 **상대의 응수도 함께** 들어 있다. 사람의 수만 보내고 서버가 매번 다시
 // 답하게 하면, 되돌아갈 때마다 상대가 다른 수를 둘 수 있다.
 type whatifRequest struct {
 	Ply   int      `json:"ply"`
 	Moves []string `json:"moves"`
+}
+
+// whatifRoot 은 분기가 자라날 **정본**이다. 요청은 여기에 대해서만 뜻이 있다.
+//
+// **두 표면이 이걸 서로 다른 곳에서 얻는다.** 끝난 판은 DB 기록에서(review.go), 두는 중인
+// 판은 ws 핸들러가 이미 받아 둔 스냅샷에서(ws.go) 만든다. 어느 쪽이든 **클라이언트가
+// 판을 보내지 않는 것**이 조건이고, 그래서 아래 판정 코드가 한 벌로 족하다.
+type whatifRoot struct {
+	// StartSFEN 은 0手目의 국면. 비어 있으면 평수 초기 국면이다.
+	StartSFEN string
+	// Moves 는 **확정된 수**다. 여기까지가 실제로 벌어진 일이고, 분기는 그 뒤에 붙는다.
+	Moves []string
+	Human shogi.Color
+}
+
+// rootOf 는 DB 기록에서 뿌리를 만든다.
+//
+// **구멍에서 끊는다.** 手数에 구멍이 난 기보(큐가 넘쳐 한 수가 빠졌다)를 이어 두면 3手目를
+// 2手目 자리에 두는 셈이라 없던 국면이 나온다 — 되짚기는 거기서 멈추고 뒤를 표기 없이
+// 내보내면 되지만(review.go), 분기는 그 국면 **위에서 새로 두는** 일이라 아예 안 된다.
+// 끊어 두면 그 뒤의 手数는 아래에서 「기록 밖」으로 거절된다.
+func rootOf(rec store.GameRecord) whatifRoot {
+	root := whatifRoot{StartSFEN: rec.StartSFEN, Human: shogi.Black}
+	if rec.MyColor == "w" {
+		root.Human = shogi.White
+	}
+	for i, m := range rec.Moves {
+		if m.Ply != i+1 {
+			break
+		}
+		root.Moves = append(root.Moves, m.USI)
+	}
+	return root
 }
 
 // whatifMove 는 분기의 한 수다. `reviewMove` 와 같은 어휘를 쓴다 — 같은 것을 두 이름으로
@@ -96,37 +158,52 @@ type whatifMove struct {
 	Checked string `json:"checked,omitempty"`
 }
 
-// whatifCandidate 는 ↖ 방향의 한 수다 — 「최선수 Top 3」.
+// whatifCandidate 는 그 국면에서 **수번 쪽**이 둘 수 있는 좋은 수 하나다.
 //
-// **최선수를 대국 중에 보여주지 않는 것과 어긋나지 않는다**(01-core.md §7). 저쪽은
-// 지금 둘 수를 알려주지 않는 것이고, 여기는 이미 끝난 판에서 「그때 무엇이 있었나」다.
+// 첫 번째가 최선수이고, 그것이 곧 화면의 **초록 화살표**다 — 「다음에 올 수」에 배정된
+// 채널이라 새 신호를 꺼내지 않는다(03-frontend.md §2).
+//
+// **최선수를 대국 중에 보여주지 않는 것과 어긋나지 않는다**(01-core.md §7). 저쪽은 **지금
+// 다시 둘 국면**의 답을 알려주지 않는 것이고, 여기는 이미 벌어진 수 **뒤**의 가정이다 —
+// 그래서 대국 중에는 분기의 뿌리가 물러진 수보다 앞으로 못 간다(ws.go).
 type whatifCandidate struct {
 	USI string `json:"usi"`
 	Ja  string `json:"ja"`
-	// EvalCp 는 **그 수를 둔 쪽 관점** cp다. 뿌리에서 두는 쪽은 늘 사람이므로 곧 사람 관점이다.
+	// EvalCp 는 **그 수를 둔 쪽 관점** cp다. 두는 쪽이 늘 사람은 아니므로(분기에서는
+	// 상대의 수도 사람이 고른다) 이 값의 주인은 `Turn` 이다.
 	EvalCp int `json:"evalCp"`
+	// LossCp 는 최선수 대비 낙폭이다. 최선수는 0 — 「이 수를 고르면 얼마를 내주나」다.
+	LossCp int `json:"lossCp"`
 	// MateIn 은 詰み까지의 手数다. 0이면 詰み이 아니다 — cp만 내보내면 30000이라는
 	// 숫자가 화면에 그대로 나가고, 그건 평가치가 아니라 환산값이다.
 	MateIn int `json:"mateIn,omitempty"`
 }
 
-// whatifNode 는 분기의 **지금 서 있는 자리**다.
+// whatifNode 는 분기의 **지금 서 있는 자리**다. 「국면 하나 = 노드 하나」이고, 화면이
+// 넘겨 보는 것도 둬 보는 것도 전부 이 하나를 묻는 일이다.
 //
-// **언제나 사람 차례이거나 끝난 국면이다.** 상대 차례면 서버가 그 자리에서 두게 하고
-// 그 수를 Line 끝에 붙여서 돌려준다 — 화면이 「이제 누가 둘 차례인가」로 갈라질 일이 없다.
+// **응수를 서버가 대신 두지 않는다.** 수번이 누구든 그 쪽 합법수를 내주고, 최선수는
+// 화살표로 알려주기만 한다 — 두는 것은 사람의 몫이다. 그래서 한 걸음에 탐색이 한 번이고,
+// 「상대라면 어떻게 두나」를 직접 둬 보는 것도 같은 장치로 된다.
 type whatifNode struct {
-	// BasePly 는 분기가 갈라져 나온 기보의 手数다. 실제로 둔 판으로 돌아가는 자리이기도 하다.
+	// BasePly 는 분기가 갈라져 나온 手数다. 「分岐の前へ」가 돌아가는 자리다.
 	BasePly int `json:"basePly"`
 	// Ply 는 지금 국면의 手数(BasePly + 분기 길이)다.
-	Ply      int    `json:"ply"`
-	SFEN     string `json:"sfen"`
+	Ply  int    `json:"ply"`
+	SFEN string `json:"sfen"`
+	// Turn 은 지금 수번이다. 합법수와 후보가 **이 쪽의 것**이고, 화면은 이 값으로 어느
+	// 駒台를 집을 수 있는지를 정한다.
+	Turn     string `json:"turn"` // "b" | "w"
 	YourTurn bool   `json:"yourTurn"`
 	Checked  string `json:"checked,omitempty"`
 	// Status 는 대국과 같은 어휘다. 千日手는 여기서 안 본다 — 아래 주석 참조.
 	Status game.Status `json:"status"`
 	// LegalMoves 는 **화면이 규칙을 모르기 때문에** 온다. 대국의 스냅샷과 같은 자리다.
 	LegalMoves []string `json:"legalMoves"`
-	// EvalCp 는 지금 국면의 **사람 관점** cp다. 끝난 국면이면 없다.
+	// EvalCp 는 지금 국면의 **플레이어 관점** cp다. 끝난 국면이면 없다.
+	//
+	// **줄의 마지막 수가 만든 값이 곧 이것이다.** 화면은 앞선 노드를 이미 받아 뒀으므로
+	// 수마다의 cp를 여기서 또 보내지 않는다 — 추가 탐색이 0인 이유다.
 	EvalCp *int `json:"evalCp,omitempty"`
 	MateIn int  `json:"mateIn,omitempty"`
 
@@ -186,54 +263,79 @@ func (h *whatifHandler) play(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), whatifTimeout)
 	defer cancel()
 
-	node, err := whatifNodeOf(ctx, rec, req, h.search)
+	node, err := whatifNodeOf(ctx, rootOf(rec), req, h.search, cacheOf(h.store))
 	switch {
 	case err == nil:
 		writeJSON(w, http.StatusOK, node)
 	case errors.Is(err, errWhatifPly):
 		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"error": "bad_ply", "message": "この手数からは試せません。",
+			"error": "bad_ply", "message": whatifMessages["bad_ply"],
 		})
 	case errors.Is(err, errWhatifMove):
 		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"error": "bad_move", "message": "その手はここでは指せません。",
+			"error": "bad_move", "message": whatifMessages["bad_move"],
 		})
 	default:
 		// 엔진 고장·시한 초과. **대국이 안 되는 것과 같은 종류라 503이다** — 다시 눌러
 		// 볼 수 있는 실패이고, 판을 되짚는 쪽은 여전히 살아 있다.
 		log.Printf("whatif: game %d ply %d: %v", id, req.Ply, err)
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
-			"error": "engine_unavailable", "message": "エンジンが応答しませんでした。",
+			"error": "engine_unavailable", "message": whatifMessages["engine_unavailable"],
 		})
 	}
 }
 
-// whatifNodeOf 는 분기를 한 걸음 진행시킨다. **DB를 안 탄다** — 기록을 손에 들고 있는
-// 채로 도는 함수라, 엔진 하나만 손으로 만들어 넣으면 전부 확인할 수 있다.
-func whatifNodeOf(ctx context.Context, rec store.GameRecord, req whatifRequest, search Searcher) (whatifNode, error) {
-	start, err := shogi.ParseSFEN(startSFENOf(rec.StartSFEN))
+// whatifMessages 는 거절을 화면에 나갈 일본어로 옮긴다.
+//
+// **두 표면이 같은 표를 쓴다.** HTTP(리뷰)와 ws(대국 중)가 같은 실패를 다른 말로 말하면
+// 같은 일이 두 화면에서 다른 일로 읽힌다.
+var whatifMessages = map[string]string{
+	"bad_ply":            "この手数からは試せません。",
+	"bad_move":           "その手はここでは指せません。",
+	"bad_line":           "この手順はこれ以上進められません。",
+	"engine_unavailable": "エンジンが応答しませんでした。",
+	"busy":               "まだ読んでいます。",
+}
+
+// whatifReason 은 에러를 기계용 코드로 옮긴다. 문구는 위 표가 붙인다.
+func whatifReason(err error) string {
+	switch {
+	case errors.Is(err, errWhatifPly):
+		return "bad_ply"
+	case errors.Is(err, errWhatifMove):
+		return "bad_move"
+	default:
+		return "engine_unavailable"
+	}
+}
+
+// whatifNodeOf 는 분기를 한 걸음 진행시킨다. **세션을 안 탄다** — 뿌리를 손에 들고 있는
+// 채로 도는 함수라, 엔진 하나만 손으로 만들어 넣으면 전부 확인할 수 있다(cache는 nil로 둔다).
+func whatifNodeOf(
+	ctx context.Context,
+	root whatifRoot,
+	req whatifRequest,
+	search Searcher,
+	cache Cache,
+) (whatifNode, error) {
+	start, err := shogi.ParseSFEN(startSFENOf(root.StartSFEN))
 	if err != nil {
 		// 시작 국면을 못 읽으면 **한 수도 두지 않는다.** 평수 초기 국면으로 대신 두면
 		// 한 번도 없었던 국면 위에서 가정을 세우게 된다(detailOf 와 같은 판단이다).
-		return whatifNode{}, fmt.Errorf("%w: start sfen %q: %v", errWhatifPly, rec.StartSFEN, err)
+		return whatifNode{}, fmt.Errorf("%w: start sfen %q: %v", errWhatifPly, root.StartSFEN, err)
 	}
 
-	human := shogi.Black
-	if rec.MyColor == "w" {
-		human = shogi.White
-	}
+	human := root.Human
 
-	pos, prevTo, err := replayTo(start, rec.Moves, req.Ply)
+	pos, prevTo, err := replayTo(start, root.Moves, req.Ply)
 	if err != nil {
 		return whatifNode{}, err
 	}
 
-	// 엔진에 보낼 수순. **뿌리까지의 실제 기보를 그대로 앞에 둔다** — 국면만 넘기면
+	// 엔진에 보낼 수순. **뿌리까지의 실제 수순을 그대로 앞에 둔다** — 국면만 넘기면
 	// 千日手를 세는 근거가 사라진다.
 	line := make([]string, 0, req.Ply+len(req.Moves)+1)
-	for i := range req.Ply {
-		line = append(line, rec.Moves[i].USI)
-	}
+	line = append(line, root.Moves[:req.Ply]...)
 
 	node := whatifNode{
 		BasePly:    req.Ply,
@@ -253,29 +355,14 @@ func whatifNodeOf(ctx context.Context, rec store.GameRecord, req whatifRequest, 
 		line = append(line, u)
 	}
 
-	// 상대 차례면 상대가 둔다. **가정 수순의 내용이 「그래서 상대가 어떻게 하나」다** —
-	// 물어보게 하면 그 자리에서 「다음へ」를 누르는 통과 의례가 하나 더 생긴다.
-	if pos.Turn != human && !pos.NoLegalMoves() {
-		res, err := search.SearchMultiPV(ctx, start.SFEN(), line, whatifDepth, 1)
-		if err != nil {
-			return whatifNode{}, fmt.Errorf("%w: reply: %w", errWhatifEngine, err)
-		}
-		mv, next, ok := step(pos, prevTo, node.Ply, res.Best, human)
-		if !ok {
-			// 投了(`resign`)이거나 못 두는 수다. **엔진 출력을 믿지 않는 것**은 대국
-			// 루프와 같고(session.applyEngineMove), 어느 쪽이든 여기서 판이 끝난다.
-			node.SFEN = pos.SFEN()
-			node.Checked = checkedSquare(pos)
-			node.Status = game.StatusResigned
-			return node, nil
-		}
-		node.Line = append(node.Line, mv)
-		pos, prevTo, node.Ply = next, lastTo(res.Best), node.Ply+1
-		line = append(line, res.Best)
-	}
-
 	node.SFEN = pos.SFEN()
 	node.Checked = checkedSquare(pos)
+	// SFEN·기록과 같은 한 글자를 쓴다(`games.my_color` 도 이것이다). `Color.String()` 은
+	// `sente`/`gote` 라 여기 쓰면 화면이 세 번째 어휘를 갖는다.
+	node.Turn = "b"
+	if pos.Turn == shogi.White {
+		node.Turn = "w"
+	}
 	node.YourTurn = pos.Turn == human
 
 	legal := pos.LegalMoves()
@@ -295,68 +382,112 @@ func whatifNodeOf(ctx context.Context, rec store.GameRecord, req whatifRequest, 
 		node.LegalMoves = append(node.LegalMoves, m.USI())
 	}
 
-	res, err := search.SearchMultiPV(ctx, start.SFEN(), line, whatifDepth, whatifCandidates)
+	// **탐색은 한 번이고, 이미 잰 국면이면 0번이다.** 이 하나가 세 가지를 준다 —
+	// 이 국면의 값, 수번 쪽의 최선수(화면의 초록 화살표), 그리고 그 다음 후보들.
+	cands, err := evalOf(ctx, search, cache, pos, start.SFEN(), line, min(whatifCandidates, len(legal)))
 	if err != nil {
-		return whatifNode{}, fmt.Errorf("%w: candidates: %w", errWhatifEngine, err)
+		return whatifNode{}, fmt.Errorf("%w: %w", errWhatifEngine, err)
 	}
-	// 엔진은 늘 **수번 측 관점**으로 답한다. 지금 수번은 사람이므로 그대로 사람 관점이다.
-	cp := res.ScoreCp
+	if len(cands) == 0 {
+		// 합법수가 있는데 후보가 하나도 없다. 엔진이 답을 준 적이 없다는 뜻이라,
+		// 값을 지어내지 않고 「모른다」로 내보낸다.
+		return node, nil
+	}
+
+	// 캐시의 cp는 **수번 측 관점**이다(store.Candidate). 여기는 **플레이어 관점**으로
+	// 내보낸다 — 상대 차례의 국면까지 상대 관점으로 보내면 한 줄을 넘겨 보는 동안 부호가
+	// 뒤집히고, 그러면 「좋아지고 있나」를 사람이 읽을 수 없다(리뷰의 기보가 같은 규약이다).
+	cp := playerCp(cands[0].Cp, pos.Turn, human)
 	node.EvalCp = &cp
-	if res.IsMate {
-		node.MateIn = res.MateIn
-	}
-	node.Candidates = candidatesOf(pos, prevTo, res)
+	node.MateIn = playerCp(cands[0].MateIn, pos.Turn, human)
+	node.Candidates = candidatesOf(pos, prevTo, cands)
 	return node, nil
+}
+
+// evalOf 는 이 국면의 상위 후보들이다. **캐시가 먼저다.**
+//
+// 캐시를 쓰는 조건이 둘이다 — 깊이가 모자라지 않고, **후보 수가 모자라지 않아야** 한다.
+// 뒤엣것을 빼면 개입 판정이 k=1로 남긴 행이 「최선수 Top 3」을 1개로 만든다. 이 표면은
+// 3을 약속했으니 그때는 다시 잰다(그리고 그 결과가 그 행을 덮는다, query/positions.sql).
+func evalOf(
+	ctx context.Context,
+	search Searcher,
+	cache Cache,
+	pos shogi.Position,
+	startSFEN string,
+	line []string,
+	want int,
+) ([]store.Candidate, error) {
+	if cache != nil {
+		p, err := cache.GetPosition(ctx, archive.Key(pos))
+		switch {
+		case err == nil && p.ComputedDepth >= whatifDepth && len(p.Candidates) >= want:
+			return p.Candidates, nil
+		case err != nil && !errors.Is(err, store.ErrNoPosition):
+			// 캐시가 고장 나도 탐색은 된다. 조용히 넘기지 않고 다시 잰다.
+			log.Printf("whatif: read cache: %v", err)
+		}
+	}
+
+	res, err := search.SearchMultiPV(ctx, startSFEN, line, whatifDepth, whatifCandidates)
+	if err != nil {
+		return nil, err
+	}
+	// **여기서 쓰지 않는다.** 탐색을 감싼 쪽이 이미 남겼다(internal/archive) — 두 자리에서
+	// 쓰면 한 자리가 빠지거나 두 벌이 어긋난다.
+	return archive.Candidates(res), nil
+}
+
+// playerCp 는 **수번 측 관점** 값을 플레이어 관점으로 옮긴다.
+func playerCp(moverCp int, turn, human shogi.Color) int {
+	if turn == human {
+		return moverCp
+	}
+	return -moverCp
 }
 
 // candidatesOf 는 탐색의 후보들을 화면이 그릴 수 있는 모양으로 옮긴다.
 //
 // **여기서도 엔진 출력을 검증한다.** 못 두는 수가 하나 섞이면 그 줄만 버린다 —
 // 화면에서 「이렇게 뒀어야 한다」는 단언이라 틀린 것을 그리느니 적게 그린다.
-func candidatesOf(pos shogi.Position, prevTo int, res usi.SearchResult) []whatifCandidate {
+func candidatesOf(pos shogi.Position, prevTo int, cands []store.Candidate) []whatifCandidate {
 	out := make([]whatifCandidate, 0, whatifCandidates)
-	seen := make(map[string]bool, whatifCandidates)
 
-	for rank := 1; rank <= whatifCandidates; rank++ {
-		for _, l := range res.Lines {
-			if l.MultiPV != rank || seen[l.Move] {
-				continue
-			}
-			m, err := shogi.ParseUSIMove(l.Move)
-			if err != nil || pos.ValidateMove(m) != nil {
-				break
-			}
-			c := whatifCandidate{USI: l.Move, Ja: pos.MoveJa(m, prevTo), EvalCp: l.ScoreCp}
-			if l.IsMate {
-				c.MateIn = l.MateIn
-			}
-			seen[l.Move] = true
-			out = append(out, c)
+	for _, l := range cands {
+		if len(out) == whatifCandidates {
 			break
 		}
+		m, err := shogi.ParseUSIMove(l.USI)
+		if err != nil || pos.ValidateMove(m) != nil {
+			continue
+		}
+		c := whatifCandidate{USI: l.USI, Ja: pos.MoveJa(m, prevTo), EvalCp: l.Cp, MateIn: l.MateIn}
+		// 낙폭은 **최선수 대비**다. 화면이 뺄셈을 하지 않는다 — 두 값을 나란히 두면
+		// 어느 쪽이 기준인지가 흐려지고, 詰み 환산값(30000)이 섞이면 더 그렇다.
+		if len(out) > 0 {
+			c.LossCp = out[0].EvalCp - c.EvalCp
+		}
+		out = append(out, c)
 	}
 	return out
 }
 
-// replayTo 는 기록을 ply 手目까지 다시 둔다. 두 번째 값은 그 手数의 도착 칸이다(「同」이 본다).
+// replayTo 는 정본 수순을 ply 手目까지 다시 둔다. 두 번째 값은 그 手数의 도착 칸이다
+// (「同」 표기가 본다).
 //
-// **구멍이 나면 거기서 거절한다.** review.go 의 재현은 그 자리에서 멈추고 뒤를 표기 없이
-// 내보내면 되지만, 여기는 그 국면 **위에서 새로 두는** 일이라 어긋난 판이면 아예 안 된다.
-func replayTo(start shogi.Position, moves []store.RecordedMove, ply int) (shogi.Position, int, error) {
-	if ply > len(moves) {
-		return start, -1, fmt.Errorf("%w: ply %d > %d recorded", errWhatifPly, ply, len(moves))
+// **범위를 넘으면 거절한다.** 뿌리가 구멍에서 끊겨 있으면(rootOf) 그 뒤의 手数가 여기서
+// 「기록 밖」으로 걸린다.
+func replayTo(start shogi.Position, moves []string, ply int) (shogi.Position, int, error) {
+	if ply < 0 || ply > len(moves) {
+		return start, -1, fmt.Errorf("%w: ply %d is not in the first %d moves", errWhatifPly, ply, len(moves))
 	}
 	pos, prevTo := start, -1
-	for i := range ply {
-		m := moves[i]
-		if m.Ply != i+1 {
-			return pos, prevTo, fmt.Errorf("%w: ply %d is missing", errWhatifPly, i+1)
-		}
-		next, _, ok := advance(pos, prevTo, m.USI)
+	for _, u := range moves[:ply] {
+		next, _, ok := advance(pos, prevTo, u)
 		if !ok {
-			return pos, prevTo, fmt.Errorf("%w: cannot replay ply %d (%s)", errWhatifPly, m.Ply, m.USI)
+			return pos, prevTo, fmt.Errorf("%w: cannot replay %s", errWhatifPly, u)
 		}
-		pos, prevTo = next, lastTo(m.USI)
+		pos, prevTo = next, lastTo(u)
 	}
 	return pos, prevTo, nil
 }

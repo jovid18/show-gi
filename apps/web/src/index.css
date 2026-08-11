@@ -1891,7 +1891,7 @@ body {
 
 .review-whatif-line li {
   display: grid;
-  grid-template-columns: 2.5ch 1fr;
+  grid-template-columns: 2.5ch 1fr auto;
   gap: 0.5rem;
   align-items: baseline;
   padding: 0.15rem 0;
@@ -1939,6 +1939,71 @@ body {
 .review-whatif-move:disabled {
   cursor: default;
   opacity: 0.5;
+}
+
+/* 최선수 대비 낙폭. 값(cp)보다 옅다 — **묻는 것은 「얼마인가」이고 낙폭은 그 옆의 사실**이다 */
+.review-whatif-loss {
+  min-width: 3.5ch;
+  font-size: 0.6875rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  opacity: 0.8;
+}
+
+/* 되돌아가는 길이 둘이다. 한 수씩 물리는 것과 분기를 접는 것은 다른 일이다 */
+.review-whatif-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+/* ── 棋譜 2단 ── */
+
+/* **▲과 △이 한 줄에 선다.** 실제 기보가 그렇게 적히고, 세로가 절반이 되어 목록이 판을
+   밀어내지 않는다 — 手数마다 cp가 붙으면서 한 줄에 하나로는 화면이 통째로 목록이 된다.
+
+   `1fr 1fr` 이라 두 열이 같은 폭이다. 手数가 홀짝으로 열을 정하므로(pairRows) 구멍이
+   난 기보에서도 열이 밀리지 않는다. */
+.review-kifu-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+/* 시작 국면은 한 줄을 통째로 쓴다. 짝이 없는 유일한 줄이다 */
+.review-kifu-start .review-kifu-row {
+  border-bottom: 1px solid rgb(var(--light) / 0.06);
+}
+
+/* 빈 칸도 테두리를 갖는다 — 안 그러면 구멍 난 자리에서 줄이 끊겨 보인다 */
+.review-kifu-gap {
+  border-bottom: 1px solid rgb(var(--light) / 0.06);
+}
+
+/* 2단이 되면서 한 칸이 좁아진다. 숫자 칸을 줄이고 표식은 필요할 때만 자리를 차지한다 */
+.review-kifu-pair .review-kifu-row {
+  grid-template-columns: 2.5ch 1fr auto;
+  gap: 0.3rem;
+  padding-inline: 0.3rem;
+}
+
+/* 오른쪽 열은 왼쪽 열과 선으로 갈린다. 없으면 두 열이 한 줄로 읽힌다 */
+.review-kifu-pair .review-kifu-row:last-child,
+.review-kifu-pair .review-kifu-gap:last-child {
+  border-left: 1px solid rgb(var(--light) / 0.06);
+}
+
+/* 좁은 칸에서 「介入」 표식이 수를 밀어낸다. 점 하나로 줄인다 —
+   무엇이 있었는지는 위의 개입 목록이 이미 줄로 말한다 */
+.review-kifu-pair .review-kifu-mark {
+  padding: 0;
+  border: none;
+  overflow: hidden;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: rgb(var(--light) / 0.45);
+  text-indent: -99em;
+  align-self: center;
 }
 
 /* 좁은 화면에서는 판이 먼저다. 목록이 길어져 판을 밀어내지 않게 더 낮춘다. */
