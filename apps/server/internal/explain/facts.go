@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 )
@@ -69,6 +71,10 @@ type Facts struct {
 	// 「잃습니다」가 아니라 「取れます」로 말한다 — 실제로 그렇게 될지는 상대가 정하지만,
 	// 그 수가 합법이라는 것은 룰 엔진이 확인한 사실이다.
 	Threatened string
+
+	// Tags 는 이 국면에서 감지된 囲い·전법·戦型의 태그 코드다(`tag.Detect`가 준다).
+	// `kb_chunks` 를 찾는 키가 되고 캐시 키에도 들어간다.
+	Tags []string
 }
 
 // promptVersion 은 프롬프트나 사실 목록이 바뀌면 올린다.
@@ -113,6 +119,12 @@ func (f Facts) keyMaterial() string {
 	if u.MatePlies > 0 {
 		base += fmt.Sprintf("|mp=%d", u.MatePlies)
 	}
+	if len(u.Tags) > 0 {
+		sorted := make([]string, len(u.Tags))
+		copy(sorted, u.Tags)
+		sort.Strings(sorted)
+		base += "|tags=" + strings.Join(sorted, ",")
+	}
 	return base
 }
 
@@ -139,8 +151,8 @@ func (f Facts) Tier() int {
 // 成하지 않았다」로 이미 완결이라 駒도 매수도 붙일 자리가 없고(#26에서 그 순서 하나로
 // 오분류를 고쳤다), `other` 는 이유를 모르므로 말할 수 있는 것이 「무엇을 잡히는가」뿐이다.
 func (f Facts) used() Facts {
-	// 판단에 쓰인 값들은 카테고리와 무관하게 남는다.
-	u := Facts{Kind: f.Kind, Category: f.Category, Level: f.Level, LostMate: f.LostMate}
+	// 판단에 쓰인 값들은 카테고리와 무관하게 남는다. Tags도 국면에 매인 값이라 함께 간다.
+	u := Facts{Kind: f.Kind, Category: f.Category, Level: f.Level, LostMate: f.LostMate, Tags: f.Tags}
 	if !f.Known {
 		return u
 	}
