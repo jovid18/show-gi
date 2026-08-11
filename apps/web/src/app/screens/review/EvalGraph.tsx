@@ -161,6 +161,15 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
     return [lo, hi];
   }, [zoom, last]);
 
+  /**
+   * 지금 서 있는 자리의 手数.
+   *
+   * **분기에 들어가면 초록선의 끝이다.** `ply` 는 갈라져 나온 뿌리에 머물러 있어서, 그것만
+   * 보고 표식을 찍으면 판은 분기의 끝에 있는데 그림은 뿌리를 짚는다 — 어디에 서 있는지가
+   * 두 자리로 갈린다.
+   */
+  const tip = node?.line.at(-1)?.ply ?? null;
+
   /** 눈금. 창이 좁으면 촘촘해야 手数를 읽을 수 있다. */
   const ticks = useMemo(() => {
     const step = zoom === null ? TICK_EVERY : TICK_EVERY_ZOOMED;
@@ -249,7 +258,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
             // 값이 빠진 手数에서 선을 잇지 않는다. 이으면 없는 값을 지어낸 것이 된다.
             connectNulls={false}
             isAnimationActive={false}
-            dot={(props) => <MainDot {...props} ply={ply} stops={stops} />}
+            dot={(props) => <MainDot {...props} here={tip === null ? ply : null} stops={stops} />}
             activeDot={false}
           />
 
@@ -260,7 +269,8 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
             strokeWidth={2}
             connectNulls={false}
             isAnimationActive={false}
-            dot={false}
+            // 분기 중에는 **초록선의 끝**이 지금 서 있는 자리다. 링을 여기 찍는다.
+            dot={(props) => <BranchDot {...props} here={tip} />}
             activeDot={false}
           />
         </LineChart>
@@ -275,18 +285,37 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
  * 대부분은 안 그린다 — 109개를 다 찍으면 선이 점선이 된다. 그릴 이유가 있는 자리만 찍는다:
  * **지금 보고 있는 곳**과 **물러진 수가 있던 곳**이다.
  */
-function MainDot(props: { cx?: number; cy?: number; payload?: Point; ply: number; stops: Map<number, number> }) {
-  const { cx, cy, payload, ply, stops } = props;
+function MainDot(props: {
+  cx?: number;
+  cy?: number;
+  payload?: Point;
+  /** 링을 찍을 手数. 분기에 들어가 있으면 `null` — 그때 링은 초록선 끝에 있다. */
+  here: number | null;
+  stops: Map<number, number>;
+}) {
+  const { cx, cy, payload, here, stops } = props;
   if (cx === undefined || cy === undefined || !payload) return null;
 
-  const here = payload.ply === ply;
+  const standing = payload.ply === here;
   const stopped = stops.get(payload.ply);
-  if (!here && !stopped) return null;
+  if (!standing && !stopped) return null;
 
   return (
     <g>
       {stopped && <circle cx={cx} cy={cy} r={3.5} fill="rgb(var(--ray-check))" />}
-      {here && <circle cx={cx} cy={cy} r={stopped ? 6 : 4} fill="none" stroke="var(--fg)" strokeWidth={1.5} />}
+      {standing && <circle cx={cx} cy={cy} r={stopped ? 6 : 4} fill="none" stroke="var(--fg)" strokeWidth={1.5} />}
     </g>
   );
+}
+
+/**
+ * 분기선의 끝. **거기가 지금 판이다.**
+ *
+ * 링의 모양은 검은선의 것과 같고 **색만 초록**이다 — 「지금 서 있는 자리」라는 뜻은 하나고,
+ * 갈리는 것은 실제로 둔 판인가 가정인가뿐이라 그건 선의 색이 이미 말한다.
+ */
+function BranchDot(props: { cx?: number; cy?: number; payload?: Point; here: number | null }) {
+  const { cx, cy, payload, here } = props;
+  if (cx === undefined || cy === undefined || !payload || payload.ply !== here) return null;
+  return <circle cx={cx} cy={cy} r={4} fill="none" stroke="rgb(var(--ray))" strokeWidth={1.5} />;
 }
