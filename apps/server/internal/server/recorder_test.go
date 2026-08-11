@@ -14,6 +14,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
+	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
@@ -42,10 +43,7 @@ func openStoreForTest(t *testing.T) *store.Store {
 func TestRecordAbandonsOnDisconnect(t *testing.T) {
 	st := openStoreForTest(t)
 
-	before, err := st.CountGames(t.Context())
-	if err != nil {
-		t.Fatalf("CountGames: %v", err)
-	}
+	before := maxGameID(t, st)
 
 	srv := httptest.NewServer(Handler(Options{
 		NewOpponent: func() game.Opponent { return &scriptedOpponent{moves: []string{"3c3d"}} },
@@ -91,10 +89,7 @@ func TestRecordAbandonsOnDisconnect(t *testing.T) {
 func TestRecordFinishesOnResign(t *testing.T) {
 	st := openStoreForTest(t)
 
-	before, err := st.CountGames(t.Context())
-	if err != nil {
-		t.Fatalf("CountGames: %v", err)
-	}
+	before := maxGameID(t, st)
 
 	srv := httptest.NewServer(Handler(Options{
 		NewOpponent: func() game.Opponent { return &scriptedOpponent{moves: []string{"3c3d"}} },
@@ -124,17 +119,38 @@ func TestRecordFinishesOnResign(t *testing.T) {
 	t.Cleanup(func() { deleteGame(t, st, gameID) })
 }
 
+// maxGameID 는 지금 기록에 있는 가장 큰 대국 id다. **이 뒤에 생긴 것**이 이 테스트의 판이다.
+func maxGameID(t *testing.T, st *store.Store) int64 {
+	t.Helper()
+	var id *int64 // 기록이 하나도 없으면 NULL이다
+	if err := st.Pool().QueryRow(t.Context(), `SELECT max(id) FROM games`).Scan(&id); err != nil {
+		t.Fatalf("max(id): %v", err)
+	}
+	if id == nil {
+		return 0
+	}
+	return *id
+}
+
+// waitForNewGame 은 이 테스트가 연 대국이 기록에 나타날 때까지 기다린다.
+//
+// **`max(id)` 하나로 찾지 않는다.** DB는 워크트리끼리 공유하고(CLAUDE.md), `go test ./...`
+// 는 패키지마다 다른 프로세스를 **동시에** 돌린다 — `internal/store` 의 테스트가 같은 순간에
+// 대국을 만든다. 그때 max(id)는 남의 판을 집어 오고, 그 판에는 result 가 영영 안 찍혀서
+// 10초를 기다리다 「abandoned 로 안 찍혔다」로 죽는다. 실제로 그렇게 깨졌다.
+//
+// 그래서 **시작 국면**으로 한 번 더 거른다. 대국 세션은 평수 초기 국면을 이 문자열
+// 그대로 적고(session.go), 다른 패키지의 테스트는 자기 이름을 적는다.
 func waitForNewGame(t *testing.T, st *store.Store, before int64) int64 {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
-		n, err := st.CountGames(context.Background())
-		if err == nil && n > before {
-			var id int64
-			row := st.Pool().QueryRow(context.Background(), `SELECT max(id) FROM games`)
-			if err := row.Scan(&id); err == nil {
-				return id
-			}
+		var id int64
+		err := st.Pool().QueryRow(context.Background(),
+			`SELECT id FROM games WHERE id > $1 AND start_sfen = $2 ORDER BY id DESC LIMIT 1`,
+			before, shogi.StartSFEN).Scan(&id)
+		if err == nil {
+			return id
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
@@ -177,10 +193,7 @@ func deleteGame(t *testing.T, st *store.Store, id int64) {
 func TestRecordFillsEvalTrajectory(t *testing.T) {
 	st := openStoreForTest(t)
 
-	before, err := st.CountGames(t.Context())
-	if err != nil {
-		t.Fatalf("CountGames: %v", err)
-	}
+	before := maxGameID(t, st)
 
 	srv := httptest.NewServer(Handler(Options{
 		NewOpponent: func() game.Opponent { return &scriptedOpponent{moves: []string{"3c3d", "8c8d"}} },
@@ -264,10 +277,7 @@ func (evalOnlyAnalyst) Judge(_ context.Context, _ string, _ []string, _ int) (ga
 func TestRecordFillsExplainTierAndCost(t *testing.T) {
 	st := openStoreForTest(t)
 
-	before, err := st.CountGames(t.Context())
-	if err != nil {
-		t.Fatalf("CountGames: %v", err)
-	}
+	before := maxGameID(t, st)
 
 	srv := httptest.NewServer(Handler(Options{
 		NewOpponent: func() game.Opponent { return &scriptedOpponent{moves: []string{"3c3d"}} },

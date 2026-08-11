@@ -89,6 +89,25 @@ func Handler(opts Options) http.Handler {
 		})
 	})
 
+	// 끝난 판을 되짚는 표면(review.go).
+	//
+	// **엔진이 아니라 DB에 매여 있다.** 기록이 없으면 되짚을 것도 없고, 엔진이 죽어
+	// 대국을 못 해도 지난 판은 그대로 볼 수 있어야 한다 — 그래서 /ws 와 조건이 갈린다.
+	if opts.Store != nil {
+		rev := &reviewHandler{store: opts.Store}
+		mux.HandleFunc("GET /api/games", rev.list)
+		mux.HandleFunc("GET /api/games/{id}", rev.detail)
+	} else {
+		unavailable := func(w http.ResponseWriter, _ *http.Request) {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+				"error":   "store_unavailable",
+				"message": "対局の記録を利用できません。",
+			})
+		}
+		mux.HandleFunc("GET /api/games", unavailable)
+		mux.HandleFunc("GET /api/games/{id}", unavailable)
+	}
+
 	if opts.NewOpponent != nil {
 		mux.Handle("GET /ws/game", &gameHandler{opts: opts})
 	} else {
