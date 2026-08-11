@@ -273,8 +273,9 @@ export function Board({
         {board.squares.map((piece, index) => {
           const usi = toUsi(fromIndex(index));
           const label = `${FILES[index % BOARD_SIZE]}${RANKS[Math.floor(index / BOARD_SIZE)]}`;
-          // 한 칸이 出発と到着을 겸하는 수는 없다. 겸치면 그릴 것도 없다.
-          const mark = played?.from === index ? 'from' : played?.to === index ? 'to' : null;
+          // 물러진 수의 **출발 칸만** 짚는다. 도착 칸은 화살촉이 이미 짚고 있어서, 거기에
+          // 고리를 하나 더 그리면 같은 한 수를 두 번 말하는 것이 된다(index.css).
+          const mark = played?.from === index ? 'from' : null;
           const last = lastMove?.to === index ? 'to' : lastMove?.from === index ? 'from' : undefined;
 
           // 이 칸으로 駒가 들어오는 중인가. **출발 칸에서 도착 칸까지를 칸 수로 준다** —
