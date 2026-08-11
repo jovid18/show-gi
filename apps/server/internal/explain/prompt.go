@@ -20,6 +20,7 @@ const systemPrompt = `あなたは将棋の初心者向け学習アプリの文�
 - 指し手は書かない。次の一手・最善手・具体的なマス（例：7六）を挙げてはいけない
 - 全体で2文以内、60字以内
 - 「です・ます」調。将棋の用語（利き・成る・持ち駒）はそのまま使う
+- アプリが手を止めたこと・戻したことは書かない。画面がすでに伝えている。その手の何が悪いかだけを書く
 - 説明だけを出力する。前置きも引用符も付けない`
 
 // categoryJa 는 카테고리를 프롬프트에 적을 일본어로 옮긴다.
@@ -45,8 +46,12 @@ var categoryJa = map[intervene.Category]string{
 	intervene.CategoryUnpromoted:    "動き自体は正しいが、成っていない。敵陣から出る手も成れるのを見落としている",
 	intervene.CategoryGreedyCapture: "駒は取れるが、払う代償のほうが大きい",
 	intervene.CategoryIdleCheck:     "王手はかかるが続きがなく、手番を渡すだけ",
-	intervene.CategoryKingExposed:   "自玉のまわりが手薄になった",
-	intervene.CategoryOther:         "形勢を大きく損ねる。ただし理由は特定できていない",
+	// **「相手の攻めが届く」까지 준다.** 여기만 결정적 문구보다 사실이 하나 적었고, 사전
+	// 생성으로 세 레벨을 나란히 놓아 보니 셋 다 「自玉のまわりが手薄になりました」에서
+	// 끝났다 — 템플릿이 말하는 것을 LLM 쪽이 못 말한 자리다(06-status.md §38). 판정도
+	// 두 값을 같이 본다(ShieldLoss > 0 かつ ThreatGain > 0).
+	intervene.CategoryKingExposed: "自玉のまわりの守りが減り、同時に相手の攻めの利きが増えた",
+	intervene.CategoryOther:       "形勢を大きく損ねる。ただし理由は特定できていない",
 }
 
 // levelJa 는 읽는 사람의 실력 구간이다. 어휘를 여기에 맞추는 것이 LLM이 하는 일이다.
@@ -68,6 +73,11 @@ func userPrompt(f Facts) string {
 
 	// 제지형은 「이미 되물러졌다」는 상황까지 말해줘야 문장의 시점이 맞는다. 지금 이 수를
 	// 두려는 것이 아니라 둬 봤고 되돌려진 것이다.
+	//
+	// **주고 나서 쓰지 말라고 한다.** 시점을 정하는 데는 필요한데 문장에 옮겨 적으면
+	// 60자의 절반이 앱 동작 설명이 된다 — 실제로 8개 중 5개가 「アプリが手を戻しました」로
+	// 끝났고, 그 자리는 왜 나쁜지가 들어갈 자리였다(06-status.md §38). 그래서 사실로는
+	// 주되 systemPrompt 가 출력에서 막는다.
 	if u.Kind == intervene.KindBlunder {
 		b.WriteString("状況: 初心者が指そうとした手を、アプリが指す前に止めて戻した\n")
 	}
