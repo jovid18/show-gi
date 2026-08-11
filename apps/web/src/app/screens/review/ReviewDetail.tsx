@@ -591,7 +591,16 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
 
         {/* **한 목록이다.** 최선수·실제로 둔 수·물러진 수가 같은 국면의 같은 종류의 사실이라
             평가치 하나로 세운다 — 「내가 둔 것이 몇 번째쯤이었나」가 그 사이의 한 줄이 된다. */}
-        <MoveOptions game={game} ply={ply} node={shown} measured={measured} chosen={chosen} onPick={playBranch} />
+        <MoveOptions
+          game={game}
+          ply={ply}
+          node={shown}
+          measured={measured}
+          chosen={chosen}
+          // 실제로 둔 수를 누르는 것은 **가정이 아니라 진행**이다 — 같은 국면에 서면서
+          // 화면만 「もしも」가 되는 것을 막는다(MoveOptions 의 `onPick`).
+          onPick={(usi, played) => (played ? goto(ply + 1) : playBranch(usi))}
+        />
       </aside>
     </div>
   );

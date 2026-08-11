@@ -33,7 +33,14 @@ interface MoveOptionsProps {
   measured: Map<string, number>;
   /** 지금 고른 수. 그 줄이 열려 문구를 보여준다. */
   chosen: string | null;
-  onPick: (usi: string) => void;
+  /**
+   * 줄을 눌렀을 때.
+   *
+   * **실제로 둔 수는 「가정」이 아니다.** 그 줄을 분기로 열면 판은 같은 국면에 서는데 화면이
+   * 「もしも」라고 말하게 된다 — 실제로 벌어진 일에 그 말을 붙이면 거짓이다. 그래서 그 줄은
+   * **한 수 진행**으로 처리한다(`played`).
+   */
+  onPick: (usi: string, played: boolean) => void;
 }
 
 /** 한 줄이 무엇인가. 한 수가 둘을 겸할 수 있다 — 최선수이면서 실제로 둔 수. */
@@ -126,7 +133,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
               data-chosen={chosen === o.usi || undefined}
               // 색이 값이라, 값이 없는 줄은 색도 없다. 0으로 채우면 호각으로 읽힌다.
               style={{ '--tone': toneOf(o.cp) } as React.CSSProperties}
-              onClick={() => onPick(o.usi)}
+              onClick={() => onPick(o.usi, o.played !== null)}
             >
               <span className="review-options-move">{o.ja}</span>
 
