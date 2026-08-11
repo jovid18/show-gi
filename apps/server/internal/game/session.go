@@ -77,14 +77,19 @@ type Snapshot struct {
 	// 지금 둘 수를 말한다. 화면도 다른 색으로 그린다.
 	Hint *Hint `json:"hint,omitempty"`
 
-	// StyleTags 는 플레이어가 지금 짜고 있는 囲い·전법의 이름이다.
+	// StyleTags 는 플레이어가 지금 짜고 있는 囲い·전법의 이름이고, **엔진이 이득으로
+	// 본 手筋**의 이름이다.
 	//
 	// **플레이어 쪽만 채운다.** 컴퓨터의 형태를 알려주는 것은 상대의 계획을 알려주는
 	// 것이라 「최선수를 보여주지 않는다」와 어긋난다(01-core.md §7).
 	//
-	// 매 스냅샷마다 다시 센다. 엔진도 DB도 안 타고 맵 조회 몇 번이라, 상태로 들고
-	// 있다가 갱신을 빠뜨리는 쪽이 더 비싸다 — 롤백이 있는 이상 「지금 판 위의 사실」은
+	// 囲い·전법은 매 스냅샷마다 다시 센다. 엔진도 DB도 안 타고 맵 조회 몇 번이라, 상태로
+	// 들고 있다가 갱신을 빠뜨리는 쪽이 더 비싸다 — 롤백이 있는 이상 「지금 판 위의 사실」은
 	// 판에서 직접 읽는 것이 언제나 맞는다.
+	//
+	// **手筋은 그럴 수 없다.** 이름만으로는 부족하고 「이득인가」를 엔진이 정하는데
+	// (tesuji.go), 그 답은 판정이 끝난 그 국면의 평가치다 — 판에서 다시 읽을 수 없는
+	// 값이라 세대와 함께 들고 있다가 국면이 움직이면 함께 사라진다(styleTags).
 	StyleTags []tag.Tag `json:"styleTags,omitempty"`
 
 	// MateHeat 는 詰み 게이지의 세기다(1..MateHeatMax). 0이면 게이지가 꺼져 있다.
@@ -403,6 +408,14 @@ type state struct {
 	mateHeat int
 	mateGen  int
 
+	// tesuji 는 **엔진 게이트를 통과한** 手筋 이름들이고, tesujiGen 은 그것을 구한 국면이다.
+	//
+	// 게이지와 같은 규약이다 — 국면이 움직이면 그 자리에서 무효이므로 스냅샷이 둘을
+	// 대조한다. 여기는 이유가 하나 더 있다: 이름을 통과시킨 것은 **그 국면의 평가치**라,
+	// 다음 국면까지 들고 가면 엔진에게 묻지 않은 형태에 이름을 붙이는 것이 된다.
+	tesuji    []tag.Tag
+	tesujiGen int
+
 	// 물러질 수 있으므로 착수 직전 국면을 들고 있는다. Position 이 값 타입이라 복사면 끝이다.
 	prevPos    shogi.Position
 	prevPrevTo int
@@ -636,6 +649,14 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 
 	// 판정을 통과했다. 여기가 사람의 수가 확정되는 자리다. 갇힘도 여기서 풀린다.
 	st.stuck = 0
+
+	// **手筋의 이름이 여기서 정해진다.** 판정이 들고 온 평가치가 「이득인가」에 답하고
+	// (tesuji.go), 그 답은 이 국면에서만 유효하므로 세대를 함께 적는다.
+	//
+	// 물러진 쪽에서는 이 줄에 오지 않는다. 되물러진 수가 만든 형태에 이름을 붙이면
+	// 두지 않은 것으로 된 수가 판의 이름을 정하는 일이 된다(movesBy 와 같은 이유).
+	st.tesuji, st.tesujiGen = namedTesuji(st.pos, st.cfg.HumanColor, r.move.USI, r.judgement), st.searchGen
+
 	st.recordLastMove()
 	st.recordEvals(r.judgement)
 	st.maybeThink(ctx, engineDone)
@@ -905,6 +926,30 @@ func (st *state) movesBy(side Side) []string {
 	return out
 }
 
+// styleTags 는 화면에 나갈 이름 전부다 — 囲い·전법·戦型은 판에서 매번 다시 세고,
+// 手筋은 **엔진 게이트를 통과한 것만** 실린다.
+//
+// 두 축이 다르게 오는 것이 요점이고, **비용 때문이 아니다.** 囲い는 판만 보면 알 수
+// 있어 매번 세는 것이 언제나 맞지만, 手筋은 「이득인가」를 엔진 평가치가 정하고 그 값은
+// 판에서 다시 읽을 수 없다 — 그래서 판정이 끝난 자리에서 한 번 구해 세대와 함께
+// 들고 있는다(applyVerdict).
+//
+// **手筋이 먼저 온다.** 화면은 새로 붙은 이름 하나를 골라 잠깐 띄우는데(useTagAnnounce),
+// 手筋은 국면이 움직이면 사라지는 이름이고 囲い는 남아 있어 다음 스냅샷에서도 뜬다.
+// 뒤에 두면 한 스냅샷에 둘이 함께 붙었을 때 사라지는 쪽이 밀려서 영영 안 뜬다.
+func (st *state) styleTags() []tag.Tag {
+	var out []tag.Tag
+	if st.tesujiGen == st.searchGen {
+		out = append(out, st.tesuji...)
+	}
+	return append(out, tag.Detect(tag.Input{
+		Pos:           st.pos,
+		Color:         st.cfg.HumanColor,
+		PlayerMoves:   st.movesBy(SideHuman),
+		OpponentMoves: st.movesBy(SideEngine),
+	})...)
+}
+
 func (st *state) snapshot() Snapshot {
 	turn := "b"
 	if st.pos.Turn == shogi.White {
@@ -925,12 +970,7 @@ func (st *state) snapshot() Snapshot {
 		Judging:      st.judging,
 		Intervention: st.intervention,
 		Hint:         st.hint,
-		StyleTags: tag.Detect(tag.Input{
-			Pos:           st.pos,
-			Color:         st.cfg.HumanColor,
-			PlayerMoves:   st.movesBy(SideHuman),
-			OpponentMoves: st.movesBy(SideEngine),
-		}),
+		StyleTags:    st.styleTags(),
 	}
 	// **국면이 움직였으면 게이지는 그 자리에서 무효다.** 지우는 코드를 착수·롤백·종료에
 	// 흩어 두는 대신 여기서 한 번 대조한다 — 그중 하나를 빠뜨리면 낡은 불꽃이 새 국면에
