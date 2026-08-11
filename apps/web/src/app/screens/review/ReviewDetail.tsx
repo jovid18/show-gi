@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Board, type LastMove, type Ray } from '@/components/Board';
 import { Hand } from '@/components/Hand';
+import { EvalGraph } from './EvalGraph';
 import { WhatIfPanel } from './WhatIfPanel';
 import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/libs/game/moves';
 import { dateJa, resultJa } from '@/libs/review/labels';
@@ -31,8 +32,8 @@ interface ReviewDetailProps {
 /**
  * 手数에 멈춘 뒤 국면을 물어보기까지 기다리는 시간.
  *
- * **스크럽 중에는 안 묻는다.** 132手 판의 슬라이더를 끌면 그 사이 手数마다 깊이 12 탐색이
- * 걸리고, 그건 엔진 풀을 대국과 나눠 쓰는 구조에서 남의 대국을 세우는 일이다.
+ * **넘기는 중에는 안 묻는다.** ▶ 를 연달아 누르거나 → 를 누른 채로 두면 지나가는 手数마다
+ * 깊이 12 탐색이 걸리고, 그건 엔진 풀을 대국과 나눠 쓰는 구조에서 남의 대국을 세우는 일이다.
  */
 const SETTLE_MS = 350;
 
@@ -83,6 +84,13 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
   const [origin, setOrigin] = useState<string | null>(null);
   /** 成/不成 둘 다 되는 수. 물어보는 동안 다른 수를 못 두게 잡아 둔다. */
   const [promoting, setPromoting] = useState<{ origin: string; to: string } | null>(null);
+  /**
+   * 기보가 펼쳐져 있는가. **닫힌 것이 기본이다.**
+   *
+   * 이 목록은 「어디로 갈까」를 고르는 자리이고, 골랐으면 닫힌다 — 판을 보러 온 화면에서
+   * 목록이 계속 자리를 잡고 있으면 판이 그만큼 작아진다.
+   */
+  const [kifuOpen, setKifuOpen] = useState(false);
 
   const engineReady = useEngineReady();
   const whatif = useWhatIf(httpSend(game.id), game.id);
@@ -116,6 +124,20 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
       setPly(target);
     },
     [ply, last, game.moves, branching, clear, nextMotionId],
+  );
+
+  /**
+   * 목록에서 골라 그 手数로 간다. **고르면 닫힌다.**
+   *
+   * 목록은 「어디로 갈까」를 묻는 자리이고 답을 받으면 할 일이 끝난다 — 열어 둔 채로 두면
+   * 방금 고른 국면을 그 목록이 가린다.
+   */
+  const jumpTo = useCallback(
+    (next: number) => {
+      goto(next);
+      setKifuOpen(false);
+    },
+    [goto],
   );
 
   /** 개입을 고르면 그 수가 두어진 국면으로 간다 — **한 수 앞**이다. */
@@ -162,7 +184,7 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
   // ← → 로 한 수씩, Home·End 로 끝까지. 넘겨 보는 화면에서 손이 제일 먼저 가는 자리다.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // 슬라이더가 잡고 있을 때는 그쪽이 이미 같은 일을 한다. 두 번 움직이면 두 수씩 넘어간다.
+      // 글자를 넣고 있는 중이면 그 키는 그쪽 것이다.
       if (e.target instanceof HTMLInputElement) return;
       switch (e.key) {
         case 'ArrowLeft':
@@ -312,9 +334,25 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
     const bottom = top + row.offsetHeight;
     if (top < list.scrollTop) list.scrollTop = top;
     else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight;
-  }, [ply]);
+    // **여는 것도 신호다.** 목록은 접혀 있다가 열리므로, `ply` 만 보면 109수 판을 열었을 때
+    // 맨 위가 보이고 지금 자리는 한참 아래에 있다.
+  }, [ply, kifuOpen]);
 
   const rows = useMemo(() => pairRows(game.moves), [game.moves]);
+
+  /**
+   * 이동 바 가운데 칸에 적히는 말. **手数가 아니라 수의 이름이다.**
+   *
+   * 「15 / 109」는 어디쯤인지만 말하고 **거기가 무슨 수였나**를 말하지 않는다. 되짚는 사람이
+   * 찾는 것은 후자다. 총 手数는 이 옆 제목이 든다(`棋譜 109手`).
+   *
+   * 분기에 들어가 있으면 판이 그 手数의 국면이 아니므로 그렇다고 적는다 — 안 적으면
+   * 확정된 수의 이름이 남의 판 위에 떠 있게 된다.
+   */
+  const jumpLabel = useMemo(() => {
+    const here = ply === 0 ? '開始局面' : `${ply} ${game.moves[ply - 1]?.ja ?? ''}`.trim();
+    return branching ? `${here} · もしも` : here;
+  }, [ply, game.moves, branching]);
 
   return (
     <div className="game review">
@@ -383,51 +421,116 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
           </p>
         </div>
 
-        <div className="review-controls">
-          <div className="review-buttons">
-            <button type="button" onClick={() => goto(0)} disabled={ply === 0 && !branching} aria-label="開始局面">
-              ⏮
-            </button>
+        {/* **평가치 궤적이 곧 이동 장치다.** 「어디서 무너졌나」를 목록으로 읽게 하는 대신
+            한 장으로 보여주고 거기를 눌러 돌아가게 한다 — 빨간 점이 물러진 수가 있던 자리다. */}
+        <section className="review-panel review-graph-panel" aria-label="評価値">
+          <EvalGraph game={game} ply={ply} whatif={whatif} onPick={goto} />
+        </section>
+
+        {/* **이동과 기보가 한 컨트롤이다**(将棋ウォーズ). 슬라이더는 뺐다 — 「지금 어디인가」를
+            말하는 자리가 셋이었고, 그중 하나만 남긴 것이 아래 가운데 칸이다. */}
+        <section className="review-panel review-transport" aria-label="棋譜">
+          <h2 className="panel-title">棋譜 {last}手</h2>
+
+          <div className="review-transport-row">
+            <div className="review-buttons">
+              <button type="button" onClick={() => goto(0)} disabled={ply === 0 && !branching} aria-label="開始局面">
+                ⏮
+              </button>
+              <button
+                type="button"
+                onClick={() => goto(ply - 1)}
+                disabled={ply === 0 && !branching}
+                aria-label="一手戻る"
+              >
+                ◀
+              </button>
+              <button
+                type="button"
+                onClick={() => goto(ply + 1)}
+                disabled={ply === last && !branching}
+                aria-label="一手進む"
+              >
+                ▶
+              </button>
+              <button
+                type="button"
+                onClick={() => goto(last)}
+                disabled={ply === last && !branching}
+                aria-label="最終局面"
+              >
+                ⏭
+              </button>
+            </div>
+
+            {/* **이 칸이 「지금 어디인가」이고, 그 칸이 곧 기보를 여는 버튼이다**
+                (将棋ウォーズ의 그 바). 한때 「지금 어디」를 셋이 말했다 — 슬라이더 손잡이 ·
+                `0 / 109 手` · 목록의 강조 줄. 숫자만으로는 **거기가 무슨 수였나**를 모르므로,
+                남긴 하나는 手数가 아니라 **수의 이름**이다. */}
             <button
               type="button"
-              onClick={() => goto(ply - 1)}
-              disabled={ply === 0 && !branching}
-              aria-label="一手戻る"
+              className="review-jump"
+              aria-expanded={kifuOpen}
+              aria-controls="review-kifu-list"
+              onClick={() => setKifuOpen((open) => !open)}
             >
-              ◀
-            </button>
-            <button
-              type="button"
-              onClick={() => goto(ply + 1)}
-              disabled={ply === last && !branching}
-              aria-label="一手進む"
-            >
-              ▶
-            </button>
-            <button
-              type="button"
-              onClick={() => goto(last)}
-              disabled={ply === last && !branching}
-              aria-label="最終局面"
-            >
-              ⏭
+              <span className="review-jump-label">{jumpLabel}</span>
+              <span className="review-jump-caret" aria-hidden="true">
+                {kifuOpen ? '▴' : '▾'}
+              </span>
             </button>
           </div>
 
-          {/* 132수를 한 수씩 눌러 가지 않게 한다. 긴 판에서 이것이 없으면 되짚기가 일이 된다. */}
-          <input
-            type="range"
-            className="review-slider"
-            min={0}
-            max={last}
-            value={ply}
-            onChange={(e) => goto(Number(e.target.value))}
-            aria-label="手数"
-          />
-          <p className="review-ply">
-            {ply} / {last} 手
-          </p>
-        </div>
+          {kifuOpen && (
+            <ol id="review-kifu-list" className="review-kifu" ref={kifuRef}>
+              <li className="review-kifu-start">
+                <button
+                  type="button"
+                  className="review-kifu-row"
+                  data-selected={(ply === 0 && !branching) || undefined}
+                  onClick={() => jumpTo(0)}
+                >
+                  <span className="review-kifu-number">0</span>
+                  <span className="review-kifu-move">開始局面</span>
+                </button>
+              </li>
+              {rows.map((pair, i) => (
+                <li key={pair[0]?.ply ?? pair[1]?.ply ?? i} className="review-kifu-pair">
+                  {pair.map((move, column) =>
+                    move ? (
+                      <button
+                        key={move.ply}
+                        type="button"
+                        className="review-kifu-row"
+                        data-by={move.by}
+                        data-selected={(ply === move.ply && !branching) || undefined}
+                        onClick={() => jumpTo(move.ply)}
+                      >
+                        <span className="review-kifu-number">{move.ply}</span>
+                        <span className="review-kifu-move">{move.ja || move.usi}</span>
+                        {/* 이 手数에 물러진 수가 있었다. 확정된 수 옆에 서야 「이 수를 두기
+                        전에 한 번 막혔다」로 읽힌다. */}
+                        {stopped.has(move.ply) && (
+                          <span className="review-kifu-mark" aria-label="介入あり">
+                            介入
+                          </span>
+                        )}
+                        {move.evalCp !== undefined && (
+                          <span className="review-kifu-eval" data-sign={move.evalCp >= 0 ? 'plus' : 'minus'}>
+                            {evalText(move.evalCp)}
+                          </span>
+                        )}
+                      </button>
+                    ) : (
+                      // 빈 칸이 자리를 지킨다. 구멍이 난 기보에서도 열이 밀리지 않는다.
+                      <span key={column} className="review-kifu-gap" aria-hidden="true" />
+                    ),
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
 
         {promoting && (
           <div className="promotion" role="group" aria-label="成りの選択">
@@ -497,59 +600,6 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
               ))}
             </ol>
           )}
-        </section>
-
-        <section className="review-panel" aria-label="棋譜">
-          <h2 className="panel-title">棋譜</h2>
-          {/* **2단이다** — ▲과 △이 한 줄에 선다(pairRows). 실제 기보가 그렇게 적히고,
-              세로가 절반이 되어 목록이 판을 밀어내지 않는다. */}
-          <ol className="review-kifu" ref={kifuRef}>
-            <li className="review-kifu-start">
-              <button
-                type="button"
-                className="review-kifu-row"
-                data-selected={(ply === 0 && !branching) || undefined}
-                onClick={() => goto(0)}
-              >
-                <span className="review-kifu-number">0</span>
-                <span className="review-kifu-move">開始局面</span>
-              </button>
-            </li>
-            {rows.map((pair, i) => (
-              <li key={pair[0]?.ply ?? pair[1]?.ply ?? i} className="review-kifu-pair">
-                {pair.map((move, column) =>
-                  move ? (
-                    <button
-                      key={move.ply}
-                      type="button"
-                      className="review-kifu-row"
-                      data-by={move.by}
-                      data-selected={(ply === move.ply && !branching) || undefined}
-                      onClick={() => goto(move.ply)}
-                    >
-                      <span className="review-kifu-number">{move.ply}</span>
-                      <span className="review-kifu-move">{move.ja || move.usi}</span>
-                      {/* 이 手数에 물러진 수가 있었다. 확정된 수 옆에 서야 「이 수를 두기
-                          전에 한 번 막혔다」로 읽힌다. */}
-                      {stopped.has(move.ply) && (
-                        <span className="review-kifu-mark" aria-label="介入あり">
-                          介入
-                        </span>
-                      )}
-                      {move.evalCp !== undefined && (
-                        <span className="review-kifu-eval" data-sign={move.evalCp >= 0 ? 'plus' : 'minus'}>
-                          {evalText(move.evalCp)}
-                        </span>
-                      )}
-                    </button>
-                  ) : (
-                    // 빈 칸이 자리를 지킨다. 구멍이 난 기보에서도 열이 밀리지 않는다.
-                    <span key={column} className="review-kifu-gap" aria-hidden="true" />
-                  ),
-                )}
-              </li>
-            ))}
-          </ol>
         </section>
       </aside>
     </div>

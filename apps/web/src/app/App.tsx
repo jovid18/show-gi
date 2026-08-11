@@ -1,6 +1,16 @@
+import { lazy, Suspense } from 'react';
+
 import { GameScreen } from '@/screens/game/GameScreen';
-import { ReviewScreen } from '@/screens/review/ReviewScreen';
 import { hrefOf, navigate, useRoute, type Route } from '@/routes/router';
+
+/**
+ * 되짚기는 **나중에 받는다.**
+ *
+ * 이 화면이 평가치 궤적 때문에 차트 라이브러리를 끌고 오는데(recharts), 그게 첫 화면에 같이
+ * 실리면 **대국을 열려고 온 사람이 되짚기용 코드를 먼저 내려받는다.** 라우트가 이미 갈라져
+ * 있어서(`/reviews`) 떼어내는 데 드는 것이 이 세 줄이다.
+ */
+const ReviewScreen = lazy(async () => ({ default: (await import('@/screens/review/ReviewScreen')).ReviewScreen }));
 
 const TABS: { route: Route; label: string }[] = [
   { route: { name: 'game' }, label: '対局' },
@@ -59,7 +69,11 @@ export function App() {
       </div>
 
       {/* 리뷰는 열 때마다 새로 부른다. 방금 끝난 판이 목록 맨 위에 있어야 한다. */}
-      {!onGame && <ReviewScreen route={route} />}
+      {!onGame && (
+        <Suspense fallback={<p className="review-status">読み込み中…</p>}>
+          <ReviewScreen route={route} />
+        </Suspense>
+      )}
     </div>
   );
 }
