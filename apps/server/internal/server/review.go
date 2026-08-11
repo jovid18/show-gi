@@ -119,14 +119,17 @@ type reviewIntervention struct {
 func (h *reviewHandler) list(w http.ResponseWriter, r *http.Request) {
 	limit := listLimitDefault
 	if raw := r.URL.Query().Get("limit"); raw != "" {
-		n, err := strconv.Atoi(raw)
+		// **32비트로 파싱한다.** 이 값은 결국 `LIMIT`의 int32가 되는데, `Atoi`로 받으면
+		// 64비트에서 int32 범위를 넘는 수가 통과해 변환에서 조용히 음수가 된다.
+		// 여기서 자리수를 정해 두면 범위를 넘는 입력이 **거절**로 끝난다.
+		n, err := strconv.ParseInt(raw, 10, 32)
 		if err != nil || n <= 0 {
 			writeJSON(w, http.StatusBadRequest, map[string]any{
 				"error": "bad_limit", "message": "limit の値が正しくありません。",
 			})
 			return
 		}
-		limit = min(n, listLimitMax)
+		limit = min(int(n), listLimitMax)
 	}
 
 	games, err := h.store.ListGames(r.Context(), limit)

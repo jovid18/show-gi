@@ -273,3 +273,17 @@ func TestDetailRefusesToReplayFromBrokenStart(t *testing.T) {
 		}
 	}
 }
+
+// limit 은 **32비트로 파싱한다.** int32 범위를 넘는 수가 통과하면 그 값이 `LIMIT`의
+// int32로 바뀌면서 조용히 음수가 된다 — 거절로 끝나야 한다.
+func TestListRejectsOutOfRangeLimit(t *testing.T) {
+	h := &reviewHandler{}
+	for _, raw := range []string{"0", "-1", "2147483648", "abc"} {
+		rec := httptest.NewRecorder()
+		h.list(rec, httptest.NewRequest(http.MethodGet, "/api/games?limit="+raw, nil))
+
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("limit=%s: status = %d, want %d", raw, rec.Code, http.StatusBadRequest)
+		}
+	}
+}
