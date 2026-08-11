@@ -176,17 +176,34 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
     [goto, game.interventions],
   );
 
-  /** 개입을 고르면 그 수가 두어진 국면으로 간다 — **한 수 앞**이다. */
+  /**
+   * 개입을 고르면 **그 수를 그 국면에서 다시 둔다.** 「もしも」와 같은 장치다.
+   *
+   * 한때 이 자리가 따로 있었다 — 판을 탈색하고, 물러진 수를 유령 駒로 한 번 재생하고, 지나간
+   * 두 칸을 표식으로 짚는 「회상」이었다. 그 장치를 뺀 이유가 둘이다.
+   *
+   * **하나, 되짚기 화면에서는 탈색이 아무것도 구별하지 못한다** — 이 화면은 전부가 과거다.
+   *
+   * **둘, 打이 안 그려졌다.** 打은 판 위에 출발 칸이 없어서 화살표가 안 나가고, 그러면 표식
+   * 하나에 전부가 걸린다. 분기로 두면 그 수가 **실제로 놓여 있으므로** 짚을 것이 없다 —
+   * 판이 그 자체로 「이 수를 뒀으면 이렇게 된다」를 말한다.
+   *
+   * 같은 것을 다시 누르면 접힌다. 그때 판은 그 手数의 확정된 국면으로 돌아온다.
+   */
   const recall = useCallback(
-    (index: number, ivPly: number) => {
-      clear();
+    (index: number, ivPly: number, usi: string | undefined) => {
       setOrigin(null);
       setPromoting(null);
       setMotion(null); // 뛰어간 자리다. 없던 한 수를 그리지 않는다
       setPly(Math.max(0, ivPly - 1));
-      setFocus((current) => (current === index ? null : index));
+      setFocus((current) => {
+        const same = current === index;
+        if (same) clear();
+        else at(Math.max(0, ivPly - 1), usi ? [usi] : []);
+        return same ? null : index;
+      });
     },
-    [clear],
+    [clear, at],
   );
 
   const playBranch = useCallback(
@@ -651,23 +668,14 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
                       type="button"
                       className="review-iv"
                       data-active={focus === i || undefined}
-                      onClick={() => recall(i, iv.ply)}
+                      onClick={() => recall(i, iv.ply, iv.retractedUsi)}
                     >
                       <span className="review-iv-ply">{iv.ply}手目</span>
                       <span className="review-iv-cat">{iv.categoryJa}</span>
                       <span className="review-iv-move">{iv.retractedJa || iv.retractedUsi}</span>
                       <span className="review-iv-delta">−{Math.round(iv.deltaWin * 100)}%</span>
                     </button>
-                    {focus === i && (
-                      <InterventionNote
-                        intervention={iv}
-                        canTry={engineReady !== false && !!iv.retractedUsi && iv.ply >= 1}
-                        onTry={() => {
-                          setFocus(null); // 판이 그 수를 실제로 둔 국면으로 간다. 회상은 끝난다
-                          at(iv.ply - 1, iv.retractedUsi ? [iv.retractedUsi] : []);
-                        }}
-                      />
-                    )}
+                    {focus === i && <InterventionNote intervention={iv} />}
                   </li>
                 ))}
               </ol>
@@ -685,18 +693,10 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
  * 대국 중에 나갔던 문장은 어디에도 저장하지 않으므로(카테고리만 남는다) 이것은 그때
  * 그 문장과 글자까지 같지는 않다. 같은 사실에서 나온 결정적 문구다.
  *
- * 「この手を指してみる」가 **물러진 수로 들어가는 입구**다 — 최선수가 아니라 두려고 했던
- * 수이고, 실제로 가르치는 것이 그쪽이다(06-status.md §25).
+ * **「この手を指してみる」 버튼은 없앴다.** 목록에서 그 개입을 고르는 것이 이미 그 수를 두는
+ * 것이라(`recall`), 버튼이 방금 한 일을 한 번 더 하자고 묻고 있었다.
  */
-function InterventionNote({
-  intervention,
-  canTry,
-  onTry,
-}: {
-  intervention: ReviewIntervention;
-  canTry: boolean;
-  onTry: () => void;
-}) {
+function InterventionNote({ intervention }: { intervention: ReviewIntervention }) {
   return (
     <div className="review-iv-note">
       {intervention.message && <p>{intervention.message}</p>}
@@ -704,11 +704,6 @@ function InterventionNote({
         <p className="review-iv-hint">
           この局面で <strong>{intervention.retractedJa}</strong> を指して戻されました。
         </p>
-      )}
-      {canTry && (
-        <button type="button" className="btn" onClick={onTry}>
-          この手を指してみる
-        </button>
       )}
     </div>
   );

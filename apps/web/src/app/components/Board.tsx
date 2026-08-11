@@ -283,9 +283,10 @@ export function Board({
         {board.squares.map((piece, index) => {
           const usi = toUsi(fromIndex(index));
           const label = `${FILES[index % BOARD_SIZE]}${RANKS[Math.floor(index / BOARD_SIZE)]}`;
-          // 물러진 수의 **출발 칸만** 짚는다. 도착 칸은 화살촉이 이미 짚고 있어서, 거기에
-          // 고리를 하나 더 그리면 같은 한 수를 두 번 말하는 것이 된다(index.css).
-          const mark = played?.from === index ? 'from' : null;
+          // 물러진 수가 지나간 두 칸. **도착 칸을 빼면 안 된다** — 打은 출발 칸이 없어서
+          // 화살표가 아예 안 나가고(ReviewDetail 의 `retracted`), 그때 도착 칸 표식이
+          // 「어디에 놓으려 했나」를 짚는 유일한 것이다. 한 칸이 둘을 겸하는 수는 없다.
+          const mark = played?.from === index ? 'from' : played?.to === index ? 'to' : null;
           const last = lastMove?.to === index ? 'to' : lastMove?.from === index ? 'from' : undefined;
 
           // 이 칸으로 駒가 들어오는 중인가. **출발 칸에서 도착 칸까지를 칸 수로 준다** —
