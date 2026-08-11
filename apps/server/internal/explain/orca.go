@@ -137,7 +137,7 @@ type chatResponse struct {
 	} `json:"_orca_meta"`
 }
 
-func (c *Client) complete(ctx context.Context, tier int, f Facts) (completion, error) {
+func (c *Client) complete(ctx context.Context, tier int, f Facts, knowledge []KbSnippet) (completion, error) {
 	model := c.small
 	if tier == 2 {
 		model = c.large
@@ -149,7 +149,7 @@ func (c *Client) complete(ctx context.Context, tier int, f Facts) (completion, e
 		MaxTokens:   maxTokens,
 		Messages: []chatMessage{
 			{Role: "system", Content: systemPrompt},
-			{Role: "user", Content: userPrompt(f)},
+			{Role: "user", Content: userPrompt(f, knowledge)},
 		},
 	})
 	if err != nil {

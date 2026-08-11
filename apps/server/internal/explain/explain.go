@@ -83,6 +83,19 @@ type Explainer interface {
 	Explain(ctx context.Context, f Facts) Result
 }
 
+// KbSnippet 는 `kb_chunks` 에서 꺼낸 지식 한 조각이다.
+type KbSnippet struct {
+	Title string
+	Body  string
+}
+
+// KnowledgeLookup 은 태그로 `kb_chunks` 를 찾는 함수다. `Layered` 에 콜백으로 꽂는다.
+//
+// `Store` 인터페이스에 넣지 않는 이유는 **import cycle** 이다 — `store` → `explain` →
+// `intervene` 이 되면 `intervene` 의 테스트가 `store` 를 import할 때 사이클이 생긴다.
+// 콜백이면 `store` 가 `explain` 을 모른 채로 `cmd/api/main.go` 가 연결한다.
+type KnowledgeLookup func(ctx context.Context, tags []string) ([]KbSnippet, error)
+
 // Store 는 Tier 0 캐시다. `explain_cache` 테이블 두 줄에 대응한다.
 //
 // `game` 이 DB를 모르는 것과 같은 이유로 여기서도 인터페이스로 둔다 — 이 패키지는 SQL을
@@ -102,8 +115,9 @@ type Store interface {
 // 안 세어지고, 그러면 발표에 나가는 히트율이 실제보다 낮게 나온다. Postgres 왕복은 1ms
 // 남짓이고 그 옆에서 판정이 800ms를 쓴다 — 정확한 계측을 살 값으로 싸다.
 type Layered struct {
-	store  Store
-	client *Client
+	store    Store
+	client   *Client
+	lookupKB KnowledgeLookup
 	// deadline 이 0이면 Deadline 을 쓴다. 테스트가 짧게 줄이는 통로다.
 	deadline time.Duration
 }
@@ -114,6 +128,12 @@ type Layered struct {
 // 결정적 문구만 나간다 — 후자가 `ORCA_API_KEY` 가 비어 있는 지금의 상태다.
 func NewLayered(store Store, client *Client) *Layered {
 	return &Layered{store: store, client: client}
+}
+
+// WithKnowledge 는 태그 기반 `kb_chunks` 검색을 꽂는다. nil이면 지식 없이 간다.
+func (l *Layered) WithKnowledge(fn KnowledgeLookup) *Layered {
+	l.lookupKB = fn
+	return l
 }
 
 // TemplateOnly 는 LLM을 아예 안 부르는 Explainer 다. 키가 없을 때의 배선이다.
@@ -136,11 +156,20 @@ func (l *Layered) Explain(ctx context.Context, f Facts) Result {
 		return Result{Body: Render(f), Tier: TierTemplate}
 	}
 
+	var knowledge []KbSnippet
+	if l.lookupKB != nil && len(f.Tags) > 0 {
+		if kb, err := l.lookupKB(ctx, f.Tags); err != nil {
+			log.Printf("explain: knowledge lookup failed for %v: %v", f.Tags, err)
+		} else {
+			knowledge = kb
+		}
+	}
+
 	tier := f.Tier()
 	call, cancel := context.WithTimeout(ctx, l.timeout())
 	defer cancel()
 
-	out, err := l.client.complete(call, tier, f)
+	out, err := l.client.complete(call, tier, f, knowledge)
 	if err != nil {
 		// 여기서 기다리다 실패한 것이라 이미 지연을 냈다. 그래도 문장은 나간다.
 		log.Printf("explain: tier %d failed, falling back to the template: %v", tier, err)

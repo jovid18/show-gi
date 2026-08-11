@@ -3,6 +3,7 @@ package explain
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -153,7 +154,7 @@ func TestTier1FactsAreCanonical(t *testing.T) {
 	for _, f := range tier1Facts() {
 		// `used` 를 지난 모양이어야 한다. 아니면 내가 적어 둔 사실과 키에 실제로 들어간
 		// 사실이 다르고, 마이그레이션 주석이 거짓말을 하게 된다.
-		if got := f.used(); got != f {
+		if got := f.used(); !reflect.DeepEqual(got, f) {
 			t.Errorf("정규형이 아니다 — used() 가 %+v 를 %+v 로 바꾼다", f, got)
 		}
 		if tier := f.Tier(); tier != 1 {
@@ -267,7 +268,7 @@ func TestGenerateTier1(t *testing.T) {
 	start := time.Now()
 
 	for _, f := range tier1Facts() {
-		prompt := userPrompt(f)
+		prompt := userPrompt(f, nil)
 		res, done := bodies[prompt]
 		if !done {
 			// **다시 물어본다.** 두 가지가 이따금 어긋난다 — 라우터가 30초 넘게 멎고(35회
