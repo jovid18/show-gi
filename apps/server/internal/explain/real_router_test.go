@@ -72,6 +72,12 @@ func TestRealRouter(t *testing.T) {
 			if strings.ContainsAny(got.Body, "▲△") {
 				t.Errorf("수를 지어냈다: %q", got.Body)
 			}
+			// **앱 동작을 문장에 옮기지 않는다.** 되물러졌다는 것은 사실로 주지만(시점을
+			// 정하는 데 필요하다) 화면이 이미 그것을 보여주고 있어서, 문장에 다시 적으면
+			// 60자의 절반이 사라진다 — 실제로 8개 중 5개가 그랬다(06-status.md §38).
+			if strings.Contains(got.Body, "アプリ") {
+				t.Errorf("앱 동작을 문장에 옮겼다 — 그 자리는 왜 나쁜지가 들어갈 자리다: %q", got.Body)
+			}
 			if n := len([]rune(got.Body)); n > MaxRunes {
 				t.Errorf("%d자 — MaxRunes(%d) 초과", n, MaxRunes)
 			}

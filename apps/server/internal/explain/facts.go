@@ -63,7 +63,10 @@ type Facts struct {
 // **이게 없으면 프롬프트를 고쳐도 캐시가 옛 문장을 영원히 돌려준다.** 캐시가 있는 계층에서
 // 프롬프트를 고치는 것은 곧 키를 바꾸는 일이다. 마이그레이션도 비우는 일도 필요 없어진다 —
 // 옛 행은 아무도 찾지 않는 키로 남고, 「그때 어떤 문장을 냈나」의 기록이 된다.
-const promptVersion = 1
+//
+//	v2  systemPrompt 에 「アプリが止めた・戻したは書かない」이 붙었다 (06-status.md §38).
+//	    사전 생성이 이 값을 실제로 쓴다 — 004_explain_cache_tier1.sql 의 키가 전부 v2 다
+const promptVersion = 2
 
 // Key 는 `explain_cache.key` 다. **국면이 아니라 사실의 모양이 키다.**
 //
@@ -71,13 +74,20 @@ const promptVersion = 1
 // 대부분이 캐시로 덮인다(docs/04-llm.md §2). 여기 들어가는 목록은 `used` 가 남긴 것과
 // 정확히 같다.
 func (f Facts) Key() string {
+	sum := sha256.Sum256([]byte(f.keyMaterial()))
+	return hex.EncodeToString(sum[:])
+}
+
+// keyMaterial 은 해시하기 **전**의, 사람이 읽을 수 있는 키다.
+//
+// 키가 왜 갈렸는지 재현할 수 있어야 한다. 사전 생성이 그것을 실제로 쓴다 — 만들어 둔 행이
+// 어느 사실 모양의 것인지를 마이그레이션에 주석으로 적는다(004_explain_cache_tier1.sql).
+// 해시만 적혀 있으면 그 파일을 사람이 읽고 확인할 방법이 없다.
+func (f Facts) keyMaterial() string {
 	u := f.used()
-	// 사람이 읽을 수 있는 형태로 만든 뒤 해시한다 — 키가 왜 갈렸는지 재현할 수 있어야 한다.
-	raw := fmt.Sprintf("v%d|%s|%s|%d|mate=%t|known=%t|moved=%s|cap=%s|atk=%d|def=%t|thr=%s",
+	return fmt.Sprintf("v%d|%s|%s|%d|mate=%t|known=%t|moved=%s|cap=%s|atk=%d|def=%t|thr=%s",
 		promptVersion, u.Kind, u.Category, u.Level, u.LostMate,
 		u.Known, u.MovedPiece, u.Captured, u.Attackers, u.Defended, u.Threatened)
-	sum := sha256.Sum256([]byte(raw))
-	return hex.EncodeToString(sum[:])
 }
 
 // Tier 는 이 사실들이 어느 층으로 가는지다.
