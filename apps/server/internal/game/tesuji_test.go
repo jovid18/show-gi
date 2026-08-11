@@ -33,6 +33,21 @@ func forkJudgement(before, after int, human shogi.Color) Judgement {
 	}
 }
 
+// forkPositions 는 그 수의 **앞뒤** 국면을 함께 만든다. 게이트가 「이 수가 만든 것」만
+// 이름 붙이므로 앞 국면이 없으면 아무것도 새것이 아니다.
+func forkPositions(t *testing.T, start string, moves ...string) (before, after shogi.Position) {
+	t.Helper()
+	before, err := positionAfter(start, moves[:len(moves)-1])
+	if err != nil {
+		t.Fatalf("앞 국면: %v", err)
+	}
+	after, err = positionAfter(start, moves)
+	if err != nil {
+		t.Fatalf("뒤 국면: %v", err)
+	}
+	return before, after
+}
+
 func codes(tags []tag.Tag) []string {
 	out := make([]string, 0, len(tags))
 	for _, t := range tags {
@@ -55,17 +70,14 @@ func has(tags []tag.Tag, code string) bool {
 // (`tag.TestTheRuleLayerDoesNotAskWhetherTheForkerSurvives` 가 같은 국면을 그쪽에서
 // 잰다) 이름을 막는 일은 전부 여기 달려 있다.
 func TestForkThatHangsIsNotNamed(t *testing.T) {
-	pos, err := positionAfter(hangingForkStart, []string{forkMove})
-	if err != nil {
-		t.Fatalf("국면: %v", err)
-	}
+	before, after := forkPositions(t, hangingForkStart, forkMove)
 	// 전제 — 룰 층은 이 형태에 이름을 붙인다. 이것이 거짓이면 아래가 다른 이유로 통과한다.
-	if !has(tag.FindTesuji(pos, shogi.Black), "fundoshi_no_kei") {
+	if !has(tag.FindTesuji(after, shogi.Black), "fundoshi_no_kei") {
 		t.Fatal("전제가 깨졌다: 룰 층이 ふんどしの桂를 안 낸다")
 	}
 
 	// 桂를 그냥 잃는 수라 엔진 평가치가 떨어진다. 떨어지는 폭이 이름을 막는다.
-	got := namedTesuji(pos, shogi.Black, forkMove, forkJudgement(50, -250, shogi.Black))
+	got := namedTesuji(before, after, shogi.Black, forkMove, forkJudgement(50, -250, shogi.Black))
 	if len(got) != 0 {
 		t.Errorf("공짜로 잡히는 桂인데 이름이 붙었다: %v", codes(got))
 	}
@@ -73,12 +85,9 @@ func TestForkThatHangsIsNotNamed(t *testing.T) {
 
 // 평가치가 안 떨어지면 이름이 붙는다 — 같은 형태, 다른 엔진 답이다.
 func TestForkThatHoldsIsNamed(t *testing.T) {
-	pos, err := positionAfter(forkStart, []string{forkMove})
-	if err != nil {
-		t.Fatalf("국면: %v", err)
-	}
+	before, after := forkPositions(t, forkStart, forkMove)
 
-	got := namedTesuji(pos, shogi.Black, forkMove, forkJudgement(50, 40, shogi.Black))
+	got := namedTesuji(before, after, shogi.Black, forkMove, forkJudgement(50, 40, shogi.Black))
 	if !has(got, "fundoshi_no_kei") {
 		t.Errorf("ふんどしの桂가 붙어야 한다: %v", codes(got))
 	}
@@ -87,12 +96,9 @@ func TestForkThatHoldsIsNamed(t *testing.T) {
 // **모르면 이름을 붙이지 않는다.** 엔진이 없거나 판을 못 읽어 평가치가 비면, 룰만으로
 // 통과시키는 것은 게이트를 없애는 것과 같다.
 func TestNoEvalsMeansNoTesujiName(t *testing.T) {
-	pos, err := positionAfter(forkStart, []string{forkMove})
-	if err != nil {
-		t.Fatalf("국면: %v", err)
-	}
+	before, after := forkPositions(t, forkStart, forkMove)
 
-	if got := namedTesuji(pos, shogi.Black, forkMove, Judgement{}); len(got) != 0 {
+	if got := namedTesuji(before, after, shogi.Black, forkMove, Judgement{}); len(got) != 0 {
 		t.Errorf("평가치가 없는데 이름이 붙었다: %v", codes(got))
 	}
 }
@@ -100,10 +106,7 @@ func TestNoEvalsMeansNoTesujiName(t *testing.T) {
 // 임계치의 양쪽을 못 박는다. 값이 [미확정]이라 언젠가 움직이는데, **비교 방향**이
 // 뒤집히는 것은 값을 고르는 일과 다른 종류의 버그다.
 func TestTesujiGateComparesAgainstTheLossLimit(t *testing.T) {
-	pos, err := positionAfter(forkStart, []string{forkMove})
-	if err != nil {
-		t.Fatalf("국면: %v", err)
-	}
+	before, after := forkPositions(t, forkStart, forkMove)
 
 	for _, tc := range []struct {
 		name string
@@ -114,7 +117,7 @@ func TestTesujiGateComparesAgainstTheLossLimit(t *testing.T) {
 		{"한 걸음 넘으면 아니다", TesujiLossCp + 1, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := namedTesuji(pos, shogi.Black, forkMove, forkJudgement(0, -tc.loss, shogi.Black))
+			got := namedTesuji(before, after, shogi.Black, forkMove, forkJudgement(0, -tc.loss, shogi.Black))
 			if has(got, "fundoshi_no_kei") != tc.want {
 				t.Errorf("낙폭 %dcp: %v (want named=%v)", tc.loss, codes(got), tc.want)
 			}
@@ -126,16 +129,20 @@ func TestTesujiGateComparesAgainstTheLossLimit(t *testing.T) {
 // 되돌려야 하는데, 안 되돌려도 「손해」 쪽에서만 답이 갈린다 — 이득 쪽은 부호가 상쇄되어
 // 그냥 통과한다. 그래서 이 테스트는 손해 국면으로 잰다.
 func TestTesujiGateFlipsForGote(t *testing.T) {
-	// 위 국면의 거울상 — 5五의 後手 桂가 4七金·6七金을 노린다.
-	pos, err := shogi.ParseSFEN("8K/9/9/9/4n4/9/3G1G3/9/8k w - 1")
+	// 위 국면의 거울상 — 5五에 打った 後手 桂가 4七金·6七金을 노린다.
+	before, err := shogi.ParseSFEN("8K/9/9/9/9/9/3G1G3/9/8k w - 1")
 	if err != nil {
 		t.Fatalf("SFEN: %v", err)
 	}
-	if !has(tag.FindTesuji(pos, shogi.White), "fundoshi_no_kei") {
+	after, err := shogi.ParseSFEN("8K/9/9/9/4n4/9/3G1G3/9/8k w - 1")
+	if err != nil {
+		t.Fatalf("SFEN: %v", err)
+	}
+	if !has(tag.FindTesuji(after, shogi.White), "fundoshi_no_kei") {
 		t.Fatal("전제가 깨졌다: 거울상에서 룰이 ふんどしの桂를 안 낸다")
 	}
 
-	got := namedTesuji(pos, shogi.White, "5c5e", forkJudgement(50, -250, shogi.White))
+	got := namedTesuji(before, after, shogi.White, "N*5e", forkJudgement(50, -250, shogi.White))
 	if len(got) != 0 {
 		t.Errorf("後手 관점으로 300cp 손해인데 이름이 붙었다: %v", codes(got))
 	}
@@ -254,7 +261,7 @@ func TestRealEngineGatesTesujiShapes(t *testing.T) {
 				t.Fatalf("국면: %v", err)
 			}
 
-			got := namedTesuji(after, me, tc.moves[len(tc.moves)-1], j)
+			got := namedTesuji(pos, after, me, tc.moves[len(tc.moves)-1], j)
 			loss := cpFor(j.SenteCpBefore, me) - cpFor(j.SenteCpAfter, me)
 			t.Logf("%s 최선수=%s 낙폭=%+dcp 이름=%v", tc.moves[len(tc.moves)-1], j.BestUSI, loss, codes(got))
 
@@ -274,18 +281,67 @@ func TestRealEngineGatesTesujiShapes(t *testing.T) {
 // 던지는 것이 내용이라 「잡히지 않는가」로 물으면 정의상 전부 탈락하기 때문이다.
 func TestDropTesujiPassesThroughTheSameGate(t *testing.T) {
 	// 5三의 後手 金 머리에 歩를 打つ. 持ち駒에 歩 하나를 둔다
-	pos, err := positionAfter("4k4/9/4g4/9/9/9/9/9/4K4 b P 1", []string{"P*5d"})
-	if err != nil {
-		t.Fatalf("국면: %v", err)
-	}
+	before, after := forkPositions(t, "4k4/9/4g4/9/9/9/9/9/4K4 b P 1", "P*5d")
 
-	got := namedTesuji(pos, shogi.Black, "P*5d", forkJudgement(0, -TesujiLossCp, shogi.Black))
+	got := namedTesuji(before, after, shogi.Black, "P*5d", forkJudgement(0, -TesujiLossCp, shogi.Black))
 	if !has(got, "tataki_no_fu") {
 		t.Errorf("歩 한 장까지는 叩きの歩다: %v", codes(got))
 	}
 	// 歩 한 장을 넘게 잃으면 그냥 던진 것이다.
-	got = namedTesuji(pos, shogi.Black, "P*5d", forkJudgement(0, -400, shogi.Black))
+	got = namedTesuji(before, after, shogi.Black, "P*5d", forkJudgement(0, -400, shogi.Black))
 	if len(got) != 0 {
 		t.Errorf("400cp를 잃는데 이름이 붙었다: %v", codes(got))
+	}
+}
+
+// **게이트가 껐던 형태가 두 수 뒤에 이름을 받으면 안 된다.**
+//
+// 리뷰가 짚은 구멍이고, 실제로 그렇게 돌고 있었다. 게이트는 「이 **수**가 손해인가」에
+// 답하는데 그 답을 판 위의 형태 **전부**에 나눠 주면, 낙폭 500cp로 만들어 한 번 꺼진
+// 両取り가 그대로 서 있다가 **아무 상관 없는 조용한 수**에 이름을 받는다.
+//
+// 화면이 이름을 한 대국에 한 번만 띄우므로(useTagAnnounce) 플레이어가 보는 것은
+// **그 틀린 쪽**이 된다 — 늦게 온 올바른 판정이 아니라.
+func TestARejectedShapeIsNotNamedByALaterQuietMove(t *testing.T) {
+	// 상대는 玉만 왔다 갔다 한다 — 両取り는 계속 서 있다.
+	opp := &scriptedOpponent{moves: []string{"1a1b", "1b1a"}, delay: 120 * time.Millisecond}
+	an := &fixedAnalyst{evalBefore: 10, evalAfter: 490} // 사람 관점 +10 → −490. 낙폭 500cp
+	s := newSession(t, Config{
+		StartSFEN: forkStart, Opponent: opp, Analyst: an, HumanColor: shogi.Black,
+	})
+
+	ch, cancel, err := s.Subscribe(t.Context())
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	defer cancel()
+
+	if _, err := s.Play(t.Context(), forkMove); err != nil {
+		t.Fatalf("Play: %v", err)
+	}
+	made := waitFor(t, ch, func(s Snapshot) bool { return s.Ply == 1 && !s.Judging }, "판정 통과")
+	if has(made.StyleTags, "fundoshi_no_kei") {
+		t.Fatalf("낙폭 500cp인데 이름이 붙었다: %v", codes(made.StyleTags))
+	}
+
+	waitFor(t, ch, func(s Snapshot) bool { return s.Ply == 2 }, "상대 응수")
+
+	// 두 번째 수는 両取り와 아무 상관 없고 낙폭도 0이다.
+	an.evalAfter = -10
+	if _, err := s.Play(t.Context(), "1i2i"); err != nil {
+		t.Fatalf("두 번째 Play: %v", err)
+	}
+	quiet := waitFor(t, ch, func(s Snapshot) bool { return s.Ply == 3 && !s.Judging }, "조용한 수")
+	if has(quiet.StyleTags, "fundoshi_no_kei") {
+		t.Errorf("꺼졌던 형태가 조용한 수에 이름을 받았다: %v", codes(quiet.StyleTags))
+	}
+
+	// 전제 — 그 両取り는 아직 판 위에 서 있다. 아니면 위가 다른 이유로 통과한다.
+	pos, err := positionAfter(forkStart, []string{forkMove, "1a1b", "1i2i"})
+	if err != nil {
+		t.Fatalf("국면: %v", err)
+	}
+	if !has(tag.FindTesuji(pos, shogi.Black), "fundoshi_no_kei") {
+		t.Fatal("전제가 깨졌다: 両取り가 이미 사라졌다")
 	}
 }

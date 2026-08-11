@@ -653,9 +653,14 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 	// **手筋의 이름이 여기서 정해진다.** 판정이 들고 온 평가치가 「이득인가」에 답하고
 	// (tesuji.go), 그 답은 이 국면에서만 유효하므로 세대를 함께 적는다.
 	//
+	// 앞 국면을 함께 넘기는 것은 **이 수가 만든 형태에만** 그 답을 주기 위해서다.
+	// `prevPos` 는 롤백용으로 이미 들고 있던 값이고, 판정이 끝난 지금 그것이 정확히
+	// 「이 수를 두기 전」이다.
+	//
 	// 물러진 쪽에서는 이 줄에 오지 않는다. 되물러진 수가 만든 형태에 이름을 붙이면
 	// 두지 않은 것으로 된 수가 판의 이름을 정하는 일이 된다(movesBy 와 같은 이유).
-	st.tesuji, st.tesujiGen = namedTesuji(st.pos, st.cfg.HumanColor, r.move.USI, r.judgement), st.searchGen
+	st.tesuji = namedTesuji(st.prevPos, st.pos, st.cfg.HumanColor, r.move.USI, r.judgement)
+	st.tesujiGen = st.searchGen
 
 	st.recordLastMove()
 	st.recordEvals(r.judgement)

@@ -40,22 +40,49 @@ import (
 // **[미확정]** K·레벨 임계치와 같은 실측 큐에 있다(06-status.md §5).
 const TesujiLossCp = 100
 
-// namedTesuji 는 pos 에 걸려 있는 手筋 중 **엔진이 이득으로 본 것**의 이름을 낸다.
+// namedTesuji 는 **방금 둔 수가 만든** 手筋 중 엔진이 이득으로 본 것의 이름을 낸다.
+// before·after 는 그 수의 앞뒤 국면이고, lastUSI 는 그 수다.
 //
-// pos 는 판정이 끝난 그 국면이어야 하고 lastUSI 는 그 국면을 만든 수다. j 의 두 평가치가
-// 그 국면의 것이기 때문이고, 그래서 부르는 쪽은 결과를 **국면 세대와 함께** 들고 있어야
+// **판에 서 있는 것 전부를 묻지 않는 것이 요점이다.** 게이트가 답하는 것은 「이 **수**가
+// 손해인가」인데, 그 답을 판 위의 모든 형태에 나눠 주면 게이트가 없는 것과 같아진다 —
+// 낙폭 500cp로 만들어 한 번 꺼진 両取り가 그대로 서 있다가, **두 수 뒤 아무 상관 없는
+// 조용한 수**(낙폭 0)에 이름을 받는다. 실제로 그렇게 돌고 있었다(06-status.md §34 ⑦).
+//
+// 그래서 앞뒤를 견줘 **새로 생긴 이름만** 남긴다. 그러면 이름을 통과시킨 cp가 언제나
+// 그 형태를 만든 수의 것이 된다. 그 자리에 이미 서 있던 형태는 다시 알리지 않는데,
+// 화면도 한 대국에 이름 하나를 한 번만 띄우므로(useTagAnnounce) 잃는 것이 없다.
+//
+// j 의 두 평가치가 after 의 것이라, 부르는 쪽은 결과를 **국면 세대와 함께** 들고 있어야
 // 한다(state.tesujiGen) — 낡은 평가치로 이름을 붙이는 것이 이 게이트를 없애는 것과 같다.
 //
 // **모르면 이름을 붙이지 않는다.** 평가치가 없으면(엔진이 없거나 판을 못 읽었다) 빈
 // 결과가 온다 — 룰만으로 통과시키면 지우려던 그 오판이 그대로 돌아온다.
-//
-// 打つ 手筋만 방금 둔 수를 따로 받는다. 판에 남지 않는 사실이라 국면만으로는 못 묻는다
-// (`tag/drop.go`).
-func namedTesuji(pos shogi.Position, c shogi.Color, lastUSI string, j Judgement) []tag.Tag {
+func namedTesuji(before, after shogi.Position, c shogi.Color, lastUSI string, j Judgement) []tag.Tag {
 	if !enginePaidOff(j, c) {
 		return nil
 	}
-	out := tag.FindTesuji(pos, c)
+	return freshTesuji(before, after, c, lastUSI)
+}
+
+// freshTesuji 는 그 수가 **새로 만든** 手筋의 이름이다 — 엔진은 묻지 않는다.
+//
+// 이름으로 견준다. 같은 이름이 다른 자리에 하나 더 생긴 것은 새 소식이 아니고, 화면이
+// 어차피 이름 단위로 한 번만 띄운다.
+//
+// 打つ 手筋은 견줄 것이 없다. 방금 놓인 駒에만 붙는 이름이라 언제나 새것이고, 그래서
+// `FindTesuji` 가 내지 않는다(`tag/drop.go`).
+func freshTesuji(before, after shogi.Position, c shogi.Color, lastUSI string) []tag.Tag {
+	had := map[string]bool{}
+	for _, t := range tag.FindTesuji(before, c) {
+		had[t.Code] = true
+	}
+
+	var out []tag.Tag
+	for _, t := range tag.FindTesuji(after, c) {
+		if !had[t.Code] {
+			out = append(out, t)
+		}
+	}
 
 	// 여기 오는 수는 이미 룰 엔진이 검증한 것이다. 그래도 파싱 실패를 **없는 것으로**
 	// 넘기는 이유는, 이름 하나가 안 뜨는 것과 대국이 서는 것의 값이 다르기 때문이다.
@@ -63,7 +90,7 @@ func namedTesuji(pos shogi.Position, c shogi.Color, lastUSI string, j Judgement)
 	if err != nil {
 		return out
 	}
-	return append(out, tag.DropTesuji(pos, last, c)...)
+	return append(out, tag.DropTesuji(after, last, c)...)
 }
 
 // enginePaidOff 는 「엔진이 이 국면을 손해로 보지 않는가」다.
