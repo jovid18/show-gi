@@ -59,16 +59,22 @@ func main() {
 			defer matePool.Close()
 		}
 
+		// **인터페이스에 nil 포인터를 넣지 않는다.** `*usi.Pool` 이 nil이어도 인터페이스
+		// 값 자체는 non-nil이 되어 `== nil` 검사를 통과하고, 그 다음 줄에서 죽는다.
+		var mate game.MateSearcher
+		if matePool != nil {
+			mate = matePool
+		}
+
 		opts.NewOpponent = func() game.Opponent {
 			return game.NewAdaptiveOpponent(pool, engineDepth(), opponentBand())
 		}
 		opts.NewAnalyst = func() game.Analyst {
-			var mate game.MateSearcher
-			if matePool != nil {
-				mate = matePool
-			}
 			return game.NewEngineAnalyst(pool, mate, opts.Level)
 		}
+		// 종반 판정과 詰み 게이지가 같은 풀을 쓴다. 두 자리가 시간상 겹치지 않아
+		// (판정은 사람의 수 직후, 게이지는 상대의 수 직후) 하나로 충분하다.
+		opts.Mate = mate
 	}
 
 	if err := server.Run(ctx, *addr, opts); err != nil {
@@ -174,10 +180,12 @@ func startEngines() *usi.Pool {
 func startMateEngines() *usi.Pool {
 	cmd := os.Getenv("ENGINE_MATE_CMD")
 	if cmd == "" {
-		log.Print("ENGINE_MATE_CMD is not set — endgame judgment is disabled")
+		log.Print("ENGINE_MATE_CMD is not set — endgame judgment and the mate gauge are disabled")
 		return nil
 	}
-	// 매 수 한 번이라 상대 수 계산만큼 동시에 돌 필요가 없다.
+	// 매 수 **두 번**이지만(종반 판정과 詰み 게이지) 그 둘이 시간상 겹치지 않아
+	// 상대 수 계산만큼 동시에 돌 필요가 없다. 판정은 사람의 수 직후에, 게이지는
+	// 상대의 수 직후에 걸린다 — 사람 차례와 엔진 차례가 곧 두 자리의 조건이다.
 	pool, err := usi.NewPool(1, cmd, map[string]string{
 		"USI_Hash":   envOr("ENGINE_HASH_MB", "128"),
 		"Threads":    envOr("ENGINE_THREADS", "1"),

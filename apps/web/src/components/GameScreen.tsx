@@ -497,6 +497,8 @@ export function GameScreen() {
           dropFrom={dropFrom}
           hintSquare={hint?.square ?? null}
           hintRay={hintRay}
+          // 회상 중에는 끈다. 그때 판은 물러진 수의 국면이라 지금 국면의 게이지가 거짓말이 된다.
+          mateHeat={walking ? 0 : (snapshot.mateHeat ?? 0)}
           boardRef={boardRef}
           interactive={playable}
           onSquare={onSquare}

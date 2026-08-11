@@ -35,6 +35,12 @@ type Options struct {
 	// NewAnalyst 가 nil이면 개입 없이 대국만 한다.
 	NewAnalyst func() game.Analyst
 
+	// Mate 는 詰み solver 다. nil이면 詰み 게이지가 꺼진 채로 대국한다.
+	//
+	// **대국마다 만들지 않는다**(NewAnalyst 와 다른 점이다). 풀 자체가 공유물이고
+	// 대국별 상태가 없다 — Explainer 와 같은 자리다.
+	Mate game.MateSearcher
+
 	// StartSFEN·HumanColor·ObservePlies 는 대국을 어디서 시작할지 정한다.
 	// 비어 있으면 평수 초기 국면·先手·기본 관측 구간이다. 리뷰와 테스트가 쓴다.
 	StartSFEN    string
