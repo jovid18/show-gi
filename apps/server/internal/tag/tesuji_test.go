@@ -57,28 +57,14 @@ func TestPawnsAreNotForkTargets(t *testing.T) {
 	}
 }
 
-// **자기보다 싼 것만 노리는 것은 得이 아니다.** 飛로 桂 둘을 노려도 両取り라고
-// 부르지 않는다 — 딴 쪽이 손해다.
-func TestTargetsCheaperThanTheForkerDoNotCount(t *testing.T) {
+// **값 비교는 여기서 안 한다.** 飛로 桂 둘을 노리는 것도 형태는 十字飛車이고, 「그래서
+// 得인가」는 엔진이 답한다(game/tesuji.go). 원래는 이 조건을 여기서 걸었다.
+func TestCheaperTargetsAreStillTheShapeOfAFork(t *testing.T) {
 	// 5五飛가 5三桂와 8五桂를 노린다. 桂(4) < 飛(10)
 	pos := forkBoard(t, "8k/9/4n4/9/1n2R4/9/9/9/8K b - 1")
 
-	if got, ok := Fork(pos, shogi.SquareOf(5, 5), shogi.Black); ok {
-		t.Errorf("飛가 桂 둘을 노리는데 %s 가 떴다", got.Code)
-	}
-}
-
-// **공짜로 잡히는 駒는 手筋이 아니라 タダ捨て다.** 이 조건이 없으면 같은 국면을
-// 개입은 블런더라고 하고 힌트는 両取り라고 해서, 화면이 서로 반대를 가르친다.
-func TestAForkerThatHangsIsNotATesuji(t *testing.T) {
-	// 5五角이 3三金·7三金을 노리는데, 5四에 後手 歩가 있어 角을 공짜로 딴다.
-	pos := forkBoard(t, "8k/9/2g3g2/4p4/4B4/9/9/9/8K b - 1")
-
-	if forkSurvives(pos, shogi.SquareOf(5, 5), shogi.Black, shogi.PieceValue(shogi.Bishop)) {
-		t.Fatal("전제가 깨졌다: 5五의 角이 치워지지 않는다")
-	}
-	if got, ok := Fork(pos, shogi.SquareOf(5, 5), shogi.Black); ok {
-		t.Errorf("공짜로 잡히는 角인데 %s 가 떴다", got.Code)
+	if got, ok := Fork(pos, shogi.SquareOf(5, 5), shogi.Black); !ok || got.Code != "juji_bisha" {
+		t.Errorf("형태는 十字飛車다: %s/%v", got.Code, ok)
 	}
 }
 
@@ -129,49 +115,78 @@ func TestFindForksScansTheBoardWithoutDuplicates(t *testing.T) {
 	}
 }
 
-// **사람이 짚은 구멍이다.** 桂로 金 둘을 노렸는데 그 桂가 상대 歩에 잡히는 자리였다.
+// **이 국면이 자리를 나눈 이유다.** 桂로 金 둘을 노렸는데 그 桂가 상대 歩에 잡히는
+// 자리였고, 손으로 쓴 1수 읽기가 그것을 통과시켰다(사람이 짚어 줘서 알았다).
 //
-// 처음 판정은 이것을 **통과시켰다** — 내가 되딸 수 있으니 「공짜」가 아니어서다.
-// 그런데 상대 차례가 먼저 오므로 저쪽은 歩로 桂를 따고, 나는 桂(4)를 주고 歩(1)를
-// 얻으며 **노린 金 둘은 그대로 살아남는다.** 되따는 것과 両取り가 성립하는 것은 별개다.
-func TestAForkTakenByACheaperPieceIsNotAFork(t *testing.T) {
-	// 4三金·6三金을 5五桂가 노린다. 5四에 後手 歩가 있어 桂를 딸 수 있고,
-	// 5九에 先手 香를 둬서 **되딸 수 있게** 만든다 — 옛 판정이 통과했던 조건이다.
-	//
-	// 香를 5三에 두려 했다가 틀렸다. 先手 香는 위로만 가므로 5三에서 5五를 되딸 수 없다.
-	pos := forkBoard(t, "8k/9/3g1g3/4p4/4N4/9/9/9/4L3K b - 1")
+// 그래서 안전을 여기서 묻지 않기로 했다. **룰은 형태만 말한다** — 이 국면에서
+// ふんどしの桂가 뜨는 것이 맞고, 이름을 화면에 내보내지 않는 일은 엔진 게이트가 한다
+// (`game.TestForkThatHangsIsNotNamed` 가 같은 국면을 그쪽에서 다시 잰다).
+//
+// 룰이 지웠던 조건을 다시 여기 넣으면 두 층이 같은 질문을 두 번 하고, 그때 답이
+// 갈리는 쪽은 언제나 얕게 읽는 이쪽이다.
+func TestTheRuleLayerDoesNotAskWhetherTheForkerSurvives(t *testing.T) {
+	// 4三金·6三金을 5五桂가 노린다. 5四에 後手 歩가 있어 桂를 공짜에 가깝게 딴다.
+	pos := forkBoard(t, "8k/9/3g1g3/4p4/4N4/9/9/9/8K b - 1")
 
-	sq := shogi.SquareOf(5, 5)
-	if _, ok := Fork(pos, sq, shogi.Black); ok {
-		t.Error("歩에 잡히는 桂인데 両取り로 떴다")
-	}
-
-	// 되딸 수 있다는 전제를 못 박는다. 이것이 거짓이면 위 테스트가 다른 이유로 통과한다.
-	after := pos
-	after.Turn = shogi.White
-	took := false
-	for _, m := range after.LegalMoves() {
-		if int(m.To) == sq && after.Board[m.From].Type() == shogi.Pawn {
-			next := after.Apply(m)
-			for _, back := range next.LegalMoves() {
-				if int(back.To) == sq {
-					took = true
-				}
-			}
-		}
-	}
-	if !took {
-		t.Fatal("전제가 깨졌다: 歩가 桂를 따고 내가 되따는 경로가 없다")
+	got, ok := Fork(pos, shogi.SquareOf(5, 5), shogi.Black)
+	if !ok || got.Code != "fundoshi_no_kei" {
+		t.Errorf("형태는 ふんどしの桂다: %s/%v", got.Code, ok)
 	}
 }
 
-// 비싼 駒로만 치울 수 있고 되딸 수 있으면 両取り는 살아 있다. 저쪽이 손해라서 안 딴다.
-func TestAForkOnlyTakeableAtALossSurvives(t *testing.T) {
-	// 5五桂를 5四金이 딸 수 있는데(金 6 > 桂 4), 5九香가 되딴다.
-	// 6三金은 5五에 닿지 않는다 — 金은 한 칸이다.
-	pos := forkBoard(t, "8k/9/3g1g3/4g4/4N4/9/9/9/4L3K b - 1")
+// **「十字」는 縦과 横이 교차한다는 뜻이다.** 같은 段의 둘을 노리는 飛는 両取り이긴 해도
+// 十字飛車가 아니고, 그 이름을 붙이면 초심자는 다음에 그 형태를 못 알아본다.
+func TestJujiBishaNeedsBothDirections(t *testing.T) {
+	// 5五飛가 3五金·8五金을 노린다 — 둘 다 같은 段이다
+	flat := forkBoard(t, "8k/9/9/9/1g2R1g2/9/9/9/8K b - 1")
+	if got, ok := Fork(flat, shogi.SquareOf(5, 5), shogi.Black); ok {
+		t.Errorf("같은 段의 둘인데 %s 가 떴다", got.Code)
+	}
 
-	if _, ok := Fork(pos, shogi.SquareOf(5, 5), shogi.Black); !ok {
-		t.Error("비싼 駒로만 치울 수 있는 桂인데 両取り가 아니라고 한다")
+	// 5三金(縦)과 8五金(横)이면 十字다
+	cross := forkBoard(t, "8k/9/4g4/9/1g2R4/9/9/9/8K b - 1")
+	if got, ok := Fork(cross, shogi.SquareOf(5, 5), shogi.Black); !ok || got.Code != "juji_bisha" {
+		t.Errorf("縦과 横이면 十字飛車다: %s/%v", got.Code, ok)
+	}
+}
+
+// **龍·馬가 덤으로 얻은 한 칸은 그 이름의 방향이 아니다.**
+//
+// `Base()` 로 이름을 고르므로 龍은 十字飛車, 馬는 角による両取り로 온다. 그것 자체는
+// 맞는데(縦横·斜め를 그대로 갖는다), 덤으로 얻은 한 칸까지 세면 **十字가 아닌 것에
+// 十字라는 이름이 붙는다.**
+func TestPromotedRookExtraStepIsNotACross(t *testing.T) {
+	// 5五龍이 5三金을 縦으로 노리고, 4四金은 덤으로 얻은 斜め 한 칸이다
+	pos := forkBoard(t, "8k/9/4g4/5g3/4+R4/9/9/9/8K b - 1")
+
+	if got, ok := Fork(pos, shogi.SquareOf(5, 5), shogi.Black); ok {
+		t.Errorf("縦 하나 + 斜め 하나인데 %s 가 떴다", got.Code)
+	}
+}
+
+// **成桂·成銀에는 桂·銀의 이름을 안 붙인다.** 둘 다 金의 움직임이 되어 「桂가 둘로 뛴다」도
+// 「銀이 사이에 打つ」도 성립하지 않는다 — 腹銀에서 成銀을 뺀 것과 같은 기준이고, 실 기보의
+// `▲5二成銀` 에 「割打ちの銀」이 떴던 자리다(06-status.md §34 ⑤).
+//
+// 龍·馬는 반대로 **든다.** 飛의 縦横과 角의 斜め가 그대로 남아 있어서다.
+func TestPromotedPiecesKeepOnlyTheNamesTheyStillEarn(t *testing.T) {
+	for _, tc := range []struct {
+		name, sfen string
+		want       string // 빈 값이면 이름이 붙으면 안 된다
+	}{
+		{"成桂", "8k/9/9/3g1g3/4+N4/9/9/9/8K b - 1", ""},
+		{"成銀", "8k/9/9/3g1g3/4+S4/9/9/9/8K b - 1", ""},
+		{"龍", "8k/9/4g4/9/1g2+R4/9/9/9/8K b - 1", "juji_bisha"},
+		{"馬", "8k/9/2g1g4/9/4+B4/9/9/9/8K b - 1", "kaku_ryodori"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := Fork(forkBoard(t, tc.sfen), shogi.SquareOf(5, 5), shogi.Black)
+			if tc.want == "" && ok {
+				t.Errorf("이름이 붙으면 안 되는데 %s 가 떴다", got.Code)
+			}
+			if tc.want != "" && (!ok || got.Code != tc.want) {
+				t.Errorf("%s 를 기대했는데 %s/%v", tc.want, got.Code, ok)
+			}
+		})
 	}
 }

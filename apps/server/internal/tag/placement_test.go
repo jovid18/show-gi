@@ -134,3 +134,20 @@ func TestFindTesujiCoversThePlacementTesuji(t *testing.T) {
 		t.Error("FindTesuji 가 腹銀을 안 낸다 — tesujiFinders 에 안 걸렸다")
 	}
 }
+
+// **成銀에는 이 이름들을 안 붙인다.** 실전 국면의 `▲6二成銀` 에 「腹銀」이 떴던 자리다
+// (06-status.md §34). 이름이 銀이라고 말하는데 成銀은 金의 움직임이라, 手筋의 이유가
+// 통째로 다르다 — 붙일 이름이 있다면 腹金이지 腹銀이 아니다.
+func TestPromotedSilverDoesNotGetTheSilverNames(t *testing.T) {
+	// 5五玉(後手) 옆의 4五에 先手 成銀
+	belly := forkBoard(t, "9/9/9/9/4k+S3/9/9/9/8K b - 1")
+	if got, ok := BellySilver(belly, shogi.SquareOf(4, 5), shogi.Black); ok {
+		t.Errorf("成銀인데 %s 가 떴다", got.Code)
+	}
+
+	// 5五桂(後手)의 머리 5六에 先手 成銀
+	head := forkBoard(t, "4k4/9/9/9/4n4/4+S4/9/9/8K b - 1")
+	if got, ok := KnightHeadSilver(head, shogi.SquareOf(5, 6), shogi.Black); ok {
+		t.Errorf("成銀인데 %s 가 떴다", got.Code)
+	}
+}

@@ -30,13 +30,21 @@ func TestOnePieceOnTheFileIsNotASkewer(t *testing.T) {
 	}
 }
 
-// **뒤가 香보다 싸면 꿰어도 남는 것이 없다.** 香를 던져 얻는 것이 뒤의 駒다.
+// **뒤가 歩면 꿰는 형태에 이름이 안 붙는다.** 香를 던져 얻는 것이 뒤의 駒다.
+//
+// 여기까지가 이름의 관례이고, **香와의 값 비교는 하지 않는다** — 뒤가 桂여도 형태는
+// 田楽刺し이고 「그래서 得인가」는 엔진이 답한다(game/tesuji.go).
 func TestASkewerNeedsSomethingWorthTakingBehind(t *testing.T) {
-	// 뒤가 桂(4) — 香(4)와 같아서 남는 것이 없다
-	pos := forkBoard(t, "8k/9/4n4/9/4g4/9/9/9/4L3K b - 1")
-
+	// 뒤가 歩
+	pos := forkBoard(t, "8k/9/4p4/9/4g4/9/9/9/4L3K b - 1")
 	if got, ok := Skewer(pos, shogi.SquareOf(5, 9), shogi.Black); ok {
-		t.Errorf("뒤가 桂인데 %s 가 떴다", got.Code)
+		t.Errorf("뒤가 歩인데 %s 가 떴다", got.Code)
+	}
+
+	// 뒤가 桂(4) — 香(4)와 같지만 형태는 형태다
+	pos = forkBoard(t, "8k/9/4n4/9/4g4/9/9/9/4L3K b - 1")
+	if _, ok := Skewer(pos, shogi.SquareOf(5, 9), shogi.Black); !ok {
+		t.Error("뒤가 桂인 串刺し도 형태는 田楽刺し다")
 	}
 }
 

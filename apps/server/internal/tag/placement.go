@@ -11,7 +11,13 @@ import "github.com/jovid18/show-gi/apps/server/internal/shogi"
 //
 // 그래서 조건을 「자기가 안전한가」가 아니라 **「그 자리가 그 자리인가」**로 둔다.
 // 桂頭の銀이 手筋인 이유가 「桂는 뛰기만 해서 머리의 駒를 못 딴다」인 것처럼, 이 부류는
-// 자리 자체에 이유가 들어 있다.
+// 자리 자체에 이유가 들어 있다. (**그래도 이득은 엔진이 정한다** — 잡히는 것을 전제로
+// 두는 것과 그냥 던지는 것은 다르고, 그 둘은 depth 12라야 갈린다: `game/tesuji.go`.)
+//
+// **成銀은 銀이 아니다.** 처음에는 `Base()` 로 물어서 成銀도 걸렸는데, 실전 국면에서
+// `▲6二成銀` 에 「腹銀」이 떴다(06-status.md §34). 이름이 銀이라고 말하는데 成銀은 金의
+// 움직임이라, 그 자리가 그 자리인 이유가 통째로 다르다 — 붙일 이름이 있다면 腹金이지
+// 腹銀이 아니다. 화면에 그대로 나가는 단언이라 그 차이를 지운 채로 두면 틀린 것을 가르친다.
 
 var (
 	haraGin    = Tag{Code: "hara_gin", NameJa: "腹銀", Kind: KindTesuji}
@@ -49,7 +55,7 @@ func onBoard(file, rank int) bool {
 // 이 手筋의 내용이다. 잡히면 안 된다고 요구하면 실전의 腹銀이 하나도 안 걸린다.
 func BellySilver(pos shogi.Position, sq int, c shogi.Color) (Tag, bool) {
 	p := pos.Board[sq]
-	if p.Empty() || p.Color() != c || p.Type().Base() != shogi.Silver {
+	if p.Empty() || p.Color() != c || p.Type() != shogi.Silver {
 		return Tag{}, false
 	}
 
@@ -73,7 +79,7 @@ func BellySilver(pos shogi.Position, sq int, c shogi.Color) (Tag, bool) {
 // 「머리」는 桂 주인의 전진 방향 한 칸이다.
 func KnightHeadSilver(pos shogi.Position, sq int, c shogi.Color) (Tag, bool) {
 	p := pos.Board[sq]
-	if p.Empty() || p.Color() != c || p.Type().Base() != shogi.Silver {
+	if p.Empty() || p.Color() != c || p.Type() != shogi.Silver {
 		return Tag{}, false
 	}
 
