@@ -1,0 +1,112 @@
+package game
+
+import (
+	"context"
+	"testing"
+
+	"github.com/jovid18/show-gi/apps/server/internal/shogi"
+)
+
+// 詰み이 아닌 `other` 30건에 **詰めろ**를 물어보는 자리다(06-status.md §40).
+//
+// 종반의 어휘는 駒得이 아니라 **速度**다 — 「終盤は駒の損得より速度」. 그 速度를 세는
+// 단위가 手スキ이고, 0手スキ가 詰み, **1手スキ가 詰めろ**다. 詰み은 앞선 측정이 이미
+// 23건을 찾았다. 남은 30건이 「한 수 뒤에 죽는다」인지를 여기서 본다.
+//
+// **詰めろ는 패스로 판정한다.** 「내가 아무것도 안 하면 詰むか」가 곧 정의라, 수번만
+// 뒤집어 詰み 탐색에 물으면 답이 나온다. 판을 뒤집는 것은 SFEN 한 줄이고 엔진은
+// 그것을 그냥 국면으로 받는다.
+//
+// **어디서 묻는지가 요점이다.** 물러진 수 직후는 상대 차례라 거기서 詰み을 묻는 것이
+// 이미 앞 측정이다. 詰めろ는 그 **다음**, 상대가 벌하는 수를 두고 내 차례가 된 자리에서
+// 묻는다 — 그리고 그 「벌하는 수」는 이미 손에 있다(refutationLine 이 쓰는 PV의 첫 수).
+// 추가 탐색이 없다는 뜻이고, 그래서 이 신호는 프로덕션에 붙여도 공짜에 가깝다.
+//
+//	docker run --rm --network show-gi-net -v "$PWD:/src" -w /src/apps/server \
+//	  -e SHOWGI_USI_CMD=/opt/yaneuraou/run -e SHOWGI_MATE_CMD=/opt/yaneuraou/run-mate \
+//	  -e SHOWGI_MEASURE=1 \
+//	  -e SHOWGI_TEST_DATABASE_URL='postgres://showgi:showgi@show-gi-db:5432/showgi' \
+//	  show-gi-enginetest:latest go test ./internal/game/ -run MeasureBlunderTsumero -v -timeout 60m
+
+// passSFEN 은 수번만 뒤집은 국면이다. 「내가 손을 뺐다면」이 곧 詰めろ의 정의다.
+//
+// **王手를 받고 있을 때는 물으면 안 된다.** 王手는 응수가 강제라 손을 뺄 수 없고,
+// 그 국면에서 나온 「詰めろ」는 판 위에서 성립하지 않는 말이다.
+func passSFEN(pos shogi.Position) (string, bool) {
+	if pos.InCheck(pos.Turn) {
+		return "", false
+	}
+	p := pos
+	p.Turn = p.Turn.Other()
+	return p.SFEN(), true
+}
+
+func TestMeasureBlunderTsumero(t *testing.T) {
+	conn := measureDB(t)
+	pool := measurePool(t)
+	mate := measureMatePool(t)
+
+	all, moves := loadBlunders(t, conn)
+	ctx := context.Background()
+
+	var mated, tsumero, inCheck, quiet, skipped int
+	t.Logf("== 詰み이 아닌 `other` 에 詰めろ를 물었다 ==")
+	t.Logf("  %-6s %-5s %-9s %-14s %-10s", "game", "ply", "Δwin", "벌하는 수", "판정")
+
+	for _, b := range all {
+		if b.category != "other" {
+			continue
+		}
+		gm := moves[b.gameID]
+		if _, _, err := replayBlunder(b, gm); err != nil {
+			skipped++
+			continue
+		}
+		played := append(append([]string(nil), gm[:b.ply-1]...), b.retracted)
+
+		// 물러진 수 직후에 이미 詰んでいる 것은 앞 측정이 센 23건이다. 여기서는 뺀다.
+		if r, err := mate.SearchMate(ctx, b.startSFEN, played); err == nil && r.Found() {
+			mated++
+			continue
+		}
+
+		// 상대가 벌하는 수. **이미 손에 있는 탐색의 PV 첫 수다** — 추가 비용이 없다.
+		res, err := pool.SearchDepth(ctx, b.startSFEN, played, JudgeDepth)
+		if err != nil || len(res.PV) == 0 {
+			skipped++
+			continue
+		}
+		punish := res.PV[0]
+
+		pos, err := positionAfter(b.startSFEN, append(append([]string(nil), played...), punish))
+		if err != nil {
+			skipped++
+			continue
+		}
+
+		sfen, ok := passSFEN(pos)
+		if !ok {
+			// 王手를 받고 있다. 손을 뺄 수 없으니 詰めろ를 물을 자리가 아니다 —
+			// 이쪽은 「王手가 이어진다」로 따로 말해야 한다.
+			inCheck++
+			t.Logf("  %-6d %-5d %-9.3f %-14s %-10s", b.gameID, b.ply, b.deltaWin, punish, "王手中")
+			continue
+		}
+
+		verdict := "-"
+		if r, err := mate.SearchMate(ctx, sfen, nil); err == nil && r.Found() {
+			tsumero++
+			verdict = "詰めろ " + itoa(len(r.Moves)) + "手"
+		} else {
+			quiet++
+		}
+		t.Logf("  %-6d %-5d %-9.3f %-14s %-10s", b.gameID, b.ply, b.deltaWin, punish, verdict)
+	}
+
+	t.Logf("\n== 갈래 (詰み 23건을 뺀 나머지) ==")
+	t.Logf("  이미 詰み (앞 측정)                     %3d", mated)
+	t.Logf("  詰めろ — 벌하는 수 뒤에 손을 빼면 詰む   %3d", tsumero)
+	t.Logf("  王手中 — 손을 뺄 수 없다                %3d", inCheck)
+	t.Logf("  그래도 조용하다                         %3d", quiet)
+	t.Logf("  못 물었다                               %3d", skipped)
+}
