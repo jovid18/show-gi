@@ -125,7 +125,7 @@ func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiP
 		}
 		return usi.SearchResult{}, false
 	}
-	if p.ComputedDepth < depth || len(p.Candidates) < multiPV {
+	if p.ComputedDepth < depth || len(p.Candidates) < wanted(pos, multiPV) {
 		return usi.SearchResult{}, false
 	}
 
@@ -166,6 +166,18 @@ func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiP
 		return usi.SearchResult{}, false
 	}
 	return res, true
+}
+
+// wanted 는 그 국면에서 **실제로 있을 수 있는** 후보 수다.
+//
+// **합법수가 k보다 적으면 후보도 k개가 안 된다.** 그걸 「모자란다」로 보면 그 자리는
+// 영원히 캐시를 못 쓰고 매번 다시 잰다 — 종반에 k=10을 묻는 상대가 정확히 여기 온다.
+// 합법수를 세는 것은 룰 엔진 몫이라 엔진을 안 부른다.
+func wanted(pos shogi.Position, multiPV int) int {
+	if multiPV <= 1 {
+		return multiPV
+	}
+	return min(multiPV, len(pos.LegalMoves()))
 }
 
 // positionAfter 는 시작 국면에서 그 수순을 둔 국면이다. 못 두면 에러다 —

@@ -424,3 +424,35 @@ func TestIgnoresInsufficientCache(t *testing.T) {
 		}
 	}
 }
+
+// **합법수가 k보다 적은 국면은 그것으로 다 찬 것이다.** 「모자란다」로 보면 그 자리는
+// 영원히 캐시를 못 쓰고, 종반에 k=10을 묻는 상대(§16)가 정확히 거기서 매번 다시 잰다.
+func TestServesWhenThereAreFewerLegalMovesThanK(t *testing.T) {
+	st := newStore()
+	// 玉 둘만 있는 국면. 先手 玉이 1九에 몰려 합법수가 셋이다(9八·8八·8九 방향).
+	const cornered = "8k/9/9/9/9/9/9/9/8K b - 1"
+	pos, err := shogi.ParseSFEN(cornered)
+	if err != nil {
+		t.Fatalf("ParseSFEN: %v", err)
+	}
+	legal := len(pos.LegalMoves())
+	if legal >= 10 {
+		t.Fatalf("합법수가 %d개다 — 이 테스트가 노리는 국면이 아니다", legal)
+	}
+
+	// 엔진은 있는 만큼만 준다 — k=10을 물어도 합법수가 셋이면 세 줄이다.
+	eng := &fakeEngine{res: result(8, "1i1h", "1i2h", "1i2i")}
+	a := Wrap(eng, st)
+
+	if _, err := a.SearchMultiPV(t.Context(), cornered, nil, 8, 10); err != nil {
+		t.Fatalf("첫 탐색: %v", err)
+	}
+	a.Wait()
+
+	if _, err := a.SearchMultiPV(t.Context(), cornered, nil, 8, 10); err != nil {
+		t.Fatalf("두 번째: %v", err)
+	}
+	if eng.calls != 1 {
+		t.Errorf("엔진을 %d번 불렀다, want 1 — 후보가 합법수만큼 있으면 다 찬 것이다", eng.calls)
+	}
+}
