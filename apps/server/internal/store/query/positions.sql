@@ -50,3 +50,9 @@ SET child_key     = COALESCE(EXCLUDED.child_key, edges.child_key),
 
 -- name: CountEdges :one
 SELECT count(*) FROM edges;
+
+-- name: ListEdges :many
+--
+-- 한 국면에서 나가는 수들. **깊이별 평가치를 되찾는 유일한 길이다** — `positions.candidates`
+-- 에는 마지막 깊이의 값만 있고, 개입 판정이 보는 얕은 값(depth 2)은 여기에만 있다.
+SELECT * FROM edges WHERE parent_key = $1;

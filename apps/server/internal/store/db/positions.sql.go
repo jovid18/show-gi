@@ -54,6 +54,38 @@ func (q *Queries) GetPosition(ctx context.Context, sfenKey string) (Position, er
 	return i, err
 }
 
+const listEdges = `-- name: ListEdges :many
+SELECT parent_key, usi, child_key, tags, eval_by_depth FROM edges WHERE parent_key = $1
+`
+
+// 한 국면에서 나가는 수들. **깊이별 평가치를 되찾는 유일한 길이다** — `positions.candidates`
+// 에는 마지막 깊이의 값만 있고, 개입 판정이 보는 얕은 값(depth 2)은 여기에만 있다.
+func (q *Queries) ListEdges(ctx context.Context, parentKey string) ([]Edge, error) {
+	rows, err := q.db.Query(ctx, listEdges, parentKey)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Edge
+	for rows.Next() {
+		var i Edge
+		if err := rows.Scan(
+			&i.ParentKey,
+			&i.USI,
+			&i.ChildKey,
+			&i.Tags,
+			&i.EvalByDepth,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertEdge = `-- name: UpsertEdge :exec
 
 INSERT INTO edges (parent_key, usi, child_key, tags, eval_by_depth)

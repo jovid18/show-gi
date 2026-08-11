@@ -181,6 +181,30 @@ func (s *Store) PutEdge(ctx context.Context, e Edge) error {
 // CountEdges 는 쌓인 수의 개수다. 캐시와 같은 자리에서 발표 숫자로 쓴다.
 func (s *Store) CountEdges(ctx context.Context) (int64, error) { return s.q.CountEdges(ctx) }
 
+// Edges 는 그 국면에서 나가는 수들이다.
+//
+// **깊이별 평가치를 되찾는 유일한 길이다.** `positions.candidates` 에는 마지막 깊이의 값만
+// 있어서, 개입 판정이 보는 얕은 값(depth 2)은 여기서만 나온다 — 캐시로 탐색을 대신할 때
+// 그 값이 빠지면 「얕은 이득에 낚임」 카테고리가 조용히 사라진다(01-core.md §3).
+func (s *Store) Edges(ctx context.Context, parentKey string) ([]Edge, error) {
+	rows, err := s.q.ListEdges(ctx, parentKey)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Edge, 0, len(rows))
+	for _, r := range rows {
+		e := Edge{ParentKey: r.ParentKey, USI: r.USI, Tags: r.Tags}
+		if r.ChildKey != nil {
+			e.ChildKey = *r.ChildKey
+		}
+		for _, cp := range r.EvalByDepth {
+			e.EvalByDepth = append(e.EvalByDepth, int(cp))
+		}
+		out = append(out, e)
+	}
+	return out, nil
+}
+
 // ── 대국 기록 ────────────────────────────────────────────
 
 // GameResult 는 games.result 에 들어가는 값이다. DDL의 주석과 같은 어휘를 쓴다.

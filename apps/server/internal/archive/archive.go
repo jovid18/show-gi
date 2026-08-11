@@ -38,9 +38,10 @@ import (
 // 끝나 ctx가 닫히는 순간) 방금 잰 분석이 그대로 버려진다.
 const writeTimeout = 5 * time.Second
 
-// Store 는 분석이 쌓이는 곳. `*store.Store` 가 만족한다.
+// Store 는 분석이 쌓이고 **다시 꺼내지는** 곳. `*store.Store` 가 만족한다.
 type Store interface {
 	GetPosition(ctx context.Context, sfenKey string) (store.Position, error)
+	Edges(ctx context.Context, parentKey string) ([]store.Edge, error)
 	PutPosition(ctx context.Context, p store.Position) (bool, error)
 	PutEdge(ctx context.Context, e store.Edge) error
 }
@@ -79,6 +80,17 @@ func (a *Searcher) SearchMultiPV(
 	moves []string,
 	depth, multiPV int,
 ) (usi.SearchResult, error) {
+	// **이미 잰 국면이면 엔진을 안 부른다.** 여기가 §12의 캐시를 실제로 쓰는 자리다 —
+	// 상대의 수는 k=10으로 2초쯤 걸리고, 사람의 수를 판정하는 「착수 전」 탐색은 방금
+	// 그 상대가 이미 잰 그 국면이다.
+	if a.store != nil {
+		if pos, err := positionAfter(startSFEN, moves); err == nil {
+			if hit, ok := a.lookup(ctx, pos, depth, multiPV); ok {
+				return hit, nil
+			}
+		}
+	}
+
 	res, err := a.inner.SearchMultiPV(ctx, startSFEN, moves, depth, multiPV)
 	if err != nil || a.store == nil {
 		return res, err
@@ -92,6 +104,88 @@ func (a *Searcher) SearchMultiPV(
 		a.record(startSFEN, line, res)
 	}()
 	return res, nil
+}
+
+// lookup 은 이미 잰 국면을 탐색 결과의 모양으로 되돌린다. 못 쓰면 ok=false.
+//
+// **되돌려야 하는 것이 둘이다.** 후보 목록(`Lines`)은 `positions` 에서 나오지만, 부르는
+// 쪽이 보는 **깊이별 값**(`History`)은 `edges.eval_by_depth` 에만 있다 — 그게 없으면
+// 개입 판정의 `ScoreAtDepth(2)` 가 빈손으로 돌아오고, 「얕은 이득에 낚임」 카테고리가
+// 조용히 사라진다(01-core.md §3). 캐시가 기능을 조용히 지우는 일은 없어야 한다.
+//
+// 두 조건을 다 넘어야 쓴다 — **깊이가 모자라지 않고, 후보 수도 모자라지 않을 때**다.
+// 뒤엣것이 없으면 k=1로 쓰인 행이 k=10을 원하는 쪽에 하나만 주고, 적응형 상대는 고를
+// 후보가 없어 최선수만 두게 된다(그건 강함 조절이 꺼진 것이다).
+func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiPV int) (usi.SearchResult, bool) {
+	key := Key(pos)
+	p, err := a.store.GetPosition(ctx, key)
+	if err != nil {
+		if !errors.Is(err, store.ErrNoPosition) {
+			log.Printf("archive: read position: %v", err)
+		}
+		return usi.SearchResult{}, false
+	}
+	if p.ComputedDepth < depth || len(p.Candidates) < multiPV {
+		return usi.SearchResult{}, false
+	}
+
+	// 깊이별 값은 수마다 다른 행에 있다. 한 번에 읽어 수로 묶는다.
+	byMove := map[string][]int{}
+	if edges, err := a.store.Edges(ctx, key); err == nil {
+		for _, e := range edges {
+			if len(e.EvalByDepth) > 0 {
+				byMove[e.USI] = e.EvalByDepth
+			}
+		}
+	} else {
+		log.Printf("archive: read edges: %v", err)
+	}
+
+	res := usi.SearchResult{Depth: p.ComputedDepth}
+	for i, c := range p.Candidates {
+		if i == 0 {
+			res.Best, res.ScoreCp = c.USI, c.Cp
+			res.IsMate, res.MateIn = c.MateIn != 0, c.MateIn
+			res.PV = c.PV
+		}
+		line := usi.SearchLine{
+			Depth: p.ComputedDepth, MultiPV: i + 1, Move: c.USI, ScoreCp: c.Cp,
+			IsMate: c.MateIn != 0, MateIn: c.MateIn, PV: c.PV,
+		}
+		res.Lines = append(res.Lines, line)
+
+		// 저장은 先手 관점이고 탐색 결과는 **수번 관점**이다. 되돌리는 것을 빠뜨리면
+		// 後手로 잡은 판에서만 부호가 뒤집히고, 에러는 안 난다.
+		for d, cp := range byMove[c.USI] {
+			res.History = append(res.History, usi.SearchLine{
+				Depth: d + 1, MultiPV: i + 1, Move: c.USI, ScoreCp: senteCp(cp, pos.Turn),
+			})
+		}
+	}
+	if res.Best == "" {
+		return usi.SearchResult{}, false
+	}
+	return res, true
+}
+
+// positionAfter 는 시작 국면에서 그 수순을 둔 국면이다. 못 두면 에러다 —
+// **그 위에 데이터를 쌓거나 꺼내면 없던 국면을 다루게 된다.**
+func positionAfter(startSFEN string, moves []string) (shogi.Position, error) {
+	pos, err := shogi.ParseSFEN(startSFEN)
+	if err != nil {
+		return pos, err
+	}
+	for _, u := range moves {
+		m, err := shogi.ParseUSIMove(u)
+		if err != nil {
+			return pos, err
+		}
+		if err := pos.ValidateMove(m); err != nil {
+			return pos, err
+		}
+		pos = pos.Apply(m)
+	}
+	return pos, nil
 }
 
 // Wait 은 떠 있는 기록이 끝날 때까지 기다린다. 종료 순서에서 부른다.

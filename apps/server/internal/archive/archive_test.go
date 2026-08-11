@@ -16,9 +16,10 @@ import (
 // 실제 DB에 들어가는지는 `internal/store` 의 테스트가 본다.
 
 type fakeEngine struct {
-	res  usi.SearchResult
-	err  error
-	last struct {
+	res   usi.SearchResult
+	err   error
+	calls int
+	last  struct {
 		startSFEN string
 		moves     []string
 		depth     int
@@ -29,6 +30,7 @@ type fakeEngine struct {
 func (f *fakeEngine) SearchMultiPV(
 	_ context.Context, startSFEN string, moves []string, depth, multiPV int,
 ) (usi.SearchResult, error) {
+	f.calls++
 	f.last.startSFEN, f.last.moves, f.last.depth, f.last.multiPV = startSFEN, moves, depth, multiPV
 	return f.res, f.err
 }
@@ -53,6 +55,18 @@ func (s *fakeStore) GetPosition(_ context.Context, key string) (store.Position, 
 		return store.Position{}, store.ErrNoPosition
 	}
 	return p, nil
+}
+
+func (s *fakeStore) Edges(_ context.Context, parentKey string) ([]store.Edge, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []store.Edge
+	for _, e := range s.edges {
+		if e.ParentKey == parentKey {
+			out = append(out, e)
+		}
+	}
+	return out, nil
 }
 
 func (s *fakeStore) PutPosition(_ context.Context, p store.Position) (bool, error) {
@@ -310,4 +324,103 @@ func play(t *testing.T, pos shogi.Position, usis ...string) shogi.Position {
 		pos = pos.Apply(m)
 	}
 	return pos
+}
+
+// **이미 잰 국면은 엔진을 안 부른다.** 여기가 §12의 캐시를 실제로 쓰는 자리다.
+//
+// 그리고 **깊이별 값이 함께 살아나야 한다** — 개입 판정이 보는 얕은 값이 그것이고, 캐시가
+// 그걸 빠뜨리면 「얕은 이득에 낚임」 카테고리가 조용히 사라진다(01-core.md §3).
+func TestServesFromTheCache(t *testing.T) {
+	st := newStore()
+	eng := &fakeEngine{res: result(12, "7g7f", "2g2f", "6g6f")}
+	a := Wrap(eng, st)
+
+	first, err := a.SearchMultiPV(t.Context(), shogi.StartSFEN, nil, 12, 3)
+	if err != nil {
+		t.Fatalf("첫 탐색: %v", err)
+	}
+	a.Wait()
+
+	second, err := a.SearchMultiPV(t.Context(), shogi.StartSFEN, nil, 12, 3)
+	if err != nil {
+		t.Fatalf("두 번째: %v", err)
+	}
+	if eng.calls != 1 {
+		t.Fatalf("엔진을 %d번 불렀다, want 1", eng.calls)
+	}
+
+	if second.Best != first.Best || second.ScoreCp != first.ScoreCp || second.Depth != first.Depth {
+		t.Errorf("best/score/depth 가 갈렸다: %+v vs %+v", second, first)
+	}
+	if len(second.Lines) != 3 {
+		t.Fatalf("lines = %d, want 3", len(second.Lines))
+	}
+
+	// **얕은 값이 살아 있어야 한다.** 없으면 판정이 그 축을 잃는다.
+	want, ok := first.ScoreAtDepth(2)
+	if !ok {
+		t.Fatal("첫 결과에 depth 2 가 없다 — 테스트가 틀렸다")
+	}
+	got, ok := second.ScoreAtDepth(2)
+	if !ok {
+		t.Fatal("캐시에서 온 결과에 depth 2 가 없다")
+	}
+	if got != want {
+		t.Errorf("depth 2 = %d, want %d", got, want)
+	}
+}
+
+// 캐시가 **수번 관점**으로 돌아와야 한다. 저장은 先手 관점이라, 되돌리는 것을 빠뜨리면
+// 後手로 잡은 판에서만 부호가 뒤집히고 에러는 안 난다.
+func TestCacheKeepsTheMoverPointOfView(t *testing.T) {
+	st := newStore()
+	// 1手 뒤는 後手 차례다. 엔진은 後手에게 +100이라고 답한다.
+	eng := &fakeEngine{res: result(6, "3c3d")}
+	a := Wrap(eng, st)
+
+	first, err := a.SearchMultiPV(t.Context(), shogi.StartSFEN, []string{"7g7f"}, 6, 1)
+	if err != nil {
+		t.Fatalf("첫 탐색: %v", err)
+	}
+	a.Wait()
+
+	second, err := a.SearchMultiPV(t.Context(), shogi.StartSFEN, []string{"7g7f"}, 6, 1)
+	if err != nil {
+		t.Fatalf("두 번째: %v", err)
+	}
+	if eng.calls != 1 {
+		t.Fatalf("엔진을 %d번 불렀다, want 1", eng.calls)
+	}
+	for _, d := range []int{1, 3, 6} {
+		want, _ := first.ScoreAtDepth(d)
+		got, ok := second.ScoreAtDepth(d)
+		if !ok || got != want {
+			t.Errorf("depth %d = %d(ok=%v), want %d", d, got, ok, want)
+		}
+	}
+}
+
+// **모자란 캐시는 안 쓴다.** 얕게 잰 행과 후보가 적은 행이 그렇다 — 뒤엣것을 안 막으면
+// k=1로 쓰인 행이 k=10을 원하는 적응형 상대에게 후보 하나만 주고, 그건 강함 조절이 꺼진 것이다.
+func TestIgnoresInsufficientCache(t *testing.T) {
+	for name, ask := range map[string][2]int{
+		"더 깊이 원한다":  {14, 1},
+		"후보를 더 원한다": {6, 3},
+	} {
+		st := newStore()
+		eng := &fakeEngine{res: result(6, "7g7f")}
+		a := Wrap(eng, st)
+
+		if _, err := a.SearchMultiPV(t.Context(), shogi.StartSFEN, nil, 6, 1); err != nil {
+			t.Fatalf("%s: 첫 탐색: %v", name, err)
+		}
+		a.Wait()
+
+		if _, err := a.SearchMultiPV(t.Context(), shogi.StartSFEN, nil, ask[0], ask[1]); err != nil {
+			t.Fatalf("%s: 두 번째: %v", name, err)
+		}
+		if eng.calls != 2 {
+			t.Errorf("%s: 엔진을 %d번 불렀다, want 2 (캐시를 쓰면 안 된다)", name, eng.calls)
+		}
+	}
 }

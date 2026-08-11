@@ -418,6 +418,10 @@ func evalOf(
 	line []string,
 	want int,
 ) ([]store.Candidate, error) {
+	// **감싼 층도 캐시를 읽는다**(internal/archive) — 여기가 남아 있는 이유는 둘이다.
+	// ① 이 표면은 후보 **셋**을 약속하는데, 합법수가 그보다 적은 국면에서는 셋이 애초에
+	// 없다(저쪽은 k=3을 못 채우는 행을 안 쓴다). ② 히트면 탐색 결과를 되짚어 만드는
+	// 일까지 건너뛴다 — 되짚는 화면은 手数를 옮길 때마다 이 자리를 지난다.
 	if cache != nil {
 		p, err := cache.GetPosition(ctx, archive.Key(pos))
 		switch {
