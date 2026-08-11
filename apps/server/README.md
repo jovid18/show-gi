@@ -58,13 +58,15 @@ docker run --rm --platform linux/arm64 --cpus 4 -v "$PWD:/src:ro" show-gi-engine
 
 **`-race` 를 빼지 않는다.** 엔진 프로세스와 세션 goroutine이 동시에 도는 구조라 데이터 경합이 가장 값비싼 버그다.
 
-| 환경변수                   | 없으면             | 쓰는 곳                                     |
-| -------------------------- | ------------------ | ------------------------------------------- |
-| `SHOWGI_TEST_DATABASE_URL` | DB 테스트 skip     | `internal/store`                            |
-| `SHOWGI_USI_CMD`           | 실엔진 테스트 skip | `TestRealEngine`, `TestWSAgainstRealEngine` |
-| `SHOWGI_MATE_CMD`          | 詰み 측정 skip     | `TestMeasureMateSearch`                     |
-| `SHOWGI_MEASURE`           | 측정 전부 skip     | `TestMeasure*` — 몇 분 걸린다               |
-| `SHOWGI_GENERATE_TIER1`    | 사전 생성 skip     | `TestGenerateTier1` — **돈이 든다**. 아래   |
+| 환경변수                   | 없으면             | 쓰는 곳                                               |
+| -------------------------- | ------------------ | ----------------------------------------------------- |
+| `SHOWGI_TEST_DATABASE_URL` | DB 테스트 skip     | `internal/store`, `internal/intervene` 의 재채점 측정 |
+| `SHOWGI_USI_CMD`           | 실엔진 테스트 skip | `TestRealEngine`, `TestWSAgainstRealEngine`           |
+| `SHOWGI_MATE_CMD`          | 詰み 측정 skip     | `TestMeasureMateSearch`                               |
+| `SHOWGI_MEASURE`           | 측정 전부 skip     | `TestMeasure*` — 몇 분 걸린다                         |
+| `SHOWGI_GENERATE_TIER1`    | 사전 생성 skip     | `TestGenerateTier1` — **돈이 든다**. 아래             |
+
+> **재채점 측정만 `SHOWGI_MEASURE` 를 안 본다.** `TestMeasureCalibrationFromRecords` 는 엔진을 안 돌리고 DB만 읽어 초 단위로 끝난다. 대신 **기록이 쌓인 DB를 가리켜야 값이 나온다** — 로컬 DB에는 짧은 테스트 대국밖에 없다 ([docs/06-status.md §39](../../docs/06-status.md)).
 
 **`SHOWGI_GENERATE_TIER1` 만 성격이 다르다** — 검증이 아니라 **만드는 일**이다. Tier 1 문구 21개를 실제 라우터로 만들어 `internal/store/migrations/004_explain_cache_tier1.sql` 에 떨어뜨린다([06-status.md §38](../../docs/06-status.md)). **프롬프트를 고쳤을 때만** 다시 돌린다 — 그때 `promptVersion` 이 올라가 옛 행이 통째로 죽고, 게이트 없는 `TestTier1MigrationMatchesFacts` 가 그것을 잡는다.
 

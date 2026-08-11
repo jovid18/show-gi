@@ -651,7 +651,7 @@ func TestJudgesFromTheFirstMoveByDefault(t *testing.T) {
 	}
 }
 
-// 갇힘 힌트는 **단계마다 실리는 것이 달라야 한다.** 3회 단계에서 수를 통째로 내려보내면
+// 갇힘 힌트는 **단계마다 실리는 것이 달라야 한다.** 첫 칸에서 수를 통째로 내려보내면
 // 계단이 화면에만 있고 답은 페이로드에 그대로 있다.
 func TestBuildHintStaysBehindItsStage(t *testing.T) {
 	for _, tc := range []struct {
@@ -660,12 +660,14 @@ func TestBuildHintStaysBehindItsStage(t *testing.T) {
 		best  string
 		want  *Hint
 	}{
-		{"아직 안 열린다", 2, "5d5f", nil},
-		{"3회 — 칸만", 3, "5d5f", &Hint{Square: "5d"}},
-		{"4회 — 그대로", 4, "5d5f", &Hint{Square: "5d"}},
-		{"5회 — 수까지", 5, "5d5f", &Hint{Square: "5d", USI: "5d5f"}},
-		{"打는 駒台를 짚는다", 3, "B*4a", &Hint{Drop: "B"}},
-		{"打도 5회에 수까지", 5, "B*4a", &Hint{Drop: "B", USI: "B*4a"}},
+		// **횟수를 여기 박지 않는다.** 지키는 것은 「칸마다 실리는 것이 다르다」이지
+		// 2나 4라는 값이 아니다 — 값은 실측으로 움직인다(06-status.md §39).
+		{"아직 안 열린다", HintPieceAfter - 1, "5d5f", nil},
+		{"첫 칸 — 칸만", HintPieceAfter, "5d5f", &Hint{Square: "5d"}},
+		{"그 사이 — 그대로", HintMoveAfter - 1, "5d5f", &Hint{Square: "5d"}},
+		{"윗칸 — 수까지", HintMoveAfter, "5d5f", &Hint{Square: "5d", USI: "5d5f"}},
+		{"打는 駒台를 짚는다", HintPieceAfter, "B*4a", &Hint{Drop: "B"}},
+		{"打도 윗칸에 수까지", HintMoveAfter, "B*4a", &Hint{Drop: "B", USI: "B*4a"}},
 		// 최선수를 못 구했으면 힌트도 없다. 판정이 고장 나도 대국은 계속된다는 것과 같은 판단이다.
 		{"최선수가 없으면 없다", 9, "", nil},
 		{"읽을 수 없으면 없다", 9, "zzzz", nil},
@@ -717,24 +719,24 @@ func TestStuckHintOpensAndResets(t *testing.T) {
 		}
 	}
 
-	// 3회 — 駒만. **수는 오지 않는다.** 오면 계단이 화면에만 있고 답은 페이로드에 있다.
+	// 첫 칸 — 駒만. **수는 오지 않는다.** 오면 계단이 화면에만 있고 답은 페이로드에 있다.
 	got := bounce(HintPieceAfter)
 	if got.Hint == nil || got.Hint.Square != "2g" {
-		t.Fatalf("3회에 칸을 짚어야 한다: %+v", got.Hint)
+		t.Fatalf("%d회에 칸을 짚어야 한다: %+v", HintPieceAfter, got.Hint)
 	}
 	if got.Hint.USI != "" {
-		t.Fatalf("3회에 수가 실렸다: %+v", got.Hint)
+		t.Fatalf("%d회에 수가 실렸다: %+v", HintPieceAfter, got.Hint)
 	}
 
 	for i := HintPieceAfter + 1; i < HintMoveAfter; i++ {
 		if got := bounce(i); got.Hint == nil || got.Hint.USI != "" {
-			t.Fatalf("%d회는 3회와 같아야 한다: %+v", i, got.Hint)
+			t.Fatalf("%d회는 %d회와 같아야 한다: %+v", i, HintPieceAfter, got.Hint)
 		}
 	}
 
-	// 5회 — 수까지.
+	// 윗칸 — 수까지.
 	if got := bounce(HintMoveAfter); got.Hint == nil || got.Hint.USI != "2g2f" {
-		t.Fatalf("5회에 수를 줘야 한다: %+v", got.Hint)
+		t.Fatalf("%d회에 수를 줘야 한다: %+v", HintMoveAfter, got.Hint)
 	}
 
 	// 통과하는 수 하나로 닫힌다.
@@ -747,7 +749,7 @@ func TestStuckHintOpensAndResets(t *testing.T) {
 
 	// **여기서 「힌트가 없다」만 보면 아무것도 안 지킨다** — `playHuman` 이 착수마다
 	// 힌트를 지우므로 계수가 6이어도 그 스냅샷은 비어 있다. 계수가 실제로 0으로
-	// 돌아갔는지는 **한 번 더 물러져 봐야** 갈린다. 안 돌아갔으면 그 한 번이 6회가 되어
+	// 돌아갔는지는 **한 번 더 물러져 봐야** 갈린다. 안 돌아갔으면 그 한 번이 윗칸을 넘겨
 	// 곧바로 수까지 실린 힌트가 온다.
 	an.verdict = blunder()
 	if _, err := s.Play(t.Context(), "2g2f"); err != nil {
