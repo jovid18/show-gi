@@ -6,7 +6,7 @@ import { EvalGraph } from './EvalGraph';
 import { WhatIfPanel } from './WhatIfPanel';
 import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/libs/game/moves';
 import { dateJa, resultJa } from '@/libs/review/labels';
-import type { GameDetail, ReviewIntervention, ReviewMove } from '@/protocol/review';
+import type { GameDetail, ReviewMove } from '@/protocol/review';
 import type { WhatIfNode } from '@/protocol/whatif';
 import { useEngineReady } from '@/hooks/useReview';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
@@ -675,7 +675,15 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
                       <span className="review-iv-move">{iv.retractedJa || iv.retractedUsi}</span>
                       <span className="review-iv-delta">−{Math.round(iv.deltaWin * 100)}%</span>
                     </button>
-                    {focus === i && <InterventionNote intervention={iv} />}
+                    {/* **문구는 서버가 만든 것을 그대로 그린다.** 대국 중에 나갔던 문장은 어디에도
+                        저장하지 않으므로(카테고리만 남는다) 글자까지 같지는 않다 — 같은 사실에서
+                        나온 결정적 문구다.
+
+                        「この局面で ▲6八歩 を指して戻されました」 한 줄이 여기 더 있었다. 위의
+                        버튼이 手数·카테고리·수·낙폭을 이미 말하므로 같은 말이었고, 그 문장이 있던
+                        이유는 뒤에 있던 「この手を指してみる」를 소개하는 것이었는데 그 버튼이
+                        없어졌다 — 목록에서 고르는 것이 곧 그 수를 두는 것이다. */}
+                    {focus === i && iv.message && <p className="review-iv-note">{iv.message}</p>}
                   </li>
                 ))}
               </ol>
@@ -683,28 +691,6 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
           )}
         </section>
       </aside>
-    </div>
-  );
-}
-
-/**
- * 왜 나빴는가. **문구는 서버가 만든 것을 그대로 그린다.**
- *
- * 대국 중에 나갔던 문장은 어디에도 저장하지 않으므로(카테고리만 남는다) 이것은 그때
- * 그 문장과 글자까지 같지는 않다. 같은 사실에서 나온 결정적 문구다.
- *
- * **「この手を指してみる」 버튼은 없앴다.** 목록에서 그 개입을 고르는 것이 이미 그 수를 두는
- * 것이라(`recall`), 버튼이 방금 한 일을 한 번 더 하자고 묻고 있었다.
- */
-function InterventionNote({ intervention }: { intervention: ReviewIntervention }) {
-  return (
-    <div className="review-iv-note">
-      {intervention.message && <p>{intervention.message}</p>}
-      {intervention.retractedJa && (
-        <p className="review-iv-hint">
-          この局面で <strong>{intervention.retractedJa}</strong> を指して戻されました。
-        </p>
-      )}
     </div>
   );
 }

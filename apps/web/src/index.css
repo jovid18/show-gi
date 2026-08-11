@@ -1745,16 +1745,6 @@ body {
   line-height: 1.6;
 }
 
-.review-iv-hint {
-  color: var(--muted);
-}
-
-.review-iv-hint strong {
-  font-family: var(--font-koma);
-  font-weight: 400;
-  color: var(--fg);
-}
-
 /* ── 棋譜(넘겨 보는 쪽) ── */
 
 /* 대국 화면의 .kifu-list 와 다른 물건이다. 저쪽은 읽기만 하고 이쪽은 **누르면 그 국면으로 간다.**
