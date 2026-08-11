@@ -64,8 +64,14 @@ export interface WhatIfNode {
   yourTurn: boolean;
   checked?: string;
   status: 'playing' | 'checkmate' | 'stalemate' | 'resigned';
-  /** **화면이 규칙을 모르기 때문에** 온다. 대국의 스냅샷과 같은 자리다. */
-  legalMoves: string[];
+  /**
+   * **화면이 규칙을 모르기 때문에** 온다. 대국의 스냅샷과 같은 자리다.
+   *
+   * **`null` 로 올 수 있다.** 詰み·手詰まり 국면에는 둘 수가 없고, Go의 nil 슬라이스는
+   * `[]` 가 아니라 `null` 로 직렬화된다 — 타입에서 그걸 숨기면 `?? ` 사슬이 **대국 판의
+   * 합법수로 흘러내린다**(GameScreen에서 실제로 그랬다).
+   */
+  legalMoves: string[] | null;
   /** **플레이어 관점** cp. 끝난 국면이면 없다. */
   evalCp?: number;
   mateIn?: number;

@@ -239,9 +239,15 @@ export function GameScreen() {
    */
   const bNode = intervening ? branch.node : null;
 
+  /**
+   * 지금 고를 수 있는 수. **분기가 서 있으면 그쪽 것이고, 아니면 대국의 것이다.**
+   *
+   * `??` 로 이어 붙이면 안 된다 — 분기가 詰み이면 `legalMoves` 가 `null` 로 오고, 그때
+   * 사슬이 **대국 판의 합법수로 흘러내린다.** 서 있는 판과 다른 국면의 규칙이 붙는 것이다.
+   */
   const grouped = useMemo(
-    () => groupByOrigin(bNode?.legalMoves ?? snapshot?.legalMoves ?? []),
-    [bNode?.legalMoves, snapshot?.legalMoves],
+    () => groupByOrigin((bNode ? bNode.legalMoves : snapshot?.legalMoves) ?? []),
+    [bNode, snapshot?.legalMoves],
   );
 
   const destinations: Destination[] = origin ? (grouped.get(origin) ?? []) : [];

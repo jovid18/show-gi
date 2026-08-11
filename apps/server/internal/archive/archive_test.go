@@ -456,3 +456,47 @@ func TestServesWhenThereAreFewerLegalMovesThanK(t *testing.T) {
 		t.Errorf("엔진을 %d번 불렀다, want 1 — 후보가 합법수만큼 있으면 다 찬 것이다", eng.calls)
 	}
 }
+
+// **히트에도 오는 길은 남는다.** 같은 국면에 다른 수로 도달하면(전치) 그 간선은 새것이다 —
+// 안 남기면 그 자리가 영원히 비어 있고, 「A→B를 쌓는다」가 반만 사실이 된다.
+func TestLinksThePathEvenOnACacheHit(t *testing.T) {
+	st := newStore()
+	eng := &fakeEngine{res: result(8, "3c3d")}
+	a := Wrap(eng, st)
+
+	// ① 국면을 한 번 잰다(수순 없이) — 이러면 「오게 한 수」가 없다.
+	start, err := shogi.ParseSFEN(shogi.StartSFEN)
+	if err != nil {
+		t.Fatalf("ParseSFEN: %v", err)
+	}
+	m, err := shogi.ParseUSIMove("7g7f")
+	if err != nil {
+		t.Fatalf("ParseUSIMove: %v", err)
+	}
+	after := start.Apply(m)
+
+	if _, err := a.SearchMultiPV(t.Context(), after.SFEN(), nil, 8, 1); err != nil {
+		t.Fatalf("첫 탐색: %v", err)
+	}
+	a.Wait()
+	if _, ok := st.edgeFor("7g7f"); ok {
+		t.Fatal("아직 그 수로 온 적이 없다")
+	}
+
+	// ② 같은 국면을 **수순으로** 물으면 캐시가 답한다. 그때 오는 길이 남아야 한다.
+	if _, err := a.SearchMultiPV(t.Context(), shogi.StartSFEN, []string{"7g7f"}, 8, 1); err != nil {
+		t.Fatalf("두 번째: %v", err)
+	}
+	a.Wait()
+	if eng.calls != 1 {
+		t.Errorf("엔진을 %d번 불렀다, want 1", eng.calls)
+	}
+
+	e, ok := st.edgeFor("7g7f")
+	if !ok {
+		t.Fatal("히트에서 오는 길이 안 남았다")
+	}
+	if e.ParentKey != Key(start) || e.ChildKey != Key(after) {
+		t.Errorf("edge = %+v", e)
+	}
+}

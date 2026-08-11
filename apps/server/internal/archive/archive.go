@@ -86,6 +86,15 @@ func (a *Searcher) SearchMultiPV(
 	if a.store != nil {
 		if pos, err := positionAfter(startSFEN, moves); err == nil {
 			if hit, ok := a.lookup(ctx, pos, depth, multiPV); ok {
+				// **히트에도 「이 국면에 오게 한 수」는 남긴다.** 국면은 이미 있어도 그
+				// 국면으로 **오는 길**은 새것일 수 있다(전치가 그것이다) — 안 남기면 그
+				// 간선이 영원히 비어 있고, A→B를 쌓는다는 말이 반만 사실이 된다.
+				line := slices.Clone(moves)
+				a.wg.Add(1)
+				go func() {
+					defer a.wg.Done()
+					a.recordPath(startSFEN, line, hit)
+				}()
 				return hit, nil
 			}
 		}
@@ -202,6 +211,28 @@ func positionAfter(startSFEN string, moves []string) (shogi.Position, error) {
 
 // Wait 은 떠 있는 기록이 끝날 때까지 기다린다. 종료 순서에서 부른다.
 func (a *Searcher) Wait() { a.wg.Wait() }
+
+// recordPath 는 **그 국면에 오게 한 수**만 남긴다. 캐시가 답한 자리에서 쓴다 —
+// 국면과 후보는 이미 있고, 새것일 수 있는 것은 오는 길뿐이다.
+func (a *Searcher) recordPath(startSFEN string, moves []string, res usi.SearchResult) {
+	if len(moves) == 0 {
+		return // 뿌리다. 오게 한 수가 없다
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), writeTimeout)
+	defer cancel()
+
+	parent, err := positionAfter(startSFEN, moves[:len(moves)-1])
+	if err != nil {
+		log.Printf("archive: replay for path: %v", err)
+		return
+	}
+	m, err := shogi.ParseUSIMove(moves[len(moves)-1])
+	if err != nil {
+		return
+	}
+	child := parent.Apply(m)
+	a.link(ctx, parent, len(moves)-1, moves[len(moves)-1], child, Key(child), Candidates(res))
+}
 
 // record 는 탐색 하나를 데이터로 옮긴다.
 //
