@@ -1284,6 +1284,81 @@ body {
   }
 }
 
+/* ── board ────────────────────────────────────────────────
+   판을 three.js가 그린다 — 나뭇결·격자, 그리고 **相手의 利きが 드리우는 그늘.**
+
+   여기서 색을 새로 꺼내지 않는다. 그늘은 있던 나무색을 **어둡게 하는 것**이라,
+   회상에서 판을 탈색하는 것과 같은 자리에 있다(「강조는 색이 아니라 빛으로」).
+   빛과 반대 방향이라는 것이 요점이다 — 착수 후보는 칸이 밝아지고, 위험한 칸은
+   어두워진다. 두 신호가 한 축의 양끝이라 섞이지 않는다. */
+
+/* 캔버스가 칸보다 **뒤**에 깔린다. 그러려면 판이 자기 겹을 가져야 한다 —
+   안 그러면 음수 z-index가 판의 배경(격자색)보다도 뒤로 빠져 안 보인다.
+   판 안의 것들(회상 장막 2 · 불꽃 3 · 표식 3)은 서로의 순서를 그대로 지킨다. */
+.board {
+  isolation: isolate;
+}
+
+/* **크기를 100%로 못박는다.** 캔버스는 대체 요소라 `width:auto` 가 상자가 아니라
+   **그리기 버퍼의 크기**로 풀린다 — inset:0 만 두면 DPR 2인 화면에서 876px 버퍼가
+   438px 판 위에 그대로 깔려서, 셰이더 격자가 칸의 두 배로 벌어진다(실제로 물렸다). */
+.board-surface {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* 셰이더가 판을 그리는 동안 칸은 **투명해진다.** 칸이 나무색을 들고 있으면
+   그 위를 덮어서 그늘이 한 칸도 안 보인다.
+   WebGL이 안 잡히면 이 속성이 안 붙고, 그러면 지금까지의 CSS 판 그대로다. */
+.board[data-surface] .square {
+  background: transparent;
+}
+
+/* 판 아래, 段 라벨 열은 비켜서 판과 같은 너비 안에 선다. */
+.exposure-toggle {
+  grid-column: 1;
+  grid-row: 3;
+  justify-self: end;
+  margin-top: 0.15rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid rgb(var(--light) / 0.16);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.exposure-toggle:hover:not(:disabled) {
+  color: var(--fg);
+  border-color: rgb(var(--light) / 0.3);
+}
+
+/* 켜져 있는 것을 **눌린 것처럼** 그린다. 판 위의 신호가 아니라 화면의 컨트롤이라
+   여기서 --light 를 써도 착수 후보·王手와 자리를 다투지 않는다. */
+.exposure-toggle[aria-pressed='true'] {
+  color: var(--fg);
+  border-color: rgb(var(--light) / 0.34);
+  background: rgb(var(--light) / 0.08);
+}
+
+/* 회상 중에는 이미 켜져 있다 — 끄지 못하는 것이지 고장 난 것이 아니라서
+   흐리게 두되 켜진 표시는 남긴다. */
+.exposure-toggle:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
 /* ── review ───────────────────────────────────────────────
    끝난 판을 되짚는 화면. 판·駒台·棋譜는 대국 화면의 것을 그대로 쓴다 — 같은 판이
    두 모양으로 보이면 어느 쪽이 진짜인지 헷갈린다. 여기 있는 것은 **넘겨 보는 장치**와
