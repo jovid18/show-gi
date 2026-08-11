@@ -55,7 +55,7 @@ export function WhatIfPanel({
   onBack,
   onRoot,
 }: WhatIfPanelProps) {
-  const score = node && !stale ? scoreJa(node.evalCp, node.mateIn) : '';
+  const score = node ? scoreJa(node.evalCp, node.mateIn) : '';
   const branching = (node?.line.length ?? 0) > 0;
   const down = engineReady === false;
 
@@ -64,7 +64,11 @@ export function WhatIfPanel({
       <div className="review-whatif-head">
         <h2 className="panel-title">もしも — {basePly}手目から</h2>
         {/* 값은 **끝난 국면에는 없다.** 0으로 채우면 호각과 구별이 안 된다(리뷰 전체가 그렇다). */}
-        {score && <span className="review-whatif-score">{score}</span>}
+        {score && (
+          <span className="review-whatif-score" data-stale={stale || undefined}>
+            {score}
+          </span>
+        )}
       </div>
 
       {/* **기다리는 동안 글자를 바꾸지 않는다.** 한때 여기가 `読んでいます…` 로 바뀌었는데,
@@ -90,8 +94,8 @@ export function WhatIfPanel({
 
       {/* 분기의 수순. 실제 기보와 **같은 어휘로 같은 모양**으로 선다 — 手数 · 수 · cp.
           갈리는 것은 왼쪽의 얇은 선 하나뿐이고, 그건 「여기서 갈라졌다」다. */}
-      {node && !stale && branching && (
-        <ol className="review-whatif-line">
+      {node && branching && (
+        <ol className="review-whatif-line" data-stale={stale || undefined}>
           {node.line.map((move, i) => {
             // cp는 **그 수를 둔 뒤**의 값이다. 지나온 자리는 이미 받아 뒀으므로 다시 묻지
             // 않고 꺼내 온다 — 그래서 「어디서 무너지는가」가 줄을 따라 읽힌다.
@@ -137,12 +141,14 @@ export function WhatIfPanel({
 
       {/* 되돌아가는 길이 둘이다. **한 수씩 물리는 것과 분기를 접는 것은 다른 일이다** —
           몇 수를 들어간 뒤에 원래 판으로 돌아가려고 「一手戻る」를 다섯 번 누르게 두지 않는다. */}
-      {!stale && branching && (
+      {/* **기다리는 동안 사라지지 않는다.** 감추면 값이 올 때 패널이 두 번 움직인 것처럼
+          보인다 — 누를 수 없게만 한다. */}
+      {branching && (
         <div className="review-whatif-actions">
-          <button type="button" className="btn" disabled={pending} onClick={onBack}>
+          <button type="button" className="btn" disabled={pending || stale} onClick={onBack}>
             一手戻る
           </button>
-          <button type="button" className="btn" disabled={pending} onClick={onRoot}>
+          <button type="button" className="btn" disabled={pending || stale} onClick={onRoot}>
             分岐の前へ
           </button>
         </div>

@@ -2144,6 +2144,8 @@ body {
    글자를 `読んでいます…` 로 바꾸지도 않는다. 手数마다 문구가 번쩍이면 그것만 눈에 남는다 —
    신호는 하나로 족하다. 잠깐이라 전환도 두지 않는다(들어올 때 깜빡이면 같은 일이다) */
 .review-whatif-best[data-stale],
-.review-whatif-status[data-stale] {
+.review-whatif-status[data-stale],
+.review-whatif-line[data-stale],
+.review-whatif-score[data-stale] {
   opacity: 0.4;
 }
