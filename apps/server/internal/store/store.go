@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"time"
 
@@ -342,7 +343,19 @@ type GameRecord struct {
 var ErrNoGame = errors.New("store: game not found")
 
 // ListGames 는 최근 대국을 최신부터 준다. **한 수도 안 둔 판은 안 온다**(games.sql).
+//
+// limit 은 여기서 int32 범위로 자른다. **자르는 변환을 하는 자리가 스스로 막아야 한다** —
+// 64비트에서 `int32(limit)` 은 큰 값을 조용히 음수로 만들고, 그러면 `LIMIT` 이 거짓말을 한다.
+// 지금은 부르는 쪽(review.go)이 정책상의 상한을 이미 걸지만, 그건 그쪽의 정책이지
+// 이 변환의 안전이 아니다 — 다음 호출자가 같은 데를 밟는다.
 func (s *Store) ListGames(ctx context.Context, limit int) ([]GameSummary, error) {
+	if limit < 1 {
+		limit = 1
+	}
+	if limit > math.MaxInt32 {
+		limit = math.MaxInt32
+	}
+
 	rows, err := s.q.ListGames(ctx, int32(limit))
 	if err != nil {
 		return nil, fmt.Errorf("list games: %w", err)
