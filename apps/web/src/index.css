@@ -1358,3 +1358,420 @@ body {
   cursor: default;
   opacity: 0.55;
 }
+
+/* ── review ───────────────────────────────────────────────
+   끝난 판을 되짚는 화면. 판·駒台·棋譜는 대국 화면의 것을 그대로 쓴다 — 같은 판이
+   두 모양으로 보이면 어느 쪽이 진짜인지 헷갈린다. 여기 있는 것은 **넘겨 보는 장치**와
+   목록뿐이다. */
+
+/* 화면 전환. 제목 줄 오른쪽 끝에 붙는다 — 판 위에 두면 대국 중에 누를 것이 하나 늘어난다. */
+.app-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-inline-start: auto;
+}
+
+.app-tab {
+  padding: 0.25rem 0.7rem;
+  border: 1px solid rgb(var(--light) / 0.14);
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.app-tab:hover,
+.app-tab:focus-visible {
+  border-color: rgb(var(--light) / 0.4);
+  color: var(--fg);
+}
+
+/* 고른 쪽은 **빛으로** 표시한다. 색을 쓰면 판 위의 신호 체계와 자리를 다툰다. */
+.app-tab[data-active] {
+  border-color: rgb(var(--light) / 0.5);
+  background: rgb(var(--light) / 0.08);
+  color: var(--fg);
+}
+
+/* 읽는 중·못 읽음·아직 없음. 셋이 같은 자리에 서지만 말하는 것이 다르다. */
+.review-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 4rem 1rem;
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.review-retry {
+  padding: 0.25rem 0.7rem;
+  border: 1px solid rgb(var(--light) / 0.18);
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.review-retry:hover,
+.review-retry:focus-visible {
+  border-color: rgb(var(--light) / 0.45);
+}
+
+/* ── 대국 목록 ── */
+
+.review-list {
+  max-width: 34rem;
+  margin-inline: auto;
+}
+
+.review-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+}
+
+/* 한 줄에 넷을 눕힌다: 언제 · 결과 · 몇 수 · 몇 번 막혔나.
+   **介入 횟수가 오른쪽 끝**이다 — 목록을 훑는 눈이 마지막에 닿는 자리이고,
+   이 제품에서 한 판을 고르는 이유가 거의 그것이다. */
+.review-card {
+  display: grid;
+  /* 뒤 세 칸의 폭을 고정한다. `auto` 로 두면 「10手」와 「2手」가 서로 다른 폭을 잡아
+     줄마다 오른쪽 세 칸이 어긋나고, 목록을 세로로 훑을 수 없다. */
+  grid-template-columns: 1fr 4rem 3.5rem 4.5rem;
+  align-items: baseline;
+  gap: 0.9rem;
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid rgb(var(--light) / 0.1);
+  background: var(--surface);
+  font: inherit;
+  color: var(--fg);
+  text-align: start;
+  cursor: pointer;
+}
+
+.review-card:hover,
+.review-card:focus-visible {
+  border-color: rgb(var(--light) / 0.35);
+}
+
+.review-card-date {
+  font-size: 0.875rem;
+}
+
+.review-card-moves,
+.review-card-iv {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  /* 숫자가 오른쪽에 모여야 자릿수가 달라도 세로로 읽힌다. */
+  text-align: end;
+}
+
+/* 한 번도 안 막힌 판. **0회도 성적이다** — 그래서 지우지 않고 낮춘다. */
+.review-card-iv[data-none] {
+  opacity: 0.45;
+}
+
+.review-card-result,
+.review-result {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.review-card-result {
+  text-align: end;
+}
+
+/* 이긴 판만 판 색으로 든다. 진 판을 붉게 칠하지 않는 것은 이 제품이 실수를 나무라는
+   물건이 아니기 때문이다 — 되짚으러 온 사람에게 결과부터 붉게 보일 이유가 없다. */
+.review-card-result[data-result='win'],
+.review-result[data-result='win'] {
+  color: var(--board);
+}
+
+/* ── 한 판 되짚기 ── */
+
+/* 판 쪽은 .game 이 이미 잡는다. 여기서는 옆 패널이 길어지는 것만 다스린다. */
+.review .game-side {
+  gap: 0.9rem;
+}
+
+.review-broken {
+  margin: 0;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.review-head {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.review-back {
+  justify-self: start;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.review-back:hover,
+.review-back:focus-visible {
+  color: var(--fg);
+}
+
+.review-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+/* 넘겨 보는 장치. 버튼·슬라이더·手数가 한 덩어리로 보여야 셋이 같은 일을 한다는 것이 읽힌다. */
+.review-controls {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.6rem;
+  border: 1px solid rgb(var(--light) / 0.1);
+  background: var(--surface);
+}
+
+.review-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.3rem;
+}
+
+.review-buttons button {
+  padding: 0.3rem 0;
+  border: 1px solid rgb(var(--light) / 0.14);
+  background: none;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.review-buttons button:hover:not(:disabled),
+.review-buttons button:focus-visible {
+  border-color: rgb(var(--light) / 0.4);
+}
+
+/* 끝에 닿으면 눌러도 아무 일이 없다. 그것을 눌러 보고 알게 하지 않는다. */
+.review-buttons button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.review-slider {
+  width: 100%;
+  /* --board 는 rgb 트리플릿이 아니라 색 자체다(--light 와 다르다). rgb()로 감싸면
+     선언이 통째로 무효가 되어 브라우저 기본 파랑이 나온다 — 실제로 그랬다. */
+  accent-color: var(--board);
+}
+
+.review-ply {
+  margin: 0;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.review-panel {
+  display: grid;
+  align-content: start;
+}
+
+.review-empty {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+/* ── 개입 목록 ── */
+
+.review-iv-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: min(22rem, 38vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.review-iv {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr auto;
+  align-items: baseline;
+  gap: 0.2rem 0.5rem;
+  width: 100%;
+  padding: 0.35rem 0.3rem;
+  border: none;
+  border-bottom: 1px solid rgb(var(--light) / 0.06);
+  background: none;
+  font: inherit;
+  color: var(--fg);
+  text-align: start;
+  cursor: pointer;
+}
+
+.review-iv:hover,
+.review-iv:focus-visible {
+  background: rgb(var(--light) / 0.05);
+}
+
+/* 지금 판에 그려지고 있는 개입. 판이 낮아지고 그 수가 화살표로 서 있는 상태다. */
+.review-iv[data-active] {
+  background: rgb(var(--light) / 0.09);
+}
+
+.review-iv-ply {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.review-iv-cat {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* 물러진 수. **기보에 없는 유일한 수**라 駒 글꼴로 세워 둔다 — 옆의 棋譜와 같은 물건으로 읽힌다. */
+.review-iv-move {
+  grid-column: 2;
+  grid-row: 2;
+  font-family: var(--font-koma);
+  font-size: 0.9375rem;
+}
+
+.review-iv-delta {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: center;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.review-iv-note {
+  padding: 0.5rem 0.3rem 0.7rem;
+  border-bottom: 1px solid rgb(var(--light) / 0.06);
+}
+
+.review-iv-note p {
+  margin: 0 0 0.35rem;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.review-iv-hint {
+  color: var(--muted);
+}
+
+.review-iv-hint strong {
+  font-family: var(--font-koma);
+  font-weight: 400;
+  color: var(--fg);
+}
+
+/* ── 棋譜(넘겨 보는 쪽) ── */
+
+/* 대국 화면의 .kifu-list 와 다른 물건이다. 저쪽은 읽기만 하고 이쪽은 **누르면 그 국면으로 간다.**
+   position:relative 는 장식이 아니라 계산이다 — 고른 줄을 목록 안에서 보이게 하는 쪽이
+   offsetTop 을 이 요소 기준으로 읽는다. */
+.review-kifu {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: min(26rem, 44vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.review-kifu-row {
+  display: grid;
+  grid-template-columns: 2.5ch 1fr auto auto;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.25rem 0.25rem;
+  border: none;
+  border-bottom: 1px solid rgb(var(--light) / 0.06);
+  background: none;
+  font: inherit;
+  color: var(--fg);
+  text-align: start;
+  cursor: pointer;
+}
+
+.review-kifu-row:hover,
+.review-kifu-row:focus-visible {
+  background: rgb(var(--light) / 0.05);
+}
+
+.review-kifu-row[data-selected] {
+  background: rgb(var(--light) / 0.09);
+}
+
+.review-kifu-number {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.review-kifu-move {
+  font-family: var(--font-koma);
+  font-size: 0.9375rem;
+}
+
+.review-kifu-row[data-by='engine'] .review-kifu-move {
+  color: #cfc7ba;
+}
+
+/* 이 手数에 한 번 막혔다. 확정된 수 옆에 서야 「이 수를 두기 전에」로 읽힌다. */
+.review-kifu-mark {
+  padding: 0 0.3rem;
+  border: 1px solid rgb(var(--light) / 0.2);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+/* 평가치는 **플레이어 관점**이다. 부호를 색으로 갈라 두지 않는다 — 판 위에서 색이
+   무엇을 뜻하는지가 이미 정해져 있고, 여기서 초록·빨강을 쓰면 그 뜻이 흐려진다. */
+.review-kifu-eval {
+  font-size: 0.6875rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.review-kifu-eval[data-sign='minus'] {
+  opacity: 0.7;
+}
+
+/* 좁은 화면에서는 판이 먼저다. 목록이 길어져 판을 밀어내지 않게 더 낮춘다. */
+@media (max-width: 52rem) {
+  .review-iv-list,
+  .review-kifu {
+    max-height: 14rem;
+  }
+}

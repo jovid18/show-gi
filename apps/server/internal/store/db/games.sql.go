@@ -74,6 +74,38 @@ func (q *Queries) FinishGame(ctx context.Context, arg FinishGameParams) error {
 	return err
 }
 
+const getGame = `-- name: GetGame :one
+SELECT id, my_color, started_at, finished_at, result, start_sfen
+FROM games
+WHERE id = $1
+`
+
+type GetGameRow struct {
+	ID         int64
+	MyColor    string
+	StartedAt  pgtype.Timestamptz
+	FinishedAt pgtype.Timestamptz
+	Result     *string
+	StartSfen  *string
+}
+
+// **여기서는 개입을 세지 않는다.** 어차피 아래에서 전부 읽어 오므로, 따로 센 숫자와
+// 실제로 온 줄 수가 두는 중인 판에서 어긋날 수 있다 — 목록(ListGames)은 줄을 안 읽으니
+// 거기서만 센다.
+func (q *Queries) GetGame(ctx context.Context, id int64) (GetGameRow, error) {
+	row := q.db.QueryRow(ctx, getGame, id)
+	var i GetGameRow
+	err := row.Scan(
+		&i.ID,
+		&i.MyColor,
+		&i.StartedAt,
+		&i.FinishedAt,
+		&i.Result,
+		&i.StartSfen,
+	)
+	return i, err
+}
+
 const insertIntervention = `-- name: InsertIntervention :exec
 INSERT INTO interventions (game_id, ply, kind, category, delta_win, level_bucket, retracted_usi, explain_tier, cost_yen)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -139,6 +171,148 @@ func (q *Queries) InsertMove(ctx context.Context, arg InsertMoveParams) error {
 		arg.EvalCp,
 	)
 	return err
+}
+
+const listGameInterventions = `-- name: ListGameInterventions :many
+SELECT ply, kind, category, delta_win, level_bucket, retracted_usi
+FROM interventions
+WHERE game_id = $1
+ORDER BY ply, id
+`
+
+type ListGameInterventionsRow struct {
+	Ply          int32
+	Kind         string
+	Category     *string
+	DeltaWin     *float64
+	LevelBucket  *string
+	RetractedUsi *string
+}
+
+// 같은 ply에 여러 행이 온다(InsertIntervention 참조). id 로 이어 정렬해 **물러진
+// 순서**를 지킨다 — 한 국면에서 두 번 걸렸을 때 어느 쪽이 먼저였는지가 곧 이야기다.
+func (q *Queries) ListGameInterventions(ctx context.Context, gameID int64) ([]ListGameInterventionsRow, error) {
+	rows, err := q.db.Query(ctx, listGameInterventions, gameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGameInterventionsRow
+	for rows.Next() {
+		var i ListGameInterventionsRow
+		if err := rows.Scan(
+			&i.Ply,
+			&i.Kind,
+			&i.Category,
+			&i.DeltaWin,
+			&i.LevelBucket,
+			&i.RetractedUsi,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGameMoves = `-- name: ListGameMoves :many
+SELECT ply, usi, eval_cp FROM game_moves WHERE game_id = $1 ORDER BY ply
+`
+
+type ListGameMovesRow struct {
+	Ply    int32
+	USI    string
+	EvalCp *int32
+}
+
+// eval_cp 는 **先手 관점**이고 NULL일 수 있다 — 평가치는 수보다 늦게 오므로,
+// 연결이 끊긴 판의 마지막 몇 수에는 안 채워진 채로 남는다.
+func (q *Queries) ListGameMoves(ctx context.Context, gameID int64) ([]ListGameMovesRow, error) {
+	rows, err := q.db.Query(ctx, listGameMoves, gameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGameMovesRow
+	for rows.Next() {
+		var i ListGameMovesRow
+		if err := rows.Scan(&i.Ply, &i.USI, &i.EvalCp); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGames = `-- name: ListGames :many
+
+SELECT
+    g.id,
+    g.my_color,
+    g.started_at,
+    g.finished_at,
+    g.result,
+    (SELECT count(*) FROM game_moves m WHERE m.game_id = g.id) AS move_count,
+    (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count
+FROM games g
+WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
+ORDER BY g.id DESC
+LIMIT $1
+`
+
+type ListGamesRow struct {
+	ID                int64
+	MyColor           string
+	StartedAt         pgtype.Timestamptz
+	FinishedAt        pgtype.Timestamptz
+	Result            *string
+	MoveCount         int64
+	InterventionCount int64
+}
+
+// ─── 리뷰(읽기) ─────────────────────────────────────────────
+// 여기부터가 **꺼내는 쪽**이다. 위의 질의들이 쌓기만 하고 아무도 안 읽던 자리다.
+//
+// 리뷰 화면의 첫 목록. 최신부터.
+//
+// **한 수도 안 둔 판은 빼고 센다.** 연결만 열렸다 끊긴 판이 실제로 그렇게 남는데
+// (ws 핸들러가 붙는 즉시 CreateGame 한다), 되짚을 것이 없는 줄을 목록 맨 위에 놓으면
+// 진짜 대국이 아래로 밀린다. 세는 쪽과 거르는 쪽이 같은 EXISTS 라 둘이 어긋나지 않는다.
+//
+// 정렬은 id 하나로 한다. started_at 은 now() 라 같은 초에 여러 판이 들어가면 순서가
+// 흔들리는데, id 는 시퀀스라 그 자리에서 갈린다.
+func (q *Queries) ListGames(ctx context.Context, limit int32) ([]ListGamesRow, error) {
+	rows, err := q.db.Query(ctx, listGames, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGamesRow
+	for rows.Next() {
+		var i ListGamesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.MyColor,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.Result,
+			&i.MoveCount,
+			&i.InterventionCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const setMoveEval = `-- name: SetMoveEval :exec
