@@ -5,15 +5,36 @@
 #
 #   docker compose up -d      # api + db
 #   pnpm dev                  # 웹 (레포 루트에서)
+#
+# ── 워크트리에서 ───────────────────────────────────────────────────────────
+#
+# 이 파일은 **메인 워크트리와 병렬 워크트리가 같이 쓴다.** 워크트리는 api만
+# 자기 몫으로 띄우고 db는 메인이 띄운 것 하나를 같이 쓴다 (CLAUDE.md 「워크트리」).
+# 갈리는 세 값은 워크트리의 `.env`가 준다 — compose가 프로젝트 디렉터리의
+# `.env`를 자동으로 읽으므로 명령에 붙일 것이 없다.
+#
+#   COMPOSE_PROJECT_NAME=show-gi-<slug>
+#   SHOWGI_API_NAME=show-gi-<slug>-api
+#   SHOWGI_API_PORT=8081
+#
+#   docker compose up -d --no-deps api      # 워크트리에서는 --no-deps
+#
+# **`--no-deps`를 빼면 컨테이너명 충돌로 실패한다.** db가 `container_name`으로
+# 고정돼 있어서다. 고정해 두는 쪽이 의도적이다 — 이름을 워크트리마다 갈랐다면
+# 두 번째 postgres가 자기 볼륨을 들고 조용히 떠서, 같은 스키마를 본다고 믿는
+# 두 서버가 서로 다른 데이터를 보게 된다. 시끄럽게 실패하는 편이 낫다.
 
 services:
   api:
     build: ./apps/server
-    container_name: show-gi-api
+    container_name: ${SHOWGI_API_NAME:-show-gi-api}
     ports:
-      - '127.0.0.1:8080:8080' # 루프백에만 바인딩한다
+      - '127.0.0.1:${SHOWGI_API_PORT:-8080}:8080' # 루프백에만 바인딩한다
     environment:
-      DATABASE_URL: postgres://showgi:showgi@db:5432/showgi?sslmode=disable
+      # 호스트명이 서비스명 `db`가 아니라 **컨테이너명**이다. 서비스명은 같은
+      # compose 프로젝트 안에서만 풀리므로, 워크트리(다른 프로젝트)의 api가
+      # 메인이 띄운 db를 못 찾는다. 컨테이너명은 네트워크 전체에서 풀린다
+      DATABASE_URL: postgres://showgi:showgi@show-gi-db:5432/showgi?sslmode=disable
       # ENGINE_CMD 를 여기 적지 않는다. 엔진 실행 경로는 **이미지 내부 구조**라
       # 밖에서 적어두면 이미지를 바꿀 때 조용히 어긋난다 — 프로덕션에서 실제로 물렸고
       # (docs/06-status.md §11) 태스크 정의에서도 같은 이유로 뺐다.
@@ -52,3 +73,9 @@ services:
 
 volumes:
   show-gi-dbdata:
+
+networks:
+  # 이름을 고정한다. 기본값은 `<디렉터리명>_default`라 워크트리마다 갈리고,
+  # 그러면 워크트리의 api가 메인의 db와 다른 네트워크에 떨어져 이름이 안 풀린다
+  default:
+    name: show-gi-net
