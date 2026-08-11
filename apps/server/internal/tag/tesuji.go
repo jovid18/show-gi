@@ -35,18 +35,25 @@ const (
 // 이름이 있고, 초심자에게는 그 이름이 곧 학습 단위다([01-core.md §7.1](../../../../docs/01-core.md)의
 // 계보형이 같은 이야기다) — 「両取り」라고만 말하면 다음에 그 형태를 못 알아본다.
 //
-// **成った 駒도 여기 든다**(`Base()`). 銀에서 成銀을 뺀 것과 반대로 보이지만 기준은 같다 —
-// 이름이 말하는 성질이 남아 있는가다. 成銀은 金의 움직임이 되어 銀의 이유가 사라지는데,
-// 龍은 飛의 縦横을 그대로 갖고 馬는 角의 斜め를 그대로 갖는다. 다만 그 둘은 **더 갖는
-// 것**이 있어서(한 칸씩의 덤), 방향은 아래에서 따로 본다.
+// **成った 駒는 표에 있는 것만 든다.** 기준은 하나다 — **이름이 말하는 성질이 남아
+// 있는가**(腹銀에서 成銀을 뺀 것과 같은 기준이다, placement.go).
+//
+//	龍·馬   든다.  飛의 縦横 · 角의 斜め를 그대로 갖는다. 다만 **더 갖는 것**이 있어서
+//	              (한 칸씩의 덤) 방향은 forkShape 에서 따로 본다
+//	成桂·成銀  뺀다.  둘 다 金의 움직임이 되어 「桂가 둘로 뛴다」도 「銀이 사이에 打つ」도
+//	              성립하지 않는다. 이름만 남고 이유가 사라진 자리다
+//
+// 실제로 실 기보에서 `▲5二成銀` 에 「割打ちの銀」이 떴다(06-status.md §34 ⑤).
 var forkNames = map[shogi.PieceType]Tag{
-	shogi.Knight: {Code: "fundoshi_no_kei", NameJa: "ふんどしの桂", Kind: KindTesuji},
-	shogi.Silver: {Code: "wariuchi_no_gin", NameJa: "割打ちの銀", Kind: KindTesuji},
-	shogi.Rook:   {Code: "juji_bisha", NameJa: "十字飛車", Kind: KindTesuji},
-	shogi.Bishop: {Code: "kaku_ryodori", NameJa: "角による両取り", Kind: KindTesuji},
+	shogi.Knight:     {Code: "fundoshi_no_kei", NameJa: "ふんどしの桂", Kind: KindTesuji},
+	shogi.Silver:     {Code: "wariuchi_no_gin", NameJa: "割打ちの銀", Kind: KindTesuji},
+	shogi.Rook:       {Code: "juji_bisha", NameJa: "十字飛車", Kind: KindTesuji},
+	shogi.PromRook:   {Code: "juji_bisha", NameJa: "十字飛車", Kind: KindTesuji},
+	shogi.Bishop:     {Code: "kaku_ryodori", NameJa: "角による両取り", Kind: KindTesuji},
+	shogi.PromBishop: {Code: "kaku_ryodori", NameJa: "角による両取り", Kind: KindTesuji},
 }
 
-// targetCount 는 그 駒가 딸 수 있는 상대 **駒의 칸 수**다.
+// targetSquares 는 그 駒가 딸 수 있는 상대 **駒가 선 칸들**이다.
 //
 // 수를 세면 거짓말이 된다 — 같은 駒를 成·不成으로 딸 수 있으면 수가 둘이지만 노리는
 // 것은 하나다. `explain` 이 매수를 셀 때 같은 것에 물렸고, 그때도 에러가 안 났다(§27).
@@ -137,7 +144,7 @@ func Fork(pos shogi.Position, sq int, c shogi.Color) (Tag, bool) {
 	if p.Empty() || p.Color() != c {
 		return Tag{}, false
 	}
-	name, named := forkNames[p.Type().Base()]
+	name, named := forkNames[p.Type()]
 	if !named {
 		return Tag{}, false
 	}
@@ -157,7 +164,7 @@ var dengaku = Tag{Code: "dengaku_zashi", NameJa: "田楽刺し", Kind: KindTesuj
 //
 // 앞뒤를 나눠 보는 것은 남는다. 앞은 무엇이든 되지만 **뒤는 歩가 아니어야 한다** —
 // 香를 던져 얻는 것이 뒤의 駒라서, 뒤가 歩면 꿰어도 이름이 붙는 형태가 아니다.
-// 両取り가 歩를 대상에서 빼는 것과 같은 관례이고(targetCount), **香와의 값 비교는
+// 両取り가 歩를 대상에서 빼는 것과 같은 관례이고(targetSquares), **香와의 값 비교는
 // 하지 않는다** — 「그래서 得인가」는 엔진이 답한다.
 func Skewer(pos shogi.Position, sq int, c shogi.Color) (Tag, bool) {
 	p := pos.Board[sq]

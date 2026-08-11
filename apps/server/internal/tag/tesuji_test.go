@@ -163,3 +163,30 @@ func TestPromotedRookExtraStepIsNotACross(t *testing.T) {
 		t.Errorf("縦 하나 + 斜め 하나인데 %s 가 떴다", got.Code)
 	}
 }
+
+// **成桂·成銀에는 桂·銀의 이름을 안 붙인다.** 둘 다 金의 움직임이 되어 「桂가 둘로 뛴다」도
+// 「銀이 사이에 打つ」도 성립하지 않는다 — 腹銀에서 成銀을 뺀 것과 같은 기준이고, 실 기보의
+// `▲5二成銀` 에 「割打ちの銀」이 떴던 자리다(06-status.md §34 ⑤).
+//
+// 龍·馬는 반대로 **든다.** 飛의 縦横과 角의 斜め가 그대로 남아 있어서다.
+func TestPromotedPiecesKeepOnlyTheNamesTheyStillEarn(t *testing.T) {
+	for _, tc := range []struct {
+		name, sfen string
+		want       string // 빈 값이면 이름이 붙으면 안 된다
+	}{
+		{"成桂", "8k/9/9/3g1g3/4+N4/9/9/9/8K b - 1", ""},
+		{"成銀", "8k/9/9/3g1g3/4+S4/9/9/9/8K b - 1", ""},
+		{"龍", "8k/9/4g4/9/1g2+R4/9/9/9/8K b - 1", "juji_bisha"},
+		{"馬", "8k/9/2g1g4/9/4+B4/9/9/9/8K b - 1", "kaku_ryodori"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := Fork(forkBoard(t, tc.sfen), shogi.SquareOf(5, 5), shogi.Black)
+			if tc.want == "" && ok {
+				t.Errorf("이름이 붙으면 안 되는데 %s 가 떴다", got.Code)
+			}
+			if tc.want != "" && (!ok || got.Code != tc.want) {
+				t.Errorf("%s 를 기대했는데 %s/%v", tc.want, got.Code, ok)
+			}
+		})
+	}
+}
