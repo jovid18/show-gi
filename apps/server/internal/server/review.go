@@ -250,12 +250,7 @@ func detailOf(rec store.GameRecord) gameDetail {
 			if next, ja, ok := advance(posAt[i], toAt[i], m.USI); ok {
 				view.Ja = ja
 				view.SFEN = next.SFEN()
-				// 玉이 없는 국면(기록된 SFEN이 그럴 수 있다)에서 -1이 온다. 그때는 안 짚는다.
-				if next.InCheck(next.Turn) {
-					if sq := next.KingSquare(next.Turn); sq >= 0 {
-						view.Checked = shogi.SquareUSI(sq)
-					}
-				}
+				view.Checked = checkedSquare(next)
 				posAt = append(posAt, next)
 				toAt = append(toAt, lastTo(m.USI))
 			} else {
@@ -311,6 +306,23 @@ func advance(pos shogi.Position, prevTo int, usi string) (shogi.Position, string
 		return pos, "", false
 	}
 	return pos.Apply(m), pos.MoveJa(m, prevTo), true
+}
+
+// checkedSquare 는 王手를 받고 있는 玉의 칸이다(`5a`). 王手가 아니면 빈 값.
+//
+// **화면이 이걸 스스로 구하지 않는다.** 王手인지는 규칙을 알아야 알고, 규칙은 서버만
+// 갖기로 한 것이다 — 가정 수순도 같은 값을 쓴다(whatif.go).
+//
+// 玉이 없는 국면(기록된 SFEN이 그럴 수 있다)에서 -1이 온다. 그때는 안 짚는다.
+func checkedSquare(pos shogi.Position) string {
+	if !pos.InCheck(pos.Turn) {
+		return ""
+	}
+	sq := pos.KingSquare(pos.Turn)
+	if sq < 0 {
+		return ""
+	}
+	return shogi.SquareUSI(sq)
 }
 
 // lastTo 는 그 수의 도착 칸이다. 「同」 표기가 이 값을 본다.

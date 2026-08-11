@@ -492,6 +492,9 @@ export function GameScreen() {
           played={current?.played ?? null}
           replay={replay}
           ray={current?.ray ?? null}
+          // 대국 화면은 미끄러뜨리지 않는다. 판이 움직이는 자리가 회상의 유령 駒이고,
+          // 둘을 같이 켜면 같은 수를 두 방식으로 두 번 그린다.
+          motion={null}
           checks={current?.checks ?? []}
           dimmed={walking}
           dropFrom={dropFrom}
