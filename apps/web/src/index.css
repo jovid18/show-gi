@@ -966,6 +966,79 @@ body {
   font-weight: 600;
 }
 
+/*
+  짜는 순간 판 위에 잠깐 뜨는 이름. 将棋ウォーズ가 하는 그것이다.
+
+  **상시 라벨이 아니라 사건이다.** 사이드바에 늘 띄우면 「中飛車」가 무엇을 가리키는
+  말인지 알 수 없었다(棋譜의 소제목처럼 읽혔다). 짜는 순간 판 가운데에 뜨면 위치와
+  타이밍이 그 설명을 대신하고, 지나가면 화면에 아무것도 남지 않는다.
+
+  색을 쓰지 않는다. 이름이 붙은 것은 좋은 소식도 나쁜 소식도 아니라 그냥 사실이고,
+  경고 계열(개입)이나 보라(詰み 게이지)와 자리를 다투면 안 된다.
+*/
+.tag-flash {
+  position: absolute;
+  inset-inline: 0;
+  top: 42%;
+  z-index: 10;
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  pointer-events: none;
+  animation: tag-flash 2200ms ease-out forwards;
+}
+
+.tag-flash__kind {
+  font-size: 0.75rem;
+  letter-spacing: 0.25em;
+  color: rgb(var(--light) / 0.75);
+}
+
+/* 판 위의 글자라 駒와 같은 明朝. 그림자로 판에서 띄운다 — 판이 꿀색이라 흰 글자만으로는
+   나뭇결에 묻힌다. */
+.tag-flash__name {
+  font-family: var(--font-koma);
+  font-size: clamp(1.5rem, 6vw, 2.25rem);
+  color: rgb(var(--light) / 0.98);
+  text-shadow:
+    0 2px 12px rgb(0 0 0 / 0.85),
+    0 0 30px rgb(0 0 0 / 0.6);
+}
+
+@keyframes tag-flash {
+  0% {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  12%,
+  70% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-0.35rem);
+  }
+}
+
+/* 움직임을 줄여 달라고 한 사용자에게는 밝기만 바꾼다 — 03-frontend.md 의 방침이다. */
+@media (prefers-reduced-motion: reduce) {
+  .tag-flash {
+    animation: tag-flash-fade 2200ms ease-out forwards;
+  }
+
+  @keyframes tag-flash-fade {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    12%,
+    70% {
+      opacity: 1;
+    }
+  }
+}
+
 .rejection {
   margin: 0;
   padding: 0.6rem 0.75rem;
@@ -1029,12 +1102,17 @@ body {
   color: var(--muted);
 }
 
+/* 목록이 자라는 데 상한을 둔다. 없으면 100수 대국에서 페이지가 끝없이 길어진다.
+   좁은 화면의 값은 아래 미디어 쿼리에서 다시 잡는다. */
 .kifu-list {
   margin: 0;
   padding: 0;
   list-style: none;
   max-height: min(20rem, 40vh);
   overflow-y: auto;
+  /* 목록 안에서만 스크롤이 끝나게 한다 — 끝에 닿았을 때 페이지가 이어서 움직이면
+     좁은 화면에서 판이 밀려 올라간다. */
+  overscroll-behavior: contain;
 }
 
 .kifu-row {
@@ -1099,6 +1177,17 @@ body {
 
   .game-side {
     justify-items: stretch;
+  }
+
+  /* **높이를 고정한다.** 상한만 두면 수가 쌓이는 동안 목록이 0에서 상한까지 자라면서
+     아래의 投了 버튼과 페이지 길이가 계속 밀려 내려간다 — 두는 내내 레이아웃이
+     흔들리는 것이라, 넓은 화면(옆에 두는 배치)에서는 안 보이던 문제다.
+
+     빈 상태에는 안 걸린다(그때는 목록 대신 문구가 나온다). 그래서 첫 수에서 한 번
+     자리를 잡고, 그 뒤로는 몇 수를 두든 화면이 움직이지 않는다. */
+  .kifu-list {
+    height: 11rem;
+    max-height: none;
   }
 
   /* 옆 패널이 판 아래로 내려가 화면 밖에 있다. 개입 문구만은 보여야 하므로 띄운다.

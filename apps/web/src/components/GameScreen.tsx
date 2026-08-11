@@ -5,7 +5,7 @@ import { Hand } from './Hand';
 import { Intervention } from './Intervention';
 import { Kifu } from './Kifu';
 import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/game/moves';
-import type { Attack, Player, Snapshot } from '@/game/protocol';
+import type { Attack, Player, Snapshot, StyleTag } from '@/game/protocol';
 import { useGame } from '@/game/useGame';
 import type { Side } from '@/shogi/piece';
 import { parseSfen, type Board as BoardModel } from '@/shogi/sfen';
@@ -94,6 +94,63 @@ function offsetWithin(el: HTMLElement, ancestor: HTMLElement): { x: number; y: n
   return node === ancestor ? { x, y } : null;
 }
 
+/**
+ * 태그가 무엇을 가리키는 말인지 붙이는 라벨.
+ *
+ * `kind` 가 늘면 타입이 여기서 컴파일을 막는다 — 서버에 축을 추가하고 화면을 안 고치면
+ * 실제로 걸렸다.
+ */
+const KIND_JA: Record<StyleTag['kind'], string> = {
+  castle: '囲い',
+  formation: '戦法',
+  opening: '戦型',
+  tesuji: '手筋',
+};
+
+/**
+ * 새로 붙은 이름을 **한 번만** 알린다 — 将棋ウォーズ가 하는 그것이다.
+ *
+ * 사이드바에 상시 띄워 놓는 것으로 먼저 만들었는데, 브라우저에서 보니 「中飛車」가 상태
+ * 문구 아래에 홀로 떠서 **무엇을 가리키는 말인지 알 수 없었다** — 棋譜의 소제목처럼도
+ * 읽혔다. 이름 옆에 「戦法」 같은 라벨을 붙여 고칠 수도 있었지만, 그건 사이드바에
+ * 설명을 하나 더 얹는 일이다.
+ *
+ * **사건으로 만들면 설명이 필요 없어진다.** 짜는 순간 판 위에 잠깐 뜨고 사라지면
+ * 「방금 내가 이걸 만들었다」가 위치와 타이밍으로 전달된다. 03-frontend.md 의 「평시엔
+ * 조용하게」와도 맞는다 — 지나가면 화면에 아무것도 남지 않는다.
+ *
+ * **회차를 기억한다.** 囲い는 깨졌다가 다시 짜이므로, 코드를 기억하지 않으면 같은
+ * 이름이 여러 번 뜬다. 한 대국에서 이름 하나는 한 번이다.
+ */
+function useTagAnnounce(tags: StyleTag[] | undefined, ply: number): [StyleTag | null, () => void] {
+  const seen = useRef(new Set<string>());
+  const [showing, setShowing] = useState<StyleTag | null>(null);
+
+  // 첫 수 전에는 알리지 않는다. 새 대국에서 기억을 비우는 자리이기도 하다.
+  useEffect(() => {
+    if (ply === 0) {
+      seen.current = new Set();
+      setShowing(null);
+    }
+  }, [ply]);
+
+  useEffect(() => {
+    const fresh = tags?.find((t) => !seen.current.has(t.code));
+    if (!fresh || ply === 0) return;
+
+    seen.current.add(fresh.code);
+    setShowing(fresh);
+  }, [tags, ply]);
+
+  // **언마운트를 타이머로 하지 않는다.** 처음에는 `setTimeout(2200)` 으로 지웠는데,
+  // 그러면 길이가 CSS 애니메이션과 **두 벌**이 되어 서로 맞아야 한다. 브라우저에서
+  // 실제로 어긋나게 해 보니 요소가 DOM에 남은 채 `opacity: 0` 으로 보이지 않았다 —
+  // 에러도 안 나고 화면에도 안 나오는 종류다.
+  //
+  // 애니메이션이 끝나는 것을 신호로 쓰면 길이의 주인이 CSS 하나가 된다.
+  return [showing, () => setShowing(null)];
+}
+
 function resultText(snapshot: Snapshot): string | null {
   const won = snapshot.winner === 'human';
   switch (snapshot.status) {
@@ -158,6 +215,9 @@ export function GameScreen() {
     const index = live.squares.findIndex((p) => p?.kind === 'K' && p.side === live.turn);
     return index < 0 ? null : toUsi(fromIndex(index));
   }, [live, snapshot?.inCheck]);
+
+  // 새로 붙은 이름. 판 위에 잠깐 떴다 사라진다.
+  const [announced, clearAnnounced] = useTagAnnounce(snapshot?.styleTags, snapshot?.ply ?? 0);
 
   const intervention = snapshot?.intervention ?? null;
   const intervening = intervention !== null && interventionEpisode > seenEpisode;
@@ -398,6 +458,17 @@ export function GameScreen() {
       {intervening && <div className="veil" aria-hidden="true" />}
 
       <div className="game-board">
+        {/*
+          짜는 순간 판 위에 잠깐 뜬다. **개입 카드와 겹치지 않게 그 아래 겹에 둔다** —
+          블런더로 되물러진 순간에 이름까지 함께 뜨면 두 소식이 한 자리를 다툰다.
+        */}
+        {announced && !intervening && (
+          <div className="tag-flash" role="status" key={announced.code} onAnimationEnd={clearAnnounced}>
+            <span className="tag-flash__kind">{KIND_JA[announced.kind]}</span>
+            <span className="tag-flash__name">{announced.nameJa}</span>
+          </div>
+        )}
+
         <Hand
           side="white"
           label="相手"

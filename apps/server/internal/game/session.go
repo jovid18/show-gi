@@ -17,6 +17,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
+	"github.com/jovid18/show-gi/apps/server/internal/tag"
 )
 
 // Status 는 대국이 끝났는지, 끝났다면 왜인지다.
@@ -75,6 +76,16 @@ type Snapshot struct {
 	// 같지만 **뜻이 반대 방향**이라 따로 둔다 — 저쪽은 방금 둔 수를 말하고 이쪽은
 	// 지금 둘 수를 말한다. 화면도 다른 색으로 그린다.
 	Hint *Hint `json:"hint,omitempty"`
+
+	// StyleTags 는 플레이어가 지금 짜고 있는 囲い·전법의 이름이다.
+	//
+	// **플레이어 쪽만 채운다.** 컴퓨터의 형태를 알려주는 것은 상대의 계획을 알려주는
+	// 것이라 「최선수를 보여주지 않는다」와 어긋난다(01-core.md §7).
+	//
+	// 매 스냅샷마다 다시 센다. 엔진도 DB도 안 타고 맵 조회 몇 번이라, 상태로 들고
+	// 있다가 갱신을 빠뜨리는 쪽이 더 비싸다 — 롤백이 있는 이상 「지금 판 위의 사실」은
+	// 판에서 직접 읽는 것이 언제나 맞는다.
+	StyleTags []tag.Tag `json:"styleTags,omitempty"`
 }
 
 // Analyst 는 착수 한 수를 판정하는 데 필요한 숫자를 구해 온다.
@@ -773,6 +784,21 @@ func (st *state) sideOf(c shogi.Color) Side {
 	return SideEngine
 }
 
+// movesBy 는 한쪽이 둔 수만 순서대로 낸다. 전법·戦型 판정의 입력이다.
+//
+// **물러진 수는 들어 있지 않다.** `st.moves` 는 롤백 때 잘리므로, 되물러진 수로 전법이
+// 정해지는 일이 없다 — 두지 않은 것으로 된 수가 판의 이름을 정하면 개입이 기보를
+// 바꾸는 것이 된다.
+func (st *state) movesBy(side Side) []string {
+	out := make([]string, 0, len(st.moves))
+	for _, m := range st.moves {
+		if m.By == side {
+			out = append(out, m.USI)
+		}
+	}
+	return out
+}
+
 func (st *state) snapshot() Snapshot {
 	turn := "b"
 	if st.pos.Turn == shogi.White {
@@ -793,6 +819,12 @@ func (st *state) snapshot() Snapshot {
 		Judging:      st.judging,
 		Intervention: st.intervention,
 		Hint:         st.hint,
+		StyleTags: tag.Detect(tag.Input{
+			Pos:           st.pos,
+			Color:         st.cfg.HumanColor,
+			PlayerMoves:   st.movesBy(SideHuman),
+			OpponentMoves: st.movesBy(SideEngine),
+		}),
 	}
 	if yours {
 		for _, m := range st.pos.LegalMoves() {
