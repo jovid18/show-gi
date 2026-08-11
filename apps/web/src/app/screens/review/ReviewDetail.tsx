@@ -274,21 +274,28 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
   );
 
   /**
-   * 판 위의 화살표. **회상에서는 물러진 수**, 그 밖에서는 **수번 쪽의 최선수**다.
+   * 판 위의 화살표. **회상에서는 물러진 수**, **분기에서는 수번 쪽의 최선수**다.
    *
-   * 둘은 동시에 뜨지 않는다 — 회상은 「네가 두려던 수」이고 이쪽은 「지금 최선은 무엇인가」라
-   * 한 판에 겹치면 어느 쪽이 사실인지 알 수 없다.
+   * **확정된 판 위에는 안 긋는다.** 한때 手数에 멈추기만 하면 그어졌는데, 그건 이 화면이
+   * 「둬 보면 최선수가 선다」로 설계된 것과 어긋난다(03-frontend.md §3) — 넘겨 보는 것만으로
+   * 답이 판에 그려지면 스스로 찾을 자리가 없어진다.
+   *
+   * 그리고 두 뜻이 **같은 초록 화살표**를 쓴다. 회상의 것은 「네가 두려던 나쁜 수」이고
+   * 분기의 것은 「지금 최선은 무엇인가」라 정반대인데, 모양이 같으니 어느 쪽인지는 **판이
+   * 아니라 옆 패널**이 말한다. 동시에 안 뜨는 것으로는 그 혼동이 안 없어진다 — 그래서
+   * 뜨는 자리를 줄여 「지금 무엇을 보고 있나」가 분명한 때만 긋는다.
    */
   const ray = useMemo<Ray | null>(() => {
     if (recalling) {
       return retracted && retracted.from !== null ? { ...retracted, from: retracted.from, by: 'human' } : null;
     }
+    if (!branching) return null;
     const best = active?.candidates[0];
     if (!best) return null;
     const squares = squaresOf(best.usi);
     if (!squares || squares.from === null) return null; // 打은 駒台를 재야 한다. 여기는 안 잰다
     return { from: squares.from, to: squares.to, by: active.yourTurn ? 'human' : 'engine' };
-  }, [recalling, retracted, active]);
+  }, [recalling, retracted, branching, active]);
 
   /**
    * 한 번이라도 막힌 手数. 기보 줄에 표식을 붙이는 데 쓴다.
