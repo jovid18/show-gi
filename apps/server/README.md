@@ -17,14 +17,19 @@ go vet ./... && gofmt -l .      # gofmt 는 출력이 있으면 어긋난 파일
 curl localhost:8080/healthz     # {"ok":true,"engine":true,"db":true}
 ```
 
-표면은 셋이다. **리뷰(`/api/games`)는 엔진이 아니라 DB에 매여 있다** — 엔진이 죽어 대국을 못 해도 지난 판은 볼 수 있어야 한다.
+**되짚기(`GET /api/games`)는 엔진이 아니라 DB에 매여 있다** — 엔진이 죽어 대국을 못 해도 지난 판은 볼 수 있어야 한다. **가정 수순만 그 조건이 다르다**(아래 마지막 줄): 「그래서 상대가 어떻게 하나」가 내용이라 엔진 없이는 성립하지 않고, 없으면 **그 한 경로만** 503이 된다.
 
-| 라우트                |                                                                                     |
-| --------------------- | ----------------------------------------------------------------------------------- |
-| `GET /healthz`        | 엔진·DB 상태를 값으로 말한다. **없어도 200**                                        |
-| `GET /ws/game`        | 연결 하나가 대국 하나. 엔진이 없으면 503                                            |
-| `GET /api/games`      | 최근 대국 목록. 한 수도 안 둔 판은 안 온다                                          |
-| `GET /api/games/{id}` | 한 판 전체 — 手数마다의 국면·棋譜 표기와 물러진 수 ([§33](../../docs/06-status.md)) |
+| 라우트                        |                                                                                               |
+| ----------------------------- | --------------------------------------------------------------------------------------------- |
+| `GET /healthz`                | 엔진·DB 상태를 값으로 말한다. **없어도 200**                                                  |
+| `GET /ws/game`                | 연결 하나가 대국 하나. 엔진이 없으면 503                                                      |
+| `GET /api/games`              | 최근 대국 목록. 한 수도 안 둔 판은 안 온다                                                    |
+| `GET /api/games/{id}`         | 한 판 전체 — 手数마다의 국면·棋譜 표기와 물러진 수 ([§33](../../docs/06-status.md))           |
+| `POST /api/games/{id}/whatif` | 가정 수순 한 걸음. **DB와 엔진 둘 다 필요하다** — 없으면 503 ([§37](../../docs/06-status.md)) |
+
+**대국 중에도 같은 것을 묻는다.** `/ws/game` 에 `{"type":"whatif","ply":N,"moves":[…]}` 를 보내면 `whatif` 메시지로 같은 자리가 온다 — 판정 코드는 한 벌이고 **뿌리를 어디서 얻느냐**만 갈린다(끝난 판은 DB 기록, 두는 중인 판은 세션이 방금 보낸 스냅샷). 기록은 비동기로 쌓이므로 개입 직후에 DB로 물으면 마지막 수가 아직 없을 수 있다.
+
+> **`whatif` 는 판(SFEN)을 받지 않는다.** 받는 것은 「기보의 몇 手目에서」와 「거기서 어떤 수를 뒀나」뿐이고, 뿌리 국면은 서버가 기록에서 다시 둬서 만든다. SFEN을 받으면 그 표면이 곧 **아무 국면이나 깊이 12로 재 주는 공개 엔진**이 되고, 그 풀은 대국 세 판이 쓰는 것과 같은 풀이다.
 
 `ORCA_API_KEY` 도 같다. 없으면 개입 문구가 **결정적 일본어 템플릿**으로 나가고 나머지는 그대로 돈다 — 그 문구도 사실(利き 매수·잡히는 駒)을 담으므로 화면이 비지 않는다. 기동 로그가 어느 쪽으로 돌고 있는지 한 줄로 말한다. 값은 [.env.example](../../.env.example) 참조.
 
@@ -49,16 +54,38 @@ docker build --platform linux/arm64 -t show-gi-enginetest -f enginetest.Dockerfi
 docker run --rm --platform linux/arm64 --cpus 4 -v "$PWD:/src:ro" show-gi-enginetest sh -c '
   cp -r /src /work && cd /work &&
   SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./... -run RealEngine -v'
+
+# ④ 엔진 + DB — 기록을 국면으로 되돌려 엔진에 다시 묻는 측정(06-status.md §40)
+#
+# **`--network show-gi-net` 이 ③과 다른 점이다.** db가 컨테이너라 호스트의
+# localhost 로는 안 보인다 — 컨테이너명으로 붙는다
+docker run --rm --platform linux/arm64 --cpus 4 --network show-gi-net \
+  -v "$PWD:/src:ro" show-gi-enginetest sh -c '
+  cp -r /src /work && cd /work &&
+  SHOWGI_USI_CMD=/opt/yaneuraou/run SHOWGI_MATE_CMD=/opt/yaneuraou/run-mate \
+  SHOWGI_MEASURE=1 \
+  SHOWGI_TEST_DATABASE_URL="postgres://showgi:showgi@show-gi-db:5432/showgi" \
+  go test ./internal/game/ -run MeasureBlunder -v -timeout 60m'
 ```
 
 **`-race` 를 빼지 않는다.** 엔진 프로세스와 세션 goroutine이 동시에 도는 구조라 데이터 경합이 가장 값비싼 버그다.
 
-| 환경변수                   | 없으면             | 쓰는 곳                                     |
-| -------------------------- | ------------------ | ------------------------------------------- |
-| `SHOWGI_TEST_DATABASE_URL` | DB 테스트 skip     | `internal/store`                            |
-| `SHOWGI_USI_CMD`           | 실엔진 테스트 skip | `TestRealEngine`, `TestWSAgainstRealEngine` |
-| `SHOWGI_MATE_CMD`          | 詰み 측정 skip     | `TestMeasureMateSearch`                     |
-| `SHOWGI_MEASURE`           | 측정 전부 skip     | `TestMeasure*` — 몇 분 걸린다               |
+| 환경변수                   | 없으면             | 쓰는 곳                                                                                      |
+| -------------------------- | ------------------ | -------------------------------------------------------------------------------------------- |
+| `SHOWGI_TEST_DATABASE_URL` | DB 테스트 skip     | `internal/store`, `internal/intervene` 의 재채점 측정, `internal/game` 의 블런더 재분류 측정 |
+| `SHOWGI_USI_CMD`           | 실엔진 테스트 skip | `TestRealEngine`, `TestWSAgainstRealEngine`                                                  |
+| `SHOWGI_MATE_CMD`          | 詰み 측정 skip     | `TestMeasureMateSearch`, `TestMeasureBlunderMate`, `TestMeasureBlunderTsumero`               |
+| `SHOWGI_MEASURE`           | 측정 전부 skip     | `TestMeasure*` — 몇 분 걸린다                                                                |
+| `SHOWGI_GENERATE_TIER1`    | 사전 생성 skip     | `TestGenerateTier1` — **돈이 든다**. 아래                                                    |
+
+> **재채점 측정만 `SHOWGI_MEASURE` 를 안 본다.** `TestMeasureCalibrationFromRecords` 는 엔진을 안 돌리고 DB만 읽어 초 단위로 끝난다. 대신 **기록이 쌓인 DB를 가리켜야 값이 나온다** — 로컬 DB에는 짧은 테스트 대국밖에 없다 ([docs/06-status.md §39](../../docs/06-status.md)).
+
+**`SHOWGI_GENERATE_TIER1` 만 성격이 다르다** — 검증이 아니라 **만드는 일**이다. Tier 1 문구 21개를 실제 라우터로 만들어 `internal/store/migrations/004_explain_cache_tier1.sql` 에 떨어뜨린다([06-status.md §38](../../docs/06-status.md)). **프롬프트를 고쳤을 때만** 다시 돌린다 — 그때 `promptVersion` 이 올라가 옛 행이 통째로 죽고, 게이트 없는 `TestTier1MigrationMatchesFacts` 가 그것을 잡는다.
+
+```sh
+set -a && . ../../.env && set +a   # ORCA_API_KEY. 없으면 만들 것이 없으므로 실패한다
+SHOWGI_GENERATE_TIER1=1 go test ./internal/explain/ -run GenerateTier1 -v
+```
 
 > **엔진이나 평가함수를 바꾸면 ③이 첫 관문이다.** 실제로 `PvInterval` 문제를 거기서 잡았다 — 안 돌렸으면 D3에서 "개입이 왜 안 걸리지"로 나타났을 것이다 ([docs/06-status.md](../../docs/06-status.md) §10).
 
@@ -83,6 +110,7 @@ sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다
 | `internal/explain`   | 설명 문구. **판단하지 않는다** — 정해진 사실을 문장으로만 바꾼다          |
 | `internal/shogi`     | 룰 엔진 — SFEN, 합법수, 반칙 검증, 棋譜 표기                              |
 | `internal/usi`       | 엔진 프로세스 풀. MultiPV·깊이별 평가치·詰み 탐색                         |
+| `internal/archive`   | **모든 탐색을 데이터로 만든다** — `positions`·`edges` (§37)               |
 | `internal/store`     | postgres (pgx + sqlc). `db/` 는 생성물이라 손대지 않는다                  |
 | `internal/tag`       | 囲い·전법·戦型·手筋의 이름. **엔진도 DB도 모른다** — 국면과 수순만 받는다 |
 

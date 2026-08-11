@@ -56,6 +56,13 @@ type Options struct {
 	// 어느 임계치에서 걸린 개입인지를 모르면 나중에 상수를 흔들어 볼 수 없다.
 	Level intervene.Level
 
+	// Search 는 **가정 수순**이 쓰는 엔진이다(whatif.go). nil이면 그 표면만 꺼지고
+	// 되짚기는 그대로 돈다.
+	//
+	// NewOpponent 와 달리 **대국마다 만들지 않는다.** 여기서 필요한 것은 풀 자체이고,
+	// 분기에는 대국별 상태(적응형 밴드·투료 판단)가 없다 — 있으면 안 된다는 쪽에 가깝다.
+	Search Searcher
+
 	// Explainer 는 개입 문구를 만든다. nil이면 결정적 문구가 나간다.
 	//
 	// **대국마다 만들지 않는다**(NewOpponent 와 다른 점이다). 캐시와 HTTP 클라이언트를
@@ -91,21 +98,38 @@ func Handler(opts Options) http.Handler {
 
 	// 끝난 판을 되짚는 표면(review.go).
 	//
-	// **엔진이 아니라 DB에 매여 있다.** 기록이 없으면 되짚을 것도 없고, 엔진이 죽어
-	// 대국을 못 해도 지난 판은 그대로 볼 수 있어야 한다 — 그래서 /ws 와 조건이 갈린다.
+	// **되짚기는 엔진이 아니라 DB에 매여 있다.** 기록이 없으면 되짚을 것도 없고, 엔진이
+	// 죽어 대국을 못 해도 지난 판은 그대로 볼 수 있어야 한다 — 그래서 /ws 와 조건이 갈린다.
+	//
+	// **가정 수순만 그 조건이 다르다**(whatif.go). 「그래서 상대가 어떻게 하나」가 내용이라
+	// 엔진 없이는 성립하지 않으므로, 엔진이 없으면 **그 한 경로만** 503이 된다. 화면은
+	// /healthz 의 `engine` 을 보고 미리 그 자리를 닫는다.
+	storeUnavailable := func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+			"error":   "store_unavailable",
+			"message": "対局の記録を利用できません。",
+		})
+	}
 	if opts.Store != nil {
 		rev := &reviewHandler{store: opts.Store}
 		mux.HandleFunc("GET /api/games", rev.list)
 		mux.HandleFunc("GET /api/games/{id}", rev.detail)
-	} else {
-		unavailable := func(w http.ResponseWriter, _ *http.Request) {
-			writeJSON(w, http.StatusServiceUnavailable, map[string]any{
-				"error":   "store_unavailable",
-				"message": "対局の記録を利用できません。",
+
+		if opts.Search != nil {
+			wi := &whatifHandler{store: opts.Store, search: opts.Search}
+			mux.HandleFunc("POST /api/games/{id}/whatif", wi.play)
+		} else {
+			mux.HandleFunc("POST /api/games/{id}/whatif", func(w http.ResponseWriter, _ *http.Request) {
+				writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+					"error":   "engine_unavailable",
+					"message": "対局エンジンを利用できません。",
+				})
 			})
 		}
-		mux.HandleFunc("GET /api/games", unavailable)
-		mux.HandleFunc("GET /api/games/{id}", unavailable)
+	} else {
+		mux.HandleFunc("GET /api/games", storeUnavailable)
+		mux.HandleFunc("GET /api/games/{id}", storeUnavailable)
+		mux.HandleFunc("POST /api/games/{id}/whatif", storeUnavailable)
 	}
 
 	if opts.NewOpponent != nil {

@@ -1,7 +1,7 @@
 package game
 
 import (
-	"context"
+	"strconv"
 	"testing"
 
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
@@ -22,11 +22,11 @@ import (
 // 묻는다 — 그리고 그 「벌하는 수」는 이미 손에 있다(refutationLine 이 쓰는 PV의 첫 수).
 // 추가 탐색이 없다는 뜻이고, 그래서 이 신호는 프로덕션에 붙여도 공짜에 가깝다.
 //
-//	docker run --rm --network show-gi-net -v "$PWD:/src" -w /src/apps/server \
-//	  -e SHOWGI_USI_CMD=/opt/yaneuraou/run -e SHOWGI_MATE_CMD=/opt/yaneuraou/run-mate \
-//	  -e SHOWGI_MEASURE=1 \
-//	  -e SHOWGI_TEST_DATABASE_URL='postgres://showgi:showgi@show-gi-db:5432/showgi' \
-//	  show-gi-enginetest:latest go test ./internal/game/ -run MeasureBlunderTsumero -v -timeout 60m
+// **엔진과 DB가 동시에 필요하다.** 엔진은 arm64 Debian 바이너리라 macOS에서 직접 못 돌고,
+// db는 컨테이너라 컨테이너 안에서 localhost 로는 안 보인다 — 돌리는 방법은
+// [README](../../README.md) ④에 있다.
+//
+//	go test ./internal/game/ -run MeasureBlunderTsumero -v -timeout 60m
 
 // passSFEN 은 수번만 뒤집은 국면이다. 「내가 손을 뺐다면」이 곧 詰めろ의 정의다.
 //
@@ -47,9 +47,9 @@ func TestMeasureBlunderTsumero(t *testing.T) {
 	mate := measureMatePool(t)
 
 	all, moves := loadBlunders(t, conn)
-	ctx := context.Background()
+	ctx := t.Context()
 
-	var mated, tsumero, inCheck, quiet, skipped int
+	var mated, tsumero, inCheck, quiet, unknown, skipped int
 	t.Logf("== 詰み이 아닌 `other` 에 詰めろ를 물었다 ==")
 	t.Logf("  %-6s %-5s %-9s %-14s %-10s", "game", "ply", "Δwin", "벌하는 수", "판정")
 
@@ -94,11 +94,21 @@ func TestMeasureBlunderTsumero(t *testing.T) {
 		}
 
 		verdict := "-"
-		if r, err := mate.SearchMate(ctx, sfen, nil); err == nil && r.Found() {
+		// **여기서도 「증명된 なし」와 「모른다」를 가른다.** `Proven` 이 false면 solver가
+		// 한계(`DepthLimit=11`) 안에서 결론을 못 낸 것이고, 그건 「詰めろ가 아니다」가
+		// 아니다. 섞어 세면 조용한 수의 몫이 실제보다 커 보인다.
+		switch r, err := mate.SearchMate(ctx, sfen, nil); {
+		case err != nil:
+			skipped++
+			verdict = "탐색 실패"
+		case r.Found():
 			tsumero++
-			verdict = "詰めろ " + itoa(len(r.Moves)) + "手"
-		} else {
+			verdict = "詰めろ " + strconv.Itoa(len(r.Moves)) + "手"
+		case r.Proven:
 			quiet++
+		default:
+			unknown++
+			verdict = "불명"
 		}
 		t.Logf("  %-6d %-5d %-9.3f %-14s %-10s", b.gameID, b.ply, b.deltaWin, punish, verdict)
 	}
@@ -107,6 +117,7 @@ func TestMeasureBlunderTsumero(t *testing.T) {
 	t.Logf("  이미 詰み (앞 측정)                     %3d", mated)
 	t.Logf("  詰めろ — 벌하는 수 뒤에 손을 빼면 詰む   %3d", tsumero)
 	t.Logf("  王手中 — 손을 뺄 수 없다                %3d", inCheck)
-	t.Logf("  그래도 조용하다                         %3d", quiet)
+	t.Logf("  그래도 조용하다 (증명됨)                %3d", quiet)
+	t.Logf("  모른다 (solver가 결론을 못 냈다)        %3d", unknown)
 	t.Logf("  못 물었다                               %3d", skipped)
 }

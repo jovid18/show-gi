@@ -33,9 +33,14 @@ func (o *scriptedOpponent) Choose(_ context.Context, _ string, moves []string) (
 
 func dialGame(t *testing.T, moves ...string) (*websocket.Conn, context.Context) {
 	t.Helper()
-	h := Handler(Options{
+	return dialWith(t, Options{
 		NewOpponent: func() game.Opponent { return &scriptedOpponent{moves: moves} },
 	})
+}
+
+func dialWith(t *testing.T, opts Options) (*websocket.Conn, context.Context) {
+	t.Helper()
+	h := Handler(opts)
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 

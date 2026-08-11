@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/jovid18/show-gi/apps/server/internal/archive"
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
@@ -66,15 +67,34 @@ func main() {
 			mate = matePool
 		}
 
+		// **모든 탐색이 데이터가 된다.** 엔진을 부르는 자리가 넷인데(상대의 수 · 개입
+		// 판정 · 대국 중 가정 수순 · 되짚는 판의 가정 수순) 기록을 네 곳에 흩뿌리면
+		// 반드시 하나가 빠진다. 그래서 **풀을 한 겹 감싸고 넷이 같은 하나를 받는다** —
+		// 감싸는 자리가 여기 한 줄이라 빠뜨릴 자리가 없다(internal/archive).
+		//
+		// DB가 없으면 그대로 통과시킨다. 인터페이스에 nil 포인터를 넣지 않는 것은
+		// 아래 mate solver 와 같은 이유다.
+		var into archive.Store
+		if opts.Store != nil {
+			into = opts.Store
+		}
+		searcher := archive.Wrap(pool, into)
+		// 떠 있는 기록이 끝나기를 기다린다. 안 기다리면 **마지막 수의 분석이 버려진다.**
+		defer searcher.Wait()
+
 		opts.NewOpponent = func() game.Opponent {
-			return game.NewAdaptiveOpponent(pool, engineDepth(), opponentBand())
+			return game.NewAdaptiveOpponent(searcher, engineDepth(), opponentBand())
 		}
 		opts.NewAnalyst = func() game.Analyst {
-			return game.NewEngineAnalyst(pool, mate, opts.Level)
+			return game.NewEngineAnalyst(searcher, mate, opts.Level)
 		}
 		// 종반 판정과 詰み 게이지가 같은 풀을 쓴다. 두 자리가 시간상 겹치지 않아
 		// (판정은 사람의 수 직후, 게이지는 상대의 수 직후) 하나로 충분하다.
 		opts.Mate = mate
+
+		// 가정 수순도 같은 풀이다(internal/server/whatif.go). 대국과 자리를 다투지만,
+		// 겹치면 풀이 순서대로 빌려주고 그만큼 기다린다 — 지연은 여기서 허용된 비용이다.
+		opts.Search = searcher
 	}
 
 	if err := server.Run(ctx, *addr, opts); err != nil {

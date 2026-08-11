@@ -57,6 +57,21 @@ const TesujiLossCp = 100
 //
 // **모르면 이름을 붙이지 않는다.** 평가치가 없으면(엔진이 없거나 판을 못 읽었다) 빈
 // 결과가 온다 — 룰만으로 통과시키면 지우려던 그 오판이 그대로 돌아온다.
+// NamedTesuji 는 그 수가 **새로 만들고 엔진이 값을 인정한** 手筋의 이름이다.
+// 두 cp는 **先手 관점**이다(`edges.eval_by_depth` 와 같은 규약).
+//
+// 세션 밖에서도 같은 판정이 필요해졌다 — 되짚는 판의 한 수에 이름을 붙여 남기는 쪽이다
+// (`internal/server/whatif.go`). **같은 함수를 지나게 하는 것이 요점이다**: 저장하는 쪽이
+// 자기 규칙을 새로 쓰면 같은 수가 대국 중과 기록에서 다른 이름을 갖고, 그건 측정과 제품이
+// 다른 것을 세고 있었던 §34 ⑦과 같은 자리다.
+func NamedTesuji(before, after shogi.Position, c shogi.Color, lastUSI string, senteCpBefore, senteCpAfter int) []tag.Tag {
+	return namedTesuji(before, after, c, lastUSI, Judgement{
+		SenteCpBefore: senteCpBefore,
+		SenteCpAfter:  senteCpAfter,
+		HasEvals:      true,
+	})
+}
+
 func namedTesuji(before, after shogi.Position, c shogi.Color, lastUSI string, j Judgement) []tag.Tag {
 	if !enginePaidOff(j, c) {
 		return nil

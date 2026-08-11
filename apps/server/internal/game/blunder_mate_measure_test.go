@@ -1,8 +1,8 @@
 package game
 
 import (
-	"context"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -23,11 +23,11 @@ import (
 // ②를 안 가르고 「この手で詰まされます」를 내보내면 **이미 詰んでいた 국면에서 거짓말**을
 // 한다. 초심자는 검증할 수단이 없어 그대로 배운다 — 이 제품에서 가장 큰 실패다.
 //
-//	docker run --rm --network show-gi-net -v "$PWD:/src" -w /src/apps/server \
-//	  -e SHOWGI_USI_CMD=/opt/yaneuraou/run -e SHOWGI_MATE_CMD=/opt/yaneuraou/run-mate \
-//	  -e SHOWGI_MEASURE=1 \
-//	  -e SHOWGI_TEST_DATABASE_URL='postgres://showgi:showgi@show-gi-db:5432/showgi' \
-//	  show-gi-enginetest:latest go test ./internal/game/ -run MeasureBlunderMate -v -timeout 60m
+// **엔진과 DB가 동시에 필요하다.** 엔진은 arm64 Debian 바이너리라 macOS에서 직접 못 돌고,
+// db는 컨테이너라 컨테이너 안에서 localhost 로는 안 보인다 — 돌리는 방법은
+// [README](../../README.md) ④에 있다.
+//
+//	go test ./internal/game/ -run MeasureBlunderMate -v -timeout 60m
 //
 // 판정하지 않는다 — 값을 찍고 지나간다.
 
@@ -65,7 +65,7 @@ type mateVerdict struct {
 
 func askMate(t *testing.T, mate *usi.Pool, startSFEN string, moves []string) mateVerdict {
 	t.Helper()
-	r, err := mate.SearchMate(context.Background(), startSFEN, moves)
+	r, err := mate.SearchMate(t.Context(), startSFEN, moves)
 	if err != nil {
 		t.Logf("  詰み 탐색 실패: %v", err)
 		return mateVerdict{}
@@ -79,7 +79,7 @@ func TestMeasureBlunderMate(t *testing.T) {
 	mate := measureMatePool(t)
 
 	all, moves := loadBlunders(t, conn)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	type row struct {
 		b            blunderRow
@@ -124,14 +124,14 @@ func TestMeasureBlunderMate(t *testing.T) {
 		rows = append(rows, r)
 	}
 
-	var caused, alreadyLost, noMate, searchOnly int
+	var caused, alreadyLost, noMate, searchOnly, unknown int
 	t.Logf("== `other` %d건에 詰み을 물었다 ==", len(rows))
 	t.Logf("  %-6s %-5s %-9s %-12s %-12s %-10s", "game", "ply", "Δwin", "둔 수 뒤", "최선수 뒤", "탐색 mate")
 	for _, r := range rows {
 		desc := func(v mateVerdict) string {
 			switch {
 			case v.found:
-				return "詰み " + itoa(v.plies) + "手"
+				return "詰み " + strconv.Itoa(v.plies) + "手"
 			case v.proven:
 				return "なし(증명)"
 			default:
@@ -140,7 +140,7 @@ func TestMeasureBlunderMate(t *testing.T) {
 		}
 		sm := "-"
 		if r.searchMateIn > 0 {
-			sm = itoa(r.searchMateIn) + "手"
+			sm = strconv.Itoa(r.searchMateIn) + "手"
 		}
 		t.Logf("  %-6d %-5d %-9.3f %-12s %-12s %-10s",
 			r.b.gameID, r.b.ply, r.b.deltaWin, desc(r.afterMate), desc(r.bestMate), sm)
@@ -152,6 +152,11 @@ func TestMeasureBlunderMate(t *testing.T) {
 			alreadyLost++
 		case !r.afterMate.found && r.searchMateIn > 0:
 			searchOnly++
+		// **「증명된 なし」와 「모른다」를 같은 칸에 세지 않는다.** solver가 한계 안에서
+		// 결론을 못 낸 것(`timeout`)은 「詰み이 없다」가 아니다. 섞어 세면 이 측정이
+		// 하지 말라고 적어 둔 바로 그것 — 모르는 것을 아는 것처럼 세는 일 — 을 한다.
+		case !r.afterMate.proven:
+			unknown++
 		default:
 			noMate++
 		}
@@ -161,27 +166,6 @@ func TestMeasureBlunderMate(t *testing.T) {
 	t.Logf("  ③ 이 수가 詰み을 불렀다 (말해도 된다)   %3d / %d", caused, len(rows))
 	t.Logf("  ② 최선수로도 詰まされる (이미 졌다)     %3d / %d", alreadyLost, len(rows))
 	t.Logf("  탐색만 詰み을 본다 (solver 는 못 찾음)  %3d / %d", searchOnly, len(rows))
-	t.Logf("  詰み 아님                               %3d / %d", noMate, len(rows))
-}
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	neg := n < 0
-	if neg {
-		n = -n
-	}
-	var buf [20]byte
-	i := len(buf)
-	for n > 0 {
-		i--
-		buf[i] = byte('0' + n%10)
-		n /= 10
-	}
-	if neg {
-		i--
-		buf[i] = '-'
-	}
-	return string(buf[i:])
+	t.Logf("  詰み 아님 (증명됨)                      %3d / %d", noMate, len(rows))
+	t.Logf("  모른다 (solver가 결론을 못 냈다)        %3d / %d", unknown, len(rows))
 }

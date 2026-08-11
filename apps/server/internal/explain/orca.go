@@ -13,24 +13,34 @@ import (
 // DefaultBaseURL 은 OrcaRouter의 호스팅 엔드포인트다. 자체 호스팅이면 여기를 바꾼다.
 const DefaultBaseURL = "https://api.orcarouter.ai/v1"
 
-// DefaultModel 은 **실측으로 고른 모델**이다(06-status.md §28).
+// DefaultModel 은 **실측으로 고른 모델**이다(06-status.md §38).
 //
 // `orcarouter/auto` 를 기본값으로 두면 안 된다. 실제로 보내 보니 추론 모델로 라우팅되어
 // 한 문장에 **추론 토큰 1000개 이상**을 쓰고 15~23초가 걸렸다 — 라우터는 「요구 능력을
 // 충족하는 가장 싼 모델」을 고르지만, 우리 요구는 능력이 아니라 **짧고 빠른 것**이라 그
 // 기준과 어긋난다.
 //
-// 재본 값(카테고리 8개 × 1회):
+// **그리고 하루 만에 `anthropic/claude-haiku-4.5` 가 못 쓰게 됐다**(§38). 그 채널이
+// 지금 우리 프롬프트 앞에 **2만 2천 토큰짜리 시스템 프롬프트를 끼워 넣는다** — 우리가
+// 보내는 200토큰이 23,275토큰이 되고, 우리 지시(60자·2문·전치 없음)가 그 밑에 깔려
+// 見出し가 붙은 400~550자 답이 돌아온다. 그러면 `clean` 이 전부 버려서 **개입 설명이
+// 100% 결정적 문구로 떨어진다.** 라우터가 무엇을 얹는지는 우리가 정하지 못한다.
 //
-//	anthropic/claude-haiku-4.5      1.7~3.2초   ✅ 사실을 다 싣고 지시를 지킨다
-//	google/gemini-3.5-flash-lite    1.9~6.7초   흔들린다
-//	orcarouter/fusion-mini          15~23초     추론 모델(qwen3.7-flash)로 간다
-//	orcarouter/auto                 위와 같다
+// 다시 잰 값(같은 프롬프트, Tier 1·2 각 1회):
+//
+//	google/gemini-3.5-flash-lite    1.0~1.3초   ✅ 프롬프트 193토큰. 사실을 다 싣고 60자를 지킨다
+//	openai/gpt-4.1-mini             1.0~2.7초   쓸 만하다. 다음 후보
+//	openai/gpt-5.4-nano             1.6~1.8초   「アプリが止めて戻しました」까지 문장에 옮긴다
+//	google/gemini-3.6-flash         2.1~2.4초   추론 토큰이 max_tokens 를 다 먹고 **잘려서 온다**
+//	anthropic/claude-haiku-4.5      11~17초     위의 주입. 어제까지 기본값이었다
+//
+// **그래서 이 상수는 고정이 아니라 실측의 스냅샷이다.** 라우터 쪽이 바뀌면 또 갈아탄다 —
+// `TestRealRouter` 가 그것을 잡는 자리이고, 실패하면 프롬프트가 아니라 채널을 먼저 의심한다.
 //
 // Tier 1·2가 같은 모델인 것은 실측 결과다. **Tier를 가르는 것은 모델 크기가 아니라 키의
-// 재사용성**이고(Tier 1은 24가지뿐이다), 지금 문장 품질에 모델을 키울 이유가 안 보였다.
+// 재사용성**이고(Tier 1은 21가지뿐이다), 지금 문장 품질에 모델을 키울 이유가 안 보였다.
 // **[미확정]** Tier 2에 더 큰 모델이 필요한 국면이 있는지.
-const DefaultModel = "anthropic/claude-haiku-4.5"
+const DefaultModel = "google/gemini-3.5-flash-lite"
 
 // DefaultUSDJPY 는 `usage.cost_usd` 를 `interventions.cost_yen` 으로 옮기는 환율이다.
 //
@@ -111,6 +121,9 @@ type chatResponse struct {
 	Model   string `json:"model"`
 	Choices []struct {
 		Message chatMessage `json:"message"`
+		// FinishReason 이 `length` 면 **max_tokens 에서 잘린 것**이다. 그 답은 짧아서
+		// MaxRunes 검사를 그냥 통과한다 — 「王手はか」가 화면에 나갈 수 있다.
+		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
 	Usage struct {
 		PromptTokens     int `json:"prompt_tokens"`
@@ -169,6 +182,16 @@ func (c *Client) complete(ctx context.Context, tier int, f Facts) (completion, e
 	}
 	if len(out.Choices) == 0 {
 		return completion{}, fmt.Errorf("explain: router returned no choices")
+	}
+	// **잘린 답은 버린다.** `clean` 은 긴 것을 잡지 짧은 것은 못 잡는데, `max_tokens` 에서
+	// 잘린 문장은 짧게 온다 — 추론 모델이면 추론 토큰이 예산을 다 먹고 본문 몇 글자만
+	// 남는다(`google/gemini-3.6-flash` 가 실제로 그랬다: 「王手はか」, §38).
+	//
+	// 자르지 않고 버리는 이유는 `clean` 과 같다 — **반쪽 일본어 문장은 뜻이 바뀌고**,
+	// 초심자는 그것을 검증할 수단이 없다. 결정적 문구는 언제나 준비돼 있다.
+	if out.Choices[0].FinishReason == "length" {
+		return completion{}, fmt.Errorf("explain: router truncated the sentence at max_tokens (%d): %q",
+			maxTokens, strings.TrimSpace(out.Choices[0].Message.Content))
 	}
 
 	// `x-orca-resolved-model` 이 **실제로 답한 모델**이다. `model=auto` 로 보내므로 우리가
