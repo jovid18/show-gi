@@ -46,15 +46,29 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 		all    []sample
 		bands  []bandRow
 		scored []scoredGame
+		// stuckRuns 는 **평가치와 무관하게 전부 센다.** 계단이 몇 번 열렸나는
+		// 개입의 手数만 있으면 되고 cp가 필요 없다 — 여기에 재채점의 조건을 씌우면
+		// 평가치 이전에 둔 판이 통째로 빠진다. **실제로 그렇게 틀렸다**(§39).
+		// 계단이 마지막 칸까지 열린 국면이 전부 그 옛 판에 있었다.
+		stuckRuns  = map[int]int{}
+		stuckGames int
 	)
 	for _, g := range games {
 		rec, err := s.GameRecord(t.Context(), g.ID)
 		if err != nil {
 			t.Fatalf("GameRecord(%d): %v", g.ID, err)
 		}
+
+		if per := retriesPerPly(rec); len(per) > 0 {
+			stuckGames++
+			for _, n := range per {
+				stuckRuns[n]++
+			}
+		}
+
 		ss, band, ok := rescore(rec)
 		if !ok {
-			continue // 평가치가 안 남은 판. 개입만 세면 분모 없는 비율이 된다
+			continue // 평가치가 안 남은 판. 개입률의 분모를 못 세운다
 		}
 		all = append(all, ss...)
 		bands = append(bands, band)
@@ -211,19 +225,9 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 	// 연속으로 몇 번 물러졌나**를 세면 그 문이 실제로 몇 번 열렸는지가 그대로 나온다.
 	b.Reset()
 	b.WriteString("\n⑤ 갇힘 — 같은 국면에서 연속으로 몇 번 물러졌나\n")
-	runs := map[int]int{}
-	for _, sg := range scored {
-		per := map[int]int{}
-		for _, iv := range sg.rec.Interventions {
-			per[iv.Ply]++
-		}
-		for _, n := range per {
-			runs[n]++
-		}
-	}
-	stuckTotal := 0
-	maxRun := 0
-	for n, c := range runs {
+	b.WriteString("**평가치가 없는 판까지 전부 센다.** 계단은 cp를 안 쓴다.\n\n")
+	stuckTotal, maxRun := 0, 0
+	for n, c := range stuckRuns {
 		stuckTotal += c
 		if n > maxRun {
 			maxRun = n
@@ -232,14 +236,15 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 	fmt.Fprintf(&b, "%12s %6s %9s\n", "물러진 횟수", "국면", "그 이상")
 	for n := 1; n <= max(maxRun, 5); n++ {
 		ge := 0
-		for k, c := range runs {
+		for k, c := range stuckRuns {
 			if k >= n {
 				ge += c
 			}
 		}
-		fmt.Fprintf(&b, "%12d %6d %6d %6.1f%%\n", n, runs[n], ge, pct(ge, stuckTotal))
+		fmt.Fprintf(&b, "%12d %6d %6d %6.1f%%\n", n, stuckRuns[n], ge, pct(ge, stuckTotal))
 	}
-	fmt.Fprintf(&b, "\n  물러진 국면 %d개. 계단이 열리려면 그 횟수만큼 같은 국면에서 막혀야 한다.\n", stuckTotal)
+	fmt.Fprintf(&b, "\n  %d판에서 물러진 국면 %d개. 계단이 열리려면 그 횟수만큼 같은 국면에서 막혀야 한다.\n",
+		stuckGames, stuckTotal)
 	t.Log(b.String())
 
 	// ─── ⑥ 밴드 ─────────────────────────────────────────────────────
@@ -284,6 +289,21 @@ type sample struct {
 type scoredGame struct {
 	rec     store.GameRecord
 	samples []sample
+}
+
+// retriesPerPly 는 手数마다 몇 번 물러졌는지다. 그 수가 곧 그 국면에서 갇힘 계수가
+// 올라간 높이이고, `game.HintPieceAfter`·`HintMoveAfter` 가 열렸는지를 정한다.
+//
+// **평가치를 안 본다.** 개입 행만 있으면 되므로 재채점이 안 되는 판에서도 나온다.
+func retriesPerPly(rec store.GameRecord) map[int]int {
+	if len(rec.Interventions) == 0 {
+		return nil
+	}
+	per := make(map[int]int, len(rec.Interventions))
+	for _, iv := range rec.Interventions {
+		per[iv.Ply]++
+	}
+	return per
 }
 
 // bandRow 는 한 판에서 **상대가 두고 넘겨준** 국면들의 사람 관점 cp다.
