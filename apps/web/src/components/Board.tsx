@@ -98,6 +98,16 @@ interface BoardProps {
   hintSquare: string | null;
   /** 갇힘 힌트의 마지막 단계 — 그 수 자체. 파란 화살표로 긋는다. */
   hintRay: Ray | null;
+  /**
+   * 詰み 게이지의 세기(1~5). 0이면 안 그린다.
+   *
+   * 판 **테두리**에 보라 불꽃으로 붙는다. 판 안(칸·기물)은 「강조는 색이 아니라 빛」인데
+   * 테두리는 다른 표면이라 색을 써도 그 체계를 흐리지 않는다(docs/01-core.md §7).
+   *
+   * **회상 중에는 0으로 받는다.** 그때 판은 물러진 수의 국면이라, 지금 국면의 게이지를
+   * 거기에 얹으면 그 순간 거짓말이 된다 — 광선을 한 판 위에 겹쳐 긋지 않는 것과 같은 이유다.
+   */
+  mateHeat: number;
   /** 판 요소. 駒台와의 거리를 재는 쪽이 잡는다. */
   boardRef?: RefObject<HTMLDivElement | null>;
   interactive: boolean;
@@ -218,6 +228,7 @@ export function Board({
   dropFrom,
   hintSquare,
   hintRay,
+  mateHeat,
   boardRef,
   interactive,
   onSquare,
@@ -276,6 +287,12 @@ export function Board({
         {hintRay && <RefutationRay ray={hintRay} waitForGhost={false} dropFrom={dropFrom} />}
 
         {replay && <ReplayKoma replay={replay} />}
+
+        {/* 게이지는 판 밖으로 번진다(inset 이 음수라 테두리 위에 얹힌다). 그래서 판 안의
+            어느 것과도 자리를 다투지 않고, 마지막에 그려도 무엇을 가리지 않는다. */}
+        {mateHeat > 0 && (
+          <span className="mate-flame" style={{ '--heat': mateHeat } as CSSProperties} aria-hidden="true" />
+        )}
       </div>
 
       <div className="board-ranks" aria-hidden="true">

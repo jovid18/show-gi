@@ -95,6 +95,7 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		StartSFEN:    h.opts.StartSFEN,
 		ObservePlies: h.opts.ObservePlies,
 		Explainer:    h.opts.Explainer,
+		Mate:         h.opts.Mate,
 	}
 	if h.opts.NewAnalyst != nil {
 		cfg.Analyst = h.opts.NewAnalyst()

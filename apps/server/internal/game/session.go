@@ -86,6 +86,16 @@ type Snapshot struct {
 	// 있다가 갱신을 빠뜨리는 쪽이 더 비싸다 — 롤백이 있는 이상 「지금 판 위의 사실」은
 	// 판에서 직접 읽는 것이 언제나 맞는다.
 	StyleTags []tag.Tag `json:"styleTags,omitempty"`
+
+	// MateHeat 는 詰み 게이지의 세기다(1..MateHeatMax). 0이면 게이지가 꺼져 있다.
+	//
+	// **상대 玉 쪽 하나뿐이고, 手数가 아니라 세기다.** 둘 다 이유가 있고 `gauge.go` 에
+	// 적혀 있다 — 앞은 「불이 붙으면 언제나 내가 가까워졌다는 뜻」이기 위해서이고,
+	// 뒤는 手数가 페이로드에 있으면 그리지 않아도 이미 알려준 것이 되기 때문이다.
+	//
+	// 사람 차례에서만 구한다. 상대가 생각하는 동안에는 직전 값이 그대로 남지 않고
+	// 꺼진다 — 국면이 움직이면 그 세기는 그 자리에서 무효다(state.mateGen).
+	MateHeat int `json:"mateHeat,omitempty"`
 }
 
 // Analyst 는 착수 한 수를 판정하는 데 필요한 숫자를 구해 온다.
@@ -266,6 +276,12 @@ type Config struct {
 	Opponent Opponent
 	// Analyst 가 nil이면 개입하지 않는다. 대국은 그대로 된다.
 	Analyst Analyst
+	// Mate 가 nil이면 詰み 게이지가 꺼진 채로 대국한다.
+	//
+	// **Analyst 와 같은 solver 를 받지만 자리가 다르다.** 저쪽은 방금 둔 수를 판정하려고
+	// 착수 **전** 국면을 묻고, 이쪽은 지금 사람 차례인 **현재** 국면을 묻는다. 같은 질문을
+	// 한 수 늦게 하는 것이라 판정 결과를 게이지로 돌려쓸 수 없다.
+	Mate MateSearcher
 	// Recorder 가 nil이면 기록하지 않는다. 대국은 그대로 된다.
 	Recorder Recorder
 	// Explainer 가 nil이면 결정적 문구가 그대로 나간다 — `explain.Render` 와 같은 문장이다.
@@ -322,6 +338,12 @@ type engineResult struct {
 	err error
 }
 
+type mateResult struct {
+	gen   int
+	plies int // 詰み 手数. 0이면 못 찾았다
+	err   error
+}
+
 type judgeResult struct {
 	gen       int
 	judgement Judgement
@@ -371,6 +393,16 @@ type state struct {
 	// intervention 은 **방금 무엇을 했나**이고 이쪽은 **지금 무엇을 할까**다.
 	hint *Hint
 
+	// 詰み 게이지도 세션 goroutine 밖에서 돈다(탐색·판정과 같은 이유).
+	//
+	// **mateHeat 와 mateGen 을 함께 본다.** 국면이 움직이면(searchGen) 그 세기는 그 자리에서
+	// 무효이고, 스냅샷이 둘을 대조해 판단한다 — 지우는 코드를 착수·롤백·종료에 흩어 두면
+	// 그중 하나를 빠뜨렸을 때 낡은 불꽃이 새 국면에 남는다.
+	gauging  bool
+	gaugeGen int
+	mateHeat int
+	mateGen  int
+
 	// 물러질 수 있으므로 착수 직전 국면을 들고 있는다. Position 이 값 타입이라 복사면 끝이다.
 	prevPos    shogi.Position
 	prevPrevTo int
@@ -417,14 +449,17 @@ func (s *Session) run(ctx context.Context, st *state) {
 
 	engineDone := make(chan engineResult, 1)
 	judgeDone := make(chan judgeResult, 1)
+	gaugeDone := make(chan mateResult, 1)
 
 	// 기록도 세션 goroutine 안에서 시작한다 — 상태를 만지는 순서와 같은 줄에 둔다.
 	if st.cfg.Recorder != nil {
 		st.cfg.Recorder.Started(st.start, st.cfg.HumanColor)
 	}
 
-	// 엔진이 선수면 시작하자마자 생각한다.
+	// 엔진이 선수면 시작하자마자 생각한다. 사람이 선수면 게이지가 대신 걸린다 —
+	// 둘은 정확히 반대 조건이라 언제나 하나만 돈다.
 	st.maybeThink(ctx, engineDone)
+	st.maybeGauge(ctx, gaugeDone)
 
 	for {
 		select {
@@ -437,18 +472,21 @@ func (s *Session) run(ctx context.Context, st *state) {
 			return
 
 		case c := <-s.cmds:
-			st.handle(ctx, c, engineDone, judgeDone)
+			st.handle(ctx, c, engineDone, judgeDone, gaugeDone)
 
 		case r := <-engineDone:
-			st.applyEngineMove(ctx, r, engineDone)
+			st.applyEngineMove(ctx, r, engineDone, gaugeDone)
 
 		case r := <-judgeDone:
-			st.applyVerdict(ctx, r, engineDone)
+			st.applyVerdict(ctx, r, engineDone, gaugeDone)
+
+		case r := <-gaugeDone:
+			st.applyMateHeat(r)
 		}
 	}
 }
 
-func (st *state) handle(ctx context.Context, c command, engineDone chan engineResult, judgeDone chan judgeResult) {
+func (st *state) handle(ctx context.Context, c command, engineDone chan engineResult, judgeDone chan judgeResult, gaugeDone chan mateResult) {
 	switch c.kind {
 	case cmdSnapshot:
 		c.reply <- result{snap: st.snapshot()}
@@ -475,7 +513,7 @@ func (st *state) handle(ctx context.Context, c command, engineDone chan engineRe
 		st.broadcast()
 
 	case cmdMove:
-		snap, err := st.playHuman(ctx, c.usi, engineDone, judgeDone)
+		snap, err := st.playHuman(ctx, c.usi, engineDone, judgeDone, gaugeDone)
 		c.reply <- result{snap: snap, err: err}
 		if err == nil {
 			st.broadcast()
@@ -483,7 +521,7 @@ func (st *state) handle(ctx context.Context, c command, engineDone chan engineRe
 	}
 }
 
-func (st *state) playHuman(ctx context.Context, usi string, engineDone chan engineResult, judgeDone chan judgeResult) (Snapshot, error) {
+func (st *state) playHuman(ctx context.Context, usi string, engineDone chan engineResult, judgeDone chan judgeResult, gaugeDone chan mateResult) (Snapshot, error) {
 	if st.status != StatusPlaying {
 		return st.snapshot(), ErrFinished
 	}
@@ -518,6 +556,7 @@ func (st *state) playHuman(ctx context.Context, usi string, engineDone chan engi
 	// 판정하지 않으면 그 자리에서 확정이다.
 	st.recordLastMove()
 	st.maybeThink(ctx, engineDone)
+	st.maybeGauge(ctx, gaugeDone)
 	return st.snapshot(), nil
 }
 
@@ -575,7 +614,7 @@ func describe(ctx context.Context, e explain.Explainer, f explain.Facts) explain
 }
 
 // applyVerdict 는 판정 결과를 반영한다. 걸렸으면 **되무른다.**
-func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone chan engineResult) {
+func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone chan engineResult, gaugeDone chan mateResult) {
 	if !st.judging || r.gen != st.judgeGen {
 		return // 그 사이 국면이 움직였다. 버린다
 	}
@@ -588,6 +627,9 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 
 	if r.err == nil && r.judgement.Verdict.Kind == intervene.KindBlunder {
 		st.rollback(r)
+		// 되물러 사람 차례로 돌아왔다. 게이지도 그 국면의 것으로 다시 구한다 —
+		// 롤백이 searchGen 을 올리므로 물러지기 전의 세기는 이미 무효다.
+		st.maybeGauge(ctx, gaugeDone)
 		st.broadcast()
 		return
 	}
@@ -597,6 +639,7 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 	st.recordLastMove()
 	st.recordEvals(r.judgement)
 	st.maybeThink(ctx, engineDone)
+	st.maybeGauge(ctx, gaugeDone)
 	st.broadcast()
 }
 
@@ -738,7 +781,69 @@ func (st *state) maybeThink(ctx context.Context, engineDone chan engineResult) {
 	}()
 }
 
-func (st *state) applyEngineMove(ctx context.Context, r engineResult, engineDone chan engineResult) {
+// maybeGauge 는 사람 차례면 詰み 게이지를 그 국면의 값으로 다시 구한다.
+//
+// **maybeThink 와 정확히 반대 조건**이라 언제나 둘 중 하나만 돈다. 그래서 solver 풀이
+// 하나여도 게이지와 개입 판정이 서로 기다리지 않는다 — 판정은 사람의 수 직후에,
+// 게이지는 상대의 수 직후에 걸린다.
+//
+// 탐색·판정처럼 세션 goroutine 밖에서 돈다. 게이지는 부가 표시라 늦게 와도 되고,
+// 여기서 기다리면 그동안 투료도 스냅샷도 못 받는다.
+func (st *state) maybeGauge(ctx context.Context, gaugeDone chan mateResult) {
+	if st.cfg.Mate == nil || st.status != StatusPlaying {
+		return
+	}
+	// **사람 차례에서만 묻는다.** solver 는 수번 측의 詰み을 답하므로 이 자리라야
+	// 「내가 상대 玉을 몇 手로 詰ますか」가 나온다. 상대 차례에 물으면 정확히 반대,
+	// 즉 그리지 않기로 한 쪽이 나온다(gauge.go).
+	if st.pos.Turn != st.cfg.HumanColor {
+		return
+	}
+	if st.gauging && st.gaugeGen == st.searchGen {
+		return // 같은 국면을 두 번 묻지 않는다
+	}
+	st.gauging = true
+	st.gaugeGen = st.searchGen
+
+	gen := st.gaugeGen
+	mate := st.cfg.Mate
+	start := st.start
+	// 슬라이스를 그대로 넘기면 다음 착수의 append 가 같은 배열을 건드릴 수 있다.
+	moves := append([]string(nil), st.usis...)
+
+	go func() {
+		r, err := mate.SearchMate(ctx, start, moves)
+		select {
+		case gaugeDone <- mateResult{gen: gen, plies: len(r.Moves), err: err}:
+		case <-ctx.Done():
+		}
+	}()
+}
+
+// applyMateHeat 는 구해진 게이지 세기를 반영한다.
+func (st *state) applyMateHeat(r mateResult) {
+	if !st.gauging || r.gen != st.gaugeGen {
+		return // 그 사이 게이지를 다시 걸었다. 늦게 온 앞의 결과다
+	}
+	st.gauging = false
+
+	if r.gen != st.searchGen {
+		return // 국면이 움직였다. 스냅샷이 mateGen 으로 걸러내지만 적지도 않는다
+	}
+	if r.err != nil {
+		// 게이지가 없다고 대국을 멈추지 않는다. 개입 판정과 같은 판단이다 —
+		// 테두리가 어두운 채로 남고 대국은 그대로 간다.
+		log.Printf("game: mate gauge failed, the border stays dark: %v", r.err)
+		return
+	}
+
+	st.mateHeat, st.mateGen = mateHeat(r.plies), r.gen
+	// **세기가 그대로여도 뿌린다.** 국면이 바뀌면 스냅샷이 게이지를 껐다가 여기서 다시
+	// 켜는데, 「바뀌었을 때만」으로 두면 값이 같은 국면에서 꺼진 채로 남는다.
+	st.broadcast()
+}
+
+func (st *state) applyEngineMove(ctx context.Context, r engineResult, engineDone chan engineResult, gaugeDone chan mateResult) {
 	if !st.thinking || st.pendingGen != st.searchGen {
 		return // 롤백·투료로 국면이 바뀐 뒤 도착한 결과. 버린다
 	}
@@ -774,6 +879,7 @@ func (st *state) applyEngineMove(ctx context.Context, r engineResult, engineDone
 	st.apply(m, SideEngine)
 	st.recordLastMove() // 상대 수는 판정하지 않으므로 두는 즉시 확정이다
 	st.maybeThink(ctx, engineDone)
+	st.maybeGauge(ctx, gaugeDone)
 	st.broadcast()
 }
 
@@ -825,6 +931,12 @@ func (st *state) snapshot() Snapshot {
 			PlayerMoves:   st.movesBy(SideHuman),
 			OpponentMoves: st.movesBy(SideEngine),
 		}),
+	}
+	// **국면이 움직였으면 게이지는 그 자리에서 무효다.** 지우는 코드를 착수·롤백·종료에
+	// 흩어 두는 대신 여기서 한 번 대조한다 — 그중 하나를 빠뜨리면 낡은 불꽃이 새 국면에
+	// 남고, 그건 「지금 판 위의 사실」이 아니게 된다(StyleTags 를 매번 다시 세는 것과 같은 자리다).
+	if st.mateGen == st.searchGen {
+		snap.MateHeat = st.mateHeat
 	}
 	if yours {
 		for _, m := range st.pos.LegalMoves() {
