@@ -2094,3 +2094,29 @@ body {
 .review-graph .recharts-wrapper {
   cursor: pointer;
 }
+
+/* 확대 중이라는 표시이자 나가는 문. 그림 위에 얹되 선을 가리지 않게 위쪽 가장자리에 둔다 */
+.review-graph {
+  position: relative;
+}
+
+.review-graph-zoom {
+  position: absolute;
+  z-index: 1;
+  inset-block-start: 0.1rem;
+  inset-inline-end: 0.4rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid rgb(var(--light) / 0.2);
+  background: var(--surface);
+  font: inherit;
+  font-size: 0.6875rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.review-graph-zoom:hover,
+.review-graph-zoom:focus-visible {
+  border-color: rgb(var(--light) / 0.45);
+  color: var(--fg);
+}

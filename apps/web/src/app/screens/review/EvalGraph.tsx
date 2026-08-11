@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 
 import type { GameDetail } from '@/protocol/review';
@@ -44,8 +44,17 @@ const CLAMP = 1200;
 
 const clamp = (cp: number): number => Math.max(-CLAMP, Math.min(CLAMP, cp));
 
-/** 手数 눈금 간격. */
+/** 手数 눈금 간격. 전체 보기와 확대에서 각각. */
 const TICK_EVERY = 20;
+const TICK_EVERY_ZOOMED = 5;
+
+/**
+ * 확대했을 때 앞뒤로 보여주는 手数.
+ *
+ * 167手 판에서 한 점이 3px이라, 그 자리의 모양(어디서 기울기 시작했나 · 개입이 몇 手 사이에
+ * 몰렸나)을 볼 수가 없다. ±20이면 40手 창이고, 한 국면 덩어리가 통째로 들어온다.
+ */
+const ZOOM_SPAN = 20;
 
 /**
  * 세로축을 무엇으로 그리나. **눈으로 보고 정하려고 둔 손잡이이고, 아직 결정이 아니다.**
@@ -134,12 +143,41 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
     return at;
   }, [game.interventions]);
 
-  /** 20手마다 하나. `0`(開始局面)에서 시작한다. */
+  /**
+   * 확대의 중심 手数. `null` 이면 전체 보기다.
+   *
+   * **같은 점을 다시 누르면 전체로 돌아온다.** 확대는 「거기를 자세히 본다」이고 그 반대는
+   * 「전체를 본다」뿐이라, 상태가 둘이면 손잡이도 하나로 족하다.
+   */
+  const [zoom, setZoom] = useState<number | null>(null);
+
+  const last = game.moves.length;
+  /** 보고 있는 手数 구간. 확대해도 창이 판 밖으로 나가지 않게 양끝에서 민다. */
+  const [from, to] = useMemo<[number, number]>(() => {
+    if (zoom === null) return [0, last];
+    const half = ZOOM_SPAN;
+    const lo = Math.max(0, Math.min(zoom - half, last - half * 2));
+    const hi = Math.min(last, Math.max(zoom + half, half * 2));
+    return [lo, hi];
+  }, [zoom, last]);
+
+  /** 눈금. 창이 좁으면 촘촘해야 手数를 읽을 수 있다. */
   const ticks = useMemo(() => {
+    const step = zoom === null ? TICK_EVERY : TICK_EVERY_ZOOMED;
     const out: number[] = [];
-    for (let p = 0; p <= game.moves.length; p += TICK_EVERY) out.push(p);
+    for (let p = Math.ceil(from / step) * step; p <= to; p += step) out.push(p);
     return out;
-  }, [game.moves.length]);
+  }, [from, to, zoom]);
+
+  /**
+   * 그림을 누르면 그 手数로 가고 **그 자리를 확대한다.** 같은 자리를 다시 누르면 전체로 돌아온다.
+   *
+   * 두 일을 한 클릭에 묶은 것은 둘이 같은 물음의 답이기 때문이다 — 「거기를 보겠다」.
+   */
+  const onSpot = (at: number): void => {
+    setZoom((current) => (current === at ? null : at));
+    onPick(at);
+  };
 
   // 평가치가 한 수도 안 남은 판이 있다(`eval_cp` 는 뒤에 붙은 컬럼이다). 그때는 빈 상자를
   // 그리지 않고 왜 없는지를 말한다 — 빈 그래프는 「호각이었다」로 읽힌다.
@@ -149,6 +187,14 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
 
   return (
     <div className="review-graph">
+      {/* **확대는 상태이므로 화면이 말해야 한다.** 「같은 점을 다시 누르면 나온다」만으로 두면
+          그것을 아는 사람만 나올 수 있다 — 그래서 이 줄이 나가는 문을 겸한다. */}
+      {zoom !== null && (
+        <button type="button" className="review-graph-zoom" onClick={() => setZoom(null)}>
+          {from}–{to}手 · 全体に戻る
+        </button>
+      )}
+
       <ResponsiveContainer width="100%" height={180}>
         <LineChart
           data={data}
@@ -157,7 +203,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
           // 점 하나가 3px이고, 그건 누를 수 없는 크기다.
           onClick={(state) => {
             const label = state?.activeLabel;
-            if (typeof label === 'number') onPick(label);
+            if (typeof label === 'number') onSpot(label);
           }}
         >
           <CartesianGrid stroke="rgb(255 255 255 / 0.06)" vertical={false} />
@@ -170,7 +216,8 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
           <XAxis
             dataKey="ply"
             type="number"
-            domain={[0, game.moves.length]}
+            domain={[from, to]}
+            allowDataOverflow
             ticks={ticks}
             tick={{ fill: 'var(--muted)', fontSize: 10 }}
             tickSize={3}
