@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { ClientMessage, ServerMessage, Snapshot } from './protocol';
+import type { WhatIfNode, WhatIfRequest } from '@/whatif/protocol';
+import type { Send } from '@/whatif/useWhatIf';
 
 export type Connection = 'connecting' | 'open' | 'closed';
 
@@ -22,6 +24,14 @@ export interface GameState {
   dismissRejection: () => void;
   /** 새 대국을 시작한다. 끊긴 연결을 다시 붙일 때도 같은 것을 쓴다. */
   restart: () => void;
+  /**
+   * 가정 수순 한 자리를 **이 대국의 연결로** 묻는다(`useWhatIf` 의 `Send`).
+   *
+   * **되짚기와 길이 갈리는 이유는 뿌리다.** 저쪽은 DB 기록에서 만들지만, 두는 중인 판은
+   * 기록이 비동기로 쌓여서 개입 직후에는 마지막 수가 아직 없을 수 있다 — 하필 제일
+   * 누르고 싶은 순간에 흔들린다. 세션이 방금 보낸 스냅샷이 그 자리의 정본이다.
+   */
+  whatif: Send;
 }
 
 function socketUrl(): string {
@@ -45,6 +55,20 @@ export function useGame(): GameState {
   const socketRef = useRef<WebSocket | null>(null);
   // 직전 스냅샷에 개입이 실려 있었는가. 회차를 세는 데만 쓴다.
   const hadIntervention = useRef(false);
+
+  /**
+   * 답을 기다리는 가정 수순 요청.
+   *
+   * **하나뿐이다.** 서버가 한 연결에 한 번만 돌리므로(ws.go 의 슬롯) 여기도 하나면 되고,
+   * 새 요청이 오면 앞의 것은 버려진다 — 그쪽은 이미 `useWhatIf` 가 abort로 접은 것이다.
+   */
+  const asking = useRef<{ resolve: (n: WhatIfNode) => void; reject: (e: Error) => void } | null>(null);
+  const settle = useCallback((fn: (p: NonNullable<typeof asking.current>) => void) => {
+    const pending = asking.current;
+    if (!pending) return;
+    asking.current = null;
+    fn(pending);
+  }, []);
 
   useEffect(() => {
     const socket = new WebSocket(socketUrl());
@@ -73,14 +97,22 @@ export function useGame(): GameState {
         setRejection(null);
       } else if (msg.type === 'error') {
         setRejection(msg.message);
+      } else if (msg.type === 'whatif') {
+        settle((p) => p.resolve(msg.whatif));
+      } else if (msg.type === 'whatif_error') {
+        // **착수 거절과 갈라 둔다.** 저쪽은 판 위의 실패라 판 옆에 뜨고, 이쪽은 가정 수순
+        // 패널 안의 실패다 — 한 자리에 뭉치면 「두다가 뭘 잘못했나」로 읽힌다.
+        settle((p) => p.reject(new Error(msg.message)));
       }
     });
 
     return () => {
       socketRef.current = null;
+      // 끊긴 연결에는 답이 안 온다. 기다리는 쪽을 영원히 매달아 두지 않는다.
+      settle((p) => p.reject(new Error('接続が切れました。')));
       socket.close();
     };
-  }, [generation]);
+  }, [generation, settle]);
 
   const send = useCallback((msg: ClientMessage) => {
     const socket = socketRef.current;
@@ -90,6 +122,23 @@ export function useGame(): GameState {
   const play = useCallback((usi: string) => send({ type: 'move', usi }), [send]);
   const resign = useCallback(() => send({ type: 'resign' }), [send]);
   const dismissRejection = useCallback(() => setRejection(null), []);
+
+  const whatif = useCallback<Send>(
+    (req: WhatIfRequest, signal: AbortSignal) =>
+      new Promise<WhatIfNode>((resolve, reject) => {
+        const socket = socketRef.current;
+        if (socket?.readyState !== WebSocket.OPEN) {
+          reject(new Error('接続していません。'));
+          return;
+        }
+        // 앞의 것이 아직 매달려 있으면 접는다. 답은 하나만 온다.
+        settle((p) => p.reject(new Error('やり直しました。')));
+        asking.current = { resolve, reject };
+        signal.addEventListener('abort', () => settle((p) => p.reject(new Error('やめました。'))), { once: true });
+        socket.send(JSON.stringify({ type: 'whatif', ply: req.ply, moves: req.moves } satisfies ClientMessage));
+      }),
+    [settle],
+  );
 
   const restart = useCallback(() => {
     // 판을 먼저 비운다. 끝난 대국이 남아 있으면 새 판이 오기 전 한 순간 그게 보인다.
@@ -108,5 +157,6 @@ export function useGame(): GameState {
     resign,
     dismissRejection,
     restart,
+    whatif,
   };
 }

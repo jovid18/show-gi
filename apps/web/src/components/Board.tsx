@@ -44,6 +44,31 @@ export interface LastMove {
 }
 
 /**
+ * 방금 이 판을 만든 수의 **움직임**. 도착 칸의 駒가 출발 칸에서 미끄러져 들어온다.
+ *
+ * **판이 통째로 바뀌면 초심자는 무엇이 변했는지 못 본다**(docs/03-frontend.md §3).
+ * 그래서 이건 장식이 아니라 되짚기의 내용이다 — 넘길 때마다 「무엇이 어디서 왔나」가
+ * 판 위에서 한 번 더 말해진다.
+ *
+ * **유령을 하나 더 띄우지 않는다**(회상의 `Replay` 와 다른 점이다). 도착 칸에는 이미
+ * 그 駒가 서 있으므로, 위에 유령을 겹치면 같은 駒가 둘로 보인다. 서 있는 駒를 출발
+ * 칸에서 끌어오면 판에 있는 것만으로 움직임이 난다.
+ */
+export interface Motion {
+  /** 도착 칸(화면 배열 인덱스). */
+  to: number;
+  /** 출발 칸. 打이면 null — 위에서 떨어진다. */
+  from: number | null;
+  /**
+   * 같은 칸에 두 번 들어와도 다시 나게 하는 열쇠.
+   *
+   * **되잡기가 정확히 그 경우다.** 같은 칸에 연달아 들어오면 요소가 그대로 남아 CSS
+   * 애니메이션이 다시 시작하지 않는다 — 이 값이 바뀌면 그 칸만 새로 붙는다.
+   */
+  id: number;
+}
+
+/**
  * 방금 그 화면에서 벌어진 한 수를 판 위에 그은 선.
  *
  * **판은 언제나 이 수를 둔 뒤의 국면이다.** 그래서 이 선은 지금 화면에 대한 사실이다 —
@@ -84,6 +109,8 @@ interface BoardProps {
   played: LastMove | null;
   /** 다음에 올 한 수. 초록 화살표로 긋는다 — **다음에 벌어질 것**이다. */
   ray: Ray | null;
+  /** 방금 이 판을 만든 수의 움직임. 도착 칸의 駒가 출발 칸에서 미끄러져 들어온다. */
+  motion: Motion | null;
   /**
    * 지금 玉을 잡으러 오는 말들. 붉은 화살표로 긋는다.
    *
@@ -224,6 +251,7 @@ export function Board({
   replay,
   played,
   ray,
+  motion,
   checks,
   dimmed,
   dropFrom,
@@ -274,11 +302,26 @@ export function Board({
           const mark = played?.from === index ? 'from' : played?.to === index ? 'to' : null;
           const last = lastMove?.to === index ? 'to' : lastMove?.from === index ? 'from' : undefined;
 
+          // 이 칸으로 駒가 들어오는 중인가. **출발 칸에서 도착 칸까지를 칸 수로 준다** —
+          // 픽셀로 계산하면 `--sq` 가 화면 폭을 따라 변하는 만큼 어긋난다(유령 駒와 같다).
+          const moving = motion?.to === index ? motion : null;
+          const slide =
+            moving && moving.from !== null
+              ? ({
+                  '--mcol': (moving.from % BOARD_SIZE) - (index % BOARD_SIZE),
+                  '--mrow': Math.floor(moving.from / BOARD_SIZE) - Math.floor(index / BOARD_SIZE),
+                } as CSSProperties)
+              : undefined;
+
           return (
             <button
-              key={usi}
+              // 같은 칸에 연달아 들어오면(되잡기) 요소가 그대로 남아 애니메이션이 다시
+              // 시작하지 않는다. 열쇠를 바꿔 그 칸만 새로 붙인다.
+              key={moving ? `${usi}-${moving.id}` : usi}
               type="button"
               className="square"
+              style={slide}
+              data-motion={moving ? (moving.from === null ? 'drop' : 'board') : undefined}
               data-lit={lit.has(usi) || undefined}
               data-occupied={piece ? true : undefined}
               data-selected={selected === usi || undefined}

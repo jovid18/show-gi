@@ -3,6 +3,8 @@
 // Go의 nil 슬라이스는 `[]`가 아니라 **`null`로 직렬화된다.** 대국 시작 직후의 `moves`,
 // 엔진 차례의 `legalMoves`가 실제로 그렇게 온다. 타입에서 그걸 숨기면 첫 렌더에서 터진다.
 
+import type { WhatIfNode } from '@/whatif/protocol';
+
 export type Status = 'playing' | 'checkmate' | 'stalemate' | 'resigned' | 'repetition';
 export type Player = 'human' | 'engine';
 
@@ -157,6 +159,14 @@ export interface Snapshot {
 
 export type ServerMessage =
   | { type: 'snapshot'; snapshot: Snapshot }
-  | { type: 'error'; reason: string; message: string };
+  | { type: 'error'; reason: string; message: string }
+  // 가정 수순의 한 자리. **스냅샷과 갈라져 온다** — 이건 대국의 상태가 아니라
+  // 「안 벌어진 일」이고, 하나로 합치면 화면이 두 판을 같은 것으로 그린다.
+  | { type: 'whatif'; whatif: WhatIfNode }
+  | { type: 'whatif_error'; reason: string; message: string };
 
-export type ClientMessage = { type: 'move'; usi: string } | { type: 'resign' };
+export type ClientMessage =
+  | { type: 'move'; usi: string }
+  | { type: 'resign' }
+  // **판(SFEN)을 보내지 않는다.** 뿌리는 서버가 자기가 방금 보낸 스냅샷에서 만든다.
+  | { type: 'whatif'; ply: number; moves: string[] };
