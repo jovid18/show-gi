@@ -148,6 +148,9 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
    *
    * **같은 점을 다시 누르면 전체로 돌아온다.** 확대는 「거기를 자세히 본다」이고 그 반대는
    * 「전체를 본다」뿐이라, 상태가 둘이면 손잡이도 하나로 족하다.
+   *
+   * 한때 우상단에 「N–M手 · 全体に戻る」 버튼을 같이 뒀는데 뺐다 — 축 눈금이 이미 보고 있는
+   * 구간을 말하고 있어서, 그 버튼은 같은 말을 한 번 더 하면서 선 위에 얹혀 있었다.
    */
   const [zoom, setZoom] = useState<number | null>(null);
 
@@ -196,14 +199,6 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
 
   return (
     <div className="review-graph">
-      {/* **확대는 상태이므로 화면이 말해야 한다.** 「같은 점을 다시 누르면 나온다」만으로 두면
-          그것을 아는 사람만 나올 수 있다 — 그래서 이 줄이 나가는 문을 겸한다. */}
-      {zoom !== null && (
-        <button type="button" className="review-graph-zoom" onClick={() => setZoom(null)}>
-          {from}–{to}手 · 全体に戻る
-        </button>
-      )}
-
       <ResponsiveContainer width="100%" height={180}>
         <LineChart
           data={data}
