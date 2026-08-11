@@ -8,6 +8,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
+	"github.com/jovid18/show-gi/apps/server/internal/tag"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
@@ -84,6 +85,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		if cp, ok := after.ScoreAtDepth(ShallowDepth); ok {
 			in.Features.ShallowCp, in.Features.HasShallow = -cp, true // 사람 관점
 		}
+		facts.Tags = detectTags(pos.Apply(m), mover, startSFEN, moves)
 	} else {
 		// 판을 못 읽은 것은 우리 버그다. 판정은 계속하되 조용히 넘기지 않는다.
 		log.Printf("game: could not replay for features, category will be other: %v", err)
@@ -201,6 +203,44 @@ func (a *engineAnalyst) opponentMate(
 		return nil
 	}
 	return played.Moves
+}
+
+// detectTags 는 착수 후 국면의 囲い·전법·戦型을 감지해 태그 코드 배열로 돌려준다.
+// kb_chunks 검색 키가 된다.
+func detectTags(afterPos shogi.Position, mover shogi.Color, startSFEN string, moves []string) []string {
+	pm, om := splitMoves(startSFEN, moves, mover)
+	tags := tag.Detect(tag.Input{
+		Pos:           afterPos,
+		Color:         mover,
+		PlayerMoves:   pm,
+		OpponentMoves: om,
+	})
+	if len(tags) == 0 {
+		return nil
+	}
+	codes := make([]string, len(tags))
+	for i, t := range tags {
+		codes[i] = t.Code
+	}
+	return codes
+}
+
+// splitMoves 는 수순을 플레이어와 상대의 것으로 나눈다.
+func splitMoves(startSFEN string, moves []string, player shogi.Color) (playerMoves, opponentMoves []string) {
+	startPos, err := shogi.ParseSFEN(startSFEN)
+	if err != nil {
+		return nil, nil
+	}
+	turn := startPos.Turn
+	for _, m := range moves {
+		if turn == player {
+			playerMoves = append(playerMoves, m)
+		} else {
+			opponentMoves = append(opponentMoves, m)
+		}
+		turn = turn.Other()
+	}
+	return playerMoves, opponentMoves
 }
 
 // senteCp 는 **둔 쪽 관점** cp를 先手 관점으로 옮긴다.

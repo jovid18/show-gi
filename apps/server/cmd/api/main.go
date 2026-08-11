@@ -126,7 +126,23 @@ func startExplainer(st *store.Store) explain.Explainer {
 		return explain.NewLayered(nil, client)
 	}
 	log.Print("explain: OrcaRouter ready, cached explanations come from the database")
-	return explain.NewLayered(st, client)
+	return explain.NewLayered(st, client).WithKnowledge(knowledgeLookup(st))
+}
+
+// knowledgeLookup 은 `store.Store` 의 kb_chunks 검색을 `explain.KnowledgeLookup` 으로 감싼다.
+// `store` → `explain` import를 막으면서 두 패키지를 잇는 자리다.
+func knowledgeLookup(st *store.Store) explain.KnowledgeLookup {
+	return func(ctx context.Context, tags []string) ([]explain.KbSnippet, error) {
+		rows, err := st.KnowledgeForTags(ctx, tags)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]explain.KbSnippet, len(rows))
+		for i, r := range rows {
+			out[i] = explain.KbSnippet{Title: r.Title, Body: r.Body}
+		}
+		return out, nil
+	}
 }
 
 // envFloat 는 소수 환경변수를 읽는다. 틀린 값은 기본값으로 되돌리고 조용히 넘기지 않는다.

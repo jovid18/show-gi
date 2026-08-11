@@ -365,6 +365,28 @@ func (s *Store) SaveExplanation(ctx context.Context, key, body, model string) er
 	return nil
 }
 
+// KbRow 는 `kb_chunks` 한 행의 제목과 본문이다.
+type KbRow struct {
+	Title string
+	Body  string
+}
+
+// KnowledgeForTags 는 태그에 걸리는 `kb_chunks` 를 돌려준다. 태그가 비면 nil.
+func (s *Store) KnowledgeForTags(ctx context.Context, tags []string) ([]KbRow, error) {
+	if len(tags) == 0 {
+		return nil, nil
+	}
+	rows, err := s.q.KnowledgeForTags(ctx, tags)
+	if err != nil {
+		return nil, fmt.Errorf("knowledge for tags: %w", err)
+	}
+	out := make([]KbRow, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, KbRow{Title: r.Title, Body: r.Body})
+	}
+	return out, nil
+}
+
 // ExplainCacheStats 는 (항목 수, 누적 히트)다. 발표의 캐시 히트율이 여기서 나온다.
 func (s *Store) ExplainCacheStats(ctx context.Context) (entries, hits int64, err error) {
 	row, err := s.q.ExplainCacheStats(ctx)

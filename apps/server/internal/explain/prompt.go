@@ -70,7 +70,11 @@ var levelJa = map[intervene.Level]string{
 //
 // **여기 적히지 않은 것은 LLM이 모른다.** 그래서 이 함수가 곧 「무엇을 말해도 되는가」의
 // 경계이고, 목록은 `used` 가 정한다 — 프롬프트에만 있는 사실은 언젠가 문장으로 새어 나온다.
-func userPrompt(f Facts) string {
+//
+// knowledge 는 `kb_chunks` 에서 태그로 찾은 참고 지식이다. 비어 있으면 안 붙는다 —
+// 그때의 프롬프트는 이 함수의 이전 버전과 **글자 한 자 다르지 않다.** 기존 캐시가
+// 그래서 무효화되지 않는다(태그 없는 키는 바뀌지 않았다).
+func userPrompt(f Facts, knowledge []KbSnippet) string {
 	u := f.used()
 
 	var b strings.Builder
@@ -117,6 +121,12 @@ func userPrompt(f Facts) string {
 		// 말하는 상태가 된다 — 「프롬프트가 사실을 덜 주면 남은 자리를 모델이 메운다」의
 		// 반대쪽 실패다.
 		fmt.Fprintf(&b, "詰まされるまでの手数: %d手（証明済み。受けが必要）\n", u.MatePlies)
+	}
+	if len(knowledge) > 0 {
+		b.WriteString("\n参考知識（この局面に該当するもの）:\n")
+		for _, k := range knowledge {
+			fmt.Fprintf(&b, "・%s — %s\n", k.Title, k.Body)
+		}
 	}
 	return b.String()
 }

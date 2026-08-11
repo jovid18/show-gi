@@ -125,7 +125,7 @@ func TestNoKoreanReachesTheUser(t *testing.T) {
 			f := full
 			f.Category, f.Level, f.Kind = c, l, intervene.KindBlunder
 			texts["Render/"+string(c)] = Render(f)
-			texts["userPrompt/"+string(c)] = userPrompt(f)
+			texts["userPrompt/"+string(c)] = userPrompt(f, nil)
 		}
 	}
 
@@ -152,7 +152,7 @@ func TestPromptCarriesOnlyWhatTheSentenceMayUse(t *testing.T) {
 
 	f := full
 	f.Category = intervene.CategoryIdleCheck
-	got := userPrompt(f)
+	got := userPrompt(f, nil)
 	for _, bad := range []string{"銀", "飛", "桂", "2枚"} {
 		if strings.Contains(got, bad) {
 			t.Errorf("idle_check 프롬프트에 %q 가 들어갔다:\n%s", bad, got)
@@ -161,7 +161,7 @@ func TestPromptCarriesOnlyWhatTheSentenceMayUse(t *testing.T) {
 
 	f = full
 	f.Category = intervene.CategoryHangsPiece
-	got = userPrompt(f)
+	got = userPrompt(f, nil)
 	if !strings.Contains(got, "銀") || !strings.Contains(got, "2枚") {
 		t.Errorf("hangs_piece 프롬프트에 駒와 매수가 없다:\n%s", got)
 	}
@@ -174,7 +174,7 @@ func TestPromptCarriesOnlyWhatTheSentenceMayUse(t *testing.T) {
 // **모른다고 말해야 지어내지 않는다.** `other` 는 이유를 특정하지 못한 카테고리이고,
 // 프롬프트가 그것을 적지 않으면 LLM이 그럴듯한 이유를 만든다 — 개입의 3분의 2가 여기다.
 func TestPromptAdmitsWhenTheReasonIsUnknown(t *testing.T) {
-	got := userPrompt(Facts{Category: intervene.CategoryOther, Kind: intervene.KindBlunder})
+	got := userPrompt(Facts{Category: intervene.CategoryOther, Kind: intervene.KindBlunder}, nil)
 	if !strings.Contains(got, "特定できていない") {
 		t.Errorf("이유를 모른다는 말이 프롬프트에 없다:\n%s", got)
 	}
