@@ -527,3 +527,49 @@ func TestListGamesSkipsEmptyGames(t *testing.T) {
 		t.Errorf("games[0].ID = %d, want %d (최신부터)", games[0].ID, played)
 	}
 }
+
+// 낙폭을 만든 **두 원본**이 남는다.
+//
+// 낙폭만으로는 되돌릴 수 없다 — `WinRate(best) - WinRate(after)` 라서 미지수가 둘인데 식이
+// 하나이고, 같은 cp 차이가 위치에 따라 다른 낙폭이 된다(06-status.md §39 ⑥). 그래서 이 두
+// 칸이 없으면 K를 바꿔 다시 채점할 수도, 물러진 수를 최선수와 한 축에 놓을 수도 없다.
+//
+// **0과 없음을 갈라 둔다.** 개입이 안 걸린 행과 「정말로 0cp였다」가 섞이면 화면이 없는 값을
+// 호각으로 그린다.
+func TestInterventionKeepsBothCp(t *testing.T) {
+	s := open(t)
+	id := newGame(t, s)
+
+	if err := s.InsertIntervention(t.Context(), id, Intervention{
+		Ply: 41, Kind: "blunder", Category: "hangs_piece",
+		DeltaWin: 0.42, RetractedUSI: "8h3c+", BestCp: 180, AfterCp: -640,
+	}); err != nil {
+		t.Fatalf("InsertIntervention: %v", err)
+	}
+	// 판정을 안 거친 행 — 두 칸이 NULL 로 남아야 한다.
+	if err := s.InsertIntervention(t.Context(), id, Intervention{
+		Ply: 43, Kind: "tesuji", Category: "両取り",
+	}); err != nil {
+		t.Fatalf("InsertIntervention(tesuji): %v", err)
+	}
+
+	rec, err := s.GameRecord(t.Context(), id)
+	if err != nil {
+		t.Fatalf("GameRecord: %v", err)
+	}
+	if len(rec.Interventions) != 2 {
+		t.Fatalf("개입 2개 기대, got %d", len(rec.Interventions))
+	}
+
+	blunder := rec.Interventions[0]
+	if blunder.BestCp == nil || blunder.AfterCp == nil {
+		t.Fatalf("두 원본이 안 남았다: best=%v after=%v", blunder.BestCp, blunder.AfterCp)
+	}
+	if *blunder.BestCp != 180 || *blunder.AfterCp != -640 {
+		t.Errorf("cp가 어긋났다: best=%d after=%d", *blunder.BestCp, *blunder.AfterCp)
+	}
+
+	if tesuji := rec.Interventions[1]; tesuji.BestCp != nil || tesuji.AfterCp != nil {
+		t.Errorf("판정을 안 거친 행에 cp가 붙었다: best=%v after=%v", tesuji.BestCp, tesuji.AfterCp)
+	}
+}

@@ -6,9 +6,16 @@
     // node는 vite.config.ts 때문에 필요하다. 브라우저 코드에서는 쓰지 않는다.
     "types": ["vite/client", "node"],
 
-    // `@`는 src다. vite.config.ts의 alias와 짝을 맞춰야 한다.
+    // **`@/`는 `src/app`이다.** vite.config.ts의 alias와 짝을 맞춰야 한다.
+    //
+    // 층마다 별칭을 두지 않는다. `@components` 처럼 슬래시가 없으면 **npm 스코프와 같은
+    // 모양**(`@scope/pkg`)이라 리졸버와 도구들이 외부 패키지로 취급하고, `@/` 는 스코프가
+    // 될 수 없어서 그 혼동이 아예 없다. 층 이름은 `@/components/…` 로 경로에 그대로 남는다.
+    //
+    // `src` 가 아니라 `src/app` 을 가리킨다 — 밖에 있는 것은 `main.tsx` 와 `index.css`
+    // 둘뿐이고 그 둘은 서로를 상대 경로로 부른다.
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/app/*"]
     }
   },
   "include": ["src", "vite.config.ts"]

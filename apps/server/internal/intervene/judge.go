@@ -110,6 +110,14 @@ type Verdict struct {
 	// DeltaWin 은 승률 낙폭(0~1). 종반 판정으로 걸렸을 때는 0에 가까울 수 있다 —
 	// 승률이 포화하는 구간이라 그 값이 작다는 것이 바로 詰み 거리를 쓰는 이유다.
 	DeltaWin float64
+	// BestCp·AfterCp 는 낙폭을 만든 **두 원본**이다. 둘 다 두는 쪽 관점(Input 과 같다).
+	//
+	// **낙폭만 남기면 되돌릴 수 없다.** 로지스틱을 통과한 두 값의 차라서 미지수가 둘인데
+	// 식이 하나이고, 같은 cp 차이가 위치에 따라 다른 낙폭이 된다(0→300cp 는 0.122,
+	// 2000→2300cp 는 0.008). 그래서 K 를 바꿔 다시 채점하려면 이 둘이 있어야 한다
+	// (06-status.md §39 ⑥). 재는 데 드는 것은 없다 — 판정이 이미 손에 들고 있다.
+	BestCp  int
+	AfterCp int
 	// LostMate 는 종반 판정으로 걸렸는가. 설명 문구가 갈린다.
 	LostMate bool
 	// Category 는 **왜** 나쁜가다. Kind 가 KindNone 이면 비어 있다.
@@ -140,6 +148,8 @@ func Judge(in Input) Verdict {
 			return Verdict{
 				Kind:     KindBlunder,
 				DeltaWin: WinRate(in.BestCp) - WinRate(in.AfterCp),
+				BestCp:   in.BestCp,
+				AfterCp:  in.AfterCp,
 				LostMate: true,
 				Category: classify(in, true),
 			}
@@ -149,7 +159,13 @@ func Judge(in Input) Verdict {
 
 	delta := WinRate(in.BestCp) - WinRate(in.AfterCp)
 	if delta > in.Level.Threshold() {
-		return Verdict{Kind: KindBlunder, DeltaWin: delta, Category: classify(in, false)}
+		return Verdict{
+			Kind:     KindBlunder,
+			DeltaWin: delta,
+			BestCp:   in.BestCp,
+			AfterCp:  in.AfterCp,
+			Category: classify(in, false),
+		}
 	}
 	return Verdict{}
 }

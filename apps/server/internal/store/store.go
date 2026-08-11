@@ -279,6 +279,13 @@ type Intervention struct {
 	LevelBucket string
 	// RetractedUSI 는 개입이 막지 않았다면 실제로 뒀을 수다.
 	RetractedUSI string
+	// BestCp·AfterCp 는 낙폭을 만든 두 원본이다(수번 측 관점). **제지형만.**
+	//
+	// 0이면 안 적는다 — 판정을 안 거친 행과 「정말로 0cp였다」를 섞지 않기 위해서다.
+	// 호각인 국면에서 개입이 걸릴 일은 없으므로(낙폭이 임계치를 넘어야 한다) 이 규칙이
+	// 실제 값을 버리지는 않는다.
+	BestCp  int
+	AfterCp int
 
 	// ExplainTier 는 설명이 어느 계층에서 나왔나(0=캐시 1=소형 2=대형)다.
 	//
@@ -313,6 +320,10 @@ func (s *Store) InsertIntervention(ctx context.Context, gameID int64, iv Interve
 	}
 	d := iv.DeltaWin
 	arg.DeltaWin = &d
+	if iv.BestCp != 0 || iv.AfterCp != 0 {
+		b, a := int32(iv.BestCp), int32(iv.AfterCp)
+		arg.BestCp, arg.AfterCp = &b, &a
+	}
 
 	if iv.ExplainTier != nil {
 		t := int16(*iv.ExplainTier)
@@ -406,6 +417,11 @@ type RecordedIntervention struct {
 	DeltaWin     float64
 	LevelBucket  string
 	RetractedUSI string
+	// BestCp·AfterCp 는 낙폭을 만든 두 원본이다(수번 측 관점). **없을 수 있다** —
+	// migrations/005 앞에 기록된 판에는 영원히 없다. 버린 값은 되찾을 수 없고,
+	// 화면은 그 자리를 다시 재서 채운다.
+	BestCp  *int
+	AfterCp *int
 }
 
 // GameRecord 는 한 판 전체다.
@@ -503,14 +519,24 @@ func (s *Store) GameRecord(ctx context.Context, gameID int64) (GameRecord, error
 		out.Moves = append(out.Moves, rec)
 	}
 	for _, iv := range ivs {
-		out.Interventions = append(out.Interventions, RecordedIntervention{
+		rec := RecordedIntervention{
 			Ply:          int(iv.Ply),
 			Kind:         iv.Kind,
 			Category:     deref(iv.Category),
 			DeltaWin:     derefFloat(iv.DeltaWin),
 			LevelBucket:  deref(iv.LevelBucket),
 			RetractedUSI: deref(iv.RetractedUsi),
-		})
+		}
+		// 없는 것과 0을 갈라 둔다. 0cp는 호각이고, 없는 것은 migrations/005 앞의 행이다.
+		if iv.BestCp != nil {
+			cp := int(*iv.BestCp)
+			rec.BestCp = &cp
+		}
+		if iv.AfterCp != nil {
+			cp := int(*iv.AfterCp)
+			rec.AfterCp = &cp
+		}
+		out.Interventions = append(out.Interventions, rec)
 	}
 	return out, nil
 }
