@@ -251,7 +251,17 @@ export function Board({
    * 판 위에서 글 없이 그 답을 하는 것이 이 표면이 있는 이유다(docs/03-frontend.md §1).
    */
   const [showExposure, setShowExposure] = useState(false);
-  const exposed = showExposure || dimmed;
+  /**
+   * 그늘을 지금 그리나. **회상 중에도 사람이 켠 때만이다.**
+   *
+   * 한때 `|| dimmed` 가 붙어 있어서 물러진 수를 되짚는 동안 그늘이 강제로 켜지고 토글이
+   * 잠겼다. 그런데 탈색된 판 위의 그 둥근 얼룩은 「상대가 손을 뻗은 칸」으로 안 읽히고
+   * **판에 낀 흠**으로 읽힌다 — 그 자리에서 말해야 하는 것은 「이 수를 물렀다」 하나이고,
+   * 그건 테와 화살표가 이미 말한다.
+   *
+   * 켜고 싶으면 회상 중에도 켤 수 있다(토글을 안 잠근다).
+   */
+  const exposed = showExposure;
 
   const ready = useBoardSurface({
     boardRef: surfaceRef,
@@ -346,13 +356,13 @@ export function Board({
       </div>
 
       {/* WebGL이 안 잡히면 아예 안 내놓는다. 눌러도 아무 일이 안 일어나는 버튼은
-          「고장 났다」로 읽힌다. 회상 중에는 이미 켜져 있으므로 끄지 못하게 둔다. */}
+          「고장 났다」로 읽힌다. **회상 중에도 잠그지 않는다** — 그늘이 강제로 켜지지
+          않으므로(위 `exposed`) 끄지 못하게 할 이유가 없다. */}
       {ready && (
         <button
           type="button"
           className="exposure-toggle"
           aria-pressed={exposed}
-          disabled={dimmed}
           title="相手の駒が利いていて、こちらが受けていないマスに影が落ちる"
           onClick={() => setShowExposure((on) => !on)}
         >

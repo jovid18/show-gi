@@ -451,7 +451,11 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
             ray={ray}
             motion={motion}
             checks={[]}
-            dimmed={recalling}
+            // **되짚기에서는 판을 탈색하지 않는다.** 탈색은 「지금이 아니다」를 말하는 장치인데
+            // (index.css `.board-tint`), 이 화면은 **전부가 지금이 아니다** — 그 안에서 한 국면만
+            // 낮추면 무엇과 구별되는지가 없다. 대국 화면에는 남는다: 거기서는 살아 있는 판과
+            // 회상이 같은 자리를 쓴다.
+            dimmed={false}
             dropFrom={null}
             hintSquare={null}
             hintRay={null}
