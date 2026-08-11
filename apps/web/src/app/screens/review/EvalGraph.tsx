@@ -44,6 +44,37 @@ const CLAMP = 1200;
 
 const clamp = (cp: number): number => Math.max(-CLAMP, Math.min(CLAMP, cp));
 
+/** 手数 눈금 간격. */
+const TICK_EVERY = 20;
+
+/**
+ * 세로축을 무엇으로 그리나. **눈으로 보고 정하려고 둔 손잡이이고, 아직 결정이 아니다.**
+ *
+ * `cp` — 실측 그대로. ±CLAMP 에서 자르므로 우세 구간이 천장에 붙는다.
+ * `winrate` — 로지스틱으로 0~1. 자를 필요가 없고 포화가 뜻 그대로 보이지만, **`K` 에 매달린다.**
+ *
+ * `K` 를 여기 둔 것이 이 손잡이의 문제다 — 서버의 판정이 쓰는 값과 **두 벌**이 되고
+ * (`intervene.K`), 그 값은 §39가 「기록으로는 못 정한다」로 열어 둔 미정 상수다. 승률로
+ * 가기로 정하면 **서버가 계산해 내려주는 쪽으로 옮겨야 한다** — 그때 이 상수는 지운다.
+ */
+const AXIS: 'cp' | 'winrate' = 'winrate';
+
+/** 서버의 `intervene.K` 와 같은 값. **두 벌이라 여기 남겨 두면 안 되는 값이다**(위). */
+const K = 600;
+
+/** cp → 승률. 서버의 `intervene.WinRate` 와 같은 식이다. */
+const winRate = (cp: number): number => 1 / (1 + Math.exp(-cp / K));
+
+/** 그 手数의 세로 위치. 축을 바꾸는 자리는 여기 하나다. */
+const valueOf = (cp: number): number => (AXIS === 'winrate' ? winRate(cp) : clamp(cp));
+
+const Y_DOMAIN: [number, number] = AXIS === 'winrate' ? [0, 1] : [-CLAMP, CLAMP];
+const Y_TICKS = AXIS === 'winrate' ? [0, 0.25, 0.5, 0.75, 1] : [-CLAMP, -600, 0, 600, CLAMP];
+/** 호각. 승률에서는 0.5이고 cp에서는 0이다. */
+const Y_EVEN = AXIS === 'winrate' ? 0.5 : 0;
+
+const yLabel = (v: number): string => (AXIS === 'winrate' ? `${Math.round(v * 100)}%` : String(v));
+
 interface Point {
   ply: number;
   /** 실제로 둔 판. 평가치가 안 남은 手数는 `null` — 없는 값을 0으로 채우지 않는다. */
@@ -58,7 +89,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
   const data = useMemo<Point[]>(() => {
     const main = new Map<number, number>();
     for (const m of game.moves) {
-      if (m.evalCp !== undefined) main.set(m.ply, clamp(m.evalCp));
+      if (m.evalCp !== undefined) main.set(m.ply, valueOf(m.evalCp));
     }
 
     /**
@@ -73,7 +104,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
       if (root !== undefined) branch.set(node.basePly, root);
       node.line.forEach((move, i) => {
         const at = evalOf(i + 1);
-        if (at?.cp !== undefined) branch.set(move.ply, clamp(at.cp));
+        if (at?.cp !== undefined) branch.set(move.ply, valueOf(at.cp));
       });
     }
 
@@ -103,6 +134,13 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
     return at;
   }, [game.interventions]);
 
+  /** 20手마다 하나. `0`(開始局面)에서 시작한다. */
+  const ticks = useMemo(() => {
+    const out: number[] = [];
+    for (let p = 0; p <= game.moves.length; p += TICK_EVERY) out.push(p);
+    return out;
+  }, [game.moves.length]);
+
   // 평가치가 한 수도 안 남은 판이 있다(`eval_cp` 는 뒤에 붙은 컬럼이다). 그때는 빈 상자를
   // 그리지 않고 왜 없는지를 말한다 — 빈 그래프는 「호각이었다」로 읽힌다.
   if (data.every((p) => p.main === null)) {
@@ -111,10 +149,10 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
 
   return (
     <div className="review-graph">
-      <ResponsiveContainer width="100%" height={116}>
+      <ResponsiveContainer width="100%" height={180}>
         <LineChart
           data={data}
-          margin={{ top: 6, right: 6, bottom: 0, left: 6 }}
+          margin={{ top: 6, right: 8, bottom: 0, left: 8 }}
           // 그림 아무 데나 눌러도 제일 가까운 手数로 간다. 점만 누르게 하면 109수 판에서
           // 점 하나가 3px이고, 그건 누를 수 없는 크기다.
           onClick={(state) => {
@@ -123,10 +161,38 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
           }}
         >
           <CartesianGrid stroke="rgb(255 255 255 / 0.06)" vertical={false} />
-          <XAxis dataKey="ply" type="number" domain={[0, game.moves.length]} hide />
-          <YAxis domain={[-CLAMP, CLAMP]} hide />
+          {/* **手数를 읽을 수 있어야 한다.** 빨간 점이 「몇 手째」인지 모르면 이 그림으로
+              어디를 볼지 고를 수 없다 — 눌러서 이동하는 장치인데 반쪽이 된다.
+
+              20씩인 것은 20手가 쇼기에서 한 국면 덩어리(序盤·囲い가 짜이는 구간)에 가깝고,
+              167手 판에서 눈금이 여덟 개쯤으로 앉아 서로 안 겹치기 때문이다. 마지막 手数는
+              눈금으로 안 넣는다 — 총 手数는 아래 바의 제목(`棋譜 167手`)이 이미 든다. */}
+          <XAxis
+            dataKey="ply"
+            type="number"
+            domain={[0, game.moves.length]}
+            ticks={ticks}
+            tick={{ fill: 'var(--muted)', fontSize: 10 }}
+            tickSize={3}
+            tickLine={{ stroke: 'rgb(255 255 255 / 0.18)' }}
+            axisLine={{ stroke: 'rgb(255 255 255 / 0.18)' }}
+            height={16}
+          />
+          {/* **위쪽이 先手다** — `eval_cp` 가 先手 관점으로 저장된다(06-status.md §26).
+              後手로 둔 판에서는 위가 상대가 되므로, 이 축은 아직 「나」를 말하지 못한다.
+              그 자리는 서버가 관점을 뒤집어 주는 것으로 따로 닫는다. */}
+          <YAxis
+            domain={Y_DOMAIN}
+            ticks={Y_TICKS}
+            tickFormatter={yLabel}
+            tick={{ fill: 'var(--muted)', fontSize: 10 }}
+            tickSize={3}
+            tickLine={{ stroke: 'rgb(255 255 255 / 0.18)' }}
+            axisLine={false}
+            width={30}
+          />
           {/* 호각. 이 선을 넘나드는 것이 곧 「누가 이기고 있었나」가 바뀐 자리다 */}
-          <ReferenceLine y={0} stroke="rgb(255 255 255 / 0.18)" />
+          <ReferenceLine y={Y_EVEN} stroke="rgb(255 255 255 / 0.18)" />
 
           <Line
             type="linear"
