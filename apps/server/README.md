@@ -54,17 +54,29 @@ docker build --platform linux/arm64 -t show-gi-enginetest -f enginetest.Dockerfi
 docker run --rm --platform linux/arm64 --cpus 4 -v "$PWD:/src:ro" show-gi-enginetest sh -c '
   cp -r /src /work && cd /work &&
   SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./... -run RealEngine -v'
+
+# ④ 엔진 + DB — 기록을 국면으로 되돌려 엔진에 다시 묻는 측정(06-status.md §40)
+#
+# **`--network show-gi-net` 이 ③과 다른 점이다.** db가 컨테이너라 호스트의
+# localhost 로는 안 보인다 — 컨테이너명으로 붙는다
+docker run --rm --platform linux/arm64 --cpus 4 --network show-gi-net \
+  -v "$PWD:/src:ro" show-gi-enginetest sh -c '
+  cp -r /src /work && cd /work &&
+  SHOWGI_USI_CMD=/opt/yaneuraou/run SHOWGI_MATE_CMD=/opt/yaneuraou/run-mate \
+  SHOWGI_MEASURE=1 \
+  SHOWGI_TEST_DATABASE_URL="postgres://showgi:showgi@show-gi-db:5432/showgi" \
+  go test ./internal/game/ -run MeasureBlunder -v -timeout 60m'
 ```
 
 **`-race` 를 빼지 않는다.** 엔진 프로세스와 세션 goroutine이 동시에 도는 구조라 데이터 경합이 가장 값비싼 버그다.
 
-| 환경변수                   | 없으면             | 쓰는 곳                                               |
-| -------------------------- | ------------------ | ----------------------------------------------------- |
-| `SHOWGI_TEST_DATABASE_URL` | DB 테스트 skip     | `internal/store`, `internal/intervene` 의 재채점 측정 |
-| `SHOWGI_USI_CMD`           | 실엔진 테스트 skip | `TestRealEngine`, `TestWSAgainstRealEngine`           |
-| `SHOWGI_MATE_CMD`          | 詰み 측정 skip     | `TestMeasureMateSearch`                               |
-| `SHOWGI_MEASURE`           | 측정 전부 skip     | `TestMeasure*` — 몇 분 걸린다                         |
-| `SHOWGI_GENERATE_TIER1`    | 사전 생성 skip     | `TestGenerateTier1` — **돈이 든다**. 아래             |
+| 환경변수                   | 없으면             | 쓰는 곳                                                                                      |
+| -------------------------- | ------------------ | -------------------------------------------------------------------------------------------- |
+| `SHOWGI_TEST_DATABASE_URL` | DB 테스트 skip     | `internal/store`, `internal/intervene` 의 재채점 측정, `internal/game` 의 블런더 재분류 측정 |
+| `SHOWGI_USI_CMD`           | 실엔진 테스트 skip | `TestRealEngine`, `TestWSAgainstRealEngine`                                                  |
+| `SHOWGI_MATE_CMD`          | 詰み 측정 skip     | `TestMeasureMateSearch`, `TestMeasureBlunderMate`, `TestMeasureBlunderTsumero`               |
+| `SHOWGI_MEASURE`           | 측정 전부 skip     | `TestMeasure*` — 몇 분 걸린다                                                                |
+| `SHOWGI_GENERATE_TIER1`    | 사전 생성 skip     | `TestGenerateTier1` — **돈이 든다**. 아래                                                    |
 
 > **재채점 측정만 `SHOWGI_MEASURE` 를 안 본다.** `TestMeasureCalibrationFromRecords` 는 엔진을 안 돌리고 DB만 읽어 초 단위로 끝난다. 대신 **기록이 쌓인 DB를 가리켜야 값이 나온다** — 로컬 DB에는 짧은 테스트 대국밖에 없다 ([docs/06-status.md §39](../../docs/06-status.md)).
 

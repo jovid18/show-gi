@@ -262,13 +262,13 @@ func TestFactsNameThePromotedPiece(t *testing.T) {
 // (06-status.md §25). 두 번째 수부터는 내 되따기가 섞이므로 첫 수만 본다.
 func TestRefutationNamesWhatCanBeTaken(t *testing.T) {
 	// △同金 — 5四의 銀을 金이 딴다.
-	got := refutationLine(exchangeSFEN, tookThePawn, []string{"4c5d", "5i5d"}, RefutationPlies)
+	got := refutationLine(exchangeSFEN, tookThePawn, []string{"4c5d", "5i5d"}, RefutationPlies, false)
 	if got.threatened != "銀" {
 		t.Errorf("threatened=%q, want 銀", got.threatened)
 	}
 
 	// 조용한 수로 시작하면 잡히는 것이 없다. **지어내지 않는다.**
-	quiet := refutationLine(exchangeSFEN, tookThePawn, []string{"5a4a"}, RefutationPlies)
+	quiet := refutationLine(exchangeSFEN, tookThePawn, []string{"5a4a"}, RefutationPlies, false)
 	if quiet.threatened != "" {
 		t.Errorf("threatened=%q — 따는 수가 아닌데 駒 이름이 나왔다", quiet.threatened)
 	}

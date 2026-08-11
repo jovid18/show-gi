@@ -16,7 +16,10 @@ import (
 // (「네가 기대한 효과가 없다」라고 말하기 때문이다) `unpromoted` 는 #26에서 「맞은 것을 먼저
 // 말한다」로 고쳐졌다. **그 두 문장은 손대지 않는다.**
 var baseMessages = map[intervene.Category]string{
-	intervene.CategoryMissedMate:  "詰みがありました。今の手で逃してしまいます。",
+	intervene.CategoryMissedMate: "詰みがありました。今の手で逃してしまいます。",
+	// **駒のことを言わない。** 玉が死ぬ局面で「駒を取られます」と言うと駒を守りに行き、
+	// その次の手で詰まされる。先に受けを促すのがこの一文の仕事だ。
+	intervene.CategoryLetsMate:    "この手だと自玉が詰まされます。まず受けを考えてみてください。",
 	intervene.CategoryHangsPiece:  "その駒は取り返せない場所に置かれています。相手の利きを確かめてみてください。",
 	intervene.CategoryShallowTrap: "一手だけ見ると得に見えますが、その先で形勢が入れ替わります。",
 	// **잡는 것도 가는 곳도 맞았다고 먼저 말한다.** 「その手は」로 시작하면 플레이어는 이동
@@ -52,6 +55,13 @@ func Render(f Facts) string {
 		// 숫자로 말한다. 플레이어의 실수는 거의 전부 「利き을 한 개 빠뜨림」이었다(§6).
 		if u.MovedPiece != "" && u.Attackers > 0 && !u.Defended {
 			return fmt.Sprintf("その%sを取れる相手の駒が%d枚あり、取り返す駒がありません。", u.MovedPiece, u.Attackers)
+		}
+
+	case intervene.CategoryLetsMate:
+		// **手数がそのまま急ぎの大きさだ。** 3手と9手では受けの余裕が違う。証明された
+		// 手数なので言い切れる — 探索の mate 点数なら言い切れない(facts.go の MatePlies)。
+		if u.MatePlies > 0 {
+			return fmt.Sprintf("この手だと%d手で自玉が詰まされます。まず受けを考えてみてください。", u.MatePlies)
 		}
 
 	case intervene.CategoryGreedyCapture:

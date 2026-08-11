@@ -106,6 +106,13 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		in.MateAfter = -after.MateIn
 	}
 
+	// **반대 부호가 반대 카테고리다.** `MateIn > 0` 은 착수 후 국면의 수번(=상대)이 詰ます
+	// 쪽이라는 뜻이므로 「상대가 나를 詰ます」다. 위의 `MateIn < 0` 과 같은 값에서 갈리는
+	// 두 질문이고, 아래쪽 답을 여기서 **버리고 있었다** — 그래서 종반 개입의 절반이
+	// 이유 없이 `other` 로 갔다(06-status.md §40).
+	mateLine := a.opponentMate(ctx, startSFEN, moves, before, best.Best, after)
+	in.Features.OpponentMatePlies = len(mateLine)
+
 	v := intervene.Judge(in)
 	j := Judgement{Verdict: v, BestUSI: best.Best}
 
@@ -121,16 +128,79 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		// 이미 손에 든 탐색의 PV가 그대로 「상대는 이렇게 벌한다」다. **추가 탐색이 없고
 		// 분류도 필요 없다** — 카테고리가 이유를 못 대는 3분의 2(06-status.md §17)가
 		// 여기서 설명을 갖는다.
-		r := refutationLine(startSFEN, moves, after.PV, RefutationPlies)
+		//
+		// **詰まされる 국면만 다른 수순을 쓴다.** 증명된 詰み 수순이 있으면 PV보다 그것이
+		// 낫다 — PV는 깊이 12에서의 읽기라 뒤로 갈수록 확실하지 않은데, 詰み 수순은
+		// 모든 응수에 대해 증명된 것이라 **끝까지 참이다.**
+		pv, full := after.PV, false
+		if len(mateLine) > 0 {
+			pv, full = mateLine, true
+		}
+		r := refutationLine(startSFEN, moves, pv, RefutationPlies, full)
 		j.RetractedSFEN, j.RetractedChecks, j.Refutation = r.retractedSFEN, r.checks, r.line
 
 		// 설명이 쓸 사실을 여기서 닫는다. **판정이 끝난 뒤여야 한다** — 무엇을 말해도
 		// 되는지가 카테고리에 달려 있고(explain.Facts.used), 카테고리는 방금 정해졌다.
 		facts.Kind, facts.Category, facts.Level, facts.LostMate = v.Kind, v.Category, a.level, v.LostMate
 		facts.Threatened = r.threatened
+		facts.MatePlies = in.Features.OpponentMatePlies
 		j.Facts = facts
 	}
 	return j, nil
+}
+
+// opponentMate 는 **그 수가 상대에게 詰み을 줬는가**를 보고, 줬으면 그 수순을 돌려준다.
+// 안 줬으면 nil이다 — 길이가 곧 手数이므로 부르는 쪽은 `len` 만 본다.
+//
+// 조건이 둘이고 **둘째가 이 함수의 존재 이유다.**
+//
+//	① 둔 수 뒤에 상대의 詰み이 증명된다
+//	② **최선수 뒤에는 증명되지 않는다**
+//
+// ②가 없으면 이미 詰んでいた 국면에 「この手で詰まされます」가 나가고, 그것은 그 수의 죄가
+// 아닌 것을 그 수의 죄라고 가르치는 일이다.
+//
+// **②를 지우고 싶어질 것이다 — 실측 23건이 전부 통과했으니 없어도 되는 것처럼 보인다.**
+// 그렇게 읽으면 안 된다. 통과한 이유는 조건이 아니라 **그 23건이 전부 이기고 있는 국면이었던
+// 것**이다(착수 전 승률 중앙값 0.809 ≈ +866cp — 밀리다가 죽은 것이 아니라 이긴 판을 던진
+// 것이다). 이기고 있으면 최선수가 죽을 리가 없으니 ②는 애초에 걸릴 일이 없었다.
+//
+// 즉 **②는 아직 시험되지 않았고, 그래서 남긴다**(06-status.md §40 ③).
+//
+// # 비용
+//
+// **평범한 수에는 추가 비용이 0이다.** 게이트가 이미 손에 든 탐색의 `MateIn > 0` 이고,
+// 실측에서 그 게이트가 증명된 詰み 23건을 **23/23 전부** 잡았다. solver는 게이트가 열린
+// 국면에서만 돈다 — 그때만 詰み 탐색 1~2회(각 ≈250ms)가 붙는다.
+//
+// 게이트가 헛부는 경우도 실측에 하나 있었다(탐색은 13手를 봤는데 solver는 `DepthLimit=11`
+// 안에서 못 찾았다). 그때는 ①에서 걸러지고 카테고리가 안 붙는다 — **증명 없이는 안 말한다.**
+func (a *engineAnalyst) opponentMate(
+	ctx context.Context, startSFEN string, moves, before []string, bestUSI string, after usi.SearchResult,
+) []string {
+	if a.mate == nil || bestUSI == "" {
+		return nil
+	}
+	// 게이트. 이 값은 위에서 이미 구한 탐색의 것이라 여기서 엔진을 부르지 않는다.
+	if !after.IsMate || after.MateIn <= 0 {
+		return nil
+	}
+
+	// ① 둔 수 뒤. 이 국면의 수번은 상대이므로 `go mate` 가 **상대의 詰み**을 답한다 —
+	// 위쪽 `MateBefore` 가 같은 호출을 반대 국면에 쓰는 것과 정확히 대칭이다.
+	played, err := a.mate.SearchMate(ctx, startSFEN, moves)
+	if err != nil || !played.Found() {
+		return nil
+	}
+
+	// ② 최선수 뒤. 여기서도 詰まされる면 이미 진 국면이라 그 수의 죄가 아니다.
+	bestLine := append(append([]string(nil), before...), bestUSI)
+	if b, err := a.mate.SearchMate(ctx, startSFEN, bestLine); err != nil || b.Found() {
+		// **탐색이 실패해도 안 붙인다.** ②를 확인하지 못한 채 붙이면 그 문구가 거짓일 수
+		// 있고, 모를 때는 말하지 않는 쪽이 이 제품의 규칙이다.
+		return nil
+	}
+	return played.Moves
 }
 
 // senteCp 는 **둔 쪽 관점** cp를 先手 관점으로 옮긴다.
@@ -160,7 +230,15 @@ const RefutationPlies = 8
 //
 // 표기와 국면을 여기서 만드는 이유도 같다. 화면이 USI에서 다시 만들면 표기가 두 벌이
 // 되고, 국면은 아예 클라이언트에 규칙 엔진을 들이는 일이 된다(06-status.md §6 ④).
-func refutationLine(startSFEN string, moves []string, pv []string, limit int) refutation {
+//
+// **`full` 이면 자르지 않는다.** 증명된 詰み 수순에는 자를 자리가 없다 — 중간에 끊으면
+// 「合の応手가 있는 것 아닌가」로 읽히고, 그건 `trimRefutation` 이 王手를 못 자르게 해 둔
+// 것과 같은 이유다. 詰み은 그 논리의 끝이라 **끝까지 보여주는 것이 짧게 보여주는 것보다
+// 정확하다.** 그때 `limit` 은 안 본다 — 상한은 solver 의 `DepthLimit`(11手)이 이미 걸었다.
+func refutationLine(startSFEN string, moves []string, pv []string, limit int, full bool) refutation {
+	if full {
+		limit = len(pv)
+	}
 	if len(pv) == 0 || limit <= 0 {
 		return refutation{}
 	}
@@ -223,6 +301,12 @@ func refutationLine(startSFEN string, moves []string, pv []string, limit int) re
 	}
 	if len(line) == 0 {
 		return refutation{}
+	}
+	// 증명된 詰み 수순은 그대로 간다. `steps` 는 여기서 안 쓰인다 — 자를 자리를 찾는
+	// 값이고, 자르지 않기로 한 자리다.
+	if full {
+		out.line = line
+		return out
 	}
 	out.line = line[:trimRefutation(steps)]
 	return out
