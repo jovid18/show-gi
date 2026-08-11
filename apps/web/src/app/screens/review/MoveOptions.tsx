@@ -119,9 +119,12 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
 
   return (
     <section className="review-panel review-options" aria-label="この局面で指せた手">
+      {/* **어느 쪽 수인지를 양쪽 다 적는다.** 「相手の番」만 적고 내 차례에는 아무 말도 안 하면,
+          말이 없는 것이 「내 차례」라는 뜻인지 「아직 모른다」는 뜻인지 갈리지 않는다 — 분기로
+          몇 수 들어가면 차례가 한 수씩 바뀌므로 그 자리에서 특히 그렇다. */}
       <h2 className="panel-title">
         {here + 1}手目 — この局面で指せた手
-        {node && !node.yourTurn && <span className="review-options-turn">相手の番</span>}
+        {node && <span className="review-options-turn">{node.yourTurn ? 'あなたの番' : '相手の番'}</span>}
       </h2>
 
       <ul>
