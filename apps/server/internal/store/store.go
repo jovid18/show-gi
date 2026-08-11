@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -287,6 +288,161 @@ func (s *Store) ExplainCacheStats(ctx context.Context) (entries, hits int64, err
 func (s *Store) CountGames(ctx context.Context) (int64, error) { return s.q.CountGames(ctx) }
 func (s *Store) CountInterventions(ctx context.Context) (int64, error) {
 	return s.q.CountInterventions(ctx)
+}
+
+// ── 리뷰(읽기) ───────────────────────────────────────────
+//
+// 여기까지가 쓰는 쪽이었다. 아래가 **꺼내는 쪽**이고, 리뷰 화면이 유일한 소비자다.
+
+// GameSummary 는 리뷰 목록의 한 줄이다.
+type GameSummary struct {
+	ID      int64
+	MyColor string
+	// StartedAt·FinishedAt. **FinishedAt 은 zero 일 수 있다** — 아직 두는 중인 판이다.
+	StartedAt  time.Time
+	FinishedAt time.Time
+	// Result 는 끝나지 않았으면 빈 문자열이다.
+	Result            GameResult
+	MoveCount         int
+	InterventionCount int
+}
+
+// RecordedMove 는 기보의 한 수다.
+type RecordedMove struct {
+	Ply int
+	USI string
+	// EvalCp 는 **先手 관점** cp이고 nil일 수 있다 — 평가치는 수보다 늦게 오므로
+	// 연결이 끊긴 판의 마지막 몇 수는 안 채워진 채로 남는다.
+	EvalCp *int
+}
+
+// RecordedIntervention 은 남아 있는 개입 하나다.
+//
+// **문구는 없다.** 화면에 나갔던 일본어 문장은 기록하지 않으므로(카테고리만 남는다),
+// 리뷰는 그 문장을 다시 만들어야 한다 — 카테고리가 정본이고 문장은 파생이다.
+type RecordedIntervention struct {
+	Ply          int
+	Kind         string
+	Category     string
+	DeltaWin     float64
+	LevelBucket  string
+	RetractedUSI string
+}
+
+// GameRecord 는 한 판 전체다.
+type GameRecord struct {
+	GameSummary
+	// StartSFEN 은 비어 있을 수 있다. 그때는 평수 초기 국면이다.
+	StartSFEN     string
+	Moves         []RecordedMove
+	Interventions []RecordedIntervention
+}
+
+// ErrNoGame 은 그런 대국이 없을 때.
+var ErrNoGame = errors.New("store: game not found")
+
+// ListGames 는 최근 대국을 최신부터 준다. **한 수도 안 둔 판은 안 온다**(games.sql).
+func (s *Store) ListGames(ctx context.Context, limit int) ([]GameSummary, error) {
+	rows, err := s.q.ListGames(ctx, int32(limit))
+	if err != nil {
+		return nil, fmt.Errorf("list games: %w", err)
+	}
+	out := make([]GameSummary, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, GameSummary{
+			ID:                r.ID,
+			MyColor:           r.MyColor,
+			StartedAt:         r.StartedAt.Time,
+			FinishedAt:        r.FinishedAt.Time,
+			Result:            resultValue(r.Result),
+			MoveCount:         int(r.MoveCount),
+			InterventionCount: int(r.InterventionCount),
+		})
+	}
+	return out, nil
+}
+
+// GameRecord 는 한 판을 통째로 읽는다. 없으면 ErrNoGame.
+//
+// **트랜잭션으로 묶지 않는다.** 기록은 덧붙이기만 하므로 끝난 판은 어차피 안 변하고,
+// 두는 중인 판에서 최악이 「기보보다 개입이 한 수 앞선다」인데 그건 부르는 쪽이
+// 감당할 수 있다(그 개입은 아직 화면에 그릴 국면이 없을 뿐이다). 그 하나를 막자고
+// 대국 중인 판에 트랜잭션을 거는 쪽이 비싸다.
+func (s *Store) GameRecord(ctx context.Context, gameID int64) (GameRecord, error) {
+	head, err := s.q.GetGame(ctx, gameID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return GameRecord{}, ErrNoGame
+	}
+	if err != nil {
+		return GameRecord{}, fmt.Errorf("get game %d: %w", gameID, err)
+	}
+
+	moves, err := s.q.ListGameMoves(ctx, gameID)
+	if err != nil {
+		return GameRecord{}, fmt.Errorf("list moves of game %d: %w", gameID, err)
+	}
+	ivs, err := s.q.ListGameInterventions(ctx, gameID)
+	if err != nil {
+		return GameRecord{}, fmt.Errorf("list interventions of game %d: %w", gameID, err)
+	}
+
+	out := GameRecord{
+		GameSummary: GameSummary{
+			ID:                head.ID,
+			MyColor:           head.MyColor,
+			StartedAt:         head.StartedAt.Time,
+			FinishedAt:        head.FinishedAt.Time,
+			Result:            resultValue(head.Result),
+			MoveCount:         len(moves),
+			InterventionCount: len(ivs),
+		},
+		Moves:         make([]RecordedMove, 0, len(moves)),
+		Interventions: make([]RecordedIntervention, 0, len(ivs)),
+	}
+	if head.StartSfen != nil {
+		out.StartSFEN = *head.StartSfen
+	}
+
+	for _, m := range moves {
+		rec := RecordedMove{Ply: int(m.Ply), USI: m.USI}
+		if m.EvalCp != nil {
+			cp := int(*m.EvalCp)
+			rec.EvalCp = &cp
+		}
+		out.Moves = append(out.Moves, rec)
+	}
+	for _, iv := range ivs {
+		out.Interventions = append(out.Interventions, RecordedIntervention{
+			Ply:          int(iv.Ply),
+			Kind:         iv.Kind,
+			Category:     deref(iv.Category),
+			DeltaWin:     derefFloat(iv.DeltaWin),
+			LevelBucket:  deref(iv.LevelBucket),
+			RetractedUSI: deref(iv.RetractedUsi),
+		})
+	}
+	return out, nil
+}
+
+func resultValue(s *string) GameResult {
+	if s == nil {
+		return ""
+	}
+	return GameResult(*s)
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+func derefFloat(f *float64) float64 {
+	if f == nil {
+		return 0
+	}
+	return *f
 }
 
 // Pool 은 생성된 질의로 표현되지 않는 것을 테스트가 직접 물어보는 통로다.

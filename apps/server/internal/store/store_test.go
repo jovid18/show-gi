@@ -411,3 +411,119 @@ func TestInterventionRecordsTierAndCost(t *testing.T) {
 		t.Errorf("cost_yen=%q, want 0.0000", gotCost)
 	}
 }
+
+// ── 리뷰(읽기) ───────────────────────────────────────────
+
+// 한 판을 넣고 그대로 꺼낸다. **읽는 쪽이 없어서 지금까지 아무도 확인하지 않던 자리다.**
+func TestGameRecordRoundTrip(t *testing.T) {
+	s := open(t)
+	id := newGame(t, s)
+
+	for ply, usi := range map[int]string{1: "7g7f", 2: "3c3d", 3: "8h2b+"} {
+		if err := s.InsertMove(t.Context(), id, ply, usi); err != nil {
+			t.Fatalf("InsertMove(%d): %v", ply, err)
+		}
+	}
+	if err := s.SetMoveEval(t.Context(), id, 2, -120); err != nil {
+		t.Fatalf("SetMoveEval: %v", err)
+	}
+	if err := s.InsertIntervention(t.Context(), id, Intervention{
+		Ply: 3, Kind: "blunder", Category: "hangs_piece",
+		DeltaWin: 0.507, LevelBucket: "beginner", RetractedUSI: "2h2d",
+	}); err != nil {
+		t.Fatalf("InsertIntervention: %v", err)
+	}
+	if err := s.FinishGame(t.Context(), id, ResultLoss); err != nil {
+		t.Fatalf("FinishGame: %v", err)
+	}
+
+	got, err := s.GameRecord(t.Context(), id)
+	if err != nil {
+		t.Fatalf("GameRecord: %v", err)
+	}
+
+	// **手数 순서다.** 넣은 순서가 아니라 — 위에서 map으로 넣은 것이 그 확인이다.
+	want := []string{"7g7f", "3c3d", "8h2b+"}
+	if len(got.Moves) != len(want) {
+		t.Fatalf("moves = %d, want %d", len(got.Moves), len(want))
+	}
+	for i, w := range want {
+		if got.Moves[i].USI != w || got.Moves[i].Ply != i+1 {
+			t.Errorf("moves[%d] = %+v, want ply %d %q", i, got.Moves[i], i+1, w)
+		}
+	}
+
+	// 평가치는 붙은 手数에만 있다. 안 붙은 자리가 0이 되면 호각과 구별이 안 된다.
+	if got.Moves[0].EvalCp != nil {
+		t.Errorf("moves[0].EvalCp = %d, want nil", *got.Moves[0].EvalCp)
+	}
+	if got.Moves[1].EvalCp == nil || *got.Moves[1].EvalCp != -120 {
+		t.Errorf("moves[1].EvalCp = %v, want -120", got.Moves[1].EvalCp)
+	}
+
+	if len(got.Interventions) != 1 {
+		t.Fatalf("interventions = %d, want 1", len(got.Interventions))
+	}
+	iv := got.Interventions[0]
+	if iv.Ply != 3 || iv.Category != "hangs_piece" || iv.RetractedUSI != "2h2d" {
+		t.Errorf("intervention = %+v", iv)
+	}
+	if iv.DeltaWin < 0.5 || iv.DeltaWin > 0.51 {
+		t.Errorf("deltaWin = %v, want ~0.507", iv.DeltaWin)
+	}
+
+	if got.Result != ResultLoss || got.FinishedAt.IsZero() {
+		t.Errorf("result = %q finished = %v", got.Result, got.FinishedAt)
+	}
+	// 시작 국면이 없으면 기보만으로는 어디서 시작했는지 알 수 없다(002_anonymous_games.sql).
+	if got.StartSFEN == "" {
+		t.Error("startSFEN이 비었다 — 판을 되짚을 기준이 사라진다")
+	}
+	if got.MoveCount != 3 || got.InterventionCount != 1 {
+		t.Errorf("moveCount=%d interventionCount=%d, want 3/1", got.MoveCount, got.InterventionCount)
+	}
+}
+
+func TestGameRecordMissing(t *testing.T) {
+	s := open(t)
+	// 음수 id는 시퀀스가 절대 안 만든다.
+	if _, err := s.GameRecord(t.Context(), -1); !errors.Is(err, ErrNoGame) {
+		t.Fatalf("ErrNoGame 기대, got %v", err)
+	}
+}
+
+// **한 수도 안 둔 판은 목록에 안 온다.** 연결만 열렸다 끊긴 판이 실제로 그렇게 남고,
+// 되짚을 것이 없는 줄이 맨 위를 차지하면 진짜 대국이 아래로 밀린다.
+func TestListGamesSkipsEmptyGames(t *testing.T) {
+	s := open(t)
+	empty := newGame(t, s)
+	played := newGame(t, s)
+	if err := s.InsertMove(t.Context(), played, 1, "7g7f"); err != nil {
+		t.Fatalf("InsertMove: %v", err)
+	}
+
+	games, err := s.ListGames(t.Context(), 100)
+	if err != nil {
+		t.Fatalf("ListGames: %v", err)
+	}
+
+	var seenPlayed bool
+	for _, g := range games {
+		if g.ID == empty {
+			t.Error("한 수도 안 둔 판이 목록에 있다")
+		}
+		if g.ID == played {
+			seenPlayed = true
+			if g.MoveCount != 1 {
+				t.Errorf("moveCount = %d, want 1", g.MoveCount)
+			}
+		}
+	}
+	if !seenPlayed {
+		t.Fatal("둔 판이 목록에 없다")
+	}
+	// 최신부터다. 방금 만든 판이 맨 위여야 한다.
+	if len(games) > 0 && games[0].ID != played {
+		t.Errorf("games[0].ID = %d, want %d (최신부터)", games[0].ID, played)
+	}
+}
