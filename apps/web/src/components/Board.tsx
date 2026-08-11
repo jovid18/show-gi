@@ -1,10 +1,11 @@
-import type { CSSProperties, RefObject } from 'react';
+import { useRef, useState, type CSSProperties, type RefObject } from 'react';
 
 import { Koma } from './Koma';
 import type { Player } from '@/game/protocol';
 import type { Board as BoardModel } from '@/shogi/sfen';
 import { nameOf, type Side } from '@/shogi/piece';
 import { fromIndex, toUsi } from '@/shogi/square';
+import { useBoardSurface } from '@/three/useBoardSurface';
 
 const FILES = [9, 8, 7, 6, 5, 4, 3, 2, 1];
 const RANKS = ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
@@ -233,6 +234,30 @@ export function Board({
   interactive,
   onSquare,
 }: BoardProps) {
+  /**
+   * 판을 three.js가 그리는가. **판을 재는 쪽이 ref를 잡고 있으면 그걸 같이 쓴다** —
+   * 여기서 두 번째 ref를 붙이면 표면이 판이 아니라 아무것도 안 붙은 요소를 잰다.
+   */
+  const ownRef = useRef<HTMLDivElement>(null);
+  const surfaceRef = boardRef ?? ownRef;
+
+  /**
+   * 그늘을 켜 두었는가.
+   *
+   * **회상 중에는 물어보지 않고 켠다.** 그 자리가 「네가 두려던 칸이 왜 위험했나」이고,
+   * 판 위에서 글 없이 그 답을 하는 것이 이 표면이 있는 이유다(docs/03-frontend.md §1).
+   */
+  const [showExposure, setShowExposure] = useState(false);
+  const exposed = showExposure || dimmed;
+
+  const ready = useBoardSurface({
+    boardRef: surfaceRef,
+    board,
+    active: exposed,
+    // 회상에서는 **물러진 수가 간 칸**에서 그늘이 퍼진다. 평시에는 판 한가운데다.
+    from: dimmed ? (played?.to ?? null) : null,
+  });
+
   return (
     <div className="board-frame">
       <div className="board-files" aria-hidden="true">
@@ -241,7 +266,7 @@ export function Board({
         ))}
       </div>
 
-      <div className="board" ref={boardRef}>
+      <div className="board" ref={surfaceRef} data-surface={ready || undefined}>
         {board.squares.map((piece, index) => {
           const usi = toUsi(fromIndex(index));
           const label = `${FILES[index % BOARD_SIZE]}${RANKS[Math.floor(index / BOARD_SIZE)]}`;
@@ -300,6 +325,21 @@ export function Board({
           <span key={r}>{r}</span>
         ))}
       </div>
+
+      {/* WebGL이 안 잡히면 아예 안 내놓는다. 눌러도 아무 일이 안 일어나는 버튼은
+          「고장 났다」로 읽힌다. 회상 중에는 이미 켜져 있으므로 끄지 못하게 둔다. */}
+      {ready && (
+        <button
+          type="button"
+          className="exposure-toggle"
+          aria-pressed={exposed}
+          disabled={dimmed}
+          title="相手の駒が利いていて、こちらが受けていないマスに影が落ちる"
+          onClick={() => setShowExposure((on) => !on)}
+        >
+          相手の利き
+        </button>
+      )}
     </div>
   );
 }
