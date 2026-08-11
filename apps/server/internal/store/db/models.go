@@ -59,6 +59,10 @@ type Intervention struct {
 	ExplainTier  *int16
 	CostYen      pgtype.Numeric
 	CreatedAt    pgtype.Timestamptz
+	// 판정 당시 최선수의 cp(수번 측 관점). 제지형만. 과거 행은 NULL
+	BestCp *int32
+	// 물러진 수를 둔 뒤의 cp(수번 측 관점). 제지형만. 과거 행은 NULL
+	AfterCp *int32
 }
 
 type KbChunk struct {

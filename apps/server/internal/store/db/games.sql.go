@@ -107,8 +107,11 @@ func (q *Queries) GetGame(ctx context.Context, id int64) (GetGameRow, error) {
 }
 
 const insertIntervention = `-- name: InsertIntervention :exec
-INSERT INTO interventions (game_id, ply, kind, category, delta_win, level_bucket, retracted_usi, explain_tier, cost_yen)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO interventions (
+    game_id, ply, kind, category, delta_win, level_bucket, retracted_usi,
+    explain_tier, cost_yen, best_cp, after_cp
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 `
 
 type InsertInterventionParams struct {
@@ -121,6 +124,8 @@ type InsertInterventionParams struct {
 	RetractedUsi *string
 	ExplainTier  *int16
 	CostYen      pgtype.Numeric
+	BestCp       *int32
+	AfterCp      *int32
 }
 
 // **같은 ply에 여러 행이 들어간다.** 한 국면에서 몇 수를 시도하고 전부 물러지는 일이
@@ -130,6 +135,9 @@ type InsertInterventionParams struct {
 // `explain_tier` 는 **LLM을 안 거쳤으면 NULL** 이다. 0으로 적으면 「캐시 히트」와 구별이
 // 안 되는데, 그 둘은 비용 계측에서 정반대의 뜻이다 — 히트는 아껴서 0엔이고 NULL은 애초에
 // 부르지 않은 것이다(docs/04-llm.md §2).
+// `best_cp`·`after_cp` 는 낙폭을 만든 **두 원본**이다(둘 다 수번 측 관점). 낙폭만 남기면
+// 되돌릴 수 없어서 재채점도 절대값 비교도 못 한다 — 판정이 이미 손에 들고 있는 값이라
+// 남기는 데 드는 것이 없다(migrations/005). **과거 행은 NULL 이다.**
 func (q *Queries) InsertIntervention(ctx context.Context, arg InsertInterventionParams) error {
 	_, err := q.db.Exec(ctx, insertIntervention,
 		arg.GameID,
@@ -141,6 +149,8 @@ func (q *Queries) InsertIntervention(ctx context.Context, arg InsertIntervention
 		arg.RetractedUsi,
 		arg.ExplainTier,
 		arg.CostYen,
+		arg.BestCp,
+		arg.AfterCp,
 	)
 	return err
 }
@@ -174,7 +184,7 @@ func (q *Queries) InsertMove(ctx context.Context, arg InsertMoveParams) error {
 }
 
 const listGameInterventions = `-- name: ListGameInterventions :many
-SELECT ply, kind, category, delta_win, level_bucket, retracted_usi
+SELECT ply, kind, category, delta_win, level_bucket, retracted_usi, best_cp, after_cp
 FROM interventions
 WHERE game_id = $1
 ORDER BY ply, id
@@ -187,6 +197,8 @@ type ListGameInterventionsRow struct {
 	DeltaWin     *float64
 	LevelBucket  *string
 	RetractedUsi *string
+	BestCp       *int32
+	AfterCp      *int32
 }
 
 // 같은 ply에 여러 행이 온다(InsertIntervention 참조). id 로 이어 정렬해 **물러진
@@ -207,6 +219,8 @@ func (q *Queries) ListGameInterventions(ctx context.Context, gameID int64) ([]Li
 			&i.DeltaWin,
 			&i.LevelBucket,
 			&i.RetractedUsi,
+			&i.BestCp,
+			&i.AfterCp,
 		); err != nil {
 			return nil, err
 		}

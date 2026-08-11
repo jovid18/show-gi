@@ -139,6 +139,8 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 				Kind:         string(ev.verdict.Kind),
 				Category:     string(ev.verdict.Category),
 				DeltaWin:     ev.verdict.DeltaWin,
+				BestCp:       ev.verdict.BestCp,
+				AfterCp:      ev.verdict.AfterCp,
 				LevelBucket:  levelBucket(level),
 				RetractedUSI: ev.usi,
 				ExplainTier:  explainTier(ev.explained),

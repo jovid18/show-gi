@@ -34,8 +34,14 @@ SET usi = EXCLUDED.usi, eval_cp = EXCLUDED.eval_cp;
 -- `explain_tier` 는 **LLM을 안 거쳤으면 NULL** 이다. 0으로 적으면 「캐시 히트」와 구별이
 -- 안 되는데, 그 둘은 비용 계측에서 정반대의 뜻이다 — 히트는 아껴서 0엔이고 NULL은 애초에
 -- 부르지 않은 것이다(docs/04-llm.md §2).
-INSERT INTO interventions (game_id, ply, kind, category, delta_win, level_bucket, retracted_usi, explain_tier, cost_yen)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+-- `best_cp`·`after_cp` 는 낙폭을 만든 **두 원본**이다(둘 다 수번 측 관점). 낙폭만 남기면
+-- 되돌릴 수 없어서 재채점도 절대값 비교도 못 한다 — 판정이 이미 손에 들고 있는 값이라
+-- 남기는 데 드는 것이 없다(migrations/005). **과거 행은 NULL 이다.**
+INSERT INTO interventions (
+    game_id, ply, kind, category, delta_win, level_bucket, retracted_usi,
+    explain_tier, cost_yen, best_cp, after_cp
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 -- name: CountGames :one
 SELECT count(*) FROM games;
@@ -97,7 +103,7 @@ SELECT ply, usi, eval_cp FROM game_moves WHERE game_id = $1 ORDER BY ply;
 --
 -- 같은 ply에 여러 행이 온다(InsertIntervention 참조). id 로 이어 정렬해 **물러진
 -- 순서**를 지킨다 — 한 국면에서 두 번 걸렸을 때 어느 쪽이 먼저였는지가 곧 이야기다.
-SELECT ply, kind, category, delta_win, level_bucket, retracted_usi
+SELECT ply, kind, category, delta_win, level_bucket, retracted_usi, best_cp, after_cp
 FROM interventions
 WHERE game_id = $1
 ORDER BY ply, id;

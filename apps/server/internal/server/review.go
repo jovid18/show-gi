@@ -113,6 +113,19 @@ type reviewIntervention struct {
 	// RetractedJa 는 물러진 수의 棋譜 표기다. 그 手数의 국면을 다시 만들어야 나오므로
 	// 재현이 거기까지 못 갔으면 비어 있다.
 	RetractedJa string `json:"retractedJa,omitempty"`
+
+	// AfterCp 는 **그 수를 두면 얼마가 되나**다. 플레이어 관점이고, `moves[].evalCp` 와
+	// 같은 자다 — 되짚기 화면이 물러진 수를 실제로 둔 수·최선수와 **한 줄에 세워 견주려면**
+	// 상대값(낙폭)이 아니라 절대값이 있어야 한다.
+	//
+	// **없을 수 있다.** migrations/005 앞에 기록된 판에는 영원히 없다(낙폭만 남겼고 그것은
+	// 되돌릴 수 없다 — §39 ⑥). 그때 화면은 그 자리를 다시 재서 채운다.
+	AfterCp *int `json:"afterCp,omitempty"`
+	// BestCp 는 판정 당시 최선수의 cp다. 플레이어 관점.
+	//
+	// 낙폭과 겹쳐 보이지만 겹치지 않는다 — 낙폭은 **그때 K로** 구한 승률 차이고 이쪽은
+	// 원본이다. K가 바뀌면 낙폭은 낡고 이 값은 안 낡는다.
+	BestCp *int `json:"bestCp,omitempty"`
 }
 
 // list 는 최근 대국 목록이다.
@@ -272,6 +285,15 @@ func detailOf(rec store.GameRecord) gameDetail {
 			LevelBucket:  iv.LevelBucket,
 			RetractedUSI: iv.RetractedUSI,
 		}
+		// **관점을 여기서 맞춘다.** DB에는 수번 측 관점으로 들어 있는데, 개입은 언제나
+		// 사람이 둔 수라 「수번 측 = 사람」이다 — 그래서 先手/後手만 보고 뒤집으면 된다.
+		// `moves[].evalCp` 와 같은 자가 되어야 한 줄에 세울 수 있다(위 필드 주석).
+		if iv.AfterCp != nil {
+			view.AfterCp = flipToPlayer(*iv.AfterCp, humanColor)
+		}
+		if iv.BestCp != nil {
+			view.BestCp = flipToPlayer(*iv.BestCp, humanColor)
+		}
 		// 물러진 수는 `Ply-1` 手目의 국면에서 두어졌다. 거기까지 재현했을 때만 표기가 나온다.
 		if iv.RetractedUSI != "" && iv.Ply >= 1 && iv.Ply-1 < len(posAt) {
 			if _, ja, ok := advance(posAt[iv.Ply-1], toAt[iv.Ply-1], iv.RetractedUSI); ok {
@@ -332,4 +354,16 @@ func lastTo(usi string) int {
 		return -1
 	}
 	return int(m.To)
+}
+
+// flipToPlayer 는 **수번 측 관점** cp를 플레이어 관점으로 옮긴다.
+//
+// 개입은 언제나 사람이 둔 수에 걸리므로 그 국면의 수번은 사람이다 — 그래서 색만 보면 된다.
+// `moves[].evalCp` 가 같은 규칙으로 뒤집히고(위), 두 값이 같은 자여야 되짚기 화면이 물러진
+// 수와 실제로 둔 수를 한 줄에 세울 수 있다.
+func flipToPlayer(cp int, human shogi.Color) *int {
+	if human == shogi.White {
+		cp = -cp
+	}
+	return &cp
 }
