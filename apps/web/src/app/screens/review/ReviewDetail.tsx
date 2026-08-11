@@ -91,6 +91,16 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
    * 목록이 계속 자리를 잡고 있으면 판이 그만큼 작아진다.
    */
   const [kifuOpen, setKifuOpen] = useState(false);
+  /**
+   * 그래프에서 고른 빨간 점의 자리. `null` 이면 아무 점도 안 골랐다.
+   *
+   * **개입 목록을 상시 띄우지 않는다.** 24회가 아홉 자리에 몰려 있는 판에서 그 목록은
+   * 옆 열을 통째로 먹으면서도 「어디가 나빴나」를 그래프보다 못 말한다 — 그림이 이미 그
+   * 자리를 짚고 있으므로, 목록은 **그 점을 눌렀을 때 그 국면의 것만** 나온다.
+   *
+   * 값은 **점의 x**(= 사람이 서 있던 手数)다. 개입은 그 다음 手数에 기록된다.
+   */
+  const [spot, setSpot] = useState<number | null>(null);
 
   const engineReady = useEngineReady();
   const whatif = useWhatIf(httpSend(game.id), game.id);
@@ -138,6 +148,20 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
       setKifuOpen(false);
     },
     [goto],
+  );
+
+  /**
+   * 그래프를 누르면 그 手数로 가고, **거기에 물러진 수가 있으면 그것을 꺼낸다.**
+   *
+   * 점이 없는 자리를 누르면 목록을 닫는다 — 남겨 두면 지금 보고 있는 판과 다른 국면의
+   * 개입이 옆에 떠 있게 된다.
+   */
+  const onGraphPick = useCallback(
+    (target: number) => {
+      goto(target);
+      setSpot(game.interventions.some((iv) => iv.ply === target + 1) ? target : null);
+    },
+    [goto, game.interventions],
   );
 
   /** 개입을 고르면 그 수가 두어진 국면으로 간다 — **한 수 앞**이다. */
@@ -338,6 +362,17 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
     // 맨 위가 보이고 지금 자리는 한참 아래에 있다.
   }, [ply, kifuOpen]);
 
+  /**
+   * 고른 자리의 개입들. **원래 목록의 자리(`i`)를 들고 다닌다** — `focus` 와 `recall` 이
+   * 그 번호로 말하므로, 걸러낸 뒤에 다시 매기면 엉뚱한 개입이 열린다.
+   *
+   * 한 국면에 여럿인 것이 흔하다. 622번은 159手째에서 다섯 수를 시도해 다 물러졌다.
+   */
+  const picked = useMemo(
+    () => (spot === null ? [] : game.interventions.map((iv, i) => ({ iv, i })).filter(({ iv }) => iv.ply === spot + 1)),
+    [spot, game.interventions],
+  );
+
   const rows = useMemo(() => pairRows(game.moves), [game.moves]);
 
   /**
@@ -360,7 +395,7 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
         {/* **평가치 궤적이 곧 이동 장치다.** 「어디서 무너졌나」를 목록으로 읽게 하는 대신
             한 장으로 보여주고 거기를 눌러 돌아가게 한다 — 빨간 점이 물러진 수가 있던 자리다. */}
         <section className="review-panel review-graph-panel" aria-label="評価値">
-          <EvalGraph game={game} ply={ply} whatif={whatif} onPick={goto} />
+          <EvalGraph game={game} ply={ply} whatif={whatif} onPick={onGraphPick} />
         </section>
 
         {/* **이 판은 실제로 벌어진 일이 아니다.** 옆 패널의 제목만으로는 판을 보는 동안
@@ -566,38 +601,46 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
         )}
 
         <section className="review-panel" aria-label="介入">
-          <h2 className="panel-title">介入 {game.interventions.length}回</h2>
-
-          {game.interventions.length === 0 ? (
-            <p className="review-empty">この対局では一度も止まりませんでした。</p>
+          {spot === null ? (
+            // 목록 대신 한 줄. 총 횟수는 남기고, 어디를 눌러야 하는지를 같이 말한다.
+            <p className="review-empty">
+              {game.interventions.length === 0
+                ? 'この対局では一度も止まりませんでした。'
+                : `介入 ${game.interventions.length}回。グラフの赤い点を押すと、その局面で戻した手が出ます。`}
+            </p>
           ) : (
-            <ol className="review-iv-list">
-              {game.interventions.map((iv, i) => (
-                <li key={`${iv.ply}-${i}`}>
-                  <button
-                    type="button"
-                    className="review-iv"
-                    data-active={focus === i || undefined}
-                    onClick={() => recall(i, iv.ply)}
-                  >
-                    <span className="review-iv-ply">{iv.ply}手目</span>
-                    <span className="review-iv-cat">{iv.categoryJa}</span>
-                    <span className="review-iv-move">{iv.retractedJa || iv.retractedUsi}</span>
-                    <span className="review-iv-delta">−{Math.round(iv.deltaWin * 100)}%</span>
-                  </button>
-                  {focus === i && (
-                    <InterventionNote
-                      intervention={iv}
-                      canTry={engineReady !== false && !!iv.retractedUsi && iv.ply >= 1}
-                      onTry={() => {
-                        setFocus(null); // 판이 그 수를 실제로 둔 국면으로 간다. 회상은 끝난다
-                        at(iv.ply - 1, iv.retractedUsi ? [iv.retractedUsi] : []);
-                      }}
-                    />
-                  )}
-                </li>
-              ))}
-            </ol>
+            <>
+              <h2 className="panel-title">
+                {spot + 1}手目 — 戻した手 {picked.length}回
+              </h2>
+              <ol className="review-iv-list">
+                {picked.map(({ iv, i }) => (
+                  <li key={`${iv.ply}-${i}`}>
+                    <button
+                      type="button"
+                      className="review-iv"
+                      data-active={focus === i || undefined}
+                      onClick={() => recall(i, iv.ply)}
+                    >
+                      <span className="review-iv-ply">{iv.ply}手目</span>
+                      <span className="review-iv-cat">{iv.categoryJa}</span>
+                      <span className="review-iv-move">{iv.retractedJa || iv.retractedUsi}</span>
+                      <span className="review-iv-delta">−{Math.round(iv.deltaWin * 100)}%</span>
+                    </button>
+                    {focus === i && (
+                      <InterventionNote
+                        intervention={iv}
+                        canTry={engineReady !== false && !!iv.retractedUsi && iv.ply >= 1}
+                        onTry={() => {
+                          setFocus(null); // 판이 그 수를 실제로 둔 국면으로 간다. 회상은 끝난다
+                          at(iv.ply - 1, iv.retractedUsi ? [iv.retractedUsi] : []);
+                        }}
+                      />
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </>
           )}
         </section>
       </aside>
