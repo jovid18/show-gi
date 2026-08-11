@@ -10,6 +10,15 @@ interface InterventionProps {
   scenes: number;
   /** 수순에서 지금 짚고 있는 수. 판의 화살표가 가리키는 것과 같은 자리다. */
   highlight: number;
+  /**
+   * 장면마다의 평가치. 길이는 **물러진 수부터 센다**(1이 물러진 수 직후).
+   *
+   * **안 가 본 장면은 빈칸이다.** 값은 그 국면을 실제로 재야 나오고, 재는 것은 사람이
+   * 그 장면을 볼 때다 — 없는 것을 지어내지 않는다.
+   */
+  evalAt: (sceneLength: number) => string;
+  /** 이 장면의 판이 살아 있는가 — 그 자리에서 직접 둬 볼 수 있다는 뜻이다. */
+  canPlay: boolean;
   onStep: (scene: number) => void;
   onDismiss: () => void;
 }
@@ -24,7 +33,16 @@ interface InterventionProps {
  * 판 위의 연출(빛·유령 駒·광선·기운 시점)은 `Board`와 `index.css`에 있다. 여기는 그 위에
  * 얹히는 마지막 한 겹이라 판을 가리지 않는 자리에 뜬다.
  */
-export function Intervention({ intervention, scene, scenes, highlight, onStep, onDismiss }: InterventionProps) {
+export function Intervention({
+  intervention,
+  scene,
+  scenes,
+  highlight,
+  evalAt,
+  canPlay,
+  onStep,
+  onDismiss,
+}: InterventionProps) {
   const dismissRef = useRef<HTMLButtonElement>(null);
 
   // 입력이 잠겨 있는 동안이라 초점이 갈 곳은 여기 하나뿐이다. 키보드·스크린리더
@@ -65,6 +83,9 @@ export function Intervention({ intervention, scene, scenes, highlight, onStep, o
       <p className="intervention-move">
         <span className="intervention-move-ja">{intervention.retractedJa}</span>
         <span className="intervention-move-tail">を戻しました</span>
+        {/* **그 수를 두면 얼마가 되나.** 낙폭(%)은 판정의 값이고 이건 국면의 값이다 —
+            아래 수순의 cp와 같은 자를 쓰므로 「거기서 더 나빠지는가」가 견줘진다. */}
+        {evalAt(1) && <span className="intervention-move-eval">{evalAt(1)}</span>}
       </p>
 
       <p className="intervention-message">{intervention.message}</p>
@@ -74,6 +95,8 @@ export function Intervention({ intervention, scene, scenes, highlight, onStep, o
         // 문구는 「형세를 손해본다」까지밖에 못 말하고, **여기가 그 빈자리를 메운다.**
         <div className="refutation">
           <p className="refutation-label">相手はこう咎めてきます</p>
+          {/* **한 줄로 붙여 쓰지 않는다.** 수마다 평가치가 붙으면서 줄마다 한 수가 되고,
+              그러면 「어디서 무너지는가」가 숫자로 보인다 — 棋譜와 같은 모양이다. */}
           <ol className="refutation-line">
             {refutation.map((move, i) => (
               // 같은 수가 수순에 두 번 나올 수 있다(千日手·왕복). 자리까지 키에 넣는다.
@@ -83,7 +106,8 @@ export function Intervention({ intervention, scene, scenes, highlight, onStep, o
                 data-current={highlight === i || undefined}
                 aria-current={highlight === i || undefined}
               >
-                {move.ja}
+                <span className="refutation-move">{move.ja}</span>
+                <span className="refutation-eval">{evalAt(i + 2)}</span>
               </li>
             ))}
           </ol>
@@ -96,6 +120,11 @@ export function Intervention({ intervention, scene, scenes, highlight, onStep, o
           <span className="intervention-delta-fill" style={{ width: `${drop}%` }} />
         </span>
       </p>
+
+      {/* **버튼이 아니라 한 줄이다.** 판이 이미 살아 있으므로 누를 것이 없고, 여기에
+          「최선수를 둔다」 같은 버튼을 두면 그 순간 답을 알려주는 것이 된다(01-core.md §7).
+          물러진 수는 고정이라 분기는 언제나 그 수 **뒤**에서 시작한다(06-status.md §25). */}
+      {canPlay && <p className="intervention-try">盤の駒を動かすと、この局面から指し直せます。</p>}
 
       <div className="intervention-actions">
         {walking && (

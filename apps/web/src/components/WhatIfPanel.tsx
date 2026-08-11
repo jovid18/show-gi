@@ -22,12 +22,14 @@ interface WhatIfPanelProps {
    * (01-core.md §7). 화살표는 양쪽에 다 뜬다 — 그건 **상대**가 어떻게 오는가다.
    */
   candidates: boolean;
+  /** 줄이 그 길이였을 때의 값. 수마다의 cp가 여기서 나온다(`useWhatIf.evalOf`). */
+  evalOf: (lineLength: number) => { cp: number | undefined; mateIn: number | undefined } | null;
   onPlay: (usi: string) => void;
   onBack: () => void;
   onRoot: () => void;
 }
 
-export function WhatIfPanel({ node, pending, error, candidates, onPlay, onBack, onRoot }: WhatIfPanelProps) {
+export function WhatIfPanel({ node, pending, error, candidates, evalOf, onPlay, onBack, onRoot }: WhatIfPanelProps) {
   const score = scoreJa(node.evalCp, node.mateIn);
   const branching = node.line.length > 0;
 
@@ -53,15 +55,18 @@ export function WhatIfPanel({ node, pending, error, candidates, onPlay, onBack, 
           갈리는 것은 왼쪽의 얇은 선 하나뿐이고, 그건 「여기서 갈라졌다」다. */}
       {branching && (
         <ol className="review-whatif-line">
-          {node.line.map((move, i) => (
-            <li key={move.ply} data-by={move.by}>
-              <span className="review-kifu-number">{move.ply}</span>
-              <span className="review-kifu-move">{move.ja || move.usi}</span>
-              {/* cp는 **그 수를 둔 뒤**의 값이다. 마지막 수의 값이 곧 지금 국면의 값이라
-                  위에 이미 있고, 여기서는 앞선 수들이 어떻게 흘렀는지가 보인다. */}
-              <span className="review-kifu-eval">{i === node.line.length - 1 ? score : ''}</span>
-            </li>
-          ))}
+          {node.line.map((move, i) => {
+            // cp는 **그 수를 둔 뒤**의 값이다. 지나온 자리는 이미 받아 뒀으므로 다시 묻지
+            // 않고 꺼내 온다 — 그래서 「어디서 무너지는가」가 줄을 따라 읽힌다.
+            const at = evalOf(i + 1);
+            return (
+              <li key={move.ply} data-by={move.by}>
+                <span className="review-kifu-number">{move.ply}</span>
+                <span className="review-kifu-move">{move.ja || move.usi}</span>
+                <span className="review-kifu-eval">{at ? scoreJa(at.cp, at.mateIn) : ''}</span>
+              </li>
+            );
+          })}
         </ol>
       )}
 

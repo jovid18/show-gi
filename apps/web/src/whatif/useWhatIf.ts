@@ -25,6 +25,13 @@ export interface WhatIf {
   back: () => void;
   /** 분기 전으로 돌아간다 — 갈라져 나온 그 手数다. */
   toRoot: () => void;
+  /**
+   * 줄이 그 길이였을 때의 값 — **수마다의 cp**가 여기서 나온다.
+   *
+   * **다시 묻지 않는다.** 지나온 자리는 이미 받아 뒀으므로 꺼내 오면 되고, 아직 안 가 본
+   * 자리는 `null` 이다 — 없는 값을 지어내지 않는다.
+   */
+  evalOf: (lineLength: number) => { cp: number | undefined; mateIn: number | undefined } | null;
   /** 분기에 들어가 있는가. 한 수라도 뒀으면 그렇다. */
   branching: boolean;
   /** 들고 있는 것을 버린다. 화면을 닫을 때 쓴다. */
@@ -72,9 +79,19 @@ export function useWhatIf(send: Send, resetKey: unknown): WhatIf {
   /** 떠난 요청은 버린다. 빠르게 두면 응답이 순서대로 오지 않는다. */
   const latest = useRef(0);
   const inflight = useRef<AbortController | null>(null);
+  /**
+   * 지금 답을 기다리는 요청의 열쇠.
+   *
+   * **같은 자리를 두 번 묻지 않는다.** 그냥 낭비가 아니라 **깨진다** — 대국 쪽 길은 한
+   * 연결에 한 번만 돌리므로(ws.go 의 슬롯) 두 번째 요청이 `busy` 로 튕기고, 그 에러가
+   * 먼저 도착해 화면에 뜬 다음 첫 응답은 주인을 잃고 버려진다. 개입 카드가 뜬 순간
+   * 실제로 그렇게 됐다(StrictMode가 효과를 두 번 돌린다).
+   */
+  const asked = useRef<string | null>(null);
 
   useEffect(() => {
     seen.current = new Map();
+    asked.current = null;
     setNode(null);
     setError(null);
     setPending(false);
@@ -83,14 +100,18 @@ export function useWhatIf(send: Send, resetKey: unknown): WhatIf {
 
   const at = useCallback((ply: number, moves: string[] = []) => {
     const req = { ply, moves };
+    const key = keyOf(req);
+    if (asked.current === key) return; // 이미 그 자리를 묻고 있다
+
     latest.current += 1;
     const mine = latest.current;
     inflight.current?.abort();
     inflight.current = null;
     setError(null);
 
-    const hit = seen.current.get(keyOf(req));
+    const hit = seen.current.get(key);
     if (hit) {
+      asked.current = null;
       setPending(false);
       setNode(hit);
       return;
@@ -98,17 +119,22 @@ export function useWhatIf(send: Send, resetKey: unknown): WhatIf {
 
     const controller = new AbortController();
     inflight.current = controller;
+    asked.current = key;
     setPending(true);
 
     sendRef
       .current(req, controller.signal)
       .then((data) => {
+        if (asked.current === key) asked.current = null;
+        // **캐시는 늦게 온 응답도 받는다.** 버리는 것은 화면에 그리는 일뿐이고, 잰 값을
+        // 버릴 이유는 없다 — 다음에 그 자리로 돌아오면 그대로 쓴다.
+        seen.current.set(key, data);
         if (latest.current !== mine) return;
-        seen.current.set(keyOf(req), data);
         setNode(data);
         setPending(false);
       })
       .catch((err: unknown) => {
+        if (asked.current === key) asked.current = null;
         if (controller.signal.aborted || latest.current !== mine) return;
         setError(err instanceof Error ? err.message : FALLBACK_ERROR);
         setPending(false);
@@ -136,10 +162,31 @@ export function useWhatIf(send: Send, resetKey: unknown): WhatIf {
     at(node.basePly);
   }, [node, at]);
 
+  /**
+   * 지나온 자리의 값.
+   *
+   * **렌더 중에 ref를 읽는다.** 캐시는 늘기만 하고 새 값이 들어올 때마다 `setNode` 가
+   * 따라오므로(위) 화면이 뒤처지지 않는다 — 같은 것을 상태로 한 벌 더 들고 있으면
+   * 둘이 어긋날 자리만 생긴다.
+   */
+  const evalOf = useCallback(
+    (lineLength: number) => {
+      // **지금 줄보다 긴 자리는 모른다.** `slice` 는 넘치면 조용히 짧게 잘라 주므로,
+      // 막지 않으면 아직 안 가 본 장면에 **직전 장면의 값**이 붙는다 — 개입 카드에서
+      // 물러진 수와 그 다음 수가 같은 숫자로 나왔다(브라우저에서 그 그림을 봤다).
+      if (!node || lineLength > node.line.length) return null;
+      const line = node.line.slice(0, lineLength).map((m) => m.usi);
+      const found = seen.current.get(keyOf({ ply: node.basePly, moves: line }));
+      return found ? { cp: found.evalCp, mateIn: found.mateIn } : null;
+    },
+    [node],
+  );
+
   const clear = useCallback(() => {
     latest.current += 1; // 늦게 오는 응답이 닫힌 화면을 다시 열지 않게 한다
     inflight.current?.abort();
     inflight.current = null;
+    asked.current = null;
     setNode(null);
     setError(null);
     setPending(false);
@@ -153,6 +200,7 @@ export function useWhatIf(send: Send, resetKey: unknown): WhatIf {
     play,
     back,
     toRoot,
+    evalOf,
     branching: (node?.line.length ?? 0) > 0,
     clear,
   };

@@ -164,25 +164,25 @@ body {
   margin-inline: auto;
 }
 
-/* 개입 때 판만 빛 위에 남는다. 그래서 판은 늘 겹의 위쪽에 둔다 — 개입 시점에 올리면
-   기울기가 풀리는 동안 판이 장막 아래로 한 번 내려갔다 온다.
-   값을 1·2·3으로 붙여 쓰면 안 된다. 판이 3D 변형으로 합성 레이어가 되는 순간
-   position:fixed 인 장막과 순서가 뒤집혀 판이 같이 어두워졌다(실제로 물렸다). */
+/* 개입 때 판만 빛 위에 남는다. 그래서 판은 늘 겹의 위쪽에 둔다.
+   값을 1·2·3으로 붙여 쓰면 안 된다 — 겹이 낮으면 `position:fixed` 인 장막과 순서가
+   뒤집혀 판이 같이 어두워진다(실제로 물렸다). */
 .game-board {
   position: relative;
   z-index: 50;
   display: grid;
   gap: 0.6rem;
   justify-items: center;
-  transform-origin: 50% 58%;
-  transition: transform 900ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-/* 카메라가 살짝 기운다(docs/03-frontend.md §2). 판을 원근으로 바꾸는 것이 아니라
-   **시점이 움직였다**는 신호만 준다 — 각도를 더 주면 뒷줄 한자가 뭉개진다. */
-.game[data-intervening] .game-board {
-  transform: perspective(1600px) rotateX(7deg) rotateZ(-1.1deg) scale(1.015);
-}
+/* 여기서 판을 살짝 기울였다(`rotateX(7deg)`). **뺐다** — 개입 국면에서 **직접 둬 볼 수
+   있게** 되면서 그 판이 누르는 판이 됐고, 기울어 있으면 보이는 자리와 누르는 자리가
+   어긋난다. 「시점이 움직였다」는 신호는 판이 색을 잃는 것(`.board-tint`)과 옆의 카드가
+   이미 하고 있다.
+
+   덤으로 좌표 계산이 하나 단순해졌다. 打 화살표는 변형 **전**의 배치 좌표를 재야 해서
+   `getBoundingClientRect` 를 못 쓰고 `offsetLeft` 를 타고 올라갔는데(GameScreen), 그
+   이유가 이 기울기였다. */
 
 /* ── 판 ───────────────────────────────────────────────── */
 
@@ -858,16 +858,44 @@ body {
 }
 
 /* 棋譜는 판의 駒와 같은 明朝다. 판에서 벌어질 일이라는 것이 서체로 이어진다 */
+/* **한 줄로 붙여 쓰던 것을 줄마다 한 수로 바꿨다.** 수마다 평가치가 붙으면서 「어디서
+   무너지는가」가 숫자로 보여야 하는데, 옆으로 흐르는 목록에서는 그 짝이 안 읽힌다.
+   棋譜와 같은 모양이라 두 자리가 같은 물건으로 보인다. */
 .refutation-line {
   margin: 0;
   padding: 0;
   list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.15rem 0.55rem;
   font-family: var(--font-koma);
   font-size: 1.0625rem;
-  line-height: 1.4;
+  line-height: 1.5;
+}
+
+.refutation-line li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+/* 값은 駒 글꼴을 안 쓴다 — 숫자는 숫자로 읽혀야 하고, 자리가 흔들리면 견줄 수 없다 */
+.refutation-eval,
+.intervention-move-eval {
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 물러진 수의 값. 낙폭(%)은 판정의 값이고 이건 국면의 값이다 */
+.intervention-move-eval {
+  margin-inline-start: 0.4rem;
+}
+
+/* 판이 살아 있다는 한 줄. **버튼이 아니다** — 누를 것이 판 위에 있다 */
+.intervention-try {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
 }
 
 /* 지금 판에 놓이러 가는 持ち駒. 화살표의 출발점이라 **같은 초록**으로 짚는다 */
@@ -1979,11 +2007,17 @@ body {
   border-bottom: 1px solid rgb(var(--light) / 0.06);
 }
 
-/* 2단이 되면서 한 칸이 좁아진다. 숫자 칸을 줄이고 표식은 필요할 때만 자리를 차지한다 */
+/* 2단이 되면서 한 칸이 좁아진다. **네 칸을 그대로 둔다** — 세 칸으로 줄였더니 표식과
+   평가치가 같은 칸을 다투다가 `+88` 이 다음 줄로 떨어졌다(브라우저에서 그 그림을 봤다). */
 .review-kifu-pair .review-kifu-row {
-  grid-template-columns: 2.5ch 1fr auto;
-  gap: 0.3rem;
+  grid-template-columns: 2.5ch 1fr auto auto;
+  gap: 0.25rem;
   padding-inline: 0.3rem;
+}
+
+/* 좁은 칸에서 수와 평가치가 붙는다. 글자를 한 단계 줄여 둘이 한 줄에 남게 한다 */
+.review-kifu-pair .review-kifu-move {
+  font-size: 0.875rem;
 }
 
 /* 오른쪽 열은 왼쪽 열과 선으로 갈린다. 없으면 두 열이 한 줄로 읽힌다 */

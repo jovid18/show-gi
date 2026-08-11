@@ -456,6 +456,7 @@ export function GameReview({ game, onBack }: GameReviewProps) {
             error={whatif.error}
             // 끝난 판이라 최선수를 말해도 되는 자리다 — 대국 중에는 안 켠다(WhatIfPanel).
             candidates
+            evalOf={whatif.evalOf}
             onPlay={playBranch}
             onBack={back}
             onRoot={toRoot}
