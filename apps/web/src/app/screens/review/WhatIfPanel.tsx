@@ -38,7 +38,6 @@ interface WhatIfPanelProps {
   engineReady: boolean | null;
   /** 줄이 그 길이였을 때의 값. 수마다의 cp가 여기서 나온다(`useWhatIf.evalOf`). */
   evalOf: (lineLength: number) => { cp: number | undefined; mateIn: number | undefined } | null;
-  onPlay: (usi: string) => void;
   onBack: () => void;
   onRoot: () => void;
 }
@@ -51,7 +50,6 @@ export function WhatIfPanel({
   error,
   engineReady,
   evalOf,
-  onPlay,
   onBack,
   onRoot,
 }: WhatIfPanelProps) {
@@ -111,33 +109,8 @@ export function WhatIfPanel({
         </ol>
       )}
 
-      {/* 엔진이 죽었으면 최선수 자리를 아예 안 만든다 — 영원히 안 올 것에 자리를 비워 두면
-          「고장 났다」로 읽힌다. 그 밖에는 **기다리는 동안에도 자리를 지킨다.** */}
-      {!down && (
-        <div className="review-whatif-best" data-stale={stale || undefined}>
-          <h3 className="review-whatif-sub">{node && !node.yourTurn ? '相手の最善手' : 'この局面の最善手'}</h3>
-          <ul>
-            {node?.candidates.map((c) => (
-              <li key={c.usi}>
-                <button
-                  type="button"
-                  className="review-whatif-move"
-                  // 흐린 줄은 다른 국면의 수다. 누르면 그 국면에 없는 수를 두려 하게 된다.
-                  disabled={pending || stale}
-                  onClick={() => onPlay(c.usi)}
-                >
-                  <span className="review-kifu-move">{c.ja || c.usi}</span>
-                  {/* **숫자는 하나다.** 1위 대비 낙폭(`lossCp`)도 서버가 주지만 안 그린다 —
-                      절대 평가치에서 뺄셈으로 나오는 같은 사실이고, 1위 줄만 빈칸이 되어
-                      「0」이 아니라 「값이 없다」로 읽혔다. 「이 수가 더 나쁘다」는 순서가 말한다.
-                      그리고 이 앱의 다른 숫자가 전부 이 자다(개입 카드·반박 수순·기보). */}
-                  <span className="review-whatif-score">{scoreJa(c.evalCp, c.mateIn)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* **최선수 목록은 여기 없다.** `MoveOptions` 가 그것을 실제로 둔 수·물러진 수와 한
+          줄로 세운다 — 같은 국면의 같은 종류의 사실을 두 목록으로 갈라 두면 견줄 수가 없다. */}
 
       {/* 되돌아가는 길이 둘이다. **한 수씩 물리는 것과 분기를 접는 것은 다른 일이다** —
           몇 수를 들어간 뒤에 원래 판으로 돌아가려고 「一手戻る」를 다섯 번 누르게 두지 않는다. */}

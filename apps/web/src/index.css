@@ -2131,3 +2131,82 @@ body {
 .review-whatif-score[data-stale] {
   opacity: 0.4;
 }
+
+/* ── この局面で指せた手 ──────────────────────────────────
+   최선수·실제로 둔 수·물러진 수를 **한 목록**으로 세운다. 같은 국면의 같은 종류의 사실인데
+   두 목록으로 갈려 있어서 「내가 둔 것이 몇 번째쯤이었나」를 견줄 수가 없었다.
+
+   **색이 값이다.** 파랑이 좋고 빨강이 나쁘다 — 판 위에서 쓰는 그 토큰을 그대로 쓰고
+   (`--hint`·`--ray-check`) 새 색을 안 꺼낸다. 값이 없는 줄은 색도 없다: 0으로 채우면
+   호각으로 읽힌다 */
+.review-options {
+  gap: 0.2rem;
+  padding: 0.6rem;
+  border: 1px solid rgb(var(--light) / 0.1);
+  background: var(--surface);
+}
+
+.review-options ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review-options-turn {
+  margin-inline-start: 0.4rem;
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+
+.review-options-row {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, auto) 1fr auto;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.3rem 0.4rem;
+  border: none;
+  border-bottom: 1px solid rgb(var(--light) / 0.06);
+  /* 값이 색으로 서는 자리. 왼쪽에서 오른쪽으로 옅어져서 글자를 안 가린다 */
+  background: linear-gradient(to right, var(--tone), transparent 70%);
+  font: inherit;
+  color: var(--fg);
+  text-align: start;
+  cursor: pointer;
+}
+
+.review-options-row:hover,
+.review-options-row:focus-visible {
+  border-bottom-color: rgb(var(--light) / 0.3);
+}
+
+/* 지금 둬 보고 있는 수. 테로 짚는다 — 색은 이미 값이 쓰고 있다 */
+.review-options-row[data-chosen] {
+  box-shadow: inset 0 0 0 1px rgb(var(--light) / 0.45);
+}
+
+.review-options-move {
+  font-family: var(--font-koma);
+  font-size: 0.9375rem;
+}
+
+/* 표식은 사실만. 최선수인지·누가 뒀는지·물러졌는지 */
+.review-options-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  font-size: 0.625rem;
+  color: var(--muted);
+}
+
+.review-options-tags [data-role='played'] {
+  padding: 0 0.25rem;
+  border: 1px solid rgb(var(--light) / 0.25);
+  color: var(--fg);
+}
+
+.review-options-cp {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Board, type LastMove, type Ray } from '@/components/Board';
 import { Hand } from '@/components/Hand';
 import { EvalGraph } from './EvalGraph';
+import { MoveOptions } from './MoveOptions';
 import { WhatIfPanel } from './WhatIfPanel';
 import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/libs/game/moves';
 import { dateJa, resultJa } from '@/libs/review/labels';
@@ -14,6 +15,7 @@ import { fromUsi, toIndex, type Motion } from '@/models/square';
 import { branchMotion, evalText, stepMotion } from '@/libs/whatif/branch';
 import { httpSend } from '@/libs/whatif/http';
 import { useWhatIf } from '@/hooks/useWhatIf';
+import { useMoveEvals } from '@/hooks/useMoveEvals';
 
 /**
  * 한 판을 되짚는다.
@@ -76,8 +78,6 @@ function pairRows(moves: readonly ReviewMove[]): (ReviewMove | null)[][] {
 export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
   /** 지금 보고 있는 手数. 0이면 시작 국면이다. */
   const [ply, setPly] = useState(0);
-  /** 고른 개입. 판이 그 수의 한 수 앞으로 가고 물러진 수가 그려진다. */
-  const [focus, setFocus] = useState<number | null>(null);
   /** 지금 나는 움직임. `id`가 바뀔 때마다 그 칸에서 다시 난다. */
   const [motion, setMotion] = useState<Motion | null>(null);
   const motionId = useRef(0);
@@ -92,16 +92,6 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
    * 목록이 계속 자리를 잡고 있으면 판이 그만큼 작아진다.
    */
   const [kifuOpen, setKifuOpen] = useState(false);
-  /**
-   * 그래프에서 고른 빨간 점의 자리. `null` 이면 아무 점도 안 골랐다.
-   *
-   * **개입 목록을 상시 띄우지 않는다.** 24회가 아홉 자리에 몰려 있는 판에서 그 목록은
-   * 옆 열을 통째로 먹으면서도 「어디가 나빴나」를 그래프보다 못 말한다 — 그림이 이미 그
-   * 자리를 짚고 있으므로, 목록은 **그 점을 눌렀을 때 그 국면의 것만** 나온다.
-   *
-   * 값은 **점의 x**(= 사람이 서 있던 手数)다. 개입은 그 다음 手数에 기록된다.
-   */
-  const [spot, setSpot] = useState<number | null>(null);
 
   const engineReady = useEngineReady();
   const whatif = useWhatIf(httpSend(game.id), game.id);
@@ -125,8 +115,19 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
   if (active) shownRef.current = active;
   const shown = shownRef.current;
 
+  /** 물러진 수 중 값이 저장돼 있지 않은 것들. 그 자리를 다시 재서 채운다. */
+  const unmeasured = useMemo(
+    () =>
+      game.interventions
+        .filter((iv) => iv.ply === ply + 1 && !!iv.retractedUsi && iv.afterCp === undefined)
+        .map((iv) => iv.retractedUsi as string),
+    [game.interventions, ply],
+  );
+  const measured = useMoveEvals(game.id, ply, unmeasured);
+  /** 지금 분기가 시작된 수. 그 줄이 목록에서 열린다. */
+  const chosen = shown?.line[0]?.usi ?? null;
+
   const last = game.moves.length;
-  const focused = focus === null ? null : game.interventions[focus];
 
   /** 다음 움직임의 열쇠. 올려 두면 같은 칸에 두 번 들어와도 다시 난다(되잡기). */
   const nextMotionId = useCallback(() => ++motionId.current, []);
@@ -135,8 +136,6 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
     (next: number) => {
       const target = Math.min(Math.max(next, 0), last);
       // 手数를 옮기면 회상도 분기도 끝난다. **둘 다 그 국면에서만 사실이다.**
-      setFocus(null);
-      setSpot(null); // 그 국면의 개입이었다. 떠나면 남겨 두지 않는다
       setOrigin(null);
       setPromoting(null);
       clear();
@@ -168,43 +167,13 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
    * 점이 없는 자리를 누르면 목록을 닫는다 — 남겨 두면 지금 보고 있는 판과 다른 국면의
    * 개입이 옆에 떠 있게 된다.
    */
-  const onGraphPick = useCallback(
-    (target: number) => {
-      goto(target);
-      setSpot(game.interventions.some((iv) => iv.ply === target + 1) ? target : null);
-    },
-    [goto, game.interventions],
-  );
-
   /**
-   * 개입을 고르면 **그 수를 그 국면에서 다시 둔다.** 「もしも」와 같은 장치다.
+   * 그래프를 누르면 그 手数로 간다.
    *
-   * 한때 이 자리가 따로 있었다 — 판을 탈색하고, 물러진 수를 유령 駒로 한 번 재생하고, 지나간
-   * 두 칸을 표식으로 짚는 「회상」이었다. 그 장치를 뺀 이유가 둘이다.
-   *
-   * **하나, 되짚기 화면에서는 탈색이 아무것도 구별하지 못한다** — 이 화면은 전부가 과거다.
-   *
-   * **둘, 打이 안 그려졌다.** 打은 판 위에 출발 칸이 없어서 화살표가 안 나가고, 그러면 표식
-   * 하나에 전부가 걸린다. 분기로 두면 그 수가 **실제로 놓여 있으므로** 짚을 것이 없다 —
-   * 판이 그 자체로 「이 수를 뒀으면 이렇게 된다」를 말한다.
-   *
-   * 같은 것을 다시 누르면 접힌다. 그때 판은 그 手数의 확정된 국면으로 돌아온다.
+   * 한때 「빨간 점이면 개입 목록을 꺼낸다」가 여기 붙어 있었다. 목록이 이제 그 국면의
+   * **둘 수 있었던 수 전부**라 언제나 서 있고, 꺼낼 것이 없다.
    */
-  const recall = useCallback(
-    (index: number, ivPly: number, usi: string | undefined) => {
-      setOrigin(null);
-      setPromoting(null);
-      setMotion(null); // 뛰어간 자리다. 없던 한 수를 그리지 않는다
-      setPly(Math.max(0, ivPly - 1));
-      setFocus((current) => {
-        const same = current === index;
-        if (same) clear();
-        else at(Math.max(0, ivPly - 1), usi ? [usi] : []);
-        return same ? null : index;
-      });
-    },
-    [clear, at],
-  );
+  const onGraphPick = goto;
 
   const playBranch = useCallback(
     (usi: string) => {
@@ -291,21 +260,8 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
       const played = active.line.at(-1);
       return played ? squaresOf(played.usi) : null;
     }
-    return focused || !current ? null : squaresOf(current.usi);
-  }, [branching, active, focused, current]);
-
-  /**
-   * 물러진 수. 흰빛 두 칸과 화살표를 함께 쓴다.
-   *
-   * **打은 화살표가 안 나간다.** 판 위에 출발 칸이 없어서 駒台에서 재야 하는데, 리뷰는
-   * 그 측정을 하지 않는다(대국 쪽 장치다). 그래도 두 칸 표식은 도착점을 짚으므로
-   * 「어디에 놓으려 했나」는 남는다.
-   */
-  const recalling = focused !== null && !branching;
-  const retracted = useMemo(
-    () => (recalling && focused?.retractedUsi ? squaresOf(focused.retractedUsi) : null),
-    [recalling, focused],
-  );
+    return current ? squaresOf(current.usi) : null;
+  }, [branching, active, current]);
 
   /**
    * 판 위의 화살표. **회상에서는 물러진 수**, **분기에서는 수번 쪽의 최선수**다.
@@ -320,16 +276,13 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
    * 뜨는 자리를 줄여 「지금 무엇을 보고 있나」가 분명한 때만 긋는다.
    */
   const ray = useMemo<Ray | null>(() => {
-    if (recalling) {
-      return retracted && retracted.from !== null ? { ...retracted, from: retracted.from, by: 'human' } : null;
-    }
     if (!branching) return null;
     const best = active?.candidates[0];
     if (!best) return null;
     const squares = squaresOf(best.usi);
     if (!squares || squares.from === null) return null; // 打은 駒台를 재야 한다. 여기는 안 잰다
     return { from: squares.from, to: squares.to, by: active.yourTurn ? 'human' : 'engine' };
-  }, [recalling, retracted, branching, active]);
+  }, [branching, active]);
 
   /**
    * 한 번이라도 막힌 手数. 기보 줄에 표식을 붙이는 데 쓴다.
@@ -349,11 +302,11 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
    * 애초에 서버가 안 보낸다(game/moves.ts). 회상 중에는 잠근다: 그때 판은 물러진 수의
    * 국면이고 노드는 그 한 수 앞의 것이라, 둘이 어긋난 채로 두게 된다.
    */
-  const legal = recalling ? [] : (active?.legalMoves ?? []);
+  const legal = active?.legalMoves ?? [];
   const grouped = useMemo(() => groupByOrigin(legal), [legal]);
   const destinations: Destination[] = origin ? (grouped.get(origin) ?? []) : [];
   const lit = useMemo(() => new Set(destinations.map((d) => d.to)), [destinations]);
-  const playable = !!active && !recalling && active.status === 'playing' && !pending && !promoting;
+  const playable = !!active && active.status === 'playing' && !pending && !promoting;
   /** 지금 수번의 駒台만 집을 수 있다. 판을 안 뒤집으므로 여기서 어느 쪽인지가 갈린다. */
   const handSide = active?.turn === 'b' ? 'black' : 'white';
   const droppable = useMemo(
@@ -403,17 +356,6 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
     // 맨 위가 보이고 지금 자리는 한참 아래에 있다.
   }, [ply, kifuOpen]);
 
-  /**
-   * 고른 자리의 개입들. **원래 목록의 자리(`i`)를 들고 다닌다** — `focus` 와 `recall` 이
-   * 그 번호로 말하므로, 걸러낸 뒤에 다시 매기면 엉뚱한 개입이 열린다.
-   *
-   * 한 국면에 여럿인 것이 흔하다. 622번은 159手째에서 다섯 수를 시도해 다 물러졌다.
-   */
-  const picked = useMemo(
-    () => (spot === null ? [] : game.interventions.map((iv, i) => ({ iv, i })).filter(({ iv }) => iv.ply === spot + 1)),
-    [spot, game.interventions],
-  );
-
   const rows = useMemo(() => pairRows(game.moves), [game.moves]);
 
   /**
@@ -462,8 +404,8 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
             lit={lit}
             selected={origin && !origin.endsWith('*') ? origin : null}
             lastMove={lastMove}
-            checked={branching && active ? (active.checked ?? null) : recalling ? null : (current?.checked ?? null)}
-            played={recalling ? retracted : null}
+            checked={branching && active ? (active.checked ?? null) : (current?.checked ?? null)}
+            played={null}
             replay={null}
             ray={ray}
             motion={motion}
@@ -643,53 +585,13 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
           error={whatif.error}
           engineReady={engineReady}
           evalOf={whatif.evalOf}
-          onPlay={playBranch}
           onBack={back}
           onRoot={toRoot}
         />
 
-        <section className="review-panel" aria-label="介入">
-          {spot === null ? (
-            // 목록 대신 한 줄. 총 횟수는 남기고, 어디를 눌러야 하는지를 같이 말한다.
-            <p className="review-empty">
-              {game.interventions.length === 0
-                ? 'この対局では一度も止まりませんでした。'
-                : `介入 ${game.interventions.length}回。グラフの赤い点を押すと、その局面で戻した手が出ます。`}
-            </p>
-          ) : (
-            <>
-              <h2 className="panel-title">
-                {spot + 1}手目 — 戻した手 {picked.length}回
-              </h2>
-              <ol className="review-iv-list">
-                {picked.map(({ iv, i }) => (
-                  <li key={`${iv.ply}-${i}`}>
-                    <button
-                      type="button"
-                      className="review-iv"
-                      data-active={focus === i || undefined}
-                      onClick={() => recall(i, iv.ply, iv.retractedUsi)}
-                    >
-                      <span className="review-iv-ply">{iv.ply}手目</span>
-                      <span className="review-iv-cat">{iv.categoryJa}</span>
-                      <span className="review-iv-move">{iv.retractedJa || iv.retractedUsi}</span>
-                      <span className="review-iv-delta">−{Math.round(iv.deltaWin * 100)}%</span>
-                    </button>
-                    {/* **문구는 서버가 만든 것을 그대로 그린다.** 대국 중에 나갔던 문장은 어디에도
-                        저장하지 않으므로(카테고리만 남는다) 글자까지 같지는 않다 — 같은 사실에서
-                        나온 결정적 문구다.
-
-                        「この局面で ▲6八歩 を指して戻されました」 한 줄이 여기 더 있었다. 위의
-                        버튼이 手数·카테고리·수·낙폭을 이미 말하므로 같은 말이었고, 그 문장이 있던
-                        이유는 뒤에 있던 「この手を指してみる」를 소개하는 것이었는데 그 버튼이
-                        없어졌다 — 목록에서 고르는 것이 곧 그 수를 두는 것이다. */}
-                    {focus === i && iv.message && <p className="review-iv-note">{iv.message}</p>}
-                  </li>
-                ))}
-              </ol>
-            </>
-          )}
-        </section>
+        {/* **한 목록이다.** 최선수·실제로 둔 수·물러진 수가 같은 국면의 같은 종류의 사실이라
+            평가치 하나로 세운다 — 「내가 둔 것이 몇 번째쯤이었나」가 그 사이의 한 줄이 된다. */}
+        <MoveOptions game={game} ply={ply} node={shown} measured={measured} chosen={chosen} onPick={playBranch} />
       </aside>
     </div>
   );

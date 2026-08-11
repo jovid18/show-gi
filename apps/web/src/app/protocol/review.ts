@@ -67,6 +67,16 @@ export interface ReviewIntervention {
   deltaWin: number;
   levelBucket?: string;
   retractedUsi?: string;
+  /**
+   * **그 수를 두면 얼마가 되나** — 플레이어 관점 cp. `moves[].evalCp` 와 같은 자다.
+   *
+   * **없을 수 있다.** `005_intervention_cp.sql` 앞에 기록된 판에는 영원히 없다 — 그때는
+   * 낙폭만 남겼고 그것은 되돌릴 수 없다(승률 차라서 미지수 둘에 식 하나다). 화면은 그
+   * 자리를 다시 재서 채운다(`useMoveEvals`).
+   */
+  afterCp?: number;
+  /** 판정 당시 최선수의 cp(플레이어 관점). 낙폭을 다시 구하려면 이것과 `afterCp` 가 필요하다. */
+  bestCp?: number;
   /** 물러진 수의 棋譜 표기. 그 국면까지 재현이 못 갔으면 없다. */
   retractedJa?: string;
 }
