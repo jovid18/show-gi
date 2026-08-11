@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-import { Board, type LastMove, type Ray } from '@/components/Board';
+import { Board, type DropFrom, type LastMove, type Ray } from '@/components/Board';
 import { Hand } from '@/components/Hand';
 import { EvalGraph } from './EvalGraph';
 import { MoveOptions } from './MoveOptions';
 import { WhatIfPanel } from './WhatIfPanel';
 import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/libs/game/moves';
+import { offsetWithin } from '@/libs/game/board-view';
 import { dateJa, resultJa } from '@/libs/review/labels';
 import type { GameDetail, ReviewMove } from '@/protocol/review';
 import type { WhatIfNode } from '@/protocol/whatif';
@@ -92,6 +93,10 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
    * 목록이 계속 자리를 잡고 있으면 판이 그만큼 작아진다.
    */
   const [kifuOpen, setKifuOpen] = useState(false);
+  /** 打 화살표의 출발점 — 駒台에 놓인 그 駒의 실제 자리. 칸 산수 밖이라 **재야** 한다. */
+  const [dropFrom, setDropFrom] = useState<DropFrom | null>(null);
+  const dropPieceRef = useRef<HTMLButtonElement | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
 
   const engineReady = useEngineReady();
   const whatif = useWhatIf(httpSend(game.id), game.id);
@@ -280,7 +285,9 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
     const best = active?.candidates[0];
     if (!best) return null;
     const squares = squaresOf(best.usi);
-    if (!squares || squares.from === null) return null; // 打은 駒台를 재야 한다. 여기는 안 잰다
+    if (!squares) return null;
+    // **打도 긋는다.** 판 위에 출발 칸이 없어서 駒台에서 자리를 재야 하고, 아래에서 잰다
+    // (`dropFrom`). 안 그리면 최선수가 打인 국면에서만 화살표가 통째로 사라진다.
     return { from: squares.from, to: squares.to, by: active.yourTurn ? 'human' : 'engine' };
   }, [branching, active]);
 
@@ -356,6 +363,60 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
     // 맨 위가 보이고 지금 자리는 한참 아래에 있다.
   }, [ply, kifuOpen]);
 
+  /**
+   * 지금 화살표가 駒台에서 출발하는가. 그렇다면 어느 쪽의 무슨 駒인가.
+   *
+   * **identity가 안정적이어야 한다.** 매 렌더마다 새 객체가 나오면 아래 효과가 다시 돌고
+   * `setDropFrom` 이 또 새 객체를 넣어 무한 루프가 된다 — 대국 화면에서 실제로 그렇게
+   * 화면이 하얘졌다(GameScreen 의 `dropping` 주석).
+   */
+  const dropping = useMemo(() => {
+    if (!ray || ray.from !== null) return null;
+    const move = parseUsi(active?.candidates[0]?.usi ?? '');
+    if (move?.kind !== 'drop') return null;
+    // 打은 **수번 측 駒台**에서 나온다. `handSide` 가 이미 그 쪽이다.
+    return { side: handSide, kind: move.piece };
+  }, [ray, active, handSide]);
+
+  // 화면 폭이 바뀌면 `--sq` 가 따라 변하므로 그때마다 다시 잰다.
+  const measureDrop = useCallback(() => {
+    const grid = boardRef.current;
+    const piece = dropPieceRef.current;
+    const stage = grid?.closest('.game-board');
+    if (!grid || !piece || !(stage instanceof HTMLElement)) {
+      setDropFrom(null);
+      return;
+    }
+    const pieceAt = offsetWithin(piece, stage);
+    const gridAt = offsetWithin(grid, stage);
+    const square = grid.firstElementChild;
+    if (!pieceAt || !gridAt || !(square instanceof HTMLElement)) {
+      setDropFrom(null);
+      return;
+    }
+    // 판의 테두리 안쪽이 기준이다 — 화살표가 그 안에 놓이므로.
+    const next = {
+      x: pieceAt.x + piece.offsetWidth / 2 - (gridAt.x + grid.clientLeft),
+      y: pieceAt.y + piece.offsetHeight / 2 - (gridAt.y + grid.clientTop),
+      sq: square.offsetWidth,
+    };
+    // 같은 값이면 상태를 안 건드린다 — 재는 일이 리렌더를 부르고 리렌더가 다시 재는 고리를 끊는다.
+    setDropFrom((prev) => (prev && prev.x === next.x && prev.y === next.y && prev.sq === next.sq ? prev : next));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!dropping) {
+      setDropFrom(null);
+      return;
+    }
+    measureDrop();
+    const stage = boardRef.current?.closest('.game-board');
+    if (!(stage instanceof HTMLElement)) return;
+    const observer = new ResizeObserver(measureDrop);
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, [dropping, measureDrop]);
+
   const rows = useMemo(() => pairRows(game.moves), [game.moves]);
 
   /**
@@ -395,6 +456,10 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
           pieces={board?.hands.white ?? {}}
           selected={handSide === 'white' && origin?.endsWith('*') ? origin : null}
           playable={handSide === 'white' ? droppable : new Set()}
+          measure={dropping?.side === 'white' ? dropping.kind : null}
+          droppingRef={(el) => {
+            dropPieceRef.current = el;
+          }}
           onPick={handSide === 'white' ? pickHand : () => {}}
         />
 
@@ -415,7 +480,8 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
             // 낮추면 무엇과 구별되는지가 없다. 대국 화면에는 남는다: 거기서는 살아 있는 판과
             // 회상이 같은 자리를 쓴다.
             dimmed={false}
-            dropFrom={null}
+            dropFrom={dropFrom}
+            boardRef={boardRef}
             hintSquare={null}
             hintRay={null}
             mateHeat={0}
@@ -432,6 +498,10 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
           pieces={board?.hands.black ?? {}}
           selected={handSide === 'black' && origin?.endsWith('*') ? origin : null}
           playable={handSide === 'black' ? droppable : new Set()}
+          measure={dropping?.side === 'black' ? dropping.kind : null}
+          droppingRef={(el) => {
+            dropPieceRef.current = el;
+          }}
           onPick={handSide === 'black' ? pickHand : () => {}}
         />
         {/* **이동과 기보가 한 컨트롤이다**(将棋ウォーズ). 슬라이더는 뺐다 — 「지금 어디인가」를
