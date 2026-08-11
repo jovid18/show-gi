@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { kanjiOf, type Side } from '@/models/piece';
 import { isPromoted, mobilityOf, type GridDirection, type JumpDirection } from '@/models/mobility';
 
@@ -87,7 +89,14 @@ interface KomaProps {
   marks?: boolean;
 }
 
-export function Koma({ kind, side, marks = true }: KomaProps) {
+/**
+ * **`memo` 다.** 판이 한 手 넘어가면 81칸이 전부 다시 렌더되는데, 실제로 달라지는 칸은
+ * 두세 개다. 그 나머지 40개쯤의 駒마다 `mobilityOf` 를 다시 돌고 표식 SVG를 다시 만들면
+ * 手数를 넘기는 데 80ms가 든다 — 판이 즉시 안 바뀌는 것으로 보인다.
+ *
+ * 세 값이 전부 원시값이라 얕은 비교로 충분하다.
+ */
+export const Koma = memo(function Koma({ kind, side, marks = true }: KomaProps) {
   const mobility = marks ? mobilityOf(kind) : [];
 
   return (
@@ -131,4 +140,4 @@ export function Koma({ kind, side, marks = true }: KomaProps) {
       </span>
     </span>
   );
-}
+});

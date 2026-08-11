@@ -67,12 +67,19 @@ export function WhatIfPanel({
         {score && <span className="review-whatif-score">{score}</span>}
       </div>
 
-      <p className="review-whatif-status" data-tone={node?.status === 'playing' ? 'turn' : 'result'}>
+      {/* **기다리는 동안 글자를 바꾸지 않는다.** 한때 여기가 `読んでいます…` 로 바뀌었는데,
+          手数를 넘길 때마다 500ms씩 문구가 번쩍여서 그것만 눈에 남았다. 「아직 이 국면의
+          값이 아니다」는 **흐림**이 이미 말한다(`data-stale`) — 채널을 둘로 두지 않는다. */}
+      <p
+        className="review-whatif-status"
+        data-tone={node?.status === 'playing' ? 'turn' : 'result'}
+        data-stale={stale || undefined}
+      >
         {down
           ? 'エンジンが動いていないため、この局面から指し直すことはできません。'
-          : stale || !node
-            ? '読んでいます…'
-            : branchStatusJa(node, pending)}
+          : node
+            ? branchStatusJa(node, false)
+            : 'この局面の駒を動かすと、そこから指し直せます。'}
       </p>
 
       {error && (
