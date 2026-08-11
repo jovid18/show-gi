@@ -144,9 +144,10 @@ kb_chunks    (id, title, body, tags text[], source_url, source_license, verified
    │  shogi     룰 엔진 — 합법수·반칙·棋譜 표기      │
    │  usi       엔진 프로세스 풀 (MultiPV, mate)    │
    │  store     pgx + sqlc                         │
+   │  tag       囲い·전법·戦型·手筋의 이름          │
+   │            엔진도 DB도 모른다 — 국면과 수순만  │
    │                                              │
-   │  (아직 없다: tag 囲い·전법 / profile 실력 추정 /│
-   │              kb  RAG 코퍼스)                   │
+   │  (아직 없다: profile 실력 추정 / kb RAG 코퍼스)│
    └───────┬───────────────────────┬──────────────┘
            │ stdin/stdout          │
    ┌───────▼─────────┐     ┌───────▼────────┐
