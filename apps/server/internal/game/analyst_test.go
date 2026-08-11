@@ -21,7 +21,7 @@ var tookThePawn = []string{"5e5d"}
 func TestRefutationLineRunsUntilTheDamageLands(t *testing.T) {
 	pv := []string{"5a4a", "1i2i", "4c5d"}
 
-	line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies).line
+	line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies, false).line
 
 	want := []RefutationMove{
 		{USI: "5a4a", Ja: "△4一玉", By: SideEngine},
@@ -36,7 +36,7 @@ func TestRefutationLineRunsUntilTheDamageLands(t *testing.T) {
 func TestRefutationLineShowsTheWholeExchange(t *testing.T) {
 	pv := []string{"4c5d", "5i5d", "8a5d", "1i2i"}
 
-	line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies).line
+	line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies, false).line
 
 	want := []RefutationMove{
 		{USI: "4c5d", Ja: "△同金", By: SideEngine},
@@ -49,7 +49,7 @@ func TestRefutationLineShowsTheWholeExchange(t *testing.T) {
 // 첫 수는 언제나 상대의 수다. 판정하는 것이 사람의 수이기 때문이고, 사람이 어느 색을
 // 잡았는지와 무관하다. 화면은 이 성질에 기대어 **첫 수만** 판에 긋는다.
 func TestRefutationLineStartsWithTheOpponent(t *testing.T) {
-	line := refutationLine(exchangeSFEN, tookThePawn, []string{"4c5d"}, RefutationPlies).line
+	line := refutationLine(exchangeSFEN, tookThePawn, []string{"4c5d"}, RefutationPlies, false).line
 	if len(line) != 1 || line[0].By != SideEngine {
 		t.Fatalf("첫 수가 상대의 수가 아니다: %+v", line)
 	}
@@ -62,7 +62,7 @@ func TestRefutationLineStopsWhenTheFirstMovePunishes(t *testing.T) {
 	thrownBishop := []string{"7g7f", "3c3d", "8h2b+"}
 	pv := []string{"3a2b", "B*5e", "2b3c"}
 
-	line := refutationLine(shogi.StartSFEN, thrownBishop, pv, RefutationPlies).line
+	line := refutationLine(shogi.StartSFEN, thrownBishop, pv, RefutationPlies, false).line
 
 	if len(line) != 1 {
 		t.Fatalf("수순 길이 %d, 기대 1: %+v", len(line), line)
@@ -78,7 +78,7 @@ func TestRefutationLineStopsWhenTheFirstMovePunishes(t *testing.T) {
 func TestRefutationLineOnlyLooksAsFarAsTheLimit(t *testing.T) {
 	pv := []string{"5a4a", "1i2i", "4c5d"} // 따는 수가 상한 밖이다
 
-	line := refutationLine(exchangeSFEN, tookThePawn, pv, 2).line
+	line := refutationLine(exchangeSFEN, tookThePawn, pv, 2, false).line
 
 	if len(line) != 1 {
 		t.Fatalf("수순 길이 %d, 기대 1: %+v", len(line), line)
@@ -95,7 +95,7 @@ func TestRefutationLineCutsAtAnUnplayableMove(t *testing.T) {
 
 	for name, pv := range cases {
 		t.Run(name, func(t *testing.T) {
-			line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies).line
+			line := refutationLine(exchangeSFEN, tookThePawn, pv, RefutationPlies, false).line
 			if len(line) != 1 {
 				t.Fatalf("수순 길이 %d, 기대 1: %+v", len(line), line)
 			}
@@ -104,7 +104,7 @@ func TestRefutationLineCutsAtAnUnplayableMove(t *testing.T) {
 }
 
 func TestRefutationLineIsEmptyWithoutAPV(t *testing.T) {
-	if line := refutationLine(exchangeSFEN, tookThePawn, nil, RefutationPlies).line; line != nil {
+	if line := refutationLine(exchangeSFEN, tookThePawn, nil, RefutationPlies, false).line; line != nil {
 		t.Errorf("PV가 없는데 수순이 나왔다: %+v", line)
 	}
 }

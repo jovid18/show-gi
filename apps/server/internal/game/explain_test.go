@@ -175,7 +175,7 @@ func TestPlaytestOtherNowNamesWhatIsTaken(t *testing.T) {
 	// 06-status.md §25 가 실측으로 적어둔 PV다.
 	pv := []string{"8f8i+", "P*3d", "8i7i", "3d3c+"}
 
-	r := refutationLine(shogi.StartSFEN, moves, pv, RefutationPlies)
+	r := refutationLine(shogi.StartSFEN, moves, pv, RefutationPlies, false)
 
 	if len(r.line) == 0 {
 		t.Fatal("반박 수순이 비었다 — PV가 그 국면에서 합법이어야 한다")

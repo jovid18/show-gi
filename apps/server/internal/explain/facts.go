@@ -50,6 +50,19 @@ type Facts struct {
 	Attackers int
 	// Defended 는 따인 뒤에 되딸 수 있는가.
 	Defended bool
+	// MatePlies 는 이 수 뒤에 **상대가 내 玉을 詰ます 手数**다. 없으면 0.
+	//
+	// 상한은 solver 의 `DepthLimit`(11)이고 詰ます 쪽이 처음과 끝을 두므로 **늘 홀수**다 —
+	// 실측 분포는 1·3·5·7·9였다(06-status.md §40).
+	//
+	// **이 숫자는 증명된 것만 온다.** 깊이 12 탐색의 mate 점수와 실측에서 어긋났고
+	// (탐색 5手 / solver 9手) 그쪽은 증명이 아니다. 「5手で詰まされます」라고 적어놓고
+	// 실제 강제 詰み이 9手면 그게 곧 틀린 설명이고, 초심자는 검증할 수단이 없다.
+	//
+	// Δ승률과 달리 이 값은 **화면에 두 벌로 있지 않다.** 카드에 手数 막대가 없으므로
+	// 문장이 말하지 않으면 아무도 말하지 않는다.
+	MatePlies int
+
 	// Threatened 는 반박 수순의 **첫 수로 상대가 딸 수 있는 내 駒**의 한자다. 없으면 빈 값.
 	//
 	// 카테고리가 이유를 못 대는 3분의 2에 「무엇을 잃는가」를 주는 자리다(06-status.md §25).
@@ -85,9 +98,22 @@ func (f Facts) Key() string {
 // 해시만 적혀 있으면 그 파일을 사람이 읽고 확인할 방법이 없다.
 func (f Facts) keyMaterial() string {
 	u := f.used()
-	return fmt.Sprintf("v%d|%s|%s|%d|mate=%t|known=%t|moved=%s|cap=%s|atk=%d|def=%t|thr=%s",
+	// **`mp` 가 키에 있어야 한다.** 문장이 手数를 말하므로(「3手で詰まされます」) 이것이
+	// 빠지면 3手와 9手가 같은 키가 되고, 캐시가 9手 국면에 「3手で」를 돌려준다 — 초심자는
+	// 검증할 수단이 없어 그대로 배운다. `used` 가 남긴 것과 여기가 정확히 같아야 하는
+	// 이유가 이것이다.
+	//
+	// **없던 칸을 끝에 더하면 옛 키가 전부 죽는다.** 그래서 `lets_mate` 일 때만 붙인다 —
+	// 나머지 카테고리는 `used` 가 `MatePlies` 를 지우므로 키가 예전과 한 글자도 안 달라지고,
+	// 004_explain_cache_tier1.sql 에 사전 생성해 둔 행이 계속 맞는다. `promptVersion` 을
+	// 올리는 것은 **문장이 달라질 때**이고, 지금은 새 카테고리가 하나 생긴 것뿐이다.
+	base := fmt.Sprintf("v%d|%s|%s|%d|mate=%t|known=%t|moved=%s|cap=%s|atk=%d|def=%t|thr=%s",
 		promptVersion, u.Kind, u.Category, u.Level, u.LostMate,
 		u.Known, u.MovedPiece, u.Captured, u.Attackers, u.Defended, u.Threatened)
+	if u.MatePlies > 0 {
+		base += fmt.Sprintf("|mp=%d", u.MatePlies)
+	}
+	return base
 }
 
 // Tier 는 이 사실들이 어느 층으로 가는지다.
@@ -97,7 +123,7 @@ func (f Facts) keyMaterial() string {
 // 들어가면 그만큼 키가 넓어지는 대신 문장이 그 국면을 짚는다.
 func (f Facts) Tier() int {
 	u := f.used()
-	if u.Known && (u.Attackers > 0 || u.Captured != "" || u.Threatened != "") {
+	if u.Known && (u.Attackers > 0 || u.Captured != "" || u.Threatened != "" || u.MatePlies > 0) {
 		return 2
 	}
 	return 1
@@ -125,6 +151,13 @@ func (f Facts) used() Facts {
 		// 요구했다 — 「어느 駒인지, 몇 개가 지키는지를 숫자로」(08-playtest.md §7).
 		u.Known = true
 		u.MovedPiece, u.Attackers, u.Defended = f.MovedPiece, f.Attackers, f.Defended
+
+	case intervene.CategoryLetsMate:
+		// **手数만 말한다.** 「무엇이 몇 장에게 노려지는가」는 여기서 의미가 없다 — 玉이
+		// 죽는 국면에서 駒의 매수를 말하면 읽는 사람이 駒를 지키러 간다. 그리고 이 카테고리는
+		// 「몇 手 뒤에 죽는가」가 그대로 급함의 크기라, 그 하나가 문장을 완성한다.
+		u.Known = true
+		u.MatePlies = f.MatePlies
 
 	case intervene.CategoryGreedyCapture:
 		// 「駒は取れますが」의 그 駒를 이름으로 부른다.

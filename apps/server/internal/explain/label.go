@@ -14,6 +14,7 @@ import "github.com/jovid18/show-gi/apps/server/internal/intervene"
 // 있던 이름은 그대로 쓰고, 나머지는 평범한 말로 적는다.
 var categoryNames = map[intervene.Category]string{
 	intervene.CategoryMissedMate:    "詰み逃し",
+	intervene.CategoryLetsMate:      "詰まされる",
 	intervene.CategoryHangsPiece:    "タダ捨て",
 	intervene.CategoryShallowTrap:   "浅い得",
 	intervene.CategoryUnpromoted:    "不成",

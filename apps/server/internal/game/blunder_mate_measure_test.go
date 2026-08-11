@@ -1,10 +1,13 @@
 package game
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/explain"
+	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
@@ -168,4 +171,66 @@ func TestMeasureBlunderMate(t *testing.T) {
 	t.Logf("  탐색만 詰み을 본다 (solver 는 못 찾음)  %3d / %d", searchOnly, len(rows))
 	t.Logf("  詰み 아님 (증명됨)                      %3d / %d", noMate, len(rows))
 	t.Logf("  모른다 (solver가 결론을 못 냈다)        %3d / %d", unknown, len(rows))
+}
+
+// TestMeasureLetsMateOnRecords 는 **프로덕션 경로 그대로** 기록을 다시 판정한다.
+//
+// 위의 두 측정은 「詰み이 있느냐」를 직접 물었다. 이것은 `NewEngineAnalyst` 를 세워
+// `Judge` 를 부르므로, **플레이어가 실제로 보게 될 카테고리와 문장**이 나온다 — 배선이
+// 어딘가 빠져 있으면 여기서만 드러난다.
+//
+// 낙폭이 다시 임계치를 넘는지는 별개다. 같은 국면·같은 깊이가 같은 값을 안 주므로
+// (06-status.md §39 ⑦) 그때 걸린 수가 지금은 안 걸릴 수 있다 — 그 건수도 같이 센다.
+func TestMeasureLetsMateOnRecords(t *testing.T) {
+	conn := measureDB(t)
+	pool := measurePool(t)
+	mate := measureMatePool(t)
+
+	all, moves := loadBlunders(t, conn)
+	an := NewEngineAnalyst(pool, mate, intervene.Beginner)
+
+	counts := map[intervene.Category]int{}
+	var notTripped int
+	var samples []string
+
+	for _, b := range all {
+		if b.category != "other" {
+			continue
+		}
+		gm := moves[b.gameID]
+		if _, _, err := replayBlunder(b, gm); err != nil {
+			continue
+		}
+		played := append(append([]string(nil), gm[:b.ply-1]...), b.retracted)
+
+		j, err := an.Judge(t.Context(), b.startSFEN, played, b.ply)
+		if err != nil {
+			t.Logf("  game %d ply %d: 판정 실패: %v", b.gameID, b.ply, err)
+			continue
+		}
+		if j.Verdict.Kind == intervene.KindNone {
+			notTripped++
+			continue
+		}
+		counts[j.Verdict.Category]++
+		if j.Verdict.Category == intervene.CategoryLetsMate && len(samples) < 6 {
+			samples = append(samples, fmt.Sprintf("game %d ply %d → %s (%d手 · 반박 %d手)",
+				b.gameID, b.ply, explain.Render(j.Facts), j.Facts.MatePlies, len(j.Refutation)))
+		}
+	}
+
+	t.Logf("== 옛 `other` 를 지금 코드로 다시 판정했다 ==")
+	for c, n := range counts {
+		name := string(c)
+		if c == intervene.CategoryOther {
+			name += " (그대로)"
+		}
+		t.Logf("  %-16s %3d", name, n)
+	}
+	t.Logf("  %-16s %3d  ← 낙폭이 다시 임계치를 안 넘었다(§39 ⑦)", "판정 안 걸림", notTripped)
+
+	t.Logf("\n== 플레이어가 보게 될 문장 ==")
+	for _, s := range samples {
+		t.Logf("  %s", s)
+	}
 }
