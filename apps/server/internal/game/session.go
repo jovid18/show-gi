@@ -92,6 +92,10 @@ type Snapshot struct {
 	// 값이라 세대와 함께 들고 있다가 국면이 움직이면 함께 사라진다(styleTags).
 	StyleTags []tag.Tag `json:"styleTags,omitempty"`
 
+	// TagHints 는 이 국면에서 플레이어가 둘 수 있는 수 중 **새 이름을 만드는 것이 있을 때**
+	// 그 이름이다. 착수 전에 뜨는 제안형 힌트의 데이터이고, 수를 짚지 않는다(01-core.md §7).
+	TagHints []tag.Tag `json:"tagHints,omitempty"`
+
 	// MateHeat 는 詰み 게이지의 세기다(1..MateHeatMax). 0이면 게이지가 꺼져 있다.
 	//
 	// **상대 玉 쪽 하나뿐이고, 手数가 아니라 세기다.** 둘 다 이유가 있고 `gauge.go` 에
@@ -434,6 +438,12 @@ type state struct {
 	tesuji    []tag.Tag
 	tesujiGen int
 
+	// 제안형 힌트. 빈도 상한과 쿨다운을 여기서 잡는다(01-core.md §7.1).
+	tagHints       []tag.Tag
+	tagHintGen     int
+	tagHintCount   int
+	tagHintLastPly int
+
 	// 물러질 수 있으므로 착수 직전 국면을 들고 있는다. Position 이 값 타입이라 복사면 끝이다.
 	prevPos    shogi.Position
 	prevPrevTo int
@@ -489,6 +499,7 @@ func (s *Session) run(ctx context.Context, st *state) {
 
 	// 엔진이 선수면 시작하자마자 생각한다. 사람이 선수면 게이지가 대신 걸린다 —
 	// 둘은 정확히 반대 조건이라 언제나 하나만 돈다.
+	st.computeTagHints()
 	st.maybeThink(ctx, engineDone)
 	st.maybeGauge(ctx, gaugeDone)
 
@@ -658,8 +669,9 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 
 	if r.err == nil && r.judgement.Verdict.Kind == intervene.KindBlunder {
 		st.rollback(r)
-		// 되물러 사람 차례로 돌아왔다. 게이지도 그 국면의 것으로 다시 구한다 —
-		// 롤백이 searchGen 을 올리므로 물러지기 전의 세기는 이미 무효다.
+		// 되물러 사람 차례로 돌아왔다. 힌트와 게이지도 그 국면의 것으로 다시 구한다 —
+		// 롤백이 searchGen 을 올리므로 물러지기 전의 것은 이미 무효다.
+		st.computeTagHints()
 		st.maybeGauge(ctx, gaugeDone)
 		st.broadcast()
 		return
@@ -922,6 +934,7 @@ func (st *state) applyEngineMove(ctx context.Context, r engineResult, engineDone
 
 	st.apply(m, SideEngine)
 	st.recordLastMove() // 상대 수는 판정하지 않으므로 두는 즉시 확정이다
+	st.computeTagHints()
 	st.maybeThink(ctx, engineDone)
 	st.maybeGauge(ctx, gaugeDone)
 	st.broadcast()
@@ -973,6 +986,67 @@ func (st *state) styleTags() []tag.Tag {
 	})...)
 }
 
+const (
+	TagHintMaxPerGame = 3
+	TagHintCooldown   = 10
+)
+
+// computeTagHints 는 이 국면에서 플레이어의 합법수 중 **새 이름을 만드는 것**을 찾는다.
+//
+// 엔진을 안 부른다 — 囲い·전법·戦型은 판과 수순만으로 정해지므로 합법수마다 시뮬레이션하면
+// 끝이다. 종반에 합법수가 많아도 40개 안팎이라 비용은 무시할 수 있다.
+//
+// 手筋은 엔진 평가치가 있어야 하므로 여기서 건너뛴다.
+func (st *state) computeTagHints() {
+	st.tagHintGen = st.searchGen
+
+	if st.status != StatusPlaying || st.pos.Turn != st.cfg.HumanColor {
+		st.tagHints = nil
+		return
+	}
+	if st.tagHintCount >= TagHintMaxPerGame {
+		st.tagHints = nil
+		return
+	}
+	ply := len(st.moves)
+	if st.tagHintLastPly > 0 && ply > st.tagHintLastPly && ply-st.tagHintLastPly < TagHintCooldown {
+		st.tagHints = nil
+		return
+	}
+
+	playerMoves := st.movesBy(SideHuman)
+	oppMoves := st.movesBy(SideEngine)
+
+	have := map[string]bool{}
+	for _, t := range tag.Detect(tag.Input{
+		Pos: st.pos, Color: st.cfg.HumanColor,
+		PlayerMoves: playerMoves, OpponentMoves: oppMoves,
+	}) {
+		have[t.Code] = true
+	}
+
+	seen := map[string]bool{}
+	var hints []tag.Tag
+	for _, m := range st.pos.LegalMoves() {
+		after := st.pos.Apply(m)
+		afterMoves := append(append([]string(nil), playerMoves...), m.USI())
+		for _, t := range tag.Detect(tag.Input{
+			Pos: after, Color: st.cfg.HumanColor,
+			PlayerMoves: afterMoves, OpponentMoves: oppMoves,
+		}) {
+			if !have[t.Code] && !seen[t.Code] {
+				seen[t.Code] = true
+				hints = append(hints, t)
+			}
+		}
+	}
+	st.tagHints = hints
+	if len(hints) > 0 && st.tagHintLastPly != ply {
+		st.tagHintCount++
+		st.tagHintLastPly = ply
+	}
+}
+
 func (st *state) snapshot() Snapshot {
 	turn := "b"
 	if st.pos.Turn == shogi.White {
@@ -1000,6 +1074,9 @@ func (st *state) snapshot() Snapshot {
 	// 남고, 그건 「지금 판 위의 사실」이 아니게 된다(StyleTags 를 매번 다시 세는 것과 같은 자리다).
 	if st.mateGen == st.searchGen {
 		snap.MateHeat = st.mateHeat
+	}
+	if st.tagHintGen == st.searchGen {
+		snap.TagHints = st.tagHints
 	}
 	if yours {
 		for _, m := range st.pos.LegalMoves() {

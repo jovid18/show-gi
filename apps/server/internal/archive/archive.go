@@ -231,7 +231,8 @@ func (a *Searcher) recordPath(startSFEN string, moves []string, res usi.SearchRe
 		return
 	}
 	child := parent.Apply(m)
-	a.link(ctx, parent, len(moves)-1, moves[len(moves)-1], child, Key(child), Candidates(res))
+	moverMoves, otherMoves := splitMovesBySide(startSFEN, moves, parent.Turn)
+	a.link(ctx, parent, len(moves)-1, moves[len(moves)-1], child, Key(child), Candidates(res), moverMoves, otherMoves)
 }
 
 // record 는 탐색 하나를 데이터로 옮긴다.
@@ -249,6 +250,7 @@ func (a *Searcher) record(startSFEN string, moves []string, res usi.SearchResult
 	}
 	// 마지막 수 직전 국면. **이 국면에 오게 한 수**의 부모라, 도착 국면과 이름이 여기서 붙는다.
 	var parent *shogi.Position
+	var blackMoves, whiteMoves []string
 	for i, u := range moves {
 		m, err := shogi.ParseUSIMove(u)
 		if err != nil {
@@ -260,6 +262,11 @@ func (a *Searcher) record(startSFEN string, moves []string, res usi.SearchResult
 			// 그 위에 데이터를 쌓으면 **없던 국면**이 캐시에 들어간다.
 			log.Printf("archive: %q is not legal at move %d: %v", u, i+1, err)
 			return
+		}
+		if pos.Turn == shogi.Black {
+			blackMoves = append(blackMoves, u)
+		} else {
+			whiteMoves = append(whiteMoves, u)
 		}
 		before := pos
 		parent = &before
@@ -302,7 +309,8 @@ func (a *Searcher) record(startSFEN string, moves []string, res usi.SearchResult
 
 	// ③ 이 국면에 **오게 한 수**. 도착 국면과 「그 수가 만든 이름」이 여기서 붙는다.
 	if parent != nil {
-		a.link(ctx, *parent, len(moves)-1, moves[len(moves)-1], pos, key, cands)
+		moverMoves, otherMoves := sideMoves(blackMoves, whiteMoves, parent.Turn)
+		a.link(ctx, *parent, len(moves)-1, moves[len(moves)-1], pos, key, cands, moverMoves, otherMoves)
 	}
 }
 
@@ -320,6 +328,7 @@ func (a *Searcher) link(
 	child shogi.Position,
 	childKey string,
 	childCands []store.Candidate,
+	moverMoves, otherMoves []string,
 ) {
 	parentKey := Key(parent)
 
@@ -336,7 +345,7 @@ func (a *Searcher) link(
 
 	edge := store.Edge{ParentKey: parentKey, USI: usiMove, ChildKey: childKey}
 
-	if names := a.namesFor(ctx, parent, usiMove, child, childCands); len(names) > 0 {
+	if names := a.namesFor(ctx, parent, usiMove, child, childCands, moverMoves, otherMoves); len(names) > 0 {
 		edge.Tags = names
 	}
 	if err := a.store.PutEdge(ctx, edge); err != nil {
@@ -354,6 +363,7 @@ func (a *Searcher) namesFor(
 	usiMove string,
 	child shogi.Position,
 	childCands []store.Candidate,
+	moverMoves, otherMoves []string,
 ) []string {
 	mover := parent.Turn
 
@@ -374,16 +384,55 @@ func (a *Searcher) namesFor(
 	}
 
 	// 囲い·전법·戦型은 엔진을 안 본다. **형태가 성립했는가**뿐이라 판만 있으면 나온다.
+	// 전법은 수순이 있어야 나온다 — 수순 없이 부르면 飛를 振った 것을 모른다.
+	var prevMoverMoves []string
+	if len(moverMoves) > 0 {
+		prevMoverMoves = moverMoves[:len(moverMoves)-1]
+	}
+
 	had := map[string]bool{}
-	for _, t := range tag.Detect(tag.Input{Pos: parent, Color: mover}) {
+	for _, t := range tag.Detect(tag.Input{
+		Pos: parent, Color: mover,
+		PlayerMoves: prevMoverMoves, OpponentMoves: otherMoves,
+	}) {
 		had[t.Code] = true
 	}
-	for _, t := range tag.Detect(tag.Input{Pos: child, Color: mover}) {
+	for _, t := range tag.Detect(tag.Input{
+		Pos: child, Color: mover,
+		PlayerMoves: moverMoves, OpponentMoves: otherMoves,
+	}) {
 		if !had[t.Code] {
 			names = append(names, t.Code)
 		}
 	}
 	return names
+}
+
+func sideMoves(black, white []string, mover shogi.Color) (moverMoves, otherMoves []string) {
+	if mover == shogi.Black {
+		return black, white
+	}
+	return white, black
+}
+
+func splitMovesBySide(startSFEN string, moves []string, mover shogi.Color) (moverMoves, otherMoves []string) {
+	pos, err := shogi.ParseSFEN(startSFEN)
+	if err != nil {
+		return nil, nil
+	}
+	for _, u := range moves {
+		if pos.Turn == mover {
+			moverMoves = append(moverMoves, u)
+		} else {
+			otherMoves = append(otherMoves, u)
+		}
+		m, err := shogi.ParseUSIMove(u)
+		if err != nil {
+			return nil, nil
+		}
+		pos = pos.Apply(m)
+	}
+	return
 }
 
 // Key 는 **手数를 뺀 SFEN**이다. 手数를 빼야 전치(다른 수순으로 같은 국면에 도달)가

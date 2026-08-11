@@ -1127,6 +1127,45 @@ body {
   }
 }
 
+/*
+  제안형 힌트. 「이름 있는 수가 있다」까지만 말하고 수는 짚지 않는다.
+  개입의 경고색(빨강)과 겹치지 않게 중립 톤으로 둔다.
+*/
+.tag-hint {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface);
+  border-left: 2px solid rgb(var(--hint) / 0.5);
+  border-radius: 2px;
+}
+
+.tag-hint__head {
+  margin: 0 0 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.tag-hint__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+}
+
+.tag-hint__kind {
+  font-size: 0.6875rem;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+  margin-right: 0.25rem;
+}
+
+.tag-hint__name {
+  font-family: var(--font-koma);
+  font-size: 0.875rem;
+}
+
 .rejection {
   margin: 0;
   padding: 0.6rem 0.75rem;
