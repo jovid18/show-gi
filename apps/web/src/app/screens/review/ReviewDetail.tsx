@@ -357,6 +357,12 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
   return (
     <div className="game review">
       <div className="game-board">
+        {/* **평가치 궤적이 곧 이동 장치다.** 「어디서 무너졌나」를 목록으로 읽게 하는 대신
+            한 장으로 보여주고 거기를 눌러 돌아가게 한다 — 빨간 점이 물러진 수가 있던 자리다. */}
+        <section className="review-panel review-graph-panel" aria-label="評価値">
+          <EvalGraph game={game} ply={ply} whatif={whatif} onPick={goto} />
+        </section>
+
         {/* **이 판은 실제로 벌어진 일이 아니다.** 옆 패널의 제목만으로는 판을 보는 동안
             그 사실이 안 남는다 — 되짚기와 같은 판·같은 駒台라 더 그렇다. */}
         {branching && (
@@ -406,27 +412,6 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
           playable={handSide === 'black' ? droppable : new Set()}
           onPick={handSide === 'black' ? pickHand : () => {}}
         />
-      </div>
-
-      <aside className="game-side">
-        <div className="review-head">
-          <button type="button" className="review-back" onClick={onBack}>
-            ← 対局一覧
-          </button>
-          <p className="review-meta">
-            <time dateTime={game.startedAt}>{dateJa(game.startedAt)}</time>
-            <span className="review-result" data-result={game.result}>
-              {resultJa(game.result)}
-            </span>
-          </p>
-        </div>
-
-        {/* **평가치 궤적이 곧 이동 장치다.** 「어디서 무너졌나」를 목록으로 읽게 하는 대신
-            한 장으로 보여주고 거기를 눌러 돌아가게 한다 — 빨간 점이 물러진 수가 있던 자리다. */}
-        <section className="review-panel review-graph-panel" aria-label="評価値">
-          <EvalGraph game={game} ply={ply} whatif={whatif} onPick={goto} />
-        </section>
-
         {/* **이동과 기보가 한 컨트롤이다**(将棋ウォーズ). 슬라이더는 뺐다 — 「지금 어디인가」를
             말하는 자리가 셋이었고, 그중 하나만 남긴 것이 아래 가운데 칸이다. */}
         <section className="review-panel review-transport" aria-label="棋譜">
@@ -531,6 +516,20 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
             </ol>
           )}
         </section>
+      </div>
+
+      <aside className="game-side">
+        <div className="review-head">
+          <button type="button" className="review-back" onClick={onBack}>
+            ← 対局一覧
+          </button>
+          <p className="review-meta">
+            <time dateTime={game.startedAt}>{dateJa(game.startedAt)}</time>
+            <span className="review-result" data-result={game.result}>
+              {resultJa(game.result)}
+            </span>
+          </p>
+        </div>
 
         {promoting && (
           <div className="promotion" role="group" aria-label="成りの選択">
