@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { Board, type LastMove, type Ray } from '@/components/Board';
 import { Hand } from '@/components/Hand';
@@ -212,7 +212,12 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
 
   // 분기가 한 걸음 나아가면 그 수가 판 위에서 움직인다. **판이 통째로 바뀌면 초심자는
   // 무엇이 변했는지 못 본다**(03-frontend.md §3) — 여기가 그 문장이 걸린 자리다.
-  useEffect(() => {
+  //
+  // **`useLayoutEffect` 여야 한다.** `useEffect` 는 페인트 **뒤에** 도는데, 그러면 순서가
+  // 이렇게 된다: 새 판이 그려져 駒가 도착 칸에 한 번 뜨고 → 그 다음 프레임에 미끄러짐이
+  // 붙어 駒가 출발 칸으로 되돌아가 다시 온다. **한 수에 駒가 두 번 움직인다.**
+  // 페인트 전에 붙이면 첫 그림부터 駒가 출발 칸에 있고, 움직임은 한 번이다.
+  useLayoutEffect(() => {
     if (!node?.line.length) return;
     setMotion(branchMotion(node, nextMotionId()));
   }, [node, nextMotionId]);
