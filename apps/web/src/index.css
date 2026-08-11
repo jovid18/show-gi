@@ -891,13 +891,6 @@ body {
   margin-inline-start: 0.4rem;
 }
 
-/* 판이 살아 있다는 한 줄. **버튼이 아니다** — 누를 것이 판 위에 있다 */
-.intervention-try {
-  margin: 0.2rem 0 0;
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
 /* 지금 판에 놓이러 가는 持ち駒. 화살표의 출발점이라 **같은 초록**으로 짚는다 */
 .hand-piece[data-dropping] {
   box-shadow:
@@ -1967,16 +1960,6 @@ body {
 .review-whatif-move:disabled {
   cursor: default;
   opacity: 0.5;
-}
-
-/* 최선수 대비 낙폭. 값(cp)보다 옅다 — **묻는 것은 「얼마인가」이고 낙폭은 그 옆의 사실**이다 */
-.review-whatif-loss {
-  min-width: 3.5ch;
-  font-size: 0.6875rem;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  opacity: 0.8;
 }
 
 /* 되돌아가는 길이 둘이다. 한 수씩 물리는 것과 분기를 접는 것은 다른 일이다 */

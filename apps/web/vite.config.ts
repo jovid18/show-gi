@@ -6,13 +6,15 @@ import { defineConfig } from 'vite';
 // Go 서버의 기본 주소. 다른 포트로 띄웠으면 SERVER_ORIGIN으로 덮는다.
 const serverOrigin = process.env.SERVER_ORIGIN ?? 'http://localhost:8080';
 
+const dir = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
+
 export default defineConfig({
   plugins: [react()],
 
-  // `@`는 src다. tsconfig.json의 paths와 짝을 맞춰야 한다.
+  // **`@`는 `src/app`이다.** tsconfig.json의 paths와 짝을 맞춰야 한다.
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@': dir('./src/app'),
     },
   },
 
