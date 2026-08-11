@@ -62,6 +62,14 @@ docker run --rm --platform linux/arm64 --cpus 4 -v "$PWD:/src:ro" show-gi-engine
 | `SHOWGI_USI_CMD`           | 실엔진 테스트 skip | `TestRealEngine`, `TestWSAgainstRealEngine` |
 | `SHOWGI_MATE_CMD`          | 詰み 측정 skip     | `TestMeasureMateSearch`                     |
 | `SHOWGI_MEASURE`           | 측정 전부 skip     | `TestMeasure*` — 몇 분 걸린다               |
+| `SHOWGI_GENERATE_TIER1`    | 사전 생성 skip     | `TestGenerateTier1` — **돈이 든다**. 아래   |
+
+**`SHOWGI_GENERATE_TIER1` 만 성격이 다르다** — 검증이 아니라 **만드는 일**이다. Tier 1 문구 21개를 실제 라우터로 만들어 `internal/store/migrations/004_explain_cache_tier1.sql` 에 떨어뜨린다([06-status.md §38](../../docs/06-status.md)). **프롬프트를 고쳤을 때만** 다시 돌린다 — 그때 `promptVersion` 이 올라가 옛 행이 통째로 죽고, 게이트 없는 `TestTier1MigrationMatchesFacts` 가 그것을 잡는다.
+
+```sh
+set -a && . ../../.env && set +a   # ORCA_API_KEY. 없으면 만들 것이 없으므로 실패한다
+SHOWGI_GENERATE_TIER1=1 go test ./internal/explain/ -run GenerateTier1 -v
+```
 
 > **엔진이나 평가함수를 바꾸면 ③이 첫 관문이다.** 실제로 `PvInterval` 문제를 거기서 잡았다 — 안 돌렸으면 D3에서 "개입이 왜 안 걸리지"로 나타났을 것이다 ([docs/06-status.md](../../docs/06-status.md) §10).
 

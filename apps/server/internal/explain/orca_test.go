@@ -76,6 +76,8 @@ type stubReply struct {
 	model    string
 	delay    time.Duration
 	raw      string
+	// finish 는 `finish_reason` 이다. 비우면 `stop` — 정상 종료다.
+	finish string
 }
 
 func newRouterStub(t *testing.T, reply stubReply) *routerStub {
@@ -122,10 +124,17 @@ func newRouterStub(t *testing.T, reply stubReply) *routerStub {
 			_, _ = io.WriteString(w, reply.raw)
 			return
 		}
+		finish := reply.finish
+		if finish == "" {
+			finish = "stop"
+		}
 		body := map[string]any{
-			"model":   "stub-model",
-			"choices": []any{map[string]any{"message": map[string]string{"role": "assistant", "content": reply.content}}},
-			"usage":   map[string]any{"prompt_tokens": 120, "completion_tokens": 30},
+			"model": "stub-model",
+			"choices": []any{map[string]any{
+				"message":       map[string]string{"role": "assistant", "content": reply.content},
+				"finish_reason": finish,
+			}},
+			"usage": map[string]any{"prompt_tokens": 120, "completion_tokens": 30},
 		}
 		if reply.costUSD != nil {
 			body["usage"].(map[string]any)["cost_usd"] = *reply.costUSD
@@ -269,6 +278,9 @@ func TestEveryFailureFallsBackToTheTemplate(t *testing.T) {
 		{"빈 문장", stubReply{content: "   "}},
 		{"한글이 섞였다", stubReply{content: "その銀은 取られます。"}},
 		{"너무 길다", stubReply{content: strings.Repeat("長", MaxRunes+1)}},
+		// **짧아서 clean 을 통과하는 못 쓸 문장이다.** max_tokens 에서 잘린 답이 이 모양으로
+		// 오고(추론 모델이 예산을 다 먹은 경우), 뜻이 반쯤 바뀐 채 화면에 나간다 — §38.
+		{"max_tokens 에서 잘렸다", stubReply{content: "王手はか", finish: "length"}},
 	}
 	want := Render(hangsPiece)
 
