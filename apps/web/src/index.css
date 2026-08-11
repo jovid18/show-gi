@@ -1926,12 +1926,16 @@ body {
   margin: 0;
 }
 
+/* **두 줄 자리를 미리 잡는다.** 이 문구는 한 줄(`読んでいます…`)과 두 줄
+   (`あなたの番。盤の上で指してみてください。`)을 오가고, 그때마다 아래의 최선수 목록이
+   22px씩 오르내렸다 — 手数를 넘길 때마다 옆 열이 들썩이는 것이 그것이었다. */
 .review-whatif-status {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.5rem;
   margin: 0;
+  min-height: 2.5rem;
   font-size: 0.8125rem;
   color: var(--fg);
 }
@@ -2132,4 +2136,10 @@ body {
 .review-graph-zoom:focus-visible {
   border-color: rgb(var(--light) / 0.45);
   color: var(--fg);
+}
+
+/* 다른 手数의 값을 잠깐 들고 있는 동안. **흐리게만 한다** — 자리지킴 빈 줄로 두면 그 줄과
+   실제 줄의 높이를 계속 맞춰야 하고, 실제로 목록이 12~22px씩 들썩였다 */
+.review-whatif-best[data-stale] {
+  opacity: 0.4;
 }

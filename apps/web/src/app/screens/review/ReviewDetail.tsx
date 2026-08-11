@@ -7,6 +7,7 @@ import { WhatIfPanel } from './WhatIfPanel';
 import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/libs/game/moves';
 import { dateJa, resultJa } from '@/libs/review/labels';
 import type { GameDetail, ReviewIntervention, ReviewMove } from '@/protocol/review';
+import type { WhatIfNode } from '@/protocol/whatif';
 import { useEngineReady } from '@/hooks/useReview';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
 import { fromUsi, toIndex, type Motion } from '@/models/square';
@@ -114,6 +115,16 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
    */
   const active = node && node.basePly === ply ? node : null;
 
+  /**
+   * 옆 패널이 그리고 있는 노드. **기다리는 동안 직전 것을 그대로 둔다.**
+   *
+   * 판에 두는 것은 `active` 뿐이다(위) — 이쪽은 **그리기 전용**이라 다른 手数의 것이어도
+   * 규칙이 어긋날 자리가 없다. 그래서 「값이 오면 갈아 끼운다」가 성립한다.
+   */
+  const shownRef = useRef<WhatIfNode | null>(null);
+  if (active) shownRef.current = active;
+  const shown = shownRef.current;
+
   const last = game.moves.length;
   const focused = focus === null ? null : game.interventions[focus];
 
@@ -125,6 +136,7 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
       const target = Math.min(Math.max(next, 0), last);
       // 手数를 옮기면 회상도 분기도 끝난다. **둘 다 그 국면에서만 사실이다.**
       setFocus(null);
+      setSpot(null); // 그 국면의 개입이었다. 떠나면 남겨 두지 않는다
       setOrigin(null);
       setPromoting(null);
       clear();
@@ -597,19 +609,18 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
           </div>
         )}
 
-        {active ? (
-          <WhatIfPanel
-            node={active}
-            pending={pending}
-            error={whatif.error}
-            evalOf={whatif.evalOf}
-            onPlay={playBranch}
-            onBack={back}
-            onRoot={toRoot}
-          />
-        ) : (
-          <WhatIfHint engineReady={engineReady} pending={pending} error={whatif.error} />
-        )}
+        <WhatIfPanel
+          basePly={ply}
+          node={shown}
+          stale={!active}
+          pending={pending}
+          error={whatif.error}
+          engineReady={engineReady}
+          evalOf={whatif.evalOf}
+          onPlay={playBranch}
+          onBack={back}
+          onRoot={toRoot}
+        />
 
         <section className="review-panel" aria-label="介入">
           {spot === null ? (
@@ -656,38 +667,6 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
         </section>
       </aside>
     </div>
-  );
-}
-
-/**
- * 아직 국면을 못 물어본 자리.
- *
- * **엔진이 없으면 그 사실을 적는다.** 되짚기는 그대로 도는데(기록만 있으면 된다) 여기만
- * 안 되는 것이라, 아무 말도 없으면 화면이 고장 난 것으로 읽힌다.
- */
-function WhatIfHint({
-  engineReady,
-  pending,
-  error,
-}: {
-  engineReady: boolean | null;
-  pending: boolean;
-  error: string | null;
-}) {
-  return (
-    <section className="review-panel review-whatif" aria-label="もしも">
-      <h2 className="panel-title">もしも</h2>
-      {engineReady === false ? (
-        <p className="review-empty">エンジンが動いていないため、この局面から指し直すことはできません。</p>
-      ) : (
-        <p className="review-empty">{pending ? '読んでいます…' : 'この局面の駒を動かすと、そこから指し直せます。'}</p>
-      )}
-      {error && (
-        <p className="rejection" role="alert">
-          {error}
-        </p>
-      )}
-    </section>
   );
 }
 
