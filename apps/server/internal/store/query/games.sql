@@ -51,3 +51,53 @@ SELECT count(*) FROM interventions;
 -- 없는 ply면 아무 일도 안 한다. 평가치가 수보다 먼저 오는 경로는 없으므로 그때는
 -- 기록이 실패한 것이고, 그걸 여기서 만들어 메우면 기보에 없는 행이 생긴다.
 UPDATE game_moves SET eval_cp = $3 WHERE game_id = $1 AND ply = $2;
+
+-- ─── 리뷰(읽기) ─────────────────────────────────────────────
+-- 여기부터가 **꺼내는 쪽**이다. 위의 질의들이 쌓기만 하고 아무도 안 읽던 자리다.
+
+-- name: ListGames :many
+--
+-- 리뷰 화면의 첫 목록. 최신부터.
+--
+-- **한 수도 안 둔 판은 빼고 센다.** 연결만 열렸다 끊긴 판이 실제로 그렇게 남는데
+-- (ws 핸들러가 붙는 즉시 CreateGame 한다), 되짚을 것이 없는 줄을 목록 맨 위에 놓으면
+-- 진짜 대국이 아래로 밀린다. 세는 쪽과 거르는 쪽이 같은 EXISTS 라 둘이 어긋나지 않는다.
+--
+-- 정렬은 id 하나로 한다. started_at 은 now() 라 같은 초에 여러 판이 들어가면 순서가
+-- 흔들리는데, id 는 시퀀스라 그 자리에서 갈린다.
+SELECT
+    g.id,
+    g.my_color,
+    g.started_at,
+    g.finished_at,
+    g.result,
+    (SELECT count(*) FROM game_moves m WHERE m.game_id = g.id) AS move_count,
+    (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count
+FROM games g
+WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
+ORDER BY g.id DESC
+LIMIT $1;
+
+-- name: GetGame :one
+--
+-- **여기서는 개입을 세지 않는다.** 어차피 아래에서 전부 읽어 오므로, 따로 센 숫자와
+-- 실제로 온 줄 수가 두는 중인 판에서 어긋날 수 있다 — 목록(ListGames)은 줄을 안 읽으니
+-- 거기서만 센다.
+SELECT id, my_color, started_at, finished_at, result, start_sfen
+FROM games
+WHERE id = $1;
+
+-- name: ListGameMoves :many
+--
+-- eval_cp 는 **先手 관점**이고 NULL일 수 있다 — 평가치는 수보다 늦게 오므로,
+-- 연결이 끊긴 판의 마지막 몇 수에는 안 채워진 채로 남는다.
+SELECT ply, usi, eval_cp FROM game_moves WHERE game_id = $1 ORDER BY ply;
+
+-- name: ListGameInterventions :many
+--
+-- 같은 ply에 여러 행이 온다(InsertIntervention 참조). id 로 이어 정렬해 **물러진
+-- 순서**를 지킨다 — 한 국면에서 두 번 걸렸을 때 어느 쪽이 먼저였는지가 곧 이야기다.
+SELECT ply, kind, category, delta_win, level_bucket, retracted_usi
+FROM interventions
+WHERE game_id = $1
+ORDER BY ply, id;
