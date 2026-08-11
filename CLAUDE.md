@@ -86,6 +86,8 @@ SHOWGI_TEST_DATABASE_URL='postgres://showgi:showgi@localhost:5432/showgi' go tes
 
 **나누는 기준은 「파일이 안 겹치는가」다.** 겹치면 나중에 머지되는 PR이 리베이스에 시간을 다 쓴다 — 병렬로 번 시간보다 크다.
 
+**요약표는 나눠 주지 않는다.** `docs/06-status.md` §1과 [docs/05-roadmap.md](docs/05-roadmap.md)의 진도 표는 모든 갈래가 참조하는데 아무도 소유하지 않아, 각자 고치면 세 번 어긋난다. **마지막에 머지되는 갈래가 통합해 고친다**([§36](docs/06-status.md)).
+
 ### 공유하는 것과 아닌 것
 
 **db 컨테이너 하나(`show-gi-db`)와 데이터베이스 `showgi`를 전부가 같이 쓴다.** api만 워크트리마다 뜬다 — 엔진이 arm64 Debian 바이너리라 macOS에서 직접 못 돌고, 그래서 api는 무조건 컨테이너다.
