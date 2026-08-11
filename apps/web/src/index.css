@@ -1584,19 +1584,23 @@ body {
 .review-transport-row {
   display: flex;
   align-items: stretch;
-  gap: 0.3rem;
+  /* 왼쪽부터 채운다. 늘려서 판 폭을 다 먹으면 짧은 이름 하나가 빈 칸에 떠 있게 된다 */
+  justify-content: start;
+  gap: 0.4rem;
 }
 
+/* **누를 수 있는 크기여야 한다.** 글자 폭만큼만 잡으면 ◀ ▶ 가 12px 짜리 표적이 되고,
+   되짚기에서 제일 많이 누르는 것이 이 둘이다 */
 .review-buttons {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, 2.75rem);
   gap: 0.3rem;
-  /* 버튼은 글자 폭만큼만. 남는 자리는 「지금 어디인가」가 가진다 */
   flex: 0 0 auto;
 }
 
 .review-buttons button {
-  padding: 0.3rem 0;
+  padding: 0.45rem 0;
+  font-size: 1rem;
   border: 1px solid rgb(var(--light) / 0.14);
   background: none;
   font: inherit;
@@ -1619,13 +1623,17 @@ body {
 /* 「지금 어디인가」. **手数가 아니라 수의 이름이 적힌다** — 되짚는 사람이 찾는 것이 그쪽이다.
    목록을 여는 버튼이기도 해서, 눌리는 것으로 보여야 한다 */
 .review-jump {
-  display: flex;
-  flex: 1;
+  display: grid;
+  /* 이름 · 手数 · 화살표. **늘리지 않는다** — 폭을 못 박아 두면 이름이 바뀔 때마다
+     바가 흔들리고(`開始局面` ↔ `101 ▲8五馬 · もしも`), 늘리면 빈 칸이 남는다 */
+  grid-template-columns: 1fr auto auto;
+  flex: 0 1 20rem;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.6rem;
   min-width: 0;
-  padding: 0.3rem 0.5rem;
+  padding: 0.4rem 0.5rem;
+  /* `button` 의 기본이 가운데 정렬이라, 안 적으면 이름이 칸 가운데에 떠 있는다 */
+  text-align: start;
   border: 1px solid rgb(var(--light) / 0.22);
   background: rgb(var(--light) / 0.04);
   font: inherit;
@@ -1647,8 +1655,13 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.review-jump-count {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .review-jump-caret {
-  flex: 0 0 auto;
   font-size: 0.6875rem;
   color: var(--muted);
 }

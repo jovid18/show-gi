@@ -449,9 +449,9 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
         />
         {/* **이동과 기보가 한 컨트롤이다**(将棋ウォーズ). 슬라이더는 뺐다 — 「지금 어디인가」를
             말하는 자리가 셋이었고, 그중 하나만 남긴 것이 아래 가운데 칸이다. */}
+        {/* 제목 줄을 두지 않는다 — `棋譜 167手` 는 숫자 하나로 한 줄을 쓰고, 그 숫자는
+            아래 칸의 빈 자리에 들어갈 수 있다. 화면 낭독기는 `aria-label` 이 든다. */}
         <section className="review-panel review-transport" aria-label="棋譜">
-          <h2 className="panel-title">棋譜 {last}手</h2>
-
           <div className="review-transport-row">
             <div className="review-buttons">
               <button type="button" onClick={() => goto(0)} disabled={ply === 0 && !branching} aria-label="開始局面">
@@ -495,6 +495,10 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
               onClick={() => setKifuOpen((open) => !open)}
             >
               <span className="review-jump-label">{jumpLabel}</span>
+              {/* 어디쯤인가. 이름(`101 ▲8五馬`)이 「무슨 수였나」를 말하고 이쪽이 「몇 번째인가」다 */}
+              <span className="review-jump-count">
+                {ply} / {last}
+              </span>
               <span className="review-jump-caret" aria-hidden="true">
                 {kifuOpen ? '▴' : '▾'}
               </span>
