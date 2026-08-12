@@ -44,7 +44,7 @@ type clientMsg struct {
 
 // serverMsg 는 서버가 보내는 것.
 type serverMsg struct {
-	Type     string         `json:"type"` // "snapshot" | "error" | "whatif" | "whatif_error"
+	Type     string         `json:"type"` // "snapshot" | "error" | "whatif" | "whatif_error" | "summary"
 	Snapshot *game.Snapshot `json:"snapshot,omitempty"`
 	Reason   string         `json:"reason,omitempty"`  // 기계용 코드(영어)
 	Message  string         `json:"message,omitempty"` // 화면용 문구(일본어)
@@ -52,6 +52,11 @@ type serverMsg struct {
 	// WhatIf 는 가정 수순의 지금 자리다. **스냅샷과 갈라 둔다** — 이건 대국의 상태가
 	// 아니라 「안 벌어진 일」이고, 하나로 합치면 화면이 두 판을 같은 것으로 그린다.
 	WhatIf *whatifNode `json:"whatif,omitempty"`
+
+	// Summary 는 대국이 끝난 뒤 **한 번** 오는 총평이다. 스냅샷과 갈라 둔 이유가 저것과
+	// 같다 — 이건 국면의 상태가 아니라 판 전체에 대한 이야기이고, LLM을 기다리므로 결과
+	// 문구보다 몇 초 늦게 도착한다.
+	Summary *gameSummaryPayload `json:"summary,omitempty"`
 }
 
 // rejectMessages 는 착수가 거절된 이유 중 룰 엔진 밖의 것들이다.
@@ -200,8 +205,10 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		cfg.Rater = skill.NewWorkerFrom(ctx, h.priorSkill(ctx, userID), h.saveSkill(ctx, userID))
 	}
 	// DB가 없으면 기록하지 않고 대국은 그대로 된다 — 엔진·캐시와 같은 판단이다.
+	var recorder *dbRecorder
 	if h.opts.Store != nil {
-		cfg.Recorder = newDBRecorder(ctx, h.opts.Store, h.opts.Level, userID)
+		recorder = newDBRecorder(ctx, h.opts.Store, h.opts.Level, userID)
+		cfg.Recorder = recorder
 	}
 	sess, err := game.New(ctx, cfg)
 	if err != nil {
@@ -225,8 +232,9 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 가정 수순이 볼 정본 수순. 스냅샷이 올 때마다 갱신된다.
 	var played confirmed
 
-	// 스냅샷을 쓰기 쪽으로 넘긴다.
+	// 스냅샷을 쓰기 쪽으로 넘긴다. 판이 끝나면 그 뒤에 총평 하나가 더 간다.
 	go func() {
+		summarized := false
 		for {
 			select {
 			case snap, ok := <-snaps:
@@ -235,6 +243,15 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 				played.set(snap.Moves)
 				emit(ctx, out, serverMsg{Type: "snapshot", Snapshot: &snap})
+
+				// **스냅샷을 먼저 보내고 그 뒤에 총평을 만든다.** 결과 문구는 그 자리에서
+				// 떠야 하고, 총평은 LLM을 기다리므로 몇 초 뒤에 도착한다.
+				//
+				// 한 번만 만든다 — 끝난 뒤에도 스냅샷이 또 올 수 있다(投了 확인 등).
+				if !summarized && snap.Status != game.StatusPlaying {
+					summarized = true
+					go h.sendSummary(ctx, out, recorder)
+				}
 			case <-ctx.Done():
 				return
 			}
@@ -242,6 +259,46 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	h.readLoop(ctx, conn, sess, out, &played, setup)
+}
+
+// summaryWait 는 기록이 다 쓰이기를 기다리는 시간이다. 큐를 비우는 일이라 밀리초 단위이고,
+// 넘으면 총평을 포기한다 — 반쪽 기록으로 만든 총평은 **틀린 총평**이고, 화면은 그것이
+// 없어도 결과와 기보를 이미 말한다.
+const summaryWait = 5 * time.Second
+
+// sendSummary 는 대국이 끝난 뒤 총평 하나를 보낸다.
+//
+// **기록이 다 쓰이기를 기다린다**(dbRecorder.done). 기록은 비동기라 끝난 스냅샷을 보고
+// 곧바로 DB를 읽으면 마지막 수와 그 수의 개입이 없는데, 하필 그 수가 총평이 가장 말하고
+// 싶은 것이다.
+//
+// **세션을 안 건드린다.** 읽는 것은 DB뿐이고, 그래서 이 함수는 review.go 와 같은 성질이다 —
+// 이미 끝난 판을 읽는 일이다.
+func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recorder *dbRecorder) {
+	if recorder == nil || h.opts.Store == nil {
+		return // 기록이 없으면 셀 것이 없다. 총평도 없다
+	}
+
+	var gameID int64
+	select {
+	case gameID = <-recorder.done:
+	case <-time.After(summaryWait):
+		log.Printf("ws: summary: the record did not finish within %s", summaryWait)
+		return
+	case <-ctx.Done():
+		return
+	}
+
+	// **주인을 안 보고 읽는다.** 방금 이 연결이 만든 판이라 소유 검사가 답할 것이 없고,
+	// 익명 대국에는 주인이 아예 없다(002_anonymous_games.sql).
+	rec, err := h.opts.Store.GameRecordAnyOwner(ctx, gameID)
+	if err != nil {
+		log.Printf("ws: summary: read game %d: %v", gameID, err)
+		return
+	}
+
+	payload := summarize(ctx, h.opts.Summarizer, rec, h.opts.Level)
+	emit(ctx, out, serverMsg{Type: "summary", Summary: &payload})
 }
 
 func (h *gameHandler) readLoop(

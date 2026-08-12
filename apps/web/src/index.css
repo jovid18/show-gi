@@ -2417,3 +2417,85 @@ body {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+
+/* ── 대국 후 총평 ────────────────────────────────────── */
+
+/* 판이 끝난 뒤에만 뜬다. **테두리로 묶는다** — 개입 카드와 같은 문법이라 「이건 앱이
+   말하는 것」으로 읽히고, 기보(표)와 버튼(조작) 사이에서 성격이 갈린다. */
+.summary {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid rgb(var(--light) / 0.14);
+  border-radius: 0.4rem;
+  background: rgb(var(--light) / 0.03);
+}
+
+.summary__head {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+}
+
+/* 문장이 이 카드의 본론이다. 아래 숫자보다 크게 둔다. */
+.summary__body {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.8;
+}
+
+.summary__waiting {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.summary__stats {
+  margin: 0;
+  display: flex;
+  gap: 1.5rem;
+}
+
+.summary__stats div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.summary__stats dt {
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+
+.summary__stats dd {
+  margin: 0;
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 카테고리는 **이름과 횟수 한 줄씩**이다. 막대나 원그래프로 그리지 않는다 — 한 판에서
+   많아야 세 종류라 그림이 데이터보다 커진다. */
+.summary__cats {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.summary__cats li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.summary__cat-name {
+  color: rgb(var(--light) / 0.82);
+}
+
+.summary__cat-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}

@@ -53,7 +53,11 @@ func main() {
 	opts.SessionSecret = os.Getenv("SESSION_SECRET")
 	opts.PublicOrigin = os.Getenv("PUBLIC_ORIGIN")
 
-	opts.Explainer = startExplainer(opts.Store)
+	// **한 계층이 둘을 다 한다.** 개입 문구와 대국 후 총평이 같은 캐시·같은 검증·같은
+	// 폴백을 쓰므로(explain/summary.go) 여기서 갈라 세우면 그 셋이 두 벌이 된다.
+	layered := startExplainer(opts.Store)
+	opts.Explainer = layered
+	opts.Summarizer = layered
 
 	if pool := startEngines(); pool != nil {
 		defer pool.Close()
@@ -139,7 +143,7 @@ func startAuth() *auth.Google {
 // 이 경로는 로컬과 라우터 장애 때의 바닥이다. 기동 로그가 어느 쪽인지 한 줄로 말한다.
 //
 // st 가 nil이면 캐시가 없다. 그러면 **같은 설명을 매번 다시 산다** — 로그에 한 줄 남긴다.
-func startExplainer(st *store.Store) explain.Explainer {
+func startExplainer(st *store.Store) *explain.Layered {
 	client := explain.NewClient(
 		os.Getenv("ORCA_API_KEY"),
 		os.Getenv("ORCA_BASE_URL"),

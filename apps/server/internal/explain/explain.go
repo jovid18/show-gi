@@ -182,10 +182,16 @@ func (l *Layered) timeout() time.Duration {
 	return Deadline
 }
 
-// clean 은 **LLM 출력을 믿지 않는다.** 화면에 나갈 수 없는 문장을 코드가 거른다 — 엔진이
+func clean(s string) (string, bool) { return Clean(s, MaxRunes) }
+
+// Clean 은 **LLM 출력을 믿지 않는다.** 화면에 나갈 수 없는 문장을 코드가 거른다 — 엔진이
 // 돌려준 수를 룰 엔진으로 검증하는 것과 같은 자리다(06-status.md §6 ③).
 // 자르지 않고 버리는 이유는 **반쪽 문장이 틀린 문장**이기 때문이다. 결정적 문구가 늘 준비돼 있다.
-func clean(s string) (string, bool) {
+//
+// 길이를 인자로 받는 것은 총평이 개입 문구보다 길기 때문이다(SummaryMaxRunes). **검사 자체를
+// 두 벌로 두지 않는다** — 한글 혼입과 지어낸 칸은 두 자리에서 같은 규칙이어야 하고, 갈라
+// 두면 한쪽을 고칠 때 다른 쪽이 조용히 낡는다.
+func Clean(s string, maxRunes int) (string, bool) {
 	// 모델이 앞뒤에 붙이는 인용부호와 공백을 떼어낸다. 이것만은 문장을 바꾸지 않는다.
 	body := strings.TrimSpace(s)
 	body = strings.Trim(body, "「」\"'")
@@ -194,7 +200,7 @@ func clean(s string) (string, bool) {
 	if body == "" {
 		return "", false
 	}
-	if len([]rune(body)) > MaxRunes {
+	if len([]rune(body)) > maxRunes {
 		return "", false
 	}
 	// **한글이 한 글자라도 있으면 버린다.** 프롬프트가 전부 일본어라 여기 올 일이 없지만,

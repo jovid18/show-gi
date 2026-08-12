@@ -191,8 +191,34 @@ export interface Snapshot {
   opponentStrength?: number;
 }
 
+/**
+ * 대국이 끝난 뒤 **한 번** 오는 총평.
+ *
+ * 스냅샷과 갈라져 온다 — 이건 국면의 상태가 아니라 판 전체에 대한 이야기이고, LLM을
+ * 기다리므로 결과 문구보다 몇 초 늦게 도착한다.
+ *
+ * **숫자와 문장이 갈려 있다.** `body` 는 手数도 개입 횟수도 말하지 않고, 그 숫자는
+ * `stats` 에 있다 — 같은 수를 두 곳에 두면 어긋났을 때 어느 쪽이 맞는지 알 수 없다
+ * (서버의 `explain.GameFacts` 주석).
+ */
+export interface GameSummary {
+  /** 화면에 그대로 나가는 일본어. **절대 비지 않는다** — LLM이 죽으면 결정적 문구가 온다. */
+  body: string;
+  /** 문장이 어디서 왔나. 0=캐시, 1=LLM, -1=결정적 문구. 화면에는 안 그린다. */
+  tier: number;
+  stats: {
+    /** 사람이 **확정한** 수. 물러진 수는 기보에 없으므로 여기에도 없다. */
+    playerMoves: number;
+    /** 물러진 횟수. 같은 국면에서 여러 번 물러지면 그만큼 센다. */
+    interventions: number;
+    /** 많은 순. 서버가 정한 순서를 그대로 그린다. */
+    categories?: { code: string; nameJa: string; count: number }[];
+  };
+}
+
 export type ServerMessage =
   | { type: 'snapshot'; snapshot: Snapshot }
+  | { type: 'summary'; summary: GameSummary }
   | { type: 'error'; reason: string; message: string }
   // 가정 수순의 한 자리. **스냅샷과 갈라져 온다** — 이건 대국의 상태가 아니라
   // 「안 벌어진 일」이고, 하나로 합치면 화면이 두 판을 같은 것으로 그린다.

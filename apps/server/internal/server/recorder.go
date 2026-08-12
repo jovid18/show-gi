@@ -18,6 +18,14 @@ import (
 // 그 줄을 세우지 않는다.
 type dbRecorder struct {
 	events chan recordEvent
+	// done 은 **마지막 이벤트까지 쓴 뒤** 대국 id를 한 번 실어 보낸다. 버퍼가 1이라 받는
+	// 쪽이 없어도 막히지 않는다.
+	//
+	// 총평이 이것을 기다린다(summary.go). 기록이 비동기라, 끝난 스냅샷을 보고 곧바로 DB를
+	// 읽으면 **마지막 수와 그 수의 개입이 아직 없다** — 하필 총평이 가장 말하고 싶은 수다.
+	// 뮤텍스로 id만 여는 길도 있었는데, 그러면 「id가 있다」와 「기록이 다 됐다」가 갈려서
+	// 부르는 쪽이 둘을 따로 기다려야 한다.
+	done chan int64
 }
 
 type recordKind int
@@ -55,8 +63,8 @@ const recordQueue = 256
 // userID 는 nil일 수 있다 — 로그인 전 대국이다(002_anonymous_games.sql). **연결이
 // 열릴 때 한 번 정해지고 그 판 내내 안 바뀐다**: 두는 중에 다른 탭에서 로그아웃해도
 // 이 판은 시작할 때의 주인으로 끝난다.
-func newDBRecorder(ctx context.Context, st *store.Store, level intervene.Level, userID *int64) game.Recorder {
-	r := &dbRecorder{events: make(chan recordEvent, recordQueue)}
+func newDBRecorder(ctx context.Context, st *store.Store, level intervene.Level, userID *int64) *dbRecorder {
+	r := &dbRecorder{events: make(chan recordEvent, recordQueue), done: make(chan int64, 1)}
 	go r.run(ctx, st, level, userID)
 	return r
 }
@@ -161,6 +169,12 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 				log.Printf("game record: finish: %v", err)
 			}
 			finished = true
+			// 여기까지 왔으면 이 판의 기록은 전부 들어갔다 — 이벤트가 한 채널로 순서대로
+			// 오므로(Evaluated 주석) 뒤에 남은 것이 없다.
+			select {
+			case r.done <- gameID:
+			default:
+			}
 		}
 	}
 

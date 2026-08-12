@@ -32,6 +32,10 @@ const DefaultUSDJPY = 150.0
 // 상한**이다. 안 걸어두면 지시를 안 듣는 모델 하나가 카드 하나에 수천 토큰을 쓴다.
 const maxTokens = 200
 
+// summaryMaxTokens 는 총평 한 번의 상한이다. 문장이 더 길고(SummaryMaxRunes) 일본어는
+// 토큰당 글자 수가 적어서 개입 문구의 값으로는 잘린다.
+const summaryMaxTokens = 400
+
 // Client 는 OrcaRouter에 문장 하나를 물어본다.
 //
 // OpenAI 호환 HTTP라 SDK가 필요 없다. 우리가 쓰는 것은 `/chat/completions` 하나뿐이다.
@@ -119,14 +123,28 @@ func (c *Client) complete(ctx context.Context, tier int, f Facts, knowledge []Kb
 	if tier == 2 {
 		model = c.large
 	}
+	return c.chat(ctx, model, systemPrompt, userPrompt(f, knowledge), maxTokens)
+}
 
+// completeSummary 는 대국 후 총평 한 번이다. **모델은 작은 쪽 하나다** — 계층을 가르는 것은
+// 재사용성이고(04-llm.md §2) 총평은 국면 고유 사실을 안 쓴다.
+//
+// `max_tokens` 가 개입 문구보다 크다. 총평이 더 길어서인데, 모자라면 잘린 답이 오고 아래
+// `chat` 이 그것을 **버린다** — 짧게 오는 실패는 길이 검사에 안 걸린다(§38).
+func (c *Client) completeSummary(ctx context.Context, f GameFacts) (completion, error) {
+	return c.chat(ctx, c.small, summarySystemPrompt, summaryUserPrompt(f), summaryMaxTokens)
+}
+
+// chat 은 라우터에 한 번 묻는다. **개입 문구와 총평이 이 한 함수를 같이 쓴다** — 잘린 답을
+// 버리는 것도, 실제로 답한 모델을 헤더에서 읽는 것도 두 자리에서 같은 규칙이어야 한다.
+func (c *Client) chat(ctx context.Context, model, system, user string, maxTok int) (completion, error) {
 	payload, err := json.Marshal(chatRequest{
 		Model:       model,
 		Temperature: 0,
-		MaxTokens:   maxTokens,
+		MaxTokens:   maxTok,
 		Messages: []chatMessage{
-			{Role: "system", Content: systemPrompt},
-			{Role: "user", Content: userPrompt(f, knowledge)},
+			{Role: "system", Content: system},
+			{Role: "user", Content: user},
 		},
 	})
 	if err != nil {
@@ -164,7 +182,7 @@ func (c *Client) complete(ctx context.Context, tier int, f Facts, knowledge []Kb
 	// 잘린 문장은 짧게 온다(「王手はか」, 06-status.md §38). 자르지 않는 이유는 `clean` 과 같다.
 	if out.Choices[0].FinishReason == "length" {
 		return completion{}, fmt.Errorf("explain: router truncated the sentence at max_tokens (%d): %q",
-			maxTokens, strings.TrimSpace(out.Choices[0].Message.Content))
+			maxTok, strings.TrimSpace(out.Choices[0].Message.Content))
 	}
 
 	// `x-orca-resolved-model` 이 **실제로 답한 모델**이다 — 우리는 모델 이름을 박아 보내지만
