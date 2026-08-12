@@ -21,7 +21,10 @@ export interface GameSetup {
 
 export interface GameState {
   connection: Connection;
-  /** 지금 대국의 설정. 아직 안 골랐으면 null이고, 그때 화면은 시작 화면을 그린다. */
+  /**
+   * 마지막으로 고른 설정. **대국이 끝나도 남는다** — 시작 화면이 이 값에서 시작하므로
+   * 같은 조건으로 또 두는 것이 버튼 한 번이다. 아직 한 판도 안 열었으면 null.
+   */
   setup: GameSetup | null;
   snapshot: Snapshot | null;
   /** 서버가 착수를 거절한 이유. 일본어 문구가 그대로 온다. */
@@ -72,6 +75,9 @@ function socketUrl(setup: GameSetup): string {
 export function useGame(): GameState {
   const [connection, setConnection] = useState<Connection>('idle');
   const [setup, setSetup] = useState<GameSetup | null>(null);
+  // 판이 열려 있는가. **setup 과 갈라 둔다** — setup 은 다음 판의 기본값으로 남아야 하고,
+  // 그것으로 「지금 두는 중인가」를 겸하면 대국을 접는 순간 고른 것도 같이 사라진다.
+  const [live, setLive] = useState(false);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [rejection, setRejection] = useState<string | null>(null);
   const [interventionEpisode, setInterventionEpisode] = useState(0);
@@ -98,15 +104,29 @@ export function useGame(): GameState {
   useEffect(() => {
     // 고르기 전에는 붙지 않는다. **여기서 미리 붙으면 그 순간 판이 하나 열려** 기록에
     // 남고, 사람이 아직 아무것도 고르지 않은 채로 先手 평수 대국이 시작된다.
-    if (!setup) return;
+    if (!live || !setup) return;
 
     const socket = new WebSocket(socketUrl(setup));
     socketRef.current = socket;
     hadIntervention.current = false;
 
-    socket.addEventListener('open', () => setConnection('open'));
-    socket.addEventListener('close', () => setConnection('closed'));
-    socket.addEventListener('error', () => setConnection('closed'));
+    /**
+     * 이 소켓이 아직 **지금 대국의 것**인가.
+     *
+     * 정리에서 `socket.close()` 를 부르면 그 `close` 이벤트가 뒤늦게 도착해 방금 정한
+     * 상태를 덮는다. 「もう一局」이 시작 화면이 아니라 **「接続が切れました」**로 가던
+     * 것이 이것이었다 — 우리가 일부러 닫은 것을 사고로 보고하고 있었다.
+     */
+    let current = true;
+    const dropped = (): void => {
+      if (current) setConnection('closed');
+    };
+
+    socket.addEventListener('open', () => {
+      if (current) setConnection('open');
+    });
+    socket.addEventListener('close', dropped);
+    socket.addEventListener('error', dropped);
 
     socket.addEventListener('message', (event) => {
       let msg: ServerMessage;
@@ -136,12 +156,13 @@ export function useGame(): GameState {
     });
 
     return () => {
+      current = false;
       socketRef.current = null;
       // 끊긴 연결에는 답이 안 온다. 기다리는 쪽을 영원히 매달아 두지 않는다.
       settle((p) => p.reject(new Error('接続が切れました。')));
       socket.close();
     };
-  }, [generation, setup, settle]);
+  }, [generation, live, setup, settle]);
 
   const send = useCallback((msg: ClientMessage) => {
     const socket = socketRef.current;
@@ -175,6 +196,7 @@ export function useGame(): GameState {
     setRejection(null);
     setConnection('connecting');
     setSetup(next);
+    setLive(true);
     // 같은 설정으로 또 두는 것도 **새 연결이어야 한다** — setup 이 그대로면 효과가 다시
     // 돌지 않으므로 세대를 올려 준다.
     setGeneration((n) => n + 1);
@@ -184,7 +206,8 @@ export function useGame(): GameState {
     setSnapshot(null);
     setRejection(null);
     setConnection('idle');
-    setSetup(null);
+    // setup 은 지우지 않는다 — 시작 화면이 그 값에서 시작한다(GameState.setup).
+    setLive(false);
   }, []);
 
   return {

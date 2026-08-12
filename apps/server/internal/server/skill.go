@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"log"
 
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
@@ -43,7 +44,13 @@ func (h *gameHandler) saveSkill(ctx context.Context, userID *int64) func(skill.E
 	return func(e skill.Estimate) {
 		// **연결의 ctx 를 그대로 쓴다.** 대국이 끝나면 그 뒤의 쓰기는 취소되는데, 그때는
 		// 이미 마지막 판정까지 저장된 뒤다 — 매 수 쓰기 때문에 끝에 몰아 쓸 것이 없다.
-		if err := st.SaveSkillEstimate(ctx, id, store.SkillEstimate{Loss: e.Loss, Samples: e.Samples}); err != nil {
+		err := st.SaveSkillEstimate(ctx, id, store.SkillEstimate{Loss: e.Loss, Samples: e.Samples})
+		switch {
+		case err == nil:
+		case errors.Is(err, context.Canceled):
+			// 연결이 끊긴 것이다. **에러로 적지 않는다** — 위 이유로 잃은 것이 없는데
+			// 「저장 실패」가 판마다 한 줄씩 쌓이면 진짜 실패를 그 안에서 못 찾는다.
+		default:
 			// 추정이 안 쌓이는 것은 다음 판의 첫 몇 수가 기준선이라는 뜻이고, 그 판은 그대로 된다.
 			log.Printf("ws: save skill %d: %v", id, err)
 		}

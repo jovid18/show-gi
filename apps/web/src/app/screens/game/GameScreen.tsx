@@ -40,6 +40,7 @@ const STRENGTH_JA = ['かなり弱め', '弱め', 'ふつう', '強め', 'かな
 export function GameScreen() {
   const {
     connection,
+    setup,
     snapshot,
     rejection,
     interventionEpisode,
@@ -328,7 +329,7 @@ export function GameScreen() {
   const board = current?.board ?? live;
 
   // 아직 아무것도 고르지 않았다. **여기서는 서버에 붙어 있지도 않다**(useGame).
-  if (connection === 'idle') return <Setup onStart={start} />;
+  if (connection === 'idle') return <Setup initial={setup} onStart={start} />;
 
   if (connection === 'closed') {
     return (

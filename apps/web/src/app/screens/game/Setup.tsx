@@ -20,12 +20,15 @@ const COLORS: { value: Color; label: string; note: string }[] = [
 ];
 
 interface SetupProps {
+  /** 지난 판의 설정. **한 판 두고 온 사람은 여기서 시작한다** — 같은 조건으로 또 두는
+   *  것이 흔하고, 매번 처음부터 고르게 하면 「もう一局」이 두 번 더 눌러야 하는 일이 된다. */
+  initial: GameSetup | null;
   onStart: (setup: GameSetup) => void;
 }
 
-export function Setup({ onStart }: SetupProps) {
-  const [color, setColor] = useState<Color>('b');
-  const [opening, setOpening] = useState<string | null>(null);
+export function Setup({ initial, onStart }: SetupProps) {
+  const [color, setColor] = useState<Color>(initial?.color ?? 'b');
+  const [opening, setOpening] = useState<string | null>(initial?.opening ?? null);
   const [openings, setOpenings] = useState<Opening[]>([]);
 
   // 목록을 못 받아도 화면은 선다 — 「おまかせ」 하나로 대국은 시작할 수 있다(fetchOpenings).
@@ -94,8 +97,8 @@ export function Setup({ onStart }: SetupProps) {
       </fieldset>
 
       <p className="setup__caveat">
-        {/* **진형은 초반뿐이다.** 그렇게 적어 두지 않으면 「途中から違う手を指した」가 고장으로
-            읽힌다 — 실제로 駒がぶつかった時点で相手は自分で考え始める(book_opponent.go). */}
+        {/* **진형은 초반뿐이라고 화면이 먼저 말한다.** 안 적어 두면 상대가 진형을 벗어나는
+            순간이 고장으로 읽힌다 — 손을 놓는 조건은 book_opponent.go 에 있다. */}
         戦型を選ぶと、相手は序盤だけその形に組みます。駒がぶつかってからは自分で考えます。
       </p>
 

@@ -154,3 +154,90 @@ func TestOpeningMetadata(t *testing.T) {
 		t.Error("없는 id가 통과했다")
 	}
 }
+
+// TestOpeningNeverHangsAPiece 는 **합법성이 잡지 못하는 종류**를 잡는다.
+//
+// 수순의 모든 수가 합법인데도 순서가 틀리면 駒를 공짜로 준다. 실제로 물렸다 — 矢倉의
+// ▲6八銀이 7九를 비우면서 8八의 角을 받치는 것을 없앴고, 그때 대각선이 열려 있으면
+// 상대가 그 자리에서 角을 잡는다(06-status.md §48). 룰 엔진은 그 수가 합법이라고만 답한다.
+//
+// 사람 쪽이 **자기 角길을 먼저 연다** — 그것이 이 위험을 만드는 유일한 조건이고,
+// 초심자도 첫 몇 수에 그냥 두는 수다.
+func TestOpeningNeverHangsAPiece(t *testing.T) {
+	for _, o := range All() {
+		for _, opp := range []shogi.Color{shogi.Black, shogi.White} {
+			t.Run(o.ID+"/"+opp.String(), func(t *testing.T) {
+				pos, err := shogi.ParseSFEN(shogi.StartSFEN)
+				if err != nil {
+					t.Fatal(err)
+				}
+				human := opp.Other()
+				// 사람의 첫 수는 角길을 여는 歩다. 先手면 ▲7六歩, 後手면 △3四歩.
+				opener := "7g7f"
+				if human == shogi.White {
+					opener = "3c3d"
+				}
+				opened := false
+
+				want := o.Moves(opp)
+				for i := 0; i < len(want); {
+					if pos.Turn != opp {
+						var m shogi.Move
+						if !opened {
+							if m, err = shogi.ParseUSIMove(opener); err != nil {
+								t.Fatal(err)
+							}
+							if err := pos.ValidateMove(m); err != nil {
+								t.Fatalf("角길 여는 수 %s 가 반칙이다: %v", opener, err)
+							}
+							opened = true
+						} else {
+							var ok bool
+							if m, ok = quietMove(pos); !ok {
+								t.Fatalf("%d번째: 사람 쪽에 둘 수가 없다", i)
+							}
+						}
+						pos = pos.Apply(m)
+						continue
+					}
+
+					m, err := shogi.ParseUSIMove(want[i])
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err := pos.ValidateMove(m); err != nil {
+						t.Fatalf("%d번째 수 %s 가 반칙이다: %v", i+1, want[i], err)
+					}
+					pos = pos.Apply(m)
+					i++
+
+					if sq, kind := hanging(pos, opp); sq >= 0 {
+						t.Fatalf("%d번째 수 %s 뒤에 %s의 駒(type %d)가 공짜다\n국면: %s",
+							i, want[i-1], shogi.SquareUSI(sq), int(kind), pos.SFEN())
+					}
+				}
+			})
+		}
+	}
+}
+
+// hanging 은 c 의 駒 중 **상대가 노리는데 아무도 받치지 않는** 첫 칸이다. 없으면 -1.
+//
+// 歩는 안 본다 — 서로 마주 본 歩는 초반의 정상 상태이고, 그것까지 세면 어느 수순도 못 지나간다.
+// 玉도 안 본다: 王手는 다른 이야기이고 합법성 검사가 이미 막는다.
+func hanging(pos shogi.Position, c shogi.Color) (int, shogi.PieceType) {
+	for sq := 0; sq < 81; sq++ {
+		p := pos.Board[sq]
+		if p.Empty() || p.Color() != c {
+			continue
+		}
+		t := p.Type()
+		if t.Base() == shogi.Pawn || t == shogi.King {
+			continue
+		}
+		if pos.IsAttacked(sq, c.Other()) && pos.AttackCount(sq, c) == 0 {
+			return sq, t
+		}
+	}
+	return -1, 0
+}
