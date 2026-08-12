@@ -62,3 +62,9 @@ crash.log
 .env
 .env.*
 !.env.example
+
+# floodgate 기보 — 남의 대국 기록이고 5MB 넘는다. 받는 절차는 apps/server/README.md
+apps/server/internal/kifu/testdata/floodgate/
+
+# `go build ./cmd/importkifu` 가 떨어뜨리는 14MB 바이너리
+apps/server/importkifu

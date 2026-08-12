@@ -337,10 +337,48 @@ func senteFile(file int, c shogi.Color) int {
 // 飛가 잡혔다가 다시 打たれる 경우는 걸리지 않는다. 打은 `From < 0` 이라 좇던 칸과
 // 절대 안 맞고, 그 뒤로는 아무것도 반환하지 않는다 — **거짓으로 붙이는 것보다 안 붙는
 // 쪽이 낫다.**
+// OpeningPlies 는 **戦法·戦型이 선언될 수 있는 구간**이다. 手数(양쪽 합)로 센다.
+//
+// 이것이 없으면 종반에 떠돌던 飛가 5筋에 한 번 서는 것이 「中飛車」가 되고, 어쩌다 角이
+// 교환되어 있는 것이 「角換わり」가 된다. 실제로 한 판에서 같은 쪽이 **15수에 居飛車,
+// 131수에 中飛車**로 뜬 기보가 있었다 — 정답 라벨 없이도 틀린 것이 확실한 자리다.
+//
+// **실측으로 잡았다.** floodgate 341판(2020)에서 이름이 처음 붙은 手数의 분포다.
+//
+//	shiken_bisha       중앙  12    20수 뒤가 43%
+//	sanken_bisha       중앙  11    20수 뒤가 40%
+//	kaku_gawari        중앙  28    20수 뒤가 65%
+//	naka_bisha         중앙  45    20수 뒤가 62%
+//	migi_shiken_bisha  중앙  59    20수 뒤가 96%
+//	ai_furibisha       중앙  67    20수 뒤가 95%
+//
+// 四間·三間이 중앙 11~12수인 것이 **진짜 振り飛車의 모습**이고, 나머지의 늦은 중앙값은
+// 그 이름이 종반 잡음으로 채워졌다는 뜻이다. 24는 양쪽 12수씩 — 정석 수순이 전법을
+// 선언하는 데 쓰는 길이다(▲7六歩△3四歩▲6六歩△8四歩▲6八飛 는 9수째다).
+//
+// **자르는 방향이 안전한 쪽이다.** 이름이 하나 안 뜨면 힌트가 없을 뿐이지만, 틀린 이름은
+// 초심자가 검증할 수 없는 것을 가르친다.
+//
+// **[미확정]** 정답 라벨이 있는 기보로 재면 값이 움직인다. 분포에 뚜렷한 골짜기가 없어서
+// 이 수는 데이터가 아니라 정석 수순의 길이에서 왔다.
+const OpeningPlies = 24
+
+// DetectFormation 은 **플레이어 자신의 수만** 순서대로 받아 전법을 읽는다.
+//
+// 飛를 좇다가 **처음으로 筋을 바꾼 수**를 찾는다. 그 도착 筋이 곧 전법이고, 먼저
+// 나온 것이 이긴다 — 振り直し(예: 四間에서 三間으로)는 그 판의 전법을 바꾸지 않는다.
+//
+// 飛가 잡혔다가 다시 打たれる 경우는 걸리지 않는다. 打은 `From < 0` 이라 좇던 칸과
+// 절대 안 맞고, 그 뒤로는 아무것도 반환하지 않는다 — **거짓으로 붙이는 것보다 안 붙는
+// 쪽이 낫다.**
+//
+// **振った 手数가 序盤 안이어야 한다**(OpeningPlies). 경계를 「지금 몇 수째인가」가 아니라
+// **「振った 것이 몇 수째였나」**에 거는 것이 요점이다 — 그래야 12수에 얻은 四間飛車가
+// 100수째에도 그대로 남는다. 지금 手数로 자르면 이름이 대국 중에 사라진다.
 func DetectFormation(playerMoves []string, c shogi.Color) (Tag, bool) {
 	rook := shogi.SquareOf(rookStartFile(c), rookStartRank(c))
 
-	for _, usi := range playerMoves {
+	for i, usi := range playerMoves {
 		m, err := shogi.ParseUSIMove(usi)
 		if err != nil || m.IsDrop() || int(m.From) != rook {
 			continue
@@ -348,6 +386,14 @@ func DetectFormation(playerMoves []string, c shogi.Color) (Tag, bool) {
 		rook = int(m.To)
 
 		if from, to := shogi.FileOf(int(m.From)), shogi.FileOf(int(m.To)); from != to {
+			// i 번째 자기 수는 전체로 세면 先手가 2i+1, 後手가 2i+2 手째다.
+			ply := 2*i + 1
+			if c == shogi.White {
+				ply++
+			}
+			if ply > OpeningPlies {
+				return Tag{}, false // 종반의 転換은 그 판의 전법이 아니다
+			}
 			if t, ok := formationByFile[senteFile(to, c)]; ok {
 				return t, true
 			}
@@ -462,7 +508,19 @@ func detectOpening(in Input, mine Tag, swung bool) (Tag, bool) {
 
 	mineFuri := swung && isFuribisha(mine)
 	theirsFuri := theySwung && isFuribisha(theirs)
-	traded := bishopsTraded(in.Pos)
+
+	// **角交換은 序盤 안에서 본 것만 센다.**
+	//
+	// `bishopsTraded` 는 상태 술어라 「언제 바꿨나」를 모른다. 그래서 종반에 角이 서로
+	// 잡히기만 해도 참이 되고, 실제로 **198수째에 角換わり가 떴다**(341판 실측).
+	//
+	// **여기만 「지금 手数」로 자른다.** 振り飛車 쪽은 振った 手数를 알 수 있어 한 번 얻은
+	// 이름이 남지만(DetectFormation), 이쪽은 그 시점을 복원할 수 없다 — 수순에 무엇이
+	// 잡혔는지가 안 적혀 있다. 그 대가로 **角換わり는 序盤 동안만 뜬다.** 이름이 필요한
+	// 자리(제안형 힌트·참고 지식)가 序盤이라 잃는 것이 크지 않고, 종반에 틀린 戦型을
+	// 말하는 것보다 낫다. 그 시점을 알려면 수순 재생이 필요하고, 그건 이 패키지가
+	// 국면 하나만 보고 결정적으로 답한다는 성질을 깬다.
+	traded := len(in.PlayerMoves)+len(in.OpponentMoves) <= OpeningPlies && bishopsTraded(in.Pos)
 
 	switch {
 	case traded && mineFuri:
