@@ -112,6 +112,10 @@ func Handler(opts Options) http.Handler {
 		mux.HandleFunc("POST /api/auth/logout", ah.logout)
 	}
 
+	// 시작 화면이 고를 진형 목록. **DB도 엔진도 로그인도 필요 없다** — 상수 목록이라
+	// (internal/book) 무엇이 꺼져 있어도 이 자리는 답한다.
+	mux.HandleFunc("GET /api/openings", openings)
+
 	// 끝난 판을 되짚는 표면(review.go). **DB에 매여 있고 엔진과 무관하다** — 가정 수순만
 	// 엔진이 필요해 그 한 경로가 따로 503이 된다(README 라우트 표). 화면은 /healthz 의
 	// `engine` 을 보고 미리 그 자리를 닫는다.
