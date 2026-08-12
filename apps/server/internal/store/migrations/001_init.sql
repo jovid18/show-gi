@@ -1,8 +1,8 @@
 -- show-gi 초기 스키마. 설계 근거는 docs/02-architecture.md §4.
 --
--- 이 파일은 postgres 컨테이너의 docker-entrypoint-initdb.d에 마운트되어
--- **데이터 볼륨이 비어 있을 때 한 번만** 실행된다. 스키마를 바꾸면 볼륨을 지우거나
--- (docker compose down -v) 002_*.sql을 새로 추가한다.
+-- **실행은 사람이 DB 클라이언트로 직접 한다** — 배포도 compose도 안 돌린다.
+-- db 컨테이너는 docker-entrypoint-initdb.d 를 마운트하지 않는다(deploy/README.md §4).
+-- 스키마를 바꿀 때는 이 파일이 아니라 다음 번호의 파일을 새로 추가한다.
 
 CREATE EXTENSION IF NOT EXISTS vector;
 

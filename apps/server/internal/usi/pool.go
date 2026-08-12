@@ -9,16 +9,9 @@ import (
 // ErrPoolClosed 는 닫힌 풀에서 엔진을 빌리려 할 때 나온다.
 var ErrPoolClosed = errors.New("usi: pool closed")
 
-// Pool 은 Engine 여러 개를 돌려쓴다.
-//
-// Engine 하나는 탐색을 mutex로 직렬화한다 — 프로세스 1개 = 동시 탐색 1개.
-// 그런데 개입 판정은 사용자가 수를 두기 전에 미리 돌려두는 것이라, 대국 한 판 안에서도
-// 동시 탐색이 여러 개 필요하다. Engine을 고치는 대신 여러 개를 두고 빌려준다 —
-// 엔진의 직렬성은 프로세스의 성질이지 코드의 결함이 아니다.
-//
-// **빌린 동안에는 그 Engine을 혼자 쓴다.** 대국마다 달라지는 옵션(MultiPV 등)은 빌린 뒤
-// 탐색 직전에 건다. 옵션은 Engine에 남아서 다음에 빌리는 쪽이 그대로 물려받으므로,
-// 값에 기대는 쪽은 매번 직접 걸어야 한다. 엔진 전체 설정은 NewPool 로 준다.
+// Pool 은 Engine 여러 개를 돌려쓴다 — Engine 하나는 탐색을 직렬화하는데(프로세스 1개 = 동시 탐색 1개),
+// 선행 계산 때문에 대국 한 판에도 동시 탐색이 필요하다.
+// **빌린 동안 단독 소유다.** 옵션은 Engine에 남으므로 값에 기대는 쪽은 매번 직접 건다(06-status.md §6 ②).
 type Pool struct {
 	free chan *Engine
 	all  []*Engine
@@ -102,13 +95,8 @@ func (p *Pool) SearchDepth(ctx context.Context, startSFEN string, moves []string
 	return p.SearchMultiPV(ctx, startSFEN, moves, depth, 1)
 }
 
-// SearchMultiPV 는 상위 multiPV개의 후보를 함께 받아온다. 적응형 상대가 고를 후보 풀이다.
-//
-// **MultiPV를 탐색 직전에 매번 건다.** 옵션은 Engine에 남으므로, 한 번 k=10으로 걸어두면
-// 그 엔진을 다음에 빌리는 쪽까지 k=10으로 돈다 — 개입 판정이 후보 1개면 될 자리에서
-// 10개를 받아 400ms가 2초가 된다. 대국 A의 설정이 대국 B로 새는 것과 같은 문제다.
-//
-// 그래서 SearchDepth 도 여기를 지나며 1을 명시한다. 「안 건드리면 그대로」에 기대지 않는다.
+// SearchMultiPV 는 상위 multiPV개 후보를 함께 받아온다. **MultiPV를 탐색 직전에 매번 건다** —
+// 옵션이 Engine에 남아 다음에 빌리는 쪽으로 새기 때문이다. SearchDepth 도 여기를 지나며 1을 명시한다(06-status.md §16).
 func (p *Pool) SearchMultiPV(ctx context.Context, startSFEN string, moves []string, depth, multiPV int) (SearchResult, error) {
 	if multiPV < 1 {
 		multiPV = 1
@@ -137,16 +125,9 @@ func (p *Pool) SearchMate(ctx context.Context, startSFEN string, moves []string)
 	return res, err
 }
 
-// Close 는 엔진을 전부 종료한다. 빌려나간 엔진도 함께 죽는다 —
-// 서버가 내려가는 중이므로 진행 중인 탐색을 기다려줄 이유가 없다.
-//
-// **다만 탐색 중인 엔진이 있으면 그 탐색이 끝날 때까지 막힌다.** Engine.Close 가
-// 같은 mutex를 잡기 때문이다. 지금은 모든 탐색이 세션 ctx를 타고, 서버가 내려갈 때
-// 그 ctx가 먼저 취소되므로 풀린다. **`context.Background()` 로 탐색을 걸면 종료가 걸린다.**
-//
-// goroutine이 엔진을 소유하는 구조였다면 명령 채널을 닫아 "하던 것만 끝내고 나가라"를
-// 직접 표현할 수 있다. 지금은 그것을 ctx에 암묵적으로 기대고 있다 — 실제로 물린 적은
-// 없지만, 탐색을 세션 밖에서 걸기 시작하면 여기부터 본다.
+// Close 는 엔진을 전부 종료한다. 빌려나간 엔진도 함께 죽는다.
+// **다만 탐색 중이면 그 탐색이 끝날 때까지 막힌다** — Engine.Close 가 같은 mutex를 잡는다.
+// 지금은 모든 탐색이 세션 ctx를 타서 풀린다. `context.Background()` 로 걸면 종료가 걸린다.
 func (p *Pool) Close() {
 	p.closeOnce.Do(func() {
 		close(p.done)

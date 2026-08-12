@@ -13,7 +13,9 @@ const StartSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b -
 // 값 타입이다. Apply가 복사본을 돌려주므로 롤백은 이전 값을 들고 있기만 하면 된다 —
 // 되돌리기가 제품 기능인 이상 이 성질이 설계의 핵심이다.
 type Position struct {
-	Board   [81]Piece
+	Board [81]Piece
+	// Hands 는 PieceType 값 그대로 색인한다 — 0-based 오프셋이 아니다. 크기 8은 Rook=7 때문이고
+	// index 0(NoPieceType)은 영구 미사용. 王은 잡혀도 持ち駒가 되지 않아 index 8이 없다.
 	Hands   [2][8]int8 // [Color][PieceType Pawn..Rook]
 	Turn    Color
 	MoveNum int
@@ -38,6 +40,8 @@ func ParseSFEN(s string) (Position, error) {
 	if len(ranks) != 9 {
 		return pos, fmt.Errorf("sfen: board must have 9 ranks, got %q", fields[0])
 	}
+	// SFEN 보드는 段一부터, 각 단 안에서 筋9→筋1 순이다 — 내부 인덱스(row*9+col)와 순서가 그대로
+	// 맞아서 좌표 변환이 없다. 뒤집으면 파싱·출력이 함께 틀려 왕복 테스트로는 안 잡힌다.
 	for row, rs := range ranks {
 		col := 0
 		promoted := false
@@ -52,6 +56,8 @@ func ParseSFEN(s string) (Position, error) {
 			case ch == '+':
 				promoted = true
 			default:
+				// SFEN은 대문자=선수, 소문자=후수다. 0x20이 ASCII 대소문자 비트라
+				// &^ 로 종류를, >= 'a' 로 색을 본다 (이 파일에 여섯 자리).
 				upper := ch &^ 0x20
 				t, ok := letterTypes[upper]
 				if !ok {
@@ -198,7 +204,8 @@ func (pos Position) SFEN() string {
 	return b.String()
 }
 
-// RepetitionKey 는 千日手 판정용 키 (수 번호 제외한 국면 동일성).
+// RepetitionKey 는 千日手 판정용 키 — SFEN에서 手数만 뗀다. 手番은 남긴다(배치가 같아도
+// 둘 차례가 다르면 다른 국면이다).
 //
 // positions 테이블의 sfen_key 와 같은 형태다 — 전치(transposition)가 자연히 합쳐진다.
 func (pos Position) RepetitionKey() string {

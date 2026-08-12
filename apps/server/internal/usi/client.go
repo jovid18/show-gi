@@ -1,10 +1,6 @@
-// Package usi 는 USI(Universal Shogi Interface) 엔진 프로세스를 관리한다.
+// Package usi 는 USI(Universal Shogi Interface) 엔진 하위 프로세스를 관리한다.
 //
-// 엔진은 네트워크 서비스가 아니라 stdin/stdout으로 말하는 하위 프로세스다.
-// 그래서 여기 있는 코드의 값어치는 기능이 아니라 **방어**에 있다 — 엔진은 죽고,
-// 속보 라인을 뱉고, 잘린 수순을 보내고, 옵션 이름이 엔진마다 다르다.
-// 전부 한 번씩 물려본 것들이고, 하나씩 지우면 그 자리에서 다시 물린다.
-//
+// 값어치는 기능이 아니라 **방어**다 — 전부 한 번씩 물려본 것들이고 목록은 02-architecture.md §8에 있다.
 // Engine 하나는 탐색을 직렬화한다. 동시 탐색이 필요하면 Pool을 쓴다.
 package usi
 
@@ -28,11 +24,8 @@ import (
 const (
 	handshakeTimeout = 15 * time.Second
 
-	// stopGrace 는 취소로 "stop"을 보낸 뒤 bestmove를 기다려주는 시간이다.
-	//
-	// 이 안에 안 오면 엔진을 버리고 재기동한다. bestmove를 삼키지 못한 채
-	// 다음 탐색을 시작하면 **이전 탐색의 bestmove를 이번 결과로 읽는다** —
-	// 대국 루프에서 이건 상대가 엉뚱한 수를 두는 것으로 나타난다.
+	// stopGrace 는 취소로 "stop"을 보낸 뒤 bestmove를 기다려주는 시간. 안 오면 엔진을 버리고 재기동한다 —
+	// 삼키지 못한 bestmove는 **다음 탐색의 결과로 읽힌다**(06-status.md §6 ②).
 	stopGrace = 2 * time.Second
 )
 
@@ -60,14 +53,9 @@ type SearchResult struct {
 	PV      []string     // 최선 수순
 	Lines   []SearchLine // 순위별 최종 후보 (가장 깊은 것)
 
-	// History 는 받은 info 라인 전부를 깊이별로 남긴 것이다.
-	//
-	// 엔진은 iterative deepening 중 depth 1, 2, 3... 을 계속 뱉는데,
-	// 원본 파서는 같은 순위를 덮어써서 마지막 깊이만 남겼다. 그러면
-	// **얕은 평가와 깊은 평가의 격차**가 사라진다 — 그 격차가 개입 판정의 입력이다.
-	// 초보자는 깊게 읽지 않으므로, d2에서 좋아 보이는데 d14에서 나쁜 수가 곧 함정이다.
-	//
-	// 속보(lowerbound/upperbound) 라인은 점수가 확정값이 아니라 넣지 않는다.
+	// History 는 받은 info 라인 전부를 (깊이, 순위)별로 남긴 것이다.
+	// **얕은 평가와 깊은 평가의 격차**가 개입 판정의 입력이라 마지막 깊이만 남기면 안 된다(06-status.md §6 ②).
+	// 속보(lowerbound/upperbound)는 점수가 확정값이 아니라 넣지 않는다.
 	History []SearchLine
 }
 
@@ -77,11 +65,8 @@ type DepthEval struct {
 	Cp    int
 }
 
-// EvalByDepth 는 그 수가 깊이별로 어떻게 평가됐는지를 깊이 오름차순으로 돌려준다.
-// edges.eval_by_depth 에 그대로 들어갈 값이다.
-//
-// 빠진 깊이를 메우지 않는다 — 그 수가 상위 k에 없던 깊이는 데이터가 없는 것이고,
-// 없는 것을 지어내면 개입 판정이 그 위에서 돌아간다.
+// EvalByDepth 는 그 수의 깊이별 평가치를 오름차순으로 준다. edges.eval_by_depth 에 그대로 들어간다.
+// 빠진 깊이를 메우지 않는다 — 상위 k에 없던 깊이는 데이터가 없는 것이다(06-status.md §6 ②).
 func (r SearchResult) EvalByDepth(move string) []DepthEval {
 	var out []DepthEval
 	for _, l := range r.History {
@@ -93,17 +78,8 @@ func (r SearchResult) EvalByDepth(move string) []DepthEval {
 	return out
 }
 
-// ScoreAtDepth 는 **국면 자체**의 얕은 평가다 — 그 깊이에서 1위였던 줄의 점수를 준다.
-//
-// EvalByDepth 와 묻는 것이 다르다. 저쪽은 「이 수가 깊이별로 어떻게 평가됐나」이고
-// 이쪽은 「이 국면을 여기까지만 읽으면 얼마로 보이나」다. 초보자의 시야를 모사하는 것은
-// 후자다 — 얕은 깊이에서 1위였던 수가 깊은 깊이의 1위와 다른 것이 정상이고, 특정
-// 수를 따라가면 그 수가 순위 밖으로 밀린 깊이에서 값이 사라진다(01-core.md §7.1).
-//
-// **추가 탐색이 없다.** PvInterval=0 덕에 한 번의 depth N 탐색이 depth 1~N을 전부
-// 돌려주므로, 「얕게 보면 이득」의 판정이 공짜로 나온다.
-//
-// 못 찾으면 false. 없는 깊이를 이웃 값으로 메우지 않는다 — EvalByDepth 와 같은 이유다.
+// ScoreAtDepth 는 그 깊이에서 1위였던 줄의 점수다 — 「이 국면을 여기까지만 읽으면 얼마로 보이나」.
+// 초보자의 시야를 모사하는 쪽이 이것이다(06-status.md §15). 없는 깊이를 메우지 않는다.
 func (r SearchResult) ScoreAtDepth(depth int) (int, bool) {
 	for _, l := range r.History {
 		if l.Depth == depth && l.MultiPV == 1 {
@@ -130,10 +106,7 @@ type Engine struct {
 }
 
 // New 는 엔진 프로세스를 시작하고 usi/isready 핸드셰이크를 마친다.
-//
-// opts 는 **usiok 뒤, isready 앞**에 걸린다. `USI_Hash` 처럼 isready 시점에 반영되는
-// 옵션은 반드시 여기로 줘야 한다 — 나중에 SetOption 으로 걸면 다음 isready 까지
-// 반영되지 않고, 그동안 엔진은 기본값으로 메모리를 잡고 있다.
+// opts 는 **usiok 뒤, isready 앞**에 걸린다 — USI_Hash 처럼 isready 시점에 반영되는 옵션은 나중에 걸면 늦는다.
 func New(path string, opts map[string]string, args ...string) (*Engine, error) {
 	saved := make(map[string]string, len(opts))
 	maps.Copy(saved, opts)
@@ -231,10 +204,8 @@ ready:
 		_ = e.send("setoption name USI_Ponder value false")
 	}
 
-	// PV 출력을 시간으로 솎아내지 않는다. **이건 배포 설정이 아니라 이 파서가 동작하기
-	// 위한 조건이다.** YaneuraOu의 기본값 300(ms)은 그 간격으로만 PV를 찍는데, 우리
-	// 탐색은 그보다 빨리 끝나서 마지막 깊이 하나만 남는다 — SearchResult.History 가
-	// 통째로 비고, 개입 판정의 입력인 깊이별 격차가 사라진다.
+	// PvInterval=0. **배포 설정이 아니라 이 파서가 동작하기 위한 조건이다** —
+	// 기본 간격이면 우리 탐색이 더 빨라 깊이별 평가치가 마지막 하나만 남는다(06-status.md §10).
 	if e.opts["PvInterval"] {
 		_ = e.send("setoption name PvInterval value 0")
 	}
@@ -332,16 +303,9 @@ func (e *Engine) Name() string {
 	return e.name
 }
 
-// SearchDepth 는 고정 깊이까지 탐색시킨다.
-//
-// **이 패키지에 시간 기반 탐색(`go movetime`)은 일부러 없다.** 시간 기반은 같은 국면이
-// 같은 답을 주지 않아서, positions 캐시("같은 국면 = 같은 결과")도 밴드 제어(후보들의
-// cp를 믿을 수 있어야 한다)도 성립하지 않는다. 지연은 캐시·선행 계산·**깊이를 줄이는 것**
-// 으로 잡는다 (CLAUDE.md, 01-core.md §4). 넣고 싶어지면 왜 안 되는지부터 읽을 것.
-//
-// 자체 시한이 없다 — 언제 끝날지는 국면이 정한다. **대신 ctx로 끊을 수 있다.**
-// 풀에 넣고 쓰는 이상 끝나지 않는 탐색 하나가 슬롯을 영구히 물고 있으면 안 된다.
-// 끊으면 결과는 **버린다**. 중간까지의 결과는 depth N 결과가 아니라서 쓸 수 없다.
+// SearchDepth 는 고정 깊이까지 탐색시킨다. **시간 기반(`go movetime`)은 이 패키지에 일부러 없다** —
+// 재현되지 않으면 캐시도 밴드 제어도 성립하지 않는다(01-core.md §4). 자체 시한도 없다.
+// ctx로 끊을 수는 있고, 끊으면 중간 결과는 **버린다** — depth N 결과가 아니라서 쓸 수 없다.
 func (e *Engine) SearchDepth(ctx context.Context, startSFEN string, moves []string, depth int) (SearchResult, error) {
 	return e.search(ctx, startSFEN, moves, "go depth "+strconv.Itoa(depth), 0)
 }
@@ -351,24 +315,16 @@ type MateResult struct {
 	// Moves 는 찾은 詰み 수순. 비어 있으면 못 찾았다.
 	Moves []string
 
-	// Proven 은 탐색이 한계 안에서 **결론을 냈다**는 뜻이다.
-	//
-	// 이 구분이 캐시의 전부다. `checkmate <수순>`과 `checkmate nomate`는 증명이라
-	// 언제 재봐도 같다 — 캐시해도 된다. `checkmate timeout`은 "이 한계 안에서는
-	// 모른다"이지 "없다"가 아니다. 그걸 "없다"로 저장하면 있는 詰み을 놓친 채로
-	// 종반 판정(01-core.md §2)이 돈다.
+	// Proven 은 탐색이 한계 안에서 **결론을 냈다**는 뜻이고, 이 구분이 캐시의 전부다.
+	// `checkmate timeout`은 "모른다"이지 "없다"가 아니다 — "없다"로 저장하면 있는 詰み을 놓친다(01-core.md §2).
 	Proven bool
 }
 
 // Found 는 詰み을 찾았는지.
 func (r MateResult) Found() bool { return len(r.Moves) > 0 }
 
-// SearchMate 는 詰み을 찾는다. **詰将棋 solver 에디션에만 있다** —
-// 탐색부에 보내면 checkmate 대신 bestmove가 돌아온다(02-architecture.md §3).
-//
-// 탐색 한계는 풀을 만들 때 `DepthLimit`(詰み手数 상한)으로 준다. 시간(`go mate <ms>`)이
-// 아니라 수로 자르는 이유는 다른 탐색과 같다 — **같은 국면이 같은 답을 줘야 캐시할 수 있다.**
-// DepthLimit 없이 부르면 詰み이 없는 국면에서 돌아오지 않는다.
+// SearchMate 는 詰み을 찾는다. **詰将棋 solver 에디션에만 있다** — 탐색부는 bestmove로 답한다(02-architecture.md §3).
+// 한계는 풀을 만들 때 `DepthLimit`(手数)로 준다. 없이 부르면 詰み이 없는 국면에서 돌아오지 않는다.
 func (e *Engine) SearchMate(ctx context.Context, startSFEN string, moves []string) (MateResult, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -505,10 +461,7 @@ func (e *Engine) searchLocked(ctx context.Context, startSFEN string, moves []str
 }
 
 // stopLocked 는 탐색을 중단시키고 그 응답까지 읽어 버린다. mu를 잡은 상태에서 호출.
-//
-// **끝맺는 말이 탐색 종류마다 다르다** — 일반 탐색은 `bestmove`, 詰み 탐색은 `checkmate`다.
-// 하나만 기다리면 다른 쪽에서 매번 시한을 넘겨 엔진을 버리게 되고, 삼키지 못한 응답이
-// 다음 탐색의 결과로 읽힌다.
+// **끝맺는 말이 다르다** — 일반 탐색은 `bestmove`, 詰み 탐색은 `checkmate`. 하나만 기다리면 매번 엔진을 버린다.
 func (e *Engine) stopLocked() error {
 	if err := e.send("stop"); err != nil {
 		return err
@@ -592,10 +545,8 @@ apply:
 	}
 
 	idx := sl.MultiPV
-	// 짧은 pv 라인이 이미 받아둔 긴 수순을 덮어쓰지 않게 방어한다. 두 경우가 있다:
-	//  1) fail-high/low 속보(lowerbound/upperbound) — pv가 한두 수뿐
-	//  2) movetime 만료로 중단된 마지막 iteration의 라인 — bound 표기 없이도 pv가 1~2수만 찍힘
-	// 아직 아무것도 없는 순위라면 짧은 라인이라도 채워 둔다 (뒤에 완전한 라인이 오면 갱신됨).
+	// 짧은 pv가 이미 받아둔 긴 수순을 덮어쓰지 않게 방어한다 — 속보(bound) 라인과,
+	// 엔진이 마지막 iteration을 중간에 접었을 때가 그렇다. 빈 순위라면 짧은 라인이라도 채워 둔다.
 	const minUsefulPv = 3
 	if idx-1 < len(res.Lines) {
 		prev := res.Lines[idx-1].PV

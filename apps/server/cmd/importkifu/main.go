@@ -1,3 +1,5 @@
+// Command importkifu 는 실 기보(KIF·CSA)를 **제품과 같은 경로**(엔진 → archive → store)로 다시 둬 DB에 남기는 오프라인 배치다.
+// 산출물은 태그 스캔과 K 실측(internal/kifu/calibrate_test.go)이 먹는 표본이라, 서버(cmd/api)는 이 프로그램을 부르지 않는다.
 package main
 
 import (
@@ -26,6 +28,8 @@ func main() {
 	poolSize := flag.Int("pool", 1, "engine pool size")
 	depth := flag.Int("depth", 12, "search depth")
 	multiPV := flag.Int("k", 10, "multi-PV count")
+	// 워커를 늘려도 아래 archive.Searcher 는 하나다 — 한 워커의 Wait() 가 다른 워커의 기록까지 기다리고, WaitGroup 이
+	// 「카운터가 0일 때의 Add 는 Wait 보다 먼저」를 요구해 패닉 여지도 생긴다. 올릴 거면 워커마다 Searcher 를 따로 만든다.
 	workers := flag.Int("workers", 1, "concurrent game imports")
 	flag.Parse()
 
@@ -73,6 +77,8 @@ func main() {
 	defer pool.Close()
 
 	searcher := archive.Wrap(pool, st)
+	// 詰み solver 를 안 붙인다(nil) — 종반 판정만 빠지고 승률 낙폭 판정은 그대로 돈다.
+	// 임계치는 Beginner 인데 import.go 가 기록에 남기는 LevelBucket 은 "pro" 라 갈려 있다 — 그쪽 TODO.
 	analyst := game.NewEngineAnalyst(searcher, nil, intervene.Beginner)
 	imp := kifu.NewImporter(st, searcher, analyst, *depth, *multiPV)
 

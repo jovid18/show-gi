@@ -1,27 +1,8 @@
--- Tier 1 문구를 미리 만들어 넣는다 — 이 층의 개입은 런타임 LLM 왕복이 0이 된다.
+-- Tier 1 문구 21행. **손으로 고치지 않는다** — internal/explain 의 생성기 산출물이고,
+-- 다시 만드는 명령과 21이라는 개수의 근거는 apps/server/README.md 「테스트」에 있다.
 --
--- **손으로 고치지 않는다.** internal/explain 의 생성기가 만든 파일이고, 고칠 일이 생기면
--- 프롬프트를 고쳐 다시 만든다:
---
---     set -a && . ../../.env && set +a
---     SHOWGI_GENERATE_TIER1=1 go test ./internal/explain/ -run GenerateTier1 -v
---
--- 문장은 실제 라우터가 쓴 것이고 런타임과 **같은 경로**(Layered.Explain)로 만들어졌다 —
--- 같은 검사(explain.clean)를 지났고, 그래서 한글도 지어낸 칸도 들어 있지 않다.
---
--- 키는 Go가 만든다(explain.Facts.Key). 행마다 붙은 주석이 해시하기 전의 그 값이고,
--- 맨 앞의 v1 이 promptVersion 이다 — **프롬프트를 고치면 그 숫자가 올라가고 아래 행은
--- 전부 아무도 찾지 않는 키가 된다.** TestTier1MigrationMatchesFacts 가 그것을 잡는다.
---
--- **추가만 하는 마이그레이션이다.** ON CONFLICT DO NOTHING 이라 이미 런타임이 만들어 둔
--- 문장을 덮지 않고("같은 실수에는 같은 설명"), 두 번 돌려도 같은 상태가 된다.
---
--- 21행인 이유는 카테고리 8 × 레벨 3 = 24 에서 hangs_piece 와 greedy_capture 가 빠지고
--- (그 둘은 분류 조건이 곧 Tier 2 조건이라 Tier 1로 오지 않는다) other 가 둘로 갈리기
--- 때문이다. 자세한 것은 internal/explain/tier1_test.go 의 tier1Facts 주석.
---
--- 이 행들은 hits=0 으로 시작한다. explain_cache 의 entries 가 이제 「만들어 둔 것 +
--- 런타임이 만든 것」이라, 히트율을 그 두 값으로만 세면 실제보다 낮게 나온다.
+-- ON CONFLICT DO NOTHING 이라 이미 런타임이 만들어 둔 문장을 덮지 않고("같은 실수에는
+-- 같은 설명") 두 번 돌려도 같은 상태가 된다. 배경은 06-status.md §38.
 
 BEGIN;
 

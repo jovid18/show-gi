@@ -2,6 +2,10 @@
 //
 // 핸들러가 대국 상태를 직접 읽지 않는다. 상태는 세션 goroutine이 소유하고,
 // 핸들러는 채널로 물어본다 — 지름길을 내는 순간 잠금이 필요해진다.
+//
+// 화면에 나가는 cp는 전부 **플레이어 관점**이다. DB(先手 관점)·엔진과 캐시(수번 관점)에서
+// 오는 값은 이 패키지 경계에서 뒤집는다 — 안 뒤집으면 색이 다른 두 판을 나란히 못 놓고,
+// 한 줄을 넘겨 보는 동안 부호가 뒤집힌다(06-status.md §33).
 package server
 
 import (
@@ -25,48 +29,39 @@ const shutdownGrace = 10 * time.Second
 
 // Options 는 서버가 밖에서 받아야 하는 것들이다.
 type Options struct {
-	// NewOpponent 는 대국마다 상대를 하나 만든다.
-	//
-	// nil이면 /ws 가 503을 준다. 엔진이 없다고 프로세스를 죽이지 않는 이유는,
-	// 그러면 ECS가 재시작을 반복하며 /healthz 까지 같이 죽어 사이트 전체가 내려가기 때문이다.
-	// 엔진 고장은 대국만 막고 나머지는 살려둔다.
+	// NewOpponent 는 대국마다 상대를 하나 만든다. nil이면 /ws/game 이 503이다 —
+	// 프로세스는 안 죽인다(아래 /healthz 참조).
 	NewOpponent func() game.Opponent
 
 	// NewAnalyst 가 nil이면 개입 없이 대국만 한다.
 	NewAnalyst func() game.Analyst
 
-	// Mate 는 詰み solver 다. nil이면 詰み 게이지가 꺼진 채로 대국한다.
-	//
-	// **대국마다 만들지 않는다**(NewAnalyst 와 다른 점이다). 풀 자체가 공유물이고
-	// 대국별 상태가 없다 — Explainer 와 같은 자리다.
+	// Mate·Search·Explainer 는 **값이라 대국 사이에 공유된다**(NewOpponent·NewAnalyst 와
+	// 다른 점이다) — 셋 다 풀·캐시가 본체이고 대국별 상태가 없다. nil이면 그 기능만 꺼진다.
+
+	// Mate 는 詰み solver 다. nil이면 詰み 게이지가 꺼진다.
 	Mate game.MateSearcher
 
-	// StartSFEN·HumanColor·ObservePlies 는 대국을 어디서 시작할지 정한다.
-	// 비어 있으면 평수 초기 국면·先手·기본 관측 구간이다. 리뷰와 테스트가 쓴다.
+	// StartSFEN·HumanColor·ObservePlies 는 대국을 어디서 시작할지 정한다. 비어 있으면
+	// 평수 초기 국면·先手·기본 관측 구간이다. 지금은 테스트만 채운다 — 되짚기는 이 값이
+	// 아니라 기록의 `games.start_sfen` 을 쓴다(review.go·whatif.go).
 	StartSFEN    string
 	HumanColor   shogi.Color
 	ObservePlies int
 
 	// Store 는 국면 캐시이자 **대국 기록**이다. nil이어도 대국은 된다 — 캐시가 없으면
-	// 매번 계산하고, 기록이 없으면 남지 않을 뿐이다. 엔진과 같은 이유로 여기서도
-	// 프로세스를 죽이지 않고 /healthz 로 드러낸다.
+	// 매번 계산하고 기록이 없으면 남지 않을 뿐이다. /healthz 의 `db` 로 드러낸다.
 	Store *store.Store
 
 	// Level 은 개입 임계치를 정하는 실력 구간이다. 기록에도 같이 남는다 —
 	// 어느 임계치에서 걸린 개입인지를 모르면 나중에 상수를 흔들어 볼 수 없다.
 	Level intervene.Level
 
-	// Search 는 **가정 수순**이 쓰는 엔진이다(whatif.go). nil이면 그 표면만 꺼지고
+	// Search 는 가정 수순·手筋 힌트가 쓰는 엔진이다(whatif.go). nil이면 그 표면만 꺼지고
 	// 되짚기는 그대로 돈다.
-	//
-	// NewOpponent 와 달리 **대국마다 만들지 않는다.** 여기서 필요한 것은 풀 자체이고,
-	// 분기에는 대국별 상태(적응형 밴드·투료 판단)가 없다 — 있으면 안 된다는 쪽에 가깝다.
 	Search Searcher
 
-	// Explainer 는 개입 문구를 만든다. nil이면 결정적 문구가 나간다.
-	//
-	// **대국마다 만들지 않는다**(NewOpponent 와 다른 점이다). 캐시와 HTTP 클라이언트를
-	// 들고 있어서 대국 사이에 공유되는 것이 이득이고, 대국별 상태가 없다.
+	// Explainer 는 개입 문구를 만든다. nil이면 결정적 템플릿이 나간다.
 	Explainer explain.Explainer
 }
 
@@ -74,13 +69,10 @@ type Options struct {
 func Handler(opts Options) http.Handler {
 	mux := http.NewServeMux()
 
-	// 로드밸런서와 배포 스크립트가 보는 곳. 인증 뒤에 두지 않는다.
+	// 로드밸런서와 배포 워크플로가 보는 곳. 인증 뒤에 두지 않는다.
 	//
-	// **엔진이 없어도 200이다.** 여기서 실패를 내면 ECS가 태스크를 죽이고 재시작을
-	// 반복해 사이트 전체가 내려간다. 대신 `engine` 필드로 상태를 드러낸다 —
-	// 없으면 "배포는 성공했는데 대국만 안 되는" 상태를 아무도 못 알아챈다.
-	// 실제로 한 번 그렇게 됐다(엔진 교체 배포에서 태스크 정의의 낡은 ENGINE_CMD가
-	// 이미지의 값을 덮어썼다). 배포 워크플로가 이 필드를 확인한다.
+	// **엔진이 없어도 200이다.** 여기서 실패하면 ECS가 재시작을 반복해 사이트 전체가
+	// 내려간다. 대신 `engine` 필드로 드러낸다 — 배포 워크플로가 그걸 확인한다(§11).
 	engineReady := opts.NewOpponent != nil
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		// DB는 기동 때 붙었어도 나중에 끊길 수 있으므로 매번 확인한다.
@@ -96,14 +88,9 @@ func Handler(opts Options) http.Handler {
 		})
 	})
 
-	// 끝난 판을 되짚는 표면(review.go).
-	//
-	// **되짚기는 엔진이 아니라 DB에 매여 있다.** 기록이 없으면 되짚을 것도 없고, 엔진이
-	// 죽어 대국을 못 해도 지난 판은 그대로 볼 수 있어야 한다 — 그래서 /ws 와 조건이 갈린다.
-	//
-	// **가정 수순만 그 조건이 다르다**(whatif.go). 「그래서 상대가 어떻게 하나」가 내용이라
-	// 엔진 없이는 성립하지 않으므로, 엔진이 없으면 **그 한 경로만** 503이 된다. 화면은
-	// /healthz 의 `engine` 을 보고 미리 그 자리를 닫는다.
+	// 끝난 판을 되짚는 표면(review.go). **DB에 매여 있고 엔진과 무관하다** — 가정 수순만
+	// 엔진이 필요해 그 한 경로가 따로 503이 된다(README 라우트 표). 화면은 /healthz 의
+	// `engine` 을 보고 미리 그 자리를 닫는다.
 	storeUnavailable := func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
 			"error":   "store_unavailable",

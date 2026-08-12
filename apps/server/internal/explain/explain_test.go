@@ -13,6 +13,7 @@ import (
 // 아래 테스트들이 「전부에 대해」를 단정하므로, 빠뜨리면 그 단정이 조용히 약해진다.
 var allCategories = []intervene.Category{
 	intervene.CategoryMissedMate,
+	intervene.CategoryLetsMate,
 	intervene.CategoryHangsPiece,
 	intervene.CategoryShallowTrap,
 	intervene.CategoryUnpromoted,
