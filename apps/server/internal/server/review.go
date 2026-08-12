@@ -28,10 +28,24 @@ const (
 
 // reviewHandler 는 기록을 읽는다. **세션 goroutine과 아무 관계가 없다** — 이미 끝난 판이다.
 //
-// **누구의 판인지를 아직 안 본다.** 로그인이 붙어 `games.user_id` 가 채워지는 순간
-// 이 자리가 위협이 된다 — 그 PR이 같이 목록을 걸러야 한다(06-status.md §33).
+// **읽는 것은 자기 판뿐이다**(06-status.md §33 · §46). 로그인 안 한 사람에게는 익명 판이
+// 자기 판이다 — 익명끼리는 애초에 구별할 수단이 없어 지금까지와 같고, 갈리는 것은
+// 로그인한 판이 그 사람에게만 보인다는 쪽이다(02-architecture.md §7 위협 2).
 type reviewHandler struct {
 	store *store.Store
+	auth  *authHandler
+}
+
+// owner 는 이 요청이 볼 수 있는 주인이다. 로그인 안 했으면 nil = 익명 판.
+//
+// **되짚기와 가정 수순이 같은 함수를 쓴다.** 거르는 규칙이 두 벌이 되면 한쪽만
+// 고쳐진 채로 남고, 그 한쪽이 곧 구멍이다.
+func (h *authHandler) owner(r *http.Request) *int64 {
+	s, ok := h.viewer(r)
+	if !ok {
+		return nil
+	}
+	return &s.UserID
 }
 
 // gameSummary 는 목록 한 줄이다.
@@ -124,7 +138,7 @@ func (h *reviewHandler) list(w http.ResponseWriter, r *http.Request) {
 		limit = min(int(n), listLimitMax)
 	}
 
-	games, err := h.store.ListGames(r.Context(), limit)
+	games, err := h.store.ListGames(r.Context(), limit, h.auth.owner(r))
 	if err != nil {
 		log.Printf("review: list games: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]any{
@@ -151,7 +165,7 @@ func (h *reviewHandler) detail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rec, err := h.store.GameRecord(r.Context(), id)
+	rec, err := h.store.GameRecord(r.Context(), id, h.auth.owner(r))
 	if errors.Is(err, store.ErrNoGame) {
 		writeJSON(w, http.StatusNotFound, map[string]any{
 			"error": "not_found", "message": "その対局は見つかりません。",

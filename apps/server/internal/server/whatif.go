@@ -73,6 +73,9 @@ func cacheOf(st *store.Store) Cache {
 type whatifHandler struct {
 	store  *store.Store
 	search Searcher
+	// auth 는 **여기도 남의 판을 막는다.** 되짚기만 걸러 두면 이 표면이 남는데,
+	// 여기는 기록에서 판을 다시 두는 자리라 그것만으로 남의 기보가 열린다(review.go).
+	auth *authHandler
 }
 
 // whatifRequest 는 「ply 手目에서 이 수순을 뒀다면」이다.
@@ -201,7 +204,7 @@ func (h *whatifHandler) play(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rec, err := h.store.GameRecord(r.Context(), id)
+	rec, err := h.store.GameRecord(r.Context(), id, h.auth.owner(r))
 	if errors.Is(err, store.ErrNoGame) {
 		writeJSON(w, http.StatusNotFound, map[string]any{
 			"error": "not_found", "message": "その対局は見つかりません。",

@@ -72,6 +72,27 @@ WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
 ORDER BY g.id DESC
 LIMIT $1;
 
+-- name: ListGamesForOwner :many
+--
+-- **화면이 쓰는 쪽이다.** 위 ListGames 는 주인을 안 보므로 측정 전용이다.
+--
+-- 주인이 NULL(로그인 안 함)이면 익명 판만 보인다. 익명 판은 서로 구별할 수단이
+-- 애초에 없으므로 지금까지와 같고, 갈리는 것은 **로그인한 판이 그 사람에게만
+-- 보인다**는 쪽이다 (docs/02-architecture.md §7 위협 2).
+SELECT
+    g.id,
+    g.my_color,
+    g.started_at,
+    g.finished_at,
+    g.result,
+    (SELECT count(*) FROM game_moves m WHERE m.game_id = g.id) AS move_count,
+    (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count
+FROM games g
+WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
+  AND g.user_id IS NOT DISTINCT FROM sqlc.narg('owner_id')::bigint
+ORDER BY g.id DESC
+LIMIT $1;
+
 -- name: GetGame :one
 --
 -- **여기서는 개입을 세지 않는다.** 어차피 아래에서 전부 읽어 오므로, 따로 센 숫자와
@@ -80,6 +101,15 @@ LIMIT $1;
 SELECT id, my_color, started_at, finished_at, result, start_sfen
 FROM games
 WHERE id = $1;
+
+-- name: GetGameForOwner :one
+--
+-- 주인이 아니면 **0행**이다. 부르는 쪽에서 그것이 404가 된다 — 403이면 「그 번호의
+-- 판이 있다」를 알려주는 셈이라, 남의 판 개수를 세어 볼 수 있다.
+SELECT id, my_color, started_at, finished_at, result, start_sfen
+FROM games
+WHERE id = $1
+  AND user_id IS NOT DISTINCT FROM sqlc.narg('owner_id')::bigint;
 
 -- name: ListGameMoves :many
 --

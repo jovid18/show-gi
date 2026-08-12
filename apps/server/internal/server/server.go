@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jovid18/show-gi/apps/server/internal/auth"
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
@@ -63,6 +64,14 @@ type Options struct {
 
 	// Explainer 는 개입 문구를 만든다. nil이면 결정적 템플릿이 나간다.
 	Explainer explain.Explainer
+
+	// Google·SessionSecret 이 다 있어야 로그인이 켜진다(Store 도 필요하다 — auth.go).
+	// 하나라도 비면 표면이 통째로 닫히고 익명 대국으로 남는다.
+	Google        *auth.Google
+	SessionSecret string
+
+	// PublicOrigin 은 브라우저가 이 서버를 부르는 주소다. 비면 요청에서 되짚는다(auth.go).
+	PublicOrigin string
 }
 
 // Handler 는 라우팅만 조립한다. 테스트가 서버를 띄우지 않고 이걸 그대로 쓴다.
@@ -88,6 +97,21 @@ func Handler(opts Options) http.Handler {
 		})
 	})
 
+	// 로그인. **켜지지 않아도 /api/me 는 있다** — 화면이 「로그인이라는 것이 이 배포에
+	// 있는가」를 물어보는 자리이고, 없으면 그 물음이 404가 되어 고장과 구별되지 않는다.
+	ah := &authHandler{
+		google:       opts.Google,
+		codec:        auth.NewCodec(opts.SessionSecret),
+		store:        opts.Store,
+		publicOrigin: opts.PublicOrigin,
+	}
+	mux.HandleFunc("GET /api/me", ah.me)
+	if ah.enabled() {
+		mux.HandleFunc("GET /api/auth/google/start", ah.start)
+		mux.HandleFunc("GET "+callbackPath, ah.callback)
+		mux.HandleFunc("POST /api/auth/logout", ah.logout)
+	}
+
 	// 끝난 판을 되짚는 표면(review.go). **DB에 매여 있고 엔진과 무관하다** — 가정 수순만
 	// 엔진이 필요해 그 한 경로가 따로 503이 된다(README 라우트 표). 화면은 /healthz 의
 	// `engine` 을 보고 미리 그 자리를 닫는다.
@@ -98,12 +122,12 @@ func Handler(opts Options) http.Handler {
 		})
 	}
 	if opts.Store != nil {
-		rev := &reviewHandler{store: opts.Store}
+		rev := &reviewHandler{store: opts.Store, auth: ah}
 		mux.HandleFunc("GET /api/games", rev.list)
 		mux.HandleFunc("GET /api/games/{id}", rev.detail)
 
 		if opts.Search != nil {
-			wi := &whatifHandler{store: opts.Store, search: opts.Search}
+			wi := &whatifHandler{store: opts.Store, search: opts.Search, auth: ah}
 			mux.HandleFunc("POST /api/games/{id}/whatif", wi.play)
 		} else {
 			mux.HandleFunc("POST /api/games/{id}/whatif", func(w http.ResponseWriter, _ *http.Request) {
@@ -120,7 +144,7 @@ func Handler(opts Options) http.Handler {
 	}
 
 	if opts.NewOpponent != nil {
-		mux.Handle("GET /ws/game", &gameHandler{opts: opts})
+		mux.Handle("GET /ws/game", &gameHandler{opts: opts, auth: ah})
 	} else {
 		mux.HandleFunc("GET /ws/game", func(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusServiceUnavailable, map[string]any{

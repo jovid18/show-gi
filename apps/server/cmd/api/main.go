@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/jovid18/show-gi/apps/server/internal/archive"
+	"github.com/jovid18/show-gi/apps/server/internal/auth"
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
@@ -47,6 +48,10 @@ func main() {
 		defer st.Close()
 		opts.Store = st
 	}
+
+	opts.Google = startAuth()
+	opts.SessionSecret = os.Getenv("SESSION_SECRET")
+	opts.PublicOrigin = os.Getenv("PUBLIC_ORIGIN")
 
 	opts.Explainer = startExplainer(opts.Store)
 
@@ -105,6 +110,26 @@ func main() {
 	if err := server.Run(ctx, *addr, opts); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// startAuth 는 Google 로그인을 켠다. 키가 없으면 nil이고 익명 대국으로 남는다.
+//
+// **없다고 프로세스를 죽이지 않는다.** 엔진·DB·LLM 키와 같은 판단이고, 여기서는
+// 특히 그렇다 — 로그인은 대국의 전제가 아니라 그 판이 누구 것으로 남느냐일 뿐이다.
+// 기동 로그가 어느 쪽으로 돌고 있는지 한 줄로 말한다.
+func startAuth() *auth.Google {
+	g := auth.NewGoogle(os.Getenv("GOOGLE_CLIENT_ID"), os.Getenv("GOOGLE_CLIENT_SECRET"))
+	if g == nil {
+		log.Print("GOOGLE_CLIENT_ID/SECRET are not set — games stay anonymous")
+		return nil
+	}
+	if os.Getenv("SESSION_SECRET") == "" {
+		// 서명 키가 없으면 쿠키를 위조할 수 있다. 그건 로그인이 없는 것보다 나쁘다.
+		log.Print("SESSION_SECRET is not set — sign-in stays off")
+		return nil
+	}
+	log.Print("google sign-in ready")
+	return g
 }
 
 // startExplainer 는 개입 문구를 만드는 계층을 세운다.

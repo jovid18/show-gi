@@ -49,8 +49,7 @@ type CreateGameParams struct {
 // 대국 기록. 기보와 개입을 남긴다.
 //
 // **개입으로 물러진 수가 여기서만 남는다.** 기보(game_moves)에는 확정된 수만 들어가므로,
-// interventions 에 안 적으면 「개입이 막지 않았다면 실제로 뒀을 수」가 그대로 사라진다 —
-// 개입에 오염되지 않은 유일한 실력 신호다 (docs/01-core.md §5).
+// interventions 에 안 적으면 그 수가 그대로 사라진다(docs/01-core.md §5).
 //
 // user_id 는 로그인 전이면 NULL이다 (002_anonymous_games.sql).
 func (q *Queries) CreateGame(ctx context.Context, arg CreateGameParams) (int64, error) {
@@ -106,6 +105,43 @@ func (q *Queries) GetGame(ctx context.Context, id int64) (GetGameRow, error) {
 	return i, err
 }
 
+const getGameForOwner = `-- name: GetGameForOwner :one
+SELECT id, my_color, started_at, finished_at, result, start_sfen
+FROM games
+WHERE id = $1
+  AND user_id IS NOT DISTINCT FROM $2::bigint
+`
+
+type GetGameForOwnerParams struct {
+	ID      int64
+	OwnerID *int64
+}
+
+type GetGameForOwnerRow struct {
+	ID         int64
+	MyColor    string
+	StartedAt  pgtype.Timestamptz
+	FinishedAt pgtype.Timestamptz
+	Result     *string
+	StartSfen  *string
+}
+
+// 주인이 아니면 **0행**이다. 부르는 쪽에서 그것이 404가 된다 — 403이면 「그 번호의
+// 판이 있다」를 알려주는 셈이라, 남의 판 개수를 세어 볼 수 있다.
+func (q *Queries) GetGameForOwner(ctx context.Context, arg GetGameForOwnerParams) (GetGameForOwnerRow, error) {
+	row := q.db.QueryRow(ctx, getGameForOwner, arg.ID, arg.OwnerID)
+	var i GetGameForOwnerRow
+	err := row.Scan(
+		&i.ID,
+		&i.MyColor,
+		&i.StartedAt,
+		&i.FinishedAt,
+		&i.Result,
+		&i.StartSfen,
+	)
+	return i, err
+}
+
 const insertIntervention = `-- name: InsertIntervention :exec
 INSERT INTO interventions (
     game_id, ply, kind, category, delta_win, level_bucket, retracted_usi,
@@ -128,16 +164,9 @@ type InsertInterventionParams struct {
 	AfterCp      *int32
 }
 
-// **같은 ply에 여러 행이 들어간다.** 한 국면에서 몇 수를 시도하고 전부 물러지는 일이
-// 실제로 있고(docs/06-status.md §17), 그 반복 자체가 기록할 값이다. 그래서
-// (game_id, ply) 는 유니크가 아니다.
-//
-// `explain_tier` 는 **LLM을 안 거쳤으면 NULL** 이다. 0으로 적으면 「캐시 히트」와 구별이
-// 안 되는데, 그 둘은 비용 계측에서 정반대의 뜻이다 — 히트는 아껴서 0엔이고 NULL은 애초에
-// 부르지 않은 것이다(docs/04-llm.md §2).
-// `best_cp`·`after_cp` 는 낙폭을 만든 **두 원본**이다(둘 다 수번 측 관점). 낙폭만 남기면
-// 되돌릴 수 없어서 재채점도 절대값 비교도 못 한다 — 판정이 이미 손에 들고 있는 값이라
-// 남기는 데 드는 것이 없다(migrations/005). **과거 행은 NULL 이다.**
+// **(game_id, ply) 는 유니크가 아니다.** 한 국면에서 몇 수를 시도하고 전부 물러지는 일이
+// 실제로 있고 그 반복이 곧 기록할 값이다(docs/06-status.md §17).
+// 칸별 규약은 store.Intervention 에 있다.
 func (q *Queries) InsertIntervention(ctx context.Context, arg InsertInterventionParams) error {
 	_, err := q.db.Exec(ctx, insertIntervention,
 		arg.GameID,
@@ -201,8 +230,8 @@ type ListGameInterventionsRow struct {
 	AfterCp      *int32
 }
 
-// 같은 ply에 여러 행이 온다(InsertIntervention 참조). id 로 이어 정렬해 **물러진
-// 순서**를 지킨다 — 한 국면에서 두 번 걸렸을 때 어느 쪽이 먼저였는지가 곧 이야기다.
+// 같은 ply에 여러 행이 온다(InsertIntervention). id 로 이어 정렬해 **물러진 순서**를
+// 지킨다 — 한 국면에서 두 번 걸렸을 때 어느 쪽이 먼저였는지가 곧 이야기다.
 func (q *Queries) ListGameInterventions(ctx context.Context, gameID int64) ([]ListGameInterventionsRow, error) {
 	rows, err := q.db.Query(ctx, listGameInterventions, gameID)
 	if err != nil {
@@ -242,8 +271,7 @@ type ListGameMovesRow struct {
 	EvalCp *int32
 }
 
-// eval_cp 는 **先手 관점**이고 NULL일 수 있다 — 평가치는 수보다 늦게 오므로,
-// 연결이 끊긴 판의 마지막 몇 수에는 안 채워진 채로 남는다.
+// eval_cp 는 **先手 관점**이고 NULL일 수 있다(store.RecordedMove).
 func (q *Queries) ListGameMoves(ctx context.Context, gameID int64) ([]ListGameMovesRow, error) {
 	rows, err := q.db.Query(ctx, listGameMoves, gameID)
 	if err != nil {
@@ -291,7 +319,6 @@ type ListGamesRow struct {
 }
 
 // ─── 리뷰(읽기) ─────────────────────────────────────────────
-// 여기부터가 **꺼내는 쪽**이다. 위의 질의들이 쌓기만 하고 아무도 안 읽던 자리다.
 //
 // 리뷰 화면의 첫 목록. 최신부터.
 //
@@ -329,6 +356,70 @@ func (q *Queries) ListGames(ctx context.Context, limit int32) ([]ListGamesRow, e
 	return items, nil
 }
 
+const listGamesForOwner = `-- name: ListGamesForOwner :many
+SELECT
+    g.id,
+    g.my_color,
+    g.started_at,
+    g.finished_at,
+    g.result,
+    (SELECT count(*) FROM game_moves m WHERE m.game_id = g.id) AS move_count,
+    (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count
+FROM games g
+WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
+  AND g.user_id IS NOT DISTINCT FROM $2::bigint
+ORDER BY g.id DESC
+LIMIT $1
+`
+
+type ListGamesForOwnerParams struct {
+	Limit   int32
+	OwnerID *int64
+}
+
+type ListGamesForOwnerRow struct {
+	ID                int64
+	MyColor           string
+	StartedAt         pgtype.Timestamptz
+	FinishedAt        pgtype.Timestamptz
+	Result            *string
+	MoveCount         int64
+	InterventionCount int64
+}
+
+// **화면이 쓰는 쪽이다.** 위 ListGames 는 주인을 안 보므로 측정 전용이다.
+//
+// 주인이 NULL(로그인 안 함)이면 익명 판만 보인다. 익명 판은 서로 구별할 수단이
+// 애초에 없으므로 지금까지와 같고, 갈리는 것은 **로그인한 판이 그 사람에게만
+// 보인다**는 쪽이다 (docs/02-architecture.md §7 위협 2).
+func (q *Queries) ListGamesForOwner(ctx context.Context, arg ListGamesForOwnerParams) ([]ListGamesForOwnerRow, error) {
+	rows, err := q.db.Query(ctx, listGamesForOwner, arg.Limit, arg.OwnerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGamesForOwnerRow
+	for rows.Next() {
+		var i ListGamesForOwnerRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.MyColor,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.Result,
+			&i.MoveCount,
+			&i.InterventionCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setMoveEval = `-- name: SetMoveEval :exec
 UPDATE game_moves SET eval_cp = $3 WHERE game_id = $1 AND ply = $2
 `
@@ -339,11 +430,8 @@ type SetMoveEvalParams struct {
 	EvalCp *int32
 }
 
-// 평가치만 나중에 채운다. **수를 덮지 않는다** — 그 수는 이미 확정되어 들어가 있고,
-// 여기서 다시 쓰면 물러진 수로 덮을 길이 생긴다.
-//
-// 없는 ply면 아무 일도 안 한다. 평가치가 수보다 먼저 오는 경로는 없으므로 그때는
-// 기록이 실패한 것이고, 그걸 여기서 만들어 메우면 기보에 없는 행이 생긴다.
+// 평가치만 채운다. **수를 덮지 않는다** — upsert로 두면 물러진 수로 기보를 덮는 길이 생긴다.
+// 없는 ply면 아무 일도 안 한다(평가치가 수보다 먼저 오는 경로가 없다).
 func (q *Queries) SetMoveEval(ctx context.Context, arg SetMoveEvalParams) error {
 	_, err := q.db.Exec(ctx, setMoveEval, arg.GameID, arg.Ply, arg.EvalCp)
 	return err
