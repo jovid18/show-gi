@@ -28,6 +28,14 @@ const KIND_JA: Record<StyleTag['kind'], string> = {
   tesuji: '手筋',
 };
 
+/**
+ * 상대의 강함 눈금에 붙는 말(`snapshot.opponentStrength`).
+ *
+ * **다섯 개가 좌우로 대칭이다.** 3이 「아무것도 모르는 상태」이고 거기서 양쪽으로 움직이는
+ * 값이라, 한쪽만 이름이 세면 조절이 한 방향으로만 도는 것처럼 읽힌다.
+ */
+const STRENGTH_JA = ['かなり弱め', '弱め', 'ふつう', '強め', 'かなり強め'];
+
 export function GameScreen() {
   const { connection, snapshot, rejection, interventionEpisode, play, resign, dismissRejection, restart, whatif } =
     useGame();
@@ -329,6 +337,9 @@ export function GameScreen() {
     (snapshot.judging ? '今の手を確かめています。' : snapshot.thinking ? '相手が考えています。' : 'あなたの番です。');
   const statusTone = result ? 'result' : snapshot.judging || snapshot.thinking ? 'wait' : 'turn';
 
+  // 서버가 안 보내면 조절이 꺼져 있다는 뜻이다. 기본값으로 메우지 않는다(protocol/game.ts).
+  const strength = snapshot.opponentStrength;
+
   const pick = (next: string): void => {
     dismissRejection();
     setOrigin(next === origin ? null : next);
@@ -469,6 +480,20 @@ export function GameScreen() {
         {!intervening && (
           <p className="status" data-tone={statusTone}>
             {statusText}
+          </p>
+        )}
+
+        {/* 상대의 강함. **개입 중에는 안 그린다** — 이 자리는 카드 하나가 쓴다(위 주석).
+            눈금이 조용히 바뀌는 것이 이 기능의 요점이라 숫자도 % 도 쓰지 않는다. */}
+        {!intervening && strength !== undefined && (
+          <p className="strength" role="status">
+            <span className="strength__head">相手の強さ</span>
+            <span className="strength__pips" aria-hidden="true">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <i key={n} data-on={n <= strength || undefined} />
+              ))}
+            </span>
+            <span className="strength__label">{STRENGTH_JA[strength - 1]}</span>
           </p>
         )}
 

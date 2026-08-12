@@ -3,6 +3,7 @@ package game
 import (
 	"context"
 
+	"github.com/jovid18/show-gi/apps/server/internal/skill"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
@@ -33,7 +34,9 @@ func NewEngineOpponent(s Searcher, depth int) Opponent {
 	return &engineOpponent{search: s, depth: depth}
 }
 
-func (o *engineOpponent) Choose(ctx context.Context, startSFEN string, moves []string) (string, error) {
+// 추정치를 안 본다. **기준선이 곧 최선수인 상대**라 옮길 밴드가 없다 — 그것이 이 구현이
+// 있는 이유이고(위 주석), 실력에 따라 움직이는 쪽은 adaptive.go 뿐이다.
+func (o *engineOpponent) Choose(ctx context.Context, startSFEN string, moves []string, _ skill.Estimate) (string, error) {
 	res, err := o.search.SearchDepth(ctx, startSFEN, moves, o.depth)
 	if err != nil {
 		return "", err

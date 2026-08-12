@@ -78,17 +78,18 @@ docker run --rm --platform linux/arm64 --cpus 4 --network show-gi-net \
 
 **`-race` 를 빼지 않는다.** 엔진 프로세스와 세션 goroutine이 동시에 도는 구조라 데이터 경합이 가장 값비싼 버그다.
 
-| 환경변수                   | 없으면             | 쓰는 곳                                                                                      |
-| -------------------------- | ------------------ | -------------------------------------------------------------------------------------------- |
-| `SHOWGI_TEST_DATABASE_URL` | DB 테스트 skip     | `internal/store`, `internal/intervene` 의 재채점 측정, `internal/game` 의 블런더 재분류 측정 |
-| `SHOWGI_USI_CMD`           | 실엔진 테스트 skip | `TestRealEngine`, `TestWSAgainstRealEngine`                                                  |
-| `SHOWGI_MATE_CMD`          | 詰み 측정 skip     | `TestMeasureMateSearch`, `TestMeasureBlunderMate`, `TestMeasureBlunderTsumero`               |
-| `SHOWGI_MEASURE`           | 측정 전부 skip     | `TestMeasure*` — 몇 분 걸린다                                                                |
-| `SHOWGI_GENERATE_TIER1`    | 사전 생성 skip     | `TestGenerateTier1` — **돈이 든다**. 아래                                                    |
-| `SHOWGI_KIFU_SCAN`         | 기보 스캔 skip     | `internal/kifu` 의 `TestScan*` 다섯. 엔진도 DB도 안 쓴다                                     |
-| `SHOWGI_KIFU_DUMP`         | 덤프 skip          | `TestDumpFormationCases` — 사례마다 마크다운 한 장을 그 경로에 떨군다                        |
-| `SHOWGI_TEST_ENGINE_PATH`  | 기보 임포트 skip   | `internal/kifu` 의 `TestImportGame`. **여기만 `SHOWGI_USI_CMD` 를 안 쓴다**                  |
-| `ORCA_API_KEY`             | 실라우터 skip      | `TestRealRouter` — **돈이 든다.** 프롬프트를 고치면 여기가 첫 관문이다                       |
+| 환경변수                            | 없으면             | 쓰는 곳                                                                                      |
+| ----------------------------------- | ------------------ | -------------------------------------------------------------------------------------------- |
+| `SHOWGI_TEST_DATABASE_URL`          | DB 테스트 skip     | `internal/store`, `internal/intervene` 의 재채점 측정, `internal/game` 의 블런더 재분류 측정 |
+| `SHOWGI_USI_CMD`                    | 실엔진 테스트 skip | `TestRealEngine`, `TestWSAgainstRealEngine`                                                  |
+| `SHOWGI_MATE_CMD`                   | 詰み 측정 skip     | `TestMeasureMateSearch`, `TestMeasureBlunderMate`, `TestMeasureBlunderTsumero`               |
+| `SHOWGI_USI_CMD` + `SHOWGI_MEASURE` | 밴드 측정 skip     | `TestMeasureSkill*` — 실력 추정이 밴드를 옮기는 폭을 잰다(06-status.md §47). DB는 안 쓴다    |
+| `SHOWGI_MEASURE`                    | 측정 전부 skip     | `TestMeasure*` — 몇 분 걸린다                                                                |
+| `SHOWGI_GENERATE_TIER1`             | 사전 생성 skip     | `TestGenerateTier1` — **돈이 든다**. 아래                                                    |
+| `SHOWGI_KIFU_SCAN`                  | 기보 스캔 skip     | `internal/kifu` 의 `TestScan*` 다섯. 엔진도 DB도 안 쓴다                                     |
+| `SHOWGI_KIFU_DUMP`                  | 덤프 skip          | `TestDumpFormationCases` — 사례마다 마크다운 한 장을 그 경로에 떨군다                        |
+| `SHOWGI_TEST_ENGINE_PATH`           | 기보 임포트 skip   | `internal/kifu` 의 `TestImportGame`. **여기만 `SHOWGI_USI_CMD` 를 안 쓴다**                  |
+| `ORCA_API_KEY`                      | 실라우터 skip      | `TestRealRouter` — **돈이 든다.** 프롬프트를 고치면 여기가 첫 관문이다                       |
 
 > **`SHOWGI_MEASURE` 는 혼자서는 아무것도 안 연다.** `TestMeasure*` 는 전부 `*_CMD` 와 **둘 다** 있어야 돈다. 한쪽만 주면 실엔진 테스트는 돌고 측정만 조용히 건너뛴다 — 초록이 「쟀다」는 뜻이 아닌 자리가 여기 한 겹 더 있다.
 
@@ -149,6 +150,7 @@ sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다
 | `internal/game`      | 대국 세션 상태머신 — **goroutine 1개가 상태를 소유**한다                  |
 | `internal/intervene` | 개입 판정. **엔진을 모른다** — 입력이 평가치와 詰み 거리뿐이다            |
 | `internal/explain`   | 설명 문구. **판단하지 않는다** — 정해진 사실을 문장으로만 바꾼다          |
+| `internal/skill`     | 실력 추정. **엔진도 DB도 판도 모른다** — 입력이 낙폭과 「걸렸나」뿐이다   |
 | `internal/shogi`     | 룰 엔진 — SFEN, 합법수, 반칙 검증, 棋譜 표기                              |
 | `internal/usi`       | 엔진 프로세스 풀. MultiPV·깊이별 평가치·詰み 탐색                         |
 | `internal/archive`   | **모든 탐색을 데이터로 만든다** — `positions`·`edges` (§37)               |
@@ -157,7 +159,7 @@ sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다
 | `internal/kifu`      | KIF·CSA 파서와 실 기보 임포트. **서버는 안 쓴다** — `cmd/importkifu` 만   |
 | `cmd/importkifu`     | 실 기보를 같은 판정 경로로 다시 둬 DB에 넣는다. 플래그·배선뿐             |
 
-아직 없는 것: `internal/profile`(실력 추정), `internal/kb`(RAG 코퍼스).
+아직 없는 것: `internal/kb`(RAG 코퍼스).
 
 `go.mod`는 레포 루트가 아니라 여기 있다. `apps/web`이 Node 워크스페이스라 루트를 한쪽 언어에 내주지 않으려는 것이고, 대신 Go 명령은 전부 이 디렉터리에서 돌린다.
 

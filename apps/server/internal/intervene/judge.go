@@ -92,9 +92,14 @@ type Input struct {
 
 // Verdict 는 판정 결과다.
 type Verdict struct {
+	// Kind 는 개입하는가다. **아래 숫자들이 채워졌는지와 별개다** — 통과한 수도 낙폭을
+	// 갖고 돌아온다(Judge).
 	Kind Kind
 	// DeltaWin 은 승률 낙폭(0~1). 종반 판정으로 걸렸을 때는 0에 가까울 수 있다 —
 	// 승률이 포화하는 구간이라 그 값이 작다는 것이 바로 詰み 거리를 쓰는 이유다.
+	//
+	// **통과한 수에도 있다.** 실력 추정이 매 수의 이 값으로 도므로(internal/skill), 여기가
+	// 개입한 수에서만 채워지면 신호가 개입에 오염된 표본만 남는다.
 	DeltaWin float64
 	// BestCp·AfterCp 는 낙폭을 만든 **두 원본**이다. 둘 다 두는 쪽 관점(Input 과 같다).
 	//
@@ -116,6 +121,13 @@ const JudgeMatePlies = 5
 
 // Judge 는 한 수를 판정한다.
 func Judge(in Input) Verdict {
+	delta := WinRate(in.BestCp) - WinRate(in.AfterCp)
+
+	// **통과한 수도 낙폭을 담아 돌려준다.** 임계치를 안 넘었다는 것이 손해가 없다는 뜻이
+	// 아니고, 실력 추정은 걸린 수가 아니라 **매 수의 낙폭**으로 돈다(internal/skill).
+	// Kind 하나만 보면 되던 자리는 그대로다 — 통과는 KindNone 이다.
+	pass := Verdict{DeltaWin: delta, BestCp: in.BestCp, AfterCp: in.AfterCp}
+
 	// 종반 — 승률이 포화해 낙폭이 판정력을 잃는 구간이다. **이기고 있는 쪽에만 필요하다** —
 	// 지는 쪽은 승률이 멀쩡히 움직여 아래 낙폭 판정이 이미 잡는다(01-core.md §2).
 	if in.MateBefore > 0 && in.MateBefore <= JudgeMatePlies {
@@ -123,17 +135,16 @@ func Judge(in Input) Verdict {
 		if lost {
 			return Verdict{
 				Kind:     KindBlunder,
-				DeltaWin: WinRate(in.BestCp) - WinRate(in.AfterCp),
+				DeltaWin: delta,
 				BestCp:   in.BestCp,
 				AfterCp:  in.AfterCp,
 				LostMate: true,
 				Category: classify(in, true),
 			}
 		}
-		return Verdict{}
+		return pass
 	}
 
-	delta := WinRate(in.BestCp) - WinRate(in.AfterCp)
 	if delta > in.Level.Threshold() {
 		return Verdict{
 			Kind:     KindBlunder,
@@ -143,5 +154,5 @@ func Judge(in Input) Verdict {
 			Category: classify(in, false),
 		}
 	}
-	return Verdict{}
+	return pass
 }

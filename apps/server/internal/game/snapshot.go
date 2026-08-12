@@ -84,6 +84,15 @@ type Snapshot struct {
 	//
 	// 사람 차례에서만 구하고, 국면이 움직이면 그 자리에서 무효다(state.mateGen).
 	MateHeat int `json:"mateHeat,omitempty"`
+
+	// OpponentStrength 는 상대가 지금 겨냥하는 강함이다(1~5, 5가 최선수 쪽). **추정기가
+	// 꺼져 있으면 안 온다** — 0을 보내면 화면이 「고정된 강함」과 「조절 중이지만 아직
+	// 모름」을 구별할 수 없고, 조절하지도 않는 판에 눈금을 그리게 된다.
+	//
+	// **점수가 아니라 상대의 강함으로 적는다.** 같은 숫자를 「너의 실력」으로 그리면 판마다
+	// 초기화되는 값이 사람에 대한 판정으로 읽히고, 우리가 아는 것은 어디까지나 **이 판에서
+	// 얼마나 헤맸는가**다(skill 패키지).
+	OpponentStrength int `json:"opponentStrength,omitempty"`
 }
 
 // Judgement 는 판정 결과와, 그것을 화면에 그리는 데 쓸 재료다.
@@ -119,6 +128,12 @@ type Judgement struct {
 	// (explain.Facts.used) 카테고리가 정해진 뒤에야 닫힌다. 그리고 여기 실리는 것은 이미
 	// 결정적으로 구해진 사실뿐이라, 설명이 판을 다시 읽는 일이 없다.
 	Facts explain.Facts
+
+	// Threshold 는 이 판정에 쓰인 승률 낙폭 임계치다(intervene.Level.Threshold).
+	//
+	// **DeltaWin 과 함께 나가야 뜻이 정해진다.** 실력 추정은 낙폭을 이 값으로 나눠 0~1로
+	// 만드는데(skill.Move), 레벨을 추정기 쪽에서 다시 보면 판정과 다른 값을 쓰는 날이 온다.
+	Threshold float64
 
 	// BestUSI 는 착수 **전** 국면의 최선수다. 판정하면서 어차피 손에 들어온 값이라
 	// 추가 탐색이 없다.

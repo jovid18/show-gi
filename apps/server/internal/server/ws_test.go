@@ -16,13 +16,14 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
+	"github.com/jovid18/show-gi/apps/server/internal/skill"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
 // scriptedOpponent 는 정해진 수만 둔다. WS 계층만 보려는 것이라 엔진을 띄우지 않는다.
 type scriptedOpponent struct{ moves []string }
 
-func (o *scriptedOpponent) Choose(_ context.Context, _ string, moves []string) (string, error) {
+func (o *scriptedOpponent) Choose(_ context.Context, _ string, moves []string, _ skill.Estimate) (string, error) {
 	// 사람 수 뒤에 오므로 우리 차례는 (len(moves)-1)/2 번째다.
 	i := len(moves) / 2
 	if i >= len(o.moves) {
@@ -487,9 +488,14 @@ func TestRealEngineHangingPiece(t *testing.T) {
 	if iv.Category != string(intervene.CategoryHangsPiece) {
 		t.Errorf("카테고리 %q 기대, got %q", intervene.CategoryHangsPiece, iv.Category)
 	}
-	// 문구가 카테고리를 따라가야 한다. 여기가 갈리면 화면에는 예전 문구가 그대로 나간다.
-	if !strings.Contains(iv.Message, "利き") {
-		t.Errorf("タダ捨て인데 相手の利き을 안 짚는다: %q", iv.Message)
+	// 문구가 카테고리를 따라가야 한다. 여기가 갈리면 화면에는 미분류 문구가 그대로 나간다.
+	//
+	// **낱말 하나로 고정하지 않는다.** タダ捨て는 사실이 실리면 「取れる相手の駒が2枚」처럼
+	// 숫자로 말하고, 없으면 「相手の利きを確かめて」로 간다(explain.Render). 둘 다 「상대가
+	// 그 駒를 잡는다」는 같은 이야기인데, 낱말을 박아 두면 사실이 실리는 날 깨진다 —
+	// **실제로 깨져 있었고 CI에 엔진이 없어 아무도 몰랐다**(06-status.md §47).
+	if !strings.Contains(iv.Message, "利き") && !strings.Contains(iv.Message, "取れる相手の駒") {
+		t.Errorf("タダ捨て 문구가 아니다: %q", iv.Message)
 	}
 
 	// 반박 수순 — 「상대는 이렇게 벌한다」. 문구가 카테고리를 못 잡는 국면에서도
@@ -530,3 +536,102 @@ func worstMove(t *testing.T, ctx context.Context, pool *usi.Pool, start string, 
 const kifuBOpening = `7g7f 8b4b 2h6h 4c4d 5i4h 3c3d 4h3h 2b3c 6i5h 3a3b
 4i4h 7a7b 3i2h 3b4c 6g6f 4a5b 7i7h 5a6b 7h6g 6b7a
 8h7g 3d3e 9g9f 4c3d 1g1f 3d4e 9f9e 3e3f 3g3f 4e3f`
+
+// TestRealEngineStrengthReachesTheClient 는 **실력 추정이 화면까지 오는가**를 본다.
+//
+// 배선이 길다 — 판정 → 추정기 goroutine → 세션 → 스냅샷 → WS. 가짜 판정으로는 첫 칸을
+// 못 채우고(낙폭이 우리가 적은 값이다), 단위 테스트로는 마지막 칸을 못 본다.
+// **프로덕션과 같은 조립**이다: `NewAdaptiveOpponent` + `NewEngineAnalyst`(06-status.md §47).
+//
+//	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/server/ -run RealEngineStrength -v
+func TestRealEngineStrengthReachesTheClient(t *testing.T) {
+	cmd := os.Getenv("SHOWGI_USI_CMD")
+	if cmd == "" {
+		t.Skip("SHOWGI_USI_CMD 미설정")
+	}
+	pool, err := usi.NewPool(2, cmd, map[string]string{
+		"USI_Hash": "128", "Threads": "1", "FV_SCALE": "24",
+		"BookFile": "no_book", "USI_OwnBook": "false",
+	})
+	if err != nil {
+		t.Fatalf("엔진 풀: %v", err)
+	}
+	defer pool.Close()
+
+	pos := shogi.StartPosition()
+	for _, u := range strings.Fields(kifuBOpening) {
+		m, err := shogi.ParseUSIMove(u)
+		if err != nil {
+			t.Fatalf("기보 파싱 %s: %v", u, err)
+		}
+		pos = pos.Apply(m)
+	}
+	start := pos.SFEN()
+
+	srv := httptest.NewServer(Handler(Options{
+		NewOpponent: func() game.Opponent { return game.NewAdaptiveOpponent(pool, 8, game.DefaultBand) },
+		NewAnalyst: func() game.Analyst {
+			return game.NewEngineAnalyst(pool, nil, intervene.Intermediate)
+		},
+		StartSFEN:    start,
+		HumanColor:   pos.Turn,
+		ObservePlies: -1,
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(srv.URL, "http")+"/ws/game", nil)
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	defer conn.CloseNow()
+
+	snap := read(t, ctx, conn).Snapshot
+	if snap == nil || !snap.YourTurn {
+		t.Fatalf("시작 스냅샷: %+v", snap)
+	}
+	// 아무것도 보기 전에는 한복판이다 — 그리고 **0이 아니다**. 0은 「조절이 꺼졌다」는 뜻이다.
+	if snap.OpponentStrength != 3 {
+		t.Fatalf("첫 스냅샷의 강함이 한복판이 아니다: %d", snap.OpponentStrength)
+	}
+
+	// 같은 국면에서 같은 나쁜 수를 되풀이한다. 물러지면 국면이 그대로 돌아오므로
+	// 그 수가 계속 합법이고, **되풀이 자체가 실제로 일어나는 일**이다(06-status.md §17).
+	worst := worstMove(t, ctx, pool, start, snap)
+	t.Logf("일부러 두는 수: %s", worst)
+
+	got := snap
+	for i := range skill.MinSamples {
+		if err := wsjson.Write(ctx, conn, clientMsg{Type: "move", USI: worst}); err != nil {
+			t.Fatalf("%d번째 Write: %v", i+1, err)
+		}
+
+		// **먼저 「판정 중」을 기다린다.** 물러지면 `Ply` 가 0으로 돌아오므로 앞선 회차의
+		// 스냅샷과 뜻으로 구별되지 않고, 그대로 「판정 결과」를 기다리면 **직전 회차가 남긴
+		// 스냅샷이 즉시 맞아** 이 회차를 안 재고 넘어간다. `judging` 은 이 착수에만 켜진다.
+		readUntil(t, ctx, conn, func(m serverMsg) bool {
+			if m.Type == "error" {
+				t.Fatalf("%s 가 거절됨: %s", worst, m.Reason)
+			}
+			return m.Snapshot != nil && m.Snapshot.Judging
+		}, "판정 시작")
+
+		got = readUntil(t, ctx, conn, func(m serverMsg) bool {
+			return m.Snapshot != nil && !m.Snapshot.Judging &&
+				(m.Snapshot.Intervention != nil || m.Snapshot.YourTurn)
+		}, "판정 결과").Snapshot
+		t.Logf("%d수째 판정 뒤: 강함=%d 개입=%v", i+1, got.OpponentStrength, got.Intervention != nil)
+	}
+
+	// 마지막 판정의 추정치는 스냅샷보다 늦게 올 수 있다 — 추정기가 세션 밖에서 돌기
+	// 때문이고, 그래서 「기다리지 않는다」가 설계다(game.Opponent). 눈금이 내려간
+	// 스냅샷을 기다린다.
+	if got.OpponentStrength >= 3 {
+		got = readUntil(t, ctx, conn, func(m serverMsg) bool {
+			return m.Snapshot != nil && m.Snapshot.OpponentStrength > 0 && m.Snapshot.OpponentStrength < 3
+		}, "강함이 내려간 스냅샷").Snapshot
+	}
+	t.Logf("나쁜 수 %d번 뒤의 강함: %d", skill.MinSamples, got.OpponentStrength)
+}

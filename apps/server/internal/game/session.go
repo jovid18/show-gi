@@ -17,6 +17,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
+	"github.com/jovid18/show-gi/apps/server/internal/skill"
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
 )
 
@@ -34,8 +35,44 @@ type Analyst interface {
 //
 // 구현이 둘이다 — NewEngineOpponent(엔진 최선수 그대로)와 NewAdaptiveOpponent(밴드 제어,
 // 프로덕션이 쓰는 쪽). 상대의 강함이 바뀌는 자리가 여기뿐이라 세션 상태머신은 둘을 모른다.
+//
+// sk 는 세션이 들고 있는 추정치다. **기다려서 받은 값이 아니다.**
+//
+// **늘 한 수 뒤진다** — 조건이 아니라 구조다. `applyVerdict` 가 추정기에 던지고(논블로킹)
+// 같은 자리에서 이 함수를 부르므로, N수째 응수는 언제나 1..N-1 로 만든 값으로 고른다.
+// 그래도 한 판 안에서 서너 번은 조절된다(06-status.md §21 ①).
 type Opponent interface {
-	Choose(ctx context.Context, startSFEN string, moves []string) (string, error)
+	Choose(ctx context.Context, startSFEN string, moves []string, sk skill.Estimate) (string, error)
+}
+
+// SkillAdapter 는 추정치로 강함이 실제로 달라지는 상대다. 안 만족하면 그 상대는 sk 를 버린다.
+//
+// **화면의 눈금은 추정기가 아니라 이쪽을 보고 갈린다.** 추정기가 돌아도 상대가 그 값을
+// 무시하면(`engineOpponent`) 눈금이 「조절하지도 않는 판」에 그려진다 — 그것을 막으려고
+// 둔 것이 `Snapshot.OpponentStrength` 의 조건이고, 추정기 유무로 갈랐더니 정확히 그 구멍이
+// 남아 있었다(프로덕션은 adaptive 하나라 안 드러난다).
+type SkillAdapter interface {
+	// AdaptsToSkill 은 「이 상대는 추정치를 본다」다. 값이 아니라 성질이라 인자가 없다.
+	AdaptsToSkill() bool
+}
+
+// adaptsToSkill 은 상대가 추정치를 보는가다. 인터페이스를 안 만족하면 안 보는 것으로 센다 —
+// 새 구현이 잠자코 눈금을 얻는 쪽보다 잠자코 안 그리는 쪽이 안전하다.
+func adaptsToSkill(o Opponent) bool {
+	a, ok := o.(SkillAdapter)
+	return ok && a.AdaptsToSkill()
+}
+
+// Rater 는 사람의 착수를 받아 실력 추정치를 돌려준다. nil이면 밴드가 기준선에 고정된다.
+//
+// **두 메서드의 방향이 다른 것이 요점이다.** 넣는 쪽은 세션 goroutine이 부르므로 즉시
+// 돌아와야 하고(Recorder 와 같은 규약), 받는 쪽은 채널이라 **읽는 것을 세션이 소유한다** —
+// 추정기가 공유 변수를 직접 쓰면 「대국 상태는 goroutine 하나가 소유한다」가 깨진다.
+//
+// `Recorder` 와 **같은 이벤트 흐름의 두 번째 소비자**다(06-status.md §21 ①).
+type Rater interface {
+	Observe(m skill.Move)
+	Estimates() <-chan skill.Estimate
 }
 
 // Config 는 세션 하나의 설정이다.
@@ -59,6 +96,12 @@ type Config struct {
 	TesujiHint MultiSearcher
 	// Recorder 가 nil이면 기록하지 않는다. 대국은 그대로 된다.
 	Recorder Recorder
+	// Rater 가 nil이면 상대의 강함이 대국 내내 기준선 밴드 그대로다.
+	//
+	// **Level(개입 임계치)은 이쪽이 안 건드린다.** 조절하는 것은 밴드이고, 임계치를 대국
+	// 중에 흔들면 같은 수가 같은 국면에서 걸리기도 안 걸리기도 한다 — 문구 캐시 키까지
+	// 그 값으로 갈린다(explain.Facts).
+	Rater Rater
 	// Explainer 가 nil이면 결정적 문구가 그대로 나간다 — `explain.Render` 와 같은 문장이다.
 	//
 	// **비어 있어도 카드가 완성된다**는 것이 이 자리의 규약이다. LLM은 문장의 품질을 올리는
@@ -208,6 +251,11 @@ type state struct {
 	tesujiHintCount   int
 	tesujiHintLastPly int
 
+	// skill 은 추정기가 마지막으로 올려보낸 값이다. **상대를 고를 때만 쓴다.**
+	//
+	// 세션 goroutine만 읽고 쓴다 — 추정기는 채널로 올려보낼 뿐이다(Rater).
+	skill skill.Estimate
+
 	// 물러질 수 있으므로 착수 직전 국면을 들고 있는다. Position 이 값 타입이라 복사면 끝이다.
 	prevPos    shogi.Position
 	prevPrevTo int
@@ -242,6 +290,7 @@ func New(ctx context.Context, cfg Config) (*Session, error) {
 		repeats: map[string]int{},
 		status:  StatusPlaying,
 		subs:    map[chan Snapshot]struct{}{},
+		skill:   skill.Unknown,
 	}
 	st.repeats[pos.RepetitionKey()]++
 
@@ -260,6 +309,13 @@ func (s *Session) run(ctx context.Context, st *state) {
 	// 기록도 세션 goroutine 안에서 시작한다 — 상태를 만지는 순서와 같은 줄에 둔다.
 	if st.cfg.Recorder != nil {
 		st.cfg.Recorder.Started(st.start, st.cfg.HumanColor)
+	}
+
+	// 추정기가 없으면 nil 채널이라 그 case 가 영원히 안 고른다 — 아래 루프에 조건문을
+	// 두지 않기 위해서다.
+	var rated <-chan skill.Estimate
+	if st.cfg.Rater != nil {
+		rated = st.cfg.Rater.Estimates()
 	}
 
 	// 엔진이 선수면 시작하자마자 생각한다. 사람이 선수면 게이지가 대신 걸린다 —
@@ -293,6 +349,9 @@ func (s *Session) run(ctx context.Context, st *state) {
 
 		case r := <-tesujiDone:
 			st.applyTesujiHint(r)
+
+		case e := <-rated:
+			st.applySkill(e)
 		}
 	}
 }
@@ -436,6 +495,12 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 		log.Printf("game: judging failed, letting the move stand: %v", r.err)
 	}
 
+	// **판정이 성공한 수는 걸렸든 통과했든 실력 신호다.** 물러진 수만 세면 표본이 개입에
+	// 오염되고(01-core.md §5의 반대쪽), 통과한 수만 세면 제일 큰 실수가 안 들어온다.
+	if r.err == nil {
+		st.observeSkill(r.judgement)
+	}
+
 	if r.err == nil && r.judgement.Verdict.Kind == intervene.KindBlunder {
 		st.rollback(r)
 		// 되물러 사람 차례로 돌아왔다. 힌트와 게이지도 그 국면의 것으로 다시 구한다 —
@@ -467,6 +532,34 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 	st.maybeThink(ctx, engineDone)
 	st.maybeGauge(ctx, gaugeDone)
 	st.broadcast()
+}
+
+// observeSkill 은 판정 결과를 추정기에 넘긴다. **기다리지 않는다**(Rater).
+func (st *state) observeSkill(j Judgement) {
+	if st.cfg.Rater == nil {
+		return
+	}
+	st.cfg.Rater.Observe(skill.Move{
+		Blunder:   j.Verdict.Kind == intervene.KindBlunder,
+		DeltaWin:  j.Verdict.DeltaWin,
+		Threshold: j.Threshold,
+	})
+}
+
+// applySkill 은 올라온 추정치를 갈아 끼운다.
+//
+// **국면 세대(searchGen)를 안 본다.** 게이지·手筋 이름과 갈리는 자리다 — 그쪽은 특정 국면에
+// 대한 답이라 판이 움직이면 그 자리에서 거짓이 되지만, 이것은 **사람**에 대한 값이라
+// 판이 움직여도 그대로 참이다.
+//
+// 알리는 것은 단계가 바뀔 때뿐이다. 값은 매 수 조금씩 움직이는데 화면에 나가는 것은
+// 5단계라, 매번 보내면 같은 그림을 다시 그리는 스냅샷만 늘어난다.
+func (st *state) applySkill(e skill.Estimate) {
+	before := strengthStep(skillShift(st.skill))
+	st.skill = e
+	if strengthStep(skillShift(e)) != before {
+		st.broadcast()
+	}
 }
 
 // rollback 은 직전 사람의 수를 물린다.
@@ -586,9 +679,12 @@ func (st *state) maybeThink(ctx context.Context, engineDone chan engineResult) {
 	start := st.start
 	// 슬라이스를 그대로 넘기면 다음 착수의 append가 같은 배열을 건드릴 수 있다.
 	moves := append([]string(nil), st.usis...)
+	// **값으로 복사해 넘긴다.** 탐색이 도는 동안 추정치가 갈릴 수 있고, goroutine이 세션
+	// 상태를 읽으면 그 순간 소유 규약이 깨진다.
+	sk := st.skill
 
 	go func() {
-		usi, err := opp.Choose(ctx, start, moves)
+		usi, err := opp.Choose(ctx, start, moves, sk)
 		select {
 		case engineDone <- engineResult{usi: usi, err: err}:
 		case <-ctx.Done():
@@ -937,6 +1033,10 @@ func (st *state) snapshot() Snapshot {
 	// 국면이 움직였으면 게이지는 그 자리에서 무효다(state.mateGen).
 	if st.mateGen == st.searchGen {
 		snap.MateHeat = st.mateHeat
+	}
+	// **추정기가 있고 상대가 그 값을 볼 때만** 강함을 말한다(Snapshot.OpponentStrength).
+	if st.cfg.Rater != nil && adaptsToSkill(st.cfg.Opponent) {
+		snap.OpponentStrength = strengthStep(skillShift(st.skill))
 	}
 	// 囲い·전법과 手筋이 **같은 칸으로 나간다.** 표시가 하나여야 하기 때문이고(§41),
 	// 세대를 따로 보는 것은 手筋이 엔진을 기다리느라 늦게 도착하기 때문이다 — 囲い 쪽은

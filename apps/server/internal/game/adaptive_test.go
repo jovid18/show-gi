@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
+	"github.com/jovid18/show-gi/apps/server/internal/skill"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
@@ -29,7 +30,7 @@ func chooseFrom(t *testing.T, best string, lines ...usi.SearchLine) string {
 	t.Helper()
 	s := &stubMulti{res: usi.SearchResult{Best: best, Lines: lines}}
 	o := NewAdaptiveOpponent(s, 12, DefaultBand)
-	got, err := o.Choose(t.Context(), shogi.StartSFEN, nil)
+	got, err := o.Choose(t.Context(), shogi.StartSFEN, nil, skill.Unknown)
 	if err != nil {
 		t.Fatalf("Choose: %v", err)
 	}
@@ -94,7 +95,7 @@ func TestAdaptiveNeverThrowsAPiece(t *testing.T) {
 		},
 	}}
 	o := NewAdaptiveOpponent(s, 12, DefaultBand)
-	got, err := o.Choose(t.Context(), shogi.StartSFEN, []string{"7g7f"})
+	got, err := o.Choose(t.Context(), shogi.StartSFEN, []string{"7g7f"}, skill.Unknown)
 	if err != nil {
 		t.Fatalf("Choose: %v", err)
 	}
@@ -122,19 +123,19 @@ func TestAdaptiveFallsBackToBest(t *testing.T) {
 	// 판을 못 읽어도 마찬가지다
 	s := &stubMulti{res: usi.SearchResult{Best: "7g7f", Lines: []usi.SearchLine{line("2g2f", -200)}}}
 	o := NewAdaptiveOpponent(s, 12, DefaultBand)
-	if got, err := o.Choose(t.Context(), "not a sfen", nil); err != nil || got != "7g7f" {
+	if got, err := o.Choose(t.Context(), "not a sfen", nil, skill.Unknown); err != nil || got != "7g7f" {
 		t.Errorf("깨진 국면에서 %q, %v — 최선수로 물러서야 한다", got, err)
 	}
 }
 
 func TestAdaptivePropagatesSearchFailure(t *testing.T) {
 	o := NewAdaptiveOpponent(&stubMulti{err: errors.New("boom")}, 12, DefaultBand)
-	if _, err := o.Choose(t.Context(), shogi.StartSFEN, nil); err == nil {
+	if _, err := o.Choose(t.Context(), shogi.StartSFEN, nil, skill.Unknown); err == nil {
 		t.Fatal("탐색 실패가 전달되지 않음")
 	}
 	// 수가 하나도 없으면 조용히 빈 문자열을 돌려주지 않는다 — 세션이 그걸 두려 한다
 	o2 := NewAdaptiveOpponent(&stubMulti{res: usi.SearchResult{}}, 12, DefaultBand)
-	if _, err := o2.Choose(t.Context(), shogi.StartSFEN, nil); err == nil {
+	if _, err := o2.Choose(t.Context(), shogi.StartSFEN, nil, skill.Unknown); err == nil {
 		t.Fatal("빈 결과가 에러가 아니다")
 	}
 }
@@ -149,5 +150,95 @@ func TestBandDistance(t *testing.T) {
 		if got := b.distance(tc.cp); got != tc.want {
 			t.Errorf("distance(%d) = %d, want %d", tc.cp, got, tc.want)
 		}
+	}
+}
+
+// ─── 실력 추정이 밴드를 옮긴다 (06-status.md §47) ───────────────────────────
+
+// ready 는 표본이 충분한 추정치를 만든다. 값만 밖에서 정한다 —
+// 어떻게 그 값에 이르는지는 skill 쪽 테스트가 본다.
+func ready(loss float64) skill.Estimate {
+	return skill.Estimate{Loss: loss, Samples: skill.MinSamples}
+}
+
+func chooseWith(t *testing.T, sk skill.Estimate, best string, lines ...usi.SearchLine) string {
+	t.Helper()
+	s := &stubMulti{res: usi.SearchResult{Best: best, Lines: lines}}
+	o := NewAdaptiveOpponent(s, 12, DefaultBand)
+	got, err := o.Choose(t.Context(), shogi.StartSFEN, nil, sk)
+	if err != nil {
+		t.Fatalf("Choose: %v", err)
+	}
+	return got
+}
+
+// **같은 후보에서 다른 수가 나온다.** 헤매는 사람에게는 더 양보하고, 잘 두는 사람에게는
+// 이기려 든다 — 이 두 줄이 「적응형이 적응하는 대상이 사람이 아니었다」를 닫는다(§21 ①).
+func TestBandFollowsHowMuchThePlayerIsStruggling(t *testing.T) {
+	// 플레이어 관점으로 −200(최선) · +200(기본 밴드 안) · +600(크게 양보).
+	candidates := []usi.SearchLine{line("7g7f", 200), line("2g2f", -200), line("6g6f", -600)}
+
+	for _, tc := range []struct {
+		name string
+		sk   skill.Estimate
+		want string
+	}{
+		{"모르는 채로는 기준선", skill.Unknown, "2g2f"},
+		{"매 수 블런더면 가장 너그러운 수", ready(1), "6g6f"},
+		{"매 수 최선이면 이기려 든다", ready(0), "7g7f"},
+	} {
+		if got := chooseWith(t, tc.sk, "7g7f", candidates...); got != tc.want {
+			t.Errorf("%s: %q 기대, got %q (shift=%dcp)", tc.name, tc.want, got, skillShift(tc.sk))
+		}
+	}
+}
+
+// 표본이 모자라면 안 움직인다. 첫 수 몇 개로 강함이 흔들리면 사람이 알아차리기 전에
+// 상대가 딴사람이 된다.
+func TestBandHoldsUntilEnoughMoves(t *testing.T) {
+	early := skill.Estimate{Loss: 1, Samples: skill.MinSamples - 1}
+	if got := skillShift(early); got != 0 {
+		t.Errorf("표본 %d개로 밴드를 %dcp 옮겼다", early.Samples, got)
+	}
+}
+
+// **양보는 밴드까지다.** 아무리 헤매도 駒를 그냥 주는 수는 안 고른다 — 화면이
+// 「取り返せない場所」라고 가르친 수를 상대가 두면 방금 배운 것이 무너진다(§16).
+func TestEasingOffNeverThrowsAPiece(t *testing.T) {
+	// ▲7六歩 뒤 後手 차례. △8八角成은 角을 그냥 준다 — 밴드가 어디로 가든 후보가 아니다.
+	s := &stubMulti{res: usi.SearchResult{
+		Best: "3c3d",
+		Lines: []usi.SearchLine{
+			line("3c3d", 400),   // 플레이어 −400
+			line("2b8h+", -600), // 플레이어 +600 = 옮긴 밴드 한복판. 하지만 角을 던진다
+		},
+	}}
+	o := NewAdaptiveOpponent(s, 12, DefaultBand)
+	got, err := o.Choose(t.Context(), shogi.StartSFEN, []string{"7g7f"}, ready(1))
+	if err != nil {
+		t.Fatalf("Choose: %v", err)
+	}
+	if got == "2b8h+" {
+		t.Error("헤매는 사람에게 角을 던져 줬다 — 그건 봐주는 것이 아니라 던지는 것이다")
+	}
+}
+
+// 화면이 말하는 강함과 상대가 겨냥하는 강함이 **같은 숫자에서 나온다**(§31의 실패 방지).
+func TestStrengthStepTracksTheShift(t *testing.T) {
+	for _, tc := range []struct {
+		loss float64
+		want int
+	}{
+		{1, 1},   // 매 수 블런더 — 가장 너그럽다
+		{0.5, 3}, // 기준선
+		{0, 5},   // 매 수 최선 — 최선수 쪽
+	} {
+		if got := strengthStep(skillShift(ready(tc.loss))); got != tc.want {
+			t.Errorf("낙폭 %.1f: 단계 %d 기대, got %d", tc.loss, tc.want, got)
+		}
+	}
+	// 추정기가 꺼져 있거나 표본이 모자랄 때도 눈금은 한복판이다
+	if got := strengthStep(skillShift(skill.Unknown)); got != 3 {
+		t.Errorf("모르는 상태의 단계는 3이어야 한다: %d", got)
 	}
 }
