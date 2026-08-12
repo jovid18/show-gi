@@ -89,6 +89,32 @@ SHOWGI_GENERATE_TIER1=1 go test ./internal/explain/ -run GenerateTier1 -v
 
 > **엔진이나 평가함수를 바꾸면 ③이 첫 관문이다.** 실제로 `PvInterval` 문제를 거기서 잡았다 — 안 돌렸으면 D3에서 "개입이 왜 안 걸리지"로 나타났을 것이다 ([docs/06-status.md](../../docs/06-status.md) §10).
 
+## 실 기보 — floodgate
+
+태그가 실제 대국에서 맞게 붙는지를 넓게 보는 데 쓴다([docs/06-status.md](../../docs/06-status.md) §44). **레포에 커밋하지 않는다** — 남의 대국 기록이고 하루치가 5MB 넘는다. `.gitignore` 에 경로가 있다.
+
+```sh
+cd apps/server/internal/kifu/testdata/floodgate
+DAY=2020/03/14   # 하루에 300판쯤 있다. /shogi/x/ 에 2010년부터 있다
+curl -sS "https://wdoor.c.u-tokyo.ac.jp/shogi/x/$DAY/" |
+  grep -oE 'href="[^"]+\.csa"' | sed 's/href="//;s/"//' |
+  while IFS= read -r f; do
+    out="${f#wdoor+floodgate-300-10F+}"
+    [ -f "$out" ] || curl -sS --max-time 30 -o "$out" "https://wdoor.c.u-tokyo.ac.jp/shogi/x/$DAY/$f"
+  done
+```
+
+```sh
+# 10판씩 본다. seed 가 표본을 정하고, 바꾸면 새 10판이 나온다
+SHOWGI_KIFU_SCAN=1 go test ./internal/kifu/ -run ScanTags -v
+SHOWGI_KIFU_SEED=7 SHOWGI_KIFU_SCAN=1 go test ./internal/kifu/ -run ScanTags -v
+
+# 상수를 잡을 때만 전부로 넓힌다
+SHOWGI_KIFU_SCAN=1 SHOWGI_KIFU_GAMES=341 go test ./internal/kifu/ -run ScanTags -v
+```
+
+> **seed 를 안 고정하면 이 루프가 성립하지 않는다.** 매번 다른 10판을 뽑으면 「고쳐서 나아진 것」과 「표본이 쉬워진 것」을 못 가른다.
+
 ## 스키마를 바꿀 때
 
 `internal/store/migrations/*.sql` 이 정본이고 **sqlc가 거기서 코드를 만든다.** 질의를 추가하거나 스키마를 고치면 생성물을 다시 만들어야 한다.

@@ -250,7 +250,11 @@ func ParseCSA(input string) (ParsedGame, error) {
 			strings.HasPrefix(line, "P"), strings.HasPrefix(line, "T"),
 			strings.HasPrefix(line, "$"):
 			continue
-		case strings.HasPrefix(line, "%TORYO"):
+		// **投了와 시간초과는 같은 결과다** — 手番 쪽이 진다.
+		//
+		// `%TIME_UP` 은 floodgate 실 코퍼스에서 나왔다(341판 중 3판). 없으면 그 판이
+		// `ResultUnknown` 으로 떨어져 K 실측의 승패 표본에서 조용히 빠진다.
+		case strings.HasPrefix(line, "%TORYO"), strings.HasPrefix(line, "%TIME_UP"):
 			if pos.Turn == shogi.Black {
 				g.Result = ResultGoteWin
 			} else {

@@ -195,6 +195,45 @@ P9+KY+KE+GI+KI+OU+KI+GI+KE+KY
 	}
 }
 
+func TestParseCSA_Floodgate(t *testing.T) {
+	files, err := os.ReadDir("testdata/floodgate")
+	if err != nil {
+		t.Skip("no floodgate testdata")
+	}
+	// **결과를 모르는 판은 실패가 아니다.** floodgate 실 코퍼스에는 종국 표시가 아예
+	// 없는 판(끊긴 대국)이 섞여 있다 — 341판 중 16판이었다. 그걸 에러로 두면 이 테스트가
+	// 파서 검사가 아니라 **코퍼스 크기 감지기**가 되어, 기보를 늘릴 때마다 빨개진다.
+	//
+	// 대신 **센다.** 조용히 넘기면 「파서가 다 읽었다」와 「절반이 결과 없이 지나갔다」가
+	// 같은 초록으로 보인다.
+	parsed, short, unknown := 0, 0, 0
+	for _, f := range files {
+		data, err := os.ReadFile("testdata/floodgate/" + f.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		g, err := ParseCSA(string(data))
+		if err != nil {
+			t.Errorf("%s: %v", f.Name(), err)
+			continue
+		}
+		parsed++
+		if len(g.Moves) < 10 {
+			short++
+		}
+		if g.Result == ResultUnknown {
+			unknown++
+		}
+	}
+	t.Logf("parsed %d/%d games — %d under 10 moves, %d without a recorded result", parsed, len(files), short, unknown)
+
+	// 읽히지 않는 판이 하나라도 있으면 위에서 이미 실패했다. 여기서 보는 것은 **비율**이다:
+	// 결과 없는 판이 절반을 넘으면 코퍼스가 이상하거나 파서가 종국 표시를 놓치고 있다.
+	if parsed > 0 && unknown*2 > parsed {
+		t.Errorf("결과를 모르는 판이 %d/%d 로 절반을 넘는다 — 종국 표시를 놓치고 있다", unknown, parsed)
+	}
+}
+
 func TestParseKIF_Draw(t *testing.T) {
 	kif := `先手：A
 後手：B
