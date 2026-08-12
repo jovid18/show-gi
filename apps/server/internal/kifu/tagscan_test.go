@@ -7,9 +7,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
 )
@@ -467,6 +469,376 @@ func startKing(c shogi.Color) struct{ file, rank int } {
 		return struct{ file, rank int }{5, 9}
 	}
 	return struct{ file, rank int }{5, 1}
+}
+
+// **못 본 囲い가 어느 형태인가** — 위키 목록에서 고르지 말고 판에서 읽는다.
+//
+// 위 테스트가 「玉은 囲い 자리에 있는데 이름이 없는」 쪽 76개를 찾아냈고, 그 자리가
+// 2八·8二(美濃 계열)와 7八·2二(矢倉 계열)에 몰려 있었다. 어느 변형을 넣어야 하는지는
+// **그 국면에서 玉 주변에 실제로 무엇이 서 있는가**로 정해야 한다 — 목록에서 고르면
+// 실전에 안 나오는 이름부터 넣게 된다(09-tags.md 가 「한계 가치가 낮다」고 적은 자리다).
+//
+// 좌표는 전부 **先手 기준으로 뒤집어** 센다. 그래야 양쪽 표본이 한 줄에 모인다.
+func TestScanWhatStandsAroundAnUnnamedKing(t *testing.T) {
+	if os.Getenv("SHOWGI_KIFU_SCAN") == "" {
+		t.Skip("SHOWGI_KIFU_SCAN 미설정")
+	}
+
+	files := floodgateFiles(t, scanSeed(t), scanCount(t))
+
+	// 玉이 서 있는 囲い 자리(先手 기준). 위 측정에서 미검출이 몰린 곳이다.
+	interesting := map[[2]int]string{{2, 8}: "美濃側 2八", {7, 8}: "矢倉側 7八"}
+
+	// 玉 주변에서 囲い을 이루는 칸들(先手 2八 기준의 상대 위치).
+	around := [][2]int{{1, 0}, {2, 0}, {3, 0}, {1, 1}, {0, 1}, {-1, 0}, {1, -1}, {0, -1}}
+
+	var (
+		mu      sync.Mutex
+		byShape = map[string]int{}
+		total   int
+	)
+
+	var wg sync.WaitGroup
+	for _, f := range files {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			raw, err := os.ReadFile(f)
+			if err != nil {
+				return
+			}
+			g, err := ParseCSA(string(raw))
+			if err != nil {
+				return
+			}
+			pos, err := shogi.ParseSFEN(g.StartSFEN)
+			if err != nil {
+				return
+			}
+			for i := range min(40, len(g.Moves)) {
+				m, err := shogi.ParseUSIMove(g.Moves[i])
+				if err != nil {
+					return
+				}
+				pos = pos.Apply(m)
+			}
+
+			named := scanOne(f).byColor
+
+			mu.Lock()
+			defer mu.Unlock()
+			for _, c := range []shogi.Color{shogi.Black, shogi.White} {
+				sq, ok := kingSquare(pos, c)
+				if !ok {
+					continue
+				}
+				file, rank := senteView(shogi.FileOf(sq), shogi.RankOf(sq), c)
+				spot, watched := interesting[[2]int{file, rank}]
+				if !watched {
+					continue
+				}
+				for _, fa := range named[c] {
+					if isCastleCode(fa.code) {
+						return // 이름이 붙은 쪽은 볼 것이 없다
+					}
+				}
+
+				total++
+				byShape[spot+"  "+neighbourhood(pos, c, file, rank, around)]++
+			}
+		}()
+	}
+	wg.Wait()
+
+	type kv struct {
+		shape string
+		n     int
+	}
+	var rows []kv
+	for s, n := range byShape {
+		rows = append(rows, kv{s, n})
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].n != rows[j].n {
+			return rows[i].n > rows[j].n
+		}
+		return rows[i].shape < rows[j].shape
+	})
+
+	t.Logf("이름 없는 玉 주변 — 쪽 %d개 · 서로 다른 배치 %d개", total, len(rows))
+	for i, r := range rows {
+		if i >= 15 {
+			break
+		}
+		t.Logf("  %3d  %s", r.n, r.shape)
+	}
+}
+
+// **手筋의 형태가 실 기보에서 얼마나·어디서 서는가.**
+//
+// 지금까지 手筋은 한 판(`playtestUpTo103`)에서만 쟀다([06-status.md §34](../../../../docs/06-status.md)).
+// 형태 6개 · 이름 2개가 그 판의 전부였고, 그 숫자로 빈도를 말할 수는 없다.
+//
+// **엔진을 안 쓰고 룰 층만 본다.** `game.NamedTesuji` 에 두 cp를 같게 넣으면 낙폭 0이라
+// 게이트가 언제나 통과하고, 남는 것이 정확히 `freshTesuji` — 프로덕션이 쓰는 그 함수다.
+// 측정이 자기 규칙을 새로 쓰지 않게 하는 방법이고, §34 ⑦이 잡은 「측정과 제품이 다른
+// 것을 세고 있었다」를 피하는 자리다.
+//
+// 그래서 이 표는 **게이트 앞의 수**다. 엔진이 얼마를 끄는지는 §42의 실 기보 측정이 답한다
+// (형태 6개 중 4개를 껐다).
+func TestScanTesujiShapesOverFloodgateGames(t *testing.T) {
+	if os.Getenv("SHOWGI_KIFU_SCAN") == "" {
+		t.Skip("SHOWGI_KIFU_SCAN 미설정")
+	}
+
+	files := floodgateFiles(t, scanSeed(t), scanCount(t))
+
+	var (
+		mu       sync.Mutex
+		perCode  = map[string]int{}
+		plies    = map[string][]int{}
+		gamesHit = map[string]int{}
+		games    int
+		shapes   int
+	)
+
+	var wg sync.WaitGroup
+	for _, f := range files {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			raw, err := os.ReadFile(f)
+			if err != nil {
+				return
+			}
+			g, err := ParseCSA(string(raw))
+			if err != nil {
+				return
+			}
+			pos, err := shogi.ParseSFEN(g.StartSFEN)
+			if err != nil {
+				return
+			}
+
+			local := map[string]int{}
+			localPly := map[string][]int{}
+			n := 0
+
+			for i, u := range g.Moves {
+				m, err := shogi.ParseUSIMove(u)
+				if err != nil {
+					return
+				}
+				before := pos
+				mover := pos.Turn
+				pos = pos.Apply(m)
+
+				// 두 cp가 같으면 낙폭 0 — 게이트를 중립화한 룰 층이다.
+				for _, tg := range game.NamedTesuji(before, pos, mover, u, 0, 0) {
+					local[tg.Code]++
+					localPly[tg.Code] = append(localPly[tg.Code], i+1)
+					n++
+				}
+			}
+
+			mu.Lock()
+			defer mu.Unlock()
+			games++
+			shapes += n
+			for c, k := range local {
+				perCode[c] += k
+				gamesHit[c]++
+				plies[c] = append(plies[c], localPly[c]...)
+			}
+		}()
+	}
+	wg.Wait()
+
+	t.Logf("판 %d개 · 手筋의 형태가 새로 선 수 %d개 (판당 %.1f)", games, shapes, float64(shapes)/float64(games))
+	t.Logf("")
+	t.Logf("  %-20s %6s %8s %6s %6s", "코드", "횟수", "나온 판", "중앙手数", "최대")
+
+	type kv struct {
+		code string
+		n    int
+	}
+	var rows []kv
+	for c, n := range perCode {
+		rows = append(rows, kv{c, n})
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].n != rows[j].n {
+			return rows[i].n > rows[j].n
+		}
+		return rows[i].code < rows[j].code
+	})
+	for _, r := range rows {
+		p := plies[r.code]
+		sort.Ints(p)
+		t.Logf("  %-20s %6d %6d/%d %6d %6d", r.code, r.n, gamesHit[r.code], games, p[len(p)/2], p[len(p)-1])
+	}
+}
+
+// **両取り를 건 駒가 成っているか로 가른다.**
+//
+// `forkNames` 는 龍·馬를 든다 — 「飛의 縦横·角의 斜め를 그대로 갖는다」가 이유였다. 그런데
+// 종반에 적진에 들어간 龍은 **거의 언제나** 두 개를 동시에 노린다. 그러면 十字飛車라는
+// 이름이 「飛로 두 방향을 찌른 手筋」이 아니라 「龍이 龍답게 서 있다」가 된다.
+//
+// **프로덕션 경로가 아니다.** `Fork` 를 판 위에서 직접 훑어 駒 종류까지 본다 — 여기서
+// 필요한 것이 「어느 駒였나」인데 `NamedTesuji` 는 이름만 돌려주기 때문이다.
+func TestScanForksByPromotion(t *testing.T) {
+	if os.Getenv("SHOWGI_KIFU_SCAN") == "" {
+		t.Skip("SHOWGI_KIFU_SCAN 미설정")
+	}
+
+	files := floodgateFiles(t, scanSeed(t), scanCount(t))
+
+	var (
+		mu    sync.Mutex
+		count = map[string]int{}
+		plies = map[string][]int{}
+	)
+
+	promoted := map[shogi.PieceType]bool{shogi.PromRook: true, shogi.PromBishop: true}
+
+	var wg sync.WaitGroup
+	for _, f := range files {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			raw, err := os.ReadFile(f)
+			if err != nil {
+				return
+			}
+			g, err := ParseCSA(string(raw))
+			if err != nil {
+				return
+			}
+			pos, err := shogi.ParseSFEN(g.StartSFEN)
+			if err != nil {
+				return
+			}
+
+			local := map[string][]int{}
+			for i, u := range g.Moves {
+				m, err := shogi.ParseUSIMove(u)
+				if err != nil {
+					return
+				}
+				before := pos
+				mover := pos.Turn
+				pos = pos.Apply(m)
+
+				// 그 수가 **새로 만든** 형태만 — 이미 서 있던 것을 매 수 다시 세면
+				// 종반의 한 형태가 수십 번으로 부풀어 비교가 무의미해진다.
+				had := map[string]bool{}
+				for _, tg := range tag.FindTesuji(before, mover) {
+					had[tg.Code] = true
+				}
+				for sq := range pos.Board {
+					p := pos.Board[sq]
+					if p.Empty() || p.Color() != mover {
+						continue
+					}
+					tg, ok := tag.Fork(pos, sq, mover)
+					if !ok || had[tg.Code] {
+						continue
+					}
+					key := tg.Code
+					if promoted[p.Type()] {
+						key += " (成)"
+					}
+					local[key] = append(local[key], i+1)
+				}
+			}
+
+			mu.Lock()
+			defer mu.Unlock()
+			for k, ps := range local {
+				count[k] += len(ps)
+				plies[k] = append(plies[k], ps...)
+			}
+		}()
+	}
+	wg.Wait()
+
+	type kv struct {
+		key string
+		n   int
+	}
+	var rows []kv
+	for k, n := range count {
+		rows = append(rows, kv{k, n})
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].n != rows[j].n {
+			return rows[i].n > rows[j].n
+		}
+		return rows[i].key < rows[j].key
+	})
+
+	t.Logf("  %-26s %6s %8s", "両取り를 건 駒", "횟수", "중앙手数")
+	for _, r := range rows {
+		p := plies[r.key]
+		sort.Ints(p)
+		t.Logf("  %-26s %6d %8d", r.key, r.n, p[len(p)/2])
+	}
+}
+
+// senteView 는 後手의 칸을 先手 기준으로 뒤집는다.
+func senteView(file, rank int, c shogi.Color) (int, int) {
+	if c == shogi.Black {
+		return file, rank
+	}
+	return 10 - file, 10 - rank
+}
+
+// neighbourhood 는 玉 주변 칸에 선 **자기 駒**를 「칸:駒」로 늘어놓는다. 빈 칸과 상대 駒는
+// 적지 않는다 — 囲い은 자기 駒의 배치이고, 나머지를 적으면 같은 형태가 수십 갈래로 흩어진다.
+func neighbourhood(pos shogi.Position, c shogi.Color, kf, kr int, around [][2]int) string {
+	var parts []string
+	for _, d := range around {
+		file, rank := kf+d[0], kr+d[1]
+		if file < 1 || file > 9 || rank < 1 || rank > 9 {
+			continue
+		}
+		bf, br := senteView(file, rank, c) // 뒤집은 것을 되돌려 실제 칸을 찾는다
+		p := pos.Board[shogi.SquareOf(bf, br)]
+		if p.Empty() || p.Color() != c {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%d%s%s", file, rankKanji(rank), pieceKanji(p.Type())))
+	}
+	if len(parts) == 0 {
+		return "(주변에 자기 駒 없음)"
+	}
+	return strings.Join(parts, " ")
+}
+
+func pieceKanji(pt shogi.PieceType) string {
+	switch pt {
+	case shogi.Pawn:
+		return "歩"
+	case shogi.Lance:
+		return "香"
+	case shogi.Knight:
+		return "桂"
+	case shogi.Silver:
+		return "銀"
+	case shogi.Gold:
+		return "金"
+	case shogi.Bishop:
+		return "角"
+	case shogi.Rook:
+		return "飛"
+	case shogi.King:
+		return "玉"
+	}
+	return "成"
 }
 
 func kindOf(code string) tag.Kind {
