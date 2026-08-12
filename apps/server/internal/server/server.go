@@ -65,6 +65,10 @@ type Options struct {
 	// Explainer 는 개입 문구를 만든다. nil이면 결정적 템플릿이 나간다.
 	Explainer explain.Explainer
 
+	// Summarizer 는 대국 후 총평을 만든다. nil이면 결정적 총평이 나간다 — **총평 자체는
+	// 안 꺼진다.** 숫자와 사실은 기록에서 나오므로 LLM이 없어도 화면이 빈 자리로 남지 않는다.
+	Summarizer explain.Summarizer
+
 	// Google·SessionSecret 이 다 있어야 로그인이 켜진다(Store 도 필요하다 — auth.go).
 	// 하나라도 비면 표면이 통째로 닫히고 익명 대국으로 남는다.
 	Google        *auth.Google

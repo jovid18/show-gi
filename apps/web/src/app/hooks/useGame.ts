@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { ClientMessage, Color, ServerMessage, Snapshot } from '@/protocol/game';
+import type { ClientMessage, Color, GameSummary, ServerMessage, Snapshot } from '@/protocol/game';
 import type { WhatIfNode, WhatIfRequest } from '@/protocol/whatif';
 import type { Send } from '@/hooks/useWhatIf';
 
@@ -29,6 +29,13 @@ export interface GameState {
   snapshot: Snapshot | null;
   /** 서버가 착수를 거절한 이유. 일본어 문구가 그대로 온다. */
   rejection: string | null;
+  /**
+   * 대국이 끝난 뒤의 총평. **결과 문구보다 늦게 온다** — LLM을 기다리기 때문이다.
+   *
+   * `null` 인 동안이 「아직 만들고 있다」이고, 화면은 그때 자리만 잡아 둔다. 안 오는
+   * 경우도 있다(기록이 없는 배포·시한 초과) — 그때도 결과와 기보는 이미 화면에 있다.
+   */
+  summary: GameSummary | null;
   /**
    * 개입 **회차**. 개입이 실려 온 스냅샷마다 하나씩 오른다.
    *
@@ -81,6 +88,7 @@ export function useGame(): GameState {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [rejection, setRejection] = useState<string | null>(null);
   const [interventionEpisode, setInterventionEpisode] = useState(0);
+  const [summary, setSummary] = useState<GameSummary | null>(null);
   // 새 대국은 새 연결이다. 서버가 연결 하나에 대국 하나를 여니, 다시 붙는 것이 곧 새 판이다.
   const [generation, setGeneration] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
@@ -144,6 +152,8 @@ export function useGame(): GameState {
 
         setSnapshot(msg.snapshot);
         setRejection(null);
+      } else if (msg.type === 'summary') {
+        setSummary(msg.summary);
       } else if (msg.type === 'error') {
         setRejection(msg.message);
       } else if (msg.type === 'whatif') {
@@ -194,6 +204,7 @@ export function useGame(): GameState {
     // 판을 먼저 비운다. 끝난 대국이 남아 있으면 새 판이 오기 전 한 순간 그게 보인다.
     setSnapshot(null);
     setRejection(null);
+    setSummary(null);
     setConnection('connecting');
     setSetup(next);
     setLive(true);
@@ -205,6 +216,7 @@ export function useGame(): GameState {
   const restart = useCallback(() => {
     setSnapshot(null);
     setRejection(null);
+    setSummary(null);
     setConnection('idle');
     // setup 은 지우지 않는다 — 시작 화면이 그 값에서 시작한다(GameState.setup).
     setLive(false);
@@ -215,6 +227,7 @@ export function useGame(): GameState {
     setup,
     snapshot,
     rejection,
+    summary,
     interventionEpisode,
     play,
     resign,

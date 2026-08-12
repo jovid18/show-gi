@@ -5,6 +5,7 @@ import { Hand } from '@/components/Hand';
 import { Intervention } from './Intervention';
 import { Kifu } from './Kifu';
 import { Setup } from './Setup';
+import { Summary } from './Summary';
 import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/libs/game/moves';
 import type { Attack, StyleTag } from '@/protocol/game';
 import { useGame } from '@/hooks/useGame';
@@ -43,6 +44,7 @@ export function GameScreen() {
     setup,
     snapshot,
     rejection,
+    summary,
     interventionEpisode,
     play,
     resign,
@@ -571,6 +573,13 @@ export function GameScreen() {
         )}
 
         <Kifu moves={moves} />
+
+        {/* 총평은 **기보 아래·「もう一局」 위**다. 판이 끝난 뒤 읽는 순서가 결과 → 기보 →
+            무엇을 배웠나 → 다음 판이고, 버튼을 위에 두면 읽기 전에 눌러 버린다.
+
+            개입 중에는 안 그린다 — 이 자리는 카드 하나가 쓴다(위 주석). 다만 판이 끝난
+            뒤에는 개입이 뜰 일이 없어서 실제로는 겹치지 않는다. */}
+        {!intervening && snapshot.status !== 'playing' && <Summary summary={summary} />}
 
         {snapshot.status !== 'playing' && (
           <button type="button" className="btn btn--primary" onClick={newGame}>
