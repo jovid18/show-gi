@@ -137,6 +137,10 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ObservePlies: h.opts.ObservePlies,
 		Explainer:    h.opts.Explainer,
 		Mate:         h.opts.Mate,
+		// 手筋 제안형 힌트도 가정 수순과 **같은 풀**이다. 묻는 것이 같은 종류라서다 —
+		// 둘 다 「이 수를 둬 보면 어떻게 되나」이고, 그래서 Options 에 필드를 따로 두지
+		// 않는다. nil이면 手筋 힌트만 꺼지고 囲い·전법 힌트는 그대로 뜬다.
+		TesujiHint: h.opts.Search,
 	}
 	if h.opts.NewAnalyst != nil {
 		cfg.Analyst = h.opts.NewAnalyst()

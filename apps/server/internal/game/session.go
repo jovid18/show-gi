@@ -92,6 +92,10 @@ type Snapshot struct {
 	// 값이라 세대와 함께 들고 있다가 국면이 움직이면 함께 사라진다(styleTags).
 	StyleTags []tag.Tag `json:"styleTags,omitempty"`
 
+	// TagHints 는 이 국면에서 플레이어가 둘 수 있는 수 중 **새 이름을 만드는 것이 있을 때**
+	// 그 이름이다. 착수 전에 뜨는 제안형 힌트의 데이터이고, 수를 짚지 않는다(01-core.md §7).
+	TagHints []tag.Tag `json:"tagHints,omitempty"`
+
 	// MateHeat 는 詰み 게이지의 세기다(1..MateHeatMax). 0이면 게이지가 꺼져 있다.
 	//
 	// **상대 玉 쪽 하나뿐이고, 手数가 아니라 세기다.** 둘 다 이유가 있고 `gauge.go` 에
@@ -305,6 +309,14 @@ type Config struct {
 	// 착수 **전** 국면을 묻고, 이쪽은 지금 사람 차례인 **현재** 국면을 묻는다. 같은 질문을
 	// 한 수 늦게 하는 것이라 판정 결과를 게이지로 돌려쓸 수 없다.
 	Mate MateSearcher
+	// TesujiHint 가 nil이면 手筋 제안형 힌트가 꺼진 채로 대국한다. 囲い·전법 쪽 힌트는
+	// 엔진을 안 쓰므로 그대로 뜬다(computeTagHints).
+	//
+	// **Opponent 와 같은 풀을 받지만 자리가 다르다** — `Mate` 가 `Analyst` 와 갈리는 것과
+	// 같은 이유다. 상대는 **자기가 둘 수**를 고르려고 지금 국면을 묻고, 이쪽은 **사람이
+	// 둘 수 있는 수 하나하나**를 둬 본 뒤의 국면을 묻는다. 묻는 국면이 아예 다르므로
+	// 상대의 탐색 결과를 돌려쓸 수 없다.
+	TesujiHint MultiSearcher
 	// Recorder 가 nil이면 기록하지 않는다. 대국은 그대로 된다.
 	Recorder Recorder
 	// Explainer 가 nil이면 결정적 문구가 그대로 나간다 — `explain.Render` 와 같은 문장이다.
@@ -365,6 +377,15 @@ type mateResult struct {
 	gen   int
 	plies int // 詰み 手数. 0이면 못 찾았다
 	err   error
+}
+
+// tesujiHintResult 는 게이트를 통과한 手筋 후보다. opts 는 계단이 짚을 수를 갖고 있고,
+// 화면에 나가는 것은 이름뿐이다(tesujiHintTags).
+type tesujiHintResult struct {
+	gen     int
+	opts    []TesujiOption
+	dropped int // 상한에 걸려 못 물어본 후보 수
+	err     error
 }
 
 type judgeResult struct {
@@ -434,6 +455,28 @@ type state struct {
 	tesuji    []tag.Tag
 	tesujiGen int
 
+	// 제안형 힌트. 빈도 상한과 쿨다운을 여기서 잡는다(01-core.md §7.1).
+	tagHints       []tag.Tag
+	tagHintGen     int
+	tagHintCount   int
+	tagHintLastPly int
+
+	// 手筋 쪽 제안형 힌트. **예산을 따로 센다.**
+	//
+	// 상한·쿨다운 값은 위와 같은 것을 쓰되 카운터를 나눈다 — 한 예산을 나눠 쓰면 囲い
+	// 힌트가 먼저 세 번 떠서 手筋이 한 번도 못 뜬다. 手筋은 그 국면에서만 성립하고
+	// 놓치면 사라지는 기회라 그 순서가 정확히 반대여야 한다.
+	//
+	// 화면 채널은 하나다(Snapshot.TagHints) — 예산이 둘이라고 표시가 둘이 되면
+	// 06-status.md §41 의 「한 채널이 두 뜻을 나른다」가 된다.
+	// **이름이 아니라 후보를 들고 있는다.** 계단 ②③이 짚을 수가 여기 있어야 하고,
+	// 이름은 언제든 후보에서 편다(tesujiHintTags) — 두 벌로 들면 한쪽이 낡는다.
+	tesujiOpts        []TesujiOption
+	tesujiHintGen     int
+	tesujiHinting     bool
+	tesujiHintCount   int
+	tesujiHintLastPly int
+
 	// 물러질 수 있으므로 착수 직전 국면을 들고 있는다. Position 이 값 타입이라 복사면 끝이다.
 	prevPos    shogi.Position
 	prevPrevTo int
@@ -481,6 +524,7 @@ func (s *Session) run(ctx context.Context, st *state) {
 	engineDone := make(chan engineResult, 1)
 	judgeDone := make(chan judgeResult, 1)
 	gaugeDone := make(chan mateResult, 1)
+	tesujiDone := make(chan tesujiHintResult, 1)
 
 	// 기록도 세션 goroutine 안에서 시작한다 — 상태를 만지는 순서와 같은 줄에 둔다.
 	if st.cfg.Recorder != nil {
@@ -489,6 +533,8 @@ func (s *Session) run(ctx context.Context, st *state) {
 
 	// 엔진이 선수면 시작하자마자 생각한다. 사람이 선수면 게이지가 대신 걸린다 —
 	// 둘은 정확히 반대 조건이라 언제나 하나만 돈다.
+	st.computeTagHints()
+	st.maybeTesujiHint(ctx, tesujiDone)
 	st.maybeThink(ctx, engineDone)
 	st.maybeGauge(ctx, gaugeDone)
 
@@ -506,13 +552,16 @@ func (s *Session) run(ctx context.Context, st *state) {
 			st.handle(ctx, c, engineDone, judgeDone, gaugeDone)
 
 		case r := <-engineDone:
-			st.applyEngineMove(ctx, r, engineDone, gaugeDone)
+			st.applyEngineMove(ctx, r, engineDone, gaugeDone, tesujiDone)
 
 		case r := <-judgeDone:
-			st.applyVerdict(ctx, r, engineDone, gaugeDone)
+			st.applyVerdict(ctx, r, engineDone, gaugeDone, tesujiDone)
 
 		case r := <-gaugeDone:
 			st.applyMateHeat(r)
+
+		case r := <-tesujiDone:
+			st.applyTesujiHint(r)
 		}
 	}
 }
@@ -645,7 +694,7 @@ func describe(ctx context.Context, e explain.Explainer, f explain.Facts) explain
 }
 
 // applyVerdict 는 판정 결과를 반영한다. 걸렸으면 **되무른다.**
-func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone chan engineResult, gaugeDone chan mateResult) {
+func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone chan engineResult, gaugeDone chan mateResult, tesujiDone chan tesujiHintResult) {
 	if !st.judging || r.gen != st.judgeGen {
 		return // 그 사이 국면이 움직였다. 버린다
 	}
@@ -658,8 +707,10 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 
 	if r.err == nil && r.judgement.Verdict.Kind == intervene.KindBlunder {
 		st.rollback(r)
-		// 되물러 사람 차례로 돌아왔다. 게이지도 그 국면의 것으로 다시 구한다 —
-		// 롤백이 searchGen 을 올리므로 물러지기 전의 세기는 이미 무효다.
+		// 되물러 사람 차례로 돌아왔다. 힌트와 게이지도 그 국면의 것으로 다시 구한다 —
+		// 롤백이 searchGen 을 올리므로 물러지기 전의 것은 이미 무효다.
+		st.computeTagHints()
+		st.maybeTesujiHint(ctx, tesujiDone)
 		st.maybeGauge(ctx, gaugeDone)
 		st.broadcast()
 		return
@@ -887,7 +938,7 @@ func (st *state) applyMateHeat(r mateResult) {
 	st.broadcast()
 }
 
-func (st *state) applyEngineMove(ctx context.Context, r engineResult, engineDone chan engineResult, gaugeDone chan mateResult) {
+func (st *state) applyEngineMove(ctx context.Context, r engineResult, engineDone chan engineResult, gaugeDone chan mateResult, tesujiDone chan tesujiHintResult) {
 	if !st.thinking || st.pendingGen != st.searchGen {
 		return // 롤백·투료로 국면이 바뀐 뒤 도착한 결과. 버린다
 	}
@@ -922,6 +973,8 @@ func (st *state) applyEngineMove(ctx context.Context, r engineResult, engineDone
 
 	st.apply(m, SideEngine)
 	st.recordLastMove() // 상대 수는 판정하지 않으므로 두는 즉시 확정이다
+	st.computeTagHints()
+	st.maybeTesujiHint(ctx, tesujiDone)
 	st.maybeThink(ctx, engineDone)
 	st.maybeGauge(ctx, gaugeDone)
 	st.broadcast()
@@ -973,6 +1026,190 @@ func (st *state) styleTags() []tag.Tag {
 	})...)
 }
 
+const (
+	TagHintMaxPerGame = 3
+	TagHintCooldown   = 10
+)
+
+// computeTagHints 는 이 국면에서 플레이어의 합법수 중 **새 이름을 만드는 것**을 찾는다.
+//
+// 엔진을 안 부른다 — 전법·戦型은 판과 수순만으로 정해지므로 합법수마다 시뮬레이션하면
+// 끝이다. 종반에 합법수가 많아도 40개 안팎이라 비용은 무시할 수 있다.
+//
+// 手筋은 엔진 평가치가 있어야 해서 여기서 건너뛰고, 비동기로 따로 구한다(maybeTesujiHint).
+//
+// **囲い는 제안하지 않는다.** 화면에 이름을 붙이는 쪽(styleTags)에는 그대로 남고, 착수
+// **전**에 권하는 쪽에서만 뺀다. 이유가 실측이다 — floodgate 341판에서 **양쪽 다 囲い
+// 이름이 없는 판이 226개(66%)**였고, 40수 시점에 玉이 囲い 자리에 있는데 이름이 없는 쪽이
+// 71개였다([06-status.md §44](../../../../docs/06-status.md)).
+//
+// 그 71개를 뜯어보니 서로 다른 배치가 50가지, 1위가 4건이었다 — **빠진 이름이 아니라
+// 짓다 만 것**이다. 그러면 「이 수를 두면 이름이 생긴다」가 가리키는 순간이 **우리가 42종
+// 중 어느 21종을 구현했는지에 달린 임의의 한 수**가 된다. 형태를 다 짓고 나서 이름을
+// 붙이는 것은 사실이지만, 짓는 도중에 특정 한 수를 권하는 것은 근거가 없다.
+//
+// 넓히려면 **부분 형태를 이름으로 부르지 않으면서** 계열까지만 말하는 축이 필요하다.
+// 그건 아직 없다(§44 「남은 것」).
+func (st *state) computeTagHints() {
+	st.tagHintGen = st.searchGen
+
+	if st.status != StatusPlaying || st.pos.Turn != st.cfg.HumanColor {
+		st.tagHints = nil
+		return
+	}
+	if st.tagHintCount >= TagHintMaxPerGame {
+		st.tagHints = nil
+		return
+	}
+	ply := len(st.moves)
+	if st.tagHintLastPly > 0 && ply > st.tagHintLastPly && ply-st.tagHintLastPly < TagHintCooldown {
+		st.tagHints = nil
+		return
+	}
+
+	playerMoves := st.movesBy(SideHuman)
+	oppMoves := st.movesBy(SideEngine)
+
+	have := map[string]bool{}
+	for _, t := range tag.Detect(tag.Input{
+		Pos: st.pos, Color: st.cfg.HumanColor,
+		PlayerMoves: playerMoves, OpponentMoves: oppMoves,
+	}) {
+		have[t.Code] = true
+	}
+
+	seen := map[string]bool{}
+	var hints []tag.Tag
+	for _, m := range st.pos.LegalMoves() {
+		after := st.pos.Apply(m)
+		afterMoves := append(append([]string(nil), playerMoves...), m.USI())
+		for _, t := range tag.Detect(tag.Input{
+			Pos: after, Color: st.cfg.HumanColor,
+			PlayerMoves: afterMoves, OpponentMoves: oppMoves,
+		}) {
+			if t.Kind == tag.KindCastle {
+				continue // 짓는 도중의 한 수를 권할 근거가 없다. 위 주석
+			}
+			if !have[t.Code] && !seen[t.Code] {
+				seen[t.Code] = true
+				hints = append(hints, t)
+			}
+		}
+	}
+	st.tagHints = hints
+	if len(hints) > 0 && st.tagHintLastPly != ply {
+		st.tagHintCount++
+		st.tagHintLastPly = ply
+	}
+}
+
+// maybeTesujiHint 는 사람 차례면 **「지금 두면 새 手筋 이름이 생기는 수」를 찾아 그것이
+// 엔진에게도 이득인지 묻고, 통과한 것만 남긴다.** 빈도 상한과 쿨다운도 여기서 본다.
+//
+// `computeTagHints` 와 갈리는 이유가 하나다: 囲い·전법은 판과 수순만으로 정해지지만
+// 手筋은 「그래서 得인가」를 엔진이 답해야 이름이 붙는다(tesuji.go). 그래서 게이지와 같은
+// 모양이 된다 — goroutine 으로 던지고 세대로 걸러 받는다(maybeGauge).
+//
+// **엔진을 걸기 전에 룰로 거른다.** 새 이름이 생기는 수는 국면당 0~2개이고 대부분 0이라
+// (06-status.md §34: 실 기보 102수에서 통틀어 6개), 이 한 줄이 사람 차례마다 도는 탐색을
+// 거의 다 없앤다. 없애지 않으면 매 수 엔진을 1~7회 부르게 된다.
+func (st *state) maybeTesujiHint(ctx context.Context, done chan tesujiHintResult) {
+	if st.cfg.TesujiHint == nil || st.status != StatusPlaying {
+		return
+	}
+	// 사람 차례에서만 묻는다. 상대 차례의 手筋은 알릴 것이 아니라 당할 것이다.
+	if st.pos.Turn != st.cfg.HumanColor {
+		return
+	}
+	if st.tesujiHinting && st.tesujiHintGen == st.searchGen {
+		return // 같은 국면을 두 번 묻지 않는다
+	}
+	if st.tesujiHintCount >= TagHintMaxPerGame {
+		return
+	}
+	ply := len(st.moves)
+	if st.tesujiHintLastPly > 0 && ply > st.tesujiHintLastPly && ply-st.tesujiHintLastPly < TagHintCooldown {
+		return
+	}
+
+	opts := tesujiOptions(st.pos, st.cfg.HumanColor)
+	if len(opts) == 0 {
+		st.tesujiOpts, st.tesujiHintGen = nil, st.searchGen
+		return
+	}
+
+	st.tesujiHinting = true
+	st.tesujiHintGen = st.searchGen
+
+	gen := st.tesujiHintGen
+	search := st.cfg.TesujiHint
+	start := st.start
+	color := st.cfg.HumanColor
+	// 슬라이스를 그대로 넘기면 다음 착수의 append 가 같은 배열을 건드릴 수 있다.
+	moves := append([]string(nil), st.usis...)
+
+	go func() {
+		kept, dropped, err := gateTesujiOptions(ctx, search, JudgeDepth, start, moves, opts, color)
+		select {
+		case done <- tesujiHintResult{gen: gen, opts: kept, dropped: dropped, err: err}:
+		case <-ctx.Done():
+		}
+	}()
+}
+
+// applyTesujiHint 는 게이트를 통과한 후보를 반영한다.
+func (st *state) applyTesujiHint(r tesujiHintResult) {
+	if !st.tesujiHinting || r.gen != st.tesujiHintGen {
+		return // 그 사이 다시 걸었다. 늦게 온 앞의 결과다
+	}
+	st.tesujiHinting = false
+
+	if r.gen != st.searchGen {
+		return // 국면이 움직였다. 낡은 평가치로 이름을 붙이는 것이 게이트를 없애는 것과 같다
+	}
+	if r.err != nil {
+		// 힌트가 없다고 대국을 멈추지 않는다. 게이지·개입 판정과 같은 판단이다.
+		log.Printf("game: tesuji hint search failed, the hint stays quiet: %v", r.err)
+		return
+	}
+	if r.dropped > 0 {
+		// 잘린 것을 안 세면 「手筋이 없었다」와 「못 봤다」가 같은 화면이 된다.
+		log.Printf("game: tesuji hint skipped %d candidate(s) over the cap", r.dropped)
+	}
+
+	st.tesujiOpts = r.opts
+	if len(r.opts) > 0 {
+		if ply := len(st.moves); st.tesujiHintLastPly != ply {
+			st.tesujiHintCount++
+			st.tesujiHintLastPly = ply
+		}
+		st.pointHintAtTesuji()
+	}
+	st.broadcast()
+}
+
+// pointHintAtTesuji 는 **이미 열린 계단**이 최선수 대신 手筋을 짚게 바꾼다.
+//
+// 계단을 새로 만들지 않는 것이 요점이다. 갇힘 힌트와 手筋 힌트는 둘 다 「네가 무엇을
+// 두면 되는가」이고 발동 조건(3회·5회)도 같아서, 따로 두면 **같은 파랑이 두 뜻**이 된다 —
+// 06-status.md §41 이 여덟 번 잡은 그 실패다. 하나를 쓰고 짚는 대상만 바꾼다.
+//
+// 바꿔도 되는 근거는 게이트다. 후보는 전부 `TesujiLossCp` 안이라 최선수보다 100cp 넘게
+// 나쁠 수 없고, 그 대신 **이름이 있다.** 초심자에게 이름은 곧 학습 단위라(01-core.md §7.1)
+// 이름 없는 최선수보다 이름 있는 준최선수가 가르치는 것이 많다.
+//
+// 여럿이면 **첫 번째**를 쓴다. `LegalMoves` 의 순서라 결정적이고, 전부 같은 게이트를
+// 지났으므로 「어느 것이 더 나은가」를 여기서 새로 정할 근거가 없다 — 근거 없이 고르는
+// 규칙을 넣으면 실측 없는 상수가 하나 더 생긴다.
+func (st *state) pointHintAtTesuji() {
+	if st.hint == nil || len(st.tesujiOpts) == 0 {
+		return
+	}
+	if h := buildHint(st.stuck, st.tesujiOpts[0].USI); h != nil {
+		st.hint = h
+	}
+}
+
 func (st *state) snapshot() Snapshot {
 	turn := "b"
 	if st.pos.Turn == shogi.White {
@@ -1001,6 +1238,20 @@ func (st *state) snapshot() Snapshot {
 	if st.mateGen == st.searchGen {
 		snap.MateHeat = st.mateHeat
 	}
+	// 囲い·전법과 手筋이 **같은 칸으로 나간다.** 표시가 하나여야 하기 때문이고(§41),
+	// 세대를 따로 보는 것은 手筋이 엔진을 기다리느라 늦게 도착하기 때문이다 — 囲い 쪽은
+	// 이미 떠 있고 手筋이 몇 초 뒤에 합류한다.
+	//
+	// **새 슬라이스에 담는다.** `st.tagHints` 에 그대로 덧붙이면 이미 뿌린 스냅샷과 배열을
+	// 공유하게 되고, 구독자가 그것을 읽는 동안 세션이 다음 append 를 쓴다.
+	var hints []tag.Tag
+	if st.tagHintGen == st.searchGen {
+		hints = append(hints, st.tagHints...)
+	}
+	if st.tesujiHintGen == st.searchGen {
+		hints = append(hints, tesujiHintTags(st.tesujiOpts)...)
+	}
+	snap.TagHints = hints
 	if yours {
 		for _, m := range st.pos.LegalMoves() {
 			snap.LegalMoves = append(snap.LegalMoves, m.USI())

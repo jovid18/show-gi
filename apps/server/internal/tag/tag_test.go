@@ -175,6 +175,16 @@ func TestMovingTheRookWithinItsFileIsNotASwing(t *testing.T) {
 	}
 }
 
+// **▲3四飛(横歩取り)는 袖飛車가 아니다.** 筋만 보면 3筋으로 같지만, 袖飛車는 飛를 자기
+// 2段(3八)에 振り, 横歩取り은 敵陣 3四로 뛰어들어 横歩를 딴다. 段을 안 보면 둘이 같은
+// 이름이 된다 — floodgate 1국에서 실제로 ▲3四飛에 袖飛車가 떴다.
+func TestYokofudoriIsNotSodeBisha(t *testing.T) {
+	// 2八→2四(筋 안)→3四(敵陣으로 筋 변경). 자기 2段 3八이 아니다.
+	if got, ok := DetectFormation([]string{"2h2d", "2d3d"}, shogi.Black); ok {
+		t.Errorf("▲3四飛(横歩取り)인데 %v 가 떴다", got.Code)
+	}
+}
+
 // 振り直し는 그 판의 전법을 바꾸지 않는다 — **처음** 振った 筋이 이긴다.
 func TestTheFirstSwingWins(t *testing.T) {
 	got, ok := DetectFormation([]string{"2h6h", "6h7h"}, shogi.Black)

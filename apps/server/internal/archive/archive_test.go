@@ -457,6 +457,31 @@ func TestServesWhenThereAreFewerLegalMovesThanK(t *testing.T) {
 	}
 }
 
+// 飛を振った 수가 전법 태그를 만든다. 수순 없이는 전법이 안 보였던 자리다.
+func TestTagsFormationOnTheEdge(t *testing.T) {
+	st := newStore()
+	const openBoard = "4k4/9/9/9/9/9/9/7R1/4K4 b - 1"
+	eng := &fakeEngine{res: result(8, "5a4a")}
+	a := Wrap(eng, st)
+
+	if _, err := a.SearchMultiPV(t.Context(), openBoard, []string{"2h5h"}, 8, 1); err != nil {
+		t.Fatalf("SearchMultiPV: %v", err)
+	}
+	a.Wait()
+
+	e, ok := st.edgeFor("2h5h")
+	if !ok {
+		t.Fatal("간선이 안 쌓였다")
+	}
+	want := "naka_bisha"
+	for _, tag := range e.Tags {
+		if tag == want {
+			return
+		}
+	}
+	t.Errorf("tags = %v, want %q", e.Tags, want)
+}
+
 // **히트에도 오는 길은 남는다.** 같은 국면에 다른 수로 도달하면(전치) 그 간선은 새것이다 —
 // 안 남기면 그 자리가 영원히 비어 있고, 「A→B를 쌓는다」가 반만 사실이 된다.
 func TestLinksThePathEvenOnACacheHit(t *testing.T) {

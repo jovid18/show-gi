@@ -177,7 +177,9 @@ func TestPromotedPiecesKeepOnlyTheNamesTheyStillEarn(t *testing.T) {
 		{"成桂", "8k/9/9/3g1g3/4+N4/9/9/9/8K b - 1", ""},
 		{"成銀", "8k/9/9/3g1g3/4+S4/9/9/9/8K b - 1", ""},
 		{"龍", "8k/9/4g4/9/1g2+R4/9/9/9/8K b - 1", "juji_bisha"},
-		{"馬", "8k/9/2g1g4/9/4+B4/9/9/9/8K b - 1", "kaku_ryodori"},
+		// 두 金을 5五 馬의 **대각 양쪽**(7三·3三)에 둔다. 한쪽을 敵玉으로 두면 그건
+		// 両取り가 아니라 王手金取り라 이제 안 잡힌다(targetSquares 가 玉을 뺀다).
+		{"馬", "8k/9/2g3g2/9/4+B4/9/9/9/8K b - 1", "kaku_ryodori"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, ok := Fork(forkBoard(t, tc.sfen), shogi.SquareOf(5, 5), shogi.Black)
@@ -188,5 +190,34 @@ func TestPromotedPiecesKeepOnlyTheNamesTheyStillEarn(t *testing.T) {
 				t.Errorf("%s 를 기대했는데 %s/%v", tc.want, got.Code, ok)
 			}
 		})
+	}
+}
+
+// **割打ちの銀은 뒤쪽 두 대각으로 낀다.** 出典이 「右斜め後ろ·左斜め後ろの２マス両方にいる
+// 相手の飛車または金」로 정의한다 — 앞대각으로 둘을 낀 것은 割打ち가 아니다. 방향을 안 보면
+// 王手銀取り까지 割打ちの銀이 된다(floodgate 1국에서 실제로 그랬다).
+func TestWariuchiNoGinNeedsBackDiagonals(t *testing.T) {
+	// 5五 銀의 **뒤** 대각 4六·6六에 後手 金 → 割打ちの銀
+	back := forkBoard(t, "k8/9/9/9/4S4/3g1g3/9/9/8K b - 1")
+	if got, ok := Fork(back, shogi.SquareOf(5, 5), shogi.Black); !ok || got.Code != "wariuchi_no_gin" {
+		t.Errorf("뒤 대각 両取り는 割打ちの銀이다: %s/%v", got.Code, ok)
+	}
+
+	// 같은 銀의 **앞** 대각 4四·6四에 두면 割打ち가 아니다
+	front := forkBoard(t, "k8/9/9/3g1g3/4S4/9/9/9/8K b - 1")
+	if got, ok := Fork(front, shogi.SquareOf(5, 5), shogi.Black); ok {
+		t.Errorf("앞 대각인데 %s 가 떴다", got.Code)
+	}
+}
+
+// **玉은 両取り의 표적이 아니다.** 銀이 玉과 金을 갈라 노린 것은 割打ちの銀이 아니라
+// 王手銀取り다 — 出典도 대상을 「飛車または金」에 한정한다. `LegalMoves` 가 手番을 뒤집힌
+// 국면에서 敵玉을 잡는 수를 내므로, 빼지 않으면 그 칸이 표적으로 새어 王手銀取り가
+// 割打ちの銀으로 뜬다(floodgate 1국의 실제 오진).
+func TestSilverForkDoesNotCountTheKing(t *testing.T) {
+	// 5五 銀의 뒤 대각 4六에 後手 玉, 6六에 後手 金 → 王手銀取り, 割打ち가 아니다
+	pos := forkBoard(t, "9/9/9/9/4S4/3g1k3/9/9/8K w - 1")
+	if got, ok := Fork(pos, shogi.SquareOf(5, 5), shogi.Black); ok {
+		t.Errorf("玉+金은 王手銀取り인데 %s 가 떴다", got.Code)
 	}
 }

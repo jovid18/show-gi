@@ -472,6 +472,20 @@ export function GameScreen() {
           </p>
         )}
 
+        {!intervening && snapshot.tagHints && snapshot.tagHints.length > 0 && (
+          <div className="tag-hint" role="note">
+            <p className="tag-hint__head">名前のある手があります</p>
+            <ul className="tag-hint__list">
+              {snapshot.tagHints.map((t) => (
+                <li key={t.code}>
+                  <span className="tag-hint__kind">{KIND_JA[t.kind]}</span>
+                  <span className="tag-hint__name">{t.nameJa}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {rejection && (
           <p className="rejection" role="alert">
             {rejection}
