@@ -68,3 +68,4 @@ apps/server/internal/kifu/testdata/floodgate/
 
 # `go build ./cmd/importkifu` 가 떨어뜨리는 14MB 바이너리
 apps/server/importkifu
+apps/server/internal/kifu/testdata/import10/

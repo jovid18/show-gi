@@ -58,13 +58,17 @@ var forkNames = map[shogi.PieceType]Tag{
 // 수를 세면 거짓말이 된다 — 같은 駒를 成·不成으로 딸 수 있으면 수가 둘이지만 노리는
 // 것은 하나다. `explain` 이 매수를 셀 때 같은 것에 물렸고, 그때도 에러가 안 났다(§27).
 //
-// **歩는 대상에서 뺀다.** 이것은 손익 계산이 아니라 **이름의 관례**다 — 歩 둘을 노리는
-// 형태에는 両取り라는 이름이 붙지 않는다. 값 비교(「내 駒보다 싼가」)는 여기서 하지
+// **歩·玉은 대상에서 뺀다.** 손익 계산이 아니라 **이름의 관례**다. 歩 둘을 노리는
+// 형태에는 両取り라는 이름이 안 붙고, **玉을 낀 두 갈래는 両取り가 아니라 王手○取り**라는
+// 다른 手筋이다 — 割打ちの銀의 출처도 대상을 「飛車または金」에 한정하고 玉을 뺀다.
+// 玉을 표적으로 세면 王手銀取り가 割打ちの銀으로, 桂頭の銀 하나뿐인 국면이 割打ちの銀으로
+// 뜬다(floodgate 1국에서 실제로 두 번 그랬다). 값 비교(「내 駒보다 싼가」)는 여기서 하지
 // 않고 엔진이 한다. 둘을 섞으면 형태와 이득이 다시 한 함수에 뭉친다.
 //
 // **手番을 이 색으로 맞춰서 묻는다.** `LegalMoves` 는 `pos.Turn` 쪽의 수만 내므로,
 // 상대 차례인 국면에서 그대로 물으면 조용히 빈 결과가 온다 — 에러가 아니라 「両取りが
-// 없다」로 보이는 종류의 버그다.
+// 없다」로 보이는 종류의 버그다. (玉을 빼는 것도 여기라야 한다: `LegalMoves` 가 手番을
+// 뒤집힌 국면에서 敵玉을 잡는 수를 내므로, 안 빼면 그 칸이 표적으로 샌다.)
 func targetSquares(pos shogi.Position, sq int, c shogi.Color) []int {
 	pos.Turn = c
 
@@ -74,7 +78,7 @@ func targetSquares(pos shogi.Position, sq int, c shogi.Color) []int {
 		if m.IsDrop() || int(m.From) != sq || seen[int(m.To)] {
 			continue
 		}
-		if cap := pos.Board[m.To]; !cap.Empty() && cap.Type() != shogi.Pawn {
+		if cap := pos.Board[m.To]; !cap.Empty() && cap.Type() != shogi.Pawn && cap.Type() != shogi.King {
 			seen[int(m.To)] = true
 			targets = append(targets, int(m.To))
 		}
@@ -84,14 +88,18 @@ func targetSquares(pos shogi.Position, sq int, c shogi.Color) []int {
 
 // forkShape 는 **그 이름이 말하는 형태인가**를 본다.
 //
-// 두 이름이 방향을 말한다. 「十字」는 縦과 横이 **교차**하는 것이고, 「角」은 斜め다.
-// 세는 것을 「둘 이상」으로만 두면 같은 段의 둘을 노리는 飛도 十字飛車가 되고, 龍이 덤으로
-// 얻은 한 칸(斜め)으로 노린 것까지 十字가 된다 — 둘 다 화면에 그대로 나가는 거짓말이다.
-// 이것이 룰 층에 값 비교 대신 남아야 하는 종류의 조건이다: **이름이 조건을 정한다.**
+// 세 이름이 방향을 말한다. 「十字」는 縦과 横이 **교차**하는 것이고, 「角」은 斜め,
+// 「割打ち」는 **뒤쪽 두 대각**(右斜め後ろ·左斜め後ろ)이다. 세는 것을 「둘 이상」으로만
+// 두면 같은 段의 둘을 노리는 飛도 十字飛車가 되고, 龍이 덤으로 얻은 한 칸(斜め)으로 노린
+// 것까지 十字가 되고, **玉을 앞대각에 낀 王手銀取り가 割打ちの銀**이 된다 — 전부 화면에
+// 그대로 나가는 거짓말이다. 이것이 룰 층에 값 비교 대신 남아야 하는 종류의 조건이다:
+// **이름이 조건을 정한다.**
 //
-// 桂·銀은 방향을 말하지 않는다(ふんどし는 「여럿을 늘어놓는 것」, 割打ち는 「사이에 打つ 것」).
-// 그래서 그쪽은 둘이면 된다.
-func forkShape(pt shogi.PieceType, sq int, targets []int) bool {
+// **桂만 방향을 말하지 않는다.** 桂의 利き가 딱 두 칸이라 낄 방향이 하나뿐이다 — 그래서
+// ふんどしの桂는 둘이면 된다. 割打ちの銀은 출처가 「後ろの斜め」로 정의하므로, 뒤쪽 좌우
+// 대각에 각각 하나씩 서야 한다. 앞대각으로 둘을 낀 것은 割打ち가 아니고, 그 방향 조건이
+// 王手銀取り을 割打ちの銀으로부터 가르는 핵심이다.
+func forkShape(pt shogi.PieceType, sq int, c shogi.Color, targets []int) bool {
 	file, rank := shogi.FileOf(sq), shogi.RankOf(sq)
 
 	switch pt.Base() {
@@ -115,6 +123,23 @@ func forkShape(pt shogi.PieceType, sq int, targets []int) bool {
 			}
 		}
 		return n >= 2
+
+	case shogi.Silver:
+		// 뒤쪽 두 대각(先手면 段이 커지는 쪽의 좌우 한 칸)에 각각 표적이 서야 한다.
+		backRank := rank - forwardStep(c)
+		var left, right bool
+		for _, to := range targets {
+			if shogi.RankOf(to) != backRank {
+				continue
+			}
+			switch shogi.FileOf(to) - file {
+			case -1:
+				left = true
+			case 1:
+				right = true
+			}
+		}
+		return left && right
 
 	default:
 		return len(targets) >= 2
@@ -148,7 +173,7 @@ func Fork(pos shogi.Position, sq int, c shogi.Color) (Tag, bool) {
 	if !named {
 		return Tag{}, false
 	}
-	if !forkShape(p.Type(), sq, targetSquares(pos, sq, c)) {
+	if !forkShape(p.Type(), sq, c, targetSquares(pos, sq, c)) {
 		return Tag{}, false
 	}
 	return name, true
