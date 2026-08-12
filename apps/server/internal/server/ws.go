@@ -3,9 +3,11 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
+	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
 // 대국은 WebSocket이다. 상대의 수도 개입도 **서버가 먼저 말을 걸므로** 요청/응답이 아니다.
@@ -107,14 +110,23 @@ type gameSetup struct {
 	human   shogi.Color
 	opening book.Opening
 	hasBook bool
+	// startSFEN 은 이 판의 0手目다. 이어하는 판은 그 행에 적힌 것이고, 새 판은 Options 의 것이다.
+	//
+	// **가정 수순의 뿌리도 이 값이어야 한다**(whatifRoot). Options 의 것을 그대로 쓰면
+	// 이어하는 판에서 뿌리와 수순이 서로 다른 국면의 것이 된다.
+	startSFEN string
+	// resumeID 가 0이 아니면 이어하는 판이다. 기록 쪽이 새 행을 안 만든다(recordTarget).
+	resumeID int64
+	// startMoves 는 그 판에서 이미 둬진 수순이다(game.Config.StartMoves).
+	startMoves []string
 }
 
-// setupFrom 은 쿼리에서 설정을 읽는다. **못 읽는 값은 조용히 기본값이다** — 목록을 서버가
-// 주므로(GET /api/openings) 여기 이상한 값이 오는 것은 클라이언트가 틀린 경우이고, 그때
-// 대국을 거절하는 것보다 평수로 시작하는 것이 낫다. 고른 것이 실제로 걸렸는지는 스냅샷의
-// `opponentOpening` 으로 화면에서 보인다.
-func setupFrom(r *http.Request, opts Options) gameSetup {
-	s := gameSetup{human: opts.HumanColor}
+// newSetup 은 쿼리에서 새 판의 설정을 읽는다. **못 읽는 값은 조용히 기본값이다** — 목록을
+// 서버가 주므로(GET /api/openings) 여기 이상한 값이 오는 것은 클라이언트가 틀린 경우이고,
+// 그때 대국을 거절하는 것보다 평수로 시작하는 것이 낫다. 고른 것이 실제로 걸렸는지는
+// 스냅샷의 `opponentOpening` 으로 화면에서 보인다.
+func newSetup(r *http.Request, opts Options) gameSetup {
+	s := gameSetup{human: opts.HumanColor, startSFEN: opts.StartSFEN}
 	switch r.URL.Query().Get("color") {
 	case "b":
 		s.human = shogi.Black
@@ -125,6 +137,97 @@ func setupFrom(r *http.Request, opts Options) gameSetup {
 		s.opening, s.hasBook = o, true
 	}
 	return s
+}
+
+// errNoResume 는 이어할 수 없다는 것 하나다. **왜인지는 안 갈라 준다** — 없는 판·남의
+// 판·이미 다른 탭이 점유한 판이 같은 답을 받아야 남의 판 번호를 훑어볼 수 없다(§46).
+var errNoResume = errors.New("ws: cannot resume")
+
+// resumeSetup 은 이어할 판을 **점유하고** 그 설정을 읽는다.
+//
+// **업그레이드 전에 부른다.** 여기서 거절하면 아직 평범한 HTTP 요청이라 404로 끝나는데,
+// 업그레이드 뒤에는 그 답을 프레임으로 말해야 하고 화면이 그것을 「대국 중 오류」와
+// 구별해야 한다.
+//
+// 점유가 곧 되열기라(store.ClaimGameForResume) 이 함수가 성공한 뒤로는 그 행이 「두는 중」
+// 이다. 되돌리는 것은 기록 쪽 하나뿐이다 — ctx 가 끝나면 다시 abandoned 로 닫는다.
+func (h *gameHandler) resumeSetup(ctx context.Context, raw string, userID *int64) (gameSetup, error) {
+	// **로그인한 사람만이다.** 익명 판은 서로 구별할 수단이 없어서(002_anonymous_games.sql)
+	// 「누구의 중단된 판인가」에 답할 수가 없다.
+	if userID == nil || h.opts.Store == nil {
+		return gameSetup{}, errNoResume
+	}
+	id, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || id <= 0 {
+		return gameSetup{}, errNoResume
+	}
+
+	claimed, err := h.opts.Store.ClaimGameForResume(ctx, id, *userID)
+	if err != nil {
+		if !errors.Is(err, store.ErrNoGame) {
+			log.Printf("ws: claim game %d: %v", id, err)
+		}
+		return gameSetup{}, errNoResume
+	}
+
+	setup := gameSetup{
+		human:     shogi.Black,
+		startSFEN: claimed.StartSFEN,
+		resumeID:  claimed.ID,
+	}
+	if claimed.MyColor == "w" {
+		setup.human = shogi.White
+	}
+	// 진형도 그 판의 것으로 돌아간다. 북은 상태를 안 들고 매번 (startSFEN, moves) 에서
+	// 다시 구하므로(game.bookOpponent), 이름 하나면 끊긴 자리 그대로 이어진다.
+	if o, ok := book.Find(claimed.OpeningID); ok {
+		setup.opening, setup.hasBook = o, true
+	}
+
+	rec, err := h.opts.Store.GameRecordAnyOwner(ctx, claimed.ID)
+	if err == nil {
+		setup.startMoves, err = resumeMoves(rec)
+	}
+	if err != nil {
+		// **점유를 되돌린다.** 여기서 그냥 나가면 그 판은 result 가 NULL인 채로 남아
+		// 되짚기에도 이어하기에도 안 걸린다 — 기록 쪽의 ctx 취소 경로는 세션이 서야
+		// 도는 것이고, 이 자리는 아직 그 앞이다.
+		log.Printf("ws: resume game %d: %v", claimed.ID, err)
+		if ferr := h.opts.Store.FinishGame(ctx, claimed.ID, store.ResultAbandoned); ferr != nil {
+			log.Printf("ws: resume game %d: cannot release the claim: %v", claimed.ID, ferr)
+		}
+		return gameSetup{}, errNoResume
+	}
+	return setup, nil
+}
+
+// releaseResume 는 점유를 되돌린다. 이어하는 판이 아니면 아무 일도 안 한다.
+//
+// **기록 쪽이 서기 전에만 부른다.** 그 뒤로는 세션 ctx 가 끝날 때 recorder 가 같은 일을
+// 하고(recorder.go 의 ctx 취소 경로), 둘 다 부르면 abandoned 를 두 번 쓴다.
+func (h *gameHandler) releaseResume(ctx context.Context, setup gameSetup) {
+	if setup.resumeID == 0 || h.opts.Store == nil {
+		return
+	}
+	if err := h.opts.Store.FinishGame(ctx, setup.resumeID, store.ResultAbandoned); err != nil {
+		log.Printf("ws: cannot release the claim on game %d: %v", setup.resumeID, err)
+	}
+}
+
+// resumeMoves 는 기록의 기보를 수순 하나로 편다.
+//
+// **手数에 구멍이 있으면 거절한다.** 기록은 큐가 넘치면 이벤트를 버리므로(recorder.go)
+// 한 수가 빠질 수 있는데, 그걸 무시하고 이어 두면 그 뒤가 통째로 밀린 **없던 판**이 된다 —
+// 되짚기가 같은 자리에서 재현을 멈추는 것과 같은 판단이다(review.go 의 detailOf).
+func resumeMoves(rec store.GameRecord) ([]string, error) {
+	out := make([]string, 0, len(rec.Moves))
+	for i, m := range rec.Moves {
+		if m.Ply != i+1 {
+			return nil, fmt.Errorf("game %d: the record jumps to ply %d at %d", rec.ID, m.Ply, i+1)
+		}
+		out = append(out, m.USI)
+	}
+	return out, nil
 }
 
 // confirmed 는 **세션이 방금 보낸** 확정 수들이다. 세션에 물어보는 길을 새로 파지 않는
@@ -161,11 +264,24 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 쿼리도 업그레이드 전에 읽는다 — 위와 같은 이유다.
-	setup := setupFrom(r, h.opts)
+	setup := newSetup(r, h.opts)
+	if raw := r.URL.Query().Get("resume"); raw != "" {
+		resumed, err := h.resumeSetup(r.Context(), raw, userID)
+		if err != nil {
+			// 404다. 「있지만 못 이어한다」를 알려주지 않는다(errNoResume).
+			writeJSON(w, http.StatusNotFound, map[string]any{
+				"error": "not_found", "message": "その対局は見つかりません。",
+			})
+			return
+		}
+		setup = resumed
+	}
 
 	// Origin 기본 검사를 그대로 쓴다. 개발에서는 Vite가 /ws/game 을 프록시하므로 같은 오리진이다.
 	conn, err := websocket.Accept(w, r, nil)
 	if err != nil {
+		// **점유를 되돌린다.** 세션이 안 서면 기록 쪽도 안 돌아 그 판이 되열린 채 남는다.
+		h.releaseResume(r.Context(), setup)
 		return // Accept 가 이미 응답을 썼다
 	}
 	defer conn.CloseNow()
@@ -186,7 +302,8 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Opponent:        opponent,
 		HumanColor:      setup.human,
 		OpponentOpening: openingName,
-		StartSFEN:       h.opts.StartSFEN,
+		StartSFEN:       setup.startSFEN,
+		StartMoves:      setup.startMoves,
 		ObservePlies:    h.opts.ObservePlies,
 		Explainer:       h.opts.Explainer,
 		Mate:            h.opts.Mate,
@@ -207,7 +324,11 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// DB가 없으면 기록하지 않고 대국은 그대로 된다 — 엔진·캐시와 같은 판단이다.
 	var recorder *dbRecorder
 	if h.opts.Store != nil {
-		recorder = newDBRecorder(ctx, h.opts.Store, h.opts.Level, userID)
+		recorder = newDBRecorder(ctx, h.opts.Store, h.opts.Level, recordTarget{
+			userID:    userID,
+			openingID: setup.opening.ID,
+			resumeID:  setup.resumeID,
+		})
 		cfg.Recorder = recorder
 	}
 	sess, err := game.New(ctx, cfg)
@@ -373,7 +494,9 @@ func (h *gameHandler) whatif(
 		return
 	}
 
-	root := whatifRoot{StartSFEN: h.opts.StartSFEN, Moves: played.get(), Human: setup.human}
+	// **뿌리는 이 판의 0手目다**(gameSetup.startSFEN). 이어하는 판은 그것이 Options 의
+	// 기본값과 다를 수 있고, 어긋나면 수순이 없는 국면에 얹힌다.
+	root := whatifRoot{StartSFEN: setup.startSFEN, Moves: played.get(), Human: setup.human}
 	req := whatifRequest{Ply: msg.Ply, Moves: msg.Moves}
 
 	// **탐색을 readLoop 안에서 하지 않는다.** 400ms 짜리 두 번이라, 그동안 클라이언트가

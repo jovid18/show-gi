@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { ClientMessage, Color, GameSummary, ServerMessage, Snapshot } from '@/protocol/game';
 import type { WhatIfNode, WhatIfRequest } from '@/protocol/whatif';
+import type { ResumableGame } from '@/protocol/resume';
 import type { Send } from '@/hooks/useWhatIf';
 
 export type Connection = 'idle' | 'connecting' | 'open' | 'closed';
@@ -9,7 +10,7 @@ export type Connection = 'idle' | 'connecting' | 'open' | 'closed';
 /**
  * 시작 화면이 고른 것. **대국이 열리기 전에 정해지고 그 판 동안 안 바뀐다.**
  *
- * 서버는 이걸 WS 주소의 쿼리로 받는다(`internal/server/ws.go` 의 `setupFrom`) — `start`
+ * 서버는 이걸 WS 주소의 쿼리로 받는다(`internal/server/ws.go` 의 `newSetup`) — `start`
  * 메시지로 보내지 않는 이유는 그쪽 주석에 있다.
  */
 export interface GameSetup {
@@ -50,6 +51,13 @@ export interface GameState {
   /** 고른 설정으로 대국을 연다. 새 연결이 곧 새 판이다. */
   start: (setup: GameSetup) => void;
   /**
+   * 중단된 판을 이어서 연다.
+   *
+   * **새 판을 여는 것과 같은 연결이다.** 서버가 기보에서 국면을 다시 세우므로
+   * (`docs/06-status.md` §46), 화면 쪽에서 갈리는 것은 주소의 쿼리 하나뿐이다.
+   */
+  resume: (game: ResumableGame) => void;
+  /**
    * 대국을 접고 시작 화면으로 돌아간다.
    *
    * **바로 다시 붙지 않는다.** 다음 판에서 선후공이나 진형을 바꾸고 싶은 것이 보통이고,
@@ -66,10 +74,18 @@ export interface GameState {
   whatif: Send;
 }
 
-function socketUrl(setup: GameSetup): string {
+/**
+ * 이 연결이 여는 주소.
+ *
+ * **이어할 때는 색도 진형도 안 보낸다.** 서버가 그 판의 행에서 읽는다(`ws.go`) — 클라이언트가
+ * 되보내면 「기록에 남은 판」과 「화면이 기억하는 판」이 갈리는 자리가 하나 생기고, 어긋나면
+ * 이어한 판이 그때 두던 판이 아니게 된다.
+ */
+function socketUrl(setup: GameSetup, resumeId: number | null): string {
   const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  const query = new URLSearchParams({ color: setup.color });
-  if (setup.opening) query.set('opening', setup.opening);
+  const query =
+    resumeId !== null ? new URLSearchParams({ resume: String(resumeId) }) : new URLSearchParams({ color: setup.color });
+  if (resumeId === null && setup.opening) query.set('opening', setup.opening);
   return `${scheme}://${window.location.host}/ws/game?${query}`;
 }
 
@@ -85,6 +101,9 @@ export function useGame(): GameState {
   // 판이 열려 있는가. **setup 과 갈라 둔다** — setup 은 다음 판의 기본값으로 남아야 하고,
   // 그것으로 「지금 두는 중인가」를 겸하면 대국을 접는 순간 고른 것도 같이 사라진다.
   const [live, setLive] = useState(false);
+  // 이어하는 판의 번호. **setup 과 갈라 둔다** — setup 은 다음 판의 기본값으로 남지만
+  // 이 값은 그 연결 하나에만 산다. 섞어 두면 「もう一局」이 끝난 판을 또 이어하려 든다.
+  const [resumeId, setResumeId] = useState<number | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [rejection, setRejection] = useState<string | null>(null);
   const [interventionEpisode, setInterventionEpisode] = useState(0);
@@ -114,7 +133,7 @@ export function useGame(): GameState {
     // 남고, 사람이 아직 아무것도 고르지 않은 채로 先手 평수 대국이 시작된다.
     if (!live || !setup) return;
 
-    const socket = new WebSocket(socketUrl(setup));
+    const socket = new WebSocket(socketUrl(setup, resumeId));
     socketRef.current = socket;
     hadIntervention.current = false;
 
@@ -172,7 +191,7 @@ export function useGame(): GameState {
       settle((p) => p.reject(new Error('接続が切れました。')));
       socket.close();
     };
-  }, [generation, live, setup, settle]);
+  }, [generation, live, setup, resumeId, settle]);
 
   const send = useCallback((msg: ClientMessage) => {
     const socket = socketRef.current;
@@ -207,9 +226,23 @@ export function useGame(): GameState {
     setSummary(null);
     setConnection('connecting');
     setSetup(next);
+    setResumeId(null);
     setLive(true);
     // 같은 설정으로 또 두는 것도 **새 연결이어야 한다** — setup 이 그대로면 효과가 다시
     // 돌지 않으므로 세대를 올려 준다.
+    setGeneration((n) => n + 1);
+  }, []);
+
+  const resume = useCallback((game: ResumableGame) => {
+    setSnapshot(null);
+    setRejection(null);
+    setSummary(null);
+    setConnection('connecting');
+    // **그 판의 조건을 다음 판의 기본값으로도 삼는다.** 이어한 판이 끝나고 「もう一局」을
+    // 누르면 같은 선후공·진형에서 시작하는 것이 자연스럽다.
+    setSetup({ color: game.myColor, opening: game.opening ?? null });
+    setResumeId(game.id);
+    setLive(true);
     setGeneration((n) => n + 1);
   }, []);
 
@@ -220,6 +253,8 @@ export function useGame(): GameState {
     setConnection('idle');
     // setup 은 지우지 않는다 — 시작 화면이 그 값에서 시작한다(GameState.setup).
     setLive(false);
+    // **이어하기는 지운다.** 이 판은 이제 그 판이 아니다.
+    setResumeId(null);
   }, []);
 
   return {
@@ -233,6 +268,7 @@ export function useGame(): GameState {
     resign,
     dismissRejection,
     start,
+    resume,
     restart,
     whatif,
   };

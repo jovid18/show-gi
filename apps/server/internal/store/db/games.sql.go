@@ -11,6 +11,44 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const claimGameForResume = `-- name: ClaimGameForResume :one
+UPDATE games
+SET result = NULL, finished_at = NULL
+WHERE id = $1
+  AND user_id = $2
+  AND result = 'abandoned'
+RETURNING id, my_color, start_sfen, opening_tag
+`
+
+type ClaimGameForResumeParams struct {
+	ID     int64
+	UserID *int64
+}
+
+type ClaimGameForResumeRow struct {
+	ID         int64
+	MyColor    string
+	StartSfen  *string
+	OpeningTag *string
+}
+
+// **점유와 되열기가 한 문장이다.** `result = 'abandoned'` 를 조건에 두었으므로 두 번째
+// 요청은 0행을 받는다 — 탭 두 개가 같은 판을 동시에 이어하려 할 때 뒤엣것이 여기서
+// 걸리고, 그래야 세션 goroutine 둘이 한 대국 행에 기록을 겹쳐 쓰지 않는다.
+//
+// finished_at 도 같이 지운다. 안 지우면 「끝난 시각이 있는데 두는 중인 판」이 남는다.
+func (q *Queries) ClaimGameForResume(ctx context.Context, arg ClaimGameForResumeParams) (ClaimGameForResumeRow, error) {
+	row := q.db.QueryRow(ctx, claimGameForResume, arg.ID, arg.UserID)
+	var i ClaimGameForResumeRow
+	err := row.Scan(
+		&i.ID,
+		&i.MyColor,
+		&i.StartSfen,
+		&i.OpeningTag,
+	)
+	return i, err
+}
+
 const countGames = `-- name: CountGames :one
 SELECT count(*) FROM games
 `
@@ -35,15 +73,16 @@ func (q *Queries) CountInterventions(ctx context.Context) (int64, error) {
 
 const createGame = `-- name: CreateGame :one
 
-INSERT INTO games (user_id, my_color, start_sfen)
-VALUES ($1, $2, $3)
+INSERT INTO games (user_id, my_color, start_sfen, opening_tag)
+VALUES ($1, $2, $3, $4)
 RETURNING id
 `
 
 type CreateGameParams struct {
-	UserID    *int64
-	MyColor   string
-	StartSfen *string
+	UserID     *int64
+	MyColor    string
+	StartSfen  *string
+	OpeningTag *string
 }
 
 // 대국 기록. 기보와 개입을 남긴다.
@@ -52,11 +91,46 @@ type CreateGameParams struct {
 // interventions 에 안 적으면 그 수가 그대로 사라진다(docs/01-core.md §5).
 //
 // user_id 는 로그인 전이면 NULL이다 (002_anonymous_games.sql).
+//
+// opening_tag 는 사람이 고른 **상대의** 진형 id다 (internal/book). 「おまかせ」면 NULL.
+// 이 칸이 있어야 이어하기가 상대를 원래대로 다시 세운다 — 북은 상태를 안 들고 매번
+// (start_sfen, moves) 에서 다시 구하므로(game.bookOpponent) id 하나면 그 자리로 돌아간다.
 func (q *Queries) CreateGame(ctx context.Context, arg CreateGameParams) (int64, error) {
-	row := q.db.QueryRow(ctx, createGame, arg.UserID, arg.MyColor, arg.StartSfen)
+	row := q.db.QueryRow(ctx, createGame,
+		arg.UserID,
+		arg.MyColor,
+		arg.StartSfen,
+		arg.OpeningTag,
+	)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const declineResume = `-- name: DeclineResume :execrows
+UPDATE games
+SET result = 'declined'
+WHERE id = $1
+  AND user_id = $2
+  AND result = 'abandoned'
+`
+
+type DeclineResumeParams struct {
+	ID     int64
+	UserID *int64
+}
+
+// 「いいえ」다. **행을 지우지 않는다** — 그 판의 개입과 기보가 실력 추정의 원본이고
+// (docs/01-core.md §5), 사람이 안 이어하겠다고 한 것과 기록을 버리는 것은 다른 일이다.
+//
+// `declined` 는 abandoned 의 하위 상태다: 중단된 채로 끝났고 **사람이 그러기로 정했다**.
+// 갈라 두는 이유는 하나뿐이다 — 이걸 다시 물어보지 않기 위해서다.
+func (q *Queries) DeclineResume(ctx context.Context, arg DeclineResumeParams) (int64, error) {
+	result, err := q.db.Exec(ctx, declineResume, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const finishGame = `-- name: FinishGame :exec
@@ -109,6 +183,7 @@ const getGameForOwner = `-- name: GetGameForOwner :one
 SELECT id, my_color, started_at, finished_at, result, start_sfen
 FROM games
 WHERE id = $1
+  AND result IN ('win', 'loss', 'draw')
   AND user_id IS NOT DISTINCT FROM $2::bigint
 `
 
@@ -128,6 +203,9 @@ type GetGameForOwnerRow struct {
 
 // 주인이 아니면 **0행**이다. 부르는 쪽에서 그것이 404가 된다 — 403이면 「그 번호의
 // 판이 있다」를 알려주는 셈이라, 남의 판 개수를 세어 볼 수 있다.
+//
+// **끝나지 않은 판도 0행이다** — ListGamesForOwner 와 같은 조건이고, 같은 이유로 404다.
+// 「있지만 못 본다」를 알려주는 순간 중단된 판의 존재가 새어 나간다.
 func (q *Queries) GetGameForOwner(ctx context.Context, arg GetGameForOwnerParams) (GetGameForOwnerRow, error) {
 	row := q.db.QueryRow(ctx, getGameForOwner, arg.ID, arg.OwnerID)
 	var i GetGameForOwnerRow
@@ -367,6 +445,7 @@ SELECT
     (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count
 FROM games g
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
+  AND g.result IN ('win', 'loss', 'draw')
   AND g.user_id IS NOT DISTINCT FROM $2::bigint
 ORDER BY g.id DESC
 LIMIT $1
@@ -392,6 +471,11 @@ type ListGamesForOwnerRow struct {
 // 주인이 NULL(로그인 안 함)이면 익명 판만 보인다. 익명 판은 서로 구별할 수단이
 // 애초에 없으므로 지금까지와 같고, 갈리는 것은 **로그인한 판이 그 사람에게만
 // 보인다**는 쪽이다 (docs/02-architecture.md §7 위협 2).
+//
+// **결과가 나온 판만 준다** (docs/06-status.md §51). 두는 중(result NULL)도, 중단된
+// 판(abandoned·declined)도 안 나간다 — 되짚을 것이 없는 줄이고, 중단된 판은 이어하기가
+// 가져갈 몫이다. 아래 GetGameForOwner 와 **같은 조건이어야 한다**: 목록에서만 빼면
+// `/reviews/<id>` 주소로 그냥 열린다(§46).
 func (q *Queries) ListGamesForOwner(ctx context.Context, arg ListGamesForOwnerParams) ([]ListGamesForOwnerRow, error) {
 	rows, err := q.db.Query(ctx, listGamesForOwner, arg.Limit, arg.OwnerID)
 	if err != nil {
@@ -418,6 +502,55 @@ func (q *Queries) ListGamesForOwner(ctx context.Context, arg ListGamesForOwnerPa
 		return nil, err
 	}
 	return items, nil
+}
+
+const resumableGameForOwner = `-- name: ResumableGameForOwner :one
+
+SELECT
+    g.id,
+    g.my_color,
+    g.started_at,
+    g.opening_tag,
+    (SELECT count(*) FROM game_moves m WHERE m.game_id = g.id) AS move_count
+FROM games g
+WHERE g.user_id = $1
+  AND g.result = 'abandoned'
+  AND EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
+ORDER BY g.id DESC
+LIMIT 1
+`
+
+type ResumableGameForOwnerRow struct {
+	ID         int64
+	MyColor    string
+	StartedAt  pgtype.Timestamptz
+	OpeningTag *string
+	MoveCount  int64
+}
+
+// ─── 이어하기 ───────────────────────────────────────────────
+// 근거와 정한 것 셋은 docs/06-status.md §46 · §51.
+//
+// **로그인한 사람만이다.** 셋 다 주인을 `=` 로 받아 익명 판(user_id NULL)이 애초에
+// 안 걸린다 — 익명끼리는 구별할 수단이 없어서(002_anonymous_games.sql) 「누구의 중단된
+// 판인가」에 답할 수가 없다.
+//
+// 이어할 수 있는 판 하나. **가장 최근 것 하나만 준다** — 목록을 주면 사람이 「어느 판을
+// 이어할까」를 고르는 화면이 되는데, 물음은 「두던 판을 이어할까」 하나다.
+//
+// 한 수도 안 둔 판은 뺀다(ListGames 와 같은 EXISTS). 연결만 열렸다 끊긴 판이 그렇게
+// 남는데, 그것을 이어하는 것은 새 판을 여는 것과 같다.
+func (q *Queries) ResumableGameForOwner(ctx context.Context, userID *int64) (ResumableGameForOwnerRow, error) {
+	row := q.db.QueryRow(ctx, resumableGameForOwner, userID)
+	var i ResumableGameForOwnerRow
+	err := row.Scan(
+		&i.ID,
+		&i.MyColor,
+		&i.StartedAt,
+		&i.OpeningTag,
+		&i.MoveCount,
+	)
+	return i, err
 }
 
 const setMoveEval = `-- name: SetMoveEval :exec

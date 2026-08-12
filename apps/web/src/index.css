@@ -1463,6 +1463,61 @@ body {
 }
 
 /*
+  두다 만 판을 이어할지 묻는 카드. **셸(.setup)을 그대로 쓴다** — 같은 자리에 같은 크기로
+  뜨는 것이라, 겉모습이 갈리면 그 순간 다른 화면으로 잘못 온 것처럼 읽힌다.
+*/
+.resume__facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  background: var(--surface-2);
+  border-radius: var(--r-sm);
+}
+
+.resume__facts div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.resume__facts dt {
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.resume__facts dd {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+/* **「続きから」가 왼쪽이고 넓다.** 두던 판이 있어서 뜬 카드이므로 기본 답이 그쪽이고,
+   둘을 같은 폭으로 두면 어느 쪽이 기본인지가 색 하나에만 걸린다. */
+.resume__actions {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 0.6rem;
+}
+
+.resume__actions .btn {
+  padding: 0.7rem 1rem;
+  font-size: 0.9375rem;
+}
+
+@media (max-width: 30rem) {
+  .resume__facts {
+    grid-template-columns: 1fr;
+  }
+
+  .resume__actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
   짜는 순간 판 위에 잠깐 뜨는 이름. 将棋ウォーズ가 하는 그것이다.
 
   **상시 라벨이 아니라 사건이다.** 사이드바에 늘 띄우면 「中飛車」가 무엇을 가리키는

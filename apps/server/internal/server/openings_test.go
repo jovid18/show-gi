@@ -39,7 +39,7 @@ func TestOpeningsListNeedsNothing(t *testing.T) {
 	}
 }
 
-func TestSetupFromQuery(t *testing.T) {
+func TestNewSetupFromQuery(t *testing.T) {
 	cases := []struct {
 		query   string
 		def     shogi.Color
@@ -51,13 +51,13 @@ func TestSetupFromQuery(t *testing.T) {
 		{"?color=b", shogi.White, shogi.Black, ""},
 		{"?opening=shikenbisha", shogi.Black, shogi.Black, "四間飛車"},
 		{"?color=w&opening=yagura", shogi.Black, shogi.White, "矢倉"},
-		// 못 읽는 값은 조용히 기본값이다(setupFrom).
+		// 못 읽는 값은 조용히 기본값이다(newSetup).
 		{"?color=x&opening=nope", shogi.White, shogi.White, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.query, func(t *testing.T) {
 			r := httptest.NewRequest(http.MethodGet, "/ws/game"+tc.query, nil)
-			got := setupFrom(r, Options{HumanColor: tc.def})
+			got := newSetup(r, Options{HumanColor: tc.def})
 
 			if got.human != tc.human {
 				t.Errorf("human = %v, want %v", got.human, tc.human)

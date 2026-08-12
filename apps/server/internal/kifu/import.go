@@ -41,7 +41,8 @@ func (imp *Importer) ImportGame(ctx context.Context, g ParsedGame) (ImportResult
 		startSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1"
 	}
 
-	gameID, err := imp.store.CreateGame(ctx, nil, "b", startSFEN)
+	// 진형은 안 적는다. 들여오는 기보는 사람이 고른 것이 아니라 이미 둬진 판이다.
+	gameID, err := imp.store.CreateGame(ctx, nil, "b", startSFEN, "")
 	if err != nil {
 		return ImportResult{}, fmt.Errorf("create game: %w", err)
 	}

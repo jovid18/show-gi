@@ -11,6 +11,7 @@ package game
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"sync"
 
@@ -116,6 +117,15 @@ type Config struct {
 	HumanColor shogi.Color
 	// StartSFEN 이 비면 평수 초기 국면.
 	StartSFEN string
+	// StartMoves 는 StartSFEN 에서 **이미 둬진** 수순이다. 이어하기가 기록에서 국면을
+	// 다시 세울 때만 채운다(server/ws.go, docs/06-status.md §51).
+	//
+	// **세션 수명을 안 건드린다는 것이 이 설계의 전부다.** 판을 살려 두는 대신 기보로
+	// 다시 두므로 「세션은 연결에 매여 있다」가 그대로 남는다(§46).
+	//
+	// 여기 있는 수는 **기보이지 시도가 아니다** — 물러진 수는 애초에 기보에 없다
+	// (docs/01-core.md §5). 그래서 되만든 판에는 롤백된 수가 안 온다.
+	StartMoves []string
 	// OpponentOpening 은 상대가 따르는 진형의 일본어 이름이다. 스냅샷으로 그대로 나간다.
 	//
 	// **이름만 받는다.** 수순은 상대(book_opponent.go)가 들고 있고 세션은 그것을 모른다 —
@@ -300,8 +310,44 @@ func New(ctx context.Context, cfg Config) (*Session, error) {
 	}
 	st.repeats[pos.RepetitionKey()]++
 
+	// **run 전에 되만든다.** 여기까지는 goroutine이 하나뿐이고 Recorder 도 아직 아무
+	// 말을 안 들었으므로, 되만들기가 실패하면 세션이 **아예 안 선다** — 반쯤 선 판을
+	// 접는 길을 만들지 않는다.
+	if err := st.replay(cfg.StartMoves); err != nil {
+		return nil, err
+	}
+
 	go s.run(ctx, st)
 	return s, nil
+}
+
+// ErrCannotResume 은 기록에서 판을 다시 세울 수 없을 때다. 부르는 쪽에서 404가 된다.
+var ErrCannotResume = errors.New("game: cannot rebuild the position from the record")
+
+// replay 는 기보를 그대로 다시 둬서 끊긴 자리로 판을 되돌린다.
+//
+// **한 수라도 안 맞으면 통째로 거절한다.** 여기서 눈감고 이어 두면 한 칸 어긋난 판이
+// 「그때 두던 판」의 얼굴로 서고, 그 뒤로는 서버도 화면도 조용하다 — 사람만 자기 持ち駒가
+// 다른 것을 본다.
+func (st *state) replay(moves []string) error {
+	for i, u := range moves {
+		m, err := shogi.ParseUSIMove(u)
+		if err != nil {
+			return fmt.Errorf("%w: ply %d (%s): %w", ErrCannotResume, i+1, u, err)
+		}
+		if err := st.pos.ValidateMove(m); err != nil {
+			return fmt.Errorf("%w: ply %d (%s): %w", ErrCannotResume, i+1, u, err)
+		}
+		// **둔 쪽은 착수 전 수번이다.** advance 가 판을 넘긴 뒤에 물으면 상대의 수가 된다.
+		by := st.sideOf(st.pos.Turn)
+		st.advance(m, by)
+	}
+	// 되만든 판이 이미 끝나 있으면 이어할 것이 없다. `abandoned` 로 닫힌 판이라 여기
+	// 걸릴 일은 없고, 걸린다면 기록이 그 자리에서 끊긴 것이다.
+	if len(moves) > 0 && (st.pos.NoLegalMoves() || st.repeats[st.pos.RepetitionKey()] >= 4) {
+		return fmt.Errorf("%w: the game is already over at ply %d", ErrCannotResume, len(moves))
+	}
+	return nil
 }
 
 func (s *Session) run(ctx context.Context, st *state) {
@@ -607,18 +653,26 @@ func (st *state) rollback(r judgeResult) {
 	}
 }
 
-// apply 는 검증이 끝난 수를 반영한다. 표기는 착수 전 국면에서 만들어야 한다.
-func (st *state) apply(m shogi.Move, by Side) {
+// advance 는 검증이 끝난 수를 판에 반영한다. 표기는 착수 전 국면에서 만들어야 한다.
+//
+// **종료 판정은 안 한다.** apply 와 replay 가 그 자리를 다르게 쓴다 — 되만드는 쪽은
+// 판정이 아니라 「끝나 있으면 이어할 수 없다」를 답해야 하고, 그 답을 finish 가 내면
+// 아직 서지도 않은 세션이 Recorder 에 종료를 흘린다.
+func (st *state) advance(m shogi.Move, by Side) {
 	ja := st.pos.MoveJa(m, st.prevTo)
 	st.pos = st.pos.Apply(m)
 	st.prevTo = int(m.To)
 	st.moves = append(st.moves, Move{USI: m.USI(), Ja: ja, By: by})
 	st.usis = append(st.usis, m.USI())
 	st.searchGen++
+	st.repeats[st.pos.RepetitionKey()]++
+}
+
+// apply 는 수를 반영하고 그것으로 대국이 끝났는지 본다.
+func (st *state) apply(m shogi.Move, by Side) {
+	st.advance(m, by)
 
 	key := st.pos.RepetitionKey()
-	st.repeats[key]++
-
 	switch {
 	case st.pos.NoLegalMoves():
 		// 쇼기에서는 手詰まり도 패배다. 어느 쪽이든 수번 측이 진다.

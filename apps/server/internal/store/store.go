@@ -258,23 +258,39 @@ func (s *Store) SaveSkillEstimate(ctx context.Context, userID int64, e SkillEsti
 
 // ── 대국 기록 ────────────────────────────────────────────
 
-// GameResult 는 games.result 에 들어가는 값이다. DDL의 주석과 같은 어휘를 쓴다.
+// GameResult 는 games.result 에 들어가는 값이다.
+//
+// **셋만 「끝난 판」이다** — win·loss·draw. 화면이 읽는 질의가 그 셋으로 거르므로
+// (query/games.sql), 아래 둘은 클라이언트에 아예 안 나간다(docs/06-status.md §51).
+//
+// 칸에 CHECK 가 없어서 값을 늘리는 데 마이그레이션이 필요 없다. 대신 **여기가 유일한
+// 어휘 목록이다** — 001_init.sql 의 칸 주석은 `declined` 를 모른다(적용된 마이그레이션은
+// 안 고친다).
 type GameResult string
 
 const (
 	ResultWin       GameResult = "win"
 	ResultLoss      GameResult = "loss"
 	ResultDraw      GameResult = "draw"
-	ResultAbandoned GameResult = "abandoned" // 끝나지 않고 연결이 끊겼다
+	ResultAbandoned GameResult = "abandoned" // 끝나지 않고 연결이 끊겼다. 이어할 수 있다
+	// ResultDeclined 는 abandoned 인 판을 사람이 **안 이어하겠다고 답한** 것이다.
+	// 갈라 두는 이유는 하나뿐이다 — 다시 물어보지 않기 위해서다(ResumableGame).
+	ResultDeclined GameResult = "declined"
 )
 
 // CreateGame 은 대국 하나를 연다. userID 가 nil이면 로그인 전 대국이다.
-func (s *Store) CreateGame(ctx context.Context, userID *int64, myColor, startSFEN string) (int64, error) {
-	id, err := s.q.CreateGame(ctx, db.CreateGameParams{
+//
+// openingID 는 사람이 고른 상대의 진형(internal/book)이다. 빈 값이면 「おまかせ」.
+func (s *Store) CreateGame(ctx context.Context, userID *int64, myColor, startSFEN, openingID string) (int64, error) {
+	arg := db.CreateGameParams{
 		UserID:    userID,
 		MyColor:   myColor,
 		StartSfen: &startSFEN,
-	})
+	}
+	if openingID != "" {
+		arg.OpeningTag = &openingID
+	}
+	id, err := s.q.CreateGame(ctx, arg)
 	if err != nil {
 		return 0, fmt.Errorf("create game: %w", err)
 	}
@@ -286,6 +302,88 @@ func (s *Store) FinishGame(ctx context.Context, gameID int64, result GameResult)
 	r := string(result)
 	if err := s.q.FinishGame(ctx, db.FinishGameParams{ID: gameID, Result: &r}); err != nil {
 		return fmt.Errorf("finish game: %w", err)
+	}
+	return nil
+}
+
+// ── 이어하기 ─────────────────────────────────────────────
+// 방향은 docs/06-status.md §46, 정한 것은 §51. **세션을 살려 두지 않는다** — 여기 있는
+// 것은 전부 기록 쪽이고, 국면은 기보에서 다시 만든다(server/ws.go).
+
+// ResumableGame 은 이어할 수 있는 판의 머리다. 화면이 물음 카드를 그리는 데 쓴다.
+type ResumableGame struct {
+	ID        int64
+	MyColor   string
+	StartedAt time.Time
+	// OpeningID 는 그때 고른 상대의 진형이다. 「おまかせ」였으면 빈 값.
+	OpeningID string
+	MoveCount int
+}
+
+// ResumableGame 은 이 사람이 이어할 수 있는 가장 최근 판을 준다. 없으면 ErrNoGame.
+//
+// **익명은 부를 자리가 없다** — userID 를 값으로 받으므로 부르는 쪽이 로그인을 이미
+// 확인했다는 뜻이다(server/resume.go).
+func (s *Store) ResumableGame(ctx context.Context, userID int64) (ResumableGame, error) {
+	row, err := s.q.ResumableGameForOwner(ctx, &userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ResumableGame{}, ErrNoGame
+	}
+	if err != nil {
+		return ResumableGame{}, fmt.Errorf("resumable game: %w", err)
+	}
+	out := ResumableGame{
+		ID:        row.ID,
+		MyColor:   row.MyColor,
+		StartedAt: row.StartedAt.Time,
+		MoveCount: int(row.MoveCount),
+	}
+	if row.OpeningTag != nil {
+		out.OpeningID = *row.OpeningTag
+	}
+	return out, nil
+}
+
+// ClaimedGame 은 이어하기가 점유한 판이다. 새 세션을 세우는 데 필요한 것 전부다.
+type ClaimedGame struct {
+	ID        int64
+	MyColor   string
+	StartSFEN string
+	OpeningID string
+}
+
+// ClaimGameForResume 은 판 하나를 이어하기로 점유하고 되연다. 없거나 남의 것이거나
+// **이미 누가 점유했으면** ErrNoGame — 셋을 구별해서 돌려주지 않는다(GameRecord 와 같다).
+//
+// 점유가 곧 되열기다(query/games.sql). 그래서 이 함수가 성공한 뒤 세션이 서지 못하면
+// 그 판은 result 가 NULL인 채로 남는데, 기록 쪽이 ctx 취소에서 다시 abandoned 로
+// 닫는다(server/recorder.go) — 되돌리는 코드를 따로 두지 않는 이유다.
+func (s *Store) ClaimGameForResume(ctx context.Context, gameID, userID int64) (ClaimedGame, error) {
+	row, err := s.q.ClaimGameForResume(ctx, db.ClaimGameForResumeParams{ID: gameID, UserID: &userID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ClaimedGame{}, ErrNoGame
+	}
+	if err != nil {
+		return ClaimedGame{}, fmt.Errorf("claim game %d: %w", gameID, err)
+	}
+	out := ClaimedGame{ID: row.ID, MyColor: row.MyColor}
+	if row.StartSfen != nil {
+		out.StartSFEN = *row.StartSfen
+	}
+	if row.OpeningTag != nil {
+		out.OpeningID = *row.OpeningTag
+	}
+	return out, nil
+}
+
+// DeclineResume 은 「いいえ」를 남긴다. 없거나 남의 것이거나 이미 답한 판이면 ErrNoGame.
+func (s *Store) DeclineResume(ctx context.Context, gameID, userID int64) error {
+	n, err := s.q.DeclineResume(ctx, db.DeclineResumeParams{ID: gameID, UserID: &userID})
+	if err != nil {
+		return fmt.Errorf("decline resume %d: %w", gameID, err)
+	}
+	if n == 0 {
+		return ErrNoGame
 	}
 	return nil
 }
