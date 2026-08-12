@@ -20,93 +20,6 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
 )
 
-// Status 는 대국이 끝났는지, 끝났다면 왜인지다.
-type Status string
-
-const (
-	StatusPlaying    Status = "playing"
-	StatusCheckmate  Status = "checkmate"  // 詰み
-	StatusStalemate  Status = "stalemate"  // 手詰まり — 쇼기에서는 이것도 패배다
-	StatusResigned   Status = "resigned"   // 投了
-	StatusRepetition Status = "repetition" // 千日手
-)
-
-// Side 는 대국자다. 화면 문자열이 아니라 식별자이므로 영어로 둔다.
-type Side string
-
-const (
-	SideHuman  Side = "human"
-	SideEngine Side = "engine"
-)
-
-// Move 는 기보 한 수다.
-type Move struct {
-	USI string `json:"usi"`
-	Ja  string `json:"ja"` // 棋譜 표기(▲7六歩). 화면에 그대로 나간다
-	By  Side   `json:"by"`
-}
-
-// Snapshot 은 클라이언트가 보는 대국 상태 전부다.
-//
-// 부분 갱신을 보내지 않는다. 롤백이 있는 이상 "무엇이 바뀌었는지"를 클라이언트가
-// 재구성하게 두면, 물러진 뒤 화면과 서버가 어긋나도 아무도 모른다.
-type Snapshot struct {
-	SFEN     string `json:"sfen"`
-	Ply      int    `json:"ply"`
-	Turn     string `json:"turn"` // "b" | "w"
-	YourTurn bool   `json:"yourTurn"`
-	InCheck  bool   `json:"inCheck"`
-	Thinking bool   `json:"thinking"`
-
-	// LegalMoves 는 사람 차례일 때만 채운다.
-	//
-	// 클라이언트는 여기 있는 수만 고르게 만든다. 그래서 실사용자는 반칙에 도달하지
-	// 않고, 서버의 반칙 검사는 API 직접 호출과 국면 어긋남에 대한 방어로만 남는다.
-	LegalMoves []string `json:"legalMoves"`
-
-	Moves  []Move `json:"moves"`
-	Status Status `json:"status"`
-	Winner Side   `json:"winner,omitempty"`
-
-	// Judging 은 방금 둔 수를 판정하는 중인가. 화면이 입력을 잠그는 데 쓴다.
-	Judging bool `json:"judging"`
-	// Intervention 은 직전 수가 물러졌을 때만 채워진다. 다음 착수에서 지워진다.
-	Intervention *Intervention `json:"intervention,omitempty"`
-	// Hint 는 같은 국면에서 여러 번 물러졌을 때 열리는 안내다. Intervention 과 수명이
-	// 같지만 **뜻이 반대 방향**이라 따로 둔다 — 저쪽은 방금 둔 수를 말하고 이쪽은
-	// 지금 둘 수를 말한다. 화면도 다른 색으로 그린다.
-	Hint *Hint `json:"hint,omitempty"`
-
-	// StyleTags 는 플레이어가 지금 짜고 있는 囲い·전법의 이름이고, **엔진이 이득으로
-	// 본 手筋**의 이름이다.
-	//
-	// **플레이어 쪽만 채운다.** 컴퓨터의 형태를 알려주는 것은 상대의 계획을 알려주는
-	// 것이라 「최선수를 보여주지 않는다」와 어긋난다(01-core.md §7).
-	//
-	// 囲い·전법은 매 스냅샷마다 다시 센다. 엔진도 DB도 안 타고 맵 조회 몇 번이라, 상태로
-	// 들고 있다가 갱신을 빠뜨리는 쪽이 더 비싸다 — 롤백이 있는 이상 「지금 판 위의 사실」은
-	// 판에서 직접 읽는 것이 언제나 맞는다.
-	//
-	// **手筋은 그럴 수 없다.** 이름만으로는 부족하고 「이득인가」를 엔진이 정하는데
-	// (tesuji.go), 그 답은 판정이 끝난 그 국면의 평가치다 — 판에서 다시 읽을 수 없는
-	// 값이라 세대와 함께 들고 있다가 국면이 움직이면 함께 사라진다(styleTags).
-	StyleTags []tag.Tag `json:"styleTags,omitempty"`
-
-	// TagHints 는 이 국면에서 플레이어가 둘 수 있는 수 중 **새 이름을 만드는 것이 있을 때**
-	// 그 이름이다. 착수 전에 뜨는 제안형 힌트의 데이터이고, 수를 짚지 않는다(01-core.md §7).
-	TagHints []tag.Tag `json:"tagHints,omitempty"`
-
-	// MateHeat 는 詰み 게이지의 세기다(1..MateHeatMax). 0이면 게이지가 꺼져 있다.
-	//
-	// **상대 玉 쪽 하나뿐이고, 手数가 아니라 세기다.** 둘 다 이유가 있고 `gauge.go` 에
-	// 적혀 있다 — 앞은 「불이 붙으면 언제나 내가 가까워졌다는 뜻」이기 위해서이고,
-	// 뒤는 手数가 페이로드에 있으면 그리지 않아도 이미 알려준 것이 되기 때문이다.
-	//
-	// 사람 차례에서만 구한다. 상대가 생각하는 동안에는 직전 값이 그대로 남지 않고
-	// 꺼진다 — 국면이 움직이면 그 세기는 그 자리에서 무효다(state.mateGen).
-	MateHeat int `json:"mateHeat,omitempty"`
-}
-
 // Analyst 는 착수 한 수를 판정하는 데 필요한 숫자를 구해 온다.
 //
 // 엔진을 직접 부르지 않고 인터페이스로 두는 이유는 **판정과 탐색을 갈라두기 위해서**다.
@@ -117,183 +30,10 @@ type Analyst interface {
 	Judge(ctx context.Context, startSFEN string, moves []string, ply int) (Judgement, error)
 }
 
-// Judgement 는 판정 결과와, 그것을 화면에 그리는 데 쓸 재료다.
-//
-// **반박 수순이 Verdict 안에 없는 것이 요점이다.** 거기 넣으면 intervene 이 USI 문자열을
-// 받게 되어 「입력은 이미 구해진 숫자뿐」이 깨진다 — 카테고리를 스칼라로 받게 만든 것과
-// 같은 이유다(06-status.md §15). 반박 수순은 판정의 입력도 출력도 아니고, 판정하면서
-// 어차피 손에 들어온 **그리기 재료**다.
-type Judgement struct {
-	Verdict intervene.Verdict
-	// RetractedSFEN 은 물러진 수를 **둔 직후**의 국면이다. 수순을 넘겨 보는 첫 장면이고,
-	// 되돌아온 지금 판과는 다르다.
-	RetractedSFEN string
-	// RetractedChecks 는 물러진 수가 王手였다면 그것을 거는 말들이다.
-	RetractedChecks []Attack
-	// Refutation 은 「상대는 이렇게 벌한다」 — 착수 후 국면의 최선 수순이다.
-	// 개입이 안 걸렸으면 비어 있다.
-	Refutation []RefutationMove
-
-	// SenteCpBefore·SenteCpAfter 는 착수 전·후 국면의 평가치다. **先手 관점 cp**이고
-	// HasEvals 가 false면 판을 못 읽어 구하지 못한 것이다.
-	//
-	// **판정에는 안 쓴다** — 기보에 남기기 위한 값이다. cp를 원본으로 남겨두면 승률
-	// 상수 K를 바꿔 지난 대국을 다시 채점할 수 있다(01-core.md §2의 K는 아직 실측 전이다).
-	// 승률만 남기면 그 길이 닫힌다.
-	SenteCpBefore int
-	SenteCpAfter  int
-	HasEvals      bool
-
-	// Facts 는 설명 계층이 문장으로 바꿀 사실들이다. 개입이 안 걸렸으면 비어 있다.
-	//
-	// **판정의 출력이지 입력이 아니다.** 무엇을 말해도 되는지가 카테고리에 달려 있어서
-	// (explain.Facts.used) 카테고리가 정해진 뒤에야 닫힌다. 그리고 여기 실리는 것은 이미
-	// 결정적으로 구해진 사실뿐이라, 설명이 판을 다시 읽는 일이 없다.
-	Facts explain.Facts
-
-	// BestUSI 는 착수 **전** 국면의 최선수다. 판정하면서 어차피 손에 들어온 값이고
-	// 추가 탐색이 없다.
-	//
-	// **이것은 화면으로 그냥 나가지 않는다.** 갇힘 힌트(§22)가 단계에 따라 여기서
-	// 출발 칸만 떼거나 수 전체를 쓴다. 자르는 일은 세션이 하고, 3회 단계에서 수를
-	// 통째로 실어 보내면 계단이 화면에만 있고 페이로드에는 없는 것이 된다.
-	BestUSI string
-}
-
-// RefutationMove 는 반박 수순의 한 수다.
-//
-// 기보의 Move 와 달리 **그 수를 둔 뒤의 국면을 함께 싣는다.** 화면이 수순을 한 수씩
-// 넘겨 보여주는데, 클라이언트가 스스로 수를 두면 규칙 엔진을 한 벌 더 갖는 것이라
-// D2에서 「클라이언트는 규칙을 모른다」로 정해둔 것과 어긋난다. 판은 서버가 만든다.
-//
-// 持ち駒도 SFEN에 들어 있으므로 駒台까지 이 한 줄로 맞는다.
-type RefutationMove struct {
-	USI  string `json:"usi"`
-	Ja   string `json:"ja"`
-	By   Side   `json:"by"`
-	SFEN string `json:"sfen"`
-	// Checks 는 그 수 뒤에 **玉을 잡으러 오는 말들**이다. 王手가 아니면 비어 있다.
-	//
-	// 「王手다」까지는 국면만 봐도 알지만 **어느 말이 걸고 있는지**는 규칙을 알아야 하고,
-	// 그건 클라이언트가 갖지 않기로 한 것이다(D2). 両王手가 여기서 둘로 나오고,
-	// 그 둘이 곧 「먹어서 풀 수 없다」의 이유다.
-	Checks []Attack `json:"checks,omitempty"`
-}
-
-// Attack 은 판 위에 그을 한 줄이다. 칸은 USI 좌표(`4i`).
-type Attack struct {
-	From string `json:"from"`
-	To   string `json:"to"`
-}
-
-// Intervention 은 제지형 개입 하나다. 스냅샷에 실려 화면으로 간다.
-type Intervention struct {
-	Kind string `json:"kind"` // "blunder"
-	// Category 는 **왜** 나쁜가다(intervene.Category). 화면은 이걸로 문장을 짓지 않고
-	// Message 를 그대로 그린다 — 표기가 두 벌이 되지 않게. 나중에 DB의
-	// interventions.category 와 약점 프로파일이 이 값을 쓴다.
-	Category string `json:"category"`
-	// RetractedUSI 는 물러진 수. **개입 없는 순수 실력 신호**라 나중에 DB로 간다
-	// (game_moves.retracted_usi).
-	RetractedUSI string `json:"retractedUsi"`
-	// RetractedJa 는 그 수의 棋譜 표기. 화면에 그대로 나간다.
-	RetractedJa string `json:"retractedJa"`
-	// DeltaWin 은 승률 낙폭(0~1).
-	DeltaWin float64 `json:"deltaWin"`
-	// LostMate 는 詰み을 놓쳐서 걸렸는가. 문구가 갈린다.
-	LostMate bool `json:"lostMate"`
-	// Message 는 화면에 그대로 나가는 일본어 문구다.
-	Message string `json:"message"`
-	// RetractedSFEN 은 물러진 수를 **둔 직후**의 국면이다. 화면이 수순을 넘겨 볼 때의
-	// 첫 장면이고, 되돌아온 지금 판(`Snapshot.SFEN`)과는 다르다.
-	RetractedSFEN string `json:"retractedSfen"`
-	// RetractedChecks 는 물러진 수가 王手였다면 그것을 거는 말들이다.
-	RetractedChecks []Attack `json:"retractedChecks,omitempty"`
-	// Refutation 은 「상대는 이렇게 벌한다」. 물러진 수를 그대로 뒀을 때의 최선 수순이고,
-	// 첫 수가 상대의 수다. 못 구했으면 비어 있다 — 화면은 그때 넘기기를 안 띄운다.
-	//
-	// **이것은 최선수가 아니다.** 이 수순이 시작하는 국면은 되물러서 이미 사라졌으므로,
-	// 여기 있는 어느 수도 「지금 이렇게 두라」가 되지 않는다. 금지된 것은 플레이어가
-	// 뒀어야 할 수이고 이쪽은 **왜 나쁜가**에 속한다(01-core.md §1).
-	Refutation []RefutationMove `json:"refutation,omitempty"`
-}
-
-// 갇힘 힌트가 열리는 지점. **같은 국면에서 연속으로 물러진 횟수**다.
-//
-// 한 판 누적으로 세면 40수에 걸쳐 서로 다른 이유로 실수한 사람에게 엉뚱한 힌트가 열린다.
-// 갇힘은 국면의 문제이지 사람의 문제가 아니다 — 통과하는 수를 두면 0으로 돌아간다.
-//
-// **[미확정]** 3과 5는 초기값이다. 실측(06-status.md §22)에서 龍을 짚어줬을 때 통과가
-// 11수 중 3수였으므로 한 번에 맞히기를 기대하는 값은 아니고, 두 번을 준 뒤 수를 보여준다.
-//
-// **재채점(§39)에서 2와 4로 내렸다가 되돌렸다.** 기록된 국면 48개의 분포는 이렇고,
-// 마지막 칸은 실제로 열린다.
-//
-//	2회 4 · 3회 9 · 4회 1 · 5회 2 · … · 12회 1   (3회 이상 13개 · 5회 이상 3개)
-//
-// 1회 칸은 안 적는다 — 여러 세션이 같이 쓰는 로컬 DB에 두 수짜리 테스트 대국이 계속
-// 쌓여 그쪽만 늘어난다. 이 상수가 쓰는 값은 **마지막 칸이 몇 번 열렸나**이고, 그것은
-// 끝까지 둔 판에서만 나온다.
-//
-// 처음에 「5가 한 번도 안 열렸다」고 읽은 것은 **평가치가 남은 판만 세었기 때문**이다.
-// 계단은 cp를 안 쓰는데 재채점의 조건을 같이 씌웠고, 그래서 마지막 칸이 열린 국면
-// 셋이 통째로 빠졌다 — 그중 둘(84번 판의 99手·103手)은 [08-playtest.md §9](08-playtest.md)가
-// **그 두 수가 승패를 갈랐다**고 적어둔 자리다.
-//
-// **그리고 이 분포로는 어느 쪽으로도 못 정한다.** 둔 것이 전부 에이전트이고, 같은
-// 문서 §10이 「앱을 오라클로 썼다 — 후보를 넣고 물러지면 다음 후보를 넣었다」고 적는다.
-// 한 국면에서 12번 물러진 것이 그 방식이다. **사람이 갇히는 모양이 아니다.**
-const (
-	HintPieceAfter = 3
-	HintMoveAfter  = 5
-)
-
-// Hint 는 갇혔을 때 열리는 계단식 안내다.
-//
-// **단계마다 실리는 것이 다르다.** 첫 칸에서 최선수를 통째로 내려보내고 화면이
-// 출발 칸만 그리면, 계단이 화면에만 있고 답은 devtools에 그대로 있다. 그래서 자르는
-// 일을 서버가 한다.
-//
-// 이것이 [§1](01-core.md)의 「최선수를 보여주지 않는다」에 어긋나지 않는 것은 **문이
-// 다섯 번 실패해야 열리기 때문**이다. 기댈 수 있는 힌트가 아니고, 첫 칸은 어디로 갈지를
-// 여전히 플레이어가 찾는다. 발동 조건이 곧 설계다(01-core.md §7).
-type Hint struct {
-	// Square 는 움직일 駒가 있는 칸(`5d`). 打면 비어 있다.
-	Square string `json:"square,omitempty"`
-	// Drop 은 駒台에서 집을 駒(`B`). 판 위의 수면 비어 있다.
-	Drop string `json:"drop,omitempty"`
-	// USI 는 그 수 전체. **마지막 단계에서만 채워진다.**
-	USI string `json:"usi,omitempty"`
-}
-
-// buildHint 는 연속 되무르기 횟수와 최선수로 그 단계의 힌트를 만든다. 아직이면 nil.
-func buildHint(stuck int, bestUSI string) *Hint {
-	if stuck < HintPieceAfter || bestUSI == "" {
-		return nil
-	}
-	m, err := shogi.ParseUSIMove(bestUSI)
-	if err != nil {
-		return nil
-	}
-
-	// 打의 駒 글자는 USI 문자열의 첫 글자(`B*4a`)다. 여기서 떼는 것은 shogi 에 역방향
-	// 표를 새로 만들지 않기 위해서이고, 위에서 파싱이 이미 형식을 보증한다.
-	var h Hint
-	if m.IsDrop() {
-		h.Drop = bestUSI[:1]
-	} else {
-		h.Square = shogi.SquareUSI(int(m.From))
-	}
-	if stuck >= HintMoveAfter {
-		h.USI = bestUSI
-	}
-	return &h
-}
-
 // Opponent 는 상대(컴퓨터)의 수를 고른다.
 //
-// D2에서는 엔진 최선수를 그대로 쓴다. D4의 적응형 상대(밴드 제어)가 들어오는 자리가
-// 여기이고, 그때 바뀌는 것은 이 구현 하나다 — 세션 상태머신은 건드리지 않는다.
+// 구현이 둘이다 — NewEngineOpponent(엔진 최선수 그대로)와 NewAdaptiveOpponent(밴드 제어,
+// 프로덕션이 쓰는 쪽). 상대의 강함이 바뀌는 자리가 여기뿐이라 세션 상태머신은 둘을 모른다.
 type Opponent interface {
 	Choose(ctx context.Context, startSFEN string, moves []string) (string, error)
 }
@@ -326,10 +66,8 @@ type Config struct {
 	Explainer explain.Explainer
 	// ObservePlies 는 개입하지 않는 초반 구간이다. **기본값은 0 — 첫 수부터 판정한다.**
 	//
-	// 원래 20수를 비워뒀는데 그건 「오프닝의 다양성을 인정한다」를 수 번호로 잘못 옮긴
-	// 것이었다. 그러면 5수째에 飛를 던져도 안 잡히고 25수째의 정당한 전법 선택은 못 봐준다.
-	// 임계치가 이미 그 일을 한다 — 오프닝 선택은 50~200cp(Δ 2~8%p)라 어느 레벨도 안 걸리고,
-	// 銀 이상을 공짜로 주면 Δ 34%p라 입문에서도 걸린다 (01-core.md §2).
+	// 오프닝의 다양성은 수 번호가 아니라 임계치가 지킨다 — 전법 선택은 50~200cp(Δ 2~8%p)라
+	// 어느 레벨도 안 걸리고, 銀 이상을 공짜로 주면 Δ 34%p라 입문에서도 걸린다(01-core.md §2).
 	ObservePlies int
 	// HumanColor 는 사람이 잡는 쪽. 기본은 先手(Black).
 	HumanColor shogi.Color
@@ -461,16 +199,9 @@ type state struct {
 	tagHintCount   int
 	tagHintLastPly int
 
-	// 手筋 쪽 제안형 힌트. **예산을 따로 센다.**
-	//
-	// 상한·쿨다운 값은 위와 같은 것을 쓰되 카운터를 나눈다 — 한 예산을 나눠 쓰면 囲い
-	// 힌트가 먼저 세 번 떠서 手筋이 한 번도 못 뜬다. 手筋은 그 국면에서만 성립하고
-	// 놓치면 사라지는 기회라 그 순서가 정확히 반대여야 한다.
-	//
-	// 화면 채널은 하나다(Snapshot.TagHints) — 예산이 둘이라고 표시가 둘이 되면
-	// 06-status.md §41 의 「한 채널이 두 뜻을 나른다」가 된다.
-	// **이름이 아니라 후보를 들고 있는다.** 계단 ②③이 짚을 수가 여기 있어야 하고,
-	// 이름은 언제든 후보에서 편다(tesujiHintTags) — 두 벌로 들면 한쪽이 낡는다.
+	// 手筋 쪽 제안형 힌트. **예산(카운터)만 따로 센다** — 한 예산이면 囲い가 먼저 다 써서
+	// 手筋이 못 뜬다(06-status.md §42). **이름이 아니라 후보를 들고 있는다** — 계단 ②③이
+	// 짚을 수가 여기 있고, 이름은 언제든 후보에서 편다(tesujiHintTags).
 	tesujiOpts        []TesujiOption
 	tesujiHintGen     int
 	tesujiHinting     bool
@@ -777,12 +508,6 @@ func (st *state) rollback(r judgeResult) {
 	}
 }
 
-// 카테고리별 문구는 `internal/explain` 이 갖는다.
-//
-// 여기 있던 map을 옮긴 것이다. 문장을 만드는 일이 세션 상태머신의 일이 아니고, 무엇보다
-// **같은 사실에서 결정적 문구와 LLM 문장이 갈라져 나와야** 하기 때문이다 — 두 벌로 두면
-// LLM이 없을 때와 있을 때 담기는 정보가 달라진다.
-
 // apply 는 검증이 끝난 수를 반영한다. 표기는 착수 전 국면에서 만들어야 한다.
 func (st *state) apply(m shogi.Move, by Side) {
 	ja := st.pos.MoveJa(m, st.prevTo)
@@ -833,13 +558,8 @@ func (st *state) recordLastMove() {
 	st.cfg.Recorder.Moved(len(st.moves), last.USI, last.By)
 }
 
-// recordEvals 는 판정이 손에 들고 온 평가치 둘을 기보에 채운다.
-//
-// **두 手数를 한 번에 채운다.** 판정의 「착수 전」 국면이 곧 직전 상대 수 뒤의 국면이라,
-// 상대 수의 평가치가 여기서 한 수 늦게 들어간다 — `Opponent` 는 자기가 고른 수의
-// 평가치를 돌려주지 않고, 그것 때문에 인터페이스를 넓히는 것보다 이쪽이 싸다.
-//
-// 그래서 **마지막 수의 평가치는 안 채워진다.** 그 뒤에 사람의 수가 없으면 판정도 없다.
+// recordEvals 는 판정이 들고 온 평가치 둘을 **두 手数에 한 번에** 채운다(Recorder.Evaluated).
+// 그래서 마지막 수의 평가치는 안 채워진다 — 그 뒤에 사람의 수가 없으면 판정도 없다.
 func (st *state) recordEvals(j Judgement) {
 	if st.cfg.Recorder == nil || !j.HasEvals {
 		return
@@ -1034,22 +754,10 @@ const (
 // computeTagHints 는 이 국면에서 플레이어의 합법수 중 **새 이름을 만드는 것**을 찾는다.
 //
 // 엔진을 안 부른다 — 전법·戦型은 판과 수순만으로 정해지므로 합법수마다 시뮬레이션하면
-// 끝이다. 종반에 합법수가 많아도 40개 안팎이라 비용은 무시할 수 있다.
+// 끝이다. 手筋은 평가치가 있어야 해서 비동기로 따로 구한다(maybeTesujiHint).
 //
-// 手筋은 엔진 평가치가 있어야 해서 여기서 건너뛰고, 비동기로 따로 구한다(maybeTesujiHint).
-//
-// **囲い는 제안하지 않는다.** 화면에 이름을 붙이는 쪽(styleTags)에는 그대로 남고, 착수
-// **전**에 권하는 쪽에서만 뺀다. 이유가 실측이다 — floodgate 341판에서 **양쪽 다 囲い
-// 이름이 없는 판이 226개(66%)**였고, 40수 시점에 玉이 囲い 자리에 있는데 이름이 없는 쪽이
-// 71개였다([06-status.md §44](../../../../docs/06-status.md)).
-//
-// 그 71개를 뜯어보니 서로 다른 배치가 50가지, 1위가 4건이었다 — **빠진 이름이 아니라
-// 짓다 만 것**이다. 그러면 「이 수를 두면 이름이 생긴다」가 가리키는 순간이 **우리가 42종
-// 중 어느 21종을 구현했는지에 달린 임의의 한 수**가 된다. 형태를 다 짓고 나서 이름을
-// 붙이는 것은 사실이지만, 짓는 도중에 특정 한 수를 권하는 것은 근거가 없다.
-//
-// 넓히려면 **부분 형태를 이름으로 부르지 않으면서** 계열까지만 말하는 축이 필요하다.
-// 그건 아직 없다(§44 「남은 것」).
+// **囲い는 제안에서만 뺀다**(styleTags 쪽에는 남는다). 짓다 만 형태에 이름이 없어서,
+// 「이 수를 두면 이름이 생긴다」가 구현한 종류 수에 달린 임의의 한 수가 된다 — §44.
 func (st *state) computeTagHints() {
 	st.tagHintGen = st.searchGen
 
@@ -1088,7 +796,7 @@ func (st *state) computeTagHints() {
 			PlayerMoves: afterMoves, OpponentMoves: oppMoves,
 		}) {
 			if t.Kind == tag.KindCastle {
-				continue // 짓는 도중의 한 수를 권할 근거가 없다. 위 주석
+				continue // 짓는 도중의 한 수를 권할 근거가 없다(§44)
 			}
 			if !have[t.Code] && !seen[t.Code] {
 				seen[t.Code] = true
@@ -1110,9 +818,8 @@ func (st *state) computeTagHints() {
 // 手筋은 「그래서 得인가」를 엔진이 답해야 이름이 붙는다(tesuji.go). 그래서 게이지와 같은
 // 모양이 된다 — goroutine 으로 던지고 세대로 걸러 받는다(maybeGauge).
 //
-// **엔진을 걸기 전에 룰로 거른다.** 새 이름이 생기는 수는 국면당 0~2개이고 대부분 0이라
-// (06-status.md §34: 실 기보 102수에서 통틀어 6개), 이 한 줄이 사람 차례마다 도는 탐색을
-// 거의 다 없앤다. 없애지 않으면 매 수 엔진을 1~7회 부르게 된다.
+// **엔진을 걸기 전에 룰로 거른다.** 새 이름이 생기는 수는 국면당 대부분 0이라
+// (06-status.md §34 · §42) 이 한 줄이 사람 차례마다 도는 탐색을 거의 다 없앤다.
 func (st *state) maybeTesujiHint(ctx context.Context, done chan tesujiHintResult) {
 	if st.cfg.TesujiHint == nil || st.status != StatusPlaying {
 		return
@@ -1190,17 +897,12 @@ func (st *state) applyTesujiHint(r tesujiHintResult) {
 
 // pointHintAtTesuji 는 **이미 열린 계단**이 최선수 대신 手筋을 짚게 바꾼다.
 //
-// 계단을 새로 만들지 않는 것이 요점이다. 갇힘 힌트와 手筋 힌트는 둘 다 「네가 무엇을
-// 두면 되는가」이고 발동 조건(3회·5회)도 같아서, 따로 두면 **같은 파랑이 두 뜻**이 된다 —
-// 06-status.md §41 이 여덟 번 잡은 그 실패다. 하나를 쓰고 짚는 대상만 바꾼다.
+// 계단을 새로 만들지 않는다. 둘 다 「네가 무엇을 두면 되는가」이고 발동 조건도 같아서,
+// 따로 두면 같은 파랑이 두 뜻이 된다 — 06-status.md §41.
 //
-// 바꿔도 되는 근거는 게이트다. 후보는 전부 `TesujiLossCp` 안이라 최선수보다 100cp 넘게
-// 나쁠 수 없고, 그 대신 **이름이 있다.** 초심자에게 이름은 곧 학습 단위라(01-core.md §7.1)
-// 이름 없는 최선수보다 이름 있는 준최선수가 가르치는 것이 많다.
-//
-// 여럿이면 **첫 번째**를 쓴다. `LegalMoves` 의 순서라 결정적이고, 전부 같은 게이트를
-// 지났으므로 「어느 것이 더 나은가」를 여기서 새로 정할 근거가 없다 — 근거 없이 고르는
-// 규칙을 넣으면 실측 없는 상수가 하나 더 생긴다.
+// 바꿔도 되는 근거는 게이트다. 후보는 전부 `TesujiLossCp` 안이고 그 대신 **이름이 있다**
+// (01-core.md §7.1). 여럿이면 첫 번째 — `LegalMoves` 순서라 결정적이고 전부 같은 게이트를
+// 지났으므로 여기서 새로 고를 근거가 없다.
 func (st *state) pointHintAtTesuji() {
 	if st.hint == nil || len(st.tesujiOpts) == 0 {
 		return
@@ -1232,9 +934,7 @@ func (st *state) snapshot() Snapshot {
 		Hint:         st.hint,
 		StyleTags:    st.styleTags(),
 	}
-	// **국면이 움직였으면 게이지는 그 자리에서 무효다.** 지우는 코드를 착수·롤백·종료에
-	// 흩어 두는 대신 여기서 한 번 대조한다 — 그중 하나를 빠뜨리면 낡은 불꽃이 새 국면에
-	// 남고, 그건 「지금 판 위의 사실」이 아니게 된다(StyleTags 를 매번 다시 세는 것과 같은 자리다).
+	// 국면이 움직였으면 게이지는 그 자리에서 무효다(state.mateGen).
 	if st.mateGen == st.searchGen {
 		snap.MateHeat = st.mateHeat
 	}

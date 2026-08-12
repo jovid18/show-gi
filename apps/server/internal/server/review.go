@@ -14,43 +14,33 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 끝난 판을 되짚는 표면. `/ws/game` 과 달리 여기는 **요청/응답**이다 — 대국은 서버가
-// 먼저 말을 걸어야 하지만 리뷰는 사람이 넘길 때만 움직인다.
+// 끝난 판을 되짚는 표면. `/ws/game` 과 달리 **요청/응답**이다.
 //
-// **기보를 저장한 그대로 내보내지 않는다.** DB에 있는 것은 USI 문자열뿐이라, 그것만으로는
-// 판을 그릴 수도(국면이 없다) 읽을 수도(표기가 없다) 없다. 그래서 여기서 한 판을 처음부터
-// 다시 두며 手数마다 국면과 棋譜 표기를 붙인다 — **클라이언트가 두게 하지 않는 것**은
-// 대국에서 정한 것과 같은 자리다(01-core.md: 화면은 규칙을 모른다). 룰 엔진을 두 벌
-// 갖는 순간 어긋났을 때 어느 쪽이 맞는지 알 수 없다.
+// **저장된 USI만으로는 판도 표기도 못 그리므로 여기서 한 판을 다시 둔다.** 클라이언트가
+// 두게 하면 룰 엔진이 두 벌이 된다 — 화면은 규칙을 모른다(01-core.md).
 
-// listLimit 은 목록의 기본·최대 크기다.
-//
-// 리뷰는 「방금 둔 판」을 보러 오는 화면이라 깊은 페이지네이션이 필요 없다. 최대만
-// 막아두면 커서를 안 만들어도 된다 — 필요해지면 그때 판다.
+// 목록의 기본 크기와 상한이다. 리뷰는 「방금 둔 판」을 보러 오는 화면이라 깊은
+// 페이지네이션이 필요 없다 — 상한만 막아두면 커서를 안 만들어도 된다.
 const (
 	listLimitDefault = 20
 	listLimitMax     = 100
 )
 
-// reviewHandler 는 기록을 읽는다. **세션 goroutine과 아무 관계가 없다** —
-// 여기서 보는 것은 이미 끝난 판이고, 진행 중인 판의 상태는 여전히 세션이 소유한다.
+// reviewHandler 는 기록을 읽는다. **세션 goroutine과 아무 관계가 없다** — 이미 끝난 판이다.
 //
-// **지금은 누구의 판인지를 안 본다.** 로그인이 없어 대국이 전부 익명(`games.user_id` NULL)
-// 이고, 그래서 가릴 주인이 아직 없다. **Google 로그인이 붙는 순간 이 자리가 위협이 된다** —
-// `user_id` 가 채워지기 시작하면 남의 기보와 「그 사람이 어디서 막혔나」가 그대로 열린다
-// (02-architecture.md §7 위협 2가 실력 프로파일에 대해 말하는 것과 같은 자리다).
-// 그때 목록은 세션의 user_id 로 걸러야 하고, 상세는 소유자가 아니면 404여야 한다.
+// **누구의 판인지를 아직 안 본다.** 로그인이 붙어 `games.user_id` 가 채워지는 순간
+// 이 자리가 위협이 된다 — 그 PR이 같이 목록을 걸러야 한다(06-status.md §33).
 type reviewHandler struct {
 	store *store.Store
 }
 
 // gameSummary 는 목록 한 줄이다.
 type gameSummary struct {
-	ID      int64  `json:"id"`
-	MyColor string `json:"myColor"` // "b" | "w"
+	ID        int64     `json:"id"`
+	MyColor   string    `json:"myColor"` // "b" | "w"
+	StartedAt time.Time `json:"startedAt"`
 	// FinishedAt·Result 는 **아직 두는 중인 판이면 안 온다.** 빈 값으로 보내면
 	// 화면이 「1970년에 끝난 판」을 그린다.
-	StartedAt  time.Time  `json:"startedAt"`
 	FinishedAt *time.Time `json:"finishedAt,omitempty"`
 	Result     string     `json:"result,omitempty"` // "win" | "loss" | "draw" | "abandoned"
 
@@ -80,16 +70,11 @@ type reviewMove struct {
 	// 수가 들어 있으면 거기서부터 재현이 멈춘다. 그때 그 수를 목록에서 빼지는 않는다 —
 	// 둔 것은 둔 것이고, 판을 못 그릴 뿐이다.
 	SFEN string `json:"sfen,omitempty"`
-	// EvalCp 는 **플레이어 관점** cp다. DB에는 先手 관점으로 들어 있고 여기서 뒤집는다
-	// (store.SetMoveEval). 리뷰는 「내가 어디서 무너졌나」를 보는 화면이라 판마다 관점이
-	// 바뀌면 두 판을 나란히 못 놓는다.
+	// EvalCp 는 **플레이어 관점** cp다 — DB의 先手 관점을 여기서 뒤집는다(패키지 doc).
 	//
 	// nil이면 그 手数에 평가치가 안 붙었다. 0과 다르다 — 0은 호각이다.
 	EvalCp *int `json:"evalCp,omitempty"`
-	// Checked 는 이 수 뒤에 王手를 받고 있는 玉의 칸이다(`5a`). 王手가 아니면 비어 있다.
-	//
-	// **화면이 이걸 스스로 구하지 않는다.** 王手인지는 규칙을 알아야 알고, 규칙은 서버만
-	// 갖기로 한 것이다 — 대국에서 `Snapshot.inCheck` 를 서버가 보내는 것과 같은 자리다.
+	// Checked 는 이 수 뒤에 王手를 받고 있는 玉의 칸이다(`5a`). 아니면 빈 값 — checkedSquare 참조.
 	Checked string `json:"checked,omitempty"`
 }
 
@@ -114,17 +99,11 @@ type reviewIntervention struct {
 	// 재현이 거기까지 못 갔으면 비어 있다.
 	RetractedJa string `json:"retractedJa,omitempty"`
 
-	// AfterCp 는 **그 수를 두면 얼마가 되나**다. 플레이어 관점이고, `moves[].evalCp` 와
-	// 같은 자다 — 되짚기 화면이 물러진 수를 실제로 둔 수·최선수와 **한 줄에 세워 견주려면**
-	// 상대값(낙폭)이 아니라 절대값이 있어야 한다.
-	//
-	// **없을 수 있다.** migrations/005 앞에 기록된 판에는 영원히 없다(낙폭만 남겼고 그것은
-	// 되돌릴 수 없다 — §39 ⑥). 그때 화면은 그 자리를 다시 재서 채운다.
+	// AfterCp 는 **그 수를 두면 얼마가 되나**다. `moves[].evalCp` 와 같은 자여야 되짚기
+	// 화면이 물러진 수·실제로 둔 수·최선수를 한 줄에 세울 수 있다. 옛 기록에는 없다(§39).
 	AfterCp *int `json:"afterCp,omitempty"`
-	// BestCp 는 판정 당시 최선수의 cp다. 플레이어 관점.
-	//
-	// 낙폭과 겹쳐 보이지만 겹치지 않는다 — 낙폭은 **그때 K로** 구한 승률 차이고 이쪽은
-	// 원본이다. K가 바뀌면 낙폭은 낡고 이 값은 안 낡는다.
+	// BestCp 는 판정 당시 최선수의 cp. 낙폭과 겹치지 않는다 — 낙폭은 **그때 K로** 구한
+	// 승률 차라 K가 바뀌면 낡고, 이 값은 원본이라 안 낡는다.
 	BestCp *int `json:"bestCp,omitempty"`
 }
 
@@ -220,8 +199,7 @@ func detailOf(rec store.GameRecord) gameDetail {
 	}
 
 	// posAt[i] 는 **i手目까지 둔 뒤**의 국면이고, toAt[i] 는 그 i手目의 도착 칸이다
-	// (「同」 표기가 직전 수의 도착 칸을 본다). 재현이 끊기면 여기서 더 자라지 않고,
-	// 그 뒤의 手数는 표기도 국면도 없이 나간다.
+	// (「同」 표기가 직전 수의 도착 칸을 본다).
 	var posAt []shogi.Position
 	var toAt []int
 
@@ -257,8 +235,9 @@ func detailOf(rec store.GameRecord) gameDetail {
 			view.EvalCp = &cp
 		}
 
-		// 재현이 여기까지 이어졌고, 手数에 구멍이 없을 때만 이어 둔다. 구멍이 있으면
-		// 그 뒤를 한 칸씩 밀어 두는 셈이 되어 **없던 국면을 그린다.**
+		// 재현이 여기까지 이어졌고, 手数에 구멍이 없을 때만 이어 둔다. 구멍을 무시하고
+		// 이어 두면 3手目가 2手目 자리에 서서 **없던 국면을 그린다** — 여기서 멈추고
+		// 그 뒤의 手数는 표기도 국면도 없이 나간다.
 		if len(posAt) == i+1 && m.Ply == i+1 {
 			if next, ja, ok := advance(posAt[i], toAt[i], m.USI); ok {
 				view.Ja = ja
@@ -285,9 +264,7 @@ func detailOf(rec store.GameRecord) gameDetail {
 			LevelBucket:  iv.LevelBucket,
 			RetractedUSI: iv.RetractedUSI,
 		}
-		// **관점을 여기서 맞춘다.** DB에는 수번 측 관점으로 들어 있는데, 개입은 언제나
-		// 사람이 둔 수라 「수번 측 = 사람」이다 — 그래서 先手/後手만 보고 뒤집으면 된다.
-		// `moves[].evalCp` 와 같은 자가 되어야 한 줄에 세울 수 있다(위 필드 주석).
+		// 관점은 여기서 맞춘다(flipToPlayer).
 		if iv.AfterCp != nil {
 			view.AfterCp = flipToPlayer(*iv.AfterCp, humanColor)
 		}
@@ -306,61 +283,8 @@ func detailOf(rec store.GameRecord) gameDetail {
 	return out
 }
 
-// startSFENOf 는 기록된 시작 국면이다. **비어 있으면 평수 초기 국면**이다 —
-// 세션은 기본 국면도 문자열로 적지만(session.go), 002 이전에 열린 판에는 칸이 비어 있다.
-func startSFENOf(recorded string) string {
-	if recorded == "" {
-		return shogi.StartSFEN
-	}
-	return recorded
-}
-
-// advance 는 한 수를 두어 본다. 읽을 수 없거나 합법이 아니면 ok=false.
-//
-// **여기서 판정을 새로 하지 않는다.** 기록에 남은 수는 이미 그때 룰 엔진을 통과한
-// 것이고, 이 검사는 기록이 깨졌는지를 보는 것이다.
-func advance(pos shogi.Position, prevTo int, usi string) (shogi.Position, string, bool) {
-	m, err := shogi.ParseUSIMove(usi)
-	if err != nil {
-		return pos, "", false
-	}
-	if err := pos.ValidateMove(m); err != nil {
-		return pos, "", false
-	}
-	return pos.Apply(m), pos.MoveJa(m, prevTo), true
-}
-
-// checkedSquare 는 王手를 받고 있는 玉의 칸이다(`5a`). 王手가 아니면 빈 값.
-//
-// **화면이 이걸 스스로 구하지 않는다.** 王手인지는 규칙을 알아야 알고, 규칙은 서버만
-// 갖기로 한 것이다 — 가정 수순도 같은 값을 쓴다(whatif.go).
-//
-// 玉이 없는 국면(기록된 SFEN이 그럴 수 있다)에서 -1이 온다. 그때는 안 짚는다.
-func checkedSquare(pos shogi.Position) string {
-	if !pos.InCheck(pos.Turn) {
-		return ""
-	}
-	sq := pos.KingSquare(pos.Turn)
-	if sq < 0 {
-		return ""
-	}
-	return shogi.SquareUSI(sq)
-}
-
-// lastTo 는 그 수의 도착 칸이다. 「同」 표기가 이 값을 본다.
-func lastTo(usi string) int {
-	m, err := shogi.ParseUSIMove(usi)
-	if err != nil {
-		return -1
-	}
-	return int(m.To)
-}
-
-// flipToPlayer 는 **수번 측 관점** cp를 플레이어 관점으로 옮긴다.
-//
-// 개입은 언제나 사람이 둔 수에 걸리므로 그 국면의 수번은 사람이다 — 그래서 색만 보면 된다.
-// `moves[].evalCp` 가 같은 규칙으로 뒤집히고(위), 두 값이 같은 자여야 되짚기 화면이 물러진
-// 수와 실제로 둔 수를 한 줄에 세울 수 있다.
+// flipToPlayer 는 수번 측 cp를 플레이어 관점으로 옮긴다(패키지 doc의 규약).
+// 개입은 늘 사람이 둔 수라 그 국면의 수번이 사람이다 — 그래서 색만 보면 된다.
 func flipToPlayer(cp int, human shogi.Color) *int {
 	if human == shogi.White {
 		cp = -cp

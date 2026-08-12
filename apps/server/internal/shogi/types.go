@@ -3,11 +3,20 @@
 // 이 패키지는 DB도 엔진도 모른다. 순수 함수 덩어리이고, 그래서 테스트가 싸다.
 // 블런더 판정의 바닥에 깔리는 층이라 여기서 틀리면 위에서 전부 틀린다.
 //
-// 좌표계: sq = row*9 + col (0..80).
-//   - row 0..8 = 段(rank) 1..9, 위(후수 진영)에서 아래(선수 진영)로.
-//   - col 0..8 = 9筋(왼쪽)에서 1筋(오른쪽)으로. 즉 file = 9 - col.
+// 아래는 표현 규약이다. 잘못 읽으면 테스트를 통과하면서 틀린다.
 //
-// 선수(Black, 先手)는 위쪽(row 감소)으로 전진한다.
+// 좌표: sq = row*9 + col (0..80). row = 段-1 (0..8), col = 9-筋 (0..8).
+//   - row 0..8 = 段(rank) 1..9, 위(후수 진영)에서 아래(선수 진영)로.
+//   - 표기는 1-origin이고 筋은 역순이다 — 즉 sq 0 = 9a, sq 80 = 1i.
+//   - 변환은 SquareOf/FileOf/RankOf 만 쓴다.
+//   - 선수(Black, 先手)는 위쪽(row 감소)으로 전진한다.
+//
+// 駒: Piece int8 — 0 = 빈 칸, 부호가 색(양수 = 선수), 절대값이 PieceType.
+//   - 빈 칸에 Color() 를 물으면 Black 이 나온다. 반드시 Empty() 를 먼저 묻는다.
+//
+// 持ち駒: Hands 는 색 → 말 종류 순으로 색인한다. 둘째 축은 PieceType 값 그대로다(0-based 오프셋 아님).
+//
+// 手番: Turn Color — Black=0=先手=SFEN "b", White=1=後手=SFEN "w".
 package shogi
 
 import "fmt"
@@ -30,6 +39,8 @@ func (c Color) String() string {
 
 type PieceType int8
 
+// 승격형은 산술로 못 얻는다 — 金에 승격형이 없어서 歩~銀은 +8인데 角·飛는 +7이다.
+// 반드시 Promoted()/Base() 를 쓴다. Pawn..Rook(1..7)이 연속인 것은 持ち駒 루프가 전제한다.
 const (
 	NoPieceType PieceType = iota
 	Pawn                  // 歩
@@ -131,12 +142,18 @@ func (p Piece) Color() Color {
 }
 
 // SquareOf: 표기 좌표(筋 file 1..9, 段 rank 1..9) → 내부 인덱스.
+// 범위를 검사하지 않고, 범위 밖이 판 밖으로 나가지도 않는다 — SquareOf(0,0) 은 0(9a)이다.
+// 밖에서 온 값은 부르는 쪽이 먼저 거른다.
 func SquareOf(file, rank int) int { return (rank-1)*9 + (9 - file) }
 
 func FileOf(sq int) int { return 9 - sq%9 }
 func RankOf(sq int) int { return sq/9 + 1 }
 
 // Move: From == -1 이면 持ち駒 투입(Drop에 말 종류).
+//
+// 합법 판정의 실체가 LegalMoves 목록과의 구조체 동등 비교라(ValidateMove) 정규형을 지켜야 한다 —
+// 투입은 From 이 정확히 -1(-2도 IsDrop 은 통과한다) · Promote false, 반상 이동은 Drop 0.
+// 어기면 합법인 수가 ReasonUnknown 으로 거절되는데, USI 표기는 정규형과 똑같이 찍혀서 안 보인다.
 type Move struct {
 	From    int8
 	To      int8

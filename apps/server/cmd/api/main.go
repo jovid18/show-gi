@@ -84,6 +84,7 @@ func main() {
 		}
 		searcher := archive.Wrap(pool, into)
 		// 떠 있는 기록이 끝나기를 기다린다. 안 기다리면 **마지막 수의 분석이 버려진다.**
+		// **등록 순서가 곧 종료 순서다**(LIFO). 이 줄이 위 defer st.Close() 보다 뒤라서 기록이 다 흘러간 뒤 DB가 닫힌다.
 		defer searcher.Wait()
 
 		opts.NewOpponent = func() game.Opponent {

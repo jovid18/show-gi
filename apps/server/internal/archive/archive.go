@@ -1,18 +1,15 @@
 // Package archive 는 **모든 탐색을 데이터로 만든다.**
 //
-// 이 레포는 엔진을 네 자리에서 부른다 — 상대의 수, 개입 판정, 대국 중 블런더 화면의
-// 가정 수순, 되짚는 판의 가정 수순. 네 곳에 기록 코드를 흩뿌리면 **반드시 하나가 빠지고**,
-// 빠진 것은 「데이터가 왜 이것만 있지」로 한참 뒤에 나타난다. 그래서 기록을 탐색 그 자체에
-// 붙인다 — `usi.Pool` 을 한 겹 감싸고, 부르는 쪽은 감싼 줄도 모른다.
+// 이 레포는 엔진을 **다섯 자리**에서 부른다 — 상대의 수, 개입 판정, 대국 중 가정 수순,
+// 되짚는 판의 가정 수순, 手筋 제안 힌트. 다섯 곳에 기록 코드를 흩뿌리면 **반드시 하나가
+// 빠지고**, 빠진 것은 「데이터가 왜 이것만 있지」로 한참 뒤에 나타난다. 그래서 기록을 탐색
+// 그 자체에 붙인다 — `usi.Pool` 을 한 겹 감싸고, 부르는 쪽은 감싼 줄도 모른다.
 //
-// 남는 것은 둘이다.
+// **기준이 같아야 재활용이 된다.** 깊이는 다섯 자리가 모두 12이고(game.DefaultDepth ·
+// JudgeDepth · whatifDepth), 갈리는 것은 MultiPV뿐이다 — 그건 「같은 깊이면 후보가 많은
+// 쪽이 이긴다」로 질의가 정리한다(query/positions.sql).
 //
-//	positions   국면 → 상위 후보(수번 관점 cp·詰み 手数)와 **도달 깊이**
-//	edges       한 수 → 깊이별 평가치(先手 관점) · 도착 국면 · 그 수가 만든 이름
-//
-// **기준이 같아야 재활용이 된다.** 깊이는 네 자리가 모두 12이고(game.DefaultDepth ·
-// JudgeDepth), 갈리는 것은 MultiPV뿐이다 — 그건 「같은 깊이면 후보가 많은 쪽이 이긴다」로
-// 질의가 정리한다(query/positions.sql).
+// 무엇이 어디에 남는지는 `positions`·`edges` 의 DDL(001_init.sql)과 02-architecture.md §4.
 package archive
 
 import (
@@ -54,7 +51,7 @@ type Engine interface {
 // Searcher 는 탐색을 그대로 넘기고 결과를 남긴다.
 //
 // `game.MultiSearcher` · `game.Searcher` · `server.Searcher` 를 한꺼번에 만족한다 —
-// 세 자리가 같은 하나를 받아야 「네 자리 중 하나가 안 감싸졌다」가 생기지 않는다.
+// 세 인터페이스가 같은 하나를 받아야 「다섯 자리 중 하나가 안 감싸졌다」가 생기지 않는다.
 type Searcher struct {
 	inner Engine
 	store Store
@@ -117,14 +114,9 @@ func (a *Searcher) SearchMultiPV(
 
 // lookup 은 이미 잰 국면을 탐색 결과의 모양으로 되돌린다. 못 쓰면 ok=false.
 //
-// **되돌려야 하는 것이 둘이다.** 후보 목록(`Lines`)은 `positions` 에서 나오지만, 부르는
-// 쪽이 보는 **깊이별 값**(`History`)은 `edges.eval_by_depth` 에만 있다 — 그게 없으면
-// 개입 판정의 `ScoreAtDepth(2)` 가 빈손으로 돌아오고, 「얕은 이득에 낚임」 카테고리가
-// 조용히 사라진다(01-core.md §3). 캐시가 기능을 조용히 지우는 일은 없어야 한다.
-//
-// 두 조건을 다 넘어야 쓴다 — **깊이가 모자라지 않고, 후보 수도 모자라지 않을 때**다.
-// 뒤엣것이 없으면 k=1로 쓰인 행이 k=10을 원하는 쪽에 하나만 주고, 적응형 상대는 고를
-// 후보가 없어 최선수만 두게 된다(그건 강함 조절이 꺼진 것이다).
+// **되돌릴 것이 둘이다** — 후보 목록(`Lines`)은 `positions`, 부르는 쪽이 보는 깊이별
+// 값(`History`)은 `edges.eval_by_depth` 다. 쓰는 조건도 둘이라 **깊이와 후보 수를 둘 다**
+// 넘어야 한다. 어느 하나를 빠뜨렸을 때 무엇이 조용히 사라지는지는 06-status.md §37.
 func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiPV int) (usi.SearchResult, bool) {
 	key := Key(pos)
 	p, err := a.store.GetPosition(ctx, key)
@@ -180,8 +172,8 @@ func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiP
 // wanted 는 그 국면에서 **실제로 있을 수 있는** 후보 수다.
 //
 // **합법수가 k보다 적으면 후보도 k개가 안 된다.** 그걸 「모자란다」로 보면 그 자리는
-// 영원히 캐시를 못 쓰고 매번 다시 잰다 — 종반에 k=10을 묻는 상대가 정확히 여기 온다.
-// 합법수를 세는 것은 룰 엔진 몫이라 엔진을 안 부른다.
+// 영원히 캐시를 못 쓰고 매번 다시 잰다(06-status.md §37). 합법수를 세는 것은 룰 엔진
+// 몫이라 엔진을 안 부른다.
 func wanted(pos shogi.Position, multiPV int) int {
 	if multiPV <= 1 {
 		return multiPV
@@ -316,10 +308,8 @@ func (a *Searcher) record(startSFEN string, moves []string, res usi.SearchResult
 
 // link 는 부모 국면에서 이 국면으로 온 한 수를 남긴다.
 //
-// **이름은 여기서만 붙는다.** 형태는 룰이 정하고 「그래서 得인가」는 엔진이 정하는데
-// (06-status.md §34), 그 두 값이 부모와 자식 국면에 나뉘어 있어서 둘을 손에 든 자리가
-// 여기뿐이다. 부모를 아직 안 재 봤으면 **이름을 붙이지 않는다** — 룰만으로 통과시키면
-// §34가 지운 오판이 그대로 돌아온다.
+// **이름은 여기서만 붙는다**(namesFor). 판단에 부모와 자식이 둘 다 필요한데 그 둘을
+// 한꺼번에 손에 든 자리가 여기뿐이다.
 func (a *Searcher) link(
 	ctx context.Context,
 	parent shogi.Position,
@@ -438,8 +428,8 @@ func splitMovesBySide(startSFEN string, moves []string, mover shogi.Color) (move
 // Key 는 **手数를 뺀 SFEN**이다. 手数를 빼야 전치(다른 수순으로 같은 국면에 도달)가
 // 한 행으로 합쳐진다(001_init.sql).
 //
-// **부르는 쪽이 이걸 다시 만들지 않는다.** 캐시를 읽는 쪽과 쓰는 쪽이 키를 각자 만들면
-// 한 글자만 갈려도 히트율이 0이 되고, 그건 에러 없이 조용히 느려지는 종류다.
+// **부르는 쪽이 이걸 다시 만들지 않는다.** 키를 각자 만들면 한 글자만 갈려도 히트율이
+// 0이 되고, 그건 에러 없이 조용히 느려지는 종류다.
 func Key(pos shogi.Position) string {
 	sfen := pos.SFEN()
 	if i := strings.LastIndexByte(sfen, ' '); i > 0 {
@@ -450,9 +440,8 @@ func Key(pos shogi.Position) string {
 
 // Candidates 는 탐색 결과를 캐시에 넣을 모양으로 옮긴다. **순위 순이고 cp는 수번 관점**이다.
 //
-// 공개해 둔 이유는 **캐시에서 꺼낸 것과 방금 잰 것이 같은 모양이어야** 하기 때문이다
-// (`internal/server/whatif.go`). 두 모양을 각자 만들면 캐시 히트와 미스에서 화면이 다른
-// 값을 받고, 그건 히트율에 따라 나타나는 버그가 된다.
+// 공개해 둔 것은 **캐시에서 꺼낸 것과 방금 잰 것이 같은 모양이어야** 하기 때문이다
+// (`internal/server/whatif.go`). 두 모양이 갈리면 히트율에 따라 나타나는 버그가 된다.
 func Candidates(res usi.SearchResult) []store.Candidate {
 	out := make([]store.Candidate, 0, len(res.Lines))
 	seen := map[int]bool{}

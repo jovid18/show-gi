@@ -19,9 +19,8 @@ var kanjiPiece = map[PieceType]string{
 var kanjiRank = [...]string{"", "一", "二", "三", "四", "五", "六", "七", "八", "九"}
 
 // PieceJa 는 駒 종류의 한자다 — 「銀」「成銀」「と」.
-//
-// 개입 문구가 駒를 이름으로 부를 때 쓴다. **棋譜와 같은 표를 본다**: 카드가 「▲8四銀不成」
-// 이라고 적어놓고 문장이 그 駒를 다른 이름으로 부르면 초심자는 둘이 같은 것인 줄 모른다.
+// **棋譜와 같은 표(kanjiPiece)를 본다** — 카드가 「▲8四銀不成」인데 문장이 그 駒를 달리 부르면
+// 초심자는 둘이 같은 것인 줄 모른다.
 func PieceJa(t PieceType) string { return kanjiPiece[t] }
 
 // squareJa 는 「2四」 형식으로 칸을 적는다.
@@ -72,6 +71,9 @@ func vertJa(from, to int, c Color) string {
 
 // 좌우 — 두는 쪽에서 봤을 때 어느 쪽에서 왔는가.
 // 先手는 1筋이 오른쪽이므로 筋 번호가 작을수록 오른쪽이다.
+//
+// 같은 筋(d==0)이면 좌우로 갈리지 않는데도 「左」가 나온다 — disambiguate 가 「둘이 같은 라벨이면
+// 버린다」로 걸러내는 것을 전제한 값이다. 단독으로 부르지 않는다.
 func horizJa(from, to int, c Color) string {
 	d := FileOf(from) - FileOf(to)
 	if c == White {

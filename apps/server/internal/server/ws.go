@@ -16,11 +16,8 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// 대국은 WebSocket으로 한다. 상대의 수는 사람이 뭘 보내서가 아니라 엔진이 다 생각했을 때
-// 도착하고, D3의 개입도 마찬가지로 서버가 먼저 말을 건다. 요청/응답으로는 표현되지 않는다.
-//
-// **세션은 연결에 매여 있다.** 끊기면 대국도 끝난다 — 아직 대국을 DB에 쓰지 않기 때문이다.
-// 그래서 배포하면 진행 중인 대국이 끊긴다(06-status.md).
+// 대국은 WebSocket이다. 상대의 수도 개입도 **서버가 먼저 말을 걸므로** 요청/응답이 아니다.
+// **세션은 연결에 매여 있다** — 끊기면 대국도 끝난다(README).
 
 const (
 	// writeTimeout 은 프레임 하나를 밀어 넣는 데 주는 시간이다.
@@ -90,14 +87,9 @@ type gameHandler struct {
 	opts Options
 }
 
-// confirmed 는 **세션이 방금 보낸** 확정 수들이다.
-//
-// 핸들러가 세션 상태를 들여다보는 것이 아니다 — 어차피 구독해서 받고 있는 스냅샷을 한 벌
-// 들고 있는 것이고, 가정 수순의 뿌리가 여기서 나온다(whatifRoot). 세션에 물어보는 길을
-// 새로 파지 않는 이유는 그쪽이 곧 **핸들러가 상태를 직접 읽는 지름길**이 되기 때문이다.
-//
-// 롤백으로 수가 **줄어드는** 것도 그대로 따라온다. 스냅샷이 늘 전체 상태라서다 —
-// 물러진 수는 여기 없고, 그래서 분기의 뿌리에 물러진 수가 섞이는 일이 없다.
+// confirmed 는 **세션이 방금 보낸** 확정 수들이다. 세션에 물어보는 길을 새로 파지 않는
+// 이유는 그쪽이 곧 **핸들러가 상태를 직접 읽는 지름길**이 되기 때문이다 — 어차피 구독해서
+// 받는 스냅샷을 한 벌 들고 있는 것이다(06-status.md §37).
 type confirmed struct {
 	mu    sync.Mutex
 	moves []string
@@ -120,7 +112,7 @@ func (c *confirmed) get() []string {
 }
 
 func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Origin 기본 검사를 그대로 쓴다. 개발에서는 Vite가 /ws를 프록시하므로 같은 오리진이다.
+	// Origin 기본 검사를 그대로 쓴다. 개발에서는 Vite가 /ws/game 을 프록시하므로 같은 오리진이다.
 	conn, err := websocket.Accept(w, r, nil)
 	if err != nil {
 		return // Accept 가 이미 응답을 썼다
@@ -232,15 +224,9 @@ func (h *gameHandler) readLoop(
 	}
 }
 
-// whatif 는 「そのとき、こう指していたら」를 대국 화면에서 답한다.
-//
-// **리뷰의 그것과 같은 장치다**(whatif.go). 갈리는 것은 뿌리를 어디서 얻는가뿐이다 —
-// 저쪽은 DB 기록이고 여기는 방금 받은 스냅샷이다. 두는 중인 판을 DB로 물으면 안 되는
-// 이유가 그것이다: `dbRecorder` 가 큐로 쓰므로 **개입 직후에는 마지막 수가 아직 없을 수
-// 있다.** 하필 제일 누르고 싶은 순간에 흔들린다.
-//
-// **세션은 하나도 안 건드린다.** 분기는 상태가 아니고, 이 판은 이미 롤백이 끝나 사람
-// 차례로 서 있다 — 엔진 풀에 빈 자리가 있는 자리이기도 하다.
+// whatif 는 「そのとき、こう指していたら」를 대국 화면에서 답한다. 리뷰와 **같은 장치**이고
+// (whatif.go) 갈리는 것은 뿌리뿐 — 여기는 방금 받은 스냅샷이다(DB는 개입 직후 한 수가
+// 비어 있을 수 있다, §37). **세션은 하나도 안 건드린다.**
 func (h *gameHandler) whatif(
 	ctx context.Context,
 	out chan serverMsg,
@@ -308,9 +294,7 @@ func writeLoop(ctx context.Context, cancel context.CancelFunc, conn *websocket.C
 			}
 
 		case <-ping.C:
-			// 사람이 오래 생각하면 그동안 프레임이 하나도 안 오간다. ALB는 900초에
-			// 유휴 연결을 끊으므로, 아무 말 없이 대국이 사라지는 것을 이걸로 막는다.
-			// 죽은 상대를 알아채는 수단이기도 하다.
+			// 사람이 오래 생각하면 프레임이 하나도 안 오간다. 죽은 상대를 알아채는 수단이기도 하다.
 			pctx, done := context.WithTimeout(ctx, writeTimeout)
 			err := conn.Ping(pctx)
 			done()

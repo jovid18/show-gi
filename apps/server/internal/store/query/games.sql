@@ -1,8 +1,7 @@
 -- 대국 기록. 기보와 개입을 남긴다.
 --
 -- **개입으로 물러진 수가 여기서만 남는다.** 기보(game_moves)에는 확정된 수만 들어가므로,
--- interventions 에 안 적으면 「개입이 막지 않았다면 실제로 뒀을 수」가 그대로 사라진다 —
--- 개입에 오염되지 않은 유일한 실력 신호다 (docs/01-core.md §5).
+-- interventions 에 안 적으면 그 수가 그대로 사라진다(docs/01-core.md §5).
 
 -- name: CreateGame :one
 --
@@ -27,16 +26,9 @@ SET usi = EXCLUDED.usi, eval_cp = EXCLUDED.eval_cp;
 
 -- name: InsertIntervention :exec
 --
--- **같은 ply에 여러 행이 들어간다.** 한 국면에서 몇 수를 시도하고 전부 물러지는 일이
--- 실제로 있고(docs/06-status.md §17), 그 반복 자체가 기록할 값이다. 그래서
--- (game_id, ply) 는 유니크가 아니다.
---
--- `explain_tier` 는 **LLM을 안 거쳤으면 NULL** 이다. 0으로 적으면 「캐시 히트」와 구별이
--- 안 되는데, 그 둘은 비용 계측에서 정반대의 뜻이다 — 히트는 아껴서 0엔이고 NULL은 애초에
--- 부르지 않은 것이다(docs/04-llm.md §2).
--- `best_cp`·`after_cp` 는 낙폭을 만든 **두 원본**이다(둘 다 수번 측 관점). 낙폭만 남기면
--- 되돌릴 수 없어서 재채점도 절대값 비교도 못 한다 — 판정이 이미 손에 들고 있는 값이라
--- 남기는 데 드는 것이 없다(migrations/005). **과거 행은 NULL 이다.**
+-- **(game_id, ply) 는 유니크가 아니다.** 한 국면에서 몇 수를 시도하고 전부 물러지는 일이
+-- 실제로 있고 그 반복이 곧 기록할 값이다(docs/06-status.md §17).
+-- 칸별 규약은 store.Intervention 에 있다.
 INSERT INTO interventions (
     game_id, ply, kind, category, delta_win, level_bucket, retracted_usi,
     explain_tier, cost_yen, best_cp, after_cp
@@ -51,15 +43,11 @@ SELECT count(*) FROM interventions;
 
 -- name: SetMoveEval :exec
 --
--- 평가치만 나중에 채운다. **수를 덮지 않는다** — 그 수는 이미 확정되어 들어가 있고,
--- 여기서 다시 쓰면 물러진 수로 덮을 길이 생긴다.
---
--- 없는 ply면 아무 일도 안 한다. 평가치가 수보다 먼저 오는 경로는 없으므로 그때는
--- 기록이 실패한 것이고, 그걸 여기서 만들어 메우면 기보에 없는 행이 생긴다.
+-- 평가치만 채운다. **수를 덮지 않는다** — upsert로 두면 물러진 수로 기보를 덮는 길이 생긴다.
+-- 없는 ply면 아무 일도 안 한다(평가치가 수보다 먼저 오는 경로가 없다).
 UPDATE game_moves SET eval_cp = $3 WHERE game_id = $1 AND ply = $2;
 
 -- ─── 리뷰(읽기) ─────────────────────────────────────────────
--- 여기부터가 **꺼내는 쪽**이다. 위의 질의들이 쌓기만 하고 아무도 안 읽던 자리다.
 
 -- name: ListGames :many
 --
@@ -95,14 +83,13 @@ WHERE id = $1;
 
 -- name: ListGameMoves :many
 --
--- eval_cp 는 **先手 관점**이고 NULL일 수 있다 — 평가치는 수보다 늦게 오므로,
--- 연결이 끊긴 판의 마지막 몇 수에는 안 채워진 채로 남는다.
+-- eval_cp 는 **先手 관점**이고 NULL일 수 있다(store.RecordedMove).
 SELECT ply, usi, eval_cp FROM game_moves WHERE game_id = $1 ORDER BY ply;
 
 -- name: ListGameInterventions :many
 --
--- 같은 ply에 여러 행이 온다(InsertIntervention 참조). id 로 이어 정렬해 **물러진
--- 순서**를 지킨다 — 한 국면에서 두 번 걸렸을 때 어느 쪽이 먼저였는지가 곧 이야기다.
+-- 같은 ply에 여러 행이 온다(InsertIntervention). id 로 이어 정렬해 **물러진 순서**를
+-- 지킨다 — 한 국면에서 두 번 걸렸을 때 어느 쪽이 먼저였는지가 곧 이야기다.
 SELECT ply, kind, category, delta_win, level_bucket, retracted_usi, best_cp, after_cp
 FROM interventions
 WHERE game_id = $1

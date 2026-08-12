@@ -130,7 +130,7 @@ func TestParseScoreBoundKeepsExactPv(t *testing.T) {
 	}
 }
 
-// movetime 만료로 중단된 마지막 iteration은 bound 표기 없이도 pv가 1~2수만 찍힌다 —
+// 엔진이 마지막 iteration을 중간에 접으면 bound 표기 없이도 pv가 1~2수만 찍힌다 —
 // 직전 iteration의 완결된 수순을 유지해야 한다.
 func TestParseScoreTruncatedFinalIterationKeepsFullPv(t *testing.T) {
 	var res SearchResult

@@ -60,7 +60,6 @@ type Candidate struct {
 	//
 	// **cp만으로는 복원할 수 없다.** mate 는 30000에서 手数를 뺀 값으로 환산되어 들어오므로,
 	// 캐시에서 꺼낼 때 그 숫자를 그대로 화면에 쓰면 「+29995」가 나간다.
-	// 칸을 늘리는 것이 아니라 jsonb 안이라 **마이그레이션이 필요 없다.**
 	MateIn int `json:"mate,omitempty"`
 }
 
@@ -102,10 +101,10 @@ func (s *Store) GetPosition(ctx context.Context, sfenKey string) (Position, erro
 	return out, nil
 }
 
-// PutPosition 은 국면을 캐시에 넣는다.
+// PutPosition 은 국면을 캐시에 넣는다. 덮을지 말지는 SQL의 WHERE 절이 정한다
+// (query/positions.sql).
 //
-// **더 얕게 계산한 결과는 깊은 결과를 덮지 않는다.** 그 판정은 SQL의 WHERE 절이 하고,
-// 덮지 않았으면 stored=false 로 알려준다 — 호출 측이 "내 결과가 더 얕았다"를 알 수 있어야
+// 덮지 않았으면 stored=false 다 — 호출 측이 "내 결과가 더 얕았다"를 알 수 있어야
 // 조용히 버려지지 않는다.
 func (s *Store) PutPosition(ctx context.Context, p Position) (stored bool, err error) {
 	// **`null` 을 넣지 않는다.** 질의가 `jsonb_array_length` 로 후보 수를 견주는데
@@ -144,9 +143,8 @@ func (s *Store) CountPositions(ctx context.Context) (int64, error) {
 
 // Edge 는 국면 사이의 한 수다. **분석을 버리지 않기 위한 자리다.**
 //
-// 한 수의 사실이 두 번에 걸쳐 온다 — 후보를 잴 때는 깊이별 평가치를 알고, 그 수를 실제로
-// 두어 자식 국면을 잴 때는 도착 국면과 태그를 안다. 그래서 **비어 있는 칸은 「모른다」**이고,
-// 질의가 그 칸을 지우지 않는다(query/positions.sql).
+// **비어 있는 칸은 「모른다」**이고, 질의가 그 칸을 지우지 않는다 — 한 수의 사실이 두 번에
+// 걸쳐 오기 때문이다(query/positions.sql 의 UpsertEdge).
 type Edge struct {
 	ParentKey string
 	USI       string
@@ -183,9 +181,8 @@ func (s *Store) CountEdges(ctx context.Context) (int64, error) { return s.q.Coun
 
 // Edges 는 그 국면에서 나가는 수들이다.
 //
-// **깊이별 평가치를 되찾는 유일한 길이다.** `positions.candidates` 에는 마지막 깊이의 값만
-// 있어서, 개입 판정이 보는 얕은 값(depth 2)은 여기서만 나온다 — 캐시로 탐색을 대신할 때
-// 그 값이 빠지면 「얕은 이득에 낚임」 카테고리가 조용히 사라진다(01-core.md §3).
+// **깊이별 평가치를 되찾는 유일한 길이다** — `positions.candidates` 에는 마지막 깊이의
+// 값만 있고, 개입 판정이 보는 얕은 값(depth 2)은 여기서만 나온다(01-core.md §3).
 func (s *Store) Edges(ctx context.Context, parentKey string) ([]Edge, error) {
 	rows, err := s.q.ListEdges(ctx, parentKey)
 	if err != nil {
@@ -251,11 +248,7 @@ func (s *Store) InsertMove(ctx context.Context, gameID int64, ply int, usi strin
 	return nil
 }
 
-// SetMoveEval 은 그 手数의 평가치를 나중에 채운다. **先手 관점 cp** 다.
-//
-// 관점을 先手로 고정하는 것은 `edges.eval_by_depth` 와 같은 규약이다(02-architecture.md §4).
-// 대국마다 사람의 색이 달라지므로 「플레이어 관점」으로 적으면 두 판을 나란히 못 놓는다 —
-// 뒤집는 일은 질의하는 쪽이 `games.my_color` 로 한다.
+// SetMoveEval 은 그 手数의 평가치를 나중에 채운다. **先手 관점 cp** 다(06-status.md §26).
 //
 // 수가 먼저 들어가 있어야 한다. 없는 ply면 아무 일도 일어나지 않는다.
 func (s *Store) SetMoveEval(ctx context.Context, gameID int64, ply, cp int) error {
@@ -281,16 +274,14 @@ type Intervention struct {
 	RetractedUSI string
 	// BestCp·AfterCp 는 낙폭을 만든 두 원본이다(수번 측 관점). **제지형만.**
 	//
-	// 0이면 안 적는다 — 판정을 안 거친 행과 「정말로 0cp였다」를 섞지 않기 위해서다.
-	// 호각인 국면에서 개입이 걸릴 일은 없으므로(낙폭이 임계치를 넘어야 한다) 이 규칙이
-	// 실제 값을 버리지는 않는다.
+	// 둘 다 0이면 안 적는다 — 판정을 안 거친 행과 「정말로 0cp였다」를 섞지 않기 위해서다.
+	// 호각인 국면에서 개입이 걸릴 일은 없으므로 이 규칙이 실제 값을 버리지는 않는다.
 	BestCp  int
 	AfterCp int
 
 	// ExplainTier 는 설명이 어느 계층에서 나왔나(0=캐시 1=소형 2=대형)다.
 	//
-	// **nil이면 NULL로 들어간다** — LLM을 아예 안 거친 것이다. 0으로 적으면 「캐시 히트」와
-	// 섞이는데, 그 둘은 「호출을 아꼈다」와 「붙이지 않았다」로 뜻이 정반대다.
+	// **nil은 NULL** — LLM을 아예 안 거친 것이고, 「캐시 히트」와 뜻이 정반대다(04-llm.md §2).
 	ExplainTier *int
 	// CostYen 은 그 설명 하나에 든 돈이다. 캐시 히트와 템플릿은 0이다.
 	//
@@ -301,8 +292,8 @@ type Intervention struct {
 
 // InsertIntervention 은 개입 하나를 남긴다.
 //
-// **같은 ply에 여러 번 불릴 수 있다.** 한 국면에서 몇 수를 시도하고 전부 물러지는 일이
-// 실제로 있고, 그 반복이 곧 「그 국면이 그 사람에게 얼마나 어려웠나」다.
+// **같은 ply에 여러 번 불릴 수 있다.** 그 반복이 곧 「그 국면이 그 사람에게 얼마나
+// 어려웠나」이고, 그래서 (game_id, ply) 는 유니크가 아니다(06-status.md §17).
 func (s *Store) InsertIntervention(ctx context.Context, gameID int64, iv Intervention) error {
 	arg := db.InsertInterventionParams{
 		GameID: gameID,
@@ -396,8 +387,10 @@ func (s *Store) ExplainCacheStats(ctx context.Context) (entries, hits int64, err
 	return row.Entries, row.Hits, nil
 }
 
-// CountGames · CountInterventions 는 기록이 실제로 쌓이는지 확인하는 데 쓴다.
+// CountGames 는 games 행 수다. 기록이 실제로 쌓이는지 확인하는 데 쓴다.
 func (s *Store) CountGames(ctx context.Context) (int64, error) { return s.q.CountGames(ctx) }
+
+// CountInterventions 는 interventions 행 수다. CountGames 와 같은 자리에서 쓴다.
 func (s *Store) CountInterventions(ctx context.Context) (int64, error) {
 	return s.q.CountInterventions(ctx)
 }
@@ -460,10 +453,8 @@ var ErrNoGame = errors.New("store: game not found")
 
 // ListGames 는 최근 대국을 최신부터 준다. **한 수도 안 둔 판은 안 온다**(games.sql).
 //
-// limit 은 여기서 int32 범위로 자른다. **자르는 변환을 하는 자리가 스스로 막아야 한다** —
-// 64비트에서 `int32(limit)` 은 큰 값을 조용히 음수로 만들고, 그러면 `LIMIT` 이 거짓말을 한다.
-// 지금은 부르는 쪽(review.go)이 정책상의 상한을 이미 걸지만, 그건 그쪽의 정책이지
-// 이 변환의 안전이 아니다 — 다음 호출자가 같은 데를 밟는다.
+// limit 을 여기서 자른다 — **자르는 변환을 하는 자리가 스스로 막아야 한다.** `int32(limit)`
+// 이 큰 값을 조용히 음수로 만들면 `LIMIT` 이 거짓말을 한다.
 func (s *Store) ListGames(ctx context.Context, limit int) ([]GameSummary, error) {
 	if limit < 1 {
 		limit = 1
@@ -493,10 +484,8 @@ func (s *Store) ListGames(ctx context.Context, limit int) ([]GameSummary, error)
 
 // GameRecord 는 한 판을 통째로 읽는다. 없으면 ErrNoGame.
 //
-// **트랜잭션으로 묶지 않는다.** 기록은 덧붙이기만 하므로 끝난 판은 어차피 안 변하고,
-// 두는 중인 판에서 최악이 「기보보다 개입이 한 수 앞선다」인데 그건 부르는 쪽이
-// 감당할 수 있다(그 개입은 아직 화면에 그릴 국면이 없을 뿐이다). 그 하나를 막자고
-// 대국 중인 판에 트랜잭션을 거는 쪽이 비싸다.
+// **트랜잭션으로 묶지 않는다.** 기록은 덧붙이기만 하고, 두는 중인 판에서 최악이
+// 「기보보다 개입이 한 수 앞선다」다 — 그 하나를 막자고 대국 중인 판을 잠그는 쪽이 비싸다.
 func (s *Store) GameRecord(ctx context.Context, gameID int64) (GameRecord, error) {
 	head, err := s.q.GetGame(ctx, gameID)
 	if errors.Is(err, pgx.ErrNoRows) {
