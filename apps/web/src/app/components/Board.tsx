@@ -111,6 +111,19 @@ interface BoardProps {
    * 거기에 얹으면 그 순간 거짓말이 된다 — 광선을 한 판 위에 겹쳐 긋지 않는 것과 같은 이유다.
    */
   mateHeat: number;
+  /**
+   * 사람이 잡은 쪽. 그늘(`相手の利き`)이 누구 기준인지가 여기서 정해진다.
+   */
+  me: Side;
+  /**
+   * 판을 뒤집어 그리는가. 사람이 後手면 참이고, 그때 **자기 駒가 아래에 온다.**
+   *
+   * **CSS로 돌리지 않는다.** `transform` 을 쓰면 판 위의 자리를 재는 쪽이 전부 어긋난다 —
+   * 打 화살표의 출발점은 변형 **전**의 배치 좌표를 재고 있고(GameScreen 의 `measureDrop`),
+   * 그게 이 판에서 유일하게 산수로 안 나오는 자리다. 대신 **칸의 자리 번호만** 뒤집으면
+   * 배치는 그대로여서 재는 값이 계속 맞는다.
+   */
+  flipped: boolean;
   /** 판 요소. 駒台와의 거리를 재는 쪽이 잡는다. */
   boardRef?: RefObject<HTMLDivElement | null>;
   interactive: boolean;
@@ -233,10 +246,21 @@ export function Board({
   hintSquare,
   hintRay,
   mateHeat,
+  me,
+  flipped,
   boardRef,
   interactive,
   onSquare,
 }: BoardProps) {
+  /**
+   * 판 배열 인덱스 ↔ 화면 자리 번호. **뒤집으면 180° 돌린 자리**이고, 두 번 걸면 제자리라
+   * 양방향에 같은 함수를 쓴다.
+   *
+   * 좌표 **라벨**에는 걸지 않는다 — `7六` 은 판의 절대 좌표라 누가 어느 쪽에 앉아도 같다.
+   */
+  const seat = (i: number): number => (flipped ? 80 - i : i);
+  const seatRay = (r: Ray): Ray =>
+    flipped ? { ...r, from: r.from === null ? null : seat(r.from), to: seat(r.to) } : r;
   /**
    * 판을 three.js가 그리는가. **판을 재는 쪽이 ref를 잡고 있으면 그걸 같이 쓴다** —
    * 여기서 두 번째 ref를 붙이면 표면이 판이 아니라 아무것도 안 붙은 요소를 잰다.
@@ -269,18 +293,25 @@ export function Board({
     active: exposed,
     // 회상에서는 **물러진 수가 간 칸**에서 그늘이 퍼진다. 평시에는 판 한가운데다.
     from: dimmed ? (played?.to ?? null) : null,
+    me,
+    flipped,
   });
 
   return (
     <div className="board-frame">
+      {/* 좌표는 판의 절대 좌표다. 뒤집힌 판에서는 **줄만 거꾸로** 늘어놓는다 — 1筋이
+          오른쪽이라는 것은 先手 기준이고, 後手에게는 그 반대가 자기 오른쪽이다. */}
       <div className="board-files" aria-hidden="true">
-        {FILES.map((f) => (
+        {(flipped ? FILES.toReversed() : FILES).map((f) => (
           <span key={f}>{f}</span>
         ))}
       </div>
 
       <div className="board" ref={surfaceRef} data-surface={ready || undefined}>
-        {board.squares.map((piece, index) => {
+        {board.squares.map((_, spot) => {
+          // 화면의 이 자리에 오는 것은 어느 칸인가.
+          const index = seat(spot);
+          const piece = board.squares[index];
           const usi = toUsi(fromIndex(index));
           const label = `${FILES[index % BOARD_SIZE]}${RANKS[Math.floor(index / BOARD_SIZE)]}`;
           // 물러진 수가 지나간 두 칸. **도착 칸을 빼면 안 된다** — 打은 출발 칸이 없어서
@@ -295,8 +326,8 @@ export function Board({
           const slide =
             moving && moving.from !== null
               ? ({
-                  '--mcol': (moving.from % BOARD_SIZE) - (index % BOARD_SIZE),
-                  '--mrow': Math.floor(moving.from / BOARD_SIZE) - Math.floor(index / BOARD_SIZE),
+                  '--mcol': (seat(moving.from) % BOARD_SIZE) - (spot % BOARD_SIZE),
+                  '--mrow': Math.floor(seat(moving.from) / BOARD_SIZE) - Math.floor(spot / BOARD_SIZE),
                 } as CSSProperties)
               : undefined;
 
@@ -333,15 +364,23 @@ export function Board({
         {/* 王手가 먼저 켜진다. 「지금 이 판이 어떤 상태인가」가 「다음에 무엇이 오는가」보다
             앞이다 — 王手인 줄 모르면 다음 수가 왜 그것인지도 안 읽힌다. */}
         {checks.map((c) => (
-          <RefutationRay key={`${c.from}-${c.to}`} ray={c} waitForGhost={false} dropFrom={null} />
+          <RefutationRay key={`${c.from}-${c.to}`} ray={seatRay(c)} waitForGhost={false} dropFrom={null} />
         ))}
 
-        {ray && <RefutationRay ray={ray} waitForGhost={replay !== null} dropFrom={dropFrom} />}
+        {ray && <RefutationRay ray={seatRay(ray)} waitForGhost={replay !== null} dropFrom={dropFrom} />}
 
         {/* 힌트는 마지막에 켠다. 상대 쪽 광선과 겹치는 국면에서 가려지면 안 되는 쪽이 이쪽이다 */}
-        {hintRay && <RefutationRay ray={hintRay} waitForGhost={false} dropFrom={dropFrom} />}
+        {hintRay && <RefutationRay ray={seatRay(hintRay)} waitForGhost={false} dropFrom={dropFrom} />}
 
-        {replay && <ReplayKoma replay={replay} />}
+        {replay && (
+          <ReplayKoma
+            replay={
+              flipped
+                ? { ...replay, from: replay.from === null ? null : seat(replay.from), to: seat(replay.to) }
+                : replay
+            }
+          />
+        )}
 
         {/* 게이지는 판 밖으로 번진다(inset 이 음수라 테두리 위에 얹힌다). 그래서 판 안의
             어느 것과도 자리를 다투지 않고, 마지막에 그려도 무엇을 가리지 않는다. */}
@@ -351,7 +390,7 @@ export function Board({
       </div>
 
       <div className="board-ranks" aria-hidden="true">
-        {RANKS.map((r) => (
+        {(flipped ? RANKS.toReversed() : RANKS).map((r) => (
           <span key={r}>{r}</span>
         ))}
       </div>

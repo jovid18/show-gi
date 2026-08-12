@@ -51,6 +51,17 @@ type Snapshot struct {
 	InCheck  bool   `json:"inCheck"`
 	Thinking bool   `json:"thinking"`
 
+	// YourColor 는 사람이 잡은 쪽이다("b" | "w"). **판을 어느 쪽에서 보여줄지가 여기 걸려
+	// 있다** — 화면이 Turn 하나로 되짚으면 상대 차례에 판이 뒤집힌다.
+	YourColor string `json:"yourColor"`
+
+	// OpponentOpening 은 상대가 따르는 진형의 일본어 이름이다. 안 골랐으면 비어 있다.
+	//
+	// **상대의 형태를 알려주지 않는다는 것(01-core.md §7)과 어긋나지 않는다.** 그쪽이 막는
+	// 것은 국면에서 자라난 상대의 계획이고, 이건 시작 화면에서 **사람이 고른 값을 되비추는**
+	// 것이다. 골라 놓고 화면에 안 뜨면 기능이 도는지를 사람이 알 수 없다.
+	OpponentOpening string `json:"opponentOpening,omitempty"`
+
 	// LegalMoves 는 사람 차례일 때만 채운다.
 	//
 	// 클라이언트는 여기 있는 수만 고르게 만든다. 그래서 실사용자는 반칙에 도달하지

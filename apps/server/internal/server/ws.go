@@ -12,6 +12,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
+	"github.com/jovid18/show-gi/apps/server/internal/book"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
@@ -91,6 +92,36 @@ type gameHandler struct {
 	auth *authHandler
 }
 
+// gameSetup 은 이 연결 하나의 대국 설정이다. 시작 화면이 URL 쿼리로 고른 값이고, 비면
+// Options 의 기본값이 그대로 산다.
+//
+// **`start` 메시지로 받지 않는다.** 그러면 세션이 첫 명령까지 기다려야 하고, 「연결 하나 =
+// 대국 하나」(gameHandler)와 세션 수명이 그 자리에서 갈린다 — 쿼리는 업그레이드 전에
+// 읽히므로 그 규약을 안 건드린다.
+type gameSetup struct {
+	human   shogi.Color
+	opening book.Opening
+	hasBook bool
+}
+
+// setupFrom 은 쿼리에서 설정을 읽는다. **못 읽는 값은 조용히 기본값이다** — 목록을 서버가
+// 주므로(GET /api/openings) 여기 이상한 값이 오는 것은 클라이언트가 틀린 경우이고, 그때
+// 대국을 거절하는 것보다 평수로 시작하는 것이 낫다. 고른 것이 실제로 걸렸는지는 스냅샷의
+// `opponentOpening` 으로 화면에서 보인다.
+func setupFrom(r *http.Request, opts Options) gameSetup {
+	s := gameSetup{human: opts.HumanColor}
+	switch r.URL.Query().Get("color") {
+	case "b":
+		s.human = shogi.Black
+	case "w":
+		s.human = shogi.White
+	}
+	if o, ok := book.Find(r.URL.Query().Get("opening")); ok {
+		s.opening, s.hasBook = o, true
+	}
+	return s
+}
+
 // confirmed 는 **세션이 방금 보낸** 확정 수들이다. 세션에 물어보는 길을 새로 파지 않는
 // 이유는 그쪽이 곧 **핸들러가 상태를 직접 읽는 지름길**이 되기 때문이다 — 어차피 구독해서
 // 받는 스냅샷을 한 벌 들고 있는 것이다(06-status.md §37).
@@ -124,6 +155,9 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		userID = &id
 	}
 
+	// 쿼리도 업그레이드 전에 읽는다 — 위와 같은 이유다.
+	setup := setupFrom(r, h.opts)
+
 	// Origin 기본 검사를 그대로 쓴다. 개발에서는 Vite가 /ws/game 을 프록시하므로 같은 오리진이다.
 	conn, err := websocket.Accept(w, r, nil)
 	if err != nil {
@@ -134,13 +168,23 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
+	// 진형은 **감싸는 것으로만** 붙는다. 안쪽 상대의 후보 생성도 자살수 필터도 밴드 제어도
+	// 그대로 돌고, 북이 끝나면 그 상대가 이어받는다(game.NewBookOpponent).
+	opponent := h.opts.NewOpponent()
+	var openingName string
+	if setup.hasBook {
+		opponent = game.NewBookOpponent(opponent, setup.opening, setup.human.Other())
+		openingName = setup.opening.Name
+	}
+
 	cfg := game.Config{
-		Opponent:     h.opts.NewOpponent(),
-		HumanColor:   h.opts.HumanColor,
-		StartSFEN:    h.opts.StartSFEN,
-		ObservePlies: h.opts.ObservePlies,
-		Explainer:    h.opts.Explainer,
-		Mate:         h.opts.Mate,
+		Opponent:        opponent,
+		HumanColor:      setup.human,
+		OpponentOpening: openingName,
+		StartSFEN:       h.opts.StartSFEN,
+		ObservePlies:    h.opts.ObservePlies,
+		Explainer:       h.opts.Explainer,
+		Mate:            h.opts.Mate,
 		// 手筋 제안형 힌트도 가정 수순과 **같은 풀**이다. 묻는 것이 같은 종류라서다 —
 		// 둘 다 「이 수를 둬 보면 어떻게 되나」이고, 그래서 Options 에 필드를 따로 두지
 		// 않는다. nil이면 手筋 힌트만 꺼지고 囲い·전법 힌트는 그대로 뜬다.
@@ -151,9 +195,9 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// **판정이 있을 때만 실력 추정이 있다.** 추정기의 입력이 판정 결과뿐이라
 		// (skill.Move) 판정이 없으면 영원히 아무것도 안 보는 goroutine이 된다.
 		//
-		// 대국마다 새로 만든다 — 추정치는 **이 판에서 얼마나 헤맸는가**이고, 다음 판까지
-		// 들고 가려면 저장할 곳이 필요하다(06-status.md §47의 남은 것).
-		cfg.Rater = skill.NewWorker(ctx)
+		// 로그인한 사람은 **지난 판의 값에서 이어 시작하고 매 판정마다 저장된다**(skill.go).
+		// 익명 대국은 그대로 판마다 초기화된다 — 쌓을 자리가 없다(002_anonymous_games.sql).
+		cfg.Rater = skill.NewWorkerFrom(ctx, h.priorSkill(ctx, userID), h.saveSkill(ctx, userID))
 	}
 	// DB가 없으면 기록하지 않고 대국은 그대로 된다 — 엔진·캐시와 같은 판단이다.
 	if h.opts.Store != nil {
@@ -197,7 +241,7 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	h.readLoop(ctx, conn, sess, out, &played)
+	h.readLoop(ctx, conn, sess, out, &played, setup)
 }
 
 func (h *gameHandler) readLoop(
@@ -206,6 +250,7 @@ func (h *gameHandler) readLoop(
 	sess *game.Session,
 	out chan serverMsg,
 	played *confirmed,
+	setup gameSetup,
 ) {
 	// 가정 수순은 한 번에 하나만 돈다. 탐색 둘이 엔진 풀을 잡는 자리라, 연타가 곧
 	// **대국 상대의 탐색이 기다리는 시간**이 된다.
@@ -220,7 +265,7 @@ func (h *gameHandler) readLoop(
 
 		switch msg.Type {
 		case "whatif":
-			h.whatif(ctx, out, played, slot, msg)
+			h.whatif(ctx, out, played, slot, msg, setup)
 
 		case "move":
 			if _, err := sess.Play(ctx, msg.USI); err != nil {
@@ -251,6 +296,7 @@ func (h *gameHandler) whatif(
 	played *confirmed,
 	slot chan struct{},
 	msg clientMsg,
+	setup gameSetup,
 ) {
 	if h.opts.Search == nil {
 		emit(ctx, out, whatifError("engine_unavailable"))
@@ -270,7 +316,7 @@ func (h *gameHandler) whatif(
 		return
 	}
 
-	root := whatifRoot{StartSFEN: h.opts.StartSFEN, Moves: played.get(), Human: h.opts.HumanColor}
+	root := whatifRoot{StartSFEN: h.opts.StartSFEN, Moves: played.get(), Human: setup.human}
 	req := whatifRequest{Ply: msg.Ply, Moves: msg.Moves}
 
 	// **탐색을 readLoop 안에서 하지 않는다.** 400ms 짜리 두 번이라, 그동안 클라이언트가

@@ -78,6 +78,18 @@ func NewTrack() *Track {
 	return &Track{loss: Unknown.Loss}
 }
 
+// NewTrackFrom 은 **지난 판의 값에서 이어 시작한다.** 표본이 이미 차 있으면 첫 판정부터
+// 밴드가 움직인다(Estimate.Ready).
+//
+// 값을 잘라서 받는다 — 저장해 둔 값이 밖에서 온 것이라(DB) 1을 넘는 낙폭 하나가 밴드를
+// 임의로 밀 수 있다. `adaptive.skillShift` 가 같은 이유로 한 번 더 자른다.
+func NewTrackFrom(e Estimate) *Track {
+	if e.Samples <= 0 {
+		return NewTrack()
+	}
+	return &Track{loss: clamp01(e.Loss), samples: e.Samples}
+}
+
 // Observe 는 한 수를 반영하고 새 추정치를 돌려준다.
 func (t *Track) Observe(m Move) Estimate {
 	l := moveLoss(m)

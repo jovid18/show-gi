@@ -116,6 +116,12 @@ type Config struct {
 	HumanColor shogi.Color
 	// StartSFEN 이 비면 평수 초기 국면.
 	StartSFEN string
+	// OpponentOpening 은 상대가 따르는 진형의 일본어 이름이다. 스냅샷으로 그대로 나간다.
+	//
+	// **이름만 받는다.** 수순은 상대(book_opponent.go)가 들고 있고 세션은 그것을 모른다 —
+	// 여기에 수순이 들어오면 세션이 「상대가 다음에 무엇을 둘지」를 아는 자리가 생기고,
+	// 그건 판정과 개입이 상대의 계획을 참조할 수 있게 되는 첫 걸음이다.
+	OpponentOpening string
 }
 
 // ErrClosed 는 끝난 세션에 명령을 보냈을 때 나온다.
@@ -1015,20 +1021,27 @@ func (st *state) snapshot() Snapshot {
 	}
 	yours := st.status == StatusPlaying && !st.judging && st.pos.Turn == st.cfg.HumanColor
 
+	yourColor := "b"
+	if st.cfg.HumanColor == shogi.White {
+		yourColor = "w"
+	}
+
 	snap := Snapshot{
-		SFEN:         st.pos.SFEN(),
-		Ply:          len(st.moves),
-		Turn:         turn,
-		YourTurn:     yours,
-		InCheck:      st.pos.InCheck(st.pos.Turn),
-		Thinking:     st.thinking,
-		Moves:        append([]Move(nil), st.moves...),
-		Status:       st.status,
-		Winner:       st.winner,
-		Judging:      st.judging,
-		Intervention: st.intervention,
-		Hint:         st.hint,
-		StyleTags:    st.styleTags(),
+		SFEN:            st.pos.SFEN(),
+		Ply:             len(st.moves),
+		Turn:            turn,
+		YourTurn:        yours,
+		YourColor:       yourColor,
+		InCheck:         st.pos.InCheck(st.pos.Turn),
+		Thinking:        st.thinking,
+		Moves:           append([]Move(nil), st.moves...),
+		Status:          st.status,
+		Winner:          st.winner,
+		Judging:         st.judging,
+		Intervention:    st.intervention,
+		Hint:            st.hint,
+		StyleTags:       st.styleTags(),
+		OpponentOpening: st.cfg.OpponentOpening,
 	}
 	// 국면이 움직였으면 게이지는 그 자리에서 무효다(state.mateGen).
 	if st.mateGen == st.searchGen {

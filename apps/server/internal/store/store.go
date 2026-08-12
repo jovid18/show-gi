@@ -217,6 +217,45 @@ func (s *Store) UpsertUser(ctx context.Context, provider, providerUID, displayNa
 	return id, nil
 }
 
+// SkillEstimate 는 판 사이로 넘기는 실력 추정치다. `skill.Estimate` 와 같은 두 값이고,
+// 그 패키지를 여기서 들여오지 않는 것은 **추정기가 DB를 모르게 두기 위해서다**(skill 패키지).
+type SkillEstimate struct {
+	// Loss 는 정규화된 낙폭(0~1).
+	Loss float64
+	// Samples 는 지금까지 본 판정 수의 누계.
+	Samples int
+}
+
+// SkillProfile 은 그 사람의 지난 추정치다. **두 번째 값이 false면 「아직 모른다」**다 —
+// Loss 0은 「매 수 최선」이라 뜻이 정반대이므로 없는 것을 0으로 메우지 않는다.
+func (s *Store) SkillProfile(ctx context.Context, userID int64) (SkillEstimate, bool, error) {
+	row, err := s.q.GetSkillProfile(ctx, userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return SkillEstimate{}, false, nil
+	}
+	if err != nil {
+		return SkillEstimate{}, false, fmt.Errorf("get skill profile: %w", err)
+	}
+	if row.SkillLoss == nil {
+		return SkillEstimate{}, false, nil
+	}
+	return SkillEstimate{Loss: *row.SkillLoss, Samples: int(row.SkillSamples)}, true, nil
+}
+
+// SaveSkillEstimate 는 추정치를 덮는다. 판정 한 건마다 불린다(query/skill.sql).
+func (s *Store) SaveSkillEstimate(ctx context.Context, userID int64, e SkillEstimate) error {
+	loss := e.Loss
+	err := s.q.SaveSkillEstimate(ctx, db.SaveSkillEstimateParams{
+		UserID:       userID,
+		SkillLoss:    &loss,
+		SkillSamples: int32(e.Samples),
+	})
+	if err != nil {
+		return fmt.Errorf("save skill estimate: %w", err)
+	}
+	return nil
+}
+
 // ── 대국 기록 ────────────────────────────────────────────
 
 // GameResult 는 games.result 에 들어가는 값이다. DDL의 주석과 같은 어휘를 쓴다.
