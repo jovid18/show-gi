@@ -120,7 +120,10 @@ interventions(id, game_id, ply, kind, category, delta_win, level_bucket,
              -- kind: 'blunder'(제지형, 착수 후 롤백) | 'tesuji'(제안형, 착수 전 알림)
              -- retracted_usi는 blunder만, hinted_tag/taken은 tesuji만 (CHECK 제약이 막는다)
              -- (game_id, ply)는 유니크가 아니다 — 한 국면에서 여러 번 물러지는 일이 있다
-skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at)
+skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at,
+              skill_loss, skill_samples)
+             -- skill_loss/samples 가 실제로 쓰는 두 칸이다 (006, §48).
+             -- rating_est·rating_sd 는 안 쓴다 — §47이 레이팅 점수를 만들지 않기로 정했다
 explain_cache(key text primary key, body text, model text, hits int)
              -- key = hash(kind, category, level_bucket, 카테고리가 허용한 사실들)
 kb_chunks    (id, title, body, tags text[], source_url, source_license, verified_by,
