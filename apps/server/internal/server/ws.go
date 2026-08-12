@@ -85,6 +85,9 @@ func reject(reason string) serverMsg {
 // gameHandler 는 연결 하나당 대국 하나를 연다.
 type gameHandler struct {
 	opts Options
+	// auth 는 이 판이 누구의 것으로 남는지만 정한다. **대국을 막지 않는다** —
+	// 로그인 없이 두는 판은 지금까지처럼 익명으로 남는다(06-status.md §18).
+	auth *authHandler
 }
 
 // confirmed 는 **세션이 방금 보낸** 확정 수들이다. 세션에 물어보는 길을 새로 파지 않는
@@ -112,6 +115,14 @@ func (c *confirmed) get() []string {
 }
 
 func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// **업그레이드 전에 쿠키를 읽는다.** 업그레이드가 끝나면 이 요청은 하이재킹되어
+	// 헤더를 다시 볼 길이 없다.
+	var userID *int64
+	if s, ok := h.auth.viewer(r); ok {
+		id := s.UserID
+		userID = &id
+	}
+
 	// Origin 기본 검사를 그대로 쓴다. 개발에서는 Vite가 /ws/game 을 프록시하므로 같은 오리진이다.
 	conn, err := websocket.Accept(w, r, nil)
 	if err != nil {
@@ -139,7 +150,7 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// DB가 없으면 기록하지 않고 대국은 그대로 된다 — 엔진·캐시와 같은 판단이다.
 	if h.opts.Store != nil {
-		cfg.Recorder = newDBRecorder(ctx, h.opts.Store, h.opts.Level)
+		cfg.Recorder = newDBRecorder(ctx, h.opts.Store, h.opts.Level, userID)
 	}
 	sess, err := game.New(ctx, cfg)
 	if err != nil {

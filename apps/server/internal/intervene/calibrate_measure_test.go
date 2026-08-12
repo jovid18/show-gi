@@ -37,7 +37,7 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 	}
 	t.Cleanup(s.Close)
 
-	games, err := s.ListGames(t.Context(), 500)
+	games, err := s.ListGamesAnyOwner(t.Context(), 500)
 	if err != nil {
 		t.Fatalf("ListGames: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 		stuckGames int
 	)
 	for _, g := range games {
-		rec, err := s.GameRecord(t.Context(), g.ID)
+		rec, err := s.GameRecordAnyOwner(t.Context(), g.ID)
 		if err != nil {
 			t.Fatalf("GameRecord(%d): %v", g.ID, err)
 		}

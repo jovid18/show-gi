@@ -437,7 +437,7 @@ func TestGameRecordRoundTrip(t *testing.T) {
 		t.Fatalf("FinishGame: %v", err)
 	}
 
-	got, err := s.GameRecord(t.Context(), id)
+	got, err := s.GameRecord(t.Context(), id, nil)
 	if err != nil {
 		t.Fatalf("GameRecord: %v", err)
 	}
@@ -487,7 +487,7 @@ func TestGameRecordRoundTrip(t *testing.T) {
 func TestGameRecordMissing(t *testing.T) {
 	s := open(t)
 	// 음수 id는 시퀀스가 절대 안 만든다.
-	if _, err := s.GameRecord(t.Context(), -1); !errors.Is(err, ErrNoGame) {
+	if _, err := s.GameRecord(t.Context(), -1, nil); !errors.Is(err, ErrNoGame) {
 		t.Fatalf("ErrNoGame 기대, got %v", err)
 	}
 }
@@ -502,7 +502,7 @@ func TestListGamesSkipsEmptyGames(t *testing.T) {
 		t.Fatalf("InsertMove: %v", err)
 	}
 
-	games, err := s.ListGames(t.Context(), 100)
+	games, err := s.ListGames(t.Context(), 100, nil)
 	if err != nil {
 		t.Fatalf("ListGames: %v", err)
 	}
@@ -553,7 +553,7 @@ func TestInterventionKeepsBothCp(t *testing.T) {
 		t.Fatalf("InsertIntervention(tesuji): %v", err)
 	}
 
-	rec, err := s.GameRecord(t.Context(), id)
+	rec, err := s.GameRecord(t.Context(), id, nil)
 	if err != nil {
 		t.Fatalf("GameRecord: %v", err)
 	}

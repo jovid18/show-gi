@@ -1,5 +1,7 @@
 import { lazy, Suspense } from 'react';
 
+import { Account } from '@/components/Account';
+import { useViewer } from '@/hooks/useViewer';
 import { GameScreen } from '@/screens/game/GameScreen';
 import { hrefOf, navigate, useRoute, type Route } from '@/routes/router';
 
@@ -24,6 +26,7 @@ const TABS: { route: Route; label: string }[] = [
 export function App() {
   const route = useRoute();
   const onGame = route.name === 'game';
+  const { me, signOut } = useViewer();
 
   return (
     <div className="app">
@@ -55,6 +58,8 @@ export function App() {
             );
           })}
         </nav>
+
+        <Account me={me} onSignOut={signOut} />
       </header>
 
       {/*

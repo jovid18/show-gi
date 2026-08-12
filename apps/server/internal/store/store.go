@@ -202,6 +202,21 @@ func (s *Store) Edges(ctx context.Context, parentKey string) ([]Edge, error) {
 	return out, nil
 }
 
+// ── 사용자 ───────────────────────────────────────────────
+
+// UpsertUser 는 로그인한 사람을 찾거나 만든다. 어느 쪽이든 id 를 돌려준다.
+func (s *Store) UpsertUser(ctx context.Context, provider, providerUID, displayName string) (int64, error) {
+	id, err := s.q.UpsertUser(ctx, db.UpsertUserParams{
+		Provider:    provider,
+		ProviderUid: providerUID,
+		DisplayName: displayName,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("upsert user: %w", err)
+	}
+	return id, nil
+}
+
 // ── 대국 기록 ────────────────────────────────────────────
 
 // GameResult 는 games.result 에 들어가는 값이다. DDL의 주석과 같은 어휘를 쓴다.
@@ -451,42 +466,97 @@ type GameRecord struct {
 // ErrNoGame 은 그런 대국이 없을 때.
 var ErrNoGame = errors.New("store: game not found")
 
-// ListGames 는 최근 대국을 최신부터 준다. **한 수도 안 둔 판은 안 온다**(games.sql).
+// ListGames 는 **그 사람의** 최근 대국을 최신부터 준다. ownerID 가 nil이면 익명 판이다.
+// **한 수도 안 둔 판은 안 온다**(games.sql).
+//
+// 화면이 쓰는 것은 이쪽이다. 주인을 안 보는 ListGamesAnyOwner 는 측정 전용이고,
+// 안전한 쪽이 짧은 이름을 갖는다 — 나중에 손이 먼저 닿는 것이 그쪽이어야 한다.
 //
 // limit 을 여기서 자른다 — **자르는 변환을 하는 자리가 스스로 막아야 한다.** `int32(limit)`
 // 이 큰 값을 조용히 음수로 만들면 `LIMIT` 이 거짓말을 한다.
-func (s *Store) ListGames(ctx context.Context, limit int) ([]GameSummary, error) {
-	if limit < 1 {
-		limit = 1
-	}
-	if limit > math.MaxInt32 {
-		limit = math.MaxInt32
-	}
-
-	rows, err := s.q.ListGames(ctx, int32(limit))
+func (s *Store) ListGames(ctx context.Context, limit int, ownerID *int64) ([]GameSummary, error) {
+	rows, err := s.q.ListGamesForOwner(ctx, db.ListGamesForOwnerParams{
+		Limit:   listLimit(limit),
+		OwnerID: ownerID,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list games: %w", err)
 	}
 	out := make([]GameSummary, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, GameSummary{
-			ID:                r.ID,
-			MyColor:           r.MyColor,
-			StartedAt:         r.StartedAt.Time,
-			FinishedAt:        r.FinishedAt.Time,
-			Result:            resultValue(r.Result),
-			MoveCount:         int(r.MoveCount),
-			InterventionCount: int(r.InterventionCount),
-		})
+		out = append(out, summaryOf(r.ID, r.MyColor, r.StartedAt.Time, r.FinishedAt.Time, r.Result, r.MoveCount, r.InterventionCount))
 	}
 	return out, nil
 }
 
-// GameRecord 는 한 판을 통째로 읽는다. 없으면 ErrNoGame.
-//
-// **트랜잭션으로 묶지 않는다.** 기록은 덧붙이기만 하고, 두는 중인 판에서 최악이
-// 「기보보다 개입이 한 수 앞선다」다 — 그 하나를 막자고 대국 중인 판을 잠그는 쪽이 비싸다.
-func (s *Store) GameRecord(ctx context.Context, gameID int64) (GameRecord, error) {
+// ListGamesAnyOwner 는 주인을 안 보고 전부 준다. **측정 전용이다** —
+// 상수 재채점이 기록된 판을 가로질러 읽는다(06-status.md §39). HTTP 표면에서 부르면
+// 그 순간 남의 기보가 열린다(02-architecture.md §7 위협 2).
+func (s *Store) ListGamesAnyOwner(ctx context.Context, limit int) ([]GameSummary, error) {
+	rows, err := s.q.ListGames(ctx, listLimit(limit))
+	if err != nil {
+		return nil, fmt.Errorf("list games: %w", err)
+	}
+	out := make([]GameSummary, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, summaryOf(r.ID, r.MyColor, r.StartedAt.Time, r.FinishedAt.Time, r.Result, r.MoveCount, r.InterventionCount))
+	}
+	return out, nil
+}
+
+func listLimit(limit int) int32 {
+	if limit < 1 {
+		return 1
+	}
+	if limit > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	return int32(limit)
+}
+
+func summaryOf(id int64, myColor string, started, finished time.Time, result *string, moves, ivs int64) GameSummary {
+	return GameSummary{
+		ID:                id,
+		MyColor:           myColor,
+		StartedAt:         started,
+		FinishedAt:        finished,
+		Result:            resultValue(result),
+		MoveCount:         int(moves),
+		InterventionCount: int(ivs),
+	}
+}
+
+// gameHead 는 한 판의 머리다. 주인을 보는 질의와 안 보는 질의가 같은 칸을 다른
+// 행 타입으로 주므로, 아래 읽는 코드를 한 벌로 두려고 여기서 만난다.
+type gameHead struct {
+	ID         int64
+	MyColor    string
+	StartedAt  time.Time
+	FinishedAt time.Time
+	Result     *string
+	StartSFEN  *string
+}
+
+// GameRecord 는 **그 사람의** 한 판을 통째로 읽는다. ownerID 가 nil이면 익명 판이다.
+// 없거나 남의 것이면 ErrNoGame — 둘을 구별해서 돌려주지 않는다. 「없다」와 「당신 것이
+// 아니다」가 갈리면 그것만으로 남의 판이 몇 번까지 있는지 세어 볼 수 있다.
+func (s *Store) GameRecord(ctx context.Context, gameID int64, ownerID *int64) (GameRecord, error) {
+	head, err := s.q.GetGameForOwner(ctx, db.GetGameForOwnerParams{ID: gameID, OwnerID: ownerID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return GameRecord{}, ErrNoGame
+	}
+	if err != nil {
+		return GameRecord{}, fmt.Errorf("get game %d: %w", gameID, err)
+	}
+	return s.recordOf(ctx, gameHead{
+		ID: head.ID, MyColor: head.MyColor,
+		StartedAt: head.StartedAt.Time, FinishedAt: head.FinishedAt.Time,
+		Result: head.Result, StartSFEN: head.StartSfen,
+	})
+}
+
+// GameRecordAnyOwner 는 주인을 안 본다. **측정 전용이다** — ListGamesAnyOwner 와 같은 자리다.
+func (s *Store) GameRecordAnyOwner(ctx context.Context, gameID int64) (GameRecord, error) {
 	head, err := s.q.GetGame(ctx, gameID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return GameRecord{}, ErrNoGame
@@ -494,6 +564,19 @@ func (s *Store) GameRecord(ctx context.Context, gameID int64) (GameRecord, error
 	if err != nil {
 		return GameRecord{}, fmt.Errorf("get game %d: %w", gameID, err)
 	}
+	return s.recordOf(ctx, gameHead{
+		ID: head.ID, MyColor: head.MyColor,
+		StartedAt: head.StartedAt.Time, FinishedAt: head.FinishedAt.Time,
+		Result: head.Result, StartSFEN: head.StartSfen,
+	})
+}
+
+// recordOf 는 머리에 기보와 개입을 채운다.
+//
+// **트랜잭션으로 묶지 않는다.** 기록은 덧붙이기만 하고, 두는 중인 판에서 최악이
+// 「기보보다 개입이 한 수 앞선다」다 — 그 하나를 막자고 대국 중인 판을 잠그는 쪽이 비싸다.
+func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error) {
+	gameID := head.ID
 
 	moves, err := s.q.ListGameMoves(ctx, gameID)
 	if err != nil {
@@ -505,20 +588,15 @@ func (s *Store) GameRecord(ctx context.Context, gameID int64) (GameRecord, error
 	}
 
 	out := GameRecord{
-		GameSummary: GameSummary{
-			ID:                head.ID,
-			MyColor:           head.MyColor,
-			StartedAt:         head.StartedAt.Time,
-			FinishedAt:        head.FinishedAt.Time,
-			Result:            resultValue(head.Result),
-			MoveCount:         len(moves),
-			InterventionCount: len(ivs),
-		},
+		GameSummary: summaryOf(
+			head.ID, head.MyColor, head.StartedAt, head.FinishedAt, head.Result,
+			int64(len(moves)), int64(len(ivs)),
+		),
 		Moves:         make([]RecordedMove, 0, len(moves)),
 		Interventions: make([]RecordedIntervention, 0, len(ivs)),
 	}
-	if head.StartSfen != nil {
-		out.StartSFEN = *head.StartSfen
+	if head.StartSFEN != nil {
+		out.StartSFEN = *head.StartSFEN
 	}
 
 	for _, m := range moves {

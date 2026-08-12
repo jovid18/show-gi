@@ -51,9 +51,13 @@ type recordEvent struct {
 const recordQueue = 256
 
 // newDBRecorder 는 대국 하나를 기록할 Recorder 를 만든다. ctx 가 끝나면 정리한다.
-func newDBRecorder(ctx context.Context, st *store.Store, level intervene.Level) game.Recorder {
+//
+// userID 는 nil일 수 있다 — 로그인 전 대국이다(002_anonymous_games.sql). **연결이
+// 열릴 때 한 번 정해지고 그 판 내내 안 바뀐다**: 두는 중에 다른 탭에서 로그아웃해도
+// 이 판은 시작할 때의 주인으로 끝난다.
+func newDBRecorder(ctx context.Context, st *store.Store, level intervene.Level, userID *int64) game.Recorder {
 	r := &dbRecorder{events: make(chan recordEvent, recordQueue)}
-	go r.run(ctx, st, level)
+	go r.run(ctx, st, level, userID)
 	return r
 }
 
@@ -94,7 +98,7 @@ func (r *dbRecorder) Finished(status game.Status, winner game.Side) {
 // **쓰기는 세션 ctx 를 안 쓴다.** 연결이 끊기면 세션 ctx 가 먼저 취소되는데, 그 시점에
 // 아직 안 쓴 이벤트가 남아 있으면 전부 실패한다 — 대국이 끝나는 순간이 바로 마지막
 // 이벤트가 몰리는 순간이라 그게 제일 아깝다.
-func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.Level) {
+func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.Level, userID *int64) {
 	write := context.WithoutCancel(ctx)
 
 	var gameID int64
@@ -107,7 +111,7 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 			if ev.color == shogi.White {
 				color = "w"
 			}
-			id, err := st.CreateGame(write, nil, color, ev.startSFEN)
+			id, err := st.CreateGame(write, userID, color, ev.startSFEN)
 			if err != nil {
 				log.Printf("game record: create game: %v", err)
 				return
