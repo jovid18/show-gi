@@ -1055,6 +1055,49 @@ body {
 }
 
 /*
+  상대의 강함. **눈금 다섯 개와 말 한 마디이고 숫자가 없다.**
+
+  숫자나 %를 쓰면 「내 실력이 몇 점인가」로 읽히는데, 서버가 아는 것은 이 판에서 얼마나
+  헤맸는가뿐이고 그것도 판마다 초기화된다(protocol/game.ts).
+
+  색을 쓰지 않는다 — 상대가 약해지는 것은 좋은 소식도 나쁜 소식도 아니라 그냥 상태이고,
+  경고 계열(개입)이나 보라(詰み 게이지)와 자리를 다투면 안 된다. 그래서 여기서도 세기만
+  바꾼다(--light).
+*/
+.strength {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.strength__head {
+  font-size: 0.6875rem;
+  letter-spacing: 0.15em;
+}
+
+.strength__pips {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.strength__pips i {
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 50%;
+  background: rgb(var(--light) / 0.18);
+  /* 눈금이 바뀌는 것은 조용해야 한다. 판이 움직이는 순간과 겹치므로 여기서 눈을
+     끌면 방금 둔 수에서 시선을 빼앗는다. */
+  transition: background 600ms ease-out;
+}
+
+.strength__pips i[data-on] {
+  background: rgb(var(--light) / 0.7);
+}
+
+/*
   짜는 순간 판 위에 잠깐 뜨는 이름. 将棋ウォーズ가 하는 그것이다.
 
   **상시 라벨이 아니라 사건이다.** 사이드바에 늘 띄우면 「中飛車」가 무엇을 가리키는

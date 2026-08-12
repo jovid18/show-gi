@@ -14,6 +14,7 @@ import (
 
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
+	"github.com/jovid18/show-gi/apps/server/internal/skill"
 )
 
 // 대국은 WebSocket이다. 상대의 수도 개입도 **서버가 먼저 말을 걸므로** 요청/응답이 아니다.
@@ -147,6 +148,12 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if h.opts.NewAnalyst != nil {
 		cfg.Analyst = h.opts.NewAnalyst()
+		// **판정이 있을 때만 실력 추정이 있다.** 추정기의 입력이 판정 결과뿐이라
+		// (skill.Move) 판정이 없으면 영원히 아무것도 안 보는 goroutine이 된다.
+		//
+		// 대국마다 새로 만든다 — 추정치는 **이 판에서 얼마나 헤맸는가**이고, 다음 판까지
+		// 들고 가려면 저장할 곳이 필요하다(06-status.md §47의 남은 것).
+		cfg.Rater = skill.NewWorker(ctx)
 	}
 	// DB가 없으면 기록하지 않고 대국은 그대로 된다 — 엔진·캐시와 같은 판단이다.
 	if h.opts.Store != nil {

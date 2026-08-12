@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
+	"github.com/jovid18/show-gi/apps/server/internal/skill"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
@@ -56,6 +57,13 @@ func TestRealEngineAdaptiveKeepsTheGamePlayable(t *testing.T) {
 // 여기서 판이 유지되면 실제 플레이어에게는 더 유지된다.
 func playWeakly(t *testing.T, pool *usi.Pool, opp Opponent, plies int) int {
 	t.Helper()
+	return playWeaklyWith(t, pool, opp, plies, skill.Unknown)
+}
+
+// playWeaklyWith 는 상대에게 넘길 추정치를 밖에서 정한다 — 그 값이 강함을 어디까지
+// 움직이는지를 재는 자리가 rating_measure_test.go 다.
+func playWeaklyWith(t *testing.T, pool *usi.Pool, opp Opponent, plies int, sk skill.Estimate) int {
+	t.Helper()
 
 	pos, _ := shogi.ParseSFEN(shogi.StartSFEN)
 	var moves []string
@@ -69,7 +77,7 @@ func playWeakly(t *testing.T, pool *usi.Pool, opp Opponent, plies int) int {
 		if i%2 == 0 {
 			m = legal[0] // 사람 차례 — 아무 수나
 		} else {
-			u, err := opp.Choose(t.Context(), shogi.StartSFEN, moves)
+			u, err := opp.Choose(t.Context(), shogi.StartSFEN, moves, sk)
 			if err != nil {
 				t.Fatalf("%d수째 상대: %v", i, err)
 			}

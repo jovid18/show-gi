@@ -116,7 +116,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	in.Features.OpponentMatePlies = len(mateLine)
 
 	v := intervene.Judge(in)
-	j := Judgement{Verdict: v, BestUSI: best.Best}
+	j := Judgement{Verdict: v, BestUSI: best.Best, Threshold: a.level.Threshold()}
 
 	// **판정에 쓴 두 탐색이 그대로 기보의 평가치가 된다.** 추가 탐색이 없다.
 	// 앞쪽은 착수 **전** 국면이라 그것이 곧 **직전 상대 수 뒤**의 평가치다 —

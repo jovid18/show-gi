@@ -12,6 +12,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
+	"github.com/jovid18/show-gi/apps/server/internal/skill"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
@@ -23,7 +24,7 @@ type scriptedOpponent struct {
 	err   error
 }
 
-func (o *scriptedOpponent) Choose(ctx context.Context, _ string, _ []string) (string, error) {
+func (o *scriptedOpponent) Choose(ctx context.Context, _ string, _ []string, _ skill.Estimate) (string, error) {
 	if o.delay > 0 {
 		select {
 		case <-time.After(o.delay):
@@ -45,7 +46,7 @@ func (o *scriptedOpponent) Choose(ctx context.Context, _ string, _ []string) (st
 // legalOpponent 는 합법수 중 첫 번째를 둔다. 끝까지 두는 대국에 쓴다.
 type legalOpponent struct{}
 
-func (legalOpponent) Choose(_ context.Context, startSFEN string, moves []string) (string, error) {
+func (legalOpponent) Choose(_ context.Context, startSFEN string, moves []string, _ skill.Estimate) (string, error) {
 	pos, err := shogi.ParseSFEN(startSFEN)
 	if err != nil {
 		return "", err
@@ -385,13 +386,13 @@ func (s stubSearcher) SearchDepth(context.Context, string, []string, int) (usi.S
 
 func TestEngineOpponentReturnsBest(t *testing.T) {
 	o := NewEngineOpponent(stubSearcher{res: usi.SearchResult{Best: "7g7f"}}, 12)
-	got, err := o.Choose(t.Context(), shogi.StartSFEN, nil)
+	got, err := o.Choose(t.Context(), shogi.StartSFEN, nil, skill.Unknown)
 	if err != nil || got != "7g7f" {
 		t.Fatalf("Choose = %q, %v", got, err)
 	}
 
 	o2 := NewEngineOpponent(stubSearcher{err: errors.New("boom")}, 0)
-	if _, err := o2.Choose(t.Context(), shogi.StartSFEN, nil); err == nil {
+	if _, err := o2.Choose(t.Context(), shogi.StartSFEN, nil, skill.Unknown); err == nil {
 		t.Fatal("탐색 실패가 전달되지 않음")
 	}
 }
@@ -402,6 +403,7 @@ type fixedAnalyst struct {
 	refutation []RefutationMove
 	facts      explain.Facts
 	bestUSI    string
+	threshold  float64
 	evalBefore int
 	evalAfter  int
 	err        error
@@ -419,7 +421,10 @@ func (a *fixedAnalyst) Judge(ctx context.Context, startSFEN string, moves []stri
 		}
 	}
 	// 실제 analyst 와 같은 규약으로 뒤집는다 — 여기서 그냥 넘기면 부호 테스트가 무의미해진다.
-	j := Judgement{Verdict: a.verdict, Refutation: a.refutation, BestUSI: a.bestUSI, Facts: a.facts}
+	j := Judgement{
+		Verdict: a.verdict, Refutation: a.refutation, BestUSI: a.bestUSI,
+		Facts: a.facts, Threshold: a.threshold,
+	}
 	if a.evalAfter != 0 || a.evalBefore != 0 {
 		pos, _, err := replay(startSFEN, moves)
 		if err == nil {
