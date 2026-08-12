@@ -353,6 +353,18 @@ body {
   transform: rotate(180deg);
 }
 
+/* 판을 뒤집어 앉은 쪽(사람이 後手)에서는 **글자가 도는 쪽도 뒤집힌다.**
+   자리는 CSS가 아니라 칸 번호로 뒤집혀 있고(Board 의 `seat`), 여기서 정하는 것은
+   「누가 나를 향해 서 있는가」뿐이다 — 자기 駒가 똑바로 서야 판이 자기 판으로 읽힌다.
+   駒台도 같은 규칙을 받는다(같은 `.koma` 다). */
+[data-flipped] .koma[data-side='white'] {
+  transform: none;
+}
+
+[data-flipped] .koma[data-side='black'] {
+  transform: rotate(180deg);
+}
+
 .koma-kanji {
   position: relative; /* 움직임 표식 위에 온다 — 글자가 먼저 읽혀야 한다 */
   /* **글자를 아래로 내린다.** 두 가지가 겹쳐서 글자가 높아 보인다 — 표식 격자의
@@ -1095,6 +1107,125 @@ body {
 
 .strength__pips i[data-on] {
   background: rgb(var(--light) / 0.7);
+}
+
+/* 고른 진형을 되비추는 한 줄. 강함 눈금과 **같은 문법**으로 둔다 — 둘 다 「상대가 지금
+   무엇인가」이고, 다른 모양으로 두면 한쪽이 설정이고 한쪽이 상태인 것으로 읽힌다. */
+.opening {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.opening__head {
+  font-size: 0.6875rem;
+  letter-spacing: 0.15em;
+}
+
+.opening__name {
+  color: rgb(var(--light) / 0.82);
+}
+
+/* ── 시작 화면 ───────────────────────────────────────── */
+
+/* 대국이 열리기 전의 자리. **판이 있던 폭을 그대로 쓰지 않는다** — 고를 것이 둘뿐이라
+   판만큼 넓으면 화면 가운데가 비고, 그 여백이 「아직 로딩 중인가」로 읽힌다. */
+.setup {
+  max-width: 34rem;
+  margin: 2.5rem auto;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.setup__head {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+.setup__group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.setup__legend {
+  padding: 0;
+  font-size: 0.6875rem;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+}
+
+.setup__choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.setup__choices--wrap {
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+}
+
+/* 고른 것과 안 고른 것을 **테두리와 배경으로** 가른다. 색으로만 가르면 판의 어휘와
+   부딪힌다 — 저쪽에서 색은 채널이고(누가 무엇을 하는가) 여기는 그 얘기가 아니다. */
+.setup__choice {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.7rem 0.8rem;
+  text-align: left;
+  border: 1px solid rgb(var(--light) / 0.14);
+  border-radius: 0.4rem;
+  background: rgb(var(--light) / 0.03);
+  color: inherit;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease-out,
+    background 140ms ease-out;
+}
+
+.setup__choice:hover {
+  border-color: rgb(var(--light) / 0.3);
+}
+
+.setup__choice[data-on] {
+  border-color: rgb(var(--light) / 0.55);
+  background: rgb(var(--light) / 0.08);
+}
+
+.setup__choice-name {
+  font-size: 0.9375rem;
+}
+
+.setup__choice-note {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.setup__source {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.setup__source a {
+  color: var(--muted);
+}
+
+.setup__caveat {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.setup__start {
+  justify-self: start;
 }
 
 /*

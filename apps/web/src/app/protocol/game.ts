@@ -121,10 +121,27 @@ export interface StyleTag {
   kind: 'castle' | 'formation' | 'opening' | 'tesuji';
 }
 
+/** 어느 쪽을 잡았나. 서버의 `games.my_color` 와 같은 값이다. */
+export type Color = 'b' | 'w';
+
 export interface Snapshot {
   sfen: string;
   ply: number;
   turn: 'b' | 'w';
+  /**
+   * 사람이 잡은 쪽.
+   *
+   * **`turn` 으로 되짚으면 안 된다** — 저건 지금 누구 차례냐이므로, 그것으로 판 방향을
+   * 정하면 상대가 생각하는 동안 판이 뒤집힌다. 이 값은 한 판에서 변하지 않는다.
+   */
+  yourColor: Color;
+  /**
+   * 상대가 따르는 진형의 일본어 이름. 「おまかせ」로 시작했으면 오지 않는다.
+   *
+   * **시작 화면에서 사람이 고른 값을 되비추는 것**이다. 상대의 형태를 알려주지 않는다는
+   * 것(docs/01-core.md §7)과 어긋나지 않는 이유는 서버의 `Snapshot.OpponentOpening` 주석.
+   */
+  opponentOpening?: string;
   yourTurn: boolean;
   inCheck: boolean;
   thinking: boolean;

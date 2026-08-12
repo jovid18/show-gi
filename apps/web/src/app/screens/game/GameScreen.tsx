@@ -4,6 +4,7 @@ import { Board, type DropFrom, type Replay } from '@/components/Board';
 import { Hand } from '@/components/Hand';
 import { Intervention } from './Intervention';
 import { Kifu } from './Kifu';
+import { Setup } from './Setup';
 import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/libs/game/moves';
 import type { Attack, StyleTag } from '@/protocol/game';
 import { useGame } from '@/hooks/useGame';
@@ -37,8 +38,18 @@ const KIND_JA: Record<StyleTag['kind'], string> = {
 const STRENGTH_JA = ['かなり弱め', '弱め', 'ふつう', '強め', 'かなり強め'];
 
 export function GameScreen() {
-  const { connection, snapshot, rejection, interventionEpisode, play, resign, dismissRejection, restart, whatif } =
-    useGame();
+  const {
+    connection,
+    snapshot,
+    rejection,
+    interventionEpisode,
+    play,
+    resign,
+    dismissRejection,
+    start,
+    restart,
+    whatif,
+  } = useGame();
   const [origin, setOrigin] = useState<string | null>(null);
   const [pending, setPending] = useState<{ origin: string; to: string } | null>(null);
   const [confirmingResign, setConfirmingResign] = useState(false);
@@ -69,6 +80,15 @@ export function GameScreen() {
       return null; // 판을 못 읽으면 그리지 않는다. 틀린 판을 그리는 것보다 낫다
     }
   }, [snapshot]);
+
+  /**
+   * 사람과 상대의 쪽. **스냅샷이 말하는 것을 그대로 쓴다** — 한때 화면이 「あなた는 언제나
+   * 黑」으로 박혀 있었고, 그 가정이 이 파일 네 자리에 흩어져 있었다(駒台 둘·힌트의 打·회상).
+   */
+  const me: Side = snapshot?.yourColor === 'w' ? 'white' : 'black';
+  const them: Side = me === 'black' ? 'white' : 'black';
+  /** 사람이 後手면 판을 뒤집는다. **자기 駒가 아래**여야 판을 읽을 수 있다. */
+  const flipped = me === 'white';
 
   const moves = snapshot?.moves ?? [];
   const last = moves.at(-1);
@@ -144,15 +164,16 @@ export function GameScreen() {
         checks: checkRays(checksAt(i)),
         ray: upcoming ? rayOf(upcoming.usi, upcoming.by) : null,
         next: upcoming ? i : -1,
-        // 화면은 늘 相手가 白·あなた가 黑이다.
+        // 누가 둔 수인가로 쪽을 정한다. **화면의 위아래가 아니라 대국자로 가른다** —
+        // 後手로 두면 「相手 = 白」이 성립하지 않는다.
         dropping:
           parsed?.kind === 'drop' && upcoming
-            ? { side: upcoming.by === 'engine' ? 'white' : 'black', kind: parsed.piece }
+            ? { side: upcoming.by === 'engine' ? them : me, kind: parsed.piece }
             : null,
       });
     }
     return out;
-  }, [intervention]);
+  }, [intervention, me, them]);
 
   // 같은 수로 또 걸렸을 때도 처음부터 본다. 회차가 오르면 장면도 돌아간다.
   useEffect(() => setScene(0), [interventionEpisode]);
@@ -228,8 +249,8 @@ export function GameScreen() {
    * 원래 안정적이었고, 힌트를 얹으면서 그 성질이 깨졌다 — 실제로 打 힌트에서 터졌다.
    */
   const dropping = useMemo(
-    () => recallDrop ?? (hint?.drop ? { side: 'black' as Side, kind: hint.drop } : null),
-    [recallDrop, hint?.drop],
+    () => recallDrop ?? (hint?.drop ? { side: me, kind: hint.drop } : null),
+    [recallDrop, hint?.drop, me],
   );
 
   // 화면 폭이 바뀌면 `--sq` 가 따라 변하므로 그때마다 다시 잰다.
@@ -306,12 +327,15 @@ export function GameScreen() {
   // 화면에 그리는 판. 넘겨 보는 중이면 그 장면, 아니면 지금 대국의 판이다.
   const board = current?.board ?? live;
 
+  // 아직 아무것도 고르지 않았다. **여기서는 서버에 붙어 있지도 않다**(useGame).
+  if (connection === 'idle') return <Setup onStart={start} />;
+
   if (connection === 'closed') {
     return (
       <div className="notice" role="status">
         <p>接続が切れました。</p>
         <button type="button" className="btn" onClick={newGame}>
-          もう一度つなぐ
+          もう一度はじめる
         </button>
       </div>
     );
@@ -380,7 +404,9 @@ export function GameScreen() {
   };
 
   return (
-    <div className="game" data-intervening={intervening || undefined}>
+    // data-flipped 는 **駒의 방향**을 위한 것이다. 판의 자리는 CSS가 아니라 자리 번호로
+    // 뒤집혀 있고(Board 의 `seat`), 여기서 도는 것은 글자가 누구를 향하는가뿐이다.
+    <div className="game" data-intervening={intervening || undefined} data-flipped={flipped || undefined}>
       {/* 판만 남기고 어두워진다. 클릭은 막지 않는다 — 잠글 것은 이미 판 쪽에서 잠겼고,
           투료까지 못 하게 만들 이유가 없다. */}
       {intervening && <div className="veil" aria-hidden="true" />}
@@ -397,17 +423,19 @@ export function GameScreen() {
           </div>
         )}
 
+        {/* **위가 상대다.** 어느 색인지가 아니라 누구인지로 자리를 정한다 — 자기 駒台가
+            아래에 있어야 판과 같은 방향으로 읽힌다(Board 의 `flipped`). */}
         <Hand
-          side="white"
+          side={them}
           label="相手"
-          pieces={board.hands.white}
+          pieces={board.hands[them]}
           selected={null}
           playable={new Set()}
-          dropping={recallDrop?.side === 'white' ? recallDrop.kind : null}
+          dropping={recallDrop?.side === them ? recallDrop.kind : null}
           droppingRef={(el) => {
             dropPieceRef.current = el;
           }}
-          measure={dropping?.side === 'white' ? dropping.kind : null}
+          measure={dropping?.side === them ? dropping.kind : null}
           onPick={() => {}}
         />
 
@@ -432,6 +460,8 @@ export function GameScreen() {
           hintRay={hintRay}
           // 회상 중에는 끈다. 그때 판은 물러진 수의 국면이라 지금 국면의 게이지가 거짓말이 된다.
           mateHeat={walking ? 0 : (snapshot.mateHeat ?? 0)}
+          me={me}
+          flipped={flipped}
           boardRef={boardRef}
           // **개입 중에는 잠긴다.** 카드를 닫으면 살아나고, 그때부터 판을 만지는 것은
           // 언제나 「지금 두는 수」다 — 판의 뜻이 하나여야 한다.
@@ -440,16 +470,16 @@ export function GameScreen() {
         />
 
         <Hand
-          side="black"
+          side={me}
           label="あなた"
-          pieces={board.hands.black}
+          pieces={board.hands[me]}
           selected={origin?.endsWith('*') ? origin : null}
           playable={new Set([...grouped.keys()].filter((o) => o.endsWith('*')))}
-          dropping={recallDrop?.side === 'black' ? recallDrop.kind : null}
+          dropping={recallDrop?.side === me ? recallDrop.kind : null}
           droppingRef={(el) => {
             dropPieceRef.current = el;
           }}
-          measure={dropping?.side === 'black' ? dropping.kind : null}
+          measure={dropping?.side === me ? dropping.kind : null}
           hintDrop={hint?.drop ?? null}
           onPick={playable ? pick : () => {}}
         />
@@ -494,6 +524,16 @@ export function GameScreen() {
               ))}
             </span>
             <span className="strength__label">{STRENGTH_JA[strength - 1]}</span>
+          </p>
+        )}
+
+        {/* 고른 진형을 되비춘다. **고르지 않았으면 아무것도 안 쓴다** — 「おまかせ」라고
+            적어 두면 없는 설정이 있는 것처럼 자리를 차지한다. 상대의 형태를 알려주는 것이
+            아닌 근거는 서버의 `Snapshot.OpponentOpening` 주석. */}
+        {!intervening && snapshot.opponentOpening && (
+          <p className="opening" role="note">
+            <span className="opening__head">相手の戦型</span>
+            <span className="opening__name">{snapshot.opponentOpening}</span>
           </p>
         )}
 

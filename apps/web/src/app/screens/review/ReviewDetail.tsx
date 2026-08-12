@@ -12,6 +12,7 @@ import type { GameDetail, ReviewMove } from '@/protocol/review';
 import type { WhatIfNode } from '@/protocol/whatif';
 import { useEngineReady } from '@/hooks/useReview';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
+import type { Side } from '@/models/piece';
 import { fromUsi, toIndex, type Motion } from '@/models/square';
 import { branchMotion, evalText, stepMotion } from '@/libs/whatif/branch';
 import { httpSend } from '@/libs/whatif/http';
@@ -299,6 +300,15 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
    */
   const stopped = useMemo(() => new Set(game.interventions.map((iv) => iv.ply)), [game.interventions]);
 
+  /**
+   * 되짚는 사람이 잡았던 쪽. 그늘(`相手の利き`)이 누구 기준인지가 여기서 정해진다.
+   *
+   * **판은 뒤집지 않는다.** 이 화면은 기보를 되짚는 자리라 先手가 아래인 것이 관례이고,
+   * 누가 누구인지는 駒台의 라벨이 이미 말한다 — 대국 화면은 다르다(GameScreen 의 `flipped`).
+   * 거기서는 자기가 두는 판이라 자기 駒가 아래여야 한다.
+   */
+  const me: Side = game.myColor === 'w' ? 'white' : 'black';
+
   const humanLabel = game.myColor === 'b' ? 'あなた' : '相手';
   const whiteLabel = game.myColor === 'b' ? '相手' : 'あなた';
 
@@ -474,6 +484,8 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
             replay={null}
             ray={ray}
             motion={motion}
+            me={me}
+            flipped={false}
             checks={[]}
             // **되짚기에서는 판을 탈색하지 않는다.** 탈색은 「지금이 아니다」를 말하는 장치인데
             // (index.css `.board-tint`), 이 화면은 **전부가 지금이 아니다** — 그 안에서 한 국면만

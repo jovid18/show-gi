@@ -6,18 +6,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 // import가 아무 값도 못 한다 — 번들러가 이미 첫 덩어리에 넣어 버린다.
 import type { BoardSurface, Layout } from '@/libs/three/surface';
 import type { Board } from '@/models/sfen';
+import type { Side } from '@/models/piece';
 import { exposure, influenceOf } from '@/models/influence';
 
 const BOARD_SIZE = 9;
-
-/**
- * 그늘은 **플레이어 쪽에서 본 것**이다.
- *
- * 화면은 늘 あなた가 黑이고 相手가 白이다(`GameScreen`). 이 전제가 뒤집히면 그늘은
- * 내가 손을 뻗은 곳에 드리우는, 정확히 반대의 물건이 된다 — 詰み 게이지가 「수번 측」
- * 하나로 뒤집혔던 자리와 같은 종류다(docs/06-status.md §31).
- */
-const PLAYER = 'black';
 
 /** 그늘이 다 밀려드는 데 걸리는 시간. 넘겨 보는 장면 사이 간격보다 짧아야 한다. */
 const SWEEP_MS = 620;
@@ -40,8 +32,22 @@ interface Options {
   board: Board;
   /** 그늘을 그리는가. 평시엔 토글, 회상 중에는 켜진 채로 온다. */
   active: boolean;
-  /** 그늘이 퍼져 나가는 칸(화면 배열 인덱스). null이면 판 한가운데다. */
+  /** 그늘이 퍼져 나가는 칸(**판 배열 인덱스**). null이면 판 한가운데다. */
   from: number | null;
+  /**
+   * 사람이 잡은 쪽. 그늘은 **이 쪽이 받고 있는 자리**를 말한다(`相手の利き`).
+   *
+   * 한때 `black` 으로 박혀 있었다. 後手로 두면 그 자리가 조용히 **상대가 받는 자리**를
+   * 그려서, 판이 정반대를 같은 그림으로 말하게 된다.
+   */
+  me: Side;
+  /**
+   * 판을 뒤집어 그리는가(사람이 後手).
+   *
+   * 셰이더의 격자는 화면 왼쪽 위가 0이므로, 뒤집힌 판에서는 넘기는 배열도 같이 뒤집어야
+   * 그늘이 제 칸에 앉는다.
+   */
+  flipped: boolean;
 }
 
 /**
@@ -75,7 +81,7 @@ function measure(boardEl: HTMLElement, surface: BoardSurface, layoutRef: React.R
  * @returns WebGL이 실제로 잡혔는가. **안 잡히면 지금까지의 CSS 판 그대로 둔다** —
  * 판이 안 보이느니 나뭇결과 그늘이 없는 편이 낫다.
  */
-export function useBoardSurface({ boardRef, board, active, from }: Options): boolean {
+export function useBoardSurface({ boardRef, board, active, from, me, flipped }: Options): boolean {
   const [ready, setReady] = useState(false);
   const surfaceRef = useRef<BoardSurface | null>(null);
   const layoutRef = useRef<Layout | null>(null);
@@ -154,9 +160,10 @@ export function useBoardSurface({ boardRef, board, active, from }: Options): boo
   useLayoutEffect(() => {
     const surface = surfaceRef.current;
     if (!ready || !surface) return;
-    surface.setField(exposure(influenceOf(board), PLAYER));
+    const field = exposure(influenceOf(board), me);
+    surface.setField(flipped ? field.toReversed() : field);
     surface.render();
-  }, [board, ready]);
+  }, [board, me, flipped, ready]);
 
   // 밀려들고 물러난다. **움직임을 줄여 달라고 한 사용자에게는 그 자리에서 켜진다** —
   // 밀려드는 것은 분위기이고, 어느 칸이 깊은가가 정보다(詰み 게이지와 같은 기준).
@@ -166,15 +173,17 @@ export function useBoardSurface({ boardRef, board, active, from }: Options): boo
     if (!ready || !surface || !layout) return;
 
     const span = layout.cell + layout.gap;
-    const x = from === null ? layout.width / 2 : layout.gap + (from % BOARD_SIZE) * span + layout.cell / 2;
-    const y = from === null ? layout.height / 2 : layout.gap + Math.floor(from / BOARD_SIZE) * span + layout.cell / 2;
+    // 판 배열 인덱스를 화면 자리로 옮긴다. 뒤집힌 판에서는 180° 돌린 자리다.
+    const at = from === null ? null : flipped ? 80 - from : from;
+    const x = at === null ? layout.width / 2 : layout.gap + (at % BOARD_SIZE) * span + layout.cell / 2;
+    const y = at === null ? layout.height / 2 : layout.gap + Math.floor(at / BOARD_SIZE) * span + layout.cell / 2;
 
     // **회상에서는 판을 다 덮지 않는다.** 그때 판은 이미 탈색되어 낮아져 있고(`.board-tint`),
     // 그 위에 판 전체를 어둡게 하면 낮아진 판과 구별이 안 되어 아무것도 안 보인다 —
     // 브라우저에서 그렇게 나왔다. 짚어야 할 것도 판 전체가 아니라 **그 한 칸**이다.
     // 그래서 물러진 수가 간 칸 둘레에만, 대신 더 깊게 고인다.
-    const full = from === null ? Math.hypot(layout.width, layout.height) + 64 : span * 3;
-    surface.setDepth(from === null ? PLAIN_DEPTH : RECALL_DEPTH);
+    const full = at === null ? Math.hypot(layout.width, layout.height) + 64 : span * 3;
+    surface.setDepth(at === null ? PLAIN_DEPTH : RECALL_DEPTH);
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       amountRef.current = active ? 1 : 0;
@@ -203,7 +212,7 @@ export function useBoardSurface({ boardRef, board, active, from }: Options): boo
     };
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
-  }, [active, from, ready]);
+  }, [active, from, flipped, ready]);
 
   return ready;
 }
