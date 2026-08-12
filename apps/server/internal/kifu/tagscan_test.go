@@ -328,6 +328,147 @@ func reportLatePlies(t *testing.T, results []gameScan) {
 	}
 }
 
+// **囲い가 안 붙는 판이 왜 그런가** — 안 지은 것인지 못 본 것인지 가른다.
+//
+// 341판 중 226판(66%)에서 양쪽 다 囲い 이름이 없었다. 두 가지가 겹쳐 있을 수 있는데
+// 대응이 정반대다: 강한 엔진이 고전 囲い를 안 짓는 것이면 **고칠 것이 없고**, 짓는데
+// 우리가 못 보는 것이면 **21/42를 넓혀야 한다.**
+//
+// 玉의 자리가 그 둘을 가른다. 囲い는 玉을 구석으로 옮기는 일이므로, 이름이 없는데
+// 玉이 2八·8八·9九 쪽에 있으면 **우리가 못 본 것**이고, 5九·4八 같은 가운데나 初期配置
+// 그대로면 **안 지은 것**이다.
+func TestScanKingsInGamesWithoutACastle(t *testing.T) {
+	if os.Getenv("SHOWGI_KIFU_SCAN") == "" {
+		t.Skip("SHOWGI_KIFU_SCAN 미설정")
+	}
+
+	files := floodgateFiles(t, scanSeed(t), scanCount(t))
+
+	var (
+		mu       sync.Mutex
+		noName   = map[struct{ file, rank int }]int{}
+		withName = map[struct{ file, rank int }]int{}
+		igyoku   int // 居玉 — 玉이 初期配置 그대로
+		sides    int
+	)
+
+	var wg sync.WaitGroup
+	for _, f := range files {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			raw, err := os.ReadFile(f)
+			if err != nil {
+				return
+			}
+			g, err := ParseCSA(string(raw))
+			if err != nil {
+				return
+			}
+			pos, err := shogi.ParseSFEN(g.StartSFEN)
+			if err != nil {
+				return
+			}
+
+			// **玉이 자리를 잡은 뒤에 본다.** 囲い는 보통 40수 안에 완성되고, 그보다 뒤는
+			// 崩れている 중일 수 있다. 짧은 판은 마지막 국면을 쓴다.
+			settle := min(40, len(g.Moves))
+			for i := range settle {
+				m, err := shogi.ParseUSIMove(g.Moves[i])
+				if err != nil {
+					return
+				}
+				pos = pos.Apply(m)
+			}
+
+			named := scanOne(f).byColor
+
+			mu.Lock()
+			defer mu.Unlock()
+			for _, c := range []shogi.Color{shogi.Black, shogi.White} {
+				sq, ok := kingSquare(pos, c)
+				if !ok {
+					continue
+				}
+				sides++
+
+				at := struct{ file, rank int }{shogi.FileOf(sq), shogi.RankOf(sq)}
+				if at == startKing(c) {
+					igyoku++
+				}
+
+				hasCastle := false
+				for _, fa := range named[c] {
+					if isCastleCode(fa.code) {
+						hasCastle = true
+					}
+				}
+				if hasCastle {
+					withName[at]++
+				} else {
+					noName[at]++
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
+	t.Logf("40수 시점의 玉 자리 — 쪽 %d개 · 居玉 %d개(%.0f%%)", sides, igyoku, 100*float64(igyoku)/float64(sides))
+	t.Logf("")
+	t.Logf("  %-8s %8s %8s", "玉의 칸", "이름없음", "이름있음")
+	dump(t, noName, withName)
+}
+
+func dump(t *testing.T, noName, withName map[struct{ file, rank int }]int) {
+	t.Helper()
+
+	type row struct {
+		spot struct{ file, rank int }
+		a, b int
+	}
+	seen := map[struct{ file, rank int }]bool{}
+	var rows []row
+	for s, n := range noName {
+		seen[s] = true
+		rows = append(rows, row{s, n, withName[s]})
+	}
+	for s, n := range withName {
+		if !seen[s] {
+			rows = append(rows, row{s, 0, n})
+		}
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].a+rows[i].b > rows[j].a+rows[j].b })
+
+	for i, r := range rows {
+		if i >= 14 {
+			break
+		}
+		t.Logf("  %d%-7s %8d %8d", r.spot.file, rankKanji(r.spot.rank), r.a, r.b)
+	}
+}
+
+func rankKanji(rank int) string {
+	return string([]rune("一二三四五六七八九")[rank-1])
+}
+
+func kingSquare(pos shogi.Position, c shogi.Color) (int, bool) {
+	for sq := range pos.Board {
+		p := pos.Board[sq]
+		if !p.Empty() && p.Color() == c && p.Type() == shogi.King {
+			return sq, true
+		}
+	}
+	return 0, false
+}
+
+func startKing(c shogi.Color) struct{ file, rank int } {
+	if c == shogi.Black {
+		return struct{ file, rank int }{5, 9}
+	}
+	return struct{ file, rank int }{5, 1}
+}
+
 func kindOf(code string) tag.Kind {
 	for _, t := range tag.All() {
 		if t.Code == code {
