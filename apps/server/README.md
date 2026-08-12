@@ -77,6 +77,12 @@ docker run --rm --platform linux/arm64 --cpus 4 --network show-gi-net \
 | `SHOWGI_MATE_CMD`          | 詰み 측정 skip     | `TestMeasureMateSearch`, `TestMeasureBlunderMate`, `TestMeasureBlunderTsumero`               |
 | `SHOWGI_MEASURE`           | 측정 전부 skip     | `TestMeasure*` — 몇 분 걸린다                                                                |
 | `SHOWGI_GENERATE_TIER1`    | 사전 생성 skip     | `TestGenerateTier1` — **돈이 든다**. 아래                                                    |
+| `SHOWGI_KIFU_SCAN`         | 기보 스캔 skip     | `internal/kifu` 의 `TestScan*` 다섯. 엔진도 DB도 안 쓴다                                     |
+| `SHOWGI_KIFU_DUMP`         | 덤프 skip          | `TestDumpFormationCases` — 사례마다 마크다운 한 장을 그 경로에 떨군다                        |
+| `SHOWGI_TEST_ENGINE_PATH`  | 기보 임포트 skip   | `internal/kifu` 의 `TestImportGame`. **여기만 `SHOWGI_USI_CMD` 를 안 쓴다**                  |
+| `ORCA_API_KEY`             | 실라우터 skip      | `TestRealRouter` — **돈이 든다.** 프롬프트를 고치면 여기가 첫 관문이다                       |
+
+> **`SHOWGI_MEASURE` 는 혼자서는 아무것도 안 연다.** `TestMeasure*` 는 전부 `*_CMD` 와 **둘 다** 있어야 돈다. 한쪽만 주면 실엔진 테스트는 돌고 측정만 조용히 건너뛴다 — 초록이 「쟀다」는 뜻이 아닌 자리가 여기 한 겹 더 있다.
 
 > **재채점 측정만 `SHOWGI_MEASURE` 를 안 본다.** `TestMeasureCalibrationFromRecords` 는 엔진을 안 돌리고 DB만 읽어 초 단위로 끝난다. 대신 **기록이 쌓인 DB를 가리켜야 값이 나온다** — 로컬 DB에는 짧은 테스트 대국밖에 없다 ([docs/06-status.md §39](../../docs/06-status.md)).
 
@@ -105,12 +111,13 @@ curl -sS "https://wdoor.c.u-tokyo.ac.jp/shogi/x/$DAY/" |
 ```
 
 ```sh
-# 10판씩 본다. seed 가 표본을 정하고, 바꾸면 새 10판이 나온다
-SHOWGI_KIFU_SCAN=1 go test ./internal/kifu/ -run ScanTags -v
-SHOWGI_KIFU_SEED=7 SHOWGI_KIFU_SCAN=1 go test ./internal/kifu/ -run ScanTags -v
+# 10판씩 본다. seed 가 표본을 정하고, 바꾸면 새 10판이 나온다.
+# **`-run Scan` 이다** — `-run ScanTags` 는 다섯 중 하나만 돌린다
+SHOWGI_KIFU_SCAN=1 go test ./internal/kifu/ -run Scan -v
+SHOWGI_KIFU_SEED=7 SHOWGI_KIFU_SCAN=1 go test ./internal/kifu/ -run Scan -v
 
 # 상수를 잡을 때만 전부로 넓힌다
-SHOWGI_KIFU_SCAN=1 SHOWGI_KIFU_GAMES=341 go test ./internal/kifu/ -run ScanTags -v
+SHOWGI_KIFU_SCAN=1 SHOWGI_KIFU_GAMES=341 go test ./internal/kifu/ -run Scan -v
 ```
 
 > **seed 를 안 고정하면 이 루프가 성립하지 않는다.** 매번 다른 10판을 뽑으면 「고쳐서 나아진 것」과 「표본이 쉬워진 것」을 못 가른다.
@@ -139,10 +146,70 @@ sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다
 | `internal/archive`   | **모든 탐색을 데이터로 만든다** — `positions`·`edges` (§37)               |
 | `internal/store`     | postgres (pgx + sqlc). `db/` 는 생성물이라 손대지 않는다                  |
 | `internal/tag`       | 囲い·전법·戦型·手筋의 이름. **엔진도 DB도 모른다** — 국면과 수순만 받는다 |
+| `internal/kifu`      | KIF·CSA 파서와 실 기보 임포트. **서버는 안 쓴다** — `cmd/importkifu` 만   |
+| `cmd/importkifu`     | 실 기보를 같은 판정 경로로 다시 둬 DB에 넣는다. 플래그·배선뿐             |
 
 아직 없는 것: `internal/profile`(실력 추정), `internal/kb`(RAG 코퍼스).
 
 `go.mod`는 레포 루트가 아니라 여기 있다. `apps/web`이 Node 워크스페이스라 루트를 한쪽 언어에 내주지 않으려는 것이고, 대신 Go 명령은 전부 이 디렉터리에서 돌린다.
+
+## 코드를 고치기 전에 — 헤매는 자리는 정해져 있다
+
+문서를 안 보고 코드만으로 이 서버를 읽혀 봤고, 그때 틀리게 믿은 것들이 아래다. 넷 다 **사실이 적힌 파일과 사람이 먼저 여는 파일이 다르다**는 하나의 모양이다.
+
+### ① 프로덕션 상대는 `adaptive.go` 하나뿐이다
+
+`opponent.go` 의 `NewEngineOpponent` 은 **테스트만 쓴다.** 이름과 주석 길이 때문에 그쪽을 먼저 열게 되지만, `cmd/api` 가 배선하는 것은 `NewAdaptiveOpponent` 뿐이다.
+
+**상대를 약하게 하려면 밴드를 올린다**(`adaptive.go` 의 `DefaultBand`, 또는 `OPPONENT_BAND_LO/HI`). 깊이는 **지연** 손잡이이지 강함 손잡이가 아니고, `intervene.Level.Threshold` 는 **개입 빈도**이지 상대 실력이 아니다.
+
+### ② 세션 goroutine을 떠나는 곳은 넷뿐이다
+
+상태는 세션 goroutine 하나가 소유하고 잠금이 없다. 느린 일만 밖으로 나가며, 전부 `searchGen` 을 들고 나가 **돌아왔을 때 세대가 다르면 버려진다.**
+
+| `internal/game/session.go` | 밖에서 하는 일            |
+| -------------------------- | ------------------------- |
+| `startJudging`             | 판정 + **개입 문장 생성** |
+| `maybeThink`               | 상대 수 탐색              |
+| `maybeGauge`               | 詰み 게이지               |
+| `maybeTesujiHint`          | 手筋 제안 후보            |
+
+나머지는 전부 goroutine 안이다 — `computeTagHints` 도 여기 있다(엔진을 안 부르므로).
+
+> **개입 문장은 `applyVerdict` 가 아니라 판정 goroutine 안에서 만들어진다.** 카드가 뜨기 **전**이고, 그래서 `explain.Deadline` 이 카드 지연에 그대로 더해진다.
+
+### ③ nil이면 죽지 않고 그 기능만 꺼진다
+
+`Options` 의 의존은 전부 nil을 받는다. **프로세스를 죽이지 않는 것이 의도다** — 죽이면 ECS가 재시작을 반복해 사이트 전체가 내려간다.
+
+| nil         | 꺼지는 것                                    |
+| ----------- | -------------------------------------------- |
+| NewOpponent | `/ws/game` 이 503. 되짚기는 그대로           |
+| NewAnalyst  | 개입 없이 대국만                             |
+| Mate        | 詰み 게이지                                  |
+| Search      | 가정 수순 · 手筋 힌트                        |
+| Store       | 기록과 캐시 (대국은 된다)                    |
+| Explainer   | LLM 문구 → **결정적 일본어 템플릿**으로 대체 |
+
+### ④ 카테고리를 하나 더하면 다섯 곳이다
+
+**어느 하나를 빠뜨려도 컴파일도 테스트도 안 깨지고, 화면이 조용히 미분류로 떨어진다.**
+
+`intervene/category.go`(상수 + `classify` 의 **순서 있는** switch) → `explain/render.go` → `explain/label.go` → `explain/prompt.go` → `explain/facts.go` 의 `used()` → 테스트의 `allCategories`.
+
+> **`promptVersion` 은 올리지 않는다.** 그건 **문장이 달라질 때만**이다. 카테고리를 더했다고 올리면 `004_explain_cache_tier1.sql` 의 21행이 통째로 죽어, 무료였던 설명이 다시 돈을 쓴다([§38](../../docs/06-status.md)).
+
+### WebSocket 메시지
+
+한 연결이 대국 하나. **서버가 먼저 말을 건다**(상대의 수·개입) — 요청/응답이 아니다.
+
+| 받는 것                 | 보내는 것                                         |
+| ----------------------- | ------------------------------------------------- |
+| `move` `{usi}`          | `snapshot` — **언제나 전체 상태**(부분 갱신 없음) |
+| `resign`                | `error` `{reason, message}`                       |
+| `whatif` `{ply, moves}` | `whatif` / `whatif_error`                         |
+
+그 외 타입은 `bad_move` 로 거절된다. `reason` 은 기계용 영어 코드이고 `message` 가 화면에 나가는 일본어다.
 
 ## 알아두면 좋은 것
 
