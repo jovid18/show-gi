@@ -34,6 +34,10 @@ const (
 type reviewHandler struct {
 	store *store.Store
 	auth  *authHandler
+	// summarizer·level 은 총평(summary.go)에만 쓴다. **엔진이 아니다** — 이 핸들러가
+	// 엔진과 무관하다는 성질은 그대로다. nil이면 결정적 문구가 나간다(Options.Summarizer).
+	summarizer explain.Summarizer
+	level      intervene.Level
 }
 
 // owner 는 이 요청이 볼 수 있는 주인이다. 로그인 안 했으면 nil = 익명 판.
@@ -157,12 +161,38 @@ func (h *reviewHandler) list(w http.ResponseWriter, r *http.Request) {
 
 // detail 은 한 판을 통째로 준다 — 手数마다의 국면까지.
 func (h *reviewHandler) detail(w http.ResponseWriter, r *http.Request) {
+	rec, ok := h.record(w, r)
+	if !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, detailOf(rec))
+}
+
+// summary 는 그 판의 총평이다. **대국이 끝나는 자리에서 WS가 보내는 것과 같은 모양이고
+// 같은 함수가 만든다**(ws.go sendSummary · summarize) — 두 벌이면 되짚기와 대국이 같은
+// 판을 두 문장으로 말한다.
+//
+// **기보와 따로 준다.** 총평만 LLM을 기다리므로 detail 에 실으면 판이 그때까지 안 그려진다 —
+// WS가 스냅샷을 먼저 보내고 총평을 뒤에 보내는 것과 같은 이유다(§49).
+func (h *reviewHandler) summary(w http.ResponseWriter, r *http.Request) {
+	rec, ok := h.record(w, r)
+	if !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, summarize(r.Context(), h.summarizer, rec, h.level))
+}
+
+// record 는 `{id}` 가 가리키는 기록을 읽고, 실패면 그 자리에서 답하고 false 를 준다.
+//
+// **detail 과 summary 가 같은 함수를 쓴다.** 주인 거르기도 「끝난 판만」도 `GameRecord` 가
+// 들고 있으므로(§46 · §51), 여기를 갈라 두면 한쪽만 고쳐진 채 남고 그 한쪽이 곧 구멍이다.
+func (h *reviewHandler) record(w http.ResponseWriter, r *http.Request) (store.GameRecord, bool) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{
 			"error": "bad_id", "message": "対局番号が正しくありません。",
 		})
-		return
+		return store.GameRecord{}, false
 	}
 
 	rec, err := h.store.GameRecord(r.Context(), id, h.auth.owner(r))
@@ -170,17 +200,16 @@ func (h *reviewHandler) detail(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]any{
 			"error": "not_found", "message": "その対局は見つかりません。",
 		})
-		return
+		return store.GameRecord{}, false
 	}
 	if err != nil {
 		log.Printf("review: game %d: %v", id, err)
 		writeJSON(w, http.StatusInternalServerError, map[string]any{
 			"error": "internal", "message": "対局の記録を読み込めませんでした。",
 		})
-		return
+		return store.GameRecord{}, false
 	}
-
-	writeJSON(w, http.StatusOK, detailOf(rec))
+	return rec, true
 }
 
 func summaryOf(g store.GameSummary) gameSummary {

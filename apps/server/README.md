@@ -26,6 +26,7 @@ curl localhost:8080/healthz     # {"ok":true,"engine":true,"db":true}
 | `GET /api/openings`                | 고를 수 있는 상대의 진형. **DB도 엔진도 로그인도 필요 없다** — 상수 목록이다                                                                                                                    |
 | `GET /api/games`                   | 최근 대국 목록. **결과가 나온 판만** — 두는 중도 중단도 안 온다 ([§51](../../docs/06-status.md))                                                                                                |
 | `GET /api/games/{id}`              | 한 판 전체 — 手数마다의 국면·棋譜 표기와 물러진 수 ([§33](../../docs/06-status.md)). 목록과 **같은 조건**이라 끝나지 않은 판은 404                                                              |
+| `GET /api/games/{id}/summary`      | 그 판의 총평. **기보와 따로 간다** — 이쪽만 LLM을 기다린다 ([§52](../../docs/06-status.md)). 조건은 위 줄과 같다                                                                                |
 | `POST /api/games/{id}/whatif`      | 가정 수순 한 걸음. **DB와 엔진 둘 다 필요하다** — 없으면 503 ([§37](../../docs/06-status.md))                                                                                                   |
 | `GET /api/resumable`               | 이어할 수 있는 중단된 판 하나. **로그인 안 했으면 늘 `null`** — 기록이 없는 배포에서도 200이다                                                                                                  |
 | `POST /api/resumable/{id}/decline` | 「いいえ」. 그 판은 중단된 채로 끝나고 다시 안 물어본다                                                                                                                                         |
