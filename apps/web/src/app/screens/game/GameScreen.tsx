@@ -508,36 +508,40 @@ export function GameScreen() {
             />
           )}
 
-        {/* **개입 중에는 차례를 말하지 않는다.** 판이 잠겨 있어서 「あなたの番です」가
-            할 일을 가리키지 못하고, 카드가 이미 무엇을 해야 하는지 말하고 있다. */}
+        {/* **개입 중에는 차례도 강함도 진형도 말하지 않는다.** 이 자리는 카드 하나가 쓴다
+            (위 주석). 판이 잠겨 있어서 「あなたの番です」가 할 일을 가리키지도 못한다.
+
+            셋이 한 카드다 — 전부 「지금 이 판이 어떤 상태인가」이고, 따로 떼어 놓으면
+            판 옆에 문단 셋이 흩어져 어느 것이 제목인지가 없어진다. */}
         {!intervening && (
-          <p className="status" data-tone={statusTone}>
-            {statusText}
-          </p>
-        )}
+          <div className="game-state">
+            <p className="status" data-tone={statusTone}>
+              {statusText}
+            </p>
 
-        {/* 상대의 강함. **개입 중에는 안 그린다** — 이 자리는 카드 하나가 쓴다(위 주석).
-            눈금이 조용히 바뀌는 것이 이 기능의 요점이라 숫자도 % 도 쓰지 않는다. */}
-        {!intervening && strength !== undefined && (
-          <p className="strength" role="status">
-            <span className="strength__head">相手の強さ</span>
-            <span className="strength__pips" aria-hidden="true">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <i key={n} data-on={n <= strength || undefined} />
-              ))}
-            </span>
-            <span className="strength__label">{STRENGTH_JA[strength - 1]}</span>
-          </p>
-        )}
+            {/* 상대의 강함. 눈금이 조용히 바뀌는 것이 이 기능의 요점이라 숫자도 % 도 쓰지 않는다. */}
+            {strength !== undefined && (
+              <p className="strength" role="status">
+                <span className="strength__head">相手の強さ</span>
+                <span className="strength__pips" aria-hidden="true">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <i key={n} data-on={n <= strength || undefined} />
+                  ))}
+                </span>
+                <span className="strength__label">{STRENGTH_JA[strength - 1]}</span>
+              </p>
+            )}
 
-        {/* 고른 진형을 되비춘다. **고르지 않았으면 아무것도 안 쓴다** — 「おまかせ」라고
-            적어 두면 없는 설정이 있는 것처럼 자리를 차지한다. 상대의 형태를 알려주는 것이
-            아닌 근거는 서버의 `Snapshot.OpponentOpening` 주석. */}
-        {!intervening && snapshot.opponentOpening && (
-          <p className="opening" role="note">
-            <span className="opening__head">相手の戦型</span>
-            <span className="opening__name">{snapshot.opponentOpening}</span>
-          </p>
+            {/* 고른 진형을 되비춘다. **고르지 않았으면 아무것도 안 쓴다** — 「おまかせ」라고
+                적어 두면 없는 설정이 있는 것처럼 자리를 차지한다. 상대의 형태를 알려주는 것이
+                아닌 근거는 서버의 `Snapshot.OpponentOpening` 주석. */}
+            {snapshot.opponentOpening && (
+              <p className="opening" role="note">
+                <span className="opening__head">相手の戦型</span>
+                <span className="opening__name">{snapshot.opponentOpening}</span>
+              </p>
+            )}
+          </div>
         )}
 
         {!intervening && snapshot.tagHints && snapshot.tagHints.length > 0 && (

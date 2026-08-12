@@ -1,12 +1,49 @@
-/* 어두운 방에 판만 밝다. 강조는 색이 아니라 빛으로 준다 (docs/03-frontend.md).
-   그래서 강조에 쓰는 색은 --light 하나뿐이고, 세기(알파)만 바꾼다.
-   색으로 구분하기 시작하면 D3의 개입 연출이 얹힐 자리가 사라진다. */
+/* 「강조는 색이 아니라 빛으로」는 **판 위의** 규칙이고(docs/03-frontend.md §1), 그 빛이
+   실제로 사는 순간은 개입이 걸려 `.veil` 이 화면을 덮고 판만 남는 그때다.
+
+   그래서 셸(판 밖)은 밝고 판·개입 카드는 어둡다. **두 벌이 있는 것이 이 파일의 뼈대다.**
+   셸이 밝으면 그 전환이 세진다 — 크림에서 검정으로 떨어지므로, 어두운 셸에서 조금 더
+   어두워질 때보다 대비가 크다. 어두운 자리는 자기 토큰을 따로 덮어쓴다(`.intervention`).
+
+   판 토큰(--board·--koma-*·--ray·--ray-check·--hint·--mate·--light)은 셸과 무관하고
+   여기서 안 건드린다. 저 넷이 색을 쓰는 근거는 03-frontend.md §1의 「색을 쓰는 자리」다. */
 
 :root {
-  --bg: #14120f;
-  --surface: #1c1915;
-  --fg: #ede8df;
-  --muted: #8e857a;
+  /* ── 셸 ── 生成り 계열. 판이 꿀색 나무라 셸이 중성 회색이면 판만 누렇게 뜬다. */
+  --bg: #ede7dc;
+  --bg-deep: #e4dccd;
+  --surface: #ffffff;
+  /* 카드 **안에** 얹히는 면. 행 hover·트랙·駒台 바닥이 전부 이것 하나다. */
+  --surface-2: #f8f4ec;
+  --surface-3: #f1ebe0;
+
+  --fg: #26211b;
+  --fg-2: #574f45;
+  --muted: #8b8175;
+
+  --line: #e4dccd;
+  --line-2: #d0c5b1;
+
+  /* 深緑. 판이 이미 쓰는 넷과 부딪히지 않는 이유가 둘이다 — 하나는 표면이 다른 것(판
+     안이 아니다, 詰み 불꽃이 테두리에서 색을 쓰는 것과 같은 근거), 하나는 **개입이 걸리면
+     셸이 장막 아래로 들어가** 브랜드색과 판의 광선이 같은 세기로 같이 보이는 순간이
+     없다는 것이다. 연두 광선과는 명도도 반대쪽이다. */
+  --brand: #2f5d45;
+  --brand-strong: #244835;
+  --brand-soft: #e4ede7;
+  --brand-line: #bfd4c8;
+
+  /* 고도차. 참조 디자인이 1px 테두리로 하던 일을 그림자가 한다 — 테두리만으로 층을
+     만들면 카드가 스무 개일 때 전부 같은 무게가 되어 무엇이 위인지 안 읽힌다.
+     따뜻한 먹색으로 낮은 알파를 여러 겹 쌓는다. 검정을 한 겹 쓰면 크림 위에서 회색으로 탁해진다. */
+  --shadow-sm: 0 1px 2px rgb(58 48 36 / 0.05), 0 1px 3px rgb(58 48 36 / 0.04);
+  --shadow-md: 0 1px 2px rgb(58 48 36 / 0.04), 0 6px 14px -4px rgb(58 48 36 / 0.08);
+  --shadow-lg: 0 2px 4px rgb(58 48 36 / 0.04), 0 14px 30px -8px rgb(58 48 36 / 0.1);
+
+  --r-sm: 0.5rem;
+  --r-md: 0.75rem;
+  --r-lg: 1rem;
+  --r-pill: 999px;
 
   /* 판은 榧(카야) 계열의 꿀색 나무다. 실제 대국에서 駒가 판보다 밝고, 그 관계가
      선후수 구분보다 먼저 눈에 들어온다.
@@ -79,7 +116,9 @@
      아니다 — 그 관계는 위 주석대로 끊겼다.
      뺄셈에 들어가는 것: .app 좌우 여백(2.5rem) + 段 라벨 열과 그 사이(1rem) + 판 테두리.
      이걸 빼먹으면 좁은 화면에서 판이 넘쳐 段 라벨이 화면 밖으로 밀린다. */
-  --sq: clamp(32px, calc((100vw - 4.5rem) / 9), 56px);
+  /* 상한을 56px에서 올렸다. 셸이 밝아지면서 판이 화면에서 가장 밝은 것이 아니게 됐고,
+     그 자리를 되찾는 것은 색이 아니라 크기다 — 넓은 화면에서 판 아래가 비어 있기도 했다. */
+  --sq: clamp(32px, calc((100vw - 4.5rem) / 9), 62px);
   --kanji: max(var(--kanji-min), calc(var(--sq) * 0.4));
 
   /* 駒는 明朝. 붓에서 온 굵기 대비가 있어야 「버튼에 쓴 글자」가 아니라 駒로 읽힌다.
@@ -87,7 +126,7 @@
   --font-koma: 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', 'Songti SC', serif;
   --font-ui: system-ui, -apple-system, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
 
-  color-scheme: dark;
+  color-scheme: light;
   font-family: var(--font-ui);
   background: var(--bg);
   color: var(--fg);
@@ -97,47 +136,109 @@
   box-sizing: border-box;
 }
 
+/* 위가 밝고 아래가 깊다. 카드가 흰색이라 지면이 완전한 평면이면 카드가 안 뜨고,
+   그림자만으로 띄우면 아래쪽 카드에서 그림자가 지면에 묻는다. */
 body {
   margin: 0;
   min-height: 100dvh;
-  background: radial-gradient(ellipse at 50% 30%, #1b1813, var(--bg) 70%);
+  background: linear-gradient(180deg, #f4f0e8, var(--bg) 42%, var(--bg-deep));
+  -webkit-font-smoothing: antialiased;
 }
 
 :focus-visible {
-  outline: 2px solid rgb(var(--light) / 0.85);
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
+}
+
+/* 장막 아래에서는 포커스 링이 뒤집힌다 — 深緑 테가 검정 위에서 안 보인다. */
+.veil ~ * :focus-visible,
+.intervention :focus-visible {
+  outline-color: rgb(var(--light) / 0.85);
 }
 
 /* ── 뼈대 ─────────────────────────────────────────────── */
 
 .app {
-  max-width: 68rem;
+  max-width: 72rem;
   margin: 0 auto;
-  padding: clamp(1rem, 3vw, 2rem) 1.25rem 3rem;
+  padding: clamp(1.25rem, 3vw, 2.25rem) 1.25rem 4rem;
 }
 
+/* 화면 전폭의 흰 줄. `.app` 안에 두면 컨테이너 폭에서 끊겨 「위에 얹힌 카드」가 되고,
+   그러면 스크롤에 붙일 수도 없다 — 그래서 App.tsx 에서 컨테이너 밖으로 뺐다. */
 .app-head {
+  position: sticky;
+  top: 0;
+  /* 장막(40)보다 낮다. 개입 때 이 줄도 같이 어두워진다. */
+  z-index: 30;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.app-head__inner {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0.6rem 1.25rem;
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.15rem 0.75rem;
-  margin-bottom: clamp(1rem, 3vw, 1.75rem);
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: inherit;
+  border-radius: var(--r-md);
+}
+
+/* 판의 나무를 한 조각 떼어 온 것이다. 셸이 밝아지면서 제품을 알아보게 하는 것이
+   글자 하나뿐이 됐고, 그 글자가 판과 같은 재질이면 헤더가 판의 일부로 읽힌다. */
+.app-mark {
+  flex: none;
+  width: 1.9rem;
+  height: 1.9rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-sm);
+  background: linear-gradient(160deg, #d8ba8b, var(--board));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.45),
+    var(--shadow-sm);
+  font-family: var(--font-koma);
+  font-size: 1.125rem;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.app-brand__text {
+  display: grid;
+  gap: 0.05rem;
 }
 
 .app-title {
   margin: 0;
   /* 좁은 화면에서 제품 이름이 단어 중간(show-/gi)에서 끊기지 않게 한다. */
   white-space: nowrap;
-  font-size: 1.125rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  color: var(--board);
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: var(--fg);
 }
 
 .app-tagline {
   margin: 0;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
+  line-height: 1.3;
   color: var(--muted);
+}
+
+/* 설명 한 줄은 좁은 화면에서 제품 이름과 탭 사이를 밀어낸다. 이름이 먼저다. */
+@media (max-width: 44rem) {
+  .app-tagline {
+    display: none;
+  }
 }
 
 .notice {
@@ -157,7 +258,7 @@ body {
    넓은 화면에서 둘 사이가 벌어져 관계가 없는 두 물건처럼 보인다. */
 .game {
   display: grid;
-  grid-template-columns: auto minmax(13rem, 17rem);
+  grid-template-columns: auto minmax(15rem, 20rem);
   gap: clamp(1rem, 3vw, 2.25rem);
   align-items: start;
   width: fit-content;
@@ -224,7 +325,11 @@ body {
   padding: 1px;
   background: var(--grid);
   border: 2px solid var(--grid);
-  box-shadow: 0 18px 40px rgb(0 0 0 / 0.55);
+  /* 검정 한 겹은 어두운 지면에서 「판이 떠 있다」였는데 크림 위에서는 회색 얼룩이 된다.
+     따뜻한 먹색을 가까운 겹과 먼 겹으로 나눠 쌓는다 — 카드의 --shadow-* 와 같은 문법이다. */
+  box-shadow:
+    0 2px 6px rgb(58 48 36 / 0.12),
+    0 20px 44px -14px rgb(58 48 36 / 0.35);
 }
 
 /* 星. 3·6번째 선이 만나는 네 점이다. 없으면 판이 판처럼 안 보인다.
@@ -803,6 +908,26 @@ body {
   border: 1px solid rgb(var(--light) / 0.24);
   box-shadow: 0 18px 48px rgb(0 0 0 / 0.6);
   animation: intervention-in 560ms 1050ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+
+  /* **이 카드만 어두운 방에 있다.** 셸의 토큰이 그대로 흘러들면 검은 면에 먹색 글자가
+     되어 아무것도 안 읽힌다 — 카드가 자기 팔레트를 들고 있으므로 여기서 뒤집는다.
+     `.btn` 도 이 값을 타서 저절로 어두운 방의 버튼이 된다.
+
+     **`color` 를 여기서 다시 선언해야 한다.** 토큰만 덮어써도 글자는 안 바뀐다 —
+     `color: var(--fg)` 를 선언한 곳이 `:root` 라서 계산이 거기서 끝나 있고, 내려오는 것은
+     이미 먹색이 된 값이다. 실제로 이 카드의 棋譜 표기와 설명문이 검정 위 검정이었다. */
+  color: var(--fg);
+  --fg: #f2ece0;
+  --fg-2: #d8cfbe;
+  --muted: #a2988a;
+  --line: rgb(255 246 224 / 0.16);
+  --line-2: rgb(255 246 224 / 0.32);
+  --surface: rgb(255 246 224 / 0.07);
+  --surface-2: rgb(255 246 224 / 0.1);
+  /* 그림자는 크림 지면에서 카드를 띄우는 장치다. 검정 위에서는 보이지도 않으면서
+     버튼 아래에 탁한 테만 남긴다. */
+  --shadow-sm: none;
+  --shadow-md: none;
 }
 
 @keyframes intervention-in {
@@ -970,23 +1095,32 @@ body {
 
 /* ── 駒台 ─────────────────────────────────────────────── */
 
+/* **실물처럼 나무다.** 셸이 밝아지면서 흰 카드로 둘 수 없게 됐다 — 駒가 크림색이라
+   흰 면 위에서 사라진다. 판과 같은 나무로 두면 판이 이미 가진 대비(駒가 판보다 밝다,
+   03-frontend.md §1)를 그대로 쓰고, 판을 고른 駒에 흰빛 테를 두르는 것도 여기서 그대로 산다.
+   덤으로 駒台 둘과 판이 한 벌의 나무 도구로 읽힌다. */
 .hand {
+  position: relative;
   width: 100%;
   max-width: calc(var(--sq) * 9 + 6px);
   min-height: calc(var(--sq) * 0.92);
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.3rem 0.6rem;
-  background: var(--surface);
-  border: 1px solid rgb(var(--light) / 0.07);
+  padding: 0.3rem 0.7rem;
+  /* **판보다 어둡다.** 같은 나무로 두면 셋이 같은 밝기의 슬래브 셋이 되어 판이 가운데
+     하나로 안 읽힌다. 안쪽 그림자로 우묵하게 만들면 駒를 담는 쟁반이 되고, 판만 떠 있는다. */
+  background: linear-gradient(180deg, #c0a071, #cbad7d);
+  border-radius: var(--r-sm);
+  box-shadow: inset 0 2px 5px rgb(23 20 15 / 0.2);
 }
 
 .hand-label {
   flex: none;
   width: 3.2em;
   font-size: 0.75rem;
-  color: var(--muted);
+  /* 나무 위의 글자다. --muted 는 크림 지면에 맞춰 둔 값이라 여기서는 묻는다. */
+  color: rgb(23 20 15 / 0.6);
 }
 
 .hand-pieces {
@@ -998,7 +1132,7 @@ body {
 
 .hand-empty {
   font-size: 0.75rem;
-  color: var(--muted);
+  color: rgb(23 20 15 / 0.42);
 }
 
 .hand-piece {
@@ -1026,6 +1160,27 @@ body {
   box-shadow: inset 0 0 0 2px rgb(var(--light) / 0.9);
 }
 
+/* 판이 탈색되는 동안 駒台도 같이 색을 잃는다. 안 하면 셸이 어두워진 화면에서 **나무 받침
+   둘이 가장 밝은 것**이 되어, 「판만 남는다」가 「駒台만 남는다」로 읽힌다 — 어두운 셸에서는
+   駒台가 회색 면이라 이 문제가 없었다.
+   판과 같은 수법이다(`.board-tint`): backdrop-filter 라 이 겹 **위**의 것은 안 낮아진다. */
+.game[data-intervening] .hand::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  pointer-events: none;
+  backdrop-filter: saturate(0.18) brightness(0.55);
+  animation: veil-in 520ms ease both;
+}
+
+/* 회상에서 나가는 持ち駒는 안 낮아진다. 打은 판 위에 출발 칸이 없어서 **그 駒가 같이
+   빛나는 것**이 「어디서 왔는가」의 답이다(Hand 의 `dropping`). */
+.hand-piece[data-dropping] {
+  z-index: 3;
+}
+
 /* 판과 같은 이유로 `translate` 다 — 駒台에도 상대 쪽이 있고(되짚기에서 상대 打을 둬 본다),
    transform 을 쓰면 고른 순간 그 駒가 내 것으로 보인다. */
 .hand-piece[data-selected] .koma {
@@ -1048,22 +1203,50 @@ body {
 
 .game-side {
   display: grid;
-  gap: 1rem;
+  gap: 0.75rem;
   align-content: start;
+}
+
+/* 「지금 이 판이 어떤 상태인가」 한 장. 차례가 제목이고 강함·진형이 그 아래 줄이다. */
+.game-state {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.9rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .status {
   margin: 0;
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .status[data-tone='wait'] {
   color: var(--muted);
+  font-weight: 500;
 }
 
+/* 판이 끝났다는 것은 이 화면에서 가장 큰 소식이다. 나무색으로 두면 흰 카드에서 옅어진다. */
 .status[data-tone='result'] {
-  color: var(--board);
-  font-weight: 600;
+  color: var(--brand);
+  font-weight: 650;
+}
+
+/* 강함·진형은 차례 아래에 罫線 하나로 붙는다 — 같은 카드 안에서 「제목」과 「딸린 값」이
+   갈려야 한다. 첫째 것만 선을 받는다(둘 다면 강함과 진형 사이에도 선이 생겨 셋이 동렬이 된다). */
+.game-state .strength,
+.game-state .opening {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.game-state .strength + .opening {
+  padding-top: 0;
+  border-top: 0;
 }
 
 /*
@@ -1099,14 +1282,14 @@ body {
   width: 0.3rem;
   height: 0.3rem;
   border-radius: 50%;
-  background: rgb(var(--light) / 0.18);
+  background: var(--line-2);
   /* 눈금이 바뀌는 것은 조용해야 한다. 판이 움직이는 순간과 겹치므로 여기서 눈을
      끌면 방금 둔 수에서 시선을 빼앗는다. */
   transition: background 600ms ease-out;
 }
 
 .strength__pips i[data-on] {
-  background: rgb(var(--light) / 0.7);
+  background: var(--fg-2);
 }
 
 /* 고른 진형을 되비추는 한 줄. 강함 눈금과 **같은 문법**으로 둔다 — 둘 다 「상대가 지금
@@ -1126,7 +1309,7 @@ body {
 }
 
 .opening__name {
-  color: rgb(var(--light) / 0.82);
+  color: var(--fg);
 }
 
 /* ── 시작 화면 ───────────────────────────────────────── */
@@ -1134,17 +1317,22 @@ body {
 /* 대국이 열리기 전의 자리. **판이 있던 폭을 그대로 쓰지 않는다** — 고를 것이 둘뿐이라
    판만큼 넓으면 화면 가운데가 비고, 그 여백이 「아직 로딩 중인가」로 읽힌다. */
 .setup {
-  max-width: 34rem;
-  margin: 2.5rem auto;
+  max-width: 36rem;
+  margin: clamp(1.5rem, 5vh, 3.5rem) auto;
   display: grid;
   gap: 1.5rem;
+  padding: clamp(1.25rem, 4vw, 2rem);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
 }
 
 .setup__head {
   margin: 0;
-  font-size: 1.0625rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
+  font-size: 1.375rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 
 .setup__group {
@@ -1168,38 +1356,76 @@ body {
   gap: 0.5rem;
 }
 
+/* **한 줄에 둘까지다.** auto-fit 이 셋을 앉히면 넷째가 혼자 남아 구멍이 생기고, 다섯이
+   3+2로 앉으면 어느 것이 기본인지도 안 보인다. 아래에서 「おまかせ」를 전폭으로 빼면
+   남는 것이 정확히 넷이라 2×2로 꽉 찬다. */
 .setup__choices--wrap {
-  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+/* 「おまかせ」는 기본이고 나머지와 종류가 다르다 — 이름을 고르는 것이 아니라 안 고르는
+   것이다. 그래서 줄을 통째로 쓰고 나머지 넷 위에 앉는다. */
+.setup__choices--wrap > :first-child {
+  grid-column: 1 / -1;
 }
 
 /* 고른 것과 안 고른 것을 **테두리와 배경으로** 가른다. 색으로만 가르면 판의 어휘와
    부딪힌다 — 저쪽에서 색은 채널이고(누가 무엇을 하는가) 여기는 그 얘기가 아니다. */
 .setup__choice {
+  position: relative;
   display: grid;
+  /* 카드 높이가 한 줄에서 가장 긴 설명에 맞춰 늘어난다. 늘어난 몫이 두 줄 사이로
+     들어가면 같은 줄의 카드끼리 제목 아래 간격이 달라 보인다. */
+  align-content: start;
   gap: 0.25rem;
-  padding: 0.7rem 0.8rem;
+  padding: 0.8rem 2.2rem 0.85rem 0.9rem;
   text-align: left;
-  border: 1px solid rgb(var(--light) / 0.14);
-  border-radius: 0.4rem;
-  background: rgb(var(--light) / 0.03);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
   color: inherit;
   cursor: pointer;
   transition:
     border-color 140ms ease-out,
-    background 140ms ease-out;
+    background 140ms ease-out,
+    box-shadow 140ms ease-out;
 }
 
 .setup__choice:hover {
-  border-color: rgb(var(--light) / 0.3);
+  border-color: var(--line-2);
+  box-shadow: var(--shadow-sm);
 }
 
+/* **고른 것에 표식이 붙는다.** 원래 테두리와 배경만으로 갈랐는데, 흰 카드 위에서 그 둘은
+   나란히 놓고 봐야 알 수 있는 차이다 — 무엇을 골랐는지는 견주지 않고 알아야 한다.
+   테두리를 굵게 하는 대신 안쪽 그림자를 겹친다(굵히면 글자가 1px 밀린다). */
 .setup__choice[data-on] {
-  border-color: rgb(var(--light) / 0.55);
-  background: rgb(var(--light) / 0.08);
+  border-color: var(--brand);
+  box-shadow: inset 0 0 0 1px var(--brand);
+  background: var(--brand-soft);
+}
+
+.setup__choice[data-on]::after {
+  /* 대체 텍스트를 비운다. `aria-pressed` 가 이미 고른 것을 말하므로, 읽어 주면
+     「先手 自分から先に指します ✓」가 되어 같은 사실을 두 번 듣는다. */
+  content: '✓' / '';
+  position: absolute;
+  top: 0.7rem;
+  right: 0.75rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #fff;
+  font-size: 0.6875rem;
+  line-height: 1;
 }
 
 .setup__choice-name {
   font-size: 0.9375rem;
+  font-weight: 600;
 }
 
 .setup__choice-note {
@@ -1217,15 +1443,23 @@ body {
   color: var(--muted);
 }
 
+/* 주의 한 줄. 카드 안의 얹힌 면에 두면 「고르는 것」과 「읽는 것」이 갈린다. */
 .setup__caveat {
   margin: 0;
+  padding: 0.7rem 0.85rem;
+  background: var(--surface-2);
+  border-radius: var(--r-sm);
   font-size: 0.75rem;
   line-height: 1.7;
-  color: var(--muted);
+  color: var(--fg-2);
 }
 
+/* 이 카드에서 할 일은 하나뿐이라 줄을 통째로 쓴다. 왼쪽에 붙여 두면 카드 아래가
+   오른쪽만 비어 「무엇을 더 골라야 하나」로 읽힌다. */
 .setup__start {
-  justify-self: start;
+  justify-self: stretch;
+  padding: 0.7rem 1.5rem;
+  font-size: 0.9375rem;
 }
 
 /*
@@ -1307,10 +1541,14 @@ body {
 */
 .tag-hint {
   margin: 0;
-  padding: 0.5rem 0.75rem;
+  padding: 0.75rem 0.9rem;
   background: var(--surface);
-  border-left: 2px solid rgb(var(--hint) / 0.5);
-  border-radius: 2px;
+  border: 1px solid var(--line);
+  /* 판 안의 갇힘 힌트와 같은 파랑이다 — 둘 다 「네가 무엇을 두면 되는가」 쪽이라
+     같은 색으로 묶는 것이 맞다(03-frontend.md §1 ④). */
+  border-left: 3px solid rgb(var(--hint) / 0.55);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .tag-hint__head {
@@ -1342,9 +1580,12 @@ body {
 
 .rejection {
   margin: 0;
-  padding: 0.6rem 0.75rem;
+  padding: 0.7rem 0.9rem;
   background: var(--surface);
-  border-left: 2px solid rgb(var(--light) / 0.5);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-2);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
   font-size: 0.8125rem;
   line-height: 1.6;
 }
@@ -1355,35 +1596,51 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.6rem 0.75rem;
+  padding: 0.75rem 0.9rem;
   background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-md);
   font-size: 0.8125rem;
+  font-weight: 500;
 }
 
+/* 카드의 작은 머리. 대문자 추적으로 「값」이 아니라 「이름」임을 표시한다 —
+   크기만 줄이면 본문의 옅은 글자와 구별되지 않는다. */
 .panel-title {
-  margin: 0 0 0.4rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.16em;
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
   color: var(--muted);
+}
+
+.kifu {
+  padding: 0.9rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
 }
 
 /* 棋譜 머리. 제목과 복사 버튼이 같은 줄에 앉는다 — 복사는 棋譜에 딸린 동작이라
    따로 떨어뜨리면 무엇을 복사하는지가 흐려진다. */
 .kifu-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
 /* 평시엔 조용하게. .btn 보다 한 단 낮은 무게다 — 판에서 벌어지는 일이 아니라
    棋譜에 딸린 보조 동작이라, 「もう一局」·「投了」와 같은 크기로 서면 안 된다. */
 .kifu-copy {
   flex: none;
-  padding: 0.1rem 0.4rem;
-  border: 1px solid rgb(var(--light) / 0.14);
-  background: none;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
   font: inherit;
   font-size: 0.6875rem;
   letter-spacing: 0.08em;
@@ -1393,7 +1650,7 @@ body {
 
 .kifu-copy:hover,
 .kifu-copy:focus-visible {
-  border-color: rgb(var(--light) / 0.4);
+  border-color: var(--line-2);
   color: var(--fg);
 }
 
@@ -1421,7 +1678,7 @@ body {
   grid-template-columns: 2.5ch 1fr;
   gap: 0.75rem;
   padding: 0.3rem 0.25rem;
-  border-bottom: 1px solid rgb(var(--light) / 0.06);
+  border-bottom: 1px solid var(--line);
 }
 
 .kifu-number {
@@ -1437,32 +1694,57 @@ body {
 }
 
 .kifu-row[data-by='engine'] .kifu-move {
-  color: #cfc7ba;
+  color: var(--muted);
 }
 
 /* ── 버튼 ─────────────────────────────────────────────── */
 
+/* **채운다.** 테두리만 있는 버튼은 배경이 지면과 같아서 「아직 만들다 만 폼」으로 읽힌다 —
+   보조 버튼도 흰 면과 그림자를 갖고, 지면(크림)에서 한 겹 떠 있다. */
 .btn {
-  padding: 0.4rem 0.9rem;
-  background: none;
-  border: 1px solid rgb(var(--light) / 0.18);
+  padding: 0.5rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-sm);
   color: var(--fg);
   font: inherit;
   font-size: 0.8125rem;
+  font-weight: 550;
   cursor: pointer;
+  transition:
+    border-color 140ms ease-out,
+    box-shadow 140ms ease-out,
+    background 140ms ease-out;
 }
 
 .btn:hover {
-  border-color: rgb(var(--light) / 0.4);
+  border-color: var(--line-2);
+  box-shadow: var(--shadow-md);
 }
 
 .btn--primary {
-  border-color: rgb(var(--light) / 0.55);
+  background: var(--brand);
+  border-color: var(--brand);
+  box-shadow: var(--shadow-md);
+  color: #fff;
 }
 
+.btn--primary:hover {
+  background: var(--brand-strong);
+  border-color: var(--brand-strong);
+}
+
+/* 投了처럼 되돌릴 수 없는 것. **면은 안 채운다** — 채우면 화면에서 가장 센 버튼이
+   「그만두기」가 된다. 판 위의 붉은 王手와는 표면이 다르다(03-frontend.md §1). */
 .btn--danger {
-  border-color: #7a4a42;
-  color: #e0a49a;
+  border-color: #e0cdc7;
+  color: #9c3f2e;
+}
+
+.btn--danger:hover {
+  border-color: #c9a79d;
+  background: #fdf6f4;
 }
 
 .game-side > .btn {
@@ -1557,10 +1839,12 @@ body {
   grid-row: 3;
   justify-self: end;
   margin-top: 0.15rem;
-  padding: 0.25rem 0.6rem;
-  border: 1px solid rgb(var(--light) / 0.16);
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--line);
   border-radius: 999px;
-  background: transparent;
+  /* 투명하면 크림 지면에서 테두리 하나만 남아 「누를 수 있는 것」으로 안 읽혔다. */
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
   color: var(--muted);
   font-family: var(--font-ui);
   font-size: 0.6875rem;
@@ -1574,15 +1858,15 @@ body {
 
 .exposure-toggle:hover:not(:disabled) {
   color: var(--fg);
-  border-color: rgb(var(--light) / 0.3);
+  border-color: var(--line-2);
 }
 
 /* 켜져 있는 것을 **눌린 것처럼** 그린다. 판 위의 신호가 아니라 화면의 컨트롤이라
-   여기서 --light 를 써도 착수 후보·王手와 자리를 다투지 않는다. */
+   여기서 색을 써도 착수 후보·王手와 자리를 다투지 않는다. */
 .exposure-toggle[aria-pressed='true'] {
   color: var(--fg);
-  border-color: rgb(var(--light) / 0.34);
-  background: rgb(var(--light) / 0.08);
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
 }
 
 /* 회상 중에는 이미 켜져 있다 — 끄지 못하는 것이지 고장 난 것이 아니라서
@@ -1600,40 +1884,76 @@ body {
 /* 화면 전환. 제목 줄 오른쪽 끝에 붙는다 — 판 위에 두면 대국 중에 누를 것이 하나 늘어난다. */
 .app-tabs {
   display: flex;
-  gap: 0.25rem;
+  gap: 0.15rem;
   margin-inline-start: auto;
+  padding: 0.2rem;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
 }
 
+/* 테두리를 지우고 알약으로 바꿨다. 테두리 있는 사각형 둘이 나란히 서면 「탭」이 아니라
+   「버튼 두 개」로 읽히고, 어느 쪽이 지금 화면인지가 테두리 밝기 차이에만 실린다. */
 .app-tab {
-  padding: 0.25rem 0.7rem;
-  border: 1px solid rgb(var(--light) / 0.14);
+  padding: 0.3rem 0.85rem;
+  border: 0;
+  border-radius: var(--r-pill);
   background: none;
   font: inherit;
   font-size: 0.8125rem;
+  font-weight: 500;
   color: var(--muted);
+  text-decoration: none;
   cursor: pointer;
+  transition:
+    background 140ms ease-out,
+    color 140ms ease-out;
 }
 
-.app-tab:hover,
-.app-tab:focus-visible {
-  border-color: rgb(var(--light) / 0.4);
+.app-tab:hover {
   color: var(--fg);
 }
 
-/* 고른 쪽은 **빛으로** 표시한다. 색을 쓰면 판 위의 신호 체계와 자리를 다툰다. */
+/* 여기 원래 「고른 쪽은 **빛으로** 표시한다」였다. 셸이 밝아져서 그 문장이 성립하지 않는다 —
+   흰 바탕에서 흰빛은 신호가 아니다. 색으로 바꾼 근거는 :root 의 --brand 주석. */
 .app-tab[data-active] {
-  border-color: rgb(var(--light) / 0.5);
-  background: rgb(var(--light) / 0.08);
-  color: var(--fg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--brand);
+  font-weight: 600;
 }
 
-/* 로그인. 화면 전환 오른쪽에 붙는다 — **탭과 같은 테두리를 쓴다.** 여기만 다르게
-   생기면 제목 줄이 두 벌의 버튼을 갖게 되고, 로그인이 대국보다 커 보인다. */
+/* 로그인. 탭 무리 **밖**이다 — 안에 넣으면 「대국·振り返り·ログイン」이 한 벌의 탭으로
+   읽혀 로그인이 화면 하나인 것처럼 보인다. */
 .app-account {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-inline-start: 0.25rem;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  font-size: 0.8125rem;
+  color: var(--fg-2);
+  text-decoration: none;
+}
+
+.app-account:hover {
+  border-color: var(--line-2);
+}
+
+/* 로그아웃은 이름 옆에 붙는 작은 글자다. 알약 안에 알약을 넣지 않는다. */
+.app-account .app-tab {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.app-account .app-tab:hover {
+  color: var(--fg);
+  text-decoration: underline;
 }
 
 /* 이름은 Google에서 오는 남의 문자열이라 길이를 우리가 못 정한다. 줄이 접히면
@@ -1663,7 +1983,7 @@ body {
 
 .review-retry {
   padding: 0.25rem 0.7rem;
-  border: 1px solid rgb(var(--light) / 0.18);
+  border: 1px solid var(--line);
   background: none;
   font: inherit;
   font-size: 0.8125rem;
@@ -1673,22 +1993,33 @@ body {
 
 .review-retry:hover,
 .review-retry:focus-visible {
-  border-color: rgb(var(--light) / 0.45);
+  border-color: var(--line-2);
 }
 
 /* ── 대국 목록 ── */
 
 .review-list {
-  max-width: 34rem;
+  max-width: 38rem;
   margin-inline: auto;
+  display: grid;
+  gap: 0.6rem;
 }
 
+/* 한 장의 표다. 줄 사이를 띄우면 열 넷이 세로로 안 읽히고, 같은 판의 네 값이 아니라
+   카드 넷으로 보인다 — 목록을 훑는 눈이 세로로 가야 하는 화면이다. */
 .review-list ul {
   margin: 0;
   padding: 0;
   list-style: none;
-  display: grid;
-  gap: 0.4rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.review-list li + li {
+  border-top: 1px solid var(--line);
 }
 
 /* 한 줄에 넷을 눕힌다: 언제 · 결과 · 몇 수 · 몇 번 막혔나.
@@ -1702,22 +2033,26 @@ body {
   align-items: baseline;
   gap: 0.9rem;
   width: 100%;
-  padding: 0.6rem 0.8rem;
-  border: 1px solid rgb(var(--light) / 0.1);
-  background: var(--surface);
+  padding: 0.75rem 1rem;
+  border: 0;
+  background: none;
   font: inherit;
   color: var(--fg);
   text-align: start;
+  /* 링크라서 밑줄이 붙는다. 네 칸 전부에 밑줄이 그어져 표가 아니라 링크 넷으로 보였다 —
+     어두운 셸에서는 밑줄이 배경에 묻혀 눈에 안 띄던 자리다. */
+  text-decoration: none;
   cursor: pointer;
+  transition: background 120ms ease-out;
 }
 
-.review-card:hover,
-.review-card:focus-visible {
-  border-color: rgb(var(--light) / 0.35);
+.review-card:hover {
+  background: var(--surface-2);
 }
 
 .review-card-date {
   font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .review-card-moves,
@@ -1802,7 +2137,7 @@ body {
 .review-transport {
   gap: 0.4rem;
   padding: 0.6rem;
-  border: 1px solid rgb(var(--light) / 0.1);
+  border: 1px solid var(--line);
   background: var(--surface);
 }
 
@@ -1826,7 +2161,7 @@ body {
 .review-buttons button {
   padding: 0.45rem 0;
   font-size: 1rem;
-  border: 1px solid rgb(var(--light) / 0.14);
+  border: 1px solid var(--line);
   background: none;
   font: inherit;
   font-size: 0.875rem;
@@ -1836,7 +2171,7 @@ body {
 
 .review-buttons button:hover:not(:disabled),
 .review-buttons button:focus-visible {
-  border-color: rgb(var(--light) / 0.4);
+  border-color: var(--line-2);
 }
 
 /* 끝에 닿으면 눌러도 아무 일이 없다. 그것을 눌러 보고 알게 하지 않는다. */
@@ -1859,8 +2194,8 @@ body {
   padding: 0.4rem 0.5rem;
   /* `button` 의 기본이 가운데 정렬이라, 안 적으면 이름이 칸 가운데에 떠 있는다 */
   text-align: start;
-  border: 1px solid rgb(var(--light) / 0.22);
-  background: rgb(var(--light) / 0.04);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
   font: inherit;
   font-size: 0.8125rem;
   color: var(--fg);
@@ -1869,7 +2204,7 @@ body {
 
 .review-jump:hover,
 .review-jump:focus-visible {
-  border-color: rgb(var(--light) / 0.45);
+  border-color: var(--line-2);
 }
 
 /* 긴 이름(`15 ▲3五銀 · もしも`)이 바를 늘리지 않는다 */
@@ -1921,7 +2256,7 @@ body {
   width: 100%;
   padding: 0.35rem 0.3rem;
   border: none;
-  border-bottom: 1px solid rgb(var(--light) / 0.06);
+  border-bottom: 1px solid var(--line);
   background: none;
   font: inherit;
   color: var(--fg);
@@ -1931,12 +2266,12 @@ body {
 
 .review-iv:hover,
 .review-iv:focus-visible {
-  background: rgb(var(--light) / 0.05);
+  background: var(--surface-2);
 }
 
 /* 지금 판에 그려지고 있는 개입. 판이 낮아지고 그 수가 화살표로 서 있는 상태다. */
 .review-iv[data-active] {
-  background: rgb(var(--light) / 0.09);
+  background: var(--brand-soft);
 }
 
 .review-iv-ply {
@@ -1969,7 +2304,7 @@ body {
 
 .review-iv-note {
   padding: 0.5rem 0.3rem 0.7rem;
-  border-bottom: 1px solid rgb(var(--light) / 0.06);
+  border-bottom: 1px solid var(--line);
 }
 
 .review-iv-note p {
@@ -2001,7 +2336,7 @@ body {
   width: 100%;
   padding: 0.25rem 0.25rem;
   border: none;
-  border-bottom: 1px solid rgb(var(--light) / 0.06);
+  border-bottom: 1px solid var(--line);
   background: none;
   font: inherit;
   color: var(--fg);
@@ -2011,11 +2346,11 @@ body {
 
 .review-kifu-row:hover,
 .review-kifu-row:focus-visible {
-  background: rgb(var(--light) / 0.05);
+  background: var(--surface-2);
 }
 
 .review-kifu-row[data-selected] {
-  background: rgb(var(--light) / 0.09);
+  background: var(--brand-soft);
 }
 
 .review-kifu-number {
@@ -2031,13 +2366,13 @@ body {
 }
 
 .review-kifu-row[data-by='engine'] .review-kifu-move {
-  color: #cfc7ba;
+  color: var(--muted);
 }
 
 /* 이 手数에 한 번 막혔다. 확정된 수 옆에 서야 「이 수를 두기 전에」로 읽힌다. */
 .review-kifu-mark {
   padding: 0 0.3rem;
-  border: 1px solid rgb(var(--light) / 0.2);
+  border: 1px solid var(--line);
   font-size: 0.625rem;
   letter-spacing: 0.08em;
   color: var(--muted);
@@ -2118,7 +2453,7 @@ body {
 .review-branch-badge {
   margin: 0;
   padding: 0.1rem 0.6rem;
-  border: 1px solid rgb(var(--light) / 0.22);
+  border: 1px solid var(--line);
   font-size: 0.6875rem;
   letter-spacing: 0.16em;
   color: var(--muted);
@@ -2127,7 +2462,7 @@ body {
 .review-whatif {
   gap: 0.5rem;
   padding-bottom: 0.6rem;
-  border-bottom: 1px solid rgb(var(--light) / 0.08);
+  border-bottom: 1px solid var(--line);
 }
 
 .review-whatif-head {
@@ -2173,7 +2508,7 @@ body {
 .review-whatif-line {
   margin: 0;
   padding: 0 0 0 0.5rem;
-  border-left: 1px solid rgb(var(--light) / 0.16);
+  border-left: 1px solid var(--line);
   list-style: none;
   max-height: 12rem;
   overflow-y: auto;
@@ -2189,7 +2524,7 @@ body {
 }
 
 .review-whatif-line li[data-by='engine'] .review-kifu-move {
-  color: #cfc7ba;
+  color: var(--muted);
 }
 
 .review-whatif-sub {
@@ -2214,7 +2549,7 @@ body {
   width: 100%;
   padding: 0.25rem 0.3rem;
   border: none;
-  border-bottom: 1px solid rgb(var(--light) / 0.06);
+  border-bottom: 1px solid var(--line);
   background: none;
   font: inherit;
   color: var(--fg);
@@ -2224,7 +2559,7 @@ body {
 
 .review-whatif-move:hover,
 .review-whatif-move:focus-visible {
-  background: rgb(var(--light) / 0.05);
+  background: var(--surface-2);
 }
 
 .review-whatif-move:disabled {
@@ -2252,12 +2587,12 @@ body {
 
 /* 시작 국면은 한 줄을 통째로 쓴다. 짝이 없는 유일한 줄이다 */
 .review-kifu-start .review-kifu-row {
-  border-bottom: 1px solid rgb(var(--light) / 0.06);
+  border-bottom: 1px solid var(--line);
 }
 
 /* 빈 칸도 테두리를 갖는다 — 안 그러면 구멍 난 자리에서 줄이 끊겨 보인다 */
 .review-kifu-gap {
-  border-bottom: 1px solid rgb(var(--light) / 0.06);
+  border-bottom: 1px solid var(--line);
 }
 
 /* 2단이 되면서 한 칸이 좁아진다. **네 칸을 그대로 둔다** — 세 칸으로 줄였더니 표식과
@@ -2276,7 +2611,7 @@ body {
 /* 오른쪽 열은 왼쪽 열과 선으로 갈린다. 없으면 두 열이 한 줄로 읽힌다 */
 .review-kifu-pair .review-kifu-row:last-child,
 .review-kifu-pair .review-kifu-gap:last-child {
-  border-left: 1px solid rgb(var(--light) / 0.06);
+  border-left: 1px solid var(--line);
 }
 
 /* 좁은 칸에서 「介入」 표식이 수를 밀어낸다. 점 하나로 줄인다 —
@@ -2288,7 +2623,7 @@ body {
   width: 0.4rem;
   height: 0.4rem;
   border-radius: 50%;
-  background: rgb(var(--light) / 0.45);
+  background: var(--fg-2);
   text-indent: -99em;
   align-self: center;
 }
@@ -2318,7 +2653,7 @@ body {
 
 .review-graph-panel {
   padding: 0.4rem 0.2rem 0.2rem;
-  border: 1px solid rgb(var(--light) / 0.1);
+  border: 1px solid var(--line);
   background: var(--surface);
 }
 
@@ -2349,7 +2684,7 @@ body {
 .review-options {
   gap: 0.2rem;
   padding: 0.6rem;
-  border: 1px solid rgb(var(--light) / 0.1);
+  border: 1px solid var(--line);
   background: var(--surface);
 }
 
@@ -2373,7 +2708,7 @@ body {
   width: 100%;
   padding: 0.3rem 0.4rem;
   border: none;
-  border-bottom: 1px solid rgb(var(--light) / 0.06);
+  border-bottom: 1px solid var(--line);
   /* 값이 색으로 서는 자리. 왼쪽에서 오른쪽으로 옅어져서 글자를 안 가린다 */
   background: linear-gradient(to right, var(--tone), transparent 70%);
   font: inherit;
@@ -2384,12 +2719,12 @@ body {
 
 .review-options-row:hover,
 .review-options-row:focus-visible {
-  border-bottom-color: rgb(var(--light) / 0.3);
+  border-bottom-color: var(--line-2);
 }
 
 /* 지금 둬 보고 있는 수. 테로 짚는다 — 색은 이미 값이 쓰고 있다 */
 .review-options-row[data-chosen] {
-  box-shadow: inset 0 0 0 1px rgb(var(--light) / 0.45);
+  box-shadow: inset 0 0 0 1px var(--brand);
 }
 
 .review-options-move {
@@ -2408,7 +2743,7 @@ body {
 
 .review-options-tags [data-role='played'] {
   padding: 0 0.25rem;
-  border: 1px solid rgb(var(--light) / 0.25);
+  border: 1px solid var(--line-2);
   color: var(--fg);
 }
 
@@ -2426,9 +2761,9 @@ body {
   display: grid;
   gap: 0.75rem;
   padding: 0.85rem 0.9rem;
-  border: 1px solid rgb(var(--light) / 0.14);
+  border: 1px solid var(--line);
   border-radius: 0.4rem;
-  background: rgb(var(--light) / 0.03);
+  background: var(--surface-2);
 }
 
 .summary__head {
@@ -2492,7 +2827,7 @@ body {
 }
 
 .summary__cat-name {
-  color: rgb(var(--light) / 0.82);
+  color: var(--fg);
 }
 
 .summary__cat-count {
