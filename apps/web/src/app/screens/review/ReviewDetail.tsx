@@ -2,6 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 
 import { Board, type DropFrom, type LastMove, type Ray } from '@/components/Board';
 import { Hand } from '@/components/Hand';
+// 대국 화면의 카드를 **그대로** 쓴다. 같은 판을 두 모양으로 그리면 「끝난 그 자리에서 본 것」과
+// 「나중에 되짚어 본 것」이 다른 말로 읽힌다 — 서버도 같은 payload 를 준다(§52).
+import { Summary } from '@/screens/game/Summary';
 import { EvalGraph } from './EvalGraph';
 import { MoveOptions } from './MoveOptions';
 import { WhatIfPanel } from './WhatIfPanel';
@@ -10,7 +13,7 @@ import { offsetWithin } from '@/libs/game/board-view';
 import { dateJa, resultJa } from '@/libs/review/labels';
 import type { GameDetail, ReviewMove } from '@/protocol/review';
 import type { WhatIfNode } from '@/protocol/whatif';
-import { useEngineReady } from '@/hooks/useReview';
+import { useEngineReady, useGameSummary } from '@/hooks/useReview';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
 import type { Side } from '@/models/piece';
 import { fromUsi, toIndex, type Motion } from '@/models/square';
@@ -100,6 +103,13 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
   const boardRef = useRef<HTMLDivElement>(null);
 
   const engineReady = useEngineReady();
+  /**
+   * 이 판의 총평. **판 전체를 말하는 유일한 자리**라 手数를 옮겨도 안 바뀐다.
+   *
+   * 못 읽었을 때는 카드를 아예 안 그린다 — `null` 로 넘기면 「まとめています…」가 영원히
+   * 서 있고, 그건 기다리면 온다는 거짓말이다. 이 화면의 본론은 기보이고 그쪽은 이미 왔다.
+   */
+  const summary = useGameSummary(game.id).loaded;
   const whatif = useWhatIf(httpSend(game.id), game.id);
   const { node, pending, branching, at, play, back, toRoot, clear } = whatif;
 
@@ -638,6 +648,10 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
             </span>
           </p>
         </div>
+
+        {/* **날짜·결과 바로 아래다.** 셋 다 「이 판이 어떤 판이었나」이고, 아래의 패널들은
+            「지금 보고 있는 手数」다 — 성격이 갈리는 자리에 선이 그어져야 한다. */}
+        {summary.state !== 'error' && <Summary summary={summary.state === 'ready' ? summary.data : null} />}
 
         {promoting && (
           <div className="promotion" role="group" aria-label="成りの選択">

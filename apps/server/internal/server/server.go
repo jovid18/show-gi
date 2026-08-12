@@ -130,9 +130,11 @@ func Handler(opts Options) http.Handler {
 		})
 	}
 	if opts.Store != nil {
-		rev := &reviewHandler{store: opts.Store, auth: ah}
+		rev := &reviewHandler{store: opts.Store, auth: ah, summarizer: opts.Summarizer, level: opts.Level}
 		mux.HandleFunc("GET /api/games", rev.list)
 		mux.HandleFunc("GET /api/games/{id}", rev.detail)
+		// 총평은 기보와 **따로** 간다 — 이쪽만 LLM을 기다린다(review.go summary).
+		mux.HandleFunc("GET /api/games/{id}/summary", rev.summary)
 
 		// 이어하기(resume.go). **엔진과 무관하다** — 여기는 묻고 답하는 자리뿐이고,
 		// 실제로 이어 두는 것은 `/ws/game?resume=` 이라 그쪽이 엔진에 매여 있다.
@@ -154,6 +156,7 @@ func Handler(opts Options) http.Handler {
 	} else {
 		mux.HandleFunc("GET /api/games", storeUnavailable)
 		mux.HandleFunc("GET /api/games/{id}", storeUnavailable)
+		mux.HandleFunc("GET /api/games/{id}/summary", storeUnavailable)
 		mux.HandleFunc("POST /api/games/{id}/whatif", storeUnavailable)
 		// **여기는 503이 아니라 「없다」다.** 기록이 없는 배포에는 이어할 판이 있을 수가
 		// 없고, 첫 화면이 늘 부르는 자리라 실패로 답하면 물음 카드가 아니라 오류가 뜬다.

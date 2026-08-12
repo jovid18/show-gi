@@ -8,7 +8,7 @@ import (
 // summaryPromptVersion 은 프롬프트가 바뀌면 오른다. 올리면 캐시의 옛 총평이 통째로 죽는다 —
 // `promptVersion`(facts.go)과 갈라 둔 것은 두 프롬프트가 따로 바뀌기 때문이고, 한 값으로
 // 묶으면 개입 문구를 고칠 때 총평 캐시까지 버려진다.
-const summaryPromptVersion = 2
+const summaryPromptVersion = 3
 
 // summarySystemPrompt 는 개입 문구의 것과 **같은 원칙, 다른 일**이다.
 //
@@ -39,7 +39,11 @@ func summaryUserPrompt(f GameFacts) string {
 	if len(f.Top) == 0 {
 		// **「없었다」를 적어 준다.** 안 적으면 모델이 실수를 지어낸다 — `other` 에
 		// 「이유를 특정하지 못했다」를 적는 것과 같은 자리다(prompt.go).
-		b.WriteString("- 大きな形勢損はなかった\n")
+		//
+		// **「형세가 좋았다」로 옮겨 적지 않는다.** 잰 것은 「판정에 걸린 수가 없다」뿐이고
+		// 그동안 조금씩 밀렸을 수 있다 — 되짚기에서는 이 문장이 **평가치 그래프 옆에**
+		// 서므로 그 어긋남이 한눈에 보인다(§52).
+		b.WriteString("- 手を戻す場面はなかった（大きなミスとして判定された手がひとつもない。形勢が良かったという意味ではない）\n")
 	} else {
 		b.WriteString("- つまずいた形: ")
 		names := make([]string, 0, len(f.Top))

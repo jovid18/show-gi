@@ -1,10 +1,17 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -190,7 +197,7 @@ func TestDetailUsesStartPositionForTurnOrder(t *testing.T) {
 // 여기가 404면 "기록이 없다"와 "기록을 못 읽는다"가 섞인다.
 func TestReviewWithoutStore(t *testing.T) {
 	h := Handler(Options{})
-	for _, path := range []string{"/api/games", "/api/games/1"} {
+	for _, path := range []string{"/api/games", "/api/games/1", "/api/games/1/summary"} {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 
@@ -210,6 +217,73 @@ func TestReviewWithoutStore(t *testing.T) {
 		if body.Message == "" {
 			t.Errorf("GET %s: message is empty — 화면에 나갈 문구가 없다", path)
 		}
+	}
+}
+
+// 되짚기의 총평은 **끝난 판을 한 번 더 읽는 것**이고, 판이 끝나는 자리에서 WS가 보내는
+// 것과 같은 함수가 만든다(§52). 여기가 보는 것은 그 라우트가 실제로 붙어 있는가다 —
+// `GET /api/games/{id}` 와 한 세그먼트 차이라, 어긋나면 화면이 총평 대신 기보를 받는다.
+//
+// **Summarizer 를 안 넣는다.** LLM 없이도 문장이 나가야 하는 것이 규약이고(Options.Summarizer),
+// 그 규약이 이 표면에서도 지켜지는지가 여기서 갈린다.
+func TestSummaryRouteReadsFinishedGame(t *testing.T) {
+	st := openStoreForTest(t)
+
+	before := maxGameID(t, st)
+
+	srv := httptest.NewServer(Handler(Options{
+		NewOpponent: func() game.Opponent { return &scriptedOpponent{moves: []string{"3c3d"}} },
+		Store:       st,
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(srv.URL, "http")+"/ws/game", nil)
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	defer conn.CloseNow()
+	read(t, ctx, conn) // 초기 스냅샷
+
+	if err := wsjson.Write(ctx, conn, clientMsg{Type: "move", USI: "7g7f"}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	readUntil(t, ctx, conn, func(m serverMsg) bool {
+		return m.Type == "snapshot" && m.Snapshot.Ply == 2
+	}, "상대 응수")
+
+	if err := wsjson.Write(ctx, conn, clientMsg{Type: "resign"}); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	readUntil(t, ctx, conn, func(m serverMsg) bool {
+		return m.Type == "snapshot" && m.Snapshot.Status != game.StatusPlaying
+	}, "투료 반영")
+
+	gameID := waitForNewGame(t, st, before)
+	waitForResult(t, st, gameID, string(store.ResultLoss))
+	t.Cleanup(func() { deleteGame(t, st, gameID) })
+
+	res, err := http.Get(fmt.Sprintf("%s/api/games/%d/summary", srv.URL, gameID))
+	if err != nil {
+		t.Fatalf("GET summary: %v", err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("GET summary: status = %d, want 200", res.StatusCode)
+	}
+
+	var got gameSummaryPayload
+	if err := json.NewDecoder(res.Body).Decode(&got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got.Body == "" {
+		t.Error("총평 문장이 비었다 — 라우터가 없어도 결정적 문구가 나가야 한다")
+	}
+	// 사람이 先手로 한 수 뒀다. 이 수가 안 세어지면 화면의 표가 남의 手数를 그린다.
+	if got.Stats.PlayerMoves != 1 {
+		t.Errorf("playerMoves = %d, want 1", got.Stats.PlayerMoves)
 	}
 }
 
