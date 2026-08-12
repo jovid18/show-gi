@@ -210,7 +210,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
             if (typeof label === 'number') onSpot(label);
           }}
         >
-          <CartesianGrid stroke="rgb(255 255 255 / 0.06)" vertical={false} />
+          <CartesianGrid stroke="var(--line)" vertical={false} />
           {/* **手数를 읽을 수 있어야 한다.** 빨간 점이 「몇 手째」인지 모르면 이 그림으로
               어디를 볼지 고를 수 없다 — 눌러서 이동하는 장치인데 반쪽이 된다.
 
@@ -225,8 +225,8 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
             ticks={ticks}
             tick={{ fill: 'var(--muted)', fontSize: 10 }}
             tickSize={3}
-            tickLine={{ stroke: 'rgb(255 255 255 / 0.18)' }}
-            axisLine={{ stroke: 'rgb(255 255 255 / 0.18)' }}
+            tickLine={{ stroke: 'var(--line-2)' }}
+            axisLine={{ stroke: 'var(--line-2)' }}
             height={16}
           />
           {/* **위쪽이 先手다** — `eval_cp` 가 先手 관점으로 저장된다(06-status.md §26).
@@ -238,12 +238,12 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
             tickFormatter={yLabel}
             tick={{ fill: 'var(--muted)', fontSize: 10 }}
             tickSize={3}
-            tickLine={{ stroke: 'rgb(255 255 255 / 0.18)' }}
+            tickLine={{ stroke: 'var(--line-2)' }}
             axisLine={false}
             width={30}
           />
           {/* 호각. 이 선을 넘나드는 것이 곧 「누가 이기고 있었나」가 바뀐 자리다 */}
-          <ReferenceLine y={Y_EVEN} stroke="rgb(255 255 255 / 0.18)" />
+          <ReferenceLine y={Y_EVEN} stroke="var(--line-2)" />
 
           <Line
             type="linear"
