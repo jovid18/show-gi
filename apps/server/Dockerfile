@@ -74,7 +74,8 @@ ENV ENGINE_CMD=/opt/yaneuraou/run
 # 블런더 임계치가 그 위에서 잡힌다.
 ENV ENGINE_FV_SCALE=24
 
-# 詰将棋 solver. 아직 부르는 코드가 없다 — 詰み 게이지가 붙는 D4에서 쓴다.
+# 詰将棋 solver. 세 자리가 쓴다 — 종반 판정 · 詰み 게이지 · 되짚기 퀴즈 생성.
+# 개수는 ENGINE_MATE_POOL_SIZE 가 정한다(기본 2, docs/06-status.md §53).
 ENV ENGINE_MATE_CMD=/opt/yaneuraou/run-mate
 
 # 루트로 돌리지 않는다. 엔진은 신뢰할 수 없는 국면 문자열을 파싱하는 외부 바이너리다.

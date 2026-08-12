@@ -20,6 +20,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
+	"github.com/jovid18/show-gi/apps/server/internal/quiz"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
@@ -68,6 +69,13 @@ type Options struct {
 	// Summarizer 는 대국 후 총평을 만든다. nil이면 결정적 총평이 나간다 — **총평 자체는
 	// 안 꺼진다.** 숫자와 사실은 기록에서 나오므로 LLM이 없어도 화면이 빈 자리로 남지 않는다.
 	Summarizer explain.Summarizer
+
+	// Quiz 는 되짚기 퀴즈의 **생성기**다. nil이면 문항이 안 만들어지고, 그때 되짚기의
+	// 퀴즈 자리는 조용히 비어 있다 — 읽는 표면은 이 값과 무관하게 늘 있다(quiz.go).
+	//
+	// **총평과 달리 여기서만 만들어진다.** 되짚기에서 만들면 그 탐색이 진행 중인 다른
+	// 대국의 착수를 기다리게 한다(06-status.md §53).
+	Quiz *quiz.Builder
 
 	// Google·SessionSecret 이 다 있어야 로그인이 켜진다(Store 도 필요하다 — auth.go).
 	// 하나라도 비면 표면이 통째로 닫히고 익명 대국으로 남는다.
@@ -136,6 +144,13 @@ func Handler(opts Options) http.Handler {
 		// 총평은 기보와 **따로** 간다 — 이쪽만 LLM을 기다린다(review.go summary).
 		mux.HandleFunc("GET /api/games/{id}/summary", rev.summary)
 
+		// 퀴즈(quiz.go). **엔진과 무관하다** — 문항은 판이 끝나는 자리에서 이미 만들어져
+		// 있고 채점은 저장된 트리를 읽는 일뿐이다. 되짚기와 같은 문으로 기록을 읽는다.
+		qz := &quizHandler{review: rev}
+		mux.HandleFunc("GET /api/games/{id}/quiz", qz.get)
+		mux.HandleFunc("POST /api/games/{id}/quiz/mate", qz.mate)
+		mux.HandleFunc("POST /api/games/{id}/quiz/best", qz.best)
+
 		// 이어하기(resume.go). **엔진과 무관하다** — 여기는 묻고 답하는 자리뿐이고,
 		// 실제로 이어 두는 것은 `/ws/game?resume=` 이라 그쪽이 엔진에 매여 있다.
 		res := &resumeHandler{store: opts.Store, auth: ah}
@@ -157,6 +172,9 @@ func Handler(opts Options) http.Handler {
 		mux.HandleFunc("GET /api/games", storeUnavailable)
 		mux.HandleFunc("GET /api/games/{id}", storeUnavailable)
 		mux.HandleFunc("GET /api/games/{id}/summary", storeUnavailable)
+		mux.HandleFunc("GET /api/games/{id}/quiz", storeUnavailable)
+		mux.HandleFunc("POST /api/games/{id}/quiz/mate", storeUnavailable)
+		mux.HandleFunc("POST /api/games/{id}/quiz/best", storeUnavailable)
 		mux.HandleFunc("POST /api/games/{id}/whatif", storeUnavailable)
 		// **여기는 503이 아니라 「없다」다.** 기록이 없는 배포에는 이어할 판이 있을 수가
 		// 없고, 첫 화면이 늘 부르는 자리라 실패로 답하면 물음 카드가 아니라 오류가 뜬다.

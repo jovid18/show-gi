@@ -1,0 +1,423 @@
+package quiz
+
+import (
+	"context"
+	"encoding/json"
+	"testing"
+
+	"github.com/jovid18/show-gi/apps/server/internal/shogi"
+	"github.com/jovid18/show-gi/apps/server/internal/usi"
+)
+
+// mate1SFEN 은 先手의 1手詰め이다. `G*5b` 로 詰む — 玉은 4a·6a로 못 가고(5b의 金이 짚는다)
+// 5b의 金은 4c·6c의 金이 받친다.
+//
+// **玉이 아직 王手를 받고 있지 않은 국면이라야 한다.** 4c·6c에 둔 것이 그래서다 —
+// 4b·6b에 두면 그 金이 5a를 짚어 後手가 王手를 방치한 불법 국면이 된다.
+const mate1SFEN = "4k4/9/3G1G3/9/9/9/9/9/4K4 b G 1"
+
+// mateIn 은 **테스트용** 詰み 탐색이다. 攻方은 王手만 걸고 玉方은 최장 방어를 고른다.
+//
+// 트리를 짓는 쪽과 셈이 다르다 — 여기는 攻方 수에 대한 최솟값을 재귀로 구하고, 저쪽은
+// 응수의 최댓값에 2를 더한다. 그래서 이것으로 저쪽을 견주는 것이 자기 자신과의 대조가
+// 아니다.
+func mateIn(pos shogi.Position, limit int) int {
+	if limit <= 0 {
+		return 0
+	}
+	best := 0
+	for _, m := range checkingMoves(pos) {
+		np := pos.Apply(m)
+		if np.IsCheckmate() {
+			return 1
+		}
+
+		longest, escaped := 0, false
+		for _, r := range np.LegalMoves() {
+			d := mateIn(np.Apply(r), limit-2)
+			if d == 0 {
+				escaped = true
+				break
+			}
+			if d > longest {
+				longest = d
+			}
+		}
+		if escaped {
+			continue
+		}
+		if total := 2 + longest; best == 0 || total < best {
+			best = total
+		}
+	}
+	return best
+}
+
+// fakeMate 는 위 탐색을 `MateSearcher` 모양으로 씌운 것이다. **엔진 없이 트리를 짓는다.**
+type fakeMate struct {
+	limit int
+	calls int
+	// unproven 이 참이면 늘 「모른다」로 답한다 — 그때 문항을 버리는지 보는 자리다.
+	unproven bool
+}
+
+func (f *fakeMate) SearchMate(_ context.Context, sfen string, _ []string) (usi.MateResult, error) {
+	f.calls++
+	if f.unproven {
+		return usi.MateResult{}, nil
+	}
+	pos, err := shogi.ParseSFEN(sfen)
+	if err != nil {
+		return usi.MateResult{}, err
+	}
+	d := mateIn(pos, f.limit)
+	if d == 0 {
+		return usi.MateResult{Proven: true}, nil
+	}
+	// 手数만 쓰인다(mateSolver.distance). 수순의 내용은 트리가 스스로 만든다.
+	return usi.MateResult{Moves: make([]string, d), Proven: true}, nil
+}
+
+func TestCheckingMovesAreChecksOnly(t *testing.T) {
+	pos, err := shogi.ParseSFEN(mate1SFEN)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	checks := checkingMoves(pos)
+	if len(checks) == 0 {
+		t.Fatal("no checking moves in a position that has a mate in one")
+	}
+	them := pos.Turn.Other()
+	for _, m := range checks {
+		np := pos.Apply(m)
+		if !np.InCheck(them) {
+			t.Errorf("%s is not a check", m.USI())
+		}
+	}
+	// 王手가 아닌 합법수가 섞이지 않았는가 — 개수로 견준다.
+	want := 0
+	for _, m := range pos.LegalMoves() {
+		np := pos.Apply(m)
+		if np.InCheck(them) {
+			want++
+		}
+	}
+	if len(checks) != want {
+		t.Errorf("checkingMoves gave %d, want %d", len(checks), want)
+	}
+}
+
+func TestMateItemFindsMateInOne(t *testing.T) {
+	fm := &fakeMate{limit: 7}
+	b := NewBuilder(fm, nil, 12)
+
+	// 판이 그 국면에서 시작해 아직 한 수도 안 두어진 모양으로 넣는다.
+	in := Input{StartSFEN: mate1SFEN, Human: shogi.Black}
+	q := b.Build(context.Background(), in)
+
+	if q.Mate == nil {
+		t.Fatal("no mate item")
+	}
+	if q.Mate.Plies != 1 {
+		t.Fatalf("plies = %d, want 1", q.Mate.Plies)
+	}
+	if q.Mate.Converted {
+		t.Error("converted = true, but the game never played the mate")
+	}
+	if len(q.Mate.Nodes) != 1 {
+		t.Fatalf("nodes = %d, want 1 (a mate in one has no deeper node)", len(q.Mate.Nodes))
+	}
+
+	pos, _ := shogi.ParseSFEN(mate1SFEN)
+	node := q.Mate.Nodes[pos.RepetitionKey()]
+	if node.Plies != 1 {
+		t.Errorf("node plies = %d, want 1", node.Plies)
+	}
+
+	// **이 국면에는 1手詰め이 여럿이다**(`G*5b` 도 `4c5b` 도 詰む). 실전 국면에서 余詰은
+	// 예외가 아니라 보통이고, 그래서 「하나가 정답」이라고 단정하지 않는다 — 대신
+	// **결정적으로 고르는지**를 본다. 규약은 詰み 우선, 그다음 USI 순서다.
+	if want := smallestMate(pos); node.Best != want {
+		t.Errorf("best = %q, want %q (mate first, then USI order)", node.Best, want)
+	}
+	if got := q.Mate.Nodes[pos.RepetitionKey()].Best; got != node.Best {
+		t.Errorf("best is not stable across reads: %q then %q", node.Best, got)
+	}
+
+	// 王手 전부가 판정을 갖고, 詰み인 것만 정답이다.
+	for u, v := range node.Moves {
+		m, err := shogi.ParseUSIMove(u)
+		if err != nil {
+			t.Fatalf("tree holds an unparseable move %q: %v", u, err)
+		}
+		mated := pos.Apply(m).IsCheckmate()
+		if v.Mated != mated {
+			t.Errorf("%s: mated = %v, want %v", u, v.Mated, mated)
+		}
+		if v.Correct != mated {
+			t.Errorf("%s: correct = %v, want %v (a 1-ply problem is only solved by mate)", u, v.Correct, mated)
+		}
+	}
+	if got := node.Moves["G*5b"]; !got.Mated || !got.Correct {
+		t.Errorf("G*5b = %+v, want mated and correct", got)
+	}
+}
+
+// smallestMate 는 그 국면의 詰み 수 중 USI가 가장 앞인 것이다 — `pickBestMate` 의 규약을
+// 테스트가 **다시 세어** 견주는 자리다.
+func smallestMate(pos shogi.Position) string {
+	best := ""
+	for _, m := range checkingMoves(pos) {
+		if !pos.Apply(m).IsCheckmate() {
+			continue
+		}
+		if u := m.USI(); best == "" || u < best {
+			best = u
+		}
+	}
+	return best
+}
+
+func TestMateItemDroppedWhenSolverCannotProve(t *testing.T) {
+	// 「모른다」를 「없다」로 쓰면 있는 詰み을 놓치고, 그 위에서 채점하면 정답을 오답이라고
+	// 말한다. 그래서 증명되지 않으면 문항이 아예 없어야 한다.
+	fm := &fakeMate{limit: 7, unproven: true}
+	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
+	if q.Mate != nil {
+		t.Fatalf("got a mate item from an unproven search: %+v", q.Mate)
+	}
+}
+
+func TestMateItemSkipsTheOpponentsTurn(t *testing.T) {
+	// 같은 국면을 後手의 문항으로 물으면 안 된다 — 詰ます 쪽은 先手다.
+	fm := &fakeMate{limit: 7}
+	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.White})
+	if q.Mate != nil {
+		t.Fatalf("got a mate item for the side that is not to move: %+v", q.Mate)
+	}
+	if fm.calls != 0 {
+		t.Errorf("asked the solver %d times, want 0 — the turn check is free", fm.calls)
+	}
+}
+
+func TestGradeMateSolvesInOne(t *testing.T) {
+	fm := &fakeMate{limit: 7}
+	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
+	if q.Mate == nil {
+		t.Fatal("no mate item")
+	}
+
+	got, err := GradeMate(*q.Mate, []string{"G*5b"})
+	if err != nil {
+		t.Fatalf("grade: %v", err)
+	}
+	if got.Outcome != MateSolved {
+		t.Errorf("outcome = %q, want %q", got.Outcome, MateSolved)
+	}
+	if len(got.Legal) != 0 {
+		t.Errorf("legal = %v, want none once the problem is over", got.Legal)
+	}
+}
+
+func TestGradeMateRejectsAMoveAfterTheProblemEnds(t *testing.T) {
+	fm := &fakeMate{limit: 7}
+	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
+
+	if _, err := GradeMate(*q.Mate, []string{"G*5b", "G*5b"}); err == nil {
+		t.Fatal("a move after mate was accepted")
+	}
+}
+
+func TestGradeMateOnAWrongCheck(t *testing.T) {
+	fm := &fakeMate{limit: 7}
+	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
+
+	// 詰み이 아닌 王手를 하나 찾는다.
+	pos, _ := shogi.ParseSFEN(mate1SFEN)
+	wrong := ""
+	for u, v := range q.Mate.Nodes[pos.RepetitionKey()].Moves {
+		if !v.Correct {
+			wrong = u
+			break
+		}
+	}
+	if wrong == "" {
+		t.Skip("this position has no non-mating check")
+	}
+
+	got, err := GradeMate(*q.Mate, []string{wrong})
+	if err != nil {
+		t.Fatalf("grade: %v", err)
+	}
+	if got.Outcome != MateWrong {
+		t.Fatalf("outcome = %q, want %q", got.Outcome, MateWrong)
+	}
+	if want := smallestMate(pos); got.Best != want {
+		t.Errorf("best = %q, want %q — a wrong answer has to be told what did work", got.Best, want)
+	}
+}
+
+func TestGradeMateOnAMoveThatIsNotACheck(t *testing.T) {
+	fm := &fakeMate{limit: 7}
+	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
+
+	// 王手가 아닌 합법수. 玉의 반대쪽 끝에 있는 자기 玉을 움직인다.
+	got, err := GradeMate(*q.Mate, []string{"5i5h"})
+	if err != nil {
+		t.Fatalf("grade: %v", err)
+	}
+	if got.Outcome != MateNotCheck {
+		t.Fatalf("outcome = %q, want %q", got.Outcome, MateNotCheck)
+	}
+	if len(got.Line) != 0 {
+		t.Errorf("line = %v, want empty — a non-check must not move the board", got.Line)
+	}
+}
+
+func TestGradeMateRejectsAnIllegalMove(t *testing.T) {
+	fm := &fakeMate{limit: 7}
+	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
+
+	if _, err := GradeMate(*q.Mate, []string{"1a1b"}); err == nil {
+		t.Fatal("an illegal move was accepted")
+	}
+}
+
+// mate3SFEN 은 先手의 3手詰め이다 — `G*5b` △同金 `▲同金`.
+//
+// 1手로는 안 되는 이유가 **後手 金 하나**다(6b). 5b에 놓은 金을 그 金이 딸 수 있어서 한 번에
+// 끝나지 않고, 되따면 다시 王手가 되어 그때 詰む. mate1SFEN 에 방어 駒를 4a·6a에 두었더니
+// 그 駒가 玉의 도주로를 막아 오히려 1手詰め이 됐다 — 6b는 5b를 지키면서 도주로는 막지 않는다.
+const mate3SFEN = "4k4/3g5/3G1G3/9/9/9/9/9/4K4 b G 1"
+
+// TestMateTreeWalksThreePlies 는 트리의 **재귀**를 본다 — 1手詰め에는 노드가 하나뿐이라
+// `expand` 가 다음 층으로 내려가는 자리가 전혀 안 돌았다.
+func TestMateTreeWalksThreePlies(t *testing.T) {
+	fm := &fakeMate{limit: 9}
+	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate3SFEN, Human: shogi.Black})
+
+	if q.Mate == nil {
+		t.Fatal("no mate item")
+	}
+	if q.Mate.Plies != 3 {
+		t.Fatalf("plies = %d, want 3", q.Mate.Plies)
+	}
+	if len(q.Mate.Nodes) < 2 {
+		t.Fatalf("nodes = %d, want the root plus at least one deeper node", len(q.Mate.Nodes))
+	}
+
+	root, _ := shogi.ParseSFEN(mate3SFEN)
+	rootNode := q.Mate.Nodes[root.RepetitionKey()]
+
+	// **노드의 手数는 그 국면의 성질이다.** 트리가 세어 넣은 값을 시험이 다시 재서 견준다.
+	for key, node := range q.Mate.Nodes {
+		pos, ok := positionOfKey(t, q.Mate, key)
+		if !ok {
+			continue
+		}
+		if want := mateIn(pos, 9); node.Plies != want {
+			t.Errorf("node %s: plies = %d, want %d", key, node.Plies, want)
+		}
+		// 판정도 다시 센다 — 정답이면 手数가 2 이상 줄고, 아니면 안 줄어든다.
+		for u, v := range node.Moves {
+			m, err := shogi.ParseUSIMove(u)
+			if err != nil {
+				t.Fatalf("tree holds an unparseable move %q", u)
+			}
+			np := pos.Apply(m)
+			if np.IsCheckmate() {
+				if !v.Mated || !v.Correct {
+					t.Errorf("%s at %s: %+v, want mated and correct", u, key, v)
+				}
+				continue
+			}
+			if v.Correct != (v.Rest > 0 && 2+v.Rest <= node.Plies) {
+				t.Errorf("%s at %s: correct = %v with rest %d and plies %d", u, key, v.Correct, v.Rest, node.Plies)
+			}
+		}
+	}
+
+	// 정답 수마다 **그 응수 뒤의 국면이 트리에 있어야** 한다. 없으면 채점이 거기서 막힌다.
+	corrections := 0
+	for u, v := range rootNode.Moves {
+		if !v.Correct || v.Mated {
+			continue
+		}
+		corrections++
+		if v.Defense == "" {
+			t.Errorf("%s is correct but has no defense", u)
+			continue
+		}
+		m, _ := shogi.ParseUSIMove(u)
+		d, err := shogi.ParseUSIMove(v.Defense)
+		if err != nil {
+			t.Fatalf("defense %q is unparseable", v.Defense)
+		}
+		next := root.Apply(m).Apply(d)
+		if _, ok := q.Mate.Nodes[next.RepetitionKey()]; !ok {
+			t.Errorf("%s + %s leads to a position the tree does not hold", u, v.Defense)
+		}
+	}
+	if corrections == 0 {
+		t.Fatal("no correct non-mating move at the root — the recursion never ran")
+	}
+
+	// 끝까지 풀린다: 뿌리의 정답 → (서버가 두는 응수) → 그 노드의 정답 → 詰み.
+	first := rootNode.Best
+	mid, err := GradeMate(*q.Mate, []string{first})
+	if err != nil {
+		t.Fatalf("grade %s: %v", first, err)
+	}
+	if mid.Outcome != MateOngoing {
+		t.Fatalf("%s: outcome = %q, want ongoing", first, mid.Outcome)
+	}
+	if mid.Plies != 1 {
+		t.Errorf("after %s: plies = %d, want 1", first, mid.Plies)
+	}
+	second := q.Mate.Nodes[mustKey(t, mid.SFEN)].Best
+	end, err := GradeMate(*q.Mate, []string{first, second})
+	if err != nil {
+		t.Fatalf("grade %s %s: %v", first, second, err)
+	}
+	if end.Outcome != MateSolved {
+		t.Fatalf("%s %s: outcome = %q, want solved", first, second, end.Outcome)
+	}
+}
+
+// **트리는 결정적이어야 한다.** 玉方의 최장 방어가 동률일 때 매번 다르게 고르면 같은 문제가
+// 열 때마다 다르게 흘러가고, 사람은 그것을 고장으로 읽는다.
+func TestMateTreeIsDeterministic(t *testing.T) {
+	build := func() string {
+		q := NewBuilder(&fakeMate{limit: 9}, nil, 12).
+			Build(context.Background(), Input{StartSFEN: mate3SFEN, Human: shogi.Black})
+		raw, err := json.Marshal(q)
+		if err != nil {
+			t.Fatalf("marshal: %v", err)
+		}
+		return string(raw)
+	}
+	if a, b := build(), build(); a != b {
+		t.Error("two builds of the same position gave different trees")
+	}
+}
+
+// positionOfKey 는 트리의 키에 해당하는 국면을 되만든다. 키는 手数를 뗀 SFEN이라 手数를
+// 하나 붙이면 그대로 읽힌다.
+func positionOfKey(t *testing.T, item *MateItem, key string) (shogi.Position, bool) {
+	t.Helper()
+	pos, err := shogi.ParseSFEN(key + " 1")
+	if err != nil {
+		t.Errorf("tree key %q is not a position: %v", key, err)
+		return shogi.Position{}, false
+	}
+	return pos, true
+}
+
+func mustKey(t *testing.T, sfen string) string {
+	t.Helper()
+	pos, err := shogi.ParseSFEN(sfen)
+	if err != nil {
+		t.Fatalf("parse %q: %v", sfen, err)
+	}
+	return pos.RepetitionKey()
+}

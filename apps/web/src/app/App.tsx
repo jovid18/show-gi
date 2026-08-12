@@ -14,6 +14,12 @@ import { hrefOf, navigate, useRoute, type Route } from '@/routes/router';
  */
 const ReviewScreen = lazy(async () => ({ default: (await import('@/screens/review/ReviewScreen')).ReviewScreen }));
 
+/**
+ * 퀴즈도 나중에 받는다. **되짚기와 갈라 둔다** — 판 하나를 보러 온 사람이 퀴즈 화면까지
+ * 내려받을 이유가 없고, 라우트가 이미 갈라져 있어서 떼는 데 드는 것이 이 두 줄이다.
+ */
+const QuizScreen = lazy(async () => ({ default: (await import('@/screens/quiz/QuizScreen')).QuizScreen }));
+
 const TABS: { route: Route; label: string }[] = [
   { route: { name: 'game' }, label: '対局' },
   { route: { name: 'reviews' }, label: '振り返り' },
@@ -89,7 +95,7 @@ export function App() {
         {/* 리뷰는 열 때마다 새로 부른다. 방금 끝난 판이 목록 맨 위에 있어야 한다. */}
         {!onGame && (
           <Suspense fallback={<p className="review-status">読み込み中…</p>}>
-            <ReviewScreen route={route} />
+            {route.name === 'quiz' ? <QuizScreen id={route.id} /> : <ReviewScreen route={route} />}
           </Suspense>
         )}
       </div>

@@ -27,6 +27,9 @@ curl localhost:8080/healthz     # {"ok":true,"engine":true,"db":true}
 | `GET /api/games`                   | 최근 대국 목록. **결과가 나온 판만** — 두는 중도 중단도 안 온다 ([§51](../../docs/06-status.md))                                                                                                |
 | `GET /api/games/{id}`              | 한 판 전체 — 手数마다의 국면·棋譜 표기와 물러진 수 ([§33](../../docs/06-status.md)). 목록과 **같은 조건**이라 끝나지 않은 판은 404                                                              |
 | `GET /api/games/{id}/summary`      | 그 판의 총평. **기보와 따로 간다** — 이쪽만 LLM을 기다린다 ([§52](../../docs/06-status.md)). 조건은 위 줄과 같다                                                                                |
+| `GET /api/games/{id}/quiz`         | 그 판에서 뽑은 문항. **정답이 안 실려 온다** — 채점이 서버에 있다 ([§53](../../docs/06-status.md)). `ready:false` 는 **아직 만드는 중**이고 「문항 없음」과 다르다                              |
+| `POST /api/games/{id}/quiz/mate`   | 詰み 문항 채점. **내가 낸 수만 보낸다** — 玉方의 응수는 저장된 트리에서 서버가 꺼내 둔다. **엔진을 안 쓴다**                                                                                    |
+| `POST /api/games/{id}/quiz/best`   | 「최선수는?」 채점. 첫 수만 받는다. **엔진을 안 쓴다**                                                                                                                                          |
 | `POST /api/games/{id}/whatif`      | 가정 수순 한 걸음. **DB와 엔진 둘 다 필요하다** — 없으면 503 ([§37](../../docs/06-status.md))                                                                                                   |
 | `GET /api/resumable`               | 이어할 수 있는 중단된 판 하나. **로그인 안 했으면 늘 `null`** — 기록이 없는 배포에서도 200이다                                                                                                  |
 | `POST /api/resumable/{id}/decline` | 「いいえ」. 그 판은 중단된 채로 끝나고 다시 안 물어본다                                                                                                                                         |
@@ -229,4 +232,5 @@ sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다
 
 - **탐색은 깊이로만 건다.** 시간(`go movetime`)을 쓰지 않아서 `usi` 패키지에 그 API가 아예 없다. 이유는 [CLAUDE.md](../../CLAUDE.md)에 있다
 - **엔진 실행 경로(`ENGINE_CMD`)를 태스크 정의에 두지 않는다.** 이미지 내부 구조라 두 곳에 적으면 조용히 어긋난다 — 실제로 한 번 물렸다(docs/06-status.md §11)
+- **엔진 풀이 둘이고 크기 손잡이도 둘이다.** 탐색부는 `ENGINE_POOL_SIZE`(기본 3), 詰将棋 solver 는 `ENGINE_MATE_POOL_SIZE`(기본 2). 다른 바이너리이고 잡히는 이유도 달라서 갈라 뒀다 — solver 쪽은 종반 판정·詰み 게이지에 **되짚기 퀴즈 생성**이 얹혀 있고, 그것이 판이 끝나는 자리에서 수십 초를 잡는다(docs/06-status.md §53)
 - 대국 세션은 **서버 메모리에 있고 연결에 매여 있다.** 배포하면 진행 중인 대국이 끊긴다

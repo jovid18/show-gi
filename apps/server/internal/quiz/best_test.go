@@ -1,0 +1,231 @@
+package quiz
+
+import (
+	"context"
+	"testing"
+
+	"github.com/jovid18/show-gi/apps/server/internal/shogi"
+	"github.com/jovid18/show-gi/apps/server/internal/usi"
+)
+
+// gameMoves 는 사람(先手)이 넷의 차례를 갖는 짧은 판이다. 문항 후보가 되는 자리는
+// `i ∈ {2,4,6,8}` — `i` 는 그 국면까지 둔 手数이고, `i=0` 은 앞의 평가치가 없어 빠진다.
+var gameMoves = []string{"7g7f", "3c3d", "2g2f", "8c8d", "6g6f", "4c4d", "3g3f", "7c7d", "5g5f"}
+
+// fakeSearch 는 국면마다 미리 정한 후보를 돌려준다. **엔진 없이 문항 고르기를 본다.**
+type fakeSearch struct {
+	lines map[string][]usi.SearchLine
+	// asked 는 실제로 물어본 국면이다. 「엔진을 쓰기 **전에** 걸러졌는가」를 보는 자리다.
+	asked map[string]bool
+}
+
+func (f *fakeSearch) SearchMultiPV(
+	_ context.Context, startSFEN string, _ []string, _, _ int,
+) (usi.SearchResult, error) {
+	if f.asked == nil {
+		f.asked = make(map[string]bool)
+	}
+	f.asked[startSFEN] = true
+	return usi.SearchResult{Lines: f.lines[startSFEN]}, nil
+}
+
+// line 은 후보 하나다. cp는 수번 관점이고, 그 국면의 수번이 사람이라 곧 사람 관점이다.
+func line(move string, cp int) usi.SearchLine {
+	return usi.SearchLine{Move: move, ScoreCp: cp, PV: []string{move}}
+}
+
+func mateLine(move string, in int) usi.SearchLine {
+	return usi.SearchLine{Move: move, ScoreCp: usi.MateCp - 10*in, IsMate: true, MateIn: in, PV: []string{move}}
+}
+
+// gameInput 은 위 수순으로 만든 Input 이다. 평가치는 전 手数에 있고 낙폭은 手数가 늦을수록 크다 —
+// 후보를 고르는 순서를 시험이 알고 있어야 한다.
+func gameInput() Input {
+	evals := make([]*int, len(gameMoves))
+	for i := range evals {
+		cp := -20 * i // 先手 관점으로 계속 나빠진다 = 사람의 낙폭이 매 수 20cp
+		evals[i] = &cp
+	}
+	return Input{Moves: gameMoves, Human: shogi.Black, EvalCp: evals}
+}
+
+// positions 는 그 판의 手数별 국면이다. 시험이 SFEN으로 후보를 지정하려면 필요하다.
+func positions(t *testing.T, in Input) []shogi.Position {
+	t.Helper()
+	posAt := replay(in)
+	if len(posAt) != len(in.Moves)+1 {
+		t.Fatalf("replay stopped at %d of %d moves — the test line is not legal", len(posAt)-1, len(in.Moves))
+	}
+	return posAt
+}
+
+func TestBestItemTakesTheGapPosition(t *testing.T) {
+	in := gameInput()
+	posAt := positions(t, in)
+
+	fs := &fakeSearch{lines: map[string][]usi.SearchLine{
+		posAt[4].SFEN(): {line("2f2e", 120), line("6f6e", -180)},
+	}}
+	items := NewBuilder(nil, fs, 12).Build(context.Background(), in).Best
+
+	if len(items) != 1 {
+		t.Fatalf("items = %d, want 1: %+v", len(items), items)
+	}
+	got := items[0]
+	if got.Ply != 4 {
+		t.Errorf("ply = %d, want 4", got.Ply)
+	}
+	if got.Answer != "2f2e" {
+		t.Errorf("answer = %q, want 2f2e", got.Answer)
+	}
+	if got.Gap() != 300 {
+		t.Errorf("gap = %d, want 300", got.Gap())
+	}
+	if got.Played != gameMoves[4] {
+		t.Errorf("played = %q, want %q — the item has to point back at the actual game", got.Played, gameMoves[4])
+	}
+	if got.SFEN != posAt[4].SFEN() {
+		t.Errorf("sfen = %q, want %q", got.SFEN, posAt[4].SFEN())
+	}
+}
+
+func TestBestItemSkipsASmallGap(t *testing.T) {
+	// 차가 작으면 정답이 사실상 여럿이다. 그런 국면을 내면 좋은 수를 둔 사람이 「不正解」를 받는다.
+	in := gameInput()
+	posAt := positions(t, in)
+
+	fs := &fakeSearch{lines: map[string][]usi.SearchLine{
+		posAt[4].SFEN(): {line("2f2e", 40), line("6f6e", -40)}, // gap 80 < BestMinGapCp
+	}}
+	if items := NewBuilder(nil, fs, 12).Build(context.Background(), in).Best; len(items) != 0 {
+		t.Fatalf("items = %+v, want none", items)
+	}
+}
+
+func TestBestItemSkipsMateScores(t *testing.T) {
+	// 「츠메 관련 제외」. cp로 환산된 mate 점수로 gap을 재면 手数 차가 cp 차로 보인다.
+	in := gameInput()
+	posAt := positions(t, in)
+
+	fs := &fakeSearch{lines: map[string][]usi.SearchLine{
+		posAt[4].SFEN(): {mateLine("2f2e", 5), line("6f6e", 100)},
+	}}
+	if items := NewBuilder(nil, fs, 12).Build(context.Background(), in).Best; len(items) != 0 {
+		t.Fatalf("items = %+v, want none", items)
+	}
+}
+
+func TestBestItemSkipsWhatThePlayerAlreadyFound(t *testing.T) {
+	in := gameInput()
+	posAt := positions(t, in)
+
+	// 정답이 사람이 실제로 둔 수와 같다 — 「あなたの手は正解でした」를 문제로 내는 셈이 된다.
+	fs := &fakeSearch{lines: map[string][]usi.SearchLine{
+		posAt[4].SFEN(): {line(gameMoves[4], 500), line("6f6e", 100)},
+	}}
+	if items := NewBuilder(nil, fs, 12).Build(context.Background(), in).Best; len(items) != 0 {
+		t.Fatalf("items = %+v, want none", items)
+	}
+}
+
+func TestBestItemsAreSortedByGapAndCapped(t *testing.T) {
+	in := gameInput()
+	posAt := positions(t, in)
+
+	fs := &fakeSearch{lines: map[string][]usi.SearchLine{
+		posAt[2].SFEN(): {line("2f2e", 250), line("x", 0)},  // gap 250
+		posAt[4].SFEN(): {line("6f6e", 900), line("x", 0)},  // gap 900
+		posAt[6].SFEN(): {line("3f3e", 500), line("x", 0)},  // gap 500
+		posAt[8].SFEN(): {line("5f5e", 1200), line("x", 0)}, // gap 1200
+	}}
+	items := NewBuilder(nil, fs, 12).Build(context.Background(), in).Best
+
+	if len(items) != BestMaxItems {
+		t.Fatalf("items = %d, want %d", len(items), BestMaxItems)
+	}
+	wantPlies := []int{8, 4, 6} // gap 1200 · 900 · 500
+	for i, want := range wantPlies {
+		if items[i].Ply != want {
+			t.Errorf("items[%d].ply = %d, want %d (gap order)", i, items[i].Ply, want)
+		}
+	}
+}
+
+func TestBestItemsStopBeforeTheMateItem(t *testing.T) {
+	// 詰み이 성립한 뒤의 국면은 최선수가 詰み 수순이라 두 문항이 같은 것을 묻는다.
+	in := gameInput()
+	posAt := positions(t, in)
+
+	fs := &fakeSearch{lines: map[string][]usi.SearchLine{
+		posAt[2].SFEN(): {line("2f2e", 900), line("x", 0)},
+		posAt[6].SFEN(): {line("3f3e", 900), line("x", 0)},
+	}}
+	b := NewBuilder(nil, fs, 12)
+	items := b.bestItems(context.Background(), in, posAt, &MateItem{Ply: 4})
+
+	if len(items) != 1 {
+		t.Fatalf("items = %d, want 1: %+v", len(items), items)
+	}
+	if items[0].Ply != 2 {
+		t.Errorf("ply = %d, want 2 — ply 6 sits past the mate item", items[0].Ply)
+	}
+}
+
+func TestBestItemsSkipTheOpeningBook(t *testing.T) {
+	// 10수 만에 投了한 판에서 문항 셋이 전부 오프닝이 되는 것을 막는 자리다.
+	in := gameInput()
+	in.OpeningPlies = 6
+	posAt := positions(t, in)
+
+	fs := &fakeSearch{lines: map[string][]usi.SearchLine{
+		posAt[2].SFEN(): {line("2f2e", 900), line("x", 0)},
+		posAt[8].SFEN(): {line("5f5e", 900), line("x", 0)},
+	}}
+	items := NewBuilder(nil, fs, 12).Build(context.Background(), in).Best
+
+	if len(items) != 1 {
+		t.Fatalf("items = %d, want 1: %+v", len(items), items)
+	}
+	if items[0].Ply != 8 {
+		t.Errorf("ply = %d, want 8 — ply 2 is inside the opening", items[0].Ply)
+	}
+	// **엔진을 쓰기 전에 걸러야 한다.** 뒤에서 거르면 정석 구간의 국면마다 956ms를 쓰고
+	// 버리는 셈이 된다.
+	if fs.asked[posAt[2].SFEN()] {
+		t.Error("the engine was asked about a position inside the opening")
+	}
+}
+
+func TestGradeBest(t *testing.T) {
+	in := gameInput()
+	posAt := positions(t, in)
+	item := BestItem{Ply: 4, SFEN: posAt[4].SFEN(), Answer: "2f2e", Played: gameMoves[4]}
+
+	ok, err := GradeBest(item, "2f2e")
+	if err != nil || !ok {
+		t.Errorf("the answer graded as (%v, %v), want (true, nil)", ok, err)
+	}
+
+	ok, err = GradeBest(item, "1g1f")
+	if err != nil || ok {
+		t.Errorf("a legal wrong move graded as (%v, %v), want (false, nil)", ok, err)
+	}
+
+	// 불법수는 **오답이 아니라 요청 오류**다. 뭉치면 프론트 버그가 오답으로 위장해 안 보인다.
+	// `1a1b` 는 後手의 香을 움직이는 수라 先手 차례에 불법이다.
+	if _, err := GradeBest(item, "1a1b"); err == nil {
+		t.Error("an illegal move graded as an answer")
+	}
+}
+
+func TestLegalMovesAtIsNotRestrictedToChecks(t *testing.T) {
+	// 「최선수는?」 문항은 王手로 좁히지 않는다 — 그 규약은 詰み 문항만의 것이다.
+	got, err := LegalMovesAt(shogi.StartSFEN)
+	if err != nil {
+		t.Fatalf("legal moves: %v", err)
+	}
+	pos, _ := shogi.ParseSFEN(shogi.StartSFEN)
+	if len(got) != len(pos.LegalMoves()) {
+		t.Errorf("legal = %d moves, want %d", len(got), len(pos.LegalMoves()))
+	}
+}

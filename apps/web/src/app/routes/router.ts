@@ -11,7 +11,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { REVIEWS_SEGMENT, ROUTE_GAME, ROUTE_REVIEWS, routeReview } from './const';
+import { QUIZ_SEGMENT, REVIEWS_SEGMENT, ROUTE_GAME, ROUTE_REVIEWS, routeQuiz, routeReview } from './const';
 
 /**
  * 지금 어느 화면인가.
@@ -19,7 +19,11 @@ import { REVIEWS_SEGMENT, ROUTE_GAME, ROUTE_REVIEWS, routeReview } from './const
  * `review` 가 id를 들고 있는 것이 요점이다 — 어느 판을 보고 있는지가 **주소에 있어야**
  * 새로고침과 뒤로 가기가 맞는다. 화면 안의 상태로 두면 둘 다 목록으로 튕긴다.
  */
-export type Route = { name: 'game' } | { name: 'reviews' } | { name: 'review'; id: number };
+export type Route =
+  | { name: 'game' }
+  | { name: 'reviews' }
+  | { name: 'review'; id: number }
+  | { name: 'quiz'; id: number };
 
 /** 주소 → 화면. **못 읽는 주소는 대국이다** — 404 화면을 만들 만큼 경로가 많지 않다. */
 export function parseRoute(pathname: string): Route {
@@ -31,7 +35,13 @@ export function parseRoute(pathname: string): Route {
   // 적힌 것과 실제로 여는 판이 달라진다(테스트가 이걸 잡았다). `01` 도 같은 이유로 막는다 —
   // 같은 판에 주소가 두 벌 생긴다.
   const id = parts[1] ?? '';
-  return /^[1-9]\d*$/.test(id) ? { name: 'review', id: Number(id) } : { name: 'reviews' };
+  if (!/^[1-9]\d*$/.test(id)) return { name: 'reviews' };
+  // **못 읽는 세 번째 조각은 그 판이다.** 퀴즈가 아닌 무엇이 붙어 있어도 판은 열 수 있고,
+  // 그것이 404 화면을 만들지 않기로 한 것과 같은 판단이다.
+  if (parts.length > 2) {
+    return parts[2] === QUIZ_SEGMENT ? { name: 'quiz', id: Number(id) } : { name: 'review', id: Number(id) };
+  }
+  return { name: 'review', id: Number(id) };
 }
 
 /** 화면 → 주소. **`<a href>` 에 그대로 넣는다** — 가운데 클릭과 링크 복사가 살아 있어야 한다. */
@@ -43,6 +53,8 @@ export function hrefOf(route: Route): string {
       return ROUTE_REVIEWS;
     case 'review':
       return routeReview(route.id);
+    case 'quiz':
+      return routeQuiz(route.id);
   }
 }
 
