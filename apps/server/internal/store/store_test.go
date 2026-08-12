@@ -147,7 +147,7 @@ func TestPingAndCount(t *testing.T) {
 // interventions 는 ON DELETE CASCADE 라 대국만 지우면 같이 지워진다.
 func newGame(t *testing.T, s *Store) int64 {
 	t.Helper()
-	id, err := s.CreateGame(t.Context(), nil, "b", "startpos-for-"+t.Name())
+	id, err := s.CreateGame(t.Context(), nil, "b", "startpos-for-"+t.Name(), "")
 	if err != nil {
 		t.Fatalf("CreateGame: %v", err)
 	}
@@ -501,6 +501,13 @@ func TestListGamesSkipsEmptyGames(t *testing.T) {
 	if err := s.InsertMove(t.Context(), played, 1, "7g7f"); err != nil {
 		t.Fatalf("InsertMove: %v", err)
 	}
+	// **둘 다 끝내 둔다.** 목록은 결과가 나온 판만 주므로(§51), 안 끝내면 `empty` 가
+	// EXISTS 가 아니라 그 조건에 걸려 빠진다 — 여기서 보려는 것이 아니다.
+	for _, id := range []int64{empty, played} {
+		if err := s.FinishGame(t.Context(), id, ResultWin); err != nil {
+			t.Fatalf("FinishGame: %v", err)
+		}
+	}
 
 	games, err := s.ListGames(t.Context(), 100, nil)
 	if err != nil {
@@ -551,6 +558,11 @@ func TestInterventionKeepsBothCp(t *testing.T) {
 		Ply: 43, Kind: "tesuji", Category: "両取り",
 	}); err != nil {
 		t.Fatalf("InsertIntervention(tesuji): %v", err)
+	}
+
+	// 되짚기는 결과가 나온 판만 연다(§51).
+	if err := s.FinishGame(t.Context(), id, ResultLoss); err != nil {
+		t.Fatalf("FinishGame: %v", err)
 	}
 
 	rec, err := s.GameRecord(t.Context(), id, nil)

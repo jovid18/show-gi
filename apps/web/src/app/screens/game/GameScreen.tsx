@@ -4,11 +4,13 @@ import { Board, type DropFrom, type Replay } from '@/components/Board';
 import { Hand } from '@/components/Hand';
 import { Intervention } from './Intervention';
 import { Kifu } from './Kifu';
+import { Resume } from './Resume';
 import { Setup } from './Setup';
 import { Summary } from './Summary';
 import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/libs/game/moves';
 import type { Attack, StyleTag } from '@/protocol/game';
 import { useGame } from '@/hooks/useGame';
+import { useResumable } from '@/hooks/useResumable';
 import type { Side } from '@/models/piece';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
 import { fromIndex, fromUsi, toIndex, toUsi } from '@/models/square';
@@ -50,9 +52,11 @@ export function GameScreen() {
     resign,
     dismissRejection,
     start,
+    resume,
     restart,
     whatif,
   } = useGame();
+  const resumable = useResumable();
   const [origin, setOrigin] = useState<string | null>(null);
   const [pending, setPending] = useState<{ origin: string; to: string } | null>(null);
   const [confirmingResign, setConfirmingResign] = useState(false);
@@ -331,7 +335,24 @@ export function GameScreen() {
   const board = current?.board ?? live;
 
   // 아직 아무것도 고르지 않았다. **여기서는 서버에 붙어 있지도 않다**(useGame).
-  if (connection === 'idle') return <Setup initial={setup} onStart={start} />;
+  if (connection === 'idle') {
+    // 두다 만 판이 있으면 **고르는 화면보다 먼저 묻는다.** 선후공부터 다시 고르게 하면
+    // 그 판은 사람이 존재를 모르는 채로 사라진다.
+    if (resumable.game) {
+      const unfinished = resumable.game;
+      return (
+        <Resume
+          game={unfinished}
+          onResume={() => {
+            resumable.taken();
+            resume(unfinished);
+          }}
+          onDecline={resumable.decline}
+        />
+      );
+    }
+    return <Setup initial={setup} onStart={start} />;
+  }
 
   if (connection === 'closed') {
     return (

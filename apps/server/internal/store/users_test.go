@@ -54,7 +54,7 @@ func TestCreateGameKeepsUserID(t *testing.T) {
 		t.Fatalf("UpsertUser: %v", err)
 	}
 
-	gameID, err := s.CreateGame(t.Context(), &userID, "b", "startpos")
+	gameID, err := s.CreateGame(t.Context(), &userID, "b", "startpos", "")
 	if err != nil {
 		t.Fatalf("CreateGame: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestGameRecordIsScopedToOwner(t *testing.T) {
 	s := open(t)
 	mine, theirs := owner(t, s, "mine"), owner(t, s, "theirs")
 
-	myGame, err := s.CreateGame(t.Context(), &mine, "b", "startpos-for-"+t.Name())
+	myGame, err := s.CreateGame(t.Context(), &mine, "b", "startpos-for-"+t.Name(), "")
 	if err != nil {
 		t.Fatalf("CreateGame: %v", err)
 	}
@@ -82,6 +82,11 @@ func TestGameRecordIsScopedToOwner(t *testing.T) {
 			t.Errorf("정리: %v", err)
 		}
 	})
+	// **끝내 놓아야 주인에게도 보인다**(docs/06-status.md §51). 안 끝내면 아래 첫 줄이
+	// 「주인이 자기 판을 못 읽는다」로 실패하는데, 그건 주인 거르기와 아무 상관이 없다.
+	if err := s.FinishGame(t.Context(), myGame, ResultWin); err != nil {
+		t.Fatalf("FinishGame: %v", err)
+	}
 
 	if _, err := s.GameRecord(t.Context(), myGame, &mine); err != nil {
 		t.Errorf("주인이 자기 판을 못 읽는다: %v", err)
@@ -111,6 +116,10 @@ func TestListGamesIsScopedToOwner(t *testing.T) {
 	for _, id := range []int64{anon, myGame, theirGame} {
 		if err := s.InsertMove(t.Context(), id, 1, "7g7f"); err != nil {
 			t.Fatalf("InsertMove: %v", err)
+		}
+		// 목록은 결과가 나온 판만 준다(§51). 여기서 보는 것은 주인 거르기라 셋 다 끝내 둔다.
+		if err := s.FinishGame(t.Context(), id, ResultWin); err != nil {
+			t.Fatalf("FinishGame: %v", err)
 		}
 	}
 
@@ -165,7 +174,7 @@ func owner(t *testing.T, s *Store, suffix string) int64 {
 
 func ownedGame(t *testing.T, s *Store, userID *int64) int64 {
 	t.Helper()
-	id, err := s.CreateGame(t.Context(), userID, "b", "startpos-for-"+t.Name())
+	id, err := s.CreateGame(t.Context(), userID, "b", "startpos-for-"+t.Name(), "")
 	if err != nil {
 		t.Fatalf("CreateGame: %v", err)
 	}
