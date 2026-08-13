@@ -144,12 +144,24 @@ func TestMateMessageOnANonCheck(t *testing.T) {
 }
 
 func TestMateMessageWhileOngoing(t *testing.T) {
-	got := mateMessage(quiz.MateProgress{Outcome: quiz.MateOngoing, Plies: 3}, "")
+	got := mateMessage(quiz.MateProgress{Outcome: quiz.MateOngoing, Plies: 3, Line: []string{"G*5b", "6b5b"}}, "")
 	if !strings.Contains(got, "3手") {
 		t.Errorf("message = %q, want the remaining ply count", got)
 	}
 	if !strings.Contains(got, "正解") {
 		t.Errorf("message = %q, want it to confirm the move was right", got)
+	}
+}
+
+// **수를 하나도 안 낸 요청은 정답이 아니다.** 문항을 여는 자리가 바로 그 요청이라
+// (`rootChecks`) 여기서 「正解です」라고 하면 아무것도 안 한 사람에게 맞혔다고 말한다.
+func TestMateMessageOnAnEmptyAttempt(t *testing.T) {
+	got := mateMessage(quiz.MateProgress{Outcome: quiz.MateOngoing, Plies: 3}, "")
+	if strings.Contains(got, "正解") {
+		t.Errorf("message = %q, must not call an empty attempt correct", got)
+	}
+	if !strings.Contains(got, "王手") {
+		t.Errorf("message = %q, want the opening instruction", got)
 	}
 }
 

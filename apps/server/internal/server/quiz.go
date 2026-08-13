@@ -431,7 +431,10 @@ func mateMessage(p quiz.MateProgress, bestJa string) string {
 		return head
 
 	default:
-		if p.Plies > 0 {
+		// **수를 하나도 안 낸 요청에는 「正解です」라고 하지 않는다.** 문항을 여는 자리가
+		// 바로 그 요청이고(rootChecks 가 빈 수순으로 채점을 부른다), 거기서 정답이라고
+		// 말하면 아무것도 안 한 사람에게 맞혔다고 하는 셈이다.
+		if len(p.Line) > 0 && p.Plies > 0 {
 			return fmt.Sprintf("正解です。あと%d手で詰みます。", p.Plies)
 		}
 		return "王手を続けて詰ませてください。"

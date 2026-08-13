@@ -267,10 +267,13 @@ func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position
 // 수단이 없다 — 이 제품이 가장 피해야 하는 문장이다. 그래서 **마지막 국면이 실제로 詰み인지**
 // 를 함께 본다. 사람이 詰ましたら 그 국면의 수번은 상대이고 벗어날 수가 없다.
 func (b *Builder) converted(in Input, posAt []shogi.Position, i, plies int) bool {
-	rest := len(in.Moves) - i
+	// **手数도 마지막 국면도 같은 재현에서 센다.** `replay` 는 읽을 수 없는 수에서 멈추므로
+	// (build.go) 기보에 그런 수가 있으면 `posAt` 이 판의 실제 끝보다 앞에서 끊긴다. 한쪽을
+	// `len(in.Moves)` 로 세면 手数는 넘치고 마지막 국면은 詰み이 아니어서, **사람이 실제로
+	// 決めた 詰み이 「놓쳤다」로 나간다** — 이 기능이 피하려는 거짓 그 자체다.
+	rest := len(posAt) - 1 - i
 	if !in.Won || rest <= 0 || rest > plies {
 		return false
 	}
-	final := posAt[len(posAt)-1]
-	return final.IsCheckmate()
+	return posAt[len(posAt)-1].IsCheckmate()
 }

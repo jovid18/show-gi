@@ -662,3 +662,28 @@ func TestMateSolverRemembersWhatItCouldNotProve(t *testing.T) {
 		t.Errorf("budget = %d, want %d — only the first ask should cost anything", sol.budget, MateSearchBudget-1)
 	}
 }
+
+// **手数와 마지막 국면이 같은 재현에서 나와야 한다.**
+//
+// `replay` 는 읽을 수 없는 수에서 멈추므로 기보에 그런 수가 있으면 `posAt` 이 판의 실제
+// 끝보다 앞에서 끊긴다. 한쪽을 `len(Moves)` 로 세면 手数는 넘치고 마지막 국면은 詰み이
+// 아니어서, 사람이 실제로 決めた 詰み이 「놓쳤다」로 나간다.
+func TestConvertedCountsFromTheSameReplay(t *testing.T) {
+	in := Input{
+		StartSFEN: mate3SFEN, Human: shogi.Black, Won: true,
+		// 詰ますまで 세 수, 그 뒤에 **읽을 수 없는 수** 하나가 기보에 남아 있다.
+		Moves: []string{"G*5b", "6b5b", "4c5b", "zzzz"},
+	}
+	posAt := replay(in)
+	if len(posAt) != 4 {
+		t.Fatalf("replay produced %d positions, want 4 — the bad move must stop it", len(posAt))
+	}
+
+	q, _ := NewBuilder(&fakeMate{limit: 9}, nil, 12).Build(context.Background(), in)
+	if q.Mate == nil {
+		t.Fatal("no mate item")
+	}
+	if !q.Mate.Converted {
+		t.Error("converted = false — the player did deliver this mate, the kifu just has junk after it")
+	}
+}
