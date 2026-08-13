@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { Board } from '@/components/Board';
 import { Hand } from '@/components/Hand';
@@ -327,6 +327,15 @@ function QuizBoard({
       return null;
     }
   }, [sfen]);
+
+  // **판이 갈리면 고른 駒를 놓는다.** 「最初から」·「もう一度」는 위에서 상태를 되돌리는데
+  // 이 컴포넌트는 그대로 살아 있어서, 고른 칸이 새 국면에서는 출발점이 아닌 채로 빛난다.
+  const shown = useRef(sfen);
+  if (shown.current !== sfen) {
+    shown.current = sfen;
+    if (origin !== null) setOrigin(null);
+    if (promoting !== null) setPromoting(null);
+  }
 
   const grouped = useMemo(() => groupByOrigin(legalMoves), [legalMoves]);
   const destinations: Destination[] = origin ? (grouped.get(origin) ?? []) : [];

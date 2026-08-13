@@ -687,3 +687,27 @@ func TestConvertedCountsFromTheSameReplay(t *testing.T) {
 		t.Error("converted = false — the player did deliver this mate, the kifu just has junk after it")
 	}
 }
+
+// **1手 노드는 solver 를 안 쓴다.**
+//
+// 정답의 조건이 `2+rest <= plies` 이고 `rest >= 1` 이므로 `plies == 1` 에서 詰み이 아닌 王手는
+// 절대 정답이 될 수 없다 — 물어봐도 답이 안 바뀐다. 그런데 그 노드가 트리에서 가장 많아서
+// (정답 하나마다 하나씩 달린다) 예산의 대부분을 거기서 쓰고 있었다(§53).
+func TestMateTreeDoesNotAskAtOnePlyNodes(t *testing.T) {
+	fm := &fakeMate{limit: 7}
+	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
+	if q.Mate == nil || q.Mate.Plies != 1 {
+		t.Fatalf("mate = %+v, want a 1-ply problem", q.Mate)
+	}
+
+	// 훑기의 한 번이 전부다 — 트리는 룰 엔진만으로 선다.
+	if fm.calls != 1 {
+		t.Errorf("asked the solver %d times, want 1 (the scan only)", fm.calls)
+	}
+
+	// 그래도 王手 전부에 판정이 있어야 한다 — 화면이 빛내는 수와 트리가 아는 수가 같아야 한다.
+	pos, _ := shogi.ParseSFEN(mate1SFEN)
+	if got, want := len(q.Mate.Nodes[pos.RepetitionKey()].Moves), len(checkingMoves(pos)); got != want {
+		t.Errorf("tree holds %d moves, want %d (every check)", got, want)
+	}
+}

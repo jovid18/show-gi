@@ -115,18 +115,18 @@ func TestOpeningPliesFromTheBook(t *testing.T) {
 // **오답을 한 문장으로 뭉치지 않는다.** 「この手では詰みません」은 詰み이 남는 수에는
 // 거짓이고, 초심자는 그것이 거짓인지 확인할 수단이 없다.
 func TestMateMessageSplitsTheTwoWrongAnswers(t *testing.T) {
-	// `Rest == 0` 은 **solver 의 한계 안에서** 못 찾았다는 뜻이라 「詰みません」이라고 단정할
-	// 수 없다 — 한계를 넘겨 늘어난 詰み은 여전히 강제된다.
+	// `Rest == 0` 은 「한계 안에서 못 찾았다」거나 **「안 물어봤다」**다(1手 노드). 그래서
+	// 詰み이 사라졌다고도, 아예 없다고도 말할 수 없다 — 「이 수로는 詰み이 안 된다」만 참이다.
 	lost := mateMessage(quiz.MateProgress{Outcome: quiz.MateWrong, Rest: 0}, "▲5二金")
-	if strings.Contains(lost, "詰みません") {
-		t.Errorf("message = %q, must not claim there is no mate at all", lost)
+	if strings.Contains(lost, "詰みません") || strings.Contains(lost, "消え") {
+		t.Errorf("message = %q, must not claim the mate is gone or never existed", lost)
 	}
-	if !strings.Contains(lost, "読めなくなります") {
-		t.Errorf("a move that loses the readable mate says %q", lost)
+	if !strings.Contains(lost, "詰みになりません") {
+		t.Errorf("a move that does not reach the mate says %q", lost)
 	}
 
 	longer := mateMessage(quiz.MateProgress{Outcome: quiz.MateWrong, Rest: 7}, "▲5二金")
-	if strings.Contains(longer, "読めなくなります") {
+	if strings.Contains(longer, "詰みになりません") {
 		t.Errorf("a move that still mates must not be told the mate is gone: %q", longer)
 	}
 	if !strings.Contains(longer, "9手") {

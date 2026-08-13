@@ -561,6 +561,9 @@ func quizInput(rec store.GameRecord) quiz.Input {
 //
 // `book.Opening.Moves` 는 **한쪽의 수**만 주므로 手数로는 두 배다. 한 手 남짓 넘치거나
 // 모자라는 것은 상관없다 — 이 값은 「여기까지는 아직 정석이다」의 바닥이다.
+//
+// **색을 안 본다.** 後手 몫은 같은 수순을 180° 돌려 만드는 것이라(book.Opening.Moves) 개수가
+// 같다 — 색을 구해서 넘기면 없는 의존을 있는 것처럼 읽히게 만든다.
 func openingPlies(rec store.GameRecord) int {
 	if rec.OpeningID == "" {
 		return 0
@@ -569,11 +572,7 @@ func openingPlies(rec store.GameRecord) int {
 	if !ok {
 		return 0
 	}
-	engine := shogi.White
-	if rec.MyColor == "w" {
-		engine = shogi.Black
-	}
-	return 2 * len(o.Moves(engine))
+	return 2 * len(o.Moves(shogi.Black))
 }
 
 func (h *gameHandler) readLoop(

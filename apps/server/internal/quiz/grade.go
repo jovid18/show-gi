@@ -110,7 +110,10 @@ func GradeMate(item MateItem, moves []string) (MateProgress, error) {
 			nodePrev = out.Line[n-1]
 		}
 
-		v, known := node.Moves[u]
+		// **정본 표기로 찾는다.** 트리의 키는 `Move.USI()` 가 만든 것이라, 요청 문자열을
+		// 그대로 쓰면 이 조회가 **파서가 얼마나 엄격한가**에 매인다 — 지금은 정본만 통과하지만
+		// (shogi.ParseUSIMove) 그 성질이 흔들리면 「王手가 아니다」가 요청 오류를 뒤집어쓴다.
+		v, known := node.Moves[m.USI()]
 		if !known {
 			// 합법이지만 트리에 없다 = 王手가 아니다. 판을 **안 움직이고** 되돌린다.
 			//

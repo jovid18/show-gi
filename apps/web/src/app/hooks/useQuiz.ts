@@ -36,7 +36,11 @@ export function useQuiz(id: number): QuizSource {
   // **안 오면 그것도 멈춘다.** 「아직 만드는 중」은 영영 참일 수 있다 — 이 코드 전에 끝난
   // 판, 생성기가 없는 배포, 판이 올라가 옛 행이 죽은 뒤가 전부 그렇다. 계속 물으면 화면이
   // 오지 않을 것을 기다리라고 말하게 된다.
-  const waiting = loaded.state === 'ready' && !loaded.data.ready;
+  // **한 번 실패한 것으로 기다리기를 끝내지 않는다.** 요청 하나가 500을 받거나 네트워크가
+  // 한 번 끊긴 것은 「문항이 안 온다」가 아니다 — 아래에서 직전 답을 그대로 두는 것과 같은
+  // 이유이고, 그쪽만 챙기고 이쪽을 빼 두면 90초 걸리는 생성이 30초째의 한 번으로 끝난다.
+  const stillWaiting = last.current != null && !last.current.ready;
+  const waiting = loaded.state === 'ready' ? !loaded.data.ready : stillWaiting;
   const gaveUp = waiting && attempts >= QUIZ_POLL_MAX;
 
   useEffect(() => {
@@ -61,7 +65,8 @@ export function useQuiz(id: number): QuizSource {
   if (loaded.state === 'ready') {
     last.current = loaded.data;
   }
-  if (loaded.state === 'loading' && last.current) {
+  // 부르는 중이든 한 번 실패했든, 직전 답이 있으면 그것을 그대로 세워 둔다.
+  if (loaded.state !== 'ready' && last.current && !gaveUp) {
     return { loaded: { state: 'ready', data: last.current }, reload: retry, gaveUp };
   }
 

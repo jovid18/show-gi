@@ -100,6 +100,17 @@ func (s *mateSolver) expand(ctx context.Context, nodes map[string]MateNode, pos 
 			continue
 		}
 
+		// **1手 노드에서는 응수를 물어보지 않는다.**
+		//
+		// 정답의 조건이 `2+rest <= plies` 이고 `rest >= 1` 이므로 `plies == 1` 에서는
+		// `2+rest >= 3 > 1` — **詰み이 아닌 王手는 절대 정답이 될 수 없다.** 그런데 그 노드가
+		// 트리에서 가장 많고(정답 하나마다 하나씩 달린다) 노드마다 王手 × 응수만큼 solver 를
+		// 부르므로, 여기가 예산의 대부분을 쓰고 있었다. 물어봐도 답이 안 바뀌는 자리다.
+		if plies == 1 {
+			node.Moves[usiMove] = MateVerdict{}
+			continue
+		}
+
 		rest, defense, after, ok := s.defend(ctx, np)
 		if !ok {
 			return false
