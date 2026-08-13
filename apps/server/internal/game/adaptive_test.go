@@ -53,18 +53,76 @@ func TestAdaptivePicksTheBandNotTheBest(t *testing.T) {
 	}
 }
 
-// **지고 있을 때는 저절로 최선을 다한다.**
+// **이미 지고 있어도 최선수로 버티지 않는다 — 한 칸씩 양보한다.**
 //
-// 후보가 전부 밴드 위(플레이어가 이미 크게 유리)면 거리를 최소화하는 것이 곧
-// 플레이어 우세를 가장 줄이는 수 = 엔진의 최선수다. 규칙을 따로 두지 않아도 나온다.
-func TestAdaptiveFightsBackWhenLosing(t *testing.T) {
+// 후보가 전부 밴드 위(플레이어가 이미 크게 유리)라 절대 좌표가 뜻을 잃는 자리다. 여기서
+// 거리를 최소화하면 「+300으로 되돌려라」가 되어 최선수가 뽑히고, **조절이 가장 필요한
+// 자리에서 조절이 꺼진다.** 한 판이 298手가 되고 사람이 못 끝낸다(06-status.md §55).
+func TestAdaptiveKeepsConcedingWhenAlreadyLost(t *testing.T) {
 	got := chooseFrom(t, "7g7f",
-		line("7g7f", -1500), // 플레이어 +1500 — 이 중 제일 낫다
-		line("2g2f", -2200),
-		line("6g6f", -3000),
+		line("7g7f", -1500), // 플레이어 +1500 — 상대의 최선수
+		line("2g2f", -2200), // 최소 양보 ← 이걸 골라야 한다
+		line("6g6f", -3000), // 더 많이 양보한다
 	)
-	if got != "7g7f" {
-		t.Errorf("불리할 때는 최선수를 둬야 한다: %q", got)
+	if got != "2g2f" {
+		t.Errorf("최소 양보를 골라야 한다: %q", got)
+	}
+}
+
+// **잘 두는 사람에게는 그 자리에서도 버틴다.** 실력 추정이 바닥을 기준점 아래로 내리므로
+// 최선수가 다시 후보가 된다 — 조절의 손잡이가 하나로 들어온다는 것이 이 테스트다.
+func TestConcedingFollowsTheSkillEstimate(t *testing.T) {
+	// 플레이어 관점 +1500(최선) · +1700 · +2200. 바닥이 낙폭에 따라 1300 → 1600 → 1900 으로
+	// 오르므로 셋이 각각 다른 수를 고른다.
+	candidates := []usi.SearchLine{
+		line("7g7f", -1500), // 최선수
+		line("2g2f", -1700),
+		line("6g6f", -2200),
+	}
+	for _, tc := range []struct {
+		name string
+		sk   skill.Estimate
+		want string
+	}{
+		{"매 수 최선이면 버틴다", ready(0), "7g7f"},
+		{"기준선에서는 최소 양보", skill.Unknown, "2g2f"},
+		{"매 수 블런더면 더 양보한다", ready(1), "6g6f"},
+	} {
+		if got := chooseWith(t, tc.sk, "7g7f", candidates...); got != tc.want {
+			t.Errorf("%s: %q 기대, got %q (shift=%dcp)", tc.name, tc.want, got, skillShift(tc.sk))
+		}
+	}
+}
+
+// 바닥을 넘는 후보가 하나도 없으면 **가장 많이 양보하는 것**을 고른다. 여기서 최선수로
+// 물러서면 후보 간격이 밴드 폭보다 넓은 국면마다 조절이 조용히 꺼진다.
+func TestConcedesEvenWhenNoCandidateClearsTheFloor(t *testing.T) {
+	got := chooseFrom(t, "7g7f",
+		line("7g7f", -1500), // 플레이어 +1500 — 최선수
+		line("2g2f", -1520), // 바닥(+1600)에 못 미치지만 그나마 양보다 ← 이것
+	)
+	if got != "2g2f" {
+		t.Errorf("바닥을 못 넘어도 양보해야 한다: %q", got)
+	}
+}
+
+// 詰み 줄은 밴드의 자가 아니다. `ScoreCp` 가 환산값이라 기준점을 판 밖으로 끌고 간다.
+func TestBandIgnoresMateLines(t *testing.T) {
+	s := &stubMulti{res: usi.SearchResult{
+		Best: "7g7f",
+		Lines: []usi.SearchLine{
+			line("7g7f", 200),  // 플레이어 −200
+			line("2g2f", -200), // 플레이어 +200 — 기본 밴드 안 ← 이것
+			{Depth: 12, MultiPV: 3, Move: "6g6f", ScoreCp: -usi.MateCp, IsMate: true, MateIn: -3},
+		},
+	}}
+	o := NewAdaptiveOpponent(s, 12, DefaultBand)
+	got, err := o.Choose(t.Context(), shogi.StartSFEN, nil, skill.Unknown)
+	if err != nil {
+		t.Fatalf("Choose: %v", err)
+	}
+	if got != "2g2f" {
+		t.Errorf("詰み 줄이 기준점을 흔들었다: %q", got)
 	}
 }
 
@@ -140,16 +198,21 @@ func TestAdaptivePropagatesSearchFailure(t *testing.T) {
 	}
 }
 
-func TestBandDistance(t *testing.T) {
-	b := Band{LoCp: 100, HiCp: 300}
-	for _, tc := range []struct{ cp, want int }{
-		{100, 0}, {200, 0}, {300, 0},
-		{99, 1}, {0, 100}, {-500, 600},
-		{301, 1}, {800, 500},
-	} {
-		if got := b.distance(tc.cp); got != tc.want {
-			t.Errorf("distance(%d) = %d, want %d", tc.cp, got, tc.want)
-		}
+// 넘치는 쪽이 부족한 쪽보다 늘 앞이다. 이 순서가 곧 「도움은 넘쳐서 틀리는 편이 낫다」다.
+func TestConcedePrefersOvershootToNoConcession(t *testing.T) {
+	opts := []option{{move: "a", playerCp: 331}, {move: "b", playerCp: 814}}
+
+	// 바닥이 331과 814 사이 — 「양보 0」이 더 가깝지만 고르지 않는다.
+	if got := concede(opts, 400); got != "b" {
+		t.Errorf("바닥을 넘는 최소 양보를 골라야 한다: %q", got)
+	}
+	// 바닥이 둘 다 아래면 최소 양보다.
+	if got := concede(opts, 100); got != "a" {
+		t.Errorf("둘 다 바닥을 넘으면 낮은 쪽이다: %q", got)
+	}
+	// 아무것도 못 넘으면 가장 많이 양보한다.
+	if got := concede(opts, 2000); got != "b" {
+		t.Errorf("바닥을 못 넘으면 가장 너그러운 수다: %q", got)
 	}
 }
 
