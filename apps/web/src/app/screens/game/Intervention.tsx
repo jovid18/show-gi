@@ -38,6 +38,11 @@ interface Row {
   cp: number | undefined;
   /** 같은 관점의 詰み 手数. 양수면 **그 수를 둔 쪽**이 詰ます. */
   mateIn: number | undefined;
+  /**
+   * 최선수 대비 낙폭. **서버가 준 것만 쓴다** — 여기서 뺄셈을 하면 낙폭의 정의가 두 벌이
+   * 되고, 사람이 둬 본 수는 그 자리의 후보 탐색에서 나온 값이 아니라 애초에 기준이 없다.
+   */
+  lossCp: number | undefined;
   /** 엔진이 1위로 꼽은 수인가. 판 위의 초록 화살표가 가리키는 것과 같다. */
   best: boolean;
 }
@@ -55,6 +60,23 @@ interface Row {
 function rowScoreJa(row: Row, byOpponent: boolean): string {
   if (!row.mateIn) return scoreJa(row.cp, undefined);
   return scoreJa(undefined, byOpponent ? -row.mateIn : row.mateIn);
+}
+
+/**
+ * 최선수 대비 낙폭 한 칸. 「この手を選ぶといくら損か」이고, 사람이 직접 요구한 값이다
+ * (docs/playtests/2026-08-13-human-1.md §6 #11).
+ *
+ * **1위 줄의 「最善」이 이 칸의 이름표다.** 맨 위에 그 한 단어가 서 있어서 아래의 「−320」이
+ * 무엇에 대한 값인지가 그 자리에서 읽힌다 — 열 제목을 얹지 않고 그 일을 한다. 1위를 색으로만
+ * 표시하던 자리이기도 해서, 색을 못 보는 사람에게도 1위가 남는다.
+ *
+ * **낙폭이 없는 줄은 비운다.** 사람이 직접 둬 본 수(기준이 될 후보 탐색이 없다)와 詰み이
+ * 섞인 줄(cp가 환산값이라 뺄셈이 낙폭이 아니다)이 그렇다 — 0으로 채우면 「최선수와 같다」는
+ * 거짓이 된다.
+ */
+function lossJa(row: Row): string {
+  if (row.best) return '最善';
+  return row.lossCp ? `−${row.lossCp}` : '';
 }
 
 /**
@@ -134,12 +156,19 @@ export function Intervention({
     const out: Row[] = [];
     for (const c of node?.candidates ?? []) {
       seen.add(c.usi);
-      out.push({ usi: c.usi, ja: c.ja || c.usi, cp: c.evalCp, mateIn: c.mateIn, best: out.length === 0 });
+      out.push({
+        usi: c.usi,
+        ja: c.ja || c.usi,
+        cp: c.evalCp,
+        mateIn: c.mateIn,
+        lossCp: c.lossCp,
+        best: out.length === 0,
+      });
     }
     // 사람이 둬 본 수는 **표식 없이** 같은 줄로 선다. 「탐색한 수」라고 적으면 목록이
     // 두 종류가 되는데, 읽는 사람에게 그 둘은 같은 물음의 답이다 — 이 수를 두면 얼마인가.
     for (const e of explored) {
-      if (!seen.has(e.usi)) out.push({ ...e, ja: e.ja || e.usi, best: false });
+      if (!seen.has(e.usi)) out.push({ ...e, ja: e.ja || e.usi, lossCp: undefined, best: false });
     }
     return out.toSorted((a, b) => rankOf(b) - rankOf(a));
   }, [node, explored]);
@@ -226,6 +255,7 @@ export function Intervention({
               >
                 <span className="intervention-options-move">{r.ja}</span>
                 <span className="intervention-options-cp">{rowScoreJa(r, byOpponent)}</span>
+                <span className="intervention-options-loss">{lossJa(r)}</span>
               </button>
             </li>
           ))}

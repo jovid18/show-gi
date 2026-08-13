@@ -130,6 +130,31 @@ func TestParseScoreBoundKeepsExactPv(t *testing.T) {
 	}
 }
 
+// **후보 순서는 여기 한 자리에서 나온다.** 캐시에 쌓는 목록과 개입 문장이 말하는 상대의
+// 최선수가 이 순서를 같이 보므로, 갈리면 한 국면의 최선수가 화면에서 둘이 된다(§58).
+func TestRankedPutsTheHighestScoreFirst(t *testing.T) {
+	var res SearchResult
+	// **2위가 먼저 왔다.** 그러면 1위 자리가 빈 줄로 남는다 — 실제로 벌어지는 순서다
+	// (위 TestParseScoreBoundKeepsExactPv 의 `res2` 가 그 모양이다).
+	parseScore("info depth 12 multipv 2 score cp 120 pv 2g2f 8c8d", &res)
+	parseScore("info depth 12 multipv 1 score cp 300 pv 7g7f 3c3d", &res)
+
+	got := res.Ranked()
+	if len(got) != 2 {
+		t.Fatalf("후보 %d개: %+v", len(got), got)
+	}
+	if got[0].Move != "7g7f" || got[1].Move != "2g2f" {
+		t.Errorf("순서 = %s %s, want 7g7f 2g2f", got[0].Move, got[1].Move)
+	}
+
+	// 빈 순위만 있으면 후보가 없다. **수 없는 줄을 최선수라고 부르지 않는다.**
+	var empty SearchResult
+	parseScore("info depth 12 multipv 3 score cp 10 pv 1g1f", &empty)
+	if got := empty.Ranked(); len(got) != 1 || got[0].Move != "1g1f" {
+		t.Errorf("빈 순위가 섞였다: %+v", got)
+	}
+}
+
 // 엔진이 마지막 iteration을 중간에 접으면 bound 표기 없이도 pv가 1~2수만 찍힌다 —
 // 직전 iteration의 완결된 수순을 유지해야 한다.
 func TestParseScoreTruncatedFinalIterationKeepsFullPv(t *testing.T) {

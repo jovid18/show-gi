@@ -43,8 +43,13 @@ export interface WhatIfCandidate {
   ja: string;
   /** **그 수를 둔 쪽 관점** cp. 주인은 노드의 `turn` 이다. */
   evalCp: number;
-  /** 최선수 대비 낙폭. 최선수는 0 — 「이 수를 고르면 얼마를 내주나」다. */
-  lossCp: number;
+  /**
+   * 최선수 대비 낙폭 — 「이 수를 고르면 얼마를 내주나」.
+   *
+   * **없는 자리가 둘이다**: 최선수 자신(기준)과 詰み이 섞인 줄. 뒤엣것은 cp가 환산값이라
+   * 뺄셈이 낙폭이 아니게 된다(서버의 `candidatesOf`).
+   */
+  lossCp?: number;
   /** 詰み까지의 手数. 없으면 詰み이 아니다 — cp로 보내면 30000이 그대로 화면에 나간다. */
   mateIn?: number;
 }

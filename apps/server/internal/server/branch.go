@@ -165,8 +165,11 @@ func candidatesOf(pos shogi.Position, prevTo int, cands []store.Candidate) []wha
 		}
 		c := whatifCandidate{USI: l.USI, Ja: pos.MoveJa(m, prevTo), EvalCp: l.Cp, MateIn: l.MateIn}
 		// 낙폭은 **최선수 대비**다. 화면이 뺄셈을 하지 않는다 — 두 값을 나란히 두면
-		// 어느 쪽이 기준인지가 흐려지고, 詰み 환산값(30000)이 섞이면 더 그렇다.
-		if len(out) > 0 {
+		// 어느 쪽이 기준인지가 흐려진다.
+		//
+		// **詰み이 한쪽에라도 있으면 안 적는다.** 그 줄의 cp는 환산값(±MateCp)이라 뺄셈이
+		// 29000 같은 수를 내놓고, 그것은 낙폭이 아니라 자가 다른 두 값의 차다.
+		if len(out) > 0 && out[0].MateIn == 0 && c.MateIn == 0 {
 			c.LossCp = out[0].EvalCp - c.EvalCp
 		}
 		out = append(out, c)
