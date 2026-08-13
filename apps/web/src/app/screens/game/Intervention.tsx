@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 
-import { evalTone, rankOf, scoreJa, type ExploredMove } from '@/libs/whatif/branch';
+import { evalTone, playerCp, rankOf, rowScoreJa, type ExploredMove } from '@/libs/whatif/branch';
 import type { Intervention as InterventionData } from '@/protocol/game';
 import type { WhatIfNode } from '@/protocol/whatif';
 
@@ -45,21 +45,6 @@ interface Row {
   lossCp: number | undefined;
   /** 엔진이 1위로 꼽은 수인가. 판 위의 초록 화살표가 가리키는 것과 같다. */
   best: boolean;
-}
-
-/**
- * 詰み을 말할 때 **주어를 못 박는다.**
- *
- * 목록의 값은 「그 수를 둔 쪽 관점」이라 `+`/`−` 만으로는 누가 詰ますのか가 안 정해진다.
- * 뿌리에서는 수번이 언제나 상대이므로, 그대로 「N手で詰み」이라고 쓰면 **상대의 詰み을
- * 내 詰み으로** 말하게 된다 — `lets_mate` 카테고리 전체가 그 자리다.
- *
- * 手数는 평가치가 아니라 세는 값이라 관점을 바꿔도 자가 안 갈린다. 그래서 여기만 **플레이어
- * 관점 말투**로 옮긴다(`scoreJa` 와 같은 어휘). cp는 그대로 둔 쪽 관점이다.
- */
-function rowScoreJa(row: Row, byOpponent: boolean): string {
-  if (!row.mateIn) return scoreJa(row.cp, undefined);
-  return scoreJa(undefined, byOpponent ? -row.mateIn : row.mateIn);
 }
 
 /**
@@ -182,12 +167,6 @@ export function Intervention({
   /** 한 자리도 못 받은 채 튕겼다. 이 상태는 저절로 안 풀린다 — 사람이 다시 눌러야 한다. */
   const stuck = !node && !pending && error !== null;
 
-  /** 색에 넘길 값. 詰み은 cp로 환산하지 않는다 — 그 줄은 색 없이 말로만 선다. */
-  const playerCp = (r: Row): number | undefined => {
-    if (r.mateIn || r.cp === undefined) return undefined;
-    return byOpponent ? -r.cp : r.cp;
-  };
-
   return (
     <div className="intervention" role="alert">
       <p className="intervention-label">待った</p>
@@ -247,7 +226,7 @@ export function Intervention({
                 // **플레이어 관점으로 뒤집어 넘긴다** — 파랑·빨강은 「나에게 좋은가」다(evalTone).
                 style={
                   {
-                    '--tone': evalTone(playerCp(r)),
+                    '--tone': evalTone(playerCp(r, byOpponent)),
                   } as React.CSSProperties
                 }
                 disabled={!playable}

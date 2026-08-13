@@ -118,14 +118,30 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
   if (active) shownRef.current = active;
   const shown = shownRef.current;
 
-  /** 물러진 수 중 값이 저장돼 있지 않은 것들. 그 자리를 다시 재서 채운다. */
-  const unmeasured = useMemo(
-    () =>
-      game.interventions
-        .filter((iv) => iv.ply === ply + 1 && !!iv.retractedUsi && iv.afterCp === undefined)
-        .map((iv) => iv.retractedUsi as string),
-    [game.interventions, ply],
-  );
+  /**
+   * 뿌리에 서 있는 노드. **후보 셋이 왔는가**를 아래에서 이것으로 본다 — 분기로 들어간
+   * 노드의 후보는 다른 국면의 것이라 확정된 기보의 수와 견줄 자가 아니다.
+   */
+  const rootNode = active && active.line.length === 0 ? active : null;
+
+  /**
+   * 이 자리에서 값이 없는 채로 목록에 설 수 있는 수들. 그 자리를 다시 재서 채운다.
+   *
+   * 둘이다 — 값이 저장돼 있지 않은 물러진 수와, **후보 셋 밖의 실제로 둔 수**다. 뒤엣것이
+   * 빠져 있어서 「내가 둔 수에만 값이 안 뜬다」가 됐다(2026-08-14-human-2.md §6 #7).
+   *
+   * **후보 안에 있으면 안 묻는다.** 그 값은 이 국면의 탐색에서 이미 왔고, 다시 묻는 것은
+   * 手数를 옮길 때마다 깊이 12 탐색을 하나 더 거는 일이다 — 엔진 풀은 대국과 공유다.
+   * 후보가 오기 전에도 안 묻는다: 그때는 물어야 하는지를 아직 모른다.
+   */
+  const unmeasured = useMemo(() => {
+    const out = game.interventions
+      .filter((iv) => iv.ply === ply + 1 && !!iv.retractedUsi && iv.afterCp === undefined)
+      .map((iv) => iv.retractedUsi as string);
+    const played = game.moves[ply]?.usi;
+    if (played && rootNode && !rootNode.candidates.some((c) => c.usi === played)) out.push(played);
+    return out;
+  }, [game.interventions, game.moves, ply, rootNode]);
   const measured = useMoveEvals(game.id, ply, unmeasured);
   /** 지금 분기가 시작된 수. 그 줄이 목록에서 열린다. */
   const chosen = shown?.line[0]?.usi ?? null;
