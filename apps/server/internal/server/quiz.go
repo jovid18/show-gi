@@ -136,6 +136,13 @@ func (h *quizHandler) get(w http.ResponseWriter, r *http.Request) {
 // (whatif.go), 저쪽 응수는 엔진 탐색이라 같은 국면에서 같은 답이라는 보장이 없다.
 type mateRequest struct {
 	Moves []string `json:"moves"`
+	// Attempt 는 이 문항에서 **몇 번째 시도**인가(1부터). **화면이 센다** — 서버에 남기지
+	// 않는다. 몇 번 틀렸는지는 그 판의 사실이 아니라 지금 이 사람이 이 화면에서 하고 있는
+	// 일이고, 남기면 되짚기를 다시 열 때마다 「이미 세 번 틀린 문항」이 된다.
+	//
+	// **이 값으로 정답을 살 수는 없다.** 크게 적어 보내도 나가는 것은 `Hint` 뿐이고, 정답은
+	// 맞힐 때까지 응답에 실리지 않는다 — 그것이 채점을 서버에 둔 이유다(quizHintAttempt).
+	Attempt int `json:"attempt,omitempty"`
 }
 
 // mateResponse 는 채점 결과이자 다음 장면이다.
@@ -157,9 +164,12 @@ type mateResponse struct {
 	// Message 는 화면에 그대로 나가는 일본어다. **서버가 만든다** — 화면이 코드로 문장을
 	// 짓기 시작하면 어휘가 두 벌이 된다(review.go 의 같은 규약).
 	Message string `json:"message"`
-	// Best·BestJa 는 오답일 때의 정답 수다.
-	Best   string `json:"best,omitempty"`
-	BestJa string `json:"bestJa,omitempty"`
+	// Hint 는 「무엇을 어디서 움직이나」다(「7九の銀」). **세 번째 오답에서만 온다.**
+	//
+	// **정답 수는 이 응답에 아예 없다.** 첫 오답부터 답을 실어 보내던 자리이고, 그러면 한 번
+	// 틀리는 것으로 문항이 끝난다 — 사람이 그걸 지적했다(§6 #10 · #11). 채점기는 여전히
+	// 정답을 알지만(quiz.MateProgress.Best) 전송 계층이 내보내지 않는다.
+	Hint string `json:"hint,omitempty"`
 }
 
 // mate 는 詰み 문항을 채점한다.
@@ -222,20 +232,18 @@ func (h *quizHandler) mate(w http.ResponseWriter, r *http.Request) {
 		LegalMoves: prog.Legal,
 		Plies:      prog.Plies,
 		Outcome:    string(prog.Outcome),
-		Best:       prog.Best,
 	}
 	if pos, err := shogi.ParseSFEN(prog.SFEN); err == nil {
 		out.Checked = checkedSquare(pos)
 	}
 	out.DefenseJa = jaOfLine(q.Mate.SFEN, prog.Line, prog.Defense != "")
-	// **정답 수의 표기는 그 수가 성립하는 국면에서 만든다.** `prog.SFEN` 은 오답이면 그
-	// 수만큼 나아가 있어서 거기서는 정답이 불법이고, 표기가 비면 문구에서 「正解は○でした」가
-	// 통째로 빠진다(quiz.MateProgress.BestFrom).
-	out.BestJa = jaAt(prog.BestFrom, prog.Best, lastTo(prog.BestPrev))
-	// **문장에만 「어디서 오는가」를 붙인다.** `BestJa` 는 棋譜 표기 그대로여야 하고(화면이
-	// 다른 자리에 그대로 적는다), 괄호가 필요한 것은 두 표기가 打 한 글자로만 갈릴 때의
-	// 문장뿐이다 — 「최선수는?」 쪽과 같은 상처다(moveOriginJa · 회차 1 #17).
-	out.Message = mateMessage(prog, withOrigin(out.BestJa, moveOriginJa(prog.BestFrom, prog.Best, lastOf(prog.Line))))
+	// **힌트는 정답이 성립하는 국면에서 만든다.** `prog.SFEN` 은 오답이면 그 수만큼 나아가
+	// 있어서 거기서는 정답이 불법이고, 그러면 「무엇을 움직이나」가 통째로 빠진다
+	// (quiz.MateProgress.BestFrom).
+	if hinting(req.Attempt) && prog.Outcome == quiz.MateWrong {
+		out.Hint = originJa(prog.BestFrom, prog.Best)
+	}
+	out.Message = mateMessage(prog, out.Hint)
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -243,17 +251,28 @@ func (h *quizHandler) mate(w http.ResponseWriter, r *http.Request) {
 type bestRequest struct {
 	Index int    `json:"index"`
 	Move  string `json:"move"`
+	// Attempt 는 이 문항에서 몇 번째 시도인가(1부터). `mateRequest.Attempt` 와 같은 규약이다.
+	Attempt int `json:"attempt,omitempty"`
 }
 
 // bestResponse 는 채점 결과다. **정답과 두 cp를 여기서 처음 보낸다** — 문항에 실어 보내면
 // 화면을 열자마자 답이 손에 있다.
 type bestResponse struct {
-	Correct  bool   `json:"correct"`
-	Answer   string `json:"answer"`
+	Correct bool `json:"correct"`
+	// Answer·AnswerJa·AnswerCp·SecondCp 는 **맞혔을 때만 있다.**
+	//
+	// 첫 오답부터 정답을 싣고 있었고, 그러면 한 번 틀리는 것으로 문항이 끝난다 — 사람이
+	// 그걸 지적했다(2026-08-14-human-2.md §6 #10 · #11). 문구에서 지우는 것으로는 안 된다:
+	// 응답에 남아 있으면 화면이 그것을 다른 칸에 그대로 적고 있었다(`quiz-scores`).
+	//
+	// **cp가 포인터다.** 0은 호각이라는 실제 값이라 `omitempty` 로는 「없다」와 안 갈린다.
+	Answer   string `json:"answer,omitempty"`
 	AnswerJa string `json:"answerJa,omitempty"`
 	// AnswerCp·SecondCp 는 **사람 관점** cp다. 둘의 차가 이 문항이 뽑힌 기준이다.
-	AnswerCp int `json:"answerCp"`
-	SecondCp int `json:"secondCp"`
+	AnswerCp *int `json:"answerCp,omitempty"`
+	SecondCp *int `json:"secondCp,omitempty"`
+	// Hint 는 「무엇을 어디서 움직이나」다. **세 번째 오답에서만 온다**(quizHintAttempt).
+	Hint string `json:"hint,omitempty"`
 	// Move·MoveJa 는 **지금 이 문항에 낸 수**다. 정본 USI이고, 읽을 수 없었으면 빈 값이다.
 	//
 	// **Played 와 다르다** — 저쪽은 그 판에서 실제로 둔 수다. 이 둘을 뭉치면 오답 문구가
@@ -318,18 +337,18 @@ func (h *quizHandler) best(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out := bestResponse{
-		Correct:  correct,
-		Answer:   item.Answer,
-		AnswerCp: item.AnswerCp,
-		SecondCp: item.SecondCp,
-		Played:   item.Played,
-	}
-	out.AnswerJa = jaAt(item.SFEN, item.Answer, -1)
+	out := bestResponse{Correct: correct, Played: item.Played}
 	out.PlayedJa = jaAt(item.SFEN, item.Played, -1)
 	out.Move, out.MoveJa, out.SFEN, out.Checked = afterMove(item.SFEN, req.Move)
-	// **정답에 「어디서 오는가」를 붙일지는 낸 수를 보고 정한다**(moveOriginJa).
-	out.Message = bestMessage(out, withOrigin(out.AnswerJa, moveOriginJa(item.SFEN, item.Answer, out.Move)))
+	// **정답은 맞혔을 때만 응답에 넣는다.** 채점은 이미 끝나 있고, 여기서 갈리는 것은
+	// 「무엇을 내보내는가」뿐이다(bestResponse).
+	if correct {
+		out.Answer, out.AnswerJa = item.Answer, jaAt(item.SFEN, item.Answer, -1)
+		out.AnswerCp, out.SecondCp = &item.AnswerCp, &item.SecondCp
+	} else if hinting(req.Attempt) {
+		out.Hint = originJa(item.SFEN, item.Answer)
+	}
+	out.Message = bestMessage(out, item)
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -446,8 +465,20 @@ func moveOriginJa(sfen, answer, played string) string {
 	if err != nil || a.To != p.To || a.USI() == p.USI() {
 		return ""
 	}
-	if a.IsDrop() {
-		return "持ち駒の" + shogi.PieceJa(a.Drop)
+	return originJa(sfen, answer)
+}
+
+// originJa 는 그 수가 **무엇을 어디서** 움직이는가다 — 「4六の金」·「持ち駒の金」.
+//
+// **도착 칸을 말하지 않는다.** 세 번 틀린 사람에게 나가는 것이 이 한 마디뿐이라
+// (2026-08-14-human-2.md §6 #11), 여기에 도착 칸이 섞이면 그 줄이 곧 정답 전체가 된다.
+func originJa(sfen, move string) string {
+	m, err := shogi.ParseUSIMove(move)
+	if err != nil {
+		return ""
+	}
+	if m.IsDrop() {
+		return "持ち駒の" + shogi.PieceJa(m.Drop)
 	}
 	pos, err := shogi.ParseSFEN(sfen)
 	if err != nil {
@@ -455,21 +486,13 @@ func moveOriginJa(sfen, answer, played string) string {
 	}
 	// **빈 칸이면 부를 이름이 없다.** 여기 오는 것은 저장된 정답이 그 국면에서 성립하지
 	// 않는다는 뜻이고(문항이 깨졌다), 그때 「4六の」까지만 적으면 문장이 말을 잃는다.
-	from := pos.Board[a.From]
+	from := pos.Board[m.From]
 	if from.Empty() {
 		return ""
 	}
 	// **成る 수여도 지금 그 칸에 서 있는 駒로 부른다.** 「4六の金」은 출발 칸을 가리키는 말이라
 	// 성한 뒤의 이름으로 부르면 판에서 그 駒를 찾을 수 없다.
-	return shogi.SquareJa(int(a.From)) + "の" + shogi.PieceJa(from.Type())
-}
-
-// lastOf 는 수순의 마지막 수다. 비면 빈 값 — 오답 수순에서는 그것이 방금 낸 수다.
-func lastOf(line []string) string {
-	if len(line) == 0 {
-		return ""
-	}
-	return line[len(line)-1]
+	return shogi.SquareJa(int(m.From)) + "の" + shogi.PieceJa(from.Type())
 }
 
 // withOrigin 은 표기에 「어디서 오는가」를 괄호로 붙인다. 어느 쪽이든 비면 그대로 돌려준다.
@@ -501,12 +524,23 @@ func jaOfLine(startSFEN string, line []string, want bool) string {
 	return ja
 }
 
-// mateMessage 는 詰み 문항의 일본어 문장이다. `best` 는 「어디서 오는가」까지 붙을 수 있는
-// 정답 표기다(withOrigin) — 응답의 `bestJa` 와 달리 괄호가 들어 있을 수 있다.
+// quizHintAttempt 는 「무엇을 움직이나」가 나오기 시작하는 시도 횟수다.
+//
+// **정답을 말하는 자리는 없다.** 세 번째부터는 이 한 마디가 나오고 그 뒤로는 몇 번 틀려도
+// 같다 — 사람이 그렇게 정했다(2026-08-14-human-2.md §6 #11). 두 번은 스스로 다시 보라는
+// 뜻이고, 세 번이면 판에서 무엇을 볼지조차 못 잡고 있다는 뜻이다.
+const quizHintAttempt = 3
+
+// hinting 은 이 시도에서 힌트를 줄 차례인가다. **화면이 보낸 값을 믿는다** — 그것으로 살 수
+// 있는 것이 힌트뿐이라 믿어도 되는 자리다(mateRequest.Attempt).
+func hinting(attempt int) bool { return attempt >= quizHintAttempt }
+
+// mateMessage 는 詰み 문항의 일본어 문장이다. `hint` 는 「무엇을 어디서 움직이나」이고,
+// **세 번째 오답에서만 채워져 온다**(originJa).
 //
 // **오답을 한 문장으로 뭉치지 않는다.** 「この手では詰みません」은 대부분 거짓이다 —
 // 詰み이 9手로 늘어질 뿐 詰む 수도 있고, 그때 그 문장은 초심자가 검증할 수 없는 거짓이 된다.
-func mateMessage(p quiz.MateProgress, best string) string {
+func mateMessage(p quiz.MateProgress, hint string) string {
 	switch p.Outcome {
 	case quiz.MateSolved:
 		return "詰みました。正解です。"
@@ -526,10 +560,12 @@ func mateMessage(p quiz.MateProgress, best string) string {
 		if p.Rest > 0 {
 			head = fmt.Sprintf("詰みは残りますが、%d手に伸びてしまいます。", 2+p.Rest)
 		}
-		if best != "" {
-			return head + fmt.Sprintf("正解は%sでした。", best)
+		// **정답을 말하지 않는다.** 대신 다시 풀 수 있다고 말한다 — 그 말이 없으면 문항이
+		// 끝난 것으로 읽히고, 정답도 없으니 남는 것이 아무것도 없다.
+		if hint != "" {
+			return head + fmt.Sprintf("動かすのは%sです。", hint)
 		}
-		return head
+		return head + "「最初から」でもう一度考えてみてください。"
 
 	default:
 		// **수를 하나도 안 낸 요청에는 「正解です」라고 하지 않는다.** 문항을 여는 자리가
@@ -543,16 +579,19 @@ func mateMessage(p quiz.MateProgress, best string) string {
 }
 
 // bestMessage 는 「최선수는?」 문항의 일본어 문장이다. `answer` 는 「어디서 오는가」까지
-// 붙은 정답 표기다(withOrigin).
+// 붙은 정답 표기다(withOrigin) — **맞혔을 때만 문장에 들어간다.**
 //
 // **낸 수부터 말한다.** 정답만 말하는 문장은 정답과 한 글자 차이인 수를 낸 사람에게
 // 「내가 그것을 뒀는데 틀렸다고 한다」가 된다 — 회차 1의 #17이 정확히 그 자리다.
 //
 // 오답이어도 **그 판의 일로 되돌린다** — 사람이 실제로 둔 수를 함께 말하는 것이 이 문항이
 // 문제집이 아니라 자기 기보인 이유다.
-func bestMessage(r bestResponse, answer string) string {
+//
+// **`item` 을 함께 받는다.** 응답에서 정답과 cp를 뺐으므로(bestResponse) 문장이 그것들을
+// 응답에서 읽을 수 없다 — 두 자리가 같은 값을 서로 다른 이유로 필요로 한다.
+func bestMessage(r bestResponse, item quiz.BestItem) string {
 	if r.Correct {
-		gap := r.AnswerCp - r.SecondCp
+		gap := item.Gap()
 		if r.MoveJa == "" {
 			return fmt.Sprintf("正解です。この局面はこの一手で、次善手とは%dの差があります。", gap)
 		}
@@ -560,21 +599,25 @@ func bestMessage(r bestResponse, answer string) string {
 	}
 
 	head := "不正解です。"
-	switch {
-	case r.MoveJa != "" && answer != "":
-		// **둘을 한 문장에 나란히 둔다.** 갈리는 것이 打 한 글자라 떨어뜨려 놓으면 사람은
-		// 두 문장이 같은 수를 말한다고 읽는다.
-		head += fmt.Sprintf("あなたが指したのは%s、正解は%sでした。", r.MoveJa, answer)
-	case r.MoveJa != "":
+	if r.MoveJa != "" {
 		head += fmt.Sprintf("あなたが指したのは%sでした。", r.MoveJa)
-	case answer != "":
-		head += fmt.Sprintf("正解は%sでした。", answer)
+	}
+	// **정답을 말하지 않는다.** 세 번째부터 「무엇을 움직이나」만 얹고, 그 앞에서는 다시
+	// 보라고만 한다 — 정답을 실어 보내면 한 번 틀리는 것으로 문항이 끝난다(§6 #10 · #11).
+	if r.Hint != "" {
+		head += fmt.Sprintf("動かすのは%sです。", r.Hint)
+	} else {
+		head += "もう一度考えてみてください。"
 	}
 
-	// **낸 수와 같으면 말하지 않는다.** 그때는 「이 판에서도 그것을 뒀다」라 방금 한 말의
-	// 되풀이이고, 문장이 길어지는 만큼 정답이 어느 것인지가 묻힌다.
-	if r.PlayedJa != "" && r.Played != r.Answer && r.Played != r.Move {
-		head += fmt.Sprintf("この対局では%sを指しています。", r.PlayedJa)
+	// **정답과 같으면 말하지 않는다.** 그때는 그 한 줄이 정답을 그대로 말해 버린다 — 낸 수와
+	// 같을 때 안 말하는 것은 방금 한 말의 되풀이라서다.
+	//
+	// **여기서도 두 표기가 打 한 글자로만 갈릴 수 있다.** §57이 정답과 낸 수 사이에서 닫은
+	// 그 상처가, 문장에서 정답을 뺀 뒤에는 **낸 수와 그 판의 수** 사이로 옮겨 온다.
+	if r.PlayedJa != "" && r.Played != item.Answer && r.Played != r.Move {
+		played := withOrigin(r.PlayedJa, moveOriginJa(item.SFEN, item.Played, r.Move))
+		head += fmt.Sprintf("この対局では%sを指しています。", played)
 	}
 	return head
 }

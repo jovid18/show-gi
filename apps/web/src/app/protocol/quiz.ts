@@ -54,6 +54,15 @@ export interface BestItem {
 /** 詰み 문항의 채점 요청. **玉方의 응수는 보내지 않는다** — 서버가 트리에서 꺼내 둔다. */
 export interface MateAttempt {
   moves: string[];
+  /**
+   * 이 문항에서 **몇 번째 시도**인가(1부터). **화면이 센다** — 서버에 남기지 않는다.
+   *
+   * 몇 번 틀렸는지는 그 판의 사실이 아니라 지금 이 사람이 이 화면에서 하고 있는 일이고,
+   * 남기면 되짚기를 다시 열 때마다 「이미 세 번 틀린 문항」이 된다.
+   *
+   * **이 값으로 정답을 살 수는 없다.** 크게 적어 보내도 오는 것은 `hint` 뿐이다.
+   */
+  attempt: number;
 }
 
 /** 마지막 수가 어떻게 되었나. */
@@ -75,25 +84,39 @@ export interface MateResult {
   outcome: MateOutcome;
   /** 화면에 그대로 나가는 일본어. **서버가 만든다.** */
   message: string;
-  /** 오답일 때의 정답 수. */
-  best?: string;
-  bestJa?: string;
+  /**
+   * 「무엇을 어디서 움직이나」(「7九の銀」). **세 번째 오답에서만 온다.**
+   *
+   * **정답 수는 이 응답에 아예 없다.** 첫 오답부터 정답이 실려 오던 자리이고, 그러면 한 번
+   * 틀리는 것으로 문항이 끝난다 — 사람이 그걸 지적했다(2026-08-14-human-2.md §6 #10 · #11).
+   */
+  hint?: string;
 }
 
 /** 「최선수는?」 문항의 채점 요청. */
 export interface BestAttempt {
   index: number;
   move: string;
+  /** 이 문항에서 몇 번째 시도인가(1부터). `MateAttempt.attempt` 와 같은 규약이다. */
+  attempt: number;
 }
 
 /** 「최선수는?」 문항의 채점 결과. */
 export interface BestResult {
   correct: boolean;
-  answer: string;
+  /**
+   * 정답과 두 cp. **맞혔을 때만 온다**(2026-08-14-human-2.md §6 #10 · #11).
+   *
+   * 문구에서 지우는 것으로는 안 됐다 — 응답에 남아 있으면 화면이 그것을 아래 cp 표에
+   * 그대로 적고 있었다.
+   */
+  answer?: string;
   answerJa?: string;
   /** **사람 관점** cp. 둘의 차가 이 문항이 뽑힌 기준이다. */
-  answerCp: number;
-  secondCp: number;
+  answerCp?: number;
+  secondCp?: number;
+  /** 「무엇을 어디서 움직이나」. **세 번째 오답에서만 온다.** */
+  hint?: string;
   /**
    * 방금 이 문항에 낸 수와 그 棋譜 표기.
    *
