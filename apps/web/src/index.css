@@ -2959,6 +2959,23 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* 판이 끝난 뒤의 두 갈래. **「もう一局」이 먼저다** — 다시 두러 온 사람이 압도적으로
+   많고, 분석은 읽고 나서 고르는 쪽이다. 좁으면 세로로 쌓인다. */
+.end-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.end-actions .btn {
+  flex: 1 1 auto;
+  /* `<a>` 도 섞여 있다 — 버튼과 같은 줄에 서므로 글자가 가운데에 와야 한다. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 /* ── 대국 후 총평 ────────────────────────────────────── */
 
 /* 판이 끝난 뒤에만 뜬다. **테두리로 묶는다** — 개입 카드와 같은 문법이라 「이건 앱이
@@ -3319,6 +3336,50 @@ body {
   margin: 0;
   color: var(--fg);
   font-variant-numeric: tabular-nums;
+}
+
+/* 정답 뒤의 흐름. **누르면 판이 그 자리로 간다** — 그래서 줄이 아니라 버튼들이다.
+   회차 2 #12: 정답만으로는 그 수가 버리는 수처럼 보였다. */
+.quiz-line {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.quiz-line__head {
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.quiz-line__moves {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.quiz-line__move {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.quiz-line__move:hover {
+  border-color: var(--brand);
+}
+
+/* 지금 판이 서 있는 자리. 되짚기의 「지금 手数」와 같은 문법이다. */
+.quiz-line__move[data-on] {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
 }
 
 /* 되짚기에서 퀴즈로 가는 문. 총평 바로 아래에 서므로 카드가 아니라 **줄**이다. */

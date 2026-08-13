@@ -336,3 +336,60 @@ func TestBestItemsStopAtTheEndOfTheReplay(t *testing.T) {
 		t.Error("the engine was asked about a position whose move is not in the game")
 	}
 }
+
+// 저장하는 것은 정답 **뒤**의 수순이다. 정답 자신이 들어가면 화면이 그것을 다시 그리고,
+// 무엇보다 그 첫 수가 곧 정답이라 오답에도 새어 나갈 자리가 하나 더 생긴다.
+func TestLineStartsAfterTheAnswer(t *testing.T) {
+	pos := shogi.StartPosition()
+	got := lineAfter(pos, []string{"7g7f", "3c3d", "8h2b+", "3a2b"})
+
+	want := []string{"3c3d", "8h2b+", "3a2b"}
+	if len(got) != len(want) {
+		t.Fatalf("%v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("%v, want %v", got, want)
+		}
+	}
+}
+
+// BestLinePlies 에서 자른다. 길게 실으면 「왜 최선인가」가 아니라 한 판을 다시 보여주는
+// 것이 된다.
+func TestLineIsCapped(t *testing.T) {
+	pos := shogi.StartPosition()
+	pv := []string{"7g7f", "3c3d", "2g2f", "8c8d", "2f2e", "8d8e", "2e2d", "2c2d"}
+	if got := lineAfter(pos, pv); len(got) != BestLinePlies {
+		t.Errorf("길이 = %d, want %d", len(got), BestLinePlies)
+	}
+}
+
+// **두어 보면서 자른다.** 엔진 PV의 꼬리에 이 국면에서 안 서는 수가 섞여 오는 일이 있고,
+// 그대로 저장하면 채점 뒤에 못 두는 수순이 화면에 나간다.
+func TestLineStopsAtTheFirstIllegalMove(t *testing.T) {
+	pos := shogi.StartPosition()
+	got := lineAfter(pos, []string{"7g7f", "3c3d", "9i9b", "1a1b"})
+
+	if len(got) != 1 || got[0] != "3c3d" {
+		t.Errorf("%v, want [3c3d] — 못 두는 수 앞에서 끊겨야 한다", got)
+	}
+}
+
+// 정답 하나뿐인 PV에는 이어질 것이 없다. 빈 슬라이스가 아니라 nil이어야 `omitempty` 가 먹는다.
+func TestNoLineWhenThePvIsJustTheAnswer(t *testing.T) {
+	pos := shogi.StartPosition()
+	if got := lineAfter(pos, []string{"7g7f"}); got != nil {
+		t.Errorf("%v, want nil", got)
+	}
+	if got := lineAfter(pos, nil); got != nil {
+		t.Errorf("%v, want nil", got)
+	}
+}
+
+// 정답 자신을 못 두면 뒤도 없다 — 그 PV는 이 국면의 것이 아니다.
+func TestNoLineWhenTheAnswerItselfIsIllegal(t *testing.T) {
+	pos := shogi.StartPosition()
+	if got := lineAfter(pos, []string{"9i9b", "3c3d"}); got != nil {
+		t.Errorf("%v, want nil", got)
+	}
+}

@@ -5,11 +5,11 @@ import { hrefOf } from '@/routes/router';
  * 마이페이지. **판을 가로질러 보는 유일한 화면이다** — 되짚기는 판 하나를 열고 총평은
  * 판 하나를 세지만, 여기는 「지금까지 어땠나」에 답한다.
  *
- * 셋을 그린다: 段級 · 전적 · 약점. 그 이상은 안 그린다 — 이 화면은 사람이 자기를 확인하러
+ * 셋을 그린다: 段級 · 전적 · 崩れやすいところ. 그 이상은 안 그린다 — 이 화면은 사람이 자기를 확인하러
  * 오는 자리이고, 판마다의 이야기는 되짚기가 이미 한다.
  */
-export function ProfileScreen({ active }: { active: boolean }) {
-  const state = useProfile(active);
+export function ProfileScreen() {
+  const state = useProfile();
 
   if (state.status === 'loading') return <p className="review-status">読み込み中…</p>;
 

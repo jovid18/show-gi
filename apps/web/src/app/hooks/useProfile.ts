@@ -10,13 +10,11 @@ import type { Profile, ProfileState } from '@/protocol/profile';
  *
  * **401을 오류로 그리지 않는다** — 로그인 안 한 것은 실패가 아니라 상태다.
  */
-export function useProfile(active: boolean): ProfileState {
+export function useProfile(): ProfileState {
   const [state, setState] = useState<ProfileState>({ status: 'loading' });
 
   useEffect(() => {
-    if (!active) return;
     const controller = new AbortController();
-    setState({ status: 'loading' });
 
     fetch('/api/me/profile', { signal: controller.signal })
       .then(async (res) => {
@@ -36,7 +34,7 @@ export function useProfile(active: boolean): ProfileState {
       });
 
     return () => controller.abort();
-  }, [active]);
+  }, []);
 
   return state;
 }

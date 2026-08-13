@@ -269,6 +269,14 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
    * #11), 화면도 맞혔을 때만 그 자리를 만든다.
    */
   const solved = res?.correct === true;
+  /**
+   * 최선 수순에서 지금 보고 있는 자리. null이면 정답을 둔 국면이다.
+   *
+   * **판 하나를 그대로 쓴다.** 수순을 따로 그리는 작은 판을 세우면 같은 국면이 화면에 둘
+   * 서고, 어느 쪽이 지금인지가 없어진다 — 개입 카드가 수순을 판 위에서 재생하는 것과
+   * 같은 판단이다(§14).
+   */
+  const [peek, setPeek] = useState<number | null>(null);
 
   const play = (usi: string): void => {
     void grade({ index: item.index, move: usi, attempt: wrongs + 1 }).then((got) => {
@@ -284,6 +292,16 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
   // 이동이고 안 빛나면 持ち駒에서 온 수라, 그 한 글자가 판 위에서 갈린다.
   const moved = res?.sfen ? { sfen: res.sfen, checked: res.checked ?? null, move: res.move } : null;
 
+  /** 수순을 짚어 보는 중이면 그 국면이 판을 이긴다. */
+  const line = solved ? (res.line ?? []) : [];
+  const peeking = peek !== null ? line[peek] : undefined;
+
+  /** 「もう一度」는 수순 짚기도 같이 되돌린다 — 판이 문제 국면으로 가는데 줄만 켜져 있으면 어긋난다. */
+  const reset = (): void => {
+    setPeek(null);
+    clear();
+  };
+
   return (
     <article className="quiz-item" aria-label="最善手の問題">
       <header className="quiz-item-head">
@@ -298,11 +316,11 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
           그린 채로 다시 두게 하면 판과 빛이 어긋난다 — 다시 푸는 길은 아래 「もう一度」이고
           그것이 판을 문제 국면으로 되돌린다. */}
       <QuizBoard
-        sfen={moved ? moved.sfen : item.sfen}
+        sfen={peeking ? peeking.sfen : moved ? moved.sfen : item.sfen}
         me={sideOf(item.sfen)}
         legalMoves={res ? [] : item.legalMoves}
-        checked={moved ? moved.checked : (item.checked ?? null)}
-        lastMove={moved ? squaresOf(moved.move) : null}
+        checked={peeking ? null : moved ? moved.checked : (item.checked ?? null)}
+        lastMove={peeking ? squaresOf(peeking.usi) : moved ? squaresOf(moved.move) : null}
         interactive={!res && !grading.pending}
         onPlay={play}
       />
@@ -329,10 +347,37 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
         </dl>
       )}
 
+      {/* 회차 2 #12. **정답만으로는 왜 최선인지가 안 보였다** — 「その手が捨てる手に見える」.
+          누르면 판이 그 자리로 간다: 取り返す·逃げる가 거기서 눈에 들어온다.
+
+          **추가 탐색이 0이다** — 문항을 만들 때 이미 손에 있던 수순을 잘라 둔 것이다.
+          옛 판에는 그 칸이 없어서 이 줄이 통째로 안 뜬다. */}
+      {line.length > 0 && (
+        <div className="quiz-line">
+          <span className="quiz-line__head">このあとの進み方</span>
+          <ol className="quiz-line__moves">
+            {line.map((m, i) => (
+              <li key={m.usi}>
+                <button
+                  type="button"
+                  className="quiz-line__move"
+                  data-on={peek === i || undefined}
+                  // 같은 수를 다시 누르면 정답을 둔 국면으로 돌아간다 — 짚어 보는 자리라
+                  // 나가는 길이 들어온 길과 같아야 한다.
+                  onClick={() => setPeek((cur) => (cur === i ? null : i))}
+                >
+                  {m.ja}
+                </button>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
       {/* **맞혔는지에 따라 다른 말이다.** 맞힌 뒤의 「もう一度」는 다시 둬 보는 것이고,
           틀린 뒤의 그것은 아직 안 끝난 문항을 이어 푸는 자리다. */}
       {res && (
-        <button type="button" className="review-retry" onClick={clear}>
+        <button type="button" className="review-retry" onClick={reset}>
           {solved ? 'もう一度' : 'もう一度考える'}
         </button>
       )}
