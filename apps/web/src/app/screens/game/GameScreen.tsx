@@ -19,6 +19,7 @@ import { fromIndex, fromUsi, toIndex, toUsi } from '@/models/square';
 import { scoreJa, type ExploredMove } from '@/libs/whatif/branch';
 import { useWhatIf } from '@/hooks/useWhatIf';
 import { useTagAnnounce } from './hooks';
+import { useMoveSound } from '@/hooks/useMoveSound';
 import { checkRays, lastMoveOf, offsetWithin, rayOf, resultText } from '@/libs/game/board-view';
 
 /**
@@ -132,6 +133,10 @@ export function GameScreen() {
 
   // 새로 붙은 이름. 판 위에 잠깐 떴다 사라진다.
   const [announced, clearAnnounced] = useTagAnnounce(snapshot?.styleTags, snapshot?.ply ?? 0);
+
+  // 駒가 판에 닿는 소리. **手数를 세지 수를 보지 않는다** — 되물러진 수는 手数를 뒤로
+  // 돌리므로 그 자리에서는 안 운다(useMoveSound).
+  const [soundOn, toggleSound] = useMoveSound(snapshot?.ply ?? 0);
 
   const intervention = snapshot?.intervention ?? null;
   const intervening = intervention !== null && interventionEpisode > seenEpisode;
@@ -623,6 +628,7 @@ export function GameScreen() {
           me={me}
           flipped={flipped}
           boardRef={boardRef}
+          sound={{ on: soundOn, toggle: toggleSound }}
           // **개입 중에도 만질 수 있다.** 그때 판의 뜻은 하나다 — 「그 수를 그대로 뒀다면」.
           // 카드를 닫으면 대국의 판으로 돌아온다(`playable`).
           interactive={playable}

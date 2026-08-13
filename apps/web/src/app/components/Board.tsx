@@ -127,6 +127,11 @@ interface BoardProps {
   /** 판 요소. 駒台와의 거리를 재는 쪽이 잡는다. */
   boardRef?: RefObject<HTMLDivElement | null>;
   interactive: boolean;
+  /**
+   * 착수음 스위치. **없으면 버튼이 안 나온다** — 되짚기에는 착수가 없어서 켤 것이 없다.
+   * 그늘 토글과 나란히 서므로 판이 주는 두 손잡이가 한자리에 모인다.
+   */
+  sound?: { on: boolean; toggle: () => void };
   onSquare: (usi: string) => void;
 }
 
@@ -252,6 +257,7 @@ export function Board({
   flipped,
   boardRef,
   interactive,
+  sound,
   onSquare,
 }: BoardProps) {
   /**
@@ -397,19 +403,35 @@ export function Board({
         ))}
       </div>
 
-      {/* WebGL이 안 잡히면 아예 안 내놓는다. 눌러도 아무 일이 안 일어나는 버튼은
-          「고장 났다」로 읽힌다. **회상 중에도 잠그지 않는다** — 그늘이 강제로 켜지지
-          않으므로(위 `exposed`) 끄지 못하게 할 이유가 없다. */}
-      {ready && (
-        <button
-          type="button"
-          className="exposure-toggle"
-          aria-pressed={exposed}
-          title="相手の駒が利いていて、こちらが受けていないマスに影が落ちる"
-          onClick={() => setShowExposure((on) => !on)}
-        >
-          相手の利き
-        </button>
+      {/* 판이 주는 손잡이들. WebGL이 안 잡히면 그늘 쪽은 아예 안 내놓는다 — 눌러도
+          아무 일이 안 일어나는 버튼은 「고장 났다」로 읽힌다. **회상 중에도 잠그지
+          않는다** — 그늘이 강제로 켜지지 않으므로(위 `exposed`) 끄지 못하게 할 이유가
+          없다. */}
+      {(ready || sound) && (
+        <div className="board-toggles">
+          {sound && (
+            <button
+              type="button"
+              className="board-toggle"
+              aria-pressed={sound.on}
+              title="駒を置く音を鳴らす"
+              onClick={sound.toggle}
+            >
+              駒音
+            </button>
+          )}
+          {ready && (
+            <button
+              type="button"
+              className="board-toggle"
+              aria-pressed={exposed}
+              title="相手の駒が利いていて、こちらが受けていないマスに影が落ちる"
+              onClick={() => setShowExposure((on) => !on)}
+            >
+              相手の利き
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
