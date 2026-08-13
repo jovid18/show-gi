@@ -68,28 +68,33 @@ func NewBuilder(mate MateSearcher, search MultiSearcher, depth int) *Builder {
 // **에러를 안 돌려준다.** 문항이 없는 것은 고장이 아니라 흔한 결과이고(10수 만에 投了한
 // 판이 실제로 그렇다), 하나를 못 만든 것이 나머지를 버릴 이유도 아니다.
 //
-// 대신 **끝까지 봤는가**를 함께 준다. 거짓이면 나온 것이 「이 판에 문항이 없다」가 아니라
-// **「끝까지 못 봤다」**이고, 그 둘은 화면에서 전혀 다른 말이 되어야 한다 — 부르는 쪽은
-// 거짓일 때 아무것도 안 적는다(server/ws.go generateQuiz).
+// 대신 **엔진이 한 번이라도 답했는가**를 함께 준다. 거짓이면 빈 결과가 「이 판에 문항이
+// 없다」가 아니라 **「아무것도 못 봤다」**이고, 그 둘은 화면에서 전혀 다른 말이 되어야 한다 —
+// 부르는 쪽은 거짓이면서 비었을 때만 아무것도 안 적는다(server/ws.go generateQuiz).
 //
-// **엔진이 아예 없는 것은 「못 본」 것이 아니다.** 그 배포에는 문항이라는 것이 없고, 그건
+// **한 자리를 못 본 것과 통째로 못 본 것을 가른다.** 중반의 무관한 국면 하나에서 solver 가
+// 결론을 못 낸 것은 흔한 일이고(df-pn이 timeout 하는 자리다) 그때 나머지는 다 봤으므로
+// 「문항이 없다」는 결론이 성립한다. 아무것도 못 본 쪽은 배포가 생성 도중에 껴서 엔진 풀이
+// 먼저 닫힌 경우다 — 그때만 결론을 못 낸다.
+//
+// **엔진이 아예 없는 것도 「못 본」 것이 아니다.** 그 배포에는 문항이라는 것이 없고, 그건
 // 사실이라 그대로 적어도 된다.
-func (b *Builder) Build(ctx context.Context, in Input) (q Quiz, complete bool) {
+func (b *Builder) Build(ctx context.Context, in Input) (q Quiz, measured bool) {
 	posAt := replay(in)
 	if len(posAt) == 0 {
 		return Quiz{}, true
 	}
 
-	complete = true
+	answers := 0
 	if b.mate != nil {
-		item, ok := b.mateItem(ctx, in, posAt)
-		q.Mate, complete = item, complete && ok
+		item, n := b.mateItem(ctx, in, posAt)
+		q.Mate, answers = item, answers+n
 	}
 	if b.search != nil {
-		items, ok := b.bestItems(ctx, in, posAt, q.Mate)
-		q.Best, complete = items, complete && ok
+		items, n := b.bestItems(ctx, in, posAt, q.Mate)
+		q.Best, answers = items, answers+n
 	}
-	return q, complete
+	return q, answers > 0 || (b.mate == nil && b.search == nil)
 }
 
 // replay 는 手数마다의 국면을 만든다. `posAt[i]` 는 **i手目까지 둔 뒤**의 국면이다.

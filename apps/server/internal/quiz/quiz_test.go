@@ -114,9 +114,9 @@ func TestMateItemFindsMateInOne(t *testing.T) {
 
 	// 판이 그 국면에서 시작해 아직 한 수도 안 두어진 모양으로 넣는다.
 	in := Input{StartSFEN: mate1SFEN, Human: shogi.Black}
-	q, complete := b.Build(context.Background(), in)
-	if !complete {
-		t.Error("complete = false, but the solver answered everything")
+	q, measured := b.Build(context.Background(), in)
+	if !measured {
+		t.Error("measured = false, but the solver answered")
 	}
 
 	if q.Mate == nil {
@@ -602,34 +602,34 @@ func TestConvertedNeedsAnActualCheckmate(t *testing.T) {
 func TestBuildReportsADegradedRun(t *testing.T) {
 	in := Input{StartSFEN: mate1SFEN, Human: shogi.Black}
 
-	q, complete := NewBuilder(&fakeMate{limit: 7, unproven: true}, nil, 12).Build(context.Background(), in)
+	q, measured := NewBuilder(&fakeMate{limit: 7, unproven: true}, nil, 12).Build(context.Background(), in)
 	if q.Mate != nil {
 		t.Fatalf("got a mate item from a solver that never answered: %+v", q.Mate)
 	}
-	if complete {
-		t.Error("complete = true, but the solver answered nothing")
+	if measured {
+		t.Error("measured = true, but the solver answered nothing")
 	}
 
 	// 엔진이 아예 없는 배포는 **못 본 것이 아니다.** 그 배포에 문항이 없는 것은 사실이라
 	// 그대로 적어도 된다.
-	q, complete = NewBuilder(nil, nil, 12).Build(context.Background(), in)
+	q, measured = NewBuilder(nil, nil, 12).Build(context.Background(), in)
 	if q.Mate != nil || len(q.Best) != 0 {
 		t.Fatalf("got items without an engine: %+v", q)
 	}
-	if !complete {
-		t.Error("complete = false with no engine at all — that deployment simply has no questions")
+	if !measured {
+		t.Error("measured = false with no engine at all — that deployment simply has no questions")
 	}
 }
 
 // 「최선수는?」 쪽도 같다 — 못 잰 것과 조건에 안 맞는 것은 다른 말이다.
 func TestBuildReportsAFailedCandidateSearch(t *testing.T) {
 	in := gameInput()
-	if _, complete := build(&failingSearch{}, in); complete {
-		t.Error("complete = true, but every candidate search failed")
+	if _, measured := build(&failingSearch{}, in); measured {
+		t.Error("measured = true, but every candidate search failed")
 	}
-	// 조건에 안 맞아 빠지는 것은 온전한 회차다.
-	if _, complete := build(&fakeSearch{}, in); !complete {
-		t.Error("complete = false, but nothing failed — the positions just did not qualify")
+	// 조건에 안 맞아 빠지는 것은 다 본 회차다.
+	if _, measured := build(&fakeSearch{}, in); !measured {
+		t.Error("measured = false, but every candidate was answered — they just did not qualify")
 	}
 }
 

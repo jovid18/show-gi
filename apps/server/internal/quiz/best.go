@@ -22,10 +22,10 @@ type candidate struct {
 // 두 기준이 서로 다른 것을 걸러 낸다 — **낙폭은 「사람이 여기서 틀렸다」이고, gap은 「정답이
 // 하나뿐이다」다.** 낙폭만 쓰면 정답이 여럿인 국면이 문항이 되어 좋은 수를 둔 사람이
 // 「不正解」를 받고, gap만 쓰면 사람이 이미 맞게 둔 국면이 뽑힌다.
-// ok=false 는 **엔진이 못 답한 후보가 있었다**는 뜻이다(mateItem 과 같은 규약).
+// 두 번째 값은 엔진이 **답한 후보의 수**다(mateItem 과 같은 규약).
 func (b *Builder) bestItems(
 	ctx context.Context, in Input, posAt []shogi.Position, mate *MateItem,
-) ([]BestItem, bool) {
+) ([]BestItem, int) {
 	// **詰み 문항과 같은 국면만 뺀다.**
 	//
 	// 한때 그 手数부터 **뒤를 통째로** 잘랐는데, `mateItem` 이 판에서 **가장 이른** 詰み을
@@ -46,11 +46,11 @@ func (b *Builder) bestItems(
 	}
 
 	var items []BestItem
-	failed := 0
+	answered := 0
 	for _, c := range cands {
-		item, ok, err := b.score(ctx, in, posAt[c.index], c.index)
-		if err {
-			failed++
+		item, ok, failed := b.score(ctx, in, posAt[c.index], c.index)
+		if !failed {
+			answered++
 		}
 		if !ok {
 			continue
@@ -69,7 +69,7 @@ func (b *Builder) bestItems(
 	if len(items) > BestMaxItems {
 		items = items[:BestMaxItems]
 	}
-	return items, failed == 0
+	return items, answered
 }
 
 // candidates 는 사람이 둔 수마다의 낙폭을 기록에서 세어 큰 순으로 준다. **엔진을 안 부른다.**

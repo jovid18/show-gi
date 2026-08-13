@@ -484,7 +484,7 @@ func (h *gameHandler) generateQuiz(parent context.Context, rec store.GameRecord)
 	var q quiz.Quiz
 	if h.opts.Quiz != nil {
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), quizTimeout)
-		built, complete := h.opts.Quiz.Build(ctx, quizInput(rec))
+		built, measured := h.opts.Quiz.Build(ctx, quizInput(rec))
 		cut := ctx.Err() != nil
 		cancel()
 
@@ -500,9 +500,13 @@ func (h *gameHandler) generateQuiz(parent context.Context, rec store.GameRecord)
 		//
 		// 시한만 보면 모자란다. **배포가 생성 도중에 끼면** 풀이 먼저 닫혀
 		// (`main` 의 defer 순서가 엔진 → DB다) 모든 탐색이 즉시 실패하는데, 그때 ctx는
-		// 멀쩡하고 결과만 비어 있다 — 그래서 생성기가 「끝까지 봤는가」를 따로 말한다.
-		if (cut || !complete) && built.Empty() {
-			log.Printf("ws: quiz: game %d: an incomplete run found nothing (timed out: %v) — leaving no row rather than claiming there was nothing", rec.ID, cut)
+		// 멀쩡하고 결과만 비어 있다 — 그래서 생성기가 「한 번이라도 답을 받았는가」를 따로 말한다.
+		//
+		// **한 자리를 못 본 것으로는 안 버린다.** 중반의 무관한 국면 하나에서 solver 가
+		// 결론을 못 내는 것은 흔하고(df-pn이 timeout 하는 자리다), 그것으로 행을 안 남기면
+		// 그 판은 영영 5분을 기다린 뒤 「안 왔다」에 서게 된다 — 「못 만들었다」가 사실인데도.
+		if (cut || !measured) && built.Empty() {
+			log.Printf("ws: quiz: game %d: nothing was measured (timed out: %v) — leaving no row rather than claiming there was nothing", rec.ID, cut)
 			return
 		}
 		q = built

@@ -52,8 +52,8 @@ func gameInput() Input {
 // build 는 「최선수는?」 문항만 뽑는다. `Build` 가 값 둘을 주므로 시험이 매번 풀어 쓰지
 // 않도록 여기서 한 번만 편다.
 func build(fs MultiSearcher, in Input) ([]BestItem, bool) {
-	q, complete := NewBuilder(nil, fs, 12).Build(context.Background(), in)
-	return q.Best, complete
+	q, measured := NewBuilder(nil, fs, 12).Build(context.Background(), in)
+	return q.Best, measured
 }
 
 // positions 는 그 판의 手数별 국면이다. 시험이 SFEN으로 후보를 지정하려면 필요하다.
@@ -281,10 +281,12 @@ func TestBestItemsSurviveAFailureElsewhere(t *testing.T) {
 		}},
 		failOn: posAt[6].SFEN(),
 	}
-	items, complete := build(fs, in)
+	items, measured := build(fs, in)
 
-	if complete {
-		t.Error("complete = true, but one candidate search failed")
+	// **한 자리를 못 본 것은 「아무것도 못 봤다」가 아니다.** 나머지를 봤으므로 「문항이
+	// 없다」도 결론으로 성립하고, 부르는 쪽은 그 결론을 남길 수 있어야 한다.
+	if !measured {
+		t.Error("measured = false, but the other candidates were answered")
 	}
 	if len(items) != 1 || items[0].Ply != 8 {
 		t.Fatalf("items = %+v, want the one that was measured", items)

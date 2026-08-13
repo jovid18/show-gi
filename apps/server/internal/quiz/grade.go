@@ -175,7 +175,9 @@ func GradeBest(item BestItem, move string) (bool, error) {
 	if err := pos.ValidateMove(m); err != nil {
 		return false, ErrBadMove
 	}
-	return move == item.Answer, nil
+	// **정본끼리 견준다.** 저장할 때 정본으로 못 박아 둔 이유가(best.go) 여기서 요청
+	// 문자열을 그대로 쓰면 사라진다 — 파서가 느슨해지는 날 **맞은 답이 「不正解」가 된다.**
+	return m.USI() == item.Answer, nil
 }
 
 // LegalMovesAt 은 그 국면의 합법수 전부다. 「최선수는?」 문항이 쓰는 자리라 **王手로 좁히지
