@@ -421,7 +421,11 @@ func mateMessage(p quiz.MateProgress, bestJa string) string {
 		return "王手ではありません。詰将棋では一手ごとに王手をかけ続けます。"
 
 	case quiz.MateWrong:
-		head := "この手では詰みを逃します。"
+		// **「詰みません」이라고 단정하지 않는다.** `Rest == 0` 은 solver 가 자기 한계
+		// (`ENGINE_MATE_PLIES`, 기본 11) 안에서 詰み을 못 찾았다는 뜻이고, 그 한계를 넘겨
+		// 늘어난 詰み은 **여전히 강제된다** — 7手 뿌리에서 한 手 낭비하면 13手가 될 수 있다.
+		// 그때 「詰みません」은 거짓이 되므로, 아는 만큼만 말한다.
+		head := "この手では詰みが読めなくなります。"
 		if p.Rest > 0 {
 			head = fmt.Sprintf("詰みは残りますが、%d手に伸びてしまいます。", 2+p.Rest)
 		}
