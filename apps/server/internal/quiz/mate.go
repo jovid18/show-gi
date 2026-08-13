@@ -271,7 +271,15 @@ func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position
 
 		nodes, ok := sol.buildTree(ctx, pos, d)
 		if !ok {
-			log.Printf("quiz: dropped the mate item at ply %d (%d-ply mate): the tree is incomplete", i, d)
+			// **버린 이유를 갈라 적는다.** 예산이 남았는데 버렸다면 어딘가에서 solver 가
+			// 결론을 못 냈다는 뜻이고, 그것은 `DepthLimit`(기본 11) 밖으로 늘어난 갈래일 수
+			// 있다 — 7手 뿌리에서 한 手 낭비하면 13手가 된다. 뭉쳐 적으면 프로덕션에서
+			// **詰み 문항이 늘 사라지는 이유**를 첫 판에서 못 읽는다(§53).
+			why := "the solver did not conclude somewhere in the tree"
+			if sol.budget <= 0 {
+				why = "the search budget ran out"
+			}
+			log.Printf("quiz: dropped the mate item at ply %d (%d-ply mate): %s", i, d, why)
 			return nil, false
 		}
 		return &MateItem{Ply: i, SFEN: pos.SFEN(), Plies: d, Converted: converted, Nodes: nodes}, true

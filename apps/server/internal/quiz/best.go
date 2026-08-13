@@ -140,11 +140,21 @@ func (b *Builder) score(ctx context.Context, in Input, pos shogi.Position, i int
 		return BestItem{}, false, false
 	}
 
+	// **정답을 정본 표기로 적어 둔다.** `top.Move` 는 엔진이 낸 문자열이고 채점 때 오는 수는
+	// 룰 엔진이 만든 것이라(LegalMovesAt) 두 쪽이 서로 맞춰진 적이 없다 — 지금은 파서가
+	// 정본만 받아 같지만(shogi.ParseUSIMove) 그 성질에 **정답 판정을 매어 두지 않는다.**
+	// 못 읽는 수라면 표기도 채점도 성립하지 않으므로 문항으로 안 만든다.
+	answer, err2 := shogi.ParseUSIMove(top.Move)
+	if err2 != nil {
+		log.Printf("quiz: best item at ply %d: engine gave an unreadable move %q", i, top.Move)
+		return BestItem{}, false, false
+	}
+
 	return BestItem{
 		Ply:  i,
 		SFEN: pos.SFEN(),
 		// cp는 **사람 관점**이다 — 그 국면의 수번이 사람이라 수번 관점이 곧 그것이다.
-		Answer:   top.Move,
+		Answer:   answer.USI(),
 		AnswerCp: top.ScoreCp,
 		SecondCp: second.ScoreCp,
 		Played:   in.Moves[i],
