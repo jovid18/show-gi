@@ -164,22 +164,26 @@ func TestPromotedRookExtraStepIsNotACross(t *testing.T) {
 	}
 }
 
-// **成桂·成銀에는 桂·銀의 이름을 안 붙인다.** 둘 다 金의 움직임이 되어 「桂가 둘로 뛴다」도
-// 「銀이 사이에 打つ」도 성립하지 않는다 — 腹銀에서 成銀을 뺀 것과 같은 기준이고, 실 기보의
-// `▲5二成銀` 에 「割打ちの銀」이 떴던 자리다(06-status.md §34 ⑤).
+// **成駒에는 生駒의 이름을 안 붙인다.**
 //
-// 龍·馬는 반대로 **든다.** 飛의 縦横과 角의 斜め가 그대로 남아 있어서다.
-func TestPromotedPiecesKeepOnlyTheNamesTheyStillEarn(t *testing.T) {
+// 成桂·成銀은 둘 다 金의 움직임이 되어 「桂가 둘로 뛴다」도 「銀이 사이에 打つ」도 성립하지
+// 않는다 — 腹銀에서 成銀을 뺀 것과 같은 기준이고, 실 기보의 `▲5二成銀` 에 「割打ちの銀」이
+// 떴던 자리다(06-status.md §34 ⑤).
+//
+// **龍·馬도 같이 뺀다.** 움직임은 남아 있지만 이름이 「飛車」·「角」을 말하고, 실측에서
+// 그 절반이 成駒이면서 종반에 쏠려 있다(forkNames · 회차 1 #14). 한때 반대로 들었던
+// 자리이고, 사람이 둔 판이 그것을 뒤집었다.
+func TestPromotedPiecesDoNotBorrowTheBaseNames(t *testing.T) {
 	for _, tc := range []struct {
 		name, sfen string
 		want       string // 빈 값이면 이름이 붙으면 안 된다
 	}{
 		{"成桂", "8k/9/9/3g1g3/4+N4/9/9/9/8K b - 1", ""},
 		{"成銀", "8k/9/9/3g1g3/4+S4/9/9/9/8K b - 1", ""},
-		{"龍", "8k/9/4g4/9/1g2+R4/9/9/9/8K b - 1", "juji_bisha"},
-		// 두 金을 5五 馬의 **대각 양쪽**(7三·3三)에 둔다. 한쪽을 敵玉으로 두면 그건
-		// 両取り가 아니라 王手金取り라 이제 안 잡힌다(targetSquares 가 玉을 뺀다).
-		{"馬", "8k/9/2g3g2/9/4+B4/9/9/9/8K b - 1", "kaku_ryodori"},
+		// 형태는 그대로 縦横·斜め다 — 안 붙는 이유가 형태가 아니라 **이름**이라는 것을
+		// 못박으려고, 생駒였다면 붙었을 국면을 그대로 쓴다.
+		{"龍", "8k/9/4g4/9/1g2+R4/9/9/9/8K b - 1", ""},
+		{"馬", "8k/9/2g3g2/9/4+B4/9/9/9/8K b - 1", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, ok := Fork(forkBoard(t, tc.sfen), shogi.SquareOf(5, 5), shogi.Black)

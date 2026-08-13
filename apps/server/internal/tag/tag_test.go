@@ -43,7 +43,7 @@ func codes(tags []Tag) []string {
 func TestEveryShapeMatchesItsOwnSquares(t *testing.T) {
 	for _, sh := range castles {
 		pos := place(shogi.Black, sh.squares...)
-		if !sh.matches(pos, shogi.Black) {
+		if !sh.matches(pos, shogi.Black, nil) {
 			t.Errorf("%s: 자기 좌표에서 안 뜬다", sh.tag.Code)
 		}
 	}
@@ -56,11 +56,11 @@ func TestEveryShapeMatchesItsOwnSquares(t *testing.T) {
 func TestShapesMirrorForGote(t *testing.T) {
 	for _, sh := range castles {
 		pos := place(shogi.White, sh.squares...)
-		if !sh.matches(pos, shogi.White) {
+		if !sh.matches(pos, shogi.White, nil) {
 			t.Errorf("%s: 後手 진영에서 안 뜬다", sh.tag.Code)
 		}
 		// 先手 좌표 그대로 놓으면 後手 것으로 읽혀서는 안 된다.
-		if sh.matches(place(shogi.Black, sh.squares...), shogi.White) {
+		if sh.matches(place(shogi.Black, sh.squares...), shogi.White, nil) {
 			t.Errorf("%s: 先手 배치를 後手 것으로 읽는다", sh.tag.Code)
 		}
 	}
@@ -76,7 +76,7 @@ func TestOneMissingSquareIsNotTheCastle(t *testing.T) {
 	for _, sh := range castles {
 		for i := range sh.squares {
 			partial := append(append([]square{}, sh.squares[:i]...), sh.squares[i+1:]...)
-			if sh.matches(place(shogi.Black, partial...), shogi.Black) {
+			if sh.matches(place(shogi.Black, partial...), shogi.Black, nil) {
 				t.Errorf("%s: %d번째 칸이 비어도 뜬다", sh.tag.Code, i)
 			}
 		}
@@ -103,10 +103,10 @@ func TestMoreSpecificCastleWins(t *testing.T) {
 	kata := shapeByCode(t, "kata_mino")
 
 	pos := place(shogi.Black, hon.squares...)
-	if !kata.matches(pos, shogi.Black) {
+	if !kata.matches(pos, shogi.Black, nil) {
 		t.Fatal("전제가 깨졌다: 本美濃 국면에서 片美濃가 안 맞는다")
 	}
-	got, ok := pick(castles, pos, shogi.Black)
+	got, ok := pick(castles, pos, shogi.Black, nil)
 	if !ok || got.Code != "hon_mino" {
 		t.Errorf("本美濃 국면인데 %v 로 골랐다", got.Code)
 	}

@@ -11,15 +11,24 @@ const (
 )
 
 // forkNames 는 両取り를 건 駒마다의 이름이다 — 이름이 駒로 갈리는 것이 이 手筋의 성질이라
-// 「両取り」로 뭉치지 않는다. 成桂·成銀을 뺀 기준과 龍·馬의 **[미확정]** 은
-// 06-status.md §34 ⑤ · §44.
+// 「両取り」로 뭉치지 않는다. 成桂·成銀을 뺀 기준은 06-status.md §34 ⑤.
+//
+// **龍·馬는 안 센다.** §44 가 [미확정] 으로 남겼던 자리이고, 사람이 둔 판의 223手가 그것을
+// 닫았다 — 龍이 成香과 銀을 縦横으로 노리는 것을 「十字飛車」라 불렀다(회차 1 #14).
+// 이유가 둘이고 같은 방향을 가리킨다:
+//
+//	이름이 「飛車」·「角」을 말한다. 龍·馬는 그 駒가 아니다
+//	실측에서 juji_bisha 의 53%가 龍이고 그 중앙이 111手다 — 종반의 龍은 서 있기만 해도
+//	縦横 둘을 노려서, 이름이 「이 수가 手筋이다」가 아니라 「龍이 강하다」를 말한다
+//
+// 게이트로는 못 막는다. 엔진은 「이 **수**가 손해인가」를 묻지 「両取り가 이득인가」를
+// 묻지 않는다(§44). **자르는 방향이 안전한 쪽이다** — 안 뜨면 힌트가 없을 뿐이지만,
+// 틀린 이름은 초심자가 검증할 수 없는 것을 가르친다.
 var forkNames = map[shogi.PieceType]Tag{
-	shogi.Knight:     {Code: "fundoshi_no_kei", NameJa: "ふんどしの桂", Kind: KindTesuji},
-	shogi.Silver:     {Code: "wariuchi_no_gin", NameJa: "割打ちの銀", Kind: KindTesuji},
-	shogi.Rook:       {Code: "juji_bisha", NameJa: "十字飛車", Kind: KindTesuji},
-	shogi.PromRook:   {Code: "juji_bisha", NameJa: "十字飛車", Kind: KindTesuji},
-	shogi.Bishop:     {Code: "kaku_ryodori", NameJa: "角による両取り", Kind: KindTesuji},
-	shogi.PromBishop: {Code: "kaku_ryodori", NameJa: "角による両取り", Kind: KindTesuji},
+	shogi.Knight: {Code: "fundoshi_no_kei", NameJa: "ふんどしの桂", Kind: KindTesuji},
+	shogi.Silver: {Code: "wariuchi_no_gin", NameJa: "割打ちの銀", Kind: KindTesuji},
+	shogi.Rook:   {Code: "juji_bisha", NameJa: "十字飛車", Kind: KindTesuji},
+	shogi.Bishop: {Code: "kaku_ryodori", NameJa: "角による両取り", Kind: KindTesuji},
 }
 
 // targetSquares 는 그 駒가 딸 수 있는 상대 駒가 **선 칸들**이다 — 수를 세면 成·不成이

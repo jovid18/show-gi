@@ -130,7 +130,7 @@ curl -sS "https://wdoor.c.u-tokyo.ac.jp/shogi/x/$DAY/" |
 
 ```sh
 # 10판씩 본다. seed 가 표본을 정하고, 바꾸면 새 10판이 나온다.
-# **`-run Scan` 이다** — `-run ScanTags` 는 다섯 중 하나만 돌린다
+# **`-run Scan` 이다** — `-run ScanTags` 는 일곱 중 하나만 돌린다
 SHOWGI_KIFU_SCAN=1 go test ./internal/kifu/ -run Scan -v
 SHOWGI_KIFU_SEED=7 SHOWGI_KIFU_SCAN=1 go test ./internal/kifu/ -run Scan -v
 
