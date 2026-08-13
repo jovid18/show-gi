@@ -112,7 +112,7 @@ export function App() {
         {!onGame && (
           <Suspense fallback={<p className="review-status">読み込み中…</p>}>
             {onMe ? (
-              <ProfileScreen active />
+              <ProfileScreen />
             ) : route.name === 'quiz' ? (
               // **판마다 새로 세운다.** `id` 만 갈아 끼우면 이 컴포넌트가 그대로 살아서
               // 앞 판의 답과 기다린 횟수를 물려받고, 한 틱 동안 **남의 문항**을 그린다.
