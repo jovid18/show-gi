@@ -188,12 +188,23 @@ export function GameScreen() {
       .slice(0, -1)
       .map((m) => m.usi)
       .join(' ');
+    /**
+     * **판을 끝낸 수에는 평가치가 없다.** 서버가 끝난 국면에서 탐색 전에 돌아서므로
+     * `evalCp` 도 `mateIn` 도 안 온다 — 그대로 적으면 그 줄은 값이 비어 목록 **맨 아래**로
+     * 가는데, `lets_mate` 분기에서는 그 수가 바로 詰ます 수다. 판을 끝낸 수가 −30000 밑에
+     * 서면 목록이 정반대를 말한다.
+     *
+     * **그 수 자체가 詰み이므로 이 자리에서는 1手詰め다** — 후보 목록의 詰み 수가 엔진에서
+     * 같은 값으로 오는 것과 맞는다. 手詰まり는 詰み이 아니라 그 말을 못 쓰고, 실전에서
+     * 거의 안 나와 값 없이 둔다.
+     */
+    const ended = node.status === 'checkmate' ? 1 : undefined;
     const flip = tried.by === 'engine';
     const entry: ExploredMove = {
       usi: tried.usi,
       ja: tried.ja,
       cp: node.evalCp === undefined ? undefined : flip ? -node.evalCp : node.evalCp,
-      mateIn: node.mateIn === undefined ? undefined : flip ? -node.mateIn : node.mateIn,
+      mateIn: ended ?? (node.mateIn === undefined ? undefined : flip ? -node.mateIn : node.mateIn),
     };
 
     setExplored((prev) => {
@@ -517,9 +528,22 @@ export function GameScreen() {
     setOrigin(null);
   };
 
+  /**
+   * 분기에서 자리를 옮기기 전에 **고르던 것을 버린다.**
+   *
+   * `origin` 과 `pending` 은 **떠나는 국면에 대한 선택**이다. 들고 가면 다음 판 위에서 뜻이
+   * 달라진다 — 成りますか를 띄운 채 「一手戻る」를 누르고 「成る」를 누르면, 그 칸에 아직 駒가
+   * 서 있는 한 **사람이 고른 것과 다른 수**가 조용히 두어진다. 되짚기 화면이 手数를 옮길 때
+   * 같은 둘을 버리는 것과 같은 자리다(`ReviewDetail` 의 `goto`).
+   */
+  const leaveSpot = (): void => {
+    setOrigin(null);
+    setPending(null);
+  };
+
   /** 목록에서 골라 두는 길. 판 위에서 두는 것과 **같은 한 수**다 — 고르는 자리만 다르다. */
   const playFromList = (usi: string): void => {
-    setOrigin(null);
+    leaveSpot();
     branch.play(usi);
   };
 
@@ -627,15 +651,20 @@ export function GameScreen() {
               explored={exploredHere}
               playable={playable}
               onPlay={playFromList}
-              onBack={branch.back}
-              onRoot={branch.toRoot}
+              // **무르는 것도 자리를 옮기는 일이다**(`leaveSpot`).
+              onBack={() => {
+                leaveSpot();
+                branch.back();
+              }}
+              onRoot={() => {
+                leaveSpot();
+                branch.toRoot();
+              }}
               onRetry={openBranch}
-              // **고르던 것을 전부 버리고 닫는다.** 그것들은 분기의 국면에 대해 고른 것이라,
-              // 남겨 두면 대국의 판 위에서 뜻이 달라진다 — 成りますか를 띄운 채로 닫으면
-              // 「成る」가 분기의 수를 **진짜 수로** 둬 버린다.
+              // 닫을 때는 그 위에 하나가 더 있다 — 남겨 두면 「成る」가 분기의 수를
+              // **대국의 진짜 수로** 둬 버린다.
               onDismiss={() => {
-                setOrigin(null);
-                setPending(null);
+                leaveSpot();
                 setSeenEpisode(interventionEpisode);
               }}
             />
