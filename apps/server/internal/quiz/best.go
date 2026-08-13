@@ -26,15 +26,21 @@ type candidate struct {
 func (b *Builder) bestItems(
 	ctx context.Context, in Input, posAt []shogi.Position, mate *MateItem,
 ) ([]BestItem, bool) {
-	// **詰み 문항의 국면부터는 뽑지 않는다** — 「츠메 관련 제외」가 여기다. 詰み이 성립한
-	// 뒤의 국면은 최선수가 詰み 수순이라 두 문항이 같은 것을 묻게 된다. 그 뒤에도 mate
-	// 점수가 아닌 국면이 남을 수 있지만, 그쪽은 아래 `IsMate` 가 한 번 더 거른다.
-	limit := len(posAt)
-	if mate != nil && mate.Ply < limit {
-		limit = mate.Ply
+	// **詰み 문항과 같은 국면만 뺀다.**
+	//
+	// 한때 그 手数부터 **뒤를 통째로** 잘랐는데, `mateItem` 이 판에서 **가장 이른** 詰み을
+	// 고르므로(§53) 120手 판의 25手째에서 놓친 3手詰め 하나가 中盤과 終盤 전부를 후보에서
+	// 지웠다 — 진짜 블런더가 있는 구간이 그쪽이다.
+	//
+	// 자르려던 이유(「詰み 뒤의 국면은 최선수가 詰み 수순이라 두 문항이 같은 것을 묻는다」)는
+	// **국면마다 `IsMate` 가 이미 거른다**(score). 앞자리를 통째로 자르는 것은 그 물음에
+	// 너무 무딘 도구였다.
+	skip := -1
+	if mate != nil {
+		skip = mate.Ply
 	}
 
-	cands := b.candidates(in, posAt, limit)
+	cands := b.candidates(in, posAt, skip)
 	if len(cands) > BestCandidates {
 		cands = cands[:BestCandidates]
 	}
@@ -67,13 +73,15 @@ func (b *Builder) bestItems(
 }
 
 // candidates 는 사람이 둔 수마다의 낙폭을 기록에서 세어 큰 순으로 준다. **엔진을 안 부른다.**
-func (b *Builder) candidates(in Input, posAt []shogi.Position, limit int) []candidate {
+//
+// skip 은 詰み 문항이 쓰는 手数다(없으면 -1). 그 하나만 뺀다.
+func (b *Builder) candidates(in Input, posAt []shogi.Position, skip int) []candidate {
 	var out []candidate
 	// i=0(첫 수)은 **앞의 평가치가 없어서** 낙폭을 못 센다. 그 자리는 정석 구간이기도 하다.
 	start := max(in.OpeningPlies, 1)
 
-	for i := start; i < limit && i < len(in.Moves) && i < len(posAt); i++ {
-		if posAt[i].Turn != in.Human {
+	for i := start; i < len(in.Moves) && i < len(posAt); i++ {
+		if i == skip || posAt[i].Turn != in.Human {
 			continue
 		}
 		before, ok := in.PlayerEval(i - 1)

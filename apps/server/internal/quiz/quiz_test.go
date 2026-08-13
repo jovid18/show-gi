@@ -642,3 +642,23 @@ func (failingSearch) SearchMultiPV(
 }
 
 var errFake = errors.New("quiz test: engine is down")
+
+// **「모른다」도 기억한다.** solver 는 같은 한계에서 결정적이라 두 번째도 같은 답이고,
+// 그 답은 가장 오래 걸리는 종류다 — 전치가 흔한 詰み 트리에서 예산이 그만큼 샌다.
+func TestMateSolverRemembersWhatItCouldNotProve(t *testing.T) {
+	fm := &fakeMate{limit: 7, unproven: true}
+	sol := newMateSolver(fm)
+	pos, _ := shogi.ParseSFEN(mate1SFEN)
+
+	for range 3 {
+		if _, known := sol.distance(context.Background(), pos); known {
+			t.Fatal("an unproven position reported a distance")
+		}
+	}
+	if fm.calls != 1 {
+		t.Errorf("asked the solver %d times, want 1 — the same position cannot be worth re-searching", fm.calls)
+	}
+	if sol.budget != MateSearchBudget-1 {
+		t.Errorf("budget = %d, want %d — only the first ask should cost anything", sol.budget, MateSearchBudget-1)
+	}
+}

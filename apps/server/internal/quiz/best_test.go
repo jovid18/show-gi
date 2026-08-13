@@ -158,23 +158,38 @@ func TestBestItemsAreSortedByGapAndCapped(t *testing.T) {
 	}
 }
 
-func TestBestItemsStopBeforeTheMateItem(t *testing.T) {
-	// 詰み이 성립한 뒤의 국면은 최선수가 詰み 수순이라 두 문항이 같은 것을 묻는다.
+// **詰み 문항이 쓰는 국면 하나만 뺀다.**
+//
+// 한때 그 手数부터 뒤를 통째로 잘랐는데, 詰み 문항은 판에서 **가장 이른** 詰み이라
+// (§53) 이른 자리에서 하나 나오면 中盤과 終盤이 통째로 후보에서 사라졌다 — 진짜
+// 블런더가 있는 구간이 그쪽이다.
+func TestBestItemsSkipOnlyTheMatePosition(t *testing.T) {
 	in := gameInput()
 	posAt := positions(t, in)
 
 	fs := &fakeSearch{lines: map[string][]usi.SearchLine{
 		posAt[2].SFEN(): {line("2f2e", 900), line("x", 0)},
+		posAt[4].SFEN(): {line("6f6e", 900), line("x", 0)},
 		posAt[6].SFEN(): {line("3f3e", 900), line("x", 0)},
 	}}
 	b := NewBuilder(nil, fs, 12)
 	items, _ := b.bestItems(context.Background(), in, posAt, &MateItem{Ply: 4})
 
-	if len(items) != 1 {
-		t.Fatalf("items = %d, want 1: %+v", len(items), items)
+	if len(items) != 2 {
+		t.Fatalf("items = %d, want 2: %+v", len(items), items)
 	}
-	if items[0].Ply != 2 {
-		t.Errorf("ply = %d, want 2 — ply 6 sits past the mate item", items[0].Ply)
+	for _, it := range items {
+		if it.Ply == 4 {
+			t.Errorf("ply 4 is the mate item's own position — the two questions would ask the same thing")
+		}
+	}
+	// 詰み 뒤의 자리가 살아 있어야 한다.
+	if items[0].Ply != 2 && items[1].Ply != 6 {
+		t.Errorf("items = %+v, want plies 2 and 6", items)
+	}
+	// **엔진에는 물어봤어야 한다** — 詰み 뒤라고 미리 자르지 않는다.
+	if !fs.asked[posAt[6].SFEN()] {
+		t.Error("the engine was never asked about a position after the mate item")
 	}
 }
 

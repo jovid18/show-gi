@@ -453,8 +453,11 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 
 // quizTimeout 은 문항을 만드는 데 주는 시한이다.
 //
-// 詰み 트리의 예산이 2.7분이고(quiz.MateSearchBudget) gap 쪽이 12국면 × 956ms ≈ 12초라
-// (§10), 그 둘에 여유를 준 값이다. 넘으면 만들던 것을 버린다 — 반쪽 트리는 채점에 쓸 수 없다.
+// **회차를 자르는 자리는 여기 하나다.** 詰み 탐색 예산이 2400 × 107ms ≈ 4.3분이라
+// (quiz.MateSearchBudget) 그 아래로는 예산이 먼저 걸리지 않고, gap 쪽 12국면 × 956ms ≈ 12초를
+// 더해도 이 값이 마지막이다 — 여유는 40초 남짓으로 **넉넉하지 않다**.
+//
+// 넘으면 만들던 것을 버린다. 반쪽 트리는 채점에 쓸 수 없다.
 const quizTimeout = 5 * time.Minute
 
 // quizSaveTimeout 은 만든 것을 남기는 데 주는 시한이다. DB 쓰기 한 번이라 짧다.

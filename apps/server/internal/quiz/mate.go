@@ -12,13 +12,21 @@ import (
 // memo의 키가 `RepetitionKey`(手数를 뗀 SFEN)인 것이 요점이다. **詰みまでの手数는 국면의
 // 성질이고 거기까지 온 순서와 무관하다**, 그래서 전치가 같은 행으로 합쳐져도 값이 맞는다.
 type mateSolver struct {
-	mate   MateSearcher
-	memo   map[string]int
-	budget int
+	mate MateSearcher
+	memo map[string]int
+	// unknown 은 solver 가 결론을 못 낸 국면이다. **memo 와 갈라 둔다** — 저쪽의 0은
+	// 「詰み이 없다」는 결론이고 이쪽은 결론이 아니다.
+	unknown map[string]struct{}
+	budget  int
 }
 
 func newMateSolver(m MateSearcher) *mateSolver {
-	return &mateSolver{mate: m, memo: make(map[string]int), budget: MateSearchBudget}
+	return &mateSolver{
+		mate:    m,
+		memo:    make(map[string]int),
+		unknown: make(map[string]struct{}),
+		budget:  MateSearchBudget,
+	}
 }
 
 // distance 는 그 국면에서 **수번 측이** 詰ます 手数를 준다. 0이면 詰み이 없다.
@@ -31,6 +39,9 @@ func (s *mateSolver) distance(ctx context.Context, pos shogi.Position) (int, boo
 	if d, ok := s.memo[key]; ok {
 		return d, true
 	}
+	if _, unknown := s.unknown[key]; unknown {
+		return 0, false
+	}
 	if s.budget <= 0 {
 		return 0, false
 	}
@@ -39,10 +50,12 @@ func (s *mateSolver) distance(ctx context.Context, pos shogi.Position) (int, boo
 	// **국면을 SFEN으로 넘긴다.** 手数 경로로 부르면 트리가 깊어질수록 경로가 길어지고,
 	// 여기서 쓰는 키와도 어긋난다.
 	r, err := s.mate.SearchMate(ctx, pos.SFEN(), nil)
-	if err != nil {
-		return 0, false
-	}
-	if !r.Proven {
+	if err != nil || !r.Proven {
+		// **「모른다」도 기억한다.** solver 는 같은 `DepthLimit` 에서 결정적이라 두 번째도
+		// 같은 답이고, 그 답은 **가장 오래 걸리는 종류**다(한계까지 다 찾아본 뒤의 timeout).
+		// 전치로 같은 국면에 다시 오는 것이 詰み 트리에서는 흔해서, 안 적어 두면 그때마다
+		// 예산이 한 칸씩 빠진다.
+		s.unknown[key] = struct{}{}
 		return 0, false
 	}
 	d := len(r.Moves)
@@ -203,7 +216,10 @@ func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position
 		}
 	}()
 
-	for i := in.OpeningPlies; i < len(posAt); i++ {
+	// **정석 구간도 훑는다.** `OpeningPlies` 는 「최선수는?」 문항의 것이고(둘 만한 수가
+	// 여럿인 자리를 문항으로 안 내려는 값이다) 詰み에는 그 이유가 없다 — 棒銀·早石田의
+	// 함정으로 20手 안에 끝나는 판이 **이 기능이 겨냥하는 초심자 그 자체**다.
+	for i := 0; i < len(posAt); i++ {
 		pos := posAt[i]
 		if pos.Turn != in.Human {
 			continue
