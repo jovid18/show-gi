@@ -5,7 +5,14 @@
 
 import type { WhatIfNode } from '@/protocol/whatif';
 
-export type Status = 'playing' | 'checkmate' | 'stalemate' | 'resigned' | 'repetition';
+/**
+ * `aborted` 는 **상대의 수를 못 얻어서 판을 접은 것**이다. 승패가 없으므로 `winner` 가 안 온다.
+ *
+ * `resigned` 와 갈라져 있는 것이 요점이다 — 엔진이 답하지 않은 것을 「相手が投了しました」로
+ * 그리면 지고 있던 판이 화면에서 이긴 판이 된다. 기록에서는 `abandoned` 로 남아 **이어하기
+ * 목록에 그대로 올라온다.**
+ */
+export type Status = 'playing' | 'checkmate' | 'stalemate' | 'resigned' | 'repetition' | 'aborted';
 export type Player = 'human' | 'engine';
 
 export interface KifuMove {
@@ -124,6 +131,22 @@ export interface StyleTag {
   kind: 'castle' | 'formation' | 'opening' | 'tesuji';
 }
 
+/**
+ * 대국은 그대로 도는데 **서버가 못 해준 것** 하나.
+ *
+ * 개입(`intervention`)과 갈라져 온다. 저쪽은 판에 대한 판단이고 이쪽은 서버 사정이라,
+ * 섞으면 「시한을 넘겨 확인 못 했다」가 화면에서 「이 수는 괜찮았다」로 읽힌다 — 초심자는
+ * 아무 말이 없으면 통과한 것으로 읽으므로 그 둘이 정반대다.
+ *
+ * 개입과 수명이 같다. 다음 착수에서 서버가 지운다.
+ */
+export interface Notice {
+  /** 기계용 코드. **화면은 이걸로 문장을 짓지 않는다** — `message` 를 그대로 그린다. */
+  code: string;
+  /** 화면에 그대로 나가는 일본어. */
+  message: string;
+}
+
 /** 어느 쪽을 잡았나. 서버의 `games.my_color` 와 같은 값이다. */
 export type Color = 'b' | 'w';
 
@@ -156,6 +179,8 @@ export interface Snapshot {
   judging: boolean;
   intervention?: Intervention;
   hint?: Hint;
+  /** 대국은 계속되는데 서버가 못 해준 것. 다음 착수에서 사라진다. */
+  notice?: Notice;
   /**
    * 플레이어가 지금 짜고 있는 囲い·전법. **상대 쪽은 오지 않는다** — 서버가 안 보낸다.
    *

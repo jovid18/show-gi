@@ -1746,7 +1746,11 @@ body {
   font-size: 0.875rem;
 }
 
-.rejection {
+/* 착수 거절과 서버 사정 알림이 **같은 모양**이다. 둘 다 판 옆에 한 줄로 서고, 갈리는 것은
+   글이지 색이 아니다 — 판 위의 색은 이미 뜻이 정해져 있어서(초록·빨강·파랑) 여기서 하나를
+   더 꺼내면 그 어휘가 흔들린다. */
+.rejection,
+.notice {
   margin: 0;
   padding: 0.7rem 0.9rem;
   background: var(--surface);

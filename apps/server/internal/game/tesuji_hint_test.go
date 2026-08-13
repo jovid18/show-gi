@@ -3,6 +3,7 @@ package game
 import (
 	"context"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
@@ -172,6 +173,68 @@ func TestTesujiHintTagsAreDeduped(t *testing.T) {
 
 	if got := tesujiHintTags(opts); len(got) != 1 {
 		t.Errorf("이름 하나를 기대했는데 %+v", got)
+	}
+}
+
+// countingSearch 는 게이트를 늘 통과시키면서 **몇 번 불렸는지**만 센다.
+type countingSearch struct {
+	mu    sync.Mutex
+	calls int
+}
+
+func (s *countingSearch) SearchMultiPV(context.Context, string, []string, int, int) (usi.SearchResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.calls++
+	return usi.SearchResult{ScoreCp: 0}, nil // 낙폭 0 — 언제나 통과
+}
+
+func (s *countingSearch) count() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.calls
+}
+
+// **쿨다운은 「물어본 자리」에서 잰다.** 띄운 자리에서만 재면 게이트가 한 번도 안 열리는
+// 판에서 이 탐색이 사람 차례마다 돌고, 그 판이 실제로 멈췄다(06-status.md §56).
+func TestTesujiHintGateWaitsForTheCooldownEvenAfterAMiss(t *testing.T) {
+	search := &countingSearch{}
+	st := &state{
+		cfg:    Config{TesujiHint: search, HumanColor: shogi.Black},
+		status: StatusPlaying,
+		pos:    mustSFEN(t, forkOneMoveAway),
+	}
+	done := make(chan tesujiHintResult, 4)
+
+	// **안 물어본 회차는 기다릴 것이 없다.** `tesujiHinting` 이 곧 「지금 띄웠다」다.
+	ask := func(ply int) {
+		t.Helper()
+		st.moves = make([]Move, ply)
+		st.searchGen++
+		st.maybeTesujiHint(t.Context(), done)
+		if st.tesujiHinting {
+			st.applyTesujiHint(<-done)
+		}
+	}
+
+	ask(0) // 先手의 첫 차례. **0手目라 「아직 안 물어봤다」와 겹치던 자리다**
+	first := search.count()
+	if first == 0 {
+		t.Fatal("첫 회차부터 안 물어봤다 — 이 국면에는 새 이름이 생기는 수가 있다")
+	}
+
+	// 쿨다운 안에서 사람 차례가 다시 온다. 국면은 움직이지만 手数는 아직 멀다.
+	for ply := 2; ply < TagHintCooldown; ply += 2 {
+		ask(ply)
+	}
+	if got := search.count(); got != first {
+		t.Fatalf("쿨다운 안에서 %d번 더 물어봤다 (%d → %d)", got-first, first, got)
+	}
+
+	// 쿨다운을 넘기면 다시 묻는다. 안 그러면 이 방향이 힌트를 아예 죽인 것이 된다.
+	ask(TagHintCooldown)
+	if search.count() == first {
+		t.Fatal("쿨다운을 넘겼는데 다시 안 물어봤다")
 	}
 }
 

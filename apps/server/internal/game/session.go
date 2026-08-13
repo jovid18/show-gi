@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
@@ -126,6 +127,12 @@ type Config struct {
 	// 여기 있는 수는 **기보이지 시도가 아니다** — 물러진 수는 애초에 기보에 없다
 	// (docs/01-core.md §5). 그래서 되만든 판에는 롤백된 수가 안 온다.
 	StartMoves []string
+	// MoveDeadline·ExtraDeadline 은 대국 중 엔진 탐색에 거는 시한이다. 0이면 위의 기본값이다.
+	//
+	// **깊이는 여기서 안 건드린다.** 시한이 하는 일은 결과를 버리는 것 하나이고, 넘겼다고
+	// 얕게 다시 묻지 않는다 — 그러면 상대의 강함이 서버 사정에 따라 달라진다(01-core.md §4).
+	MoveDeadline  time.Duration
+	ExtraDeadline time.Duration
 	// OpponentOpening 은 상대가 따르는 진형의 일본어 이름이다. 스냅샷으로 그대로 나간다.
 	//
 	// **이름만 받는다.** 수순은 상대(book_opponent.go)가 들고 있고 세션은 그것을 모른다 —
@@ -142,6 +149,20 @@ var ErrNotYourTurn = errors.New("game: not your turn")
 
 // ErrFinished 는 이미 끝난 대국에 착수를 보냈을 때 나온다.
 var ErrFinished = errors.New("game: game already finished")
+
+// 대국 중 엔진 탐색에 거는 시한이다. **자를 시간이 아니라 버릴 시점이다** — 깊이 기반이라
+// 중간 결과는 depth N 결과가 아니고, 넘기면 결과를 통째로 버린다(usi.Engine.SearchDepth).
+//
+// **값이 둘인 것은 「무엇을 먼저 포기하나」다.** 넷이 같은 풀을 다투므로(cmd/api/main.go)
+// 부가 기능이 오래 붙들면 대국이 굶는다. 숫자의 근거와 실측은 06-status.md §56.
+const (
+	// DefaultMoveDeadline 은 **판이 그 자리에서 멈추는** 두 경로의 시한이다 — 상대 수와 개입 판정.
+	DefaultMoveDeadline = 60 * time.Second
+
+	// DefaultExtraDeadline 은 **없어도 판이 도는** 두 경로의 시한이다 — 詰み 게이지와 手筋 힌트.
+	// 이 둘은 조용히 없어지고, 사람이 알아채는 쪽은 언제나 위 둘이다.
+	DefaultExtraDeadline = 20 * time.Second
+)
 
 type cmdKind int
 
@@ -233,6 +254,8 @@ type state struct {
 	// hint 는 그 횟수에 열린 안내다. intervention 과 수명이 같지만 뜻이 다르다 —
 	// intervention 은 **방금 무엇을 했나**이고 이쪽은 **지금 무엇을 할까**다.
 	hint *Hint
+	// notice 는 **우리가 못 해준 것**이다. 위 둘과 수명이 같고 뜻이 또 다르다(Notice).
+	notice *Notice
 
 	// 詰み 게이지도 세션 goroutine 밖에서 돈다(탐색·판정과 같은 이유).
 	//
@@ -266,6 +289,9 @@ type state struct {
 	tesujiHinting     bool
 	tesujiHintCount   int
 	tesujiHintLastPly int
+	// tesujiHintAsked 는 **한 번이라도 물어봤는가**다. `tesujiHintLastPly` 의 0을 「아직 없다」로
+	// 겸하면 0手目의 물음이 쿨다운을 안 걸고, 그 자리가 先手의 첫 차례다.
+	tesujiHintAsked bool
 
 	// skill 은 추정기가 마지막으로 올려보낸 값이다. **상대를 고를 때만 쓴다.**
 	//
@@ -348,6 +374,21 @@ func (st *state) replay(moves []string) error {
 		return fmt.Errorf("%w: the game is already over at ply %d", ErrCannotResume, len(moves))
 	}
 	return nil
+}
+
+// moveDeadline·extraDeadline 은 설정된 시한이거나 기본값이다.
+func (st *state) moveDeadline() time.Duration {
+	if st.cfg.MoveDeadline > 0 {
+		return st.cfg.MoveDeadline
+	}
+	return DefaultMoveDeadline
+}
+
+func (st *state) extraDeadline() time.Duration {
+	if st.cfg.ExtraDeadline > 0 {
+		return st.cfg.ExtraDeadline
+	}
+	return DefaultExtraDeadline
 }
 
 func (s *Session) run(ctx context.Context, st *state) {
@@ -463,7 +504,8 @@ func (st *state) playHuman(ctx context.Context, usi string, engineDone chan engi
 
 	// 새 수를 두면 직전 개입은 지운다 — 화면에 남아 있으면 방금 둔 수를 가리키는 것처럼 보인다.
 	// 힌트도 같이 내린다. 또 물러지면 한 단계 올라간 것이 새로 뜬다.
-	st.intervention, st.hint = nil, nil
+	// 알림도 같다 — 「앞 수를 못 확인했다」가 남아 있으면 이번 수를 가리키는 말이 된다.
+	st.intervention, st.hint, st.notice = nil, nil, nil
 
 	// 물러질 수 있으니 착수 전 국면을 들고 있는다.
 	st.prevPos, st.prevPrevTo = st.pos, st.prevTo
@@ -503,9 +545,14 @@ func (st *state) startJudging(ctx context.Context, judgeDone chan judgeResult) b
 	moves := append([]string(nil), st.usis...)
 	played := st.moves[len(st.moves)-1]
 	ply := len(st.usis)
+	deadline := st.moveDeadline()
 
 	go func() {
-		j, err := analyst.Judge(ctx, start, moves, ply)
+		// **시한은 판정에만 건다.** 아래 문장 만들기는 자기 시한이 따로 있고(explain.Deadline),
+		// 여기 얹으면 판정이 오래 걸린 만큼 문장 쪽 예산이 줄어 카드가 늘 결정적 문구로 떨어진다.
+		jctx, cancel := context.WithTimeout(ctx, deadline)
+		j, err := analyst.Judge(jctx, start, moves, ply)
+		cancel()
 
 		// **문장도 여기서 만든다.** 세션 goroutine 밖이라는 조건이 판정과 똑같고, 무엇보다
 		// 카드가 뜨기 **전**에 문장이 손에 들어와야 한다 — 나중에 올려 보내 갈아끼우면
@@ -544,7 +591,11 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 
 	if r.err != nil {
 		// 판정이 실패했다고 대국을 멈추지 않는다. 개입은 부가 기능이고 대국이 본체다.
+		//
+		// **다만 조용히 넘기지도 않는다.** 개입이 없는 화면은 「이 수는 괜찮았다」와 똑같이
+		// 생겼는데, 여기서는 확인 자체를 못 한 것이다(Notice).
 		log.Printf("game: judging failed, letting the move stand: %v", r.err)
+		st.notice = newNotice(NoticeJudgeSkipped)
 	}
 
 	// **판정이 성공한 수는 걸렸든 통과했든 실력 신호다.** 물러진 수만 세면 표본이 개입에
@@ -628,6 +679,17 @@ func (st *state) rollback(r judgeResult) {
 	st.moves = st.moves[:len(st.moves)-1]
 	st.usis = st.usis[:len(st.usis)-1]
 	st.searchGen++ // 물러진 국면에 대한 늦은 결과를 버리기 위해
+
+	// **되돌아온 국면은 手筋 힌트를 물어봤던 바로 그 국면이다** — 같은 手数·같은 판이라
+	// 답이 그대로 참이다. 세대만 새로 붙이면 다시 안 물어도 되고(maybeTesujiHint 의 쿨다운이
+	// 같은 手数를 다시 안 묻는다), 안 붙이면 물러질수록 힌트가 사라진다 — 계단이 手筋을
+	// 짚어야 하는 자리가 정확히 거기다(pointHintAtTesuji).
+	//
+	// **아직 도는 중이면 손대지 않는다.** 세대를 옮기면 그 결과가 첫 검사에서 버려지고
+	// `tesujiHinting` 이 true로 남아 그 판의 힌트가 통째로 멈춘다.
+	if !st.tesujiHinting && st.tesujiHintAsked && st.tesujiHintLastPly == len(st.usis) {
+		st.tesujiHintGen = st.searchGen
+	}
 
 	// **물러진 수는 여기서만 남는다.** 기보에는 안 들어가므로, 이 한 줄을 안 쓰면
 	// 개입에 오염되지 않은 유일한 실력 신호가 그대로 사라진다(01-core.md §5).
@@ -742,9 +804,12 @@ func (st *state) maybeThink(ctx context.Context, engineDone chan engineResult) {
 	// **값으로 복사해 넘긴다.** 탐색이 도는 동안 추정치가 갈릴 수 있고, goroutine이 세션
 	// 상태를 읽으면 그 순간 소유 규약이 깨진다.
 	sk := st.skill
+	deadline := st.moveDeadline()
 
 	go func() {
-		usi, err := opp.Choose(ctx, start, moves, sk)
+		tctx, cancel := context.WithTimeout(ctx, deadline)
+		usi, err := opp.Choose(tctx, start, moves, sk)
+		cancel()
 		select {
 		case engineDone <- engineResult{usi: usi, err: err}:
 		case <-ctx.Done():
@@ -779,11 +844,14 @@ func (st *state) maybeGauge(ctx context.Context, gaugeDone chan mateResult) {
 	gen := st.gaugeGen
 	mate := st.cfg.Mate
 	start := st.start
+	deadline := st.extraDeadline()
 	// 슬라이스를 그대로 넘기면 다음 착수의 append 가 같은 배열을 건드릴 수 있다.
 	moves := append([]string(nil), st.usis...)
 
 	go func() {
-		r, err := mate.SearchMate(ctx, start, moves)
+		gctx, cancel := context.WithTimeout(ctx, deadline)
+		r, err := mate.SearchMate(gctx, start, moves)
+		cancel()
 		select {
 		case gaugeDone <- mateResult{gen: gen, plies: len(r.Moves), err: err}:
 		case <-ctx.Done():
@@ -820,9 +888,13 @@ func (st *state) applyEngineMove(ctx context.Context, r engineResult, engineDone
 	}
 	st.thinking = false
 
+	// **상대의 수를 못 얻은 것과 상대가 던진 것은 다르다.** 아래 `resign` 은 엔진이 스스로
+	// 그렇게 답한 것이라 사람의 승리가 맞지만, 여기는 시한을 넘겼거나 엔진이 고장 난
+	// 것이고 그때 「相手が投了しました」로 끝내면 판이 기록에서 이긴 판이 된다 —
+	// 승패를 지어내지 않고 中断으로 접는다(StatusAborted).
 	if r.err != nil {
-		log.Printf("game: engine search failed: %v", r.err)
-		st.finish(StatusResigned, SideHuman)
+		log.Printf("game: engine search failed, aborting the game: %v", r.err)
+		st.finish(StatusAborted, "")
 		st.broadcast()
 		return
 	}
@@ -842,7 +914,7 @@ func (st *state) applyEngineMove(ctx context.Context, r engineResult, engineDone
 	}
 	if err != nil {
 		log.Printf("game: engine returned an unplayable move %q: %v", r.usi, err)
-		st.finish(StatusResigned, SideHuman)
+		st.finish(StatusAborted, "")
 		st.broadcast()
 		return
 	}
@@ -974,8 +1046,10 @@ func (st *state) computeTagHints() {
 // 手筋은 「그래서 得인가」를 엔진이 답해야 이름이 붙는다(tesuji.go). 그래서 게이지와 같은
 // 모양이 된다 — goroutine 으로 던지고 세대로 걸러 받는다(maybeGauge).
 //
-// **엔진을 걸기 전에 룰로 거른다.** 새 이름이 생기는 수는 국면당 대부분 0이라
-// (06-status.md §34 · §42) 이 한 줄이 사람 차례마다 도는 탐색을 거의 다 없앤다.
+// **엔진을 걸기 전에 룰로 거른다.** 다만 그것이 걸러 주는 양은 적다 — 사람이 끝까지 둔
+// 판에서 사람 차례 149회 중 **117회에 후보가 있었다**(06-status.md §56). 그래서 게이트를
+// 실제로 아끼는 것은 이 필터가 아니라 아래 쿨다운이고, **필터 자체도 싸지 않아**
+// 이 함수는 세션 goroutine 밖에서 돈다(tesujiOptions).
 func (st *state) maybeTesujiHint(ctx context.Context, done chan tesujiHintResult) {
 	if st.cfg.TesujiHint == nil || st.status != StatusPlaying {
 		return
@@ -990,29 +1064,53 @@ func (st *state) maybeTesujiHint(ctx context.Context, done chan tesujiHintResult
 	if st.tesujiHintCount >= TagHintMaxPerGame {
 		return
 	}
+	// **쿨다운은 「띄운 자리」가 아니라 「물어본 자리」에서 잰다.** 뜬 자리에서만 재면 게이트가
+	// 한 번도 안 열리는 판에서 이 탐색이 **사람 차례마다** 돈다 — 후보 하나에 탐색 하나이므로
+	// 최대 일곱 번이고(TesujiHintMaxCandidates), 풀은 셋이다. 실제로 그렇게 돌아 298手 내내
+	// 대국 쪽이 줄을 섰다(06-status.md §56). 상한(tesujiHintCount)은 그대로 뜬 횟수를 센다.
 	ply := len(st.moves)
-	if st.tesujiHintLastPly > 0 && ply > st.tesujiHintLastPly && ply-st.tesujiHintLastPly < TagHintCooldown {
-		return
-	}
-
-	opts := tesujiOptions(st.pos, st.cfg.HumanColor)
-	if len(opts) == 0 {
-		st.tesujiOpts, st.tesujiHintGen = nil, st.searchGen
+	if st.tesujiHintAsked && ply-st.tesujiHintLastPly < TagHintCooldown {
 		return
 	}
 
 	st.tesujiHinting = true
 	st.tesujiHintGen = st.searchGen
+	st.tesujiHintLastPly, st.tesujiHintAsked = ply, true
+	// **앞 국면의 후보를 여기서 버린다.** 세대를 이 국면에 붙인 순간 스냅샷이 그것을 실어
+	// 보내는데(snapshot), 아직 이 국면에 대해 아는 것이 없다. 룰 필터가 goroutine 안으로
+	// 들어가면서 그 사이가 밀리초에서 **초**가 됐다 — 종반 2.46초 동안 지난 국면의 手筋
+	// 이름이 새 판에 붙어 있게 된다(§56).
+	st.tesujiOpts = nil
 
 	gen := st.tesujiHintGen
 	search := st.cfg.TesujiHint
 	start := st.start
 	color := st.cfg.HumanColor
+	deadline := st.extraDeadline()
+	// **판도 값으로 복사해 넘긴다.** 룰로 거르는 일이 goroutine 안으로 들어갔고, 세션은
+	// 그 사이에도 다음 수를 받는다. `shogi.Position` 이 값 타입이라 복사면 끝이다.
+	pos := st.pos
 	// 슬라이스를 그대로 넘기면 다음 착수의 append 가 같은 배열을 건드릴 수 있다.
 	moves := append([]string(nil), st.usis...)
 
 	go func() {
-		kept, dropped, err := gateTesujiOptions(ctx, search, JudgeDepth, start, moves, opts, color)
+		hctx, cancel := context.WithTimeout(ctx, deadline)
+		defer cancel()
+
+		// **룰 필터도 여기서 돈다.** 이 줄이 세션 goroutine 안에 있었고, 종반에 초 단위로
+		// 막았다(비용은 tesujiOptions, 실측은 06-status.md §56). 그동안 스냅샷도 投了도 못 받았다.
+		//
+		// 시한 안에 두는 것은 예산을 정직하게 세기 위해서다. 이 함수 자체는 ctx를 안 보므로
+		// 중간에 끊기지 않고, 오래 걸린 만큼 아래 게이트의 몫이 줄어든다.
+		opts := tesujiOptions(pos, color)
+		var (
+			kept    []TesujiOption
+			dropped int
+			err     error
+		)
+		if len(opts) > 0 {
+			kept, dropped, err = gateTesujiOptions(hctx, search, JudgeDepth, start, moves, opts, color)
+		}
 		select {
 		case done <- tesujiHintResult{gen: gen, opts: kept, dropped: dropped, err: err}:
 		case <-ctx.Done():
@@ -1030,22 +1128,21 @@ func (st *state) applyTesujiHint(r tesujiHintResult) {
 	if r.gen != st.searchGen {
 		return // 국면이 움직였다. 낡은 평가치로 이름을 붙이는 것이 게이트를 없애는 것과 같다
 	}
+	// **에러보다 먼저 센다.** 시한을 넘기면 남은 후보가 통째로 여기로 오는데(gateTesujiOptions),
+	// 에러 뒤에 두면 그 판에서 제일 많이 잘린 회차만 로그에 안 남는다.
+	if r.dropped > 0 {
+		// 잘린 것을 안 세면 「手筋이 없었다」와 「못 봤다」가 같은 화면이 된다.
+		log.Printf("game: tesuji hint skipped %d candidate(s)", r.dropped)
+	}
 	if r.err != nil {
 		// 힌트가 없다고 대국을 멈추지 않는다. 게이지·개입 판정과 같은 판단이다.
 		log.Printf("game: tesuji hint search failed, the hint stays quiet: %v", r.err)
 		return
 	}
-	if r.dropped > 0 {
-		// 잘린 것을 안 세면 「手筋이 없었다」와 「못 봤다」가 같은 화면이 된다.
-		log.Printf("game: tesuji hint skipped %d candidate(s) over the cap", r.dropped)
-	}
 
 	st.tesujiOpts = r.opts
 	if len(r.opts) > 0 {
-		if ply := len(st.moves); st.tesujiHintLastPly != ply {
-			st.tesujiHintCount++
-			st.tesujiHintLastPly = ply
-		}
+		st.tesujiHintCount++
 		st.pointHintAtTesuji()
 	}
 	st.broadcast()
@@ -1094,6 +1191,7 @@ func (st *state) snapshot() Snapshot {
 		Judging:         st.judging,
 		Intervention:    st.intervention,
 		Hint:            st.hint,
+		Notice:          st.notice,
 		StyleTags:       st.styleTags(),
 		OpponentOpening: st.cfg.OpponentOpening,
 	}

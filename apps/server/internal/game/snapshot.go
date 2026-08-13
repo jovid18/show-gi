@@ -22,6 +22,14 @@ const (
 	StatusStalemate  Status = "stalemate"  // 手詰まり — 쇼기에서는 이것도 패배다
 	StatusResigned   Status = "resigned"   // 投了
 	StatusRepetition Status = "repetition" // 千日手
+	// StatusAborted 는 **상대의 수를 못 얻어서** 판을 접은 것이다. 승패가 없다.
+	//
+	// 投了와 갈라 두는 것이 요점이다. 엔진이 답하지 않은 것을 「相手が投了しました」로
+	// 적으면 지고 있던 판이 기록에서 이긴 판이 되고, 그건 이 회차가 반대 방향으로 이미
+	// 한 번 겪은 실패다(playtests/2026-08-13-human-1.md). 기록에서는 `abandoned` 로
+	// 떨어지므로(server/recorder.go 의 resultOf) **이어하기 목록에 그대로 올라온다** —
+	// 다시 붙으면 엔진 풀이 빈 상태에서 같은 국면을 다시 묻는다.
+	StatusAborted Status = "aborted"
 )
 
 // Side 는 대국자다. 화면 문자열이 아니라 식별자이므로 영어로 둔다.
@@ -80,6 +88,9 @@ type Snapshot struct {
 	// 같지만 **뜻이 반대 방향**이라 따로 둔다 — 저쪽은 방금 둔 수를 말하고 이쪽은
 	// 지금 둘 수를 말한다. 화면도 다른 색으로 그린다.
 	Hint *Hint `json:"hint,omitempty"`
+
+	// Notice 는 **대국은 그대로 도는데 우리가 못 해준 것**이다. 다음 착수에서 지워진다.
+	Notice *Notice `json:"notice,omitempty"`
 
 	// StyleTags 는 플레이어의 囲い·전법과 **엔진이 이득으로 본 手筋**의 이름이다.
 	// **플레이어 쪽만 채운다** — 상대의 형태는 곧 상대의 계획이다(01-core.md §7).
@@ -209,6 +220,39 @@ type Intervention struct {
 	// 여기 있는 어느 수도 「지금 이렇게 두라」가 되지 않는다. 금지된 것은 플레이어가
 	// 뒀어야 할 수이고 이쪽은 **왜 나쁜가**에 속한다(01-core.md §1).
 	Refutation []RefutationMove `json:"refutation,omitempty"`
+}
+
+// Notice 는 대국을 멈추지 않은 실패 하나다.
+//
+// **개입(Intervention)과 갈라 둔다.** 저쪽은 판에 대한 판단이고 이쪽은 **우리 쪽 사정**이다.
+// 섞으면 「시한을 넘겨 못 확인했다」가 화면에서 「이 수는 괜찮았다」로 읽히는데, 학습 앱에서
+// 그 둘은 정반대다 — 초심자는 아무 말이 없으면 통과한 것으로 읽는다.
+type Notice struct {
+	// Code 는 기계용이다. 화면은 이걸로 문장을 짓지 않는다 — 표기가 두 벌이 되면
+	// 어긋났을 때 어느 쪽이 맞는지 알 수 없다(Intervention.Category 와 같은 자리).
+	Code string `json:"code"`
+	// Message 는 화면에 그대로 나가는 일본어다.
+	Message string `json:"message"`
+}
+
+// 알림 문구. **여기가 유일한 목록이다** — 화면은 Message 를 그대로 그린다.
+const (
+	// NoticeJudgeSkipped 는 방금 둔 수를 판정하지 못했다는 것이다. 수는 그대로 선다.
+	NoticeJudgeSkipped = "judge_skipped"
+)
+
+var noticeMessages = map[string]string{
+	NoticeJudgeSkipped: "今の手は確かめられませんでした。そのまま進みます。",
+}
+
+// newNotice 는 코드로 알림 하나를 만든다. 모르는 코드면 nil이다 — 빈 문구를 화면에
+// 띄우느니 아무 말도 안 하는 쪽이 낫다.
+func newNotice(code string) *Notice {
+	msg, ok := noticeMessages[code]
+	if !ok {
+		return nil
+	}
+	return &Notice{Code: code, Message: msg}
 }
 
 // 갇힘 힌트가 열리는 지점. **같은 국면에서 연속으로 물러진 횟수**다 — 통과하는 수를

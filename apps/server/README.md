@@ -85,18 +85,19 @@ docker run --rm --platform linux/arm64 --cpus 4 --network show-gi-net \
 
 **`-race` 를 빼지 않는다.** 엔진 프로세스와 세션 goroutine이 동시에 도는 구조라 데이터 경합이 가장 값비싼 버그다.
 
-| 환경변수                            | 없으면             | 쓰는 곳                                                                                      |
-| ----------------------------------- | ------------------ | -------------------------------------------------------------------------------------------- |
-| `SHOWGI_TEST_DATABASE_URL`          | DB 테스트 skip     | `internal/store`, `internal/intervene` 의 재채점 측정, `internal/game` 의 블런더 재분류 측정 |
-| `SHOWGI_USI_CMD`                    | 실엔진 테스트 skip | `TestRealEngine`, `TestWSAgainstRealEngine`                                                  |
-| `SHOWGI_MATE_CMD`                   | 詰み 측정 skip     | `TestMeasureMateSearch`, `TestMeasureBlunderMate`, `TestMeasureBlunderTsumero`               |
-| `SHOWGI_USI_CMD` + `SHOWGI_MEASURE` | 밴드 측정 skip     | `TestMeasureSkill*` — 실력 추정이 밴드를 옮기는 폭을 잰다(06-status.md §47). DB는 안 쓴다    |
-| `SHOWGI_MEASURE`                    | 측정 전부 skip     | `TestMeasure*` — 몇 분 걸린다                                                                |
-| `SHOWGI_GENERATE_TIER1`             | 사전 생성 skip     | `TestGenerateTier1` — **돈이 든다**. 아래                                                    |
-| `SHOWGI_KIFU_SCAN`                  | 기보 스캔 skip     | `internal/kifu` 의 `TestScan*` 다섯. 엔진도 DB도 안 쓴다                                     |
-| `SHOWGI_KIFU_DUMP`                  | 덤프 skip          | `TestDumpFormationCases` — 사례마다 마크다운 한 장을 그 경로에 떨군다                        |
-| `SHOWGI_TEST_ENGINE_PATH`           | 기보 임포트 skip   | `internal/kifu` 의 `TestImportGame`. **여기만 `SHOWGI_USI_CMD` 를 안 쓴다**                  |
-| `ORCA_API_KEY`                      | 실라우터 skip      | `TestRealRouter` — **돈이 든다.** 프롬프트를 고치면 여기가 첫 관문이다                       |
+| 환경변수                            | 없으면             | 쓰는 곳                                                                                               |
+| ----------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------- |
+| `SHOWGI_TEST_DATABASE_URL`          | DB 테스트 skip     | `internal/store`, `internal/intervene` 의 재채점 측정, `internal/game` 의 블런더 재분류 측정          |
+| `SHOWGI_USI_CMD`                    | 실엔진 테스트 skip | `TestRealEngine`, `TestWSAgainstRealEngine`                                                           |
+| `SHOWGI_MATE_CMD`                   | 詰み 측정 skip     | `TestMeasureMateSearch`, `TestMeasureBlunderMate`, `TestMeasureBlunderTsumero`                        |
+| `SHOWGI_USI_CMD` + `SHOWGI_MEASURE` | 밴드 측정 skip     | `TestMeasureSkill*` — 실력 추정이 밴드를 옮기는 폭을 잰다(06-status.md §47). DB는 안 쓴다             |
+| `SHOWGI_MEASURE`                    | 측정 전부 skip     | `TestMeasure*` — 몇 분 걸린다                                                                         |
+| `SHOWGI_MEASURE` 만                 | 부하 측정 skip     | `TestMeasureTagHintLoad` — 手筋 게이트가 한 판에 쓰는 비용(06-status.md §56). **엔진도 DB도 안 쓴다** |
+| `SHOWGI_GENERATE_TIER1`             | 사전 생성 skip     | `TestGenerateTier1` — **돈이 든다**. 아래                                                             |
+| `SHOWGI_KIFU_SCAN`                  | 기보 스캔 skip     | `internal/kifu` 의 `TestScan*` 다섯. 엔진도 DB도 안 쓴다                                              |
+| `SHOWGI_KIFU_DUMP`                  | 덤프 skip          | `TestDumpFormationCases` — 사례마다 마크다운 한 장을 그 경로에 떨군다                                 |
+| `SHOWGI_TEST_ENGINE_PATH`           | 기보 임포트 skip   | `internal/kifu` 의 `TestImportGame`. **여기만 `SHOWGI_USI_CMD` 를 안 쓴다**                           |
+| `ORCA_API_KEY`                      | 실라우터 skip      | `TestRealRouter` — **돈이 든다.** 프롬프트를 고치면 여기가 첫 관문이다                                |
 
 > **`SHOWGI_MEASURE` 는 혼자서는 아무것도 안 연다.** `TestMeasure*` 는 전부 `*_CMD` 와 **둘 다** 있어야 돈다. 한쪽만 주면 실엔진 테스트는 돌고 측정만 조용히 건너뛴다 — 초록이 「쟀다」는 뜻이 아닌 자리가 여기 한 겹 더 있다.
 
