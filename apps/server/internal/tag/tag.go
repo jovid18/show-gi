@@ -392,13 +392,52 @@ func squareFor(s square, c shogi.Color) int {
 	return shogi.SquareOf(10-s.file, 10-s.rank)
 }
 
-func (sh shape) matches(pos shogi.Position, c shogi.Color) bool {
+func (sh shape) matches(pos shogi.Position, c shogi.Color, dropped map[int]bool) bool {
 	for _, s := range sh.squares {
-		if pos.Board[squareFor(s, c)] != shogi.MakePiece(s.pt, c) {
+		sq := squareFor(s, c)
+		if pos.Board[sq] != shogi.MakePiece(s.pt, c) {
 			return false
+		}
+		if dropped[sq] {
+			return false // 打って 채운 칸은 「짰다」가 아니다 — droppedSquares
 		}
 	}
 	return true
+}
+
+// droppedSquares 는 **打으로 놓인 뒤 한 번도 안 움직인 자기 駒의 칸**이다.
+//
+// 囲い는 「玉을 감싸도록 駒를 옮겨 짓는 것」이라, 종반에 수비용으로 打은 金 하나가 우연히
+// 필수 칸을 채우는 것은 그 囲い를 지은 것이 아니다. 실제로 사람이 둔 판에서 **59手에
+// 金矢倉이 깨진 뒤 63手의 `G*6h` 하나로 左美濃가 한 手 동안 떴다**(회차 1 #5).
+//
+// 戦法의 OpeningPlies 와 **같은 문제의 다른 축**이다 — 그쪽은 종반에 떠돌던 飛가 中飛車가
+// 되는 것이었고(§44), 여기는 종반에 打은 金이 囲い를 만드는 것이다. 다만 **경계를 手数로
+// 걸지 않는다**: §44가 「美濃는 70수째에 서도 美濃다」로 정한 것은 그대로 맞고, 갈라야 할
+// 것은 늦은 것이 아니라 **옮겨 짓지 않은 것**이다.
+//
+// 상대 수는 안 봐도 된다. 打은 駒를 상대가 따 가면 그 칸이 적 駒가 되어 matches 가 먼저
+// 걸러 내고, 그 뒤 자기 駒가 그 칸으로 **옮겨** 오면 아래에서 false 로 지워진다.
+func droppedSquares(playerMoves []string) map[int]bool {
+	var out map[int]bool
+	for _, usi := range playerMoves {
+		m, err := shogi.ParseUSIMove(usi)
+		if err != nil {
+			continue
+		}
+		if m.IsDrop() {
+			if out == nil {
+				out = map[int]bool{}
+			}
+			out[int(m.To)] = true
+			continue
+		}
+		if out != nil {
+			delete(out, int(m.To)) // 옮겨 온 駒가 덮었다
+			delete(out, int(m.From))
+		}
+	}
+	return out
 }
 
 // pick 은 맞는 것 중 **필수 칸이 가장 많은 것**을 고른다.
@@ -406,11 +445,11 @@ func (sh shape) matches(pos shogi.Position, c shogi.Color) bool {
 // 판정 순서가 규칙의 일부인 것은 블런더 카테고리와 같다(01-core.md §3). 여기서는
 // 순서가 아니라 구체성으로 정하는데, 그래야 정의를 추가할 때 표의 순서를 신경 쓰지
 // 않아도 된다 — 本美濃는 片美濃의 칸을 모두 포함하므로 **항상** 本美濃가 이긴다.
-func pick(shapes []shape, pos shogi.Position, c shogi.Color) (Tag, bool) {
+func pick(shapes []shape, pos shogi.Position, c shogi.Color, dropped map[int]bool) (Tag, bool) {
 	best := -1
 	var found Tag
 	for _, sh := range shapes {
-		if len(sh.squares) > best && sh.matches(pos, c) {
+		if len(sh.squares) > best && sh.matches(pos, c, dropped) {
 			best, found = len(sh.squares), sh.tag
 		}
 	}
@@ -445,7 +484,7 @@ type Input struct {
 func Detect(in Input) []Tag {
 	var out []Tag
 
-	castle, castled := pick(castles, in.Pos, in.Color)
+	castle, castled := pick(castles, in.Pos, in.Color, droppedSquares(in.PlayerMoves))
 	if castled {
 		out = append(out, castle)
 	}
