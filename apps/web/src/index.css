@@ -3041,6 +3041,81 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* ── 棋力の目安 ──────────────────────────────────────────
+   총평 카드 안의 마지막 블록이다. **위에 선 하나로 가른다** — 위쪽은 「이 판이 어땠나」이고
+   여기는 「그래서 지금 어느 정도인가」라, 같은 카드 안이어도 성격이 다르다. */
+.skill-change {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.skill-change__head {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+}
+
+.skill-change__pair {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* 처음 두는 사람은 「전」이 없다. 한 칸만 쓰되 폭은 왼쪽에 둔다 — 가운데로 옮기면
+   같은 카드가 판마다 다른 배치로 뜬다. */
+.skill-change__pair--single {
+  grid-template-columns: 1fr;
+}
+
+.skill-change__arrow {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.rank {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.rank__label {
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+
+.rank__name {
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 눈금이 17칸이라 도트로 그리면 하나하나가 안 보인다(相手の強さ 는 5칸이라 도트다). */
+.rank__bar {
+  display: block;
+  height: 0.25rem;
+  border-radius: 0.125rem;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.rank__bar i {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+}
+
+/* **이 한 줄이 이 블록에서 제일 중요하다.** 段級을 공인된 실력으로 읽지 않게 한다 —
+   그래서 흐리게 두되 지우지는 않는다. */
+.skill-change__note {
+  margin: 0;
+  font-size: 0.6875rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
 /* ── 되짚기 퀴즈 ─────────────────────────────────────────
    문항은 그 판에서 나왔다(docs/06-status.md §53). 그래서 판·駒台는 되짚기와 **같은
    컴포넌트**이고, 이 절이 더하는 것은 문항을 세로로 세우는 자리와 채점 한 줄뿐이다.
