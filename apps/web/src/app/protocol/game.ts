@@ -229,11 +229,31 @@ export interface Snapshot {
  * `stats` 에 있다 — 같은 수를 두 곳에 두면 어긋났을 때 어느 쪽이 맞는지 알 수 없다
  * (서버의 `explain.GameFacts` 주석).
  */
+/**
+ * 段級 하나. **이름을 서버가 준다** — 화면이 `step` 에서 이름을 만들면 어휘가 두 벌이 되고,
+ * 척도를 늘리는 날 한쪽만 늘어난다(`skill.Rank`).
+ */
+export interface SkillRank {
+  /** 0..max, 클수록 세다. */
+  step: number;
+  max: number;
+  /** 「8級」·「初段」. */
+  nameJa: string;
+}
+
 export interface GameSummary {
   /** 화면에 그대로 나가는 일본어. **절대 비지 않는다** — LLM이 죽으면 결정적 문구가 온다. */
   body: string;
   /** 문장이 어디서 왔나. 0=캐시, 1=LLM, -1=결정적 문구. 화면에는 안 그린다. */
   tier: number;
+  /**
+   * 이 판에서 段級이 어떻게 움직였나. **없을 수 있다** — 판정이 표본 수를 못 채우면
+   * 이름을 안 붙인다. `before` 는 첫 판이거나 익명이면 따로 없다.
+   *
+   * 되짚기로 지난 판을 열 때는 언제나 없다 — 추정치는 사람에게 붙는 값이라 그때의
+   * 값을 판마다 남겨 두지 않았다.
+   */
+  skill?: { before?: SkillRank; after: SkillRank };
   stats: {
     /** 사람이 **확정한** 수. 물러진 수는 기보에 없으므로 여기에도 없다. */
     playerMoves: number;

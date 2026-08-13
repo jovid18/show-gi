@@ -333,6 +333,9 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// 않는다. nil이면 手筋 힌트만 꺼지고 囲い·전법 힌트는 그대로 뜬다.
 		TesujiHint: h.opts.Search,
 	}
+	// 총평이 段級 변화를 말하려면 판의 처음과 끝이 필요하다. 추정기가 없으면 nil이고,
+	// 그때는 총평도 그 자리를 안 그린다(skillRun.change).
+	var skills *skillRun
 	if h.opts.NewAnalyst != nil {
 		cfg.Analyst = h.opts.NewAnalyst()
 		// **판정이 있을 때만 실력 추정이 있다.** 추정기의 입력이 판정 결과뿐이라
@@ -340,7 +343,8 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		//
 		// 로그인한 사람은 **지난 판의 값에서 이어 시작하고 매 판정마다 저장된다**(skill.go).
 		// 익명 대국은 그대로 판마다 초기화된다 — 쌓을 자리가 없다(002_anonymous_games.sql).
-		cfg.Rater = skill.NewWorkerFrom(ctx, h.priorSkill(ctx, userID), h.saveSkill(ctx, userID))
+		skills = newSkillRun(h.priorSkill(ctx, userID))
+		cfg.Rater = skill.NewWorkerFrom(ctx, skills.before, skills.observing(h.saveSkill(ctx, userID)))
 	}
 	// DB가 없으면 기록하지 않고 대국은 그대로 된다 — 엔진·캐시와 같은 판단이다.
 	var recorder *dbRecorder
@@ -392,7 +396,7 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				// 한 번만 만든다 — 끝난 뒤에도 스냅샷이 또 올 수 있다(投了 확인 등).
 				if !summarized && snap.Status != game.StatusPlaying {
 					summarized = true
-					go h.sendSummary(ctx, out, recorder)
+					go h.sendSummary(ctx, out, recorder, skills)
 				}
 			case <-ctx.Done():
 				// **끝난 스냅샷이 이미 와 있는지 한 번 더 본다.**
@@ -406,7 +410,7 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					case snap, ok := <-snaps:
 						if ok && snap.Status != game.StatusPlaying {
 							summarized = true
-							go h.sendSummary(ctx, out, recorder)
+							go h.sendSummary(ctx, out, recorder, skills)
 						}
 					default:
 					}
@@ -432,7 +436,7 @@ const summaryWait = 5 * time.Second
 //
 // **세션을 안 건드린다.** 읽는 것은 DB뿐이고, 그래서 이 함수는 review.go 와 같은 성질이다 —
 // 이미 끝난 판을 읽는 일이다.
-func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recorder *dbRecorder) {
+func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recorder *dbRecorder, skills *skillRun) {
 	if recorder == nil || h.opts.Store == nil {
 		return // 기록이 없으면 셀 것이 없다. 총평도 없다
 	}
@@ -467,6 +471,10 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 	// **총평은 살아 있는 ctx로 만든다.** 끊긴 연결에 보낼 문장을 사느라 라우터를 부를
 	// 이유가 없고, 그쪽은 되짚기가 다시 청할 수 있다.
 	payload := summarize(ctx, h.opts.Summarizer, rec, h.opts.Level)
+	// **段級은 기록이 아니라 추정기에서 온다.** 기록에는 낙폭이 물러진 수에만 있어
+	// (§39 ⑥) 그것으로 다시 세면 통과한 수를 못 보고, 그 값은 상대가 겨냥한 강함과도
+	// 갈린다 — 화면의 두 숫자가 같은 곳에서 나와야 하는 이유는 06-status.md §31.
+	payload.Skill = skills.change()
 	emit(ctx, out, serverMsg{Type: "summary", Summary: &payload})
 }
 

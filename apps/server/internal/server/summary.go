@@ -33,6 +33,28 @@ type categoryCount struct {
 	Count  int    `json:"count"`
 }
 
+// rankView 는 段級 하나를 화면이 그릴 수 있는 모양으로 옮긴 것이다. **이름을 같이 보낸다** —
+// 화면이 Step 에서 이름을 만들면 어휘가 두 벌이 되고, 척도를 늘리는 날 한쪽만 늘어난다
+// (skill.Rank).
+type rankView struct {
+	// Step 은 0..Max 이고 클수록 세다. 눈금을 그리는 데 쓴다.
+	Step int `json:"step"`
+	Max  int `json:"max"`
+	// NameJa 는 「8級」·「初段」. 그대로 나간다.
+	NameJa string `json:"nameJa"`
+}
+
+// skillChange 는 이 판에서 段級이 어떻게 움직였나다.
+//
+// **대국 중에는 안 보낸다.** 자기 실력이 매 수 흔들리는 것을 보여 줄 이유가 없고
+// (skill.RiseRate 가 비대칭이라 블런더 하나에 몇 계단이 움직인다), 사람이 알고 싶은 것은
+// 한 판을 두고 나서의 결과다.
+type skillChange struct {
+	// Before 는 판을 시작할 때다. **없을 수 있다** — 첫 판이거나 익명이면 잰 적이 없다.
+	Before *rankView `json:"before,omitempty"`
+	After  rankView  `json:"after"`
+}
+
 // gameSummaryPayload 는 WS와 되짚기가 같이 쓰는 모양이다.
 type gameSummaryPayload struct {
 	// Body 는 화면에 그대로 나가는 일본어다. **절대 비지 않는다**(explain.Result).
@@ -40,6 +62,10 @@ type gameSummaryPayload struct {
 	// Tier 는 문장이 어디서 왔는가다. 0=캐시, 1=LLM, -1=결정적 문구.
 	Tier  int          `json:"tier"`
 	Stats summaryStats `json:"stats"`
+	// Skill 은 이 판의 段級 변화다. **되짚기에서는 언제나 nil**이다 — 추정치는 사람에게
+	// 붙는 값이라 지난 판을 여는 지금 시점에는 이미 다른 값이고, 그때의 값을 남겨 두지
+	// 않았다. 지난 판을 열어 「그때 몇 급이었나」를 말하려면 판마다 저장해야 한다.
+	Skill *skillChange `json:"skill,omitempty"`
 }
 
 // summarize 는 기록 하나를 총평으로 바꾼다. **Summarizer 가 nil이면 결정적 문구**가 나간다 —
