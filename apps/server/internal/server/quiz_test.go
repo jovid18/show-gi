@@ -174,8 +174,9 @@ func TestBestMessageNamesWhatWasPlayedInTheGame(t *testing.T) {
 	// 이 문항이 문제집이 아니라 **자기 기보**인 이유가 이 한 줄이다.
 	got := bestMessage(bestResponse{
 		Correct: false, Answer: "2f2e", AnswerJa: "▲2五歩",
+		Move: "3g3f", MoveJa: "▲3六歩",
 		Played: "6g6f", PlayedJa: "▲6六歩", AnswerCp: 300, SecondCp: 50,
-	})
+	}, "▲2五歩")
 	if !strings.Contains(got, "▲2五歩") {
 		t.Errorf("message = %q, want the answer", got)
 	}
@@ -183,9 +184,115 @@ func TestBestMessageNamesWhatWasPlayedInTheGame(t *testing.T) {
 		t.Errorf("message = %q, want the move actually played", got)
 	}
 
-	right := bestMessage(bestResponse{Correct: true, AnswerCp: 300, SecondCp: 50})
+	right := bestMessage(bestResponse{Correct: true, AnswerCp: 300, SecondCp: 50}, "▲2五歩")
 	if !strings.Contains(right, "250") {
 		t.Errorf("a correct answer should say the gap it was picked for, got %q", right)
+	}
+}
+
+// **낸 수부터 말한다.** 회차 1의 #17이 이 문장 하나다 — ▲3五金打를 낸 사람이 「正解は▲3五金
+// でした」만 읽으면, 채점이 맞았는데도 「내가 그것을 뒀는데 틀렸다고 한다」가 된다.
+func TestBestMessageNamesTheMoveJustPlayed(t *testing.T) {
+	got := bestMessage(bestResponse{
+		Correct: false, Answer: "4f3e", AnswerJa: "▲3五金",
+		Move: "G*3e", MoveJa: "▲3五金打",
+		Played: "G*3h", PlayedJa: "▲3八金打", AnswerCp: 910, SecondCp: 548,
+	}, "▲3五金（4六の金）")
+	if !strings.Contains(got, "▲3五金打") {
+		t.Errorf("message = %q, want the move that was just played", got)
+	}
+	if !strings.Contains(got, "4六") {
+		t.Errorf("message = %q, want the square the answer comes from", got)
+	}
+	if !strings.Contains(got, "▲3八金打") {
+		t.Errorf("message = %q, want the move played in the game", got)
+	}
+
+	// **낸 수가 그 판에서 둔 수와 같으면 되풀이하지 않는다.**
+	same := bestMessage(bestResponse{
+		Correct: false, Answer: "4f3e", AnswerJa: "▲3五金",
+		Move: "G*3h", MoveJa: "▲3八金打",
+		Played: "G*3h", PlayedJa: "▲3八金打",
+	}, "▲3五金")
+	if strings.Contains(same, "この対局では") {
+		t.Errorf("message = %q, must not repeat the same move as a second fact", same)
+	}
+
+	// 표기가 없어도 채점은 사실이다 — 문장이 비지 않아야 한다.
+	bare := bestMessage(bestResponse{Correct: false}, "")
+	if bare != "不正解です。" {
+		t.Errorf("message = %q, want the bare verdict when nothing can be named", bare)
+	}
+}
+
+// 회차 1의 110手 국면. 여기서 3五로 가는 수가 셋이고(4f3e · G*3e · P*3e) 두 金이 **打 한
+// 글자로만** 갈린다 — #17의 원인으로 적혀 있던 「표기 구분이 없다」는 틀린 진단이었다.
+const quizCollisionSFEN = "8l/1r5k1/4ppp2/pn5N1/1S1L1N2P/P2PPG3/1P3P+b1p/1KGGR4/LN4+b2 b G3P3sl4p 111"
+
+func TestAfterMoveOpensThePositionThatWasPlayed(t *testing.T) {
+	canon, ja, next, _ := afterMove(quizCollisionSFEN, "G*3e")
+	if canon != "G*3e" {
+		t.Errorf("canon = %q, want the canonical usi", canon)
+	}
+	if ja != "▲3五金打" {
+		t.Errorf("ja = %q, want ▲3五金打", ja)
+	}
+	if next == "" || next == quizCollisionSFEN {
+		t.Errorf("sfen = %q, want the position after the move", next)
+	}
+	// **打과 반상 이동이 갈리는 것이 판에 그려져야 한다** — 반상의 金은 4六에 남는다.
+	if !strings.Contains(next, "G") {
+		t.Errorf("sfen = %q, want the gold still on the board", next)
+	}
+
+	moved, movedJa, movedNext, _ := afterMove(quizCollisionSFEN, "4f3e")
+	if movedJa != "▲3五金" || moved != "4f3e" {
+		t.Errorf("ja/canon = %q/%q, want ▲3五金/4f3e", movedJa, moved)
+	}
+	if movedNext == next {
+		t.Errorf("the drop and the board move must not produce the same position: %q", movedNext)
+	}
+
+	// 못 두는 수는 넷 다 빈 값이다. 여기서 실패를 오류로 올리면 **맞은 답이 500이 된다.**
+	if c, j, n, k := afterMove(quizCollisionSFEN, "1a1b"); c != "" || j != "" || n != "" || k != "" {
+		t.Errorf("afterMove on an illegal move = %q/%q/%q/%q, want all empty", c, j, n, k)
+	}
+	if c, _, _, _ := afterMove("not a sfen", "4f3e"); c != "" {
+		t.Errorf("canon = %q, want empty for an unreadable position", c)
+	}
+}
+
+func TestMoveOriginJaOnlyWhenTheNotationsCollide(t *testing.T) {
+	// 같은 칸으로 가는 다른 수 — 이때만 붙인다.
+	if got := moveOriginJa(quizCollisionSFEN, "4f3e", "G*3e"); got != "4六の金" {
+		t.Errorf("origin = %q, want 4六の金", got)
+	}
+	// 뒤집어도 같다. 정답이 打이면 「持ち駒の」다 — 반상에 그 칸을 가리킬 자리가 없다.
+	if got := moveOriginJa(quizCollisionSFEN, "G*3e", "4f3e"); got != "持ち駒の金" {
+		t.Errorf("origin = %q, want 持ち駒の金", got)
+	}
+	// **같은 수면 붙일 이유가 없다** — 맞힌 사람에게 어디서 왔는지 설명할 자리가 아니다.
+	if got := moveOriginJa(quizCollisionSFEN, "4f3e", "4f3e"); got != "" {
+		t.Errorf("origin = %q, want empty when the two moves are the same", got)
+	}
+	// 칸이 다르면 표기가 이미 갈려 있다. 붙이면 문장만 길어진다.
+	if got := moveOriginJa(shogi.StartSFEN, "7g7f", "2g2f"); got != "" {
+		t.Errorf("origin = %q, want empty when the moves land on different squares", got)
+	}
+	if got := moveOriginJa(quizCollisionSFEN, "4f3e", ""); got != "" {
+		t.Errorf("origin = %q, want empty when nothing was played", got)
+	}
+}
+
+func TestWithOriginKeepsTheNotationWhenThereIsNothingToAdd(t *testing.T) {
+	if got := withOrigin("▲3五金", "4六の金"); got != "▲3五金（4六の金）" {
+		t.Errorf("annotated = %q", got)
+	}
+	if got := withOrigin("▲3五金", ""); got != "▲3五金" {
+		t.Errorf("annotated = %q, want the notation untouched", got)
+	}
+	if got := withOrigin("", "4六の金"); got != "" {
+		t.Errorf("annotated = %q, want empty when there is no notation", got)
 	}
 }
 

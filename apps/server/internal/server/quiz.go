@@ -232,7 +232,10 @@ func (h *quizHandler) mate(w http.ResponseWriter, r *http.Request) {
 	// 수만큼 나아가 있어서 거기서는 정답이 불법이고, 표기가 비면 문구에서 「正解は○でした」가
 	// 통째로 빠진다(quiz.MateProgress.BestFrom).
 	out.BestJa = jaAt(prog.BestFrom, prog.Best, lastTo(prog.BestPrev))
-	out.Message = mateMessage(prog, out.BestJa)
+	// **문장에만 「어디서 오는가」를 붙인다.** `BestJa` 는 棋譜 표기 그대로여야 하고(화면이
+	// 다른 자리에 그대로 적는다), 괄호가 필요한 것은 두 표기가 打 한 글자로만 갈릴 때의
+	// 문장뿐이다 — 「최선수는?」 쪽과 같은 상처다(moveOriginJa · 회차 1 #17).
+	out.Message = mateMessage(prog, withOrigin(out.BestJa, moveOriginJa(prog.BestFrom, prog.Best, lastOf(prog.Line))))
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -251,6 +254,21 @@ type bestResponse struct {
 	// AnswerCp·SecondCp 는 **사람 관점** cp다. 둘의 차가 이 문항이 뽑힌 기준이다.
 	AnswerCp int `json:"answerCp"`
 	SecondCp int `json:"secondCp"`
+	// Move·MoveJa 는 **지금 이 문항에 낸 수**다. 정본 USI이고, 읽을 수 없었으면 빈 값이다.
+	//
+	// **Played 와 다르다** — 저쪽은 그 판에서 실제로 둔 수다. 이 둘을 뭉치면 오답 문구가
+	// 「正解は▲3五金でした。この対局では△…を指しています」로 끝나서, 방금 ▲3五金打를 낸
+	// 사람에게는 **자기가 낸 수가 어디에도 없는 문장**이 된다(회차 1 #17).
+	Move   string `json:"move"`
+	MoveJa string `json:"moveJa,omitempty"`
+	// SFEN·Checked 는 **그 수를 둔 뒤의 판**이다. 못 만들었으면 빈 값이고, 그때 화면은 문제
+	// 국면을 그대로 세운다.
+	//
+	// 낸 수를 판에서 보여주는 유일한 길이다 — 화면은 규칙을 모르므로 스스로 한 수 둘 수 없다.
+	// **打과 반상 이동이 갈리는 자리도 여기다**: 출발 칸이 빈다는 것을 판이 그려야 「▲3五金」과
+	// 「▲3五金打」가 한 글자 차이인 것이 눈에 걸린다(회차 1 #18).
+	SFEN    string `json:"sfen,omitempty"`
+	Checked string `json:"checked,omitempty"`
 	// Played·PlayedJa 는 사람이 대국에서 실제로 둔 수다.
 	Played   string `json:"played"`
 	PlayedJa string `json:"playedJa,omitempty"`
@@ -309,7 +327,9 @@ func (h *quizHandler) best(w http.ResponseWriter, r *http.Request) {
 	}
 	out.AnswerJa = jaAt(item.SFEN, item.Answer, -1)
 	out.PlayedJa = jaAt(item.SFEN, item.Played, -1)
-	out.Message = bestMessage(out)
+	out.Move, out.MoveJa, out.SFEN, out.Checked = afterMove(item.SFEN, req.Move)
+	// **정답에 「어디서 오는가」를 붙일지는 낸 수를 보고 정한다**(moveOriginJa).
+	out.Message = bestMessage(out, withOrigin(out.AnswerJa, moveOriginJa(item.SFEN, item.Answer, out.Move)))
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -387,6 +407,79 @@ func jaAt(sfen, usiMove string, prevTo int) string {
 	return ja
 }
 
+// afterMove 는 그 국면에서 그 수를 둔 결과다 — 정본 USI · 棋譜 표기 · 다음 국면 · 王手 칸.
+//
+// **못 두면 넷 다 빈 값이다.** 채점은 이미 끝났으므로(quiz.GradeBest) 여기서 실패하는 것은
+// 표기와 판을 못 보여준다는 뜻일 뿐이고, 그때 500으로 답하면 맞은 답이 오류가 된다.
+//
+// 정본으로 돌려주는 이유는 문구가 이 값으로 **「그 판에서 둔 수」와 견주기** 때문이다
+// (bestMessage). 요청 문자열을 그대로 쓰면 그 비교가 파서가 얼마나 느슨한가에 매인다.
+func afterMove(sfen, usiMove string) (canon, ja, next, checked string) {
+	pos, err := shogi.ParseSFEN(sfen)
+	if err != nil {
+		return "", "", "", ""
+	}
+	m, err := shogi.ParseUSIMove(usiMove)
+	if err != nil {
+		return "", "", "", ""
+	}
+	if err := pos.ValidateMove(m); err != nil {
+		return "", "", "", ""
+	}
+	// **표기는 두기 전 국면에서 만든다.** 「同」은 쓰지 않는다(prevTo = -1) — 문항의 국면에는
+	// 직전 수가 없고, 없는 것을 있는 것처럼 적으면 그 표기가 어느 칸인지 말하지 않게 된다.
+	after := pos.Apply(m)
+	return m.USI(), pos.MoveJa(m, -1), after.SFEN(), checkedSquare(after)
+}
+
+// moveOriginJa 는 정답 수가 **어디서 오는가**다 — 「4六の金」 혹은 「持ち駒の金」.
+//
+// **낸 수와 같은 칸으로 가는 다른 수일 때만 채운다.** 그때 두 표기는 打 한 글자로만 갈리고
+// (▲3五金 / ▲3五金打) 나란히 놓아도 사람은 같은 수로 읽는다 — 회차 1 #17이 그것이다.
+// 칸이 다르면 표기가 이미 갈려 있으므로 덧붙이면 문장만 길어진다.
+func moveOriginJa(sfen, answer, played string) string {
+	a, err := shogi.ParseUSIMove(answer)
+	if err != nil {
+		return ""
+	}
+	p, err := shogi.ParseUSIMove(played)
+	if err != nil || a.To != p.To || a.USI() == p.USI() {
+		return ""
+	}
+	if a.IsDrop() {
+		return "持ち駒の" + shogi.PieceJa(a.Drop)
+	}
+	pos, err := shogi.ParseSFEN(sfen)
+	if err != nil {
+		return ""
+	}
+	// **빈 칸이면 부를 이름이 없다.** 여기 오는 것은 저장된 정답이 그 국면에서 성립하지
+	// 않는다는 뜻이고(문항이 깨졌다), 그때 「4六の」까지만 적으면 문장이 말을 잃는다.
+	from := pos.Board[a.From]
+	if from.Empty() {
+		return ""
+	}
+	// **成る 수여도 지금 그 칸에 서 있는 駒로 부른다.** 「4六の金」은 출발 칸을 가리키는 말이라
+	// 성한 뒤의 이름으로 부르면 판에서 그 駒를 찾을 수 없다.
+	return shogi.SquareJa(int(a.From)) + "の" + shogi.PieceJa(from.Type())
+}
+
+// lastOf 는 수순의 마지막 수다. 비면 빈 값 — 오답 수순에서는 그것이 방금 낸 수다.
+func lastOf(line []string) string {
+	if len(line) == 0 {
+		return ""
+	}
+	return line[len(line)-1]
+}
+
+// withOrigin 은 표기에 「어디서 오는가」를 괄호로 붙인다. 어느 쪽이든 비면 그대로 돌려준다.
+func withOrigin(ja, origin string) string {
+	if ja == "" || origin == "" {
+		return ja
+	}
+	return ja + "（" + origin + "）"
+}
+
 // jaOfLine 은 수순의 **마지막 수**의 표기다. 「同」 표기가 직전 수의 도착 칸을 보므로
 // 처음부터 두어 와야 맞는다 — 마지막 국면에서 한 수만 두어 보면 「同」이 빠진다.
 func jaOfLine(startSFEN string, line []string, want bool) string {
@@ -408,11 +501,12 @@ func jaOfLine(startSFEN string, line []string, want bool) string {
 	return ja
 }
 
-// mateMessage 는 詰み 문항의 일본어 문장이다.
+// mateMessage 는 詰み 문항의 일본어 문장이다. `best` 는 「어디서 오는가」까지 붙을 수 있는
+// 정답 표기다(withOrigin) — 응답의 `bestJa` 와 달리 괄호가 들어 있을 수 있다.
 //
 // **오답을 한 문장으로 뭉치지 않는다.** 「この手では詰みません」은 대부분 거짓이다 —
 // 詰み이 9手로 늘어질 뿐 詰む 수도 있고, 그때 그 문장은 초심자가 검증할 수 없는 거짓이 된다.
-func mateMessage(p quiz.MateProgress, bestJa string) string {
+func mateMessage(p quiz.MateProgress, best string) string {
 	switch p.Outcome {
 	case quiz.MateSolved:
 		return "詰みました。正解です。"
@@ -432,8 +526,8 @@ func mateMessage(p quiz.MateProgress, bestJa string) string {
 		if p.Rest > 0 {
 			head = fmt.Sprintf("詰みは残りますが、%d手に伸びてしまいます。", 2+p.Rest)
 		}
-		if bestJa != "" {
-			return head + fmt.Sprintf("正解は%sでした。", bestJa)
+		if best != "" {
+			return head + fmt.Sprintf("正解は%sでした。", best)
 		}
 		return head
 
@@ -448,19 +542,39 @@ func mateMessage(p quiz.MateProgress, bestJa string) string {
 	}
 }
 
-// bestMessage 는 「최선수는?」 문항의 일본어 문장이다.
+// bestMessage 는 「최선수는?」 문항의 일본어 문장이다. `answer` 는 「어디서 오는가」까지
+// 붙은 정답 표기다(withOrigin).
+//
+// **낸 수부터 말한다.** 정답만 말하는 문장은 정답과 한 글자 차이인 수를 낸 사람에게
+// 「내가 그것을 뒀는데 틀렸다고 한다」가 된다 — 회차 1의 #17이 정확히 그 자리다.
 //
 // 오답이어도 **그 판의 일로 되돌린다** — 사람이 실제로 둔 수를 함께 말하는 것이 이 문항이
 // 문제집이 아니라 자기 기보인 이유다.
-func bestMessage(r bestResponse) string {
+func bestMessage(r bestResponse, answer string) string {
 	if r.Correct {
-		return fmt.Sprintf("正解です。この局面はこの一手で、次善手とは%dの差があります。", r.AnswerCp-r.SecondCp)
+		gap := r.AnswerCp - r.SecondCp
+		if r.MoveJa == "" {
+			return fmt.Sprintf("正解です。この局面はこの一手で、次善手とは%dの差があります。", gap)
+		}
+		return fmt.Sprintf("%sで正解です。この局面はこの一手で、次善手とは%dの差があります。", r.MoveJa, gap)
 	}
-	if r.AnswerJa == "" {
-		return "不正解です。"
+
+	head := "不正解です。"
+	switch {
+	case r.MoveJa != "" && answer != "":
+		// **둘을 한 문장에 나란히 둔다.** 갈리는 것이 打 한 글자라 떨어뜨려 놓으면 사람은
+		// 두 문장이 같은 수를 말한다고 읽는다.
+		head += fmt.Sprintf("あなたが指したのは%s、正解は%sでした。", r.MoveJa, answer)
+	case r.MoveJa != "":
+		head += fmt.Sprintf("あなたが指したのは%sでした。", r.MoveJa)
+	case answer != "":
+		head += fmt.Sprintf("正解は%sでした。", answer)
 	}
-	if r.PlayedJa != "" && r.Played != r.Answer {
-		return fmt.Sprintf("不正解です。正解は%sでした。この対局では%sを指しています。", r.AnswerJa, r.PlayedJa)
+
+	// **낸 수와 같으면 말하지 않는다.** 그때는 「이 판에서도 그것을 뒀다」라 방금 한 말의
+	// 되풀이이고, 문장이 길어지는 만큼 정답이 어느 것인지가 묻힌다.
+	if r.PlayedJa != "" && r.Played != r.Answer && r.Played != r.Move {
+		head += fmt.Sprintf("この対局では%sを指しています。", r.PlayedJa)
 	}
-	return fmt.Sprintf("不正解です。正解は%sでした。", r.AnswerJa)
+	return head
 }

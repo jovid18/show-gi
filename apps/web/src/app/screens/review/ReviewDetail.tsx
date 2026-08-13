@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-import { Board, type DropFrom, type LastMove, type Ray } from '@/components/Board';
+import { Board, type DropFrom, type Ray } from '@/components/Board';
 import { Hand } from '@/components/Hand';
 // 대국 화면의 카드를 **그대로** 쓴다. 같은 판을 두 모양으로 그리면 「끝난 그 자리에서 본 것」과
 // 「나중에 되짚어 본 것」이 다른 말로 읽힌다 — 서버도 같은 payload 를 준다(§52).
@@ -8,7 +8,7 @@ import { Summary } from '@/screens/game/Summary';
 import { EvalGraph } from './EvalGraph';
 import { MoveOptions } from './MoveOptions';
 import { WhatIfPanel } from './WhatIfPanel';
-import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/libs/game/moves';
+import { groupByOrigin, parseUsi, squaresOf, toUsiMove, type Destination } from '@/libs/game/moves';
 import { offsetWithin } from '@/libs/game/board-view';
 import { dateJa, resultJa } from '@/libs/review/labels';
 import { hrefOf, navigate } from '@/routes/router';
@@ -17,7 +17,7 @@ import type { WhatIfNode } from '@/protocol/whatif';
 import { useEngineReady, useGameSummary } from '@/hooks/useReview';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
 import type { Side } from '@/models/piece';
-import { fromUsi, toIndex, type Motion } from '@/models/square';
+import type { Motion } from '@/models/square';
 import { branchMotion, evalText, stepMotion } from '@/libs/whatif/branch';
 import { httpSend } from '@/libs/whatif/http';
 import { useWhatIf } from '@/hooks/useWhatIf';
@@ -45,20 +45,6 @@ interface ReviewDetailProps {
  * 깊이 12 탐색이 걸리고, 그건 엔진 풀을 대국과 나눠 쓰는 구조에서 남의 대국을 세우는 일이다.
  */
 const SETTLE_MS = 350;
-
-/** 판 위에 그을 두 칸. 못 읽는 좌표면 안 그린다 — 엉뚱한 칸을 칠하느니 비운다. */
-function squaresOf(usi: string): LastMove | null {
-  const move = parseUsi(usi);
-  if (!move) return null;
-  try {
-    return {
-      from: move.kind === 'drop' ? null : toIndex(fromUsi(move.from)),
-      to: toIndex(fromUsi(move.to)),
-    };
-  } catch {
-    return null;
-  }
-}
 
 /**
  * 棋譜를 **2단**으로 놓는다 — ▲과 △이 한 줄에 선다.
