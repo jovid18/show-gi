@@ -138,6 +138,9 @@ func Handler(opts Options) http.Handler {
 		})
 	}
 	if opts.Store != nil {
+		// 마이페이지. **판 하나가 아니라 사람 하나를 읽는다**(profile.go).
+		mux.HandleFunc("GET /api/me/profile", (&profileHandler{store: opts.Store, auth: ah}).get)
+
 		rev := &reviewHandler{store: opts.Store, auth: ah, summarizer: opts.Summarizer, level: opts.Level}
 		mux.HandleFunc("GET /api/games", rev.list)
 		mux.HandleFunc("GET /api/games/{id}", rev.detail)
@@ -169,6 +172,7 @@ func Handler(opts Options) http.Handler {
 			})
 		}
 	} else {
+		mux.HandleFunc("GET /api/me/profile", storeUnavailable)
 		mux.HandleFunc("GET /api/games", storeUnavailable)
 		mux.HandleFunc("GET /api/games/{id}", storeUnavailable)
 		mux.HandleFunc("GET /api/games/{id}/summary", storeUnavailable)

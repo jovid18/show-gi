@@ -34,6 +34,7 @@ curl localhost:8080/healthz     # {"ok":true,"engine":true,"db":true}
 | `GET /api/resumable`               | 이어할 수 있는 중단된 판 하나. **로그인 안 했으면 늘 `null`** — 기록이 없는 배포에서도 200이다                                                                                                  |
 | `POST /api/resumable/{id}/decline` | 「いいえ」. 그 판은 중단된 채로 끝나고 다시 안 물어본다                                                                                                                                         |
 | `GET /api/me`                      | 지금 로그인한 사람. **로그인이 꺼진 배포에도 있다** — 아래                                                                                                                                      |
+| `GET /api/me/profile`              | 마이페이지 — 段級·전적·崩れやすいところ ([§63](../../docs/06-status.md)). **로그인 안 했으면 401** — 익명 판은 서로 구별할 수단이 없어 「이 사람의 전적」에 답할 수가 없다                      |
 | `GET /api/auth/google/start`       | Google로 보낸다. 로그인이 꺼져 있으면 **경로 자체가 없다**(404)                                                                                                                                 |
 | `GET /api/auth/google/callback`    | Google이 돌려보내는 자리. 성공·실패 어느 쪽이든 `/` 로 되돌린다                                                                                                                                 |
 | `POST /api/auth/logout`            | 쿠키를 지운다. 서버에는 지울 것이 없다                                                                                                                                                          |

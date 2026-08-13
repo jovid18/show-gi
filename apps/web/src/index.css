@@ -3298,3 +3298,124 @@ body {
   background: var(--surface);
   border-color: var(--brand);
 }
+
+/* ── 마이페이지 ──────────────────────────────────────────
+   판을 가로질러 보는 유일한 화면이다. **판을 안 그리므로** 되짚기와 달리 폭이 좁다 —
+   읽는 것이 숫자 몇 개라, 넓히면 값 사이가 멀어져 한눈에 안 들어온다. */
+.profile {
+  max-width: 34rem;
+  margin: 0 auto;
+  display: grid;
+  gap: 1.5rem;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.profile__name {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 400;
+}
+
+.profile__block {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.profile__head {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+}
+
+/* 段級이 이 화면의 본론이라 제일 크다. */
+.profile__rank {
+  margin: 0;
+  font-size: 2rem;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.profile__note {
+  margin: 0;
+  font-size: 0.6875rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.profile__empty {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.8;
+  color: var(--muted);
+}
+
+.profile__record {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.profile__record div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.profile__record dt {
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+
+.profile__record dd {
+  margin: 0;
+  font-size: 1.375rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 이름 · 막대 · 횟수 한 줄. 막대가 남는 폭을 다 먹고 양옆이 내용만큼이라, 이름이
+   길어져도 횟수가 밀려나지 않는다. */
+.profile__weak {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.profile__weak li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.8125rem;
+}
+
+.profile__weak-name {
+  color: var(--fg);
+}
+
+.profile__weak-bar {
+  display: block;
+  height: 0.25rem;
+  border-radius: 0.125rem;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.profile__weak-bar i {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+}
+
+.profile__weak-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}

@@ -644,6 +644,50 @@ func (s *Store) ListGamesAnyOwner(ctx context.Context, limit int) ([]GameSummary
 	return out, nil
 }
 
+// PlayerTally 는 마이페이지가 읽는 두 벌의 세기다. **모집단이 하나다** — 두 질의가 같은
+// 조건으로 걸러서(query/games.sql), 「12판 뒀는데 약점은 30판에서 나온 것」이 될 수 없다.
+type PlayerTally struct {
+	// Results 는 결과별 판 수다. 키는 GameResult 이고 **끝난 셋뿐**이다.
+	Results map[GameResult]int
+	// Categories 는 카테고리별 개입 횟수다. 키는 `intervene.Category` 의 코드 문자열 —
+	// 이 패키지가 그쪽을 들여오지 않는 것은 `SkillEstimate` 와 같은 이유다.
+	Categories map[string]int
+}
+
+// PlayerTally 는 그 사람의 전적과 약점을 한 번에 센다. ownerID 가 nil이면 익명 판이다.
+//
+// **한 함수인 이유는 같은 모집단에서 나와야 하기 때문이다** — 갈라 두면 나중에 한쪽 질의의
+// 조건만 고쳐지고, 그때 화면의 두 숫자가 조용히 다른 것을 세게 된다(server/summary.go 의
+// factsOf 가 같은 이유로 한 함수다).
+func (s *Store) PlayerTally(ctx context.Context, ownerID *int64) (PlayerTally, error) {
+	out := PlayerTally{Results: map[GameResult]int{}, Categories: map[string]int{}}
+
+	results, err := s.q.CountGameResultsForOwner(ctx, ownerID)
+	if err != nil {
+		return out, fmt.Errorf("count game results: %w", err)
+	}
+	for _, r := range results {
+		// result 는 질의가 셋으로 걸렀으므로 NULL이 안 온다. 그래도 확인하는 것은
+		// 컬럼이 nullable 이라 생성 타입이 포인터이기 때문이다.
+		if r.Result == nil {
+			continue
+		}
+		out.Results[GameResult(*r.Result)] = int(r.Games)
+	}
+
+	cats, err := s.q.CountInterventionCategoriesForOwner(ctx, ownerID)
+	if err != nil {
+		return out, fmt.Errorf("count intervention categories: %w", err)
+	}
+	for _, c := range cats {
+		if c.Category == nil {
+			continue
+		}
+		out.Categories[*c.Category] = int(c.Hits)
+	}
+	return out, nil
+}
+
 func listLimit(limit int) int32 {
 	if limit < 1 {
 		return 1

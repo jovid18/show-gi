@@ -4,6 +4,9 @@
 export const ROUTE_GAME = '/';
 export const ROUTE_REVIEWS = '/reviews';
 
+/** 마이페이지. **판이 아니라 사람 하나**라 id가 없다. */
+export const ROUTE_ME = '/me';
+
 /** 판 하나. 주소에 id가 들어가는 유일한 자리다. */
 export const routeReview = (id: number): string => `${ROUTE_REVIEWS}/${id}`;
 
@@ -18,3 +21,6 @@ export const REVIEWS_SEGMENT = 'reviews';
 
 /** `/reviews/:id/quiz` 의 마지막 조각. */
 export const QUIZ_SEGMENT = 'quiz';
+
+/** `/me` 의 첫 조각. */
+export const ME_SEGMENT = 'me';
