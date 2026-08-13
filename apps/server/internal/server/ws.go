@@ -459,7 +459,17 @@ func (h *gameHandler) generateQuiz(parent context.Context, rec store.GameRecord)
 	if h.opts.Quiz != nil {
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), quizTimeout)
 		q = h.opts.Quiz.Build(ctx, quizInput(rec))
+		cut := ctx.Err() != nil
 		cancel()
+
+		// **시한에 걸렸으면 아무것도 안 적는다.** 그때 나온 것은 「이 판에 문항이 없다」가
+		// 아니라 「끝까지 못 봤다」인데, 빈 행을 남기면 화면이 그것을 「問題が作れませんでした」로
+		// 단정한다 — 詰み이 있었는데 없다고 말하는 자리다. 생성은 판이 끝날 때 한 번뿐이라
+		// 그 거짓이 영구히 남는다. 안 적으면 화면은 「아직 안 왔다」에 머물고, 그것은 사실이다.
+		if cut {
+			log.Printf("ws: quiz: game %d: gave up after %s — leaving no row rather than claiming there was nothing", rec.ID, quizTimeout)
+			return
+		}
 	}
 
 	// **문항이 없어도 저장한다.** 안 하면 「아직 만드는 중」과 「문항이 없는 판」이 화면에서

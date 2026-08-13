@@ -150,6 +150,7 @@ function MateQuestion({ id, item }: { id: number; item: MateItem }) {
 
       <QuizBoard
         sfen={sfen}
+        me={sideOf(item.sfen)}
         legalMoves={legal}
         checked={res?.checked ?? null}
         interactive={!done && !grading.pending}
@@ -213,6 +214,7 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
 
       <QuizBoard
         sfen={item.sfen}
+        me={sideOf(item.sfen)}
         legalMoves={res ? [] : item.legalMoves}
         checked={item.checked ?? null}
         interactive={!res && !grading.pending}
@@ -250,6 +252,20 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
   );
 }
 
+/**
+ * 문항의 국면에서 **사람이 잡은 쪽**을 얻는다.
+ *
+ * 문항은 늘 사람이 둘 차례인 국면에서 뽑히므로(quiz.bestItems·mateItem) 그 手番이 곧
+ * 사람이다. **진행된 판이 아니라 문항의 국면을 본다** — 진행된 판은 답한 뒤 상대 차례가 된다.
+ */
+function sideOf(sfen: string): Side {
+  try {
+    return parseSfen(sfen).turn;
+  } catch {
+    return 'black';
+  }
+}
+
 /** cp는 부호를 붙여 적는다 — 0과 「없다」가 구별되어야 하고, 부호가 곧 누가 좋은가다. */
 function signed(cp: number): string {
   return cp > 0 ? `+${cp}` : String(cp);
@@ -279,12 +295,21 @@ function QuizVerdict({ message, tone, pending }: { message: string | null; tone:
  */
 function QuizBoard({
   sfen,
+  me,
   legalMoves,
   checked,
   interactive,
   onPlay,
 }: {
   sfen: string;
+  /**
+   * 사람이 잡은 쪽. **문항의 국면에서 얻어 밖에서 넘긴다.**
+   *
+   * 여기 판의 手番으로 다시 세면 안 된다 — 문항이 끝난 뒤의 판은 **상대 차례**라, 그때
+   * 駒台의 이름이 뒤집혀 자기 駒台가 `相手` 가 된다. 판을 안 뒤집으므로(아래) 그 이름이
+   * 누가 누구인지를 말하는 **유일한 자리**다(ReviewDetail 이 같은 이유로 `myColor` 를 쓴다).
+   */
+  me: Side;
   legalMoves: readonly string[];
   checked: string | null;
   interactive: boolean;
@@ -340,11 +365,6 @@ function QuizBoard({
     setOrigin(next === origin ? null : next);
   };
 
-  // **사람은 늘 이 국면의 수번이다** — 문항이 그렇게 뽑힌다(quiz.bestItems·mateItem).
-  // 그래서 판이 스스로 「누가 나인가」를 말할 수 있다. 이 값을 `black` 으로 박아 두면
-  // 後手로 둔 판에서 **「相手の利き」 그늘이 반대쪽 기준으로 깔린다.**
-  const me: Side = board.turn;
-
   return (
     <div className="quiz-board">
       {/* 문항의 판은 **뒤집지 않는다.** 되짚기와 같은 방향이라야 같은 판을 보고 있다는 것이
@@ -389,14 +409,20 @@ function QuizBoard({
         onPick={board.turn === 'black' ? pickHand : () => {}}
       />
 
+      {/* **되짚기와 같은 물음이다.** 클래스도 어휘도 그쪽 것을 그대로 쓴다(`ReviewDetail`) —
+          이름을 새로 지으면 스타일이 없는 맨 `div` 가 판 위에 서고, 그건 눈으로만 잡힌다. */}
       {promoting && (
-        <div className="promote-ask" role="dialog" aria-label="成りますか">
-          <p>成りますか?</p>
-          <button type="button" onClick={() => send(toUsiMove(promoting.origin, promoting.to, true))}>
+        <div className="promotion" role="group" aria-label="成りの選択">
+          <span>成りますか。</span>
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={() => send(toUsiMove(promoting.origin, promoting.to, true))}
+          >
             成る
           </button>
-          <button type="button" onClick={() => send(toUsiMove(promoting.origin, promoting.to, false))}>
-            成らない
+          <button type="button" className="btn" onClick={() => send(toUsiMove(promoting.origin, promoting.to, false))}>
+            不成
           </button>
         </div>
       )}

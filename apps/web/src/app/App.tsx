@@ -95,7 +95,13 @@ export function App() {
         {/* 리뷰는 열 때마다 새로 부른다. 방금 끝난 판이 목록 맨 위에 있어야 한다. */}
         {!onGame && (
           <Suspense fallback={<p className="review-status">読み込み中…</p>}>
-            {route.name === 'quiz' ? <QuizScreen id={route.id} /> : <ReviewScreen route={route} />}
+            {route.name === 'quiz' ? (
+              // **판마다 새로 세운다.** `id` 만 갈아 끼우면 이 컴포넌트가 그대로 살아서
+              // 앞 판의 답과 기다린 횟수를 물려받고, 한 틱 동안 **남의 문항**을 그린다.
+              <QuizScreen key={route.id} id={route.id} />
+            ) : (
+              <ReviewScreen route={route} />
+            )}
           </Suspense>
         )}
       </div>

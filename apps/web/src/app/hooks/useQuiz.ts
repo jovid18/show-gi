@@ -27,14 +27,9 @@ export function useQuiz(id: number): QuizSource {
   const [attempts, setAttempts] = useState(0);
   const last = useRef<QuizPayload | null>(null);
 
-  // **판이 바뀌면 처음부터다.** 주소만 갈아 끼우면 이 컴포넌트가 그대로 살아 있으므로
-  // (App 이 `id` 만 바꿔 넘긴다) 세는 값도 아래의 직전 답도 앞 판의 것이 남는다.
-  const seen = useRef(id);
-  if (seen.current !== id) {
-    seen.current = id;
-    last.current = null;
-    if (attempts !== 0) setAttempts(0);
-  }
+  // **판이 바뀌면 이 훅이 통째로 다시 선다** — App 이 `key` 로 판마다 새로 세운다. 여기서
+  // 손으로 되돌리려 하면 안 된다: `id` 가 바뀐 그 렌더에는 `useFetch` 가 아직 앞 판의 답을
+  // 들고 있어서, 지운 자리가 같은 렌더에서 그 값으로 다시 채워진다.
 
   // **다 만들어지면 멈춘다.** 끝난 판의 문항은 다시 바뀌지 않으므로 계속 물을 이유가 없다.
   //
@@ -53,6 +48,13 @@ export function useQuiz(id: number): QuizSource {
     return () => clearTimeout(timer);
   }, [waiting, gaveUp, reload]);
 
+  // **「もう一度」는 세던 것도 되돌린다.** 안 되돌리면 눌러도 요청 하나가 나가고 화면은
+  // 그만둔 자리에 그대로 서서, 버튼이 아무 일도 안 하는 것처럼 보인다.
+  const retry = useCallback(() => {
+    setAttempts(0);
+    reload();
+  }, [reload]);
+
   // **다시 물을 때 직전 답을 그대로 둔다.** `useFetch` 는 부를 때마다 `loading` 으로
   // 돌아가는데, 그러면 「問題を作っています」가 5초마다 「読み込み中…」으로 번쩍인다 —
   // 화면이 그 두 상태를 통째로 다른 것으로 그리기 때문이다(QuizScreen).
@@ -60,10 +62,10 @@ export function useQuiz(id: number): QuizSource {
     last.current = loaded.data;
   }
   if (loaded.state === 'loading' && last.current) {
-    return { loaded: { state: 'ready', data: last.current }, reload, gaveUp };
+    return { loaded: { state: 'ready', data: last.current }, reload: retry, gaveUp };
   }
 
-  return { loaded, reload, gaveUp };
+  return { loaded, reload: retry, gaveUp };
 }
 
 /**
@@ -75,13 +77,13 @@ export function useQuiz(id: number): QuizSource {
 const QUIZ_POLL_MS = 5000;
 
 /**
- * 몇 번까지 기다리나. 5초 × 12 = 1분이다.
+ * 몇 번까지 기다리나. 5초 × 60 = 5분이다.
  *
- * 실측으로 6手 판이 1초 안쪽이었고(§53), 오래 걸리는 쪽은 詰み 트리라 그것도 분 단위는
- * 아니다. 1분을 넘겨도 안 왔으면 **오지 않을 쪽**이 훨씬 그럴듯하다 — 옛 판이거나,
- * 생성기가 없는 배포이거나, 문항 판이 올라가 옛 행이 죽은 뒤다.
+ * **서버가 스스로 자르는 시한과 같은 값이다**(`quizTimeout`). 그보다 짧게 잡으면 아직
+ * 정직하게 만들고 있는 판에 「안 왔다」고 말하게 되고, 길게 잡으면 서버가 이미 포기한
+ * 뒤에도 기다린다 — 어느 쪽도 사실이 아니다.
  */
-const QUIZ_POLL_MAX = 12;
+const QUIZ_POLL_MAX = 60;
 
 /** 채점 한 번의 상태. **누른 뒤 답이 오기까지의 자리**가 화면에 있어야 한다. */
 export interface Grading<T> {
