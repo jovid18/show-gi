@@ -979,13 +979,28 @@ const (
 	TagHintCooldown   = 10
 )
 
+// hintable 은 그 축의 이름을 **착수 前에 권해도 되는가**다. 이름을 붙이는 쪽(styleTags)은
+// 셋 다 그대로 낸다 — 여기서 거르는 것은 제안뿐이다.
+//
+// 이유가 축마다 다르다:
+//
+//	囲い   짓다 만 형태에 이름이 없어서, 「이 수를 두면 이름이 생긴다」가 구현한
+//	       종류 수에 달린 임의의 한 수가 된다 — §44
+//	전법   飛를 어느 筋으로 振るか는 **그 사람이 고르는 것**이다. 첫 수 앞에서
+//	       「中飛車になります」가 뜨면 그것은 힌트가 아니라 지시다 — 회차 1 #0 · §71
+//
+// 남는 것은 戦型이다. 角換わり처럼 **판 전체가 이미 그렇게 되어 있는가**를 말하는 축이라
+// 「무엇을 골라라」가 아니고, 그래서 이 채널이 하나로 좁혀진다.
+func hintable(t tag.Tag) bool {
+	return t.Kind == tag.KindOpening
+}
+
 // computeTagHints 는 이 국면에서 플레이어의 합법수 중 **새 이름을 만드는 것**을 찾는다.
 //
-// 엔진을 안 부른다 — 전법·戦型은 판과 수순만으로 정해지므로 합법수마다 시뮬레이션하면
+// 엔진을 안 부른다 — 戦型은 판과 수순만으로 정해지므로 합법수마다 시뮬레이션하면
 // 끝이다. 手筋은 평가치가 있어야 해서 비동기로 따로 구한다(maybeTesujiHint).
 //
-// **囲い는 제안에서만 뺀다**(styleTags 쪽에는 남는다). 짓다 만 형태에 이름이 없어서,
-// 「이 수를 두면 이름이 생긴다」가 구현한 종류 수에 달린 임의의 한 수가 된다 — §44.
+// 무엇을 권하고 무엇을 안 권하는지는 `hintable` 이 정한다.
 func (st *state) computeTagHints() {
 	st.tagHintGen = st.searchGen
 
@@ -1023,8 +1038,8 @@ func (st *state) computeTagHints() {
 			Pos: after, Color: st.cfg.HumanColor,
 			PlayerMoves: afterMoves, OpponentMoves: oppMoves,
 		}) {
-			if t.Kind == tag.KindCastle {
-				continue // 짓는 도중의 한 수를 권할 근거가 없다(§44)
+			if !hintable(t) {
+				continue
 			}
 			if !have[t.Code] && !seen[t.Code] {
 				seen[t.Code] = true
