@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/jovid18/show-gi/apps/server/internal/book"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
+	"github.com/jovid18/show-gi/apps/server/internal/quiz"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -374,6 +376,22 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					go h.sendSummary(ctx, out, recorder)
 				}
 			case <-ctx.Done():
+				// **끝난 스냅샷이 이미 와 있는지 한 번 더 본다.**
+				//
+				// 사람이 投了하고 그 순간 탭을 닫으면 두 case 가 동시에 준비되고, Go는
+				// 둘 중 하나를 **무작위로** 고른다. 여기가 이기면 총평도 퀴즈도 안 만들어지는데,
+				// 총평은 되짚기가 다시 청할 수 있어도(review.go summary) **퀴즈에는 그런
+				// 자리가 없다** — 그 판은 영영 문항을 못 갖는다.
+				if !summarized {
+					select {
+					case snap, ok := <-snaps:
+						if ok && snap.Status != game.StatusPlaying {
+							summarized = true
+							go h.sendSummary(ctx, out, recorder)
+						}
+					default:
+					}
+				}
 				return
 			}
 		}
@@ -400,26 +418,165 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 		return // 기록이 없으면 셀 것이 없다. 총평도 없다
 	}
 
+	// **여기까지는 연결이 끊겨도 간다.** 뒤에 퀴즈 생성이 걸려 있고 그쪽은 여기서 못 띄우면
+	// **아무 데서도 못 띄운다** — 총평은 되짚기가 다시 청하지만(review.go summary) 퀴즈에는
+	// 그런 자리가 없다. 판이 끝나자마자 탭을 닫는 것이 드문 일도 아니다.
+	//
+	// 기다리는 것은 큐를 비우는 일이고 읽는 것은 질의 하나라, 끊긴 연결에 매달리는 값이 싸다.
+	base := context.WithoutCancel(ctx)
+
 	var gameID int64
 	select {
 	case gameID = <-recorder.done:
 	case <-time.After(summaryWait):
 		log.Printf("ws: summary: the record did not finish within %s", summaryWait)
 		return
-	case <-ctx.Done():
-		return
 	}
 
 	// **주인을 안 보고 읽는다.** 방금 이 연결이 만든 판이라 소유 검사가 답할 것이 없고,
 	// 익명 대국에는 주인이 아예 없다(002_anonymous_games.sql).
-	rec, err := h.opts.Store.GameRecordAnyOwner(ctx, gameID)
+	rec, err := h.opts.Store.GameRecordAnyOwner(base, gameID)
 	if err != nil {
 		log.Printf("ws: summary: read game %d: %v", gameID, err)
 		return
 	}
 
+	// **퀴즈를 먼저 띄운다.** 총평은 LLM을 기다리므로 여기서 몇 초 막히는데, 그 사이에
+	// 문항 만들기가 시작돼 있는 편이 낫다 — 사람이 되짚기를 여는 것은 총평을 읽은 뒤다.
+	go h.generateQuiz(base, rec)
+
+	// **총평은 살아 있는 ctx로 만든다.** 끊긴 연결에 보낼 문장을 사느라 라우터를 부를
+	// 이유가 없고, 그쪽은 되짚기가 다시 청할 수 있다.
 	payload := summarize(ctx, h.opts.Summarizer, rec, h.opts.Level)
 	emit(ctx, out, serverMsg{Type: "summary", Summary: &payload})
+}
+
+// quizTimeout 은 문항을 만드는 데 주는 시한이다.
+//
+// **회차를 자르는 자리는 여기 하나다.** 詰み 탐색 예산이 2400 × 107ms ≈ 4.3분이라
+// (quiz.MateSearchBudget) 그 아래로는 예산이 먼저 걸리지 않고, gap 쪽 12국면 × 956ms ≈ 12초를
+// 더해도 이 값이 마지막이다 — 여유는 40초 남짓으로 **넉넉하지 않다**.
+//
+// 넘으면 만들던 것을 버린다. 반쪽 트리는 채점에 쓸 수 없다.
+const quizTimeout = 5 * time.Minute
+
+// quizSaveTimeout 은 만든 것을 남기는 데 주는 시한이다. DB 쓰기 한 번이라 짧다.
+const quizSaveTimeout = 10 * time.Second
+
+// generateQuiz 는 끝난 판에서 문항을 만들어 저장한다.
+//
+// **연결이 끊겨도 계속한다**(`context.WithoutCancel`). 만드는 데 수십 초가 걸리는데 사람은
+// 판이 끝나면 곧 화면을 떠나고, 요청 ctx에 매어 두면 그 순간 문항이 사라진다 — 되짚기에서
+// 만들지 않기로 했으므로(06-status.md §53) 여기서 못 만들면 **아무 데서도 못 만든다.**
+//
+// 종료가 걸리지는 않는다. `Pool.Close` 가 막히는 것은 **진행 중인 탐색 하나**뿐이고, 그
+// 하나는 詰み 쪽이 `DepthLimit=11` 로 100ms대이고 탐색 쪽이 1초대다.
+//
+// **엔진 풀을 오래 잡는다.** mate 풀이 하나면 그동안 진행 중인 다른 대국의 詰み 게이지와
+// 종반 판정이 막힌다 — 그래서 풀 크기를 손잡이로 뺐다(cmd/api/main.go startMateEngines).
+func (h *gameHandler) generateQuiz(parent context.Context, rec store.GameRecord) {
+	if h.opts.Store == nil {
+		return
+	}
+
+	// **생성기가 없어도 행은 남긴다.** 안 남기면 화면이 「아직 만드는 중」에서 영영 안
+	// 벗어난다 — 엔진 없는 배포에서 그 문장은 오지 않을 것을 기다리라는 거짓말이다.
+	var q quiz.Quiz
+	if h.opts.Quiz != nil {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), quizTimeout)
+		built, measured := h.opts.Quiz.Build(ctx, quizInput(rec))
+		cut := ctx.Err() != nil
+		cancel()
+
+		// **못 본 채로 비었을 때만 안 적는다.**
+		//
+		// 「끝까지 못 봤다」가 참이어도 **나온 것은 사실이다** — 다 지어진 詰み 트리는 gap
+		// 후보 하나를 못 쟀다고 틀려지지 않고, 잰 gap 문항은 트리가 못 섰다고 틀려지지 않는다.
+		// 둘을 한 깃발로 묶어 통째로 버리면, 한쪽의 사소한 실패가 멀쩡한 다른 쪽을 지운다.
+		//
+		// 버리는 것은 **빈 결과**뿐이다. 그때만 「이 판에 문항이 없다」와 「못 봤다」가 같은
+		// 그림이 되고, 빈 행을 남기면 화면이 앞쪽으로 단정한다 — 생성이 판이 끝날 때
+		// 한 번뿐이라 그 거짓이 영구히 남는다. 안 적으면 화면은 「아직 안 왔다」에 머문다.
+		//
+		// 시한만 보면 모자란다. **배포가 생성 도중에 끼면** 풀이 먼저 닫혀
+		// (`main` 의 defer 순서가 엔진 → DB다) 모든 탐색이 즉시 실패하는데, 그때 ctx는
+		// 멀쩡하고 결과만 비어 있다 — 그래서 생성기가 「한 번이라도 답을 받았는가」를 따로 말한다.
+		//
+		// **한 자리를 못 본 것으로는 안 버린다.** 중반의 무관한 국면 하나에서 solver 가
+		// 결론을 못 내는 것은 흔하고(df-pn이 timeout 하는 자리다), 그것으로 행을 안 남기면
+		// 그 판은 영영 5분을 기다린 뒤 「안 왔다」에 서게 된다 — 「못 만들었다」가 사실인데도.
+		if (cut || !measured) && built.Empty() {
+			log.Printf("ws: quiz: game %d: nothing was measured (timed out: %v) — leaving no row rather than claiming there was nothing", rec.ID, cut)
+			return
+		}
+		q = built
+	}
+
+	// **문항이 없어도 저장한다.** 안 하면 「아직 만드는 중」과 「문항이 없는 판」이 화면에서
+	// 같은 그림이 되는데, 만드는 데 수십 초가 걸려서 그 사이에 「問題はありません」을
+	// 그리면 그것이 거짓이 된다(quiz.go 의 `ready`).
+	payload, err := json.Marshal(q)
+	if err != nil {
+		log.Printf("ws: quiz: game %d: encode: %v", rec.ID, err)
+		return
+	}
+
+	// **쓰는 데 시한을 따로 준다.** 만드는 쪽이 시한에 걸렸으면 그 ctx는 이미 죽어 있고,
+	// 그대로 쓰면 **만들어 놓고 못 남기는** 자리가 되어 화면이 영영 기다린다.
+	save, cancel := context.WithTimeout(context.WithoutCancel(parent), quizSaveTimeout)
+	defer cancel()
+	if err := h.opts.Store.SaveGameQuiz(save, rec.ID, quiz.Version, payload); err != nil {
+		log.Printf("ws: quiz: game %d: save: %v", rec.ID, err)
+		return
+	}
+
+	mate := 0
+	if q.Mate != nil {
+		mate = q.Mate.Plies
+	}
+	log.Printf("ws: quiz: game %d: %d-ply mate item, %d best items", rec.ID, mate, len(q.Best))
+}
+
+// quizInput 은 기록을 문항 생성기의 입력으로 옮긴다. **옮기는 자리가 여기다** —
+// internal/quiz 가 `store` 를 모르게 두면 문항 기준이 기록의 모양에 안 매인다.
+func quizInput(rec store.GameRecord) quiz.Input {
+	in := quiz.Input{
+		StartSFEN:    startSFENOf(rec.StartSFEN),
+		Human:        shogi.Black,
+		Won:          rec.Result == store.ResultWin,
+		OpeningPlies: openingPlies(rec),
+	}
+	if rec.MyColor == "w" {
+		in.Human = shogi.White
+	}
+	// **구멍에서 끊는다.** 기보에 빠진 手数가 있으면 그 뒤는 手数와 배열의 자리가 어긋나고,
+	// 그대로 두면 문항이 **한 번도 벌어지지 않은 국면**을 가리킨다(review.go detailOf).
+	for i, m := range rec.Moves {
+		if m.Ply != i+1 {
+			break
+		}
+		in.Moves = append(in.Moves, m.USI)
+		in.EvalCp = append(in.EvalCp, m.EvalCp)
+	}
+	return in
+}
+
+// openingPlies 는 컴퓨터가 고른 진형의 수순이 덮는 手数다. 「おまかせ」면 0이다.
+//
+// `book.Opening.Moves` 는 **한쪽의 수**만 주므로 手数로는 두 배다. 한 手 남짓 넘치거나
+// 모자라는 것은 상관없다 — 이 값은 「여기까지는 아직 정석이다」의 바닥이다.
+//
+// **색을 안 본다.** 後手 몫은 같은 수순을 180° 돌려 만드는 것이라(book.Opening.Moves) 개수가
+// 같다 — 색을 구해서 넘기면 없는 의존을 있는 것처럼 읽히게 만든다.
+func openingPlies(rec store.GameRecord) int {
+	if rec.OpeningID == "" {
+		return 0
+	}
+	o, ok := book.Find(rec.OpeningID)
+	if !ok {
+		return 0
+	}
+	return 2 * len(o.Moves(shogi.Black))
 }
 
 func (h *gameHandler) readLoop(

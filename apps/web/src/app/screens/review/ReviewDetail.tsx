@@ -11,6 +11,7 @@ import { WhatIfPanel } from './WhatIfPanel';
 import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/libs/game/moves';
 import { offsetWithin } from '@/libs/game/board-view';
 import { dateJa, resultJa } from '@/libs/review/labels';
+import { hrefOf, navigate } from '@/routes/router';
 import type { GameDetail, ReviewMove } from '@/protocol/review';
 import type { WhatIfNode } from '@/protocol/whatif';
 import { useEngineReady, useGameSummary } from '@/hooks/useReview';
@@ -652,6 +653,21 @@ export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
         {/* **날짜·결과 바로 아래다.** 셋 다 「이 판이 어떤 판이었나」이고, 아래의 패널들은
             「지금 보고 있는 手数」다 — 성격이 갈리는 자리에 선이 그어져야 한다. */}
         {summary.state !== 'error' && <Summary summary={summary.state === 'ready' ? summary.data : null} />}
+
+        {/* 퀴즈로 가는 문. **링크다** — 주소 하나가 화면 하나라 새 탭과 링크 복사가 살아 있어야
+            한다(App.tsx). 문항이 없는 판에서도 열린다: 있는지 없는지는 그 화면이 말한다.
+            여기서 미리 물어보면 판을 열 때마다 요청이 하나 늘고, 그 답은 대개 「없다」다. */}
+        <a
+          className="review-quiz-link"
+          href={hrefOf({ name: 'quiz', id: game.id })}
+          onClick={(e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+            e.preventDefault();
+            navigate({ name: 'quiz', id: game.id });
+          }}
+        >
+          この対局から出た問題を解く
+        </a>
 
         {promoting && (
           <div className="promotion" role="group" aria-label="成りの選択">

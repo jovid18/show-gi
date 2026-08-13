@@ -36,8 +36,11 @@ async function getJSON<T>(path: string, signal: AbortSignal): Promise<T> {
  *
  * **떠난 요청은 버린다.** 목록에서 판을 빠르게 옮겨 다니면 응답이 순서대로 오지 않고,
  * 그때 늦게 온 것이 화면을 덮으면 **다른 판의 기보를 지금 판이라고 그린다.**
+ *
+ * 퀴즈도 이걸 쓴다(useQuiz) — 「아직 안 왔다 / 못 읽었다 / 하나도 없다」를 갈라 두는 규약이
+ * 두 벌이 되면 한쪽에서만 빈 목록이 오류처럼 보인다.
  */
-function useFetch<T>(path: string): Source<T> {
+export function useFetch<T>(path: string): Source<T> {
   const [loaded, setLoaded] = useState<Loaded<T>>({ state: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const reload = useCallback(() => setAttempt((n) => n + 1), []);

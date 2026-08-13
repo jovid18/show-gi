@@ -148,7 +148,7 @@ func (q *Queries) FinishGame(ctx context.Context, arg FinishGameParams) error {
 }
 
 const getGame = `-- name: GetGame :one
-SELECT id, my_color, started_at, finished_at, result, start_sfen
+SELECT id, my_color, started_at, finished_at, result, start_sfen, opening_tag
 FROM games
 WHERE id = $1
 `
@@ -160,6 +160,7 @@ type GetGameRow struct {
 	FinishedAt pgtype.Timestamptz
 	Result     *string
 	StartSfen  *string
+	OpeningTag *string
 }
 
 // **여기서는 개입을 세지 않는다.** 어차피 아래에서 전부 읽어 오므로, 따로 센 숫자와
@@ -175,12 +176,13 @@ func (q *Queries) GetGame(ctx context.Context, id int64) (GetGameRow, error) {
 		&i.FinishedAt,
 		&i.Result,
 		&i.StartSfen,
+		&i.OpeningTag,
 	)
 	return i, err
 }
 
 const getGameForOwner = `-- name: GetGameForOwner :one
-SELECT id, my_color, started_at, finished_at, result, start_sfen
+SELECT id, my_color, started_at, finished_at, result, start_sfen, opening_tag
 FROM games
 WHERE id = $1
   AND result IN ('win', 'loss', 'draw')
@@ -199,6 +201,7 @@ type GetGameForOwnerRow struct {
 	FinishedAt pgtype.Timestamptz
 	Result     *string
 	StartSfen  *string
+	OpeningTag *string
 }
 
 // 주인이 아니면 **0행**이다. 부르는 쪽에서 그것이 404가 된다 — 403이면 「그 번호의
@@ -216,6 +219,7 @@ func (q *Queries) GetGameForOwner(ctx context.Context, arg GetGameForOwnerParams
 		&i.FinishedAt,
 		&i.Result,
 		&i.StartSfen,
+		&i.OpeningTag,
 	)
 	return i, err
 }

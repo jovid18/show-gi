@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"testing"
@@ -583,5 +584,73 @@ func TestInterventionKeepsBothCp(t *testing.T) {
 
 	if tesuji := rec.Interventions[1]; tesuji.BestCp != nil || tesuji.AfterCp != nil {
 		t.Errorf("판정을 안 거친 행에 cp가 붙었다: best=%v after=%v", tesuji.BestCp, tesuji.AfterCp)
+	}
+}
+
+// ── 되짚기 퀴즈 ──────────────────────────────────────────
+
+// 퀴즈는 **판이 맞을 때만** 온다. 그 규칙이 Go 쪽 한 줄에 있어서(GameQuiz) 가짜로도 볼 수
+// 있지만, 함께 확인해야 하는 것이 jsonb 왕복이라 여기서 같이 본다.
+func TestGameQuizRoundTrip(t *testing.T) {
+	s := open(t)
+	id := newGame(t, s)
+
+	if _, err := s.GameQuiz(t.Context(), id, 1); !errors.Is(err, ErrNoQuiz) {
+		t.Fatalf("ErrNoQuiz 기대, got %v", err)
+	}
+
+	body := []byte(`{"mate":{"ply":41,"plies":5},"best":[{"ply":30}]}`)
+	if err := s.SaveGameQuiz(t.Context(), id, 1, body); err != nil {
+		t.Fatalf("SaveGameQuiz: %v", err)
+	}
+	got, err := s.GameQuiz(t.Context(), id, 1)
+	if err != nil {
+		t.Fatalf("GameQuiz: %v", err)
+	}
+	// **바이트가 같기를 기대하지 않는다.** jsonb는 넣은 글자를 그대로 두지 않고 다시 쓴다
+	// (키 순서도 공백도 갈린다). 읽는 쪽이 하는 일과 같게 **풀어서** 본다.
+	var back struct {
+		Mate *struct{ Plies int } `json:"mate"`
+	}
+	if err := json.Unmarshal(got, &back); err != nil {
+		t.Fatalf("decode %s: %v", got, err)
+	}
+	if back.Mate == nil || back.Mate.Plies != 5 {
+		t.Errorf("payload = %s, want it to carry the mate item", got)
+	}
+
+	// **판이 다르면 없는 것이다.** 문항 기준이 바뀌면 옛 문항은 그 기준으로 만든 것이
+	// 아니라서 채점 규약이 어긋난다(migrations/007).
+	if _, err := s.GameQuiz(t.Context(), id, 2); !errors.Is(err, ErrNoQuiz) {
+		t.Fatalf("판이 다른데 왔다: %v", err)
+	}
+
+	// 다시 만들면 새 것이 정본이다.
+	if err := s.SaveGameQuiz(t.Context(), id, 2, []byte(`{"best":[]}`)); err != nil {
+		t.Fatalf("SaveGameQuiz(2): %v", err)
+	}
+	if _, err := s.GameQuiz(t.Context(), id, 1); !errors.Is(err, ErrNoQuiz) {
+		t.Fatalf("옛 판이 아직 온다: %v", err)
+	}
+	if _, err := s.GameQuiz(t.Context(), id, 2); err != nil {
+		t.Fatalf("GameQuiz(2): %v", err)
+	}
+}
+
+// 퀴즈가 없는 판은 **흔하다** — 10수 만에 投了한 판이 그렇다. 그때 문항 없이 행만 남는데
+// (「아직 만드는 중」과 갈라야 한다) 빈 문항이 왕복되는지 본다.
+func TestGameQuizWithNoItems(t *testing.T) {
+	s := open(t)
+	id := newGame(t, s)
+
+	if err := s.SaveGameQuiz(t.Context(), id, 1, []byte(`{}`)); err != nil {
+		t.Fatalf("SaveGameQuiz: %v", err)
+	}
+	got, err := s.GameQuiz(t.Context(), id, 1)
+	if err != nil {
+		t.Fatalf("GameQuiz: %v", err)
+	}
+	if len(got) == 0 {
+		t.Error("payload가 비었다 — 「만들어졌고 문항이 없다」가 「아직 안 만들어졌다」와 같아진다")
 	}
 }

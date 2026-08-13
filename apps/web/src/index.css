@@ -2889,3 +2889,169 @@ body {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+
+/* ── 되짚기 퀴즈 ─────────────────────────────────────────
+   문항은 그 판에서 나왔다(docs/06-status.md §53). 그래서 판·駒台는 되짚기와 **같은
+   컴포넌트**이고, 이 절이 더하는 것은 문항을 세로로 세우는 자리와 채점 한 줄뿐이다.
+
+   판을 여기서 다시 꾸미지 않는다 — `.game-board` 가 그리는 것과 같은 판이라야 사람이
+   「방금 보던 그 판」으로 읽는다. */
+
+.quiz {
+  max-width: 38rem;
+  margin-inline: auto;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.quiz-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.quiz-status {
+  margin: 0;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+.quiz-item {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: 1.25rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.quiz-item-head {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: center;
+  text-align: center;
+}
+
+.quiz-item-head h3 {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+}
+
+.quiz-item-ply {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.quiz-item-lead {
+  margin: 0;
+  color: var(--fg-2);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+}
+
+/* 판과 駒台. 대국 화면의 배치를 그대로 쓴다. */
+.quiz-board {
+  position: relative;
+  display: grid;
+  gap: 0.6rem;
+  justify-items: center;
+}
+
+.quiz-item-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.quiz-item-note strong {
+  color: var(--fg-2);
+  font-weight: 600;
+}
+
+/* **자리를 늘 지킨다.** 답할 때마다 이 줄이 생겼다 없어지면 아래가 밀려 올라가고,
+   그러면 방금 무엇이 바뀌었는지를 눈이 못 따라간다. 빈칸 하나를 그리는 이유다. */
+.quiz-verdict {
+  margin: 0;
+  min-height: 1.7em;
+  text-align: center;
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--fg-2);
+}
+
+/* 정답·오답은 **글자색으로만** 갈린다. 배경을 칠하면 카드 안에 또 카드가 생기고,
+   그건 판보다 먼저 눈에 들어온다 — 이 화면의 주인공은 판이다. */
+.quiz-verdict[data-tone='right'] {
+  color: var(--brand);
+  font-weight: 600;
+}
+
+/* **오답을 붉게 칠하지 않는다.** 진 판을 붉게 안 칠하는 것과 같은 이유이고(위 `data-result`),
+   여기가 그 규칙이 가장 걸리는 자리다 — 문제를 틀린 초심자에게 붉은 글씨를 내미는 것은
+   이 제품이 실수를 나무라는 물건이 아니라는 것과 정면으로 어긋난다. 무게만 준다. */
+.quiz-verdict[data-tone='wrong'] {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* 붉은 것은 **고장뿐이다.** 채점이 아니라 요청이 실패한 자리라, 다른 것과 갈려 보여야 한다. */
+.quiz-verdict[data-tone='error'] {
+  color: #a4453a;
+}
+
+.quiz-scores {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  font-size: 0.8125rem;
+}
+
+.quiz-scores > div {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.quiz-scores dt {
+  color: var(--muted);
+}
+
+.quiz-scores dd {
+  margin: 0;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 되짚기에서 퀴즈로 가는 문. 총평 바로 아래에 서므로 카드가 아니라 **줄**이다. */
+.review-quiz-link {
+  display: block;
+  padding: 0.6rem 0.75rem;
+  text-align: center;
+  text-decoration: none;
+  font-size: 0.8125rem;
+  color: var(--brand);
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-line);
+  border-radius: var(--r-sm);
+}
+
+.review-quiz-link:hover,
+.review-quiz-link:focus-visible {
+  background: var(--surface);
+  border-color: var(--brand);
+}

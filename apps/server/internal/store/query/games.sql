@@ -108,7 +108,7 @@ LIMIT $1;
 -- **여기서는 개입을 세지 않는다.** 어차피 아래에서 전부 읽어 오므로, 따로 센 숫자와
 -- 실제로 온 줄 수가 두는 중인 판에서 어긋날 수 있다 — 목록(ListGames)은 줄을 안 읽으니
 -- 거기서만 센다.
-SELECT id, my_color, started_at, finished_at, result, start_sfen
+SELECT id, my_color, started_at, finished_at, result, start_sfen, opening_tag
 FROM games
 WHERE id = $1;
 
@@ -119,7 +119,7 @@ WHERE id = $1;
 --
 -- **끝나지 않은 판도 0행이다** — ListGamesForOwner 와 같은 조건이고, 같은 이유로 404다.
 -- 「있지만 못 본다」를 알려주는 순간 중단된 판의 존재가 새어 나간다.
-SELECT id, my_color, started_at, finished_at, result, start_sfen
+SELECT id, my_color, started_at, finished_at, result, start_sfen, opening_tag
 FROM games
 WHERE id = $1
   AND result IN ('win', 'loss', 'draw')

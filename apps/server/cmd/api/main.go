@@ -17,6 +17,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
+	"github.com/jovid18/show-gi/apps/server/internal/quiz"
 	"github.com/jovid18/show-gi/apps/server/internal/server"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -24,9 +25,20 @@ import (
 
 // 엔진 풀 크기의 기본값.
 //
-// 최소 3개다 — ① 상대 수 ② 플레이어 후보 선행 계산 ③ mate 탐색(詰み 게이지).
+// 빌리는 자리가 **다섯**이다 — ① 상대 수 ② 개입 판정 ③ 가정 수순 ④ 手筋 힌트
+// ⑤ 되짚기 퀴즈의 「최선수는?」. **詰み 탐색은 여기 없다** — 다른 바이너리라 풀이 따로다
+// (defaultMatePoolSize).
+//
+// **3은 그 다섯을 다 덮는 값이 아니다.** 퀴즈가 판이 끝날 때 12국면 × 956ms ≈ 12초를 쓰므로
+// (§53) 두 판이 동시에 끝나면 진행 중인 대국의 착수가 그만큼 뒤로 밀린다. 그래도 안 올린 것은
+// **그 지연이 대국을 멈추지 않기 때문**이다(mate 풀과 달리 여기는 원래도 여럿이 다툰다).
+// 올릴 자리는 태스크 정의의 `ENGINE_POOL_SIZE` 다.
 // Fargate에 4 vCPU를 준 이유가 이것이고, 느려지면 태스크 정의만 바꿔 올린다.
 const defaultEnginePoolSize = 3
+
+// defaultMatePoolSize 는 詰将棋 solver 의 기본 개수다. **2인 이유는 startMateEngines 에 있다** —
+// 퀴즈 생성이 하나를 오래 잡으므로 대국 쪽에 한 자리를 남긴다.
+const defaultMatePoolSize = 2
 
 func main() {
 	addr := flag.String("addr", ":8080", "listen address")
@@ -76,9 +88,9 @@ func main() {
 			mate = matePool
 		}
 
-		// **모든 탐색이 데이터가 된다.** 엔진을 부르는 자리가 다섯인데(상대의 수 · 개입
-		// 판정 · 대국 중 가정 수순 · 되짚는 판의 가정 수순 · 手筋 제안형 힌트) 기록을
-		// 다섯 곳에 흩뿌리면 반드시 하나가 빠진다. 그래서 **풀을 한 겹 감싸고 다섯이 같은
+		// **모든 탐색이 데이터가 된다.** 엔진을 부르는 자리가 여섯인데(상대의 수 · 개입
+		// 판정 · 대국 중 가정 수순 · 되짚는 판의 가정 수순 · 手筋 제안형 힌트 · 되짚기
+		// 퀴즈의 「최선수는?」) 기록을 여섯 곳에 흩뿌리면 반드시 하나가 빠진다. 그래서 **풀을 한 겹 감싸고 다섯이 같은
 		// 하나를 받는다** — 감싸는 자리가 여기 한 줄이라 빠뜨릴 자리가 없다(internal/archive).
 		//
 		// 手筋 힌트가 이 구조에서 특히 값을 한다. 후보마다 착수 후 국면을 재는데 그 국면은
@@ -102,13 +114,22 @@ func main() {
 		opts.NewAnalyst = func() game.Analyst {
 			return game.NewEngineAnalyst(searcher, mate, opts.Level)
 		}
-		// 종반 판정과 詰み 게이지가 같은 풀을 쓴다. 두 자리가 시간상 겹치지 않아
-		// (판정은 사람의 수 직후, 게이지는 상대의 수 직후) 하나로 충분하다.
+		// 종반 판정·詰み 게이지·퀴즈의 詰み 트리가 **셋 다 이 풀이다.** 앞의 둘은 시간상
+		// 겹치지 않지만(판정은 사람의 수 직후, 게이지는 상대의 수 직후) 퀴즈는 판이
+		// 끝나는 자리에서 수십 초를 잡는다 — 그래서 하나로는 모자라다(matePoolSize).
 		opts.Mate = mate
 
 		// 가정 수순도 같은 풀이다(internal/server/whatif.go). 대국과 자리를 다투지만,
 		// 겹치면 풀이 순서대로 빌려주고 그만큼 기다린다 — 지연은 여기서 허용된 비용이다.
 		opts.Search = searcher
+
+		// 되짚기 퀴즈의 생성기. **엔진 둘을 다 쓴다** — 詰み 문항은 solver, 「최선수는?」은
+		// 탐색부다. 탐색부 쪽을 감싼 것으로 넘기는 이유는 그 결과도 `positions` 에 쌓여야
+		// 하기 때문이다(§37) — 퀴즈가 재는 국면은 되짚기에서 가정 수순이 곧 다시 물어볼 자리다.
+		//
+		// mate 가 nil이면 **「최선수는?」 문항만** 나온다 — 없어지는 쪽이 詰み 문항이다
+		// (`Build` 가 `b.mate != nil` 로 가른다). searcher 가 없으면 이 자리 자체가 없다.
+		opts.Quiz = quiz.NewBuilder(mate, searcher, engineDepth())
 	}
 
 	if err := server.Run(ctx, *addr, opts); err != nil {
@@ -253,10 +274,18 @@ func startMateEngines() *usi.Pool {
 		log.Print("ENGINE_MATE_CMD is not set — endgame judgment and the mate gauge are disabled")
 		return nil
 	}
-	// 매 수 **두 번**이지만(종반 판정과 詰み 게이지) 그 둘이 시간상 겹치지 않아
-	// 상대 수 계산만큼 동시에 돌 필요가 없다. 판정은 사람의 수 직후에, 게이지는
-	// 상대의 수 직후에 걸린다 — 사람 차례와 엔진 차례가 곧 두 자리의 조건이다.
-	pool, err := usi.NewPool(1, cmd, map[string]string{
+	// 대국 중에는 매 수 **두 번**이지만(종반 판정과 詰み 게이지) 그 둘이 시간상 겹치지
+	// 않는다 — 판정은 사람의 수 직후, 게이지는 상대의 수 직후다. 거기까지면 하나로 족했다.
+	//
+	// **세 번째 소비자가 그 전제를 깼다.** 되짚기 퀴즈의 詰み 트리가 판이 끝나는 자리에서
+	// 수십 초 동안 이 풀을 잡고(06-status.md §53), 그동안 **다른 대국의** 게이지와 종반
+	// 판정이 막힌다. 그래서 기본을 2로 올렸다.
+	//
+	// **「대국 쪽에 늘 한 자리가 남는다」는 아니다.** 생성은 끝나는 판마다 하나씩 뜨고 수를
+	// 막는 자리가 없어서, 두 판이 동시에 끝나면 둘이 두 자리를 다 잡는다. 다만 탐색 하나마다
+	// 빌리고 돌려주므로(`Pool.Do`) 굶는 것이 아니라 **줄을 서는 것**이고, 대국 쪽은 지연으로
+	// 겪는다 — 하나였을 때는 수십 초를 통째로 기다렸다.
+	pool, err := usi.NewPool(matePoolSize(), cmd, map[string]string{
 		"USI_Hash":   envOr("ENGINE_HASH_MB", "128"),
 		"Threads":    envOr("ENGINE_THREADS", "1"),
 		"DepthLimit": envOr("ENGINE_MATE_PLIES", "11"),
@@ -265,8 +294,26 @@ func startMateEngines() *usi.Pool {
 		log.Printf("cannot start the mate solver — endgame judgment is disabled: %v", err)
 		return nil
 	}
-	log.Printf("mate solver ready: %s", cmd)
+	log.Printf("mate solver ready: %s x%d", cmd, pool.Size())
 	return pool
+}
+
+// matePoolSize 는 詰将棋 solver 를 몇 개 띄우나다. 손잡이는 `ENGINE_MATE_POOL_SIZE` 다.
+//
+// **탐색부의 `ENGINE_POOL_SIZE` 와 갈라 둔다.** 두 풀이 다른 바이너리이고 잡히는 이유도
+// 다르다 — 저쪽은 상대의 수 계산이고 이쪽은 게이지·종반 판정·퀴즈 생성이다. 한 값으로
+// 묶으면 어느 쪽 때문에 올렸는지 다음에 아무도 모른다.
+func matePoolSize() int {
+	size := defaultMatePoolSize
+	if v := os.Getenv("ENGINE_MATE_POOL_SIZE"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			log.Printf("ENGINE_MATE_POOL_SIZE=%q is not a positive integer, using %d", v, size)
+		} else {
+			size = n
+		}
+	}
+	return size
 }
 
 // engineOptions 는 엔진 전체에 거는 설정이다. 대국마다 달라지는 값은 여기 두지 않는다.

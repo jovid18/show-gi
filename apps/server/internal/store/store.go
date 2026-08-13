@@ -595,7 +595,10 @@ type RecordedIntervention struct {
 type GameRecord struct {
 	GameSummary
 	// StartSFEN 은 비어 있을 수 있다. 그때는 평수 초기 국면이다.
-	StartSFEN     string
+	StartSFEN string
+	// OpeningID 는 그 판에서 사람이 고른 **상대의** 진형 id다(internal/book).
+	// 「おまかせ」였으면 빈 값이다.
+	OpeningID     string
 	Moves         []RecordedMove
 	Interventions []RecordedIntervention
 }
@@ -672,6 +675,7 @@ type gameHead struct {
 	FinishedAt time.Time
 	Result     *string
 	StartSFEN  *string
+	OpeningTag *string
 }
 
 // GameRecord 는 **그 사람의** 한 판을 통째로 읽는다. ownerID 가 nil이면 익명 판이다.
@@ -688,7 +692,7 @@ func (s *Store) GameRecord(ctx context.Context, gameID int64, ownerID *int64) (G
 	return s.recordOf(ctx, gameHead{
 		ID: head.ID, MyColor: head.MyColor,
 		StartedAt: head.StartedAt.Time, FinishedAt: head.FinishedAt.Time,
-		Result: head.Result, StartSFEN: head.StartSfen,
+		Result: head.Result, StartSFEN: head.StartSfen, OpeningTag: head.OpeningTag,
 	})
 }
 
@@ -704,7 +708,7 @@ func (s *Store) GameRecordAnyOwner(ctx context.Context, gameID int64) (GameRecor
 	return s.recordOf(ctx, gameHead{
 		ID: head.ID, MyColor: head.MyColor,
 		StartedAt: head.StartedAt.Time, FinishedAt: head.FinishedAt.Time,
-		Result: head.Result, StartSFEN: head.StartSfen,
+		Result: head.Result, StartSFEN: head.StartSfen, OpeningTag: head.OpeningTag,
 	})
 }
 
@@ -729,6 +733,7 @@ func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error)
 			head.ID, head.MyColor, head.StartedAt, head.FinishedAt, head.Result,
 			int64(len(moves)), int64(len(ivs)),
 		),
+		OpeningID:     deref(head.OpeningTag),
 		Moves:         make([]RecordedMove, 0, len(moves)),
 		Interventions: make([]RecordedIntervention, 0, len(ivs)),
 	}
@@ -765,6 +770,38 @@ func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error)
 		out.Interventions = append(out.Interventions, rec)
 	}
 	return out, nil
+}
+
+// ErrNoQuiz 는 그 판에 쓸 수 있는 퀴즈가 없을 때.
+var ErrNoQuiz = errors.New("store: quiz not generated")
+
+// GameQuiz 는 저장된 퀴즈를 **판이 맞을 때만** 준다. 안 맞으면 ErrNoQuiz 다 —
+// 「옛 판을 무시한다」를 여기 한 자리에서 걸어야 부르는 쪽마다 다시 비교하지 않는다
+// (migrations/007).
+//
+// **바이트를 그대로 준다.** 문항의 모양은 internal/quiz 것이고, 이 패키지가 그걸 알면
+// 채점 규약이 두 곳에 적힌다.
+func (s *Store) GameQuiz(ctx context.Context, gameID int64, version int) ([]byte, error) {
+	row, err := s.q.GetGameQuiz(ctx, gameID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNoQuiz
+	}
+	if err != nil {
+		return nil, err
+	}
+	if int(row.Version) != version {
+		return nil, ErrNoQuiz
+	}
+	return row.Payload, nil
+}
+
+// SaveGameQuiz 는 만든 퀴즈를 남긴다.
+func (s *Store) SaveGameQuiz(ctx context.Context, gameID int64, version int, payload []byte) error {
+	return s.q.UpsertGameQuiz(ctx, db.UpsertGameQuizParams{
+		GameID:  gameID,
+		Version: int32(version),
+		Payload: payload,
+	})
 }
 
 func resultValue(s *string) GameResult {

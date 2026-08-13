@@ -38,11 +38,27 @@ describe('parseRoute', () => {
   it('모르는 경로는 대국이다 — 404 화면을 두지 않는다', () => {
     expect(parseRoute('/nope')).toEqual({ name: 'game' });
   });
+
+  it('퀴즈', () => {
+    expect(parseRoute('/reviews/12/quiz')).toEqual({ name: 'quiz', id: 12 });
+    expect(parseRoute('/reviews/12/quiz/')).toEqual({ name: 'quiz', id: 12 });
+  });
+
+  // 퀴즈가 아닌 꼬리는 **그 판**이다. 목록으로 튕기면 링크를 잘못 복사한 사람이 판을
+  // 잃고, 이 앱에 404 화면은 없다.
+  it('모르는 꼬리는 그 판이다', () => {
+    expect(parseRoute('/reviews/12/nope')).toEqual({ name: 'review', id: 12 });
+  });
+
+  // id 검사가 꼬리보다 먼저다 — 안 그러면 못 읽는 id로 퀴즈 요청이 나간다.
+  it('id가 정수가 아니면 꼬리가 있어도 목록이다', () => {
+    expect(parseRoute('/reviews/abc/quiz')).toEqual({ name: 'reviews' });
+  });
 });
 
 describe('hrefOf', () => {
   it('읽은 것을 다시 적으면 같은 주소다', () => {
-    for (const path of ['/', '/reviews', '/reviews/12']) {
+    for (const path of ['/', '/reviews', '/reviews/12', '/reviews/12/quiz']) {
       expect(hrefOf(parseRoute(path))).toBe(path);
     }
   });

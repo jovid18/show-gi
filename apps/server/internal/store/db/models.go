@@ -45,6 +45,13 @@ type GameMove struct {
 	EvalCp  *int32
 }
 
+type GameQuiz struct {
+	GameID      int64
+	Version     int32
+	Payload     []byte
+	GeneratedAt pgtype.Timestamptz
+}
+
 type Intervention struct {
 	ID           int64
 	GameID       int64
