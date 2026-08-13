@@ -135,8 +135,11 @@ type whatifCandidate struct {
 	// EvalCp 는 **그 수를 둔 쪽 관점** cp다 — 이 값의 주인만 `Turn` 이고, 노드의 EvalCp 는
 	// 패키지 doc 대로 플레이어 관점이다.
 	EvalCp int `json:"evalCp"`
-	// LossCp 는 최선수 대비 낙폭이다. 최선수는 0 — 「이 수를 고르면 얼마를 내주나」다.
-	LossCp int `json:"lossCp"`
+	// LossCp 는 최선수 대비 낙폭이다 — 「이 수를 고르면 얼마를 내주나」.
+	//
+	// **없는 자리가 둘이다**: 최선수 자신(기준이라 0)과 詰み이 섞인 줄(candidatesOf).
+	// 그래서 0을 안 내보낸다 — 화면이 「낙폭 0」과 「낙폭을 모른다」를 갈라야 한다.
+	LossCp int `json:"lossCp,omitempty"`
 	// MateIn 은 詰み까지의 手数다. 0이면 詰み이 아니다 — cp만 내보내면 30000이라는
 	// 숫자가 화면에 그대로 나가고, 그건 평가치가 아니라 환산값이다.
 	MateIn int `json:"mateIn,omitempty"`

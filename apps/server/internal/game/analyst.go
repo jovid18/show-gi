@@ -127,16 +127,31 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		j.HasEvals = true
 	}
 	if v.Kind != intervene.KindNone {
-		// 이미 손에 든 탐색의 PV가 그대로 「상대는 이렇게 벌한다」다. **추가 탐색이 없고
-		// 분류도 필요 없다** — 카테고리가 이유를 못 대는 3분의 2(06-status.md §17)가
-		// 여기서 설명을 갖는다.
+		// 「상대는 이렇게 벌한다」의 수순이고, **출처가 셋이다.**
 		//
-		// **詰まされる 국면만 다른 수순을 쓴다.** 증명된 詰み 수순이 있으면 PV보다 그것이
-		// 낫다 — PV는 깊이 12에서의 읽기라 뒤로 갈수록 확실하지 않은데, 詰み 수순은
-		// 모든 응수에 대해 증명된 것이라 **끝까지 참이다.**
+		// 기본은 이미 손에 든 착수 후 탐색의 PV다 — 공짜이고 분류도 필요 없어서, 카테고리가
+		// 이유를 못 대는 3분의 2(06-status.md §17)가 여기서 설명을 갖는다.
+		//
+		// **詰まされる 국면은 증명된 詰み 수순을 쓴다.** PV는 깊이 12에서의 읽기라 뒤로 갈수록
+		// 확실하지 않은데, 詰み 수순은 모든 응수에 대해 증명된 것이라 **끝까지 참이다.**
+		//
+		// **`other` 는 카드와 같은 질문을 다시 던진다**(cardPV). 그 카테고리만 문장에 수를
+		// 적으므로, 거기서만 「화면이 한 국면의 최선수를 둘로 말한다」가 성립한다(§58).
 		pv, full := after.PV, false
-		if len(mateLine) > 0 {
+		switch {
+		case len(mateLine) > 0:
 			pv, full = mateLine, true
+		case v.Category == intervene.CategoryOther && facts.Known:
+			// **문장이 수를 적는 카테고리가 이것뿐이다**(explain.Facts.used). 그래서 여기만
+			// 카드와 같은 질문의 답을 쓴다 — 이유를 이름으로 대는 카테고리는 수를 안 적으므로
+			// 갈릴 자리가 없고, 탐색을 하나 더 걸 이유도 없다.
+			//
+			// **`Known` 을 보는 것도 같은 이유다.** 판을 못 읽으면 카테고리가 `other` 로
+			// 떨어지는데(intervene.classify) 그때는 `used` 가 이 수를 지워서 문장에 안 나간다 —
+			// 말하지 않을 것을 위해 탐색을 걸지 않는다.
+			if top := a.cardPV(ctx, startSFEN, moves); len(top) > 0 {
+				pv = top
+			}
 		}
 		r := refutationLine(startSFEN, moves, pv, RefutationPlies, full)
 		j.RetractedSFEN, j.RetractedChecks = r.retractedSFEN, r.checks
@@ -155,7 +170,9 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		facts.Threatened = r.threatened
 		facts.MatePlies = in.Features.OpponentMatePlies
 		if v.Category == intervene.CategoryOther {
-			facts.OpponentBest, facts.Branches = a.otherBranches(ctx, startSFEN, moves, after.PV)
+			// **위에서 정한 그 PV다.** `after.PV` 를 여기서 다시 읽으면 문장의 첫 수와
+			// 「무엇을 취할 수 있는가」(r.threatened)가 서로 다른 수의 것이 된다.
+			facts.OpponentBest, facts.Branches = a.otherBranches(ctx, startSFEN, moves, pv)
 		}
 		j.Facts = facts
 	}
@@ -194,15 +211,47 @@ func (a *engineAnalyst) opponentMate(
 }
 
 // OtherBranches 는 `other` 설명이 펼치는 갈래의 수다. **화면의 후보 목록과 같은 셋**이라,
-// 문장과 목록이 같은 것을 말한다.
+// 문장과 목록이 같은 것을 말한다 — 그래서 `cardPV` 도 이 k로 묻는다(server.whatifCandidates).
 const OtherBranches = 3
+
+// cardPV 는 물러진 수 뒤 국면의 **정본 PV**다. 못 구하면 nil.
+//
+// **개입 카드가 후보 목록을 얻는 것과 같은 질문이다** — 같은 국면·같은 깊이·k=OtherBranches.
+// 판정이 손에 든 착수 후 탐색은 k=1이고, **같은 국면·같은 깊이라도 k가 다르면 1위가 갈린다**
+// (06-status.md §34 ②). 그 PV를 문장에 쓰고 있었던 것이 화면이 한 국면의 최선수를 둘로 말한
+// 이유 전부다 — 얼마나 자주 갈리는지는 §58의 실측 표.
+//
+// **엔진을 부르는 총 횟수는 그대로다.** 여기서 거는 탐색이 곧 화면이 물을 그 탐색이고, 결과가
+// `positions` 에 남아 카드의 요청이 캐시에서 답한다(internal/archive · server.evalOf). 늘어난
+// 것은 **카드가 뜨기 전에 도는 몫**이다.
+//
+// **판정 자체는 안 건드린다** — 착수 직후에 도는 유일한 탐색을 무겁게 하면 개입이 안 걸린
+// 수까지 느려진다(JudgeDepth).
+func (a *engineAnalyst) cardPV(ctx context.Context, startSFEN string, moves []string) []string {
+	multi, ok := a.search.(MultiSearcher)
+	if !ok {
+		return nil
+	}
+	res, err := multi.SearchMultiPV(ctx, startSFEN, moves, a.depth, OtherBranches)
+	if err != nil {
+		// **못 물었으면 k=1 PV로 돌아간다.** 그때는 카드의 요청도 같은 이유로 튕겨 목록이
+		// 아예 안 서므로(server.whatifNodeOf), 화면에 모순이 남지는 않는다.
+		log.Printf("game: could not read the card position, the sentence falls back to k=1: %v", err)
+		return nil
+	}
+	ranked := res.Ranked()
+	if len(ranked) == 0 || len(ranked[0].PV) == 0 {
+		return nil
+	}
+	return ranked[0].PV
+}
 
 // otherBranches 는 「그 수를 두면 이렇게 된다」를 세 갈래로 만든다. 첫 값은 상대의 최선수다.
 //
 // `other` 는 **이유를 못 대는 자리**이고, 그때 남는 정직한 설명이 「그래서 어떻게 되는가」
-// 하나다. 재료의 대부분은 판정이 이미 손에 들고 있다 — 상대의 최선수는 착수 후 탐색의 PV
-// 첫 수라 공짜이고, **추가 탐색은 A+B 국면의 MultiPV 한 번뿐**이다. 그 한 번이 내 후보 셋과
-// 각 줄의 PV(=상대의 응수)와 결말 cp를 함께 준다.
+// 하나다. 상대의 최선수는 **주어진 pv의 첫 수**이고 — 부르는 쪽이 카드와 같은 질문으로
+// 구해다 준다(cardPV) — 여기서 하는 탐색은 **A+B 국면의 MultiPV 한 번뿐**이다. 그 한 번이
+// 내 후보 셋과 각 줄의 PV(=상대의 응수)와 결말 cp를 함께 준다.
 //
 // **못 구하면 그 갈래를 안 준다.** 반쪽짜리 갈래는 문장에서 곧 거짓이 되고, 여기 없는 것을
 // 설명 계층이 지어내지 못한다는 것이 이 구조의 요점이다(explain 패키지 doc).

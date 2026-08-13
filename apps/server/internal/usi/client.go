@@ -59,6 +59,28 @@ type SearchResult struct {
 	History []SearchLine
 }
 
+// Ranked 는 후보 줄을 **정본 순서**로 준다 — 점수 내림차순이고, 빈 순위와 중복 순위는 빠진다.
+//
+// **이 순서가 한 자리에만 있어야 한다.** 캐시에 쌓이는 후보 목록(archive.Candidates)과
+// 개입 문장이 말하는 상대의 최선수(game.engineAnalyst.cardPV)가 둘 다 이것을 보고, 갈리면
+// 한 국면의 최선수가 화면에서 둘이 된다(06-status.md §58).
+//
+// **`Lines[0]` 이 1위가 아닐 수 있다.** 순위별 자리를 미리 채워 두므로(`parseScore`) 아직 안
+// 온 순위는 빈 줄로 남고, 그것을 그대로 1위로 읽으면 수가 없는 후보를 최선수라고 부른다.
+func (r SearchResult) Ranked() []SearchLine {
+	out := make([]SearchLine, 0, len(r.Lines))
+	seen := map[int]bool{}
+	for _, l := range r.Lines {
+		if l.Move == "" || seen[l.MultiPV] {
+			continue
+		}
+		seen[l.MultiPV] = true
+		out = append(out, l)
+	}
+	slices.SortStableFunc(out, func(x, y SearchLine) int { return y.ScoreCp - x.ScoreCp })
+	return out
+}
+
 // DepthEval 은 한 수의 특정 깊이 평가치다.
 type DepthEval struct {
 	Depth int

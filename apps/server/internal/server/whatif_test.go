@@ -342,6 +342,32 @@ func TestWhatIfReportsMateInPlies(t *testing.T) {
 	}
 }
 
+// 詰み이 섞인 줄에는 **낙폭을 안 적는다.** cp가 환산값이라 뺄셈이 29900을 내놓고, 화면은
+// 그것을 「최선수보다 29900 손해」로 읽는다 — 자가 다른 두 값의 차다.
+func TestWhatIfLeavesLossOutWhenMateIsInTheList(t *testing.T) {
+	rec := recordOf("b", "7g7f", "3c3d")
+	search := &fakeSearcher{results: []usi.SearchResult{{
+		Depth: whatifDepth, Best: "2g2f", ScoreCp: usi.MateCp - 50, IsMate: true, MateIn: 5,
+		Lines: []usi.SearchLine{
+			{Depth: whatifDepth, MultiPV: 1, Move: "2g2f", ScoreCp: usi.MateCp - 50, IsMate: true, MateIn: 5},
+			{Depth: whatifDepth, MultiPV: 2, Move: "6g6f", ScoreCp: 100},
+		},
+	}}}
+
+	node, err := whatifNodeOf(t.Context(), rootOf(rec), whatifRequest{Ply: 2}, search, nil)
+	if err != nil {
+		t.Fatalf("whatifNodeOf: %v", err)
+	}
+	if len(node.Candidates) != 2 {
+		t.Fatalf("candidates = %+v", node.Candidates)
+	}
+	for i, c := range node.Candidates {
+		if c.LossCp != 0 {
+			t.Errorf("candidates[%d].lossCp = %d, want 0 — 詰み이 섞인 자리다", i, c.LossCp)
+		}
+	}
+}
+
 // **이미 잰 국면은 다시 재지 않는다.** 탐색이 0번이 되는 것보다 중요한 것은 값이 안
 // 흔들리는 것이다 — 같은 국면·같은 깊이가 치환표 상태에 따라 ±150cp 갈린다(§34 ②).
 func TestWhatIfUsesTheCache(t *testing.T) {

@@ -442,21 +442,19 @@ func Key(pos shogi.Position) string {
 //
 // 공개해 둔 것은 **캐시에서 꺼낸 것과 방금 잰 것이 같은 모양이어야** 하기 때문이다
 // (`internal/server/whatif.go`). 두 모양이 갈리면 히트율에 따라 나타나는 버그가 된다.
+//
+// **순서는 `usi.SearchResult.Ranked` 가 정한다.** 여기서 한 벌 더 세면 개입 문장이 보는
+// 1위와 이 목록의 1위가 갈릴 수 있다(그 함수의 doc).
 func Candidates(res usi.SearchResult) []store.Candidate {
-	out := make([]store.Candidate, 0, len(res.Lines))
-	seen := map[int]bool{}
-	for _, l := range res.Lines {
-		if l.Move == "" || seen[l.MultiPV] {
-			continue
-		}
-		seen[l.MultiPV] = true
+	ranked := res.Ranked()
+	out := make([]store.Candidate, 0, len(ranked))
+	for _, l := range ranked {
 		c := store.Candidate{USI: l.Move, Cp: l.ScoreCp, PV: l.PV}
 		if l.IsMate {
 			c.MateIn = l.MateIn
 		}
 		out = append(out, c)
 	}
-	slices.SortStableFunc(out, func(x, y store.Candidate) int { return y.Cp - x.Cp })
 	return out
 }
 
