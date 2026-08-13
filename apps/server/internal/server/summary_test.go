@@ -172,3 +172,69 @@ func TestUnfinishedGameStillSummarizes(t *testing.T) {
 		t.Errorf("Stats = %+v", got.Stats)
 	}
 }
+
+// 짚는 자리는 **낙폭이 가장 큰 개입**이다. 회차 2 #2가 요구한 「국면을 짚어라」의 답이고,
+// 판마다 하나만 고른다.
+func TestFocusPicksTheBiggestDrop(t *testing.T) {
+	got := focusOf([]store.RecordedIntervention{
+		{Ply: 12, Category: "hangs_piece", DeltaWin: 0.21},
+		{Ply: 82, Category: "lets_mate", DeltaWin: 0.64},
+		{Ply: 40, Category: "hangs_piece", DeltaWin: 0.55},
+	})
+	if got == nil {
+		t.Fatal("개입이 있는데 짚는 자리가 없다")
+	}
+	if got.Ply != 82 || got.Category != "lets_mate" {
+		t.Errorf("%+v, want 82手 lets_mate", got)
+	}
+	if got.NameJa == "" {
+		t.Error("이름이 비었다 — 화면이 코드를 그리게 된다")
+	}
+}
+
+// 같은 낙폭이면 이른 手数. 무작위면 같은 판을 두 번 열 때 다른 자리를 짚는다.
+func TestFocusIsStableOnTies(t *testing.T) {
+	ivs := []store.RecordedIntervention{
+		{Ply: 71, Category: "b", DeltaWin: 0.5},
+		{Ply: 33, Category: "a", DeltaWin: 0.5},
+		{Ply: 55, Category: "c", DeltaWin: 0.5},
+	}
+	for range 20 {
+		got := focusOf(ivs)
+		if got == nil || got.Ply != 33 {
+			t.Fatalf("%+v, want 33手", got)
+		}
+	}
+}
+
+// 개입이 없으면 짚을 것도 없다. 화면이 그때 그 줄을 안 그린다.
+func TestNoInterventionsNoFocus(t *testing.T) {
+	if got := focusOf(nil); got != nil {
+		t.Errorf("%+v, want nil", got)
+	}
+}
+
+// 총평의 **문장 쪽**에는 手数가 없어야 한다. 들어가면 캐시 키가 판마다 갈리고
+// (GameFacts.Key) LLM이 그 숫자를 옮겨 적을 길이 생긴다.
+func TestFocusDoesNotReachTheSentence(t *testing.T) {
+	rec := store.GameRecord{
+		GameSummary:   store.GameSummary{ID: 1, MyColor: "b", Result: store.ResultLoss},
+		Moves:         []store.RecordedMove{{Ply: 1, USI: "7g7f"}, {Ply: 2, USI: "3c3d"}},
+		Interventions: []store.RecordedIntervention{{Ply: 3, Category: "hangs_piece", DeltaWin: 0.7}},
+	}
+	facts, stats := factsOf(rec, intervene.Beginner)
+	if stats.Focus == nil || stats.Focus.Ply != 3 {
+		t.Fatalf("숫자 쪽에 짚는 자리가 없다: %+v", stats.Focus)
+	}
+
+	// 같은 사실인데 手数만 다른 판이 **같은 캐시 키**여야 한다.
+	//
+	// 手数를 같은 구간 안에서 옮긴다(둘 다 序盤) — 구간이 갈리면 `Phase` 가 달라져서
+	// 키도 달라지는 것이 **맞고**, 그건 이 테스트가 잡으려는 것이 아니다.
+	other := rec
+	other.Interventions = []store.RecordedIntervention{{Ply: 12, Category: "hangs_piece", DeltaWin: 0.7}}
+	otherFacts, _ := factsOf(other, intervene.Beginner)
+	if facts.Key() != otherFacts.Key() {
+		t.Error("手数가 캐시 키를 갈랐다 — Tier 0이 영영 안 맞는다")
+	}
+}

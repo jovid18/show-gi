@@ -55,6 +55,13 @@ describe('parseRoute', () => {
     expect(parseRoute('/reviews/abc/quiz')).toEqual({ name: 'reviews' });
   });
 
+  // 숫자 꼬리는 **열 手数**다. 총평이 짚은 국면으로 곧장 들어오는 링크가 이 모양이다.
+  it('숫자 꼬리는 手数다', () => {
+    expect(parseRoute('/reviews/12/81')).toEqual({ name: 'review', id: 12, ply: 81 });
+    // 0手目(시작 국면)은 유효한 자리다 — id 와 갈리는 지점이다.
+    expect(parseRoute('/reviews/12/0')).toEqual({ name: 'review', id: 12, ply: 0 });
+  });
+
   it('마이페이지', () => {
     expect(parseRoute('/me')).toEqual({ name: 'me' });
     expect(parseRoute('/me/')).toEqual({ name: 'me' });

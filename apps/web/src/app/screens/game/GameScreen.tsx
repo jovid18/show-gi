@@ -11,6 +11,8 @@ import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/libs/gam
 import type { StyleTag } from '@/protocol/game';
 import { useGame } from '@/hooks/useGame';
 import { useResumable } from '@/hooks/useResumable';
+import { useUnloadGuard } from '@/hooks/useUnloadGuard';
+import { hrefOf, navigate } from '@/routes/router';
 import type { Side } from '@/models/piece';
 import { parseSfen } from '@/models/sfen';
 import { fromIndex, fromUsi, toIndex, toUsi } from '@/models/square';
@@ -61,6 +63,16 @@ export function GameScreen() {
     whatif,
   } = useGame();
   const resumable = useResumable();
+
+  // **두는 중에만 묻는다.** 끝난 판은 잃을 것이 없고, 거기서도 물으면 「もう一局」을
+  // 누르러 가는 사람이 매번 확인창을 본다(useUnloadGuard).
+  useUnloadGuard(snapshot?.status === 'playing');
+
+  /** 끝난 이 판의 되짚기 자리. 총평이 오기 전에는 번호가 없어서 null이다. */
+  const reviewRoute = useMemo(
+    () => (summary?.gameId === undefined ? null : ({ name: 'review', id: summary.gameId } as const)),
+    [summary?.gameId],
+  );
   const [origin, setOrigin] = useState<string | null>(null);
   const [pending, setPending] = useState<{ origin: string; to: string } | null>(null);
   const [confirmingResign, setConfirmingResign] = useState(false);
@@ -758,9 +770,28 @@ export function GameScreen() {
         {!intervening && snapshot.status !== 'playing' && <Summary summary={summary} />}
 
         {snapshot.status !== 'playing' && (
-          <button type="button" className="btn btn--primary" onClick={newGame}>
-            もう一局
-          </button>
+          <div className="end-actions">
+            <button type="button" className="btn btn--primary" onClick={newGame}>
+              もう一局
+            </button>
+
+            {/* 회차 2 #5. **총평이 와야 뜬다** — 판 번호가 거기 실려 오고(§64), 대국
+                화면은 그때까지 자기 판의 번호를 모른다. 총평보다 먼저 그릴 방법이
+                없으므로 자리를 비워 두지 않고 아예 안 그린다. */}
+            {reviewRoute && (
+              <a
+                className="btn"
+                href={hrefOf(reviewRoute)}
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                  e.preventDefault();
+                  navigate(reviewRoute);
+                }}
+              >
+                分析を見る
+              </a>
+            )}
+          </div>
         )}
 
         {snapshot.status === 'playing' &&

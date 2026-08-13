@@ -23,6 +23,23 @@ type summaryStats struct {
 	Interventions int `json:"interventions"`
 	// Categories 는 많은 순서다. 화면이 그 순서대로 그린다.
 	Categories []categoryCount `json:"categories,omitempty"`
+	// Focus 는 「이 국면을 다시 봐라」다. 개입이 없으면 nil.
+	Focus *focusPoint `json:"focus,omitempty"`
+}
+
+// focusPoint 는 그 판에서 가장 크게 갈린 자리 하나다.
+//
+// **문장이 아니라 숫자 쪽에 둔다.** 그것이 이 파일의 규약이고(위 주석), 여기서는 이유가
+// 하나 더 있다 — 手数를 `GameFacts` 에 넣으면 **캐시 키가 판마다 갈려**(GameFacts.Key)
+// Tier 0이 영영 안 맞고, LLM이 그 숫자를 한 자리 틀리게 옮겨 적을 길이 생긴다. 판단은
+// 엔진, 표현만 LLM (CLAUDE.md).
+type focusPoint struct {
+	// Ply 는 **물러진 수의 手数**다. 화면은 이 수를 두기 **직전** 국면을 연다 —
+	// 물러진 수는 기보에 없으므로(game.Recorder) 그 자리가 「다시 생각할 국면」이다.
+	Ply      int    `json:"ply"`
+	Category string `json:"category"`
+	// NameJa 는 개입 카드·총평·마이페이지와 **같은 어휘**다(explain.CategoryJa).
+	NameJa string `json:"nameJa"`
 }
 
 type categoryCount struct {
@@ -62,6 +79,11 @@ type gameSummaryPayload struct {
 	// Tier 는 문장이 어디서 왔는가다. 0=캐시, 1=LLM, -1=결정적 문구.
 	Tier  int          `json:"tier"`
 	Stats summaryStats `json:"stats"`
+	// GameID 는 이 판이 기록에 남은 번호다. **화면이 되짚기로 건너가는 데 쓴다** —
+	// 대국 화면은 그때까지 자기 판의 번호를 모른다(기록은 WS 밖에서 비동기로 쓰인다).
+	//
+	// 되짚기가 부르는 쪽에서는 0이다 — 이미 그 판을 열고 있는 화면이라 쓸 데가 없다.
+	GameID int64 `json:"gameId,omitempty"`
 	// Skill 은 이 판의 段級 변화다. **되짚기에서는 언제나 nil**이다 — 추정치는 사람에게
 	// 붙는 값이라 지난 판을 여는 지금 시점에는 이미 다른 값이고, 그때의 값을 남겨 두지
 	// 않았다. 지난 판을 열어 「그때 몇 급이었나」를 말하려면 판마다 저장해야 한다.
@@ -121,6 +143,7 @@ func factsOf(rec store.GameRecord, level intervene.Level) (explain.GameFacts, su
 		counts[intervene.Category(iv.Category)]++
 	}
 	stats.Categories = rankCategories(counts)
+	stats.Focus = focusOf(rec.Interventions)
 	for i, c := range stats.Categories {
 		if i == 2 {
 			break // 문장이 말하는 것은 최대 둘이다(GameFacts.Top)
@@ -132,6 +155,36 @@ func factsOf(rec store.GameRecord, level intervene.Level) (explain.GameFacts, su
 	f.Phase = phaseOf(rec.Interventions)
 	f.Trend = trendOf(rec.Interventions, last)
 	return f, stats
+}
+
+// focusOf 는 「이 국면을 다시 봐라」로 짚을 자리 하나다.
+//
+// **낙폭이 가장 큰 개입이다.** 회차 2 #2가 요구한 것이 「총평이 국면을 안 짚는다」이고,
+// 짚을 것을 하나만 고르라면 그 판에서 가장 크게 갈린 자리다.
+//
+// 카테고리를 안 본다 — 어느 종류가 더 배울 것이 많은지는 우리가 모르고, 그걸 정하는
+// 순간 순위표가 하나 더 생긴다(intervene 이 카테고리를 스칼라로 받는 것과 같은 이유, §15).
+//
+// **같은 낙폭이면 이른 手数다.** 무작위면 같은 판을 두 번 열 때 다른 자리를 짚고,
+// 그건 화면이 판마다 다른 것을 말한다는 뜻이다(rankCategories 와 같은 판단).
+func focusOf(ivs []store.RecordedIntervention) *focusPoint {
+	var best *store.RecordedIntervention
+	for i := range ivs {
+		switch {
+		case best == nil, ivs[i].DeltaWin > best.DeltaWin:
+			best = &ivs[i]
+		case ivs[i].DeltaWin == best.DeltaWin && ivs[i].Ply < best.Ply:
+			best = &ivs[i]
+		}
+	}
+	if best == nil {
+		return nil
+	}
+	return &focusPoint{
+		Ply:      best.Ply,
+		Category: best.Category,
+		NameJa:   explain.CategoryJa(intervene.Category(best.Category)),
+	}
 }
 
 // rankCategories 는 많은 순으로 줄 세운다. **같은 수면 코드 순이다** — 무작위면 같은 판을

@@ -220,6 +220,18 @@ export interface Snapshot {
 }
 
 /**
+ * 段級 하나. **이름을 서버가 준다** — 화면이 `step` 에서 이름을 만들면 어휘가 두 벌이 되고,
+ * 척도를 늘리는 날 한쪽만 늘어난다(`skill.Rank`).
+ */
+export interface SkillRank {
+  /** 0..max, 클수록 세다. */
+  step: number;
+  max: number;
+  /** 「8級」·「初段」. */
+  nameJa: string;
+}
+
+/**
  * 대국이 끝난 뒤 **한 번** 오는 총평.
  *
  * 스냅샷과 갈라져 온다 — 이건 국면의 상태가 아니라 판 전체에 대한 이야기이고, LLM을
@@ -254,6 +266,13 @@ export interface GameSummary {
    * 값을 판마다 남겨 두지 않았다.
    */
   skill?: { before?: SkillRank; after: SkillRank };
+  /**
+   * 이 판이 기록에 남은 번호. **되짚기로 건너가는 링크가 이 값으로 선다** — 대국 화면은
+   * 그때까지 자기 판의 번호를 모른다(기록이 WS 밖에서 비동기로 쓰인다).
+   *
+   * 되짚기가 부르는 총평에는 없다 — 이미 그 판을 열고 있어서 쓸 데가 없다.
+   */
+  gameId?: number;
   stats: {
     /** 사람이 **확정한** 수. 물러진 수는 기보에 없으므로 여기에도 없다. */
     playerMoves: number;
@@ -261,6 +280,13 @@ export interface GameSummary {
     interventions: number;
     /** 많은 순. 서버가 정한 순서를 그대로 그린다. */
     categories?: { code: string; nameJa: string; count: number }[];
+    /**
+     * 「이 국면을 다시 봐라」. 그 판에서 낙폭이 가장 컸던 개입이다. 개입이 없으면 없다.
+     *
+     * `ply` 는 **물러진 수의 手数**다 — 되짚기는 그 한 수 앞(`ply - 1`)을 연다. 물러진
+     * 수는 기보에 없으므로 그 자리가 「다시 생각할 국면」이다.
+     */
+    focus?: { ply: number; category: string; nameJa: string };
   };
 }
 

@@ -31,7 +31,8 @@ import {
 export type Route =
   | { name: 'game' }
   | { name: 'reviews' }
-  | { name: 'review'; id: number }
+  // ply 는 **열 때의 手数**다. 없으면 0手目(시작 국면)에서 연다.
+  | { name: 'review'; id: number; ply?: number }
   | { name: 'quiz'; id: number }
   | { name: 'me' };
 
@@ -49,8 +50,14 @@ export function parseRoute(pathname: string): Route {
   if (!/^[1-9]\d*$/.test(id)) return { name: 'reviews' };
   // **못 읽는 세 번째 조각은 그 판이다.** 퀴즈가 아닌 무엇이 붙어 있어도 판은 열 수 있고,
   // 그것이 404 화면을 만들지 않기로 한 것과 같은 판단이다.
+  //
+  // 숫자면 **열 手数**다. `0` 을 허용하는 것이 id 와 갈리는 자리다 — 시작 국면이
+  // 유효한 자리이고, 여기는 「없는 판」이 될 수 없다.
   if (parts.length > 2) {
-    return parts[2] === QUIZ_SEGMENT ? { name: 'quiz', id: Number(id) } : { name: 'review', id: Number(id) };
+    const tail = parts[2] ?? '';
+    if (tail === QUIZ_SEGMENT) return { name: 'quiz', id: Number(id) };
+    if (/^(0|[1-9]\d*)$/.test(tail)) return { name: 'review', id: Number(id), ply: Number(tail) };
+    return { name: 'review', id: Number(id) };
   }
   return { name: 'review', id: Number(id) };
 }
@@ -63,7 +70,7 @@ export function hrefOf(route: Route): string {
     case 'reviews':
       return ROUTE_REVIEWS;
     case 'review':
-      return routeReview(route.id);
+      return routeReview(route.id, route.ply);
     case 'quiz':
       return routeQuiz(route.id);
     case 'me':
