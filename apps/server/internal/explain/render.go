@@ -2,6 +2,7 @@ package explain
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 )
@@ -59,9 +60,17 @@ func Render(f Facts) string {
 		}
 
 	case intervene.CategoryOther:
-		// 이유는 모르지만 **무엇을 잡히는지는 안다.** 반박 수순의 첫 수가 그것이고, 그 수가
-		// 합법이라는 것은 룰 엔진이 확인했다. 「잃습니다」가 아니라 「取れます」인 것은
-		// 실제로 그렇게 둘지는 상대가 정하기 때문이다.
+		// 이유는 모르지만 **그래서 어떻게 되는지는 안다.** 갈래가 있으면 그것이 이 문구가
+		// 말할 수 있는 가장 구체적인 것이다.
+		//
+		// **LLM이 쓰는 것과 같은 사실을 같은 순서로 적는다.** 라우터가 죽은 날에만 문장이
+		// 짧아지고, 읽는 사람이 잃는 것은 문장의 결이지 사실이 아니다(04-llm.md §2).
+		if u.namesMoves() {
+			return renderBranches(u)
+		}
+		// 갈래를 못 구했으면 **무엇을 잡히는지**까지는 안다. 반박 수순의 첫 수가 그것이고,
+		// 그 수가 합법이라는 것은 룰 엔진이 확인했다. 「잃습니다」가 아니라 「取れます」인
+		// 것은 실제로 그렇게 둘지는 상대가 정하기 때문이다.
 		if u.Threatened != "" {
 			return fmt.Sprintf("その手は形勢を大きく損ねます。相手は%sを取れます。", u.Threatened)
 		}
@@ -71,4 +80,31 @@ func Render(f Facts) string {
 		return m
 	}
 	return unknownMessage
+}
+
+// renderBranches 는 갈래 셋을 **줄 단위로** 적는다. 화면이 `pre-line` 으로 받는다
+// (CleanBranches 와 같은 모양이어야 한다 — 한쪽만 고치면 LLM이 죽은 날에 레이아웃이 깨진다).
+func renderBranches(u Facts) string {
+	var b strings.Builder
+	switch {
+	case u.OpponentBest == "":
+		b.WriteString("この手のあとはこうなります。")
+	case len(u.Branches) == 0:
+		// **갈래를 못 구해도 최선수 하나는 사실이다.** 프롬프트에 그것만 나가는 경우가
+		// 있으므로(탐색이 실패했거나 갈래가 전부 검증에서 떨어졌다) 여기도 같은 자리를 갖는다.
+		fmt.Fprintf(&b, "この手には%sが厳しく、形勢を大きく損ねます。", u.OpponentBest)
+		if u.Threatened != "" {
+			fmt.Fprintf(&b, "相手は%sを取れます。", u.Threatened)
+		}
+		return b.String()
+	default:
+		fmt.Fprintf(&b, "この手には%sが厳しく、そのあとはこうなります。", u.OpponentBest)
+	}
+	// **줄은 문장이 아니라 표다.** 조사로 이으면 「…で 5手で自分が詰まされる」처럼 で가 겹치고,
+	// 그 자리를 피하려고 詰み과 cp의 말투를 가르면 같은 값이 두 어휘를 갖는다. 화살표는 그
+	// 둘을 같은 모양으로 세운다 — 프롬프트가 사실을 적는 모양과도 같다.
+	for _, br := range u.Branches {
+		fmt.Fprintf(&b, "\n%s → %s → %s", br.PlayerJa, br.ReplyJa, BranchScoreJa(br))
+	}
+	return b.String()
 }

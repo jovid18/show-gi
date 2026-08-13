@@ -5,8 +5,6 @@
 
 import type { LastMove, Ray } from '@/components/Board';
 import type { Attack, Player, Snapshot } from '@/protocol/game';
-import type { Board as BoardModel } from '@/models/sfen';
-import type { Side } from '@/models/piece';
 import { fromUsi, toIndex } from '@/models/square';
 import { parseUsi } from '@/libs/game/moves';
 
@@ -25,29 +23,6 @@ export function lastMoveOf(usi: string): LastMove | null {
   } catch {
     return null; // 못 읽는 좌표로 엉뚱한 칸을 칠하느니 안 칠한다
   }
-}
-
-/**
- * 회상 한 장면.
- *
- * **화살표는 방금 둔 수가 아니라 다음에 올 수다.** 판은 이미 벌어진 것을 보여주고 있으니
- * 거기에 지나간 궤적을 겹치면 같은 말을 두 번 하는 것이고, 알고 싶은 것은 「그래서 상대가
- * 어떻게 하는가」다. `次へ` 를 누르면 화살표대로 벌어진다.
- *
- * 그래서 채널이 갈린다 — **흰빛 두 칸은 방금 벌어진 것**, **초록 화살표는 다음에 벌어질 것.**
- */
-export interface Scene {
-  board: BoardModel;
-  /** 이 판을 만든 수. 흰빛 두 칸으로 짚는다. */
-  played: LastMove;
-  /** 다음에 올 수. 마지막 장면에는 없다. */
-  ray: Ray | null;
-  /** 이 장면에서 玉을 잡으러 오는 말들. 王手가 아니면 비어 있다. */
-  checks: Ray[];
-  /** 화살표가 가리키는 수가 수순의 몇 번째인가. 마지막 장면이면 -1. */
-  next: number;
-  /** 다음 수가 打이면 그 駒. 駒台에서 같이 빛나 화살표의 짝이 된다. */
-  dropping: { side: Side; kind: string } | null;
 }
 
 /** 王手를 거는 줄. 서버가 준 두 칸을 그대로 옮긴다 — 화면은 누가 王手인지 계산하지 않는다. */

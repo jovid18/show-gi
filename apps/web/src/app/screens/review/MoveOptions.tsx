@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { evalText } from '@/libs/whatif/branch';
+import { evalText, evalTone } from '@/libs/whatif/branch';
 import type { GameDetail, ReviewIntervention, ReviewMove } from '@/protocol/review';
 import type { WhatIfNode } from '@/protocol/whatif';
 
@@ -54,24 +54,6 @@ interface Option {
   played: 'human' | 'engine' | null;
   /** 물러진 수라면 그 카테고리. 몇 번 시도했는지도 센다. */
   retracted: { categoryJa: string; message: string; tries: number } | null;
-}
-
-/**
- * 색은 **평가치가 정한다.** 파랑이 좋고 빨강이 나쁘다.
- *
- * 판 위에서 색을 넷으로 제한한 것과 어긋나지 않는다 — 여기는 판이 아니라 목록이고, 판에서
- * 파랑·빨강이 뜻하는 것(힌트·王手)과 자리가 겹치지 않는다. 대신 **판에 쓰는 그 토큰을
- * 그대로 쓴다**: 새 색을 꺼내면 팔레트가 넷이 아니게 된다.
- *
- * `±800cp` 에서 양 끝에 닿는다. 그 폭이면 駒 하나 반쯤이고, 대부분의 국면이 그 안에서 갈린다.
- */
-const FULL = 800;
-
-function toneOf(cp: number | undefined): string {
-  if (cp === undefined) return 'transparent';
-  const t = Math.max(-1, Math.min(1, cp / FULL));
-  const token = t >= 0 ? '--hint' : '--ray-check';
-  return `rgb(var(${token}) / ${(Math.abs(t) * 0.5).toFixed(2)})`;
 }
 
 export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveOptionsProps) {
@@ -135,7 +117,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
               className="review-options-row"
               data-chosen={chosen === o.usi || undefined}
               // 색이 값이라, 값이 없는 줄은 색도 없다. 0으로 채우면 호각으로 읽힌다.
-              style={{ '--tone': toneOf(o.cp) } as React.CSSProperties}
+              style={{ '--tone': evalTone(o.cp) } as React.CSSProperties}
               onClick={() => onPick(o.usi, o.played !== null)}
             >
               <span className="review-options-move">{o.ja}</span>

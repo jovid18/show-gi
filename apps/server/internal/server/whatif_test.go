@@ -492,3 +492,30 @@ func TestWhatIfRejectsOverlongLine(t *testing.T) {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
 }
+
+// **대국 중에는 물러진 수 위에서만 분기가 자란다.**
+//
+// 이 표면은 최선수 셋을 답해 준다. 뿌리를 자유롭게 고를 수 있으면 그것이 곧 「지금 어떻게
+// 둬야 하나」의 답이 되고, 그건 안 알려주기로 한 것이다(01-core.md §7). 되짚기에는 이 벽이
+// 없다 — 끝난 판이라 무엇을 둬 봐도 아무도 안 잃는다.
+func TestBranchRootOnlyOpensOnTheRetractedMove(t *testing.T) {
+	var played confirmed
+	played.set(game.Snapshot{
+		Moves:        []game.Move{{USI: "7g7f"}, {USI: "3c3d"}},
+		Intervention: &game.Intervention{RetractedUSI: "8h3c+"},
+	})
+
+	ply, retracted, open := played.branchRoot()
+	if !open {
+		t.Fatal("개입 중인데 분기가 안 열렸다")
+	}
+	if ply != 2 || retracted != "8h3c+" {
+		t.Errorf("ply=%d retracted=%q, want 2 / 8h3c+", ply, retracted)
+	}
+
+	// 개입이 없는 스냅샷이 오면 그 자리에서 닫힌다 — 다음 착수가 개입을 지운다.
+	played.set(game.Snapshot{Moves: []game.Move{{USI: "7g7f"}, {USI: "3c3d"}}})
+	if _, _, open := played.branchRoot(); open {
+		t.Error("개입이 없는데 분기가 열려 있다")
+	}
+}

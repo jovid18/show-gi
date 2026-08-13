@@ -199,7 +199,7 @@ func TestTier1MigrationMatchesFacts(t *testing.T) {
 
 		// **런타임이 거는 규칙을 그대로 건다.** 캐시에서 나온 문장 앞에는 아무 검사도 없다 —
 		// `clean` 은 라우터가 답했을 때만 지나므로, 여기 들어간 것은 그대로 화면에 나간다.
-		body, usable := clean(row.body)
+		body, usable := Clean(row.body, MaxRunes)
 		if !usable {
 			t.Errorf("%s: clean 이 버릴 문장이다: %q", f.keyMaterial(), row.body)
 			continue

@@ -139,13 +139,24 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 			pv, full = mateLine, true
 		}
 		r := refutationLine(startSFEN, moves, pv, RefutationPlies, full)
-		j.RetractedSFEN, j.RetractedChecks, j.Refutation = r.retractedSFEN, r.checks, r.line
+		j.RetractedSFEN, j.RetractedChecks = r.retractedSFEN, r.checks
+		if full {
+			// **화면에 나가는 수순은 증명된 詰み뿐이다.** PV를 잘라 내보내던 자리인데,
+			// 어디서 자를지가 국면마다 달라(trimRefutation) 두 수에서 끊기기도 했고
+			// 읽는 사람이 「그래서 뭐」로 남았다. 그 자리는 이제 후보 셋을 직접 둬 보는
+			// 쪽이 맡는다(06-status.md §54). 詰み 수순만 남기는 것은 그것이 **끝까지
+			// 참**이기 때문이다 — 자를 필요가 없어서 애매한 자리가 아예 없다.
+			j.Refutation = r.line
+		}
 
 		// 설명이 쓸 사실을 여기서 닫는다. **판정이 끝난 뒤여야 한다** — 무엇을 말해도
 		// 되는지가 카테고리에 달려 있고(explain.Facts.used), 카테고리는 방금 정해졌다.
 		facts.Kind, facts.Category, facts.Level, facts.LostMate = v.Kind, v.Category, a.level, v.LostMate
 		facts.Threatened = r.threatened
 		facts.MatePlies = in.Features.OpponentMatePlies
+		if v.Category == intervene.CategoryOther {
+			facts.OpponentBest, facts.Branches = a.otherBranches(ctx, startSFEN, moves, after.PV)
+		}
 		j.Facts = facts
 	}
 	return j, nil
@@ -180,6 +191,84 @@ func (a *engineAnalyst) opponentMate(
 		return nil
 	}
 	return played.Moves
+}
+
+// OtherBranches 는 `other` 설명이 펼치는 갈래의 수다. **화면의 후보 목록과 같은 셋**이라,
+// 문장과 목록이 같은 것을 말한다.
+const OtherBranches = 3
+
+// otherBranches 는 「그 수를 두면 이렇게 된다」를 세 갈래로 만든다. 첫 값은 상대의 최선수다.
+//
+// `other` 는 **이유를 못 대는 자리**이고, 그때 남는 정직한 설명이 「그래서 어떻게 되는가」
+// 하나다. 재료의 대부분은 판정이 이미 손에 들고 있다 — 상대의 최선수는 착수 후 탐색의 PV
+// 첫 수라 공짜이고, **추가 탐색은 A+B 국면의 MultiPV 한 번뿐**이다. 그 한 번이 내 후보 셋과
+// 각 줄의 PV(=상대의 응수)와 결말 cp를 함께 준다.
+//
+// **못 구하면 그 갈래를 안 준다.** 반쪽짜리 갈래는 문장에서 곧 거짓이 되고, 여기 없는 것을
+// 설명 계층이 지어내지 못한다는 것이 이 구조의 요점이다(explain 패키지 doc).
+func (a *engineAnalyst) otherBranches(
+	ctx context.Context, startSFEN string, moves, pv []string,
+) (string, []explain.Branch) {
+	multi, ok := a.search.(MultiSearcher)
+	if !ok || len(pv) == 0 || len(moves) == 0 {
+		return "", nil
+	}
+	pos, err := positionAfter(startSFEN, moves)
+	if err != nil {
+		return "", nil
+	}
+	last, err := shogi.ParseUSIMove(moves[len(moves)-1])
+	if err != nil {
+		return "", nil
+	}
+
+	// 상대의 최선수. **엔진 출력을 룰 엔진으로 검증한다** — refutationLine 과 같은 자리다.
+	reply, err := shogi.ParseUSIMove(pv[0])
+	if err != nil || pos.ValidateMove(reply) != nil {
+		return "", nil
+	}
+	bestJa := pos.MoveJa(reply, int(last.To))
+	mine := pos.Apply(reply)
+	prevTo := int(reply.To)
+
+	line := append(append([]string(nil), moves...), pv[0])
+	res, err := multi.SearchMultiPV(ctx, startSFEN, line, a.depth, OtherBranches)
+	if err != nil {
+		return bestJa, nil
+	}
+
+	// **점수는 이 국면의 수번 관점**이고, 그 수번은 사람이다(A가 사람의 수이고 B가 상대의
+	// 응수다). 그래서 뒤집지 않는다 — 뒤집으면 문장의 부호가 통째로 거짓말이 된다.
+	out := make([]explain.Branch, 0, OtherBranches)
+	for _, l := range res.Lines {
+		if len(out) == OtherBranches {
+			break
+		}
+		// 상대의 응수까지 있어야 「그래서 어떻게 되는가」가 닫힌다. 결말 cp만 적으면
+		// 무엇 때문에 그렇게 되는지가 빠진다.
+		if len(l.PV) < 2 {
+			continue
+		}
+		mv, err := shogi.ParseUSIMove(l.PV[0])
+		if err != nil || mine.ValidateMove(mv) != nil {
+			continue
+		}
+		b := explain.Branch{PlayerJa: mine.MoveJa(mv, prevTo)}
+		if l.IsMate {
+			b.MateIn = l.MateIn
+		} else {
+			b.Cp = l.ScoreCp
+		}
+
+		next := mine.Apply(mv)
+		back, err := shogi.ParseUSIMove(l.PV[1])
+		if err != nil || next.ValidateMove(back) != nil {
+			continue
+		}
+		b.ReplyJa = next.MoveJa(back, int(mv.To))
+		out = append(out, b)
+	}
+	return bestJa, out
 }
 
 // detectTags 는 착수 후 국면의 囲い·전법·戦型을 감지해 태그 코드 배열로 돌려준다.

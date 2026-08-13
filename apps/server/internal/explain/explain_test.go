@@ -259,7 +259,7 @@ func TestCleanRejectsUnusableSentences(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, ok := clean(tt.in)
+			got, ok := Clean(tt.in, MaxRunes)
 			if ok != tt.ok {
 				t.Fatalf("ok=%v, want %v (got %q)", ok, tt.ok, got)
 			}

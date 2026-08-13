@@ -32,6 +32,10 @@ const DefaultUSDJPY = 150.0
 // 상한**이다. 안 걸어두면 지시를 안 듣는 모델 하나가 카드 하나에 수천 토큰을 쓴다.
 const maxTokens = 200
 
+// branchMaxTokens 는 갈래가 붙은 `other` 문구의 상한이다. 다섯 줄(BranchMaxRunes)이라
+// 개입 문구의 값으로는 잘린다.
+const branchMaxTokens = 500
+
 // summaryMaxTokens 는 총평 한 번의 상한이다. 문장이 더 길고(SummaryMaxRunes) 일본어는
 // 토큰당 글자 수가 적어서 개입 문구의 값으로는 잘린다.
 const summaryMaxTokens = 400
@@ -122,6 +126,11 @@ func (c *Client) complete(ctx context.Context, tier int, f Facts, knowledge []Kb
 	model := c.small
 	if tier == 2 {
 		model = c.large
+	}
+	// 수를 적는 문구는 사실이 많고 길다. **프롬프트도 상한도 그쪽 것을 쓴다** — `max_tokens`
+	// 가 모자라면 잘린 답이 오는데, 잘린 답은 짧아서 길이 검사에 안 걸린다(§38).
+	if f.namesMoves() {
+		return c.chat(ctx, model, branchSystemPrompt, userPrompt(f, knowledge), branchMaxTokens)
 	}
 	return c.chat(ctx, model, systemPrompt, userPrompt(f, knowledge), maxTokens)
 }

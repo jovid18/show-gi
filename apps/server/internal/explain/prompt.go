@@ -2,10 +2,29 @@ package explain
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 )
+
+// BranchScoreJa 는 갈래 하나의 결말을 적는다.
+//
+// **詰み을 cp로 말하지 않는다.** 30000은 평가치가 아니라 환산값이고, 초심자에게 그 숫자는
+// 아무것도 아니다 — 화면 쪽 `scoreJa` 와 같은 판단이다. 프롬프트와 결정적 문구가 이 함수
+// 하나를 같이 쓴다: 갈리면 LLM이 죽은 날에만 다른 말이 나간다.
+func BranchScoreJa(b Branch) string {
+	switch {
+	case b.MateIn > 0:
+		return fmt.Sprintf("%d手で相手を詰ませられる", b.MateIn)
+	case b.MateIn < 0:
+		return fmt.Sprintf("%d手で自分が詰まされる", -b.MateIn)
+	case b.Cp > 0:
+		return "+" + strconv.Itoa(b.Cp)
+	default:
+		return strconv.Itoa(b.Cp)
+	}
+}
 
 // systemPrompt 는 「판단은 엔진, 표현만 LLM」을 프롬프트에 그대로 적은 것이다.
 //
@@ -22,6 +41,25 @@ const systemPrompt = `あなたは将棋の初心者向け学習アプリの文�
 - 「です・ます」調。将棋の用語（利き・成る・持ち駒）はそのまま使う
 - アプリが手を止めたこと・戻したことは書かない。画面がすでに伝えている。その手の何が悪いかだけを書く
 - 説明だけを出力する。前置きも引用符も付けない`
+
+// branchSystemPrompt 는 **수를 적어도 되는 유일한 프롬프트**다. `other` 에서 갈래 셋이
+// 붙었을 때만 쓴다(Facts.Branches).
+//
+// 위 `systemPrompt` 와 갈리는 곳이 셋이다 — 수를 써도 되고, 길어도 되고, 사실의 개수가
+// 많아 형식을 지정한다. **나머지는 그대로 둔다**: 사실 밖을 쓰지 않는 것과 앱 동작을
+// 적지 않는 것은 여기서도 같다.
+//
+// **「与えられた指し手だけ」가 부탁이 아니라 규칙이다.** 코드가 허용목록으로 검사하고,
+// 목록에 없는 표기가 하나라도 있으면 문장을 통째로 버린다(CleanWithMoves).
+const branchSystemPrompt = `あなたは将棋の初心者向け学習アプリの文章係です。
+与えられた事実だけを、やさしい日本語にしてください。
+
+- 事実に書かれていないことは足さない。推測も評価も加えない
+- 指し手は**与えられたものだけ**を、与えられた表記のまま書く。ほかの手やマスを挙げてはいけない
+- 分岐は与えられた順に、1行ずつ書く。手と数値の組み合わせを入れ替えない
+- 全体で5行以内、160字以内。「です・ます」調
+- アプリが手を止めたこと・戻したことは書かない。画面がすでに伝えている
+- 説明だけを出力する。前置きも見出しも箇条書き記号も付けない`
 
 // categoryJa 는 카테고리를 프롬프트에 적을 일본어로 옮긴다. 영어 식별자(`hangs_piece`)는 우리
 // 코드의 이름이지 사실의 서술이 아니다. **`other` 는 「이유를 특정하지 못했다」까지 말한다** —
@@ -103,6 +141,18 @@ func userPrompt(f Facts, knowledge []KbSnippet) string {
 		// **手数를 주지 않으면 키만 갈리고 문장은 같아진다** — 캐시만 두 배로 늘고 결정적
 		// 문구만 手数를 말하는 상태가 된다.
 		fmt.Fprintf(&b, "詰まされるまでの手数: %d手（証明済み。受けが必要）\n", u.MatePlies)
+	}
+	if u.OpponentBest != "" {
+		fmt.Fprintf(&b, "この手のあとの相手の最善手: %s\n", u.OpponentBest)
+	}
+	if len(u.Branches) > 0 {
+		// **순서가 사실의 일부다.** 위가 나에게 가장 나은 갈래이고, 문장이 순서를 바꾸면
+		// 「그중 무엇이 그나마 낫나」가 뒤집힌다. 그래서 프롬프트가 순서까지 지시한다.
+		b.WriteString("そのあと自分が指せる手（良い順）と、それぞれの結末:\n")
+		for _, br := range u.Branches {
+			fmt.Fprintf(&b, "・%s → 相手は%s → %s\n", br.PlayerJa, br.ReplyJa, BranchScoreJa(br))
+		}
+		b.WriteString("数値は自分から見た形勢で、マイナスが自分の不利です\n")
 	}
 	if len(knowledge) > 0 {
 		b.WriteString("\n参考知識（この局面に該当するもの）:\n")
