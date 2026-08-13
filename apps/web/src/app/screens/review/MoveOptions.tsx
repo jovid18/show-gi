@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
-import { evalText, evalTone } from '@/libs/whatif/branch';
+import { evalTone, playerCp, rankOf, rowScoreJa } from '@/libs/whatif/branch';
+import type { MoveEval } from '@/hooks/useMoveEvals';
 import type { GameDetail, ReviewIntervention, ReviewMove } from '@/protocol/review';
 import type { WhatIfNode } from '@/protocol/whatif';
 
@@ -29,8 +30,15 @@ interface MoveOptionsProps {
    * 기보의 사실이라, 가정으로 몇 수 들어간 국면에 얹으면 그 자리에서 거짓이 된다.
    */
   node: WhatIfNode | null;
-  /** 물러진 수의 평가치. 저장돼 있지 않은 판에서는 다시 재서 채운다(`useMoveEvals`). */
-  measured: Map<string, number>;
+  /**
+   * 후보 목록 밖의 수를 다시 잰 값(`useMoveEvals`). **플레이어 관점이다** — 아래
+   * `moverScore` 가 이 열의 자(둔 쪽 관점)로 옮긴다.
+   *
+   * 두 자리가 이걸 쓴다: 값이 저장돼 있지 않은 물러진 수와, **실제로 둔 수**다. 뒤엣것은
+   * 후보 셋 밖이면 서버가 값을 준 적이 없어서, 재지 않으면 그 줄만 빈칸으로 남는다
+   * (2026-08-14-human-2.md §6 #7).
+   */
+  measured: Map<string, MoveEval>;
   /** 지금 고른 수. 그 줄이 열려 문구를 보여준다. */
   chosen: string | null;
   /**
@@ -47,8 +55,10 @@ interface MoveOptionsProps {
 interface Option {
   usi: string;
   ja: string;
-  /** 지금 잰 평가치. 못 잰 줄은 undefined — 자리는 지키고 값만 비운다. */
+  /** 지금 잰 평가치, **둔 쪽 관점**. 못 잰 줄은 undefined — 자리는 지키고 값만 비운다. */
   cp: number | undefined;
+  /** 詰み까지의 手数, **둔 쪽 관점**. 있으면 cp가 아니라 이것으로 말한다(`scoreJa`). */
+  mateIn: number | undefined;
   best: boolean;
   /** 실제로 이 국면에서 둔 수인가. 누가 뒀는지까지 — 상대 차례면 컴퓨터가 둔 것이다. */
   played: 'human' | 'engine' | null;
@@ -61,20 +71,52 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
   const atRoot = (node?.line.length ?? 0) === 0;
   /** 지금 국면의 다음 手数. 제목이 이걸 든다 — 분기로 들어가면 따라 움직인다. */
   const here = node ? node.basePly + node.line.length : ply;
+  /**
+   * 이 자리의 수를 두는 것이 상대인가. **값의 주인이 누구인지가 여기서 갈린다** —
+   * 대국 중의 블런더 목록과 같은 판단이다(`Intervention` 의 `byOpponent`).
+   */
+  const byOpponent = !!node && !node.yourTurn;
   const options = useMemo<Option[]>(() => {
     const byUsi = new Map<string, Option>();
 
+    /**
+     * 한 줄을 겹쳐 쓴다. **먼저 들어온 값을 `undefined` 로 덮지 않는다** — 후보의 값은
+     * 이 국면의 탐색에서 나온 것이고, 다시 잰 값은 그 자리가 빈 줄에만 필요하다.
+     */
     const put = (usi: string, ja: string, patch: Partial<Option>) => {
-      const at = byUsi.get(usi) ?? { usi, ja, cp: undefined, best: false, played: null, retracted: null };
-      byUsi.set(usi, { ...at, ...patch, ja: at.ja || ja });
+      const at = byUsi.get(usi);
+      byUsi.set(usi, {
+        usi,
+        ja: at?.ja || ja,
+        cp: patch.cp ?? at?.cp,
+        mateIn: patch.mateIn ?? at?.mateIn,
+        best: patch.best ?? at?.best ?? false,
+        played: patch.played ?? at?.played ?? null,
+        retracted: patch.retracted ?? at?.retracted ?? null,
+      });
     };
 
-    for (const c of node?.candidates ?? []) put(c.usi, c.ja || c.usi, { cp: c.evalCp, best: true });
+    /**
+     * 다시 잰 값을 이 열의 자로 옮긴다. `measured` 는 플레이어 관점이고 열은 둔 쪽 관점이다.
+     *
+     * **手数는 뒤집지 않는다** — 세는 값이라 관점을 바꿔도 자가 안 갈리고, 「누가 詰ますのか」는
+     * 그리는 쪽이 정한다(`rowScoreJa`).
+     */
+    const moverScore = (at: MoveEval | undefined): Partial<Option> =>
+      at === undefined ? {} : { cp: byOpponent ? -at.cp : at.cp, mateIn: at.mateIn };
+
+    for (const c of node?.candidates ?? []) {
+      put(c.usi, c.ja || c.usi, { cp: c.evalCp, mateIn: c.mateIn, best: true });
+    }
 
     // 이 국면에서 실제로 둔 수 — 다음 手数의 것이다. **누가 뒀는지까지 적는다.**
     // 뿌리에서만이다: 가정으로 들어간 국면에는 「실제로 둔 수」가 없다.
+    //
+    // **값은 후보 셋 안에 있을 때만 이미 와 있다.** 밖이면 다시 잰 것으로 채운다 — 안 채우면
+    // 그 줄만 빈칸이고, 정렬도 맨 아래로 보낸다(§6 #7). 물러진 수는 아래에서 같은 처리를
+    // 받고 있었는데 둔 수만 빠져 있었다.
     const next: ReviewMove | undefined = atRoot ? game.moves[ply] : undefined;
-    if (next) put(next.usi, next.ja || next.usi, { played: next.by });
+    if (next) put(next.usi, next.ja || next.usi, { played: next.by, ...moverScore(measured.get(next.usi)) });
 
     // 물러진 수. 같은 수를 두 번 물린 일이 흔하므로(622의 77手) 줄을 겹치지 않고 **센다** —
     // 낙폭이 −36%/−32% 로 달랐던 것은 판정 당시의 흔들림이고, 나란히 적으면 없는 차이를
@@ -86,16 +128,20 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
       tried.set(iv.retractedUsi, { iv: at?.iv ?? iv, tries: (at?.tries ?? 0) + 1 });
     }
     for (const [usi, { iv, tries }] of tried) {
+      // 저장된 것이 있으면 그것, 없으면 다시 잰 것. 둘 다 「그 수를 두면 얼마」이고 둘 다
+      // 플레이어 관점이라 같은 자로 옮긴다(`afterCp` 는 `moves[].evalCp` 와 같은 자다).
+      const stored: Partial<Option> = iv.afterCp === undefined ? {} : { cp: byOpponent ? -iv.afterCp : iv.afterCp };
       put(usi, iv.retractedJa || usi, {
         retracted: { categoryJa: iv.categoryJa ?? '', message: iv.message ?? '', tries },
-        // 저장된 것이 있으면 그것, 없으면 다시 잰 것. 둘 다 「그 수를 두면 얼마」다.
-        cp: iv.afterCp ?? measured.get(usi),
+        ...moverScore(measured.get(usi)),
+        ...stored,
       });
     }
 
-    // 후보의 값도 다시 잰 것으로 덮지 않는다 — 후보는 이미 이 국면의 탐색에서 나왔다.
-    return [...byUsi.values()].toSorted((a, b) => (b.cp ?? -Infinity) - (a.cp ?? -Infinity));
-  }, [game.moves, game.interventions, ply, node, measured, atRoot]);
+    // **詰み이 cp보다 언제나 바깥이다.** cp만으로 세우면 「3手で詰み」과 「+2900」이 이웃으로
+    // 서는데 그 둘은 이웃이 아니다(`rankOf`).
+    return [...byUsi.values()].toSorted((a, b) => rankOf(b) - rankOf(a));
+  }, [game.moves, game.interventions, ply, node, measured, atRoot, byOpponent]);
 
   if (!options.length) return null;
 
@@ -117,7 +163,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
               className="review-options-row"
               data-chosen={chosen === o.usi || undefined}
               // 색이 값이라, 값이 없는 줄은 색도 없다. 0으로 채우면 호각으로 읽힌다.
-              style={{ '--tone': evalTone(o.cp) } as React.CSSProperties}
+              style={{ '--tone': evalTone(playerCp(o, byOpponent)) } as React.CSSProperties}
               onClick={() => onPick(o.usi, o.played !== null)}
             >
               <span className="review-options-move">{o.ja}</span>
@@ -134,7 +180,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
                 )}
               </span>
 
-              <span className="review-options-cp">{o.cp === undefined ? '' : evalText(o.cp)}</span>
+              <span className="review-options-cp">{rowScoreJa(o, byOpponent)}</span>
             </button>
 
             {/* 왜 나빴는지는 **고른 줄에만.** 넷을 한꺼번에 펼치면 목록이 글이 된다. */}

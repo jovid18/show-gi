@@ -127,6 +127,44 @@ export function scoreJa(cp: number | undefined, mateIn?: number): string {
 }
 
 /**
+ * 목록 한 줄의 값. **둘 다 「그 수를 둔 쪽 관점」이다** — 후보끼리 견주는 자라 이쪽이어야
+ * 위가 「그 쪽에게 좋은 수」로 선다.
+ *
+ * `ExploredMove` 와 `WhatIfCandidate` 가 이 모양을 만족한다. 두 화면(대국 중의 블런더 목록과
+ * 되짚기의 「この局面で指せた手」)이 **같은 목록**이라 부호 규칙도 한 벌이어야 한다 — 두 벌이면
+ * 한쪽을 고칠 때 다른 쪽이 조용히 낡는다.
+ */
+export interface MoverScore {
+  cp: number | undefined;
+  mateIn: number | undefined;
+}
+
+/**
+ * 그 줄의 값 한 칸. `byOpponent` 는 그 수를 두는 쪽이 상대인가다.
+ *
+ * **詰み의 手数만 플레이어 관점으로 옮긴다.** 手数는 평가치가 아니라 세는 값이라 관점을
+ * 바꿔도 자가 안 갈리고, 그대로 두면 **상대의 詰み을 내 詰み으로** 말하게 된다 —
+ * `lets_mate` 카테고리 전체가 그 자리다. cp는 열의 자를 지켜 둔 쪽 관점으로 남는다.
+ */
+export function rowScoreJa(row: MoverScore, byOpponent: boolean): string {
+  if (!row.mateIn) return scoreJa(row.cp, undefined);
+  return scoreJa(undefined, byOpponent ? -row.mateIn : row.mateIn);
+}
+
+/**
+ * 색에 넘길 값. **파랑·빨강은 이 앱 어디서나 「나에게 좋은가」**라서 플레이어 관점이어야
+ * 하고(`evalTone`), 열의 숫자는 둔 쪽 관점이라 여기서 뒤집는다. 서버의 `playerCp` 와
+ * 같은 일이다(branch.go).
+ *
+ * **詰み은 색으로 말하지 않는다.** 그 줄의 cp는 환산값(±30000)이라 ±800 자에 얹으면 언제나
+ * 양 끝이고, 「몇 手で詰み」이 이미 그 줄에서 유일하게 뜻이 있는 말이다.
+ */
+export function playerCp(row: MoverScore, byOpponent: boolean): number | undefined {
+  if (row.mateIn || row.cp === undefined) return undefined;
+  return byOpponent ? -row.cp : row.cp;
+}
+
+/**
  * 지금 분기가 어떤 상태인지 한 줄로.
  *
  * **판정을 여기서 하지 않는다.** 상태도 차례도 서버가 정한 것을 말로 옮길 뿐이다.
