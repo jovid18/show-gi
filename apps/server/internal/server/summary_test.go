@@ -238,3 +238,54 @@ func TestFocusDoesNotReachTheSentence(t *testing.T) {
 		t.Error("手数가 캐시 키를 갈랐다 — Tier 0이 영영 안 맞는다")
 	}
 }
+
+// standingOf 는 **마지막으로 채워진 평가치**를 사람 관점으로 읽는다. 부호 뒤집기(後手)와
+// 「너무 오래된 평가치는 안 쓴다」가 이 함수의 전부다.
+func TestStandingOfReadsTheLastFilledEval(t *testing.T) {
+	cp := func(v int) *int { return &v }
+
+	for _, tc := range []struct {
+		name    string
+		myColor string
+		moves   []store.RecordedMove
+		want    explain.Standing
+	}{
+		{
+			// 회차 1 의 그 판. 先手(사람)가 +1782 에서 던졌다.
+			name: "先手가 크게 이기고 있다", myColor: "b",
+			moves: []store.RecordedMove{{Ply: 1, EvalCp: cp(30)}, {Ply: 2, EvalCp: cp(1782)}},
+			want:  explain.StandingAhead,
+		},
+		{
+			// **같은 cp인데 반대가 된다.** EvalCp 는 언제나 先手 관점이다.
+			name: "後手에게 같은 값은 지고 있는 것", myColor: "w",
+			moves: []store.RecordedMove{{Ply: 1, EvalCp: cp(30)}, {Ply: 2, EvalCp: cp(1782)}},
+			want:  explain.StandingBehind,
+		},
+		{
+			name: "거의 互角", myColor: "b",
+			moves: []store.RecordedMove{{Ply: 1, EvalCp: cp(120)}},
+			want:  explain.StandingLevel,
+		},
+		{
+			name:    "평가치가 하나도 없다",
+			myColor: "b",
+			moves:   []store.RecordedMove{{Ply: 1}, {Ply: 2}},
+			want:    explain.StandingUnknown,
+		},
+		{
+			// 평가치가 판의 끝에서 멀면 지금 형세가 아니다.
+			name: "마지막 평가치가 너무 뒤에 있다", myColor: "b",
+			moves: []store.RecordedMove{{Ply: 1, EvalCp: cp(1782)}, {Ply: 2}, {Ply: 3}, {Ply: 4}, {Ply: 5}},
+			want:  explain.StandingUnknown,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := store.GameRecord{Moves: tc.moves}
+			rec.MyColor = tc.myColor
+			if got := standingOf(rec); got != tc.want {
+				t.Errorf("standingOf = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

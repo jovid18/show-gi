@@ -239,7 +239,7 @@ func Clean(s string, maxRunes int) (string, bool) {
 // 목록 안에 있는지는 기계가 보지만 대응까지는 못 본다. 그래서 갈래 목록 자체는 화면이
 // 판 옆에서 따로 그리고(개입 카드의 후보 목록), 이 문장은 그 위의 이야기다.
 func CleanBranches(s string, allowed []string) (string, bool) {
-	body, ok := sanitize(s, BranchMaxRunes, allowed)
+	body, ok := sanitize(normalizeScores(s), BranchMaxRunes, allowed)
 	if !ok {
 		return "", false
 	}
@@ -300,3 +300,29 @@ func sanitize(s string, maxRunes int, allowed []string) (string, bool) {
 // **[미확정]** 「八四」처럼 筋까지 한자로 적는 표기는 안 걸린다. 그렇게 적는 기보가 드물어
 // 지금은 두는데, 段만으로 거르면 정상 문장이 대량으로 버려진다.
 var invented = regexp.MustCompile(`[0-9０-９][一二三四五六七八九]|[▲△]`)
+
+// scoreWord 는 모델이 숫자 대신 쓰는 말이다. 오른쪽이 우리가 프롬프트로 준 모양이다.
+var scoreWord = strings.NewReplacer(
+	"マイナス", "-", "プラス", "+",
+	// **`ー`(長音符)와 `―`(ダッシュ)는 안 건드린다.** 둘 다 일본어 본문에 정상적으로
+	// 나타나는 글자라, 부호로 보고 바꾸면 문장을 망가뜨린다.
+	"−", "-", "－", "-", "‐", "-", "＋", "+",
+	"０", "0", "１", "1", "２", "2", "３", "3", "４", "4",
+	"５", "5", "６", "6", "７", "7", "８", "8", "９", "9",
+)
+
+// normalizeScores 는 평가치 표기를 **우리가 준 모양 하나로** 되돌린다.
+//
+// 회차 2 의 개입 8건이 전부 정상 호출이었는데도 숫자 표기가 넷이었다 —
+// `-123` · `マイナス601` · `+323` · `形勢は-961`(06-status.md §59). 프롬프트가 형식을
+// 부탁하지만 **부탁은 규칙이 아니고**, 그 규칙을 거는 자리가 여기다(sanitize 와 같은 판단).
+//
+// **버리지 않고 고친다.** 지어낸 수는 사실이 틀린 것이라 버려야 하지만, 표기는 같은 사실을
+// 다르게 쓴 것뿐이라 되돌리면 그만이다 — 버리면 `other` 문구가 대부분 결정적 문구로 떨어지고,
+// 그 카테고리는 캐시도 사실상 안 맞아서 다시 부를 기회조차 적다.
+//
+// **숫자를 문장에서 아예 빼는 쪽은 안 골랐다.** 갈래마다의 결말이 그 문장의 내용 자체이고
+// (BranchScoreJa), 말로 바꾸려면 「はっきり良い」의 경계가 새 상수로 하나 더 생긴다.
+func normalizeScores(s string) string {
+	return scoreWord.Replace(s)
+}

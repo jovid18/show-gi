@@ -8,7 +8,7 @@ import (
 // summaryPromptVersion 은 프롬프트가 바뀌면 오른다. 올리면 캐시의 옛 총평이 통째로 죽는다 —
 // `promptVersion`(facts.go)과 갈라 둔 것은 두 프롬프트가 따로 바뀌기 때문이고, 한 값으로
 // 묶으면 개입 문구를 고칠 때 총평 캐시까지 버려진다.
-const summaryPromptVersion = 3
+const summaryPromptVersion = 4
 
 // summarySystemPrompt 는 개입 문구의 것과 **같은 원칙, 다른 일**이다.
 //
@@ -63,7 +63,24 @@ func summaryUserPrompt(f GameFacts) string {
 	if s := summaryTrendJa[f.Trend]; s != "" {
 		b.WriteString(fmt.Sprintf("- 後半の様子: %s\n", s))
 	}
+	// **투료를 판정한 자리는 여기가 아니다.** 이 줄은 형세만 말하고, 「던졌다」는 결과와
+	// 형세가 함께 만든다 — 모델이 그 둘을 잇도록 마지막 줄로 못박아 준다.
+	if s := summaryStandingJa[f.Standing]; s != "" {
+		b.WriteString(fmt.Sprintf("- 終局時の形勢: %s\n", s))
+	}
+	if f.Standing == StandingAhead && f.Outcome == OutcomeLost {
+		b.WriteString("- この対局は、まだ有利な局面で投了して終わった。「崩れた」「負けが続いた」とは書かないこと\n")
+	}
 	return b.String()
+}
+
+// summaryStandingJa 는 끝난 시점의 형세다. **unknown 은 비운다** — 모르는 것을 「互角」으로
+// 적으면 재지 않은 것을 잰 것으로 만든다.
+var summaryStandingJa = map[Standing]string{
+	StandingAhead:   "自分がはっきり良かった",
+	StandingLevel:   "ほぼ互角だった",
+	StandingBehind:  "自分が悪かった",
+	StandingUnknown: "",
 }
 
 var summaryOutcomeJa = map[Outcome]string{

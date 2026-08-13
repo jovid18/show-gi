@@ -59,6 +59,38 @@ const (
 	WeightMany Weight = "many" // 여러 번
 )
 
+// Standing 은 **판이 끝난 시점의 형세**다. 사람 관점이고, 마지막으로 채워진 평가치에서 온다.
+//
+// 결과(Outcome)만으로는 못 말하는 것이 하나 있어서 둔다 — **이기고 있는데 投了한 판**이다.
+// 회차 1이 그랬다: 295手에 +1782인데 사람이 던졌고, 총평은 「負けました…後半に崩れた」로
+// 말했다. 형세를 안 보면 「졌다 = 무너졌다」가 되어, 사실은 이기고 있던 판을 그렇게 배운다.
+//
+// **投了를 기록에서 직접 읽지 않는다.** `games` 에 종료 사유 칸이 없고, 있어도 이 문장이
+// 필요한 것은 사유가 아니라 형세다. 詰まされた 판은 마지막 평가치가 자기 쪽으로 크게
+// 기울 수 없으므로, `lost` 이면서 Ahead 인 것은 **던진 것**이다.
+type Standing string
+
+const (
+	StandingUnknown Standing = "unknown" // 평가치가 없거나 너무 오래된 것뿐이다
+	StandingAhead   Standing = "ahead"
+	StandingLevel   Standing = "level"
+	StandingBehind  Standing = "behind"
+)
+
+// StandingAheadRate 는 「분명히 이기고 있었다」로 부를 승률이다. **cp가 아니라 승률로
+// 적는다** — cp는 우세 구간에서 의미가 압축되어 같은 값이 국면마다 다른 뜻이 된다
+// (`intervene.WinRate` 의 그 이유). K=600에서 0.85는 +1041cp 언저리다.
+//
+// **[미확정]** 0.85는 초기값이다. 이 값이 하는 일은 하나뿐이라 위험이 좁다 — 넘으면
+// 문장 하나가 갈리고, 못 넘으면 지금까지와 같은 문장이 나간다.
+const StandingAheadRate = 0.85
+
+// StandingMaxLag 는 마지막 평가치가 **판의 끝에서 몇 手까지 떨어져 있어도 되는가**다.
+//
+// 평가치는 수보다 늦게 오므로 마지막 몇 수가 비어 있을 수 있다(`store.RecordedMove`).
+// 그것을 안 보면 40手 전의 형세로 「有利でした」를 말하게 된다. 한 왕복까지만 받는다.
+const StandingMaxLag = 2
+
 // Trend 는 후반이 나아졌는가다.
 type Trend string
 
@@ -88,6 +120,8 @@ type GameFacts struct {
 	Trend  Trend
 	// Level 은 문장의 눈높이다. 개입 임계치를 정한 그 값이다.
 	Level intervene.Level
+	// Standing 은 판이 끝난 시점의 형세다. 빈 값은 StandingUnknown 과 같게 다룬다.
+	Standing Standing
 }
 
 // Summarizer 는 한 판을 문장으로 바꾼다. `Explainer` 와 같은 이유로 **에러를 안 돌려준다** —
@@ -110,8 +144,8 @@ func (f GameFacts) Key() string {
 	for _, c := range f.Top {
 		tops = append(tops, string(c))
 	}
-	material := fmt.Sprintf("summary|v%d|%s|%s|%s|%s|%s|%d",
-		summaryPromptVersion, f.Outcome, strings.Join(tops, ","), f.Weight, f.Phase, f.Trend, f.Level)
+	material := fmt.Sprintf("summary|v%d|%s|%s|%s|%s|%s|%d|%s",
+		summaryPromptVersion, f.Outcome, strings.Join(tops, ","), f.Weight, f.Phase, f.Trend, f.Level, f.Standing)
 	sum := sha256.Sum256([]byte(material))
 	return "s" + hex.EncodeToString(sum[:16])
 }
@@ -168,7 +202,7 @@ func (l *Layered) Summarize(ctx context.Context, f GameFacts) Result {
 // 그래서 LLM은 「같은 사실을 더 좋은 문장으로」만 하게 된다.
 func RenderSummary(f GameFacts) string {
 	var b strings.Builder
-	b.WriteString(outcomeJa[f.Outcome])
+	b.WriteString(openingJa(f))
 
 	if len(f.Top) == 0 {
 		// 개입이 없었다. **칭찬으로 끝내지 않는다** — 한 판에서 안 걸렸다는 것이 실력의
@@ -185,10 +219,23 @@ func RenderSummary(f GameFacts) string {
 	if p, ok := phaseJa[f.Phase]; ok && p != "" {
 		b.WriteString(p)
 	}
-	if t, ok := trendJa[f.Trend]; ok && t != "" {
+	// **「崩れた」는 이기고 있던 판에 못 쓴다.** 그 판에서 배울 것은 무너진 것이 아니라
+	// 더 둘 수 있었다는 것이고, 둘은 정반대의 조언이다.
+	if t, ok := trendJa[f.Trend]; ok && t != "" && !(f.Standing == StandingAhead && f.Trend == TrendWorsened) {
 		b.WriteString(t)
 	}
 	return b.String()
+}
+
+// openingJa 는 판의 결과를 여는 한 문장이다.
+//
+// **이기고 있는데 진 판을 따로 말한다**(Standing). 회차 1이 그 판이었고, 총평이 「負けました。
+// …後半に崩れた」로 말했다 — 사실은 +1782에서 던진 판이다.
+func openingJa(f GameFacts) string {
+	if f.Standing == StandingAhead && f.Outcome == OutcomeLost {
+		return "有利な局面でしたが、ここで投了となりました。"
+	}
+	return outcomeJa[f.Outcome]
 }
 
 var outcomeJa = map[Outcome]string{
