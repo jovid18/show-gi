@@ -2854,6 +2854,20 @@ body {
   cursor: pointer;
 }
 
+/* **점을 누르면 파란 테가 떴다**(2026-08-14-human-2.md §6 #6).
+
+   recharts 의 `accessibilityLayer` 가 기본 켜짐이라 `<svg>` 에 `tabindex="0"` 이 붙고,
+   마우스로 누르면 그 svg가 포커스를 받는다. 그런데 **위젯이 아니라서 `:focus-visible` 이
+   안 붙고**, 그래서 위 `:focus-visible` 의 深緑 테가 아니라 Chrome 기본 링
+   (`rgb(0, 95, 204) auto 5px`)이 그려진다 — 이 앱에 없는 색이 판 옆에 뜬 이유다.
+
+   `accessibilityLayer` 를 끄지 않는다. 끄면 tabindex가 사라져 **키보드로 그래프에 닿을
+   길이 없어진다** — 여기가 手数를 고르는 장치라 그 길이 있어야 한다. 마우스일 때만 링을
+   지우면 `Tab` 으로 온 사람에게는 深緑 테가 그대로 선다. */
+.review-graph :focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* 다른 手数의 값을 잠깐 들고 있는 동안. **흐리게만 한다** — 자리지킴 빈 줄로 두면 그 줄과
    실제 줄의 높이를 계속 맞춰야 하고, 실제로 목록이 12~22px씩 들썩였다.
 
