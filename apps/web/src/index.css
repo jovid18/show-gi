@@ -714,12 +714,13 @@ body {
     inset 0 0 14px rgb(var(--light) / 0.45);
 }
 
-/* 물러진 수를 한 번 되짚는 유령 駒. 판의 격자에 그대로 얹혀 있어서 이동 거리를
-   **칸 수**로 받는다 — 픽셀로 주면 --sq 가 화면 폭에 따라 변하는 만큼 어긋난다. */
-.replay-koma {
-  --dx: calc(var(--dcol, 0) * (var(--sq) + 1px));
-  --dy: calc(var(--drow, 0) * (var(--sq) + 1px));
+/* 물러진 수가 **어느 駒였는지**를 짚는 유령 駒. 판의 격자에 그대로 얹혀 있어서 자리를
+   **칸 수**로 받는다 — 픽셀로 주면 --sq 가 화면 폭에 따라 변하는 만큼 어긋난다.
 
+   **끌고 오지 않는다.** 출발 칸에서 도착 칸으로 2.4초 동안 미끄러졌었는데, 그 이동은 이미
+   두 칸의 테와 화살표가 말한다. 이 유령이 혼자 말하는 것은 「어느 駒였나」 하나이고 그것은
+   서 있기만 해도 말한다 — .blunder-mark 에서 맥박을 뺀 것과 같은 판단이다(§69). */
+.replay-koma {
   /* 격자의 자식이지만 격자에 얹히지 않는다 — 칸을 차지하면 81칸이 한 칸씩 밀린다.
      1px 은 .board 의 padding 이자 칸 사이 gap 이다. */
   position: absolute;
@@ -731,7 +732,7 @@ body {
   place-items: center;
   width: var(--sq);
   height: var(--sq);
-  animation: blunder-replay 2.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: blunder-replay 2.4s ease-out both;
 }
 
 /* 유령이라 실물보다 옅고, 대신 빛을 끌고 간다 */
@@ -740,53 +741,27 @@ body {
   filter: drop-shadow(0 0 12px rgb(var(--light) / 0.8));
 }
 
-/* 느리게 한 번. 두 번 돌리면 재생이 아니라 잔소리가 된다 */
+/* 한 번 떠올랐다 사라진다. **打도 같다** — 出発 칸이 있고 없고는 이 유령이 말하는 것
+   (어느 駒였나)을 안 가르므로, 두 벌로 둘 이유가 없어졌다. */
 @keyframes blunder-replay {
   0% {
     opacity: 0;
-    transform: translate(0, 0) scale(1);
   }
-  8% {
-    opacity: 1;
-    transform: translate(0, 0) scale(1.1);
-  }
-  46% {
-    opacity: 1;
-    transform: translate(var(--dx), var(--dy)) scale(1.1);
-  }
+  8%,
   66% {
     opacity: 1;
-    transform: translate(var(--dx), var(--dy)) scale(1.1);
   }
   96%,
   100% {
     opacity: 0;
-    transform: translate(0, 0) scale(1);
   }
 }
 
-/* 打은 출발 칸이 없다. 駒台에서 떨어지는 것으로 그린다 */
-.replay-koma[data-drop] {
-  animation-name: blunder-drop;
-}
-
-@keyframes blunder-drop {
-  0% {
-    opacity: 0;
-    transform: translateY(calc(var(--sq) * -0.9)) scale(1.3);
-  }
-  30% {
-    opacity: 1;
-    transform: translateY(0) scale(1.1);
-  }
-  66% {
-    opacity: 1;
-    transform: translateY(0) scale(1.1);
-  }
-  96%,
-  100% {
-    opacity: 0;
-    transform: translateY(0) scale(1);
+/* 움직임을 줄여 달라고 한 사용자에게는 그대로 서 있는다. 이제 남은 것이 밝기뿐이라
+   지워도 「어느 駒였나」는 그대로 보인다. */
+@media (prefers-reduced-motion: reduce) {
+  .replay-koma {
+    animation: none;
   }
 }
 

@@ -131,25 +131,27 @@ interface BoardProps {
 }
 
 /**
- * 물러진 수를 한 번 재생하는 유령 駒.
+ * 물러진 수가 **어느 駒였는지**를 짚는 유령 駒.
  *
- * 자리도 이동 거리도 **칸 수**로 준다(`--col`·`--row`·`--dcol`·`--drow`). 픽셀로 계산하면
- * `--sq` 가 화면 폭에 따라 변하는 만큼 어긋난다.
+ * 자리는 **칸 수**로 준다(`--col`·`--row`). 픽셀로 계산하면 `--sq` 가 화면 폭에 따라
+ * 변하는 만큼 어긋난다.
  *
  * **격자에 얹지 않고 띄운다.** 자리를 `grid-column`으로 지정하면 그 칸이 먼저 잡히고
  * 81칸이 그것을 피해 한 칸씩 밀린다 — 명시 배치는 DOM 순서보다 먼저 처리된다.
+ *
+ * **가려던 칸에 선다. 끌고 오지 않는다.** 출발 칸에서 도착 칸으로 미끄러뜨렸었는데,
+ * 그 이동은 이미 세 채널이 말하고 있다 — 두 칸의 테(`.blunder-mark`)와 화살표다.
+ * 이 유령이 혼자 말하는 것은 **어느 駒였나** 하나이고, 그것은 서 있기만 해도 말한다.
+ * 조용해야 하는 판에서 움직이는 것을 하나 줄인다(회차 1 #6 · 06-status.md §69).
  */
 function ReplayKoma({ replay }: { replay: Replay }) {
-  const start = replay.from ?? replay.to;
   const style = {
-    '--col': start % BOARD_SIZE,
-    '--row': Math.floor(start / BOARD_SIZE),
-    '--dcol': (replay.to % BOARD_SIZE) - (start % BOARD_SIZE),
-    '--drow': Math.floor(replay.to / BOARD_SIZE) - Math.floor(start / BOARD_SIZE),
+    '--col': replay.to % BOARD_SIZE,
+    '--row': Math.floor(replay.to / BOARD_SIZE),
   } as CSSProperties;
 
   return (
-    <span className="replay-koma" data-drop={replay.from === null || undefined} style={style} aria-hidden="true">
+    <span className="replay-koma" style={style} aria-hidden="true">
       <Koma kind={replay.kind} side={replay.side} />
     </span>
   );
