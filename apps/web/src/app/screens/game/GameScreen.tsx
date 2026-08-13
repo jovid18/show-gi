@@ -726,6 +726,16 @@ export function GameScreen() {
           </p>
         )}
 
+        {/* 서버가 못 해준 것. **개입 카드 자리가 아니다** — 저쪽은 판에 대한 판단이고 이쪽은
+            서버 사정이라, 한 자리에 뭉치면 「시한을 넘겨 확인 못 했다」가 판정으로 읽힌다.
+            개입 중에는 안 그린다: 그때는 물러졌다는 사실이 이미 화면을 다 쓰고 있고,
+            애초에 판정이 성공해야 개입이 뜨므로 둘이 같이 올 일이 없다. */}
+        {!intervening && snapshot.notice && (
+          <p className="notice" role="status">
+            {snapshot.notice.message}
+          </p>
+        )}
+
         {pending && (
           <div className="promotion" role="group" aria-label="成りの選択">
             <span>成りますか。</span>

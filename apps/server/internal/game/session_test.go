@@ -283,7 +283,7 @@ func TestUnplayableEngineMoveEndsGame(t *testing.T) {
 		t.Fatalf("Play: %v", err)
 	}
 	got := waitFor(t, ch, func(s Snapshot) bool { return s.Status != StatusPlaying }, "대국 종료")
-	if got.Status != StatusResigned || got.Winner != SideHuman {
+	if got.Status != StatusAborted || got.Winner != "" {
 		t.Fatalf("결과 = %+v", got)
 	}
 	if got.Ply != 1 {
@@ -291,7 +291,9 @@ func TestUnplayableEngineMoveEndsGame(t *testing.T) {
 	}
 }
 
-func TestEngineFailureEndsGame(t *testing.T) {
+// 상대의 수를 못 얻으면 **승패를 지어내지 않는다.** 投了로 적으면 지고 있던 판이
+// 기록에서 이긴 판이 된다(StatusAborted).
+func TestEngineFailureAbortsGameWithoutAWinner(t *testing.T) {
 	opp := &scriptedOpponent{err: errors.New("boom")}
 	s := newSession(t, Config{Opponent: opp, HumanColor: shogi.Black})
 
@@ -305,8 +307,87 @@ func TestEngineFailureEndsGame(t *testing.T) {
 		t.Fatalf("Play: %v", err)
 	}
 	got := waitFor(t, ch, func(s Snapshot) bool { return s.Status != StatusPlaying }, "대국 종료")
-	if got.Winner != SideHuman {
-		t.Fatalf("엔진 고장이면 사람이 이긴 것으로 끝난다: %+v", got)
+	if got.Status != StatusAborted {
+		t.Fatalf("상태 = %q, 기대 %q", got.Status, StatusAborted)
+	}
+	if got.Winner != "" {
+		t.Fatalf("엔진 고장에 승자를 붙였다: %q", got.Winner)
+	}
+}
+
+// 상대가 스스로 `resign` 이라고 답한 것은 **위와 다르다.** 그때는 사람이 이긴 것이 맞다.
+func TestEngineResignGivesTheWinToTheHuman(t *testing.T) {
+	opp := &scriptedOpponent{moves: []string{"resign"}}
+	s := newSession(t, Config{Opponent: opp, HumanColor: shogi.Black})
+
+	ch, cancel, err := s.Subscribe(t.Context())
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	defer cancel()
+
+	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
+		t.Fatalf("Play: %v", err)
+	}
+	got := waitFor(t, ch, func(s Snapshot) bool { return s.Status != StatusPlaying }, "대국 종료")
+	if got.Status != StatusResigned || got.Winner != SideHuman {
+		t.Fatalf("결과 = %+v", got)
+	}
+}
+
+// 판정이 실패하면 수는 그대로 서지만 **조용히 넘기지 않는다.** 개입이 없는 화면은
+// 「이 수는 괜찮았다」와 똑같이 생겼는데, 여기서는 확인 자체를 못 한 것이다.
+func TestJudgeFailureLeavesANotice(t *testing.T) {
+	opp := &scriptedOpponent{moves: []string{"3c3d"}}
+	an := &fixedAnalyst{err: errors.New("engine down")}
+	s := newSession(t, Config{Opponent: opp, Analyst: an, HumanColor: shogi.Black})
+
+	ch, cancel, err := s.Subscribe(t.Context())
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	defer cancel()
+
+	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
+		t.Fatalf("Play: %v", err)
+	}
+	got := waitFor(t, ch, func(s Snapshot) bool { return s.Notice != nil }, "판정 실패 알림")
+	if got.Notice.Code != NoticeJudgeSkipped {
+		t.Fatalf("알림 코드 = %q", got.Notice.Code)
+	}
+	if got.Notice.Message == "" {
+		t.Fatal("문구가 비었다 — 화면은 이걸 그대로 그린다")
+	}
+	// 수는 그대로 선다. 판정이 고장 났다고 대국을 멈추지 않는다.
+	if got.Ply < 1 || got.Moves[0].USI != "7g7f" {
+		t.Fatalf("판정이 실패한 수가 기보에서 사라졌다: %+v", got.Moves)
+	}
+}
+
+// 다음 착수에서 알림이 사라진다. 남아 있으면 앞 수에 대한 말이 이번 수를 가리킨다.
+func TestNoticeClearsOnTheNextMove(t *testing.T) {
+	opp := &scriptedOpponent{moves: []string{"3c3d", "8c8d"}}
+	an := &fixedAnalyst{err: errors.New("engine down")}
+	s := newSession(t, Config{Opponent: opp, Analyst: an, HumanColor: shogi.Black})
+
+	ch, cancel, err := s.Subscribe(t.Context())
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	defer cancel()
+
+	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
+		t.Fatalf("Play: %v", err)
+	}
+	waitFor(t, ch, func(s Snapshot) bool { return s.Notice != nil }, "판정 실패 알림")
+	waitFor(t, ch, func(s Snapshot) bool { return s.YourTurn }, "다시 내 차례")
+
+	snap, err := s.Play(t.Context(), "2g2f")
+	if err != nil {
+		t.Fatalf("Play: %v", err)
+	}
+	if snap.Notice != nil {
+		t.Fatalf("앞 수의 알림이 남았다: %+v", snap.Notice)
 	}
 }
 

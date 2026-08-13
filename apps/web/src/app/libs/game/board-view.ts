@@ -80,6 +80,11 @@ export function resultText(snapshot: Snapshot): string | null {
       return won ? '相手が投了しました。あなたの勝ちです。' : '投了しました。';
     case 'repetition':
       return '千日手。引き分けです。';
+    // **승패를 말하지 않는다.** 상대가 던진 것이 아니라 상대의 수를 못 구한 것이다.
+    // 「이어할 수 있다」도 안 붙인다 — 이어하기는 로그인한 사람만이라(서버의 resumeSetup)
+    // 익명 대국에서는 그 말이 거짓이 된다.
+    case 'aborted':
+      return '相手の思考が終わりませんでした。この対局は中断しました。';
     default:
       return null;
   }
