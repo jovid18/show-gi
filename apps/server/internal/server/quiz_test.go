@@ -364,3 +364,50 @@ func TestJaOfLineKeepsTheSameSquareNotation(t *testing.T) {
 		t.Errorf("ja = %q, want empty when the caller did not ask for it", got)
 	}
 }
+
+// 수순은 정답과 **같은 취급**이다 — 첫 수가 곧 정답이라, 오답에 실어 보내면 문항이 그
+// 자리에서 끝난다(§61이 정답에 대해 닫은 것과 같은 자리).
+func TestLineIsRenderedFromTheAnswerPosition(t *testing.T) {
+	pos := shogi.StartPosition()
+	got := lineFrom(pos.SFEN(), "7g7f", []string{"3c3d", "8h2b+"})
+
+	if len(got) != 2 {
+		t.Fatalf("길이 = %d, want 2: %+v", len(got), got)
+	}
+	// 표기가 정답을 둔 **뒤**의 국면에서 나와야 한다. 문제 국면에서 만들면 후수의 수가
+	// 선수 차례의 표기로 적힌다.
+	if got[0].Ja != "△3四歩" {
+		t.Errorf("첫 수 표기 = %q, want △3四歩", got[0].Ja)
+	}
+	if got[0].SFEN == "" || got[1].SFEN == "" {
+		t.Error("국면이 비었다 — 화면은 규칙을 모르므로 스스로 못 둔다")
+	}
+	if got[1].USI != "8h2b+" {
+		t.Errorf("둘째 수 = %q", got[1].USI)
+	}
+}
+
+// 저장된 수순이 그 국면에서 안 서면 **거기까지만** 준다. 500으로 답하면 맞은 답이 오류가 된다.
+func TestLineStopsInsteadOfFailing(t *testing.T) {
+	pos := shogi.StartPosition()
+	got := lineFrom(pos.SFEN(), "7g7f", []string{"3c3d", "9i9b"})
+	if len(got) != 1 {
+		t.Fatalf("길이 = %d, want 1: %+v", len(got), got)
+	}
+}
+
+// 옛 판에는 이 칸이 없다. 그때 화면이 그 줄을 통째로 안 그린다.
+func TestNoLineForOlderQuizzes(t *testing.T) {
+	pos := shogi.StartPosition()
+	if got := lineFrom(pos.SFEN(), "7g7f", nil); got != nil {
+		t.Errorf("%+v, want nil", got)
+	}
+}
+
+// 정답이 그 국면에서 안 서면 수순도 없다 — 문항이 깨진 것이고, 반쪽을 그리지 않는다.
+func TestNoLineWhenTheStoredAnswerDoesNotStand(t *testing.T) {
+	pos := shogi.StartPosition()
+	if got := lineFrom(pos.SFEN(), "9i9b", []string{"3c3d"}); got != nil {
+		t.Errorf("%+v, want nil", got)
+	}
+}

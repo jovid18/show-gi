@@ -158,5 +158,49 @@ func (b *Builder) score(ctx context.Context, in Input, pos shogi.Position, i int
 		AnswerCp: top.ScoreCp,
 		SecondCp: second.ScoreCp,
 		Played:   in.Moves[i],
+		Line:     lineAfter(pos, top.PV),
 	}, true, false
+}
+
+// lineAfter 는 1위 수순에서 **정답 뒤**만 잘라 돌려준다. 추가 탐색이 0인 이유가 여기다 —
+// gap을 재면서 이미 받아 둔 PV다.
+//
+// **두어 보면서 자른다.** 엔진 PV의 꼬리는 치환표에서 온 것이라 이 국면에서 성립하지 않는
+// 수가 섞여 들어올 수 있고, 그대로 저장하면 채점 뒤에 **못 두는 수순**이 화면에 나간다.
+// 처음 막히는 자리에서 끊고 거기까지만 남긴다 — 짧아지는 것은 괜찮지만 틀린 것은 아니다.
+//
+// 정본 표기로 다시 적는 것은 `Answer` 와 같은 이유다(위) — 화면이 이 값으로 판을 그린다.
+func lineAfter(pos shogi.Position, pv []string) []string {
+	if len(pv) < 2 {
+		return nil
+	}
+	// PV[0] 은 정답 자신이다. 그 수를 두고 나서부터가 「그래서 어떻게 되나」다.
+	first, err := shogi.ParseUSIMove(pv[0])
+	if err != nil {
+		return nil
+	}
+	if err := pos.ValidateMove(first); err != nil {
+		return nil
+	}
+	cur := pos.Apply(first)
+
+	out := make([]string, 0, BestLinePlies)
+	for _, u := range pv[1:] {
+		if len(out) == BestLinePlies {
+			break
+		}
+		m, err := shogi.ParseUSIMove(u)
+		if err != nil {
+			break
+		}
+		if err := cur.ValidateMove(m); err != nil {
+			break
+		}
+		out = append(out, m.USI())
+		cur = cur.Apply(m)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

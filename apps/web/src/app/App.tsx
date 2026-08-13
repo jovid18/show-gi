@@ -25,10 +25,17 @@ const ProfileScreen = lazy(async () => ({
   default: (await import('@/screens/me/ProfileScreen')).ProfileScreen,
 }));
 
-const TABS: { route: Route; label: string }[] = [
+/**
+ * `needsAuth` 는 **로그인이 있는 배포에서만** 그리는 탭이다.
+ *
+ * 마이페이지는 익명에게 401이라(profile.go) 로그인 없는 배포에서는 갈 곳이 없다 —
+ * 「눌러도 안 되는 버튼을 띄우면 고장으로 읽힌다」가 `Account` 에 이미 있는 규칙이고,
+ * 탭이라고 다르지 않다.
+ */
+const TABS: { route: Route; label: string; needsAuth?: boolean }[] = [
   { route: { name: 'game' }, label: '対局' },
   { route: { name: 'reviews' }, label: '振り返り' },
-  { route: { name: 'me' }, label: 'マイページ' },
+  { route: { name: 'me' }, label: 'マイページ', needsAuth: true },
 ];
 
 /**
@@ -59,7 +66,7 @@ export function App() {
           </a>
 
           <nav className="app-tabs" aria-label="画面">
-            {TABS.map((tab) => {
+            {TABS.filter((tab) => !tab.needsAuth || me.enabled).map((tab) => {
               // **버튼이 아니라 링크다.** 주소가 화면을 정하므로 가운데 클릭·링크 복사·
               // 새 탭이 그냥 동작해야 하고, 그건 `<a href>` 만이 준다.
               // 세 갈래라 「대국이냐 아니냐」로는 못 가른다 — `reviews` 탭이 켜지는
@@ -105,7 +112,7 @@ export function App() {
         {!onGame && (
           <Suspense fallback={<p className="review-status">読み込み中…</p>}>
             {onMe ? (
-              <ProfileScreen active />
+              <ProfileScreen />
             ) : route.name === 'quiz' ? (
               // **판마다 새로 세운다.** `id` 만 갈아 끼우면 이 컴포넌트가 그대로 살아서
               // 앞 판의 답과 기다린 횟수를 물려받고, 한 틱 동안 **남의 문항**을 그린다.
