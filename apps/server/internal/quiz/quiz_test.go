@@ -539,3 +539,53 @@ func TestGradeMateGivesTheAnswerWithItsOwnPosition(t *testing.T) {
 		t.Logf("note: %s happens to stay legal after the wrong move here", got.Best)
 	}
 }
+
+// **王手가 아닌 수에는 정답을 안 준다.**
+//
+// 그쪽은 오답이 아니라 다시 두라는 안내라 시도가 소진되지 않는다. 답을 실어 보내면 아무
+// 조용한 수나 한 번 눌러서 답을 꺼낼 수 있고, 그러면 채점을 서버에 둔 이유가 사라진다.
+func TestGradeMateDoesNotLeakTheAnswerOnANonCheck(t *testing.T) {
+	fm := &fakeMate{limit: 7}
+	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
+
+	got, err := GradeMate(*q.Mate, []string{"5i5h"})
+	if err != nil {
+		t.Fatalf("grade: %v", err)
+	}
+	if got.Outcome != MateNotCheck {
+		t.Fatalf("outcome = %q, want %q", got.Outcome, MateNotCheck)
+	}
+	if got.Best != "" || got.BestFrom != "" {
+		t.Errorf("best = %q (from %q), want nothing — a quiet move must not buy the answer", got.Best, got.BestFrom)
+	}
+}
+
+// **이겼다고 詰ました 것은 아니다.**
+//
+// 엔진은 投了하기도 하고 못 두는 수를 내놓기도 하는데, 둘 다 사람의 승리로 닫힌다. 手数만
+// 보면 「あなたが決めた詰みです」가 두어진 적 없는 詰み을 두고 나간다.
+func TestConvertedNeedsAnActualCheckmate(t *testing.T) {
+	// 詰ましたら 마지막 국면이 詰み이다.
+	mated := Input{
+		StartSFEN: mate3SFEN, Human: shogi.Black, Won: true,
+		Moves: []string{"G*5b", "6b5b", "4c5b"},
+	}
+	q := NewBuilder(&fakeMate{limit: 9}, nil, 12).Build(context.Background(), mated)
+	if q.Mate == nil {
+		t.Fatal("no mate item")
+	}
+	if !q.Mate.Converted {
+		t.Error("converted = false, but the game ended in checkmate")
+	}
+
+	// 같은 手数 안에 끝났지만 詰み이 아니다 — 상대가 던졌거나 못 두는 수를 냈다.
+	resigned := mated
+	resigned.Moves = []string{"G*5b", "6b5b"}
+	q = NewBuilder(&fakeMate{limit: 9}, nil, 12).Build(context.Background(), resigned)
+	if q.Mate == nil {
+		t.Fatal("no mate item")
+	}
+	if q.Mate.Converted {
+		t.Error("converted = true, but the player never delivered the mate")
+	}
+}

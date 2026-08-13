@@ -3000,11 +3000,15 @@ body {
   font-weight: 600;
 }
 
+/* **오답을 붉게 칠하지 않는다.** 진 판을 붉게 안 칠하는 것과 같은 이유이고(위 `data-result`),
+   여기가 그 규칙이 가장 걸리는 자리다 — 문제를 틀린 초심자에게 붉은 글씨를 내미는 것은
+   이 제품이 실수를 나무라는 물건이 아니라는 것과 정면으로 어긋난다. 무게만 준다. */
 .quiz-verdict[data-tone='wrong'] {
-  color: #a4453a;
+  color: var(--fg);
   font-weight: 600;
 }
 
+/* 붉은 것은 **고장뿐이다.** 채점이 아니라 요청이 실패한 자리라, 다른 것과 갈려 보여야 한다. */
 .quiz-verdict[data-tone='error'] {
   color: #a4453a;
 }

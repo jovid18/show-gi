@@ -4,6 +4,17 @@ import type { ApiError } from '@/protocol/review';
 import type { BestAttempt, BestResult, MateAttempt, MateResult, QuizPayload } from '@/protocol/quiz';
 import { type Source, useFetch } from './useReview';
 
+/** 문항 하나의 출처. **기다리기를 그만뒀는지**가 더 붙는다 — 아래. */
+export interface QuizSource extends Source<QuizPayload> {
+  /**
+   * 「아직 만드는 중」을 더는 안 기다린다.
+   *
+   * **「문항이 없다」와 다르다.** 우리가 아는 것은 「정해진 동안 안 왔다」뿐이라, 화면도
+   * 딱 그만큼만 말해야 한다.
+   */
+  gaveUp: boolean;
+}
+
 /**
  * 그 판의 문항.
  *
@@ -11,29 +22,48 @@ import { type Source, useFetch } from './useReview';
  * (server/ws.go generateQuiz), 판이 끝난 직후에 되짚기를 열면 `ready: false` 가 온다 —
  * 한 번 묻고 「問題はありません」을 그리면 그것이 거짓이 된다.
  */
-export function useQuiz(id: number): Source<QuizPayload> {
+export function useQuiz(id: number): QuizSource {
   const { loaded, reload } = useFetch<QuizPayload>(`/api/games/${id}/quiz`);
+  const [attempts, setAttempts] = useState(0);
+  const last = useRef<QuizPayload | null>(null);
+
+  // **판이 바뀌면 처음부터다.** 주소만 갈아 끼우면 이 컴포넌트가 그대로 살아 있으므로
+  // (App 이 `id` 만 바꿔 넘긴다) 세는 값도 아래의 직전 답도 앞 판의 것이 남는다.
+  const seen = useRef(id);
+  if (seen.current !== id) {
+    seen.current = id;
+    last.current = null;
+    if (attempts !== 0) setAttempts(0);
+  }
 
   // **다 만들어지면 멈춘다.** 끝난 판의 문항은 다시 바뀌지 않으므로 계속 물을 이유가 없다.
-  const pending = loaded.state === 'ready' && !loaded.data.ready;
+  //
+  // **안 오면 그것도 멈춘다.** 「아직 만드는 중」은 영영 참일 수 있다 — 이 코드 전에 끝난
+  // 판, 생성기가 없는 배포, 판이 올라가 옛 행이 죽은 뒤가 전부 그렇다. 계속 물으면 화면이
+  // 오지 않을 것을 기다리라고 말하게 된다.
+  const waiting = loaded.state === 'ready' && !loaded.data.ready;
+  const gaveUp = waiting && attempts >= QUIZ_POLL_MAX;
+
   useEffect(() => {
-    if (!pending) return;
-    const timer = setTimeout(reload, QUIZ_POLL_MS);
+    if (!waiting || gaveUp) return;
+    const timer = setTimeout(() => {
+      setAttempts((n) => n + 1);
+      reload();
+    }, QUIZ_POLL_MS);
     return () => clearTimeout(timer);
-  }, [pending, reload]);
+  }, [waiting, gaveUp, reload]);
 
   // **다시 물을 때 직전 답을 그대로 둔다.** `useFetch` 는 부를 때마다 `loading` 으로
   // 돌아가는데, 그러면 「問題を作っています」가 5초마다 「読み込み中…」으로 번쩍인다 —
   // 화면이 그 두 상태를 통째로 다른 것으로 그리기 때문이다(QuizScreen).
-  const last = useRef<QuizPayload | null>(null);
   if (loaded.state === 'ready') {
     last.current = loaded.data;
   }
   if (loaded.state === 'loading' && last.current) {
-    return { loaded: { state: 'ready', data: last.current }, reload };
+    return { loaded: { state: 'ready', data: last.current }, reload, gaveUp };
   }
 
-  return { loaded, reload };
+  return { loaded, reload, gaveUp };
 }
 
 /**
@@ -43,6 +73,15 @@ export function useQuiz(id: number): Source<QuizPayload> {
  * 하고 새로고침하기 전에 도착한다.
  */
 const QUIZ_POLL_MS = 5000;
+
+/**
+ * 몇 번까지 기다리나. 5초 × 12 = 1분이다.
+ *
+ * 실측으로 6手 판이 1초 안쪽이었고(§53), 오래 걸리는 쪽은 詰み 트리라 그것도 분 단위는
+ * 아니다. 1분을 넘겨도 안 왔으면 **오지 않을 쪽**이 훨씬 그럴듯하다 — 옛 판이거나,
+ * 생성기가 없는 배포이거나, 문항 판이 올라가 옛 행이 죽은 뒤다.
+ */
+const QUIZ_POLL_MAX = 12;
 
 /** 채점 한 번의 상태. **누른 뒤 답이 오기까지의 자리**가 화면에 있어야 한다. */
 export interface Grading<T> {

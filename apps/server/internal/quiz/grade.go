@@ -48,7 +48,8 @@ type MateProgress struct {
 	Plies int
 	// Outcome 은 마지막 수의 결과다. 수를 하나도 안 냈으면 MateOngoing 이다.
 	Outcome MateOutcome
-	// Rest·Best 는 **오답일 때만** 채워진다.
+	// Rest·Best 는 **오답일 때만** 채워진다. 「王手가 아니다」에는 안 채운다 — 그쪽은
+	// 시도가 소진되지 않는 안내라, 답을 실어 보내면 조용한 수 한 번으로 답을 꺼낼 수 있다.
 	//
 	// Rest 는 그 수 뒤에 남는 詰みまでの手数다. 0이면 詰み을 놓치는 수이고, 아니면 詰み이
 	// 늘어지는 수다 — 문구가 여기서 갈린다.
@@ -112,8 +113,11 @@ func GradeMate(item MateItem, moves []string) (MateProgress, error) {
 		v, known := node.Moves[u]
 		if !known {
 			// 합법이지만 트리에 없다 = 王手가 아니다. 판을 **안 움직이고** 되돌린다.
+			//
+			// **정답을 안 준다.** 이쪽은 오답이 아니라 다시 두라는 안내라 시도가 소진되지
+			// 않는데, 여기서 `Best` 를 실어 보내면 아무 조용한 수나 한 번 눌러서 답을
+			// 꺼낼 수 있다 — 채점을 서버에 둔 이유가 그것이다.
 			out.Outcome = MateNotCheck
-			out.Best, out.BestFrom, out.BestPrev = node.Best, nodeSFEN, nodePrev
 			break
 		}
 

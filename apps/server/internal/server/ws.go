@@ -434,6 +434,9 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 // (§10), 그 둘에 여유를 준 값이다. 넘으면 만들던 것을 버린다 — 반쪽 트리는 채점에 쓸 수 없다.
 const quizTimeout = 5 * time.Minute
 
+// quizSaveTimeout 은 만든 것을 남기는 데 주는 시한이다. DB 쓰기 한 번이라 짧다.
+const quizSaveTimeout = 10 * time.Second
+
 // generateQuiz 는 끝난 판에서 문항을 만들어 저장한다.
 //
 // **연결이 끊겨도 계속한다**(`context.WithoutCancel`). 만드는 데 수십 초가 걸리는데 사람은
@@ -446,13 +449,18 @@ const quizTimeout = 5 * time.Minute
 // **엔진 풀을 오래 잡는다.** mate 풀이 하나면 그동안 진행 중인 다른 대국의 詰み 게이지와
 // 종반 판정이 막힌다 — 그래서 풀 크기를 손잡이로 뺐다(cmd/api/main.go startMateEngines).
 func (h *gameHandler) generateQuiz(parent context.Context, rec store.GameRecord) {
-	if h.opts.Quiz == nil || h.opts.Store == nil {
+	if h.opts.Store == nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), quizTimeout)
-	defer cancel()
 
-	q := h.opts.Quiz.Build(ctx, quizInput(rec))
+	// **생성기가 없어도 행은 남긴다.** 안 남기면 화면이 「아직 만드는 중」에서 영영 안
+	// 벗어난다 — 엔진 없는 배포에서 그 문장은 오지 않을 것을 기다리라는 거짓말이다.
+	var q quiz.Quiz
+	if h.opts.Quiz != nil {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), quizTimeout)
+		q = h.opts.Quiz.Build(ctx, quizInput(rec))
+		cancel()
+	}
 
 	// **문항이 없어도 저장한다.** 안 하면 「아직 만드는 중」과 「문항이 없는 판」이 화면에서
 	// 같은 그림이 되는데, 만드는 데 수십 초가 걸려서 그 사이에 「問題はありません」을
@@ -462,7 +470,12 @@ func (h *gameHandler) generateQuiz(parent context.Context, rec store.GameRecord)
 		log.Printf("ws: quiz: game %d: encode: %v", rec.ID, err)
 		return
 	}
-	if err := h.opts.Store.SaveGameQuiz(ctx, rec.ID, quiz.Version, payload); err != nil {
+
+	// **쓰는 데 시한을 따로 준다.** 만드는 쪽이 시한에 걸렸으면 그 ctx는 이미 죽어 있고,
+	// 그대로 쓰면 **만들어 놓고 못 남기는** 자리가 되어 화면이 영영 기다린다.
+	save, cancel := context.WithTimeout(context.WithoutCancel(parent), quizSaveTimeout)
+	defer cancel()
+	if err := h.opts.Store.SaveGameQuiz(save, rec.ID, quiz.Version, payload); err != nil {
 		log.Printf("ws: quiz: game %d: save: %v", rec.ID, err)
 		return
 	}

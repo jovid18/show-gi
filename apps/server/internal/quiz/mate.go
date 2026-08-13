@@ -222,7 +222,7 @@ func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position
 			continue
 		}
 
-		converted := b.converted(in, i, d)
+		converted := b.converted(in, posAt, i, d)
 		if converted && d < MateMinPliesIfConverted {
 			continue // 이미 決めた 1手詰め을 다시 내는 것은 문항이 아니다
 		}
@@ -243,8 +243,16 @@ func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position
 // 手数의 다른 詰み筋)을 놓친 것으로 세는데 실전 국면에서는 흔하다. 어느 筋으로 詰ましても
 // 판은 그 手数 안에 끝나므로, **그 뒤로 더 길게 이어졌다**가 곧 놓친 것이다.
 //
-// 이긴 판인지도 본다 — 그 국면에서 판이 곧 끝났더라도 사람이 진 것이면 決めた 것이 아니다.
-func (b *Builder) converted(in Input, i, plies int) bool {
+// **이긴 것만으로는 모자라다.** 엔진은 質 때문에 投了하기도 하고, 못 두는 수를 내놓아도
+// 사람의 승리로 닫힌다(game/session.go 의 applyEngineMove). 그때 手数만 보면 「あなたが
+// 決めた詰みです」가 두어진 적 없는 詰み을 두고 나가는데, 초심자는 그것이 사실인지 확인할
+// 수단이 없다 — 이 제품이 가장 피해야 하는 문장이다. 그래서 **마지막 국면이 실제로 詰み인지**
+// 를 함께 본다. 사람이 詰ましたら 그 국면의 수번은 상대이고 벗어날 수가 없다.
+func (b *Builder) converted(in Input, posAt []shogi.Position, i, plies int) bool {
 	rest := len(in.Moves) - i
-	return in.Won && rest > 0 && rest <= plies
+	if !in.Won || rest <= 0 || rest > plies {
+		return false
+	}
+	final := posAt[len(posAt)-1]
+	return final.IsCheckmate()
 }

@@ -19,7 +19,7 @@ import { useBestGrader, useMateGrader, useQuiz } from '@/hooks/useQuiz';
  * 것으로는 답을 알 수 없다.
  */
 export function QuizScreen({ id }: { id: number }) {
-  const { loaded, reload } = useQuiz(id);
+  const { loaded, reload, gaveUp } = useQuiz(id);
   const back = (): void => navigate({ name: 'review', id });
 
   if (loaded.state === 'loading') {
@@ -38,10 +38,22 @@ export function QuizScreen({ id }: { id: number }) {
       </p>
     );
   }
-  return <Questions id={id} quiz={loaded.data} onBack={back} />;
+  return <Questions id={id} quiz={loaded.data} gaveUp={gaveUp} reload={reload} onBack={back} />;
 }
 
-function Questions({ id, quiz, onBack }: { id: number; quiz: QuizPayload; onBack: () => void }) {
+function Questions({
+  id,
+  quiz,
+  gaveUp,
+  reload,
+  onBack,
+}: {
+  id: number;
+  quiz: QuizPayload;
+  gaveUp: boolean;
+  reload: () => void;
+  onBack: () => void;
+}) {
   const best = quiz.best ?? [];
   const empty = !quiz.mate && best.length === 0;
 
@@ -56,7 +68,16 @@ function Questions({ id, quiz, onBack }: { id: number; quiz: QuizPayload; onBack
 
       {/* **「아직 만드는 중」과 「문항이 없다」를 갈라 말한다.** 만드는 데 수십 초가 걸려서,
           그 사이에 「問題はありません」을 그리면 그것이 거짓이 된다. */}
-      {!quiz.ready ? (
+      {/* **기다리기를 그만둔 것과 문항이 없는 것은 다른 말이다.** 그만둔 쪽에서 아는 것은
+          「정해진 동안 안 왔다」뿐이라, 없다고 단정하면 그것이 거짓이 된다. */}
+      {!quiz.ready && gaveUp ? (
+        <p className="quiz-status">
+          問題がまだ届きません。時間をおいてから、もう一度開いてみてください。
+          <button type="button" className="review-retry" onClick={reload}>
+            もう一度
+          </button>
+        </p>
+      ) : !quiz.ready ? (
         <p className="quiz-status" role="status">
           この対局から問題を作っています。しばらくお待ちください。
         </p>
