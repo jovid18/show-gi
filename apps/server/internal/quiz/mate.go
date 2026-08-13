@@ -144,8 +144,8 @@ func (s *mateSolver) expand(ctx context.Context, nodes map[string]MateNode, pos 
 	// 준다는 전제**가 깨졌다는 뜻이다(`go mate` 는 df-pn이라 최소를 보장하지 않는다 — §53).
 	//
 	// 그대로 내보내면 사람이 무엇을 둬도 「この手では…」만 받고, `Best` 가 비어 있으니
-	// **「正解は○でした」까지 빠진다** — 답이 없는 문제를 내는 셈이고 생성이 판당 한 번뿐이라
-	// 영구히 남는다. 다른 불완전한 트리와 같이 버린다.
+	// **세 번째 오답의 「무엇을 움직이나」까지 빈다**(§61) — 답이 없는 문제를 내는 셈이고
+	// 생성이 판당 한 번뿐이라 영구히 남는다. 다른 불완전한 트리와 같이 버린다.
 	if node.Best == "" {
 		log.Printf("quiz: mate tree: no correct move at a %d-ply node (%s) — dropping the item", plies, key)
 		return false

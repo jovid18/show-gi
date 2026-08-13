@@ -492,8 +492,8 @@ func TestGradeMateKeepsProgressAfterANonCheck(t *testing.T) {
 
 // **오답의 정답 수는 그 수가 성립하는 국면과 함께 와야 한다.**
 //
-// 오답이면 판이 그 수만큼 나아간다. 정답 표기를 나아간 국면에서 만들려 하면 그 수가 불법이라
-// 표기가 비고, 그러면 문구에서 「正解は○でした」가 통째로 빠진다 — 오답에 가장 중요한 조각이다.
+// 오답이면 판이 그 수만큼 나아간다. 그 수를 나아간 국면에서 이름으로 부르려 하면 불법이라
+// 표기가 비고, 그러면 **세 번째 오답의 「무엇을 움직이나」가 빈다**(server/quiz.go 의 `originJa`).
 func TestGradeMateGivesTheAnswerWithItsOwnPosition(t *testing.T) {
 	fm := &fakeMate{limit: 7}
 	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
