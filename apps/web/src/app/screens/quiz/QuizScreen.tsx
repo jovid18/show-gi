@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 
 import { Board } from '@/components/Board';
 import { Hand } from '@/components/Hand';
-import { groupByOrigin, toUsiMove, type Destination } from '@/libs/game/moves';
+import { groupByOrigin, squaresOf, toUsiMove, type Destination, type MoveSquares } from '@/libs/game/moves';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
 import type { Side } from '@/models/piece';
 import { navigate } from '@/routes/router';
@@ -155,6 +155,9 @@ function MateQuestion({ id, item }: { id: number; item: MateItem }) {
         me={sideOf(item.sfen)}
         legalMoves={legal}
         checked={(res ? res.checked : item.checked) ?? null}
+        // **판을 지금 모양으로 만든 수**를 짚는다. 오답이면 방금 낸 그 수이고, 정답이면
+        // 玉方의 응수다 — 문장이 짚는 것과 같은 수라야 둘이 서로를 가리킨다.
+        lastMove={squaresOf(res?.line.at(-1) ?? '')}
         interactive={!done && !grading.pending}
         onPlay={play}
       />
@@ -204,6 +207,14 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
   const [grading, grade, clear] = useBestGrader(id);
   const res = grading.result;
 
+  // **낸 수를 판에서 보여준다.** 서버가 그 수를 둔 뒤의 국면을 주므로 화면이 수를 두지
+  // 않는다 — 화면은 규칙을 모른다. 못 만들었으면(`sfen` 이 빈 값) 문제 국면 그대로다.
+  //
+  // 문장만으로는 부족했던 자리다: 정답과 打 한 글자로만 갈리는 수를 낸 사람은 **무엇이
+  // 등록됐는지 확인할 길이 화면에 하나도 없었다**(회차 1 #17·#18). 출발 칸이 빛나면 반상
+  // 이동이고 안 빛나면 持ち駒에서 온 수라, 그 한 글자가 판 위에서 갈린다.
+  const moved = res?.sfen ? { sfen: res.sfen, checked: res.checked ?? null, move: res.move } : null;
+
   return (
     <article className="quiz-item" aria-label="最善手の問題">
       <header className="quiz-item-head">
@@ -215,10 +226,11 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
       </header>
 
       <QuizBoard
-        sfen={item.sfen}
+        sfen={moved ? moved.sfen : item.sfen}
         me={sideOf(item.sfen)}
         legalMoves={res ? [] : item.legalMoves}
-        checked={item.checked ?? null}
+        checked={moved ? moved.checked : (item.checked ?? null)}
+        lastMove={moved ? squaresOf(moved.move) : null}
         interactive={!res && !grading.pending}
         onPlay={(usi) => void grade({ index: item.index, move: usi })}
       />
@@ -300,6 +312,7 @@ function QuizBoard({
   me,
   legalMoves,
   checked,
+  lastMove,
   interactive,
   onPlay,
 }: {
@@ -314,6 +327,13 @@ function QuizBoard({
   me: Side;
   legalMoves: readonly string[];
   checked: string | null;
+  /**
+   * 이 판을 지금 모양으로 만든 한 수. 두 칸을 함께 짚는다.
+   *
+   * **打과 반상 이동이 여기서 갈린다** — 출발 칸이 빛나지 않으면 持ち駒에서 온 수다. 「▲3五金」과
+   * 「▲3五金打」가 한 글자 차이라 문장만으로는 안 갈렸고, 그것이 회차 1 #17의 절반이었다.
+   */
+  lastMove: MoveSquares | null;
   interactive: boolean;
   onPlay: (usi: string) => void;
 }) {
@@ -393,7 +413,7 @@ function QuizBoard({
         board={board}
         lit={lit}
         selected={origin && !origin.endsWith('*') ? origin : null}
-        lastMove={null}
+        lastMove={lastMove}
         checked={checked}
         played={null}
         replay={null}

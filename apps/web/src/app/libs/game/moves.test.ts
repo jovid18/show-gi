@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { groupByOrigin, parseUsi, toUsiMove } from './moves';
+import { groupByOrigin, parseUsi, squaresOf, toUsiMove } from './moves';
 
 describe('parseUsi', () => {
   it('반상의 수는 출발·도착·승격으로 갈린다', () => {
@@ -75,5 +75,25 @@ describe('toUsiMove', () => {
   it('투입에는 승격이 없다', () => {
     expect(toUsiMove('P*', '5e', false)).toBe('P*5e');
     expect(toUsiMove('P*', '5e', true)).toBe('P*5e');
+  });
+});
+
+describe('squaresOf', () => {
+  it('반상 이동은 두 칸을, 打은 도착 칸만 짚는다', () => {
+    // 화면 배열은 왼쪽 위(9筋 1段)부터 행 우선. 3五 = (rank 5 - 1) * 9 + (9 - 3)
+    expect(squaresOf('4f3e')).toEqual({ from: 5 * 9 + 5, to: 4 * 9 + 6 });
+    // **打은 출발 칸이 없다.** 퀴즈에서 「▲3五金」과 「▲3五金打」를 눈으로 가르는 것이 이 차이다
+    expect(squaresOf('G*3e')).toEqual({ from: null, to: 4 * 9 + 6 });
+  });
+
+  it('승격 표기도 같은 두 칸이다', () => {
+    expect(squaresOf('8h2b+')).toEqual(squaresOf('8h2b'));
+  });
+
+  it('읽을 수 없으면 안 짚는다', () => {
+    // 엉뚱한 칸을 칠하느니 비운다 — 판 전체가 안 그려지는 것보다 낫다
+    expect(squaresOf('')).toBeNull();
+    expect(squaresOf('nonsense')).toBeNull();
+    expect(squaresOf('0a0b')).toBeNull();
   });
 });

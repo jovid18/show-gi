@@ -23,8 +23,9 @@ var kanjiRank = [...]string{"", "一", "二", "三", "四", "五", "六", "七",
 // 초심자는 둘이 같은 것인 줄 모른다.
 func PieceJa(t PieceType) string { return kanjiPiece[t] }
 
-// squareJa 는 「2四」 형식으로 칸을 적는다.
-func squareJa(sq int) string {
+// SquareJa 는 「2四」 형식으로 칸을 적는다. **棋譜와 같은 표기다** — 문장이 칸을 달리 부르면
+// 초심자는 그것이 카드에 적힌 칸과 같은 칸인지 모른다(PieceJa 와 같은 이유).
+func SquareJa(sq int) string {
 	return fmt.Sprintf("%d%s", FileOf(sq), kanjiRank[RankOf(sq)])
 }
 
@@ -92,7 +93,7 @@ func (pos Position) MoveJa(m Move, prevTo int) string {
 	if pos.Turn == White {
 		mark = "△"
 	}
-	dest := squareJa(int(m.To))
+	dest := SquareJa(int(m.To))
 	if prevTo >= 0 && int(m.To) == prevTo {
 		dest = "同"
 	}
