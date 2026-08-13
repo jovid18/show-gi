@@ -4,6 +4,7 @@ import { Board } from '@/components/Board';
 import { Hand } from '@/components/Hand';
 import { groupByOrigin, toUsiMove, type Destination } from '@/libs/game/moves';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
+import type { Side } from '@/models/piece';
 import { navigate } from '@/routes/router';
 import type { BestItem, MateItem, MateResult, QuizPayload } from '@/protocol/quiz';
 import { useBestGrader, useMateGrader, useQuiz } from '@/hooks/useQuiz';
@@ -318,13 +319,18 @@ function QuizBoard({
     setOrigin(next === origin ? null : next);
   };
 
+  // **사람은 늘 이 국면의 수번이다** — 문항이 그렇게 뽑힌다(quiz.bestItems·mateItem).
+  // 그래서 판이 스스로 「누가 나인가」를 말할 수 있다. 이 값을 `black` 으로 박아 두면
+  // 後手로 둔 판에서 **「相手の利き」 그늘이 반대쪽 기준으로 깔린다.**
+  const me: Side = board.turn;
+
   return (
     <div className="quiz-board">
       {/* 문항의 판은 **뒤집지 않는다.** 되짚기와 같은 방향이라야 같은 판을 보고 있다는 것이
           읽히고, 이 화면은 그 판에서 곧바로 건너온 자리다. */}
       <Hand
         side="white"
-        label="後手"
+        label={me === 'white' ? 'あなた' : '相手'}
         pieces={board.hands.white}
         selected={origin?.endsWith('*') && board.turn === 'white' ? origin : null}
         playable={board.turn === 'white' ? droppable : new Set()}
@@ -347,7 +353,7 @@ function QuizBoard({
         hintSquare={null}
         hintRay={null}
         mateHeat={0}
-        me="black"
+        me={me}
         flipped={false}
         interactive={interactive}
         onSquare={onSquare}
@@ -355,7 +361,7 @@ function QuizBoard({
 
       <Hand
         side="black"
-        label="先手"
+        label={me === 'black' ? 'あなた' : '相手'}
         pieces={board.hands.black}
         selected={origin?.endsWith('*') && board.turn === 'black' ? origin : null}
         playable={board.turn === 'black' ? droppable : new Set()}

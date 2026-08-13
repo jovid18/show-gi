@@ -100,12 +100,6 @@ type Quiz struct {
 	Best []BestItem `json:"best,omitempty"`
 }
 
-// Empty 는 문항이 하나도 없는가.
-//
-// **화면은 이때 퀴즈 자리를 아예 만들지 않는다.** 빈 카드를 그리면 「문항이 없는 판」과
-// 「고장」이 같은 그림이 된다 — 10수 만에 投了한 판이 실제로 여기로 온다.
-func (q Quiz) Empty() bool { return q.Mate == nil && len(q.Best) == 0 }
-
 // MateItem 은 詰み 문항 하나다.
 type MateItem struct {
 	// Ply 는 문제 국면이 만들어진 手数다. 사람은 `Ply+1` 手目를 두는 차례다.
