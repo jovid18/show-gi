@@ -485,3 +485,57 @@ func TestGradeMateKeepsProgressAfterANonCheck(t *testing.T) {
 		t.Errorf("defense = %q, want empty — nothing was answered this time", got.Defense)
 	}
 }
+
+// **오답의 정답 수는 그 수가 성립하는 국면과 함께 와야 한다.**
+//
+// 오답이면 판이 그 수만큼 나아간다. 정답 표기를 나아간 국면에서 만들려 하면 그 수가 불법이라
+// 표기가 비고, 그러면 문구에서 「正解は○でした」가 통째로 빠진다 — 오답에 가장 중요한 조각이다.
+func TestGradeMateGivesTheAnswerWithItsOwnPosition(t *testing.T) {
+	fm := &fakeMate{limit: 7}
+	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
+
+	root, _ := shogi.ParseSFEN(mate1SFEN)
+	wrong := ""
+	for _, u := range sortedKeys(q.Mate.Nodes[root.RepetitionKey()].Moves) {
+		if !q.Mate.Nodes[root.RepetitionKey()].Moves[u].Correct {
+			wrong = u
+			break
+		}
+	}
+	if wrong == "" {
+		t.Skip("this position has no non-mating check")
+	}
+
+	got, err := GradeMate(*q.Mate, []string{wrong})
+	if err != nil {
+		t.Fatalf("grade: %v", err)
+	}
+	if got.Outcome != MateWrong {
+		t.Fatalf("outcome = %q, want %q", got.Outcome, MateWrong)
+	}
+	if got.BestFrom == got.SFEN {
+		t.Fatal("bestFrom equals sfen — the board did not advance past the wrong move, so this test proves nothing")
+	}
+
+	// 정답 수가 **그 국면에서** 합법이어야 표기를 만들 수 있다.
+	from, err := shogi.ParseSFEN(got.BestFrom)
+	if err != nil {
+		t.Fatalf("bestFrom %q: %v", got.BestFrom, err)
+	}
+	m, err := shogi.ParseUSIMove(got.Best)
+	if err != nil {
+		t.Fatalf("best %q: %v", got.Best, err)
+	}
+	if err := from.ValidateMove(m); err != nil {
+		t.Errorf("the answer %s is not legal in the position it came with: %v", got.Best, err)
+	}
+
+	// 나아간 국면에서는 대개 불법이다 — 그것이 이 필드가 있는 이유다.
+	after, err := shogi.ParseSFEN(got.SFEN)
+	if err != nil {
+		t.Fatalf("sfen %q: %v", got.SFEN, err)
+	}
+	if err := after.ValidateMove(m); err == nil {
+		t.Logf("note: %s happens to stay legal after the wrong move here", got.Best)
+	}
+}

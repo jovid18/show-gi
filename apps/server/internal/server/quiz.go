@@ -212,7 +212,10 @@ func (h *quizHandler) mate(w http.ResponseWriter, r *http.Request) {
 		out.Checked = checkedSquare(pos)
 	}
 	out.DefenseJa = jaOfLine(q.Mate.SFEN, prog.Line, prog.Defense != "")
-	out.BestJa = jaAt(prog.SFEN, prog.Best, lastToOf(prog.Line))
+	// **정답 수의 표기는 그 수가 성립하는 국면에서 만든다.** `prog.SFEN` 은 오답이면 그
+	// 수만큼 나아가 있어서 거기서는 정답이 불법이고, 표기가 비면 문구에서 「正解は○でした」가
+	// 통째로 빠진다(quiz.MateProgress.BestFrom).
+	out.BestJa = jaAt(prog.BestFrom, prog.Best, lastTo(prog.BestPrev))
 	out.Message = mateMessage(prog, out.BestJa)
 	writeJSON(w, http.StatusOK, out)
 }
@@ -372,15 +375,6 @@ func jaOfLine(startSFEN string, line []string, want bool) string {
 		pos, prevTo, ja = next, lastTo(u), text
 	}
 	return ja
-}
-
-// lastToOf 는 수순 마지막 수의 도착 칸이다. 오답 국면에서 정답 표기를 만들 때 「同」이
-// 이 값을 본다.
-func lastToOf(line []string) int {
-	if len(line) == 0 {
-		return -1
-	}
-	return lastTo(line[len(line)-1])
 }
 
 // mateMessage 는 詰み 문항의 일본어 문장이다.
