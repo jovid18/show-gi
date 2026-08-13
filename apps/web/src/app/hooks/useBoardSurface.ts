@@ -11,8 +11,13 @@ import { exposure, influenceOf } from '@/models/influence';
 
 const BOARD_SIZE = 9;
 
-/** 그늘이 다 밀려드는 데 걸리는 시간. 넘겨 보는 장면 사이 간격보다 짧아야 한다. */
-const SWEEP_MS = 620;
+/**
+ * 그늘이 켜지고 꺼지는 데 걸리는 시간. 넘겨 보는 장면 사이 간격보다 짧아야 한다.
+ *
+ * **켤 때와 끌 때가 같은 값이다.** 켜질 때만 620ms 로 길게 끌었던 것은 그늘이 판 끝에
+ * 닿는 순간을 보여 주려던 것이고, 쓸어 들어오는 연출이 없어진 지금은 그 시간이 그냥
+ * 늦게 켜지는 것이 된다(§69).
+ */
 const FADE_MS = 240;
 
 /**
@@ -196,17 +201,13 @@ export function useBoardSurface({ boardRef, board, active, from, me, flipped }: 
     const start = amountRef.current;
     const began = performance.now();
     const step = (now: number) => {
-      const t = Math.min((now - began) / (active ? SWEEP_MS : FADE_MS), 1);
-      if (active) {
-        // 끝에서 느려진다. 그늘이 판 끝에 닿는 순간이 제일 눈에 띈다.
-        amountRef.current = 1;
-        surface.setAmount(1, { x, y, radius: full * (1 - (1 - t) * (1 - t)) });
-      } else {
-        // 걷힐 때는 **한꺼번에 옅어진다.** 반대로 쓸어 내면 마지막 칸에 그늘이 남아
-        // 「저기만 아직 위험하다」로 읽힌다.
-        amountRef.current = start * (1 - t);
-        surface.setAmount(amountRef.current, { x, y, radius: full });
-      }
+      const t = Math.min((now - began) / FADE_MS, 1);
+      // **켜질 때도 꺼질 때도 한꺼번에 옅어지고 짙어진다.** 반지름을 0에서 키워 쓸어
+      // 들어오게 했었는데, 판 한가운데에서 퍼지는 고리가 정보로 읽혔다 — 그늘이 말하는
+      // 것은 「어느 칸이 깊은가」뿐이고 퍼지는 순서는 아무 뜻도 없다(회차 1 #3 · §69).
+      // 걷을 때 반대로 쓸어 내지 않았던 것과 같은 이유이고, 이제 양쪽이 같은 규칙이다.
+      amountRef.current = active ? start + (1 - start) * t : start * (1 - t);
+      surface.setAmount(amountRef.current, { x, y, radius: full });
       surface.render();
       if (t < 1) frame = requestAnimationFrame(step);
     };
