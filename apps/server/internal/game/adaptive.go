@@ -21,6 +21,11 @@ type MultiSearcher interface {
 // Band 는 상대가 겨냥하는 형세 구간이다. **플레이어 관점 cp**다.
 //
 // 양수면 플레이어가 유리하다는 뜻이므로, 상대는 자기가 조금 지는 쪽을 겨냥한다.
+//
+// **좌표가 둘이다.** 구간 안이나 아래에서는 절대 좌표로 읽고(플레이어가 아직 못 이기고
+// 있으므로 「+100~+300으로 끌어올린다」가 곧 뜻이다), 구간 **위**에서는 지금 형세에 대한
+// **양보 폭**으로 읽는다. 절대 좌표 하나로 쓰면 이 숫자가 그 구간에서 정반대를 뜻한다 —
+// 「+300으로 되돌려라」가 되고, 그 자리에서 조절이 꺼진다(06-status.md §55).
 type Band struct{ LoCp, HiCp int }
 
 // DefaultBand 는 「조금씩 지고 있지만 아직 모른다」 구간이다. **플레이어 관점 cp.**
@@ -32,6 +37,10 @@ var DefaultBand = Band{LoCp: 100, HiCp: 300}
 //
 // 낙폭이 skill.PriorLoss 면 0이고, 매 수 블런더면 +300(플레이어가 더 유리한 쪽으로 겨냥한다),
 // 매 수 최선이면 -300이다. 즉 **잘 두는 사람에게는 상대가 이기려 든다.**
+//
+// **입력은 수의 질뿐이다**(`skill.Track.Observe` 가 낙폭 하나를 먹는다). 대국 결과도 형세도
+// 안 본다 — 「이기고 있으면 상대가 세진다」는 여기서 나온 적이 없고, 밴드의 절대 좌표에서
+// 나왔다(06-status.md §55).
 //
 // **조절하는 것은 밴드뿐이다.** 자살수 필터도 후보 k도 안 건드린다 — 쉽게 해주는 것과
 // 던지는 것은 다르고, 화면이 「取り返せない場所」라고 가르친 수를 상대가 두면 방금 배운
@@ -92,27 +101,96 @@ func (o *adaptiveOpponent) Choose(ctx context.Context, startSFEN string, moves [
 		return res.Best, nil
 	}
 
-	best, bestDist := res.Best, -1
-	for _, line := range res.Lines {
-		if line.Move == "" {
+	opts := o.options(pos, res.Lines)
+	if len(opts) == 0 {
+		return res.Best, nil
+	}
+
+	// 지금 형세 — **후보의 최솟값이다.** 상대가 무엇을 둬도 플레이어 관점 cp는 이보다
+	// 낮아지지 않으므로(수를 두는 쪽이 상대다) 이 값이 곧 「상대가 가장 잘 뒀을 때」다.
+	//
+	// 뿌리 점수(`res.ScoreCp`)를 쓰지 않는다 — 같은 값이지만 저쪽은 **거른 뒤**를 모른다.
+	// 던지는 수가 최선이었던 국면에서 기준점이 우리가 두지 않을 수의 것이 된다.
+	now := opts[0].playerCp
+	for _, opt := range opts[1:] {
+		now = min(now, opt.playerCp)
+	}
+
+	// **구간 위에서는 절대 좌표가 뜻을 잃는다.** 「+300을 겨냥한다」가 그 자리에서는
+	// 「+300으로 **되돌려라**」가 되어 상대가 최선수를 둔다 — 조절이 가장 필요한 자리에서
+	// 조절이 꺼진다. 그쪽에서는 같은 숫자를 **양보 폭**으로 읽는다(06-status.md §55).
+	//
+	// 밴드가 하는 일이 이 경계 하나다. 고르는 규칙은 아래 하나뿐이다.
+	floor := band.LoCp
+	if now > band.HiCp {
+		floor = now + band.LoCp
+	}
+	return concede(opts, floor), nil
+}
+
+// option 은 상대가 실제로 둘 수 있는 후보 하나다. cp는 **플레이어 관점**으로 뒤집어 든다.
+type option struct {
+	move     string
+	playerCp int
+}
+
+// options 는 후보에서 둘 수 있는 것만 남긴다.
+//
+// **詰み 줄을 뺀다.** `ScoreCp` 가 환산값(`usi.MateCp`)이라 밴드 산수에 섞이면 기준점이
+// 판 밖으로 나간다. 빼도 지금까지와 같게 돈다 — 詰み 줄은 어느 쪽이든 밴드에서 가장 먼
+// 후보였으므로 뽑히지 않았고, **전부 詰み이면** 후보가 비어 최선수로 물러선다(부르는 쪽).
+func (o *adaptiveOpponent) options(pos shogi.Position, lines []usi.SearchLine) []option {
+	out := make([]option, 0, len(lines))
+	for _, line := range lines {
+		if line.Move == "" || line.IsMate {
 			continue
 		}
 		m, err := shogi.ParseUSIMove(line.Move)
 		if err != nil {
 			continue
 		}
-		// 엔진은 늘 수번 측(=상대) 관점으로 답한다. 밴드는 플레이어 관점이라 뒤집는다.
-		playerCp := -line.ScoreCp
-
 		// 「던지지 않는다」. 이 필터는 **엔진이 필요 없다** — 룰 엔진만으로 된다.
 		if MoveFeatures(pos, m).HangsPiece() {
 			continue
 		}
-		if d := band.distance(playerCp); bestDist < 0 || d < bestDist {
-			best, bestDist = line.Move, d
+		out = append(out, option{move: line.Move, playerCp: -line.ScoreCp})
+	}
+	return out
+}
+
+// concede 는 **최소 양보**를 고른다 — `floor` 이상인 후보 중 가장 낮은 것이다.
+//
+// **두 방향 거리로 고르지 않는다.** 그 자는 「양보 0」과 「초과 양보」를 견줄 때 가까운 쪽을
+// 고르는데, 양보 0은 곧 최선수다 — 기준점이 후보의 최솟값이기 때문이다. 그래서 후보 간격이
+// 밴드 폭보다 넓은 국면에서는 언제나 조절이 꺼진다(06-status.md §55).
+//
+// 넘치는 쪽을 부족한 쪽보다 늘 앞에 두는 것이 이 함수의 전부다 — **도움은 넘쳐서 틀리는
+// 편이 낫다.** 그래야 낙폭이 클수록 실제로 더 양보받는다(같은 절의 실측).
+//
+// `floor` 가 기준점 아래일 수 있다 — 잘 두는 사람에게는 실력 추정이 밴드를 그만큼 내리고,
+// 그때는 최선수가 바닥을 넘어 **상대가 버틴다.** 조절의 손잡이가 여기 하나로 들어온다.
+//
+// 바닥을 넘는 후보가 없으면 **가장 많이 양보하는 것**을 고른다. 2위를 두는 것은 던지는 것이
+// 아니고(タダ捨て는 이미 걸러졌다), 이미 지고 있는 판을 길게 끄는 쪽이 초심자에게 나쁘다.
+func concede(opts []option, floor int) string {
+	best, bestCp := "", 0
+	for _, opt := range opts {
+		if opt.playerCp < floor {
+			continue
+		}
+		if best == "" || opt.playerCp < bestCp {
+			best, bestCp = opt.move, opt.playerCp
 		}
 	}
-	return best, nil
+	if best != "" {
+		return best
+	}
+	for _, opt := range opts {
+		if best == "" || opt.playerCp > bestCp {
+			best, bestCp = opt.move, opt.playerCp
+		}
+	}
+	return best
 }
 
 // skillShift 는 추정치가 밴드를 옮기는 폭이다(플레이어 관점 cp).
@@ -160,21 +238,6 @@ func strengthStep(shiftCp int) int {
 // 넓히면 같은 실력에서도 상대의 강함이 수마다 튄다.
 func (b Band) shifted(cp int) Band {
 	return Band{LoCp: b.LoCp + cp, HiCp: b.HiCp + cp}
-}
-
-// distance 는 밴드에서 벗어난 정도다(안에 들면 0). **가장 가까운 후보를 고르면 두 경우가 저절로
-// 갈린다** — 상대가 지고 있으면 전부 밴드 위라 최선수가 뽑히고(던지지 않는다), 이기고 있으면
-// 전부 아래라 가장 너그러운 수가 뽑힌다. 여기서 최선수로 물러서면 조절이 가장 필요한 자리에서
-// 상대가 초심자를 뭉갠다.
-func (b Band) distance(cp int) int {
-	switch {
-	case cp < b.LoCp:
-		return b.LoCp - cp
-	case cp > b.HiCp:
-		return cp - b.HiCp
-	default:
-		return 0
-	}
 }
 
 // positionAfter 는 startSFEN 에 수순을 전부 놓은 국면을 돌려준다.
