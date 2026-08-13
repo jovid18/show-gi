@@ -2959,6 +2959,23 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* 판이 끝난 뒤의 두 갈래. **「もう一局」이 먼저다** — 다시 두러 온 사람이 압도적으로
+   많고, 분석은 읽고 나서 고르는 쪽이다. 좁으면 세로로 쌓인다. */
+.end-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.end-actions .btn {
+  flex: 1 1 auto;
+  /* `<a>` 도 섞여 있다 — 버튼과 같은 줄에 서므로 글자가 가운데에 와야 한다. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 /* ── 대국 후 총평 ────────────────────────────────────── */
 
 /* 판이 끝난 뒤에만 뜬다. **테두리로 묶는다** — 개입 카드와 같은 문법이라 「이건 앱이
