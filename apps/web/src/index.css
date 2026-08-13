@@ -3041,6 +3041,47 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* 「見直すならこの局面」. **카드 안의 유일한 링크다** — 그래서 눌리는 것으로 보여야 하고,
+   테두리와 hover 로 그것을 말한다. 표 바로 아래에 붙어 「무엇에 걸렸나 → 어디를 보나」로
+   이어 읽힌다. */
+.summary__focus {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--brand-line);
+  border-radius: 0.35rem;
+  background: var(--brand-soft);
+  color: inherit;
+  text-decoration: none;
+}
+
+.summary__focus:hover,
+.summary__focus:focus-visible {
+  border-color: var(--brand);
+}
+
+.summary__focus-head {
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  color: var(--brand-strong);
+}
+
+.summary__focus-body {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.summary__focus-ply {
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary__focus-name {
+  font-size: 0.8125rem;
+  color: var(--fg-2);
+}
+
 /* ── 棋力の目安 ──────────────────────────────────────────
    총평 카드 안의 마지막 블록이다. **위에 선 하나로 가른다** — 위쪽은 「이 판이 어땠나」이고
    여기는 「그래서 지금 어느 정도인가」라, 같은 카드 안이어도 성격이 다르다. */

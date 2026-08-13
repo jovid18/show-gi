@@ -1,4 +1,5 @@
 import type { GameSummary, SkillRank } from '@/protocol/game';
+import { hrefOf, navigate } from '@/routes/router';
 
 /**
  * 段級 하나를 눈금과 이름으로 그린다.
@@ -52,6 +53,38 @@ function SkillChange({ skill }: { skill: NonNullable<GameSummary['skill']> }) {
 }
 
 /**
+ * 「이 국면을 다시 봐라」 — 그 판에서 낙폭이 가장 컸던 자리 하나.
+ *
+ * **문장이 아니라 링크다.** 회차 2 #2가 요구한 것은 「총평이 국면을 안 짚는다」인데,
+ * 手数를 문장에 적어 두면 사람이 그 숫자를 들고 되짚기에서 직접 찾아가야 한다 — 그리고
+ * 그 숫자를 LLM이 쓰게 되므로 한 자리 틀릴 길이 생긴다(판단은 엔진, 표현만 LLM).
+ *
+ * **여는 자리는 물러진 수의 한 수 앞이다.** 물러진 수는 기보에 없으므로(`game.Recorder`)
+ * `ply` 그 자체를 열면 그 수가 없는 판이 나온다. `ply - 1` 이 「다시 생각할 국면」이다.
+ */
+function Focus({ focus, gameId }: { focus: NonNullable<GameSummary['stats']['focus']>; gameId: number }) {
+  const route = { name: 'review', id: gameId, ply: Math.max(focus.ply - 1, 0) } as const;
+  return (
+    <a
+      className="summary__focus"
+      href={hrefOf(route)}
+      onClick={(e) => {
+        // 새 탭·새 창으로 열려는 클릭은 브라우저에 넘긴다(App.tsx 의 탭과 같은 규약).
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+        e.preventDefault();
+        navigate(route);
+      }}
+    >
+      <span className="summary__focus-head">見直すならこの局面</span>
+      <span className="summary__focus-body">
+        <span className="summary__focus-ply">{focus.ply}手目</span>
+        <span className="summary__focus-name">{focus.nameJa}</span>
+      </span>
+    </a>
+  );
+}
+
+/**
  * 대국이 끝난 뒤의 총평.
  *
  * **문장과 숫자를 갈라 그린다.** 문장은 판이 어떤 모양이었는지를 말하고 숫자는 표로 선다 —
@@ -99,6 +132,15 @@ export function Summary({ summary }: { summary: GameSummary | null }) {
                 </li>
               ))}
             </ul>
+          )}
+
+          {/* 짚는 자리는 표 **바로 아래**다 — 카테고리 목록이 「무엇에 걸렸나」이고
+              이 줄이 「그중 어디를 보면 되나」라, 붙어 있어야 이어서 읽힌다.
+
+              **번호가 없으면 안 그린다.** 되짚기가 부르는 총평에는 `gameId` 가 없고,
+              그쪽 화면은 이미 그 판을 열고 있다. */}
+          {summary.stats.focus && summary.gameId !== undefined && (
+            <Focus focus={summary.stats.focus} gameId={summary.gameId} />
           )}
 
           {/* 段級은 **맨 아래**다. 판이 어땠는지를 읽은 뒤에 오는 것이 순서이고, 위에 두면

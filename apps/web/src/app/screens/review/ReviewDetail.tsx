@@ -36,6 +36,13 @@ import { useMoveEvals } from '@/hooks/useMoveEvals';
 interface ReviewDetailProps {
   game: GameDetail;
   onBack: () => void;
+  /**
+   * 열 때의 手数. 주소에서 온다 — 총평이 짚은 국면으로 곧장 들어오는 길이다.
+   *
+   * **처음 한 번만 본다.** 그 뒤로 手数는 이 화면이 소유하고, 여기를 계속 보면
+   * 사람이 넘긴 자리가 주소의 값으로 되돌아간다.
+   */
+  initialPly?: number | undefined;
 }
 
 /**
@@ -67,9 +74,14 @@ function pairRows(moves: readonly ReviewMove[]): (ReviewMove | null)[][] {
   return rows;
 }
 
-export function ReviewDetail({ game, onBack }: ReviewDetailProps) {
-  /** 지금 보고 있는 手数. 0이면 시작 국면이다. */
-  const [ply, setPly] = useState(0);
+export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
+  /**
+   * 지금 보고 있는 手数. 0이면 시작 국면이다.
+   *
+   * **주소가 준 값을 기보 길이로 자른다.** 링크는 오래 살고 기보는 구멍이 날 수 있어서
+   * (큐가 넘치면 한 수가 빠진다), 자르지 않으면 없는 手数에서 빈 판이 열린다.
+   */
+  const [ply, setPly] = useState(() => Math.min(Math.max(initialPly ?? 0, 0), game.moves.length));
   /** 지금 나는 움직임. `id`가 바뀔 때마다 그 칸에서 다시 난다. */
   const [motion, setMotion] = useState<Motion | null>(null);
   const motionId = useRef(0);

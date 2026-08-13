@@ -475,6 +475,9 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 	// (§39 ⑥) 그것으로 다시 세면 통과한 수를 못 보고, 그 값은 상대가 겨냥한 강함과도
 	// 갈린다 — 화면의 두 숫자가 같은 곳에서 나와야 하는 이유는 06-status.md §31.
 	payload.Skill = skills.change()
+	// **번호는 여기서만 붙는다.** 대국 화면은 자기 판의 번호를 모르고(기록이 WS 밖에서
+	// 비동기로 쓰인다), 총평이 되짚기로 건너가는 링크를 그리려면 그것이 필요하다.
+	payload.GameID = gameID
 	emit(ctx, out, serverMsg{Type: "summary", Summary: &payload})
 }
 

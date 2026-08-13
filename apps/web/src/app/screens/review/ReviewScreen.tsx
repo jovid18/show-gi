@@ -15,7 +15,8 @@ import { useGameDetail, useGameList } from '@/hooks/useReview';
  */
 export function ReviewScreen({ route }: { route: Route }) {
   if (route.name === 'review') {
-    return <SelectedGame id={route.id} />;
+    // **판이 바뀌면 새로 세운다.** `key` 가 없으면 手数가 앞 판의 값에서 이어진다.
+    return <SelectedGame key={route.id} id={route.id} initialPly={route.ply} />;
   }
   return <GameList />;
 }
@@ -87,7 +88,7 @@ function GameCard({ game }: { game: GameSummary }) {
 // 목록으로 돌아가는 것도 주소를 바꾸는 일이다 — 뒤로 가기와 같은 자리에 서야 한다.
 const toList = (): void => navigate({ name: 'reviews' });
 
-function SelectedGame({ id }: { id: number }) {
+function SelectedGame({ id, initialPly }: { id: number; initialPly?: number | undefined }) {
   const { loaded, reload } = useGameDetail(id);
 
   if (loaded.state === 'loading') {
@@ -106,5 +107,5 @@ function SelectedGame({ id }: { id: number }) {
       </p>
     );
   }
-  return <ReviewDetail game={loaded.data} onBack={toList} />;
+  return <ReviewDetail game={loaded.data} onBack={toList} initialPly={initialPly} />;
 }
