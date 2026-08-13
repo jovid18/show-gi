@@ -241,6 +241,18 @@ export interface SkillRank {
  * `stats` 에 있다 — 같은 수를 두 곳에 두면 어긋났을 때 어느 쪽이 맞는지 알 수 없다
  * (서버의 `explain.GameFacts` 주석).
  */
+/**
+ * 段級 하나. **이름을 서버가 준다** — 화면이 `step` 에서 이름을 만들면 어휘가 두 벌이 되고,
+ * 척도를 늘리는 날 한쪽만 늘어난다(`skill.Rank`).
+ */
+export interface SkillRank {
+  /** 0..max, 클수록 세다. */
+  step: number;
+  max: number;
+  /** 「8級」·「初段」. */
+  nameJa: string;
+}
+
 export interface GameSummary {
   /** 화면에 그대로 나가는 일본어. **절대 비지 않는다** — LLM이 죽으면 결정적 문구가 온다. */
   body: string;
