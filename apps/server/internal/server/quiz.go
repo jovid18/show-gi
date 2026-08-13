@@ -53,6 +53,12 @@ type matePayload struct {
 	// LegalMoves 는 **王手인 수만**이다. 詰将棋에서 攻方은 매 수 王手를 걸어야 하므로
 	// 그 밖은 애초에 문항의 입력이 아니다 — 화면은 이 배열만 빛낸다.
 	LegalMoves []string `json:"legalMoves"`
+	// Checked 는 王手를 받고 있는 玉의 칸이다.
+	//
+	// **詰ます 쪽이 자기도 王手를 받고 있을 수 있다** — 王手를 풀면서 거는 수만 남은 국면이
+	// 그렇다. 이 칸을 안 보내면 첫 수를 둘 때까지 판이 그 사실을 안 그리다가 갑자기 그린다.
+	// 화면은 규칙을 모르므로 이것도 서버가 준다(replay.go checkedSquare).
+	Checked string `json:"checked,omitempty"`
 }
 
 // bestPayload 는 「この局面の最善手は?」 문항 하나다.
@@ -101,6 +107,7 @@ func (h *quizHandler) get(w http.ResponseWriter, r *http.Request) {
 				Plies:      q.Mate.Plies,
 				Converted:  q.Mate.Converted,
 				LegalMoves: legal,
+				Checked:    checkedAt(q.Mate.SFEN),
 			}
 		}
 	}
@@ -165,8 +172,17 @@ func (h *quizHandler) mate(w http.ResponseWriter, r *http.Request) {
 	if !decodeQuizBody(w, r, &req) {
 		return
 	}
-	q, _, ok := h.load(w, r, rec.ID)
+	q, ready, ok := h.load(w, r, rec.ID)
 	if !ok {
+		return
+	}
+	// **「아직 안 만들어졌다」를 「없다」로 답하지 않는다.** 이 PR이 화면에서 내내 가르는
+	// 그 둘이고(quizPayload.Ready), 채점 쪽만 뭉치면 늦게 온 요청 하나가 「이 판엔 詰み이
+	// 없었다」는 거짓을 받는다.
+	if !ready {
+		writeJSON(w, http.StatusNotFound, map[string]any{
+			"error": "not_ready", "message": "問題はまだ準備中です。",
+		})
 		return
 	}
 	if q.Mate == nil {
@@ -251,8 +267,14 @@ func (h *quizHandler) best(w http.ResponseWriter, r *http.Request) {
 	if !decodeQuizBody(w, r, &req) {
 		return
 	}
-	q, _, ok := h.load(w, r, rec.ID)
+	q, ready, ok := h.load(w, r, rec.ID)
 	if !ok {
+		return
+	}
+	if !ready {
+		writeJSON(w, http.StatusNotFound, map[string]any{
+			"error": "not_ready", "message": "問題はまだ準備中です。",
+		})
 		return
 	}
 	if req.Index < 0 || req.Index >= len(q.Best) {
@@ -338,6 +360,15 @@ func rootChecks(item quiz.MateItem) []string {
 		return nil
 	}
 	return prog.Legal
+}
+
+// checkedAt 은 그 국면에서 王手를 받고 있는 玉의 칸이다. 못 읽으면 빈 값.
+func checkedAt(sfen string) string {
+	pos, err := shogi.ParseSFEN(sfen)
+	if err != nil {
+		return ""
+	}
+	return checkedSquare(pos)
 }
 
 // jaAt 은 그 국면에서 그 수의 棋譜 표기다. 못 읽으면 빈 값 — 표기가 없어도 수는 사실이다.

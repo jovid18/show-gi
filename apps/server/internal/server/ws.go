@@ -376,6 +376,22 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					go h.sendSummary(ctx, out, recorder)
 				}
 			case <-ctx.Done():
+				// **끝난 스냅샷이 이미 와 있는지 한 번 더 본다.**
+				//
+				// 사람이 投了하고 그 순간 탭을 닫으면 두 case 가 동시에 준비되고, Go는
+				// 둘 중 하나를 **무작위로** 고른다. 여기가 이기면 총평도 퀴즈도 안 만들어지는데,
+				// 총평은 되짚기가 다시 청할 수 있어도(review.go summary) **퀴즈에는 그런
+				// 자리가 없다** — 그 판은 영영 문항을 못 갖는다.
+				if !summarized {
+					select {
+					case snap, ok := <-snaps:
+						if ok && snap.Status != game.StatusPlaying {
+							summarized = true
+							go h.sendSummary(ctx, out, recorder)
+						}
+					default:
+					}
+				}
 				return
 			}
 		}
@@ -469,16 +485,21 @@ func (h *gameHandler) generateQuiz(parent context.Context, rec store.GameRecord)
 		cut := ctx.Err() != nil
 		cancel()
 
-		// **끝까지 못 봤으면 아무것도 안 적는다.** 그때 나온 것은 「이 판에 문항이 없다」가
-		// 아니라 「못 봤다」인데, 빈 행을 남기면 화면이 그것을 「問題が作れませんでした」로
-		// 단정한다 — **詰み이 있었는데 없다고 말하는 자리**다. 생성은 판이 끝날 때 한 번뿐이라
-		// 그 거짓이 영구히 남는다. 안 적으면 화면은 「아직 안 왔다」에 머물고, 그것은 사실이다.
+		// **못 본 채로 비었을 때만 안 적는다.**
+		//
+		// 「끝까지 못 봤다」가 참이어도 **나온 것은 사실이다** — 다 지어진 詰み 트리는 gap
+		// 후보 하나를 못 쟀다고 틀려지지 않고, 잰 gap 문항은 트리가 못 섰다고 틀려지지 않는다.
+		// 둘을 한 깃발로 묶어 통째로 버리면, 한쪽의 사소한 실패가 멀쩡한 다른 쪽을 지운다.
+		//
+		// 버리는 것은 **빈 결과**뿐이다. 그때만 「이 판에 문항이 없다」와 「못 봤다」가 같은
+		// 그림이 되고, 빈 행을 남기면 화면이 앞쪽으로 단정한다 — 생성이 판이 끝날 때
+		// 한 번뿐이라 그 거짓이 영구히 남는다. 안 적으면 화면은 「아직 안 왔다」에 머문다.
 		//
 		// 시한만 보면 모자란다. **배포가 생성 도중에 끼면** 풀이 먼저 닫혀
 		// (`main` 의 defer 순서가 엔진 → DB다) 모든 탐색이 즉시 실패하는데, 그때 ctx는
 		// 멀쩡하고 결과만 비어 있다 — 그래서 생성기가 「끝까지 봤는가」를 따로 말한다.
-		if cut || !complete {
-			log.Printf("ws: quiz: game %d: incomplete run (timed out: %v) — leaving no row rather than claiming there was nothing", rec.ID, cut)
+		if (cut || !complete) && built.Empty() {
+			log.Printf("ws: quiz: game %d: an incomplete run found nothing (timed out: %v) — leaving no row rather than claiming there was nothing", rec.ID, cut)
 			return
 		}
 		q = built

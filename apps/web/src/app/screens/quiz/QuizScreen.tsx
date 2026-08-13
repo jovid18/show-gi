@@ -152,7 +152,7 @@ function MateQuestion({ id, item }: { id: number; item: MateItem }) {
         sfen={sfen}
         me={sideOf(item.sfen)}
         legalMoves={legal}
-        checked={res?.checked ?? null}
+        checked={(res ? res.checked : item.checked) ?? null}
         interactive={!done && !grading.pending}
         onPlay={play}
       />

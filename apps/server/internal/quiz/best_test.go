@@ -236,3 +236,54 @@ func TestLegalMovesAtIsNotRestrictedToChecks(t *testing.T) {
 		t.Errorf("legal = %d moves, want %d", len(got), len(pos.LegalMoves()))
 	}
 }
+
+// flakySearch 는 한 국면만 실패한다. **한쪽의 실패가 다른 쪽을 지우지 않는가**를 보는 자리다.
+type flakySearch struct {
+	fakeSearch
+	failOn string
+}
+
+func (f *flakySearch) SearchMultiPV(
+	ctx context.Context, startSFEN string, moves []string, depth, k int,
+) (usi.SearchResult, error) {
+	if startSFEN == f.failOn {
+		return usi.SearchResult{}, errFake
+	}
+	return f.fakeSearch.SearchMultiPV(ctx, startSFEN, moves, depth, k)
+}
+
+// **못 잰 후보가 있어도 잰 것은 그대로 참이다.**
+//
+// 두 사실을 한 깃발로 묶어 통째로 버리면, 후보 하나를 못 잰 것이 멀쩡한 문항을 지운다 —
+// 생성이 판이 끝날 때 한 번뿐이라 그 판은 영영 문항을 못 갖는다(server/ws.go generateQuiz).
+func TestBestItemsSurviveAFailureElsewhere(t *testing.T) {
+	in := gameInput()
+	posAt := positions(t, in)
+
+	fs := &flakySearch{
+		fakeSearch: fakeSearch{lines: map[string][]usi.SearchLine{
+			posAt[8].SFEN(): {line("5f5e", 900), line("x", 0)},
+		}},
+		failOn: posAt[6].SFEN(),
+	}
+	items, complete := build(fs, in)
+
+	if complete {
+		t.Error("complete = true, but one candidate search failed")
+	}
+	if len(items) != 1 || items[0].Ply != 8 {
+		t.Fatalf("items = %+v, want the one that was measured", items)
+	}
+}
+
+func TestQuizEmpty(t *testing.T) {
+	if !(Quiz{}).Empty() {
+		t.Error("a quiz with nothing in it is not empty")
+	}
+	if (Quiz{Mate: &MateItem{}}).Empty() {
+		t.Error("a quiz with a mate item is empty")
+	}
+	if (Quiz{Best: []BestItem{{}}}).Empty() {
+		t.Error("a quiz with a best item is empty")
+	}
+}
