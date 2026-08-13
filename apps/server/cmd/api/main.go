@@ -121,7 +121,8 @@ func main() {
 		// 탐색부다. 탐색부 쪽을 감싼 것으로 넘기는 이유는 그 결과도 `positions` 에 쌓여야
 		// 하기 때문이다(§37) — 퀴즈가 재는 국면은 되짚기에서 가정 수순이 곧 다시 물어볼 자리다.
 		//
-		// mate 가 nil이면 詰み 문항만, searcher 가 없으면 이 자리 자체가 없다.
+		// mate 가 nil이면 **「최선수는?」 문항만** 나온다 — 없어지는 쪽이 詰み 문항이다
+		// (`Build` 가 `b.mate != nil` 로 가른다). searcher 가 없으면 이 자리 자체가 없다.
 		opts.Quiz = quiz.NewBuilder(mate, searcher, engineDepth())
 	}
 

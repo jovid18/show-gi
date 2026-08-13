@@ -402,19 +402,24 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 		return // 기록이 없으면 셀 것이 없다. 총평도 없다
 	}
 
+	// **여기까지는 연결이 끊겨도 간다.** 뒤에 퀴즈 생성이 걸려 있고 그쪽은 여기서 못 띄우면
+	// **아무 데서도 못 띄운다** — 총평은 되짚기가 다시 청하지만(review.go summary) 퀴즈에는
+	// 그런 자리가 없다. 판이 끝나자마자 탭을 닫는 것이 드문 일도 아니다.
+	//
+	// 기다리는 것은 큐를 비우는 일이고 읽는 것은 질의 하나라, 끊긴 연결에 매달리는 값이 싸다.
+	base := context.WithoutCancel(ctx)
+
 	var gameID int64
 	select {
 	case gameID = <-recorder.done:
 	case <-time.After(summaryWait):
 		log.Printf("ws: summary: the record did not finish within %s", summaryWait)
 		return
-	case <-ctx.Done():
-		return
 	}
 
 	// **주인을 안 보고 읽는다.** 방금 이 연결이 만든 판이라 소유 검사가 답할 것이 없고,
 	// 익명 대국에는 주인이 아예 없다(002_anonymous_games.sql).
-	rec, err := h.opts.Store.GameRecordAnyOwner(ctx, gameID)
+	rec, err := h.opts.Store.GameRecordAnyOwner(base, gameID)
 	if err != nil {
 		log.Printf("ws: summary: read game %d: %v", gameID, err)
 		return
@@ -422,8 +427,10 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 
 	// **퀴즈를 먼저 띄운다.** 총평은 LLM을 기다리므로 여기서 몇 초 막히는데, 그 사이에
 	// 문항 만들기가 시작돼 있는 편이 낫다 — 사람이 되짚기를 여는 것은 총평을 읽은 뒤다.
-	go h.generateQuiz(ctx, rec)
+	go h.generateQuiz(base, rec)
 
+	// **총평은 살아 있는 ctx로 만든다.** 끊긴 연결에 보낼 문장을 사느라 라우터를 부를
+	// 이유가 없고, 그쪽은 되짚기가 다시 청할 수 있다.
 	payload := summarize(ctx, h.opts.Summarizer, rec, h.opts.Level)
 	emit(ctx, out, serverMsg{Type: "summary", Summary: &payload})
 }
@@ -458,18 +465,23 @@ func (h *gameHandler) generateQuiz(parent context.Context, rec store.GameRecord)
 	var q quiz.Quiz
 	if h.opts.Quiz != nil {
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), quizTimeout)
-		q = h.opts.Quiz.Build(ctx, quizInput(rec))
+		built, complete := h.opts.Quiz.Build(ctx, quizInput(rec))
 		cut := ctx.Err() != nil
 		cancel()
 
-		// **시한에 걸렸으면 아무것도 안 적는다.** 그때 나온 것은 「이 판에 문항이 없다」가
-		// 아니라 「끝까지 못 봤다」인데, 빈 행을 남기면 화면이 그것을 「問題が作れませんでした」로
-		// 단정한다 — 詰み이 있었는데 없다고 말하는 자리다. 생성은 판이 끝날 때 한 번뿐이라
+		// **끝까지 못 봤으면 아무것도 안 적는다.** 그때 나온 것은 「이 판에 문항이 없다」가
+		// 아니라 「못 봤다」인데, 빈 행을 남기면 화면이 그것을 「問題が作れませんでした」로
+		// 단정한다 — **詰み이 있었는데 없다고 말하는 자리**다. 생성은 판이 끝날 때 한 번뿐이라
 		// 그 거짓이 영구히 남는다. 안 적으면 화면은 「아직 안 왔다」에 머물고, 그것은 사실이다.
-		if cut {
-			log.Printf("ws: quiz: game %d: gave up after %s — leaving no row rather than claiming there was nothing", rec.ID, quizTimeout)
+		//
+		// 시한만 보면 모자란다. **배포가 생성 도중에 끼면** 풀이 먼저 닫혀
+		// (`main` 의 defer 순서가 엔진 → DB다) 모든 탐색이 즉시 실패하는데, 그때 ctx는
+		// 멀쩡하고 결과만 비어 있다 — 그래서 생성기가 「끝까지 봤는가」를 따로 말한다.
+		if cut || !complete {
+			log.Printf("ws: quiz: game %d: incomplete run (timed out: %v) — leaving no row rather than claiming there was nothing", rec.ID, cut)
 			return
 		}
+		q = built
 	}
 
 	// **문항이 없어도 저장한다.** 안 하면 「아직 만드는 중」과 「문항이 없는 판」이 화면에서

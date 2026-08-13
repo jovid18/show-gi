@@ -49,6 +49,13 @@ func gameInput() Input {
 	return Input{Moves: gameMoves, Human: shogi.Black, EvalCp: evals}
 }
 
+// build 는 「최선수는?」 문항만 뽑는다. `Build` 가 값 둘을 주므로 시험이 매번 풀어 쓰지
+// 않도록 여기서 한 번만 편다.
+func build(fs MultiSearcher, in Input) ([]BestItem, bool) {
+	q, complete := NewBuilder(nil, fs, 12).Build(context.Background(), in)
+	return q.Best, complete
+}
+
 // positions 는 그 판의 手数별 국면이다. 시험이 SFEN으로 후보를 지정하려면 필요하다.
 func positions(t *testing.T, in Input) []shogi.Position {
 	t.Helper()
@@ -66,7 +73,7 @@ func TestBestItemTakesTheGapPosition(t *testing.T) {
 	fs := &fakeSearch{lines: map[string][]usi.SearchLine{
 		posAt[4].SFEN(): {line("2f2e", 120), line("6f6e", -180)},
 	}}
-	items := NewBuilder(nil, fs, 12).Build(context.Background(), in).Best
+	items, _ := build(fs, in)
 
 	if len(items) != 1 {
 		t.Fatalf("items = %d, want 1: %+v", len(items), items)
@@ -97,7 +104,7 @@ func TestBestItemSkipsASmallGap(t *testing.T) {
 	fs := &fakeSearch{lines: map[string][]usi.SearchLine{
 		posAt[4].SFEN(): {line("2f2e", 40), line("6f6e", -40)}, // gap 80 < BestMinGapCp
 	}}
-	if items := NewBuilder(nil, fs, 12).Build(context.Background(), in).Best; len(items) != 0 {
+	if items, _ := build(fs, in); len(items) != 0 {
 		t.Fatalf("items = %+v, want none", items)
 	}
 }
@@ -110,7 +117,7 @@ func TestBestItemSkipsMateScores(t *testing.T) {
 	fs := &fakeSearch{lines: map[string][]usi.SearchLine{
 		posAt[4].SFEN(): {mateLine("2f2e", 5), line("6f6e", 100)},
 	}}
-	if items := NewBuilder(nil, fs, 12).Build(context.Background(), in).Best; len(items) != 0 {
+	if items, _ := build(fs, in); len(items) != 0 {
 		t.Fatalf("items = %+v, want none", items)
 	}
 }
@@ -123,7 +130,7 @@ func TestBestItemSkipsWhatThePlayerAlreadyFound(t *testing.T) {
 	fs := &fakeSearch{lines: map[string][]usi.SearchLine{
 		posAt[4].SFEN(): {line(gameMoves[4], 500), line("6f6e", 100)},
 	}}
-	if items := NewBuilder(nil, fs, 12).Build(context.Background(), in).Best; len(items) != 0 {
+	if items, _ := build(fs, in); len(items) != 0 {
 		t.Fatalf("items = %+v, want none", items)
 	}
 }
@@ -138,7 +145,7 @@ func TestBestItemsAreSortedByGapAndCapped(t *testing.T) {
 		posAt[6].SFEN(): {line("3f3e", 500), line("x", 0)},  // gap 500
 		posAt[8].SFEN(): {line("5f5e", 1200), line("x", 0)}, // gap 1200
 	}}
-	items := NewBuilder(nil, fs, 12).Build(context.Background(), in).Best
+	items, _ := build(fs, in)
 
 	if len(items) != BestMaxItems {
 		t.Fatalf("items = %d, want %d", len(items), BestMaxItems)
@@ -161,7 +168,7 @@ func TestBestItemsStopBeforeTheMateItem(t *testing.T) {
 		posAt[6].SFEN(): {line("3f3e", 900), line("x", 0)},
 	}}
 	b := NewBuilder(nil, fs, 12)
-	items := b.bestItems(context.Background(), in, posAt, &MateItem{Ply: 4})
+	items, _ := b.bestItems(context.Background(), in, posAt, &MateItem{Ply: 4})
 
 	if len(items) != 1 {
 		t.Fatalf("items = %d, want 1: %+v", len(items), items)
@@ -181,7 +188,7 @@ func TestBestItemsSkipTheOpeningBook(t *testing.T) {
 		posAt[2].SFEN(): {line("2f2e", 900), line("x", 0)},
 		posAt[8].SFEN(): {line("5f5e", 900), line("x", 0)},
 	}}
-	items := NewBuilder(nil, fs, 12).Build(context.Background(), in).Best
+	items, _ := build(fs, in)
 
 	if len(items) != 1 {
 		t.Fatalf("items = %d, want 1: %+v", len(items), items)

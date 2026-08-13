@@ -66,22 +66,30 @@ func NewBuilder(mate MateSearcher, search MultiSearcher, depth int) *Builder {
 // Build 는 한 판에서 문항을 뽑는다.
 //
 // **에러를 안 돌려준다.** 문항이 없는 것은 고장이 아니라 흔한 결과이고(10수 만에 投了한
-// 판이 실제로 그렇다), 하나를 못 만든 것이 나머지를 버릴 이유도 아니다. 못 만든 이유는
-// 그 자리에서 로그로 남는다.
-func (b *Builder) Build(ctx context.Context, in Input) Quiz {
+// 판이 실제로 그렇다), 하나를 못 만든 것이 나머지를 버릴 이유도 아니다.
+//
+// 대신 **끝까지 봤는가**를 함께 준다. 거짓이면 나온 것이 「이 판에 문항이 없다」가 아니라
+// **「끝까지 못 봤다」**이고, 그 둘은 화면에서 전혀 다른 말이 되어야 한다 — 부르는 쪽은
+// 거짓일 때 아무것도 안 적는다(server/ws.go generateQuiz).
+//
+// **엔진이 아예 없는 것은 「못 본」 것이 아니다.** 그 배포에는 문항이라는 것이 없고, 그건
+// 사실이라 그대로 적어도 된다.
+func (b *Builder) Build(ctx context.Context, in Input) (q Quiz, complete bool) {
 	posAt := replay(in)
 	if len(posAt) == 0 {
-		return Quiz{}
+		return Quiz{}, true
 	}
 
-	var q Quiz
+	complete = true
 	if b.mate != nil {
-		q.Mate = b.mateItem(ctx, in, posAt)
+		item, ok := b.mateItem(ctx, in, posAt)
+		q.Mate, complete = item, complete && ok
 	}
 	if b.search != nil {
-		q.Best = b.bestItems(ctx, in, posAt, q.Mate)
+		items, ok := b.bestItems(ctx, in, posAt, q.Mate)
+		q.Best, complete = items, complete && ok
 	}
-	return q
+	return q, complete
 }
 
 // replay 는 手数마다의 국면을 만든다. `posAt[i]` 는 **i手目까지 둔 뒤**의 국면이다.

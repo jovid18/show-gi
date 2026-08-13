@@ -185,7 +185,9 @@ func preferMate(usiMove string, mated bool, cur string, curMated bool) bool {
 // **사람 차례 국면을 手数 순으로 훑어 처음으로 `MateMaxPlies` 안에 들어온 것**이 문제다.
 // 뒤에 더 짧은 詰み이 있어도 그쪽을 안 고른다 — 최초가 판에서 詰み이 처음 성립한 자리이고,
 // 늦은 국면일수록 승부가 이미 갈려 배울 것이 적다(§53).
-func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position) *MateItem {
+// ok=false 는 **엔진이 답하지 못한 자리가 있었다**는 뜻이다 — 그때 「詰み이 없었다」는
+// 결론이 아니라 못 본 것이고, 부르는 쪽이 그 차이를 화면까지 옮긴다(Build).
+func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position) (*MateItem, bool) {
 	sol := newMateSolver(b.mate)
 
 	// **「詰み이 없었다」와 「solver 가 답을 못 했다」를 갈라 센다.** 둘을 뭉쳐 로그에 「문항
@@ -214,7 +216,7 @@ func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position
 			// 예산이 끝났거나 ctx가 죽었으면 뒤도 마찬가지다. 한 국면을 못 잰 것이면
 			// 그 국면만 건너뛴다 — 「모른다」가 「없다」는 아니지만 훑기는 이어진다.
 			if sol.budget <= 0 || ctx.Err() != nil {
-				return nil
+				return nil, false
 			}
 			continue
 		}
@@ -230,11 +232,11 @@ func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position
 		nodes, ok := sol.buildTree(ctx, pos, d)
 		if !ok {
 			log.Printf("quiz: dropped the mate item at ply %d (%d-ply mate): the tree is incomplete", i, d)
-			return nil
+			return nil, false
 		}
-		return &MateItem{Ply: i, SFEN: pos.SFEN(), Plies: d, Converted: converted, Nodes: nodes}
+		return &MateItem{Ply: i, SFEN: pos.SFEN(), Plies: d, Converted: converted, Nodes: nodes}, true
 	}
-	return nil
+	return nil, unanswered == 0
 }
 
 // converted 는 사람이 그 詰み을 대국에서 실제로 決めた가.

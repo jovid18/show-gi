@@ -134,7 +134,14 @@ function useGrader<Req, Res>(path: string): [Grading<Res>, (body: Req) => Promis
         return res;
       } catch (err: unknown) {
         if (controller.signal.aborted) return null;
-        setState({ result: null, pending: false, error: err instanceof Error ? err.message : FALLBACK_ERROR });
+        // **직전 결과를 지우지 않는다.** 지우면 판이 문제 국면으로 되돌아가는데 화면은
+        // 이미 낸 수를 그대로 들고 있어서, 다음 한 수가 그 국면에서만 합법인 수로 조합되어
+        // 서버에 계속 거절된다 — 「最初から」를 누르기 전까지 문항이 잠긴다.
+        setState((prev) => ({
+          ...prev,
+          pending: false,
+          error: err instanceof Error ? err.message : FALLBACK_ERROR,
+        }));
         return null;
       }
     },

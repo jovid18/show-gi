@@ -3,6 +3,7 @@ package quiz
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
@@ -113,7 +114,10 @@ func TestMateItemFindsMateInOne(t *testing.T) {
 
 	// 판이 그 국면에서 시작해 아직 한 수도 안 두어진 모양으로 넣는다.
 	in := Input{StartSFEN: mate1SFEN, Human: shogi.Black}
-	q := b.Build(context.Background(), in)
+	q, complete := b.Build(context.Background(), in)
+	if !complete {
+		t.Error("complete = false, but the solver answered everything")
+	}
 
 	if q.Mate == nil {
 		t.Fatal("no mate item")
@@ -182,7 +186,7 @@ func TestMateItemDroppedWhenSolverCannotProve(t *testing.T) {
 	// 「모른다」를 「없다」로 쓰면 있는 詰み을 놓치고, 그 위에서 채점하면 정답을 오답이라고
 	// 말한다. 그래서 증명되지 않으면 문항이 아예 없어야 한다.
 	fm := &fakeMate{limit: 7, unproven: true}
-	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
+	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
 	if q.Mate != nil {
 		t.Fatalf("got a mate item from an unproven search: %+v", q.Mate)
 	}
@@ -191,7 +195,7 @@ func TestMateItemDroppedWhenSolverCannotProve(t *testing.T) {
 func TestMateItemSkipsTheOpponentsTurn(t *testing.T) {
 	// 같은 국면을 後手의 문항으로 물으면 안 된다 — 詰ます 쪽은 先手다.
 	fm := &fakeMate{limit: 7}
-	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.White})
+	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.White})
 	if q.Mate != nil {
 		t.Fatalf("got a mate item for the side that is not to move: %+v", q.Mate)
 	}
@@ -202,7 +206,7 @@ func TestMateItemSkipsTheOpponentsTurn(t *testing.T) {
 
 func TestGradeMateSolvesInOne(t *testing.T) {
 	fm := &fakeMate{limit: 7}
-	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
+	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
 	if q.Mate == nil {
 		t.Fatal("no mate item")
 	}
@@ -221,7 +225,7 @@ func TestGradeMateSolvesInOne(t *testing.T) {
 
 func TestGradeMateRejectsAMoveAfterTheProblemEnds(t *testing.T) {
 	fm := &fakeMate{limit: 7}
-	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
+	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
 
 	if _, err := GradeMate(*q.Mate, []string{"G*5b", "G*5b"}); err == nil {
 		t.Fatal("a move after mate was accepted")
@@ -230,7 +234,7 @@ func TestGradeMateRejectsAMoveAfterTheProblemEnds(t *testing.T) {
 
 func TestGradeMateOnAWrongCheck(t *testing.T) {
 	fm := &fakeMate{limit: 7}
-	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
+	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
 
 	// 詰み이 아닌 王手를 하나 찾는다.
 	pos, _ := shogi.ParseSFEN(mate1SFEN)
@@ -259,7 +263,7 @@ func TestGradeMateOnAWrongCheck(t *testing.T) {
 
 func TestGradeMateOnAMoveThatIsNotACheck(t *testing.T) {
 	fm := &fakeMate{limit: 7}
-	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
+	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
 
 	// 王手가 아닌 합법수. 玉의 반대쪽 끝에 있는 자기 玉을 움직인다.
 	got, err := GradeMate(*q.Mate, []string{"5i5h"})
@@ -276,7 +280,7 @@ func TestGradeMateOnAMoveThatIsNotACheck(t *testing.T) {
 
 func TestGradeMateRejectsAnIllegalMove(t *testing.T) {
 	fm := &fakeMate{limit: 7}
-	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
+	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
 
 	if _, err := GradeMate(*q.Mate, []string{"1a1b"}); err == nil {
 		t.Fatal("an illegal move was accepted")
@@ -294,7 +298,7 @@ const mate3SFEN = "4k4/3g5/3G1G3/9/9/9/9/9/4K4 b G 1"
 // `expand` 가 다음 층으로 내려가는 자리가 전혀 안 돌았다.
 func TestMateTreeWalksThreePlies(t *testing.T) {
 	fm := &fakeMate{limit: 9}
-	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate3SFEN, Human: shogi.Black})
+	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate3SFEN, Human: shogi.Black})
 
 	if q.Mate == nil {
 		t.Fatal("no mate item")
@@ -388,7 +392,7 @@ func TestMateTreeWalksThreePlies(t *testing.T) {
 // 열 때마다 다르게 흘러가고, 사람은 그것을 고장으로 읽는다.
 func TestMateTreeIsDeterministic(t *testing.T) {
 	build := func() string {
-		q := NewBuilder(&fakeMate{limit: 9}, nil, 12).
+		q, _ := NewBuilder(&fakeMate{limit: 9}, nil, 12).
 			Build(context.Background(), Input{StartSFEN: mate3SFEN, Human: shogi.Black})
 		raw, err := json.Marshal(q)
 		if err != nil {
@@ -428,7 +432,7 @@ func mustKey(t *testing.T, sfen string) string {
 // 수를 안 채워 보내면 화면이 문항 쪽으로 되돌아가서 맞힌 수가 사라진 것처럼 보인다.
 func TestGradeMateKeepsProgressAfterANonCheck(t *testing.T) {
 	fm := &fakeMate{limit: 9}
-	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate3SFEN, Human: shogi.Black})
+	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate3SFEN, Human: shogi.Black})
 	if q.Mate == nil {
 		t.Fatal("no mate item")
 	}
@@ -492,7 +496,7 @@ func TestGradeMateKeepsProgressAfterANonCheck(t *testing.T) {
 // 표기가 비고, 그러면 문구에서 「正解は○でした」가 통째로 빠진다 — 오답에 가장 중요한 조각이다.
 func TestGradeMateGivesTheAnswerWithItsOwnPosition(t *testing.T) {
 	fm := &fakeMate{limit: 7}
-	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
+	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
 
 	root, _ := shogi.ParseSFEN(mate1SFEN)
 	wrong := ""
@@ -546,7 +550,7 @@ func TestGradeMateGivesTheAnswerWithItsOwnPosition(t *testing.T) {
 // 조용한 수나 한 번 눌러서 답을 꺼낼 수 있고, 그러면 채점을 서버에 둔 이유가 사라진다.
 func TestGradeMateDoesNotLeakTheAnswerOnANonCheck(t *testing.T) {
 	fm := &fakeMate{limit: 7}
-	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
+	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
 
 	got, err := GradeMate(*q.Mate, []string{"5i5h"})
 	if err != nil {
@@ -570,7 +574,7 @@ func TestConvertedNeedsAnActualCheckmate(t *testing.T) {
 		StartSFEN: mate3SFEN, Human: shogi.Black, Won: true,
 		Moves: []string{"G*5b", "6b5b", "4c5b"},
 	}
-	q := NewBuilder(&fakeMate{limit: 9}, nil, 12).Build(context.Background(), mated)
+	q, _ := NewBuilder(&fakeMate{limit: 9}, nil, 12).Build(context.Background(), mated)
 	if q.Mate == nil {
 		t.Fatal("no mate item")
 	}
@@ -581,7 +585,7 @@ func TestConvertedNeedsAnActualCheckmate(t *testing.T) {
 	// 같은 手数 안에 끝났지만 詰み이 아니다 — 상대가 던졌거나 못 두는 수를 냈다.
 	resigned := mated
 	resigned.Moves = []string{"G*5b", "6b5b"}
-	q = NewBuilder(&fakeMate{limit: 9}, nil, 12).Build(context.Background(), resigned)
+	q, _ = NewBuilder(&fakeMate{limit: 9}, nil, 12).Build(context.Background(), resigned)
 	if q.Mate == nil {
 		t.Fatal("no mate item")
 	}
@@ -589,3 +593,52 @@ func TestConvertedNeedsAnActualCheckmate(t *testing.T) {
 		t.Error("converted = true, but the player never delivered the mate")
 	}
 }
+
+// **엔진이 아무것도 못 답하면 「문항이 없다」가 아니다.**
+//
+// 배포가 생성 도중에 끼면 풀이 닫혀 모든 탐색이 즉시 실패하는데, 그때 나온 빈 결과를
+// 저장하면 화면이 「이 판엔 문항이 없다」로 단정한다 — 생성이 판이 끝날 때 한 번뿐이라
+// 그 거짓이 영구히 남는다.
+func TestBuildReportsADegradedRun(t *testing.T) {
+	in := Input{StartSFEN: mate1SFEN, Human: shogi.Black}
+
+	q, complete := NewBuilder(&fakeMate{limit: 7, unproven: true}, nil, 12).Build(context.Background(), in)
+	if q.Mate != nil {
+		t.Fatalf("got a mate item from a solver that never answered: %+v", q.Mate)
+	}
+	if complete {
+		t.Error("complete = true, but the solver answered nothing")
+	}
+
+	// 엔진이 아예 없는 배포는 **못 본 것이 아니다.** 그 배포에 문항이 없는 것은 사실이라
+	// 그대로 적어도 된다.
+	q, complete = NewBuilder(nil, nil, 12).Build(context.Background(), in)
+	if q.Mate != nil || len(q.Best) != 0 {
+		t.Fatalf("got items without an engine: %+v", q)
+	}
+	if !complete {
+		t.Error("complete = false with no engine at all — that deployment simply has no questions")
+	}
+}
+
+// 「최선수는?」 쪽도 같다 — 못 잰 것과 조건에 안 맞는 것은 다른 말이다.
+func TestBuildReportsAFailedCandidateSearch(t *testing.T) {
+	in := gameInput()
+	if _, complete := build(&failingSearch{}, in); complete {
+		t.Error("complete = true, but every candidate search failed")
+	}
+	// 조건에 안 맞아 빠지는 것은 온전한 회차다.
+	if _, complete := build(&fakeSearch{}, in); !complete {
+		t.Error("complete = false, but nothing failed — the positions just did not qualify")
+	}
+}
+
+type failingSearch struct{}
+
+func (failingSearch) SearchMultiPV(
+	_ context.Context, _ string, _ []string, _, _ int,
+) (usi.SearchResult, error) {
+	return usi.SearchResult{}, errFake
+}
+
+var errFake = errors.New("quiz test: engine is down")

@@ -22,7 +22,10 @@ type candidate struct {
 // 두 기준이 서로 다른 것을 걸러 낸다 — **낙폭은 「사람이 여기서 틀렸다」이고, gap은 「정답이
 // 하나뿐이다」다.** 낙폭만 쓰면 정답이 여럿인 국면이 문항이 되어 좋은 수를 둔 사람이
 // 「不正解」를 받고, gap만 쓰면 사람이 이미 맞게 둔 국면이 뽑힌다.
-func (b *Builder) bestItems(ctx context.Context, in Input, posAt []shogi.Position, mate *MateItem) []BestItem {
+// ok=false 는 **엔진이 못 답한 후보가 있었다**는 뜻이다(mateItem 과 같은 규약).
+func (b *Builder) bestItems(
+	ctx context.Context, in Input, posAt []shogi.Position, mate *MateItem,
+) ([]BestItem, bool) {
 	// **詰み 문항의 국면부터는 뽑지 않는다** — 「츠메 관련 제외」가 여기다. 詰み이 성립한
 	// 뒤의 국면은 최선수가 詰み 수순이라 두 문항이 같은 것을 묻게 된다. 그 뒤에도 mate
 	// 점수가 아닌 국면이 남을 수 있지만, 그쪽은 아래 `IsMate` 가 한 번 더 거른다.
@@ -37,8 +40,12 @@ func (b *Builder) bestItems(ctx context.Context, in Input, posAt []shogi.Positio
 	}
 
 	var items []BestItem
+	failed := 0
 	for _, c := range cands {
-		item, ok := b.score(ctx, in, posAt[c.index], c.index)
+		item, ok, err := b.score(ctx, in, posAt[c.index], c.index)
+		if err {
+			failed++
+		}
 		if !ok {
 			continue
 		}
@@ -56,7 +63,7 @@ func (b *Builder) bestItems(ctx context.Context, in Input, posAt []shogi.Positio
 	if len(items) > BestMaxItems {
 		items = items[:BestMaxItems]
 	}
-	return items
+	return items, failed == 0
 }
 
 // candidates 는 사람이 둔 수마다의 낙폭을 기록에서 세어 큰 순으로 준다. **엔진을 안 부른다.**
@@ -89,33 +96,36 @@ func (b *Builder) candidates(in Input, posAt []shogi.Position, limit int) []cand
 	return out
 }
 
-// score 는 한 국면의 1위·2위를 재서 문항을 만든다. 조건에 안 맞으면 ok=false 다.
-func (b *Builder) score(ctx context.Context, in Input, pos shogi.Position, i int) (BestItem, bool) {
+// score 는 한 국면의 1위·2위를 재서 문항을 만든다.
+//
+// ok=false 는 「문항이 안 된다」이고, failed=true 는 **못 쟀다**이다. 갈라 두는 이유는
+// 조건에 안 맞는 것은 흔한 결과이고 못 잰 것은 회차가 온전하지 않다는 뜻이라서다(Build).
+func (b *Builder) score(ctx context.Context, in Input, pos shogi.Position, i int) (item BestItem, ok, failed bool) {
 	res, err := b.search.SearchMultiPV(ctx, pos.SFEN(), nil, b.depth, BestMultiPV)
 	if err != nil {
 		// 한 국면을 못 쟀다고 나머지를 버리지 않는다. 문항이 하나 줄어들 뿐이다.
 		log.Printf("quiz: best item at ply %d: %v", i, err)
-		return BestItem{}, false
+		return BestItem{}, false, true
 	}
 	if len(res.Lines) < 2 {
-		return BestItem{}, false // 후보가 둘 미만이면 「1위와 2위의 차」가 성립하지 않는다
+		return BestItem{}, false, false // 후보가 둘 미만이면 「1위와 2위의 차」가 성립하지 않는다
 	}
 	top, second := res.Lines[0], res.Lines[1]
 	if top.Move == "" || second.Move == "" {
-		return BestItem{}, false // 순위가 비어서 온 자리 (usi.parseScore 의 방어)
+		return BestItem{}, false, false // 순위가 비어서 온 자리 (usi.parseScore 의 방어)
 	}
 	// **mate 점수인 국면은 뺀다** — 「츠메 관련 제외」의 두 번째 그물이고, cp로 환산된
 	// mate 점수(30000 - 10×手数)로 gap을 재면 手数 차가 cp 차로 보인다.
 	if top.IsMate || second.IsMate {
-		return BestItem{}, false
+		return BestItem{}, false, false
 	}
 	if top.ScoreCp-second.ScoreCp < BestMinGapCp {
-		return BestItem{}, false
+		return BestItem{}, false, false
 	}
 	// 사람이 이미 최선수를 둔 국면은 문항이 아니다. 낙폭으로 좁혔으니 여기 올 일은 드물지만,
 	// 오면 「あなたの手は正解でした」를 문제로 내는 셈이 된다.
 	if in.Moves[i] == top.Move {
-		return BestItem{}, false
+		return BestItem{}, false, false
 	}
 
 	return BestItem{
@@ -126,5 +136,5 @@ func (b *Builder) score(ctx context.Context, in Input, pos shogi.Position, i int
 		AnswerCp: top.ScoreCp,
 		SecondCp: second.ScoreCp,
 		Played:   in.Moves[i],
-	}, true
+	}, true, false
 }
