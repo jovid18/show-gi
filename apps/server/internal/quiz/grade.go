@@ -58,12 +58,11 @@ type MateProgress struct {
 	Best string
 	// BestFrom 은 **Best 가 성립하는 국면**이고 `SFEN` 과 다를 수 있다.
 	//
-	// 오답이면 판이 그 수만큼 나아가 있어서, 거기서 Best 를 두어 보면 불법이라 棋譜 표기가
-	// 통째로 사라진다 — 그러면 오답 문구에서 **「正解は○でした」가 빠진다.** 오답에 가장
-	// 중요한 한 조각이 그것이다.
+	// 오답이면 판이 그 수만큼 나아가 있어서, 거기서 Best 를 두어 보면 불법이다 — 그 수를
+	// 이름으로 부를 수 있는 국면이 이쪽이다. **정답 표기를 만들려고 있는 것이 아니다**:
+	// 오답 응답에는 정답이 안 실리고, 여기서 나오는 것은 세 번째 오답의 「무엇을 움직이나」
+	// 하나다(§61의 `originJa`).
 	BestFrom string
-	// BestPrev 는 BestFrom 직전에 두어진 수다. 「同」 표기가 그 도착 칸을 본다. 없으면 빈 값.
-	BestPrev string
 }
 
 // GradeMate 는 사용자가 낸 수들을 처음부터 되짚어 지금 상태를 만든다.
@@ -103,12 +102,9 @@ func GradeMate(item MateItem, moves []string) (MateProgress, error) {
 		// 한 수 앞의 응수를 들고 나가고, 화면은 그것을 「방금 상대가 이렇게 받았다」로 그린다.
 		out.Defense = ""
 
-		// 이 노드의 국면과 그 앞의 수. **수를 두기 전에 잡아 둔다** — 오답이면 아래에서
-		// 판이 한 수 나아가고, 정답 수의 표기는 그 뒤에서 못 만든다.
-		nodeSFEN, nodePrev := pos.SFEN(), ""
-		if n := len(out.Line); n > 0 {
-			nodePrev = out.Line[n-1]
-		}
+		// 이 노드의 국면. **수를 두기 전에 잡아 둔다** — 오답이면 아래에서 판이 한 수
+		// 나아가고, 거기서는 정답이 불법이라 그 수를 이름으로 부를 수가 없다.
+		nodeSFEN := pos.SFEN()
 
 		// **정본 표기로 찾는다.** 트리의 키는 `Move.USI()` 가 만든 것이라, 요청 문자열을
 		// 그대로 쓰면 이 조회가 **파서가 얼마나 엄격한가**에 매인다 — 지금은 정본만 통과하지만
@@ -133,7 +129,7 @@ func GradeMate(item MateItem, moves []string) (MateProgress, error) {
 		case !v.Correct:
 			out.Outcome = MateWrong
 			out.Rest = v.Rest
-			out.Best, out.BestFrom, out.BestPrev = node.Best, nodeSFEN, nodePrev
+			out.Best, out.BestFrom = node.Best, nodeSFEN
 		default:
 			d, err := shogi.ParseUSIMove(v.Defense)
 			if err != nil {

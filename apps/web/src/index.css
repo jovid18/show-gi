@@ -3072,6 +3072,23 @@ body {
   line-height: 1.7;
 }
 
+/* 문항을 넘기는 자리. **판 아래에 둔다** — 넘기는 것은 문항을 다 본 뒤의 일이고, 위에 두면
+   판을 보러 온 화면에서 그 줄이 먼저 자리를 잡는다(되짚기의 이동 바와 같은 판단이다) */
+.quiz-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+/* 「어디쯤인가」. 양옆 버튼이 폭을 나눠 가지므로 가운데 칸은 줄어들지 않게 잡는다 */
+.quiz-nav-count {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .quiz-item {
   display: grid;
   justify-items: center;

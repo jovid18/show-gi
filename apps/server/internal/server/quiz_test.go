@@ -132,8 +132,27 @@ func TestMateMessageSplitsTheTwoWrongAnswers(t *testing.T) {
 	if !strings.Contains(longer, "9手") {
 		t.Errorf("the message should say how long the mate became, got %q", longer)
 	}
-	if !strings.Contains(longer, "▲5二金") {
-		t.Errorf("a wrong answer has to be told what did work, got %q", longer)
+}
+
+// **첫 오답부터 정답을 싣던 자리다**(2026-08-14-human-2.md §6 #10 · #11). 세 번째까지는
+// 다시 풀라고만 하고, 그 뒤로도 나가는 것은 「무엇을 움직이나」 한 마디뿐이다.
+func TestMateMessageWithholdsTheAnswer(t *testing.T) {
+	wrong := quiz.MateProgress{Outcome: quiz.MateWrong}
+	early := mateMessage(wrong, "")
+	if strings.Contains(early, "正解は") {
+		t.Errorf("message = %q, must not name the answer on a wrong attempt", early)
+	}
+	// 정답도 없이 문항이 끝난 것으로 읽히면 남는 것이 아무것도 없다.
+	if !strings.Contains(early, "最初から") {
+		t.Errorf("message = %q, want it to say the question can be tried again", early)
+	}
+
+	hinted := mateMessage(wrong, "7九の銀")
+	if !strings.Contains(hinted, "7九の銀") {
+		t.Errorf("message = %q, want the third attempt to say what to move", hinted)
+	}
+	if strings.Contains(hinted, "正解は") {
+		t.Errorf("message = %q, the hint must not become the answer", hinted)
 	}
 }
 
@@ -172,56 +191,75 @@ func TestMateMessageOnAnEmptyAttempt(t *testing.T) {
 
 func TestBestMessageNamesWhatWasPlayedInTheGame(t *testing.T) {
 	// 이 문항이 문제집이 아니라 **자기 기보**인 이유가 이 한 줄이다.
+	item := quiz.BestItem{SFEN: quizCollisionSFEN, Answer: "2f2e", Played: "6g6f", AnswerCp: 300, SecondCp: 50}
 	got := bestMessage(bestResponse{
-		Correct: false, Answer: "2f2e", AnswerJa: "▲2五歩",
-		Move: "3g3f", MoveJa: "▲3六歩",
-		Played: "6g6f", PlayedJa: "▲6六歩", AnswerCp: 300, SecondCp: 50,
-	}, "▲2五歩")
-	if !strings.Contains(got, "▲2五歩") {
-		t.Errorf("message = %q, want the answer", got)
-	}
+		Correct: false,
+		Move:    "3g3f", MoveJa: "▲3六歩",
+		Played: "6g6f", PlayedJa: "▲6六歩",
+	}, item)
 	if !strings.Contains(got, "▲6六歩") {
 		t.Errorf("message = %q, want the move actually played", got)
 	}
 
-	right := bestMessage(bestResponse{Correct: true, AnswerCp: 300, SecondCp: 50}, "▲2五歩")
+	right := bestMessage(bestResponse{Correct: true, MoveJa: "▲2五歩"}, item)
 	if !strings.Contains(right, "250") {
 		t.Errorf("a correct answer should say the gap it was picked for, got %q", right)
 	}
 }
 
-// **낸 수부터 말한다.** 회차 1의 #17이 이 문장 하나다 — ▲3五金打를 낸 사람이 「正解は▲3五金
-// でした」만 읽으면, 채점이 맞았는데도 「내가 그것을 뒀는데 틀렸다고 한다」가 된다.
+// **오답에는 정답이 없다**(§6 #10 · #11). 세 번째부터 나가는 것은 「무엇을 움직이나」뿐이고,
+// 그것도 **도착 칸을 말하지 않는다** — 말하면 그 한 줄이 정답 전체가 된다.
+func TestBestMessageWithholdsTheAnswer(t *testing.T) {
+	item := quiz.BestItem{SFEN: quizCollisionSFEN, Answer: "4f3e", Played: "G*3h"}
+	early := bestMessage(bestResponse{Correct: false, Move: "P*3e", MoveJa: "▲3五歩"}, item)
+	if strings.Contains(early, "正解は") || strings.Contains(early, "3五金") {
+		t.Errorf("message = %q, must not name the answer on a wrong attempt", early)
+	}
+	if !strings.Contains(early, "もう一度") {
+		t.Errorf("message = %q, want it to say the question can be tried again", early)
+	}
+
+	hinted := bestMessage(bestResponse{
+		Correct: false, Move: "P*3e", MoveJa: "▲3五歩", Hint: "4六の金",
+	}, item)
+	if !strings.Contains(hinted, "4六の金") {
+		t.Errorf("message = %q, want the third attempt to say what to move", hinted)
+	}
+	if strings.Contains(hinted, "3五金") {
+		t.Errorf("message = %q, the hint must not name where the answer goes", hinted)
+	}
+}
+
+// **낸 수부터 말한다.** 회차 1의 #17이 이 문장 하나다. 정답을 문장에서 뺀 뒤에는 그 상처가
+// **낸 수와 그 판의 수** 사이로 옮겨 온다 — 그 둘도 打 한 글자로만 갈릴 수 있다.
 func TestBestMessageNamesTheMoveJustPlayed(t *testing.T) {
+	item := quiz.BestItem{SFEN: quizCollisionSFEN, Answer: "4f3e", Played: "G*3e", AnswerCp: 910, SecondCp: 548}
 	got := bestMessage(bestResponse{
-		Correct: false, Answer: "4f3e", AnswerJa: "▲3五金",
-		Move: "G*3e", MoveJa: "▲3五金打",
-		Played: "G*3h", PlayedJa: "▲3八金打", AnswerCp: 910, SecondCp: 548,
-	}, "▲3五金（4六の金）")
+		Correct: false,
+		Move:    "4f3e", MoveJa: "▲3五金",
+		Played: "G*3e", PlayedJa: "▲3五金打",
+	}, item)
 	if !strings.Contains(got, "▲3五金打") {
-		t.Errorf("message = %q, want the move that was just played", got)
-	}
-	if !strings.Contains(got, "4六") {
-		t.Errorf("message = %q, want the square the answer comes from", got)
-	}
-	if !strings.Contains(got, "▲3八金打") {
 		t.Errorf("message = %q, want the move played in the game", got)
+	}
+	if !strings.Contains(got, "持ち駒の金") {
+		t.Errorf("message = %q, want the two same-square notations told apart", got)
 	}
 
 	// **낸 수가 그 판에서 둔 수와 같으면 되풀이하지 않는다.**
 	same := bestMessage(bestResponse{
-		Correct: false, Answer: "4f3e", AnswerJa: "▲3五金",
-		Move: "G*3h", MoveJa: "▲3八金打",
+		Correct: false,
+		Move:    "G*3h", MoveJa: "▲3八金打",
 		Played: "G*3h", PlayedJa: "▲3八金打",
-	}, "▲3五金")
+	}, quiz.BestItem{SFEN: quizCollisionSFEN, Answer: "4f3e", Played: "G*3h"})
 	if strings.Contains(same, "この対局では") {
 		t.Errorf("message = %q, must not repeat the same move as a second fact", same)
 	}
 
 	// 표기가 없어도 채점은 사실이다 — 문장이 비지 않아야 한다.
-	bare := bestMessage(bestResponse{Correct: false}, "")
-	if bare != "不正解です。" {
-		t.Errorf("message = %q, want the bare verdict when nothing can be named", bare)
+	bare := bestMessage(bestResponse{Correct: false}, quiz.BestItem{})
+	if !strings.HasPrefix(bare, "不正解です。") {
+		t.Errorf("message = %q, want the verdict first when nothing can be named", bare)
 	}
 }
 

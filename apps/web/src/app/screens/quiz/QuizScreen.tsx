@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { Board } from '@/components/Board';
 import { Hand } from '@/components/Hand';
@@ -57,6 +57,22 @@ function Questions({
   const best = quiz.best ?? [];
   const empty = !quiz.mate && best.length === 0;
 
+  /** 지금 보고 있는 문항. 0부터. */
+  const [at, setAt] = useState(0);
+
+  /**
+   * 문항 하나가 한 페이지다. **詰み이 먼저다** — 그 판에서 가장 큰 사건이고, 「최선수는?」은
+   * 그 판의 어느 국면이라도 될 수 있다.
+   */
+  const pages = useMemo(() => {
+    const out: { key: string; node: ReactNode }[] = [];
+    if (quiz.mate) out.push({ key: 'mate', node: <MateQuestion id={id} item={quiz.mate} /> });
+    for (const item of best) {
+      out.push({ key: `best-${item.index}`, node: <BestQuestion id={id} item={item} /> });
+    }
+    return out;
+  }, [id, quiz.mate, best]);
+
   return (
     <section className="quiz" aria-label="この対局から出た問題">
       <div className="quiz-head">
@@ -89,10 +105,39 @@ function Questions({
         <p className="quiz-status">この対局からは問題が作れませんでした。</p>
       ) : null}
 
-      {quiz.mate && <MateQuestion id={id} item={quiz.mate} />}
-      {best.map((item) => (
-        <BestQuestion key={item.index} id={id} item={item} />
-      ))}
+      {pages.length > 0 && (
+        <>
+          {/* **한 번에 한 문항이다.** 넷을 한 페이지에 늘어놓으면 판 넷이 세로로 쌓여
+              스크롤이 생기고, 지금 푸는 문항이 화면 밖으로 나간다(§6 #9).
+
+              **넘어간 문항을 지우지 않는다** — `hidden` 으로 덮어 둔다. 언마운트하면 채점
+              결과와 **시도 횟수**가 함께 사라져서, 돌아왔을 때 세 번 틀린 문항이 처음
+              열린 것처럼 된다. `hidden` 은 접근성 트리에서도 빠지므로 낭독기가 안 읽는다. */}
+          {pages.map((page, i) => (
+            <div key={page.key} hidden={i !== at}>
+              {page.node}
+            </div>
+          ))}
+
+          <nav className="quiz-nav" aria-label="問題の切り替え">
+            <button type="button" className="review-retry" onClick={() => setAt(at - 1)} disabled={at === 0}>
+              ← 前の問題
+            </button>
+            {/* 「어디쯤인가」는 한 자리에서만 말한다 — 되짚기의 이동 바와 같은 판단이다. */}
+            <span className="quiz-nav-count">
+              {at + 1} / {pages.length}
+            </span>
+            <button
+              type="button"
+              className="review-retry"
+              onClick={() => setAt(at + 1)}
+              disabled={at === pages.length - 1}
+            >
+              次の問題 →
+            </button>
+          </nav>
+        </>
+      )}
     </section>
   );
 }
@@ -109,6 +154,11 @@ function MateQuestion({ id, item }: { id: number; item: MateItem }) {
   // **내가 낸 수만 들고 있다.** 玉方의 응수는 서버가 트리에서 꺼내 두므로, 화면이 그것을
   // 기억하면 두 벌이 되고 어긋날 수 있다(protocol/quiz.ts).
   const [mine, setMine] = useState<string[]>([]);
+  /**
+   * 이 문항을 몇 번 틀렸나. **「最初から」로 안 지워진다** — 지우면 세 번째 힌트에 영원히
+   * 못 닿는다(다시 풀려면 그 버튼을 누르는 것이 유일한 길이라, 그때마다 0으로 돌아간다).
+   */
+  const [wrongs, setWrongs] = useState(0);
 
   const res = grading.result;
   const done = res?.outcome === 'solved' || res?.outcome === 'wrong';
@@ -121,9 +171,12 @@ function MateQuestion({ id, item }: { id: number; item: MateItem }) {
 
   const play = (usi: string): void => {
     const next = [...mine, usi];
-    void grade({ moves: next }).then((got) => {
+    // 시도 횟수는 **틀린 횟수**다. 王手가 아닌 수는 안내이지 오답이 아니라 세지 않는다 —
+    // 서버가 그 자리에서 정답을 안 주는 이유와 같다(quiz.MateNotCheck).
+    void grade({ moves: next, attempt: wrongs + 1 }).then((got) => {
       if (!got) return;
-      // **오답과 王手 아님은 수를 쌓지 않는다.** 오답은 거기서 문항이 끝나고, 王手 아님은
+      if (got.outcome === 'wrong') setWrongs((n) => n + 1);
+      // **오답과 王手 아님은 수를 쌓지 않는다.** 오답은 거기서 그 시도가 끝나고, 王手 아님은
       // 판이 그대로라 다시 두는 자리다.
       if (got.outcome === 'ongoing' || got.outcome === 'solved') setMine(next);
     });
@@ -205,7 +258,23 @@ function verdictTone(res: MateResult | null, error: string | null): VerdictTone 
  */
 function BestQuestion({ id, item }: { id: number; item: BestItem }) {
   const [grading, grade, clear] = useBestGrader(id);
+  /** 이 문항을 몇 번 틀렸나. **「もう一度」로 안 지워진다**(詰み 쪽과 같은 이유). */
+  const [wrongs, setWrongs] = useState(0);
   const res = grading.result;
+  /**
+   * 맞혔는가. **cp 표가 여기 걸린다.**
+   *
+   * 채점 결과가 있으면 그 표를 그리던 자리다 — 그래서 오답 문구에서 정답을 지워도 그 표가
+   * 정답과 두 cp를 그대로 적고 있었다. 이제 서버가 오답에는 그 값들을 안 보내고(§6 #10 ·
+   * #11), 화면도 맞혔을 때만 그 자리를 만든다.
+   */
+  const solved = res?.correct === true;
+
+  const play = (usi: string): void => {
+    void grade({ index: item.index, move: usi, attempt: wrongs + 1 }).then((got) => {
+      if (got && !got.correct) setWrongs((n) => n + 1);
+    });
+  };
 
   // **낸 수를 판에서 보여준다.** 서버가 그 수를 둔 뒤의 국면을 주므로 화면이 수를 두지
   // 않는다 — 화면은 규칙을 모른다. 못 만들었으면(`sfen` 이 빈 값) 문제 국면 그대로다.
@@ -225,6 +294,9 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
         <p className="quiz-item-lead">この局面には、はっきり良い一手があります。</p>
       </header>
 
+      {/* **판은 낸 수 뒤의 국면에서 멈춘다.** 빛나는 칸은 문제 국면의 합법수라, 그 국면을
+          그린 채로 다시 두게 하면 판과 빛이 어긋난다 — 다시 푸는 길은 아래 「もう一度」이고
+          그것이 판을 문제 국면으로 되돌린다. */}
       <QuizBoard
         sfen={moved ? moved.sfen : item.sfen}
         me={sideOf(item.sfen)}
@@ -232,7 +304,7 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
         checked={moved ? moved.checked : (item.checked ?? null)}
         lastMove={moved ? squaresOf(moved.move) : null}
         interactive={!res && !grading.pending}
-        onPlay={(usi) => void grade({ index: item.index, move: usi })}
+        onPlay={play}
       />
 
       <QuizVerdict
@@ -241,8 +313,8 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
         pending={grading.pending}
       />
 
-      {/* 두 cp는 채점 뒤에만 온다. **차가 이 문항이 뽑힌 기준**이라 그것을 보여준다. */}
-      {res && (
+      {/* 두 cp는 **맞혔을 때만** 온다. 차가 이 문항이 뽑힌 기준이라 그것을 보여준다. */}
+      {solved && res.answerCp !== undefined && res.secondCp !== undefined && (
         <dl className="quiz-scores">
           <div>
             <dt>最善手</dt>
@@ -257,9 +329,11 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
         </dl>
       )}
 
+      {/* **맞혔는지에 따라 다른 말이다.** 맞힌 뒤의 「もう一度」는 다시 둬 보는 것이고,
+          틀린 뒤의 그것은 아직 안 끝난 문항을 이어 푸는 자리다. */}
       {res && (
         <button type="button" className="review-retry" onClick={clear}>
-          もう一度
+          {solved ? 'もう一度' : 'もう一度考える'}
         </button>
       )}
     </article>
