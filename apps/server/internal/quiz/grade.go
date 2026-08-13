@@ -90,6 +90,10 @@ func GradeMate(item MateItem, moves []string) (MateProgress, error) {
 			return MateProgress{}, ErrBadMove
 		}
 
+		// **직전 수의 응수를 물려받지 않는다.** 여기서 안 지우면 王手가 아닌 수를 낸 응답이
+		// 한 수 앞의 응수를 들고 나가고, 화면은 그것을 「방금 상대가 이렇게 받았다」로 그린다.
+		out.Defense = ""
+
 		v, known := node.Moves[u]
 		if !known {
 			// 합법이지만 트리에 없다 = 王手가 아니다. 판을 **안 움직이고** 되돌린다.
@@ -100,7 +104,6 @@ func GradeMate(item MateItem, moves []string) (MateProgress, error) {
 
 		pos = pos.Apply(m)
 		out.Line = append(out.Line, u)
-		out.Defense = ""
 
 		switch {
 		case v.Mated:
@@ -121,7 +124,11 @@ func GradeMate(item MateItem, moves []string) (MateProgress, error) {
 	}
 
 	out.SFEN = pos.SFEN()
-	if out.Outcome == MateOngoing {
+
+	// **문항이 아직 안 끝났으면 둘 수 있는 수를 준다.** 「王手가 아니다」도 여기 들어간다 —
+	// 그때 판은 그대로이고 사람은 다시 둬야 하는데, 이 둘을 안 채워 보내면 화면이 문제
+	// 국면으로 되돌아가서 **그때까지 맞힌 수가 사라진 것처럼 보인다.**
+	if out.Outcome == MateOngoing || out.Outcome == MateNotCheck {
 		node, ok := item.Nodes[pos.RepetitionKey()]
 		if !ok {
 			return MateProgress{}, fmt.Errorf("quiz: mate tree has no node for %s", out.SFEN)

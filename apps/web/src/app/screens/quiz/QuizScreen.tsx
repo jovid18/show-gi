@@ -88,10 +88,12 @@ function MateQuestion({ id, item }: { id: number; item: MateItem }) {
 
   const res = grading.result;
   const done = res?.outcome === 'solved' || res?.outcome === 'wrong';
-  // 王手가 아닌 수는 **판을 움직이지 않는다** — 서버가 그렇게 답하고, 화면도 그 자리에 선다.
-  const sfen = res && res.outcome !== 'not_check' ? res.sfen : item.sfen;
-  const legal = done ? [] : ((res && res.outcome !== 'not_check' ? res.legalMoves : item.legalMoves) ?? []);
-  const plies = res && res.outcome !== 'not_check' ? res.plies : item.plies;
+  // **`not_check` 도 서버가 준 자리를 그대로 쓴다.** 그때 판은 안 움직였지만 그 자리는
+  // **문제 국면이 아니라 지금까지 진행된 국면**이다 — 문항 쪽으로 되돌리면 맞힌 수가
+  // 사라진 것처럼 보인다(quiz.GradeMate 가 그래서 그 경우에도 둘 수 있는 수를 준다).
+  const sfen = res ? res.sfen : item.sfen;
+  const legal = res ? (res.legalMoves ?? []) : item.legalMoves;
+  const plies = res ? res.plies : item.plies;
 
   const play = (usi: string): void => {
     const next = [...mine, usi];

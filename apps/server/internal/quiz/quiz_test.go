@@ -421,3 +421,67 @@ func mustKey(t *testing.T, sfen string) string {
 	}
 	return pos.RepetitionKey()
 }
+
+// **王手가 아닌 수를 낸 뒤에도 진행이 남아 있어야 한다.**
+//
+// 판은 안 움직이지만 그 자리는 **문제 국면이 아니라 지금까지 진행된 국면**이다. 둘 수 있는
+// 수를 안 채워 보내면 화면이 문항 쪽으로 되돌아가서 맞힌 수가 사라진 것처럼 보인다.
+func TestGradeMateKeepsProgressAfterANonCheck(t *testing.T) {
+	fm := &fakeMate{limit: 9}
+	q := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate3SFEN, Human: shogi.Black})
+	if q.Mate == nil {
+		t.Fatal("no mate item")
+	}
+	root, _ := shogi.ParseSFEN(mate3SFEN)
+	first := q.Mate.Nodes[root.RepetitionKey()].Best
+
+	mid, err := GradeMate(*q.Mate, []string{first})
+	if err != nil {
+		t.Fatalf("grade %s: %v", first, err)
+	}
+
+	// 그 국면에서 王手가 아닌 합법수를 하나 찾는다.
+	pos, err := shogi.ParseSFEN(mid.SFEN)
+	if err != nil {
+		t.Fatalf("parse %q: %v", mid.SFEN, err)
+	}
+	checks := make(map[string]bool)
+	for _, m := range checkingMoves(pos) {
+		checks[m.USI()] = true
+	}
+	quiet := ""
+	for _, m := range pos.LegalMoves() {
+		if !checks[m.USI()] {
+			quiet = m.USI()
+			break
+		}
+	}
+	if quiet == "" {
+		t.Skip("every legal move here is a check")
+	}
+
+	got, err := GradeMate(*q.Mate, []string{first, quiet})
+	if err != nil {
+		t.Fatalf("grade %s %s: %v", first, quiet, err)
+	}
+	if got.Outcome != MateNotCheck {
+		t.Fatalf("outcome = %q, want %q", got.Outcome, MateNotCheck)
+	}
+	if got.SFEN != mid.SFEN {
+		t.Errorf("sfen = %q, want the position we were already at (%q)", got.SFEN, mid.SFEN)
+	}
+	if len(got.Legal) == 0 {
+		t.Error("legal is empty — the player has nowhere to go and the problem looks over")
+	}
+	if got.Plies != mid.Plies {
+		t.Errorf("plies = %d, want %d", got.Plies, mid.Plies)
+	}
+	// 진행된 수순은 그대로 남는다 — 「王手가 아니다」는 되돌리는 것이지 지우는 것이 아니다.
+	if len(got.Line) != len(mid.Line) {
+		t.Errorf("line = %v, want %v", got.Line, mid.Line)
+	}
+	// **직전 응수를 물려받지 않는다.** 물려받으면 화면이 「방금 상대가 이렇게 받았다」를 두 번 말한다.
+	if got.Defense != "" {
+		t.Errorf("defense = %q, want empty — nothing was answered this time", got.Defense)
+	}
+}

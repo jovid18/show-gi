@@ -22,6 +22,17 @@ export function useQuiz(id: number): Source<QuizPayload> {
     return () => clearTimeout(timer);
   }, [pending, reload]);
 
+  // **다시 물을 때 직전 답을 그대로 둔다.** `useFetch` 는 부를 때마다 `loading` 으로
+  // 돌아가는데, 그러면 「問題を作っています」가 5초마다 「読み込み中…」으로 번쩍인다 —
+  // 화면이 그 두 상태를 통째로 다른 것으로 그리기 때문이다(QuizScreen).
+  const last = useRef<QuizPayload | null>(null);
+  if (loaded.state === 'ready') {
+    last.current = loaded.data;
+  }
+  if (loaded.state === 'loading' && last.current) {
+    return { loaded: { state: 'ready', data: last.current }, reload };
+  }
+
   return { loaded, reload };
 }
 

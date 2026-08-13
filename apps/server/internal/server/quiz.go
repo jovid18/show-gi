@@ -82,15 +82,26 @@ func (h *quizHandler) get(w http.ResponseWriter, r *http.Request) {
 
 	out := quizPayload{Ready: ready}
 	if q.Mate != nil {
-		out.Mate = &matePayload{
-			Ply:       q.Mate.Ply,
-			SFEN:      q.Mate.SFEN,
-			Plies:     q.Mate.Plies,
-			Converted: q.Mate.Converted,
-			// **트리의 키가 곧 王手 목록이다.** 여기서 룰 엔진으로 다시 걸러 만들면 화면이
-			// 빛내는 수와 트리가 아는 수가 갈릴 수 있고, 갈리면 화면에서 둘 수 있는 수가
-			// 서버에서 거절된다.
-			LegalMoves: rootChecks(*q.Mate),
+		// **트리의 키가 곧 王手 목록이다.** 여기서 룰 엔진으로 다시 걸러 만들면 화면이
+		// 빛내는 수와 트리가 아는 수가 갈릴 수 있고, 갈리면 화면에서 둘 수 있는 수가
+		// 서버에서 거절된다.
+		legal := rootChecks(*q.Mate)
+
+		// **둘 수 있는 수가 없으면 문항을 안 보낸다.** 詰み이 있는 국면에는 王手가 반드시
+		// 하나는 있으므로 여기가 비는 것은 트리가 깨진 것이고, 그때 카드를 그리면 사람은
+		// 누를 수 없는 문제를 본다. 덤으로 `null` 이 나가는 길이 막힌다 — Go의 nil 슬라이스는
+		// `[]` 가 아니라 `null` 로 직렬화되고, 화면이 그것을 순회하면 그 자리에서 죽는다
+		// (protocol/whatif.ts 가 같은 함정을 이미 적어 뒀다).
+		if len(legal) == 0 {
+			log.Printf("quiz: game %d: the mate item at ply %d has no playable move", rec.ID, q.Mate.Ply)
+		} else {
+			out.Mate = &matePayload{
+				Ply:        q.Mate.Ply,
+				SFEN:       q.Mate.SFEN,
+				Plies:      q.Mate.Plies,
+				Converted:  q.Mate.Converted,
+				LegalMoves: legal,
+			}
 		}
 	}
 	for i, b := range q.Best {
@@ -182,8 +193,14 @@ func (h *quizHandler) mate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// **`null` 을 안 보낸다.** Go의 nil 슬라이스는 `[]` 가 아니라 `null` 로 직렬화되고,
+	// 화면이 그것을 순회하면 그 자리에서 죽는다(protocol/whatif.ts).
+	line := prog.Line
+	if line == nil {
+		line = []string{}
+	}
 	out := mateResponse{
-		Line:       prog.Line,
+		Line:       line,
 		SFEN:       prog.SFEN,
 		Defense:    prog.Defense,
 		LegalMoves: prog.Legal,
