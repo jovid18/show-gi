@@ -8,16 +8,16 @@ import { Resume } from './Resume';
 import { Setup } from './Setup';
 import { Summary } from './Summary';
 import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/libs/game/moves';
-import type { Attack, StyleTag } from '@/protocol/game';
+import type { StyleTag } from '@/protocol/game';
 import { useGame } from '@/hooks/useGame';
 import { useResumable } from '@/hooks/useResumable';
 import type { Side } from '@/models/piece';
-import { parseSfen, type Board as BoardModel } from '@/models/sfen';
+import { parseSfen } from '@/models/sfen';
 import { fromIndex, fromUsi, toIndex, toUsi } from '@/models/square';
-import { scoreJa } from '@/libs/whatif/branch';
+import { scoreJa, type ExploredMove } from '@/libs/whatif/branch';
 import { useWhatIf } from '@/hooks/useWhatIf';
 import { useTagAnnounce } from './hooks';
-import { checkRays, lastMoveOf, offsetWithin, rayOf, resultText, type Scene } from '@/libs/game/board-view';
+import { checkRays, lastMoveOf, offsetWithin, rayOf, resultText } from '@/libs/game/board-view';
 
 /**
  * 태그가 무엇을 가리키는 말인지 붙이는 라벨.
@@ -39,6 +39,10 @@ const KIND_JA: Record<StyleTag['kind'], string> = {
  * 값이라, 한쪽만 이름이 세면 조절이 한 방향으로만 도는 것처럼 읽힌다.
  */
 const STRENGTH_JA = ['かなり弱め', '弱め', 'ふつう', '強め', 'かなり強め'];
+
+/** 빈 것을 매 렌더마다 새로 만들지 않는다 — identity가 흔들리면 아래 자식들이 헛돈다. */
+const EMPTY_SET: ReadonlySet<string> = new Set();
+const noop = (): void => {};
 
 export function GameScreen() {
   const {
@@ -63,8 +67,14 @@ export function GameScreen() {
   // 어느 회차까지 봤는가. 서버는 다음 착수까지 개입을 들고 있으므로 「있다」로 판정하면
   // 닫아도 다시 뜬다. 회차를 비교하면 같은 수로 또 걸렸을 때만 다시 연다.
   const [seenEpisode, setSeenEpisode] = useState(0);
-  // 회상의 몇 번째 장면을 보고 있는가. 0이 물러진 수 자체다.
-  const [scene, setScene] = useState(0);
+  /**
+   * 사람이 분기에서 직접 둬 본 수. **자리마다 따로 센다** — 열쇠는 그 자리까지의 줄이다.
+   *
+   * **화면만 들고 있는다.** 새로고침하면 사라지고, 그것으로 족하다 — 이건 대국의 사실이
+   * 아니라 그 사람이 지금 무엇을 궁금해했는가다. 잰 값 자체는 서버가 이미 남겼고
+   * (`positions`), 레이팅에는 한 톨도 안 닿는다 — 판정을 지나지 않는 수다.
+   */
+  const [explored, setExplored] = useState<ReadonlyMap<string, ExploredMove[]>>(new Map());
   // 打 화살표가 출발할 자리. 駒台는 판 밖이라 칸 산수로는 안 나오고 재야 한다.
   const [dropFrom, setDropFrom] = useState<DropFrom | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
@@ -115,136 +125,198 @@ export function GameScreen() {
   const intervening = intervention !== null && interventionEpisode > seenEpisode;
 
   /**
-   * 회상의 각 장면을 **재기만 한다.** 수마다의 cp가 여기서 나온다(`evalOf`).
+   * 물러진 수 하나가 분기의 **바닥**이다. 그 앞으로는 어느 버튼으로도 못 간다.
    *
-   * **대국 중에 둬 보는 길은 없다.** 한때 이 자리가 분기를 소유해서, 카드가 떠 있는 동안
-   * 판을 만지면 대국의 수가 아니라 가정의 수가 됐다 — 물러진 목적이 「다시 두라」인데
-   * 판의 기본 뜻이 그것이 아니었고, 카드까지 분기 패널로 바뀌어 읽던 설명이 사라졌다.
-   *
-   * 그래서 판의 뜻을 하나로 되돌렸다: **개입 중에는 판이 잠기고, 카드를 닫으면 살아난다.**
-   * 둬 보는 것은 되짚는 화면(`GameReview`)에만 있다 — 끝난 판이라 무엇을 둬도 아무도
-   * 안 잃고, 거기서는 그것이 화면의 본론이다.
+   * 바닥 앞은 곧 **지금 다시 둘 국면**이라, 거기서 후보 셋을 그리면 대국 중에 답을
+   * 알려주는 것이 된다(01-core.md §7). 서버도 같은 벽을 갖고 있다(ws.go 의 `branchRoot`).
    */
-  const branch = useWhatIf(whatif, interventionEpisode);
-
-  /** 지금 고를 수 있는 수. **언제나 대국의 것이다** — 판이 한 국면만 그리기 때문이다. */
-  const grouped = useMemo(() => groupByOrigin(snapshot?.legalMoves ?? []), [snapshot?.legalMoves]);
-
-  const destinations: Destination[] = origin ? (grouped.get(origin) ?? []) : [];
-  const lit = useMemo(() => new Set(destinations.map((d) => d.to)), [destinations]);
+  const retractedUsi = intervention?.retractedUsi;
+  const floor = useMemo(() => (retractedUsi ? [retractedUsi] : []), [retractedUsi]);
 
   /**
-   * 회상의 각 장면.
+   * 물러진 수 뒤의 분기. **되짚는 화면과 같은 장치다**(useWhatIf) — 오가는 길만 다르다.
    *
-   * 0번이 **물러진 수를 둔 직후**이고 그 뒤가 상대의 반박 수순이다. 판은 장면마다 서버가
-   * 준 국면을 그대로 그린다 — **화면이 수를 두지 않는다.** 두게 하면 규칙 엔진을 한 벌
-   * 더 갖는 것이고, 그건 D2에서 「클라이언트는 규칙을 모른다」로 정해둔 자리다.
+   * 한때 이 자리가 분기를 소유했다가 통째로 걷어낸 적이 있다. 판을 만지면 옆의 분기
+   * 패널이 개입 카드의 자리를 빼앗아 **읽던 설명이 사라졌기** 때문인데, 고쳐야 했던 것은
+   * 판이 아니라 그 자리 다툼이었다. 지금은 설명·후보 목록·무르기가 **한 카드 안**에 있고
+   * 카드는 무슨 일이 있어도 다른 것으로 바뀌지 않는다(Intervention).
    *
-   * 넘겨 보게 만드는 것이 곧 정직해지는 길이기도 하다. 한 판 위에 수순을 겹쳐 그리면
-   * 「상대가 아직 손에 없는 駒를 놓는 수」까지 그리게 된다.
+   * 판의 뜻은 여전히 하나다 — **개입 중의 판은 언제나 「그 수를 그대로 뒀다면」이고**,
+   * 카드를 닫으면 대국의 판으로 돌아온다.
    */
-  const scenes = useMemo<Scene[]>(() => {
-    const line = intervention?.refutation;
-    if (!intervention || !line?.length) return [];
-
-    // i번째 장면 = i수까지 진행한 판. 0번은 물러진 수를 둔 직후다.
-    const sfenAt = (i: number): string => (i === 0 ? intervention.retractedSfen : (line[i - 1]?.sfen ?? ''));
-    const playedAt = (i: number): string => (i === 0 ? intervention.retractedUsi : (line[i - 1]?.usi ?? ''));
-    const checksAt = (i: number): Attack[] | undefined =>
-      i === 0 ? intervention.retractedChecks : line[i - 1]?.checks;
-
-    const out: Scene[] = [];
-    for (let i = 0; i <= line.length; i++) {
-      const played = lastMoveOf(playedAt(i));
-      if (!played) break; // 어긋난 장면으로 넘기느니 거기서 멈춘다
-      let board: BoardModel;
-      try {
-        board = parseSfen(sfenAt(i));
-      } catch {
-        break;
-      }
-      const upcoming = line[i];
-      const parsed = upcoming ? parseUsi(upcoming.usi) : null;
-      out.push({
-        board,
-        played,
-        checks: checkRays(checksAt(i)),
-        ray: upcoming ? rayOf(upcoming.usi, upcoming.by) : null,
-        next: upcoming ? i : -1,
-        // 누가 둔 수인가로 쪽을 정한다. **화면의 위아래가 아니라 대국자로 가른다** —
-        // 後手로 두면 「相手 = 白」이 성립하지 않는다.
-        dropping:
-          parsed?.kind === 'drop' && upcoming
-            ? { side: upcoming.by === 'engine' ? them : me, kind: parsed.piece }
-            : null,
-      });
-    }
-    return out;
-  }, [intervention, me, them]);
-
-  // 같은 수로 또 걸렸을 때도 처음부터 본다. 회차가 오르면 장면도 돌아간다.
-  useEffect(() => setScene(0), [interventionEpisode]);
-
-  const walking = intervening && scenes.length > 0;
-  const current = walking ? scenes[Math.min(scene, scenes.length - 1)] : null;
-
-  /**
-   * 지금 장면까지의 수순 — **물러진 수부터** 세는 한 줄이다.
-   *
-   * **뿌리가 물러진 수보다 앞으로 못 간다.** §25가 못박은 안전장치인데 여기에는 이유가
-   * 하나 더 있다: 그 앞은 곧 **지금 다시 둘 국면**이라, 거기서 최선수를 그리면 대국 중에
-   * 답을 알려주는 것이 된다(01-core.md §7).
-   */
-  const sceneLine = useMemo(() => {
-    if (!intervention) return [];
-    const line = intervention.refutation ?? [];
-    return [intervention.retractedUsi, ...line.slice(0, scene).map((m) => m.usi)];
-  }, [intervention, scene]);
+  const branch = useWhatIf(whatif, interventionEpisode, floor);
 
   /** 확정된 手数. 물러진 수는 여기 없으므로 이 자리가 곧 분기의 뿌리다. */
   const confirmedPly = snapshot?.moves?.length ?? 0;
 
   /**
-   * 넘겨 보는 장면마다 그 국면을 한 번 잰다. **넘겨 보기와 둬 보기가 같은 장치가 된다** —
-   * 그 한 번이 수순 줄의 cp를 채우고, 판 위에 최선수 화살표를 세우고, 그 자리에서
-   * 사람이 둘 수 있게 한다.
+   * 분기의 첫 자리를 연다. **물러진 수부터 깔고 시작한다.**
+   *
+   * **다시 부를 수 있어야 한다.** 첫 요청이 엔진 고장이나 `busy` 로 튕기면 노드가 영영
+   * 안 오고(의존성이 한 회차 내내 그대로다) 카드에는 목록도 무르기도 없이 문구만 남는다 —
+   * 그때 사람이 누를 자리가 이것이다.
    */
-  useEffect(() => {
-    if (!intervening || sceneLine.length === 0) return;
-    branch.at(confirmedPly, sceneLine);
-  }, [intervening, sceneLine, confirmedPly, branch.at]);
+  const openBranch = useCallback(() => {
+    if (!retractedUsi) return;
+    branch.at(confirmedPly, [retractedUsi]);
+  }, [retractedUsi, confirmedPly, branch.at]);
 
   /**
-   * 장면 하나의 값. 길이는 **물러진 수부터 센다**(1이 물러진 수 직후).
-   *
-   * **상태로 한 벌 더 들고 있지 않는다.** 지나온 자리는 훅의 캐시에 이미 있으므로 거기서
-   * 꺼내면 되고, 아직 안 가 본 장면은 빈칸으로 남는다 — 없는 값을 지어내지 않는다.
+   * `interventionEpisode` 가 의존성에 있어야 한다 — 같은 수로 또 걸리면 훅이 들고 있던
+   * 것을 버리는데, 그때 `retractedUsi` 는 글자 하나 안 바뀌어서 이 효과가 안 돈다.
    */
-  const evalAt = useCallback(
-    (length: number) => {
-      const at = branch.evalOf(length);
-      return at ? scoreJa(at.cp, at.mateIn) : '';
-    },
-    [branch.evalOf],
+  useEffect(() => {
+    if (!intervening) return;
+    openBranch();
+  }, [intervening, interventionEpisode, openBranch]);
+
+  // 회차가 바뀌면 둬 본 것도 버린다. 다른 국면의 수를 그 자리에 얹으면 거짓이 된다.
+  useEffect(() => setExplored(new Map()), [interventionEpisode]);
+
+  /**
+   * 방금 둬 본 수를 그 자리에 적어 둔다.
+   *
+   * **값의 관점을 여기서 뒤집는다.** 노드의 cp는 플레이어 관점인데 목록은 **그 수를 둔 쪽
+   * 관점**으로 서므로(후보와 같은 자여야 한 줄에 나란히 선다), 상대가 둔 수면 부호가 반대다.
+   */
+  useEffect(() => {
+    const node = branch.node;
+    const tried = node?.line.at(-1);
+    if (!node || !tried || node.line.length <= 1) return;
+
+    const key = node.line
+      .slice(0, -1)
+      .map((m) => m.usi)
+      .join(' ');
+    const flip = tried.by === 'engine';
+    const entry: ExploredMove = {
+      usi: tried.usi,
+      ja: tried.ja,
+      cp: node.evalCp === undefined ? undefined : flip ? -node.evalCp : node.evalCp,
+      mateIn: node.mateIn === undefined ? undefined : flip ? -node.mateIn : node.mateIn,
+    };
+
+    setExplored((prev) => {
+      const at = prev.get(key) ?? [];
+      if (at.some((e) => e.usi === entry.usi)) return prev; // 같은 수를 두 번 세지 않는다
+      const next = new Map(prev);
+      next.set(key, [...at, entry]);
+      return next;
+    });
+  }, [branch.node]);
+
+  /** 지금 자리에서 둬 본 수들. 후보 셋 밖의 것만 카드가 줄로 세운다. */
+  const exploredHere = useMemo(() => {
+    const key = (branch.node?.line ?? []).map((m) => m.usi).join(' ');
+    return explored.get(key) ?? [];
+  }, [branch.node, explored]);
+
+  /**
+   * 물러진 수 자체의 값. **분기의 첫 자리가 그것이다.**
+   *
+   * **상태로 한 벌 더 들고 있지 않는다.** 그 자리는 훅의 캐시에 이미 있으므로 꺼내면 되고,
+   * 아직 못 받았으면 빈칸으로 남는다 — 없는 값을 지어내지 않는다.
+   */
+  const retractedEval = useMemo(() => {
+    const at = branch.evalOf(1);
+    return at ? scoreJa(at.cp, at.mateIn) : '';
+  }, [branch.evalOf]);
+
+  /**
+   * 지금 고를 수 있는 수. 개입 중에는 **분기의 것**이고 아니면 대국의 것이다.
+   *
+   * 판이 한 국면만 그리므로 이 값도 하나여야 한다 — 둘을 섞으면 판에 없는 駒를 집게 된다.
+   */
+  const legalMoves = intervening ? (branch.node?.legalMoves ?? []) : (snapshot?.legalMoves ?? []);
+  const grouped = useMemo(() => groupByOrigin(legalMoves ?? []), [legalMoves]);
+
+  const destinations: Destination[] = origin ? (grouped.get(origin) ?? []) : [];
+  const lit = useMemo(() => new Set(destinations.map((d) => d.to)), [destinations]);
+  /** 지금 집을 수 있는 駒台의 駒. 어느 쪽 駒台인지는 `handTurn` 이 정한다. */
+  const dropOrigins = useMemo(() => new Set([...grouped.keys()].filter((o) => o.endsWith('*'))), [grouped]);
+
+  /**
+   * 개입 중에 그리는 판 — **분기의 국면**이다.
+   *
+   * 노드를 못 받은 동안은 물러진 수를 둔 직후의 국면(`retractedSfen`)이고, 그 둘은
+   * **같은 자리**라 값이 와도 판이 깜빡이지 않는다. 국면은 언제나 서버가 준 것을 그대로
+   * 그린다 — 화면이 수를 두게 하면 규칙 엔진을 한 벌 더 갖는 것이고, 그건 D2에서
+   * 「클라이언트는 규칙을 모른다」로 정해둔 자리다.
+   */
+  const branchBoard = useMemo(() => {
+    if (!intervening || !intervention) return null;
+    try {
+      return parseSfen(branch.node?.sfen ?? intervention.retractedSfen);
+    } catch {
+      return null; // 못 읽는 국면으로 판을 그리느니 대국의 판을 그대로 둔다
+    }
+  }, [intervening, intervention, branch.node]);
+
+  /** 분기의 뿌리에 서 있는가 — 물러진 수 하나만 둔 자리. */
+  const atRoot = (branch.node?.line.length ?? 1) <= 1;
+
+  /**
+   * 지금 판을 만든 수. 뿌리에서는 물러진 그 수이고, 들어갔으면 분기의 마지막 수다.
+   * **실제로 둔 수와 같은 채널로 그린다** — 판 위에서는 어느 쪽이든 「방금 벌어진 것」이고,
+   * 이 판이 가정이라는 것은 판 위가 아니라 카드가 말한다.
+   */
+  const branchPlayed = useMemo(() => {
+    if (!intervening || !intervention) return null;
+    return lastMoveOf(branch.node?.line.at(-1)?.usi ?? intervention.retractedUsi);
+  }, [intervening, intervention, branch.node]);
+
+  /**
+   * 판 위의 초록 화살표 — **수번 쪽의 최선수**다.
+   *
+   * 되짚기와 같은 채널이고(ReviewDetail), 여기서도 「다음에 벌어질 것」이다. **지금 대국의
+   * 최선수는 여기 절대 안 뜬다** — 이 화살표가 사는 국면은 되물러서 사라진 자리다.
+   */
+  const branchRay = useMemo(() => {
+    const node = branch.node;
+    const best = node?.candidates[0];
+    if (!intervening || !node || !best) return null;
+    return rayOf(best.usi, node.yourTurn ? 'human' : 'engine');
+  }, [intervening, branch.node]);
+
+  /**
+   * 王手. **뿌리에서만 「누가 걸고 있는가」까지 안다**(`retractedChecks`). 분기로 들어가면
+   * 서버가 玉의 칸 하나만 주므로 거기서는 그것만 그린다 — 없는 것을 지어내지 않는다.
+   */
+  const branchChecks = useMemo(
+    () => (intervening && atRoot ? checkRays(intervention?.retractedChecks) : []),
+    [intervening, atRoot, intervention?.retractedChecks],
   );
 
   /**
-   * 갇힘 힌트. **수순을 넘겨 보는 동안에는 안 띄운다** — 그때 판은 물러진 수 뒤의
-   * 국면이라, 지금 판에 대한 안내를 그 위에 얹으면 판이 거짓을 말한다.
+   * 갇힘 힌트. **개입 중에는 안 띄운다** — 그때 판은 물러진 수 뒤의 국면이라, 지금 판에
+   * 대한 안내를 그 위에 얹으면 판이 거짓을 말한다.
    */
-  const hint = walking ? undefined : snapshot?.hint;
+  const hint = intervening ? undefined : snapshot?.hint;
   const hintRay = useMemo(() => {
     if (!hint?.usi) return null;
     const r = rayOf(hint.usi, 'human');
     return r && { ...r, hint: true };
   }, [hint?.usi]);
 
-  /** 회상에서 지금 판에 놓이는 持ち駒. **초록 링은 이쪽만 켠다** — 상대 쪽 채널이다. */
-  const recallDrop = current?.dropping ?? null;
+  /**
+   * 초록 화살표가 駒台에서 출발하는가 — **최선수가 打일 때**다. 그때 그 駒가 駒台에서 함께
+   * 빛나 화살표의 짝이 된다.
+   *
+   * **수번 쪽의 駒台다.** 누가 둘 차례인가로 쪽을 정한다 — 화면의 위아래가 아니라
+   * 대국자로 가른다. 後手로 두면 「相手 = 白」이 성립하지 않는다.
+   */
+  const branchDrop = useMemo(() => {
+    const node = branch.node;
+    const best = node?.candidates[0];
+    if (!intervening || !node || !best) return null;
+    const move = parseUsi(best.usi);
+    if (move?.kind !== 'drop') return null;
+    return { side: node.yourTurn ? me : them, kind: move.piece };
+  }, [intervening, branch.node, me, them]);
 
   /**
-   * 駒台에서 출발하는 화살표의 **자리를 재야 하는 駒.** 회상(打)과 힌트가 같은 장치를
-   * 쓰고, 둘은 동시에 뜨지 않는다 — 힌트는 넘겨 보는 동안 꺼진다.
+   * 駒台에서 출발하는 화살표의 **자리를 재야 하는 駒.** 분기의 打과 힌트가 같은 장치를
+   * 쓰고, 둘은 동시에 뜨지 않는다 — 힌트는 개입 중에 꺼진다.
    *
    * **재는 것과 빛나는 것을 갈라 뒀다.** 한때 이 값을 `<Hand dropping>` 에도 그대로
    * 넘겼는데, 그러면 힌트가 `data-dropping` 을 켜서 駒台 駒에 **초록** 링이 붙었다 —
@@ -252,12 +324,12 @@ export function GameScreen() {
    *
    * **여기서 객체를 새로 만들면 안 된다.** 이 값이 아래 `useLayoutEffect` 의 의존성이라,
    * 매 렌더마다 identity가 바뀌면 효과가 다시 돌고 `setDropFrom` 이 또 새 객체를 넣어
-   * **무한 루프**가 된다(화면이 통째로 하얘진다). 회상 쪽은 `scenes` 의 useMemo 에서 와서
-   * 원래 안정적이었고, 힌트를 얹으면서 그 성질이 깨졌다 — 실제로 打 힌트에서 터졌다.
+   * **무한 루프**가 된다(화면이 통째로 하얘진다). 그래서 양쪽 다 useMemo 를 지난다 —
+   * 실제로 打 힌트에서 터졌다.
    */
   const dropping = useMemo(
-    () => recallDrop ?? (hint?.drop ? { side: me, kind: hint.drop } : null),
-    [recallDrop, hint?.drop, me],
+    () => branchDrop ?? (hint?.drop ? { side: me, kind: hint.drop } : null),
+    [branchDrop, hint?.drop, me],
   );
 
   // 화면 폭이 바뀌면 `--sq` 가 따라 변하므로 그때마다 다시 잰다.
@@ -304,13 +376,13 @@ export function GameScreen() {
   /**
    * 물러진 수가 지나간 두 칸.
    *
-   * 판은 이미 그 수를 둔 국면이므로 **유령 駒는 첫 장면에서 한 번만** 난다. 어느 駒였는지는
-   * 되돌아온 판(`snapshot.sfen`)의 출발 칸에서 읽는다 — 성한 수라면 도착 칸에는 이미
-   * 성한 駒가 서 있어서, 날아가는 것이 무엇이었는지가 거기엔 없다.
+   * 판은 이미 그 수를 둔 국면이므로 **유령 駒는 뿌리에서 한 번만** 난다 — 분기로 한 수라도
+   * 들어가면 그 판은 물러진 수의 국면이 아니다. 어느 駒였는지는 되돌아온 판
+   * (`snapshot.sfen`)의 출발 칸에서 읽는다 — 성한 수라면 도착 칸에는 이미 성한 駒가 서 있어서,
+   * 날아가는 것이 무엇이었는지가 거기엔 없다.
    */
   const replay = useMemo<Replay | null>(() => {
-    if (!intervening || !intervention || !live) return null;
-    if (walking && scene !== 0) return null;
+    if (!intervening || !intervention || !live || !atRoot) return null;
 
     const move = parseUsi(intervention.retractedUsi);
     if (!move) return null;
@@ -329,10 +401,10 @@ export function GameScreen() {
     } catch {
       return null;
     }
-  }, [intervening, intervention, live, walking, scene]);
+  }, [intervening, intervention, live, atRoot]);
 
-  // 화면에 그리는 판. 넘겨 보는 중이면 그 장면, 아니면 지금 대국의 판이다.
-  const board = current?.board ?? live;
+  // 화면에 그리는 판. 개입 중이면 분기의 국면, 아니면 지금 대국의 판이다.
+  const board = branchBoard ?? live;
 
   // 아직 아무것도 고르지 않았다. **여기서는 서버에 붙어 있지도 않다**(useGame).
   if (connection === 'idle') {
@@ -372,9 +444,27 @@ export function GameScreen() {
     );
   }
 
-  // 제지형 개입은 **시간을 멈춘다**(docs/03-frontend.md §2). 닫을 때까지 둘 수 없다.
-  // 판정 중(`judging`)에는 서버가 이미 `yourTurn`을 내려두므로 여기서 더 할 것이 없다.
-  const playable = snapshot.yourTurn && snapshot.status === 'playing' && !pending && !intervening;
+  /**
+   * 판을 만질 수 있는가. **개입 중에도 만질 수 있고, 그때 판의 뜻은 하나다** — 「그 수를
+   * 그대로 뒀다면」이다(03-frontend.md §2의 「시간을 멈춘다」는 대국의 시계 이야기다).
+   *
+   * 분기 쪽은 **어느 쪽 차례든** 둘 수 있다. 「상대라면 어떻게 둘까」를 직접 둬 보는 것이
+   * 이 자리의 내용이고, 되짚기가 이미 그렇게 돈다.
+   *
+   * 판정 중(`judging`)에는 서버가 이미 `yourTurn`을 내려두므로 대국 쪽은 여기서 더 할 것이 없다.
+   */
+  const playable = intervening
+    ? !!branch.node && branch.node.status === 'playing' && !branch.pending && !pending
+    : snapshot.yourTurn && snapshot.status === 'playing' && !pending;
+
+  /** 지금 집을 수 있는 駒台. 대국에서는 언제나 내 쪽이고, 분기에서는 **수번 쪽**이다. */
+  const handTurn: Side = intervening ? (branch.node?.yourTurn ? me : them) : me;
+
+  /** 한 수 둔다. **개입 중이면 대국이 아니라 분기로 간다** — 판의 뜻이 그것 하나다. */
+  const commitMove = (usi: string): void => {
+    if (intervening) branch.play(usi);
+    else play(usi);
+  };
 
   const result = resultText(snapshot);
 
@@ -403,7 +493,7 @@ export function GameScreen() {
       setPending({ origin, to });
       return;
     }
-    play(toUsiMove(origin, to, dest.promote));
+    commitMove(toUsiMove(origin, to, dest.promote));
     setOrigin(null);
   };
 
@@ -422,9 +512,15 @@ export function GameScreen() {
 
   const finishPromotion = (promote: boolean): void => {
     if (!pending) return;
-    play(toUsiMove(pending.origin, pending.to, promote));
+    commitMove(toUsiMove(pending.origin, pending.to, promote));
     setPending(null);
     setOrigin(null);
+  };
+
+  /** 목록에서 골라 두는 길. 판 위에서 두는 것과 **같은 한 수**다 — 고르는 자리만 다르다. */
+  const playFromList = (usi: string): void => {
+    setOrigin(null);
+    branch.play(usi);
   };
 
   return (
@@ -453,42 +549,46 @@ export function GameScreen() {
           side={them}
           label="相手"
           pieces={board.hands[them]}
-          selected={null}
-          playable={new Set()}
-          dropping={recallDrop?.side === them ? recallDrop.kind : null}
+          selected={handTurn === them && origin?.endsWith('*') ? origin : null}
+          // **분기에서는 상대의 駒台도 집는다.** 「상대라면 어떻게 둘까」를 직접 둬 보는 것이
+          // 이 자리의 내용이고, 그 수가 打일 수 있다. 대국 중에는 여기가 언제나 비어 있다.
+          playable={playable && handTurn === them ? dropOrigins : EMPTY_SET}
+          dropping={branchDrop?.side === them ? branchDrop.kind : null}
           droppingRef={(el) => {
             dropPieceRef.current = el;
           }}
           measure={dropping?.side === them ? dropping.kind : null}
-          onPick={() => {}}
+          onPick={playable && handTurn === them ? pick : noop}
         />
 
         <Board
           board={board}
           lit={lit}
           selected={origin && !origin.endsWith('*') ? origin : null}
-          lastMove={walking ? null : lastMove}
-          checked={walking ? null : checked}
-          played={current?.played ?? null}
+          lastMove={intervening ? null : lastMove}
+          // 뿌리에서는 王手의 **줄**을 긋고 있으므로(`branchChecks`) 玉의 칸까지 켜면 같은
+          // 사실이 두 채널로 나간다. 분기로 들어가면 서버가 그 칸만 준다.
+          checked={intervening ? (atRoot ? null : (branch.node?.checked ?? null)) : checked}
+          played={branchPlayed}
           replay={replay}
-          // 넘겨 보는 중에는 **다음에 올 수**다. 지금 판의 최선수는 여기 안 뜬다 —
-          // 대국 중에 짚어 주면 답을 알려주는 것이 된다(01-core.md §7).
-          ray={current?.ray ?? null}
-          // 대국 화면은 미끄러뜨리지 않는다. 판이 움직이는 자리가 회상의 유령 駒이고,
+          // 개입 중에는 **수번 쪽의 최선수**다. 그 국면은 되물러서 사라진 자리라 「지금
+          // 이렇게 두라」가 아니다 — 지금 판의 최선수는 여기 절대 안 뜬다(01-core.md §7).
+          ray={branchRay}
+          // 대국 화면은 미끄러뜨리지 않는다. 판이 움직이는 자리가 유령 駒이고,
           // 둘을 같이 켜면 같은 수를 두 방식으로 두 번 그린다.
           motion={null}
-          checks={current?.checks ?? []}
-          dimmed={walking}
+          checks={branchChecks}
+          dimmed={intervening}
           dropFrom={dropFrom}
           hintSquare={hint?.square ?? null}
           hintRay={hintRay}
-          // 회상 중에는 끈다. 그때 판은 물러진 수의 국면이라 지금 국면의 게이지가 거짓말이 된다.
-          mateHeat={walking ? 0 : (snapshot.mateHeat ?? 0)}
+          // 개입 중에는 끈다. 그때 판은 물러진 수 뒤의 국면이라 지금 국면의 게이지가 거짓말이 된다.
+          mateHeat={intervening ? 0 : (snapshot.mateHeat ?? 0)}
           me={me}
           flipped={flipped}
           boardRef={boardRef}
-          // **개입 중에는 잠긴다.** 카드를 닫으면 살아나고, 그때부터 판을 만지는 것은
-          // 언제나 「지금 두는 수」다 — 판의 뜻이 하나여야 한다.
+          // **개입 중에도 만질 수 있다.** 그때 판의 뜻은 하나다 — 「그 수를 그대로 뒀다면」.
+          // 카드를 닫으면 대국의 판으로 돌아온다(`playable`).
           interactive={playable}
           onSquare={onSquare}
         />
@@ -497,15 +597,15 @@ export function GameScreen() {
           side={me}
           label="あなた"
           pieces={board.hands[me]}
-          selected={origin?.endsWith('*') ? origin : null}
-          playable={new Set([...grouped.keys()].filter((o) => o.endsWith('*')))}
-          dropping={recallDrop?.side === me ? recallDrop.kind : null}
+          selected={handTurn === me && origin?.endsWith('*') ? origin : null}
+          playable={playable && handTurn === me ? dropOrigins : EMPTY_SET}
+          dropping={branchDrop?.side === me ? branchDrop.kind : null}
           droppingRef={(el) => {
             dropPieceRef.current = el;
           }}
           measure={dropping?.side === me ? dropping.kind : null}
           hintDrop={hint?.drop ?? null}
-          onPick={playable ? pick : () => {}}
+          onPick={playable && handTurn === me ? pick : noop}
         />
       </div>
 
@@ -520,12 +620,24 @@ export function GameScreen() {
             <Intervention
               key={interventionEpisode}
               intervention={intervention}
-              scene={walking ? Math.min(scene, scenes.length - 1) : null}
-              scenes={scenes.length}
-              highlight={current ? (current.next >= 0 ? current.next : scenes.length - 2) : -1}
-              evalAt={evalAt}
-              onStep={setScene}
-              onDismiss={() => setSeenEpisode(interventionEpisode)}
+              node={branch.node}
+              pending={branch.pending}
+              error={branch.error}
+              retractedEval={retractedEval}
+              explored={exploredHere}
+              playable={playable}
+              onPlay={playFromList}
+              onBack={branch.back}
+              onRoot={branch.toRoot}
+              onRetry={openBranch}
+              // **고르던 것을 전부 버리고 닫는다.** 그것들은 분기의 국면에 대해 고른 것이라,
+              // 남겨 두면 대국의 판 위에서 뜻이 달라진다 — 成りますか를 띄운 채로 닫으면
+              // 「成る」가 분기의 수를 **진짜 수로** 둬 버린다.
+              onDismiss={() => {
+                setOrigin(null);
+                setPending(null);
+                setSeenEpisode(interventionEpisode);
+              }}
             />
           )}
 

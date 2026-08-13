@@ -63,6 +63,57 @@ export function evalText(cp: number): string {
 }
 
 /**
+ * 사람이 판 위에서 직접 둬 본 수 하나.
+ *
+ * **후보 셋 밖의 수다.** 값은 그 수를 둔 뒤의 국면을 서버가 재서 온 것이고, 여기서는
+ * **그 수를 둔 쪽 관점**으로 뒤집혀 있다 — 후보(`WhatIfCandidate.evalCp`)와 같은 자를
+ * 써야 한 줄에 나란히 설 수 있다.
+ *
+ * **들고 있는 것은 화면뿐이다.** 새로고침하면 사라진다 — 대국의 사실이 아니라 그 사람이
+ * 지금 무엇을 궁금해했는가라서, 남길 자리가 없다. 잰 값 자체는 서버가 이미 `positions` 에
+ * 남겼다(internal/archive).
+ */
+export interface ExploredMove {
+  usi: string;
+  ja: string;
+  cp: number | undefined;
+  mateIn: number | undefined;
+}
+
+/**
+ * 한 줄에 세우기 위한 순서값. **詰み이 cp보다 언제나 바깥이다.**
+ *
+ * 詰み을 환산값(30000)으로 섞으면 「3手で詰み」과 「+2900」이 이웃으로 서고, 그 둘은
+ * 이웃이 아니다. 그리고 **빨리 죽는 쪽이 더 나쁘다** — 부호만 보고 자르면 그 순서가 뒤집힌다.
+ */
+export function rankOf(r: { cp: number | undefined; mateIn: number | undefined }): number {
+  if (r.mateIn) return r.mateIn > 0 ? 1e6 - r.mateIn : -1e6 - r.mateIn;
+  return r.cp ?? -1e9;
+}
+
+/**
+ * 색은 **평가치가 정한다.** 파랑이 좋고 빨강이 나쁘다.
+ *
+ * 판 위에서 색을 넷으로 제한한 것과 어긋나지 않는다 — 여기는 판이 아니라 목록이고, 판에서
+ * 파랑·빨강이 뜻하는 것(힌트·王手)과 자리가 겹치지 않는다. 대신 **판에 쓰는 그 토큰을
+ * 그대로 쓴다**: 새 색을 꺼내면 팔레트가 넷이 아니게 된다.
+ *
+ * `±800cp` 에서 양 끝에 닿는다. 그 폭이면 駒 하나 반쯤이고, 대부분의 국면이 그 안에서 갈린다.
+ *
+ * **넣는 값은 플레이어 관점이어야 한다.** 파랑·빨강은 이 앱 어디서나 「나에게 좋은가」이고,
+ * 「그 수를 둔 쪽에게 좋은가」를 그대로 칠하면 **상대의 결정타가 가장 파랗게** 나온다.
+ * 목록의 숫자는 둔 쪽 관점이라(후보끼리 견주는 자이므로) 부르는 쪽이 뒤집어서 넘긴다.
+ */
+const TONE_FULL = 800;
+
+export function evalTone(cp: number | undefined): string {
+  if (cp === undefined) return 'transparent';
+  const t = Math.max(-1, Math.min(1, cp / TONE_FULL));
+  const token = t >= 0 ? '--hint' : '--ray-check';
+  return `rgb(var(${token}) / ${(Math.abs(t) * 0.5).toFixed(2)})`;
+}
+
+/**
  * 그 자리의 값 한 줄.
  *
  * **詰み은 cp로 말하지 않는다.** 30000은 평가치가 아니라 환산값이고, 초심자에게

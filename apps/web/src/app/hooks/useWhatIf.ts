@@ -23,7 +23,7 @@ export interface WhatIf {
   play: (usi: string) => void;
   /** 한 수 물린다. */
   back: () => void;
-  /** 분기 전으로 돌아간다 — 갈라져 나온 그 手数다. */
+  /** 분기 전으로 돌아간다 — 갈라져 나온 그 手数, 정확히는 **바닥**이다. */
   toRoot: () => void;
   /**
    * 줄이 그 길이였을 때의 값 — **수마다의 cp**가 여기서 나온다.
@@ -32,7 +32,7 @@ export interface WhatIf {
    * 자리는 `null` 이다 — 없는 값을 지어내지 않는다.
    */
   evalOf: (lineLength: number) => { cp: number | undefined; mateIn: number | undefined } | null;
-  /** 분기에 들어가 있는가. 한 수라도 뒀으면 그렇다. */
+  /** 분기에 들어가 있는가. **바닥 위로** 한 수라도 뒀으면 그렇다. */
   branching: boolean;
   /** 들고 있는 것을 버린다. 화면을 닫을 때 쓴다. */
   clear: () => void;
@@ -55,17 +55,31 @@ function keyOf(req: WhatIfRequest): string {
   return `${req.ply}:${req.moves.join(' ')}`;
 }
 
+/** 바닥이 없는 분기. 되짚기가 이쪽이다 — 어느 手数에서든 아무것도 안 깔고 시작한다. */
+const NO_FLOOR: readonly string[] = [];
+
 /**
  * `send` 는 매 렌더마다 새로 만들어져도 된다 — ref로 잡으므로 아래 콜백이 흔들리지 않는다.
  * `resetKey` 가 바뀌면 들고 있던 것을 버린다(다른 판·다른 연결의 분기다).
+ *
+ * `floor` 는 **줄에서 뺄 수 없는 앞머리**다. 대국 중에는 물러진 수 하나가 여기 들어간다 —
+ * 그 앞은 곧 **지금 다시 둘 국면**이라, 거기까지 물러나면 이 장치가 최선수 셋으로 「지금
+ * 어떻게 두라」를 답하게 된다(01-core.md §7). 서버도 같은 벽을 갖고 있고(ws.go 의
+ * `branchRoot`), **두 벌인 것이 맞다** — 화면 쪽은 버튼을 안 그리는 일이고 서버 쪽은
+ * 요청을 거절하는 일이라, 하나가 뚫려도 다른 하나가 남는다.
  */
-export function useWhatIf(send: Send, resetKey: unknown): WhatIf {
+export function useWhatIf(send: Send, resetKey: unknown, floor: readonly string[] = NO_FLOOR): WhatIf {
   const [node, setNode] = useState<WhatIfNode | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const sendRef = useRef(send);
   sendRef.current = send;
+
+  // 아래 콜백들이 매 렌더마다 새로 만들어지지 않게 ref로 잡는다. `send` 와 같은 이유다 —
+  // 이 값이 의존성에 들어가면 배열 identity 하나로 「같은 자리를 두 번 묻는」 고리가 산다.
+  const floorRef = useRef(floor);
+  floorRef.current = floor;
 
   /**
    * 이미 받아 본 자리.
@@ -150,7 +164,8 @@ export function useWhatIf(send: Send, resetKey: unknown): WhatIf {
   );
 
   const back = useCallback(() => {
-    if (!node?.line.length) return;
+    // 바닥까지 왔으면 더 물릴 것이 없다. **`length` 만 보면 바닥을 지나쳐 물린다.**
+    if (!node || node.line.length <= floorRef.current.length) return;
     at(
       node.basePly,
       node.line.slice(0, -1).map((m) => m.usi),
@@ -159,7 +174,7 @@ export function useWhatIf(send: Send, resetKey: unknown): WhatIf {
 
   const toRoot = useCallback(() => {
     if (!node) return;
-    at(node.basePly);
+    at(node.basePly, [...floorRef.current]);
   }, [node, at]);
 
   /**
@@ -201,7 +216,7 @@ export function useWhatIf(send: Send, resetKey: unknown): WhatIf {
     back,
     toRoot,
     evalOf,
-    branching: (node?.line.length ?? 0) > 0,
+    branching: (node?.line.length ?? 0) > floor.length,
     clear,
   };
 }

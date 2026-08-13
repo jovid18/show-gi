@@ -39,6 +39,11 @@ const Deadline = 5 * time.Second
 // 중간에서 자른 일본어 문장은 뜻이 바뀌고, 초심자는 그것을 검증할 수단이 없다.
 const MaxRunes = 120
 
+// BranchMaxRunes 는 갈래가 붙은 `other` 문구의 상한이다. 수 셋과 응수 셋과 숫자 셋이
+// 들어가므로 한 문단으로는 안 끝난다 — 프롬프트가 160자를 말하고, 여기는 그 지시를
+// 안 듣는 경우를 막는 자리라 넉넉하게 둔다(MaxRunes 와 같은 비율이다).
+const BranchMaxRunes = 220
+
 // Result 는 문장 하나와 그것이 어디서 왔는지다.
 type Result struct {
 	// Body 는 화면에 그대로 나가는 일본어다. **절대 비지 않는다.**
@@ -156,7 +161,7 @@ func (l *Layered) Explain(ctx context.Context, f Facts) Result {
 		return Result{Body: Render(f), Tier: TierTemplate}
 	}
 
-	body, ok := clean(out.body)
+	body, ok := cleanFor(f, out.body)
 	if !ok {
 		log.Printf("explain: tier %d returned an unusable sentence (%d runes), falling back to the template", tier, len([]rune(out.body)))
 		return Result{Body: Render(f), Tier: TierTemplate}
@@ -182,7 +187,30 @@ func (l *Layered) timeout() time.Duration {
 	return Deadline
 }
 
-func clean(s string) (string, bool) { return Clean(s, MaxRunes) }
+// cleanFor 는 **그 사실의 모양에 맞는 검사**를 고른다. 갈래가 붙은 문구는 수를 적어야 하고
+// 줄이 여럿이라, 한 벌의 규칙으로는 정상 문장이 통째로 버려진다.
+func cleanFor(f Facts, s string) (string, bool) {
+	if !f.namesMoves() {
+		return Clean(s, MaxRunes)
+	}
+	return CleanBranches(s, f.Notations())
+}
+
+// Notations 는 이 사실이 문장에 **적어도 되는 棋譜 표기 전부**다. 여기 없는 표기가 문장에
+// 나타났다면 모델이 지어낸 것이다(CleanBranches).
+func (f Facts) Notations() []string {
+	if !f.namesMoves() {
+		return nil
+	}
+	out := make([]string, 0, 1+2*len(f.Branches))
+	if f.OpponentBest != "" {
+		out = append(out, f.OpponentBest)
+	}
+	for _, b := range f.Branches {
+		out = append(out, b.PlayerJa, b.ReplyJa)
+	}
+	return out
+}
 
 // Clean 은 **LLM 출력을 믿지 않는다.** 화면에 나갈 수 없는 문장을 코드가 거른다 — 엔진이
 // 돌려준 수를 룰 엔진으로 검증하는 것과 같은 자리다(06-status.md §6 ③).
@@ -192,6 +220,43 @@ func clean(s string) (string, bool) { return Clean(s, MaxRunes) }
 // 두 벌로 두지 않는다** — 한글 혼입과 지어낸 칸은 두 자리에서 같은 규칙이어야 하고, 갈라
 // 두면 한쪽을 고칠 때 다른 쪽이 조용히 낡는다.
 func Clean(s string, maxRunes int) (string, bool) {
+	body, ok := sanitize(s, maxRunes, nil)
+	if !ok {
+		return "", false
+	}
+	// 줄바꿈은 카드 레이아웃을 깨뜨린다. 한 줄로 만든다.
+	return strings.Join(strings.Fields(body), " "), true
+}
+
+// CleanBranches 는 **수를 적어도 되는 문구**의 검사다. `allowed` 는 우리가 프롬프트로 준
+// 棋譜 표기 전부이고, 그 밖의 표기가 하나라도 있으면 버린다 — 「指し手は書かない」를
+// 「우리가 준 수만」으로 좁힌 것이지 푼 것이 아니다.
+//
+// **줄을 살린다.** 갈래 셋이 한 줄로 이어지면 어느 수가 어느 결말에 걸리는지가 안 읽히고,
+// 이 문구는 그 대응이 전부다. 화면이 `pre-line` 으로 받는다.
+//
+// **막지 못하는 것이 하나 있다** — 준 수와 준 숫자를 **틀리게 짝지어** 쓰는 것. 토큰이
+// 목록 안에 있는지는 기계가 보지만 대응까지는 못 본다. 그래서 갈래 목록 자체는 화면이
+// 판 옆에서 따로 그리고(개입 카드의 후보 목록), 이 문장은 그 위의 이야기다.
+func CleanBranches(s string, allowed []string) (string, bool) {
+	body, ok := sanitize(s, BranchMaxRunes, allowed)
+	if !ok {
+		return "", false
+	}
+	lines := make([]string, 0, 8)
+	for _, l := range strings.Split(body, "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			lines = append(lines, l)
+		}
+	}
+	if len(lines) == 0 {
+		return "", false
+	}
+	return strings.Join(lines, "\n"), true
+}
+
+// sanitize 는 두 검사가 함께 지키는 규칙이다 — 길이·한글·지어낸 표기.
+func sanitize(s string, maxRunes int, allowed []string) (string, bool) {
 	// 모델이 앞뒤에 붙이는 인용부호와 공백을 떼어낸다. 이것만은 문장을 바꾸지 않는다.
 	body := strings.TrimSpace(s)
 	body = strings.Trim(body, "「」\"'")
@@ -211,14 +276,19 @@ func Clean(s string, maxRunes int) (string, bool) {
 			return "", false
 		}
 	}
-	// **칸이나 수가 적혀 있으면 버린다 — 지어낸 것이다.** `Facts` 에 칸도 수도 없으므로
-	// 문장에 나타났다면 모델이 만든 것이다. 프롬프트가 「指し手は書かない」로 부탁하지만
-	// **부탁은 규칙이 아니다** — 「최선수를 보여주지 않는다」(01-core.md §1)의 LLM판이다.
-	if invented.MatchString(body) {
+	// **칸이나 수가 적혀 있으면 버린다 — 지어낸 것이다.** 우리가 준 표기를 먼저 지우고
+	// 나머지를 본다: 목록이 비면 「수를 하나도 쓰지 마라」이고, 차 있으면 「이것만 써라」다.
+	// 프롬프트가 부탁하지만 **부탁은 규칙이 아니다** — 「최선수를 보여주지 않는다」
+	// (01-core.md §1)의 LLM판이다.
+	probe := body
+	for _, m := range allowed {
+		if m != "" {
+			probe = strings.ReplaceAll(probe, m, "")
+		}
+	}
+	if invented.MatchString(probe) {
 		return "", false
 	}
-	// 줄바꿈은 카드 레이아웃을 깨뜨린다. 한 줄로 만든다.
-	body = strings.Join(strings.Fields(body), " ")
 	return body, true
 }
 

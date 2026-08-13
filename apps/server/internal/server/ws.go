@@ -238,15 +238,26 @@ func resumeMoves(rec store.GameRecord) ([]string, error) {
 type confirmed struct {
 	mu    sync.Mutex
 	moves []string
+	// retracted 는 **지금 되물러져 있는 수**의 USI다. 개입이 없으면 빈 값.
+	//
+	// **가정 수순이 설 수 있는 자리를 이 값이 정한다.** 대국 중에 물어볼 수 있는 것은
+	// 「물러진 그 수를 그대로 뒀다면」뿐이라, 비어 있는 동안은 물어볼 것이 없다 — 열어
+	// 두면 그 표면이 **살아 있는 국면의 최선수**를 답해 주고, 그건 안 알려주기로 한
+	// 것이다(01-core.md §7).
+	retracted string
 }
 
-func (c *confirmed) set(moves []game.Move) {
-	next := make([]string, 0, len(moves))
-	for _, m := range moves {
+func (c *confirmed) set(snap game.Snapshot) {
+	next := make([]string, 0, len(snap.Moves))
+	for _, m := range snap.Moves {
 		next = append(next, m.USI)
 	}
+	retracted := ""
+	if snap.Intervention != nil {
+		retracted = snap.Intervention.RetractedUSI
+	}
 	c.mu.Lock()
-	c.moves = next
+	c.moves, c.retracted = next, retracted
 	c.mu.Unlock()
 }
 
@@ -254,6 +265,14 @@ func (c *confirmed) get() []string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return slices.Clone(c.moves)
+}
+
+// branchRoot 는 지금 분기가 설 수 있는 자리다 — 확정된 手数와, 그 위에 **반드시 먼저 와야
+// 하는 한 수**. 두 번째 값이 false 면 지금은 분기를 열 수 없다.
+func (c *confirmed) branchRoot() (ply int, retracted string, ok bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return len(c.moves), c.retracted, c.retracted != ""
 }
 
 func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -364,7 +383,7 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				if !ok {
 					return
 				}
-				played.set(snap.Moves)
+				played.set(snap)
 				emit(ctx, out, serverMsg{Type: "snapshot", Snapshot: &snap})
 
 				// **스냅샷을 먼저 보내고 그 뒤에 총평을 만든다.** 결과 문구는 그 자리에서
@@ -639,6 +658,15 @@ func (h *gameHandler) whatif(
 	}
 	if msg.Ply < 0 || len(msg.Moves) > whatifMaxLine {
 		emit(ctx, out, whatifError("bad_line"))
+		return
+	}
+
+	// **분기는 물러진 수 위에서만 자란다.** 뿌리가 확정된 手数여야 하고, 첫 수가 방금
+	// 물러진 그 수여야 한다 — 둘 중 하나라도 어긋나면 그 요청은 「지금 어떻게 둬야 하나」를
+	// 묻는 것이 되고, 이 표면은 그 답을 최선수 셋으로 갖고 있다(confirmed.retracted).
+	ply, retracted, open := played.branchRoot()
+	if !open || msg.Ply != ply || len(msg.Moves) == 0 || msg.Moves[0] != retracted {
+		emit(ctx, out, whatifError("locked"))
 		return
 	}
 

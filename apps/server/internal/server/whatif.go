@@ -254,6 +254,9 @@ var whatifMessages = map[string]string{
 	"bad_line":           "この手順はこれ以上進められません。",
 	"engine_unavailable": "エンジンが応答しませんでした。",
 	"busy":               "まだ読んでいます。",
+	// **대국 중에만 나온다.** 되짚기에는 이 벽이 없다 — 끝난 판이라 무엇을 둬 봐도
+	// 아무도 안 잃는다(ws.go 의 branchRoot).
+	"locked": "対局中は、戻された手のあとだけ試せます。",
 }
 
 // whatifReason 은 에러를 기계용 코드로 옮긴다. 문구는 위 표가 붙인다.

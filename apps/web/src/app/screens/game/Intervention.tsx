@@ -1,107 +1,270 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
+import { evalTone, rankOf, scoreJa, type ExploredMove } from '@/libs/whatif/branch';
 import type { Intervention as InterventionData } from '@/protocol/game';
+import type { WhatIfNode } from '@/protocol/whatif';
 
 interface InterventionProps {
   intervention: InterventionData;
-  /** 지금 보고 있는 회상 장면. 0이 물러진 수 자체이고, null이면 넘겨 볼 것이 없다. */
-  scene: number | null;
-  /** 장면이 모두 몇 개인가. */
-  scenes: number;
-  /** 수순에서 지금 짚고 있는 수. 판의 화살표가 가리키는 것과 같은 자리다. */
-  highlight: number;
   /**
-   * 장면마다의 평가치. 길이는 **물러진 수부터 센다**(1이 물러진 수 직후).
-   *
-   * **안 가 본 장면은 빈칸이다.** 값은 그 국면을 실제로 재야 나오고, 재는 것은 사람이
-   * 그 장면을 볼 때다 — 없는 것을 지어내지 않는다.
+   * 분기의 지금 자리. **`null` 이면 아직 못 받았다** — 그동안에도 카드는 그대로 서 있고
+   * 목록 자리만 비어 있다(카드가 통째로 바뀌지 않는다는 규칙이 이 컴포넌트의 전부다).
    */
-  evalAt: (sceneLength: number) => string;
-  onStep: (scene: number) => void;
+  node: WhatIfNode | null;
+  pending: boolean;
+  error: string | null;
+  /** 물러진 수 자체의 값. 분기의 첫 자리에서 나온다. */
+  retractedEval: string;
+  /**
+   * 판을 만질 수 있는가. **여기서 다시 계산하지 않는다** — 대국 화면이 이미 정한 값이고,
+   * 두 벌이면 어긋난다(成りますか가 떠 있는 동안이 실제로 그 자리였다).
+   */
+  playable: boolean;
+  /** 이 자리에서 사람이 직접 둬 본 수들. 후보 셋 밖의 것만 들어 있다. */
+  explored: readonly ExploredMove[];
+  onPlay: (usi: string) => void;
+  onBack: () => void;
+  onRoot: () => void;
+  /** 첫 요청이 튕겼을 때 다시 묻는다. 그 자리가 없으면 카드가 영영 비어 있다. */
+  onRetry: () => void;
   onDismiss: () => void;
+}
+
+/** 목록의 한 줄. 엔진이 고른 후보와 사람이 둬 본 수가 **같은 모양으로** 선다. */
+interface Row {
+  usi: string;
+  ja: string;
+  /** **그 수를 둔 쪽 관점** cp. 후보끼리 견주는 자라 이쪽이어야 위가 「그 쪽에게 좋은 수」다. */
+  cp: number | undefined;
+  /** 같은 관점의 詰み 手数. 양수면 **그 수를 둔 쪽**이 詰ます. */
+  mateIn: number | undefined;
+  /** 엔진이 1위로 꼽은 수인가. 판 위의 초록 화살표가 가리키는 것과 같다. */
+  best: boolean;
+}
+
+/**
+ * 詰み을 말할 때 **주어를 못 박는다.**
+ *
+ * 목록의 값은 「그 수를 둔 쪽 관점」이라 `+`/`−` 만으로는 누가 詰ますのか가 안 정해진다.
+ * 뿌리에서는 수번이 언제나 상대이므로, 그대로 「N手で詰み」이라고 쓰면 **상대의 詰み을
+ * 내 詰み으로** 말하게 된다 — `lets_mate` 카테고리 전체가 그 자리다.
+ *
+ * 手数는 평가치가 아니라 세는 값이라 관점을 바꿔도 자가 안 갈린다. 그래서 여기만 **플레이어
+ * 관점 말투**로 옮긴다(`scoreJa` 와 같은 어휘). cp는 그대로 둔 쪽 관점이다.
+ */
+function rowScoreJa(row: Row, byOpponent: boolean): string {
+  if (!row.mateIn) return scoreJa(row.cp, undefined);
+  return scoreJa(undefined, byOpponent ? -row.mateIn : row.mateIn);
+}
+
+/**
+ * 지금 분기가 어떤 상태인지 한 줄로. **판정을 여기서 하지 않는다** — 상태도 차례도 서버가
+ * 정한 것을 말로 옮길 뿐이다.
+ *
+ * 되짚기의 `branchStatusJa` 와 **시제가 다르다.** 저쪽은 끝난 판을 보는 자리라 「負けでした」
+ * 이고, 여기는 아직 안 벌어진 일이라 「負けになります」다.
+ */
+function noteJa(node: WhatIfNode | null, pending: boolean, failed: boolean): string {
+  // **못 받았으면 「조사 중」이라고 말하지 않는다.** 기다리면 온다는 거짓말이 되고,
+  // 그 옆에 이미 실패 문구가 서 있다.
+  if (failed) return 'もう一度読み込むと、この手のあとを試せます。';
+  if (!node) return pending ? '読んでいます…' : 'この手のあとを調べています。';
+  switch (node.status) {
+    case 'checkmate':
+      return node.yourTurn ? '詰みです。ここで負けになります。' : '詰みです。ここで勝ちになります。';
+    case 'stalemate':
+      // 쇼기에서 手詰まり는 무승부가 아니라 패배다.
+      return node.yourTurn ? '手詰まりです。ここで負けになります。' : '手詰まりです。ここで勝ちになります。';
+    default:
+      // **어느 쪽이든 사람이 둔다.** 상대 차례면 「상대라면 어떻게 둘까」를 직접 둬 보는 것이
+      // 이 자리의 내용이고, 그때 초록 화살표가 엔진의 답을 짚고 있다.
+      return node.yourTurn ? 'あなたの番。盤の上でも指せます。' : '相手の番。相手の手も指せます。';
+  }
 }
 
 /**
  * 제지형 개입의 문구 쪽.
  *
- * **최선수를 말하지 않는다**(docs/01-core.md §1). 여기 나오는 것은 「무엇을 물렀는가」와
- * 「왜 나쁜가」까지이고, 어느 수를 뒀어야 했는지는 없다 — 짚어주는 순간 플레이어가
- * 생각을 멈춘다. 그래서 이 컴포넌트는 서버가 준 것만 그린다. 문장을 짓지 않는다.
+ * **최선수를 말하지 않는다**(docs/01-core.md §1). 여기 나오는 수는 전부 **물러진 수 뒤**의
+ * 것이고, 그 국면은 되물러서 이미 사라졌다 — 「지금 이렇게 두라」가 되는 수는 한 줄도 없다.
+ * 바닥을 지키는 쪽은 `useWhatIf` 의 `floor` 와 서버의 `branchRoot` 둘이다.
  *
- * 판 위의 연출(빛·유령 駒·광선·기운 시점)은 `Board`와 `index.css`에 있다. 여기는 그 위에
- * 얹히는 마지막 한 겹이라 판을 가리지 않는 자리에 뜬다.
+ * **이 카드는 절대 다른 것으로 바뀌지 않는다.** 한때 판을 만지면 분기 패널이 이 자리를
+ * 빼앗아 읽던 설명이 사라졌고, 그래서 대국 중에 둬 보는 길을 통째로 닫았던 적이 있다.
+ * 설명과 목록과 무르기를 **한 카드 안에** 두면 그 실패가 안 난다 — 판만 분기가 된다.
+ *
+ * 판 위의 연출(빛·유령 駒·광선·기운 시점)은 `Board`와 `index.css`에 있다.
  */
-export function Intervention({ intervention, scene, scenes, highlight, evalAt, onStep, onDismiss }: InterventionProps) {
+export function Intervention({
+  intervention,
+  node,
+  pending,
+  error,
+  retractedEval,
+  playable,
+  explored,
+  onPlay,
+  onBack,
+  onRoot,
+  onRetry,
+  onDismiss,
+}: InterventionProps) {
   const dismissRef = useRef<HTMLButtonElement>(null);
 
-  // 입력이 잠겨 있는 동안이라 초점이 갈 곳은 여기 하나뿐이다. 키보드·스크린리더
-  // 사용자가 판을 더듬어 「指し直す」를 찾게 두지 않는다.
+  // 입력이 판 쪽으로 열려 있어도 초점의 첫 자리는 여기다. 키보드·스크린리더 사용자가
+  // 판을 더듬어 「指し直す」를 찾게 두지 않는다.
   useEffect(() => {
     dismissRef.current?.focus();
   }, []);
 
-  // 서버가 못 구했으면 아예 오지 않는다. 그때는 이 절이 통째로 빠지고 나머지는 그대로다 —
-  // 반박 수순은 개입의 조건이 아니라 개입에 얹히는 재료다.
-  const refutation = intervention.refutation ?? [];
-  const walking = scene !== null;
+  /**
+   * 「상대는 이렇게 詰ませてくる」. **증명된 詰み 수순일 때만 온다**(서버의 analyst.go).
+   *
+   * 자를 자리가 없는 유일한 수순이라 남았다 — PV는 어디서 끊을지가 국면마다 달라서,
+   * 그 자리는 아래 목록이 대신한다.
+   */
+  const mateLine = intervention.refutation ?? [];
+
+  /** 물러진 수 **뒤**의 분기. 바닥(물러진 수 자체)은 이미 위에서 이름으로 불렀다. */
+  const line = node?.line.slice(1) ?? [];
+  const branching = line.length > 0;
+
+  const rows = useMemo<Row[]>(() => {
+    const seen = new Set<string>();
+    const out: Row[] = [];
+    for (const c of node?.candidates ?? []) {
+      seen.add(c.usi);
+      out.push({ usi: c.usi, ja: c.ja || c.usi, cp: c.evalCp, mateIn: c.mateIn, best: out.length === 0 });
+    }
+    // 사람이 둬 본 수는 **표식 없이** 같은 줄로 선다. 「탐색한 수」라고 적으면 목록이
+    // 두 종류가 되는데, 읽는 사람에게 그 둘은 같은 물음의 답이다 — 이 수를 두면 얼마인가.
+    for (const e of explored) {
+      if (!seen.has(e.usi)) out.push({ ...e, ja: e.ja || e.usi, best: false });
+    }
+    return out.toSorted((a, b) => rankOf(b) - rankOf(a));
+  }, [node, explored]);
 
   // 낙폭은 서버가 준 0~1이다. 여기서 다시 계산하지 않고 보이는 단위로만 바꾼다.
   // 막대가 넘치지 않게만 자른다 — 숫자를 손보기 시작하면 화면과 판정이 갈라진다.
   const drop = Math.min(100, Math.max(0, Math.round(intervention.deltaWin * 100)));
 
-  const step = (delta: number): void => {
-    if (scene === null) return;
-    onStep(Math.min(scenes - 1, Math.max(0, scene + delta)));
+  /** 이 자리의 수를 두는 것이 상대인가. **값의 주인이 누구인지가 여기서 갈린다.** */
+  const byOpponent = !!node && !node.yourTurn;
+  /** 한 자리도 못 받은 채 튕겼다. 이 상태는 저절로 안 풀린다 — 사람이 다시 눌러야 한다. */
+  const stuck = !node && !pending && error !== null;
+
+  /** 색에 넘길 값. 詰み은 cp로 환산하지 않는다 — 그 줄은 색 없이 말로만 선다. */
+  const playerCp = (r: Row): number | undefined => {
+    if (r.mateIn || r.cp === undefined) return undefined;
+    return byOpponent ? -r.cp : r.cp;
   };
 
   return (
-    <div
-      className="intervention"
-      role="alert"
-      // 판을 보면서 넘기는 화면이라 손이 버튼에 가 있을 이유가 없다. 초점이 이 안에
-      // 있는 동안 좌우 키가 그대로 前へ·次へ다.
-      onKeyDown={(e) => {
-        if (e.key === 'ArrowLeft') step(-1);
-        else if (e.key === 'ArrowRight') step(1);
-        else return;
-        e.preventDefault();
-      }}
-    >
+    <div className="intervention" role="alert">
       <p className="intervention-label">待った</p>
 
       <p className="intervention-move">
         <span className="intervention-move-ja">{intervention.retractedJa}</span>
         <span className="intervention-move-tail">を戻しました</span>
         {/* **그 수를 두면 얼마가 되나.** 낙폭(%)은 판정의 값이고 이건 국면의 값이다 —
-            아래 수순의 cp와 같은 자를 쓰므로 「거기서 더 나빠지는가」가 견줘진다. */}
-        {evalAt(1) && <span className="intervention-move-eval">{evalAt(1)}</span>}
+            아래 목록의 cp와 같은 자를 쓰므로 「거기서 더 나빠지는가」가 견줘진다. */}
+        {retractedEval && <span className="intervention-move-eval">{retractedEval}</span>}
       </p>
 
       <p className="intervention-message">{intervention.message}</p>
 
-      {refutation.length > 0 && (
-        // 카테고리가 이유를 못 대는 국면이 3분의 2다(docs/06-status.md §17). 그때 위의
-        // 문구는 「형세를 손해본다」까지밖에 못 말하고, **여기가 그 빈자리를 메운다.**
+      {mateLine.length > 0 && (
         <div className="refutation">
-          <p className="refutation-label">相手はこう咎めてきます</p>
-          {/* **한 줄로 붙여 쓰지 않는다.** 수마다 평가치가 붙으면서 줄마다 한 수가 되고,
-              그러면 「어디서 무너지는가」가 숫자로 보인다 — 棋譜와 같은 모양이다. */}
+          <p className="refutation-label">このあと詰まされます</p>
           <ol className="refutation-line">
-            {refutation.map((move, i) => (
-              // 같은 수가 수순에 두 번 나올 수 있다(千日手·왕복). 자리까지 키에 넣는다.
-              <li
-                key={`${i}-${move.usi}`}
-                data-by={move.by}
-                data-current={highlight === i || undefined}
-                aria-current={highlight === i || undefined}
-              >
+            {mateLine.map((move, i) => (
+              // 같은 수가 수순에 두 번 나올 수 있다(왕복). 자리까지 키에 넣는다.
+              <li key={`${i}-${move.usi}`} data-by={move.by}>
                 <span className="refutation-move">{move.ja}</span>
-                <span className="refutation-eval">{evalAt(i + 2)}</span>
               </li>
             ))}
           </ol>
         </div>
       )}
+
+      <div className="intervention-branch">
+        <p className="intervention-branch-head">
+          <span className="intervention-branch-title">そのまま指していたら</span>
+          {node && <span className="intervention-branch-turn">{node.yourTurn ? 'あなたの番' : '相手の番'}</span>}
+        </p>
+
+        {/* 지금까지 둬 본 줄. **뿌리에서는 아예 안 그린다** — 빈 자리를 만들어 두면
+            목록이 그만큼 아래로 밀려 매번 높이가 흔들린다. */}
+        {branching && (
+          <ol className="intervention-branch-line">
+            {line.map((move) => (
+              <li key={move.ply} data-by={move.by}>
+                {move.ja || move.usi}
+              </li>
+            ))}
+          </ol>
+        )}
+
+        {/* **자리는 지키고 내용만 기다린다.** 목록을 통째로 다른 것으로 바꾸면 값이 올 때마다
+            카드가 무너졌다 다시 선다(되짚기에서 겪은 그 문제다 — WhatIfPanel). */}
+        <ul className="intervention-options">
+          {rows.map((r) => (
+            <li key={r.usi}>
+              <button
+                type="button"
+                className="intervention-options-row"
+                data-best={r.best || undefined}
+                // 색이 값이라, 값이 없는 줄은 색도 없다. 0으로 채우면 호각으로 읽힌다.
+                // **플레이어 관점으로 뒤집어 넘긴다** — 파랑·빨강은 「나에게 좋은가」다(evalTone).
+                style={
+                  {
+                    '--tone': evalTone(playerCp(r)),
+                  } as React.CSSProperties
+                }
+                disabled={!playable}
+                onClick={() => onPlay(r.usi)}
+              >
+                <span className="intervention-options-move">{r.ja}</span>
+                <span className="intervention-options-cp">{rowScoreJa(r, byOpponent)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        <p className="intervention-branch-note" data-tone={node?.status === 'playing' ? 'turn' : 'result'}>
+          {noteJa(node, pending, stuck)}
+        </p>
+
+        {error && (
+          <p className="rejection" role="alert">
+            {error}
+          </p>
+        )}
+
+        {/* **여기가 막히면 카드에 남는 것이 문구뿐이다.** 노드가 없으면 목록도 무르기도
+            안 서고, 요청은 회차가 끝날 때까지 저절로 다시 나가지 않는다. */}
+        {stuck && (
+          <div className="intervention-branch-actions">
+            <button type="button" className="btn btn--step" disabled={pending} onClick={onRetry}>
+              もう一度読む
+            </button>
+          </div>
+        )}
+
+        {/* 되돌아가는 길이 둘이다. **한 수씩 물리는 것과 분기를 접는 것은 다른 일이다** —
+            몇 수를 들어간 뒤에 처음으로 돌아가려고 「一手戻る」를 다섯 번 누르게 두지 않는다.
+            **바닥은 물러진 수다**: 그 앞으로는 어느 버튼으로도 못 간다(useWhatIf 의 floor). */}
+        {branching && (
+          <div className="intervention-branch-actions">
+            <button type="button" className="btn btn--step" disabled={pending} onClick={onBack}>
+              一手戻る
+            </button>
+            <button type="button" className="btn btn--step" disabled={pending} onClick={onRoot}>
+              最初へ
+            </button>
+          </div>
+        )}
+      </div>
 
       <p className="intervention-delta">
         <span className="intervention-delta-text">勝率 −{drop}%</span>
@@ -111,30 +274,6 @@ export function Intervention({ intervention, scene, scenes, highlight, evalAt, o
       </p>
 
       <div className="intervention-actions">
-        {walking && (
-          // 앞뒤로 넘기며 판이 어떻게 되는지 본다. 넘기지 않고 「指し直す」만 눌러도
-          // 되는 것이 요점이다 — 넘겨 보는 것은 궁금한 사람의 몫이지 통과 의례가 아니다.
-          <>
-            <button
-              type="button"
-              className="btn btn--step"
-              disabled={scene === 0}
-              aria-label="前の手へ"
-              onClick={() => step(-1)}
-            >
-              前へ
-            </button>
-            <button
-              type="button"
-              className="btn btn--step"
-              disabled={scene >= scenes - 1}
-              aria-label="次の手へ"
-              onClick={() => step(1)}
-            >
-              次へ
-            </button>
-          </>
-        )}
         <button ref={dismissRef} type="button" className="btn btn--primary" onClick={onDismiss}>
           指し直す
         </button>

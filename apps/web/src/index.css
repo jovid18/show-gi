@@ -969,10 +969,123 @@ body {
   color: var(--muted);
 }
 
+/* **줄을 살린다.** `other` 의 문구는 갈래 셋이 한 줄씩 서고, 이어 붙이면 어느 수가 어느
+   결말에 걸리는지가 안 읽힌다 — 그 대응이 그 문구의 전부다(서버의 CleanBranches). */
 .intervention-message {
   margin: 0;
   font-size: 0.875rem;
   line-height: 1.7;
+  white-space: pre-line;
+}
+
+/* ── 개입 중의 분기 ───────────────────────────────────── */
+
+/* 「그 수를 그대로 뒀다면」. **판이 곧 이 절의 내용이고**, 여기는 그 판에서 무엇을 둘 수
+   있는지를 말한다 — 되짚기의 `MoveOptions` 와 같은 물음이라 같은 모양으로 선다.
+
+   **카드 밖으로 안 나간다.** 한때 이것이 옆의 독립 패널이라 판을 만지는 순간 개입 문구가
+   있던 자리를 빼앗았고, 그래서 대국 중에 둬 보는 길을 통째로 닫았던 적이 있다. */
+.intervention-branch {
+  width: 100%;
+  display: grid;
+  gap: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgb(var(--light) / 0.12);
+}
+
+.intervention-branch-head {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.intervention-branch-turn {
+  color: rgb(var(--light) / 0.7);
+}
+
+/* 지금까지 둬 본 줄. 棋譜와 같은 明朝로, 옆으로 흐른다 — 여기는 「어디까지 왔나」이고
+   견줄 값이 없다(값은 아래 목록이 쓴다) */
+.intervention-branch-line {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.5rem;
+  font-family: var(--font-koma);
+  font-size: 0.9375rem;
+}
+
+/* 내 수는 물러난다. 이 줄에서 읽어야 하는 것은 **상대가 무엇을 하는가**다 */
+.intervention-branch-line li[data-by='human'] {
+  color: var(--muted);
+}
+
+.intervention-options {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+}
+
+/* **되짚기의 줄과 같은 문법이다** — 값이 색으로 서고, 왼쪽에서 옅어져 글자를 안 가린다.
+   격자가 하나 적은 것은 여기에 「누가 뒀는지」가 없어서다: 아직 아무도 안 뒀다. */
+.intervention-options-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.3rem 0.4rem;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(to right, var(--tone), transparent 70%);
+  font: inherit;
+  color: var(--fg);
+  text-align: start;
+  cursor: pointer;
+}
+
+.intervention-options-row:hover:not(:disabled),
+.intervention-options-row:focus-visible {
+  border-bottom-color: var(--line-2);
+}
+
+.intervention-options-row:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* 엔진이 1위로 꼽은 수. **판 위의 초록 화살표와 같은 색**이라 목록과 판이 같은 것을
+   가리키는 것이 읽힌다 — 표식을 글자로 또 적지 않는다 */
+.intervention-options-row[data-best] .intervention-options-move {
+  color: rgb(var(--ray) / 0.95);
+}
+
+.intervention-options-move {
+  font-family: var(--font-koma);
+  font-size: 0.9375rem;
+}
+
+.intervention-options-cp {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.intervention-branch-note {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.intervention-branch-actions {
+  display: flex;
+  gap: 0.4rem;
 }
 
 /* 반박 수순. 카테고리가 이유를 못 대는 국면에서 위 문구가 남기는 빈자리를 메운다.
@@ -2357,9 +2470,13 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* **개입 문구가 여기로도 나온다.** `other` 의 갈래 문구는 줄이 여럿이고(서버의
+   `CleanBranches`) 이 화면이 저장된 그 문자열을 그대로 그린다 — 줄을 안 살리면 세 갈래가
+   한 문장으로 이어져 어느 수가 어느 결말에 걸리는지가 없어진다. 개입 카드와 같은 규칙이다. */
 .review-iv-note {
   padding: 0.5rem 0.3rem 0.7rem;
   border-bottom: 1px solid var(--line);
+  white-space: pre-line;
 }
 
 .review-iv-note p {
