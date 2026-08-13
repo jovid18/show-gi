@@ -20,9 +20,15 @@ const ReviewScreen = lazy(async () => ({ default: (await import('@/screens/revie
  */
 const QuizScreen = lazy(async () => ({ default: (await import('@/screens/quiz/QuizScreen')).QuizScreen }));
 
+/** 마이페이지도 나중에 받는다. 첫 화면은 대국이고 여기는 판 하나도 안 그린다. */
+const ProfileScreen = lazy(async () => ({
+  default: (await import('@/screens/me/ProfileScreen')).ProfileScreen,
+}));
+
 const TABS: { route: Route; label: string }[] = [
   { route: { name: 'game' }, label: '対局' },
   { route: { name: 'reviews' }, label: '振り返り' },
+  { route: { name: 'me' }, label: 'マイページ' },
 ];
 
 /**
@@ -32,6 +38,7 @@ const TABS: { route: Route; label: string }[] = [
 export function App() {
   const route = useRoute();
   const onGame = route.name === 'game';
+  const onMe = route.name === 'me';
   const { me, signOut } = useViewer();
 
   return (
@@ -55,7 +62,9 @@ export function App() {
             {TABS.map((tab) => {
               // **버튼이 아니라 링크다.** 주소가 화면을 정하므로 가운데 클릭·링크 복사·
               // 새 탭이 그냥 동작해야 하고, 그건 `<a href>` 만이 준다.
-              const active = tab.route.name === 'game' ? onGame : !onGame;
+              // 세 갈래라 「대국이냐 아니냐」로는 못 가른다 — `reviews` 탭이 켜지는
+              // 조건이 되짚기 셋(목록·상세·퀴즈)이고 마이페이지는 거기서 빠진다.
+              const active = tab.route.name === 'game' ? onGame : tab.route.name === 'me' ? onMe : !onGame && !onMe;
               return (
                 <a
                   key={tab.route.name}
@@ -95,7 +104,9 @@ export function App() {
         {/* 리뷰는 열 때마다 새로 부른다. 방금 끝난 판이 목록 맨 위에 있어야 한다. */}
         {!onGame && (
           <Suspense fallback={<p className="review-status">読み込み中…</p>}>
-            {route.name === 'quiz' ? (
+            {onMe ? (
+              <ProfileScreen active />
+            ) : route.name === 'quiz' ? (
               // **판마다 새로 세운다.** `id` 만 갈아 끼우면 이 컴포넌트가 그대로 살아서
               // 앞 판의 답과 기다린 횟수를 물려받고, 한 틱 동안 **남의 문항**을 그린다.
               <QuizScreen key={route.id} id={route.id} />

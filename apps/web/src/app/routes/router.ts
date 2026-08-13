@@ -11,7 +11,16 @@
 
 import { useEffect, useState } from 'react';
 
-import { QUIZ_SEGMENT, REVIEWS_SEGMENT, ROUTE_GAME, ROUTE_REVIEWS, routeQuiz, routeReview } from './const';
+import {
+  ME_SEGMENT,
+  QUIZ_SEGMENT,
+  REVIEWS_SEGMENT,
+  ROUTE_GAME,
+  ROUTE_ME,
+  ROUTE_REVIEWS,
+  routeQuiz,
+  routeReview,
+} from './const';
 
 /**
  * 지금 어느 화면인가.
@@ -23,11 +32,13 @@ export type Route =
   | { name: 'game' }
   | { name: 'reviews' }
   | { name: 'review'; id: number }
-  | { name: 'quiz'; id: number };
+  | { name: 'quiz'; id: number }
+  | { name: 'me' };
 
 /** 주소 → 화면. **못 읽는 주소는 대국이다** — 404 화면을 만들 만큼 경로가 많지 않다. */
 export function parseRoute(pathname: string): Route {
   const parts = pathname.split('/').filter(Boolean);
+  if (parts[0] === ME_SEGMENT) return { name: 'me' };
   if (parts[0] !== REVIEWS_SEGMENT) return { name: 'game' };
   if (parts.length === 1) return { name: 'reviews' };
 
@@ -55,6 +66,8 @@ export function hrefOf(route: Route): string {
       return routeReview(route.id);
     case 'quiz':
       return routeQuiz(route.id);
+    case 'me':
+      return ROUTE_ME;
   }
 }
 

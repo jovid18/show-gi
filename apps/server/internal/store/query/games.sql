@@ -192,3 +192,31 @@ SELECT ply, kind, category, delta_win, level_bucket, retracted_usi, best_cp, aft
 FROM interventions
 WHERE game_id = $1
 ORDER BY ply, id;
+
+-- name: CountGameResultsForOwner :many
+--
+-- 마이페이지의 전적. **결과가 나온 판만** 세는 것은 ListGamesForOwner 와 같은 규칙이다 —
+-- 목록에 안 보이는 판이 전적에는 들어가면 두 화면이 같은 사람에 대해 다른 수를 말한다.
+--
+-- **한 수도 안 둔 판을 빼는 것도 같은 이유다**(그쪽의 EXISTS).
+SELECT g.result, count(*) AS games
+FROM games g
+WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
+  AND g.result IN ('win', 'loss', 'draw')
+  AND g.user_id IS NOT DISTINCT FROM sqlc.narg('owner_id')::bigint
+GROUP BY g.result;
+
+-- name: CountInterventionCategoriesForOwner :many
+--
+-- 마이페이지의 약점. **판을 가로질러 센다** — 총평은 한 판 안에서 세지만(server/summary.go)
+-- 「무엇이 약한가」는 한 판으로 답할 것이 아니다.
+--
+-- 거르는 조건이 위와 같아야 한다: 전적에 안 들어간 판의 개입이 약점에는 들어가면
+-- 같은 화면의 두 숫자가 다른 모집단을 센다.
+SELECT i.category, count(*) AS hits
+FROM interventions i
+JOIN games g ON g.id = i.game_id
+WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
+  AND g.result IN ('win', 'loss', 'draw')
+  AND g.user_id IS NOT DISTINCT FROM sqlc.narg('owner_id')::bigint
+GROUP BY i.category;

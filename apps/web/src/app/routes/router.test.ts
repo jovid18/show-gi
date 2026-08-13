@@ -54,6 +54,17 @@ describe('parseRoute', () => {
   it('id가 정수가 아니면 꼬리가 있어도 목록이다', () => {
     expect(parseRoute('/reviews/abc/quiz')).toEqual({ name: 'reviews' });
   });
+
+  it('마이페이지', () => {
+    expect(parseRoute('/me')).toEqual({ name: 'me' });
+    expect(parseRoute('/me/')).toEqual({ name: 'me' });
+  });
+
+  // 마이페이지에는 판이 없으므로 꼬리도 없다. 못 읽는 주소가 대국인 것과 같은 판단으로,
+  // 여기서는 마이페이지 자신이다 — 404 화면은 이 앱에 없다.
+  it('마이페이지의 꼬리는 그대로 마이페이지다', () => {
+    expect(parseRoute('/me/anything')).toEqual({ name: 'me' });
+  });
 });
 
 describe('hrefOf', () => {

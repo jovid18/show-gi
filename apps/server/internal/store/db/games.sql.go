@@ -49,6 +49,44 @@ func (q *Queries) ClaimGameForResume(ctx context.Context, arg ClaimGameForResume
 	return i, err
 }
 
+const countGameResultsForOwner = `-- name: CountGameResultsForOwner :many
+SELECT g.result, count(*) AS games
+FROM games g
+WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
+  AND g.result IN ('win', 'loss', 'draw')
+  AND g.user_id IS NOT DISTINCT FROM $1::bigint
+GROUP BY g.result
+`
+
+type CountGameResultsForOwnerRow struct {
+	Result *string
+	Games  int64
+}
+
+// 마이페이지의 전적. **결과가 나온 판만** 세는 것은 ListGamesForOwner 와 같은 규칙이다 —
+// 목록에 안 보이는 판이 전적에는 들어가면 두 화면이 같은 사람에 대해 다른 수를 말한다.
+//
+// **한 수도 안 둔 판을 빼는 것도 같은 이유다**(그쪽의 EXISTS).
+func (q *Queries) CountGameResultsForOwner(ctx context.Context, ownerID *int64) ([]CountGameResultsForOwnerRow, error) {
+	rows, err := q.db.Query(ctx, countGameResultsForOwner, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountGameResultsForOwnerRow
+	for rows.Next() {
+		var i CountGameResultsForOwnerRow
+		if err := rows.Scan(&i.Result, &i.Games); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countGames = `-- name: CountGames :one
 SELECT count(*) FROM games
 `
@@ -58,6 +96,46 @@ func (q *Queries) CountGames(ctx context.Context) (int64, error) {
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const countInterventionCategoriesForOwner = `-- name: CountInterventionCategoriesForOwner :many
+SELECT i.category, count(*) AS hits
+FROM interventions i
+JOIN games g ON g.id = i.game_id
+WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
+  AND g.result IN ('win', 'loss', 'draw')
+  AND g.user_id IS NOT DISTINCT FROM $1::bigint
+GROUP BY i.category
+`
+
+type CountInterventionCategoriesForOwnerRow struct {
+	Category *string
+	Hits     int64
+}
+
+// 마이페이지의 약점. **판을 가로질러 센다** — 총평은 한 판 안에서 세지만(server/summary.go)
+// 「무엇이 약한가」는 한 판으로 답할 것이 아니다.
+//
+// 거르는 조건이 위와 같아야 한다: 전적에 안 들어간 판의 개입이 약점에는 들어가면
+// 같은 화면의 두 숫자가 다른 모집단을 센다.
+func (q *Queries) CountInterventionCategoriesForOwner(ctx context.Context, ownerID *int64) ([]CountInterventionCategoriesForOwnerRow, error) {
+	rows, err := q.db.Query(ctx, countInterventionCategoriesForOwner, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountInterventionCategoriesForOwnerRow
+	for rows.Next() {
+		var i CountInterventionCategoriesForOwnerRow
+		if err := rows.Scan(&i.Category, &i.Hits); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const countInterventions = `-- name: CountInterventions :one
