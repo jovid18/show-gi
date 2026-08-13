@@ -291,7 +291,21 @@ type bestResponse struct {
 	// Played·PlayedJa 는 사람이 대국에서 실제로 둔 수다.
 	Played   string `json:"played"`
 	PlayedJa string `json:"playedJa,omitempty"`
-	Message  string `json:"message"`
+	// Line 은 정답 뒤에 서로 최선으로 뒀을 때의 흐름이다. **맞혔을 때만 있다** —
+	// 첫 수가 곧 정답이라 이것만 내보내도 정답을 말한 것이 된다(quiz.BestItem.Line).
+	//
+	// **옛 판에는 없다.** 이 칸이 생기기 전에 만들어진 문항은 영영 비어 있다.
+	Line    []lineMove `json:"line,omitempty"`
+	Message string     `json:"message"`
+}
+
+// lineMove 는 수순 한 수다. 되짚기의 기보 한 줄과 같은 어휘이고, **국면까지 준다** —
+// 화면은 규칙을 모르므로 스스로 한 수도 못 둔다(reviewMove 와 같은 근거).
+type lineMove struct {
+	USI string `json:"usi"`
+	Ja  string `json:"ja"`
+	// SFEN 은 이 수를 **둔 뒤**의 국면이다.
+	SFEN string `json:"sfen"`
 }
 
 // best 는 「최선수는?」 문항을 채점한다. **엔진이 필요 없다** — 정답이 저장돼 있다.
@@ -345,11 +359,56 @@ func (h *quizHandler) best(w http.ResponseWriter, r *http.Request) {
 	if correct {
 		out.Answer, out.AnswerJa = item.Answer, jaAt(item.SFEN, item.Answer, -1)
 		out.AnswerCp, out.SecondCp = &item.AnswerCp, &item.SecondCp
+		out.Line = lineFrom(item.SFEN, item.Answer, item.Line)
 	} else if hinting(req.Attempt) {
 		out.Hint = originJa(item.SFEN, item.Answer)
 	}
 	out.Message = bestMessage(out, item)
 	writeJSON(w, http.StatusOK, out)
+}
+
+// lineFrom 은 저장된 수순을 표기와 국면까지 붙여 편다.
+//
+// **정답을 둔 자리에서 시작한다.** 저장된 것은 그 뒤의 수순뿐이라(quiz.BestItem.Line)
+// 여기서 한 수 먼저 둬야 판이 맞는다.
+//
+// **막히면 거기까지만 준다.** 저장된 수순이 그 국면에서 안 서는 것은 문항이 깨졌다는
+// 뜻인데, 그때 500으로 답하면 **맞은 답이 오류가 된다**(afterMove 와 같은 판단).
+//
+// 「同」이 여기서부터는 산다 — 앞 수의 도착 칸을 이어 넘긴다. 문항의 첫 수에만 못 쓴다
+// (그 국면에는 직전 수가 없다, jaAt 의 prevTo = -1).
+func lineFrom(sfen, answer string, line []string) []lineMove {
+	if len(line) == 0 {
+		return nil
+	}
+	pos, err := shogi.ParseSFEN(sfen)
+	if err != nil {
+		return nil
+	}
+	first, err := shogi.ParseUSIMove(answer)
+	if err != nil || pos.ValidateMove(first) != nil {
+		return nil
+	}
+	pos = pos.Apply(first)
+	prevTo := int(first.To)
+
+	out := make([]lineMove, 0, len(line))
+	for _, u := range line {
+		m, err := shogi.ParseUSIMove(u)
+		if err != nil {
+			break
+		}
+		next, ja, ok := advance(pos, prevTo, u)
+		if !ok {
+			break
+		}
+		out = append(out, lineMove{USI: m.USI(), Ja: ja, SFEN: next.SFEN()})
+		pos, prevTo = next, int(m.To)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // load 는 저장된 문항을 읽는다.
