@@ -107,7 +107,13 @@ func summarize(ctx context.Context, sum explain.Summarizer, rec store.GameRecord
 // factsOf 는 기록에서 사실과 숫자를 한 번에 센다. **한 함수인 이유는 같은 세기에서 나와야
 // 하기 때문이다** — 갈라 두면 문장이 말하는 카테고리와 화면의 표가 어긋날 수 있다.
 func factsOf(rec store.GameRecord, level intervene.Level) (explain.GameFacts, summaryStats) {
-	f := explain.GameFacts{Outcome: outcomeOf(rec.Result), Level: level, Phase: explain.PhaseNone, Trend: explain.TrendUnknown}
+	f := explain.GameFacts{
+		Outcome:  outcomeOf(rec.Result),
+		Level:    level,
+		Phase:    explain.PhaseNone,
+		Trend:    explain.TrendUnknown,
+		Standing: standingOf(rec),
+	}
 
 	// 사람이 둔 수만 센다. `Moves` 는 확정된 수 전부라 상대의 것이 섞여 있다.
 	//
@@ -290,6 +296,41 @@ func trendOf(ivs []store.RecordedIntervention, lastPly int) explain.Trend {
 		return explain.TrendWorsened
 	default:
 		return explain.TrendSteady
+	}
+}
+
+// standingOf 는 판이 끝난 시점의 형세를 **사람 관점**으로 읽는다.
+//
+// **마지막으로 채워진 평가치를 쓴다.** 평가치는 수보다 늦게 오므로 마지막 몇 수가 비어
+// 있을 수 있고(`store.RecordedMove`), 그것을 안 보면 한참 전의 형세로 말하게 된다 —
+// 그래서 끝에서 `StandingMaxLag` 手 안의 것만 받는다.
+//
+// **부호를 뒤집는 자리다.** `EvalCp` 는 先手 관점이고 여기서 필요한 것은 사람 관점이다.
+func standingOf(rec store.GameRecord) explain.Standing {
+	last, best := 0, -1
+	var cp int
+	for _, m := range rec.Moves {
+		if m.Ply > last {
+			last = m.Ply
+		}
+		if m.EvalCp != nil && m.Ply > best {
+			best, cp = m.Ply, *m.EvalCp
+		}
+	}
+	if best < 0 || last-best > explain.StandingMaxLag {
+		return explain.StandingUnknown
+	}
+	if rec.MyColor != "b" {
+		cp = -cp
+	}
+
+	switch rate := intervene.WinRate(cp); {
+	case rate >= explain.StandingAheadRate:
+		return explain.StandingAhead
+	case rate <= 1-explain.StandingAheadRate:
+		return explain.StandingBehind
+	default:
+		return explain.StandingLevel
 	}
 }
 
