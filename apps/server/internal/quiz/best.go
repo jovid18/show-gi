@@ -80,7 +80,11 @@ func (b *Builder) candidates(in Input, posAt []shogi.Position, skip int) []candi
 	// i=0(첫 수)은 **앞의 평가치가 없어서** 낙폭을 못 센다. 그 자리는 정석 구간이기도 하다.
 	start := max(in.OpeningPlies, 1)
 
-	for i := start; i < len(in.Moves) && i < len(posAt); i++ {
+	// **`len(posAt)-1` 이다.** `replay` 가 읽을 수 없는 수에서 멈추므로(build.go) 마지막
+	// 국면은 있어도 그 자리의 수는 **두어지지 않은 것**이다. 그것까지 도니 `Played` 가 판에
+	// 없는 수가 되고, 「사람이 이미 최선수를 뒀다」를 그 수와 견주게 되어 실제로 최선수를
+	// 둔 국면이 문항으로 나갈 수 있다. 재현이 온전하면 이 값은 `len(in.Moves)` 와 같다.
+	for i := start; i < len(posAt)-1; i++ {
 		if i == skip || posAt[i].Turn != in.Human {
 			continue
 		}

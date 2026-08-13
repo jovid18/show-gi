@@ -302,3 +302,35 @@ func TestQuizEmpty(t *testing.T) {
 		t.Error("a quiz with a best item is empty")
 	}
 }
+
+// **두어지지 않은 수는 문항이 안 된다.**
+//
+// `replay` 는 읽을 수 없는 수에서 멈추므로 마지막 국면은 있어도 그 자리의 수는 판에 없다.
+// 거기까지 후보로 삼으면 `Played` 가 없던 수가 되고, 「사람이 이미 최선수를 뒀다」를 그 수와
+// 견주게 되어 실제로 최선수를 둔 국면이 문항으로 나간다.
+func TestBestItemsStopAtTheEndOfTheReplay(t *testing.T) {
+	in := gameInput()
+	// 마지막 자리를 읽을 수 없는 수로 바꾼다 — 그 앞까지만 재현된다.
+	in.Moves = append([]string(nil), gameMoves[:8]...)
+	in.Moves = append(in.Moves, "zzzz")
+
+	posAt := replay(in)
+	if len(posAt) != 9 {
+		t.Fatalf("replay produced %d positions, want 9", len(posAt))
+	}
+
+	// 그 국면(8手目)에 후보가 서면 안 된다.
+	fs := &fakeSearch{lines: map[string][]usi.SearchLine{
+		posAt[8].SFEN(): {line("5f5e", 900), line("x", 0)},
+	}}
+	items, _ := build(fs, in)
+
+	for _, it := range items {
+		if it.Ply == 8 {
+			t.Errorf("ply 8 became a question, but its move never reached the board (played %q)", it.Played)
+		}
+	}
+	if fs.asked[posAt[8].SFEN()] {
+		t.Error("the engine was asked about a position whose move is not in the game")
+	}
+}
