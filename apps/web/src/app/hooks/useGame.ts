@@ -47,6 +47,13 @@ export interface GameState {
   interventionEpisode: number;
   play: (usi: string) => void;
   resign: () => void;
+  /**
+   * 직전 자기 수를 무른다(待った).
+   *
+   * **무엇을 되돌릴지 안 보낸다.** 누를 수 있는지는 `snapshot.canUndo` 가 이미 답했고,
+   * 거절되면 다른 거절과 같은 자리에 문구가 뜬다(`rejection`).
+   */
+  undo: () => void;
   dismissRejection: () => void;
   /** 고른 설정으로 대국을 연다. 새 연결이 곧 새 판이다. */
   start: (setup: GameSetup) => void;
@@ -200,6 +207,7 @@ export function useGame(): GameState {
 
   const play = useCallback((usi: string) => send({ type: 'move', usi }), [send]);
   const resign = useCallback(() => send({ type: 'resign' }), [send]);
+  const undo = useCallback(() => send({ type: 'undo' }), [send]);
   const dismissRejection = useCallback(() => setRejection(null), []);
 
   const whatif = useCallback<Send>(
@@ -266,6 +274,7 @@ export function useGame(): GameState {
     interventionEpisode,
     play,
     resign,
+    undo,
     dismissRejection,
     start,
     resume,

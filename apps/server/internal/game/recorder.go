@@ -49,6 +49,16 @@ type Recorder interface {
 	// `Evaluated` 와 달리 나중에 오지 않는다: 판정이 끝난 뒤 카드가 뜨기 전에 이미 정해진다.
 	Retracted(ply int, usi string, v intervene.Verdict, e explain.Result)
 
+	// Undone 은 사람이 **스스로** 무른 수다. ply 는 그 사람 수의 手数.
+	//
+	// **Retracted 와 갈라 둔다.** 판이 되돌아간 것은 같지만 시작한 쪽이 반대다 —
+	// 저쪽은 「개입에 오염되지 않은 실력 신호」로 정의돼 있어서(01-core.md §5), 사람이
+	// 무르고 싶었던 수를 그 칸에 섞으면 그 정의가 그 자리에서 거짓이 된다.
+	//
+	// **기보를 자르는 것도 여기다.** 무른 수와 그 뒤 상대의 응수가 기보에서 사라져야
+	// 「지금 판에 남아 있는 수순」이라는 game_moves 의 뜻이 유지된다(store.RecordUndo).
+	Undone(ply int, usi string)
+
 	// Finished 는 대국이 끝날 때 한 번. 끝나지 않고 연결이 끊기면 오지 않는다 —
 	// 그 경우를 어떻게 남길지는 구현이 정한다.
 	Finished(status Status, winner Side)

@@ -57,6 +57,7 @@ export function GameScreen() {
     interventionEpisode,
     play,
     resign,
+    undo,
     dismissRejection,
     start,
     resume,
@@ -819,9 +820,27 @@ export function GameScreen() {
               </button>
             </div>
           ) : (
-            <button type="button" className="btn" onClick={() => setConfirmingResign(true)}>
-              投了
-            </button>
+            <div className="play-actions">
+              {/* 회차 1 #4. **예산이 0이어도 안 감춘다** — 사라지면 「왜 없지」가 되고,
+                  남은 횟수가 붙어 있으면 「다 썼구나」가 된다. 누를 수 있는지는 서버가
+                  이미 답했다(`canUndo`) — 사람 차례·예산·되돌릴 수 셋을 화면이 다시
+                  짓지 않는다. */}
+              <button
+                type="button"
+                className="btn"
+                disabled={!snapshot.canUndo}
+                onClick={undo}
+                aria-label={`待った 残り${snapshot.undoLeft}回`}
+              >
+                待った
+                <span className="play-actions__left" aria-hidden="true">
+                  残り{snapshot.undoLeft}回
+                </span>
+              </button>
+              <button type="button" className="btn" onClick={() => setConfirmingResign(true)}>
+                投了
+              </button>
+            </div>
           ))}
       </aside>
     </div>

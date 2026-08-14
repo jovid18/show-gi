@@ -37,7 +37,7 @@ const (
 
 // clientMsg 는 브라우저가 보내는 것.
 type clientMsg struct {
-	Type string `json:"type"` // "move" | "resign" | "whatif"
+	Type string `json:"type"` // "move" | "resign" | "undo" | "whatif"
 	USI  string `json:"usi,omitempty"`
 
 	// Ply·Moves 는 "whatif" 에서만 쓴다 — 「확정된 몇 手目에서 이 수순을 뒀다면」이다.
@@ -73,6 +73,10 @@ var rejectMessages = map[string]string{
 	"finished":      "対局はすでに終わっています。",
 	"bad_move":      "指し手の形式が正しくありません。",
 	"internal":      "サーバーで問題が発生しました。",
+	// 무르기의 거절 둘. **화면이 버튼을 안 그리면 여기 오지 않는다**(Snapshot.CanUndo) —
+	// 남는 것은 연타와 API 직접 호출이라, 문구는 「왜 안 되나」만 말하면 된다.
+	"no_undo_left":    "待ったはこれ以上できません。",
+	"nothing_to_undo": "戻せる手がまだありません。",
 }
 
 func rejection(err error) serverMsg {
@@ -84,6 +88,10 @@ func rejection(err error) serverMsg {
 		return reject("not_your_turn")
 	case errors.Is(err, game.ErrFinished):
 		return reject("finished")
+	case errors.Is(err, game.ErrNoUndoLeft):
+		return reject("no_undo_left")
+	case errors.Is(err, game.ErrNothingToUndo):
+		return reject("nothing_to_undo")
 	default:
 		// USI 표기 파싱 실패 등. 클라이언트가 합법수만 보내면 도달하지 않는다.
 		return reject("bad_move")
@@ -345,6 +353,18 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// 익명 대국은 그대로 판마다 초기화된다 — 쌓을 자리가 없다(002_anonymous_games.sql).
 		skills = newSkillRun(h.priorSkill(ctx, userID))
 		cfg.Rater = skill.NewWorkerFrom(ctx, skills.before, skills.observing(h.saveSkill(ctx, userID)))
+	}
+	// **이어하는 판은 무르기 예산을 이어받는다.** 안 읽으면 새로고침 한 번에 3회가
+	// 다시 차서 제한이 제한이 아니게 된다(game.Config.UndoUsed).
+	//
+	// 못 읽어도 판은 그대로 연다 — 최악이 「무르기를 몇 번 더 준다」이고, 그것 때문에
+	// 이어하기를 막는 쪽이 비싸다.
+	if h.opts.Store != nil && setup.resumeID != 0 {
+		if n, err := h.opts.Store.CountUndos(ctx, setup.resumeID); err != nil {
+			log.Printf("ws: cannot read undo count of game %d: %v", setup.resumeID, err)
+		} else {
+			cfg.UndoUsed = n
+		}
 	}
 	// DB가 없으면 기록하지 않고 대국은 그대로 된다 — 엔진·캐시와 같은 판단이다.
 	var recorder *dbRecorder
@@ -640,6 +660,15 @@ func (h *gameHandler) readLoop(
 				emit(ctx, out, rejection(err))
 			}
 			// 성공하면 구독 채널로 스냅샷이 온다. 여기서 또 보내지 않는다.
+
+		case "undo":
+			if _, err := sess.Undo(ctx); err != nil {
+				if errors.Is(err, context.Canceled) || errors.Is(err, game.ErrClosed) {
+					return
+				}
+				emit(ctx, out, rejection(err))
+			}
+			// 성공하면 구독 채널로 스냅샷이 온다 — 착수와 같은 규약이다.
 
 		case "resign":
 			if _, err := sess.Resign(ctx); err != nil && !errors.Is(err, game.ErrFinished) {

@@ -64,6 +64,14 @@ interface Option {
   played: 'human' | 'engine' | null;
   /** 물러진 수라면 그 카테고리. 몇 번 시도했는지도 센다. */
   retracted: { categoryJa: string; message: string; tries: number } | null;
+  /**
+   * 사람이 **스스로** 무른 수라면 그 횟수.
+   *
+   * **`retracted` 와 갈라 둔다.** 한 수가 둘을 겸할 수도 있다 — 두었다 물러지고, 다른
+   * 수를 두었다가 그것도 스스로 무른 자리에서 같은 수가 다시 올라온다. 한 칸으로
+   * 합치면 「AI가 막았다」와 「내가 되돌렸다」가 같은 표식이 된다.
+   */
+  undone: { tries: number } | null;
 }
 
 export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveOptionsProps) {
@@ -93,6 +101,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
         best: patch.best ?? at?.best ?? false,
         played: patch.played ?? at?.played ?? null,
         retracted: patch.retracted ?? at?.retracted ?? null,
+        undone: patch.undone ?? at?.undone ?? null,
       });
     };
 
@@ -138,10 +147,27 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
       });
     }
 
+    // 사람이 스스로 무른 수(待った). **물러진 수와 같은 자리에 같은 규약으로 선다** —
+    // 둘 다 「이 국면에서 뒀는데 기보에 없는 수」라서 여기 말고는 보일 자리가 없다.
+    // 갈리는 것은 표식 하나다: 저쪽은 AI가 막았고 이쪽은 사람이 되돌렸다(회차 1 #4).
+    const undone = new Map<string, number>();
+    for (const u of atRoot ? (game.undos ?? []) : []) {
+      if (u.ply !== ply + 1) continue;
+      undone.set(u.usi, (undone.get(u.usi) ?? 0) + 1);
+    }
+    for (const [usi, tries] of undone) {
+      // 저장된 평가치는 `moves[].evalCp` 에서 옮겨 온 것이라 이미 플레이어 관점이다 —
+      // 물러진 수의 `afterCp` 와 같은 자, 같은 변환이다.
+      const first = game.undos.find((u) => u.usi === usi && u.ply === ply + 1);
+      const stored: Partial<Option> =
+        first?.evalCp === undefined ? {} : { cp: byOpponent ? -first.evalCp : first.evalCp };
+      put(usi, first?.ja || usi, { undone: { tries }, ...moverScore(measured.get(usi)), ...stored });
+    }
+
     // **詰み이 cp보다 언제나 바깥이다.** cp만으로 세우면 「3手で詰み」과 「+2900」이 이웃으로
     // 서는데 그 둘은 이웃이 아니다(`rankOf`).
     return [...byUsi.values()].toSorted((a, b) => rankOf(b) - rankOf(a));
-  }, [game.moves, game.interventions, ply, node, measured, atRoot, byOpponent]);
+  }, [game.moves, game.interventions, game.undos, ply, node, measured, atRoot, byOpponent]);
 
   if (!options.length) return null;
 
@@ -176,6 +202,15 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
                   <span data-role="retracted">
                     {o.retracted.categoryJa}
                     {o.retracted.tries > 1 && ` ×${o.retracted.tries}`}
+                  </span>
+                )}
+                {/* **AI가 막은 것과 다른 표식이다.** 저 줄은 카테고리 이름(タダ捨て)을 들고
+                    이 줄은 「待った」를 든다 — 같은 목록에 나란히 서므로 표식이 갈려야
+                    「막힌 수」와 「내가 되돌린 수」를 구별할 수 있다. */}
+                {o.undone && (
+                  <span data-role="undone">
+                    待った
+                    {o.undone.tries > 1 && ` ×${o.undone.tries}`}
                   </span>
                 )}
               </span>

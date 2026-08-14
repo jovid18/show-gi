@@ -217,6 +217,18 @@ export interface Snapshot {
    * 판마다 초기화된다.
    */
   opponentStrength?: number;
+  /**
+   * 사람이 **아직 무를 수 있는 횟수**(待った). 0이면 그 판에서 다 썼다.
+   *
+   * `canUndo` 와 갈라져 있는 이유는 뜻이 다르기 때문이다 — 이쪽은 예산이라 상대
+   * 차례에도 그대로 참이고, 저쪽은 「지금 이 순간 누를 수 있나」다.
+   */
+  undoLeft: number;
+  /**
+   * 지금 무르기를 누를 수 있는가. **화면이 조건을 다시 짓지 않는다** — 사람 차례인지,
+   * 예산이 남았는지, 되돌릴 사람의 수가 있는지 셋을 서버가 이미 봤다.
+   */
+  canUndo: boolean;
 }
 
 /**
@@ -302,5 +314,8 @@ export type ServerMessage =
 export type ClientMessage =
   | { type: 'move'; usi: string }
   | { type: 'resign' }
+  // **手数를 안 보낸다.** 무엇을 되돌릴지는 서버가 자기 기보에서 정한다 — 화면이 짚으면
+  // 그 사이에 도착한 스냅샷과 어긋난 자리를 되돌리게 된다.
+  | { type: 'undo' }
   // **판(SFEN)을 보내지 않는다.** 뿌리는 서버가 자기가 방금 보낸 스냅샷에서 만든다.
   | { type: 'whatif'; ply: number; moves: string[] };

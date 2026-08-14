@@ -133,6 +133,12 @@ type Config struct {
 	// 얕게 다시 묻지 않는다 — 그러면 상대의 강함이 서버 사정에 따라 달라진다(01-core.md §4).
 	MoveDeadline  time.Duration
 	ExtraDeadline time.Duration
+	// UndoUsed 는 이 판에서 **이미** 무른 횟수다. 이어하는 판만 채운다(server/ws.go).
+	//
+	// **세션이 아니라 판에 붙는 예산이라서** 여기로 받는다. 세션은 연결에 매여 있어
+	// 이어할 때마다 새로 서는데, 카운터가 그때 0으로 돌아가면 UndoMaxPerGame 이
+	// 「연결당 3회」가 되고 그건 제한이 아니다 — 새로고침 한 번에 예산이 찬다.
+	UndoUsed int
 	// OpponentOpening 은 상대가 따르는 진형의 일본어 이름이다. 스냅샷으로 그대로 나간다.
 	//
 	// **이름만 받는다.** 수순은 상대(book_opponent.go)가 들고 있고 세션은 그것을 모른다 —
@@ -149,6 +155,22 @@ var ErrNotYourTurn = errors.New("game: not your turn")
 
 // ErrFinished 는 이미 끝난 대국에 착수를 보냈을 때 나온다.
 var ErrFinished = errors.New("game: game already finished")
+
+// ErrNoUndoLeft 는 그 판의 무르기 예산을 다 썼을 때다(UndoMaxPerGame).
+var ErrNoUndoLeft = errors.New("game: no undo left")
+
+// ErrNothingToUndo 는 되돌릴 사람의 수가 아직 없을 때다 — 첫 수 앞이거나, 이 판에서
+// 사람이 한 수도 확정하지 않았다.
+var ErrNothingToUndo = errors.New("game: nothing to undo")
+
+// UndoMaxPerGame 은 사람이 스스로 무를 수 있는 횟수다.
+//
+// **개입의 되무르기와 예산이 다르다.** 저쪽은 판정이 정하므로 상한이 없고(한 국면에서
+// 몇 번이든 걸린다), 이쪽은 사람이 정하므로 상한이 곧 기능의 전부다 — 무제한이면
+// 「블런더를 두면 물러진다」가 「아무 때나 되돌린다」에 묻힌다(회차 1 #4 · docs/06-status.md §72).
+//
+// **[미확정]** 3은 사람이 요청한 값 그대로다. 실측으로 잡은 것이 아니다.
+const UndoMaxPerGame = 3
 
 // 대국 중 엔진 탐색에 거는 시한이다. **자를 시간이 아니라 버릴 시점이다** — 깊이 기반이라
 // 중간 결과는 depth N 결과가 아니고, 넘기면 결과를 통째로 버린다(usi.Engine.SearchDepth).
@@ -169,6 +191,7 @@ type cmdKind int
 const (
 	cmdMove cmdKind = iota
 	cmdResign
+	cmdUndo
 	cmdSnapshot
 	cmdSubscribe
 	cmdUnsubscribe
@@ -302,6 +325,12 @@ type state struct {
 	prevPos    shogi.Position
 	prevPrevTo int
 
+	// undos 는 사람이 스스로 무른 횟수다. **개입의 되무르기는 안 센다** — 예산이 다르고
+	// (UndoMaxPerGame), 무엇보다 개입을 세면 AI가 막을수록 사람의 무르기가 줄어든다.
+	//
+	// 이어하는 판은 0이 아니라 기록에 남은 값에서 시작한다(Config.UndoUsed).
+	undos int
+
 	subs map[chan Snapshot]struct{}
 }
 
@@ -333,6 +362,7 @@ func New(ctx context.Context, cfg Config) (*Session, error) {
 		status:  StatusPlaying,
 		subs:    map[chan Snapshot]struct{}{},
 		skill:   skill.Unknown,
+		undos:   cfg.UndoUsed,
 	}
 	st.repeats[pos.RepetitionKey()]++
 
@@ -429,7 +459,7 @@ func (s *Session) run(ctx context.Context, st *state) {
 			return
 
 		case c := <-s.cmds:
-			st.handle(ctx, c, engineDone, judgeDone, gaugeDone)
+			st.handle(ctx, c, engineDone, judgeDone, gaugeDone, tesujiDone)
 
 		case r := <-engineDone:
 			st.applyEngineMove(ctx, r, engineDone, gaugeDone, tesujiDone)
@@ -449,7 +479,7 @@ func (s *Session) run(ctx context.Context, st *state) {
 	}
 }
 
-func (st *state) handle(ctx context.Context, c command, engineDone chan engineResult, judgeDone chan judgeResult, gaugeDone chan mateResult) {
+func (st *state) handle(ctx context.Context, c command, engineDone chan engineResult, judgeDone chan judgeResult, gaugeDone chan mateResult, tesujiDone chan tesujiHintResult) {
 	switch c.kind {
 	case cmdSnapshot:
 		c.reply <- result{snap: st.snapshot()}
@@ -475,6 +505,13 @@ func (st *state) handle(ctx context.Context, c command, engineDone chan engineRe
 		c.reply <- result{snap: st.snapshot()}
 		st.broadcast()
 
+	case cmdUndo:
+		snap, err := st.undo(ctx, gaugeDone, tesujiDone)
+		c.reply <- result{snap: snap, err: err}
+		if err == nil {
+			st.broadcast()
+		}
+
 	case cmdMove:
 		snap, err := st.playHuman(ctx, c.usi, engineDone, judgeDone, gaugeDone)
 		c.reply <- result{snap: snap, err: err}
@@ -482,6 +519,109 @@ func (st *state) handle(ctx context.Context, c command, engineDone chan engineRe
 			st.broadcast()
 		}
 	}
+}
+
+// undo 는 사람이 **스스로** 직전 자기 수를 무른다(待った).
+//
+// **개입의 롤백과 세 가지가 다르다.** 시작하는 쪽이 사람이고, 예산이 있고(UndoMaxPerGame),
+// 되돌리는 폭이 두 手다 — 사람의 수 하나를 되돌리려면 그 뒤에 이미 확정된 상대의 응수도
+// 같이 사라져야 판이 사람 차례로 돌아온다. 롤백은 판정이 상대 수보다 먼저 돌기 때문에
+// (playHuman) 되돌릴 것이 언제나 하나뿐이고, 그래서 `prevPos` 한 장으로 끝난다.
+//
+// **평가는 안 되돌린다.** 무른 수는 판정을 이미 통과했고 그때 추정기가 그 값을 먹었다
+// (applyVerdict 의 observeSkill). 여기서 그것을 빼면 「어려운 수를 두고 무르면 실력이
+// 안 떨어진다」가 되어 상대가 실제 실력보다 약해진 채로 남는다 — 회차 1 #4 가 요구한
+// 세 가지 중 두 번째가 정확히 이것이다(docs/06-status.md §72).
+// **engineDone 을 안 받는다.** 되감은 국면은 사람 차례라 상대를 생각시킬 일이 없고,
+// 인자로 들고 있으면 언젠가 여기서 maybeThink 를 부르게 된다.
+func (st *state) undo(ctx context.Context, gaugeDone chan mateResult, tesujiDone chan tesujiHintResult) (Snapshot, error) {
+	if st.status != StatusPlaying {
+		return st.snapshot(), ErrFinished
+	}
+	// 판정 중이거나 상대가 생각 중이면 국면이 아직 사람에게 안 돌아왔다. 그 사이에
+	// 되감으면 날아오는 결과가 **되감기 전 국면의 것**이고, 세대로 버려지긴 하지만
+	// 사람 눈에는 「눌렀는데 한 수 뒤에 무너졌다」로 보인다.
+	if st.judging || st.thinking || st.pos.Turn != st.cfg.HumanColor {
+		return st.snapshot(), ErrNotYourTurn
+	}
+	if st.undos >= UndoMaxPerGame {
+		return st.snapshot(), ErrNoUndoLeft
+	}
+	at := st.lastHumanMove()
+	if at < 0 {
+		return st.snapshot(), ErrNothingToUndo
+	}
+
+	undone := st.moves[at]
+	if err := st.rewindTo(at); err != nil {
+		// 되감기가 실패하면 판을 **안 건드린 채로** 거절한다. 반쯤 되감긴 판을 내보내면
+		// 그 뒤의 모든 판정이 없던 국면 위에서 돈다(replay 와 같은 판단).
+		log.Printf("game: cannot rewind to ply %d: %v", at, err)
+		return st.snapshot(), err
+	}
+	st.undos++
+
+	// **기보에서 지우는 것도 기록 쪽이 한다.** 무른 수와 그 뒤 상대의 응수 둘 다이고,
+	// 手数를 넘기면 store 가 거기서부터 자른다(store.RecordUndo).
+	if st.cfg.Recorder != nil {
+		st.cfg.Recorder.Undone(at+1, undone.USI)
+	}
+
+	// 개입 카드·힌트·알림은 전부 **직전 수에 대한 말**이라 그 수가 사라지면 같이 사라진다.
+	st.intervention, st.hint, st.notice = nil, nil, nil
+	// 갇힘도 푼다. 「같은 국면에서 연속으로 물러졌다」를 세는 값인데(state.stuck), 사람이
+	// 스스로 되감은 것은 그 연속이 아니다 — 남겨 두면 다음 한 번에 계단이 열린다.
+	st.stuck = 0
+
+	// 되돌아온 국면은 **手筋 힌트를 물어봤던 바로 그 국면**이다 — rollback 과 같은 자리,
+	// 같은 근거다(그쪽 주석).
+	if !st.tesujiHinting && st.tesujiHintAsked && st.tesujiHintLastPly == len(st.usis) {
+		st.tesujiHintGen = st.searchGen
+	}
+
+	st.computeTagHints()
+	st.maybeTesujiHint(ctx, tesujiDone)
+	st.maybeGauge(ctx, gaugeDone)
+	return st.snapshot(), nil
+}
+
+// lastHumanMove 는 확정된 기보에서 **마지막 사람 수**의 자리다. 없으면 -1.
+//
+// `st.moves` 에는 물러진 수가 없으므로(rollback 이 자른다) 여기서 나오는 것은 언제나
+// 「판에 남아 있는 사람의 수」다.
+func (st *state) lastHumanMove() int {
+	for i := len(st.moves) - 1; i >= 0; i-- {
+		if st.moves[i].By == SideHuman {
+			return i
+		}
+	}
+	return -1
+}
+
+// rewindTo 는 **n手까지 둔 국면**으로 되감는다. 그 뒤의 수는 기보에서 사라진다.
+//
+// **처음부터 다시 둔다.** 되돌릴 것이 둘이라 `prevPos` 한 장으로는 안 되고, 되돌려야
+// 하는 것이 판 하나가 아니기 때문이다 — 千日手 계수·「同」이 보는 도착 칸·표기까지
+// 전부다(rollback 의 같은 문장). 그 셋을 손으로 되감는 코드는 하나를 빠뜨렸을 때
+// 조용하고, 다시 두는 쪽은 빠뜨릴 것이 없다.
+//
+// 판당 세 번뿐이라(UndoMaxPerGame) 다시 두는 비용은 문제가 되지 않는다.
+func (st *state) rewindTo(n int) error {
+	keep := append([]string(nil), st.usis[:n]...)
+
+	pos, err := shogi.ParseSFEN(st.start)
+	if err != nil {
+		return err
+	}
+	st.pos, st.prevTo = pos, -1
+	st.moves, st.usis = nil, nil
+	st.repeats = map[string]int{}
+	st.repeats[pos.RepetitionKey()]++
+	// **세대를 여기서 올린다.** replay 안의 advance 도 매 수 올리지만, 되감을 것이
+	// 0手일 때는 한 번도 안 올라 늦게 온 결과가 살아남는다.
+	st.searchGen++
+
+	return st.replay(keep)
 }
 
 func (st *state) playHuman(ctx context.Context, usi string, engineDone chan engineResult, judgeDone chan judgeResult, gaugeDone chan mateResult) (Snapshot, error) {
@@ -1209,6 +1349,11 @@ func (st *state) snapshot() Snapshot {
 		Notice:          st.notice,
 		StyleTags:       st.styleTags(),
 		OpponentOpening: st.cfg.OpponentOpening,
+		UndoLeft:        max(UndoMaxPerGame-st.undos, 0),
+		// **화면이 조건을 다시 짓지 않게 여기서 답한다.** `yourTurn && undoLeft > 0` 으로
+		// 흉내내면 「사람이 아직 한 수도 안 뒀다」가 빠지고, 그 자리에서 누른 버튼이
+		// 거절로 돌아온다 — 조건이 두 벌이 되는 순간 둘 중 하나가 낡는다.
+		CanUndo: yours && st.undos < UndoMaxPerGame && st.lastHumanMove() >= 0,
 	}
 	// 국면이 움직였으면 게이지는 그 자리에서 무효다(state.mateGen).
 	if st.mateGen == st.searchGen {
@@ -1299,6 +1444,14 @@ func (s *Session) Play(ctx context.Context, usi string) (Snapshot, error) {
 // Resign 은 사람이 投了한다.
 func (s *Session) Resign(ctx context.Context) (Snapshot, error) {
 	return s.send(ctx, command{kind: cmdResign})
+}
+
+// Undo 는 사람이 직전 자기 수를 무른다(待った).
+//
+// 예산을 다 썼으면 ErrNoUndoLeft, 되돌릴 수가 없으면 ErrNothingToUndo,
+// 사람 차례가 아니면 ErrNotYourTurn 이다.
+func (s *Session) Undo(ctx context.Context) (Snapshot, error) {
+	return s.send(ctx, command{kind: cmdUndo})
 }
 
 // Snapshot 은 지금 상태를 돌려준다.

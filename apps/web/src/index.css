@@ -2935,6 +2935,14 @@ body {
   color: var(--fg);
 }
 
+/* 사람이 스스로 무른 수. **테를 점선으로 둔다** — 실선(`played`)은 판에 남은 사실이고
+   이건 남지 않은 쪽이다. 개입으로 물러진 줄은 카테고리 이름을 그대로 들어서 애초에
+   모양이 다르다. */
+.review-options-tags [data-role='undone'] {
+  padding: 0 0.25rem;
+  border: 1px dashed var(--line-2);
+}
+
 .review-options-cp {
   font-size: 0.75rem;
   color: var(--muted);
@@ -2956,6 +2964,29 @@ body {
   align-items: center;
   justify-content: center;
   text-decoration: none;
+}
+
+/* 두는 중의 조작 둘 — 待った와 投了. `.end-actions` 와 같은 문법이지만 자리가 다르다:
+   저쪽은 판이 끝난 뒤의 갈림길이고 이쪽은 두는 중에 늘 서 있다. */
+.play-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.play-actions .btn {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+/* 남은 횟수. **버튼 글자보다 작고 옅다** — 누르는 것은 「待った」이고 이건 그 옆의 사정이다. */
+.play-actions__left {
+  font-size: 0.78em;
+  opacity: 0.72;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── 대국 후 총평 ────────────────────────────────────── */

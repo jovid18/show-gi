@@ -73,6 +73,9 @@ type gameDetail struct {
 	StartSFEN     string               `json:"startSfen"`
 	Moves         []reviewMove         `json:"moves"`
 	Interventions []reviewIntervention `json:"interventions"`
+	// Undos 는 사람이 스스로 무른 수들이다. **개입과 갈라서 준다** — 판이 되돌아간 것은
+	// 같지만 시작한 쪽이 반대라, 한 배열로 주면 화면이 그 둘을 같은 줄로 그린다(§72).
+	Undos []reviewUndo `json:"undos"`
 }
 
 // reviewMove 는 기보의 한 수다. `game.Move` 와 같은 어휘를 쓴다 — 같은 것을 두 이름으로
@@ -123,6 +126,24 @@ type reviewIntervention struct {
 	// BestCp 는 판정 당시 최선수의 cp. 낙폭과 겹치지 않는다 — 낙폭은 **그때 K로** 구한
 	// 승률 차라 K가 바뀌면 낡고, 이 값은 원본이라 안 낡는다.
 	BestCp *int `json:"bestCp,omitempty"`
+}
+
+// reviewUndo 는 사람이 스스로 무른 수 하나다.
+//
+// **`reviewIntervention` 과 모양이 닮았지만 뜻이 반대다.** 저쪽은 AI가 막은 것이고
+// 이쪽은 사람이 되돌리고 싶었던 것이라, 되짚기에서 읽는 이야기가 정반대다 —
+// 카테고리도 문구도 없는 것이 그래서다. 무르기에는 판정이 없다(§72).
+type reviewUndo struct {
+	// Ply 는 **무른 수의 手数**다. 그 수는 기보에 없으므로, 화면이 그 국면을 보려면
+	// `Ply-1` 手目의 판을 그려야 한다 — 개입과 같은 규약이다.
+	Ply int    `json:"ply"`
+	USI string `json:"usi"`
+	// Ja 는 무른 수의 棋譜 표기다. 그 手数의 국면을 다시 만들어야 나오므로 재현이
+	// 거기까지 못 갔으면 비어 있다.
+	Ja string `json:"ja,omitempty"`
+	// EvalCp 는 **플레이어 관점** cp다 — DB의 先手 관점을 여기서 뒤집는다(패키지 doc).
+	// 무를 때 판정이 아직 그 手数를 안 채웠으면 nil이다.
+	EvalCp *int `json:"evalCp,omitempty"`
 }
 
 // list 는 최근 대국 목록이다.
@@ -234,6 +255,7 @@ func detailOf(rec store.GameRecord) gameDetail {
 		gameSummary:   summaryOf(rec.GameSummary),
 		Moves:         make([]reviewMove, 0, len(rec.Moves)),
 		Interventions: make([]reviewIntervention, 0, len(rec.Interventions)),
+		Undos:         make([]reviewUndo, 0, len(rec.Undos)),
 	}
 
 	humanColor := shogi.Black
@@ -321,6 +343,27 @@ func detailOf(rec store.GameRecord) gameDetail {
 			}
 		}
 		out.Interventions = append(out.Interventions, view)
+	}
+
+	for _, u := range rec.Undos {
+		view := reviewUndo{Ply: u.Ply, USI: u.USI}
+		// **기보와 같은 줄을 쓴다.** 이 값은 `game_moves.eval_cp` 에서 그대로 옮겨온
+		// 先手 관점이라(store.RecordUndo), 위 `moves` 루프와 같은 변환이라야 같은 수가
+		// 두 목록에서 같은 숫자로 나온다 — 개입 쪽 `flipToPlayer` 는 관점의 출처가 다르다.
+		if u.EvalCp != nil {
+			cp := *u.EvalCp
+			if humanColor == shogi.White {
+				cp = -cp
+			}
+			view.EvalCp = &cp
+		}
+		// 무른 수는 `Ply-1` 手目의 국면에서 두어졌다 — 개입과 같은 자리, 같은 이유다.
+		if u.Ply >= 1 && u.Ply-1 < len(posAt) {
+			if _, ja, ok := advance(posAt[u.Ply-1], toAt[u.Ply-1], u.USI); ok {
+				view.Ja = ja
+			}
+		}
+		out.Undos = append(out.Undos, view)
 	}
 
 	return out
