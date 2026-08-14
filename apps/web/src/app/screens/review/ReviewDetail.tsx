@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import { Board, type DropFrom, type Ray } from '@/components/Board';
 import { Hand } from '@/components/Hand';
@@ -327,15 +327,21 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
 
   /**
    * 되짚는 사람이 잡았던 쪽. 그늘(`相手の利き`)이 누구 기준인지가 여기서 정해진다.
-   *
-   * **판은 뒤집지 않는다.** 이 화면은 기보를 되짚는 자리라 先手가 아래인 것이 관례이고,
-   * 누가 누구인지는 駒台의 라벨이 이미 말한다 — 대국 화면은 다르다(GameScreen 의 `flipped`).
-   * 거기서는 자기가 두는 판이라 자기 駒가 아래여야 한다.
    */
   const me: Side = game.myColor === 'w' ? 'white' : 'black';
 
-  const humanLabel = game.myColor === 'b' ? 'あなた' : '相手';
-  const whiteLabel = game.myColor === 'b' ? '相手' : 'あなた';
+  /**
+   * **기본값은 자기 쪽이 아래다.** 여기 원래 「기보를 되짚는 자리라 先手가 아래인 것이
+   * 관례이고, 누가 누구인지는 駒台 라벨이 말한다」고 적고 고정해 뒀는데, 後手로 둔 사람이
+   * 방금 둔 판을 열면 대국 화면과 위아래가 뒤집혀 보였다(06-status.md §76).
+   *
+   * 그 관례는 버리지 않고 **버튼으로 옮겼다** — 기본값이 연속성을 잡고, 棋譜를 관례대로
+   * 보고 싶은 사람은 한 번 누른다. 어느 쪽도 잃지 않는다.
+   *
+   * **저장하지 않는다.** 판마다 자기 쪽이 아래로 열리는 것이 기본이라, 마지막 선택을
+   * 기억하면 다음 판에서 또 어긋난다.
+   */
+  const [flipped, setFlipped] = useState(me === 'white');
 
   /**
    * 지금 그 자리에서 둘 수 있는 수.
@@ -468,8 +474,29 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
     return branching ? `${here} · もしも` : here;
   }, [ply, game.moves, branching]);
 
+  /**
+   * 駒台 하나를 그린다. **부르는 쪽이 색이 아니라 자리를 정한다** — 아래 판이 뒤집히면
+   * 持ち駒도 같이 따라와야 하는데, 색으로 박아 두면 판만 돌고 자기 駒台가 위에 남는다.
+   */
+  const hand = (side: Side): ReactElement => (
+    <Hand
+      side={side}
+      label={side === me ? 'あなた' : '相手'}
+      pieces={board?.hands[side] ?? {}}
+      selected={handSide === side && origin?.endsWith('*') ? origin : null}
+      playable={handSide === side ? droppable : new Set()}
+      measure={dropping?.side === side ? dropping.kind : null}
+      droppingRef={(el) => {
+        dropPieceRef.current = el;
+      }}
+      onPick={handSide === side ? pickHand : () => {}}
+    />
+  );
+
   return (
-    <div className="game review">
+    /* `data-flipped` 는 **駒의 방향**이다. 자리는 CSS가 아니라 칸 번호가 뒤집고(Board 의
+       `seat`), 여기서 정하는 것은 「누가 나를 향해 서 있는가」뿐이다 — 대국 화면과 같다. */
+    <div className="game review" data-flipped={flipped || undefined}>
       <div className="game-board">
         {/* **평가치 궤적이 곧 이동 장치다.** 「어디서 무너졌나」를 목록으로 읽게 하는 대신
             한 장으로 보여주고 거기를 눌러 돌아가게 한다 — 빨간 점이 물러진 수가 있던 자리다. */}
@@ -485,18 +512,15 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
           </p>
         )}
 
-        <Hand
-          side="white"
-          label={whiteLabel}
-          pieces={board?.hands.white ?? {}}
-          selected={handSide === 'white' && origin?.endsWith('*') ? origin : null}
-          playable={handSide === 'white' ? droppable : new Set()}
-          measure={dropping?.side === 'white' ? dropping.kind : null}
-          droppingRef={(el) => {
-            dropPieceRef.current = el;
-          }}
-          onPick={handSide === 'white' ? pickHand : () => {}}
-        />
+        {/* 이동 컨트롤과 **축이 다르다** — 저쪽은 「언제를 보나」이고 이쪽은 「어느 쪽에서
+            보나」다. 그래서 아래 바에 안 넣고 판에 붙여 둔다. */}
+        <div className="review-board-controls">
+          <button type="button" className="review-flip" aria-pressed={flipped} onClick={() => setFlipped((f) => !f)}>
+            盤を反転
+          </button>
+        </div>
+
+        {hand(flipped ? 'black' : 'white')}
 
         {board ? (
           <Board
@@ -510,7 +534,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
             ray={ray}
             motion={motion}
             me={me}
-            flipped={false}
+            flipped={flipped}
             checks={[]}
             // **되짚기에서는 판을 탈색하지 않는다.** 탈색은 「지금이 아니다」를 말하는 장치인데
             // (index.css `.board-tint`), 이 화면은 **전부가 지금이 아니다** — 그 안에서 한 국면만
@@ -529,18 +553,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
           <p className="review-broken">この手からは局面を再現できません。</p>
         )}
 
-        <Hand
-          side="black"
-          label={humanLabel}
-          pieces={board?.hands.black ?? {}}
-          selected={handSide === 'black' && origin?.endsWith('*') ? origin : null}
-          playable={handSide === 'black' ? droppable : new Set()}
-          measure={dropping?.side === 'black' ? dropping.kind : null}
-          droppingRef={(el) => {
-            dropPieceRef.current = el;
-          }}
-          onPick={handSide === 'black' ? pickHand : () => {}}
-        />
+        {hand(flipped ? 'white' : 'black')}
         {/* **이동과 기보가 한 컨트롤이다**(将棋ウォーズ). 슬라이더는 뺐다 — 「지금 어디인가」를
             말하는 자리가 셋이었고, 그중 하나만 남긴 것이 아래 가운데 칸이다. */}
         {/* 제목 줄을 두지 않는다 — `棋譜 167手` 는 숫자 하나로 한 줄을 쓰고, 그 숫자는
