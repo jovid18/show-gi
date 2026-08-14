@@ -18,6 +18,8 @@ function ended(status: Status, winner?: Player): Snapshot {
     moves: null,
     judging: false,
     status,
+    undoLeft: 0,
+    canUndo: false,
   };
   // 中断에는 승자가 아예 안 온다. `winner: undefined` 를 넣으면 「빈 승자」라는 없는 값이 생긴다.
   return winner ? { ...base, winner } : base;

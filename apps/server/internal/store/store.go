@@ -388,6 +388,41 @@ func (s *Store) DeclineResume(ctx context.Context, gameID, userID int64) error {
 	return nil
 }
 
+// RecordUndo 는 사람이 스스로 무른 수를 남기고, 그 手数부터의 기보를 지운다.
+//
+// **순서가 규약이다.** `InsertUndo` 가 `game_moves` 에서 평가치를 옮겨 담으므로
+// (query/games.sql), 지우는 것이 먼저면 그 칸이 영영 NULL로 남는다.
+//
+// 지우는 범위가 무른 수 **하나가 아닌** 이유는 그 뒤에 상대의 응수가 이미 확정돼
+// 있기 때문이다 — 사람의 수를 되돌리려면 그 응수도 같이 사라져야 판이 사람 차례로
+// 돌아온다(game.state.undo 와 같은 자리).
+func (s *Store) RecordUndo(ctx context.Context, gameID int64, ply int, usi string) error {
+	if err := s.q.InsertUndo(ctx, db.InsertUndoParams{
+		GameID: gameID,
+		Ply:    int32(ply),
+		USI:    usi,
+	}); err != nil {
+		return fmt.Errorf("insert undo: %w", err)
+	}
+	if err := s.q.DeleteMovesFrom(ctx, db.DeleteMovesFromParams{
+		GameID: gameID,
+		Ply:    int32(ply),
+	}); err != nil {
+		return fmt.Errorf("delete moves from %d: %w", ply, err)
+	}
+	return nil
+}
+
+// CountUndos 는 그 판에서 이미 무른 횟수다. **이어하는 판이 제한을 리셋하지 않게** 한다
+// (game.Config.UndoUsed).
+func (s *Store) CountUndos(ctx context.Context, gameID int64) (int, error) {
+	n, err := s.q.CountGameUndos(ctx, gameID)
+	if err != nil {
+		return 0, fmt.Errorf("count undos of game %d: %w", gameID, err)
+	}
+	return int(n), nil
+}
+
 // InsertMove 는 **확정된** 수 하나를 기보에 넣는다.
 func (s *Store) InsertMove(ctx context.Context, gameID int64, ply int, usi string) error {
 	if err := s.q.InsertMove(ctx, db.InsertMoveParams{
@@ -591,6 +626,19 @@ type RecordedIntervention struct {
 	AfterCp *int
 }
 
+// RecordedUndo 는 사람이 스스로 무른 수 하나다.
+//
+// **개입(RecordedIntervention)과 갈라 둔다.** 판이 되돌아간 것은 같지만 시작한 쪽이
+// 반대라, 한 목록에 섞으면 「AI가 막았다」와 「내가 무르고 싶었다」가 같은 줄이 된다 —
+// 되짚기에서 그 둘은 정반대의 이야기다(008_game_undos.sql).
+type RecordedUndo struct {
+	Ply int
+	USI string
+	// EvalCp 는 **先手 관점** cp이고 nil일 수 있다 — 무를 때 판정이 아직 그 手数를
+	// 안 채웠으면 옮겨 담을 값이 없다(RecordUndo).
+	EvalCp *int
+}
+
 // GameRecord 는 한 판 전체다.
 type GameRecord struct {
 	GameSummary
@@ -601,6 +649,8 @@ type GameRecord struct {
 	OpeningID     string
 	Moves         []RecordedMove
 	Interventions []RecordedIntervention
+	// Undos 는 사람이 스스로 무른 수들이다. **기보에는 없다** — 무르기가 지웠다.
+	Undos []RecordedUndo
 }
 
 // ErrNoGame 은 그런 대국이 없을 때.
@@ -771,7 +821,13 @@ func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error)
 	if err != nil {
 		return GameRecord{}, fmt.Errorf("list interventions of game %d: %w", gameID, err)
 	}
+	undos, err := s.q.ListGameUndos(ctx, gameID)
+	if err != nil {
+		return GameRecord{}, fmt.Errorf("list undos of game %d: %w", gameID, err)
+	}
 
+	// **개입 횟수에 무르기를 안 더한다.** 목록의 그 숫자는 「AI가 몇 번 막았나」이고
+	// (docs/06-status.md §72), 사람이 스스로 무른 것을 섞으면 개입이 실제보다 잦아 보인다.
 	out := GameRecord{
 		GameSummary: summaryOf(
 			head.ID, head.MyColor, head.StartedAt, head.FinishedAt, head.Result,
@@ -780,6 +836,7 @@ func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error)
 		OpeningID:     deref(head.OpeningTag),
 		Moves:         make([]RecordedMove, 0, len(moves)),
 		Interventions: make([]RecordedIntervention, 0, len(ivs)),
+		Undos:         make([]RecordedUndo, 0, len(undos)),
 	}
 	if head.StartSFEN != nil {
 		out.StartSFEN = *head.StartSFEN
@@ -812,6 +869,14 @@ func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error)
 			rec.AfterCp = &cp
 		}
 		out.Interventions = append(out.Interventions, rec)
+	}
+	for _, u := range undos {
+		rec := RecordedUndo{Ply: int(u.Ply), USI: u.USI}
+		if u.EvalCp != nil {
+			cp := int(*u.EvalCp)
+			rec.EvalCp = &cp
+		}
+		out.Undos = append(out.Undos, rec)
 	}
 	return out, nil
 }

@@ -87,6 +87,19 @@ func (q *Queries) CountGameResultsForOwner(ctx context.Context, ownerID *int64) 
 	return items, nil
 }
 
+const countGameUndos = `-- name: CountGameUndos :one
+SELECT count(*) FROM game_undos WHERE game_id = $1
+`
+
+// **이어하는 판이 3회 제한을 리셋하지 않게** 한다(game.Config.UndoUsed). 세션은 연결에
+// 매여 있어 이어할 때마다 새로 서는데, 카운터도 같이 0이 되면 제한이 제한이 아니다.
+func (q *Queries) CountGameUndos(ctx context.Context, gameID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countGameUndos, gameID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countGames = `-- name: CountGames :one
 SELECT count(*) FROM games
 `
@@ -209,6 +222,23 @@ func (q *Queries) DeclineResume(ctx context.Context, arg DeclineResumeParams) (i
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const deleteMovesFrom = `-- name: DeleteMovesFrom :exec
+DELETE FROM game_moves WHERE game_id = $1 AND ply >= $2
+`
+
+type DeleteMovesFromParams struct {
+	GameID int64
+	Ply    int32
+}
+
+// 무르기가 지우는 것은 **사람의 수와 그 뒤 상대의 응수까지**다. 手数로 자르는 것이
+// 요점이다 — 개수로 세면 기보에 구멍이 있을 때 엉뚱한 수가 남는다(review.detailOf 의
+// 같은 판단).
+func (q *Queries) DeleteMovesFrom(ctx context.Context, arg DeleteMovesFromParams) error {
+	_, err := q.db.Exec(ctx, deleteMovesFrom, arg.GameID, arg.Ply)
+	return err
 }
 
 const finishGame = `-- name: FinishGame :exec
@@ -372,6 +402,29 @@ func (q *Queries) InsertMove(ctx context.Context, arg InsertMoveParams) error {
 	return err
 }
 
+const insertUndo = `-- name: InsertUndo :exec
+
+INSERT INTO game_undos (game_id, ply, usi, eval_cp)
+VALUES ($1, $2, $3, (SELECT eval_cp FROM game_moves WHERE game_id = $1 AND ply = $2))
+`
+
+type InsertUndoParams struct {
+	GameID int64
+	Ply    int32
+	USI    string
+}
+
+// ─── 무르기 ─────────────────────────────────────────────────
+// 사람이 스스로 무른 수. 개입과 갈라 두는 이유는 008_game_undos.sql.
+//
+// **평가치는 인자로 안 받는다.** 그 값은 판정이 `game_moves` 에 이미 채워 뒀거나 아직
+// 안 채웠거나 둘 중 하나이고, 세션이 그것을 다시 들고 다니면 같은 숫자가 두 벌이 된다.
+// 여기서 옮겨 담고 아래 `DeleteMovesFrom` 이 원본을 지운다 — 순서가 뒤집히면 NULL이 남는다.
+func (q *Queries) InsertUndo(ctx context.Context, arg InsertUndoParams) error {
+	_, err := q.db.Exec(ctx, insertUndo, arg.GameID, arg.Ply, arg.USI)
+	return err
+}
+
 const listGameInterventions = `-- name: ListGameInterventions :many
 SELECT ply, kind, category, delta_win, level_bucket, retracted_usi, best_cp, after_cp
 FROM interventions
@@ -441,6 +494,38 @@ func (q *Queries) ListGameMoves(ctx context.Context, gameID int64) ([]ListGameMo
 	var items []ListGameMovesRow
 	for rows.Next() {
 		var i ListGameMovesRow
+		if err := rows.Scan(&i.Ply, &i.USI, &i.EvalCp); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGameUndos = `-- name: ListGameUndos :many
+SELECT ply, usi, eval_cp FROM game_undos WHERE game_id = $1 ORDER BY ply, id
+`
+
+type ListGameUndosRow struct {
+	Ply    int32
+	USI    string
+	EvalCp *int32
+}
+
+// 같은 ply에 여러 행이 온다(무르고 다시 두고 또 무른 경우). id 로 이어 정렬해 **무른
+// 순서**를 지킨다 — ListGameInterventions 와 같은 규약이다.
+func (q *Queries) ListGameUndos(ctx context.Context, gameID int64) ([]ListGameUndosRow, error) {
+	rows, err := q.db.Query(ctx, listGameUndos, gameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGameUndosRow
+	for rows.Next() {
+		var i ListGameUndosRow
 		if err := rows.Scan(&i.Ply, &i.USI, &i.EvalCp); err != nil {
 			return nil, err
 		}

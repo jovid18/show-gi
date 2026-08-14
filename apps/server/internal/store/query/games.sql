@@ -220,3 +220,33 @@ WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
   AND g.result IN ('win', 'loss', 'draw')
   AND g.user_id IS NOT DISTINCT FROM sqlc.narg('owner_id')::bigint
 GROUP BY i.category;
+
+-- ─── 무르기 ─────────────────────────────────────────────────
+-- 사람이 스스로 무른 수. 개입과 갈라 두는 이유는 008_game_undos.sql.
+
+-- name: InsertUndo :exec
+--
+-- **평가치는 인자로 안 받는다.** 그 값은 판정이 `game_moves` 에 이미 채워 뒀거나 아직
+-- 안 채웠거나 둘 중 하나이고, 세션이 그것을 다시 들고 다니면 같은 숫자가 두 벌이 된다.
+-- 여기서 옮겨 담고 아래 `DeleteMovesFrom` 이 원본을 지운다 — 순서가 뒤집히면 NULL이 남는다.
+INSERT INTO game_undos (game_id, ply, usi, eval_cp)
+VALUES ($1, $2, $3, (SELECT eval_cp FROM game_moves WHERE game_id = $1 AND ply = $2));
+
+-- name: DeleteMovesFrom :exec
+--
+-- 무르기가 지우는 것은 **사람의 수와 그 뒤 상대의 응수까지**다. 手数로 자르는 것이
+-- 요점이다 — 개수로 세면 기보에 구멍이 있을 때 엉뚱한 수가 남는다(review.detailOf 의
+-- 같은 판단).
+DELETE FROM game_moves WHERE game_id = $1 AND ply >= $2;
+
+-- name: ListGameUndos :many
+--
+-- 같은 ply에 여러 행이 온다(무르고 다시 두고 또 무른 경우). id 로 이어 정렬해 **무른
+-- 순서**를 지킨다 — ListGameInterventions 와 같은 규약이다.
+SELECT ply, usi, eval_cp FROM game_undos WHERE game_id = $1 ORDER BY ply, id;
+
+-- name: CountGameUndos :one
+--
+-- **이어하는 판이 3회 제한을 리셋하지 않게** 한다(game.Config.UndoUsed). 세션은 연결에
+-- 매여 있어 이어할 때마다 새로 서는데, 카운터도 같이 0이 되면 제한이 제한이 아니다.
+SELECT count(*) FROM game_undos WHERE game_id = $1;

@@ -52,6 +52,15 @@ type GameQuiz struct {
 	GeneratedAt pgtype.Timestamptz
 }
 
+type GameUndo struct {
+	ID        int64
+	GameID    int64
+	Ply       int32
+	USI       string
+	EvalCp    *int32
+	CreatedAt pgtype.Timestamptz
+}
+
 type Intervention struct {
 	ID           int64
 	GameID       int64

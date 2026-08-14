@@ -35,6 +35,7 @@ const (
 	evMoved
 	evEvaluated
 	evRetracted
+	evUndone
 	evFinished
 )
 
@@ -103,6 +104,12 @@ func (r *dbRecorder) Evaluated(ply int, senteCp int) {
 
 func (r *dbRecorder) Retracted(ply int, usi string, v intervene.Verdict, e explain.Result) {
 	r.send(recordEvent{kind: evRetracted, ply: ply, usi: usi, verdict: v, explained: e})
+}
+
+// **Moved 와 같은 채널로 보낸다.** 무르기는 그 手数까지의 기보를 지우므로, 지우기가
+// 아직 안 쓴 착수를 앞질러 가면 지워야 할 수가 그 뒤에 들어와 되살아난다.
+func (r *dbRecorder) Undone(ply int, usi string) {
+	r.send(recordEvent{kind: evUndone, ply: ply, usi: usi})
 }
 
 func (r *dbRecorder) Finished(status game.Status, winner game.Side) {
@@ -177,6 +184,14 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 				CostYen:      ev.explained.CostYen,
 			}); err != nil {
 				log.Printf("game record: intervention %d: %v", ev.ply, err)
+			}
+
+		case evUndone:
+			if gameID == 0 {
+				return
+			}
+			if err := st.RecordUndo(write, gameID, ev.ply, ev.usi); err != nil {
+				log.Printf("game record: undo %d: %v", ev.ply, err)
 			}
 
 		case evFinished:

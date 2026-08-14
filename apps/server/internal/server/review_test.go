@@ -361,3 +361,58 @@ func TestListRejectsOutOfRangeLimit(t *testing.T) {
 		}
 	}
 }
+
+// 무른 수는 기보에 없다 — 되짚기가 그 수를 이름으로 부르려면 `Ply-1` 手目의 국면을
+// 다시 만들어야 한다(개입과 같은 규약).
+func TestDetailNamesUndoneMove(t *testing.T) {
+	cp := 123
+	rec := recordOf("b", "7g7f", "3c3d")
+	rec.Undos = []store.RecordedUndo{{
+		Ply:    3, // 3手目에 뒀다가 무른 수
+		USI:    "8h2b+",
+		EvalCp: &cp,
+	}}
+
+	got := detailOf(rec)
+	if len(got.Undos) != 1 {
+		t.Fatalf("undos = %d, want 1", len(got.Undos))
+	}
+	u := got.Undos[0]
+	if u.Ja != "▲2二角成" {
+		t.Errorf("ja = %q, want ▲2二角成", u.Ja)
+	}
+	// **기보와 같은 자다.** 先手로 둔 판이라 값이 그대로 나가야 한다.
+	if u.EvalCp == nil || *u.EvalCp != 123 {
+		t.Errorf("evalCp = %v, want 123", u.EvalCp)
+	}
+}
+
+// 後手로 둔 판에서는 무른 수의 평가치도 **플레이어 관점**으로 뒤집힌다.
+// 기보의 `moves[].evalCp` 와 같은 변환이라야 한 화면에서 두 줄이 같은 자를 쓴다(§60).
+func TestDetailFlipsUndoEvalForWhite(t *testing.T) {
+	cp := 200
+	rec := recordOf("w", "7g7f")
+	rec.Undos = []store.RecordedUndo{{Ply: 2, USI: "3c3d", EvalCp: &cp}}
+
+	got := detailOf(rec)
+	if len(got.Undos) != 1 {
+		t.Fatalf("undos = %d, want 1", len(got.Undos))
+	}
+	if got.Undos[0].EvalCp == nil || *got.Undos[0].EvalCp != -200 {
+		t.Errorf("evalCp = %v, want -200", got.Undos[0].EvalCp)
+	}
+}
+
+// 무르기는 **개입 횟수에 안 섞인다.** 목록의 그 숫자는 「AI가 몇 번 막았나」다.
+func TestUndosDoNotCountAsInterventions(t *testing.T) {
+	rec := recordOf("b", "7g7f")
+	rec.Undos = []store.RecordedUndo{{Ply: 1, USI: "7g7f"}}
+
+	got := detailOf(rec)
+	if got.InterventionCount != 0 {
+		t.Errorf("interventionCount = %d, want 0", got.InterventionCount)
+	}
+	if len(got.Interventions) != 0 {
+		t.Errorf("interventions = %d, want 0", len(got.Interventions))
+	}
+}

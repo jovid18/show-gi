@@ -81,11 +81,33 @@ export interface ReviewIntervention {
   retractedJa?: string;
 }
 
+/**
+ * 사람이 **스스로** 무른 수 하나(待った).
+ *
+ * **`ReviewIntervention` 과 갈라져 있다.** 판이 되돌아간 것은 같지만 시작한 쪽이
+ * 반대다 — 저쪽은 AI가 막은 것이고 이쪽은 사람이 되돌리고 싶었던 것이라, 되짚기에서
+ * 읽는 이야기가 정반대다. 카테고리도 문구도 없는 것이 그래서다: 무르기에는 판정이 없다.
+ */
+export interface ReviewUndo {
+  /** 무른 수의 手数. 그 수는 기보에 없으므로 그 국면은 `ply-1` 手目의 판이다. */
+  ply: number;
+  usi: string;
+  /** 무른 수의 棋譜 표기. 그 국면까지 재현이 못 갔으면 없다. */
+  ja?: string;
+  /** 그 수 뒤의 평가치(플레이어 관점 cp). 무를 때 판정이 아직 안 끝났으면 없다. */
+  evalCp?: number;
+}
+
 export interface GameDetail extends GameSummary {
   /** 0手目의 국면. 手数를 되감으면 여기까지 온다. */
   startSfen: string;
   moves: ReviewMove[];
   interventions: ReviewIntervention[];
+  /**
+   * 사람이 스스로 무른 수들. **옛 판에는 빈 배열이다** — `008_game_undos.sql` 앞에
+   * 둔 판에는 이 기록이 아예 없다.
+   */
+  undos: ReviewUndo[];
 }
 
 export interface GameListResponse {

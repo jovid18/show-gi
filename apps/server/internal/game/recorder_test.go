@@ -40,6 +40,10 @@ func (r *fakeRecorder) Moved(ply int, usi string, by Side) {
 func (r *fakeRecorder) Retracted(ply int, usi string, v intervene.Verdict, e explain.Result) {
 	r.add(fmt.Sprintf("retracted %d %s %s tier=%d", ply, usi, v.Category, e.Tier))
 }
+func (r *fakeRecorder) Undone(ply int, usi string) {
+	r.add(fmt.Sprintf("undone %d %s", ply, usi))
+}
+
 func (r *fakeRecorder) Finished(status Status, winner Side) {
 	r.add(fmt.Sprintf("finished %s %s", status, winner))
 }
