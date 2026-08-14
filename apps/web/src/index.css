@@ -188,39 +188,44 @@ body {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  /* 줄에서 자리를 내주는 쪽은 여기다 — 탭과 로그인은 안 접히고(`flex: none`), 제품
+     이름은 잘려도 로고가 남아 무엇인지 알 수 있다. `min-width: 0` 이 없으면 flex 항목이
+     내용 폭 아래로 안 줄어서 그 양보가 성립하지 않는다. */
+  min-width: 0;
   text-decoration: none;
   color: inherit;
   border-radius: var(--r-md);
 }
 
-/* 판의 나무를 한 조각 떼어 온 것이다. 셸이 밝아지면서 제품을 알아보게 하는 것이
-   글자 하나뿐이 됐고, 그 글자가 판과 같은 재질이면 헤더가 판의 일부로 읽힌다. */
+/* 로고. **그림 자신이 초록 원이라 면을 안 깐다** — 여기 있던 나무 타일은 `将` 글자를
+   받치는 자리였고, 그 자리를 그림이 가져갔다.
+
+   파비콘·홈 화면 아이콘과 **같은 파일**이다(brand/icons.sh). 헤더에서 알아본 것이
+   브라우저 탭에서도 같은 것이어야 한다. */
 .app-mark {
   flex: none;
   width: 1.9rem;
   height: 1.9rem;
-  display: grid;
-  place-items: center;
-  border-radius: var(--r-sm);
-  background: linear-gradient(160deg, #d8ba8b, var(--board));
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.45),
-    var(--shadow-sm);
-  font-family: var(--font-koma);
-  font-size: 1.125rem;
-  line-height: 1;
-  color: var(--ink);
+  border-radius: var(--r-pill);
+  /* 크림 셸 위에서 초록 원의 가장자리가 그대로 끝나면 스티커처럼 뜬다. 아주 얕은
+     그림자 하나가 그 자리를 판의 다른 카드들과 같은 층으로 되돌린다. */
+  box-shadow: var(--shadow-sm);
 }
 
 .app-brand__text {
   display: grid;
   gap: 0.05rem;
+  /* 양보하는 쪽이라 내용 폭 아래로 줄어들 수 있어야 한다(`.app-brand` 의 주석). */
+  min-width: 0;
 }
 
 .app-title {
   margin: 0;
-  /* 좁은 화면에서 제품 이름이 단어 중간(show-/gi)에서 끊기지 않게 한다. */
+  /* 좁은 화면에서 제품 이름이 단어 중간(show-/gi)에서 끊기지 않게 한다. 줄일 자리가
+     정말 없으면 접는 대신 말줄임으로 끝낸다. */
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 1rem;
   font-weight: 650;
   letter-spacing: 0.01em;
@@ -238,6 +243,28 @@ body {
 @media (max-width: 44rem) {
   .app-tagline {
     display: none;
+  }
+}
+
+/* **탭이 넷이 되면서 한 줄에 다 못 선다.** 설명을 지워도 「로고 + 탭 넷 + 로그인」이
+   휴대폰 폭을 넘고, 그러면 제품 이름이 통째로 밀려 나가거나 화면이 가로로 스크롤된다.
+   줄을 하나 더 쓰는 편이 낫다 — 위가 「무엇인가·누구인가」, 아래가 「어디로 가나」다. */
+@media (max-width: 40rem) {
+  .app-head__inner {
+    flex-wrap: wrap;
+    row-gap: 0.45rem;
+  }
+
+  .app-tabs {
+    /* 로고·로그인보다 뒤로 보내 둘째 줄을 통째로 차지하게 한다. */
+    order: 3;
+    width: 100%;
+    margin-inline-start: 0;
+  }
+
+  /* 첫 줄에서 오른쪽 끝을 잡던 것이 탭이었다. 그 일이 여기로 온다. */
+  .app-account {
+    margin-inline-start: auto;
   }
 }
 
@@ -1575,6 +1602,24 @@ body {
   font-size: 0.9375rem;
 }
 
+/* 안내로 가는 줄. **버튼이 아니다** — 시작 버튼과 같은 무게로 세우면 고를 것이 둘이 되고,
+   이 화면에서 고를 것은 하나여야 한다(그 아래 각주로 읽히는 자리라 `--muted` 다).
+   위의 `.setup__caveat`(진형 각주)과 같은 무게이고, 그쪽과 달리 누를 수 있어서 밑줄이 붙는다. */
+.setup__guide {
+  justify-self: center;
+  margin-top: -0.75rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line-2);
+}
+
+.setup__guide:hover,
+.setup__guide:focus-visible {
+  color: var(--brand);
+  border-bottom-color: var(--brand-line);
+}
+
 /*
   두다 만 판을 이어할지 묻는 카드. **셸(.setup)을 그대로 쓴다** — 같은 자리에 같은 크기로
   뜨는 것이라, 겉모습이 갈리면 그 순간 다른 화면으로 잘못 온 것처럼 읽힌다.
@@ -2068,6 +2113,17 @@ body {
   padding: 0.2rem;
   border-radius: var(--r-pill);
   background: var(--surface-2);
+  /* **넷째 탭(あそびかた)이 이 줄을 넘겼다.** 좁은 화면에서 알약 무리가 남은 폭보다
+     넓어지면 flex가 글자를 세로로 쌓아 「対 / 局」이 된다. 줄어들지 못하게 막고
+     넘치는 만큼 옆으로 밀어 본다 — 탭을 감추는 것보다 낫다. 그 자리가 앱의 지도다. */
+  flex: none;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.app-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 /* 테두리를 지우고 알약으로 바꿨다. 테두리 있는 사각형 둘이 나란히 서면 「탭」이 아니라
@@ -2083,6 +2139,8 @@ body {
   color: var(--muted);
   text-decoration: none;
   cursor: pointer;
+  /* 일본어에는 단어 사이 공백이 없어서, 폭이 모자라면 **글자마다** 접힌다. */
+  white-space: nowrap;
   transition:
     background 140ms ease-out,
     color 140ms ease-out;
@@ -2107,6 +2165,8 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  /* 이름은 잘리게 두더라도(`.app-account-name`) 알약 자체는 안 접힌다. */
+  flex: none;
   margin-inline-start: 0.25rem;
   padding: 0.3rem 0.8rem;
   border: 1px solid var(--line);
@@ -3611,4 +3671,410 @@ body {
 .profile__styles-count {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+
+/* ── 안내 (あそびかた) ────────────────────────────────────
+   **판이 없는 유일한 화면이다.** 그래서 여기만 셸의 어휘로 끝난다 — 판 토큰(--board·
+   --koma-*·--ray)을 한 번도 안 쓰고, 색을 쓰는 자리는 브랜드 深緑 하나다.
+
+   읽는 화면이라 폭을 좁게 잡는다. `.app` 은 72rem 인데 그 폭으로 글을 흘리면 한 줄이
+   너무 길어져 다음 줄 첫 글자를 못 찾는다. */
+
+.guide {
+  max-width: 46rem;
+  margin: 0 auto;
+  display: grid;
+  gap: 2rem;
+}
+
+.guide__hero {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: clamp(1.25rem, 4vw, 1.75rem);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.guide__logo {
+  flex: none;
+  width: 5rem;
+  height: 5rem;
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 34rem) {
+  .guide__hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.9rem;
+  }
+
+  .guide__logo {
+    width: 3.5rem;
+    height: 3.5rem;
+  }
+}
+
+.guide__title {
+  margin: 0 0 0.4rem;
+  font-size: clamp(1.375rem, 4vw, 1.75rem);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.guide__lead {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  color: var(--fg-2);
+}
+
+/* 목차. **탭이 아니다** — 같은 화면 안을 건너뛰는 것이라 헤더의 탭과 모양이 달라야
+   한다(저쪽은 밑줄, 이쪽은 알약). */
+.guide__toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.guide__toc-link {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--fg-2);
+  font-size: 0.8125rem;
+  text-decoration: none;
+  transition:
+    border-color 140ms ease-out,
+    background 140ms ease-out,
+    color 140ms ease-out;
+}
+
+.guide__toc-link:hover,
+.guide__toc-link:focus-visible {
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+.guide__section {
+  display: grid;
+  gap: 0.9rem;
+  padding: clamp(1.1rem, 3.5vw, 1.6rem);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
+  /* 목차에서 뛰어왔을 때 제목이 스크롤에 붙은 헤더 아래로 숨지 않게 한다. */
+  scroll-margin-top: 4.5rem;
+}
+
+.guide__head {
+  margin: 0;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 1.125rem;
+  font-weight: 650;
+}
+
+.guide__sub {
+  margin: 0.4rem 0 0;
+  font-size: 0.9375rem;
+  font-weight: 620;
+  color: var(--fg);
+}
+
+.guide__text {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.85;
+  color: var(--fg-2);
+}
+
+.guide__text strong {
+  font-weight: 640;
+  color: var(--fg);
+}
+
+.guide__muted {
+  color: var(--muted);
+}
+
+/* ── はじめかた의 세 걸음 ── */
+
+.guide__steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: guide-step;
+  display: grid;
+  gap: 1rem;
+}
+
+.guide__step {
+  counter-increment: guide-step;
+  position: relative;
+  padding-left: 2.25rem;
+}
+
+/* 번호를 `::before` 로 그린다. `list-style` 의 숫자는 색도 크기도 못 잡는다. */
+.guide__step::before {
+  content: counter(guide-step);
+  position: absolute;
+  left: 0;
+  top: 0.05rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-pill);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  font-size: 0.75rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.guide__step-head {
+  margin: 0 0 0.25rem;
+  font-size: 0.9375rem;
+  font-weight: 620;
+  color: var(--fg);
+}
+
+/* ── 口出し의 흐름 ── */
+
+/* 세 칸이 화살표로 이어진다. **가로가 안 되면 세로로 접힌다** — 좁은 화면에서 세 칸을
+   억지로 붙이면 글자가 두 글자씩 끊긴다. */
+.guide__flow {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.5rem;
+}
+
+.guide__flow-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-size: 0.8125rem;
+  color: var(--fg);
+}
+
+.guide__flow-num {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-pill);
+  background: var(--brand);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 650;
+}
+
+/* ── 정의 목록 ── */
+
+.guide__defs {
+  margin: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.guide__defs > div {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  gap: 0.25rem 1rem;
+}
+
+/* 이름 열이 좁아지면 두 글자마다 끊긴다. 그 폭 아래로는 위아래로 쌓는다. */
+@media (max-width: 40rem) {
+  .guide__defs > div {
+    grid-template-columns: 1fr;
+  }
+}
+
+.guide__defs dt {
+  font-size: 0.8125rem;
+  font-weight: 620;
+  color: var(--fg);
+}
+
+.guide__defs dd {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.8;
+  color: var(--fg-2);
+}
+
+.guide__defs dd strong {
+  font-weight: 620;
+  color: var(--fg);
+}
+
+/* 詰み 게이지를 한 점으로 줄인 것. 판 테두리의 불꽃과 **같은 색 토큰**을 쓴다 —
+   글로만 「보라색 불꽃」이라고 적으면 실제 색이 바뀔 때 이 문장만 남는다. */
+.guide__flame {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-right: 0.4rem;
+  border-radius: var(--r-pill);
+  background: rgb(var(--mate));
+  box-shadow: 0 0 0.5rem rgb(var(--mate) / 0.7);
+  vertical-align: baseline;
+}
+
+/* 눈금은 대국 화면의 것을 그대로 쓴다(.strength__pips). **거기서는 `flex` 라 줄을 통째로
+   차지하는데**, 여기서는 설명 문장 앞에 놓이므로 글 흐름 안에 눕혀야 한다. */
+.guide__pips {
+  display: inline-flex;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+/* ── 口出し의 종류 ── */
+
+.guide__cats {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.guide__cat {
+  display: grid;
+  grid-template-columns: 8.5rem 1fr;
+  align-items: baseline;
+  gap: 0.2rem 0.9rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+
+@media (max-width: 40rem) {
+  .guide__cat {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 이름이 개입 카드의 라벨과 **같은 무게**여야 한다 — 열 개를 늘어놓는 자리라
+   이름이 설명보다 먼저 읽히지 않으면 목록이 문단으로 보인다. */
+.guide__cat-name {
+  font-size: 0.8125rem;
+  font-weight: 640;
+  color: var(--brand-strong);
+}
+
+.guide__cat-note {
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  color: var(--fg-2);
+}
+
+/* ── 自分から呼ぶもの ── */
+
+.guide__buttons {
+  display: grid;
+  gap: 1rem;
+}
+
+.guide__button-row {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  align-items: start;
+  gap: 0.5rem 1rem;
+}
+
+@media (max-width: 40rem) {
+  .guide__button-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* **진짜 버튼이라 눌리지 않게 해 둔다.** `disabled` 가 대국 화면에서 「예산을 다 썼다」를
+   뜻하는데, 여기서는 「見本이다」라 흐려 보이는 것까지는 같아도 되고 커서만 손대지 않는다.
+
+   이름과 남은 횟수 사이의 `gap` 은 대국 화면에서 `.play-actions .btn` 이 준다. 그 부모를
+   여기서 쓸 수는 없어서(`flex: 1 1 auto` 가 見本을 줄 폭으로 늘린다) 그 한 줄만 옮겨 온다 —
+   빼면 「ヒント残り6回」로 붙어 버린다. */
+.guide__button-row .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  justify-self: start;
+}
+
+.guide__button-row .btn:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+/* ── 원칙 한 줄 ── */
+
+/* 브랜드색 왼쪽 줄. **카드 안에서 한 단만 세운다** — 이 화면에서 가장 중요한 문장이고,
+   여러 개를 두면 무엇이 그것인지 없어진다. */
+.guide__note {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  border-left: 3px solid var(--brand);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  background: var(--brand-soft);
+  font-size: 0.875rem;
+  line-height: 1.8;
+  color: var(--fg-2);
+}
+
+.guide__note strong {
+  font-weight: 650;
+  color: var(--brand-strong);
+}
+
+/* ── おぼえておくこと ── */
+
+.guide__notes {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.8;
+  color: var(--fg-2);
+}
+
+.guide__notes strong {
+  font-weight: 620;
+  color: var(--fg);
+}
+
+.guide__notes::marker,
+.guide__notes li::marker {
+  color: var(--line-2);
+}
+
+/* ── 마지막 한 걸음 ── */
+
+.guide__cta {
+  display: grid;
+  justify-items: center;
+  padding-bottom: 1rem;
+}
+
+.guide__cta .btn {
+  padding: 0.7rem 1.75rem;
+  font-size: 0.9375rem;
+  text-decoration: none;
 }

@@ -37,6 +37,31 @@
 	# 나머지는 SPA. 새로고침으로 깊은 경로에 들어와도 index.html로 떨어뜨린다.
 	handle {
 		root * /srv
+
+		# 파일명에 해시가 박혀 있다(Vite). 내용이 바뀌면 이름이 바뀌므로 영원히 캐시해도
+		# 낡을 수가 없다.
+		@hashed path /assets/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+
+		# 아이콘은 이름이 고정이라 영원히는 못 건다. 일주일이면 로고를 갈아 끼운 날
+		# 다음 배포까지 기다리지 않아도 된다.
+		@brand path /favicon.ico /apple-touch-icon.png /icon-*.png /logo-*.png /og.png
+		header @brand Cache-Control "public, max-age=604800"
+
+		# Go의 mime 표에 `.webmanifest` 가 없어 `text/plain` 으로 나가고, 그러면 크롬이
+		# 매니페스트를 통째로 무시한다 — 홈 화면에 추가했을 때만 드러나는 실패다.
+		@manifest path /site.webmanifest
+		header @manifest {
+			Content-Type "application/manifest+json"
+			Cache-Control "public, max-age=604800"
+		}
+
+		# **index.html 은 캐시하지 않는다.** 여기에 해시 파일명이 적혀 있어서, 이 문서가
+		# 캐시에 남으면 다음 배포에서 지워진 파일을 가리키고 화면이 통째로 안 뜬다.
+		# 깊은 주소도 전부 이 문서로 떨어지므로 조건이 「해시도 아이콘도 아닌 것」이다.
+		@page not path /assets/* /favicon.ico /apple-touch-icon.png /icon-*.png /logo-*.png /og.png /site.webmanifest
+		header @page Cache-Control "no-cache"
+
 		try_files {path} /index.html
 		file_server
 	}

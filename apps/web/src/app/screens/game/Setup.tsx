@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import type { GameSetup } from '@/hooks/useGame';
 import type { Color } from '@/protocol/game';
 import { fetchOpenings, type Opening } from '@/protocol/openings';
+import { ROUTE_GUIDE } from '@/routes/const';
+import { navigate } from '@/routes/router';
 
 /**
  * 대국을 시작하기 전에 고르는 화면.
@@ -105,6 +107,23 @@ export function Setup({ initial, onStart }: SetupProps) {
       <button type="button" className="btn btn--primary setup__start" onClick={() => onStart({ color, opening })}>
         対局をはじめる
       </button>
+
+      {/* **탭만으로는 못 찾는다.** 처음 온 사람이 실제로 보는 화면은 여기 하나이고,
+          「あそびかた」 탭은 이 앱이 무엇을 하는지 이미 아는 사람이 누르는 자리다.
+          시작 버튼 **아래**에 두는 것이 요점 — 위에 두면 두러 온 사람을 먼저 붙잡는다. */}
+      <a
+        className="setup__guide"
+        href={ROUTE_GUIDE}
+        onClick={(e) => {
+          // 헤더 탭과 **같은 규약**이다 — 새 탭·새 창으로 열려는 클릭은 브라우저에 넘기고,
+          // 평범한 클릭만 우리가 받는다. 통째로 새로 받으면 여기서 고른 것이 날아간다.
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+          e.preventDefault();
+          navigate({ name: 'guide' });
+        }}
+      >
+        はじめての方へ — このアプリの遊びかた
+      </a>
     </div>
   );
 }

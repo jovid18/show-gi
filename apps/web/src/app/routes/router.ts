@@ -12,10 +12,12 @@
 import { useEffect, useState } from 'react';
 
 import {
+  GUIDE_SEGMENT,
   ME_SEGMENT,
   QUIZ_SEGMENT,
   REVIEWS_SEGMENT,
   ROUTE_GAME,
+  ROUTE_GUIDE,
   ROUTE_ME,
   ROUTE_REVIEWS,
   routeQuiz,
@@ -34,11 +36,13 @@ export type Route =
   // ply 는 **열 때의 手数**다. 없으면 0手目(시작 국면)에서 연다.
   | { name: 'review'; id: number; ply?: number }
   | { name: 'quiz'; id: number }
-  | { name: 'me' };
+  | { name: 'me' }
+  | { name: 'guide' };
 
 /** 주소 → 화면. **못 읽는 주소는 대국이다** — 404 화면을 만들 만큼 경로가 많지 않다. */
 export function parseRoute(pathname: string): Route {
   const parts = pathname.split('/').filter(Boolean);
+  if (parts[0] === GUIDE_SEGMENT) return { name: 'guide' };
   if (parts[0] === ME_SEGMENT) return { name: 'me' };
   if (parts[0] !== REVIEWS_SEGMENT) return { name: 'game' };
   if (parts.length === 1) return { name: 'reviews' };
@@ -75,6 +79,8 @@ export function hrefOf(route: Route): string {
       return routeQuiz(route.id);
     case 'me':
       return ROUTE_ME;
+    case 'guide':
+      return ROUTE_GUIDE;
   }
 }
 

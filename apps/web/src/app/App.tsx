@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 
 import { Account } from '@/components/Account';
 import { useViewer } from '@/hooks/useViewer';
@@ -26,6 +26,14 @@ const ProfileScreen = lazy(async () => ({
 }));
 
 /**
+ * 안내도 나중에 받는다. **여기는 글이 전부**라 첫 화면에 실릴 이유가 가장 적고,
+ * 검색에서 들어오는 사람은 이 조각 하나만 받으면 된다.
+ */
+const GuideScreen = lazy(async () => ({
+  default: (await import('@/screens/guide/GuideScreen')).GuideScreen,
+}));
+
+/**
  * `needsAuth` 는 **실제로 로그인한 사람에게만** 그리는 탭이다.
  *
  * 마이페이지는 익명에게 401이라(profile.go) 안 누른 사람에게는 갈 곳이 없다 —
@@ -40,7 +48,43 @@ const TABS: { route: Route; label: string; needsAuth?: boolean }[] = [
   { route: { name: 'game' }, label: '対局' },
   { route: { name: 'reviews' }, label: '振り返り' },
   { route: { name: 'me' }, label: 'マイページ', needsAuth: true },
+  // **로그인을 안 본다.** 처음 온 사람이 읽는 자리라 오히려 익명일 때 가장 필요하다.
+  { route: { name: 'guide' }, label: 'あそびかた' },
 ];
+
+/**
+ * 어느 탭에 불이 들어오나. **화면 이름과 탭 이름이 1:1이 아니다** — 되짚기 탭 하나가
+ * 목록·상세·퀴즈 셋을 맡는다.
+ *
+ * 삼항으로 이어 쓰던 자리인데, 갈래가 넷이 되면서 그 사슬이 「나머지 전부」를 되짚기로
+ * 보내 **안내 화면에서 되짚기 탭에 불이 들어왔다.** 대응을 표로 적으면 갈래가 늘어도
+ * 마지막 항이 남의 것을 삼키지 않는다.
+ */
+function activeTabOf(route: Route): Route['name'] {
+  switch (route.name) {
+    case 'review':
+    case 'quiz':
+      return 'reviews';
+    default:
+      return route.name;
+  }
+}
+
+/**
+ * 화면마다 다른 제목. **검색 결과에 나가는 줄이고**, 탭을 여러 개 열어 둔 사람이 어느
+ * 것이 무엇인지 구분하는 줄이기도 하다.
+ *
+ * `index.html` 의 것과 **어휘를 맞춘다** — 저쪽이 첫 로드와 크롤러가 보는 값이고 여기는
+ * 그 뒤의 이동이라, 같은 화면이 두 이름을 가지면 안 된다.
+ */
+const TITLE_JA: Record<Route['name'], string> = {
+  game: '対局 | show-gi',
+  reviews: '振り返り | show-gi',
+  review: '振り返り | show-gi',
+  quiz: 'クイズ | show-gi',
+  me: 'マイページ | show-gi',
+  guide: 'あそびかた | show-gi',
+};
 
 /**
  * 화면에 나가는 문자열은 전부 일본어다. 사용자는 일본인이고, 한글이 하나라도
@@ -50,7 +94,13 @@ export function App() {
   const route = useRoute();
   const onGame = route.name === 'game';
   const onMe = route.name === 'me';
+  const onGuide = route.name === 'guide';
+  const activeTab = activeTabOf(route);
   const { me, signOut } = useViewer();
+
+  useEffect(() => {
+    document.title = TITLE_JA[route.name];
+  }, [route.name]);
 
   return (
     <>
@@ -59,10 +109,19 @@ export function App() {
       <header className="app-head">
         <div className="app-head__inner">
           <a className="app-brand" href={hrefOf({ name: 'game' })}>
-            {/* 판의 駒와 같은 明朝다. 로고를 따로 그리지 않고 게임 자신의 글자를 쓴다. */}
-            <span className="app-mark" aria-hidden="true">
-              将
-            </span>
+            {/* 마크. **파일은 `public/` 에 있다**(brand/icons.sh가 로고 한 장에서 만든다) —
+                번들에 넣으면 파비콘·홈 화면 아이콘과 같은 그림이 두 벌로 나간다.
+                옆에 제품 이름이 글자로 서 있으므로 `alt` 는 비운다. */}
+            <img
+              className="app-mark"
+              src="/logo-96.png"
+              alt=""
+              width={30}
+              height={30}
+              // 헤더는 첫 화면에서 언제나 보이는 자리라 미루지 않는다.
+              fetchPriority="high"
+              decoding="async"
+            />
             <span className="app-brand__text">
               <span className="app-title">show-gi</span>
               <span className="app-tagline">口を出すときを自分で決める将棋の相手</span>
@@ -73,9 +132,9 @@ export function App() {
             {TABS.filter((tab) => !tab.needsAuth || me.user !== null).map((tab) => {
               // **버튼이 아니라 링크다.** 주소가 화면을 정하므로 가운데 클릭·링크 복사·
               // 새 탭이 그냥 동작해야 하고, 그건 `<a href>` 만이 준다.
-              // 세 갈래라 「대국이냐 아니냐」로는 못 가른다 — `reviews` 탭이 켜지는
-              // 조건이 되짚기 셋(목록·상세·퀴즈)이고 마이페이지는 거기서 빠진다.
-              const active = tab.route.name === 'game' ? onGame : tab.route.name === 'me' ? onMe : !onGame && !onMe;
+              // 켜지는 조건은 `activeTabOf` 가 안다 — 되짚기 탭 하나가 셋(목록·상세·퀴즈)을
+              // 맡기 때문에 화면 이름을 그대로 견줄 수 없다.
+              const active = tab.route.name === activeTab;
               return (
                 <a
                   key={tab.route.name}
@@ -115,7 +174,9 @@ export function App() {
         {/* 리뷰는 열 때마다 새로 부른다. 방금 끝난 판이 목록 맨 위에 있어야 한다. */}
         {!onGame && (
           <Suspense fallback={<p className="review-status">読み込み中…</p>}>
-            {onMe ? (
+            {onGuide ? (
+              <GuideScreen />
+            ) : onMe ? (
               <ProfileScreen />
             ) : route.name === 'quiz' ? (
               // **판마다 새로 세운다.** `id` 만 갈아 끼우면 이 컴포넌트가 그대로 살아서

@@ -1,0 +1,16 @@
+{
+  "name": "show-gi — 口を出すときを自分で決める将棋の相手",
+  "short_name": "show-gi",
+  "description": "悪手を指した瞬間に盤を戻し、なぜ悪いのかを説明する将棋アプリ。",
+  "lang": "ja",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ede7dc",
+  "theme_color": "#ede7dc",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

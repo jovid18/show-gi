@@ -1,0 +1,8 @@
+# 막을 것은 사람 하나에 매인 주소들이다. 크롤러에게는 로그인이 없어 전부 401이나 빈
+# 화면으로 보이고, 그것이 색인에 남으면 검색 결과에서 「내용 없는 페이지」가 된다.
+User-agent: *
+Allow: /
+Disallow: /me
+Disallow: /reviews
+
+Sitemap: https://show-gi.com/sitemap.xml

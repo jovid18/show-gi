@@ -8,6 +8,12 @@ export const ROUTE_REVIEWS = '/reviews';
 export const ROUTE_ME = '/me';
 
 /**
+ * 안내. **판도 사람도 안 부르는 유일한 화면이다** — 서버에 아무것도 안 묻고, 로그인도 안
+ * 본다. 주소가 있어야 하는 이유가 그래서 하나 더 있다: 검색 결과와 공유 링크가 여기로 온다.
+ */
+export const ROUTE_GUIDE = '/guide';
+
+/**
  * 판 하나. 주소에 id가 들어가는 유일한 자리다.
  *
  * `ply` 를 주면 **그 手数에서 열린다**. 총평이 「이 국면을 다시 봐라」로 짚은 자리가
@@ -30,3 +36,6 @@ export const QUIZ_SEGMENT = 'quiz';
 
 /** `/me` 의 첫 조각. */
 export const ME_SEGMENT = 'me';
+
+/** `/guide` 의 첫 조각. */
+export const GUIDE_SEGMENT = 'guide';
