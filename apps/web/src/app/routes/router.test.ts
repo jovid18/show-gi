@@ -72,11 +72,18 @@ describe('parseRoute', () => {
   it('마이페이지의 꼬리는 그대로 마이페이지다', () => {
     expect(parseRoute('/me/anything')).toEqual({ name: 'me' });
   });
+
+  // 안내는 검색 결과와 공유 링크가 들어오는 자리라, 꼬리가 붙어 와도 안내여야 한다.
+  it('안내', () => {
+    expect(parseRoute('/guide')).toEqual({ name: 'guide' });
+    expect(parseRoute('/guide/')).toEqual({ name: 'guide' });
+    expect(parseRoute('/guide/anything')).toEqual({ name: 'guide' });
+  });
 });
 
 describe('hrefOf', () => {
   it('읽은 것을 다시 적으면 같은 주소다', () => {
-    for (const path of ['/', '/reviews', '/reviews/12', '/reviews/12/quiz']) {
+    for (const path of ['/', '/reviews', '/reviews/12', '/reviews/12/quiz', '/me', '/guide']) {
       expect(hrefOf(parseRoute(path))).toBe(path);
     }
   });

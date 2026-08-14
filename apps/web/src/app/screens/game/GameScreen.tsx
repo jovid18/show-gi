@@ -8,6 +8,7 @@ import { Resume } from './Resume';
 import { Setup } from './Setup';
 import { Summary } from './Summary';
 import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/libs/game/moves';
+import { setPlaying } from '@/libs/game/playing';
 import { TAG_KIND_JA } from '@/libs/game/tags';
 import { useGame } from '@/hooks/useGame';
 import { useResumable } from '@/hooks/useResumable';
@@ -54,9 +55,17 @@ export function GameScreen() {
   } = useGame();
   const resumable = useResumable();
 
+  const playing = snapshot?.status === 'playing';
+
   // **두는 중에만 묻는다.** 끝난 판은 잃을 것이 없고, 거기서도 물으면 「もう一局」을
   // 누르러 가는 사람이 매번 확인창을 본다(useUnloadGuard).
-  useUnloadGuard(snapshot?.status === 'playing');
+  useUnloadGuard(playing);
+
+  // 헤더가 「対局中」 표식을 띄우는 근거다(libs/game/playing.ts). **여기서만 쓴다** —
+  // 판의 상태를 아는 것은 이 화면 하나이고, 그 사실이 밖으로 나가는 길이 이 줄이다.
+  useEffect(() => {
+    setPlaying(playing);
+  }, [playing]);
 
   /** 끝난 이 판의 되짚기 자리. 총평이 오기 전에는 번호가 없어서 null이다. */
   const reviewRoute = useMemo(

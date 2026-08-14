@@ -3,13 +3,68 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- 오각형 기물 하나. 파일을 두지 않은 것은 이 한 줄이 전부라서다.
-         없으면 브라우저가 매번 /favicon.ico를 찾다 404를 콘솔에 남긴다. -->
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 3 L26 9 L24 29 L8 29 L6 9 Z' fill='%23f5f1e6' stroke='%233f3a33' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E"
+
+    <!-- 아이콘은 전부 `public/` 에 있고 로고 한 장에서 만든다(brand/icons.sh).
+         `.ico` 를 남겨 두는 것은 옛 브라우저와 윈도 작업표시줄이 그것만 보기 때문이고,
+         16·32·48이 한 파일에 들어 있어 크기별로 링크를 늘리지 않아도 된다. -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- 셸의 크림(--bg)이다. 브랜드 深緑을 넣으면 모바일 브라우저의 주소창만 초록이 되고
+         그 아래 화면은 크림이라, 앱이 아니라 잘린 배너처럼 보인다. -->
+    <meta name="theme-color" content="#ede7dc" />
+
+    <title>show-gi — 口を出すときを自分で決める将棋の相手</title>
+    <meta
+      name="description"
+      content="悪手を指した瞬間に盤を戻し、なぜ悪いのかを説明する将棋アプリ。判定は将棋エンジンが行うので、説明が間違いません。ヒント・待った・対局後の振り返りとクイズつき。"
     />
-    <title>show-gi</title>
+
+    <!-- **주소를 못 박는다.** SPA라 `/reviews/12` 같은 주소가 얼마든지 생기는데, 그 전부가
+         같은 HTML을 돌려받는다 — 크롤러에게는 내용이 같은 페이지가 무한히 있는 것으로
+         보인다. 정본을 하나로 묶어 그 자리를 없앤다. -->
+    <link rel="canonical" href="https://show-gi.com/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="show-gi" />
+    <meta property="og:url" content="https://show-gi.com/" />
+    <meta property="og:title" content="show-gi — 口を出すときを自分で決める将棋の相手" />
+    <meta
+      property="og:description"
+      content="悪手はその場で盤に戻して、理由を説明します。判定は将棋エンジン、説明だけがことばです。"
+    />
+    <meta property="og:image" content="https://show-gi.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="show-gi — 口を出すときを自分で決める将棋の相手" />
+    <meta property="og:locale" content="ja_JP" />
+
+    <!-- 카드가 큰 쪽이다. 로고가 왼쪽에 크게 들어간 그림이라 작은 카드로 자르면 글자가 날아간다. -->
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!--
+      검색 결과에 무엇으로 나갈지. **`applicationCategory` 를 게임으로 두지 않는다** —
+      이 앱이 하는 일은 대국이 아니라 그 자리에서 가르치는 것이고, 상대를 이기려고
+      찾아온 사람에게 잘못 걸리면 첫 판에서 「자꾸 막는다」가 된다.
+
+      값은 위 태그들과 **같은 문장**이어야 한다. 갈라 두면 어느 쪽이 검색 결과에
+      나가는지가 크롤러 사정이 되고, 그때는 이미 둘 다 옛말이다.
+    -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "show-gi",
+        "url": "https://show-gi.com/",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Web",
+        "inLanguage": "ja",
+        "description": "悪手を指した瞬間に盤を戻し、なぜ悪いのかを説明する将棋アプリ。判定は将棋エンジンが行うので、説明が間違いません。",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "JPY" }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

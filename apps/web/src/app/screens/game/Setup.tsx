@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { GameSetup } from '@/hooks/useGame';
 import type { Color } from '@/protocol/game';
 import { fetchOpenings, type Opening } from '@/protocol/openings';
+import { ROUTE_GUIDE } from '@/routes/const';
 
 /**
  * 대국을 시작하기 전에 고르는 화면.
@@ -105,6 +106,16 @@ export function Setup({ initial, onStart }: SetupProps) {
       <button type="button" className="btn btn--primary setup__start" onClick={() => onStart({ color, opening })}>
         対局をはじめる
       </button>
+
+      {/* **헤더의 버튼만으로는 못 찾는다.** 처음 온 사람이 실제로 보는 화면은 여기 하나다.
+          시작 버튼 **아래**에 두는 것이 요점 — 위에 두면 두러 온 사람을 먼저 붙잡는다.
+
+          헤더와 **같이 새 탭이다**(App.tsx). 같은 곳이 자리에 따라 다르게 열리면 두 번째로
+          누를 때 무엇이 일어날지 모르게 되고, 덤으로 여기서 고른 手番·戦型이 안 날아간다. */}
+      <a className="setup__guide" href={ROUTE_GUIDE} target="_blank" rel="noreferrer noopener">
+        はじめての方へ — このアプリの遊びかた
+        <span aria-hidden="true"> ↗</span>
+      </a>
     </div>
   );
 }
