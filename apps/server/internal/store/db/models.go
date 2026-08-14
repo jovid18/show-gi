@@ -38,6 +38,17 @@ type Game struct {
 	StyleTags  []string
 }
 
+type GameHint struct {
+	ID        int64
+	GameID    int64
+	Ply       int32
+	SFENKey   string
+	Stage     int32
+	BestUsi   string
+	Taken     *bool
+	CreatedAt pgtype.Timestamptz
+}
+
 type GameMove struct {
 	GameID  int64
 	Ply     int32

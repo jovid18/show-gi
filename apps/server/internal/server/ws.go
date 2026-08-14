@@ -37,7 +37,7 @@ const (
 
 // clientMsg 는 브라우저가 보내는 것.
 type clientMsg struct {
-	Type string `json:"type"` // "move" | "resign" | "undo" | "whatif"
+	Type string `json:"type"` // "move" | "resign" | "undo" | "hint" | "whatif"
 	USI  string `json:"usi,omitempty"`
 
 	// Ply·Moves 는 "whatif" 에서만 쓴다 — 「확정된 몇 手目에서 이 수순을 뒀다면」이다.
@@ -77,6 +77,10 @@ var rejectMessages = map[string]string{
 	// 남는 것은 연타와 API 직접 호출이라, 문구는 「왜 안 되나」만 말하면 된다.
 	"no_undo_left":    "待ったはこれ以上できません。",
 	"nothing_to_undo": "戻せる手がまだありません。",
+	// 힌트의 거절 셋. 무르기와 같은 규약이다 — 화면이 버튼을 안 그리면 여기 안 온다.
+	"no_hint_left": "ヒントはこれ以上使えません。",
+	"hint_seen":    "この局面のヒントはもう出しました。",
+	"no_hint":      "ヒントを用意できませんでした。",
 }
 
 func rejection(err error) serverMsg {
@@ -92,6 +96,12 @@ func rejection(err error) serverMsg {
 		return reject("no_undo_left")
 	case errors.Is(err, game.ErrNothingToUndo):
 		return reject("nothing_to_undo")
+	case errors.Is(err, game.ErrNoHintLeft):
+		return reject("no_hint_left")
+	case errors.Is(err, game.ErrHintSeen):
+		return reject("hint_seen")
+	case errors.Is(err, game.ErrNoHint):
+		return reject("no_hint")
 	default:
 		// USI 표기 파싱 실패 등. 클라이언트가 합법수만 보내면 도달하지 않는다.
 		return reject("bad_move")
@@ -336,10 +346,20 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ObservePlies:    h.opts.ObservePlies,
 		Explainer:       h.opts.Explainer,
 		Mate:            h.opts.Mate,
-		// 手筋 제안형 힌트도 가정 수순과 **같은 풀**이다. 묻는 것이 같은 종류라서다 —
-		// 둘 다 「이 수를 둬 보면 어떻게 되나」이고, 그래서 Options 에 필드를 따로 두지
-		// 않는다. nil이면 手筋 힌트만 꺼지고 囲い·전법 힌트는 그대로 뜬다.
-		TesujiHint: h.opts.Search,
+		// **手筋 제안형 힌트는 꺼 뒀다**(nil). 세 판 내내 화면에 0건이었고, 그것이 k도
+		// 지연도 아니라 게이트의 폭 때문이라는 것이 실측으로 나왔다 — 사람이 둔 두 기보에서
+		// 후보 64개·122개 중 `TesujiLossCp` 안에 든 것이 각각 0개·2개다(06-status.md §76).
+		//
+		// **끄면 사람 차례마다 도는 룰 필터가 통째로 사라진다**(종반 한 번에 2.46초, §56).
+		// 아무것도 안 뜨는 채로 그 비용을 계속 쓰고 있었다. 대신 사람이 부르는 힌트가
+		// 그 자리를 맡는다(§78).
+		//
+		// 켜려면 `h.opts.Search` 를 그대로 주면 된다 — 코드도 측정도 그대로 있고,
+		// 다시 여는 조건은 `TesujiLossCp` 하나다. 囲い·전법 힌트는 이것과 무관하게 뜬다.
+		TesujiHint: nil,
+		// **부르는 힌트는 상대와 같은 풀이다.** 묻는 국면이 같아서다 — 다만 관점이 반대라
+		// (상대가 둘 수 vs 사람이 둘 최선수) 결과를 돌려쓰지는 못한다(Config.HintSearch).
+		HintSearch: h.opts.Search,
 	}
 	// 총평이 段級 변화를 말하려면 판의 처음과 끝이 필요하다. 추정기가 없으면 nil이고,
 	// 그때는 총평도 그 자리를 안 그린다(skillRun.change).
@@ -364,6 +384,13 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			log.Printf("ws: cannot read undo count of game %d: %v", setup.resumeID, err)
 		} else {
 			cfg.UndoUsed = n
+		}
+		// **힌트도 같은 자리, 같은 이유다.** 예산만이 아니라 「이 국면은 어디까지 봤나」도
+		// 이어받아야 한다 — 안 그러면 이어한 판에서 같은 자리의 답을 다시 볼 수 있다.
+		if use, err := h.opts.Store.HintsUsed(ctx, setup.resumeID); err != nil {
+			log.Printf("ws: cannot read hint count of game %d: %v", setup.resumeID, err)
+		} else {
+			cfg.HintsUsed, cfg.HintStages = use.Used, use.Stages
 		}
 	}
 	// DB가 없으면 기록하지 않고 대국은 그대로 된다 — 엔진·캐시와 같은 판단이다.
@@ -669,6 +696,15 @@ func (h *gameHandler) readLoop(
 				emit(ctx, out, rejection(err))
 			}
 			// 성공하면 구독 채널로 스냅샷이 온다 — 착수와 같은 규약이다.
+
+		case "hint":
+			if _, err := sess.Hint(ctx); err != nil {
+				if errors.Is(err, context.Canceled) || errors.Is(err, game.ErrClosed) {
+					return
+				}
+				emit(ctx, out, rejection(err))
+			}
+			// 성공해도 여기서는 아직 안 뜬다 — 탐색이 끝나면 구독 채널로 온다(Session.Hint).
 
 		case "resign":
 			if _, err := sess.Resign(ctx); err != nil && !errors.Is(err, game.ErrFinished) {

@@ -153,6 +153,22 @@ type Config struct {
 	// 얕게 다시 묻지 않는다 — 그러면 상대의 강함이 서버 사정에 따라 달라진다(01-core.md §4).
 	MoveDeadline  time.Duration
 	ExtraDeadline time.Duration
+	// HintSearch 가 nil이면 **부르는 힌트가 꺼진다**(CanHint 가 언제나 false).
+	//
+	// **`Opponent` 와 같은 풀을 받지만 자리가 다르다.** 상대는 자기가 둘 수를 고르려고 묻고,
+	// 이쪽은 **사람이 둘 최선수**를 묻는다 — 같은 국면이지만 관점이 반대라 결과를 돌려쓸 수
+	// 없다(`Mate` 가 `Analyst` 와 갈리는 것과 같은 이유).
+	//
+	// **k=1로 묻는다**(askHint). 필요한 것이 최선수 하나이고, 그 모양이 판정이 이미 만드는
+	// 캐시 행과 같아서다 — 같은 국면·같은 깊이·같은 k라야 `positions` 가 한 행으로 합쳐진다.
+	HintSearch MultiSearcher
+	// HintsUsed·HintStages 는 이 판에서 **이미** 쓴 힌트다. 이어하는 판만 채운다(server/ws.go).
+	//
+	// **둘 다 있어야 한다.** 앞은 예산이고 뒤는 「이 국면은 어디까지 봤나」다 — 뒤가 없으면
+	// 이어한 판에서 같은 국면의 답을 다시 볼 수 있다(store.HintUse).
+	HintsUsed  int
+	HintStages map[string]int
+
 	// UndoUsed 는 이 판에서 **이미** 무른 횟수다. 이어하는 판만 채운다(server/ws.go).
 	//
 	// **세션이 아니라 판에 붙는 예산이라서** 여기로 받는다. 세션은 연결에 매여 있어
@@ -192,6 +208,32 @@ var ErrNothingToUndo = errors.New("game: nothing to undo")
 // **[미확정]** 3은 사람이 요청한 값 그대로다. 실측으로 잡은 것이 아니다.
 const UndoMaxPerGame = 3
 
+// ErrNoHintLeft 는 그 판의 힌트 예산을 다 썼을 때다(HintMaxPerGame).
+var ErrNoHintLeft = errors.New("game: no hint left")
+
+// ErrHintSeen 은 **이 국면에서 이미 답까지 봤을 때**다. 같은 자리를 세 번째로 물으면
+// 여기로 온다 — 그때 줄 것이 더 없다(HintStageMax).
+var ErrHintSeen = errors.New("game: hint already given for this position")
+
+// ErrNoHint 는 힌트를 만들 수 없을 때다 — 엔진이 없거나 탐색이 수를 못 냈다.
+var ErrNoHint = errors.New("game: no hint available")
+
+// HintMaxPerGame 은 사람이 **불러서** 받을 수 있는 최선수 힌트의 횟수다.
+//
+// **이 숫자가 곧 원칙의 근거다.** 01-core.md §1은 「어느 쪽도 최선수를 보여주지 않는다」이고
+// 갇힘 힌트가 그 예외인 근거는 「다섯 번 실패해야 열려서 기댈 수 없다」였다. 부르는 힌트는
+// 기댈 수 있으므로 그 근거가 안 서고, **대신 예산이 그 자리를 맡는다** — 한 국면의 답을
+// 통째로 보려면 두 번을 쓰므로 한 판에 **최대 세 수**까지만 답을 볼 수 있다.
+//
+// **[미확정]** 6은 사람이 고른 값이다. 근거는 06-status.md §78.
+const HintMaxPerGame = 6
+
+// HintStageMax 는 한 국면에서 열리는 마지막 단계다.
+//
+// 1이 「어느 駒인가」, 2가 「어떻게 움직이나」이고 **3은 없다.** 갇힘 힌트의 두 단계와
+// 같은 것을 그린다(buildHint) — 계단이 둘인 것은 1단계에서 여전히 사람이 찾기 때문이다.
+const HintStageMax = 2
+
 // 대국 중 엔진 탐색에 거는 시한이다. **자를 시간이 아니라 버릴 시점이다** — 깊이 기반이라
 // 중간 결과는 depth N 결과가 아니고, 넘기면 결과를 통째로 버린다(usi.Engine.SearchDepth).
 //
@@ -212,6 +254,7 @@ const (
 	cmdMove cmdKind = iota
 	cmdResign
 	cmdUndo
+	cmdHint
 	cmdSnapshot
 	cmdSubscribe
 	cmdUnsubscribe
@@ -328,6 +371,26 @@ type state struct {
 	tesuji    []tag.Tag
 	tesujiGen int
 
+	// 부르는 힌트. 예산은 판에 붙고(hints) 단계는 국면마다다(hintStages).
+	//
+	// **탐색이 세션 goroutine 밖에서 돈다** — 게이지와 같은 규약이라 세대(hintGen)로 거른다.
+	hints      int
+	hintStages map[string]int
+	hinting    bool
+	hintGen    int
+	// hintedKey·hintedUSI 는 **지금 국면에서 답을 알려줬는가**다. 사람이 그 수를 실제로
+	// 뒀는지를 다음 착수에서 채우고(Recorder.HintTaken), 그 수를 실력 추정에서 뺀다 —
+	// 알려준 답을 둔 것이 실력으로 기록되면 段級이 부풀고, 그게 이 제품이 파는 숫자다.
+	hintedKey string
+	hintedUSI string
+	// skipRating 은 **방금 둔 수를 실력 추정에서 뺄 것인가**다. 답을 본 국면에서 착수할 때
+	// 켜지고, 판정이 끝나면 다시 꺼진다 — 판정이 비동기라 착수 시점의 사실을 그때까지
+	// 들고 있어야 한다.
+	skipRating bool
+	// hintReported 는 이 힌트에 대해 `HintTaken` 을 이미 적었는가다. 답을 본 국면에서
+	// 여러 번 시도할 수 있어서(개입 롤백) 필요하다.
+	hintReported bool
+
 	// namedStyle 은 이 판에서 **이미 기록한** 囲い·전법·戦型 코드다(recordStyleTags).
 	//
 	// 세션이 연결에 매여 있어 이어하는 판은 이 기억을 잃는다(§51). 그래서 거르는 자리가
@@ -390,17 +453,24 @@ func New(ctx context.Context, cfg Config) (*Session, error) {
 		closed: make(chan struct{}),
 	}
 	st := &state{
-		cfg:     cfg,
-		pos:     pos,
-		start:   sfen,
-		prevTo:  -1,
-		repeats: map[string]int{},
-		status:  StatusPlaying,
-		subs:    map[chan Snapshot]struct{}{},
-		skill:   skill.Unknown,
-		undos:   cfg.UndoUsed,
+		cfg:        cfg,
+		pos:        pos,
+		start:      sfen,
+		prevTo:     -1,
+		repeats:    map[string]int{},
+		status:     StatusPlaying,
+		subs:       map[chan Snapshot]struct{}{},
+		skill:      skill.Unknown,
+		undos:      cfg.UndoUsed,
+		hints:      cfg.HintsUsed,
+		hintStages: map[string]int{},
 	}
 	st.repeats[pos.RepetitionKey()]++
+	// **넘겨받은 표를 그대로 안 든다.** 부르는 쪽이 계속 들고 있으면 세션 goroutine 밖에서
+	// 그 표가 바뀔 수 있고, 그 순간 「대국 상태는 goroutine 하나가 소유한다」가 깨진다.
+	for k, v := range cfg.HintStages {
+		st.hintStages[k] = v
+	}
 
 	// **run 전에 되만든다.** 여기까지는 goroutine이 하나뿐이고 Recorder 도 아직 아무
 	// 말을 안 들었으므로, 되만들기가 실패하면 세션이 **아예 안 선다** — 반쯤 선 판을
@@ -463,6 +533,7 @@ func (s *Session) run(ctx context.Context, st *state) {
 	engineDone := make(chan engineResult, 1)
 	judgeDone := make(chan judgeResult, 1)
 	gaugeDone := make(chan mateResult, 1)
+	hintDone := make(chan hintResult, 1)
 	tesujiDone := make(chan tesujiHintResult, 1)
 
 	// 기록도 세션 goroutine 안에서 시작한다 — 상태를 만지는 순서와 같은 줄에 둔다.
@@ -495,13 +566,16 @@ func (s *Session) run(ctx context.Context, st *state) {
 			return
 
 		case c := <-s.cmds:
-			st.handle(ctx, c, engineDone, judgeDone, gaugeDone, tesujiDone)
+			st.handle(ctx, c, engineDone, judgeDone, gaugeDone, tesujiDone, hintDone)
 
 		case r := <-engineDone:
 			st.applyEngineMove(ctx, r, engineDone, gaugeDone, tesujiDone)
 
 		case r := <-judgeDone:
 			st.applyVerdict(ctx, r, engineDone, gaugeDone, tesujiDone)
+
+		case r := <-hintDone:
+			st.applyHintResult(r)
 
 		case r := <-gaugeDone:
 			st.applyMateHeat(r)
@@ -515,7 +589,7 @@ func (s *Session) run(ctx context.Context, st *state) {
 	}
 }
 
-func (st *state) handle(ctx context.Context, c command, engineDone chan engineResult, judgeDone chan judgeResult, gaugeDone chan mateResult, tesujiDone chan tesujiHintResult) {
+func (st *state) handle(ctx context.Context, c command, engineDone chan engineResult, judgeDone chan judgeResult, gaugeDone chan mateResult, tesujiDone chan tesujiHintResult, hintDone chan hintResult) {
 	switch c.kind {
 	case cmdSnapshot:
 		c.reply <- result{snap: st.snapshot()}
@@ -540,6 +614,15 @@ func (st *state) handle(ctx context.Context, c command, engineDone chan engineRe
 		st.finish(StatusResigned, SideEngine)
 		c.reply <- result{snap: st.snapshot()}
 		st.broadcast()
+
+	case cmdHint:
+		// **성공해도 여기서는 아직 아무것도 안 뜬다.** 탐색이 끝나야 단계가 정해지고,
+		// 그때 스냅샷이 구독 채널로 간다(applyHintResult) — 착수와 같은 규약이다.
+		err := st.askHint(ctx, hintDone)
+		c.reply <- result{snap: st.snapshot(), err: err}
+		if err == nil {
+			st.broadcast()
+		}
 
 	case cmdUndo:
 		snap, err := st.undo(ctx, gaugeDone, tesujiDone)
@@ -691,6 +774,23 @@ func (st *state) playHuman(ctx context.Context, usi string, engineDone chan engi
 	// 「모를 때는 하지 않는다」가 이 레포의 규칙이다.
 	st.chasing = st.mateGen == st.searchGen && st.matePlies > 0 && st.matePlies <= MateChasePlies
 
+	// **답을 본 국면에서 두는가.** 두 가지가 여기서 정해진다 — 알려준 수를 실제로 뒀는지를
+	// 기록하고(01-core.md §5의 `taken`), 그 수를 실력 추정에서 뺀다.
+	//
+	// **착수 전에 봐야 한다.** 아래 `apply` 가 국면을 옮기면 이 국면의 키가 사라진다.
+	// **국면이 열쇠라 지울 필요가 없다.** 다른 국면으로 가면 아래 비교가 안 맞고, 되물러
+	// 이 국면으로 돌아오면 다시 맞는다 — 답을 아는 채로 다시 두는 자리가 그쪽이라
+	// 그때도 레이팅에서 빠져야 한다.
+	st.skipRating = st.hintedKey != "" && st.hintedKey == shogi.PositionKey(st.pos)
+	if st.skipRating && !st.hintReported {
+		// **첫 시도만 적는다.** 그 뒤의 시도는 물러진 수라 기보에 안 남고, `taken` 은
+		// 「답을 손에 쥔 채 무엇을 뒀나」이지 「몇 번 시도했나」가 아니다.
+		st.hintReported = true
+		if st.cfg.Recorder != nil {
+			st.cfg.Recorder.HintTaken(st.hintedKey, usi == st.hintedUSI)
+		}
+	}
+
 	st.apply(m, SideHuman)
 
 	// 판정할 것이 있으면 엔진을 부르기 전에 먼저 묻는다. **롤백이 있는 이상
@@ -819,8 +919,15 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 }
 
 // observeSkill 은 판정 결과를 추정기에 넘긴다. **기다리지 않는다**(Rater).
+//
+// **답을 본 수는 안 넘긴다.** 알려준 최선수를 그대로 둔 것이 실력으로 기록되면 段級이
+// 부풀고, 그 숫자가 이 제품이 화면에서 파는 값이다(06-status.md §62 · §78). 물러진 수를
+// 「개입에 오염되지 않은 신호」로 정의한 것과 같은 자리, 같은 이유다(01-core.md §5).
+//
+// **1단계는 안 뺀다** — 駒만 짚었으므로 어디로 갈지는 여전히 사람이 찾았다(hintedUSI 가
+// 그때 비어 있다).
 func (st *state) observeSkill(j Judgement) {
-	if st.cfg.Rater == nil {
+	if st.cfg.Rater == nil || st.skipRating {
 		return
 	}
 	st.cfg.Rater.Observe(skill.Move{
@@ -1426,10 +1533,15 @@ func (st *state) snapshot() Snapshot {
 		StyleTags:       st.styleTags(),
 		OpponentOpening: st.cfg.OpponentOpening,
 		UndoLeft:        max(UndoMaxPerGame-st.undos, 0),
+		HintLeft:        max(HintMaxPerGame-st.hints, 0),
 		// **화면이 조건을 다시 짓지 않게 여기서 답한다.** `yourTurn && undoLeft > 0` 으로
 		// 흉내내면 「사람이 아직 한 수도 안 뒀다」가 빠지고, 그 자리에서 누른 버튼이
 		// 거절로 돌아온다 — 조건이 두 벌이 되는 순간 둘 중 하나가 낡는다.
 		CanUndo: yours && st.undos < UndoMaxPerGame && st.lastHumanMove() >= 0,
+		// **거절 조건과 같은 셋이다**(askHint) — 엔진이 있고, 사람 차례이고, 예산이
+		// 남았고, 이 국면에서 아직 답까지 안 봤다.
+		CanHint: st.cfg.HintSearch != nil && yours && !st.judging && !st.thinking &&
+			st.hints < HintMaxPerGame && st.hintStages[shogi.PositionKey(st.pos)] < HintStageMax,
 	}
 	// 국면이 움직였으면 게이지는 그 자리에서 무효다(state.mateGen).
 	if st.mateGen == st.searchGen {
@@ -1530,6 +1642,15 @@ func (s *Session) Undo(ctx context.Context) (Snapshot, error) {
 	return s.send(ctx, command{kind: cmdUndo})
 }
 
+// Hint 는 지금 국면의 최선수 힌트를 부른다.
+//
+// **돌아온 스냅샷에는 아직 힌트가 없다.** 탐색이 끝나야 단계가 정해지므로 구독 채널로
+// 한 번 더 온다 — 착수·판정과 같은 규약이다. 예산이 없거나 이미 답까지 본 국면이면
+// 그 자리에서 거절한다(askHint).
+func (s *Session) Hint(ctx context.Context) (Snapshot, error) {
+	return s.send(ctx, command{kind: cmdHint})
+}
+
 // Snapshot 은 지금 상태를 돌려준다.
 func (s *Session) Snapshot(ctx context.Context) (Snapshot, error) {
 	return s.send(ctx, command{kind: cmdSnapshot})
@@ -1552,4 +1673,126 @@ func (s *Session) Subscribe(ctx context.Context) (<-chan Snapshot, func(), error
 func (s *Session) Close() {
 	s.closeOnce.Do(func() { close(s.done) })
 	<-s.closed
+}
+
+// ─── 부르는 힌트 ─────────────────────────────────────────────
+// 사람이 눌러서 받는 최선수 힌트. 근거와 예산은 HintMaxPerGame · docs/06-status.md §78.
+
+// hintResult 는 힌트 탐색 하나의 결과다. 게이지·판정과 같은 규약으로 세대를 들고 온다.
+type hintResult struct {
+	gen  int
+	key  string
+	best string
+	err  error
+}
+
+// askHint 는 지금 국면의 최선수를 물어 힌트를 만든다.
+//
+// **거절은 여기서 전부 끝낸다.** 탐색을 걸기 전에 예산·단계·차례를 보므로, 답이 오는
+// 쪽(applyHintResult)은 「늦게 온 앞의 결과인가」만 본다.
+func (st *state) askHint(ctx context.Context, done chan hintResult) error {
+	if st.cfg.HintSearch == nil {
+		return ErrNoHint
+	}
+	if st.status != StatusPlaying {
+		return ErrFinished
+	}
+	// 판정 중이거나 상대가 생각 중이면 국면이 아직 사람에게 안 왔다 — 그때의 최선수는
+	// 사람이 둘 자리의 것이 아니다. 무르기와 같은 자리, 같은 이유다(undo).
+	if st.judging || st.thinking || st.pos.Turn != st.cfg.HumanColor {
+		return ErrNotYourTurn
+	}
+	if st.hints >= HintMaxPerGame {
+		return ErrNoHintLeft
+	}
+	key := shogi.PositionKey(st.pos)
+	if st.hintStages[key] >= HintStageMax {
+		return ErrHintSeen
+	}
+	if st.hinting {
+		return nil // 이미 묻고 있다. 두 번 세지 않는다
+	}
+
+	st.hinting = true
+	st.hintGen = st.searchGen
+
+	gen, start := st.hintGen, st.start
+	search := st.cfg.HintSearch
+	depth := JudgeDepth
+	// 슬라이스를 그대로 넘기면 다음 착수의 append 가 같은 배열을 건드린다.
+	moves := append([]string(nil), st.usis...)
+	deadline := st.extraDeadline()
+
+	go func() {
+		hctx, cancel := context.WithTimeout(ctx, deadline)
+		res, err := search.SearchMultiPV(hctx, start, moves, depth, 1)
+		cancel()
+		select {
+		case done <- hintResult{gen: gen, key: key, best: res.Best, err: err}:
+		case <-ctx.Done():
+		}
+	}()
+	return nil
+}
+
+// applyHintResult 는 구해진 최선수를 그 국면의 다음 단계로 그린다.
+//
+// **예산은 여기서 센다.** 물어본 자리가 아니라 **답이 온 자리**에서 세야, 탐색이 실패한
+// 회차가 예산을 먹지 않는다 — 사람은 아무것도 못 본 채로 한 번을 잃게 된다.
+func (st *state) applyHintResult(r hintResult) {
+	if !st.hinting || r.gen != st.hintGen {
+		return // 그 사이 다시 걸었다. 늦게 온 앞의 결과다
+	}
+	st.hinting = false
+
+	if r.gen != st.searchGen {
+		return // 국면이 움직였다. 다른 국면의 최선수를 지금 판에 짚으면 거짓이다
+	}
+	if r.err != nil {
+		// **힌트가 없다고 대국을 멈추지 않는다.** 게이지·판정과 같은 판단이다.
+		log.Printf("game: hint search failed, nothing is shown: %v", r.err)
+		st.notice = newNotice(NoticeHintFailed)
+		st.broadcast()
+		return
+	}
+	if r.best == "" || r.best == "resign" || r.best == "win" {
+		// 둘 수가 없거나 판이 끝난 국면이다. 예산을 안 쓴다.
+		st.notice = newNotice(NoticeHintFailed)
+		st.broadcast()
+		return
+	}
+
+	stage := st.hintStages[r.key] + 1
+	h := buildHint(hintStuck(stage), r.best)
+	if h == nil {
+		st.notice = newNotice(NoticeHintFailed)
+		st.broadcast()
+		return
+	}
+
+	st.hintStages[r.key] = stage
+	st.hints++
+	st.hint = h
+	// **답까지 봤을 때만 기억한다.** 1단계는 駒만 짚으므로 그 수를 뒀는지가 「알려준 답을
+	// 그대로 뒀다」와 같은 뜻이 아니다 — 어디로 갈지는 여전히 사람이 찾았다.
+	if stage >= HintStageMax {
+		st.hintedKey, st.hintedUSI, st.hintReported = r.key, r.best, false
+	}
+
+	if st.cfg.Recorder != nil {
+		st.cfg.Recorder.Hinted(len(st.moves), r.key, stage, r.best)
+	}
+	st.broadcast()
+}
+
+// hintStuck 은 힌트 단계를 `buildHint` 가 아는 자(연속 되무르기 횟수)로 옮긴다.
+//
+// **두 문이 같은 그림을 그린다** — 1단계는 그 駒에 테, 2단계는 그 수에 화살표다. 갇힘
+// 힌트와 갈리는 것은 **문을 여는 방식**뿐이라(실패 횟수 vs 예산), 그리는 쪽을 두 벌로
+// 만들지 않는다. 여기가 그 두 자 사이의 유일한 번역이다.
+func hintStuck(stage int) int {
+	if stage >= HintStageMax {
+		return HintMoveAfter
+	}
+	return HintPieceAfter
 }

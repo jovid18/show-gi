@@ -54,6 +54,11 @@ export interface GameState {
    * 거절되면 다른 거절과 같은 자리에 문구가 뜬다(`rejection`).
    */
   undo: () => void;
+  /**
+   * 최선수 힌트를 부른다. **누를 수 있는지는 `snapshot.canHint` 가 이미 답했다** —
+   * 예산·차례·이 국면에서 답을 봤는지 셋을 화면이 다시 짓지 않는다(`undo` 와 같은 규약).
+   */
+  askHint: () => void;
   dismissRejection: () => void;
   /** 고른 설정으로 대국을 연다. 새 연결이 곧 새 판이다. */
   start: (setup: GameSetup) => void;
@@ -208,6 +213,7 @@ export function useGame(): GameState {
   const play = useCallback((usi: string) => send({ type: 'move', usi }), [send]);
   const resign = useCallback(() => send({ type: 'resign' }), [send]);
   const undo = useCallback(() => send({ type: 'undo' }), [send]);
+  const askHint = useCallback(() => send({ type: 'hint' }), [send]);
   const dismissRejection = useCallback(() => setRejection(null), []);
 
   const whatif = useCallback<Send>(
@@ -275,6 +281,7 @@ export function useGame(): GameState {
     play,
     resign,
     undo,
+    askHint,
     dismissRejection,
     start,
     resume,

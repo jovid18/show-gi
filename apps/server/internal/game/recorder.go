@@ -69,6 +69,23 @@ type Recorder interface {
 	// 수순만으로 정해져 엔진 평가치에 안 걸린다.
 	Named(code string)
 
+	// Hinted 는 사람이 **불러서** 받은 최선수 힌트 한 번이다.
+	//
+	// **개입과 갈라 둔다.** 저쪽은 앱이 먼저 말을 건 자리이고 이쪽은 사람이 부른 자리라,
+	// 섞으면 「개입 N회」가 사람이 스스로 물어본 횟수까지 세게 된다 — 待った를 갈라 둔 것과
+	// 같은 이유다(010_game_hints.sql).
+	//
+	// key 는 그 국면의 `shogi.PositionKey` 다. **手数가 아니라 이것이 「같은 국면」의 자다** —
+	// 되돌아온 자리가 手数로는 갈리지만 국면으로는 같아야 3회째가 막힌다.
+	Hinted(ply int, key string, stage int, bestUSI string)
+
+	// HintTaken 은 알려준 그 수를 사람이 실제로 뒀는가다. **답까지 본 국면에만 온다** —
+	// 1단계는 駒만 짚으므로 「알려준 대로 뒀다」와 뜻이 같지 않다.
+	//
+	// 01-core.md §5의 `interventions.taken` 이 정의한 신호가 이것이다: 「알려줬는데도 못 찾은
+	// 좋은 수」가 그대로 약점이 된다.
+	HintTaken(key string, taken bool)
+
 	// Finished 는 대국이 끝날 때 한 번. 끝나지 않고 연결이 끊기면 오지 않는다 —
 	// 그 경우를 어떻게 남길지는 구현이 정한다.
 	Finished(status Status, winner Side)

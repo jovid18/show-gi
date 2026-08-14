@@ -72,6 +72,53 @@ func (q *Queries) ClaimGameForResume(ctx context.Context, arg ClaimGameForResume
 	return i, err
 }
 
+const countGameHintStages = `-- name: CountGameHintStages :many
+SELECT sfen_key, max(stage)::int AS stage
+FROM game_hints
+WHERE game_id = $1
+GROUP BY sfen_key
+`
+
+type CountGameHintStagesRow struct {
+	SFENKey string
+	Stage   int32
+}
+
+// 국면마다 **몇 단계까지 열렸나**. 이어하는 판이 이것으로 「이 국면은 이미 답을 봤다」를
+// 되찾는다 — 세션의 기억은 연결과 함께 사라진다(§51).
+func (q *Queries) CountGameHintStages(ctx context.Context, gameID int64) ([]CountGameHintStagesRow, error) {
+	rows, err := q.db.Query(ctx, countGameHintStages, gameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountGameHintStagesRow
+	for rows.Next() {
+		var i CountGameHintStagesRow
+		if err := rows.Scan(&i.SFENKey, &i.Stage); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countGameHints = `-- name: CountGameHints :one
+SELECT count(*) FROM game_hints WHERE game_id = $1
+`
+
+// **이어하는 판이 6회 제한을 리셋하지 않게** 한다(game.Config.HintsUsed) — `CountGameUndos`
+// 와 같은 자리, 같은 이유다.
+func (q *Queries) CountGameHints(ctx context.Context, gameID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countGameHints, gameID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countGameResultsForOwner = `-- name: CountGameResultsForOwner :many
 SELECT g.result, count(*) AS games
 FROM games g
@@ -395,6 +442,33 @@ func (q *Queries) GetGameForOwner(ctx context.Context, arg GetGameForOwnerParams
 		&i.OpeningTag,
 	)
 	return i, err
+}
+
+const insertHint = `-- name: InsertHint :exec
+
+INSERT INTO game_hints (game_id, ply, sfen_key, stage, best_usi)
+VALUES ($1, $2, $3, $4, $5)
+`
+
+type InsertHintParams struct {
+	GameID  int64
+	Ply     int32
+	SFENKey string
+	Stage   int32
+	BestUsi string
+}
+
+// ─── 부른 힌트 ───────────────────────────────────────────────
+// 사람이 불러서 받은 최선수 힌트. 개입과 갈라 두는 이유는 010_game_hints.sql.
+func (q *Queries) InsertHint(ctx context.Context, arg InsertHintParams) error {
+	_, err := q.db.Exec(ctx, insertHint,
+		arg.GameID,
+		arg.Ply,
+		arg.SFENKey,
+		arg.Stage,
+		arg.BestUsi,
+	)
+	return err
 }
 
 const insertIntervention = `-- name: InsertIntervention :exec
@@ -734,6 +808,25 @@ func (q *Queries) ListGamesForOwner(ctx context.Context, arg ListGamesForOwnerPa
 		return nil, err
 	}
 	return items, nil
+}
+
+const markHintTaken = `-- name: MarkHintTaken :exec
+UPDATE game_hints
+SET taken = $1
+WHERE game_id = $2 AND sfen_key = $3
+`
+
+type MarkHintTakenParams struct {
+	Taken   *bool
+	GameID  int64
+	SFENKey string
+}
+
+// 알려준 수를 실제로 뒀는가. **그 국면의 줄 전부에 적는다** — 단계가 둘이면 행이 둘인데,
+// 사람이 답을 본 것은 한 번이라 둘이 같은 답을 가져야 한다.
+func (q *Queries) MarkHintTaken(ctx context.Context, arg MarkHintTakenParams) error {
+	_, err := q.db.Exec(ctx, markHintTaken, arg.Taken, arg.GameID, arg.SFENKey)
+	return err
 }
 
 const resumableGameForOwner = `-- name: ResumableGameForOwner :one

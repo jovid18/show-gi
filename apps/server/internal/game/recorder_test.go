@@ -44,6 +44,14 @@ func (r *fakeRecorder) Undone(ply int, usi string) {
 	r.add(fmt.Sprintf("undone %d %s", ply, usi))
 }
 
+func (r *fakeRecorder) Hinted(ply int, key string, stage int, bestUSI string) {
+	r.add(fmt.Sprintf("hinted %d stage=%d %s", ply, stage, bestUSI))
+}
+
+func (r *fakeRecorder) HintTaken(_ string, taken bool) {
+	r.add(fmt.Sprintf("hint-taken %t", taken))
+}
+
 func (r *fakeRecorder) Named(code string) {
 	r.add("named " + code)
 }

@@ -17,7 +17,6 @@ import (
 	"errors"
 	"log"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -425,18 +424,10 @@ func splitMovesBySide(startSFEN string, moves []string, mover shogi.Color) (move
 	return
 }
 
-// Key 는 **手数를 뺀 SFEN**이다. 手数를 빼야 전치(다른 수순으로 같은 국면에 도달)가
-// 한 행으로 합쳐진다(001_init.sql).
-//
-// **부르는 쪽이 이걸 다시 만들지 않는다.** 키를 각자 만들면 한 글자만 갈려도 히트율이
-// 0이 되고, 그건 에러 없이 조용히 느려지는 종류다.
-func Key(pos shogi.Position) string {
-	sfen := pos.SFEN()
-	if i := strings.LastIndexByte(sfen, ' '); i > 0 {
-		return sfen[:i]
-	}
-	return sfen
-}
+// Key 는 국면 하나를 가리키는 키다. **정의는 `shogi.PositionKey` 에 있다** — `internal/game`
+// 도 같은 자를 써야 하는데 그쪽이 이 패키지를 못 들여오므로(store 가 딸려 온다), 정의를
+// 한 단계 아래로 내렸다. 이 이름은 부르는 쪽이 이미 넷이라 남겨 둔다.
+func Key(pos shogi.Position) string { return shogi.PositionKey(pos) }
 
 // Candidates 는 탐색 결과를 캐시에 넣을 모양으로 옮긴다. **순위 순이고 cp는 수번 관점**이다.
 //

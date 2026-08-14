@@ -279,3 +279,33 @@ WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
   AND g.result IN ('win', 'loss', 'draw')
   AND g.user_id IS NOT DISTINCT FROM sqlc.narg('owner_id')::bigint
 GROUP BY t.code;
+
+-- ─── 부른 힌트 ───────────────────────────────────────────────
+-- 사람이 불러서 받은 최선수 힌트. 개입과 갈라 두는 이유는 010_game_hints.sql.
+
+-- name: InsertHint :exec
+INSERT INTO game_hints (game_id, ply, sfen_key, stage, best_usi)
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: CountGameHints :one
+--
+-- **이어하는 판이 6회 제한을 리셋하지 않게** 한다(game.Config.HintsUsed) — `CountGameUndos`
+-- 와 같은 자리, 같은 이유다.
+SELECT count(*) FROM game_hints WHERE game_id = $1;
+
+-- name: CountGameHintStages :many
+--
+-- 국면마다 **몇 단계까지 열렸나**. 이어하는 판이 이것으로 「이 국면은 이미 답을 봤다」를
+-- 되찾는다 — 세션의 기억은 연결과 함께 사라진다(§51).
+SELECT sfen_key, max(stage)::int AS stage
+FROM game_hints
+WHERE game_id = $1
+GROUP BY sfen_key;
+
+-- name: MarkHintTaken :exec
+--
+-- 알려준 수를 실제로 뒀는가. **그 국면의 줄 전부에 적는다** — 단계가 둘이면 행이 둘인데,
+-- 사람이 답을 본 것은 한 번이라 둘이 같은 답을 가져야 한다.
+UPDATE game_hints
+SET taken = @taken
+WHERE game_id = @game_id AND sfen_key = @sfen_key;

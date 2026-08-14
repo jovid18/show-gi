@@ -45,6 +45,7 @@ export function GameScreen() {
     play,
     resign,
     undo,
+    askHint,
     dismissRejection,
     start,
     resume,
@@ -822,6 +823,24 @@ export function GameScreen() {
                 待った
                 <span className="play-actions__left" aria-hidden="true">
                   残り{snapshot.undoLeft}回
+                </span>
+              </button>
+              {/* **待った와 나란히 선다.** 둘 다 사람이 부르는 것이고 예산이 있다 —
+                  다른 것은 방향뿐이다: 저쪽은 둔 수를 되돌리고 이쪽은 둘 수를 묻는다.
+
+                  01-core.md §1이 「최선수를 보여주지 않는다」인데 이 버튼이 그 예외인
+                  근거가 **남은 횟수 그 자체**다(06-status.md §78). 그래서 숫자가 라벨에
+                  붙어 있어야 한다 — 감추면 기댈 수 있는 것으로 읽힌다. */}
+              <button
+                type="button"
+                className="btn"
+                disabled={!snapshot.canHint}
+                onClick={askHint}
+                aria-label={`ヒント 残り${snapshot.hintLeft}回`}
+              >
+                ヒント
+                <span className="play-actions__left" aria-hidden="true">
+                  残り{snapshot.hintLeft}回
                 </span>
               </button>
               <button type="button" className="btn" onClick={() => setConfirmingResign(true)}>
