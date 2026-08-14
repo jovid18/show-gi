@@ -328,6 +328,12 @@ type state struct {
 	tesuji    []tag.Tag
 	tesujiGen int
 
+	// namedStyle 은 이 판에서 **이미 기록한** 囲い·전법·戦型 코드다(recordStyleTags).
+	//
+	// 세션이 연결에 매여 있어 이어하는 판은 이 기억을 잃는다(§51). 그래서 거르는 자리가
+	// 질의에도 하나 더 있다(store.AddStyleTag).
+	namedStyle map[string]bool
+
 	// 제안형 힌트. 빈도 상한과 쿨다운을 여기서 잡는다(01-core.md §7.1).
 	tagHints       []tag.Tag
 	tagHintGen     int
@@ -946,6 +952,28 @@ func (st *state) recordLastMove() {
 	}
 	last := st.moves[len(st.moves)-1]
 	st.cfg.Recorder.Moved(len(st.moves), last.USI, last.By)
+	st.recordStyleTags()
+}
+
+// recordStyleTags 는 이 국면에서 사람에게 붙은 이름 중 **처음 보는 것**을 남긴다.
+//
+// **확정된 수 뒤에서만 부른다.** 물러진 수 위에서 세면 되물러 사라진 형태가 기록에 남고,
+// 그건 「짰다」가 아니라 「짤 뻔했다」다.
+//
+// **화면과 같은 함수를 쓴다**(styleTags). 갈라 두면 판에 뜬 이름과 마이페이지가 세는
+// 이름이 다른 것이 되고, 그때 어느 쪽이 맞는지 볼 방법이 없다. 手筋은 여기서 뺀다 —
+// 그쪽만 엔진 평가치에 매여 있고 이름의 정확도가 아직 보류 중이다(Recorder.Named).
+func (st *state) recordStyleTags() {
+	for _, t := range st.styleTags() {
+		if t.Kind == tag.KindTesuji || st.namedStyle[t.Code] {
+			continue
+		}
+		if st.namedStyle == nil {
+			st.namedStyle = map[string]bool{}
+		}
+		st.namedStyle[t.Code] = true
+		st.cfg.Recorder.Named(t.Code)
+	}
 }
 
 // recordEvals 는 판정이 들고 온 평가치 둘을 **두 手数에 한 번에** 채운다(Recorder.Evaluated).

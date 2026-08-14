@@ -35,6 +35,7 @@ type Game struct {
 	OpeningTag *string
 	RootKey    *string
 	StartSfen  *string
+	StyleTags  []string
 }
 
 type GameMove struct {

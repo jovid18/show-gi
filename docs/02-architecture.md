@@ -113,8 +113,10 @@ USI 엔진은 iterative deepening 중 `info depth 1 score cp … / info depth 2 
 ```sql
 users        (id, provider, provider_uid, display_name, created_at)
 games        (id, user_id, my_color, started_at, finished_at, result, opening_tag,
-              root_key, start_sfen)
+              root_key, start_sfen, style_tags)
              -- user_id는 nullable. 로그인 전에도 남긴다 (002_anonymous_games.sql)
+             -- opening_tag 은 **상대**가 고른 진형이고, style_tags 는 **사람이 짠** 囲い·
+             -- 전법·戦型이다 (009_game_style_tags.sql, §77). 手筋은 안 담는다
              -- result 어휘의 정본은 `store.GameResult` 다 — 칸에 CHECK 가 없어서
              -- 'aborted'(§56) · 'declined'(§51)가 DDL 없이 늘었다
 game_moves   (game_id, ply, usi, sfen_key, eval_cp)

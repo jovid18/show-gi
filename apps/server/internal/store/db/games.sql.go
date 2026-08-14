@@ -11,6 +11,29 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addGameStyleTag = `-- name: AddGameStyleTag :exec
+
+UPDATE games
+SET style_tags = array_append(style_tags, $1::text)
+WHERE id = $2 AND NOT (style_tags @> ARRAY[$1::text])
+`
+
+type AddGameStyleTagParams struct {
+	Code   string
+	GameID int64
+}
+
+// ─── 전법·囲い ───────────────────────────────────────────────
+// 사람이 그 판에서 실제로 짠 이름. 근거는 009_game_style_tags.sql.
+//
+// **같은 이름을 두 번 안 담는다.** 囲い는 판에서 매번 다시 세어지므로(game.styleTags) 한 판에
+// 같은 코드가 수십 번 온다 — 세션이 본 것을 기억해 거르지만, 이어하는 판은 그 기억을 잃는다
+// (세션이 연결에 매여 있다, §51). 그래서 거르는 자리를 **여기에도** 둔다.
+func (q *Queries) AddGameStyleTag(ctx context.Context, arg AddGameStyleTagParams) error {
+	_, err := q.db.Exec(ctx, addGameStyleTag, arg.Code, arg.GameID)
+	return err
+}
+
 const claimGameForResume = `-- name: ClaimGameForResume :one
 UPDATE games
 SET result = NULL, finished_at = NULL
@@ -77,6 +100,48 @@ func (q *Queries) CountGameResultsForOwner(ctx context.Context, ownerID *int64) 
 	for rows.Next() {
 		var i CountGameResultsForOwnerRow
 		if err := rows.Scan(&i.Result, &i.Games); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countGameStyleTagsForOwner = `-- name: CountGameStyleTagsForOwner :many
+SELECT t.code::text AS code, count(*) AS games
+FROM games g
+CROSS JOIN LATERAL unnest(g.style_tags) AS t(code)
+WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
+  AND g.result IN ('win', 'loss', 'draw')
+  AND g.user_id IS NOT DISTINCT FROM $1::bigint
+GROUP BY t.code
+`
+
+type CountGameStyleTagsForOwnerRow struct {
+	Code  string
+	Games int64
+}
+
+// 마이페이지의 「짠 진형」. **판 수를 센다** — 한 판에서 같은 이름이 여러 번 나오는 일은
+// 위 질의가 이미 막았으므로, 이 숫자는 언제나 「그 이름으로 둔 판이 몇 판인가」다.
+//
+// 거르는 조건이 전적·약점과 **같아야 한다**: 셋이 한 화면에 서는데 모집단이 갈리면
+// 「12판 뒀는데 진형은 30판에서 나온 것」이 된다.
+// **`::text` 를 적어야 한다.** `unnest` 의 결과 타입을 sqlc 가 못 읽어 `interface{}` 로
+// 만들고, 그러면 코드가 문자열인지 아닌지를 부르는 쪽이 매번 확인해야 한다.
+func (q *Queries) CountGameStyleTagsForOwner(ctx context.Context, ownerID *int64) ([]CountGameStyleTagsForOwnerRow, error) {
+	rows, err := q.db.Query(ctx, countGameStyleTagsForOwner, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountGameStyleTagsForOwnerRow
+	for rows.Next() {
+		var i CountGameStyleTagsForOwnerRow
+		if err := rows.Scan(&i.Code, &i.Games); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

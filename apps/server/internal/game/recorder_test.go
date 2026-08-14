@@ -44,6 +44,10 @@ func (r *fakeRecorder) Undone(ply int, usi string) {
 	r.add(fmt.Sprintf("undone %d %s", ply, usi))
 }
 
+func (r *fakeRecorder) Named(code string) {
+	r.add("named " + code)
+}
+
 func (r *fakeRecorder) Finished(status Status, winner Side) {
 	r.add(fmt.Sprintf("finished %s %s", status, winner))
 }

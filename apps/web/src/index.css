@@ -3577,3 +3577,38 @@ body {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+
+/* 짠 형태. **막대를 안 그린다** — 위 목록의 막대는 「전체 개입 중 몇 %」라 뜻이 있지만
+   이쪽의 분모는 판 수이고 그 숫자는 바로 위 成績 칸에 이미 서 있다. */
+.profile__styles {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.profile__styles li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 0.8125rem;
+}
+
+/* 축(囲い·戦法·戦型). 이름보다 물러나 있어야 목록이 이름으로 읽힌다 — 대국 중의
+   이름 알림(`tag-flash__kind`)과 같은 무게다. */
+.profile__styles-kind {
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.profile__styles-name {
+  color: var(--fg);
+}
+
+.profile__styles-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}

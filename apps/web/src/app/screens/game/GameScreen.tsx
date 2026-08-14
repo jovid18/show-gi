@@ -8,7 +8,7 @@ import { Resume } from './Resume';
 import { Setup } from './Setup';
 import { Summary } from './Summary';
 import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/libs/game/moves';
-import type { StyleTag } from '@/protocol/game';
+import { TAG_KIND_JA } from '@/libs/game/tags';
 import { useGame } from '@/hooks/useGame';
 import { useResumable } from '@/hooks/useResumable';
 import { useUnloadGuard } from '@/hooks/useUnloadGuard';
@@ -21,19 +21,6 @@ import { useWhatIf } from '@/hooks/useWhatIf';
 import { useTagAnnounce } from './hooks';
 import { useMoveSound } from '@/hooks/useMoveSound';
 import { checkRays, lastMoveOf, offsetWithin, rayOf, resultText } from '@/libs/game/board-view';
-
-/**
- * 태그가 무엇을 가리키는 말인지 붙이는 라벨.
- *
- * `kind` 가 늘면 타입이 여기서 컴파일을 막는다 — 서버에 축을 추가하고 화면을 안 고치면
- * 실제로 걸렸다.
- */
-const KIND_JA: Record<StyleTag['kind'], string> = {
-  castle: '囲い',
-  formation: '戦法',
-  opening: '戦型',
-  tesuji: '手筋',
-};
 
 /**
  * 상대의 강함 눈금에 붙는 말(`snapshot.opponentStrength`).
@@ -580,7 +567,7 @@ export function GameScreen() {
         */}
         {announced && !intervening && (
           <div className="tag-flash" role="status" key={announced.code} onAnimationEnd={clearAnnounced}>
-            <span className="tag-flash__kind">{KIND_JA[announced.kind]}</span>
+            <span className="tag-flash__kind">{TAG_KIND_JA[announced.kind]}</span>
             <span className="tag-flash__name">{announced.nameJa}</span>
           </div>
         )}
@@ -731,7 +718,7 @@ export function GameScreen() {
             <ul className="tag-hint__list">
               {snapshot.tagHints.map((t) => (
                 <li key={t.code}>
-                  <span className="tag-hint__kind">{KIND_JA[t.kind]}</span>
+                  <span className="tag-hint__kind">{TAG_KIND_JA[t.kind]}</span>
                   <span className="tag-hint__name">{t.nameJa}</span>
                 </li>
               ))}

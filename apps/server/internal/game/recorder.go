@@ -59,6 +59,16 @@ type Recorder interface {
 	// 「지금 판에 남아 있는 수순」이라는 game_moves 의 뜻이 유지된다(store.RecordUndo).
 	Undone(ply int, usi string)
 
+	// Named 는 사람이 그 판에서 **처음 짜낸** 囲い·전법·戦型의 코드다.
+	//
+	// **한 판에 코드마다 한 번이다.** 囲い는 판에서 매번 다시 세어지므로(styleTags) 같은
+	// 이름이 수십 번 나오는데, 남길 값은 「짰다」 하나다.
+	//
+	// **手筋은 안 온다.** 이름의 정확도가 아직 프로덕션 수준이 아니고(06-status.md §45),
+	// 「당신이 쓴 手筋」으로 세우면 그 오진이 사람의 기록으로 굳는다. 나머지 셋은 판과
+	// 수순만으로 정해져 엔진 평가치에 안 걸린다.
+	Named(code string)
+
 	// Finished 는 대국이 끝날 때 한 번. 끝나지 않고 연결이 끊기면 오지 않는다 —
 	// 그 경우를 어떻게 남길지는 구현이 정한다.
 	Finished(status Status, winner Side)

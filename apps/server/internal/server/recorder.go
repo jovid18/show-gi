@@ -36,6 +36,7 @@ const (
 	evEvaluated
 	evRetracted
 	evUndone
+	evNamed
 	evFinished
 )
 
@@ -45,6 +46,9 @@ type recordEvent struct {
 	color     shogi.Color
 	ply       int
 	usi       string
+	// code 는 `evNamed` 의 태그 코드다. **`usi` 를 돌려쓰지 않는다** — 저 칸은 수이고
+	// 이건 이름이라, 같은 칸에 넣으면 이벤트마다 뜻이 달라지는 칸이 하나 생긴다.
+	code      string
 	by        game.Side
 	cp        int
 	verdict   intervene.Verdict
@@ -110,6 +114,12 @@ func (r *dbRecorder) Retracted(ply int, usi string, v intervene.Verdict, e expla
 // 아직 안 쓴 착수를 앞질러 가면 지워야 할 수가 그 뒤에 들어와 되살아난다.
 func (r *dbRecorder) Undone(ply int, usi string) {
 	r.send(recordEvent{kind: evUndone, ply: ply, usi: usi})
+}
+
+// Named 는 사람이 처음 짜낸 이름 하나다. **한 판에 코드마다 한 번**이라 세션이 이미
+// 걸러서 보낸다(game.recordStyleTags) — 여기서 또 세지 않는다.
+func (r *dbRecorder) Named(code string) {
+	r.send(recordEvent{kind: evNamed, code: code})
 }
 
 func (r *dbRecorder) Finished(status game.Status, winner game.Side) {
@@ -192,6 +202,14 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 			}
 			if err := st.RecordUndo(write, gameID, ev.ply, ev.usi); err != nil {
 				log.Printf("game record: undo %d: %v", ev.ply, err)
+			}
+
+		case evNamed:
+			if gameID == 0 {
+				return
+			}
+			if err := st.AddStyleTag(write, gameID, ev.code); err != nil {
+				log.Printf("game record: style tag %q: %v", ev.code, err)
 			}
 
 		case evFinished:

@@ -1,4 +1,4 @@
-import type { SkillRank } from './game';
+import type { SkillRank, StyleTag } from './game';
 
 /**
  * `GET /api/me/profile`. **로그인한 사람만 받는다** — 익명 판은 서로 구별할 수단이 없어서
@@ -16,6 +16,14 @@ export interface Profile {
   interventions: number;
   /** 많은 순. 서버가 정한 순서를 그대로 그린다. 두 번 미만인 카테고리는 안 온다. */
   weaknesses?: { code: string; nameJa: string; count: number; share: number }[];
+  /**
+   * 지금까지 짠 囲い·戦法·戦型. 많은 순이고 **판 수**다 — 한 판에 같은 이름은 한 번만
+   * 담기므로(009_game_style_tags.sql) 「回」가 아니라 「局」이다.
+   *
+   * **手筋은 안 온다.** 이름의 정확도가 아직 보류라(06-status.md §45), 「당신이 쓴 手筋」로
+   * 세우면 오진이 사람의 기록으로 굳는다.
+   */
+  styles?: { code: string; nameJa: string; kind: StyleTag['kind']; games: number }[];
 }
 
 export type ProfileState =

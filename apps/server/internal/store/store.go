@@ -702,6 +702,9 @@ type PlayerTally struct {
 	// Categories 는 카테고리별 개입 횟수다. 키는 `intervene.Category` 의 코드 문자열 —
 	// 이 패키지가 그쪽을 들여오지 않는 것은 `SkillEstimate` 와 같은 이유다.
 	Categories map[string]int
+	// StyleTags 는 이름별 **판 수**다. 키는 `tag.Tag.Code` 이고, 위 둘과 달리 횟수가
+	// 아닌 것은 한 판에 같은 이름이 한 번만 담기기 때문이다(AddGameStyleTag).
+	StyleTags map[string]int
 }
 
 // PlayerTally 는 그 사람의 전적과 약점을 한 번에 센다. ownerID 가 nil이면 익명 판이다.
@@ -710,7 +713,11 @@ type PlayerTally struct {
 // 조건만 고쳐지고, 그때 화면의 두 숫자가 조용히 다른 것을 세게 된다(server/summary.go 의
 // factsOf 가 같은 이유로 한 함수다).
 func (s *Store) PlayerTally(ctx context.Context, ownerID *int64) (PlayerTally, error) {
-	out := PlayerTally{Results: map[GameResult]int{}, Categories: map[string]int{}}
+	out := PlayerTally{
+		Results:    map[GameResult]int{},
+		Categories: map[string]int{},
+		StyleTags:  map[string]int{},
+	}
 
 	results, err := s.q.CountGameResultsForOwner(ctx, ownerID)
 	if err != nil {
@@ -735,7 +742,21 @@ func (s *Store) PlayerTally(ctx context.Context, ownerID *int64) (PlayerTally, e
 		}
 		out.Categories[*c.Category] = int(c.Hits)
 	}
+
+	styles, err := s.q.CountGameStyleTagsForOwner(ctx, ownerID)
+	if err != nil {
+		return out, fmt.Errorf("count game style tags: %w", err)
+	}
+	for _, t := range styles {
+		out.StyleTags[t.Code] = int(t.Games)
+	}
 	return out, nil
+}
+
+// AddStyleTag 는 그 판에서 사람이 짠 이름 하나를 남긴다. **같은 이름을 두 번 담지 않는다** —
+// 거르는 자리가 질의에도 있는 이유는 query/games.sql.
+func (s *Store) AddStyleTag(ctx context.Context, gameID int64, code string) error {
+	return s.q.AddGameStyleTag(ctx, db.AddGameStyleTagParams{GameID: gameID, Code: code})
 }
 
 func listLimit(limit int) int32 {

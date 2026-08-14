@@ -601,6 +601,23 @@ func All() []Tag {
 	return append(out, dengaku, haraGin, keitouGin, soko_no_fu)
 }
 
+// ByCode 는 코드로 태그를 되찾는다. 두 번째 값이 false 면 모르는 코드다.
+//
+// **기록에서 이름을 되찾는 자리다.** DB에 남는 것은 코드뿐이고(games.style_tags), 화면에
+// 나갈 이름과 축은 여기서만 온다 — 부르는 쪽이 자기 표를 만들면 판에 뜨는 이름과
+// 마이페이지의 이름이 갈린다.
+//
+// **모르는 코드는 이름을 안 지어낸다.** 정의를 지우거나 이름을 바꾼 뒤에도 옛 기록에는
+// 그 코드가 남아 있고, 그때 코드를 그대로 화면에 내보내면 일본어 화면에 영어가 뜬다.
+func ByCode(code string) (Tag, bool) {
+	for _, t := range All() {
+		if t.Code == code {
+			return t, true
+		}
+	}
+	return Tag{}, false
+}
+
 // SourceOf 는 그 囲い의 좌표 출처다. 없으면 빈 문자열.
 //
 // **전법에는 출처가 없다.** 필수 칸을 옮겨온 것이 아니라 「飛를 그 筋으로 振った」가

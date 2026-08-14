@@ -75,3 +75,30 @@ func TestRecordCountsOnlyFinishedGames(t *testing.T) {
 		t.Errorf("%+v", got)
 	}
 }
+
+// **모르는 코드는 이름 없이 나가지 않는다.** 정의를 지운 뒤에도 옛 기록에는 코드가
+// 남고, 그것을 그대로 내보내면 일본어 화면에 영어가 뜬다(stylesOf).
+func TestStylesOfDropsUnknownCodes(t *testing.T) {
+	got := stylesOf(map[string]int{"hon_mino": 3, "no_such_tag": 9})
+	if len(got) != 1 || got[0].Code != "hon_mino" {
+		t.Fatalf("모르는 코드가 남았다: %+v", got)
+	}
+	if got[0].NameJa == "" || got[0].Kind == "" {
+		t.Errorf("이름과 축이 채워져야 한다: %+v", got[0])
+	}
+}
+
+// 순서가 흔들리면 새로고침마다 목록이 뒤집힌다 — 약점 목록과 같은 규칙이다.
+func TestStylesOfOrdersByGamesThenCode(t *testing.T) {
+	got := stylesOf(map[string]int{"hon_mino": 1, "kin_yagura": 5, "kata_mino": 1})
+	if len(got) != 3 {
+		t.Fatalf("셋이 와야 한다: %+v", got)
+	}
+	if got[0].Code != "kin_yagura" {
+		t.Errorf("많은 것이 먼저여야 한다: %+v", got)
+	}
+	// 같은 판 수면 코드 순이다.
+	if got[1].Code >= got[2].Code {
+		t.Errorf("같은 수는 코드 순이어야 한다: %q, %q", got[1].Code, got[2].Code)
+	}
+}
