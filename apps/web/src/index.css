@@ -1281,8 +1281,11 @@ body {
    덤으로 駒台 둘과 판이 한 벌의 나무 도구로 읽힌다. */
 .hand {
   position: relative;
-  width: 100%;
-  max-width: calc(var(--sq) * 9 + 6px);
+  /* `.game-board` 의 가운데에 두면 段 라벨 열의 절반만큼 오른쪽으로 밀린다.
+     판의 실제 바깥 폭(9칸 + gap 8px + padding 2px + border 4px)으로 잡고
+     판과 같은 왼쪽 선에서 시작한다. */
+  width: calc(var(--sq) * 9 + 14px);
+  justify-self: start;
   min-height: calc(var(--sq) * 0.92);
   display: flex;
   align-items: center;
