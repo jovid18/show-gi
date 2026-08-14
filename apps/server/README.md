@@ -86,6 +86,12 @@ docker run --rm --platform linux/arm64 --cpus 4 --network show-gi-net \
 
 **`-race` 를 빼지 않는다.** 엔진 프로세스와 세션 goroutine이 동시에 도는 구조라 데이터 경합이 가장 값비싼 버그다.
 
+**CI에서만 지는 테스트가 있으면 코어를 줄여서 재현한다** — 부하를 거는 것보다 이쪽이 확실하다 ([06-status.md §73](../../docs/06-status.md)).
+
+```sh
+GOMAXPROCS=2 go test -race -count=300 -run '<그 테스트>' ./internal/game/
+```
+
 | 환경변수                            | 없으면             | 쓰는 곳                                                                                               |
 | ----------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------- |
 | `SHOWGI_TEST_DATABASE_URL`          | DB 테스트 skip     | `internal/store`, `internal/intervene` 의 재채점 측정, `internal/game` 의 블런더 재분류 측정          |

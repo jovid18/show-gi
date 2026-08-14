@@ -43,6 +43,20 @@ func (o *scriptedOpponent) Choose(ctx context.Context, _ string, _ []string, _ s
 	return m, nil
 }
 
+// silentOpponent 는 **한 수도 답하지 않는다.** 상대가 두기 **전**의 판을 봐야 하는
+// 테스트에 쓴다.
+//
+// `scriptedOpponent{delay: 0}` 으로는 그 자리를 못 잡는다. 되만든 판이 상대 차례면
+// `run` 이 시작하자마자 `maybeThink` 을 걸고, 그 goroutine 의 답과 테스트의 `Snapshot`
+// 이 **같은 select 에 나란히 준비된다** — 어느 쪽이 뽑히는지가 Go 의 무작위 선택과 그때의
+// 부하에 달린다(06-status.md §73).
+type silentOpponent struct{}
+
+func (silentOpponent) Choose(ctx context.Context, _ string, _ []string, _ skill.Estimate) (string, error) {
+	<-ctx.Done()
+	return "", ctx.Err()
+}
+
 // legalOpponent 는 합법수 중 첫 번째를 둔다. 끝까지 두는 대국에 쓴다.
 type legalOpponent struct{}
 
