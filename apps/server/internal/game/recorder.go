@@ -82,7 +82,7 @@ type Recorder interface {
 	// HintTaken 은 알려준 그 수를 사람이 실제로 뒀는가다. **답까지 본 국면에만 온다** —
 	// 1단계는 駒만 짚으므로 「알려준 대로 뒀다」와 뜻이 같지 않다.
 	//
-	// 01-core.md §5의 `interventions.taken` 이 정의한 신호가 이것이다: 「알려줬는데도 못 찾은
+	// 01-core.md §5가 정의한 신호가 이것이다: 「알려줬는데도 못 찾은
 	// 좋은 수」가 그대로 약점이 된다.
 	HintTaken(key string, taken bool)
 
