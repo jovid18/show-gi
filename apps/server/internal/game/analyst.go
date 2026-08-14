@@ -169,6 +169,9 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		facts.Kind, facts.Category, facts.Level, facts.LostMate = v.Kind, v.Category, a.level, v.LostMate
 		facts.Threatened = r.threatened
 		facts.MatePlies = in.Features.OpponentMatePlies
+		// **solver 가 증명한 값 그대로다.** 착수 후의 手数(`in.MateAfter`)는 탐색이 준
+		// 미증명 값이라 안 넘긴다 — 넘기면 문장이 그 숫자를 말한다(explain.Facts.MateBefore).
+		facts.MateBefore = in.MateBefore
 		if v.Category == intervene.CategoryOther {
 			// **위에서 정한 그 PV다.** `after.PV` 를 여기서 다시 읽으면 문장의 첫 수와
 			// 「무엇을 취할 수 있는가」(r.threatened)가 서로 다른 수의 것이 된다.

@@ -72,6 +72,10 @@ const branchSystemPrompt = `あなたは将棋の初心者向け学習アプリ�
 var categoryJa = map[intervene.Category]string{
 	// **주체를 못 박는다.** 안 박으면 실모델이 「내가 詰まされる」로 뒤집어 쓴다(06-status.md §28 ④).
 	intervene.CategoryMissedMate: "自分が相手を詰ませられる手があったのに、この手で逃してしまう",
+	// **「詰みは残っている」를 못 박는다.** 안 박으면 모델이 위 문장으로 끌려가 「逃した」고
+	// 쓴다 — 한 이름이었을 때 실제로 그 문장이 나갔다(06-status.md §76).
+	intervene.CategorySlowerMate: "自分が相手を詰ませられる。詰みは今も残っているが、" +
+		"より短く詰ませられる手があったので遠回りになった（詰みを逃したわけではない）",
 	// **`missed_mate` 의 거울상이라 같은 함정이 있다.** 서로 반대라는 것을 문장으로 다 적어야
 	// 방향이 안 섞인다(§28 ④).
 	intervene.CategoryLetsMate:    "この手のせいで自玉が詰まされる（自分が相手を詰ませる話ではない）",
@@ -143,6 +147,12 @@ func userPrompt(f Facts, knowledge []KbSnippet) string {
 		// **手数를 주지 않으면 키만 갈리고 문장은 같아진다** — 캐시만 두 배로 늘고 결정적
 		// 문구만 手数를 말하는 상태가 된다.
 		fmt.Fprintf(&b, "詰まされるまでの手数: %d手（証明済み。受けが必要）\n", u.MatePlies)
+	}
+	if u.MateBefore > 0 {
+		// **착수 후의 手数는 안 준다.** 그 값은 증명이 아니고(Facts.MateBefore), 주면 모델이
+		// 문장에 적는다 — 프롬프트에만 있는 사실은 언젠가 문장으로 새어 나온다(이 함수 주석).
+		fmt.Fprintf(&b, "この手の前に詰ませられた手数: %d手（証明済み）\n", u.MateBefore)
+		b.WriteString("この手のあとの手数: 不明（長くなったことだけが分かっている。数字を書かない）\n")
 	}
 	if u.OpponentBest != "" {
 		fmt.Fprintf(&b, "この手のあとの相手の最善手: %s\n", u.OpponentBest)

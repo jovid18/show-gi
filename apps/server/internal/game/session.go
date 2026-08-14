@@ -65,6 +65,26 @@ func adaptsToSkill(o Opponent) bool {
 	return ok && a.AdaptsToSkill()
 }
 
+// BestPlayer 는 **조절을 끄고 최선수를 낼 수 있는** 상대다. `SkillAdapter` 와 같은 자리의
+// 선택 인터페이스이고, 안 만족하면 세션이 조절된 수를 그대로 쓴다.
+//
+// 사람이 詰み을 걸고 있는 동안만 불린다(MateChasePlies). **인자에 추정치가 없는 것이
+// 이 인터페이스의 뜻 전부다** — 볼 값이 없다는 것이 곧 「조절하지 않는다」다.
+type BestPlayer interface {
+	ChooseBest(ctx context.Context, startSFEN string, moves []string) (string, error)
+}
+
+// chooseBest 는 조절 없이 최선수를 고른다. 상대가 그것을 못 하면 **평소대로 고른다** —
+// 詰み 연습이 안 되는 것과 대국이 멈추는 것 중에서는 앞이 낫다.
+func chooseBest(
+	ctx context.Context, o Opponent, startSFEN string, moves []string, sk skill.Estimate,
+) (string, error) {
+	if b, ok := o.(BestPlayer); ok {
+		return b.ChooseBest(ctx, startSFEN, moves)
+	}
+	return o.Choose(ctx, startSFEN, moves, sk)
+}
+
 // Rater 는 사람의 착수를 받아 실력 추정치를 돌려준다. nil이면 밴드가 기준선에 고정된다.
 //
 // **두 메서드의 방향이 다른 것이 요점이다.** 넣는 쪽은 세션 goroutine이 부르므로 즉시
@@ -289,6 +309,16 @@ type state struct {
 	gaugeGen int
 	mateHeat int
 	mateGen  int
+	// matePlies 는 게이지가 자르기 **전**의 詰み 手数다. 화면에는 안 나가고(mateHeat 이
+	// 그 일을 한다) 상대의 태도를 정하는 데만 쓴다 — MateChasePlies.
+	matePlies int
+	// chasing 은 **사람이 詰み을 걸고 있는 채로 이 수를 뒀는가**다. 상대가 밴드를 안 보고
+	// 최선으로 버티는 조건이고(MateChasePlies), 사람이 둘 때마다 다시 정해진다.
+	//
+	// **착수 전에 정해야 한다.** 수를 놓은 뒤에는 게이지가 그 국면의 것이 아니게 되고,
+	// 그때 물으면 「방금 詰み을 걸고 있었는가」가 아니라 「지금 걸고 있는가」가 된다 —
+	// 후자는 상대 차례라 solver 가 답하지 않는 질문이다(maybeGauge).
+	chasing bool
 
 	// tesuji 는 **엔진 게이트를 통과한** 手筋 이름들이고, tesujiGen 은 그것을 구한 국면이다.
 	//
@@ -650,6 +680,11 @@ func (st *state) playHuman(ctx context.Context, usi string, engineDone chan engi
 	// 물러질 수 있으니 착수 전 국면을 들고 있는다.
 	st.prevPos, st.prevPrevTo = st.pos, st.prevTo
 
+	// **여기가 그 질문을 할 수 있는 마지막 자리다**(state.chasing). 게이지가 아직 안
+	// 돌아왔으면(`mateGen != searchGen`) 모르는 것이고, 모르면 조절을 그대로 둔다 —
+	// 「모를 때는 하지 않는다」가 이 레포의 규칙이다.
+	st.chasing = st.mateGen == st.searchGen && st.matePlies > 0 && st.matePlies <= MateChasePlies
+
 	st.apply(m, SideHuman)
 
 	// 판정할 것이 있으면 엔진을 부르기 전에 먼저 묻는다. **롤백이 있는 이상
@@ -945,10 +980,21 @@ func (st *state) maybeThink(ctx context.Context, engineDone chan engineResult) {
 	// 상태를 읽으면 그 순간 소유 규약이 깨진다.
 	sk := st.skill
 	deadline := st.moveDeadline()
+	// 값으로 복사하는 이유는 위 `sk` 와 같다 — goroutine 이 세션 상태를 읽으면 소유 규약이
+	// 그 자리에서 깨진다.
+	chasing := st.chasing
 
 	go func() {
 		tctx, cancel := context.WithTimeout(ctx, deadline)
-		usi, err := opp.Choose(tctx, start, moves, sk)
+		var (
+			usi string
+			err error
+		)
+		if chasing {
+			usi, err = chooseBest(tctx, opp, start, moves, sk)
+		} else {
+			usi, err = opp.Choose(tctx, start, moves, sk)
+		}
 		cancel()
 		select {
 		case engineDone <- engineResult{usi: usi, err: err}:
@@ -1016,7 +1062,7 @@ func (st *state) applyMateHeat(r mateResult) {
 		return
 	}
 
-	st.mateHeat, st.mateGen = mateHeat(r.plies), r.gen
+	st.mateHeat, st.mateGen, st.matePlies = mateHeat(r.plies), r.gen, r.plies
 	// **세기가 그대로여도 뿌린다.** 국면이 바뀌면 스냅샷이 게이지를 껐다가 여기서 다시
 	// 켜는데, 「바뀌었을 때만」으로 두면 값이 같은 국면에서 꺼진 채로 남는다.
 	st.broadcast()

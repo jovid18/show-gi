@@ -10,9 +10,16 @@ const (
 	// CategoryNone 은 개입하지 않았을 때다.
 	CategoryNone Category = ""
 
-	// CategoryMissedMate 는 詰み을 놓친 것이다. 종반에는 승률이 포화해 낙폭이
+	// CategoryMissedMate 는 詰み을 **놓친** 것이다. 종반에는 승률이 포화해 낙폭이
 	// 판정력을 잃으므로, 이것만이 유일한 신호다(§2).
 	CategoryMissedMate Category = "missed_mate"
+
+	// CategorySlowerMate 는 詰み이 **남았는데 멀어진** 것이다.
+	//
+	// **위와 갈라 두는 것이 규칙의 일부다.** 둘 다 종반 판정으로 걸리지만 사람에게 할 말이
+	// 정반대다 — 저쪽은 詰み이 사라졌고 이쪽은 그대로 있다. 한 이름으로 묶여 있던 동안
+	// 이긴 판에서 「詰みを逃した」고 가르쳤다(06-status.md §76).
+	CategorySlowerMate Category = "slower_mate"
 
 	// CategoryLetsMate 는 **그 수로 내 玉이 詰まされる** 것이다. `missed_mate` 의 거울상이다.
 	//
@@ -127,6 +134,11 @@ const ShallowTrapCp = 300
 // 확인할 수 있는 것**을 앞에 둔다 — 초심자가 판을 보고 「아 정말 그렇네」까지 가야 배운 것이 된다.
 func classify(in Input, lostMate bool) Category {
 	if lostMate {
+		// **詰み이 남았는지가 이 갈래의 전부다.** 남았으면 사람은 아직 이기는 중이고,
+		// 배울 것은 「놓쳤다」가 아니라 「멀어졌다」다(06-status.md §76).
+		if in.MateAfter > 0 {
+			return CategorySlowerMate
+		}
 		return CategoryMissedMate
 	}
 	f := in.Features

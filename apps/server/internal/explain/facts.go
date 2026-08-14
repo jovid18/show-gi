@@ -51,6 +51,16 @@ type Facts struct {
 	// 틀린 手数를 적으면 초심자는 검증할 수단이 없다(06-status.md §40).
 	MatePlies int
 
+	// MateBefore 는 **이 수를 두기 전에 내가 가지고 있던** 詰み까지의 手数다. 없으면 0.
+	//
+	// `MatePlies` 와 방향이 반대다 — 저쪽은 내 玉이 죽는 手数이고 이쪽은 내가 詰ます 手数다.
+	// `slower_mate` 에서만 쓴다.
+	//
+	// **여기도 증명된 것만 온다**(`MatePlies` 와 같은 규칙). 착수 **후**의 手数는 solver 가
+	// 아니라 탐색이 준 값이라 증명이 아니고, 실제로 같은 국면에 14·16·「없음」이 나왔다 —
+	// 그래서 문장이 그쪽 숫자를 안 쓴다(06-status.md §76).
+	MateBefore int
+
 	// Threatened 는 반박 수순의 **첫 수로 상대가 딸 수 있는 내 駒**의 한자다. 없으면 빈 값.
 	//
 	// 카테고리가 이유를 못 대는 3분의 2에 「무엇을 잃는가」를 주는 자리다(06-status.md §25).
@@ -131,6 +141,11 @@ func (f Facts) keyMaterial() string {
 	if u.MatePlies > 0 {
 		base += fmt.Sprintf("|mp=%d", u.MatePlies)
 	}
+	// **`mb` 도 같은 이유로 키에 있어야 한다** — 문장이 「5手で」를 말하므로 3手와 7手가
+	// 같은 키면 캐시가 틀린 手数를 돌려준다. `slower_mate` 일 때만 붙어서 옛 키는 그대로다.
+	if u.MateBefore > 0 {
+		base += fmt.Sprintf("|mb=%d", u.MateBefore)
+	}
 	// **수는 국면 고유라 키가 사실상 안 겹친다.** 그래도 넣어야 한다 — 빼면 서로 다른
 	// 국면이 같은 키로 묶여 **다른 판의 수**가 문장으로 돌아온다. 캐시가 안 맞는 것보다
 	// 나쁜 유일한 결과가 그것이다. `other` 에만 붙으므로 나머지 카테고리의 옛 키는 그대로다.
@@ -157,7 +172,8 @@ func (f Facts) keyMaterial() string {
 // 행이 그 21이다), 들어가면 키가 넓어지는 대신 문장이 그 국면을 짚는다(04-llm.md §2).
 func (f Facts) Tier() int {
 	u := f.used()
-	if u.Known && (u.Attackers > 0 || u.Captured != "" || u.Threatened != "" || u.MatePlies > 0 || u.namesMoves()) {
+	if u.Known && (u.Attackers > 0 || u.Captured != "" || u.Threatened != "" ||
+		u.MatePlies > 0 || u.MateBefore > 0 || u.namesMoves()) {
 		return 2
 	}
 	return 1
@@ -198,6 +214,13 @@ func (f Facts) used() Facts {
 		// 「몇 手 뒤에 죽는가」가 그대로 급함의 크기라, 그 하나가 문장을 완성한다.
 		u.Known = true
 		u.MatePlies = f.MatePlies
+
+	case intervene.CategorySlowerMate:
+		// **착수 전의 手数만 말한다.** 그 값은 solver 가 증명한 것이고, 착수 후의 手数는
+		// 탐색이 준 미증명 값이라 문장에 못 쓴다(MateBefore). 그래서 이 카테고리의 문장은
+		// 「5手で詰ませられました」까지가 숫자이고 뒤는 「遠回りになります」다.
+		u.Known = true
+		u.MateBefore = f.MateBefore
 
 	case intervene.CategoryGreedyCapture:
 		// 「駒は取れますが」의 그 駒를 이름으로 부른다.

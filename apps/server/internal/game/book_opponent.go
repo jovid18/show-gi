@@ -48,6 +48,16 @@ func (o *bookOpponent) Choose(ctx context.Context, startSFEN string, moves []str
 	return o.inner.Choose(ctx, startSFEN, moves, sk)
 }
 
+// ChooseBest 는 **북을 건너뛴다**(BestPlayer). 불리는 자리가 사람이 詰み을 걸고 있는
+// 종반이라 진형을 조립할 국면이 아니고, 북이 그 자리에서 수순을 이어 두면 「최선으로
+// 버틴다」가 그 판에서만 조용히 안 지켜진다.
+func (o *bookOpponent) ChooseBest(ctx context.Context, startSFEN string, moves []string) (string, error) {
+	if b, ok := o.inner.(BestPlayer); ok {
+		return b.ChooseBest(ctx, startSFEN, moves)
+	}
+	return o.inner.Choose(ctx, startSFEN, moves, skill.Unknown)
+}
+
 // next 는 이번에 둘 정석 수다. 없으면 두 번째 값이 false 이고, 그때는 안쪽 상대가 고른다.
 //
 // 판단은 **전부 룰 엔진과 좌표뿐이다** — 엔진을 부르지 않는다. adaptive.go 의 자살수 필터가

@@ -13,7 +13,10 @@ import (
 // 순간 플레이어가 생각을 멈춘다. `idle_check` 와 `unpromoted` 는 플레이 기록이 검증한
 // 문장이라 손대지 않는다(08-playtest.md §7).
 var baseMessages = map[intervene.Category]string{
-	intervene.CategoryMissedMate:  "詰みがありました。今の手で逃してしまいます。",
+	intervene.CategoryMissedMate: "詰みがありました。今の手で逃してしまいます。",
+	// **「逃す」를 안 쓴다.** 詰み은 그대로 있고 길어졌을 뿐이라, 놓쳤다고 말하면 이기고
+	// 있는 사람에게 거짓을 가르친다(06-status.md §76).
+	intervene.CategorySlowerMate:  "詰みがありましたが、この手だと遠回りになります。",
 	intervene.CategoryLetsMate:    "この手だと自玉が詰まされます。まず受けを考えてみてください。",
 	intervene.CategoryHangsPiece:  "その駒は取り返せない場所に置かれています。相手の利きを確かめてみてください。",
 	intervene.CategoryShallowTrap: "一手だけ見ると得に見えますが、その先で形勢が入れ替わります。",
@@ -51,6 +54,13 @@ func Render(f Facts) string {
 	case intervene.CategoryLetsMate:
 		if u.MatePlies > 0 {
 			return fmt.Sprintf("この手だと%d手で自玉が詰まされます。まず受けを考えてみてください。", u.MatePlies)
+		}
+
+	case intervene.CategorySlowerMate:
+		// **앞의 手数만 숫자로 말한다.** 착수 후의 手数는 증명이 아니라 탐색이 본 값이라
+		// 쓰면 틀린 手数를 가르친다(Facts.MateBefore).
+		if u.MateBefore > 0 {
+			return fmt.Sprintf("%d手で詰ませられましたが、この手だと遠回りになります。", u.MateBefore)
 		}
 
 	case intervene.CategoryGreedyCapture:

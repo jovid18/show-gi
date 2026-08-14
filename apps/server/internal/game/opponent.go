@@ -43,3 +43,10 @@ func (o *engineOpponent) Choose(ctx context.Context, startSFEN string, moves []s
 	}
 	return res.Best, nil
 }
+
+// ChooseBest 는 `Choose` 와 같은 수다(BestPlayer) — 이 상대는 애초에 조절하지 않는다.
+// 그래도 인터페이스를 만족시켜 두는 것은, 안 하면 세션이 「조절을 끄지 못한 상대」로 보고
+// 다른 경로를 타기 때문이다. 답이 같아도 부르는 이유가 갈리면 안 된다.
+func (o *engineOpponent) ChooseBest(ctx context.Context, startSFEN string, moves []string) (string, error) {
+	return o.Choose(ctx, startSFEN, moves, skill.Unknown)
+}
