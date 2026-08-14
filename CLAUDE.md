@@ -2,7 +2,9 @@
 
 개입할 때를 스스로 정하는 쇼기 상대. 해커톤 제출작이고 마감이 **2026-08-15 15:00**이다.
 
-설계는 [docs/](docs/)에 있다. 하나만 읽는다면 [docs/01-core.md](docs/01-core.md).
+설계는 [docs/](docs/README.md)에 있다. 하나만 읽는다면 [docs/01-core.md](docs/01-core.md).
+
+**루트 `README.md`는 대외용 일본어 문서다.** 심사위원이 GitHub에서 처음 보는 자리라 한글을 넣지 않는다 — 개발 문서 인덱스는 [docs/README.md](docs/README.md)다.
 
 **작업을 이어받는다면 [docs/06-status.md](docs/06-status.md)를 먼저 읽는다** — §1의 「지금 실제로 도는 것」 표가 무엇이 있고 무엇이 없는지를, §5가 다음 순서를 말한다. 상태가 바뀌면 같은 PR에서 그 문서를 갱신한다.
 
