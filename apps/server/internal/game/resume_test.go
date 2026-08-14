@@ -14,8 +14,11 @@ import (
 func TestStartMovesRebuildsThePosition(t *testing.T) {
 	// ▲7六歩 △3四歩 ▲2六歩 까지 두다 끊긴 판. 다음은 後手 차례다.
 	played := []string{"7g7f", "3c3d", "2g2f"}
+	// **여기서 보는 것은 되만든 판이지 그 뒤의 수가 아니다.** 답하는 상대를 주면 그 수가
+	// 스냅샷보다 먼저 도착할 수 있고, 이 테스트는 그것으로 오래 흔들렸다(§73).
+	// 이어서 상대가 두는 쪽은 TestResumedGameLetsTheOpponentMoveFirst 가 본다.
 	sess := newSession(t, Config{
-		Opponent:   &scriptedOpponent{moves: []string{"8c8d"}},
+		Opponent:   silentOpponent{},
 		HumanColor: shogi.Black,
 		StartMoves: played,
 	})

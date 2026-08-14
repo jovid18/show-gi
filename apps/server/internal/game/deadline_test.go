@@ -114,38 +114,29 @@ func TestGaugeDeadlineLeavesTheBorderDark(t *testing.T) {
 	}
 }
 
-// expiringSearch 는 **첫 탐색 뒤에 시한이 끝난** 상황을 만든다. 게이트가 후보를 하나씩
-// 도는 도중에 ctx가 끝나는 것이 실제 모양이다.
-type expiringSearch struct {
-	cancel context.CancelFunc
-	calls  int
-}
+// expiringSearch 는 **시한이 이미 끝난** 상황을 만든다. 게이트가 탐색을 한 번만 걸므로
+// (gateTesujiOptions) 시한은 그 한 번에서 걸리고, 그러면 후보 **전부**를 못 본 것이 된다.
+type expiringSearch struct{}
 
-func (s *expiringSearch) SearchMultiPV(ctx context.Context, _ string, _ []string, _, _ int) (usi.SearchResult, error) {
+func (expiringSearch) SearchMultiPV(ctx context.Context, _ string, _ []string, _, _ int) (usi.SearchResult, error) {
 	if err := ctx.Err(); err != nil {
 		return usi.SearchResult{}, err
 	}
-	s.calls++
-	if s.calls == 1 {
-		return usi.SearchResult{ScoreCp: 100}, nil // 착수 전 국면
-	}
-	s.cancel() // 후보 하나를 재고 나서 시한이 끝난다
-	return usi.SearchResult{ScoreCp: -100}, nil
+	return usi.SearchResult{}, nil
 }
 
-// 시한이 끝나면 **남은 후보를 세어서 돌려준다.** 조용히 넘기면 「手筋이 없었다」와
-// 「못 물어봤다」가 같은 결과가 되고, 그건 상한에 걸린 쪽을 세는 이유와 같다.
+// 시한이 끝나면 **못 물어본 후보를 세어서 돌려준다.** 조용히 넘기면 「手筋이 없었다」와
+// 「못 물어봤다」가 같은 결과가 된다.
 func TestGateCountsCandidatesItCouldNotAskAboutAfterTheDeadline(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
-	s := &expiringSearch{cancel: cancel}
+	cancel()
 
 	opts := []TesujiOption{{USI: "6g5e"}, {USI: "6g7e"}, {USI: "2g2f"}}
-	kept, dropped, err := gateTesujiOptions(ctx, s, 12, shogi.StartSFEN, nil, opts, shogi.Black)
+	kept, dropped, err := gateTesujiOptions(ctx, expiringSearch{}, 12, TesujiHintRootK, shogi.StartSFEN, nil, opts, shogi.Black)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("시한 초과가 에러로 안 나왔다: %v", err)
 	}
-	if dropped != len(opts)-1 {
-		t.Fatalf("못 물어본 후보 = %d, 기대 %d (kept=%+v)", dropped, len(opts)-1, kept)
+	if dropped != len(opts) {
+		t.Fatalf("못 물어본 후보 = %d, 기대 %d (kept=%+v)", dropped, len(opts), kept)
 	}
 }

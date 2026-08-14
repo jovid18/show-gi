@@ -1220,9 +1220,11 @@ func (st *state) maybeTesujiHint(ctx context.Context, done chan tesujiHintResult
 		return
 	}
 	// **쿨다운은 「띄운 자리」가 아니라 「물어본 자리」에서 잰다.** 뜬 자리에서만 재면 게이트가
-	// 한 번도 안 열리는 판에서 이 탐색이 **사람 차례마다** 돈다 — 후보 하나에 탐색 하나이므로
-	// 최대 일곱 번이고(TesujiHintMaxCandidates), 풀은 셋이다. 실제로 그렇게 돌아 298手 내내
-	// 대국 쪽이 줄을 섰다(06-status.md §56). 상한(tesujiHintCount)은 그대로 뜬 횟수를 센다.
+	// 한 번도 안 열리는 판에서 이 탐색이 **사람 차례마다** 돈다 — 풀은 셋인데 실제로 그렇게
+	// 돌아 298手 내내 대국 쪽이 줄을 섰다(06-status.md §56 · §74). 탐색이 후보 수와 무관하게
+	// 한 번이 된 뒤에도(gateTesujiOptions) 이 자리는 그대로다 — 아끼는 것이 탐색 횟수만이
+	// 아니라 **룰 필터**이기 때문이다(종반 한 번에 2.46초, §56).
+	// 상한(tesujiHintCount)은 그대로 뜬 횟수를 센다.
 	ply := len(st.moves)
 	if st.tesujiHintAsked && ply-st.tesujiHintLastPly < TagHintCooldown {
 		return
@@ -1264,7 +1266,7 @@ func (st *state) maybeTesujiHint(ctx context.Context, done chan tesujiHintResult
 			err     error
 		)
 		if len(opts) > 0 {
-			kept, dropped, err = gateTesujiOptions(hctx, search, JudgeDepth, start, moves, opts, color)
+			kept, dropped, err = gateTesujiOptions(hctx, search, JudgeDepth, TesujiHintRootK, start, moves, opts, color)
 		}
 		select {
 		case done <- tesujiHintResult{gen: gen, opts: kept, dropped: dropped, err: err}:
