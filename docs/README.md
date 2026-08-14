@@ -21,7 +21,7 @@
 | [04-llm](04-llm.md)                   | LLM 계층 · OrcaRouter · 비용 3단 캐시 · RAG                              |
 | [05-roadmap](05-roadmap.md)           | D-7 일정 · 발표 구성 · 미결 사항 · 참고 링크                             |
 | [06-status](06-status.md)             | **지금 어디까지 왔나** — 검증된 것 / 안 된 것 / 다음 순서                |
-| [07-articles](07-articles.md)         | Zenn 시리즈 계획 · 형식 · 낡지 않게 쓰는 법                              |
+| [07-articles](07-articles.md)         | Zenn 종합 기사 한 편의 범위 · 기존 비공개 초안 · 공개 규칙               |
 | [08-playtest](08-playtest.md)         | 한 판 끝까지 두고 본 것 — 문구가 실제로 통했는가                         |
 | [09-tags](09-tags.md)                 | **태그 목록의 정본** — 囲い·전법·戦型·手筋과 각 항목의 출처              |
 | [playtests/](playtests/README.md)     | 회차별 플레이테스트 기록. 사람이 둔 판이 「무엇이 아팠나」의 유일한 출처 |
