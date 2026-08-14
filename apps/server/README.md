@@ -171,10 +171,13 @@ sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다
 | `internal/archive`   | **모든 탐색을 데이터로 만든다** — `positions`·`edges` (§37)               |
 | `internal/store`     | postgres (pgx + sqlc). `db/` 는 생성물이라 손대지 않는다                  |
 | `internal/tag`       | 囲い·전법·戦型·手筋의 이름. **엔진도 DB도 모른다** — 국면과 수순만 받는다 |
+| `internal/auth`      | Google OAuth와 **서명 쿠키**. 세션이 표가 아니다 — 마이그레이션이 없다    |
+| `internal/book`      | 상대의 진형 4종 수순. **후보 생성이 아니라 선택만** 한다                  |
+| `internal/quiz`      | 되짚기 퀴즈의 생성과 채점. **채점은 저장된 트리라 엔진 0회**              |
 | `internal/kifu`      | KIF·CSA 파서와 실 기보 임포트. **서버는 안 쓴다** — `cmd/importkifu` 만   |
 | `cmd/importkifu`     | 실 기보를 같은 판정 경로로 다시 둬 DB에 넣는다. 플래그·배선뿐             |
 
-아직 없는 것: `internal/kb`(RAG 코퍼스).
+> **`internal/kb` 는 없고 앞으로도 안 만든다.** RAG는 `store` 의 태그 질의(`query/kb.sql`)와 `explain.WithKnowledge` 콜백 둘로 끝났다([docs/06-status.md §43](../../docs/06-status.md)) — 검색이 벡터가 아니라 `kb_chunks.tags` 의 GIN 인덱스라 담을 로직이 없다. 여기 「아직 없는 것」으로 적혀 있던 자리다.
 
 `go.mod`는 레포 루트가 아니라 여기 있다. `apps/web`이 Node 워크스페이스라 루트를 한쪽 언어에 내주지 않으려는 것이고, 대신 Go 명령은 전부 이 디렉터리에서 돌린다.
 
@@ -230,13 +233,16 @@ sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다
 
 한 연결이 대국 하나. **서버가 먼저 말을 건다**(상대의 수·개입) — 요청/응답이 아니다.
 
-| 받는 것                 | 보내는 것                                         |
-| ----------------------- | ------------------------------------------------- |
-| `move` `{usi}`          | `snapshot` — **언제나 전체 상태**(부분 갱신 없음) |
-| `resign`                | `error` `{reason, message}`                       |
-| `whatif` `{ply, moves}` | `whatif` / `whatif_error`                         |
+| 받는 것                 | 보내는 것                                                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `move` `{usi}`          | `snapshot` — **언제나 전체 상태**(부분 갱신 없음)                                                                               |
+| `undo`                  | `snapshot`. 待った — 판당 `game.UndoMaxPerGame`(3)회, 자기 수와 상대의 응수까지 2手를 되감는다 ([§72](../../docs/06-status.md)) |
+| `resign`                | `error` `{reason, message}`                                                                                                     |
+| `whatif` `{ply, moves}` | `whatif` / `whatif_error`                                                                                                       |
 
 그 외 타입은 `bad_move` 로 거절된다. `reason` 은 기계용 영어 코드이고 `message` 가 화면에 나가는 일본어다.
+
+> **「무를 수 있나」를 화면이 다시 짓지 않는다.** 스냅샷이 `undoLeft` 와 `canUndo` 를 둘 다 싣는다 — `yourTurn && undoLeft > 0` 으로는 「되돌릴 자기 수가 아직 없는 첫 手」가 안 걸러진다.
 
 ## 알아두면 좋은 것
 

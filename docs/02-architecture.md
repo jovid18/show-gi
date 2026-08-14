@@ -81,7 +81,7 @@ create index on edges using gin (tags);
 
 > **두 테이블은 오래 비어 있었다.** `001_init.sql` 에 소비자보다 먼저 들어가서 §12·[06-status.md §5](06-status.md)가 「쓰는 쪽이 없다」로 적어 둔 그대로였고, 실제 행수가 `positions` 2 · `edges` **0**이었다. **채우는 쪽이 붙었다**([06-status.md §37](06-status.md)) — 엔진을 부르는 네 자리를 한 겹 감싸서(`internal/archive`) 모든 탐색이 여기로 떨어진다.
 >
-> **읽는 쪽은 가정 수순 하나뿐이다**(`positions` 를 캐시로 쓴다). `edges` 는 아직 쓰기만 한다 — 실력 추정·「정석 이탈」·스파크라인이 그 데이터를 기다리는 자리이고, **소비자 없이 스키마를 먼저 만든 값이 마이너스였다는 것**이 이 두 줄이 남은 이유다.
+> **둘 다 읽는 쪽이 생겼다.** `internal/archive` 의 `lookup` 이 `positions` 에서 후보를, `edges` 에서 **깊이별 값**을 꺼내 엔진 호출을 대신한다 — 네 자리(상대 수·개입 판정·가정 수순·手筋 게이트)가 전부 그 한 겹을 지난다. `edges.tags` 만 아직 아무도 안 채운다 — 「정석 이탈」 카테고리가 기다리는 칸이고([01-core.md §3](01-core.md)), **소비자 없이 스키마를 먼저 만든 값이 마이너스였다는 것**이 이 줄이 남은 이유다.
 >
 > **플레이어에 매인 값이 없다.** cp는 수번 관점, `tags` 는 둔 쪽 기준이라 A가 잰 국면이 B에게 그대로 유효하다 — `user_id`도 `game_id`도 없어서 로그인이 붙어도 여기는 위협이 아니다(§7 위협 2가 말하는 것은 `games`·`game_moves` 쪽이다).
 >
@@ -98,7 +98,9 @@ USI 엔진은 iterative deepening 중 `info depth 1 score cp … / info depth 2 
 | 좋아 보임    | 실은 나쁨  | **함정** — 얕은 이득에 낚임 | 제지형 (블런더) |
 | 나빠 보임    | 실은 좋음  | **手筋** — 捨て駒·踏み込み  | 제안형 (힌트)   |
 
-하나의 배열이 개입의 두 방향을 동시에 정의한다. 조건 판정도, 설명 문장도(「여기까지만 보면 이득입니다」), [리뷰 화면 스파크라인](03-frontend.md#3-리뷰-화면)도 전부 이 배열 하나에서 나온다. 자세한 조건은 [개입 엔진 §7.1](01-core.md#71-어떤-手筋을-알릴-것인가--여기가-제품의-감각이다).
+하나의 배열이 개입의 두 방향을 동시에 정의한다. 조건 판정도 설명 문장도(「여기까지만 보면 이득입니다」) 이 배열 하나에서 나온다. 자세한 조건은 [개입 엔진 §7.1](01-core.md#71-어떤-手筋을-알릴-것인가--여기가-제품의-감각이다).
+
+> **리뷰 화면은 이 배열을 안 쓴다.** 한때 스파크라인의 원본으로 적혀 있었는데, 그 자리는 [평가치 궤적 그래프](03-frontend.md#3-리뷰-화면)가 대신 닫았고 그쪽이 읽는 것은 `game_moves.eval_cp` 다([06-status.md §41](06-status.md)). 이 배열의 소비자는 **판정 하나**이고, 나머지는 `archive` 가 캐시로 다시 꺼내 쓰는 쪽이다.
 
 > **단 얕은 값은 MultiPV info 라인에서 못 줍는다.** 捨て駒는 얕은 깊이에서 상위 k에 들지 못해 애초에 라인에 안 나온다 — 손해로 보이는 것이 그 수의 정의다. shallow는 그 수를 둔 국면을 따로 depth 2로 평가해서 얻는다.
 
@@ -113,13 +115,24 @@ users        (id, provider, provider_uid, display_name, created_at)
 games        (id, user_id, my_color, started_at, finished_at, result, opening_tag,
               root_key, start_sfen)
              -- user_id는 nullable. 로그인 전에도 남긴다 (002_anonymous_games.sql)
+             -- result 어휘의 정본은 `store.GameResult` 다 — 칸에 CHECK 가 없어서
+             -- 'aborted'(§56) · 'declined'(§51)가 DDL 없이 늘었다
 game_moves   (game_id, ply, usi, sfen_key, eval_cp)
-             -- **지금 판에 남아 있는 수순만.** 물러진 수는 여기 안 들어온다
+             -- **지금 판에 남아 있는 수순만.** 물러진 수도 스스로 무른 수도 여기 안 들어온다
 interventions(id, game_id, ply, kind, category, delta_win, level_bucket,
-              retracted_usi, hinted_tag, taken bool, explain_tier, cost_yen, created_at)
+              retracted_usi, hinted_tag, taken bool, explain_tier, cost_yen, created_at,
+              best_cp, after_cp)
              -- kind: 'blunder'(제지형, 착수 후 롤백) | 'tesuji'(제안형, 착수 전 알림)
              -- retracted_usi는 blunder만, hinted_tag/taken은 tesuji만 (CHECK 제약이 막는다)
              -- (game_id, ply)는 유니크가 아니다 — 한 국면에서 여러 번 물러지는 일이 있다
+             -- best_cp/after_cp 는 물러진 수의 원본 cp다 (005, §41). 그 전 행은 영원히 NULL
+game_quizzes (game_id primary key, version, payload jsonb, generated_at)
+             -- 되짚기 퀴즈 (007, §53). 한 판에 한 행이고 **문항 전체가 jsonb 하나**다 —
+             -- 詰み 문항이 트리라 행으로 쪼개면 채점 질의가 그 모양을 SQL에서 다시 만든다
+             -- **정답이 payload 안에 있고 응답에 안 실린다** — 채점이 서버에 있다
+game_undos   (id, game_id, ply, usi, eval_cp, created_at)
+             -- 사람이 스스로 무른 수 (008, §72). `interventions` 와 갈라 둔 이유는 예산도
+             -- 뜻도 다르기 때문이다 — 이쪽은 판정을 **통과한** 수라 레이팅에서 안 빠진다
 skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at,
               skill_loss, skill_samples)
              -- skill_loss/samples 가 실제로 쓰는 두 칸이다 (006, §48).
@@ -128,7 +141,10 @@ explain_cache(key text primary key, body text, model text, hits int)
              -- key = hash(kind, category, level_bucket, 카테고리가 허용한 사실들)
 kb_chunks    (id, title, body, tags text[], source_url, source_license, verified_by,
               embedding vector(1536))  -- pgvector. 출처 없는 chunk는 프롬프트에 붙이지 않는다
+             -- **검색은 벡터가 아니라 `tags` 의 GIN 인덱스로 돈다** (§43). embedding 은 아직 빈 칸
 ```
+
+> **마이그레이션은 배포가 돌리지 않는다.** 파일을 넣어 PR로 올리고 실행은 사람이 한다([deploy/README.md](../deploy/README.md) §4). 그래서 **레포에 파일이 있는 것과 프로덕션에 적용된 것이 다르다** — 어디까지 적용됐는지는 [06-status.md §3](06-status.md).
 
 > **`game_moves` 에 `retracted_usi` 를 두지 않는다.** 원래 여기 `intervened bool` 과 함께 적혀 있었는데, 구현하면서 갈랐다([06-status.md §18](06-status.md)) — 기보는 **지금 판에 남아 있는 수순**이라 물러진 수가 들어가면 롤백이 롤백이 아니게 된다. 같은 ply가 두 표에 다른 값으로 들어가는 것이 정상이다.
 >
@@ -151,14 +167,19 @@ kb_chunks    (id, title, body, tags text[], source_url, source_license, verified
    │  game      대국 세션 상태머신 (goroutine 1/세션)│
    │            + 적응형 상대(지도 대국) · 판정 배선  │
    │  intervene 개입 판정 — 임계치·롤백·카테고리     │
+   │  skill     실력 추정 — 낙폭만 받는다 (§47)      │
    │  explain   설명 문구 — OrcaRouter + 3단 캐시    │
+   │            + 대국 후 총평 (§49)                │
    │  shogi     룰 엔진 — 합법수·반칙·棋譜 표기      │
    │  usi       엔진 프로세스 풀 (MultiPV, mate)    │
+   │  archive   모든 탐색을 데이터로 (§37)          │
    │  store     pgx + sqlc                         │
    │  tag       囲い·전법·戦型·手筋의 이름          │
    │            엔진도 DB도 모른다 — 국면과 수순만  │
-   │                                              │
-   │  (아직 없다: profile 실력 추정 / kb RAG 코퍼스)│
+   │  book      상대의 진형 4종 수순 (§48)          │
+   │  quiz      되짚기 퀴즈 생성·채점 (§53)         │
+   │  auth      Google OAuth · 서명 쿠키 (§46)      │
+   │  kifu      KIF·CSA 파서 (서버는 안 쓴다)       │
    └───────┬───────────────────────┬──────────────┘
            │ stdin/stdout          │
    ┌───────▼─────────┐     ┌───────▼────────┐
@@ -167,7 +188,9 @@ kb_chunks    (id, title, body, tags text[], source_url, source_license, verified
    └─────────────────┘     └────────────────┘
 ```
 
-**엔진은 풀로 띄운다.** 최소 3개 — ① 상대 수 결정 ② 플레이어 후보 선행 계산 ③ mate 탐색(詰み 게이지).
+> **`internal/kb` 패키지는 없고, 앞으로도 안 만든다.** RAG는 `store` 의 태그 질의(`query/kb.sql`)와 `explain.WithKnowledge` 콜백 둘로 끝났다([§43](06-status.md)) — 검색이 벡터가 아니라 태그의 GIN 인덱스라 담을 로직이 없다. 패키지를 찾다가 「아직 없다」로 읽는 자리라 여기 적어 둔다.
+
+**엔진은 풀로 띄운다.** 최소 3개 — ① 상대 수 결정 ② 플레이어 후보 선행 계산 ③ mate 탐색(詰み 게이지). 손잡이는 둘이다 — 탐색부가 `ENGINE_POOL_SIZE`(기본 3), 詰将棋 solver가 `ENGINE_MATE_POOL_SIZE`(기본 2).
 
 > ③은 **다른 바이너리**다(§3). 같은 풀의 다른 슬롯이 아니라 詰将棋 solver 에디션을 따로 빌드해 띄운다. 스레드는 엔진당 1로 고정한다 — 동시성은 풀에서 얻고, 멀티스레드는 고정 깊이에서도 결과가 흔들려 `positions` 캐시를 못 쓰게 만든다.
 
