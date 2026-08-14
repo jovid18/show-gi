@@ -12,27 +12,28 @@ import (
 // **게이트는 저쪽 것을 그대로 쓴다** — `freshTesuji`·`enginePaidOff` 를 나눠 쓰고 이 파일은 부르는
 // 순서만 갖는다. 두 벌이 되면 힌트와 착수 뒤가 어긋난다(06-status.md §34 ⑦).
 
-// TesujiHintMultiPV 는 후보를 재는 탐색의 MultiPV다.
+// TesujiHintRootK 는 **착수 전 국면 하나**를 잴 때 읽는 줄 수다.
 //
-// 1이 아닌 이유는 이 값이 **후보의 cp만 쓰는 것이 아니기 때문**이다 — 최선 수순(PV)이
-// 함께 와야 「이름은 붙었는데 딸 수가 없는」 형태를 나중에 가려낼 수 있다(계획 1b의
-// 十字飛車 사례: 飛가 銀 둘을 노렸는데 어느 쪽을 먹어도 飛가 죽는다).
+// 후보마다 착수 후 국면을 따로 재지 않는다. 한 탐색의 형제 줄을 견주면 **뿌리가 같아서**
+// 낙폭이 지평 비대칭에 안 기울고(06-status.md §41), 비용이 후보 수와 무관해진다 —
+// 실측은 §74.
 //
-// 3인 것은 그 이상이 비용만 늘리기 때문이다. 상대의 후보 폭을 재는 `CandidateK` 와 값이
-// 다른데, 저쪽은 **고르는** 수의 폭이고 이쪽은 **읽는** 줄의 수라 같을 이유가 없다.
-const TesujiHintMultiPV = 3
-
-// TesujiHintMaxCandidates 는 엔진에 물어볼 후보의 상한이다.
+// PV도 함께 온다. 「이름은 붙었는데 딸 수가 없는」 형태를 나중에 가려내려면 최선 수순이
+// 있어야 한다(§45 의 `kaku_ryodori`: 겨눠진 角이 馬를 되잡아 両取り가 실현되지 않는다).
 //
-// **실제로 걸린다.** 사람이 끝까지 둔 판에서 열린 手数당 평균 4.8개 · 최다 20개였고 이
-// 상한에 25手数가 걸렸다(06-status.md §56). 「§34가 실 기보 102수에서 6개라 안 걸린다」로
-// 적어 뒀던 자리인데, **저 6은 실제로 둬진 수 중 형태가 생긴 수**이고 여기는 그 국면의
-// **합법수 전부**를 훑은 수다 — 분모가 다르다. 종반에 합법수가 몰릴 때 사람 차례가
-// 통째로 멈추는 것을 막는 것이 이 값이 하는 일이고, 그것이 가정이 아니라 관측이 됐다.
+// 이 값이 하는 일은 「어디까지가 확정 탈락인가」를 정하는 것이다 — k번째 줄이 이미
+// `TesujiLossCp` 밖이면 그 밖의 후보는 물어보지 않고 떨어뜨려도 된다. 안이면 모르는
+// 것이고, **모르면 이름을 붙이지 않는다.**
 //
-// **넘치면 조용히 자르지 않고 세어서 돌려준다**(dropped). 잘린 것을 안 세면 「手筋이
-// 없었다」와 「못 봤다」가 같은 화면이 된다.
-const TesujiHintMaxCandidates = 6
+// **3인 것은 실측이다**(§74). 3·6·8·12를 재 봤더니 **큰 k가 더 나은 자리가 없었다** —
+// 비용은 2.15초 → 5.27초 → 6.63초로 오르는데 통과한 이름은 늘지 않는다. k=8은 오히려
+// 줄었다: MultiPV는 형제 줄을 함께 유지하느라 **가지치기가 k마다 달라서**, k가 게이트의
+// 조율값이 아니라 **정의의 일부**다(§58이 k=1 → k=3에서 1위가 21% 갈린 그 성질).
+//
+// 큰 k가 사는 자리는 하나뿐이다 — 「모르는 채 남는 후보」가 k=3에서 19개, k=6에서 0개다.
+// 그것을 **안 산다**: 이 기능을 못 뜨게 하던 것이 정확도가 아니라 지연이었고, 모르는
+// 후보에 대해 침묵하는 것은 이미 이 게이트의 규약이다.
+const TesujiHintRootK = 3
 
 // TesujiOption 은 지금 두면 **새 手筋 이름이 생기는** 수 하나다.
 type TesujiOption struct {
@@ -71,18 +72,21 @@ func tesujiOptions(pos shogi.Position, c shogi.Color) []TesujiOption {
 
 // gateTesujiOptions 는 후보 중 **엔진이 이득으로 본 것만** 남긴다.
 //
-// 후보마다 착수 후 국면을 한 번 재고, 착수 전 국면은 한 번만 잰다. 그래서 탐색 횟수가
-// `1 + len(opts)` 이고 후보가 보통 0~2개다.
+// **탐색은 한 번이다.** 착수 前 국면을 k 줄로 재고, 후보의 값을 그 형제 줄에서 꺼낸다.
+// 사람이 둘 차례이므로 줄의 점수가 곧 사람 관점이고, **부호를 뒤집는 자리가 없다.**
 //
-// dropped 는 상한에 걸리거나 **시한이 끝나서 묻지 못한** 후보 수다. 0이 아니면 결과가
-// 「전부」가 아니다.
+// k가 상수가 아니라 인자인 것은 `depth` 와 같은 이유다 — 값을 흔들어 보는 데 세션이
+// 필요 없어야 한다. 프로덕션이 넣는 값은 `TesujiHintRootK`.
 //
-// **모르면 이름을 붙이지 않는다.** 탐색이 실패하면 그 후보를 빼고 계속한다 — 룰만으로
+// dropped 는 **모르는 채로 남은** 후보 수다 — 줄 밖이고 마지막 줄이 아직 상한 안이라
+// 확정 탈락이라고 말할 수 없는 것들. 0이 아니면 결과가 「전부」가 아니다.
+//
+// **모르면 이름을 붙이지 않는다.** 탐색이 실패하면 통째로 빈 결과다 — 룰만으로
 // 통과시키면 이 게이트가 없는 것과 같아진다(`tesuji.go` 의 같은 규약).
 func gateTesujiOptions(
 	ctx context.Context,
 	s MultiSearcher,
-	depth int,
+	depth, k int,
 	startSFEN string,
 	moves []string,
 	opts []TesujiOption,
@@ -91,38 +95,44 @@ func gateTesujiOptions(
 	if s == nil || len(opts) == 0 {
 		return nil, 0, nil
 	}
-	if len(opts) > TesujiHintMaxCandidates {
-		dropped = len(opts) - TesujiHintMaxCandidates
-		opts = opts[:TesujiHintMaxCandidates]
-	}
 
-	// 착수 **전** 국면. 사람이 둘 차례이므로 엔진의 답이 곧 사람 관점이다.
-	before, err := s.SearchMultiPV(ctx, startSFEN, moves, depth, TesujiHintMultiPV)
+	root, err := s.SearchMultiPV(ctx, startSFEN, moves, depth, k)
 	if err != nil {
-		return nil, dropped, err
+		return nil, len(opts), err
 	}
-	senteBefore := senteCp(before.ScoreCp, c)
+	// **`Ranked` 를 쓴다.** `Lines[0]` 은 1위가 아닐 수 있다 — 아직 안 온 순위가 빈 줄로
+	// 남아 있고, 그것을 최선으로 읽으면 낙폭이 통째로 어긋난다(`usi.SearchResult.Ranked`).
+	lines := root.Ranked()
+	if len(lines) == 0 {
+		return nil, len(opts), nil
+	}
 
-	for i, o := range opts {
-		next := append(append([]string(nil), moves...), o.USI)
+	best := lines[0].ScoreCp
+	cp := make(map[string]int, len(lines))
+	for _, l := range lines {
+		cp[l.Move] = l.ScoreCp
+	}
+	// 줄 밖의 후보는 **마지막 줄보다 나쁘다**. 그 마지막 줄이 이미 상한 밖이면 밖은
+	// 전부 탈락이 확정이고, 안이면 모르는 것이다 — 그 둘을 같은 침묵으로 섞지 않는다.
+	//
+	// **k줄을 다 받았을 때만 그렇게 말할 수 있다.** 중간 순위 하나가 안 오면 `Ranked` 가
+	// 그것을 빼고 주므로, 「밖」에는 **안 온 그 순위**도 섞인다 — 그것은 마지막 줄보다
+	// 나쁘지 않다. 덜 받았으면 경계를 모르는 것이고, 모르면 이름을 붙이지 않는다.
+	decided := len(lines) == k && best-lines[len(lines)-1].ScoreCp > TesujiLossCp
 
-		after, err := s.SearchMultiPV(ctx, startSFEN, next, depth, TesujiHintMultiPV)
-		if err != nil {
-			// **시한이 끝난 것은 한 후보의 실패가 아니다.** 남은 후보도 전부 같은 자리에서
-			// 실패하므로, 여기서 계속 돌면 「묻지 못한 것」이 「못 통과한 것」으로 조용히
-			// 섞인다 — 상한에 걸린 쪽을 세는 것과 같은 이유다(dropped).
-			if ctx.Err() != nil {
-				return kept, dropped + len(opts) - i, ctx.Err()
+	for _, o := range opts {
+		after, ok := cp[o.USI]
+		if !ok {
+			if !decided {
+				dropped++
 			}
-			// 한 후보를 못 쟀다고 나머지를 버리지 않는다. 대국이 본체이고 힌트는 부가다.
 			continue
 		}
-
-		// 착수 후에는 **상대**가 수번이라 엔진의 답이 상대 관점이다. 부호를 한 번 뒤집고
-		// 나서 先手 관점으로 옮긴다 — `analyst.go:126` 과 같은 두 걸음이다.
+		// 두 값이 **한 탐색의 형제 줄**이라 뿌리가 같다. 개입 판정과 같은 축을 쓰되
+		// 임계치만 다른 것은 그대로다(`enginePaidOff`).
 		j := Judgement{
-			SenteCpBefore: senteBefore,
-			SenteCpAfter:  senteCp(-after.ScoreCp, c),
+			SenteCpBefore: senteCp(best, c),
+			SenteCpAfter:  senteCp(after, c),
 			HasEvals:      true,
 		}
 		if enginePaidOff(j, c) {

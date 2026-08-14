@@ -48,7 +48,7 @@ func TestMeasureTagHintLoad(t *testing.T) {
 		total, worst       time.Duration // 룰 필터 비용
 		worstPly, worstLeg int
 		lastAsk            int
-		cands, capped      int // 후보 총수와 **상한에 걸린 手数**
+		cands              int // 후보 총수
 		mostCands          int
 	)
 
@@ -67,15 +67,14 @@ func TestMeasureTagHintLoad(t *testing.T) {
 
 			if len(opts) > 0 {
 				openEvery++
-				searchesEvery += 1 + min(len(opts), TesujiHintMaxCandidates)
+				// **탐색은 후보 수와 무관하게 한 번이다**(gateTesujiOptions). 옛 자는
+				// `1 + min(후보, 상한)` 이었고 그 숫자가 §56의 586·131이다 — §74에서 바뀌었다.
+				searchesEvery++
 				cands += len(opts)
 				mostCands = max(mostCands, len(opts))
-				if len(opts) > TesujiHintMaxCandidates {
-					capped++
-				}
 				if lastAsk == 0 || ply-lastAsk >= TagHintCooldown {
 					openCooled++
-					searchesCooled += 1 + min(len(opts), TesujiHintMaxCandidates)
+					searchesCooled++
 					lastAsk = ply
 				}
 			}
@@ -91,6 +90,6 @@ func TestMeasureTagHintLoad(t *testing.T) {
 		turns, openEvery, openCooled, searchesEvery, searchesCooled)
 	t.Logf("룰 필터 한 번: 평균 %v · 최장 %v (%d手目, 합법수 %d)",
 		total/time.Duration(turns), worst, worstPly, worstLeg)
-	t.Logf("열린 手数당 후보: 평균 %.1f개 · 최다 %d개 · 상한(%d)에 걸린 手数 %d",
-		float64(cands)/float64(openEvery), mostCands, TesujiHintMaxCandidates, capped)
+	t.Logf("열린 手数당 후보: 평균 %.1f개 · 최다 %d개 — **상한이 없다**. 전부 한 탐색으로 답한다",
+		float64(cands)/float64(openEvery), mostCands)
 }

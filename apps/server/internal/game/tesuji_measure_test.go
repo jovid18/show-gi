@@ -108,7 +108,7 @@ func TestMeasureTesujiGateOverAGame(t *testing.T) {
 		// 「딴다」를 자동으로 재려면 대상 칸을 `tag` 밖으로 꺼내야 하고, 그 API를
 		// **무엇을 셀지 정하기 전에** 만들면 안 되기 때문이다.
 		if len(out) > 0 {
-			res, err := pool.SearchMultiPV(t.Context(), shogi.StartSFEN, moves, JudgeDepth, TesujiHintMultiPV)
+			res, err := pool.SearchMultiPV(t.Context(), shogi.StartSFEN, moves, JudgeDepth, TesujiHintRootK)
 			if err != nil {
 				t.Logf("        최선 수순: %v", err)
 				continue
@@ -169,7 +169,7 @@ func TestMeasureDecorativeFork(t *testing.T) {
 	loss := cpFor(j.SenteCpBefore, shogi.Black) - cpFor(j.SenteCpAfter, shogi.Black)
 	passed := codes(namedTesuji(before, after, shogi.Black, moves[0], j))
 
-	res, err := pool.SearchMultiPV(t.Context(), start, moves, JudgeDepth, TesujiHintMultiPV)
+	res, err := pool.SearchMultiPV(t.Context(), start, moves, JudgeDepth, TesujiHintRootK)
 	if err != nil {
 		t.Fatalf("최선 수순: %v", err)
 	}

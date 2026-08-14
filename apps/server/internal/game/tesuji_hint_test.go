@@ -76,29 +76,42 @@ func TestTesujiOptionsNeedsItToBeThatColorsTurn(t *testing.T) {
 	}
 }
 
-// scriptedSearch 는 **수순 길이별로** 답을 돌려준다. 착수 전 국면과 후보를 둔 뒤 국면이
-// 서로 다른 답을 줘야 게이트를 실제로 재는 것이 된다 — `stubMulti` 는 늘 같은 답이다.
-type scriptedSearch struct {
-	before usi.SearchResult
-	after  map[string]usi.SearchResult
-	err    error
-	sawK   int
+// rootSearch 는 **착수 前 국면의 줄들**을 돌려준다. 게이트가 한 탐색의 형제 줄을
+// 견주므로 착수 후 국면을 따로 흉내낼 것이 없다.
+type rootSearch struct {
+	lines []usi.SearchLine
+	err   error
+	sawK  int
 }
 
-func (s *scriptedSearch) SearchMultiPV(_ context.Context, _ string, moves []string, _, multiPV int) (usi.SearchResult, error) {
+func (s *rootSearch) SearchMultiPV(_ context.Context, _ string, _ []string, _, multiPV int) (usi.SearchResult, error) {
 	s.sawK = multiPV
 	if s.err != nil {
 		return usi.SearchResult{}, s.err
 	}
-	if len(moves) == 0 {
-		return s.before, nil
-	}
-	return s.after[moves[len(moves)-1]], nil
+	return usi.SearchResult{Lines: s.lines}, nil
+}
+
+// rootLine 은 뿌리 줄 하나다. 점수는 **뿌리에서 수번인 쪽 관점**이라 게이트가 부호를
+// 안 뒤집는다.
+//
+// **순위를 받는다.** `Ranked` 가 같은 순위를 하나로 접으므로(중복 제거) 전부 1위로 만들면
+// 줄이 한 개로 줄어든다 — `adaptive_test.go` 의 `line` 이 그렇게 생겼고, 저쪽은 `Lines` 를
+// 그대로 읽어서 안 걸린다.
+func rootLine(rank int, move string, cp int) usi.SearchLine {
+	return usi.SearchLine{Depth: 12, MultiPV: rank, Move: move, ScoreCp: cp}
 }
 
 func gateOne(t *testing.T, s MultiSearcher, opts []TesujiOption) ([]TesujiOption, int) {
 	t.Helper()
-	kept, dropped, err := gateTesujiOptions(t.Context(), s, 12, shogi.StartSFEN, nil, opts, shogi.Black)
+	return gateOneK(t, s, TesujiHintRootK, opts)
+}
+
+// gateOneK 는 k를 짚어 준다. **줄 밖을 확정 탈락으로 말하려면 k줄을 다 받아야 하므로**
+// (gateTesujiOptions), 줄을 몇 개만 세우는 테스트는 k도 그만큼으로 줘야 그 국면이 된다.
+func gateOneK(t *testing.T, s MultiSearcher, k int, opts []TesujiOption) ([]TesujiOption, int) {
+	t.Helper()
+	kept, dropped, err := gateTesujiOptions(t.Context(), s, 12, k, shogi.StartSFEN, nil, opts, shogi.Black)
 	if err != nil {
 		t.Fatalf("gateTesujiOptions: %v", err)
 	}
@@ -107,15 +120,13 @@ func gateOne(t *testing.T, s MultiSearcher, opts []TesujiOption) ([]TesujiOption
 
 var oneOption = []TesujiOption{{USI: "6g5e"}}
 
-// **잃는 수에는 이름을 안 붙인다.** 先手 관점으로 +100 이던 국면이 착수 뒤 −200 이
-// 되었으므로 낙폭 300cp — `TesujiLossCp` 를 넘는다.
-//
-// 착수 후 값은 **상대 관점**으로 들어온다. 부호를 한 번 뒤집는 자리가 여기다.
+// **잃는 수에는 이름을 안 붙인다.** 최선 줄이 +100 인데 이 수의 줄이 −200 이므로
+// 낙폭 300cp — `TesujiLossCp` 를 넘는다.
 func TestGateDropsAMoveTheEngineCallsALoss(t *testing.T) {
-	s := &scriptedSearch{
-		before: usi.SearchResult{ScoreCp: 100},
-		after:  map[string]usi.SearchResult{"6g5e": {ScoreCp: 200}}, // 상대가 +200 = 내가 −200
-	}
+	s := &rootSearch{lines: []usi.SearchLine{
+		rootLine(1, "7g7f", 100),
+		rootLine(2, "6g5e", -200),
+	}}
 
 	if kept, _ := gateOne(t, s, oneOption); len(kept) != 0 {
 		t.Errorf("낙폭 300cp 인데 이름이 붙었다: %+v", kept)
@@ -125,17 +136,49 @@ func TestGateDropsAMoveTheEngineCallsALoss(t *testing.T) {
 // **성립하는 捨て駒는 살린다.** 낙폭이 상한 안이면 통과다 — 腹銀처럼 잡히는 것이
 // 정상인 寄せ 手筋을 죽이지 않는 것이 이 게이트의 값이다(tesuji.go 의 `enginePaidOff`).
 func TestGateKeepsAMoveWithinTheLossCap(t *testing.T) {
-	s := &scriptedSearch{
-		before: usi.SearchResult{ScoreCp: 100},
-		after:  map[string]usi.SearchResult{"6g5e": {ScoreCp: -100}}, // 내가 여전히 +100
-	}
+	s := &rootSearch{lines: []usi.SearchLine{
+		rootLine(1, "7g7f", 100),
+		rootLine(2, "6g5e", 0), // 낙폭 100cp — 상한과 같다
+	}}
 
 	kept, _ := gateOne(t, s, oneOption)
 	if len(kept) != 1 || kept[0].USI != "6g5e" {
-		t.Errorf("낙폭 0cp 인데 떨어졌다: %+v", kept)
+		t.Errorf("낙폭이 상한과 같은데 떨어졌다: %+v", kept)
 	}
-	if s.sawK != TesujiHintMultiPV {
-		t.Errorf("MultiPV %d 를 요청해야 한다: %d", TesujiHintMultiPV, s.sawK)
+	if s.sawK != TesujiHintRootK {
+		t.Errorf("MultiPV %d 를 요청해야 한다: %d", TesujiHintRootK, s.sawK)
+	}
+}
+
+// **後手로 잡은 판에서도 같은 방향이다.** `senteCp`·`cpFor` 가 한 번씩 도는 자리라,
+// 부호가 뒤집히면 지는 수에 이름이 붙는다 — 에러가 안 나고 조용하다(tesuji.go).
+func TestGateReadsTheLossFromThePlayersSide(t *testing.T) {
+	s := &rootSearch{lines: []usi.SearchLine{
+		rootLine(1, "7g7f", 100),
+		rootLine(2, "6g5e", -200),
+	}}
+
+	kept, _, err := gateTesujiOptions(t.Context(), s, 12, TesujiHintRootK, shogi.StartSFEN, nil, oneOption, shogi.White)
+	if err != nil {
+		t.Fatalf("gateTesujiOptions: %v", err)
+	}
+	if len(kept) != 0 {
+		t.Errorf("後手 관점에서도 낙폭 300cp 다: %+v", kept)
+	}
+}
+
+// **`Lines[0]` 을 최선으로 읽지 않는다.** 아직 안 온 순위가 빈 줄로 남으므로, 그것을
+// 그대로 1위로 쓰면 최선이 0cp가 되고 낙폭이 통째로 어긋난다(`usi.SearchResult.Ranked`).
+func TestGateIgnoresAnEmptyRank(t *testing.T) {
+	s := &rootSearch{lines: []usi.SearchLine{
+		{MultiPV: 1}, // 안 온 순위
+		rootLine(2, "7g7f", -800),
+		rootLine(3, "6g5e", -850),
+	}}
+
+	kept, _ := gateOne(t, s, oneOption)
+	if len(kept) != 1 {
+		t.Errorf("최선(−800) 대비 낙폭 50cp 인데 떨어졌다: %+v", kept)
 	}
 }
 
@@ -147,22 +190,54 @@ func TestGateWithoutASearcherNamesNothing(t *testing.T) {
 	}
 }
 
-// **자른 것을 센다.** 안 세면 「手筋이 없었다」와 「못 봤다」가 같은 화면이 된다.
-func TestGateReportsCandidatesItNeverAsked(t *testing.T) {
-	var many []TesujiOption
-	for _, u := range []string{"1a1b", "2a2b", "3a3b", "4a4b", "5a5b", "6a6b", "7a7b", "8a8b"} {
-		many = append(many, TesujiOption{USI: u})
-	}
+// **줄 밖이라고 다 「못 본 것」은 아니다.** 마지막 줄이 이미 상한 밖이면 그보다 나쁜
+// 것들은 **확정 탈락**이고, 안이면 모르는 것이다. 둘을 같은 침묵으로 섞으면
+// 「手筋이 없었다」와 「못 봤다」가 같은 화면이 된다.
+func TestGateCountsOnlyTheCandidatesItCouldNotDecide(t *testing.T) {
+	outside := []TesujiOption{{USI: "1a1b"}, {USI: "2a2b"}}
 
-	s := &scriptedSearch{before: usi.SearchResult{ScoreCp: 0}, after: map[string]usi.SearchResult{}}
-	kept, dropped := gateOne(t, s, many)
+	t.Run("마지막 줄이 이미 상한 밖이면 확정 탈락", func(t *testing.T) {
+		s := &rootSearch{lines: []usi.SearchLine{
+			rootLine(1, "7g7f", 0),
+			rootLine(2, "8g8f", -500), // 낙폭 500cp — 그 밖은 더 나쁘다
+		}}
 
-	if want := len(many) - TesujiHintMaxCandidates; dropped != want {
-		t.Errorf("자른 후보 %d 개를 기대했는데 %d", want, dropped)
-	}
-	if len(kept) > TesujiHintMaxCandidates {
-		t.Errorf("상한을 넘겨 물었다: %d", len(kept))
-	}
+		kept, dropped := gateOneK(t, s, 2, outside)
+		if len(kept) != 0 {
+			t.Errorf("줄에 없는 후보가 통과했다: %+v", kept)
+		}
+		if dropped != 0 {
+			t.Errorf("확정 탈락을 「못 본 것」으로 셌다: %d", dropped)
+		}
+	})
+
+	t.Run("k줄을 다 못 받았으면 밖은 모르는 것", func(t *testing.T) {
+		// 상한 밖인 마지막 줄이지만 **k=8 중 두 줄만 왔다.** 안 온 순위가 그 사이에
+		// 있을 수 있어서 「밖은 더 나쁘다」가 성립하지 않는다.
+		s := &rootSearch{lines: []usi.SearchLine{
+			rootLine(1, "7g7f", 0),
+			rootLine(2, "8g8f", -500),
+		}}
+
+		if _, dropped := gateOne(t, s, outside); dropped != len(outside) {
+			t.Errorf("덜 받은 줄로 확정 탈락이라고 했다: dropped %d", dropped)
+		}
+	})
+
+	t.Run("마지막 줄이 아직 상한 안이면 모르는 것", func(t *testing.T) {
+		s := &rootSearch{lines: []usi.SearchLine{
+			rootLine(1, "7g7f", 0),
+			rootLine(2, "8g8f", -50), // 낙폭 50cp — 그 밖에 통과할 것이 남아 있을 수 있다
+		}}
+
+		kept, dropped := gateOneK(t, s, 2, outside)
+		if len(kept) != 0 {
+			t.Errorf("모르는 후보에 이름이 붙었다: %+v", kept)
+		}
+		if dropped != len(outside) {
+			t.Errorf("못 본 후보 %d 개를 기대했는데 %d", len(outside), dropped)
+		}
+	})
 }
 
 // 이름은 **중복 없이** 편다. 같은 이름을 만드는 수가 둘이어도 알릴 것은 하나다.
@@ -176,7 +251,7 @@ func TestTesujiHintTagsAreDeduped(t *testing.T) {
 	}
 }
 
-// countingSearch 는 게이트를 늘 통과시키면서 **몇 번 불렸는지**만 센다.
+// countingSearch 는 **몇 번 불렸는지**만 센다. 통과 여부는 여기서 볼 것이 아니다.
 type countingSearch struct {
 	mu    sync.Mutex
 	calls int
@@ -186,7 +261,7 @@ func (s *countingSearch) SearchMultiPV(context.Context, string, []string, int, i
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.calls++
-	return usi.SearchResult{ScoreCp: 0}, nil // 낙폭 0 — 언제나 통과
+	return usi.SearchResult{}, nil // 줄이 없다 — 여기서 보는 것은 **몇 번 물었나**뿐이다
 }
 
 func (s *countingSearch) count() int {
@@ -251,10 +326,9 @@ func hasTag(tags []tag.Tag, code string) bool {
 //
 // 비동기라 첫 스냅샷에는 없고 몇 밀리초 뒤에 합류한다. 그것이 `waitFor` 를 쓰는 이유다.
 func TestSessionAnnouncesATesujiThePlayerCouldMake(t *testing.T) {
-	search := &scriptedSearch{
-		before: usi.SearchResult{ScoreCp: 0},
-		after:  map[string]usi.SearchResult{"6g5e": {ScoreCp: 0}}, // 낙폭 0 — 게이트 통과
-	}
+	search := &rootSearch{lines: []usi.SearchLine{
+		rootLine(1, "6g5e", 0), // 최선 줄이 곧 手筋 — 낙폭 0
+	}}
 	s := newSession(t, Config{
 		Opponent:   legalOpponent{},
 		HumanColor: shogi.Black,
