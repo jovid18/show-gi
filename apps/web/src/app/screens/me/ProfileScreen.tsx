@@ -1,12 +1,16 @@
 import { useProfile } from '@/hooks/useProfile';
+import { TAG_KIND_JA } from '@/libs/game/tags';
 import { hrefOf } from '@/routes/router';
 
 /**
  * 마이페이지. **판을 가로질러 보는 유일한 화면이다** — 되짚기는 판 하나를 열고 총평은
  * 판 하나를 세지만, 여기는 「지금까지 어땠나」에 답한다.
  *
- * 셋을 그린다: 段級 · 전적 · 崩れやすいところ. 그 이상은 안 그린다 — 이 화면은 사람이 자기를 확인하러
- * 오는 자리이고, 판마다의 이야기는 되짚기가 이미 한다.
+ * 넷을 그린다: 段級 · 전적 · 崩れやすいところ · 組んだ形. 그 이상은 안 그린다 — 이 화면은 사람이
+ * 자기를 확인하러 오는 자리이고, 판마다의 이야기는 되짚기가 이미 한다.
+ *
+ * **마지막 하나가 나머지 셋과 방향이 반대다.** 앞의 셋은 「얼마나 못했나」를 세는데, 그것만
+ * 있으면 판을 가로질러 보는 유일한 화면이 지적만 하는 자리가 된다(06-status.md §77).
  */
 export function ProfileScreen() {
   const state = useProfile();
@@ -103,6 +107,30 @@ export function ProfileScreen() {
             {profile.interventions > 0
               ? '同じところで繰り返し戻したことは、まだありません。'
               : 'まだ戻した手がありません。'}
+          </p>
+        )}
+      </section>
+
+      {/* **「崩れやすいところ」의 반대편이다.** 저쪽이 무너진 자리라면 이쪽은 실제로 세운
+          것이고, 마이페이지가 지적만 하는 화면이 되지 않게 하는 것이 이 절의 몫이다. */}
+      <section className="profile__block" aria-label="組んだ形">
+        <h2 className="profile__head">組んだ形</h2>
+        {profile.styles && profile.styles.length > 0 ? (
+          <ul className="profile__styles">
+            {profile.styles.map((s) => (
+              <li key={s.code}>
+                {/* 축을 먼저 적는다 — 「美濃囲い」와 「中飛車」가 한 목록에 서므로,
+                    없으면 둘이 같은 종류로 읽힌다. 대국 중의 알림과 같은 표다. */}
+                <span className="profile__styles-kind">{TAG_KIND_JA[s.kind]}</span>
+                <span className="profile__styles-name">{s.nameJa}</span>
+                {/* **「回」가 아니라 「局」이다.** 한 판에 같은 이름은 한 번만 담긴다. */}
+                <span className="profile__styles-count">{s.games}局</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="profile__empty">
+            まだ名前のついた形がありません。囲いや戦法が組み上がると、その場で盤に名前が出ます。
           </p>
         )}
       </section>

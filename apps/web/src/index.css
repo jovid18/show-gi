@@ -642,16 +642,25 @@ body {
   pointer-events: none;
 
   /* 세기를 두 축으로 나눈다 — 알파는 「얼마나 진한가」, 번짐은 「얼마나 멀리 가는가」다.
-     하나만 키우면 5단계가 한 축에 몰려 3과 4가 안 갈린다. */
-  --a: calc(0.13 + var(--heat, 0) * 0.11);
-  --reach: calc(var(--heat, 0) * 4px + 4px);
+     하나만 키우면 5단계가 한 축에 몰려 3과 4가 안 갈린다.
+
+     **간격이 일정하지 않다.** 두 축을 같은 폭으로 올렸더니 이웃한 단계가 화면에서 안
+     갈렸다 — 사람이 「변화가 잘 안 보인다」고 했다(06-status.md §76). 제곱으로 벌리면
+     아래쪽은 은은한 채로 남고(11手詰은 제안형이라 그래야 한다, 01-core.md §2) 위로
+     갈수록 한 칸의 폭이 커진다. 1手詰에서 제일 크게 벌어지는 것이 의도다. */
+  --h: var(--heat, 0);
+  --a: calc(0.12 + var(--h) * var(--h) * 0.028);
+  --reach: calc(var(--h) * var(--h) * 1.1px + 4px);
+  /* **안쪽은 바깥에서 끊어 따로 잡는다.** 색이 판 안으로 번지면 「테두리는 판과 다른
+     표면」이라는, 여기서 색을 쓰는 근거가 사라지는데(01-core.md §7), 바깥에 비율로 매어
+     두면 위 곡선이 그 값까지 같이 끌어올린다 — 세기 5에서 가장자리 칸이 실제로 물들어
+     한 번 내렸던 자리다. 그래서 안쪽만 선형으로 남기고 폭도 예전 크기 그대로 둔다. */
+  --a-in: calc(0.09 + var(--h) * 0.045);
+  --reach-in: calc(var(--h) * 1.6px + 3px);
   box-shadow:
     0 0 var(--reach) rgb(var(--mate) / var(--a)),
     0 0 calc(var(--reach) * 2.6) rgb(var(--mate) / calc(var(--a) * 0.5)),
-    /* 안쪽은 얕게. **색이 판 안으로 번지면 안 된다** — 테두리가 판과 다른 표면이라는
-       것이 여기서 색을 쓰는 근거인데(01-core.md §7), 칸까지 보라로 물들면 그 근거가
-       사라진다. 세기 5에서 가장자리 칸이 실제로 물들어 이 값을 내렸다. */
-    inset 0 0 calc(var(--reach) * 0.42) rgb(var(--mate) / calc(var(--a) * 0.65));
+    inset 0 0 var(--reach-in) rgb(var(--mate) / var(--a-in));
 
   /* 가스 불꽃이라 규칙적으로 뛰지 않는다. 마디를 고르지 않게 두는 것이 요점이다 —
      고르게 두면 로딩 인디케이터로 읽힌다. */
@@ -2633,6 +2642,40 @@ body {
   color: var(--muted);
 }
 
+/* 판을 어느 쪽에서 보나. **아래 이동 바에 안 넣는다** — 저쪽은 「언제를 보나」라 축이
+   다르고, 섞으면 되짚는 동안 누르는 것이 다섯 개가 된다. 판에 붙여 오른쪽에 둔다. */
+.review-board-controls {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* **평소에는 물러나 있어야 한다.** 되짚는 사람이 보는 것은 판이고 이건 한 번 누르면
+   끝나는 스위치라, 이동 버튼과 같은 무게로 서면 자리를 다툰다. */
+.review-flip {
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--line);
+  background: none;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.review-flip:hover,
+.review-flip:focus-visible {
+  border-color: var(--line-2);
+  color: var(--fg-2);
+}
+
+/* 눌린 것은 **판이 棋譜의 관례에서 돌아 있다**는 뜻이다(先手가 위). 後手로 둔 사람에게는
+   그것이 기본이라 처음부터 켜져 있고, 그래도 표시가 필요하다 — 이 화면의 좌표를 책이나
+   다른 기보와 대조하는 사람이 「지금 돌아 있다」를 한눈에 알아야 한다. */
+.review-flip[aria-pressed='true'] {
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
 .review-whatif {
   gap: 0.5rem;
   padding-bottom: 0.6rem;
@@ -3531,6 +3574,41 @@ body {
 }
 
 .profile__weak-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 짠 형태. **막대를 안 그린다** — 위 목록의 막대는 「전체 개입 중 몇 %」라 뜻이 있지만
+   이쪽의 분모는 판 수이고 그 숫자는 바로 위 成績 칸에 이미 서 있다. */
+.profile__styles {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.profile__styles li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 0.8125rem;
+}
+
+/* 축(囲い·戦法·戦型). 이름보다 물러나 있어야 목록이 이름으로 읽힌다 — 대국 중의
+   이름 알림(`tag-flash__kind`)과 같은 무게다. */
+.profile__styles-kind {
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.profile__styles-name {
+  color: var(--fg);
+}
+
+.profile__styles-count {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }

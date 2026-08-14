@@ -8,7 +8,10 @@ import "github.com/jovid18/show-gi/apps/server/internal/intervene"
 // 어느 쪽이 맞는지 알 수 없다. 읽는 사람은 그 수가 왜 나빴는지를 아직 모르는 사람이라,
 // 전문 용어가 아니라 **읽으면 뜻이 통하는 말**로 고른다.
 var categoryNames = map[intervene.Category]string{
-	intervene.CategoryMissedMate:    "詰み逃し",
+	intervene.CategoryMissedMate: "詰み逃し",
+	// **「逃し」가 아니다.** 詰み은 남아 있고 멀어졌을 뿐이라, 되짚기 목록과 총평이
+	// 같은 이름으로 부르면 이긴 판에 「놓쳤다」가 남는다(06-status.md §76).
+	intervene.CategorySlowerMate:    "詰みの遠回り",
 	intervene.CategoryLetsMate:      "詰まされる",
 	intervene.CategoryHangsPiece:    "タダ捨て",
 	intervene.CategoryShallowTrap:   "浅い得",

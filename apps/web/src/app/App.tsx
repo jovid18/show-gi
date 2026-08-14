@@ -26,11 +26,15 @@ const ProfileScreen = lazy(async () => ({
 }));
 
 /**
- * `needsAuth` 는 **로그인이 있는 배포에서만** 그리는 탭이다.
+ * `needsAuth` 는 **실제로 로그인한 사람에게만** 그리는 탭이다.
  *
- * 마이페이지는 익명에게 401이라(profile.go) 로그인 없는 배포에서는 갈 곳이 없다 —
+ * 마이페이지는 익명에게 401이라(profile.go) 안 누른 사람에게는 갈 곳이 없다 —
  * 「눌러도 안 되는 버튼을 띄우면 고장으로 읽힌다」가 `Account` 에 이미 있는 규칙이고,
  * 탭이라고 다르지 않다.
+ *
+ * **로그인 기능이 켜졌는가(`me.enabled`)로 가르지 않는다.** 그 값은 배포에 로그인이
+ * 있는가일 뿐이라 익명으로 두는 사람에게도 참이고, 실제로 그 탭이 익명에게 떠 있었다
+ * (06-status.md §76).
  */
 const TABS: { route: Route; label: string; needsAuth?: boolean }[] = [
   { route: { name: 'game' }, label: '対局' },
@@ -66,7 +70,7 @@ export function App() {
           </a>
 
           <nav className="app-tabs" aria-label="画面">
-            {TABS.filter((tab) => !tab.needsAuth || me.enabled).map((tab) => {
+            {TABS.filter((tab) => !tab.needsAuth || me.user !== null).map((tab) => {
               // **버튼이 아니라 링크다.** 주소가 화면을 정하므로 가운데 클릭·링크 복사·
               // 새 탭이 그냥 동작해야 하고, 그건 `<a href>` 만이 준다.
               // 세 갈래라 「대국이냐 아니냐」로는 못 가른다 — `reviews` 탭이 켜지는

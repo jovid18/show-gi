@@ -93,3 +93,14 @@ func TestMeasureTagHintLoad(t *testing.T) {
 	t.Logf("열린 手数당 후보: 평균 %.1f개 · 최다 %d개 — **상한이 없다**. 전부 한 탐색으로 답한다",
 		float64(cands)/float64(openEvery), mostCands)
 }
+
+// humanThreeKifu 는 회차 3의 기보다(`games.id=863` · 208手 · 사람이 **後手**).
+// 회차 1과 갈라 두는 이유는 06-status.md §76 — 그 판이 §74 뒤의 첫 사람 판이다.
+func humanThreeKifu(t *testing.T) []string {
+	t.Helper()
+	raw, err := os.ReadFile("testdata/human-3.usi")
+	if err != nil {
+		t.Fatalf("기보를 못 읽었다: %v", err)
+	}
+	return strings.Fields(string(raw))
+}

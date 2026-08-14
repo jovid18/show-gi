@@ -118,6 +118,16 @@ type Snapshot struct {
 	// 되돌릴 사람의 수가 기보에 있어야 참이다(state.undo 의 거절 조건과 같은 셋).
 	CanUndo bool `json:"canUndo"`
 
+	// HintLeft 는 사람이 **아직 부를 수 있는 힌트 횟수**다(HintMaxPerGame 에서 뺀 것).
+	// UndoLeft 와 같은 규약이다 — 예산이라 상대 차례에도 참이다.
+	HintLeft int `json:"hintLeft"`
+	// CanHint 는 **지금 힌트를 누를 수 있는가**다. 사람 차례이고, 예산이 남았고,
+	// 이 국면에서 아직 답까지 안 봤어야 참이다(state.askHint 의 거절 조건과 같다).
+	//
+	// **국면마다 갈린다는 것이 UndoLeft 와 다른 점이다** — 예산이 남아도 같은 자리를
+	// 세 번째로 물으면 false 다.
+	CanHint bool `json:"canHint"`
+
 	// OpponentStrength 는 상대가 지금 겨냥하는 강함이다(1~5, 5가 최선수 쪽). **추정기가
 	// 꺼져 있으면 안 온다** — 0을 보내면 화면이 「고정된 강함」과 「조절 중이지만 아직
 	// 모름」을 구별할 수 없고, 조절하지도 않는 판에 눈금을 그리게 된다.
@@ -251,10 +261,15 @@ type Notice struct {
 const (
 	// NoticeJudgeSkipped 는 방금 둔 수를 판정하지 못했다는 것이다. 수는 그대로 선다.
 	NoticeJudgeSkipped = "judge_skipped"
+
+	// NoticeHintFailed 는 부른 힌트를 못 만들었다는 것이다. **예산은 안 줄었다** —
+	// 사람이 아무것도 못 본 채로 한 번을 잃으면 그 기능은 신뢰를 잃는다(applyHintResult).
+	NoticeHintFailed = "hint_failed"
 )
 
 var noticeMessages = map[string]string{
 	NoticeJudgeSkipped: "今の手は確かめられませんでした。そのまま進みます。",
+	NoticeHintFailed:   "ヒントを用意できませんでした。回数は減っていません。",
 }
 
 // newNotice 는 코드로 알림 하나를 만든다. 모르는 코드면 nil이다 — 빈 문구를 화면에

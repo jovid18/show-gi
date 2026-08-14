@@ -250,3 +250,62 @@ SELECT ply, usi, eval_cp FROM game_undos WHERE game_id = $1 ORDER BY ply, id;
 -- **이어하는 판이 3회 제한을 리셋하지 않게** 한다(game.Config.UndoUsed). 세션은 연결에
 -- 매여 있어 이어할 때마다 새로 서는데, 카운터도 같이 0이 되면 제한이 제한이 아니다.
 SELECT count(*) FROM game_undos WHERE game_id = $1;
+
+-- ─── 전법·囲い ───────────────────────────────────────────────
+-- 사람이 그 판에서 실제로 짠 이름. 근거는 009_game_style_tags.sql.
+
+-- name: AddGameStyleTag :exec
+--
+-- **같은 이름을 두 번 안 담는다.** 囲い는 판에서 매번 다시 세어지므로(game.styleTags) 한 판에
+-- 같은 코드가 수십 번 온다 — 세션이 본 것을 기억해 거르지만, 이어하는 판은 그 기억을 잃는다
+-- (세션이 연결에 매여 있다, §51). 그래서 거르는 자리를 **여기에도** 둔다.
+UPDATE games
+SET style_tags = array_append(style_tags, @code::text)
+WHERE id = @game_id AND NOT (style_tags @> ARRAY[@code::text]);
+
+-- name: CountGameStyleTagsForOwner :many
+--
+-- 마이페이지의 「짠 진형」. **판 수를 센다** — 한 판에서 같은 이름이 여러 번 나오는 일은
+-- 위 질의가 이미 막았으므로, 이 숫자는 언제나 「그 이름으로 둔 판이 몇 판인가」다.
+--
+-- 거르는 조건이 전적·약점과 **같아야 한다**: 셋이 한 화면에 서는데 모집단이 갈리면
+-- 「12판 뒀는데 진형은 30판에서 나온 것」이 된다.
+-- **`::text` 를 적어야 한다.** `unnest` 의 결과 타입을 sqlc 가 못 읽어 `interface{}` 로
+-- 만들고, 그러면 코드가 문자열인지 아닌지를 부르는 쪽이 매번 확인해야 한다.
+SELECT t.code::text AS code, count(*) AS games
+FROM games g
+CROSS JOIN LATERAL unnest(g.style_tags) AS t(code)
+WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
+  AND g.result IN ('win', 'loss', 'draw')
+  AND g.user_id IS NOT DISTINCT FROM sqlc.narg('owner_id')::bigint
+GROUP BY t.code;
+
+-- ─── 부른 힌트 ───────────────────────────────────────────────
+-- 사람이 불러서 받은 최선수 힌트. 개입과 갈라 두는 이유는 010_game_hints.sql.
+
+-- name: InsertHint :exec
+INSERT INTO game_hints (game_id, ply, sfen_key, stage, best_usi)
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: CountGameHints :one
+--
+-- **이어하는 판이 6회 제한을 리셋하지 않게** 한다(game.Config.HintsUsed) — `CountGameUndos`
+-- 와 같은 자리, 같은 이유다.
+SELECT count(*) FROM game_hints WHERE game_id = $1;
+
+-- name: CountGameHintStages :many
+--
+-- 국면마다 **몇 단계까지 열렸나**. 이어하는 판이 이것으로 「이 국면은 이미 답을 봤다」를
+-- 되찾는다 — 세션의 기억은 연결과 함께 사라진다(§51).
+SELECT sfen_key, max(stage)::int AS stage
+FROM game_hints
+WHERE game_id = $1
+GROUP BY sfen_key;
+
+-- name: MarkHintTaken :exec
+--
+-- 알려준 수를 실제로 뒀는가. **그 국면의 줄 전부에 적는다** — 단계가 둘이면 행이 둘인데,
+-- 사람이 답을 본 것은 한 번이라 둘이 같은 답을 가져야 한다.
+UPDATE game_hints
+SET taken = @taken
+WHERE game_id = @game_id AND sfen_key = @sfen_key;

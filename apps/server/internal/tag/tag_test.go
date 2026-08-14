@@ -322,3 +322,21 @@ func TestCastlesCarryTheirSource(t *testing.T) {
 		}
 	}
 }
+
+// **정의된 이름은 전부 코드로 되찾을 수 있어야 한다.** 기록에 남는 것은 코드뿐이고
+// (games.style_tags), 못 찾으면 마이페이지가 그 줄을 통째로 버린다(server.stylesOf).
+func TestByCodeFindsEveryDefinedTag(t *testing.T) {
+	for _, want := range All() {
+		got, ok := ByCode(want.Code)
+		if !ok {
+			t.Errorf("%s 를 코드로 못 찾는다", want.Code)
+			continue
+		}
+		if got != want {
+			t.Errorf("%s: %+v 를 돌려줬다 (%+v 기대)", want.Code, got, want)
+		}
+	}
+	if _, ok := ByCode("no_such_tag"); ok {
+		t.Error("모르는 코드에 이름을 지어냈다")
+	}
+}

@@ -702,6 +702,9 @@ type PlayerTally struct {
 	// Categories 는 카테고리별 개입 횟수다. 키는 `intervene.Category` 의 코드 문자열 —
 	// 이 패키지가 그쪽을 들여오지 않는 것은 `SkillEstimate` 와 같은 이유다.
 	Categories map[string]int
+	// StyleTags 는 이름별 **판 수**다. 키는 `tag.Tag.Code` 이고, 위 둘과 달리 횟수가
+	// 아닌 것은 한 판에 같은 이름이 한 번만 담기기 때문이다(AddGameStyleTag).
+	StyleTags map[string]int
 }
 
 // PlayerTally 는 그 사람의 전적과 약점을 한 번에 센다. ownerID 가 nil이면 익명 판이다.
@@ -710,7 +713,11 @@ type PlayerTally struct {
 // 조건만 고쳐지고, 그때 화면의 두 숫자가 조용히 다른 것을 세게 된다(server/summary.go 의
 // factsOf 가 같은 이유로 한 함수다).
 func (s *Store) PlayerTally(ctx context.Context, ownerID *int64) (PlayerTally, error) {
-	out := PlayerTally{Results: map[GameResult]int{}, Categories: map[string]int{}}
+	out := PlayerTally{
+		Results:    map[GameResult]int{},
+		Categories: map[string]int{},
+		StyleTags:  map[string]int{},
+	}
 
 	results, err := s.q.CountGameResultsForOwner(ctx, ownerID)
 	if err != nil {
@@ -735,7 +742,21 @@ func (s *Store) PlayerTally(ctx context.Context, ownerID *int64) (PlayerTally, e
 		}
 		out.Categories[*c.Category] = int(c.Hits)
 	}
+
+	styles, err := s.q.CountGameStyleTagsForOwner(ctx, ownerID)
+	if err != nil {
+		return out, fmt.Errorf("count game style tags: %w", err)
+	}
+	for _, t := range styles {
+		out.StyleTags[t.Code] = int(t.Games)
+	}
 	return out, nil
+}
+
+// AddStyleTag 는 그 판에서 사람이 짠 이름 하나를 남긴다. **같은 이름을 두 번 담지 않는다** —
+// 거르는 자리가 질의에도 있는 이유는 query/games.sql.
+func (s *Store) AddStyleTag(ctx context.Context, gameID int64, code string) error {
+	return s.q.AddGameStyleTag(ctx, db.AddGameStyleTagParams{GameID: gameID, Code: code})
 }
 
 func listLimit(limit int) int32 {
@@ -937,3 +958,52 @@ func derefFloat(f *float64) float64 {
 // Pool 은 생성된 질의로 표현되지 않는 것을 테스트가 직접 물어보는 통로다.
 // 프로덕션 코드는 쓰지 않는다 — 규칙은 SQL 파일에 있어야 한다.
 func (s *Store) Pool() *pgxpool.Pool { return s.pool }
+
+// ─── 부른 힌트 ───────────────────────────────────────────────
+// 사람이 불러서 받은 최선수 힌트. 개입과 갈라 두는 이유는 010_game_hints.sql.
+
+// HintUse 는 이어하는 판이 되찾아야 하는 것 전부다.
+//
+// **둘이 필요하다.** 예산은 판 전체의 수이고(Used), 「이 국면은 어디까지 봤나」는
+// 국면마다다(Stages) — 하나만으로는 3회째를 막지도, 예산을 이어받지도 못한다.
+type HintUse struct {
+	Used int
+	// Stages 는 sfen_key 마다 **열린 마지막 단계**다.
+	Stages map[string]int
+}
+
+// RecordHint 는 부른 힌트 한 번을 남긴다.
+func (s *Store) RecordHint(ctx context.Context, gameID int64, ply int, sfenKey string, stage int, bestUSI string) error {
+	return s.q.InsertHint(ctx, db.InsertHintParams{
+		GameID:  gameID,
+		Ply:     int32(ply),
+		SFENKey: sfenKey,
+		Stage:   int32(stage),
+		BestUsi: bestUSI,
+	})
+}
+
+// HintsUsed 는 그 판이 지금까지 쓴 힌트다. 이어하기가 세션을 세우기 전에 읽는다.
+func (s *Store) HintsUsed(ctx context.Context, gameID int64) (HintUse, error) {
+	out := HintUse{Stages: map[string]int{}}
+
+	n, err := s.q.CountGameHints(ctx, gameID)
+	if err != nil {
+		return out, fmt.Errorf("count game hints: %w", err)
+	}
+	out.Used = int(n)
+
+	stages, err := s.q.CountGameHintStages(ctx, gameID)
+	if err != nil {
+		return out, fmt.Errorf("count game hint stages: %w", err)
+	}
+	for _, r := range stages {
+		out.Stages[r.SFENKey] = int(r.Stage)
+	}
+	return out, nil
+}
+
+// MarkHintTaken 은 알려준 수를 실제로 뒀는지를 나중에 채운다.
+func (s *Store) MarkHintTaken(ctx context.Context, gameID int64, sfenKey string, taken bool) error {
+	return s.q.MarkHintTaken(ctx, db.MarkHintTakenParams{GameID: gameID, SFENKey: sfenKey, Taken: &taken})
+}

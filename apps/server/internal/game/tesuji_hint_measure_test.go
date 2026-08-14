@@ -37,11 +37,35 @@ func TestMeasureTesujiHintGate(t *testing.T) {
 
 	moves := humanOneKifu(t)
 	for _, k := range []int{3, 6, 8, 12} {
-		t.Run("k="+strconv.Itoa(k), func(t *testing.T) { measureTesujiGate(t, cmd, moves, k) })
+		t.Run("k="+strconv.Itoa(k), func(t *testing.T) { measureTesujiGate(t, cmd, moves, k, shogi.Black) })
 	}
 }
 
-func measureTesujiGate(t *testing.T, cmd string, moves []string, k int) {
+// **§74 뒤에 사람이 처음 둔 판이다.** 그 절이 k=3을 고른 근거는 회차 1의 기보 하나였고,
+// 회차 3은 화면에서 **0건**이 나왔다 — 후보 12개가 전부 「모르는 채」로 침묵했다
+// (06-status.md §76 ④). 그래서 갈라야 할 것이 하나 남아 있다: **이 판에 통과할 手筋이
+// 애초에 없었는가, 아니면 k=3 줄 밖이라 못 물었는가.**
+//
+// k를 올리면 그 12개가 판정을 **받기는** 한다. 받는 것과 통과하는 것은 다르고, 회차 1의
+// 기보에서는 그 차이가 0이었다(k=3·6·12에서 뜬 이름이 셋으로 같다). 이 판은 안 재봤다.
+//
+// **사람이 後手다** — 위 판과 갈리는 유일한 인자이고, 넘기지 않으면 상대의 차례를 재게 된다.
+func TestMeasureTesujiHintGateHuman3(t *testing.T) {
+	if os.Getenv("SHOWGI_MEASURE") == "" {
+		t.Skip("SHOWGI_MEASURE 미설정")
+	}
+	cmd := os.Getenv("SHOWGI_USI_CMD")
+	if cmd == "" {
+		t.Skip("SHOWGI_USI_CMD 미설정")
+	}
+
+	moves := humanThreeKifu(t)
+	for _, k := range []int{3, 6} {
+		t.Run("k="+strconv.Itoa(k), func(t *testing.T) { measureTesujiGate(t, cmd, moves, k, shogi.White) })
+	}
+}
+
+func measureTesujiGate(t *testing.T, cmd string, moves []string, k int, human shogi.Color) {
 	pool, err := usi.NewPool(1, cmd, map[string]string{
 		"USI_Hash": "128", "Threads": "1", "FV_SCALE": "24",
 		"BookFile": "no_book", "USI_OwnBook": "false",
@@ -51,7 +75,6 @@ func measureTesujiGate(t *testing.T, cmd string, moves []string, k int) {
 	}
 	defer pool.Close()
 
-	const human = shogi.Black
 	pos, err := shogi.ParseSFEN(shogi.StartSFEN)
 	if err != nil {
 		t.Fatalf("초기 국면: %v", err)

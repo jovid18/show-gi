@@ -83,6 +83,23 @@ func NewAdaptiveOpponent(s MultiSearcher, depth int, band Band) Opponent {
 // AdaptsToSkill 은 언제나 true 다 — 밴드를 옮기는 것이 이 구현의 전부다(SkillAdapter).
 func (o *adaptiveOpponent) AdaptsToSkill() bool { return true }
 
+// ChooseBest 는 밴드를 안 보고 최선수를 낸다(BestPlayer). 사람이 詰み을 걸고 있는 동안만
+// 불린다 — 근거는 MateChasePlies.
+//
+// **같은 k로 묻는다.** 깊이도 k도 평소와 같아야 `positions` 캐시가 같은 행을 쓰고,
+// k가 갈리면 같은 국면의 1위가 갈린다(06-status.md §34 ②). 조절을 끄는 것이지 다른
+// 탐색을 하는 것이 아니다.
+func (o *adaptiveOpponent) ChooseBest(ctx context.Context, startSFEN string, moves []string) (string, error) {
+	res, err := o.search.SearchMultiPV(ctx, startSFEN, moves, o.depth, o.k)
+	if err != nil {
+		return "", err
+	}
+	if res.Best == "" {
+		return "", fmt.Errorf("adaptive: engine returned no move")
+	}
+	return res.Best, nil
+}
+
 func (o *adaptiveOpponent) Choose(ctx context.Context, startSFEN string, moves []string, sk skill.Estimate) (string, error) {
 	band := o.base.shifted(skillShift(sk))
 

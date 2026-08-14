@@ -110,6 +110,27 @@ func TestMateStillThereIsNotABlunder(t *testing.T) {
 	}
 }
 
+// **사라진 것과 멀어진 것은 다른 카테고리다.** 한 이름이었을 때 이긴 판에서
+// 「詰みを逃した」고 가르쳤다(06-status.md §76).
+func TestSlowerMateIsNotMissedMate(t *testing.T) {
+	// 5手詰이 있었는데 8手가 됐다 — 詰み은 그대로 있다.
+	kept := Input{BestCp: 29950, AfterCp: 29920, MateBefore: 5, MateAfter: 8, Level: Beginner}
+	v := Judge(kept)
+	if v.Kind != KindBlunder || !v.LostMate {
+		t.Fatalf("5→8은 걸려야 한다: %+v", v)
+	}
+	if v.Category != CategorySlowerMate {
+		t.Fatalf("詰み이 남았는데 %q 다 — 문장이 「逃した」가 된다", v.Category)
+	}
+
+	// 같은 국면에서 詰み이 사라지면 저쪽이다.
+	gone := kept
+	gone.MateAfter, gone.AfterCp = 0, 2000
+	if v := Judge(gone); v.Category != CategoryMissedMate {
+		t.Fatalf("詰み이 사라졌는데 %q 다", v.Category)
+	}
+}
+
 // 탐색은 11까지 하지만 판정은 5까지만 한다.
 func TestLongMateIsNotJudged(t *testing.T) {
 	in := Input{BestCp: 29900, AfterCp: 2000, MateBefore: 9, MateAfter: 0, Level: Beginner}
