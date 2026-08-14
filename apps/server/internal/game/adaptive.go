@@ -42,7 +42,7 @@ var DefaultBand = Band{LoCp: 100, HiCp: 300}
 // 안 본다 — 「이기고 있으면 상대가 세진다」는 여기서 나온 적이 없고, 밴드의 절대 좌표에서
 // 나왔다(06-status.md §55).
 //
-// **조절하는 것은 밴드뿐이다.** 자살수 필터도 후보 k도 안 건드린다 — 쉽게 해주는 것과
+// **조절하는 것은 밴드뿐이다.** 두 안전 필터도 후보 k도 안 건드린다 — 쉽게 해주는 것과
 // 던지는 것은 다르고, 화면이 「取り返せない場所」라고 가르친 수를 상대가 두면 방금 배운
 // 것이 무너진다(06-status.md §16 · §21 ①).
 //
@@ -54,6 +54,14 @@ const SkillShiftCp = 300
 // 밴드 적중이 10에서 멈추고 20은 덮이는 국면이 안 늘면서 비용만 배가 된다.
 // k=1은 0/6이다 — 후보가 하나면 밴드 제어라는 것이 성립할 수 없다.
 const CandidateK = 10
+
+// MaxConcessionCp 는 난이도가 아무리 낮아도 한 수에 양보할 수 있는 최대 폭이다.
+// **최선의 안전한 후보와의 차이**로 센다 — 절대 형세로 세면 이미 크게 이기거나 지는
+// 국면에서 같은 수가 안전했다가 위험해진다.
+//
+// 가장 너그러운 밴드의 상단이 DefaultBand.HiCp + SkillShiftCp = 600cp다. 난이도는 이
+// 안에서 목표를 옮길 뿐이고, 이 선을 넘는 수로 밴드를 억지로 맞추지 않는다.
+const MaxConcessionCp = 600
 
 type adaptiveOpponent struct {
 	search MultiSearcher
@@ -133,16 +141,18 @@ func (o *adaptiveOpponent) Choose(ctx context.Context, startSFEN string, moves [
 		now = min(now, opt.playerCp)
 	}
 
-	// **구간 위에서는 절대 좌표가 뜻을 잃는다.** 「+300을 겨냥한다」가 그 자리에서는
-	// 「+300으로 **되돌려라**」가 되어 상대가 최선수를 둔다 — 조절이 가장 필요한 자리에서
-	// 조절이 꺼진다. 그쪽에서는 같은 숫자를 **양보 폭**으로 읽는다(06-status.md §55).
-	//
-	// 밴드가 하는 일이 이 경계 하나다. 고르는 규칙은 아래 하나뿐이다.
-	floor := band.LoCp
+	// 난이도보다 안전이 먼저다. 밴드에 맞는 수가 이것밖에 없어도 최선수보다 600cp 넘게
+	// 나쁜 후보는 두지 않는다. HangsPiece 는 「움직인 駒가 잡히는가」만 보므로, 잡아야 할
+	// 駒를 외면해 큰 손해를 보는 수는 이 평가치 상한이 막는다(06-status.md §81).
+	opts = withinConcession(opts, now, MaxConcessionCp)
+
+	// **구간 위에서는 절대 좌표가 뜻을 잃는다.** 「+100~+300을 겨냥한다」가 그 자리에서는
+	// 「거기까지 되돌려라」가 되므로, 같은 폭을 지금 형세에 더한 양보 구간으로 읽는다.
+	target := band
 	if now > band.HiCp {
-		floor = now + band.LoCp
+		target = Band{LoCp: now + band.LoCp, HiCp: now + band.HiCp}
 	}
-	return concede(opts, floor), nil
+	return closestToBand(opts, target), nil
 }
 
 // option 은 상대가 실제로 둘 수 있는 후보 하나다. cp는 **플레이어 관점**으로 뒤집어 든다.
@@ -175,36 +185,34 @@ func (o *adaptiveOpponent) options(pos shogi.Position, lines []usi.SearchLine) [
 	return out
 }
 
-// concede 는 **최소 양보**를 고른다 — `floor` 이상인 후보 중 가장 낮은 것이다.
-//
-// **두 방향 거리로 고르지 않는다.** 그 자는 「양보 0」과 「초과 양보」를 견줄 때 가까운 쪽을
-// 고르는데, 양보 0은 곧 최선수다 — 기준점이 후보의 최솟값이기 때문이다. 그래서 후보 간격이
-// 밴드 폭보다 넓은 국면에서는 언제나 조절이 꺼진다(06-status.md §55).
-//
-// 넘치는 쪽을 부족한 쪽보다 늘 앞에 두는 것이 이 함수의 전부다 — **도움은 넘쳐서 틀리는
-// 편이 낫다.** 그래야 낙폭이 클수록 실제로 더 양보받는다(같은 절의 실측).
-//
-// `floor` 가 기준점 아래일 수 있다 — 잘 두는 사람에게는 실력 추정이 밴드를 그만큼 내리고,
-// 그때는 최선수가 바닥을 넘어 **상대가 버틴다.** 조절의 손잡이가 여기 하나로 들어온다.
-//
-// 바닥을 넘는 후보가 없으면 **가장 많이 양보하는 것**을 고른다. 2위를 두는 것은 던지는 것이
-// 아니고(タダ捨て는 이미 걸러졌다), 이미 지고 있는 판을 길게 끄는 쪽이 초심자에게 나쁘다.
-func concede(opts []option, floor int) string {
-	best, bestCp := "", 0
+// withinConcession 은 최선의 안전한 후보보다 지나치게 나쁜 수를 난이도 선택 전에 뺀다.
+// opts 는 HangsPiece 를 이미 거친 뒤라 여기서의 최솟값이 비교 기준이다. 최솟값 자신은 항상
+// 남으므로, 입력이 비지 않았다면 결과도 비지 않는다.
+func withinConcession(opts []option, bestCp, maxCp int) []option {
+	out := make([]option, 0, len(opts))
 	for _, opt := range opts {
-		if opt.playerCp < floor {
-			continue
-		}
-		if best == "" || opt.playerCp < bestCp {
-			best, bestCp = opt.move, opt.playerCp
+		if opt.playerCp-bestCp <= maxCp {
+			out = append(out, opt)
 		}
 	}
-	if best != "" {
-		return best
-	}
+	return out
+}
+
+// closestToBand 는 닫힌 구간 안의 최소 양보를 고른다. 구간 안에 안전한 후보가 없으면
+// 경계에 가장 가까운 안전한 수를 고르고, 거리가 같으면 덜 양보하는 쪽을 택한다.
+// 밴드를 맞추려고 안전 상한 밖의 후보를 되살리는 경로는 없다.
+func closestToBand(opts []option, band Band) string {
+	best, bestCp, bestDistance := "", 0, 0
 	for _, opt := range opts {
-		if best == "" || opt.playerCp > bestCp {
-			best, bestCp = opt.move, opt.playerCp
+		distance := 0
+		switch {
+		case opt.playerCp < band.LoCp:
+			distance = band.LoCp - opt.playerCp
+		case opt.playerCp > band.HiCp:
+			distance = opt.playerCp - band.HiCp
+		}
+		if best == "" || distance < bestDistance || distance == bestDistance && opt.playerCp < bestCp {
+			best, bestCp, bestDistance = opt.move, opt.playerCp, distance
 		}
 	}
 	return best

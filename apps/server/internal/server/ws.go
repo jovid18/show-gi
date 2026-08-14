@@ -328,7 +328,7 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
-	// 진형은 **감싸는 것으로만** 붙는다. 안쪽 상대의 후보 생성도 자살수 필터도 밴드 제어도
+	// 진형은 **감싸는 것으로만** 붙는다. 안쪽 상대의 후보 생성도 두 안전 필터도 밴드 제어도
 	// 그대로 돌고, 북이 끝나면 그 상대가 이어받는다(game.NewBookOpponent).
 	opponent := h.opts.NewOpponent()
 	var openingName string
