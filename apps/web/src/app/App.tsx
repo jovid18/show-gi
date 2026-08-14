@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { Account } from '@/components/Account';
 import { useViewer } from '@/hooks/useViewer';
 import { GameScreen } from '@/screens/game/GameScreen';
+import { ROUTE_GUIDE } from '@/routes/const';
 import { hrefOf, navigate, useRoute, type Route } from '@/routes/router';
 
 /**
@@ -48,15 +49,13 @@ const TABS: { route: Route; label: string; needsAuth?: boolean }[] = [
   { route: { name: 'game' }, label: '対局' },
   { route: { name: 'reviews' }, label: '振り返り' },
   { route: { name: 'me' }, label: 'マイページ', needsAuth: true },
-  // **로그인을 안 본다.** 처음 온 사람이 읽는 자리라 오히려 익명일 때 가장 필요하다.
-  { route: { name: 'guide' }, label: 'あそびかた' },
 ];
 
 /**
  * 어느 탭에 불이 들어오나. **화면 이름과 탭 이름이 1:1이 아니다** — 되짚기 탭 하나가
- * 목록·상세·퀴즈 셋을 맡는다.
+ * 목록·상세·퀴즈 셋을 맡고, 안내는 탭이 아예 없다(아래 `.app-help`).
  *
- * 삼항으로 이어 쓰던 자리인데, 갈래가 넷이 되면서 그 사슬이 「나머지 전부」를 되짚기로
+ * 삼항으로 이어 쓰던 자리인데, 갈래가 늘면서 그 사슬이 「나머지 전부」를 되짚기로
  * 보내 **안내 화면에서 되짚기 탭에 불이 들어왔다.** 대응을 표로 적으면 갈래가 늘어도
  * 마지막 항이 남의 것을 삼키지 않는다.
  */
@@ -126,6 +125,34 @@ export function App() {
               <span className="app-title">show-gi</span>
               <span className="app-tagline">口を出すときを自分で決める将棋の相手</span>
             </span>
+          </a>
+
+          {/*
+            **탭이 아니라 브랜드 옆의 별도 버튼이고, 새 탭으로 연다.**
+
+            안내를 보고 싶어지는 때가 「지금 무슨 일이 일어났나」인데 그건 대국 중이다.
+            같은 탭에서 열면 판이 화면에서 사라진다 — 대국은 라우트 밖이라 연결도 판도
+            살아 있지만(아래 `hidden`), **보이지 않는 것과 없는 것은 사람에게 같다.**
+            새 탭이면 판을 옆에 두고 읽는다.
+
+            그래서 탭 무리에서 뺐다. 저쪽은 「지금 어느 화면인가」를 말하는 자리이고,
+            이건 화면을 안 바꾸므로 같은 무리에 서면 거짓말이 된다.
+          */}
+          <a
+            className="app-help"
+            href={ROUTE_GUIDE}
+            target="_blank"
+            rel="noreferrer noopener"
+            // 새 탭으로 연다는 것은 글자만으로는 안 보인다. 화살표는 장식이라
+            // 읽어 주는 쪽에는 이 라벨이 대신 간다.
+            aria-label="あそびかた（別のタブで開きます）"
+            // 새 탭에서 이 화면을 열면 어느 탭에도 불이 안 들어온다. 그 자리를 여기가 맡는다.
+            data-active={onGuide || undefined}
+          >
+            <span className="app-help__mark" aria-hidden="true">
+              ?
+            </span>
+            あそびかた
           </a>
 
           <nav className="app-tabs" aria-label="画面">
