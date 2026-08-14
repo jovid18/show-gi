@@ -2169,6 +2169,10 @@ body {
 /* 테두리를 지우고 알약으로 바꿨다. 테두리 있는 사각형 둘이 나란히 서면 「탭」이 아니라
    「버튼 두 개」로 읽히고, 어느 쪽이 지금 화면인지가 테두리 밝기 차이에만 실린다. */
 .app-tab {
+  /* 점 하나가 이름 옆에 설 수 있어야 한다(`.app-tab__live`). 글자만 있는 탭에는 아무 일도 없다. */
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   padding: 0.3rem 0.85rem;
   border: 0;
   border-radius: var(--r-pill);
@@ -2188,6 +2192,34 @@ body {
 
 .app-tab:hover {
   color: var(--fg);
+}
+
+/* 두는 중이라는 표식. **대국 화면을 벗어나 있을 때만 붙는다**(App.tsx).
+
+   판을 두다가 되짚기로 옮기면 판이 화면에서 사라지는데 연결도 국면도 그대로 살아 있다 —
+   그걸 아무것도 안 말해 줘서 「내 판이 날아갔나」로 읽히던 자리다. **확인창 대신 이것이다**:
+   나가도 잃는 것이 없으므로 물으면 거짓이 되고, 사실은 「아직 돌고 있다」쪽이다.
+
+   **깜빡이지 않는다.** 판정과 눈금이 조용해야 하는 것과 같은 자리이고(`.strength__pips`),
+   헤더에서 움직이는 것 하나가 판 위에서 생각하는 사람의 시선을 계속 끈다. */
+.app-tab__live {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: var(--r-pill);
+  background: var(--brand);
+}
+
+/* 눈에는 안 보이고 읽어 주는 쪽에만 간다. 위 점이 무엇인지를 말하는 자리다 —
+   점만 두면 화면을 못 보는 사람에게는 아무것도 안 일어난 것이 된다. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* 여기 원래 「고른 쪽은 **빛으로** 표시한다」였다. 셸이 밝아져서 그 문장이 성립하지 않는다 —

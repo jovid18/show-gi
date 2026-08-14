@@ -1,7 +1,8 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useSyncExternalStore } from 'react';
 
 import { Account } from '@/components/Account';
 import { useViewer } from '@/hooks/useViewer';
+import { getPlaying, subscribePlaying } from '@/libs/game/playing';
 import { GameScreen } from '@/screens/game/GameScreen';
 import { ROUTE_GUIDE } from '@/routes/const';
 import { hrefOf, navigate, useRoute, type Route } from '@/routes/router';
@@ -97,6 +98,18 @@ export function App() {
   const activeTab = activeTabOf(route);
   const { me, signOut } = useViewer();
 
+  /**
+   * 두는 중인가(`libs/game/playing.ts`). **대국 화면을 벗어났을 때만 쓴다.**
+   *
+   * 판을 두다가 되짚기로 옮기면 판이 화면에서 사라지는데 **연결도 국면도 그대로 살아
+   * 있다** — 대국 화면은 언마운트되지 않고 감춰지기만 한다(아래 `hidden`). 그 사실을
+   * 아무것도 말해 주지 않아서 「내 판이 날아갔나」로 읽히던 자리다.
+   *
+   * **확인창을 안 띄우는 이유가 그것이다.** 나가도 잃는 것이 없으므로 물으면 거짓이 되고,
+   * 눌러도 되는 창은 다음에 진짜로 물어야 할 때 같이 무시된다. 사실을 그대로 표시한다.
+   */
+  const playing = useSyncExternalStore(subscribePlaying, getPlaying);
+
   useEffect(() => {
     document.title = TITLE_JA[route.name];
   }, [route.name]);
@@ -177,6 +190,16 @@ export function App() {
                   }}
                 >
                   {tab.label}
+                  {/* **대국 탭에만, 판을 두는 중에, 그 화면을 벗어나 있을 때만.** 판 위에
+                      있으면 판이 보이므로 표식이 할 말이 없다. 점 하나인 것은 탭 폭을
+                      늘리지 않기 위해서이고(좁은 화면에서 글자마다 접힌다), 무엇인지는
+                      읽어 주는 쪽에 아래 글자로 나간다. */}
+                  {tab.route.name === 'game' && playing && !onGame && (
+                    <>
+                      <span className="app-tab__live" aria-hidden="true" />
+                      <span className="sr-only">対局中</span>
+                    </>
+                  )}
                 </a>
               );
             })}
