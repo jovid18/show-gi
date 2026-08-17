@@ -5,7 +5,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
@@ -37,8 +36,8 @@ func (r *fakeRecorder) Moved(ply int, usi string, by Side) {
 	r.add(fmt.Sprintf("moved %d %s %s", ply, usi, by))
 }
 
-func (r *fakeRecorder) Retracted(ply int, usi string, v intervene.Verdict, e explain.Result) {
-	r.add(fmt.Sprintf("retracted %d %s %s tier=%d", ply, usi, v.Category, e.Tier))
+func (r *fakeRecorder) Retracted(ply int, usi string, v intervene.Verdict) {
+	r.add(fmt.Sprintf("retracted %d %s %s", ply, usi, v.Category))
 }
 func (r *fakeRecorder) Undone(ply int, usi string) {
 	r.add(fmt.Sprintf("undone %d %s", ply, usi))
@@ -89,9 +88,9 @@ func TestRecorderKeepsRetractedMovesOutOfTheKifu(t *testing.T) {
 			t.Fatalf("물러진 수가 기보로 갔다: %v", rec.all())
 		}
 	}
-	// `tier=-1` 은 Explainer 없이 돌았다는 뜻이다 — 결정적 문구가 나갔고 DB에는 NULL로
-	// 들어간다. 여기서 0이 나오면 「캐시 히트」로 기록되어 비용 계측이 조용히 틀린다.
-	want := "retracted 1 7g7f hangs_piece tier=-1"
+	// 물러진 수는 카테고리와 함께 남는다. **문장은 안 남긴다** — 카테고리에서 결정적으로
+	// 다시 만들어지므로(explain.BaseMessage) 적어 두면 두 벌이 된다.
+	want := "retracted 1 7g7f hangs_piece"
 	if !contains(rec.all(), want) {
 		t.Fatalf("%q 가 없다: %v", want, rec.all())
 	}

@@ -12,7 +12,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// 06-status.md §40의 숫자를 만든 자리다. `other` 가 개입의 절반을 넘는데(54/92),
+// journal §40의 숫자를 만든 자리다. `other` 가 개입의 절반을 넘는데(54/92),
 // **거기로 가는 길이 둘인 것을 DB가 못 가른다** — `!Known`(사실을 못 구했다)과
 // `default:`(구했는데 안 맞았다)가 똑같이 `'other'` 로 저장된다. 둘은 완전히 다른
 // 문제라 처방이 갈리므로, 먼저 가르지 않으면 어떤 처방도 근거가 없다.

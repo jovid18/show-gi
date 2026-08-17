@@ -6,7 +6,6 @@ package db
 
 import (
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/pgvector/pgvector-go"
 )
 
 type Edge struct {
@@ -15,14 +14,6 @@ type Edge struct {
 	ChildKey    *string
 	Tags        []string
 	EvalByDepth []int32
-}
-
-type ExplainCache struct {
-	Key       string
-	Body      string
-	Model     *string
-	Hits      int32
-	CreatedAt pgtype.Timestamptz
 }
 
 type Game struct {
@@ -84,25 +75,11 @@ type Intervention struct {
 	RetractedUsi *string
 	HintedTag    *string
 	Taken        *bool
-	ExplainTier  *int16
-	CostYen      pgtype.Numeric
 	CreatedAt    pgtype.Timestamptz
 	// 판정 당시 최선수의 cp(수번 측 관점). 제지형만. 과거 행은 NULL
 	BestCp *int32
 	// 물러진 수를 둔 뒤의 cp(수번 측 관점). 제지형만. 과거 행은 NULL
 	AfterCp *int32
-}
-
-type KbChunk struct {
-	ID            int64
-	Title         string
-	Body          string
-	Tags          []string
-	SourceUrl     string
-	SourceLicense string
-	VerifiedBy    *string
-	Embedding     *pgvector.Vector
-	CreatedAt     pgtype.Timestamptz
 }
 
 type Position struct {

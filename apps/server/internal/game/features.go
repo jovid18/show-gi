@@ -15,7 +15,7 @@ func pieceValue(t shogi.PieceType) int { return shogi.PieceValue(t) }
 // UnpromotedOnly 는 둔 수가 **최선수와 같은 이동인데 成하지 않은 것**인지 본다. 이게 없어서
 // 화면이 「잡지 말라」로 읽히는 설명을 냈다(08-playtest.md §8).
 //
-// **판정은 여기서 하고 `intervene` 에는 참거짓만 간다**(06-status.md §15).
+// **판정은 여기서 하고 `intervene` 에는 참거짓만 간다**(journal §15).
 // 거울상(成らずの妙手)은 안 본다 — 초심자의 실수 모양이 아니다. **[미확정]**
 func UnpromotedOnly(played shogi.Move, bestUSI string) bool {
 	if played.IsDrop() || played.Promote || bestUSI == "" {

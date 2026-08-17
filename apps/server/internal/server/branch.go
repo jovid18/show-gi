@@ -109,7 +109,7 @@ func whatifNodeOf(
 }
 
 // evalOf 는 이 국면의 상위 후보들이다. **캐시가 먼저다** — 조건이 둘이라 깊이와 **후보 수**를
-// 함께 본다(06-status.md §37). 감싼 층(internal/archive)도 캐시를 읽지만, 이 표면은 후보 셋을
+// 함께 본다(journal §37). 감싼 층(internal/archive)도 캐시를 읽지만, 이 표면은 후보 셋을
 // 약속하고 히트면 되짚어 만드는 일까지 건너뛴다 — 手数를 옮길 때마다 이 자리를 지난다.
 func evalOf(
 	ctx context.Context,

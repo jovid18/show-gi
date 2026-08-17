@@ -23,7 +23,7 @@ type Opening struct {
 	ID   string
 	Name string
 	Note string
-	// Source 는 이 수순의 출처다. 위키백과 인용 범위와 URL 규약은 06-status.md §30.
+	// Source 는 이 수순의 출처다. 위키백과 인용 범위와 URL 규약은 journal §30.
 	Source string
 	// black 은 상대가 先手일 때의 수순이다. 後手 몫은 Moves 가 180° 돌려 만든다.
 	black []string

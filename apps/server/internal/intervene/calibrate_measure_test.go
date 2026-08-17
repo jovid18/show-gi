@@ -25,7 +25,7 @@ import (
 //	  go test ./internal/intervene/ -run MeasureCalibration -v
 //
 // **로컬 DB에는 짧은 테스트 대국밖에 없다.** 실제 값은 기록이 쌓인 DB를 가리켜야
-// 나온다(docs/06-status.md §19·§39).
+// 나온다(journal §19·§39).
 func TestMeasureCalibrationFromRecords(t *testing.T) {
 	url := os.Getenv("SHOWGI_TEST_DATABASE_URL")
 	if url == "" {
@@ -76,7 +76,7 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 	}
 
 	if len(all) == 0 {
-		t.Skip("평가치가 남은 판이 없다 — 재채점할 것이 없다 (docs/06-status.md §26)")
+		t.Skip("평가치가 남은 판이 없다 — 재채점할 것이 없다 (journal §26)")
 	}
 
 	// ─── 표본 ────────────────────────────────────────────────────────

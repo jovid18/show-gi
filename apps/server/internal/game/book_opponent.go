@@ -38,7 +38,7 @@ func NewBookOpponent(inner Opponent, o book.Opening, color shogi.Color) Opponent
 // AdaptsToSkill 은 안쪽에 물어본다.
 //
 // **여기서 false 를 답하면 진형을 고른 판에서 강함 눈금이 조용히 사라진다** — 화면은
-// 추정기 유무가 아니라 이 성질로 갈린다(06-status.md §47).
+// 추정기 유무가 아니라 이 성질로 갈린다(journal §47).
 func (o *bookOpponent) AdaptsToSkill() bool { return adaptsToSkill(o.inner) }
 
 func (o *bookOpponent) Choose(ctx context.Context, startSFEN string, moves []string, sk skill.Estimate) (string, error) {

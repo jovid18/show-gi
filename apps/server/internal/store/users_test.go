@@ -82,7 +82,7 @@ func TestGameRecordIsScopedToOwner(t *testing.T) {
 			t.Errorf("정리: %v", err)
 		}
 	})
-	// **끝내 놓아야 주인에게도 보인다**(docs/06-status.md §51). 안 끝내면 아래 첫 줄이
+	// **끝내 놓아야 주인에게도 보인다**(journal §51). 안 끝내면 아래 첫 줄이
 	// 「주인이 자기 판을 못 읽는다」로 실패하는데, 그건 주인 거르기와 아무 상관이 없다.
 	if err := s.FinishGame(t.Context(), myGame, ResultWin); err != nil {
 		t.Fatalf("FinishGame: %v", err)

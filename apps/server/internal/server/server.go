@@ -5,7 +5,7 @@
 //
 // 화면에 나가는 cp는 전부 **플레이어 관점**이다. DB(先手 관점)·엔진과 캐시(수번 관점)에서
 // 오는 값은 이 패키지 경계에서 뒤집는다 — 안 뒤집으면 색이 다른 두 판을 나란히 못 놓고,
-// 한 줄을 넘겨 보는 동안 부호가 뒤집힌다(06-status.md §33).
+// 한 줄을 넘겨 보는 동안 부호가 뒤집힌다(journal §33).
 package server
 
 import (
@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/auth"
-	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/quiz"
@@ -38,8 +37,8 @@ type Options struct {
 	// NewAnalyst 가 nil이면 개입 없이 대국만 한다.
 	NewAnalyst func() game.Analyst
 
-	// Mate·Search·Explainer 는 **값이라 대국 사이에 공유된다**(NewOpponent·NewAnalyst 와
-	// 다른 점이다) — 셋 다 풀·캐시가 본체이고 대국별 상태가 없다. nil이면 그 기능만 꺼진다.
+	// Mate·Search 는 **값이라 대국 사이에 공유된다**(NewOpponent·NewAnalyst 와 다른 점이다) —
+	// 둘 다 풀·캐시가 본체이고 대국별 상태가 없다. nil이면 그 기능만 꺼진다.
 
 	// Mate 는 詰み solver 다. nil이면 詰み 게이지가 꺼진다.
 	Mate game.MateSearcher
@@ -63,18 +62,11 @@ type Options struct {
 	// 되짚기는 그대로 돈다.
 	Search Searcher
 
-	// Explainer 는 개입 문구를 만든다. nil이면 결정적 템플릿이 나간다.
-	Explainer explain.Explainer
-
-	// Summarizer 는 대국 후 총평을 만든다. nil이면 결정적 총평이 나간다 — **총평 자체는
-	// 안 꺼진다.** 숫자와 사실은 기록에서 나오므로 LLM이 없어도 화면이 빈 자리로 남지 않는다.
-	Summarizer explain.Summarizer
-
 	// Quiz 는 되짚기 퀴즈의 **생성기**다. nil이면 문항이 안 만들어지고, 그때 되짚기의
 	// 퀴즈 자리는 조용히 비어 있다 — 읽는 표면은 이 값과 무관하게 늘 있다(quiz.go).
 	//
 	// **총평과 달리 여기서만 만들어진다.** 되짚기에서 만들면 그 탐색이 진행 중인 다른
-	// 대국의 착수를 기다리게 한다(06-status.md §53).
+	// 대국의 착수를 기다리게 한다(journal §53).
 	Quiz *quiz.Builder
 
 	// Google·SessionSecret 이 다 있어야 로그인이 켜진다(Store 도 필요하다 — auth.go).
@@ -141,10 +133,10 @@ func Handler(opts Options) http.Handler {
 		// 마이페이지. **판 하나가 아니라 사람 하나를 읽는다**(profile.go).
 		mux.HandleFunc("GET /api/me/profile", (&profileHandler{store: opts.Store, auth: ah}).get)
 
-		rev := &reviewHandler{store: opts.Store, auth: ah, summarizer: opts.Summarizer, level: opts.Level}
+		rev := &reviewHandler{store: opts.Store, auth: ah, level: opts.Level}
 		mux.HandleFunc("GET /api/games", rev.list)
 		mux.HandleFunc("GET /api/games/{id}", rev.detail)
-		// 총평은 기보와 **따로** 간다 — 이쪽만 LLM을 기다린다(review.go summary).
+		// 총평은 기보와 **따로** 간다 — 화면이 판을 먼저 그린다(review.go summary).
 		mux.HandleFunc("GET /api/games/{id}/summary", rev.summary)
 
 		// 퀴즈(quiz.go). **엔진과 무관하다** — 문항은 판이 끝나는 자리에서 이미 만들어져

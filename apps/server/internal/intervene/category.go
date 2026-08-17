@@ -18,14 +18,14 @@ const (
 	//
 	// **위와 갈라 두는 것이 규칙의 일부다.** 둘 다 종반 판정으로 걸리지만 사람에게 할 말이
 	// 정반대다 — 저쪽은 詰み이 사라졌고 이쪽은 그대로 있다. 한 이름으로 묶여 있던 동안
-	// 이긴 판에서 「詰みを逃した」고 가르쳤다(06-status.md §76).
+	// 이긴 판에서 「詰みを逃した」고 가르쳤다(journal §76).
 	CategorySlowerMate Category = "slower_mate"
 
 	// CategoryLetsMate 는 **그 수로 내 玉이 詰まされる** 것이다. `missed_mate` 의 거울상이다.
 	//
 	// 종반의 어휘는 駒得이 아니라 **速度**다 — 아래 분기들이 보는 중반의 모양(タダ捨て·駒得·
 	// 王手·玉の薄さ)으로는 이 국면을 부를 말이 없다. 이것이 없어서 `other` 가 이유를 못
-	// 댔다(06-status.md §40 ③).
+	// 댔다(journal §40 ③).
 	CategoryLetsMate Category = "lets_mate"
 
 	// CategoryHangsPiece 는 タダ捨て다. 놓은 칸을 상대가 노리는데 내가 안 지킨다.
@@ -38,7 +38,7 @@ const (
 	//
 	// 제안형 힌트의 「깊이 반전형」(01-core.md §7.1)과 **방향이 반대다** — 그쪽은
 	// `shallow<0 → deep>0`(捨て駒)이고 여기는 `shallow>0 → deep<0` 이다. 거울상으로 읽으면
-	// 한쪽 실측을 다른 쪽 근거로 쓰게 된다(06-status.md §39 ④).
+	// 한쪽 실측을 다른 쪽 근거로 쓰게 된다(journal §39 ④).
 	CategoryShallowTrap Category = "shallow_trap"
 
 	// CategoryUnpromoted 는 **成하지 않은 것**이 문제인 수다. 이동은 최선수와 같다.
@@ -108,7 +108,7 @@ type Features struct {
 	// 채우는 쪽(game.engineAnalyst)이 둘을 다 확인한 뒤에 넣는다 — ① `go mate` 로 **증명**된
 	// 詰み일 것(탐색의 mate 점수가 아니다) ② **최선수 뒤에는 그 詰み이 없을 것**. ②가 없으면
 	// 이미 詰んでいた 국면의 죄를 이 수의 죄라고 가르친다. **②는 아직 실전에서 안 걸러졌다**
-	// (06-status.md §40 ③).
+	// (journal §40 ③).
 	OpponentMatePlies int
 }
 
@@ -124,7 +124,7 @@ func (f Features) HangsPiece() bool {
 // ShallowTrapCp 는 「얕게 보면 이득」과 「깊게 보면 손해」 사이의 최소 반전 폭이다. 이만큼
 // 안 벌어지면 함정이 아니라 평가가 흔들린 것이다. 제안형의 reversal 임계치와 같은 축이다.
 //
-// **[미확정]** 300은 죽어 있지 않다는 것까지만 확인됐다(06-status.md §39 ⑤).
+// **[미확정]** 300은 죽어 있지 않다는 것까지만 확인됐다(journal §39 ⑤).
 const ShallowTrapCp = 300
 
 // classify 는 개입하기로 정해진 수의 이유를 고른다.
@@ -135,7 +135,7 @@ const ShallowTrapCp = 300
 func classify(in Input, lostMate bool) Category {
 	if lostMate {
 		// **詰み이 남았는지가 이 갈래의 전부다.** 남았으면 사람은 아직 이기는 중이고,
-		// 배울 것은 「놓쳤다」가 아니라 「멀어졌다」다(06-status.md §76).
+		// 배울 것은 「놓쳤다」가 아니라 「멀어졌다」다(journal §76).
 		if in.MateAfter > 0 {
 			return CategorySlowerMate
 		}
@@ -154,7 +154,7 @@ func classify(in Input, lostMate bool) Category {
 		return CategoryUnpromoted
 
 	// **詰まされる 것이 나머지 전부보다 앞이다** — 「終盤は駒の損得より速度」가 그대로 순서다
-	// (06-status.md §40). `unpromoted` 뒤인 것은 그쪽이 「이동은 맞았다」는 더 좁은 사실이고,
+	// (journal §40). `unpromoted` 뒤인 것은 그쪽이 「이동은 맞았다」는 더 좁은 사실이고,
 	// 成이 詰み까지 막기 때문이다.
 	case f.OpponentMatePlies > 0:
 		return CategoryLetsMate

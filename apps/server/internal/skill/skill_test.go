@@ -66,7 +66,7 @@ func TestPassedMoveIsScaledByTheThresholdThatJudgedIt(t *testing.T) {
 	}
 }
 
-// 판정의 두 탐색은 뿌리가 한 수 다르다(06-status.md §41) — 낙폭이 음수로 나올 수 있다.
+// 판정의 두 탐색은 뿌리가 한 수 다르다(journal §41) — 낙폭이 음수로 나올 수 있다.
 func TestLossStaysInRange(t *testing.T) {
 	for _, m := range []Move{
 		{DeltaWin: -0.4, Threshold: beginnerThreshold},
@@ -153,7 +153,7 @@ func TestObserveNeverBlocksWhenNobodyConsumes(t *testing.T) {
 }
 
 // 이어 시작하는 판. **표본이 차 있으면 첫 판정 전부터 밴드가 움직인다** — 그것이
-// skill_profile 을 채운 이유이고(06-status.md §47), 안 되면 매 판 기준선에서 다시 시작한다.
+// skill_profile 을 채운 이유이고(journal §47), 안 되면 매 판 기준선에서 다시 시작한다.
 func TestNewTrackFromResumes(t *testing.T) {
 	got := NewTrackFrom(Estimate{Loss: 0.8, Samples: 12}).Estimate()
 	if got.Loss != 0.8 || got.Samples != 12 {

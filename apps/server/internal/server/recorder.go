@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 
-	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
@@ -53,13 +52,12 @@ type recordEvent struct {
 	taken bool
 	// code 는 `evNamed` 의 태그 코드이자 힌트 두 이벤트의 국면 키다. **`usi` 를 돌려쓰지 않는다** — 저 칸은 수이고
 	// 이건 이름이라, 같은 칸에 넣으면 이벤트마다 뜻이 달라지는 칸이 하나 생긴다.
-	code      string
-	by        game.Side
-	cp        int
-	verdict   intervene.Verdict
-	explained explain.Result
-	status    game.Status
-	winner    game.Side
+	code    string
+	by      game.Side
+	cp      int
+	verdict intervene.Verdict
+	status  game.Status
+	winner  game.Side
 }
 
 // recordQueue 는 이벤트 버퍼 크기다.
@@ -111,8 +109,8 @@ func (r *dbRecorder) Evaluated(ply int, senteCp int) {
 	r.send(recordEvent{kind: evEvaluated, ply: ply, cp: senteCp})
 }
 
-func (r *dbRecorder) Retracted(ply int, usi string, v intervene.Verdict, e explain.Result) {
-	r.send(recordEvent{kind: evRetracted, ply: ply, usi: usi, verdict: v, explained: e})
+func (r *dbRecorder) Retracted(ply int, usi string, v intervene.Verdict) {
+	r.send(recordEvent{kind: evRetracted, ply: ply, usi: usi, verdict: v})
 }
 
 // **Moved 와 같은 채널로 보낸다.** 무르기는 그 手数까지의 기보를 지우므로, 지우기가
@@ -204,8 +202,6 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 				AfterCp:      ev.verdict.AfterCp,
 				LevelBucket:  levelBucket(level),
 				RetractedUSI: ev.usi,
-				ExplainTier:  explainTier(ev.explained),
-				CostYen:      ev.explained.CostYen,
 			}); err != nil {
 				log.Printf("game record: intervention %d: %v", ev.ply, err)
 			}
@@ -299,19 +295,6 @@ func resultOf(status game.Status, winner game.Side) store.GameResult {
 	default:
 		return store.ResultAbandoned
 	}
-}
-
-// explainTier 는 계층을 DB의 어휘로 옮긴다.
-//
-// **LLM을 안 거쳤으면 nil(=NULL)이다.** `explain.TierTemplate` 을 그대로 -1로 적으면
-// 「0=캐시 히트」와 같은 칸에서 음수가 섞이고, 무엇보다 그 둘의 뜻이 정반대다 —
-// 히트는 부를 것을 아껴서 0엔이고 NULL은 애초에 부르지 않은 것이다.
-func explainTier(e explain.Result) *int {
-	if e.Tier < 0 {
-		return nil
-	}
-	t := e.Tier
-	return &t
 }
 
 func levelBucket(l intervene.Level) string {

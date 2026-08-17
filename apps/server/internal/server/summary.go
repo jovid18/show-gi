@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"sort"
 
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
@@ -9,8 +8,8 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 대국 후 총평의 **세는 쪽**이다. 문장으로 바꾸는 일은 `explain` 이 하고(Summarize),
-// 여기는 기록에서 사실을 결정적으로 뽑는다 — LLM은 세지 않는다.
+// 대국 후 총평의 **세는 쪽**이다. 문장으로 바꾸는 일은 `explain.RenderSummary` 가 하고,
+// 여기는 기록에서 사실을 결정적으로 뽑는다.
 //
 // 화면에 나가는 것이 둘이다: **숫자(summaryStats)와 문장.** 갈라 둔 이유는 같은 수를 두
 // 벌로 두지 않기 위해서다 — 그래서 `explain.GameFacts` 에는 숫자가 아예 없다.
@@ -74,10 +73,8 @@ type skillChange struct {
 
 // gameSummaryPayload 는 WS와 되짚기가 같이 쓰는 모양이다.
 type gameSummaryPayload struct {
-	// Body 는 화면에 그대로 나가는 일본어다. **절대 비지 않는다**(explain.Result).
-	Body string `json:"body"`
-	// Tier 는 문장이 어디서 왔는가다. 0=캐시, 1=LLM, -1=결정적 문구.
-	Tier  int          `json:"tier"`
+	// Body 는 화면에 그대로 나가는 일본어다. **절대 비지 않는다**(explain.RenderSummary).
+	Body  string       `json:"body"`
 	Stats summaryStats `json:"stats"`
 	// GameID 는 이 판이 기록에 남은 번호다. **화면이 되짚기로 건너가는 데 쓴다** —
 	// 대국 화면은 그때까지 자기 판의 번호를 모른다(기록은 WS 밖에서 비동기로 쓰인다).
@@ -90,18 +87,10 @@ type gameSummaryPayload struct {
 	Skill *skillChange `json:"skill,omitempty"`
 }
 
-// summarize 는 기록 하나를 총평으로 바꾼다. **Summarizer 가 nil이면 결정적 문구**가 나간다 —
-// 개입 문구와 같은 규약이다(Options.Explainer).
-func summarize(ctx context.Context, sum explain.Summarizer, rec store.GameRecord, level intervene.Level) gameSummaryPayload {
+// summarize 는 기록 하나를 총평으로 바꾼다. 문장과 표가 **같은 세기에서** 나온다(factsOf).
+func summarize(rec store.GameRecord, level intervene.Level) gameSummaryPayload {
 	facts, stats := factsOf(rec, level)
-
-	body := explain.RenderSummary(facts)
-	tier := explain.TierTemplate
-	if sum != nil {
-		r := sum.Summarize(ctx, facts)
-		body, tier = r.Body, r.Tier
-	}
-	return gameSummaryPayload{Body: body, Tier: tier, Stats: stats}
+	return gameSummaryPayload{Body: explain.RenderSummary(facts), Stats: stats}
 }
 
 // factsOf 는 기록에서 사실과 숫자를 한 번에 센다. **한 함수인 이유는 같은 세기에서 나와야

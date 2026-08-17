@@ -136,7 +136,7 @@ func TestFindTesujiCoversThePlacementTesuji(t *testing.T) {
 }
 
 // **成銀에는 이 이름들을 안 붙인다.** 실전 국면의 `▲6二成銀` 에 「腹銀」이 떴던 자리다
-// (06-status.md §34). 이름이 銀이라고 말하는데 成銀은 金의 움직임이라, 手筋의 이유가
+// (journal §34). 이름이 銀이라고 말하는데 成銀은 金의 움직임이라, 手筋의 이유가
 // 통째로 다르다 — 붙일 이름이 있다면 腹金이지 腹銀이 아니다.
 func TestPromotedSilverDoesNotGetTheSilverNames(t *testing.T) {
 	// 5五玉(後手) 옆의 4五에 先手 成銀

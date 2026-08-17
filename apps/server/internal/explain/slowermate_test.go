@@ -44,49 +44,21 @@ func TestSlowerMateNeverSaysTheMateWasLost(t *testing.T) {
 	}
 }
 
-// **착수 後의 手数는 아예 들고 다니지 않는다.** 그 값은 solver 가 아니라 탐색이 준 것이라
-// 증명이 아니고, 같은 국면에 14·16·「없음」이 나왔다(06-status.md §76).
+// **착수 後의 手数는 문장에 하나도 안 나온다.** 그 값은 solver 가 아니라 탐색이 준 것이라
+// 증명이 아니고, 같은 국면에 14·16·「없음」이 나왔다(journal §76). `Facts` 에 그 칸이
+// 아예 없는 것이 첫 번째 보증이고, 이 테스트가 두 번째다 — 문장이 다른 데서 숫자를 끌어
+// 오는 날을 잡는다.
 func TestSlowerMateSaysNoNumberForTheAfterSide(t *testing.T) {
-	f := slowerMateFacts(5)
-	if strings.Contains(userPrompt(f, nil), "この手のあとの手数: 8") {
-		t.Error("프롬프트가 착수 후 手数를 숫자로 준다 — 문장으로 새어 나간다")
+	got := Render(slowerMateFacts(5))
+	for _, r := range got {
+		if r >= '0' && r <= '9' && r != '5' {
+			t.Errorf("착수 전 手数(5) 말고 다른 숫자가 있다 (%q): %q", r, got)
+		}
 	}
-	if !strings.Contains(userPrompt(f, nil), "数字を書かない") {
-		t.Errorf("모델에게 그 숫자를 쓰지 말라고 안 한다:\n%s", userPrompt(f, nil))
-	}
-}
-
-// `lets_mate` 의 `mp` 와 같은 이유다 — 문장이 手数를 말하므로 키가 갈려야 한다.
-func TestMateBeforeSplitsTheCacheKey(t *testing.T) {
-	three, five := slowerMateFacts(3), slowerMateFacts(5)
-	if three.Key() == five.Key() {
-		t.Error("3手와 5手가 같은 키다 — 캐시가 틀린 手数의 문장을 돌려준다")
-	}
-	if !strings.Contains(five.keyMaterial(), "mb=5") {
-		t.Errorf("키에 手数가 없다: %s", five.keyMaterial())
-	}
-	if three.Key() != slowerMateFacts(3).Key() {
-		t.Error("같은 사실이 다른 키를 냈다")
-	}
-	// 국면 고유의 숫자를 말하므로 Tier 2다 — 사전 생성해 둔 21행에 낄 문장이 아니다.
-	if got := five.Tier(); got != 2 {
-		t.Errorf("Tier %d 다 — 手数를 말하는 문장은 미리 만들어 둘 수 없다", got)
-	}
-}
-
-// **없던 칸을 더하면 옛 키가 죽는다.** 004_explain_cache_tier1.sql 의 행이 그 키로 들어
-// 있어서, `mb` 는 이 카테고리에서만 붙어야 한다(§38).
-func TestMateBeforeDoesNotDisturbOtherKeys(t *testing.T) {
-	for _, c := range []intervene.Category{
-		intervene.CategoryMissedMate, intervene.CategoryLetsMate, intervene.CategoryHangsPiece,
-		intervene.CategoryShallowTrap, intervene.CategoryUnpromoted, intervene.CategoryGreedyCapture,
-		intervene.CategoryIdleCheck, intervene.CategoryKingExposed, intervene.CategoryOther,
-	} {
-		f := Facts{Kind: intervene.KindBlunder, Category: c, Level: intervene.Novice, Known: true}
-		with := f
-		with.MateBefore = 5
-		if f.Key() != with.Key() {
-			t.Errorf("%s: MateBefore 가 키를 흔들었다 — 사전 생성해 둔 행이 죽는다", c)
+	// 이 카테고리가 말하지 않기로 한 사실들도 실려 있는데(slowerMateFacts), 문장에는 안 나온다.
+	for _, bad := range []string{"歩", "銀", "飛", "枚"} {
+		if strings.Contains(got, bad) {
+			t.Errorf("말하지 않기로 한 사실 %q 가 문장에 샜다: %q", bad, got)
 		}
 	}
 }

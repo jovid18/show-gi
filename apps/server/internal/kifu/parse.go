@@ -1,7 +1,7 @@
 // Package kifu 는 실 기보(KIF·CSA)를 읽어 **프로덕션과 같은 경로로 다시 둔다.**
 //
 // **서버는 이 패키지를 안 쓴다** — 부르는 것은 `cmd/importkifu` 뿐이다. 목적은 태그가
-// 남의 대국에서도 맞게 붙는지를 넓게 보는 것과(06-status.md §44) 상수를 기록으로 다시
+// 남의 대국에서도 맞게 붙는지를 넓게 보는 것과(journal §44) 상수를 기록으로 다시
 // 채점하는 것이고(§39), 그래서 임포트는 `game.NamedTesuji` · `intervene.Judge` 를 **그대로**
 // 지난다. 여기서 지름길을 내면 재는 대상이 프로덕션이 아니게 된다.
 //
@@ -273,7 +273,7 @@ func ParseCSA(input string) (ParsedGame, error) {
 			strings.HasPrefix(line, "P"), strings.HasPrefix(line, "T"),
 			strings.HasPrefix(line, "$"):
 			continue
-		// 投了와 시간초과는 같은 결과다 — 手番 쪽이 진다. %TIME_UP 을 받는 것은 실 코퍼스(06-status.md §44의 341판)에 3판 있어서고,
+		// 投了와 시간초과는 같은 결과다 — 手番 쪽이 진다. %TIME_UP 을 받는 것은 실 코퍼스(journal §44의 341판)에 3판 있어서고,
 		// 안 받으면 그 판이 Unknown 으로 떨어져 K 실측의 승패 표본에서 빠진다. %KACHI·%TSUMI·%ILLEGAL_* 는 아직 같은 이유로 안 받는다.
 		case strings.HasPrefix(line, "%TORYO"), strings.HasPrefix(line, "%TIME_UP"):
 			if pos.Turn == shogi.Black {

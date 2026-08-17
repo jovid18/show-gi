@@ -44,7 +44,7 @@ export function Resume({ game, onResume, onDecline }: ResumeProps) {
 
       <p className="setup__caveat">
         {/* **그만두면 어떻게 되는지를 누르기 전에 말한다.** 그 판은 되짚기에도 안 나오므로
-            (docs/06-status.md §51) 여기서 안 적으면 사라진 이유를 알 길이 없다. */}
+            (journal §51) 여기서 안 적으면 사라진 이유를 알 길이 없다. */}
         「はじめから」を選ぶと、この対局は中断のまま終わります。振り返りには出ません。
       </p>
 

@@ -15,7 +15,7 @@ type openingItem struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 	Note string `json:"note"`
-	// Source 는 출처 URL. 화면 아래에 그대로 붙는다 — 인용 규약은 06-status.md §30.
+	// Source 는 출처 URL. 화면 아래에 그대로 붙는다 — 인용 규약은 journal §30.
 	Source string `json:"source"`
 }
 

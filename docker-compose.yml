@@ -37,10 +37,8 @@ services:
       DATABASE_URL: postgres://showgi:showgi@show-gi-db:5432/showgi?sslmode=disable
       # ENGINE_CMD 를 여기 적지 않는다. 엔진 실행 경로는 **이미지 내부 구조**라
       # 밖에서 적어두면 이미지를 바꿀 때 조용히 어긋난다 — 프로덕션에서 실제로 물렸고
-      # (docs/06-status.md §11) 태스크 정의에서도 같은 이유로 뺐다.
+      # (journal §11) 태스크 정의에서도 같은 이유로 뺐다.
       # 없으면 해당 기능만 비활성이고 나머지는 정상으로 뜬다
-      ORCA_API_KEY: ${ORCA_API_KEY:-}
-      ORCA_BASE_URL: ${ORCA_BASE_URL:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       SESSION_SECRET: ${SESSION_SECRET:-}
@@ -53,9 +51,9 @@ services:
     restart: unless-stopped
 
   db:
-    # postgres가 아니라 pgvector 이미지다. kb_chunks의 임베딩 컬럼에 vector 확장이
-    # 필요하고, 확장은 이미지에 들어 있어야 CREATE EXTENSION이 먹는다.
-    # RDS PostgreSQL 17도 같은 확장을 지원하므로 로컬과 배포가 갈리지 않는다
+    # postgres가 아니라 pgvector 이미지다. `001_init.sql` 이 `CREATE EXTENSION vector` 를
+    # 돌리므로 확장이 이미지에 들어 있어야 새 DB가 선다 — 쓰던 표(kb_chunks)는 `011` 에서
+    # 지웠지만 **적용된 마이그레이션은 고치지 않는다**. RDS PostgreSQL 17도 같은 확장을 지원한다
     image: pgvector/pgvector:pg17
     container_name: show-gi-db
     environment:

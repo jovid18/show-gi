@@ -60,7 +60,7 @@ func (o *recordingOpponent) Choose(_ context.Context, _ string, _ []string, sk s
 }
 
 // **걸린 수도 통과한 수도 신호다.** 물러진 것만 세면 표본이 개입에 오염되고, 통과한 것만
-// 세면 제일 큰 실수가 안 들어온다(06-status.md §47).
+// 세면 제일 큰 실수가 안 들어온다(journal §47).
 func TestRaterSeesBothTheRetractedAndThePassedMove(t *testing.T) {
 	rater := newFakeRater()
 	an := &fixedAnalyst{verdict: blunder(), threshold: 0.25}

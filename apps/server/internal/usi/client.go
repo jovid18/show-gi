@@ -25,7 +25,7 @@ const (
 	handshakeTimeout = 15 * time.Second
 
 	// stopGrace 는 취소로 "stop"을 보낸 뒤 bestmove를 기다려주는 시간. 안 오면 엔진을 버리고 재기동한다 —
-	// 삼키지 못한 bestmove는 **다음 탐색의 결과로 읽힌다**(06-status.md §6 ②).
+	// 삼키지 못한 bestmove는 **다음 탐색의 결과로 읽힌다**(journal §6 ②).
 	stopGrace = 2 * time.Second
 )
 
@@ -54,7 +54,7 @@ type SearchResult struct {
 	Lines   []SearchLine // 순위별 최종 후보 (가장 깊은 것)
 
 	// History 는 받은 info 라인 전부를 (깊이, 순위)별로 남긴 것이다.
-	// **얕은 평가와 깊은 평가의 격차**가 개입 판정의 입력이라 마지막 깊이만 남기면 안 된다(06-status.md §6 ②).
+	// **얕은 평가와 깊은 평가의 격차**가 개입 판정의 입력이라 마지막 깊이만 남기면 안 된다(journal §6 ②).
 	// 속보(lowerbound/upperbound)는 점수가 확정값이 아니라 넣지 않는다.
 	History []SearchLine
 }
@@ -63,7 +63,7 @@ type SearchResult struct {
 //
 // **이 순서가 한 자리에만 있어야 한다.** 캐시에 쌓이는 후보 목록(archive.Candidates)과
 // 개입 문장이 말하는 상대의 최선수(game.engineAnalyst.cardPV)가 둘 다 이것을 보고, 갈리면
-// 한 국면의 최선수가 화면에서 둘이 된다(06-status.md §58).
+// 한 국면의 최선수가 화면에서 둘이 된다(journal §58).
 //
 // **`Lines[0]` 이 1위가 아닐 수 있다.** 순위별 자리를 미리 채워 두므로(`parseScore`) 아직 안
 // 온 순위는 빈 줄로 남고, 그것을 그대로 1위로 읽으면 수가 없는 후보를 최선수라고 부른다.
@@ -88,7 +88,7 @@ type DepthEval struct {
 }
 
 // EvalByDepth 는 그 수의 깊이별 평가치를 오름차순으로 준다. edges.eval_by_depth 에 그대로 들어간다.
-// 빠진 깊이를 메우지 않는다 — 상위 k에 없던 깊이는 데이터가 없는 것이다(06-status.md §6 ②).
+// 빠진 깊이를 메우지 않는다 — 상위 k에 없던 깊이는 데이터가 없는 것이다(journal §6 ②).
 func (r SearchResult) EvalByDepth(move string) []DepthEval {
 	var out []DepthEval
 	for _, l := range r.History {
@@ -101,7 +101,7 @@ func (r SearchResult) EvalByDepth(move string) []DepthEval {
 }
 
 // ScoreAtDepth 는 그 깊이에서 1위였던 줄의 점수다 — 「이 국면을 여기까지만 읽으면 얼마로 보이나」.
-// 초보자의 시야를 모사하는 쪽이 이것이다(06-status.md §15). 없는 깊이를 메우지 않는다.
+// 초보자의 시야를 모사하는 쪽이 이것이다(journal §15). 없는 깊이를 메우지 않는다.
 func (r SearchResult) ScoreAtDepth(depth int) (int, bool) {
 	for _, l := range r.History {
 		if l.Depth == depth && l.MultiPV == 1 {
@@ -227,7 +227,7 @@ ready:
 	}
 
 	// PvInterval=0. **배포 설정이 아니라 이 파서가 동작하기 위한 조건이다** —
-	// 기본 간격이면 우리 탐색이 더 빨라 깊이별 평가치가 마지막 하나만 남는다(06-status.md §10).
+	// 기본 간격이면 우리 탐색이 더 빨라 깊이별 평가치가 마지막 하나만 남는다(journal §10).
 	if e.opts["PvInterval"] {
 		_ = e.send("setoption name PvInterval value 0")
 	}

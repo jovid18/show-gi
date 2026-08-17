@@ -10,7 +10,7 @@ the current coding agent unless the text is specifically distinguishing a Claude
 
 ## Codex adaptations
 
-- Invoke repository skills with Codex skill syntax: `$create-pr`, `$worktree`, `$playtest`, and `$review-article`.
+- Invoke repository skills with Codex skill syntax: `$create-pr`, `$worktree`, and `$playtest`.
   References to `/create-pr` or `/worktree` in the shared guide and skills mean the corresponding Codex skill.
 - Repository skills are discovered from `.agents/skills`. Their directories are symlinks to the canonical
   `.claude/skills` implementations so Claude and Codex follow one workflow. Edit the canonical files rather than

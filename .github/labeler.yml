@@ -20,13 +20,6 @@ infra:
       - any-glob-to-any-file:
           ['infra/**', '.github/**', '.githooks/**', 'deploy/**', 'docker-compose*.yml', 'Dockerfile*']
 
-# Zenn 기사와 그 도판. 둘 다 리포 루트여야 Zenn이 읽는다 — 계획은 docs/07-articles.md.
-articles:
-  - changed-files:
-      - any-glob-to-any-file: ['articles/**', 'images/**']
-
-# 기사는 여기서 뺀다. `**/*.md` 로 두면 articles/ 까지 먹어서 라벨이 겹치고,
-# 「기사를 쓴 PR」과 「문서를 고친 PR」을 라벨로 못 가른다.
 docs:
   - changed-files:
       - any-glob-to-any-file: ['docs/**', '*.md', 'apps/**/*.md', 'deploy/**/*.md', 'infra/**/*.md', '.github/**/*.md']

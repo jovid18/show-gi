@@ -11,7 +11,7 @@ const (
 )
 
 // forkNames 는 両取り를 건 駒마다의 이름이다 — 이름이 駒로 갈리는 것이 이 手筋의 성질이라
-// 「両取り」로 뭉치지 않는다. 成桂·成銀을 뺀 기준은 06-status.md §34 ⑤.
+// 「両取り」로 뭉치지 않는다. 成桂·成銀을 뺀 기준은 journal §34 ⑤.
 //
 // **龍·馬는 안 센다.** §44 가 [미확정] 으로 남겼던 자리이고, 사람이 둔 판의 223手가 그것을
 // 닫았다 — 龍이 成香과 銀을 縦横으로 노리는 것을 「十字飛車」라 불렀다(회차 1 #14).
@@ -32,7 +32,7 @@ var forkNames = map[shogi.PieceType]Tag{
 }
 
 // targetSquares 는 그 駒가 딸 수 있는 상대 駒가 **선 칸들**이다 — 수를 세면 成·不成이
-// 둘로 샌다. 歩·玉은 이름의 관례로 뺀다(06-status.md §45).
+// 둘로 샌다. 歩·玉은 이름의 관례로 뺀다(journal §45).
 // **手番을 c 로 안 맞추면** `LegalMoves` 가 상대 수만 내서 조용히 빈 결과를 준다.
 func targetSquares(pos shogi.Position, sq int, c shogi.Color) []int {
 	pos.Turn = c
@@ -54,7 +54,7 @@ func targetSquares(pos shogi.Position, sq int, c shogi.Color) []int {
 // forkShape 는 **그 이름이 말하는 형태인가**를 본다 — 이름이 방향을 말하면 그 방향을
 // 요구한다: 「十字」는 縦과 横의 교차, 「角」은 斜め, 「割打ち」는 출처가 정한 **뒤쪽 두
 // 대각**이다. 桂만 방향을 안 말한다 — 利き가 두 칸뿐이라 낄 방향이 하나다. 그래서 桂는
-// 「둘」이면 된다. 이 조건이 없을 때 무엇이 잘못 떴는지는 06-status.md §34 ⑤ · §45.
+// 「둘」이면 된다. 이 조건이 없을 때 무엇이 잘못 떴는지는 journal §34 ⑤ · §45.
 func forkShape(pt shogi.PieceType, sq int, c shogi.Color, targets []int) bool {
 	file, rank := shogi.FileOf(sq), shogi.RankOf(sq)
 

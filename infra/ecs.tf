@@ -178,7 +178,6 @@ resource "aws_ecs_task_definition" "app" {
         for k in [
           "DATABASE_URL",
           "SESSION_SECRET",
-          "ORCA_API_KEY",
           "GOOGLE_CLIENT_ID",
           "GOOGLE_CLIENT_SECRET",
           ] : {

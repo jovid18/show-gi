@@ -42,7 +42,7 @@ pnpm dev                  # :5173. 레포 루트에서
 | `models`         | 순수 함수. 좌표(`square`)·SFEN·駒·利き(`influence`)·이동 범위(`mobility`)                                         |
 | `libs/three`     | 판 표면 한 겹(`surface.ts`). **정사영 카메라이고 駒·광선·표식은 그대로 DOM이다**                                  |
 | `libs/whatif`    | 가정 수순의 분기를 화면이 들고 있는 자리. **서버에 저장하지 않는다**([03-frontend §3](../../docs/03-frontend.md)) |
-| `libs/sound`     | 착수음을 그 자리에서 만든다 — 파일이 없다([06-status.md §70](../../docs/06-status.md))                            |
+| `libs/sound`     | 착수음을 그 자리에서 만든다 — 파일이 없다([journal §70](../../docs/journal/61-81.md))                             |
 | `routes`         | 경로 문자열과 파서. **`const.ts` 만 주소를 안다**                                                                 |
 
 `@`는 `src/app`이다. 별칭은 `tsconfig.json`과 `vite.config.ts` 두 곳에 적혀 있으니 한쪽만 고치지 말 것.
@@ -79,6 +79,6 @@ pnpm dev                  # :5173. 레포 루트에서
 
 ## 아직 없는 것
 
-- **three.js는 1.5컷이다** ([06-status.md §35](../../docs/06-status.md) · [§41](../../docs/06-status.md)). 판 표면과 利きの그늘은 들어왔고, **컷 2**(회상에서 한 칸에 고이는 그늘)는 **자동으로 안 켜진다** — 탈색된 판에서 판에 낀 흠으로 읽혀 토글로만 남겼다. WebGL이 없으면 CSS 판 그대로다
-- **다크모드가 없다** ([§50](../../docs/06-status.md)). `color-scheme: light` 하나이고 `prefers-color-scheme` 을 안 본다. 어두운 것은 화면이 아니라 **판이 있는 방**이고, 그 방은 개입이 걸릴 때 `.veil` 이 만든다
+- **three.js는 1.5컷이다** ([journal §35](../../docs/journal/21-40.md) · [§41](../../docs/journal/41-60.md)). 판 표면과 利きの그늘은 들어왔고, **컷 2**(회상에서 한 칸에 고이는 그늘)는 **자동으로 안 켜진다** — 탈색된 판에서 판에 낀 흠으로 읽혀 토글로만 남겼다. WebGL이 없으면 CSS 판 그대로다
+- **다크모드가 없다** ([§50](../../docs/journal/41-60.md)). `color-scheme: light` 하나이고 `prefers-color-scheme` 을 안 본다. 어두운 것은 화면이 아니라 **판이 있는 방**이고, 그 방은 개입이 걸릴 때 `.veil` 이 만든다
 - **제안형 힌트의 영역 표시가 없다.** 이름은 뜨지만 「어느 쪽인가」를 판 위에 그리는 쪽은 아직 없다 ([01-core.md §7](../../docs/01-core.md))

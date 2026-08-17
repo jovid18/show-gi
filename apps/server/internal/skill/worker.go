@@ -12,7 +12,7 @@ const queueSize = 16
 //
 // 롤링 통계라면 인라인으로도 되는데 갈라 두는 것은 추정기를 갈아끼울 자리를 남기기
 // 위해서다 — 모델(수백 ms)이나 LLM(초)로 올라가도 생산자·소비자 배선이 그대로다
-// (06-status.md §21 ①). 인라인으로 만들면 그때 세션 상태머신을 다시 건드리게 된다.
+// (journal §21 ①). 인라인으로 만들면 그때 세션 상태머신을 다시 건드리게 된다.
 type Worker struct {
 	in  chan Move
 	out chan Estimate
@@ -29,7 +29,7 @@ func NewWorker(ctx context.Context) *Worker {
 // 둘 다 비워도 된다(Unknown · nil).
 //
 // **onChange 는 이 goroutine 안에서 불린다.** DB 쓰기를 여기서 하는 것이 「상태는 goroutine
-// 하나가 소유한다」(06-status.md §21 ①)와 어긋나지 않는 이유는 **대국 상태를 안 건드리기**
+// 하나가 소유한다」(journal §21 ①)와 어긋나지 않는 이유는 **대국 상태를 안 건드리기**
 // 때문이다 — 그쪽이 막는 것은 추정기가 세션의 변수를 쓰는 것이고, 이건 `dbRecorder` 가
 // 자기 goroutine에서 기록을 쓰는 것과 같은 종류다.
 //
@@ -76,7 +76,7 @@ func (w *Worker) Observe(m Move) {
 }
 
 // Estimates 는 추정치가 오는 채널이다. **읽는 쪽은 세션이 소유한다** — worker 가 공유
-// 변수를 직접 쓰면 「대국 상태는 goroutine 하나가 소유한다」가 깨진다(06-status.md §21 ①).
+// 변수를 직접 쓰면 「대국 상태는 goroutine 하나가 소유한다」가 깨진다(journal §21 ①).
 func (w *Worker) Estimates() <-chan Estimate { return w.out }
 
 // push 는 최신 추정치만 남긴다.

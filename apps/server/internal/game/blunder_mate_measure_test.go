@@ -11,7 +11,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// 「`other` 로 떨어진 수는 사실 **詰まされる 수** 아닌가」를 재는 자리다(06-status.md §40).
+// 「`other` 로 떨어진 수는 사실 **詰まされる 수** 아닌가」를 재는 자리다(journal §40).
 //
 // `other` 54건의 중앙값이 대국의 88% 지점이다 — 분기들이 보는 중반의 모양(タダ捨て·駒得·
 // 王手)이 아니라 **종반의 언어로 나빠진 수**라는 뜻이다. 종반에서 「왜 나쁜가」는 대개
@@ -180,7 +180,7 @@ func TestMeasureBlunderMate(t *testing.T) {
 // 어딘가 빠져 있으면 여기서만 드러난다.
 //
 // 낙폭이 다시 임계치를 넘는지는 별개다. 같은 국면·같은 깊이가 같은 값을 안 주므로
-// (06-status.md §39 ⑦) 그때 걸린 수가 지금은 안 걸릴 수 있다 — 그 건수도 같이 센다.
+// (journal §39 ⑦) 그때 걸린 수가 지금은 안 걸릴 수 있다 — 그 건수도 같이 센다.
 func TestMeasureLetsMateOnRecords(t *testing.T) {
 	conn := measureDB(t)
 	pool := measurePool(t)

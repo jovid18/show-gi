@@ -111,7 +111,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	// **반대 부호가 반대 카테고리다.** `MateIn > 0` 은 착수 후 국면의 수번(=상대)이 詰ます
 	// 쪽이라는 뜻이므로 「상대가 나를 詰ます」다. 위의 `MateIn < 0` 과 같은 값에서 갈리는
 	// 두 질문이고, 아래쪽 답을 여기서 **버리고 있었다** — 그래서 종반 개입의 절반이
-	// 이유 없이 `other` 로 갔다(06-status.md §40).
+	// 이유 없이 `other` 로 갔다(journal §40).
 	mateLine := a.opponentMate(ctx, startSFEN, moves, before, best.Best, after)
 	in.Features.OpponentMatePlies = len(mateLine)
 
@@ -130,7 +130,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		// 「상대는 이렇게 벌한다」의 수순이고, **출처가 셋이다.**
 		//
 		// 기본은 이미 손에 든 착수 후 탐색의 PV다 — 공짜이고 분류도 필요 없어서, 카테고리가
-		// 이유를 못 대는 3분의 2(06-status.md §17)가 여기서 설명을 갖는다.
+		// 이유를 못 대는 3분의 2(journal §17)가 여기서 설명을 갖는다.
 		//
 		// **詰まされる 국면은 증명된 詰み 수순을 쓴다.** PV는 깊이 12에서의 읽기라 뒤로 갈수록
 		// 확실하지 않은데, 詰み 수순은 모든 응수에 대해 증명된 것이라 **끝까지 참이다.**
@@ -159,7 +159,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 			// **화면에 나가는 수순은 증명된 詰み뿐이다.** PV를 잘라 내보내던 자리인데,
 			// 어디서 자를지가 국면마다 달라(trimRefutation) 두 수에서 끊기기도 했고
 			// 읽는 사람이 「그래서 뭐」로 남았다. 그 자리는 이제 후보 셋을 직접 둬 보는
-			// 쪽이 맡는다(06-status.md §54). 詰み 수순만 남기는 것은 그것이 **끝까지
+			// 쪽이 맡는다(journal §54). 詰み 수순만 남기는 것은 그것이 **끝까지
 			// 참**이기 때문이다 — 자를 필요가 없어서 애매한 자리가 아예 없다.
 			j.Refutation = r.line
 		}
@@ -184,7 +184,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 
 // opponentMate 는 **그 수가 상대에게 詰み을 줬는가**이고, 줬으면 그 수순을 돌려준다(len 이 手数).
 // ②「최선수 뒤에는 詰み이 없다」가 없으면 이미 詰んでいた 국면에 그 수의 죄를 씌운다 — 아직
-// 시험된 적이 없어서 남긴다(06-status.md §40 ③). 비용과 게이트 적중은 같은 절 ⑥.
+// 시험된 적이 없어서 남긴다(journal §40 ③). 비용과 게이트 적중은 같은 절 ⑥.
 func (a *engineAnalyst) opponentMate(
 	ctx context.Context, startSFEN string, moves, before []string, bestUSI string, after usi.SearchResult,
 ) []string {
@@ -221,7 +221,7 @@ const OtherBranches = 3
 //
 // **개입 카드가 후보 목록을 얻는 것과 같은 질문이다** — 같은 국면·같은 깊이·k=OtherBranches.
 // 판정이 손에 든 착수 후 탐색은 k=1이고, **같은 국면·같은 깊이라도 k가 다르면 1위가 갈린다**
-// (06-status.md §34 ②). 그 PV를 문장에 쓰고 있었던 것이 화면이 한 국면의 최선수를 둘로 말한
+// (journal §34 ②). 그 PV를 문장에 쓰고 있었던 것이 화면이 한 국면의 최선수를 둘로 말한
 // 이유 전부다 — 얼마나 자주 갈리는지는 §58의 실측 표.
 //
 // **엔진을 부르는 총 횟수는 그대로다.** 여기서 거는 탐색이 곧 화면이 물을 그 탐색이고, 결과가
@@ -324,7 +324,7 @@ func (a *engineAnalyst) otherBranches(
 }
 
 // detectTags 는 착수 후 국면의 囲い·전법·戦型을 감지해 태그 코드 배열로 돌려준다.
-// kb_chunks 검색 키가 된다.
+// 기록과 되짚기가 그 이름을 쓴다.
 func detectTags(afterPos shogi.Position, mover shogi.Color, startSFEN string, moves []string) []string {
 	pm, om := splitMoves(startSFEN, moves, mover)
 	tags := tag.Detect(tag.Input{
@@ -382,7 +382,7 @@ const RefutationPlies = 8
 // refutationLine 은 착수 후 PV를 棋譜 표기·국면이 붙은 수순으로 옮긴다. 첫 값은 물러진 수 직후.
 //
 // **엔진 출력을 믿지 않는다** — 각 수를 룰 엔진으로 검증하고 못 두는 수에서 끊는다. 표기·국면을
-// 서버가 만드는 이유는 06-status.md §6 ④.
+// 서버가 만드는 이유는 journal §6 ④.
 //
 // **`full`(증명된 詰み)이면 자르지 않는다.** 그때 `limit` 은 안 본다 — 상한은 solver 의
 // `DepthLimit` 이 이미 걸었다.
@@ -511,7 +511,7 @@ type refutationStep struct {
 
 // trimRefutation 은 **손익이 바뀌는 첫 수**(딴다·王手)에서 시작해 **같은 칸에서 주고받는 동안**
 // 끊는다. 상수 길이가 국면마다 틀리고, 교환·王手는 반쪽만 보여주면 거짓이 되기 때문이다
-// (규칙 비교와 실측 8수 사례는 06-status.md §20). 그런 수가 없으면 첫 수만 남긴다.
+// (규칙 비교와 실측 8수 사례는 journal §20). 그런 수가 없으면 첫 수만 남긴다.
 func trimRefutation(steps []refutationStep) int {
 	for i, s := range steps {
 		if !s.settles {

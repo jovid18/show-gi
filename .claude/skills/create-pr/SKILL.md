@@ -61,7 +61,7 @@ Keep it tight. Bullets over prose. If a section would be a single obvious line, 
 
 If the change touches both `apps/server` and `apps/web`, group the Changes bullets under bold area headings rather than mixing them.
 
-Deadline is 2026-08-15. If a PR knowingly leaves something for a later PR, say so in one line at the end of Impact rather than opening a tracking issue.
+If a PR knowingly leaves something for a later PR, say so in one line at the end of Impact rather than opening a tracking issue.
 
 #### Migrations
 

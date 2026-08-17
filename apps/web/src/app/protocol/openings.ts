@@ -10,7 +10,7 @@ export interface Opening {
   name: string;
   /** 한 줄 설명. 초심자가 무엇을 고르는지 알 수 있게 서버가 일본어로 준다. */
   note: string;
-  /** 출처 URL. 화면에서 이름에 걸어 둔다 — 인용 규약은 docs/06-status.md §30. */
+  /** 출처 URL. 화면에서 이름에 걸어 둔다 — 인용 규약은 journal §30. */
   source: string;
 }
 

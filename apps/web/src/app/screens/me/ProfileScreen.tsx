@@ -10,7 +10,7 @@ import { hrefOf } from '@/routes/router';
  * 자기를 확인하러 오는 자리이고, 판마다의 이야기는 되짚기가 이미 한다.
  *
  * **마지막 하나가 나머지 셋과 방향이 반대다.** 앞의 셋은 「얼마나 못했나」를 세는데, 그것만
- * 있으면 판을 가로질러 보는 유일한 화면이 지적만 하는 자리가 된다(06-status.md §77).
+ * 있으면 판을 가로질러 보는 유일한 화면이 지적만 하는 자리가 된다(journal §77).
  */
 export function ProfileScreen() {
   const state = useProfile();
@@ -48,7 +48,7 @@ export function ProfileScreen() {
               <i style={{ width: `${(profile.rank.step / profile.rank.max) * 100}%` }} />
             </span>
             {/* 총평과 **같은 문장**이다. 段級을 공인된 실력으로 읽지 않게 하는 한 줄이라
-                한쪽에만 두면 다른 쪽에서 그대로 오해가 산다(06-status.md §62). */}
+                한쪽에만 두면 다른 쪽에서 그대로 오해가 산다(journal §62). */}
             <p className="profile__note">指し手の精度から算出した目安です。道場や将棋ウォーズの段級とは異なります。</p>
           </>
         ) : (

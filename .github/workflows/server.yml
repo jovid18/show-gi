@@ -27,7 +27,7 @@ jobs:
 
     # 국면 캐시의 "얕은 결과가 깊은 결과를 못 덮는다"는 규칙은 **SQL의 WHERE 절에만**
     # 있다. Go 쪽에 옮겨 적지 않았으므로 진짜 postgres 없이는 검증할 수 없다.
-    # pgvector 이미지인 것은 kb_chunks 때문이다(로컬 compose·RDS와 같은 확장).
+    # pgvector 이미지인 것은 `001_init.sql` 의 CREATE EXTENSION 때문이다(compose·RDS와 같다).
     services:
       db:
         image: pgvector/pgvector:pg17
