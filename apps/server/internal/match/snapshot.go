@@ -25,7 +25,9 @@ const (
 	// StatusTimeout 은 수번 쪽이 1手 제한시간을 넘긴 것이다. **승패가 난다** —
 	// 엔진 대국의 `aborted`(상대의 수를 못 얻어 접은 것)와 갈라 두는 자리다.
 	StatusTimeout Status = "timeout"
-	// StatusAborted 는 승패 없이 접힌 것이다. 서버가 내려갈 때뿐이다.
+	// StatusAborted 는 **승패 없이 접힌 것**이다. 두 자리에서 온다: 서버가 내려갔을 때와,
+	// **한 수도 안 둔 채 시간이 다 됐을 때**(state.timeout) — 아무도 안 뒀으면 판이
+	// 없었던 것이라 그것을 승패로 적으면 0手짜리 판이 두 사람의 전적에 남는다.
 	StatusAborted Status = "aborted"
 )
 
@@ -85,37 +87,35 @@ type Snapshot struct {
 // snapshotData 는 관점이 아직 안 붙은 한 벌이다. 색마다 한 벌씩 만들지 않는 이유는
 // table.go 의 `viewSnapshot`.
 type snapshotData struct {
-	sfen     string
-	ply      int
-	turn     shogi.Color
-	inCheck  bool
-	legal    []string
-	moves    []recordedMove
-	status   Status
-	winner   shogi.Color
-	hasWin   bool
-	names    map[shogi.Color]string
-	online   map[shogi.Color]bool
-	limit    time.Duration
-	left     time.Duration
-	limitFor shogi.Color
+	sfen    string
+	ply     int
+	turn    shogi.Color
+	inCheck bool
+	legal   []string
+	moves   []recordedMove
+	status  Status
+	winner  shogi.Color
+	hasWin  bool
+	names   map[shogi.Color]string
+	online  map[shogi.Color]bool
+	limit   time.Duration
+	left    time.Duration
 }
 
 func (st *state) snapshot() *snapshotData {
 	d := &snapshotData{
-		sfen:     st.pos.SFEN(),
-		ply:      len(st.moves),
-		turn:     st.pos.Turn,
-		inCheck:  st.pos.InCheck(st.pos.Turn),
-		moves:    st.moves,
-		status:   st.status,
-		winner:   st.winner,
-		hasWin:   st.hasWin,
-		names:    map[shogi.Color]string{shogi.Black: st.cfg.Black.Name, shogi.White: st.cfg.White.Name},
-		online:   map[shogi.Color]bool{shogi.Black: st.online[shogi.Black] > 0, shogi.White: st.online[shogi.White] > 0},
-		limit:    st.limit,
-		left:     st.leftForTurn(),
-		limitFor: st.pos.Turn,
+		sfen:    st.pos.SFEN(),
+		ply:     len(st.moves),
+		turn:    st.pos.Turn,
+		inCheck: st.pos.InCheck(st.pos.Turn),
+		moves:   st.moves,
+		status:  st.status,
+		winner:  st.winner,
+		hasWin:  st.hasWin,
+		names:   map[shogi.Color]string{shogi.Black: st.cfg.Black.Name, shogi.White: st.cfg.White.Name},
+		online:  map[shogi.Color]bool{shogi.Black: st.online[shogi.Black] > 0, shogi.White: st.online[shogi.White] > 0},
+		limit:   st.limit,
+		left:    st.leftForTurn(),
 	}
 	if st.status == StatusPlaying {
 		legal := st.pos.LegalMoves()

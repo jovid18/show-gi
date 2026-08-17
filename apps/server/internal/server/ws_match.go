@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"time"
 
@@ -51,12 +50,18 @@ type matchServerMsg struct {
 }
 
 // matchRejects 는 착수가 거절된 이유 중 룰 엔진 밖의 것들이다. 엔진 대국의 것과
-// **갈라 둔다** — 겹치는 것이 둘뿐이고, 여기에만 있는 것이 「아직 안 시작했다」다.
+// **갈라 둔다** — 저쪽에는 무르기와 힌트의 거절이 다섯 더 있고, 여기에만 있는 것이
+// 방이 걷혔다는 것 하나다.
+//
+// **「아직 상대가 안 들어왔다」가 없다.** 그 상태에서는 착수가 도달할 자리가 없다 —
+// 읽는 쪽이 `room.Ready()` 뒤에야 선다.
 var matchRejects = map[string]string{
 	"not_your_turn": "相手の手番です。",
 	"finished":      "対局はすでに終わっています。",
-	"not_started":   "まだ相手が入っていません。",
 	"bad_move":      "指し手の形式が正しくありません。",
+	// **방이 걷혔다.** 아무도 안 들어온 채 30분이 지났거나, 방을 만든 사람이 그 뒤로
+	// 방을 여럿 더 만들어 이 방이 밀려났다(match.openRoomsPerHost).
+	"room_closed": "この対局部屋は期限が切れました。",
 }
 
 func matchRejection(err error) matchServerMsg {
@@ -68,8 +73,6 @@ func matchRejection(err error) matchServerMsg {
 		return matchReject("not_your_turn")
 	case errors.Is(err, match.ErrFinished):
 		return matchReject("finished")
-	case errors.Is(err, match.ErrNotPlaying):
-		return matchReject("not_started")
 	default:
 		return matchReject("bad_move")
 	}
@@ -134,6 +137,17 @@ func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	select {
 	case <-room.Ready():
+	case <-room.Closed():
+		// **방이 걷혔다.** 이 갈래가 없으면 여기서 기다리던 사람은 영영 「상대를
+		// 기다립니다」에 서 있고, 그 화면이 **이미 죽은 링크를 계속 광고한다.**
+		emitMatch(ctx, out, matchReject("room_closed"))
+		// **문구가 나갈 틈을 준다.** 곧바로 돌아가면 defer 가 연결을 닫아 그 프레임이
+		// 사라지고, 화면에는 「끊겼다」만 남는다 — 이유를 말하려고 보낸 것이 그 문구다.
+		select {
+		case <-time.After(roomClosedFlush):
+		case <-ctx.Done():
+		}
+		return
 	case <-ctx.Done():
 		return
 	}
@@ -202,27 +216,26 @@ func (h *matchHandlerWS) matchReadLoop(
 	}
 }
 
+// roomClosedFlush 는 「방이 걷혔다」를 내보내고 기다리는 시간이다. 버퍼 하나를 비우는
+// 일이라 짧다 — 길게 잡으면 만료된 방마다 핸들러가 그만큼 살아 있는다.
+const roomClosedFlush = time.Second
+
 // matchRecordWait 는 기록이 다 쓰이기를 기다리는 시간이다. 큐를 비우는 일이라 짧다 —
 // 넘으면 번호를 포기하고, 그때 화면은 「振り返り」 링크만 안 그린다(결과는 이미 떴다).
 const matchRecordWait = 5 * time.Second
 
 // sendRecordID 는 이 사람의 판 번호를 보낸다. **한 판이 행 두 개라 색마다 번호가 다르다.**
 //
-// **한 번만 간다.** 같은 색으로 탭을 두 개 열어 두면 그중 하나만 받는다 — 기록기의
-// `done` 이 값 하나를 실어 보내는 채널이라서다(dbRecorder.done). 못 받은 탭은 결과와
-// 기보를 이미 갖고 있고 「振り返り」 링크만 없다.
+// **몇 번을 물어도 답한다.** 곁장부가 한 번 받은 번호를 들고 있어서(matchRecords.gameIDOf),
+// 판이 끝나는 순간에 새로고침한 사람도 「振り返り」 링크를 받는다.
 func (h *matchHandlerWS) sendRecordID(ctx context.Context, out chan matchServerMsg, room *match.Room, color shogi.Color) {
-	done := h.records.doneOf(room.ID, color)
-	if done == nil {
-		return // 기록이 없는 배포다
+	id, ok := h.records.gameIDOf(ctx, room.ID, color, matchRecordWait)
+	if !ok {
+		// 기록이 없는 배포이거나, 시한 안에 안 끝났다. 결과와 기보는 이미 화면에 있고
+		// 「振り返り」 링크만 안 그려진다.
+		return
 	}
-	select {
-	case id := <-done:
-		emitMatch(ctx, out, matchServerMsg{Type: "record", GameID: id})
-	case <-time.After(matchRecordWait):
-		log.Printf("match: room %s: the record did not finish within %s", room.ID, matchRecordWait)
-	case <-ctx.Done():
-	}
+	emitMatch(ctx, out, matchServerMsg{Type: "record", GameID: id})
 }
 
 func matchWriteLoop(ctx context.Context, cancel context.CancelFunc, conn *websocket.Conn, out <-chan matchServerMsg) {

@@ -37,12 +37,20 @@ type Room struct {
 	connected map[shogi.Color]int
 	table     *Table
 	ready     chan struct{}
+	// closed 는 **방이 걷혔을 때** 닫힌다. `ready` 와 짝이고 둘 중 하나만 닫힌다 —
+	// 이게 없으면 만료된 방에서 기다리던 사람이 영영 「상대를 기다립니다」에 서 있고,
+	// 그동안 그 화면이 **이미 죽은 링크를 광고한다.**
+	closed chan struct{}
 	// finishedAt 은 판이 끝난 시각이다. 0이면 아직 안 끝났다.
 	finishedAt time.Time
 }
 
 // Ready 는 두 사람이 다 붙어 판이 선 순간 닫힌다.
 func (r *Room) Ready() <-chan struct{} { return r.ready }
+
+// Closed 는 **방이 걷혔을 때** 닫힌다. 기다리던 연결이 그것을 알아야 화면이
+// 「아직 기다리는 중」에서 벗어난다.
+func (r *Room) Closed() <-chan struct{} { return r.closed }
 
 // HostName 은 방을 만든 사람의 이름이다. **손님이 들어가기 전에 보는 유일한 정보다.**
 func (r *Room) HostName() string { return r.host.Name }
@@ -105,6 +113,7 @@ func (h *Hub) Create(host Player, hostColor shogi.Color) (*Room, error) {
 		createdAt: now,
 		connected: map[shogi.Color]int{},
 		ready:     make(chan struct{}),
+		closed:    make(chan struct{}),
 	}
 
 	h.mu.Lock()
@@ -128,12 +137,16 @@ const openRoomsPerHost = 3
 
 // dropSurplusLocked 는 그 사람의 안 시작한 방이 상한을 넘으면 오래된 것부터 버린다.
 //
-// **시작한 판은 절대 안 버린다** — 두는 중이거나 방금 끝난 판이라, 그것을 걷어가면
-// 두 사람이 그 자리에서 판을 잃는다.
+// **사람이 걸려 있는 방은 절대 안 버린다** — 시작한 판(`table != nil`)은 물론이고
+// **손님이 앉기만 한 방**(`guest != nil`)도 그렇다. 걷어가면 그쪽에서 기다리던 사람이
+// 영영 기다리고, 방 주인은 자기 방에 다시 못 들어간다.
 func (h *Hub) dropSurplusLocked(hostID int64) {
 	var open []*Room
 	for _, room := range h.rooms {
-		if room.host.UserID == hostID && room.table == nil {
+		// **손님이 앉은 방도 안 버린다.** `table == nil` 만 보면, 손님이 들어와 방 주인을
+		// 기다리는 방이 「안 시작한 방」으로 세어져 버려진다 — 그러면 그 손님은 영영
+		// 기다리고 방 주인은 자기 방에 다시 못 들어간다(404).
+		if room.host.UserID == hostID && room.table == nil && room.guest == nil {
 			open = append(open, room)
 		}
 	}
@@ -143,8 +156,18 @@ func (h *Hub) dropSurplusLocked(hostID int64) {
 	// 만든 시각 순으로 오래된 것부터. 새 방이 하나 들어올 자리를 비운다.
 	slices.SortFunc(open, func(a, b *Room) int { return a.createdAt.Compare(b.createdAt) })
 	for _, room := range open[:len(open)-openRoomsPerHost+1] {
-		delete(h.rooms, room.ID)
+		h.dropLocked(room)
 	}
+}
+
+// dropLocked 는 방을 걷어가고 **기다리던 연결에 알린다.** 지우기만 하면 그쪽은 영영
+// 기다린다 — 방이 없어진 것을 알 길이 그 채널뿐이다.
+//
+// `ready` 가 이미 닫혔으면(판이 섰으면) `closed` 는 아무도 안 본다. 그래도 닫는 것은
+// 「걷혔다」가 방의 사실이기 때문이고, 두 번 닫힐 일은 없다 — 삭제가 한 번뿐이다.
+func (h *Hub) dropLocked(room *Room) {
+	delete(h.rooms, room.ID)
+	close(room.closed)
 }
 
 // Peek 는 **들어가기 전에** 그 방을 볼 수 있는가다. 자격이 없으면 ErrNoRoom 하나다.
@@ -200,7 +223,7 @@ func (h *Hub) Enter(id string, p Player) (*Room, shogi.Color, error) {
 // Connect 는 그 색의 연결 하나를 단다. 둘이 다 붙어 있으면 **그 자리에서 판이 선다.**
 //
 // 돌려주는 함수를 부르면 떨어진다. 판이 선 뒤로는 이 카운트가 아무것도 안 정한다 —
-// 화면에 나가는 접속 표시는 테이블이 따로 센다(Room.connected).
+// 화면에 나가는 접속 표시는 테이블이 따로 센다(table.state.online).
 func (h *Hub) Connect(room *Room, c shogi.Color) func() {
 	h.mu.Lock()
 	room.connected[c]++
@@ -281,15 +304,15 @@ func (r *Room) seatOfLocked(userID int64) *shogi.Color {
 // sweepLocked 는 만료된 방을 걷어간다. **따로 도는 goroutine 을 안 둔다** — 방이 많아야
 // 수십이고, 손이 닿을 때 훑는 것으로 충분하다.
 func (h *Hub) sweepLocked(now time.Time) {
-	for id, room := range h.rooms {
+	for _, room := range h.rooms {
 		switch {
 		case !room.finishedAt.IsZero():
 			if now.Sub(room.finishedAt) > FinishedTTL {
-				delete(h.rooms, id)
+				h.dropLocked(room)
 			}
 		case room.table == nil && now.Sub(room.createdAt) > OpenTTL:
-			// 아무도 안 들어온 방이다. **링크가 곧 열쇠라 오래 두지 않는다**(roomIDBytes).
-			delete(h.rooms, id)
+			// 판이 안 선 방이다. **링크가 곧 열쇠라 오래 두지 않는다**(roomIDBytes).
+			h.dropLocked(room)
 		}
 	}
 }

@@ -68,7 +68,7 @@ function MatchLive({ roomId }: { roomId: string }) {
   }, []);
 
   if (!snapshot) {
-    return <Waiting connection={connection} room={room} roomId={roomId} />;
+    return <Waiting connection={connection} room={room} roomId={roomId} rejection={rejection} />;
   }
   return (
     <MatchBoard

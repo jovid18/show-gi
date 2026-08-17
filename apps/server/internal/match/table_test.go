@@ -190,7 +190,12 @@ func TestBothRecordsGetEveryMove(t *testing.T) {
 // **시간을 넘기면 진다.** 이 하나가 「판이 끝나기는 하는가」의 답이다 — 상대가 탭을
 // 닫아도 그 판은 여기서 닫힌다.
 func TestRunningOutOfTimeLosesTheGame(t *testing.T) {
-	table, black, white := newTestTable(t, 60*time.Millisecond)
+	table, black, white := newTestTable(t, 250*time.Millisecond)
+
+	// **한 수는 둬야 판이 있었던 것이다.** 0手 판은 승패를 안 만든다(아래 테스트).
+	if _, err := table.Play(context.Background(), shogi.Black, "7g7f"); err != nil {
+		t.Fatalf("play: %v", err)
+	}
 
 	// **`Done` 이 아니라 `Finished` 를 기다린다.** 끝난 판은 한동안 더 답하므로
 	// (finishedGrace) `Done` 은 그만큼 늦게 닫힌다.
@@ -200,11 +205,40 @@ func TestRunningOutOfTimeLosesTheGame(t *testing.T) {
 		t.Fatal("the table never finished after the turn limit")
 	}
 
-	// 先手가 한 수도 안 뒀으므로 先手의 시간패다.
+	// 後手가 응수를 안 했으므로 後手의 시간패다.
 	_, bResult := black.snapshot()
 	_, wResult := white.snapshot()
-	if bResult != ResultLoss || wResult != ResultWin {
-		t.Fatalf("records say black=%s white=%s, want loss/win", bResult, wResult)
+	if bResult != ResultWin || wResult != ResultLoss {
+		t.Fatalf("records say black=%s white=%s, want win/loss", bResult, wResult)
+	}
+}
+
+// **한 수도 안 둔 채 시간이 다 되면 승패가 없다.**
+//
+// 방을 만든 사람이 링크를 보내고 탭을 열어 둔 채 자리를 뜨는 것이 흔한데, 그때 승패를
+// 적으면 **0手짜리 판**이 두 사람의 전적에 win/loss 로 남고 이긴 쪽의 「振り返り」 링크가
+// 빈 판을 연다. 아무도 안 뒀으면 판이 없었던 것이다.
+func TestATimeoutWithNoMovesIsNotALoss(t *testing.T) {
+	table, black, white := newTestTable(t, 60*time.Millisecond)
+
+	select {
+	case <-table.Finished():
+	case <-time.After(5 * time.Second):
+		t.Fatal("the table never finished after the turn limit")
+	}
+
+	_, bResult := black.snapshot()
+	_, wResult := white.snapshot()
+	if bResult != ResultAbandoned || wResult != ResultAbandoned {
+		t.Fatalf("records say black=%s white=%s, want both abandoned", bResult, wResult)
+	}
+
+	snap, err := table.Snapshot(context.Background(), shogi.Black)
+	if err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+	if snap.Status != StatusAborted || snap.Winner != "" {
+		t.Fatalf("the screen sees %s/%q, want aborted with no winner", snap.Status, snap.Winner)
 	}
 }
 

@@ -33,6 +33,9 @@ type matchRecords struct {
 type roomRecord struct {
 	at  time.Time
 	rec map[shogi.Color]*dbRecorder
+	// id 는 **이미 받아 둔** 판 번호다. `dbRecorder.done` 이 값 하나짜리 채널이라
+	// 여기 옮겨 두지 않으면 두 번째로 묻는 연결이 빈손으로 돌아간다(gameIDOf).
+	id map[shogi.Color]int64
 }
 
 // recordSweepAfter 는 곁장부의 항목을 지우기까지의 시간이다.
@@ -75,26 +78,47 @@ func (m *matchRecords) new(
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.sweepLocked(time.Now())
-	m.byRoom[matchID] = &roomRecord{at: time.Now(), rec: made}
+	m.byRoom[matchID] = &roomRecord{at: time.Now(), rec: made, id: map[shogi.Color]int64{}}
 	return out
 }
 
-// doneOf 는 그 색의 기록이 다 쓰였을 때 번호를 실어 보내는 채널이다. 없으면 nil.
-func (m *matchRecords) doneOf(matchID string, c shogi.Color) <-chan int64 {
+// gameIDOf 는 그 색의 판 번호를 기다렸다 준다. 못 얻으면 두 번째 값이 false 다.
+//
+// **한 번 받은 번호를 들고 있는다.** 기록기의 `done` 은 값 하나를 실어 보내는 채널이라
+// 먼저 읽은 쪽이 가져가 버리는데, 같은 사람이 판이 끝나는 순간에 새로고침하거나 탭을
+// 둘 열어 두는 것은 드문 일이 아니다 — 그때 두 번째 연결은 5초를 기다린 끝에 링크를
+// 못 그리고, 로그에는 「기록이 안 끝났다」는 **거짓말**이 남는다.
+func (m *matchRecords) gameIDOf(ctx context.Context, matchID string, c shogi.Color, wait time.Duration) (int64, bool) {
 	if m == nil {
-		return nil
+		return 0, false
 	}
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	entry, ok := m.byRoom[matchID]
 	if !ok {
-		return nil
+		m.mu.Unlock()
+		return 0, false
+	}
+	if id, ok := entry.id[c]; ok {
+		m.mu.Unlock()
+		return id, true // 이미 받아 둔 번호다
 	}
 	rec, ok := entry.rec[c]
+	m.mu.Unlock()
 	if !ok {
-		return nil
+		return 0, false
 	}
-	return rec.done
+
+	select {
+	case id := <-rec.done:
+		m.mu.Lock()
+		entry.id[c] = id
+		m.mu.Unlock()
+		return id, true
+	case <-time.After(wait):
+		return 0, false
+	case <-ctx.Done():
+		return 0, false
+	}
 }
 
 func (m *matchRecords) sweepLocked(now time.Time) {

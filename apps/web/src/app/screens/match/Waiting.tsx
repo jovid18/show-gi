@@ -14,10 +14,13 @@ export function Waiting({
   connection,
   room,
   roomId,
+  rejection,
 }: {
   connection: MatchConnection;
   room: Room | null;
   roomId: string;
+  /** 서버가 말한 거절. 방이 걷혔을 때 그 이유가 여기로 온다. */
+  rejection: string | null;
 }) {
   // 방 하나 못 받고 끊겼다는 것은 **앉지 못했다**는 뜻이다. 앞의 확인(`fetchRoom`)을
   // 통과했는데도 그렇다면 그 사이에 남이 자리를 채운 것이고, 그 답은 「열 수 없다」 하나다.
@@ -28,10 +31,25 @@ export function Waiting({
   }
 
   const url = `${window.location.origin}/rooms/${roomId}`;
+  // **끊긴 것을 조용히 넘기지 않는다.** 판이 서기 전에도 여기서 끊길 수 있는데
+  // (배포·네트워크·방 만료) 그대로 두면 이 화면은 **이미 죽은 링크를 계속 광고한다** —
+  // 상대가 열어도 404를 받는데 방 주인은 아직 기다리는 줄 안다.
+  const dropped = connection === 'closed';
 
   return (
     <div className="setup">
       <h2 className="setup__head">{room.waiting ? '相手を待っています' : '対局をはじめます'}</h2>
+
+      {dropped && (
+        <div className="match-lost" role="alert">
+          {/* 서버가 이유를 말했으면 그것을 그대로 쓴다 — 방이 걷힌 것과 그냥 끊긴 것은
+              사람에게 다른 일이고, 앞은 다시 눌러도 안 된다. */}
+          <p>{rejection ?? '接続が切れました。このリンクは今つながっていません。'}</p>
+          <button type="button" className="btn btn--primary" onClick={() => window.location.reload()}>
+            つなぎ直す
+          </button>
+        </div>
+      )}
 
       {room.waiting ? (
         <>

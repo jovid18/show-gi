@@ -177,6 +177,57 @@ func TestOpenRoomExpires(t *testing.T) {
 	if h.Rooms() != 0 {
 		t.Fatalf("the expired room is still held: %d", h.Rooms())
 	}
+	// **기다리던 연결이 그것을 알아야 한다.** 안 알리면 그 화면은 영영 「상대를
+	// 기다립니다」에 서 있고, 그동안 **이미 죽은 링크를 광고한다.**
+	select {
+	case <-room.Closed():
+	default:
+		t.Fatal("the room expired without telling the sockets waiting on it")
+	}
+}
+
+// 상한에 걸려 밀려난 방도 같다 — **걷히는 자리가 둘이라 둘 다 알려야 한다.**
+func TestARoomDroppedForTheCapTellsItsWaiters(t *testing.T) {
+	h := newTestHub(t)
+
+	first, err := h.Create(alice, shogi.Black)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	for range openRoomsPerHost {
+		if _, err := h.Create(alice, shogi.Black); err != nil {
+			t.Fatalf("create: %v", err)
+		}
+	}
+
+	select {
+	case <-first.Closed():
+	default:
+		t.Fatal("the room was dropped for the cap without telling the sockets waiting on it")
+	}
+}
+
+// **손님이 앉은 방은 상한에 안 걸린다.** 걷어가면 그 손님은 영영 기다리고, 방 주인은
+// 자기 방에 다시 못 들어간다.
+func TestARoomWithASeatedGuestSurvivesTheCap(t *testing.T) {
+	h := newTestHub(t)
+
+	seated, err := h.Create(alice, shogi.Black)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, _, err := h.Enter(seated.ID, bob); err != nil {
+		t.Fatalf("guest enter: %v", err)
+	}
+
+	for range 6 {
+		if _, err := h.Create(alice, shogi.Black); err != nil {
+			t.Fatalf("create: %v", err)
+		}
+	}
+	if _, err := h.Peek(seated.ID, alice.UserID); err != nil {
+		t.Fatalf("the room with a seated guest was dropped: %v", err)
+	}
 }
 
 // **한 사람이 방을 무한히 만들 수 없다.** 방은 프로세스 메모리에 있고 만료가 30분이라,

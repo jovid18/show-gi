@@ -35,8 +35,10 @@ const (
 	ResultWin  Result = "win"
 	ResultLoss Result = "loss"
 	ResultDraw Result = "draw"
-	// ResultAbandoned 는 **한 수도 안 두고 끝난 판**이다. 시간패는 여기가 아니라
-	// win/loss 로 간다 — 승부가 났기 때문이다.
+	// ResultAbandoned 는 **승부가 안 난 채로 끝난 판**이다. 두 자리에서 온다:
+	// 서버가 내려갔을 때와, **한 수도 안 둔 채 시간이 다 됐을 때**(state.timeout).
+	//
+	// 수를 두고 나서의 시간패는 여기가 아니라 win/loss 다 — 승부가 났기 때문이다.
 	ResultAbandoned Result = "abandoned"
 )
 
@@ -380,8 +382,17 @@ func (st *state) resign(by shogi.Color) (Snapshot, error) {
 	return st.snapshot().for_(by), nil
 }
 
-// timeout 은 수번 쪽의 시간이 다 됐을 때다. **승패가 난다** — 중단과 갈라 두는 자리다.
+// timeout 은 수번 쪽의 시간이 다 됐을 때다. **대개 승패가 난다** — 중단과 갈라 두는 자리다.
+//
+// **한 수도 안 뒀으면 예외다.** 방 주인이 링크를 보내고 탭을 열어 둔 채 자리를 뜨는 것이
+// 흔한데, 그때 승패를 적으면 **0手짜리 판**이 두 사람의 전적에 win/loss 로 남고 이긴 쪽의
+// 「振り返り」 링크가 빈 판을 연다. 아무도 안 뒀으면 판이 없었던 것이다.
 func (st *state) timeout() {
+	if len(st.moves) == 0 {
+		st.finish(StatusAborted, shogi.Black, false)
+		st.broadcast()
+		return
+	}
 	st.finish(StatusTimeout, st.pos.Turn.Other(), true)
 	st.broadcast()
 }
@@ -408,8 +419,8 @@ func (st *state) resultFor(c shogi.Color) Result {
 	case st.status == StatusRepetition:
 		return ResultDraw
 	case !st.hasWin:
-		// 중단이다. **한 수도 안 둔 판과 같은 값으로 남는다** — 되짚기가 결과 있는 판만
-		// 열기 때문에(§51) 어느 쪽이든 목록에 안 뜬다.
+		// 승부가 안 났다 — 서버가 내려갔거나 한 수도 안 둔 채 시간이 다 됐다.
+		// **되짚기가 결과 있는 판만 열기 때문에**(§51) 어느 쪽이든 목록에 안 뜬다.
 		return ResultAbandoned
 	case st.winner == c:
 		return ResultWin
@@ -494,6 +505,14 @@ func (t *Table) Subscribe(ctx context.Context, by shogi.Color) (<-chan Snapshot,
 		return nil, nil, err
 	}
 	if _, err := t.send(ctx, command{kind: cmdPresence, color: by, on: true}); err != nil {
+		// **구독을 되돌린다.** 여기서 그냥 나가면 `raw` 가 구독 목록에 남은 채 아무도
+		// 안 읽고, 돌려줄 정리 함수도 없다 — 테이블이 사는 내내(긴 판이면 몇 시간)
+		// 착수마다 그 채널에 헛되이 보내게 된다.
+		off, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
+		defer cancel()
+		if _, uerr := t.send(off, command{kind: cmdUnsubscribe, sub: raw}); uerr != nil && !errorsIsClosed(uerr) {
+			log.Printf("match: cannot undo a half-made subscription: %v", uerr)
+		}
 		return nil, nil, err
 	}
 

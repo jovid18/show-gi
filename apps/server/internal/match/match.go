@@ -58,12 +58,14 @@ const roomIDBytes = 16
 // 대해 하는 것과 같은 판단이다(server/ws.go 의 errNoResume).
 var ErrNoRoom = errors.New("match: no such room")
 
-// ErrNotYourTurn·ErrFinished·ErrNotPlaying 은 착수 거절이다. 룰 위반은 `shogi` 가 낸다.
+// ErrNotYourTurn·ErrFinished 는 착수 거절이다. 룰 위반은 `shogi` 가 낸다.
+//
+// **「아직 시작 안 했다」가 없다.** 그 상태에서는 착수가 도달할 자리가 없다 — 읽는 쪽이
+// `room.Ready()` 뒤에야 서기 때문이다(server/ws_match.go). 문구를 만들어 두면 영영
+// 안 뜨는 문구가 하나 생긴다.
 var (
 	ErrNotYourTurn = errors.New("match: not your turn")
 	ErrFinished    = errors.New("match: the game is over")
-	// ErrNotPlaying 은 아직 상대가 안 들어온 방에 수를 보냈을 때다.
-	ErrNotPlaying = errors.New("match: the game has not started")
 	// ErrClosed 는 끝난 테이블에 명령을 보냈을 때다.
 	ErrClosed = errors.New("match: table closed")
 )
