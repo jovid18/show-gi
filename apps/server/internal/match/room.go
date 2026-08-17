@@ -3,6 +3,7 @@ package match
 import (
 	"context"
 	"log"
+	"slices"
 	"sync"
 	"time"
 
@@ -109,8 +110,41 @@ func (h *Hub) Create(host Player, hostColor shogi.Color) (*Room, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.sweepLocked(now)
+	h.dropSurplusLocked(host.UserID)
 	h.rooms[id] = room
 	return room, nil
+}
+
+// openRoomsPerHost 는 한 사람이 **아직 안 시작한** 방을 몇 개까지 들고 있을 수 있나다.
+//
+// **상한이 없으면 로그인한 사람 하나가 방을 무한히 만든다.** 방은 프로세스 메모리에
+// 있으므로(Hub) 그것이 곧 이 서버의 메모리이고, 만료가 30분이라 그동안 계속 쌓인다.
+//
+// 넘으면 **거절이 아니라 오래된 것을 버린다.** 거절은 「왜 안 되나」를 화면에 설명해야
+// 하는데, 방을 여러 개 만든 사람이 실제로 원하는 것은 대개 마지막 링크 하나다.
+//
+// **[미확정]** 3은 감으로 잡은 값이다.
+const openRoomsPerHost = 3
+
+// dropSurplusLocked 는 그 사람의 안 시작한 방이 상한을 넘으면 오래된 것부터 버린다.
+//
+// **시작한 판은 절대 안 버린다** — 두는 중이거나 방금 끝난 판이라, 그것을 걷어가면
+// 두 사람이 그 자리에서 판을 잃는다.
+func (h *Hub) dropSurplusLocked(hostID int64) {
+	var open []*Room
+	for _, room := range h.rooms {
+		if room.host.UserID == hostID && room.table == nil {
+			open = append(open, room)
+		}
+	}
+	if len(open) < openRoomsPerHost {
+		return
+	}
+	// 만든 시각 순으로 오래된 것부터. 새 방이 하나 들어올 자리를 비운다.
+	slices.SortFunc(open, func(a, b *Room) int { return a.createdAt.Compare(b.createdAt) })
+	for _, room := range open[:len(open)-openRoomsPerHost+1] {
+		delete(h.rooms, room.ID)
+	}
 }
 
 // Peek 는 **들어가기 전에** 그 방을 볼 수 있는가다. 자격이 없으면 ErrNoRoom 하나다.

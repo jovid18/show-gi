@@ -178,3 +178,59 @@ func TestOpenRoomExpires(t *testing.T) {
 		t.Fatalf("the expired room is still held: %d", h.Rooms())
 	}
 }
+
+// **한 사람이 방을 무한히 만들 수 없다.** 방은 프로세스 메모리에 있고 만료가 30분이라,
+// 상한이 없으면 로그인한 사람 하나가 그동안 계속 쌓을 수 있다.
+func TestOpenRoomsPerHostAreCapped(t *testing.T) {
+	h := newTestHub(t)
+
+	ids := make([]string, 0, 6)
+	for range 6 {
+		room, err := h.Create(alice, shogi.Black)
+		if err != nil {
+			t.Fatalf("create: %v", err)
+		}
+		ids = append(ids, room.ID)
+	}
+
+	if h.Rooms() != openRoomsPerHost {
+		t.Fatalf("the hub holds %d rooms, want %d", h.Rooms(), openRoomsPerHost)
+	}
+	// **마지막 것들이 산다** — 방을 또 만든 사람이 원하는 것은 마지막 링크다.
+	for _, id := range ids[len(ids)-openRoomsPerHost:] {
+		if _, err := h.Peek(id, alice.UserID); err != nil {
+			t.Fatalf("the newest rooms should survive, but %s is gone: %v", id, err)
+		}
+	}
+	if _, err := h.Peek(ids[0], alice.UserID); !errors.Is(err, ErrNoRoom) {
+		t.Fatalf("the oldest room survived: %v", err)
+	}
+}
+
+// **시작한 판은 상한에 안 걸린다.** 걷어가면 두는 중인 두 사람이 그 자리에서 판을 잃는다.
+func TestAStartedGameIsNeverDroppedForTheCap(t *testing.T) {
+	h := newTestHub(t)
+
+	live, err := h.Create(alice, shogi.Black)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, _, err := h.Enter(live.ID, bob); err != nil {
+		t.Fatalf("guest enter: %v", err)
+	}
+	h.Connect(live, shogi.White)
+	h.Connect(live, shogi.Black)
+	if live.Table() == nil {
+		t.Fatal("the table did not start")
+	}
+
+	// 그 뒤로 방을 잔뜩 만들어도 두는 판은 그대로다.
+	for range 6 {
+		if _, err := h.Create(alice, shogi.Black); err != nil {
+			t.Fatalf("create: %v", err)
+		}
+	}
+	if _, err := h.Peek(live.ID, alice.UserID); err != nil {
+		t.Fatalf("the live game was dropped for the cap: %v", err)
+	}
+}
