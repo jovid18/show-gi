@@ -228,7 +228,7 @@ resource "aws_ecs_service" "app" {
   name            = "show-gi"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
-  desired_count   = 1
+  desired_count   = 0
   launch_type     = "FARGATE"
 
   # 컨테이너에 셸로 들어갈 수 있게 한다. SSH도, 배스천도 필요 없다:
@@ -236,7 +236,8 @@ resource "aws_ecs_service" "app" {
   enable_execute_command = true
 
   network_configuration {
-    subnets = data.aws_subnets.default.ids
+    # ALB가 켜진 AZ와 같은 서브넷만 쓴다 — ALB는 활성 AZ의 타깃에만 라우팅한다
+    subnets = local.alb_subnet_ids
     # NAT 게이트웨이(월 $40+)를 피하려고 공인 서브넷에 둔다. 인바운드는 보안그룹이 막는다
     assign_public_ip = true
     security_groups  = [aws_security_group.task.id]
@@ -263,8 +264,9 @@ resource "aws_ecs_service" "app" {
 
   lifecycle {
     # 배포는 CI가 새 리비전을 등록해서 한다. terraform이 그걸 되돌리면
-    # apply 한 번에 옛 이미지로 돌아간다
-    ignore_changes = [task_definition, desired_count]
+    # apply 한 번에 옛 이미지로 돌아간다. desired_count는 terraform 소유라
+    # CLI로 수동 스케일링해도 다음 apply가 코드 값으로 되돌린다
+    ignore_changes = [task_definition]
   }
 
   depends_on = [aws_lb_listener.https]
