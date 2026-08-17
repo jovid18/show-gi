@@ -49,7 +49,14 @@
         "ec2:RevokeSecurityGroupEgress",
         "ec2:ModifySecurityGroupRules",
         "ec2:CreateTags",
-        "ec2:DeleteTags"
+        "ec2:DeleteTags",
+        "ec2:CreateLaunchTemplate",
+        "ec2:CreateLaunchTemplateVersion",
+        "ec2:DeleteLaunchTemplate",
+        "ec2:DeleteLaunchTemplateVersions",
+        "ec2:ModifyLaunchTemplate",
+        "ec2:GetLaunchTemplateData",
+        "autoscaling:*"
       ],
       "Resource": "*",
       "Condition": {
@@ -98,18 +105,22 @@
       "Resource": "arn:aws:iam::058264445568:role/show-gi-*",
       "Condition": {
         "ArnEquals": {
-          "iam:PolicyARN": ["arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"]
+          "iam:PolicyARN": [
+            "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+            "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role",
+            "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+          ]
         }
       }
     },
     {
-      "Sid": "PassRoleToEcsOnly",
+      "Sid": "PassRoleToEcsAndEc2",
       "Effect": "Allow",
       "Action": "iam:PassRole",
       "Resource": "arn:aws:iam::058264445568:role/show-gi-*",
       "Condition": {
         "StringEquals": {
-          "iam:PassedToService": "ecs-tasks.amazonaws.com"
+          "iam:PassedToService": ["ecs-tasks.amazonaws.com", "ec2.amazonaws.com"]
         }
       }
     },
@@ -214,6 +225,17 @@
       "Effect": "Allow",
       "Action": ["route53:ChangeResourceRecordSets"],
       "Resource": "arn:aws:route53:::hostedzone/*"
+    },
+    {
+      "Sid": "CreateAutoScalingServiceLinkedRole",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "iam:AWSServiceName": "autoscaling.amazonaws.com"
+        }
+      }
     }
   ]
 }

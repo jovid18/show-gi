@@ -28,7 +28,7 @@ env:
 
 jobs:
   build:
-    # arm64 러너. Fargate 태스크가 ARM64라 아키텍처가 그대로 맞고,
+    # arm64 러너. 태스크가 ARM64(Graviton 인스턴스)라 아키텍처가 그대로 맞고,
     # QEMU 에뮬레이션을 쓰지 않으므로 빌드가 몇 배 빠르다.
     # (퍼블릭 레포라 이 러너는 무료다)
     runs-on: ubuntu-24.04-arm

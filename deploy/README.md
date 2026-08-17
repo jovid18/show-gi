@@ -1,15 +1,18 @@
 # 배포 런북
 
-도쿄(`ap-northeast-1`) ECS Fargate. ALB가 TLS를 끝내고, 태스크 안의 Caddy가 정적 파일을 서빙하며 api로 프록시한다. 구조와 그 선택의 근거는 [docs/02-architecture.md](../docs/02-architecture.md).
+도쿄(`ap-northeast-1`) ECS. ALB가 TLS를 끝내고, 태스크 안의 Caddy가 정적 파일을 서빙하며 api로 프록시한다. 구조와 그 선택의 근거는 [docs/02-architecture.md](../docs/02-architecture.md).
 
 ```
-Route53 (show-gi.com) → ALB (ACM TLS) → ECS Fargate 태스크 (ARM64)
-                                          ├ web  :80    Caddy — 정적 + /api·/ws 프록시
-                                          └ api  :8080  Go + 엔진 동봉
+Route53 (show-gi.com) → ALB (ACM TLS) → EC2 스팟 1대 (t4g.small / ARM64)
+                                          └ ECS 태스크 (network_mode: host)
+                                              ├ web  :80    Caddy — 정적 + /api·/ws 프록시
+                                              └ api  :8080  Go + 엔진 동봉
                                         → RDS postgres 17 (비공개)
 ```
 
-**관리할 서버가 없다.** 22번 포트도, 패치할 OS도 없고, 컨테이너에는 ECS Exec으로 들어간다.
+**여전히 서버에 들어가지 않는다.** 22번 포트도 없고 컨테이너에는 ECS Exec으로 들어간다 — 인스턴스가 돌아왔지만 그것을 손으로 준비하는 일은 시작 템플릿(`infra/ec2.tf`)이 맡는다.
+
+> **스팟이라 회수될 수 있다.** 2분 전 통보를 받으면 ECS 에이전트가 태스크를 내리고(`ECS_ENABLE_SPOT_INSTANCE_DRAINING`) ASG가 새 인스턴스를 받는다. 그 사이 **2~3분 사이트가 503**이고, 대국 중이었으면 그 판은 `aborted` 로 닫혀 이어하기에 걸린다.
 
 ---
 
@@ -265,6 +268,8 @@ psql "$(aws ssm get-parameter --name /show-gi/prod/DATABASE_URL --with-decryptio
 
 `show-gi-migrate` 태스크 정의가 이미 등록돼 있다 — postgres 이미지에 `DATABASE_URL`만 주입된 것이고, 명령은 실행할 때마다 덮어쓴다.
 
+> **이쪽은 Fargate로 남긴다**(아래 `--launch-type FARGATE`). 앱 태스크는 EC2로 옮겼지만, 인스턴스가 앱 태스크 하나에 맞춰진 t4g.small 한 대라 **마이그레이션 태스크를 얹을 자리가 없다** — EC2로 바꾸면 배치가 안 돼서 영원히 `PROVISIONING` 에 머문다. 어차피 몇 초 도는 일회용이라 Fargate 쪽이 값도 거의 0이고, 태스크 정의가 갈려 있으므로 앱을 옮긴 것이 여기에 영향을 주지 않는다.
+
 ```sh
 SUBNETS=$(aws ec2 describe-subnets --profile show-gi --region ap-northeast-1 \
   --filters "Name=default-for-az,Values=true" --query 'Subnets[].SubnetId' --output text | tr '\t' ',')
@@ -339,26 +344,32 @@ aws logs tail /ecs/show-gi --follow --region ap-northeast-1 --profile show-gi
 
 ## 비용과 정리
 
-|                                   | 주              |
-| --------------------------------- | --------------- |
-| Fargate ARM 4 vCPU / 8 GiB (상시) | **~$26** (추정) |
-| ALB                               | ~$4             |
-| RDS db.t4g.micro + 20GB           | ~$6             |
-| ECR, 로그, Parameter Store        | $1 미만         |
-| **합계**                          | **~$37 / 주**   |
-| 도메인 (1년치, 1회)               | $16             |
+**해커톤이 끝나고 상시 가동으로 바꿨다**(2026-08-17). 그래서 표를 주 단위에서 **월 단위**로 옮겼다 — 이제 「대회 기간의 비용」이 아니라 「계속 나가는 비용」이다.
 
-**대회가 끝나면 반드시 정리한다.** 켜둔 채 잊으면 **월 $150** 정도가 계속 나간다.
+|                                     | 월 (추정)     |
+| ----------------------------------- | ------------- |
+| EC2 t4g.small **스팟** 1대 (상시)   | **~$5**       |
+| EBS gp3 30 GiB (그 인스턴스의 루트) | ~$3           |
+| ALB                                 | ~$18          |
+| RDS db.t4g.micro + 20 GB            | ~$15          |
+| ECR, 로그, Parameter Store          | $1 미만       |
+| **합계**                            | **~$42 / 월** |
+
+**컴퓨트가 더 이상 가장 큰 항목이 아니다.** 한때 Fargate 4 vCPU / 8 GiB로 월 약 $115였고 그것 때문에 서비스를 0으로 내려 뒀는데, 스팟 한 대로 옮기면서 **컴퓨트가 $8**이 됐다. 지금 표의 8할은 **ALB와 RDS**다(약 $33) — 더 줄일 곳을 찾는다면 컴퓨트가 아니라 그 둘이다.
+
+> **ALB를 없애는 것은 간단하지 않다.** TLS 종료·ACM 자동 갱신·WebSocket 유지가 거기 얹혀 있어서, 빼면 Caddy가 인증서를 다시 맡고 그 인증서를 스팟 인스턴스의 휘발성 디스크에 두게 된다 — 회수될 때마다 재발급이고 Let's Encrypt 한도에 걸린다([alb.tf](../infra/alb.tf) 머리말이 그 이야기다).
+
+**정리할 때는 통째로 지운다.** 켜둔 채 잊으면 위 금액이 계속 나간다.
 
 ```sh
 cd infra && terraform destroy      # 전부 지운다
 ```
 
-개발 중 비용을 줄이려면 서비스를 0으로 내린다. Fargate는 태스크가 없으면 컴퓨트 요금이 멈추고 ALB·RDS만 남는다.
+컴퓨트만 잠깐 끄려면 **`desired_capacity` 를 0으로 내린다** — 태스크가 아니라 인스턴스다. `desired_count` 만 0으로 내리면 인스턴스는 그대로 돌면서 태스크만 없어져서, 돈은 그대로 나가고 사이트만 죽는다.
 
 ```sh
-aws ecs update-service --cluster show-gi --service show-gi --desired-count 0 \
-  --region ap-northeast-1 --profile show-gi
+# infra/ec2.tf 의 min_size·max_size·desired_capacity 를 0으로 고치고
+cd infra && terraform apply
 ```
 
-다만 데모 영상을 찍기 시작하는 D5부터는 계속 켜두는 편이 안전하다.
+> **`aws autoscaling set-desired-capacity` 로 내리지 않는다.** `desired_capacity` 는 terraform 이 주인이라(ec2.tf의 `lifecycle` 주석) 다음 apply 가 코드 값으로 되돌린다 — CLI로 내린 것은 조용히 다시 켜진다.

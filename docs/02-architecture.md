@@ -11,7 +11,7 @@
 | 엔진     | **やねうら王 + 水匠5**. `ENGINE_CMD`로 교체 가능  | §3                                                                   |
 | 문구     | **LLM을 안 쓴다.** 개입 문구·총평은 결정적 템플릿 | §2 아래 · [`internal/explain`](../apps/server/internal/explain)      |
 | 인증     | **Google OAuth만**                                | LINE은 채널 개설에 시간이 든다                                       |
-| 배포     | AWS ECS Fargate + ALB, Terraform, Route53         | §6                                                                   |
+| 배포     | AWS ECS on EC2 스팟 1대 + ALB, Terraform, Route53 | §6                                                                   |
 | 모노레포 | pnpm 워크스페이스 + `apps/server`(Go 별도 go.mod) | `../more-more`와 동일 구조. oxfmt/oxlint, `.githooks`, CI까지 그대로 |
 
 ---
@@ -202,7 +202,7 @@ skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at,
 
 ## 6. 인프라
 
-- **ECS Fargate**(ARM64) 태스크 하나에 web(Caddy) + api 컨테이너. 앞에 ALB가 ACM 인증서로 TLS를 끝낸다
+- **ECS on EC2**(t4g.small 스팟 1대, ARM64) 태스크 하나에 web(Caddy) + api 컨테이너. 앞에 ALB가 ACM 인증서로 TLS를 끝낸다
 - **RDS postgres 17.** 앱 태스크의 보안그룹에서만 접근 가능하고, 7일 자동 백업이 붙는다
 - 비밀은 SSM Parameter Store → 태스크 정의의 `secrets`로 주입. 디스크에 남지 않는다
 - Terraform으로 전부 코드화. state는 S3 + DynamoDB 잠금
@@ -261,7 +261,7 @@ state는 S3 + DynamoDB 잠금에 둔다. 로컬 state는 날리면 복구가 안
 | `src/lib/moves.ts`, `src/components/Board.tsx` | 좌표계가 다르고(row/col + 자체 `BoardState`), Board는 **학습용 샌드박스**라 대국용이 아니다. 코드에도 "대국용과 다른 자체 타입"이라 적혀 있다. 합법수는 서버가 준다 |
 | `server/internal/swars/`                       | 将棋ウォーズ 스크래핑. 이 제품에 필요 없고, **외부 대국 연동은 보안 §7 위협 1과 정면으로 어긋난다**                                                                 |
 | `src/pages/Ch0~16`                             | 한국어 강의 콘텐츠. 이 제품은 강의가 아니다                                                                                                                         |
-| `deploy/terraform/` (EC2·EIP 구성)             | 우리는 ECS Fargate라 자원 구성이 겹치지 않는다                                                                                                                      |
+| `deploy/terraform/` (EC2·EIP 구성)             | 우리도 EC2를 쓰지만 ECS가 그 위에 있어 자원 구성이 겹치지 않는다 — EIP도 개별 인스턴스 관리도 없다                                                                  |
 | **`src/data/*` 전부**                          | 囲い·전법·手筋 데이터. **한 줄도 쓰지 않는다** — 원전이 개인 블로그이고, 手筋 208문은 시판 서적 디지털화다. 퍼블릭 레포에서는 신뢰성 이전에 저작권 문제다           |
 
 참고만 할 것: `src/components/Koma.tsx`(기물 한 글자 렌더), 판 그리드 CSS.

@@ -81,7 +81,8 @@
     "awsvpc",
     "awslogs",
     "ssmmessages",
-    "elbv"
+    "elbv",
+    "Servicefor" // AmazonEC2ContainerServiceforEC2Role — AWS의 관리형 정책 이름 그대로다
   ],
   // 한글·일본어는 검사하지 않는다. 사전이 없어 문장 전체가 오타로 잡힌다.
   "cSpell.ignoreRegExpList": ["/[\\u3040-\\u30ff\\u3400-\\u9fff\\uac00-\\ud7af]+/g"]
