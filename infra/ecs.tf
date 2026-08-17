@@ -228,10 +228,8 @@ resource "aws_ecs_service" "app" {
   name            = "show-gi"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
-  # 켜고 끄는 스위치. 오토스케일링이 없고 CI도 이 값은 안 건드리므로
-  # terraform이 단독으로 소유한다 — 다시 켤 때는 1로 바꾸고 apply
-  desired_count = 0
-  launch_type   = "FARGATE"
+  desired_count   = 0
+  launch_type     = "FARGATE"
 
   # 컨테이너에 셸로 들어갈 수 있게 한다. SSH도, 배스천도 필요 없다:
   #   aws ecs execute-command --cluster show-gi --task <id> --container api --interactive --command /bin/sh
@@ -266,8 +264,8 @@ resource "aws_ecs_service" "app" {
 
   lifecycle {
     # 배포는 CI가 새 리비전을 등록해서 한다. terraform이 그걸 되돌리면
-    # apply 한 번에 옛 이미지로 돌아간다. desired_count는 넣지 않는다 —
-    # CLI로 수동 스케일링하면 다음 apply가 코드 값으로 되돌린다
+    # apply 한 번에 옛 이미지로 돌아간다. desired_count는 terraform 소유라
+    # CLI로 수동 스케일링해도 다음 apply가 코드 값으로 되돌린다
     ignore_changes = [task_definition]
   }
 

@@ -39,9 +39,8 @@ resource "aws_vpc_security_group_egress_rule" "alb_to_task" {
   ip_protocol                  = "tcp"
 }
 
-# ALB는 AWS 제약으로 최소 2개 AZ가 필요하다. 기본 서브넷 3개를 다 걸면
-# 퍼블릭 IPv4가 AZ 수만큼 과금되므로 2개만 쓴다. sort는 plan을 결정적으로
-# 만들기 위한 것 — data 소스의 순서는 보장되지 않는다.
+# AZ 수만큼 퍼블릭 IPv4가 과금되므로 ALB의 하한인 2개만 쓴다.
+# sort는 data 소스의 순서가 보장되지 않아 plan을 결정적으로 만들기 위한 것
 locals {
   alb_subnet_ids = slice(sort(data.aws_subnets.default.ids), 0, 2)
 }
