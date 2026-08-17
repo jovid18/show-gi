@@ -51,7 +51,10 @@ export function Waiting({
         </div>
       )}
 
-      {room.waiting ? (
+      {/* **끊긴 동안에는 링크를 안 그린다.** 배너가 「이 방은 끝났다」고 말하는 옆에
+          복사 버튼이 서 있으면 그 링크를 보내는 사람이 생긴다 — 화면이 두 말을 하면
+          사람은 하고 싶은 쪽을 믿는다. */}
+      {dropped ? null : room.waiting ? (
         <>
           <p className="setup__caveat">下のリンクを相手に送ってください。相手が開くと、その場で対局がはじまります。</p>
           <InviteLink url={url} />
