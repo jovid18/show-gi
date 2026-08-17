@@ -141,7 +141,7 @@ func TestCalledHintRunsOutOfBudget(t *testing.T) {
 }
 
 // **답을 본 국면의 수는 실력 추정에서 빠진다.** 알려준 답을 둔 것이 실력으로 기록되면
-// 段級이 부풀고, 그 숫자가 화면에 나간다(06-status.md §78).
+// 段級이 부풀고, 그 숫자가 화면에 나간다(journal §78).
 func TestHintedMoveIsNotRated(t *testing.T) {
 	rater := &countingRater{}
 	s := newSession(t, Config{

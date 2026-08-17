@@ -25,12 +25,12 @@ type MultiSearcher interface {
 // **좌표가 둘이다.** 구간 안이나 아래에서는 절대 좌표로 읽고(플레이어가 아직 못 이기고
 // 있으므로 「+100~+300으로 끌어올린다」가 곧 뜻이다), 구간 **위**에서는 지금 형세에 대한
 // **양보 폭**으로 읽는다. 절대 좌표 하나로 쓰면 이 숫자가 그 구간에서 정반대를 뜻한다 —
-// 「+300으로 되돌려라」가 되고, 그 자리에서 조절이 꺼진다(06-status.md §55).
+// 「+300으로 되돌려라」가 되고, 그 자리에서 조절이 꺼진다(journal §55).
 type Band struct{ LoCp, HiCp int }
 
 // DefaultBand 는 「조금씩 지고 있지만 아직 모른다」 구간이다. **플레이어 관점 cp.**
 // 값은 실측으로 유지 판정을 받았고, 「초심자에게 맞는 폭인가」는 아직 못 쟀다 —
-// **[미확정]** 근거와 숫자는 06-status.md §39 ③.
+// **[미확정]** 근거와 숫자는 journal §39 ③.
 var DefaultBand = Band{LoCp: 100, HiCp: 300}
 
 // SkillShiftCp 는 실력 추정이 밴드를 옮길 수 있는 최대 폭이다. **플레이어 관점 cp.**
@@ -40,16 +40,16 @@ var DefaultBand = Band{LoCp: 100, HiCp: 300}
 //
 // **입력은 수의 질뿐이다**(`skill.Track.Observe` 가 낙폭 하나를 먹는다). 대국 결과도 형세도
 // 안 본다 — 「이기고 있으면 상대가 세진다」는 여기서 나온 적이 없고, 밴드의 절대 좌표에서
-// 나왔다(06-status.md §55).
+// 나왔다(journal §55).
 //
 // **조절하는 것은 밴드뿐이다.** 두 안전 필터도 후보 k도 안 건드린다 — 쉽게 해주는 것과
 // 던지는 것은 다르고, 화면이 「取り返せない場所」라고 가르친 수를 상대가 두면 방금 배운
-// 것이 무너진다(06-status.md §16 · §21 ①).
+// 것이 무너진다(journal §16 · §21 ①).
 //
-// **[미확정]** 초기값이다. 근거와 남은 것은 06-status.md §47.
+// **[미확정]** 초기값이다. 근거와 남은 것은 journal §47.
 const SkillShiftCp = 300
 
-// CandidateK 는 후보를 몇 개까지 받을지다. **실측으로 정했다**(06-status.md §10).
+// CandidateK 는 후보를 몇 개까지 받을지다. **실측으로 정했다**(journal §10).
 //
 // 밴드 적중이 10에서 멈추고 20은 덮이는 국면이 안 늘면서 비용만 배가 된다.
 // k=1은 0/6이다 — 후보가 하나면 밴드 제어라는 것이 성립할 수 없다.
@@ -95,7 +95,7 @@ func (o *adaptiveOpponent) AdaptsToSkill() bool { return true }
 // 불린다 — 근거는 MateChasePlies.
 //
 // **같은 k로 묻는다.** 깊이도 k도 평소와 같아야 `positions` 캐시가 같은 행을 쓰고,
-// k가 갈리면 같은 국면의 1위가 갈린다(06-status.md §34 ②). 조절을 끄는 것이지 다른
+// k가 갈리면 같은 국면의 1위가 갈린다(journal §34 ②). 조절을 끄는 것이지 다른
 // 탐색을 하는 것이 아니다.
 func (o *adaptiveOpponent) ChooseBest(ctx context.Context, startSFEN string, moves []string) (string, error) {
 	res, err := o.search.SearchMultiPV(ctx, startSFEN, moves, o.depth, o.k)
@@ -143,7 +143,7 @@ func (o *adaptiveOpponent) Choose(ctx context.Context, startSFEN string, moves [
 
 	// 난이도보다 안전이 먼저다. 밴드에 맞는 수가 이것밖에 없어도 최선수보다 600cp 넘게
 	// 나쁜 후보는 두지 않는다. HangsPiece 는 「움직인 駒가 잡히는가」만 보므로, 잡아야 할
-	// 駒를 외면해 큰 손해를 보는 수는 이 평가치 상한이 막는다(06-status.md §81).
+	// 駒를 외면해 큰 손해를 보는 수는 이 평가치 상한이 막는다(journal §81).
 	opts = withinConcession(opts, now, MaxConcessionCp)
 
 	// **구간 위에서는 절대 좌표가 뜻을 잃는다.** 「+100~+300을 겨냥한다」가 그 자리에서는
@@ -251,7 +251,7 @@ func skillShift(sk skill.Estimate) int {
 //
 // **밴드와 같은 숫자에서 나온다.** 단계를 따로 계산하면 화면이 말하는 강함과 상대가 실제로
 // 겨냥하는 강함이 갈린다 — 게이지에서 手数를 따로 구했다가 한 수 낡았던 것과 같은 실패다
-// (06-status.md §31).
+// (journal §31).
 func strengthStep(shiftCp int) int {
 	// 한 눈금이 SkillShiftCp 의 절반이다. **상수 나눗셈으로 쓰지 않는다** — `SkillShiftCp` 가
 	// 홀수가 되는 날 정수 나눗셈이 조용히 한 칸을 먹는다.

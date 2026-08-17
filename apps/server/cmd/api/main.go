@@ -14,7 +14,6 @@ import (
 
 	"github.com/jovid18/show-gi/apps/server/internal/archive"
 	"github.com/jovid18/show-gi/apps/server/internal/auth"
-	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/quiz"
@@ -65,12 +64,6 @@ func main() {
 	opts.SessionSecret = os.Getenv("SESSION_SECRET")
 	opts.PublicOrigin = os.Getenv("PUBLIC_ORIGIN")
 
-	// **한 계층이 둘을 다 한다.** 개입 문구와 대국 후 총평이 같은 캐시·같은 검증·같은
-	// 폴백을 쓰므로(explain/summary.go) 여기서 갈라 세우면 그 셋이 두 벌이 된다.
-	layered := startExplainer(opts.Store)
-	opts.Explainer = layered
-	opts.Summarizer = layered
-
 	if pool := startEngines(); pool != nil {
 		defer pool.Close()
 
@@ -95,7 +88,7 @@ func main() {
 		//
 		// 手筋 힌트가 이 구조에서 특히 값을 한다. 후보마다 착수 후 국면을 재는데 그 국면은
 		// **플레이어가 실제로 그 수를 두면 바로 다시 물어볼 국면**이라, 캐시 적중이
-		// 저절로 따라온다(06-status.md §37: 같은 국면 1.54s → 27ms).
+		// 저절로 따라온다(journal §37: 같은 국면 1.54s → 27ms).
 		//
 		// DB가 없으면 그대로 통과시킨다. 인터페이스에 nil 포인터를 넣지 않는 것은
 		// 아래 mate solver 와 같은 이유다.
@@ -155,63 +148,6 @@ func startAuth() *auth.Google {
 	}
 	log.Print("google sign-in ready")
 	return g
-}
-
-// startExplainer 는 개입 문구를 만드는 계층을 세운다.
-//
-// **키가 없으면 결정적 문구만 나가고 대국은 그대로 된다.** 엔진·DB와 같은 판단이다 —
-// 없는 것으로 프로세스를 죽이지 않는다. 프로덕션에는 실키가 들어가 있고(06-status.md §3),
-// 이 경로는 로컬과 라우터 장애 때의 바닥이다. 기동 로그가 어느 쪽인지 한 줄로 말한다.
-//
-// st 가 nil이면 캐시가 없다. 그러면 **같은 설명을 매번 다시 산다** — 로그에 한 줄 남긴다.
-func startExplainer(st *store.Store) *explain.Layered {
-	client := explain.NewClient(
-		os.Getenv("ORCA_API_KEY"),
-		os.Getenv("ORCA_BASE_URL"),
-		os.Getenv("ORCA_MODEL_SMALL"),
-		os.Getenv("ORCA_MODEL_LARGE"),
-		envFloat("ORCA_USDJPY", explain.DefaultUSDJPY),
-	)
-	if client == nil {
-		log.Print("ORCA_API_KEY is not set — interventions will use the built-in Japanese templates")
-		return explain.TemplateOnly()
-	}
-	if st == nil {
-		log.Print("explain: no database — every explanation will be generated again (no Tier 0)")
-		return explain.NewLayered(nil, client)
-	}
-	log.Print("explain: OrcaRouter ready, cached explanations come from the database")
-	return explain.NewLayered(st, client).WithKnowledge(knowledgeLookup(st))
-}
-
-// knowledgeLookup 은 `store.Store` 의 kb_chunks 검색을 `explain.KnowledgeLookup` 으로 감싼다.
-// `store` → `explain` import를 막으면서 두 패키지를 잇는 자리다.
-func knowledgeLookup(st *store.Store) explain.KnowledgeLookup {
-	return func(ctx context.Context, tags []string) ([]explain.KbSnippet, error) {
-		rows, err := st.KnowledgeForTags(ctx, tags)
-		if err != nil {
-			return nil, err
-		}
-		out := make([]explain.KbSnippet, len(rows))
-		for i, r := range rows {
-			out[i] = explain.KbSnippet{Title: r.Title, Body: r.Body}
-		}
-		return out, nil
-	}
-}
-
-// envFloat 는 소수 환경변수를 읽는다. 틀린 값은 기본값으로 되돌리고 조용히 넘기지 않는다.
-func envFloat(name string, fallback float64) float64 {
-	v := os.Getenv(name)
-	if v == "" {
-		return fallback
-	}
-	f, err := strconv.ParseFloat(v, 64)
-	if err != nil || f <= 0 {
-		log.Printf("%s=%q is not a positive number, using %v", name, v, fallback)
-		return fallback
-	}
-	return f
 }
 
 // openStore 는 DB에 붙는다. 실패하면 nil을 돌려주고 서버는 그냥 뜬다.
@@ -278,7 +214,7 @@ func startMateEngines() *usi.Pool {
 	// 않는다 — 판정은 사람의 수 직후, 게이지는 상대의 수 직후다. 거기까지면 하나로 족했다.
 	//
 	// **세 번째 소비자가 그 전제를 깼다.** 되짚기 퀴즈의 詰み 트리가 판이 끝나는 자리에서
-	// 수십 초 동안 이 풀을 잡고(06-status.md §53), 그동안 **다른 대국의** 게이지와 종반
+	// 수십 초 동안 이 풀을 잡고(journal §53), 그동안 **다른 대국의** 게이지와 종반
 	// 판정이 막힌다. 그래서 기본을 2로 올렸다.
 	//
 	// **「대국 쪽에 늘 한 자리가 남는다」는 아니다.** 생성은 끝나는 판마다 하나씩 뜨고 수를

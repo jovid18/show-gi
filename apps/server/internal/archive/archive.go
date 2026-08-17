@@ -115,7 +115,7 @@ func (a *Searcher) SearchMultiPV(
 //
 // **되돌릴 것이 둘이다** — 후보 목록(`Lines`)은 `positions`, 부르는 쪽이 보는 깊이별
 // 값(`History`)은 `edges.eval_by_depth` 다. 쓰는 조건도 둘이라 **깊이와 후보 수를 둘 다**
-// 넘어야 한다. 어느 하나를 빠뜨렸을 때 무엇이 조용히 사라지는지는 06-status.md §37.
+// 넘어야 한다. 어느 하나를 빠뜨렸을 때 무엇이 조용히 사라지는지는 journal §37.
 func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiPV int) (usi.SearchResult, bool) {
 	key := Key(pos)
 	p, err := a.store.GetPosition(ctx, key)
@@ -171,7 +171,7 @@ func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiP
 // wanted 는 그 국면에서 **실제로 있을 수 있는** 후보 수다.
 //
 // **합법수가 k보다 적으면 후보도 k개가 안 된다.** 그걸 「모자란다」로 보면 그 자리는
-// 영원히 캐시를 못 쓰고 매번 다시 잰다(06-status.md §37). 합법수를 세는 것은 룰 엔진
+// 영원히 캐시를 못 쓰고 매번 다시 잰다(journal §37). 합법수를 세는 것은 룰 엔진
 // 몫이라 엔진을 안 부른다.
 func wanted(pos shogi.Position, multiPV int) int {
 	if multiPV <= 1 {
@@ -345,7 +345,7 @@ func (a *Searcher) link(
 // namesFor 는 그 수가 **새로 만든** 囲い·전법·戦型·手筋의 코드다.
 //
 // 앞뒤를 견준다. 「지금 판에 서 있는 형태 전부」로 하면 한 번 껐던 이름이 두 수 뒤에
-// 통과하는데(06-status.md §34 ⑦), 저장은 그 실수를 영구히 남긴다.
+// 통과하는데(journal §34 ⑦), 저장은 그 실수를 영구히 남긴다.
 func (a *Searcher) namesFor(
 	ctx context.Context,
 	parent shogi.Position,

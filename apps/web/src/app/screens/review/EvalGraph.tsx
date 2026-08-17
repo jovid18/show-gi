@@ -128,7 +128,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
    *
    * **길이가 없다.** 사람이 그 수로 얼마를 잃었는지는 기록에 안 남아 있다 — `interventions`
    * 에는 Δ승률 하나뿐이고 cp가 없어서, 아래로 얼마나 그을지를 정직하게 정할 수가 없다
-   * (06-status.md §39 ⑥). 그래서 「여기서 막혔다」까지만 말하는 점으로 둔다. 깊이까지 그리려면
+   * (journal §39 ⑥). 그래서 「여기서 막혔다」까지만 말하는 점으로 둔다. 깊이까지 그리려면
    * `interventions` 에 `best_cp`·`after_cp` 두 칸이 필요하다.
    *
    * 자리는 **물러진 手数의 한 수 앞**이다. 그 수는 확정되지 않았으므로 사람이 서 있던 국면이
@@ -229,7 +229,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
             axisLine={{ stroke: 'var(--line-2)' }}
             height={16}
           />
-          {/* **위쪽이 先手다** — `eval_cp` 가 先手 관점으로 저장된다(06-status.md §26).
+          {/* **위쪽이 先手다** — `eval_cp` 가 先手 관점으로 저장된다(journal §26).
               後手로 둔 판에서는 위가 상대가 되므로, 이 축은 아직 「나」를 말하지 못한다.
               그 자리는 서버가 관점을 뒤집어 주는 것으로 따로 닫는다. */}
           <YAxis

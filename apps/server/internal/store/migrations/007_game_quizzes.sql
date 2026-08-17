@@ -1,4 +1,4 @@
--- 되짚기 퀴즈. 설계 근거는 docs/06-status.md §53.
+-- 되짚기 퀴즈. 설계 근거는 journal §53.
 --
 -- **실행은 사람이 DB 클라이언트로 직접 한다** — 배포도 compose도 안 돌린다(deploy/README.md §4).
 

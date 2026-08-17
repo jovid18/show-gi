@@ -11,7 +11,7 @@ var ErrPoolClosed = errors.New("usi: pool closed")
 
 // Pool 은 Engine 여러 개를 돌려쓴다 — Engine 하나는 탐색을 직렬화하는데(프로세스 1개 = 동시 탐색 1개),
 // 선행 계산 때문에 대국 한 판에도 동시 탐색이 필요하다.
-// **빌린 동안 단독 소유다.** 옵션은 Engine에 남으므로 값에 기대는 쪽은 매번 직접 건다(06-status.md §6 ②).
+// **빌린 동안 단독 소유다.** 옵션은 Engine에 남으므로 값에 기대는 쪽은 매번 직접 건다(journal §6 ②).
 type Pool struct {
 	free chan *Engine
 	all  []*Engine
@@ -96,7 +96,7 @@ func (p *Pool) SearchDepth(ctx context.Context, startSFEN string, moves []string
 }
 
 // SearchMultiPV 는 상위 multiPV개 후보를 함께 받아온다. **MultiPV를 탐색 직전에 매번 건다** —
-// 옵션이 Engine에 남아 다음에 빌리는 쪽으로 새기 때문이다. SearchDepth 도 여기를 지나며 1을 명시한다(06-status.md §16).
+// 옵션이 Engine에 남아 다음에 빌리는 쪽으로 새기 때문이다. SearchDepth 도 여기를 지나며 1을 명시한다(journal §16).
 func (p *Pool) SearchMultiPV(ctx context.Context, startSFEN string, moves []string, depth, multiPV int) (SearchResult, error) {
 	if multiPV < 1 {
 		multiPV = 1

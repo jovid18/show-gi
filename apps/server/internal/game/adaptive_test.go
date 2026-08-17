@@ -57,7 +57,7 @@ func TestAdaptivePicksTheBandNotTheBest(t *testing.T) {
 //
 // 후보가 전부 밴드 위(플레이어가 이미 크게 유리)라 절대 좌표가 뜻을 잃는 자리다. 여기서
 // 거리를 최소화하면 「+300으로 되돌려라」가 되어 최선수가 뽑히고, **조절이 가장 필요한
-// 자리에서 조절이 꺼진다.** 한 판이 298手가 되고 사람이 못 끝낸다(06-status.md §55).
+// 자리에서 조절이 꺼진다.** 한 판이 298手가 되고 사람이 못 끝낸다(journal §55).
 func TestAdaptiveKeepsConcedingWhenAlreadyLost(t *testing.T) {
 	got := chooseFrom(t, "7g7f",
 		line("7g7f", -1500), // 플레이어 +1500 — 상대의 최선수
@@ -243,7 +243,7 @@ func TestMaxConcessionIsIndependentOfDifficulty(t *testing.T) {
 	}
 }
 
-// ─── 실력 추정이 밴드를 옮긴다 (06-status.md §47) ───────────────────────────
+// ─── 실력 추정이 밴드를 옮긴다 (journal §47) ───────────────────────────
 
 // ready 는 표본이 충분한 추정치를 만든다. 값만 밖에서 정한다 —
 // 어떻게 그 값에 이르는지는 skill 쪽 테스트가 본다.

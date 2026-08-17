@@ -11,7 +11,7 @@ import (
 )
 
 // 제안형 힌트가 **축마다 몇 번 말하는가**. 전법을 뺀 뒤에도 채널이 살아 있는지를 보는 자리다
-// (회차 1 #0 · 06-status.md §71).
+// (회차 1 #0 · journal §71).
 //
 //	SHOWGI_KIFU_SCAN=1 SHOWGI_KIFU_GAMES=40 go test ./internal/kifu/ -run ScanHintAxes -v
 //

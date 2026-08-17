@@ -42,7 +42,7 @@ type Analyst interface {
 //
 // **늘 한 수 뒤진다** — 조건이 아니라 구조다. `applyVerdict` 가 추정기에 던지고(논블로킹)
 // 같은 자리에서 이 함수를 부르므로, N수째 응수는 언제나 1..N-1 로 만든 값으로 고른다.
-// 그래도 한 판 안에서 서너 번은 조절된다(06-status.md §21 ①).
+// 그래도 한 판 안에서 서너 번은 조절된다(journal §21 ①).
 type Opponent interface {
 	Choose(ctx context.Context, startSFEN string, moves []string, sk skill.Estimate) (string, error)
 }
@@ -91,7 +91,7 @@ func chooseBest(
 // 돌아와야 하고(Recorder 와 같은 규약), 받는 쪽은 채널이라 **읽는 것을 세션이 소유한다** —
 // 추정기가 공유 변수를 직접 쓰면 「대국 상태는 goroutine 하나가 소유한다」가 깨진다.
 //
-// `Recorder` 와 **같은 이벤트 흐름의 두 번째 소비자**다(06-status.md §21 ①).
+// `Recorder` 와 **같은 이벤트 흐름의 두 번째 소비자**다(journal §21 ①).
 type Rater interface {
 	Observe(m skill.Move)
 	Estimates() <-chan skill.Estimate
@@ -121,14 +121,8 @@ type Config struct {
 	// Rater 가 nil이면 상대의 강함이 대국 내내 기준선 밴드 그대로다.
 	//
 	// **Level(개입 임계치)은 이쪽이 안 건드린다.** 조절하는 것은 밴드이고, 임계치를 대국
-	// 중에 흔들면 같은 수가 같은 국면에서 걸리기도 안 걸리기도 한다 — 문구 캐시 키까지
-	// 그 값으로 갈린다(explain.Facts).
+	// 중에 흔들면 같은 수가 같은 국면에서 걸리기도 안 걸리기도 한다.
 	Rater Rater
-	// Explainer 가 nil이면 결정적 문구가 그대로 나간다 — `explain.Render` 와 같은 문장이다.
-	//
-	// **비어 있어도 카드가 완성된다**는 것이 이 자리의 규약이다. LLM은 문장의 품질을 올리는
-	// 층이지 제품의 부품이 아니고, 그래서 키가 없어도 라우터가 죽어도 대국이 그대로 선다.
-	Explainer explain.Explainer
 	// ObservePlies 는 개입하지 않는 초반 구간이다. **기본값은 0 — 첫 수부터 판정한다.**
 	//
 	// 오프닝의 다양성은 수 번호가 아니라 임계치가 지킨다 — 전법 선택은 50~200cp(Δ 2~8%p)라
@@ -139,7 +133,7 @@ type Config struct {
 	// StartSFEN 이 비면 평수 초기 국면.
 	StartSFEN string
 	// StartMoves 는 StartSFEN 에서 **이미 둬진** 수순이다. 이어하기가 기록에서 국면을
-	// 다시 세울 때만 채운다(server/ws.go, docs/06-status.md §51).
+	// 다시 세울 때만 채운다(server/ws.go, journal §51).
 	//
 	// **세션 수명을 안 건드린다는 것이 이 설계의 전부다.** 판을 살려 두는 대신 기보로
 	// 다시 두므로 「세션은 연결에 매여 있다」가 그대로 남는다(§46).
@@ -203,7 +197,7 @@ var ErrNothingToUndo = errors.New("game: nothing to undo")
 //
 // **개입의 되무르기와 예산이 다르다.** 저쪽은 판정이 정하므로 상한이 없고(한 국면에서
 // 몇 번이든 걸린다), 이쪽은 사람이 정하므로 상한이 곧 기능의 전부다 — 무제한이면
-// 「블런더를 두면 물러진다」가 「아무 때나 되돌린다」에 묻힌다(회차 1 #4 · docs/06-status.md §72).
+// 「블런더를 두면 물러진다」가 「아무 때나 되돌린다」에 묻힌다(회차 1 #4 · journal §72).
 //
 // **[미확정]** 3은 사람이 요청한 값 그대로다. 실측으로 잡은 것이 아니다.
 const UndoMaxPerGame = 3
@@ -225,7 +219,7 @@ var ErrNoHint = errors.New("game: no hint available")
 // 기댈 수 있으므로 그 근거가 안 서고, **대신 예산이 그 자리를 맡는다** — 한 국면의 답을
 // 통째로 보려면 두 번을 쓰므로 한 판에 **최대 세 수**까지만 답을 볼 수 있다.
 //
-// **[미확정]** 6은 사람이 고른 값이다. 근거는 06-status.md §78.
+// **[미확정]** 6은 사람이 고른 값이다. 근거는 journal §78.
 const HintMaxPerGame = 6
 
 // HintStageMax 는 한 국면에서 열리는 마지막 단계다.
@@ -238,7 +232,7 @@ const HintStageMax = 2
 // 중간 결과는 depth N 결과가 아니고, 넘기면 결과를 통째로 버린다(usi.Engine.SearchDepth).
 //
 // **값이 둘인 것은 「무엇을 먼저 포기하나」다.** 넷이 같은 풀을 다투므로(cmd/api/main.go)
-// 부가 기능이 오래 붙들면 대국이 굶는다. 숫자의 근거와 실측은 06-status.md §56.
+// 부가 기능이 오래 붙들면 대국이 굶는다. 숫자의 근거와 실측은 journal §56.
 const (
 	// DefaultMoveDeadline 은 **판이 그 자리에서 멈추는** 두 경로의 시한이다 — 상대 수와 개입 판정.
 	DefaultMoveDeadline = 60 * time.Second
@@ -296,9 +290,7 @@ type judgeResult struct {
 	gen       int
 	judgement Judgement
 	move      Move
-	// explanation 은 카드에 나갈 문장이다. 개입이 걸렸을 때만 채워진다.
-	explanation explain.Result
-	err         error
+	err       error
 }
 
 // Session 은 대국 하나다. 모든 메서드는 안전하게 동시 호출할 수 있다 —
@@ -404,7 +396,7 @@ type state struct {
 	tagHintLastPly int
 
 	// 手筋 쪽 제안형 힌트. **예산(카운터)만 따로 센다** — 한 예산이면 囲い가 먼저 다 써서
-	// 手筋이 못 뜬다(06-status.md §42). **이름이 아니라 후보를 들고 있는다** — 계단 ②③이
+	// 手筋이 못 뜬다(journal §42). **이름이 아니라 후보를 들고 있는다** — 계단 ②③이
 	// 짚을 수가 여기 있고, 이름은 언제든 후보에서 편다(tesujiHintTags).
 	tesujiOpts        []TesujiOption
 	tesujiHintGen     int
@@ -650,7 +642,7 @@ func (st *state) handle(ctx context.Context, c command, engineDone chan engineRe
 // **평가는 안 되돌린다.** 무른 수는 판정을 이미 통과했고 그때 추정기가 그 값을 먹었다
 // (applyVerdict 의 observeSkill). 여기서 그것을 빼면 「어려운 수를 두고 무르면 실력이
 // 안 떨어진다」가 되어 상대가 실제 실력보다 약해진 채로 남는다 — 회차 1 #4 가 요구한
-// 세 가지 중 두 번째가 정확히 이것이다(docs/06-status.md §72).
+// 세 가지 중 두 번째가 정확히 이것이다(journal §72).
 // **engineDone 을 안 받는다.** 되감은 국면은 사람 차례라 상대를 생각시킬 일이 없고,
 // 인자로 들고 있으면 언젠가 여기서 maybeThink 를 부르게 된다.
 func (st *state) undo(ctx context.Context, gaugeDone chan mateResult, tesujiDone chan tesujiHintResult) (Snapshot, error) {
@@ -821,7 +813,6 @@ func (st *state) startJudging(ctx context.Context, judgeDone chan judgeResult) b
 
 	gen := st.judgeGen
 	analyst := st.cfg.Analyst
-	explainer := st.cfg.Explainer
 	start := st.start
 	moves := append([]string(nil), st.usis...)
 	played := st.moves[len(st.moves)-1]
@@ -829,38 +820,18 @@ func (st *state) startJudging(ctx context.Context, judgeDone chan judgeResult) b
 	deadline := st.moveDeadline()
 
 	go func() {
-		// **시한은 판정에만 건다.** 아래 문장 만들기는 자기 시한이 따로 있고(explain.Deadline),
-		// 여기 얹으면 판정이 오래 걸린 만큼 문장 쪽 예산이 줄어 카드가 늘 결정적 문구로 떨어진다.
 		jctx, cancel := context.WithTimeout(ctx, deadline)
 		j, err := analyst.Judge(jctx, start, moves, ply)
 		cancel()
 
-		// **문장도 여기서 만든다.** 세션 goroutine 밖이라는 조건이 판정과 똑같고, 무엇보다
-		// 카드가 뜨기 **전**에 문장이 손에 들어와야 한다 — 나중에 올려 보내 갈아끼우면
-		// 플레이어가 읽는 도중에 글자가 바뀐다. 대신 이 시간이 카드 지연에 더해지므로
-		// explain 쪽이 시한을 걸고, 넘기면 결정적 문구로 간다(explain.Deadline).
-		var e explain.Result
-		if err == nil && j.Verdict.Kind == intervene.KindBlunder {
-			e = describe(ctx, explainer, j.Facts)
-		}
-
+		// **문장은 여기서 안 만든다.** `explain.Render` 는 사실만 보는 순수 함수라 언제
+		// 불러도 같은 값이고, 되무르는 자리에서 부르면 판정 결과와 문장이 갈릴 길이 없다.
 		select {
-		case judgeDone <- judgeResult{gen: gen, judgement: j, move: played, explanation: e, err: err}:
+		case judgeDone <- judgeResult{gen: gen, judgement: j, move: played, err: err}:
 		case <-ctx.Done():
 		}
 	}()
 	return true
-}
-
-// describe 는 사실을 문장으로 바꾼다. Explainer 가 없으면 결정적 문구를 쓴다.
-//
-// nil 처리를 한 곳에 모아 두는 이유는 **문장이 비는 경로를 만들지 않기 위해서**다.
-// 부르는 쪽마다 nil을 보면 그중 하나가 언젠가 빈 문자열을 그대로 카드에 싣는다.
-func describe(ctx context.Context, e explain.Explainer, f explain.Facts) explain.Result {
-	if e == nil {
-		return explain.Result{Body: explain.Render(f), Tier: explain.TierTemplate}
-	}
-	return e.Explain(ctx, f)
 }
 
 // applyVerdict 는 판정 결과를 반영한다. 걸렸으면 **되무른다.**
@@ -921,7 +892,7 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 // observeSkill 은 판정 결과를 추정기에 넘긴다. **기다리지 않는다**(Rater).
 //
 // **답을 본 수는 안 넘긴다.** 알려준 최선수를 그대로 둔 것이 실력으로 기록되면 段級이
-// 부풀고, 그 숫자가 이 제품이 화면에서 파는 값이다(06-status.md §62 · §78). 물러진 수를
+// 부풀고, 그 숫자가 이 제품이 화면에서 파는 값이다(journal §62 · §78). 물러진 수를
 // 「개입에 오염되지 않은 신호」로 정의한 것과 같은 자리, 같은 이유다(01-core.md §5).
 //
 // **1단계는 안 뺀다** — 駒만 짚었으므로 어디로 갈지는 여전히 사람이 찾았다(hintedUSI 가
@@ -982,7 +953,7 @@ func (st *state) rollback(r judgeResult) {
 	// **물러진 수는 여기서만 남는다.** 기보에는 안 들어가므로, 이 한 줄을 안 쓰면
 	// 개입에 오염되지 않은 유일한 실력 신호가 그대로 사라진다(01-core.md §5).
 	if st.cfg.Recorder != nil {
-		st.cfg.Recorder.Retracted(len(st.usis)+1, r.move.USI, r.judgement.Verdict, r.explanation)
+		st.cfg.Recorder.Retracted(len(st.usis)+1, r.move.USI, r.judgement.Verdict)
 	}
 
 	st.stuck++
@@ -996,7 +967,7 @@ func (st *state) rollback(r judgeResult) {
 		RetractedJa:     r.move.Ja,
 		DeltaWin:        v.DeltaWin,
 		LostMate:        v.LostMate,
-		Message:         r.explanation.Body,
+		Message:         explain.Render(r.judgement.Facts),
 		RetractedSFEN:   r.judgement.RetractedSFEN,
 		RetractedChecks: r.judgement.RetractedChecks,
 		Refutation:      r.judgement.Refutation,
@@ -1383,7 +1354,7 @@ func (st *state) computeTagHints() {
 // 모양이 된다 — goroutine 으로 던지고 세대로 걸러 받는다(maybeGauge).
 //
 // **엔진을 걸기 전에 룰로 거른다.** 다만 그것이 걸러 주는 양은 적다 — 사람이 끝까지 둔
-// 판에서 사람 차례 149회 중 **117회에 후보가 있었다**(06-status.md §56). 그래서 게이트를
+// 판에서 사람 차례 149회 중 **117회에 후보가 있었다**(journal §56). 그래서 게이트를
 // 실제로 아끼는 것은 이 필터가 아니라 아래 쿨다운이고, **필터 자체도 싸지 않아**
 // 이 함수는 세션 goroutine 밖에서 돈다(tesujiOptions).
 func (st *state) maybeTesujiHint(ctx context.Context, done chan tesujiHintResult) {
@@ -1402,7 +1373,7 @@ func (st *state) maybeTesujiHint(ctx context.Context, done chan tesujiHintResult
 	}
 	// **쿨다운은 「띄운 자리」가 아니라 「물어본 자리」에서 잰다.** 뜬 자리에서만 재면 게이트가
 	// 한 번도 안 열리는 판에서 이 탐색이 **사람 차례마다** 돈다 — 풀은 셋인데 실제로 그렇게
-	// 돌아 298手 내내 대국 쪽이 줄을 섰다(06-status.md §56 · §74). 탐색이 후보 수와 무관하게
+	// 돌아 298手 내내 대국 쪽이 줄을 섰다(journal §56 · §74). 탐색이 후보 수와 무관하게
 	// 한 번이 된 뒤에도(gateTesujiOptions) 이 자리는 그대로다 — 아끼는 것이 탐색 횟수만이
 	// 아니라 **룰 필터**이기 때문이다(종반 한 번에 2.46초, §56).
 	// 상한(tesujiHintCount)은 그대로 뜬 횟수를 센다.
@@ -1436,7 +1407,7 @@ func (st *state) maybeTesujiHint(ctx context.Context, done chan tesujiHintResult
 		defer cancel()
 
 		// **룰 필터도 여기서 돈다.** 이 줄이 세션 goroutine 안에 있었고, 종반에 초 단위로
-		// 막았다(비용은 tesujiOptions, 실측은 06-status.md §56). 그동안 스냅샷도 投了도 못 받았다.
+		// 막았다(비용은 tesujiOptions, 실측은 journal §56). 그동안 스냅샷도 投了도 못 받았다.
 		//
 		// 시한 안에 두는 것은 예산을 정직하게 세기 위해서다. 이 함수 자체는 ctx를 안 보므로
 		// 중간에 끊기지 않고, 오래 걸린 만큼 아래 게이트의 몫이 줄어든다.
@@ -1489,7 +1460,7 @@ func (st *state) applyTesujiHint(r tesujiHintResult) {
 // pointHintAtTesuji 는 **이미 열린 계단**이 최선수 대신 手筋을 짚게 바꾼다.
 //
 // 계단을 새로 만들지 않는다. 둘 다 「네가 무엇을 두면 되는가」이고 발동 조건도 같아서,
-// 따로 두면 같은 파랑이 두 뜻이 된다 — 06-status.md §41.
+// 따로 두면 같은 파랑이 두 뜻이 된다 — journal §41.
 //
 // 바꿔도 되는 근거는 게이트다. 후보는 전부 `TesujiLossCp` 안이고 그 대신 **이름이 있다**
 // (01-core.md §7.1). 여럿이면 첫 번째 — `LegalMoves` 순서라 결정적이고 전부 같은 게이트를
@@ -1676,7 +1647,7 @@ func (s *Session) Close() {
 }
 
 // ─── 부르는 힌트 ─────────────────────────────────────────────
-// 사람이 눌러서 받는 최선수 힌트. 근거와 예산은 HintMaxPerGame · docs/06-status.md §78.
+// 사람이 눌러서 받는 최선수 힌트. 근거와 예산은 HintMaxPerGame · journal §78.
 
 // hintResult 는 힌트 탐색 하나의 결과다. 게이지·판정과 같은 규약으로 세대를 들고 온다.
 type hintResult struct {

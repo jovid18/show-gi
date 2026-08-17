@@ -4,7 +4,7 @@ import "github.com/jovid18/show-gi/apps/server/internal/shogi"
 
 // 자리로 정해지는 手筋 — 조건이 「자기가 안전한가」가 아니라 **「그 자리가 그 자리인가」**다
 // (寄せ라 駒損이 전제). 成駒를 뺀 기준은 「이름이 말하는 성질이 남아 있는가」
-// (06-status.md §34 ⑤).
+// (journal §34 ⑤).
 
 var (
 	haraGin    = Tag{Code: "hara_gin", NameJa: "腹銀", Kind: KindTesuji}

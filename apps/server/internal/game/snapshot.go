@@ -135,7 +135,7 @@ type Snapshot struct {
 	// **대국 중에 나가는 실력 관련 값은 이것 하나다.** 같은 추정치를 「너의 실력」으로
 	// 매 수 그리면 블런더 하나에 등급이 몇 계단 움직이는 것이 그대로 보인다
 	// (skill.RiseRate 가 비대칭이다). 사람에게 붙는 이름은 **판이 끝난 뒤 한 번**이고
-	// 총평이 싣는다(06-status.md §62).
+	// 총평이 싣는다(journal §62).
 	OpponentStrength int `json:"opponentStrength,omitempty"`
 }
 
@@ -143,7 +143,7 @@ type Snapshot struct {
 //
 // **반박 수순이 Verdict 안에 없는 것이 요점이다.** 거기 넣으면 intervene 이 USI 문자열을
 // 받게 되어 「입력은 이미 구해진 숫자뿐」이 깨진다 — 카테고리를 스칼라로 받게 만든 것과
-// 같은 이유다(06-status.md §15). 반박 수순은 판정의 입력도 출력도 아니고, 판정하면서
+// 같은 이유다(journal §15). 반박 수순은 판정의 입력도 출력도 아니고, 판정하면서
 // 어차피 손에 들어온 **그리기 재료**다.
 type Judgement struct {
 	Verdict intervene.Verdict
@@ -283,7 +283,7 @@ func newNotice(code string) *Notice {
 }
 
 // 갇힘 힌트가 열리는 지점. **같은 국면에서 연속으로 물러진 횟수**다 — 통과하는 수를
-// 두면 0으로 돌아간다. 한 판 누적으로 세지 않는 이유는 06-status.md §23.
+// 두면 0으로 돌아간다. 한 판 누적으로 세지 않는 이유는 journal §23.
 //
 // **[미확정]** 3과 5는 초기값이다. 재채점에서 2와 4로 내렸다가 되돌렸다 — 표본이
 // 전부 에이전트라 사람이 갇히는 모양이 아니었다(§39).
@@ -297,7 +297,7 @@ const (
 // **자르는 일은 서버가 한다.** 최선수를 통째로 내려보내고 화면이 출발 칸만 그리면
 // 계단이 화면에만 있고 답은 devtools에 그대로 남는다.
 //
-// 「최선수를 보여주지 않는다」(01-core.md §1)와 어긋나지 않는 근거는 06-status.md §23.
+// 「최선수를 보여주지 않는다」(01-core.md §1)와 어긋나지 않는 근거는 journal §23.
 type Hint struct {
 	// Square 는 움직일 駒가 있는 칸(`5d`). 打면 비어 있다.
 	Square string `json:"square,omitempty"`

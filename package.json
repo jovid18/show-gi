@@ -8,15 +8,12 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "lint": "oxfmt --check . && oxlint",
-    "lint:fix": "oxfmt . && oxlint --fix",
-    "zenn:preview": "zenn preview",
-    "zenn:new": "zenn new:article"
+    "lint:fix": "oxfmt . && oxlint --fix"
   },
   "devDependencies": {
     "oxfmt": "^0.63.0",
     "oxlint": "^1.78.0",
-    "typescript": "^7.0.2",
-    "zenn-cli": "^0.5.2"
+    "typescript": "^7.0.2"
   },
   "engines": {
     "node": ">=22"

@@ -2,7 +2,7 @@
 //
 // 이 제품이 아는 쇼기는 룰과 엔진 평가치뿐이었고, 이름이 붙은 것을 하나도 몰라서
 // 설명이 늘 「그 駒가 잡힙니다」 층에 머물렀다(06-status.md §5). 그 통로를 여는데,
-// 2차 자료를 쓰면 저작권과 신뢰성이 동시에 걸린다(04-llm.md §4).
+// 2차 자료를 쓰면 저작권과 신뢰성이 동시에 걸린다(09-tags.md §0).
 //
 // **그래서 정의를 우리가 계산할 수 있는 것으로만 적는다.** 축마다 방식이 다르고,
 // 그 차이가 곧 입력이 무엇인지를 정한다 — 자세한 것은 아래 Kind 옆에 적었다.
@@ -11,7 +11,7 @@
 //
 // **좌표는 지어내지 않았다.** 囲い의 필수 칸은 일본어 위키백과 본문의 배치 서술에서
 // 옮겼고 출처 URL을 정의마다 달아 뒀다. 판이 규칙을 틀리게 가르치는 것이 이 레포에서
-// 가장 값비싼 버그이고(06-status.md §22), 이름은 화면에 그대로 나가는 단언이라
+// 가장 값비싼 버그이고(journal §22), 이름은 화면에 그대로 나가는 단언이라
 // 근거 없이 적으면 안 된다. 전체 목록과 남은 것은 docs/09-tags.md 에 있다.
 package tag
 
@@ -40,7 +40,7 @@ const (
 // Tag 는 붙은 이름 하나다.
 //
 // Code 와 NameJa 를 가르는 이유는 **가는 곳이 다르기 때문**이다. Code 는 검색 키라서
-// (`kb_chunks.tags` · `edges.tags`) 영어이고 안 바뀌어야 한다. NameJa 는 화면에 그대로
+// (`games.style_tags` · `edges.tags`) 영어이고 안 바뀌어야 한다. NameJa 는 화면에 그대로
 // 나가는 문자열이라 일본어여야 한다(CLAUDE.md 언어 규칙).
 type Tag struct {
 	Code   string `json:"code"`
@@ -63,7 +63,7 @@ type square struct {
 type shape struct {
 	tag     Tag
 	squares []square
-	// source 는 이 좌표를 옮겨온 곳이다. kb_chunks.source_url 에 그대로 들어간다.
+	// source 는 이 좌표를 옮겨온 곳이다. 신뢰 계층은 09-tags.md §0.
 	source string
 }
 
@@ -174,7 +174,7 @@ var castles = []shape{
 	{
 		// 穴熊 — **여기만 출처의 성격이 다르다.** 본문에 배치 서술이 없어 좌표의 근거가
 		// URL이 아니라 도달 확인 테스트다(`TestAnagumaIsReachableFromTheStart`;
-		// 09-tags.md §1 · 06-status.md §30).
+		// 09-tags.md §1 · journal §30).
 		tag: Tag{Code: "ibisha_anaguma", NameJa: "居飛車穴熊", Kind: KindCastle},
 		squares: []square{
 			{9, 9, shogi.King}, {8, 8, shogi.Silver}, {7, 9, shogi.Gold},
@@ -274,7 +274,7 @@ var castles = []shape{
 
 // formationByFile 는 飛를 振った 筋(**先手 기준**)으로 전법을 정한다. **段을 안 보고,
 // 국면이 아니라 수순에서 읽는다** — 段을 고정하면 飛를 올린 순간 이름이 꺼지고, 국면으로
-// 물으면 종반에 그 筋을 지나가는 飛까지 걸린다(06-status.md §30, 09-tags.md §2).
+// 물으면 종반에 그 筋을 지나가는 飛까지 걸린다(journal §30, 09-tags.md §2).
 var formationByFile = map[int]Tag{
 	3: {Code: "sode_bisha", NameJa: "袖飛車", Kind: KindFormation},
 	4: {Code: "migi_shiken_bisha", NameJa: "右四間飛車", Kind: KindFormation},
@@ -319,7 +319,7 @@ func senteRank(rank int, c shogi.Color) int {
 
 // OpeningPlies 는 **戦法·戦型이 선언될 수 있는 구간**이다. 手数(양쪽 합)로 센다. 없으면
 // 종반에 떠돌던 飛가 「中飛車」가 된다 — 값의 근거와 341판 실측, 남은 **[미확정]** 은
-// 06-status.md §44.
+// journal §44.
 //
 // 아래 비율(이름이 처음 붙은 手数가 20수보다 뒤인 판)만 §44 에 없어서 여기가 유일본이다:
 //
@@ -384,7 +384,7 @@ func rookStartRank(c shogi.Color) int {
 }
 
 // squareFor 는 先手 좌표를 그 색의 좌표로 옮긴다 — 後手 진영은 180° 회전이라 筋·段을
-// 함께 뒤집는다. **後手 정의를 손으로 두 벌 적지 않는 이유는 06-status.md §30.**
+// 함께 뒤집는다. **後手 정의를 손으로 두 벌 적지 않는 이유는 journal §30.**
 func squareFor(s square, c shogi.Color) int {
 	if c == shogi.Black {
 		return shogi.SquareOf(s.file, s.rank)
@@ -522,7 +522,7 @@ func detectOpening(in Input, mine Tag, swung bool) (Tag, bool) {
 	theirsFuri := theySwung && isFuribisha(theirs)
 
 	// **角換わり만 「지금 手数」로 자른다** — 상태 술어라 교환 시점을 복원할 수 없어서다.
-	// 대가로 이 이름은 序盤 동안만 뜬다(06-status.md §44).
+	// 대가로 이 이름은 序盤 동안만 뜬다(journal §44).
 	traded := len(in.PlayerMoves)+len(in.OpponentMoves) <= OpeningPlies && bishopsTraded(in.Pos)
 
 	switch {
@@ -579,8 +579,9 @@ func rookOnStartFile(pos shogi.Position, c shogi.Color) bool {
 	return false
 }
 
-// All 은 정의된 모든 태그다. 코퍼스(`kb_chunks`)가 태그마다 항목을 갖는지 기계로
-// 확인하는 데 쓴다 — 태그는 있는데 설명이 없으면 화면에 이름만 뜨고 배울 것이 없다.
+// All 은 정의된 모든 태그다. 기보 스캔과 테스트가 **축을 가로질러** 훑는 데 쓴다 —
+// 축마다 컨테이너가 다르므로(`castles`·`formationByFile`) 이 하나가 없으면 부르는 쪽마다
+// 목록이 두 벌이 되고, 태그를 하나 더할 때 그중 하나가 조용히 빠진다.
 func All() []Tag {
 	out := make([]Tag, 0, len(castles)+len(formationByFile)+1)
 	for _, sh := range castles {

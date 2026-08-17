@@ -10,7 +10,7 @@ import (
 )
 
 // **k가 다르면 1위가 몇 번이나 갈리는가.** 개입 문장이 판정의 k=1 PV를 말하고 카드가 k=3의
-// 1위를 짚던 자리의 크기다(06-status.md §58 · playtests/2026-08-13-human-1.md §6 #8).
+// 1위를 짚던 자리의 크기다(journal §58 · playtests/2026-08-13-human-1.md §6 #8).
 //
 //	SHOWGI_MEASURE=1 SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/game/ -run MeasureCardBest -v
 //

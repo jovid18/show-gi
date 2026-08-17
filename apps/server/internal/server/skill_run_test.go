@@ -8,7 +8,7 @@ import (
 )
 
 // 처음 두는 사람에게는 「전」이 없어야 한다. 기준선을 그리면 아무도 안 잰 숫자가 사람에
-// 대한 판정으로 화면에 선다(06-status.md §62).
+// 대한 판정으로 화면에 선다(journal §62).
 func TestFirstGameHasNoBefore(t *testing.T) {
 	r := newSkillRun(skill.Unknown)
 	r.observing(nil)(skill.Estimate{Loss: 0.2, Samples: skill.MinSamples})

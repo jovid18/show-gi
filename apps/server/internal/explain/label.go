@@ -10,7 +10,7 @@ import "github.com/jovid18/show-gi/apps/server/internal/intervene"
 var categoryNames = map[intervene.Category]string{
 	intervene.CategoryMissedMate: "詰み逃し",
 	// **「逃し」가 아니다.** 詰み은 남아 있고 멀어졌을 뿐이라, 되짚기 목록과 총평이
-	// 같은 이름으로 부르면 이긴 판에 「놓쳤다」가 남는다(06-status.md §76).
+	// 같은 이름으로 부르면 이긴 판에 「놓쳤다」가 남는다(journal §76).
 	intervene.CategorySlowerMate:    "詰みの遠回り",
 	intervene.CategoryLetsMate:      "詰まされる",
 	intervene.CategoryHangsPiece:    "タダ捨て",
@@ -40,7 +40,7 @@ func CategoryJa(c intervene.Category) string {
 // 리뷰가 문장을 다시 만들어야 하고, 국면 사실은 남지 않아 여기 없다(지어내지 않는다).
 //
 // 새 문장을 짓지 않고 `Render` 가 사실 없이 내는 것과 **같은 문장**을 준다 — 두 벌이 되면
-// 같은 수가 대국 중과 리뷰에서 다른 이유로 나쁜 것이 된다(06-status.md §33).
+// 같은 수가 대국 중과 리뷰에서 다른 이유로 나쁜 것이 된다(journal §33).
 func BaseMessage(c intervene.Category) string {
 	if c == intervene.CategoryNone {
 		return ""

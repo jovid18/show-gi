@@ -125,7 +125,7 @@ func TestMirrorKeepsSuffix(t *testing.T) {
 }
 
 // TestOpeningMetadata 는 화면과 출처 규약을 지키는지다. 항목마다 URL을 박는 것은
-// 06-status.md §30에서 정한 것이고, 빠뜨리면 퍼블릭 레포에서 출처 없는 인용이 된다.
+// journal §30에서 정한 것이고, 빠뜨리면 퍼블릭 레포에서 출처 없는 인용이 된다.
 func TestOpeningMetadata(t *testing.T) {
 	seen := map[string]bool{}
 	for _, o := range All() {
@@ -159,7 +159,7 @@ func TestOpeningMetadata(t *testing.T) {
 //
 // 수순의 모든 수가 합법인데도 순서가 틀리면 駒를 공짜로 준다. 실제로 물렸다 — 矢倉의
 // ▲6八銀이 7九를 비우면서 8八의 角을 받치는 것을 없앴고, 그때 대각선이 열려 있으면
-// 상대가 그 자리에서 角을 잡는다(06-status.md §48). 룰 엔진은 그 수가 합법이라고만 답한다.
+// 상대가 그 자리에서 角을 잡는다(journal §48). 룰 엔진은 그 수가 합법이라고만 답한다.
 //
 // 사람 쪽이 **자기 角길을 먼저 연다** — 그것이 이 위험을 만드는 유일한 조건이고,
 // 초심자도 첫 몇 수에 그냥 두는 수다.

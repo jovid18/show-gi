@@ -111,7 +111,7 @@ func TestMateStillThereIsNotABlunder(t *testing.T) {
 }
 
 // **사라진 것과 멀어진 것은 다른 카테고리다.** 한 이름이었을 때 이긴 판에서
-// 「詰みを逃した」고 가르쳤다(06-status.md §76).
+// 「詰みを逃した」고 가르쳤다(journal §76).
 func TestSlowerMateIsNotMissedMate(t *testing.T) {
 	// 5手詰이 있었는데 8手가 됐다 — 詰み은 그대로 있다.
 	kept := Input{BestCp: 29950, AfterCp: 29920, MateBefore: 5, MateAfter: 8, Level: Beginner}

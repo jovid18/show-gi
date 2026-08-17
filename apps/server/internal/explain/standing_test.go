@@ -59,15 +59,3 @@ func TestWinningWhileAheadIsUntouched(t *testing.T) {
 		t.Errorf("勝ちました 로 시작해야 한다: %q", got)
 	}
 }
-
-// **형세가 키에 들어간다.** 안 들어가면 같은 카테고리·같은 결과의 두 판이 한 문장을
-// 나눠 쓰고, 그중 하나는 틀린 말을 하게 된다.
-func TestStandingSplitsTheCacheKey(t *testing.T) {
-	base := GameFacts{Outcome: OutcomeLost, Weight: WeightOnce}
-	ahead := base
-	ahead.Standing = StandingAhead
-
-	if base.Key() == ahead.Key() {
-		t.Error("형세가 달라도 키가 같다")
-	}
-}

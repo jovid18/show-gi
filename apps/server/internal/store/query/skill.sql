@@ -12,7 +12,7 @@ WHERE user_id = $1;
 -- name: SaveSkillEstimate :exec
 --
 -- 판정 한 건마다 부른다. **대국이 끝날 때 한 번이 아니다** — 새로고침하면 판이 끝나므로
--- (06-status.md §46) 끝에 몰아 쓰면 중간에 끊긴 판의 추정이 통째로 사라진다.
+-- (journal §46) 끝에 몰아 쓰면 중간에 끊긴 판의 추정이 통째로 사라진다.
 --
 -- weakness 는 건드리지 않는다. 카테고리별 발생률은 아직 쓰는 쪽이 없다.
 INSERT INTO skill_profile (user_id, skill_loss, skill_samples)

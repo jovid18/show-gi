@@ -31,7 +31,7 @@ interface HandProps {
    * 갇힘 힌트가 짚는 持ち駒의 종류. 파란 테를 두른다.
    *
    * 최선수가 打일 때 「그 駒」는 판 위에 없다. 駒台를 짚지 않으면 3회 단계가 打에서만
-   * 통째로 사라진다 — 실측한 국면 둘 중 하나가 바로 打이었다(06-status.md §22).
+   * 통째로 사라진다 — 실측한 국면 둘 중 하나가 바로 打이었다(journal §22).
    */
   hintDrop?: string | null;
   onPick: (origin: string) => void;

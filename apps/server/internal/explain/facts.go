@@ -1,25 +1,17 @@
 package explain
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-	"sort"
-	"strings"
-
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 )
 
 // Facts 는 문장으로 바꿀 **이미 정해진 사실들**이다. 전부 결정적으로 구해진 값이고,
 // 판·SFEN·cp·평가치는 여기 없다 — **말할 수 있는 것**으로 좁혀진 입력이다.
 //
-// **칸과 Δ승률이 없는 것이 설계다**(04-llm.md §2) — 둘 다 판과 카드가 이미 말하고 있어서,
-// 문장이 옮겨 적으면 두 벌이 되고 칸은 캐시 키를 81배로 늘린다.
+// **칸과 Δ승률이 없는 것이 설계다** — 둘 다 판과 카드가 이미 말하고 있어서, 문장이 옮겨
+// 적으면 두 벌이 되고 어긋났을 때 어느 쪽이 맞는지 알 수 없다.
 type Facts struct {
-	// Kind 는 제지형(blunder)인가 제안형(tesuji)인가다.
-	//
-	// 지금은 제지형뿐인데도 키에 들어간다. 「なぜ悪いか」와 「ここに何かある」는 문장이
-	// 아예 다르므로, 제안형이 붙는 날 같은 키로 묶이면 캐시가 엉뚱한 문장을 돌려준다.
+	// Kind 는 제지형(blunder)인가 제안형(tesuji)인가다. 지금은 제지형뿐이다 —
+	// 「なぜ悪いか」와 「ここに何かある」는 문장이 아예 다르므로 붙는 날 갈라진다.
 	Kind intervene.Kind
 	// Category 는 왜 나쁜가다. 이 패키지는 그 값을 **읽기만** 한다.
 	Category intervene.Category
@@ -48,7 +40,7 @@ type Facts struct {
 	// 詰ます 쪽이 처음과 끝을 두므로 **늘 홀수**이고 상한은 solver 의 `DepthLimit`(11)이다.
 	//
 	// **증명된 것만 온다** — 탐색의 mate 점수는 증명이 아니라 틀린 手数를 말하고,
-	// 틀린 手数를 적으면 초심자는 검증할 수단이 없다(06-status.md §40).
+	// 틀린 手数를 적으면 초심자는 검증할 수단이 없다(journal §40).
 	MatePlies int
 
 	// MateBefore 는 **이 수를 두기 전에 내가 가지고 있던** 詰み까지의 手数다. 없으면 0.
@@ -58,12 +50,12 @@ type Facts struct {
 	//
 	// **여기도 증명된 것만 온다**(`MatePlies` 와 같은 규칙). 착수 **후**의 手数는 solver 가
 	// 아니라 탐색이 준 값이라 증명이 아니고, 실제로 같은 국면에 14·16·「없음」이 나왔다 —
-	// 그래서 문장이 그쪽 숫자를 안 쓴다(06-status.md §76).
+	// 그래서 문장이 그쪽 숫자를 안 쓴다(journal §76).
 	MateBefore int
 
 	// Threatened 는 반박 수순의 **첫 수로 상대가 딸 수 있는 내 駒**의 한자다. 없으면 빈 값.
 	//
-	// 카테고리가 이유를 못 대는 3분의 2에 「무엇을 잃는가」를 주는 자리다(06-status.md §25).
+	// 카테고리가 이유를 못 대는 3분의 2에 「무엇을 잃는가」를 주는 자리다(journal §25).
 	// 「잃습니다」가 아니라 「取れます」로 말한다 — 실제로 그렇게 될지는 상대가 정하지만,
 	// 그 수가 합법이라는 것은 룰 엔진이 확인한 사실이다.
 	Threatened string
@@ -82,7 +74,9 @@ type Facts struct {
 	Branches []Branch
 
 	// Tags 는 이 국면에서 감지된 囲い·전법·戦型의 태그 코드다(`tag.Detect`가 준다).
-	// `kb_chunks` 를 찾는 키가 되고 캐시 키에도 들어간다.
+	//
+	// 문장은 아직 이 값을 안 쓴다 — 기록과 되짚기가 쓰고, 여기 실려 오는 것은 사실 하나에
+	// 태그가 붙어 다니게 두는 편이 나중에 문구를 태그로 가를 때 배선이 안 늘어나기 때문이다.
 	Tags []string
 }
 
@@ -102,98 +96,19 @@ type Branch struct {
 	MateIn int
 }
 
-// promptVersion 은 **나가는 문장 자체가 달라질 때만** 올린다.
-//
-// 캐시가 있는 계층에서 프롬프트를 고치는 것은 곧 키를 바꾸는 일이라, 안 올리면 옛 문장이
-// 영원히 돌아온다. **반대로 함부로 올리면** 004_explain_cache_tier1.sql 에 사전 생성해 둔
-// 21행이 통째로 죽어, 공짜였던 Tier 1 설명이 조용히 유료 LLM 호출로 되돌아간다 —
-// 카테고리가 하나 늘어난 정도로는 올리지 않는다. v2가 무엇이었는지는 06-status.md §38.
-//
-// **갈래 프롬프트의 숫자 표기 규칙(§68)에도 안 올렸다.** 그 규칙은 `branchSystemPrompt`
-// 에만 있고, 사전 생성된 21행은 갈래가 없는 사실이라 그 프롬프트를 지나지 않는다 —
-// 올리면 안 달라질 문장 21개를 유료 호출로 되돌리는 것이 전부다. 갈래가 붙는 `other` 쪽은
-// 런타임 캐시에만 있고 키에 갈래가 들어가 사실상 안 맞는다(§59).
-const promptVersion = 2
-
-// Key 는 `explain_cache.key` 다. **국면이 아니라 사실의 모양이 키다.**
-//
-// 같은 모양의 실수에는 같은 문장이 나가는 것이 맞다 — 카테고리는 유한하고, 그래서 설명의
-// 대부분이 캐시로 덮인다(docs/04-llm.md §2). 여기 들어가는 목록은 `used` 가 남긴 것과
-// 정확히 같다.
-func (f Facts) Key() string {
-	sum := sha256.Sum256([]byte(f.keyMaterial()))
-	return hex.EncodeToString(sum[:])
-}
-
-// keyMaterial 은 해시하기 **전**의, 사람이 읽을 수 있는 키다. 사전 생성이 이 값을 행마다
-// 주석으로 달아서(004_explain_cache_tier1.sql), 키가 왜 갈렸는지를 사람이 대조할 수 있다.
-func (f Facts) keyMaterial() string {
-	u := f.used()
-	// **`mp` 가 키에 있어야 한다.** 문장이 手数를 말하므로 빠지면 3手와 9手가 같은 키가 되고,
-	// 캐시가 9手 국면에 「3手で」를 돌려준다 — 초심자는 검증할 수단이 없어 그대로 배운다.
-	//
-	// **없던 칸을 끝에 더하면 옛 키가 전부 죽는다.** 그래서 `lets_mate` 일 때만 붙인다 —
-	// 나머지는 `used` 가 `MatePlies` 를 지워 키가 한 글자도 안 달라지고, 사전 생성해 둔
-	// 행이 계속 맞는다(06-status.md §40).
-	base := fmt.Sprintf("v%d|%s|%s|%d|mate=%t|known=%t|moved=%s|cap=%s|atk=%d|def=%t|thr=%s",
-		promptVersion, u.Kind, u.Category, u.Level, u.LostMate,
-		u.Known, u.MovedPiece, u.Captured, u.Attackers, u.Defended, u.Threatened)
-	if u.MatePlies > 0 {
-		base += fmt.Sprintf("|mp=%d", u.MatePlies)
-	}
-	// **`mb` 도 같은 이유로 키에 있어야 한다** — 문장이 「5手で」를 말하므로 3手와 7手가
-	// 같은 키면 캐시가 틀린 手数를 돌려준다. `slower_mate` 일 때만 붙어서 옛 키는 그대로다.
-	if u.MateBefore > 0 {
-		base += fmt.Sprintf("|mb=%d", u.MateBefore)
-	}
-	// **수는 국면 고유라 키가 사실상 안 겹친다.** 그래도 넣어야 한다 — 빼면 서로 다른
-	// 국면이 같은 키로 묶여 **다른 판의 수**가 문장으로 돌아온다. 캐시가 안 맞는 것보다
-	// 나쁜 유일한 결과가 그것이다. `other` 에만 붙으므로 나머지 카테고리의 옛 키는 그대로다.
-	//
-	// **갈래가 없어도 상대의 최선수 하나만으로 붙는다.** 그 하나도 프롬프트에 나가므로,
-	// 여기서 `Branches` 만 보면 「△同角이 厳しい」가 다른 판에 그대로 돌아온다.
-	if u.namesMoves() {
-		base += "|best=" + u.OpponentBest
-		for _, b := range u.Branches {
-			base += fmt.Sprintf("|br=%s,%s,%d,%d", b.PlayerJa, b.ReplyJa, b.Cp, b.MateIn)
-		}
-	}
-	if len(u.Tags) > 0 {
-		sorted := make([]string, len(u.Tags))
-		copy(sorted, u.Tags)
-		sort.Strings(sorted)
-		base += "|tags=" + strings.Join(sorted, ",")
-	}
-	return base
-}
-
-// Tier 는 이 사실들이 어느 층으로 가는지다. **문장에 국면 고유의 숫자나 駒가 들어가는가**로
-// 갈린다. 안 들어가면 키가 **21가지**뿐이라 한 번 만든 문장이 계속 재사용되고(사전 생성해 둔
-// 행이 그 21이다), 들어가면 키가 넓어지는 대신 문장이 그 국면을 짚는다(04-llm.md §2).
-func (f Facts) Tier() int {
-	u := f.used()
-	if u.Known && (u.Attackers > 0 || u.Captured != "" || u.Threatened != "" ||
-		u.MatePlies > 0 || u.MateBefore > 0 || u.namesMoves()) {
-		return 2
-	}
-	return 1
-}
-
 // namesMoves 는 이 문장이 **棋譜 표기를 적는가**다.
 //
-// **네 자리가 이 하나를 봐야 한다** — 캐시 키(`keyMaterial`)·프롬프트(`branchSystemPrompt`)·
-// 출력 검증(`CleanBranches` 의 허용목록)·`Tier`. 갈리면 그 조합에서 조용히 깨진다: 갈래 없이
-// 최선수 하나만 붙은 사실은 프롬프트에 수가 나가는데 키에는 안 들어가고(다른 판의 수가
-// 돌아온다), 「指し手は書かない」 프롬프트를 받고, 그 수를 적은 답이 통째로 버려진다.
+// 갈래가 없어도 상대의 최선수 하나만으로 참이 된다 — `renderBranches` 가 그 하나만으로도
+// 쓸 문장을 갖고 있고, 여기서 갈래만 보면 그 사실이 문장에서 조용히 사라진다.
 func (f Facts) namesMoves() bool {
 	return f.OpponentBest != "" || len(f.Branches) > 0
 }
 
 // used 는 **이 카테고리의 문장이 쓸 수 있는 사실만** 남기는 허용 목록이다.
 //
-// 키·프롬프트·결정적 문구가 전부 이 함수를 지난다 — 갈라두면 안 쓰는 사실로 캐시가 갈려
-// 히트율이 조용히 떨어지거나, 프롬프트에만 있는 사실이 언젠가 문장으로 새어 나온다.
-// **카테고리마다 말할 수 있는 것이 다른 것이 요점이다**(04-llm.md §2).
+// `Render` 가 이 함수를 지난다. **카테고리마다 말할 수 있는 것이 다른 것이 요점이다** —
+// 채우는 쪽(`game.engineAnalyst`)이 사실을 넉넉히 실어 보내도 문장에 나갈 수 있는 것은
+// 여기서 남은 것뿐이고, 그래서 사실을 하나 더 쓰려면 이 목록을 먼저 고쳐야 한다.
 func (f Facts) used() Facts {
 	// 판단에 쓰인 값들은 카테고리와 무관하게 남는다. Tags도 국면에 매인 값이라 함께 간다.
 	u := Facts{Kind: f.Kind, Category: f.Category, Level: f.Level, LostMate: f.LostMate, Tags: f.Tags}
@@ -229,7 +144,7 @@ func (f Facts) used() Facts {
 
 	case intervene.CategoryOther:
 		// 이유를 모르는 자리다. 지어내지 않고, 대신 **그래서 어떻게 되는가**를 말한다 —
-		// 잡히는 駒 하나와, 상대의 최선수 뒤에 갈라지는 세 갈래다(06-status.md §54).
+		// 잡히는 駒 하나와, 상대의 최선수 뒤에 갈라지는 세 갈래다(journal §54).
 		//
 		// **여기만 수를 적을 수 있다.** 다른 카테고리는 이유를 이름으로 대므로 수가 필요
 		// 없고, 이 갈래들이 서는 국면은 되물러서 이미 사라졌다 — 「지금 어떻게 두라」가
@@ -241,7 +156,7 @@ func (f Facts) used() Facts {
 	default:
 		// missed_mate · shallow_trap · unpromoted · idle_check · king_exposed.
 		// 카테고리 자체가 이미 구체적이라 붙일 사실이 없다. Known 을 세우지 않는 것이
-		// 곧 「이 문장은 국면을 안 짚는다」이고, 그래서 Tier 1로 간다.
+		// 곧 「이 문장은 국면을 안 짚는다」이고, 그러면 카테고리 문구가 그대로 나간다.
 	}
 	return u
 }

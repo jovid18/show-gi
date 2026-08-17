@@ -35,9 +35,7 @@ select i.game_id,
        i.ply,
        i.category,
        round(i.delta_win::numeric, 3) as dw,
-       i.retracted_usi,
-       i.explain_tier,
-       i.cost_yen
+       i.retracted_usi
   from interventions i
   join games g on g.id = i.game_id
  where g.started_at >= :'from'
@@ -65,24 +63,16 @@ having count(*) > 1
  order by count(*) desc, i.game_id, i.ply;
 
 -- 6. 08-playtest.md §11에서 관측된 것들 — prod에서도 같은지 --------------------
--- 로컬에서는 positions 가 테스트 픽스처 2행뿐이었고, explain_cache 가 비어 있었고,
--- game_moves.sfen_key·eval_cp 가 전부 NULL 이었다. 달라졌으면 그것이 이번 회차의 발견이다.
+-- 로컬에서는 positions 가 테스트 픽스처 2행뿐이었고 game_moves.sfen_key·eval_cp 가
+-- 전부 NULL 이었다. 달라졌으면 그것이 이번 회차의 발견이다.
 
 select count(*) as positions_rows,
        count(*) filter (where sfen_key like 'test/%') as test_fixtures
   from positions;
-
-select count(*) as explain_cache_rows from explain_cache;
 
 select count(*) as moves,
        count(sfen_key) as sfen_key_not_null,
        count(eval_cp) as eval_cp_not_null
   from game_moves m
   join games g on g.id = m.game_id
- where g.started_at >= :'from';
-
-select count(*) filter (where explain_tier is not null) as tier_set,
-       sum(cost_yen) as total_cost_yen
-  from interventions i
-  join games g on g.id = i.game_id
  where g.started_at >= :'from';

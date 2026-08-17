@@ -49,7 +49,7 @@ func (o *scriptedOpponent) Choose(ctx context.Context, _ string, _ []string, _ s
 // `scriptedOpponent{delay: 0}` 으로는 그 자리를 못 잡는다. 되만든 판이 상대 차례면
 // `run` 이 시작하자마자 `maybeThink` 을 걸고, 그 goroutine 의 답과 테스트의 `Snapshot`
 // 이 **같은 select 에 나란히 준비된다** — 어느 쪽이 뽑히는지가 Go 의 무작위 선택과 그때의
-// 부하에 달린다(06-status.md §73).
+// 부하에 달린다(journal §73).
 type silentOpponent struct{}
 
 func (silentOpponent) Choose(ctx context.Context, _ string, _ []string, _ skill.Estimate) (string, error) {
@@ -761,7 +761,7 @@ func TestBuildHintStaysBehindItsStage(t *testing.T) {
 		want  *Hint
 	}{
 		// **횟수를 여기 박지 않는다.** 지키는 것은 「칸마다 실리는 것이 다르다」이지
-		// 2나 4라는 값이 아니다 — 값은 실측으로 움직인다(06-status.md §39).
+		// 2나 4라는 값이 아니다 — 값은 실측으로 움직인다(journal §39).
 		{"아직 안 열린다", HintPieceAfter - 1, "5d5f", nil},
 		{"첫 칸 — 칸만", HintPieceAfter, "5d5f", &Hint{Square: "5d"}},
 		{"그 사이 — 그대로", HintMoveAfter - 1, "5d5f", &Hint{Square: "5d"}},

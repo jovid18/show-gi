@@ -1,6 +1,7 @@
 package server
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -160,13 +161,9 @@ func TestUnfinishedGameStillSummarizes(t *testing.T) {
 	if facts.Outcome != explain.OutcomeUnfinished {
 		t.Errorf("Outcome = %q", facts.Outcome)
 	}
-	// Summarizer 가 없어도 문장이 나온다.
-	got := summarize(t.Context(), nil, rec, intervene.Beginner)
+	got := summarize(rec, intervene.Beginner)
 	if got.Body == "" {
 		t.Error("빈 총평")
-	}
-	if got.Tier != explain.TierTemplate {
-		t.Errorf("Tier = %d, want %d", got.Tier, explain.TierTemplate)
 	}
 	if got.Stats.Interventions != 1 {
 		t.Errorf("Stats = %+v", got.Stats)
@@ -227,15 +224,16 @@ func TestFocusDoesNotReachTheSentence(t *testing.T) {
 		t.Fatalf("숫자 쪽에 짚는 자리가 없다: %+v", stats.Focus)
 	}
 
-	// 같은 사실인데 手数만 다른 판이 **같은 캐시 키**여야 한다.
+	// 그런데 **문장 쪽 사실은 手数를 모른다.** 짚는 자리는 화면의 표가 그리고, 총평은 판
+	// 전체의 모양을 말하는 자리다 — 문장이 手数를 옮겨 적으면 두 벌이 된다.
 	//
-	// 手数를 같은 구간 안에서 옮긴다(둘 다 序盤) — 구간이 갈리면 `Phase` 가 달라져서
-	// 키도 달라지는 것이 **맞고**, 그건 이 테스트가 잡으려는 것이 아니다.
+	// 手数를 같은 구간 안에서 옮긴다(둘 다 序盤) — 구간이 갈리면 `Phase` 가 달라지는 것이
+	// **맞고**, 그건 이 테스트가 잡으려는 것이 아니다.
 	other := rec
 	other.Interventions = []store.RecordedIntervention{{Ply: 12, Category: "hangs_piece", DeltaWin: 0.7}}
 	otherFacts, _ := factsOf(other, intervene.Beginner)
-	if facts.Key() != otherFacts.Key() {
-		t.Error("手数가 캐시 키를 갈랐다 — Tier 0이 영영 안 맞는다")
+	if !reflect.DeepEqual(facts, otherFacts) {
+		t.Errorf("手数가 문장 쪽 사실을 갈랐다:\n%+v\n%+v", facts, otherFacts)
 	}
 }
 

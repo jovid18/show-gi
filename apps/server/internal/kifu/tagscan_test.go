@@ -577,7 +577,7 @@ func TestScanWhatStandsAroundAnUnnamedKing(t *testing.T) {
 
 // **手筋의 형태가 실 기보에서 얼마나·어디서 서는가.**
 //
-// 지금까지 手筋은 한 판(`playtestUpTo103`)에서만 쟀다([06-status.md §34](../../../../docs/06-status.md)).
+// 지금까지 手筋은 한 판(`playtestUpTo103`)에서만 쟀다([journal §34](../../../../docs/journal/21-40.md)).
 // 형태 6개 · 이름 2개가 그 판의 전부였고, 그 숫자로 빈도를 말할 수는 없다.
 //
 // **엔진을 안 쓰고 룰 층만 본다.** `game.NamedTesuji` 에 두 cp를 같게 넣으면 낙폭 0이라

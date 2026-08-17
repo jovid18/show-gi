@@ -3,7 +3,7 @@
 // **스키마가 코드를 만든다.** `migrations/*.sql` 이 정본이고 sqlc가 거기서 `db/` 를 생성한다
 // (`go tool sqlc generate`). 반대 방향(ORM이 스키마를 만드는 것)을 안 쓰는 이유는
 // 001_init.sql 에 ORM으로 표현되지 않는 것이 여럿이기 때문이다 — interventions 의 CHECK
-// 제약, kb_chunks 의 부분 인덱스, pgvector 의 vector 타입. 옮겨 적으면 스키마가 두 벌이 된다.
+// 제약과 부분 인덱스·GIN 인덱스. 옮겨 적으면 스키마가 두 벌이 된다.
 package store
 
 import (
@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -261,7 +260,7 @@ func (s *Store) SaveSkillEstimate(ctx context.Context, userID int64, e SkillEsti
 // GameResult 는 games.result 에 들어가는 값이다.
 //
 // **셋만 「끝난 판」이다** — win·loss·draw. 화면이 읽는 질의가 그 셋으로 거르므로
-// (query/games.sql), 아래 둘은 클라이언트에 아예 안 나간다(docs/06-status.md §51).
+// (query/games.sql), 아래 둘은 클라이언트에 아예 안 나간다(journal §51).
 //
 // 칸에 CHECK 가 없어서 값을 늘리는 데 마이그레이션이 필요 없다. 대신 **여기가 유일한
 // 어휘 목록이다** — 001_init.sql 의 칸 주석은 `declined` 를 모른다(적용된 마이그레이션은
@@ -307,7 +306,7 @@ func (s *Store) FinishGame(ctx context.Context, gameID int64, result GameResult)
 }
 
 // ── 이어하기 ─────────────────────────────────────────────
-// 방향은 docs/06-status.md §46, 정한 것은 §51. **세션을 살려 두지 않는다** — 여기 있는
+// 방향은 journal §46, 정한 것은 §51. **세션을 살려 두지 않는다** — 여기 있는
 // 것은 전부 기록 쪽이고, 국면은 기보에서 다시 만든다(server/ws.go).
 
 // ResumableGame 은 이어할 수 있는 판의 머리다. 화면이 물음 카드를 그리는 데 쓴다.
@@ -435,7 +434,7 @@ func (s *Store) InsertMove(ctx context.Context, gameID int64, ply int, usi strin
 	return nil
 }
 
-// SetMoveEval 은 그 手数의 평가치를 나중에 채운다. **先手 관점 cp** 다(06-status.md §26).
+// SetMoveEval 은 그 手数의 평가치를 나중에 채운다. **先手 관점 cp** 다(journal §26).
 //
 // 수가 먼저 들어가 있어야 한다. 없는 ply면 아무 일도 일어나지 않는다.
 func (s *Store) SetMoveEval(ctx context.Context, gameID int64, ply, cp int) error {
@@ -465,22 +464,12 @@ type Intervention struct {
 	// 호각인 국면에서 개입이 걸릴 일은 없으므로 이 규칙이 실제 값을 버리지는 않는다.
 	BestCp  int
 	AfterCp int
-
-	// ExplainTier 는 설명이 어느 계층에서 나왔나(0=캐시 1=소형 2=대형)다.
-	//
-	// **nil은 NULL** — LLM을 아예 안 거친 것이고, 「캐시 히트」와 뜻이 정반대다(04-llm.md §2).
-	ExplainTier *int
-	// CostYen 은 그 설명 하나에 든 돈이다. 캐시 히트와 템플릿은 0이다.
-	//
-	// 칸이 numeric(10,4) 라 **0.0001엔 미만은 0으로 떨어진다.** 소형 모델 한 번이 그보다
-	// 싸질 수 있으므로, 합계를 볼 때는 이 칸이 아니라 라우터의 analytics 를 본다.
-	CostYen float64
 }
 
 // InsertIntervention 은 개입 하나를 남긴다.
 //
 // **같은 ply에 여러 번 불릴 수 있다.** 그 반복이 곧 「그 국면이 그 사람에게 얼마나
-// 어려웠나」이고, 그래서 (game_id, ply) 는 유니크가 아니다(06-status.md §17).
+// 어려웠나」이고, 그래서 (game_id, ply) 는 유니크가 아니다(journal §17).
 func (s *Store) InsertIntervention(ctx context.Context, gameID int64, iv Intervention) error {
 	arg := db.InsertInterventionParams{
 		GameID: gameID,
@@ -503,75 +492,10 @@ func (s *Store) InsertIntervention(ctx context.Context, gameID int64, iv Interve
 		arg.BestCp, arg.AfterCp = &b, &a
 	}
 
-	if iv.ExplainTier != nil {
-		t := int16(*iv.ExplainTier)
-		arg.ExplainTier = &t
-	}
-	if err := arg.CostYen.Scan(strconv.FormatFloat(iv.CostYen, 'f', 4, 64)); err != nil {
-		return fmt.Errorf("insert intervention: cost %v: %w", iv.CostYen, err)
-	}
-
 	if err := s.q.InsertIntervention(ctx, arg); err != nil {
 		return fmt.Errorf("insert intervention: %w", err)
 	}
 	return nil
-}
-
-// CachedExplanation 은 설명 캐시(Tier 0)를 찾는다. **찾으면서 히트를 센다.**
-//
-// 없는 키는 에러가 아니다 — 그것이 정상 경로의 절반이고, 부르는 쪽은 그때 LLM으로 내려간다.
-func (s *Store) CachedExplanation(ctx context.Context, key string) (string, bool, error) {
-	body, err := s.q.CachedExplanation(ctx, key)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", false, nil
-	}
-	if err != nil {
-		return "", false, fmt.Errorf("cached explanation: %w", err)
-	}
-	return body, true, nil
-}
-
-// SaveExplanation 은 만든 문장을 캐시에 넣는다. 같은 키가 있으면 아무 일도 안 한다.
-func (s *Store) SaveExplanation(ctx context.Context, key, body, model string) error {
-	arg := db.SaveExplanationParams{Key: key, Body: body}
-	if model != "" {
-		arg.Model = &model
-	}
-	if err := s.q.SaveExplanation(ctx, arg); err != nil {
-		return fmt.Errorf("save explanation: %w", err)
-	}
-	return nil
-}
-
-// KbRow 는 `kb_chunks` 한 행의 제목과 본문이다.
-type KbRow struct {
-	Title string
-	Body  string
-}
-
-// KnowledgeForTags 는 태그에 걸리는 `kb_chunks` 를 돌려준다. 태그가 비면 nil.
-func (s *Store) KnowledgeForTags(ctx context.Context, tags []string) ([]KbRow, error) {
-	if len(tags) == 0 {
-		return nil, nil
-	}
-	rows, err := s.q.KnowledgeForTags(ctx, tags)
-	if err != nil {
-		return nil, fmt.Errorf("knowledge for tags: %w", err)
-	}
-	out := make([]KbRow, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, KbRow{Title: r.Title, Body: r.Body})
-	}
-	return out, nil
-}
-
-// ExplainCacheStats 는 (항목 수, 누적 히트)다. 발표의 캐시 히트율이 여기서 나온다.
-func (s *Store) ExplainCacheStats(ctx context.Context) (entries, hits int64, err error) {
-	row, err := s.q.ExplainCacheStats(ctx)
-	if err != nil {
-		return 0, 0, fmt.Errorf("explain cache stats: %w", err)
-	}
-	return row.Entries, row.Hits, nil
 }
 
 // CountGames 는 games 행 수다. 기록이 실제로 쌓이는지 확인하는 데 쓴다.
@@ -680,7 +604,7 @@ func (s *Store) ListGames(ctx context.Context, limit int, ownerID *int64) ([]Gam
 }
 
 // ListGamesAnyOwner 는 주인을 안 보고 전부 준다. **측정 전용이다** —
-// 상수 재채점이 기록된 판을 가로질러 읽는다(06-status.md §39). HTTP 표면에서 부르면
+// 상수 재채점이 기록된 판을 가로질러 읽는다(journal §39). HTTP 표면에서 부르면
 // 그 순간 남의 기보가 열린다(02-architecture.md §7 위협 2).
 func (s *Store) ListGamesAnyOwner(ctx context.Context, limit int) ([]GameSummary, error) {
 	rows, err := s.q.ListGames(ctx, listLimit(limit))
@@ -848,7 +772,7 @@ func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error)
 	}
 
 	// **개입 횟수에 무르기를 안 더한다.** 목록의 그 숫자는 「AI가 몇 번 막았나」이고
-	// (docs/06-status.md §72), 사람이 스스로 무른 것을 섞으면 개입이 실제보다 잦아 보인다.
+	// (journal §72), 사람이 스스로 무른 것을 섞으면 개입이 실제보다 잦아 보인다.
 	out := GameRecord{
 		GameSummary: summaryOf(
 			head.ID, head.MyColor, head.StartedAt, head.FinishedAt, head.Result,

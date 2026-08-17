@@ -23,43 +23,6 @@ func letsMateFacts(plies int) Facts {
 	}
 }
 
-// **手数가 키에 있어야 한다.** 문장이 手数를 말하므로, 빠지면 캐시가 9手 국면에
-// 「3手で」를 돌려준다 — 초심자는 검증할 수단이 없어 그대로 배운다.
-func TestMatePliesSplitsTheCacheKey(t *testing.T) {
-	three, nine := letsMateFacts(3), letsMateFacts(9)
-	if three.Key() == nine.Key() {
-		t.Error("3手와 9手가 같은 키다 — 캐시가 틀린 手数의 문장을 돌려준다")
-	}
-	if !strings.Contains(three.keyMaterial(), "mp=3") {
-		t.Errorf("키에 手数가 없다: %s", three.keyMaterial())
-	}
-	// 같은 手数면 같은 키여야 캐시가 듣는다.
-	if three.Key() != letsMateFacts(3).Key() {
-		t.Error("같은 사실이 다른 키를 냈다")
-	}
-}
-
-// **다른 카테고리의 키는 한 글자도 안 달라져야 한다.** 004_explain_cache_tier1.sql 에
-// 사전 생성해 둔 행이 그 키로 들어 있고, 끝에 칸을 더하면 전부 죽는다(§38).
-func TestMatePliesDoesNotDisturbOtherKeys(t *testing.T) {
-	for _, c := range []intervene.Category{
-		intervene.CategoryMissedMate, intervene.CategoryHangsPiece, intervene.CategoryShallowTrap,
-		intervene.CategoryUnpromoted, intervene.CategoryGreedyCapture, intervene.CategoryIdleCheck,
-		intervene.CategoryKingExposed, intervene.CategoryOther,
-	} {
-		f := Facts{Kind: intervene.KindBlunder, Category: c, Level: intervene.Novice, Known: true}
-		// 엉뚱한 카테고리에 手数가 실려 와도 `used` 가 지우므로 키가 안 갈린다.
-		withMate := f
-		withMate.MatePlies = 5
-		if f.Key() != withMate.Key() {
-			t.Errorf("%s: 手数가 키를 갈랐다 — 사전 생성된 행이 죽는다", c)
-		}
-		if strings.Contains(f.keyMaterial(), "mp=") {
-			t.Errorf("%s: 키에 mp 칸이 붙었다: %s", c, f.keyMaterial())
-		}
-	}
-}
-
 func TestLetsMateSaysThePlyCount(t *testing.T) {
 	got := Render(letsMateFacts(3))
 	if !strings.Contains(got, "3手") {
@@ -87,12 +50,6 @@ func TestLetsMateWithoutPlyCountFallsBack(t *testing.T) {
 	}
 	if !strings.Contains(got, "詰まされ") {
 		t.Errorf("詰まされる 는 말해야 한다: %q", got)
-	}
-}
-
-func TestLetsMateIsTier2(t *testing.T) {
-	if tier := letsMateFacts(3).Tier(); tier != 2 {
-		t.Errorf("Tier = %d, want 2 — 手数는 국면 고유의 숫자다", tier)
 	}
 }
 

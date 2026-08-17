@@ -58,7 +58,7 @@ crash.log
 /WORKTREE.md
 
 # ─── Secrets ───────────────────────────────────────────────
-# OrcaRouter 키, Google OAuth 시크릿, DB 접속 정보가 여기 들어간다.
+# Google OAuth 시크릿과 DB 접속 정보가 여기 들어간다.
 .env
 .env.*
 !.env.example

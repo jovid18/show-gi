@@ -120,7 +120,7 @@ CREATE TABLE explain_cache (
 );
 
 -- RAG 코퍼스. 출처가 없거나 검증되지 않은 chunk는 프롬프트에 붙이지 않는다 —
--- 그 규칙을 코드가 아니라 스키마에서 강제한다 (docs/04-llm.md §4).
+-- 그 규칙을 코드가 아니라 스키마에서 강제한다 (docs/09-tags.md §0).
 CREATE TABLE kb_chunks (
     id             bigserial PRIMARY KEY,
     title          text NOT NULL,

@@ -199,7 +199,7 @@ func TestWhatIfAppliesTheMoveAndStops(t *testing.T) {
 }
 
 // 물러진 수는 **기보에 없다.** 그 수를 그 국면에서 둬 볼 수 있는 것이 이 표면의 이유다
-// (06-status.md §25 — 가르치는 것은 최선 수순이 아니라 「두려던 수의 변화」다).
+// (journal §25 — 가르치는 것은 최선 수순이 아니라 「두려던 수의 변화」다).
 func TestWhatIfPlaysTheRetractedMove(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d", "6g6f")
 	rec.Interventions = []store.RecordedIntervention{{

@@ -95,7 +95,7 @@ func TestMeasureTagHintLoad(t *testing.T) {
 }
 
 // humanThreeKifu 는 회차 3의 기보다(`games.id=863` · 208手 · 사람이 **後手**).
-// 회차 1과 갈라 두는 이유는 06-status.md §76 — 그 판이 §74 뒤의 첫 사람 판이다.
+// 회차 1과 갈라 두는 이유는 journal §76 — 그 판이 §74 뒤의 첫 사람 판이다.
 func humanThreeKifu(t *testing.T) []string {
 	t.Helper()
 	raw, err := os.ReadFile("testdata/human-3.usi")

@@ -53,7 +53,7 @@ func TestTesujiOptionsFindsAMoveThatWouldFork(t *testing.T) {
 
 // **이미 서 있는 형태는 후보가 아니다.** 桂를 5五에 미리 놓아 두면 両取り가 이미
 // 성립해 있고, 그 국면에서 아무 수나 두는 것이 手筋이 되어서는 안 된다 —
-// 06-status.md §34 ⑦이 잡은 「두 수 뒤 조용한 수가 이름을 받는다」와 같은 자리다.
+// journal §34 ⑦이 잡은 「두 수 뒤 조용한 수가 이름을 받는다」와 같은 자리다.
 func TestTesujiOptionsIgnoresShapesAlreadyOnTheBoard(t *testing.T) {
 	const alreadyForking = "8k/9/3g1g3/9/4N4/9/9/9/8K b - 1"
 
@@ -271,7 +271,7 @@ func (s *countingSearch) count() int {
 }
 
 // **쿨다운은 「물어본 자리」에서 잰다.** 띄운 자리에서만 재면 게이트가 한 번도 안 열리는
-// 판에서 이 탐색이 사람 차례마다 돌고, 그 판이 실제로 멈췄다(06-status.md §56).
+// 판에서 이 탐색이 사람 차례마다 돌고, 그 판이 실제로 멈췄다(journal §56).
 func TestTesujiHintGateWaitsForTheCooldownEvenAfterAMiss(t *testing.T) {
 	search := &countingSearch{}
 	st := &state{

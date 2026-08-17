@@ -44,7 +44,7 @@ const GuideScreen = lazy(async () => ({
  *
  * **로그인 기능이 켜졌는가(`me.enabled`)로 가르지 않는다.** 그 값은 배포에 로그인이
  * 있는가일 뿐이라 익명으로 두는 사람에게도 참이고, 실제로 그 탭이 익명에게 떠 있었다
- * (06-status.md §76).
+ * (journal §76).
  */
 const TABS: { route: Route; label: string; needsAuth?: boolean }[] = [
   { route: { name: 'game' }, label: '対局' },

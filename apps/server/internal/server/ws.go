@@ -116,7 +116,7 @@ func reject(reason string) serverMsg {
 type gameHandler struct {
 	opts Options
 	// auth 는 이 판이 누구의 것으로 남는지만 정한다. **대국을 막지 않는다** —
-	// 로그인 없이 두는 판은 지금까지처럼 익명으로 남는다(06-status.md §18).
+	// 로그인 없이 두는 판은 지금까지처럼 익명으로 남는다(journal §18).
 	auth *authHandler
 }
 
@@ -252,7 +252,7 @@ func resumeMoves(rec store.GameRecord) ([]string, error) {
 
 // confirmed 는 **세션이 방금 보낸** 확정 수들이다. 세션에 물어보는 길을 새로 파지 않는
 // 이유는 그쪽이 곧 **핸들러가 상태를 직접 읽는 지름길**이 되기 때문이다 — 어차피 구독해서
-// 받는 스냅샷을 한 벌 들고 있는 것이다(06-status.md §37).
+// 받는 스냅샷을 한 벌 들고 있는 것이다(journal §37).
 type confirmed struct {
 	mu    sync.Mutex
 	moves []string
@@ -344,11 +344,10 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		StartSFEN:       setup.startSFEN,
 		StartMoves:      setup.startMoves,
 		ObservePlies:    h.opts.ObservePlies,
-		Explainer:       h.opts.Explainer,
 		Mate:            h.opts.Mate,
 		// **手筋 제안형 힌트는 꺼 뒀다**(nil). 세 판 내내 화면에 0건이었고, 그것이 k도
 		// 지연도 아니라 게이트의 폭 때문이라는 것이 실측으로 나왔다 — 사람이 둔 두 기보에서
-		// 후보 64개·122개 중 `TesujiLossCp` 안에 든 것이 각각 0개·2개다(06-status.md §76).
+		// 후보 64개·122개 중 `TesujiLossCp` 안에 든 것이 각각 0개·2개다(journal §76).
 		//
 		// **끄면 사람 차례마다 도는 룰 필터가 통째로 사라진다**(종반 한 번에 2.46초, §56).
 		// 아무것도 안 뜨는 채로 그 비용을 계속 쓰고 있었다. 대신 사람이 부르는 힌트가
@@ -511,16 +510,14 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 		return
 	}
 
-	// **퀴즈를 먼저 띄운다.** 총평은 LLM을 기다리므로 여기서 몇 초 막히는데, 그 사이에
-	// 문항 만들기가 시작돼 있는 편이 낫다 — 사람이 되짚기를 여는 것은 총평을 읽은 뒤다.
+	// **퀴즈를 먼저 띄운다.** 문항 만들기는 엔진을 쓰므로 시간이 걸리고, 사람이 되짚기를
+	// 여는 것은 총평을 읽은 뒤다 — 그 사이에 시작돼 있는 편이 낫다.
 	go h.generateQuiz(base, rec)
 
-	// **총평은 살아 있는 ctx로 만든다.** 끊긴 연결에 보낼 문장을 사느라 라우터를 부를
-	// 이유가 없고, 그쪽은 되짚기가 다시 청할 수 있다.
-	payload := summarize(ctx, h.opts.Summarizer, rec, h.opts.Level)
+	payload := summarize(rec, h.opts.Level)
 	// **段級은 기록이 아니라 추정기에서 온다.** 기록에는 낙폭이 물러진 수에만 있어
 	// (§39 ⑥) 그것으로 다시 세면 통과한 수를 못 보고, 그 값은 상대가 겨냥한 강함과도
-	// 갈린다 — 화면의 두 숫자가 같은 곳에서 나와야 하는 이유는 06-status.md §31.
+	// 갈린다 — 화면의 두 숫자가 같은 곳에서 나와야 하는 이유는 journal §31.
 	payload.Skill = skills.change()
 	// **번호는 여기서만 붙는다.** 대국 화면은 자기 판의 번호를 모르고(기록이 WS 밖에서
 	// 비동기로 쓰인다), 총평이 되짚기로 건너가는 링크를 그리려면 그것이 필요하다.
@@ -544,7 +541,7 @@ const quizSaveTimeout = 10 * time.Second
 //
 // **연결이 끊겨도 계속한다**(`context.WithoutCancel`). 만드는 데 수십 초가 걸리는데 사람은
 // 판이 끝나면 곧 화면을 떠나고, 요청 ctx에 매어 두면 그 순간 문항이 사라진다 — 되짚기에서
-// 만들지 않기로 했으므로(06-status.md §53) 여기서 못 만들면 **아무 데서도 못 만든다.**
+// 만들지 않기로 했으므로(journal §53) 여기서 못 만들면 **아무 데서도 못 만든다.**
 //
 // 종료가 걸리지는 않는다. `Pool.Close` 가 막히는 것은 **진행 중인 탐색 하나**뿐이고, 그
 // 하나는 詰み 쪽이 `DepthLimit=11` 로 100ms대이고 탐색 쪽이 1초대다.

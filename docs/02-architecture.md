@@ -2,23 +2,23 @@
 
 ## 1. 기술 결정 (확정)
 
-| 항목     | 결정                                                   | 근거                                                                 |
-| -------- | ------------------------------------------------------ | -------------------------------------------------------------------- |
-| 서버     | **Go 단일 서비스**                                     | §2                                                                   |
-| 프론트   | React + TS + Vite                                      | 확정 사항. 판 렌더는 새로 쓴다 (§8)                                  |
-| 3D       | three.js, **정사영 + 1.5컷**(§41)                      | [프론트엔드](03-frontend.md)                                         |
-| DB       | **PostgreSQL 단일. 그래프 DB 쓰지 않는다**             | §4                                                                   |
-| 엔진     | **やねうら王 + 水匠5**. `ENGINE_CMD`로 교체 가능       | §3                                                                   |
-| LLM      | OrcaRouter (`temperature=0`). 모델은 **실측으로 고정** | 해커톤 요구사항. `auto` 를 쓰면 안 된다 — [LLM 계층 §3](04-llm.md)   |
-| 인증     | **Google OAuth만**                                     | LINE은 심사 서류·채널 개설에 시간이 든다. 여유가 나면 D6에 추가      |
-| 배포     | AWS ECS Fargate + ALB, Terraform, Route53              | §6                                                                   |
-| 모노레포 | pnpm 워크스페이스 + `apps/server`(Go 별도 go.mod)      | `../more-more`와 동일 구조. oxfmt/oxlint, `.githooks`, CI까지 그대로 |
+| 항목     | 결정                                              | 근거                                                                 |
+| -------- | ------------------------------------------------- | -------------------------------------------------------------------- |
+| 서버     | **Go 단일 서비스**                                | §2                                                                   |
+| 프론트   | React + TS + Vite                                 | 확정 사항. 판 렌더는 새로 쓴다 (§8)                                  |
+| 3D       | three.js, **정사영 + 1.5컷**(§41)                 | [프론트엔드](03-frontend.md)                                         |
+| DB       | **PostgreSQL 단일. 그래프 DB 쓰지 않는다**        | §4                                                                   |
+| 엔진     | **やねうら王 + 水匠5**. `ENGINE_CMD`로 교체 가능  | §3                                                                   |
+| 문구     | **LLM을 안 쓴다.** 개입 문구·총평은 결정적 템플릿 | §2 아래 · [`internal/explain`](../apps/server/internal/explain)      |
+| 인증     | **Google OAuth만**                                | LINE은 채널 개설에 시간이 든다                                       |
+| 배포     | AWS ECS Fargate + ALB, Terraform, Route53         | §6                                                                   |
+| 모노레포 | pnpm 워크스페이스 + `apps/server`(Go 별도 go.mod) | `../more-more`와 동일 구조. oxfmt/oxlint, `.githooks`, CI까지 그대로 |
 
 ---
 
 ## 2. 서버 언어를 Go로 하는 이유
 
-Node도 후보였다. Node의 유일한 이점은 LLM SDK인데, **그 코드는 100줄이 안 된다** — OrcaRouter는 OpenAI 호환 HTTP라 Go에서 그냥 POST면 끝난다.
+Node도 후보였다. Node의 이점은 라이브러리 생태계인데, 이 제품이 쓰는 것은 HTTP 서버와 WebSocket뿐이라 Go 표준 라이브러리로 끝난다.
 
 반대로 Go를 버리면 잃는 것이 크다.
 
@@ -79,7 +79,7 @@ edges (
 create index on edges using gin (tags);
 ```
 
-> **두 테이블은 오래 비어 있었다.** `001_init.sql` 에 소비자보다 먼저 들어가서 §12·[06-status.md §5](06-status.md)가 「쓰는 쪽이 없다」로 적어 둔 그대로였고, 실제 행수가 `positions` 2 · `edges` **0**이었다. **채우는 쪽이 붙었다**([06-status.md §37](06-status.md)) — 엔진을 부르는 네 자리를 한 겹 감싸서(`internal/archive`) 모든 탐색이 여기로 떨어진다.
+> **두 테이블은 오래 비어 있었다.** `001_init.sql` 에 소비자보다 먼저 들어가서 [journal §12](journal/06-20.md)·[06-status.md §5](06-status.md)가 「쓰는 쪽이 없다」로 적어 둔 그대로였고, 실제 행수가 `positions` 2 · `edges` **0**이었다. **채우는 쪽이 붙었다**([journal §37](journal/21-40.md)) — 엔진을 부르는 네 자리를 한 겹 감싸서(`internal/archive`) 모든 탐색이 여기로 떨어진다.
 >
 > **둘 다 읽는 쪽이 생겼다.** `internal/archive` 의 `lookup` 이 `positions` 에서 후보를, `edges` 에서 **깊이별 값**을 꺼내 엔진 호출을 대신한다 — 네 자리(상대 수·개입 판정·가정 수순·手筋 게이트)가 전부 그 한 겹을 지난다. `edges.tags` 만 아직 아무도 안 채운다 — 「정석 이탈」 카테고리가 기다리는 칸이고([01-core.md §3](01-core.md)), **소비자 없이 스키마를 먼저 만든 값이 마이너스였다는 것**이 이 줄이 남은 이유다.
 >
@@ -100,7 +100,7 @@ USI 엔진은 iterative deepening 중 `info depth 1 score cp … / info depth 2 
 
 하나의 배열이 개입의 두 방향을 동시에 정의한다. 조건 판정도 설명 문장도(「여기까지만 보면 이득입니다」) 이 배열 하나에서 나온다. 자세한 조건은 [개입 엔진 §7.1](01-core.md#71-어떤-手筋을-알릴-것인가--여기가-제품의-감각이다).
 
-> **리뷰 화면은 이 배열을 안 쓴다.** 한때 스파크라인의 원본으로 적혀 있었는데, 그 자리는 [평가치 궤적 그래프](03-frontend.md#3-리뷰-화면)가 대신 닫았고 그쪽이 읽는 것은 `game_moves.eval_cp` 다([06-status.md §41](06-status.md)). 이 배열의 소비자는 **판정 하나**이고, 나머지는 `archive` 가 캐시로 다시 꺼내 쓰는 쪽이다.
+> **리뷰 화면은 이 배열을 안 쓴다.** 한때 스파크라인의 원본으로 적혀 있었는데, 그 자리는 [평가치 궤적 그래프](03-frontend.md#3-리뷰-화면)가 대신 닫았고 그쪽이 읽는 것은 `game_moves.eval_cp` 다([journal §41](journal/41-60.md)). 이 배열의 소비자는 **판정 하나**이고, 나머지는 `archive` 가 캐시로 다시 꺼내 쓰는 쪽이다.
 
 > **단 얕은 값은 MultiPV info 라인에서 못 줍는다.** 捨て駒는 얕은 깊이에서 상위 k에 들지 못해 애초에 라인에 안 나온다 — 손해로 보이는 것이 그 수의 정의다. shallow는 그 수를 둔 국면을 따로 depth 2로 평가해서 얻는다.
 
@@ -125,8 +125,8 @@ game_hints   (id, game_id, ply, sfen_key, stage, best_usi, taken, created_at)
 game_moves   (game_id, ply, usi, sfen_key, eval_cp)
              -- **지금 판에 남아 있는 수순만.** 물러진 수도 스스로 무른 수도 여기 안 들어온다
 interventions(id, game_id, ply, kind, category, delta_win, level_bucket,
-              retracted_usi, hinted_tag, taken bool, explain_tier, cost_yen, created_at,
-              best_cp, after_cp)
+              retracted_usi, hinted_tag, taken bool, created_at, best_cp, after_cp)
+             -- explain_tier/cost_yen 은 LLM 계층과 함께 지웠다 (011)
              -- kind: 'blunder'(제지형, 착수 후 롤백) | 'tesuji'(제안형, 착수 전 알림)
              -- retracted_usi는 blunder만, hinted_tag/taken은 tesuji만 (CHECK 제약이 막는다)
              -- (game_id, ply)는 유니크가 아니다 — 한 국면에서 여러 번 물러지는 일이 있다
@@ -142,16 +142,15 @@ skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at,
               skill_loss, skill_samples)
              -- skill_loss/samples 가 실제로 쓰는 두 칸이다 (006, §48).
              -- rating_est·rating_sd 는 안 쓴다 — §47이 레이팅 점수를 만들지 않기로 정했다
-explain_cache(key text primary key, body text, model text, hits int)
-             -- key = hash(kind, category, level_bucket, 카테고리가 허용한 사실들)
-kb_chunks    (id, title, body, tags text[], source_url, source_license, verified_by,
-              embedding vector(1536))  -- pgvector. 출처 없는 chunk는 프롬프트에 붙이지 않는다
-             -- **검색은 벡터가 아니라 `tags` 의 GIN 인덱스로 돈다** (§43). embedding 은 아직 빈 칸
 ```
+
+> **`explain_cache` 와 `kb_chunks` 는 지웠다**(011). 개입 문구가 LLM을 안 거치고 카테고리에서
+> 결정적으로 나오게 되면서(`explain.Render`) 캐시할 것도 프롬프트에 붙일 것도 없어졌다.
+> `interventions` 의 `explain_tier`·`cost_yen` 도 같은 마이그레이션에서 빠졌다.
 
 > **마이그레이션은 배포가 돌리지 않는다.** 파일을 넣어 PR로 올리고 실행은 사람이 한다([deploy/README.md](../deploy/README.md) §4). 그래서 **레포에 파일이 있는 것과 프로덕션에 적용된 것이 다르다** — 어디까지 적용됐는지는 [06-status.md §3](06-status.md).
 
-> **`game_moves` 에 `retracted_usi` 를 두지 않는다.** 원래 여기 `intervened bool` 과 함께 적혀 있었는데, 구현하면서 갈랐다([06-status.md §18](06-status.md)) — 기보는 **지금 판에 남아 있는 수순**이라 물러진 수가 들어가면 롤백이 롤백이 아니게 된다. 같은 ply가 두 표에 다른 값으로 들어가는 것이 정상이다.
+> **`game_moves` 에 `retracted_usi` 를 두지 않는다.** 원래 여기 `intervened bool` 과 함께 적혀 있었는데, 구현하면서 갈랐다([journal §18](journal/06-20.md)) — 기보는 **지금 판에 남아 있는 수순**이라 물러진 수가 들어가면 롤백이 롤백이 아니게 된다. 같은 ply가 두 표에 다른 값으로 들어가는 것이 정상이다.
 >
 > ```
 > game_moves    ply 3 = 2g2f    ← 다시 둔 수
@@ -173,7 +172,7 @@ kb_chunks    (id, title, body, tags text[], source_url, source_license, verified
    │            + 적응형 상대(지도 대국) · 판정 배선  │
    │  intervene 개입 판정 — 임계치·롤백·카테고리     │
    │  skill     실력 추정 — 낙폭만 받는다 (§47)      │
-   │  explain   설명 문구 — OrcaRouter + 3단 캐시    │
+   │  explain   설명 문구 — 결정적 템플릿            │
    │            + 대국 후 총평 (§49)                │
    │  shogi     룰 엔진 — 합법수·반칙·棋譜 표기      │
    │  usi       엔진 프로세스 풀 (MultiPV, mate)    │
@@ -189,11 +188,9 @@ kb_chunks    (id, title, body, tags text[], source_url, source_license, verified
            │ stdin/stdout          │
    ┌───────▼─────────┐     ┌───────▼────────┐
    │ USI 엔진 N개     │     │  PostgreSQL     │
-   │ (やねうら王+水匠5)│     │  (+ pgvector)   │
+   │ (やねうら王+水匠5)│     │                 │
    └─────────────────┘     └────────────────┘
 ```
-
-> **`internal/kb` 패키지는 없고, 앞으로도 안 만든다.** RAG는 `store` 의 태그 질의(`query/kb.sql`)와 `explain.WithKnowledge` 콜백 둘로 끝났다([§43](06-status.md)) — 검색이 벡터가 아니라 태그의 GIN 인덱스라 담을 로직이 없다. 패키지를 찾다가 「아직 없다」로 읽는 자리라 여기 적어 둔다.
 
 **엔진은 풀로 띄운다.** 최소 3개 — ① 상대 수 결정 ② 플레이어 후보 선행 계산 ③ mate 탐색(詰み 게이지). 손잡이는 둘이다 — 탐색부가 `ENGINE_POOL_SIZE`(기본 3), 詰将棋 solver가 `ENGINE_MATE_POOL_SIZE`(기본 2).
 
@@ -271,4 +268,4 @@ state는 S3 + DynamoDB 잠금에 둔다. 로컬 state는 날리면 복구가 안
 
 > `../shogi`의 `server/.env`, `deploy/.env.prod`, `terraform.tfstate`는 **절대 딸려오지 않게 한다.** 이 레포는 public이다.
 
-**지식 데이터는 전부 새로 만든다.** 수순은 공개 정석 파일 + 자체 엔진 검증, 서술문은 공식 자료와 라이선스가 명확한 소스에서 일본어로 새로 쓴다. 신뢰 계층과 `kb_chunks` 스키마는 [LLM 계층 §4](04-llm.md#4-rag--코퍼스는-처음부터-새로-만든다).
+**지식 데이터는 전부 새로 만든다.** 수순은 공개 정석 파일 + 자체 엔진 검증, 서술문은 공식 자료와 라이선스가 명확한 소스에서 일본어로 새로 쓴다. 신뢰 계층은 [태그 인벤토리 §0](09-tags.md).

@@ -12,7 +12,7 @@ import { ROUTE_GUIDE } from '@/routes/const';
  * 열려 기록에 남고, 아무것도 고르지 않은 채로 先手 평수 대국이 시작된다.
  *
  * 고를 것을 둘로 묶어 뒀다 — **어느 쪽을 잡나**와 **상대가 무엇을 하나**다. 난이도는 여기
- * 없다. 그건 두는 동안 상대가 스스로 맞춘다(docs/06-status.md §47).
+ * 없다. 그건 두는 동안 상대가 스스로 맞춘다(journal §47).
  */
 
 const COLORS: { value: Color; label: string; note: string }[] = [

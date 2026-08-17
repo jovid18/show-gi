@@ -6,7 +6,7 @@
 //
 // **튜너블 넷(K · Level.Threshold · JudgeMatePlies · ShallowTrapCp)은 전부 초기값이다.**
 // 265시도를 다시 채점하고도 하나를 못 옮겼다 — 표본이 전부 에이전트가 둔 판이고, 같은
-// 국면을 다시 재도 승률이 0.040 흔들려 그보다 곱게 자를 수가 없다(06-status.md §39).
+// 국면을 다시 재도 승률이 0.040 흔들려 그보다 곱게 자를 수가 없다(journal §39).
 // 그래서 아래 상수 주석은 「무엇을 정하나」까지고, 「왜 아직 못 정하나」는 §NN 쪽에 있다.
 //
 // 판정의 근거는 docs/01-core.md §2.
@@ -17,7 +17,7 @@ import "math"
 // K 는 cp를 승률로 바꿀 때의 기울기다. 크면 완만해지고 작으면 가팔라진다.
 //
 // **600은 실측값이 아니라 초기값이다** — 맞춰 볼 승패 딱지도, 맞춰 볼 정밀도도
-// 없다(06-status.md §39 ⑥·⑦).
+// 없다(journal §39 ⑥·⑦).
 const K = 600.0
 
 // WinRate 는 수번 측 관점 cp를 승률로 바꾼다.
@@ -44,7 +44,7 @@ const (
 // Threshold 는 레벨별 승률 낙폭 임계치(0~1)다.
 //
 // **셋 다 초기값 그대로다.** 판마다의 차이가 임계치보다 크고, 표본이 전부 beginner·전부
-// 에이전트라 레벨별 값은 아직 못 잰다(06-status.md §39 ①).
+// 에이전트라 레벨별 값은 아직 못 잰다(journal §39 ①).
 func (l Level) Threshold() float64 {
 	switch l {
 	case Novice:
@@ -104,7 +104,7 @@ type Verdict struct {
 	// BestCp·AfterCp 는 낙폭을 만든 **두 원본**이다. 둘 다 두는 쪽 관점(Input 과 같다).
 	//
 	// **낙폭만 남기면 K 를 바꿔 다시 채점할 수 없다** — 미지수가 둘인데 식이 하나다
-	// (migrations/005_intervention_cp.sql · 06-status.md §39 ⑥ · §41).
+	// (migrations/005_intervention_cp.sql · journal §39 ⑥ · §41).
 	BestCp  int
 	AfterCp int
 	// LostMate 는 종반 판정으로 걸렸는가. 설명 문구가 갈린다.
@@ -116,7 +116,7 @@ type Verdict struct {
 // JudgeMatePlies 는 **판정에 쓰는** 詰み 거리의 상한이다. 탐색은 11까지 하지만(비용이 같다)
 // 판정은 5까지다 — 5手詰이 「배울 값이 있는 실수」인 경계라서다(01-core.md §2).
 //
-// **[미확정]** 레벨별로 가를지. 기록으로는 못 잰다(06-status.md §39 ⑤ · §40 ⑤).
+// **[미확정]** 레벨별로 가를지. 기록으로는 못 잰다(journal §39 ⑤ · §40 ⑤).
 const JudgeMatePlies = 5
 
 // Judge 는 한 수를 판정한다.

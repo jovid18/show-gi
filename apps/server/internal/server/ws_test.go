@@ -407,7 +407,7 @@ func TestRealEngineIntervention(t *testing.T) {
 // 이유는 최악수가 늘 짚을 만한 수는 아니기 때문이다 — 저쪽에서 나오는 ▲1七香은
 // 정당하게 미분류다.
 //
-// 수는 프로덕션에서 실제로 걸린 것을 그대로 쓴다(06-status.md §13). 角을 아무도
+// 수는 프로덕션에서 실제로 걸린 것을 그대로 쓴다(journal §13). 角을 아무도
 // 지켜주지 않는 3三에 던지는 수다.
 //
 // **국면을 ▲7六歩 △3四歩 뒤로 고정해서 시작한다.** 상대에게 한 수를 맡기면
@@ -493,12 +493,12 @@ func TestRealEngineHangingPiece(t *testing.T) {
 	// **낱말 하나로 고정하지 않는다.** タダ捨て는 사실이 실리면 「取れる相手の駒が2枚」처럼
 	// 숫자로 말하고, 없으면 「相手の利きを確かめて」로 간다(explain.Render). 둘 다 「상대가
 	// 그 駒를 잡는다」는 같은 이야기인데, 낱말을 박아 두면 사실이 실리는 날 깨진다 —
-	// **실제로 깨져 있었고 CI에 엔진이 없어 아무도 몰랐다**(06-status.md §47).
+	// **실제로 깨져 있었고 CI에 엔진이 없어 아무도 몰랐다**(journal §47).
 	if !strings.Contains(iv.Message, "利き") && !strings.Contains(iv.Message, "取れる相手の駒") {
 		t.Errorf("タダ捨て 문구가 아니다: %q", iv.Message)
 	}
 
-	// 카드가 그 국면을 연다 — **수순을 읊는 자리가 아니다**(06-status.md §54). 여기가 비면
+	// 카드가 그 국면을 연다 — **수순을 읊는 자리가 아니다**(journal §54). 여기가 비면
 	// 화면은 「そのとき、こう指していたら」를 띄울 판이 없다.
 	if iv.RetractedSFEN == "" {
 		t.Fatal("물러진 수 직후의 국면이 안 왔다 — 카드가 열 판이 없다")
@@ -543,7 +543,7 @@ const kifuBOpening = `7g7f 8b4b 2h6h 4c4d 5i4h 3c3d 4h3h 2b3c 6i5h 3a3b
 //
 // 배선이 길다 — 판정 → 추정기 goroutine → 세션 → 스냅샷 → WS. 가짜 판정으로는 첫 칸을
 // 못 채우고(낙폭이 우리가 적은 값이다), 단위 테스트로는 마지막 칸을 못 본다.
-// **프로덕션과 같은 조립**이다: `NewAdaptiveOpponent` + `NewEngineAnalyst`(06-status.md §47).
+// **프로덕션과 같은 조립**이다: `NewAdaptiveOpponent` + `NewEngineAnalyst`(journal §47).
 //
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/server/ -run RealEngineStrength -v
 func TestRealEngineStrengthReachesTheClient(t *testing.T) {
@@ -600,7 +600,7 @@ func TestRealEngineStrengthReachesTheClient(t *testing.T) {
 	}
 
 	// 같은 국면에서 같은 나쁜 수를 되풀이한다. 물러지면 국면이 그대로 돌아오므로
-	// 그 수가 계속 합법이고, **되풀이 자체가 실제로 일어나는 일**이다(06-status.md §17).
+	// 그 수가 계속 합법이고, **되풀이 자체가 실제로 일어나는 일**이다(journal §17).
 	worst := worstMove(t, ctx, pool, start, snap)
 	t.Logf("일부러 두는 수: %s", worst)
 

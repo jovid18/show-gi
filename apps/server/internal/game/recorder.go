@@ -1,7 +1,6 @@
 package game
 
 import (
-	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
@@ -42,12 +41,12 @@ type Recorder interface {
 	// 실제로 뒀을 수이므로, 대국 결과보다 훨씬 밀도 높은 실력 추정 데이터가 된다.
 	//
 	// **같은 ply에 여러 번 올 수 있다.** 한 국면에서 몇 수를 시도하고 전부 물러지는 일이
-	// 실제로 있고(06-status.md §17), 그 반복 자체가 기록할 값이다.
+	// 실제로 있고(journal §17), 그 반복 자체가 기록할 값이다.
 	//
-	// e 는 화면에 나간 설명이 **어느 계층에서 얼마에** 나왔는지다. 문장 자체는 안 남긴다 —
-	// 그것은 `explain_cache` 에 키로 들어 있고, 여기 또 적으면 두 벌이 된다.
-	// `Evaluated` 와 달리 나중에 오지 않는다: 판정이 끝난 뒤 카드가 뜨기 전에 이미 정해진다.
-	Retracted(ply int, usi string, v intervene.Verdict, e explain.Result)
+	// **화면에 나간 문장은 안 남긴다.** 카테고리에서 결정적으로 다시 만들어지므로
+	// (`explain.BaseMessage`) 적어 두면 두 벌이 되고, 문구를 고친 날 지난 판만 옛 문장을
+	// 말한다. `Evaluated` 와 달리 나중에 오지 않는다: 되무르는 그 자리에서 정해진다.
+	Retracted(ply int, usi string, v intervene.Verdict)
 
 	// Undone 은 사람이 **스스로** 무른 수다. ply 는 그 사람 수의 手数.
 	//
@@ -64,7 +63,7 @@ type Recorder interface {
 	// **한 판에 코드마다 한 번이다.** 囲い는 판에서 매번 다시 세어지므로(styleTags) 같은
 	// 이름이 수십 번 나오는데, 남길 값은 「짰다」 하나다.
 	//
-	// **手筋은 안 온다.** 이름의 정확도가 아직 프로덕션 수준이 아니고(06-status.md §45),
+	// **手筋은 안 온다.** 이름의 정확도가 아직 프로덕션 수준이 아니고(journal §45),
 	// 「당신이 쓴 手筋」으로 세우면 그 오진이 사람의 기록으로 굳는다. 나머지 셋은 판과
 	// 수순만으로 정해져 엔진 평가치에 안 걸린다.
 	Named(code string)

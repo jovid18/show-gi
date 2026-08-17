@@ -269,12 +269,12 @@ func (evalOnlyAnalyst) Judge(_ context.Context, _ string, _ []string, _ int) (ga
 	return game.Judgement{SenteCpBefore: 40, SenteCpAfter: evalOnlyAfterSente, HasEvals: true}, nil
 }
 
-// 설명의 **계층과 비용이 DB까지 간다.**
+// 개입 하나가 **`interventions` 행까지 간다.**
 //
-// 앞의 두 테스트(game·store)가 다 초록인데 칸이 계속 NULL일 수 있다 — 그 사이의 배선이
+// 앞의 두 테스트(game·store)가 다 초록인데 행이 계속 안 생길 수 있다 — 그 사이의 배선이
 // `dbRecorder` 이고, 여기서 이벤트를 흘리면 아무 에러도 안 난다. `game_moves.eval_cp` 가
 // 실제로 그렇게 109행 전부 비었다(08-playtest.md §11).
-func TestRecordFillsExplainTierAndCost(t *testing.T) {
+func TestRecordFillsIntervention(t *testing.T) {
 	st := openStoreForTest(t)
 
 	before := maxGameID(t, st)
@@ -282,7 +282,6 @@ func TestRecordFillsExplainTierAndCost(t *testing.T) {
 	srv := httptest.NewServer(Handler(Options{
 		NewOpponent: func() game.Opponent { return &scriptedOpponent{moves: []string{"3c3d"}} },
 		NewAnalyst:  func() game.Analyst { return &blunderAnalyst{} },
-		Explainer:   &pricedExplainer{},
 		Store:       st,
 	}))
 	defer srv.Close()
@@ -299,46 +298,41 @@ func TestRecordFillsExplainTierAndCost(t *testing.T) {
 	if err := wsjson.Write(ctx, conn, clientMsg{Type: "move", USI: "7g7f"}); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
-	// 카드에 나간 문장도 설명 계층의 것이어야 한다 — 여기가 끊기면 화면만 옛 문구다.
+	// 카드에 나간 문장도 `explain.Render` 의 것이어야 한다 — 여기가 끊기면 화면만 옛 문구다.
 	got := readUntil(t, ctx, conn, func(m serverMsg) bool {
 		return m.Type == "snapshot" && m.Snapshot.Intervention != nil
 	}, "개입")
-	if msg := got.Snapshot.Intervention.Message; msg != pricedSentence {
-		t.Errorf("카드 문장 %q — 설명 계층의 것이 아니다", msg)
+	if msg, want := got.Snapshot.Intervention.Message, explain.Render(blunderFacts); msg != want {
+		t.Errorf("카드 문장 %q, want %q", msg, want)
 	}
 
 	gameID := waitForNewGame(t, st, before)
 	t.Cleanup(func() { deleteGame(t, st, gameID) })
 
 	deadline := time.Now().Add(10 * time.Second)
-	var tier *int
-	var cost string
+	var category, level string
 	for time.Now().Before(deadline) {
 		row := st.Pool().QueryRow(t.Context(),
-			`SELECT explain_tier, cost_yen::text FROM interventions WHERE game_id = $1 ORDER BY id LIMIT 1`, gameID)
-		if err := row.Scan(&tier, &cost); err == nil && tier != nil {
+			`SELECT category, level_bucket FROM interventions WHERE game_id = $1 ORDER BY id LIMIT 1`, gameID)
+		if err := row.Scan(&category, &level); err == nil {
 			break
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	if tier == nil {
-		t.Fatal("explain_tier 가 NULL이다 — 설명 계층의 결과가 기록까지 안 갔다")
+	if category != string(intervene.CategoryHangsPiece) {
+		t.Fatalf("category=%q — 개입이 기록까지 안 갔다", category)
 	}
-	if *tier != 2 {
-		t.Fatalf("explain_tier=%d, want 2", *tier)
-	}
-	if cost != "0.2500" {
-		t.Errorf("cost_yen=%q, want 0.2500", cost)
+	// **어느 임계치에서 걸렸는지도 같이 남아야 한다.** 그것을 모르면 나중에 상수를
+	// 흔들어 볼 수 없다(server.Options.Level).
+	if level == "" {
+		t.Error("level_bucket 이 비었다")
 	}
 }
 
-const pricedSentence = "その銀を取れる相手の駒が2枚あります。"
-
-// pricedExplainer 는 계층과 비용이 붙은 문장을 돌려준다. HTTP를 타지 않는다.
-type pricedExplainer struct{}
-
-func (pricedExplainer) Explain(_ context.Context, _ explain.Facts) explain.Result {
-	return explain.Result{Body: pricedSentence, Tier: 2, CostYen: 0.25, Model: "tiny-jp"}
+// blunderFacts 는 blunderAnalyst 가 돌려주는 사실이다. 카드 문장이 이것에서 나온다.
+var blunderFacts = explain.Facts{
+	Kind: intervene.KindBlunder, Category: intervene.CategoryHangsPiece,
+	Known: true, MovedPiece: "銀", Attackers: 2,
 }
 
 // blunderAnalyst 는 첫 수를 무조건 블런더로 판정한다. 엔진을 띄우지 않는다.
@@ -349,9 +343,6 @@ func (blunderAnalyst) Judge(_ context.Context, _ string, _ []string, _ int) (gam
 		Verdict: intervene.Verdict{
 			Kind: intervene.KindBlunder, DeltaWin: 0.5, Category: intervene.CategoryHangsPiece,
 		},
-		Facts: explain.Facts{
-			Kind: intervene.KindBlunder, Category: intervene.CategoryHangsPiece,
-			Known: true, MovedPiece: "銀", Attackers: 2,
-		},
+		Facts: blunderFacts,
 	}, nil
 }

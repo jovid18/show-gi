@@ -28,16 +28,15 @@ const (
 
 // reviewHandler 는 기록을 읽는다. **세션 goroutine과 아무 관계가 없다** — 이미 끝난 판이다.
 //
-// **읽는 것은 자기 판뿐이다**(06-status.md §33 · §46). 로그인 안 한 사람에게는 익명 판이
+// **읽는 것은 자기 판뿐이다**(journal §33 · §46). 로그인 안 한 사람에게는 익명 판이
 // 자기 판이다 — 익명끼리는 애초에 구별할 수단이 없어 지금까지와 같고, 갈리는 것은
 // 로그인한 판이 그 사람에게만 보인다는 쪽이다(02-architecture.md §7 위협 2).
 type reviewHandler struct {
 	store *store.Store
 	auth  *authHandler
-	// summarizer·level 은 총평(summary.go)에만 쓴다. **엔진이 아니다** — 이 핸들러가
-	// 엔진과 무관하다는 성질은 그대로다. nil이면 결정적 문구가 나간다(Options.Summarizer).
-	summarizer explain.Summarizer
-	level      intervene.Level
+	// level 은 총평(summary.go)에만 쓴다. **엔진이 아니다** — 이 핸들러가 엔진과 무관하다는
+	// 성질은 그대로다.
+	level intervene.Level
 }
 
 // owner 는 이 요청이 볼 수 있는 주인이다. 로그인 안 했으면 nil = 익명 판.
@@ -193,14 +192,14 @@ func (h *reviewHandler) detail(w http.ResponseWriter, r *http.Request) {
 // 같은 함수가 만든다**(ws.go sendSummary · summarize) — 두 벌이면 되짚기와 대국이 같은
 // 판을 두 문장으로 말한다.
 //
-// **기보와 따로 준다.** 총평만 LLM을 기다리므로 detail 에 실으면 판이 그때까지 안 그려진다 —
-// WS가 스냅샷을 먼저 보내고 총평을 뒤에 보내는 것과 같은 이유다(§49).
+// **기보와 따로 준다.** 화면이 판을 먼저 그리고 총평을 뒤에 채우는 모양을 그대로 둔다 —
+// WS가 스냅샷을 먼저 보내고 총평을 뒤에 보내는 것과 같은 순서다(§49).
 func (h *reviewHandler) summary(w http.ResponseWriter, r *http.Request) {
 	rec, ok := h.record(w, r)
 	if !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, summarize(r.Context(), h.summarizer, rec, h.level))
+	writeJSON(w, http.StatusOK, summarize(rec, h.level))
 }
 
 // record 는 `{id}` 가 가리키는 기록을 읽고, 실패면 그 자리에서 답하고 false 를 준다.

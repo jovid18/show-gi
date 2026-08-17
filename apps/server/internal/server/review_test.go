@@ -224,8 +224,8 @@ func TestReviewWithoutStore(t *testing.T) {
 // 것과 같은 함수가 만든다(§52). 여기가 보는 것은 그 라우트가 실제로 붙어 있는가다 —
 // `GET /api/games/{id}` 와 한 세그먼트 차이라, 어긋나면 화면이 총평 대신 기보를 받는다.
 //
-// **Summarizer 를 안 넣는다.** LLM 없이도 문장이 나가야 하는 것이 규약이고(Options.Summarizer),
-// 그 규약이 이 표면에서도 지켜지는지가 여기서 갈린다.
+// **엔진을 안 넣는다.** 총평은 기록만 읽어 만들어지므로(summarize) 이 표면은 엔진이 없어도
+// 답해야 하고, 그것이 지켜지는지가 여기서 갈린다.
 func TestSummaryRouteReadsFinishedGame(t *testing.T) {
 	st := openStoreForTest(t)
 

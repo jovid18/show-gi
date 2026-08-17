@@ -10,7 +10,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// 06-status.md §34의 숫자를 만든 자리다. `TesujiLossCp` 가 **[미확정]** 이라 언젠가 다시
+// journal §34의 숫자를 만든 자리다. `TesujiLossCp` 가 **[미확정]** 이라 언젠가 다시
 // 재야 하고, 그때 재는 방법이 문서에만 있으면 같은 것을 두 번 만들게 된다.
 //
 // 판정하지 않는다 — 값을 찍고 지나간다. 통과/실패로 만들면 엔진이 흔들릴 때마다 CI가
@@ -137,7 +137,7 @@ func TestMeasureTesujiGateOverAGame(t *testing.T) {
 //
 // 여기서 답이 갈린다. 통과하면 이름 조건이 아니라 **게이트에 조건을 하나 더** 붙여야
 // 하고(최선 수순이 대상을 따는가), 안 통과하면 지금 게이트로 이미 잡히는 것이라
-// 사용자가 본 화면은 게이트가 붙기 전(06-status.md §34, 8/11)의 것이다.
+// 사용자가 본 화면은 게이트가 붙기 전(journal §34, 8/11)의 것이다.
 func TestMeasureDecorativeFork(t *testing.T) {
 	pool := measurePool(t)
 	analyst := NewEngineAnalyst(pool, nil, intervene.Beginner)

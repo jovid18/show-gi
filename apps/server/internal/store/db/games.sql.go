@@ -474,9 +474,9 @@ func (q *Queries) InsertHint(ctx context.Context, arg InsertHintParams) error {
 const insertIntervention = `-- name: InsertIntervention :exec
 INSERT INTO interventions (
     game_id, ply, kind, category, delta_win, level_bucket, retracted_usi,
-    explain_tier, cost_yen, best_cp, after_cp
+    best_cp, after_cp
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `
 
 type InsertInterventionParams struct {
@@ -487,14 +487,12 @@ type InsertInterventionParams struct {
 	DeltaWin     *float64
 	LevelBucket  *string
 	RetractedUsi *string
-	ExplainTier  *int16
-	CostYen      pgtype.Numeric
 	BestCp       *int32
 	AfterCp      *int32
 }
 
 // **(game_id, ply) 는 유니크가 아니다.** 한 국면에서 몇 수를 시도하고 전부 물러지는 일이
-// 실제로 있고 그 반복이 곧 기록할 값이다(docs/06-status.md §17).
+// 실제로 있고 그 반복이 곧 기록할 값이다(journal §17).
 // 칸별 규약은 store.Intervention 에 있다.
 func (q *Queries) InsertIntervention(ctx context.Context, arg InsertInterventionParams) error {
 	_, err := q.db.Exec(ctx, insertIntervention,
@@ -505,8 +503,6 @@ func (q *Queries) InsertIntervention(ctx context.Context, arg InsertIntervention
 		arg.DeltaWin,
 		arg.LevelBucket,
 		arg.RetractedUsi,
-		arg.ExplainTier,
-		arg.CostYen,
 		arg.BestCp,
 		arg.AfterCp,
 	)
@@ -778,7 +774,7 @@ type ListGamesForOwnerRow struct {
 // 애초에 없으므로 지금까지와 같고, 갈리는 것은 **로그인한 판이 그 사람에게만
 // 보인다**는 쪽이다 (docs/02-architecture.md §7 위협 2).
 //
-// **결과가 나온 판만 준다** (docs/06-status.md §51). 두는 중(result NULL)도, 중단된
+// **결과가 나온 판만 준다** (journal §51). 두는 중(result NULL)도, 중단된
 // 판(abandoned·declined)도 안 나간다 — 되짚을 것이 없는 줄이고, 중단된 판은 이어하기가
 // 가져갈 몫이다. 아래 GetGameForOwner 와 **같은 조건이어야 한다**: 목록에서만 빼면
 // `/reviews/<id>` 주소로 그냥 열린다(§46).
@@ -854,7 +850,7 @@ type ResumableGameForOwnerRow struct {
 }
 
 // ─── 이어하기 ───────────────────────────────────────────────
-// 근거와 정한 것 셋은 docs/06-status.md §46 · §51.
+// 근거와 정한 것 셋은 journal §46 · §51.
 //
 // **로그인한 사람만이다.** 셋 다 주인을 `=` 로 받아 익명 판(user_id NULL)이 애초에
 // 안 걸린다 — 익명끼리는 구별할 수단이 없어서(002_anonymous_games.sql) 「누구의 중단된

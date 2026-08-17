@@ -46,7 +46,7 @@ func TestPlayerTallyCountsTheSamePopulationAsTheList(t *testing.T) {
 	if n := got.Results[ResultDraw]; n != 1 {
 		t.Errorf("draw = %d, want 1", n)
 	}
-	// abandoned 는 되짚기 목록에 안 나가므로 전적에도 없어야 한다(06-status.md §51).
+	// abandoned 는 되짚기 목록에 안 나가므로 전적에도 없어야 한다(journal §51).
 	if n := got.Results[ResultAbandoned]; n != 0 {
 		t.Errorf("abandoned = %d, want 0", n)
 	}

@@ -16,7 +16,7 @@ import type { WhatIfNode } from '@/protocol/whatif';
  * 어디 있었는지가 그 사이의 한 줄이다.
  *
  * **값은 전부 지금 잰 것이다.** 저장된 `moves[].evalCp` 는 대국 중 다른 k로 잰 값이라
- * 후보들과 같은 자가 아니다(같은 수가 +100과 +41로 나온 것을 봤다 — 06-status.md §34 ②).
+ * 후보들과 같은 자가 아니다(같은 수가 +100과 +41로 나온 것을 봤다 — journal §34 ②).
  * 한 줄에 두 자를 섞지 않는다.
  */
 interface MoveOptionsProps {

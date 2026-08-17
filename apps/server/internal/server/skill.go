@@ -10,7 +10,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 실력 추정치를 판 사이로 옮기는 두 자리. 06-status.md §47이 남긴 것이고, 붙는 조건이 둘이다 —
+// 실력 추정치를 판 사이로 옮기는 두 자리. journal §47이 남긴 것이고, 붙는 조건이 둘이다 —
 // **로그인했고 DB가 있어야 한다.** 하나라도 없으면 지금까지처럼 판마다 초기화된다.
 
 // priorSkill 은 지난 판까지의 추정치다. 없으면 `skill.Unknown` — 기준선 밴드로 시작한다.

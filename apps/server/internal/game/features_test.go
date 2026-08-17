@@ -19,7 +19,7 @@ func featuresAfter(t *testing.T, startSFEN string, usis ...string) intervene.Fea
 	return MoveFeatures(pos, m)
 }
 
-// 문서에 적힌 재현 수순 그대로다(06-status.md §13). 프로덕션에서 실제로 걸린 수라
+// 문서에 적힌 재현 수순 그대로다(journal §13). 프로덕션에서 실제로 걸린 수라
 // 여기가 틀리면 화면에 나가는 이유가 틀린다.
 func TestHangingBishopIsSeen(t *testing.T) {
 	// ▲7六歩 △3四歩 ▲3三角成 — 角을 아무도 지켜주지 않는 3三에 던진다
@@ -259,7 +259,7 @@ func TestFactsNameThePromotedPiece(t *testing.T) {
 // 반박 수순의 첫 수가 따는 수면 **그것이 「무엇을 잃는가」다.**
 //
 // 카테고리가 이유를 못 대는 3분의 2가 이 한 값으로 「相手は歩を取れます」를 갖는다
-// (06-status.md §25). 두 번째 수부터는 내 되따기가 섞이므로 첫 수만 본다.
+// (journal §25). 두 번째 수부터는 내 되따기가 섞이므로 첫 수만 본다.
 func TestRefutationNamesWhatCanBeTaken(t *testing.T) {
 	// △同金 — 5四의 銀을 金이 딴다.
 	got := refutationLine(exchangeSFEN, tookThePawn, []string{"4c5d", "5i5d"}, RefutationPlies, false)

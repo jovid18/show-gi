@@ -18,7 +18,7 @@ import (
 // 「そのとき、こう指していたら」 — 되짚는 판에서 가정 수순을 직접 둬 본다.
 //
 // **판(SFEN)을 클라이언트에서 받지 않는다.** 받으면 이 표면이 곧 공개 엔진이 되고,
-// 그 풀은 대국이 쓰는 것과 같다 — 근거와 표면 조건은 06-status.md §37.
+// 그 풀은 대국이 쓰는 것과 같다 — 근거와 표면 조건은 journal §37.
 
 const (
 	// whatifDepth 는 가정 수순의 깊이다. **대국이 쓰는 것과 같아야 한다** — 다르면
@@ -51,7 +51,7 @@ type Searcher interface {
 // 쓰는 쪽은 여기 없다 — 기록은 탐색 자체에 붙어 있다(internal/archive).
 //
 // nil이면 답은 같고 둘을 잃는다: 같은 국면을 다시 재는 것과, 물렀을 때 숫자가
-// 흔들리는 것(06-status.md §34 ②).
+// 흔들리는 것(journal §34 ②).
 type Cache interface {
 	GetPosition(ctx context.Context, sfenKey string) (store.Position, error)
 }
@@ -88,7 +88,7 @@ type whatifRequest struct {
 }
 
 // whatifRoot 은 분기가 자라날 **정본**이다. 요청은 여기에 대해서만 뜻이 있고, 뿌리를
-// 얻는 곳은 표면마다 다르다(06-status.md §37).
+// 얻는 곳은 표면마다 다르다(journal §37).
 type whatifRoot struct {
 	// StartSFEN 은 0手目의 국면. 비어 있으면 평수 초기 국면이다.
 	StartSFEN string
@@ -128,7 +128,7 @@ type whatifMove struct {
 }
 
 // whatifCandidate 는 그 국면에서 **수번 쪽**이 둘 수 있는 좋은 수 하나다. 첫 번째가
-// 최선수이자 화면의 초록 화살표다 — 대국 중에는 후보 목록을 안 켠다(06-status.md §37 ②).
+// 최선수이자 화면의 초록 화살표다 — 대국 중에는 후보 목록을 안 켠다(journal §37 ②).
 type whatifCandidate struct {
 	USI string `json:"usi"`
 	Ja  string `json:"ja"`
@@ -146,7 +146,7 @@ type whatifCandidate struct {
 }
 
 // whatifNode 는 분기의 **지금 서 있는 자리**다. 넘겨 보는 것도 둬 보는 것도 전부 이 하나를
-// 묻는 일이고, **응수를 서버가 대신 두지 않아** 한 걸음에 탐색이 한 번이다(06-status.md §37).
+// 묻는 일이고, **응수를 서버가 대신 두지 않아** 한 걸음에 탐색이 한 번이다(journal §37).
 type whatifNode struct {
 	// BasePly 는 분기가 갈라져 나온 手数다. 「分岐の前へ」가 돌아가는 자리다.
 	BasePly int `json:"basePly"`

@@ -112,7 +112,6 @@ aws ssm put-parameter --name $P/POSTGRES_PASSWORD --type SecureString \
   --value "$(openssl rand -base64 24)" --overwrite
 aws ssm put-parameter --name $P/SESSION_SECRET --type SecureString \
   --value "$(openssl rand -base64 32)" --overwrite
-aws ssm put-parameter --name $P/ORCA_API_KEY --type SecureString --value "$(cat orca.key)" --overwrite
 aws ssm put-parameter --name $P/GOOGLE_CLIENT_ID     --type String       --value '<id>'     --overwrite
 aws ssm put-parameter --name $P/GOOGLE_CLIENT_SECRET --type SecureString --value '<secret>' --overwrite
 ```
