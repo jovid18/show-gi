@@ -683,18 +683,24 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
 
         {/* 퀴즈로 가는 문. **링크다** — 주소 하나가 화면 하나라 새 탭과 링크 복사가 살아 있어야
             한다(App.tsx). 문항이 없는 판에서도 열린다: 있는지 없는지는 그 화면이 말한다.
-            여기서 미리 물어보면 판을 열 때마다 요청이 하나 늘고, 그 답은 대개 「없다」다. */}
-        <a
-          className="review-quiz-link"
-          href={hrefOf({ name: 'quiz', id: game.id })}
-          onClick={(e) => {
-            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-            e.preventDefault();
-            navigate({ name: 'quiz', id: game.id });
-          }}
-        >
-          この対局から出た問題を解く
-        </a>
+            여기서 미리 물어보면 판을 열 때마다 요청이 하나 늘고, 그 답은 대개 「없다」다.
+
+            **대인전은 예외다.** 그 판에는 문항이 **영영** 없고(엔진 판정도 탐색도 안 돌았다),
+            그 사실을 이 응답이 이미 들고 있어서 물어볼 것이 없다 — 위 규칙이 막던 「요청이
+            하나 는다」가 여기서는 성립하지 않는다(docs/journal §83). */}
+        {game.isMatch !== true && (
+          <a
+            className="review-quiz-link"
+            href={hrefOf({ name: 'quiz', id: game.id })}
+            onClick={(e) => {
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+              e.preventDefault();
+              navigate({ name: 'quiz', id: game.id });
+            }}
+          >
+            この対局から出た問題を解く
+          </a>
+        )}
 
         {promoting && (
           <div className="promotion" role="group" aria-label="成りの選択">

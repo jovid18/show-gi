@@ -64,6 +64,13 @@ func main() {
 	opts.SessionSecret = os.Getenv("SESSION_SECRET")
 	opts.PublicOrigin = os.Getenv("PUBLIC_ORIGIN")
 
+	// 대인전. **엔진 앞에 둔다** — 엔진이 없어도 사람끼리는 둘 수 있고, 그 사실이
+	// 배선에 보여야 한다(internal/match 는 usi 를 import 하지 않는다).
+	//
+	// ctx 를 여기서 주는 것이 요점이다: 방에 선 판은 연결이 아니라 이 프로세스가 사는
+	// 동안 살아 있어야 한다(server.NewMatch).
+	opts.Match = server.NewMatch(ctx, opts.Store, opts.Level)
+
 	if pool := startEngines(); pool != nil {
 		defer pool.Close()
 

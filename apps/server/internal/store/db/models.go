@@ -27,6 +27,7 @@ type Game struct {
 	RootKey    *string
 	StartSfen  *string
 	StyleTags  []string
+	MatchID    *string
 }
 
 type GameHint struct {

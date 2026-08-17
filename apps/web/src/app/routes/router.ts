@@ -16,12 +16,14 @@ import {
   ME_SEGMENT,
   QUIZ_SEGMENT,
   REVIEWS_SEGMENT,
+  ROOMS_SEGMENT,
   ROUTE_GAME,
   ROUTE_GUIDE,
   ROUTE_ME,
   ROUTE_REVIEWS,
   routeQuiz,
   routeReview,
+  routeRoom,
 } from './const';
 
 /**
@@ -37,13 +39,23 @@ export type Route =
   | { name: 'review'; id: number; ply?: number }
   | { name: 'quiz'; id: number }
   | { name: 'me' }
-  | { name: 'guide' };
+  | { name: 'guide' }
+  // 방 하나. **id 가 문자열인 유일한 라우트다** — 판 번호와 달리 이 값은 난수이고,
+  // 그것이 유추를 막는 장치의 전부다(routes/const.ts 의 routeRoom).
+  | { name: 'room'; id: string };
 
 /** 주소 → 화면. **못 읽는 주소는 대국이다** — 404 화면을 만들 만큼 경로가 많지 않다. */
 export function parseRoute(pathname: string): Route {
   const parts = pathname.split('/').filter(Boolean);
   if (parts[0] === GUIDE_SEGMENT) return { name: 'guide' };
   if (parts[0] === ME_SEGMENT) return { name: 'me' };
+  // **글자를 확인하고 넘긴다.** 서버가 어차피 404로 답하지만, 아무 문자열이나 그대로
+  // 주소에 실으면 그 값이 `fetch` 의 경로가 되고 화면이 못 읽는 답을 받는다.
+  // 22자 base64url 이 방 id 의 모양이다(서버의 newRoomID).
+  if (parts[0] === ROOMS_SEGMENT) {
+    const id = parts[1] ?? '';
+    return /^[A-Za-z0-9_-]{22}$/.test(id) ? { name: 'room', id } : { name: 'game' };
+  }
   if (parts[0] !== REVIEWS_SEGMENT) return { name: 'game' };
   if (parts.length === 1) return { name: 'reviews' };
 
@@ -81,6 +93,8 @@ export function hrefOf(route: Route): string {
       return ROUTE_ME;
     case 'guide':
       return ROUTE_GUIDE;
+    case 'room':
+      return routeRoom(route.id);
   }
 }
 

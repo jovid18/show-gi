@@ -77,10 +77,19 @@ function GameCard({ game }: { game: GameSummary }) {
         {resultJa(game.result)}
       </span>
       <span className="review-card-moves">{game.moveCount}手</span>
-      {/* 0회도 적는다. **止まらなかった것도 성적이다** — 빈 자리로 두면 셌는지조차 안 보인다. */}
-      <span className="review-card-iv" data-none={game.interventionCount === 0 || undefined}>
-        介入 {game.interventionCount}回
-      </span>
+      {/* **대인전은 개입 횟수 자리에 「対人」이 선다.** 거기에 「介入 0回」를 적으면 「한 번도
+          안 걸린 잘 둔 판」으로 읽히는데, 사실은 **재지 않았다**이다 — 그 둘이 초심자에게
+          정반대다(docs/journal §83). */}
+      {game.isMatch === true ? (
+        <span className="review-card-iv" data-match>
+          対人
+        </span>
+      ) : (
+        // 0회도 적는다. **止まらなかった것도 성적이다** — 빈 자리로 두면 셌는지조차 안 보인다.
+        <span className="review-card-iv" data-none={game.interventionCount === 0 || undefined}>
+          介入 {game.interventionCount}回
+        </span>
+      )}
     </>
   );
 }

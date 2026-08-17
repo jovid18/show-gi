@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 
 import type { GameSetup } from '@/hooks/useGame';
+import { useViewer } from '@/hooks/useViewer';
 import type { Color } from '@/protocol/game';
+import { createRoom } from '@/protocol/match';
 import { fetchOpenings, type Opening } from '@/protocol/openings';
 import { ROUTE_GUIDE } from '@/routes/const';
+import { navigate } from '@/routes/router';
 
 /**
  * 대국을 시작하기 전에 고르는 화면.
@@ -107,6 +110,10 @@ export function Setup({ initial, onStart }: SetupProps) {
         対局をはじめる
       </button>
 
+      {/* **상대가 사람인 갈래는 여기서 갈린다.** 위에서 고른 手番을 그대로 쓰고 戦型은
+          안 쓴다 — 진형은 컴퓨터에게 시키는 것이라 사람 상대에게는 뜻이 없다. */}
+      <FriendMatch color={color} />
+
       {/* **헤더의 버튼만으로는 못 찾는다.** 처음 온 사람이 실제로 보는 화면은 여기 하나다.
           시작 버튼 **아래**에 두는 것이 요점 — 위에 두면 두러 온 사람을 먼저 붙잡는다.
 
@@ -116,6 +123,66 @@ export function Setup({ initial, onStart }: SetupProps) {
         はじめての方へ — このアプリの遊びかた
         <span aria-hidden="true"> ↗</span>
       </a>
+    </div>
+  );
+}
+
+/**
+ * 사람과 두는 갈래로 나가는 문.
+ *
+ * **로그인해야 열린다.** 익명은 서로 구별할 수단이 없어서 「이 방의 상대가 아까 그
+ * 사람인가」에 답할 수 없고, 그러면 정원 2명이라는 규칙이 성립하지 않는다.
+ *
+ * **눌러도 안 되는 버튼을 안 띄운다** — 로그인 안 한 사람에게는 이유를 적은 줄이 선다
+ * (`Account` 와 마이페이지 탭이 이미 쓰는 규칙, journal §76).
+ */
+function FriendMatch({ color }: { color: Color }) {
+  const { me } = useViewer();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // 로그인이라는 것이 이 배포에 없으면 자리를 아예 안 그린다 — 있는데 못 쓰는 것과
+  // 없는 것은 다르고, 후자에 안내문을 띄우면 없는 기능을 말하게 된다.
+  if (!me.enabled) return null;
+
+  return (
+    <div className="setup__friend">
+      <h3 className="setup__legend">友だちと対局</h3>
+      {me.user === null ? (
+        <p className="setup__caveat">友だちと指すにはログインが必要です。</p>
+      ) : (
+        <>
+          <p className="setup__caveat">
+            {/* **정한 것 셋을 누르기 전에 말한다.** 시계는 판을 지게 만들 수 있고,
+                개입이 없는 것은 이 앱을 개입으로 알고 온 사람에게 고장으로 읽힌다. */}
+            部屋をつくるとリンクが出ます。それを送った相手が開くと対局がはじまります。持ち時間は一手60秒で、
+            対人戦では口出しもヒントも出ません。
+          </p>
+          <button
+            type="button"
+            className="btn setup__start"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              setError(null);
+              const ac = new AbortController();
+              void createRoom(color, ac.signal)
+                .then((room) => navigate({ name: 'room', id: room.id }))
+                .catch((e: Error) => {
+                  setBusy(false);
+                  setError(e.message);
+                });
+            }}
+          >
+            {busy ? '部屋をつくっています…' : '対局部屋をつくる'}
+          </button>
+          {error !== null && (
+            <p className="rejection" role="alert">
+              {error}
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }

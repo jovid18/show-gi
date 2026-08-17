@@ -79,11 +79,34 @@ describe('parseRoute', () => {
     expect(parseRoute('/guide/')).toEqual({ name: 'guide' });
     expect(parseRoute('/guide/anything')).toEqual({ name: 'guide' });
   });
+
+  // 방 id 는 **22자 base64url** 이다(서버의 newRoomID). 모양이 아니면 대국으로 보낸다 —
+  // 아무 문자열이나 통과시키면 그 값이 그대로 `fetch` 의 경로가 된다.
+  it('방', () => {
+    const id = 'AbCdEfGhIjKlMnOpQrStUv';
+    expect(parseRoute(`/rooms/${id}`)).toEqual({ name: 'room', id });
+    // 하이픈과 밑줄이 base64url 의 글자다.
+    expect(parseRoute('/rooms/aaaaaaaaaa-_aaaaaaaaaa')).toEqual({ name: 'room', id: 'aaaaaaaaaa-_aaaaaaaaaa' });
+  });
+
+  it('모양이 아닌 방 id 는 대국이다', () => {
+    for (const path of ['/rooms', '/rooms/', '/rooms/12', '/rooms/short', '/rooms/' + 'a'.repeat(23), '/rooms/a+b']) {
+      expect(parseRoute(path)).toEqual({ name: 'game' });
+    }
+  });
 });
 
 describe('hrefOf', () => {
   it('읽은 것을 다시 적으면 같은 주소다', () => {
-    for (const path of ['/', '/reviews', '/reviews/12', '/reviews/12/quiz', '/me', '/guide']) {
+    for (const path of [
+      '/',
+      '/reviews',
+      '/reviews/12',
+      '/reviews/12/quiz',
+      '/me',
+      '/guide',
+      '/rooms/AbCdEfGhIjKlMnOpQrStUv',
+    ]) {
       expect(hrefOf(parseRoute(path))).toBe(path);
     }
   });

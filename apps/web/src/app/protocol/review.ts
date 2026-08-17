@@ -20,6 +20,14 @@ export interface GameSummary {
   result?: GameResult;
   moveCount: number;
   interventionCount: number;
+  /**
+   * 사람과 둔 판인가.
+   *
+   * **없으면 AI 연습 대국이다**(서버가 false 를 안 보낸다). 대인전에는 엔진 판정이 없어서
+   * 개입이 0건이고 평가치가 비는데, 화면이 그것을 「블런더 없이 잘 둔 판」으로 그리면
+   * 거짓말이 된다 — 없는 것이지 0인 것이 아니다(docs/journal §83).
+   */
+  isMatch?: boolean;
 }
 
 /**

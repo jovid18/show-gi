@@ -58,6 +58,10 @@ type recordEvent struct {
 	verdict intervene.Verdict
 	status  game.Status
 	winner  game.Side
+	// result 는 `evFinished` 가 그대로 적을 결과다. **대인전이 채운다** — 그쪽은 승패를
+	// 테이블이 이미 색으로 정해 놨고(match.state.resultFor), status·winner 로 되돌려
+	// 넣으면 같은 변환이 두 곳에 생긴다.
+	result store.GameResult
 }
 
 // recordQueue 는 이벤트 버퍼 크기다.
@@ -71,6 +75,9 @@ const recordQueue = 256
 type recordTarget struct {
 	// userID 는 nil일 수 있다 — 로그인 전 대국이다(002_anonymous_games.sql).
 	userID *int64
+	// matchID 가 비어 있지 않으면 **대인전 한 판의 한쪽 몫**이다(012_match_games.sql).
+	// 그때는 진형 대신 이 값이 들어가고, 익명일 수 없다(대인전은 로그인한 사람만이다).
+	matchID string
 	// openingID 는 사람이 고른 상대의 진형이다(internal/book). 새 판을 열 때만 쓴다.
 	openingID string
 	// resumeID 가 0이 아니면 **새 판을 열지 않고 그 행에 이어 적는다.** 되열기는 점유가
@@ -135,7 +142,13 @@ func (r *dbRecorder) HintTaken(key string, taken bool) {
 }
 
 func (r *dbRecorder) Finished(status game.Status, winner game.Side) {
-	r.send(recordEvent{kind: evFinished, status: status, winner: winner})
+	r.FinishedWith(resultOf(status, winner))
+}
+
+// FinishedWith 는 결과를 **그대로** 적는다. 대인전이 쓰는 자리다 — 그쪽은 사람이 둘이라
+// `game.Side`(human/engine)로 승자를 말할 수가 없다.
+func (r *dbRecorder) FinishedWith(result store.GameResult) {
+	r.send(recordEvent{kind: evFinished, result: result})
 }
 
 // run 은 이벤트를 순서대로 쓴다.
@@ -166,7 +179,19 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 			if ev.color == shogi.White {
 				color = "w"
 			}
-			id, err := st.CreateGame(write, target.userID, color, ev.startSFEN, target.openingID)
+			var (
+				id  int64
+				err error
+			)
+			if target.matchID != "" {
+				if target.userID == nil {
+					log.Printf("game record: a match game has no owner — not creating a row")
+					return
+				}
+				id, err = st.CreateMatchGame(write, *target.userID, color, ev.startSFEN, target.matchID)
+			} else {
+				id, err = st.CreateGame(write, target.userID, color, ev.startSFEN, target.openingID)
+			}
 			if err != nil {
 				log.Printf("game record: create game: %v", err)
 				return
@@ -242,7 +267,7 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 			if gameID == 0 {
 				return
 			}
-			if err := st.FinishGame(write, gameID, resultOf(ev.status, ev.winner)); err != nil {
+			if err := st.FinishGame(write, gameID, ev.result); err != nil {
 				log.Printf("game record: finish: %v", err)
 			}
 			finished = true

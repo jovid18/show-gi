@@ -14,6 +14,20 @@ INSERT INTO games (user_id, my_color, start_sfen, opening_tag)
 VALUES ($1, $2, $3, $4)
 RETURNING id;
 
+-- name: CreateMatchGame :one
+--
+-- 대인전 한 판의 **한쪽 몫**이다. 같은 대국이 이 질의로 두 번 불려 행 두 개가 된다 —
+-- 그래야 소유 검사를 타는 다섯 질의가 한 줄도 안 바뀐다(012_match_games.sql).
+--
+-- **`opening_tag` 가 없다.** 그 칸은 「사람이 고른 컴퓨터의 진형」이라 상대가 사람이면
+-- 채울 것이 없고, 빈 값을 넣으면 이어하기가 없는 북을 찾는다.
+--
+-- **`user_id` 가 NULL 로 오지 않는다.** 대인전은 로그인한 사람만이라(internal/match 의 Room)
+-- 익명 판이 여기로 올 수 없다 — 컬럼 자체는 그대로 nullable 이다(002).
+INSERT INTO games (user_id, my_color, start_sfen, match_id)
+VALUES ($1, $2, $3, $4)
+RETURNING id;
+
 -- name: FinishGame :exec
 UPDATE games SET finished_at = now(), result = $2 WHERE id = $1;
 
@@ -70,7 +84,8 @@ SELECT
     g.finished_at,
     g.result,
     (SELECT count(*) FROM game_moves m WHERE m.game_id = g.id) AS move_count,
-    (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count
+    (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count,
+    g.match_id
 FROM games g
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
 ORDER BY g.id DESC
@@ -95,7 +110,10 @@ SELECT
     g.finished_at,
     g.result,
     (SELECT count(*) FROM game_moves m WHERE m.game_id = g.id) AS move_count,
-    (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count
+    (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count,
+    -- **대인전 판은 여기 그대로 뜬다.** 마이페이지의 집계에서만 빠진다(journal §83) —
+    -- 그쪽은 개입 비율이 뜻을 갖는 자리이고, 목록은 「무엇을 뒀나」라 뜻이 다르다.
+    g.match_id
 FROM games g
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
   AND g.result IN ('win', 'loss', 'draw')
@@ -108,7 +126,7 @@ LIMIT $1;
 -- **여기서는 개입을 세지 않는다.** 어차피 아래에서 전부 읽어 오므로, 따로 센 숫자와
 -- 실제로 온 줄 수가 두는 중인 판에서 어긋날 수 있다 — 목록(ListGames)은 줄을 안 읽으니
 -- 거기서만 센다.
-SELECT id, my_color, started_at, finished_at, result, start_sfen, opening_tag
+SELECT id, my_color, started_at, finished_at, result, start_sfen, opening_tag, match_id
 FROM games
 WHERE id = $1;
 
@@ -119,7 +137,7 @@ WHERE id = $1;
 --
 -- **끝나지 않은 판도 0행이다** — ListGamesForOwner 와 같은 조건이고, 같은 이유로 404다.
 -- 「있지만 못 본다」를 알려주는 순간 중단된 판의 존재가 새어 나간다.
-SELECT id, my_color, started_at, finished_at, result, start_sfen, opening_tag
+SELECT id, my_color, started_at, finished_at, result, start_sfen, opening_tag, match_id
 FROM games
 WHERE id = $1
   AND result IN ('win', 'loss', 'draw')
@@ -204,6 +222,9 @@ FROM games g
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
   AND g.result IN ('win', 'loss', 'draw')
   AND g.user_id IS NOT DISTINCT FROM sqlc.narg('owner_id')::bigint
+  -- **대인전 판은 안 센다**(match_id IS NULL). 개입이 없는 판이라 분모에만 들어가고,
+  -- 그러면 「崩れやすいところ」의 비율이 그만큼 희석된다(journal §83).
+  AND g.match_id IS NULL
 GROUP BY g.result;
 
 -- name: CountInterventionCategoriesForOwner :many
@@ -219,6 +240,9 @@ JOIN games g ON g.id = i.game_id
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
   AND g.result IN ('win', 'loss', 'draw')
   AND g.user_id IS NOT DISTINCT FROM sqlc.narg('owner_id')::bigint
+  -- **대인전 판은 안 센다**(match_id IS NULL). 개입이 없는 판이라 분모에만 들어가고,
+  -- 그러면 「崩れやすいところ」의 비율이 그만큼 희석된다(journal §83).
+  AND g.match_id IS NULL
 GROUP BY i.category;
 
 -- ─── 무르기 ─────────────────────────────────────────────────
@@ -278,6 +302,9 @@ CROSS JOIN LATERAL unnest(g.style_tags) AS t(code)
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
   AND g.result IN ('win', 'loss', 'draw')
   AND g.user_id IS NOT DISTINCT FROM sqlc.narg('owner_id')::bigint
+  -- **대인전 판은 안 센다**(match_id IS NULL). 개입이 없는 판이라 분모에만 들어가고,
+  -- 그러면 「崩れやすいところ」의 비율이 그만큼 희석된다(journal §83).
+  AND g.match_id IS NULL
 GROUP BY t.code;
 
 -- ─── 부른 힌트 ───────────────────────────────────────────────
