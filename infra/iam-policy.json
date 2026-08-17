@@ -56,6 +56,7 @@
         "ec2:DeleteLaunchTemplateVersions",
         "ec2:ModifyLaunchTemplate",
         "ec2:GetLaunchTemplateData",
+        "ec2:RunInstances",
         "autoscaling:*"
       ],
       "Resource": "*",
@@ -94,7 +95,11 @@
         "iam:DeleteRolePolicy",
         "iam:GetRolePolicy",
         "iam:UpdateAssumeRolePolicy",
-        "iam:ListRoleTags"
+        "iam:ListRoleTags",
+        "iam:TagInstanceProfile",
+        "iam:UntagInstanceProfile",
+        "iam:ListInstanceProfileTags",
+        "iam:UntagRole"
       ],
       "Resource": ["arn:aws:iam::058264445568:role/show-gi-*", "arn:aws:iam::058264445568:instance-profile/show-gi-*"]
     },
