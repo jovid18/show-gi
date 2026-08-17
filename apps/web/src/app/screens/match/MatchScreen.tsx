@@ -5,7 +5,7 @@ import { Hand } from '@/components/Hand';
 import { groupByOrigin, toUsiMove, type Destination } from '@/libs/game/moves';
 import { lastMoveOf } from '@/libs/game/board-view';
 import { Kifu } from '@/screens/game/Kifu';
-import { useMatch, useTurnClock } from '@/hooks/useMatch';
+import { useMatch, useTurnClock, type MatchConnection } from '@/hooks/useMatch';
 import { fetchRoom, type MatchSnapshot, type Room } from '@/protocol/match';
 import type { Side } from '@/models/piece';
 import { parseSfen } from '@/models/sfen';
@@ -72,6 +72,7 @@ function MatchLive({ roomId }: { roomId: string }) {
   }
   return (
     <MatchBoard
+      connection={connection}
       snapshot={snapshot}
       rejection={rejection}
       gameId={gameId}
@@ -89,6 +90,7 @@ function MatchLive({ roomId }: { roomId: string }) {
 }
 
 interface BoardProps {
+  connection: MatchConnection;
   snapshot: MatchSnapshot;
   rejection: string | null;
   gameId: number | null;
@@ -104,6 +106,7 @@ interface BoardProps {
 }
 
 function MatchBoard({
+  connection,
   snapshot,
   rejection,
   gameId,
@@ -258,6 +261,19 @@ function MatchBoard({
               닫아 판을 얼릴 수 있고, 시계가 있는 이유가 정확히 그것이다. */}
           {!over && !snapshot.opponentOnline && (
             <p className="match-away">相手は今、画面を離れています。持ち時間はそのまま進みます。</p>
+          )}
+
+          {/* **내 연결이 끊긴 것은 조용히 넘길 수 없다.**
+              판은 서버에서 그대로 돌고 **내 시계도 그대로 흐른다** — 화면은 마지막 스냅샷을
+              들고 있어서 아무 일도 없어 보이는데, 그동안 시간패로 지고 있다. 그래서 여기만
+              색을 쓰고 되돌아가는 길을 같이 준다. */}
+          {!over && connection === 'closed' && (
+            <div className="match-lost" role="alert">
+              <p>接続が切れました。持ち時間は進んでいます。</p>
+              <button type="button" className="btn btn--primary" onClick={() => window.location.reload()}>
+                対局にもどる
+              </button>
+            </div>
           )}
         </div>
 

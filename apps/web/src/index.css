@@ -4306,3 +4306,21 @@ body {
   color: var(--fg);
   font-weight: 600;
 }
+
+/* 내 연결이 끊겼다. **여기만 색을 쓴다** — 상대가 자리를 비운 것(.match-away)은 판이
+   그대로 도는 사실이지만, 이건 **그동안 내가 시간패로 지고 있다**는 뜻이라 급이 다르다. */
+.match-lost {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  background: #fdf6f4;
+  border: 1px solid #e0cdc7;
+  border-radius: var(--r-md);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: #9c3f2e;
+}
+
+.match-lost p {
+  margin: 0;
+}
