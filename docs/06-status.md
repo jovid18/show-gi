@@ -94,19 +94,19 @@
 
 Terraform으로 관리하지 않는다. state를 담을 자원을 state로 관리할 수 없고, IAM은 자기 자신을 만들 수 없기 때문이다.
 
-| 자원                                                     | 상태                            |
-| -------------------------------------------------------- | ------------------------------- |
-| IAM 사용자 `show-gi-operator`                            | ✅                              |
-| 관리형 정책 `show-gi-operator`                           | ✅ **v4** (ECS·ELB·ACM 반영본)  |
-| S3 `show-gi-terraform-state-058264445568`                | ✅ 버전 관리·암호화·퍼블릭 차단 |
-| DynamoDB `show-gi-terraform-lock`                        | ✅                              |
-| 도메인 `show-gi.com` + 호스팅 존 `Z00883671JMPHNULHF2GS` | ✅ 등록 완료                    |
+| 자원                                                     | 상태                                         |
+| -------------------------------------------------------- | -------------------------------------------- |
+| IAM 사용자 `show-gi-operator`                            | ✅                                           |
+| 관리형 정책 `show-gi-operator`                           | ✅ EC2·ASG 반영본 ([§82](journal/82-100.md)) |
+| S3 `show-gi-terraform-state-058264445568`                | ✅ 버전 관리·암호화·퍼블릭 차단              |
+| DynamoDB `show-gi-terraform-lock`                        | ✅                                           |
+| 도메인 `show-gi.com` + 호스팅 존 `Z00883671JMPHNULHF2GS` | ✅ 등록 완료                                 |
 
 ### Terraform이 만든 것 — **apply 완료**
 
 | 자원                             | 상태                                                                                              |
 | -------------------------------- | ------------------------------------------------------------------------------------------------- |
-| ECS 클러스터 `show-gi` + 서비스  | ✅ 생성됨 (태스크는 아직 0개, 아래 참조)                                                          |
+| ECS 클러스터 `show-gi` + 서비스  | ✅ **EC2 스팟 1대 위에서 태스크 1개**([§82](journal/82-100.md))                                   |
 | ALB `show-gi` + ACM 인증서       | ✅ 인증서 **ISSUED / InUse**, HTTPS 응답 확인                                                     |
 | RDS `show-gi`                    | ✅ **available**, PostgreSQL 17.10, 백업 7일, **노트북에서 직접 붙는다**([§19](journal/06-20.md)) |
 | ECR `show-gi/api`, `show-gi/web` | ✅ 생성됨 — **이미지 0개**                                                                        |
@@ -125,11 +125,19 @@ ecr_registry 058264445568.dkr.ecr.ap-northeast-1.amazonaws.com
 https://show-gi.com   →  HTTP/2 200
 https://show-gi.com/healthz  →  {"ok":true}
 
-ECS 서비스   1/1 running
-ALB 타깃     healthy
-RDS          12개 테이블 + pgvector 설치됨   ← 001~010 전부 적용됨 (사람이 확인, 2026-08-14)
+ECS 서비스   1/1 running          ← launch_type EC2, network_mode host
+EC2          t4g.small 스팟 1대   ← ASG show-gi (1/1/1)
+ALB 타깃     healthy (instance 타입)
+RDS          001~011 적용됨
 ECR          api·web 각각 이미지 있음 (커밋 SHA + latest)
+
+/healthz     {"db":true,"engine":true,"ok":true}   ← 2026-08-17 확인
+/ws/game     101 Switching Protocols               ← HTTP/1.1 로 확인
 ```
+
+> **정책 버전 번호는 여기서 안 센다.** 콘솔에서 저장할 때마다 새 버전이 되어 번호가 금방 낡는다 — 대조할 것은 번호가 아니라 **`infra/iam-policy.json` 이 실제 정책과 같은가**다.
+
+> **`011` 이 프로덕션에 들어갔는지가 이 줄의 유일한 미확정이다.** LLM 계층을 걷어내면서 `explain_cache`·`kb_chunks` 를 지우는 마이그레이션이고(그래서 12개 → 10개다), 배포가 DDL을 안 돌리므로 사람이 직접 넣어야 한다. **[미확정]** 넣은 사람이 이 줄을 고친다.
 
 > **마이그레이션 `001`~`010` 이 프로덕션에 들어가 있다.** 마지막 둘 — `009`(짠 진형, [§77](journal/61-81.md)) · `010`(부른 힌트, [§78](journal/61-81.md)) — 도 **사람이 손으로 넣었다고 확인해 줬다**(2026-08-14). 배포가 DDL을 안 돌리므로([deploy/README.md](../deploy/README.md) §4) 「레포에 파일이 있다」와 「적용됐다」가 언제나 다른 사실이고, **그래서 여기에 적어 둔다.** 다음 마이그레이션을 넣는 사람이 갱신할 자리다.
 >

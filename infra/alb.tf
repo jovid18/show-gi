@@ -56,12 +56,17 @@ resource "aws_lb" "main" {
   idle_timeout = 900
 }
 
+# **이름을 접두사로 받는다.** `target_type` 은 바꿀 수 없는 속성이라 값을 고치면 타깃
+# 그룹이 교체되는데, 이름이 고정이면 terraform 이 「지우고 만들기」 순서로 잡는다 —
+# 리스너가 아직 가리키고 있어서 지우기가 ResourceInUse 로 실패하고 apply 가 교착한다.
+# 접두사 + create_before_destroy 면 새 것을 먼저 만들고 리스너를 옮긴 뒤 옛 것을 지운다.
+# (접두사는 6자가 상한이다.)
 resource "aws_lb_target_group" "web" {
-  name        = "show-gi-web"
+  name_prefix = "showgi"
   port        = 80
   protocol    = "HTTP"
   vpc_id      = data.aws_vpc.default.id
-  target_type = "ip" # awsvpc 모드의 Fargate 태스크는 IP로 등록된다
+  target_type = "instance" # host 모드라 태스크가 아니라 인스턴스가 등록된다
 
   health_check {
     path = "/healthz"
@@ -76,6 +81,10 @@ resource "aws_lb_target_group" "web" {
 
   # 배포 시 옛 태스크가 진행 중인 요청을 마치도록 기다린다
   deregistration_delay = 30
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # ─── 인증서 ─────────────────────────────────────────────────

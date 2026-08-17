@@ -26,20 +26,44 @@ variable "db_instance_class" {
   default     = "db.t4g.micro" # 2 vCPU(버스터블) / 1 GiB
 }
 
-variable "task_cpu" {
+variable "instance_type" {
   description = <<-EOT
-    Fargate vCPU (1024 = 1 vCPU). 엔진 셋(상대 수·선행 계산·mate 탐색)이 동시에
-    돌아야 개입 판정이 착수 흐름을 끊지 않는다. 느려지면 올린다 — EC2와 달리
-    인스턴스를 갈아엎지 않고 태스크 정의만 바꾸면 된다.
+    ECS 컨테이너 인스턴스의 타입. **arm64여야 한다** — 엔진이 arm64 Debian 바이너리다.
+
+    t4g.small(2 vCPU / 2 GiB)이 실용 하한이다. t4g.micro는 1 GiB라 엔진 세 개와 Go 힙이
+    들어가면 탐색 중에 OOM 위험이 남고, 아끼는 것이 월 $8뿐이다.
+
+    올릴 때는 `task_memory` 도 같이 올린다 — 둘이 갈리면 인스턴스는 커졌는데 태스크가
+    옛 값만 예약해서 남는 메모리를 아무도 안 쓴다.
   EOT
   type        = string
-  default     = "4096"
+  default     = "t4g.small"
+}
+
+variable "task_cpu" {
+  description = <<-EOT
+    태스크가 예약하는 CPU 단위(1024 = 1 vCPU). **인스턴스의 vCPU를 넘으면 태스크가 아예
+    배치되지 않는다** — Fargate처럼 임의의 조합을 고르는 것이 아니라 실제 하드웨어에서 뺀다.
+
+    t4g.small이 2 vCPU라 2048이 상한이고, 그것을 다 쓴다 — 태스크가 하나뿐이라 남겨 둘
+    이유가 없고, 엔진 탐색은 주는 만큼 쓴다.
+  EOT
+  type        = string
+  default     = "2048"
 }
 
 variable "task_memory" {
-  description = "Fargate 메모리(MiB). 4096 vCPU에서 허용되는 최소치가 8192다"
+  description = <<-EOT
+    태스크가 예약하는 메모리(MiB). **인스턴스에서 실제로 빠지는 값이다.**
+
+    t4g.small은 2048 MiB인데 OS와 ECS 에이전트가 먹고 남는 것이 ~1750 MiB라, 그보다 크게
+    적으면 태스크가 배치되지 않는다. 1536은 그 안에서 여유를 200 MiB 남긴 값이다.
+
+    엔진이 쓰는 양은 `ENGINE_POOL_SIZE` · `ENGINE_MATE_POOL_SIZE` · `ENGINE_HASH_MB` 로
+    정해진다(ecs.tf의 그 자리). **이 값만 올리면 안 늘어난다.**
+  EOT
   type        = string
-  default     = "8192"
+  default     = "1536"
 }
 
 variable "image_tag" {

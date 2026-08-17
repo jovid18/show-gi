@@ -1,4 +1,4 @@
-# **로컬 개발용이다.** 배포는 ECS Fargate라 이 파일과 무관하다 (deploy/README.md).
+# **로컬 개발용이다.** 배포는 ECS라 이 파일과 무관하다 (deploy/README.md).
 #
 # 웹은 여기 없다 — `pnpm dev`로 띄우고 Vite가 :8080의 api로 프록시한다.
 # 배포에서는 Caddy 컨테이너가 그 자리를 대신하지만, 개발 중에는 HMR이 훨씬 중요하다.
