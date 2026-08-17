@@ -392,6 +392,10 @@ function matchResultText(snapshot: MatchSnapshot): string | null {
     // **승패를 말하지 않는다.** 서버가 내려간 것이라 두 사람 다 잘못한 것이 없다.
     case 'aborted':
       return 'サーバーの都合でこの対局は中断しました。';
+    // 여기도 승패가 없다. **다만 이유가 반대라 문장이 다르다** — 서버 사정이 아니라
+    // 아무도 안 둔 것이고, 그것을 「サーバーの都合」로 적으면 없는 고장을 알리게 된다.
+    case 'expired':
+      return '一手も指されないまま持ち時間が過ぎました。この対局は成立しませんでした。';
     default:
       return null;
   }

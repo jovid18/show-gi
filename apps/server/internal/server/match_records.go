@@ -33,20 +33,26 @@ type matchRecords struct {
 type roomRecord struct {
 	at  time.Time
 	rec map[shogi.Color]*dbRecorder
-	// id 는 **이미 받아 둔** 판 번호다. `dbRecorder.done` 이 값 하나짜리 채널이라
-	// 여기 옮겨 두지 않으면 두 번째로 묻는 연결이 빈손으로 돌아간다(gameIDOf).
-	id map[shogi.Color]int64
+	// id·ready 는 **이미 받아 둔** 판 번호와 그것이 정해졌다는 신호다.
+	//
+	// `dbRecorder.done` 은 값 하나짜리 채널이라 먼저 읽은 쪽이 가져가 버린다. 판이 끝나는
+	// 순간에 새로고침하거나 같은 색으로 탭을 둘 열어 두는 것은 드문 일이 아닌데, 그때
+	// 두 번째 연결은 5초를 기다린 끝에 링크를 못 그리고 로그에는 「기록이 안 끝났다」는
+	// **거짓말**이 남는다 — 그래서 받는 쪽을 **하나로 모으고**(collect) 여기 옮겨 둔다.
+	//
+	// `ready` 는 **닫히는 채널**이라 몇이 기다려도 다 깨어난다. 값을 실어 보내면 다시
+	// 「먼저 읽은 쪽이 가져간다」로 돌아간다.
+	id    map[shogi.Color]int64
+	ready map[shogi.Color]chan struct{}
 }
 
-// recordSweepAfter 는 곁장부의 항목을 지우기까지의 시간이다.
+// recordSweepAfter 는 곁장부의 **항목**을 지우기까지의 시간이다. 기록기 goroutine 은
+// 이것과 무관하게 판이 끝나는 자리에서 접힌다(collect).
 //
 // **판이 시작한 시각부터 센다.** 그래서 이 값은 **한 판이 걸릴 수 있는 최대 시간보다
 // 길어야 한다** — 짧으면 오래 두는 판이 끝나기도 전에 항목이 사라지고, 그때 「振り返り」
-// 링크가 안 그려진다. 방의 만료(`match.OpenTTL + match.FinishedTTL` = 40분)로 잡았다가
-// 그 함정을 봤다: 1手 60초라 100手만 둬도 그 값을 넘긴다.
-//
-// 24시간은 판이 도달할 수 없는 자리다 — 시계가 매 수 60초를 자르므로 300手를 둬도
-// 5시간이고, 千日手가 그 앞에서 끝낸다. 항목 하나는 포인터 둘이라 오래 들고 있어도 싸다.
+// 링크가 안 그려진다. 방의 만료(40분)로 잡았다가 그 함정을 봤다: 1手 60초라 100手만
+// 둬도 그 값을 넘긴다.
 const recordSweepAfter = 24 * time.Hour
 
 func newMatchRecords(st *store.Store, level intervene.Level) *matchRecords {
@@ -57,68 +63,98 @@ func newMatchRecords(st *store.Store, level intervene.Level) *matchRecords {
 //
 // **ctx 는 서버의 것이다**(Hub 가 준다). 연결에 매달면 한쪽이 탭을 닫는 순간 그 사람의
 // 기록이 abandoned 로 닫히는데, 대인전은 그때도 판이 계속 돈다.
+//
+// **그래서 판마다 ctx 를 한 겹 더 판다.** 서버 ctx 를 그대로 주면 기록기 goroutine 이
+// 판이 끝난 뒤에도 이벤트 채널에 영원히 서 있는다 — 엔진 대국은 세션 ctx 가 연결과 함께
+// 끝나서 그 자리가 없는데, 여기는 없앨 사람이 없다. 끝난 판마다 goroutine 둘과 256칸짜리
+// 채널 둘이 남고, 배포 전까지 계속 쌓인다.
 func (m *matchRecords) new(
-	ctx context.Context, matchID string, black, white match.Player,
+	parent context.Context, matchID string, black, white match.Player,
 ) map[shogi.Color]match.Recorder {
 	if m == nil || m.store == nil {
 		return nil // 기록이 없는 배포. 대국은 그대로 된다(Options.Store 와 같은 판단)
 	}
 
-	made := map[shogi.Color]*dbRecorder{}
+	ctx, cancel := context.WithCancel(parent)
+	entry := &roomRecord{
+		at:    time.Now(),
+		rec:   map[shogi.Color]*dbRecorder{},
+		id:    map[shogi.Color]int64{},
+		ready: map[shogi.Color]chan struct{}{},
+	}
 	out := map[shogi.Color]match.Recorder{}
 	for c, p := range map[shogi.Color]match.Player{shogi.Black: black, shogi.White: white} {
 		// **주소를 사람마다 새로 뜬다.** 반복 변수의 주소를 그대로 넘기면 두 기록기가
 		// 같은 값을 가리키고, 그러면 한 판이 한 사람의 행 두 개로 남는다.
 		userID := p.UserID
-		db := newDBRecorder(ctx, m.store, m.level, recordTarget{userID: &userID, matchID: matchID})
-		made[c] = db
-		out[c] = matchRecorder{db: db}
+		entry.rec[c] = newDBRecorder(ctx, m.store, m.level, recordTarget{userID: &userID, matchID: matchID})
+		entry.ready[c] = make(chan struct{})
+		out[c] = matchRecorder{db: entry.rec[c]}
 	}
 
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	m.sweepLocked(time.Now())
-	m.byRoom[matchID] = &roomRecord{at: time.Now(), rec: made, id: map[shogi.Color]int64{}}
+	m.byRoom[matchID] = entry
+	m.mu.Unlock()
+
+	go m.collect(ctx, cancel, entry)
 	return out
+}
+
+// collect 는 두 기록기의 번호를 받아 두고, **그 뒤에 기록기를 접는다.**
+//
+// 번호를 여기 한 곳에서 받는 것이 요점이다 — 연결마다 `done` 을 직접 읽으면 값이 하나뿐이라
+// 먼저 읽은 쪽이 가져간다(roomRecord.id).
+func (m *matchRecords) collect(ctx context.Context, cancel context.CancelFunc, entry *roomRecord) {
+	// **마지막에 접는다.** 번호를 받았다는 것은 `evFinished` 까지 다 썼다는 뜻이라
+	// (dbRecorder.done) 여기서 끊어도 잃을 이벤트가 없다.
+	defer cancel()
+
+	for c, rec := range entry.rec {
+		select {
+		case id := <-rec.done:
+			m.mu.Lock()
+			entry.id[c] = id
+			m.mu.Unlock()
+		case <-ctx.Done():
+			// 서버가 내려간다. 번호 없이 신호만 열어 준다 — 기다리는 쪽이 매달려 있으면 안 된다.
+		}
+		close(entry.ready[c])
+	}
 }
 
 // gameIDOf 는 그 색의 판 번호를 기다렸다 준다. 못 얻으면 두 번째 값이 false 다.
 //
-// **한 번 받은 번호를 들고 있는다.** 기록기의 `done` 은 값 하나를 실어 보내는 채널이라
-// 먼저 읽은 쪽이 가져가 버리는데, 같은 사람이 판이 끝나는 순간에 새로고침하거나 탭을
-// 둘 열어 두는 것은 드문 일이 아니다 — 그때 두 번째 연결은 5초를 기다린 끝에 링크를
-// 못 그리고, 로그에는 「기록이 안 끝났다」는 **거짓말**이 남는다.
-func (m *matchRecords) gameIDOf(ctx context.Context, matchID string, c shogi.Color, wait time.Duration) (int64, bool) {
+// **몇이 물어도 다 답한다** — 신호가 닫히는 채널이고 값은 곁장부에 남아 있다(roomRecord.id).
+func (m *matchRecords) gameIDOf(
+	ctx context.Context, matchID string, c shogi.Color, wait time.Duration,
+) (int64, bool) {
 	if m == nil {
 		return 0, false
 	}
 	m.mu.Lock()
 	entry, ok := m.byRoom[matchID]
+	m.mu.Unlock()
 	if !ok {
-		m.mu.Unlock()
 		return 0, false
 	}
-	if id, ok := entry.id[c]; ok {
-		m.mu.Unlock()
-		return id, true // 이미 받아 둔 번호다
-	}
-	rec, ok := entry.rec[c]
-	m.mu.Unlock()
+	ready, ok := entry.ready[c]
 	if !ok {
 		return 0, false
 	}
 
 	select {
-	case id := <-rec.done:
-		m.mu.Lock()
-		entry.id[c] = id
-		m.mu.Unlock()
-		return id, true
+	case <-ready:
 	case <-time.After(wait):
 		return 0, false
 	case <-ctx.Done():
 		return 0, false
 	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	id, ok := entry.id[c]
+	return id, ok
 }
 
 func (m *matchRecords) sweepLocked(now time.Time) {

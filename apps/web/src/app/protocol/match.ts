@@ -7,14 +7,23 @@
 import type { Color } from '@/protocol/game';
 
 /**
- * `timeout` 은 **1手 제한시간을 넘긴 것**이고 승패가 난다.
+ * 승패가 없는 끝이 **둘**이다. 갈라 두는 이유는 화면이 할 말이 정반대이기 때문이다.
  *
- * 엔진 대국의 `aborted`(상대의 수를 못 얻어 접은 것)와 갈라 두는 것이 요점이다 —
- * 저쪽은 우리 사정이라 승패가 없고, 이쪽은 사람이 안 둔 것이라 승부다.
+ * - `aborted` — 서버가 내려갔다. 두 사람 다 잘못한 것이 없다
+ * - `expired` — **한 수도 안 둔 채** 시간이 다 됐다. 아무도 안 뒀으면 판이 없었던 것이라
+ *   승패를 안 적는다(그래야 0手짜리 판이 두 사람의 전적에 win/loss 로 남지 않는다)
  *
- * `aborted` 는 여기에도 있는데 뜻이 하나뿐이다: **서버가 내려갔다.**
+ * `timeout` 은 **수를 두고 나서** 시간을 넘긴 것이고, 그쪽은 승부가 난다.
  */
-export type MatchStatus = 'playing' | 'checkmate' | 'stalemate' | 'resigned' | 'repetition' | 'timeout' | 'aborted';
+export type MatchStatus =
+  | 'playing'
+  | 'checkmate'
+  | 'stalemate'
+  | 'resigned'
+  | 'repetition'
+  | 'timeout'
+  | 'expired'
+  | 'aborted';
 
 /**
  * 기보의 한 수를 **누가 뒀나**. 절대 이름(先手/後手)이 아니라 **보는 사람 기준**이다.

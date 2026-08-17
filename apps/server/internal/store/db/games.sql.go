@@ -40,6 +40,10 @@ SET result = NULL, finished_at = NULL
 WHERE id = $1
   AND user_id = $2
   AND result = 'abandoned'
+  -- **위 질의와 같은 조건이 여기에도 있어야 한다.** 목록에서만 빼면 ` + "`" + `/ws/game?resume=<id>` + "`" + `
+  -- 로 번호를 직접 넣어 그대로 열린다 — 되짚기의 목록과 상세가 같은 조건을 갖는 것과
+  -- 같은 자리다(GetGameForOwner).
+  AND match_id IS NULL
 RETURNING id, my_color, start_sfen, opening_tag
 `
 
@@ -891,6 +895,13 @@ FROM games g
 WHERE g.user_id = $1
   AND g.result = 'abandoned'
   AND EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
+  -- **대인전 판은 이어할 수 없다**(journal §83). 이어하기는 엔진 대국의 장치라, 여기에
+  -- 대인전 판이 걸리면 사람과 두던 수순이 **엔진 세션으로 이어진다** — 그 판의 두 행이
+  -- 그 자리에서 갈라져(한쪽만 자라고 다른 쪽은 abandoned 로 남는다) 같은 대국이 아니게 된다.
+  --
+  -- 배포가 대국 중에 끼면 실제로 그 상태가 만들어진다: 테이블이 접히면서(abort) 수가
+  -- 있는 행이 abandoned 로 닫히고, 그것이 정확히 이 질의의 조건이다.
+  AND g.match_id IS NULL
 ORDER BY g.id DESC
 LIMIT 1
 `

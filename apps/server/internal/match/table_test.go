@@ -237,8 +237,10 @@ func TestATimeoutWithNoMovesIsNotALoss(t *testing.T) {
 	if err != nil {
 		t.Fatalf("snapshot: %v", err)
 	}
-	if snap.Status != StatusAborted || snap.Winner != "" {
-		t.Fatalf("the screen sees %s/%q, want aborted with no winner", snap.Status, snap.Winner)
+	// **`aborted` 가 아니라 `expired` 다.** 화면이 할 말이 정반대라 갈라 뒀다 —
+	// 저쪽은 「서버 사정」이고 이쪽은 「아무도 안 뒀다」다.
+	if snap.Status != StatusExpired || snap.Winner != "" {
+		t.Fatalf("the screen sees %s/%q, want expired with no winner", snap.Status, snap.Winner)
 	}
 }
 

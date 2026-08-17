@@ -36,7 +36,7 @@ const (
 	ResultLoss Result = "loss"
 	ResultDraw Result = "draw"
 	// ResultAbandoned 는 **승부가 안 난 채로 끝난 판**이다. 두 자리에서 온다:
-	// 서버가 내려갔을 때와, **한 수도 안 둔 채 시간이 다 됐을 때**(state.timeout).
+	// 서버가 내려갔을 때(StatusAborted)와, 한 수도 안 둔 채 시간이 다 됐을 때(StatusExpired).
 	//
 	// 수를 두고 나서의 시간패는 여기가 아니라 win/loss 다 — 승부가 났기 때문이다.
 	ResultAbandoned Result = "abandoned"
@@ -389,7 +389,7 @@ func (st *state) resign(by shogi.Color) (Snapshot, error) {
 // 「振り返り」 링크가 빈 판을 연다. 아무도 안 뒀으면 판이 없었던 것이다.
 func (st *state) timeout() {
 	if len(st.moves) == 0 {
-		st.finish(StatusAborted, shogi.Black, false)
+		st.finish(StatusExpired, shogi.Black, false)
 		st.broadcast()
 		return
 	}

@@ -66,7 +66,13 @@ export function Waiting({
           </p>
         </>
       ) : (
-        <p className="setup__caveat">{room.hostName}さんの対局部屋です。相手がもどるのを待っています。</p>
+        // **방 주인에게 자기 이름을 말하지 않는다.** 손님이 자리만 잡고 안 붙어 있는 동안
+        // 방 주인이 돌아오면 여기로 오는데, 그때 `hostName` 은 보고 있는 사람 자신이다.
+        <p className="setup__caveat">
+          {room.isHost
+            ? '相手はもう入っています。画面にもどるのを待っています。'
+            : `${room.hostName}さんの対局部屋です。相手がもどるのを待っています。`}
+        </p>
       )}
 
       <p className="setup__caveat">

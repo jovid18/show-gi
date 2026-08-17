@@ -234,3 +234,66 @@ func TestHostCannotFillTheGuestSeatOverHTTP(t *testing.T) {
 		t.Fatalf("guest enter: got (%v, %v), want (White, nil)", c, err)
 	}
 }
+
+// 판 번호는 **몇 번을 물어도 나온다.**
+//
+// 기록기의 `done` 은 값 하나짜리 채널이라, 연결마다 그것을 직접 읽으면 먼저 읽은 쪽이
+// 가져간다 — 같은 색으로 탭을 둘 열어 두거나 판이 끝나는 순간에 새로고침하면 두 번째는
+// 5초를 기다린 끝에 「振り返り」 링크를 못 그리고, 로그에는 **거짓말**이 남는다
+// (「기록이 안 끝났다」). 받는 쪽을 하나로 모아 곁장부에 옮겨 두는 것이 그 답이다.
+func TestTheGameIDCanBeAskedForTwice(t *testing.T) {
+	records := newMatchRecords(&storePlaceholder, intervene.Beginner)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	// **기록기를 직접 만들지 않는다** — 진짜 DB가 필요하다. 대신 곁장부를 손으로 채워
+	// 「번호가 정해진 방」을 만든다. 여기서 재는 것은 그 뒤의 답하기다.
+	entry := &roomRecord{
+		at:    time.Now(),
+		rec:   map[shogi.Color]*dbRecorder{},
+		id:    map[shogi.Color]int64{shogi.Black: 42},
+		ready: map[shogi.Color]chan struct{}{shogi.Black: make(chan struct{})},
+	}
+	close(entry.ready[shogi.Black])
+	records.byRoom["room"] = entry
+
+	for i := range 3 {
+		id, ok := records.gameIDOf(ctx, "room", shogi.Black, time.Second)
+		if !ok || id != 42 {
+			t.Fatalf("ask %d got (%d, %v), want (42, true)", i+1, id, ok)
+		}
+	}
+
+	// 다른 색은 그 방에 없다 — 없는 것을 기다리다 멈추면 안 된다.
+	if _, ok := records.gameIDOf(ctx, "room", shogi.White, time.Second); ok {
+		t.Fatal("a colour with no recorder answered")
+	}
+}
+
+// **기록기 goroutine 은 판이 끝나면 접힌다.** 서버 ctx 를 그대로 주면 끝난 판마다
+// goroutine 둘과 256칸짜리 채널 둘이 남아 배포 전까지 쌓인다.
+func TestTheRecorderContextEndsWithTheMatch(t *testing.T) {
+	records := newMatchRecords(&storePlaceholder, intervene.Beginner)
+	parent, cancelParent := context.WithCancel(context.Background())
+	t.Cleanup(cancelParent)
+
+	ctx, cancel := context.WithCancel(parent)
+	entry := &roomRecord{
+		at:    time.Now(),
+		rec:   map[shogi.Color]*dbRecorder{shogi.Black: {events: make(chan recordEvent, 1), done: make(chan int64, 1)}},
+		id:    map[shogi.Color]int64{},
+		ready: map[shogi.Color]chan struct{}{shogi.Black: make(chan struct{})},
+	}
+	go records.collect(ctx, cancel, entry)
+
+	entry.rec[shogi.Black].done <- 7
+
+	select {
+	case <-ctx.Done():
+	case <-time.After(2 * time.Second):
+		t.Fatal("the recorder context is still open after the game id arrived")
+	}
+	if id, ok := records.gameIDOf(context.Background(), "", shogi.Black, time.Second); ok || id != 0 {
+		t.Fatalf("an unknown room answered (%d, %v)", id, ok)
+	}
+}
