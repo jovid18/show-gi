@@ -39,10 +39,17 @@ resource "aws_vpc_security_group_egress_rule" "alb_to_task" {
   ip_protocol                  = "tcp"
 }
 
+# ALB는 AWS 제약으로 최소 2개 AZ가 필요하다. 기본 서브넷 3개를 다 걸면
+# 퍼블릭 IPv4가 AZ 수만큼 과금되므로 2개만 쓴다. sort는 plan을 결정적으로
+# 만들기 위한 것 — data 소스의 순서는 보장되지 않는다.
+locals {
+  alb_subnet_ids = slice(sort(data.aws_subnets.default.ids), 0, 2)
+}
+
 resource "aws_lb" "main" {
   name               = "show-gi"
   load_balancer_type = "application"
-  subnets            = data.aws_subnets.default.ids
+  subnets            = local.alb_subnet_ids
   security_groups    = [aws_security_group.alb.id]
 
   # 대국은 WebSocket 하나로 오래 열려 있고, 플레이어가 한 수를 몇 분씩 고민한다.

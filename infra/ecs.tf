@@ -228,15 +228,18 @@ resource "aws_ecs_service" "app" {
   name            = "show-gi"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
+  # 지금은 서비스를 내려둔 상태다. ignore_changes에 있어서 apply가 이 값을
+  # 강제하지는 않는다 — 다시 켤 때는 aws ecs update-service --desired-count 1
+  desired_count = 0
+  launch_type   = "FARGATE"
 
   # 컨테이너에 셸로 들어갈 수 있게 한다. SSH도, 배스천도 필요 없다:
   #   aws ecs execute-command --cluster show-gi --task <id> --container api --interactive --command /bin/sh
   enable_execute_command = true
 
   network_configuration {
-    subnets = data.aws_subnets.default.ids
+    # ALB가 켜진 AZ와 같은 서브넷만 쓴다 — ALB는 활성 AZ의 타깃에만 라우팅한다
+    subnets = local.alb_subnet_ids
     # NAT 게이트웨이(월 $40+)를 피하려고 공인 서브넷에 둔다. 인바운드는 보안그룹이 막는다
     assign_public_ip = true
     security_groups  = [aws_security_group.task.id]
