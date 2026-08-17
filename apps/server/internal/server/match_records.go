@@ -35,9 +35,16 @@ type roomRecord struct {
 	rec map[shogi.Color]*dbRecorder
 }
 
-// recordSweepAfter 는 곁장부의 항목을 지우기까지의 시간이다. **방의 만료보다 넉넉해야
-// 한다** — 먼저 지우면 판이 끝난 자리에서 번호를 못 찾는다.
-const recordSweepAfter = match.OpenTTL + match.FinishedTTL
+// recordSweepAfter 는 곁장부의 항목을 지우기까지의 시간이다.
+//
+// **판이 시작한 시각부터 센다.** 그래서 이 값은 **한 판이 걸릴 수 있는 최대 시간보다
+// 길어야 한다** — 짧으면 오래 두는 판이 끝나기도 전에 항목이 사라지고, 그때 「振り返り」
+// 링크가 안 그려진다. 방의 만료(`match.OpenTTL + match.FinishedTTL` = 40분)로 잡았다가
+// 그 함정을 봤다: 1手 60초라 100手만 둬도 그 값을 넘긴다.
+//
+// 24시간은 판이 도달할 수 없는 자리다 — 시계가 매 수 60초를 자르므로 300手를 둬도
+// 5시간이고, 千日手가 그 앞에서 끝낸다. 항목 하나는 포인터 둘이라 오래 들고 있어도 싸다.
+const recordSweepAfter = 24 * time.Hour
 
 func newMatchRecords(st *store.Store, level intervene.Level) *matchRecords {
 	return &matchRecords{store: st, level: level, byRoom: map[string]*roomRecord{}}
