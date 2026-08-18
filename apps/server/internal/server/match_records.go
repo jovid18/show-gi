@@ -136,6 +136,9 @@ func (m *matchRecords) collect(ctx context.Context, cancel context.CancelFunc, e
 				m.mu.Lock()
 				entry.id[c] = id
 				m.mu.Unlock()
+				// **번호가 나가기 전에 표시한다.** 아래 `ready` 가 닫히는 순간 화면이
+				// 되짚기를 열 수 있고, 그때 이미 「분석 중」이라야 한다.
+				m.analyzer.hold(id)
 			case <-ctx.Done():
 				// 서버가 내려간다.
 			}
@@ -151,9 +154,13 @@ func (m *matchRecords) collect(ctx context.Context, cancel context.CancelFunc, e
 		ids = append(ids, id)
 	}
 	m.mu.Unlock()
-	if len(ids) == len(entry.ready) {
-		m.analyzer.enqueue(ids)
+	if len(ids) != len(entry.ready) {
+		// 반쪽이라 분석하지 않는다. **표시는 걷는다** — 안 걷으면 그 판이 영영
+		// 「분석 중」으로 남는다.
+		m.analyzer.forget(ids)
+		return
 	}
+	m.analyzer.enqueue(ids)
 }
 
 // gameIDOf 는 그쪽의 판 번호를 기다렸다 준다. 못 얻으면 두 번째 값이 false 다.

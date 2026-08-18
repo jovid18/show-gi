@@ -98,7 +98,9 @@ func TestQueuedGamesReadAsAnalyzing(t *testing.T) {
 // 규약이라, 그 배포에서는 이 값이 nil 인 채로 같은 자리를 지난다.
 func TestANilAnalyzerIsSafeToUse(t *testing.T) {
 	var a *matchAnalyzer
+	a.hold(1)
 	a.enqueue([]int64{1, 2})
+	a.forget([]int64{1, 2})
 	if a.analyzing(1) {
 		t.Error("없는 분석기가 분석 중이라고 답했다")
 	}

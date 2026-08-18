@@ -60,7 +60,10 @@ type Snapshot struct {
 	Ply      int    `json:"ply"`
 	Turn     string `json:"turn"` // "b" | "w"
 	YourTurn bool   `json:"yourTurn"`
-	InCheck  bool   `json:"inCheck"`
+	// InCheck 는 **수번 쪽이** 王手를 받고 있는가다. 보는 사람 기준이 아니다 — 왕수를
+	// 건 쪽도 상대 玉에 표시가 서야 하고(엔진 대국과 같다), 어느 玉인지는 화면이
+	// `turn` 으로 짚는다.
+	InCheck bool `json:"inCheck"`
 
 	// YourColor 는 이 사람이 잡은 쪽이다. 판을 어느 쪽에서 그릴지가 여기 걸려 있고,
 	// 한 판에서 안 바뀐다(`game.Snapshot.YourColor` 와 같은 규약).
@@ -141,7 +144,7 @@ func (d *snapshotData) for_(you shogi.Color) Snapshot {
 		Ply:            d.ply,
 		Turn:           ColorCode(d.turn),
 		YourTurn:       d.status == StatusPlaying && d.turn == you,
-		InCheck:        d.inCheck && d.turn == you,
+		InCheck:        d.inCheck,
 		YourColor:      ColorCode(you),
 		Status:         d.status,
 		OpponentName:   d.names[you.Other()],

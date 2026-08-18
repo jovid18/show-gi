@@ -194,12 +194,13 @@ function FriendMatch() {
               setBusy(true);
               setError(null);
               const ac = new AbortController();
+              // **성공해도 되돌린다.** 이 화면은 방으로 옮겨 가도 언마운트되지 않는다 —
+              // `App` 이 `hidden` 으로만 감추므로(대국을 두는 중에 탭을 옮겨도 판이 살아
+              // 있어야 한다), 여기서 안 되돌리면 돌아왔을 때 버튼이 영영 눌리지 않는다.
               void createRoom(seat, ac.signal)
                 .then((room) => navigate({ name: 'room', id: room.id }))
-                .catch((e: Error) => {
-                  setBusy(false);
-                  setError(e.message);
-                });
+                .catch((e: Error) => setError(e.message))
+                .finally(() => setBusy(false));
             }}
           >
             {busy ? '部屋をつくっています…' : '対局部屋をつくる'}

@@ -66,19 +66,28 @@ func (a *matchAnalyzer) run(ctx context.Context) {
 	}
 }
 
-// enqueue 는 끝난 한 판의 두 행을 줄에 세운다.
+// hold 는 그 판을 **미리** 「분석 중」으로 세운다.
 //
-// **줄에 서는 순간부터 「분석 중」이다.** 워커가 그 판에 닿기 전이라도 화면이 기다릴 것을
-// 알아야 하고, 여기서 갈라 두면 앞의 판이 도는 동안 뒤의 판이 「없다」로 보인다.
+// **줄에 세우기 전에 표시해야 한다.** 두 행의 번호는 따로 정해지는데(matchRecords.collect)
+// 화면은 자기 번호 하나만 알면 되짚기를 열 수 있다 — 다른 쪽 번호를 기다리는 사이에 열면
+// 「분석 중」이 아직 false 라, 그래프가 「남지 않았다」에 굳고 폴링도 안 시작한다.
+func (a *matchAnalyzer) hold(id int64) {
+	if a == nil {
+		return
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.pending[id] = struct{}{}
+}
+
+// enqueue 는 끝난 한 판의 두 행을 줄에 세운다. `hold` 로 이미 표시된 것을 받는다.
 func (a *matchAnalyzer) enqueue(ids []int64) {
 	if a == nil || len(ids) == 0 {
 		return
 	}
-	a.mu.Lock()
 	for _, id := range ids {
-		a.pending[id] = struct{}{}
+		a.hold(id)
 	}
-	a.mu.Unlock()
 
 	select {
 	case a.queue <- ids:
@@ -101,6 +110,9 @@ func (a *matchAnalyzer) analyzing(gameID int64) bool {
 }
 
 func (a *matchAnalyzer) forget(ids []int64) {
+	if a == nil {
+		return
+	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	for _, id := range ids {
