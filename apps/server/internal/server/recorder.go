@@ -58,6 +58,10 @@ type recordEvent struct {
 	verdict intervene.Verdict
 	status  game.Status
 	winner  game.Side
+	// result 는 `evFinished` 가 그대로 적을 결과다. **대인전이 채운다** — 그쪽은 승패를
+	// 테이블이 이미 先手·後手 기준으로 정해 놨고(match.state.resultFor), status·winner 로 되돌려
+	// 넣으면 같은 변환이 두 곳에 생긴다.
+	result store.GameResult
 }
 
 // recordQueue 는 이벤트 버퍼 크기다.
@@ -71,6 +75,9 @@ const recordQueue = 256
 type recordTarget struct {
 	// userID 는 nil일 수 있다 — 로그인 전 대국이다(002_anonymous_games.sql).
 	userID *int64
+	// matchID 가 비어 있지 않으면 **대인전 한 판의 한쪽 몫**이다(012_match_games.sql).
+	// 그때는 진형 대신 이 값이 들어가고, 익명일 수 없다(대인전은 로그인한 사람만이다).
+	matchID string
 	// openingID 는 사람이 고른 상대의 진형이다(internal/book). 새 판을 열 때만 쓴다.
 	openingID string
 	// resumeID 가 0이 아니면 **새 판을 열지 않고 그 행에 이어 적는다.** 되열기는 점유가
@@ -135,7 +142,13 @@ func (r *dbRecorder) HintTaken(key string, taken bool) {
 }
 
 func (r *dbRecorder) Finished(status game.Status, winner game.Side) {
-	r.send(recordEvent{kind: evFinished, status: status, winner: winner})
+	r.FinishedWith(resultOf(status, winner))
+}
+
+// FinishedWith 는 결과를 **그대로** 적는다. 대인전이 쓰는 자리다 — 그쪽은 사람이 둘이라
+// `game.Side`(human/engine)로 승자를 말할 수가 없다.
+func (r *dbRecorder) FinishedWith(result store.GameResult) {
+	r.send(recordEvent{kind: evFinished, result: result})
 }
 
 // run 은 이벤트를 순서대로 쓴다.
@@ -166,7 +179,19 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 			if ev.color == shogi.White {
 				color = "w"
 			}
-			id, err := st.CreateGame(write, target.userID, color, ev.startSFEN, target.openingID)
+			var (
+				id  int64
+				err error
+			)
+			if target.matchID != "" {
+				if target.userID == nil {
+					log.Printf("game record: a match game has no owner — not creating a row")
+					return
+				}
+				id, err = st.CreateMatchGame(write, *target.userID, color, ev.startSFEN, target.matchID)
+			} else {
+				id, err = st.CreateGame(write, target.userID, color, ev.startSFEN, target.openingID)
+			}
 			if err != nil {
 				log.Printf("game record: create game: %v", err)
 				return
@@ -239,13 +264,18 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 			}
 
 		case evFinished:
-			if gameID == 0 {
-				return
+			// **행이 없어도 신호는 보낸다.** 행 만들기가 실패한 판(DB가 흔들린 경우)에서
+			// 조용히 나가면 이 채널을 기다리는 쪽이 **영원히** 기다린다 — 대인전은 그
+			// 기다림이 곧 기록기 goroutine 둘의 수명이라(server/match_records.go 의 collect)
+			// 그때부터 프로세스가 끝날 때까지 남는다.
+			//
+			// 0은 「그런 행이 없다」다. 받는 쪽이 그것으로 갈린다.
+			if gameID != 0 {
+				if err := st.FinishGame(write, gameID, ev.result); err != nil {
+					log.Printf("game record: finish: %v", err)
+				}
+				finished = true
 			}
-			if err := st.FinishGame(write, gameID, resultOf(ev.status, ev.winner)); err != nil {
-				log.Printf("game record: finish: %v", err)
-			}
-			finished = true
 			// 여기까지 왔으면 이 판의 기록은 전부 들어갔다 — 이벤트가 한 채널로 순서대로
 			// 오므로(Evaluated 주석) 뒤에 남은 것이 없다.
 			select {

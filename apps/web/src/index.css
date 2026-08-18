@@ -1953,7 +1953,10 @@ body {
   font-size: 0.9375rem;
 }
 
-.kifu-row[data-by='engine'] .kifu-move {
+/* 상대의 수는 한 단 옅다. **어휘가 둘인 것은 상대가 사람이냐 컴퓨터냐 때문이다** —
+   대인전에는 사람이 둘이라 `engine` 이라고 부를 수가 없다(protocol/match.ts). */
+.kifu-row[data-by='engine'] .kifu-move,
+.kifu-row[data-by='opponent'] .kifu-move {
   color: var(--muted);
 }
 
@@ -2426,6 +2429,15 @@ body {
 /* 한 번도 안 막힌 판. **0회도 성적이다** — 그래서 지우지 않고 낮춘다. */
 .review-card-iv[data-none] {
   opacity: 0.45;
+}
+
+/* 대인전. **같은 자리에 서지만 숫자가 아니라 종류다** — 그래서 옅게 낮추지 않는다.
+   테를 두르는 것은 옆의 「介入 12回」와 성질이 다른 값임을 한눈에 가르기 위해서다. */
+.review-card-iv[data-match] {
+  padding: 0.05rem 0.4rem;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill);
+  letter-spacing: 0.08em;
 }
 
 .review-card-result,
@@ -4197,4 +4209,124 @@ body {
   padding: 0.7rem 1.75rem;
   font-size: 0.9375rem;
   text-decoration: none;
+}
+
+/* ── 대인전 ──────────────────────────────────────────────
+   사람과 두는 판. **판과 棋譜는 엔진 대국과 같은 것을 쓴다**(.game / .kifu) — 여기 있는
+   것은 그 화면에 없는 둘뿐이다: 시계와 초대 링크(docs/journal §83). */
+
+/* 시작 화면에서 사람 상대로 갈리는 문. **카드 안의 한 구획**이라 위의 고르는 자리와
+   선 하나로 갈린다 — 버튼만 덧붙이면 「대국을 시작한다」가 둘로 보인다. */
+/* 友だちと対局의 手番. **振り駒가 맨 위에 줄을 통째로 쓴다** — 戦型의 「おまかせ」와 같은
+   종류이기 때문이다(이름을 고르는 것이 아니라 안 고르는 것). 나머지 둘이 아래에 2열로 앉는다. */
+.setup__choices--seat > :first-child {
+  grid-column: 1 / -1;
+}
+
+.setup__friend {
+  display: grid;
+  gap: 0.6rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+/* 초대 링크. **주소를 글자로도 보여준다** — 복사가 권한과 보안 컨텍스트를 타서
+   막히는 환경이 있고, 그때 남는 것이 이 칸이다. */
+.invite {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.invite__url {
+  flex: 1 1 14rem;
+  min-width: 0;
+  padding: 0.5rem 0.7rem;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--fg-2);
+}
+
+/* 남은 시간. **숫자가 크다** — 초읽기에서 실제로 보는 것이 이 한 값이고,
+   판 옆의 다른 줄과 같은 크기면 넘기기 직전에 눈에 안 들어온다. */
+.match-clock {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  background: var(--surface-2);
+  border-radius: var(--r-sm);
+}
+
+.match-clock__who {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.match-clock__value {
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 마지막 10초. **색만으로 가르지 않는다** — 옆의 글자가 누구의 시간인지 이미 말하고
+   있고, 여기 색은 그 위에 얹는 두 번째 채널이다.
+   값은 `.btn--danger` 의 글자색과 같다 — 되돌릴 수 없는 것을 말하는 색이 화면에 하나여야 한다. */
+.match-clock[data-urgent] .match-clock__value {
+  color: #9c3f2e;
+}
+
+/* 상대가 화면을 떠나 있다. **경고가 아니라 사실이다** — 판은 그대로 돌고 시계도 흐르므로,
+   붉게 칠하면 「무언가 잘못됐다」로 읽힌다. */
+.match-away {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* 판이 끝난 뒤의 두 갈래. 되짚기로 가거나 대국 화면으로 돌아간다. */
+.match-end {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* 상대가 누구인가. **판 내내 서 있는다** — 차례 문구에만 실으면 자기 차례일 때
+   그 사람이 화면에서 사라진다. 이름은 사람이 정하는 값이라 길 수 있어서 한 줄로 자른다. */
+.match-who {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.match-who strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* 내 연결이 끊겼다. **여기만 색을 쓴다** — 상대가 자리를 비운 것(.match-away)은 판이
+   그대로 도는 사실이지만, 이건 **그동안 내가 시간패로 지고 있다**는 뜻이라 급이 다르다. */
+.match-lost {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  background: #fdf6f4;
+  border: 1px solid #e0cdc7;
+  border-radius: var(--r-md);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: #9c3f2e;
+}
+
+.match-lost p {
+  margin: 0;
 }

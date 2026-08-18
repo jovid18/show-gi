@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 import { ReviewDetail } from './ReviewDetail';
 import { dateJa, resultJa } from '@/libs/review/labels';
 import { hrefOf, navigate, type Route } from '@/routes/router';
@@ -77,19 +79,41 @@ function GameCard({ game }: { game: GameSummary }) {
         {resultJa(game.result)}
       </span>
       <span className="review-card-moves">{game.moveCount}手</span>
-      {/* 0회도 적는다. **止まらなかった것도 성적이다** — 빈 자리로 두면 셌는지조차 안 보인다. */}
-      <span className="review-card-iv" data-none={game.interventionCount === 0 || undefined}>
-        介入 {game.interventionCount}回
-      </span>
+      {/* **대인전은 개입 횟수 자리에 「対人」이 선다.** 거기에 「介入 0回」를 적으면 「한 번도
+          안 걸린 잘 둔 판」으로 읽히는데, 사실은 **재지 않았다**이다 — 그 둘이 초심자에게
+          정반대다(docs/journal §83). */}
+      {game.isMatch === true ? (
+        <span className="review-card-iv" data-match>
+          対人
+        </span>
+      ) : (
+        // 0회도 적는다. **止まらなかった것도 성적이다** — 빈 자리로 두면 셌는지조차 안 보인다.
+        <span className="review-card-iv" data-none={game.interventionCount === 0 || undefined}>
+          介入 {game.interventionCount}回
+        </span>
+      )}
     </>
   );
 }
+
+/** 분석이 끝났는지 다시 묻는 간격. 한 수 재는 데 걸리는 시간보다 짧을 이유가 없다. */
+const analysisPollMs = 5000;
 
 // 목록으로 돌아가는 것도 주소를 바꾸는 일이다 — 뒤로 가기와 같은 자리에 서야 한다.
 const toList = (): void => navigate({ name: 'reviews' });
 
 function SelectedGame({ id, initialPly }: { id: number; initialPly?: number | undefined }) {
   const { loaded, reload } = useGameDetail(id);
+
+  // **분석 중일 때만 다시 묻는다.** 대인전의 평가치는 판이 끝난 뒤에 채워지므로(서버의
+  // matchAnalyzer) 그동안 화면이 스스로 차야 한다 — 안 그러면 「분석하고 있습니다」를
+  // 띄워 놓고 새로고침을 기다리게 만든다. 끝나면 `analyzing` 이 사라져 멈춘다.
+  const analyzing = loaded.state === 'ready' && loaded.data.analyzing === true;
+  useEffect(() => {
+    if (!analyzing) return;
+    const timer = setInterval(reload, analysisPollMs);
+    return () => clearInterval(timer);
+  }, [analyzing, reload]);
 
   if (loaded.state === 'loading') {
     return <p className="review-status">読み込み中…</p>;

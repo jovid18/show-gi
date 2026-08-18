@@ -296,6 +296,25 @@ func (s *Store) CreateGame(ctx context.Context, userID *int64, myColor, startSFE
 	return id, nil
 }
 
+// CreateMatchGame 은 대인전 한 판의 **한쪽 몫**을 연다. 같은 대국에서 두 번 불려
+// 행 두 개가 된다 — 그 둘을 다시 묶는 열쇠가 matchID 다(012_match_games.sql).
+//
+// **CreateGame 과 갈라 둔 이유는 채우는 칸이 다르기 때문이다.** 저쪽은 `opening_tag`
+// (컴퓨터의 진형)를 채우고 이쪽은 `match_id` 를 채운다 — 한 함수로 두면 부르는 쪽마다
+// 「이번엔 어느 칸을 비우나」를 알아야 한다.
+func (s *Store) CreateMatchGame(ctx context.Context, userID int64, myColor, startSFEN, matchID string) (int64, error) {
+	id, err := s.q.CreateMatchGame(ctx, db.CreateMatchGameParams{
+		UserID:    &userID,
+		MyColor:   myColor,
+		StartSfen: &startSFEN,
+		MatchID:   &matchID,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("create match game: %w", err)
+	}
+	return id, nil
+}
+
 // FinishGame 은 대국을 닫는다.
 func (s *Store) FinishGame(ctx context.Context, gameID int64, result GameResult) error {
 	r := string(result)
@@ -521,6 +540,13 @@ type GameSummary struct {
 	Result            GameResult
 	MoveCount         int
 	InterventionCount int
+	// MatchID 가 비어 있지 않으면 **사람 대 사람 대국**이다(012_match_games.sql).
+	//
+	// **그 판에는 평가치도 개입도 없다.** 대인전은 엔진을 안 부르므로(internal/match)
+	// `GameRecord.Moves[].EvalCp` 가 전부 nil 이고 `Interventions` 가 빈 목록이다 —
+	// 읽는 쪽이 그것을 「블런더가 0건인 좋은 판」으로 그리면 거짓이 되므로, 총평과 퀴즈가
+	// 이 값을 보고 그 자리를 닫는다(server/review.go · quiz.go).
+	MatchID string
 }
 
 // RecordedMove 는 기보의 한 수다.
@@ -598,7 +624,7 @@ func (s *Store) ListGames(ctx context.Context, limit int, ownerID *int64) ([]Gam
 	}
 	out := make([]GameSummary, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, summaryOf(r.ID, r.MyColor, r.StartedAt.Time, r.FinishedAt.Time, r.Result, r.MoveCount, r.InterventionCount))
+		out = append(out, summaryOf(r.ID, r.MyColor, r.StartedAt.Time, r.FinishedAt.Time, r.Result, r.MoveCount, r.InterventionCount, r.MatchID))
 	}
 	return out, nil
 }
@@ -613,7 +639,7 @@ func (s *Store) ListGamesAnyOwner(ctx context.Context, limit int) ([]GameSummary
 	}
 	out := make([]GameSummary, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, summaryOf(r.ID, r.MyColor, r.StartedAt.Time, r.FinishedAt.Time, r.Result, r.MoveCount, r.InterventionCount))
+		out = append(out, summaryOf(r.ID, r.MyColor, r.StartedAt.Time, r.FinishedAt.Time, r.Result, r.MoveCount, r.InterventionCount, r.MatchID))
 	}
 	return out, nil
 }
@@ -693,7 +719,7 @@ func listLimit(limit int) int32 {
 	return int32(limit)
 }
 
-func summaryOf(id int64, myColor string, started, finished time.Time, result *string, moves, ivs int64) GameSummary {
+func summaryOf(id int64, myColor string, started, finished time.Time, result *string, moves, ivs int64, matchID *string) GameSummary {
 	return GameSummary{
 		ID:                id,
 		MyColor:           myColor,
@@ -702,6 +728,7 @@ func summaryOf(id int64, myColor string, started, finished time.Time, result *st
 		Result:            resultValue(result),
 		MoveCount:         int(moves),
 		InterventionCount: int(ivs),
+		MatchID:           deref(matchID),
 	}
 }
 
@@ -715,6 +742,7 @@ type gameHead struct {
 	Result     *string
 	StartSFEN  *string
 	OpeningTag *string
+	MatchID    *string
 }
 
 // GameRecord 는 **그 사람의** 한 판을 통째로 읽는다. ownerID 가 nil이면 익명 판이다.
@@ -732,6 +760,7 @@ func (s *Store) GameRecord(ctx context.Context, gameID int64, ownerID *int64) (G
 		ID: head.ID, MyColor: head.MyColor,
 		StartedAt: head.StartedAt.Time, FinishedAt: head.FinishedAt.Time,
 		Result: head.Result, StartSFEN: head.StartSfen, OpeningTag: head.OpeningTag,
+		MatchID: head.MatchID,
 	})
 }
 
@@ -748,6 +777,7 @@ func (s *Store) GameRecordAnyOwner(ctx context.Context, gameID int64) (GameRecor
 		ID: head.ID, MyColor: head.MyColor,
 		StartedAt: head.StartedAt.Time, FinishedAt: head.FinishedAt.Time,
 		Result: head.Result, StartSFEN: head.StartSfen, OpeningTag: head.OpeningTag,
+		MatchID: head.MatchID,
 	})
 }
 
@@ -776,7 +806,7 @@ func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error)
 	out := GameRecord{
 		GameSummary: summaryOf(
 			head.ID, head.MyColor, head.StartedAt, head.FinishedAt, head.Result,
-			int64(len(moves)), int64(len(ivs)),
+			int64(len(moves)), int64(len(ivs)), head.MatchID,
 		),
 		OpeningID:     deref(head.OpeningTag),
 		Moves:         make([]RecordedMove, 0, len(moves)),

@@ -34,6 +34,9 @@ const (
 type reviewHandler struct {
 	store *store.Store
 	auth  *authHandler
+	// analyzer 는 **묻기만 한다** — 이 핸들러가 엔진과 무관하다는 성질은 그대로다.
+	// nil 일 수 있다(엔진 없는 배포).
+	analyzer *matchAnalyzer
 	// level 은 총평(summary.go)에만 쓴다. **엔진이 아니다** — 이 핸들러가 엔진과 무관하다는
 	// 성질은 그대로다.
 	level intervene.Level
@@ -63,6 +66,17 @@ type gameSummary struct {
 
 	MoveCount         int `json:"moveCount"`
 	InterventionCount int `json:"interventionCount"`
+	// IsMatch 는 **사람과 둔 판**인가다(journal §83).
+	//
+	// 화면이 이 값으로 두 자리를 닫는다: 총평과 퀴즈. 대인전에는 엔진 판정이 없어서
+	// 개입이 0건이고 평가치가 비는데, 그것을 「블런더 없이 잘 둔 판」으로 그리면 거짓말이
+	// 된다 — 그 둘은 **없는 것**이지 0인 것이 아니다.
+	IsMatch bool `json:"isMatch,omitempty"`
+	// Analyzing 은 **평가치를 지금 채우는 중**인가다. 대인전에만 뜬다(matchAnalyzer).
+	//
+	// 화면이 이 값으로 「분석 중」과 「남지 않았다」를 가른다. 갈라 두지 않으면 판이
+	// 끝나자마자 들어온 사람이 「평가치가 남지 않았습니다」를 보고 영영 없는 줄 안다.
+	Analyzing bool `json:"analyzing,omitempty"`
 }
 
 // gameDetail 은 한 판 전체다.
@@ -185,7 +199,11 @@ func (h *reviewHandler) detail(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, detailOf(rec))
+	out := detailOf(rec)
+	// **여기서만 붙인다.** 목록은 판을 여러 개 들고 오는데 그 하나하나에 물으면 목록이
+	// 분석기의 잠금을 그만큼 잡는다 — 그래프가 있는 자리는 여기뿐이다.
+	out.Analyzing = h.analyzer.analyzing(rec.ID)
+	writeJSON(w, http.StatusOK, out)
 }
 
 // summary 는 그 판의 총평이다. **대국이 끝나는 자리에서 WS가 보내는 것과 같은 모양이고
@@ -197,6 +215,18 @@ func (h *reviewHandler) detail(w http.ResponseWriter, r *http.Request) {
 func (h *reviewHandler) summary(w http.ResponseWriter, r *http.Request) {
 	rec, ok := h.record(w, r)
 	if !ok {
+		return
+	}
+	// **대인전 판에는 총평이 없다.** 총평이 세는 것은 개입이고(explain.GameFacts) 대인전은
+	// 판정을 안 돌리므로, 그대로 만들면 「一度も止められませんでした」가 나간다 — 사실은
+	// **재지 않았다**이고, 그 둘이 초심자에게 정반대다.
+	//
+	// **빈 총평을 200으로 주지 않는다.** 화면이 자리를 그리고 나서 지우게 되고, 그 한 틱
+	// 동안 위 문장이 실제로 보인다.
+	if rec.MatchID != "" {
+		writeJSON(w, http.StatusNotFound, map[string]any{
+			"error": "no_summary", "message": "対人戦には総評がありません。",
+		})
 		return
 	}
 	writeJSON(w, http.StatusOK, summarize(rec, h.level))
@@ -240,6 +270,7 @@ func summaryOf(g store.GameSummary) gameSummary {
 		Result:            string(g.Result),
 		MoveCount:         g.MoveCount,
 		InterventionCount: g.InterventionCount,
+		IsMatch:           g.MatchID != "",
 	}
 	if !g.FinishedAt.IsZero() {
 		t := g.FinishedAt

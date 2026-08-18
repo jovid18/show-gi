@@ -86,7 +86,10 @@ func (h *quizHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out := quizPayload{Ready: ready}
+	// **대인전 판은 「다 됐고 문항이 없다」다.** 행이 없는 것은 같지만 뜻이 반대다 —
+	// 저쪽은 아직 만드는 중이고 이쪽은 **영영 안 만든다**(판정도 탐색도 안 돌았다).
+	// `ready=false` 로 두면 그 화면이 오지 않을 것을 계속 기다린다(journal §83).
+	out := quizPayload{Ready: ready || rec.MatchID != ""}
 	if q.Mate != nil {
 		// **트리의 키가 곧 王手 목록이다.** 여기서 룰 엔진으로 다시 걸러 만들면 화면이
 		// 빛내는 수와 트리가 아는 수가 갈릴 수 있고, 갈리면 화면에서 둘 수 있는 수가

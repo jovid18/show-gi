@@ -40,6 +40,10 @@ SET result = NULL, finished_at = NULL
 WHERE id = $1
   AND user_id = $2
   AND result = 'abandoned'
+  -- **위 질의와 같은 조건이 여기에도 있어야 한다.** 목록에서만 빼면 ` + "`" + `/ws/game?resume=<id>` + "`" + `
+  -- 로 번호를 직접 넣어 그대로 열린다 — 되짚기의 목록과 상세가 같은 조건을 갖는 것과
+  -- 같은 자리다(GetGameForOwner).
+  AND match_id IS NULL
 RETURNING id, my_color, start_sfen, opening_tag
 `
 
@@ -125,6 +129,9 @@ FROM games g
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
   AND g.result IN ('win', 'loss', 'draw')
   AND g.user_id IS NOT DISTINCT FROM $1::bigint
+  -- **대인전 판은 안 센다**(match_id IS NULL). 개입이 없는 판이라 분모에만 들어가고,
+  -- 그러면 「崩れやすいところ」의 비율이 그만큼 희석된다(journal §83).
+  AND g.match_id IS NULL
 GROUP BY g.result
 `
 
@@ -164,6 +171,9 @@ CROSS JOIN LATERAL unnest(g.style_tags) AS t(code)
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
   AND g.result IN ('win', 'loss', 'draw')
   AND g.user_id IS NOT DISTINCT FROM $1::bigint
+  -- **대인전 판은 안 센다**(match_id IS NULL). 개입이 없는 판이라 분모에만 들어가고,
+  -- 그러면 「崩れやすいところ」의 비율이 그만큼 희석된다(journal §83).
+  AND g.match_id IS NULL
 GROUP BY t.code
 `
 
@@ -230,6 +240,9 @@ JOIN games g ON g.id = i.game_id
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
   AND g.result IN ('win', 'loss', 'draw')
   AND g.user_id IS NOT DISTINCT FROM $1::bigint
+  -- **대인전 판은 안 센다**(match_id IS NULL). 개입이 없는 판이라 분모에만 들어가고,
+  -- 그러면 「崩れやすいところ」의 비율이 그만큼 희석된다(journal §83).
+  AND g.match_id IS NULL
 GROUP BY i.category
 `
 
@@ -310,12 +323,49 @@ func (q *Queries) CreateGame(ctx context.Context, arg CreateGameParams) (int64, 
 	return id, err
 }
 
+const createMatchGame = `-- name: CreateMatchGame :one
+INSERT INTO games (user_id, my_color, start_sfen, match_id)
+VALUES ($1, $2, $3, $4)
+RETURNING id
+`
+
+type CreateMatchGameParams struct {
+	UserID    *int64
+	MyColor   string
+	StartSfen *string
+	MatchID   *string
+}
+
+// 대인전 한 판의 **한쪽 몫**이다. 같은 대국이 이 질의로 두 번 불려 행 두 개가 된다 —
+// 그래야 소유 검사를 타는 다섯 질의가 한 줄도 안 바뀐다(012_match_games.sql).
+//
+// **`opening_tag` 가 없다.** 그 칸은 「사람이 고른 컴퓨터의 진형」이라 상대가 사람이면
+// 채울 것이 없고, 빈 값을 넣으면 이어하기가 없는 북을 찾는다.
+//
+// **`user_id` 가 NULL 로 오지 않는다.** 대인전은 로그인한 사람만이라(internal/match 의 Room)
+// 익명 판이 여기로 올 수 없다 — 컬럼 자체는 그대로 nullable 이다(002).
+func (q *Queries) CreateMatchGame(ctx context.Context, arg CreateMatchGameParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createMatchGame,
+		arg.UserID,
+		arg.MyColor,
+		arg.StartSfen,
+		arg.MatchID,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const declineResume = `-- name: DeclineResume :execrows
 UPDATE games
 SET result = 'declined'
 WHERE id = $1
   AND user_id = $2
   AND result = 'abandoned'
+  -- **이어하기 세 질의가 같은 조건을 갖는다.** 대인전 행은 이 장치가 닿을 자리가 아니다 —
+  -- 지금은 두 상태 다 어느 목록에도 안 뜨므로 눈에 보이는 차이가 없지만, 셋 중 하나만
+  -- 빠져 있으면 나중에 상태의 뜻이 바뀌는 날 그 하나가 구멍이 된다.
+  AND match_id IS NULL
 `
 
 type DeclineResumeParams struct {
@@ -368,7 +418,7 @@ func (q *Queries) FinishGame(ctx context.Context, arg FinishGameParams) error {
 }
 
 const getGame = `-- name: GetGame :one
-SELECT id, my_color, started_at, finished_at, result, start_sfen, opening_tag
+SELECT id, my_color, started_at, finished_at, result, start_sfen, opening_tag, match_id
 FROM games
 WHERE id = $1
 `
@@ -381,6 +431,7 @@ type GetGameRow struct {
 	Result     *string
 	StartSfen  *string
 	OpeningTag *string
+	MatchID    *string
 }
 
 // **여기서는 개입을 세지 않는다.** 어차피 아래에서 전부 읽어 오므로, 따로 센 숫자와
@@ -397,12 +448,13 @@ func (q *Queries) GetGame(ctx context.Context, id int64) (GetGameRow, error) {
 		&i.Result,
 		&i.StartSfen,
 		&i.OpeningTag,
+		&i.MatchID,
 	)
 	return i, err
 }
 
 const getGameForOwner = `-- name: GetGameForOwner :one
-SELECT id, my_color, started_at, finished_at, result, start_sfen, opening_tag
+SELECT id, my_color, started_at, finished_at, result, start_sfen, opening_tag, match_id
 FROM games
 WHERE id = $1
   AND result IN ('win', 'loss', 'draw')
@@ -422,6 +474,7 @@ type GetGameForOwnerRow struct {
 	Result     *string
 	StartSfen  *string
 	OpeningTag *string
+	MatchID    *string
 }
 
 // 주인이 아니면 **0행**이다. 부르는 쪽에서 그것이 404가 된다 — 403이면 「그 번호의
@@ -440,6 +493,7 @@ func (q *Queries) GetGameForOwner(ctx context.Context, arg GetGameForOwnerParams
 		&i.Result,
 		&i.StartSfen,
 		&i.OpeningTag,
+		&i.MatchID,
 	)
 	return i, err
 }
@@ -681,7 +735,8 @@ SELECT
     g.finished_at,
     g.result,
     (SELECT count(*) FROM game_moves m WHERE m.game_id = g.id) AS move_count,
-    (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count
+    (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count,
+    g.match_id
 FROM games g
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
 ORDER BY g.id DESC
@@ -696,6 +751,7 @@ type ListGamesRow struct {
 	Result            *string
 	MoveCount         int64
 	InterventionCount int64
+	MatchID           *string
 }
 
 // ─── 리뷰(읽기) ─────────────────────────────────────────────
@@ -725,6 +781,7 @@ func (q *Queries) ListGames(ctx context.Context, limit int32) ([]ListGamesRow, e
 			&i.Result,
 			&i.MoveCount,
 			&i.InterventionCount,
+			&i.MatchID,
 		); err != nil {
 			return nil, err
 		}
@@ -744,7 +801,10 @@ SELECT
     g.finished_at,
     g.result,
     (SELECT count(*) FROM game_moves m WHERE m.game_id = g.id) AS move_count,
-    (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count
+    (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count,
+    -- **대인전 판은 여기 그대로 뜬다.** 마이페이지의 집계에서만 빠진다(journal §83) —
+    -- 그쪽은 개입 비율이 뜻을 갖는 자리이고, 목록은 「무엇을 뒀나」라 뜻이 다르다.
+    g.match_id
 FROM games g
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
   AND g.result IN ('win', 'loss', 'draw')
@@ -766,6 +826,7 @@ type ListGamesForOwnerRow struct {
 	Result            *string
 	MoveCount         int64
 	InterventionCount int64
+	MatchID           *string
 }
 
 // **화면이 쓰는 쪽이다.** 위 ListGames 는 주인을 안 보므로 측정 전용이다.
@@ -795,6 +856,7 @@ func (q *Queries) ListGamesForOwner(ctx context.Context, arg ListGamesForOwnerPa
 			&i.Result,
 			&i.MoveCount,
 			&i.InterventionCount,
+			&i.MatchID,
 		); err != nil {
 			return nil, err
 		}
@@ -837,6 +899,13 @@ FROM games g
 WHERE g.user_id = $1
   AND g.result = 'abandoned'
   AND EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
+  -- **대인전 판은 이어할 수 없다**(journal §83). 이어하기는 엔진 대국의 장치라, 여기에
+  -- 대인전 판이 걸리면 사람과 두던 수순이 **엔진 세션으로 이어진다** — 그 판의 두 행이
+  -- 그 자리에서 갈라져(한쪽만 자라고 다른 쪽은 abandoned 로 남는다) 같은 대국이 아니게 된다.
+  --
+  -- 배포가 대국 중에 끼면 실제로 그 상태가 만들어진다: 테이블이 접히면서(abort) 수가
+  -- 있는 행이 abandoned 로 닫히고, 그것이 정확히 이 질의의 조건이다.
+  AND g.match_id IS NULL
 ORDER BY g.id DESC
 LIMIT 1
 `

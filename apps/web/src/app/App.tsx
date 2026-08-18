@@ -36,6 +36,14 @@ const GuideScreen = lazy(async () => ({
 }));
 
 /**
+ * 대인전도 나중에 받는다. **엔진 대국과 코드를 안 나눠 쓴다** — 개입도 힌트도 없는
+ * 화면이라(docs/journal §83) 첫 화면에 실릴 이유가 없고, 라우트가 이미 갈라져 있다.
+ */
+const MatchScreen = lazy(async () => ({
+  default: (await import('@/screens/match/MatchScreen')).MatchScreen,
+}));
+
+/**
  * `needsAuth` 는 **실제로 로그인한 사람에게만** 그리는 탭이다.
  *
  * 마이페이지는 익명에게 401이라(profile.go) 안 누른 사람에게는 갈 곳이 없다 —
@@ -84,6 +92,7 @@ const TITLE_JA: Record<Route['name'], string> = {
   quiz: 'クイズ | show-gi',
   me: 'マイページ | show-gi',
   guide: 'あそびかた | show-gi',
+  room: '対人戦 | show-gi',
 };
 
 /**
@@ -228,6 +237,10 @@ export function App() {
               <GuideScreen />
             ) : onMe ? (
               <ProfileScreen />
+            ) : route.name === 'room' ? (
+              // **방마다 새로 세운다.** `roomId` 만 갈아 끼우면 이 컴포넌트가 살아남아
+              // 앞 방의 스냅샷과 시계를 한 틱 동안 그린다(퀴즈 화면과 같은 자리).
+              <MatchScreen key={route.id} roomId={route.id} />
             ) : route.name === 'quiz' ? (
               // **판마다 새로 세운다.** `id` 만 갈아 끼우면 이 컴포넌트가 그대로 살아서
               // 앞 판의 답과 기다린 횟수를 물려받고, 한 틱 동안 **남의 문항**을 그린다.

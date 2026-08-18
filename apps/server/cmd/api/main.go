@@ -64,6 +64,13 @@ func main() {
 	opts.SessionSecret = os.Getenv("SESSION_SECRET")
 	opts.PublicOrigin = os.Getenv("PUBLIC_ORIGIN")
 
+	// 대인전. **엔진 앞에 둔다** — 엔진이 없어도 사람끼리는 둘 수 있다.
+	//
+	// ctx 를 여기서 주는 것이 요점이다: 대국의 수명은 연결이 아니라 이 프로세스다.
+	// 핸들러의 `r.Context()` 에 매달면 한쪽이 탭을 닫는 순간 시계까지 멈춰서, 남은
+	// 사람의 대국이 끝나지도 이어지지도 못한다(server.NewMatch).
+	opts.Match = server.NewMatch(ctx, opts.Store, opts.Level)
+
 	if pool := startEngines(); pool != nil {
 		defer pool.Close()
 
@@ -107,6 +114,10 @@ func main() {
 		opts.NewAnalyst = func() game.Analyst {
 			return game.NewEngineAnalyst(searcher, mate, opts.Level)
 		}
+
+		// 대인전의 사후 분석. **여기가 대인전이 엔진을 만나는 유일한 자리다** — 두는 동안이
+		// 아니라 판이 끝난 뒤이고, 채우는 것은 되짚기의 평가치뿐이다(server.AnalyzeWith).
+		opts.Match.AnalyzeWith(ctx, opts.Store, opts.NewAnalyst)
 		// 종반 판정·詰み 게이지·퀴즈의 詰み 트리가 **셋 다 이 풀이다.** 앞의 둘은 시간상
 		// 겹치지 않지만(판정은 사람의 수 직후, 게이지는 상대의 수 직후) 퀴즈는 판이
 		// 끝나는 자리에서 수십 초를 잡는다 — 그래서 하나로는 모자라다(matePoolSize).

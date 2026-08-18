@@ -501,6 +501,12 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 		log.Printf("ws: summary: the record did not finish within %s", summaryWait)
 		return
 	}
+	// **0은 「행이 없다」다**(dbRecorder 의 evFinished). 그대로 읽으러 가면 없는 번호로
+	// 질의하고 그 실패를 로그에 남긴다 — 셀 것이 없는 것이지 고장이 아니다.
+	if gameID == 0 {
+		log.Print("ws: summary: this game has no row — nothing to summarise")
+		return
+	}
 
 	// **주인을 안 보고 읽는다.** 방금 이 연결이 만든 판이라 소유 검사가 답할 것이 없고,
 	// 익명 대국에는 주인이 아예 없다(002_anonymous_games.sql).

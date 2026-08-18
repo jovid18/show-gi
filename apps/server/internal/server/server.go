@@ -19,6 +19,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/auth"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
+	"github.com/jovid18/show-gi/apps/server/internal/match"
 	"github.com/jovid18/show-gi/apps/server/internal/quiz"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -76,6 +77,54 @@ type Options struct {
 
 	// PublicOrigin 은 브라우저가 이 서버를 부르는 주소다. 비면 요청에서 되짚는다(auth.go).
 	PublicOrigin string
+
+	// Match 는 대인전에 필요한 한 벌이다. nil이면 그 표면이 통째로 닫힌다 —
+	// 엔진도 DB도 안 쓰는 기능이라(`internal/match`) 그 둘과 따로 켜고 끈다.
+	//
+	// **밖에서 받는 이유는 수명이다.** 방에서 시작된 대국은 연결이 아니라 **서버가 사는 동안**
+	// 살아 있어야 하고(match 패키지 주석), `Handler` 에는 그런 ctx 가 없다.
+	Match *Match
+}
+
+// Match 는 대인전의 방들과 그 곁장부다. **둘이 늘 같이 다녀서 한 타입이다** — 방이
+// 대국을 시작하고(Hub), 그 대국이 남긴 번호를 곁장부가 안다(matchRecords).
+type Match struct {
+	hub     *match.Hub
+	records *matchRecords
+}
+
+// NewMatch 는 대인전 한 벌을 만든다. **`Run` 보다 먼저 부른다** — ctx 가 방에서 시작된 대국들의
+// 수명이라 요청 ctx 로는 만들 수 없다.
+//
+// 기록기를 여기서 끼운다. `internal/match` 가 `store` 를 모르는 것은 `internal/game` 이
+// 모르는 것과 같은 규약이고(server/recorder.go 가 그 다리다), 여기가 그 다리의 대인전 몫이다.
+//
+// st 가 nil이어도 방은 열린다 — 기록만 안 남는다.
+func NewMatch(ctx context.Context, st *store.Store, level intervene.Level) *Match {
+	records := newMatchRecords(st, level)
+	return &Match{
+		hub:     match.NewHub(ctx, match.HubConfig{NewRecorders: records.new}),
+		records: records,
+	}
+}
+
+// analyzerOrNil 은 되짚기가 「분석 중인가」를 물을 상대다. 대인전이 꺼진 배포에서는
+// `Options.Match` 자체가 nil이라 수신자까지 nil 을 받는다.
+func (m *Match) analyzerOrNil() *matchAnalyzer {
+	if m == nil {
+		return nil
+	}
+	return m.records.analyzer
+}
+
+// AnalyzeWith 는 판이 끝난 뒤 평가치를 채울 분석기를 단다(matchAnalyzer).
+//
+// **만드는 자리와 다는 자리가 갈려 있다.** 대인전은 엔진보다 먼저 서고(cmd/api 의 「엔진
+// 앞에 둔다」) 분석기는 엔진이 있어야 만들 수 있다 — 순서가 그 사실을 그대로 말한다.
+//
+// **기동 중에 한 번만 부른다.** `Run` 뒤에 부르면 곁장부 goroutine 과 경합한다.
+func (m *Match) AnalyzeWith(ctx context.Context, st *store.Store, newAnalyst func() game.Analyst) {
+	m.records.analyzer = newMatchAnalyzer(ctx, st, newAnalyst)
 }
 
 // Handler 는 라우팅만 조립한다. 테스트가 서버를 띄우지 않고 이걸 그대로 쓴다.
@@ -133,7 +182,7 @@ func Handler(opts Options) http.Handler {
 		// 마이페이지. **판 하나가 아니라 사람 하나를 읽는다**(profile.go).
 		mux.HandleFunc("GET /api/me/profile", (&profileHandler{store: opts.Store, auth: ah}).get)
 
-		rev := &reviewHandler{store: opts.Store, auth: ah, level: opts.Level}
+		rev := &reviewHandler{store: opts.Store, auth: ah, level: opts.Level, analyzer: opts.Match.analyzerOrNil()}
 		mux.HandleFunc("GET /api/games", rev.list)
 		mux.HandleFunc("GET /api/games/{id}", rev.detail)
 		// 총평은 기보와 **따로** 간다 — 화면이 판을 먼저 그린다(review.go summary).
@@ -178,6 +227,20 @@ func Handler(opts Options) http.Handler {
 			writeJSON(w, http.StatusOK, map[string]any{"game": nil})
 		})
 		mux.HandleFunc("POST /api/resumable/{id}/decline", storeUnavailable)
+	}
+
+	// 대인전(match.go · ws_match.go). **엔진도 DB도 안 탄다** — 룰 엔진과 시계뿐이라
+	// 다른 무엇이 꺼져 있어도 이 셋은 답한다. 기록만 DB 유무에 걸린다.
+	//
+	// 셋 다 **로그인이 필요하다.** 익명은 서로 구별할 수단이 없어서 정원 2명이라는 규칙이
+	// 성립하지 않는다(internal/match 의 Room).
+	if opts.Match != nil {
+		mh := &matchHandler{hub: opts.Match.hub, auth: ah}
+		mux.HandleFunc("POST /api/rooms", mh.create)
+		mux.HandleFunc("GET /api/rooms/{id}", mh.get)
+		mux.Handle("GET /ws/match", &matchHandlerWS{
+			hub: opts.Match.hub, auth: ah, records: opts.Match.records,
+		})
 	}
 
 	if opts.NewOpponent != nil {

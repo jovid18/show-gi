@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 
 import type { GameSetup } from '@/hooks/useGame';
+import { useViewer } from '@/hooks/useViewer';
 import type { Color } from '@/protocol/game';
+import { createRoom, type SeatChoice } from '@/protocol/match';
 import { fetchOpenings, type Opening } from '@/protocol/openings';
 import { ROUTE_GUIDE } from '@/routes/const';
+import { navigate } from '@/routes/router';
 
 /**
  * 대국을 시작하기 전에 고르는 화면.
@@ -18,6 +21,12 @@ import { ROUTE_GUIDE } from '@/routes/const';
 const COLORS: { value: Color; label: string; note: string }[] = [
   { value: 'b', label: '先手', note: '自分から先に指します' },
   { value: 'w', label: '後手', note: '相手の出方を見てから指します' },
+];
+
+/** 사람과 둘 때의 手番. **振り駒가 하나 더 있다** — 상대가 사람이면 그것이 원래 정하는 법이다. */
+const SEATS: { value: SeatChoice; label: string; note: string }[] = [
+  { value: 'r', label: '振り駒', note: '部屋をつくったときに決まります' },
+  ...COLORS,
 ];
 
 interface SetupProps {
@@ -107,6 +116,10 @@ export function Setup({ initial, onStart }: SetupProps) {
         対局をはじめる
       </button>
 
+      {/* **상대가 사람인 갈래는 여기서 갈린다.** 위에서 고른 手番을 그대로 쓰고 戦型은
+          안 쓴다 — 진형은 컴퓨터에게 시키는 것이라 사람 상대에게는 뜻이 없다. */}
+      <FriendMatch />
+
       {/* **헤더의 버튼만으로는 못 찾는다.** 처음 온 사람이 실제로 보는 화면은 여기 하나다.
           시작 버튼 **아래**에 두는 것이 요점 — 위에 두면 두러 온 사람을 먼저 붙잡는다.
 
@@ -116,6 +129,89 @@ export function Setup({ initial, onStart }: SetupProps) {
         はじめての方へ — このアプリの遊びかた
         <span aria-hidden="true"> ↗</span>
       </a>
+    </div>
+  );
+}
+
+/**
+ * 사람과 두는 갈래로 나가는 문.
+ *
+ * **로그인해야 열린다.** 익명은 서로 구별할 수단이 없어서 「이 방의 상대가 아까 그
+ * 사람인가」에 답할 수 없고, 그러면 정원 2명이라는 규칙이 성립하지 않는다.
+ *
+ * **눌러도 안 되는 버튼을 안 띄운다** — 로그인 안 한 사람에게는 이유를 적은 줄이 선다
+ * (`Account` 와 마이페이지 탭이 이미 쓰는 규칙, journal §76).
+ *
+ * **手番을 위 화면과 따로 고른다.** 저쪽은 엔진 상대의 설정이고 여기는 사람 상대라
+ * 振り駒가 붙는다 — 같은 값을 쓰면 그 선택지가 엔진 대국으로도 새어 나간다.
+ */
+function FriendMatch() {
+  const { me } = useViewer();
+  const [seat, setSeat] = useState<SeatChoice>('r');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // 로그인이라는 것이 이 배포에 없으면 자리를 아예 안 그린다 — 있는데 못 쓰는 것과
+  // 없는 것은 다르고, 후자에 안내문을 띄우면 없는 기능을 말하게 된다.
+  if (!me.enabled) return null;
+
+  return (
+    <div className="setup__friend">
+      <h3 className="setup__legend">友だちと対局</h3>
+      {me.user === null ? (
+        <p className="setup__caveat">友だちと指すにはログインが必要です。</p>
+      ) : (
+        <>
+          <p className="setup__caveat">
+            {/* **정한 것 셋을 누르기 전에 말한다.** 시계는 판을 지게 만들 수 있고,
+                개입이 없는 것은 이 앱을 개입으로 알고 온 사람에게 고장으로 읽힌다. */}
+            部屋をつくるとリンクが出ます。それを送った相手が開くと対局がはじまります。持ち時間は一手60秒で、
+            対人戦では口出しもヒントも出ません。
+          </p>
+          <fieldset className="setup__group">
+            <legend className="setup__legend">あなたの手番</legend>
+            <div className="setup__choices setup__choices--seat">
+              {SEATS.map((s) => (
+                <button
+                  key={s.value}
+                  type="button"
+                  className="setup__choice"
+                  data-on={seat === s.value || undefined}
+                  aria-pressed={seat === s.value}
+                  onClick={() => setSeat(s.value)}
+                >
+                  <span className="setup__choice-name">{s.label}</span>
+                  <span className="setup__choice-note">{s.note}</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
+          <button
+            type="button"
+            className="btn setup__start"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              setError(null);
+              const ac = new AbortController();
+              // **성공해도 되돌린다.** 이 화면은 방으로 옮겨 가도 언마운트되지 않는다 —
+              // `App` 이 `hidden` 으로만 감추므로(대국을 두는 중에 탭을 옮겨도 판이 살아
+              // 있어야 한다), 여기서 안 되돌리면 돌아왔을 때 버튼이 영영 눌리지 않는다.
+              void createRoom(seat, ac.signal)
+                .then((room) => navigate({ name: 'room', id: room.id }))
+                .catch((e: Error) => setError(e.message))
+                .finally(() => setBusy(false));
+            }}
+          >
+            {busy ? '部屋をつくっています…' : '対局部屋をつくる'}
+          </button>
+          {error !== null && (
+            <p className="rejection" role="alert">
+              {error}
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }
