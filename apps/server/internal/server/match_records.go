@@ -26,6 +26,10 @@ type matchRecords struct {
 	// 한 벌만 두기 위해서다(matchRecorder).
 	level intervene.Level
 
+	// analyzer 는 판이 끝난 뒤 평가치를 채우는 쪽이다. **nil 일 수 있다** — 엔진이 없는
+	// 배포에서는 대인전이 그대로 돌고 평가치만 안 붙는다(matchAnalyzer).
+	analyzer *matchAnalyzer
+
 	mu     sync.Mutex
 	byRoom map[string]*roomRecord
 }
@@ -138,6 +142,18 @@ func (m *matchRecords) collect(ctx context.Context, cancel context.CancelFunc, e
 		}(c, rec)
 	}
 	wg.Wait()
+
+	// **번호가 둘 다 있어야 줄을 세운다.** 한쪽만 있으면 그 판은 반쪽이라, 채운 평가치가
+	// 한 사람에게만 보인다.
+	m.mu.Lock()
+	ids := make([]int64, 0, len(entry.id))
+	for _, id := range entry.id {
+		ids = append(ids, id)
+	}
+	m.mu.Unlock()
+	if len(ids) == len(entry.ready) {
+		m.analyzer.enqueue(ids)
+	}
 }
 
 // gameIDOf 는 그쪽의 판 번호를 기다렸다 준다. 못 얻으면 두 번째 값이 false 다.

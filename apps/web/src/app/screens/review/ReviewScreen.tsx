@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 import { ReviewDetail } from './ReviewDetail';
 import { dateJa, resultJa } from '@/libs/review/labels';
 import { hrefOf, navigate, type Route } from '@/routes/router';
@@ -94,11 +96,24 @@ function GameCard({ game }: { game: GameSummary }) {
   );
 }
 
+/** 분석이 끝났는지 다시 묻는 간격. 한 수 재는 데 걸리는 시간보다 짧을 이유가 없다. */
+const analysisPollMs = 5000;
+
 // 목록으로 돌아가는 것도 주소를 바꾸는 일이다 — 뒤로 가기와 같은 자리에 서야 한다.
 const toList = (): void => navigate({ name: 'reviews' });
 
 function SelectedGame({ id, initialPly }: { id: number; initialPly?: number | undefined }) {
   const { loaded, reload } = useGameDetail(id);
+
+  // **분석 중일 때만 다시 묻는다.** 대인전의 평가치는 판이 끝난 뒤에 채워지므로(서버의
+  // matchAnalyzer) 그동안 화면이 스스로 차야 한다 — 안 그러면 「분석하고 있습니다」를
+  // 띄워 놓고 새로고침을 기다리게 만든다. 끝나면 `analyzing` 이 사라져 멈춘다.
+  const analyzing = loaded.state === 'ready' && loaded.data.analyzing === true;
+  useEffect(() => {
+    if (!analyzing) return;
+    const timer = setInterval(reload, analysisPollMs);
+    return () => clearInterval(timer);
+  }, [analyzing, reload]);
 
   if (loaded.state === 'loading') {
     return <p className="review-status">読み込み中…</p>;

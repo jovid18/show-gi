@@ -193,8 +193,16 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
 
   // 평가치가 한 수도 안 남은 판이 있다(`eval_cp` 는 뒤에 붙은 컬럼이다). 그때는 빈 상자를
   // 그리지 않고 왜 없는지를 말한다 — 빈 그래프는 「호각이었다」로 읽힌다.
+  //
+  // **아직 채우는 중인 것과 영영 없는 것을 가른다.** 대인전은 판이 끝난 뒤에 채우므로
+  // (서버의 matchAnalyzer) 방금 끝난 판이 여기 오는 것이 정상이고, 그때 「남지 않았다」로
+  // 말하면 기다리면 되는 사람을 돌려보낸다.
   if (data.every((p) => p.main === null)) {
-    return <p className="review-empty">この対局には評価値が残っていません。</p>;
+    return (
+      <p className="review-empty" role="status">
+        {game.analyzing === true ? '評価値を分析しています…' : 'この対局には評価値が残っていません。'}
+      </p>
+    );
   }
 
   return (

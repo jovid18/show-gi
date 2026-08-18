@@ -108,6 +108,25 @@ func NewMatch(ctx context.Context, st *store.Store, level intervene.Level) *Matc
 	}
 }
 
+// analyzerOrNil 은 되짚기가 「분석 중인가」를 물을 상대다. 대인전이 꺼진 배포에서는
+// `Options.Match` 자체가 nil이라 수신자까지 nil 을 받는다.
+func (m *Match) analyzerOrNil() *matchAnalyzer {
+	if m == nil {
+		return nil
+	}
+	return m.records.analyzer
+}
+
+// AnalyzeWith 는 판이 끝난 뒤 평가치를 채울 분석기를 단다(matchAnalyzer).
+//
+// **만드는 자리와 다는 자리가 갈려 있다.** 대인전은 엔진보다 먼저 서고(cmd/api 의 「엔진
+// 앞에 둔다」) 분석기는 엔진이 있어야 만들 수 있다 — 순서가 그 사실을 그대로 말한다.
+//
+// **기동 중에 한 번만 부른다.** `Run` 뒤에 부르면 곁장부 goroutine 과 경합한다.
+func (m *Match) AnalyzeWith(ctx context.Context, st *store.Store, newAnalyst func() game.Analyst) {
+	m.records.analyzer = newMatchAnalyzer(ctx, st, newAnalyst)
+}
+
 // Handler 는 라우팅만 조립한다. 테스트가 서버를 띄우지 않고 이걸 그대로 쓴다.
 func Handler(opts Options) http.Handler {
 	mux := http.NewServeMux()
@@ -163,7 +182,7 @@ func Handler(opts Options) http.Handler {
 		// 마이페이지. **판 하나가 아니라 사람 하나를 읽는다**(profile.go).
 		mux.HandleFunc("GET /api/me/profile", (&profileHandler{store: opts.Store, auth: ah}).get)
 
-		rev := &reviewHandler{store: opts.Store, auth: ah, level: opts.Level}
+		rev := &reviewHandler{store: opts.Store, auth: ah, level: opts.Level, analyzer: opts.Match.analyzerOrNil()}
 		mux.HandleFunc("GET /api/games", rev.list)
 		mux.HandleFunc("GET /api/games/{id}", rev.detail)
 		// 총평은 기보와 **따로** 간다 — 화면이 판을 먼저 그린다(review.go summary).
