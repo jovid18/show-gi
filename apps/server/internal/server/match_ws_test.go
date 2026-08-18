@@ -102,7 +102,7 @@ func TestTwoPeoplePlayAMatch(t *testing.T) {
 		t.Fatalf("alice's first frame is %q, want waiting", got.Type)
 	}
 
-	// 손님이 붙으면 그 자리에서 판이 선다. **`waiting` 뒤에 `snapshot` 이 온다.**
+	// 손님이 붙으면 그 자리에서 대국이 시작된다. **`waiting` 뒤에 `snapshot` 이 온다.**
 	first := readUntilSnapshot(t, aliceWS)
 	if first.YourColor != "b" || !first.YourTurn {
 		t.Fatalf("alice is %s and yourTurn=%v, want b/true", first.YourColor, first.YourTurn)

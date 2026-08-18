@@ -73,7 +73,7 @@ func TestUnknownAndFullRoomsLookTheSame(t *testing.T) {
 	}
 }
 
-// 자리는 **한 번 정해지면 안 바뀐다.** 다시 들어와도 같은 색이라야 끊겼다 붙는 사람이
+// 자리는 **한 번 정해지면 안 바뀐다.** 다시 들어와도 같은 쪽이라야 끊겼다 붙는 사람이
 // 남의 자리에 앉지 않는다.
 func TestSeatsAreSticky(t *testing.T) {
 	h := newTestHub(t)
@@ -89,7 +89,7 @@ func TestSeatsAreSticky(t *testing.T) {
 	if _, c, err := h.Enter(room.ID, bob); err != nil || c != shogi.Black {
 		t.Fatalf("guest: got (%v, %v), want (Black, nil)", c, err)
 	}
-	// 둘 다 다시 들어와도 같은 색이다.
+	// 둘 다 다시 들어와도 같은 쪽이다.
 	if _, c, err := h.Enter(room.ID, bob); err != nil || c != shogi.Black {
 		t.Fatalf("guest again: got (%v, %v), want (Black, nil)", c, err)
 	}
@@ -99,7 +99,7 @@ func TestSeatsAreSticky(t *testing.T) {
 }
 
 // **혼자 두는 판이 생기면 안 된다.** 방을 만든 사람이 자기 링크를 열어도 손님 자리는
-// 안 찬다 — 차면 그 방은 그 사람 혼자 두 색을 잡은 판이 된다.
+// 안 찬다 — 차면 그 방은 그 사람 혼자 先手·後手를 다 잡은 판이 된다.
 func TestHostCannotTakeTheGuestSeat(t *testing.T) {
 	h := newTestHub(t)
 
@@ -117,7 +117,7 @@ func TestHostCannotTakeTheGuestSeat(t *testing.T) {
 	}
 }
 
-// 판은 **둘이 동시에 붙어 있을 때** 선다. 「들어온 적이 있다」로 세면, 링크를 보내고
+// 대국은 **둘이 동시에 붙어 있을 때** 시작된다. 「들어온 적이 있다」로 세면, 링크를 보내고
 // 탭을 닫은 방 주인이 손님이 여는 순간 시간패로 진다 — 그 자리에서 시계가 돌기 때문이다.
 func TestTableStartsOnlyWhenBothAreConnected(t *testing.T) {
 	h := newTestHub(t)
@@ -130,7 +130,7 @@ func TestTableStartsOnlyWhenBothAreConnected(t *testing.T) {
 		t.Fatalf("guest enter: %v", err)
 	}
 
-	// 손님만 붙어 있다 — 아직 안 선다.
+	// 손님만 붙어 있다 — 아직 시작되지 않는다.
 	detachBob := h.Connect(room, shogi.White)
 	select {
 	case <-room.Ready():
@@ -286,10 +286,10 @@ func TestAStartedGameIsNeverDroppedForTheCap(t *testing.T) {
 	}
 }
 
-// **걷힌 방에는 판을 안 세운다.**
+// **걷힌 방에서는 대국을 시작하지 않는다.**
 //
 // `Enter` 와 `Connect` 가 잠금을 따로 잡으므로 그 사이에 방이 걷힐 수 있다. 그때 판을
-// 세우면 `ready` 와 `closed` 가 둘 다 닫히고, 두 handler 의 select 가 무작위로 갈려서
+// 시작하면 `ready` 와 `closed` 가 둘 다 닫히고, 두 handler 의 select 가 무작위로 갈려서
 // 한 사람은 판에 앉고 다른 사람은 「期限が切れました」를 본다 — 그 판은 60초 뒤 시간패로
 // 끝나고 아무도 못 본 대국의 행 둘이 남는다.
 func TestADroppedRoomNeverStartsATable(t *testing.T) {
@@ -319,7 +319,7 @@ func TestADroppedRoomNeverStartsATable(t *testing.T) {
 		t.Fatal("the room was swept without telling its waiters")
 	}
 
-	// 남은 한쪽이 이제 붙는다. **판이 서면 안 된다.**
+	// 남은 한쪽이 이제 붙는다. **대국이 시작되면 안 된다.**
 	h.Connect(room, shogi.Black)
 	if room.Table() != nil {
 		t.Fatal("a table was started in a room that had already been dropped")

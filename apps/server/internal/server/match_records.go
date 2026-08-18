@@ -14,7 +14,7 @@ import (
 // matchRecords 는 방마다 만든 기록기를 들고 있다.
 //
 // **들고 있는 이유는 판 번호 하나다.** 대인전 한 판은 `games` 행 두 개로 남고
-// (012_match_games.sql) 색마다 번호가 다른데, 그 번호를 아는 것은 기록기뿐이다 —
+// (012_match_games.sql) 先手·後手마다 번호가 다른데, 그 번호를 아는 것은 기록기뿐이다 —
 // 판이 끝난 뒤 「振り返り」 링크가 그 값으로 선다.
 //
 // 방 자체는 `match.Hub` 가 소유한다. 여기는 그 옆에 붙는 곁장부이고, 그래서 **만료도
@@ -36,7 +36,7 @@ type roomRecord struct {
 	// id·ready 는 **이미 받아 둔** 판 번호와 그것이 정해졌다는 신호다.
 	//
 	// `dbRecorder.done` 은 값 하나짜리 채널이라 먼저 읽은 쪽이 가져가 버린다. 판이 끝나는
-	// 순간에 새로고침하거나 같은 색으로 탭을 둘 열어 두는 것은 드문 일이 아닌데, 그때
+	// 순간에 새로고침하거나 같은 쪽으로 탭을 둘 열어 두는 것은 드문 일이 아닌데, 그때
 	// 두 번째 연결은 5초를 기다린 끝에 링크를 못 그리고 로그에는 「기록이 안 끝났다」는
 	// **거짓말**이 남는다 — 그래서 받는 쪽을 **하나로 모으고**(collect) 여기 옮겨 둔다.
 	//
@@ -59,7 +59,7 @@ func newMatchRecords(st *store.Store, level intervene.Level) *matchRecords {
 	return &matchRecords{store: st, level: level, byRoom: map[string]*roomRecord{}}
 }
 
-// new 는 색마다 기록기를 하나씩 만든다. `match.HubConfig.NewRecorders` 가 이 함수다.
+// new 는 先手·後手마다 기록기를 하나씩 만든다. `match.HubConfig.NewRecorders` 가 이 함수다.
 //
 // **ctx 는 서버의 것이다**(Hub 가 준다). 연결에 매달면 한쪽이 탭을 닫는 순간 그 사람의
 // 기록이 abandoned 로 닫히는데, 대인전은 그때도 판이 계속 돈다.
@@ -106,7 +106,7 @@ func (m *matchRecords) new(
 // 번호를 여기 한 곳에서 받는 것이 요점이다 — 연결마다 `done` 을 직접 읽으면 값이 하나뿐이라
 // 먼저 읽은 쪽이 가져간다(roomRecord.id).
 //
-// **색마다 goroutine 을 따로 둔다.** 한 자리에서 차례로 기다리면 한쪽이 늦는 것이
+// **先手·後手마다 goroutine 을 따로 둔다.** 한 자리에서 차례로 기다리면 한쪽이 늦는 것이
 // 다른 쪽의 신호를 막는다 — 그러면 멀쩡히 기록된 사람이 「振り返り」 링크를 못 받고,
 // 기다리는 5초도 둘이 나눠 쓰게 된다.
 func (m *matchRecords) collect(ctx context.Context, cancel context.CancelFunc, entry *roomRecord) {
@@ -140,7 +140,7 @@ func (m *matchRecords) collect(ctx context.Context, cancel context.CancelFunc, e
 	wg.Wait()
 }
 
-// gameIDOf 는 그 색의 판 번호를 기다렸다 준다. 못 얻으면 두 번째 값이 false 다.
+// gameIDOf 는 그쪽의 판 번호를 기다렸다 준다. 못 얻으면 두 번째 값이 false 다.
 //
 // **몇이 물어도 다 답한다** — 신호가 닫히는 채널이고 값은 곁장부에 남아 있다(roomRecord.id).
 func (m *matchRecords) gameIDOf(

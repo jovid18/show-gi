@@ -27,7 +27,7 @@ type matchHandler struct {
 type roomPayload struct {
 	// ID 는 초대 링크에 그대로 들어가는 값이다(128비트 난수, `internal/match`).
 	ID string `json:"id"`
-	// YourColor 는 이 사람이 잡을 쪽이다. 방을 만든 사람이 고른 색에서 정해진다.
+	// YourColor 는 이 사람이 잡을 쪽이다. 방을 만든 사람이 고른 쪽에서 정해진다.
 	YourColor string `json:"yourColor"`
 	// HostName 은 방을 만든 사람의 이름이다. 손님이 「누구의 방인가」를 확인하는 자리다.
 	HostName string `json:"hostName"`
@@ -53,7 +53,7 @@ func notFound(w http.ResponseWriter) {
 	})
 }
 
-// create 는 방을 연다. **만든 사람이 색을 고른다** — 상대는 나머지를 잡는다.
+// create 는 방을 연다. **만든 사람이 先手·後手를 고른다** — 상대는 나머지를 잡는다.
 func (h *matchHandler) create(w http.ResponseWriter, r *http.Request) {
 	s, ok := h.auth.viewer(r)
 	if !ok {
@@ -66,7 +66,7 @@ func (h *matchHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// **색은 쿼리로 받고, 못 읽으면 先手다.** 시작 화면과 같은 규약이다(ws.go 의 newSetup) —
+	// **先手·後手는 쿼리로 받고, 못 읽으면 先手다.** 시작 화면과 같은 규약이다(ws.go 의 newSetup) —
 	// 목록을 서버가 아는 값이라 이상한 값이 오는 것은 클라이언트가 틀린 경우이고,
 	// 그때 방을 거절하는 것보다 先手로 여는 쪽이 낫다.
 	color := shogi.Black
@@ -121,7 +121,7 @@ func (h *matchHandler) get(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// colorCode 는 색을 화면·`games.my_color` 와 같은 어휘로 옮긴다.
+// colorCode 는 先手·後手를 화면·`games.my_color` 와 같은 어휘로 옮긴다.
 func colorCode(c shogi.Color) string {
 	if c == shogi.White {
 		return "w"

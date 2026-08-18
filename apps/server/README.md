@@ -24,7 +24,7 @@ curl localhost:8080/healthz     # {"ok":true,"engine":true,"db":true}
 | `GET /healthz`                     | 엔진·DB 상태를 값으로 말한다. **없어도 200**                                                                                                                                                            |
 | `GET /ws/game`                     | 연결 하나가 대국 하나. 엔진이 없으면 503. `?color=b`·`w` 와 `opening=<id>` 로 고른다 ([§48](../../docs/journal/41-60.md)). `?resume=<id>` 면 중단된 판을 이어 둔다 ([§51](../../docs/journal/41-60.md)) |
 | `GET /api/openings`                | 고를 수 있는 상대의 진형. **DB도 엔진도 로그인도 필요 없다** — 상수 목록이다                                                                                                                            |
-| `POST /api/rooms`                  | 사람끼리 두는 방 하나. **로그인 안 했으면 401** — 아직 방이 없으므로 새어 나갈 것이 없다. `?color=b`·`w` 로 만든 사람이 색을 고른다 ([§83](../../docs/journal/82-100.md))                               |
+| `POST /api/rooms`                  | 사람끼리 두는 방 하나. **로그인 안 했으면 401** — 아직 방이 없으므로 새어 나갈 것이 없다. `?color=b`·`w` 로 만든 사람이 先手·後手를 고른다 ([§83](../../docs/journal/82-100.md))                        |
 | `GET /api/rooms/{id}`              | 그 방을 **들어가기 전에** 확인한다. 자리를 안 잡는다 — 앉는 것은 아래 WebSocket 이다. 볼 수 없으면 **404 하나**(아래)                                                                                   |
 | `GET /ws/match`                    | 방의 자리에 앉아 사람과 둔다. `?room=<id>`. **엔진이 없어도 된다** — 룰 엔진과 시계뿐이다. 개입도 힌트도 待った도 없다 ([§83](../../docs/journal/82-100.md))                                            |
 | `GET /api/games`                   | 최근 대국 목록. **결과가 나온 판만** — 두는 중도 중단도 안 온다 ([§51](../../docs/journal/41-60.md))                                                                                                    |

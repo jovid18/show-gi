@@ -91,7 +91,7 @@ func newRoomID() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-// colorCode 는 색을 `games.my_color` 의 어휘로 옮긴다.
+// colorCode 는 先手·後手를 `games.my_color` 의 어휘로 옮긴다.
 func colorCode(c shogi.Color) string {
 	if c == shogi.White {
 		return "w"

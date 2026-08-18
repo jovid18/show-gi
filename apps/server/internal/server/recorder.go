@@ -59,7 +59,7 @@ type recordEvent struct {
 	status  game.Status
 	winner  game.Side
 	// result 는 `evFinished` 가 그대로 적을 결과다. **대인전이 채운다** — 그쪽은 승패를
-	// 테이블이 이미 색으로 정해 놨고(match.state.resultFor), status·winner 로 되돌려
+	// 테이블이 이미 先手·後手 기준으로 정해 놨고(match.state.resultFor), status·winner 로 되돌려
 	// 넣으면 같은 변환이 두 곳에 생긴다.
 	result store.GameResult
 }

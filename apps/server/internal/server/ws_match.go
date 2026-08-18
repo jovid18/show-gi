@@ -21,8 +21,8 @@ import (
 // 끊기면 판이 끝나는데(journal §46), 여기는 상대가 남아 있어서 끝낼 수가 없다 — 끊긴
 // 사람은 같은 링크로 다시 들어와 이어 둔다. 그동안 그 사람의 시계는 흐른다.
 //
-// 한 사람이 탭을 두 개 열어 같은 방에 붙는 것은 막지 않는다. 둘 다 같은 색이라
-// 스냅샷이 같고, 착수는 어느 쪽에서 오든 그 색의 수다.
+// 한 사람이 탭을 두 개 열어 같은 방에 붙는 것은 막지 않는다. 둘 다 같은 쪽이라
+// 스냅샷이 같고, 착수는 어느 탭에서 오든 그쪽의 수다.
 
 // matchClientMsg 는 브라우저가 보내는 것.
 type matchClientMsg struct {
@@ -137,7 +137,7 @@ func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// **자리에 앉은 것과 화면을 보고 있는 것은 다르다.** 앞은 위 Enter 가 영구히 정했고,
-	// 이건 이 연결이 사는 동안만이다 — 둘이 다 붙어 있는 순간 판이 선다.
+	// 이건 이 연결이 사는 동안만이다 — 둘이 다 붙어 있는 순간 대국이 시작된다.
 	detach := h.hub.Connect(room, color)
 	defer detach()
 
@@ -197,8 +197,8 @@ func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.matchReadLoop(ctx, conn, table, color, out)
 }
 
-// matchReadLoop 는 그 사람이 보내는 것을 받는다. **색은 여기서 안 받는다** — 자리에서
-// 이미 정해졌고(Hub.Enter), 요청으로 받으면 두 사람이 같은 색을 주장할 수 있다.
+// matchReadLoop 는 그 사람이 보내는 것을 받는다. **어느 쪽인지는 여기서 안 받는다** — 자리에서
+// 이미 정해졌고(Hub.Enter), 요청으로 받으면 두 사람이 같은 쪽을 주장할 수 있다.
 func (h *matchHandlerWS) matchReadLoop(
 	ctx context.Context,
 	conn *websocket.Conn,
@@ -241,7 +241,7 @@ const roomClosedFlush = time.Second
 // 넘으면 번호를 포기하고, 그때 화면은 「振り返り」 링크만 안 그린다(결과는 이미 떴다).
 const matchRecordWait = 5 * time.Second
 
-// sendRecordID 는 이 사람의 판 번호를 보낸다. **한 판이 행 두 개라 색마다 번호가 다르다.**
+// sendRecordID 는 이 사람의 판 번호를 보낸다. **한 판이 행 두 개라 先手·後手마다 번호가 다르다.**
 //
 // **몇 번을 물어도 답한다.** 곁장부가 한 번 받은 번호를 들고 있어서(matchRecords.gameIDOf),
 // 판이 끝나는 순간에 새로고침한 사람도 「振り返り」 링크를 받는다.

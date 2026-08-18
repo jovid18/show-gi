@@ -110,7 +110,7 @@ export type MatchClientMessage = { type: 'move'; usi: string } | { type: 'resign
 /**
  * 방을 연다. **로그인해야 한다** — 안 했으면 401이다.
  *
- * 색은 방을 만드는 사람이 고르고, 상대는 나머지를 잡는다.
+ * 先手·後手는 방을 만드는 사람이 고르고, 상대는 나머지를 잡는다.
  */
 export async function createRoom(color: Color, signal: AbortSignal): Promise<Room> {
   const res = await fetch(`/api/rooms?color=${color}`, { method: 'POST', signal });

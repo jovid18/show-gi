@@ -81,19 +81,19 @@ type Options struct {
 	// Match 는 대인전에 필요한 한 벌이다. nil이면 그 표면이 통째로 닫힌다 —
 	// 엔진도 DB도 안 쓰는 기능이라(`internal/match`) 그 둘과 따로 켜고 끈다.
 	//
-	// **밖에서 받는 이유는 수명이다.** 방에 선 판은 연결이 아니라 **서버가 사는 동안**
+	// **밖에서 받는 이유는 수명이다.** 방에서 시작된 대국은 연결이 아니라 **서버가 사는 동안**
 	// 살아 있어야 하고(match 패키지 주석), `Handler` 에는 그런 ctx 가 없다.
 	Match *Match
 }
 
 // Match 는 대인전의 방들과 그 곁장부다. **둘이 늘 같이 다녀서 한 타입이다** — 방이
-// 판을 세우고(Hub), 그 판이 남긴 번호를 곁장부가 안다(matchRecords).
+// 대국을 시작하고(Hub), 그 대국이 남긴 번호를 곁장부가 안다(matchRecords).
 type Match struct {
 	hub     *match.Hub
 	records *matchRecords
 }
 
-// NewMatch 는 대인전 한 벌을 만든다. **`Run` 보다 먼저 부른다** — ctx 가 방에 선 판들의
+// NewMatch 는 대인전 한 벌을 만든다. **`Run` 보다 먼저 부른다** — ctx 가 방에서 시작된 대국들의
 // 수명이라 요청 ctx 로는 만들 수 없다.
 //
 // 기록기를 여기서 끼운다. `internal/match` 가 `store` 를 모르는 것은 `internal/game` 이

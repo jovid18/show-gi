@@ -91,7 +91,7 @@ type Snapshot struct {
 	TurnLeftMs  int `json:"turnLeftMs"`
 }
 
-// snapshotData 는 관점이 아직 안 붙은 한 벌이다. 색마다 한 벌씩 만들지 않는 이유는
+// snapshotData 는 관점이 아직 안 붙은 한 벌이다. 先手·後手마다 한 벌씩 만들지 않는 이유는
 // table.go 의 `viewSnapshot`.
 type snapshotData struct {
 	sfen    string
@@ -134,7 +134,7 @@ func (st *state) snapshot() *snapshotData {
 	return d
 }
 
-// for_ 는 그 색이 보는 한 벌로 편다. **여기가 「너」와 「상대」가 정해지는 유일한 자리다.**
+// for_ 는 그쪽이 보는 한 벌로 편다. **여기가 「너」와 「상대」가 정해지는 유일한 자리다.**
 func (d *snapshotData) for_(you shogi.Color) Snapshot {
 	s := Snapshot{
 		SFEN:           d.sfen,

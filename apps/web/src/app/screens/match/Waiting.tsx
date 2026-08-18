@@ -8,7 +8,7 @@ import { Unavailable } from './Unavailable';
  * 상대가 들어오기 전의 화면.
  *
  * **여기서 할 일이 하나뿐이다 — 링크를 건네는 것.** 그래서 링크가 화면의 주인공이고,
- * 판은 아직 안 그린다(그릴 판이 없다: 판은 둘이 다 붙어야 선다).
+ * 판은 아직 안 그린다(그릴 판이 없다: 대국은 둘이 다 붙어야 시작된다).
  */
 export function Waiting({
   connection,
@@ -31,7 +31,7 @@ export function Waiting({
   }
 
   const url = `${window.location.origin}/rooms/${roomId}`;
-  // **끊긴 것을 조용히 넘기지 않는다.** 판이 서기 전에도 여기서 끊길 수 있는데
+  // **끊긴 것을 조용히 넘기지 않는다.** 대국이 시작되기 전에도 여기서 끊길 수 있는데
   // (배포·네트워크·방 만료) 그대로 두면 이 화면은 **이미 죽은 링크를 계속 광고한다** —
   // 상대가 열어도 404를 받는데 방 주인은 아직 기다리는 줄 안다.
   const dropped = connection === 'closed';

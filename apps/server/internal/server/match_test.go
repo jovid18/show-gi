@@ -63,7 +63,7 @@ func TestCreatingARoomNeedsSignIn(t *testing.T) {
 	}
 }
 
-// 방을 만들면 **유추할 수 없는 id** 하나가 나오고, 만든 사람이 고른 색이 그대로 온다.
+// 방을 만들면 **유추할 수 없는 id** 하나가 나오고, 만든 사람이 고른 쪽이 그대로 온다.
 func TestCreateRoomReturnsAnUnguessableID(t *testing.T) {
 	h, _, signIn := matchTestServer(t)
 
@@ -141,7 +141,7 @@ func TestAThirdPersonSeesNothing(t *testing.T) {
 	}
 }
 
-// 손님이 보는 것은 **방 주인의 이름과 자기 색**뿐이다. 段級도 전적도 안 나간다 —
+// 손님이 보는 것은 **방 주인의 이름과 자기가 잡을 쪽**뿐이다. 段級도 전적도 안 나간다 —
 // 실력 프로파일은 본인만 보는 값이다(02-architecture.md §7 위협 2).
 func TestPeekTellsTheGuestTheirSide(t *testing.T) {
 	h, _, signIn := matchTestServer(t)
@@ -210,7 +210,7 @@ func TestMatchSocketRejectsBeforeUpgrading(t *testing.T) {
 	}
 }
 
-// 방을 만든 사람은 **자기 방의 손님이 될 수 없다.** 되면 혼자 두 색을 잡은 판이 선다.
+// 방을 만든 사람은 **자기 방의 손님이 될 수 없다.** 되면 혼자 先手·後手를 다 잡은 대국이 시작된다.
 func TestHostCannotFillTheGuestSeatOverHTTP(t *testing.T) {
 	h, hub, signIn := matchTestServer(t)
 
@@ -238,7 +238,7 @@ func TestHostCannotFillTheGuestSeatOverHTTP(t *testing.T) {
 // 판 번호는 **몇 번을 물어도 나온다.**
 //
 // 기록기의 `done` 은 값 하나짜리 채널이라, 연결마다 그것을 직접 읽으면 먼저 읽은 쪽이
-// 가져간다 — 같은 색으로 탭을 둘 열어 두거나 판이 끝나는 순간에 새로고침하면 두 번째는
+// 가져간다 — 같은 쪽으로 탭을 둘 열어 두거나 판이 끝나는 순간에 새로고침하면 두 번째는
 // 5초를 기다린 끝에 「振り返り」 링크를 못 그리고, 로그에는 **거짓말**이 남는다
 // (「기록이 안 끝났다」). 받는 쪽을 하나로 모아 곁장부에 옮겨 두는 것이 그 답이다.
 func TestTheGameIDCanBeAskedForTwice(t *testing.T) {
@@ -264,7 +264,7 @@ func TestTheGameIDCanBeAskedForTwice(t *testing.T) {
 		}
 	}
 
-	// 다른 색은 그 방에 없다 — 없는 것을 기다리다 멈추면 안 된다.
+	// 다른 쪽은 그 방에 없다 — 없는 것을 기다리다 멈추면 안 된다.
 	if _, ok := records.gameIDOf(ctx, "room", shogi.White, time.Second); ok {
 		t.Fatal("a colour with no recorder answered")
 	}

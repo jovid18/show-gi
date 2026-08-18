@@ -19,7 +19,7 @@ import (
 //
 // 세 메서드 다 **즉시 돌아와야 한다** — 테이블 goroutine 이 부른다.
 type Recorder interface {
-	// Started 는 판이 설 때 한 번. myColor 는 **이 기록기가 맡은 사람**의 색이다.
+	// Started 는 대국이 시작될 때 한 번. myColor 는 **이 기록기가 맡은 사람**이 잡은 쪽이다.
 	Started(startSFEN string, myColor shogi.Color)
 	// Moved 는 확정된 수다. 대인전에는 물러지는 수가 없으므로 둔 수가 곧 확정이다.
 	Moved(ply int, usi string)
@@ -44,10 +44,10 @@ const (
 
 // Config 는 테이블 하나의 설정이다.
 type Config struct {
-	// Black·White 는 두 대국자다. **색이 여기서 확정된다** — 방을 만든 사람이 고른 색이
-	// 그대로 들어오고, 판이 서는 동안 안 바뀐다.
+	// Black·White 는 두 대국자다. **先手·後手가 여기서 확정된다** — 방을 만든 사람이 고른 것이
+	// 그대로 들어오고, 대국이 이어지는 동안 안 바뀐다.
 	Black, White Player
-	// Recorders 는 색마다 하나씩이다. nil 이면 그쪽을 기록하지 않는다 — 익명 대국이
+	// Recorders 는 先手·後手마다 하나씩이다. nil 이면 그쪽을 기록하지 않는다 — 익명 대국이
 	// 아니라 **DB 가 없는 배포**를 위한 자리다(엔진 대국과 같은 판단).
 	Recorders map[shogi.Color]Recorder
 	// TurnLimit 이 0이면 DefaultTurnLimit.
@@ -83,9 +83,9 @@ type result struct {
 	err  error
 }
 
-// viewSnapshot 은 **관점이 아직 안 붙은** 스냅샷이다. 구독자가 자기 색으로 편다.
+// viewSnapshot 은 **관점이 아직 안 붙은** 스냅샷이다. 구독자가 자기 쪽으로 편다.
 //
-// 색마다 한 벌씩 만들어 뿌리지 않는 이유는 **뿌리는 자리가 하나여야 하기 때문**이다 —
+// 先手·後手마다 한 벌씩 만들어 뿌리지 않는 이유는 **뿌리는 자리가 하나여야 하기 때문**이다 —
 // 둘로 갈면 한쪽에만 보내고 끝나는 경로가 생긴다.
 type viewSnapshot struct{ st *snapshotData }
 
@@ -113,12 +113,12 @@ type state struct {
 	moves   []recordedMove
 	repeats map[string]int
 	status  Status
-	// winner 는 이긴 **색**이다. 무승부·중단이면 안 채운다.
+	// winner 는 이긴 **쪽**이다. 무승부·중단이면 안 채운다.
 	winner   shogi.Color
 	hasWin   bool
 	limit    time.Duration
 	turnFrom time.Time
-	// online 은 색마다 붙어 있는 연결 수다. 0이면 그쪽이 나가 있다.
+	// online 은 先手·後手마다 붙어 있는 연결 수다. 0이면 그쪽이 나가 있다.
 	//
 	// **판을 안 멈춘다.** 멈추면 지고 있는 쪽이 탭을 닫아 판을 얼릴 수 있고, 그게 이
 	// 패키지에 시계가 있는 이유와 정면으로 어긋난다(DefaultTurnLimit).
@@ -133,7 +133,7 @@ type recordedMove struct {
 	by  shogi.Color
 }
 
-// NewTable 은 판을 세우고 시계를 건다. ctx 가 끝나면 판도 끝난다 — **연결이 아니라
+// NewTable 은 대국을 시작하고 시계를 건다. ctx 가 끝나면 대국도 끝난다 — **연결이 아니라
 // 서버의 수명이다**(방을 들고 있는 Hub 가 준다).
 func NewTable(ctx context.Context, cfg Config) (*Table, error) {
 	sfen := cfg.StartSFEN
@@ -166,7 +166,7 @@ func NewTable(ctx context.Context, cfg Config) (*Table, error) {
 	}
 	st.repeats[pos.RepetitionKey()]++
 
-	// **기록은 판이 서는 자리에서 시작한다.** 첫 수가 아니라 여기인 이유는 행이 **첫
+	// **기록 행은 대국이 시작되는 자리에서 만든다.** 첫 수가 아니라 여기인 이유는 행이 **첫
 	// `Moved` 보다 먼저** 있어야 하기 때문이다 — 기록기가 행 없이 온 수를 그냥 버린다
 	// (server/recorder.go 의 `gameID == 0`).
 	//
@@ -417,7 +417,7 @@ func (st *state) finish(status Status, winner shogi.Color, hasWin bool) {
 	}
 }
 
-// resultFor 는 그 색의 관점 결과다.
+// resultFor 는 그쪽의 관점 결과다.
 func (st *state) resultFor(c shogi.Color) Result {
 	switch {
 	case st.status == StatusRepetition:
@@ -484,7 +484,7 @@ func (t *Table) send(ctx context.Context, c command) (Snapshot, error) {
 	}
 }
 
-// Play 는 한 수 둔다. by 는 **서버가 쿠키에서 정한 색**이다 — 클라이언트가 보내지 않는다.
+// Play 는 한 수 둔다. by 는 **서버가 쿠키에서 정한 쪽**이다 — 클라이언트가 보내지 않는다.
 func (t *Table) Play(ctx context.Context, by shogi.Color, usi string) (Snapshot, error) {
 	return t.send(ctx, command{kind: cmdPlay, color: by, usi: usi})
 }
@@ -494,12 +494,12 @@ func (t *Table) Resign(ctx context.Context, by shogi.Color) (Snapshot, error) {
 	return t.send(ctx, command{kind: cmdResign, color: by})
 }
 
-// Snapshot 은 그 색이 보는 지금 자리다.
+// Snapshot 은 그쪽이 보는 지금 자리다.
 func (t *Table) Snapshot(ctx context.Context, by shogi.Color) (Snapshot, error) {
 	return t.send(ctx, command{kind: cmdSnapshot, color: by})
 }
 
-// Subscribe 는 그 색의 화면에 붙는다. 돌려주는 함수를 부르면 떨어진다.
+// Subscribe 는 그쪽의 화면에 붙는다. 돌려주는 함수를 부르면 떨어진다.
 //
 // **접속 표시가 여기 붙어 있다.** 구독이 곧 「그 사람이 화면을 보고 있다」이고, 갈라 두면
 // 끊긴 연결이 붙어 있는 것으로 남는 경로가 생긴다.
@@ -520,7 +520,7 @@ func (t *Table) Subscribe(ctx context.Context, by shogi.Color) (<-chan Snapshot,
 		return nil, nil, err
 	}
 
-	// 관점을 붙이는 자리다. 테이블은 색을 모르는 스냅샷 하나만 뿌리고(viewSnapshot),
+	// 관점을 붙이는 자리다. 테이블은 先手·後手를 모르는 스냅샷 하나만 뿌리고(viewSnapshot),
 	// 「너」와 「상대」로 펴는 것은 구독자마다 한다.
 	out := make(chan Snapshot, 1)
 	go func() {

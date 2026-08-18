@@ -61,8 +61,8 @@ func newTestTable(t *testing.T, limit time.Duration) (*Table, *fakeRecorder, *fa
 	return table, black, white
 }
 
-// 수번이 아닌 쪽은 못 둔다. **색을 클라이언트가 안 보내므로** 이건 서버가 자리에서
-// 정한 색 하나로 갈린다(Hub.Enter).
+// 수번이 아닌 쪽은 못 둔다. **어느 쪽인지를 클라이언트가 안 보내므로** 이건 서버가 자리에서
+// 정한 쪽 하나로 갈린다(Hub.Enter).
 func TestOnlyTheSideToMoveCanPlay(t *testing.T) {
 	table, _, _ := newTestTable(t, time.Minute)
 	ctx := context.Background()
