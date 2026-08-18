@@ -264,13 +264,18 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 			}
 
 		case evFinished:
-			if gameID == 0 {
-				return
+			// **행이 없어도 신호는 보낸다.** 행 만들기가 실패한 판(DB가 흔들린 경우)에서
+			// 조용히 나가면 이 채널을 기다리는 쪽이 **영원히** 기다린다 — 대인전은 그
+			// 기다림이 곧 기록기 goroutine 둘의 수명이라(server/match_records.go 의 collect)
+			// 그때부터 프로세스가 끝날 때까지 남는다.
+			//
+			// 0은 「그런 행이 없다」다. 받는 쪽이 그것으로 갈린다.
+			if gameID != 0 {
+				if err := st.FinishGame(write, gameID, ev.result); err != nil {
+					log.Printf("game record: finish: %v", err)
+				}
+				finished = true
 			}
-			if err := st.FinishGame(write, gameID, ev.result); err != nil {
-				log.Printf("game record: finish: %v", err)
-			}
-			finished = true
 			// 여기까지 왔으면 이 판의 기록은 전부 들어갔다 — 이벤트가 한 채널로 순서대로
 			// 오므로(Evaluated 주석) 뒤에 남은 것이 없다.
 			select {

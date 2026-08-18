@@ -166,8 +166,12 @@ func NewTable(ctx context.Context, cfg Config) (*Table, error) {
 	}
 	st.repeats[pos.RepetitionKey()]++
 
-	// **기록은 판이 서는 자리에서 시작한다.** 첫 수가 아니라 여기인 이유는 한 수도 안 두고
-	// 끝난 판도 기록에 남아야 하기 때문이다 — 안 남기면 그 판은 어느 쪽 화면에도 없다.
+	// **기록은 판이 서는 자리에서 시작한다.** 첫 수가 아니라 여기인 이유는 행이 **첫
+	// `Moved` 보다 먼저** 있어야 하기 때문이다 — 기록기가 행 없이 온 수를 그냥 버린다
+	// (server/recorder.go 의 `gameID == 0`).
+	//
+	// 값은 한 수도 안 둔 판에도 행 둘이 남는다는 것이다. **어느 목록에도 안 뜬다** —
+	// 세는 질의가 전부 `EXISTS (game_moves)` 로 거른다.
 	for c, rec := range cfg.Recorders {
 		if rec != nil {
 			rec.Started(sfen, c)

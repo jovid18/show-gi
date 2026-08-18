@@ -101,26 +101,43 @@ func (m *matchRecords) new(
 	return out
 }
 
-// collect 는 두 기록기의 번호를 받아 두고, **그 뒤에 기록기를 접는다.**
+// collect 는 두 기록기의 번호를 받아 두고, **둘 다 끝나면 기록기를 접는다.**
 //
 // 번호를 여기 한 곳에서 받는 것이 요점이다 — 연결마다 `done` 을 직접 읽으면 값이 하나뿐이라
 // 먼저 읽은 쪽이 가져간다(roomRecord.id).
+//
+// **색마다 goroutine 을 따로 둔다.** 한 자리에서 차례로 기다리면 한쪽이 늦는 것이
+// 다른 쪽의 신호를 막는다 — 그러면 멀쩡히 기록된 사람이 「振り返り」 링크를 못 받고,
+// 기다리는 5초도 둘이 나눠 쓰게 된다.
 func (m *matchRecords) collect(ctx context.Context, cancel context.CancelFunc, entry *roomRecord) {
 	// **마지막에 접는다.** 번호를 받았다는 것은 `evFinished` 까지 다 썼다는 뜻이라
 	// (dbRecorder.done) 여기서 끊어도 잃을 이벤트가 없다.
 	defer cancel()
 
+	var wg sync.WaitGroup
 	for c, rec := range entry.rec {
-		select {
-		case id := <-rec.done:
-			m.mu.Lock()
-			entry.id[c] = id
-			m.mu.Unlock()
-		case <-ctx.Done():
-			// 서버가 내려간다. 번호 없이 신호만 열어 준다 — 기다리는 쪽이 매달려 있으면 안 된다.
-		}
-		close(entry.ready[c])
+		wg.Add(1)
+		go func(c shogi.Color, rec *dbRecorder) {
+			defer wg.Done()
+			// **번호를 못 받아도 신호는 연다.** 기다리는 쪽이 매달려 있으면 안 된다 —
+			// 그때는 `entry.id` 가 비어 있어서 gameIDOf 가 false 를 준다.
+			defer close(entry.ready[c])
+
+			select {
+			case id := <-rec.done:
+				// **0은 「행이 없다」다.** 그때는 안 적는다 — 없는 판으로 링크를 그릴 수 없다.
+				if id == 0 {
+					return
+				}
+				m.mu.Lock()
+				entry.id[c] = id
+				m.mu.Unlock()
+			case <-ctx.Done():
+				// 서버가 내려간다.
+			}
+		}(c, rec)
 	}
+	wg.Wait()
 }
 
 // gameIDOf 는 그 색의 판 번호를 기다렸다 준다. 못 얻으면 두 번째 값이 false 다.

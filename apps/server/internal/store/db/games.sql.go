@@ -362,6 +362,10 @@ SET result = 'declined'
 WHERE id = $1
   AND user_id = $2
   AND result = 'abandoned'
+  -- **이어하기 세 질의가 같은 조건을 갖는다.** 대인전 행은 이 장치가 닿을 자리가 아니다 —
+  -- 지금은 두 상태 다 어느 목록에도 안 뜨므로 눈에 보이는 차이가 없지만, 셋 중 하나만
+  -- 빠져 있으면 나중에 상태의 뜻이 바뀌는 날 그 하나가 구멍이 된다.
+  AND match_id IS NULL
 `
 
 type DeclineResumeParams struct {

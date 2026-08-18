@@ -62,6 +62,8 @@ var matchRejects = map[string]string{
 	// **방이 걷혔다.** 아무도 안 들어온 채 30분이 지났거나, 방을 만든 사람이 그 뒤로
 	// 방을 여럿 더 만들어 이 방이 밀려났다(match.openRoomsPerHost).
 	"room_closed": "この対局部屋は期限が切れました。",
+	// **확인과 입장 사이에 남이 앉았다.** 창이 밀리초 단위라 드물다.
+	"room_full": "この対局部屋はもう二人そろっています。",
 }
 
 func matchRejection(err error) matchServerMsg {
@@ -99,10 +101,16 @@ func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	room, color, err := h.hub.Enter(r.URL.Query().Get("room"), match.Player{UserID: s.UserID, Name: s.Name})
-	if err != nil {
-		// **업그레이드 전이라 평범한 404다.** 뒤에서 거절하면 그 답을 프레임으로 말해야
-		// 하고, 화면이 그것을 「대국 중 오류」와 구별해야 한다(ws.go 의 resumeSetup).
+	roomID := r.URL.Query().Get("room")
+
+	// **자격은 업그레이드 전에 본다.** 여기서 거절하면 아직 평범한 HTTP 요청이라 404로
+	// 끝나는데, 업그레이드 뒤에는 그 답을 프레임으로 말해야 하고 화면이 그것을 「대국 중
+	// 오류」와 구별해야 한다(ws.go 의 resumeSetup 과 같은 규약).
+	//
+	// **자리는 안 잡는다**(Peek). 잡는 것은 업그레이드가 성공한 뒤다 — 여기서 잡으면
+	// 업그레이드가 실패했을 때(프록시가 헤더를 지웠다·창을 닫았다) **자리가 타 버리고**,
+	// 그 방은 그때부터 아무도 못 들어가는데 방 주인 화면은 링크를 계속 광고한다.
+	if _, err := h.hub.Peek(roomID, s.UserID); err != nil {
 		notFound(w)
 		return
 	}
@@ -116,13 +124,26 @@ func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
+	out := make(chan matchServerMsg, 8)
+	go matchWriteLoop(ctx, cancel, conn, out)
+
+	// **여기서 자리가 정해진다.** 위 Peek 와 이 사이에 남이 앉을 수 있다 — 그 창은
+	// 밀리초 단위이고, 걸리면 프레임으로 말한다(이미 자격 검사를 지난 사람이라
+	// 「자리가 찼다」를 알려줘도 새어 나갈 것이 없다).
+	room, color, err := h.hub.Enter(roomID, match.Player{UserID: s.UserID, Name: s.Name})
+	if err != nil {
+		emitMatch(ctx, out, matchReject("room_full"))
+		select {
+		case <-time.After(roomClosedFlush):
+		case <-ctx.Done():
+		}
+		return
+	}
+
 	// **자리에 앉은 것과 화면을 보고 있는 것은 다르다.** 앞은 위 Enter 가 영구히 정했고,
 	// 이건 이 연결이 사는 동안만이다 — 둘이 다 붙어 있는 순간 판이 선다.
 	detach := h.hub.Connect(room, color)
 	defer detach()
-
-	out := make(chan matchServerMsg, 8)
-	go matchWriteLoop(ctx, cancel, conn, out)
 
 	// 상대를 기다리는 동안 화면이 그릴 것을 먼저 보낸다. 이게 없으면 방을 만든 사람은
 	// 빈 화면을 보고 초대 링크를 복사할 자리가 없다.
