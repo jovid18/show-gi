@@ -99,7 +99,7 @@ type Match struct {
 // 기록기를 여기서 끼운다. `internal/match` 가 `store` 를 모르는 것은 `internal/game` 이
 // 모르는 것과 같은 규약이고(server/recorder.go 가 그 다리다), 여기가 그 다리의 대인전 몫이다.
 //
-// st 가 nil이어도 방은 선다 — 기록만 안 남는다.
+// st 가 nil이어도 방은 열린다 — 기록만 안 남는다.
 func NewMatch(ctx context.Context, st *store.Store, level intervene.Level) *Match {
 	records := newMatchRecords(st, level)
 	return &Match{

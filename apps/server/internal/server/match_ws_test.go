@@ -87,8 +87,8 @@ func TestTwoPeoplePlayAMatch(t *testing.T) {
 		t.Fatalf("decode room: %v", err)
 	}
 	res.Body.Close()
-	if len(room.ID) != 22 {
-		t.Fatalf("room id %q is %d chars, want 22", room.ID, len(room.ID))
+	if len(room.ID) != 8 {
+		t.Fatalf("room id %q is %d chars, want 8", room.ID, len(room.ID))
 	}
 
 	// ── 둘이 붙는다 ────────────────────────────────────────

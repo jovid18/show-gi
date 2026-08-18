@@ -42,7 +42,7 @@ type matchServerMsg struct {
 	Reason  string `json:"reason,omitempty"`  // 기계용 코드(영어)
 	Message string `json:"message,omitempty"` // 화면용 문구(일본어)
 
-	// GameID 는 판이 끝난 뒤 **한 번** 온다. 「振り返り」로 건너가는 링크가 이 값으로 선다 —
+	// GameID 는 판이 끝난 뒤 **한 번** 온다. 「振り返り」로 건너가는 링크가 이 값으로 만들어진다 —
 	// 대국 화면은 그때까지 자기 판의 번호를 모른다(기록이 WS 밖에서 비동기로 쓰인다).
 	//
 	// **총평이 아니다.** 대인전에는 총평이 없다 — 세는 것이 개입인데 그것이 없다(journal §83).
@@ -54,7 +54,7 @@ type matchServerMsg struct {
 // 방이 걷혔다는 것 하나다.
 //
 // **「아직 상대가 안 들어왔다」가 없다.** 그 상태에서는 착수가 도달할 자리가 없다 —
-// 읽는 쪽이 `room.Ready()` 뒤에야 선다.
+// 읽는 쪽이 `room.Ready()` 뒤에야 돈다.
 var matchRejects = map[string]string{
 	"not_your_turn": "相手の手番です。",
 	"finished":      "対局はすでに終わっています。",

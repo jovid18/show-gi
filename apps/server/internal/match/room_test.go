@@ -128,7 +128,7 @@ func TestTableStartsOnlyWhenBothAreConnected(t *testing.T) {
 	default:
 	}
 
-	// 방 주인이 붙으면 그 자리에서 선다.
+	// 방 주인이 붙으면 그 자리에서 시작된다.
 	detachAlice := h.Connect(room, shogi.Black)
 	select {
 	case <-room.Ready():

@@ -15,7 +15,7 @@ export interface MatchState {
   snapshot: MatchSnapshot | null;
   /** 서버가 착수를 거절한 이유. 일본어 문구가 그대로 온다. */
   rejection: string | null;
-  /** 끝난 이 판이 기록에 남은 번호. 「振り返り」 링크가 이 값으로 선다. */
+  /** 끝난 이 판이 기록에 남은 번호. 「振り返り」 링크가 이 값으로 만들어진다. */
   gameId: number | null;
   play: (usi: string) => void;
   resign: () => void;
@@ -76,7 +76,9 @@ export function useMatch(roomId: string): MatchState {
       } else if (msg.type === 'waiting') {
         setRoom(msg.room);
       } else if (msg.type === 'record') {
-        setGameId(msg.gameId);
+        // **번호인지 보고 받는다.** 이 값이 「振り返り」 링크의 주소가 되므로, 숫자가
+        // 아닌 것이 오면 그대로 경로가 된다 — 여기가 그 유일한 문이다.
+        if (Number.isInteger(msg.gameId) && msg.gameId > 0) setGameId(msg.gameId);
       } else if (msg.type === 'error') {
         setRejection(msg.message);
       }

@@ -57,7 +57,7 @@ var ErrNoRoom = errors.New("match: no such room")
 // ErrNotYourTurn·ErrFinished 는 착수 거절이다. 룰 위반은 `shogi` 가 낸다.
 //
 // **「아직 시작 안 했다」가 없다.** 그 상태에서는 착수가 도달할 자리가 없다 — 읽는 쪽이
-// `room.Ready()` 뒤에야 서기 때문이다(server/ws_match.go). 문구를 만들어 두면 영영
+// `room.Ready()` 뒤에야 돌기 때문이다(server/ws_match.go). 문구를 만들어 두면 영영
 // 안 뜨는 문구가 하나 생긴다.
 var (
 	ErrNotYourTurn = errors.New("match: not your turn")

@@ -102,7 +102,7 @@ export type MatchServerMessage =
   | { type: 'waiting'; room: Room }
   | { type: 'snapshot'; snapshot: MatchSnapshot }
   | { type: 'error'; reason: string; message: string }
-  // 판이 끝난 뒤 **한 번** 온다. 「振り返り」로 건너가는 링크가 이 값으로 선다.
+  // 판이 끝난 뒤 **한 번** 온다. 「振り返り」로 건너가는 링크가 이 값으로 만들어진다.
   | { type: 'record'; gameId: number };
 
 export type MatchClientMessage = { type: 'move'; usi: string } | { type: 'resign' };

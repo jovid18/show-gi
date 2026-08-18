@@ -499,7 +499,7 @@ func (t *Table) Snapshot(ctx context.Context, by shogi.Color) (Snapshot, error) 
 	return t.send(ctx, command{kind: cmdSnapshot, color: by})
 }
 
-// Subscribe 는 그쪽의 화면에 붙는다. 돌려주는 함수를 부르면 떨어진다.
+// Subscribe 는 그쪽의 화면에 붙는다. **떼는 것은 돌려주는 함수다.**
 //
 // **접속 표시가 여기 붙어 있다.** 구독이 곧 「그 사람이 화면을 보고 있다」이고, 갈라 두면
 // 끊긴 연결이 붙어 있는 것으로 남는 경로가 생긴다.

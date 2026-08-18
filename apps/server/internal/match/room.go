@@ -195,8 +195,8 @@ func (h *Hub) Enter(id string, p Player) (*Room, shogi.Color, error) {
 
 // Connect 는 그쪽(先手·後手)의 연결 하나를 단다. 둘이 다 붙어 있으면 **그 자리에서 대국이 시작된다.**
 //
-// 돌려주는 함수를 부르면 떨어진다. 대국이 시작된 뒤로는 이 카운트가 아무것도 안 정한다 —
-// 화면에 나가는 접속 표시는 테이블이 따로 센다(table.state.online).
+// **떼는 것은 돌려주는 함수다**(`defer detach()`). 대국이 시작된 뒤로는 이 카운트가
+// 아무것도 안 정한다 — 화면에 나가는 접속 표시는 테이블이 따로 센다(table.state.online).
 func (h *Hub) Connect(room *Room, c shogi.Color) func() {
 	h.mu.Lock()
 	room.connected[c]++
@@ -250,7 +250,7 @@ func (h *Hub) startLocked(room *Room) {
 		now:       h.cfg.now,
 	})
 	if err != nil {
-		// 평수 초기 국면이 안 서는 경우다 — 실질적으로 없다. 방을 그대로 두면 두 화면이
+		// 평수 초기 국면을 못 만드는 경우다 — 실질적으로 없다. 방을 그대로 두면 두 화면이
 		// 영영 기다리므로 남기고, 링크는 만료가 걷어간다.
 		log.Printf("match: cannot start the table in room %s: %v", room.ID, err)
 		return
