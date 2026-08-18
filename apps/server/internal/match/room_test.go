@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -11,6 +12,27 @@ import (
 )
 
 // 이 파일이 지키는 것은 **방에 누가 들어올 수 있나** 하나다. 룰과 시계는 table_test.go.
+
+// testClock 은 **잠긴** 가짜 시계다. `Hub` 가 만료를 훑는 goroutine 을 하나 띄우므로
+// (sweepLoop) 그냥 변수를 밀면 그쪽 읽기와 경합한다.
+type testClock struct {
+	mu sync.Mutex
+	at time.Time
+}
+
+func newTestClock() *testClock { return &testClock{at: time.Now()} }
+
+func (c *testClock) now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.at
+}
+
+func (c *testClock) advance(d time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.at = c.at.Add(d)
+}
 
 func newTestHub(t *testing.T) *Hub {
 	t.Helper()
@@ -146,17 +168,38 @@ func TestTableStartsOnlyWhenBothAreConnected(t *testing.T) {
 	detachAlice()
 }
 
+// **아무도 Hub 를 안 건드려도 만료가 걷힌다.** 방을 만들고 링크를 보낸 사람은 `Closed` 에
+// 서 있을 뿐 Hub 를 부르지 않으므로, 훑는 계기가 남의 요청뿐이면 그 화면은 만료가 지나도
+// 이미 죽은 링크를 계속 광고한다(journal §83).
+func TestAWaitingHostLearnsTheRoomExpiredWithoutAnyoneElse(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	clock := newTestClock()
+	h := NewHub(ctx, HubConfig{now: clock.now, sweepEvery: time.Millisecond})
+
+	room := h.Create(alice, shogi.Black)
+	clock.advance(OpenTTL + time.Minute)
+
+	// **여기서 Hub 를 안 부른다.** 부르면 그 호출이 훑어서 이 테스트가 무의미해진다.
+	select {
+	case <-room.Closed():
+	case <-time.After(2 * time.Second):
+		t.Fatal("nobody told the waiting host that the room expired")
+	}
+}
+
 // 아무도 안 들어온 방은 만료된다. **링크가 곧 열쇠라 오래 사는 열쇠를 안 둔다.**
 func TestOpenRoomExpires(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	now := time.Now()
-	h := NewHub(ctx, HubConfig{now: func() time.Time { return now }})
+	clock := newTestClock()
+	h := NewHub(ctx, HubConfig{now: clock.now})
 
 	room := h.Create(alice, shogi.Black)
 
-	now = now.Add(OpenTTL + time.Minute)
+	clock.advance(OpenTTL + time.Minute)
 	if _, err := h.Peek(room.ID, alice.UserID); !errors.Is(err, ErrNoRoom) {
 		t.Fatalf("an expired room still answers: %v", err)
 	}
@@ -263,8 +306,8 @@ func TestADroppedRoomNeverStartsATable(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	now := time.Now()
-	h := NewHub(ctx, HubConfig{now: func() time.Time { return now }})
+	clock := newTestClock()
+	h := NewHub(ctx, HubConfig{now: clock.now})
 
 	room := h.Create(alice, shogi.Black)
 	if _, _, err := h.Enter(room.ID, bob); err != nil {
@@ -273,7 +316,7 @@ func TestADroppedRoomNeverStartsATable(t *testing.T) {
 	h.Connect(room, shogi.White)
 
 	// 그 사이에 방이 걷힌다 — 여기서는 만료로 민다.
-	now = now.Add(OpenTTL + time.Minute)
+	clock.advance(OpenTTL + time.Minute)
 	if _, err := h.Peek("anything", alice.UserID); !errors.Is(err, ErrNoRoom) {
 		t.Fatalf("peek: %v", err)
 	}

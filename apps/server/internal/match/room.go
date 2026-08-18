@@ -76,6 +76,8 @@ type HubConfig struct {
 	TurnLimit time.Duration
 	// now 는 테스트가 시계를 잡는 자리다.
 	now func() time.Time
+	// sweepEvery 가 0이면 sweepInterval. 테스트가 기다리지 않으려고 줄인다.
+	sweepEvery time.Duration
 }
 
 // NewHub 는 방 저장소를 만든다. ctx 가 끝나면 열려 있던 판이 전부 접힌다(StatusAborted).
@@ -83,7 +85,38 @@ func NewHub(ctx context.Context, cfg HubConfig) *Hub {
 	if cfg.now == nil {
 		cfg.now = time.Now
 	}
-	return &Hub{rooms: map[string]*Room{}, ctx: ctx, cfg: cfg}
+	if cfg.sweepEvery <= 0 {
+		cfg.sweepEvery = sweepInterval
+	}
+	h := &Hub{rooms: map[string]*Room{}, ctx: ctx, cfg: cfg}
+	go h.sweepLoop(ctx, cfg.sweepEvery)
+	return h
+}
+
+// sweepInterval 은 만료를 훑는 주기다. **정확할 필요가 없다** — 이 값만큼 늦게 걷힐 뿐이고
+// 걷히는 조건(OpenTTL·FinishedTTL)은 분 단위다.
+const sweepInterval = time.Minute
+
+// sweepLoop 은 아무도 Hub 를 안 건드려도 만료를 훑는다.
+//
+// **손이 닿을 때만 훑으면 혼자 기다리는 방이 안 걷힌다.** 방을 만들고 링크를 보낸 사람은
+// `Ready`·`Closed` 에 서 있을 뿐 Hub 를 부르지 않는데, 그동안 다른 사람이 아무도 안 오면
+// `sweepLocked` 가 돌 일이 없다 — 그 화면은 만료가 지나도 **이미 죽은 링크를 계속
+// 광고한다**(journal §83). 알려 주는 채널은 이미 있고(`closed`), 없던 것은 그것을 닫을
+// 계기뿐이었다.
+func (h *Hub) sweepLoop(ctx context.Context, every time.Duration) {
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			h.mu.Lock()
+			h.sweepLocked(h.cfg.now())
+			h.mu.Unlock()
+		}
+	}
 }
 
 // Create 는 방 하나를 연다. **만든 사람이 host 이고 先手·後手를 고른다.**
@@ -281,8 +314,7 @@ func (r *Room) seatOfLocked(userID int64) *shogi.Color {
 	return nil
 }
 
-// sweepLocked 는 만료된 방을 걷어간다. **따로 도는 goroutine 을 안 둔다** — 방이 많아야
-// 수십이고, 손이 닿을 때 훑는 것으로 충분하다.
+// sweepLocked 는 만료된 방을 걷어간다. Hub 를 건드리는 모든 자리와 `sweepLoop` 이 부른다.
 func (h *Hub) sweepLocked(now time.Time) {
 	for _, room := range h.rooms {
 		switch {
