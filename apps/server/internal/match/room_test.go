@@ -285,3 +285,48 @@ func TestAStartedGameIsNeverDroppedForTheCap(t *testing.T) {
 		t.Fatalf("the live game was dropped for the cap: %v", err)
 	}
 }
+
+// **걷힌 방에는 판을 안 세운다.**
+//
+// `Enter` 와 `Connect` 가 잠금을 따로 잡으므로 그 사이에 방이 걷힐 수 있다. 그때 판을
+// 세우면 `ready` 와 `closed` 가 둘 다 닫히고, 두 handler 의 select 가 무작위로 갈려서
+// 한 사람은 판에 앉고 다른 사람은 「期限が切れました」를 본다 — 그 판은 60초 뒤 시간패로
+// 끝나고 아무도 못 본 대국의 행 둘이 남는다.
+func TestADroppedRoomNeverStartsATable(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	now := time.Now()
+	h := NewHub(ctx, HubConfig{now: func() time.Time { return now }})
+
+	room, err := h.Create(alice, shogi.Black)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, _, err := h.Enter(room.ID, bob); err != nil {
+		t.Fatalf("guest enter: %v", err)
+	}
+	h.Connect(room, shogi.White)
+
+	// 그 사이에 방이 걷힌다 — 여기서는 만료로 민다.
+	now = now.Add(OpenTTL + time.Minute)
+	if _, err := h.Peek("anything", alice.UserID); !errors.Is(err, ErrNoRoom) {
+		t.Fatalf("peek: %v", err)
+	}
+	select {
+	case <-room.Closed():
+	default:
+		t.Fatal("the room was swept without telling its waiters")
+	}
+
+	// 남은 한쪽이 이제 붙는다. **판이 서면 안 된다.**
+	h.Connect(room, shogi.Black)
+	if room.Table() != nil {
+		t.Fatal("a table was started in a room that had already been dropped")
+	}
+	select {
+	case <-room.Ready():
+		t.Fatal("ready and closed are both closed — the two handlers would split at random")
+	default:
+	}
+}

@@ -62,8 +62,6 @@ var matchRejects = map[string]string{
 	// **방이 걷혔다.** 아무도 안 들어온 채 30분이 지났거나, 방을 만든 사람이 그 뒤로
 	// 방을 여럿 더 만들어 이 방이 밀려났다(match.openRoomsPerHost).
 	"room_closed": "この対局部屋は期限が切れました。",
-	// **확인과 입장 사이에 남이 앉았다.** 창이 밀리초 단위라 드물다.
-	"room_full": "この対局部屋はもう二人そろっています。",
 }
 
 func matchRejection(err error) matchServerMsg {
@@ -127,16 +125,14 @@ func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	out := make(chan matchServerMsg, 8)
 	go matchWriteLoop(ctx, cancel, conn, out)
 
-	// **여기서 자리가 정해진다.** 위 Peek 와 이 사이에 남이 앉을 수 있다 — 그 창은
-	// 밀리초 단위이고, 걸리면 프레임으로 말한다(이미 자격 검사를 지난 사람이라
-	// 「자리가 찼다」를 알려줘도 새어 나갈 것이 없다).
+	// **여기서 자리가 정해진다.** 위 Peek 와 이 사이에 방이 움직일 수 있다 — 남이
+	// 앉거나(정원 2명), 그 창 안에서 방이 걷히거나(만료·상한). 창은 밀리초 단위다.
+	//
+	// **문구를 안 보낸다.** 둘을 갈라 말할 수가 없고(`Enter` 는 하나의 ErrNoRoom 이다),
+	// 그냥 닫으면 화면이 「이 방은 열 수 없습니다」를 그린다 — 그 화면이 가능한 이유를
+	// 전부 늘어놓으므로(screens/match/Unavailable.tsx) 어느 쪽이든 맞는 말이 된다.
 	room, color, err := h.hub.Enter(roomID, match.Player{UserID: s.UserID, Name: s.Name})
 	if err != nil {
-		emitMatch(ctx, out, matchReject("room_full"))
-		select {
-		case <-time.After(roomClosedFlush):
-		case <-ctx.Done():
-		}
 		return
 	}
 

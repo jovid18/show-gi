@@ -244,6 +244,14 @@ func (h *Hub) Connect(room *Room, c shogi.Color) func() {
 
 // startLocked 는 조건이 차면 판을 세운다. **한 번만 선다** — `room.table` 이 그 표식이다.
 func (h *Hub) startLocked(room *Room) {
+	// **걷힌 방에는 판을 안 세운다.** `Enter` 와 `Connect` 가 잠금을 따로 잡으므로 그
+	// 사이에 이 방이 걷힐 수 있고(만료·상한), 그때 판을 세우면 `ready` 와 `closed` 가
+	// **둘 다** 닫힌다 — 두 handler 의 select 가 무작위로 갈려서 한 사람은 판에 앉고
+	// 다른 사람은 「期限が切れました」를 보게 된다. 그 판은 60초 뒤 시간패로 끝나고,
+	// 아무도 못 본 대국의 행 둘이 남는다.
+	if h.rooms[room.ID] != room {
+		return
+	}
 	if room.table != nil || room.guest == nil {
 		return
 	}
