@@ -110,8 +110,7 @@ func TestHostCannotTakeTheGuestSeat(t *testing.T) {
 	}
 }
 
-// 대국은 **둘이 동시에 붙어 있을 때** 시작된다. 「들어온 적이 있다」로 세면, 링크를 보내고
-// 탭을 닫은 방 주인이 손님이 여는 순간 시간패로 진다 — 그 자리에서 시계가 돌기 때문이다.
+// 대국은 **둘이 동시에 붙어 있을 때** 시작된다(journal §83).
 func TestTableStartsOnlyWhenBothAreConnected(t *testing.T) {
 	h := newTestHub(t)
 
@@ -164,8 +163,7 @@ func TestOpenRoomExpires(t *testing.T) {
 	if h.Rooms() != 0 {
 		t.Fatalf("the expired room is still held: %d", h.Rooms())
 	}
-	// **기다리던 연결이 그것을 알아야 한다.** 안 알리면 그 화면은 영영 「상대를
-	// 기다립니다」에 서 있고, 그동안 **이미 죽은 링크를 광고한다.**
+	// **기다리던 연결이 그것을 알아야 한다**(journal §83).
 	select {
 	case <-room.Closed():
 	default:

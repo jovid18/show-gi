@@ -52,8 +52,7 @@ func do(h http.Handler, method, path string, c *http.Cookie) *httptest.ResponseR
 	return rec
 }
 
-// **로그인하지 않으면 방을 못 만든다.** 익명은 서로 구별할 수단이 없어서
-// (002_anonymous_games.sql) 정원 2명이라는 규칙이 성립하지 않는다.
+// **로그인하지 않으면 방을 못 만든다**(journal §83).
 func TestCreatingARoomNeedsSignIn(t *testing.T) {
 	h, _, _ := matchTestServer(t)
 
@@ -111,10 +110,7 @@ func TestFurigomaGivesEitherSeat(t *testing.T) {
 	}
 }
 
-// **로그인 안 한 사람에게는 404다 — 401이 아니다.**
-//
-// 401은 「로그인하면 볼 수 있다」는 뜻이라, 그것만으로 **그 방이 있다는 사실이 로그인 없이
-// 새어 나간다.** 방 id 를 훑어보는 것이 성립하는 첫 걸음이 정확히 그 한 비트다.
+// **로그인 안 한 사람에게는 404다 — 401이 아니다**(journal §83).
 func TestPeekingWithoutSignInLooksLikeAMissingRoom(t *testing.T) {
 	h, _, signIn := matchTestServer(t)
 

@@ -120,8 +120,7 @@ type state struct {
 	turnFrom time.Time
 	// online 은 先手·後手마다 붙어 있는 연결 수다. 0이면 그쪽이 나가 있다.
 	//
-	// **판을 안 멈춘다.** 멈추면 지고 있는 쪽이 탭을 닫아 판을 얼릴 수 있고, 그게 이
-	// 패키지에 시계가 있는 이유와 정면으로 어긋난다(DefaultTurnLimit).
+	// **0이어도 판을 안 멈춘다** — 멈추면 지고 있는 쪽이 탭을 닫아 얼릴 수 있다(journal §83).
 	online map[shogi.Color]int
 	subs   map[chan viewSnapshot]struct{}
 	now    func() time.Time
@@ -192,10 +191,8 @@ func NewTable(ctx context.Context, cfg Config) (*Table, error) {
 // 끝나는 그 순간에 문을 닫으면, 하필 그때 끊겼다 다시 붙은 사람이 결과 대신 오류를
 // 본다 — 投了를 받은 쪽이 새로고침하는 것은 드문 일이 아니다.
 //
-// **방보다 길어야 한다**(FinishedTTL). 같게 두면 그 둘이 닫히는 순서가 정해지지 않아,
-// 「방은 아직 열려 있는데 테이블이 이미 닫힌」 창이 생긴다 — 그때 들어온 사람은 404도
-// 결과도 아닌 오류를 받는다. 길게 두면 그 사람은 언제나 둘 중 하나를 받는다:
-// 방이 살아 있으면 결과를, 방이 걷혔으면 404를.
+// **방보다 길어야 한다**(FinishedTTL). 같게 두면 둘이 닫히는 순서가 정해지지 않아
+// 「방은 열려 있는데 테이블은 닫힌」 창이 생긴다(journal §83).
 const finishedGrace = FinishedTTL + time.Minute
 
 // run 은 명령과 시계를 한 자리에서 받는다. **시계가 select 안에 있는 것이 요점이다** —
@@ -388,9 +385,7 @@ func (st *state) resign(by shogi.Color) (Snapshot, error) {
 
 // timeout 은 수번 쪽의 시간이 다 됐을 때다. **대개 승패가 난다** — 중단과 갈라 두는 자리다.
 //
-// **한 수도 안 뒀으면 예외다.** 방 주인이 링크를 보내고 탭을 열어 둔 채 자리를 뜨는 것이
-// 흔한데, 그때 승패를 적으면 **0手짜리 판**이 두 사람의 전적에 win/loss 로 남고 이긴 쪽의
-// 「振り返り」 링크가 빈 판을 연다. 아무도 안 뒀으면 판이 없었던 것이다.
+// **한 수도 안 뒀으면 예외다.** 아무도 안 뒀으면 판이 없었던 것이다(journal §83).
 func (st *state) timeout() {
 	if len(st.moves) == 0 {
 		st.finish(StatusExpired, shogi.Black, false)

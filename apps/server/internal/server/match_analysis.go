@@ -9,20 +9,15 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// matchAnalyzer 는 끝난 대인전의 평가치를 **판이 끝난 뒤에** 채운다.
+// matchAnalyzer 는 끝난 대인전의 평가치를 **판이 끝난 뒤에** 채운다(journal §83).
 //
-// 두는 동안에는 엔진이 한 번도 안 돈다 — 그것이 이 갈래의 규약이라(`internal/match` 는
-// `usi` 를 import 하지 않는다) 대인전 기보에는 `eval_cp` 가 통째로 비고, 되짚기의 평가치
-// 궤적이 빈 채로 열린다. 그 자리를 여기서 나중에 메운다.
+// **두는 동안에는 엔진이 한 번도 안 돈다** — 그것이 이 갈래의 규약이고(`internal/match` 는
+// `usi` 를 import 하지 않는다), 여기는 그 뒤에 기록에만 손을 댄다.
 //
-// **기보는 안 기다린다.** 수는 둘 때 이미 들어갔고 여기가 채우는 것은 평가치뿐이다 —
-// 판이 끝나자마자 들어온 사람은 기보를 보면서 그래프가 차기를 기다린다.
-//
-// **워커가 하나다.** 엔진 풀은 지금 두고 있는 사람들과 공유라(01-core.md §4), 여러 판을
-// 동시에 분석하면 그만큼 그쪽의 상대 수가 느려진다.
+// **워커가 하나다.** 엔진 풀은 지금 두고 있는 사람들과 공유다(01-core.md §4).
 //
 // **진행 상태는 메모리다.** 배포하면 하던 분석이 끊기고 그 판은 평가치 없이 남는다 —
-// 방과 같은 성질이고(match.Hub), 그때 화면은 「분석 중」이 아니라 「남지 않았다」로 돌아간다.
+// 방과 같은 성질이다(match.Hub).
 type matchAnalyzer struct {
 	store      *store.Store
 	newAnalyst func() game.Analyst
@@ -33,8 +28,8 @@ type matchAnalyzer struct {
 	pending map[int64]struct{}
 }
 
-// analysisQueue 는 분석을 기다리는 판을 몇 개까지 쌓아 둘 것인가다. 넘치면 **버린다** —
-// 평가치는 있으면 좋은 것이고, 여기서 막으면 판이 끝나는 자리가 같이 막힌다.
+// analysisQueue 는 몇 판까지 쌓아 둘 것인가다. 넘치면 **버린다** — 여기서 막으면 판이
+// 끝나는 자리가 같이 막힌다.
 const analysisQueue = 64
 
 // newMatchAnalyzer 는 워커를 띄운다. **store 나 analyst 가 없으면 nil 을 준다** — 엔진
@@ -122,11 +117,9 @@ func (a *matchAnalyzer) forget(ids []int64) {
 
 // analyze 는 한 판을 처음부터 다시 재서 `eval_cp` 를 채운다.
 //
-// **한 번 재서 두 행에 쓴다.** `eval_cp` 는 先手 관점이고 관점을 뒤집는 것은 되짚기라
-// (review.go), 같은 값이 두 사람의 행에 그대로 들어간다.
+// **한 번 재서 두 행에 쓴다.** `eval_cp` 는 先手 관점이고 뒤집는 것은 되짚기다(review.go).
 //
-// **판정(`Judgement.Verdict`)은 버린다.** 개입은 대인전에 없다 — 여기서 개입 행을 쓰면
-// 「사람과 둔 판에는 개입이 없다」가 그 자리에서 깨진다.
+// **판정(`Judgement.Verdict`)은 버린다** — 개입은 대인전에 없다.
 //
 // **`Before` 로 직전 칸을 덮는 것은 일부러다**(kifu/import.go 와 같은 모양). 같은 칸에 두
 // 탐색이 쓰고, 그래야 되짚기가 읽는 값이 엔진 대국의 것과 같은 규약이 된다(journal §41).

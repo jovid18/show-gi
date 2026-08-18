@@ -49,9 +49,8 @@ const roomIDAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123
 
 // ErrNoRoom 은 **그 사람이 그 방에 못 들어간다**는 것 하나다.
 //
-// **왜인지를 안 갈라 준다.** 없는 방·만료된 방·남이 이미 찬 방·로그인 안 한 요청이 전부
-// 같은 답을 받아야 방 id 를 훑어보는 것이 성립하지 않는다 — 이어하기가 남의 판 번호에
-// 대해 하는 것과 같은 판단이다(server/ws.go 의 errNoResume).
+// **왜인지를 안 갈라 준다**(journal §83). 이어하기가 남의 판 번호에 대해 하는 것과 같은
+// 판단이다(server/ws.go 의 errNoResume).
 var ErrNoRoom = errors.New("match: no such room")
 
 // ErrNotYourTurn·ErrFinished 는 착수 거절이다. 룰 위반은 `shogi` 가 낸다.

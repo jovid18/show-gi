@@ -213,11 +213,7 @@ func TestRunningOutOfTimeLosesTheGame(t *testing.T) {
 	}
 }
 
-// **한 수도 안 둔 채 시간이 다 되면 승패가 없다.**
-//
-// 방을 만든 사람이 링크를 보내고 탭을 열어 둔 채 자리를 뜨는 것이 흔한데, 그때 승패를
-// 적으면 **0手짜리 판**이 두 사람의 전적에 win/loss 로 남고 이긴 쪽의 「振り返り」 링크가
-// 빈 판을 연다. 아무도 안 뒀으면 판이 없었던 것이다.
+// **한 수도 안 둔 채 시간이 다 되면 승패가 없다**(journal §83).
 func TestATimeoutWithNoMovesIsNotALoss(t *testing.T) {
 	table, black, white := newTestTable(t, 60*time.Millisecond)
 
