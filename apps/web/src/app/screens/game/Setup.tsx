@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import type { GameSetup } from '@/hooks/useGame';
 import { useViewer } from '@/hooks/useViewer';
 import type { Color } from '@/protocol/game';
-import { createRoom } from '@/protocol/match';
+import { createRoom, type SeatChoice } from '@/protocol/match';
 import { fetchOpenings, type Opening } from '@/protocol/openings';
 import { ROUTE_GUIDE } from '@/routes/const';
 import { navigate } from '@/routes/router';
@@ -21,6 +21,12 @@ import { navigate } from '@/routes/router';
 const COLORS: { value: Color; label: string; note: string }[] = [
   { value: 'b', label: '先手', note: '自分から先に指します' },
   { value: 'w', label: '後手', note: '相手の出方を見てから指します' },
+];
+
+/** 사람과 둘 때의 手番. **振り駒가 하나 더 있다** — 상대가 사람이면 그것이 원래 정하는 법이다. */
+const SEATS: { value: SeatChoice; label: string; note: string }[] = [
+  { value: 'r', label: '振り駒', note: '部屋をつくったときに決まります' },
+  ...COLORS,
 ];
 
 interface SetupProps {
@@ -112,7 +118,7 @@ export function Setup({ initial, onStart }: SetupProps) {
 
       {/* **상대가 사람인 갈래는 여기서 갈린다.** 위에서 고른 手番을 그대로 쓰고 戦型은
           안 쓴다 — 진형은 컴퓨터에게 시키는 것이라 사람 상대에게는 뜻이 없다. */}
-      <FriendMatch color={color} />
+      <FriendMatch />
 
       {/* **헤더의 버튼만으로는 못 찾는다.** 처음 온 사람이 실제로 보는 화면은 여기 하나다.
           시작 버튼 **아래**에 두는 것이 요점 — 위에 두면 두러 온 사람을 먼저 붙잡는다.
@@ -135,9 +141,13 @@ export function Setup({ initial, onStart }: SetupProps) {
  *
  * **눌러도 안 되는 버튼을 안 띄운다** — 로그인 안 한 사람에게는 이유를 적은 줄이 선다
  * (`Account` 와 마이페이지 탭이 이미 쓰는 규칙, journal §76).
+ *
+ * **手番을 위 화면과 따로 고른다.** 저쪽은 엔진 상대의 설정이고 여기는 사람 상대라
+ * 振り駒가 붙는다 — 같은 값을 쓰면 그 선택지가 엔진 대국으로도 새어 나간다.
  */
-function FriendMatch({ color }: { color: Color }) {
+function FriendMatch() {
   const { me } = useViewer();
+  const [seat, setSeat] = useState<SeatChoice>('r');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -158,6 +168,24 @@ function FriendMatch({ color }: { color: Color }) {
             部屋をつくるとリンクが出ます。それを送った相手が開くと対局がはじまります。持ち時間は一手60秒で、
             対人戦では口出しもヒントも出ません。
           </p>
+          <fieldset className="setup__group">
+            <legend className="setup__legend">あなたの手番</legend>
+            <div className="setup__choices setup__choices--seat">
+              {SEATS.map((s) => (
+                <button
+                  key={s.value}
+                  type="button"
+                  className="setup__choice"
+                  data-on={seat === s.value || undefined}
+                  aria-pressed={seat === s.value}
+                  onClick={() => setSeat(s.value)}
+                >
+                  <span className="setup__choice-name">{s.label}</span>
+                  <span className="setup__choice-note">{s.note}</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
           <button
             type="button"
             className="btn setup__start"
@@ -166,7 +194,7 @@ function FriendMatch({ color }: { color: Color }) {
               setBusy(true);
               setError(null);
               const ac = new AbortController();
-              void createRoom(color, ac.signal)
+              void createRoom(seat, ac.signal)
                 .then((room) => navigate({ name: 'room', id: room.id }))
                 .catch((e: Error) => {
                   setBusy(false);

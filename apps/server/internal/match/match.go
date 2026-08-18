@@ -96,6 +96,14 @@ func newRoomID() string {
 	return string(id)
 }
 
+// RandomColor 는 振り駒다. **방을 만든 사람도 결과를 모른다** — 응답의 `yourColor` 가
+// 처음 알려 준다.
+func RandomColor() shogi.Color {
+	var b [1]byte
+	rand.Read(b[:])
+	return shogi.Color(b[0] & 1)
+}
+
 // ColorCode 는 先手·後手를 화면·`games.my_color` 와 같은 어휘로 옮긴다. **이 규약의
 // 자리는 여기 하나다** — 두 벌이면 한쪽을 고칠 때 기록과 화면이 갈린다.
 func ColorCode(c shogi.Color) string {

@@ -107,13 +107,17 @@ export type MatchServerMessage =
 
 export type MatchClientMessage = { type: 'move'; usi: string } | { type: 'resign' };
 
+/** 방을 만들 때 고르는 手番. `'r'` 는 振り駒 — **뽑는 것은 서버다**(createRoom). */
+export type SeatChoice = Color | 'r';
+
 /**
  * 방을 연다. **로그인해야 한다** — 안 했으면 401이다.
  *
- * 先手·後手는 방을 만드는 사람이 고르고, 상대는 나머지를 잡는다.
+ * 手番은 방을 만드는 사람이 고르고, 상대는 나머지를 잡는다. 振り駒를 골랐으면 결과는
+ * 돌아온 `yourColor` 에 있다 — 만든 사람도 그때 안다.
  */
-export async function createRoom(color: Color, signal: AbortSignal): Promise<Room> {
-  const res = await fetch(`/api/rooms?color=${color}`, { method: 'POST', signal });
+export async function createRoom(choice: SeatChoice, signal: AbortSignal): Promise<Room> {
+  const res = await fetch(`/api/rooms?color=${choice}`, { method: 'POST', signal });
   if (!res.ok) throw new Error(res.status === 401 ? 'ログインが必要です。' : '対局部屋を作れませんでした。');
   return (await res.json()) as Room;
 }

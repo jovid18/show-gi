@@ -53,7 +53,7 @@ func notFound(w http.ResponseWriter) {
 	})
 }
 
-// create 는 방을 연다. **만든 사람이 先手·後手를 고른다** — 상대는 나머지를 잡는다.
+// create 는 방을 연다. **만든 사람이 先手·後手·振り駒 중에 고른다** — 상대는 나머지를 잡는다.
 func (h *matchHandler) create(w http.ResponseWriter, r *http.Request) {
 	s, ok := h.auth.viewer(r)
 	if !ok {
@@ -66,12 +66,18 @@ func (h *matchHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// **先手·後手는 쿼리로 받고, 못 읽으면 先手다.** 시작 화면과 같은 규약이다(ws.go 의 newSetup) —
+	// **手番은 쿼리로 받고, 못 읽으면 先手다.** 시작 화면과 같은 규약이다(ws.go 의 newSetup) —
 	// 목록을 서버가 아는 값이라 이상한 값이 오는 것은 클라이언트가 틀린 경우이고,
 	// 그때 방을 거절하는 것보다 先手로 여는 쪽이 낫다.
+	//
+	// **振り駒(`r`)는 서버가 뽑는다.** 클라이언트가 뽑아 `b`·`w` 로 보내면 마음에 안 드는
+	// 결과를 다시 뽑을 수 있고, 그러면 振り駒가 아니라 그냥 고르는 것이 된다.
 	color := shogi.Black
-	if r.URL.Query().Get("color") == "w" {
+	switch r.URL.Query().Get("color") {
+	case "w":
 		color = shogi.White
+	case "r":
+		color = match.RandomColor()
 	}
 
 	room := h.hub.Create(match.Player{UserID: s.UserID, Name: s.Name}, color)

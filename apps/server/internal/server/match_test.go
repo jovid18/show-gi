@@ -86,6 +86,31 @@ func TestCreateRoomReturnsAnUnguessableID(t *testing.T) {
 	}
 }
 
+// **振り駒는 서버가 뽑는다.** 클라이언트가 뽑아 `b`·`w` 로 보내면 마음에 안 드는 결과를
+// 다시 뽑을 수 있고, 그러면 振り駒가 아니라 그냥 고르는 것이 된다.
+func TestFurigomaGivesEitherSeat(t *testing.T) {
+	h, _, signIn := matchTestServer(t)
+
+	seen := map[string]int{}
+	for range 200 {
+		rec := do(h, http.MethodPost, "/api/rooms?color=r", signIn(1, "アリス"))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+		}
+		var body roomPayload
+		if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		seen[body.YourColor]++
+	}
+	if seen["b"]+seen["w"] != 200 {
+		t.Fatalf("furigoma answered with something other than b/w: %v", seen)
+	}
+	if seen["b"] == 0 || seen["w"] == 0 {
+		t.Fatalf("200 draws never gave one of the two seats: %v", seen)
+	}
+}
+
 // **로그인 안 한 사람에게는 404다 — 401이 아니다.**
 //
 // 401은 「로그인하면 볼 수 있다」는 뜻이라, 그것만으로 **그 방이 있다는 사실이 로그인 없이
