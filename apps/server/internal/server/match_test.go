@@ -75,8 +75,8 @@ func TestCreateRoomReturnsAnUnguessableID(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(body.ID) != 22 {
-		t.Fatalf("room id %q is %d chars, want 22", body.ID, len(body.ID))
+	if len(body.ID) != 8 {
+		t.Fatalf("room id %q is %d chars, want 8", body.ID, len(body.ID))
 	}
 	if body.YourColor != "w" {
 		t.Fatalf("yourColor = %q, want w", body.YourColor)
@@ -101,7 +101,7 @@ func TestPeekingWithoutSignInLooksLikeAMissingRoom(t *testing.T) {
 
 	// 있는 방과 없는 방이 로그인 없이는 **같은 답**이어야 한다.
 	real := do(h, http.MethodGet, "/api/rooms/"+room.ID, nil)
-	fake := do(h, http.MethodGet, "/api/rooms/AAAAAAAAAAAAAAAAAAAAAA", nil)
+	fake := do(h, http.MethodGet, "/api/rooms/AAAAAAAA", nil)
 	if real.Code != http.StatusNotFound || fake.Code != http.StatusNotFound {
 		t.Fatalf("real = %d, fake = %d, want both %d", real.Code, fake.Code, http.StatusNotFound)
 	}
@@ -181,8 +181,8 @@ func TestMatchRoutesAreAbsentWithoutAHub(t *testing.T) {
 	})
 	for _, c := range [][2]string{
 		{http.MethodPost, "/api/rooms"},
-		{http.MethodGet, "/api/rooms/AAAAAAAAAAAAAAAAAAAAAA"},
-		{http.MethodGet, "/ws/match?room=AAAAAAAAAAAAAAAAAAAAAA"},
+		{http.MethodGet, "/api/rooms/AAAAAAAA"},
+		{http.MethodGet, "/ws/match?room=AAAAAAAA"},
 	} {
 		rec := do(h, c[0], c[1], nil)
 		if rec.Code != http.StatusNotFound {
@@ -203,7 +203,7 @@ func TestMatchSocketRejectsBeforeUpgrading(t *testing.T) {
 		{"signed out", nil},
 		{"signed in but no such room", signIn(1, "アリス")},
 	} {
-		rec := do(h, http.MethodGet, "/ws/match?room=AAAAAAAAAAAAAAAAAAAAAA", c.who)
+		rec := do(h, http.MethodGet, "/ws/match?room=AAAAAAAA", c.who)
 		if rec.Code != http.StatusNotFound {
 			t.Errorf("%s: status = %d, want %d", c.name, rec.Code, http.StatusNotFound)
 		}

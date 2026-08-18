@@ -29,7 +29,7 @@ export const routeReview = (id: number, ply?: number): string =>
 export const routeQuiz = (id: number): string => `${routeReview(id)}/${QUIZ_SEGMENT}`;
 
 /**
- * 방 하나. **주소에 들어가는 값이 곧 열쇠다** — 128비트 난수라 유추할 수 없고, 그래서
+ * 방 하나. **주소에 들어가는 값이 곧 열쇠다** — 영숫자 8자 난수라 유추할 수 없고, 그래서
  * 이 주소를 아는 것이 입장 자격의 절반이다(나머지 절반은 로그인과 정원 2명).
  *
  * `/reviews/:id` 와 달리 **숫자가 아니다.** 연번이면 로그인한 아무나 남의 방을 훑어볼 수

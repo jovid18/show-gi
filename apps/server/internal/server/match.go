@@ -25,7 +25,7 @@ type matchHandler struct {
 // roomPayload 는 방 하나다. **id 말고는 아무것도 안 준다** — 상대의 段級도 전적도
 // 여기 없다(02-architecture.md §7 위협 2).
 type roomPayload struct {
-	// ID 는 초대 링크에 그대로 들어가는 값이다(128비트 난수, `internal/match`).
+	// ID 는 초대 링크에 그대로 들어가는 값이다(영숫자 8자 난수, `internal/match`).
 	ID string `json:"id"`
 	// YourColor 는 이 사람이 잡을 쪽이다. 방을 만든 사람이 고른 쪽에서 정해진다.
 	YourColor string `json:"yourColor"`
@@ -74,19 +74,9 @@ func (h *matchHandler) create(w http.ResponseWriter, r *http.Request) {
 		color = shogi.White
 	}
 
-	room, err := h.hub.Create(match.Player{UserID: s.UserID, Name: s.Name}, color)
-	if err != nil {
-		// 난수를 못 얻은 경우다. **자리를 메우지 않는다** — 유추 가능한 id 를 주느니
-		// 방을 안 만드는 쪽이다(match.newRoomID).
-		log.Printf("match: cannot create a room: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]any{
-			"error": "internal", "message": "対局部屋を作れませんでした。",
-		})
-		return
-	}
-
+	room := h.hub.Create(match.Player{UserID: s.UserID, Name: s.Name}, color)
 	writeJSON(w, http.StatusOK, roomPayload{
-		ID: room.ID, YourColor: colorCode(color), HostName: s.Name, Waiting: true, IsHost: true,
+		ID: room.ID, YourColor: match.ColorCode(color), HostName: s.Name, Waiting: true, IsHost: true,
 	})
 }
 
@@ -114,17 +104,9 @@ func (h *matchHandler) get(w http.ResponseWriter, r *http.Request) {
 	seat, waiting := h.hub.SeatOf(room, s.UserID)
 	writeJSON(w, http.StatusOK, roomPayload{
 		ID:        room.ID,
-		YourColor: colorCode(seat),
+		YourColor: match.ColorCode(seat),
 		HostName:  room.HostName(),
 		Waiting:   waiting,
 		IsHost:    room.IsHost(s.UserID),
 	})
-}
-
-// colorCode 는 先手·後手를 화면·`games.my_color` 와 같은 어휘로 옮긴다.
-func colorCode(c shogi.Color) string {
-	if c == shogi.White {
-		return "w"
-	}
-	return "b"
 }

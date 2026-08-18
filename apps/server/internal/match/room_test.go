@@ -3,6 +3,7 @@ package match
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,13 +32,14 @@ func TestRoomIDIsUnguessable(t *testing.T) {
 
 	seen := map[string]bool{}
 	for range 500 {
-		room, err := h.Create(alice, shogi.Black)
-		if err != nil {
-			t.Fatalf("create: %v", err)
+		room := h.Create(alice, shogi.Black)
+		// 영숫자 8자다. 짧아지면 엔트로피가 줄어든 것이고, `-`·`_` 가 섞이면
+		// 손으로 옮겨 적는 자리가 틀린다(roomIDAlphabet).
+		if len(room.ID) != roomIDLen {
+			t.Fatalf("room id %q is %d chars, want %d", room.ID, len(room.ID), roomIDLen)
 		}
-		// 128비트를 base64url 로 적으면 22자다. 짧아지면 엔트로피가 줄어든 것이다.
-		if len(room.ID) != 22 {
-			t.Fatalf("room id %q is %d chars, want 22", room.ID, len(room.ID))
+		if strings.ContainsAny(room.ID, "-_") {
+			t.Fatalf("room id %q has a character outside the alphabet", room.ID)
 		}
 		if seen[room.ID] {
 			t.Fatalf("room id %q came out twice", room.ID)
@@ -51,10 +53,7 @@ func TestRoomIDIsUnguessable(t *testing.T) {
 func TestUnknownAndFullRoomsLookTheSame(t *testing.T) {
 	h := newTestHub(t)
 
-	room, err := h.Create(alice, shogi.Black)
-	if err != nil {
-		t.Fatalf("create: %v", err)
-	}
+	room := h.Create(alice, shogi.Black)
 	// 밥이 손님 자리를 잡는다.
 	if _, _, err := h.Enter(room.ID, bob); err != nil {
 		t.Fatalf("bob cannot enter: %v", err)
@@ -68,7 +67,7 @@ func TestUnknownAndFullRoomsLookTheSame(t *testing.T) {
 		t.Fatalf("enter by a third person: got %v, want ErrNoRoom", err)
 	}
 	// 없는 방도 같은 답이다.
-	if _, err := h.Peek("AAAAAAAAAAAAAAAAAAAAAA", carol.UserID); !errors.Is(err, ErrNoRoom) {
+	if _, err := h.Peek("AAAAAAAA", carol.UserID); !errors.Is(err, ErrNoRoom) {
 		t.Fatalf("peek of an unknown room: got %v, want ErrNoRoom", err)
 	}
 }
@@ -78,10 +77,7 @@ func TestUnknownAndFullRoomsLookTheSame(t *testing.T) {
 func TestSeatsAreSticky(t *testing.T) {
 	h := newTestHub(t)
 
-	room, err := h.Create(alice, shogi.White) // 방을 만든 사람이 後手를 골랐다
-	if err != nil {
-		t.Fatalf("create: %v", err)
-	}
+	room := h.Create(alice, shogi.White) // 방을 만든 사람이 後手를 골랐다
 
 	if _, c, err := h.Enter(room.ID, alice); err != nil || c != shogi.White {
 		t.Fatalf("host: got (%v, %v), want (White, nil)", c, err)
@@ -103,10 +99,7 @@ func TestSeatsAreSticky(t *testing.T) {
 func TestHostCannotTakeTheGuestSeat(t *testing.T) {
 	h := newTestHub(t)
 
-	room, err := h.Create(alice, shogi.Black)
-	if err != nil {
-		t.Fatalf("create: %v", err)
-	}
+	room := h.Create(alice, shogi.Black)
 	if _, _, err := h.Enter(room.ID, alice); err != nil {
 		t.Fatalf("host enter: %v", err)
 	}
@@ -122,10 +115,7 @@ func TestHostCannotTakeTheGuestSeat(t *testing.T) {
 func TestTableStartsOnlyWhenBothAreConnected(t *testing.T) {
 	h := newTestHub(t)
 
-	room, err := h.Create(alice, shogi.Black)
-	if err != nil {
-		t.Fatalf("create: %v", err)
-	}
+	room := h.Create(alice, shogi.Black)
 	if _, _, err := h.Enter(room.ID, bob); err != nil {
 		t.Fatalf("guest enter: %v", err)
 	}
@@ -165,10 +155,7 @@ func TestOpenRoomExpires(t *testing.T) {
 	now := time.Now()
 	h := NewHub(ctx, HubConfig{now: func() time.Time { return now }})
 
-	room, err := h.Create(alice, shogi.Black)
-	if err != nil {
-		t.Fatalf("create: %v", err)
-	}
+	room := h.Create(alice, shogi.Black)
 
 	now = now.Add(OpenTTL + time.Minute)
 	if _, err := h.Peek(room.ID, alice.UserID); !errors.Is(err, ErrNoRoom) {
@@ -190,14 +177,9 @@ func TestOpenRoomExpires(t *testing.T) {
 func TestARoomDroppedForTheCapTellsItsWaiters(t *testing.T) {
 	h := newTestHub(t)
 
-	first, err := h.Create(alice, shogi.Black)
-	if err != nil {
-		t.Fatalf("create: %v", err)
-	}
+	first := h.Create(alice, shogi.Black)
 	for range openRoomsPerHost {
-		if _, err := h.Create(alice, shogi.Black); err != nil {
-			t.Fatalf("create: %v", err)
-		}
+		h.Create(alice, shogi.Black)
 	}
 
 	select {
@@ -212,18 +194,13 @@ func TestARoomDroppedForTheCapTellsItsWaiters(t *testing.T) {
 func TestARoomWithASeatedGuestSurvivesTheCap(t *testing.T) {
 	h := newTestHub(t)
 
-	seated, err := h.Create(alice, shogi.Black)
-	if err != nil {
-		t.Fatalf("create: %v", err)
-	}
+	seated := h.Create(alice, shogi.Black)
 	if _, _, err := h.Enter(seated.ID, bob); err != nil {
 		t.Fatalf("guest enter: %v", err)
 	}
 
 	for range 6 {
-		if _, err := h.Create(alice, shogi.Black); err != nil {
-			t.Fatalf("create: %v", err)
-		}
+		h.Create(alice, shogi.Black)
 	}
 	if _, err := h.Peek(seated.ID, alice.UserID); err != nil {
 		t.Fatalf("the room with a seated guest was dropped: %v", err)
@@ -237,10 +214,7 @@ func TestOpenRoomsPerHostAreCapped(t *testing.T) {
 
 	ids := make([]string, 0, 6)
 	for range 6 {
-		room, err := h.Create(alice, shogi.Black)
-		if err != nil {
-			t.Fatalf("create: %v", err)
-		}
+		room := h.Create(alice, shogi.Black)
 		ids = append(ids, room.ID)
 	}
 
@@ -262,10 +236,7 @@ func TestOpenRoomsPerHostAreCapped(t *testing.T) {
 func TestAStartedGameIsNeverDroppedForTheCap(t *testing.T) {
 	h := newTestHub(t)
 
-	live, err := h.Create(alice, shogi.Black)
-	if err != nil {
-		t.Fatalf("create: %v", err)
-	}
+	live := h.Create(alice, shogi.Black)
 	if _, _, err := h.Enter(live.ID, bob); err != nil {
 		t.Fatalf("guest enter: %v", err)
 	}
@@ -277,9 +248,7 @@ func TestAStartedGameIsNeverDroppedForTheCap(t *testing.T) {
 
 	// 그 뒤로 방을 잔뜩 만들어도 두는 판은 그대로다.
 	for range 6 {
-		if _, err := h.Create(alice, shogi.Black); err != nil {
-			t.Fatalf("create: %v", err)
-		}
+		h.Create(alice, shogi.Black)
 	}
 	if _, err := h.Peek(live.ID, alice.UserID); err != nil {
 		t.Fatalf("the live game was dropped for the cap: %v", err)
@@ -299,10 +268,7 @@ func TestADroppedRoomNeverStartsATable(t *testing.T) {
 	now := time.Now()
 	h := NewHub(ctx, HubConfig{now: func() time.Time { return now }})
 
-	room, err := h.Create(alice, shogi.Black)
-	if err != nil {
-		t.Fatalf("create: %v", err)
-	}
+	room := h.Create(alice, shogi.Black)
 	if _, _, err := h.Enter(room.ID, bob); err != nil {
 		t.Fatalf("guest enter: %v", err)
 	}

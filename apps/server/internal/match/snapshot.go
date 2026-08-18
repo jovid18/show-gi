@@ -139,10 +139,10 @@ func (d *snapshotData) for_(you shogi.Color) Snapshot {
 	s := Snapshot{
 		SFEN:           d.sfen,
 		Ply:            d.ply,
-		Turn:           colorCode(d.turn),
+		Turn:           ColorCode(d.turn),
 		YourTurn:       d.status == StatusPlaying && d.turn == you,
 		InCheck:        d.inCheck && d.turn == you,
-		YourColor:      colorCode(you),
+		YourColor:      ColorCode(you),
 		Status:         d.status,
 		OpponentName:   d.names[you.Other()],
 		OpponentOnline: d.online[you.Other()],

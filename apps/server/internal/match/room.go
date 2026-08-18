@@ -12,15 +12,8 @@ import (
 
 // Room 은 초대 링크 하나다. **정원이 둘이고, 둘이 정해지면 안 바뀐다.**
 //
-// 방을 여는 규칙이 이 타입의 전부다:
-//
-//  1. **로그인한 사람만** — 방을 만드는 것도 들어가는 것도(server/match.go 가 막는다).
-//     익명은 서로 구별할 수단이 없어서 「이 방의 상대가 아까 그 사람인가」에 답할 수 없다.
-//  2. **id 를 유추할 수 없다** — 128비트 난수다(newRoomID).
-//  3. **두 자리가 차면 그 뒤로는 아무도 못 들어간다** — 링크가 유출돼도 관전조차 안 된다.
-//
-// 셋이 다 필요하다. 1이 없으면 링크를 받은 누구나 남의 자리에 앉고, 2가 없으면 링크가
-// 필요 없어지고, 3이 없으면 링크를 받은 세 번째 사람이 판을 들여다본다.
+// 들어오는 규칙은 셋이고 **셋이 다 필요하다**(journal §83): 로그인한 사람만
+// (server/match.go 가 막는다), 유추할 수 없는 id(newRoomID), 정원 2명.
 type Room struct {
 	ID string
 
@@ -31,15 +24,13 @@ type Room struct {
 
 	// 아래는 Hub.mu 가 지킨다.
 	guest *Player
-	// connected 는 先手·後手마다 붙어 있는 연결 수다. **대국이 시작되기 전에만 쓴다** — 시작된 뒤로는
-	// 테이블이 자기 것으로 센다(table.state.online). 뜻이 다르다: 이쪽은 「판을 시작해도
-	// 되나」이고 저쪽은 「상대가 화면을 보고 있나」다.
+	// connected 는 先手·後手마다 붙어 있는 연결 수다. **대국이 시작되기 전에만 쓴다** —
+	// 시작된 뒤로는 테이블이 따로 센다(table.state.online). 이쪽은 「시작해도 되나」이고
+	// 저쪽은 「상대가 화면을 보고 있나」다.
 	connected map[shogi.Color]int
 	table     *Table
 	ready     chan struct{}
-	// closed 는 **방이 걷혔을 때** 닫힌다. `ready` 와 짝이고 둘 중 하나만 닫힌다 —
-	// 이게 없으면 만료된 방에서 기다리던 사람이 영영 「상대를 기다립니다」에 서 있고,
-	// 그동안 그 화면이 **이미 죽은 링크를 광고한다.**
+	// closed 는 **방이 걷혔을 때** 닫힌다. `ready` 와 짝이고 둘 중 하나만 닫힌다.
 	closed chan struct{}
 	// finishedAt 은 판이 끝난 시각이다. 0이면 아직 안 끝났다.
 	finishedAt time.Time
@@ -48,8 +39,7 @@ type Room struct {
 // Ready 는 두 사람이 다 붙어 대국이 시작된 순간 닫힌다.
 func (r *Room) Ready() <-chan struct{} { return r.ready }
 
-// Closed 는 **방이 걷혔을 때** 닫힌다. 기다리던 연결이 그것을 알아야 화면이
-// 「아직 기다리는 중」에서 벗어난다.
+// Closed 는 **방이 걷혔을 때** 닫힌다. 기다리던 연결이 이것으로 안다(journal §83).
 func (r *Room) Closed() <-chan struct{} { return r.closed }
 
 // HostName 은 방을 만든 사람의 이름이다. **손님이 들어가기 전에 보는 유일한 정보다.**
@@ -62,11 +52,8 @@ func (r *Room) IsHost(userID int64) bool { return userID == r.host.UserID }
 // Table 은 시작된 대국이다. 아직 시작 전이면 nil — `Ready` 를 기다린 뒤에 부른다.
 func (r *Room) Table() *Table { return r.table }
 
-// Hub 는 방들을 들고 있다. **프로세스 메모리다** — 방은 DB에 안 남는다.
-//
-// 배포하면 열려 있던 방이 사라진다. 그래도 되는 이유는 **판이 끝나는 자리에서 이미
-// 기록에 남기 때문**이고(Recorder), 두는 중에 배포가 끼면 엔진 대국도 지금 그 자리에서
-// 끊긴다 — 대인전만 더 잃는 것이 없다.
+// Hub 는 방들을 들고 있다. **프로세스 메모리다** — 방은 DB에 안 남고, 배포하면 열려
+// 있던 방이 사라진다(journal §83).
 type Hub struct {
 	mu    sync.Mutex
 	rooms map[string]*Room
@@ -100,11 +87,8 @@ func NewHub(ctx context.Context, cfg HubConfig) *Hub {
 }
 
 // Create 는 방 하나를 연다. **만든 사람이 host 이고 先手·後手를 고른다.**
-func (h *Hub) Create(host Player, hostColor shogi.Color) (*Room, error) {
-	id, err := newRoomID()
-	if err != nil {
-		return nil, err
-	}
+func (h *Hub) Create(host Player, hostColor shogi.Color) *Room {
+	id := newRoomID()
 	now := h.cfg.now()
 	room := &Room{
 		ID:        id,
@@ -121,31 +105,22 @@ func (h *Hub) Create(host Player, hostColor shogi.Color) (*Room, error) {
 	h.sweepLocked(now)
 	h.dropSurplusLocked(host.UserID)
 	h.rooms[id] = room
-	return room, nil
+	return room
 }
 
 // openRoomsPerHost 는 한 사람이 **아직 안 시작한** 방을 몇 개까지 들고 있을 수 있나다.
-//
-// **상한이 없으면 로그인한 사람 하나가 방을 무한히 만든다.** 방은 프로세스 메모리에
-// 있으므로(Hub) 그것이 곧 이 서버의 메모리이고, 만료가 30분이라 그동안 계속 쌓인다.
-//
-// 넘으면 **거절이 아니라 오래된 것을 버린다.** 거절은 「왜 안 되나」를 화면에 설명해야
-// 하는데, 방을 여러 개 만든 사람이 실제로 원하는 것은 대개 마지막 링크 하나다.
+// 넘으면 거절이 아니라 오래된 것을 버린다(journal §83).
 //
 // **[미확정]** 3은 감으로 잡은 값이다.
 const openRoomsPerHost = 3
 
 // dropSurplusLocked 는 그 사람의 안 시작한 방이 상한을 넘으면 오래된 것부터 버린다.
 //
-// **사람이 걸려 있는 방은 절대 안 버린다** — 시작한 판(`table != nil`)은 물론이고
-// **손님이 앉기만 한 방**(`guest != nil`)도 그렇다. 걷어가면 그쪽에서 기다리던 사람이
-// 영영 기다리고, 방 주인은 자기 방에 다시 못 들어간다.
+// **사람이 걸려 있는 방은 절대 안 버린다** — 시작한 판(`table != nil`)뿐 아니라
+// **손님이 앉기만 한 방**(`guest != nil`)도 그렇다(journal §83).
 func (h *Hub) dropSurplusLocked(hostID int64) {
 	var open []*Room
 	for _, room := range h.rooms {
-		// **손님이 앉은 방도 안 버린다.** `table == nil` 만 보면, 손님이 들어와 방 주인을
-		// 기다리는 방이 「안 시작한 방」으로 세어져 버려진다 — 그러면 그 손님은 영영
-		// 기다리고 방 주인은 자기 방에 다시 못 들어간다(404).
 		if room.host.UserID == hostID && room.table == nil && room.guest == nil {
 			open = append(open, room)
 		}
@@ -160,8 +135,7 @@ func (h *Hub) dropSurplusLocked(hostID int64) {
 	}
 }
 
-// dropLocked 는 방을 걷어가고 **기다리던 연결에 알린다.** 지우기만 하면 그쪽은 영영
-// 기다린다 — 방이 없어진 것을 알 길이 그 채널뿐이다.
+// dropLocked 는 방을 걷어가고 **기다리던 연결에 알린다**(journal §83).
 //
 // `ready` 가 이미 닫혔으면(대국이 시작됐으면) `closed` 는 아무도 안 본다. 그래도 닫는 것은
 // 「걷혔다」가 방의 사실이기 때문이고, 두 번 닫힐 일은 없다 — 삭제가 한 번뿐이다.
@@ -172,8 +146,7 @@ func (h *Hub) dropLocked(room *Room) {
 
 // Peek 는 **들어가기 전에** 그 방을 볼 수 있는가다. 자격이 없으면 ErrNoRoom 하나다.
 //
-// 자리를 잡지 않는다 — 손님이 「◯◯さんの対局」을 확인하는 화면이 이 답으로 서고,
-// 실제로 앉는 것은 WebSocket 이 붙을 때다(Enter).
+// **자리를 안 잡는다** — 실제로 앉는 것은 WebSocket 이 붙을 때다(Enter, journal §83).
 func (h *Hub) Peek(id string, userID int64) (*Room, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -255,8 +228,7 @@ func (h *Hub) startLocked(room *Room) {
 	if room.table != nil || room.guest == nil {
 		return
 	}
-	// **둘이 동시에 붙어 있어야 시작한다.** 「들어온 적이 있다」로 세면, 링크를 보내고
-	// 탭을 닫은 방 주인이 손님이 여는 순간 시간패로 진다 — 시계가 그 자리에서 돌기 때문이다.
+	// **둘이 동시에 붙어 있어야 시작한다**(journal §83).
 	if room.connected[shogi.Black] == 0 || room.connected[shogi.White] == 0 {
 		return
 	}
@@ -319,7 +291,7 @@ func (h *Hub) sweepLocked(now time.Time) {
 				h.dropLocked(room)
 			}
 		case room.table == nil && now.Sub(room.createdAt) > OpenTTL:
-			// 대국이 시작되지 않은 방이다. **링크가 곧 열쇠라 오래 두지 않는다**(roomIDBytes).
+			// 대국이 시작되지 않은 방이다. **링크가 곧 열쇠라 오래 두지 않는다**(roomIDLen).
 			h.dropLocked(room)
 		}
 	}

@@ -146,7 +146,7 @@ func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	seat, waiting := h.hub.SeatOf(room, s.UserID)
 	emitMatch(ctx, out, matchServerMsg{Type: "waiting", Room: &roomPayload{
 		ID:        room.ID,
-		YourColor: colorCode(seat),
+		YourColor: match.ColorCode(seat),
 		HostName:  room.HostName(),
 		Waiting:   waiting,
 		IsHost:    room.IsHost(s.UserID),
