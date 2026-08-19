@@ -79,7 +79,9 @@ func TestExploreStartsFromTheHandicapPosition(t *testing.T) {
 	if !ok {
 		t.Fatal("二枚落ち가 표에 없다")
 	}
-	search := &fakeSearcher{results: []usi.SearchResult{found("7g7f", "2g2f", "6g6f")}}
+	// **上手의 수를 준다.** 二枚落ち의 0手目가 上手 차례라(journal §88) 下手의 수를 주면
+	// 후보가 전부 걸러지고, 그 실패는 「엔진이 이상한 답을 줬다」와 구별되지 않는다.
+	search := &fakeSearcher{results: []usi.SearchResult{found("3c3d", "8c8d", "4a3b")}}
 	h, who := exploreTest(t, search)
 
 	node := decodeExplore(t, h.post(t, `{"handicap":"nimaiochi","moves":[]}`, who))
@@ -94,11 +96,12 @@ func TestExploreStartsFromTheHandicapPosition(t *testing.T) {
 	if node.Ply != 0 || node.BasePly != 0 {
 		t.Errorf("ply = %d / basePly = %d, want 0 0 — 검토의 뿌리는 언제나 0手目다", node.Ply, node.BasePly)
 	}
-	// 駒落ち는 上手의 駒를 빼고 **下手(先手)부터** 둔다.
-	if node.Turn != "b" || !node.YourTurn {
-		t.Errorf("turn=%q yourTurn=%v, want b true", node.Turn, node.YourTurn)
+	// 駒落ち는 上手의 駒를 빼고 **그 上手부터** 둔다(journal §88). 관점은 下手로 못박혀
+	// 있으므로(exploreRoot) 0手目는 「내 차례」가 아니다 — 검토는 양쪽을 다 움직인다.
+	if node.Turn != "w" || node.YourTurn {
+		t.Errorf("turn=%q yourTurn=%v, want w false", node.Turn, node.YourTurn)
 	}
-	// **기준점이 같이 온다.** 없으면 +1490이 「압승 중」으로 읽히고 후보의 색도 전부
+	// **기준점이 같이 온다.** 없으면 +1386이 「압승 중」으로 읽히고 후보의 색도 전부
 	// 최대 파랑이 된다(exploreNode).
 	if node.BaselineCp != nimai.BaselineCp || node.HandicapJa != nimai.Name {
 		t.Errorf("baselineCp=%d handicapJa=%q, want %d %q",
@@ -146,7 +149,7 @@ func TestExplorePlainIsTheEmptyID(t *testing.T) {
 	}
 }
 
-// 값은 **先手(下手) 관점**이다. 되짚기는 플레이어 관점인데 검토에는 플레이어가 없고,
+// 값은 **下手 관점**이다. 되짚기는 플레이어 관점인데 검토에는 플레이어가 없고,
 // 手合 기준점이 下手 관점 cp라 그쪽으로 못박았다(exploreRoot).
 func TestExploreKeepsTheSentePointOfView(t *testing.T) {
 	// 1手目 뒤는 後手 차례다. 엔진은 수번(後手)에게 +100이라고 답한다.
@@ -292,18 +295,19 @@ func TestExploreReportsEngineFailure(t *testing.T) {
 func TestExploreOpensEveryHandicap(t *testing.T) {
 	for _, hc := range handicap.All() {
 		t.Run(hc.ID, func(t *testing.T) {
-			search := &fakeSearcher{results: []usi.SearchResult{found("7g7f", "2g2f")}}
+			search := &fakeSearcher{results: []usi.SearchResult{found("3c3d", "8c8d")}}
 			h, who := exploreTest(t, search)
 
 			node := decodeExplore(t, h.post(t, `{"handicap":"`+hc.ID+`","moves":[]}`, who))
-			if node.Turn != "b" {
-				t.Errorf("turn = %q, want b — 駒落ち는 언제나 下手부터다", node.Turn)
+			if node.Turn != "w" {
+				t.Errorf("turn = %q, want w — 駒落ち는 언제나 上手부터다(journal §88)", node.Turn)
 			}
 			if node.BaselineCp != hc.BaselineCp {
 				t.Errorf("baselineCp = %d, want %d", node.BaselineCp, hc.BaselineCp)
 			}
-			if !slices.Contains(node.LegalMoves, "7g7f") {
-				t.Errorf("legalMoves 에 ▲7六歩가 없다 — 판이 안 섰다")
+			// △3四歩는 일곱 종 어디에서나 둘 수 있다 — 落とす 것에 歩가 없다.
+			if !slices.Contains(node.LegalMoves, "3c3d") {
+				t.Errorf("legalMoves 에 △3四歩가 없다 — 판이 안 섰다")
 			}
 		})
 	}

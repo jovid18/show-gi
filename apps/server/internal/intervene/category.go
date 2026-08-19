@@ -169,7 +169,7 @@ func classify(in Input, lostMate bool) Category {
 	//
 	// **두 부호를 기준점에서 읽는다**(Input.BaselineCp). 「좋아 보인다/실은 나쁘다」는
 	// 0cp가 아니라 그 판의 「형세 0」에 대한 말이라, 절대 부호로 쓰면 駒落ち에서 앞 조건이
-	// 언제나 참이고 뒤 조건이 거의 언제나 거짓이 된다 — 二枚落ち(+1490)에서 이 카테고리가
+	// 언제나 참이고 뒤 조건이 거의 언제나 거짓이 된다 — 二枚落ち(+1386)에서 이 카테고리가
 	// 판 내내 안 나온다는 뜻이고, 하필 **가장 교육적인** 자리다(01-core.md §3).
 	// 반전 폭은 차이라서 기준점과 무관하다.
 	case f.HasShallow && f.ShallowCp > in.BaselineCp && in.AfterCp < in.BaselineCp &&

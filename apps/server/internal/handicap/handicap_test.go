@@ -2,6 +2,7 @@ package handicap
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
@@ -56,10 +57,10 @@ func TestSFENIsTheHandicapItSaysItIs(t *testing.T) {
 			continue
 		}
 
-		// **下手부터 둔다.** 駒落ち에 先手/後手가 없고, 이 값이 뒤집히면 사람이 上手를
-		// 잡은 채로 판이 열린다.
-		if pos.Turn != shogi.Black {
-			t.Errorf("%s: 手番이 %v다. 下手(Black)여야 한다", h.ID, pos.Turn)
+		// **上手부터 둔다**(journal §88). 이 한 글자가 기준점 표 전체를 옮기고, 뒤집히면
+		// 사람이 접어 준 쪽의 先指까지 가져가는 판이 열린다.
+		if pos.Turn != shogi.White {
+			t.Errorf("%s: 手番이 %v다. 上手(White)여야 한다", h.ID, pos.Turn)
 		}
 		if pos.Hands != start.Hands {
 			t.Errorf("%s: 持ち駒가 있다. 駒落ち는 판에서 빼는 것이다", h.ID)
@@ -158,6 +159,23 @@ func TestOfIgnoresMoveNumber(t *testing.T) {
 	}
 }
 
+// TestOfIgnoresTurn 은 手番 칸이 달라도 같은 手合으로 붙는지 본다.
+//
+// **옛 기록이 여기에 매달려 있다.** 手番 규약이 뒤집히기 전에(journal §88) 시작한 판은
+// `games.start_sfen` 에 `b` 로 남아 있고, 이 줄이 깨지면 그 판들이 되짚기에서 手合割을 잃어
+// 형세 그래프가 기준점 0으로 그려진다.
+func TestOfIgnoresTurn(t *testing.T) {
+	for _, h := range All() {
+		old := strings.Replace(h.SFEN, " w ", " b ", 1)
+		if old == h.SFEN {
+			t.Fatalf("%s: 표의 SFEN이 上手 차례가 아니다", h.ID)
+		}
+		if got, ok := Of(old); !ok || got.ID != h.ID {
+			t.Errorf("Of(%q) = %v, %v — 옛 手番 규약의 기록이다", old, got.ID, ok)
+		}
+	}
+}
+
 // TestHirateIsNotInTheTable 는 平手가 「手合割 없음」으로 답하는지 본다. 표에 넣는 날
 // 기준점이 0에서 91(실측)로 옮겨 가고, 그러면 지금까지의 상수 측정이 다른 기준의 것이 된다
 // (패키지 주석).
@@ -198,16 +216,14 @@ func TestBaselineCpForFlipsForUwate(t *testing.T) {
 // TestBaselineRisesWithTheHandicap 은 표의 순서와 기준점의 순서가 같은지 본다.
 //
 // 값을 다시 재서 옮기는 날(baseline_measure_test.go) 한 줄만 고치면 순서가 깨지고, 그러면
-// 화면의 목록이 「조금 접는 것」부터가 아니게 된다. 飛車落ち와 角落ち만 예외다 —
-// 실측이 741·756으로 사실상 같고, 그 둘의 순서는 手合割의 관례가 정한다.
+// 화면의 목록이 「조금 접는 것」부터가 아니게 된다. **예외가 없다** — 옛 手番 규약에서는
+// 角落ち(756)가 飛車落ち(741)보다 커서 한 줄을 건너뛰어야 했는데, 上手 先指로 재니 627·658로
+// 순서가 관례와 같아졌다(journal §88).
 func TestBaselineRisesWithTheHandicap(t *testing.T) {
 	prev := 0
 	for _, h := range All() {
 		if h.BaselineCp <= 0 {
 			t.Errorf("%s: 기준점이 %d다. 駒落ち는 下手가 유리하다", h.ID, h.BaselineCp)
-		}
-		if h.ID == "hishaochi" {
-			continue // 角落ち와 6cp 차이라 순서를 못 세운다
 		}
 		if h.BaselineCp < prev {
 			t.Errorf("%s: 기준점 %d가 앞 항목 %d보다 작다", h.ID, h.BaselineCp, prev)
