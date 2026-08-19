@@ -155,6 +155,37 @@ func TestRankedPutsTheHighestScoreFirst(t *testing.T) {
 	}
 }
 
+// 같은 수가 두 순위에 앉는다 — 순위 칸은 깊이마다 덮어써지는데, 마지막 iteration에서 안 온
+// 순위는 **얕은 깊이의 줄**을 그대로 들고 남기 때문이다. 그대로 내보내면 검토 화면의 후보
+// 셋에 같은 수가 두 번 서고, 그 목록은 화면에서 지워지지 않는 줄을 하나 남긴다(§87).
+func TestRankedDropsTheSameMoveTwice(t *testing.T) {
+	var res SearchResult
+	// 얕은 깊이에서 3위였던 8g8f 가 깊은 깊이에서 2위가 됐다. 3위 자리는 다시 오지 않았다.
+	parseScore("info depth 5 multipv 3 score cp 242 pv 8g8f 5c5d 7f7e", &res)
+	parseScore("info depth 12 multipv 1 score cp 492 pv 4f5g 5c5d 7f7e", &res)
+	parseScore("info depth 12 multipv 2 score cp 288 pv 8g8f 9d9e 9f9e", &res)
+
+	got := res.Ranked()
+	if len(got) != 2 {
+		t.Fatalf("후보 %d개: %+v", len(got), got)
+	}
+	if got[0].Move != "4f5g" || got[1].Move != "8g8f" {
+		t.Fatalf("순서 = %s %s, want 4f5g 8g8f", got[0].Move, got[1].Move)
+	}
+	// 남는 것은 **깊은 쪽**이다. 얕은 값이 남으면 낙폭이 그만큼 어긋난다.
+	if got[1].Depth != 12 || got[1].ScoreCp != 288 {
+		t.Fatalf("얕은 줄이 남았다: %+v", got[1])
+	}
+
+	// 순위가 아니라 깊이가 기준이다 — 깊은 줄이 뒤 순위에 있어도 그쪽이 남는다.
+	var late SearchResult
+	parseScore("info depth 6 multipv 1 score cp 80 pv 3g3f 8c8d 2g2f", &late)
+	parseScore("info depth 14 multipv 2 score cp 60 pv 3g3f 8c8d 6i7h", &late)
+	if got := late.Ranked(); len(got) != 1 || got[0].Depth != 14 || got[0].ScoreCp != 60 {
+		t.Fatalf("얕은 순위가 깊은 줄을 이겼다: %+v", got)
+	}
+}
+
 // 엔진이 마지막 iteration을 중간에 접으면 bound 표기 없이도 pv가 1~2수만 찍힌다 —
 // 직전 iteration의 완결된 수순을 유지해야 한다.
 func TestParseScoreTruncatedFinalIterationKeepsFullPv(t *testing.T) {

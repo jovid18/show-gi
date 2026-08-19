@@ -59,7 +59,8 @@ type SearchResult struct {
 	History []SearchLine
 }
 
-// Ranked 는 후보 줄을 **정본 순서**로 준다 — 점수 내림차순이고, 빈 순위와 중복 순위는 빠진다.
+// Ranked 는 후보 줄을 **정본 순서**로 준다 — 점수 내림차순이고, 빈 순위·중복 순위·**같은
+// 수가 앉은 순위**는 빠진다.
 //
 // **이 순서가 한 자리에만 있어야 한다.** 캐시에 쌓이는 후보 목록(archive.Candidates)과
 // 개입 문장이 말하는 상대의 최선수(game.engineAnalyst.cardPV)가 둘 다 이것을 보고, 갈리면
@@ -67,14 +68,26 @@ type SearchResult struct {
 //
 // **`Lines[0]` 이 1위가 아닐 수 있다.** 순위별 자리를 미리 채워 두므로(`parseScore`) 아직 안
 // 온 순위는 빈 줄로 남고, 그것을 그대로 1위로 읽으면 수가 없는 후보를 최선수라고 부른다.
+//
+// **한 수가 두 순위에 앉을 수 있다.** 순위 칸은 깊이마다 덮어써지는데(`parseScore`), 마지막
+// iteration에서 안 온 순위는 **얕은 깊이의 줄을 그대로 들고 남는다** — 그 수가 다른 순위의
+// 수와 같으면 후보가 둘로 늘어난다. 깊은 쪽만 남긴다(journal §87).
 func (r SearchResult) Ranked() []SearchLine {
 	out := make([]SearchLine, 0, len(r.Lines))
 	seen := map[int]bool{}
+	at := map[string]int{} // 수 → out 안의 자리
 	for _, l := range r.Lines {
 		if l.Move == "" || seen[l.MultiPV] {
 			continue
 		}
 		seen[l.MultiPV] = true
+		if i, dup := at[l.Move]; dup {
+			if l.Depth > out[i].Depth {
+				out[i] = l
+			}
+			continue
+		}
+		at[l.Move] = len(out)
 		out = append(out, l)
 	}
 	slices.SortStableFunc(out, func(x, y SearchLine) int { return y.ScoreCp - x.ScoreCp })

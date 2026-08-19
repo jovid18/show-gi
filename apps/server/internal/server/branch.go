@@ -152,17 +152,22 @@ func playerCp(moverCp int, turn, human shogi.Color) int {
 //
 // **여기서도 엔진 출력을 검증한다.** 못 두는 수가 하나 섞이면 그 줄만 버린다 —
 // 화면에서 「이렇게 뒀어야 한다」는 단언이라 틀린 것을 그리느니 적게 그린다.
+//
+// **같은 수도 그 자리에서 버린다.** `usi.Ranked` 가 막지만 이 표면은 **캐시를 직접 읽어**
+// 그쪽을 안 지나고(`evalOf`), 이미 쌓인 목록에는 중복이 들어 있다(journal §87).
 func candidatesOf(pos shogi.Position, prevTo int, cands []store.Candidate) []whatifCandidate {
 	out := make([]whatifCandidate, 0, whatifCandidates)
+	seen := make(map[string]bool, whatifCandidates)
 
 	for _, l := range cands {
 		if len(out) == whatifCandidates {
 			break
 		}
 		m, err := shogi.ParseUSIMove(l.USI)
-		if err != nil || pos.ValidateMove(m) != nil {
+		if err != nil || pos.ValidateMove(m) != nil || seen[l.USI] {
 			continue
 		}
+		seen[l.USI] = true
 		c := whatifCandidate{USI: l.USI, Ja: pos.MoveJa(m, prevTo), EvalCp: l.Cp, MateIn: l.MateIn}
 		// 낙폭은 **최선수 대비**다. 화면이 뺄셈을 하지 않는다 — 두 값을 나란히 두면
 		// 어느 쪽이 기준인지가 흐려진다.
