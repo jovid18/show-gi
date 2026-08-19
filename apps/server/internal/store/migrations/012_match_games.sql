@@ -14,7 +14,7 @@ BEGIN;
 -- CountInterventionCategoriesForOwner·CountGameStyleTagsForOwner) 행이 각자 것이면 그 다섯이
 -- 한 줄도 안 바뀐다. 대신 두 행이 같은 판이라는 사실을 적을 자리가 없어져서, 그것을 여기가 맡는다.
 --
--- 값은 방 id 그대로다(`internal/match` 의 128비트 난수). **어느 API도 이 칸을 안 돌려준다** —
+-- 값은 방 id 그대로다(`internal/match` 의 영숫자 8자 난수). **어느 API도 이 칸을 안 돌려준다** —
 -- 밖으로 나가는 것은 「대인전인가」라는 불리언 하나뿐이다(server/review.go 의 `isMatch`).
 -- 그 문자열이 곧 초대 링크의 열쇠라서 그렇고, 덤으로 방이 판보다 먼저 닫히므로
 -- (match.FinishedTTL) 여기 남은 값으로 열 수 있는 방은 없다.

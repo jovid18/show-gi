@@ -358,12 +358,11 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		StartMoves:      setup.startMoves,
 		ObservePlies:    h.opts.ObservePlies,
 		Mate:            h.opts.Mate,
-		// 手筋 제안형 힌트는 꺼 뒀다(nil). 화면에 0건이었고, 원인이 k도 지연도 아니라
-		// 게이트의 폭이라는 것이 실측으로 나왔다(journal §76). 끄면 사람 차례마다 도는
-		// 룰 필터가 통째로 사라진다(§56) — 그 자리는 사람이 부르는 힌트가 맡는다(§78).
+		// 手筋 제안형 힌트는 꺼 뒀다(nil). 근거와 그 자리를 무엇이 대신하는지는 journal §78.
 		//
-		// 켜려면 h.opts.Search 를 그대로 주면 된다. 다시 여는 조건은 TesujiLossCp 하나이고,
-		// 囲い·전법 힌트는 이것과 무관하게 뜬다.
+		// 켜려면 h.opts.Search 를 그대로 주면 된다. 다시 여는 조건은 TesujiLossCp 하나다.
+		// 착수 前에 남는 제안은 戦型뿐이고(game.hintable), 착수 뒤에 붙는 이름은 囲い·전법·
+		// 戦型 셋 다 이것과 무관하게 뜬다(game.styleTags).
 		TesujiHint: nil,
 		// 부르는 힌트는 상대와 같은 풀이다. 묻는 국면이 같아서인데, 관점이 반대라
 		// (상대가 둘 수 vs 사람이 둘 최선수) 결과를 돌려쓰지는 못한다(Config.HintSearch).
@@ -539,9 +538,8 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 // quizTimeout 은 문항을 만드는 데 주는 시한이다. 넘으면 만들던 것을 버린다 — 반쪽
 // 트리는 채점에 쓸 수 없다.
 //
-// 회차를 자르는 자리는 여기 하나다. 詰み 탐색 예산이 2400 × 107ms ≈ 4.3분이라
-// (quiz.MateSearchBudget) 그 아래로는 예산이 먼저 안 걸리고, gap 쪽 12국면 × 956ms ≈ 12초를
-// 더해도 이 값이 마지막이다 — 여유는 40초 남짓으로 넉넉하지 않다.
+// 회차를 자르는 자리는 여기 하나다. 詰み 탐색 예산(quiz.MateSearchBudget)과 gap 쪽을
+// 더해도 이 값이 마지막이 되도록 잡았고, 남는 여유는 넉넉하지 않다(journal §53).
 const quizTimeout = 5 * time.Minute
 
 // quizSaveTimeout 은 만든 것을 남기는 데 주는 시한이다. DB 쓰기 한 번이라 짧다.

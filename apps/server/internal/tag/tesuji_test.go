@@ -170,8 +170,7 @@ func TestPromotedRookExtraStepIsNotACross(t *testing.T) {
 // 않는다 — 腹銀에서 成銀을 뺀 것과 같은 기준이고, 실 기보의 ▲5二成銀 에 「割打ちの銀」이
 // 떴던 자리다(journal §34 ⑤).
 //
-// 龍·馬도 같이 뺀다. 움직임은 남아 있지만 이름이 「飛車」·「角」을 말하고, 실측에서
-// 그 절반이 成駒이면서 종반에 쏠려 있다(forkNames · 회차 1 #14).
+// 龍·馬도 같이 뺀다. 이유는 forkNames 의 doc 주석.
 func TestPromotedPiecesDoNotBorrowTheBaseNames(t *testing.T) {
 	for _, tc := range []struct {
 		name, sfen string

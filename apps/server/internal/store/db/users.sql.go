@@ -26,8 +26,8 @@ type UpsertUserParams struct {
 
 // 로그인한 사람. provider 는 지금 'google' 하나다.
 //
-// **provider_uid 로 찾는다.** 이메일이 아니다 — 이메일은 바뀌고, 지운 계정의 것이
-// 다른 사람에게 다시 나갈 수 있다. Google의 `sub` 는 그 계정에 붙어 안 바뀐다.
+// provider_uid 로 찾는다. 이메일이 아니다 — 이메일은 바뀌고, 지운 계정의 것이
+// 다른 사람에게 다시 나갈 수 있다. Google의 sub 는 그 계정에 붙어 안 바뀐다.
 //
 // 이름은 로그인할 때마다 덮는다. 저쪽에서 바꾼 이름이 다음 로그인에 따라온다.
 // 충돌해도 RETURNING 이 오도록 DO UPDATE 다 — DO NOTHING 이면 이미 있는 사람의

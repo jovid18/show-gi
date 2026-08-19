@@ -7,10 +7,8 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 )
 
-// 이기고 있는데 진 판을 「무너졌다」고 말하지 않는다.
-//
-// 회차 1이 그 판이었다 — 295手에 +1782인데 사람이 던졌고, 총평이 「負けました。…後半に
-// 崩れたので、そこから見直すとよさそうです。」로 나갔다. 두 문장 다 틀렸다.
+// 이기고 있는데 진 판을 「무너졌다」고 말하지 않는다. 실제로 그렇게 나간 판이 있다
+// (journal §68).
 func TestLosingFromAheadIsNotCalledACollapse(t *testing.T) {
 	f := GameFacts{
 		Outcome:  OutcomeLost,

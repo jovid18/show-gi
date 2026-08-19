@@ -36,9 +36,8 @@ type TesujiOption struct {
 
 // tesujiOptions 는 합법수를 전부 둬 보고 새 이름이 생기는 것만 남긴다. 엔진을 안 부른다.
 //
-// 싸지 않다. 비용이 합법수 × FindTesuji 인데 종반에는 합법수가 273개까지 간다 —
-// 실 기보 한 판에서 최장 2.46초였다(journal §56). 「초기 국면 90µs」로 재고 세션
-// goroutine 안에서 부르던 것이 그 판을 멈추게 한 자리이고, 지금은 그 밖에서 돈다
+// 싸지 않다. 비용이 합법수 × FindTesuji 라 종반에는 초 단위로 간다(실측은 journal §56).
+// 그래서 세션 goroutine 밖에서 돈다 — 안에서 부르면 그동안 스냅샷도 投了도 못 받는다
 // (session.go 의 maybeTesujiHint).
 //
 // freshTesuji 를 후보마다 다시 부르므로 착수 전 국면의 이름을 매번 새로 센다. 한 번 구해

@@ -189,7 +189,7 @@ func deleteGame(t *testing.T, st *store.Store, id int64) {
 //
 // 세션·store 는 각자 테스트가 있지만 그 사이의 이벤트 배선은 여기서만 지켜진다 —
 // dbRecorder 가 evEvaluated 를 흘리면 아무 데서도 안 터지고 칸만 계속 NULL 로 남는다.
-// 실제로 그 상태로 109수 한 판이 기록됐다(docs/08-playtest.md §11).
+// 실제로 그렇게 기록된 판이 있다(08-playtest.md §11).
 func TestRecordFillsEvalTrajectory(t *testing.T) {
 	st := openStoreForTest(t)
 

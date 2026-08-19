@@ -215,10 +215,9 @@ func TestBaselineCpForFlipsForUwate(t *testing.T) {
 
 // TestBaselineRisesWithTheHandicap 은 표의 순서와 기준점의 순서가 같은지 본다.
 //
-// 값을 다시 재서 옮기는 날(baseline_measure_test.go) 한 줄만 고치면 순서가 깨지고, 그러면
-// 화면의 목록이 「조금 접는 것」부터가 아니게 된다. 예외가 없다 — 옛 手番 규약에서는
-// 角落ち(756)가 飛車落ち(741)보다 커서 한 줄을 건너뛰어야 했는데, 上手 先指로 재니 627·658로
-// 순서가 관례와 같아졌다(journal §88).
+// 값을 다시 재서 옮기는 날(baseline_measure_test.go) 한 줄만 고치면 순서가 깨지고,
+// 그러면 화면의 목록이 「조금 접는 것」부터가 아니게 된다. 지금은 건너뛸 예외가 없다
+// (journal §88).
 func TestBaselineRisesWithTheHandicap(t *testing.T) {
 	prev := 0
 	for _, h := range All() {

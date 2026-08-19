@@ -28,10 +28,8 @@ var playtestUpTo103 = []string{
 
 // TestRealEngineUnpromotedIsNotGreed 는 제품이 틀린 것을 가르쳤던 그 국면을 다시 판정한다.
 //
-// 103수째에 ▲同銀不成(7c8d)을 두면 개입이 걸리는데, 그 이유가 greedy_capture 로 나가서
-// 「駒は取れますが、払う代償のほうが大きくなります」가 떴다. 잡는 것이 정답이었다 —
-// 최선수가 같은 이동의 7c8d+ 였고, 差는 成하느냐뿐이다. 플레이어는 그 문장을 「잡으면
-// 안 되는구나」로 읽고 세 수를 더 헤맸다(docs/08-playtest.md §8).
+// ▲同銀不成이 greedy_capture 로 나가 「잡으면 안 된다」로 읽히던 국면이다 — 최선수가
+// 같은 이동의 成이었고 差는 成하느냐뿐이었다(08-playtest.md §8).
 //
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/game/ -run RealEngineUnpromoted -v
 func TestRealEngineUnpromotedIsNotGreed(t *testing.T) {

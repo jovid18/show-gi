@@ -157,10 +157,12 @@ func TestBeingMatedIsCaughtByWinRate(t *testing.T) {
 
 // TestBaselineRestoresTheJudgementInKomaochi 는 駒落ち에서 판정이 살아 있는지를 본다.
 //
-// 기준점이 없으면 四枚落ち(+1561)에서 銀 헌납(약 1000cp)이 안 걸린다 — 승률이 이미
-// 포화해서다. 二枚落ち를 예시로 못 쓴다 — 발화선이 989라 銀 헌납이 간신히 걸리고,
-// 그러면 아래 첫 줄이 「전제가 깨졌다」로 진다(journal §88). 위 TestWinRateSaturatesWhenWinning 이 종반에서 재는 것과 같은 현상이고,
-// 駒落ち는 판 전체가 그 구간이라 詰み 거리로도 못 막는다(journal §84).
+// 기준점이 없으면 四枚落ち에서 銀 헌납이 안 걸린다 — 승률이 이미 포화해서다. 위
+// TestWinRateSaturatesWhenWinning 이 종반에서 재는 것과 같은 현상이고, 駒落ち는 판
+// 전체가 그 구간이라 詰み 거리로도 못 막는다(journal §84).
+//
+// 二枚落ち를 예시로 못 쓴다 — 그쪽은 銀 헌납이 간신히 걸려서 아래 첫 줄의 전제가
+// 깨진다(journal §88).
 func TestBaselineRestoresTheJudgementInKomaochi(t *testing.T) {
 	const yonmai = 1561 // internal/handicap 의 실측값
 

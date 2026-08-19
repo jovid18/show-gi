@@ -203,9 +203,8 @@ export function useBoardSurface({ boardRef, board, active, from, me, flipped }: 
     const step = (now: number) => {
       const t = Math.min((now - began) / FADE_MS, 1);
       // 켜질 때도 꺼질 때도 한꺼번에 옅어지고 짙어진다. 반지름을 0에서 키워 쓸어
-      // 들어오게 했었는데, 판 한가운데에서 퍼지는 고리가 정보로 읽혔다 — 그늘이 말하는
-      // 것은 「어느 칸이 깊은가」뿐이고 퍼지는 순서는 아무 뜻도 없다(회차 1 #3 · §69).
-      // 걷을 때 반대로 쓸어 내지 않았던 것과 같은 이유이고, 이제 양쪽이 같은 규칙이다.
+      // 들어오게 하면 판 한가운데에서 퍼지는 고리가 정보로 읽힌다 — 그늘이 말하는 것은
+      // 「어느 칸이 깊은가」뿐이고 퍼지는 순서는 아무 뜻도 없다(journal §69).
       amountRef.current = active ? start + (1 - start) * t : start * (1 - t);
       surface.setAmount(amountRef.current, { x, y, radius: full });
       surface.render();

@@ -5,7 +5,7 @@ import "github.com/jovid18/show-gi/apps/server/internal/shogi"
 // 打つ 手筋 — 어떻게 놓였는가가 곧 이름이다. 다른 手筋과 입력이 갈린다: 4四의 歩가
 // 打った 것인지 4五에서 걸어온 것인지가 판에 안 남는데 그 차이가 곧 이름이다. 그래서
 // FindTesuji 가 아니라 방금 둔 수를 받는다. 이득을 안 묻는 것은 다른 手筋과 같다
-// ([09-tags.md §5](../../../../docs/09-tags.md)).
+// (09-tags.md §5).
 var (
 	tatakiNoFu = Tag{Code: "tataki_no_fu", NameJa: "叩きの歩", Kind: KindTesuji}
 	tareFu     = Tag{Code: "tare_fu", NameJa: "垂れ歩", Kind: KindTesuji}

@@ -207,12 +207,11 @@ func TestTesujiNameDoesNotOutliveItsPosition(t *testing.T) {
 // 손으로 쓴 1수 읽기를 지운 PR이라 여기가 첫 관문이다 — go test ./... 만으로는
 // 이 테스트가 조용히 skip 되고 초록으로 보인다(apps/server/README.md 「테스트」 ③).
 //
-// 실전 국면으로 잰다. 판을 몇 개만 놓은 국면에서는 평가치를 못 쓴다 — 실제로 桂가
-// 살아 있는 両取り를 만들어 재봤더니 엔진의 최선수가 그 수인데도 낙폭이 +620cp로 나왔다
-// (journal §34). 그래서 마지막 하나만 인공 국면이고, 그것은 떨어지는 쪽이다.
+// 실전 국면으로 잰다. 駒를 몇 개만 놓은 국면에서는 평가치를 못 쓴다(journal §34) —
+// 그래서 마지막 하나만 인공 국면이고, 그것은 떨어지는 쪽이다.
 //
-// 낙폭에 붙은 값은 실측이다. 흔들림이 ±150cp쯤 되므로(§34) 한계선(100cp)에서 그만큼
-// 떨어진 국면만 골랐다 — 여기가 흔들려서 깨지면 그것 자체가 알아야 할 사실이다.
+// 낙폭에 붙은 값은 실측이다. 흔들림 폭(§34)만큼 한계선에서 떨어진 국면만 골랐다 —
+// 여기가 흔들려서 깨지면 그것 자체가 알아야 할 사실이다.
 //
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/game/ -run RealEngineGates -v
 func TestRealEngineGatesTesujiShapes(t *testing.T) {
