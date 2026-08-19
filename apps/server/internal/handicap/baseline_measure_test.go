@@ -64,10 +64,11 @@ func TestMeasureBaseline(t *testing.T) {
 		}
 		// 시작 국면은 下手 차례라 엔진의 관점이 곧 표의 관점이다(Handicap.BaselineCp).
 		got := res.ScoreCp
-		// **발화선은 실측값에서 센다**(표값이 아니다). 平手의 표값은 0인데 실제 국면은
-		// +91이라, 표값으로 세면 「옛 식」 칸이 그 줄만 지금 식과 같아진다.
+		// **두 칸 다 실측값에서 센다.** 「지금」 칸은 기준점을 뺀 자리에서 세므로
+		// (`got - want`) **平手 줄은 두 칸이 같아진다** — 기준점이 0이라 그 판의 판정이
+		// 한 비트도 안 바뀐다는 사실이 표에서 그대로 보여야 한다.
 		fmt.Printf("%-10s %8d %8d %8d %10d %10d\n",
-			r.name, got, r.want, got-r.want, triggerCp(got, false), triggerCp(got, true))
+			r.name, got, r.want, got-r.want, triggerCp(got), triggerCp(got-r.want))
 	}
 	fmt.Println("\n발화선 = 입문 임계치(0.25)를 넘기는 최소 낙폭. 「옛」이 기준점을 안 쓰던 식이다.")
 	fmt.Println("표를 옮길 때는 docs/journal 의 절과 이 패키지 주석의 숫자를 같이 고친다.")
@@ -77,17 +78,14 @@ func TestMeasureBaseline(t *testing.T) {
 // `handicap_test` 패키지라 표 밖의 값을 직접 들고 있는 편이 의존을 안 늘린다.
 const hirateSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1"
 
-// triggerCp 는 입문 임계치를 넘기는 최소 낙폭이다. **이 두 숫자가 이 패키지가 있는
-// 이유다** — 기준점을 안 쓰면 二枚落ち에서 1696cp까지 안 걸리고(journal §84), 쓰면
-// 어느 手合에서도 平手와 같은 620cp 언저리로 돌아온다.
+// triggerCp 는 `from` 에서 입문 임계치를 넘기는 최소 낙폭이다. **이 숫자가 이 패키지가
+// 있는 이유다** — 기준점을 안 쓰면 二枚落ち에서 1058cp까지 안 걸리고(journal §84), 쓰면
+// 그 자리가 660cp로 돌아온다.
 //
-// shifted=false 가 기준점을 안 쓰던 식이다(WinRate(base) 에서 재기 시작한다).
-func triggerCp(baseline int, shifted bool) int {
+// 무엇을 넣느냐가 옛 식과 지금 식을 가른다(위 Printf) — 옛 식은 실측 그대로, 지금 식은
+// 기준점을 뺀 값이다.
+func triggerCp(from int) int {
 	const threshold = 0.25
-	from := baseline
-	if shifted {
-		from = 0 // 착수 전 최선수가 기준점에 있는 국면 = 아직 아무것도 안 흘렸다
-	}
 	for d := 1; d <= 20000; d++ {
 		if intervene.WinRate(from)-intervene.WinRate(from-d) > threshold {
 			return d

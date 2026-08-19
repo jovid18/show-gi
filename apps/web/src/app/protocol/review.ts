@@ -21,13 +21,14 @@ export interface GameSummary {
   moveCount: number;
   interventionCount: number;
   /**
-   * 그 판의 手合割 이름(二枚落ち). **平手면 오지 않는다.**
+   * 그 판의 手合割 이름(二枚落ち). **平手면 오지 않는다.** 이름에 `Ja` 가 붙는 규약은
+   * `Snapshot.handicapJa` 에 있다.
    *
    * **없으면 平手다** — `isMatch` 와 같은 규약이고, 서버가 시작 국면에서 파생한다
    * (`handicap.NameOf`). 이 줄이 없으면 駒落ち 판의 형세 그래프가 +2000대에서 시작하는
    * 이유가 화면 어디에도 없어서, 되짚는 사람이 그것을 자기 실력으로 읽는다.
    */
-  handicap?: string;
+  handicapJa?: string;
   /**
    * 사람과 둔 판인가.
    *
@@ -130,9 +131,9 @@ export interface GameDetail extends GameSummary {
   /**
    * 이 판의 「형세 0」(플레이어 관점 cp). **平手면 오지 않는다.**
    *
-   * `evalCp` 와 같은 관점이라 그대로 빼면 된다. **형세 그래프가 이 값을 뺀다** — 축이
-   * 승률이라 빼지 않으면 駒落ち 판의 곡선이 천장에 붙고, 「호각」 선이 핸디캡을 다 잃은
-   * 자리에 그려진다(`EvalGraph`).
+   * `evalCp` 와 같은 관점이라 그대로 빼면 된다. **두 자리가 이 값을 뺀다** — 형세
+   * 그래프(`EvalGraph`)와 후보 줄의 색(`evalTone`)이다. 빼지 않으면 駒落ち 판의 곡선이
+   * 천장에 붙고 「호각」 선이 핸디캡을 다 잃은 자리에 그려지며, 후보 줄은 전부 최대 파랑이 된다.
    */
   baselineCp?: number;
   moves: ReviewMove[];

@@ -103,12 +103,17 @@ export function rankOf(r: { cp: number | undefined; mateIn: number | undefined }
  * **넣는 값은 플레이어 관점이어야 한다.** 파랑·빨강은 이 앱 어디서나 「나에게 좋은가」이고,
  * 「그 수를 둔 쪽에게 좋은가」를 그대로 칠하면 **상대의 결정타가 가장 파랗게** 나온다.
  * 목록의 숫자는 둔 쪽 관점이라(후보끼리 견주는 자이므로) 부르는 쪽이 뒤집어서 넘긴다.
+ *
+ * **`base` 는 그 판의 「형세 0」이다**(`Snapshot.baselineCp` · `GameDetail.baselineCp`).
+ * 駒落ち에서 안 빼면 六枚落ち(+2011)의 모든 후보가 ±800을 넘어 **한 줄도 빠짐없이 최대
+ * 파랑**이 되고, 방금 물러진 수까지 그렇게 칠한다 — 빨강은 아예 안 나온다. 색이 뜻을 잃는
+ * 자리라, 판정과 형세 그래프가 같은 값을 빼는 것과 같은 이유다(journal §84).
  */
 const TONE_FULL = 800;
 
-export function evalTone(cp: number | undefined): string {
+export function evalTone(cp: number | undefined, base = 0): string {
   if (cp === undefined) return 'transparent';
-  const t = Math.max(-1, Math.min(1, cp / TONE_FULL));
+  const t = Math.max(-1, Math.min(1, (cp - base) / TONE_FULL));
   const token = t >= 0 ? '--hint' : '--ray-check';
   return `rgb(var(${token}) / ${(Math.abs(t) * 0.5).toFixed(2)})`;
 }

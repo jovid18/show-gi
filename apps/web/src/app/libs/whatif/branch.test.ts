@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { branchMotion, branchStatusJa, playerCp, rankOf, rowScoreJa, scoreJa, stepMotion } from './branch';
+import { branchMotion, branchStatusJa, evalTone, playerCp, rankOf, rowScoreJa, scoreJa, stepMotion } from './branch';
 import type { WhatIfNode } from '@/protocol/whatif';
 import { fromUsi, toIndex } from '@/models/square';
 
@@ -172,5 +172,33 @@ describe('branchStatusJa', () => {
   // 이 화면의 내용이라, 그 자리에서 손을 놓게 만들면 절반이 사라진다.
   it('상대 차례면 상대의 수도 둬 보라고 말한다', () => {
     expect(branchStatusJa(node({ turn: 'w', yourTurn: false }), false)).toContain('相手の手も');
+  });
+});
+
+describe('evalTone', () => {
+  it('기준점이 0이면 절대 cp로 칠한다', () => {
+    expect(evalTone(undefined)).toBe('transparent');
+    // 호각은 색이 없고, ±800에서 양 끝(0.50)에 닿는다.
+    expect(evalTone(0)).toBe('rgb(var(--hint) / 0.00)');
+    expect(evalTone(800)).toBe('rgb(var(--hint) / 0.50)');
+    expect(evalTone(-800)).toBe('rgb(var(--ray-check) / 0.50)');
+    // 그 밖은 잘린다 — 넘겨서 더 진해지지 않는다.
+    expect(evalTone(4000)).toBe('rgb(var(--hint) / 0.50)');
+  });
+
+  // **駒落ち에서 색이 뜻을 잃던 자리다.** 六枚落ち(+2011)의 후보는 전부 +800을 넘으므로
+  // 기준점을 안 빼면 한 줄도 빠짐없이 최대 파랑이 된다(journal §84).
+  it('기준점을 빼서 「그 手合에서 좋은가」로 칠한다', () => {
+    const rokumai = 2011;
+    // 접어 준 만큼 그대로 들고 있으면 호각이다 — 파랑이 아니다.
+    expect(evalTone(rokumai, rokumai)).toBe('rgb(var(--hint) / 0.00)');
+    // 핸디캡의 절반을 흘렸으면 빨강 쪽 끝이다.
+    expect(evalTone(1100, rokumai)).toBe('rgb(var(--ray-check) / 0.50)');
+    // 접어 준 것보다 더 벌었으면 파랑이다.
+    expect(evalTone(rokumai + 800, rokumai)).toBe('rgb(var(--hint) / 0.50)');
+    // 기준점을 안 넣으면 셋이 전부 최대 파랑이었다.
+    for (const cp of [rokumai, 1100, rokumai + 800]) {
+      expect(evalTone(cp)).toBe('rgb(var(--hint) / 0.50)');
+    }
   });
 });

@@ -79,7 +79,7 @@ function GameCard({ game }: { game: GameSummary }) {
         <time className="review-card-date" dateTime={game.startedAt}>
           {dateJa(game.startedAt)}
         </time>
-        {game.handicap !== undefined && <span className="review-card-handicap">{game.handicap}</span>}
+        {game.handicapJa !== undefined && <span className="review-card-handicap">{game.handicapJa}</span>}
       </span>
       <span className="review-card-result" data-result={game.result}>
         {resultJa(game.result)}

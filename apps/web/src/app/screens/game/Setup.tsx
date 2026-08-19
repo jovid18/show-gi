@@ -63,9 +63,12 @@ export function Setup({ initial, onStart }: SetupProps) {
 
       <fieldset className="setup__group">
         <legend className="setup__legend">手合割</legend>
-        <div className="setup__choices setup__choices--wrap">
+        {/* **`--wrap` 이 아니라 `--handicap` 이다.** 저쪽은 첫 칸을 전폭으로 빼는 것이
+            전제라(index.css) 여기서 쓰면 여덟 중 하나가 마지막 줄에 혼자 남는다. */}
+        <div className="setup__choices setup__choices--handicap">
           {/* **「平手」가 기본이고 서버 목록에 없다.** 접지 않는 것은 물어볼 것이 아니라
-              기본값이라, 진형의 「おまかせ」와 같은 자리에서 화면이 직접 그린다. */}
+              기본값이라, 진형의 「おまかせ」와 같은 자리에서 화면이 직접 그린다 —
+              다만 카드는 나머지와 같은 폭이다(index.css 의 `--handicap`). */}
           <button
             type="button"
             className="setup__choice"

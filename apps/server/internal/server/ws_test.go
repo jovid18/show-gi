@@ -321,8 +321,8 @@ func TestWSKomaochiAgainstRealEngine(t *testing.T) {
 	if snap.YourColor != "b" || !snap.YourTurn {
 		t.Fatalf("사람이 下手로 먼저 둬야 한다: yourColor=%q yourTurn=%v", snap.YourColor, snap.YourTurn)
 	}
-	if snap.Handicap != nimai.Name {
-		t.Errorf("手合割 = %q, want %q", snap.Handicap, nimai.Name)
+	if snap.HandicapJa != nimai.Name {
+		t.Errorf("手合割 = %q, want %q", snap.HandicapJa, nimai.Name)
 	}
 
 	// 上手가 없는 駒를 움직이려 들지 않는지 — 엔진이 실제로 응수를 내는 것으로 확인된다.

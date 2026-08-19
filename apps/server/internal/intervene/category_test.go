@@ -185,3 +185,36 @@ func TestUnpromotedBeatsEveryOtherReason(t *testing.T) {
 		t.Fatalf("%s — 끄면 옛 분류(greedy_capture)로 돌아가야 한다", got)
 	}
 }
+
+// TestShallowTrapReadsTheBaseline 은 **駒落ち에서도 그 카테고리가 나오는지**를 본다.
+//
+// 이 규칙만 절대 부호를 읽는다(`ShallowCp > Baseline` · `AfterCp < Baseline`). 기준점을
+// 안 보면 二枚落ち에서 앞 조건이 언제나 참이고 뒤 조건이 거의 언제나 거짓이라, 판정은
+// 걸리는데 이름이 `other` 로 떨어진다 — 개입은 살아 있고 **설명만 조용히 나빠지는** 모양이라
+// 눈으로는 안 잡힌다(journal §84).
+func TestShallowTrapReadsTheBaseline(t *testing.T) {
+	const nimai = 1490 // internal/handicap 의 실측값
+
+	// 얕게는 기준점보다 좋아 보이고(+400) 깊게는 나쁘다(-900). 낙폭이 입문 임계치를
+	// 넘어야 카테고리가 붙으므로(Judge) -900이다 — -400은 통과해서 이름이 아예 안 생긴다.
+	flat := Input{
+		BestCp: 0, AfterCp: -900, Level: Beginner,
+		Features: Features{Known: true, HasShallow: true, ShallowCp: 400},
+	}
+	if got := Judge(flat).Category; got != CategoryShallowTrap {
+		t.Fatalf("전제가 깨졌다 — 平手에서 %q 다", got)
+	}
+
+	// 같은 국면을 二枚落ち로 옮긴다. 기준점을 안 보면 여기서 이름이 갈린다.
+	komaochi := Input{
+		BestCp: nimai, AfterCp: nimai - 900, BaselineCp: nimai, Level: Beginner,
+		Features: Features{Known: true, HasShallow: true, ShallowCp: nimai + 400},
+	}
+	v := Judge(komaochi)
+	if v.Kind != KindBlunder {
+		t.Fatalf("판정이 안 걸렸다: Δ=%.3f", v.DeltaWin)
+	}
+	if v.Category != CategoryShallowTrap {
+		t.Errorf("二枚落ち에서 카테고리 = %q, want %q", v.Category, CategoryShallowTrap)
+	}
+}

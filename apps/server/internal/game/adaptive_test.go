@@ -337,7 +337,7 @@ func TestStrengthStepTracksTheShift(t *testing.T) {
 
 // TestBandFollowsTheHandicapOrigin 은 **핸디캡을 흘린 사람에게 상대가 되돌려 주는지**를 본다.
 //
-// 二枚落ち(+2288)에서 사람이 +500까지 흘린 자리다. 기준점을 안 옮기면 이 국면이 「구간 위」로
+// 二枚落ち(+1490)에서 사람이 +500까지 흘린 자리다. 기준점을 안 옮기면 이 국면이 「구간 위」로
 // 읽혀서(500 > 300) 상대가 「지금 형세에서 100~300 더」만 겨냥하고, 그 좌표에서는 상대의
 // 최선수가 그대로 뽑힌다 — 조절이 가장 필요한 자리에서 꺼지는 것이다(Choose).
 func TestBandFollowsTheHandicapOrigin(t *testing.T) {

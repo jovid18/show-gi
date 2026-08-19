@@ -157,7 +157,7 @@ func TestBeingMatedIsCaughtByWinRate(t *testing.T) {
 
 // TestBaselineRestoresTheJudgementInKomaochi 는 **駒落ち에서 판정이 살아 있는지**를 본다.
 //
-// 기준점이 없으면 二枚落ち(+2288)에서 銀 헌납(약 1000cp)이 안 걸린다 — 승률이 이미
+// 기준점이 없으면 二枚落ち(+1490)에서 銀 헌납(약 1000cp)이 안 걸린다 — 승률이 이미
 // 포화해서다. 위 `TestWinRateSaturatesWhenWinning` 이 종반에서 재는 것과 같은 현상이고,
 // 駒落ち는 **판 전체가** 그 구간이라 詰み 거리로도 못 막는다(journal §84).
 func TestBaselineRestoresTheJudgementInKomaochi(t *testing.T) {

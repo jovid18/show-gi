@@ -8,7 +8,9 @@
 // 승률 낙폭은 우세 구간에서 압축되므로(01-core.md §2) 二枚落ち에서는 낙폭 0.25를 넘기는 데
 // **1058cp**가 필요하다(平手는 635cp). 銀을 공짜로 주는 것이 약 1000cp이므로(01-core.md §2)
 // 그것도 안 걸린다는 뜻이다. 기준점이 곧 그 국면의 「아직 아무것도 안 흘렸다」이고,
-// 빼고 나면 어느 手合에서도 660cp 언저리로 돌아온다 — 실측과 그 결과는 journal §84.
+// 빼고 나면 駒落ち도 660cp 언저리에서 걸린다 — 실측과 그 결과는 journal §84.
+//
+// **平手는 이 표에 없으므로 판정이 한 비트도 안 바뀐다.** 기준점이 0이라 빼는 것이 없다.
 //
 // **平手는 이 표에 없다.** 빈 `startSFEN` 이 平手라는 규약이 이미 있고(game.Config.StartSFEN),
 // 화면의 「平手」도 서버 목록이 아니라 클라이언트의 기본값이다 — `book` 의 「おまかせ」와
@@ -139,7 +141,7 @@ func Of(startSFEN string) (Handicap, bool) {
 }
 
 // NameOf 는 화면에 나갈 이름이다. 平手나 모르는 국면은 빈 문자열이다 —
-// 스냅샷이 그때 그 칸을 아예 안 보낸다(game.Snapshot.Handicap).
+// 스냅샷이 그때 그 칸을 아예 안 보낸다(game.Snapshot.HandicapJa).
 func NameOf(startSFEN string) string {
 	h, ok := Of(startSFEN)
 	if !ok {

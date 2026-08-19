@@ -1504,9 +1504,11 @@ func (st *state) snapshot() Snapshot {
 		Notice:          st.notice,
 		StyleTags:       st.styleTags(),
 		OpponentOpening: st.cfg.OpponentOpening,
-		Handicap:        handicap.NameOf(st.cfg.StartSFEN),
-		UndoLeft:        max(UndoMaxPerGame-st.undos, 0),
-		HintLeft:        max(HintMaxPerGame-st.hints, 0),
+		HandicapJa:      handicap.NameOf(st.cfg.StartSFEN),
+		// **사람 관점이다** — 화면이 후보를 그 관점으로 칠한다(Snapshot.BaselineCp).
+		BaselineCp: handicap.BaselineCpFor(st.cfg.StartSFEN, st.cfg.HumanColor),
+		UndoLeft:   max(UndoMaxPerGame-st.undos, 0),
+		HintLeft:   max(HintMaxPerGame-st.hints, 0),
 		// **화면이 조건을 다시 짓지 않게 여기서 답한다.** `yourTurn && undoLeft > 0` 으로
 		// 흉내내면 「사람이 아직 한 수도 안 뒀다」가 빠지고, 그 자리에서 누른 버튼이
 		// 거절로 돌아온다 — 조건이 두 벌이 되는 순간 둘 중 하나가 낡는다.

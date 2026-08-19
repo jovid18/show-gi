@@ -159,7 +159,7 @@ func TestOfIgnoresMoveNumber(t *testing.T) {
 }
 
 // TestHirateIsNotInTheTable 는 平手가 「手合割 없음」으로 답하는지 본다. 표에 넣는 날
-// 기준점이 0에서 163으로 옮겨 가고, 그러면 지금까지의 상수 측정이 다른 기준의 것이 된다
+// 기준점이 0에서 91(실측)로 옮겨 가고, 그러면 지금까지의 상수 측정이 다른 기준의 것이 된다
 // (패키지 주석).
 func TestHirateIsNotInTheTable(t *testing.T) {
 	for _, sfen := range []string{"", shogi.StartSFEN} {
