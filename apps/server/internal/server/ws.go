@@ -24,8 +24,8 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 대국은 WebSocket이다. 상대의 수도 개입도 **서버가 먼저 말을 걸므로** 요청/응답이 아니다.
-// **세션은 연결에 매여 있다** — 끊기면 대국도 끝난다(README).
+// 대국은 WebSocket 이다. 상대의 수도 개입도 서버가 먼저 말을 거는 것이라 요청/응답이
+// 아니다. 세션은 연결에 매여 있다 — 끊기면 대국도 끝난다(README).
 
 const (
 	// writeTimeout 은 프레임 하나를 밀어 넣는 데 주는 시간이다.
@@ -42,8 +42,7 @@ type clientMsg struct {
 	USI  string `json:"usi,omitempty"`
 
 	// Ply·Moves 는 "whatif" 에서만 쓴다 — 「확정된 몇 手目에서 이 수순을 뒀다면」이다.
-	//
-	// **판(SFEN)을 받지 않는다.** 뿌리는 서버가 자기 기록에서 다시 둬서 만든다(whatif.go).
+	// 판(SFEN)은 안 받는다. 뿌리는 서버가 자기 기록에서 다시 둬서 만든다(whatif.go).
 	Ply   int      `json:"ply,omitempty"`
 	Moves []string `json:"moves,omitempty"`
 }
@@ -55,13 +54,13 @@ type serverMsg struct {
 	Reason   string         `json:"reason,omitempty"`  // 기계용 코드(영어)
 	Message  string         `json:"message,omitempty"` // 화면용 문구(일본어)
 
-	// WhatIf 는 가정 수순의 지금 자리다. **스냅샷과 갈라 둔다** — 이건 대국의 상태가
-	// 아니라 「안 벌어진 일」이고, 하나로 합치면 화면이 두 판을 같은 것으로 그린다.
+	// WhatIf 는 가정 수순의 지금 자리다. 스냅샷과 갈라 둔다 — 이건 대국의 상태가 아니라
+	// 「안 벌어진 일」이고, 하나로 합치면 화면이 두 판을 같은 것으로 그린다.
 	WhatIf *whatifNode `json:"whatif,omitempty"`
 
-	// Summary 는 대국이 끝난 뒤 **한 번** 오는 총평이다. 스냅샷과 갈라 둔 이유가 저것과
-	// 같다 — 이건 국면의 상태가 아니라 판 전체에 대한 이야기이고, LLM을 기다리므로 결과
-	// 문구보다 몇 초 늦게 도착한다.
+	// Summary 는 대국이 끝난 뒤 한 번 오는 총평이다. 갈라 둔 이유는 WhatIf 와 같다 —
+	// 국면의 상태가 아니라 판 전체에 대한 이야기이고, 기록이 다 쓰이기를 기다리므로
+	// 결과 문구보다 늦게 도착한다(sendSummary).
 	Summary *gameSummaryPayload `json:"summary,omitempty"`
 }
 
@@ -74,8 +73,8 @@ var rejectMessages = map[string]string{
 	"finished":      "対局はすでに終わっています。",
 	"bad_move":      "指し手の形式が正しくありません。",
 	"internal":      "サーバーで問題が発生しました。",
-	// 무르기의 거절 둘. **화면이 버튼을 안 그리면 여기 오지 않는다**(Snapshot.CanUndo) —
-	// 남는 것은 연타와 API 직접 호출이라, 문구는 「왜 안 되나」만 말하면 된다.
+	// 무르기의 거절 둘. 화면이 버튼을 안 그리면 여기 오지 않으므로(Snapshot.CanUndo)
+	// 남는 것은 연타와 API 직접 호출이다 — 문구는 「왜 안 되나」만 말하면 된다.
 	"no_undo_left":    "待ったはこれ以上できません。",
 	"nothing_to_undo": "戻せる手がまだありません。",
 	// 힌트의 거절 셋. 무르기와 같은 규약이다 — 화면이 버튼을 안 그리면 여기 안 온다.
@@ -116,24 +115,22 @@ func reject(reason string) serverMsg {
 // gameHandler 는 연결 하나당 대국 하나를 연다.
 type gameHandler struct {
 	opts Options
-	// auth 는 이 판이 누구의 것으로 남는지만 정한다. **대국을 막지 않는다** —
-	// 로그인 없이 두는 판은 지금까지처럼 익명으로 남는다(journal §18).
+	// auth 는 이 판이 누구의 것으로 남는지만 정한다. 대국을 막지 않는다 — 로그인 없이
+	// 두는 판은 익명으로 남는다(journal §18).
 	auth *authHandler
 }
 
 // gameSetup 은 이 연결 하나의 대국 설정이다. 시작 화면이 URL 쿼리로 고른 값이고, 비면
 // Options 의 기본값이 그대로 산다.
 //
-// **`start` 메시지로 받지 않는다.** 그러면 세션이 첫 명령까지 기다려야 하고, 「연결 하나 =
-// 대국 하나」(gameHandler)와 세션 수명이 그 자리에서 갈린다 — 쿼리는 업그레이드 전에
-// 읽히므로 그 규약을 안 건드린다.
+// start 메시지로 받지 않는다. 그러면 세션이 첫 명령까지 기다려야 하고 「연결 하나 =
+// 대국 하나」(gameHandler)가 깨진다 — 쿼리는 업그레이드 전에 읽히므로 그 규약을 안 건드린다.
 type gameSetup struct {
 	human   shogi.Color
 	opening book.Opening
 	hasBook bool
 	// startSFEN 은 이 판의 0手目다. 이어하는 판은 그 행에 적힌 것이고, 새 판은 Options 의 것이다.
-	//
-	// **가정 수순의 뿌리도 이 값이어야 한다**(whatifRoot). Options 의 것을 그대로 쓰면
+	// 가정 수순의 뿌리도 이 값이어야 한다(whatifRoot) — Options 의 것을 그대로 쓰면
 	// 이어하는 판에서 뿌리와 수순이 서로 다른 국면의 것이 된다.
 	startSFEN string
 	// resumeID 가 0이 아니면 이어하는 판이다. 기록 쪽이 새 행을 안 만든다(recordTarget).
@@ -142,10 +139,10 @@ type gameSetup struct {
 	startMoves []string
 }
 
-// newSetup 은 쿼리에서 새 판의 설정을 읽는다. **못 읽는 값은 조용히 기본값이다** — 목록을
-// 서버가 주므로(GET /api/openings) 여기 이상한 값이 오는 것은 클라이언트가 틀린 경우이고,
+// newSetup 은 쿼리에서 새 판의 설정을 읽는다. 못 읽는 값은 조용히 기본값이다 — 목록을
+// 서버가 주므로(GET /api/openings) 이상한 값이 오는 것은 클라이언트가 틀린 경우이고,
 // 그때 대국을 거절하는 것보다 평수로 시작하는 것이 낫다. 고른 것이 실제로 걸렸는지는
-// 스냅샷의 `opponentOpening` · `handicap` 으로 화면에서 보인다.
+// 스냅샷의 opponentOpening · handicap 으로 화면에서 보인다.
 func newSetup(r *http.Request, opts Options) gameSetup {
 	s := gameSetup{human: opts.HumanColor, startSFEN: opts.StartSFEN}
 	switch r.URL.Query().Get("color") {
@@ -157,39 +154,39 @@ func newSetup(r *http.Request, opts Options) gameSetup {
 	if o, ok := book.Find(r.URL.Query().Get("opening")); ok {
 		s.opening, s.hasBook = o, true
 	}
-	// **手合割은 맨 뒤에서 위의 둘을 덮는다.** 고른 手合이 시작 국면과 手番을 같이 정하므로,
-	// 순서를 앞으로 옮기면 `color` 가 그것을 다시 뒤집는다.
+	// 手合割은 맨 뒤에서 위의 둘을 덮는다. 고른 手合이 시작 국면과 手番을 같이 정하므로,
+	// 순서를 앞으로 옮기면 color 가 그것을 다시 뒤집는다.
 	if h, ok := handicap.Find(r.URL.Query().Get("handicap")); ok {
 		s.startSFEN = h.SFEN
-		// **駒落ち는 사람이 언제나 下手다.** 그 SFEN이 上手의 駒를 뺀 것이라
+		// 駒落ち는 사람이 언제나 下手다. 그 SFEN 이 上手의 駒를 뺀 것이라
 		// (handicap.Handicap.SFEN) 사람이 上手를 잡으면 접어 준 쪽이 사람이 된다.
 		// 밴드와 판정도 이 규약 위에 서 있다(game.adaptiveOpponent.Choose).
 		//
-		// **첫 수는 엔진이 둔다** — 그 SFEN의 手番이 上手이고(journal §88), 세션은 「엔진이
-		// 선수면 시작하자마자 생각한다」를 이미 그 값으로만 판단한다(game.Session.run).
+		// 첫 수는 엔진이 둔다 — 그 SFEN 의 手番이 上手이고(journal §88), 세션은 手番만
+		// 보고 시작하자마자 생각한다(game.Session.run).
 		s.human = shogi.Black
-		// **진형은 같이 못 쓴다.** 북은 平手 수순이라 없는 駒를 움직이려 들고, 그러면
-		// 첫 수에서 손을 놓는다(game.bookOpponent.next 의 ValidateMove). 깨지지는 않지만
-		// 화면이 「고른 진형으로 둔다」고 말한 것이 그 판에서만 거짓이 된다.
+		// 진형은 같이 못 쓴다. 북은 平手 수순이라 없는 駒를 움직이려 들고, 그러면 첫 수에서
+		// 손을 놓는다(game.bookOpponent.next 의 ValidateMove). 깨지지는 않지만 화면이
+		// 「고른 진형으로 둔다」고 말한 것이 그 판에서만 거짓이 된다.
 		s.opening, s.hasBook = book.Opening{}, false
 	}
 	return s
 }
 
-// errNoResume 는 이어할 수 없다는 것 하나다. **왜인지는 안 갈라 준다** — 없는 판·남의
-// 판·이미 다른 탭이 점유한 판이 같은 답을 받아야 남의 판 번호를 훑어볼 수 없다(§46).
+// errNoResume 는 이어할 수 없다는 것 하나다. 왜인지는 안 갈라 준다 — 없는 판·남의 판·
+// 이미 다른 탭이 점유한 판이 같은 답을 받아야 남의 판 번호를 훑어볼 수 없다(§46).
 var errNoResume = errors.New("ws: cannot resume")
 
-// resumeSetup 은 이어할 판을 **점유하고** 그 설정을 읽는다.
+// resumeSetup 은 이어할 판을 점유하고 그 설정을 읽는다.
 //
-// **업그레이드 전에 부른다.** 여기서 거절하면 아직 평범한 HTTP 요청이라 404로 끝나는데,
+// 업그레이드 전에 부른다. 여기서 거절하면 아직 평범한 HTTP 요청이라 404로 끝나는데,
 // 업그레이드 뒤에는 그 답을 프레임으로 말해야 하고 화면이 그것을 「대국 중 오류」와
 // 구별해야 한다.
 //
-// 점유가 곧 되열기라(store.ClaimGameForResume) 이 함수가 성공한 뒤로는 그 행이 「두는 중」
+// 점유가 곧 되열기라(store.ClaimGameForResume) 이 함수가 성공한 뒤로 그 행은 「두는 중」
 // 이다. 되돌리는 것은 기록 쪽 하나뿐이다 — ctx 가 끝나면 다시 abandoned 로 닫는다.
 func (h *gameHandler) resumeSetup(ctx context.Context, raw string, userID *int64) (gameSetup, error) {
-	// **로그인한 사람만이다.** 익명 판은 서로 구별할 수단이 없어서(002_anonymous_games.sql)
+	// 로그인한 사람만이다. 익명 판은 서로 구별할 수단이 없어(002_anonymous_games.sql)
 	// 「누구의 중단된 판인가」에 답할 수가 없다.
 	if userID == nil || h.opts.Store == nil {
 		return gameSetup{}, errNoResume
@@ -226,7 +223,7 @@ func (h *gameHandler) resumeSetup(ctx context.Context, raw string, userID *int64
 		setup.startMoves, err = resumeMoves(rec)
 	}
 	if err != nil {
-		// **점유를 되돌린다.** 여기서 그냥 나가면 그 판은 result 가 NULL인 채로 남아
+		// 점유를 되돌린다. 여기서 그냥 나가면 그 판은 result 가 NULL 인 채로 남아
 		// 되짚기에도 이어하기에도 안 걸린다 — 기록 쪽의 ctx 취소 경로는 세션이 서야
 		// 도는 것이고, 이 자리는 아직 그 앞이다.
 		log.Printf("ws: resume game %d: %v", claimed.ID, err)
@@ -240,7 +237,7 @@ func (h *gameHandler) resumeSetup(ctx context.Context, raw string, userID *int64
 
 // releaseResume 는 점유를 되돌린다. 이어하는 판이 아니면 아무 일도 안 한다.
 //
-// **기록 쪽이 서기 전에만 부른다.** 그 뒤로는 세션 ctx 가 끝날 때 recorder 가 같은 일을
+// 기록 쪽이 서기 전에만 부른다. 그 뒤로는 세션 ctx 가 끝날 때 recorder 가 같은 일을
 // 하고(recorder.go 의 ctx 취소 경로), 둘 다 부르면 abandoned 를 두 번 쓴다.
 func (h *gameHandler) releaseResume(ctx context.Context, setup gameSetup) {
 	if setup.resumeID == 0 || h.opts.Store == nil {
@@ -253,8 +250,8 @@ func (h *gameHandler) releaseResume(ctx context.Context, setup gameSetup) {
 
 // resumeMoves 는 기록의 기보를 수순 하나로 편다.
 //
-// **手数에 구멍이 있으면 거절한다.** 기록은 큐가 넘치면 이벤트를 버리므로(recorder.go)
-// 한 수가 빠질 수 있는데, 그걸 무시하고 이어 두면 그 뒤가 통째로 밀린 **없던 판**이 된다 —
+// 手数에 구멍이 있으면 거절한다. 기록은 큐가 넘치면 이벤트를 버리므로(recorder.go)
+// 한 수가 빠질 수 있고, 그것을 무시하고 이어 두면 그 뒤가 통째로 밀린 없던 판이 된다 —
 // 되짚기가 같은 자리에서 재현을 멈추는 것과 같은 판단이다(review.go 의 detailOf).
 func resumeMoves(rec store.GameRecord) ([]string, error) {
 	out := make([]string, 0, len(rec.Moves))
@@ -267,18 +264,17 @@ func resumeMoves(rec store.GameRecord) ([]string, error) {
 	return out, nil
 }
 
-// confirmed 는 **세션이 방금 보낸** 확정 수들이다. 세션에 물어보는 길을 새로 파지 않는
-// 이유는 그쪽이 곧 **핸들러가 상태를 직접 읽는 지름길**이 되기 때문이다 — 어차피 구독해서
-// 받는 스냅샷을 한 벌 들고 있는 것이다(journal §37).
+// confirmed 는 세션이 방금 보낸 확정 수들이다. 세션에 물어보는 길을 새로 파면 그것이
+// 곧 핸들러가 상태를 직접 읽는 지름길이 된다 — 어차피 구독해서 받는 스냅샷을 한 벌
+// 들고 있는 것이다(journal §37).
 type confirmed struct {
 	mu    sync.Mutex
 	moves []string
-	// retracted 는 **지금 되물러져 있는 수**의 USI다. 개입이 없으면 빈 값.
+	// retracted 는 지금 되물러져 있는 수의 USI 다. 개입이 없으면 빈 값.
 	//
-	// **가정 수순이 설 수 있는 자리를 이 값이 정한다.** 대국 중에 물어볼 수 있는 것은
+	// 가정 수순이 설 수 있는 자리를 이 값이 정한다. 대국 중에 물어볼 수 있는 것은
 	// 「물러진 그 수를 그대로 뒀다면」뿐이라, 비어 있는 동안은 물어볼 것이 없다 — 열어
-	// 두면 그 표면이 **살아 있는 국면의 최선수**를 답해 주고, 그건 안 알려주기로 한
-	// 것이다(01-core.md §7).
+	// 두면 그 표면이 살아 있는 국면의 최선수를 답해 준다(01-core.md §7).
 	retracted string
 }
 
@@ -302,8 +298,8 @@ func (c *confirmed) get() []string {
 	return slices.Clone(c.moves)
 }
 
-// branchRoot 는 지금 분기가 설 수 있는 자리다 — 확정된 手数와, 그 위에 **반드시 먼저 와야
-// 하는 한 수**. 두 번째 값이 false 면 지금은 분기를 열 수 없다.
+// branchRoot 는 지금 분기가 설 수 있는 자리다 — 확정된 手数와, 그 위에 반드시 먼저
+// 와야 하는 한 수. 두 번째 값이 false 면 지금은 분기를 열 수 없다.
 func (c *confirmed) branchRoot() (ply int, retracted string, ok bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -311,7 +307,7 @@ func (c *confirmed) branchRoot() (ply int, retracted string, ok bool) {
 }
 
 func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// **업그레이드 전에 쿠키를 읽는다.** 업그레이드가 끝나면 이 요청은 하이재킹되어
+	// 업그레이드 전에 쿠키를 읽는다. 업그레이드가 끝나면 이 요청은 하이재킹되어
 	// 헤더를 다시 볼 길이 없다.
 	var userID *int64
 	if s, ok := h.auth.viewer(r); ok {
@@ -336,7 +332,7 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Origin 기본 검사를 그대로 쓴다. 개발에서는 Vite가 /ws/game 을 프록시하므로 같은 오리진이다.
 	conn, err := websocket.Accept(w, r, nil)
 	if err != nil {
-		// **점유를 되돌린다.** 세션이 안 서면 기록 쪽도 안 돌아 그 판이 되열린 채 남는다.
+		// 점유를 되돌린다. 세션이 안 서면 기록 쪽도 안 돌아 그 판이 되열린 채 남는다.
 		h.releaseResume(r.Context(), setup)
 		return // Accept 가 이미 응답을 썼다
 	}
@@ -345,7 +341,7 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
-	// 진형은 **감싸는 것으로만** 붙는다. 안쪽 상대의 후보 생성도 두 안전 필터도 밴드 제어도
+	// 진형은 감싸는 것으로만 붙는다. 안쪽 상대의 후보 생성도 두 안전 필터도 밴드 제어도
 	// 그대로 돌고, 북이 끝나면 그 상대가 이어받는다(game.NewBookOpponent).
 	opponent := h.opts.NewOpponent()
 	var openingName string
@@ -362,18 +358,14 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		StartMoves:      setup.startMoves,
 		ObservePlies:    h.opts.ObservePlies,
 		Mate:            h.opts.Mate,
-		// **手筋 제안형 힌트는 꺼 뒀다**(nil). 세 판 내내 화면에 0건이었고, 그것이 k도
-		// 지연도 아니라 게이트의 폭 때문이라는 것이 실측으로 나왔다 — 사람이 둔 두 기보에서
-		// 후보 64개·122개 중 `TesujiLossCp` 안에 든 것이 각각 0개·2개다(journal §76).
+		// 手筋 제안형 힌트는 꺼 뒀다(nil). 화면에 0건이었고, 원인이 k도 지연도 아니라
+		// 게이트의 폭이라는 것이 실측으로 나왔다(journal §76). 끄면 사람 차례마다 도는
+		// 룰 필터가 통째로 사라진다(§56) — 그 자리는 사람이 부르는 힌트가 맡는다(§78).
 		//
-		// **끄면 사람 차례마다 도는 룰 필터가 통째로 사라진다**(종반 한 번에 2.46초, §56).
-		// 아무것도 안 뜨는 채로 그 비용을 계속 쓰고 있었다. 대신 사람이 부르는 힌트가
-		// 그 자리를 맡는다(§78).
-		//
-		// 켜려면 `h.opts.Search` 를 그대로 주면 된다 — 코드도 측정도 그대로 있고,
-		// 다시 여는 조건은 `TesujiLossCp` 하나다. 囲い·전법 힌트는 이것과 무관하게 뜬다.
+		// 켜려면 h.opts.Search 를 그대로 주면 된다. 다시 여는 조건은 TesujiLossCp 하나이고,
+		// 囲い·전법 힌트는 이것과 무관하게 뜬다.
 		TesujiHint: nil,
-		// **부르는 힌트는 상대와 같은 풀이다.** 묻는 국면이 같아서다 — 다만 관점이 반대라
+		// 부르는 힌트는 상대와 같은 풀이다. 묻는 국면이 같아서인데, 관점이 반대라
 		// (상대가 둘 수 vs 사람이 둘 최선수) 결과를 돌려쓰지는 못한다(Config.HintSearch).
 		HintSearch: h.opts.Search,
 	}
@@ -382,27 +374,25 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var skills *skillRun
 	if h.opts.NewAnalyst != nil {
 		cfg.Analyst = h.opts.NewAnalyst()
-		// **판정이 있을 때만 실력 추정이 있다.** 추정기의 입력이 판정 결과뿐이라
-		// (skill.Move) 판정이 없으면 영원히 아무것도 안 보는 goroutine이 된다.
+		// 판정이 있을 때만 실력 추정이 있다. 추정기의 입력이 판정 결과뿐이라(skill.Move)
+		// 판정이 없으면 영원히 아무것도 안 보는 goroutine 이 된다.
 		//
-		// 로그인한 사람은 **지난 판의 값에서 이어 시작하고 매 판정마다 저장된다**(skill.go).
-		// 익명 대국은 그대로 판마다 초기화된다 — 쌓을 자리가 없다(002_anonymous_games.sql).
+		// 로그인한 사람은 지난 판의 값에서 이어 시작하고 매 판정마다 저장된다(skill.go).
+		// 익명 대국은 판마다 초기화된다 — 쌓을 자리가 없다(002_anonymous_games.sql).
 		skills = newSkillRun(h.priorSkill(ctx, userID))
 		cfg.Rater = skill.NewWorkerFrom(ctx, skills.before, skills.observing(h.saveSkill(ctx, userID)))
 	}
-	// **이어하는 판은 무르기 예산을 이어받는다.** 안 읽으면 새로고침 한 번에 3회가
-	// 다시 차서 제한이 제한이 아니게 된다(game.Config.UndoUsed).
-	//
-	// 못 읽어도 판은 그대로 연다 — 최악이 「무르기를 몇 번 더 준다」이고, 그것 때문에
-	// 이어하기를 막는 쪽이 비싸다.
+	// 이어하는 판은 무르기 예산을 이어받는다. 안 읽으면 새로고침 한 번에 3회가 다시 찬다
+	// (game.Config.UndoUsed). 못 읽어도 판은 그대로 연다 — 최악이 「무르기를 몇 번 더
+	// 준다」이고, 그것 때문에 이어하기를 막는 쪽이 비싸다.
 	if h.opts.Store != nil && setup.resumeID != 0 {
 		if n, err := h.opts.Store.CountUndos(ctx, setup.resumeID); err != nil {
 			log.Printf("ws: cannot read undo count of game %d: %v", setup.resumeID, err)
 		} else {
 			cfg.UndoUsed = n
 		}
-		// **힌트도 같은 자리, 같은 이유다.** 예산만이 아니라 「이 국면은 어디까지 봤나」도
-		// 이어받아야 한다 — 안 그러면 이어한 판에서 같은 자리의 답을 다시 볼 수 있다.
+		// 힌트도 같은 자리, 같은 이유다. 예산만이 아니라 「이 국면은 어디까지 봤나」도
+		// 이어받아야 이어한 판에서 같은 자리의 답을 다시 보지 않는다.
 		if use, err := h.opts.Store.HintsUsed(ctx, setup.resumeID); err != nil {
 			log.Printf("ws: cannot read hint count of game %d: %v", setup.resumeID, err)
 		} else {
@@ -453,8 +443,8 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				played.set(snap)
 				emit(ctx, out, serverMsg{Type: "snapshot", Snapshot: &snap})
 
-				// **스냅샷을 먼저 보내고 그 뒤에 총평을 만든다.** 결과 문구는 그 자리에서
-				// 떠야 하고, 총평은 LLM을 기다리므로 몇 초 뒤에 도착한다.
+				// 스냅샷을 먼저 보내고 그 뒤에 총평을 만든다. 결과 문구는 그 자리에서
+				// 떠야 하고, 총평은 기록이 다 쓰이기를 기다린다(sendSummary).
 				//
 				// 한 번만 만든다 — 끝난 뒤에도 스냅샷이 또 올 수 있다(投了 확인 등).
 				if !summarized && snap.Status != game.StatusPlaying {
@@ -462,12 +452,11 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					go h.sendSummary(ctx, out, recorder, skills)
 				}
 			case <-ctx.Done():
-				// **끝난 스냅샷이 이미 와 있는지 한 번 더 본다.**
+				// 끝난 스냅샷이 이미 와 있는지 한 번 더 본다.
 				//
-				// 사람이 投了하고 그 순간 탭을 닫으면 두 case 가 동시에 준비되고, Go는
-				// 둘 중 하나를 **무작위로** 고른다. 여기가 이기면 총평도 퀴즈도 안 만들어지는데,
-				// 총평은 되짚기가 다시 청할 수 있어도(review.go summary) **퀴즈에는 그런
-				// 자리가 없다** — 그 판은 영영 문항을 못 갖는다.
+				// 사람이 投了하고 그 순간 탭을 닫으면 두 case 가 동시에 준비되고, Go 는
+				// 둘 중 하나를 무작위로 고른다. 여기가 이기면 총평도 퀴즈도 안 만들어지는데,
+				// 총평은 되짚기가 다시 청할 수 있어도 퀴즈에는 그런 자리가 없다(review.go).
 				if !summarized {
 					select {
 					case snap, ok := <-snaps:
@@ -487,28 +476,27 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // summaryWait 는 기록이 다 쓰이기를 기다리는 시간이다. 큐를 비우는 일이라 밀리초 단위이고,
-// 넘으면 총평을 포기한다 — 반쪽 기록으로 만든 총평은 **틀린 총평**이고, 화면은 그것이
-// 없어도 결과와 기보를 이미 말한다.
+// 넘으면 총평을 포기한다 — 반쪽 기록으로 만든 총평은 틀린 총평이고, 화면은 그것이 없어도
+// 결과와 기보를 이미 말한다.
 const summaryWait = 5 * time.Second
 
 // sendSummary 는 대국이 끝난 뒤 총평 하나를 보낸다.
 //
-// **기록이 다 쓰이기를 기다린다**(dbRecorder.done). 기록은 비동기라 끝난 스냅샷을 보고
-// 곧바로 DB를 읽으면 마지막 수와 그 수의 개입이 없는데, 하필 그 수가 총평이 가장 말하고
-// 싶은 것이다.
+// 기록이 다 쓰이기를 기다린다(dbRecorder.done). 기록은 비동기라 끝난 스냅샷을 보고
+// 곧바로 DB를 읽으면 마지막 수와 그 수의 개입이 없는데, 하필 그 수가 총평이 가장
+// 말하고 싶은 것이다.
 //
-// **세션을 안 건드린다.** 읽는 것은 DB뿐이고, 그래서 이 함수는 review.go 와 같은 성질이다 —
-// 이미 끝난 판을 읽는 일이다.
+// 세션을 안 건드린다. 읽는 것은 DB뿐이라 review.go 와 같은 성질이다 — 이미 끝난 판을
+// 읽는 일이다.
 func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recorder *dbRecorder, skills *skillRun) {
 	if recorder == nil || h.opts.Store == nil {
 		return // 기록이 없으면 셀 것이 없다. 총평도 없다
 	}
 
-	// **여기까지는 연결이 끊겨도 간다.** 뒤에 퀴즈 생성이 걸려 있고 그쪽은 여기서 못 띄우면
-	// **아무 데서도 못 띄운다** — 총평은 되짚기가 다시 청하지만(review.go summary) 퀴즈에는
-	// 그런 자리가 없다. 판이 끝나자마자 탭을 닫는 것이 드문 일도 아니다.
-	//
-	// 기다리는 것은 큐를 비우는 일이고 읽는 것은 질의 하나라, 끊긴 연결에 매달리는 값이 싸다.
+	// 여기까지는 연결이 끊겨도 간다. 뒤에 퀴즈 생성이 걸려 있고 그쪽은 여기서 못 띄우면
+	// 아무 데서도 못 띄운다 — 총평은 되짚기가 다시 청하지만(review.go summary) 퀴즈에는
+	// 그런 자리가 없다. 기다리는 것은 큐를 비우는 일이고 읽는 것은 질의 하나라, 끊긴
+	// 연결에 매달리는 값이 싸다.
 	base := context.WithoutCancel(ctx)
 
 	var gameID int64
@@ -518,14 +506,14 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 		log.Printf("ws: summary: the record did not finish within %s", summaryWait)
 		return
 	}
-	// **0은 「행이 없다」다**(dbRecorder 의 evFinished). 그대로 읽으러 가면 없는 번호로
+	// 0은 「행이 없다」다(dbRecorder 의 evFinished). 그대로 읽으러 가면 없는 번호로
 	// 질의하고 그 실패를 로그에 남긴다 — 셀 것이 없는 것이지 고장이 아니다.
 	if gameID == 0 {
 		log.Print("ws: summary: this game has no row — nothing to summarise")
 		return
 	}
 
-	// **주인을 안 보고 읽는다.** 방금 이 연결이 만든 판이라 소유 검사가 답할 것이 없고,
+	// 주인을 안 보고 읽는다. 방금 이 연결이 만든 판이라 소유 검사가 답할 것이 없고,
 	// 익명 대국에는 주인이 아예 없다(002_anonymous_games.sql).
 	rec, err := h.opts.Store.GameRecordAnyOwner(base, gameID)
 	if err != nil {
@@ -533,28 +521,27 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 		return
 	}
 
-	// **퀴즈를 먼저 띄운다.** 문항 만들기는 엔진을 쓰므로 시간이 걸리고, 사람이 되짚기를
-	// 여는 것은 총평을 읽은 뒤다 — 그 사이에 시작돼 있는 편이 낫다.
+	// 퀴즈를 먼저 띄운다. 문항 만들기는 엔진을 쓰므로 시간이 걸리고, 사람이 되짚기를
+	// 여는 것은 총평을 읽은 뒤다.
 	go h.generateQuiz(base, rec)
 
 	payload := summarize(rec, h.opts.Level)
-	// **段級은 기록이 아니라 추정기에서 온다.** 기록에는 낙폭이 물러진 수에만 있어
-	// (§39 ⑥) 그것으로 다시 세면 통과한 수를 못 보고, 그 값은 상대가 겨냥한 강함과도
-	// 갈린다 — 화면의 두 숫자가 같은 곳에서 나와야 하는 이유는 journal §31.
+	// 段級은 기록이 아니라 추정기에서 온다. 기록에는 낙폭이 물러진 수에만 있어(§39 ⑥)
+	// 그것으로 다시 세면 통과한 수를 못 보고, 그 값은 상대가 겨냥한 강함과도 갈린다
+	// (journal §31).
 	payload.Skill = skills.change()
-	// **번호는 여기서만 붙는다.** 대국 화면은 자기 판의 번호를 모르고(기록이 WS 밖에서
+	// 번호는 여기서만 붙는다. 대국 화면은 자기 판의 번호를 모르고(기록이 WS 밖에서
 	// 비동기로 쓰인다), 총평이 되짚기로 건너가는 링크를 그리려면 그것이 필요하다.
 	payload.GameID = gameID
 	emit(ctx, out, serverMsg{Type: "summary", Summary: &payload})
 }
 
-// quizTimeout 은 문항을 만드는 데 주는 시한이다.
+// quizTimeout 은 문항을 만드는 데 주는 시한이다. 넘으면 만들던 것을 버린다 — 반쪽
+// 트리는 채점에 쓸 수 없다.
 //
-// **회차를 자르는 자리는 여기 하나다.** 詰み 탐색 예산이 2400 × 107ms ≈ 4.3분이라
-// (quiz.MateSearchBudget) 그 아래로는 예산이 먼저 걸리지 않고, gap 쪽 12국면 × 956ms ≈ 12초를
-// 더해도 이 값이 마지막이다 — 여유는 40초 남짓으로 **넉넉하지 않다**.
-//
-// 넘으면 만들던 것을 버린다. 반쪽 트리는 채점에 쓸 수 없다.
+// 회차를 자르는 자리는 여기 하나다. 詰み 탐색 예산이 2400 × 107ms ≈ 4.3분이라
+// (quiz.MateSearchBudget) 그 아래로는 예산이 먼저 안 걸리고, gap 쪽 12국면 × 956ms ≈ 12초를
+// 더해도 이 값이 마지막이다 — 여유는 40초 남짓으로 넉넉하지 않다.
 const quizTimeout = 5 * time.Minute
 
 // quizSaveTimeout 은 만든 것을 남기는 데 주는 시한이다. DB 쓰기 한 번이라 짧다.
@@ -562,21 +549,21 @@ const quizSaveTimeout = 10 * time.Second
 
 // generateQuiz 는 끝난 판에서 문항을 만들어 저장한다.
 //
-// **연결이 끊겨도 계속한다**(`context.WithoutCancel`). 만드는 데 수십 초가 걸리는데 사람은
-// 판이 끝나면 곧 화면을 떠나고, 요청 ctx에 매어 두면 그 순간 문항이 사라진다 — 되짚기에서
-// 만들지 않기로 했으므로(journal §53) 여기서 못 만들면 **아무 데서도 못 만든다.**
+// 연결이 끊겨도 계속한다(context.WithoutCancel). 만드는 데 수십 초가 걸리는데 사람은
+// 판이 끝나면 곧 화면을 떠나고, 요청 ctx 에 매어 두면 그 순간 문항이 사라진다 —
+// 되짚기에서 만들지 않기로 했으므로(journal §53) 여기서 못 만들면 아무 데서도 못 만든다.
 //
-// 종료가 걸리지는 않는다. `Pool.Close` 가 막히는 것은 **진행 중인 탐색 하나**뿐이고, 그
-// 하나는 詰み 쪽이 `DepthLimit=11` 로 100ms대이고 탐색 쪽이 1초대다.
+// 종료가 걸리지는 않는다. Pool.Close 가 막히는 것은 진행 중인 탐색 하나뿐이고, 그 하나는
+// 詰み 쪽이 DepthLimit=11 로 100ms 대, 탐색 쪽이 1초대다.
 //
-// **엔진 풀을 오래 잡는다.** mate 풀이 하나면 그동안 진행 중인 다른 대국의 詰み 게이지와
-// 종반 판정이 막힌다 — 그래서 풀 크기를 손잡이로 뺐다(cmd/api/main.go startMateEngines).
+// 엔진 풀을 오래 잡는다. mate 풀이 하나면 그동안 다른 대국의 詰み 게이지와 종반 판정이
+// 막힌다 — 그래서 풀 크기를 손잡이로 뺐다(cmd/api/main.go startMateEngines).
 func (h *gameHandler) generateQuiz(parent context.Context, rec store.GameRecord) {
 	if h.opts.Store == nil {
 		return
 	}
 
-	// **생성기가 없어도 행은 남긴다.** 안 남기면 화면이 「아직 만드는 중」에서 영영 안
+	// 생성기가 없어도 행은 남긴다. 안 남기면 화면이 「아직 만드는 중」에서 영영 안
 	// 벗어난다 — 엔진 없는 배포에서 그 문장은 오지 않을 것을 기다리라는 거짓말이다.
 	var q quiz.Quiz
 	if h.opts.Quiz != nil {
@@ -585,23 +572,23 @@ func (h *gameHandler) generateQuiz(parent context.Context, rec store.GameRecord)
 		cut := ctx.Err() != nil
 		cancel()
 
-		// **못 본 채로 비었을 때만 안 적는다.**
+		// 못 본 채로 비었을 때만 안 적는다.
 		//
-		// 「끝까지 못 봤다」가 참이어도 **나온 것은 사실이다** — 다 지어진 詰み 트리는 gap
-		// 후보 하나를 못 쟀다고 틀려지지 않고, 잰 gap 문항은 트리가 못 섰다고 틀려지지 않는다.
-		// 둘을 한 깃발로 묶어 통째로 버리면, 한쪽의 사소한 실패가 멀쩡한 다른 쪽을 지운다.
+		// 「끝까지 못 봤다」가 참이어도 나온 것은 사실이다 — 다 지어진 詰み 트리는 gap
+		// 후보 하나를 못 쟀다고 틀려지지 않고, 잰 gap 문항은 트리가 못 섰다고 틀려지지
+		// 않는다. 둘을 한 깃발로 묶으면 한쪽의 사소한 실패가 멀쩡한 다른 쪽을 지운다.
 		//
-		// 버리는 것은 **빈 결과**뿐이다. 그때만 「이 판에 문항이 없다」와 「못 봤다」가 같은
+		// 버리는 것은 빈 결과뿐이다. 그때만 「이 판에 문항이 없다」와 「못 봤다」가 같은
 		// 그림이 되고, 빈 행을 남기면 화면이 앞쪽으로 단정한다 — 생성이 판이 끝날 때
 		// 한 번뿐이라 그 거짓이 영구히 남는다. 안 적으면 화면은 「아직 안 왔다」에 머문다.
 		//
-		// 시한만 보면 모자란다. **배포가 생성 도중에 끼면** 풀이 먼저 닫혀
-		// (`main` 의 defer 순서가 엔진 → DB다) 모든 탐색이 즉시 실패하는데, 그때 ctx는
-		// 멀쩡하고 결과만 비어 있다 — 그래서 생성기가 「한 번이라도 답을 받았는가」를 따로 말한다.
+		// 시한만으로는 모자란다. 배포가 생성 도중에 끼면 풀이 먼저 닫혀(main 의 defer
+		// 순서가 엔진 → DB다) 모든 탐색이 즉시 실패하는데, 그때 ctx 는 멀쩡하고 결과만
+		// 비어 있다 — 그래서 생성기가 「한 번이라도 답을 받았는가」를 따로 말한다.
 		//
-		// **한 자리를 못 본 것으로는 안 버린다.** 중반의 무관한 국면 하나에서 solver 가
-		// 결론을 못 내는 것은 흔하고(df-pn이 timeout 하는 자리다), 그것으로 행을 안 남기면
-		// 그 판은 영영 5분을 기다린 뒤 「안 왔다」에 서게 된다 — 「못 만들었다」가 사실인데도.
+		// 한 자리를 못 본 것으로는 안 버린다. 중반의 무관한 국면에서 solver 가 결론을 못
+		// 내는 것은 흔하고(df-pn 이 timeout 하는 자리다), 그것으로 행을 안 남기면 그 판은
+		// 5분을 기다린 뒤 「안 왔다」에 서게 된다.
 		if (cut || !measured) && built.Empty() {
 			log.Printf("ws: quiz: game %d: nothing was measured (timed out: %v) — leaving no row rather than claiming there was nothing", rec.ID, cut)
 			return
@@ -609,17 +596,17 @@ func (h *gameHandler) generateQuiz(parent context.Context, rec store.GameRecord)
 		q = built
 	}
 
-	// **문항이 없어도 저장한다.** 안 하면 「아직 만드는 중」과 「문항이 없는 판」이 화면에서
+	// 문항이 없어도 저장한다. 안 하면 「아직 만드는 중」과 「문항이 없는 판」이 화면에서
 	// 같은 그림이 되는데, 만드는 데 수십 초가 걸려서 그 사이에 「問題はありません」을
-	// 그리면 그것이 거짓이 된다(quiz.go 의 `ready`).
+	// 그리면 그것이 거짓이 된다(quiz.go 의 ready).
 	payload, err := json.Marshal(q)
 	if err != nil {
 		log.Printf("ws: quiz: game %d: encode: %v", rec.ID, err)
 		return
 	}
 
-	// **쓰는 데 시한을 따로 준다.** 만드는 쪽이 시한에 걸렸으면 그 ctx는 이미 죽어 있고,
-	// 그대로 쓰면 **만들어 놓고 못 남기는** 자리가 되어 화면이 영영 기다린다.
+	// 쓰는 데 시한을 따로 준다. 만드는 쪽이 시한에 걸렸으면 그 ctx 는 이미 죽어 있고,
+	// 그대로 쓰면 만들어 놓고 못 남기는 자리가 되어 화면이 영영 기다린다.
 	save, cancel := context.WithTimeout(context.WithoutCancel(parent), quizSaveTimeout)
 	defer cancel()
 	if err := h.opts.Store.SaveGameQuiz(save, rec.ID, quiz.Version, payload); err != nil {
@@ -634,8 +621,8 @@ func (h *gameHandler) generateQuiz(parent context.Context, rec store.GameRecord)
 	log.Printf("ws: quiz: game %d: %d-ply mate item, %d best items", rec.ID, mate, len(q.Best))
 }
 
-// quizInput 은 기록을 문항 생성기의 입력으로 옮긴다. **옮기는 자리가 여기다** —
-// internal/quiz 가 `store` 를 모르게 두면 문항 기준이 기록의 모양에 안 매인다.
+// quizInput 은 기록을 문항 생성기의 입력으로 옮긴다. 여기서 옮겨야 internal/quiz 가
+// store 를 모르고, 그래야 문항 기준이 기록의 모양에 안 매인다.
 func quizInput(rec store.GameRecord) quiz.Input {
 	in := quiz.Input{
 		StartSFEN:    startSFENOf(rec.StartSFEN),
@@ -646,8 +633,8 @@ func quizInput(rec store.GameRecord) quiz.Input {
 	if rec.MyColor == "w" {
 		in.Human = shogi.White
 	}
-	// **구멍에서 끊는다.** 기보에 빠진 手数가 있으면 그 뒤는 手数와 배열의 자리가 어긋나고,
-	// 그대로 두면 문항이 **한 번도 벌어지지 않은 국면**을 가리킨다(review.go detailOf).
+	// 구멍에서 끊는다. 기보에 빠진 手数가 있으면 그 뒤는 手数와 배열의 자리가 어긋나고,
+	// 그대로 두면 문항이 한 번도 벌어지지 않은 국면을 가리킨다(review.go detailOf).
 	for i, m := range rec.Moves {
 		if m.Ply != i+1 {
 			break
@@ -660,11 +647,11 @@ func quizInput(rec store.GameRecord) quiz.Input {
 
 // openingPlies 는 컴퓨터가 고른 진형의 수순이 덮는 手数다. 「おまかせ」면 0이다.
 //
-// `book.Opening.Moves` 는 **한쪽의 수**만 주므로 手数로는 두 배다. 한 手 남짓 넘치거나
+// book.Opening.Moves 는 한쪽의 수만 주므로 手数로는 두 배다. 한 手 남짓 넘치거나
 // 모자라는 것은 상관없다 — 이 값은 「여기까지는 아직 정석이다」의 바닥이다.
 //
-// **색을 안 본다.** 後手 몫은 같은 수순을 180° 돌려 만드는 것이라(book.Opening.Moves) 개수가
-// 같다 — 색을 구해서 넘기면 없는 의존을 있는 것처럼 읽히게 만든다.
+// 색을 안 본다. 後手 몫은 같은 수순을 180° 돌려 만드는 것이라 개수가 같다
+// (book.Opening.Moves).
 func openingPlies(rec store.GameRecord) int {
 	if rec.OpeningID == "" {
 		return 0
@@ -685,7 +672,7 @@ func (h *gameHandler) readLoop(
 	setup gameSetup,
 ) {
 	// 가정 수순은 한 번에 하나만 돈다. 탐색 둘이 엔진 풀을 잡는 자리라, 연타가 곧
-	// **대국 상대의 탐색이 기다리는 시간**이 된다.
+	// 대국 상대의 탐색이 기다리는 시간이 된다.
 	slot := make(chan struct{}, 1)
 	slot <- struct{}{}
 
@@ -737,9 +724,9 @@ func (h *gameHandler) readLoop(
 	}
 }
 
-// whatif 는 「そのとき、こう指していたら」를 대국 화면에서 답한다. 리뷰와 **같은 장치**이고
-// (whatif.go) 갈리는 것은 뿌리뿐 — 여기는 방금 받은 스냅샷이다(DB는 개입 직후 한 수가
-// 비어 있을 수 있다, §37). **세션은 하나도 안 건드린다.**
+// whatif 는 「そのとき、こう指していたら」를 대국 화면에서 답한다. 리뷰와 같은 장치이고
+// (whatif.go) 갈리는 것은 뿌리뿐이다 — 여기는 방금 받은 스냅샷을 쓴다(DB 는 개입 직후
+// 한 수가 비어 있을 수 있다, §37). 세션은 하나도 안 건드린다.
 func (h *gameHandler) whatif(
 	ctx context.Context,
 	out chan serverMsg,
@@ -757,9 +744,9 @@ func (h *gameHandler) whatif(
 		return
 	}
 
-	// **분기는 물러진 수 위에서만 자란다.** 뿌리가 확정된 手数여야 하고, 첫 수가 방금
-	// 물러진 그 수여야 한다 — 둘 중 하나라도 어긋나면 그 요청은 「지금 어떻게 둬야 하나」를
-	// 묻는 것이 되고, 이 표면은 그 답을 최선수 셋으로 갖고 있다(confirmed.retracted).
+	// 분기는 물러진 수 위에서만 자란다. 뿌리가 확정된 手数여야 하고, 첫 수가 방금 물러진
+	// 그 수여야 한다 — 둘 중 하나라도 어긋나면 그 요청은 「지금 어떻게 둬야 하나」를 묻는
+	// 것이 되고, 이 표면은 그 답을 최선수 셋으로 갖고 있다(confirmed.retracted).
 	ply, retracted, open := played.branchRoot()
 	if !open || msg.Ply != ply || len(msg.Moves) == 0 || msg.Moves[0] != retracted {
 		emit(ctx, out, whatifError("locked"))
@@ -769,18 +756,17 @@ func (h *gameHandler) whatif(
 	select {
 	case <-slot:
 	default:
-		// 앞의 것이 아직 돈다. **막고 기다리지 않는다** — readLoop이 멈추면 그동안
-		// 投了도 못 한다.
+		// 앞의 것이 아직 돈다. 막고 기다리지 않는다 — readLoop 이 멈추면 그동안 投了도 못 한다.
 		emit(ctx, out, whatifError("busy"))
 		return
 	}
 
-	// **뿌리는 이 판의 0手目다**(gameSetup.startSFEN). 이어하는 판은 그것이 Options 의
+	// 뿌리는 이 판의 0手目다(gameSetup.startSFEN). 이어하는 판은 그것이 Options 의
 	// 기본값과 다를 수 있고, 어긋나면 수순이 없는 국면에 얹힌다.
 	root := whatifRoot{StartSFEN: setup.startSFEN, Moves: played.get(), Human: setup.human}
 	req := whatifRequest{Ply: msg.Ply, Moves: msg.Moves}
 
-	// **탐색을 readLoop 안에서 하지 않는다.** 400ms 짜리 두 번이라, 그동안 클라이언트가
+	// 탐색을 readLoop 안에서 하지 않는다. 400ms 짜리 두 번이라, 그동안 클라이언트가
 	// 보내는 것이 전부 큐에 쌓인다.
 	go func() {
 		defer func() { slot <- struct{}{} }()

@@ -19,11 +19,11 @@ var kanjiPiece = map[PieceType]string{
 var kanjiRank = [...]string{"", "一", "二", "三", "四", "五", "六", "七", "八", "九"}
 
 // PieceJa 는 駒 종류의 한자다 — 「銀」「成銀」「と」.
-// **棋譜와 같은 표(kanjiPiece)를 본다** — 카드가 「▲8四銀不成」인데 문장이 그 駒를 달리 부르면
+// 棋譜와 같은 표(kanjiPiece)를 본다 — 카드가 「▲8四銀不成」인데 문장이 그 駒를 달리 부르면
 // 초심자는 둘이 같은 것인 줄 모른다.
 func PieceJa(t PieceType) string { return kanjiPiece[t] }
 
-// SquareJa 는 「2四」 형식으로 칸을 적는다. **棋譜와 같은 표기다** — 문장이 칸을 달리 부르면
+// SquareJa 는 「2四」 형식으로 칸을 적는다. 棋譜와 같은 표기다 — 문장이 칸을 달리 부르면
 // 초심자는 그것이 카드에 적힌 칸과 같은 칸인지 모른다(PieceJa 와 같은 이유).
 func SquareJa(sq int) string {
 	return fmt.Sprintf("%d%s", FileOf(sq), kanjiRank[RankOf(sq)])

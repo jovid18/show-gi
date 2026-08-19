@@ -6,14 +6,13 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// sfenWithTurn 은 양쪽이 **서로 다른** 囲い를 짜고 있는 국면을 준다.
+// sfenWithTurn 은 양쪽이 서로 다른 囲い를 짜고 있는 국면을 준다.
 //
 //	先手  本美濃囲い  玉2八 · 銀3八 · 金4八 · 金5八
 //	後手  金矢倉      玉2二 · 金3二 · 金4三 · 銀3三   (先手의 8八/7八/6七/7七 을 180° 돌린 자리)
 //
-// **양쪽을 다르게 두는 것이 이 테스트의 조건이다.** 처음에는 양쪽 다 本美濃로 적었는데,
-// 그러면 어느 색을 재도 `hon_mino` 가 나와서 **`HumanColor` 를 `shogi.Black` 으로 박아도
-// 테스트가 통과했다.** 「플레이어 쪽만 그린다」를 지키는지 재려면 두 쪽의 답이 달라야 한다.
+// 양쪽 囲い를 다르게 둬야 한다. 같은 이름으로 적으면 어느 색을 재도 같은 답이 나와서
+// HumanColor 를 shogi.Black 으로 박아도 테스트가 통과한다.
 func sfenWithTurn(turn string) string {
 	return "9/6gk1/5gs2/9/9/9/9/4GGSK1/9 " + turn + " - 1"
 }
@@ -26,9 +25,9 @@ func styleCodes(snap Snapshot) []string {
 	return out
 }
 
-// 스냅샷이 **플레이어 쪽** 태그를 나른다. 색을 바꿔도 플레이어 쪽이 나와야 한다.
+// 스냅샷이 플레이어 쪽 태그를 나른다. 색을 바꿔도 플레이어 쪽이 나와야 한다.
 //
-// 두 번 재는 것이 요점이다. 한 색으로만 재면 `tag.Detect` 에 늘 先手를 넘기는 버그가
+// 두 색으로 각각 잰다. 한 색으로만 재면 tag.Detect 에 늘 先手를 넘기는 버그가
 // 통과한다 — 그러면 後手를 잡은 플레이어에게 상대의 囲い 이름이 뜬다.
 func TestSnapshotCarriesPlayersOwnStyleTags(t *testing.T) {
 	for _, tc := range []struct {

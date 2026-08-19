@@ -41,7 +41,7 @@ func chooseFrom(t *testing.T, best string, lines ...usi.SearchLine) string {
 	return got
 }
 
-// 밴드에 드는 후보가 있으면 **최선수를 두지 않는다.** 그게 이 상대의 전부다.
+// 밴드에 드는 후보가 있으면 최선수를 두지 않는다. 이 상대가 하는 일은 그것 하나다.
 func TestAdaptivePicksTheBandNotTheBest(t *testing.T) {
 	// 엔진 관점 cp를 뒤집으면 플레이어 관점이다. 밴드는 플레이어 +100~+300.
 	got := chooseFrom(t, "7g7f",
@@ -54,11 +54,11 @@ func TestAdaptivePicksTheBandNotTheBest(t *testing.T) {
 	}
 }
 
-// **이미 지고 있어도 최선수로 버티지 않는다 — 한 칸씩 양보한다.**
+// 이미 지고 있어도 최선수로 버티지 않는다 — 한 칸씩 양보한다.
 //
 // 후보가 전부 밴드 위(플레이어가 이미 크게 유리)라 절대 좌표가 뜻을 잃는 자리다. 여기서
-// 거리를 최소화하면 「+300으로 되돌려라」가 되어 최선수가 뽑히고, **조절이 가장 필요한
-// 자리에서 조절이 꺼진다.** 한 판이 298手가 되고 사람이 못 끝낸다(journal §55).
+// 거리를 최소화하면 「+300으로 되돌려라」가 되어 최선수가 뽑히고, 조절이 가장 필요한
+// 자리에서 조절이 꺼진다. 한 판이 298手가 되고 사람이 못 끝낸다(journal §55).
 func TestAdaptiveKeepsConcedingWhenAlreadyLost(t *testing.T) {
 	got := chooseFrom(t, "7g7f",
 		line("7g7f", -1500), // 플레이어 +1500 — 상대의 최선수
@@ -70,7 +70,7 @@ func TestAdaptiveKeepsConcedingWhenAlreadyLost(t *testing.T) {
 	}
 }
 
-// **잘 두는 사람에게는 그 자리에서도 버틴다.** 실력 추정이 바닥을 기준점 아래로 내리므로
+// 잘 두는 사람에게는 그 자리에서도 버틴다. 실력 추정이 바닥을 기준점 아래로 내리므로
 // 최선수가 다시 후보가 된다 — 조절의 손잡이가 하나로 들어온다는 것이 이 테스트다.
 func TestConcedingFollowsTheSkillEstimate(t *testing.T) {
 	// 플레이어 관점 +1500(최선) · +1700 · +2000. 밴드가 낙폭에 따라 1300~1500 →
@@ -107,7 +107,7 @@ func TestPicksTheClosestSafeMoveBelowTheBand(t *testing.T) {
 	}
 }
 
-// 詰み 줄은 밴드의 자가 아니다. `ScoreCp` 가 환산값이라 기준점을 판 밖으로 끌고 간다.
+// 詰み 줄은 밴드의 자가 아니다. ScoreCp 가 환산값이라 기준점을 판 밖으로 끌고 간다.
 func TestBandIgnoresMateLines(t *testing.T) {
 	s := &stubMulti{res: usi.SearchResult{
 		Best: "7g7f",
@@ -127,7 +127,7 @@ func TestBandIgnoresMateLines(t *testing.T) {
 	}
 }
 
-// **이기고 있을 때도 안전 상한 안에서는 양보한다.**
+// 이기고 있을 때도 안전 상한 안에서는 양보한다.
 func TestAdaptiveEasesOffWhenWinning(t *testing.T) {
 	got := chooseFrom(t, "7g7f",
 		line("7g7f", 3000), // 플레이어 −3000. 최선수
@@ -141,7 +141,7 @@ func TestAdaptiveEasesOffWhenWinning(t *testing.T) {
 
 // 「던지지 않는다」 — 밴드에 아무리 잘 맞아도 駒를 그냥 주는 수는 안 고른다.
 //
-// 이 필터는 **엔진이 필요 없다.** 룰 엔진만으로 된다.
+// 이 필터는 엔진이 필요 없다. 룰 엔진만으로 된다.
 func TestAdaptiveNeverThrowsAPiece(t *testing.T) {
 	// ▲7六歩 뒤 後手 차례. △8八角成(2b8h+)은 角을 7九銀에게 그냥 준다.
 	s := &stubMulti{res: usi.SearchResult{
@@ -160,7 +160,7 @@ func TestAdaptiveNeverThrowsAPiece(t *testing.T) {
 		t.Error("밴드에 맞는다고 角을 던졌다 — 그게 「던지는」 것이다")
 	}
 
-	// 개입이 タダ捨て라고 부르는 것과 **같은 정의**여야 한다. 갈리면 화면이 가르친 것을
+	// 개입이 タダ捨て라고 부르는 것과 같은 정의여야 한다. 갈리면 화면이 가르친 것을
 	// 컴퓨터가 바로 어긴다.
 	pos, m, err := replay(shogi.StartSFEN, []string{"7g7f", "2b8h+"})
 	if err != nil {
@@ -263,7 +263,7 @@ func chooseWith(t *testing.T, sk skill.Estimate, best string, lines ...usi.Searc
 	return got
 }
 
-// **같은 후보에서 다른 수가 나온다.** 헤매는 사람에게는 더 양보하고, 잘 두는 사람에게는
+// 같은 후보에서 다른 수가 나온다. 헤매는 사람에게는 더 양보하고, 잘 두는 사람에게는
 // 이기려 든다 — 이 두 줄이 「적응형이 적응하는 대상이 사람이 아니었다」를 닫는다(§21 ①).
 func TestBandFollowsHowMuchThePlayerIsStruggling(t *testing.T) {
 	// 플레이어 관점으로 −200(최선) · +200(기본 밴드 안) · +400(가장 너그러운 밴드 안).
@@ -294,7 +294,7 @@ func TestBandHoldsUntilEnoughMoves(t *testing.T) {
 	}
 }
 
-// **양보는 밴드까지다.** 아무리 헤매도 駒를 그냥 주는 수는 안 고른다 — 화면이
+// 양보는 밴드까지다. 아무리 헤매도 駒를 그냥 주는 수는 안 고른다 — 화면이
 // 「取り返せない場所」라고 가르친 수를 상대가 두면 방금 배운 것이 무너진다(§16).
 func TestEasingOffNeverThrowsAPiece(t *testing.T) {
 	// ▲7六歩 뒤 後手 차례. △8八角成은 角을 그냥 준다 — 밴드가 어디로 가든 후보가 아니다.
@@ -315,7 +315,7 @@ func TestEasingOffNeverThrowsAPiece(t *testing.T) {
 	}
 }
 
-// 화면이 말하는 강함과 상대가 겨냥하는 강함이 **같은 숫자에서 나온다**(§31의 실패 방지).
+// 화면이 말하는 강함과 상대가 겨냥하는 강함이 같은 숫자에서 나온다(§31의 실패 방지).
 func TestStrengthStepTracksTheShift(t *testing.T) {
 	for _, tc := range []struct {
 		loss float64
@@ -335,7 +335,7 @@ func TestStrengthStepTracksTheShift(t *testing.T) {
 	}
 }
 
-// TestBandFollowsTheHandicapOrigin 은 **핸디캡을 흘린 사람에게 상대가 되돌려 주는지**를 본다.
+// TestBandFollowsTheHandicapOrigin 은 핸디캡을 흘린 사람에게 상대가 되돌려 주는지를 본다.
 //
 // 二枚落ち(+1386)에서 사람이 +500까지 흘린 자리다. 기준점을 안 옮기면 이 국면이 「구간 위」로
 // 읽혀서(500 > 300) 상대가 「지금 형세에서 100~300 더」만 겨냥하고, 그 좌표에서는 상대의
@@ -345,7 +345,7 @@ func TestBandFollowsTheHandicapOrigin(t *testing.T) {
 	if !ok {
 		t.Fatal("nimaiochi 가 표에 없다")
 	}
-	// **0手目가 上手 차례다**(journal §88). 그래서 양쪽이 한 수씩 둔 뒤가 다시 上手 차례이고,
+	// 0手目가 上手 차례다(journal §88). 그래서 양쪽이 한 수씩 둔 뒤가 다시 上手 차례이고,
 	// 사람은 그 반대인 下手(Black)로 읽힌다.
 	moves := []string{"3c3d", "7g7f"}
 
@@ -364,7 +364,7 @@ func TestBandFollowsTheHandicapOrigin(t *testing.T) {
 		t.Errorf("기준점(+%d)을 향해 가장 많이 되돌리는 안전한 수를 골라야 한다: %q", nimai.BaselineCp, got)
 	}
 
-	// **같은 후보를 平手에서 주면 반대로 고른다.** 거기서는 +500이 이미 구간 위라
+	// 같은 후보를 平手에서 주면 반대로 고른다. 거기서는 +500이 이미 구간 위라
 	// 「조금만 더」가 맞는 뜻이고, 그 차이가 곧 기준점이 하는 일이다.
 	flat := &stubMulti{res: s.res}
 	o = NewAdaptiveOpponent(flat, 12, DefaultBand)

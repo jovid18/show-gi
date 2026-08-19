@@ -59,7 +59,7 @@ func (r *fakeRecorder) Finished(status Status, winner Side) {
 	r.add(fmt.Sprintf("finished %s %s", status, winner))
 }
 
-// **물러진 수는 기보로 안 간다.**
+// 물러진 수는 기보로 안 간다.
 //
 // 여기서 새면 기보가 롤백을 반영하지 못하고, 「개입이 막지 않았다면 뒀을 수」와
 // 「실제로 둔 수」가 한 통에 섞여 실력 추정이 조용히 틀어진다.
@@ -88,7 +88,7 @@ func TestRecorderKeepsRetractedMovesOutOfTheKifu(t *testing.T) {
 			t.Fatalf("물러진 수가 기보로 갔다: %v", rec.all())
 		}
 	}
-	// 물러진 수는 카테고리와 함께 남는다. **문장은 안 남긴다** — 카테고리에서 결정적으로
+	// 물러진 수는 카테고리와 함께 남는다. 문장은 안 남긴다 — 카테고리에서 결정적으로
 	// 다시 만들어지므로(explain.BaseMessage) 적어 두면 두 벌이 된다.
 	want := "retracted 1 7g7f hangs_piece"
 	if !contains(rec.all(), want) {

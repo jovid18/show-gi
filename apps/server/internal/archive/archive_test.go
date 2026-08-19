@@ -13,7 +13,7 @@ import (
 )
 
 // 이 패키지는 DB도 엔진도 없이 전부 확인된다 — 감싸는 층이라 양쪽이 인터페이스다.
-// 실제 DB에 들어가는지는 `internal/store` 의 테스트가 본다.
+// 실제 DB에 들어가는지는 internal/store 의 테스트가 본다.
 
 type fakeEngine struct {
 	res   usi.SearchResult
@@ -110,13 +110,13 @@ func (s *fakeStore) rows() int {
 	return len(s.positions)
 }
 
-// 깊이별 라인이 붙은 탐색 결과. `PvInterval=0` 이라 엔진이 실제로 이렇게 준다.
+// 깊이별 라인이 붙은 탐색 결과. PvInterval=0 이라 엔진이 실제로 이렇게 준다.
 func result(depth int, moves ...string) usi.SearchResult {
 	res := usi.SearchResult{Depth: depth, Best: moves[0], ScoreCp: 100}
 	for i, m := range moves {
 		cp := 100 - i*40
 		res.Lines = append(res.Lines, usi.SearchLine{Depth: depth, MultiPV: i + 1, Move: m, ScoreCp: cp})
-		// 얕은 깊이의 값도 함께 온다. 이것이 `edges.eval_by_depth` 가 되는 원본이다.
+		// 얕은 깊이의 값도 함께 온다. 이것이 edges.eval_by_depth 가 되는 원본이다.
 		for d := 1; d <= depth; d++ {
 			res.History = append(res.History, usi.SearchLine{Depth: d, MultiPV: i + 1, Move: m, ScoreCp: cp - (depth - d)})
 		}
@@ -124,7 +124,7 @@ func result(depth int, moves ...string) usi.SearchResult {
 	return res
 }
 
-// 탐색 하나가 국면과 그 국면의 후보들을 남긴다. **부르는 쪽은 감싼 줄도 모른다.**
+// 탐색 하나가 국면과 그 국면의 후보들을 남긴다. 부르는 쪽은 감싼 줄도 모른다.
 func TestRecordsThePositionAndItsCandidates(t *testing.T) {
 	st := newStore()
 	eng := &fakeEngine{res: result(12, "7g7f", "2g2f")}
@@ -150,7 +150,7 @@ func TestRecordsThePositionAndItsCandidates(t *testing.T) {
 		t.Fatalf("candidates = %+v", p.Candidates)
 	}
 
-	// 후보마다 **깊이별 평가치**가 붙는다. 추가 탐색이 없다 — 한 번의 depth 12 탐색이
+	// 후보마다 깊이별 평가치가 붙는다. 추가 탐색이 없다 — 한 번의 depth 12 탐색이
 	// 1..12를 전부 돌려준다.
 	e, ok := st.edgeFor("2g2f")
 	if !ok {
@@ -164,7 +164,7 @@ func TestRecordsThePositionAndItsCandidates(t *testing.T) {
 	}
 }
 
-// **`eval_by_depth` 는 先手 관점이다**(001_init.sql). 後手 차례의 국면에서 뒤집지 않으면
+// eval_by_depth 는 先手 관점이다(001_init.sql). 後手 차례의 국면에서 뒤집지 않으면
 // 색이 다른 두 판을 나란히 못 놓는다 — 이 컬럼이 있는 이유가 그것이다.
 func TestFlipsEvalToSentePointOfView(t *testing.T) {
 	st := newStore()
@@ -186,7 +186,7 @@ func TestFlipsEvalToSentePointOfView(t *testing.T) {
 	}
 }
 
-// 그 국면에 **오게 한 수**가 도착 국면과 함께 남는다. 이것이 A→B다.
+// 그 국면에 오게 한 수가 도착 국면과 함께 남는다. 이것이 A→B다.
 func TestLinksThePlayedMove(t *testing.T) {
 	st := newStore()
 	eng := &fakeEngine{res: result(8, "3c3d")}
@@ -218,7 +218,7 @@ func TestLinksThePlayedMove(t *testing.T) {
 	if st.rows() != 2 {
 		t.Errorf("국면 %d개, want 2 (부모와 자식)", st.rows())
 	}
-	// 부모는 **아직 안 재 본 자리**다. 후보를 아는 척하지 않는다.
+	// 부모는 아직 안 재 본 자리다. 후보를 아는 척하지 않는다.
 	p, err := st.GetPosition(t.Context(), Key(start))
 	if err != nil {
 		t.Fatalf("부모 국면: %v", err)
@@ -228,7 +228,7 @@ func TestLinksThePlayedMove(t *testing.T) {
 	}
 }
 
-// **모르면 이름을 붙이지 않는다.** 手筋의 절반은 엔진이 정하는데(§34) 부모의 평가치를
+// 모르면 이름을 붙이지 않는다. 手筋의 절반은 엔진이 정하는데(§34) 부모의 평가치를
 // 아직 모르면 그 판단을 할 수 없다 — 룰만으로 통과시키면 지운 오판이 돌아온다.
 func TestNoNamesWithoutTheParentEval(t *testing.T) {
 	st := newStore()
@@ -267,7 +267,7 @@ func TestPassesThroughWithoutStore(t *testing.T) {
 	}
 }
 
-// 탐색이 실패하면 아무것도 쌓지 않는다. **없는 분석을 남기는 것이 더 나쁘다.**
+// 탐색이 실패하면 아무것도 쌓지 않는다. 없는 분석을 남기는 것이 더 나쁘다.
 func TestRecordsNothingOnSearchFailure(t *testing.T) {
 	st := newStore()
 	eng := &fakeEngine{err: errors.New("engine died")}
@@ -282,7 +282,7 @@ func TestRecordsNothingOnSearchFailure(t *testing.T) {
 	}
 }
 
-// 기록이 실패해도 **탐색은 성공이다.** 분석을 못 남긴 것과 대국이 서지 않는 것의 값이 다르다.
+// 기록이 실패해도 탐색은 성공이다. 분석을 못 남긴 것과 대국이 서지 않는 것의 값이 다르다.
 func TestSearchSucceedsWhenWritingFails(t *testing.T) {
 	st := newStore()
 	st.putErr = errors.New("database is down")
@@ -295,7 +295,7 @@ func TestSearchSucceedsWhenWritingFails(t *testing.T) {
 	a.Wait()
 }
 
-// 키는 **手数를 뺀 SFEN**이다. 전치(다른 수순으로 같은 국면)가 한 행으로 합쳐진다.
+// 키는 手数를 뺀 SFEN이다. 전치(다른 수순으로 같은 국면)가 한 행으로 합쳐진다.
 func TestKeyDropsTheMoveNumber(t *testing.T) {
 	start, err := shogi.ParseSFEN(shogi.StartSFEN)
 	if err != nil {
@@ -326,9 +326,9 @@ func play(t *testing.T, pos shogi.Position, usis ...string) shogi.Position {
 	return pos
 }
 
-// **이미 잰 국면은 엔진을 안 부른다.** 여기가 §12의 캐시를 실제로 쓰는 자리다.
+// 이미 잰 국면은 엔진을 안 부른다. 여기가 §12의 캐시를 실제로 쓰는 자리다.
 //
-// 그리고 **깊이별 값이 함께 살아나야 한다** — 개입 판정이 보는 얕은 값이 그것이고, 캐시가
+// 그리고 깊이별 값이 함께 살아나야 한다 — 개입 판정이 보는 얕은 값이 그것이고, 캐시가
 // 그걸 빠뜨리면 「얕은 이득에 낚임」 카테고리가 조용히 사라진다(01-core.md §3).
 func TestServesFromTheCache(t *testing.T) {
 	st := newStore()
@@ -356,7 +356,7 @@ func TestServesFromTheCache(t *testing.T) {
 		t.Fatalf("lines = %d, want 3", len(second.Lines))
 	}
 
-	// **얕은 값이 살아 있어야 한다.** 없으면 판정이 그 축을 잃는다.
+	// 얕은 값이 살아 있어야 한다. 없으면 판정이 그 축을 잃는다.
 	want, ok := first.ScoreAtDepth(2)
 	if !ok {
 		t.Fatal("첫 결과에 depth 2 가 없다 — 테스트가 틀렸다")
@@ -370,7 +370,7 @@ func TestServesFromTheCache(t *testing.T) {
 	}
 }
 
-// 캐시가 **수번 관점**으로 돌아와야 한다. 저장은 先手 관점이라, 되돌리는 것을 빠뜨리면
+// 캐시가 수번 관점으로 돌아와야 한다. 저장은 先手 관점이라, 되돌리는 것을 빠뜨리면
 // 後手로 잡은 판에서만 부호가 뒤집히고 에러는 안 난다.
 func TestCacheKeepsTheMoverPointOfView(t *testing.T) {
 	st := newStore()
@@ -400,7 +400,7 @@ func TestCacheKeepsTheMoverPointOfView(t *testing.T) {
 	}
 }
 
-// **모자란 캐시는 안 쓴다.** 얕게 잰 행과 후보가 적은 행이 그렇다 — 뒤엣것을 안 막으면
+// 모자란 캐시는 안 쓴다. 얕게 잰 행과 후보가 적은 행이 그렇다 — 뒤엣것을 안 막으면
 // k=1로 쓰인 행이 k=10을 원하는 적응형 상대에게 후보 하나만 주고, 그건 강함 조절이 꺼진 것이다.
 func TestIgnoresInsufficientCache(t *testing.T) {
 	for name, ask := range map[string][2]int{
@@ -425,7 +425,7 @@ func TestIgnoresInsufficientCache(t *testing.T) {
 	}
 }
 
-// **합법수가 k보다 적은 국면은 그것으로 다 찬 것이다.** 「모자란다」로 보면 그 자리는
+// 합법수가 k보다 적은 국면은 그것으로 다 찬 것이다. 「모자란다」로 보면 그 자리는
 // 영원히 캐시를 못 쓰고, 종반에 k=10을 묻는 상대(§16)가 정확히 거기서 매번 다시 잰다.
 func TestServesWhenThereAreFewerLegalMovesThanK(t *testing.T) {
 	st := newStore()
@@ -482,7 +482,7 @@ func TestTagsFormationOnTheEdge(t *testing.T) {
 	t.Errorf("tags = %v, want %q", e.Tags, want)
 }
 
-// **히트에도 오는 길은 남는다.** 같은 국면에 다른 수로 도달하면(전치) 그 간선은 새것이다 —
+// 히트에도 오는 길은 남는다. 같은 국면에 다른 수로 도달하면(전치) 그 간선은 새것이다 —
 // 안 남기면 그 자리가 영원히 비어 있고, 「A→B를 쌓는다」가 반만 사실이 된다.
 func TestLinksThePathEvenOnACacheHit(t *testing.T) {
 	st := newStore()
@@ -508,7 +508,7 @@ func TestLinksThePathEvenOnACacheHit(t *testing.T) {
 		t.Fatal("아직 그 수로 온 적이 없다")
 	}
 
-	// ② 같은 국면을 **수순으로** 물으면 캐시가 답한다. 그때 오는 길이 남아야 한다.
+	// ② 같은 국면을 수순으로 물으면 캐시가 답한다. 그때 오는 길이 남아야 한다.
 	if _, err := a.SearchMultiPV(t.Context(), shogi.StartSFEN, []string{"7g7f"}, 8, 1); err != nil {
 		t.Fatalf("두 번째: %v", err)
 	}

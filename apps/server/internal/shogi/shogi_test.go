@@ -372,7 +372,7 @@ func TestAttackCount(t *testing.T) {
 		t.Errorf("5五를 노리는 후수 말은 飛 하나다: %d", got)
 	}
 
-	// **자기 말이 있는 칸도 센다.** 방어 利き을 세는 것이 이 함수의 용도라,
+	// 자기 말이 있는 칸도 센다. 방어 利き을 세는 것이 이 함수의 용도라,
 	// 지키는 말 위의 利き을 빼면 셀 것이 없어진다.
 	if got := pos.AttackCount(SquareOf(5, 6), Black); got != 1 {
 		t.Errorf("5六金은 4六金이 지킨다: %d", got)

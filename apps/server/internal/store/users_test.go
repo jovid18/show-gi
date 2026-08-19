@@ -67,8 +67,8 @@ func TestCreateGameKeepsUserID(t *testing.T) {
 	}
 }
 
-// 여기가 이 PR이 닫은 구멍이다. 로그인이 붙는 순간 `/api/games` 가 **남의 기보와
-// 「그 사람이 어디서 막혔나」**를 그대로 열게 된다(docs/02-architecture.md §7 위협 2).
+// 여기가 이 PR이 닫은 구멍이다. 로그인이 붙는 순간 /api/games 가 남의 기보와
+// 「그 사람이 어디서 막혔나」를 그대로 열게 된다(docs/02-architecture.md §7 위협 2).
 func TestGameRecordIsScopedToOwner(t *testing.T) {
 	s := open(t)
 	mine, theirs := owner(t, s, "mine"), owner(t, s, "theirs")
@@ -82,7 +82,7 @@ func TestGameRecordIsScopedToOwner(t *testing.T) {
 			t.Errorf("정리: %v", err)
 		}
 	})
-	// **끝내 놓아야 주인에게도 보인다**(journal §51). 안 끝내면 아래 첫 줄이
+	// 끝내 놓아야 주인에게도 보인다(journal §51). 안 끝내면 아래 첫 줄이
 	// 「주인이 자기 판을 못 읽는다」로 실패하는데, 그건 주인 거르기와 아무 상관이 없다.
 	if err := s.FinishGame(t.Context(), myGame, ResultWin); err != nil {
 		t.Fatalf("FinishGame: %v", err)
@@ -91,7 +91,7 @@ func TestGameRecordIsScopedToOwner(t *testing.T) {
 	if _, err := s.GameRecord(t.Context(), myGame, &mine); err != nil {
 		t.Errorf("주인이 자기 판을 못 읽는다: %v", err)
 	}
-	// **남이면 「없다」다.** 403이면 그 번호의 판이 있다는 것을 알려주는 셈이다.
+	// 남이면 「없다」다. 403이면 그 번호의 판이 있다는 것을 알려주는 셈이다.
 	if _, err := s.GameRecord(t.Context(), myGame, &theirs); !errors.Is(err, ErrNoGame) {
 		t.Errorf("남의 판을 읽었다: err = %v, want %v", err, ErrNoGame)
 	}

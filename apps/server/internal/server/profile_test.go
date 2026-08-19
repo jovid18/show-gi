@@ -18,7 +18,7 @@ func TestOneOffCategoryIsNotAWeakness(t *testing.T) {
 	}
 }
 
-// Share 의 분모는 **자르기 전의** 전체다. 잘린 뒤의 합을 쓰면 비율이 1을 넘는다.
+// Share 의 분모는 자르기 전의 전체다. 잘린 뒤의 합을 쓰면 비율이 1을 넘는다.
 func TestShareUsesTheWholeCount(t *testing.T) {
 	_, got := weaknessesOf(map[string]int{"a": 6, "b": 3, "c": 1})
 	if len(got) == 0 {
@@ -76,7 +76,7 @@ func TestRecordCountsOnlyFinishedGames(t *testing.T) {
 	}
 }
 
-// **모르는 코드는 이름 없이 나가지 않는다.** 정의를 지운 뒤에도 옛 기록에는 코드가
+// 모르는 코드는 이름 없이 나가지 않는다. 정의를 지운 뒤에도 옛 기록에는 코드가
 // 남고, 그것을 그대로 내보내면 일본어 화면에 영어가 뜬다(stylesOf).
 func TestStylesOfDropsUnknownCodes(t *testing.T) {
 	got := stylesOf(map[string]int{"hon_mino": 3, "no_such_tag": 9})

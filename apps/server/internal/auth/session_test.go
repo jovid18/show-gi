@@ -32,7 +32,7 @@ func TestNewCodecWithoutSecret(t *testing.T) {
 	}
 }
 
-// 여기가 이 패키지의 전부다. 본문을 고쳐 다른 user_id 가 되는 순간
+// 이 패키지가 지키는 것은 이 하나다. 본문을 고쳐 다른 user_id 가 되는 순간
 // 쿠키 한 줄로 남이 될 수 있다.
 func TestDecodeRejectsTamperedPayload(t *testing.T) {
 	c := NewCodec(testSecret)

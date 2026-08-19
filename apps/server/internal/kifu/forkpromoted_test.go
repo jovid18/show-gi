@@ -10,7 +10,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
 )
 
-// 両取り 이름이 **生駒에서 왔나 成駒에서 왔나**를 가른다. §44 가 341판에서 절반이 成駒라고
+// 両取り 이름이 生駒에서 왔나 成駒에서 왔나를 가른다. §44 가 341판에서 절반이 成駒라고
 // 재 놓고 「龍·馬를 뺄지」를 [미확정] 으로 남긴 자리다(회차 1 #14).
 type forkHit struct {
 	code  string

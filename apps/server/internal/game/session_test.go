@@ -43,12 +43,12 @@ func (o *scriptedOpponent) Choose(ctx context.Context, _ string, _ []string, _ s
 	return m, nil
 }
 
-// silentOpponent 는 **한 수도 답하지 않는다.** 상대가 두기 **전**의 판을 봐야 하는
+// silentOpponent 는 한 수도 답하지 않는다. 상대가 두기 전의 판을 봐야 하는
 // 테스트에 쓴다.
 //
-// `scriptedOpponent{delay: 0}` 으로는 그 자리를 못 잡는다. 되만든 판이 상대 차례면
-// `run` 이 시작하자마자 `maybeThink` 을 걸고, 그 goroutine 의 답과 테스트의 `Snapshot`
-// 이 **같은 select 에 나란히 준비된다** — 어느 쪽이 뽑히는지가 Go 의 무작위 선택과 그때의
+// scriptedOpponent{delay: 0} 으로는 그 자리를 못 잡는다. 되만든 판이 상대 차례면
+// run 이 시작하자마자 maybeThink 을 걸고, 그 goroutine 의 답과 테스트의 Snapshot
+// 이 같은 select 에 나란히 준비된다 — 어느 쪽이 뽑히는지가 Go 의 무작위 선택과 그때의
 // 부하에 달린다(journal §73).
 type silentOpponent struct{}
 
@@ -305,7 +305,7 @@ func TestUnplayableEngineMoveEndsGame(t *testing.T) {
 	}
 }
 
-// 상대의 수를 못 얻으면 **승패를 지어내지 않는다.** 投了로 적으면 지고 있던 판이
+// 상대의 수를 못 얻으면 승패를 지어내지 않는다. 投了로 적으면 지고 있던 판이
 // 기록에서 이긴 판이 된다(StatusAborted).
 func TestEngineFailureAbortsGameWithoutAWinner(t *testing.T) {
 	opp := &scriptedOpponent{err: errors.New("boom")}
@@ -329,7 +329,7 @@ func TestEngineFailureAbortsGameWithoutAWinner(t *testing.T) {
 	}
 }
 
-// 상대가 스스로 `resign` 이라고 답한 것은 **위와 다르다.** 그때는 사람이 이긴 것이 맞다.
+// 상대가 스스로 resign 이라고 답한 것은 위와 다르다. 그때는 사람이 이긴 것이 맞다.
 func TestEngineResignGivesTheWinToTheHuman(t *testing.T) {
 	opp := &scriptedOpponent{moves: []string{"resign"}}
 	s := newSession(t, Config{Opponent: opp, HumanColor: shogi.Black})
@@ -349,7 +349,7 @@ func TestEngineResignGivesTheWinToTheHuman(t *testing.T) {
 	}
 }
 
-// 판정이 실패하면 수는 그대로 서지만 **조용히 넘기지 않는다.** 개입이 없는 화면은
+// 판정이 실패하면 수는 그대로 서지만 조용히 넘기지 않는다. 개입이 없는 화면은
 // 「이 수는 괜찮았다」와 똑같이 생겼는데, 여기서는 확인 자체를 못 한 것이다.
 func TestJudgeFailureLeavesANotice(t *testing.T) {
 	opp := &scriptedOpponent{moves: []string{"3c3d"}}
@@ -565,7 +565,7 @@ func TestBlunderIsRolledBack(t *testing.T) {
 	if !got.YourTurn || got.Judging {
 		t.Fatalf("물러진 뒤에는 다시 사람 차례여야 한다: %+v", got)
 	}
-	// **엔진이 두면 안 된다.** 물러질 수가 있는데 상대가 먼저 두면 되돌릴 것이 둘이 된다.
+	// 엔진이 두면 안 된다. 물러질 수가 있는데 상대가 먼저 두면 되돌릴 것이 둘이 된다.
 	if an.calls.Load() != 1 {
 		t.Fatalf("판정 호출 = %d", an.calls.Load())
 	}
@@ -575,7 +575,7 @@ func TestBlunderIsRolledBack(t *testing.T) {
 	}
 }
 
-// 반박 수순은 판정이 아니라 **화면에 그릴 재료**다. 세션은 손대지 않고 그대로 싣는다.
+// 반박 수순은 판정이 아니라 화면에 그릴 재료다. 세션은 손대지 않고 그대로 싣는다.
 func TestRefutationRidesAlongToTheSnapshot(t *testing.T) {
 	line := []RefutationMove{{USI: "3c3d", Ja: "△3四歩", By: SideEngine, SFEN: "after-3c3d"}}
 	s := newSession(t, Config{
@@ -708,7 +708,7 @@ func hasHangulInGame(s string) bool {
 	return false
 }
 
-// 관측 구간은 **기본값이 없다** — 첫 수부터 판정한다. 명시적으로 준 경우에만 건너뛴다.
+// 관측 구간은 기본값이 없다 — 첫 수부터 판정한다. 명시적으로 준 경우에만 건너뛴다.
 //
 // 원래 20수를 비워뒀는데 그건 「오프닝의 다양성을 인정한다」를 수 번호로 잘못 옮긴
 // 것이었다. 다양성은 임계치가 지킨다(intervene 쪽 테스트).
@@ -751,7 +751,7 @@ func TestJudgesFromTheFirstMoveByDefault(t *testing.T) {
 	}
 }
 
-// 갇힘 힌트는 **단계마다 실리는 것이 달라야 한다.** 첫 칸에서 수를 통째로 내려보내면
+// 갇힘 힌트는 단계마다 실리는 것이 달라야 한다. 첫 칸에서 수를 통째로 내려보내면
 // 계단이 화면에만 있고 답은 페이로드에 그대로 있다.
 func TestBuildHintStaysBehindItsStage(t *testing.T) {
 	for _, tc := range []struct {
@@ -760,7 +760,7 @@ func TestBuildHintStaysBehindItsStage(t *testing.T) {
 		best  string
 		want  *Hint
 	}{
-		// **횟수를 여기 박지 않는다.** 지키는 것은 「칸마다 실리는 것이 다르다」이지
+		// 횟수를 여기 박지 않는다. 지키는 것은 「칸마다 실리는 것이 다르다」이지
 		// 2나 4라는 값이 아니다 — 값은 실측으로 움직인다(journal §39).
 		{"아직 안 열린다", HintPieceAfter - 1, "5d5f", nil},
 		{"첫 칸 — 칸만", HintPieceAfter, "5d5f", &Hint{Square: "5d"}},
@@ -788,10 +788,10 @@ func TestBuildHintStaysBehindItsStage(t *testing.T) {
 	}
 }
 
-// 갇힘 힌트는 **같은 국면에서 연속으로** 물러진 횟수로 열린다.
+// 갇힘 힌트는 같은 국면에서 연속으로 물러진 횟수로 열린다.
 //
 // 한 판 누적으로 세면 서로 다른 이유로 실수한 사람에게 엉뚱한 힌트가 열린다. 그래서
-// 이 테스트가 지키는 것은 계단이 열리는 것과, **통과하는 수 하나로 닫히는 것** 둘이다.
+// 이 테스트가 지키는 것은 계단이 열리는 것과, 통과하는 수 하나로 닫히는 것 둘이다.
 func TestStuckHintOpensAndResets(t *testing.T) {
 	an := &fixedAnalyst{verdict: blunder(), bestUSI: "2g2f"}
 	s := newSession(t, Config{
@@ -819,7 +819,7 @@ func TestStuckHintOpensAndResets(t *testing.T) {
 		}
 	}
 
-	// 첫 칸 — 駒만. **수는 오지 않는다.** 오면 계단이 화면에만 있고 답은 페이로드에 있다.
+	// 첫 칸 — 駒만. 수는 오지 않는다. 오면 계단이 화면에만 있고 답은 페이로드에 있다.
 	got := bounce(HintPieceAfter)
 	if got.Hint == nil || got.Hint.Square != "2g" {
 		t.Fatalf("%d회에 칸을 짚어야 한다: %+v", HintPieceAfter, got.Hint)
@@ -847,9 +847,9 @@ func TestStuckHintOpensAndResets(t *testing.T) {
 	// 상대 응수까지 기다린다 — 그 전에는 내 차례가 아니다.
 	waitFor(t, ch, func(s Snapshot) bool { return s.YourTurn && s.Ply >= 2 }, "상대 응수 뒤 내 차례")
 
-	// **여기서 「힌트가 없다」만 보면 아무것도 안 지킨다** — `playHuman` 이 착수마다
+	// 여기서 「힌트가 없다」만 보면 아무것도 안 지킨다 — playHuman 이 착수마다
 	// 힌트를 지우므로 계수가 6이어도 그 스냅샷은 비어 있다. 계수가 실제로 0으로
-	// 돌아갔는지는 **한 번 더 물러져 봐야** 갈린다. 안 돌아갔으면 그 한 번이 윗칸을 넘겨
+	// 돌아갔는지는 한 번 더 물러져 봐야 갈린다. 안 돌아갔으면 그 한 번이 윗칸을 넘겨
 	// 곧바로 수까지 실린 힌트가 온다.
 	an.verdict = blunder()
 	if _, err := s.Play(t.Context(), "2g2f"); err != nil {
@@ -861,7 +861,7 @@ func TestStuckHintOpensAndResets(t *testing.T) {
 	}
 }
 
-// 평가치는 **先手 관점**으로 기보에 들어간다.
+// 평가치는 先手 관점으로 기보에 들어간다.
 //
 // 부호를 틀리면 아무 데서도 안 터진다 — 궤적이 상하로 뒤집힌 채 그려지고, 밴드가
 // 지켜졌는지 물었을 때 정확히 반대 답이 나온다. 그래서 사람이 後手인 판까지 본다.
@@ -879,7 +879,7 @@ func TestEvalsAreRecordedFromSentesSide(t *testing.T) {
 		{"사람이 後手", shogi.White, "3c3d", []string{"7g7f", "2g2f"}, -200},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			// after 는 **상대 관점**으로 오는 값이라, 사람 관점 +200 은 상대 관점 −200 이다.
+			// after 는 상대 관점으로 오는 값이라, 사람 관점 +200 은 상대 관점 −200 이다.
 			an := &fixedAnalyst{evalAfter: -200, evalBefore: 50}
 			rec := &fakeRecorder{}
 			cfg := Config{

@@ -33,7 +33,7 @@ func TestOpeningsListNeedsNothing(t *testing.T) {
 			t.Errorf("빈 칸이 있다: %+v", o)
 		}
 	}
-	// **수순이 새지 않는다**(openingItem 주석). 필드가 늘어나 초반이 통째로 나가는 것을 막는다.
+	// 수순이 새지 않는다(openingItem 주석). 필드가 늘어나 초반이 통째로 나가는 것을 막는다.
 	if strings.Contains(rec.Body.String(), "7g7f") {
 		t.Error("응답에 수순이 들어 있다")
 	}

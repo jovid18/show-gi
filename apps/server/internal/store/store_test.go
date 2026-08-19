@@ -10,8 +10,8 @@ import (
 
 // 진짜 postgres에 붙는다. 없으면 건너뛴다 — CI 러너에는 DB가 없다.
 //
-// 여기서 확인하는 규칙(더 얕은 결과가 깊은 결과를 못 덮는다)은 **SQL의 WHERE 절에만
-// 있다.** Go 쪽에 옮겨 적지 않았으므로 가짜로는 검증할 수 없다.
+// 여기서 확인하는 규칙(더 얕은 결과가 깊은 결과를 못 덮는다)은 SQL의 WHERE 절에만
+// 있다. Go 쪽에 옮겨 적지 않았으므로 가짜로는 검증할 수 없다.
 //
 //	docker compose up -d db
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/store/ -v
@@ -29,7 +29,7 @@ func open(t *testing.T) *Store {
 	return s
 }
 
-// 테스트마다 다른 키를 쓰고, **시작할 때 지운다.**
+// 테스트마다 다른 키를 쓰고, 시작할 때 지운다.
 //
 // 지우지 않으면 이전 실행이 남긴 행이 남아 두 번째부터 결과가 달라진다. CI는 매번 빈
 // DB라 통과하고 로컬에서만 깨지는데, 그런 테스트는 있으나 마나다.
@@ -80,7 +80,7 @@ func TestPositionRoundTrip(t *testing.T) {
 	}
 }
 
-// **이 PR의 핵심.** 얕은 결과가 깊은 결과를 덮으면 개입 판정이 얕은 값 위에서 돈다.
+// 이 PR의 핵심. 얕은 결과가 깊은 결과를 덮으면 개입 판정이 얕은 값 위에서 돈다.
 func TestShallowerResultDoesNotOverwrite(t *testing.T) {
 	s := open(t)
 	k := key(t, s)
@@ -144,7 +144,7 @@ func TestPingAndCount(t *testing.T) {
 
 // newGame 은 빈 대국을 하나 열고, 끝나면 지운다.
 //
-// 지우는 것은 **다음 실행이 이전 행을 세지 않게** 하기 위해서다. game_moves 와
+// 지우는 것은 다음 실행이 이전 행을 세지 않게 하기 위해서다. game_moves 와
 // interventions 는 ON DELETE CASCADE 라 대국만 지우면 같이 지워진다.
 func newGame(t *testing.T, s *Store) int64 {
 	t.Helper()
@@ -160,7 +160,7 @@ func newGame(t *testing.T, s *Store) int64 {
 	return id
 }
 
-// **로그인 전에도 남아야 한다.** user_id 가 NOT NULL이던 동안에는 한 판도 못 남겼고,
+// 로그인 전에도 남아야 한다. user_id 가 NOT NULL이던 동안에는 한 판도 못 남겼고,
 // 그 사이에 둔 판은 되살릴 수 없다 (002_anonymous_games.sql).
 func TestGameWithoutUser(t *testing.T) {
 	s := open(t)
@@ -187,7 +187,7 @@ func TestGameWithoutUser(t *testing.T) {
 	}
 }
 
-// **같은 ply에 여러 개입이 들어간다.**
+// 같은 ply에 여러 개입이 들어간다.
 //
 // 한 국면에서 몇 수를 시도하고 전부 물러지는 일이 실제로 있다(journal §17).
 // (game_id, ply) 가 유니크였다면 두 번째 시도부터 조용히 사라지고, 「그 국면이 그 사람에게
@@ -231,7 +231,7 @@ func TestManyInterventionsAtOnePly(t *testing.T) {
 	}
 }
 
-// 기보는 **지금 판에 남아 있는 수순**이다. 물러진 뒤 다시 둔 수가 같은 ply를 덮어쓴다.
+// 기보는 지금 판에 남아 있는 수순이다. 물러진 뒤 다시 둔 수가 같은 ply를 덮어쓴다.
 func TestReplayedPlyOverwritesTheKifu(t *testing.T) {
 	s := open(t)
 	id := newGame(t, s)
@@ -254,7 +254,7 @@ func TestReplayedPlyOverwritesTheKifu(t *testing.T) {
 	}
 }
 
-// interventions 는 kind별로 채우는 컬럼이 다르고 **DB가 그걸 막는다.**
+// interventions 는 kind별로 채우는 컬럼이 다르고 DB가 그걸 막는다.
 // 섞이면 실력 추정이 조용히 틀어지므로 Go 쪽 실수가 여기서 걸려야 한다.
 func TestInterventionKindConstraint(t *testing.T) {
 	s := open(t)
@@ -268,10 +268,10 @@ func TestInterventionKindConstraint(t *testing.T) {
 	}
 }
 
-// 평가치는 **수를 덮지 않고** 그 행에만 들어간다.
+// 평가치는 수를 덮지 않고 그 행에만 들어간다.
 //
 // 한 질의로 upsert 하면 수까지 다시 쓰게 되고, 그러면 물러진 수로 기보를 덮는 길이
-// 생긴다. 그리고 **없는 ply에는 행을 만들지 않는다** — 평가치가 수보다 먼저 오는 경로가
+// 생긴다. 그리고 없는 ply에는 행을 만들지 않는다 — 평가치가 수보다 먼저 오는 경로가
 // 없으므로, 만들어 메우면 기보에 없던 행이 생긴다.
 func TestSetMoveEvalFillsOnlyTheEval(t *testing.T) {
 	s := open(t)
@@ -312,7 +312,7 @@ func TestSetMoveEvalFillsOnlyTheEval(t *testing.T) {
 
 // ── 리뷰(읽기) ───────────────────────────────────────────
 
-// 한 판을 넣고 그대로 꺼낸다. **읽는 쪽이 없어서 지금까지 아무도 확인하지 않던 자리다.**
+// 한 판을 넣고 그대로 꺼낸다. 읽는 쪽이 없어서 지금까지 아무도 확인하지 않던 자리다.
 func TestGameRecordRoundTrip(t *testing.T) {
 	s := open(t)
 	id := newGame(t, s)
@@ -340,7 +340,7 @@ func TestGameRecordRoundTrip(t *testing.T) {
 		t.Fatalf("GameRecord: %v", err)
 	}
 
-	// **手数 순서다.** 넣은 순서가 아니라 — 위에서 map으로 넣은 것이 그 확인이다.
+	// 手数 순서다. 넣은 순서가 아니라 — 위에서 map으로 넣은 것이 그 확인이다.
 	want := []string{"7g7f", "3c3d", "8h2b+"}
 	if len(got.Moves) != len(want) {
 		t.Fatalf("moves = %d, want %d", len(got.Moves), len(want))
@@ -390,7 +390,7 @@ func TestGameRecordMissing(t *testing.T) {
 	}
 }
 
-// **한 수도 안 둔 판은 목록에 안 온다.** 연결만 열렸다 끊긴 판이 실제로 그렇게 남고,
+// 한 수도 안 둔 판은 목록에 안 온다. 연결만 열렸다 끊긴 판이 실제로 그렇게 남고,
 // 되짚을 것이 없는 줄이 맨 위를 차지하면 진짜 대국이 아래로 밀린다.
 func TestListGamesSkipsEmptyGames(t *testing.T) {
 	s := open(t)
@@ -399,7 +399,7 @@ func TestListGamesSkipsEmptyGames(t *testing.T) {
 	if err := s.InsertMove(t.Context(), played, 1, "7g7f"); err != nil {
 		t.Fatalf("InsertMove: %v", err)
 	}
-	// **둘 다 끝내 둔다.** 목록은 결과가 나온 판만 주므로(§51), 안 끝내면 `empty` 가
+	// 둘 다 끝내 둔다. 목록은 결과가 나온 판만 주므로(§51), 안 끝내면 empty 가
 	// EXISTS 가 아니라 그 조건에 걸려 빠진다 — 여기서 보려는 것이 아니다.
 	for _, id := range []int64{empty, played} {
 		if err := s.FinishGame(t.Context(), id, ResultWin); err != nil {
@@ -433,13 +433,13 @@ func TestListGamesSkipsEmptyGames(t *testing.T) {
 	}
 }
 
-// 낙폭을 만든 **두 원본**이 남는다.
+// 낙폭을 만든 두 원본이 남는다.
 //
-// 낙폭만으로는 되돌릴 수 없다 — `WinRate(best) - WinRate(after)` 라서 미지수가 둘인데 식이
+// 낙폭만으로는 되돌릴 수 없다 — WinRate(best) - WinRate(after) 라서 미지수가 둘인데 식이
 // 하나이고, 같은 cp 차이가 위치에 따라 다른 낙폭이 된다(journal §39 ⑥). 그래서 이 두
 // 칸이 없으면 K를 바꿔 다시 채점할 수도, 물러진 수를 최선수와 한 축에 놓을 수도 없다.
 //
-// **0과 없음을 갈라 둔다.** 개입이 안 걸린 행과 「정말로 0cp였다」가 섞이면 화면이 없는 값을
+// 0과 없음을 갈라 둔다. 개입이 안 걸린 행과 「정말로 0cp였다」가 섞이면 화면이 없는 값을
 // 호각으로 그린다.
 func TestInterventionKeepsBothCp(t *testing.T) {
 	s := open(t)
@@ -486,7 +486,7 @@ func TestInterventionKeepsBothCp(t *testing.T) {
 
 // ── 되짚기 퀴즈 ──────────────────────────────────────────
 
-// 퀴즈는 **판이 맞을 때만** 온다. 그 규칙이 Go 쪽 한 줄에 있어서(GameQuiz) 가짜로도 볼 수
+// 퀴즈는 판이 맞을 때만 온다. 그 규칙이 Go 쪽 한 줄에 있어서(GameQuiz) 가짜로도 볼 수
 // 있지만, 함께 확인해야 하는 것이 jsonb 왕복이라 여기서 같이 본다.
 func TestGameQuizRoundTrip(t *testing.T) {
 	s := open(t)
@@ -504,8 +504,8 @@ func TestGameQuizRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GameQuiz: %v", err)
 	}
-	// **바이트가 같기를 기대하지 않는다.** jsonb는 넣은 글자를 그대로 두지 않고 다시 쓴다
-	// (키 순서도 공백도 갈린다). 읽는 쪽이 하는 일과 같게 **풀어서** 본다.
+	// 바이트가 같기를 기대하지 않는다. jsonb는 넣은 글자를 그대로 두지 않고 다시 쓴다
+	// (키 순서도 공백도 갈린다). 읽는 쪽이 하는 일과 같게 풀어서 본다.
 	var back struct {
 		Mate *struct{ Plies int } `json:"mate"`
 	}
@@ -516,7 +516,7 @@ func TestGameQuizRoundTrip(t *testing.T) {
 		t.Errorf("payload = %s, want it to carry the mate item", got)
 	}
 
-	// **판이 다르면 없는 것이다.** 문항 기준이 바뀌면 옛 문항은 그 기준으로 만든 것이
+	// 판이 다르면 없는 것이다. 문항 기준이 바뀌면 옛 문항은 그 기준으로 만든 것이
 	// 아니라서 채점 규약이 어긋난다(migrations/007).
 	if _, err := s.GameQuiz(t.Context(), id, 2); !errors.Is(err, ErrNoQuiz) {
 		t.Fatalf("판이 다른데 왔다: %v", err)
@@ -534,7 +534,7 @@ func TestGameQuizRoundTrip(t *testing.T) {
 	}
 }
 
-// 퀴즈가 없는 판은 **흔하다** — 10수 만에 投了한 판이 그렇다. 그때 문항 없이 행만 남는데
+// 퀴즈가 없는 판은 흔하다 — 10수 만에 投了한 판이 그렇다. 그때 문항 없이 행만 남는데
 // (「아직 만드는 중」과 갈라야 한다) 빈 문항이 왕복되는지 본다.
 func TestGameQuizWithNoItems(t *testing.T) {
 	s := open(t)

@@ -40,7 +40,7 @@ func TestHangingBishopIsSeen(t *testing.T) {
 	if f.MovedValue <= f.CapturedValue {
 		t.Errorf("馬(%d)가 딴 것(%d)보다 싸게 나왔다", f.MovedValue, f.CapturedValue)
 	}
-	// 馬는 3三에서 4二를 지나 5一玉까지 닿는다 — **王手이면서 タダ捨て인 수**다.
+	// 馬는 3三에서 4二를 지나 5一玉까지 닿는다 — 王手이면서 タダ捨て인 수다.
 	if !f.GivesCheck {
 		t.Error("3三馬는 4二를 지나 5一玉에 닿는다")
 	}
@@ -91,10 +91,10 @@ func TestDroppedGoldGivesSupportedCheck(t *testing.T) {
 	}
 }
 
-// **利き이 아니라 합법수로 센다.**
+// 利き이 아니라 합법수로 센다.
 //
 // 핀에 묶인 駒는 노리기만 하고 못 딴다. 그걸 「잡힌다」고 세면 화면이
-// 「その駒は取り返せない場所に置かれています」라고 **거짓을 단언**하고,
+// 「その駒は取り返せない場所に置かれています」라고 거짓을 단언하고,
 // 초심자에게는 그것을 검증할 수단이 없다 — 이 제품이 피하려는 바로 그 실패다.
 func TestPinnedAttackerCannotHangAPiece(t *testing.T) {
 	// 5三 飛(後手)는 5一玉과 5九飛 사이에 묶여 있다. 4三을 노리지만 움직이면 玉이 잡힌다
@@ -141,7 +141,7 @@ func TestGuardSteppingForwardCostsShield(t *testing.T) {
 	}
 }
 
-// **玉 자신이 움직이는 수는 반대로 나온다.** 착수 전 자리를 계속 보면
+// 玉 자신이 움직이는 수는 반대로 나온다. 착수 전 자리를 계속 보면
 // 「빈 칸 주변이 허술해졌다」가 되어 玉을 옮기는 정상적인 수마다 이유가 붙는다.
 func TestKingMovingIsMeasuredFromItsNewSquare(t *testing.T) {
 	f := featuresAfter(t, shogi.StartSFEN, "5i5h")
@@ -150,7 +150,7 @@ func TestKingMovingIsMeasuredFromItsNewSquare(t *testing.T) {
 	}
 }
 
-// 판을 못 읽으면 Known=false 로 남고 카테고리만 other 가 된다. **판정은 계속된다.**
+// 판을 못 읽으면 Known=false 로 남고 카테고리만 other 가 된다. 판정은 계속된다.
 func TestReplayRejectsGarbage(t *testing.T) {
 	if _, _, err := replay(shogi.StartSFEN, []string{"nonsense"}); err == nil {
 		t.Error("깨진 USI를 받아들였다")
@@ -160,7 +160,7 @@ func TestReplayRejectsGarbage(t *testing.T) {
 	}
 }
 
-// UnpromotedOnly 는 **틀린 설명을 막는 한 칸**이다(08-playtest.md §8).
+// UnpromotedOnly 는 틀린 설명을 막는 한 칸이다(08-playtest.md §8).
 //
 // 이동이 최선수와 같고 成 여부만 다를 때만 참이어야 한다. 넓으면 정상적인 不成까지
 // 「成れます」로 몰고, 좁으면 다시 greedy_capture 로 떨어져 잡는 것을 문제라고 말한다.
@@ -204,13 +204,13 @@ func TestUnpromotedOnly(t *testing.T) {
 	}
 }
 
-// **매수를 센다. 수를 세지 않는다.**
+// 매수를 센다. 수를 세지 않는다.
 //
 // 같은 駒가 成·不成으로 두 수를 내는 것이 흔하고, 수로 세면 화면이 「2枚が…」라고 거짓을
 // 말한다. 여기 쓰는 국면이 정확히 그 모양이다 — 4六銀 하나가 5七에 놓인 金을 두 수로 딸 수
 // 있다(敵陣이라 成·不成이 둘 다 합법이다).
 //
-// **에러가 안 나는 종류의 거짓말이라 기계로만 잡힌다.**
+// 에러가 안 나는 종류의 거짓말이라 기계로만 잡힌다.
 func TestFactsCountPiecesNotMoves(t *testing.T) {
 	// 4六에 後手 銀, 5八에 先手 金. 金이 5七로 나가면 그 銀에게 잡힌다.
 	const sfen = "4k4/9/9/9/9/5s3/9/4G4/4K4 b - 1"
@@ -256,7 +256,7 @@ func TestFactsNameThePromotedPiece(t *testing.T) {
 	}
 }
 
-// 반박 수순의 첫 수가 따는 수면 **그것이 「무엇을 잃는가」다.**
+// 반박 수순의 첫 수가 따는 수면 그것이 「무엇을 잃는가」다.
 //
 // 카테고리가 이유를 못 대는 3분의 2가 이 한 값으로 「相手は歩を取れます」를 갖는다
 // (journal §25). 두 번째 수부터는 내 되따기가 섞이므로 첫 수만 본다.
@@ -267,7 +267,7 @@ func TestRefutationNamesWhatCanBeTaken(t *testing.T) {
 		t.Errorf("threatened=%q, want 銀", got.threatened)
 	}
 
-	// 조용한 수로 시작하면 잡히는 것이 없다. **지어내지 않는다.**
+	// 조용한 수로 시작하면 잡히는 것이 없다. 지어내지 않는다.
 	quiet := refutationLine(exchangeSFEN, tookThePawn, []string{"5a4a"}, RefutationPlies, false)
 	if quiet.threatened != "" {
 		t.Errorf("threatened=%q — 따는 수가 아닌데 駒 이름이 나왔다", quiet.threatened)

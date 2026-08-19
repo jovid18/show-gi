@@ -12,19 +12,19 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// **게이트가 왜 한 번도 안 열렸는지를 단계로 가른다. 그리고 k를 고른다.**
+// 게이트가 왜 한 번도 안 열렸는지를 단계로 가른다. 그리고 k를 고른다.
 //
-// 사람이 끝까지 둔 두 판에서 제안형 手筋(`kind='tesuji'`)이 **0건**이었고, 그것이 「후보가
+// 사람이 끝까지 둔 두 판에서 제안형 手筋(kind='tesuji')이 0건이었고, 그것이 「후보가
 // 없어서」인지 「엔진이 다 떨어뜨려서」인지 「시한을 넘겨서」인지가 안 갈려 있었다
-// (journal §45 · §56). §56은 **비용**만 쟀다 — 이 테스트가 재는 것은 **결과**다.
+// (journal §45 · §56). §56은 비용만 쟀다 — 이 테스트가 재는 것은 결과다.
 //
 //	SHOWGI_MEASURE=1 SHOWGI_USI_CMD=/opt/yaneuraou/run \
 //	  go test ./internal/game/ -run MeasureTesujiHintGate -v -timeout 60m
 //
-// 세션을 세우지 않고 `maybeTesujiHint` 의 조건을 그대로 다시 쓴다. 세션으로 돌리면 사람의
+// 세션을 세우지 않고 maybeTesujiHint 의 조건을 그대로 다시 쓴다. 세션으로 돌리면 사람의
 // 착수 시각을 흉내내야 하는데 기보에 시각이 없어서, 그 흉내가 곧 결론이 되어 버린다.
 //
-// **k마다 엔진을 새로 띄운다.** 치환표가 더워진 채로 다음 k를 재면 뒤에 오는 k가 공짜로
+// k마다 엔진을 새로 띄운다. 치환표가 더워진 채로 다음 k를 재면 뒤에 오는 k가 공짜로
 // 보이고, 고르려는 것이 바로 그 비용이다(§58이 k=1 → k=3에서 겪은 자리).
 func TestMeasureTesujiHintGate(t *testing.T) {
 	if os.Getenv("SHOWGI_MEASURE") == "" {
@@ -41,15 +41,15 @@ func TestMeasureTesujiHintGate(t *testing.T) {
 	}
 }
 
-// **§74 뒤에 사람이 처음 둔 판이다.** 그 절이 k=3을 고른 근거는 회차 1의 기보 하나였고,
-// 회차 3은 화면에서 **0건**이 나왔다 — 후보 12개가 전부 「모르는 채」로 침묵했다
-// (journal §76 ④). 그래서 갈라야 할 것이 하나 남아 있다: **이 판에 통과할 手筋이
-// 애초에 없었는가, 아니면 k=3 줄 밖이라 못 물었는가.**
+// §74 뒤에 사람이 처음 둔 판이다. 그 절이 k=3을 고른 근거는 회차 1의 기보 하나였고,
+// 회차 3은 화면에서 0건이 나왔다 — 후보 12개가 전부 「모르는 채」로 침묵했다
+// (journal §76 ④). 그래서 갈라야 할 것이 하나 남아 있다: 이 판에 통과할 手筋이
+// 애초에 없었는가, 아니면 k=3 줄 밖이라 못 물었는가.
 //
-// k를 올리면 그 12개가 판정을 **받기는** 한다. 받는 것과 통과하는 것은 다르고, 회차 1의
+// k를 올리면 그 12개가 판정을 받기는 한다. 받는 것과 통과하는 것은 다르고, 회차 1의
 // 기보에서는 그 차이가 0이었다(k=3·6·12에서 뜬 이름이 셋으로 같다). 이 판은 안 재봤다.
 //
-// **사람이 後手다** — 위 판과 갈리는 유일한 인자이고, 넘기지 않으면 상대의 차례를 재게 된다.
+// 사람이 後手다 — 위 판과 갈리는 유일한 인자이고, 넘기지 않으면 상대의 차례를 재게 된다.
 func TestMeasureTesujiHintGateHuman3(t *testing.T) {
 	if os.Getenv("SHOWGI_MEASURE") == "" {
 		t.Skip("SHOWGI_MEASURE 미설정")
@@ -102,7 +102,7 @@ func measureTesujiGate(t *testing.T, cmd string, moves []string, k int, human sh
 			ply := i
 			turns++
 
-			// **maybeTesujiHint 의 순서 그대로다.** 상한 → 쿨다운 → 룰 필터 → 엔진.
+			// maybeTesujiHint 의 순서 그대로다. 상한 → 쿨다운 → 룰 필터 → 엔진.
 			// 쿨다운은 「물어본 자리」에서 재므로 후보가 없던 회차도 자리를 쓴다(§56).
 			switch {
 			case hintCount >= TagHintMaxPerGame:

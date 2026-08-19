@@ -8,7 +8,7 @@ import (
 
 // forkBoard 는 両取り를 재기 위한 최소 국면을 만든다.
 //
-// 양쪽 玉을 반드시 넣는다 — `LegalMoves` 는 王手 회피를 따지므로 玉이 없으면 합법수가
+// 양쪽 玉을 반드시 넣는다 — LegalMoves 는 王手 회피를 따지므로 玉이 없으면 합법수가
 // 무엇인지 자체가 달라지고, 그러면 무엇을 재는지 알 수 없다.
 func forkBoard(t *testing.T, sfen string) shogi.Position {
 	t.Helper()
@@ -19,7 +19,7 @@ func forkBoard(t *testing.T, sfen string) shogi.Position {
 	return pos
 }
 
-// **ふんどしの桂.** 桂가 두 金을 동시에 노린다.
+// ふんどしの桂. 桂가 두 金을 동시에 노린다.
 //
 // 5五의 桂는 4三과 6三으로 뛴다. 그 두 칸에 後手 金을 놓으면 両取り다.
 func TestKnightForkIsFundoshiNoKei(t *testing.T) {
@@ -38,7 +38,7 @@ func TestKnightForkIsFundoshiNoKei(t *testing.T) {
 	}
 }
 
-// **한 개만 노리는 것은 両取り가 아니다.** 이 음성 테스트가 없으면 술어가 그냥
+// 한 개만 노리는 것은 両取り가 아니다. 이 음성 테스트가 없으면 술어가 그냥
 // 「값나가는 駒를 노린다」가 되고, 그건 거의 모든 국면에서 참이다.
 func TestOneTargetIsNotAFork(t *testing.T) {
 	pos := forkBoard(t, "8k/9/3g5/9/4N4/9/9/9/8K b - 1") // 6三金 하나만
@@ -48,7 +48,7 @@ func TestOneTargetIsNotAFork(t *testing.T) {
 	}
 }
 
-// **歩 둘을 노리는 것은 両取り가 아니다.** 歩는 세지 않는다.
+// 歩 둘을 노리는 것은 両取り가 아니다. 歩는 세지 않는다.
 func TestPawnsAreNotForkTargets(t *testing.T) {
 	pos := forkBoard(t, "8k/9/3p1p3/9/4N4/9/9/9/8K b - 1")
 
@@ -57,7 +57,7 @@ func TestPawnsAreNotForkTargets(t *testing.T) {
 	}
 }
 
-// **값 비교는 여기서 안 한다.** 飛로 桂 둘을 노리는 것도 형태는 十字飛車이고, 「그래서
+// 값 비교는 여기서 안 한다. 飛로 桂 둘을 노리는 것도 형태는 十字飛車이고, 「그래서
 // 得인가」는 엔진이 답한다(game/tesuji.go). 원래는 이 조건을 여기서 걸었다.
 func TestCheaperTargetsAreStillTheShapeOfAFork(t *testing.T) {
 	// 5五飛가 5三桂와 8五桂를 노린다. 桂(4) < 飛(10)
@@ -68,7 +68,7 @@ func TestCheaperTargetsAreStillTheShapeOfAFork(t *testing.T) {
 	}
 }
 
-// **手番이 상대일 때도 같은 답이 나와야 한다.** `LegalMoves` 는 `pos.Turn` 쪽 수만
+// 手番이 상대일 때도 같은 답이 나와야 한다. LegalMoves 는 pos.Turn 쪽 수만
 // 내므로, 手番을 맞추지 않으면 조용히 「両取りが없다」가 된다 — 에러가 안 나는 버그다.
 func TestForkIsFoundRegardlessOfWhoseTurnItIs(t *testing.T) {
 	const board = "8k/9/3g1g3/9/4N4/9/9/9/8K "
@@ -115,12 +115,12 @@ func TestFindForksScansTheBoardWithoutDuplicates(t *testing.T) {
 	}
 }
 
-// **이 국면이 자리를 나눈 이유다.** 桂로 金 둘을 노렸는데 그 桂가 상대 歩에 잡히는
+// 이 국면이 자리를 나눈 이유다. 桂로 金 둘을 노렸는데 그 桂가 상대 歩에 잡히는
 // 자리였고, 손으로 쓴 1수 읽기가 그것을 통과시켰다(사람이 짚어 줘서 알았다).
 //
-// 그래서 안전을 여기서 묻지 않기로 했다. **룰은 형태만 말한다** — 이 국면에서
+// 그래서 안전을 여기서 묻지 않기로 했다. 룰은 형태만 말한다 — 이 국면에서
 // ふんどしの桂가 뜨는 것이 맞고, 이름을 화면에 내보내지 않는 일은 엔진 게이트가 한다
-// (`game.TestForkThatHangsIsNotNamed` 가 같은 국면을 그쪽에서 다시 잰다).
+// (game.TestForkThatHangsIsNotNamed 가 같은 국면을 그쪽에서 다시 잰다).
 //
 // 룰이 지웠던 조건을 다시 여기 넣으면 두 층이 같은 질문을 두 번 하고, 그때 답이
 // 갈리는 쪽은 언제나 얕게 읽는 이쪽이다.
@@ -134,7 +134,7 @@ func TestTheRuleLayerDoesNotAskWhetherTheForkerSurvives(t *testing.T) {
 	}
 }
 
-// **「十字」는 縦과 横이 교차한다는 뜻이다.** 같은 段의 둘을 노리는 飛는 両取り이긴 해도
+// 「十字」는 縦과 横이 교차한다는 뜻이다. 같은 段의 둘을 노리는 飛는 両取り이긴 해도
 // 十字飛車가 아니고, 그 이름을 붙이면 초심자는 다음에 그 형태를 못 알아본다.
 func TestJujiBishaNeedsBothDirections(t *testing.T) {
 	// 5五飛가 3五金·8五金을 노린다 — 둘 다 같은 段이다
@@ -150,11 +150,11 @@ func TestJujiBishaNeedsBothDirections(t *testing.T) {
 	}
 }
 
-// **龍·馬가 덤으로 얻은 한 칸은 그 이름의 방향이 아니다.**
+// 龍·馬가 덤으로 얻은 한 칸은 그 이름의 방향이 아니다.
 //
-// `Base()` 로 이름을 고르므로 龍은 十字飛車, 馬는 角による両取り로 온다. 그것 자체는
-// 맞는데(縦横·斜め를 그대로 갖는다), 덤으로 얻은 한 칸까지 세면 **十字가 아닌 것에
-// 十字라는 이름이 붙는다.**
+// Base() 로 이름을 고르므로 龍은 十字飛車, 馬는 角による両取り로 온다. 그것 자체는
+// 맞는데(縦横·斜め를 그대로 갖는다), 덤으로 얻은 한 칸까지 세면 十字가 아닌 것에
+// 十字라는 이름이 붙는다.
 func TestPromotedRookExtraStepIsNotACross(t *testing.T) {
 	// 5五龍이 5三金을 縦으로 노리고, 4四金은 덤으로 얻은 斜め 한 칸이다
 	pos := forkBoard(t, "8k/9/4g4/5g3/4+R4/9/9/9/8K b - 1")
@@ -164,15 +164,14 @@ func TestPromotedRookExtraStepIsNotACross(t *testing.T) {
 	}
 }
 
-// **成駒에는 生駒의 이름을 안 붙인다.**
+// 成駒에는 生駒의 이름을 안 붙인다.
 //
 // 成桂·成銀은 둘 다 金의 움직임이 되어 「桂가 둘로 뛴다」도 「銀이 사이에 打つ」도 성립하지
-// 않는다 — 腹銀에서 成銀을 뺀 것과 같은 기준이고, 실 기보의 `▲5二成銀` 에 「割打ちの銀」이
+// 않는다 — 腹銀에서 成銀을 뺀 것과 같은 기준이고, 실 기보의 ▲5二成銀 에 「割打ちの銀」이
 // 떴던 자리다(journal §34 ⑤).
 //
-// **龍·馬도 같이 뺀다.** 움직임은 남아 있지만 이름이 「飛車」·「角」을 말하고, 실측에서
-// 그 절반이 成駒이면서 종반에 쏠려 있다(forkNames · 회차 1 #14). 한때 반대로 들었던
-// 자리이고, 사람이 둔 판이 그것을 뒤집었다.
+// 龍·馬도 같이 뺀다. 움직임은 남아 있지만 이름이 「飛車」·「角」을 말하고, 실측에서
+// 그 절반이 成駒이면서 종반에 쏠려 있다(forkNames · 회차 1 #14).
 func TestPromotedPiecesDoNotBorrowTheBaseNames(t *testing.T) {
 	for _, tc := range []struct {
 		name, sfen string
@@ -180,7 +179,7 @@ func TestPromotedPiecesDoNotBorrowTheBaseNames(t *testing.T) {
 	}{
 		{"成桂", "8k/9/9/3g1g3/4+N4/9/9/9/8K b - 1", ""},
 		{"成銀", "8k/9/9/3g1g3/4+S4/9/9/9/8K b - 1", ""},
-		// 형태는 그대로 縦横·斜め다 — 안 붙는 이유가 형태가 아니라 **이름**이라는 것을
+		// 형태는 그대로 縦横·斜め다 — 안 붙는 이유가 형태가 아니라 이름이라는 것을
 		// 못박으려고, 생駒였다면 붙었을 국면을 그대로 쓴다.
 		{"龍", "8k/9/4g4/9/1g2+R4/9/9/9/8K b - 1", ""},
 		{"馬", "8k/9/2g3g2/9/4+B4/9/9/9/8K b - 1", ""},
@@ -197,25 +196,25 @@ func TestPromotedPiecesDoNotBorrowTheBaseNames(t *testing.T) {
 	}
 }
 
-// **割打ちの銀은 뒤쪽 두 대각으로 낀다.** 出典이 「右斜め後ろ·左斜め後ろの２マス両方にいる
+// 割打ちの銀은 뒤쪽 두 대각으로 낀다. 出典이 「右斜め後ろ·左斜め後ろの２マス両方にいる
 // 相手の飛車または金」로 정의한다 — 앞대각으로 둘을 낀 것은 割打ち가 아니다. 방향을 안 보면
 // 王手銀取り까지 割打ちの銀이 된다(floodgate 1국에서 실제로 그랬다).
 func TestWariuchiNoGinNeedsBackDiagonals(t *testing.T) {
-	// 5五 銀의 **뒤** 대각 4六·6六에 後手 金 → 割打ちの銀
+	// 5五 銀의 뒤 대각 4六·6六에 後手 金 → 割打ちの銀
 	back := forkBoard(t, "k8/9/9/9/4S4/3g1g3/9/9/8K b - 1")
 	if got, ok := Fork(back, shogi.SquareOf(5, 5), shogi.Black); !ok || got.Code != "wariuchi_no_gin" {
 		t.Errorf("뒤 대각 両取り는 割打ちの銀이다: %s/%v", got.Code, ok)
 	}
 
-	// 같은 銀의 **앞** 대각 4四·6四에 두면 割打ち가 아니다
+	// 같은 銀의 앞 대각 4四·6四에 두면 割打ち가 아니다
 	front := forkBoard(t, "k8/9/9/3g1g3/4S4/9/9/9/8K b - 1")
 	if got, ok := Fork(front, shogi.SquareOf(5, 5), shogi.Black); ok {
 		t.Errorf("앞 대각인데 %s 가 떴다", got.Code)
 	}
 }
 
-// **玉은 両取り의 표적이 아니다.** 銀이 玉과 金을 갈라 노린 것은 割打ちの銀이 아니라
-// 王手銀取り다 — 出典도 대상을 「飛車または金」에 한정한다. `LegalMoves` 가 手番을 뒤집힌
+// 玉은 両取り의 표적이 아니다. 銀이 玉과 金을 갈라 노린 것은 割打ちの銀이 아니라
+// 王手銀取り다 — 出典도 대상을 「飛車または金」에 한정한다. LegalMoves 가 手番을 뒤집힌
 // 국면에서 敵玉을 잡는 수를 내므로, 빼지 않으면 그 칸이 표적으로 새어 王手銀取り가
 // 割打ちの銀으로 뜬다(floodgate 1국의 실제 오진).
 func TestSilverForkDoesNotCountTheKing(t *testing.T) {

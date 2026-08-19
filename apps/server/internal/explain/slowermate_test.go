@@ -15,7 +15,7 @@ func slowerMateFacts(before int) Facts {
 		LostMate:   true,
 		Known:      true,
 		MateBefore: before,
-		// 이 카테고리가 **말하지 않기로 한** 사실들이다. 채워도 문장과 키에 안 새야 한다.
+		// 이 카테고리가 말하지 않기로 한 사실들이다. 채워도 문장과 키에 안 새야 한다.
 		MovedPiece: "歩",
 		Captured:   "銀",
 		Attackers:  2,
@@ -23,7 +23,7 @@ func slowerMateFacts(before int) Facts {
 	}
 }
 
-// **「逃す」가 문장에 있으면 안 된다.** 詰み은 남아 있고 길어졌을 뿐이라, 놓쳤다고 말하면
+// 「逃す」가 문장에 있으면 안 된다. 詰み은 남아 있고 길어졌을 뿐이라, 놓쳤다고 말하면
 // 이기고 있는 사람에게 거짓을 가르친다 — 실제로 이긴 판에서 그 문장이 나갔다(§76).
 func TestSlowerMateNeverSaysTheMateWasLost(t *testing.T) {
 	got := Render(slowerMateFacts(5))
@@ -44,8 +44,8 @@ func TestSlowerMateNeverSaysTheMateWasLost(t *testing.T) {
 	}
 }
 
-// **착수 後의 手数는 문장에 하나도 안 나온다.** 그 값은 solver 가 아니라 탐색이 준 것이라
-// 증명이 아니고, 같은 국면에 14·16·「없음」이 나왔다(journal §76). `Facts` 에 그 칸이
+// 착수 後의 手数는 문장에 하나도 안 나온다. 그 값은 solver 가 아니라 탐색이 준 것이라
+// 증명이 아니고, 같은 국면에 14·16·「없음」이 나왔다(journal §76). Facts 에 그 칸이
 // 아예 없는 것이 첫 번째 보증이고, 이 테스트가 두 번째다 — 문장이 다른 데서 숫자를 끌어
 // 오는 날을 잡는다.
 func TestSlowerMateSaysNoNumberForTheAfterSide(t *testing.T) {

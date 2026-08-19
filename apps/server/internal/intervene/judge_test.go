@@ -31,7 +31,7 @@ func TestWinRateSaturatesWhenWinning(t *testing.T) {
 	}
 }
 
-// 오프닝의 다양성은 수 번호가 아니라 **임계치**가 지킨다.
+// 오프닝의 다양성은 수 번호가 아니라 임계치가 지킨다.
 //
 // 전법 선택은 보통 50~200cp 손해라 어느 레벨도 안 걸리고, 銀 이상을 공짜로 주면
 // 입문에서도 걸린다. 그래서 "초반 N수는 안 본다" 같은 구간이 필요 없다 —
@@ -110,7 +110,7 @@ func TestMateStillThereIsNotABlunder(t *testing.T) {
 	}
 }
 
-// **사라진 것과 멀어진 것은 다른 카테고리다.** 한 이름이었을 때 이긴 판에서
+// 사라진 것과 멀어진 것은 다른 카테고리다. 한 이름이었을 때 이긴 판에서
 // 「詰みを逃した」고 가르쳤다(journal §76).
 func TestSlowerMateIsNotMissedMate(t *testing.T) {
 	// 5手詰이 있었는데 8手가 됐다 — 詰み은 그대로 있다.
@@ -155,12 +155,12 @@ func TestBeingMatedIsCaughtByWinRate(t *testing.T) {
 	}
 }
 
-// TestBaselineRestoresTheJudgementInKomaochi 는 **駒落ち에서 판정이 살아 있는지**를 본다.
+// TestBaselineRestoresTheJudgementInKomaochi 는 駒落ち에서 판정이 살아 있는지를 본다.
 //
 // 기준점이 없으면 四枚落ち(+1561)에서 銀 헌납(약 1000cp)이 안 걸린다 — 승률이 이미
-// 포화해서다. **二枚落ち를 예시로 못 쓴다** — 발화선이 989라 銀 헌납이 간신히 걸리고,
-// 그러면 아래 첫 줄이 「전제가 깨졌다」로 진다(journal §88). 위 `TestWinRateSaturatesWhenWinning` 이 종반에서 재는 것과 같은 현상이고,
-// 駒落ち는 **판 전체가** 그 구간이라 詰み 거리로도 못 막는다(journal §84).
+// 포화해서다. 二枚落ち를 예시로 못 쓴다 — 발화선이 989라 銀 헌납이 간신히 걸리고,
+// 그러면 아래 첫 줄이 「전제가 깨졌다」로 진다(journal §88). 위 TestWinRateSaturatesWhenWinning 이 종반에서 재는 것과 같은 현상이고,
+// 駒落ち는 판 전체가 그 구간이라 詰み 거리로도 못 막는다(journal §84).
 func TestBaselineRestoresTheJudgementInKomaochi(t *testing.T) {
 	const yonmai = 1561 // internal/handicap 의 실측값
 
@@ -178,25 +178,25 @@ func TestBaselineRestoresTheJudgementInKomaochi(t *testing.T) {
 		t.Errorf("四枚落ち에서 1000cp 손해가 안 걸렸다: Δ=%.3f", v.DeltaWin)
 	}
 
-	// **낙폭이 平手의 그것과 같아야 한다.** 기준점이 하는 일은 좌표를 옮기는 것뿐이라,
+	// 낙폭이 平手의 그것과 같아야 한다. 기준점이 하는 일은 좌표를 옮기는 것뿐이라,
 	// 같은 상대 손해는 어느 手合에서도 같은 숫자여야 한다.
 	flat := Judge(Input{BestCp: 0, AfterCp: -1000, Level: Beginner})
 	if d := v.DeltaWin - flat.DeltaWin; d > 1e-9 || d < -1e-9 {
 		t.Errorf("낙폭이 手合에 따라 갈렸다: 四枚落ち %.6f vs 平手 %.6f", v.DeltaWin, flat.DeltaWin)
 	}
 
-	// **원본 cp는 안 옮긴다.** 재채점이 이 두 칸에서 도므로(Input.BaselineCp) 기준점을
+	// 원본 cp는 안 옮긴다. 재채점이 이 두 칸에서 도므로(Input.BaselineCp) 기준점을
 	// 뺀 값이 저장되면 원본이 어디에도 없어진다.
 	if v.BestCp != yonmai || v.AfterCp != yonmai-1000 {
 		t.Errorf("Verdict 의 cp가 기준점만큼 옮겨졌다: %d / %d", v.BestCp, v.AfterCp)
 	}
 }
 
-// TestBaselineIsANoOpAtHirate 는 平手(기준점 0)의 낙폭이 **옛 식과 한 비트도 다르지 않은지**를
+// TestBaselineIsANoOpAtHirate 는 平手(기준점 0)의 낙폭이 옛 식과 한 비트도 다르지 않은지를
 // 본다. 265시도 재채점(journal §39)이 그 좌표에서 나왔으므로, 여기가 흔들리면 그 측정이
 // 통째로 다른 기준의 것이 된다.
 //
-// **옛 식을 여기 적어 두는 것이 이 테스트다.** 「기준점 0을 넣은 것과 안 넣은 것이 같다」로
+// 옛 식을 여기 적어 두는 것이 이 테스트다. 「기준점 0을 넣은 것과 안 넣은 것이 같다」로
 // 쓰면 둘 다 0이라 아무것도 확인하지 않는다 — 두 항 중 한쪽에만 기준점을 빼는 버그가
 // 그 모양으로는 안 잡힌다.
 func TestBaselineIsANoOpAtHirate(t *testing.T) {
@@ -211,7 +211,7 @@ func TestBaselineIsANoOpAtHirate(t *testing.T) {
 	}
 }
 
-// TestBaselineSubtractsFromBothTerms 는 **두 항에서 같이 빼는지**를 본다.
+// TestBaselineSubtractsFromBothTerms 는 두 항에서 같이 빼는지를 본다.
 //
 // 한쪽에만 빼면 기준점이 낙폭을 임의로 밀고, 그 버그는 「駒落ち에서 개입이 너무 잦다/드물다」
 // 로만 드러난다 — 어느 쪽인지도 手合마다 갈린다.

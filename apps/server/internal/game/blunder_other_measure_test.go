@@ -12,14 +12,14 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// journal §40의 숫자를 만든 자리다. `other` 가 개입의 절반을 넘는데(54/92),
-// **거기로 가는 길이 둘인 것을 DB가 못 가른다** — `!Known`(사실을 못 구했다)과
-// `default:`(구했는데 안 맞았다)가 똑같이 `'other'` 로 저장된다. 둘은 완전히 다른
+// journal §40의 숫자를 만든 자리다. other 가 개입의 절반을 넘는데(54/92),
+// 거기로 가는 길이 둘인 것을 DB가 못 가른다 — !Known(사실을 못 구했다)과
+// default:(구했는데 안 맞았다)가 똑같이 'other' 로 저장된다. 둘은 완전히 다른
 // 문제라 처방이 갈리므로, 먼저 가르지 않으면 어떤 처방도 근거가 없다.
 //
-// 국면은 남아 있다 — `games.start_sfen` + `game_moves` + `interventions.retracted_usi` 로
-// 물러진 수의 국면이 그대로 복원된다. 되무른 수는 `game_moves` 에 안 남으므로
-// ply 미만의 수를 놓은 자리가 곧 착수 **전** 국면이다.
+// 국면은 남아 있다 — games.start_sfen + game_moves + interventions.retracted_usi 로
+// 물러진 수의 국면이 그대로 복원된다. 되무른 수는 game_moves 에 안 남으므로
+// ply 미만의 수를 놓은 자리가 곧 착수 전 국면이다.
 //
 //	SHOWGI_TEST_DATABASE_URL='postgres://showgi:showgi@localhost:5432/showgi' \
 //	  SHOWGI_MEASURE=1 go test ./internal/game/ -run MeasureBlunderOther -v
@@ -55,7 +55,7 @@ func measureDB(t *testing.T) *pgx.Conn {
 
 // loadBlunders 는 되무른 수 전부와 그 대국의 수순을 읽어 온다.
 //
-// **읽기만 한다.** 다섯 워크트리가 같은 데이터베이스를 본다.
+// 읽기만 한다. 다섯 워크트리가 같은 데이터베이스를 본다.
 func loadBlunders(t *testing.T, conn *pgx.Conn) ([]blunderRow, map[int64][]string) {
 	t.Helper()
 	ctx := context.Background()
@@ -100,10 +100,10 @@ func loadBlunders(t *testing.T, conn *pgx.Conn) ([]blunderRow, map[int64][]strin
 	return out, moves
 }
 
-// replayBlunder 는 되무른 수의 착수 **전** 국면과 그 한 수를 복원한다.
+// replayBlunder 는 되무른 수의 착수 전 국면과 그 한 수를 복원한다.
 //
-// `ply` 는 그 수가 놓였을 자리의 번호다(session.go 의 `len(st.usis)+1`). 되무른 수는
-// `game_moves` 에 안 남으므로 앞의 ply-1 수가 그대로 착수 전 국면이 된다.
+// ply 는 그 수가 놓였을 자리의 번호다(session.go 의 len(st.usis)+1). 되무른 수는
+// game_moves 에 안 남으므로 앞의 ply-1 수가 그대로 착수 전 국면이 된다.
 func replayBlunder(b blunderRow, moves []string) (shogi.Position, shogi.Move, error) {
 	if b.retracted == "" {
 		return shogi.Position{}, shogi.Move{}, fmt.Errorf("retracted_usi 없음")
@@ -125,11 +125,11 @@ func replayBlunder(b blunderRow, moves []string) (shogi.Position, shogi.Move, er
 	return pos, m, nil
 }
 
-// offlineCategory 는 복원한 사실로 **프로덕션과 같은 분류기**를 돌린다.
+// offlineCategory 는 복원한 사실로 프로덕션과 같은 분류기를 돌린다.
 //
-// `classify` 가 비공개라 `Judge` 를 지나간다. 낙폭을 확실히 임계치 위로 두면 분류만
-// 남고, 여기서 갈릴 수 있는 유일한 분기인 `shallow_trap` 은 `HasShallow=false` 라
-// 애초에 안 걸린다. **규칙을 베껴 오지 않는 것이 요점이다** — 베끼면 `calibrate` 가
+// classify 가 비공개라 Judge 를 지나간다. 낙폭을 확실히 임계치 위로 두면 분류만
+// 남고, 여기서 갈릴 수 있는 유일한 분기인 shallow_trap 은 HasShallow=false 라
+// 애초에 안 걸린다. 규칙을 베껴 오지 않는다 — 베끼면 calibrate 가
 // 조건을 고치는 순간 측정만 조용히 옛 규칙을 잰다.
 func offlineCategory(f intervene.Features) intervene.Category {
 	return intervene.Judge(intervene.Input{
@@ -140,7 +140,7 @@ func offlineCategory(f intervene.Features) intervene.Category {
 	}).Category
 }
 
-// TestMeasureBlunderOther 는 `other` 54건이 **어느 길로** 거기 갔는지를 가른다.
+// TestMeasureBlunderOther 는 other 54건이 어느 길로 거기 갔는지를 가른다.
 func TestMeasureBlunderOther(t *testing.T) {
 	conn := measureDB(t)
 	all, moves := loadBlunders(t, conn)
@@ -153,9 +153,9 @@ func TestMeasureBlunderOther(t *testing.T) {
 		rows  []blunderRow
 		feats []intervene.Features
 	}
-	// `other` 가 어느 길로 갔는가와, **그 밖의 카테고리가 그대로 재현되는가**는 다른
+	// other 가 어느 길로 갔는가와, 그 밖의 카테고리가 그대로 재현되는가는 다른
 	// 질문이다. 한 표에 섞으면 「54건」 아래에 56줄이 찍혀 표가 자기 합계와 안 맞는다.
-	buckets := map[string]*bucket{} // `other` 의 경로
+	buckets := map[string]*bucket{} // other 의 경로
 	control := map[string]*bucket{} // 그 밖의 재현 대조
 	adder := func(m map[string]*bucket) func(string, blunderRow, intervene.Features) {
 		return func(name string, b blunderRow, f intervene.Features) {
@@ -217,16 +217,16 @@ func TestMeasureBlunderOther(t *testing.T) {
 		t.Logf("  %-42s %3d", k, len(buckets[k].rows))
 	}
 
-	// **대조군이다.** `other` 가 아닌 것이 오프라인에서 그대로 재현되면 복원 자체를
-	// 믿어도 된다는 뜻이고, 위의 갈래도 같은 만큼 믿을 수 있다. `shallow_trap` 은
-	// `ShallowCp` 가 엔진에서만 나오므로 **어긋나는 것이 맞다** — 어긋나지 않으면
+	// 대조군이다. other 가 아닌 것이 오프라인에서 그대로 재현되면 복원 자체를
+	// 믿어도 된다는 뜻이고, 위의 갈래도 같은 만큼 믿을 수 있다. shallow_trap 은
+	// ShallowCp 가 엔진에서만 나오므로 어긋나는 것이 맞다 — 어긋나지 않으면
 	// 오히려 그쪽을 의심해야 한다.
 	t.Logf("\n== 대조: `other` 가 아닌 것이 그대로 재현되나 ==")
 	for _, k := range sortedBucketKeys(control) {
 		t.Logf("  %-42s %3d", k, len(control[k].rows))
 	}
 
-	// ② 로 떨어진 것들의 사실을 그대로 찍는다. **새 카테고리는 여기서 나온다** —
+	// ② 로 떨어진 것들의 사실을 그대로 찍는다. 새 카테고리는 여기서 나온다 —
 	// 어느 조건에 얼마나 못 미쳤는지가 보여야 「조건이 좁다」와 「분기가 없다」가 갈린다.
 	if x := buckets["② default — 구했는데 안 맞았다"]; x != nil {
 		t.Logf("\n== ② default %d건의 사실 ==", len(x.rows))
@@ -242,12 +242,12 @@ func TestMeasureBlunderOther(t *testing.T) {
 		summarizeOther(t, x.feats)
 	}
 
-	// 종반 가설. `other` 가 대국의 뒤쪽에 몰려 있으면 분류기의 실패가 아니라
-	// **적용 범위 밖**이라는 뜻이 된다.
+	// 종반 가설. other 가 대국의 뒤쪽에 몰려 있으면 분류기의 실패가 아니라
+	// 적용 범위 밖이라는 뜻이 된다.
 	//
-	// **「대국의 몇 % 지점인가」로 재지 않는다.** 되무른 수는 `game_moves` 에 안 남고,
-	// 개입 직후에 대국이 끝난 경우가 많아 `ply` 가 기록된 手数를 넘는다 — 그 비율은
-	// 100%를 넘어가 뜻을 잃는다. 대신 **ply 와 그 대국의 총 手数를 따로** 찍고, 넘어간
+	// 「대국의 몇 % 지점인가」로 재지 않는다. 되무른 수는 game_moves 에 안 남고,
+	// 개입 직후에 대국이 끝난 경우가 많아 ply 가 기록된 手数를 넘는다 — 그 비율은
+	// 100%를 넘어가 뜻을 잃는다. 대신 ply 와 그 대국의 총 手数를 따로 찍고, 넘어간
 	// 건수를 함께 센다. 넘어간 것 자체가 사실이다: 그 수에서 대국이 끝났다는 뜻이다.
 	t.Logf("\n== 대국 안에서의 위치 ==")
 	t.Logf("  %-16s %-6s %-10s %-12s %-10s", "카테고리", "건수", "중앙 ply", "중앙 총 手数", "끝에서 끝남")
@@ -271,20 +271,20 @@ func TestMeasureBlunderOther(t *testing.T) {
 	}
 }
 
-// summarizeOther 는 ② 로 떨어진 사실들을 **분기별로** 세어 어디가 비었는지 본다.
+// summarizeOther 는 ② 로 떨어진 사실들을 분기별로 세어 어디가 비었는지 본다.
 func summarizeOther(t *testing.T, fs []intervene.Features) {
 	t.Helper()
 	var quiet, capturedNoCost, kingOneSide, nothing int
 	for _, f := range fs {
 		switch {
 		case f.CapturedValue > 0:
-			// 땄는데 `greedy_capture` 에 안 걸렸다 = 되따이지도 않고 玉도 안 밀렸다.
+			// 땄는데 greedy_capture 에 안 걸렸다 = 되따이지도 않고 玉도 안 밀렸다.
 			capturedNoCost++
 		case f.ShieldLoss > 0 || f.ThreatGain > 0:
-			// 玉 주변이 한쪽만 움직였다. `king_exposed` 는 둘 다를 요구한다.
+			// 玉 주변이 한쪽만 움직였다. king_exposed 는 둘 다를 요구한다.
 			kingOneSide++
 		case f.CapturedValue == 0 && !f.GivesCheck && f.ShieldLoss <= 0 && f.ThreatGain <= 0:
-			// 아무것도 안 땄고 王手도 아니고 玉 주변도 안 나빠졌다 — **조용한 악수**다.
+			// 아무것도 안 땄고 王手도 아니고 玉 주변도 안 나빠졌다 — 조용한 악수다.
 			quiet++
 		default:
 			nothing++

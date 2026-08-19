@@ -79,7 +79,7 @@ func TestObservingStillSaves(t *testing.T) {
 	}
 }
 
-// 추정기 goroutine이 쓰고 총평 goroutine이 읽는다 — `-race` 가 잡는 자리다.
+// 추정기 goroutine이 쓰고 총평 goroutine이 읽는다 — -race 가 잡는 자리다.
 func TestConcurrentObserveAndRead(t *testing.T) {
 	r := newSkillRun(skill.Estimate{Loss: 0.5, Samples: 9})
 	cb := r.observing(nil)

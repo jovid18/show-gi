@@ -11,7 +11,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// stubAnalyst 는 엔진 없이 평가치만 돌려준다. **판정은 안 준다** — 대인전에 개입이 없다는
+// stubAnalyst 는 엔진 없이 평가치만 돌려준다. 판정은 안 준다 — 대인전에 개입이 없다는
 // 것을 이 테스트가 같이 지킨다.
 type stubAnalyst struct {
 	fail bool
@@ -25,7 +25,7 @@ func (s stubAnalyst) Judge(_ context.Context, _ string, moves []string, ply int)
 	return game.Judgement{HasEvals: true, SenteCpBefore: ply * 10, SenteCpAfter: ply*10 + 1}, nil
 }
 
-// **평가치는 두 행에 다 들어간다.** 대인전 한 판이 `games` 행 둘이라, 한쪽만 채우면
+// 평가치는 두 행에 다 들어간다. 대인전 한 판이 games 행 둘이라, 한쪽만 채우면
 // 같은 판을 두 사람이 다르게 본다.
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
@@ -45,7 +45,7 @@ func TestAnalysisFillsBothRowsOfAMatch(t *testing.T) {
 				t.Fatalf("game %d ply %d has no eval", id, m.Ply)
 			}
 		}
-		// 마지막 手数만 `After` 로 남는다. 앞의 칸은 다음 회차가 `Before` 로 덮는다
+		// 마지막 手数만 After 로 남는다. 앞의 칸은 다음 회차가 Before 로 덮는다
 		// (kifu/import.go 와 같은 모양).
 		last := rec.Moves[len(rec.Moves)-1]
 		if *last.EvalCp != len(rec.Moves)*10+1 {
@@ -57,7 +57,7 @@ func TestAnalysisFillsBothRowsOfAMatch(t *testing.T) {
 	}
 }
 
-// **엔진이 답을 못 하면 거기서 멈춘다.** 판정 없이 남는 것이 잘못 채우는 것보다 낫고,
+// 엔진이 답을 못 하면 거기서 멈춘다. 판정 없이 남는 것이 잘못 채우는 것보다 낫고,
 // 그때 화면은 「분석 중」이 아니라 「남지 않았다」로 돌아간다.
 func TestAnalysisStopsWhenTheEngineFails(t *testing.T) {
 	st, ids := matchRowsForAnalysis(t, []string{"7g7f", "3c3d"})
@@ -76,7 +76,7 @@ func TestAnalysisStopsWhenTheEngineFails(t *testing.T) {
 	}
 }
 
-// **줄에 서는 순간부터 「분석 중」이다.** 워커가 그 판에 닿기 전이라도 화면이 기다릴 것을
+// 줄에 서는 순간부터 「분석 중」이다. 워커가 그 판에 닿기 전이라도 화면이 기다릴 것을
 // 알아야 한다.
 func TestQueuedGamesReadAsAnalyzing(t *testing.T) {
 	a := &matchAnalyzer{queue: make(chan []int64, 1), pending: map[int64]struct{}{}}
@@ -94,7 +94,7 @@ func TestQueuedGamesReadAsAnalyzing(t *testing.T) {
 	}
 }
 
-// **분석기가 없어도 부르는 쪽이 안 죽는다.** 엔진 없는 배포에서 대인전이 그대로 도는
+// 분석기가 없어도 부르는 쪽이 안 죽는다. 엔진 없는 배포에서 대인전이 그대로 도는
 // 규약이라, 그 배포에서는 이 값이 nil 인 채로 같은 자리를 지난다.
 func TestANilAnalyzerIsSafeToUse(t *testing.T) {
 	var a *matchAnalyzer

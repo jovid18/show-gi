@@ -12,18 +12,18 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// 문장과 개입 카드가 **같은 탐색 결과**를 보는지. 사람이 남긴 그림이 여기서 나왔다 —
-// 카드 후보 1위는 `△2五玉` 인데 문장은 「相手の最善手は△7七歩」였다(docs/playtests/
-// 2026-08-13-human-1.md §6 #8). 어느 쪽도 버그가 아니었고 **묻는 k가 달랐다**(journal §58).
+// 문장과 개입 카드가 같은 탐색 결과를 보는지. 사람이 남긴 그림이 여기서 나왔다 —
+// 카드 후보 1위는 △2五玉 인데 문장은 「相手の最善手は△7七歩」였다(docs/playtests/
+// 2026-08-13-human-1.md §6 #8). 어느 쪽도 버그가 아니었고 묻는 k가 달랐다(journal §58).
 
 // pvStub 은 k에 따라 다른 답을 준다. 실엔진에서 MultiPV가 1위를 바꾸는 것이 이 항목의
 // 전제이므로, 그 성질을 스텁이 그대로 갖고 있어야 테스트가 뜻을 갖는다.
 type pvStub struct {
-	// single 은 `SearchDepth`(k=1)의 답이다. 판정의 입력이 여기서 나온다.
+	// single 은 SearchDepth(k=1)의 답이다. 판정의 입력이 여기서 나온다.
 	single usi.SearchResult
 	// multi 는 수순(공백으로 이은 것) → k=OtherBranches 의 답이다. 없는 수순은 에러다.
 	multi map[string]usi.SearchResult
-	// asked 는 MultiPV로 물어본 수순들. **어느 국면을 물었나**가 여기서 보인다.
+	// asked 는 MultiPV로 물어본 수순들. 어느 국면을 물었나가 여기서 보인다.
 	asked [][]string
 }
 
@@ -40,11 +40,11 @@ func (s *pvStub) SearchMultiPV(_ context.Context, _ string, moves []string, _, _
 	return res, nil
 }
 
-// quietBlunder 는 **카테고리가 `other` 로 떨어지는** 수다. 아무것도 안 따고 王手도 아니고
-// 그냥 잡히지도 않아서, `classify` 의 이름 붙은 분기 어디에도 안 걸린다.
+// quietBlunder 는 카테고리가 other 로 떨어지는 수다. 아무것도 안 따고 王手도 아니고
+// 그냥 잡히지도 않아서, classify 의 이름 붙은 분기 어디에도 안 걸린다.
 var quietBlunder = []string{"1g1f"}
 
-// openedDiagonal 도 `other` 다. 다른 것은 **상대가 딸 것이 생긴다**는 점뿐이다 — 角道가
+// openedDiagonal 도 other 다. 다른 것은 상대가 딸 것이 생긴다는 점뿐이다 — 角道가
 // 서로 열려 있어서 8八의 角을 그냥 따인다. 판정 대상은 마지막의 端歩이고, 그 수는 딴 것도
 // 王手도 아니라 이름 붙은 어느 분기에도 안 걸린다.
 var openedDiagonal = []string{"7g7f", "3c3d", "1g1f"}
@@ -66,7 +66,7 @@ func judgeOtherBlunder(t *testing.T, stub *pvStub, moves []string) Judgement {
 	return j
 }
 
-// afterK1 은 착수 후 국면을 k=1로 읽은 것이다. 이 PV의 첫 수가 **문장에 나가서는 안 되는**
+// afterK1 은 착수 후 국면을 k=1로 읽은 것이다. 이 PV의 첫 수가 문장에 나가서는 안 되는
 // 그 수다 — 카드는 같은 국면을 k=3으로 묻고 1위가 갈린다.
 func afterK1() usi.SearchResult {
 	return usi.SearchResult{
@@ -75,7 +75,7 @@ func afterK1() usi.SearchResult {
 	}
 }
 
-// **문장은 카드가 짚는 수를 말한다.** 판정이 손에 든 k=1 PV가 아니다.
+// 문장은 카드가 짚는 수를 말한다. 판정이 손에 든 k=1 PV가 아니다.
 func TestSentenceNamesTheMoveTheCardPoints(t *testing.T) {
 	stub := &pvStub{
 		single: afterK1(),
@@ -98,7 +98,7 @@ func TestSentenceNamesTheMoveTheCardPoints(t *testing.T) {
 		t.Errorf("상대 최선수 = %q, want △8四歩 — k=1의 △3四歩을 말하면 카드와 어긋난다",
 			j.Facts.OpponentBest)
 	}
-	// **갈래도 그 수 뒤에서 자란다.** 뿌리가 k=1의 수면 문장의 첫 수와 갈래가 다른
+	// 갈래도 그 수 뒤에서 자란다. 뿌리가 k=1의 수면 문장의 첫 수와 갈래가 다른
 	// 국면의 것이 된다.
 	if len(j.Facts.Branches) != 1 || j.Facts.Branches[0].PlayerJa != "▲2六歩" {
 		t.Errorf("갈래 = %+v", j.Facts.Branches)
@@ -115,7 +115,7 @@ func TestSentenceNamesTheMoveTheCardPoints(t *testing.T) {
 	}
 }
 
-// **「무엇을 취할 수 있는가」도 같은 수의 것이어야 한다.** 문장은 상대의 최선수와 그 수로
+// 「무엇을 취할 수 있는가」도 같은 수의 것이어야 한다. 문장은 상대의 최선수와 그 수로
 // 따이는 駒를 한 문장에 적는다(explain.renderBranches) — 출처가 갈리면 그 한 문장 안에서
 // 어긋난다.
 func TestThreatenedPieceComesFromTheSameMove(t *testing.T) {
@@ -143,7 +143,7 @@ func TestThreatenedPieceComesFromTheSameMove(t *testing.T) {
 	}
 }
 
-// 카드 국면을 못 물으면 **판정이 손에 든 PV로 돌아간다.** 그때는 카드의 목록도 같은 이유로
+// 카드 국면을 못 물으면 판정이 손에 든 PV로 돌아간다. 그때는 카드의 목록도 같은 이유로
 // 안 서므로 화면에 모순이 남지 않고, 설명은 그대로 나간다.
 func TestSentenceFallsBackWhenTheCardSearchFails(t *testing.T) {
 	stub := &pvStub{
@@ -163,13 +163,13 @@ func TestSentenceFallsBackWhenTheCardSearchFails(t *testing.T) {
 	}
 }
 
-// 이름이 붙는 카테고리는 **탐색을 더 걸지 않는다.** 문장이 수를 안 적으므로 갈릴 자리가
+// 이름이 붙는 카테고리는 탐색을 더 걸지 않는다. 문장이 수를 안 적으므로 갈릴 자리가
 // 없고(explain.Facts.used), 개입마다 탐색을 하나 더 무는 것은 그만큼 사람을 기다리게 한다.
 func TestNamedCategorySkipsTheCardSearch(t *testing.T) {
 	stub := &pvStub{single: afterK1(), multi: map[string]usi.SearchResult{}}
 	a := &engineAnalyst{search: stub, depth: JudgeDepth, level: intervene.Beginner}
 
-	// 角을 3三에 던진다 — 그냥 잡히므로 `hangs_piece` 다.
+	// 角을 3三에 던진다 — 그냥 잡히므로 hangs_piece 다.
 	j, err := a.Judge(t.Context(), shogi.StartSFEN, thrownBishopMoves, len(thrownBishopMoves))
 	if err != nil {
 		t.Fatalf("판정: %v", err)

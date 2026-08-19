@@ -13,8 +13,8 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// fixedBest 는 언제나 같은 수를 최선수로 답하는 탐색이다. **부르는 힌트가 재는 것은
-// 예산과 단계이지 엔진이 아니라서**, 여기서 진짜 탐색을 쓰면 국면마다 답이 갈려
+// fixedBest 는 언제나 같은 수를 최선수로 답하는 탐색이다. 부르는 힌트가 재는 것은
+// 예산과 단계이지 엔진이 아니라서, 여기서 진짜 탐색을 쓰면 국면마다 답이 갈려
 // 무엇을 재는지가 흐려진다.
 type fixedBest struct{ best string }
 
@@ -24,7 +24,7 @@ func (f *fixedBest) SearchMultiPV(
 	return usi.SearchResult{Best: f.best}, nil
 }
 
-// countingRater 는 추정기로 몇 건이 갔는지만 센다. **값은 안 본다** — 이 테스트가 재는 것은
+// countingRater 는 추정기로 몇 건이 갔는지만 센다. 값은 안 본다 — 이 테스트가 재는 것은
 // 「갔는가」이고, 얼마였는가는 skill 패키지가 따로 잰다.
 type countingRater struct {
 	mu sync.Mutex
@@ -46,9 +46,9 @@ func (r *countingRater) count() int {
 	return r.n
 }
 
-// askStage 는 힌트를 부르고 **그 단계가 화면에 실릴 때까지** 기다린다.
+// askStage 는 힌트를 부르고 그 단계가 화면에 실릴 때까지 기다린다.
 //
-// **「힌트가 있다」로 기다리면 안 된다.** 1단계가 이미 떠 있는 채로 2단계를 부르면 그 조건이
+// 「힌트가 있다」로 기다리면 안 된다. 1단계가 이미 떠 있는 채로 2단계를 부르면 그 조건이
 // 그 자리에서 참이라, 답이 오기 전에 다음 줄로 넘어간다 — 실제로 그렇게 통과했다가 전체
 // 스위트에서 깨졌다.
 func askStage(t *testing.T, s *Session, ch <-chan Snapshot, stage int) Snapshot {
@@ -77,7 +77,7 @@ func hintSession(t *testing.T, rec Recorder) *Session {
 	})
 }
 
-// 1단계는 **駒만** 짚고 2단계에서 수가 붙는다. 갇힘 힌트와 같은 그림이고(buildHint),
+// 1단계는 駒만 짚고 2단계에서 수가 붙는다. 갇힘 힌트와 같은 그림이고(buildHint),
 // 갈리는 것은 문을 여는 방식뿐이다.
 func TestCalledHintOpensPieceThenMove(t *testing.T) {
 	s := hintSession(t, nil)
@@ -106,7 +106,7 @@ func TestCalledHintOpensPieceThenMove(t *testing.T) {
 		t.Errorf("예산이 둘 줄어야 한다: %d", second.HintLeft)
 	}
 
-	// **세 번째는 막힌다.** 그 국면에서 더 줄 것이 없다.
+	// 세 번째는 막힌다. 그 국면에서 더 줄 것이 없다.
 	if _, err := s.Hint(t.Context()); err == nil {
 		t.Fatal("같은 국면에서 세 번째가 통과했다")
 	}
@@ -140,7 +140,7 @@ func TestCalledHintRunsOutOfBudget(t *testing.T) {
 	}
 }
 
-// **답을 본 국면의 수는 실력 추정에서 빠진다.** 알려준 답을 둔 것이 실력으로 기록되면
+// 답을 본 국면의 수는 실력 추정에서 빠진다. 알려준 답을 둔 것이 실력으로 기록되면
 // 段級이 부풀고, 그 숫자가 화면에 나간다(journal §78).
 func TestHintedMoveIsNotRated(t *testing.T) {
 	rater := &countingRater{}
@@ -157,7 +157,7 @@ func TestHintedMoveIsNotRated(t *testing.T) {
 	}
 	defer cancel()
 
-	// 답까지 본다. **2단계가 실제로 실린 뒤에 둬야 한다** — 그 전에 두면 아직 답을 안 본
+	// 답까지 본다. 2단계가 실제로 실린 뒤에 둬야 한다 — 그 전에 두면 아직 답을 안 본
 	// 것이고, 그때 레이팅에 들어가는 것이 오히려 맞다.
 	for stage := 1; stage <= HintStageMax; stage++ {
 		askStage(t, s, ch, stage)
@@ -181,7 +181,7 @@ func TestHintedMoveIsNotRated(t *testing.T) {
 	}
 }
 
-// 알려준 수를 실제로 뒀는지가 기록으로 간다 — 01-core.md §5의 `taken` 이 이것이다.
+// 알려준 수를 실제로 뒀는지가 기록으로 간다 — 01-core.md §5의 taken 이 이것이다.
 func TestHintTakenIsRecorded(t *testing.T) {
 	rec := &fakeRecorder{}
 	s := hintSession(t, rec)
@@ -194,7 +194,7 @@ func TestHintTakenIsRecorded(t *testing.T) {
 	for stage := 1; stage <= HintStageMax; stage++ {
 		askStage(t, s, ch, stage)
 	}
-	// 알려준 것과 **다른** 수를 둔다.
+	// 알려준 것과 다른 수를 둔다.
 	if _, err := s.Play(t.Context(), "2g2f"); err != nil {
 		t.Fatalf("Play: %v", err)
 	}
@@ -215,7 +215,7 @@ func TestHintTakenIsRecorded(t *testing.T) {
 	}
 }
 
-// 엔진이 없으면 **버튼이 아예 안 산다.** 눌러도 안 되는 것을 띄우지 않는다.
+// 엔진이 없으면 버튼이 아예 안 산다. 눌러도 안 되는 것을 띄우지 않는다.
 func TestHintIsOffWithoutASearcher(t *testing.T) {
 	s := newSession(t, Config{
 		Opponent:   &scriptedOpponent{},

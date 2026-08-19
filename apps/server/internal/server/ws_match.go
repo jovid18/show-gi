@@ -17,7 +17,7 @@ import (
 
 // 대인전도 WebSocket 이다 — 상대의 수를 서버가 먼저 말해 주므로 요청/응답이 아니다.
 //
-// **`/ws/game` 과 갈라 둔 이유는 세션의 수명이다.** 저쪽은 「연결 하나 = 대국 하나」라
+// /ws/game 과 갈라 둔 이유는 세션의 수명이다. 저쪽은 「연결 하나 = 대국 하나」라
 // 끊기면 판이 끝나는데(journal §46), 여기는 상대가 남아 있어서 끝낼 수가 없다 — 끊긴
 // 사람은 같은 링크로 다시 들어와 이어 둔다. 그동안 그 사람의 시계는 흐른다.
 //
@@ -34,7 +34,7 @@ type matchClientMsg struct {
 type matchServerMsg struct {
 	Type string `json:"type"` // "waiting" | "snapshot" | "error" | "record"
 
-	// Room 은 `waiting` 에만 온다 — 초대 링크를 그리는 데 필요한 것들이다.
+	// Room 은 waiting 에만 온다 — 초대 링크를 그리는 데 필요한 것들이다.
 	Room *roomPayload `json:"room,omitempty"`
 
 	Snapshot *match.Snapshot `json:"snapshot,omitempty"`
@@ -42,24 +42,24 @@ type matchServerMsg struct {
 	Reason  string `json:"reason,omitempty"`  // 기계용 코드(영어)
 	Message string `json:"message,omitempty"` // 화면용 문구(일본어)
 
-	// GameID 는 판이 끝난 뒤 **한 번** 온다. 「振り返り」로 건너가는 링크가 이 값으로 만들어진다 —
+	// GameID 는 판이 끝난 뒤 한 번 온다. 「振り返り」로 건너가는 링크가 이 값으로 만들어진다 —
 	// 대국 화면은 그때까지 자기 판의 번호를 모른다(기록이 WS 밖에서 비동기로 쓰인다).
 	//
-	// **총평이 아니다.** 대인전에는 총평이 없다 — 세는 것이 개입인데 그것이 없다(journal §83).
+	// 총평이 아니다. 대인전에는 총평이 없다 — 세는 것이 개입인데 그것이 없다(journal §83).
 	GameID int64 `json:"gameId,omitempty"`
 }
 
 // matchRejects 는 착수가 거절된 이유 중 룰 엔진 밖의 것들이다. 엔진 대국의 것과
-// **갈라 둔다** — 저쪽에는 무르기와 힌트의 거절이 다섯 더 있고, 여기에만 있는 것이
+// 갈라 둔다 — 저쪽에는 무르기와 힌트의 거절이 다섯 더 있고, 여기에만 있는 것이
 // 방이 걷혔다는 것 하나다.
 //
-// **「아직 상대가 안 들어왔다」가 없다.** 그 상태에서는 착수가 도달할 자리가 없다 —
-// 읽는 쪽이 `room.Ready()` 뒤에야 돈다.
+// 「아직 상대가 안 들어왔다」가 없다. 그 상태에서는 착수가 도달할 자리가 없다 —
+// 읽는 쪽이 room.Ready() 뒤에야 돈다.
 var matchRejects = map[string]string{
 	"not_your_turn": "相手の手番です。",
 	"finished":      "対局はすでに終わっています。",
 	"bad_move":      "指し手の形式が正しくありません。",
-	// **방이 걷혔다.** 아무도 안 들어온 채 30분이 지났거나, 방을 만든 사람이 그 뒤로
+	// 방이 걷혔다. 아무도 안 들어온 채 30분이 지났거나, 방을 만든 사람이 그 뒤로
 	// 방을 여럿 더 만들어 이 방이 밀려났다(match.openRoomsPerHost).
 	"room_closed": "この対局部屋は期限が切れました。",
 }
@@ -86,12 +86,12 @@ func matchReject(reason string) matchServerMsg {
 type matchHandlerWS struct {
 	hub  *match.Hub
 	auth *authHandler
-	// records 는 방마다 만든 기록기다. **판 번호를 화면에 돌려주려고만 들고 있다.**
+	// records 는 방마다 만든 기록기다. 판 번호를 화면에 돌려주려고만 들고 있다.
 	records *matchRecords
 }
 
 func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// **업그레이드 전에 쿠키와 쿼리를 읽는다.** 업그레이드가 끝나면 이 요청은
+	// 업그레이드 전에 쿠키와 쿼리를 읽는다. 업그레이드가 끝나면 이 요청은
 	// 하이재킹되어 헤더를 다시 볼 길이 없다(ws.go 와 같은 규약).
 	s, ok := h.auth.viewer(r)
 	if !ok {
@@ -101,12 +101,12 @@ func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	roomID := r.URL.Query().Get("room")
 
-	// **자격은 업그레이드 전에 본다.** 여기서 거절하면 아직 평범한 HTTP 요청이라 404로
+	// 자격은 업그레이드 전에 본다. 여기서 거절하면 아직 평범한 HTTP 요청이라 404로
 	// 끝나는데, 업그레이드 뒤에는 그 답을 프레임으로 말해야 하고 화면이 그것을 「대국 중
 	// 오류」와 구별해야 한다(ws.go 의 resumeSetup 과 같은 규약).
 	//
-	// **자리는 안 잡는다**(Peek). 잡는 것은 업그레이드가 성공한 뒤다 — 여기서 잡으면
-	// 업그레이드가 실패했을 때(프록시가 헤더를 지웠다·창을 닫았다) **자리가 타 버리고**,
+	// 자리는 안 잡는다(Peek). 잡는 것은 업그레이드가 성공한 뒤다 — 여기서 잡으면
+	// 업그레이드가 실패했을 때(프록시가 헤더를 지웠다·창을 닫았다) 자리가 타 버리고,
 	// 그 방은 그때부터 아무도 못 들어가는데 방 주인 화면은 링크를 계속 광고한다.
 	if _, err := h.hub.Peek(roomID, s.UserID); err != nil {
 		notFound(w)
@@ -125,10 +125,10 @@ func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	out := make(chan matchServerMsg, 8)
 	go matchWriteLoop(ctx, cancel, conn, out)
 
-	// **여기서 자리가 정해진다.** 위 Peek 와 이 사이에 방이 움직일 수 있다 — 남이
+	// 여기서 자리가 정해진다. 위 Peek 와 이 사이에 방이 움직일 수 있다 — 남이
 	// 앉거나(정원 2명), 그 창 안에서 방이 걷히거나(만료·상한). 창은 밀리초 단위다.
 	//
-	// **문구를 안 보낸다.** 둘을 갈라 말할 수가 없고(`Enter` 는 하나의 ErrNoRoom 이다),
+	// 문구를 안 보낸다. 둘을 갈라 말할 수가 없고(Enter 는 하나의 ErrNoRoom 이다),
 	// 그냥 닫으면 화면이 「이 방은 열 수 없습니다」를 그린다 — 그 화면이 가능한 이유를
 	// 전부 늘어놓으므로(screens/match/Unavailable.tsx) 어느 쪽이든 맞는 말이 된다.
 	room, color, err := h.hub.Enter(roomID, match.Player{UserID: s.UserID, Name: s.Name})
@@ -136,7 +136,7 @@ func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// **자리에 앉은 것과 화면을 보고 있는 것은 다르다.** 앞은 위 Enter 가 영구히 정했고,
+	// 자리에 앉은 것과 화면을 보고 있는 것은 다르다. 앞은 위 Enter 가 영구히 정했고,
 	// 이건 이 연결이 사는 동안만이다 — 둘이 다 붙어 있는 순간 대국이 시작된다.
 	detach := h.hub.Connect(room, color)
 	defer detach()
@@ -155,10 +155,10 @@ func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	select {
 	case <-room.Ready():
 	case <-room.Closed():
-		// **방이 걷혔다.** 이 갈래가 없으면 여기서 기다리던 사람은 영영 「상대를
-		// 기다립니다」에 서 있고, 그 화면이 **이미 죽은 링크를 계속 광고한다.**
+		// 방이 걷혔다. 이 갈래가 없으면 여기서 기다리던 사람은 영영 「상대를
+		// 기다립니다」에 서 있고, 그 화면이 이미 죽은 링크를 계속 광고한다.
 		emitMatch(ctx, out, matchReject("room_closed"))
-		// **문구가 나갈 틈을 준다.** 곧바로 돌아가면 defer 가 연결을 닫아 그 프레임이
+		// 문구가 나갈 틈을 준다. 곧바로 돌아가면 defer 가 연결을 닫아 그 프레임이
 		// 사라지고, 화면에는 「끊겼다」만 남는다 — 이유를 말하려고 보낸 것이 그 문구다.
 		select {
 		case <-time.After(roomClosedFlush):
@@ -183,7 +183,7 @@ func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// 판 번호는 **결과가 정해진 뒤**에 온다. 구독 채널이 닫히는 것을 기다리면 안 된다 —
+	// 판 번호는 결과가 정해진 뒤에 온다. 구독 채널이 닫히는 것을 기다리면 안 된다 —
 	// 그쪽은 끝난 판이 답을 멈출 때라 10분 뒤이고(match.finishedGrace), 그때 사람은
 	// 이미 화면을 떠나 있다.
 	go func() {
@@ -197,7 +197,7 @@ func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.matchReadLoop(ctx, conn, table, color, out)
 }
 
-// matchReadLoop 는 그 사람이 보내는 것을 받는다. **어느 쪽인지는 여기서 안 받는다** — 자리에서
+// matchReadLoop 는 그 사람이 보내는 것을 받는다. 어느 쪽인지는 여기서 안 받는다 — 자리에서
 // 이미 정해졌고(Hub.Enter), 요청으로 받으면 두 사람이 같은 쪽을 주장할 수 있다.
 func (h *matchHandlerWS) matchReadLoop(
 	ctx context.Context,
@@ -209,7 +209,7 @@ func (h *matchHandlerWS) matchReadLoop(
 	for {
 		var msg matchClientMsg
 		if err := wsjson.Read(ctx, conn, &msg); err != nil {
-			return // 끊겼거나 ctx 종료. **판은 안 접는다** — 상대가 남아 있다
+			return // 끊겼거나 ctx 종료. 판은 안 접는다 — 상대가 남아 있다
 		}
 
 		switch msg.Type {
@@ -241,9 +241,9 @@ const roomClosedFlush = time.Second
 // 넘으면 번호를 포기하고, 그때 화면은 「振り返り」 링크만 안 그린다(결과는 이미 떴다).
 const matchRecordWait = 5 * time.Second
 
-// sendRecordID 는 이 사람의 판 번호를 보낸다. **한 판이 행 두 개라 先手·後手마다 번호가 다르다.**
+// sendRecordID 는 이 사람의 판 번호를 보낸다. 한 판이 행 두 개라 先手·後手마다 번호가 다르다.
 //
-// **몇 번을 물어도 답한다.** 곁장부가 한 번 받은 번호를 들고 있어서(matchRecords.gameIDOf),
+// 몇 번을 물어도 답한다. 곁장부가 한 번 받은 번호를 들고 있어서(matchRecords.gameIDOf),
 // 판이 끝나는 순간에 새로고침한 사람도 「振り返り」 링크를 받는다.
 func (h *matchHandlerWS) sendRecordID(ctx context.Context, out chan matchServerMsg, room *match.Room, color shogi.Color) {
 	id, ok := h.records.gameIDOf(ctx, room.ID, color, matchRecordWait)
@@ -285,8 +285,8 @@ func matchWriteLoop(ctx context.Context, cancel context.CancelFunc, conn *websoc
 	}
 }
 
-// emitMatch 는 막히지 않게 보낸다. 느린 클라이언트가 테이블을 붙들면 **상대의 시계가
-// 그만큼 흐른다**(match.notify 와 같은 이유).
+// emitMatch 는 막히지 않게 보낸다. 느린 클라이언트가 테이블을 붙들면 상대의 시계가
+// 그만큼 흐른다(match.notify 와 같은 이유).
 func emitMatch(ctx context.Context, out chan<- matchServerMsg, msg matchServerMsg) {
 	select {
 	case out <- msg:
@@ -294,9 +294,9 @@ func emitMatch(ctx context.Context, out chan<- matchServerMsg, msg matchServerMs
 	}
 }
 
-// matchRecorder 는 `dbRecorder` 를 대인전 쪽 인터페이스에 맞춘다.
+// matchRecorder 는 dbRecorder 를 대인전 쪽 인터페이스에 맞춘다.
 //
-// **기록기를 한 벌만 두려고 있는 자리다.** 큐가 넘칠 때 버리는 규약, 연결이 끊겨도
+// 기록기를 한 벌만 두려고 있는 자리다. 큐가 넘칠 때 버리는 규약, 연결이 끊겨도
 // 마저 쓰는 규약, 안 끝난 판을 abandoned 로 닫는 규약이 전부 저쪽에 있고 미묘하다 —
 // 두 벌이면 한쪽만 고쳐진다.
 type matchRecorder struct{ db *dbRecorder }
@@ -305,7 +305,7 @@ func (m matchRecorder) Started(startSFEN string, myColor shogi.Color) {
 	m.db.Started(startSFEN, myColor)
 }
 
-// Moved 는 확정된 수다. **`by` 를 `SideHuman` 으로 넘긴다** — 기록기가 그 칸을 안 쓰고
+// Moved 는 확정된 수다. by 를 SideHuman 으로 넘긴다 — 기록기가 그 칸을 안 쓰고
 // (query/games.sql 의 InsertMove 에 없다) 대인전에는 「engine」이 없다.
 func (m matchRecorder) Moved(ply int, usi string) {
 	m.db.Moved(ply, usi, game.SideHuman)

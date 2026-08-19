@@ -10,7 +10,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// fakeRecorder 는 한 사람 몫의 기록을 모은다. **테이블 goroutine 이 부르므로** 잠금이 있다.
+// fakeRecorder 는 한 사람 몫의 기록을 모은다. 테이블 goroutine 이 부르므로 잠금이 있다.
 type fakeRecorder struct {
 	mu      sync.Mutex
 	color   shogi.Color
@@ -61,7 +61,7 @@ func newTestTable(t *testing.T, limit time.Duration) (*Table, *fakeRecorder, *fa
 	return table, black, white
 }
 
-// 수번이 아닌 쪽은 못 둔다. **어느 쪽인지를 클라이언트가 안 보내므로** 이건 서버가 자리에서
+// 수번이 아닌 쪽은 못 둔다. 어느 쪽인지를 클라이언트가 안 보내므로 이건 서버가 자리에서
 // 정한 쪽 하나로 갈린다(Hub.Enter).
 func TestOnlyTheSideToMoveCanPlay(t *testing.T) {
 	table, _, _ := newTestTable(t, time.Minute)
@@ -78,7 +78,7 @@ func TestOnlyTheSideToMoveCanPlay(t *testing.T) {
 	}
 }
 
-// **상대 차례에는 합법수 목록을 안 준다.** 주면 그 사람이 상대의 수를 화면에서 훑어볼 수
+// 상대 차례에는 합법수 목록을 안 준다. 주면 그 사람이 상대의 수를 화면에서 훑어볼 수
 // 있고, 대인전에서 그건 그냥 부정행위 보조다.
 func TestLegalMovesGoOnlyToTheSideToMove(t *testing.T) {
 	table, _, _ := newTestTable(t, time.Minute)
@@ -101,8 +101,8 @@ func TestLegalMovesGoOnlyToTheSideToMove(t *testing.T) {
 	}
 }
 
-// 기보는 **보는 사람 기준**으로 갈린다. 같은 수가 한쪽에는 `you`, 다른 쪽에는
-// `opponent` 여야 두 화면이 판을 각자 자기 쪽에서 그린다.
+// 기보는 보는 사람 기준으로 갈린다. 같은 수가 한쪽에는 you, 다른 쪽에는
+// opponent 여야 두 화면이 판을 각자 자기 쪽에서 그린다.
 func TestKifuIsWrittenFromEachViewer(t *testing.T) {
 	table, _, _ := newTestTable(t, time.Minute)
 	ctx := context.Background()
@@ -124,7 +124,7 @@ func TestKifuIsWrittenFromEachViewer(t *testing.T) {
 	}
 }
 
-// 投了는 **상대의 승리**다. 그리고 기록기 둘이 서로 반대의 결과를 받아야 한 판이
+// 投了는 상대의 승리다. 그리고 기록기 둘이 서로 반대의 결과를 받아야 한 판이
 // 두 행으로 남았을 때 두 사람의 전적이 맞는다.
 func TestResignGivesTheOpponentTheWin(t *testing.T) {
 	table, black, white := newTestTable(t, time.Minute)
@@ -156,7 +156,7 @@ func TestResignGivesTheOpponentTheWin(t *testing.T) {
 	}
 }
 
-// 기보는 **양쪽 기록기에 같이 들어간다.** 한쪽에만 넣으면 그 판이 두 사람에게
+// 기보는 양쪽 기록기에 같이 들어간다. 한쪽에만 넣으면 그 판이 두 사람에게
 // 다른 판으로 남는다.
 func TestBothRecordsGetEveryMove(t *testing.T) {
 	table, black, white := newTestTable(t, time.Minute)
@@ -187,18 +187,18 @@ func TestBothRecordsGetEveryMove(t *testing.T) {
 	}
 }
 
-// **시간을 넘기면 진다.** 이 하나가 「판이 끝나기는 하는가」의 답이다 — 상대가 탭을
+// 시간을 넘기면 진다. 이 하나가 「판이 끝나기는 하는가」의 답이다 — 상대가 탭을
 // 닫아도 그 판은 여기서 닫힌다.
 func TestRunningOutOfTimeLosesTheGame(t *testing.T) {
 	table, black, white := newTestTable(t, 250*time.Millisecond)
 
-	// **한 수는 둬야 판이 있었던 것이다.** 0手 판은 승패를 안 만든다(아래 테스트).
+	// 한 수는 둬야 판이 있었던 것이다. 0手 판은 승패를 안 만든다(아래 테스트).
 	if _, err := table.Play(context.Background(), shogi.Black, "7g7f"); err != nil {
 		t.Fatalf("play: %v", err)
 	}
 
-	// **`Done` 이 아니라 `Finished` 를 기다린다.** 끝난 판은 한동안 더 답하므로
-	// (finishedGrace) `Done` 은 그만큼 늦게 닫힌다.
+	// Done 이 아니라 Finished 를 기다린다. 끝난 판은 한동안 더 답하므로
+	// (finishedGrace) Done 은 그만큼 늦게 닫힌다.
 	select {
 	case <-table.Finished():
 	case <-time.After(5 * time.Second):
@@ -213,7 +213,7 @@ func TestRunningOutOfTimeLosesTheGame(t *testing.T) {
 	}
 }
 
-// **한 수도 안 둔 채 시간이 다 되면 승패가 없다**(journal §83).
+// 한 수도 안 둔 채 시간이 다 되면 승패가 없다(journal §83).
 func TestATimeoutWithNoMovesIsNotALoss(t *testing.T) {
 	table, black, white := newTestTable(t, 60*time.Millisecond)
 
@@ -233,14 +233,14 @@ func TestATimeoutWithNoMovesIsNotALoss(t *testing.T) {
 	if err != nil {
 		t.Fatalf("snapshot: %v", err)
 	}
-	// **`aborted` 가 아니라 `expired` 다.** 화면이 할 말이 정반대라 갈라 뒀다 —
+	// aborted 가 아니라 expired 다. 화면이 할 말이 정반대라 갈라 뒀다 —
 	// 저쪽은 「서버 사정」이고 이쪽은 「아무도 안 뒀다」다.
 	if snap.Status != StatusExpired || snap.Winner != "" {
 		t.Fatalf("the screen sees %s/%q, want expired with no winner", snap.Status, snap.Winner)
 	}
 }
 
-// 착수는 **시계를 다시 시작한다.** 안 그러면 두 번째 수부터 남은 시간이 이어져
+// 착수는 시계를 다시 시작한다. 안 그러면 두 번째 수부터 남은 시간이 이어져
 // 판이 첫 제한시간 안에 통째로 끝난다.
 func TestPlayingRestartsTheClock(t *testing.T) {
 	table, _, _ := newTestTable(t, 300*time.Millisecond)
@@ -261,7 +261,7 @@ func TestPlayingRestartsTheClock(t *testing.T) {
 	}
 }
 
-// 끝난 판도 **한동안 답한다.** 投了를 받은 쪽이 그 순간 새로고침하는 것은 흔한 일이고,
+// 끝난 판도 한동안 답한다. 投了를 받은 쪽이 그 순간 새로고침하는 것은 흔한 일이고,
 // 그때 결과 대신 오류가 뜨면 그 사람은 무슨 일이 났는지 모른다.
 func TestAFinishedTableStillAnswers(t *testing.T) {
 	table, _, _ := newTestTable(t, time.Minute)
@@ -295,7 +295,7 @@ func TestAFinishedTableStillAnswers(t *testing.T) {
 	}
 }
 
-// 상대가 붙어 있는지가 화면에 나간다. **판은 그 값과 무관하게 돈다** — 나가 있어도
+// 상대가 붙어 있는지가 화면에 나간다. 판은 그 값과 무관하게 돈다 — 나가 있어도
 // 시계는 흐른다.
 func TestPresenceShowsTheOpponent(t *testing.T) {
 	table, _, _ := newTestTable(t, time.Minute)

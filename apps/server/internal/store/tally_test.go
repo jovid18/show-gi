@@ -2,7 +2,7 @@ package store
 
 import "testing"
 
-// 마이페이지가 세는 것이 되짚기 목록과 **같은 모집단**인지.
+// 마이페이지가 세는 것이 되짚기 목록과 같은 모집단인지.
 //
 // 여기가 어긋나면 화면 둘이 같은 사람에 대해 다른 수를 말한다 — 「12판 뒀다」고 적힌
 // 페이지에서 목록을 열면 9줄인 상태가 된다.
@@ -10,7 +10,7 @@ func TestPlayerTallyCountsTheSamePopulationAsTheList(t *testing.T) {
 	s := open(t)
 	uid := owner(t, s, "tally")
 
-	// 결과별로 하나씩. **전부 한 수 이상 둔 판이어야 한다** — 질의가 EXISTS 로 거른다.
+	// 결과별로 하나씩. 전부 한 수 이상 둔 판이어야 한다 — 질의가 EXISTS 로 거른다.
 	for _, res := range []GameResult{ResultWin, ResultWin, ResultLoss, ResultDraw, ResultAbandoned} {
 		id := ownedGame(t, s, &uid)
 		if err := s.InsertMove(t.Context(), id, 1, "7g7f"); err != nil {

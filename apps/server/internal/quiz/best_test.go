@@ -9,13 +9,13 @@ import (
 )
 
 // gameMoves 는 사람(先手)이 넷의 차례를 갖는 짧은 판이다. 문항 후보가 되는 자리는
-// `i ∈ {2,4,6,8}` — `i` 는 그 국면까지 둔 手数이고, `i=0` 은 앞의 평가치가 없어 빠진다.
+// i ∈ {2,4,6,8} — i 는 그 국면까지 둔 手数이고, i=0 은 앞의 평가치가 없어 빠진다.
 var gameMoves = []string{"7g7f", "3c3d", "2g2f", "8c8d", "6g6f", "4c4d", "3g3f", "7c7d", "5g5f"}
 
-// fakeSearch 는 국면마다 미리 정한 후보를 돌려준다. **엔진 없이 문항 고르기를 본다.**
+// fakeSearch 는 국면마다 미리 정한 후보를 돌려준다. 엔진 없이 문항 고르기를 본다.
 type fakeSearch struct {
 	lines map[string][]usi.SearchLine
-	// asked 는 실제로 물어본 국면이다. 「엔진을 쓰기 **전에** 걸러졌는가」를 보는 자리다.
+	// asked 는 실제로 물어본 국면이다. 「엔진을 쓰기 전에 걸러졌는가」를 보는 자리다.
 	asked map[string]bool
 }
 
@@ -49,7 +49,7 @@ func gameInput() Input {
 	return Input{Moves: gameMoves, Human: shogi.Black, EvalCp: evals}
 }
 
-// build 는 「최선수는?」 문항만 뽑는다. `Build` 가 값 둘을 주므로 시험이 매번 풀어 쓰지
+// build 는 「최선수는?」 문항만 뽑는다. Build 가 값 둘을 주므로 시험이 매번 풀어 쓰지
 // 않도록 여기서 한 번만 편다.
 func build(fs MultiSearcher, in Input) ([]BestItem, bool) {
 	q, measured := NewBuilder(nil, fs, 12).Build(context.Background(), in)
@@ -158,11 +158,11 @@ func TestBestItemsAreSortedByGapAndCapped(t *testing.T) {
 	}
 }
 
-// **詰み 문항이 쓰는 국면 하나만 뺀다.**
+// 詰み 문항이 쓰는 국면 하나만 뺀다.
 //
-// 한때 그 手数부터 뒤를 통째로 잘랐는데, 詰み 문항은 판에서 **가장 이른** 詰み이라
-// (§53) 이른 자리에서 하나 나오면 中盤과 終盤이 통째로 후보에서 사라졌다 — 진짜
-// 블런더가 있는 구간이 그쪽이다.
+// 그 手数부터 뒤를 통째로 자르면 안 된다. 詰み 문항은 판에서 가장 이른 詰み이라(§53)
+// 이른 자리에서 하나 나오면 中盤과 終盤이 통째로 후보에서 사라진다 — 진짜 블런더가
+// 있는 구간이 그쪽이다.
 func TestBestItemsSkipOnlyTheMatePosition(t *testing.T) {
 	in := gameInput()
 	posAt := positions(t, in)
@@ -187,7 +187,7 @@ func TestBestItemsSkipOnlyTheMatePosition(t *testing.T) {
 	if items[0].Ply != 2 && items[1].Ply != 6 {
 		t.Errorf("items = %+v, want plies 2 and 6", items)
 	}
-	// **엔진에는 물어봤어야 한다** — 詰み 뒤라고 미리 자르지 않는다.
+	// 엔진에는 물어봤어야 한다 — 詰み 뒤라고 미리 자르지 않는다.
 	if !fs.asked[posAt[6].SFEN()] {
 		t.Error("the engine was never asked about a position after the mate item")
 	}
@@ -211,7 +211,7 @@ func TestBestItemsSkipTheOpeningBook(t *testing.T) {
 	if items[0].Ply != 8 {
 		t.Errorf("ply = %d, want 8 — ply 2 is inside the opening", items[0].Ply)
 	}
-	// **엔진을 쓰기 전에 걸러야 한다.** 뒤에서 거르면 정석 구간의 국면마다 956ms를 쓰고
+	// 엔진을 쓰기 전에 걸러야 한다. 뒤에서 거르면 정석 구간의 국면마다 956ms를 쓰고
 	// 버리는 셈이 된다.
 	if fs.asked[posAt[2].SFEN()] {
 		t.Error("the engine was asked about a position inside the opening")
@@ -233,8 +233,8 @@ func TestGradeBest(t *testing.T) {
 		t.Errorf("a legal wrong move graded as (%v, %v), want (false, nil)", ok, err)
 	}
 
-	// 불법수는 **오답이 아니라 요청 오류**다. 뭉치면 프론트 버그가 오답으로 위장해 안 보인다.
-	// `1a1b` 는 後手의 香을 움직이는 수라 先手 차례에 불법이다.
+	// 불법수는 오답이 아니라 요청 오류다. 뭉치면 프론트 버그가 오답으로 위장해 안 보인다.
+	// 1a1b 는 後手의 香을 움직이는 수라 先手 차례에 불법이다.
 	if _, err := GradeBest(item, "1a1b"); err == nil {
 		t.Error("an illegal move graded as an answer")
 	}
@@ -252,7 +252,7 @@ func TestLegalMovesAtIsNotRestrictedToChecks(t *testing.T) {
 	}
 }
 
-// flakySearch 는 한 국면만 실패한다. **한쪽의 실패가 다른 쪽을 지우지 않는가**를 보는 자리다.
+// flakySearch 는 한 국면만 실패한다. 한쪽의 실패가 다른 쪽을 지우지 않는가를 보는 자리다.
 type flakySearch struct {
 	fakeSearch
 	failOn string
@@ -267,7 +267,7 @@ func (f *flakySearch) SearchMultiPV(
 	return f.fakeSearch.SearchMultiPV(ctx, startSFEN, moves, depth, k)
 }
 
-// **못 잰 후보가 있어도 잰 것은 그대로 참이다.**
+// 못 잰 후보가 있어도 잰 것은 그대로 참이다.
 //
 // 두 사실을 한 깃발로 묶어 통째로 버리면, 후보 하나를 못 잰 것이 멀쩡한 문항을 지운다 —
 // 생성이 판이 끝날 때 한 번뿐이라 그 판은 영영 문항을 못 갖는다(server/ws.go generateQuiz).
@@ -283,7 +283,7 @@ func TestBestItemsSurviveAFailureElsewhere(t *testing.T) {
 	}
 	items, measured := build(fs, in)
 
-	// **한 자리를 못 본 것은 「아무것도 못 봤다」가 아니다.** 나머지를 봤으므로 「문항이
+	// 한 자리를 못 본 것은 「아무것도 못 봤다」가 아니다. 나머지를 봤으므로 「문항이
 	// 없다」도 결론으로 성립하고, 부르는 쪽은 그 결론을 남길 수 있어야 한다.
 	if !measured {
 		t.Error("measured = false, but the other candidates were answered")
@@ -305,10 +305,10 @@ func TestQuizEmpty(t *testing.T) {
 	}
 }
 
-// **두어지지 않은 수는 문항이 안 된다.**
+// 두어지지 않은 수는 문항이 안 된다.
 //
-// `replay` 는 읽을 수 없는 수에서 멈추므로 마지막 국면은 있어도 그 자리의 수는 판에 없다.
-// 거기까지 후보로 삼으면 `Played` 가 없던 수가 되고, 「사람이 이미 최선수를 뒀다」를 그 수와
+// replay 는 읽을 수 없는 수에서 멈추므로 마지막 국면은 있어도 그 자리의 수는 판에 없다.
+// 거기까지 후보로 삼으면 Played 가 없던 수가 되고, 「사람이 이미 최선수를 뒀다」를 그 수와
 // 견주게 되어 실제로 최선수를 둔 국면이 문항으로 나간다.
 func TestBestItemsStopAtTheEndOfTheReplay(t *testing.T) {
 	in := gameInput()
@@ -337,7 +337,7 @@ func TestBestItemsStopAtTheEndOfTheReplay(t *testing.T) {
 	}
 }
 
-// 저장하는 것은 정답 **뒤**의 수순이다. 정답 자신이 들어가면 화면이 그것을 다시 그리고,
+// 저장하는 것은 정답 뒤의 수순이다. 정답 자신이 들어가면 화면이 그것을 다시 그리고,
 // 무엇보다 그 첫 수가 곧 정답이라 오답에도 새어 나갈 자리가 하나 더 생긴다.
 func TestLineStartsAfterTheAnswer(t *testing.T) {
 	pos := shogi.StartPosition()
@@ -364,7 +364,7 @@ func TestLineIsCapped(t *testing.T) {
 	}
 }
 
-// **두어 보면서 자른다.** 엔진 PV의 꼬리에 이 국면에서 안 서는 수가 섞여 오는 일이 있고,
+// 두어 보면서 자른다. 엔진 PV의 꼬리에 이 국면에서 안 서는 수가 섞여 오는 일이 있고,
 // 그대로 저장하면 채점 뒤에 못 두는 수순이 화면에 나간다.
 func TestLineStopsAtTheFirstIllegalMove(t *testing.T) {
 	pos := shogi.StartPosition()
@@ -375,7 +375,7 @@ func TestLineStopsAtTheFirstIllegalMove(t *testing.T) {
 	}
 }
 
-// 정답 하나뿐인 PV에는 이어질 것이 없다. 빈 슬라이스가 아니라 nil이어야 `omitempty` 가 먹는다.
+// 정답 하나뿐인 PV에는 이어질 것이 없다. 빈 슬라이스가 아니라 nil이어야 omitempty 가 먹는다.
 func TestNoLineWhenThePvIsJustTheAnswer(t *testing.T) {
 	pos := shogi.StartPosition()
 	if got := lineAfter(pos, []string{"7g7f"}); got != nil {

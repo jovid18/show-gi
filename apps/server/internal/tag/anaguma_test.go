@@ -6,13 +6,13 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// **穴熊는 좌표의 근거가 다른 유일한 囲い다.**
+// 穴熊는 좌표의 근거가 다른 유일한 囲い다.
 //
 // 위키백과 본문에 배치 서술이 없어 그림밖에 없고, 그림을 읽으면 좌표가 깨진다.
 // 그래서 다른 계층으로 확인한다 — [09-tags.md §0](../../../../docs/09-tags.md)의 신뢰 계층 1,
-// **「수순·국면은 자체 엔진으로 재검증」**이다.
+// 「수순·국면은 자체 엔진으로 재검증」이다.
 //
-// 이 테스트가 平手에서 **합법수만으로** 穴熊에 도달한다. 좌표가 틀렸으면 도중에 반칙이
+// 이 테스트가 平手에서 합법수만으로 穴熊에 도달한다. 좌표가 틀렸으면 도중에 반칙이
 // 나거나 마지막에 태그가 안 뜨므로, 사람이 옮겨 적은 문장보다 강한 근거가 된다.
 func TestAnagumaIsReachableFromTheStart(t *testing.T) {
 	// 先手가 居飛車穴熊를 짜고, 後手는 방해하지 않고 다른 쪽에서 手를 쓴다.
@@ -77,7 +77,7 @@ func blackMoves(all []string) []string {
 
 // 振り飛車穴熊도 같은 방법으로 확인한다 — 玉이 반대쪽 隅(1九)에 들어간다.
 //
-// 좌우를 뒤집은 자리라 `squareFor` 의 거울(後手용 180° 회전)로는 안 나온다. 그래서
+// 좌우를 뒤집은 자리라 squareFor 의 거울(後手용 180° 회전)로는 안 나온다. 그래서
 // 정의를 따로 적었고, 그 좌표를 여기서 룰 엔진에 다시 물어 확인한다.
 func TestFuribishaAnagumaIsReachableFromTheStart(t *testing.T) {
 	moves := []string{
@@ -114,7 +114,7 @@ func TestFuribishaAnagumaIsReachableFromTheStart(t *testing.T) {
 //
 // 순서가 빡빡하다 — 銀이 7七로 가려면 7七歩가 먼저 나가야 하고, 玉이 8八에 서려면
 // 角이 8八을 비워야 하고, 金이 6八에 오려면 玉이 그 칸을 지나가 있어야 한다.
-// **그 제약을 사람이 세지 않고 룰 엔진이 세게 한다.**
+// 그 제약을 사람이 세지 않고 룰 엔진이 세게 한다.
 func TestHidariMinoIsReachableFromTheStart(t *testing.T) {
 	moves := []string{
 		"7g7f", "3c3d", // ▲7六歩  △3四歩   ← 7七を空ける

@@ -16,7 +16,7 @@ import (
 
 // scriptedMate 는 정해진 手数의 詰み을 돌려준다. solver 없이 게이지 배선만 본다.
 //
-// **무엇을 물었는지도 남긴다.** 게이지의 요점이 「어느 국면을 묻는가」라서, 세기만
+// 무엇을 물었는지도 남긴다. 게이지의 요점이 「어느 국면을 묻는가」라서, 세기만
 // 확인하면 한 수 어긋난 국면을 물어도 테스트가 초록으로 남는다.
 type scriptedMate struct {
 	mu    sync.Mutex
@@ -64,16 +64,16 @@ func (m *scriptedMate) count() int {
 	return len(m.asked)
 }
 
-// mateInOneSFEN 은 **사람(先手)에게 1手詰이 있는** 국면이다. `G*5b` 하나로 끝난다.
+// mateInOneSFEN 은 사람(先手)에게 1手詰이 있는 국면이다. G*5b 하나로 끝난다.
 //
 // 玉5a의 도망 칸은 4a·6a가 자기 香로 막혀 있고 4b·6b는 打った 金이 덮는다. 金을 玉으로
 // 되따지 못하는 것은 4三의 銀이 5b를 받치기 때문이고, 香는 直進뿐이라 5b에 못 닿는다.
 //
-// **銀으로 받치는 것이 요점이다.** 처음에 5筋의 香로 받쳤더니 그 香가 玉에게도 닿아
-// 「先手 차례인데 後手가 이미 王手를 받는」 국면이 됐다. 아래 테스트가 그것을 잡는다.
+// 銀으로 받쳐야 한다. 5筋의 香로 받치면 그 香가 玉에게도 닿아 「先手 차례인데 後手가
+// 이미 王手를 받는」 국면이 된다. 아래 테스트가 그것을 잡는다.
 const mateInOneSFEN = "3lkl3/9/5S3/9/9/9/9/9/8K b G 1"
 
-// 위 국면이 **정말로 1手詰인지**를 엔진 없이 먼저 못박는다.
+// 위 국면이 정말로 1手詰인지를 엔진 없이 먼저 못박는다.
 //
 // 손으로 만든 국면이라 이 확인이 없으면, 게이지가 안 켜졌을 때 배선이 틀린 건지 국면이
 // 틀린 건지를 못 가른다 — 囲い 좌표를 룰 엔진으로 재검증하는 것과 같은 자리다(09-tags.md §1).
@@ -151,7 +151,7 @@ func TestMateGaugeLightsOnPlayerTurn(t *testing.T) {
 	}
 }
 
-// **게이지가 묻는 것은 「지금」 국면이다.** 판정이 착수 **전** 국면을 묻는 것과 다른 자리라,
+// 게이지가 묻는 것은 「지금」 국면이다. 판정이 착수 전 국면을 묻는 것과 다른 자리라,
 // 여기가 어긋나면 화면이 한 수 낡은 불꽃을 그린다.
 func TestMateGaugeAsksTheCurrentPosition(t *testing.T) {
 	mate := &scriptedMate{plies: 1}
@@ -246,9 +246,9 @@ func TestNoMateSearcherMeansNoGauge(t *testing.T) {
 
 // 실제 solver 로 게이지가 끝까지 도는가.
 //
-// **가짜로는 안 잡히는 것이 하나 있다** — solver 가 「수번 측의 詰み」을 답한다는 전제다.
+// 가짜로는 안 잡히는 것이 하나 있다 — solver 가 「수번 측의 詰み」을 답한다는 전제다.
 // 그 전제가 틀리면 게이지는 내 玉이 위험할 때 켜지는, 정확히 반대의 물건이 된다.
-// `SHOWGI_MATE_CMD` 가 없으면 건너뛴다 — CI 러너에는 엔진이 없다(README).
+// SHOWGI_MATE_CMD 가 없으면 건너뛴다 — CI 러너에는 엔진이 없다(README).
 //
 //	SHOWGI_MATE_CMD=/opt/yaneuraou/run-mate go test ./internal/game/ -run RealMateEngine -v
 func TestMateGaugeAgainstRealMateEngine(t *testing.T) {

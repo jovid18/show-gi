@@ -20,7 +20,7 @@ var playtestUpTo69 = []string{
 	"8c8f", "P*3d", "8a8e", "3d3c+", "3b3c",
 }
 
-// 69수째 `▲2五飛`의 반박 수순이 왜 한 수로 끊겼는지 본다(docs/08-playtest.md §7).
+// 69수째 ▲2五飛의 반박 수순이 왜 한 수로 끊겼는지 본다(docs/08-playtest.md §7).
 func TestRealEngineRefutationDiag(t *testing.T) {
 	cmd := os.Getenv("SHOWGI_USI_CMD")
 	if cmd == "" {
@@ -78,7 +78,7 @@ func TestRealEngineRefutationDiag(t *testing.T) {
 		t.Logf("%2d %-6s %-10s capSq=%3d gaveCheck=%v settles=%v", i, u, ja, capSq, len(checks) > 0, capSq >= 0 || len(checks) > 0)
 	}
 
-	// △8九香成 뒤에 **되잡는 수가 실제로 나쁜가.** 사람은 「金 하나가 지킨다」고 셌고
+	// △8九香成 뒤에 되잡는 수가 실제로 나쁜가. 사람은 「金 하나가 지킨다」고 셌고
 	// 엔진은 되잡지 않았다 — 그 차이를 숫자로 본다.
 	afterLance := append(append([]string{}, moves...), after.PV[0])
 	lp, err := positionAfter(shogi.StartSFEN, afterLance)
@@ -105,7 +105,7 @@ func TestRealEngineRefutationDiag(t *testing.T) {
 		t.Logf("%2d위 %-6s %+5d%s", i+1, ln.Move, ln.ScoreCp, mark)
 	}
 
-	// **되잡는 수를 직접 둬 본다.** 사람이 기대한 수순이 실재하는가.
+	// 되잡는 수를 직접 둬 본다. 사람이 기대한 수순이 실재하는가.
 	for _, m := range lp.LegalMoves() {
 		if m.IsDrop() || m.To != target {
 			continue

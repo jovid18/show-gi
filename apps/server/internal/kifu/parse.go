@@ -1,14 +1,14 @@
-// Package kifu 는 실 기보(KIF·CSA)를 읽어 **프로덕션과 같은 경로로 다시 둔다.**
+// Package kifu 는 실 기보(KIF·CSA)를 읽어 프로덕션과 같은 경로로 다시 둔다.
 //
-// **서버는 이 패키지를 안 쓴다** — 부르는 것은 `cmd/importkifu` 뿐이다. 목적은 태그가
+// 서버는 이 패키지를 안 쓴다 — 부르는 것은 cmd/importkifu 뿐이다. 목적은 태그가
 // 남의 대국에서도 맞게 붙는지를 넓게 보는 것과(journal §44) 상수를 기록으로 다시
-// 채점하는 것이고(§39), 그래서 임포트는 `game.NamedTesuji` · `intervene.Judge` 를 **그대로**
+// 채점하는 것이고(§39), 그래서 임포트는 game.NamedTesuji · intervene.Judge 를 그대로
 // 지난다. 여기서 지름길을 내면 재는 대상이 프로덕션이 아니게 된다.
 //
-// **파서는 平手만 안다.** 駒落ち는 여기서 실패하지 않고 나중에 `shogi.ValidateMove` 에서
+// 파서는 平手만 안다. 駒落ち는 여기서 실패하지 않고 나중에 shogi.ValidateMove 에서
 // 엉뚱해 보이는 반칙으로 죽는다.
 //
-// 기보 파일은 **레포에 커밋하지 않는다**(남의 대국 기록이고 하루치가 5MB 넘는다).
+// 기보 파일은 레포에 커밋하지 않는다(남의 대국 기록이고 하루치가 5MB 넘는다).
 // 받는 법과 env 게이트는 apps/server/README.md.
 package kifu
 
@@ -81,7 +81,7 @@ var kifMoveRe = regexp.MustCompile(`^\s*(\d+)\s+`)
 var originRe = regexp.MustCompile(`\((\d)(\d)\)`)
 var timeRe = regexp.MustCompile(`\(\s*\d+:\d+[^)]*\)\s*$`)
 
-// ParseKIF·ParseCSA 는 **平手만 읽는다.** KIF의 手合割 도 CSA의 P 행도 안 보고 언제나 shogi.StartSFEN 에서 시작한다 —
+// ParseKIF·ParseCSA 는 平手만 읽는다. KIF의 手合割 도 CSA의 P 행도 안 보고 언제나 shogi.StartSFEN 에서 시작한다 —
 // 駒落ち 기보를 넣으면 파싱이 아니라 아래 ValidateMove 에서 엉뚱한 手数에 터진다(下手：/上手： 를 받는 것과 무관하다).
 func ParseKIF(input string) (ParsedGame, error) {
 	g := ParsedGame{StartSFEN: shogi.StartSFEN}
@@ -124,7 +124,7 @@ func ParseKIF(input string) (ParsedGame, error) {
 		}
 
 		switch {
-		// 投了는 **던지는 쪽의 手番**에 적힌다 — 여기서 Turn 이 先手면 先手가 던진 것이라 결과는 後手 승이다.
+		// 投了는 던지는 쪽의 手番에 적힌다 — 여기서 Turn 이 先手면 先手가 던진 것이라 결과는 後手 승이다.
 		case strings.HasPrefix(rest, "投了"):
 			if pos.Turn == shogi.Black {
 				g.Result = ResultGoteWin
@@ -323,7 +323,7 @@ func parseCSAMove(line string, pos shogi.Position) (shogi.Move, error) {
 	}
 
 	from := shogi.SquareOf(fromFile, fromRank)
-	// CSA는 착수 **후**의 駒를 적어(+8822UM) 표기에 成 이 없다 — 출발 칸에 서 있던 駒와 견줘 역산한다.
+	// CSA는 착수 후의 駒를 적어(+8822UM) 표기에 成 이 없다 — 출발 칸에 서 있던 駒와 견줘 역산한다.
 	// parseCSAMove 가 pos 를 받는 이유가 이 줄이고, 그래서 CSA는 앞에서부터 순서대로만 읽을 수 있다.
 	boardPiece := pos.Board[from]
 	promote := !boardPiece.Empty() && boardPiece.Type().CanPromote() && pt == boardPiece.Type().Promoted()

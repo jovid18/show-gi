@@ -247,7 +247,7 @@ func cookieOf(rec *httptest.ResponseRecorder, name string) *http.Cookie {
 	return nil
 }
 
-// owner 는 되짚기·가정 수순이 **둘 다** 쓰는 자리다. 여기가 틀리면 두 표면이 같이 샌다.
+// owner 는 되짚기·가정 수순이 둘 다 쓰는 자리다. 여기가 틀리면 두 표면이 같이 샌다.
 func TestOwnerFollowsTheSession(t *testing.T) {
 	h := signedInHandler()
 

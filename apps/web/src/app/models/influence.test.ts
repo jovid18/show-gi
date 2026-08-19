@@ -71,8 +71,8 @@ describe('influenceOf', () => {
 
 describe('exposure', () => {
   it('받고 있는 만큼 뺀다 — 음수는 0이다', () => {
-    // 5五를 後手 歩(5四)가 겨누고, 先手 金(5六)이 받는다. 매수가 같으면 **어느 쪽에서
-    // 봐도 그늘이 없다** — 뺄셈 하나로 두 방향이 같이 닫힌다.
+    // 5五를 後手 歩(5四)가 겨누고, 先手 金(5六)이 받는다. 매수가 같으면 어느 쪽에서
+    // 봐도 그늘이 없다 — 뺄셈 하나로 두 방향이 같이 닫힌다.
     const influence = influenceOf(board('9/9/9/4p4/9/4G4/9/9/9'));
     expect(exposure(influence, 'black')[toIndex(fromUsi('5e'))]).toBe(0);
     expect(exposure(influence, 'white')[toIndex(fromUsi('5e'))]).toBe(0);

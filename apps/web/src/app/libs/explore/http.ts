@@ -3,10 +3,10 @@ import type { ApiError } from '@/protocol/review';
 import type { Send } from '@/hooks/useWhatIf';
 
 /**
- * 검토 한 걸음은 **요청/응답**이다. 되짚기와 같은 길이고(libs/whatif/http.ts) 갈리는 것은
+ * 검토 한 걸음은 요청/응답이다. 되짚기와 같은 길이고(libs/whatif/http.ts) 갈리는 것은
  * 뿌리를 무엇으로 말하느냐뿐 — 저쪽은 판 번호와 手数, 여기는 手合割 id다.
  *
- * **`req.ply` 를 안 보낸다.** 검토의 뿌리는 언제나 0手目라 그 값이 상수이고, 훅이 그것을
+ * `req.ply` 를 안 보낸다. 검토의 뿌리는 언제나 0手目라 그 값이 상수이고, 훅이 그것을
  * 열쇠에 넣어 캐시를 거는 데만 쓴다(`useWhatIf` 의 `keyOf`).
  */
 export function exploreSend(handicap: string): Send<ExploreNode> {

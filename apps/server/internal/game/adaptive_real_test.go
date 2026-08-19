@@ -9,13 +9,13 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// TestRealEngineAdaptiveKeepsTheGamePlayable 는 **이 상대가 존재하는 이유**를 잰다.
+// TestRealEngineAdaptiveKeepsTheGamePlayable 는 이 상대가 존재하는 이유를 잰다.
 //
 // D3에서 초기 국면부터 아무 수나 두게 했더니 20수 만에 절망적인 형세가 되어 개입이
 // 한 번도 안 걸렸다(journal §13). 승률이 포화하기 때문이고, 고칠 버그가 아니라
-// **판정이 의미를 갖는 구간이 형세가 팽팽할 때**라는 사실이다.
+// 판정이 의미를 갖는 구간이 형세가 팽팽할 때라는 사실이다.
 //
-// 즉 적응형 상대는 있으면 좋은 기능이 아니라 **개입이 걸리는 구간을 유지하는 장치**다.
+// 즉 적응형 상대는 있으면 좋은 기능이 아니라 개입이 걸리는 구간을 유지하는 장치다.
 // 그래서 같은 약한 기보를 두 상대에게 두게 하고 형세를 견준다.
 //
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/game/ -run RealEngineAdaptive -v
@@ -51,9 +51,9 @@ func TestRealEngineAdaptiveKeepsTheGamePlayable(t *testing.T) {
 	}
 }
 
-// playWeakly 는 **일부러 약하게** 둔다 — 늘 합법수 목록의 첫 수다.
+// playWeakly 는 일부러 약하게 둔다 — 늘 합법수 목록의 첫 수다.
 //
-// 초심자를 흉내내려는 것이 아니라 **초심자보다도 못 두는 쪽**을 잡아 하한을 보는 것이다.
+// 초심자를 흉내내려는 것이 아니라 초심자보다도 못 두는 쪽을 잡아 하한을 보는 것이다.
 // 여기서 판이 유지되면 실제 플레이어에게는 더 유지된다.
 func playWeakly(t *testing.T, pool *usi.Pool, opp Opponent, plies int) int {
 	t.Helper()

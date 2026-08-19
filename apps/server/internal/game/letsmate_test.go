@@ -12,14 +12,14 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// `lets_mate` 의 배선을 본다 — 「상대가 나를 詰ます」를 엔진에 어떻게 묻고, **언제 안 말하는가**.
+// lets_mate 의 배선을 본다 — 「상대가 나를 詰ます」를 엔진에 어떻게 묻고, 언제 안 말하는가.
 //
-// solver 없이 돈다. 여기서 확인할 것은 詰み 판정의 정확도가 아니라 **어느 국면을 묻고 그 답을
-// 어떻게 쓰는가**라서, 진짜 엔진을 쓰면 오히려 그 구분이 안 보인다(journal §40).
+// solver 없이 돈다. 여기서 확인할 것은 詰み 판정의 정확도가 아니라 어느 국면을 묻고 그 답을
+// 어떻게 쓰는가라서, 진짜 엔진을 쓰면 오히려 그 구분이 안 보인다(journal §40).
 
-// perLineMate 는 **수순마다 다른 답**을 주는 solver다.
+// perLineMate 는 수순마다 다른 답을 주는 solver다.
 //
-// `scriptedMate` 로는 이걸 못 본다 — 그쪽은 어느 국면에나 같은 手数를 주므로 「둔 수 뒤에는
+// scriptedMate 로는 이걸 못 본다 — 그쪽은 어느 국면에나 같은 手数를 주므로 「둔 수 뒤에는
 // 詰み, 최선수 뒤에는 없음」을 표현할 수 없고, 그 구분이 정확히 이 카테고리의 조건이다.
 type perLineMate struct {
 	// plies 는 수순(공백으로 이은 USI)마다의 詰み 手数다. 없는 수순은 詰み 없음.
@@ -44,7 +44,7 @@ func (m *perLineMate) SearchMate(_ context.Context, _ string, moves []string) (u
 
 // mateSearcher 는 착수 후 국면이 「수번 측이 詰ます」로 나오는 탐색 결과다.
 //
-// 그것이 `opponentMate` 의 게이트다 — 이 값이 없으면 solver를 아예 안 부른다.
+// 그것이 opponentMate 의 게이트다 — 이 값이 없으면 solver를 아예 안 부른다.
 func mateSearcher(mateIn int) usi.SearchResult {
 	return usi.SearchResult{Best: "7g7f", ScoreCp: -3000, IsMate: true, MateIn: mateIn}
 }
@@ -112,7 +112,7 @@ func TestOpponentMateNeedsBothConditions(t *testing.T) {
 	}
 }
 
-// 어느 국면을 묻는지가 이 카테고리의 전부다. 한 수 어긋난 국면을 물어도 手数는 그럴듯하게
+// 이 카테고리는 어느 국면을 묻는지로 갈린다. 한 수 어긋난 국면을 물어도 手数는 그럴듯하게
 // 나오므로, 무엇을 물었는지를 직접 본다.
 func TestOpponentMateAsksTheRightPositions(t *testing.T) {
 	before := []string{"7g7f", "3c3d"}
@@ -147,7 +147,7 @@ func TestOpponentMateStaysQuietWhenSolverFails(t *testing.T) {
 	}
 }
 
-// 詰み 수순은 **자르지 않는다.** 자르면 「合の応手가 있는 것 아닌가」로 읽힌다.
+// 詰み 수순은 자르지 않는다. 자르면 「合の応手가 있는 것 아닌가」로 읽힌다.
 func TestMateRefutationIsNotTrimmed(t *testing.T) {
 	// 一手詰め. ▲1一飛成 뒤 후수 玉에 詰み이 걸린 국면을 쓰는 대신, 조용한 수가 이어지는
 	// 수순으로 「안 자른다」만 본다 — trimRefutation 은 조용한 수에서 1로 자른다.
@@ -212,7 +212,7 @@ func TestLetsMateOutranksMaterialCategories(t *testing.T) {
 		}
 	}
 
-	// **`unpromoted` 만 앞이다.** 이동이 최선수와 같고 成만 안 한 수라면 고칠 것은 成이고,
+	// unpromoted 만 앞이다. 이동이 최선수와 같고 成만 안 한 수라면 고칠 것은 成이고,
 	// 그것이 詰み까지 막는다.
 	unp := base
 	unp.UnpromotedOnly = true

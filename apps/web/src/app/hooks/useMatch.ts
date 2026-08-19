@@ -7,7 +7,7 @@ export type MatchConnection = 'connecting' | 'open' | 'closed';
 export interface MatchState {
   connection: MatchConnection;
   /**
-   * 방. **스냅샷보다 먼저 온다** — 상대를 기다리는 동안 화면이 그릴 것이 이것뿐이다
+   * 방. 스냅샷보다 먼저 온다 — 상대를 기다리는 동안 화면이 그릴 것이 이것뿐이다
    * (초대 링크와 「◯◯さんを待っています」).
    */
   room: Room | null;
@@ -25,11 +25,11 @@ export interface MatchState {
 /**
  * `/ws/match` 에 붙어 방 하나의 자리에 앉는다.
  *
- * **`useGame` 과 갈리는 것이 둘이다.**
+ * `useGame` 과 갈리는 것이 둘이다.
  *
- *  1. **어느 쪽인지를 안 보낸다.** 자리에서 이미 정해졌고(서버의 `Hub.Enter`), 요청으로
+ *  1. 어느 쪽인지를 안 보낸다. 자리에서 이미 정해졌고(서버의 `Hub.Enter`), 요청으로
  *     보내면 두 사람이 같은 쪽을 주장할 수 있다.
- *  2. **끊겨도 판이 안 끝난다.** 상대가 남아 있어서다 — 같은 주소로 다시 붙으면 그 자리로
+ *  2. 끊겨도 판이 안 끝난다. 상대가 남아 있어서다 — 같은 주소로 다시 붙으면 그 자리로
  *     돌아간다. 그동안 시계는 흐른다.
  *
  * 스냅샷은 언제나 전체 상태라 이전 것과 합치지 않는다(`useGame` 과 같은 규약).
@@ -49,7 +49,7 @@ export function useMatch(roomId: string): MatchState {
     setConnection('connecting');
 
     /**
-     * 이 소켓이 아직 **지금 방의 것**인가. 정리에서 `close()` 를 부르면 그 이벤트가
+     * 이 소켓이 아직 지금 방의 것인가. 정리에서 `close()` 를 부르면 그 이벤트가
      * 뒤늦게 도착해 방금 정한 상태를 덮는다(`useGame` 이 같은 함정을 이미 적어 뒀다).
      */
     let current = true;
@@ -76,7 +76,7 @@ export function useMatch(roomId: string): MatchState {
       } else if (msg.type === 'waiting') {
         setRoom(msg.room);
       } else if (msg.type === 'record') {
-        // **번호인지 보고 받는다.** 이 값이 「振り返り」 링크의 주소가 되므로, 숫자가
+        // 번호인지 보고 받는다. 이 값이 「振り返り」 링크의 주소가 되므로, 숫자가
         // 아닌 것이 오면 그대로 경로가 된다 — 여기가 그 유일한 문이다.
         if (Number.isInteger(msg.gameId) && msg.gameId > 0) setGameId(msg.gameId);
       } else if (msg.type === 'error') {
@@ -104,16 +104,16 @@ export function useMatch(roomId: string): MatchState {
 }
 
 /**
- * 지금 수번에 남은 밀리초. **서버가 준 값에서 화면이 세어 내려간다.**
+ * 지금 수번에 남은 밀리초. 서버가 준 값에서 화면이 세어 내려간다.
  *
  * 서버가 매 초 보내지 않는 이유는 그것이 두 사람 몫의 프레임을 초당 두 개씩 만들기
- * 때문이고, 화면이 혼자 세지 않는 이유는 **탭을 멈춰 둔 브라우저에서 시간이 안 가기**
+ * 때문이고, 화면이 혼자 세지 않는 이유는 탭을 멈춰 둔 브라우저에서 시간이 안 가기
  * 때문이다. 그래서 정본은 서버이고 화면은 마지막으로 받은 값에서 이어 센다 —
  * 스냅샷이 올 때마다 다시 맞춰진다.
  */
 export function useTurnClock(snapshot: MatchSnapshot | null): number {
   const [left, setLeft] = useState(0);
-  // 마지막 스냅샷을 받은 시각. **`performance.now`** 다 — 시스템 시계가 바뀌어도 안 튄다.
+  // 마지막 스냅샷을 받은 시각. `performance.now` 다 — 시스템 시계가 바뀌어도 안 튄다.
   const at = useRef(0);
   const from = useRef(0);
 

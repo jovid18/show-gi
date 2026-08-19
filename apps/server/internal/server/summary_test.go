@@ -24,7 +24,7 @@ func iv(ply int, category string) store.RecordedIntervention {
 	return store.RecordedIntervention{Ply: ply, Kind: "blunder", Category: category, DeltaWin: 0.4}
 }
 
-// 사람이 둔 수를 **색으로 가른다.** 기록에 「누가 뒀나」가 없어서 手数의 홀짝으로 세는데,
+// 사람이 둔 수를 색으로 가른다. 기록에 「누가 뒀나」가 없어서 手数의 홀짝으로 세는데,
 // 그 규칙이 뒤집히면 後手로 둔 판의 手数가 상대의 것으로 세어진다.
 func TestPlayerMovesCountByColor(t *testing.T) {
 	for _, c := range []struct {
@@ -45,7 +45,7 @@ func TestPlayerMovesCountByColor(t *testing.T) {
 	}
 }
 
-// 카테고리는 많은 순, 같으면 코드 순이다. **결정적이어야 한다** — 흔들리면 같은 판이
+// 카테고리는 많은 순, 같으면 코드 순이다. 결정적이어야 한다 — 흔들리면 같은 판이
 // 두 문장을 갖고 캐시 키도 같이 흔들린다.
 func TestCategoriesRankDeterministically(t *testing.T) {
 	rec := recordFor("b", 20,
@@ -62,7 +62,7 @@ func TestCategoriesRankDeterministically(t *testing.T) {
 	if stats.Categories[1].Code != "greedy_capture" || stats.Categories[2].Code != "other" {
 		t.Errorf("동수 정렬이 흔들린다: %+v", stats.Categories)
 	}
-	// 문장은 **최대 둘**만 말한다.
+	// 문장은 최대 둘만 말한다.
 	if len(facts.Top) != 2 || facts.Top[0] != intervene.CategoryHangsPiece {
 		t.Errorf("Top = %v", facts.Top)
 	}
@@ -83,10 +83,10 @@ func TestNoInterventionsSaysNothingInvented(t *testing.T) {
 	}
 }
 
-// **과반이 아니면 구간을 말하지 않는다.** 최다 구간을 그냥 말하면 4·3·3에서도
+// 과반이 아니면 구간을 말하지 않는다. 최다 구간을 그냥 말하면 4·3·3에서도
 // 「주로 서반」이 된다.
 //
-// 그리고 **짧은 판에는 종반이 없다.** 판을 삼등분하던 때 3手째 개입이 「終盤」으로 나가
+// 그리고 짧은 판에는 종반이 없다. 판을 삼등분하던 때 3手째 개입이 「終盤」으로 나가
 // 화면이 거짓을 말했다(§49) — 지금은 手数의 절대값으로 가른다.
 func TestPhaseUsesAbsolutePly(t *testing.T) {
 	for _, c := range []struct {
@@ -113,7 +113,7 @@ func TestPhaseUsesAbsolutePly(t *testing.T) {
 	}
 }
 
-// 짧은 판 전체를 한 번 통과시킨다. **이것이 §49에서 물린 그 판이다** — 2手 확정 + 3手째
+// 짧은 판 전체를 한 번 통과시킨다. 이것이 §49에서 물린 그 판이다 — 2手 확정 + 3手째
 // 개입 하나이고, 그때 화면에 「終盤で」가 나갔다.
 func TestShortGameSaysEarlyNotLate(t *testing.T) {
 	rec := recordFor("b", 2, iv(3, "hangs_piece"))
@@ -132,7 +132,7 @@ func TestShortGameSaysEarlyNotLate(t *testing.T) {
 	}
 }
 
-// 후반 추세는 **표본이 모자라면 말하지 않는다.** 한 건 차이로 「나아졌다」가 뒤집힌다.
+// 후반 추세는 표본이 모자라면 말하지 않는다. 한 건 차이로 「나아졌다」가 뒤집힌다.
 func TestTrendNeedsSamplesAndAMargin(t *testing.T) {
 	for _, c := range []struct {
 		name string
@@ -170,7 +170,7 @@ func TestUnfinishedGameStillSummarizes(t *testing.T) {
 	}
 }
 
-// 짚는 자리는 **낙폭이 가장 큰 개입**이다. 회차 2 #2가 요구한 「국면을 짚어라」의 답이고,
+// 짚는 자리는 낙폭이 가장 큰 개입이다. 회차 2 #2가 요구한 「국면을 짚어라」의 답이고,
 // 판마다 하나만 고른다.
 func TestFocusPicksTheBiggestDrop(t *testing.T) {
 	got := focusOf([]store.RecordedIntervention{
@@ -211,8 +211,8 @@ func TestNoInterventionsNoFocus(t *testing.T) {
 	}
 }
 
-// 총평의 **문장 쪽**에는 手数가 없어야 한다. 들어가면 캐시 키가 판마다 갈리고
-// (GameFacts.Key) LLM이 그 숫자를 옮겨 적을 길이 생긴다.
+// 총평의 문장 쪽에는 手数가 없어야 한다. 숫자는 summaryStats 가 들고, 문장은 그것을
+// 말하지 않는다(summary.go 의 규약).
 func TestFocusDoesNotReachTheSentence(t *testing.T) {
 	rec := store.GameRecord{
 		GameSummary:   store.GameSummary{ID: 1, MyColor: "b", Result: store.ResultLoss},
@@ -224,11 +224,11 @@ func TestFocusDoesNotReachTheSentence(t *testing.T) {
 		t.Fatalf("숫자 쪽에 짚는 자리가 없다: %+v", stats.Focus)
 	}
 
-	// 그런데 **문장 쪽 사실은 手数를 모른다.** 짚는 자리는 화면의 표가 그리고, 총평은 판
+	// 그런데 문장 쪽 사실은 手数를 모른다. 짚는 자리는 화면의 표가 그리고, 총평은 판
 	// 전체의 모양을 말하는 자리다 — 문장이 手数를 옮겨 적으면 두 벌이 된다.
 	//
-	// 手数를 같은 구간 안에서 옮긴다(둘 다 序盤) — 구간이 갈리면 `Phase` 가 달라지는 것이
-	// **맞고**, 그건 이 테스트가 잡으려는 것이 아니다.
+	// 手数를 같은 구간 안에서 옮긴다(둘 다 序盤) — 구간이 갈리면 Phase 가 달라지는 것이
+	// 맞고, 그건 이 테스트가 잡으려는 것이 아니다.
 	other := rec
 	other.Interventions = []store.RecordedIntervention{{Ply: 12, Category: "hangs_piece", DeltaWin: 0.7}}
 	otherFacts, _ := factsOf(other, intervene.Beginner)
@@ -237,7 +237,7 @@ func TestFocusDoesNotReachTheSentence(t *testing.T) {
 	}
 }
 
-// standingOf 는 **마지막으로 채워진 평가치**를 사람 관점으로 읽는다. 부호 뒤집기(後手)와
+// standingOf 는 마지막으로 채워진 평가치를 사람 관점으로 읽는다. 부호 뒤집기(後手)와
 // 「너무 오래된 평가치는 안 쓴다」가 이 함수의 전부다.
 func TestStandingOfReadsTheLastFilledEval(t *testing.T) {
 	cp := func(v int) *int { return &v }
@@ -255,7 +255,7 @@ func TestStandingOfReadsTheLastFilledEval(t *testing.T) {
 			want:  explain.StandingAhead,
 		},
 		{
-			// **같은 cp인데 반대가 된다.** EvalCp 는 언제나 先手 관점이다.
+			// 같은 cp인데 반대가 된다. EvalCp 는 언제나 先手 관점이다.
 			name: "後手에게 같은 값은 지고 있는 것", myColor: "w",
 			moves: []store.RecordedMove{{Ply: 1, EvalCp: cp(30)}, {Ply: 2, EvalCp: cp(1782)}},
 			want:  explain.StandingBehind,

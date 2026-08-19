@@ -2,7 +2,7 @@ package store
 
 import "testing"
 
-// 무르기는 **기보를 자르고 무른 수를 따로 남긴다.** 둘 다 SQL에만 있는 규칙이라
+// 무르기는 기보를 자르고 무른 수를 따로 남긴다. 둘 다 SQL에만 있는 규칙이라
 // (query/games.sql) 가짜로는 검증할 수 없다.
 func TestRecordUndoCutsTheKifuAndKeepsTheMove(t *testing.T) {
 	s := open(t)
@@ -30,7 +30,7 @@ func TestRecordUndoCutsTheKifuAndKeepsTheMove(t *testing.T) {
 		t.Fatalf("GameRecordAnyOwner: %v", err)
 	}
 
-	// **상대의 응수까지 사라진다.** 사람 수만 지우면 기보가 상대 수로 시작한다.
+	// 상대의 응수까지 사라진다. 사람 수만 지우면 기보가 상대 수로 시작한다.
 	if len(rec.Moves) != 0 {
 		t.Fatalf("기보가 안 잘렸다: %+v", rec.Moves)
 	}
@@ -41,12 +41,12 @@ func TestRecordUndoCutsTheKifuAndKeepsTheMove(t *testing.T) {
 	if u.Ply != 1 || u.USI != "7g7f" {
 		t.Fatalf("무른 수 = %+v", u)
 	}
-	// **평가치는 지우기 전에 옮겨 담는다.** 순서가 뒤집히면 여기가 nil이 된다.
+	// 평가치는 지우기 전에 옮겨 담는다. 순서가 뒤집히면 여기가 nil이 된다.
 	if u.EvalCp == nil || *u.EvalCp != 123 {
 		t.Fatalf("무른 수의 평가치 = %v (123 기대)", u.EvalCp)
 	}
 
-	// **개입 횟수에 안 섞인다** — 목록의 그 숫자는 「AI가 몇 번 막았나」다.
+	// 개입 횟수에 안 섞인다 — 목록의 그 숫자는 「AI가 몇 번 막았나」다.
 	if rec.InterventionCount != 0 {
 		t.Fatalf("무르기가 개입 횟수에 섞였다: %d", rec.InterventionCount)
 	}
@@ -86,7 +86,7 @@ func TestRecordUndoAcceptsTheSamePlyTwice(t *testing.T) {
 	if len(rec.Undos) != 2 {
 		t.Fatalf("무르기 기록 = %d개 (2 기대)", len(rec.Undos))
 	}
-	// 무른 **순서**가 남아야 한다 — id 로 이어 정렬하는 근거다.
+	// 무른 순서가 남아야 한다 — id 로 이어 정렬하는 근거다.
 	if rec.Undos[0].USI != "7g7f" || rec.Undos[1].USI != "2g2f" {
 		t.Fatalf("무른 순서가 안 지켜졌다: %+v", rec.Undos)
 	}
