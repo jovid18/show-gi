@@ -325,6 +325,40 @@ func TestWhatIfDropsUnplayableCandidates(t *testing.T) {
 	}
 }
 
+// 캐시에 **같은 수가 두 번** 들어 있을 수 있다 — `usi.Ranked` 가 막기 전에 쌓인 행이고, 이
+// 표면은 캐시를 직접 읽어 그쪽을 안 지난다(`evalOf`). 두 줄로 그리면 검토 화면의 목록이
+// 「1위가 둘」이 된다(§87).
+func TestWhatIfDropsDuplicateCachedCandidates(t *testing.T) {
+	rec := recordOf("b", "7g7f", "3c3d")
+	root := rootOf(rec)
+	pos := replayed(t, root, 2)
+
+	cache := &fakeCache{rows: map[string]store.Position{
+		archive.Key(pos): {
+			SFENKey:       archive.Key(pos),
+			SideToMove:    "b",
+			ComputedDepth: whatifDepth,
+			Candidates: []store.Candidate{
+				{USI: "2g2f", Cp: 96},
+				{USI: "6i7h", Cp: 76},
+				{USI: "2g2f", Cp: 51},
+			},
+		},
+	}}
+
+	node, err := whatifNodeOf(t.Context(), root, whatifRequest{Ply: 2}, &fakeSearcher{}, cache)
+	if err != nil {
+		t.Fatalf("whatifNodeOf: %v", err)
+	}
+	usis := make([]string, 0, len(node.Candidates))
+	for _, c := range node.Candidates {
+		usis = append(usis, c.USI)
+	}
+	if !slices.Equal(usis, []string{"2g2f", "6i7h"}) {
+		t.Errorf("candidates = %v, want [2g2f 6i7h]", usis)
+	}
+}
+
 // 詰み은 cp가 아니라 手数로 나간다. 30000이라는 숫자를 화면에 그대로 흘리면 그건
 // 평가치가 아니라 환산값이다.
 func TestWhatIfReportsMateInPlies(t *testing.T) {
