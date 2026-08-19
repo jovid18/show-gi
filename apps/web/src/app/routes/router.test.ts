@@ -5,9 +5,17 @@ import { hrefOf, parseRoute } from './router';
 // 주소를 읽는 쪽은 **새로고침과 뒤로 가기가 지나가는 유일한 문**이다. 조용히 틀리면
 // 「그 판을 열었는데 목록이 뜬다」로 나타나고, 화면에서는 버그로 안 보인다.
 describe('parseRoute', () => {
-  it('빈 경로와 루트는 대국이다', () => {
-    expect(parseRoute('/')).toEqual({ name: 'game' });
-    expect(parseRoute('')).toEqual({ name: 'game' });
+  it('빈 경로와 루트는 홈이다', () => {
+    expect(parseRoute('/')).toEqual({ name: 'home' });
+    expect(parseRoute('')).toEqual({ name: 'home' });
+  });
+
+  // 여기가 어긋나면 홈과 대국이 통째로 자리를 바꾼다(journal §86).
+  it('대국은 /play 다', () => {
+    expect(parseRoute('/play')).toEqual({ name: 'game' });
+    expect(parseRoute('/play/')).toEqual({ name: 'game' });
+    // 꼬리가 붙어도 대국이다 — 이 화면은 주소에 무엇도 안 싣는다.
+    expect(parseRoute('/play/nope')).toEqual({ name: 'game' });
   });
 
   it('목록', () => {
@@ -35,8 +43,8 @@ describe('parseRoute', () => {
     }
   });
 
-  it('모르는 경로는 대국이다 — 404 화면을 두지 않는다', () => {
-    expect(parseRoute('/nope')).toEqual({ name: 'game' });
+  it('모르는 경로는 홈이다 — 404 화면을 두지 않는다', () => {
+    expect(parseRoute('/nope')).toEqual({ name: 'home' });
   });
 
   it('퀴즈', () => {
@@ -129,7 +137,7 @@ describe('parseRoute', () => {
     expect(parseRoute(`/rooms/${id}`)).toEqual({ name: 'room', id });
   });
 
-  it('모양이 아닌 방 id 는 대국이다', () => {
+  it('모양이 아닌 방 id 는 홈이다', () => {
     // `-`·`_` 도 여기서 걸린다 — 알파벳에 없는 글자다(roomIDAlphabet).
     const paths = [
       '/rooms',
@@ -141,14 +149,23 @@ describe('parseRoute', () => {
       '/rooms/aaaa-_aa',
     ];
     for (const path of paths) {
-      expect(parseRoute(path)).toEqual({ name: 'game' });
+      expect(parseRoute(path)).toEqual({ name: 'home' });
     }
   });
 });
 
 describe('hrefOf', () => {
   it('읽은 것을 다시 적으면 같은 주소다', () => {
-    for (const path of ['/', '/reviews', '/reviews/12', '/reviews/12/quiz', '/me', '/guide', '/rooms/AbCdEf12']) {
+    for (const path of [
+      '/',
+      '/play',
+      '/reviews',
+      '/reviews/12',
+      '/reviews/12/quiz',
+      '/me',
+      '/guide',
+      '/rooms/AbCdEf12',
+    ]) {
       expect(hrefOf(parseRoute(path))).toBe(path);
     }
   });

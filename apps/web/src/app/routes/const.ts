@@ -1,7 +1,20 @@
 // 경로 문자열은 여기만 안다. **트리와 갈라 둔다** — 링크를 그리는 쪽은 상수만 필요하고,
 // 상수가 한 곳에 있으면 「어떤 주소가 있나」를 파일 하나로 읽을 수 있다.
 
-export const ROUTE_GAME = '/';
+/**
+ * 홈. **세로 메뉴 하나가 전부인 화면이다**(journal §86).
+ *
+ * `/` 인 것이 요점이다 — 로그인이 끝나면 서버가 이 주소로 되돌려보내고(`auth.go`),
+ * `canonical` 과 `sitemap.xml` 도 여기를 가리킨다.
+ */
+export const ROUTE_HOME = '/';
+
+/** 대국. **`/` 에서 내려왔다**(journal §86) — 그 자리는 홈이 가졌다. */
+export const ROUTE_GAME = '/play';
+
+/** `/play` 의 첫 조각. */
+export const PLAY_SEGMENT = 'play';
+
 export const ROUTE_REVIEWS = '/reviews';
 
 /** 마이페이지. **판이 아니라 사람 하나**라 id가 없다. */

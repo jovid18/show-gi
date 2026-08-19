@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  공개 주소는 둘뿐이다. 나머지(/reviews/:id · /me)는 로그인한 사람의 판이라 크롤러가
+  공개 주소는 셋뿐이다. 나머지(/reviews/:id · /me)는 로그인한 사람의 판이라 크롤러가
   들어가도 볼 것이 없고, robots.txt 가 같은 자리를 막는다.
+
+  `/` 는 메뉴이고 대국은 `/play` 로 내려갔다(journal §86). 둘 다 싣는 것은 「将棋 対局」
+  으로 들어오는 사람이 닿아야 할 곳이 메뉴가 아니라 판이기 때문이다.
 
   `lastmod` 는 손으로 적는다 — 배포가 이 파일을 만들지 않는다. 화면이 크게 바뀐 날에만
   고치면 되고, 안 고쳐도 색인이 사라지지는 않는다.
@@ -9,9 +12,15 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://show-gi.com/</loc>
-    <lastmod>2026-08-14</lastmod>
+    <lastmod>2026-08-20</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://show-gi.com/play</loc>
+    <lastmod>2026-08-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://show-gi.com/guide</loc>

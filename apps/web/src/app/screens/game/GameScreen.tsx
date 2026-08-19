@@ -61,11 +61,17 @@ export function GameScreen() {
   // 누르러 가는 사람이 매번 확인창을 본다(useUnloadGuard).
   useUnloadGuard(playing);
 
-  // 헤더가 「対局中」 표식을 띄우는 근거다(libs/game/playing.ts). **여기서만 쓴다** —
-  // 판의 상태를 아는 것은 이 화면 하나이고, 그 사실이 밖으로 나가는 길이 이 줄이다.
+  /**
+   * 판이 돌고 있다는 사실이 밖으로 나가는 유일한 길이다(`libs/game/playing.ts`).
+   * **여기서만 쓴다** — 판의 상태를 아는 것은 이 화면 하나다.
+   *
+   * **연결이 끊기면 거짓이다**(journal §86) — 참으로 두면 그 값이 앱을 이 화면에 묶어
+   * (App.tsx) 사람이 「接続が切れました」 화면에 갇힌다. 마지막 스냅샷은 `playing` 인
+   * 채로 남으므로 그것만으로는 안 갈라진다.
+   */
   useEffect(() => {
-    setPlaying(playing);
-  }, [playing]);
+    setPlaying(playing && connection !== 'closed');
+  }, [playing, connection]);
 
   /** 끝난 이 판의 되짚기 자리. 총평이 오기 전에는 번호가 없어서 null이다. */
   const reviewRoute = useMemo(

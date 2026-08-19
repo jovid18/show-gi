@@ -1,6 +1,7 @@
 import { useProfile } from '@/hooks/useProfile';
 import { TAG_KIND_JA } from '@/libs/game/tags';
-import { hrefOf } from '@/routes/router';
+import { SIGN_IN_PATH } from '@/protocol/auth';
+import { hrefOf, navigate } from '@/routes/router';
 
 /**
  * 마이페이지. **판을 가로질러 보는 유일한 화면이다** — 되짚기는 판 하나를 열고 총평은
@@ -11,8 +12,11 @@ import { hrefOf } from '@/routes/router';
  *
  * **마지막 하나가 나머지 셋과 방향이 반대다.** 앞의 셋은 「얼마나 못했나」를 세는데, 그것만
  * 있으면 판을 가로질러 보는 유일한 화면이 지적만 하는 자리가 된다(journal §77).
+ *
+ * **로그아웃도 여기 있다**(journal §86) — 「내 계정」을 여는 화면이 이미 있으면 그 안이
+ * 그것의 자리다.
  */
-export function ProfileScreen() {
+export function ProfileScreen({ onSignOut }: { onSignOut: () => void }) {
   const state = useProfile();
 
   if (state.status === 'loading') return <p className="review-status">読み込み中…</p>;
@@ -26,6 +30,14 @@ export function ProfileScreen() {
           ログインすると、これまでの成績と棋力の目安が見られます。
           <br />
           ログインしていない対局は記録が誰のものか分からないため、ここには出ません。
+        </p>
+        {/* **여기까지 온 사람에게 갈 곳을 준다.** 메뉴에서는 이 줄이 로그인한 사람에게만
+            보이지만(HomeScreen), 주소를 직접 열거나 로그아웃한 뒤에는 익명으로 여기 선다 —
+            그때 안내만 있고 누를 것이 없으면 막다른 화면이 된다. */}
+        <p className="profile__signin">
+          <a className="btn btn--primary" href={SIGN_IN_PATH}>
+            ログイン
+          </a>
         </p>
       </section>
     );
@@ -79,7 +91,19 @@ export function ProfileScreen() {
           </dl>
         ) : (
           <p className="profile__empty">
-            まだ終わった対局がありません。<a href={hrefOf({ name: 'game' })}>対局する</a>
+            まだ終わった対局がありません。{' '}
+            {/* 안내 화면과 같은 이유로 `navigate` 를 탄다 — 문서를 새로 받으면 상시
+                마운트된 대국 화면이 들고 있던 총평이 사라진다(GuideScreen). */}
+            <a
+              href={hrefOf({ name: 'game' })}
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                e.preventDefault();
+                navigate({ name: 'game' });
+              }}
+            >
+              対局する
+            </a>
           </p>
         )}
       </section>
@@ -134,6 +158,14 @@ export function ProfileScreen() {
           </p>
         )}
       </section>
+
+      {/* **맨 아래이고, 눈에 띄지 않는다.** 이 화면에서 사람이 보러 온 것은 위의 넷이고
+          이건 가끔 한 번 쓰는 것이라, 위에 두면 성적을 보러 온 사람이 매번 지나친다. */}
+      <div className="profile__signout">
+        <button type="button" className="btn" onClick={onSignOut}>
+          ログアウト
+        </button>
+      </div>
     </section>
   );
 }

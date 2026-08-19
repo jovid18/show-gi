@@ -68,7 +68,7 @@ function Focus({ focus, gameId }: { focus: NonNullable<GameSummary['stats']['foc
       className="summary__focus"
       href={hrefOf(route)}
       onClick={(e) => {
-        // 새 탭·새 창으로 열려는 클릭은 브라우저에 넘긴다(App.tsx 의 탭과 같은 규약).
+        // 새 탭·새 창으로 열려는 클릭은 브라우저에 넘긴다(홈 메뉴와 같은 규약).
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
         e.preventDefault();
         navigate(route);
