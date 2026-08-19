@@ -332,15 +332,24 @@ body {
   margin-inline: auto;
 }
 
-/* 개입 때 판만 빛 위에 남는다. 그래서 판은 늘 겹의 위쪽에 둔다.
-   값을 1·2·3으로 붙여 쓰면 안 된다 — 겹이 낮으면 `position:fixed` 인 장막과 순서가
-   뒤집혀 판이 같이 어두워진다(실제로 물렸다). */
+/* 개입 때 판만 빛 위에 남는다. 그래서 판은 그때 겹의 위쪽으로 올라간다.
+   값을 1·2·3으로 붙여 쓰면 안 된다 — 겹이 낮으면 `position:fixed` 인 장막(40)과 순서가
+   뒤집혀 판이 같이 어두워진다(실제로 물렸다).
+
+   **평소에는 안 올린다.** 늘 50이면 sticky 헤더(30, `.app-head`)보다 위라, 판이 화면보다
+   길 때 **스크롤하는 동안 駒台와 판이 헤더를 덮는다** — 되짚기에서 「盤を反転」이
+   「あそびかた」를 가리고 있었고, 검토는 手合割 줄이 그 자리에 서서 더 눈에 띄었다.
+   올려야 하는 것은 **장막이 떠 있는 동안**이고, 그 상태는 `data-intervening` 이 이미 든다.
+   개입이 없는 화면(되짚기·검토)에는 그 표식이 아예 안 붙으므로 저절로 안 올라간다. */
 .game-board {
   position: relative;
-  z-index: 50;
   display: grid;
   gap: 0.6rem;
   justify-items: center;
+}
+
+.game[data-intervening] .game-board {
+  z-index: 50;
 }
 
 /* 여기서 판을 살짝 기울였다(`rotateX(7deg)`). **뺐다** — 개입 국면에서 **직접 둬 볼 수
@@ -4357,4 +4366,213 @@ body {
 
 .match-lost p {
   margin: 0;
+}
+
+/* ── 검토 ─────────────────────────────────────────────────
+   「手合割을 골라 0手目부터 직접 놓아 본다」. **판과 옆 패널은 대국·되짚기와 같은 것을
+   쓴다**(`.game` · `.game-side`) — 여기서 새로 그리는 것은 手合割 줄과 최선수 목록뿐이다. */
+
+.explore {
+  display: grid;
+  gap: 1rem;
+}
+
+/* 手合割. **이름만 세운다** — 한 줄 설명은 `title` 로 넘겼다: 옆 패널 폭에서 카드로 그리면
+   여덟 장이 판보다 높아진다(시작 화면의 `.setup__choices--handicap` 이 그 모양이다). */
+.explore-handicaps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+}
+
+.explore-handicap {
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.explore-handicap:hover,
+.explore-handicap:focus-visible {
+  border-color: var(--line-2);
+  color: var(--fg-2);
+}
+
+/* 고른 手合. 판이 그것으로 서 있다는 뜻이라 브랜드 색으로 짚는다 — 「지금 무슨 판인가」는
+   숫자(+1490)만으로는 안 읽힌다. */
+.explore-handicap[data-on] {
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  font-weight: 600;
+}
+
+/* 되돌리는 둘과 판을 돌리는 하나. **축이 다른 것을 한 줄에 둔다** — 되짚기는 「언제를
+   보나」가 슬라이더라 갈라 뒀는데(`.review-board-controls`), 검토에는 이동 장치가 없다. */
+.explore-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.explore-head {
+  gap: 0.4rem;
+  padding: 0.9rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.explore-head-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.explore-title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--fg-2);
+}
+
+/* 지금 국면의 값. **판 위가 아니라 여기 하나가 든다** — 형세 그래프가 없는 화면이라
+   이 숫자가 「지금 얼마인가」의 유일한 자리다. */
+.explore-score {
+  font-family: var(--font-koma);
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+
+.explore-status {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--fg-2);
+}
+
+/* 「이 手合의 互角은 얼마인가」. **값을 옮기지 않고 기준선을 말한다**(journal §84) —
+   숫자의 자를 되짚기 그래프와 같게 두려면 평가치를 옮길 수가 없다. */
+.explore-baseline {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* 다른 국면의 값을 그리고 있다. 흐리게 하고 누를 수 없게 한다 — 되짚기와 같은 장치다. */
+.explore-score[data-stale],
+.explore-status[data-stale],
+.explore-option-list[data-stale] {
+  opacity: 0.45;
+}
+
+.explore-options {
+  gap: 0.35rem;
+  padding: 0.6rem;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: var(--r-md);
+}
+
+.explore-option-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 한 줄이 수 하나. **색이 값이다** — 판 위에서 쓰는 토큰을 그대로 쓰고(`--hint`·
+   `--ray-check`) 새 색을 안 꺼낸다. 되짚기의 목록과 같은 규약이다(`.review-options-row`). */
+.explore-option {
+  display: grid;
+  grid-template-columns: 1.25rem 1fr auto auto;
+  gap: 0.5rem;
+  align-items: baseline;
+  width: 100%;
+  padding: 0.35rem 0.4rem;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(to right, var(--tone), transparent 70%);
+  font: inherit;
+  color: var(--fg);
+  text-align: start;
+  cursor: pointer;
+}
+
+.explore-option:hover,
+.explore-option:focus-visible {
+  border-bottom-color: var(--line-2);
+}
+
+.explore-option:disabled {
+  cursor: default;
+}
+
+/* 1위. **판 위의 초록 화살표와 같은 수**라 색을 한 번 더 쓰지 않고 순위 숫자만 굵게 한다. */
+.explore-option[data-best] .explore-option-rank {
+  color: var(--brand-strong);
+  font-weight: 700;
+}
+
+.explore-option-rank {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.explore-option-move {
+  font-family: var(--font-koma);
+  font-size: 0.9375rem;
+}
+
+.explore-option-score {
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-2);
+}
+
+/* 최선수 대비 낙폭. **1위에는 없다**(기준이라 0) — 서버가 그 자리를 비워서 보낸다. */
+.explore-option-loss {
+  min-width: 3.5ch;
+  font-size: 0.6875rem;
+  text-align: end;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.explore-line-panel {
+  gap: 0.4rem;
+  padding: 0.9rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+/* 거절 하나와 다시 누르는 버튼. **429·503은 설계된 실패라** 그 자리에서 다시 물을 수
+   있어야 한다 — 0手目에서 실패하면 되돌릴 줄도 없어서 누를 것이 하나도 안 남는다. */
+.explore-error {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+}
+
+/* 두는 중에 링크로 들어온 자리. **판을 그려 놓고 잠그지 않는다** — 그건 고장으로 읽힌다. */
+.explore-closed {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 32rem;
+  margin-inline: auto;
+  padding: 1.2rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
 }

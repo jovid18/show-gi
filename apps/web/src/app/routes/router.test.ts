@@ -80,6 +80,48 @@ describe('parseRoute', () => {
     expect(parseRoute('/guide/anything')).toEqual({ name: 'guide' });
   });
 
+  // 검토는 **쿼리를 보는 유일한 화면**이다. 여기가 틀리면 링크로 받은 국면이 안 열린다.
+  it('검토 — 手合割과 수순이 쿼리에 있다', () => {
+    expect(parseRoute('/explore')).toEqual({ name: 'explore', handicap: '', moves: [] });
+    expect(parseRoute('/explore/')).toEqual({ name: 'explore', handicap: '', moves: [] });
+    expect(parseRoute('/explore?h=nimaiochi')).toEqual({ name: 'explore', handicap: 'nimaiochi', moves: [] });
+    expect(parseRoute('/explore?h=nimaiochi&m=7g7f,3c3d')).toEqual({
+      name: 'explore',
+      handicap: 'nimaiochi',
+      moves: ['7g7f', '3c3d'],
+    });
+    // 打과 成도 수다 — `*` 와 `+` 가 주소에서 살아 돌아와야 한다
+    expect(parseRoute('/explore?m=2b3c+,P*5e')).toEqual({
+      name: 'explore',
+      handicap: '',
+      moves: ['2b3c+', 'P*5e'],
+    });
+  });
+
+  // **한 토큰이 깨지면 줄 전체를 버린다.** 절반만 두면 링크를 받은 사람이 보는 판과
+  // 준 사람이 본 판이 다르고, 그건 화면에서 버그로 안 보인다.
+  it('모양이 아닌 수순은 통째로 버린다', () => {
+    for (const bad of [
+      '/explore?m=7g7f,zzz',
+      '/explore?m=7g7f,,3c3d',
+      '/explore?m=7g7f 3c3d',
+      // 手合割 id 는 주소에 실릴 수 있는 모양까지만 본다 — 이건 그 모양이 아니다
+      `/explore?h=${'a'.repeat(33)}`,
+    ]) {
+      expect(parseRoute(bad)).toEqual({ name: 'explore', handicap: '', moves: [] });
+    }
+  });
+
+  // **없는 手合割을 여기서 자르지 않는다.** 목록에 있는지는 서버가 정하고(`bad_handicap`),
+  // 화면이 어휘를 한 벌 더 들면 새 手合이 붙는 날 그 공유 링크가 조용히 平手로 열린다.
+  it('모르는 手合割 id 는 서버에 넘긴다', () => {
+    expect(parseRoute('/explore?h=hachimaiochi2&m=7g7f')).toEqual({
+      name: 'explore',
+      handicap: 'hachimaiochi2',
+      moves: ['7g7f'],
+    });
+  });
+
   // 방 id 는 **영숫자 8자** 다(서버의 newRoomID). 모양이 아니면 대국으로 보낸다 —
   // 아무 문자열이나 통과시키면 그 값이 그대로 `fetch` 의 경로가 된다.
   it('방', () => {
@@ -107,6 +149,13 @@ describe('parseRoute', () => {
 describe('hrefOf', () => {
   it('읽은 것을 다시 적으면 같은 주소다', () => {
     for (const path of ['/', '/reviews', '/reviews/12', '/reviews/12/quiz', '/me', '/guide', '/rooms/AbCdEf12']) {
+      expect(hrefOf(parseRoute(path))).toBe(path);
+    }
+  });
+
+  // 검토는 쿼리까지 왕복해야 한다 — 주소가 판을 들고 있는 유일한 화면이다.
+  it('검토도 왕복한다', () => {
+    for (const path of ['/explore', '/explore?h=nimaiochi', '/explore?h=nimaiochi&m=7g7f,3c3d', '/explore?m=P*5e']) {
       expect(hrefOf(parseRoute(path))).toBe(path);
     }
   });

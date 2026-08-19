@@ -9,12 +9,17 @@ import type { WhatIfNode, WhatIfRequest } from '@/protocol/whatif';
  * 한 수도 대신 두지 않는다. 되돌릴 상태가 없어서 그럴 수 있다 — 끝난 판의 가정이든
  * 물러진 수 뒤의 가정이든 아무도 안 잃는다.
  *
- * **오가는 길은 두 가지다.** 되짚는 판은 HTTP, 대국 중의 블런더 화면은 그 대국의
- * WebSocket이다. 그 차이를 `send` 하나로 밀어내서 **장치는 한 벌**로 둔다.
+ * **오가는 길은 세 가지다.** 되짚는 판은 HTTP, 대국 중의 블런더 화면은 그 대국의
+ * WebSocket, 검토는 또 다른 HTTP다(`/api/explore`). 그 차이를 `send` 하나로 밀어내서
+ * **장치는 한 벌**로 둔다.
+ *
+ * **노드 타입이 표면마다 늘어날 수 있다.** 검토는 `WhatIfNode` 에 그 手合의 「형세 0」을
+ * 얹어서 받는데(`ExploreNode`), 그 칸을 여기 공용 타입에 넣으면 되짚기·대국이 절대
+ * 오지 않는 필드를 들고 다니게 된다 — 늘어난 쪽만 자기 타입을 준다.
  */
-export interface WhatIf {
+export interface WhatIf<T extends WhatIfNode = WhatIfNode> {
   /** 지금 서 있는 자리. null이면 아직 아무것도 못 받았다. */
-  node: WhatIfNode | null;
+  node: T | null;
   pending: boolean;
   error: string | null;
   /** 그 手数의 국면을 묻는다. 수를 함께 주면 그것부터 둔 자리다(물러진 수가 그렇다). */
@@ -39,7 +44,7 @@ export interface WhatIf {
 }
 
 /** 요청 하나를 실어 보내는 길. HTTP든 WebSocket이든 이 모양이면 된다. */
-export type Send = (req: WhatIfRequest, signal: AbortSignal) => Promise<WhatIfNode>;
+export type Send<T extends WhatIfNode = WhatIfNode> = (req: WhatIfRequest, signal: AbortSignal) => Promise<T>;
 
 const FALLBACK_ERROR = 'この手順を試せませんでした。';
 
@@ -68,8 +73,12 @@ const NO_FLOOR: readonly string[] = [];
  * `branchRoot`), **두 벌인 것이 맞다** — 화면 쪽은 버튼을 안 그리는 일이고 서버 쪽은
  * 요청을 거절하는 일이라, 하나가 뚫려도 다른 하나가 남는다.
  */
-export function useWhatIf(send: Send, resetKey: unknown, floor: readonly string[] = NO_FLOOR): WhatIf {
-  const [node, setNode] = useState<WhatIfNode | null>(null);
+export function useWhatIf<T extends WhatIfNode = WhatIfNode>(
+  send: Send<T>,
+  resetKey: unknown,
+  floor: readonly string[] = NO_FLOOR,
+): WhatIf<T> {
+  const [node, setNode] = useState<T | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,7 +98,7 @@ export function useWhatIf(send: Send, resetKey: unknown, floor: readonly string[
    * 사실이 아니게 된다. 서버 쪽 `positions` 캐시가 같은 일을 하지만, 여기가 있으면
    * 왕복 자체가 없어서 **누른 즉시** 판이 선다.
    */
-  const seen = useRef(new Map<string, WhatIfNode>());
+  const seen = useRef(new Map<string, T>());
   /** 떠난 요청은 버린다. 빠르게 두면 응답이 순서대로 오지 않는다. */
   const latest = useRef(0);
   const inflight = useRef<AbortController | null>(null);

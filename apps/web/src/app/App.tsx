@@ -36,6 +36,14 @@ const GuideScreen = lazy(async () => ({
 }));
 
 /**
+ * 검토도 나중에 받는다. **대국 화면과 코드를 많이 나눠 쓰는데도 그렇다** — 판·駒台는
+ * 첫 화면에 이미 실려 있고(`components/`), 이 조각이 더 들고 오는 것은 이 화면 자신뿐이다.
+ */
+const ExploreScreen = lazy(async () => ({
+  default: (await import('@/screens/explore/ExploreScreen')).ExploreScreen,
+}));
+
+/**
  * 대인전도 나중에 받는다. **엔진 대국과 코드를 안 나눠 쓴다** — 개입도 힌트도 없는
  * 화면이라(docs/journal §83) 첫 화면에 실릴 이유가 없고, 라우트가 이미 갈라져 있다.
  */
@@ -54,9 +62,12 @@ const MatchScreen = lazy(async () => ({
  * 있는가일 뿐이라 익명으로 두는 사람에게도 참이고, 실제로 그 탭이 익명에게 떠 있었다
  * (journal §76).
  */
-const TABS: { route: Route; label: string; needsAuth?: boolean }[] = [
+const TABS: { route: Route; label: string; needsAuth?: boolean; hideWhilePlaying?: boolean }[] = [
   { route: { name: 'game' }, label: '対局' },
   { route: { name: 'reviews' }, label: '振り返り' },
+  // 검토. **로그인이 필요하고**(엔진 세 개를 대국과 나눠 쓰는 자리라 서버가 그렇게 답한다,
+  // explore.go), **두는 중에는 안 그린다** — 아래 `hideWhilePlaying`.
+  { route: { name: 'explore', handicap: '', moves: [] }, label: '検討', needsAuth: true, hideWhilePlaying: true },
   { route: { name: 'me' }, label: 'マイページ', needsAuth: true },
 ];
 
@@ -93,6 +104,7 @@ const TITLE_JA: Record<Route['name'], string> = {
   me: 'マイページ | show-gi',
   guide: 'あそびかた | show-gi',
   room: '対人戦 | show-gi',
+  explore: '検討 | show-gi',
 };
 
 /**
@@ -178,7 +190,13 @@ export function App() {
           </a>
 
           <nav className="app-tabs" aria-label="画面">
-            {TABS.filter((tab) => !tab.needsAuth || me.user !== null).map((tab) => {
+            {TABS.filter(
+              // **두는 중에 검토 탭을 그리지 않는다.** 그 화면은 아무 국면에서나 최선수
+              // 셋을 답하므로, 두는 중에 열리면 「평소엔 최선수를 보여주지 않는다」가 탭
+              // 하나로 뚫린다(01-core.md §1 · §7). 화면 쪽에도 같은 벽이 있다
+              // (ExploreScreen) — 링크와 새로고침으로 들어오는 길이 남기 때문이다.
+              (tab) => (!tab.needsAuth || me.user !== null) && !(tab.hideWhilePlaying && playing),
+            ).map((tab) => {
               // **버튼이 아니라 링크다.** 주소가 화면을 정하므로 가운데 클릭·링크 복사·
               // 새 탭이 그냥 동작해야 하고, 그건 `<a href>` 만이 준다.
               // 켜지는 조건은 `activeTabOf` 가 안다 — 되짚기 탭 하나가 셋(목록·상세·퀴즈)을
@@ -241,6 +259,10 @@ export function App() {
               // **방마다 새로 세운다.** `roomId` 만 갈아 끼우면 이 컴포넌트가 살아남아
               // 앞 방의 스냅샷과 시계를 한 틱 동안 그린다(퀴즈 화면과 같은 자리).
               <MatchScreen key={route.id} roomId={route.id} />
+            ) : route.name === 'explore' ? (
+              // **手合割마다 새로 세운다.** 뿌리가 바뀌면 다른 판이라, 컴포넌트가 살아남으면
+              // 한 틱 동안 앞 手合의 국면이 새 手合의 이름 아래에 선다(퀴즈와 같은 자리).
+              <ExploreScreen key={route.handicap} handicap={route.handicap} moves={route.moves} />
             ) : route.name === 'quiz' ? (
               // **판마다 새로 세운다.** `id` 만 갈아 끼우면 이 컴포넌트가 그대로 살아서
               // 앞 판의 답과 기다린 횟수를 물려받고, 한 틱 동안 **남의 문항**을 그린다.
