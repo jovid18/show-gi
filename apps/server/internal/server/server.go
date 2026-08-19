@@ -232,6 +232,28 @@ func Handler(opts Options) http.Handler {
 		mux.HandleFunc("POST /api/resumable/{id}/decline", storeUnavailable)
 	}
 
+	// 검토(explore.go). **DB 블록 밖이다** — 뿌리가 手合割 표라 기록이 없어도 경로가 서고,
+	// `positions` 는 있으면 캐시로 쓴다(없으면 답은 같고 매번 다시 잰다).
+	//
+	// **로그인이 필요하다.** 대인전과 이유가 다르다: 저쪽은 정원 2명이 익명으로 성립하지
+	// 않아서이고, 여기는 이 표면이 「아무 국면이나 깊이 12로 재 주는 자리」에 가장 가까워서다
+	// (journal §85). 그 판단은 핸들러가 든다 — 라우팅으로 가르면 로그인 안 한 사람에게
+	// 404가 되고, 그건 「없는 기능」으로 읽힌다.
+	//
+	// **그래서 DB가 없으면 이 경로는 서 있기만 하고 언제나 401이다** — 로그인 자체가 DB를
+	// 요구한다(`authHandler.enabled`). 그래도 401인 것이 맞다: 「없는 기능」과 「로그인이
+	// 필요한 기능」은 화면에서 갈려야 한다.
+	if opts.Search != nil {
+		mux.HandleFunc("POST /api/explore", newExploreHandler(opts.Store, opts.Search, ah).play)
+	} else {
+		mux.HandleFunc("POST /api/explore", func(w http.ResponseWriter, _ *http.Request) {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+				"error":   "engine_unavailable",
+				"message": "対局エンジンを利用できません。",
+			})
+		})
+	}
+
 	// 대인전(match.go · ws_match.go). **엔진도 DB도 안 탄다** — 룰 엔진과 시계뿐이라
 	// 다른 무엇이 꺼져 있어도 이 셋은 답한다. 기록만 DB 유무에 걸린다.
 	//

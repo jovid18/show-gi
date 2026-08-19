@@ -38,13 +38,16 @@ type fakeSearcher struct {
 type searchCall struct {
 	moves   []string
 	multiPV int
+	// depth 는 **캐시가 한 무리인지**를 보는 값이다. 표면마다 다른 깊이로 물으면
+	// `positions` 가 서로 못 쓰는 무리로 갈린다(02-architecture.md §4).
+	depth int
 }
 
-func (f *fakeSearcher) SearchMultiPV(_ context.Context, _ string, moves []string, _, multiPV int) (usi.SearchResult, error) {
+func (f *fakeSearcher) SearchMultiPV(_ context.Context, _ string, moves []string, depth, multiPV int) (usi.SearchResult, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	f.calls = append(f.calls, searchCall{moves: slices.Clone(moves), multiPV: multiPV})
+	f.calls = append(f.calls, searchCall{moves: slices.Clone(moves), multiPV: multiPV, depth: depth})
 	if f.err != nil {
 		return usi.SearchResult{}, f.err
 	}

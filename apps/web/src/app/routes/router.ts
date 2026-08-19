@@ -12,6 +12,9 @@
 import { useEffect, useState } from 'react';
 
 import {
+  EXPLORE_PARAM_HANDICAP,
+  EXPLORE_PARAM_MOVES,
+  EXPLORE_SEGMENT,
   GUIDE_SEGMENT,
   ME_SEGMENT,
   QUIZ_SEGMENT,
@@ -21,6 +24,7 @@ import {
   ROUTE_GUIDE,
   ROUTE_ME,
   ROUTE_REVIEWS,
+  routeExplore,
   routeQuiz,
   routeReview,
   routeRoom,
@@ -40,13 +44,74 @@ export type Route =
   | { name: 'quiz'; id: number }
   | { name: 'me' }
   | { name: 'guide' }
+  // 검토. **주소가 판을 든다** — 手合割과 지금까지의 수순이 쿼리에 있고, 그래서 이 화면만
+  // 라우트가 `?` 뒤를 본다(routes/const.ts 의 routeExplore).
+  | { name: 'explore'; handicap: string; moves: string[] }
   // 방 하나. **id 가 문자열인 유일한 라우트다** — 판 번호와 달리 이 값은 난수이고,
   // 그것이 유추를 막는 장치의 전부다(routes/const.ts 의 routeRoom).
   | { name: 'room'; id: string };
 
-/** 주소 → 화면. **못 읽는 주소는 대국이다** — 404 화면을 만들 만큼 경로가 많지 않다. */
-export function parseRoute(pathname: string): Route {
+/**
+ * USI 수 하나의 모양. 판 위의 이동(`7g7f`·`2b3c+`)이거나 持ち駒를 놓는 수(`P*5e`)다.
+ *
+ * **주소에서 온 값을 검사하는 자리다.** 남이 준 링크의 쿼리가 그대로 요청 본문이 되므로,
+ * 모양이 아닌 토큰이 하나라도 있으면 그 줄을 안 쓴다 — 서버가 어차피 거절하지만
+ * (explore.go) 그때는 판이 안 서고 에러만 남는다.
+ */
+const USI_MOVE = /^(?:[1-9][a-i][1-9][a-i]\+?|[PLNSGBR]\*[1-9][a-i])$/;
+
+/**
+ * 쿼리에서 값 하나를 꺼낸다.
+ *
+ * **`URLSearchParams` 를 안 쓴다.** 그쪽은 폼 인코딩이라 **`+` 를 공백으로 읽고**, 그러면
+ * 成을 표시하는 `2b3c+` 가 `2b3c `가 되어 수 하나가 모양 검사에서 떨어진다 — 그 하나 때문에
+ * 줄 전체가 버려진다(아래). 손으로 가르고 `decodeURIComponent` 로 풀면 `+` 는 그대로
+ * 남고 `%2B` 도 풀려서, 주소를 사람이 읽을 수 있는 모양으로 쓸 수 있다(routeExplore).
+ */
+function queryValue(search: string, name: string): string {
+  for (const pair of search.replace(/^\?/, '').split('&')) {
+    const eq = pair.indexOf('=');
+    if (eq === -1 || pair.slice(0, eq) !== name) continue;
+    try {
+      return decodeURIComponent(pair.slice(eq + 1));
+    } catch {
+      // 깨진 `%` 이스케이프. 못 읽는 값은 없는 것으로 둔다 — 아래 모양 검사가 어차피 자른다.
+      return '';
+    }
+  }
+  return '';
+}
+
+/**
+ * 주소의 쿼리에서 검토 화면을 읽는다.
+ *
+ * **한 토큰이라도 모양이 아니면 줄 전체를 버린다.** 절반만 두면 사람이 링크로 받은 국면과
+ * 화면이 다른 판을 그리고, 그게 「이 수를 뒀는데 왜 이 국면이지」가 된다.
+ */
+function exploreRouteOf(search: string): Route {
+  const handicap = queryValue(search, EXPLORE_PARAM_HANDICAP);
+  const raw = queryValue(search, EXPLORE_PARAM_MOVES);
+  const moves = raw === '' ? [] : raw.split(',');
+  // **手合割 id 는 「주소에 실릴 수 있는 모양인가」까지만 본다.** 목록에 있는지는 서버가
+  // 정하고(`bad_handicap`), 여기서 어휘를 한 벌 더 적으면 八枚落ち 같은 id 가 붙는 날
+  // **그 手合의 공유 링크가 전부 조용히 平手 0手目로 열린다** — 수순까지 함께 버려진다.
+  const ok = /^[A-Za-z0-9_-]{0,32}$/.test(handicap) && moves.every((m) => USI_MOVE.test(m));
+  return ok ? { name: 'explore', handicap, moves } : { name: 'explore', handicap: '', moves: [] };
+}
+
+/**
+ * 주소 → 화면. **못 읽는 주소는 대국이다** — 404 화면을 만들 만큼 경로가 많지 않다.
+ *
+ * 받는 것은 `pathname` **+ `search`** 다. 쿼리를 보는 화면이 검토 하나뿐이라 그쪽만
+ * 갈라 읽고, 나머지는 지금까지처럼 경로만으로 정해진다.
+ */
+export function parseRoute(url: string): Route {
+  const cut = url.indexOf('?');
+  const pathname = cut === -1 ? url : url.slice(0, cut);
+  const search = cut === -1 ? '' : url.slice(cut);
+
   const parts = pathname.split('/').filter(Boolean);
+  if (parts[0] === EXPLORE_SEGMENT) return exploreRouteOf(search);
   if (parts[0] === GUIDE_SEGMENT) return { name: 'guide' };
   if (parts[0] === ME_SEGMENT) return { name: 'me' };
   // **글자를 확인하고 넘긴다.** 서버가 어차피 404로 답하지만, 아무 문자열이나 그대로
@@ -93,32 +158,44 @@ export function hrefOf(route: Route): string {
       return ROUTE_ME;
     case 'guide':
       return ROUTE_GUIDE;
+    case 'explore':
+      return routeExplore(route.handicap, route.moves);
     case 'room':
       return routeRoom(route.id);
   }
 }
 
+/** 지금 주소. **쿼리까지다** — 검토 화면이 판을 그 뒤에 들고 있다. */
+function currentURL(): string {
+  return window.location.pathname + window.location.search;
+}
+
 /**
  * 주소를 바꾼다. 같은 주소면 아무것도 하지 않는다 — 이력에 같은 자리를 쌓으면
  * 뒤로 가기를 여러 번 눌러야 한다.
+ *
+ * `replace` 는 **이력을 쌓지 않고** 지금 자리를 고쳐 쓴다. 검토에서 한 수 둘 때가 그렇다:
+ * 주소는 공유·새로고침을 위해 따라와야 하지만, 40手를 걸어 본 사람이 화면을 벗어나려고
+ * 뒤로 가기를 40번 눌러야 하는 것은 아니다.
  */
-export function navigate(route: Route): void {
+export function navigate(route: Route, options?: { replace?: boolean }): void {
   const href = hrefOf(route);
-  if (href === window.location.pathname) return;
-  window.history.pushState(null, '', href);
-  // `pushState` 는 이벤트를 안 낸다. 구독한 쪽이 알 길이 없어서 우리가 하나 낸다.
+  if (href === currentURL()) return;
+  if (options?.replace) window.history.replaceState(null, '', href);
+  else window.history.pushState(null, '', href);
+  // `pushState`·`replaceState` 는 이벤트를 안 낸다. 구독한 쪽이 알 길이 없어서 우리가 하나 낸다.
   window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
 /** 지금 화면. 뒤로/앞으로 가기와 `navigate` 를 둘 다 듣는다. */
 export function useRoute(): Route {
-  const [pathname, setPathname] = useState(() => window.location.pathname);
+  const [url, setURL] = useState(currentURL);
 
   useEffect(() => {
-    const onPop = (): void => setPathname(window.location.pathname);
+    const onPop = (): void => setURL(currentURL());
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  return parseRoute(pathname);
+  return parseRoute(url);
 }

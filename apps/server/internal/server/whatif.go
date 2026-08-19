@@ -249,8 +249,8 @@ func (h *whatifHandler) play(w http.ResponseWriter, r *http.Request) {
 
 // whatifMessages 는 거절을 화면에 나갈 일본어로 옮긴다.
 //
-// **두 표면이 같은 표를 쓴다.** HTTP(리뷰)와 ws(대국 중)가 같은 실패를 다른 말로 말하면
-// 같은 일이 두 화면에서 다른 일로 읽힌다.
+// **세 표면이 같은 표를 쓴다.** HTTP(리뷰) · ws(대국 중) · HTTP(검토, explore.go)가 같은
+// 실패를 다른 말로 말하면 같은 일이 세 화면에서 다른 일로 읽힌다.
 var whatifMessages = map[string]string{
 	"bad_ply":            "この手数からは試せません。",
 	"bad_move":           "その手はここでは指せません。",
@@ -260,6 +260,10 @@ var whatifMessages = map[string]string{
 	// **대국 중에만 나온다.** 되짚기에는 이 벽이 없다 — 끝난 판이라 무엇을 둬 봐도
 	// 아무도 안 잃는다(ws.go 의 branchRoot).
 	"locked": "対局中は、戻された手のあとだけ試せます。",
+	// **검토에만 나온다.** 저 둘은 뿌리가 자기 판이라 로그인이 자격을 정하지 않는데,
+	// 검토는 뿌리가 手合割 표라 아무 국면이나 물을 수 있다 — 막는 것이 기록이 아니라
+	// 엔진이고, 그 벽이 로그인이다(explore.go).
+	"login_required": "検討モードはログインしてから使えます。",
 }
 
 // whatifReason 은 에러를 기계용 코드로 옮긴다. 문구는 위 표가 붙인다.

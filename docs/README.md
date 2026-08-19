@@ -15,7 +15,7 @@
 | [00-product](00-product.md)           | 문제 정의 · 스코프 · 시장 조사 · 프레이밍                                |
 | [01-core](01-core.md)                 | **개입 엔진.** 판정식 · 블런더 온톨로지 · 적응형 상대 · 힌트 · 실력 추정 |
 | [02-architecture](02-architecture.md) | 기술 결정 · 시스템 구성 · 데이터 모델 · 보안 · 인프라                    |
-| [03-frontend](03-frontend.md)         | 판 렌더링 방침 · 개입 연출 · 리뷰 화면                                   |
+| [03-frontend](03-frontend.md)         | 판 렌더링 방침 · 개입 연출 · 리뷰·검토 화면                              |
 | [05-roadmap](05-roadmap.md)           | 무엇을 만들어 왔나 · 미결 사항 · 참고 링크                               |
 | [06-status](06-status.md)             | **지금 어디까지 왔나** — 검증된 것 / 안 된 것 / 다음 순서                |
 | [08-playtest](08-playtest.md)         | 한 판 끝까지 두고 본 것 — 문구가 실제로 통했는가                         |
