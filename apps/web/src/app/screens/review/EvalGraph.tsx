@@ -74,12 +74,19 @@ const K = 600;
 /** cp → 승률. 서버의 `intervene.WinRate` 와 같은 식이다. */
 const winRate = (cp: number): number => 1 / (1 + Math.exp(-cp / K));
 
-/** 그 手数의 세로 위치. 축을 바꾸는 자리는 여기 하나다. */
-const valueOf = (cp: number): number => (AXIS === 'winrate' ? winRate(cp) : clamp(cp));
+/**
+ * 그 手数의 세로 위치. 축을 바꾸는 자리는 여기 하나다.
+ *
+ * **기준점을 빼고 그린다**(`GameDetail.baselineCp`). 駒落ち에서 「호각」은 0cp가 아니라 그
+ * 手合의 초기 평가치이고, 빼지 않으면 곡선이 판 내내 천장에 붙어 **어디서 흘렸는지가 안
+ * 보인다** — 50% 선이 「핸디캡을 다 잃은 자리」에 그려지는 것이 더 나쁘다. 판정이 같은
+ * 값을 빼는 것과 같은 이유다(서버의 `intervene.Input.BaselineCp`).
+ */
+const valueOf = (cp: number, base: number): number => (AXIS === 'winrate' ? winRate(cp - base) : clamp(cp - base));
 
 const Y_DOMAIN: [number, number] = AXIS === 'winrate' ? [0, 1] : [-CLAMP, CLAMP];
 const Y_TICKS = AXIS === 'winrate' ? [0, 0.25, 0.5, 0.75, 1] : [-CLAMP, -600, 0, 600, CLAMP];
-/** 호각. 승률에서는 0.5이고 cp에서는 0이다. */
+/** 호각. 승률에서는 0.5이고 cp에서는 0이다. **駒落ち에서는 「핸디캡이 그대로인 자리」다**(valueOf). */
 const Y_EVEN = AXIS === 'winrate' ? 0.5 : 0;
 
 const yLabel = (v: number): string => (AXIS === 'winrate' ? `${Math.round(v * 100)}%` : String(v));
@@ -95,10 +102,12 @@ interface Point {
 export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
   const { node, evalOf } = whatif;
 
+  const base = game.baselineCp ?? 0;
+
   const data = useMemo<Point[]>(() => {
     const main = new Map<number, number>();
     for (const m of game.moves) {
-      if (m.evalCp !== undefined) main.set(m.ply, valueOf(m.evalCp));
+      if (m.evalCp !== undefined) main.set(m.ply, valueOf(m.evalCp, base));
     }
 
     /**
@@ -113,7 +122,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
       if (root !== undefined) branch.set(node.basePly, root);
       node.line.forEach((move, i) => {
         const at = evalOf(i + 1);
-        if (at?.cp !== undefined) branch.set(move.ply, valueOf(at.cp));
+        if (at?.cp !== undefined) branch.set(move.ply, valueOf(at.cp, base));
       });
     }
 
@@ -121,7 +130,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
     return [...plies]
       .toSorted((a, b) => a - b)
       .map((p) => ({ ply: p, main: main.get(p) ?? null, branch: branch.get(p) ?? null }));
-  }, [game.moves, node, evalOf]);
+  }, [game.moves, node, evalOf, base]);
 
   /**
    * 물러진 수가 있던 자리.
@@ -250,7 +259,8 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
             axisLine={false}
             width={30}
           />
-          {/* 호각. 이 선을 넘나드는 것이 곧 「누가 이기고 있었나」가 바뀐 자리다 */}
+          {/* 호각. 이 선을 넘나드는 것이 곧 「누가 이기고 있었나」가 바뀐 자리다 —
+              駒落ち에서는 「접어 준 만큼을 아직 들고 있나」가 된다(valueOf) */}
           <ReferenceLine y={Y_EVEN} stroke="var(--line-2)" />
 
           <Line

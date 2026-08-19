@@ -664,6 +664,7 @@ export function GameScreen() {
               pending={branch.pending}
               error={branch.error}
               retractedEval={retractedEval}
+              baselineCp={snapshot.baselineCp ?? 0}
               explored={exploredHere}
               playable={playable}
               onPlay={playFromList}
@@ -707,6 +708,15 @@ export function GameScreen() {
                   ))}
                 </span>
                 <span className="strength__label">{STRENGTH_JA[strength - 1]}</span>
+              </p>
+            )}
+
+            {/* 手合割을 되비춘다. **平手면 아무것도 안 쓴다** — 위 진형과 같은 규칙이고,
+                이 자리가 없으면 駒落ち 판에서 「왜 상대 駒가 적은가」에 화면이 답하지 않는다. */}
+            {snapshot.handicapJa && (
+              <p className="opening" role="note">
+                <span className="opening__head">手合割</span>
+                <span className="opening__name">{snapshot.handicapJa}</span>
               </p>
             )}
 

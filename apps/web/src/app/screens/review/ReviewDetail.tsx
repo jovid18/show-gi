@@ -674,6 +674,9 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
             <span className="review-result" data-result={game.result}>
               {resultJa(game.result)}
             </span>
+            {/* **手合割은 형세 그래프의 전제다.** 이 딱지가 없으면 +2000에서 시작하는 곡선을
+                되짚는 사람이 자기 실력으로 읽는다(`GameSummary.handicapJa`). */}
+            {game.handicapJa !== undefined && <span className="review-card-handicap">{game.handicapJa}</span>}
           </p>
         </div>
 

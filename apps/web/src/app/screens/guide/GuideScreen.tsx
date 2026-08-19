@@ -47,10 +47,12 @@ export function GuideScreen() {
         </h2>
         <ol className="guide__steps">
           <li className="guide__step">
-            <h3 className="guide__step-head">手番と相手の戦型をえらぶ</h3>
+            <h3 className="guide__step-head">手合割と手番、相手の戦型をえらぶ</h3>
             <p className="guide__text">
-              先手か後手か、そして相手がどんな形に組むかを選びます。分からなければ
-              <strong>「おまかせ」</strong>のままで大丈夫です。
+              まず<strong>手合割</strong>です。<strong>「平手」</strong>は駒を落とさない対局で、
+              <strong>「二枚落ち」</strong>のように選ぶと相手（上手）の駒が落ちた状態からはじまります。
+              つぎに先手か後手か、そして相手がどんな形に組むかを選びます。分からなければ
+              <strong>「平手」</strong>と<strong>「おまかせ」</strong>のままで大丈夫です。
               <br />
               強さはここで選びません。指しているあいだに相手のほうが合わせてきます。
             </p>

@@ -169,6 +169,9 @@ func Handler(opts Options) http.Handler {
 	// (internal/book) 무엇이 꺼져 있어도 이 자리는 답한다.
 	mux.HandleFunc("GET /api/openings", openings)
 
+	// 手合割 목록. 위와 같은 이유로 아무것에도 안 매여 있다(internal/handicap).
+	mux.HandleFunc("GET /api/handicaps", handicaps)
+
 	// 끝난 판을 되짚는 표면(review.go). **DB에 매여 있고 엔진과 무관하다** — 가정 수순만
 	// 엔진이 필요해 그 한 경로가 따로 503이 된다(README 라우트 표). 화면은 /healthz 의
 	// `engine` 을 보고 미리 그 자리를 닫는다.

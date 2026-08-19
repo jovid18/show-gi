@@ -14,6 +14,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 
 	"github.com/jovid18/show-gi/apps/server/internal/game"
+	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
@@ -88,6 +89,34 @@ func TestDetailFlipsEvalForWhite(t *testing.T) {
 	got = detailOf(rec)
 	if got.Moves[0].EvalCp == nil || *got.Moves[0].EvalCp != 320 {
 		t.Fatalf("evalCp = %v, want 320", got.Moves[0].EvalCp)
+	}
+}
+
+// TestDetailCarriesTheHandicapBaseline 는 되짚기가 手合割의 「형세 0」을 같이 내려보내는지다.
+//
+// **`EvalCp` 와 같은 관점이어야 한다**(플레이어). 부호가 어긋나면 형세 그래프가 駒落ち 판을
+// 반대로 그리고, 그 그림은 「접어 준 것을 다 잃었다」와 「그대로 들고 있다」를 뒤집는다.
+func TestDetailCarriesTheHandicapBaseline(t *testing.T) {
+	nimai, ok := handicap.Find("nimaiochi")
+	if !ok {
+		t.Fatal("nimaiochi 가 표에 없다")
+	}
+
+	rec := recordOf("b", "7g7f")
+	rec.StartSFEN = nimai.SFEN
+	if got := detailOf(rec).BaselineCp; got != nimai.BaselineCp {
+		t.Errorf("下手로 둔 판: baselineCp = %d, want %d", got, nimai.BaselineCp)
+	}
+
+	// 上手를 잡는 판은 화면에 없지만(newSetup 이 下手로 덮는다) 부호 규약은 여기서 닫는다.
+	rec.MyColor = "w"
+	if got := detailOf(rec).BaselineCp; got != -nimai.BaselineCp {
+		t.Errorf("上手로 둔 판: baselineCp = %d, want %d", got, -nimai.BaselineCp)
+	}
+
+	// **平手는 0이라 응답에 아예 안 나간다**(omitempty).
+	if got := detailOf(recordOf("b", "7g7f")).BaselineCp; got != 0 {
+		t.Errorf("平手: baselineCp = %d, want 0", got)
 	}
 }
 

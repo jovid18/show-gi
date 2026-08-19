@@ -78,6 +78,21 @@ type Input struct {
 	// 두 군데에 흩어진다.
 	AfterCp int
 
+	// BaselineCp 는 이 판의 「형세 0」이다. **BestCp·AfterCp 와 같은 관점**(두는 쪽)이고,
+	// 平手는 0이다. 駒落ち는 그 手合의 초기 평가치가 들어온다(internal/handicap).
+	//
+	// **없으면 駒落ち에서 개입이 사라진다.** 승률은 양쪽 끝에서 포화하므로(01-core.md §2)
+	// 二枚落ち의 +1490에서는 낙폭 0.25를 넘기는 데 1058cp가 필요하다 — 銀 헌납(약 1000cp,
+	// 01-core.md §2)도 안 걸린다는 뜻이다. 기준점을 빼면 「아직 아무것도 안 흘렸다」가 다시
+	// 승률 0.5에 오고, 그 자리의 발화선이 660cp가 된다 — 平手가 원래 서 있던 감도다.
+	//
+	// **平手는 이 칸이 0이라 지금까지와 한 비트도 다르지 않다**(journal §84).
+	//
+	// **Verdict 의 BestCp·AfterCp 는 이 값을 안 빼고 원본으로 남는다** — K를 바꿔 다시
+	// 채점하는 자리가 그 두 칸이고(005_intervention_cp.sql), 기준점은 `games.start_sfen`
+	// 에서 언제든 다시 구할 수 있다. 빼서 저장하면 원본이 어디에도 없어진다.
+	BaselineCp int
+
 	// MateBefore 는 착수 전에 내가 가지고 있던 詰み 거리(手数). 없으면 0.
 	MateBefore int
 	// MateAfter 는 착수 후에도 남아 있는 詰み 거리. 없으면 0.
@@ -121,7 +136,9 @@ const JudgeMatePlies = 5
 
 // Judge 는 한 수를 판정한다.
 func Judge(in Input) Verdict {
-	delta := WinRate(in.BestCp) - WinRate(in.AfterCp)
+	// **기준점에서 재기 시작한다.** 두 항에 같은 값을 빼므로 平手(0)에서는 지금까지와
+	// 한 비트도 다르지 않고, 駒落ち에서만 판정이 포화 구간을 벗어난다(Input.BaselineCp).
+	delta := WinRate(in.BestCp-in.BaselineCp) - WinRate(in.AfterCp-in.BaselineCp)
 
 	// **통과한 수도 낙폭을 담아 돌려준다.** 임계치를 안 넘었다는 것이 손해가 없다는 뜻이
 	// 아니고, 실력 추정은 걸린 수가 아니라 **매 수의 낙폭**으로 돈다(internal/skill).

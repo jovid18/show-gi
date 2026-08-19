@@ -16,6 +16,12 @@ interface InterventionProps {
   /** 물러진 수 자체의 값. 분기의 첫 자리에서 나온다. */
   retractedEval: string;
   /**
+   * 이 판의 「형세 0」(플레이어 관점 cp). 平手면 0이다.
+   *
+   * **후보 줄의 색만 이 값을 쓴다**(`evalTone`) — 숫자는 원본 cp 그대로다.
+   */
+  baselineCp: number;
+  /**
    * 판을 만질 수 있는가. **여기서 다시 계산하지 않는다** — 대국 화면이 이미 정한 값이고,
    * 두 벌이면 어긋난다(成りますか가 떠 있는 동안이 실제로 그 자리였다).
    */
@@ -108,6 +114,7 @@ export function Intervention({
   pending,
   error,
   retractedEval,
+  baselineCp,
   playable,
   explored,
   onPlay,
@@ -226,7 +233,7 @@ export function Intervention({
                 // **플레이어 관점으로 뒤집어 넘긴다** — 파랑·빨강은 「나에게 좋은가」다(evalTone).
                 style={
                   {
-                    '--tone': evalTone(playerCp(r, byOpponent)),
+                    '--tone': evalTone(playerCp(r, byOpponent), baselineCp),
                   } as React.CSSProperties
                 }
                 disabled={!playable}

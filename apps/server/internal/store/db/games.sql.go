@@ -736,7 +736,10 @@ SELECT
     g.result,
     (SELECT count(*) FROM game_moves m WHERE m.game_id = g.id) AS move_count,
     (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count,
-    g.match_id
+    g.match_id,
+    -- 재채점이 手合割을 알아야 한다(internal/handicap). 기준점이 판마다 다르면 낙폭을
+    -- 판을 가로질러 비교할 수 없고, 그 비교가 이 질의를 쓰는 유일한 이유다(journal §39).
+    g.start_sfen
 FROM games g
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
 ORDER BY g.id DESC
@@ -752,6 +755,7 @@ type ListGamesRow struct {
 	MoveCount         int64
 	InterventionCount int64
 	MatchID           *string
+	StartSfen         *string
 }
 
 // ─── 리뷰(읽기) ─────────────────────────────────────────────
@@ -782,6 +786,7 @@ func (q *Queries) ListGames(ctx context.Context, limit int32) ([]ListGamesRow, e
 			&i.MoveCount,
 			&i.InterventionCount,
 			&i.MatchID,
+			&i.StartSfen,
 		); err != nil {
 			return nil, err
 		}
@@ -804,7 +809,10 @@ SELECT
     (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count,
     -- **대인전 판은 여기 그대로 뜬다.** 마이페이지의 집계에서만 빠진다(journal §83) —
     -- 그쪽은 개입 비율이 뜻을 갖는 자리이고, 목록은 「무엇을 뒀나」라 뜻이 다르다.
-    g.match_id
+    g.match_id,
+    -- 手合割을 되짚는 유일한 칸이다(internal/handicap 의 Of). **칸을 새로 만들지 않은
+    -- 이유가 이것이다** — 시작 국면이 곧 手合이라, 이름을 따로 적으면 둘이 갈릴 수 있다.
+    g.start_sfen
 FROM games g
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
   AND g.result IN ('win', 'loss', 'draw')
@@ -827,6 +835,7 @@ type ListGamesForOwnerRow struct {
 	MoveCount         int64
 	InterventionCount int64
 	MatchID           *string
+	StartSfen         *string
 }
 
 // **화면이 쓰는 쪽이다.** 위 ListGames 는 주인을 안 보므로 측정 전용이다.
@@ -857,6 +866,7 @@ func (q *Queries) ListGamesForOwner(ctx context.Context, arg ListGamesForOwnerPa
 			&i.MoveCount,
 			&i.InterventionCount,
 			&i.MatchID,
+			&i.StartSfen,
 		); err != nil {
 			return nil, err
 		}
@@ -894,6 +904,9 @@ SELECT
     g.my_color,
     g.started_at,
     g.opening_tag,
+    -- 이어하기 카드가 手合을 말하는 자리다. 위 ListGamesForOwner 와 같은 이유로 이름이
+    -- 아니라 국면을 든다.
+    g.start_sfen,
     (SELECT count(*) FROM game_moves m WHERE m.game_id = g.id) AS move_count
 FROM games g
 WHERE g.user_id = $1
@@ -915,6 +928,7 @@ type ResumableGameForOwnerRow struct {
 	MyColor    string
 	StartedAt  pgtype.Timestamptz
 	OpeningTag *string
+	StartSfen  *string
 	MoveCount  int64
 }
 
@@ -938,6 +952,7 @@ func (q *Queries) ResumableGameForOwner(ctx context.Context, userID *int64) (Res
 		&i.MyColor,
 		&i.StartedAt,
 		&i.OpeningTag,
+		&i.StartSfen,
 		&i.MoveCount,
 	)
 	return i, err

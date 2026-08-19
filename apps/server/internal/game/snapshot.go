@@ -70,6 +70,28 @@ type Snapshot struct {
 	// 것이다. 골라 놓고 화면에 안 뜨면 기능이 도는지를 사람이 알 수 없다.
 	OpponentOpening string `json:"opponentOpening,omitempty"`
 
+	// BaselineCp 는 이 판의 「형세 0」이다. **사람 관점 cp**이고 平手면 0이라 안 나간다.
+	//
+	// **화면이 색을 정하는 데 쓴다**(`evalTone`) — 개입 카드의 후보 줄이 절대 cp로 칠하면
+	// 駒落ち에서 전부 최대 파랑이 되고, 방금 물러진 수까지 그렇게 칠한다. 판정이 같은 값을
+	// 빼는 것과 같은 이유다(intervene.Input.BaselineCp).
+	//
+	// **줄에 적히는 숫자는 그대로 원본 cp다.** 그쪽은 사실이고, 기준점을 빼서 적으면
+	// 엔진이 말한 적 없는 값이 화면에 나간다.
+	BaselineCp int `json:"baselineCp,omitempty"`
+
+	// HandicapJa 는 이 판의 手合割 이름이다(일본어). **平手면 비어 있다.**
+	//
+	// **`StartSFEN` 에서 파생한다**(handicap.NameOf) — 세션이 이름을 따로 들고 있으면
+	// 이어하는 판에서 그 칸과 실제 판이 갈릴 수 있고, 판을 보고 있는 사람에게 그건 그냥
+	// 거짓말이다. 이름을 화면에 보내는 이유는 이어하기가 手合을 쿼리로 안 받기 때문이다 —
+	// 그 판이 무슨 手合이었는지는 서버만 안다(server/ws.go 의 resumeSetup).
+	//
+	// **이름에 `Ja` 가 붙는 것이 규약이다.** `handicap` 이라는 칸은 어느 페이로드에서든
+	// **id**이고(resumableGame · `?handicap=`), 그것과 이름을 같은 이름으로 부르면 한쪽을
+	// 다른 쪽 자리에 넣어도 컴파일이 되고 조용히 平手가 열린다.
+	HandicapJa string `json:"handicapJa,omitempty"`
+
 	// LegalMoves 는 사람 차례일 때만 채운다.
 	//
 	// 클라이언트는 여기 있는 수만 고르게 만든다. 그래서 실사용자는 반칙에 도달하지

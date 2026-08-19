@@ -189,7 +189,8 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
               className="review-options-row"
               data-chosen={chosen === o.usi || undefined}
               // 색이 값이라, 값이 없는 줄은 색도 없다. 0으로 채우면 호각으로 읽힌다.
-              style={{ '--tone': evalTone(playerCp(o, byOpponent)) } as React.CSSProperties}
+              // 기준점을 같이 넘긴다 — 駒落ち에서 색이 뜻을 잃는 것을 막는다(evalTone).
+              style={{ '--tone': evalTone(playerCp(o, byOpponent), game.baselineCp ?? 0) } as React.CSSProperties}
               onClick={() => onPick(o.usi, o.played !== null)}
             >
               <span className="review-options-move">{o.ja}</span>

@@ -15,6 +15,10 @@ export interface ResumableGame {
   opening?: string;
   /** 그 진형의 일본어 이름. **화면이 id로 문장을 짓지 않는다.** */
   openingJa?: string;
+  /** 그 판의 手合割 id. 平手였으면 안 온다. */
+  handicap?: string;
+  /** 그 手合割의 일본어 이름(二枚落ち). 위 진형과 같은 짝이다. */
+  handicapJa?: string;
 }
 
 /**

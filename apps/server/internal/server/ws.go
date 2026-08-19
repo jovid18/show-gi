@@ -17,6 +17,7 @@ import (
 
 	"github.com/jovid18/show-gi/apps/server/internal/book"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
+	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/quiz"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
@@ -144,7 +145,7 @@ type gameSetup struct {
 // newSetup 은 쿼리에서 새 판의 설정을 읽는다. **못 읽는 값은 조용히 기본값이다** — 목록을
 // 서버가 주므로(GET /api/openings) 여기 이상한 값이 오는 것은 클라이언트가 틀린 경우이고,
 // 그때 대국을 거절하는 것보다 평수로 시작하는 것이 낫다. 고른 것이 실제로 걸렸는지는
-// 스냅샷의 `opponentOpening` 으로 화면에서 보인다.
+// 스냅샷의 `opponentOpening` · `handicap` 으로 화면에서 보인다.
 func newSetup(r *http.Request, opts Options) gameSetup {
 	s := gameSetup{human: opts.HumanColor, startSFEN: opts.StartSFEN}
 	switch r.URL.Query().Get("color") {
@@ -155,6 +156,19 @@ func newSetup(r *http.Request, opts Options) gameSetup {
 	}
 	if o, ok := book.Find(r.URL.Query().Get("opening")); ok {
 		s.opening, s.hasBook = o, true
+	}
+	// **手合割은 맨 뒤에서 위의 둘을 덮는다.** 고른 手合이 시작 국면과 手番을 같이 정하므로,
+	// 순서를 앞으로 옮기면 `color` 가 그것을 다시 뒤집는다.
+	if h, ok := handicap.Find(r.URL.Query().Get("handicap")); ok {
+		s.startSFEN = h.SFEN
+		// **駒落ち는 사람이 언제나 下手(先手)다.** 그 SFEN이 上手의 駒를 뺀 것이라
+		// (handicap.Handicap.SFEN) 사람이 上手를 잡으면 접어 준 쪽이 사람이 된다.
+		// 밴드와 판정도 이 규약 위에 서 있다(game.adaptiveOpponent.Choose).
+		s.human = shogi.Black
+		// **진형은 같이 못 쓴다.** 북은 平手 수순이라 없는 駒를 움직이려 들고, 그러면
+		// 첫 수에서 손을 놓는다(game.bookOpponent.next 의 ValidateMove). 깨지지는 않지만
+		// 화면이 「고른 진형으로 둔다」고 말한 것이 그 판에서만 거짓이 된다.
+		s.opening, s.hasBook = book.Opening{}, false
 	}
 	return s
 }

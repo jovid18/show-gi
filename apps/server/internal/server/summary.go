@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
+	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
@@ -295,6 +296,8 @@ func trendOf(ivs []store.RecordedIntervention, lastPly int) explain.Trend {
 // 그래서 끝에서 `StandingMaxLag` 手 안의 것만 받는다.
 //
 // **부호를 뒤집는 자리다.** `EvalCp` 는 先手 관점이고 여기서 필요한 것은 사람 관점이다.
+//
+// **기준점도 여기서 빠진다.** 「이기고 있었나」는 手合割에 대해서 묻는 것이라야 뜻이 있다.
 func standingOf(rec store.GameRecord) explain.Standing {
 	last, best := 0, -1
 	var cp int
@@ -309,6 +312,10 @@ func standingOf(rec store.GameRecord) explain.Standing {
 	if best < 0 || last-best > explain.StandingMaxLag {
 		return explain.StandingUnknown
 	}
+	// **手合割의 기준점을 뺀다.** 둘 다 先手 관점이라 뒤집기 전에 뺀다(handicap.BaselineCp).
+	// 안 빼면 二枚落ち에서 +1490을 +900까지 흘린 판이 「圧倒的に有利でした」로 나가고,
+	// 그건 핸디캡의 절반을 잃은 판이다 — 판정과 같은 좌표를 써야 총평도 같은 사실을 말한다.
+	cp -= handicap.BaselineCp(rec.StartSFEN)
 	if rec.MyColor != "b" {
 		cp = -cp
 	}

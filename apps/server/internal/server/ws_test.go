@@ -14,6 +14,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 
 	"github.com/jovid18/show-gi/apps/server/internal/game"
+	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
@@ -261,6 +262,98 @@ func TestWSAgainstRealEngine(t *testing.T) {
 	// 국면이 실제로 진행됐는지 — 초기 국면과 달라야 한다
 	if snap.SFEN == shogi.StartSFEN {
 		t.Fatal("판이 그대로다")
+	}
+	t.Logf("%d수 진행, 상태=%s", len(snap.Moves), snap.Status)
+	for _, m := range snap.Moves {
+		t.Logf("  %s (%s) %s", m.Ja, m.USI, m.By)
+	}
+}
+
+// TestWSKomaochiAgainstRealEngine 은 **駒落ち 판이 실엔진에서 끝까지 도는지**다.
+//
+// 위 테스트와 갈라 두는 것은 확인할 것이 다르기 때문이다: 저쪽은 「대국이 도는가」이고
+// 여기는 「접어 준 판이 그 手合의 판인가」다 — 시작 국면 · 手番 · 手合割 이름 셋이 한
+// 자리에서 정해지므로(newSetup) 하나만 어긋나도 사람이 上手를 잡거나 판이 平手로 선다.
+//
+// **적응형 상대로 띄운다.** 밴드의 원점이 手合割에서 오므로(game.adaptiveOpponent.Choose)
+// 실엔진 후보로 그 길을 한 번 밟아 두는 자리가 여기밖에 없다.
+func TestWSKomaochiAgainstRealEngine(t *testing.T) {
+	cmd := os.Getenv("SHOWGI_USI_CMD")
+	if cmd == "" {
+		t.Skip("SHOWGI_USI_CMD 미설정 — 실엔진 대국 건너뜀")
+	}
+	nimai, ok := handicap.Find("nimaiochi")
+	if !ok {
+		t.Fatal("nimaiochi 가 표에 없다")
+	}
+
+	pool, err := usi.NewPool(2, cmd, nil)
+	if err != nil {
+		t.Fatalf("엔진 풀 기동 실패: %v", err)
+	}
+	defer pool.Close()
+
+	srv := httptest.NewServer(Handler(Options{
+		NewOpponent: func() game.Opponent {
+			return game.NewAdaptiveOpponent(pool, 10, game.DefaultBand)
+		},
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
+	defer cancel()
+
+	url := "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws/game?handicap=nimaiochi&color=w"
+	conn, _, err := websocket.Dial(ctx, url, nil)
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	defer conn.CloseNow()
+
+	snap := read(t, ctx, conn).Snapshot
+	if snap == nil {
+		t.Fatal("초기 스냅샷이 없다")
+	}
+	if snap.SFEN != nimai.SFEN {
+		t.Fatalf("시작 국면이 %q다. 二枚落ち는 %q", snap.SFEN, nimai.SFEN)
+	}
+	// **`color=w` 를 보냈는데도 下手다**(newSetup). 그리고 첫 차례가 사람이어야 한다.
+	if snap.YourColor != "b" || !snap.YourTurn {
+		t.Fatalf("사람이 下手로 먼저 둬야 한다: yourColor=%q yourTurn=%v", snap.YourColor, snap.YourTurn)
+	}
+	if snap.HandicapJa != nimai.Name {
+		t.Errorf("手合割 = %q, want %q", snap.HandicapJa, nimai.Name)
+	}
+
+	// 上手가 없는 駒를 움직이려 들지 않는지 — 엔진이 실제로 응수를 내는 것으로 확인된다.
+	for ply := 0; ply < 6; ply++ {
+		if snap.Status != game.StatusPlaying {
+			break
+		}
+		if len(snap.LegalMoves) == 0 {
+			t.Fatalf("%d수째: 사람 차례인데 합법수가 없다: %+v", ply, snap)
+		}
+		mine := snap.LegalMoves[0]
+		if err := wsjson.Write(ctx, conn, clientMsg{Type: "move", USI: mine}); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+		want := snap.Ply + 2
+		got := readUntil(t, ctx, conn, func(m serverMsg) bool {
+			if m.Type == "error" {
+				t.Fatalf("합법수 %s 가 거절됨: %s (%s)", mine, m.Reason, m.Message)
+			}
+			return m.Snapshot.Ply >= want || m.Snapshot.Status != game.StatusPlaying
+		}, "上手의 응수")
+		snap = got.Snapshot
+	}
+
+	if len(snap.Moves) < 4 {
+		t.Fatalf("수가 너무 적다: %+v", snap.Moves)
+	}
+	for i, m := range snap.Moves {
+		if m.Ja == "" {
+			t.Fatalf("%d수째 棋譜 표기가 비었다: %+v", i+1, m)
+		}
 	}
 	t.Logf("%d수 진행, 상태=%s", len(snap.Moves), snap.Status)
 	for _, m := range snap.Moves {

@@ -168,6 +168,24 @@ export interface Snapshot {
    * 것(docs/01-core.md §7)과 어긋나지 않는 이유는 서버의 `Snapshot.OpponentOpening` 주석.
    */
   opponentOpening?: string;
+  /**
+   * 이 판의 「형세 0」(플레이어 관점 cp). **平手면 오지 않는다.**
+   *
+   * 개입 카드의 후보 줄 색이 이 값을 뺀다(`evalTone`) — 안 빼면 駒落ち에서 모든 줄이
+   * 최대 파랑이 되고 방금 물러진 수까지 그렇게 칠해진다. 줄에 적히는 숫자는 원본 그대로다.
+   */
+  baselineCp?: number;
+  /**
+   * 이 판의 手合割 이름(二枚落ち). **平手면 오지 않는다.**
+   *
+   * **서버가 시작 국면에서 파생한다**(`handicap.NameOf`) — 화면이 SFEN을 보고 이름을 만들면
+   * 표가 두 벌이 되고, 이어한 판에서는 그 이름을 아는 쪽이 서버뿐이다.
+   *
+   * **`Ja` 가 붙는 것이 규약이다** — `handicap` 이라는 칸은 어디서든 id다(`GameSetup` ·
+   * `ResumableGame`). 이름과 id를 같은 이름으로 부르면 한쪽을 다른 쪽 자리에 넣어도
+   * 타입이 통과하고, 그 요청은 조용히 平手 대국을 연다.
+   */
+  handicapJa?: string;
   yourTurn: boolean;
   inCheck: boolean;
   thinking: boolean;
