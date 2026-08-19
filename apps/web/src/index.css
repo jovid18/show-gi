@@ -2412,9 +2412,29 @@ body {
   background: var(--surface-2);
 }
 
+/* 날짜와 手合割이 첫 칸을 같이 쓴다 — 이유는 `ReviewScreen` 의 `GameCard`. */
+.review-card-when {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  /* 이름이 길어도 뒤 세 칸을 밀지 않는다. 그쪽이 폭 고정이라 밀리면 줄마다 어긋난다. */
+  min-width: 0;
+}
+
 .review-card-date {
   font-size: 0.875rem;
   font-weight: 600;
+}
+
+/* 手合割 딱지. **「対人」과 같은 모양이다** — 둘 다 숫자가 아니라 그 판의 종류다.
+   되짚기 상세의 날짜 줄도 같은 클래스를 쓴다(ReviewDetail). */
+.review-card-handicap {
+  padding: 0.05rem 0.4rem;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill);
+  font-size: 0.6875rem;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .review-card-moves,

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -26,6 +27,9 @@ type MultiSearcher interface {
 // 있으므로 「+100~+300으로 끌어올린다」가 곧 뜻이다), 구간 **위**에서는 지금 형세에 대한
 // **양보 폭**으로 읽는다. 절대 좌표 하나로 쓰면 이 숫자가 그 구간에서 정반대를 뜻한다 —
 // 「+300으로 되돌려라」가 되고, 그 자리에서 조절이 꺼진다(journal §55).
+//
+// **그 절대 좌표의 원점은 手合割이 정한다.** 平手는 0cp이고 駒落ち는 그 手合의 초기
+// 평가치다 — 옮기는 자리는 Choose 하나뿐이다.
 type Band struct{ LoCp, HiCp int }
 
 // DefaultBand 는 「조금씩 지고 있지만 아직 모른다」 구간이다. **플레이어 관점 cp.**
@@ -109,8 +113,6 @@ func (o *adaptiveOpponent) ChooseBest(ctx context.Context, startSFEN string, mov
 }
 
 func (o *adaptiveOpponent) Choose(ctx context.Context, startSFEN string, moves []string, sk skill.Estimate) (string, error) {
-	band := o.base.shifted(skillShift(sk))
-
 	res, err := o.search.SearchMultiPV(ctx, startSFEN, moves, o.depth, o.k)
 	if err != nil {
 		return "", err
@@ -125,6 +127,17 @@ func (o *adaptiveOpponent) Choose(ctx context.Context, startSFEN string, moves [
 		// 대국이 본체다. 개입 판정이 실패해도 대국을 멈추지 않는 것과 같은 판단이다.
 		return res.Best, nil
 	}
+
+	// **밴드의 원점을 手合割이 옮긴다.** 절대 좌표 쪽은 「호각」을 0cp로 읽는데(Band),
+	// 駒落ち에서 호각은 그 手合의 초기 평가치다 — 안 옮기면 그 좌표가 판 내내 도달
+	// 불가능해진다(첫 수부터 `now` 가 상단 위라 아래 상대 좌표 분기로만 간다). 그러면
+	// 상대가 **핸디캡을 되돌려 주는 일을 아예 안 한다**: 사람이 二枚落ち의 +1490을 +500까지
+	// 흘려도 「지금 형세에서 100~300 더」만 겨냥해서, 조절이 가장 필요한 자리에서 가장
+	// 약하게 돈다 — journal §55가 고친 것의 거울상이다(journal §84).
+	//
+	// 사람의 색은 지금 수번(=상대)의 반대다. `pos` 에서 얻으므로 배선이 늘지 않는다 —
+	// `bookOpponent` 가 상태를 안 들고 매번 국면에서 다시 구하는 것과 같은 이유다.
+	band := o.base.shifted(handicap.BaselineCpFor(startSFEN, pos.Turn.Other()) + skillShift(sk))
 
 	opts := o.options(pos, res.Lines)
 	if len(opts) == 0 {

@@ -70,6 +70,14 @@ type Snapshot struct {
 	// 것이다. 골라 놓고 화면에 안 뜨면 기능이 도는지를 사람이 알 수 없다.
 	OpponentOpening string `json:"opponentOpening,omitempty"`
 
+	// Handicap 은 이 판의 手合割 이름이다(일본어). **平手면 비어 있다.**
+	//
+	// **`StartSFEN` 에서 파생한다**(handicap.NameOf) — 세션이 이름을 따로 들고 있으면
+	// 이어하는 판에서 그 칸과 실제 판이 갈릴 수 있고, 판을 보고 있는 사람에게 그건 그냥
+	// 거짓말이다. 이름을 화면에 보내는 이유는 이어하기가 手合을 쿼리로 안 받기 때문이다 —
+	// 그 판이 무슨 手合이었는지는 서버만 안다(server/ws.go 의 resumeSetup).
+	Handicap string `json:"handicap,omitempty"`
+
 	// LegalMoves 는 사람 차례일 때만 채운다.
 	//
 	// 클라이언트는 여기 있는 수만 고르게 만든다. 그래서 실사용자는 반칙에 도달하지

@@ -335,6 +335,9 @@ type ResumableGame struct {
 	StartedAt time.Time
 	// OpeningID 는 그때 고른 상대의 진형이다. 「おまかせ」였으면 빈 값.
 	OpeningID string
+	// StartSFEN 은 그 판의 0手目다. 비어 있으면 평수 — 카드가 手合割을 말하는 근거다
+	// (GameSummary.StartSFEN 과 같은 규약).
+	StartSFEN string
 	MoveCount int
 }
 
@@ -354,6 +357,7 @@ func (s *Store) ResumableGame(ctx context.Context, userID int64) (ResumableGame,
 		ID:        row.ID,
 		MyColor:   row.MyColor,
 		StartedAt: row.StartedAt.Time,
+		StartSFEN: deref(row.StartSfen),
 		MoveCount: int(row.MoveCount),
 	}
 	if row.OpeningTag != nil {
@@ -547,6 +551,12 @@ type GameSummary struct {
 	// 읽는 쪽이 그것을 「블런더가 0건인 좋은 판」으로 그리면 거짓이 되므로, 총평과 퀴즈가
 	// 이 값을 보고 그 자리를 닫는다(server/review.go · quiz.go).
 	MatchID string
+	// StartSFEN 은 그 판의 0手目다. **비어 있으면 평수 초기 국면이다**(game.Config.StartSFEN
+	// 과 같은 규약).
+	//
+	// **手合割을 되짚는 유일한 칸이다**(internal/handicap 의 Of). 이름을 따로 저장하지
+	// 않으므로 이 값과 실제 판이 갈릴 자리가 없고, 그래서 마이그레이션도 필요 없었다.
+	StartSFEN string
 }
 
 // RecordedMove 는 기보의 한 수다.
@@ -592,8 +602,6 @@ type RecordedUndo struct {
 // GameRecord 는 한 판 전체다.
 type GameRecord struct {
 	GameSummary
-	// StartSFEN 은 비어 있을 수 있다. 그때는 평수 초기 국면이다.
-	StartSFEN string
 	// OpeningID 는 그 판에서 사람이 고른 **상대의** 진형 id다(internal/book).
 	// 「おまかせ」였으면 빈 값이다.
 	OpeningID     string
@@ -624,7 +632,11 @@ func (s *Store) ListGames(ctx context.Context, limit int, ownerID *int64) ([]Gam
 	}
 	out := make([]GameSummary, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, summaryOf(r.ID, r.MyColor, r.StartedAt.Time, r.FinishedAt.Time, r.Result, r.MoveCount, r.InterventionCount, r.MatchID))
+		out = append(out, summaryOf(gameHead{
+			ID: r.ID, MyColor: r.MyColor,
+			StartedAt: r.StartedAt.Time, FinishedAt: r.FinishedAt.Time,
+			Result: r.Result, StartSFEN: r.StartSfen, MatchID: r.MatchID,
+		}, r.MoveCount, r.InterventionCount))
 	}
 	return out, nil
 }
@@ -639,7 +651,11 @@ func (s *Store) ListGamesAnyOwner(ctx context.Context, limit int) ([]GameSummary
 	}
 	out := make([]GameSummary, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, summaryOf(r.ID, r.MyColor, r.StartedAt.Time, r.FinishedAt.Time, r.Result, r.MoveCount, r.InterventionCount, r.MatchID))
+		out = append(out, summaryOf(gameHead{
+			ID: r.ID, MyColor: r.MyColor,
+			StartedAt: r.StartedAt.Time, FinishedAt: r.FinishedAt.Time,
+			Result: r.Result, StartSFEN: r.StartSfen, MatchID: r.MatchID,
+		}, r.MoveCount, r.InterventionCount))
 	}
 	return out, nil
 }
@@ -719,21 +735,28 @@ func listLimit(limit int) int32 {
 	return int32(limit)
 }
 
-func summaryOf(id int64, myColor string, started, finished time.Time, result *string, moves, ivs int64, matchID *string) GameSummary {
+// summaryOf 는 머리와 두 세기를 한 줄로 만든다.
+//
+// **머리를 구조체로 받는다.** `*string` 이 셋이라(result·match_id·start_sfen) 위치 인자로
+// 늘어놓으면 두 개를 바꿔 넣어도 컴파일이 되고, 그 버그는 목록 화면에서 「전부 平手」로만
+// 드러난다.
+func summaryOf(h gameHead, moves, ivs int64) GameSummary {
 	return GameSummary{
-		ID:                id,
-		MyColor:           myColor,
-		StartedAt:         started,
-		FinishedAt:        finished,
-		Result:            resultValue(result),
+		ID:                h.ID,
+		MyColor:           h.MyColor,
+		StartedAt:         h.StartedAt,
+		FinishedAt:        h.FinishedAt,
+		Result:            resultValue(h.Result),
 		MoveCount:         int(moves),
 		InterventionCount: int(ivs),
-		MatchID:           deref(matchID),
+		MatchID:           deref(h.MatchID),
+		StartSFEN:         deref(h.StartSFEN),
 	}
 }
 
 // gameHead 는 한 판의 머리다. 주인을 보는 질의와 안 보는 질의가 같은 칸을 다른
-// 행 타입으로 주므로, 아래 읽는 코드를 한 벌로 두려고 여기서 만난다.
+// 행 타입으로 주므로, 아래 읽는 코드를 한 벌로 두려고 여기서 만난다 —
+// **목록 두 질의도 같은 이유로 여기서 만난다**(summaryOf).
 type gameHead struct {
 	ID         int64
 	MyColor    string
@@ -804,17 +827,11 @@ func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error)
 	// **개입 횟수에 무르기를 안 더한다.** 목록의 그 숫자는 「AI가 몇 번 막았나」이고
 	// (journal §72), 사람이 스스로 무른 것을 섞으면 개입이 실제보다 잦아 보인다.
 	out := GameRecord{
-		GameSummary: summaryOf(
-			head.ID, head.MyColor, head.StartedAt, head.FinishedAt, head.Result,
-			int64(len(moves)), int64(len(ivs)), head.MatchID,
-		),
+		GameSummary:   summaryOf(head, int64(len(moves)), int64(len(ivs))),
 		OpeningID:     deref(head.OpeningTag),
 		Moves:         make([]RecordedMove, 0, len(moves)),
 		Interventions: make([]RecordedIntervention, 0, len(ivs)),
 		Undos:         make([]RecordedUndo, 0, len(undos)),
-	}
-	if head.StartSFEN != nil {
-		out.StartSFEN = *head.StartSFEN
 	}
 
 	for _, m := range moves {

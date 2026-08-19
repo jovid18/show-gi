@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { GameSetup } from '@/hooks/useGame';
 import { useViewer } from '@/hooks/useViewer';
 import type { Color } from '@/protocol/game';
+import { fetchHandicaps, type Handicap } from '@/protocol/handicaps';
 import { createRoom, type SeatChoice } from '@/protocol/match';
 import { fetchOpenings, type Opening } from '@/protocol/openings';
 import { ROUTE_GUIDE } from '@/routes/const';
@@ -14,8 +15,12 @@ import { navigate } from '@/routes/router';
  * **여기서 고르기 전에는 서버에 붙지 않는다**(`useGame`). 미리 붙으면 그 순간 판이 하나
  * 열려 기록에 남고, 아무것도 고르지 않은 채로 先手 평수 대국이 시작된다.
  *
- * 고를 것을 둘로 묶어 뒀다 — **어느 쪽을 잡나**와 **상대가 무엇을 하나**다. 난이도는 여기
- * 없다. 그건 두는 동안 상대가 스스로 맞춘다(journal §47).
+ * 고를 것을 셋으로 묶어 뒀다 — **얼마나 접나**(手合割) · **어느 쪽을 잡나** · **상대가
+ * 무엇을 하나**다. 난이도 눈금은 여기 없다. 그건 두는 동안 상대가 스스로 맞춘다(journal §47).
+ *
+ * **手合割이 맨 위이고, 고르면 아래 둘이 사라진다.** 駒落ち는 사람이 下手(先手)로 정해져
+ * 있고 진형은 平手 수순이라 같이 못 쓴다 — 서버도 같은 순서로 덮으므로(`newSetup`) 화면이
+ * 그 규칙을 되비추는 것이지 새로 정하는 것이 아니다.
  */
 
 const COLORS: { value: Color; label: string; note: string }[] = [
@@ -40,11 +45,15 @@ export function Setup({ initial, onStart }: SetupProps) {
   const [color, setColor] = useState<Color>(initial?.color ?? 'b');
   const [opening, setOpening] = useState<string | null>(initial?.opening ?? null);
   const [openings, setOpenings] = useState<Opening[]>([]);
+  const [handicap, setHandicap] = useState<string | null>(initial?.handicap ?? null);
+  const [handicaps, setHandicaps] = useState<Handicap[]>([]);
 
-  // 목록을 못 받아도 화면은 선다 — 「おまかせ」 하나로 대국은 시작할 수 있다(fetchOpenings).
+  // 목록을 못 받아도 화면은 선다 — 「おまかせ」와 「平手」 하나로 대국은 시작할 수 있다
+  // (fetchOpenings · fetchHandicaps).
   useEffect(() => {
     const ac = new AbortController();
     void fetchOpenings(ac.signal).then(setOpenings);
+    void fetchHandicaps(ac.signal).then(setHandicaps);
     return () => ac.abort();
   }, []);
 
@@ -52,6 +61,107 @@ export function Setup({ initial, onStart }: SetupProps) {
     <div className="setup">
       <h2 className="setup__head">対局のじゅんび</h2>
 
+      <fieldset className="setup__group">
+        <legend className="setup__legend">手合割</legend>
+        <div className="setup__choices setup__choices--wrap">
+          {/* **「平手」가 기본이고 서버 목록에 없다.** 접지 않는 것은 물어볼 것이 아니라
+              기본값이라, 진형의 「おまかせ」와 같은 자리에서 화면이 직접 그린다. */}
+          <button
+            type="button"
+            className="setup__choice"
+            data-on={handicap === null || undefined}
+            aria-pressed={handicap === null}
+            onClick={() => setHandicap(null)}
+          >
+            <span className="setup__choice-name">平手</span>
+            <span className="setup__choice-note">駒を落とさずに指します</span>
+          </button>
+
+          {handicaps.map((h) => (
+            <button
+              key={h.id}
+              type="button"
+              className="setup__choice"
+              data-on={handicap === h.id || undefined}
+              aria-pressed={handicap === h.id}
+              onClick={() => setHandicap(h.id)}
+            >
+              <span className="setup__choice-name">{h.name}</span>
+              <span className="setup__choice-note">{h.note}</span>
+            </button>
+          ))}
+        </div>
+
+        {handicap !== null && (
+          /* **아래 둘이 사라지는 이유를 화면이 먼저 말한다.** 안 적어 두면 방금 고른
+             手番이 없어진 것이 고장으로 읽힌다. */
+          <p className="setup__caveat">
+            駒落ちでは、あなたが下手（先手）から指します。相手（上手）の駒が落ちているので、戦型は選べません。
+          </p>
+        )}
+      </fieldset>
+
+      {handicap === null && (
+        <HirateChoices
+          color={color}
+          setColor={setColor}
+          opening={opening}
+          setOpening={setOpening}
+          openings={openings}
+        />
+      )}
+
+      <button
+        type="button"
+        className="btn btn--primary setup__start"
+        onClick={() =>
+          /* **手合割이 나머지를 덮는다.** 서버도 같은 순서로 덮으므로(`newSetup`) 여기서
+             맞춰 두지 않으면 화면이 기억하는 다음 판의 기본값만 어긋난다. */
+          onStart(handicap === null ? { color, opening, handicap: null } : { color: 'b', opening: null, handicap })
+        }
+      >
+        対局をはじめる
+      </button>
+
+      {/* **상대가 사람인 갈래는 여기서 갈린다.** 위에서 고른 것을 하나도 안 쓴다 —
+          手番은 振り駒가 붙어 저쪽이 따로 고르고(FriendMatch), 手合割과 戦型은 컴퓨터에게
+          시키는 것이라 사람 상대에게는 뜻이 없다. */}
+      <FriendMatch />
+
+      {/* **헤더의 버튼만으로는 못 찾는다.** 처음 온 사람이 실제로 보는 화면은 여기 하나다.
+          시작 버튼 **아래**에 두는 것이 요점 — 위에 두면 두러 온 사람을 먼저 붙잡는다.
+
+          헤더와 **같이 새 탭이다**(App.tsx). 같은 곳이 자리에 따라 다르게 열리면 두 번째로
+          누를 때 무엇이 일어날지 모르게 되고, 덤으로 여기서 고른 手番·戦型이 안 날아간다. */}
+      <a className="setup__guide" href={ROUTE_GUIDE} target="_blank" rel="noreferrer noopener">
+        はじめての方へ — このアプリの遊びかた
+        <span aria-hidden="true"> ↗</span>
+      </a>
+    </div>
+  );
+}
+
+/**
+ * 平手에서만 고르는 둘 — 手番과 상대의 진형.
+ *
+ * **한 덩이로 갈라 둔다.** 駒落ち에서 둘이 **같이** 사라지고 이유도 하나라서, 조건을 두 군데
+ * 두면 나중에 한쪽만 남는다(Setup 의 doc).
+ */
+function HirateChoices({
+  color,
+  setColor,
+  opening,
+  setOpening,
+  openings,
+}: {
+  color: Color;
+  setColor: (c: Color) => void;
+  opening: string | null;
+  setOpening: (id: string | null) => void;
+  openings: Opening[];
+}) {
+  return (
+    <>
       <fieldset className="setup__group">
         <legend className="setup__legend">あなたの手番</legend>
         <div className="setup__choices">
@@ -111,25 +221,7 @@ export function Setup({ initial, onStart }: SetupProps) {
             순간이 고장으로 읽힌다 — 손을 놓는 조건은 book_opponent.go 에 있다. */}
         戦型を選ぶと、相手は序盤だけその形に組みます。駒がぶつかってからは自分で考えます。
       </p>
-
-      <button type="button" className="btn btn--primary setup__start" onClick={() => onStart({ color, opening })}>
-        対局をはじめる
-      </button>
-
-      {/* **상대가 사람인 갈래는 여기서 갈린다.** 위에서 고른 手番을 그대로 쓰고 戦型은
-          안 쓴다 — 진형은 컴퓨터에게 시키는 것이라 사람 상대에게는 뜻이 없다. */}
-      <FriendMatch />
-
-      {/* **헤더의 버튼만으로는 못 찾는다.** 처음 온 사람이 실제로 보는 화면은 여기 하나다.
-          시작 버튼 **아래**에 두는 것이 요점 — 위에 두면 두러 온 사람을 먼저 붙잡는다.
-
-          헤더와 **같이 새 탭이다**(App.tsx). 같은 곳이 자리에 따라 다르게 열리면 두 번째로
-          누를 때 무엇이 일어날지 모르게 되고, 덤으로 여기서 고른 手番·戦型이 안 날아간다. */}
-      <a className="setup__guide" href={ROUTE_GUIDE} target="_blank" rel="noreferrer noopener">
-        はじめての方へ — このアプリの遊びかた
-        <span aria-hidden="true"> ↗</span>
-      </a>
-    </div>
+    </>
   );
 }
 

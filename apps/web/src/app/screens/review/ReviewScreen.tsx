@@ -72,9 +72,15 @@ function GameList() {
 function GameCard({ game }: { game: GameSummary }) {
   return (
     <>
-      <time className="review-card-date" dateTime={game.startedAt}>
-        {dateJa(game.startedAt)}
-      </time>
+      {/* 날짜와 手合割이 첫 칸을 같이 쓴다. **手合割을 뒤 세 칸에 넣지 않는다** — 그쪽은
+          폭이 고정된 숫자 칸이고, 手合割은 平手면 아예 안 오므로 열을 늘리면 대부분의
+          줄이 빈다(index.css 의 `.review-card`). */}
+      <span className="review-card-when">
+        <time className="review-card-date" dateTime={game.startedAt}>
+          {dateJa(game.startedAt)}
+        </time>
+        {game.handicap !== undefined && <span className="review-card-handicap">{game.handicap}</span>}
+      </span>
       <span className="review-card-result" data-result={game.result}>
         {resultJa(game.result)}
       </span>

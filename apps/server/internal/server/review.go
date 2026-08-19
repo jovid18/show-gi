@@ -9,6 +9,7 @@ import (
 
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
+	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -66,6 +67,12 @@ type gameSummary struct {
 
 	MoveCount         int `json:"moveCount"`
 	InterventionCount int `json:"interventionCount"`
+	// Handicap 은 그 판의 手合割 이름이다(일본어). **平手면 안 온다.**
+	//
+	// **화면이 이름을 만들지 않는다** — 표는 서버에 있고(internal/handicap) 목록에 나가는
+	// 것은 이름뿐이다. 이 줄이 없으면 駒落ち 판의 형세 그래프가 +2288에서 시작하는 이유가
+	// 화면 어디에도 없어서, 되짚는 사람이 그것을 「엄청 잘 둔 판」으로 읽는다.
+	Handicap string `json:"handicap,omitempty"`
 	// IsMatch 는 **사람과 둔 판**인가다(journal §83).
 	//
 	// 화면이 이 값으로 두 자리를 닫는다: 총평과 퀴즈. 대인전에는 엔진 판정이 없어서
@@ -83,7 +90,15 @@ type gameSummary struct {
 type gameDetail struct {
 	gameSummary
 	// StartSFEN 은 **0手目의 국면**이다. 手数를 하나씩 되감으면 여기까지 온다.
-	StartSFEN     string               `json:"startSfen"`
+	StartSFEN string `json:"startSfen"`
+	// BaselineCp 는 이 판의 「형세 0」이다. **`reviewMove.EvalCp` 와 같은 관점**(플레이어)이고,
+	// 平手면 안 온다(0).
+	//
+	// **목록에는 없고 여기만 있다.** 쓰는 곳이 형세 그래프 하나라서다 — 그 축이 승률이라
+	// (`EvalGraph`) 빼지 않으면 駒落ち 판의 곡선이 천장에 붙어 어디서 흘렸는지가 안 보이고,
+	// 「호각」 선이 **핸디캡을 다 잃은 자리**에 그려진다. 판정이 같은 값을 빼는 것과 같은
+	// 이유이고(intervene.Input.BaselineCp), 그래서 화면이 이 숫자를 다시 만들지 않는다.
+	BaselineCp    int                  `json:"baselineCp,omitempty"`
 	Moves         []reviewMove         `json:"moves"`
 	Interventions []reviewIntervention `json:"interventions"`
 	// Undos 는 사람이 스스로 무른 수들이다. **개입과 갈라서 준다** — 판이 되돌아간 것은
@@ -271,6 +286,7 @@ func summaryOf(g store.GameSummary) gameSummary {
 		MoveCount:         g.MoveCount,
 		InterventionCount: g.InterventionCount,
 		IsMatch:           g.MatchID != "",
+		Handicap:          handicap.NameOf(g.StartSFEN),
 	}
 	if !g.FinishedAt.IsZero() {
 		t := g.FinishedAt
@@ -281,8 +297,13 @@ func summaryOf(g store.GameSummary) gameSummary {
 
 // detailOf 는 기록을 화면이 쓸 수 있는 모양으로 만든다. **판을 처음부터 다시 둔다.**
 func detailOf(rec store.GameRecord) gameDetail {
+	human := shogi.Black
+	if rec.MyColor == "w" {
+		human = shogi.White
+	}
 	out := gameDetail{
 		gameSummary:   summaryOf(rec.GameSummary),
+		BaselineCp:    handicap.BaselineCpFor(rec.StartSFEN, human),
 		Moves:         make([]reviewMove, 0, len(rec.Moves)),
 		Interventions: make([]reviewIntervention, 0, len(rec.Interventions)),
 		Undos:         make([]reviewUndo, 0, len(rec.Undos)),

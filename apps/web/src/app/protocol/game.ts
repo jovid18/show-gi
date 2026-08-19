@@ -168,6 +168,13 @@ export interface Snapshot {
    * 것(docs/01-core.md §7)과 어긋나지 않는 이유는 서버의 `Snapshot.OpponentOpening` 주석.
    */
   opponentOpening?: string;
+  /**
+   * 이 판의 手合割 이름(二枚落ち). **平手면 오지 않는다.**
+   *
+   * **서버가 시작 국면에서 파생한다**(`handicap.NameOf`) — 화면이 SFEN을 보고 이름을 만들면
+   * 표가 두 벌이 되고, 이어한 판에서는 그 이름을 아는 쪽이 서버뿐이다.
+   */
+  handicap?: string;
   yourTurn: boolean;
   inCheck: boolean;
   thinking: boolean;

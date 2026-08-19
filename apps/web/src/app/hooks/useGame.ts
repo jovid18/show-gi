@@ -14,10 +14,17 @@ export type Connection = 'idle' | 'connecting' | 'open' | 'closed';
  * 메시지로 보내지 않는 이유는 그쪽 주석에 있다.
  */
 export interface GameSetup {
-  /** 사람이 잡을 쪽. */
+  /** 사람이 잡을 쪽. **手合割을 고르면 이 값이 무시된다** — 駒落ち는 사람이 下手(先手)다. */
   color: Color;
   /** 상대가 따를 진형의 id. 「おまかせ」면 null. */
   opening: string | null;
+  /**
+   * 手合割의 id. 「平手」면 null.
+   *
+   * **고르면 위 둘을 서버가 덮는다**(`newSetup`) — 시작 국면·手番·진형이 手合 하나에서
+   * 나오므로, 화면도 같이 그렇게 그린다(Setup).
+   */
+  handicap: string | null;
 }
 
 export interface GameState {
@@ -98,6 +105,9 @@ function socketUrl(setup: GameSetup, resumeId: number | null): string {
   const query =
     resumeId !== null ? new URLSearchParams({ resume: String(resumeId) }) : new URLSearchParams({ color: setup.color });
   if (resumeId === null && setup.opening) query.set('opening', setup.opening);
+  // **手合割도 이어할 때는 안 보낸다.** 그 판의 시작 국면은 `games.start_sfen` 에 있고,
+  // 서버가 거기서 읽는다 — 위 진형과 같은 이유다(이 함수의 doc).
+  if (resumeId === null && setup.handicap) query.set('handicap', setup.handicap);
   return `${scheme}://${window.location.host}/ws/game?${query}`;
 }
 
@@ -254,7 +264,7 @@ export function useGame(): GameState {
     setConnection('connecting');
     // **그 판의 조건을 다음 판의 기본값으로도 삼는다.** 이어한 판이 끝나고 「もう一局」을
     // 누르면 같은 선후공·진형에서 시작하는 것이 자연스럽다.
-    setSetup({ color: game.myColor, opening: game.opening ?? null });
+    setSetup({ color: game.myColor, opening: game.opening ?? null, handicap: game.handicap ?? null });
     setResumeId(game.id);
     setLive(true);
     setGeneration((n) => n + 1);

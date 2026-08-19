@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
+	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
@@ -78,6 +79,12 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 
 	if pos, m, err := replay(startSFEN, moves); err == nil {
 		mover, moverKnown = pos.Turn, true
+		// 이 판의 「형세 0」. **위 두 cp와 관점이 같아야 한다** — 駒落ち에서 유리한 쪽은
+		// 언제나 下手라, 上手의 수를 판정할 때는 부호가 뒤집힌다(handicap.BaselineCpFor).
+		//
+		// 판을 못 읽었으면 0으로 남는다. 그때 駒落ち 판정은 기준점 없이 도는데, 그 방향은
+		// **개입을 덜 하는 쪽**이라 카테고리가 other 로 가는 것과 같은 종류의 후퇴다.
+		in.BaselineCp = handicap.BaselineCpFor(startSFEN, mover)
 		in.Features, facts = moveFacts(pos, m)
 		in.Features.UnpromotedOnly = UnpromotedOnly(m, best.Best)
 		// 얕은 평가는 **이미 받아 둔 info 라인**에 있다. PvInterval=0 덕에 depth 12

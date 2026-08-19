@@ -710,6 +710,15 @@ export function GameScreen() {
               </p>
             )}
 
+            {/* 手合割을 되비춘다. **平手면 아무것도 안 쓴다** — 위 진형과 같은 규칙이고,
+                이 자리가 없으면 駒落ち 판에서 「왜 상대 駒가 적은가」에 화면이 답하지 않는다. */}
+            {snapshot.handicap && (
+              <p className="opening" role="note">
+                <span className="opening__head">手合割</span>
+                <span className="opening__name">{snapshot.handicap}</span>
+              </p>
+            )}
+
             {/* 고른 진형을 되비춘다. **고르지 않았으면 아무것도 안 쓴다** — 「おまかせ」라고
                 적어 두면 없는 설정이 있는 것처럼 자리를 차지한다. 상대의 형태를 알려주는 것이
                 아닌 근거는 서버의 `Snapshot.OpponentOpening` 주석. */}

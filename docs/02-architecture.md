@@ -117,6 +117,8 @@ games        (id, user_id, my_color, started_at, finished_at, result, opening_ta
              -- user_id는 nullable. 로그인 전에도 남긴다 (002_anonymous_games.sql)
              -- opening_tag 은 **상대**가 고른 진형이고, style_tags 는 **사람이 짠** 囲い·
              -- 전법·戦型이다 (009_game_style_tags.sql, §77). 手筋은 안 담는다
+             -- start_sfen 이 手合割의 정본이다 (§84) — 이름을 적는 칸을 안 만들었다.
+             -- 적어 두면 그 칸과 판이 갈릴 수 있고, 갈리면 화면이 없는 駒를 말한다
 game_hints   (id, game_id, ply, sfen_key, stage, best_usi, taken, created_at)
              -- 사람이 **불러서** 받은 최선수 힌트 (010_game_hints.sql, §78).
              -- **interventions 와 갈라 둔다** — 저쪽은 앱이 먼저 말을 건 자리다
@@ -181,6 +183,7 @@ skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at,
    │  tag       囲い·전법·戦型·手筋의 이름          │
    │            엔진도 DB도 모른다 — 국면과 수순만  │
    │  book      상대의 진형 4종 수순 (§48)          │
+   │  handicap  手合割 7종 — 시작 국면과 기준점 (§84)│
    │  quiz      되짚기 퀴즈 생성·채점 (§53)         │
    │  auth      Google OAuth · 서명 쿠키 (§46)      │
    │  kifu      KIF·CSA 파서 (서버는 안 쓴다)       │

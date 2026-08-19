@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
+	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
@@ -1503,6 +1504,7 @@ func (st *state) snapshot() Snapshot {
 		Notice:          st.notice,
 		StyleTags:       st.styleTags(),
 		OpponentOpening: st.cfg.OpponentOpening,
+		Handicap:        handicap.NameOf(st.cfg.StartSFEN),
 		UndoLeft:        max(UndoMaxPerGame-st.undos, 0),
 		HintLeft:        max(HintMaxPerGame-st.hints, 0),
 		// **화면이 조건을 다시 짓지 않게 여기서 답한다.** `yourTurn && undoLeft > 0` 으로

@@ -21,6 +21,14 @@ export interface GameSummary {
   moveCount: number;
   interventionCount: number;
   /**
+   * 그 판의 手合割 이름(二枚落ち). **平手면 오지 않는다.**
+   *
+   * **없으면 平手다** — `isMatch` 와 같은 규약이고, 서버가 시작 국면에서 파생한다
+   * (`handicap.NameOf`). 이 줄이 없으면 駒落ち 판의 형세 그래프가 +2000대에서 시작하는
+   * 이유가 화면 어디에도 없어서, 되짚는 사람이 그것을 자기 실력으로 읽는다.
+   */
+  handicap?: string;
+  /**
    * 사람과 둔 판인가.
    *
    * **없으면 AI 연습 대국이다**(서버가 false 를 안 보낸다). 대인전에는 엔진 판정이 없어서
@@ -119,6 +127,14 @@ export interface ReviewUndo {
 export interface GameDetail extends GameSummary {
   /** 0手目의 국면. 手数를 되감으면 여기까지 온다. */
   startSfen: string;
+  /**
+   * 이 판의 「형세 0」(플레이어 관점 cp). **平手면 오지 않는다.**
+   *
+   * `evalCp` 와 같은 관점이라 그대로 빼면 된다. **형세 그래프가 이 값을 뺀다** — 축이
+   * 승률이라 빼지 않으면 駒落ち 판의 곡선이 천장에 붙고, 「호각」 선이 핸디캡을 다 잃은
+   * 자리에 그려진다(`EvalGraph`).
+   */
+  baselineCp?: number;
   moves: ReviewMove[];
   interventions: ReviewIntervention[];
   /**

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -331,5 +332,46 @@ func TestStrengthStepTracksTheShift(t *testing.T) {
 	// 추정기가 꺼져 있거나 표본이 모자랄 때도 눈금은 한복판이다
 	if got := strengthStep(skillShift(skill.Unknown)); got != 3 {
 		t.Errorf("모르는 상태의 단계는 3이어야 한다: %d", got)
+	}
+}
+
+// TestBandFollowsTheHandicapOrigin 은 **핸디캡을 흘린 사람에게 상대가 되돌려 주는지**를 본다.
+//
+// 二枚落ち(+2288)에서 사람이 +500까지 흘린 자리다. 기준점을 안 옮기면 이 국면이 「구간 위」로
+// 읽혀서(500 > 300) 상대가 「지금 형세에서 100~300 더」만 겨냥하고, 그 좌표에서는 상대의
+// 최선수가 그대로 뽑힌다 — 조절이 가장 필요한 자리에서 꺼지는 것이다(Choose).
+func TestBandFollowsTheHandicapOrigin(t *testing.T) {
+	nimai, ok := handicap.Find("nimaiochi")
+	if !ok {
+		t.Fatal("nimaiochi 가 표에 없다")
+	}
+	// 下手가 한 수 뒀으므로 지금은 上手(상대) 차례다 — 사람은 下手(Black)로 읽힌다.
+	moves := []string{"7g7f"}
+
+	s := &stubMulti{res: usi.SearchResult{Best: "3c3d", Lines: []usi.SearchLine{
+		line("3c3d", -500),  // 플레이어 +500. 上手의 최선
+		line("8c8d", -900),  // 플레이어 +900
+		line("4a3b", -1100), // 플레이어 +1100. 안전 상한(+600) 경계 ← 이걸 골라야 한다
+		line("6a5b", -1400), // 플레이어 +1400. 상한 밖이라 걸러진다
+	}}}
+	o := NewAdaptiveOpponent(s, 12, DefaultBand)
+	got, err := o.Choose(t.Context(), nimai.SFEN, moves, skill.Unknown)
+	if err != nil {
+		t.Fatalf("Choose: %v", err)
+	}
+	if got != "4a3b" {
+		t.Errorf("기준점(+%d)을 향해 가장 많이 되돌리는 안전한 수를 골라야 한다: %q", nimai.BaselineCp, got)
+	}
+
+	// **같은 후보를 平手에서 주면 반대로 고른다.** 거기서는 +500이 이미 구간 위라
+	// 「조금만 더」가 맞는 뜻이고, 그 차이가 곧 기준점이 하는 일이다.
+	flat := &stubMulti{res: s.res}
+	o = NewAdaptiveOpponent(flat, 12, DefaultBand)
+	got, err = o.Choose(t.Context(), shogi.StartSFEN, moves, skill.Unknown)
+	if err != nil {
+		t.Fatalf("Choose(平手): %v", err)
+	}
+	if got == "4a3b" {
+		t.Error("平手에서 기준점이 붙었다 — 手合割 판만 옮겨야 한다")
 	}
 }

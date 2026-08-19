@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/book"
+	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
@@ -43,6 +44,14 @@ type resumableGame struct {
 	Opening string `json:"opening,omitempty"`
 	// OpeningJa 는 그 진형의 일본어 이름이다. 화면이 id로 문장을 짓지 않는다.
 	OpeningJa string `json:"openingJa,omitempty"`
+
+	// Handicap·HandicapJa 는 그 판의 手合割이다. **平手면 둘 다 안 온다.**
+	//
+	// 위 진형과 **같은 짝이고 같은 이유다**: 이어할 때 되보내지는 않고(서버가 그 행에서
+	// 읽는다) 「다음 판의 기본값」이 무엇인지를 화면이 아는 데 쓴다 — 六枚落ち를 이어 두던
+	// 사람의 「もう一局」이 平手로 떨어지면 그 자리에서 판이 뒤집힌다.
+	Handicap   string `json:"handicap,omitempty"`
+	HandicapJa string `json:"handicapJa,omitempty"`
 }
 
 // find 는 이어할 수 있는 판을 준다. 없으면 `{"game":null}` 이다.
@@ -77,6 +86,9 @@ func (h *resumeHandler) find(w http.ResponseWriter, r *http.Request) {
 		MyColor:   g.MyColor,
 		StartedAt: g.StartedAt,
 		MoveCount: g.MoveCount,
+	}
+	if h, ok := handicap.Of(g.StartSFEN); ok {
+		out.Handicap, out.HandicapJa = h.ID, h.Name
 	}
 	if o, ok := book.Find(g.OpeningID); ok {
 		out.Opening, out.OpeningJa = o.ID, o.Name
