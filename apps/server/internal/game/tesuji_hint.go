@@ -9,6 +9,9 @@ import (
 
 // 제안형 手筋 힌트 — 아직 안 둔 수가 만들 이름을 찾는다(tesuji.go 는 착수 後로 방향이 반대).
 //
+// 프로덕션에서는 꺼져 있다 — server/ws.go 가 Config.TesujiHint 에 nil 을 넘긴다(journal §78).
+// 코드와 측정은 그대로 두고 배선만 끊은 것이라 여기 있는 것은 전부 지금도 도는 코드다.
+//
 // 게이트는 저쪽 것을 그대로 쓴다 — freshTesuji·enginePaidOff 를 나눠 쓰고 이 파일은 부르는
 // 순서만 갖는다. 두 벌이 되면 힌트와 착수 뒤가 어긋난다(journal §34 ⑦).
 

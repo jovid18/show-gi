@@ -216,7 +216,7 @@ const (
 	// DefaultMoveDeadline 은 판이 그 자리에서 멈추는 두 경로의 시한이다 — 상대 수와 개입 판정.
 	DefaultMoveDeadline = 60 * time.Second
 
-	// DefaultExtraDeadline 은 없어도 판이 도는 두 경로의 시한이다 — 詰み 게이지와 手筋 힌트.
+	// DefaultExtraDeadline 은 없어도 판이 도는 두 경로의 시한이다 — 詰み 게이지와 부르는 힌트.
 	// 이 둘은 조용히 없어지고, 사람이 알아채는 쪽은 언제나 위 둘이다.
 	DefaultExtraDeadline = 20 * time.Second
 )
