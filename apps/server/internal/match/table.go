@@ -101,8 +101,8 @@ type Table struct {
 	done      chan struct{}
 }
 
-// markFinished 는 승패가 정해졌다고 알린다. 두 번 불려도 안전해야 한다 —
-// 부르는 자리가 셋이다(착수·投了·시간패).
+// markFinished 는 판이 끝났다고 알린다. 두 번 불려도 안전해야 한다 — 승패가 정해지는
+// 자리(settle)와 서버가 내려가는 자리(run 의 ctx.Done)가 둘 다 부른다.
 func (t *Table) markFinished() { t.closeOnce.Do(func() { close(t.finished) }) }
 
 // state 는 테이블 goroutine 만 만진다.
