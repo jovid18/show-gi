@@ -1,5 +1,5 @@
 import { GUIDE_CATEGORIES } from '@/libs/game/categories';
-import { hrefOf } from '@/routes/router';
+import { hrefOf, navigate } from '@/routes/router';
 
 /**
  * 처음 온 사람에게 **이 앱이 무엇을 하는지**를 한 화면으로 말한다.
@@ -306,7 +306,18 @@ export function GuideScreen() {
       </section>
 
       <footer className="guide__cta">
-        <a className="btn btn--primary" href={hrefOf({ name: 'game' })}>
+        {/* **`navigate` 를 탄다.** 이 화면이 새 탭이 아니게 되면서(journal §86) 앱 안의
+            이동이 됐고, 그냥 링크로 두면 브라우저가 문서를 통째로 새로 받아 **상시
+            마운트된 대국 화면이 들고 있던 총평이 사라진다**. */}
+        <a
+          className="btn btn--primary"
+          href={hrefOf({ name: 'game' })}
+          onClick={(e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+            e.preventDefault();
+            navigate({ name: 'game' });
+          }}
+        >
           対局をはじめる
         </a>
       </footer>

@@ -1,6 +1,6 @@
 // 주소 하나가 화면 하나. **라이브러리를 안 쓴다.**
 //
-// 경로가 셋이고 중첩도 loader도 없는데, 그보다 큰 이유가 있다 — **대국 화면은 언마운트하면
+// 경로가 적고 중첩도 loader도 없는데, 그보다 큰 이유가 있다 — **대국 화면은 언마운트하면
 // 안 된다.** WebSocket 하나에 매여 있어서 내리면 연결이 끊기고 그 판이 `abandoned` 로
 // 닫힌다(App.tsx). 그래서 라우트가 element를 갈아 끼우는 방식을 애초에 못 쓰고, 대국은
 // 라우트 밖에 상시 마운트로 두고 **감추기만** 한다. 라이브러리를 얹어도 그 예외는 그대로
@@ -17,11 +17,13 @@ import {
   EXPLORE_SEGMENT,
   GUIDE_SEGMENT,
   ME_SEGMENT,
+  PLAY_SEGMENT,
   QUIZ_SEGMENT,
   REVIEWS_SEGMENT,
   ROOMS_SEGMENT,
   ROUTE_GAME,
   ROUTE_GUIDE,
+  ROUTE_HOME,
   ROUTE_ME,
   ROUTE_REVIEWS,
   routeExplore,
@@ -37,6 +39,8 @@ import {
  * 새로고침과 뒤로 가기가 맞는다. 화면 안의 상태로 두면 둘 다 목록으로 튕긴다.
  */
 export type Route =
+  // 홈. **아무것도 안 부르는 메뉴 하나다**(journal §86).
+  | { name: 'home' }
   | { name: 'game' }
   | { name: 'reviews' }
   // ply 는 **열 때의 手数**다. 없으면 0手目(시작 국면)에서 연다.
@@ -100,7 +104,8 @@ function exploreRouteOf(search: string): Route {
 }
 
 /**
- * 주소 → 화면. **못 읽는 주소는 대국이다** — 404 화면을 만들 만큼 경로가 많지 않다.
+ * 주소 → 화면. **못 읽는 주소는 홈이다** — 404 화면을 만들 만큼 경로가 많지 않고,
+ * 홈은 갈 곳을 전부 세워 놓은 자리라 길을 잃은 사람이 떨어질 곳으로 맞다.
  *
  * 받는 것은 `pathname` **+ `search`** 다. 쿼리를 보는 화면이 검토 하나뿐이라 그쪽만
  * 갈라 읽고, 나머지는 지금까지처럼 경로만으로 정해진다.
@@ -111,6 +116,7 @@ export function parseRoute(url: string): Route {
   const search = cut === -1 ? '' : url.slice(cut);
 
   const parts = pathname.split('/').filter(Boolean);
+  if (parts[0] === PLAY_SEGMENT) return { name: 'game' };
   if (parts[0] === EXPLORE_SEGMENT) return exploreRouteOf(search);
   if (parts[0] === GUIDE_SEGMENT) return { name: 'guide' };
   if (parts[0] === ME_SEGMENT) return { name: 'me' };
@@ -119,9 +125,9 @@ export function parseRoute(url: string): Route {
   // 영숫자 8자가 방 id 의 모양이다(서버의 newRoomID).
   if (parts[0] === ROOMS_SEGMENT) {
     const id = parts[1] ?? '';
-    return /^[A-Za-z0-9]{8}$/.test(id) ? { name: 'room', id } : { name: 'game' };
+    return /^[A-Za-z0-9]{8}$/.test(id) ? { name: 'room', id } : { name: 'home' };
   }
-  if (parts[0] !== REVIEWS_SEGMENT) return { name: 'game' };
+  if (parts[0] !== REVIEWS_SEGMENT) return { name: 'home' };
   if (parts.length === 1) return { name: 'reviews' };
 
   // **글자를 먼저 본다.** `Number()` 로 바로 바꾸면 `1e3` 이 1000을 통과시켜서, 주소에
@@ -146,6 +152,8 @@ export function parseRoute(url: string): Route {
 /** 화면 → 주소. **`<a href>` 에 그대로 넣는다** — 가운데 클릭과 링크 복사가 살아 있어야 한다. */
 export function hrefOf(route: Route): string {
   switch (route.name) {
+    case 'home':
+      return ROUTE_HOME;
     case 'game':
       return ROUTE_GAME;
     case 'reviews':

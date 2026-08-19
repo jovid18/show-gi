@@ -335,7 +335,7 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
           <div className="explore-controls">
             {/* **줄이 없으면 안 그린다.** 0手目에서 물릴 것이 없는데 버튼이 서 있으면 그건
                 눌러도 안 되는 버튼이고, 그렇게 두면 다음에 진짜로 못 누를 때 같이 무시된다
-                (`Account` 의 규칙). `.btn` 에는 disabled 모양이 따로 없어서 더 그렇다. */}
+                (홈 메뉴가 쓰는 규칙과 같다). `.btn` 에는 disabled 모양이 따로 없어서 더 그렇다. */}
             {branching && (
               <>
                 <button type="button" className="btn" disabled={pending} onClick={back}>

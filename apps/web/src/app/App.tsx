@@ -1,10 +1,9 @@
 import { lazy, Suspense, useEffect, useSyncExternalStore } from 'react';
 
-import { Account } from '@/components/Account';
 import { useViewer } from '@/hooks/useViewer';
 import { getPlaying, subscribePlaying } from '@/libs/game/playing';
 import { GameScreen } from '@/screens/game/GameScreen';
-import { ROUTE_GUIDE } from '@/routes/const';
+import { HomeScreen } from '@/screens/home/HomeScreen';
 import { hrefOf, navigate, useRoute, type Route } from '@/routes/router';
 
 /**
@@ -22,7 +21,7 @@ const ReviewScreen = lazy(async () => ({ default: (await import('@/screens/revie
  */
 const QuizScreen = lazy(async () => ({ default: (await import('@/screens/quiz/QuizScreen')).QuizScreen }));
 
-/** 마이페이지도 나중에 받는다. 첫 화면은 대국이고 여기는 판 하나도 안 그린다. */
+/** 마이페이지도 나중에 받는다. 첫 화면은 메뉴이고 여기는 판 하나도 안 그린다. */
 const ProfileScreen = lazy(async () => ({
   default: (await import('@/screens/me/ProfileScreen')).ProfileScreen,
 }));
@@ -52,44 +51,6 @@ const MatchScreen = lazy(async () => ({
 }));
 
 /**
- * `needsAuth` 는 **실제로 로그인한 사람에게만** 그리는 탭이다.
- *
- * 마이페이지는 익명에게 401이라(profile.go) 안 누른 사람에게는 갈 곳이 없다 —
- * 「눌러도 안 되는 버튼을 띄우면 고장으로 읽힌다」가 `Account` 에 이미 있는 규칙이고,
- * 탭이라고 다르지 않다.
- *
- * **로그인 기능이 켜졌는가(`me.enabled`)로 가르지 않는다.** 그 값은 배포에 로그인이
- * 있는가일 뿐이라 익명으로 두는 사람에게도 참이고, 실제로 그 탭이 익명에게 떠 있었다
- * (journal §76).
- */
-const TABS: { route: Route; label: string; needsAuth?: boolean; hideWhilePlaying?: boolean }[] = [
-  { route: { name: 'game' }, label: '対局' },
-  { route: { name: 'reviews' }, label: '振り返り' },
-  // 검토. **로그인이 필요하고**(엔진 세 개를 대국과 나눠 쓰는 자리라 서버가 그렇게 답한다,
-  // explore.go), **두는 중에는 안 그린다** — 아래 `hideWhilePlaying`.
-  { route: { name: 'explore', handicap: '', moves: [] }, label: '検討', needsAuth: true, hideWhilePlaying: true },
-  { route: { name: 'me' }, label: 'マイページ', needsAuth: true },
-];
-
-/**
- * 어느 탭에 불이 들어오나. **화면 이름과 탭 이름이 1:1이 아니다** — 되짚기 탭 하나가
- * 목록·상세·퀴즈 셋을 맡고, 안내는 탭이 아예 없다(아래 `.app-help`).
- *
- * 삼항으로 이어 쓰던 자리인데, 갈래가 늘면서 그 사슬이 「나머지 전부」를 되짚기로
- * 보내 **안내 화면에서 되짚기 탭에 불이 들어왔다.** 대응을 표로 적으면 갈래가 늘어도
- * 마지막 항이 남의 것을 삼키지 않는다.
- */
-function activeTabOf(route: Route): Route['name'] {
-  switch (route.name) {
-    case 'review':
-    case 'quiz':
-      return 'reviews';
-    default:
-      return route.name;
-  }
-}
-
-/**
  * 화면마다 다른 제목. **검색 결과에 나가는 줄이고**, 탭을 여러 개 열어 둔 사람이 어느
  * 것이 무엇인지 구분하는 줄이기도 하다.
  *
@@ -97,6 +58,10 @@ function activeTabOf(route: Route): Route['name'] {
  * 그 뒤의 이동이라, 같은 화면이 두 이름을 가지면 안 된다.
  */
 const TITLE_JA: Record<Route['name'], string> = {
+  // 홈만 「화면 이름 | show-gi」가 아니다. 여기가 `index.html` 의 `<title>` 이 가리키는
+  // 바로 그 자리라(canonical · OG · sitemap 도 같다), 다르게 적으면 첫 로드와 그 뒤의
+  // 이동이 같은 화면에 두 이름을 준다.
+  home: 'show-gi — 口を出すときを自分で決める将棋の相手',
   game: '対局 | show-gi',
   reviews: '振り返り | show-gi',
   review: '振り返り | show-gi',
@@ -113,23 +78,26 @@ const TITLE_JA: Record<Route['name'], string> = {
  */
 export function App() {
   const route = useRoute();
+  const onHome = route.name === 'home';
   const onGame = route.name === 'game';
   const onMe = route.name === 'me';
   const onGuide = route.name === 'guide';
-  const activeTab = activeTabOf(route);
   const { me, signOut } = useViewer();
 
-  /**
-   * 두는 중인가(`libs/game/playing.ts`). **대국 화면을 벗어났을 때만 쓴다.**
-   *
-   * 판을 두다가 되짚기로 옮기면 판이 화면에서 사라지는데 **연결도 국면도 그대로 살아
-   * 있다** — 대국 화면은 언마운트되지 않고 감춰지기만 한다(아래 `hidden`). 그 사실을
-   * 아무것도 말해 주지 않아서 「내 판이 날아갔나」로 읽히던 자리다.
-   *
-   * **확인창을 안 띄우는 이유가 그것이다.** 나가도 잃는 것이 없으므로 물으면 거짓이 되고,
-   * 눌러도 되는 창은 다음에 진짜로 물어야 할 때 같이 무시된다. 사실을 그대로 표시한다.
-   */
+  /** 두는 중인가. **아래 되돌리기가 이 값 하나에 걸린다** — 소유권은 `libs/game/playing.ts`. */
   const playing = useSyncExternalStore(subscribePlaying, getPlaying);
+
+  /**
+   * **두는 중에는 판만 있다**(journal §86). 다른 주소로 들어오면 대국으로 되돌린다.
+   *
+   * **`replace` 다.** 이력에 쌓으면 뒤로 가기가 두 자리를 오가게 되고, 판을 벗어날 수
+   * 없다는 사실이 「뒤로 가기가 고장 났다」로 읽힌다.
+   *
+   * 브라우저를 아예 떠나는 길은 여기가 아니라 `useUnloadGuard` 가 묻는다.
+   */
+  useEffect(() => {
+    if (playing && !onGame) navigate({ name: 'game' }, { replace: true });
+  }, [playing, onGame]);
 
   useEffect(() => {
     document.title = TITLE_JA[route.name];
@@ -141,120 +109,56 @@ export function App() {
           걸리면 이 줄도 방과 함께 어두워져야 하고, 위에 있으면 판만 남는 그림이 깨진다. */}
       <header className="app-head">
         <div className="app-head__inner">
-          <a className="app-brand" href={hrefOf({ name: 'game' })}>
-            {/* 마크. **파일은 `public/` 에 있다**(brand/icons.sh가 로고 한 장에서 만든다) —
-                번들에 넣으면 파비콘·홈 화면 아이콘과 같은 그림이 두 벌로 나간다.
-                옆에 제품 이름이 글자로 서 있으므로 `alt` 는 비운다. */}
-            <img
-              className="app-mark"
-              src="/logo-96.png"
-              alt=""
-              width={30}
-              height={30}
-              // 헤더는 첫 화면에서 언제나 보이는 자리라 미루지 않는다.
-              fetchPriority="high"
-              decoding="async"
-            />
-            <span className="app-brand__text">
-              <span className="app-title">show-gi</span>
-              <span className="app-tagline">口を出すときを自分で決める将棋の相手</span>
-            </span>
-          </a>
+          {/* **홈이 아닌 화면에만, 두는 중이 아닐 때만 선다**(journal §86). 로고와 같은
+              곳으로 가는데 하나로 안 합치는 것은, 화살표가 「뒤로」를 글자 없이 말하는
+              유일한 표식이라서다 — 로고는 그 자리에서 제품 이름이다. */}
+          {!onHome && !playing && (
+            <a
+              className="app-back"
+              href={hrefOf({ name: 'home' })}
+              aria-label="メニューにもどる"
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                e.preventDefault();
+                navigate({ name: 'home' });
+              }}
+            >
+              <span aria-hidden="true">←</span>
+            </a>
+          )}
 
-          {/*
-            **탭이 아니라 브랜드 옆의 별도 버튼이고, 새 탭으로 연다.**
-
-            안내를 보고 싶어지는 때가 「지금 무슨 일이 일어났나」인데 그건 대국 중이다.
-            같은 탭에서 열면 판이 화면에서 사라진다 — 대국은 라우트 밖이라 연결도 판도
-            살아 있지만(아래 `hidden`), **보이지 않는 것과 없는 것은 사람에게 같다.**
-            새 탭이면 판을 옆에 두고 읽는다.
-
-            그래서 탭 무리에서 뺐다. 저쪽은 「지금 어느 화면인가」를 말하는 자리이고,
-            이건 화면을 안 바꾸므로 같은 무리에 서면 거짓말이 된다.
-          */}
-          <a
-            className="app-help"
-            href={ROUTE_GUIDE}
-            target="_blank"
-            rel="noreferrer noopener"
-            // 새 탭으로 연다는 것은 글자만으로는 안 보인다. 화살표는 장식이라
-            // 읽어 주는 쪽에는 이 라벨이 대신 간다.
-            aria-label="あそびかた（別のタブで開きます）"
-            // 새 탭에서 이 화면을 열면 어느 탭에도 불이 안 들어온다. 그 자리를 여기가 맡는다.
-            data-active={onGuide || undefined}
-          >
-            <span className="app-help__mark" aria-hidden="true">
-              ?
-            </span>
-            あそびかた
-          </a>
-
-          <nav className="app-tabs" aria-label="画面">
-            {TABS.filter(
-              // **두는 중에 검토 탭을 그리지 않는다.** 그 화면은 아무 국면에서나 최선수
-              // 셋을 답하므로, 두는 중에 열리면 「평소엔 최선수를 보여주지 않는다」가 탭
-              // 하나로 뚫린다(01-core.md §1 · §7). 화면 쪽에도 같은 벽이 있다
-              // (ExploreScreen) — 링크와 새로고침으로 들어오는 길이 남기 때문이다.
-              (tab) => (!tab.needsAuth || me.user !== null) && !(tab.hideWhilePlaying && playing),
-            ).map((tab) => {
-              // **버튼이 아니라 링크다.** 주소가 화면을 정하므로 가운데 클릭·링크 복사·
-              // 새 탭이 그냥 동작해야 하고, 그건 `<a href>` 만이 준다.
-              // 켜지는 조건은 `activeTabOf` 가 안다 — 되짚기 탭 하나가 셋(목록·상세·퀴즈)을
-              // 맡기 때문에 화면 이름을 그대로 견줄 수 없다.
-              const active = tab.route.name === activeTab;
-              return (
-                <a
-                  key={tab.route.name}
-                  className="app-tab"
-                  href={hrefOf(tab.route)}
-                  data-active={active || undefined}
-                  aria-current={active ? 'page' : undefined}
-                  onClick={(e) => {
-                    // 새 탭·새 창으로 열려는 클릭은 브라우저에 넘긴다
-                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-                    e.preventDefault();
-                    navigate(tab.route);
-                  }}
-                >
-                  {tab.label}
-                  {/* **대국 탭에만, 판을 두는 중에, 그 화면을 벗어나 있을 때만.** 판 위에
-                      있으면 판이 보이므로 표식이 할 말이 없다. 점 하나인 것은 탭 폭을
-                      늘리지 않기 위해서이고(좁은 화면에서 글자마다 접힌다), 무엇인지는
-                      읽어 주는 쪽에 아래 글자로 나간다. */}
-                  {tab.route.name === 'game' && playing && !onGame && (
-                    <>
-                      <span className="app-tab__live" aria-hidden="true" />
-                      <span className="sr-only">対局中</span>
-                    </>
-                  )}
-                </a>
-              );
-            })}
-          </nav>
-
-          <Account me={me} onSignOut={signOut} />
+          <BrandMark locked={playing} />
         </div>
       </header>
 
       <div className="app">
         {/*
-          **대국 화면은 감추기만 한다.** 대국은 WebSocket 연결 하나에 매여 있어서, 여기서
-          컴포넌트를 내리면 연결이 끊기고 그 판은 `abandoned` 로 닫힌다 — 두던 판을 두고
-          지난 판을 보러 갔다가 돌아오면 판이 사라져 있는 것이 된다.
+          **감추기만 한다. 내리지 않는다.** 대국은 WebSocket 연결 하나에 매여 있어서,
+          여기서 컴포넌트를 내리면 연결이 끊기고 그 판이 `abandoned` 로 닫힌다.
 
-          그래서 이 자리는 **라우트 밖**이다(libs/router.ts).
+          두는 중에 이 자리가 감춰지는 일은 이제 없지만(위 `useEffect`) **되돌리는 것은
+          그리고 난 뒤라 한 틱 동안 감춰진다** — 조건을 `{onGame && …}` 로 바꾸면 그 한
+          틱에 판이 닫힌다. 끝난 판의 총평이 여기 있는 것도 이유다(journal §86).
         */}
         <div hidden={!onGame}>
           <GameScreen />
         </div>
 
+        {/* **홈은 나중에 받지 않는다.** 첫 화면이고, 메뉴 한 벌이라 들고 오는 것이
+            자기 자신뿐이다 — 여기에 `Suspense` 를 씌우면 첫 방문자가 메뉴를 보기까지
+            조각 하나를 더 기다린다. */}
+        {onHome && <HomeScreen me={me} playing={playing} />}
+
         {/* 리뷰는 열 때마다 새로 부른다. 방금 끝난 판이 목록 맨 위에 있어야 한다. */}
-        {!onGame && (
+        {!onGame && !onHome && (
           <Suspense fallback={<p className="review-status">読み込み中…</p>}>
             {onGuide ? (
               <GuideScreen />
             ) : onMe ? (
-              <ProfileScreen />
+              /* 로그아웃이 이 화면 안에 있다(journal §86). **이미 물어 둔 `signOut` 을
+                 내려 준다** — 화면 쪽에서 `useViewer` 를 한 번 더 부르면 `/api/me`
+                 요청이 하나 더 나간다. */
+              <ProfileScreen onSignOut={signOut} />
             ) : route.name === 'room' ? (
               // **방마다 새로 세운다.** `roomId` 만 갈아 끼우면 이 컴포넌트가 살아남아
               // 앞 방의 스냅샷과 시계를 한 틱 동안 그린다(퀴즈 화면과 같은 자리).
@@ -274,5 +178,55 @@ export function App() {
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * 로고와 제품 이름. **두는 중에는 링크가 아니다**(journal §86) — 눌러도 판으로 되돌아오므로
+ * (App의 `useEffect`) 링크로 두면 「눌렀는데 아무 일도 안 일어난다」가 되고, 그건 고장으로 읽힌다.
+ *
+ * 링크일 때는 **`navigate` 를 탄다.** `<a href>` 로 두면 브라우저가 문서를 통째로 새로 받아
+ * **상시 마운트된 대국 화면이 들고 있던 총평이 사라진다.**
+ *
+ * 안쪽이 같고 겉이 갈리는 것뿐이라 한 자리에 둔다 — 갈라 두면 마크의 크기·`alt`·
+ * 우선순위가 두 벌이 되고, 한쪽만 고치는 날이 온다.
+ */
+function BrandMark({ locked }: { locked: boolean }) {
+  const inner = (
+    <>
+      {/* 마크. **파일은 `public/` 에 있다**(brand/icons.sh가 로고 한 장에서 만든다) —
+          번들에 넣으면 파비콘·홈 화면 아이콘과 같은 그림이 두 벌로 나간다.
+          옆에 제품 이름이 글자로 서 있으므로 `alt` 는 비운다. */}
+      <img
+        className="app-mark"
+        src="/logo-96.png"
+        alt=""
+        width={30}
+        height={30}
+        // 헤더는 첫 화면에서 언제나 보이는 자리라 미루지 않는다.
+        fetchPriority="high"
+        decoding="async"
+      />
+      <span className="app-brand__text">
+        <span className="app-title">show-gi</span>
+        <span className="app-tagline">口を出すときを自分で決める将棋の相手</span>
+      </span>
+    </>
+  );
+
+  if (locked) return <div className="app-brand">{inner}</div>;
+
+  return (
+    <a
+      className="app-brand"
+      href={hrefOf({ name: 'home' })}
+      onClick={(e) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+        e.preventDefault();
+        navigate({ name: 'home' });
+      }}
+    >
+      {inner}
+    </a>
   );
 }

@@ -131,14 +131,21 @@ export function Setup({ initial, onStart }: SetupProps) {
           시키는 것이라 사람 상대에게는 뜻이 없다. */}
       <FriendMatch />
 
-      {/* **헤더의 버튼만으로는 못 찾는다.** 처음 온 사람이 실제로 보는 화면은 여기 하나다.
-          시작 버튼 **아래**에 두는 것이 요점 — 위에 두면 두러 온 사람을 먼저 붙잡는다.
+      {/* 홈 메뉴에서 안 누른 사람이 **다시 만나는 자리는 여기 하나다.** 시작 버튼
+          **아래**에 두는 것이 요점 — 위에 두면 두러 온 사람을 먼저 붙잡는다.
 
-          헤더와 **같이 새 탭이다**(App.tsx). 같은 곳이 자리에 따라 다르게 열리면 두 번째로
-          누를 때 무엇이 일어날지 모르게 되고, 덤으로 여기서 고른 手番·戦型이 안 날아간다. */}
-      <a className="setup__guide" href={ROUTE_GUIDE} target="_blank" rel="noreferrer noopener">
+          **새 탭이 아니다**(journal §86). 여기서 고르던 手番·戦型은 되돌아오면 초기값으로
+          돌아가는데, 아직 판이 열리기 전이라 잃는 것이 그것뿐이다. */}
+      <a
+        className="setup__guide"
+        href={ROUTE_GUIDE}
+        onClick={(e) => {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+          e.preventDefault();
+          navigate({ name: 'guide' });
+        }}
+      >
         はじめての方へ — このアプリの遊びかた
-        <span aria-hidden="true"> ↗</span>
       </a>
     </div>
   );
@@ -235,7 +242,7 @@ function HirateChoices({
  * 사람인가」에 답할 수 없고, 그러면 정원 2명이라는 규칙이 성립하지 않는다.
  *
  * **눌러도 안 되는 버튼을 안 띄운다** — 로그인 안 한 사람에게는 이유를 적은 줄이 선다
- * (`Account` 와 마이페이지 탭이 이미 쓰는 규칙, journal §76).
+ * (홈 메뉴가 マイページ·検討 을 감추는 것과 같은 규칙, journal §76).
  *
  * **手番을 위 화면과 따로 고른다.** 저쪽은 엔진 상대의 설정이고 여기는 사람 상대라
  * 振り駒가 붙는다 — 같은 값을 쓰면 그 선택지가 엔진 대국으로도 새어 나간다.
