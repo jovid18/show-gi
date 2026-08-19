@@ -10,14 +10,14 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// mate1SFEN 은 先手의 1手詰め이다. `G*5b` 로 詰む — 玉은 4a·6a로 못 가고(5b의 金이 짚는다)
+// mate1SFEN 은 先手의 1手詰め이다. G*5b 로 詰む — 玉은 4a·6a로 못 가고(5b의 金이 짚는다)
 // 5b의 金은 4c·6c의 金이 받친다.
 //
-// **玉이 아직 王手를 받고 있지 않은 국면이라야 한다.** 4c·6c에 둔 것이 그래서다 —
+// 玉이 아직 王手를 받고 있지 않은 국면이라야 한다. 4c·6c에 둔 것이 그래서다 —
 // 4b·6b에 두면 그 金이 5a를 짚어 後手가 王手를 방치한 불법 국면이 된다.
 const mate1SFEN = "4k4/9/3G1G3/9/9/9/9/9/4K4 b G 1"
 
-// mateIn 은 **테스트용** 詰み 탐색이다. 攻方은 王手만 걸고 玉方은 최장 방어를 고른다.
+// mateIn 은 테스트용 詰み 탐색이다. 攻方은 王手만 걸고 玉方은 최장 방어를 고른다.
 //
 // 트리를 짓는 쪽과 셈이 다르다 — 여기는 攻方 수에 대한 최솟값을 재귀로 구하고, 저쪽은
 // 응수의 최댓값에 2를 더한다. 그래서 이것으로 저쪽을 견주는 것이 자기 자신과의 대조가
@@ -54,7 +54,7 @@ func mateIn(pos shogi.Position, limit int) int {
 	return best
 }
 
-// fakeMate 는 위 탐색을 `MateSearcher` 모양으로 씌운 것이다. **엔진 없이 트리를 짓는다.**
+// fakeMate 는 위 탐색을 MateSearcher 모양으로 씌운 것이다. 엔진 없이 트리를 짓는다.
 type fakeMate struct {
 	limit int
 	calls int
@@ -138,9 +138,9 @@ func TestMateItemFindsMateInOne(t *testing.T) {
 		t.Errorf("node plies = %d, want 1", node.Plies)
 	}
 
-	// **이 국면에는 1手詰め이 여럿이다**(`G*5b` 도 `4c5b` 도 詰む). 실전 국면에서 余詰은
+	// 이 국면에는 1手詰め이 여럿이다(G*5b 도 4c5b 도 詰む). 실전 국면에서 余詰은
 	// 예외가 아니라 보통이고, 그래서 「하나가 정답」이라고 단정하지 않는다 — 대신
-	// **결정적으로 고르는지**를 본다. 규약은 詰み 우선, 그다음 USI 순서다.
+	// 결정적으로 고르는지를 본다. 규약은 詰み 우선, 그다음 USI 순서다.
 	if want := smallestMate(pos); node.Best != want {
 		t.Errorf("best = %q, want %q (mate first, then USI order)", node.Best, want)
 	}
@@ -167,8 +167,8 @@ func TestMateItemFindsMateInOne(t *testing.T) {
 	}
 }
 
-// smallestMate 는 그 국면의 詰み 수 중 USI가 가장 앞인 것이다 — `pickBestMate` 의 규약을
-// 테스트가 **다시 세어** 견주는 자리다.
+// smallestMate 는 그 국면의 詰み 수 중 USI가 가장 앞인 것이다 — pickBestMate 의 규약을
+// 테스트가 다시 세어 견주는 자리다.
 func smallestMate(pos shogi.Position) string {
 	best := ""
 	for _, m := range checkingMoves(pos) {
@@ -287,15 +287,15 @@ func TestGradeMateRejectsAnIllegalMove(t *testing.T) {
 	}
 }
 
-// mate3SFEN 은 先手의 3手詰め이다 — `G*5b` △同金 `▲同金`.
+// mate3SFEN 은 先手의 3手詰め이다 — G*5b △同金 ▲同金.
 //
-// 1手로는 안 되는 이유가 **後手 金 하나**다(6b). 5b에 놓은 金을 그 金이 딸 수 있어서 한 번에
+// 1手로는 안 되는 이유가 後手 金 하나다(6b). 5b에 놓은 金을 그 金이 딸 수 있어서 한 번에
 // 끝나지 않고, 되따면 다시 王手가 되어 그때 詰む. mate1SFEN 에 방어 駒를 4a·6a에 두었더니
 // 그 駒가 玉의 도주로를 막아 오히려 1手詰め이 됐다 — 6b는 5b를 지키면서 도주로는 막지 않는다.
 const mate3SFEN = "4k4/3g5/3G1G3/9/9/9/9/9/4K4 b G 1"
 
-// TestMateTreeWalksThreePlies 는 트리의 **재귀**를 본다 — 1手詰め에는 노드가 하나뿐이라
-// `expand` 가 다음 층으로 내려가는 자리가 전혀 안 돌았다.
+// TestMateTreeWalksThreePlies 는 트리의 재귀를 본다 — 1手詰め에는 노드가 하나뿐이라
+// expand 가 다음 층으로 내려가는 자리가 전혀 안 돌았다.
 func TestMateTreeWalksThreePlies(t *testing.T) {
 	fm := &fakeMate{limit: 9}
 	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate3SFEN, Human: shogi.Black})
@@ -313,7 +313,7 @@ func TestMateTreeWalksThreePlies(t *testing.T) {
 	root, _ := shogi.ParseSFEN(mate3SFEN)
 	rootNode := q.Mate.Nodes[root.RepetitionKey()]
 
-	// **노드의 手数는 그 국면의 성질이다.** 트리가 세어 넣은 값을 시험이 다시 재서 견준다.
+	// 노드의 手数는 그 국면의 성질이다. 트리가 세어 넣은 값을 시험이 다시 재서 견준다.
 	for key, node := range q.Mate.Nodes {
 		pos, ok := positionOfKey(t, q.Mate, key)
 		if !ok {
@@ -341,7 +341,7 @@ func TestMateTreeWalksThreePlies(t *testing.T) {
 		}
 	}
 
-	// 정답 수마다 **그 응수 뒤의 국면이 트리에 있어야** 한다. 없으면 채점이 거기서 막힌다.
+	// 정답 수마다 그 응수 뒤의 국면이 트리에 있어야 한다. 없으면 채점이 거기서 막힌다.
 	corrections := 0
 	for u, v := range rootNode.Moves {
 		if !v.Correct || v.Mated {
@@ -388,7 +388,7 @@ func TestMateTreeWalksThreePlies(t *testing.T) {
 	}
 }
 
-// **트리는 결정적이어야 한다.** 玉方의 최장 방어가 동률일 때 매번 다르게 고르면 같은 문제가
+// 트리는 결정적이어야 한다. 玉方의 최장 방어가 동률일 때 매번 다르게 고르면 같은 문제가
 // 열 때마다 다르게 흘러가고, 사람은 그것을 고장으로 읽는다.
 func TestMateTreeIsDeterministic(t *testing.T) {
 	build := func() string {
@@ -426,9 +426,9 @@ func mustKey(t *testing.T, sfen string) string {
 	return pos.RepetitionKey()
 }
 
-// **王手가 아닌 수를 낸 뒤에도 진행이 남아 있어야 한다.**
+// 王手가 아닌 수를 낸 뒤에도 진행이 남아 있어야 한다.
 //
-// 판은 안 움직이지만 그 자리는 **문제 국면이 아니라 지금까지 진행된 국면**이다. 둘 수 있는
+// 판은 안 움직이지만 그 자리는 문제 국면이 아니라 지금까지 진행된 국면이다. 둘 수 있는
 // 수를 안 채워 보내면 화면이 문항 쪽으로 되돌아가서 맞힌 수가 사라진 것처럼 보인다.
 func TestGradeMateKeepsProgressAfterANonCheck(t *testing.T) {
 	fm := &fakeMate{limit: 9}
@@ -484,16 +484,16 @@ func TestGradeMateKeepsProgressAfterANonCheck(t *testing.T) {
 	if len(got.Line) != len(mid.Line) {
 		t.Errorf("line = %v, want %v", got.Line, mid.Line)
 	}
-	// **직전 응수를 물려받지 않는다.** 물려받으면 화면이 「방금 상대가 이렇게 받았다」를 두 번 말한다.
+	// 직전 응수를 물려받지 않는다. 물려받으면 화면이 「방금 상대가 이렇게 받았다」를 두 번 말한다.
 	if got.Defense != "" {
 		t.Errorf("defense = %q, want empty — nothing was answered this time", got.Defense)
 	}
 }
 
-// **오답의 정답 수는 그 수가 성립하는 국면과 함께 와야 한다.**
+// 오답의 정답 수는 그 수가 성립하는 국면과 함께 와야 한다.
 //
 // 오답이면 판이 그 수만큼 나아간다. 그 수를 나아간 국면에서 이름으로 부르려 하면 불법이라
-// 표기가 비고, 그러면 **세 번째 오답의 「무엇을 움직이나」가 빈다**(server/quiz.go 의 `originJa`).
+// 표기가 비고, 그러면 세 번째 오답의 「무엇을 움직이나」가 빈다(server/quiz.go 의 originJa).
 func TestGradeMateGivesTheAnswerWithItsOwnPosition(t *testing.T) {
 	fm := &fakeMate{limit: 7}
 	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
@@ -521,7 +521,7 @@ func TestGradeMateGivesTheAnswerWithItsOwnPosition(t *testing.T) {
 		t.Fatal("bestFrom equals sfen — the board did not advance past the wrong move, so this test proves nothing")
 	}
 
-	// 정답 수가 **그 국면에서** 합법이어야 표기를 만들 수 있다.
+	// 정답 수가 그 국면에서 합법이어야 표기를 만들 수 있다.
 	from, err := shogi.ParseSFEN(got.BestFrom)
 	if err != nil {
 		t.Fatalf("bestFrom %q: %v", got.BestFrom, err)
@@ -544,7 +544,7 @@ func TestGradeMateGivesTheAnswerWithItsOwnPosition(t *testing.T) {
 	}
 }
 
-// **王手가 아닌 수에는 정답을 안 준다.**
+// 王手가 아닌 수에는 정답을 안 준다.
 //
 // 그쪽은 오답이 아니라 다시 두라는 안내라 시도가 소진되지 않는다. 답을 실어 보내면 아무
 // 조용한 수나 한 번 눌러서 답을 꺼낼 수 있고, 그러면 채점을 서버에 둔 이유가 사라진다.
@@ -564,7 +564,7 @@ func TestGradeMateDoesNotLeakTheAnswerOnANonCheck(t *testing.T) {
 	}
 }
 
-// **이겼다고 詰ました 것은 아니다.**
+// 이겼다고 詰ました 것은 아니다.
 //
 // 엔진은 投了하기도 하고 못 두는 수를 내놓기도 하는데, 둘 다 사람의 승리로 닫힌다. 手数만
 // 보면 「あなたが決めた詰みです」가 두어진 적 없는 詰み을 두고 나간다.
@@ -594,7 +594,7 @@ func TestConvertedNeedsAnActualCheckmate(t *testing.T) {
 	}
 }
 
-// **엔진이 아무것도 못 답하면 「문항이 없다」가 아니다.**
+// 엔진이 아무것도 못 답하면 「문항이 없다」가 아니다.
 //
 // 배포가 생성 도중에 끼면 풀이 닫혀 모든 탐색이 즉시 실패하는데, 그때 나온 빈 결과를
 // 저장하면 화면이 「이 판엔 문항이 없다」로 단정한다 — 생성이 판이 끝날 때 한 번뿐이라
@@ -610,7 +610,7 @@ func TestBuildReportsADegradedRun(t *testing.T) {
 		t.Error("measured = true, but the solver answered nothing")
 	}
 
-	// 엔진이 아예 없는 배포는 **못 본 것이 아니다.** 그 배포에 문항이 없는 것은 사실이라
+	// 엔진이 아예 없는 배포는 못 본 것이 아니다. 그 배포에 문항이 없는 것은 사실이라
 	// 그대로 적어도 된다.
 	q, measured = NewBuilder(nil, nil, 12).Build(context.Background(), in)
 	if q.Mate != nil || len(q.Best) != 0 {
@@ -643,7 +643,7 @@ func (failingSearch) SearchMultiPV(
 
 var errFake = errors.New("quiz test: engine is down")
 
-// **「모른다」도 기억한다.** solver 는 같은 한계에서 결정적이라 두 번째도 같은 답이고,
+// 「모른다」도 기억한다. solver 는 같은 한계에서 결정적이라 두 번째도 같은 답이고,
 // 그 답은 가장 오래 걸리는 종류다 — 전치가 흔한 詰み 트리에서 예산이 그만큼 샌다.
 func TestMateSolverRemembersWhatItCouldNotProve(t *testing.T) {
 	fm := &fakeMate{limit: 7, unproven: true}
@@ -663,15 +663,15 @@ func TestMateSolverRemembersWhatItCouldNotProve(t *testing.T) {
 	}
 }
 
-// **手数와 마지막 국면이 같은 재현에서 나와야 한다.**
+// 手数와 마지막 국면이 같은 재현에서 나와야 한다.
 //
-// `replay` 는 읽을 수 없는 수에서 멈추므로 기보에 그런 수가 있으면 `posAt` 이 판의 실제
-// 끝보다 앞에서 끊긴다. 한쪽을 `len(Moves)` 로 세면 手数는 넘치고 마지막 국면은 詰み이
+// replay 는 읽을 수 없는 수에서 멈추므로 기보에 그런 수가 있으면 posAt 이 판의 실제
+// 끝보다 앞에서 끊긴다. 한쪽을 len(Moves) 로 세면 手数는 넘치고 마지막 국면은 詰み이
 // 아니어서, 사람이 실제로 決めた 詰み이 「놓쳤다」로 나간다.
 func TestConvertedCountsFromTheSameReplay(t *testing.T) {
 	in := Input{
 		StartSFEN: mate3SFEN, Human: shogi.Black, Won: true,
-		// 詰ますまで 세 수, 그 뒤에 **읽을 수 없는 수** 하나가 기보에 남아 있다.
+		// 詰ますまで 세 수, 그 뒤에 읽을 수 없는 수 하나가 기보에 남아 있다.
 		Moves: []string{"G*5b", "6b5b", "4c5b", "zzzz"},
 	}
 	posAt := replay(in)
@@ -688,9 +688,9 @@ func TestConvertedCountsFromTheSameReplay(t *testing.T) {
 	}
 }
 
-// **1手 노드는 solver 를 안 쓴다.**
+// 1手 노드는 solver 를 안 쓴다.
 //
-// 정답의 조건이 `2+rest <= plies` 이고 `rest >= 1` 이므로 `plies == 1` 에서 詰み이 아닌 王手는
+// 정답의 조건이 2+rest <= plies 이고 rest >= 1 이므로 plies == 1 에서 詰み이 아닌 王手는
 // 절대 정답이 될 수 없다 — 물어봐도 답이 안 바뀐다. 그런데 그 노드가 트리에서 가장 많아서
 // (정답 하나마다 하나씩 달린다) 예산의 대부분을 거기서 쓰고 있었다(§53).
 func TestMateTreeDoesNotAskAtOnePlyNodes(t *testing.T) {

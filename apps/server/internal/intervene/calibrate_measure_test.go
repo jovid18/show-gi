@@ -11,20 +11,20 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 기록된 대국을 **상수를 바꿔 가며 다시 채점한다.**
+// 기록된 대국을 상수를 바꿔 가며 다시 채점한다.
 //
-// 엔진을 안 부른다. `game_moves.eval_cp` 에 남은 원본 cp와 `interventions.delta_win` 만
+// 엔진을 안 부른다. game_moves.eval_cp 에 남은 원본 cp와 interventions.delta_win 만
 // 읽으므로, 이 패키지가 엔진을 모른다는 성질이 측정에도 그대로 남는다(CLAUDE.md).
-// **엔진을 부르기 시작하면 상수를 흔들어 보는 데 엔진이 필요해진다** — 그러면 이
+// 엔진을 부르기 시작하면 상수를 흔들어 보는 데 엔진이 필요해진다 — 그러면 이
 // 패키지가 그렇게 생긴 이유가 사라진다.
 //
-// `SHOWGI_MEASURE` 를 안 본다. 다른 `TestMeasure*` 는 엔진을 돌려 몇 분이 걸리지만
+// SHOWGI_MEASURE 를 안 본다. 다른 TestMeasure* 는 엔진을 돌려 몇 분이 걸리지만
 // 이것은 질의 몇 개라 초 단위다.
 //
 //	SHOWGI_TEST_DATABASE_URL='postgres://showgi:showgi@localhost:5432/showgi' \
 //	  go test ./internal/intervene/ -run MeasureCalibration -v
 //
-// **로컬 DB에는 짧은 테스트 대국밖에 없다.** 실제 값은 기록이 쌓인 DB를 가리켜야
+// 로컬 DB에는 짧은 테스트 대국밖에 없다. 실제 값은 기록이 쌓인 DB를 가리켜야
 // 나온다(journal §19·§39).
 func TestMeasureCalibrationFromRecords(t *testing.T) {
 	url := os.Getenv("SHOWGI_TEST_DATABASE_URL")
@@ -46,9 +46,9 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 		all    []sample
 		bands  []bandRow
 		scored []scoredGame
-		// stuckRuns 는 **평가치와 무관하게 전부 센다.** 계단이 몇 번 열렸나는
+		// stuckRuns 는 평가치와 무관하게 전부 센다. 계단이 몇 번 열렸나는
 		// 개입의 手数만 있으면 되고 cp가 필요 없다 — 여기에 재채점의 조건을 씌우면
-		// 평가치 이전에 둔 판이 통째로 빠진다. **실제로 그렇게 틀렸다**(§39).
+		// 평가치 이전에 둔 판이 통째로 빠진다. 실제로 그렇게 틀렸다(§39).
 		// 계단이 마지막 칸까지 열린 국면이 전부 그 옛 판에 있었다.
 		stuckRuns  = map[int]int{}
 		stuckGames int
@@ -95,7 +95,7 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 
 	// ─── 검증 — 재구성이 맞는가 ──────────────────────────────────────
 	//
-	// **통과한 수는 그때 살아 있던 임계치 아래여야 한다.** 하나라도 위에 있으면 ply를
+	// 통과한 수는 그때 살아 있던 임계치 아래여야 한다. 하나라도 위에 있으면 ply를
 	// 잘못 이었거나 부호를 뒤집었다는 뜻이라, 아래 표 전부가 못 믿을 값이 된다.
 	//
 	// 예외가 하나 있다: 詰み을 쥔 채 詰み을 유지한 수는 낙폭과 무관하게 통과한다
@@ -145,7 +145,7 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 
 	// ─── ② 판마다 얼마나 갈리나 ──────────────────────────────────────
 	//
-	// **임계치를 흔드는 것보다 이쪽이 크다.** 같은 상수에서 한 판은 0%이고 한 판은
+	// 임계치를 흔드는 것보다 이쪽이 크다. 같은 상수에서 한 판은 0%이고 한 판은
 	// 30%대다 — 개입률은 상수가 아니라 그 판이 정한다.
 	b.Reset()
 	b.WriteString("\n② 판마다 얼마나 갈리나\n")
@@ -170,8 +170,8 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 
 	// ─── ③ K ────────────────────────────────────────────────────────
 	//
-	// **물러진 수는 여기 못 들어온다.** 기록에 남은 것은 그 수의 delta 뿐이고 원본 cp
-	// 둘이 아니라, K를 바꾸면 다시 못 구한다(§39). 그래서 이 표는 **통과한 수만**
+	// 물러진 수는 여기 못 들어온다. 기록에 남은 것은 그 수의 delta 뿐이고 원본 cp
+	// 둘이 아니라, K를 바꾸면 다시 못 구한다(§39). 그래서 이 표는 통과한 수만
 	// 세는 하한이다 — K를 바꿔 새로 걸리는 수가 몇인가.
 	b.Reset()
 	b.WriteString("\n③ K — 통과한 수 중 몇 개가 새로 걸리나 (임계치 0.25 고정)\n")
@@ -221,8 +221,8 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 
 	// ─── ⑤ 갇힘 ─────────────────────────────────────────────────────
 	//
-	// 계단이 열리는 지점(game.HintPieceAfter · HintMoveAfter)의 근거다. **같은 국면에서
-	// 연속으로 몇 번 물러졌나**를 세면 그 문이 실제로 몇 번 열렸는지가 그대로 나온다.
+	// 계단이 열리는 지점(game.HintPieceAfter · HintMoveAfter)의 근거다. 같은 국면에서
+	// 연속으로 몇 번 물러졌나를 세면 그 문이 실제로 몇 번 열렸는지가 그대로 나온다.
 	b.Reset()
 	b.WriteString("\n⑤ 갇힘 — 같은 국면에서 연속으로 몇 번 물러졌나\n")
 	b.WriteString("**평가치가 없는 판까지 전부 센다.** 계단은 cp를 안 쓴다.\n\n")
@@ -273,7 +273,7 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 }
 
 // sample 은 사람의 착수 시도 하나다. 물러진 것과 통과한 것을 같은 자리에 담는다 —
-// **개입률의 분모가 그 둘의 합**이고, 한쪽만 세면 비율이 아니라 개수가 된다.
+// 개입률의 분모가 그 둘의 합이고, 한쪽만 세면 비율이 아니라 개수가 된다.
 type sample struct {
 	game     int64
 	ply      int
@@ -281,7 +281,7 @@ type sample struct {
 	fired    bool
 	category string
 
-	// bestCp·afterCp 는 **통과한 수에만** 있다. 물러진 수는 원본 cp가 안 남는다(§39).
+	// bestCp·afterCp 는 통과한 수에만 있다. 물러진 수는 원본 cp가 안 남는다(§39).
 	bestCp, afterCp int
 	hasPair         bool
 }
@@ -292,9 +292,9 @@ type scoredGame struct {
 }
 
 // retriesPerPly 는 手数마다 몇 번 물러졌는지다. 그 수가 곧 그 국면에서 갇힘 계수가
-// 올라간 높이이고, `game.HintPieceAfter`·`HintMoveAfter` 가 열렸는지를 정한다.
+// 올라간 높이이고, game.HintPieceAfter·HintMoveAfter 가 열렸는지를 정한다.
 //
-// **평가치를 안 본다.** 개입 행만 있으면 되므로 재채점이 안 되는 판에서도 나온다.
+// 평가치를 안 본다. 개입 행만 있으면 되므로 재채점이 안 되는 판에서도 나온다.
 func retriesPerPly(rec store.GameRecord) map[int]int {
 	if len(rec.Interventions) == 0 {
 		return nil
@@ -306,7 +306,7 @@ func retriesPerPly(rec store.GameRecord) map[int]int {
 	return per
 }
 
-// bandRow 는 한 판에서 **상대가 두고 넘겨준** 국면들의 사람 관점 cp다.
+// bandRow 는 한 판에서 상대가 두고 넘겨준 국면들의 사람 관점 cp다.
 type bandRow struct {
 	game int64
 	cps  []int
@@ -321,7 +321,7 @@ const mateCp = 30000
 
 // rescore 는 한 판의 기록에서 사람의 착수 시도를 전부 되살린다.
 //
-// **엔진을 다시 안 돌린다.** `eval_cp` 에 남은 것이 판정이 그때 손에 들고 있던 값
+// 엔진을 다시 안 돌린다. eval_cp 에 남은 것이 판정이 그때 손에 들고 있던 값
 // 그대로이기 때문이고(§26), 그것이 이 재채점이 성립하는 유일한 이유다.
 //
 //	사람의 N수     BestCp  = eval_cp[N-1]   (착수 전 국면 = 직전 상대 수 뒤)
@@ -367,7 +367,7 @@ func rescore(rec store.GameRecord) (samples []sample, band bandRow, ok bool) {
 		})
 	}
 
-	// 물러진 수. **원본 cp가 없다** — 남은 것은 그때 K=600으로 구한 delta 뿐이다.
+	// 물러진 수. 원본 cp가 없다 — 남은 것은 그때 K=600으로 구한 delta 뿐이다.
 	for _, iv := range rec.Interventions {
 		samples = append(samples, sample{
 			game: rec.ID, ply: iv.Ply,
@@ -382,7 +382,7 @@ func rescore(rec store.GameRecord) (samples []sample, band bandRow, ok bool) {
 // perspective 는 저장된 先手 관점 cp를 사람 관점으로 옮기는 부호와, 사람이 홀수 手数를
 // 두는가를 준다.
 //
-// 시작 국면의 수번을 본다 — 평수면 先手지만 `start_sfen` 이 다른 국면일 수 있다.
+// 시작 국면의 수번을 본다 — 평수면 先手지만 start_sfen 이 다른 국면일 수 있다.
 func perspective(rec store.GameRecord) (sign int, humanOdd bool) {
 	startBlack := true
 	if f := strings.Fields(rec.StartSFEN); len(f) >= 2 {

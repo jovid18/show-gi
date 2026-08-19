@@ -14,7 +14,7 @@ export interface Resumable {
 /**
  * 두다 만 판이 있는가.
  *
- * **한 번만 묻는다.** 이 물음이 뜻을 갖는 것은 **문서가 새로 열린 순간**뿐이다 — 새로고침과
+ * 한 번만 묻는다. 이 물음이 뜻을 갖는 것은 문서가 새로 열린 순간뿐이다 — 새로고침과
  * 브라우저 종료가 판을 끊는 유일한 길이고(탭을 옮기는 것은 대국 화면을 감추기만 한다,
  * `App.tsx`), 그 둘은 어느 쪽이든 새 문서로 돌아온다. 그 뒤로 이 값이 바뀌는 자리는
  * 사람이 답하는 것 하나뿐이다.
@@ -33,7 +33,7 @@ export function useResumable(): Resumable {
 
   const decline = useCallback(() => {
     setGame((prev) => {
-      // **답을 안 기다리고 카드를 접는다.** 실패의 결과는 「다음에 한 번 더 물어본다」
+      // 답을 안 기다리고 카드를 접는다. 실패의 결과는 「다음에 한 번 더 물어본다」
       // 뿐이라(protocol/resume.ts), 그것 때문에 시작 화면을 붙들지 않는다.
       if (prev) declineResume(prev.id);
       return null;

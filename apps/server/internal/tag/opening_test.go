@@ -15,7 +15,7 @@ func tradedBishops(ss ...square) shogi.Position {
 	return pos
 }
 
-// **빈 판은 角換わり가 아니다.** 「판에 角이 없다」만 보면 駒를 몇 개 놓은 국면이 전부
+// 빈 판은 角換わり가 아니다. 「판에 角이 없다」만 보면 駒를 몇 개 놓은 국면이 전부
 // 角換わり가 된다 — 없는 것과 交換된 것을 구별하지 못한다. 실제로 그렇게 떴다.
 func TestAnEmptyBoardIsNotABishopTrade(t *testing.T) {
 	if bishopsTraded(place(shogi.Black)) {
@@ -60,7 +60,7 @@ func TestOpeningPrefersTheNarrowerName(t *testing.T) {
 				Pos: tradedBishops(), Color: shogi.Black,
 				PlayerMoves: tc.mine, OpponentMoves: tc.theirs,
 			})
-			// 戦型은 전법과 **다른 축**이라 둘이 함께 나온다. 戦型 칸만 본다.
+			// 戦型은 전법과 다른 축이라 둘이 함께 나온다. 戦型 칸만 본다.
 			opening, ok := ofKind(got, KindOpening)
 			if !ok || opening.Code != tc.wantCode {
 				t.Fatalf("%s 를 기대했는데 %v", tc.wantCode, codes(got))
@@ -69,7 +69,7 @@ func TestOpeningPrefersTheNarrowerName(t *testing.T) {
 	}
 }
 
-// 相振り飛車는 **양쪽이 다** 振ったときだけ. 角은 交換되지 않은 국면으로 재서
+// 相振り飛車는 양쪽이 다 振ったときだけ. 角은 交換되지 않은 국면으로 재서
 // 角交換振り飛車와 섞이지 않게 한다.
 func TestAiFuribishaNeedsBothSidesToSwing(t *testing.T) {
 	both := Detect(Input{
@@ -91,7 +91,7 @@ func TestAiFuribishaNeedsBothSidesToSwing(t *testing.T) {
 	}
 }
 
-// **袖飛車·右四間飛車는 振り飛車가 아니다.** 飛를 옮기지만 居飛車系라, 相振り飛車를
+// 袖飛車·右四間飛車는 振り飛車가 아니다. 飛를 옮기지만 居飛車系라, 相振り飛車를
 // 셀 때 그 둘을 세면 「양쪽이 振った」가 거짓이 된다.
 func TestIbishaFamilyDoesNotCountAsFuribisha(t *testing.T) {
 	for _, usi := range []string{"2h3h", "2h4h"} {

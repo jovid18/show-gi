@@ -11,7 +11,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
 )
 
-// 囲い 이름이 **몇 手 동안 살아 있었나**를 잰다.
+// 囲い 이름이 몇 手 동안 살아 있었나를 잰다.
 //
 //	SHOWGI_KIFU_SCAN=1 SHOWGI_KIFU_GAMES=317 go test ./internal/kifu/ -run ScanCastleSpans -v
 type segment struct {

@@ -122,7 +122,7 @@ var pieceComplement = map[PieceType]int{
 //
 // 밖에서 들어온 SFEN을 그대로 엔진에 넘기지 않기 위한 검사다 — 말이 넘치는 판에 엔진이
 // 무엇을 돌려줄지는 정의되어 있지 않다.
-// **"부족"은 검사하지 않는다** — 詰将棋처럼 말이 빠진 국면이 정상인 경우가 있다.
+// "부족"은 검사하지 않는다 — 詰将棋처럼 말이 빠진 국면이 정상인 경우가 있다.
 func (pos Position) InventoryExcess() map[PieceType]int {
 	count := map[PieceType]int{}
 	for _, p := range pos.Board {

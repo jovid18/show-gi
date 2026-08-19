@@ -45,7 +45,7 @@ func TestWorseLossNeverGivesAStrongerName(t *testing.T) {
 }
 
 // 밖에서 온 값이 척도를 벗어나게 하면 안 된다 — 저장해 둔 값이 DB에서 오고(store),
-// `NewTrackFrom` 과 같은 이유로 여기서도 자른다.
+// NewTrackFrom 과 같은 이유로 여기서도 자른다.
 func TestOutOfRangeLossStaysOnTheScale(t *testing.T) {
 	for _, loss := range []float64{-3, -0.001, 1.001, 42} {
 		got, ok := RankOf(Estimate{Loss: loss, Samples: MinSamples})

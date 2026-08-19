@@ -9,7 +9,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
 )
 
-// stubOpponent 는 불렸는지만 기억한다. 북이 **손을 놓았는가**가 이 파일의 관심사라,
+// stubOpponent 는 불렸는지만 기억한다. 북이 손을 놓았는가가 이 파일의 관심사라,
 // 안쪽이 무엇을 고르는지는 여기서 볼 것이 아니다.
 type stubOpponent struct {
 	called int
@@ -126,7 +126,7 @@ func TestBookYieldsWhenPositionRejectsIt(t *testing.T) {
 }
 
 // TestBookHandsOverWhenExhausted 는 수순을 다 두면 안쪽 상대가 이어받는지다.
-// **진형을 다 짜고 나서가 이 기능의 목적지다** — 그 뒤로는 밴드 제어가 대국을 끌고 간다.
+// 진형을 다 짜고 나서가 이 기능의 목적지다 — 그 뒤로는 밴드 제어가 대국을 끌고 간다.
 func TestBookHandsOverWhenExhausted(t *testing.T) {
 	opening := mustFind(t, "nakabisha")
 	inner := &stubOpponent{move: "1c1d"}
@@ -183,8 +183,8 @@ func TestBookHandsOverWhenExhausted(t *testing.T) {
 	}
 }
 
-// TestBookForwardsAdaptsToSkill 은 강함 눈금이 살아 있는지다. **진형을 고른 판에서 눈금이
-// 사라지는 것이 여기서 갈린다** — 화면은 추정기 유무가 아니라 이 성질을 본다(§47).
+// TestBookForwardsAdaptsToSkill 은 강함 눈금이 살아 있는지다. 진형을 고른 판에서 눈금이
+// 사라지는 것이 여기서 갈린다 — 화면은 추정기 유무가 아니라 이 성질을 본다(§47).
 func TestBookForwardsAdaptsToSkill(t *testing.T) {
 	o := mustFind(t, "shikenbisha")
 	for _, adapts := range []bool{true, false} {

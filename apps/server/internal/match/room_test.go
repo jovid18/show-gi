@@ -11,9 +11,9 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// 이 파일이 지키는 것은 **방에 누가 들어올 수 있나** 하나다. 룰과 시계는 table_test.go.
+// 이 파일이 지키는 것은 방에 누가 들어올 수 있나 하나다. 룰과 시계는 table_test.go.
 
-// testClock 은 **잠긴** 가짜 시계다. `Hub` 가 만료를 훑는 goroutine 을 하나 띄우므로
+// testClock 은 잠긴 가짜 시계다. Hub 가 만료를 훑는 goroutine 을 하나 띄우므로
 // (sweepLoop) 그냥 변수를 밀면 그쪽 읽기와 경합한다.
 type testClock struct {
 	mu sync.Mutex
@@ -47,7 +47,7 @@ var (
 	carol = Player{UserID: 3, Name: "キャロル"}
 )
 
-// 방 id 는 **훑어볼 수 없어야 한다.** 연번이면 로그인한 아무나 남의 방을 열 수 있고,
+// 방 id 는 훑어볼 수 없어야 한다. 연번이면 로그인한 아무나 남의 방을 열 수 있고,
 // 그러면 정원 2명이라는 규칙이 「먼저 훑은 사람이 이긴다」가 된다.
 func TestRoomIDIsUnguessable(t *testing.T) {
 	h := newTestHub(t)
@@ -55,7 +55,7 @@ func TestRoomIDIsUnguessable(t *testing.T) {
 	seen := map[string]bool{}
 	for range 500 {
 		room := h.Create(alice, shogi.Black)
-		// 영숫자 8자다. 짧아지면 엔트로피가 줄어든 것이고, `-`·`_` 가 섞이면
+		// 영숫자 8자다. 짧아지면 엔트로피가 줄어든 것이고, -·_ 가 섞이면
 		// 손으로 옮겨 적는 자리가 틀린다(roomIDAlphabet).
 		if len(room.ID) != roomIDLen {
 			t.Fatalf("room id %q is %d chars, want %d", room.ID, len(room.ID), roomIDLen)
@@ -70,7 +70,7 @@ func TestRoomIDIsUnguessable(t *testing.T) {
 	}
 }
 
-// 없는 방과 남의 방이 **같은 답**이어야 한다. 갈리면 그 차이만으로 「그 방은 있다」를
+// 없는 방과 남의 방이 같은 답이어야 한다. 갈리면 그 차이만으로 「그 방은 있다」를
 // 알 수 있고, 그게 곧 훑어보기의 시작이다.
 func TestUnknownAndFullRoomsLookTheSame(t *testing.T) {
 	h := newTestHub(t)
@@ -94,7 +94,7 @@ func TestUnknownAndFullRoomsLookTheSame(t *testing.T) {
 	}
 }
 
-// 자리는 **한 번 정해지면 안 바뀐다.** 다시 들어와도 같은 쪽이라야 끊겼다 붙는 사람이
+// 자리는 한 번 정해지면 안 바뀐다. 다시 들어와도 같은 쪽이라야 끊겼다 붙는 사람이
 // 남의 자리에 앉지 않는다.
 func TestSeatsAreSticky(t *testing.T) {
 	h := newTestHub(t)
@@ -116,7 +116,7 @@ func TestSeatsAreSticky(t *testing.T) {
 	}
 }
 
-// **혼자 두는 판이 생기면 안 된다.** 방을 만든 사람이 자기 링크를 열어도 손님 자리는
+// 혼자 두는 판이 생기면 안 된다. 방을 만든 사람이 자기 링크를 열어도 손님 자리는
 // 안 찬다 — 차면 그 방은 그 사람 혼자 先手·後手를 다 잡은 판이 된다.
 func TestHostCannotTakeTheGuestSeat(t *testing.T) {
 	h := newTestHub(t)
@@ -132,7 +132,7 @@ func TestHostCannotTakeTheGuestSeat(t *testing.T) {
 	}
 }
 
-// 대국은 **둘이 동시에 붙어 있을 때** 시작된다(journal §83).
+// 대국은 둘이 동시에 붙어 있을 때 시작된다(journal §83).
 func TestTableStartsOnlyWhenBothAreConnected(t *testing.T) {
 	h := newTestHub(t)
 
@@ -168,7 +168,7 @@ func TestTableStartsOnlyWhenBothAreConnected(t *testing.T) {
 	detachAlice()
 }
 
-// **아무도 Hub 를 안 건드려도 만료가 걷힌다.** 방을 만들고 링크를 보낸 사람은 `Closed` 에
+// 아무도 Hub 를 안 건드려도 만료가 걷힌다. 방을 만들고 링크를 보낸 사람은 Closed 에
 // 서 있을 뿐 Hub 를 부르지 않으므로, 훑는 계기가 남의 요청뿐이면 그 화면은 만료가 지나도
 // 이미 죽은 링크를 계속 광고한다(journal §83).
 func TestAWaitingHostLearnsTheRoomExpiredWithoutAnyoneElse(t *testing.T) {
@@ -181,7 +181,7 @@ func TestAWaitingHostLearnsTheRoomExpiredWithoutAnyoneElse(t *testing.T) {
 	room := h.Create(alice, shogi.Black)
 	clock.advance(OpenTTL + time.Minute)
 
-	// **여기서 Hub 를 안 부른다.** 부르면 그 호출이 훑어서 이 테스트가 무의미해진다.
+	// 여기서 Hub 를 안 부른다. 부르면 그 호출이 훑어서 이 테스트가 무의미해진다.
 	select {
 	case <-room.Closed():
 	case <-time.After(2 * time.Second):
@@ -189,7 +189,7 @@ func TestAWaitingHostLearnsTheRoomExpiredWithoutAnyoneElse(t *testing.T) {
 	}
 }
 
-// 아무도 안 들어온 방은 만료된다. **링크가 곧 열쇠라 오래 사는 열쇠를 안 둔다.**
+// 아무도 안 들어온 방은 만료된다. 링크가 곧 열쇠라 오래 사는 열쇠를 안 둔다.
 func TestOpenRoomExpires(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -206,7 +206,7 @@ func TestOpenRoomExpires(t *testing.T) {
 	if h.Rooms() != 0 {
 		t.Fatalf("the expired room is still held: %d", h.Rooms())
 	}
-	// **기다리던 연결이 그것을 알아야 한다**(journal §83).
+	// 기다리던 연결이 그것을 알아야 한다(journal §83).
 	select {
 	case <-room.Closed():
 	default:
@@ -214,7 +214,7 @@ func TestOpenRoomExpires(t *testing.T) {
 	}
 }
 
-// 상한에 걸려 밀려난 방도 같다 — **걷히는 자리가 둘이라 둘 다 알려야 한다.**
+// 상한에 걸려 밀려난 방도 같다 — 걷히는 자리가 둘이라 둘 다 알려야 한다.
 func TestARoomDroppedForTheCapTellsItsWaiters(t *testing.T) {
 	h := newTestHub(t)
 
@@ -230,7 +230,7 @@ func TestARoomDroppedForTheCapTellsItsWaiters(t *testing.T) {
 	}
 }
 
-// **손님이 앉은 방은 상한에 안 걸린다.** 걷어가면 그 손님은 영영 기다리고, 방 주인은
+// 손님이 앉은 방은 상한에 안 걸린다. 걷어가면 그 손님은 영영 기다리고, 방 주인은
 // 자기 방에 다시 못 들어간다.
 func TestARoomWithASeatedGuestSurvivesTheCap(t *testing.T) {
 	h := newTestHub(t)
@@ -248,7 +248,7 @@ func TestARoomWithASeatedGuestSurvivesTheCap(t *testing.T) {
 	}
 }
 
-// **한 사람이 방을 무한히 만들 수 없다.** 방은 프로세스 메모리에 있고 만료가 30분이라,
+// 한 사람이 방을 무한히 만들 수 없다. 방은 프로세스 메모리에 있고 만료가 30분이라,
 // 상한이 없으면 로그인한 사람 하나가 그동안 계속 쌓을 수 있다.
 func TestOpenRoomsPerHostAreCapped(t *testing.T) {
 	h := newTestHub(t)
@@ -262,7 +262,7 @@ func TestOpenRoomsPerHostAreCapped(t *testing.T) {
 	if h.Rooms() != openRoomsPerHost {
 		t.Fatalf("the hub holds %d rooms, want %d", h.Rooms(), openRoomsPerHost)
 	}
-	// **마지막 것들이 산다** — 방을 또 만든 사람이 원하는 것은 마지막 링크다.
+	// 마지막 것들이 산다 — 방을 또 만든 사람이 원하는 것은 마지막 링크다.
 	for _, id := range ids[len(ids)-openRoomsPerHost:] {
 		if _, err := h.Peek(id, alice.UserID); err != nil {
 			t.Fatalf("the newest rooms should survive, but %s is gone: %v", id, err)
@@ -273,7 +273,7 @@ func TestOpenRoomsPerHostAreCapped(t *testing.T) {
 	}
 }
 
-// **시작한 판은 상한에 안 걸린다.** 걷어가면 두는 중인 두 사람이 그 자리에서 판을 잃는다.
+// 시작한 판은 상한에 안 걸린다. 걷어가면 두는 중인 두 사람이 그 자리에서 판을 잃는다.
 func TestAStartedGameIsNeverDroppedForTheCap(t *testing.T) {
 	h := newTestHub(t)
 
@@ -296,10 +296,10 @@ func TestAStartedGameIsNeverDroppedForTheCap(t *testing.T) {
 	}
 }
 
-// **걷힌 방에서는 대국을 시작하지 않는다.**
+// 걷힌 방에서는 대국을 시작하지 않는다.
 //
-// `Enter` 와 `Connect` 가 잠금을 따로 잡으므로 그 사이에 방이 걷힐 수 있다. 그때 판을
-// 시작하면 `ready` 와 `closed` 가 둘 다 닫히고, 두 handler 의 select 가 무작위로 갈려서
+// Enter 와 Connect 가 잠금을 따로 잡으므로 그 사이에 방이 걷힐 수 있다. 그때 판을
+// 시작하면 ready 와 closed 가 둘 다 닫히고, 두 handler 의 select 가 무작위로 갈려서
 // 한 사람은 판에 앉고 다른 사람은 「期限が切れました」를 본다 — 그 판은 60초 뒤 시간패로
 // 끝나고 아무도 못 본 대국의 행 둘이 남는다.
 func TestADroppedRoomNeverStartsATable(t *testing.T) {
@@ -326,7 +326,7 @@ func TestADroppedRoomNeverStartsATable(t *testing.T) {
 		t.Fatal("the room was swept without telling its waiters")
 	}
 
-	// 남은 한쪽이 이제 붙는다. **대국이 시작되면 안 된다.**
+	// 남은 한쪽이 이제 붙는다. 대국이 시작되면 안 된다.
 	h.Connect(room, shogi.Black)
 	if room.Table() != nil {
 		t.Fatal("a table was started in a room that had already been dropped")

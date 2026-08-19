@@ -9,7 +9,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
 )
 
-// chaseOpponent 는 **어느 문으로 불렸는지**를 남기는 상대다.
+// chaseOpponent 는 어느 문으로 불렸는지를 남기는 상대다.
 //
 // 고른 수로는 못 가른다 — 조절된 수와 최선수가 같은 국면이 흔하고, 그러면 조절이
 // 안 꺼져도 테스트가 초록으로 남는다.
@@ -63,7 +63,7 @@ func TestOpponentPlaysBestWhileThePlayerHasAMate(t *testing.T) {
 	}
 	defer cancel()
 
-	// **게이지가 답할 때까지 기다린다.** 안 기다리면 「모르니까 조절을 그대로 둔다」쪽으로
+	// 게이지가 답할 때까지 기다린다. 안 기다리면 「모르니까 조절을 그대로 둔다」쪽으로
 	// 떨어져, 조절이 안 꺼진 것인지 아직 모르는 것인지가 안 갈린다.
 	waitFor(t, ch, func(s Snapshot) bool { return s.MateHeat > 0 }, "게이지가 켜지기")
 
@@ -102,7 +102,7 @@ func TestOpponentKeepsAdaptingWhenTheMateIsFar(t *testing.T) {
 	}
 }
 
-// 게이지가 없는 판(solver 미배선)에서는 **모르는 것**이라 조절을 그대로 둔다.
+// 게이지가 없는 판(solver 미배선)에서는 모르는 것이라 조절을 그대로 둔다.
 func TestOpponentKeepsAdaptingWithoutAGauge(t *testing.T) {
 	opp := &chaseOpponent{moves: []string{"3c3d"}}
 	s := newSession(t, Config{Opponent: opp, HumanColor: shogi.Black})
@@ -123,7 +123,7 @@ func TestOpponentKeepsAdaptingWithoutAGauge(t *testing.T) {
 	}
 }
 
-// 인터페이스를 안 만족하는 상대에게도 **대국은 그대로 돈다.** 詰み 연습이 안 되는 것과
+// 인터페이스를 안 만족하는 상대에게도 대국은 그대로 돈다. 詰み 연습이 안 되는 것과
 // 대국이 멈추는 것 중에서는 앞이 낫다(chooseBest).
 func TestChooseBestFallsBackToTheOrdinaryDoor(t *testing.T) {
 	plain := &scriptedOpponent{moves: []string{"3c3d"}}

@@ -12,9 +12,9 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
 )
 
-// 전법 태그가 붙은 **실제 사례**를 사람이 읽을 수 있게 떨어뜨린다.
+// 전법 태그가 붙은 실제 사례를 사람이 읽을 수 있게 떨어뜨린다.
 //
-// 숫자로는 여기까지가 끝이다 — 「四間飛車가 48번 붙었고 중앙 8수」는 **맞는지**를 말하지
+// 숫자로는 여기까지가 끝이다 — 「四間飛車가 48번 붙었고 중앙 8수」는 맞는지를 말하지
 // 않는다. 라벨이 없으므로 결국 수순을 보고 판단해야 하고, 그러려면 수순이 日本語 표기로
 // 나와 있어야 한다.
 //
@@ -55,7 +55,7 @@ func TestDumpFormationCases(t *testing.T) {
 			continue
 		}
 
-		// 日本語 표기는 **착수 전 국면**에서 만들어야 한다(session.apply 와 같다).
+		// 日本語 표기는 착수 전 국면에서 만들어야 한다(session.apply 와 같다).
 		var ja []string
 		prevTo := -1
 		moves := map[shogi.Color][]string{}
@@ -101,7 +101,7 @@ func TestDumpFormationCases(t *testing.T) {
 		}
 	}
 
-	// **엣지 하나에 파일 하나.** 서브에이전트 하나가 케이스 하나만 보게 하려는 것이라,
+	// 엣지 하나에 파일 하나. 서브에이전트 하나가 케이스 하나만 보게 하려는 것이라,
 	// 태그별로 묶으면 안 된다 — 묶으면 「이 태그는 대체로 맞다」 같은 뭉뚱그린 답이 온다.
 	codes := make([]string, 0, len(byCode))
 	for c := range byCode {

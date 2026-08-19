@@ -130,12 +130,12 @@ func TestParseScoreBoundKeepsExactPv(t *testing.T) {
 	}
 }
 
-// **후보 순서는 여기 한 자리에서 나온다.** 캐시에 쌓는 목록과 개입 문장이 말하는 상대의
+// 후보 순서는 여기 한 자리에서 나온다. 캐시에 쌓는 목록과 개입 문장이 말하는 상대의
 // 최선수가 이 순서를 같이 보므로, 갈리면 한 국면의 최선수가 화면에서 둘이 된다(§58).
 func TestRankedPutsTheHighestScoreFirst(t *testing.T) {
 	var res SearchResult
-	// **2위가 먼저 왔다.** 그러면 1위 자리가 빈 줄로 남는다 — 실제로 벌어지는 순서다
-	// (위 TestParseScoreBoundKeepsExactPv 의 `res2` 가 그 모양이다).
+	// 2위가 먼저 왔다. 그러면 1위 자리가 빈 줄로 남는다 — 실제로 벌어지는 순서다
+	// (위 TestParseScoreBoundKeepsExactPv 의 res2 가 그 모양이다).
 	parseScore("info depth 12 multipv 2 score cp 120 pv 2g2f 8c8d", &res)
 	parseScore("info depth 12 multipv 1 score cp 300 pv 7g7f 3c3d", &res)
 
@@ -147,7 +147,7 @@ func TestRankedPutsTheHighestScoreFirst(t *testing.T) {
 		t.Errorf("순서 = %s %s, want 7g7f 2g2f", got[0].Move, got[1].Move)
 	}
 
-	// 빈 순위만 있으면 후보가 없다. **수 없는 줄을 최선수라고 부르지 않는다.**
+	// 빈 순위만 있으면 후보가 없다. 수 없는 줄을 최선수라고 부르지 않는다.
 	var empty SearchResult
 	parseScore("info depth 12 multipv 3 score cp 10 pv 1g1f", &empty)
 	if got := empty.Ranked(); len(got) != 1 || got[0].Move != "1g1f" {
@@ -156,7 +156,7 @@ func TestRankedPutsTheHighestScoreFirst(t *testing.T) {
 }
 
 // 같은 수가 두 순위에 앉는다 — 순위 칸은 깊이마다 덮어써지는데, 마지막 iteration에서 안 온
-// 순위는 **얕은 깊이의 줄**을 그대로 들고 남기 때문이다. 그대로 내보내면 검토 화면의 후보
+// 순위는 얕은 깊이의 줄을 그대로 들고 남기 때문이다. 그대로 내보내면 검토 화면의 후보
 // 셋에 같은 수가 두 번 서고, 그 목록은 화면에서 지워지지 않는 줄을 하나 남긴다(§87).
 func TestRankedDropsTheSameMoveTwice(t *testing.T) {
 	var res SearchResult
@@ -172,7 +172,7 @@ func TestRankedDropsTheSameMoveTwice(t *testing.T) {
 	if got[0].Move != "4f5g" || got[1].Move != "8g8f" {
 		t.Fatalf("순서 = %s %s, want 4f5g 8g8f", got[0].Move, got[1].Move)
 	}
-	// 남는 것은 **깊은 쪽**이다. 얕은 값이 남으면 낙폭이 그만큼 어긋난다.
+	// 남는 것은 깊은 쪽이다. 얕은 값이 남으면 낙폭이 그만큼 어긋난다.
 	if got[1].Depth != 12 || got[1].ScoreCp != 288 {
 		t.Fatalf("얕은 줄이 남았다: %+v", got[1])
 	}
@@ -283,7 +283,7 @@ func TestSearchCancelSwallowsBestmove(t *testing.T) {
 // 엔진마다 info 라인의 필드 순서와 잡토큰이 다르고, 거기서 깨지면 조용히 깨진다.
 //
 // SHOWGI_USI_CMD 가 없으면 건너뛴다 — CI 러너에는 엔진이 없다.
-// **엔진을 갈아끼울 때(YaneuraOu) 이 테스트가 첫 관문이다:**
+// 엔진을 갈아끼울 때(YaneuraOu) 이 테스트가 첫 관문이다:
 //
 //	SHOWGI_USI_CMD=fairy-stockfish go test ./internal/usi/ -run RealEngine -v
 func TestRealEngine(t *testing.T) {
@@ -355,7 +355,7 @@ func TestSearchCancelRestartsDeafEngine(t *testing.T) {
 	}
 }
 
-// 詰み 탐색의 세 응답을 전부 가른다. **timeout 을 "없음"으로 읽으면 안 된다** —
+// 詰み 탐색의 세 응답을 전부 가른다. timeout 을 "없음"으로 읽으면 안 된다 —
 // 있는 詰み을 놓친 채 종반 판정이 돈다.
 func TestSearchMateResponses(t *testing.T) {
 	e := newFake(t)

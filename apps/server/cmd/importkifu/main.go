@@ -1,4 +1,4 @@
-// Command importkifu 는 실 기보(KIF·CSA)를 **제품과 같은 경로**(엔진 → archive → store)로 다시 둬 DB에 남기는 오프라인 배치다.
+// Command importkifu 는 실 기보(KIF·CSA)를 제품과 같은 경로(엔진 → archive → store)로 다시 둬 DB에 남기는 오프라인 배치다.
 // 산출물은 태그 스캔과 K 실측(internal/kifu/calibrate_test.go)이 먹는 표본이라, 서버(cmd/api)는 이 프로그램을 부르지 않는다.
 package main
 

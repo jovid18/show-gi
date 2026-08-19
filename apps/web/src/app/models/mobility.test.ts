@@ -6,8 +6,8 @@ const directionsOf = (kind: string) => mobilityOf(kind).map((mark) => mark.direc
 const reachesOf = (kind: string) => new Set(mobilityOf(kind).map((mark) => mark.reach));
 
 describe('mobilityOf', () => {
-  // 이 파일이 지키는 것은 하나다 — **桂를 대각선 한 칸으로 그리지 않는다.**
-  // 한때 `nne` 를 `ne` 와 같은 격자 자리에 점으로 찍어서 판이 銀의 움직임을 가르쳤다.
+  // 이 파일이 지키는 것은 하나다 — 桂를 대각선 한 칸으로 그리지 않는다.
+  // `nne` 를 `ne` 와 같은 격자 자리에 찍으면 판이 銀의 움직임을 가르치게 된다.
   it('桂는 뛴다 — 격자 위의 점이 아니다', () => {
     expect(mobilityOf('N')).toEqual<Mark[]>([
       { reach: 'jump', direction: 'nne' },

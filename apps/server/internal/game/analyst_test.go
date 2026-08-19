@@ -6,7 +6,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// 反駁手順의 재료는 전부 룰 엔진에서 나온다. **엔진 없이 도는 테스트**여야 한다 —
+// 反駁手順의 재료는 전부 룰 엔진에서 나온다. 엔진 없이 도는 테스트여야 한다 —
 // 이 레포에서 제일 흔한 함정이 「환경변수가 없으면 조용히 skip 되고 초록으로 보인다」이고,
 // 화면에 그대로 나가는 표기가 거기 걸리면 안 된다(journal §15).
 
@@ -31,7 +31,7 @@ func TestRefutationLineRunsUntilTheDamageLands(t *testing.T) {
 	assertLine(t, line, want)
 }
 
-// **시작한 교환은 끝까지 보여준다.** `△同金` 만 그리면 金이 銀을 그냥 딴 것으로 읽히는데
+// 시작한 교환은 끝까지 보여준다. △同金 만 그리면 金이 銀을 그냥 딴 것으로 읽히는데
 // 실제로는 되따고 또 되딴다. 반쪽이 틀린 것보다 두 수 긴 편이 낫다.
 func TestRefutationLineShowsTheWholeExchange(t *testing.T) {
 	pv := []string{"4c5d", "5i5d", "8a5d", "1i2i"}
@@ -47,7 +47,7 @@ func TestRefutationLineShowsTheWholeExchange(t *testing.T) {
 }
 
 // 첫 수는 언제나 상대의 수다. 판정하는 것이 사람의 수이기 때문이고, 사람이 어느 색을
-// 잡았는지와 무관하다. 화면은 이 성질에 기대어 **첫 수만** 판에 긋는다.
+// 잡았는지와 무관하다. 화면은 이 성질에 기대어 첫 수만 판에 긋는다.
 func TestRefutationLineStartsWithTheOpponent(t *testing.T) {
 	line := refutationLine(exchangeSFEN, tookThePawn, []string{"4c5d"}, RefutationPlies, false).line
 	if len(line) != 1 || line[0].By != SideEngine {
@@ -55,7 +55,7 @@ func TestRefutationLineStartsWithTheOpponent(t *testing.T) {
 	}
 }
 
-// **길이는 국면이 정한다.** 角을 던지면 되따는 한 수로 이유가 끝나고, 거기에 수를
+// 길이는 국면이 정한다. 角을 던지면 되따는 한 수로 이유가 끝나고, 거기에 수를
 // 더 붙이면 그건 정보가 아니라 잡음이다. 사용자 피드백이 이 자리에서 나왔다.
 func TestRefutationLineStopsWhenTheFirstMovePunishes(t *testing.T) {
 	// 角交換을 유도해 두고 그 角을 그냥 던진다. 벌하는 수는 되따는 한 수뿐이다.
@@ -74,7 +74,7 @@ func TestRefutationLineStopsWhenTheFirstMovePunishes(t *testing.T) {
 	}
 }
 
-// 상한 안에서 아무 일도 안 일어나면 벌하는 첫 수만 남는다. **모르는 것을 길이로 메우지 않는다.**
+// 상한 안에서 아무 일도 안 일어나면 벌하는 첫 수만 남는다. 모르는 것을 길이로 메우지 않는다.
 func TestRefutationLineOnlyLooksAsFarAsTheLimit(t *testing.T) {
 	pv := []string{"5a4a", "1i2i", "4c5d"} // 따는 수가 상한 밖이다
 
@@ -85,7 +85,7 @@ func TestRefutationLineOnlyLooksAsFarAsTheLimit(t *testing.T) {
 	}
 }
 
-// **엔진 출력을 믿지 않는다.** 못 두는 수가 섞여 오면 거기서 끊는다 — 건너뛰고 이어
+// 엔진 출력을 믿지 않는다. 못 두는 수가 섞여 오면 거기서 끊는다 — 건너뛰고 이어
 // 붙이지 않는다. 뒤에 오는 수는 그 수를 둔 국면의 것이라, 이어 붙이면 없는 수순이 된다.
 func TestRefutationLineCutsAtAnUnplayableMove(t *testing.T) {
 	cases := map[string][]string{
@@ -127,13 +127,13 @@ const doubleCheckKifu = `▲7六歩 △5二玉 ▲6六歩 △4二銀 ▲2六歩 
 ▲同金 △同馬 ▲6四龍 △3九金 ▲5四歩 △3八金打 ▲2七玉 △2二玉
 ▲5一銀 △3二金 ▲5三歩成 △5七歩成`
 
-// 両王手는 **먹어서 풀 수 없다.** 플레이 테스트에서 「同銀으로 먹으면 되는 것 아닌가」가
+// 両王手는 먹어서 풀 수 없다. 플레이 테스트에서 「同銀으로 먹으면 되는 것 아닌가」가
 // 나온 국면이고, 그때 화면이 그 이유를 말하지 못했다(journal §20).
 //
-// ▲1七銀 뒤 △2八金은 金이 3八에서 나가면서 **4九馬의 대각선을 연다** — 金과 馬가 동시에
+// ▲1七銀 뒤 △2八金은 金이 3八에서 나가면서 4九馬의 대각선을 연다 — 金과 馬가 동시에
 // 王手라 玉을 움직일 수밖에 없다. 붉은 화살표 두 줄이 곧 그 사실이다.
 //
-// **엔진 없이 돈다.** 王手를 거는 말을 찾는 것은 룰 엔진의 일이고, 화면에 나가는 단언이라
+// 엔진 없이 돈다. 王手를 거는 말을 찾는 것은 룰 엔진의 일이고, 화면에 나가는 단언이라
 // 환경변수가 없으면 조용히 skip 되는 자리에 두지 않는다.
 func TestCheckLinesFindsBothCheckersOfADoubleCheck(t *testing.T) {
 	usis, _ := kifuToUSI(t, doubleCheckKifu)
@@ -175,7 +175,7 @@ func TestTrimRefutation(t *testing.T) {
 		"몇 수 앞에서 벌어진다":   {[]refutationStep{quiet, quiet, takes(30), quiet}, 3},
 		"같은 칸의 교환은 끝까지":  {[]refutationStep{quiet, takes(30), takes(30), takes(30), quiet}, 4},
 		"다른 칸이면 별개 교환이다": {[]refutationStep{takes(30), takes(41), takes(41)}, 1},
-		// **王手는 혼자 서지 못한다.** 응수가 강제라, 답을 빼면 「먹으면 되지 않나」가 된다.
+		// 王手는 혼자 서지 못한다. 응수가 강제라, 답을 빼면 「먹으면 되지 않나」가 된다.
 		"王手는 응수까지":      {[]refutationStep{check, quiet, quiet}, 2},
 		"連続王手는 이어지는 동안": {[]refutationStep{check, takes(30), check, quiet, quiet}, 4},
 		"조용한 수뿐이면 첫 수만": {[]refutationStep{quiet, quiet, quiet}, 1},
@@ -190,7 +190,7 @@ func TestTrimRefutation(t *testing.T) {
 	}
 }
 
-// assertLine 은 수와 표기를 견준다. **국면은 값으로 안 박는다** — SFEN 문자열을 테스트에
+// assertLine 은 수와 표기를 견준다. 국면은 값으로 안 박는다 — SFEN 문자열을 테스트에
 // 적어두면 룰 엔진이 아니라 그 문자열을 지키게 된다. 있는지와 매 수 달라지는지만 본다.
 func assertLine(t *testing.T, got, want []RefutationMove) {
 	t.Helper()

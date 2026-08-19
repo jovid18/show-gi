@@ -20,15 +20,15 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 대인전 한 판을 **끝까지** 돌린다 — 방을 만들고, 둘이 붙고, 두고, 投了하고, 기록이
+// 대인전 한 판을 끝까지 돌린다 — 방을 만들고, 둘이 붙고, 두고, 投了하고, 기록이
 // 양쪽에 남는 것까지.
 //
-// **진짜 DB가 필요하다.** 한 판이 `games` 행 두 개로 남는다는 것이 이 기능의 기록 설계
+// 진짜 DB가 필요하다. 한 판이 games 행 두 개로 남는다는 것이 이 기능의 기록 설계
 // 전부인데(012_match_games.sql), 그건 가짜 store 로는 확인할 수 없다.
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
 //
-// **엔진이 필요 없다.** 대인전은 룰 엔진과 시계뿐이라(`internal/match`) 이 테스트가
+// 엔진이 필요 없다. 대인전은 룰 엔진과 시계뿐이라(internal/match) 이 테스트가
 // 엔진 없이 도는 것 자체가 그 사실의 증거다.
 func TestTwoPeoplePlayAMatch(t *testing.T) {
 	url := os.Getenv("SHOWGI_TEST_DATABASE_URL")
@@ -41,7 +41,7 @@ func TestTwoPeoplePlayAMatch(t *testing.T) {
 	}
 	t.Cleanup(st.Close)
 
-	// 두 사람. **진짜 행이어야 한다** — `games.user_id` 가 `users` 를 참조한다.
+	// 두 사람. 진짜 행이어야 한다 — games.user_id 가 users 를 참조한다.
 	alice, err := st.UpsertUser(t.Context(), "test", "match-alice", "アリス")
 	if err != nil {
 		t.Fatalf("upsert alice: %v", err)
@@ -96,13 +96,13 @@ func TestTwoPeoplePlayAMatch(t *testing.T) {
 	aliceWS := dialMatch(t, wsURL, aliceCookie)
 	bobWS := dialMatch(t, wsURL, bobCookie)
 
-	// 방을 만든 사람은 붙자마자 「기다리는 중」을 받는다. **판보다 먼저 온다** —
+	// 방을 만든 사람은 붙자마자 「기다리는 중」을 받는다. 판보다 먼저 온다 —
 	// 초대 링크를 그릴 것이 그것뿐이다.
 	if got := readMatch(t, aliceWS); got.Type != "waiting" {
 		t.Fatalf("alice's first frame is %q, want waiting", got.Type)
 	}
 
-	// 손님이 붙으면 그 자리에서 대국이 시작된다. **`waiting` 뒤에 `snapshot` 이 온다.**
+	// 손님이 붙으면 그 자리에서 대국이 시작된다. waiting 뒤에 snapshot 이 온다.
 	first := readUntilSnapshot(t, aliceWS)
 	if first.YourColor != "b" || !first.YourTurn {
 		t.Fatalf("alice is %s and yourTurn=%v, want b/true", first.YourColor, first.YourTurn)
@@ -118,7 +118,7 @@ func TestTwoPeoplePlayAMatch(t *testing.T) {
 	if bobFirst.YourColor != "w" || bobFirst.YourTurn {
 		t.Fatalf("bob is %s and yourTurn=%v, want w/false", bobFirst.YourColor, bobFirst.YourTurn)
 	}
-	// **상대 차례에는 합법수를 안 준다.** 주면 상대의 수를 화면에서 훑어볼 수 있다.
+	// 상대 차례에는 합법수를 안 준다. 주면 상대의 수를 화면에서 훑어볼 수 있다.
 	if len(bobFirst.LegalMoves) != 0 {
 		t.Fatalf("bob got %d legal moves on alice's turn", len(bobFirst.LegalMoves))
 	}
@@ -130,7 +130,7 @@ func TestTwoPeoplePlayAMatch(t *testing.T) {
 	if !afterBob.YourTurn || len(afterBob.LegalMoves) == 0 {
 		t.Fatalf("bob is not to move after alice played: yourTurn=%v n=%d", afterBob.YourTurn, len(afterBob.LegalMoves))
 	}
-	// 같은 수가 **보는 사람마다 다른 이름**으로 온다.
+	// 같은 수가 보는 사람마다 다른 이름으로 온다.
 	if afterBob.Moves[0].By != "opponent" {
 		t.Fatalf("bob sees alice's move as %q, want opponent", afterBob.Moves[0].By)
 	}
@@ -154,7 +154,7 @@ func TestTwoPeoplePlayAMatch(t *testing.T) {
 		t.Fatalf("bob sees winner=%s, want opponent", bobEnd.Winner)
 	}
 
-	// ── 기록이 **양쪽에** 남는다 ───────────────────────────
+	// ── 기록이 양쪽에 남는다 ───────────────────────────
 	aliceGame := readUntilRecord(t, aliceWS)
 	bobGame := readUntilRecord(t, bobWS)
 	if aliceGame == bobGame {
@@ -180,24 +180,24 @@ func TestTwoPeoplePlayAMatch(t *testing.T) {
 	if aliceRec.MyColor != "b" || bobRec.MyColor != "w" {
 		t.Fatalf("colors are %s and %s, want b and w", aliceRec.MyColor, bobRec.MyColor)
 	}
-	// **기보는 한 벌이고 양쪽에 같이 들어간다.**
+	// 기보는 한 벌이고 양쪽에 같이 들어간다.
 	for _, rec := range []store.GameRecord{aliceRec, bobRec} {
 		if len(rec.Moves) != 2 || rec.Moves[0].USI != "7g7f" || rec.Moves[1].USI != "3c3d" {
 			t.Fatalf("game %d has %+v, want 7g7f then 3c3d", rec.ID, rec.Moves)
 		}
-		// **개입도 평가치도 없다.** 엔진을 안 부르는 판이라서다 — 그 사실이 총평과 퀴즈를
+		// 개입도 평가치도 없다. 엔진을 안 부르는 판이라서다 — 그 사실이 총평과 퀴즈를
 		// 닫는 근거다(review.go · quiz.go).
 		if len(rec.Interventions) != 0 {
 			t.Fatalf("game %d has %d interventions, want none", rec.ID, len(rec.Interventions))
 		}
 	}
 
-	// **남의 판은 안 열린다.** 대인전이라고 소유 검사가 느슨해지지 않는다.
+	// 남의 판은 안 열린다. 대인전이라고 소유 검사가 느슨해지지 않는다.
 	if _, err := st.GameRecord(t.Context(), aliceGame, &bob); err == nil {
 		t.Fatal("bob could read alice's row of the same match")
 	}
 
-	// **총평과 퀴즈는 닫혀 있다.** 개입이 0건인 것을 「잘 둔 판」으로 그리면 거짓이 된다.
+	// 총평과 퀴즈는 닫혀 있다. 개입이 0건인 것을 「잘 둔 판」으로 그리면 거짓이 된다.
 	sum := get(t, srv, "/api/games/"+itoa(aliceGame)+"/summary", aliceCookie)
 	if sum != http.StatusNotFound {
 		t.Fatalf("summary of a match game = %d, want %d", sum, http.StatusNotFound)
@@ -222,15 +222,15 @@ func dialMatch(t *testing.T, url, cookie string) *websocket.Conn {
 	return conn
 }
 
-// matchFrame 은 받은 프레임 하나다. `matchServerMsg` 를 그대로 안 쓰는 것은 **화면이
-// 보는 모양으로** 읽기 위해서다 — json 태그가 곧 계약이라, 필드 이름이 바뀌면 여기가 깨져야 한다.
+// matchFrame 은 받은 프레임 하나다. matchServerMsg 를 그대로 안 쓰는 것은 화면이
+// 보는 모양으로 읽기 위해서다 — json 태그가 곧 계약이라, 필드 이름이 바뀌면 여기가 깨져야 한다.
 type matchFrame struct {
 	Type     string `json:"type"`
 	GameID   int64  `json:"gameId"`
 	Snapshot snap   `json:"snapshot"`
 }
 
-// snap 은 스냅샷의 **화면이 읽는 몫**이다.
+// snap 은 스냅샷의 화면이 읽는 몫이다.
 type snap struct {
 	Ply          int      `json:"ply"`
 	YourColor    string   `json:"yourColor"`
@@ -257,8 +257,8 @@ func readMatch(t *testing.T, conn *websocket.Conn) matchFrame {
 	return got
 }
 
-// readUntil 은 조건에 맞는 스냅샷이 올 때까지 읽는다. **접속 표시 때문에 같은 국면의
-// 스냅샷이 여러 번 온다** — 상대가 붙고 떨어지는 것도 방송되기 때문이다.
+// readUntil 은 조건에 맞는 스냅샷이 올 때까지 읽는다. 접속 표시 때문에 같은 국면의
+// 스냅샷이 여러 번 온다 — 상대가 붙고 떨어지는 것도 방송되기 때문이다.
 func matchUntil(t *testing.T, conn *websocket.Conn, ok func(snap) bool) snap {
 	t.Helper()
 	for range 20 {

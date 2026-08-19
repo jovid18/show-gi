@@ -10,7 +10,7 @@ import (
 
 // place 는 빈 판에 先手 좌표로 駒를 놓는다. 色을 넘기면 그 색의 진영으로 옮겨 놓는다.
 //
-// 판을 비운 채로 재는 이유는 **주변 駒가 판정에 끼어들지 않아야** 하기 때문이다.
+// 판을 비운 채로 재는 이유는 주변 駒가 판정에 끼어들지 않아야 하기 때문이다.
 // 실전 국면으로만 재면 어느 칸이 실제 조건인지 테스트가 말해주지 않는다.
 func place(c shogi.Color, ss ...square) shogi.Position {
 	var pos shogi.Position
@@ -49,7 +49,7 @@ func TestEveryShapeMatchesItsOwnSquares(t *testing.T) {
 	}
 }
 
-// **後手 미러.** 이 테스트가 없으면 後手 국면에서 태그가 조용히 안 뜬다 — 에러가
+// 後手 미러. 이 테스트가 없으면 後手 국면에서 태그가 조용히 안 뜬다 — 에러가
 // 나지 않는 종류의 버그라 기계로만 잡힌다.
 //
 // 미러가 맞는지를 값으로도 못 박는다: 先手 玉2八의 거울은 後手 玉8二다.
@@ -70,7 +70,7 @@ func TestShapesMirrorForGote(t *testing.T) {
 	}
 }
 
-// **음성 테스트.** 필수 칸 하나를 비우면 안 떠야 한다. 판정이 느슨해지는 것을
+// 음성 테스트. 필수 칸 하나를 비우면 안 떠야 한다. 판정이 느슨해지는 것을
 // 이것만이 잡는다 — 느슨한 판정은 화면에 틀린 이름을 내보낸다.
 func TestOneMissingSquareIsNotTheCastle(t *testing.T) {
 	for _, sh := range castles {
@@ -96,7 +96,7 @@ func TestOpponentPiecesDoNotFormMyCastle(t *testing.T) {
 	}
 }
 
-// **구체성.** 本美濃가 성립하는 국면에서 片美濃라고 말하면 안 된다. 本美濃의 칸이
+// 구체성. 本美濃가 성립하는 국면에서 片美濃라고 말하면 안 된다. 本美濃의 칸이
 // 片美濃를 전부 포함하므로 둘 다 맞는데, 화면에는 더 구체적인 쪽이 나가야 한다.
 func TestMoreSpecificCastleWins(t *testing.T) {
 	hon := shapeByCode(t, "hon_mino")
@@ -114,7 +114,7 @@ func TestMoreSpecificCastleWins(t *testing.T) {
 
 // 축마다 하나씩, 囲い가 먼저. 「四間飛車 + 本美濃囲い」는 한 국면의 정상 상태다.
 //
-// 축이 서로 **다른 입력**에서 나온다는 것도 여기서 못 박힌다 — 囲い는 국면, 전법은 수순.
+// 축이 서로 다른 입력에서 나온다는 것도 여기서 못 박힌다 — 囲い는 국면, 전법은 수순.
 func TestDetectReturnsOnePerAxisCastleFirst(t *testing.T) {
 	pos := place(shogi.Black, shapeByCode(t, "hon_mino").squares...)
 	got := Detect(Input{Pos: pos, Color: shogi.Black, PlayerMoves: []string{"2h6h"}}) // 飛2八 → 6八
@@ -128,7 +128,7 @@ func TestDetectReturnsOnePerAxisCastleFirst(t *testing.T) {
 	}
 }
 
-// **筋만 본다.** 段을 고정하면 飛를 올린 순간 이름이 꺼지는데, 전법은 그대로다.
+// 筋만 본다. 段을 고정하면 飛를 올린 순간 이름이 꺼지는데, 전법은 그대로다.
 func TestFormationSurvivesTheRookAdvancing(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
@@ -168,14 +168,14 @@ func TestEachFileNamesItsFormation(t *testing.T) {
 	}
 }
 
-// 飛를 **筋 안에서** 움직인 것은 振ったのではない. 居飛車의 飛先の歩交換이 그렇다.
+// 飛를 筋 안에서 움직인 것은 振ったのではない. 居飛車의 飛先の歩交換이 그렇다.
 func TestMovingTheRookWithinItsFileIsNotASwing(t *testing.T) {
 	if got, ok := DetectFormation([]string{"2h2f", "2f2d"}, shogi.Black); ok {
 		t.Errorf("2八→2六→2四 는 振り飛車가 아닌데 %v 가 떴다", got.Code)
 	}
 }
 
-// **▲3四飛(横歩取り)는 袖飛車가 아니다.** 筋만 보면 3筋으로 같지만, 袖飛車는 飛를 자기
+// ▲3四飛(横歩取り)는 袖飛車가 아니다. 筋만 보면 3筋으로 같지만, 袖飛車는 飛를 자기
 // 2段(3八)에 振り, 横歩取り은 敵陣 3四로 뛰어들어 横歩를 딴다. 段을 안 보면 둘이 같은
 // 이름이 된다 — floodgate 1국에서 실제로 ▲3四飛에 袖飛車가 떴다.
 func TestYokofudoriIsNotSodeBisha(t *testing.T) {
@@ -185,7 +185,7 @@ func TestYokofudoriIsNotSodeBisha(t *testing.T) {
 	}
 }
 
-// 振り直し는 그 판의 전법을 바꾸지 않는다 — **처음** 振った 筋이 이긴다.
+// 振り直し는 그 판의 전법을 바꾸지 않는다 — 처음 振った 筋이 이긴다.
 func TestTheFirstSwingWins(t *testing.T) {
 	got, ok := DetectFormation([]string{"2h6h", "6h7h"}, shogi.Black)
 	if !ok || got.Code != "shiken_bisha" {
@@ -205,7 +205,7 @@ func TestFormationMirrorsForGote(t *testing.T) {
 	}
 }
 
-// 居飛車는 **囲った 뒤에만** 뜬다. 振っていない은 初期配置에서도 참이라 그것만으로는
+// 居飛車는 囲った 뒤에만 뜬다. 振っていない은 初期配置에서도 참이라 그것만으로는
 // 아직 아무 선택도 안 드러났다.
 //
 // 矢倉로 재는 이유가 있다 — 本美濃는 玉이 2八에 서므로 飛가 그 筋에 함께 있을 수 없고,
@@ -226,7 +226,7 @@ func TestIbishaNeedsACastleFirst(t *testing.T) {
 	}
 }
 
-// **수순이 없으면 居飛車라고 말하지 않는다.** `StartSFEN` 으로 중간부터 시작한 세션이
+// 수순이 없으면 居飛車라고 말하지 않는다. StartSFEN 으로 중간부터 시작한 세션이
 // 그렇다 — 振った 기록이 없다는 것이 振っていない는 뜻이 아니다.
 //
 // 판을 함께 보는 것이 그것을 막는다. 飛가 6筋에 있으면 수순이 비어 있어도 居飛車가 아니다.
@@ -246,7 +246,7 @@ func TestADroppedRookIsNotASwing(t *testing.T) {
 	}
 }
 
-// **初期配置에서는 아무것도 뜨지 않는다.** 居飛車가 「飛を振っていない」だけ로 성립하면
+// 初期配置에서는 아무것도 뜨지 않는다. 居飛車가 「飛を振っていない」だけ로 성립하면
 // 첫 수 전에 뜬다 — 플레이어가 아직 하지 않은 선택에 이름이 붙는다. 囲い을 함께
 // 요구하는 것이 그것을 막고, 그 조건이 풀리면 이 테스트가 실패한다.
 func TestStartPositionHasNoTags(t *testing.T) {
@@ -258,7 +258,7 @@ func TestStartPositionHasNoTags(t *testing.T) {
 	}
 }
 
-// **SFEN에서 끝까지.** 위 테스트들은 전부 squareFor 로 판을 만들어 재므로, 그 함수가
+// SFEN에서 끝까지. 위 테스트들은 전부 squareFor 로 판을 만들어 재므로, 그 함수가
 // 통째로 틀려도 자기 일관성만으로 다 통과한다. 손으로 적은 SFEN 하나가 그 구멍을 막는다
 // — (筋, 段) 읽기가 룰 엔진의 좌표계와 어긋나면 여기만 실패한다.
 //
@@ -323,7 +323,7 @@ func TestCastlesCarryTheirSource(t *testing.T) {
 	}
 }
 
-// **정의된 이름은 전부 코드로 되찾을 수 있어야 한다.** 기록에 남는 것은 코드뿐이고
+// 정의된 이름은 전부 코드로 되찾을 수 있어야 한다. 기록에 남는 것은 코드뿐이고
 // (games.style_tags), 못 찾으면 마이페이지가 그 줄을 통째로 버린다(server.stylesOf).
 func TestByCodeFindsEveryDefinedTag(t *testing.T) {
 	for _, want := range All() {

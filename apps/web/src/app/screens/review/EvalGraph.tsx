@@ -5,13 +5,13 @@ import type { GameDetail } from '@/protocol/review';
 import type { WhatIf } from '@/hooks/useWhatIf';
 
 /**
- * 한 판의 평가치 궤적. **이 그림이 곧 이동 장치다.**
+ * 한 판의 평가치 궤적. 이 그림이 곧 이동 장치다.
  *
  * 세 가지가 한 자리에 겹친다 — 실제로 둔 판(검정), 지금 둬 보고 있는 분기(초록), 그리고
  * 물러진 수가 있던 자리(빨강). 「어디서 무너졌나」가 이 제품의 주장인데, 그 답을 목록 세 개로
- * 나눠 읽게 하는 대신 한 장으로 보여주고 **거기를 눌러 돌아가게 한다.**
+ * 나눠 읽게 하는 대신 한 장으로 보여주고 거기를 눌러 돌아가게 한다.
  *
- * **점을 누르면 그 手数로 간다.** 手数를 고르는 길이 이것과 기보 목록 둘인데, 이쪽은 「어디가
+ * 점을 누르면 그 手数로 간다. 手数를 고르는 길이 이것과 기보 목록 둘인데, 이쪽은 「어디가
  * 나빴나」로 고르고 저쪽은 「몇 手目」으로 고른다 — 되짚는 사람이 쓰는 것은 대개 앞쪽이다.
  */
 interface EvalGraphProps {
@@ -26,11 +26,11 @@ interface EvalGraphProps {
 /**
  * 세로축을 여기서 자른다.
  *
- * **詰み은 ±30000으로 온다.** 그 값을 그대로 그리면 나머지 100수가 0 근처에 눌려 한 줄이
+ * 詰み은 ±30000으로 온다. 그 값을 그대로 그리면 나머지 100수가 0 근처에 눌려 한 줄이
  * 되고, 정작 「어디서 기울었나」가 안 보인다. 銀 하나가 대략 500이라, 이 폭이면 駒 하나
  * 손해가 눈에 보이는 크기가 된다.
  *
- * **자른 것은 자른 것으로 보여야 한다** — 위아래 끝에 닿은 선은 「그 이상」이라는 뜻이다.
+ * 자른 것은 자른 것으로 보여야 한다 — 위아래 끝에 닿은 선은 「그 이상」이라는 뜻이다.
  */
 const CLAMP = 1200;
 
@@ -57,18 +57,18 @@ const TICK_EVERY_ZOOMED = 5;
 const ZOOM_SPAN = 20;
 
 /**
- * 세로축을 무엇으로 그리나. **눈으로 보고 정하려고 둔 손잡이이고, 아직 결정이 아니다.**
+ * 세로축을 무엇으로 그리나. 눈으로 보고 정하려고 둔 손잡이이고, 아직 결정이 아니다.
  *
  * `cp` — 실측 그대로. ±CLAMP 에서 자르므로 우세 구간이 천장에 붙는다.
- * `winrate` — 로지스틱으로 0~1. 자를 필요가 없고 포화가 뜻 그대로 보이지만, **`K` 에 매달린다.**
+ * `winrate` — 로지스틱으로 0~1. 자를 필요가 없고 포화가 뜻 그대로 보이지만, `K` 에 매달린다.
  *
- * `K` 를 여기 둔 것이 이 손잡이의 문제다 — 서버의 판정이 쓰는 값과 **두 벌**이 되고
+ * `K` 를 여기 둔 것이 이 손잡이의 문제다 — 서버의 판정이 쓰는 값과 두 벌이 되고
  * (`intervene.K`), 그 값은 §39가 「기록으로는 못 정한다」로 열어 둔 미정 상수다. 승률로
- * 가기로 정하면 **서버가 계산해 내려주는 쪽으로 옮겨야 한다** — 그때 이 상수는 지운다.
+ * 가기로 정하면 서버가 계산해 내려주는 쪽으로 옮겨야 한다 — 그때 이 상수는 지운다.
  */
 const AXIS: 'cp' | 'winrate' = 'winrate';
 
-/** 서버의 `intervene.K` 와 같은 값. **두 벌이라 여기 남겨 두면 안 되는 값이다**(위). */
+/** 서버의 `intervene.K` 와 같은 값. 두 벌이라 여기 남겨 두면 안 되는 값이다(위). */
 const K = 600;
 
 /** cp → 승률. 서버의 `intervene.WinRate` 와 같은 식이다. */
@@ -77,16 +77,16 @@ const winRate = (cp: number): number => 1 / (1 + Math.exp(-cp / K));
 /**
  * 그 手数의 세로 위치. 축을 바꾸는 자리는 여기 하나다.
  *
- * **기준점을 빼고 그린다**(`GameDetail.baselineCp`). 駒落ち에서 「호각」은 0cp가 아니라 그
- * 手合의 초기 평가치이고, 빼지 않으면 곡선이 판 내내 천장에 붙어 **어디서 흘렸는지가 안
- * 보인다** — 50% 선이 「핸디캡을 다 잃은 자리」에 그려지는 것이 더 나쁘다. 판정이 같은
+ * 기준점을 빼고 그린다(`GameDetail.baselineCp`). 駒落ち에서 「호각」은 0cp가 아니라 그
+ * 手合의 초기 평가치이고, 빼지 않으면 곡선이 판 내내 천장에 붙어 어디서 흘렸는지가 안
+ * 보인다 — 50% 선이 「핸디캡을 다 잃은 자리」에 그려지는 것이 더 나쁘다. 판정이 같은
  * 값을 빼는 것과 같은 이유다(서버의 `intervene.Input.BaselineCp`).
  */
 const valueOf = (cp: number, base: number): number => (AXIS === 'winrate' ? winRate(cp - base) : clamp(cp - base));
 
 const Y_DOMAIN: [number, number] = AXIS === 'winrate' ? [0, 1] : [-CLAMP, CLAMP];
 const Y_TICKS = AXIS === 'winrate' ? [0, 0.25, 0.5, 0.75, 1] : [-CLAMP, -600, 0, 600, CLAMP];
-/** 호각. 승률에서는 0.5이고 cp에서는 0이다. **駒落ち에서는 「핸디캡이 그대로인 자리」다**(valueOf). */
+/** 호각. 승률에서는 0.5이고 cp에서는 0이다. 駒落ち에서는 「핸디캡이 그대로인 자리」다(valueOf). */
 const Y_EVEN = AXIS === 'winrate' ? 0.5 : 0;
 
 const yLabel = (v: number): string => (AXIS === 'winrate' ? `${Math.round(v * 100)}%` : String(v));
@@ -111,7 +111,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
     }
 
     /**
-     * 분기의 값. **지나온 자리만 있다** — 아직 안 가 본 곳은 재지 않았으므로 없다(`evalOf`).
+     * 분기의 값. 지나온 자리만 있다 — 아직 안 가 본 곳은 재지 않았으므로 없다(`evalOf`).
      *
      * 뿌리(`basePly`)에는 검은선의 값을 그대로 넣는다. 그러면 초록선이 검은선에서 갈라져
      * 나오는 그림이 되고, 그게 사실이다 — 같은 국면에서 다른 수를 둔 것이다.
@@ -135,12 +135,12 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
   /**
    * 물러진 수가 있던 자리.
    *
-   * **길이가 없다.** 사람이 그 수로 얼마를 잃었는지는 기록에 안 남아 있다 — `interventions`
+   * 길이가 없다. 사람이 그 수로 얼마를 잃었는지는 기록에 안 남아 있다 — `interventions`
    * 에는 Δ승률 하나뿐이고 cp가 없어서, 아래로 얼마나 그을지를 정직하게 정할 수가 없다
    * (journal §39 ⑥). 그래서 「여기서 막혔다」까지만 말하는 점으로 둔다. 깊이까지 그리려면
    * `interventions` 에 `best_cp`·`after_cp` 두 칸이 필요하다.
    *
-   * 자리는 **물러진 手数의 한 수 앞**이다. 그 수는 확정되지 않았으므로 사람이 서 있던 국면이
+   * 자리는 물러진 手数의 한 수 앞이다. 그 수는 확정되지 않았으므로 사람이 서 있던 국면이
    * 거기다(protocol/review.ts).
    */
   const stops = useMemo(() => {
@@ -155,11 +155,11 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
   /**
    * 확대의 중심 手数. `null` 이면 전체 보기다.
    *
-   * **같은 점을 다시 누르면 전체로 돌아온다.** 확대는 「거기를 자세히 본다」이고 그 반대는
+   * 같은 점을 다시 누르면 전체로 돌아온다. 확대는 「거기를 자세히 본다」이고 그 반대는
    * 「전체를 본다」뿐이라, 상태가 둘이면 손잡이도 하나로 족하다.
    *
-   * 한때 우상단에 「N–M手 · 全体に戻る」 버튼을 같이 뒀는데 뺐다 — 축 눈금이 이미 보고 있는
-   * 구간을 말하고 있어서, 그 버튼은 같은 말을 한 번 더 하면서 선 위에 얹혀 있었다.
+   * 「N–M手 · 全体に戻る」 버튼은 두지 않는다 — 축 눈금이 이미 보고 있는 구간을 말하고
+   * 있어서 같은 말을 한 번 더 하면서 선 위에 얹힌다.
    */
   const [zoom, setZoom] = useState<number | null>(null);
 
@@ -176,7 +176,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
   /**
    * 지금 서 있는 자리의 手数.
    *
-   * **분기에 들어가면 초록선의 끝이다.** `ply` 는 갈라져 나온 뿌리에 머물러 있어서, 그것만
+   * 분기에 들어가면 초록선의 끝이다. `ply` 는 갈라져 나온 뿌리에 머물러 있어서, 그것만
    * 보고 표식을 찍으면 판은 분기의 끝에 있는데 그림은 뿌리를 짚는다 — 어디에 서 있는지가
    * 두 자리로 갈린다.
    */
@@ -191,7 +191,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
   }, [from, to, zoom]);
 
   /**
-   * 그림을 누르면 그 手数로 가고 **그 자리를 확대한다.** 같은 자리를 다시 누르면 전체로 돌아온다.
+   * 그림을 누르면 그 手数로 가고 그 자리를 확대한다. 같은 자리를 다시 누르면 전체로 돌아온다.
    *
    * 두 일을 한 클릭에 묶은 것은 둘이 같은 물음의 답이기 때문이다 — 「거기를 보겠다」.
    */
@@ -203,7 +203,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
   // 평가치가 한 수도 안 남은 판이 있다(`eval_cp` 는 뒤에 붙은 컬럼이다). 그때는 빈 상자를
   // 그리지 않고 왜 없는지를 말한다 — 빈 그래프는 「호각이었다」로 읽힌다.
   //
-  // **아직 채우는 중인 것과 영영 없는 것을 가른다.** 대인전은 판이 끝난 뒤에 채우므로
+  // 아직 채우는 중인 것과 영영 없는 것을 가른다. 대인전은 판이 끝난 뒤에 채우므로
   // (서버의 matchAnalyzer) 방금 끝난 판이 여기 오는 것이 정상이고, 그때 「남지 않았다」로
   // 말하면 기다리면 되는 사람을 돌려보낸다.
   if (data.every((p) => p.main === null)) {
@@ -228,7 +228,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
           }}
         >
           <CartesianGrid stroke="var(--line)" vertical={false} />
-          {/* **手数를 읽을 수 있어야 한다.** 빨간 점이 「몇 手째」인지 모르면 이 그림으로
+          {/* 手数를 읽을 수 있어야 한다. 빨간 점이 「몇 手째」인지 모르면 이 그림으로
               어디를 볼지 고를 수 없다 — 눌러서 이동하는 장치인데 반쪽이 된다.
 
               20씩인 것은 20手가 쇼기에서 한 국면 덩어리(序盤·囲い가 짜이는 구간)에 가깝고,
@@ -246,7 +246,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
             axisLine={{ stroke: 'var(--line-2)' }}
             height={16}
           />
-          {/* **위쪽이 先手다** — `eval_cp` 가 先手 관점으로 저장된다(journal §26).
+          {/* 위쪽이 先手다 — `eval_cp` 가 先手 관점으로 저장된다(journal §26).
               後手로 둔 판에서는 위가 상대가 되므로, 이 축은 아직 「나」를 말하지 못한다.
               그 자리는 서버가 관점을 뒤집어 주는 것으로 따로 닫는다. */}
           <YAxis
@@ -282,7 +282,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
             strokeWidth={2}
             connectNulls={false}
             isAnimationActive={false}
-            // 분기 중에는 **초록선의 끝**이 지금 서 있는 자리다. 링을 여기 찍는다.
+            // 분기 중에는 초록선의 끝이 지금 서 있는 자리다. 링을 여기 찍는다.
             dot={(props) => <BranchDot {...props} here={tip} />}
             activeDot={false}
           />
@@ -296,7 +296,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
  * 검은선의 점 하나.
  *
  * 대부분은 안 그린다 — 109개를 다 찍으면 선이 점선이 된다. 그릴 이유가 있는 자리만 찍는다:
- * **지금 보고 있는 곳**과 **물러진 수가 있던 곳**이다.
+ * 지금 보고 있는 곳과 물러진 수가 있던 곳이다.
  */
 function MainDot(props: {
   cx?: number;
@@ -322,9 +322,9 @@ function MainDot(props: {
 }
 
 /**
- * 분기선의 끝. **거기가 지금 판이다.**
+ * 분기선의 끝. 거기가 지금 판이다.
  *
- * 링의 모양은 검은선의 것과 같고 **색만 초록**이다 — 「지금 서 있는 자리」라는 뜻은 하나고,
+ * 링의 모양은 검은선의 것과 같고 색만 초록이다 — 「지금 서 있는 자리」라는 뜻은 하나고,
  * 갈리는 것은 실제로 둔 판인가 가정인가뿐이라 그건 선의 색이 이미 말한다.
  */
 function BranchDot(props: { cx?: number; cy?: number; payload?: Point; here: number | null }) {

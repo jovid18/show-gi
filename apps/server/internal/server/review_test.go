@@ -19,7 +19,7 @@ import (
 )
 
 // detailOf 는 DB를 안 탄다. 재현이 이 패키지의 순수 함수라서, 기록을 손으로 만들어
-// **엔진도 DB도 없이** 확인할 수 있다 — 여기가 리뷰 화면의 정합성이 걸린 자리다.
+// 엔진도 DB도 없이 확인할 수 있다 — 여기가 리뷰 화면의 정합성이 걸린 자리다.
 
 func recordOf(myColor string, usis ...string) store.GameRecord {
 	rec := store.GameRecord{GameSummary: store.GameSummary{ID: 7, MyColor: myColor}}
@@ -59,7 +59,7 @@ func TestDetailReplaysKifu(t *testing.T) {
 	}
 }
 
-// 사람이 後手면 짝수 手数가 사람이다. 여기가 뒤집히면 리뷰가 **남의 실수를 내 것으로**
+// 사람이 後手면 짝수 手数가 사람이다. 여기가 뒤집히면 리뷰가 남의 실수를 내 것으로
 // 보여준다.
 func TestDetailAttributesMovesByColor(t *testing.T) {
 	got := detailOf(recordOf("w", "7g7f", "3c3d"))
@@ -72,8 +72,8 @@ func TestDetailAttributesMovesByColor(t *testing.T) {
 	}
 }
 
-// 평가치는 DB에 先手 관점으로 들어 있다. 後手로 둔 판에서 뒤집지 않으면 **잃은 판이
-// 이긴 판으로** 보인다.
+// 평가치는 DB에 先手 관점으로 들어 있다. 後手로 둔 판에서 뒤집지 않으면 잃은 판이
+// 이긴 판으로 보인다.
 func TestDetailFlipsEvalForWhite(t *testing.T) {
 	cp := 320
 	rec := recordOf("w", "7g7f")
@@ -94,7 +94,7 @@ func TestDetailFlipsEvalForWhite(t *testing.T) {
 
 // TestDetailCarriesTheHandicapBaseline 는 되짚기가 手合割의 「형세 0」을 같이 내려보내는지다.
 //
-// **`EvalCp` 와 같은 관점이어야 한다**(플레이어). 부호가 어긋나면 형세 그래프가 駒落ち 판을
+// EvalCp 와 같은 관점이어야 한다(플레이어). 부호가 어긋나면 형세 그래프가 駒落ち 판을
 // 반대로 그리고, 그 그림은 「접어 준 것을 다 잃었다」와 「그대로 들고 있다」를 뒤집는다.
 func TestDetailCarriesTheHandicapBaseline(t *testing.T) {
 	nimai, ok := handicap.Find("nimaiochi")
@@ -114,13 +114,13 @@ func TestDetailCarriesTheHandicapBaseline(t *testing.T) {
 		t.Errorf("上手로 둔 판: baselineCp = %d, want %d", got, -nimai.BaselineCp)
 	}
 
-	// **平手는 0이라 응답에 아예 안 나간다**(omitempty).
+	// 平手는 0이라 응답에 아예 안 나간다(omitempty).
 	if got := detailOf(recordOf("b", "7g7f")).BaselineCp; got != 0 {
 		t.Errorf("平手: baselineCp = %d, want 0", got)
 	}
 }
 
-// 평가치가 없는 手数는 **없는 채로** 나가야 한다. 0으로 채우면 호각과 구별이 안 된다.
+// 평가치가 없는 手数는 없는 채로 나가야 한다. 0으로 채우면 호각과 구별이 안 된다.
 func TestDetailKeepsMissingEvalMissing(t *testing.T) {
 	got := detailOf(recordOf("b", "7g7f"))
 	if got.Moves[0].EvalCp != nil {
@@ -128,7 +128,7 @@ func TestDetailKeepsMissingEvalMissing(t *testing.T) {
 	}
 }
 
-// 手数에 구멍이 있으면 거기서 재현을 멈춘다. 이어서 두면 **없던 국면**을 그린다.
+// 手数에 구멍이 있으면 거기서 재현을 멈춘다. 이어서 두면 없던 국면을 그린다.
 func TestDetailStopsAtGapInPlies(t *testing.T) {
 	rec := store.GameRecord{
 		GameSummary: store.GameSummary{ID: 7, MyColor: "b"},
@@ -162,7 +162,7 @@ func TestDetailSurvivesBrokenMove(t *testing.T) {
 	}
 }
 
-// 물러진 수는 **기보에 없다.** `Ply-1` 手目의 국면에서 두어졌고, 리뷰는 거기서
+// 물러진 수는 기보에 없다. Ply-1 手目의 국면에서 두어졌고, 리뷰는 거기서
 // 표기를 만들어야 한다 — 이것이 개입에 오염되지 않은 유일한 신호다(01-core.md §5).
 func TestDetailNamesRetractedMove(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d", "6g6f")
@@ -182,7 +182,7 @@ func TestDetailNamesRetractedMove(t *testing.T) {
 	if iv.RetractedJa != "▲2二角成" {
 		t.Errorf("retractedJa = %q, want ▲2二角成", iv.RetractedJa)
 	}
-	// 이름과 문구는 **서버가** 만든다. 화면이 코드로 문장을 지으면 어휘가 두 벌이 된다.
+	// 이름과 문구는 서버가 만든다. 화면이 코드로 문장을 지으면 어휘가 두 벌이 된다.
 	if iv.CategoryJa == "" {
 		t.Error("categoryJa is empty")
 	}
@@ -207,7 +207,7 @@ func TestDetailToleratesInterventionBeyondKifu(t *testing.T) {
 	}
 }
 
-// 中盤에서 시작하는 판. 手数의 홀짝이 아니라 **시작 국면의 手番**이 누가 먼저인지를 정한다.
+// 中盤에서 시작하는 판. 手数의 홀짝이 아니라 시작 국면의 手番이 누가 먼저인지를 정한다.
 func TestDetailUsesStartPositionForTurnOrder(t *testing.T) {
 	rec := recordOf("b", "3c3d")
 	rec.StartSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/2P6/PP1PPPPPP/1B5R1/LNSGKGSNL w - 2"
@@ -222,7 +222,7 @@ func TestDetailUsesStartPositionForTurnOrder(t *testing.T) {
 	}
 }
 
-// DB가 없으면 503이다. **엔진과 조건이 갈린다** — 엔진이 죽어도 지난 판은 볼 수 있어야 하고,
+// DB가 없으면 503이다. 엔진과 조건이 갈린다 — 엔진이 죽어도 지난 판은 볼 수 있어야 하고,
 // 여기가 404면 "기록이 없다"와 "기록을 못 읽는다"가 섞인다.
 func TestReviewWithoutStore(t *testing.T) {
 	h := Handler(Options{})
@@ -249,11 +249,11 @@ func TestReviewWithoutStore(t *testing.T) {
 	}
 }
 
-// 되짚기의 총평은 **끝난 판을 한 번 더 읽는 것**이고, 판이 끝나는 자리에서 WS가 보내는
+// 되짚기의 총평은 끝난 판을 한 번 더 읽는 것이고, 판이 끝나는 자리에서 WS가 보내는
 // 것과 같은 함수가 만든다(§52). 여기가 보는 것은 그 라우트가 실제로 붙어 있는가다 —
-// `GET /api/games/{id}` 와 한 세그먼트 차이라, 어긋나면 화면이 총평 대신 기보를 받는다.
+// GET /api/games/{id} 와 한 세그먼트 차이라, 어긋나면 화면이 총평 대신 기보를 받는다.
 //
-// **엔진을 안 넣는다.** 총평은 기록만 읽어 만들어지므로(summarize) 이 표면은 엔진이 없어도
+// 엔진을 안 넣는다. 총평은 기록만 읽어 만들어지므로(summarize) 이 표면은 엔진이 없어도
 // 답해야 하고, 그것이 지켜지는지가 여기서 갈린다.
 func TestSummaryRouteReadsFinishedGame(t *testing.T) {
 	st := openStoreForTest(t)
@@ -316,7 +316,7 @@ func TestSummaryRouteReadsFinishedGame(t *testing.T) {
 	}
 }
 
-// 王手는 **서버가 짚는다.** 화면은 규칙을 모르므로, 이 칸이 안 오면 리뷰에서 王手가
+// 王手는 서버가 짚는다. 화면은 규칙을 모르므로, 이 칸이 안 오면 리뷰에서 王手가
 // 통째로 안 보인다.
 func TestDetailMarksCheck(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d", "8h2b+", "3a2b", "B*4b")
@@ -333,7 +333,7 @@ func TestDetailMarksCheck(t *testing.T) {
 	}
 }
 
-// 기보에 구멍이 나도 **누구의 수인지는 안 흔들린다.** 배열의 자리로 세면 구멍 뒤가
+// 기보에 구멍이 나도 누구의 수인지는 안 흔들린다. 배열의 자리로 세면 구멍 뒤가
 // 한 칸씩 밀려서 리뷰가 남의 실수를 내 것으로 보여준다.
 func TestDetailAttributesByPlyNotIndex(t *testing.T) {
 	rec := store.GameRecord{
@@ -354,7 +354,7 @@ func TestDetailAttributesByPlyNotIndex(t *testing.T) {
 	}
 }
 
-// 시작 국면을 못 읽으면 **한 수도 두지 않는다.**
+// 시작 국면을 못 읽으면 한 수도 두지 않는다.
 //
 // 평수 초기 국면으로 대신 두면 그 수들이 거기서도 합법일 수 있고, 그러면 한 번도 없었던
 // 국면을 그럴듯하게 그린다 — 리뷰에서 그건 판을 못 그리는 것보다 나쁘다.
@@ -377,7 +377,7 @@ func TestDetailRefusesToReplayFromBrokenStart(t *testing.T) {
 	}
 }
 
-// limit 은 **32비트로 파싱한다.** int32 범위를 넘는 수가 통과하면 그 값이 `LIMIT`의
+// limit 은 32비트로 파싱한다. int32 범위를 넘는 수가 통과하면 그 값이 LIMIT의
 // int32로 바뀌면서 조용히 음수가 된다 — 거절로 끝나야 한다.
 func TestListRejectsOutOfRangeLimit(t *testing.T) {
 	h := &reviewHandler{}
@@ -391,7 +391,7 @@ func TestListRejectsOutOfRangeLimit(t *testing.T) {
 	}
 }
 
-// 무른 수는 기보에 없다 — 되짚기가 그 수를 이름으로 부르려면 `Ply-1` 手目의 국면을
+// 무른 수는 기보에 없다 — 되짚기가 그 수를 이름으로 부르려면 Ply-1 手目의 국면을
 // 다시 만들어야 한다(개입과 같은 규약).
 func TestDetailNamesUndoneMove(t *testing.T) {
 	cp := 123
@@ -410,14 +410,14 @@ func TestDetailNamesUndoneMove(t *testing.T) {
 	if u.Ja != "▲2二角成" {
 		t.Errorf("ja = %q, want ▲2二角成", u.Ja)
 	}
-	// **기보와 같은 자다.** 先手로 둔 판이라 값이 그대로 나가야 한다.
+	// 기보와 같은 자다. 先手로 둔 판이라 값이 그대로 나가야 한다.
 	if u.EvalCp == nil || *u.EvalCp != 123 {
 		t.Errorf("evalCp = %v, want 123", u.EvalCp)
 	}
 }
 
-// 後手로 둔 판에서는 무른 수의 평가치도 **플레이어 관점**으로 뒤집힌다.
-// 기보의 `moves[].evalCp` 와 같은 변환이라야 한 화면에서 두 줄이 같은 자를 쓴다(§60).
+// 後手로 둔 판에서는 무른 수의 평가치도 플레이어 관점으로 뒤집힌다.
+// 기보의 moves[].evalCp 와 같은 변환이라야 한 화면에서 두 줄이 같은 자를 쓴다(§60).
 func TestDetailFlipsUndoEvalForWhite(t *testing.T) {
 	cp := 200
 	rec := recordOf("w", "7g7f")
@@ -432,7 +432,7 @@ func TestDetailFlipsUndoEvalForWhite(t *testing.T) {
 	}
 }
 
-// 무르기는 **개입 횟수에 안 섞인다.** 목록의 그 숫자는 「AI가 몇 번 막았나」다.
+// 무르기는 개입 횟수에 안 섞인다. 목록의 그 숫자는 「AI가 몇 번 막았나」다.
 func TestUndosDoNotCountAsInterventions(t *testing.T) {
 	rec := recordOf("b", "7g7f")
 	rec.Undos = []store.RecordedUndo{{Ply: 1, USI: "7g7f"}}

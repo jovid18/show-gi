@@ -14,7 +14,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// 이 파일이 지키는 것은 **누가 그 방을 볼 수 있나** 하나다. 룰과 시계는 internal/match.
+// 이 파일이 지키는 것은 누가 그 방을 볼 수 있나 하나다. 룰과 시계는 internal/match.
 
 // matchTestServer 는 대인전 표면이 켜진 서버 하나와, 로그인 쿠키를 만드는 도구다.
 func matchTestServer(t *testing.T) (http.Handler, *match.Hub, func(userID int64, name string) *http.Cookie) {
@@ -22,7 +22,7 @@ func matchTestServer(t *testing.T) (http.Handler, *match.Hub, func(userID int64,
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	// store 는 nil이다 — 대인전은 **DB 없이도 돈다**(기록만 안 남는다).
+	// store 는 nil이다 — 대인전은 DB 없이도 돈다(기록만 안 남는다).
 	m := NewMatch(ctx, nil, intervene.Beginner)
 	opts := Options{
 		Google:        auth.NewGoogle("client-id", "client-secret"),
@@ -52,7 +52,7 @@ func do(h http.Handler, method, path string, c *http.Cookie) *httptest.ResponseR
 	return rec
 }
 
-// **로그인하지 않으면 방을 못 만든다**(journal §83).
+// 로그인하지 않으면 방을 못 만든다(journal §83).
 func TestCreatingARoomNeedsSignIn(t *testing.T) {
 	h, _, _ := matchTestServer(t)
 
@@ -62,7 +62,7 @@ func TestCreatingARoomNeedsSignIn(t *testing.T) {
 	}
 }
 
-// 방을 만들면 **유추할 수 없는 id** 하나가 나오고, 만든 사람이 고른 쪽이 그대로 온다.
+// 방을 만들면 유추할 수 없는 id 하나가 나오고, 만든 사람이 고른 쪽이 그대로 온다.
 func TestCreateRoomReturnsAnUnguessableID(t *testing.T) {
 	h, _, signIn := matchTestServer(t)
 
@@ -85,7 +85,7 @@ func TestCreateRoomReturnsAnUnguessableID(t *testing.T) {
 	}
 }
 
-// **振り駒는 서버가 뽑는다.** 클라이언트가 뽑아 `b`·`w` 로 보내면 마음에 안 드는 결과를
+// 振り駒는 서버가 뽑는다. 클라이언트가 뽑아 b·w 로 보내면 마음에 안 드는 결과를
 // 다시 뽑을 수 있고, 그러면 振り駒가 아니라 그냥 고르는 것이 된다.
 func TestFurigomaGivesEitherSeat(t *testing.T) {
 	h, _, signIn := matchTestServer(t)
@@ -110,7 +110,7 @@ func TestFurigomaGivesEitherSeat(t *testing.T) {
 	}
 }
 
-// **로그인 안 한 사람에게는 404다 — 401이 아니다**(journal §83).
+// 로그인 안 한 사람에게는 404다 — 401이 아니다(journal §83).
 func TestPeekingWithoutSignInLooksLikeAMissingRoom(t *testing.T) {
 	h, _, signIn := matchTestServer(t)
 
@@ -120,7 +120,7 @@ func TestPeekingWithoutSignInLooksLikeAMissingRoom(t *testing.T) {
 		t.Fatalf("decode: %v", err)
 	}
 
-	// 있는 방과 없는 방이 로그인 없이는 **같은 답**이어야 한다.
+	// 있는 방과 없는 방이 로그인 없이는 같은 답이어야 한다.
 	real := do(h, http.MethodGet, "/api/rooms/"+room.ID, nil)
 	fake := do(h, http.MethodGet, "/api/rooms/AAAAAAAA", nil)
 	if real.Code != http.StatusNotFound || fake.Code != http.StatusNotFound {
@@ -131,7 +131,7 @@ func TestPeekingWithoutSignInLooksLikeAMissingRoom(t *testing.T) {
 	}
 }
 
-// **세 번째 사람에게는 없는 방이다.** 링크가 새어도 관전조차 안 된다.
+// 세 번째 사람에게는 없는 방이다. 링크가 새어도 관전조차 안 된다.
 func TestAThirdPersonSeesNothing(t *testing.T) {
 	h, hub, signIn := matchTestServer(t)
 
@@ -162,7 +162,7 @@ func TestAThirdPersonSeesNothing(t *testing.T) {
 	}
 }
 
-// 손님이 보는 것은 **방 주인의 이름과 자기가 잡을 쪽**뿐이다. 段級도 전적도 안 나간다 —
+// 손님이 보는 것은 방 주인의 이름과 자기가 잡을 쪽뿐이다. 段級도 전적도 안 나간다 —
 // 실력 프로파일은 본인만 보는 값이다(02-architecture.md §7 위협 2).
 func TestPeekTellsTheGuestTheirSide(t *testing.T) {
 	h, _, signIn := matchTestServer(t)
@@ -192,7 +192,7 @@ func TestPeekTellsTheGuestTheirSide(t *testing.T) {
 	}
 }
 
-// **대인전 표면은 통째로 켜고 끈다.** 없으면 세 경로가 다 404여야 한다 — 반쯤 열려
+// 대인전 표면은 통째로 켜고 끈다. 없으면 세 경로가 다 404여야 한다 — 반쯤 열려
 // 있으면 화면이 「있는데 고장난 것」으로 읽는다.
 func TestMatchRoutesAreAbsentWithoutAHub(t *testing.T) {
 	h := Handler(Options{
@@ -212,7 +212,7 @@ func TestMatchRoutesAreAbsentWithoutAHub(t *testing.T) {
 	}
 }
 
-// WebSocket 도 **업그레이드 전에** 거절한다. 뒤에서 거절하면 그 답을 프레임으로 말해야
+// WebSocket 도 업그레이드 전에 거절한다. 뒤에서 거절하면 그 답을 프레임으로 말해야
 // 하고, 화면이 그것을 「대국 중 오류」와 구별해야 한다(ws.go 의 resumeSetup 과 같은 규약).
 func TestMatchSocketRejectsBeforeUpgrading(t *testing.T) {
 	h, _, signIn := matchTestServer(t)
@@ -231,7 +231,7 @@ func TestMatchSocketRejectsBeforeUpgrading(t *testing.T) {
 	}
 }
 
-// 방을 만든 사람은 **자기 방의 손님이 될 수 없다.** 되면 혼자 先手·後手를 다 잡은 대국이 시작된다.
+// 방을 만든 사람은 자기 방의 손님이 될 수 없다. 되면 혼자 先手·後手를 다 잡은 대국이 시작된다.
 func TestHostCannotFillTheGuestSeatOverHTTP(t *testing.T) {
 	h, hub, signIn := matchTestServer(t)
 
@@ -256,18 +256,18 @@ func TestHostCannotFillTheGuestSeatOverHTTP(t *testing.T) {
 	}
 }
 
-// 판 번호는 **몇 번을 물어도 나온다.**
+// 판 번호는 몇 번을 물어도 나온다.
 //
-// 기록기의 `done` 은 값 하나짜리 채널이라, 연결마다 그것을 직접 읽으면 먼저 읽은 쪽이
+// 기록기의 done 은 값 하나짜리 채널이라, 연결마다 그것을 직접 읽으면 먼저 읽은 쪽이
 // 가져간다 — 같은 쪽으로 탭을 둘 열어 두거나 판이 끝나는 순간에 새로고침하면 두 번째는
-// 5초를 기다린 끝에 「振り返り」 링크를 못 그리고, 로그에는 **거짓말**이 남는다
+// 5초를 기다린 끝에 「振り返り」 링크를 못 그리고, 로그에는 거짓말이 남는다
 // (「기록이 안 끝났다」). 받는 쪽을 하나로 모아 곁장부에 옮겨 두는 것이 그 답이다.
 func TestTheGameIDCanBeAskedForTwice(t *testing.T) {
 	records := newMatchRecords(&storePlaceholder, intervene.Beginner)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	// **기록기를 직접 만들지 않는다** — 진짜 DB가 필요하다. 대신 곁장부를 손으로 채워
+	// 기록기를 직접 만들지 않는다 — 진짜 DB가 필요하다. 대신 곁장부를 손으로 채워
 	// 「번호가 정해진 방」을 만든다. 여기서 재는 것은 그 뒤의 답하기다.
 	entry := &roomRecord{
 		at:    time.Now(),
@@ -291,7 +291,7 @@ func TestTheGameIDCanBeAskedForTwice(t *testing.T) {
 	}
 }
 
-// **기록기 goroutine 은 판이 끝나면 접힌다.** 서버 ctx 를 그대로 주면 끝난 판마다
+// 기록기 goroutine 은 판이 끝나면 접힌다. 서버 ctx 를 그대로 주면 끝난 판마다
 // goroutine 둘과 256칸짜리 채널 둘이 남아 배포 전까지 쌓인다.
 func TestTheRecorderContextEndsWithTheMatch(t *testing.T) {
 	records := newMatchRecords(&storePlaceholder, intervene.Beginner)

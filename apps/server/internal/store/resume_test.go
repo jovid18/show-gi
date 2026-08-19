@@ -7,7 +7,7 @@ import (
 
 // 결과가 나온 판만 화면으로 나간다(journal §51).
 //
-// **목록과 상세를 같이 본다.** 목록에서만 빼면 `/reviews/<id>` 주소로 그냥 열리고,
+// 목록과 상세를 같이 본다. 목록에서만 빼면 /reviews/<id> 주소로 그냥 열리고,
 // 규칙이 두 벌이면 한쪽만 고쳐진 채 남는다(§46).
 func TestOnlyFinishedGamesAreVisible(t *testing.T) {
 	s := open(t)
@@ -45,7 +45,7 @@ func TestOnlyFinishedGamesAreVisible(t *testing.T) {
 		}
 	}
 
-	// 상세도 같은 규칙이다. **404가 되어야 한다** — 403이면 「그 번호의 판이 있다」를
+	// 상세도 같은 규칙이다. 404가 되어야 한다 — 403이면 「그 번호의 판이 있다」를
 	// 알려주는 셈이라 중단된 판의 존재가 새어 나간다.
 	if _, err := s.GameRecord(t.Context(), won, &me); err != nil {
 		t.Errorf("결과가 나온 판을 못 읽는다: %v", err)
@@ -55,13 +55,13 @@ func TestOnlyFinishedGamesAreVisible(t *testing.T) {
 			t.Errorf("끝나지 않은 판 %d 가 열렸다: err = %v, want %v", id, err, ErrNoGame)
 		}
 	}
-	// 측정 쪽은 그대로 읽는다 — `abandoned` 판이 표본에서 사라지면 안 된다(§39).
+	// 측정 쪽은 그대로 읽는다 — abandoned 판이 표본에서 사라지면 안 된다(§39).
 	if _, err := s.GameRecordAnyOwner(t.Context(), abandoned); err != nil {
 		t.Errorf("GameRecordAnyOwner: %v", err)
 	}
 }
 
-// 이어할 후보는 **중단된 판 하나**다. 두는 중인 판도, 이미 답한 판도, 남의 판도 아니다.
+// 이어할 후보는 중단된 판 하나다. 두는 중인 판도, 이미 답한 판도, 남의 판도 아니다.
 func TestResumableGameIsTheLatestAbandonedOne(t *testing.T) {
 	s := open(t)
 	me, other := owner(t, s, "me"), owner(t, s, "other")
@@ -87,8 +87,8 @@ func TestResumableGameIsTheLatestAbandonedOne(t *testing.T) {
 		t.Errorf("moveCount = %d, want 1", got.MoveCount)
 	}
 
-	// 「いいえ」라고 답하면 그 자리에서 후보가 아니다. **다시 물어보지 않는 것이 이
-	// 상태를 갈라 둔 유일한 이유다.**
+	// 「いいえ」라고 답하면 그 자리에서 후보가 아니다. 다시 물어보지 않는 것이 이
+	// 상태를 갈라 둔 유일한 이유다.
 	if err := s.DeclineResume(t.Context(), newest, me); err != nil {
 		t.Fatalf("DeclineResume: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestResumableGameIsTheLatestAbandonedOne(t *testing.T) {
 	}
 }
 
-// **점유는 한 번만 성공한다.** 탭 두 개가 같은 판을 이어하려 들면 뒤엣것이 여기서
+// 점유는 한 번만 성공한다. 탭 두 개가 같은 판을 이어하려 들면 뒤엣것이 여기서
 // 걸려야 한다 — 안 그러면 세션 goroutine 둘이 한 대국 행에 기록을 겹쳐 쓴다.
 func TestClaimGameForResumeIsExclusive(t *testing.T) {
 	s := open(t)
@@ -124,7 +124,7 @@ func TestClaimGameForResumeIsExclusive(t *testing.T) {
 		t.Errorf("openingID = %q, want shikenbisha — 진형이 그 판의 것으로 돌아와야 한다", claimed.OpeningID)
 	}
 
-	// 두 번째는 0행이다. 되열린 판은 더 이상 `abandoned` 가 아니다.
+	// 두 번째는 0행이다. 되열린 판은 더 이상 abandoned 가 아니다.
 	if _, err := s.ClaimGameForResume(t.Context(), id, me); !errors.Is(err, ErrNoGame) {
 		t.Errorf("두 번째 점유가 성공했다: err = %v, want %v", err, ErrNoGame)
 	}

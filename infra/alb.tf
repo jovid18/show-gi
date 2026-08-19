@@ -56,7 +56,7 @@ resource "aws_lb" "main" {
   idle_timeout = 900
 }
 
-# **이름을 접두사로 받는다.** `target_type` 은 바꿀 수 없는 속성이라 값을 고치면 타깃
+# 이름을 접두사로 받는다. target_type 은 바꿀 수 없는 속성이라 값을 고치면 타깃
 # 그룹이 교체되는데, 이름이 고정이면 terraform 이 「지우고 만들기」 순서로 잡는다 —
 # 리스너가 아직 가리키고 있어서 지우기가 ResourceInUse 로 실패하고 apply 가 교착한다.
 # 접두사 + create_before_destroy 면 새 것을 먼저 만들고 리스너를 옮긴 뒤 옛 것을 지운다.
@@ -70,7 +70,7 @@ resource "aws_lb_target_group" "web" {
 
   health_check {
     path = "/healthz"
-    # web(Caddy)이 아니라 **api까지 닿는 경로**를 본다. Caddy만 살아 있고 api가
+    # web(Caddy)이 아니라 api까지 닿는 경로를 본다. Caddy만 살아 있고 api가
     # 죽은 상태를 "정상"으로 보면, 배포가 성공한 척하고 끝난다
     matcher             = "200"
     interval            = 15

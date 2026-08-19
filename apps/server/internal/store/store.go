@@ -1,7 +1,7 @@
 // Package store 는 PostgreSQL 접근을 담당한다.
 //
-// **스키마가 코드를 만든다.** `migrations/*.sql` 이 정본이고 sqlc가 거기서 `db/` 를 생성한다
-// (`go tool sqlc generate`). 반대 방향(ORM이 스키마를 만드는 것)을 안 쓰는 이유는
+// 스키마가 코드를 만든다. migrations/*.sql 이 정본이고 sqlc가 거기서 db/ 를 생성한다
+// (go tool sqlc generate). 반대 방향(ORM이 스키마를 만드는 것)을 안 쓰는 이유는
 // 001_init.sql 에 ORM으로 표현되지 않는 것이 여럿이기 때문이다 — interventions 의 CHECK
 // 제약과 부분 인덱스·GIN 인덱스. 옮겨 적으면 스키마가 두 벌이 된다.
 package store
@@ -28,7 +28,7 @@ type Store struct {
 
 // Open 은 커넥션 풀을 열고 한 번 통신해 본다.
 //
-// **여는 것만으로는 붙었는지 모른다** — pgxpool은 지연 연결이라 첫 질의에서야 실패한다.
+// 여는 것만으로는 붙었는지 모른다 — pgxpool은 지연 연결이라 첫 질의에서야 실패한다.
 // 기동 시점에 알아야 /healthz 가 사실을 말할 수 있다.
 func Open(ctx context.Context, url string) (*Store, error) {
 	pool, err := pgxpool.New(ctx, url)
@@ -49,7 +49,7 @@ func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 
 // Candidate 는 한 국면의 후보 수 하나다. positions.candidates 에 JSON으로 들어간다.
 //
-// **Cp 는 수번 측 관점이다** — 엔진이 답하는 그대로다. 여기서 플레이어 관점으로 돌려놓으면
+// Cp 는 수번 측 관점이다 — 엔진이 답하는 그대로다. 여기서 플레이어 관점으로 돌려놓으면
 // 같은 국면이 사람의 색에 따라 두 행이 되어 캐시가 성립하지 않는다.
 type Candidate struct {
 	USI string   `json:"usi"`
@@ -57,7 +57,7 @@ type Candidate struct {
 	PV  []string `json:"pv,omitempty"`
 	// MateIn 은 詰み까지의 手数다(수번 측이 이기면 양수). 詰み이 아니면 0.
 	//
-	// **cp만으로는 복원할 수 없다.** mate 는 30000에서 手数를 뺀 값으로 환산되어 들어오므로,
+	// cp만으로는 복원할 수 없다. mate 는 30000에서 手数를 뺀 값으로 환산되어 들어오므로,
 	// 캐시에서 꺼낼 때 그 숫자를 그대로 화면에 쓰면 「+29995」가 나간다.
 	MateIn int `json:"mate,omitempty"`
 }
@@ -106,7 +106,7 @@ func (s *Store) GetPosition(ctx context.Context, sfenKey string) (Position, erro
 // 덮지 않았으면 stored=false 다 — 호출 측이 "내 결과가 더 얕았다"를 알 수 있어야
 // 조용히 버려지지 않는다.
 func (s *Store) PutPosition(ctx context.Context, p Position) (stored bool, err error) {
-	// **`null` 을 넣지 않는다.** 질의가 `jsonb_array_length` 로 후보 수를 견주는데
+	// null 을 넣지 않는다. 질의가 jsonb_array_length 로 후보 수를 견주는데
 	// (같은 깊이면 많은 쪽이 이긴다) 그 함수는 배열이 아닌 값에서 에러를 낸다 —
 	// 후보를 모르는 채로 국면만 남기는 자리가 실제로 있다(archive 의 부모 국면).
 	if p.Candidates == nil {
@@ -140,23 +140,23 @@ func (s *Store) CountPositions(ctx context.Context) (int64, error) {
 	return s.q.CountPositions(ctx)
 }
 
-// Edge 는 국면 사이의 한 수다. **분석을 버리지 않기 위한 자리다.**
+// Edge 는 국면 사이의 한 수다. 분석을 버리지 않기 위한 자리다.
 //
-// **비어 있는 칸은 「모른다」**이고, 질의가 그 칸을 지우지 않는다 — 한 수의 사실이 두 번에
+// 비어 있는 칸은 「모른다」이고, 질의가 그 칸을 지우지 않는다 — 한 수의 사실이 두 번에
 // 걸쳐 오기 때문이다(query/positions.sql 의 UpsertEdge).
 type Edge struct {
 	ParentKey string
 	USI       string
 	// ChildKey 는 도착 국면의 키다. 비어 있으면 아직 그 국면을 재지 않았다.
 	//
-	// **`positions` 를 참조한다.** 없는 키를 넣으면 FK가 거절하므로, 부르는 쪽이 자식
+	// positions 를 참조한다. 없는 키를 넣으면 FK가 거절하므로, 부르는 쪽이 자식
 	// 국면을 먼저 넣어야 한다.
 	ChildKey string
-	// Tags 는 이 수가 **새로 만든** 囲い·전법·手筋의 코드다.
+	// Tags 는 이 수가 새로 만든 囲い·전법·手筋의 코드다.
 	Tags []string
-	// EvalByDepth 는 깊이 1..N의 **先手 관점** cp다(schema 주석과 같은 규약).
+	// EvalByDepth 는 깊이 1..N의 先手 관점 cp다(schema 주석과 같은 규약).
 	//
-	// 추가 탐색이 없다 — `PvInterval=0` 덕에 depth N 탐색 한 번이 1..N을 전부 준다.
+	// 추가 탐색이 없다 — PvInterval=0 덕에 depth N 탐색 한 번이 1..N을 전부 준다.
 	EvalByDepth []int
 }
 
@@ -180,7 +180,7 @@ func (s *Store) CountEdges(ctx context.Context) (int64, error) { return s.q.Coun
 
 // Edges 는 그 국면에서 나가는 수들이다.
 //
-// **깊이별 평가치를 되찾는 유일한 길이다** — `positions.candidates` 에는 마지막 깊이의
+// 깊이별 평가치를 되찾는 유일한 길이다 — positions.candidates 에는 마지막 깊이의
 // 값만 있고, 개입 판정이 보는 얕은 값(depth 2)은 여기서만 나온다(01-core.md §3).
 func (s *Store) Edges(ctx context.Context, parentKey string) ([]Edge, error) {
 	rows, err := s.q.ListEdges(ctx, parentKey)
@@ -216,8 +216,8 @@ func (s *Store) UpsertUser(ctx context.Context, provider, providerUID, displayNa
 	return id, nil
 }
 
-// SkillEstimate 는 판 사이로 넘기는 실력 추정치다. `skill.Estimate` 와 같은 두 값이고,
-// 그 패키지를 여기서 들여오지 않는 것은 **추정기가 DB를 모르게 두기 위해서다**(skill 패키지).
+// SkillEstimate 는 판 사이로 넘기는 실력 추정치다. skill.Estimate 와 같은 두 값이고,
+// 그 패키지를 여기서 들여오지 않는 것은 추정기가 DB를 모르게 두기 위해서다(skill 패키지).
 type SkillEstimate struct {
 	// Loss 는 정규화된 낙폭(0~1).
 	Loss float64
@@ -225,7 +225,7 @@ type SkillEstimate struct {
 	Samples int
 }
 
-// SkillProfile 은 그 사람의 지난 추정치다. **두 번째 값이 false면 「아직 모른다」**다 —
+// SkillProfile 은 그 사람의 지난 추정치다. 두 번째 값이 false면 「아직 모른다」다 —
 // Loss 0은 「매 수 최선」이라 뜻이 정반대이므로 없는 것을 0으로 메우지 않는다.
 func (s *Store) SkillProfile(ctx context.Context, userID int64) (SkillEstimate, bool, error) {
 	row, err := s.q.GetSkillProfile(ctx, userID)
@@ -259,11 +259,11 @@ func (s *Store) SaveSkillEstimate(ctx context.Context, userID int64, e SkillEsti
 
 // GameResult 는 games.result 에 들어가는 값이다.
 //
-// **셋만 「끝난 판」이다** — win·loss·draw. 화면이 읽는 질의가 그 셋으로 거르므로
+// 셋만 「끝난 판」이다 — win·loss·draw. 화면이 읽는 질의가 그 셋으로 거르므로
 // (query/games.sql), 아래 둘은 클라이언트에 아예 안 나간다(journal §51).
 //
-// 칸에 CHECK 가 없어서 값을 늘리는 데 마이그레이션이 필요 없다. 대신 **여기가 유일한
-// 어휘 목록이다** — 001_init.sql 의 칸 주석은 `declined` 를 모른다(적용된 마이그레이션은
+// 칸에 CHECK 가 없어서 값을 늘리는 데 마이그레이션이 필요 없다. 대신 여기가 유일한
+// 어휘 목록이다 — 001_init.sql 의 칸 주석은 declined 를 모른다(적용된 마이그레이션은
 // 안 고친다).
 type GameResult string
 
@@ -272,7 +272,7 @@ const (
 	ResultLoss      GameResult = "loss"
 	ResultDraw      GameResult = "draw"
 	ResultAbandoned GameResult = "abandoned" // 끝나지 않고 연결이 끊겼다. 이어할 수 있다
-	// ResultDeclined 는 abandoned 인 판을 사람이 **안 이어하겠다고 답한** 것이다.
+	// ResultDeclined 는 abandoned 인 판을 사람이 안 이어하겠다고 답한 것이다.
 	// 갈라 두는 이유는 하나뿐이다 — 다시 물어보지 않기 위해서다(ResumableGame).
 	ResultDeclined GameResult = "declined"
 )
@@ -296,11 +296,11 @@ func (s *Store) CreateGame(ctx context.Context, userID *int64, myColor, startSFE
 	return id, nil
 }
 
-// CreateMatchGame 은 대인전 한 판의 **한쪽 몫**을 연다. 같은 대국에서 두 번 불려
+// CreateMatchGame 은 대인전 한 판의 한쪽 몫을 연다. 같은 대국에서 두 번 불려
 // 행 두 개가 된다 — 그 둘을 다시 묶는 열쇠가 matchID 다(012_match_games.sql).
 //
-// **CreateGame 과 갈라 둔 이유는 채우는 칸이 다르기 때문이다.** 저쪽은 `opening_tag`
-// (컴퓨터의 진형)를 채우고 이쪽은 `match_id` 를 채운다 — 한 함수로 두면 부르는 쪽마다
+// CreateGame 과 갈라 둔 이유는 채우는 칸이 다르기 때문이다. 저쪽은 opening_tag
+// (컴퓨터의 진형)를 채우고 이쪽은 match_id 를 채운다 — 한 함수로 두면 부르는 쪽마다
 // 「이번엔 어느 칸을 비우나」를 알아야 한다.
 func (s *Store) CreateMatchGame(ctx context.Context, userID int64, myColor, startSFEN, matchID string) (int64, error) {
 	id, err := s.q.CreateMatchGame(ctx, db.CreateMatchGameParams{
@@ -325,7 +325,7 @@ func (s *Store) FinishGame(ctx context.Context, gameID int64, result GameResult)
 }
 
 // ── 이어하기 ─────────────────────────────────────────────
-// 방향은 journal §46, 정한 것은 §51. **세션을 살려 두지 않는다** — 여기 있는
+// 방향은 journal §46, 정한 것은 §51. 세션을 살려 두지 않는다 — 여기 있는
 // 것은 전부 기록 쪽이고, 국면은 기보에서 다시 만든다(server/ws.go).
 
 // ResumableGame 은 이어할 수 있는 판의 머리다. 화면이 물음 카드를 그리는 데 쓴다.
@@ -343,7 +343,7 @@ type ResumableGame struct {
 
 // ResumableGame 은 이 사람이 이어할 수 있는 가장 최근 판을 준다. 없으면 ErrNoGame.
 //
-// **익명은 부를 자리가 없다** — userID 를 값으로 받으므로 부르는 쪽이 로그인을 이미
+// 익명은 부를 자리가 없다 — userID 를 값으로 받으므로 부르는 쪽이 로그인을 이미
 // 확인했다는 뜻이다(server/resume.go).
 func (s *Store) ResumableGame(ctx context.Context, userID int64) (ResumableGame, error) {
 	row, err := s.q.ResumableGameForOwner(ctx, &userID)
@@ -375,7 +375,7 @@ type ClaimedGame struct {
 }
 
 // ClaimGameForResume 은 판 하나를 이어하기로 점유하고 되연다. 없거나 남의 것이거나
-// **이미 누가 점유했으면** ErrNoGame — 셋을 구별해서 돌려주지 않는다(GameRecord 와 같다).
+// 이미 누가 점유했으면 ErrNoGame — 셋을 구별해서 돌려주지 않는다(GameRecord 와 같다).
 //
 // 점유가 곧 되열기다(query/games.sql). 그래서 이 함수가 성공한 뒤 세션이 서지 못하면
 // 그 판은 result 가 NULL인 채로 남는데, 기록 쪽이 ctx 취소에서 다시 abandoned 로
@@ -412,10 +412,10 @@ func (s *Store) DeclineResume(ctx context.Context, gameID, userID int64) error {
 
 // RecordUndo 는 사람이 스스로 무른 수를 남기고, 그 手数부터의 기보를 지운다.
 //
-// **순서가 규약이다.** `InsertUndo` 가 `game_moves` 에서 평가치를 옮겨 담으므로
+// 순서가 규약이다. InsertUndo 가 game_moves 에서 평가치를 옮겨 담으므로
 // (query/games.sql), 지우는 것이 먼저면 그 칸이 영영 NULL로 남는다.
 //
-// 지우는 범위가 무른 수 **하나가 아닌** 이유는 그 뒤에 상대의 응수가 이미 확정돼
+// 지우는 범위가 무른 수 하나가 아닌 이유는 그 뒤에 상대의 응수가 이미 확정돼
 // 있기 때문이다 — 사람의 수를 되돌리려면 그 응수도 같이 사라져야 판이 사람 차례로
 // 돌아온다(game.state.undo 와 같은 자리).
 func (s *Store) RecordUndo(ctx context.Context, gameID int64, ply int, usi string) error {
@@ -435,7 +435,7 @@ func (s *Store) RecordUndo(ctx context.Context, gameID int64, ply int, usi strin
 	return nil
 }
 
-// CountUndos 는 그 판에서 이미 무른 횟수다. **이어하는 판이 제한을 리셋하지 않게** 한다
+// CountUndos 는 그 판에서 이미 무른 횟수다. 이어하는 판이 제한을 리셋하지 않게 한다
 // (game.Config.UndoUsed).
 func (s *Store) CountUndos(ctx context.Context, gameID int64) (int, error) {
 	n, err := s.q.CountGameUndos(ctx, gameID)
@@ -445,7 +445,7 @@ func (s *Store) CountUndos(ctx context.Context, gameID int64) (int, error) {
 	return int(n), nil
 }
 
-// InsertMove 는 **확정된** 수 하나를 기보에 넣는다.
+// InsertMove 는 확정된 수 하나를 기보에 넣는다.
 func (s *Store) InsertMove(ctx context.Context, gameID int64, ply int, usi string) error {
 	if err := s.q.InsertMove(ctx, db.InsertMoveParams{
 		GameID: gameID,
@@ -457,7 +457,7 @@ func (s *Store) InsertMove(ctx context.Context, gameID int64, ply int, usi strin
 	return nil
 }
 
-// SetMoveEval 은 그 手数의 평가치를 나중에 채운다. **先手 관점 cp** 다(journal §26).
+// SetMoveEval 은 그 手数의 평가치를 나중에 채운다. 先手 관점 cp 다(journal §26).
 //
 // 수가 먼저 들어가 있어야 한다. 없는 ply면 아무 일도 일어나지 않는다.
 func (s *Store) SetMoveEval(ctx context.Context, gameID int64, ply, cp int) error {
@@ -481,7 +481,7 @@ type Intervention struct {
 	LevelBucket string
 	// RetractedUSI 는 개입이 막지 않았다면 실제로 뒀을 수다.
 	RetractedUSI string
-	// BestCp·AfterCp 는 낙폭을 만든 두 원본이다(수번 측 관점). **제지형만.**
+	// BestCp·AfterCp 는 낙폭을 만든 두 원본이다(수번 측 관점). 제지형만.
 	//
 	// 둘 다 0이면 안 적는다 — 판정을 안 거친 행과 「정말로 0cp였다」를 섞지 않기 위해서다.
 	// 호각인 국면에서 개입이 걸릴 일은 없으므로 이 규칙이 실제 값을 버리지는 않는다.
@@ -491,7 +491,7 @@ type Intervention struct {
 
 // InsertIntervention 은 개입 하나를 남긴다.
 //
-// **같은 ply에 여러 번 불릴 수 있다.** 그 반복이 곧 「그 국면이 그 사람에게 얼마나
+// 같은 ply에 여러 번 불릴 수 있다. 그 반복이 곧 「그 국면이 그 사람에게 얼마나
 // 어려웠나」이고, 그래서 (game_id, ply) 는 유니크가 아니다(journal §17).
 func (s *Store) InsertIntervention(ctx context.Context, gameID int64, iv Intervention) error {
 	arg := db.InsertInterventionParams{
@@ -531,30 +531,30 @@ func (s *Store) CountInterventions(ctx context.Context) (int64, error) {
 
 // ── 리뷰(읽기) ───────────────────────────────────────────
 //
-// 여기까지가 쓰는 쪽이었다. 아래가 **꺼내는 쪽**이고, 리뷰 화면이 유일한 소비자다.
+// 여기까지가 쓰는 쪽이었다. 아래가 꺼내는 쪽이고, 리뷰 화면이 유일한 소비자다.
 
 // GameSummary 는 리뷰 목록의 한 줄이다.
 type GameSummary struct {
 	ID      int64
 	MyColor string
-	// StartedAt·FinishedAt. **FinishedAt 은 zero 일 수 있다** — 아직 두는 중인 판이다.
+	// StartedAt·FinishedAt. FinishedAt 은 zero 일 수 있다 — 아직 두는 중인 판이다.
 	StartedAt  time.Time
 	FinishedAt time.Time
 	// Result 는 끝나지 않았으면 빈 문자열이다.
 	Result            GameResult
 	MoveCount         int
 	InterventionCount int
-	// MatchID 가 비어 있지 않으면 **사람 대 사람 대국**이다(012_match_games.sql).
+	// MatchID 가 비어 있지 않으면 사람 대 사람 대국이다(012_match_games.sql).
 	//
-	// **그 판에는 평가치도 개입도 없다.** 대인전은 엔진을 안 부르므로(internal/match)
-	// `GameRecord.Moves[].EvalCp` 가 전부 nil 이고 `Interventions` 가 빈 목록이다 —
+	// 그 판에는 평가치도 개입도 없다. 대인전은 엔진을 안 부르므로(internal/match)
+	// GameRecord.Moves[].EvalCp 가 전부 nil 이고 Interventions 가 빈 목록이다 —
 	// 읽는 쪽이 그것을 「블런더가 0건인 좋은 판」으로 그리면 거짓이 되므로, 총평과 퀴즈가
 	// 이 값을 보고 그 자리를 닫는다(server/review.go · quiz.go).
 	MatchID string
-	// StartSFEN 은 그 판의 0手目다. **비어 있으면 평수 초기 국면이다**(game.Config.StartSFEN
+	// StartSFEN 은 그 판의 0手目다. 비어 있으면 평수 초기 국면이다(game.Config.StartSFEN
 	// 과 같은 규약).
 	//
-	// **手合割을 되짚는 유일한 칸이다**(internal/handicap 의 Of). 이름을 따로 저장하지
+	// 手合割을 되짚는 유일한 칸이다(internal/handicap 의 Of). 이름을 따로 저장하지
 	// 않으므로 이 값과 실제 판이 갈릴 자리가 없고, 그래서 마이그레이션도 필요 없었다.
 	StartSFEN string
 }
@@ -563,14 +563,14 @@ type GameSummary struct {
 type RecordedMove struct {
 	Ply int
 	USI string
-	// EvalCp 는 **先手 관점** cp이고 nil일 수 있다 — 평가치는 수보다 늦게 오므로
+	// EvalCp 는 先手 관점 cp이고 nil일 수 있다 — 평가치는 수보다 늦게 오므로
 	// 연결이 끊긴 판의 마지막 몇 수는 안 채워진 채로 남는다.
 	EvalCp *int
 }
 
 // RecordedIntervention 은 남아 있는 개입 하나다.
 //
-// **문구는 없다.** 화면에 나갔던 일본어 문장은 기록하지 않으므로(카테고리만 남는다),
+// 문구는 없다. 화면에 나갔던 일본어 문장은 기록하지 않으므로(카테고리만 남는다),
 // 리뷰는 그 문장을 다시 만들어야 한다 — 카테고리가 정본이고 문장은 파생이다.
 type RecordedIntervention struct {
 	Ply          int
@@ -579,7 +579,7 @@ type RecordedIntervention struct {
 	DeltaWin     float64
 	LevelBucket  string
 	RetractedUSI string
-	// BestCp·AfterCp 는 낙폭을 만든 두 원본이다(수번 측 관점). **없을 수 있다** —
+	// BestCp·AfterCp 는 낙폭을 만든 두 원본이다(수번 측 관점). 없을 수 있다 —
 	// migrations/005 앞에 기록된 판에는 영원히 없다. 버린 값은 되찾을 수 없고,
 	// 화면은 그 자리를 다시 재서 채운다.
 	BestCp  *int
@@ -588,13 +588,13 @@ type RecordedIntervention struct {
 
 // RecordedUndo 는 사람이 스스로 무른 수 하나다.
 //
-// **개입(RecordedIntervention)과 갈라 둔다.** 판이 되돌아간 것은 같지만 시작한 쪽이
+// 개입(RecordedIntervention)과 갈라 둔다. 판이 되돌아간 것은 같지만 시작한 쪽이
 // 반대라, 한 목록에 섞으면 「AI가 막았다」와 「내가 무르고 싶었다」가 같은 줄이 된다 —
 // 되짚기에서 그 둘은 정반대의 이야기다(008_game_undos.sql).
 type RecordedUndo struct {
 	Ply int
 	USI string
-	// EvalCp 는 **先手 관점** cp이고 nil일 수 있다 — 무를 때 판정이 아직 그 手数를
+	// EvalCp 는 先手 관점 cp이고 nil일 수 있다 — 무를 때 판정이 아직 그 手数를
 	// 안 채웠으면 옮겨 담을 값이 없다(RecordUndo).
 	EvalCp *int
 }
@@ -602,26 +602,26 @@ type RecordedUndo struct {
 // GameRecord 는 한 판 전체다.
 type GameRecord struct {
 	GameSummary
-	// OpeningID 는 그 판에서 사람이 고른 **상대의** 진형 id다(internal/book).
+	// OpeningID 는 그 판에서 사람이 고른 상대의 진형 id다(internal/book).
 	// 「おまかせ」였으면 빈 값이다.
 	OpeningID     string
 	Moves         []RecordedMove
 	Interventions []RecordedIntervention
-	// Undos 는 사람이 스스로 무른 수들이다. **기보에는 없다** — 무르기가 지웠다.
+	// Undos 는 사람이 스스로 무른 수들이다. 기보에는 없다 — 무르기가 지웠다.
 	Undos []RecordedUndo
 }
 
 // ErrNoGame 은 그런 대국이 없을 때.
 var ErrNoGame = errors.New("store: game not found")
 
-// ListGames 는 **그 사람의** 최근 대국을 최신부터 준다. ownerID 가 nil이면 익명 판이다.
-// **한 수도 안 둔 판은 안 온다**(games.sql).
+// ListGames 는 그 사람의 최근 대국을 최신부터 준다. ownerID 가 nil이면 익명 판이다.
+// 한 수도 안 둔 판은 안 온다(games.sql).
 //
 // 화면이 쓰는 것은 이쪽이다. 주인을 안 보는 ListGamesAnyOwner 는 측정 전용이고,
 // 안전한 쪽이 짧은 이름을 갖는다 — 나중에 손이 먼저 닿는 것이 그쪽이어야 한다.
 //
-// limit 을 여기서 자른다 — **자르는 변환을 하는 자리가 스스로 막아야 한다.** `int32(limit)`
-// 이 큰 값을 조용히 음수로 만들면 `LIMIT` 이 거짓말을 한다.
+// limit 을 여기서 자른다 — 자르는 변환을 하는 자리가 스스로 막아야 한다. int32(limit)
+// 이 큰 값을 조용히 음수로 만들면 LIMIT 이 거짓말을 한다.
 func (s *Store) ListGames(ctx context.Context, limit int, ownerID *int64) ([]GameSummary, error) {
 	rows, err := s.q.ListGamesForOwner(ctx, db.ListGamesForOwnerParams{
 		Limit:   listLimit(limit),
@@ -641,7 +641,7 @@ func (s *Store) ListGames(ctx context.Context, limit int, ownerID *int64) ([]Gam
 	return out, nil
 }
 
-// ListGamesAnyOwner 는 주인을 안 보고 전부 준다. **측정 전용이다** —
+// ListGamesAnyOwner 는 주인을 안 보고 전부 준다. 측정 전용이다 —
 // 상수 재채점이 기록된 판을 가로질러 읽는다(journal §39). HTTP 표면에서 부르면
 // 그 순간 남의 기보가 열린다(02-architecture.md §7 위협 2).
 func (s *Store) ListGamesAnyOwner(ctx context.Context, limit int) ([]GameSummary, error) {
@@ -660,22 +660,22 @@ func (s *Store) ListGamesAnyOwner(ctx context.Context, limit int) ([]GameSummary
 	return out, nil
 }
 
-// PlayerTally 는 마이페이지가 읽는 두 벌의 세기다. **모집단이 하나다** — 두 질의가 같은
+// PlayerTally 는 마이페이지가 읽는 두 벌의 세기다. 모집단이 하나다 — 두 질의가 같은
 // 조건으로 걸러서(query/games.sql), 「12판 뒀는데 약점은 30판에서 나온 것」이 될 수 없다.
 type PlayerTally struct {
-	// Results 는 결과별 판 수다. 키는 GameResult 이고 **끝난 셋뿐**이다.
+	// Results 는 결과별 판 수다. 키는 GameResult 이고 끝난 셋뿐이다.
 	Results map[GameResult]int
-	// Categories 는 카테고리별 개입 횟수다. 키는 `intervene.Category` 의 코드 문자열 —
-	// 이 패키지가 그쪽을 들여오지 않는 것은 `SkillEstimate` 와 같은 이유다.
+	// Categories 는 카테고리별 개입 횟수다. 키는 intervene.Category 의 코드 문자열 —
+	// 이 패키지가 그쪽을 들여오지 않는 것은 SkillEstimate 와 같은 이유다.
 	Categories map[string]int
-	// StyleTags 는 이름별 **판 수**다. 키는 `tag.Tag.Code` 이고, 위 둘과 달리 횟수가
+	// StyleTags 는 이름별 판 수다. 키는 tag.Tag.Code 이고, 위 둘과 달리 횟수가
 	// 아닌 것은 한 판에 같은 이름이 한 번만 담기기 때문이다(AddGameStyleTag).
 	StyleTags map[string]int
 }
 
 // PlayerTally 는 그 사람의 전적과 약점을 한 번에 센다. ownerID 가 nil이면 익명 판이다.
 //
-// **한 함수인 이유는 같은 모집단에서 나와야 하기 때문이다** — 갈라 두면 나중에 한쪽 질의의
+// 한 함수인 이유는 같은 모집단에서 나와야 하기 때문이다 — 갈라 두면 나중에 한쪽 질의의
 // 조건만 고쳐지고, 그때 화면의 두 숫자가 조용히 다른 것을 세게 된다(server/summary.go 의
 // factsOf 가 같은 이유로 한 함수다).
 func (s *Store) PlayerTally(ctx context.Context, ownerID *int64) (PlayerTally, error) {
@@ -719,7 +719,7 @@ func (s *Store) PlayerTally(ctx context.Context, ownerID *int64) (PlayerTally, e
 	return out, nil
 }
 
-// AddStyleTag 는 그 판에서 사람이 짠 이름 하나를 남긴다. **같은 이름을 두 번 담지 않는다** —
+// AddStyleTag 는 그 판에서 사람이 짠 이름 하나를 남긴다. 같은 이름을 두 번 담지 않는다 —
 // 거르는 자리가 질의에도 있는 이유는 query/games.sql.
 func (s *Store) AddStyleTag(ctx context.Context, gameID int64, code string) error {
 	return s.q.AddGameStyleTag(ctx, db.AddGameStyleTagParams{GameID: gameID, Code: code})
@@ -737,7 +737,7 @@ func listLimit(limit int) int32 {
 
 // summaryOf 는 머리와 두 세기를 한 줄로 만든다.
 //
-// **머리를 구조체로 받는다.** `*string` 이 셋이라(result·match_id·start_sfen) 위치 인자로
+// 머리를 구조체로 받는다. *string 이 셋이라(result·match_id·start_sfen) 위치 인자로
 // 늘어놓으면 두 개를 바꿔 넣어도 컴파일이 되고, 그 버그는 목록 화면에서 「전부 平手」로만
 // 드러난다.
 func summaryOf(h gameHead, moves, ivs int64) GameSummary {
@@ -756,7 +756,7 @@ func summaryOf(h gameHead, moves, ivs int64) GameSummary {
 
 // gameHead 는 한 판의 머리다. 주인을 보는 질의와 안 보는 질의가 같은 칸을 다른
 // 행 타입으로 주므로, 아래 읽는 코드를 한 벌로 두려고 여기서 만난다 —
-// **목록 두 질의도 같은 이유로 여기서 만난다**(summaryOf).
+// 목록 두 질의도 같은 이유로 여기서 만난다(summaryOf).
 type gameHead struct {
 	ID         int64
 	MyColor    string
@@ -768,7 +768,7 @@ type gameHead struct {
 	MatchID    *string
 }
 
-// GameRecord 는 **그 사람의** 한 판을 통째로 읽는다. ownerID 가 nil이면 익명 판이다.
+// GameRecord 는 그 사람의 한 판을 통째로 읽는다. ownerID 가 nil이면 익명 판이다.
 // 없거나 남의 것이면 ErrNoGame — 둘을 구별해서 돌려주지 않는다. 「없다」와 「당신 것이
 // 아니다」가 갈리면 그것만으로 남의 판이 몇 번까지 있는지 세어 볼 수 있다.
 func (s *Store) GameRecord(ctx context.Context, gameID int64, ownerID *int64) (GameRecord, error) {
@@ -787,7 +787,7 @@ func (s *Store) GameRecord(ctx context.Context, gameID int64, ownerID *int64) (G
 	})
 }
 
-// GameRecordAnyOwner 는 주인을 안 본다. **측정 전용이다** — ListGamesAnyOwner 와 같은 자리다.
+// GameRecordAnyOwner 는 주인을 안 본다. 측정 전용이다 — ListGamesAnyOwner 와 같은 자리다.
 func (s *Store) GameRecordAnyOwner(ctx context.Context, gameID int64) (GameRecord, error) {
 	head, err := s.q.GetGame(ctx, gameID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -806,7 +806,7 @@ func (s *Store) GameRecordAnyOwner(ctx context.Context, gameID int64) (GameRecor
 
 // recordOf 는 머리에 기보와 개입을 채운다.
 //
-// **트랜잭션으로 묶지 않는다.** 기록은 덧붙이기만 하고, 두는 중인 판에서 최악이
+// 트랜잭션으로 묶지 않는다. 기록은 덧붙이기만 하고, 두는 중인 판에서 최악이
 // 「기보보다 개입이 한 수 앞선다」다 — 그 하나를 막자고 대국 중인 판을 잠그는 쪽이 비싸다.
 func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error) {
 	gameID := head.ID
@@ -824,7 +824,7 @@ func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error)
 		return GameRecord{}, fmt.Errorf("list undos of game %d: %w", gameID, err)
 	}
 
-	// **개입 횟수에 무르기를 안 더한다.** 목록의 그 숫자는 「AI가 몇 번 막았나」이고
+	// 개입 횟수에 무르기를 안 더한다. 목록의 그 숫자는 「AI가 몇 번 막았나」이고
 	// (journal §72), 사람이 스스로 무른 것을 섞으면 개입이 실제보다 잦아 보인다.
 	out := GameRecord{
 		GameSummary:   summaryOf(head, int64(len(moves)), int64(len(ivs))),
@@ -876,11 +876,11 @@ func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error)
 // ErrNoQuiz 는 그 판에 쓸 수 있는 퀴즈가 없을 때.
 var ErrNoQuiz = errors.New("store: quiz not generated")
 
-// GameQuiz 는 저장된 퀴즈를 **판이 맞을 때만** 준다. 안 맞으면 ErrNoQuiz 다 —
+// GameQuiz 는 저장된 퀴즈를 판이 맞을 때만 준다. 안 맞으면 ErrNoQuiz 다 —
 // 「옛 판을 무시한다」를 여기 한 자리에서 걸어야 부르는 쪽마다 다시 비교하지 않는다
 // (migrations/007).
 //
-// **바이트를 그대로 준다.** 문항의 모양은 internal/quiz 것이고, 이 패키지가 그걸 알면
+// 바이트를 그대로 준다. 문항의 모양은 internal/quiz 것이고, 이 패키지가 그걸 알면
 // 채점 규약이 두 곳에 적힌다.
 func (s *Store) GameQuiz(ctx context.Context, gameID int64, version int) ([]byte, error) {
 	row, err := s.q.GetGameQuiz(ctx, gameID)
@@ -935,11 +935,11 @@ func (s *Store) Pool() *pgxpool.Pool { return s.pool }
 
 // HintUse 는 이어하는 판이 되찾아야 하는 것 전부다.
 //
-// **둘이 필요하다.** 예산은 판 전체의 수이고(Used), 「이 국면은 어디까지 봤나」는
+// 둘이 필요하다. 예산은 판 전체의 수이고(Used), 「이 국면은 어디까지 봤나」는
 // 국면마다다(Stages) — 하나만으로는 3회째를 막지도, 예산을 이어받지도 못한다.
 type HintUse struct {
 	Used int
-	// Stages 는 sfen_key 마다 **열린 마지막 단계**다.
+	// Stages 는 sfen_key 마다 열린 마지막 단계다.
 	Stages map[string]int
 }
 

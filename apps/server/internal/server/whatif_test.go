@@ -19,12 +19,12 @@ import (
 )
 
 // whatifNodeOf 는 DB도 세션도 안 탄다. 엔진과 캐시를 손으로 만들어 넣으면 분기의 정합성을
-// 전부 확인할 수 있다 — **여기가 리뷰에서 처음으로 엔진에 매인 자리**라 그 경계를
+// 전부 확인할 수 있다 — 여기가 리뷰에서 처음으로 엔진에 매인 자리라 그 경계를
 // 테스트에서도 지킨다(intervene 이 엔진을 모르는 것과 같은 구조다).
 
 // fakeSearcher 는 정해진 답만 준다. 부른 순서대로 하나씩 나간다.
 //
-// **mutex가 장식이 아니다.** ws 쪽은 탐색을 goroutine에서 돌리고 답이 소켓을 지나 오므로,
+// mutex가 장식이 아니다. ws 쪽은 탐색을 goroutine에서 돌리고 답이 소켓을 지나 오므로,
 // -race 가 그 왕복으로는 순서를 볼 수 없다 — 여기서 잠그지 않으면 테스트가 자기 자신을
 // 경합으로 신고한다.
 type fakeSearcher struct {
@@ -38,8 +38,8 @@ type fakeSearcher struct {
 type searchCall struct {
 	moves   []string
 	multiPV int
-	// depth 는 **캐시가 한 무리인지**를 보는 값이다. 표면마다 다른 깊이로 물으면
-	// `positions` 가 서로 못 쓰는 무리로 갈린다(02-architecture.md §4).
+	// depth 는 캐시가 한 무리인지를 보는 값이다. 표면마다 다른 깊이로 물으면
+	// positions 가 서로 못 쓰는 무리로 갈린다(02-architecture.md §4).
 	depth int
 }
 
@@ -78,7 +78,7 @@ func found(moves ...string) usi.SearchResult {
 	return res
 }
 
-// fakeCache 는 이미 잰 국면들이다. 키는 `archive.Key` 로 만든다 — 읽는 쪽과 쓰는 쪽이
+// fakeCache 는 이미 잰 국면들이다. 키는 archive.Key 로 만든다 — 읽는 쪽과 쓰는 쪽이
 // 키를 각자 만들면 히트율이 조용히 0이 된다.
 type fakeCache struct{ rows map[string]store.Position }
 
@@ -90,7 +90,7 @@ func (c *fakeCache) GetPosition(_ context.Context, key string) (store.Position, 
 	return p, nil
 }
 
-// **응수를 서버가 대신 두지 않는다.** 상대 차례면 상대의 합법수를 내주고 최선수는
+// 응수를 서버가 대신 두지 않는다. 상대 차례면 상대의 합법수를 내주고 최선수는
 // 화살표로만 알려준다 — 「상대라면 이렇게 둔다」를 직접 둬 보는 것이 이 표면의 내용이다.
 func TestWhatIfDoesNotMoveForYou(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d", "6g6f")
@@ -123,19 +123,19 @@ func TestWhatIfDoesNotMoveForYou(t *testing.T) {
 		t.Errorf("lossCp = %d / %d, want 0 40", node.Candidates[0].LossCp, node.Candidates[1].LossCp)
 	}
 
-	// **탐색은 한 번이다.** 응수를 대신 두던 때는 두 번이었다.
+	// 탐색은 한 번이다. 응수를 대신 두던 때는 두 번이었다.
 	calls := search.searches()
 	if len(calls) != 1 {
 		t.Fatalf("searches = %d, want 1", len(calls))
 	}
-	// 엔진에는 **뿌리까지의 실제 수순이 그대로 앞에 붙어** 간다. 국면만 넘기면 千日手를
+	// 엔진에는 뿌리까지의 실제 수순이 그대로 앞에 붙어 간다. 국면만 넘기면 千日手를
 	// 세는 근거가 사라진다.
 	if !slices.Equal(calls[0].moves, []string{"7g7f"}) || calls[0].multiPV != whatifCandidates {
 		t.Errorf("탐색 = %+v", calls[0])
 	}
 }
 
-// 값은 **플레이어 관점**이다. 상대 차례의 국면을 상대 관점으로 보내면 한 줄을 넘겨 보는
+// 값은 플레이어 관점이다. 상대 차례의 국면을 상대 관점으로 보내면 한 줄을 넘겨 보는
 // 동안 부호가 뒤집혀서 「좋아지고 있나」를 읽을 수 없다.
 func TestWhatIfKeepsThePlayerPointOfView(t *testing.T) {
 	rec := recordOf("b", "7g7f")
@@ -149,13 +149,13 @@ func TestWhatIfKeepsThePlayerPointOfView(t *testing.T) {
 	if node.EvalCp == nil || *node.EvalCp != -100 {
 		t.Fatalf("evalCp = %v, want -100", node.EvalCp)
 	}
-	// **후보의 cp는 뒤집지 않는다.** 그 값의 주인은 그 수를 두는 쪽이고, 그게 `Turn` 이다.
+	// 후보의 cp는 뒤집지 않는다. 그 값의 주인은 그 수를 두는 쪽이고, 그게 Turn 이다.
 	if node.Candidates[0].EvalCp != 100 {
 		t.Errorf("candidates[0].evalCp = %d, want 100 (수번 관점)", node.Candidates[0].EvalCp)
 	}
 }
 
-// 사람이 後手인 판. **누구의 수인지가 뒤집히면** 가정 수순이 남의 수를 내 것으로 그린다.
+// 사람이 後手인 판. 누구의 수인지가 뒤집히면 가정 수순이 남의 수를 내 것으로 그린다.
 func TestWhatIfAttributesMovesByColor(t *testing.T) {
 	rec := recordOf("w", "7g7f")
 	search := &fakeSearcher{results: []usi.SearchResult{found("2g2f")}}
@@ -173,7 +173,7 @@ func TestWhatIfAttributesMovesByColor(t *testing.T) {
 	}
 }
 
-// 사람의 수를 받으면 그 수를 두고 **거기서 멈춘다.**
+// 사람의 수를 받으면 그 수를 두고 거기서 멈춘다.
 func TestWhatIfAppliesTheMoveAndStops(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d")
 	search := &fakeSearcher{results: []usi.SearchResult{found("3a2b")}}
@@ -201,7 +201,7 @@ func TestWhatIfAppliesTheMoveAndStops(t *testing.T) {
 	}
 }
 
-// 물러진 수는 **기보에 없다.** 그 수를 그 국면에서 둬 볼 수 있는 것이 이 표면의 이유다
+// 물러진 수는 기보에 없다. 그 수를 그 국면에서 둬 볼 수 있는 것이 이 표면의 이유다
 // (journal §25 — 가르치는 것은 최선 수순이 아니라 「두려던 수의 변화」다).
 func TestWhatIfPlaysTheRetractedMove(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d", "6g6f")
@@ -211,7 +211,7 @@ func TestWhatIfPlaysTheRetractedMove(t *testing.T) {
 	search := &fakeSearcher{results: []usi.SearchResult{found("3a2b")}}
 
 	iv := rec.Interventions[0]
-	// 물러진 수는 `Ply-1` 手目의 국면에서 두어졌다 — 분기의 뿌리가 거기다.
+	// 물러진 수는 Ply-1 手目의 국면에서 두어졌다 — 분기의 뿌리가 거기다.
 	node, err := whatifNodeOf(
 		t.Context(), rootOf(rec), whatifRequest{Ply: iv.Ply - 1, Moves: []string{iv.RetractedUSI}}, search, nil,
 	)
@@ -223,7 +223,7 @@ func TestWhatIfPlaysTheRetractedMove(t *testing.T) {
 	}
 }
 
-// 王手는 **서버가 짚는다.** 화면은 규칙을 모르므로 이 칸이 안 오면 王手가 안 보인다.
+// 王手는 서버가 짚는다. 화면은 규칙을 모르므로 이 칸이 안 오면 王手가 안 보인다.
 func TestWhatIfMarksCheck(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d", "8h2b+", "3a2b")
 	search := &fakeSearcher{results: []usi.SearchResult{found("5a4b")}}
@@ -241,7 +241,7 @@ func TestWhatIfMarksCheck(t *testing.T) {
 	}
 }
 
-// 못 두는 수는 거절한다. **분기는 그 국면 위에서 새로 두는 일**이라, 어긋난 수를 흘려보내면
+// 못 두는 수는 거절한다. 분기는 그 국면 위에서 새로 두는 일이라, 어긋난 수를 흘려보내면
 // 한 번도 없었던 국면을 그럴듯하게 그리게 된다.
 func TestWhatIfRejectsIllegalBranchMove(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d")
@@ -255,7 +255,7 @@ func TestWhatIfRejectsIllegalBranchMove(t *testing.T) {
 }
 
 // 기보에 구멍이 있으면 그 뒤로는 분기를 못 연다. review.go 는 거기서 멈추고 뒤를 표기 없이
-// 내보내면 되지만, 여기는 **그 국면 위에서 두는** 일이라 어긋난 판이면 아예 안 된다.
+// 내보내면 되지만, 여기는 그 국면 위에서 두는 일이라 어긋난 판이면 아예 안 된다.
 func TestWhatIfRefusesBrokenRecord(t *testing.T) {
 	holed := store.GameRecord{
 		GameSummary: store.GameSummary{ID: 7, MyColor: "b"},
@@ -283,11 +283,11 @@ func TestWhatIfRefusesBrokenRecord(t *testing.T) {
 	}
 }
 
-// 詰み이면 그 자리에서 끝난다. **후보도 값도 없다** — 둘 수가 없는 국면에 최선수를 그리면
+// 詰み이면 그 자리에서 끝난다. 후보도 값도 없다 — 둘 수가 없는 국면에 최선수를 그리면
 // 화면이 없는 수를 짚는다. 엔진도 안 부른다.
 func TestWhatIfStopsAtCheckmate(t *testing.T) {
 	rec := store.GameRecord{GameSummary: store.GameSummary{ID: 7, MyColor: "b"}}
-	// 5一의 玉이 혼자 있고 先手가 金을 손에 들고 있다. `G*5b` 로 一手詰め다.
+	// 5一의 玉이 혼자 있고 先手가 金을 손에 들고 있다. G*5b 로 一手詰め다.
 	rec.StartSFEN = "4k4/9/4G4/9/9/9/9/9/4K4 b G 1"
 
 	search := &fakeSearcher{}
@@ -306,7 +306,7 @@ func TestWhatIfStopsAtCheckmate(t *testing.T) {
 	}
 }
 
-// 후보에 못 두는 수가 섞이면 **그 줄만 버린다.** 화면에서 「이렇게 뒀어야 한다」는 단언이라
+// 후보에 못 두는 수가 섞이면 그 줄만 버린다. 화면에서 「이렇게 뒀어야 한다」는 단언이라
 // 틀린 것을 그리느니 적게 그린다.
 func TestWhatIfDropsUnplayableCandidates(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d")
@@ -325,8 +325,8 @@ func TestWhatIfDropsUnplayableCandidates(t *testing.T) {
 	}
 }
 
-// 캐시에 **같은 수가 두 번** 들어 있을 수 있다 — `usi.Ranked` 가 막기 전에 쌓인 행이고, 이
-// 표면은 캐시를 직접 읽어 그쪽을 안 지난다(`evalOf`). 두 줄로 그리면 검토 화면의 목록이
+// 캐시에 같은 수가 두 번 들어 있을 수 있다 — usi.Ranked 가 막기 전에 쌓인 행이고, 이
+// 표면은 캐시를 직접 읽어 그쪽을 안 지난다(evalOf). 두 줄로 그리면 검토 화면의 목록이
 // 「1위가 둘」이 된다(§87).
 func TestWhatIfDropsDuplicateCachedCandidates(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d")
@@ -379,7 +379,7 @@ func TestWhatIfReportsMateInPlies(t *testing.T) {
 	}
 }
 
-// 詰み이 섞인 줄에는 **낙폭을 안 적는다.** cp가 환산값이라 뺄셈이 29900을 내놓고, 화면은
+// 詰み이 섞인 줄에는 낙폭을 안 적는다. cp가 환산값이라 뺄셈이 29900을 내놓고, 화면은
 // 그것을 「최선수보다 29900 손해」로 읽는다 — 자가 다른 두 값의 차다.
 func TestWhatIfLeavesLossOutWhenMateIsInTheList(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d")
@@ -405,7 +405,7 @@ func TestWhatIfLeavesLossOutWhenMateIsInTheList(t *testing.T) {
 	}
 }
 
-// **이미 잰 국면은 다시 재지 않는다.** 탐색이 0번이 되는 것보다 중요한 것은 값이 안
+// 이미 잰 국면은 다시 재지 않는다. 탐색이 0번이 되는 것보다 중요한 것은 값이 안
 // 흔들리는 것이다 — 같은 국면·같은 깊이가 치환표 상태에 따라 ±150cp 갈린다(§34 ②).
 func TestWhatIfUsesTheCache(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d")
@@ -436,7 +436,7 @@ func TestWhatIfUsesTheCache(t *testing.T) {
 	if node.EvalCp == nil || *node.EvalCp != 96 {
 		t.Fatalf("evalCp = %v, want 96", node.EvalCp)
 	}
-	// 표기는 캐시에 없다. **판에서 만든다** — 그래서 캐시 히트와 미스가 같은 모양이다.
+	// 표기는 캐시에 없다. 판에서 만든다 — 그래서 캐시 히트와 미스가 같은 모양이다.
 	if len(node.Candidates) != 3 || node.Candidates[0].Ja != "▲2六歩" {
 		t.Errorf("candidates = %+v", node.Candidates)
 	}
@@ -445,7 +445,7 @@ func TestWhatIfUsesTheCache(t *testing.T) {
 	}
 }
 
-// **얕은 캐시는 안 쓴다.** 개입 판정이 k=1로 남긴 행을 그대로 쓰면 「최선수 Top 3」이
+// 얕은 캐시는 안 쓴다. 개입 판정이 k=1로 남긴 행을 그대로 쓰면 「최선수 Top 3」이
 // 1개가 된다 — 약속한 것이 셋이므로 다시 잰다.
 func TestWhatIfIgnoresTooFewCachedCandidates(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d")
@@ -494,7 +494,7 @@ func TestWhatIfSurfacesEngineFailure(t *testing.T) {
 	}
 }
 
-// 엔진이 없으면 **가정 수순만** 꺼진다. 되짚기(GET)는 조건이 다르다 —
+// 엔진이 없으면 가정 수순만 꺼진다. 되짚기(GET)는 조건이 다르다 —
 // 엔진이 죽어도 지난 판은 그대로 볼 수 있어야 한다.
 func TestWhatIfWithoutEngine(t *testing.T) {
 	h := Handler(Options{Store: &store.Store{}})
@@ -516,7 +516,7 @@ func TestWhatIfWithoutEngine(t *testing.T) {
 	}
 }
 
-// DB가 없으면 세 경로가 다 503이고 이유는 **기록 쪽**이다. 엔진 탓으로 말하면
+// DB가 없으면 세 경로가 다 503이고 이유는 기록 쪽이다. 엔진 탓으로 말하면
 // 화면이 「엔진만 살아나면 된다」로 읽는다.
 func TestWhatIfWithoutStore(t *testing.T) {
 	h := Handler(Options{})
@@ -535,7 +535,7 @@ func TestWhatIfWithoutStore(t *testing.T) {
 	}
 }
 
-// 분기 길이와 본문 크기에 상한이 있다. **엔진이 붙은 경로라 상한이 곧 안전장치다.**
+// 분기 길이와 본문 크기에 상한이 있다. 엔진이 붙은 경로라 상한이 곧 안전장치다.
 func TestWhatIfRejectsOverlongLine(t *testing.T) {
 	h := &whatifHandler{store: &store.Store{}, search: &fakeSearcher{}}
 	long := make([]string, whatifMaxLine+1)
@@ -556,7 +556,7 @@ func TestWhatIfRejectsOverlongLine(t *testing.T) {
 	}
 }
 
-// **대국 중에는 물러진 수 위에서만 분기가 자란다.**
+// 대국 중에는 물러진 수 위에서만 분기가 자란다.
 //
 // 이 표면은 최선수 셋을 답해 준다. 뿌리를 자유롭게 고를 수 있으면 그것이 곧 「지금 어떻게
 // 둬야 하나」의 답이 되고, 그건 안 알려주기로 한 것이다(01-core.md §7). 되짚기에는 이 벽이

@@ -29,7 +29,7 @@ const exchangeTimeout = 10 * time.Second
 
 // Google 은 OAuth 2.0 authorization code 흐름의 우리 쪽이다.
 //
-// **암묵 흐름(id_token 을 브라우저로 직접 받는 것)을 쓰지 않는다.** 그쪽은 토큰이
+// 암묵 흐름(id_token 을 브라우저로 직접 받는 것)을 쓰지 않는다. 그쪽은 토큰이
 // 주소창과 브라우저 기록에 남고, 우리는 어차피 서버가 세션 쿠키를 발급해야 한다.
 type Google struct {
 	clientID     string
@@ -37,10 +37,10 @@ type Google struct {
 	http         *http.Client
 }
 
-// NewGoogle 은 클라이언트를 만든다. **둘 중 하나라도 비면 nil이다** — 그러면 로그인
+// NewGoogle 은 클라이언트를 만든다. 둘 중 하나라도 비면 nil이다 — 그러면 로그인
 // 표면이 통째로 꺼지고 익명 대국으로 남는다. 엔진·DB가 없을 때와 같은 판단이다.
 //
-// 자리표시자 `unset` 도 빈 것으로 본다. SSM이 빈 문자열을 거부해서 아직 발급되지
+// 자리표시자 unset 도 빈 것으로 본다. SSM이 빈 문자열을 거부해서 아직 발급되지
 // 않은 키가 그 값으로 들어가 있고(06-status.md §3), 그대로 켜면 로그인 버튼이
 // 뜬 뒤 Google이 400을 준다.
 func NewGoogle(clientID, clientSecret string) *Google {
@@ -59,7 +59,7 @@ func isUnset(v string) bool { return v == "" || v == "unset" }
 // AuthURL 은 사람을 보낼 Google 주소다.
 //
 // state 는 CSRF 막이다. 같은 값을 쿠키에도 심어 두고 콜백에서 맞춰 본다 —
-// 남이 자기 계정의 콜백 URL을 우리 사용자에게 열게 해서 **남의 계정으로 로그인시키는**
+// 남이 자기 계정의 콜백 URL을 우리 사용자에게 열게 해서 남의 계정으로 로그인시키는
 // 공격이 이것으로 막힌다.
 func (g *Google) AuthURL(redirectURI, state string) string {
 	q := url.Values{
@@ -81,7 +81,7 @@ func (g *Google) AuthURL(redirectURI, state string) string {
 // Identity 는 Google이 말해 주는 그 사람이다.
 type Identity struct {
 	// Sub 는 Google 안에서 이 계정을 가리키는 불변 식별자다. users.provider_uid 가
-	// 이것이고, **이메일이 아니다** — 이메일은 바뀌고 재사용된다.
+	// 이것이고, 이메일이 아니다 — 이메일은 바뀌고 재사용된다.
 	Sub   string
 	Name  string
 	Email string
@@ -144,13 +144,13 @@ func (g *Google) Exchange(ctx context.Context, code, redirectURI string) (Identi
 
 // identityFrom 은 ID 토큰의 본문을 읽는다.
 //
-// **서명을 검증하지 않는다.** 이 토큰은 브라우저를 거치지 않고 우리가 방금 TLS로
+// 서명을 검증하지 않는다. 이 토큰은 브라우저를 거치지 않고 우리가 방금 TLS로
 // 직접 부른 Google의 토큰 엔드포인트에서 왔다 — 가운데에 낄 수 있는 것이 없으므로
 // 검증할 것이 없고, Google 문서도 그 경우를 예외로 못 박아 둔다. 브라우저가 들고 온
 // 토큰이었다면 이야기가 정반대다.
 //
 // 그래서 JWT 라이브러리를 끌어오지 않는다. 여기서 하는 일은 base64 한 번과 JSON
-// 한 번이고, 대신 **`aud` 만 확인한다** — 서명이 아니라 설정 실수를 잡는 자리다.
+// 한 번이고, 대신 aud 만 확인한다 — 서명이 아니라 설정 실수를 잡는 자리다.
 func (g *Google) identityFrom(idToken string) (Identity, error) {
 	parts := strings.Split(idToken, ".")
 	if len(parts) != 3 {

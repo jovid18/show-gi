@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// SSM이 빈 문자열을 거부해서 아직 발급 안 된 키가 `unset` 으로 들어가 있다
+// SSM이 빈 문자열을 거부해서 아직 발급 안 된 키가 unset 으로 들어가 있다
 // (06-status.md §3). 그것을 값으로 보면 로그인 버튼이 뜬 뒤 Google이 400을 준다.
 func TestNewGoogleTreatsUnsetAsMissing(t *testing.T) {
 	for _, c := range [][2]string{

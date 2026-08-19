@@ -1,6 +1,6 @@
 // Package usi 는 USI(Universal Shogi Interface) 엔진 하위 프로세스를 관리한다.
 //
-// 값어치는 기능이 아니라 **방어**다 — 전부 한 번씩 물려본 것들이고 목록은 02-architecture.md §8에 있다.
+// 값어치는 기능이 아니라 방어다 — 전부 한 번씩 물려본 것들이고 목록은 02-architecture.md §8에 있다.
 // Engine 하나는 탐색을 직렬화한다. 동시 탐색이 필요하면 Pool을 쓴다.
 package usi
 
@@ -25,7 +25,7 @@ const (
 	handshakeTimeout = 15 * time.Second
 
 	// stopGrace 는 취소로 "stop"을 보낸 뒤 bestmove를 기다려주는 시간. 안 오면 엔진을 버리고 재기동한다 —
-	// 삼키지 못한 bestmove는 **다음 탐색의 결과로 읽힌다**(journal §6 ②).
+	// 삼키지 못한 bestmove는 다음 탐색의 결과로 읽힌다(journal §6 ②).
 	stopGrace = 2 * time.Second
 )
 
@@ -54,23 +54,23 @@ type SearchResult struct {
 	Lines   []SearchLine // 순위별 최종 후보 (가장 깊은 것)
 
 	// History 는 받은 info 라인 전부를 (깊이, 순위)별로 남긴 것이다.
-	// **얕은 평가와 깊은 평가의 격차**가 개입 판정의 입력이라 마지막 깊이만 남기면 안 된다(journal §6 ②).
+	// 얕은 평가와 깊은 평가의 격차가 개입 판정의 입력이라 마지막 깊이만 남기면 안 된다(journal §6 ②).
 	// 속보(lowerbound/upperbound)는 점수가 확정값이 아니라 넣지 않는다.
 	History []SearchLine
 }
 
-// Ranked 는 후보 줄을 **정본 순서**로 준다 — 점수 내림차순이고, 빈 순위·중복 순위·**같은
-// 수가 앉은 순위**는 빠진다.
+// Ranked 는 후보 줄을 정본 순서로 준다 — 점수 내림차순이고, 빈 순위·중복 순위·같은
+// 수가 앉은 순위는 빠진다.
 //
-// **이 순서가 한 자리에만 있어야 한다.** 캐시에 쌓이는 후보 목록(archive.Candidates)과
+// 이 순서가 한 자리에만 있어야 한다. 캐시에 쌓이는 후보 목록(archive.Candidates)과
 // 개입 문장이 말하는 상대의 최선수(game.engineAnalyst.cardPV)가 둘 다 이것을 보고, 갈리면
 // 한 국면의 최선수가 화면에서 둘이 된다(journal §58).
 //
-// **`Lines[0]` 이 1위가 아닐 수 있다.** 순위별 자리를 미리 채워 두므로(`parseScore`) 아직 안
+// Lines[0] 이 1위가 아닐 수 있다. 순위별 자리를 미리 채워 두므로(parseScore) 아직 안
 // 온 순위는 빈 줄로 남고, 그것을 그대로 1위로 읽으면 수가 없는 후보를 최선수라고 부른다.
 //
-// **한 수가 두 순위에 앉을 수 있다.** 순위 칸은 깊이마다 덮어써지는데(`parseScore`), 마지막
-// iteration에서 안 온 순위는 **얕은 깊이의 줄을 그대로 들고 남는다** — 그 수가 다른 순위의
+// 한 수가 두 순위에 앉을 수 있다. 순위 칸은 깊이마다 덮어써지는데(parseScore), 마지막
+// iteration에서 안 온 순위는 얕은 깊이의 줄을 그대로 들고 남는다 — 그 수가 다른 순위의
 // 수와 같으면 후보가 둘로 늘어난다. 깊은 쪽만 남긴다(journal §87).
 func (r SearchResult) Ranked() []SearchLine {
 	out := make([]SearchLine, 0, len(r.Lines))
@@ -141,7 +141,7 @@ type Engine struct {
 }
 
 // New 는 엔진 프로세스를 시작하고 usi/isready 핸드셰이크를 마친다.
-// opts 는 **usiok 뒤, isready 앞**에 걸린다 — USI_Hash 처럼 isready 시점에 반영되는 옵션은 나중에 걸면 늦는다.
+// opts 는 usiok 뒤, isready 앞에 걸린다 — USI_Hash 처럼 isready 시점에 반영되는 옵션은 나중에 걸면 늦는다.
 func New(path string, opts map[string]string, args ...string) (*Engine, error) {
 	saved := make(map[string]string, len(opts))
 	maps.Copy(saved, opts)
@@ -239,13 +239,13 @@ ready:
 		_ = e.send("setoption name USI_Ponder value false")
 	}
 
-	// PvInterval=0. **배포 설정이 아니라 이 파서가 동작하기 위한 조건이다** —
+	// PvInterval=0. 배포 설정이 아니라 이 파서가 동작하기 위한 조건이다 —
 	// 기본 간격이면 우리 탐색이 더 빨라 깊이별 평가치가 마지막 하나만 남는다(journal §10).
 	if e.opts["PvInterval"] {
 		_ = e.send("setoption name PvInterval value 0")
 	}
 
-	// 저장된 옵션은 **isready 앞**에서 건다. 재기동 때 복원되는 경로도 여기다 —
+	// 저장된 옵션은 isready 앞에서 건다. 재기동 때 복원되는 경로도 여기다 —
 	// USI_Hash 처럼 isready 에서 반영되는 옵션이 재기동 후에 빠지면, 살아난 엔진만
 	// 조용히 다른 설정으로 돌게 된다.
 	for name, val := range e.saved {
@@ -338,9 +338,9 @@ func (e *Engine) Name() string {
 	return e.name
 }
 
-// SearchDepth 는 고정 깊이까지 탐색시킨다. **시간 기반(`go movetime`)은 이 패키지에 일부러 없다** —
+// SearchDepth 는 고정 깊이까지 탐색시킨다. 시간 기반(go movetime)은 이 패키지에 일부러 없다 —
 // 재현되지 않으면 캐시도 밴드 제어도 성립하지 않는다(01-core.md §4). 자체 시한도 없다.
-// ctx로 끊을 수는 있고, 끊으면 중간 결과는 **버린다** — depth N 결과가 아니라서 쓸 수 없다.
+// ctx로 끊을 수는 있고, 끊으면 중간 결과는 버린다 — depth N 결과가 아니라서 쓸 수 없다.
 func (e *Engine) SearchDepth(ctx context.Context, startSFEN string, moves []string, depth int) (SearchResult, error) {
 	return e.search(ctx, startSFEN, moves, "go depth "+strconv.Itoa(depth), 0)
 }
@@ -350,16 +350,16 @@ type MateResult struct {
 	// Moves 는 찾은 詰み 수순. 비어 있으면 못 찾았다.
 	Moves []string
 
-	// Proven 은 탐색이 한계 안에서 **결론을 냈다**는 뜻이고, 이 구분이 캐시의 전부다.
-	// `checkmate timeout`은 "모른다"이지 "없다"가 아니다 — "없다"로 저장하면 있는 詰み을 놓친다(01-core.md §2).
+	// Proven 은 탐색이 한계 안에서 결론을 냈다는 뜻이고, 이 구분이 캐시의 전부다.
+	// checkmate timeout은 "모른다"이지 "없다"가 아니다 — "없다"로 저장하면 있는 詰み을 놓친다(01-core.md §2).
 	Proven bool
 }
 
 // Found 는 詰み을 찾았는지.
 func (r MateResult) Found() bool { return len(r.Moves) > 0 }
 
-// SearchMate 는 詰み을 찾는다. **詰将棋 solver 에디션에만 있다** — 탐색부는 bestmove로 답한다(02-architecture.md §3).
-// 한계는 풀을 만들 때 `DepthLimit`(手数)로 준다. 없이 부르면 詰み이 없는 국면에서 돌아오지 않는다.
+// SearchMate 는 詰み을 찾는다. 詰将棋 solver 에디션에만 있다 — 탐색부는 bestmove로 답한다(02-architecture.md §3).
+// 한계는 풀을 만들 때 DepthLimit(手数)로 준다. 없이 부르면 詰み이 없는 국면에서 돌아오지 않는다.
 func (e *Engine) SearchMate(ctx context.Context, startSFEN string, moves []string) (MateResult, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -496,7 +496,7 @@ func (e *Engine) searchLocked(ctx context.Context, startSFEN string, moves []str
 }
 
 // stopLocked 는 탐색을 중단시키고 그 응답까지 읽어 버린다. mu를 잡은 상태에서 호출.
-// **끝맺는 말이 다르다** — 일반 탐색은 `bestmove`, 詰み 탐색은 `checkmate`. 하나만 기다리면 매번 엔진을 버린다.
+// 끝맺는 말이 다르다 — 일반 탐색은 bestmove, 詰み 탐색은 checkmate. 하나만 기다리면 매번 엔진을 버린다.
 func (e *Engine) stopLocked() error {
 	if err := e.send("stop"); err != nil {
 		return err

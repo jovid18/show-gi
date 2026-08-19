@@ -12,7 +12,7 @@ import (
 )
 
 // fakeRater 는 받은 착수를 모으고, 시험이 시키는 대로 추정치를 올려보낸다.
-// 실제 계산은 skill 쪽 테스트가 본다 — 여기서 보는 것은 **배선**이다.
+// 실제 계산은 skill 쪽 테스트가 본다 — 여기서 보는 것은 배선이다.
 type fakeRater struct {
 	mu   sync.Mutex
 	seen []skill.Move
@@ -59,7 +59,7 @@ func (o *recordingOpponent) Choose(_ context.Context, _ string, _ []string, sk s
 	return o.usi, nil
 }
 
-// **걸린 수도 통과한 수도 신호다.** 물러진 것만 세면 표본이 개입에 오염되고, 통과한 것만
+// 걸린 수도 통과한 수도 신호다. 물러진 것만 세면 표본이 개입에 오염되고, 통과한 것만
 // 세면 제일 큰 실수가 안 들어온다(journal §47).
 func TestRaterSeesBothTheRetractedAndThePassedMove(t *testing.T) {
 	rater := newFakeRater()
@@ -102,7 +102,7 @@ func TestRaterSeesBothTheRetractedAndThePassedMove(t *testing.T) {
 	}
 }
 
-// 추정치는 **상대를 고를 때** 쓰인다. 세션이 들고 있는 최신 값이 그대로 내려가야 한다.
+// 추정치는 상대를 고를 때 쓰인다. 세션이 들고 있는 최신 값이 그대로 내려가야 한다.
 func TestOpponentIsGivenTheLatestEstimate(t *testing.T) {
 	rater := newFakeRater()
 	opp := newRecordingOpponent("3c3d")
@@ -138,7 +138,7 @@ func TestOpponentIsGivenTheLatestEstimate(t *testing.T) {
 // 추정기가 없으면 눈금을 그리지 않는다. 0을 보내면 화면이 「고정된 강함」과
 // 「조절 중이지만 아직 모름」을 구별할 수 없다.
 //
-// **상대가 추정치를 무시할 때도 안 그린다.** 추정기만 보고 갈랐더니 「강함이 내려가는데
+// 상대가 추정치를 무시할 때도 안 그린다. 추정기만 보고 갈랐더니 「강함이 내려가는데
 // 상대는 최선수를 그대로 두는」 조립이 눈금을 얻고 있었다 — 프로덕션이 adaptive 하나라
 // 안 드러났을 뿐이다(SkillAdapter).
 func TestStrengthIsAbsentUnlessTheOpponentActuallyAdapts(t *testing.T) {
@@ -164,7 +164,7 @@ func TestStrengthIsAbsentUnlessTheOpponentActuallyAdapts(t *testing.T) {
 		}
 	}
 
-	// 반대쪽 — adaptive 는 첫 스냅샷부터 한복판을 말한다. **0이 아니다.**
+	// 반대쪽 — adaptive 는 첫 스냅샷부터 한복판을 말한다. 0이 아니다.
 	adaptive := NewAdaptiveOpponent(&stubMulti{res: usi.SearchResult{Best: "3c3d"}}, 12, DefaultBand)
 	s := newSession(t, Config{
 		Opponent: adaptive, HumanColor: shogi.Black,

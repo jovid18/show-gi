@@ -22,7 +22,7 @@ terraform {
 }
 
 # 잠금에 DynamoDB를 쓰는 이유는 순전히 버전 때문이다. S3 네이티브 잠금
-# (`use_lockfile`)이 테이블을 없애주지만 Terraform 1.11+가 필요하고, 지금 로컬은
+# (use_lockfile)이 테이블을 없애주지만 Terraform 1.11+가 필요하고, 지금 로컬은
 # 1.5.7이다. 마감 중에 도구 버전을 올리는 것보다 테이블 하나가 싸다.
-# 1.11 이상으로 올릴 때 `dynamodb_table`을 `use_lockfile = true`로 바꾸고
+# 1.11 이상으로 올릴 때 dynamodb_table을 use_lockfile = true로 바꾸고
 # 테이블을 지우면 된다.

@@ -40,8 +40,8 @@ type UpsertGameQuizParams struct {
 	Payload []byte
 }
 
-// 덮어쓰는 조건을 안 건다. `positions` 와 다른 점이고(저쪽은 얕은 결과가 깊은 것을 덮지
-// 못하게 막는다), 이쪽은 **한 판에 생성이 한 번**이라 경합할 상대가 없다. 다시 만드는
+// 덮어쓰는 조건을 안 건다. positions 와 다른 점이고(저쪽은 얕은 결과가 깊은 것을 덮지
+// 못하게 막는다), 이쪽은 한 판에 생성이 한 번이라 경합할 상대가 없다. 다시 만드는
 // 자리가 생기면 그때 새 결과가 정본이다.
 func (q *Queries) UpsertGameQuiz(ctx context.Context, arg UpsertGameQuizParams) error {
 	_, err := q.db.Exec(ctx, upsertGameQuiz, arg.GameID, arg.Version, arg.Payload)

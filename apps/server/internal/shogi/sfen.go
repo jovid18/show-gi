@@ -213,14 +213,14 @@ func (pos Position) RepetitionKey() string {
 	return s[:strings.LastIndexByte(s, ' ')]
 }
 
-// PositionKey 는 **手数를 뺀 SFEN**이다. 국면 하나를 가리키는 정본 키다.
+// PositionKey 는 手数를 뺀 SFEN이다. 국면 하나를 가리키는 정본 키다.
 //
 // 手数를 빼야 전치(다른 수순으로 같은 국면에 도달)가 한 자리로 합쳐진다 —
-// `positions.sfen_key`(001_init.sql)와 `game_hints.sfen_key`(010)가 같은 뜻이다.
+// positions.sfen_key(001_init.sql)와 game_hints.sfen_key(010)가 같은 뜻이다.
 //
-// **부르는 쪽이 이걸 다시 만들지 않는다.** 키를 각자 만들면 한 글자만 갈려도 히트율이
-// 0이 되고, 그건 에러 없이 조용히 느려지는 종류다. `internal/archive` 가 이것을 쓰고,
-// `internal/game` 도 같은 자를 쓴다 — 저 둘은 서로를 못 들여오므로 여기가 유일한 자리다.
+// 부르는 쪽이 이걸 다시 만들지 않는다. 키를 각자 만들면 한 글자만 갈려도 히트율이
+// 0이 되고, 그건 에러 없이 조용히 느려지는 종류다. internal/archive 가 이것을 쓰고,
+// internal/game 도 같은 자를 쓴다 — 저 둘은 서로를 못 들여오므로 여기가 유일한 자리다.
 func PositionKey(pos Position) string {
 	sfen := pos.SFEN()
 	if i := strings.LastIndexByte(sfen, ' '); i > 0 {

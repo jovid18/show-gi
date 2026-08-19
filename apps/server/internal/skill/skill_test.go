@@ -45,9 +45,9 @@ func TestLostMateCountsAsFullLossThoughWinRateBarelyMoves(t *testing.T) {
 
 // 통과한 수도 값을 갖는다 — 임계치의 4분의 3을 잃었으면 0.75다.
 //
-// **임계치를 beginner(0.25)로 두지 않는다.** 그 값으로 절반을 잃으면 정규화 결과가 딱
-// PriorLoss 가 되어 EWMA가 제자리에 있고, 그러면 `m.DeltaWin / 0.25` 로 못 박은 구현도
-// 이 테스트를 통과한다 — `Move.Threshold` 주석이 경계하는 바로 그 결합이다.
+// 임계치를 beginner(0.25)로 두지 않는다. 그 값으로 절반을 잃으면 정규화 결과가 딱
+// PriorLoss 가 되어 EWMA가 제자리에 있고, 그러면 m.DeltaWin / 0.25 로 못 박은 구현도
+// 이 테스트를 통과한다 — Move.Threshold 주석이 경계하는 바로 그 결합이다.
 func TestPassedMoveIsScaledByTheThresholdThatJudgedIt(t *testing.T) {
 	const intermediateThreshold = 0.12 // intervene.Intermediate.Threshold()
 	lost := Move{DeltaWin: intermediateThreshold * 0.75, Threshold: intermediateThreshold}
@@ -60,7 +60,7 @@ func TestPassedMoveIsScaledByTheThresholdThatJudgedIt(t *testing.T) {
 	if math.Abs(got-want) > 1e-9 {
 		t.Fatalf("정규화가 판정에 쓰인 임계치를 안 썼다: got=%.4f want=%.4f", got, want)
 	}
-	// beginner 임계치로 나눴다면 0.36으로 **내려가는** 쪽이 걸린다 — 방향까지 갈린다.
+	// beginner 임계치로 나눴다면 0.36으로 내려가는 쪽이 걸린다 — 방향까지 갈린다.
 	if got <= PriorLoss {
 		t.Fatalf("임계치를 0.25로 못 박은 것과 구별되지 않는다: %.4f", got)
 	}
@@ -152,7 +152,7 @@ func TestObserveNeverBlocksWhenNobodyConsumes(t *testing.T) {
 	}
 }
 
-// 이어 시작하는 판. **표본이 차 있으면 첫 판정 전부터 밴드가 움직인다** — 그것이
+// 이어 시작하는 판. 표본이 차 있으면 첫 판정 전부터 밴드가 움직인다 — 그것이
 // skill_profile 을 채운 이유이고(journal §47), 안 되면 매 판 기준선에서 다시 시작한다.
 func TestNewTrackFromResumes(t *testing.T) {
 	got := NewTrackFrom(Estimate{Loss: 0.8, Samples: 12}).Estimate()
@@ -164,7 +164,7 @@ func TestNewTrackFromResumes(t *testing.T) {
 	}
 }
 
-// 표본이 없으면 **저장된 낙폭을 안 믿는다.** 0건에서 온 값은 아무것도 안 본 값이라
+// 표본이 없으면 저장된 낙폭을 안 믿는다. 0건에서 온 값은 아무것도 안 본 값이라
 // 그것으로 상대를 옮기면 근거 없이 세거나 약해진다.
 func TestNewTrackFromIgnoresEmpty(t *testing.T) {
 	for _, e := range []Estimate{{}, {Loss: 0.9}, {Loss: 0.9, Samples: -1}} {
@@ -174,7 +174,7 @@ func TestNewTrackFromIgnoresEmpty(t *testing.T) {
 	}
 }
 
-// 저장된 값이 범위 밖이면 자른다. DB는 **밖**이라 1을 넘는 낙폭 하나가 밴드를 임의로 민다.
+// 저장된 값이 범위 밖이면 자른다. DB는 밖이라 1을 넘는 낙폭 하나가 밴드를 임의로 민다.
 func TestNewTrackFromClamps(t *testing.T) {
 	for _, c := range []struct{ in, want float64 }{{2.5, 1}, {-1, 0}} {
 		if got := NewTrackFrom(Estimate{Loss: c.in, Samples: 5}).Estimate().Loss; got != c.want {
@@ -183,7 +183,7 @@ func TestNewTrackFromClamps(t *testing.T) {
 	}
 }
 
-// 이어 시작한 판은 **첫 수 전에 한 번 올려보낸다.** 안 올리면 지난 값이 있는데도 첫 판정까지
+// 이어 시작한 판은 첫 수 전에 한 번 올려보낸다. 안 올리면 지난 값이 있는데도 첫 판정까지
 // 상대가 기준선으로 두고, 그 한 수가 이 기능이 있는 이유다.
 func TestWorkerPushesResumedEstimateBeforeAnyMove(t *testing.T) {
 	w := NewWorkerFrom(t.Context(), Estimate{Loss: 0.9, Samples: 5}, nil)
@@ -197,7 +197,7 @@ func TestWorkerPushesResumedEstimateBeforeAnyMove(t *testing.T) {
 	}
 }
 
-// 아무것도 모르는 판에서는 **아무것도 안 올린다.** 기준선 밴드가 곧 「모름」이라, 여기서
+// 아무것도 모르는 판에서는 아무것도 안 올린다. 기준선 밴드가 곧 「모름」이라, 여기서
 // 값을 올리면 화면이 조절 중이라고 말하기 시작한다(Snapshot.OpponentStrength).
 func TestWorkerStaysQuietWhenUnknown(t *testing.T) {
 	w := NewWorkerFrom(t.Context(), Unknown, nil)
@@ -208,7 +208,7 @@ func TestWorkerStaysQuietWhenUnknown(t *testing.T) {
 	}
 }
 
-// onChange 는 판정마다 불린다. **끝에 한 번이 아니다** — 새로고침하면 판이 끝나므로
+// onChange 는 판정마다 불린다. 끝에 한 번이 아니다 — 새로고침하면 판이 끝나므로
 // 몰아 쓰면 끊긴 판의 추정이 통째로 사라진다(query/skill.sql).
 func TestWorkerReportsEveryObservation(t *testing.T) {
 	seen := make(chan Estimate, 4)

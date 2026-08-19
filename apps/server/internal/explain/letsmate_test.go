@@ -14,7 +14,7 @@ func letsMateFacts(plies int) Facts {
 		Level:     intervene.Beginner,
 		Known:     true,
 		MatePlies: plies,
-		// 아래는 이 카테고리가 **말하지 않기로 한** 사실들이다. 채워 넣어도 문장과 키에
+		// 아래는 이 카테고리가 말하지 않기로 한 사실들이다. 채워 넣어도 문장과 키에
 		// 안 새는지를 같이 본다.
 		MovedPiece: "銀",
 		Captured:   "歩",
@@ -28,7 +28,7 @@ func TestLetsMateSaysThePlyCount(t *testing.T) {
 	if !strings.Contains(got, "3手") {
 		t.Errorf("手数가 문장에 없다: %q", got)
 	}
-	// **駒 이야기를 하지 않는다.** 玉이 죽는 국면에서 駒를 말하면 초심자는 駒를 지키고
+	// 駒 이야기를 하지 않는다. 玉이 죽는 국면에서 駒를 말하면 초심자는 駒를 지키고
 	// 그 다음 수에 詰まされる.
 	for _, bad := range []string{"銀", "歩", "飛", "2枚"} {
 		if strings.Contains(got, bad) {

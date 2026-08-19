@@ -10,7 +10,7 @@ import (
 )
 
 // 문항 만들기는 DB도 엔진도 안 타는 함수 둘에 걸려 있다 — 기록을 입력으로 옮기는 자리와
-// 문장을 만드는 자리다. 여기가 틀리면 **한 번도 벌어지지 않은 국면**이 문항이 되거나,
+// 문장을 만드는 자리다. 여기가 틀리면 한 번도 벌어지지 않은 국면이 문항이 되거나,
 // 화면이 사실과 다른 문장을 말한다.
 
 func quizRecord(myColor string, result store.GameResult, moves ...store.RecordedMove) store.GameRecord {
@@ -45,7 +45,7 @@ func TestQuizInputCarriesColorAndResult(t *testing.T) {
 
 func TestQuizInputStopsAtAHoleInTheKifu(t *testing.T) {
 	// 기록은 큐가 넘치면 이벤트를 버린다(recorder.go). 구멍을 무시하고 이어 담으면 그 뒤가
-	// 통째로 밀려서, 문항이 **한 번도 벌어지지 않은 국면**을 가리킨다.
+	// 통째로 밀려서, 문항이 한 번도 벌어지지 않은 국면을 가리킨다.
 	rec := quizRecord("b", store.ResultLoss,
 		move(1, "7g7f", cpOf(30)),
 		move(2, "3c3d", cpOf(20)),
@@ -62,7 +62,7 @@ func TestQuizInputStopsAtAHoleInTheKifu(t *testing.T) {
 }
 
 func TestQuizInputEvalsLineUpWithMoves(t *testing.T) {
-	// `EvalCp[i]` 는 `i+1` 手目 뒤의 값이다. 한 칸이라도 밀리면 낙폭의 부호가 뒤집힌다.
+	// EvalCp[i] 는 i+1 手目 뒤의 값이다. 한 칸이라도 밀리면 낙폭의 부호가 뒤집힌다.
 	rec := quizRecord("b", store.ResultWin,
 		move(1, "7g7f", cpOf(10)),
 		move(2, "3c3d", nil), // 평가치는 수보다 늦게 온다 — 빈 칸이 실제로 있다
@@ -112,10 +112,10 @@ func TestOpeningPliesFromTheBook(t *testing.T) {
 	}
 }
 
-// **오답을 한 문장으로 뭉치지 않는다.** 「この手では詰みません」은 詰み이 남는 수에는
+// 오답을 한 문장으로 뭉치지 않는다. 「この手では詰みません」은 詰み이 남는 수에는
 // 거짓이고, 초심자는 그것이 거짓인지 확인할 수단이 없다.
 func TestMateMessageSplitsTheTwoWrongAnswers(t *testing.T) {
-	// `Rest == 0` 은 「한계 안에서 못 찾았다」거나 **「안 물어봤다」**다(1手 노드). 그래서
+	// Rest == 0 은 「한계 안에서 못 찾았다」거나 「안 물어봤다」다(1手 노드). 그래서
 	// 詰み이 사라졌다고도, 아예 없다고도 말할 수 없다 — 「이 수로는 詰み이 안 된다」만 참이다.
 	lost := mateMessage(quiz.MateProgress{Outcome: quiz.MateWrong, Rest: 0}, "▲5二金")
 	if strings.Contains(lost, "詰みません") || strings.Contains(lost, "消え") {
@@ -134,7 +134,7 @@ func TestMateMessageSplitsTheTwoWrongAnswers(t *testing.T) {
 	}
 }
 
-// **첫 오답부터 정답을 싣던 자리다**(2026-08-14-human-2.md §6 #10 · #11). 세 번째까지는
+// 첫 오답부터 정답을 싣던 자리다(2026-08-14-human-2.md §6 #10 · #11). 세 번째까지는
 // 다시 풀라고만 하고, 그 뒤로도 나가는 것은 「무엇을 움직이나」 한 마디뿐이다.
 func TestMateMessageWithholdsTheAnswer(t *testing.T) {
 	wrong := quiz.MateProgress{Outcome: quiz.MateWrong}
@@ -177,8 +177,8 @@ func TestMateMessageWhileOngoing(t *testing.T) {
 	}
 }
 
-// **수를 하나도 안 낸 요청은 정답이 아니다.** 문항을 여는 자리가 바로 그 요청이라
-// (`rootChecks`) 여기서 「正解です」라고 하면 아무것도 안 한 사람에게 맞혔다고 말한다.
+// 수를 하나도 안 낸 요청은 정답이 아니다. 문항을 여는 자리가 바로 그 요청이라
+// (rootChecks) 여기서 「正解です」라고 하면 아무것도 안 한 사람에게 맞혔다고 말한다.
 func TestMateMessageOnAnEmptyAttempt(t *testing.T) {
 	got := mateMessage(quiz.MateProgress{Outcome: quiz.MateOngoing, Plies: 3}, "")
 	if strings.Contains(got, "正解") {
@@ -190,7 +190,7 @@ func TestMateMessageOnAnEmptyAttempt(t *testing.T) {
 }
 
 func TestBestMessageNamesWhatWasPlayedInTheGame(t *testing.T) {
-	// 이 문항이 문제집이 아니라 **자기 기보**인 이유가 이 한 줄이다.
+	// 이 문항이 문제집이 아니라 자기 기보인 이유가 이 한 줄이다.
 	item := quiz.BestItem{SFEN: quizCollisionSFEN, Answer: "2f2e", Played: "6g6f", AnswerCp: 300, SecondCp: 50}
 	got := bestMessage(bestResponse{
 		Correct: false,
@@ -207,8 +207,8 @@ func TestBestMessageNamesWhatWasPlayedInTheGame(t *testing.T) {
 	}
 }
 
-// **오답에는 정답이 없다**(§6 #10 · #11). 세 번째부터 나가는 것은 「무엇을 움직이나」뿐이고,
-// 그것도 **도착 칸을 말하지 않는다** — 말하면 그 한 줄이 정답 전체가 된다.
+// 오답에는 정답이 없다(§6 #10 · #11). 세 번째부터 나가는 것은 「무엇을 움직이나」뿐이고,
+// 그것도 도착 칸을 말하지 않는다 — 말하면 그 한 줄이 정답 전체가 된다.
 func TestBestMessageWithholdsTheAnswer(t *testing.T) {
 	item := quiz.BestItem{SFEN: quizCollisionSFEN, Answer: "4f3e", Played: "G*3h"}
 	early := bestMessage(bestResponse{Correct: false, Move: "P*3e", MoveJa: "▲3五歩"}, item)
@@ -230,8 +230,8 @@ func TestBestMessageWithholdsTheAnswer(t *testing.T) {
 	}
 }
 
-// **낸 수부터 말한다.** 회차 1의 #17이 이 문장 하나다. 정답을 문장에서 뺀 뒤에는 그 상처가
-// **낸 수와 그 판의 수** 사이로 옮겨 온다 — 그 둘도 打 한 글자로만 갈릴 수 있다.
+// 낸 수부터 말한다. 회차 1의 #17이 이 문장 하나다. 정답을 문장에서 뺀 뒤에는 그 상처가
+// 낸 수와 그 판의 수 사이로 옮겨 온다 — 그 둘도 打 한 글자로만 갈릴 수 있다.
 func TestBestMessageNamesTheMoveJustPlayed(t *testing.T) {
 	item := quiz.BestItem{SFEN: quizCollisionSFEN, Answer: "4f3e", Played: "G*3e", AnswerCp: 910, SecondCp: 548}
 	got := bestMessage(bestResponse{
@@ -246,7 +246,7 @@ func TestBestMessageNamesTheMoveJustPlayed(t *testing.T) {
 		t.Errorf("message = %q, want the two same-square notations told apart", got)
 	}
 
-	// **낸 수가 그 판에서 둔 수와 같으면 되풀이하지 않는다.**
+	// 낸 수가 그 판에서 둔 수와 같으면 되풀이하지 않는다.
 	same := bestMessage(bestResponse{
 		Correct: false,
 		Move:    "G*3h", MoveJa: "▲3八金打",
@@ -263,8 +263,8 @@ func TestBestMessageNamesTheMoveJustPlayed(t *testing.T) {
 	}
 }
 
-// 회차 1의 110手 국면. 여기서 3五로 가는 수가 셋이고(4f3e · G*3e · P*3e) 두 金이 **打 한
-// 글자로만** 갈린다 — #17의 원인으로 적혀 있던 「표기 구분이 없다」는 틀린 진단이었다.
+// 회차 1의 110手 국면. 여기서 3五로 가는 수가 셋이고(4f3e · G*3e · P*3e) 두 金이 打 한
+// 글자로만 갈린다 — #17의 원인으로 적혀 있던 「표기 구분이 없다」는 틀린 진단이었다.
 const quizCollisionSFEN = "8l/1r5k1/4ppp2/pn5N1/1S1L1N2P/P2PPG3/1P3P+b1p/1KGGR4/LN4+b2 b G3P3sl4p 111"
 
 func TestAfterMoveOpensThePositionThatWasPlayed(t *testing.T) {
@@ -278,7 +278,7 @@ func TestAfterMoveOpensThePositionThatWasPlayed(t *testing.T) {
 	if next == "" || next == quizCollisionSFEN {
 		t.Errorf("sfen = %q, want the position after the move", next)
 	}
-	// **打과 반상 이동이 갈리는 것이 판에 그려져야 한다** — 반상의 金은 4六에 남는다.
+	// 打과 반상 이동이 갈리는 것이 판에 그려져야 한다 — 반상의 金은 4六에 남는다.
 	if !strings.Contains(next, "G") {
 		t.Errorf("sfen = %q, want the gold still on the board", next)
 	}
@@ -291,7 +291,7 @@ func TestAfterMoveOpensThePositionThatWasPlayed(t *testing.T) {
 		t.Errorf("the drop and the board move must not produce the same position: %q", movedNext)
 	}
 
-	// 못 두는 수는 넷 다 빈 값이다. 여기서 실패를 오류로 올리면 **맞은 답이 500이 된다.**
+	// 못 두는 수는 넷 다 빈 값이다. 여기서 실패를 오류로 올리면 맞은 답이 500이 된다.
 	if c, j, n, k := afterMove(quizCollisionSFEN, "1a1b"); c != "" || j != "" || n != "" || k != "" {
 		t.Errorf("afterMove on an illegal move = %q/%q/%q/%q, want all empty", c, j, n, k)
 	}
@@ -309,7 +309,7 @@ func TestMoveOriginJaOnlyWhenTheNotationsCollide(t *testing.T) {
 	if got := moveOriginJa(quizCollisionSFEN, "G*3e", "4f3e"); got != "持ち駒の金" {
 		t.Errorf("origin = %q, want 持ち駒の金", got)
 	}
-	// **같은 수면 붙일 이유가 없다** — 맞힌 사람에게 어디서 왔는지 설명할 자리가 아니다.
+	// 같은 수면 붙일 이유가 없다 — 맞힌 사람에게 어디서 왔는지 설명할 자리가 아니다.
 	if got := moveOriginJa(quizCollisionSFEN, "4f3e", "4f3e"); got != "" {
 		t.Errorf("origin = %q, want empty when the two moves are the same", got)
 	}
@@ -347,7 +347,7 @@ func TestJaAtLeavesUnreadableMovesEmpty(t *testing.T) {
 	}
 }
 
-// jaOfLine 은 **처음부터 두어 와야** 「同」 표기가 맞는다. 마지막 국면에서 한 수만 두어
+// jaOfLine 은 처음부터 두어 와야 「同」 표기가 맞는다. 마지막 국면에서 한 수만 두어
 // 보면 그 표기가 빠진다.
 func TestJaOfLineKeepsTheSameSquareNotation(t *testing.T) {
 	// ▲7六歩 △3四歩 ▲同歩 는 없으니, 잡는 수순으로 「同」이 나오는 줄을 쓴다.
@@ -365,7 +365,7 @@ func TestJaOfLineKeepsTheSameSquareNotation(t *testing.T) {
 	}
 }
 
-// 수순은 정답과 **같은 취급**이다 — 첫 수가 곧 정답이라, 오답에 실어 보내면 문항이 그
+// 수순은 정답과 같은 취급이다 — 첫 수가 곧 정답이라, 오답에 실어 보내면 문항이 그
 // 자리에서 끝난다(§61이 정답에 대해 닫은 것과 같은 자리).
 func TestLineIsRenderedFromTheAnswerPosition(t *testing.T) {
 	pos := shogi.StartPosition()
@@ -374,7 +374,7 @@ func TestLineIsRenderedFromTheAnswerPosition(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("길이 = %d, want 2: %+v", len(got), got)
 	}
-	// 표기가 정답을 둔 **뒤**의 국면에서 나와야 한다. 문제 국면에서 만들면 후수의 수가
+	// 표기가 정답을 둔 뒤의 국면에서 나와야 한다. 문제 국면에서 만들면 후수의 수가
 	// 선수 차례의 표기로 적힌다.
 	if got[0].Ja != "△3四歩" {
 		t.Errorf("첫 수 표기 = %q, want △3四歩", got[0].Ja)
@@ -387,7 +387,7 @@ func TestLineIsRenderedFromTheAnswerPosition(t *testing.T) {
 	}
 }
 
-// 저장된 수순이 그 국면에서 안 서면 **거기까지만** 준다. 500으로 답하면 맞은 답이 오류가 된다.
+// 저장된 수순이 그 국면에서 안 서면 거기까지만 준다. 500으로 답하면 맞은 답이 오류가 된다.
 func TestLineStopsInsteadOfFailing(t *testing.T) {
 	pos := shogi.StartPosition()
 	got := lineFrom(pos.SFEN(), "7g7f", []string{"3c3d", "9i9b"})

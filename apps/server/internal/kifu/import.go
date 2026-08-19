@@ -74,7 +74,7 @@ func (imp *Importer) ImportGame(ctx context.Context, g ParsedGame) (ImportResult
 			if err := imp.store.SetMoveEval(ctx, gameID, ply, j.SenteCpAfter); err != nil {
 				log.Printf("kifu: set eval ply %d: %v", ply, err)
 			}
-			// 직전 회차가 After 로 적은 칸을 Before 로 덮는다 — game/session.go 의 기록과 **일부러** 같은 모양이라
+			// 직전 회차가 After 로 적은 칸을 Before 로 덮는다 — game/session.go 의 기록과 일부러 같은 모양이라
 			// calibrate_test.go 가 읽는 eval_cp 가 제품과 같은 값이 된다. 같은 칸에 두 탐색이 쓴다(journal §41).
 			if ply > 1 {
 				if err := imp.store.SetMoveEval(ctx, gameID, ply-1, j.SenteCpBefore); err != nil {

@@ -8,9 +8,9 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// 사람의 수 하나를 무르면 **상대의 응수까지** 사라지고 판이 사람 차례로 돌아온다.
+// 사람의 수 하나를 무르면 상대의 응수까지 사라지고 판이 사람 차례로 돌아온다.
 //
-// 두 手인 것이 이 기능의 전부다 — 한 手만 되돌리면 상대 차례가 되어 사람이 다시 둘 수 없다.
+// 되돌리는 폭이 두 手다 — 한 手만 되돌리면 상대 차례가 되어 사람이 다시 둘 수 없다.
 func TestUndoTakesBackTheHumanMoveAndTheReply(t *testing.T) {
 	opp := &scriptedOpponent{moves: []string{"3c3d"}}
 	s := newSession(t, Config{Opponent: opp, HumanColor: shogi.Black})
@@ -83,7 +83,7 @@ func TestUndoLetsThePlayerPlayAgain(t *testing.T) {
 
 // 예산은 판당 UndoMaxPerGame 이다.
 func TestUndoRunsOutAfterTheBudget(t *testing.T) {
-	// **정해진 수순을 쓰지 않는다.** 되감으면 판은 처음으로 돌아가는데 대본은 그대로
+	// 정해진 수순을 쓰지 않는다. 되감으면 판은 처음으로 돌아가는데 대본은 그대로
 	// 앞으로 가서, 두 번째 회차의 수가 그 국면에서 불법이 된다.
 	s := newSession(t, Config{Opponent: legalOpponent{}, HumanColor: shogi.Black})
 
@@ -128,7 +128,7 @@ func TestUndoRunsOutAfterTheBudget(t *testing.T) {
 	}
 }
 
-// **이어하는 판은 예산을 이어받는다.** 이 값이 0으로 돌아가면 새로고침 한 번에 예산이
+// 이어하는 판은 예산을 이어받는다. 이 값이 0으로 돌아가면 새로고침 한 번에 예산이
 // 다시 차서 「3회 제한」이 「연결당 3회」가 된다(Config.UndoUsed).
 func TestUndoBudgetCarriesIntoAResumedGame(t *testing.T) {
 	opp := &scriptedOpponent{moves: []string{"8c8d"}}
@@ -208,7 +208,7 @@ func TestUndoIsRefusedAfterTheGameEnds(t *testing.T) {
 	}
 }
 
-// **무른 수도 실력 추정에 남는다** — 회차 1 #4 의 두 번째 요구다.
+// 무른 수도 실력 추정에 남는다 — 회차 1 #4 의 두 번째 요구다.
 //
 // 판정을 통과한 수는 그때 추정기가 이미 먹었고(applyVerdict), 무르기는 그것을 안 되돌린다.
 // 되돌리면 「어려운 수를 두고 무르면 실력이 안 떨어진다」가 되어 상대가 실제보다 약해진다.
@@ -255,8 +255,8 @@ func TestUndoKeepsTheMoveInTheSkillEstimate(t *testing.T) {
 	}
 }
 
-// 무른 수는 **기보가 아니라** 무르기 기록으로 간다. 기보에 남으면 되감기가
-// 되감기가 아니게 되고, `interventions` 로 가면 개입 횟수가 부풀어 오른다.
+// 무른 수는 기보가 아니라 무르기 기록으로 간다. 기보에 남으면 되감기가
+// 되감기가 아니게 되고, interventions 로 가면 개입 횟수가 부풀어 오른다.
 func TestUndoRecordsTheMoveOutsideTheKifu(t *testing.T) {
 	rec := &fakeRecorder{}
 	opp := &scriptedOpponent{moves: []string{"3c3d"}}
@@ -282,7 +282,7 @@ func TestUndoRecordsTheMoveOutsideTheKifu(t *testing.T) {
 			undone = l
 		}
 	}
-	// 手数는 **무른 사람 수의 것**이다. 여기가 어긋나면 store 가 엉뚱한 자리부터 자른다.
+	// 手数는 무른 사람 수의 것이다. 여기가 어긋나면 store 가 엉뚱한 자리부터 자른다.
 	if undone != "undone 1 7g7f" {
 		t.Fatalf("무르기 기록 = %q (\"undone 1 7g7f\" 기대), 전체 = %v", undone, rec.all())
 	}

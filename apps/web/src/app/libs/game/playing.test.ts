@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { getPlaying, setPlaying, subscribePlaying } from './playing';
 
-// 모듈 하나가 값을 들고 있으므로 **테스트끼리 새어 나간다.** 끝날 때마다 되돌린다.
+// 모듈 하나가 값을 들고 있으므로 테스트끼리 새어 나간다. 끝날 때마다 되돌린다.
 afterEach(() => setPlaying(false));
 
 describe('playing', () => {
@@ -14,7 +14,7 @@ describe('playing', () => {
     expect(notify).toHaveBeenCalledTimes(1);
     expect(getPlaying()).toBe(true);
 
-    // **같은 값은 안 알린다.** 매 手마다 스냅샷이 오는데 그때마다 헤더를 다시 그리면,
+    // 같은 값은 안 알린다. 매 手마다 스냅샷이 오는데 그때마다 헤더를 다시 그리면,
     // 사람이 두고 있는 동안 판 밖이 계속 흔들린다.
     setPlaying(true);
     expect(notify).toHaveBeenCalledTimes(1);

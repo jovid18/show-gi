@@ -34,7 +34,7 @@ describe('sideJa', () => {
 });
 
 describe('exploreStatusJa', () => {
-  // **「あなた」가 없다.** 검토에는 플레이어가 없고 양쪽 다 사람이 둔다.
+  // 「あなた」가 없다. 검토에는 플레이어가 없고 양쪽 다 사람이 둔다.
   it('두는 중이면 手番을 말하고 양쪽을 둘 수 있다고 말한다', () => {
     expect(exploreStatusJa(nodeOf({ turn: 'w' }), false)).toBe('後手の番。どちらの駒も動かせます。');
     expect(exploreStatusJa(nodeOf({ turn: 'w', handicapJa: '二枚落ち' }), false)).toBe(
@@ -42,7 +42,7 @@ describe('exploreStatusJa', () => {
     );
   });
 
-  // 詰み은 **수번 쪽이** 지는 것이다.
+  // 詰み은 수번 쪽이 지는 것이다.
   it('詰み·手詰まり는 수번 쪽의 패배다', () => {
     expect(exploreStatusJa(nodeOf({ turn: 'b', status: 'checkmate' }), false)).toBe('詰みです。先手の負けです。');
     expect(exploreStatusJa(nodeOf({ turn: 'w', status: 'stalemate' }), false)).toBe('手詰まりです。後手の負けです。');
@@ -53,7 +53,7 @@ describe('exploreStatusJa', () => {
     expect(exploreStatusJa(null, true)).toBe('読んでいます…');
   });
 
-  // **직전 국면을 그리고 있는 동안 문구를 바꾸지 않는다.** 手合割을 바꾸거나 한 수 둘 때마다
+  // 직전 국면을 그리고 있는 동안 문구를 바꾸지 않는다. 手合割을 바꾸거나 한 수 둘 때마다
   // 문구가 「読んでいます…」로 번쩍이면 그것만 눈에 남는다(WhatIfPanel 에서 배운 것이다).
   it('노드가 있으면 기다리는 동안에도 그 국면을 말한다', () => {
     expect(exploreStatusJa(nodeOf({ turn: 'b' }), true)).toBe('先手の番。どちらの駒も動かせます。');

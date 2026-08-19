@@ -10,12 +10,12 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
 )
 
-// 제안형 힌트가 **축마다 몇 번 말하는가**. 전법을 뺀 뒤에도 채널이 살아 있는지를 보는 자리다
+// 제안형 힌트가 축마다 몇 번 말하는가. 전법을 뺀 뒤에도 채널이 살아 있는지를 보는 자리다
 // (회차 1 #0 · journal §71).
 //
 //	SHOWGI_KIFU_SCAN=1 SHOWGI_KIFU_GAMES=40 go test ./internal/kifu/ -run ScanHintAxes -v
 //
-// `game.computeTagHints` 와 **같은 물음**을 던진다 — 지금 국면의 합법수 중 아직 없는 이름을
+// game.computeTagHints 와 같은 물음을 던진다 — 지금 국면의 합법수 중 아직 없는 이름을
 // 만드는 것이 있는가. 다른 것은 상한·쿨다운을 안 보는 것뿐이라, 여기 숫자는 「말할 수 있는
 // 자리」의 상한이다.
 func hintAxesOne(path string, maxPly int) (map[tag.Kind]int, error) {
@@ -44,7 +44,7 @@ func hintAxesOne(path string, maxPly int) (map[tag.Kind]int, error) {
 			return nil, err
 		}
 		mover := pos.Turn
-		// 두기 **전**의 국면에서 묻는다 — 제안은 착수 전에 나간다.
+		// 두기 전의 국면에서 묻는다 — 제안은 착수 전에 나간다.
 		c := mover
 		have := map[string]bool{}
 		for _, t := range tag.Detect(tag.Input{

@@ -81,7 +81,7 @@ create index on edges using gin (tags);
 
 > **두 테이블은 오래 비어 있었다.** `001_init.sql` 에 소비자보다 먼저 들어가서 [journal §12](journal/06-20.md)·[06-status.md §5](06-status.md)가 「쓰는 쪽이 없다」로 적어 둔 그대로였고, 실제 행수가 `positions` 2 · `edges` **0**이었다. **채우는 쪽이 붙었다**([journal §37](journal/21-40.md)) — 엔진을 부르는 자리를 **전부** 한 겹 감싸서(`internal/archive`) 모든 탐색이 여기로 떨어진다.
 >
-> **둘 다 읽는 쪽이 생겼다.** `internal/archive` 의 `lookup` 이 `positions` 에서 후보를, `edges` 에서 **깊이별 값**을 꺼내 엔진 호출을 대신한다 — 다섯 자리(상대 수·개입 판정·가정 수순·手筋 게이트·**검토**)가 전부 그 한 겹을 지난다 — 마지막 자리가 [journal §85](journal/82-100.md)이고, 거기서 **되짚기가 쌓아 둔 행을 그대로 꺼내 쓰는 것이 실측으로 확인됐다.** `edges.tags` 만 아직 아무도 안 채운다 — 「정석 이탈」 카테고리가 기다리는 칸이고([01-core.md §3](01-core.md)), **소비자 없이 스키마를 먼저 만든 값이 마이너스였다는 것**이 이 줄이 남은 이유다.
+> **둘 다 읽는 쪽이 생겼다.** `internal/archive` 의 `lookup` 이 `positions` 에서 후보를, `edges` 에서 **깊이별 값**을 꺼내 엔진 호출을 대신한다 — 여섯 자리(상대 수·개입 판정·가정 수순·**검토**·부르는 힌트·되짚기 퀴즈)가 전부 그 한 겹을 지난다 — `cmd/api/main.go` 가 `archive.Wrap` 한 개를 그 여섯에 나눠 준다. 검토가 마지막으로 붙은 자리이고([journal §85](journal/82-100.md)), 거기서 **되짚기가 쌓아 둔 행을 그대로 꺼내 쓰는 것이 실측으로 확인됐다.** `edges.tags` 만 아직 아무도 안 채운다 — 「정석 이탈」 카테고리가 기다리는 칸이고([01-core.md §3](01-core.md)), **소비자 없이 스키마를 먼저 만든 값이 마이너스였다는 것**이 이 줄이 남은 이유다.
 >
 > **플레이어에 매인 값이 없다.** cp는 수번 관점, `tags` 는 둔 쪽 기준이라 A가 잰 국면이 B에게 그대로 유효하다 — `user_id`도 `game_id`도 없어서 로그인이 붙어도 여기는 위협이 아니다(§7 위협 2가 말하는 것은 `games`·`game_moves` 쪽이다).
 >
@@ -113,17 +113,21 @@ USI 엔진은 iterative deepening 중 `info depth 1 score cp … / info depth 2 
 ```sql
 users        (id, provider, provider_uid, display_name, created_at)
 games        (id, user_id, my_color, started_at, finished_at, result, opening_tag,
-              root_key, start_sfen, style_tags)
+              root_key, start_sfen, style_tags, match_id)
              -- user_id는 nullable. 로그인 전에도 남긴다 (002_anonymous_games.sql)
              -- opening_tag 은 **상대**가 고른 진형이고, style_tags 는 **사람이 짠** 囲い·
              -- 전법·戦型이다 (009_game_style_tags.sql, §77). 手筋은 안 담는다
              -- start_sfen 이 手合割의 정본이다 (§84) — 이름을 적는 칸을 안 만들었다.
              -- 적어 두면 그 칸과 판이 갈릴 수 있고, 갈리면 화면이 없는 駒를 말한다
+             -- match_id 가 있으면 대인전이고, 그 한 판이 games 행 **둘**로 남는다
+             -- (012_match_games.sql, §83). NULL 이 AI 연습 대국이다 — 마이페이지의
+             -- 집계 셋이 그 조건으로 대인전을 뺀다. 밖으로는 불리언 하나만 나간다
 game_hints   (id, game_id, ply, sfen_key, stage, best_usi, taken, created_at)
              -- 사람이 **불러서** 받은 최선수 힌트 (010_game_hints.sql, §78).
              -- **interventions 와 갈라 둔다** — 저쪽은 앱이 먼저 말을 건 자리다
              -- result 어휘의 정본은 `store.GameResult` 다 — 칸에 CHECK 가 없어서
-             -- 'aborted'(§56) · 'declined'(§51)가 DDL 없이 늘었다
+             -- 'declined'(§51)가 DDL 없이 늘었다. 中断은 'abandoned' 로 적힌다 —
+             -- 'aborted' 는 세션·프로토콜 쪽 Status 이지 이 칸의 값이 아니다
 game_moves   (game_id, ply, usi, sfen_key, eval_cp)
              -- **지금 판에 남아 있는 수순만.** 물러진 수도 스스로 무른 수도 여기 안 들어온다
 interventions(id, game_id, ply, kind, category, delta_win, level_bucket,
@@ -183,6 +187,8 @@ skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at,
    │  tag       囲い·전법·戦型·手筋의 이름          │
    │            엔진도 DB도 모른다 — 국면과 수순만  │
    │  book      상대의 진형 4종 수순 (§48)          │
+   │  match     사람끼리 두는 방 · 시계 (§83)        │
+   │            엔진을 안 부른다 — 개입도 힌트도 없다│
    │  handicap  手合割 7종 — 시작 국면과 기준점 (§84)│
    │  quiz      되짚기 퀴즈 생성·채점 (§53)         │
    │  auth      Google OAuth · 서명 쿠키 (§46)      │

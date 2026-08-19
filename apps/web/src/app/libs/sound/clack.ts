@@ -1,11 +1,11 @@
 /**
- * 착수음. **파일을 안 쓰고 그 자리에서 만든다.**
+ * 착수음. 파일을 안 쓰고 그 자리에서 만든다.
  *
  * 레포가 퍼블릭이라 음원을 하나 넣으면 그 파일의 라이선스가 레포의 문제가 된다. 駒가 판에
  * 닿는 소리는 「짧은 충격 + 나무의 울림」이라 합성으로 충분히 가깝고, 그러면 출처를 적을
  * 것도 받아 올 것도 없다 — journal §70.
  *
- * **AudioContext 를 미리 만들지 않는다.** 브라우저는 사용자가 무엇이든 누르기 전에 만든
+ * AudioContext 를 미리 만들지 않는다. 브라우저는 사용자가 무엇이든 누르기 전에 만든
  * 컨텍스트를 `suspended` 로 둔다. 첫 착수가 곧 클릭이라 그때 만들면 되고, 그 뒤로는
  * 상대의 수(클릭이 아니다)에도 울린다.
  */
@@ -28,7 +28,7 @@ let ctx: AudioContext | null = null;
 let noise: AudioBuffer | null = null;
 
 /**
- * 이 브라우저가 소리를 낼 수 있는가. **없으면 조용히 아무것도 안 한다** — 착수음은
+ * 이 브라우저가 소리를 낼 수 있는가. 없으면 조용히 아무것도 안 한다 — 착수음은
  * 이 제품의 기능이 아니라 감촉이고, 없다고 판을 못 두게 할 이유가 없다.
  */
 function audio(): AudioContext | null {
@@ -39,7 +39,7 @@ function audio(): AudioContext | null {
   return ctx;
 }
 
-/** 짧은 백색소음 한 조각. **한 번만 만들어 돌려 쓴다** — 수마다 만들면 착수마다 GC가 돈다. */
+/** 짧은 백색소음 한 조각. 한 번만 만들어 돌려 쓴다 — 수마다 만들면 착수마다 GC가 돈다. */
 function noiseBuffer(c: AudioContext): AudioBuffer {
   if (noise) return noise;
   const frames = Math.ceil((c.sampleRate * NOISE_MS) / 1000);
@@ -56,7 +56,7 @@ function noiseBuffer(c: AudioContext): AudioBuffer {
 /**
  * 駒 하나가 판에 닿는 소리.
  *
- * **울리지 못해도 던지지 않는다.** 자동 재생 정책·오디오 장치 없음·탭이 백그라운드 —
+ * 울리지 못해도 던지지 않는다. 자동 재생 정책·오디오 장치 없음·탭이 백그라운드 —
  * 전부 정상적인 상황이고, 그때 예외가 화면까지 올라가면 판이 멈춘다.
  */
 export function clack(): void {
@@ -89,7 +89,7 @@ export function clack(): void {
       osc.type = 'triangle';
       osc.frequency.value = p.hz;
       const g = c.createGain();
-      // **setValueAtTime 으로 시작을 못 박는다.** 안 그러면 앞의 수에서 걸어 둔 램프가
+      // setValueAtTime 으로 시작을 못 박는다. 안 그러면 앞의 수에서 걸어 둔 램프가
       // 이어져, 빨리 두면 소리가 점점 작아진다.
       g.gain.setValueAtTime(p.gain, t);
       g.gain.exponentialRampToValueAtTime(0.0001, t + p.decay);

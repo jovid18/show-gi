@@ -6,7 +6,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// **田楽刺し.** 5九香가 5筋을 따라 5五金과 5三飛를 꿴다.
+// 田楽刺し. 5九香가 5筋을 따라 5五金과 5三飛를 꿴다.
 //
 // 뒤가 飛(10)라 香(4)보다 비싸다 — 꿰어 얻는 것이 그것이다.
 func TestLanceSkewerIsDengakuZashi(t *testing.T) {
@@ -30,9 +30,9 @@ func TestOnePieceOnTheFileIsNotASkewer(t *testing.T) {
 	}
 }
 
-// **뒤가 歩면 꿰는 형태에 이름이 안 붙는다.** 香를 던져 얻는 것이 뒤의 駒다.
+// 뒤가 歩면 꿰는 형태에 이름이 안 붙는다. 香를 던져 얻는 것이 뒤의 駒다.
 //
-// 여기까지가 이름의 관례이고, **香와의 값 비교는 하지 않는다** — 뒤가 桂여도 형태는
+// 여기까지가 이름의 관례이고, 香와의 값 비교는 하지 않는다 — 뒤가 桂여도 형태는
 // 田楽刺し이고 「그래서 得인가」는 엔진이 답한다(game/tesuji.go).
 func TestASkewerNeedsSomethingWorthTakingBehind(t *testing.T) {
 	// 뒤가 歩
@@ -48,7 +48,7 @@ func TestASkewerNeedsSomethingWorthTakingBehind(t *testing.T) {
 	}
 }
 
-// **자기 駒에 막히면 그 뒤는 안 보인다.** 이것이 없으면 판을 뚫고 세어 거짓이 된다.
+// 자기 駒에 막히면 그 뒤는 안 보인다. 이것이 없으면 판을 뚫고 세어 거짓이 된다.
 func TestMyOwnPieceBlocksTheSkewer(t *testing.T) {
 	// 5八에 先手 歩. 그 위의 金·飛는 香에게 안 보인다
 	pos := forkBoard(t, "8k/9/4r4/9/4g4/9/9/4P4/4L3K b - 1")

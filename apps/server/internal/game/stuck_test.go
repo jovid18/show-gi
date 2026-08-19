@@ -13,7 +13,7 @@ import (
 
 // 실제 플레이 테스트 기보. 77·81수째에서 「생각한 수가 전부 물러졌다」고 보고됐다.
 //
-// **보고는 전수 조사가 아니다** — 직접 둬본 몇 수가 전부 걸렸다는 것이다. 아래 조사가
+// 보고는 전수 조사가 아니다 — 직접 둬본 몇 수가 전부 걸렸다는 것이다. 아래 조사가
 // 합법수 전부를 돌려 그 보고를 설명한다.
 const stuckKifu = `▲7六歩 △7二銀 ▲6八飛 △5二金右 ▲5八金左 △9四歩 ▲4八玉 △2四歩
 ▲3八玉 △2五歩 ▲2八玉 △3二金 ▲3八銀 △3四歩 ▲6六歩 △3三角
@@ -28,7 +28,7 @@ const stuckKifu = `▲7六歩 △7二銀 ▲6八飛 △5二金右 ▲5八金左 
 
 // kifuToUSI 는 棋譜 표기를 USI로 되돌린다.
 //
-// 손으로 옮기지 않는다 — **합법수마다 우리 MoveJa 를 돌려 표기가 일치하는 것을 찾는다.**
+// 손으로 옮기지 않는다 — 합법수마다 우리 MoveJa 를 돌려 표기가 일치하는 것을 찾는다.
 // 표기를 두 벌로 만들면 어긋났을 때 어느 쪽이 맞는지 알 수 없다(§6 ④와 같은 이유).
 func kifuToUSI(t *testing.T, kifu string) ([]string, shogi.Position) {
 	t.Helper()
@@ -73,7 +73,7 @@ func TestKifuRoundTrips(t *testing.T) {
 	t.Logf("합법수 %d개", len(pos.LegalMoves()))
 }
 
-// TestRealEngineStuckPosition 은 **「무엇을 둬도 블런더」가 사실인지** 잰다.
+// TestRealEngineStuckPosition 은 「무엇을 둬도 블런더」가 사실인지 잰다.
 //
 // 플레이 테스트에서 나온 보고이고, 사실이라면 판정식이 「이 수가 얼마나 나쁜가」만 보고
 // 「더 나은 선택지가 실제로 있었나」를 안 보기 때문이다.
@@ -101,7 +101,7 @@ func TestRealEngineStuckPosition(t *testing.T) {
 	}
 }
 
-// surveyPly 는 그 국면의 **합법수 전부**를 판정에 돌린다.
+// surveyPly 는 그 국면의 합법수 전부를 판정에 돌린다.
 func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 	t.Helper()
 
@@ -111,13 +111,13 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 		t.Fatalf("국면 복원: %v", err)
 	}
 
-	// 착수 **전** 최선수는 모든 후보에 공통이라 한 번만 구한다.
+	// 착수 전 최선수는 모든 후보에 공통이라 한 번만 구한다.
 	before, err := pool.SearchDepth(t.Context(), shogi.StartSFEN, usis, JudgeDepth)
 	if err != nil {
 		t.Fatalf("착수 전 탐색: %v", err)
 	}
 
-	// 후보 사다리. **「우세를 지키는 수가 하나뿐」이 사실인지**를 여기서만 알 수 있다.
+	// 후보 사다리. 「우세를 지키는 수가 하나뿐」이 사실인지를 여기서만 알 수 있다.
 	// 2위부터 음수면 진짜 바늘이고, 2위도 +500대면 바늘이 아니라 후보를 못 찾는 문제다.
 	ladder, err := pool.SearchMultiPV(t.Context(), shogi.StartSFEN, usis, JudgeDepth, CandidateK)
 	if err != nil {
@@ -126,7 +126,7 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 
 	// 최선수가 움직이는 駒. 板 위의 수는 출발 칸, 打는 駒 종류로 잡는다.
 	//
-	// **「그 駒를 짚어주면 웬만하면 잘 둔다」가 계단식 힌트의 전제**다. 그 駒를 움직이는
+	// 「그 駒를 짚어주면 웬만하면 잘 둔다」가 계단식 힌트의 전제다. 그 駒를 움직이는
 	// 수 중 통과가 하나뿐이면 1단계는 도움이 아니라 2단계로 가는 계단일 뿐이다.
 	bestMove, bestErr := shogi.ParseUSIMove(before.Best)
 	samePiece, samePieceOK := 0, 0
@@ -136,14 +136,14 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 	counts := map[intervene.Level]int{}
 	cats := map[intervene.Category]int{}
 
-	// **초심자가 고려할 만한 수**를 얕은 평가로 근사한다. depth 2에서 좋아 보이는 수다.
+	// 초심자가 고려할 만한 수를 얕은 평가로 근사한다. depth 2에서 좋아 보이는 수다.
 	// 「모든 수가 블런더는 아니었지만 내가 생각한 수는 블런더였다」가 이 줄에 걸린다.
 	plausible, plausibleBlunder, haveShallow := 0, 0, 0
 	var samples []string
 	// 그중 몇 개가 반전 폭 임계치별로 shallow_trap 이 되는가
 	reversalHits := map[int]int{}
 
-	// 반박 수순이 실제로 몇 수가 되는가. **길이를 상수로 박지 않기로 한 근거**이고,
+	// 반박 수순이 실제로 몇 수가 되는가. 길이를 상수로 박지 않기로 한 근거이고,
 	// 여기서 전부 1수로 쪼그라들면 이 기능이 겨냥한 자리(§17)를 못 덮는다는 뜻이다.
 	lineLen := map[int]int{}
 	var lineSamples []string
@@ -258,7 +258,7 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 	}
 }
 
-// sameMover 는 두 수가 **같은 駒를 움직이는가**다.
+// sameMover 는 두 수가 같은 駒를 움직이는가다.
 //
 // 板 위의 수는 출발 칸이 같으면 같은 駒이고, 打는 손에서 나오므로 종류가 같으면 같은
 // 駒다(같은 종류가 둘 있으면 어느 쪽인지 구분할 수 없고, 구분할 필요도 없다).

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { hrefOf, parseRoute } from './router';
 
-// 주소를 읽는 쪽은 **새로고침과 뒤로 가기가 지나가는 유일한 문**이다. 조용히 틀리면
+// 주소를 읽는 쪽은 새로고침과 뒤로 가기가 지나가는 유일한 문이다. 조용히 틀리면
 // 「그 판을 열었는데 목록이 뜬다」로 나타나고, 화면에서는 버그로 안 보인다.
 describe('parseRoute', () => {
   it('빈 경로와 루트는 홈이다', () => {
@@ -52,7 +52,7 @@ describe('parseRoute', () => {
     expect(parseRoute('/reviews/12/quiz/')).toEqual({ name: 'quiz', id: 12 });
   });
 
-  // 퀴즈가 아닌 꼬리는 **그 판**이다. 목록으로 튕기면 링크를 잘못 복사한 사람이 판을
+  // 퀴즈가 아닌 꼬리는 그 판이다. 목록으로 튕기면 링크를 잘못 복사한 사람이 판을
   // 잃고, 이 앱에 404 화면은 없다.
   it('모르는 꼬리는 그 판이다', () => {
     expect(parseRoute('/reviews/12/nope')).toEqual({ name: 'review', id: 12 });
@@ -63,7 +63,7 @@ describe('parseRoute', () => {
     expect(parseRoute('/reviews/abc/quiz')).toEqual({ name: 'reviews' });
   });
 
-  // 숫자 꼬리는 **열 手数**다. 총평이 짚은 국면으로 곧장 들어오는 링크가 이 모양이다.
+  // 숫자 꼬리는 열 手数다. 총평이 짚은 국면으로 곧장 들어오는 링크가 이 모양이다.
   it('숫자 꼬리는 手数다', () => {
     expect(parseRoute('/reviews/12/81')).toEqual({ name: 'review', id: 12, ply: 81 });
     // 0手目(시작 국면)은 유효한 자리다 — id 와 갈리는 지점이다.
@@ -88,7 +88,7 @@ describe('parseRoute', () => {
     expect(parseRoute('/guide/anything')).toEqual({ name: 'guide' });
   });
 
-  // 검토는 **쿼리를 보는 유일한 화면**이다. 여기가 틀리면 링크로 받은 국면이 안 열린다.
+  // 검토는 쿼리를 보는 유일한 화면이다. 여기가 틀리면 링크로 받은 국면이 안 열린다.
   it('검토 — 手合割과 수순이 쿼리에 있다', () => {
     expect(parseRoute('/explore')).toEqual({ name: 'explore', handicap: '', moves: [] });
     expect(parseRoute('/explore/')).toEqual({ name: 'explore', handicap: '', moves: [] });
@@ -106,7 +106,7 @@ describe('parseRoute', () => {
     });
   });
 
-  // **한 토큰이 깨지면 줄 전체를 버린다.** 절반만 두면 링크를 받은 사람이 보는 판과
+  // 한 토큰이 깨지면 줄 전체를 버린다. 절반만 두면 링크를 받은 사람이 보는 판과
   // 준 사람이 본 판이 다르고, 그건 화면에서 버그로 안 보인다.
   it('모양이 아닌 수순은 통째로 버린다', () => {
     for (const bad of [
@@ -120,7 +120,7 @@ describe('parseRoute', () => {
     }
   });
 
-  // **없는 手合割을 여기서 자르지 않는다.** 목록에 있는지는 서버가 정하고(`bad_handicap`),
+  // 없는 手合割을 여기서 자르지 않는다. 목록에 있는지는 서버가 정하고(`bad_handicap`),
   // 화면이 어휘를 한 벌 더 들면 새 手合이 붙는 날 그 공유 링크가 조용히 平手로 열린다.
   it('모르는 手合割 id 는 서버에 넘긴다', () => {
     expect(parseRoute('/explore?h=hachimaiochi2&m=7g7f')).toEqual({
@@ -130,7 +130,7 @@ describe('parseRoute', () => {
     });
   });
 
-  // 방 id 는 **영숫자 8자** 다(서버의 newRoomID). 모양이 아니면 대국으로 보낸다 —
+  // 방 id 는 영숫자 8자 다(서버의 newRoomID). 모양이 아니면 대국으로 보낸다 —
   // 아무 문자열이나 통과시키면 그 값이 그대로 `fetch` 의 경로가 된다.
   it('방', () => {
     const id = 'AbCdEf12';

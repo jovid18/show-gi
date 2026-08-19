@@ -36,9 +36,9 @@ func openStoreForTest(t *testing.T) *store.Store {
 	return s
 }
 
-// 끝나지 않고 연결이 끊긴 판은 `abandoned` 로 남아야 한다.
+// 끝나지 않고 연결이 끊긴 판은 abandoned 로 남아야 한다.
 //
-// 빈 result 로 두면 **「아직 두는 중인 판」과 구별이 안 된다.** 기록을 나중에 훑을 때
+// 빈 result 로 두면 「아직 두는 중인 판」과 구별이 안 된다. 기록을 나중에 훑을 때
 // 그 둘이 섞이면 어느 판이 실제 대국인지 셀 수 없다.
 func TestRecordAbandonsOnDisconnect(t *testing.T) {
 	st := openStoreForTest(t)
@@ -67,7 +67,7 @@ func TestRecordAbandonsOnDisconnect(t *testing.T) {
 		return m.Type == "snapshot" && m.Snapshot.Ply == 2
 	}, "상대 응수")
 
-	// **투료하지 않고 그냥 끊는다.** 실제로 탭을 닫는 것과 같다.
+	// 투료하지 않고 그냥 끊는다. 실제로 탭을 닫는 것과 같다.
 	_ = conn.CloseNow()
 
 	gameID := waitForNewGame(t, st, before)
@@ -119,7 +119,7 @@ func TestRecordFinishesOnResign(t *testing.T) {
 	t.Cleanup(func() { deleteGame(t, st, gameID) })
 }
 
-// maxGameID 는 지금 기록에 있는 가장 큰 대국 id다. **이 뒤에 생긴 것**이 이 테스트의 판이다.
+// maxGameID 는 지금 기록에 있는 가장 큰 대국 id다. 이 뒤에 생긴 것이 이 테스트의 판이다.
 func maxGameID(t *testing.T, st *store.Store) int64 {
 	t.Helper()
 	var id *int64 // 기록이 하나도 없으면 NULL이다
@@ -134,12 +134,12 @@ func maxGameID(t *testing.T, st *store.Store) int64 {
 
 // waitForNewGame 은 이 테스트가 연 대국이 기록에 나타날 때까지 기다린다.
 //
-// **`max(id)` 하나로 찾지 않는다.** DB는 워크트리끼리 공유하고(CLAUDE.md), `go test ./...`
-// 는 패키지마다 다른 프로세스를 **동시에** 돌린다 — `internal/store` 의 테스트가 같은 순간에
+// max(id) 하나로 찾지 않는다. DB는 워크트리끼리 공유하고(CLAUDE.md), go test ./...
+// 는 패키지마다 다른 프로세스를 동시에 돌린다 — internal/store 의 테스트가 같은 순간에
 // 대국을 만든다. 그때 max(id)는 남의 판을 집어 오고, 그 판에는 result 가 영영 안 찍혀서
 // 10초를 기다리다 「abandoned 로 안 찍혔다」로 죽는다. 실제로 그렇게 깨졌다.
 //
-// 그래서 **시작 국면**으로 한 번 더 거른다. 대국 세션은 평수 초기 국면을 이 문자열
+// 그래서 시작 국면으로 한 번 더 거른다. 대국 세션은 평수 초기 국면을 이 문자열
 // 그대로 적고(session.go), 다른 패키지의 테스트는 자기 이름을 적는다.
 func waitForNewGame(t *testing.T, st *store.Store, before int64) int64 {
 	t.Helper()
@@ -182,14 +182,14 @@ func deleteGame(t *testing.T, st *store.Store, id int64) {
 	}
 }
 
-// 평가치가 **실제로 DB까지 간다.**
+// 평가치가 실제로 DB까지 간다.
 //
-// 사람의 수 뒤와 **그 직전 상대 수 뒤** 두 행이 채워진다. 앞쪽은 판정의 「착수 전」
+// 사람의 수 뒤와 그 직전 상대 수 뒤 두 행이 채워진다. 앞쪽은 판정의 「착수 전」
 // 국면이라 상대 수의 평가치가 한 수 늦게 들어가는 구조다(session.recordEvals).
 //
-// 세션·store 는 각자 테스트가 있지만 **그 사이의 이벤트 배선은 여기서만 지켜진다** —
+// 세션·store 는 각자 테스트가 있지만 그 사이의 이벤트 배선은 여기서만 지켜진다 —
 // dbRecorder 가 evEvaluated 를 흘리면 아무 데서도 안 터지고 칸만 계속 NULL 로 남는다.
-// 실제로 그 상태로 109수 한 판이 기록됐다(docs/08-playtest.md §11).
+// 실제로 그렇게 기록된 판이 있다(08-playtest.md §11).
 func TestRecordFillsEvalTrajectory(t *testing.T) {
 	st := openStoreForTest(t)
 
@@ -212,7 +212,7 @@ func TestRecordFillsEvalTrajectory(t *testing.T) {
 	}
 	read(t, ctx, conn)
 
-	// **한 수씩 응수를 기다리고 보낸다.** 판정은 세션 밖 goroutine이라 사람의 수는
+	// 한 수씩 응수를 기다리고 보낸다. 판정은 세션 밖 goroutine이라 사람의 수는
 	// 판정이 끝나기 전에 반환된다(state.playHuman). 응수를 안 기다리고 이어 보내면
 	// 판정 중에 도착한 수가 not_your_turn 으로 거절되고, 아무도 다시 보내지 않으니
 	// 그 뒤 국면이 영영 안 온다.
@@ -269,10 +269,10 @@ func (evalOnlyAnalyst) Judge(_ context.Context, _ string, _ []string, _ int) (ga
 	return game.Judgement{SenteCpBefore: 40, SenteCpAfter: evalOnlyAfterSente, HasEvals: true}, nil
 }
 
-// 개입 하나가 **`interventions` 행까지 간다.**
+// 개입 하나가 interventions 행까지 간다.
 //
 // 앞의 두 테스트(game·store)가 다 초록인데 행이 계속 안 생길 수 있다 — 그 사이의 배선이
-// `dbRecorder` 이고, 여기서 이벤트를 흘리면 아무 에러도 안 난다. `game_moves.eval_cp` 가
+// dbRecorder 이고, 여기서 이벤트를 흘리면 아무 에러도 안 난다. game_moves.eval_cp 가
 // 실제로 그렇게 109행 전부 비었다(08-playtest.md §11).
 func TestRecordFillsIntervention(t *testing.T) {
 	st := openStoreForTest(t)
@@ -298,7 +298,7 @@ func TestRecordFillsIntervention(t *testing.T) {
 	if err := wsjson.Write(ctx, conn, clientMsg{Type: "move", USI: "7g7f"}); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
-	// 카드에 나간 문장도 `explain.Render` 의 것이어야 한다 — 여기가 끊기면 화면만 옛 문구다.
+	// 카드에 나간 문장도 explain.Render 의 것이어야 한다 — 여기가 끊기면 화면만 옛 문구다.
 	got := readUntil(t, ctx, conn, func(m serverMsg) bool {
 		return m.Type == "snapshot" && m.Snapshot.Intervention != nil
 	}, "개입")
@@ -322,7 +322,7 @@ func TestRecordFillsIntervention(t *testing.T) {
 	if category != string(intervene.CategoryHangsPiece) {
 		t.Fatalf("category=%q — 개입이 기록까지 안 갔다", category)
 	}
-	// **어느 임계치에서 걸렸는지도 같이 남아야 한다.** 그것을 모르면 나중에 상수를
+	// 어느 임계치에서 걸렸는지도 같이 남아야 한다. 그것을 모르면 나중에 상수를
 	// 흔들어 볼 수 없다(server.Options.Level).
 	if level == "" {
 		t.Error("level_bucket 이 비었다")

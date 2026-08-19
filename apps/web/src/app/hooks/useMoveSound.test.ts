@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { shouldRing, soundOnFrom } from './useMoveSound';
 
-// 저장된 값이 없는 것과 못 읽는 것이 **같은 답**이어야 한다. 갈리면 localStorage 를 막아 둔
+// 저장된 값이 없는 것과 못 읽는 것이 같은 답이어야 한다. 갈리면 localStorage 를 막아 둔
 // 브라우저에서만 소리가 안 나고, 그건 화면에서 버그로 안 보인다.
 describe('soundOnFrom', () => {
   it('저장된 것이 없으면 켜짐이다', () => {

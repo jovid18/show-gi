@@ -26,7 +26,7 @@ import { checkRays, lastMoveOf, offsetWithin, rayOf, resultText } from '@/libs/g
 /**
  * 상대의 강함 눈금에 붙는 말(`snapshot.opponentStrength`).
  *
- * **다섯 개가 좌우로 대칭이다.** 3이 「아무것도 모르는 상태」이고 거기서 양쪽으로 움직이는
+ * 다섯 개가 좌우로 대칭이다. 3이 「아무것도 모르는 상태」이고 거기서 양쪽으로 움직이는
  * 값이라, 한쪽만 이름이 세면 조절이 한 방향으로만 도는 것처럼 읽힌다.
  */
 const STRENGTH_JA = ['かなり弱め', '弱め', 'ふつう', '強め', 'かなり強め'];
@@ -57,15 +57,15 @@ export function GameScreen() {
 
   const playing = snapshot?.status === 'playing';
 
-  // **두는 중에만 묻는다.** 끝난 판은 잃을 것이 없고, 거기서도 물으면 「もう一局」을
+  // 두는 중에만 묻는다. 끝난 판은 잃을 것이 없고, 거기서도 물으면 「もう一局」을
   // 누르러 가는 사람이 매번 확인창을 본다(useUnloadGuard).
   useUnloadGuard(playing);
 
   /**
    * 판이 돌고 있다는 사실이 밖으로 나가는 유일한 길이다(`libs/game/playing.ts`).
-   * **여기서만 쓴다** — 판의 상태를 아는 것은 이 화면 하나다.
+   * 여기서만 쓴다 — 판의 상태를 아는 것은 이 화면 하나다.
    *
-   * **연결이 끊기면 거짓이다**(journal §86) — 참으로 두면 그 값이 앱을 이 화면에 묶어
+   * 연결이 끊기면 거짓이다(journal §86) — 참으로 두면 그 값이 앱을 이 화면에 묶어
    * (App.tsx) 사람이 「接続が切れました」 화면에 갇힌다. 마지막 스냅샷은 `playing` 인
    * 채로 남으므로 그것만으로는 안 갈라진다.
    */
@@ -85,9 +85,9 @@ export function GameScreen() {
   // 닫아도 다시 뜬다. 회차를 비교하면 같은 수로 또 걸렸을 때만 다시 연다.
   const [seenEpisode, setSeenEpisode] = useState(0);
   /**
-   * 사람이 분기에서 직접 둬 본 수. **자리마다 따로 센다** — 열쇠는 그 자리까지의 줄이다.
+   * 사람이 분기에서 직접 둬 본 수. 자리마다 따로 센다 — 열쇠는 그 자리까지의 줄이다.
    *
-   * **화면만 들고 있는다.** 새로고침하면 사라지고, 그것으로 족하다 — 이건 대국의 사실이
+   * 화면만 들고 있는다. 새로고침하면 사라지고, 그것으로 족하다 — 이건 대국의 사실이
    * 아니라 그 사람이 지금 무엇을 궁금해했는가다. 잰 값 자체는 서버가 이미 남겼고
    * (`positions`), 레이팅에는 한 톨도 안 닿는다 — 판정을 지나지 않는 수다.
    */
@@ -116,12 +116,12 @@ export function GameScreen() {
   }, [snapshot]);
 
   /**
-   * 사람과 상대의 쪽. **스냅샷이 말하는 것을 그대로 쓴다** — 한때 화면이 「あなた는 언제나
-   * 黑」으로 박혀 있었고, 그 가정이 이 파일 네 자리에 흩어져 있었다(駒台 둘·힌트의 打·회상).
+   * 사람과 상대의 쪽. 스냅샷이 말하는 것을 그대로 쓴다 — 「あなた는 언제나 黑」을 화면이
+   * 가정하면 그 가정이 駒台·힌트의 打·회상까지 네 자리로 흩어진다.
    */
   const me: Side = snapshot?.yourColor === 'w' ? 'white' : 'black';
   const them: Side = me === 'black' ? 'white' : 'black';
-  /** 사람이 後手면 판을 뒤집는다. **자기 駒가 아래**여야 판을 읽을 수 있다. */
+  /** 사람이 後手면 판을 뒤집는다. 자기 駒가 아래여야 판을 읽을 수 있다. */
   const flipped = me === 'white';
 
   const moves = snapshot?.moves ?? [];
@@ -138,7 +138,7 @@ export function GameScreen() {
   // 새로 붙은 이름. 판 위에 잠깐 떴다 사라진다.
   const [announced, clearAnnounced] = useTagAnnounce(snapshot?.styleTags, snapshot?.ply ?? 0);
 
-  // 駒가 판에 닿는 소리. **手数를 세지 수를 보지 않는다** — 되물러진 수는 手数를 뒤로
+  // 駒가 판에 닿는 소리. 手数를 세지 수를 보지 않는다 — 되물러진 수는 手数를 뒤로
   // 돌리므로 그 자리에서는 안 운다(useMoveSound).
   const [soundOn, toggleSound] = useMoveSound(snapshot?.ply ?? 0);
 
@@ -146,24 +146,22 @@ export function GameScreen() {
   const intervening = intervention !== null && interventionEpisode > seenEpisode;
 
   /**
-   * 물러진 수 하나가 분기의 **바닥**이다. 그 앞으로는 어느 버튼으로도 못 간다.
+   * 물러진 수 하나가 분기의 바닥이다. 그 앞으로는 어느 버튼으로도 못 간다.
    *
-   * 바닥 앞은 곧 **지금 다시 둘 국면**이라, 거기서 후보 셋을 그리면 대국 중에 답을
+   * 바닥 앞은 곧 지금 다시 둘 국면이라, 거기서 후보 셋을 그리면 대국 중에 답을
    * 알려주는 것이 된다(01-core.md §7). 서버도 같은 벽을 갖고 있다(ws.go 의 `branchRoot`).
    */
   const retractedUsi = intervention?.retractedUsi;
   const floor = useMemo(() => (retractedUsi ? [retractedUsi] : []), [retractedUsi]);
 
   /**
-   * 물러진 수 뒤의 분기. **되짚는 화면과 같은 장치다**(useWhatIf) — 오가는 길만 다르다.
+   * 물러진 수 뒤의 분기. 되짚는 화면과 같은 장치다(useWhatIf) — 오가는 길만 다르다.
    *
-   * 한때 이 자리가 분기를 소유했다가 통째로 걷어낸 적이 있다. 판을 만지면 옆의 분기
-   * 패널이 개입 카드의 자리를 빼앗아 **읽던 설명이 사라졌기** 때문인데, 고쳐야 했던 것은
-   * 판이 아니라 그 자리 다툼이었다. 지금은 설명·후보 목록·무르기가 **한 카드 안**에 있고
-   * 카드는 무슨 일이 있어도 다른 것으로 바뀌지 않는다(Intervention).
+   * 설명·후보 목록·무르기가 한 카드 안에 있고, 카드는 무슨 일이 있어도 다른 것으로
+   * 바뀌지 않는다(Intervention). 분기 패널이 카드 자리를 빼앗으면 읽던 설명이 사라진다.
    *
-   * 판의 뜻은 여전히 하나다 — **개입 중의 판은 언제나 「그 수를 그대로 뒀다면」이고**,
-   * 카드를 닫으면 대국의 판으로 돌아온다.
+   * 판의 뜻은 하나다 — 개입 중의 판은 언제나 「그 수를 그대로 뒀다면」이고, 카드를
+   * 닫으면 대국의 판으로 돌아온다.
    */
   const branch = useWhatIf(whatif, interventionEpisode, floor);
 
@@ -171,9 +169,9 @@ export function GameScreen() {
   const confirmedPly = snapshot?.moves?.length ?? 0;
 
   /**
-   * 분기의 첫 자리를 연다. **물러진 수부터 깔고 시작한다.**
+   * 분기의 첫 자리를 연다. 물러진 수부터 깔고 시작한다.
    *
-   * **다시 부를 수 있어야 한다.** 첫 요청이 엔진 고장이나 `busy` 로 튕기면 노드가 영영
+   * 다시 부를 수 있어야 한다. 첫 요청이 엔진 고장이나 `busy` 로 튕기면 노드가 영영
    * 안 오고(의존성이 한 회차 내내 그대로다) 카드에는 목록도 무르기도 없이 문구만 남는다 —
    * 그때 사람이 누를 자리가 이것이다.
    */
@@ -197,8 +195,8 @@ export function GameScreen() {
   /**
    * 방금 둬 본 수를 그 자리에 적어 둔다.
    *
-   * **값의 관점을 여기서 뒤집는다.** 노드의 cp는 플레이어 관점인데 목록은 **그 수를 둔 쪽
-   * 관점**으로 서므로(후보와 같은 자여야 한 줄에 나란히 선다), 상대가 둔 수면 부호가 반대다.
+   * 값의 관점을 여기서 뒤집는다. 노드의 cp는 플레이어 관점인데 목록은 그 수를 둔 쪽
+   * 관점으로 서므로(후보와 같은 자여야 한 줄에 나란히 선다), 상대가 둔 수면 부호가 반대다.
    */
   useEffect(() => {
     const node = branch.node;
@@ -210,12 +208,12 @@ export function GameScreen() {
       .map((m) => m.usi)
       .join(' ');
     /**
-     * **판을 끝낸 수에는 평가치가 없다.** 서버가 끝난 국면에서 탐색 전에 돌아서므로
-     * `evalCp` 도 `mateIn` 도 안 온다 — 그대로 적으면 그 줄은 값이 비어 목록 **맨 아래**로
+     * 판을 끝낸 수에는 평가치가 없다. 서버가 끝난 국면에서 탐색 전에 돌아서므로
+     * `evalCp` 도 `mateIn` 도 안 온다 — 그대로 적으면 그 줄은 값이 비어 목록 맨 아래로
      * 가는데, `lets_mate` 분기에서는 그 수가 바로 詰ます 수다. 판을 끝낸 수가 −30000 밑에
      * 서면 목록이 정반대를 말한다.
      *
-     * **그 수 자체가 詰み이므로 이 자리에서는 1手詰め다** — 후보 목록의 詰み 수가 엔진에서
+     * 그 수 자체가 詰み이므로 이 자리에서는 1手詰め다 — 후보 목록의 詰み 수가 엔진에서
      * 같은 값으로 오는 것과 맞는다. 手詰まり는 詰み이 아니라 그 말을 못 쓰고, 실전에서
      * 거의 안 나와 값 없이 둔다.
      */
@@ -244,9 +242,9 @@ export function GameScreen() {
   }, [branch.node, explored]);
 
   /**
-   * 물러진 수 자체의 값. **분기의 첫 자리가 그것이다.**
+   * 물러진 수 자체의 값. 분기의 첫 자리가 그것이다.
    *
-   * **상태로 한 벌 더 들고 있지 않는다.** 그 자리는 훅의 캐시에 이미 있으므로 꺼내면 되고,
+   * 상태로 한 벌 더 들고 있지 않는다. 그 자리는 훅의 캐시에 이미 있으므로 꺼내면 되고,
    * 아직 못 받았으면 빈칸으로 남는다 — 없는 값을 지어내지 않는다.
    */
   const retractedEval = useMemo(() => {
@@ -255,7 +253,7 @@ export function GameScreen() {
   }, [branch.evalOf]);
 
   /**
-   * 지금 고를 수 있는 수. 개입 중에는 **분기의 것**이고 아니면 대국의 것이다.
+   * 지금 고를 수 있는 수. 개입 중에는 분기의 것이고 아니면 대국의 것이다.
    *
    * 판이 한 국면만 그리므로 이 값도 하나여야 한다 — 둘을 섞으면 판에 없는 駒를 집게 된다.
    */
@@ -268,10 +266,10 @@ export function GameScreen() {
   const dropOrigins = useMemo(() => new Set([...grouped.keys()].filter((o) => o.endsWith('*'))), [grouped]);
 
   /**
-   * 개입 중에 그리는 판 — **분기의 국면**이다.
+   * 개입 중에 그리는 판 — 분기의 국면이다.
    *
    * 노드를 못 받은 동안은 물러진 수를 둔 직후의 국면(`retractedSfen`)이고, 그 둘은
-   * **같은 자리**라 값이 와도 판이 깜빡이지 않는다. 국면은 언제나 서버가 준 것을 그대로
+   * 같은 자리라 값이 와도 판이 깜빡이지 않는다. 국면은 언제나 서버가 준 것을 그대로
    * 그린다 — 화면이 수를 두게 하면 규칙 엔진을 한 벌 더 갖는 것이고, 그건 D2에서
    * 「클라이언트는 규칙을 모른다」로 정해둔 자리다.
    */
@@ -289,7 +287,7 @@ export function GameScreen() {
 
   /**
    * 지금 판을 만든 수. 뿌리에서는 물러진 그 수이고, 들어갔으면 분기의 마지막 수다.
-   * **실제로 둔 수와 같은 채널로 그린다** — 판 위에서는 어느 쪽이든 「방금 벌어진 것」이고,
+   * 실제로 둔 수와 같은 채널로 그린다 — 판 위에서는 어느 쪽이든 「방금 벌어진 것」이고,
    * 이 판이 가정이라는 것은 판 위가 아니라 카드가 말한다.
    */
   const branchPlayed = useMemo(() => {
@@ -298,10 +296,10 @@ export function GameScreen() {
   }, [intervening, intervention, branch.node]);
 
   /**
-   * 판 위의 초록 화살표 — **수번 쪽의 최선수**다.
+   * 판 위의 초록 화살표 — 수번 쪽의 최선수다.
    *
-   * 되짚기와 같은 채널이고(ReviewDetail), 여기서도 「다음에 벌어질 것」이다. **지금 대국의
-   * 최선수는 여기 절대 안 뜬다** — 이 화살표가 사는 국면은 되물러서 사라진 자리다.
+   * 되짚기와 같은 채널이고(ReviewDetail), 여기서도 「다음에 벌어질 것」이다. 지금 대국의
+   * 최선수는 여기 절대 안 뜬다 — 이 화살표가 사는 국면은 되물러서 사라진 자리다.
    */
   const branchRay = useMemo(() => {
     const node = branch.node;
@@ -311,7 +309,7 @@ export function GameScreen() {
   }, [intervening, branch.node]);
 
   /**
-   * 王手. **뿌리에서만 「누가 걸고 있는가」까지 안다**(`retractedChecks`). 분기로 들어가면
+   * 王手. 뿌리에서만 「누가 걸고 있는가」까지 안다(`retractedChecks`). 분기로 들어가면
    * 서버가 玉의 칸 하나만 주므로 거기서는 그것만 그린다 — 없는 것을 지어내지 않는다.
    */
   const branchChecks = useMemo(
@@ -320,7 +318,7 @@ export function GameScreen() {
   );
 
   /**
-   * 갇힘 힌트. **개입 중에는 안 띄운다** — 그때 판은 물러진 수 뒤의 국면이라, 지금 판에
+   * 갇힘 힌트. 개입 중에는 안 띄운다 — 그때 판은 물러진 수 뒤의 국면이라, 지금 판에
    * 대한 안내를 그 위에 얹으면 판이 거짓을 말한다.
    */
   const hint = intervening ? undefined : snapshot?.hint;
@@ -331,10 +329,10 @@ export function GameScreen() {
   }, [hint?.usi]);
 
   /**
-   * 초록 화살표가 駒台에서 출발하는가 — **최선수가 打일 때**다. 그때 그 駒가 駒台에서 함께
+   * 초록 화살표가 駒台에서 출발하는가 — 최선수가 打일 때다. 그때 그 駒가 駒台에서 함께
    * 빛나 화살표의 짝이 된다.
    *
-   * **수번 쪽의 駒台다.** 누가 둘 차례인가로 쪽을 정한다 — 화면의 위아래가 아니라
+   * 수번 쪽의 駒台다. 누가 둘 차례인가로 쪽을 정한다 — 화면의 위아래가 아니라
    * 대국자로 가른다. 後手로 두면 「相手 = 白」이 성립하지 않는다.
    */
   const branchDrop = useMemo(() => {
@@ -347,17 +345,16 @@ export function GameScreen() {
   }, [intervening, branch.node, me, them]);
 
   /**
-   * 駒台에서 출발하는 화살표의 **자리를 재야 하는 駒.** 분기의 打과 힌트가 같은 장치를
+   * 駒台에서 출발하는 화살표의 자리를 재야 하는 駒. 분기의 打과 힌트가 같은 장치를
    * 쓰고, 둘은 동시에 뜨지 않는다 — 힌트는 개입 중에 꺼진다.
    *
-   * **재는 것과 빛나는 것을 갈라 뒀다.** 한때 이 값을 `<Hand dropping>` 에도 그대로
-   * 넘겼는데, 그러면 힌트가 `data-dropping` 을 켜서 駒台 駒에 **초록** 링이 붙었다 —
-   * 파란 테와 초록 링이 같은 駒에 동시에 걸리고, 초록은 「상대가 무엇을 하는가」다.
+   * 재는 것과 빛나는 것을 갈라 뒀다. 이 값을 `<Hand dropping>` 에 그대로 넘기면 힌트가
+   * `data-dropping` 을 켜서 駒台 駒에 초록 링이 붙는다 — 파란 테와 초록 링이 같은 駒에
+   * 동시에 걸리고, 초록은 「상대가 무엇을 하는가」다.
    *
-   * **여기서 객체를 새로 만들면 안 된다.** 이 값이 아래 `useLayoutEffect` 의 의존성이라,
-   * 매 렌더마다 identity가 바뀌면 효과가 다시 돌고 `setDropFrom` 이 또 새 객체를 넣어
-   * **무한 루프**가 된다(화면이 통째로 하얘진다). 그래서 양쪽 다 useMemo 를 지난다 —
-   * 실제로 打 힌트에서 터졌다.
+   * 여기서 객체를 새로 만들면 안 된다. 이 값이 아래 `useLayoutEffect` 의 의존성이라,
+   * 매 렌더마다 identity 가 바뀌면 효과가 다시 돌고 `setDropFrom` 이 또 새 객체를 넣어
+   * 무한 루프가 된다(화면이 통째로 하얘진다). 그래서 양쪽 다 useMemo 를 지난다.
    */
   const dropping = useMemo(
     () => branchDrop ?? (hint?.drop ? { side: me, kind: hint.drop } : null),
@@ -380,8 +377,8 @@ export function GameScreen() {
       setDropFrom(null);
       return;
     }
-    // 같은 값이면 상태를 안 건드린다. **재는 일이 리렌더를 부르고 리렌더가 다시 재게
-    // 되는 고리가 이 함수에서 실제로 생겼다** — 새 객체를 넣는 것만으로 identity가
+    // 같은 값이면 상태를 안 건드린다. 재는 일이 리렌더를 부르고 리렌더가 다시 재게
+    // 되는 고리가 이 함수에서 실제로 생겼다 — 새 객체를 넣는 것만으로 identity가
     // 바뀌므로, 위쪽 의존성이 또 흔들리는 날에도 흰 화면 대신 아무 일도 안 일어나게 둔다.
     const next = {
       // 판의 테두리 안쪽이 기준이다 — 화살표가 그 안에 놓이므로.
@@ -408,7 +405,7 @@ export function GameScreen() {
   /**
    * 물러진 수가 지나간 두 칸.
    *
-   * 판은 이미 그 수를 둔 국면이므로 **유령 駒는 뿌리에서 한 번만** 난다 — 분기로 한 수라도
+   * 판은 이미 그 수를 둔 국면이므로 유령 駒는 뿌리에서 한 번만 난다 — 분기로 한 수라도
    * 들어가면 그 판은 물러진 수의 국면이 아니다. 어느 駒였는지는 되돌아온 판
    * (`snapshot.sfen`)의 출발 칸에서 읽는다 — 성한 수라면 도착 칸에는 이미 성한 駒가 서 있어서,
    * 날아가는 것이 무엇이었는지가 거기엔 없다.
@@ -438,9 +435,9 @@ export function GameScreen() {
   // 화면에 그리는 판. 개입 중이면 분기의 국면, 아니면 지금 대국의 판이다.
   const board = branchBoard ?? live;
 
-  // 아직 아무것도 고르지 않았다. **여기서는 서버에 붙어 있지도 않다**(useGame).
+  // 아직 아무것도 고르지 않았다. 여기서는 서버에 붙어 있지도 않다(useGame).
   if (connection === 'idle') {
-    // 두다 만 판이 있으면 **고르는 화면보다 먼저 묻는다.** 선후공부터 다시 고르게 하면
+    // 두다 만 판이 있으면 고르는 화면보다 먼저 묻는다. 선후공부터 다시 고르게 하면
     // 그 판은 사람이 존재를 모르는 채로 사라진다.
     if (resumable.game) {
       const unfinished = resumable.game;
@@ -477,10 +474,10 @@ export function GameScreen() {
   }
 
   /**
-   * 판을 만질 수 있는가. **개입 중에도 만질 수 있고, 그때 판의 뜻은 하나다** — 「그 수를
+   * 판을 만질 수 있는가. 개입 중에도 만질 수 있고, 그때 판의 뜻은 하나다 — 「그 수를
    * 그대로 뒀다면」이다(03-frontend.md §2의 「시간을 멈춘다」는 대국의 시계 이야기다).
    *
-   * 분기 쪽은 **어느 쪽 차례든** 둘 수 있다. 「상대라면 어떻게 둘까」를 직접 둬 보는 것이
+   * 분기 쪽은 어느 쪽 차례든 둘 수 있다. 「상대라면 어떻게 둘까」를 직접 둬 보는 것이
    * 이 자리의 내용이고, 되짚기가 이미 그렇게 돈다.
    *
    * 판정 중(`judging`)에는 서버가 이미 `yourTurn`을 내려두므로 대국 쪽은 여기서 더 할 것이 없다.
@@ -489,10 +486,10 @@ export function GameScreen() {
     ? !!branch.node && branch.node.status === 'playing' && !branch.pending && !pending
     : snapshot.yourTurn && snapshot.status === 'playing' && !pending;
 
-  /** 지금 집을 수 있는 駒台. 대국에서는 언제나 내 쪽이고, 분기에서는 **수번 쪽**이다. */
+  /** 지금 집을 수 있는 駒台. 대국에서는 언제나 내 쪽이고, 분기에서는 수번 쪽이다. */
   const handTurn: Side = intervening ? (branch.node?.yourTurn ? me : them) : me;
 
-  /** 한 수 둔다. **개입 중이면 대국이 아니라 분기로 간다** — 판의 뜻이 그것 하나다. */
+  /** 한 수 둔다. 개입 중이면 대국이 아니라 분기로 간다 — 판의 뜻이 그것 하나다. */
   const commitMove = (usi: string): void => {
     if (intervening) branch.play(usi);
     else play(usi);
@@ -550,11 +547,11 @@ export function GameScreen() {
   };
 
   /**
-   * 분기에서 자리를 옮기기 전에 **고르던 것을 버린다.**
+   * 분기에서 자리를 옮기기 전에 고르던 것을 버린다.
    *
-   * `origin` 과 `pending` 은 **떠나는 국면에 대한 선택**이다. 들고 가면 다음 판 위에서 뜻이
+   * `origin` 과 `pending` 은 떠나는 국면에 대한 선택이다. 들고 가면 다음 판 위에서 뜻이
    * 달라진다 — 成りますか를 띄운 채 「一手戻る」를 누르고 「成る」를 누르면, 그 칸에 아직 駒가
-   * 서 있는 한 **사람이 고른 것과 다른 수**가 조용히 두어진다. 되짚기 화면이 手数를 옮길 때
+   * 서 있는 한 사람이 고른 것과 다른 수가 조용히 두어진다. 되짚기 화면이 手数를 옮길 때
    * 같은 둘을 버리는 것과 같은 자리다(`ReviewDetail` 의 `goto`).
    */
   const leaveSpot = (): void => {
@@ -562,14 +559,14 @@ export function GameScreen() {
     setPending(null);
   };
 
-  /** 목록에서 골라 두는 길. 판 위에서 두는 것과 **같은 한 수**다 — 고르는 자리만 다르다. */
+  /** 목록에서 골라 두는 길. 판 위에서 두는 것과 같은 한 수다 — 고르는 자리만 다르다. */
   const playFromList = (usi: string): void => {
     leaveSpot();
     branch.play(usi);
   };
 
   return (
-    // data-flipped 는 **駒의 방향**을 위한 것이다. 판의 자리는 CSS가 아니라 자리 번호로
+    // data-flipped 는 駒의 방향을 위한 것이다. 판의 자리는 CSS가 아니라 자리 번호로
     // 뒤집혀 있고(Board 의 `seat`), 여기서 도는 것은 글자가 누구를 향하는가뿐이다.
     <div className="game" data-intervening={intervening || undefined} data-flipped={flipped || undefined}>
       {/* 판만 남기고 어두워진다. 클릭은 막지 않는다 — 잠글 것은 이미 판 쪽에서 잠겼고,
@@ -578,7 +575,7 @@ export function GameScreen() {
 
       <div className="game-board">
         {/*
-          짜는 순간 판 위에 잠깐 뜬다. **개입 카드와 겹치지 않게 그 아래 겹에 둔다** —
+          짜는 순간 판 위에 잠깐 뜬다. 개입 카드와 겹치지 않게 그 아래 겹에 둔다 —
           블런더로 되물러진 순간에 이름까지 함께 뜨면 두 소식이 한 자리를 다툰다.
         */}
         {announced && !intervening && (
@@ -588,14 +585,14 @@ export function GameScreen() {
           </div>
         )}
 
-        {/* **위가 상대다.** 어느 색인지가 아니라 누구인지로 자리를 정한다 — 자기 駒台가
+        {/* 위가 상대다. 어느 색인지가 아니라 누구인지로 자리를 정한다 — 자기 駒台가
             아래에 있어야 판과 같은 방향으로 읽힌다(Board 의 `flipped`). */}
         <Hand
           side={them}
           label="相手"
           pieces={board.hands[them]}
           selected={handTurn === them && origin?.endsWith('*') ? origin : null}
-          // **분기에서는 상대의 駒台도 집는다.** 「상대라면 어떻게 둘까」를 직접 둬 보는 것이
+          // 분기에서는 상대의 駒台도 집는다. 「상대라면 어떻게 둘까」를 직접 둬 보는 것이
           // 이 자리의 내용이고, 그 수가 打일 수 있다. 대국 중에는 여기가 언제나 비어 있다.
           playable={playable && handTurn === them ? dropOrigins : EMPTY_SET}
           dropping={branchDrop?.side === them ? branchDrop.kind : null}
@@ -611,12 +608,12 @@ export function GameScreen() {
           lit={lit}
           selected={origin && !origin.endsWith('*') ? origin : null}
           lastMove={intervening ? null : lastMove}
-          // 뿌리에서는 王手의 **줄**을 긋고 있으므로(`branchChecks`) 玉의 칸까지 켜면 같은
+          // 뿌리에서는 王手의 줄을 긋고 있으므로(`branchChecks`) 玉의 칸까지 켜면 같은
           // 사실이 두 채널로 나간다. 분기로 들어가면 서버가 그 칸만 준다.
           checked={intervening ? (atRoot ? null : (branch.node?.checked ?? null)) : checked}
           played={branchPlayed}
           replay={replay}
-          // 개입 중에는 **수번 쪽의 최선수**다. 그 국면은 되물러서 사라진 자리라 「지금
+          // 개입 중에는 수번 쪽의 최선수다. 그 국면은 되물러서 사라진 자리라 「지금
           // 이렇게 두라」가 아니다 — 지금 판의 최선수는 여기 절대 안 뜬다(01-core.md §7).
           ray={branchRay}
           // 대국 화면은 미끄러뜨리지 않는다. 판이 움직이는 자리가 유령 駒이고,
@@ -633,7 +630,7 @@ export function GameScreen() {
           flipped={flipped}
           boardRef={boardRef}
           sound={{ on: soundOn, toggle: toggleSound }}
-          // **개입 중에도 만질 수 있다.** 그때 판의 뜻은 하나다 — 「그 수를 그대로 뒀다면」.
+          // 개입 중에도 만질 수 있다. 그때 판의 뜻은 하나다 — 「그 수를 그대로 뒀다면」.
           // 카드를 닫으면 대국의 판으로 돌아온다(`playable`).
           interactive={playable}
           onSquare={onSquare}
@@ -656,7 +653,7 @@ export function GameScreen() {
       </div>
 
       <aside className="game-side">
-        {/* **이 자리를 다른 패널이 빼앗지 않는다.** 개입이 떠 있는 동안 여기 있는 것은
+        {/* 이 자리를 다른 패널이 빼앗지 않는다. 개입이 떠 있는 동안 여기 있는 것은
             카드 하나이고, 카드가 닫히면 아무것도 없다 — 읽고 있던 설명이 조작 중에
             사라지면 무엇을 읽던 중이었는지가 통째로 없어진다. */}
         {intervening &&
@@ -674,7 +671,7 @@ export function GameScreen() {
               explored={exploredHere}
               playable={playable}
               onPlay={playFromList}
-              // **무르는 것도 자리를 옮기는 일이다**(`leaveSpot`).
+              // 무르는 것도 자리를 옮기는 일이다(`leaveSpot`).
               onBack={() => {
                 leaveSpot();
                 branch.back();
@@ -685,7 +682,7 @@ export function GameScreen() {
               }}
               onRetry={openBranch}
               // 닫을 때는 그 위에 하나가 더 있다 — 남겨 두면 「成る」가 분기의 수를
-              // **대국의 진짜 수로** 둬 버린다.
+              // 대국의 진짜 수로 둬 버린다.
               onDismiss={() => {
                 leaveSpot();
                 setSeenEpisode(interventionEpisode);
@@ -693,7 +690,7 @@ export function GameScreen() {
             />
           )}
 
-        {/* **개입 중에는 차례도 강함도 진형도 말하지 않는다.** 이 자리는 카드 하나가 쓴다
+        {/* 개입 중에는 차례도 강함도 진형도 말하지 않는다. 이 자리는 카드 하나가 쓴다
             (위 주석). 판이 잠겨 있어서 「あなたの番です」가 할 일을 가리키지도 못한다.
 
             셋이 한 카드다 — 전부 「지금 이 판이 어떤 상태인가」이고, 따로 떼어 놓으면
@@ -717,7 +714,7 @@ export function GameScreen() {
               </p>
             )}
 
-            {/* 手合割을 되비춘다. **平手면 아무것도 안 쓴다** — 위 진형과 같은 규칙이고,
+            {/* 手合割을 되비춘다. 平手면 아무것도 안 쓴다 — 위 진형과 같은 규칙이고,
                 이 자리가 없으면 駒落ち 판에서 「왜 상대 駒가 적은가」에 화면이 답하지 않는다. */}
             {snapshot.handicapJa && (
               <p className="opening" role="note">
@@ -726,7 +723,7 @@ export function GameScreen() {
               </p>
             )}
 
-            {/* 고른 진형을 되비춘다. **고르지 않았으면 아무것도 안 쓴다** — 「おまかせ」라고
+            {/* 고른 진형을 되비춘다. 고르지 않았으면 아무것도 안 쓴다 — 「おまかせ」라고
                 적어 두면 없는 설정이 있는 것처럼 자리를 차지한다. 상대의 형태를 알려주는 것이
                 아닌 근거는 서버의 `Snapshot.OpponentOpening` 주석. */}
             {snapshot.opponentOpening && (
@@ -758,7 +755,7 @@ export function GameScreen() {
           </p>
         )}
 
-        {/* 서버가 못 해준 것. **개입 카드 자리가 아니다** — 저쪽은 판에 대한 판단이고 이쪽은
+        {/* 서버가 못 해준 것. 개입 카드 자리가 아니다 — 저쪽은 판에 대한 판단이고 이쪽은
             서버 사정이라, 한 자리에 뭉치면 「시한을 넘겨 확인 못 했다」가 판정으로 읽힌다.
             개입 중에는 안 그린다: 그때는 물러졌다는 사실이 이미 화면을 다 쓰고 있고,
             애초에 판정이 성공해야 개입이 뜨므로 둘이 같이 올 일이 없다. */}
@@ -782,7 +779,7 @@ export function GameScreen() {
 
         <Kifu moves={moves} />
 
-        {/* 총평은 **기보 아래·「もう一局」 위**다. 판이 끝난 뒤 읽는 순서가 결과 → 기보 →
+        {/* 총평은 기보 아래·「もう一局」 위다. 판이 끝난 뒤 읽는 순서가 결과 → 기보 →
             무엇을 배웠나 → 다음 판이고, 버튼을 위에 두면 읽기 전에 눌러 버린다.
 
             개입 중에는 안 그린다 — 이 자리는 카드 하나가 쓴다(위 주석). 다만 판이 끝난
@@ -795,7 +792,7 @@ export function GameScreen() {
               もう一局
             </button>
 
-            {/* 회차 2 #5. **총평이 와야 뜬다** — 판 번호가 거기 실려 오고(§64), 대국
+            {/* 회차 2 #5. 총평이 와야 뜬다 — 판 번호가 거기 실려 오고(§64), 대국
                 화면은 그때까지 자기 판의 번호를 모른다. 총평보다 먼저 그릴 방법이
                 없으므로 자리를 비워 두지 않고 아예 안 그린다. */}
             {reviewRoute && (
@@ -834,7 +831,7 @@ export function GameScreen() {
             </div>
           ) : (
             <div className="play-actions">
-              {/* 회차 1 #4. **예산이 0이어도 안 감춘다** — 사라지면 「왜 없지」가 되고,
+              {/* 회차 1 #4. 예산이 0이어도 안 감춘다 — 사라지면 「왜 없지」가 되고,
                   남은 횟수가 붙어 있으면 「다 썼구나」가 된다. 누를 수 있는지는 서버가
                   이미 답했다(`canUndo`) — 사람 차례·예산·되돌릴 수 셋을 화면이 다시
                   짓지 않는다. */}
@@ -850,11 +847,11 @@ export function GameScreen() {
                   残り{snapshot.undoLeft}回
                 </span>
               </button>
-              {/* **待った와 나란히 선다.** 둘 다 사람이 부르는 것이고 예산이 있다 —
+              {/* 待った와 나란히 선다. 둘 다 사람이 부르는 것이고 예산이 있다 —
                   다른 것은 방향뿐이다: 저쪽은 둔 수를 되돌리고 이쪽은 둘 수를 묻는다.
 
                   01-core.md §1이 「최선수를 보여주지 않는다」인데 이 버튼이 그 예외인
-                  근거가 **남은 횟수 그 자체**다(journal §78). 그래서 숫자가 라벨에
+                  근거가 남은 횟수 그 자체다(journal §78). 그래서 숫자가 라벨에
                   붙어 있어야 한다 — 감추면 기댈 수 있는 것으로 읽힌다. */}
               <button
                 type="button"

@@ -9,8 +9,8 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// playtestUpTo103 은 실제 대국(games.id=84)의 **102수까지**다. USI 그대로 DB에서 나왔고,
-// 103수째에 물러진 `7c8d`(不成)는 기보에 남지 않으므로 여기에도 없다(docs/08-playtest.md §4).
+// playtestUpTo103 은 실제 대국(games.id=84)의 102수까지다. USI 그대로 DB에서 나왔고,
+// 103수째에 물러진 7c8d(不成)는 기보에 남지 않으므로 여기에도 없다(docs/08-playtest.md §4).
 var playtestUpTo103 = []string{
 	"7g7f", "7c7d", "2g2f", "7a6b", "2f2e", "4a3b", "3i3h", "5a5b", "3h2g",
 	"8a7c", "2g2f", "6a5a", "2e2d", "2c2d", "2f3e", "8c8d", "3e2d", "3c3d",
@@ -26,12 +26,10 @@ var playtestUpTo103 = []string{
 	"8d9d", "G*8d", "8e8d",
 }
 
-// TestRealEngineUnpromotedIsNotGreed 는 **제품이 틀린 것을 가르쳤던 그 국면**을 다시 판정한다.
+// TestRealEngineUnpromotedIsNotGreed 는 제품이 틀린 것을 가르쳤던 그 국면을 다시 판정한다.
 //
-// 103수째에 `▲同銀不成`(7c8d)을 두면 개입이 걸리는데, 그 이유가 greedy_capture 로 나가서
-// 「駒は取れますが、払う代償のほうが大きくなります」가 떴다. **잡는 것이 정답이었다** —
-// 최선수가 같은 이동의 `7c8d+` 였고, 差는 成하느냐뿐이다. 플레이어는 그 문장을 「잡으면
-// 안 되는구나」로 읽고 세 수를 더 헤맸다(docs/08-playtest.md §8).
+// ▲同銀不成이 greedy_capture 로 나가 「잡으면 안 된다」로 읽히던 국면이다 — 최선수가
+// 같은 이동의 成이었고 差는 成하느냐뿐이었다(08-playtest.md §8).
 //
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/game/ -run RealEngineUnpromoted -v
 func TestRealEngineUnpromotedIsNotGreed(t *testing.T) {

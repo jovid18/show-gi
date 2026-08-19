@@ -20,7 +20,7 @@ func dropNames(t *testing.T, sfen, usi string, c shogi.Color) []string {
 	return codes(DropTesuji(forkBoard(t, sfen), drop(t, usi), c))
 }
 
-// **叩きの歩** — 5三의 後手 金 머리인 5四에 歩를 打つ.
+// 叩きの歩 — 5三의 後手 金 머리인 5四에 歩를 打つ.
 func TestPawnDroppedOnAGoldsHeadIsTatakiNoFu(t *testing.T) {
 	got := dropNames(t, "4k4/9/4g4/4P4/9/9/9/9/4K4 b - 1", "P*5d", shogi.Black)
 	if len(got) != 1 || got[0] != "tataki_no_fu" {
@@ -28,7 +28,7 @@ func TestPawnDroppedOnAGoldsHeadIsTatakiNoFu(t *testing.T) {
 	}
 }
 
-// **판만 봐서는 알 수 없다.** 같은 국면이라도 그 歩가 걸어온 것이면 叩き가 아니다 —
+// 판만 봐서는 알 수 없다. 같은 국면이라도 그 歩가 걸어온 것이면 叩き가 아니다 —
 // 이 부류가 방금 둔 수를 받는 이유가 여기 있고, 그 시그니처가 없으면 이 구별이 사라진다.
 func TestAPawnThatWalkedThereIsNotTataki(t *testing.T) {
 	got := dropNames(t, "4k4/9/4g4/4P4/9/9/9/9/4K4 b - 1", "5e5d", shogi.Black)
@@ -37,7 +37,7 @@ func TestAPawnThatWalkedThereIsNotTataki(t *testing.T) {
 	}
 }
 
-// **머리의 駒를 가린다.** 歩의 머리는 合わせの歩이고 玉의 머리는 또 다른 이름이라,
+// 머리의 駒를 가린다. 歩의 머리는 合わせの歩이고 玉의 머리는 또 다른 이름이라,
 // 넓히면 다른 手筋에 叩き라는 이름을 붙이게 된다.
 func TestTatakiOnlyCountsGoldAndSilver(t *testing.T) {
 	for _, tc := range []struct{ name, sfen string }{
@@ -56,7 +56,7 @@ func TestTatakiOnlyCountsGoldAndSilver(t *testing.T) {
 	}
 }
 
-// **垂れ歩** — 적진 한 칸 앞(先手 4段)에 打って 다음 수의 成りを狙う.
+// 垂れ歩 — 적진 한 칸 앞(先手 4段)에 打って 다음 수의 成りを狙う.
 func TestPawnDroppedJustBeforeTheCampIsTareFu(t *testing.T) {
 	got := dropNames(t, "4k4/9/9/4P4/9/9/9/9/4K4 b - 1", "P*5d", shogi.Black)
 	if len(got) != 1 || got[0] != "tare_fu" {

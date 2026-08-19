@@ -56,7 +56,7 @@ const listEdges = `-- name: ListEdges :many
 SELECT parent_key, usi, child_key, tags, eval_by_depth FROM edges WHERE parent_key = $1
 `
 
-// 한 국면에서 나가는 수들. **깊이별 평가치를 되찾는 유일한 길이다**(store.Edges).
+// 한 국면에서 나가는 수들. 깊이별 평가치를 되찾는 유일한 길이다(store.Edges).
 func (q *Queries) ListEdges(ctx context.Context, parentKey string) ([]Edge, error) {
 	rows, err := q.db.Query(ctx, listEdges, parentKey)
 	if err != nil {
@@ -103,9 +103,9 @@ type UpsertEdgeParams struct {
 	EvalByDepth []int32
 }
 
-// 국면 사이의 한 수. **분석을 버리지 않기 위한 자리다**(02-architecture.md §4).
+// 국면 사이의 한 수. 분석을 버리지 않기 위한 자리다(02-architecture.md §4).
 //
-// **아는 것만 채우고 남의 칸을 지우지 않는다.** 한 수의 사실이 두 번에 걸쳐 온다 —
+// 아는 것만 채우고 남의 칸을 지우지 않는다. 한 수의 사실이 두 번에 걸쳐 온다 —
 // 후보를 잴 때는 깊이별 평가치를, 자식 국면을 잴 때는 도착 국면과 태그를 안다.
 // 늦게 오는 쪽이 먼저 온 것을 지우면 절반이 사라진다.
 func (q *Queries) UpsertEdge(ctx context.Context, arg UpsertEdgeParams) error {
@@ -141,7 +141,7 @@ type UpsertPositionParams struct {
 	ComputedDepth int32
 }
 
-// **이 WHERE 절이 「더 얕은 결과가 깊은 결과를 덮지 않는다」의 전부다.** 없으면 depth 10
+// 이 WHERE 절이 「더 얕은 결과가 깊은 결과를 덮지 않는다」를 지킨다. 없으면 depth 10
 // 계산이 depth 14 결과를 지우고, 개입 판정이 얕은 값 위에서 돈다.
 //
 // 같은 깊이면 후보가 많은 쪽이 이긴다 — 자리마다 MultiPV가 갈린다(02-architecture.md §4).

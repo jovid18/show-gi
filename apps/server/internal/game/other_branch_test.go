@@ -11,13 +11,13 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// branchStub 은 **두 API를 다 만족한다.** analyst 가 들고 있는 것은 `Searcher` 이고
-// 갈래 수집은 거기서 `MultiSearcher` 로 타입 단언을 하므로, 한쪽만 있으면 그 자리가 조용히
+// branchStub 은 두 API를 다 만족한다. analyst 가 들고 있는 것은 Searcher 이고
+// 갈래 수집은 거기서 MultiSearcher 로 타입 단언을 하므로, 한쪽만 있으면 그 자리가 조용히
 // 비어 버린다 — 그 단언 자체도 여기서 확인된다.
 type branchStub struct {
 	res usi.SearchResult
 	err error
-	// asked 는 마지막으로 받은 수순. 갈래를 **A+B 국면**에서 재는지가 여기서 보인다.
+	// asked 는 마지막으로 받은 수순. 갈래를 A+B 국면에서 재는지가 여기서 보인다.
 	asked []string
 	k     int
 }
@@ -46,7 +46,7 @@ func collect(t *testing.T, res usi.SearchResult) (*branchStub, string, []explain
 	return s, best, branches
 }
 
-// 갈래 하나는 **내 수·상대의 응수·그 결말** 셋이 다 있을 때만 선다.
+// 갈래 하나는 내 수·상대의 응수·그 결말 셋이 다 있을 때만 선다.
 func TestOtherBranchesCarriesTheWholeFork(t *testing.T) {
 	stub, best, got := collect(t, usi.SearchResult{Lines: []usi.SearchLine{
 		pvLine(1, -350, "6g6f", "8b5b"),
@@ -57,7 +57,7 @@ func TestOtherBranchesCarriesTheWholeFork(t *testing.T) {
 	if best != "△同角" {
 		t.Errorf("상대 최선수 = %q, want △同角", best)
 	}
-	// **A+B 국면에서 잰다.** 뿌리가 한 수라도 어긋나면 갈래가 다른 국면의 것이 된다.
+	// A+B 국면에서 잰다. 뿌리가 한 수라도 어긋나면 갈래가 다른 국면의 것이 된다.
 	if len(stub.asked) != 4 || stub.asked[3] != "2b3c" {
 		t.Errorf("탐색한 수순 = %v", stub.asked)
 	}
@@ -80,7 +80,7 @@ func TestOtherBranchesCarriesTheWholeFork(t *testing.T) {
 	}
 }
 
-// **엔진 출력을 믿지 않는다.** 못 두는 수가 섞이거나 응수가 없으면 그 줄만 버린다 —
+// 엔진 출력을 믿지 않는다. 못 두는 수가 섞이거나 응수가 없으면 그 줄만 버린다 —
 // 반쪽짜리 갈래는 문장에서 곧 거짓이 된다.
 func TestOtherBranchesDropsWhatItCannotVerify(t *testing.T) {
 	_, best, got := collect(t, usi.SearchResult{Lines: []usi.SearchLine{
@@ -112,7 +112,7 @@ func TestOtherBranchesKeepsMateOutOfCp(t *testing.T) {
 	}
 }
 
-// 탐색이 실패해도 **상대의 최선수까지는 말할 수 있다** — 그것은 판정이 이미 손에 든 값이다.
+// 탐색이 실패해도 상대의 최선수까지는 말할 수 있다 — 그것은 판정이 이미 손에 든 값이다.
 func TestOtherBranchesStillNamesTheReplyWhenTheSearchFails(t *testing.T) {
 	s := &branchStub{err: errors.New("engine")}
 	a := &engineAnalyst{search: s, depth: JudgeDepth, level: intervene.Beginner}
@@ -123,7 +123,7 @@ func TestOtherBranchesStillNamesTheReplyWhenTheSearchFails(t *testing.T) {
 	}
 }
 
-// 상대의 최선수 자체가 못 두는 수면 **아무것도 안 준다.** 그 위에 세운 갈래는 전부 거짓이다.
+// 상대의 최선수 자체가 못 두는 수면 아무것도 안 준다. 그 위에 세운 갈래는 전부 거짓이다.
 func TestOtherBranchesRefusesAnIllegalReply(t *testing.T) {
 	s := &branchStub{}
 	a := &engineAnalyst{search: s, depth: JudgeDepth, level: intervene.Beginner}

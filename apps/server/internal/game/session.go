@@ -1,11 +1,9 @@
 // Package game 은 대국 세션의 상태머신이다.
 //
-// **상태는 goroutine 하나가 소유한다.** 입력은 채널로 모으고, 출력은 스냅샷을 뿌린다.
-// 롤백(D3 개입)이 들어오는 순간 상태 변경 순서가 곧 제품 정합성이 되므로, mutex로
-// 얼버무리면 "물러진 수가 기보에 남는" 종류의 버그가 재현 불가능한 형태로 나온다.
-//
-// 그래서 여기에는 잠금이 없다. 세션 goroutine 밖에서 상태를 읽는 길도 없다 —
-// 스냅샷을 요청하는 것도 명령이다.
+// 상태는 세션 goroutine 하나가 소유한다. 입력은 채널로 받고 출력은 스냅샷으로 뿌린다.
+// 그래서 잠금이 없고, 세션 밖에서 상태를 읽는 길도 없다 — 스냅샷 요청도 명령이다.
+// 롤백이 있는 이상 상태 변경 순서가 곧 제품 정합성이라, mutex 로 나눠 잡으면
+// 「물러진 수가 기보에 남는」 버그가 재현되지 않는 형태로 나온다.
 package game
 
 import (
@@ -24,59 +22,53 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
 )
 
-// Analyst 는 착수 한 수를 판정하는 데 필요한 숫자를 구해 온다.
-//
-// 엔진을 직접 부르지 않고 인터페이스로 두는 이유는 **판정과 탐색을 갈라두기 위해서**다.
-// 세션은 "이 수가 블런더인가"만 알면 되고, 그 답을 어떻게 구했는지는 모른다.
+// Analyst 는 착수 한 수를 판정한다. 판정과 탐색을 갈라 두려고 인터페이스로 뒀다 —
+// 세션은 「이 수가 블런더인가」만 알고 그것을 어떻게 구했는지는 모른다.
 type Analyst interface {
-	// Judge 는 startSFEN + moves 로 도달한 국면에서 **마지막 한 수**를 판정한다.
-	// 판정에 필요한 탐색이 오래 걸릴 수 있으므로 세션 goroutine 밖에서 불린다.
+	// Judge 는 startSFEN + moves 로 도달한 국면에서 마지막 한 수를 판정한다.
+	// 탐색이 오래 걸릴 수 있어 세션 goroutine 밖에서 불린다.
 	Judge(ctx context.Context, startSFEN string, moves []string, ply int) (Judgement, error)
 }
 
-// Opponent 는 상대(컴퓨터)의 수를 고른다.
+// Opponent 는 상대(컴퓨터)의 수를 고른다. 구현은 둘 — NewEngineOpponent(엔진 최선수)와
+// NewAdaptiveOpponent(밴드 제어, 프로덕션이 쓰는 쪽). 상대의 강함이 바뀌는 자리가
+// 여기뿐이라 세션 상태머신은 둘을 구분하지 않는다.
 //
-// 구현이 둘이다 — NewEngineOpponent(엔진 최선수 그대로)와 NewAdaptiveOpponent(밴드 제어,
-// 프로덕션이 쓰는 쪽). 상대의 강함이 바뀌는 자리가 여기뿐이라 세션 상태머신은 둘을 모른다.
-//
-// sk 는 세션이 들고 있는 추정치다. **기다려서 받은 값이 아니다.**
-//
-// **늘 한 수 뒤진다** — 조건이 아니라 구조다. `applyVerdict` 가 추정기에 던지고(논블로킹)
-// 같은 자리에서 이 함수를 부르므로, N수째 응수는 언제나 1..N-1 로 만든 값으로 고른다.
-// 그래도 한 판 안에서 서너 번은 조절된다(journal §21 ①).
+// sk 는 세션이 들고 있는 추정치이고, 구조상 언제나 한 수 뒤진다 — applyVerdict 가
+// 추정기에 논블로킹으로 던지고 같은 자리에서 이 함수를 부르므로 N수째 응수는 1..N-1 로
+// 만든 값으로 고른다. 그래도 한 판에 서너 번은 조절된다(journal §21 ①).
 type Opponent interface {
 	Choose(ctx context.Context, startSFEN string, moves []string, sk skill.Estimate) (string, error)
 }
 
 // SkillAdapter 는 추정치로 강함이 실제로 달라지는 상대다. 안 만족하면 그 상대는 sk 를 버린다.
 //
-// **화면의 눈금은 추정기가 아니라 이쪽을 보고 갈린다.** 추정기가 돌아도 상대가 그 값을
-// 무시하면(`engineOpponent`) 눈금이 「조절하지도 않는 판」에 그려진다 — 그것을 막으려고
-// 둔 것이 `Snapshot.OpponentStrength` 의 조건이고, 추정기 유무로 갈랐더니 정확히 그 구멍이
-// 남아 있었다(프로덕션은 adaptive 하나라 안 드러난다).
+// Snapshot.OpponentStrength 는 추정기가 아니라 이 값을 보고 눈금을 켠다. 추정기만 보면
+// sk 를 무시하는 상대(engineOpponent)에도 눈금이 그려진다 — 프로덕션은 adaptive 하나라
+// 겉으로 드러나지 않는다.
 type SkillAdapter interface {
-	// AdaptsToSkill 은 「이 상대는 추정치를 본다」다. 값이 아니라 성질이라 인자가 없다.
+	// AdaptsToSkill 은 이 상대가 추정치를 보는가다. 값이 아니라 성질이라 인자가 없다.
 	AdaptsToSkill() bool
 }
 
-// adaptsToSkill 은 상대가 추정치를 보는가다. 인터페이스를 안 만족하면 안 보는 것으로 센다 —
-// 새 구현이 잠자코 눈금을 얻는 쪽보다 잠자코 안 그리는 쪽이 안전하다.
+// adaptsToSkill 은 상대가 추정치를 보는가다. 인터페이스를 안 만족하면 안 보는 것으로
+// 센다 — 새 구현이 눈금을 잠자코 얻는 것보다 잠자코 안 그리는 쪽이 안전하다.
 func adaptsToSkill(o Opponent) bool {
 	a, ok := o.(SkillAdapter)
 	return ok && a.AdaptsToSkill()
 }
 
-// BestPlayer 는 **조절을 끄고 최선수를 낼 수 있는** 상대다. `SkillAdapter` 와 같은 자리의
+// BestPlayer 는 조절을 끄고 최선수를 낼 수 있는 상대다. SkillAdapter 와 같은 자리의
 // 선택 인터페이스이고, 안 만족하면 세션이 조절된 수를 그대로 쓴다.
 //
-// 사람이 詰み을 걸고 있는 동안만 불린다(MateChasePlies). **인자에 추정치가 없는 것이
-// 이 인터페이스의 뜻 전부다** — 볼 값이 없다는 것이 곧 「조절하지 않는다」다.
+// 사람이 詰み을 걸고 있는 동안만 불린다(MateChasePlies). 인자에 추정치가 없는 것이
+// 곧 「조절하지 않는다」다.
 type BestPlayer interface {
 	ChooseBest(ctx context.Context, startSFEN string, moves []string) (string, error)
 }
 
-// chooseBest 는 조절 없이 최선수를 고른다. 상대가 그것을 못 하면 **평소대로 고른다** —
-// 詰み 연습이 안 되는 것과 대국이 멈추는 것 중에서는 앞이 낫다.
+// chooseBest 는 조절 없이 최선수를 고른다. 상대가 그것을 못 하면 평소대로 고른다 —
+// 詰み 연습이 안 되는 것이 대국이 멈추는 것보다 낫다.
 func chooseBest(
 	ctx context.Context, o Opponent, startSFEN string, moves []string, sk skill.Estimate,
 ) (string, error) {
@@ -88,11 +80,11 @@ func chooseBest(
 
 // Rater 는 사람의 착수를 받아 실력 추정치를 돌려준다. nil이면 밴드가 기준선에 고정된다.
 //
-// **두 메서드의 방향이 다른 것이 요점이다.** 넣는 쪽은 세션 goroutine이 부르므로 즉시
-// 돌아와야 하고(Recorder 와 같은 규약), 받는 쪽은 채널이라 **읽는 것을 세션이 소유한다** —
-// 추정기가 공유 변수를 직접 쓰면 「대국 상태는 goroutine 하나가 소유한다」가 깨진다.
+// 두 메서드의 방향이 다르다. Observe 는 세션 goroutine 이 부르므로 즉시 돌아와야 하고
+// (Recorder 와 같은 규약), Estimates 는 채널이라 읽는 쪽을 세션이 소유한다 — 추정기가
+// 공유 변수를 직접 쓰면 상태 소유 규약이 그 자리에서 깨진다.
 //
-// `Recorder` 와 **같은 이벤트 흐름의 두 번째 소비자**다(journal §21 ①).
+// Recorder 와 같은 이벤트 흐름의 두 번째 소비자다(journal §21 ①).
 type Rater interface {
 	Observe(m skill.Move)
 	Estimates() <-chan skill.Estimate
@@ -105,76 +97,64 @@ type Config struct {
 	Analyst Analyst
 	// Mate 가 nil이면 詰み 게이지가 꺼진 채로 대국한다.
 	//
-	// **Analyst 와 같은 solver 를 받지만 자리가 다르다.** 저쪽은 방금 둔 수를 판정하려고
-	// 착수 **전** 국면을 묻고, 이쪽은 지금 사람 차례인 **현재** 국면을 묻는다. 같은 질문을
-	// 한 수 늦게 하는 것이라 판정 결과를 게이지로 돌려쓸 수 없다.
+	// Analyst 와 같은 solver 를 받지만 묻는 국면이 다르다. 저쪽은 방금 둔 수를 판정하려고
+	// 착수 전 국면을, 이쪽은 사람 차례인 현재 국면을 묻는다 — 판정 결과를 게이지로
+	// 돌려쓸 수 없다.
 	Mate MateSearcher
-	// TesujiHint 가 nil이면 手筋 제안형 힌트가 꺼진 채로 대국한다. 囲い·전법 쪽 힌트는
-	// 엔진을 안 쓰므로 그대로 뜬다(computeTagHints).
+	// TesujiHint 가 nil이면 手筋 제안형 힌트가 꺼진다. 囲い·전법 힌트는 엔진을 안 쓰므로
+	// 그대로 뜬다(computeTagHints).
 	//
-	// **Opponent 와 같은 풀을 받지만 자리가 다르다** — `Mate` 가 `Analyst` 와 갈리는 것과
-	// 같은 이유다. 상대는 **자기가 둘 수**를 고르려고 지금 국면을 묻고, 이쪽은 **사람이
-	// 둘 수 있는 수 하나하나**를 둬 본 뒤의 국면을 묻는다. 묻는 국면이 아예 다르므로
-	// 상대의 탐색 결과를 돌려쓸 수 없다.
+	// Opponent 와 같은 풀을 받지만 묻는 국면이 다르다. 상대는 자기가 둘 수를 고르려고
+	// 지금 국면을, 이쪽은 사람이 둘 수 있는 수를 하나씩 둬 본 뒤의 국면을 묻는다.
 	TesujiHint MultiSearcher
 	// Recorder 가 nil이면 기록하지 않는다. 대국은 그대로 된다.
 	Recorder Recorder
 	// Rater 가 nil이면 상대의 강함이 대국 내내 기준선 밴드 그대로다.
 	//
-	// **Level(개입 임계치)은 이쪽이 안 건드린다.** 조절하는 것은 밴드이고, 임계치를 대국
-	// 중에 흔들면 같은 수가 같은 국면에서 걸리기도 안 걸리기도 한다.
+	// 조절하는 것은 밴드뿐이고 개입 임계치(Level)는 안 건드린다 — 임계치가 대국 중에
+	// 흔들리면 같은 국면의 같은 수가 걸리기도 안 걸리기도 한다.
 	Rater Rater
-	// ObservePlies 는 개입하지 않는 초반 구간이다. **기본값은 0 — 첫 수부터 판정한다.**
-	//
-	// 오프닝의 다양성은 수 번호가 아니라 임계치가 지킨다 — 전법 선택은 50~200cp(Δ 2~8%p)라
-	// 어느 레벨도 안 걸리고, 銀 이상을 공짜로 주면 Δ 34%p라 입문에서도 걸린다(01-core.md §2).
+	// ObservePlies 는 개입하지 않는 초반 구간이다. 기본값은 0 — 첫 수부터 판정한다.
+	// 오프닝의 다양성은 수 번호가 아니라 임계치가 지킨다(01-core.md §2).
 	ObservePlies int
 	// HumanColor 는 사람이 잡는 쪽. 기본은 先手(Black).
 	HumanColor shogi.Color
 	// StartSFEN 이 비면 평수 초기 국면.
 	StartSFEN string
-	// StartMoves 는 StartSFEN 에서 **이미 둬진** 수순이다. 이어하기가 기록에서 국면을
-	// 다시 세울 때만 채운다(server/ws.go, journal §51).
+	// StartMoves 는 StartSFEN 에서 이미 둬진 수순이다. 이어하기가 기록에서 국면을 다시
+	// 세울 때만 채운다(server/ws.go, journal §51). 판을 살려 두는 대신 기보로 다시 두므로
+	// 세션 수명은 그대로 연결에 매여 있다(§46).
 	//
-	// **세션 수명을 안 건드린다는 것이 이 설계의 전부다.** 판을 살려 두는 대신 기보로
-	// 다시 두므로 「세션은 연결에 매여 있다」가 그대로 남는다(§46).
-	//
-	// 여기 있는 수는 **기보이지 시도가 아니다** — 물러진 수는 애초에 기보에 없다
-	// (docs/01-core.md §5). 그래서 되만든 판에는 롤백된 수가 안 온다.
+	// 여기 오는 것은 기보라 물러진 수가 없다(docs/01-core.md §5).
 	StartMoves []string
-	// MoveDeadline·ExtraDeadline 은 대국 중 엔진 탐색에 거는 시한이다. 0이면 위의 기본값이다.
-	//
-	// **깊이는 여기서 안 건드린다.** 시한이 하는 일은 결과를 버리는 것 하나이고, 넘겼다고
-	// 얕게 다시 묻지 않는다 — 그러면 상대의 강함이 서버 사정에 따라 달라진다(01-core.md §4).
+	// MoveDeadline·ExtraDeadline 은 대국 중 엔진 탐색에 거는 시한이다. 0이면 기본값이다.
+	// 시한이 하는 일은 결과를 버리는 것뿐이고, 넘겼다고 얕게 다시 묻지 않는다 — 그러면
+	// 상대의 강함이 서버 사정에 따라 달라진다(01-core.md §4).
 	MoveDeadline  time.Duration
 	ExtraDeadline time.Duration
-	// HintSearch 가 nil이면 **부르는 힌트가 꺼진다**(CanHint 가 언제나 false).
+	// HintSearch 가 nil이면 부르는 힌트가 꺼진다(CanHint 가 언제나 false).
 	//
-	// **`Opponent` 와 같은 풀을 받지만 자리가 다르다.** 상대는 자기가 둘 수를 고르려고 묻고,
-	// 이쪽은 **사람이 둘 최선수**를 묻는다 — 같은 국면이지만 관점이 반대라 결과를 돌려쓸 수
-	// 없다(`Mate` 가 `Analyst` 와 갈리는 것과 같은 이유).
+	// Opponent 와 같은 풀을 받지만 관점이 반대다. 상대는 자기가 둘 수를, 이쪽은 사람이
+	// 둘 최선수를 묻는다 — 같은 국면이어도 결과를 돌려쓸 수 없다.
 	//
-	// **k=1로 묻는다**(askHint). 필요한 것이 최선수 하나이고, 그 모양이 판정이 이미 만드는
-	// 캐시 행과 같아서다 — 같은 국면·같은 깊이·같은 k라야 `positions` 가 한 행으로 합쳐진다.
+	// k=1로 묻는다(askHint). 판정이 이미 만드는 캐시 행과 모양이 같아야 positions 가
+	// 한 행으로 합쳐진다 — 같은 국면·같은 깊이·같은 k.
 	HintSearch MultiSearcher
-	// HintsUsed·HintStages 는 이 판에서 **이미** 쓴 힌트다. 이어하는 판만 채운다(server/ws.go).
-	//
-	// **둘 다 있어야 한다.** 앞은 예산이고 뒤는 「이 국면은 어디까지 봤나」다 — 뒤가 없으면
-	// 이어한 판에서 같은 국면의 답을 다시 볼 수 있다(store.HintUse).
+	// HintsUsed·HintStages 는 이 판에서 이미 쓴 힌트다. 이어하는 판만 채운다(server/ws.go).
+	// 앞은 예산, 뒤는 「이 국면은 어디까지 봤나」다 — 뒤가 없으면 이어한 판에서 같은
+	// 국면의 답을 다시 볼 수 있다(store.HintUse).
 	HintsUsed  int
 	HintStages map[string]int
 
-	// UndoUsed 는 이 판에서 **이미** 무른 횟수다. 이어하는 판만 채운다(server/ws.go).
+	// UndoUsed 는 이 판에서 이미 무른 횟수다. 이어하는 판만 채운다(server/ws.go).
 	//
-	// **세션이 아니라 판에 붙는 예산이라서** 여기로 받는다. 세션은 연결에 매여 있어
-	// 이어할 때마다 새로 서는데, 카운터가 그때 0으로 돌아가면 UndoMaxPerGame 이
-	// 「연결당 3회」가 되고 그건 제한이 아니다 — 새로고침 한 번에 예산이 찬다.
+	// 예산이 세션이 아니라 판에 붙어서 여기로 받는다. 세션은 이어할 때마다 새로 서므로
+	// 카운터가 그때 0이 되면 UndoMaxPerGame 이 「연결당 3회」가 된다 — 새로고침 한 번에
+	// 예산이 다시 찬다.
 	UndoUsed int
 	// OpponentOpening 은 상대가 따르는 진형의 일본어 이름이다. 스냅샷으로 그대로 나간다.
-	//
-	// **이름만 받는다.** 수순은 상대(book_opponent.go)가 들고 있고 세션은 그것을 모른다 —
-	// 여기에 수순이 들어오면 세션이 「상대가 다음에 무엇을 둘지」를 아는 자리가 생기고,
-	// 그건 판정과 개입이 상대의 계획을 참조할 수 있게 되는 첫 걸음이다.
+	// 수순은 상대(book_opponent.go)가 들고 세션은 모른다 — 여기에 수순이 들어오면
+	// 판정과 개입이 상대의 계획을 참조할 수 있게 된다.
 	OpponentOpening string
 }
 
@@ -196,49 +176,47 @@ var ErrNothingToUndo = errors.New("game: nothing to undo")
 
 // UndoMaxPerGame 은 사람이 스스로 무를 수 있는 횟수다.
 //
-// **개입의 되무르기와 예산이 다르다.** 저쪽은 판정이 정하므로 상한이 없고(한 국면에서
-// 몇 번이든 걸린다), 이쪽은 사람이 정하므로 상한이 곧 기능의 전부다 — 무제한이면
-// 「블런더를 두면 물러진다」가 「아무 때나 되돌린다」에 묻힌다(회차 1 #4 · journal §72).
+// 개입의 되무르기와 예산이 다르다. 저쪽은 판정이 정하므로 상한이 없고, 이쪽은 사람이
+// 정하므로 상한이 곧 기능이다 — 무제한이면 「블런더를 두면 물러진다」가 「아무 때나
+// 되돌린다」에 묻힌다(journal §72).
 //
-// **[미확정]** 3은 사람이 요청한 값 그대로다. 실측으로 잡은 것이 아니다.
+// [미확정] 3은 사람이 요청한 값이다. 실측으로 잡은 것이 아니다.
 const UndoMaxPerGame = 3
 
 // ErrNoHintLeft 는 그 판의 힌트 예산을 다 썼을 때다(HintMaxPerGame).
 var ErrNoHintLeft = errors.New("game: no hint left")
 
-// ErrHintSeen 은 **이 국면에서 이미 답까지 봤을 때**다. 같은 자리를 세 번째로 물으면
-// 여기로 온다 — 그때 줄 것이 더 없다(HintStageMax).
+// ErrHintSeen 은 이 국면에서 이미 답까지 봤을 때다. 같은 자리를 세 번째로 물으면
+// 여기로 온다 — 더 줄 것이 없다(HintStageMax).
 var ErrHintSeen = errors.New("game: hint already given for this position")
 
 // ErrNoHint 는 힌트를 만들 수 없을 때다 — 엔진이 없거나 탐색이 수를 못 냈다.
 var ErrNoHint = errors.New("game: no hint available")
 
-// HintMaxPerGame 은 사람이 **불러서** 받을 수 있는 최선수 힌트의 횟수다.
+// HintMaxPerGame 은 사람이 불러서 받을 수 있는 최선수 힌트의 횟수다.
 //
-// **이 숫자가 곧 원칙의 근거다.** 01-core.md §1은 「어느 쪽도 최선수를 보여주지 않는다」이고
-// 갇힘 힌트가 그 예외인 근거는 「다섯 번 실패해야 열려서 기댈 수 없다」였다. 부르는 힌트는
-// 기댈 수 있으므로 그 근거가 안 서고, **대신 예산이 그 자리를 맡는다** — 한 국면의 답을
-// 통째로 보려면 두 번을 쓰므로 한 판에 **최대 세 수**까지만 답을 볼 수 있다.
+// 갇힘 힌트가 「최선수를 보여주지 않는다」(01-core.md §1)의 예외인 근거는 다섯 번
+// 실패해야 열려서 기댈 수 없다는 것이었다. 부르는 힌트는 기댈 수 있으므로 그 자리를
+// 예산이 대신 맡는다 — 한 국면의 답을 통째로 보려면 두 번을 쓰므로 한 판에 최대
+// 세 수까지다.
 //
-// **[미확정]** 6은 사람이 고른 값이다. 근거는 journal §78.
+// [미확정] 6은 사람이 고른 값이다. 근거는 journal §78.
 const HintMaxPerGame = 6
 
-// HintStageMax 는 한 국면에서 열리는 마지막 단계다.
-//
-// 1이 「어느 駒인가」, 2가 「어떻게 움직이나」이고 **3은 없다.** 갇힘 힌트의 두 단계와
-// 같은 것을 그린다(buildHint) — 계단이 둘인 것은 1단계에서 여전히 사람이 찾기 때문이다.
+// HintStageMax 는 한 국면에서 열리는 마지막 단계다. 1이 「어느 駒인가」, 2가 「어떻게
+// 움직이나」이고 3은 없다 — 갇힘 힌트와 같은 그림을 그린다(buildHint).
 const HintStageMax = 2
 
-// 대국 중 엔진 탐색에 거는 시한이다. **자를 시간이 아니라 버릴 시점이다** — 깊이 기반이라
-// 중간 결과는 depth N 결과가 아니고, 넘기면 결과를 통째로 버린다(usi.Engine.SearchDepth).
+// 대국 중 엔진 탐색에 거는 시한이다. 자를 시간이 아니라 버릴 시점이다 — 깊이 기반이라
+// 중간 결과는 depth N 결과가 아니고, 넘기면 통째로 버린다(usi.Engine.SearchDepth).
 //
-// **값이 둘인 것은 「무엇을 먼저 포기하나」다.** 넷이 같은 풀을 다투므로(cmd/api/main.go)
-// 부가 기능이 오래 붙들면 대국이 굶는다. 숫자의 근거와 실측은 journal §56.
+// 값이 둘인 것은 무엇을 먼저 포기하는가다. 넷이 같은 풀을 다투므로(cmd/api/main.go)
+// 부가 기능이 오래 붙들면 대국이 굶는다. 숫자의 근거는 journal §56.
 const (
-	// DefaultMoveDeadline 은 **판이 그 자리에서 멈추는** 두 경로의 시한이다 — 상대 수와 개입 판정.
+	// DefaultMoveDeadline 은 판이 그 자리에서 멈추는 두 경로의 시한이다 — 상대 수와 개입 판정.
 	DefaultMoveDeadline = 60 * time.Second
 
-	// DefaultExtraDeadline 은 **없어도 판이 도는** 두 경로의 시한이다 — 詰み 게이지와 手筋 힌트.
+	// DefaultExtraDeadline 은 없어도 판이 도는 두 경로의 시한이다 — 詰み 게이지와 부르는 힌트.
 	// 이 둘은 조용히 없어지고, 사람이 알아채는 쪽은 언제나 위 둘이다.
 	DefaultExtraDeadline = 20 * time.Second
 )
@@ -278,7 +256,7 @@ type mateResult struct {
 	err   error
 }
 
-// tesujiHintResult 는 게이트를 통과한 手筋 후보다. opts 는 계단이 짚을 수를 갖고 있고,
+// tesujiHintResult 는 게이트를 통과한 手筋 후보다. opts 는 계단이 짚을 수를 들고 있고,
 // 화면에 나가는 것은 이름뿐이다(tesujiHintTags).
 type tesujiHintResult struct {
 	gen     int
@@ -327,67 +305,61 @@ type state struct {
 	judgeGen     int
 	intervention *Intervention
 
-	// stuck 은 **같은 국면에서 연속으로 물러진 횟수**다. 통과하는 수를 두면 0으로 돌아가고,
+	// stuck 은 같은 국면에서 연속으로 물러진 횟수다. 통과하는 수를 두면 0으로 돌아가고,
 	// 되무르기는 국면을 그대로 되돌리므로 「연속」이 곧 「같은 국면」이 된다.
 	stuck int
-	// hint 는 그 횟수에 열린 안내다. intervention 과 수명이 같지만 뜻이 다르다 —
-	// intervention 은 **방금 무엇을 했나**이고 이쪽은 **지금 무엇을 할까**다.
+	// hint 는 그 횟수에 열린 안내다. intervention 이 「방금 무엇을 했나」라면
+	// 이쪽은 「지금 무엇을 할까」다. 수명은 같다.
 	hint *Hint
-	// notice 는 **우리가 못 해준 것**이다. 위 둘과 수명이 같고 뜻이 또 다르다(Notice).
+	// notice 는 우리가 못 해준 것이다. 위 둘과 수명이 같고 뜻이 또 다르다(Notice).
 	notice *Notice
 
 	// 詰み 게이지도 세션 goroutine 밖에서 돈다(탐색·판정과 같은 이유).
 	//
-	// **mateHeat 와 mateGen 을 함께 본다.** 국면이 움직이면(searchGen) 그 세기는 그 자리에서
-	// 무효이고, 스냅샷이 둘을 대조해 판단한다 — 지우는 코드를 착수·롤백·종료에 흩어 두면
-	// 그중 하나를 빠뜨렸을 때 낡은 불꽃이 새 국면에 남는다.
+	// mateHeat 와 mateGen 을 함께 본다. 국면이 움직이면 그 세기는 무효이고, 지우는 대신
+	// 스냅샷이 둘을 대조한다 — 지우는 코드를 착수·롤백·종료에 흩어 두면 하나를
+	// 빠뜨렸을 때 낡은 불꽃이 새 국면에 남는다.
 	gauging  bool
 	gaugeGen int
 	mateHeat int
 	mateGen  int
-	// matePlies 는 게이지가 자르기 **전**의 詰み 手数다. 화면에는 안 나가고(mateHeat 이
-	// 그 일을 한다) 상대의 태도를 정하는 데만 쓴다 — MateChasePlies.
+	// matePlies 는 게이지가 자르기 전의 詰み 手数다. 화면에는 안 나가고(mateHeat 이 그 일을
+	// 한다) 상대의 태도를 정하는 데만 쓴다 — MateChasePlies.
 	matePlies int
-	// chasing 은 **사람이 詰み을 걸고 있는 채로 이 수를 뒀는가**다. 상대가 밴드를 안 보고
+	// chasing 은 사람이 詰み을 걸고 있는 채로 이 수를 뒀는가다. 상대가 밴드를 안 보고
 	// 최선으로 버티는 조건이고(MateChasePlies), 사람이 둘 때마다 다시 정해진다.
 	//
-	// **착수 전에 정해야 한다.** 수를 놓은 뒤에는 게이지가 그 국면의 것이 아니게 되고,
-	// 그때 물으면 「방금 詰み을 걸고 있었는가」가 아니라 「지금 걸고 있는가」가 된다 —
-	// 후자는 상대 차례라 solver 가 답하지 않는 질문이다(maybeGauge).
+	// 착수 전에 정해야 한다. 수를 놓은 뒤의 게이지는 그 국면의 것이 아니라, 그때 물으면
+	// 「지금 걸고 있는가」가 된다 — 그쪽은 상대 차례라 solver 가 답하지 않는다(maybeGauge).
 	chasing bool
 
-	// tesuji 는 **엔진 게이트를 통과한** 手筋 이름들이고, tesujiGen 은 그것을 구한 국면이다.
-	//
-	// 게이지와 같은 규약이다 — 국면이 움직이면 그 자리에서 무효이므로 스냅샷이 둘을
-	// 대조한다. 여기는 이유가 하나 더 있다: 이름을 통과시킨 것은 **그 국면의 평가치**라,
-	// 다음 국면까지 들고 가면 엔진에게 묻지 않은 형태에 이름을 붙이는 것이 된다.
+	// tesuji 는 엔진 게이트를 통과한 手筋 이름들이고, tesujiGen 은 그것을 구한 국면이다.
+	// 게이지와 같은 규약으로 스냅샷이 둘을 대조한다. 이름을 통과시킨 것이 그 국면의
+	// 평가치라, 다음 국면까지 들고 가면 묻지도 않은 형태에 이름을 붙이게 된다.
 	tesuji    []tag.Tag
 	tesujiGen int
 
 	// 부르는 힌트. 예산은 판에 붙고(hints) 단계는 국면마다다(hintStages).
-	//
-	// **탐색이 세션 goroutine 밖에서 돈다** — 게이지와 같은 규약이라 세대(hintGen)로 거른다.
+	// 탐색은 세션 goroutine 밖에서 돌고, 게이지와 같은 규약으로 세대(hintGen)로 거른다.
 	hints      int
 	hintStages map[string]int
 	hinting    bool
 	hintGen    int
-	// hintedKey·hintedUSI 는 **지금 국면에서 답을 알려줬는가**다. 사람이 그 수를 실제로
-	// 뒀는지를 다음 착수에서 채우고(Recorder.HintTaken), 그 수를 실력 추정에서 뺀다 —
-	// 알려준 답을 둔 것이 실력으로 기록되면 段級이 부풀고, 그게 이 제품이 파는 숫자다.
+	// hintedKey·hintedUSI 는 지금 국면에서 답을 알려줬는가다. 사람이 그 수를 실제로 뒀는지를
+	// 다음 착수에서 채우고(Recorder.HintTaken), 그 수를 실력 추정에서 뺀다 — 알려준 답이
+	// 실력으로 기록되면 段級이 부푼다.
 	hintedKey string
 	hintedUSI string
-	// skipRating 은 **방금 둔 수를 실력 추정에서 뺄 것인가**다. 답을 본 국면에서 착수할 때
-	// 켜지고, 판정이 끝나면 다시 꺼진다 — 판정이 비동기라 착수 시점의 사실을 그때까지
-	// 들고 있어야 한다.
+	// skipRating 은 방금 둔 수를 실력 추정에서 뺄 것인가다. 답을 본 국면에서 착수할 때
+	// 켜지고 판정이 끝나면 꺼진다 — 판정이 비동기라 착수 시점의 사실을 그때까지 들고 있는다.
 	skipRating bool
-	// hintReported 는 이 힌트에 대해 `HintTaken` 을 이미 적었는가다. 답을 본 국면에서
+	// hintReported 는 이 힌트에 대해 HintTaken 을 이미 적었는가다. 답을 본 국면에서
 	// 여러 번 시도할 수 있어서(개입 롤백) 필요하다.
 	hintReported bool
 
-	// namedStyle 은 이 판에서 **이미 기록한** 囲い·전법·戦型 코드다(recordStyleTags).
-	//
-	// 세션이 연결에 매여 있어 이어하는 판은 이 기억을 잃는다(§51). 그래서 거르는 자리가
-	// 질의에도 하나 더 있다(store.AddStyleTag).
+	// namedStyle 은 이 판에서 이미 기록한 囲い·전법·戦型 코드다(recordStyleTags).
+	// 이어하는 판은 이 기억을 잃으므로(§51) 거르는 자리가 질의에도 하나 더 있다
+	// (store.AddStyleTag).
 	namedStyle map[string]bool
 
 	// 제안형 힌트. 빈도 상한과 쿨다운을 여기서 잡는다(01-core.md §7.1).
@@ -396,30 +368,28 @@ type state struct {
 	tagHintCount   int
 	tagHintLastPly int
 
-	// 手筋 쪽 제안형 힌트. **예산(카운터)만 따로 센다** — 한 예산이면 囲い가 먼저 다 써서
-	// 手筋이 못 뜬다(journal §42). **이름이 아니라 후보를 들고 있는다** — 계단 ②③이
-	// 짚을 수가 여기 있고, 이름은 언제든 후보에서 편다(tesujiHintTags).
+	// 手筋 쪽 제안형 힌트. 예산(카운터)만 따로 센다 — 한 예산이면 囲い가 먼저 다 써서
+	// 手筋이 못 뜬다(journal §42). 이름이 아니라 후보를 들고 있는 것은 계단 ②③이 짚을
+	// 수가 여기 있어서다. 이름은 언제든 후보에서 편다(tesujiHintTags).
 	tesujiOpts        []TesujiOption
 	tesujiHintGen     int
 	tesujiHinting     bool
 	tesujiHintCount   int
 	tesujiHintLastPly int
-	// tesujiHintAsked 는 **한 번이라도 물어봤는가**다. `tesujiHintLastPly` 의 0을 「아직 없다」로
+	// tesujiHintAsked 는 한 번이라도 물어봤는가다. tesujiHintLastPly 의 0을 「아직 없다」로
 	// 겸하면 0手目의 물음이 쿨다운을 안 걸고, 그 자리가 先手의 첫 차례다.
 	tesujiHintAsked bool
 
-	// skill 은 추정기가 마지막으로 올려보낸 값이다. **상대를 고를 때만 쓴다.**
-	//
-	// 세션 goroutine만 읽고 쓴다 — 추정기는 채널로 올려보낼 뿐이다(Rater).
+	// skill 은 추정기가 마지막으로 올려보낸 값이다. 상대를 고를 때만 쓴다.
+	// 세션 goroutine 만 읽고 쓴다 — 추정기는 채널로 올려보낼 뿐이다(Rater).
 	skill skill.Estimate
 
 	// 물러질 수 있으므로 착수 직전 국면을 들고 있는다. Position 이 값 타입이라 복사면 끝이다.
 	prevPos    shogi.Position
 	prevPrevTo int
 
-	// undos 는 사람이 스스로 무른 횟수다. **개입의 되무르기는 안 센다** — 예산이 다르고
-	// (UndoMaxPerGame), 무엇보다 개입을 세면 AI가 막을수록 사람의 무르기가 줄어든다.
-	//
+	// undos 는 사람이 스스로 무른 횟수다. 개입의 되무르기는 안 센다 — 예산이 다르고
+	// (UndoMaxPerGame), 개입을 세면 AI가 막을수록 사람의 무르기가 줄어든다.
 	// 이어하는 판은 0이 아니라 기록에 남은 값에서 시작한다(Config.UndoUsed).
 	undos int
 
@@ -459,15 +429,15 @@ func New(ctx context.Context, cfg Config) (*Session, error) {
 		hintStages: map[string]int{},
 	}
 	st.repeats[pos.RepetitionKey()]++
-	// **넘겨받은 표를 그대로 안 든다.** 부르는 쪽이 계속 들고 있으면 세션 goroutine 밖에서
-	// 그 표가 바뀔 수 있고, 그 순간 「대국 상태는 goroutine 하나가 소유한다」가 깨진다.
+	// 넘겨받은 표를 그대로 들지 않는다. 부르는 쪽이 계속 들고 있으면 세션 goroutine 밖에서
+	// 그 표가 바뀌고, 그 순간 상태 소유 규약이 깨진다.
 	for k, v := range cfg.HintStages {
 		st.hintStages[k] = v
 	}
 
-	// **run 전에 되만든다.** 여기까지는 goroutine이 하나뿐이고 Recorder 도 아직 아무
-	// 말을 안 들었으므로, 되만들기가 실패하면 세션이 **아예 안 선다** — 반쯤 선 판을
-	// 접는 길을 만들지 않는다.
+	// run 전에 되만든다. 여기까지는 goroutine 이 하나뿐이고 Recorder 도 아직 아무 말을
+	// 안 들었으므로, 되만들기가 실패하면 세션이 아예 안 선다 — 반쯤 선 판을 접는 길을
+	// 만들지 않는다.
 	if err := st.replay(cfg.StartMoves); err != nil {
 		return nil, err
 	}
@@ -481,9 +451,8 @@ var ErrCannotResume = errors.New("game: cannot rebuild the position from the rec
 
 // replay 는 기보를 그대로 다시 둬서 끊긴 자리로 판을 되돌린다.
 //
-// **한 수라도 안 맞으면 통째로 거절한다.** 여기서 눈감고 이어 두면 한 칸 어긋난 판이
-// 「그때 두던 판」의 얼굴로 서고, 그 뒤로는 서버도 화면도 조용하다 — 사람만 자기 持ち駒가
-// 다른 것을 본다.
+// 한 수라도 안 맞으면 통째로 거절한다. 눈감고 이어 두면 한 칸 어긋난 판이 「그때 두던
+// 판」의 얼굴로 서고, 그 뒤로 서버도 화면도 조용하다 — 사람만 자기 持ち駒가 다른 것을 본다.
 func (st *state) replay(moves []string) error {
 	for i, u := range moves {
 		m, err := shogi.ParseUSIMove(u)
@@ -493,11 +462,11 @@ func (st *state) replay(moves []string) error {
 		if err := st.pos.ValidateMove(m); err != nil {
 			return fmt.Errorf("%w: ply %d (%s): %w", ErrCannotResume, i+1, u, err)
 		}
-		// **둔 쪽은 착수 전 수번이다.** advance 가 판을 넘긴 뒤에 물으면 상대의 수가 된다.
+		// 둔 쪽은 착수 전 수번이다. advance 가 판을 넘긴 뒤에 물으면 상대의 수가 된다.
 		by := st.sideOf(st.pos.Turn)
 		st.advance(m, by)
 	}
-	// 되만든 판이 이미 끝나 있으면 이어할 것이 없다. `abandoned` 로 닫힌 판이라 여기
+	// 되만든 판이 이미 끝나 있으면 이어할 것이 없다. abandoned 로 닫힌 판이라 여기
 	// 걸릴 일은 없고, 걸린다면 기록이 그 자리에서 끊긴 것이다.
 	if len(moves) > 0 && (st.pos.NoLegalMoves() || st.repeats[st.pos.RepetitionKey()] >= 4) {
 		return fmt.Errorf("%w: the game is already over at ply %d", ErrCannotResume, len(moves))
@@ -609,8 +578,8 @@ func (st *state) handle(ctx context.Context, c command, engineDone chan engineRe
 		st.broadcast()
 
 	case cmdHint:
-		// **성공해도 여기서는 아직 아무것도 안 뜬다.** 탐색이 끝나야 단계가 정해지고,
-		// 그때 스냅샷이 구독 채널로 간다(applyHintResult) — 착수와 같은 규약이다.
+		// 성공해도 여기서는 아직 아무것도 안 뜬다. 탐색이 끝나야 단계가 정해지고,
+		// 그때 스냅샷이 구독 채널로 간다(applyHintResult).
 		err := st.askHint(ctx, hintDone)
 		c.reply <- result{snap: st.snapshot(), err: err}
 		if err == nil {
@@ -633,26 +602,26 @@ func (st *state) handle(ctx context.Context, c command, engineDone chan engineRe
 	}
 }
 
-// undo 는 사람이 **스스로** 직전 자기 수를 무른다(待った).
+// undo 는 사람이 스스로 직전 자기 수를 무른다(待った).
 //
-// **개입의 롤백과 세 가지가 다르다.** 시작하는 쪽이 사람이고, 예산이 있고(UndoMaxPerGame),
-// 되돌리는 폭이 두 手다 — 사람의 수 하나를 되돌리려면 그 뒤에 이미 확정된 상대의 응수도
-// 같이 사라져야 판이 사람 차례로 돌아온다. 롤백은 판정이 상대 수보다 먼저 돌기 때문에
-// (playHuman) 되돌릴 것이 언제나 하나뿐이고, 그래서 `prevPos` 한 장으로 끝난다.
+// 개입의 롤백과 세 가지가 다르다. 시작하는 쪽이 사람이고, 예산이 있고(UndoMaxPerGame),
+// 되돌리는 폭이 두 手다 — 사람의 수 하나를 되돌리려면 이미 확정된 상대의 응수도 같이
+// 사라져야 판이 사람 차례로 온다. 롤백은 판정이 상대 수보다 먼저 돌아(playHuman)
+// 되돌릴 것이 언제나 하나뿐이고, 그래서 prevPos 한 장으로 끝난다.
 //
-// **평가는 안 되돌린다.** 무른 수는 판정을 이미 통과했고 그때 추정기가 그 값을 먹었다
-// (applyVerdict 의 observeSkill). 여기서 그것을 빼면 「어려운 수를 두고 무르면 실력이
-// 안 떨어진다」가 되어 상대가 실제 실력보다 약해진 채로 남는다 — 회차 1 #4 가 요구한
-// 세 가지 중 두 번째가 정확히 이것이다(journal §72).
-// **engineDone 을 안 받는다.** 되감은 국면은 사람 차례라 상대를 생각시킬 일이 없고,
+// 평가는 되돌리지 않는다. 무른 수는 판정을 이미 통과했고 그때 추정기가 그 값을 먹었다
+// (applyVerdict 의 observeSkill). 여기서 빼면 「어려운 수를 두고 무르면 실력이 안
+// 떨어진다」가 되어 상대가 실제보다 약해진 채로 남는다(journal §72).
+//
+// engineDone 을 안 받는다. 되감은 국면은 사람 차례라 상대를 생각시킬 일이 없고,
 // 인자로 들고 있으면 언젠가 여기서 maybeThink 를 부르게 된다.
 func (st *state) undo(ctx context.Context, gaugeDone chan mateResult, tesujiDone chan tesujiHintResult) (Snapshot, error) {
 	if st.status != StatusPlaying {
 		return st.snapshot(), ErrFinished
 	}
 	// 판정 중이거나 상대가 생각 중이면 국면이 아직 사람에게 안 돌아왔다. 그 사이에
-	// 되감으면 날아오는 결과가 **되감기 전 국면의 것**이고, 세대로 버려지긴 하지만
-	// 사람 눈에는 「눌렀는데 한 수 뒤에 무너졌다」로 보인다.
+	// 되감으면 날아오는 결과가 되감기 전 국면의 것이고, 세대로 버려지긴 하지만 사람
+	// 눈에는 「눌렀는데 한 수 뒤에 무너졌다」로 보인다.
 	if st.judging || st.thinking || st.pos.Turn != st.cfg.HumanColor {
 		return st.snapshot(), ErrNotYourTurn
 	}
@@ -666,27 +635,26 @@ func (st *state) undo(ctx context.Context, gaugeDone chan mateResult, tesujiDone
 
 	undone := st.moves[at]
 	if err := st.rewindTo(at); err != nil {
-		// 되감기가 실패하면 판을 **안 건드린 채로** 거절한다. 반쯤 되감긴 판을 내보내면
+		// 되감기가 실패하면 판을 안 건드린 채로 거절한다. 반쯤 되감긴 판을 내보내면
 		// 그 뒤의 모든 판정이 없던 국면 위에서 돈다(replay 와 같은 판단).
 		log.Printf("game: cannot rewind to ply %d: %v", at, err)
 		return st.snapshot(), err
 	}
 	st.undos++
 
-	// **기보에서 지우는 것도 기록 쪽이 한다.** 무른 수와 그 뒤 상대의 응수 둘 다이고,
+	// 기보에서 지우는 것도 기록 쪽이 한다. 무른 수와 그 뒤 상대의 응수 둘 다이고,
 	// 手数를 넘기면 store 가 거기서부터 자른다(store.RecordUndo).
 	if st.cfg.Recorder != nil {
 		st.cfg.Recorder.Undone(at+1, undone.USI)
 	}
 
-	// 개입 카드·힌트·알림은 전부 **직전 수에 대한 말**이라 그 수가 사라지면 같이 사라진다.
+	// 개입 카드·힌트·알림은 전부 직전 수에 대한 말이라 그 수가 사라지면 같이 사라진다.
 	st.intervention, st.hint, st.notice = nil, nil, nil
 	// 갇힘도 푼다. 「같은 국면에서 연속으로 물러졌다」를 세는 값인데(state.stuck), 사람이
 	// 스스로 되감은 것은 그 연속이 아니다 — 남겨 두면 다음 한 번에 계단이 열린다.
 	st.stuck = 0
 
-	// 되돌아온 국면은 **手筋 힌트를 물어봤던 바로 그 국면**이다 — rollback 과 같은 자리,
-	// 같은 근거다(그쪽 주석).
+	// 되돌아온 국면은 手筋 힌트를 물어봤던 바로 그 국면이다 — rollback 과 같은 근거다.
 	if !st.tesujiHinting && st.tesujiHintAsked && st.tesujiHintLastPly == len(st.usis) {
 		st.tesujiHintGen = st.searchGen
 	}
@@ -697,10 +665,8 @@ func (st *state) undo(ctx context.Context, gaugeDone chan mateResult, tesujiDone
 	return st.snapshot(), nil
 }
 
-// lastHumanMove 는 확정된 기보에서 **마지막 사람 수**의 자리다. 없으면 -1.
-//
-// `st.moves` 에는 물러진 수가 없으므로(rollback 이 자른다) 여기서 나오는 것은 언제나
-// 「판에 남아 있는 사람의 수」다.
+// lastHumanMove 는 확정된 기보에서 마지막 사람 수의 자리다. 없으면 -1.
+// st.moves 에는 물러진 수가 없으므로(rollback 이 자른다) 판에 남아 있는 수만 나온다.
 func (st *state) lastHumanMove() int {
 	for i := len(st.moves) - 1; i >= 0; i-- {
 		if st.moves[i].By == SideHuman {
@@ -710,14 +676,11 @@ func (st *state) lastHumanMove() int {
 	return -1
 }
 
-// rewindTo 는 **n手까지 둔 국면**으로 되감는다. 그 뒤의 수는 기보에서 사라진다.
+// rewindTo 는 n手까지 둔 국면으로 되감는다. 그 뒤의 수는 기보에서 사라진다.
 //
-// **처음부터 다시 둔다.** 되돌릴 것이 둘이라 `prevPos` 한 장으로는 안 되고, 되돌려야
-// 하는 것이 판 하나가 아니기 때문이다 — 千日手 계수·「同」이 보는 도착 칸·표기까지
-// 전부다(rollback 의 같은 문장). 그 셋을 손으로 되감는 코드는 하나를 빠뜨렸을 때
-// 조용하고, 다시 두는 쪽은 빠뜨릴 것이 없다.
-//
-// 판당 세 번뿐이라(UndoMaxPerGame) 다시 두는 비용은 문제가 되지 않는다.
+// 처음부터 다시 둔다. 되돌릴 것이 판 하나가 아니라 千日手 계수·「同」이 보는 도착 칸·
+// 표기까지라, 손으로 되감는 코드는 하나를 빠뜨렸을 때 조용하다. 판당 세 번뿐이라
+// (UndoMaxPerGame) 다시 두는 비용은 문제가 되지 않는다.
 func (st *state) rewindTo(n int) error {
 	keep := append([]string(nil), st.usis[:n]...)
 
@@ -729,8 +692,8 @@ func (st *state) rewindTo(n int) error {
 	st.moves, st.usis = nil, nil
 	st.repeats = map[string]int{}
 	st.repeats[pos.RepetitionKey()]++
-	// **세대를 여기서 올린다.** replay 안의 advance 도 매 수 올리지만, 되감을 것이
-	// 0手일 때는 한 번도 안 올라 늦게 온 결과가 살아남는다.
+	// 세대를 여기서 올린다. replay 안의 advance 도 매 수 올리지만, 되감을 것이 0手면
+	// 한 번도 안 올라 늦게 온 결과가 살아남는다.
 	st.searchGen++
 
 	return st.replay(keep)
@@ -762,22 +725,20 @@ func (st *state) playHuman(ctx context.Context, usi string, engineDone chan engi
 	// 물러질 수 있으니 착수 전 국면을 들고 있는다.
 	st.prevPos, st.prevPrevTo = st.pos, st.prevTo
 
-	// **여기가 그 질문을 할 수 있는 마지막 자리다**(state.chasing). 게이지가 아직 안
-	// 돌아왔으면(`mateGen != searchGen`) 모르는 것이고, 모르면 조절을 그대로 둔다 —
-	// 「모를 때는 하지 않는다」가 이 레포의 규칙이다.
+	// 이 질문을 할 수 있는 마지막 자리다(state.chasing). 게이지가 아직 안 돌아왔으면
+	// (mateGen != searchGen) 모르는 것이고, 모르면 조절을 그대로 둔다.
 	st.chasing = st.mateGen == st.searchGen && st.matePlies > 0 && st.matePlies <= MateChasePlies
 
-	// **답을 본 국면에서 두는가.** 두 가지가 여기서 정해진다 — 알려준 수를 실제로 뒀는지를
-	// 기록하고(01-core.md §5의 `taken`), 그 수를 실력 추정에서 뺀다.
+	// 답을 본 국면에서 두는가. 여기서 둘이 정해진다 — 알려준 수를 실제로 뒀는지를
+	// 기록하고(01-core.md §5의 taken), 그 수를 실력 추정에서 뺀다.
 	//
-	// **착수 전에 봐야 한다.** 아래 `apply` 가 국면을 옮기면 이 국면의 키가 사라진다.
-	// **국면이 열쇠라 지울 필요가 없다.** 다른 국면으로 가면 아래 비교가 안 맞고, 되물러
-	// 이 국면으로 돌아오면 다시 맞는다 — 답을 아는 채로 다시 두는 자리가 그쪽이라
-	// 그때도 레이팅에서 빠져야 한다.
+	// 착수 전에 봐야 한다. 아래 apply 가 국면을 옮기면 이 국면의 키가 사라진다.
+	// 국면이 열쇠라 따로 지울 필요는 없다 — 다른 국면으로 가면 비교가 안 맞고, 되물러
+	// 돌아오면 다시 맞는다(그때도 레이팅에서 빠져야 하는 자리다).
 	st.skipRating = st.hintedKey != "" && st.hintedKey == shogi.PositionKey(st.pos)
 	if st.skipRating && !st.hintReported {
-		// **첫 시도만 적는다.** 그 뒤의 시도는 물러진 수라 기보에 안 남고, `taken` 은
-		// 「답을 손에 쥔 채 무엇을 뒀나」이지 「몇 번 시도했나」가 아니다.
+		// 첫 시도만 적는다. 그 뒤의 시도는 물러진 수라 기보에 안 남고, taken 은
+		// 「답을 쥔 채 무엇을 뒀나」이지 「몇 번 시도했나」가 아니다.
 		st.hintReported = true
 		if st.cfg.Recorder != nil {
 			st.cfg.Recorder.HintTaken(st.hintedKey, usi == st.hintedUSI)
@@ -786,8 +747,8 @@ func (st *state) playHuman(ctx context.Context, usi string, engineDone chan engi
 
 	st.apply(m, SideHuman)
 
-	// 판정할 것이 있으면 엔진을 부르기 전에 먼저 묻는다. **롤백이 있는 이상
-	// 상대 수를 먼저 두면 되돌릴 것이 두 개가 된다.**
+	// 판정할 것이 있으면 엔진을 부르기 전에 먼저 묻는다. 상대 수를 먼저 두면 롤백이
+	// 되돌릴 것이 둘이 된다.
 	if st.startJudging(ctx, judgeDone) {
 		return st.snapshot(), nil
 	}
@@ -825,8 +786,8 @@ func (st *state) startJudging(ctx context.Context, judgeDone chan judgeResult) b
 		j, err := analyst.Judge(jctx, start, moves, ply)
 		cancel()
 
-		// **문장은 여기서 안 만든다.** `explain.Render` 는 사실만 보는 순수 함수라 언제
-		// 불러도 같은 값이고, 되무르는 자리에서 부르면 판정 결과와 문장이 갈릴 길이 없다.
+		// 문장은 여기서 안 만든다. explain.Render 는 사실만 보는 순수 함수라 되무르는
+		// 자리에서 불러도 판정 결과와 문장이 갈릴 길이 없다.
 		select {
 		case judgeDone <- judgeResult{gen: gen, judgement: j, move: played, err: err}:
 		case <-ctx.Done():
@@ -835,7 +796,7 @@ func (st *state) startJudging(ctx context.Context, judgeDone chan judgeResult) b
 	return true
 }
 
-// applyVerdict 는 판정 결과를 반영한다. 걸렸으면 **되무른다.**
+// applyVerdict 는 판정 결과를 반영한다. 걸렸으면 되무른다.
 func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone chan engineResult, gaugeDone chan mateResult, tesujiDone chan tesujiHintResult) {
 	if !st.judging || r.gen != st.judgeGen {
 		return // 그 사이 국면이 움직였다. 버린다
@@ -844,15 +805,14 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 
 	if r.err != nil {
 		// 판정이 실패했다고 대국을 멈추지 않는다. 개입은 부가 기능이고 대국이 본체다.
-		//
-		// **다만 조용히 넘기지도 않는다.** 개입이 없는 화면은 「이 수는 괜찮았다」와 똑같이
-		// 생겼는데, 여기서는 확인 자체를 못 한 것이다(Notice).
+		// 다만 조용히 넘기지도 않는다 — 개입이 없는 화면은 「이 수는 괜찮았다」와 똑같이
+		// 생겼는데 여기서는 확인 자체를 못 한 것이다(Notice).
 		log.Printf("game: judging failed, letting the move stand: %v", r.err)
 		st.notice = newNotice(NoticeJudgeSkipped)
 	}
 
-	// **판정이 성공한 수는 걸렸든 통과했든 실력 신호다.** 물러진 수만 세면 표본이 개입에
-	// 오염되고(01-core.md §5의 반대쪽), 통과한 수만 세면 제일 큰 실수가 안 들어온다.
+	// 판정이 성공한 수는 걸렸든 통과했든 실력 신호다. 물러진 수만 세면 표본이 개입에
+	// 오염되고, 통과한 수만 세면 제일 큰 실수가 안 들어온다(01-core.md §5).
 	if r.err == nil {
 		st.observeSkill(r.judgement)
 	}
@@ -871,15 +831,12 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 	// 판정을 통과했다. 여기가 사람의 수가 확정되는 자리다. 갇힘도 여기서 풀린다.
 	st.stuck = 0
 
-	// **手筋의 이름이 여기서 정해진다.** 판정이 들고 온 평가치가 「이득인가」에 답하고
+	// 手筋의 이름이 여기서 정해진다. 판정이 들고 온 평가치가 「이득인가」에 답하고
 	// (tesuji.go), 그 답은 이 국면에서만 유효하므로 세대를 함께 적는다.
 	//
-	// 앞 국면을 함께 넘기는 것은 **이 수가 만든 형태에만** 그 답을 주기 위해서다.
-	// `prevPos` 는 롤백용으로 이미 들고 있던 값이고, 판정이 끝난 지금 그것이 정확히
-	// 「이 수를 두기 전」이다.
-	//
-	// 물러진 쪽에서는 이 줄에 오지 않는다. 되물러진 수가 만든 형태에 이름을 붙이면
-	// 두지 않은 것으로 된 수가 판의 이름을 정하는 일이 된다(movesBy 와 같은 이유).
+	// 앞 국면(prevPos)을 함께 넘기는 것은 이 수가 만든 형태에만 그 답을 주기 위해서다.
+	// 물러진 쪽에서는 이 줄에 오지 않는다 — 두지 않은 것으로 된 수가 판의 이름을 정하면
+	// 안 된다(movesBy 와 같은 이유).
 	st.tesuji = namedTesuji(st.prevPos, st.pos, st.cfg.HumanColor, r.move.USI, r.judgement)
 	st.tesujiGen = st.searchGen
 
@@ -890,14 +847,11 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 	st.broadcast()
 }
 
-// observeSkill 은 판정 결과를 추정기에 넘긴다. **기다리지 않는다**(Rater).
+// observeSkill 은 판정 결과를 추정기에 넘긴다. 기다리지 않는다(Rater).
 //
-// **답을 본 수는 안 넘긴다.** 알려준 최선수를 그대로 둔 것이 실력으로 기록되면 段級이
-// 부풀고, 그 숫자가 이 제품이 화면에서 파는 값이다(journal §62 · §78). 물러진 수를
-// 「개입에 오염되지 않은 신호」로 정의한 것과 같은 자리, 같은 이유다(01-core.md §5).
-//
-// **1단계는 안 뺀다** — 駒만 짚었으므로 어디로 갈지는 여전히 사람이 찾았다(hintedUSI 가
-// 그때 비어 있다).
+// 답을 본 수는 안 넘긴다 — 알려준 최선수를 그대로 둔 것이 실력으로 기록되면 段級이
+// 부푼다(journal §62 · §78). 1단계는 그대로 넘긴다. 駒만 짚었으므로 어디로 갈지는
+// 여전히 사람이 찾았고, 그때는 hintedUSI 가 비어 있다.
 func (st *state) observeSkill(j Judgement) {
 	if st.cfg.Rater == nil || st.skipRating {
 		return
@@ -911,9 +865,8 @@ func (st *state) observeSkill(j Judgement) {
 
 // applySkill 은 올라온 추정치를 갈아 끼운다.
 //
-// **국면 세대(searchGen)를 안 본다.** 게이지·手筋 이름과 갈리는 자리다 — 그쪽은 특정 국면에
-// 대한 답이라 판이 움직이면 그 자리에서 거짓이 되지만, 이것은 **사람**에 대한 값이라
-// 판이 움직여도 그대로 참이다.
+// 국면 세대(searchGen)를 안 본다. 게이지·手筋 이름은 특정 국면에 대한 답이라 판이
+// 움직이면 거짓이 되지만, 이것은 사람에 대한 값이라 판이 움직여도 그대로 참이다.
 //
 // 알리는 것은 단계가 바뀔 때뿐이다. 값은 매 수 조금씩 움직이는데 화면에 나가는 것은
 // 5단계라, 매번 보내면 같은 그림을 다시 그리는 스냅샷만 늘어난다.
@@ -925,10 +878,8 @@ func (st *state) applySkill(e skill.Estimate) {
 	}
 }
 
-// rollback 은 직전 사람의 수를 물린다.
-//
-// **되돌리는 것은 국면·기보·표기·千日手 계수까지 전부다.** 하나라도 남으면 물러진 수가
-// 있었다는 흔적이 남아 다음 판정이 그 위에서 돈다.
+// rollback 은 직전 사람의 수를 물린다. 되돌리는 것은 국면·기보·표기·千日手 계수까지
+// 전부다 — 하나라도 남으면 다음 판정이 그 흔적 위에서 돈다.
 func (st *state) rollback(r judgeResult) {
 	key := st.pos.RepetitionKey()
 	if n := st.repeats[key]; n > 0 {
@@ -940,19 +891,18 @@ func (st *state) rollback(r judgeResult) {
 	st.usis = st.usis[:len(st.usis)-1]
 	st.searchGen++ // 물러진 국면에 대한 늦은 결과를 버리기 위해
 
-	// **되돌아온 국면은 手筋 힌트를 물어봤던 바로 그 국면이다** — 같은 手数·같은 판이라
-	// 답이 그대로 참이다. 세대만 새로 붙이면 다시 안 물어도 되고(maybeTesujiHint 의 쿨다운이
-	// 같은 手数를 다시 안 묻는다), 안 붙이면 물러질수록 힌트가 사라진다 — 계단이 手筋을
-	// 짚어야 하는 자리가 정확히 거기다(pointHintAtTesuji).
+	// 되돌아온 국면은 手筋 힌트를 물어봤던 바로 그 국면이다 — 같은 手数·같은 판이라 답이
+	// 그대로 참이다. 세대만 새로 붙이면 다시 안 물어도 되고, 안 붙이면 물러질수록 힌트가
+	// 사라진다 — 계단이 手筋을 짚어야 하는 자리가 정확히 거기다(pointHintAtTesuji).
 	//
-	// **아직 도는 중이면 손대지 않는다.** 세대를 옮기면 그 결과가 첫 검사에서 버려지고
-	// `tesujiHinting` 이 true로 남아 그 판의 힌트가 통째로 멈춘다.
+	// 아직 도는 중이면 손대지 않는다. 세대를 옮기면 그 결과가 첫 검사에서 버려지고
+	// tesujiHinting 이 true 로 남아 그 판의 힌트가 통째로 멈춘다.
 	if !st.tesujiHinting && st.tesujiHintAsked && st.tesujiHintLastPly == len(st.usis) {
 		st.tesujiHintGen = st.searchGen
 	}
 
-	// **물러진 수는 여기서만 남는다.** 기보에는 안 들어가므로, 이 한 줄을 안 쓰면
-	// 개입에 오염되지 않은 유일한 실력 신호가 그대로 사라진다(01-core.md §5).
+	// 물러진 수는 여기서만 남는다. 기보에는 안 들어가므로, 이 한 줄이 없으면 개입에
+	// 오염되지 않은 유일한 실력 신호가 사라진다(01-core.md §5).
 	if st.cfg.Recorder != nil {
 		st.cfg.Recorder.Retracted(len(st.usis)+1, r.move.USI, r.judgement.Verdict)
 	}
@@ -977,9 +927,8 @@ func (st *state) rollback(r judgeResult) {
 
 // advance 는 검증이 끝난 수를 판에 반영한다. 표기는 착수 전 국면에서 만들어야 한다.
 //
-// **종료 판정은 안 한다.** apply 와 replay 가 그 자리를 다르게 쓴다 — 되만드는 쪽은
-// 판정이 아니라 「끝나 있으면 이어할 수 없다」를 답해야 하고, 그 답을 finish 가 내면
-// 아직 서지도 않은 세션이 Recorder 에 종료를 흘린다.
+// 종료 판정은 안 한다. 되만드는 쪽(replay)은 「끝나 있으면 이어할 수 없다」를 답해야
+// 하는데, 그 답을 finish 가 내면 아직 서지도 않은 세션이 Recorder 에 종료를 흘린다.
 func (st *state) advance(m shogi.Move, by Side) {
 	ja := st.pos.MoveJa(m, st.prevTo)
 	st.pos = st.pos.Apply(m)
@@ -1021,10 +970,10 @@ func (st *state) finish(status Status, winner Side) {
 	}
 }
 
-// recordLastMove 는 **확정된** 직전 수를 기록에 넘긴다.
+// recordLastMove 는 확정된 직전 수를 기록에 넘긴다.
 //
-// `apply` 안이 아니라 확정되는 자리마다 부른다 — 착수와 확정이 같은 순간이 아니기
-// 때문이다. 사람의 수는 판정을 통과해야 확정되고, 물러지면 기보에서 사라진다.
+// apply 안이 아니라 확정되는 자리마다 부른다. 착수와 확정이 같은 순간이 아니다 —
+// 사람의 수는 판정을 통과해야 확정되고, 물러지면 기보에서 사라진다.
 func (st *state) recordLastMove() {
 	if st.cfg.Recorder == nil || len(st.moves) == 0 {
 		return
@@ -1034,14 +983,14 @@ func (st *state) recordLastMove() {
 	st.recordStyleTags()
 }
 
-// recordStyleTags 는 이 국면에서 사람에게 붙은 이름 중 **처음 보는 것**을 남긴다.
+// recordStyleTags 는 이 국면에서 사람에게 붙은 이름 중 처음 보는 것을 남긴다.
 //
-// **확정된 수 뒤에서만 부른다.** 물러진 수 위에서 세면 되물러 사라진 형태가 기록에 남고,
+// 확정된 수 뒤에서만 부른다. 물러진 수 위에서 세면 되물러 사라진 형태가 기록에 남고,
 // 그건 「짰다」가 아니라 「짤 뻔했다」다.
 //
-// **화면과 같은 함수를 쓴다**(styleTags). 갈라 두면 판에 뜬 이름과 마이페이지가 세는
-// 이름이 다른 것이 되고, 그때 어느 쪽이 맞는지 볼 방법이 없다. 手筋은 여기서 뺀다 —
-// 그쪽만 엔진 평가치에 매여 있고 이름의 정확도가 아직 보류 중이다(Recorder.Named).
+// 화면과 같은 함수(styleTags)를 쓴다 — 갈라 두면 판에 뜬 이름과 마이페이지가 세는
+// 이름이 달라진다. 手筋만 뺀다. 그쪽은 엔진 평가치에 매여 있고 이름의 정확도가 아직
+// 보류 중이다(Recorder.Named).
 func (st *state) recordStyleTags() {
 	for _, t := range st.styleTags() {
 		if t.Kind == tag.KindTesuji || st.namedStyle[t.Code] {
@@ -1055,7 +1004,7 @@ func (st *state) recordStyleTags() {
 	}
 }
 
-// recordEvals 는 판정이 들고 온 평가치 둘을 **두 手数에 한 번에** 채운다(Recorder.Evaluated).
+// recordEvals 는 판정이 들고 온 평가치 둘을 두 手数에 한 번에 채운다(Recorder.Evaluated).
 // 그래서 마지막 수의 평가치는 안 채워진다 — 그 뒤에 사람의 수가 없으면 판정도 없다.
 func (st *state) recordEvals(j Judgement) {
 	if st.cfg.Recorder == nil || !j.HasEvals {
@@ -1071,7 +1020,7 @@ func (st *state) recordEvals(j Judgement) {
 // maybeThink 는 엔진 차례면 탐색을 띄운다.
 //
 // 탐색은 세션 goroutine 밖에서 돈다. 여기서 기다리면 생각하는 동안 스냅샷 요청도
-// 투료도 못 받는다 — 상태를 소유한 goroutine은 절대 오래 막히면 안 된다.
+// 투료도 못 받는다 — 상태를 소유한 goroutine 은 오래 막히면 안 된다.
 func (st *state) maybeThink(ctx context.Context, engineDone chan engineResult) {
 	if st.status != StatusPlaying || st.thinking || st.pos.Turn == st.cfg.HumanColor {
 		return
@@ -1083,12 +1032,9 @@ func (st *state) maybeThink(ctx context.Context, engineDone chan engineResult) {
 	start := st.start
 	// 슬라이스를 그대로 넘기면 다음 착수의 append가 같은 배열을 건드릴 수 있다.
 	moves := append([]string(nil), st.usis...)
-	// **값으로 복사해 넘긴다.** 탐색이 도는 동안 추정치가 갈릴 수 있고, goroutine이 세션
-	// 상태를 읽으면 그 순간 소유 규약이 깨진다.
+	// 값으로 복사해 넘긴다. goroutine 이 세션 상태를 읽으면 그 순간 소유 규약이 깨진다.
 	sk := st.skill
 	deadline := st.moveDeadline()
-	// 값으로 복사하는 이유는 위 `sk` 와 같다 — goroutine 이 세션 상태를 읽으면 소유 규약이
-	// 그 자리에서 깨진다.
 	chasing := st.chasing
 
 	go func() {
@@ -1112,19 +1058,16 @@ func (st *state) maybeThink(ctx context.Context, engineDone chan engineResult) {
 
 // maybeGauge 는 사람 차례면 詰み 게이지를 그 국면의 값으로 다시 구한다.
 //
-// **maybeThink 와 정확히 반대 조건**이라 언제나 둘 중 하나만 돈다. 그래서 solver 풀이
-// 하나여도 게이지와 개입 판정이 서로 기다리지 않는다 — 판정은 사람의 수 직후에,
-// 게이지는 상대의 수 직후에 걸린다.
+// maybeThink 와 정확히 반대 조건이라 언제나 둘 중 하나만 돈다. 그래서 solver 풀이
+// 하나여도 게이지와 개입 판정이 서로 기다리지 않는다.
 //
-// 탐색·판정처럼 세션 goroutine 밖에서 돈다. 게이지는 부가 표시라 늦게 와도 되고,
-// 여기서 기다리면 그동안 투료도 스냅샷도 못 받는다.
+// 탐색·판정처럼 세션 goroutine 밖에서 돈다.
 func (st *state) maybeGauge(ctx context.Context, gaugeDone chan mateResult) {
 	if st.cfg.Mate == nil || st.status != StatusPlaying {
 		return
 	}
-	// **사람 차례에서만 묻는다.** solver 는 수번 측의 詰み을 답하므로 이 자리라야
-	// 「내가 상대 玉을 몇 手로 詰ますか」가 나온다. 상대 차례에 물으면 정확히 반대,
-	// 즉 그리지 않기로 한 쪽이 나온다(gauge.go).
+	// 사람 차례에서만 묻는다. solver 는 수번 측의 詰み을 답하므로 이 자리라야 「내가
+	// 상대 玉을 몇 手로 詰ますか」가 나온다 — 상대 차례에 물으면 반대쪽이 나온다(gauge.go).
 	if st.pos.Turn != st.cfg.HumanColor {
 		return
 	}
@@ -1170,7 +1113,7 @@ func (st *state) applyMateHeat(r mateResult) {
 	}
 
 	st.mateHeat, st.mateGen, st.matePlies = mateHeat(r.plies), r.gen, r.plies
-	// **세기가 그대로여도 뿌린다.** 국면이 바뀌면 스냅샷이 게이지를 껐다가 여기서 다시
+	// 세기가 그대로여도 뿌린다. 국면이 바뀌면 스냅샷이 게이지를 껐다가 여기서 다시
 	// 켜는데, 「바뀌었을 때만」으로 두면 값이 같은 국면에서 꺼진 채로 남는다.
 	st.broadcast()
 }
@@ -1181,10 +1124,9 @@ func (st *state) applyEngineMove(ctx context.Context, r engineResult, engineDone
 	}
 	st.thinking = false
 
-	// **상대의 수를 못 얻은 것과 상대가 던진 것은 다르다.** 아래 `resign` 은 엔진이 스스로
+	// 상대의 수를 못 얻은 것과 상대가 던진 것은 다르다. 아래 resign 은 엔진이 스스로
 	// 그렇게 답한 것이라 사람의 승리가 맞지만, 여기는 시한을 넘겼거나 엔진이 고장 난
-	// 것이고 그때 「相手が投了しました」로 끝내면 판이 기록에서 이긴 판이 된다 —
-	// 승패를 지어내지 않고 中断으로 접는다(StatusAborted).
+	// 것이다 — 승패를 지어내지 않고 中断으로 접는다(StatusAborted).
 	if r.err != nil {
 		log.Printf("game: engine search failed, aborting the game: %v", r.err)
 		st.finish(StatusAborted, "")
@@ -1230,9 +1172,8 @@ func (st *state) sideOf(c shogi.Color) Side {
 
 // movesBy 는 한쪽이 둔 수만 순서대로 낸다. 전법·戦型 판정의 입력이다.
 //
-// **물러진 수는 들어 있지 않다.** `st.moves` 는 롤백 때 잘리므로, 되물러진 수로 전법이
-// 정해지는 일이 없다 — 두지 않은 것으로 된 수가 판의 이름을 정하면 개입이 기보를
-// 바꾸는 것이 된다.
+// 물러진 수는 들어 있지 않다. st.moves 는 롤백 때 잘리므로 되물러진 수로 전법이
+// 정해지는 일이 없다 — 그렇게 되면 개입이 기보를 바꾸는 것이 된다.
 func (st *state) movesBy(side Side) []string {
 	out := make([]string, 0, len(st.moves))
 	for _, m := range st.moves {
@@ -1244,16 +1185,15 @@ func (st *state) movesBy(side Side) []string {
 }
 
 // styleTags 는 화면에 나갈 이름 전부다 — 囲い·전법·戦型은 판에서 매번 다시 세고,
-// 手筋은 **엔진 게이트를 통과한 것만** 실린다.
+// 手筋은 엔진 게이트를 통과한 것만 실린다.
 //
-// 두 축이 다르게 오는 것이 요점이고, **비용 때문이 아니다.** 囲い는 판만 보면 알 수
-// 있어 매번 세는 것이 언제나 맞지만, 手筋은 「이득인가」를 엔진 평가치가 정하고 그 값은
-// 판에서 다시 읽을 수 없다 — 그래서 판정이 끝난 자리에서 한 번 구해 세대와 함께
-// 들고 있는다(applyVerdict).
+// 두 축이 다르게 오는 것은 비용 때문이 아니다. 囲い는 판만 보면 알 수 있지만 手筋은
+// 「이득인가」를 엔진 평가치가 정하고 그 값은 판에서 다시 읽을 수 없다 — 그래서
+// 판정이 끝난 자리에서 한 번 구해 세대와 함께 들고 있는다(applyVerdict).
 //
-// **手筋이 먼저 온다.** 화면은 새로 붙은 이름 하나를 골라 잠깐 띄우는데(useTagAnnounce),
-// 手筋은 국면이 움직이면 사라지는 이름이고 囲い는 남아 있어 다음 스냅샷에서도 뜬다.
-// 뒤에 두면 한 스냅샷에 둘이 함께 붙었을 때 사라지는 쪽이 밀려서 영영 안 뜬다.
+// 手筋이 먼저 온다. 화면은 새로 붙은 이름 하나를 골라 잠깐 띄우는데(useTagAnnounce),
+// 手筋은 국면이 움직이면 사라지고 囲い는 남아 다음 스냅샷에서도 뜬다 — 뒤에 두면
+// 한 스냅샷에 둘이 함께 붙었을 때 사라지는 쪽이 밀려 영영 안 뜬다.
 func (st *state) styleTags() []tag.Tag {
 	var out []tag.Tag
 	if st.tesujiGen == st.searchGen {
@@ -1272,28 +1212,27 @@ const (
 	TagHintCooldown   = 10
 )
 
-// hintable 은 그 축의 이름을 **착수 前에 권해도 되는가**다. 이름을 붙이는 쪽(styleTags)은
-// 셋 다 그대로 낸다 — 여기서 거르는 것은 제안뿐이다.
+// hintable 은 그 축의 이름을 착수 前에 권해도 되는가다. 이름을 붙이는 쪽(styleTags)은
+// 셋 다 그대로 내므로, 여기서 거르는 것은 제안뿐이다.
 //
-// 이유가 축마다 다르다:
+// 빼는 이유가 축마다 다르다:
 //
 //	囲い   짓다 만 형태에 이름이 없어서, 「이 수를 두면 이름이 생긴다」가 구현한
 //	       종류 수에 달린 임의의 한 수가 된다 — §44
-//	전법   飛를 어느 筋으로 振るか는 **그 사람이 고르는 것**이다. 첫 수 앞에서
-//	       「中飛車になります」가 뜨면 그것은 힌트가 아니라 지시다 — 회차 1 #0 · §71
+//	전법   飛를 어느 筋으로 振るか는 그 사람이 고르는 것이다. 첫 수 앞의
+//	       「中飛車になります」는 힌트가 아니라 지시다 — §71
 //
-// 남는 것은 戦型이다. 角換わり처럼 **판 전체가 이미 그렇게 되어 있는가**를 말하는 축이라
-// 「무엇을 골라라」가 아니고, 그래서 이 채널이 하나로 좁혀진다.
+// 남는 것은 戦型이다. 角換わり처럼 판 전체가 이미 그렇게 되어 있는가를 말하는 축이라
+// 「무엇을 골라라」가 아니다.
 func hintable(t tag.Tag) bool {
 	return t.Kind == tag.KindOpening
 }
 
-// computeTagHints 는 이 국면에서 플레이어의 합법수 중 **새 이름을 만드는 것**을 찾는다.
+// computeTagHints 는 플레이어의 합법수 중 새 이름을 만드는 것을 찾는다. 무엇을 권할지는
+// hintable 이 정한다.
 //
-// 엔진을 안 부른다 — 戦型은 판과 수순만으로 정해지므로 합법수마다 시뮬레이션하면
-// 끝이다. 手筋은 평가치가 있어야 해서 비동기로 따로 구한다(maybeTesujiHint).
-//
-// 무엇을 권하고 무엇을 안 권하는지는 `hintable` 이 정한다.
+// 엔진을 안 부른다 — 戦型은 판과 수순만으로 정해지므로 합법수마다 둬 보면 끝이다.
+// 手筋은 평가치가 있어야 해서 비동기로 따로 구한다(maybeTesujiHint).
 func (st *state) computeTagHints() {
 	st.tagHintGen = st.searchGen
 
@@ -1347,17 +1286,15 @@ func (st *state) computeTagHints() {
 	}
 }
 
-// maybeTesujiHint 는 사람 차례면 **「지금 두면 새 手筋 이름이 생기는 수」를 찾아 그것이
-// 엔진에게도 이득인지 묻고, 통과한 것만 남긴다.** 빈도 상한과 쿨다운도 여기서 본다.
+// maybeTesujiHint 는 사람 차례면 「지금 두면 새 手筋 이름이 생기는 수」를 찾아 그것이
+// 엔진에게도 이득인지 묻고, 통과한 것만 남긴다. 빈도 상한과 쿨다운도 여기서 본다.
 //
-// `computeTagHints` 와 갈리는 이유가 하나다: 囲い·전법은 판과 수순만으로 정해지지만
-// 手筋은 「그래서 得인가」를 엔진이 답해야 이름이 붙는다(tesuji.go). 그래서 게이지와 같은
-// 모양이 된다 — goroutine 으로 던지고 세대로 걸러 받는다(maybeGauge).
+// computeTagHints 와 갈리는 이유는 하나다 — 手筋은 「그래서 得인가」를 엔진이 답해야
+// 이름이 붙는다(tesuji.go). 그래서 게이지와 같은 모양이다: goroutine 으로 던지고
+// 세대로 걸러 받는다(maybeGauge).
 //
-// **엔진을 걸기 전에 룰로 거른다.** 다만 그것이 걸러 주는 양은 적다 — 사람이 끝까지 둔
-// 판에서 사람 차례 149회 중 **117회에 후보가 있었다**(journal §56). 그래서 게이트를
-// 실제로 아끼는 것은 이 필터가 아니라 아래 쿨다운이고, **필터 자체도 싸지 않아**
-// 이 함수는 세션 goroutine 밖에서 돈다(tesujiOptions).
+// 엔진을 걸기 전에 룰로 거르지만 그것이 걸러 주는 양은 적고(journal §56) 필터 자체도
+// 싸지 않다 — 그래서 필터까지 세션 goroutine 밖에서 돈다(tesujiOptions).
 func (st *state) maybeTesujiHint(ctx context.Context, done chan tesujiHintResult) {
 	if st.cfg.TesujiHint == nil || st.status != StatusPlaying {
 		return
@@ -1372,12 +1309,10 @@ func (st *state) maybeTesujiHint(ctx context.Context, done chan tesujiHintResult
 	if st.tesujiHintCount >= TagHintMaxPerGame {
 		return
 	}
-	// **쿨다운은 「띄운 자리」가 아니라 「물어본 자리」에서 잰다.** 뜬 자리에서만 재면 게이트가
-	// 한 번도 안 열리는 판에서 이 탐색이 **사람 차례마다** 돈다 — 풀은 셋인데 실제로 그렇게
-	// 돌아 298手 내내 대국 쪽이 줄을 섰다(journal §56 · §74). 탐색이 후보 수와 무관하게
-	// 한 번이 된 뒤에도(gateTesujiOptions) 이 자리는 그대로다 — 아끼는 것이 탐색 횟수만이
-	// 아니라 **룰 필터**이기 때문이다(종반 한 번에 2.46초, §56).
-	// 상한(tesujiHintCount)은 그대로 뜬 횟수를 센다.
+	// 쿨다운은 띄운 자리가 아니라 물어본 자리에서 잰다. 뜬 자리에서만 재면 게이트가 한
+	// 번도 안 열리는 판에서 이 탐색이 사람 차례마다 돈다(journal §56 · §74). 탐색이 후보
+	// 수와 무관하게 한 번이 된 뒤에도(gateTesujiOptions) 그대로인 것은, 아끼는 것이 탐색
+	// 횟수만이 아니라 룰 필터이기 때문이다. 상한(tesujiHintCount)은 뜬 횟수를 센다.
 	ply := len(st.moves)
 	if st.tesujiHintAsked && ply-st.tesujiHintLastPly < TagHintCooldown {
 		return
@@ -1386,10 +1321,9 @@ func (st *state) maybeTesujiHint(ctx context.Context, done chan tesujiHintResult
 	st.tesujiHinting = true
 	st.tesujiHintGen = st.searchGen
 	st.tesujiHintLastPly, st.tesujiHintAsked = ply, true
-	// **앞 국면의 후보를 여기서 버린다.** 세대를 이 국면에 붙인 순간 스냅샷이 그것을 실어
-	// 보내는데(snapshot), 아직 이 국면에 대해 아는 것이 없다. 룰 필터가 goroutine 안으로
-	// 들어가면서 그 사이가 밀리초에서 **초**가 됐다 — 종반 2.46초 동안 지난 국면의 手筋
-	// 이름이 새 판에 붙어 있게 된다(§56).
+	// 앞 국면의 후보를 여기서 버린다. 세대를 이 국면에 붙인 순간 스냅샷이 그것을 실어
+	// 보내는데(snapshot), 아직 이 국면에 대해 아는 것이 없다. 룰 필터가 goroutine 으로
+	// 들어가면서 그 사이가 밀리초에서 초 단위가 됐다(§56).
 	st.tesujiOpts = nil
 
 	gen := st.tesujiHintGen
@@ -1397,8 +1331,8 @@ func (st *state) maybeTesujiHint(ctx context.Context, done chan tesujiHintResult
 	start := st.start
 	color := st.cfg.HumanColor
 	deadline := st.extraDeadline()
-	// **판도 값으로 복사해 넘긴다.** 룰로 거르는 일이 goroutine 안으로 들어갔고, 세션은
-	// 그 사이에도 다음 수를 받는다. `shogi.Position` 이 값 타입이라 복사면 끝이다.
+	// 판도 값으로 복사해 넘긴다. 룰로 거르는 동안에도 세션은 다음 수를 받는다.
+	// shogi.Position 이 값 타입이라 복사면 끝이다.
 	pos := st.pos
 	// 슬라이스를 그대로 넘기면 다음 착수의 append 가 같은 배열을 건드릴 수 있다.
 	moves := append([]string(nil), st.usis...)
@@ -1407,10 +1341,10 @@ func (st *state) maybeTesujiHint(ctx context.Context, done chan tesujiHintResult
 		hctx, cancel := context.WithTimeout(ctx, deadline)
 		defer cancel()
 
-		// **룰 필터도 여기서 돈다.** 이 줄이 세션 goroutine 안에 있었고, 종반에 초 단위로
-		// 막았다(비용은 tesujiOptions, 실측은 journal §56). 그동안 스냅샷도 投了도 못 받았다.
+		// 룰 필터도 여기서 돈다. 세션 goroutine 안에 있었을 때 종반에 초 단위로 막았다
+		// (비용은 tesujiOptions, 실측은 journal §56).
 		//
-		// 시한 안에 두는 것은 예산을 정직하게 세기 위해서다. 이 함수 자체는 ctx를 안 보므로
+		// 시한 안에 두는 것은 예산을 정직하게 세기 위해서다. 이 함수 자체는 ctx 를 안 보므로
 		// 중간에 끊기지 않고, 오래 걸린 만큼 아래 게이트의 몫이 줄어든다.
 		opts := tesujiOptions(pos, color)
 		var (
@@ -1438,7 +1372,7 @@ func (st *state) applyTesujiHint(r tesujiHintResult) {
 	if r.gen != st.searchGen {
 		return // 국면이 움직였다. 낡은 평가치로 이름을 붙이는 것이 게이트를 없애는 것과 같다
 	}
-	// **에러보다 먼저 센다.** 시한을 넘기면 남은 후보가 통째로 여기로 오는데(gateTesujiOptions),
+	// 에러보다 먼저 센다. 시한을 넘기면 남은 후보가 통째로 여기로 오는데(gateTesujiOptions),
 	// 에러 뒤에 두면 그 판에서 제일 많이 잘린 회차만 로그에 안 남는다.
 	if r.dropped > 0 {
 		// 잘린 것을 안 세면 「手筋이 없었다」와 「못 봤다」가 같은 화면이 된다.
@@ -1458,14 +1392,14 @@ func (st *state) applyTesujiHint(r tesujiHintResult) {
 	st.broadcast()
 }
 
-// pointHintAtTesuji 는 **이미 열린 계단**이 최선수 대신 手筋을 짚게 바꾼다.
+// pointHintAtTesuji 는 이미 열린 계단이 최선수 대신 手筋을 짚게 바꾼다.
 //
 // 계단을 새로 만들지 않는다. 둘 다 「네가 무엇을 두면 되는가」이고 발동 조건도 같아서,
-// 따로 두면 같은 파랑이 두 뜻이 된다 — journal §41.
+// 따로 두면 같은 파랑이 두 뜻이 된다(journal §41).
 //
-// 바꿔도 되는 근거는 게이트다. 후보는 전부 `TesujiLossCp` 안이고 그 대신 **이름이 있다**
-// (01-core.md §7.1). 여럿이면 첫 번째 — `LegalMoves` 순서라 결정적이고 전부 같은 게이트를
-// 지났으므로 여기서 새로 고를 근거가 없다.
+// 바꿔도 되는 근거는 게이트다 — 후보는 전부 TesujiLossCp 안이고 대신 이름이 있다
+// (01-core.md §7.1). 여럿이면 첫 번째를 쓴다. LegalMoves 순서라 결정적이고, 전부 같은
+// 게이트를 지났으므로 여기서 새로 고를 근거가 없다.
 func (st *state) pointHintAtTesuji() {
 	if st.hint == nil || len(st.tesujiOpts) == 0 {
 		return
@@ -1505,16 +1439,16 @@ func (st *state) snapshot() Snapshot {
 		StyleTags:       st.styleTags(),
 		OpponentOpening: st.cfg.OpponentOpening,
 		HandicapJa:      handicap.NameOf(st.cfg.StartSFEN),
-		// **사람 관점이다** — 화면이 후보를 그 관점으로 칠한다(Snapshot.BaselineCp).
+		// 사람 관점이다 — 화면이 후보를 그 관점으로 칠한다(Snapshot.BaselineCp).
 		BaselineCp: handicap.BaselineCpFor(st.cfg.StartSFEN, st.cfg.HumanColor),
 		UndoLeft:   max(UndoMaxPerGame-st.undos, 0),
 		HintLeft:   max(HintMaxPerGame-st.hints, 0),
-		// **화면이 조건을 다시 짓지 않게 여기서 답한다.** `yourTurn && undoLeft > 0` 으로
+		// 화면이 조건을 다시 짓지 않게 여기서 답한다. yourTurn && undoLeft > 0 으로
 		// 흉내내면 「사람이 아직 한 수도 안 뒀다」가 빠지고, 그 자리에서 누른 버튼이
-		// 거절로 돌아온다 — 조건이 두 벌이 되는 순간 둘 중 하나가 낡는다.
+		// 거절로 돌아온다.
 		CanUndo: yours && st.undos < UndoMaxPerGame && st.lastHumanMove() >= 0,
-		// **거절 조건과 같은 셋이다**(askHint) — 엔진이 있고, 사람 차례이고, 예산이
-		// 남았고, 이 국면에서 아직 답까지 안 봤다.
+		// askHint 의 거절 조건과 같다 — 엔진이 있고, 사람 차례이고, 예산이 남았고,
+		// 이 국면에서 아직 답까지 안 봤다.
 		CanHint: st.cfg.HintSearch != nil && yours && !st.judging && !st.thinking &&
 			st.hints < HintMaxPerGame && st.hintStages[shogi.PositionKey(st.pos)] < HintStageMax,
 	}
@@ -1522,15 +1456,14 @@ func (st *state) snapshot() Snapshot {
 	if st.mateGen == st.searchGen {
 		snap.MateHeat = st.mateHeat
 	}
-	// **추정기가 있고 상대가 그 값을 볼 때만** 강함을 말한다(Snapshot.OpponentStrength).
+	// 추정기가 있고 상대가 그 값을 볼 때만 강함을 말한다(Snapshot.OpponentStrength).
 	if st.cfg.Rater != nil && adaptsToSkill(st.cfg.Opponent) {
 		snap.OpponentStrength = strengthStep(skillShift(st.skill))
 	}
-	// 囲い·전법과 手筋이 **같은 칸으로 나간다.** 표시가 하나여야 하기 때문이고(§41),
-	// 세대를 따로 보는 것은 手筋이 엔진을 기다리느라 늦게 도착하기 때문이다 — 囲い 쪽은
-	// 이미 떠 있고 手筋이 몇 초 뒤에 합류한다.
+	// 囲い·전법과 手筋이 같은 칸으로 나간다(§41). 세대를 따로 보는 것은 手筋이 엔진을
+	// 기다리느라 몇 초 늦게 합류하기 때문이다.
 	//
-	// **새 슬라이스에 담는다.** `st.tagHints` 에 그대로 덧붙이면 이미 뿌린 스냅샷과 배열을
+	// 새 슬라이스에 담는다. st.tagHints 에 그대로 덧붙이면 이미 뿌린 스냅샷과 배열을
 	// 공유하게 되고, 구독자가 그것을 읽는 동안 세션이 다음 append 를 쓴다.
 	var hints []tag.Tag
 	if st.tagHintGen == st.searchGen {
@@ -1564,8 +1497,8 @@ func (st *state) closeSubs() {
 
 // notify 는 막히지 않고 최신 스냅샷을 넣는다.
 //
-// 느린 클라이언트 하나가 세션 goroutine을 멈추게 두면 다른 사람의 대국까지 선다.
-// 스냅샷은 항상 전체 상태라 중간 것을 버려도 손실이 없다 — 최신만 의미가 있다.
+// 느린 클라이언트 하나가 세션 goroutine 을 멈추면 그 대국이 통째로 선다. 스냅샷은
+// 언제나 전체 상태라 중간 것을 버려도 손실이 없다.
 func notify(ch chan Snapshot, snap Snapshot) {
 	for range 2 {
 		select {
@@ -1619,9 +1552,9 @@ func (s *Session) Undo(ctx context.Context) (Snapshot, error) {
 
 // Hint 는 지금 국면의 최선수 힌트를 부른다.
 //
-// **돌아온 스냅샷에는 아직 힌트가 없다.** 탐색이 끝나야 단계가 정해지므로 구독 채널로
-// 한 번 더 온다 — 착수·판정과 같은 규약이다. 예산이 없거나 이미 답까지 본 국면이면
-// 그 자리에서 거절한다(askHint).
+// 돌아온 스냅샷에는 아직 힌트가 없다. 탐색이 끝나야 단계가 정해지므로 구독 채널로
+// 한 번 더 온다(착수·판정과 같은 규약). 예산이 없거나 이미 답까지 본 국면이면 그
+// 자리에서 거절한다(askHint).
 func (s *Session) Hint(ctx context.Context) (Snapshot, error) {
 	return s.send(ctx, command{kind: cmdHint})
 }
@@ -1663,7 +1596,7 @@ type hintResult struct {
 
 // askHint 는 지금 국면의 최선수를 물어 힌트를 만든다.
 //
-// **거절은 여기서 전부 끝낸다.** 탐색을 걸기 전에 예산·단계·차례를 보므로, 답이 오는
+// 거절은 여기서 전부 끝낸다. 탐색을 걸기 전에 예산·단계·차례를 보므로, 답이 오는
 // 쪽(applyHintResult)은 「늦게 온 앞의 결과인가」만 본다.
 func (st *state) askHint(ctx context.Context, done chan hintResult) error {
 	if st.cfg.HintSearch == nil {
@@ -1712,8 +1645,8 @@ func (st *state) askHint(ctx context.Context, done chan hintResult) error {
 
 // applyHintResult 는 구해진 최선수를 그 국면의 다음 단계로 그린다.
 //
-// **예산은 여기서 센다.** 물어본 자리가 아니라 **답이 온 자리**에서 세야, 탐색이 실패한
-// 회차가 예산을 먹지 않는다 — 사람은 아무것도 못 본 채로 한 번을 잃게 된다.
+// 예산은 물어본 자리가 아니라 답이 온 여기서 센다. 그래야 탐색이 실패한 회차가
+// 예산을 먹지 않는다.
 func (st *state) applyHintResult(r hintResult) {
 	if !st.hinting || r.gen != st.hintGen {
 		return // 그 사이 다시 걸었다. 늦게 온 앞의 결과다
@@ -1724,7 +1657,7 @@ func (st *state) applyHintResult(r hintResult) {
 		return // 국면이 움직였다. 다른 국면의 최선수를 지금 판에 짚으면 거짓이다
 	}
 	if r.err != nil {
-		// **힌트가 없다고 대국을 멈추지 않는다.** 게이지·판정과 같은 판단이다.
+		// 힌트가 없다고 대국을 멈추지 않는다. 게이지·판정과 같은 판단이다.
 		log.Printf("game: hint search failed, nothing is shown: %v", r.err)
 		st.notice = newNotice(NoticeHintFailed)
 		st.broadcast()
@@ -1748,8 +1681,8 @@ func (st *state) applyHintResult(r hintResult) {
 	st.hintStages[r.key] = stage
 	st.hints++
 	st.hint = h
-	// **답까지 봤을 때만 기억한다.** 1단계는 駒만 짚으므로 그 수를 뒀는지가 「알려준 답을
-	// 그대로 뒀다」와 같은 뜻이 아니다 — 어디로 갈지는 여전히 사람이 찾았다.
+	// 답까지 봤을 때만 기억한다. 1단계는 駒만 짚으므로 그 수를 뒀다고 「알려준 답을
+	// 그대로 뒀다」가 되지 않는다 — 어디로 갈지는 여전히 사람이 찾았다.
 	if stage >= HintStageMax {
 		st.hintedKey, st.hintedUSI, st.hintReported = r.key, r.best, false
 	}
@@ -1760,11 +1693,11 @@ func (st *state) applyHintResult(r hintResult) {
 	st.broadcast()
 }
 
-// hintStuck 은 힌트 단계를 `buildHint` 가 아는 자(연속 되무르기 횟수)로 옮긴다.
+// hintStuck 은 힌트 단계를 buildHint 가 아는 자(연속 되무르기 횟수)로 옮긴다.
 //
-// **두 문이 같은 그림을 그린다** — 1단계는 그 駒에 테, 2단계는 그 수에 화살표다. 갇힘
-// 힌트와 갈리는 것은 **문을 여는 방식**뿐이라(실패 횟수 vs 예산), 그리는 쪽을 두 벌로
-// 만들지 않는다. 여기가 그 두 자 사이의 유일한 번역이다.
+// 두 문이 같은 그림을 그린다 — 1단계는 그 駒에 테, 2단계는 그 수에 화살표다. 갇힘
+// 힌트와 다른 것은 문을 여는 방식뿐이라(실패 횟수 vs 예산) 그리는 쪽은 한 벌이고,
+// 여기가 두 자 사이의 유일한 번역이다.
 func hintStuck(stage int) int {
 	if stage >= HintStageMax {
 		return HintMoveAfter

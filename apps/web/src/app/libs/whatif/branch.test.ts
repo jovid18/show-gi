@@ -23,7 +23,7 @@ describe('stepMotion', () => {
     expect(stepMotion(moves('7g7f'), 1, 0, 3)).toEqual({ from: sq('7f'), to: sq('7g'), id: 3 });
   });
 
-  // **뛰어넘는 것은 한 수가 아니다.** 슬라이더로 40手를 건너뛰는 자리에 움직임을 그리면
+  // 뛰어넘는 것은 한 수가 아니다. 슬라이더로 40手를 건너뛰는 자리에 움직임을 그리면
   // 있지도 않았던 한 수를 그리게 된다.
   it('뛰어넘으면 아무것도 안 난다', () => {
     const kifu = moves('7g7f', '3c3d', '8h2b+');
@@ -75,7 +75,7 @@ describe('branchMotion', () => {
   });
 });
 
-// **詰み은 cp로 말하지 않는다.** 30000은 평가치가 아니라 환산값이고, 초심자에게
+// 詰み은 cp로 말하지 않는다. 30000은 평가치가 아니라 환산값이고, 초심자에게
 // 「+30000」은 아무것도 아니다.
 describe('scoreJa', () => {
   it('詰み은 手数로 말한다', () => {
@@ -89,16 +89,16 @@ describe('scoreJa', () => {
     expect(scoreJa(0, undefined)).toBe('0');
   });
 
-  // 없는 값을 0으로 채우지 않는다 — 0은 호각이라는 **다른 사실**이다.
+  // 없는 값을 0으로 채우지 않는다 — 0은 호각이라는 다른 사실이다.
   it('값이 없으면 빈 문자열', () => {
     expect(scoreJa(undefined, undefined)).toBe('');
   });
 });
 
 // 두 화면(대국 중의 블런더 목록 · 되짚기의 「この局面で指せた手」)이 이 두 함수를 같이 쓴다.
-// **부호 규칙이 두 벌이면 한쪽만 낡는다** — 실제로 되짚기 쪽이 뒤집기 없이 자라 있었다.
+// 부호 규칙이 두 벌이면 한쪽만 낡는다 — 실제로 되짚기 쪽이 뒤집기 없이 자라 있었다.
 describe('rowScoreJa', () => {
-  // 手数는 세는 값이라 관점을 바꿔도 자가 안 갈린다. 안 뒤집으면 **상대의 詰み을 내 詰み으로**
+  // 手数는 세는 값이라 관점을 바꿔도 자가 안 갈린다. 안 뒤집으면 상대의 詰み을 내 詰み으로
   // 말하게 된다 — `lets_mate` 카테고리 전체가 그 자리다.
   it('상대가 두는 자리면 詰み의 주어가 바뀐다', () => {
     const row = { cp: 30000, mateIn: 3 };
@@ -115,7 +115,7 @@ describe('rowScoreJa', () => {
 
 describe('playerCp', () => {
   // 파랑·빨강은 어디서나 「나에게 좋은가」다. 상대 차례의 국면에서 안 뒤집으면 색이 통째로
-  // 반대가 되고, **상대의 결정타가 가장 파랗게** 나온다.
+  // 반대가 되고, 상대의 결정타가 가장 파랗게 나온다.
   it('상대가 두는 자리면 색의 부호가 뒤집힌다', () => {
     expect(playerCp({ cp: -151, mateIn: undefined }, true)).toBe(151);
     expect(playerCp({ cp: -151, mateIn: undefined }, false)).toBe(-151);
@@ -131,8 +131,8 @@ describe('playerCp', () => {
   });
 });
 
-// **詰み이 cp보다 언제나 바깥이다.** cp만으로 세우면 「3手で詰み」과 「+2900」이 이웃으로
-// 서는데 그 둘은 이웃이 아니다. 그리고 **빨리 죽는 쪽이 더 나쁘다**.
+// 詰み이 cp보다 언제나 바깥이다. cp만으로 세우면 「3手で詰み」과 「+2900」이 이웃으로
+// 서는데 그 둘은 이웃이 아니다. 그리고 빨리 죽는 쪽이 더 나쁘다.
 describe('rankOf', () => {
   it('詰み이 어떤 cp보다 위다', () => {
     expect(rankOf({ cp: undefined, mateIn: 7 })).toBeGreaterThan(rankOf({ cp: 29000, mateIn: undefined }));
@@ -158,7 +158,7 @@ describe('branchStatusJa', () => {
     expect(branchStatusJa(node({ status: 'checkmate' }), true)).toBe('読んでいます…');
   });
 
-  // 詰み은 **누구 차례인가**로 승패가 갈린다. 뒤집히면 진 판이 이긴 판으로 보인다.
+  // 詰み은 누구 차례인가로 승패가 갈린다. 뒤집히면 진 판이 이긴 판으로 보인다.
   it('詰み은 차례로 승패가 갈린다', () => {
     expect(branchStatusJa(node({ status: 'checkmate', yourTurn: true }), false)).toContain('負け');
     expect(branchStatusJa(node({ status: 'checkmate', yourTurn: false }), false)).toContain('勝ち');
@@ -168,7 +168,7 @@ describe('branchStatusJa', () => {
     expect(branchStatusJa(node(), false)).toContain('あなたの番');
   });
 
-  // **상대 차례에도 못 두게 하지 않는다.** 「상대라면 어떻게 둘까」를 둬 보는 것이
+  // 상대 차례에도 못 두게 하지 않는다. 「상대라면 어떻게 둘까」를 둬 보는 것이
   // 이 화면의 내용이라, 그 자리에서 손을 놓게 만들면 절반이 사라진다.
   it('상대 차례면 상대의 수도 둬 보라고 말한다', () => {
     expect(branchStatusJa(node({ turn: 'w', yourTurn: false }), false)).toContain('相手の手も');
@@ -186,7 +186,7 @@ describe('evalTone', () => {
     expect(evalTone(4000)).toBe('rgb(var(--hint) / 0.50)');
   });
 
-  // **駒落ち에서 색이 뜻을 잃던 자리다.** 六枚落ち(+2003)의 후보는 전부 +800을 넘으므로
+  // 駒落ち에서 색이 뜻을 잃던 자리다. 六枚落ち(+2003)의 후보는 전부 +800을 넘으므로
   // 기준점을 안 빼면 한 줄도 빠짐없이 최대 파랑이 된다(journal §84).
   it('기준점을 빼서 「그 手合에서 좋은가」로 칠한다', () => {
     const rokumai = 2003;

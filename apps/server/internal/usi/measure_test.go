@@ -10,11 +10,11 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// 측정에 쓰는 대국. **将棋ウォーズ 8급 vs 6~7급 — 실제 사람의 대국이다.**
+// 측정에 쓰는 대국. 将棋ウォーズ 8급 vs 6~7급 — 실제 사람의 대국이다.
 //
 // 손으로 쓴 SFEN을 쓰지 않는다. 그렇게 했다가 歩가 19장인 판을 만들었고 룰 엔진이 잡았다.
 // 프로 대국도 안 쓴다 — 잘 둔 판일수록 상위 수들이 좁게 몰려서, 우리 사용자가 실제로
-// 도달하는 국면과 후보의 흩어짐이 다르다. **밴드 적중률은 국면에 크게 좌우된다.**
+// 도달하는 국면과 후보의 흩어짐이 다르다. 밴드 적중률은 국면에 크게 좌우된다.
 //
 // KIF에서 옮긴 뒤 전 수를 룰 엔진으로 검증했다(TestMeasureKifuIsLegal).
 const (
@@ -99,13 +99,13 @@ func TestMeasureKifuIsLegal(t *testing.T) {
 
 // TestMeasureDepthMultiPV 는 depth × MultiPV 의 소요 시간과 밴드 적중률을 잰다.
 //
-// 두 숫자를 **같이** 봐야 한다. 시간만 재면 "빠른데 밴드에 후보가 없는" 설정을 고르게 된다
+// 두 숫자를 같이 봐야 한다. 시간만 재면 "빠른데 밴드에 후보가 없는" 설정을 고르게 된다
 // (05-roadmap.md 미결). 적응형 상대의 k와 개입 판정의 depth가 여기서 정해진다.
 //
-// **시간 상한을 두지 않는다.** 여기서 재려는 값이 바로 그 시간이라, 잘라내면 "얼마나
+// 시간 상한을 두지 않는다. 여기서 재려는 값이 바로 그 시간이라, 잘라내면 "얼마나
 // 느린가"가 뭉개진다. 줄여야 하면 상한이 아니라 재는 칸 수를 줄인다.
 //
-// 결과는 **평가함수에 종속**이다. 엔진이나 nn.bin 을 바꾸면 다시 재고, 01-core.md §6의
+// 결과는 평가함수에 종속이다. 엔진이나 nn.bin 을 바꾸면 다시 재고, 01-core.md §6의
 // 밴드 숫자도 같이 다시 본다.
 //
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run SHOWGI_MEASURE=1 go test ./internal/usi/ -run MeasureDepth -timeout 3h
@@ -188,11 +188,11 @@ func TestMeasureDepthMultiPV(t *testing.T) {
 
 // TestMeasureMateSearch 는 詰み 탐색 비용을 잰다.
 //
-// **매 수 돌아야 하는 탐색이다** — 종반 판정(01-core.md §2)과 詰み 게이지(§7)가 둘 다 쓴다.
+// 매 수 돌아야 하는 탐색이다 — 종반 판정(01-core.md §2)과 詰み 게이지(01-core.md §7)가 둘 다 쓴다.
 // 그래서 여기 드는 시간이 그대로 모든 수에 얹힌다. 탐색부와 별도 바이너리라
 // TestMeasureDepthMultiPV 의 표에 안 들어 있고, D3 상수를 잡기 전에 알아야 한다.
 //
-// 한계는 `DepthLimit`(詰み手数)으로 준다 — 시간이 아니라 수로 잘라야 같은 국면이 같은 답을 준다.
+// 한계는 DepthLimit(詰み手数)으로 준다 — 시간이 아니라 수로 잘라야 같은 국면이 같은 답을 준다.
 //
 //	SHOWGI_MATE_CMD=/opt/yaneuraou/run-mate SHOWGI_MEASURE=1 go test ./internal/usi/ -run MeasureMate -timeout 1h
 func TestMeasureMateSearch(t *testing.T) {
