@@ -161,9 +161,12 @@ func newSetup(r *http.Request, opts Options) gameSetup {
 	// 순서를 앞으로 옮기면 `color` 가 그것을 다시 뒤집는다.
 	if h, ok := handicap.Find(r.URL.Query().Get("handicap")); ok {
 		s.startSFEN = h.SFEN
-		// **駒落ち는 사람이 언제나 下手(先手)다.** 그 SFEN이 上手의 駒를 뺀 것이라
+		// **駒落ち는 사람이 언제나 下手다.** 그 SFEN이 上手의 駒를 뺀 것이라
 		// (handicap.Handicap.SFEN) 사람이 上手를 잡으면 접어 준 쪽이 사람이 된다.
 		// 밴드와 판정도 이 규약 위에 서 있다(game.adaptiveOpponent.Choose).
+		//
+		// **첫 수는 엔진이 둔다** — 그 SFEN의 手番이 上手이고(journal §88), 세션은 「엔진이
+		// 선수면 시작하자마자 생각한다」를 이미 그 값으로만 판단한다(game.Session.run).
 		s.human = shogi.Black
 		// **진형은 같이 못 쓴다.** 북은 平手 수순이라 없는 駒를 움직이려 들고, 그러면
 		// 첫 수에서 손을 놓는다(game.bookOpponent.next 의 ValidateMove). 깨지지는 않지만

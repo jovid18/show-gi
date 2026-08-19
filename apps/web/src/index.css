@@ -4375,7 +4375,7 @@ body {
 }
 
 /* 고른 手合. 판이 그것으로 서 있다는 뜻이라 브랜드 색으로 짚는다 — 「지금 무슨 판인가」는
-   숫자(+1490)만으로는 안 읽힌다. */
+   숫자(+1386)만으로는 안 읽힌다. */
 .explore-handicap[data-on] {
   border-color: var(--brand-line);
   background: var(--brand-soft);

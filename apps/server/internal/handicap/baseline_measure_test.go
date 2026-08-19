@@ -3,6 +3,7 @@ package handicap_test
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
@@ -62,8 +63,13 @@ func TestMeasureBaseline(t *testing.T) {
 			t.Errorf("%s: %v", r.name, err)
 			continue
 		}
-		// 시작 국면은 下手 차례라 엔진의 관점이 곧 표의 관점이다(Handicap.BaselineCp).
+		// **駒落ち의 0手目는 上手 차례라 엔진의 관점이 上手다**(handicap.Handicap.SFEN).
+		// 표는 언제나 下手 관점이므로(Handicap.BaselineCp) 그때 부호를 뒤집는다 — 手番을
+		// SFEN에서 읽는 것은 이 파일이 그 규약을 두 벌 적지 않게 하려는 것이다.
 		got := res.ScoreCp
+		if turnOf(sfen) == "w" {
+			got = -got
+		}
 		// **두 칸 다 실측값에서 센다.** 「지금」 칸은 기준점을 뺀 자리에서 세므로
 		// (`got - want`) **平手 줄은 두 칸이 같아진다** — 기준점이 0이라 그 판의 판정이
 		// 한 비트도 안 바뀐다는 사실이 표에서 그대로 보여야 한다.
@@ -78,8 +84,19 @@ func TestMeasureBaseline(t *testing.T) {
 // `handicap_test` 패키지라 표 밖의 값을 직접 들고 있는 편이 의존을 안 늘린다.
 const hirateSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1"
 
+// turnOf 는 SFEN의 手番 칸이다. 못 읽으면 平手의 手番인 `"b"` 로 답한다 — 표의 값이
+// 부호를 잘못 쓴 채 초록으로 지나가는 것보다, 여기서 平手처럼 취급해 차이 칸이 크게
+// 벌어지는 편이 눈에 띈다.
+func turnOf(sfen string) string {
+	f := strings.Fields(sfen)
+	if len(f) < 2 {
+		return "b"
+	}
+	return f[1]
+}
+
 // triggerCp 는 `from` 에서 입문 임계치를 넘기는 최소 낙폭이다. **이 숫자가 이 패키지가
-// 있는 이유다** — 기준점을 안 쓰면 二枚落ち에서 1058cp까지 안 걸리고(journal §84), 쓰면
+// 있는 이유다** — 기준점을 안 쓰면 四枚落ち에서 1107cp까지 안 걸리고(journal §88), 쓰면
 // 그 자리가 660cp로 돌아온다.
 //
 // 무엇을 넣느냐가 옛 식과 지금 식을 가른다(위 Printf) — 옛 식은 실측 그대로, 지금 식은

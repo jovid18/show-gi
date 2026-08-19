@@ -313,7 +313,7 @@ func standingOf(rec store.GameRecord) explain.Standing {
 		return explain.StandingUnknown
 	}
 	// **手合割의 기준점을 뺀다.** 둘 다 先手 관점이라 뒤집기 전에 뺀다(handicap.BaselineCp).
-	// 안 빼면 二枚落ち에서 +1490을 +900까지 흘린 판이 「圧倒的に有利でした」로 나가고,
+	// 안 빼면 二枚落ち에서 +1386을 +900까지 흘린 판이 「圧倒的に有利でした」로 나가고,
 	// 그건 핸디캡의 절반을 잃은 판이다 — 판정과 같은 좌표를 써야 총평도 같은 사실을 말한다.
 	cp -= handicap.BaselineCp(rec.StartSFEN)
 	if rec.MyColor != "b" {

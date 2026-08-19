@@ -62,8 +62,8 @@ describe('exploreStatusJa', () => {
 
 describe('baselineNoteJa', () => {
   it('駒落ち는 기준선을 말한다', () => {
-    expect(baselineNoteJa(nodeOf({ handicapJa: '二枚落ち', baselineCp: 1490 }))).toBe(
-      '二枚落ちの互角は +1490 あたりです。',
+    expect(baselineNoteJa(nodeOf({ handicapJa: '二枚落ち', baselineCp: 1386 }))).toBe(
+      '二枚落ちの互角は +1386 あたりです。',
     );
   });
 

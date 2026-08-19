@@ -337,7 +337,7 @@ func TestStrengthStepTracksTheShift(t *testing.T) {
 
 // TestBandFollowsTheHandicapOrigin 은 **핸디캡을 흘린 사람에게 상대가 되돌려 주는지**를 본다.
 //
-// 二枚落ち(+1490)에서 사람이 +500까지 흘린 자리다. 기준점을 안 옮기면 이 국면이 「구간 위」로
+// 二枚落ち(+1386)에서 사람이 +500까지 흘린 자리다. 기준점을 안 옮기면 이 국면이 「구간 위」로
 // 읽혀서(500 > 300) 상대가 「지금 형세에서 100~300 더」만 겨냥하고, 그 좌표에서는 상대의
 // 최선수가 그대로 뽑힌다 — 조절이 가장 필요한 자리에서 꺼지는 것이다(Choose).
 func TestBandFollowsTheHandicapOrigin(t *testing.T) {
@@ -345,11 +345,12 @@ func TestBandFollowsTheHandicapOrigin(t *testing.T) {
 	if !ok {
 		t.Fatal("nimaiochi 가 표에 없다")
 	}
-	// 下手가 한 수 뒀으므로 지금은 上手(상대) 차례다 — 사람은 下手(Black)로 읽힌다.
-	moves := []string{"7g7f"}
+	// **0手目가 上手 차례다**(journal §88). 그래서 양쪽이 한 수씩 둔 뒤가 다시 上手 차례이고,
+	// 사람은 그 반대인 下手(Black)로 읽힌다.
+	moves := []string{"3c3d", "7g7f"}
 
-	s := &stubMulti{res: usi.SearchResult{Best: "3c3d", Lines: []usi.SearchLine{
-		line("3c3d", -500),  // 플레이어 +500. 上手의 최선
+	s := &stubMulti{res: usi.SearchResult{Best: "2c2d", Lines: []usi.SearchLine{
+		line("2c2d", -500),  // 플레이어 +500. 上手의 최선
 		line("8c8d", -900),  // 플레이어 +900
 		line("4a3b", -1100), // 플레이어 +1100. 안전 상한(+600) 경계 ← 이걸 골라야 한다
 		line("6a5b", -1400), // 플레이어 +1400. 상한 밖이라 걸러진다

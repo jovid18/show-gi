@@ -14,7 +14,7 @@ export type Connection = 'idle' | 'connecting' | 'open' | 'closed';
  * 메시지로 보내지 않는 이유는 그쪽 주석에 있다.
  */
 export interface GameSetup {
-  /** 사람이 잡을 쪽. **手合割을 고르면 이 값이 무시된다** — 駒落ち는 사람이 下手(先手)다. */
+  /** 사람이 잡을 쪽. **手合割을 고르면 이 값이 무시된다** — 駒落ち는 사람이 下手다. */
   color: Color;
   /** 상대가 따를 진형의 id. 「おまかせ」면 null. */
   opening: string | null;

@@ -157,36 +157,37 @@ func TestBeingMatedIsCaughtByWinRate(t *testing.T) {
 
 // TestBaselineRestoresTheJudgementInKomaochi 는 **駒落ち에서 판정이 살아 있는지**를 본다.
 //
-// 기준점이 없으면 二枚落ち(+1490)에서 銀 헌납(약 1000cp)이 안 걸린다 — 승률이 이미
-// 포화해서다. 위 `TestWinRateSaturatesWhenWinning` 이 종반에서 재는 것과 같은 현상이고,
+// 기준점이 없으면 四枚落ち(+1561)에서 銀 헌납(약 1000cp)이 안 걸린다 — 승률이 이미
+// 포화해서다. **二枚落ち를 예시로 못 쓴다** — 발화선이 989라 銀 헌납이 간신히 걸리고,
+// 그러면 아래 첫 줄이 「전제가 깨졌다」로 진다(journal §88). 위 `TestWinRateSaturatesWhenWinning` 이 종반에서 재는 것과 같은 현상이고,
 // 駒落ち는 **판 전체가** 그 구간이라 詰み 거리로도 못 막는다(journal §84).
 func TestBaselineRestoresTheJudgementInKomaochi(t *testing.T) {
-	const nimai = 1490 // internal/handicap 의 실측값
+	const yonmai = 1561 // internal/handicap 의 실측값
 
 	// 기준점 없이: 銀 하나 값(약 1000cp)을 흘렸는데 통과한다. 이 줄이 초록인 것이 문제였다.
-	blind := Input{BestCp: nimai, AfterCp: nimai - 1000, Level: Beginner}
+	blind := Input{BestCp: yonmai, AfterCp: yonmai - 1000, Level: Beginner}
 	if v := Judge(blind); v.Kind != KindNone {
 		t.Fatalf("전제가 깨졌다 — 기준점 없이도 걸렸다: Δ=%.3f", v.DeltaWin)
 	}
 
 	// 기준점을 주면 같은 손해가 平手와 같은 낙폭으로 보인다.
 	seeing := blind
-	seeing.BaselineCp = nimai
+	seeing.BaselineCp = yonmai
 	v := Judge(seeing)
 	if v.Kind != KindBlunder {
-		t.Errorf("二枚落ち에서 1000cp 손해가 안 걸렸다: Δ=%.3f", v.DeltaWin)
+		t.Errorf("四枚落ち에서 1000cp 손해가 안 걸렸다: Δ=%.3f", v.DeltaWin)
 	}
 
 	// **낙폭이 平手의 그것과 같아야 한다.** 기준점이 하는 일은 좌표를 옮기는 것뿐이라,
 	// 같은 상대 손해는 어느 手合에서도 같은 숫자여야 한다.
 	flat := Judge(Input{BestCp: 0, AfterCp: -1000, Level: Beginner})
 	if d := v.DeltaWin - flat.DeltaWin; d > 1e-9 || d < -1e-9 {
-		t.Errorf("낙폭이 手合에 따라 갈렸다: 二枚落ち %.6f vs 平手 %.6f", v.DeltaWin, flat.DeltaWin)
+		t.Errorf("낙폭이 手合에 따라 갈렸다: 四枚落ち %.6f vs 平手 %.6f", v.DeltaWin, flat.DeltaWin)
 	}
 
 	// **원본 cp는 안 옮긴다.** 재채점이 이 두 칸에서 도므로(Input.BaselineCp) 기준점을
 	// 뺀 값이 저장되면 원본이 어디에도 없어진다.
-	if v.BestCp != nimai || v.AfterCp != nimai-1000 {
+	if v.BestCp != yonmai || v.AfterCp != yonmai-1000 {
 		t.Errorf("Verdict 의 cp가 기준점만큼 옮겨졌다: %d / %d", v.BestCp, v.AfterCp)
 	}
 }

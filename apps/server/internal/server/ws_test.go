@@ -317,12 +317,22 @@ func TestWSKomaochiAgainstRealEngine(t *testing.T) {
 	if snap.SFEN != nimai.SFEN {
 		t.Fatalf("시작 국면이 %q다. 二枚落ち는 %q", snap.SFEN, nimai.SFEN)
 	}
-	// **`color=w` 를 보냈는데도 下手다**(newSetup). 그리고 첫 차례가 사람이어야 한다.
-	if snap.YourColor != "b" || !snap.YourTurn {
-		t.Fatalf("사람이 下手로 먼저 둬야 한다: yourColor=%q yourTurn=%v", snap.YourColor, snap.YourTurn)
+	// **`color=w` 를 보냈는데도 下手다**(newSetup). 그리고 **접어 준 上手가 먼저 둔다**
+	// (journal §88) — 판이 열린 자리가 사람 차례가 아닌 것이 駒落ち의 정상이다.
+	if snap.YourColor != "b" || snap.YourTurn {
+		t.Fatalf("사람이 下手로 뒤에 둬야 한다: yourColor=%q yourTurn=%v", snap.YourColor, snap.YourTurn)
 	}
 	if snap.HandicapJa != nimai.Name {
 		t.Errorf("手合割 = %q, want %q", snap.HandicapJa, nimai.Name)
+	}
+
+	// **上手의 1手目를 기다린다.** 엔진이 먼저 두는 판이라 여기서 안 기다리면 아래 첫
+	// 착수가 「네 차례가 아니다」로 거절되고, 그 실패는 手番 규약이 뒤집힌 것과 구별되지 않는다.
+	snap = readUntil(t, ctx, conn, func(m serverMsg) bool {
+		return m.Snapshot != nil && (m.Snapshot.YourTurn || m.Snapshot.Status != game.StatusPlaying)
+	}, "上手의 1手目").Snapshot
+	if snap.Ply != 1 {
+		t.Fatalf("上手가 한 수 둔 자리여야 한다: ply=%d", snap.Ply)
 	}
 
 	// 上手가 없는 駒를 움직이려 들지 않는지 — 엔진이 실제로 응수를 내는 것으로 확인된다.
