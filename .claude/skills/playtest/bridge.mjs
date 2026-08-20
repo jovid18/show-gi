@@ -32,6 +32,8 @@ let seq = 0;
 let closed = null;
 const waiters = [];
 const seen = { interventions: [], hints: [], rejects: [] };
+let lastIvKey = null;
+let lastHintKey = null;
 
 const logStream = fs.createWriteStream(LOG, { flags: 'a' });
 const log = (dir, msg) => logStream.write(JSON.stringify({ t: Date.now(), agent: AGENT, dir, msg }) + '\n');
@@ -46,8 +48,23 @@ ws.addEventListener('message', (ev) => {
     snap = m.snapshot;
     seq++;
     // 개입·힌트는 스냅샷에 얹혀 오고 다음 착수에 지워진다. 리포트용으로 여기서 모은다.
-    if (snap.intervention) seen.interventions.push({ ply: snap.ply, ...snap.intervention });
-    if (snap.hint) seen.hints.push({ ply: snap.ply, ...snap.hint });
+    //
+    // **같은 개입이 스냅샷 여러 장에 실려 온다.** 지워질 때까지 계속 얹혀 오므로 그대로
+    // 밀어 넣으면 한 건이 여러 건으로 센다 (journal §91). 직전 것과 같으면 건너뛴다.
+    if (snap.intervention) {
+      const k = `${snap.ply}:${snap.intervention.retractedUsi}`;
+      if (k !== lastIvKey) {
+        lastIvKey = k;
+        seen.interventions.push({ ply: snap.ply, ...snap.intervention });
+      }
+    }
+    if (snap.hint) {
+      const k = `${snap.ply}:${JSON.stringify(snap.hint)}`;
+      if (k !== lastHintKey) {
+        lastHintKey = k;
+        seen.hints.push({ ply: snap.ply, ...snap.hint });
+      }
+    }
   } else if (m.type === 'error') {
     seen.rejects.push(m);
   }
@@ -86,6 +103,18 @@ async function settle(fromSeq) {
 // ── 렌더 ──────────────────────────────────────────────────────────────────
 // 대문자 = 나(先手, 아래에서 위로), 소문자 = 상대. + 는 成.
 
+// SFEN 持ち駒는 `[개수]駒` 의 나열이다 — `S5P2n2p` 는 S · 5P · 2n · 2p 다.
+// 개수는 뒤따르는 駒의 것이라, 대소문자만으로 정규식을 가르면 경계에서 남의 개수가
+// 내 쪽에 붙는다 (journal §91).
+function parseHands(hands) {
+  const mine = [];
+  const theirs = [];
+  for (const [, n, p] of hands.matchAll(/(\d*)([A-Za-z])/g)) {
+    (p === p.toUpperCase() ? mine : theirs).push(n + p);
+  }
+  return [mine.join('') || '-', theirs.join('') || '-'];
+}
+
 function board(sfen) {
   const [b, , hands] = sfen.split(' ');
   const out = ['   9 8 7 6 5 4 3 2 1'];
@@ -106,8 +135,7 @@ function board(sfen) {
     }
     out.push(` ${String.fromCharCode(97 + i)}${cells.join('')}  ${i + 1}`);
   });
-  const mine = (hands.match(/[A-Z0-9]+/g) ?? []).join('') || '-';
-  const theirs = (hands.match(/[a-z0-9]+/g) ?? []).join('') || '-';
+  const [mine, theirs] = parseHands(hands);
   out.push(` hand you:${mine} opp:${theirs}`);
   return out.join('\n');
 }
