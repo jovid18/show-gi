@@ -214,6 +214,7 @@ skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at,
 - **ECS on EC2**(t4g.small 스팟 1대, ARM64) 태스크 하나에 web(Caddy) + api 컨테이너. 앞에 ALB가 ACM 인증서로 TLS를 끝낸다
 - **RDS postgres 17.** 앱 태스크의 보안그룹에서만 접근 가능하고, 7일 자동 백업이 붙는다
 - 비밀은 SSM Parameter Store → 태스크 정의의 `secrets`로 주입. 디스크에 남지 않는다
+- **관측은 로그 한 줄기에 얹는다**([§90](journal/82-100.md)) — api 가 stderr 로 JSON 로그를, stdout 으로 CloudWatch EMF 한 줄을 내고 둘 다 같은 로그 그룹에 들어간다. 지표 수집기를 따로 띄우지 않는다: 태스크가 한 대뿐이라 Prometheus 를 세우는 값이 안 나오고, EMF 는 `awslogs` 드라이버 그대로 돌아 인프라가 늘지 않는다
 - Terraform으로 전부 코드화. state는 S3 + DynamoDB 잠금
 - 레포는 **퍼블릭**
 

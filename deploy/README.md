@@ -218,9 +218,54 @@ curl -s https://show-gi.com/healthz
 
 배포 워크플로가 마지막에 이 값을 확인하고 false면 실패시킨다. 손으로 볼 때도 여기부터 본다.
 
-## 운영자 정책에 로그 읽기 권한 올리기
+## 지표와 알람 보는 법
+
+**지표는 api 컨테이너가 stdout 으로 내는 EMF 한 줄에서 나온다**([§90](../docs/journal/82-100.md)). CloudWatch 가 로그에서 뽑아 `show-gi` 이름 공간에 넣으므로, 만들 자원이 따로 없고 **태스크 정의의 `ENVIRONMENT` 가 그 스위치**다.
+
+> **켜지는 순서가 셋이다.** ① 관리자가 정책 버전을 올린다(아래) ② `terraform apply` — 알람이 생기고 `ENVIRONMENT` 가 든 새 리비전이 등록된다 ③ **다음 배포** — 서비스는 `task_definition` 변경을 무시하므로(`lifecycle.ignore_changes`) apply 만으로는 도는 태스크가 안 바뀐다. CI가 최신 리비전을 `describe` 해서 이미지만 갈아 끼우므로, main 에 무엇이든 머지되거나 `Images` 워크플로를 다시 돌리면 그때부터 지표가 올라온다.
+>
+> 그래서 **② 직후에는 알람 셋 중 ALB 것만 데이터를 받는다.** 5xx 와 풀 대기는 `notBreaching` 이라 조용히 `OK` 로 있는다 — 그게 정상이다.
+
+```sh
+# 지표가 실제로 올라오나 — 콘솔 대신 CLI로
+aws cloudwatch list-metrics --namespace show-gi --profile show-gi
+
+# 값을 볼 때는 get-metric-data 다. get-metric-statistics 는 운영자 정책에 없다
+# (알람용으로 GetMetricData·ListMetrics 만 줬다 — journal §90)
+
+# 그 줄의 원본(EMF)을 로그에서 본다
+aws logs filter-log-events --log-group-name /ecs/show-gi   --filter-pattern '{ $._aws.CloudWatchMetrics[0].Namespace = "show-gi" }'   --max-items 1 --profile show-gi
+```
+
+**요청 하나를 되짚을 때는 `request_id` 로 찾는다.** 응답 헤더(`X-Request-Id`)에 실려 나가므로 「이 화면이 이상하다」와 함께 그 값을 받을 수 있다.
+
+```sh
+aws logs filter-log-events --log-group-name /ecs/show-gi   --filter-pattern '{ $.request_id = "1a2b3c4d5e6f7a8b" }' --profile show-gi
+```
+
+라벨까지 붙은 숫자를 보려면 컨테이너 안에서 텍스트 표면을 읽는다. **밖에서는 안 닿는다** — Caddy 가 `/ws`·`/api`·`/healthz` 만 프록시한다.
+
+```sh
+# --container web 이다. api 이미지는 debian-slim + ca-certificates·libgomp1 뿐이라
+# wget 도 curl 도 없다(apps/server/Dockerfile). web 은 caddy-alpine 이라 busybox wget 이
+# 있고, host 네트워크라 같은 localhost:8080 에 닿는다.
+aws ecs execute-command --cluster show-gi --task <task-id> --container web \
+  --interactive --command 'wget -qO- localhost:8080/metrics' --profile show-gi
+```
+
+알람은 셋이다. **메일을 받으려면 `terraform.tfvars` 에 `alarm_email` 을 적고 apply 한 뒤, 확인 메일의 링크를 한 번 눌러야 한다** — 누르기 전에는 구독이 `pending` 이라 알람이 울려도 안 온다.
+
+| 알람                        | 언제                              | 무엇을 보나                                                                                                |
+| --------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `show-gi-no-healthy-target` | 정상 타깃이 5분 동안 없다         | 사이트가 내려갔다. EMF 와 무관하게 AWS 가 늘 내는 지표다. 5분인 것은 정상 배포·스팟 회수가 그보다 짧아서다 |
+| `show-gi-5xx`               | 5분 안에 5xx 나 panic 1건 이상    | 우리 버그. 같은 시각의 `request_id` 로 로그를 찾는다                                                       |
+| `show-gi-engine-pool-wait`  | 풀 대기 p95 가 10분 동안 3초 초과 | `ENGINE_POOL_SIZE` 를 올릴 자리다. **임계치는 아직 감이다**                                                |
+
+## 운영자 정책에 로그 읽기·알람 권한 올리기
 
 **운영자는 자기 정책을 못 고친다**(권한 상승 방지). 관리자 자격으로 한 번 올려야 한다.
+
+지금 올려야 하는 것이 둘이다 — 로그 읽기(`logs:GetLogEvents` 등)와 **알람·SNS**(`cloudwatch:PutMetricAlarm`·`sns:*`, [§90](../docs/journal/82-100.md)). 올리기 전에는 `infra/alarms.tf` 의 apply 가 `AccessDenied` 로 끝난다.
 
 ```sh
 # 버전은 5개가 상한이라, 차면 오래된 것을 지우면서 올린다

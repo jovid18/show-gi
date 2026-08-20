@@ -6,16 +6,18 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/archive"
 	"github.com/jovid18/show-gi/apps/server/internal/auth"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
+	"github.com/jovid18/show-gi/apps/server/internal/metrics"
 	"github.com/jovid18/show-gi/apps/server/internal/quiz"
 	"github.com/jovid18/show-gi/apps/server/internal/server"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -43,6 +45,10 @@ func main() {
 	addr := flag.String("addr", ":8080", "listen address")
 	flag.Parse()
 
+	// 로그를 먼저 세운다. 이 아래의 기동 로그부터 구조화된 한 줄로 나가야 하고,
+	// 그중 「무엇이 꺼진 채로 떴나」가 장애를 가르는 첫 정보다.
+	setupLogging()
+
 	// SIGINT/SIGTERM이 오면 ctx가 취소되고, 그걸 받아 진행 중인 요청을 마저 끝낸다.
 	// 대국 세션과 엔진 프로세스가 붙어 있으므로 여기서 정리 순서가 갈린다.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -54,6 +60,12 @@ func main() {
 	// 판정과 기록이 같은 값을 봐야 한다. 갈리면 「어느 임계치에서 걸린 개입인가」가
 	// 기록에서 틀리고, 그 위에서 상수를 흔들어 보게 된다.
 	opts := server.Options{Level: intervene.Beginner}
+
+	// 지표. 서버·엔진 풀·탐색이 같은 레지스트리를 쓴다 — 무엇을 재는지가
+	// metrics.New 한 자리에 다 있어야 새 지표를 늘릴 때 EMF 쪽을 같이 보게 된다.
+	reg := metrics.New("api", os.Getenv("ENVIRONMENT"))
+	opts.Metrics = reg
+	stopMetrics := startEmitter(reg)
 
 	if st := openStore(ctx); st != nil {
 		defer st.Close()
@@ -73,12 +85,14 @@ func main() {
 
 	if pool := startEngines(); pool != nil {
 		defer pool.Close()
+		pool.Observe(reg.Pool(metrics.PoolSearch))
 
 		// 詰み solver 는 다른 바이너리라 따로 띄운다(02-architecture.md §3).
 		// 없어도 대국과 승률 낙폭 판정은 그대로 돌고, 종반 판정만 빠진다.
 		matePool := startMateEngines()
 		if matePool != nil {
 			defer matePool.Close()
+			matePool.Observe(reg.Pool(metrics.PoolMate))
 		}
 
 		// 인터페이스에 nil 포인터를 넣지 않는다. *usi.Pool 이 nil이어도 인터페이스
@@ -102,6 +116,9 @@ func main() {
 			into = opts.Store
 		}
 		searcher := archive.Wrap(pool, into)
+		// 계측도 같은 자리에 붙는다. 엔진을 부르는 여섯 자리가 다 여기를 지나므로
+		// 하나만 달면 되고, 캐시가 답한 것과 엔진을 부른 것이 여기서 갈린다.
+		searcher.Observe(reg.Search())
 		// 떠 있는 기록이 끝나기를 기다린다. 안 기다리면 마지막 수의 분석이 버려진다.
 		// 등록 순서가 곧 종료 순서다(LIFO). 이 줄이 위 defer st.Close() 보다 뒤라서 기록이 다 흘러간 뒤 DB가 닫힌다.
 		defer searcher.Wait()
@@ -138,8 +155,87 @@ func main() {
 		opts.Quiz = quiz.NewBuilder(mate, searcher, engineDepth())
 	}
 
-	if err := server.Run(ctx, *addr, opts); err != nil {
-		log.Fatal(err)
+	err := server.Run(ctx, *addr, opts)
+	stopMetrics()
+	if err != nil {
+		// log.Fatal 이 아니다. 그쪽은 slog 를 info 로 지나가므로 LOG_LEVEL 을 올린
+		// 배포에서는 「왜 죽었나」가 로그에 아예 안 남는다 — 빈 로그로 재시작을 반복한다.
+		slog.Error("server stopped", "err", err)
+		os.Exit(1)
+	}
+}
+
+// setupLogging 은 로그를 구조화한다. 손잡이는 LOG_LEVEL·LOG_FORMAT 이다.
+//
+// slog.SetDefault 가 log 패키지의 출력까지 이 핸들러로 돌린다. 그래서 서버에 남아 있는
+// log.Printf 도 같은 JSON 한 줄로 나가고, 그 백여 곳을 옮겨 적지 않아도 된다 —
+// 옮겨 적어서 얻는 것은 필드뿐이고, 그것이 필요한 자리만 옮긴다.
+//
+// stderr 인 것은 EMF 와 갈라 두려는 것이다. 지표는 stdout 으로 나가고 둘 다 같은 로그
+// 그룹에 들어가지만, 사람이 로컬에서 볼 때는 한쪽만 보는 편이 낫다.
+func setupLogging() {
+	level, badLevel := logLevel()
+	opts := &slog.HandlerOptions{Level: level}
+	var h slog.Handler = slog.NewJSONHandler(os.Stderr, opts)
+	if os.Getenv("LOG_FORMAT") == "text" {
+		h = slog.NewTextHandler(os.Stderr, opts)
+	}
+	// 요청 ID 를 ctx 에서 꺼내 모든 줄에 붙인다. 핸들러가 직접 넘기지 않아도 붙는다.
+	slog.SetDefault(slog.New(server.LogHandler(h)))
+
+	// 로거가 선 뒤에 알린다. 이 파일의 다른 환경변수도 다 그렇게 하고, 조용히 기본값으로
+	// 떨어지면 LOG_LEVEL=warning 같은 오타가 「설정 안 함」과 구별되지 않는다.
+	if badLevel != "" {
+		slog.Warn("bad LOG_LEVEL", "value", badLevel, "using", level)
+	}
+}
+
+// logLevel 은 남길 로그의 급이다. 두 번째 값은 못 읽은 원문이고, 읽었으면 빈 문자열이다.
+//
+// 기본은 info 다 — debug 는 요청 한 줄에 헬스체크까지 들어와 로그의 대부분이 그것이 된다
+// (server.levelFor). 위로 올리지도 않는다: 아직 slog 로 안 옮긴 log.Print* 가 전부
+// info 라 warn 이면 그것들이 통째로 사라진다(apps/server/README.md 의 그 경고).
+func logLevel() (slog.Level, string) {
+	raw := os.Getenv("LOG_LEVEL")
+	if raw == "" {
+		return slog.LevelInfo, ""
+	}
+	var l slog.Level
+	if err := l.UnmarshalText([]byte(raw)); err != nil {
+		return slog.LevelInfo, raw
+	}
+	return l, ""
+}
+
+// startEmitter 는 지표를 CloudWatch 로 내보내기 시작한다.
+//
+// ENVIRONMENT 가 비면 아무것도 안 낸다. 로컬에서 EMF 줄이 stdout 에 섞이는 것을 막는
+// 것이 절반이고, 나머지 절반은 요금이다 — EMF 는 지표를 자동으로 만들어서, 켠 줄도
+// 모르는 채로 커스텀 지표가 쌓이는 쪽이 나쁘다. 그때도 /metrics 는 그대로 있다.
+// 돌려주는 함수는 마지막 회차를 내고 돌아온다. main 이 끝나기 직전에 부른다 —
+// defer 로는 안 되는데, 리스너 오류가 log.Fatal 로 끝나면 defer 가 안 돈다.
+func startEmitter(reg *metrics.Registry) func() {
+	if os.Getenv("ENVIRONMENT") == "" {
+		slog.Info("metrics stay local", "reason", "ENVIRONMENT is not set", "surface", "/metrics")
+		return func() {}
+	}
+
+	// 수명을 프로세스에 맞춘다. main 의 ctx 가 아닌 것은, 리스너가 오류로 죽는 경우
+	// 그 ctx 가 취소되지 않아 마지막 회차를 기다리다 프로세스가 멈추기 때문이다.
+	ctx, stop := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		metrics.NewEmitter(reg, os.Stdout).Run(ctx, metrics.DefaultInterval)
+	}()
+	// 끝나면서 한 줄을 더 낸다. 안 내면 종료 직전 회차가 사라지고, 배포마다 그 구간이
+	// 비어 그래프에 규칙적인 구멍이 생긴다.
+	return func() {
+		stop()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+		}
 	}
 }
 
@@ -151,15 +247,15 @@ func main() {
 func startAuth() *auth.Google {
 	g := auth.NewGoogle(os.Getenv("GOOGLE_CLIENT_ID"), os.Getenv("GOOGLE_CLIENT_SECRET"))
 	if g == nil {
-		log.Print("GOOGLE_CLIENT_ID/SECRET are not set — games stay anonymous")
+		slog.Warn("google sign-in is off", "reason", "GOOGLE_CLIENT_ID/SECRET are not set")
 		return nil
 	}
 	if os.Getenv("SESSION_SECRET") == "" {
 		// 서명 키가 없으면 쿠키를 위조할 수 있다. 그건 로그인이 없는 것보다 나쁘다.
-		log.Print("SESSION_SECRET is not set — sign-in stays off")
+		slog.Warn("google sign-in is off", "reason", "SESSION_SECRET is not set")
 		return nil
 	}
-	log.Print("google sign-in ready")
+	slog.Info("google sign-in ready")
 	return g
 }
 
@@ -170,15 +266,15 @@ func startAuth() *auth.Google {
 func openStore(ctx context.Context) *store.Store {
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
-		log.Print("DATABASE_URL is not set — the position cache is disabled")
+		slog.Warn("database is off", "reason", "DATABASE_URL is not set")
 		return nil
 	}
 	st, err := store.Open(ctx, url)
 	if err != nil {
-		log.Printf("cannot open the database — the position cache is disabled: %v", err)
+		slog.Error("database is off", "err", err)
 		return nil
 	}
-	log.Print("database ready")
+	slog.Info("database ready")
 	return st
 }
 
@@ -189,7 +285,7 @@ func openStore(ctx context.Context) *store.Store {
 func startEngines() *usi.Pool {
 	cmd := os.Getenv("ENGINE_CMD")
 	if cmd == "" {
-		log.Print("ENGINE_CMD is not set — games are disabled")
+		slog.Warn("games are disabled", "reason", "ENGINE_CMD is not set")
 		return nil
 	}
 
@@ -197,7 +293,7 @@ func startEngines() *usi.Pool {
 	if v := os.Getenv("ENGINE_POOL_SIZE"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 {
-			log.Printf("ENGINE_POOL_SIZE=%q is not a positive integer, using %d", v, size)
+			slog.Warn("bad ENGINE_POOL_SIZE", "value", v, "using", size)
 		} else {
 			size = n
 		}
@@ -206,10 +302,10 @@ func startEngines() *usi.Pool {
 	opts := engineOptions()
 	pool, err := usi.NewPool(size, cmd, opts)
 	if err != nil {
-		log.Printf("cannot start engine pool (%s x%d) — games are disabled: %v", cmd, size, err)
+		slog.Error("games are disabled", "cmd", cmd, "size", size, "err", err)
 		return nil
 	}
-	log.Printf("engine pool ready: %s x%d %v", cmd, size, opts)
+	slog.Info("engine pool ready", "cmd", cmd, "size", size, "options", opts)
 	return pool
 }
 
@@ -220,7 +316,7 @@ func startEngines() *usi.Pool {
 func startMateEngines() *usi.Pool {
 	cmd := os.Getenv("ENGINE_MATE_CMD")
 	if cmd == "" {
-		log.Print("ENGINE_MATE_CMD is not set — endgame judgment and the mate gauge are disabled")
+		slog.Warn("endgame judgment and the mate gauge are disabled", "reason", "ENGINE_MATE_CMD is not set")
 		return nil
 	}
 	// 소비자가 셋이다 — 종반 판정, 詰み 게이지, 그리고 되짚기 퀴즈의 詰み 트리. 앞 둘은
@@ -236,10 +332,10 @@ func startMateEngines() *usi.Pool {
 		"DepthLimit": envOr("ENGINE_MATE_PLIES", "11"),
 	})
 	if err != nil {
-		log.Printf("cannot start the mate solver — endgame judgment is disabled: %v", err)
+		slog.Error("endgame judgment is disabled", "err", err)
 		return nil
 	}
-	log.Printf("mate solver ready: %s x%d", cmd, pool.Size())
+	slog.Info("mate solver ready", "cmd", cmd, "size", pool.Size())
 	return pool
 }
 
@@ -253,7 +349,7 @@ func matePoolSize() int {
 	if v := os.Getenv("ENGINE_MATE_POOL_SIZE"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 {
-			log.Printf("ENGINE_MATE_POOL_SIZE=%q is not a positive integer, using %d", v, size)
+			slog.Warn("bad ENGINE_MATE_POOL_SIZE", "value", v, "using", size)
 		} else {
 			size = n
 		}
@@ -307,7 +403,7 @@ func envOr(name, fallback string) string {
 func opponentBand() game.Band {
 	lo, hi := envInt("OPPONENT_BAND_LO", game.DefaultBand.LoCp), envInt("OPPONENT_BAND_HI", game.DefaultBand.HiCp)
 	if lo > hi {
-		log.Printf("OPPONENT_BAND_LO(%d) > HI(%d), using default", lo, hi)
+		slog.Warn("OPPONENT_BAND_LO is above HI", "lo", lo, "hi", hi, "using", game.DefaultBand)
 		return game.DefaultBand
 	}
 	return game.Band{LoCp: lo, HiCp: hi}
@@ -320,7 +416,7 @@ func envInt(name string, fallback int) int {
 	}
 	n, err := strconv.Atoi(v)
 	if err != nil {
-		log.Printf("%s=%q is not an integer, using %d", name, v, fallback)
+		slog.Warn("value is not an integer", "name", name, "value", v, "using", fallback)
 		return fallback
 	}
 	return n
@@ -337,7 +433,7 @@ func engineDepth() int {
 	}
 	d, err := strconv.Atoi(v)
 	if err != nil || d < 1 {
-		log.Printf("ENGINE_DEPTH=%q is not a positive integer, using %d", v, game.DefaultDepth)
+		slog.Warn("bad ENGINE_DEPTH", "value", v, "using", game.DefaultDepth)
 		return game.DefaultDepth
 	}
 	return d

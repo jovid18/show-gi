@@ -100,3 +100,101 @@ func TestPoolFailsCleanly(t *testing.T) {
 		t.Fatal("없는 바이너리로 풀이 만들어짐")
 	}
 }
+
+// fakeMetrics 는 풀이 내는 숫자를 그대로 받아 둔다.
+type fakeMetrics struct {
+	mu     sync.Mutex
+	size   int
+	waits  []time.Duration
+	inUse  int
+	peak   int
+	deltas int
+}
+
+func (m *fakeMetrics) SetSize(n int) { m.mu.Lock(); m.size = n; m.mu.Unlock() }
+
+func (m *fakeMetrics) ObserveWait(d time.Duration) {
+	m.mu.Lock()
+	m.waits = append(m.waits, d)
+	m.mu.Unlock()
+}
+
+func (m *fakeMetrics) ObserveInUse(delta int) {
+	m.mu.Lock()
+	m.inUse += delta
+	m.deltas++
+	m.peak = max(m.peak, m.inUse)
+	m.mu.Unlock()
+}
+
+// 계측이 붙으면 대기 시간과 점유 수가 나온다. 이게 포화를 읽는 유일한 신호다.
+func TestPoolObservesWaitAndUse(t *testing.T) {
+	p := newFakePool(t, 1)
+	m := &fakeMetrics{}
+	p.Observe(m)
+	if m.size != 1 {
+		t.Fatalf("SetSize 를 안 불렀다: size=%d", m.size)
+	}
+
+	// 엔진 하나를 붙들고 있는 동안 다른 탐색이 줄을 선다. 그 대기가 지표에 남아야 한다.
+	held, err := p.Acquire(t.Context())
+	if err != nil {
+		t.Fatalf("Acquire: %v", err)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if _, err := p.SearchDepth(t.Context(), testSFEN, nil, 6); err != nil {
+			t.Errorf("탐색 실패: %v", err)
+		}
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+	p.Release(held)
+	<-done
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.inUse != 0 {
+		t.Errorf("다 돌려줬는데 점유가 %d 로 남았다 — 게이지가 샌다", m.inUse)
+	}
+	if m.peak != 1 {
+		t.Errorf("동시 점유 최고가 %d, 풀 크기는 1이다", m.peak)
+	}
+	if len(m.waits) != 2 {
+		t.Fatalf("대기 관측이 %d개 — 안 기다린 것도 0으로 남아야 한다", len(m.waits))
+	}
+	// 줄을 선 쪽은 붙들고 있던 시간만큼 기다렸다. 둘 중 하나가 그 값이어야 한다.
+	if max(m.waits[0], m.waits[1]) < 40*time.Millisecond {
+		t.Errorf("대기 시간이 %v — 기다린 것이 안 잡혔다", m.waits)
+	}
+}
+
+// 계측을 안 붙인 풀은 그대로 돈다. 지표는 대국의 전제가 아니다.
+func TestPoolWithoutMetrics(t *testing.T) {
+	p := newFakePool(t, 1)
+	if _, err := p.SearchDepth(t.Context(), testSFEN, nil, 6); err != nil {
+		t.Fatalf("탐색 실패: %v", err)
+	}
+}
+
+// 이중 Release 는 호출 측 버그이지만 게이지를 망가뜨리면 안 된다. 음수로 굳으면
+// 점유가 실제보다 낮게 보여 포화가 안 보인다.
+func TestDoubleReleaseKeepsGaugeAtZero(t *testing.T) {
+	p := newFakePool(t, 1)
+	m := &fakeMetrics{}
+	p.Observe(m)
+
+	e, err := p.Acquire(t.Context())
+	if err != nil {
+		t.Fatalf("Acquire: %v", err)
+	}
+	p.Release(e)
+	p.Release(e) // 버그. 풀은 이미 꽉 차 있다
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.inUse != 0 {
+		t.Fatalf("점유=%d — 이중 Release 가 게이지를 옮겼다", m.inUse)
+	}
+}

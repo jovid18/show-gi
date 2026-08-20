@@ -46,6 +46,16 @@ type Store interface {
 	PutEdge(ctx context.Context, e store.Edge) error
 }
 
+// Metrics 는 탐색 하나를 받는 자리다.
+//
+// 엔진을 부르는 여섯 자리가 다 여기를 지나므로 계측도 여기 하나면 된다 —
+// 기록을 이 자리에 붙인 것과 같은 이유다.
+type Metrics interface {
+	// ObserveSearch 는 탐색 하나가 답을 받기까지 걸린 시간이다. 풀 대기가 들어 있다 —
+	// 재는 자리가 풀 바깥이라 부르는 쪽이 실제로 기다린 시간이다. cached 면 엔진을 안 부른 것이다.
+	ObserveSearch(d time.Duration, cached bool)
+}
+
 // Engine 은 감싸는 대상이다. *usi.Pool 이 만족한다.
 type Engine interface {
 	SearchMultiPV(ctx context.Context, startSFEN string, moves []string, depth, multiPV int) (usi.SearchResult, error)
@@ -59,6 +69,9 @@ type Searcher struct {
 	inner Engine
 	store Store
 
+	// metrics 는 기동 중에 한 번 달리고 그 뒤로는 읽기만 한다. nil 이면 계측이 꺼진다.
+	metrics Metrics
+
 	// wg 는 떠 있는 기록들이다. 종료할 때 이것만 기다리면 방금 잰 분석이 안 버려진다.
 	wg sync.WaitGroup
 }
@@ -67,6 +80,18 @@ type Searcher struct {
 // DB가 없어도 대국은 된다는 이 레포의 판단과 같은 자리다.
 func Wrap(inner Engine, st Store) *Searcher {
 	return &Searcher{inner: inner, store: st}
+}
+
+// Observe 는 계측을 붙인다. 기동 중에 한 번만 부른다 —
+// 탐색이 돌기 시작한 뒤에 부르면 그 필드를 읽는 SearchMultiPV 와 경합한다.
+func (a *Searcher) Observe(m Metrics) { a.metrics = m }
+
+// observe 는 탐색 하나를 계측에 남긴다.
+func (a *Searcher) observe(start time.Time, cached bool) {
+	if a.metrics == nil {
+		return
+	}
+	a.metrics.ObserveSearch(time.Since(start), cached)
 }
 
 // SearchDepth 는 후보 하나짜리 탐색이다. game.Searcher 가 이 모양을 요구한다.
@@ -80,6 +105,8 @@ func (a *Searcher) SearchMultiPV(
 	moves []string,
 	depth, multiPV int,
 ) (usi.SearchResult, error) {
+	start := time.Now()
+
 	// 이미 잰 국면이면 엔진을 안 부른다. 여기가 §12의 캐시를 실제로 쓰는 자리다 —
 	// 상대의 수는 k=10으로 2초쯤 걸리고, 사람의 수를 판정하는 「착수 전」 탐색은 방금
 	// 그 상대가 이미 잰 그 국면이다.
@@ -95,13 +122,18 @@ func (a *Searcher) SearchMultiPV(
 					defer a.wg.Done()
 					a.recordPath(startSFEN, line, hit)
 				}()
+				a.observe(start, true)
 				return hit, nil
 			}
 		}
 	}
 
 	res, err := a.inner.SearchMultiPV(ctx, startSFEN, moves, depth, multiPV)
-	if err != nil || a.store == nil {
+	if err != nil {
+		return res, err
+	}
+	a.observe(start, false)
+	if a.store == nil {
 		return res, err
 	}
 	// 부르는 쪽이 준 슬라이스를 들고 가지 않는다. 대국 루프는 수를 계속 덧붙이므로

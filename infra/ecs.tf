@@ -26,8 +26,11 @@ resource "aws_ecs_cluster" "main" {
 }
 
 resource "aws_cloudwatch_log_group" "app" {
-  name              = "/ecs/show-gi"
-  retention_in_days = 14 # 대회 기간에 필요한 만큼만. 기본은 무기한이라 조용히 쌓인다
+  name = "/ecs/show-gi"
+  # 기본이 무기한이라 조용히 쌓인다. 14일인 것은 요청 로그와 EMF 가 같은 그룹으로
+  # 들어오기 때문이다 — 지표는 CloudWatch 쪽에 15개월 남으므로 원본 로그를 길게 둘
+  # 이유가 「그때 무슨 요청이었나」를 되짚는 것뿐이고, 그건 2주면 된다.
+  retention_in_days = 14
 }
 
 # ─── 역할 ───────────────────────────────────────────────────
@@ -185,10 +188,17 @@ resource "aws_ecs_task_definition" "app" {
       # 줄여도 되는 이유는 쓰는 사람이 한 명이라는 것이다. 세 풀이 동시에 필요한 것은
       # 상대 수·선행 계산·mate 탐색이 겹칠 때이고, 한 사람이 한 수를 두는 동안에는
       # 그 셋이 순서대로 온다. 탐색 2 + mate 1 이면 개입 판정과 상대 수가 겹치는 것까지 덮는다.
+      #
+      # ENVIRONMENT 가 지표의 손잡이다. 비어 있으면 서버가 EMF 를 안 내므로(cmd/api 의
+      # startEmitter) 이 한 줄이 CloudWatch 커스텀 지표를 켜고 끈다. 값은 EMF 문서의
+      # Environment 차원이 되므로, 이 값을 바꾸면 알람의 dimensions 도 같이 바꾼다
+      # (infra/alarms.tf).
       environment = [
         { name = "ENGINE_POOL_SIZE", value = "2" },
         { name = "ENGINE_MATE_POOL_SIZE", value = "1" },
         { name = "ENGINE_HASH_MB", value = "64" },
+        { name = "ENVIRONMENT", value = "prod" },
+        { name = "LOG_LEVEL", value = "info" },
       ]
 
       # 여기가 env.sh를 대체하는 지점이다. ECS가 Parameter Store에서 읽어

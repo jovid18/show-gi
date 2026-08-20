@@ -96,3 +96,17 @@ variable "admin_cidr" {
     error_message = "admin_cidr 은 CIDR 표기여야 한다 (예: 203.0.113.9/32)."
   }
 }
+
+variable "alarm_email" {
+  description = <<-EOT
+    알람을 받을 메일 주소. **비워 두는 것이 기본이다** — 레포가 퍼블릭이라 주소를
+    커밋할 수 없다. 값은 `terraform.tfvars`(gitignore 대상)에 적는다.
+
+    비면 SNS 주제만 만들고 구독은 안 만든다. 알람은 그대로 돌고 콘솔에서만 보인다.
+
+    **주소를 적어 apply 하면 확인 메일이 한 통 온다. 그 링크를 눌러야 활성된다** —
+    누르기 전까지는 알람이 울려도 메일이 오지 않는다.
+  EOT
+  type        = string
+  default     = ""
+}
