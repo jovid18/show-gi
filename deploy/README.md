@@ -237,6 +237,13 @@ aws cloudwatch list-metrics --namespace show-gi --profile show-gi
 aws logs filter-log-events --log-group-name /ecs/show-gi   --filter-pattern '{ $._aws.CloudWatchMetrics[0].Namespace = "show-gi" }'   --max-items 1 --profile show-gi
 ```
 
+알람이 언제 울렸는지는 이력으로 본다. 상태만 보면 「지금 OK」밖에 모르고, 자다가 울렸던 것은 이력에만 남는다.
+
+```sh
+aws cloudwatch describe-alarm-history --alarm-name show-gi-no-healthy-target \
+  --history-item-type StateUpdate --max-items 5 --profile show-gi --region ap-northeast-1
+```
+
 **요청 하나를 되짚을 때는 `request_id` 로 찾는다.** 응답 헤더(`X-Request-Id`)에 실려 나가므로 「이 화면이 이상하다」와 함께 그 값을 받을 수 있다.
 
 ```sh
