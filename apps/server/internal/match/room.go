@@ -144,8 +144,10 @@ func (h *Hub) Create(host Player, hostColor shogi.Color) *Room {
 // openRoomsPerHost 는 한 사람이 아직 안 시작한 방을 몇 개까지 들고 있을 수 있나다.
 // 넘으면 거절이 아니라 오래된 것을 버린다(journal §83).
 //
-// [미확정] 3은 감으로 잡은 값이다.
-const openRoomsPerHost = 3
+// 1이라 「방을 만든다」가 사람마다 멱등이다. 열린 링크가 언제나 최신 하나뿐이고, 새로
+// 만드는 순간 옛것이 죽는다 — 방을 볼 화면도 걷을 API도 없어서(match.go), 상한을 넘게
+// 두면 호스트가 모르는 살아 있는 링크가 OpenTTL 동안 남는다.
+const openRoomsPerHost = 1
 
 // dropSurplusLocked 는 그 사람의 안 시작한 방이 상한을 넘으면 오래된 것부터 버린다.
 //

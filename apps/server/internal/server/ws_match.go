@@ -306,7 +306,11 @@ func emitMatch(ctx context.Context, out chan<- matchServerMsg, msg matchServerMs
 // 기록기를 한 벌만 두려고 있는 자리다. 큐가 넘칠 때 버리는 규약, 연결이 끊겨도
 // 마저 쓰는 규약, 안 끝난 판을 abandoned 로 닫는 규약이 전부 저쪽에 있고 미묘하다 —
 // 두 벌이면 한쪽만 고쳐진다.
-type matchRecorder struct{ db *dbRecorder }
+type matchRecorder struct {
+	db *dbRecorder
+	// note 는 결과를 곁장부에 한 벌 더 적는다. nil 일 수 있다 — 테스트가 기록기만 볼 때다.
+	note func(match.Result)
+}
 
 func (m matchRecorder) Started(startSFEN string, myColor shogi.Color) {
 	m.db.Started(startSFEN, myColor)
@@ -320,4 +324,7 @@ func (m matchRecorder) Moved(ply int, usi string) {
 
 func (m matchRecorder) Finished(r match.Result) {
 	m.db.FinishedWith(store.GameResult(r))
+	if m.note != nil {
+		m.note(r)
+	}
 }

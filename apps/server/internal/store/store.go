@@ -255,6 +255,72 @@ func (s *Store) SaveSkillEstimate(ctx context.Context, userID int64, e SkillEsti
 	return nil
 }
 
+// ── 매칭 레이팅 ──────────────────────────────────────────
+
+// MatchRating 은 사람끼리 둔 판으로 움직이는 레이팅 한 사람 몫이다. rating.Rating 과
+// 같은 두 값에 그것을 해석하는 데 필요한 셋이 붙는다 — 그 패키지를 여기서 들여오지 않는
+// 것은 갱신식이 DB를 모르게 두기 위해서다(rating 패키지).
+type MatchRating struct {
+	// Value·Deviation 은 레이팅과 그 불확실성이다. Games 가 0이면 둘 다 뜻이 없다.
+	Value     float64
+	Deviation float64
+	// Games 는 반영된 대인전 판 수다. 0이 「아직 레이팅이 없다」다(013_match_rating.sql).
+	Games int
+	// UpdatedAt 은 레이팅이 마지막으로 움직인 시각이다. 안 둔 시간만큼 불확실성을
+	// 되돌리는 데 쓴다. Games 가 0이면 제로값이다.
+	UpdatedAt time.Time
+	// Skill 은 레이팅이 없을 때 시드를 만드는 재료다. SkillKnown 이 false 면 그것도 없다.
+	Skill      SkillEstimate
+	SkillKnown bool
+}
+
+// MatchRating 은 그 사람의 레이팅이다. 행이 없어도 에러가 아니다 — Games 0으로 온다.
+//
+// 시드도 불확실성 복원도 여기서 안 한다. 그건 갱신식과 같은 자리에 있어야 하고
+// (internal/rating) 여기가 그것을 하면 상수가 두 벌이 된다.
+func (s *Store) MatchRating(ctx context.Context, userID int64) (MatchRating, error) {
+	row, err := s.q.GetRating(ctx, userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return MatchRating{}, nil
+	}
+	if err != nil {
+		return MatchRating{}, fmt.Errorf("get rating %d: %w", userID, err)
+	}
+	out := MatchRating{
+		Value:     row.RatingEst,
+		Deviation: row.RatingSd,
+		Games:     int(row.RatingGames),
+		UpdatedAt: row.RatingUpdatedAt.Time,
+	}
+	if row.SkillLoss != nil {
+		out.Skill = SkillEstimate{Loss: *row.SkillLoss, Samples: int(row.SkillSamples)}
+		out.SkillKnown = true
+	}
+	return out, nil
+}
+
+// SaveMatchRatings 는 한 판의 두 사람을 같이 옮긴다. Games 와 시각은 질의가 정한다.
+//
+// 두 id 가 같으면 부르지 않는다. 그러면 질의가 거절하고(query/rating.sql) 한 판이
+// 반영되지 않은 채 에러 한 줄만 남는다.
+func (s *Store) SaveMatchRatings(ctx context.Context, aID int64, a MatchRating, bID int64, b MatchRating) error {
+	if aID == bID {
+		return fmt.Errorf("save match ratings: both sides are user %d", aID)
+	}
+	err := s.q.SaveMatchRatings(ctx, db.SaveMatchRatingsParams{
+		UserID:      aID,
+		RatingEst:   a.Value,
+		RatingSd:    a.Deviation,
+		UserID_2:    bID,
+		RatingEst_2: b.Value,
+		RatingSd_2:  b.Deviation,
+	})
+	if err != nil {
+		return fmt.Errorf("save match ratings for %d and %d: %w", aID, bID, err)
+	}
+	return nil
+}
+
 // ── 대국 기록 ────────────────────────────────────────────
 
 // GameResult 는 games.result 에 들어가는 값이다.
