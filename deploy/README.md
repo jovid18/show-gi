@@ -237,7 +237,7 @@ aws cloudwatch list-metrics --namespace show-gi --profile show-gi
 aws logs filter-log-events --log-group-name /ecs/show-gi   --filter-pattern '{ $._aws.CloudWatchMetrics[0].Namespace = "show-gi" }'   --max-items 1 --profile show-gi
 ```
 
-알람이 언제 울렸는지는 이력으로 본다. **정책 버전을 다시 게시하기 전에는 이 조회만 `AccessDenied` 다**(06-status §7).
+알람이 언제 울렸는지는 이력으로 본다. 상태만 보면 「지금 OK」밖에 모르고, 자다가 울렸던 것은 이력에만 남는다.
 
 ```sh
 aws cloudwatch describe-alarm-history --alarm-name show-gi-no-healthy-target \
