@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -523,5 +524,65 @@ func TestLinksThePathEvenOnACacheHit(t *testing.T) {
 	}
 	if e.ParentKey != Key(start) || e.ChildKey != Key(after) {
 		t.Errorf("edge = %+v", e)
+	}
+}
+
+// fakeSearchMetrics 는 탐색 계측을 그대로 받아 둔다.
+type fakeSearchMetrics struct {
+	mu     sync.Mutex
+	cached int
+	engine int
+}
+
+func (m *fakeSearchMetrics) ObserveSearch(_ time.Duration, cached bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if cached {
+		m.cached++
+		return
+	}
+	m.engine++
+}
+
+// 캐시가 답한 것과 엔진을 부른 것이 지표에서 갈려야 한다. 이 비율이 국면 캐시가
+// 실제로 일하는지를 말하는 유일한 숫자다.
+func TestObservesCacheHitsSeparately(t *testing.T) {
+	st := newStore()
+	eng := &fakeEngine{res: result(8, "3c3d")}
+	a := Wrap(eng, st)
+	m := &fakeSearchMetrics{}
+	a.Observe(m)
+
+	if _, err := a.SearchMultiPV(t.Context(), shogi.StartSFEN, nil, 8, 1); err != nil {
+		t.Fatalf("첫 탐색: %v", err)
+	}
+	a.Wait()
+	// 같은 국면을 다시 물으면 캐시가 답한다.
+	if _, err := a.SearchMultiPV(t.Context(), shogi.StartSFEN, nil, 8, 1); err != nil {
+		t.Fatalf("두 번째: %v", err)
+	}
+	a.Wait()
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.engine != 1 || m.cached != 1 {
+		t.Fatalf("엔진 %d회 · 캐시 %d회, want 1·1 (엔진 호출은 %d회)", m.engine, m.cached, eng.calls)
+	}
+}
+
+// 실패한 탐색은 안 센다. 세션이 끝나 ctx가 닫히는 것이 흔해서, 그걸 세면
+// 「탐색 수」가 사람이 판을 떠난 횟수까지 담는다.
+func TestDoesNotObserveFailedSearches(t *testing.T) {
+	a := Wrap(&fakeEngine{err: errors.New("boom")}, newStore())
+	m := &fakeSearchMetrics{}
+	a.Observe(m)
+
+	if _, err := a.SearchMultiPV(t.Context(), shogi.StartSFEN, nil, 8, 1); err == nil {
+		t.Fatal("에러가 안 나왔다")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.engine != 0 || m.cached != 0 {
+		t.Fatalf("실패를 셌다: 엔진 %d · 캐시 %d", m.engine, m.cached)
 	}
 }

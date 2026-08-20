@@ -1,0 +1,44 @@
+# infra/ 검증. 로컬에서 `terraform -chdir=infra fmt -check && terraform -chdir=infra validate`와 같다.
+#
+# 이 검사가 없던 동안 정렬은 사람이 그 줄을 직접 칠 때만 맞았다(journal §90).
+# oxfmt는 .tf를 모르고 pre-commit도 웹·Go만 봤으므로, 손으로 안 돌린 PR은 그대로 지나갔다.
+
+name: Terraform
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # job 이름이 그대로 필수 체크의 컨텍스트가 된다. 룰셋에 이 이름을 넣는 것은
+  # 사람이 GitHub 화면에서 한 번 해야 한다 — 넣기 전까지는 참고용 체크다.
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          # providers.tf 가 >= 1.5.0 이라 그 하한을 그대로 쓴다. 올릴 때는 양쪽을 같이 본다.
+          terraform_version: 1.5.7
+          # 래퍼를 끄면 stdout이 그대로 남는다. 켜 두면 출력이 감싸져 fmt -check 의
+          # 「어긋난 파일 이름」이 로그에서 찾기 어려워진다.
+          terraform_wrapper: false
+
+      # 자격증명이 없다. -backend=false 면 S3 백엔드에 붙지 않고 프로바이더 스키마만
+      # 받아오므로 validate 가 그대로 돈다 — CI에 AWS 키를 넣을 이유가 없다.
+      - run: terraform init -backend=false
+
+      # 어긋난 파일 이름을 출력하고 exit 3 으로 끝낸다. -recursive 인 것은 지금
+      # infra/ 가 평평하지만 모듈을 나누는 날 조용히 빠지지 않게 하려는 것이다.
+      - run: terraform fmt -check -recursive
+
+      - run: terraform validate

@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/match"
+	"github.com/jovid18/show-gi/apps/server/internal/metrics"
 	"github.com/jovid18/show-gi/apps/server/internal/quiz"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -77,6 +79,10 @@ type Options struct {
 
 	// PublicOrigin 은 브라우저가 이 서버를 부르는 주소다. 비면 요청에서 되짚는다(auth.go).
 	PublicOrigin string
+
+	// Metrics 는 요청·엔진·세션의 숫자가 쌓이는 곳이다. nil 이면 계측만 꺼지고
+	// 요청 로그는 그대로 남는다 — 테스트가 그 상태로 돈다.
+	Metrics *metrics.Registry
 
 	// Match 는 대인전에 필요한 한 벌이다. nil이면 그 표면이 통째로 닫힌다 —
 	// 엔진도 DB도 안 쓰는 기능이라(internal/match) 그 둘과 따로 켜고 끈다.
@@ -149,6 +155,19 @@ func Handler(opts Options) http.Handler {
 			"ok": true, "engine": engineReady, "db": dbReady,
 		})
 	})
+
+	// 지표. 밖에서 안 닿는다 — Caddy 가 /ws·/api·/healthz 만 프록시하므로 이 경로는
+	// 태스크 안에서만 열린다(apps/web/Caddyfile). 프로덕션에서 실제로 보는 것은
+	// stdout 으로 나가는 EMF 쪽이고(internal/metrics), 여기는 로컬과 컨테이너 안에서
+	// 같은 숫자를 라벨까지 붙여 읽는 자리다.
+	if opts.Metrics != nil {
+		mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+			if err := opts.Metrics.WriteText(w); err != nil {
+				slog.WarnContext(r.Context(), "cannot write /metrics", "err", err)
+			}
+		})
+	}
 
 	// 로그인. 켜지지 않아도 /api/me 는 있다 — 화면이 「로그인이라는 것이 이 배포에
 	// 있는가」를 물어보는 자리이고, 없으면 그 물음이 404가 되어 고장과 구별되지 않는다.
@@ -264,7 +283,7 @@ func Handler(opts Options) http.Handler {
 		mux.HandleFunc("POST /api/rooms", mh.create)
 		mux.HandleFunc("GET /api/rooms/{id}", mh.get)
 		mux.Handle("GET /ws/match", &matchHandlerWS{
-			hub: opts.Match.hub, auth: ah, records: opts.Match.records,
+			hub: opts.Match.hub, auth: ah, records: opts.Match.records, metrics: opts.Metrics,
 		})
 	}
 
@@ -279,7 +298,9 @@ func Handler(opts Options) http.Handler {
 		})
 	}
 
-	return mux
+	// 감싸는 것이 mux 밖이어야 한다. route 라벨로 쓰는 r.Pattern 을 ServeMux 가 채우므로
+	// 안쪽에 두면 그 값을 읽을 수 없다(observe.go).
+	return observe(opts.Metrics, mux)
 }
 
 // Run 은 서버를 띄우고 ctx가 취소될 때까지 막힌다.

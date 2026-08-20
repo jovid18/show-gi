@@ -18,6 +18,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/book"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
+	"github.com/jovid18/show-gi/apps/server/internal/metrics"
 	"github.com/jovid18/show-gi/apps/server/internal/quiz"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
@@ -337,6 +338,10 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return // Accept 가 이미 응답을 썼다
 	}
 	defer conn.CloseNow()
+
+	// 업그레이드가 성공한 뒤에 센다. 앞에서 세면 실패한 업그레이드가 게이지에 남는다.
+	closeSession := h.opts.Metrics.Session(metrics.KindGame)
+	defer closeSession()
 
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 )
 
 // ErrPoolClosed 는 닫힌 풀에서 엔진을 빌리려 할 때 나온다.
@@ -18,6 +19,22 @@ type Pool struct {
 
 	done      chan struct{}
 	closeOnce sync.Once
+
+	// metrics 는 기동 중에 한 번 달리고 그 뒤로는 읽기만 한다. nil 이면 계측이 꺼진다.
+	metrics Metrics
+}
+
+// Metrics 는 풀이 밖으로 내는 숫자를 받는 자리다.
+//
+// 이 패키지가 지표 표면을 모르게 두려고 인터페이스로 받는다 — 풀의 일은 엔진을
+// 빌려주는 것이고, 그 숫자를 어디에 어떤 이름으로 쌓는지는 밖의 판단이다.
+type Metrics interface {
+	// SetSize 는 풀 크기다. 점유 수만으로는 포화를 못 읽는다.
+	SetSize(n int)
+	// ObserveWait 는 빌리기까지 기다린 시간이다. 안 기다렸으면 0이 들어간다.
+	ObserveWait(d time.Duration)
+	// ObserveInUse 는 빌려 나간 엔진 수의 변화다. +1 과 -1 만 들어간다.
+	ObserveInUse(delta int)
 }
 
 // NewPool 은 엔진 size개를 띄운다. 하나라도 실패하면 이미 띄운 것을 정리하고 에러를 낸다.
@@ -48,6 +65,13 @@ func NewPool(size int, path string, opts map[string]string, args ...string) (*Po
 // Size 는 풀에 있는 엔진 수다.
 func (p *Pool) Size() int { return len(p.all) }
 
+// Observe 는 계측을 붙인다. 기동 중에 한 번만 부른다 —
+// 탐색이 돌기 시작한 뒤에 부르면 그 필드를 읽는 Acquire 와 경합한다.
+func (p *Pool) Observe(m Metrics) {
+	p.metrics = m
+	m.SetSize(p.Size())
+}
+
 // Acquire 는 엔진 하나를 빌린다. 빈 게 없으면 ctx가 끝날 때까지 기다린다.
 // 빌린 쪽은 반드시 Release 해야 한다.
 func (p *Pool) Acquire(ctx context.Context) (*Engine, error) {
@@ -56,14 +80,28 @@ func (p *Pool) Acquire(ctx context.Context) (*Engine, error) {
 		return nil, ErrPoolClosed
 	default:
 	}
+
+	// 빈 게 있어 바로 받은 경우도 0으로 재 둔다. 기다린 것만 재면 백분위가 늘 나쁘게
+	// 보이고(대기가 있었던 회차만 표본이 된다) 「대개 안 기다린다」를 말할 수 없다.
+	start := time.Now()
 	select {
 	case e := <-p.free:
+		p.borrowed(start)
 		return e, nil
 	case <-p.done:
 		return nil, ErrPoolClosed
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+}
+
+// borrowed 는 빌려 간 것을 계측에 남긴다.
+func (p *Pool) borrowed(start time.Time) {
+	if p.metrics == nil {
+		return
+	}
+	p.metrics.ObserveWait(time.Since(start))
+	p.metrics.ObserveInUse(1)
 }
 
 // Release 는 빌린 엔진을 돌려준다.
@@ -73,6 +111,11 @@ func (p *Pool) Release(e *Engine) {
 	}
 	select {
 	case p.free <- e:
+		// 돌아온 갈래에서만 내린다. select 앞에서 내리면 이중 Release 가 게이지를
+		// -1 로 굳힌다 — 아래 default 는 풀이 이미 꽉 찬 자리라 점유가 0인 상태다.
+		if p.metrics != nil {
+			p.metrics.ObserveInUse(-1)
+		}
 	default:
 		// 빌려준 것보다 많이 돌아올 수는 없다. 여기 오면 호출 측 버그이므로
 		// 막지 말고 흘려보낸다 — 여기서 블록되면 원인이 안 보이는 교착이 된다.

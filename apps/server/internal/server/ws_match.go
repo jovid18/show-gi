@@ -11,6 +11,7 @@ import (
 
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/match"
+	"github.com/jovid18/show-gi/apps/server/internal/metrics"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
@@ -88,6 +89,8 @@ type matchHandlerWS struct {
 	auth *authHandler
 	// records 는 방마다 만든 기록기다. 판 번호를 화면에 돌려주려고만 들고 있다.
 	records *matchRecords
+	// metrics 는 nil 일 수 있다. 그때는 세션이 안 세어지고 대국은 그대로 된다.
+	metrics *metrics.Registry
 }
 
 func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -118,6 +121,10 @@ func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return // Accept 가 이미 응답을 썼다
 	}
 	defer conn.CloseNow()
+
+	// 업그레이드가 성공한 뒤에 센다. 앞에서 세면 실패한 업그레이드가 게이지에 남는다.
+	closeSession := h.metrics.Session(metrics.KindMatch)
+	defer closeSession()
 
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()

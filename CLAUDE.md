@@ -124,6 +124,8 @@ SERVER_ORIGIN=http://localhost:8081 pnpm dev --port 5174
 
 강제는 **GitHub 룰셋**이 한다. public 레포라 서버에서 브랜치 보호를 걸 수 있고, 그쪽은 `--no-verify`로 뚫리지 않는다. 룰셋이 막는 것: `main` 직접 푸시, `main` 삭제, 모든 force push, CI(`Server` / `Web`) 통과 전 머지.
 
+**`Terraform` 워크플로는 아직 필수 체크가 아니다.** 워크플로는 있는데 룰셋에 이름을 넣는 것은 GitHub 화면에서 사람이 하는 일이라, 그때까지는 빨간불이 나도 머지가 막히지 않는다.
+
 로컬에는 `.githooks/pre-commit` 하나만 둔다. `main` 커밋을 막고 스테이징된 파일을 포맷한다.
 
 클론마다 한 번:
@@ -141,7 +143,9 @@ git config pull.ff only
 
 ## 포맷
 
-**TS·마크다운은 oxfmt, Go는 gofmt.** Prettier를 쓰지 않는다 — 전역 VS Code 설정이 Prettier(100칸)를 기본 포매터로 두면 oxfmt(120칸)와 매번 싸운다. `.vscode/settings.json`이 이 워크스페이스에서만 포매터를 덮어쓰고, `pre-commit`이 스테이징된 파일을 한 번 더 정리한다.
+**TS·마크다운은 oxfmt, Go는 gofmt, `.tf`는 terraform fmt.** Prettier를 쓰지 않는다 — 전역 VS Code 설정이 Prettier(100칸)를 기본 포매터로 두면 oxfmt(120칸)와 매번 싸운다. `.vscode/settings.json`이 이 워크스페이스에서만 포매터를 덮어쓰고, `pre-commit`이 스테이징된 파일을 한 번 더 정리한다.
+
+**`pnpm lint`는 `.tf`를 안 본다.** oxfmt가 그 확장자를 모르기 때문이고, 그래서 `pre-commit`과 `Terraform` 워크플로가 그 자리를 맡는다([§90](docs/journal/82-100.md)). 훅은 terraform CLI가 없는 클론에서는 조용히 건너뛰므로 **강제하는 것은 CI 쪽이다.**
 
 **표의 파이프가 원문에서 어긋나 보이는 것은 정상이다.** oxfmt가 CJK 문자 폭을 1칸으로 세기 때문이고, 렌더 결과는 정상이다. **손으로 맞추지 않는다** — 다음 저장에 다시 틀어진다.
 
