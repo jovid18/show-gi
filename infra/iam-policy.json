@@ -232,6 +232,7 @@
         "cloudwatch:PutMetricAlarm",
         "cloudwatch:DeleteAlarms",
         "cloudwatch:DescribeAlarms",
+        "cloudwatch:DescribeAlarmHistory",
         "cloudwatch:GetMetricData",
         "cloudwatch:ListMetrics",
         "cloudwatch:TagResource",
