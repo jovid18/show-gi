@@ -860,6 +860,8 @@ func (st *state) observeSkill(j Judgement) {
 		Blunder:   j.Verdict.Kind == intervene.KindBlunder,
 		DeltaWin:  j.Verdict.DeltaWin,
 		Threshold: j.Threshold,
+		Ply:       j.Ply,
+		Decided:   j.Decided(),
 	})
 }
 

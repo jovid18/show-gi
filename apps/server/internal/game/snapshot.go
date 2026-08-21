@@ -206,6 +206,21 @@ type Judgement struct {
 	//
 	// 화면으로 그냥 나가지 않는다 — 갇힘 힌트가 단계에 맞게 잘라 쓴다(buildHint).
 	BestUSI string
+
+	// Ply 는 판정한 手数다. 실력 추정이 창을 쓰기 때문에 필요하다 — 초반은 定跡이라
+	// 그 사람의 급수 신호가 아니다(skill.AnchorFromPly, journal §94).
+	Ply int
+}
+
+// DecidedWinRate 는 「이미 갈렸다」의 경계다. 최선수의 승률이 이 밖이면 그 국면의 낙폭은
+// 실력 신호가 아니다 — 승률이 포화해 나쁜 수도 낙폭이 0에 가깝고, 무너지는 몇 수만
+// 크게 잡혀 판 평균을 그 꼬리가 정한다(journal §94).
+const DecidedWinRate = 0.95
+
+// Decided 는 그 수를 두기 전에 승패가 이미 갈려 있었나다.
+func (j Judgement) Decided() bool {
+	w := intervene.WinRate(j.Verdict.BestCp)
+	return w >= DecidedWinRate || w <= 1-DecidedWinRate
 }
 
 // RefutationMove 는 반박 수순의 한 수다.

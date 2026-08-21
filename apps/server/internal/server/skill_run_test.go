@@ -27,7 +27,7 @@ func TestFirstGameHasNoBefore(t *testing.T) {
 
 // 이어 두는 사람은 판 전후가 둘 다 있어야 한다.
 func TestReturningPlayerGetsBothEnds(t *testing.T) {
-	before := estimate(skill.RankLossScale/2, 12)
+	before := estimate(0.1265, 12) // 15級 앵커(skill.rankAnchors)
 	r := newSkillRun(before)
 	r.observing(nil)(estimate(0.02, 30))
 
@@ -35,8 +35,8 @@ func TestReturningPlayerGetsBothEnds(t *testing.T) {
 	if got == nil || got.Before == nil {
 		t.Fatalf("판 전후가 다 있어야 한다: %+v", got)
 	}
-	if got.Before.NameJa != "8級" {
-		t.Errorf("전 = %q, want 8級", got.Before.NameJa)
+	if got.Before.NameJa != "15級" {
+		t.Errorf("전 = %q, want 15級", got.Before.NameJa)
 	}
 	// 낙폭이 줄었으므로 段級은 세져야 한다. 부호가 뒤집히면 화면 전체가 반대로 간다.
 	if got.After.Step <= got.Before.Step {
@@ -89,7 +89,7 @@ func TestConcurrentObserveAndRead(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := range 200 {
-			cb(estimate(float64(i%100)/400, 10+i))
+			cb(estimate(0.02+float64(i%100)/1000, 10+i))
 		}
 	}()
 	go func() {
@@ -112,6 +112,9 @@ func mustRank(t *testing.T, absLoss float64) skill.Rank {
 
 // estimate 는 段級이 붙을 만한 추정치다. 이름은 절대 낙폭에서만 나오므로(skill.RankOf)
 // 두 축을 같은 개수로 채운다 — 대국 중에 오는 값이 그 모양이다.
+//
+// 밴드가 보는 Loss 는 아무 값이나 둔다. 段級이 그 칸을 안 보는 것이 이 파일이 확인하는
+// 것 중 하나다.
 func estimate(absLoss float64, samples int) skill.Estimate {
-	return skill.Estimate{Loss: absLoss / skill.RankLossScale, Samples: samples, AbsLoss: absLoss, AbsSamples: samples}
+	return skill.Estimate{Loss: 0.5, Samples: samples, AbsLoss: absLoss, AbsSamples: samples}
 }

@@ -28,6 +28,11 @@ type Move struct {
 	// 여기서 레벨을 보고 값을 고르지 않는 것은 이 패키지가 intervene 을 모르기 위해서다 —
 	// 부르는 쪽이 이미 그 값으로 판정했으므로 같은 값을 그대로 넘긴다.
 	Threshold float64
+	// Ply 는 이 수의 手数다. 段級이 창 안의 수만 세기 때문에 필요하다(AnchorFromPly).
+	Ply int
+	// Decided 는 두기 전에 승패가 이미 갈려 있었나다. 부르는 쪽이 정한다 — 그 판정에는
+	// 승률 환산이 필요하고(game.DecidedWinRate) 이 패키지는 cp를 모른다.
+	Decided bool
 }
 
 // Estimate 는 지금까지 본 것으로 만든 추정치다.
@@ -73,6 +78,18 @@ var Unknown = Estimate{Loss: PriorLoss}
 const (
 	RiseRate = 0.5
 	FallRate = 0.1
+)
+
+// AnchorFromPly·AnchorToPly 는 段級을 재는 手数 창이다. 밴드는 이 창을 안 본다 —
+// 조절은 매 수 일어나야 한다.
+//
+// 실측한 앵커가 이 창에서 나왔으므로 런타임도 같은 자를 써야 한다(journal §94). 창이
+// 필요한 이유가 둘이다 — 초반은 定跡이라 급수 신호가 없고(15級의 1-20手 낙폭이 뒤
+// 구간의 3분의 1이다), 끝까지 세면 판 길이가 값을 정해서 자가 실력이 아니라 手数의
+// 함수가 된다(같은 표본에서 급수 순서가 뒤집혔다).
+const (
+	AnchorFromPly = 21
+	AnchorToPly   = 60
 )
 
 // MateAbsLoss 는 詰み을 놓친 수의 절대 낙폭이다.
@@ -134,9 +151,11 @@ func (t *Track) Observe(m Move) Estimate {
 	}
 	t.loss += rate * (l - t.loss)
 	t.samples++
-	// 창이 찰 때까지는 진짜 평균이고, 찬 뒤로는 창 하나짜리 EMA다(AbsWindow).
-	t.absMean += (absMoveLoss(m) - t.absMean) / float64(min(t.absSamples+1, AbsWindow))
-	t.absSamples++
+	if inAnchorWindow(m) {
+		// 창이 찰 때까지는 진짜 평균이고, 찬 뒤로는 창 하나짜리 EMA다(AbsWindow).
+		t.absMean += (absMoveLoss(m) - t.absMean) / float64(min(t.absSamples+1, AbsWindow))
+		t.absSamples++
+	}
 	return t.Estimate()
 }
 
@@ -160,6 +179,20 @@ func moveLoss(m Move) float64 {
 		return 0 // 임계치를 모르면 정규화할 수 없다. 통과한 수이므로 손해 없음으로 둔다
 	}
 	return clamp01(m.DeltaWin / m.Threshold)
+}
+
+// inAnchorWindow 는 이 수가 段級에 들어가는가다. 밴드는 이것과 무관하게 전부 본다.
+//
+// Ply 가 0이면 부르는 쪽이 手数를 안 실어 준 것이라 창을 못 씌운다. 그때는 넣는다 —
+// 빼면 그 배선에서 段級이 영원히 안 붙고, 그건 조용한 고장이다.
+func inAnchorWindow(m Move) bool {
+	if m.Decided {
+		return false
+	}
+	if m.Ply == 0 {
+		return true
+	}
+	return m.Ply >= AnchorFromPly && m.Ply <= AnchorToPly
 }
 
 // absMoveLoss 는 한 수의 손해를 임계치로 나누지 않고 돌려준다.

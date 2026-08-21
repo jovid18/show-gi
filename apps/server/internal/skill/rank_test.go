@@ -1,19 +1,40 @@
 package skill
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
-// 척도의 가운데가 8級이어야 한다. 한쪽 끝으로 몰리면 처음 붙는 이름이 이미 판정처럼
-// 읽힌다(rankNames).
-func TestMiddleOfTheScaleIsEightKyu(t *testing.T) {
-	got, ok := RankOf(named(RankLossScale / 2))
-	if !ok {
-		t.Fatal("표본이 찼는데 이름이 없다")
+// 실측한 급수는 자기 이름에 떨어져야 한다. 앵커가 이름과 어긋나면 그 표본을 잰 의미가
+// 없어진다(rankAnchors).
+func TestAnchorsLandOnTheirOwnNames(t *testing.T) {
+	for _, a := range rankAnchors {
+		got, ok := RankOf(named(a.Loss))
+		if !ok {
+			t.Fatalf("absLoss=%v 에 이름이 없다", a.Loss)
+		}
+		if got.Step != a.Step {
+			t.Errorf("absLoss=%v → %q(%d), want Step %d", a.Loss, got.NameJa, got.Step, a.Step)
+		}
 	}
-	if got.NameJa != "8級" {
-		t.Errorf("척도 가운데의 이름 = %q, want 8級", got.NameJa)
-	}
-	if got.Step*2 != RankMax {
-		t.Errorf("Step = %d, 척도의 가운데(%d)가 아니다", got.Step, RankMax/2)
+}
+
+// 앵커로 안 쓴 실측 라벨이 그 선에서 두 계급 안에 들어와야 한다. 벗어나면 척도가
+// 실측을 설명하지 못하는 것이고, 그때는 앵커를 늘려야 한다(rankAnchors).
+func TestMeasuredLabelsSitNearTheLine(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		step    int
+		absLoss float64
+	}{
+		{"5級", 10, 0.0770},
+		{"1級", 14, 0.0706},
+		{"初段", 15, 0.0683},
+	} {
+		got := rankStepOf(c.absLoss)
+		if math.Abs(got-float64(c.step)) > 2 {
+			t.Errorf("%s(실측 %v)의 자리 = %.1f, want %d ±2", c.name, c.absLoss, got, c.step)
+		}
 	}
 }
 
@@ -36,18 +57,18 @@ func TestNoNameWhenOnlyTheNormalizedLossIsKnown(t *testing.T) {
 	}
 }
 
-// 낙폭이 커질수록 이름이 약해져야 한다. 부호를 뒤집는 자리가 RankOf 한 곳뿐이라,
+// 낙폭이 커질수록 이름이 약해져야 한다. 부호를 뒤집는 자리가 rankStepOf 한 곳뿐이라,
 // 여기가 깨지면 화면 전체가 반대로 간다.
 func TestWorseLossNeverGivesAStrongerName(t *testing.T) {
 	prev := RankMax + 1
-	for i := 0; i <= 20; i++ {
-		abs := RankLossScale * float64(i) / 20
+	for i := 0; i <= 40; i++ {
+		abs := 0.20 * float64(i) / 40 // 작은 낙폭(센 쪽)에서 큰 낙폭(약한 쪽)으로
 		got, ok := RankOf(named(abs))
 		if !ok {
-			t.Fatalf("absLoss=%.3f 에 이름이 없다", abs)
+			t.Fatalf("absLoss=%.4f 에 이름이 없다", abs)
 		}
 		if got.Step > prev {
-			t.Errorf("absLoss=%.3f 에서 이름이 세졌다: Step %d → %d", abs, prev, got.Step)
+			t.Errorf("absLoss=%.4f 에서 이름이 세졌다: Step %d → %d", abs, prev, got.Step)
 		}
 		prev = got.Step
 	}
@@ -56,7 +77,7 @@ func TestWorseLossNeverGivesAStrongerName(t *testing.T) {
 // 밖에서 온 값이 척도를 벗어나게 하면 안 된다 — 저장해 둔 값이 DB에서 오고(store),
 // NewTrackFrom 과 같은 이유로 여기서도 자른다.
 func TestOutOfRangeLossStaysOnTheScale(t *testing.T) {
-	for _, abs := range []float64{-3, -0.001, 1.001, 42} {
+	for _, abs := range []float64{-3, -0.001, 0, 1.001, 42} {
 		got, ok := RankOf(named(abs))
 		if !ok {
 			t.Fatalf("absLoss=%v 에 이름이 없다", abs)
@@ -70,15 +91,20 @@ func TestOutOfRangeLossStaysOnTheScale(t *testing.T) {
 	}
 }
 
-// 양 끝이 척도의 양 끝이어야 한다.
+// 양 끝이 척도의 양 끝이어야 한다. 아래 끝은 15級 앵커이고, 위 끝은 그 위 전부다 —
+// 段 사이를 이 자로 못 가른다(rankNames).
 func TestEndsOfTheScale(t *testing.T) {
-	best, _ := RankOf(named(0))
-	if best.NameJa != "初段" || best.Step != RankMax {
-		t.Errorf("낙폭 0의 이름 = %q(%d), want 初段(%d)", best.NameJa, best.Step, RankMax)
+	worst, _ := RankOf(named(0.5))
+	if worst.NameJa != "15級" || worst.Step != 0 {
+		t.Errorf("큰 낙폭의 이름 = %q(%d), want 15級(0)", worst.NameJa, worst.Step)
 	}
-	worst, _ := RankOf(named(RankLossScale))
-	if worst.NameJa != "16級" || worst.Step != 0 {
-		t.Errorf("낙폭 %v의 이름 = %q(%d), want 16級(0)", RankLossScale, worst.NameJa, worst.Step)
+	// 위 앵커보다 작은 낙폭은 전부 그 한 칸이다. 段 사이를 이 자로 못 가르므로
+	// (§94의 평평한 구간) 三段도 5段도 같은 이름으로 나간다.
+	for _, abs := range []float64{0.0651, 0.0332, 0.001} {
+		got, _ := RankOf(named(abs))
+		if got.NameJa != "初段" {
+			t.Errorf("absLoss=%v 의 이름 = %q, want 初段", abs, got.NameJa)
+		}
 	}
 }
 
@@ -90,8 +116,8 @@ func TestNameDoesNotDependOnTheThresholdThatJudged(t *testing.T) {
 	name := func(threshold float64) string {
 		tr := NewTrack()
 		var e Estimate
-		for range MinSamples {
-			e = tr.Observe(Move{DeltaWin: drop, Threshold: threshold})
+		for ply := AnchorFromPly; ply < AnchorFromPly+MinSamples; ply++ {
+			e = tr.Observe(Move{DeltaWin: drop, Threshold: threshold, Ply: ply})
 		}
 		got, ok := RankOf(e)
 		if !ok {
@@ -100,9 +126,20 @@ func TestNameDoesNotDependOnTheThresholdThatJudged(t *testing.T) {
 		return got.NameJa
 	}
 
-	beginner, intermediate := name(0.25), name(0.12)
-	if beginner != intermediate {
+	if beginner, intermediate := name(0.25), name(0.12); beginner != intermediate {
 		t.Errorf("같은 낙폭에 이름이 갈렸다: beginner=%s intermediate=%s", beginner, intermediate)
+	}
+}
+
+// 앵커 사이는 로그 보간이다. 두 앵커의 기하 중앙이 그 두 칸의 가운데로 와야 한다 —
+// 낙폭이 곱셈적이라(SD가 평균에 비례한다) 산술로 이으면 아래쪽 계급이 뭉친다.
+func TestBetweenAnchorsIsLogarithmic(t *testing.T) {
+	lo, hi := rankAnchors[0], rankAnchors[len(rankAnchors)-1]
+	mid := math.Sqrt(lo.Loss * hi.Loss)
+	got := rankStepOf(mid)
+	want := float64(lo.Step+hi.Step) / 2
+	if math.Abs(got-want) > 1e-9 {
+		t.Errorf("기하 중앙의 자리 = %.4f, want %.1f", got, want)
 	}
 }
 
