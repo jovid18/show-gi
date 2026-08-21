@@ -31,9 +31,10 @@ func TestMeasuredLabelsSitNearTheLine(t *testing.T) {
 		step    int
 		absLoss float64
 	}{
+		{"10級", 5, 0.1064},
 		{"5級", 10, 0.0770},
 		{"1級", 14, 0.0706},
-		{"初段", 15, 0.0683},
+		{"初段", 15, 0.0659},
 	} {
 		got := rankStepOf(c.absLoss)
 		if math.Abs(got-float64(c.step)) > 3 {
