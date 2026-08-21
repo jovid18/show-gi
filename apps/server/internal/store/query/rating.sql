@@ -6,7 +6,7 @@
 -- name: GetRating :one
 --
 -- 없으면 0행이다. rating_games = 0 이면 행은 있어도 레이팅이 없는 것이고, 그 둘을
--- 부르는 쪽이 같게 다룬다 — 엔진 대국만 한 사람은 skill_loss 때문에 행이 이미 있다.
+-- 부르는 쪽이 같게 다룬다 — 낙폭이 한 번이라도 저장된 사람은 그것 때문에 행이 이미 있다.
 SELECT rating_est, rating_sd, rating_games, rating_updated_at, skill_loss, skill_samples
 FROM skill_profile
 WHERE user_id = $1;

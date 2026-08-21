@@ -273,6 +273,31 @@ func (s *Store) SaveSkillEstimate(ctx context.Context, userID int64, e SkillEsti
 	return nil
 }
 
+// SaveSkillEstimateIfSamples 는 저장된 표본 수가 expected 그대로일 때만 덮는다. 두 번째
+// 값이 false면 그 사이에 다른 쪽이 썼다는 뜻이고, 아무것도 안 바뀐 것이다.
+//
+// 지난 값 위에 얹는 갱신을 오래 들고 있는 쪽이 쓴다(server/match_analysis.go). 그냥
+// 덮으면 그 사이에 끝난 엔진 대국의 판정을 통째로 지운다.
+func (s *Store) SaveSkillEstimateIfSamples(ctx context.Context, userID int64, e SkillEstimate, expected int) (bool, error) {
+	loss := e.Loss
+	params := db.SaveSkillEstimateIfSamplesParams{
+		UserID:          userID,
+		SkillLoss:       &loss,
+		SkillSamples:    int32(e.Samples),
+		ExpectedSamples: int32(expected),
+	}
+	// 표본이 없으면 NULL로 남긴다 — SaveSkillEstimate 와 같은 이유다.
+	if e.AbsSamples > 0 {
+		abs := e.AbsLoss
+		params.SkillAbsLoss, params.SkillAbsSamples = &abs, int32(e.AbsSamples)
+	}
+	n, err := s.q.SaveSkillEstimateIfSamples(ctx, params)
+	if err != nil {
+		return false, fmt.Errorf("save skill estimate if samples: %w", err)
+	}
+	return n > 0, nil
+}
+
 // ── 매칭 레이팅 ──────────────────────────────────────────
 
 // MatchRating 은 사람끼리 둔 판으로 움직이는 레이팅 한 사람 몫이다. rating.Rating 과

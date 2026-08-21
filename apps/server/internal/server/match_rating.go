@@ -68,7 +68,7 @@ func (m *matchRecords) updateRatings(ctx context.Context, entry *roomRecord) {
 
 // ratingOf 는 그 사람의 지금 레이팅이다. 못 읽으면 rating.Unrated 다 — 판을 막지 않는다.
 //
-// 두 가지를 여기서 얹는다. 레이팅이 없으면 엔진 대국의 추정치로 시드를 만들고,
+// 두 가지를 여기서 얹는다. 레이팅이 없으면 지금까지의 낙폭 추정치로 시드를 만들고,
 // 있으면 안 둔 시간만큼 불확실성을 되돌린다.
 func (m *matchRecords) ratingOf(ctx context.Context, userID int64) rating.Rating {
 	got, err := m.store.MatchRating(ctx, userID)
@@ -78,7 +78,10 @@ func (m *matchRecords) ratingOf(ctx context.Context, userID int64) rating.Rating
 	}
 
 	if got.Games == 0 {
-		// 사람과 한 판도 안 뒀다. 엔진 대국의 추정치가 있으면 그것에서 시작한다.
+		// 레이팅을 움직인 판이 아직 없다. 낙폭 추정치가 있으면 그것에서 시작한다.
+		//
+		// 대개 엔진 대국의 값이지만 그것만은 아니다 — 승부가 안 난 대인전은 레이팅을
+		// 안 움직이는데 실력 추정은 그 판도 먹는다(matchAnalyzer, journal §95).
 		//
 		// 표본 하한은 skill 이 정한다 — 여기서 따로 정하면 이름만 다른 하한이 둘이 된다.
 		est := skill.Estimate{Loss: got.Skill.Loss, Samples: got.Skill.Samples}

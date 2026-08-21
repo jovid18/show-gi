@@ -120,8 +120,16 @@ func Inflate(r Rating, since time.Duration) Rating {
 // [미확정] 400은 초기값이다. 환산비를 실측한 적이 없다(journal §92).
 const SeedSpread = 400
 
-// SeedFromLoss 는 엔진 대국의 실력 추정치를 첫 레이팅으로 옮긴다. loss 는
+// SeedFromLoss 는 지금까지의 실력 추정치를 첫 레이팅으로 옮긴다. loss 는
 // skill.Estimate.Loss 다(0~1, 작을수록 세다).
+//
+// 그 추정치가 꼭 엔진 대국에서만 오는 것은 아니다. 승부가 안 난 대인전은 레이팅을
+// 안 움직이는데(match_rating.go) 실력 추정은 그 판도 먹으므로(journal §95), 그런 판만
+// 둔 사람은 사람과 둔 낙폭에서 시드를 받는다.
+//
+// 낙폭은 스스로 나쁘게 만들 수 있다. 일부러 헤맨 뒤 판을 버리면 시드가 아래 끝으로
+// 가고, 첫 레이팅 대국을 자기보다 약한 상대와 시작한다 — 엔진 대국으로 이미 열려
+// 있던 길이고 막는 자리는 여기가 아니다(journal §95의 남은 것).
 //
 // RD 는 MaxDeviation 그대로다. 낙폭은 절대 실력에 맞춰 본 적이 없는 척도라
 // (skill.RankOf) 여기서 나온 값을 믿을 근거가 없다.

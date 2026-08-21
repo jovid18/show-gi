@@ -33,7 +33,7 @@ type GetRatingRow struct {
 // 부르는 쪽이 대국 기록에서 얻은 두 user_id 로만 부른다(server/match_records.go).
 //
 // 없으면 0행이다. rating_games = 0 이면 행은 있어도 레이팅이 없는 것이고, 그 둘을
-// 부르는 쪽이 같게 다룬다 — 엔진 대국만 한 사람은 skill_loss 때문에 행이 이미 있다.
+// 부르는 쪽이 같게 다룬다 — 낙폭이 한 번이라도 저장된 사람은 그것 때문에 행이 이미 있다.
 func (q *Queries) GetRating(ctx context.Context, userID int64) (GetRatingRow, error) {
 	row := q.db.QueryRow(ctx, getRating, userID)
 	var i GetRatingRow

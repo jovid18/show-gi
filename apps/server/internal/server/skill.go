@@ -28,7 +28,18 @@ func (h *gameHandler) priorSkill(ctx context.Context, userID *int64) skill.Estim
 	if !ok {
 		return skill.Unknown
 	}
-	return skill.Estimate{Loss: got.Loss, Samples: got.Samples, AbsLoss: got.AbsLoss, AbsSamples: got.AbsSamples}
+	return skillEstimateOf(got)
+}
+
+// skillEstimateOf·storeSkillEstimate 는 같은 네 값을 두 어휘 사이로 옮긴다. 추정기가
+// DB 를 모르기 때문에 생기는 자리다(skill 패키지) — 옮기는 코드를 여기 모아 두면 칸이
+// 하나 더 생기는 날 고칠 곳이 둘이 아니라 하나다.
+func skillEstimateOf(e store.SkillEstimate) skill.Estimate {
+	return skill.Estimate{Loss: e.Loss, Samples: e.Samples, AbsLoss: e.AbsLoss, AbsSamples: e.AbsSamples}
+}
+
+func storeSkillEstimate(e skill.Estimate) store.SkillEstimate {
+	return store.SkillEstimate{Loss: e.Loss, Samples: e.Samples, AbsLoss: e.AbsLoss, AbsSamples: e.AbsSamples}
 }
 
 // saveSkill 은 판정마다 추정치를 덮는 콜백이다. 붙일 자리가 없으면 nil을 돌려준다 —
@@ -45,7 +56,7 @@ func (h *gameHandler) saveSkill(ctx context.Context, userID *int64) func(skill.E
 	return func(e skill.Estimate) {
 		// 연결의 ctx 를 그대로 쓴다. 대국이 끝나면 그 뒤의 쓰기는 취소되는데, 그때는
 		// 이미 마지막 판정까지 저장된 뒤다 — 매 수 쓰기 때문에 끝에 몰아 쓸 것이 없다.
-		err := st.SaveSkillEstimate(ctx, id, store.SkillEstimate{Loss: e.Loss, Samples: e.Samples, AbsLoss: e.AbsLoss, AbsSamples: e.AbsSamples})
+		err := st.SaveSkillEstimate(ctx, id, storeSkillEstimate(e))
 		switch {
 		case err == nil:
 		case errors.Is(err, context.Canceled):
