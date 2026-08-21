@@ -145,9 +145,14 @@ game_undos   (id, game_id, ply, usi, eval_cp, created_at)
              -- 사람이 스스로 무른 수 (008, §72). `interventions` 와 갈라 둔 이유는 예산도
              -- 뜻도 다르기 때문이다 — 이쪽은 판정을 **통과한** 수라 레이팅에서 안 빠진다
 skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at,
-              skill_loss, skill_samples)
-             -- skill_loss/samples 가 실제로 쓰는 두 칸이다 (006, §48).
-             -- rating_est·rating_sd 는 안 쓴다 — §47이 레이팅 점수를 만들지 않기로 정했다
+              skill_loss, skill_samples, rating_games, rating_updated_at)
+             -- **한 표에 척도가 둘이다.** 갈라 둔 이유는 비교 가능성이다 (013, §92)
+             -- skill_loss/samples — 엔진 대국의 적응용 (006, §48). 임계치에 대한 비율이라
+             --   임계치가 사람마다 갈리는 순간 사람 사이에 비교할 수 없다
+             -- rating_est/sd/games/updated_at — 매칭용 Glicko (013, §92). 승패로만 움직여서
+             --   정의상 사람 사이의 값이다. **rating_games = 0 이 「레이팅 없음」이다** —
+             --   rating_est 가 NOT NULL DEFAULT 0 이라 0으로는 그것을 못 말한다
+             --   **어느 API 도 이 값을 안 돌려준다** — 매칭이 쓰는 내부 값이다
 ```
 
 > **`explain_cache` 와 `kb_chunks` 는 지웠다**(011). 개입 문구가 LLM을 안 거치고 카테고리에서

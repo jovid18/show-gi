@@ -52,10 +52,7 @@ func TestClientRequestIDIsLogged(t *testing.T) {
 	req.Header.Set(requestIDHeader, "front-abc")
 	Handler(Options{}).ServeHTTP(httptest.NewRecorder(), req)
 
-	var line map[string]any
-	if err := json.Unmarshal(buf.Bytes(), &line); err != nil {
-		t.Fatalf("로그가 JSON 이 아니다: %v\n%s", err, buf.String())
-	}
+	line := requestLine(t, &buf, "/api/openings")
 	if line["client_request_id"] != "front-abc" {
 		t.Fatalf("client_request_id=%v", line["client_request_id"])
 	}
@@ -269,10 +266,7 @@ func TestPanicBecomesFiveHundred(t *testing.T) {
 		t.Errorf("panic 지표=%v", got)
 	}
 
-	var line map[string]any
-	if err := json.Unmarshal(buf.Bytes(), &line); err != nil {
-		t.Fatalf("로그가 JSON 이 아니다: %v\n%s", err, buf.String())
-	}
+	line := requestLine(t, &buf, "/boom")
 	if line["level"] != "ERROR" {
 		t.Errorf("level=%v — panic 은 ERROR 여야 한다", line["level"])
 	}
@@ -304,6 +298,26 @@ func TestAbortHandlerStaysAbort(t *testing.T) {
 		}
 	}()
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/abort", nil))
+}
+
+// requestLine 은 buf 에서 그 경로의 요청 줄을 꺼낸다.
+//
+// 버퍼에 줄이 하나뿐이라고 보면 안 된다. swapLogger 가 바꾸는 것은 전역 로거이고,
+// WebSocket 은 하이재킹된 연결이라 httptest.Server.Close 가 그 핸들러를 안 기다린다 —
+// 앞 테스트의 /ws/match 핸들러가 늦게 끝나며 이 버퍼에 쓴다. 경로로 고르면 무관해진다.
+func requestLine(t *testing.T, buf *bytes.Buffer, path string) map[string]any {
+	t.Helper()
+	for _, raw := range bytes.Split(bytes.TrimSpace(buf.Bytes()), []byte("\n")) {
+		var line map[string]any
+		if err := json.Unmarshal(raw, &line); err != nil {
+			t.Fatalf("로그가 JSON 이 아니다: %v\n%s", err, raw)
+		}
+		if line["path"] == path {
+			return line
+		}
+	}
+	t.Fatalf("%s 의 요청 줄이 없다:\n%s", path, buf.String())
+	return nil
 }
 
 // swapLogger 는 기본 로거를 buf 로 돌린다. 돌려주는 함수로 되돌린다.

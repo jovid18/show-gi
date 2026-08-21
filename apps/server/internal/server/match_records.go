@@ -48,6 +48,14 @@ type roomRecord struct {
 	// 「먼저 읽은 쪽이 가져간다」로 돌아간다.
 	id    map[shogi.Color]int64
 	ready map[shogi.Color]chan struct{}
+
+	// player·result 는 자리마다의 대국자와 결과다. 레이팅을 옮기는 데 쓴다(match_rating.go).
+	//
+	// 결과를 기록기 채널이 아니라 여기로 한 벌 더 받는다. 레이팅은 두 사람을 같이
+	// 옮기므로 한쪽 관점의 행 하나로는 짝을 못 맞추고, 행에서 되읽으면 그 판의 수까지
+	// 같이 끌고 온다(store.GameRecord).
+	player map[shogi.Color]match.Player
+	result map[shogi.Color]match.Result
 }
 
 // recordSweepAfter 는 곁장부의 항목을 지우기까지의 시간이다. 기록기 goroutine 은
@@ -81,10 +89,12 @@ func (m *matchRecords) new(
 
 	ctx, cancel := context.WithCancel(parent)
 	entry := &roomRecord{
-		at:    time.Now(),
-		rec:   map[shogi.Color]*dbRecorder{},
-		id:    map[shogi.Color]int64{},
-		ready: map[shogi.Color]chan struct{}{},
+		at:     time.Now(),
+		rec:    map[shogi.Color]*dbRecorder{},
+		id:     map[shogi.Color]int64{},
+		ready:  map[shogi.Color]chan struct{}{},
+		player: map[shogi.Color]match.Player{},
+		result: map[shogi.Color]match.Result{},
 	}
 	out := map[shogi.Color]match.Recorder{}
 	for c, p := range map[shogi.Color]match.Player{shogi.Black: black, shogi.White: white} {
@@ -93,7 +103,8 @@ func (m *matchRecords) new(
 		userID := p.UserID
 		entry.rec[c] = newDBRecorder(ctx, m.store, m.level, recordTarget{userID: &userID, matchID: matchID})
 		entry.ready[c] = make(chan struct{})
-		out[c] = matchRecorder{db: entry.rec[c]}
+		entry.player[c] = p
+		out[c] = matchRecorder{db: entry.rec[c], note: m.noting(entry, c)}
 	}
 
 	m.mu.Lock()
@@ -161,6 +172,23 @@ func (m *matchRecords) collect(ctx context.Context, cancel context.CancelFunc, e
 		return
 	}
 	m.analyzer.enqueue(ids)
+
+	// 레이팅은 두 행이 다 있을 때만 옮긴다. 반쪽인 판은 한 사람에게만 남은 판이라,
+	// 그것으로 두 사람의 값을 움직이면 기록과 레이팅이 갈린다.
+	m.updateRatings(ctx, entry)
+}
+
+// noting 은 그 자리의 결과를 곁장부에 적는 콜백이다. 기록기가 판이 끝날 때 한 번 부른다.
+//
+// 즉시 돌아온다 — 테이블 goroutine 이 부르는 자리다(match.Recorder). 그리고 기록기의
+// done 보다 반드시 먼저 적힌다: FinishedWith 가 이벤트를 큐에 넣은 뒤 여기가 불리고,
+// done 은 그 이벤트를 DB 에 쓴 뒤에야 열린다.
+func (m *matchRecords) noting(entry *roomRecord, c shogi.Color) func(match.Result) {
+	return func(r match.Result) {
+		m.mu.Lock()
+		entry.result[c] = r
+		m.mu.Unlock()
+	}
 }
 
 // gameIDOf 는 그쪽의 판 번호를 기다렸다 준다. 못 얻으면 두 번째 값이 false 다.

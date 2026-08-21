@@ -93,13 +93,15 @@ type Position struct {
 }
 
 type SkillProfile struct {
-	UserID       int64
-	RatingEst    float64
-	RatingSd     float64
-	Weakness     []byte
-	UpdatedAt    pgtype.Timestamptz
-	SkillLoss    *float64
-	SkillSamples int32
+	UserID          int64
+	RatingEst       float64
+	RatingSd        float64
+	Weakness        []byte
+	UpdatedAt       pgtype.Timestamptz
+	SkillLoss       *float64
+	SkillSamples    int32
+	RatingGames     int32
+	RatingUpdatedAt pgtype.Timestamptz
 }
 
 type User struct {
