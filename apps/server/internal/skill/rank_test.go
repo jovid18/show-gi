@@ -19,8 +19,12 @@ func TestAnchorsLandOnTheirOwnNames(t *testing.T) {
 	}
 }
 
-// 앵커로 안 쓴 실측 라벨이 그 선에서 두 계급 안에 들어와야 한다. 벗어나면 척도가
-// 실측을 설명하지 못하는 것이고, 그때는 앵커를 늘려야 한다(rankAnchors).
+// 앵커로 안 쓴 실측 라벨이 그 선 근처에 있어야 한다. 벗어나면 척도가 실측을 설명하지
+// 못하는 것이고, 그때는 앵커를 늘려야 한다(rankAnchors).
+//
+// 세 계급까지 봐준다. 그 라벨들의 표준오차가 낙폭의 12~15%인데 계급당 차이가 5%라,
+// 지금 표본에서 라벨 하나의 위치 자체가 ±3계급이다 — 그보다 좁게 걸면 판 하나가
+// 들어올 때마다 이 테스트가 깨진다.
 func TestMeasuredLabelsSitNearTheLine(t *testing.T) {
 	for _, c := range []struct {
 		name    string
@@ -32,8 +36,8 @@ func TestMeasuredLabelsSitNearTheLine(t *testing.T) {
 		{"初段", 15, 0.0683},
 	} {
 		got := rankStepOf(c.absLoss)
-		if math.Abs(got-float64(c.step)) > 2 {
-			t.Errorf("%s(실측 %v)의 자리 = %.1f, want %d ±2", c.name, c.absLoss, got, c.step)
+		if math.Abs(got-float64(c.step)) > 3 {
+			t.Errorf("%s(실측 %v)의 자리 = %.1f, want %d ±3", c.name, c.absLoss, got, c.step)
 		}
 	}
 }

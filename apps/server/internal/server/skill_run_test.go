@@ -27,7 +27,7 @@ func TestFirstGameHasNoBefore(t *testing.T) {
 
 // 이어 두는 사람은 판 전후가 둘 다 있어야 한다.
 func TestReturningPlayerGetsBothEnds(t *testing.T) {
-	before := estimate(0.1265, 12) // 15級 앵커(skill.rankAnchors)
+	before := estimate(0.30, 12) // 아래 앵커 밖이라 척도의 아래 끝으로 잘린다
 	r := newSkillRun(before)
 	r.observing(nil)(estimate(0.02, 30))
 
