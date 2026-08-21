@@ -11,14 +11,16 @@ import (
 
 const getSkillProfile = `-- name: GetSkillProfile :one
 
-SELECT skill_loss, skill_samples
+SELECT skill_loss, skill_samples, skill_abs_loss, skill_abs_samples
 FROM skill_profile
 WHERE user_id = $1
 `
 
 type GetSkillProfileRow struct {
-	SkillLoss    *float64
-	SkillSamples int32
+	SkillLoss       *float64
+	SkillSamples    int32
+	SkillAbsLoss    *float64
+	SkillAbsSamples int32
 }
 
 // 실력 프로파일. 본인만 조회할 수 있어야 한다(02-architecture.md §7 위협 2) —
@@ -29,23 +31,32 @@ type GetSkillProfileRow struct {
 func (q *Queries) GetSkillProfile(ctx context.Context, userID int64) (GetSkillProfileRow, error) {
 	row := q.db.QueryRow(ctx, getSkillProfile, userID)
 	var i GetSkillProfileRow
-	err := row.Scan(&i.SkillLoss, &i.SkillSamples)
+	err := row.Scan(
+		&i.SkillLoss,
+		&i.SkillSamples,
+		&i.SkillAbsLoss,
+		&i.SkillAbsSamples,
+	)
 	return i, err
 }
 
 const saveSkillEstimate = `-- name: SaveSkillEstimate :exec
-INSERT INTO skill_profile (user_id, skill_loss, skill_samples)
-VALUES ($1, $2, $3)
+INSERT INTO skill_profile (user_id, skill_loss, skill_samples, skill_abs_loss, skill_abs_samples)
+VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (user_id) DO UPDATE
-SET skill_loss    = EXCLUDED.skill_loss,
-    skill_samples = EXCLUDED.skill_samples,
-    updated_at    = now()
+SET skill_loss        = EXCLUDED.skill_loss,
+    skill_samples     = EXCLUDED.skill_samples,
+    skill_abs_loss    = EXCLUDED.skill_abs_loss,
+    skill_abs_samples = EXCLUDED.skill_abs_samples,
+    updated_at        = now()
 `
 
 type SaveSkillEstimateParams struct {
-	UserID       int64
-	SkillLoss    *float64
-	SkillSamples int32
+	UserID          int64
+	SkillLoss       *float64
+	SkillSamples    int32
+	SkillAbsLoss    *float64
+	SkillAbsSamples int32
 }
 
 // 판정 한 건마다 부른다. 대국이 끝날 때 한 번이 아니다 — 새로고침하면 판이 끝나므로
@@ -53,6 +64,12 @@ type SaveSkillEstimateParams struct {
 //
 // weakness 는 건드리지 않는다. 카테고리별 발생률은 아직 쓰는 쪽이 없다.
 func (q *Queries) SaveSkillEstimate(ctx context.Context, arg SaveSkillEstimateParams) error {
-	_, err := q.db.Exec(ctx, saveSkillEstimate, arg.UserID, arg.SkillLoss, arg.SkillSamples)
+	_, err := q.db.Exec(ctx, saveSkillEstimate,
+		arg.UserID,
+		arg.SkillLoss,
+		arg.SkillSamples,
+		arg.SkillAbsLoss,
+		arg.SkillAbsSamples,
+	)
 	return err
 }

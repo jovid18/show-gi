@@ -11,7 +11,7 @@ import (
 // 대한 판정으로 화면에 선다(journal §62).
 func TestFirstGameHasNoBefore(t *testing.T) {
 	r := newSkillRun(skill.Unknown)
-	r.observing(nil)(skill.Estimate{Loss: 0.2, Samples: skill.MinSamples})
+	r.observing(nil)(estimate(0.05, skill.MinSamples))
 
 	got := r.change()
 	if got == nil {
@@ -27,9 +27,9 @@ func TestFirstGameHasNoBefore(t *testing.T) {
 
 // 이어 두는 사람은 판 전후가 둘 다 있어야 한다.
 func TestReturningPlayerGetsBothEnds(t *testing.T) {
-	before := skill.Estimate{Loss: 0.5, Samples: 12}
+	before := estimate(skill.RankLossScale/2, 12)
 	r := newSkillRun(before)
-	r.observing(nil)(skill.Estimate{Loss: 0.1, Samples: 30})
+	r.observing(nil)(estimate(0.02, 30))
 
 	got := r.change()
 	if got == nil || got.Before == nil {
@@ -47,7 +47,7 @@ func TestReturningPlayerGetsBothEnds(t *testing.T) {
 // 표본이 모자라면 블록 자체가 없어야 한다.
 func TestNoSkillBlockBeforeEnoughSamples(t *testing.T) {
 	r := newSkillRun(skill.Unknown)
-	r.observing(nil)(skill.Estimate{Loss: 0.9, Samples: skill.MinSamples - 1})
+	r.observing(nil)(estimate(0.2, skill.MinSamples-1))
 	if got := r.change(); got != nil {
 		t.Errorf("표본이 모자란데 段級이 나갔다: %+v", got)
 	}
@@ -67,14 +67,14 @@ func TestObservingStillSaves(t *testing.T) {
 	var saved []skill.Estimate
 	cb := r.observing(func(e skill.Estimate) { saved = append(saved, e) })
 
-	cb(skill.Estimate{Loss: 0.4, Samples: 5})
-	cb(skill.Estimate{Loss: 0.3, Samples: 6})
+	cb(estimate(0.1, 5))
+	cb(estimate(0.08, 6))
 
 	if len(saved) != 2 {
 		t.Fatalf("저장이 %d번 불렸다, want 2", len(saved))
 	}
 	// 마지막 값이 총평으로 간다.
-	if got := r.change(); got == nil || got.After.Step != mustRank(t, 0.3).Step {
+	if got := r.change(); got == nil || got.After.Step != mustRank(t, 0.08).Step {
 		t.Errorf("마지막 값이 안 붙잡혔다: %+v", got)
 	}
 }
@@ -89,7 +89,7 @@ func TestConcurrentObserveAndRead(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := range 200 {
-			cb(skill.Estimate{Loss: float64(i%100) / 100, Samples: 10 + i})
+			cb(estimate(float64(i%100)/400, 10+i))
 		}
 	}()
 	go func() {
@@ -101,11 +101,17 @@ func TestConcurrentObserveAndRead(t *testing.T) {
 	wg.Wait()
 }
 
-func mustRank(t *testing.T, loss float64) skill.Rank {
+func mustRank(t *testing.T, absLoss float64) skill.Rank {
 	t.Helper()
-	got, ok := skill.RankOf(skill.Estimate{Loss: loss, Samples: skill.MinSamples})
+	got, ok := skill.RankOf(estimate(absLoss, skill.MinSamples))
 	if !ok {
-		t.Fatalf("loss=%v 에 이름이 없다", loss)
+		t.Fatalf("absLoss=%v 에 이름이 없다", absLoss)
 	}
 	return got
+}
+
+// estimate 는 段級이 붙을 만한 추정치다. 이름은 절대 낙폭에서만 나오므로(skill.RankOf)
+// 두 축을 같은 개수로 채운다 — 대국 중에 오는 값이 그 모양이다.
+func estimate(absLoss float64, samples int) skill.Estimate {
+	return skill.Estimate{Loss: absLoss / skill.RankLossScale, Samples: samples, AbsLoss: absLoss, AbsSamples: samples}
 }

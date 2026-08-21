@@ -40,6 +40,18 @@ type Estimate struct {
 	Loss float64
 	// Samples 는 본 수의 개수다.
 	Samples int
+	// AbsLoss 는 임계치로 나누지 않은 승률 낙폭의 누적 평균(0~1)이다.
+	//
+	// Loss 와 두 자리가 다르다. 분모가 없어서 레벨이 갈려도 같은 값이고, 지수 이동
+	// 평균이 아니라 평균이다. 段級이 여기서 나온다(rank.go) — 정규화값 위에 앵커를
+	// 잡으면 임계치가 좁아지는 날 같은 실력이 네 계급 움직인다(journal §92).
+	AbsLoss float64
+	// AbsSamples 는 AbsLoss 에 들어간 수의 개수다.
+	//
+	// Samples 와 갈라 둔다. 이 칸이 뒤에 생겨서 그 전에 쌓인 프로파일은 Samples 가
+	// 차 있는데 AbsLoss 가 비어 있고, 그것을 0으로 메우면 「매 수 최선」이 된다
+	// (014_skill_absolute_loss.sql).
+	AbsSamples int
 }
 
 // PriorLoss 는 아무것도 보기 전의 값이다. 기본 밴드가 여기서 나온다 —
@@ -70,8 +82,10 @@ const MinSamples = 3
 
 // Track 은 롤링 추정기다. 동시 호출 안전하지 않다 — Worker 의 goroutine 하나가 소유한다.
 type Track struct {
-	loss    float64
-	samples int
+	loss       float64
+	samples    int
+	absSum     float64
+	absSamples int
 }
 
 // NewTrack 은 아무것도 모르는 상태에서 시작한다.
@@ -88,7 +102,14 @@ func NewTrackFrom(e Estimate) *Track {
 	if e.Samples <= 0 {
 		return NewTrack()
 	}
-	return &Track{loss: clamp01(e.Loss), samples: e.Samples}
+	t := &Track{loss: clamp01(e.Loss), samples: e.Samples}
+	// 절대 낙폭은 평균이라 합으로 되돌려 이어 붙인다. 개수가 0이면 그 칸이 없던 시절의
+	// 프로파일이므로 0에서 다시 센다(Estimate.AbsSamples).
+	if e.AbsSamples > 0 {
+		t.absSum = clamp01(e.AbsLoss) * float64(e.AbsSamples)
+		t.absSamples = e.AbsSamples
+	}
+	return t
 }
 
 // Observe 는 한 수를 반영하고 새 추정치를 돌려준다.
@@ -100,12 +121,18 @@ func (t *Track) Observe(m Move) Estimate {
 	}
 	t.loss += rate * (l - t.loss)
 	t.samples++
+	t.absSum += absMoveLoss(m)
+	t.absSamples++
 	return t.Estimate()
 }
 
 // Estimate 는 지금 값이다.
 func (t *Track) Estimate() Estimate {
-	return Estimate{Loss: t.loss, Samples: t.samples}
+	e := Estimate{Loss: t.loss, Samples: t.samples, AbsSamples: t.absSamples}
+	if t.absSamples > 0 {
+		e.AbsLoss = t.absSum / float64(t.absSamples)
+	}
+	return e
 }
 
 // Ready 는 밴드를 옮겨도 되는가다. 아니면 부르는 쪽이 기본 밴드를 쓴다.
@@ -123,6 +150,19 @@ func moveLoss(m Move) float64 {
 		return 0 // 임계치를 모르면 정규화할 수 없다. 통과한 수이므로 손해 없음으로 둔다
 	}
 	return clamp01(m.DeltaWin / m.Threshold)
+}
+
+// absMoveLoss 는 한 수의 손해를 임계치로 나누지 않고 돌려준다.
+//
+// 詰み을 놓친 수는 낙폭이 0에 가깝다(Move.Blunder). 그 자리에 임계치를 대신 놓는다 —
+// 판정이 이미 블런더라고 했으므로 손해가 적어도 그만큼이다. 낙폭으로 걸린 블런더는
+// 이미 임계치 이상이라 값이 안 바뀌고, 그래서 절대값에 남는 임계치는 종반 판정뿐이다.
+func absMoveLoss(m Move) float64 {
+	l := clamp01(m.DeltaWin)
+	if m.Blunder && l < m.Threshold {
+		return clamp01(m.Threshold)
+	}
+	return l
 }
 
 // clamp01 은 0~1로 자른다. 낙폭이 음수로 나올 수 있다 — 판정의 두 탐색이 뿌리가 한 수
