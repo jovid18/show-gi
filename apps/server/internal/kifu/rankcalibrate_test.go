@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"unicode"
 
 	"github.com/jovid18/show-gi/apps/server/internal/archive"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
@@ -98,9 +100,15 @@ func TestMeasureRankAnchors(t *testing.T) {
 		"라벨(先手)", "라벨(後手)", "手数", "先手낙폭", "後手낙폭", "개입", "기보")
 	fmt.Fprintf(os.Stderr, "%s\n", strings.Repeat("─", 96))
 
+	measured := 0
 	for _, e := range entries {
 		sides := measureGame(ctx, analyst, e.game)
 		sente, gote := sides[shogi.Black], sides[shogi.White]
+		measured += sente.moves + gote.moves
+		if sente.moves+gote.moves < len(e.game.Moves) {
+			// 판정이 빠진 手가 있다. 표본이 조용히 줄어드는 자리라 판마다 남긴다.
+			t.Errorf("%s: %d手 중 %d手만 쟀다", e.source, len(e.game.Moves), sente.moves+gote.moves)
+		}
 		sente.label, gote.label = e.senteLabel, e.goteLabel
 		// 手가 0인 쪽은 안 센다. 낙폭 0으로 들어가면 그것이 「매 수 최선」이라 표를
 		// 가장 센 쪽으로 끌고 간다.
@@ -117,6 +125,12 @@ func TestMeasureRankAnchors(t *testing.T) {
 		fmt.Fprintf(os.Stderr, "%-14s %-14s %5d %8.4f %8.4f %6d  %s\n",
 			sente.label, gote.label, sente.moves+gote.moves,
 			sente.mean(), gote.mean(), sente.blunders+gote.blunders, e.source)
+	}
+
+	// 한 手도 못 쟀으면 표가 머리만 찍히고 초록으로 끝난다. 엔진이 죽었거나 수순이
+	// 안 재현된 것이고, 사람이 이 표에서 상수를 옮겨 적는 자리라 초록으로 두면 안 된다.
+	if measured == 0 {
+		t.Fatal("잰 手가 0이다 — 엔진이나 수순을 확인한다")
 	}
 
 	reportRankLabels(byLabel)
@@ -197,8 +211,8 @@ func absDrop(j game.Judgement) float64 {
 	if d < 0 {
 		d = 0 // 두 탐색의 뿌리가 한 수 달라 음수가 나오는 국면이 있다(journal §41)
 	}
-	if j.Verdict.Kind == intervene.KindBlunder && d < j.Threshold {
-		d = j.Threshold // 詰み을 놓친 수는 승률이 거의 안 움직인다(skill.absMoveLoss)
+	if j.Verdict.Kind == intervene.KindBlunder && d < skill.MateAbsLoss {
+		d = skill.MateAbsLoss // 詰み을 놓친 수는 승률이 거의 안 움직인다(skill.absMoveLoss)
 	}
 	return d
 }
@@ -411,14 +425,15 @@ func loadRankManifest(path string) ([]rankEntry, error) {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		label, source, ok := strings.Cut(line, " ")
-		if !ok {
-			label, source, ok = strings.Cut(line, "\t")
-		}
-		if !ok {
+		at := strings.IndexFunc(line, unicode.IsSpace)
+		if at < 0 {
 			return nil, fmt.Errorf("%d번째 줄에 기보가 없다: %q", i+1, line)
 		}
-		source = strings.TrimSpace(source)
+		label := line[:at]
+		source := strings.TrimSpace(line[at:])
+		if source == "" {
+			return nil, fmt.Errorf("%d번째 줄에 기보가 없다: %q", i+1, line)
+		}
 		g, err := parseRankSource(source)
 		if err != nil {
 			return nil, fmt.Errorf("%d번째 줄: %w", i+1, err)
@@ -461,25 +476,20 @@ func parseRankSource(source string) (ParsedGame, error) {
 // exploreGame 은 검토 화면의 주소에서 판을 만든다. 그 화면은 양쪽 수를 다 받고 서버가
 // 한 수도 대신 두지 않으므로(server/explore.go) 주소 하나가 기보 하나다.
 func exploreGame(rawURL string) (ParsedGame, error) {
-	query := rawURL
-	if _, after, ok := strings.Cut(rawURL, "?"); ok {
-		query = after
+	// 브라우저 주소창에서 복사하면 쉼표가 %2C 로 올 수 있다. 손으로 자르면 그 줄이
+	// 수 하나로 뭉치고, 그 판은 「재현이 안 된 판」이 아니라 「이상한 판」이 된다.
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return ParsedGame{}, fmt.Errorf("주소를 못 읽었다: %w", err)
 	}
-	g := ParsedGame{Source: "explore"}
-	for _, part := range strings.Split(query, "&") {
-		key, value, ok := strings.Cut(part, "=")
-		switch {
-		case !ok:
-			continue
-		case key == "m":
-			g.Moves = splitMoves(value)
-		case key == "h" && value != "":
-			h, found := handicap.Find(value)
-			if !found {
-				return ParsedGame{}, fmt.Errorf("모르는 手合割: %s", value)
-			}
-			g.StartSFEN = h.SFEN
+	q := u.Query()
+	g := ParsedGame{Source: "explore", Moves: splitMoves(q.Get("m"))}
+	if id := q.Get("h"); id != "" {
+		h, found := handicap.Find(id)
+		if !found {
+			return ParsedGame{}, fmt.Errorf("모르는 手合割: %s", id)
 		}
+		g.StartSFEN = h.SFEN
 	}
 	if len(g.Moves) == 0 {
 		return ParsedGame{}, fmt.Errorf("주소에 수순이 없다: %s", rawURL)

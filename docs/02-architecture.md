@@ -151,7 +151,7 @@ skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at,
              -- skill_loss/samples — 엔진 대국의 적응용 (006, §48). 임계치에 대한 비율이라
              --   임계치가 사람마다 갈리는 순간 사람 사이에 비교할 수 없다
              -- skill_abs_loss/abs_samples — 화면의 段級 (014, §94). 임계치로 안 나눈 낙폭의
-             --   누적 평균이라 레벨이 갈려도 같은 값이다. **NULL이 「아직 모른다」다** —
+             --   평균이라 레벨이 갈려도 같은 값이다 (창은 skill.AbsWindow). **NULL이 「아직 모른다」다** —
              --   개수를 따로 세는 것은 014 이전 행이 skill_samples 만 차 있기 때문이다
              -- rating_est/sd/games/updated_at — 매칭용 Glicko (013, §92). 승패로만 움직여서
              --   정의상 사람 사이의 값이다. **rating_games = 0 이 「레이팅 없음」이다** —

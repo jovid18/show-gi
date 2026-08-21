@@ -40,11 +40,11 @@ type Estimate struct {
 	Loss float64
 	// Samples 는 본 수의 개수다.
 	Samples int
-	// AbsLoss 는 임계치로 나누지 않은 승률 낙폭의 누적 평균(0~1)이다.
+	// AbsLoss 는 임계치로 나누지 않은 승률 낙폭의 평균(0~1)이다. 창은 AbsWindow.
 	//
-	// Loss 와 두 자리가 다르다. 분모가 없어서 레벨이 갈려도 같은 값이고, 지수 이동
-	// 평균이 아니라 평균이다. 段級이 여기서 나온다(rank.go) — 정규화값 위에 앵커를
-	// 잡으면 임계치가 좁아지는 날 같은 실력이 네 계급 움직인다(journal §92).
+	// Loss 와 두 자리가 다르다. 분모가 없어서 레벨이 갈려도 같은 값이고, 오르내림에
+	// 같은 무게를 준다. 段級이 여기서 나온다(rank.go) — 정규화값 위에 앵커를 잡으면
+	// 임계치가 좁아지는 날 같은 실력이 네 계급 움직인다(journal §92).
 	AbsLoss float64
 	// AbsSamples 는 AbsLoss 에 들어간 수의 개수다.
 	//
@@ -75,6 +75,19 @@ const (
 	FallRate = 0.1
 )
 
+// MateAbsLoss 는 詰み을 놓친 수의 절대 낙폭이다.
+//
+// 그 수는 승률이 포화한 구간에서 나와 낙폭이 0에 가깝다(Move.Blunder). 그 자리에
+// 임계치를 놓으면 이 축이 레벨을 다시 보게 되고, 같은 실수가 레벨 사이에서 두 배로
+// 갈린다 — 앵커가 그 위에 얹히므로 못 쓴다. [미확정] 근거는 journal §94.
+const MateAbsLoss = 0.25
+
+// AbsWindow 는 AbsLoss 가 기억하는 수의 개수다. 넘으면 평균이 이 창짜리 대칭 EMA가 된다.
+//
+// 상한이 없으면 판이 쌓인 뒤 段級이 한 판으로 거의 안 움직이고, 총평의 「対局前 → 対局後」가
+// 늘 같은 이름을 그린다. [미확정] 한 판의 판정 수(50~60)의 두 배다.
+const AbsWindow = 120
+
 // MinSamples 는 밴드를 옮기기 전에 볼 수의 개수다.
 //
 // 첫 수 하나로 상대가 바뀌면 사람이 알아차리기 전에 강함이 흔들린다. [미확정]
@@ -84,7 +97,7 @@ const MinSamples = 3
 type Track struct {
 	loss       float64
 	samples    int
-	absSum     float64
+	absMean    float64
 	absSamples int
 }
 
@@ -103,10 +116,10 @@ func NewTrackFrom(e Estimate) *Track {
 		return NewTrack()
 	}
 	t := &Track{loss: clamp01(e.Loss), samples: e.Samples}
-	// 절대 낙폭은 평균이라 합으로 되돌려 이어 붙인다. 개수가 0이면 그 칸이 없던 시절의
-	// 프로파일이므로 0에서 다시 센다(Estimate.AbsSamples).
+	// 개수가 0이면 그 칸이 없던 시절의 프로파일이라 0에서 다시 센다 — 없는 값을 0으로
+	// 메우면 「매 수 최선」이 된다(Estimate.AbsSamples).
 	if e.AbsSamples > 0 {
-		t.absSum = clamp01(e.AbsLoss) * float64(e.AbsSamples)
+		t.absMean = clamp01(e.AbsLoss)
 		t.absSamples = e.AbsSamples
 	}
 	return t
@@ -121,18 +134,15 @@ func (t *Track) Observe(m Move) Estimate {
 	}
 	t.loss += rate * (l - t.loss)
 	t.samples++
-	t.absSum += absMoveLoss(m)
+	// 창이 찰 때까지는 진짜 평균이고, 찬 뒤로는 창 하나짜리 EMA다(AbsWindow).
+	t.absMean += (absMoveLoss(m) - t.absMean) / float64(min(t.absSamples+1, AbsWindow))
 	t.absSamples++
 	return t.Estimate()
 }
 
 // Estimate 는 지금 값이다.
 func (t *Track) Estimate() Estimate {
-	e := Estimate{Loss: t.loss, Samples: t.samples, AbsSamples: t.absSamples}
-	if t.absSamples > 0 {
-		e.AbsLoss = t.absSum / float64(t.absSamples)
-	}
-	return e
+	return Estimate{Loss: t.loss, Samples: t.samples, AbsLoss: t.absMean, AbsSamples: t.absSamples}
 }
 
 // Ready 는 밴드를 옮겨도 되는가다. 아니면 부르는 쪽이 기본 밴드를 쓴다.
@@ -154,13 +164,12 @@ func moveLoss(m Move) float64 {
 
 // absMoveLoss 는 한 수의 손해를 임계치로 나누지 않고 돌려준다.
 //
-// 詰み을 놓친 수는 낙폭이 0에 가깝다(Move.Blunder). 그 자리에 임계치를 대신 놓는다 —
-// 판정이 이미 블런더라고 했으므로 손해가 적어도 그만큼이다. 낙폭으로 걸린 블런더는
-// 이미 임계치 이상이라 값이 안 바뀌고, 그래서 절대값에 남는 임계치는 종반 판정뿐이다.
+// 詰み을 놓친 수만 낙폭이 아닌 값을 갖는다(MateAbsLoss). 낙폭으로 걸린 블런더는 이미
+// 임계치 이상이므로 그 바닥에 안 걸리고, 그래서 이 축에는 레벨이 안 들어온다.
 func absMoveLoss(m Move) float64 {
 	l := clamp01(m.DeltaWin)
-	if m.Blunder && l < m.Threshold {
-		return clamp01(m.Threshold)
+	if m.Blunder && l < MateAbsLoss {
+		return MateAbsLoss
 	}
 	return l
 }
