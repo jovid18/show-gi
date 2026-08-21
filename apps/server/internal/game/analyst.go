@@ -46,7 +46,7 @@ func NewEngineAnalyst(s Searcher, mate MateSearcher, level intervene.Level) Anal
 	return &engineAnalyst{search: s, mate: mate, depth: JudgeDepth, level: level}
 }
 
-func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []string, _ int) (Judgement, error) {
+func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []string, ply int) (Judgement, error) {
 	if len(moves) == 0 {
 		return Judgement{}, fmt.Errorf("judge: no move to judge")
 	}
@@ -123,7 +123,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	in.Features.OpponentMatePlies = len(mateLine)
 
 	v := intervene.Judge(in)
-	j := Judgement{Verdict: v, BestUSI: best.Best, Threshold: a.level.Threshold()}
+	j := Judgement{Verdict: v, BestUSI: best.Best, Threshold: a.level.Threshold(), Ply: ply}
 
 	// 판정에 쓴 두 탐색이 그대로 기보의 평가치가 된다. 추가 탐색이 없다.
 	// 앞쪽은 착수 전 국면이라 그것이 곧 직전 상대 수 뒤의 평가치다 —

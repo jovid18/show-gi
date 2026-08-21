@@ -216,13 +216,18 @@ func (s *Store) UpsertUser(ctx context.Context, provider, providerUID, displayNa
 	return id, nil
 }
 
-// SkillEstimate 는 판 사이로 넘기는 실력 추정치다. skill.Estimate 와 같은 두 값이고,
+// SkillEstimate 는 판 사이로 넘기는 실력 추정치다. skill.Estimate 와 같은 네 값이고,
 // 그 패키지를 여기서 들여오지 않는 것은 추정기가 DB를 모르게 두기 위해서다(skill 패키지).
 type SkillEstimate struct {
 	// Loss 는 정규화된 낙폭(0~1).
 	Loss float64
 	// Samples 는 지금까지 본 판정 수의 누계.
 	Samples int
+	// AbsLoss 는 임계치로 나누지 않은 낙폭의 누적 평균이다. AbsSamples 가 0이면 뜻이 없다 —
+	// 그 칸이 014_skill_absolute_loss.sql 뒤에 생겼다.
+	AbsLoss float64
+	// AbsSamples 는 AbsLoss 에 들어간 수의 개수다.
+	AbsSamples int
 }
 
 // SkillProfile 은 그 사람의 지난 추정치다. 두 번째 값이 false면 「아직 모른다」다 —
@@ -238,17 +243,30 @@ func (s *Store) SkillProfile(ctx context.Context, userID int64) (SkillEstimate, 
 	if row.SkillLoss == nil {
 		return SkillEstimate{}, false, nil
 	}
-	return SkillEstimate{Loss: *row.SkillLoss, Samples: int(row.SkillSamples)}, true, nil
+	e := SkillEstimate{Loss: *row.SkillLoss, Samples: int(row.SkillSamples)}
+	// 절대 낙폭은 따로 본다. 이 칸 없이 쌓인 행이 있어서(014_skill_absolute_loss.sql)
+	// 하나가 있다고 다른 하나가 있는 것이 아니다.
+	if row.SkillAbsLoss != nil {
+		e.AbsLoss, e.AbsSamples = *row.SkillAbsLoss, int(row.SkillAbsSamples)
+	}
+	return e, true, nil
 }
 
 // SaveSkillEstimate 는 추정치를 덮는다. 판정 한 건마다 불린다(query/skill.sql).
 func (s *Store) SaveSkillEstimate(ctx context.Context, userID int64, e SkillEstimate) error {
 	loss := e.Loss
-	err := s.q.SaveSkillEstimate(ctx, db.SaveSkillEstimateParams{
+	params := db.SaveSkillEstimateParams{
 		UserID:       userID,
 		SkillLoss:    &loss,
 		SkillSamples: int32(e.Samples),
-	})
+	}
+	// 표본이 없으면 NULL로 남긴다. 0을 적으면 「매 수 최선」이 되고, 그것이 段級의
+	// 가장 센 이름이다(skill.RankOf).
+	if e.AbsSamples > 0 {
+		abs := e.AbsLoss
+		params.SkillAbsLoss, params.SkillAbsSamples = &abs, int32(e.AbsSamples)
+	}
+	err := s.q.SaveSkillEstimate(ctx, params)
 	if err != nil {
 		return fmt.Errorf("save skill estimate: %w", err)
 	}
@@ -270,6 +288,9 @@ type MatchRating struct {
 	// 되돌리는 데 쓴다. Games 가 0이면 제로값이다.
 	UpdatedAt time.Time
 	// Skill 은 레이팅이 없을 때 시드를 만드는 재료다. SkillKnown 이 false 면 그것도 없다.
+	//
+	// 절대 낙폭 칸은 여기서 안 채운다 — 시드가 정규화값을 보고(rating.SeedFromLoss)
+	// 질의도 그 둘만 읽는다(query/rating.sql). 段級을 여기서 붙이면 언제나 「모른다」다.
 	Skill      SkillEstimate
 	SkillKnown bool
 }

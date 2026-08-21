@@ -227,3 +227,72 @@ func TestWorkerReportsEveryObservation(t *testing.T) {
 		}
 	}
 }
+
+// 절대 낙폭은 평균이다. 段級이 이 값에서 나오므로(rank.go) 「최근 몇 수」가 아니라
+// 「이 판 전체」여야 하고, 그것이 비대칭 EMA와 갈라 둔 이유다.
+func TestAbsLossIsTheMeanOfRawDrops(t *testing.T) {
+	tr := NewTrack()
+	for _, d := range []float64{0.1, 0, 0.2} {
+		tr.Observe(Move{DeltaWin: d, Threshold: beginnerThreshold})
+	}
+	got := tr.Estimate()
+	if math.Abs(got.AbsLoss-0.1) > 1e-9 {
+		t.Errorf("AbsLoss = %.4f, want 0.1", got.AbsLoss)
+	}
+	if got.AbsSamples != 3 {
+		t.Errorf("AbsSamples = %d, want 3", got.AbsSamples)
+	}
+	// 같은 세 수의 EMA는 마지막 수에 끌려 훨씬 위에 있다. 두 값이 같아지면 이 축이
+	// 정규화 축을 그냥 베낀 것이다.
+	if math.Abs(got.Loss-got.AbsLoss) < 0.1 {
+		t.Errorf("두 축이 구별되지 않는다: Loss=%.4f AbsLoss=%.4f", got.Loss, got.AbsLoss)
+	}
+}
+
+// 절대 낙폭에는 분모가 없다. 임계치가 갈려도 같은 값이어야 실측 앵커가 안 낡는다
+// (journal §92).
+func TestAbsLossIgnoresTheThreshold(t *testing.T) {
+	abs := func(threshold float64) float64 {
+		tr := NewTrack()
+		return tr.Observe(Move{DeltaWin: 0.06, Threshold: threshold}).AbsLoss
+	}
+	if beginner, intermediate := abs(0.25), abs(0.12); beginner != intermediate {
+		t.Errorf("임계치가 절대값을 움직였다: %.4f vs %.4f", beginner, intermediate)
+	}
+}
+
+// 詰み을 놓친 수는 승률이 거의 안 움직인다(Move.Blunder). 절대 축에서도 잘 둔 수로
+// 들어가면 안 되므로 임계치를 바닥으로 놓는다.
+func TestLostMateIsNotFreeInTheAbsoluteAxis(t *testing.T) {
+	mate := Move{Blunder: true, DeltaWin: 0.01, Threshold: beginnerThreshold}
+	if got := NewTrack().Observe(mate).AbsLoss; got != beginnerThreshold {
+		t.Errorf("AbsLoss = %.4f, want %v", got, beginnerThreshold)
+	}
+	// 낙폭으로 걸린 블런더는 그 자리가 안 걸린다 — 이미 임계치 이상이라 값이 그대로다.
+	if got := NewTrack().Observe(blunder()).AbsLoss; got != 0.42 {
+		t.Errorf("낙폭 블런더의 AbsLoss = %.4f, want 0.42", got)
+	}
+}
+
+// 이어 두는 판에서 평균이 이어져야 한다. 합으로 되돌리지 않으면 판이 바뀔 때마다
+// 이번 판의 몇 수가 지난 수십 수와 같은 무게가 된다.
+func TestNewTrackFromResumesTheAbsoluteMean(t *testing.T) {
+	tr := NewTrackFrom(Estimate{Loss: 0.5, Samples: 4, AbsLoss: 0.1, AbsSamples: 4})
+	got := tr.Observe(Move{DeltaWin: 0, Threshold: beginnerThreshold})
+	if math.Abs(got.AbsLoss-0.08) > 1e-9 || got.AbsSamples != 5 {
+		t.Errorf("%+v, want AbsLoss 0.08 · AbsSamples 5", got)
+	}
+}
+
+// 그 칸이 없던 시절의 프로파일은 0에서 다시 센다. Samples 를 개수로 쓰면 없는 낙폭을
+// 0으로 세는 것이 되고, 0은 「매 수 최선」이라 가장 센 이름이 붙는다(rank.go).
+func TestNewTrackFromRestartsTheAbsoluteMeanWhenItWasNeverStored(t *testing.T) {
+	tr := NewTrackFrom(Estimate{Loss: 0.8, Samples: 12})
+	got := tr.Observe(Move{DeltaWin: 0.2, Threshold: beginnerThreshold})
+	if math.Abs(got.AbsLoss-0.2) > 1e-9 || got.AbsSamples != 1 {
+		t.Errorf("%+v, want AbsLoss 0.2 · AbsSamples 1", got)
+	}
+	if got.Samples != 13 {
+		t.Errorf("Samples = %d — 정규화 축은 이어져야 한다", got.Samples)
+	}
+}

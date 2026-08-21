@@ -120,7 +120,7 @@ func (h *profileHandler) get(w http.ResponseWriter, r *http.Request) {
 	if got, ok, err := h.store.SkillProfile(r.Context(), s.UserID); err != nil {
 		log.Printf("profile: skill for %d: %v", s.UserID, err)
 	} else if ok {
-		if rank, named := skill.RankOf(skill.Estimate{Loss: got.Loss, Samples: got.Samples}); named {
+		if rank, named := skill.RankOf(skill.Estimate{Loss: got.Loss, Samples: got.Samples, AbsLoss: got.AbsLoss, AbsSamples: got.AbsSamples}); named {
 			out.Rank = &rankView{Step: rank.Step, Max: skill.RankMax, NameJa: rank.NameJa}
 		}
 	}

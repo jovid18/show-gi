@@ -102,6 +102,8 @@ type SkillProfile struct {
 	SkillSamples    int32
 	RatingGames     int32
 	RatingUpdatedAt pgtype.Timestamptz
+	SkillAbsLoss    *float64
+	SkillAbsSamples int32
 }
 
 type User struct {
