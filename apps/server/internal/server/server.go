@@ -123,7 +123,7 @@ func (m *Match) analyzerOrNil() *matchAnalyzer {
 	return m.records.analyzer
 }
 
-// AnalyzeWith 는 판이 끝난 뒤 평가치를 채울 분석기를 단다(matchAnalyzer).
+// AnalyzeWith 는 판이 끝난 뒤 평가치와 실력 추정치를 채울 분석기를 단다(matchAnalyzer).
 //
 // 만드는 자리와 다는 자리가 갈려 있다. 대인전은 엔진보다 먼저 서고(cmd/api 의 「엔진
 // 앞에 둔다」) 분석기는 엔진이 있어야 만들 수 있다 — 순서가 그 사실을 그대로 말한다.

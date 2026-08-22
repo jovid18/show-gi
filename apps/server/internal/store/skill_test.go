@@ -66,3 +66,38 @@ func TestSkillEstimateRoundTrips(t *testing.T) {
 		t.Errorf("%+v — 표본이 없는데 절대 낙폭이 살아 있다", got)
 	}
 }
+
+// 읽은 값이 그대로일 때만 덮는다. 대인전의 사후 분석이 지난 값을 수십 초 들고 있어서,
+// 그냥 덮으면 그 사이에 끝난 엔진 대국의 판정이 통째로 사라진다(server/match_analysis.go).
+func TestSkillEstimateOnlyOverwritesWhatItRead(t *testing.T) {
+	s := open(t)
+	uid := owner(t, s, "skill-cas")
+
+	// 행이 없을 때는 그대로 만든다. 지울 것이 없다.
+	first := SkillEstimate{Loss: 0.42, Samples: 7, AbsLoss: 0.031, AbsSamples: 7}
+	if saved, err := s.SaveSkillEstimateIfSamples(t.Context(), uid, first, 0); err != nil || !saved {
+		t.Fatalf("첫 저장: saved = %v, err = %v", saved, err)
+	}
+
+	// 그 사이에 다른 쪽이 썼다. 표본 수가 달라졌으므로 안 덮는다.
+	stale := SkillEstimate{Loss: 0.99, Samples: 8, AbsLoss: 0.2, AbsSamples: 8}
+	if saved, err := s.SaveSkillEstimateIfSamples(t.Context(), uid, stale, 3); err != nil || saved {
+		t.Fatalf("어긋난 저장: saved = %v, err = %v", saved, err)
+	}
+	got, _, err := s.SkillProfile(t.Context(), uid)
+	if err != nil {
+		t.Fatalf("SkillProfile: %v", err)
+	}
+	if got != first {
+		t.Errorf("진 회차가 덮었다: %+v, want %+v", got, first)
+	}
+
+	// 다시 읽고 얹으면 통과한다.
+	next := SkillEstimate{Loss: 0.11, Samples: 19, AbsLoss: 0.008, AbsSamples: 19}
+	if saved, err := s.SaveSkillEstimateIfSamples(t.Context(), uid, next, got.Samples); err != nil || !saved {
+		t.Fatalf("다시 읽은 뒤: saved = %v, err = %v", saved, err)
+	}
+	if got, _, err = s.SkillProfile(t.Context(), uid); err != nil || got != next {
+		t.Errorf("%+v, want %+v (err %v)", got, next, err)
+	}
+}

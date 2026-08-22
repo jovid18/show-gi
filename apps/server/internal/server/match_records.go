@@ -26,8 +26,8 @@ type matchRecords struct {
 	// 한 벌만 두기 위해서다(matchRecorder).
 	level intervene.Level
 
-	// analyzer 는 판이 끝난 뒤 평가치를 채우는 쪽이다. nil 일 수 있다 — 엔진이 없는
-	// 배포에서는 대인전이 그대로 돌고 평가치만 안 붙는다(matchAnalyzer).
+	// analyzer 는 판이 끝난 뒤 평가치와 실력 추정치를 채우는 쪽이다. nil 일 수 있다 —
+	// 엔진이 없는 배포에서는 대인전이 그대로 돌고 그 둘만 안 붙는다(matchAnalyzer).
 	analyzer *matchAnalyzer
 
 	mu     sync.Mutex
@@ -159,19 +159,29 @@ func (m *matchRecords) collect(ctx context.Context, cancel context.CancelFunc, e
 
 	// 번호가 둘 다 있어야 줄을 세운다. 한쪽만 있으면 그 판은 반쪽이라, 채운 평가치가
 	// 한 사람에게만 보인다.
+	//
+	// 사람과 색을 같이 실어 보낸다. 분석기가 실력 추정도 쌓는데(matchAnalyzer) 그러려면
+	// 「이 手를 누가 뒀나」를 알아야 하고, 그 짝을 아는 것은 여기 곁장부뿐이다.
+	//
+	// 색 순서를 고정한다. 맵을 그냥 훑으면 첫 자리가 실행마다 달라지는데, 기보를 그
+	// 자리의 행 하나에서만 읽으므로(analyze) 「이 판을 잴 수 있나」의 답이 같이 흔들린다.
 	m.mu.Lock()
-	ids := make([]int64, 0, len(entry.id))
-	for _, id := range entry.id {
-		ids = append(ids, id)
+	seats := make([]analysisSeat, 0, len(entry.id))
+	for _, c := range []shogi.Color{shogi.Black, shogi.White} {
+		id, ok := entry.id[c]
+		if !ok {
+			continue
+		}
+		seats = append(seats, analysisSeat{gameID: id, userID: entry.player[c].UserID, color: c})
 	}
 	m.mu.Unlock()
-	if len(ids) != len(entry.ready) {
+	if len(seats) != len(entry.ready) {
 		// 반쪽이라 분석하지 않는다. 표시는 걷는다 — 안 걷으면 그 판이 영영
 		// 「분석 중」으로 남는다.
-		m.analyzer.forget(ids)
+		m.analyzer.forget(gameIDsOf(seats))
 		return
 	}
-	m.analyzer.enqueue(ids)
+	m.analyzer.enqueue(seats)
 
 	// 레이팅은 두 행이 다 있을 때만 옮긴다. 반쪽인 판은 한 사람에게만 남은 판이라,
 	// 그것으로 두 사람의 값을 움직이면 기록과 레이팅이 갈린다.

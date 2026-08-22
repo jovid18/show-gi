@@ -80,8 +80,9 @@ const (
 	FallRate = 0.1
 )
 
-// AnchorFromPly·AnchorToPly 는 段級을 재는 手数 창이다. 밴드는 이 창을 안 본다 —
-// 조절은 매 수 일어나야 한다.
+// AnchorFromPly·AnchorToPly 는 段級을 재는 手数 창이다. Observe 는 밴드에 이 창을
+// 안 씌운다 — 조절은 매 수 일어나야 한다. 판이 끝난 뒤 한꺼번에 먹이는 자리만 예외이고
+// 거기서는 부르는 쪽이 두 축에 다 씌운다(InAnchorWindow).
 //
 // 실측한 앵커가 이 창에서 나왔으므로 런타임도 같은 자를 써야 한다(journal §94). 창이
 // 필요한 이유가 둘이다 — 초반은 定跡이라 급수 신호가 없고(15級의 1-20手 낙폭이 뒤
@@ -151,7 +152,7 @@ func (t *Track) Observe(m Move) Estimate {
 	}
 	t.loss += rate * (l - t.loss)
 	t.samples++
-	if inAnchorWindow(m) {
+	if m.InAnchorWindow() {
 		// 창이 찰 때까지는 진짜 평균이고, 찬 뒤로는 창 하나짜리 EMA다(AbsWindow).
 		t.absMean += (absMoveLoss(m) - t.absMean) / float64(min(t.absSamples+1, AbsWindow))
 		t.absSamples++
@@ -181,11 +182,15 @@ func moveLoss(m Move) float64 {
 	return clamp01(m.DeltaWin / m.Threshold)
 }
 
-// inAnchorWindow 는 이 수가 段級에 들어가는가다. 밴드는 이것과 무관하게 전부 본다.
+// InAnchorWindow 는 이 수가 段級에 들어가는가다. Observe 가 그 축에 이것으로 거른다.
+//
+// 밖으로 낸 것은 한 판을 한꺼번에 먹이는 쪽 때문이다(server/match_analysis.go). 거기서는
+// 밴드도 창 안의 手만 봐야 하는데 Observe 는 밴드에 창을 안 씌우므로, 규칙을 두 벌 쓰지
+// 않으려면 부르는 쪽이 같은 술어를 볼 수 있어야 한다.
 //
 // Ply 가 0이면 부르는 쪽이 手数를 안 실어 준 것이라 창을 못 씌운다. 그때는 넣는다 —
 // 빼면 그 배선에서 段級이 영원히 안 붙고, 그건 조용한 고장이다.
-func inAnchorWindow(m Move) bool {
+func (m Move) InAnchorWindow() bool {
 	if m.Decided {
 		return false
 	}
