@@ -158,6 +158,13 @@ skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at,
              --   정의상 사람 사이의 값이다. **rating_games = 0 이 「레이팅 없음」이다** —
              --   rating_est 가 NOT NULL DEFAULT 0 이라 0으로는 그것을 못 말한다
              --   **어느 API 도 이 값을 안 돌려준다** — 매칭이 쓰는 내부 값이다
+explore_snapshots(id, user_id, name, handicap, moves text[], created_at)
+             -- 검토 화면에서 이름을 붙여 남긴 국면 (015, §96). **SFEN 칸이 없다** —
+             -- 手合割 id 와 0手目부터의 수순뿐이고, 불러오기가 그 두 칸을 주소에 실어
+             -- /api/explore 로 다시 묻는다. 판을 저장하면 그 값이 곧 요청 본문이 되어
+             -- 「아무 국면이나 재 주는 자리」가 이쪽으로 열린다 (§37)
+             -- **개수 상한도 이름의 UNIQUE 도 없다** — 목록 질의에 LIMIT 을 두면
+             -- 지울 수 없는 행이 생기고, 같은 이름 둘은 手数·저장 시각이 가른다
 ```
 
 > **`explain_cache` 와 `kb_chunks` 는 지웠다**(011). 개입 문구가 LLM을 안 거치고 카테고리에서

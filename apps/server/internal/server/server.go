@@ -273,6 +273,30 @@ func Handler(opts Options) http.Handler {
 		})
 	}
 
+	// 검토에서 저장한 국면(explore_snapshots.go). 엔진을 안 탄다 — 기록에 넣고 꺼내는
+	// 일뿐이고, 불러오기는 화면이 주소를 고쳐 위의 /api/explore 로 다시 묻는 것이다.
+	//
+	// 위 블록과 달리 DB에 매여 있다. 검토는 기록이 없어도 서지만 저장은 그럴 수가 없고,
+	// 그때 401(로그인)로 답하면 로그인한 뒤에도 안 되는 자리를 가리킨다 — 그래서 503이다.
+	if opts.Store != nil {
+		sn := &exploreSnapshotHandler{store: opts.Store, auth: ah}
+		mux.HandleFunc("GET /api/explore/snapshots", sn.list)
+		mux.HandleFunc("POST /api/explore/snapshots", sn.save)
+		mux.HandleFunc("PATCH /api/explore/snapshots/{id}", sn.rename)
+		mux.HandleFunc("DELETE /api/explore/snapshots/{id}", sn.remove)
+	} else {
+		snapshotsUnavailable := func(w http.ResponseWriter, _ *http.Request) {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+				"error":   "store_unavailable",
+				"message": "局面の保存を利用できません。",
+			})
+		}
+		mux.HandleFunc("GET /api/explore/snapshots", snapshotsUnavailable)
+		mux.HandleFunc("POST /api/explore/snapshots", snapshotsUnavailable)
+		mux.HandleFunc("PATCH /api/explore/snapshots/{id}", snapshotsUnavailable)
+		mux.HandleFunc("DELETE /api/explore/snapshots/{id}", snapshotsUnavailable)
+	}
+
 	// 대인전(match.go · ws_match.go). 엔진도 DB도 안 탄다 — 룰 엔진과 시계뿐이라
 	// 다른 무엇이 꺼져 있어도 이 셋은 답한다. 기록만 DB 유무에 걸린다.
 	//

@@ -129,9 +129,14 @@ interface BoardProps {
   interactive: boolean;
   /**
    * 착수음 스위치. 없으면 버튼이 안 나온다 — 되짚기에는 착수가 없어서 켤 것이 없다.
-   * 그늘 토글과 나란히 서므로 판이 주는 두 손잡이가 한자리에 모인다.
+   * 그늘 토글과 나란히 선다 — 판이 주는 손잡이가 한자리에 모인다(아래 `flip` 까지 셋).
    */
   sound?: { on: boolean; toggle: () => void };
+  /**
+   * 판을 뒤집는 스위치. 없으면 버튼이 안 나온다 — 그 손잡이를 판 밖에 두는 화면이
+   * 아직 있다(ReviewDetail). 착수음·그늘과 한 줄에 서는 이유는 journal §96.
+   */
+  flip?: { on: boolean; toggle: () => void };
   onSquare: (usi: string) => void;
 }
 
@@ -257,6 +262,7 @@ export function Board({
   boardRef,
   interactive,
   sound,
+  flip,
   onSquare,
 }: BoardProps) {
   /**
@@ -405,7 +411,7 @@ export function Board({
           아무 일이 안 일어나는 버튼은 「고장 났다」로 읽힌다. 회상 중에도 잠그지
           않는다 — 그늘이 강제로 켜지지 않으므로(위 `exposed`) 끄지 못하게 할 이유가
           없다. */}
-      {(ready || sound) && (
+      {(ready || sound || flip) && (
         <div className="board-toggles">
           {sound && (
             <button
@@ -427,6 +433,17 @@ export function Board({
               onClick={() => setShowExposure((on) => !on)}
             >
               相手の利き
+            </button>
+          )}
+          {flip && (
+            <button
+              type="button"
+              className="board-toggle"
+              aria-pressed={flip.on}
+              title="盤の上下を入れかえる"
+              onClick={flip.toggle}
+            >
+              盤を反転
             </button>
           )}
         </div>

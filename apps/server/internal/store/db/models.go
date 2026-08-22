@@ -16,6 +16,15 @@ type Edge struct {
 	EvalByDepth []int32
 }
 
+type ExploreSnapshot struct {
+	ID        int64
+	UserID    int64
+	Name      string
+	Handicap  string
+	Moves     []string
+	CreatedAt pgtype.Timestamptz
+}
+
 type Game struct {
 	ID         int64
 	UserID     *int64

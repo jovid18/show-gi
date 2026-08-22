@@ -1090,3 +1090,97 @@ func (s *Store) HintsUsed(ctx context.Context, gameID int64) (HintUse, error) {
 func (s *Store) MarkHintTaken(ctx context.Context, gameID int64, sfenKey string, taken bool) error {
 	return s.q.MarkHintTaken(ctx, db.MarkHintTakenParams{GameID: gameID, SFENKey: sfenKey, Taken: &taken})
 }
+
+// ─── 검토에서 저장한 국면 ─────────────────────────────────────
+// 手合割 id 하나와 0手目부터의 수순 한 줄이다. SFEN 칸이 없는 이유는 015 마이그레이션에 있다.
+
+// ExploreSnapshot 은 저장된 국면 하나다. 이름에 Explore 가 붙는 것은 game.Snapshot 과
+// 갈라야 해서다 — 저쪽은 두는 중인 판이 화면에 보내는 지금 국면이다.
+type ExploreSnapshot struct {
+	ID   int64
+	Name string
+	// Handicap 은 手合割 id다. 빈 값이 平手다(internal/handicap).
+	Handicap  string
+	Moves     []string
+	CreatedAt time.Time
+}
+
+// ErrNoSnapshot 은 그 번호의 국면이 없거나 남의 것일 때. 둘을 안 가르는 이유는
+// ErrNoGame 과 같다.
+var ErrNoSnapshot = errors.New("store: explore snapshot not found")
+
+// SaveExploreSnapshot 은 국면 하나를 남긴다. 개수를 안 막는다(query/explore.sql).
+func (s *Store) SaveExploreSnapshot(ctx context.Context, userID int64, name, handicap string, moves []string) (ExploreSnapshot, error) {
+	// nil 을 빈 배열로 바꾼다. moves 가 text[] NOT NULL 이라 nil 슬라이스는 pgx 가 NULL 로
+	// 보내고 삽입이 제약에서 떨어진다 — 0手目 저장이 그 자리다.
+	if moves == nil {
+		moves = []string{}
+	}
+	row, err := s.q.CreateExploreSnapshot(ctx, db.CreateExploreSnapshotParams{
+		UserID:   userID,
+		Name:     name,
+		Handicap: handicap,
+		Moves:    moves,
+	})
+	if err != nil {
+		return ExploreSnapshot{}, fmt.Errorf("create explore snapshot: %w", err)
+	}
+	return ExploreSnapshot{
+		ID:        row.ID,
+		Name:      name,
+		Handicap:  handicap,
+		Moves:     moves,
+		CreatedAt: row.CreatedAt.Time,
+	}, nil
+}
+
+// ExploreSnapshots 는 그 사람이 저장한 국면 전부다. 최근에 저장한 것이 앞이다.
+func (s *Store) ExploreSnapshots(ctx context.Context, userID int64) ([]ExploreSnapshot, error) {
+	rows, err := s.q.ListExploreSnapshots(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list explore snapshots: %w", err)
+	}
+	out := make([]ExploreSnapshot, 0, len(rows))
+	for _, r := range rows {
+		// 빈 줄도 빈 배열로 준다. nil 은 JSON 에서 null 이라, 화면이 0手目 국면과 「수순이
+		// 없다」를 가르는 분기를 하나 더 갖게 된다.
+		moves := r.Moves
+		if moves == nil {
+			moves = []string{}
+		}
+		out = append(out, ExploreSnapshot{
+			ID:        r.ID,
+			Name:      r.Name,
+			Handicap:  r.Handicap,
+			Moves:     moves,
+			CreatedAt: r.CreatedAt.Time,
+		})
+	}
+	return out, nil
+}
+
+// RenameExploreSnapshot 은 이름만 고친다. 없거나 남의 것이면 ErrNoSnapshot.
+//
+// 수순을 같은 행에 덮어쓰지 않는다 — 옛 이름이 가리키던 국면이 조용히 달라진다.
+func (s *Store) RenameExploreSnapshot(ctx context.Context, id, userID int64, name string) error {
+	n, err := s.q.RenameExploreSnapshot(ctx, db.RenameExploreSnapshotParams{ID: id, UserID: userID, Name: name})
+	if err != nil {
+		return fmt.Errorf("rename explore snapshot %d: %w", id, err)
+	}
+	if n == 0 {
+		return ErrNoSnapshot
+	}
+	return nil
+}
+
+// DeleteExploreSnapshot 은 국면 하나를 지운다. 없거나 남의 것이면 ErrNoSnapshot.
+func (s *Store) DeleteExploreSnapshot(ctx context.Context, id, userID int64) error {
+	n, err := s.q.DeleteExploreSnapshot(ctx, db.DeleteExploreSnapshotParams{ID: id, UserID: userID})
+	if err != nil {
+		return fmt.Errorf("delete explore snapshot %d: %w", id, err)
+	}
+	if n == 0 {
+		return ErrNoSnapshot
+	}
+	return nil
+}
