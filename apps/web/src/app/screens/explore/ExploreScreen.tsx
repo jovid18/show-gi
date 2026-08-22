@@ -124,10 +124,8 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
 
   /**
    * 다른 줄을 연다 — 手合割을 고르는 것과 저장한 국면을 불러오는 것 둘이다. 이쪽은
-   * 이력을 쌓는다(`replace` 없이).
-   *
-   * 지금 걸어 보던 줄이 통째로 없어지는데, 이력에 남겨 두면 뒤로 가기 한 번으로 방금
-   * 보던 줄이 그대로 돌아온다 — 「정말 버립니까」를 묻지 않는 이유다.
+   * 이력을 쌓는다(`replace` 없이): 걸어 보던 줄이 통째로 없어지지만 뒤로 가기 한 번으로
+   * 돌아오므로 「정말 버립니까」를 안 묻는다.
    */
   const openLine = useCallback((id: string, next: string[]) => {
     navigate({ name: 'explore', handicap: id, moves: next });
@@ -336,13 +334,11 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
             <p className="review-status">{error || engineReady === false ? '' : '局面を読み込んでいます…'}</p>
           )}
 
-          {/* 되돌리는 둘. 줄이 없으면 이 줄 자체가 안 선다 — 0手目에서 물릴 것이 없는데
-              버튼이 서 있으면 그건 눌러도 안 되는 버튼이고, 그렇게 두면 다음에 진짜로 못
-              누를 때 같이 무시된다(홈 메뉴가 쓰는 규칙과 같다). `.btn` 에는 disabled 모양이
-              따로 없어서 더 그렇다.
+          {/* 되돌리는 둘. 줄이 없으면 이 줄 자체가 안 선다 — 눌러도 안 되는 버튼을
+              세워 두면 다음에 진짜로 못 누를 때 같이 무시된다(홈 메뉴와 같은 규칙).
+              `.btn` 에는 disabled 모양이 따로 없어서 더 그렇다.
 
-              「盤を反転」은 여기 없다. 판이 주는 손잡이 줄로 옮겼다(`Board` 의 `flip`) —
-              착수음·그늘과 같이 「판을 어떻게 보나」라 셋이 한자리에 있어야 한다. */}
+              「盤を反転」은 판이 주는 손잡이 줄에 있다(`Board` 의 `flip`, journal §96). */}
           {branching && (
             <div className="explore-controls">
               <button type="button" className="btn" disabled={pending} onClick={back}>
@@ -435,9 +431,8 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
             </section>
           )}
 
-          {/* 저장한 국면. 목록의 마지막이다 — 판을 보며 읽는 것(형세·최선수·수순)이 위에
-              서고, 여기는 「다른 자리로 옮겨 간다」라 축이 다르다. 줄 수가 사람마다 다르고
-              상한이 없으므로 위에 두면 그 아래가 화면 밖으로 밀린다. */}
+          {/* 저장한 국면. 목록의 마지막이다 — 위 셋은 판을 보며 읽는 것이고 이쪽은 축이
+              다르다. 줄 수에 상한이 없어서 위에 두면 그 아래가 화면 밖으로 밀린다. */}
           <Snapshots handicap={handicap} moves={urlMoves} savable={!!active} onLoad={openLine} />
         </aside>
       </div>

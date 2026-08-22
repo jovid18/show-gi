@@ -7,25 +7,24 @@ import type { ExploreSnapshot } from '@/protocol/explore';
 /**
  * 검토에서 저장한 국면 목록과 그것을 고치는 셋.
  *
- * 목록을 손에 들고 있다. 고칠 때마다 다시 묻지 않고 서버가 답한 행으로 그 자리를 고친다 —
- * 다시 물으면 목록이 한 번 사라졌다 서고, 그 사이에 사람이 방금 저장한 줄을 못 찾는다.
+ * 고친 뒤에 다시 묻지 않고 서버가 답한 행으로 그 자리만 고친다 — 다시 물으면 목록이
+ * 한 번 사라졌다 서고, 그 사이에 방금 저장한 줄을 못 찾는다.
  *
- * `useFetch` 를 안 쓴다. 저쪽은 「주소 하나를 읽는다」뿐이고(useReview) 여기는 읽은 것을
- * 고치는 자리가 셋이라, 목록의 주인이 이 훅이어야 한다.
+ * `useFetch` 를 안 쓴다(useReview). 저쪽은 주소 하나를 읽는 것뿐이고, 여기는 목록의
+ * 주인이라 고치는 자리가 셋이다.
  */
 export interface SnapshotSource {
   loaded: Loaded<ExploreSnapshot[]>;
   /**
-   * 로그인 벽에서 닫혔다. 화면이 이 표면을 아예 안 그린다 — 검토 자체가 같은 벽 뒤에
-   * 있어서(explore.go) 그 문구가 이미 옆에 서 있고, 여기서 한 번 더 말하면 같은 사실을
-   * 두 자리가 말한다.
+   * 로그인 벽에서 닫혔다. 화면이 이 표면을 아예 안 그린다 — 그 문구가 이미 옆 패널에
+   * 서 있다(explore.go).
    */
   signedOut: boolean;
   /** 고치는 요청이 도는 중. 목록을 지우지 않고 버튼만 잠근다. */
   pending: boolean;
   /** 마지막 실패. 서버가 준 일본어다(libs/explore/snapshots.ts). */
   error: string;
-  /** 지금 보고 있는 자리를 남긴다. 성공하면 true — 부르는 쪽이 그때 입력을 비운다. */
+  /** 지금 보고 있는 자리를 남긴다. 성공하면 true — 부르는 쪽이 입력을 비운다. */
   save: (name: string, handicap: string, moves: readonly string[]) => Promise<boolean>;
   rename: (id: number, name: string) => Promise<boolean>;
   remove: (id: number) => Promise<boolean>;
@@ -40,7 +39,7 @@ export function useExploreSnapshots(): SnapshotSource {
   const [attempt, setAttempt] = useState(0);
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
 
-  /** 화면을 떠난 뒤에 온 답으로 상태를 고치지 않는다. 고치기 셋이 취소를 안 걸기 때문이다. */
+  /** 떠난 뒤에 온 답으로 상태를 고치지 않는다. 고치기 셋은 취소를 안 건다. */
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -58,8 +57,8 @@ export function useExploreSnapshots(): SnapshotSource {
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
         if (err instanceof SignedOutError) {
-          // 로그인이 없다. 빈 목록으로 두면 「하나도 없다」로 읽히고, 그 옆에 눌러도
-          // 안 되는 저장 버튼이 선다.
+          // 빈 목록으로 두면 「하나도 없다」로 읽히고, 그 옆에 눌러도 안 되는 저장
+          // 버튼이 선다.
           setSignedOut(true);
           setLoaded({ state: 'ready', data: [] });
           return;
@@ -72,7 +71,7 @@ export function useExploreSnapshots(): SnapshotSource {
 
   /**
    * 고치는 요청 하나를 감싼다. 셋이 같은 자리에서 잠기고 같은 자리에 실패를 남긴다 —
-   * 세 벌로 적으면 한쪽만 `pending` 을 안 내리는 날이 온다.
+   * 세 벌로 적으면 한쪽만 `pending` 을 안 내린다.
    */
   const mutate = useCallback(async (run: () => Promise<void>): Promise<boolean> => {
     setPending(true);
@@ -98,8 +97,8 @@ export function useExploreSnapshots(): SnapshotSource {
       mutate(async () => {
         const created = await saveSnapshot(name, handicap, moves);
         if (!alive.current) return;
-        // 앞에 붙인다. 서버가 최근 저장한 것을 앞에 두므로(query/explore.sql) 목록의
-        // 순서가 다시 물어본 것과 같다.
+        // 앞에 붙인다. 서버도 최근 저장한 것을 앞에 두므로(query/explore.sql) 다시
+        // 물어본 순서와 같다.
         setLoaded((prev) => (prev.state === 'ready' ? { state: 'ready', data: [created, ...prev.data] } : prev));
       }),
     [mutate],

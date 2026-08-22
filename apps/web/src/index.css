@@ -4548,8 +4548,8 @@ body {
   border-radius: var(--r-md);
 }
 
-/* 저장한 국면. **목록의 마지막이고 줄 수에 상한이 없다**(migrations/015) — 그래서 여기만
-   자체 스크롤을 갖는다: 스무 줄이 쌓여도 옆 열의 높이가 판을 넘지 않아야 한다. */
+/* 저장한 국면. **줄 수에 상한이 없어서 여기만 자체 스크롤을 갖는다**(아래 `max-height`) —
+   스무 줄이 쌓여도 옆 열이 판보다 높아지지 않아야 한다. */
 .explore-snapshots {
   gap: 0.5rem;
   padding: 0.9rem 1rem;
@@ -4558,7 +4558,7 @@ body {
   border-radius: var(--r-md);
 }
 
-/* 이름 칸과 버튼 한 줄. 이름을 고칠 때도 같은 모양이 그 줄에 서므로 클래스를 같이 쓴다. */
+/* 이름 칸과 버튼 한 줄. 이름을 고칠 때도 같은 모양이라 클래스를 같이 쓴다. */
 .explore-snapshot-save {
   display: flex;
   flex-wrap: wrap;
@@ -4593,8 +4593,7 @@ body {
   list-style: none;
 }
 
-/* 불러오기 하나와 곁의 둘. **불러오기가 줄 전체다** — 목록에서 손이 가는 곳이 거기라
-   이름과 곁 정보가 같은 버튼 안에 있어야 한다. */
+/* 불러오기 하나와 곁의 둘. **불러오기가 줄 전체다** — 이름과 곁 정보가 한 버튼 안이다. */
 .explore-snapshot-row {
   display: flex;
   gap: 0.25rem;
@@ -4621,7 +4620,7 @@ body {
   border-color: var(--line-2);
 }
 
-/* 지금 보고 있는 자리. **누르는 것을 막지 않는다** — 고른 手合割과 같은 색으로 짚기만 한다. */
+/* 지금 보고 있는 자리. 고른 手合割과 같은 색으로 짚기만 하고 **누르는 것은 막지 않는다**. */
 .explore-snapshot[data-on] {
   border-color: var(--brand-line);
   background: var(--brand-soft);
@@ -4634,7 +4633,7 @@ body {
   white-space: nowrap;
 }
 
-/* 手合割·手数·저장 시각. **이름이 같은 두 줄을 가르는 것이 이 줄이다**(이름에 UNIQUE 가 없다). */
+/* 手合割·手数·저장 시각. 이름에 UNIQUE 가 없으므로 **같은 이름 둘을 이 줄이 가른다**. */
 .explore-snapshot-meta {
   display: flex;
   flex-wrap: wrap;
@@ -4648,8 +4647,8 @@ body {
   color: var(--brand-strong);
 }
 
-/* 이름 고치기와 삭제. **불러오기보다 작고 조용하다** — 목록의 일이 「불러오기」라 그 둘이
-   같은 무게로 서면 손이 어디로 갈지가 매번 갈린다. */
+/* 이름 고치기와 삭제. **불러오기보다 작고 조용하다** — 같은 무게로 서면 목록에서 손이
+   어디로 갈지가 매번 갈린다. */
 .explore-snapshot-act {
   flex: 0 0 auto;
   padding: 0 0.45rem;
@@ -4668,7 +4667,7 @@ body {
   color: var(--fg-2);
 }
 
-/* 한 번 누른 삭제. **두 번째 누름이 지운다**(Snapshots.tsx) — 색이 그 사실을 말한다. */
+/* 한 번 누른 삭제. **두 번째 누름이 지운다**(Snapshots.tsx). */
 .explore-snapshot-act[data-danger] {
   border-color: rgb(var(--ray-check) / 0.5);
   color: rgb(var(--ray-check));

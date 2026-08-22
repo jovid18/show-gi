@@ -32,8 +32,7 @@ type CreateExploreSnapshotRow struct {
 
 // 검토 화면에서 저장한 국면(migrations/015). 판이 아니라 手合割 id 와 수순 한 줄이다.
 //
-// 개수를 안 막는다. 상한을 걸면 「하나 지우고 다시 저장하라」가 되는데, 저장한 국면은
-// 판 기록과 달리 사람이 손으로 만든 것이라 무엇을 버릴지 서버가 고를 수 없다.
+// 개수를 안 막는다. 근거는 journal §96.
 func (q *Queries) CreateExploreSnapshot(ctx context.Context, arg CreateExploreSnapshotParams) (CreateExploreSnapshotRow, error) {
 	row := q.db.QueryRow(ctx, createExploreSnapshot,
 		arg.UserID,
@@ -81,11 +80,9 @@ type ListExploreSnapshotsRow struct {
 	CreatedAt pgtype.Timestamptz
 }
 
-// 주인을 = 로 받는다. 익명(user_id NULL)이 애초에 안 걸리고, 그래서 로그인 없이 도는
-// 배포에서는 이 목록이 언제나 빈다.
+// 주인을 = 로 받는다. 익명(user_id NULL)이 애초에 안 걸린다.
 //
-// LIMIT 이 없다. 개수 상한이 없으므로 여기서 자르면 지울 수 없는 행이 생긴다 —
-// 화면에서 사라진 국면은 이름으로도 못 찾는다.
+// LIMIT 이 없다. 개수 상한이 없으므로 여기서 자르면 지울 수 없는 행이 생긴다(journal §96).
 func (q *Queries) ListExploreSnapshots(ctx context.Context, userID int64) ([]ListExploreSnapshotsRow, error) {
 	rows, err := q.db.Query(ctx, listExploreSnapshots, userID)
 	if err != nil {
@@ -125,8 +122,7 @@ type RenameExploreSnapshotParams struct {
 	Name   string
 }
 
-// 주인이 아니면 0행이다. 부르는 쪽에서 그것이 404가 된다 — 403이면 「그 번호의 국면이
-// 있다」를 알려주는 셈이다(GetGameForOwner 와 같은 규약).
+// 주인이 아니면 0행이고, 부르는 쪽에서 그것이 404가 된다(GetGameForOwner 와 같은 규약).
 func (q *Queries) RenameExploreSnapshot(ctx context.Context, arg RenameExploreSnapshotParams) (int64, error) {
 	result, err := q.db.Exec(ctx, renameExploreSnapshot, arg.ID, arg.UserID, arg.Name)
 	if err != nil {

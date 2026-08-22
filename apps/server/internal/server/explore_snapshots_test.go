@@ -13,8 +13,8 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 저장은 벽 셋과 왕복 하나다. 벽은 DB 없이 확인한다 — 로그인·이름·수순 셋이 다 기록에
-// 닿기 전에 거절되므로, 그 셋이 CI에서도 도는 것이 여기의 요점이다.
+// 벽 셋과 왕복 하나. 벽(로그인·이름·수순)은 기록에 닿기 전에 거절되므로 DB 없이 확인하고,
+// 그래서 그 셋은 CI에서도 돈다.
 
 // snapshotWalls 는 store 없는 핸들러다. 벽에서 거절되는 요청은 기록에 안 닿으므로,
 // 여기서 500이 나오면 그 요청이 벽을 지나갔다는 뜻이다.
@@ -29,9 +29,8 @@ func snapshotWalls(t *testing.T) (*exploreSnapshotHandler, *http.Cookie) {
 	return &exploreSnapshotHandler{store: nil, auth: ah}, &http.Cookie{Name: sessionCookie, Value: value}
 }
 
-// snapshotStore 는 진짜 DB에 붙은 핸들러와 서로 다른 두 사람이다.
-//
-// 왕복과 주인 검사가 SQL 의 WHERE 절에만 있다(query/explore.sql) — 가짜로는 확인할 수 없다.
+// snapshotStore 는 진짜 DB에 붙은 핸들러와 서로 다른 두 사람이다. 왕복과 주인 검사가
+// SQL 의 WHERE 절에만 있어서(query/explore.sql) 가짜로는 확인할 수 없다.
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
 func snapshotStore(t *testing.T) (*exploreSnapshotHandler, *http.Cookie, *http.Cookie) {
@@ -125,8 +124,7 @@ func decodeSnapshotList(t *testing.T, rec *httptest.ResponseRecorder) []exploreS
 	return out.Snapshots
 }
 
-// 로그인 벽. 검토 자체와 같은 자리이고(explore.go) 같은 문구여야 한다 — 한 화면의 두
-// 자리가 다른 말로 거절하면 사람은 그 둘을 다른 일로 읽는다.
+// 로그인 벽. 검토 자체와 같은 문구여야 한다(explore.go).
 func TestSnapshotsNeedLogin(t *testing.T) {
 	h, _ := snapshotWalls(t)
 
@@ -148,10 +146,9 @@ func TestSnapshotsNeedLogin(t *testing.T) {
 	}
 }
 
-// 둘 수 없는 수는 저장되지 않는다. 저장할 때 막지 않으면 불러올 때마다 거절되는 행이
-// 기록에 남고, 그건 화면에서 「고장난 국면」으로 보인다.
+// 둘 수 없는 수는 저장되지 않는다. 막지 않으면 불러올 때마다 거절되는 행이 기록에 남는다.
 //
-// store 가 nil이라 벽을 지나가면 500이 아니라 패닉이다 — 지나가지 않는 것이 이 테스트다.
+// store 가 nil이라 벽을 지나가면 패닉이다 — 지나가지 않는 것이 이 테스트다.
 func TestSnapshotsRejectAnIllegalLine(t *testing.T) {
 	h, who := snapshotWalls(t)
 
@@ -177,13 +174,12 @@ func TestSnapshotsRejectAnIllegalLine(t *testing.T) {
 	}
 }
 
-// 저장한 자리가 그대로 돌아온다. 手合割 이름은 표에서 붙고(internal/handicap) 수순은
-// 보낸 그대로다 — 화면이 그 둘로 주소를 다시 만든다.
+// 저장한 자리가 그대로 돌아온다. 화면이 手合割과 수순으로 주소를 다시 만든다.
 func TestSnapshotRoundTrip(t *testing.T) {
 	h, who, _ := snapshotStore(t)
 
-	// 二枚落ち는 上手가 먼저 둔다(journal §88). 下手의 수를 앞에 두면 저장이 거절된다 —
-	// 되짚어 보는 검사가 실제로 手番을 보고 있다는 뜻이다.
+	// 二枚落ち는 上手가 먼저 둔다(journal §88). 下手의 수를 앞에 두면 거절되므로, 이 줄이
+	// 통과하는 것 자체가 검사가 手番을 본다는 뜻이다.
 	line := `["3c3d","7g7f","8c8d"]`
 	saved := decodeSnapshot(t, h.call(t, http.MethodPost, "/api/explore/snapshots",
 		`{"name":"  矢倉の入り口  ","handicap":"nimaiochi","moves":`+line+`}`, who), http.StatusCreated)
@@ -225,8 +221,8 @@ func TestSnapshotRoundTrip(t *testing.T) {
 	}
 }
 
-// 0手目도 저장할 수 있고, 이름을 비우면 서버가 짓는다. 그 둘이 같은 요청에서 만난다 —
-// text[] 컬럼에 빈 배열이 가야 하고(store.SaveExploreSnapshot) 이름이 비면 안 된다.
+// 0手目도 저장할 수 있고, 이름을 비우면 서버가 짓는다. 그 둘이 한 요청에서 만난다 —
+// text[] 컬럼에 빈 배열이 가야 하고(store.SaveExploreSnapshot) 이름은 비면 안 된다.
 func TestSnapshotAtTheStartGetsAName(t *testing.T) {
 	h, who, _ := snapshotStore(t)
 
@@ -244,8 +240,7 @@ func TestSnapshotAtTheStartGetsAName(t *testing.T) {
 	}
 }
 
-// 남의 국면은 목록에도 없고 고치거나 지울 수도 없다. 없는 것과 같은 404다 — 갈라 주면
-// 남이 몇 개 저장했는지를 번호로 훑어볼 수 있다.
+// 남의 국면은 목록에도 없고 고치거나 지울 수도 없다. 없는 것과 같은 404다.
 func TestSnapshotsAreNotSharedBetweenPeople(t *testing.T) {
 	h, mine, theirs := snapshotStore(t)
 

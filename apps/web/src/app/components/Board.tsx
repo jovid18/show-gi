@@ -134,10 +134,7 @@ interface BoardProps {
   sound?: { on: boolean; toggle: () => void };
   /**
    * 판을 뒤집는 스위치. 없으면 버튼이 안 나온다 — 그 손잡이를 판 밖에 두는 화면이
-   * 아직 있다(ReviewDetail).
-   *
-   * 착수음·그늘과 한 줄에 선다. 셋이 다 「판을 어떻게 보나」라 자리가 같아야 하고,
-   * 뒤집기만 駒台 아래에 있으면 판을 보던 눈이 그것을 찾으러 화면 밖으로 나간다.
+   * 아직 있다(ReviewDetail). 착수음·그늘과 한 줄에 서는 이유는 journal §96.
    */
   flip?: { on: boolean; toggle: () => void };
   onSquare: (usi: string) => void;
