@@ -50,6 +50,8 @@ fairy-stockfish로 시작했다가 갈아탔다. 이유는 강함이 아니라 *
 
 ## 4. 데이터 모델 — 그래프 DB를 쓰지 않는 이유
 
+> **표 12개를 한 장으로 본 ERD와 마이그레이션 15개의 이력은 [spec/data-model.md](spec/data-model.md)에 있다.** 이 절은 「왜 이 모양인가」만 든다.
+
 원래 요구는 이랬다.
 
 > 노드 = 국면, 간선 = 한 수. 간선에 ① 그 수순에서 나오는 囲い/전법 태그(배열) ② **탐색 깊이별 평가치 배열**을 저장.
@@ -73,7 +75,7 @@ edges (
   usi            text,
   child_key      text references positions,
   tags           text[],         -- ['mino','bougin','ryoudori'] — 이 수로 성립한 태그
-  eval_by_depth  int[],          -- [d1, d2, ... d14] 선수(sente) 관점 cp
+  eval_by_depth  int[],          -- [d1, d2, ... d12] 선수(sente) 관점 cp
   primary key (parent_key, usi)
 );
 create index on edges using gin (tags);
@@ -89,11 +91,13 @@ create index on edges using gin (tags);
 
 ### `eval_by_depth`는 공짜로 얻는다
 
-USI 엔진은 iterative deepening 중 `info depth 1 score cp … / info depth 2 …`를 계속 뱉는다. **`go` 한 번의 info 라인을 깊이별로 주워담으면 그게 곧 이 배열이다.** 별도 탐색을 14번 돌릴 필요가 없다.
+**깊이는 12이다.** 한때 14로 적어뒀는데 선행 계산이 8.4초가 나와 못 썼고([journal §10](journal/06-20.md)), 초반 캐시 히트율 65.7%를 재고 **14로 안 붙이기로 닫았다**([journal §91](journal/82-100.md)). 지금 프로덕션에서 도는 것은 판정·상대 수·가정 수순이 전부 12다(`game.JudgeDepth` · `game.DefaultDepth`) — 저널의 실측표에 남은 `depth 14` 는 기준점을 재던 측정값이지 이 배열의 길이가 아니다.
+
+USI 엔진은 iterative deepening 중 `info depth 1 score cp … / info depth 2 …`를 계속 뱉는다. **`go` 한 번의 info 라인을 깊이별로 주워담으면 그게 곧 이 배열이다.** 별도 탐색을 12번 돌릴 필요가 없다.
 
 **이 배열은 표시용 데이터가 아니라 개입 판정의 입력이다.** 초보자는 깊게 읽지 않으므로, 얕은 평가와 깊은 평가의 차이가 곧 **"초보자에게 보이는 것과 실제의 격차"**다. 그 격차의 부호가 양쪽 개입을 그대로 정의한다.
 
-| shallow (d2) | deep (d14) | 정체                        | 개입            |
+| shallow (d2) | deep (d12) | 정체                        | 개입            |
 | ------------ | ---------- | --------------------------- | --------------- |
 | 좋아 보임    | 실은 나쁨  | **함정** — 얕은 이득에 낚임 | 제지형 (블런더) |
 | 나빠 보임    | 실은 좋음  | **手筋** — 捨て駒·踏み込み  | 제안형 (힌트)   |
@@ -183,6 +187,8 @@ explore_snapshots(id, user_id, name, handicap, moves text[], created_at)
 ---
 
 ## 5. 시스템 구성
+
+> **그림으로 본 것은 [spec/architecture.md](spec/architecture.md)에 있다** — 모듈 의존 방향(없는 화살표 다섯) · 개입 루프 시퀀스 · 배포 토폴로지.
 
 ```
                   브라우저 (React + three.js)

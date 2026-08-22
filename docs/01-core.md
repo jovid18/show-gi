@@ -445,7 +445,7 @@ target_band = base + [+100, +300] cp   (플레이어 우세 쪽. **기준선**�
 
 ```
 shallow = 그 수를 둔 국면의 얕은 평가 (depth 2)   ← 초보자의 시야를 모사
-deep    = 같은 수의 깊은 평가 (depth 14)
+deep    = 같은 수의 깊은 평가 (depth 12)   ← JudgeDepth. 14는 §4에서 접었다
 reversal = deep − shallow
 
 발동:  shallow < 0            # 얕게 보면 손해로 보인다  ← 이게 핵심 조건

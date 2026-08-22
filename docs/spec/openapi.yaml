@@ -1,0 +1,1410 @@
+openapi: 3.1.0
+
+# show-gi REST API 의 기계용 정본.
+#
+# WebSocket 둘(/ws/game · /ws/match)은 OpenAPI 가 담지 못한다 — 명세는 api.md §5·§6.
+# 이 파일에는 업그레이드 핸드셰이크가 거절되는 경우만 적혀 있다.
+#
+# 라우팅의 정본은 apps/server/internal/server/server.go 다. 경로를 고치면 여기도 고친다.
+
+info:
+  title: show-gi API
+  version: '1.0.0'
+  summary: 개입 타이밍을 스스로 정하는 쇼기 학습 상대의 HTTP API
+  description: |
+    ## 두 가지 규약이 응답 전체를 지배한다
+
+    **실패는 언제나 `{error, message}` 다.** `error` 는 기계용 영어 코드,
+    `message` 는 **화면에 그대로 나가는 일본어**다. 클라이언트가 코드로 문장을
+    짓지 않는다 — 짓기 시작하면 어휘가 두 벌이 되고 한쪽만 고쳐진 채로 남는다.
+
+    **「없는 기능」과 「지금 못 쓰는 기능」과 「로그인이 필요한 기능」이 갈린다.**
+
+    | 상태 | 응답 |
+    | --- | --- |
+    | 경로가 아예 없다 | `404` (그 기능이 이 배포에 없다) |
+    | DB 가 없다 | `503 store_unavailable` |
+    | 엔진이 없다 | `503 engine_unavailable` |
+    | 로그인 안 했다 | `401 unauthorized` / `login_required` |
+    | 남의 것 · 없는 것 | **같은** `404 not_found` |
+
+    마지막 줄이 의도다. 갈라 주면 id 를 하나씩 올려 보며 남의 기록이 있는지 셀 수 있다.
+
+    ## 관점(perspective)이 칸마다 다르다
+
+    cp 는 부호가 뒤집히는 값이라 어느 쪽 관점인지가 명세의 일부다.
+
+    - DB 저장(`game_moves.eval_cp` · `edges.eval_by_depth`)은 **先手 관점**
+    - API 응답의 `evalCp` 는 **플레이어 관점** — 서버가 뒤집어서 준다
+    - `/api/explore` 의 `baselineCp` 만 **언제나 下手 관점**이다 (검토에는 플레이어가 없다)
+
+  license:
+    name: MIT
+    url: https://github.com/jovid18/show-gi/blob/main/LICENSE
+
+servers:
+  - url: https://show-gi.com
+    description: 프로덕션
+  - url: http://localhost:8080
+    description: 로컬 (api 컨테이너 직결)
+
+tags:
+  - name: health
+    description: 로드밸런서와 배포 워크플로가 보는 곳. 인증 뒤에 두지 않는다
+  - name: catalog
+    description: 상수 목록. DB 도 엔진도 로그인도 필요 없다
+  - name: auth
+    description: Google OAuth 와 서명 쿠키. 세션이 표가 아니다
+  - name: review
+    description: 끝난 판을 되짚는다. DB 에 매여 있고 엔진과 무관하다
+  - name: quiz
+    description: 되짚기 퀴즈. 채점이 서버에 있고 엔진을 안 쓴다
+  - name: engine
+    description: 엔진이 필요한 표면 — 가정 수순과 검토
+  - name: snapshots
+    description: 검토에서 이름을 붙여 남긴 국면
+  - name: match
+    description: 사람끼리 두는 방. 엔진도 개입도 없다
+
+security:
+  - sessionCookie: []
+
+paths:
+  /healthz:
+    get:
+      tags: [health]
+      summary: 엔진·DB 상태를 값으로 말한다
+      description: |
+        **엔진이 없어도 200 이다.** 여기서 실패하면 ECS 가 재시작을 반복해 사이트
+        전체가 내려간다 — 대신 `engine` 필드로 드러내고 배포 워크플로가 그 값을 본다.
+
+        `db` 는 매 요청 확인한다(기동 때 붙었어도 나중에 끊긴다). `engine` 은
+        기동 시점의 배선이다 — 프로세스라 죽으면 다음 탐색에서 재기동된다.
+      security: []
+      responses:
+        '200':
+          description: 언제나 200
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, engine, db]
+                properties:
+                  ok: { type: boolean, const: true }
+                  engine: { type: boolean, description: 엔진이 배선됐나 }
+                  db: { type: boolean, description: 지금 DB 에 닿나 }
+              example: { ok: true, engine: true, db: true }
+
+  /metrics:
+    get:
+      tags: [health]
+      summary: Prometheus 텍스트
+      description: |
+        **밖에서 안 닿는다.** Caddy 가 `/ws` · `/api` · `/healthz` 만 프록시하므로
+        이 경로는 태스크 안에서만 열린다. 프로덕션에서 실제로 보는 것은 stdout 으로
+        나가는 CloudWatch EMF 쪽이다.
+      security: []
+      responses:
+        '200':
+          description: Prometheus 노출 형식
+          content:
+            text/plain:
+              schema: { type: string }
+
+  /api/openings:
+    get:
+      tags: [catalog]
+      summary: 고를 수 있는 상대의 진형
+      description: 상수 목록이라 무엇이 꺼져 있어도 이 자리는 답한다. **상대**가 짤 진형이다.
+      security: []
+      responses:
+        '200':
+          description: 고를 수 있는 진형 전부
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [openings]
+                properties:
+                  openings:
+                    type: array
+                    items: { $ref: '#/components/schemas/Opening' }
+
+  /api/handicaps:
+    get:
+      tags: [catalog]
+      summary: 고를 수 있는 手合割
+      description: |
+        일곱 종. **平手는 목록에 없다** — 접지 않는 것은 화면의 기본값이라 고를 항목이 아니다.
+      security: []
+      responses:
+        '200':
+          description: 고를 수 있는 手合割 전부
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [handicaps]
+                properties:
+                  handicaps:
+                    type: array
+                    items: { $ref: '#/components/schemas/Handicap' }
+
+  /api/me:
+    get:
+      tags: [auth]
+      summary: 지금 로그인한 사람
+      description: |
+        **로그인이 꺼진 배포에도 있다.** 화면이 「로그인이라는 것이 이 배포에 있는가」를
+        묻는 자리이고, 없으면 그 물음이 404 가 되어 고장과 구별되지 않는다.
+      security: []
+      responses:
+        '200':
+          description: 로그인 상태
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [enabled, user]
+                properties:
+                  enabled:
+                    type: boolean
+                    description: 이 배포에 로그인 기능이 있나
+                  user:
+                    oneOf:
+                      - type: 'null'
+                      - type: object
+                        required: [id, name]
+                        properties:
+                          id: { type: integer, format: int64 }
+                          name: { type: string }
+
+  /api/auth/google/start:
+    get:
+      tags: [auth]
+      summary: Google 로 보낸다
+      description: |
+        `state` 를 쿠키에 심고 Google 로 302. **로그인이 꺼져 있으면 경로 자체가 없다(404).**
+      security: []
+      responses:
+        '302':
+          description: Google 인증 화면으로
+          headers:
+            Location: { schema: { type: string, format: uri } }
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /api/auth/google/callback:
+    get:
+      tags: [auth]
+      summary: Google 이 돌려보내는 자리
+      description: |
+        **성공·실패 어느 쪽이든 `/` 로 되돌린다.** `state` 를 쿠키와 대조하고, 어긋나면
+        그대로 돌려보낸다 — 화면에 오류를 그리지 않는다.
+      security: []
+      parameters:
+        - { name: code, in: query, schema: { type: string } }
+        - { name: state, in: query, schema: { type: string } }
+        - { name: error, in: query, schema: { type: string } }
+      responses:
+        '302':
+          description: 언제나 `/`
+          headers:
+            Location: { schema: { type: string } }
+            Set-Cookie:
+              description: 성공하면 서명 세션 쿠키
+              schema: { type: string }
+
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      summary: 쿠키를 지운다
+      description: 서버에는 지울 것이 없다 — 세션이 표가 아니라 서명 쿠키다.
+      responses:
+        '204': { description: 지웠다 }
+
+  /api/me/profile:
+    get:
+      tags: [review]
+      summary: 마이페이지 — 段級·전적·崩れやすいところ
+      description: |
+        **로그인 안 했으면 401.** 익명 판은 서로 구별할 수단이 없어 「이 사람의 전적」에
+        답할 수가 없다.
+
+        집계 셋(`record` · `weaknesses` · `styles`)이 **대인전을 뺀다**(`match_id IS NULL`).
+        상대와 둔 판이 그 사람의 「崩れやすいところ」를 흔들지 않는다.
+      responses:
+        '200':
+          description: 그 사람의 段級·전적·崩れやすいところ
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        '401': { $ref: '#/components/responses/LoginRequired' }
+        '500': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/StoreUnavailable' }
+
+  /api/games:
+    get:
+      tags: [review]
+      summary: 최근 대국 목록
+      description: |
+        **결과가 나온 판만.** 두는 중도 中断도 안 온다.
+
+        익명 판은 쿠키 없이도 읽힌다 — 「자기 판」의 정의가 로그인한 사람에게는
+        `user_id`, 익명에게는 `user_id IS NULL` 이다.
+
+        배열이 아니라 객체로 감싼 것은 나중에 커서를 붙일 자리를 비워 둔 것이다.
+      security: []
+      parameters:
+        - name: limit
+          in: query
+          description: 기본 20, 최대 100 으로 잘린다. `int32` 로 파싱한다
+          schema: { type: integer, format: int32, minimum: 1, default: 20 }
+      responses:
+        '200':
+          description: 결과가 나온 자기 판만
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [games]
+                properties:
+                  games:
+                    type: array
+                    items: { $ref: '#/components/schemas/GameSummary' }
+        '400':
+          description: '`bad_limit` — 0 이하·정수 아님·int32 초과'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '500': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/StoreUnavailable' }
+
+  /api/games/{id}:
+    get:
+      tags: [review]
+      summary: 한 판 전체 — 手数마다의 국면과 물러진 수
+      description: |
+        목록과 **같은 조건**이라 끝나지 않은 판은 404 다. 없는 판과 남의 판도 같은 404 다.
+      security: []
+      parameters: [{ $ref: '#/components/parameters/GameID' }]
+      responses:
+        '200':
+          description: 한 판 전체 — 手数마다의 국면과 물러진 수
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GameDetail' }
+        '400': { $ref: '#/components/responses/BadID' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/StoreUnavailable' }
+
+  /api/games/{id}/summary:
+    get:
+      tags: [review]
+      summary: 그 판의 총평
+      description: |
+        **기보와 따로 간다** — 화면이 판을 먼저 그린다.
+
+        **대인전에는 총평이 없다(`404 no_summary`).** 세는 것이 개입인데 그것이 없다.
+      security: []
+      parameters: [{ $ref: '#/components/parameters/GameID' }]
+      responses:
+        '200':
+          description: 그 판의 총평
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GameSummaryPayload' }
+        '400': { $ref: '#/components/responses/BadID' }
+        '404':
+          description: '`not_found` 또는 `no_summary`(대인전)'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '500': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/StoreUnavailable' }
+
+  /api/games/{id}/quiz:
+    get:
+      tags: [quiz]
+      summary: 그 판에서 뽑은 문항
+      description: |
+        **정답이 안 실려 온다** — 채점이 서버에 있다.
+
+        `ready: false` 는 **아직 만드는 중**이고 「문항 없음」과 다르다. 생성이 수십 초
+        걸려서, 그 사이에 화면이 「問題はありません」을 그리면 거짓이 된다 — 판이 끝나는
+        자리에서 문항이 0개여도 행을 남기는 것이 이 값을 위해서다.
+      security: []
+      parameters: [{ $ref: '#/components/parameters/GameID' }]
+      responses:
+        '200':
+          description: 문항 (정답은 안 실린다)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuizPayload' }
+        '400': { $ref: '#/components/responses/BadID' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/StoreUnavailable' }
+
+  /api/games/{id}/quiz/mate:
+    post:
+      tags: [quiz]
+      summary: 詰み 문항 채점
+      description: |
+        **내가 낸 수만 보낸다** — 玉方의 응수는 저장된 트리에서 서버가 꺼낸다.
+        **엔진을 안 쓴다.**
+
+        `attempt` 를 크게 적어 정답을 살 수 없다. 나가는 것은 `hint` 뿐이고 세 번째
+        오답에서만 온다 — 정답 수는 응답에 아예 없다.
+      security: []
+      parameters: [{ $ref: '#/components/parameters/GameID' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [moves]
+              properties:
+                moves:
+                  type: array
+                  items: { $ref: '#/components/schemas/USIMove' }
+                  description: 攻方(나)의 수만. 玉方의 응수는 넣지 않는다
+                attempt:
+                  type: integer
+                  minimum: 1
+                  description: 이 문항의 몇 번째 시도인가. **화면이 센다** — 서버에 안 남는다
+      responses:
+        '200':
+          description: 채점 결과
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MateResponse' }
+        '400':
+          description: '`bad_id` · `bad_request` · `bad_move`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '404':
+          description: '`not_found` · `not_ready`(만드는 중) · `no_item`(詰み 문항이 없다)'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '500': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/StoreUnavailable' }
+
+  /api/games/{id}/quiz/best:
+    post:
+      tags: [quiz]
+      summary: 「최선수는?」 채점
+      description: 첫 수만 받는다. **엔진을 안 쓴다.** 정답은 맞혔을 때만 응답에 실린다.
+      security: []
+      parameters: [{ $ref: '#/components/parameters/GameID' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [index, move]
+              properties:
+                index:
+                  type: integer
+                  description: |
+                    `best[]` 의 몇 번째 문항인가. 手数로 가리키지 않는 이유는 문항이
+                    뽑히는 기준이 바뀌어도 이 값의 뜻은 안 바뀌기 때문이다
+                move: { $ref: '#/components/schemas/USIMove' }
+                attempt: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: 채점 결과
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BestResponse' }
+        '400':
+          description: '`bad_id` · `bad_request` · `bad_move`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '404':
+          description: '`not_found` · `not_ready` · `no_item`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '500': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/StoreUnavailable' }
+
+  /api/games/{id}/whatif:
+    post:
+      tags: [engine]
+      summary: 가정 수순 한 걸음
+      description: |
+        **DB 와 엔진 둘 다 필요하다.** 뿌리는 서버가 자기 기록에서 다시 둬서 만든다 —
+        판(SFEN)을 안 받는다.
+
+        `POST` 인데 아무것도 안 바꾼다. 본문에 수순 배열을 실어야 해서 `POST` 다.
+      security: []
+      parameters: [{ $ref: '#/components/parameters/GameID' }]
+      requestBody:
+        required: true
+        description: 본문 상한 8 KiB
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ply, moves]
+              properties:
+                ply:
+                  type: integer
+                  minimum: 0
+                  description: 확정된 몇 手目에서 갈라지나
+                moves:
+                  type: array
+                  maxItems: 60
+                  items: { $ref: '#/components/schemas/USIMove' }
+      responses:
+        '200':
+          description: 가정 수순의 지금 자리
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WhatifNode' }
+        '400':
+          description: '`bad_id` · `bad_request` · `bad_ply` · `bad_move` · `bad_line`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Error' }
+        '503':
+          description: '`engine_unavailable` — 엔진 고장·시한 초과(20s), 또는 배포에 엔진이 없다'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
+  /api/explore:
+    post:
+      tags: [engine]
+      summary: 검토 한 걸음 — 手合割 하나의 0手目에서 시작하는 자유 탐색
+      description: |
+        **엔진만 필요하고 DB 는 캐시로만 쓴다.** 다만 로그인이 DB 를 요구하므로,
+        기록이 없는 배포에서는 이 경로가 늘 401 이다.
+
+        **로그인이 필요한 이유는 뿌리가 다르기 때문이다.** 가정 수순은 뿌리가 자기 판이라
+        기록이 자격을 정하는데, 검토는 뿌리가 手合割 표라 아무 국면이나 depth 12 로 재
+        달라고 물을 수 있다 — 막는 것이 기록이 아니라 엔진이고, 그 벽이 로그인이다.
+
+        **엔진 슬롯이 1개다.** 풀은 대국이 쓰는 것과 같은 3개인데, 안 묶으면 검토 세 건이
+        엔진을 다 잡고 대국의 착수가 그 뒤에 줄을 선다.
+      requestBody:
+        required: true
+        description: 본문 상한 16 KiB
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [handicap, moves]
+              properties:
+                handicap:
+                  type: string
+                  description: '`/api/handicaps` 의 `id`. 빈 문자열이면 平手'
+                moves:
+                  type: array
+                  maxItems: 200
+                  description: 0手目부터의 수순. 상한이 가정 수순(60)보다 긴 것은 한 판을 통째로 걸어 볼 수 있어야 해서다
+                  items: { $ref: '#/components/schemas/USIMove' }
+      responses:
+        '200':
+          description: 검토의 지금 자리
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExploreNode' }
+        '400':
+          description: '`bad_request` · `bad_handicap` · `bad_move` · `bad_line`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '401': { $ref: '#/components/responses/LoginRequired' }
+        '429':
+          description: |
+            `busy` — 엔진 슬롯을 3초 기다려도 안 났다. **이 API 에서 429 가 나가는
+            자리는 여기 하나다.** 다시 눌러 볼 수 있는 실패라 503 과 갈라 뒀다
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '503':
+          description: '`engine_unavailable`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
+  /api/explore/snapshots:
+    get:
+      tags: [snapshots]
+      summary: 검토에서 저장한 국면 목록
+      description: |
+        **최근에 저장한 것이 앞이고 개수 상한이 없다.** 목록 질의에 `LIMIT` 을 두면
+        지울 수 없는 행이 생긴다.
+      responses:
+        '200':
+          description: 최근에 저장한 것이 앞
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [snapshots]
+                properties:
+                  snapshots:
+                    type: array
+                    items: { $ref: '#/components/schemas/ExploreSnapshot' }
+        '401': { $ref: '#/components/responses/LoginRequired' }
+        '500': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/SnapshotStoreUnavailable' }
+    post:
+      tags: [snapshots]
+      summary: 지금 보고 있는 자리를 남긴다
+      description: |
+        **판(SFEN)을 안 받는다.** 手合割 id 와 수순뿐이고, 저장 전에 룰 엔진으로 한 수씩
+        되짚어 본다 — 엔진 탐색이 아니라 합법성 검사라 슬롯을 안 잡는다.
+
+        이름이 비면 서버가 手数로 하나 짓는다. **개수 상한도 이름의 UNIQUE 도 없다** —
+        같은 이름 둘은 手数와 저장 시각이 가른다.
+      requestBody:
+        required: true
+        description: 본문 상한 16 KiB
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [handicap, moves]
+              properties:
+                name:
+                  type: string
+                  description: 40 rune 까지. **바이트가 아니라 rune 으로 센다.** 비면 서버가 짓는다
+                handicap: { type: string }
+                moves:
+                  type: array
+                  maxItems: 200
+                  items: { $ref: '#/components/schemas/USIMove' }
+      responses:
+        '201':
+          description: 남겼다
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExploreSnapshot' }
+        '400':
+          description: '`bad_request` · `bad_name` · `bad_handicap` · `bad_move` · `bad_line`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '401': { $ref: '#/components/responses/LoginRequired' }
+        '500': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/SnapshotStoreUnavailable' }
+
+  /api/explore/snapshots/{id}:
+    patch:
+      tags: [snapshots]
+      summary: 이름만 고친다
+      description: |
+        **국면은 안 바뀐다.** 수순을 같은 행에 덮어쓰면 옛 이름이 가리키던 자리가 조용히
+        다른 국면이 된다.
+
+        없는 것과 남의 것이 **같은 404** 다.
+      parameters: [{ $ref: '#/components/parameters/SnapshotID' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, description: 1~40 rune }
+      responses:
+        '200':
+          description: 이름을 고쳤다
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, name]
+                properties:
+                  id: { type: integer, format: int64 }
+                  name: { type: string }
+        '400':
+          description: '`bad_id` · `bad_request` · `bad_name`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '401': { $ref: '#/components/responses/LoginRequired' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/SnapshotStoreUnavailable' }
+    delete:
+      tags: [snapshots]
+      summary: 저장된 국면 하나를 지운다
+      parameters: [{ $ref: '#/components/parameters/SnapshotID' }]
+      responses:
+        '204': { description: 지웠다 }
+        '400': { $ref: '#/components/responses/BadID' }
+        '401': { $ref: '#/components/responses/LoginRequired' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/SnapshotStoreUnavailable' }
+
+  /api/resumable:
+    get:
+      tags: [review]
+      summary: 이어할 수 있는 中断된 판 하나
+      description: |
+        **로그인 안 했으면 늘 `null`.** 기록이 없는 배포에서도 200 이다 — 첫 화면이 늘
+        부르는 자리라 실패로 답하면 물음 카드가 아니라 오류가 뜬다.
+      security: []
+      responses:
+        '200':
+          description: 이어할 판 하나. 없으면 `{game:null}`
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [game]
+                properties:
+                  game:
+                    oneOf:
+                      - type: 'null'
+                      - $ref: '#/components/schemas/ResumableGame'
+        '500': { $ref: '#/components/responses/Error' }
+
+  /api/resumable/{id}/decline:
+    post:
+      tags: [review]
+      summary: 「いいえ」 — 그 판을 中断된 채로 닫는다
+      description: |
+        다시 안 물어본다. `result` 가 `declined` 가 되고, 되짚기 목록에도 안 걸린다.
+
+        **익명에게는 404 다** — 이어할 판이 애초에 없다. 없는 판·남의 판·이미 답한 판이
+        모두 같은 404 다.
+      security: []
+      parameters: [{ $ref: '#/components/parameters/GameID' }]
+      responses:
+        '204': { description: 닫았다 }
+        '400': { $ref: '#/components/responses/BadID' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/StoreUnavailable' }
+
+  /api/rooms:
+    post:
+      tags: [match]
+      summary: 사람끼리 두는 방 하나
+      description: |
+        **로그인 안 했으면 401** — 아직 방이 없으므로 새어 나갈 것이 없다.
+
+        `?color=r`(振り駒)는 **서버가 뽑는다.** 클라이언트가 뽑아 `b`/`w` 로 보내면
+        마음에 안 드는 결과를 다시 뽑을 수 있고, 그러면 振り駒가 아니라 그냥 고르는 것이다.
+
+        호스트당 열린 방은 **1개**. 더 만들면 앞의 방이 밀려나고, 그 방에 들어가려던
+        사람은 `room_closed` 를 받는다.
+      parameters:
+        - name: color
+          in: query
+          description: 못 읽으면 `b`. 목록을 서버가 아는 값이라 이상한 값은 클라이언트가 틀린 것이고, 그때 방을 거절하는 것보다 先手로 여는 쪽이 낫다
+          schema: { type: string, enum: [b, w, r], default: b }
+      responses:
+        '200':
+          description: 만든 방
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Room' }
+        '401':
+          description: '`unauthorized`'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
+  /api/rooms/{id}:
+    get:
+      tags: [match]
+      summary: 그 방을 들어가기 전에 확인한다
+      description: |
+        **자리를 안 잡는다** — 앉는 것은 `/ws/match` 다. 링크를 잘못 누른 사람이 자기도
+        모르게 자리를 차지하면 정원 2명인 그 방은 그때부터 아무도 못 들어간다.
+
+        **볼 수 없으면 404 하나다.** 로그인 안 한 경우도 401 이 아니라 404 다 — 방 id 가
+        곧 열쇠라, 「있다/없다」를 로그인 여부로 갈라 주면 id 를 훑어볼 수 있다.
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 영숫자 8자. **연번이 아니다** — id 가 곧 열쇠다
+          schema: { type: string, pattern: '^[A-Za-z0-9]{8}$' }
+      responses:
+        '200':
+          description: 그 방
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Room' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /ws/game:
+    get:
+      tags: [engine]
+      summary: 대국 WebSocket — 연결 하나가 대국 하나
+      description: |
+        **프로토콜 명세는 [api.md §5](api.md) 다.** OpenAPI 는 WebSocket 프레임을 담지
+        못하므로 여기에는 핸드셰이크만 적는다.
+
+        요청/응답이 아니다 — **서버가 먼저 말을 건다**(상대의 수·개입·힌트·총평).
+        스냅샷은 **언제나 전체 상태**이고 부분 갱신이 없다.
+
+        `?handicap` 이 있으면 `?color` 와 `?opening` 을 **덮는다** — 駒落ち에서 사람은
+        언제나 下手다.
+
+        **세션은 서버 메모리에 있고 연결에 매여 있다.** 배포하면 진행 중인 대국이
+        `abandoned` 로 끊기고, `/api/resumable` 이 그것을 찾는다.
+      security: []
+      parameters:
+        - { name: color, in: query, schema: { type: string, enum: [b, w], default: b } }
+        - { name: opening, in: query, description: '`/api/openings` 의 id. **상대**의 진형', schema: { type: string } }
+        - { name: handicap, in: query, description: '`/api/handicaps` 의 id. 위 둘을 덮는다', schema: { type: string } }
+        - {
+            name: resume,
+            in: query,
+            description: 中断된 자기 판의 `games.id`,
+            schema: { type: integer, format: int64 },
+          }
+      responses:
+        '101': { description: 업그레이드 성공 }
+        '404':
+          description: '`resume` 가 가리키는 판이 없거나 남의 것'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '503':
+          description: '`engine_unavailable` — 이 배포에 엔진이 없다'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
+  /ws/match:
+    get:
+      tags: [match]
+      summary: 대인전 WebSocket — 방의 자리에 앉는다
+      description: |
+        **프로토콜 명세는 [api.md §6](api.md) 다.**
+
+        **엔진이 없어도 된다** — 룰 엔진과 시계뿐이다. 개입도 힌트도 待った도 없고,
+        프로토콜에 그 메시지가 **아예 없다.**
+
+        **상대 차례에는 합법수 목록을 안 보낸다.** 주면 상대의 수를 화면에서 훑어볼 수
+        있고, 그건 부정행위 보조다.
+
+        로그인 필수 — 익명은 서로 구별할 수단이 없어 정원 2명이라는 규칙이 성립하지 않는다.
+      parameters:
+        - { name: room, in: query, required: true, schema: { type: string, pattern: '^[A-Za-z0-9]{8}$' } }
+      responses:
+        '101': { description: 업그레이드 성공 }
+        '401': { $ref: '#/components/responses/LoginRequired' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session
+      description: |
+        **서명 쿠키 하나.** `HttpOnly` 이고 세션이 표가 아니라 서명된 값이라 서버에
+        지울 것이 없다. Bearer 토큰도 API 키도 없다 — 클라이언트가 브라우저 하나뿐이다.
+
+  parameters:
+    GameID:
+      name: id
+      in: path
+      required: true
+      description: '`games.id`'
+      schema: { type: integer, format: int64 }
+    SnapshotID:
+      name: id
+      in: path
+      required: true
+      description: '`explore_snapshots.id`'
+      schema: { type: integer, format: int64 }
+
+  responses:
+    Error:
+      description: '`internal` — 서버 문제. 로그에 남는다'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    NotFound:
+      description: |
+        `not_found` — **없는 것과 남의 것이 같은 404 다.** 갈라 주면 id 를 하나씩
+        올려 보며 남의 기록이 있는지 셀 수 있다
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    BadID:
+      description: '`bad_id` — 경로의 번호가 정수가 아니다'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    LoginRequired:
+      description: '`unauthorized` 또는 `login_required`'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    StoreUnavailable:
+      description: |
+        `store_unavailable` — 이 배포에 DB 가 없다. **대국은 된다** — 엔진이 죽어
+        대국을 못 해도 지난 판은 볼 수 있어야 하고, 그 반대도 같다
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    SnapshotStoreUnavailable:
+      description: |
+        `store_unavailable` — 검토 자체는 기록 없이도 서지만 저장은 그럴 수가 없다.
+        여기서 401 로 답하면 로그인한 뒤에도 안 되는 자리를 가리킨다
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+
+  schemas:
+    ApiError:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: 기계용 영어 코드
+        message:
+          type: string
+          description: |
+            **화면에 그대로 나가는 일본어.** 클라이언트가 코드로 문장을 짓지 않는다 —
+            짓기 시작하면 어휘가 두 벌이 된다
+      example: { error: not_found, message: 'その対局は見つかりません。' }
+
+    USIMove:
+      type: string
+      description: |
+        USI 표기. 이동은 `7g7f`(승격은 `+` 접미사 `8h3c+`), 투입은 `P*5e`.
+
+        段이 `a`~`i` 다 — 사람이 읽는 표기(「7六」)와 다르다
+      examples: ['7g7f', '8h3c+', 'P*5e']
+
+    Square:
+      type: string
+      description: 판의 한 칸. 筋(1~9) + 段(a~i)
+      pattern: '^[1-9][a-i]$'
+      examples: ['5a', '7f']
+
+    Color:
+      type: string
+      enum: [b, w]
+      description: '`b` = 先手, `w` = 後手'
+
+    Side:
+      type: string
+      enum: [human, engine]
+      description: 누가 둔 수인가. **`b`/`w` 가 아니다** — 手番이 아니라 주체다
+
+    Status:
+      type: string
+      enum: [playing, checkmate, stalemate, resigned, repetition, aborted]
+      description: |
+        `stalemate`(手詰まり)도 **쇼기에서는 패배**다. `aborted` 는 세션·프로토콜의
+        상태이고 `games.result` 의 값이 **아니다** — 그쪽은 `abandoned` 다
+
+    Opening:
+      type: object
+      required: [id, name, note, source]
+      properties:
+        id: { type: string, examples: [shiken_bisha] }
+        name: { type: string, description: 일본어, examples: ['四間飛車'] }
+        note: { type: string, description: 일본어 한 줄 }
+        source: { type: string, description: 수순의 출처 }
+
+    Handicap:
+      type: object
+      required: [id, name, note]
+      properties:
+        id: { type: string, examples: [nimai] }
+        name: { type: string, examples: ['二枚落ち'] }
+        note: { type: string }
+
+    GameSummary:
+      type: object
+      required: [id, myColor, startedAt, moveCount, interventionCount]
+      properties:
+        id: { type: integer, format: int64 }
+        myColor: { $ref: '#/components/schemas/Color' }
+        startedAt: { type: string, format: date-time }
+        finishedAt:
+          type: string
+          format: date-time
+          description: |
+            **두는 중이면 안 온다.** 빈 값으로 보내면 화면이 「1970년에 끝난 판」을 그린다.
+
+            이 두 경로(`/api/games` · `/api/games/{id}`)에서는 언제나 온다 — 결과가 나온
+            판만 거르기 때문이다. 구조체가 두는 중인 판도 담을 수 있게 생긴 것이지, 이
+            경로가 그것을 돌려주는 것은 아니다
+        result:
+          type: string
+          enum: [win, loss, draw]
+          description: |
+            **DB 의 어휘보다 좁다.** 질의가 `result IN ('win','loss','draw')` 로 거르므로
+            `abandoned` · `declined` 는 이 두 경로에 나오지 않는다 — 中断된 판은
+            `/api/resumable` 이 가져갈 몫이다. DB 쪽 어휘 전체는 spec/data-model.md §5
+        moveCount:
+          type: integer
+          minimum: 1
+          description: 한 수도 안 둔 판은 목록에 없다 — 연결만 열렸다 끊긴 판이 실제로 그렇게 남는다
+        interventionCount:
+          type: integer
+          description: 물러진 횟수. 같은 국면에서 여러 번 물러지면 그만큼 센다
+        handicapJa:
+          type: string
+          description: |
+            그 판의 手合割 이름(일본어). **平手면 안 온다.** 화면이 이름을 만들지
+            않는다 — 이 줄이 없으면 駒落ち 판의 형세 그래프가 +1386 에서 시작하는
+            이유가 화면 어디에도 없어서, 되짚는 사람이 그것을 「엄청 잘 둔 판」으로 읽는다
+          examples: ['二枚落ち']
+        isMatch:
+          type: boolean
+          description: |
+            사람과 둔 판인가. 화면이 이 값으로 총평과 퀴즈를 닫는다 — 대인전에는 엔진
+            판정이 없어 개입이 0 건이고 평가치가 비는데, **그 둘은 없는 것이지 0 인 것이 아니다**
+        analyzing:
+          type: boolean
+          description: |
+            평가치를 지금 채우는 중. 대인전에만 뜬다. 「분석 중」과 「남지 않았다」를
+            갈라 두지 않으면 판이 끝나자마자 들어온 사람이 영영 없는 줄 안다
+
+    GameDetail:
+      allOf:
+        - $ref: '#/components/schemas/GameSummary'
+        - type: object
+          required: [startSfen, moves, interventions, undos]
+          properties:
+            startSfen:
+              type: string
+              description: 0手目의 국면. 手数를 하나씩 되감으면 여기까지 온다
+            baselineCp:
+              type: integer
+              description: |
+                이 판의 「형세 0」(플레이어 관점). 平手면 0 이라 안 온다.
+
+                **목록에는 없고 여기만 있다.** 쓰는 곳이 형세 그래프와 후보 줄의 색뿐이고,
+                빼면 駒落ち 판의 곡선이 천장에 붙어 어디서 흘렸는지가 안 보인다
+            moves:
+              type: array
+              description: |
+                **지금 판에 남아 있는 수순만.** 물러진 수도 스스로 무른 수도 여기 없다
+              items: { $ref: '#/components/schemas/ReviewMove' }
+            interventions:
+              type: array
+              items: { $ref: '#/components/schemas/ReviewIntervention' }
+            undos:
+              type: array
+              description: |
+                사람이 스스로 무른 수. **개입과 갈라서 준다** — 판이 되돌아간 것은 같지만
+                시작한 쪽이 반대라, 한 배열로 주면 화면이 그 둘을 같은 줄로 그린다
+              items: { $ref: '#/components/schemas/ReviewUndo' }
+
+    ReviewMove:
+      type: object
+      required: [ply, usi, ja, by]
+      properties:
+        ply: { type: integer }
+        usi: { $ref: '#/components/schemas/USIMove' }
+        ja: { type: string, description: 棋譜 표기, examples: ['▲7六歩'] }
+        by: { $ref: '#/components/schemas/Side' }
+        sfen:
+          type: string
+          description: |
+            이 수를 둔 뒤의 국면. **비어 있을 수 있다** — 기록이 중간에 끊겼으면 거기서부터
+            재현이 멈춘다. 그래도 그 수를 목록에서 빼지 않는다(둔 것은 둔 것이다)
+        evalCp:
+          type: [integer, 'null']
+          description: |
+            **플레이어 관점** cp. DB 의 先手 관점을 여기서 뒤집는다.
+
+            `null` 은 그 手数에 평가치가 안 붙었다는 뜻이고 **0 과 다르다** — 0 은 호각이다
+        checked:
+          $ref: '#/components/schemas/Square'
+          description: 이 수 뒤에 王手를 받고 있는 玉의 칸. 아니면 빈 값
+
+    ReviewIntervention:
+      type: object
+      required: [ply, kind, category, deltaWin]
+      properties:
+        ply:
+          type: integer
+          description: |
+            **물러진 수의 手数.** 그 수는 `moves` 에 없으므로, 화면이 그 국면을 보려면
+            `ply - 1` 手目의 판을 그려야 한다
+        kind:
+          type: string
+          enum: [blunder, tesuji]
+          description: '`blunder` = 제지형(착수 후 롤백) · `tesuji` = 제안형(착수 전 알림)'
+        category: { type: string, description: 기계용 코드. **화면에 안 나간다** }
+        categoryJa: { type: string, description: 서버가 만든 일본어 }
+        message: { type: string, description: 결정적 템플릿이 만든 일본어 }
+        deltaWin: { type: number, format: double, description: 승률 낙폭 }
+        levelBucket: { type: string }
+        retractedUsi: { $ref: '#/components/schemas/USIMove' }
+        retractedJa:
+          type: string
+          description: 물러진 수의 棋譜 표기. 재현이 그 手数까지 못 갔으면 비어 있다
+        afterCp:
+          type: [integer, 'null']
+          description: |
+            그 수를 두면 얼마가 되나. `moves[].evalCp` 와 같은 자여야 되짚기 화면이
+            물러진 수·실제로 둔 수·최선수를 한 줄에 세울 수 있다. **옛 기록에는 없다**
+        bestCp:
+          type: [integer, 'null']
+          description: |
+            판정 당시 최선수의 cp. `deltaWin` 과 겹치지 않는다 — 낙폭은 그때 K 로 구한
+            승률 차라 K 가 바뀌면 낡고, 이 값은 원본이라 안 낡는다
+
+    ReviewUndo:
+      type: object
+      required: [ply, usi]
+      properties:
+        ply: { type: integer, description: 개입과 같은 규약 — 그 수는 `moves` 에 없다 }
+        usi: { $ref: '#/components/schemas/USIMove' }
+        ja: { type: string }
+        evalCp: { type: [integer, 'null'], description: 플레이어 관점 }
+
+    Rank:
+      type: object
+      required: [step, max, nameJa]
+      properties:
+        step: { type: integer, description: 0..max. 클수록 세다 }
+        max: { type: integer }
+        nameJa: { type: string, description: 「8級」·「初段」. 그대로 나간다 }
+
+    GameSummaryPayload:
+      type: object
+      required: [body, stats]
+      properties:
+        body:
+          type: string
+          description: 화면에 그대로 나가는 일본어. **비는 일이 없다**
+        gameId:
+          type: integer
+          format: int64
+          description: |
+            **대국 화면이 부를 때만 온다.** 그 화면은 그때까지 자기 판의 번호를 모른다 —
+            기록은 WS 밖에서 비동기로 쓰인다. 되짚기에서 부르면 0 이다
+        stats:
+          type: object
+          required: [playerMoves, interventions]
+          properties:
+            playerMoves: { type: integer, description: 사람이 **확정한** 수의 개수 }
+            interventions: { type: integer }
+            categories:
+              type: array
+              description: 많은 순서. 화면이 그 순서대로 그린다
+              items:
+                type: object
+                required: [code, nameJa, count]
+                properties:
+                  code: { type: string }
+                  nameJa: { type: string }
+                  count: { type: integer }
+            focus:
+              type: object
+              description: 「이 국면을 다시 봐라」. 개입이 없으면 없다
+              required: [ply, category, nameJa]
+              properties:
+                ply: { type: integer }
+                category: { type: string }
+                nameJa: { type: string }
+        skill:
+          type: object
+          description: |
+            이 판의 段級 변화. **되짚기에서는 언제나 없다** — 추정치는 사람에게 붙는
+            값이라 지난 판을 여는 지금은 이미 다른 값이고, 그때의 값을 판마다 저장하지 않았다
+          required: [after]
+          properties:
+            before:
+              $ref: '#/components/schemas/Rank'
+              description: 첫 판이거나 익명이면 없다
+            after: { $ref: '#/components/schemas/Rank' }
+
+    Profile:
+      type: object
+      required: [name, record, interventions]
+      properties:
+        name: { type: string }
+        rank:
+          $ref: '#/components/schemas/Rank'
+          description: 아직 잰 적이 없으면 없다
+        record:
+          type: object
+          required: [games, win, loss, draw]
+          properties:
+            games: { type: integer }
+            win: { type: integer }
+            loss: { type: integer }
+            draw: { type: integer }
+        interventions: { type: integer }
+        weaknesses:
+          type: array
+          items:
+            type: object
+            required: [code, nameJa, count, share]
+            properties:
+              code: { type: string }
+              nameJa: { type: string }
+              count: { type: integer }
+              share: { type: number, format: double }
+        styles:
+          type: array
+          description: 사람이 짠 囲い·전법·戦型. **手筋은 안 담는다**
+          items:
+            type: object
+            required: [code, nameJa, kind, games]
+            properties:
+              code: { type: string }
+              nameJa: { type: string }
+              kind: { type: string, examples: [castle, formation, opening] }
+              games: { type: integer }
+
+    ResumableGame:
+      type: object
+      required: [id, myColor, startedAt, moveCount]
+      properties:
+        id: { type: integer, format: int64 }
+        myColor: { $ref: '#/components/schemas/Color' }
+        startedAt: { type: string, format: date-time }
+        moveCount:
+          type: integer
+          minimum: 1
+          description: 한 수도 안 둔 판은 목록에 없다 — 연결만 열렸다 끊긴 판이 실제로 그렇게 남는다
+        opening: { type: string }
+        openingJa: { type: string }
+        handicap: { type: string }
+        handicapJa: { type: string }
+
+    Room:
+      type: object
+      required: [id, yourColor, hostName, waiting, isHost]
+      properties:
+        id: { type: string, description: 영숫자 8자. id 가 곧 열쇠다 }
+        yourColor: { $ref: '#/components/schemas/Color' }
+        hostName:
+          type: string
+          description: |
+            **상대에 대해 나가는 것은 표시 이름 하나다.** 段級도 전적도 없다 —
+            「이 사람은 종반에 약하다」가 대인전 상대에게 넘어가면 안 된다
+        waiting: { type: boolean, description: 아직 상대가 안 들어왔나 }
+        isHost: { type: boolean }
+
+    WhatifCandidate:
+      type: object
+      required: [usi, ja, evalCp]
+      properties:
+        usi: { $ref: '#/components/schemas/USIMove' }
+        ja: { type: string }
+        evalCp: { type: integer }
+        lossCp: { type: integer, description: 최선수와의 차. 최선수면 안 온다 }
+        mateIn: { type: integer, description: 詰みまでの手数. 없으면 안 온다 }
+
+    WhatifNode:
+      type: object
+      required: [basePly, ply, sfen, turn, yourTurn, status, legalMoves, line, candidates]
+      properties:
+        basePly: { type: integer, description: 갈라진 자리의 手数 }
+        ply: { type: integer, description: 지금 手数 }
+        sfen: { type: string }
+        turn: { $ref: '#/components/schemas/Color' }
+        yourTurn: { type: boolean }
+        checked: { $ref: '#/components/schemas/Square' }
+        status: { $ref: '#/components/schemas/Status' }
+        legalMoves:
+          type: array
+          description: |
+            **클라이언트는 규칙을 하나도 모른다.** 二歩도 打ち歩詰め도 모르고 이 배열만 믿는다
+          items: { $ref: '#/components/schemas/USIMove' }
+        evalCp: { type: [integer, 'null'] }
+        mateIn: { type: integer }
+        line:
+          type: array
+          items:
+            type: object
+            required: [ply, usi, ja, by, sfen]
+            properties:
+              ply: { type: integer }
+              usi: { $ref: '#/components/schemas/USIMove' }
+              ja: { type: string }
+              by: { $ref: '#/components/schemas/Side' }
+              sfen: { type: string }
+              checked: { $ref: '#/components/schemas/Square' }
+        candidates:
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/WhatifCandidate' }
+
+    ExploreNode:
+      allOf:
+        - $ref: '#/components/schemas/WhatifNode'
+        - type: object
+          properties:
+            handicapJa: { type: string, description: 平手면 안 온다 }
+            baselineCp:
+              type: integer
+              description: |
+                그 手合의 「형세 0」(**先手 관점**). 平手면 0 이라 안 온다.
+
+                **부호를 뒤집지 않는다.** 되짚기는 사람이 上手일 수 있어 기준점을 플레이어
+                관점으로 뒤집는데, 검토의 관점은 언제나 下手로 못박혀 있다
+
+    ExploreSnapshot:
+      type: object
+      required: [id, name, moves, savedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        handicap: { type: string, description: 平手면 안 온다 }
+        handicapJa: { type: string }
+        moves:
+          type: array
+          description: |
+            **0手目부터의 수순.** SFEN 칸이 없다 — 불러오기는 `handicap` 과 이 배열을
+            주소에 실어 `/api/explore` 로 다시 묻는다
+          items: { $ref: '#/components/schemas/USIMove' }
+        savedAt: { type: string, format: date-time }
+
+    QuizPayload:
+      type: object
+      required: [ready]
+      properties:
+        ready:
+          type: boolean
+          description: |
+            **`false` 는 「아직 만드는 중」이고 「문항이 없다」와 다르다.** 만드는 데
+            수십 초가 걸려서, 그 사이에 화면이 「問題はありません」을 그리면 거짓이 된다
+        mate:
+          type: object
+          required: [ply, sfen, plies, converted, legalMoves]
+          properties:
+            ply: { type: integer }
+            sfen: { type: string }
+            plies:
+              type: integer
+              description: 詰みまでの手数. **문항의 일부다** — 몇 手인지를 모르면 詰将棋는 풀 수 없다
+            converted:
+              type: boolean
+              description: |
+                사람이 그 詰み을 대국에서 실제로 決めた가. 화면의 문장이 여기서 갈린다 —
+                놓친 詰み과 決めた 詰み은 사람에게 전혀 다른 이야기다
+            legalMoves:
+              type: array
+              description: |
+                **王手인 수만.** 詰将棋에서 攻方은 매 수 王手를 걸어야 하므로 그 밖은
+                애초에 문항의 입력이 아니다
+              items: { $ref: '#/components/schemas/USIMove' }
+            checked:
+              $ref: '#/components/schemas/Square'
+              description: |
+                詰ます 쪽이 자기도 王手를 받고 있을 수 있다 — 王手를 풀면서 거는 수만
+                남은 국면이 그렇다. 안 보내면 첫 수를 둘 때까지 판이 그 사실을 안 그린다
+        best:
+          type: array
+          items:
+            type: object
+            required: [index, ply, sfen, legalMoves]
+            properties:
+              index: { type: integer, description: 채점 요청이 가리키는 값 }
+              ply: { type: integer }
+              sfen: { type: string }
+              legalMoves:
+                type: array
+                description: 합법수 **전부**. 王手로 좁히지 않는다 — 그 규약은 詰み 문항만의 것이다
+                items: { $ref: '#/components/schemas/USIMove' }
+              checked: { $ref: '#/components/schemas/Square' }
+
+    MateResponse:
+      type: object
+      required: [line, sfen, plies, outcome, message]
+      properties:
+        line:
+          type: array
+          description: 판 위에서 진행된 수 전부 (내 수와 玉方 응수가 번갈아)
+          items: { $ref: '#/components/schemas/USIMove' }
+        sfen: { type: string }
+        defense: { $ref: '#/components/schemas/USIMove' }
+        defenseJa: { type: string, description: 직전 내 수에 玉方이 답한 수 }
+        legalMoves:
+          type: array
+          description: 다음에 둘 수 있는 王手들. 끝났으면 없다
+          items: { $ref: '#/components/schemas/USIMove' }
+        checked: { $ref: '#/components/schemas/Square' }
+        plies: { type: integer, description: 지금 국면에서 詰みまでの手数. 끝났으면 0 }
+        outcome:
+          type: string
+          enum: [ongoing, solved, wrong, not_check]
+        message: { type: string, description: 서버가 만든 일본어 }
+        hint:
+          type: string
+          description: |
+            「무엇을 어디서 움직이나」(「7九の銀」). **세 번째 오답에서만 온다.**
+
+            정답 수는 이 응답에 **아예 없다.** 채점기는 정답을 알지만 전송 계층이
+            내보내지 않는다 — 그것이 채점을 서버에 둔 이유다
+          examples: ['7九の銀']
+
+    BestResponse:
+      type: object
+      required: [correct, move, played, message]
+      properties:
+        correct: { type: boolean }
+        answer:
+          $ref: '#/components/schemas/USIMove'
+          description: |
+            **맞혔을 때만 온다.** 문구에서 지우는 것으로는 안 됐다 — 응답에 남아
+            있으면 화면이 그것을 다른 칸에 그대로 적고 있었다
+        answerJa: { type: string }
+        answerCp:
+          type: [integer, 'null']
+          description: 사람 관점 cp. 포인터인 것은 0 이 호각이라는 실제 값이어서다
+        secondCp:
+          type: [integer, 'null']
+          description: 2위 후보의 cp. `answerCp` 와의 차가 이 문항이 뽑힌 기준이다
+        move:
+          $ref: '#/components/schemas/USIMove'
+          description: |
+            **지금 이 문항에 낸 수.** `played` 와 다르다 — 저쪽은 그 판에서 실제로 둔
+            수다. 뭉치면 오답 문구가 그 판에서 둔 수만 말하게 되고, 방금 낸 사람에게는
+            자기가 낸 수가 어디에도 없는 문장이 된다
+        moveJa: { type: string }
+        sfen:
+          type: string
+          description: |
+            낸 수를 둔 뒤의 판. 못 만들었으면 빈 값이고, 그때 화면은 문제 국면을 그대로
+            세운다. **낸 수를 판에서 보여주는 유일한 길이다** — 화면은 규칙을 모르므로
+            스스로 한 수도 못 둔다. 打과 반상 이동이 갈리는 자리도 여기다
+        checked: { $ref: '#/components/schemas/Square' }
+        played:
+          $ref: '#/components/schemas/USIMove'
+          description: 사람이 **대국에서 실제로** 둔 수
+        playedJa: { type: string }
+        line:
+          type: array
+          description: |
+            정답 뒤에 서로 최선으로 뒀을 때의 흐름. **맞혔을 때만 있다** — 첫 수가 곧
+            정답이라 이것만 내보내도 정답을 말한 것이 된다.
+
+            이 칸이 생기기 전에 만들어진 문항은 영영 비어 있다
+          items:
+            type: object
+            required: [usi, ja, sfen]
+            properties:
+              usi: { $ref: '#/components/schemas/USIMove' }
+              ja: { type: string }
+              sfen: { type: string }
+        message: { type: string, description: 서버가 만든 일본어 }
+        hint: { type: string, description: 세 번째 오답에서만 }
