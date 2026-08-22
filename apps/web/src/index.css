@@ -4383,8 +4383,8 @@ body {
   font-weight: 600;
 }
 
-/* 되돌리는 둘과 판을 돌리는 하나. **축이 다른 것을 한 줄에 둔다** — 되짚기는 「언제를
-   보나」가 슬라이더라 갈라 뒀는데(`.review-board-controls`), 검토에는 이동 장치가 없다. */
+/* 되돌리는 둘. **줄이 없으면 이 줄 자체가 안 선다** — 0手目에는 물릴 것이 없다.
+   「盤を反転」은 여기 없다: 판이 주는 손잡이 줄로 옮겼다(`.board-toggles`, journal §96). */
 .explore-controls {
   display: flex;
   flex-wrap: wrap;
@@ -4546,4 +4546,131 @@ body {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
+}
+
+/* 저장한 국면. **목록의 마지막이고 줄 수에 상한이 없다**(migrations/015) — 그래서 여기만
+   자체 스크롤을 갖는다: 스무 줄이 쌓여도 옆 열의 높이가 판을 넘지 않아야 한다. */
+.explore-snapshots {
+  gap: 0.5rem;
+  padding: 0.9rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+/* 이름 칸과 버튼 한 줄. 이름을 고칠 때도 같은 모양이 그 줄에 서므로 클래스를 같이 쓴다. */
+.explore-snapshot-save {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.explore-snapshot-input {
+  flex: 1 1 8rem;
+  min-width: 0;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--fg);
+}
+
+.explore-snapshot-input:focus-visible {
+  border-color: var(--brand-line);
+  outline: none;
+}
+
+.explore-snapshot-list {
+  display: grid;
+  gap: 0.3rem;
+  max-height: 15rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 불러오기 하나와 곁의 둘. **불러오기가 줄 전체다** — 목록에서 손이 가는 곳이 거기라
+   이름과 곁 정보가 같은 버튼 안에 있어야 한다. */
+.explore-snapshot-row {
+  display: flex;
+  gap: 0.25rem;
+  align-items: stretch;
+}
+
+.explore-snapshot {
+  display: grid;
+  gap: 0.1rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: none;
+  font: inherit;
+  color: var(--fg);
+  text-align: start;
+  cursor: pointer;
+}
+
+.explore-snapshot:hover,
+.explore-snapshot:focus-visible {
+  border-color: var(--line-2);
+}
+
+/* 지금 보고 있는 자리. **누르는 것을 막지 않는다** — 고른 手合割과 같은 색으로 짚기만 한다. */
+.explore-snapshot[data-on] {
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
+}
+
+.explore-snapshot-name {
+  overflow: hidden;
+  font-size: 0.875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 手合割·手数·저장 시각. **이름이 같은 두 줄을 가르는 것이 이 줄이다**(이름에 UNIQUE 가 없다). */
+.explore-snapshot-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-size: 0.6875rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.explore-snapshot-handicap {
+  color: var(--brand-strong);
+}
+
+/* 이름 고치기와 삭제. **불러오기보다 작고 조용하다** — 목록의 일이 「불러오기」라 그 둘이
+   같은 무게로 서면 손이 어디로 갈지가 매번 갈린다. */
+.explore-snapshot-act {
+  flex: 0 0 auto;
+  padding: 0 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: none;
+  font: inherit;
+  font-size: 0.6875rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.explore-snapshot-act:hover,
+.explore-snapshot-act:focus-visible {
+  border-color: var(--line-2);
+  color: var(--fg-2);
+}
+
+/* 한 번 누른 삭제. **두 번째 누름이 지운다**(Snapshots.tsx) — 색이 그 사실을 말한다. */
+.explore-snapshot-act[data-danger] {
+  border-color: rgb(var(--ray-check) / 0.5);
+  color: rgb(var(--ray-check));
+  font-weight: 600;
 }

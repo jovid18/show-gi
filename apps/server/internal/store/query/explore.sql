@@ -1,0 +1,37 @@
+-- 검토 화면에서 저장한 국면(migrations/015). 판이 아니라 手合割 id 와 수순 한 줄이다.
+
+-- name: CreateExploreSnapshot :one
+--
+-- 개수를 안 막는다. 상한을 걸면 「하나 지우고 다시 저장하라」가 되는데, 저장한 국면은
+-- 판 기록과 달리 사람이 손으로 만든 것이라 무엇을 버릴지 서버가 고를 수 없다.
+INSERT INTO explore_snapshots (user_id, name, handicap, moves)
+VALUES ($1, $2, $3, $4)
+RETURNING id, created_at;
+
+-- name: ListExploreSnapshots :many
+--
+-- 주인을 = 로 받는다. 익명(user_id NULL)이 애초에 안 걸리고, 그래서 로그인 없이 도는
+-- 배포에서는 이 목록이 언제나 빈다.
+--
+-- LIMIT 이 없다. 개수 상한이 없으므로 여기서 자르면 지울 수 없는 행이 생긴다 —
+-- 화면에서 사라진 국면은 이름으로도 못 찾는다.
+SELECT id, name, handicap, moves, created_at
+FROM explore_snapshots
+WHERE user_id = $1
+ORDER BY id DESC;
+
+-- name: RenameExploreSnapshot :execrows
+--
+-- 주인이 아니면 0행이다. 부르는 쪽에서 그것이 404가 된다 — 403이면 「그 번호의 국면이
+-- 있다」를 알려주는 셈이다(GetGameForOwner 와 같은 규약).
+UPDATE explore_snapshots
+SET name = $3
+WHERE id = $1
+  AND user_id = $2;
+
+-- name: DeleteExploreSnapshot :execrows
+--
+-- 위와 같은 이유로 주인을 조건에 둔다.
+DELETE FROM explore_snapshots
+WHERE id = $1
+  AND user_id = $2;

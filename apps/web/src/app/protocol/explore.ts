@@ -40,3 +40,29 @@ export interface ExploreNode extends WhatIfNode {
   /** 그 手合의 「형세 0」, 下手 관점 cp. 平手면 안 온다(0이라 뺄 것이 없다). */
   baselineCp?: number;
 }
+
+/**
+ * 검토 화면에서 이름을 붙여 저장한 국면. 서버의 `internal/server/explore_snapshots.go` 와 짝이다.
+ *
+ * 국면(SFEN)이 아니라 手合割 하나와 수순 한 줄이다. 불러오기가 이 두 칸을 그대로 주소에
+ * 실어 `/api/explore` 로 다시 묻기 때문이고(`routeExplore`), 그래서 저장·불러오기가 지금까지의
+ * 길에 아무것도 더하지 않는다 — SFEN을 저장하면 그 값이 곧 요청 본문이 되어 「아무 국면이나
+ * 재 주는 자리」가 이쪽으로 열린다.
+ *
+ * 手数가 없다. `moves.length` 가 그 값이라 실어 보내면 두 칸이 어긋날 자리가 하나 생긴다.
+ */
+export interface ExploreSnapshot {
+  id: number;
+  name: string;
+  /** 手合割 id. 平手면 안 온다 — 빈 값이 平手라는 규약을 그대로 쓴다. */
+  handicap?: string;
+  /** 그 手合割의 일본어 이름. 平手면 안 온다 — 화면이 id로 이름을 만들지 않는다. */
+  handicapJa?: string;
+  moves: string[];
+  /** 저장한 시각(ISO). */
+  savedAt: string;
+}
+
+export interface ExploreSnapshotListResponse {
+  snapshots: ExploreSnapshot[];
+}
