@@ -310,12 +310,18 @@ type matchRecorder struct {
 	db *dbRecorder
 	// note 는 결과를 곁장부에 한 벌 더 적는다. nil 일 수 있다 — 테스트가 기록기만 볼 때다.
 	note func(match.Result)
-	// counted 는 手数를 곁장부에 적는다. note 와 같은 규약으로 nil 일 수 있다.
-	counted func(ply int)
+	// counted 는 手数를 곁장부에 적고 그 手를 미리 재게 한다. note 와 같은 규약으로
+	// nil 일 수 있다.
+	counted func(ply int, usi string)
+	// opened 는 시작 국면을 곁장부에 적는다. 미리 재는 쪽이 그 값을 넘겨받는다.
+	opened func(startSFEN string)
 }
 
 func (m matchRecorder) Started(startSFEN string, myColor shogi.Color) {
 	m.db.Started(startSFEN, myColor)
+	if m.opened != nil {
+		m.opened(startSFEN)
+	}
 }
 
 // Moved 는 확정된 수다. by 를 SideHuman 으로 넘긴다 — 기록기가 그 칸을 안 쓰고
@@ -323,7 +329,7 @@ func (m matchRecorder) Started(startSFEN string, myColor shogi.Color) {
 func (m matchRecorder) Moved(ply int, usi string) {
 	m.db.Moved(ply, usi, game.SideHuman)
 	if m.counted != nil {
-		m.counted(ply)
+		m.counted(ply, usi)
 	}
 }
 

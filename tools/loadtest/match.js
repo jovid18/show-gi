@@ -25,6 +25,7 @@ import {
 import { games, moveCycle, plies, queueTimeouts, queueWait, rejects, stalls } from './lib/metrics.js';
 import { makeRNG, pickMove } from './lib/moves.js';
 import { cookieHeader, mintSession } from './lib/session.js';
+import { think } from './lib/think.js';
 
 export default function humanMatch() {
   if (LT_UIDS.length === 0) {
@@ -70,11 +71,13 @@ function play(room, headers, uid) {
   let counted = false;
   let stallTimer = 0;
   let gameTimer = 0;
+  let thinkTimer = 0;
 
   // cut 은 무엇이 끊었나다 — 빈 문자열이면 판이 스스로 끝난 것이고, 아니면 시한이다.
   const finish = (cut) => {
     clearTimeout(stallTimer);
     clearTimeout(gameTimer);
+    clearTimeout(thinkTimer);
     if (!counted) {
       counted = true;
       games.add(1, { kind: 'match' });
@@ -139,10 +142,20 @@ function play(room, headers, uid) {
       ws.send(JSON.stringify({ type: 'resign' }));
       return;
     }
-    plies.add(1, { kind: 'match' });
+    // 手数는 여기서 잠근다. 미루는 사이에도 스냅샷이 오므로(opponentOnline) 잠그지
+    // 않으면 같은 手에 타이머가 여러 개 걸린다.
     sentPly = s.ply;
-    sentAt = Date.now();
-    ws.send(JSON.stringify({ type: 'move', usi }));
+    // 앞선 타이머를 지운다. 지금은 같은 手에 두 번 여기까지 오지 않지만, 가드가
+    // 바뀌는 날 조용히 두 번 보내는 쪽으로 깨진다.
+    clearTimeout(thinkTimer);
+    thinkTimer = think(() => {
+      if (counted) {
+        return;
+      }
+      plies.add(1, { kind: 'match' });
+      sentAt = Date.now();
+      ws.send(JSON.stringify({ type: 'move', usi }));
+    });
   });
 
   ws.addEventListener('error', () => finish(''));
