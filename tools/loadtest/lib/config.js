@@ -10,7 +10,10 @@ export const SESSION_SECRET = __ENV.SESSION_SECRET || '';
 
 // 手数 상한. 이걸로 판 길이를 우리가 정한다 — 무작위로 두면 판이 잘 안 끝나서
 // 분석에 들어가는 手数 분포가 실제 대국과 달라진다(journal §101 의 27·34·123手).
-export const MAX_PLIES = Number(__ENV.MAX_PLIES || 60);
+//
+// 60이었을 때 완주한 24판이 전부 정확히 60手였다(journal §104) — 규칙으로 끝난 판이
+// 하나도 없어서 詰み도 終盤도 안 돌았다. 100은 終盤에 닿게 하려는 값이다.
+export const MAX_PLIES = Number(__ENV.MAX_PLIES || 100);
 
 // 씨앗. 회차를 다시 돌릴 수 있어야 「느렸다」를 같은 수순으로 재현할 수 있다.
 export const SEED = Number(__ENV.SEED || 1);
@@ -32,9 +35,13 @@ export const HANDICAP = __ENV.HANDICAP || '';
 // 둘이 필요하다. 판이 길어지는 것과 판이 멈추는 것은 다른 일이고, 멈춘 판을 그냥 두면
 // 회차의 동시 판수가 조용히 줄어든다 — VU 하나가 아무것도 안 하면서 자리를 잡고 있다.
 //
+// 멈춤을 잡는 것은 STALL 쪽이다. GAME 쪽은 마지막 보루라서 건강한 회차에서는 아예 안
+// 터져야 한다 — 5분이었을 때 8판 동시의 판이 그것에 닿아 cut=capped 가 멈춘 판 집계를
+// 오염시켰다(journal §104). 15분은 100手 판 위로 넉넉히 둔 값이다.
+//
 // 스냅샷 시한이 서버의 착수 시한(60초)보다 커야 한다. 작으면 정상적으로 오래 생각하는
 // 상대를 우리가 끊는다.
-export const GAME_TIMEOUT_MS = Number(__ENV.GAME_TIMEOUT_MS || 300000);
+export const GAME_TIMEOUT_MS = Number(__ENV.GAME_TIMEOUT_MS || 900000);
 export const STALL_TIMEOUT_MS = Number(__ENV.STALL_TIMEOUT_MS || 90000);
 
 // 대기열을 몇 번까지 물어볼 것인가. 화면은 2초마다 부른다(api.md §2).

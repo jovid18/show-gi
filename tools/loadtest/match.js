@@ -71,14 +71,15 @@ function play(room, headers, uid) {
   let stallTimer = 0;
   let gameTimer = 0;
 
-  const finish = (stalled) => {
+  // cut 은 무엇이 끊었나다 — 빈 문자열이면 판이 스스로 끝난 것이고, 아니면 시한이다.
+  const finish = (cut) => {
     clearTimeout(stallTimer);
     clearTimeout(gameTimer);
     if (!counted) {
       counted = true;
       games.add(1, { kind: 'match' });
-      if (stalled) {
-        stalls.add(1, { kind: 'match' });
+      if (cut !== '') {
+        stalls.add(1, { kind: 'match', cut });
       }
     }
     ws.close();
@@ -88,9 +89,9 @@ function play(room, headers, uid) {
   // 자신이기 때문이다 — 한쪽 VU 가 멈추면 다른 쪽은 시간패를 기다리며 자리를 잡고 있다.
   const bump = () => {
     clearTimeout(stallTimer);
-    stallTimer = setTimeout(() => finish(true), STALL_TIMEOUT_MS);
+    stallTimer = setTimeout(() => finish('stall'), STALL_TIMEOUT_MS);
   };
-  gameTimer = setTimeout(() => finish(true), GAME_TIMEOUT_MS);
+  gameTimer = setTimeout(() => finish('capped'), GAME_TIMEOUT_MS);
   bump();
 
   ws.addEventListener('message', (event) => {
@@ -103,7 +104,7 @@ function play(room, headers, uid) {
     }
     // record 는 판이 끝난 뒤 한 번 온다. 총평이 아니라 되짚기로 갈 번호다.
     if (msg.type === 'record') {
-      finish(false);
+      finish('');
       return;
     }
     if (msg.type !== 'snapshot') {
@@ -112,7 +113,7 @@ function play(room, headers, uid) {
 
     const s = msg.snapshot;
     if (s.status !== 'playing') {
-      finish(false);
+      finish('');
       return;
     }
     if (!s.yourTurn) {
@@ -144,6 +145,6 @@ function play(room, headers, uid) {
     ws.send(JSON.stringify({ type: 'move', usi }));
   });
 
-  ws.addEventListener('error', () => finish(false));
-  ws.addEventListener('close', () => finish(false));
+  ws.addEventListener('error', () => finish(''));
+  ws.addEventListener('close', () => finish(''));
 }
