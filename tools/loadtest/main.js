@@ -19,14 +19,14 @@ const VUS_MATCH = Number(__ENV.VUS_MATCH || 2);
 // 시나리오는 상수 VU 다. ramping 을 안 쓰는 이유는 이 앱의 부하 단위가 「동시 판수」라서다 —
 // 판 하나가 연결 하나를 몇 분 잡으므로, 초당 도착률로 말하면 동시 판수가 안 보인다.
 function scenarios() {
-  const engine = {
+  const engineScenario = {
     executor: 'constant-vus',
     exec: 'engine',
     vus: VUS_ENGINE,
     duration: DURATION,
     tags: { scenario: 'engine' },
   };
-  const match = {
+  const matchScenario = {
     executor: 'constant-vus',
     exec: 'match',
     vus: VUS_MATCH,
@@ -34,12 +34,12 @@ function scenarios() {
     tags: { scenario: 'match' },
   };
   if (MODE === 'engine') {
-    return { engine };
+    return { engine: engineScenario };
   }
   if (MODE === 'match') {
-    return { match };
+    return { match: matchScenario };
   }
-  return { engine, match };
+  return { engine: engineScenario, match: matchScenario };
 }
 
 export const options = {

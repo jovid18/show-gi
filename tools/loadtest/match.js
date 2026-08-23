@@ -93,7 +93,7 @@ function play(room, headers, uid) {
   gameTimer = setTimeout(() => finish(true), GAME_TIMEOUT_MS);
   bump();
 
-  ws.onmessage = (event) => {
+  ws.addEventListener('message', (event) => {
     bump();
     const msg = JSON.parse(event.data);
 
@@ -142,8 +142,8 @@ function play(room, headers, uid) {
     sentPly = s.ply;
     sentAt = Date.now();
     ws.send(JSON.stringify({ type: 'move', usi }));
-  };
+  });
 
-  ws.onerror = () => finish(false);
-  ws.onclose = () => finish(false);
+  ws.addEventListener('error', () => finish(false));
+  ws.addEventListener('close', () => finish(false));
 }
