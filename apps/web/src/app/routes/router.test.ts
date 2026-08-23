@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { ROUTE_HOME, ROUTE_REVIEWS, routeQuiz, routeReview, routeRoom } from './const';
 import { hrefOf, parseRoute } from './router';
 
 // 주소를 읽는 쪽은 새로고침과 뒤로 가기가 지나가는 유일한 문이다. 조용히 틀리면
@@ -174,6 +175,31 @@ describe('hrefOf', () => {
   it('검토도 왕복한다', () => {
     for (const path of ['/explore', '/explore?h=nimaiochi', '/explore?h=nimaiochi&m=7g7f,3c3d', '/explore?m=P*5e']) {
       expect(hrefOf(parseRoute(path))).toBe(path);
+    }
+  });
+});
+
+// 주소 조각은 서버가 준 값이다. 타입이 number 라도 JSON 은 그것을 보장하지 않으므로,
+// 주소를 만드는 쪽이 막아야 한다 — 안 막으면 프로토콜 상대 주소가 만들어져 링크가
+// 밖으로 나간다(CodeQL 의 js/client-side-unvalidated-url-redirection).
+describe('주소 조각을 못 믿는다', () => {
+  it('판 번호가 숫자가 아니면 목록으로 떨어진다', () => {
+    for (const bad of ['//example.com', '1/../..', 'abc', '', '-1', '1.5', Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(routeReview(bad as unknown as number)).toBe(ROUTE_REVIEWS);
+      expect(routeQuiz(bad as unknown as number)).toBe(ROUTE_REVIEWS);
+    }
+  });
+
+  it('手数가 못 믿을 값이면 판만 연다', () => {
+    expect(routeReview(12, '//example.com' as unknown as number)).toBe('/reviews/12');
+    // 0手目는 멀쩡한 값이다. 총평의 링크가 실제로 그 자리를 가리킨다.
+    expect(routeReview(12, 0)).toBe('/reviews/12/0');
+  });
+
+  it('방 id 는 영숫자만이다', () => {
+    expect(routeRoom('AbCdEf12')).toBe('/rooms/AbCdEf12');
+    for (const bad of ['//example.com', 'ab/cd', 'ab-cd', '']) {
+      expect(routeRoom(bad)).toBe(ROUTE_HOME);
     }
   });
 });
