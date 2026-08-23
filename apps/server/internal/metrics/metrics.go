@@ -161,6 +161,7 @@ type Registry struct {
 	AnalysisBacklogPlies *Gauge
 	AnalysisGames        *Counter
 	AnalysisDuration     *Histogram
+	GamesFinished        *Counter
 }
 
 // AnalysisBuckets 는 판 하나를 다 재는 데 걸리는 시간의 버킷이다. 30초부터 한 시간까지.
@@ -247,6 +248,12 @@ func New(service, environment string) *Registry {
 		"분석이 끝난 판 수", "result")
 	r.AnalysisDuration = r.NewHistogram("analysis_game_duration_seconds",
 		"판 하나를 처음부터 끝까지 재는 데 걸린 시간(초)", AnalysisBuckets)
+
+	// status 는 game.Status 의 값 그대로다. aborted 를 세는 것이 이 지표의 이유다 —
+	// 상대의 수를 시한 안에 못 얻어 접은 판이고, games.result 에서는 사람이 창을 닫은
+	// 판과 같은 값이 되어 구별되지 않는다(recorder.go 의 resultOf).
+	r.GamesFinished = r.NewCounter("game_finished_total",
+		"끝난 대국 수", "status")
 
 	return r
 }
