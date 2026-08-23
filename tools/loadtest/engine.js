@@ -21,6 +21,7 @@ import {
 import { games, interventions, moveCycle, plies, rejects, stalls } from './lib/metrics.js';
 import { makeRNG, pickMove } from './lib/moves.js';
 import { cookieHeader, mintSession } from './lib/session.js';
+import { think } from './lib/think.js';
 
 export default function engineGame() {
   // 둘이 다 있어야 그 사람의 판으로 남긴다. 하나만 있으면 익명으로 돈다 — 시딩 없이
@@ -39,6 +40,7 @@ export default function engineGame() {
   let counted = false;
   let stallTimer = 0;
   let gameTimer = 0;
+  let thinkTimer = 0;
 
   // 판을 닫는 자리를 한 곳에 둔다. 두 군데서 닫으면 games 가 두 번 세어진다.
   //
@@ -46,6 +48,7 @@ export default function engineGame() {
   const finish = (cut) => {
     clearTimeout(stallTimer);
     clearTimeout(gameTimer);
+    clearTimeout(thinkTimer);
     if (!counted) {
       counted = true;
       games.add(1, { kind: 'engine' });
@@ -128,11 +131,21 @@ export default function engineGame() {
       ws.send(JSON.stringify({ type: 'resign' }));
       return;
     }
-    plies.add(1);
+    // 手数와 무른 수를 여기서 잠근다. 미루는 사이에도 스냅샷이 오므로(힌트·세기 변경)
+    // 잠그지 않으면 같은 手에 타이머가 여러 개 걸린다.
     sentPly = s.ply;
     sentRetracted = retracted;
-    sentAt = Date.now();
-    ws.send(JSON.stringify({ type: 'move', usi }));
+    // 앞선 타이머를 지운다. 개입이 오면 같은 手에 다시 두는데, 안 지우면 그 타이머가
+    // 나중에 깨어나 물러진 수를 그대로 보낸다.
+    clearTimeout(thinkTimer);
+    thinkTimer = think(() => {
+      if (counted) {
+        return;
+      }
+      plies.add(1);
+      sentAt = Date.now();
+      ws.send(JSON.stringify({ type: 'move', usi }));
+    });
   });
 
   // 끊기는 것도 결과다. 세션이 시한을 넘겨 닫히면 서버는 그 판을 abandoned 로 남긴다.

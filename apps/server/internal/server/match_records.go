@@ -35,8 +35,10 @@ type matchRecords struct {
 }
 
 type roomRecord struct {
-	at  time.Time
-	rec map[shogi.Color]*dbRecorder
+	at time.Time
+	// matchID 는 미리 재 둔 것을 찾는 열쇠다(matchAnalyzer.ahead).
+	matchID string
+	rec     map[shogi.Color]*dbRecorder
 	// id·ready 는 이미 받아 둔 판 번호와 그것이 정해졌다는 신호다.
 	//
 	// dbRecorder.done 은 값 하나짜리 채널이라 먼저 읽은 쪽이 가져가 버린다. 판이 끝나는
@@ -48,6 +50,14 @@ type roomRecord struct {
 	// 「먼저 읽은 쪽이 가져간다」로 돌아간다.
 	id    map[shogi.Color]int64
 	ready map[shogi.Color]chan struct{}
+
+	// start·moves 는 미리 재는 데 넘길 수순이다. 두 자리가 같은 수를 다 적으므로
+	// 手数로 거른다 — 두 번 세우면 같은 국면을 두 번 잰다.
+	//
+	// 기록에서 되읽지 않는다. 착수 경로에 질의를 하나 더 두는 것이고, 그 행은 기록기가
+	// 비동기로 쓰므로 아직 없을 수도 있다.
+	start string
+	moves []string
 
 	// plies 는 그 판에 둔 手数다. 두 자리가 같은 수를 다 적으므로 큰 쪽을 든다.
 	//
@@ -95,12 +105,13 @@ func (m *matchRecords) new(
 
 	ctx, cancel := context.WithCancel(parent)
 	entry := &roomRecord{
-		at:     time.Now(),
-		rec:    map[shogi.Color]*dbRecorder{},
-		id:     map[shogi.Color]int64{},
-		ready:  map[shogi.Color]chan struct{}{},
-		player: map[shogi.Color]match.Player{},
-		result: map[shogi.Color]match.Result{},
+		at:      time.Now(),
+		matchID: matchID,
+		rec:     map[shogi.Color]*dbRecorder{},
+		id:      map[shogi.Color]int64{},
+		ready:   map[shogi.Color]chan struct{}{},
+		player:  map[shogi.Color]match.Player{},
+		result:  map[shogi.Color]match.Result{},
 	}
 	out := map[shogi.Color]match.Recorder{}
 	for c, p := range map[shogi.Color]match.Player{shogi.Black: black, shogi.White: white} {
@@ -112,7 +123,12 @@ func (m *matchRecords) new(
 		entry.rec[c] = newDBRecorder(ctx, m.store, nil, m.level, recordTarget{userID: &userID, matchID: matchID})
 		entry.ready[c] = make(chan struct{})
 		entry.player[c] = p
-		out[c] = matchRecorder{db: entry.rec[c], note: m.noting(entry, c), counted: m.counting(entry)}
+		out[c] = matchRecorder{
+			db:      entry.rec[c],
+			note:    m.noting(entry, c),
+			counted: m.counting(entry),
+			opened:  m.opening(entry),
+		}
 	}
 
 	m.mu.Lock()
@@ -187,12 +203,13 @@ func (m *matchRecords) collect(ctx context.Context, cancel context.CancelFunc, e
 		// 반쪽이라 분석하지 않는다. 표시는 걷는다 — 안 걷으면 그 판이 영영
 		// 「분석 중」으로 남는다.
 		m.analyzer.forget(gameIDsOf(seats))
+		m.analyzer.discard(entry.matchID)
 		return
 	}
 	m.mu.Lock()
 	plies := entry.plies
 	m.mu.Unlock()
-	m.analyzer.enqueue(seats, plies)
+	m.analyzer.enqueue(entry.matchID, seats, plies)
 
 	// 레이팅은 두 행이 다 있을 때만 옮긴다. 반쪽인 판은 한 사람에게만 남은 판이라,
 	// 그것으로 두 사람의 값을 움직이면 기록과 레이팅이 갈린다.
@@ -212,11 +229,37 @@ func (m *matchRecords) noting(entry *roomRecord, c shogi.Color) func(match.Resul
 	}
 }
 
-// counting 은 手数를 곁장부에 적는 창구다. 두 자리가 같은 수를 적으므로 큰 값만 남긴다.
-func (m *matchRecords) counting(entry *roomRecord) func(int) {
-	return func(ply int) {
+// counting 은 手数를 곁장부에 적고 그 手를 미리 재는 줄에 세운다. 두 자리가 같은 수를
+// 적으므로 앞선 자리만 세운다.
+//
+// 즉시 돌아온다 — 테이블 goroutine 이 부르는 자리다(match.Recorder). 세우는 것이
+// 논블로킹이라(matchAnalyzer.prefetch) 줄이 차 있어도 착수가 안 늦는다.
+func (m *matchRecords) counting(entry *roomRecord) func(int, string) {
+	return func(ply int, usi string) {
 		m.mu.Lock()
 		entry.plies = max(entry.plies, ply)
+		if ply != len(entry.moves)+1 {
+			// 뒤따라온 자리다. 같은 手를 두 번 세우면 같은 국면을 두 번 잰다.
+			m.mu.Unlock()
+			return
+		}
+		entry.moves = append(entry.moves, usi)
+		matchID, start := entry.matchID, entry.start
+		// 잠금 안에서 복사한다. 슬라이스는 다음 手에 계속 자라므로 그대로 넘기면
+		// 재는 시점에 무엇이 들어 있는지가 정해지지 않는다.
+		moves := append([]string(nil), entry.moves...)
+		m.mu.Unlock()
+		m.analyzer.prefetch(matchID, start, moves, ply)
+	}
+}
+
+// opening 은 시작 국면을 곁장부에 적는 창구다. 두 자리가 같은 값을 주므로 먼저 온 것을 든다.
+func (m *matchRecords) opening(entry *roomRecord) func(string) {
+	return func(startSFEN string) {
+		m.mu.Lock()
+		if entry.start == "" {
+			entry.start = startSFEN
+		}
 		m.mu.Unlock()
 	}
 }
