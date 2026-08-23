@@ -112,17 +112,27 @@ resource "aws_cloudwatch_metric_alarm" "server_errors" {
 # 엔진 풀 대기. 이 앱에서 지연의 원인은 거의 이것이다 — 풀이 프로덕션에서 탐색 2개뿐이고
 # (ecs.tf 의 ENGINE_POOL_SIZE) 빌리는 자리가 여섯이라, 겹치면 뒤에 온 요청이 줄을 선다.
 #
-# 임계치 3초는 아직 실측이 아니다. 지금은 이 알람의 일이 「울리나 안 울리나」로
-# 평상시 분포를 알려주는 것이고, 값은 그 뒤에 정한다. 5분 두 회차로 둔 것은 한 번의
-# 겹침(퀴즈 생성이 판 끝에서 수십 초를 잡는 것)으로는 안 울리게 하려는 것이다.
+# 보는 것은 borrower=game 이다. 합친 값에는 사후 분석과 검토가 섞여 있어서, 그쪽이 튀어도
+# 사람이 기다린 것인지 알 수 없다.
+#
+# 1분 창으로 최근 5분 중 3분을 요구한다. 5분 창 두 회차였을 때는 동시 6판에서 1분 p95 가
+# 5초인데도 안 울렸다(journal §104). 단발 겹침(퀴즈 생성이 판 끝에서 수십 초를 잡는 것)에는
+# 여전히 안 울린다 — 3분이 필요하다.
+#
+# 표본이 적을 때 1분 p95 가 튀는 함정은 이 지표에 없다. 풀이 2라 한두 판이 겹칠 때 대기는
+# 구조적으로 0이고, 실측도 동시 1판에서 0.0 이었다.
+#
+# 임계 3초는 실측으로 잡았다. 동시 3판이 2.4초까지, 4판이 3.5초까지 간다 — 3초는 네 판째를
+# 잡고 세 판째는 넘긴다.
 resource "aws_cloudwatch_metric_alarm" "engine_pool_wait" {
   alarm_name          = "show-gi-engine-pool-wait"
-  alarm_description   = "엔진을 빌리기까지의 대기 p95가 10분 동안 3초를 넘었다. 풀 크기(ENGINE_POOL_SIZE)를 올릴 자리다"
+  alarm_description   = "대국이 엔진을 빌리기까지의 대기 p95가 최근 5분 중 3분에서 3초를 넘었다. 풀이 아니라 vCPU 를 올릴 자리다(journal §104)"
   namespace           = "show-gi"
-  metric_name         = "EnginePoolWaitSeconds"
+  metric_name         = "EnginePoolWaitGameSeconds"
   extended_statistic  = "p95"
-  period              = 300
-  evaluation_periods  = 2
+  period              = 60
+  evaluation_periods  = 5
+  datapoints_to_alarm = 3
   threshold           = 3
   comparison_operator = "GreaterThanThreshold"
 
