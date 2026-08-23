@@ -17,11 +17,19 @@ SELECT 'loadtest', 'lt-' || i, 'LT' || i
 FROM generate_series(1, :n) AS s(i)
 ON CONFLICT (provider, provider_uid) DO NOTHING;
 
--- 레이팅을 1200 부터 100 씩 벌린다. 밴드가 대기 시간으로 넓어지는 것을 보려면 짝이
--- 바로 안 잡히는 간격이 필요하다 — 기본 밴드가 좁은 쪽에서 시작하기 때문이다.
+-- 레이팅을 1200 부터 700 씩 벌린다. 밴드가 대기 시간으로 넓어지는 것을 보려면 짝이
+-- 바로 안 잡히는 간격이 필요하다.
+--
+-- 700 은 계산으로 나온 값이다. internal/queue 의 밴드가 Base0(200) + Expand(20)·기다린초
+-- + 두 사람의 rating_sd 이므로, 아래 sd 80 에서 처음 섰을 때 이미 360 이다 — 간격이 그보다
+-- 좁으면 전부 즉시 붙어서 넓어지는 것을 볼 자리가 없다. 700 이면 (700-360)/20 = 17초쯤
+-- 기다린 뒤에 붙는다. sd 를 바꾸면 이 값도 다시 계산해야 한다.
+--
+-- 쓰는 것은 앞의 VUS_MATCH 개뿐이다(도구가 __VU 순서로 집는다). 뒤쪽 행의 레이팅이 사람
+-- 값으로는 터무니없이 커지는데, 안 쓰이고 cleanup 으로 사라지므로 그냥 둔다.
 INSERT INTO skill_profile (user_id, rating_est, rating_sd, rating_games, rating_updated_at)
 SELECT u.id,
-       1200 + 100 * (row_number() OVER (ORDER BY u.id) - 1),
+       1200 + 700 * (row_number() OVER (ORDER BY u.id) - 1),
        80,
        10,
        now()
