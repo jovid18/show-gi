@@ -1,18 +1,37 @@
-// 엔진 대국 한 판. 로그인이 없다 — /ws/game 은 익명으로 열린다(journal §18).
+// 엔진 대국 한 판. /ws/game 은 로그인 없이도 열린다(journal §18).
 //
 // 연결 하나가 대국 하나이고 서버가 먼저 말을 건다(api.md §5). 그래서 이 함수는
 // 수를 두는 루프가 아니라 스냅샷에 반응하는 핸들러다.
+//
+// 그래도 쿠키를 굽는다. 익명으로 열면 games.user_id 가 NULL 로 남아 회차가 만든 판과
+// 실제 익명 사용자의 판을 구별할 수 없고, cleanup.sql 이 그 판에 닿지 않는다.
 import { WebSocket } from 'k6/experimental/websockets';
 import { clearTimeout, setTimeout } from 'k6/timers';
 
-import { GAME_TIMEOUT_MS, HANDICAP, MAX_PLIES, SEED, STALL_TIMEOUT_MS, WS_BASE } from './lib/config.js';
+import {
+  GAME_TIMEOUT_MS,
+  HANDICAP,
+  LT_UIDS,
+  MAX_PLIES,
+  SEED,
+  SESSION_SECRET,
+  STALL_TIMEOUT_MS,
+  WS_BASE,
+} from './lib/config.js';
 import { games, interventions, moveCycle, plies, rejects, stalls } from './lib/metrics.js';
 import { makeRNG, pickMove } from './lib/moves.js';
+import { cookieHeader, mintSession } from './lib/session.js';
 
 export default function engineGame() {
+  // 둘이 다 있어야 그 사람의 판으로 남긴다. 하나만 있으면 익명으로 돈다 — 시딩 없이
+  // 로컬에서 걸어 보는 자리를 남긴다. 그 회차는 main.js 의 setup 이 경고한다.
+  const authed = SESSION_SECRET !== '' && LT_UIDS.length > 0;
+  const uid = authed ? LT_UIDS[(__VU - 1) % LT_UIDS.length] : 0;
+  const headers = authed ? cookieHeader(mintSession(SESSION_SECRET, uid, `LT${uid}`, 3600)) : {};
+
   const rng = makeRNG(SEED * 7919 + __VU * 104729 + __ITER);
   const query = HANDICAP ? `?handicap=${HANDICAP}` : '?color=b';
-  const ws = new WebSocket(`${WS_BASE}/ws/game${query}`);
+  const ws = new WebSocket(`${WS_BASE}/ws/game${query}`, null, { headers });
 
   let sentAt = 0;
   let sentPly = -1;

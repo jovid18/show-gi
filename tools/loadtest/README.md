@@ -6,7 +6,7 @@ k6 를 쓴다. **규칙 엔진이 필요 없다** — 서버가 스냅샷마다 
 
 ```
 main.js      회차의 입구. MODE 로 시나리오를 고른다
-engine.js    엔진 대국 (/ws/game, 로그인 없음)
+engine.js    엔진 대국 (/ws/game, 쿠키는 선택)
 match.js     대인전 (/api/queue → /ws/match, 로그인 필요)
 lib/         손잡이·지표·쿠키·수 고르기
 seed.sql     provider='loadtest' 사용자와 레이팅
@@ -24,6 +24,8 @@ docker exec -i show-gi-db psql -U showgi -d showgi -v ON_ERROR_STOP=1 -v n=8 < t
 
 **쿠키는 도구가 굽는다.** 세션은 서버에 짝이 없는 서명 쿠키라(`internal/auth`) `SESSION_SECRET` 만 있으면 Google 왕복 없이 같은 값을 만들 수 있다. 프로덕션 회차에서는 SSM 에서 그때 읽어 환경변수로만 넘긴다 — 디스크에 안 남긴다.
 
+**엔진 대국에도 쿠키를 단다.** `/ws/game` 은 익명으로도 열리지만, 그러면 `games.user_id` 가 NULL 이라 **회차가 만든 판과 실제 익명 사용자의 판을 구별할 수 없고** `cleanup.sql` 이 그 판에 닿지 않는다. `SESSION_SECRET` 과 `LT_UIDS` 가 둘 다 있으면 붙고, 없으면 익명으로 돌면서 `setup` 이 경고한다.
+
 ```sh
 export SESSION_SECRET=$(aws ssm get-parameter --name /show-gi/prod/SESSION_SECRET \
   --with-decryption --region ap-northeast-1 --profile show-gi \
@@ -33,8 +35,9 @@ export SESSION_SECRET=$(aws ssm get-parameter --name /show-gi/prod/SESSION_SECRE
 ## 돌리는 법
 
 ```sh
-# 엔진 대국만. 로그인이 필요 없다
-BASE=http://localhost:8080 MODE=engine VUS_ENGINE=3 DURATION=3m k6 run tools/loadtest/main.js
+# 엔진 대국만. 쿠키를 달면 그 판들을 나중에 지울 수 있다
+BASE=http://localhost:8080 MODE=engine VUS_ENGINE=3 DURATION=3m \
+  LT_UIDS=5457,5458,5459 SESSION_SECRET="$SESSION_SECRET" k6 run tools/loadtest/main.js
 
 # 대인전만
 MODE=match VUS_MATCH=4 LT_UIDS=5457,5458,5459,5460 k6 run tools/loadtest/main.js
@@ -43,18 +46,18 @@ MODE=match VUS_MATCH=4 LT_UIDS=5457,5458,5459,5460 k6 run tools/loadtest/main.js
 MODE=both VUS_ENGINE=3 VUS_MATCH=4 LT_UIDS=… k6 run tools/loadtest/main.js
 ```
 
-| 환경변수                               | 기본값                  | 무엇                                               |
-| -------------------------------------- | ----------------------- | -------------------------------------------------- |
-| `BASE`                                 | `http://localhost:8080` | WS 주소는 여기서 만든다                            |
-| `MODE`                                 | `engine`                | `engine` · `match` · `both`                        |
-| `VUS_ENGINE` · `VUS_MATCH`             | 3 · 2                   | **VU 하나가 판 하나**다                            |
-| `DURATION`                             | `3m`                    | 회차 길이                                          |
-| `MAX_PLIES`                            | 60                      | 手数 상한. 넘으면 投了한다                         |
-| `SEED`                                 | 1                       | 같은 씨앗이 같은 수순을 준다                       |
-| `LT_UIDS`                              | —                       | 대인전에 쓸 사용자 번호. **VU 수보다 많아야 한다** |
-| `HANDICAP`                             | —                       | `/api/handicaps` 의 id                             |
-| `GAME_TIMEOUT_MS` · `STALL_TIMEOUT_MS` | 300000 · 90000          | 멈춘 판을 우리가 끊는 시한                         |
-| `QUEUE_TRIES` · `QUEUE_INTERVAL`       | 30 · 2                  | 대기열을 몇 번, 몇 초마다 물어보나                 |
+| 환경변수                               | 기본값                  | 무엇                                             |
+| -------------------------------------- | ----------------------- | ------------------------------------------------ |
+| `BASE`                                 | `http://localhost:8080` | WS 주소는 여기서 만든다                          |
+| `MODE`                                 | `engine`                | `engine` · `match` · `both`                      |
+| `VUS_ENGINE` · `VUS_MATCH`             | 3 · 2                   | **VU 하나가 판 하나**다                          |
+| `DURATION`                             | `3m`                    | 회차 길이                                        |
+| `MAX_PLIES`                            | 60                      | 手数 상한. 넘으면 投了한다                       |
+| `SEED`                                 | 1                       | 같은 씨앗이 같은 수순을 준다                     |
+| `LT_UIDS`                              | —                       | 회차가 쓸 사용자 번호. **VU 합보다 많아야 한다** |
+| `HANDICAP`                             | —                       | `/api/handicaps` 의 id                           |
+| `GAME_TIMEOUT_MS` · `STALL_TIMEOUT_MS` | 300000 · 90000          | 멈춘 판을 우리가 끊는 시한                       |
+| `QUEUE_TRIES` · `QUEUE_INTERVAL`       | 30 · 2                  | 대기열을 몇 번, 몇 초마다 물어보나               |
 
 **VU 하나가 판 하나다.** 이 앱의 부하 단위가 초당 도착률이 아니라 동시 판수라서 `constant-vus` 로 둔다 — 판 하나가 연결 하나를 몇 분 잡는다.
 
@@ -79,5 +82,6 @@ MODE=both VUS_ENGINE=3 VUS_MATCH=4 LT_UIDS=… k6 run tools/loadtest/main.js
 - **태스크가 한 대다.** 부하가 곧 실사용자 장애다
 - 알람 셋이 울리고 메일이 간다. 회차 시각을 저널에 적어 둔다
 - 끝나면 `cleanup.sql`. `users` 한 줄을 지우면 판·기보·평가치·레이팅·큐가 CASCADE 로 같이 사라진다
+- **`LT_UIDS` 없이 걸지 않는다.** 익명 판은 그 정리에 안 걸린다
 
 **부하와 지연을 같은 회차에서 재지 않는다.** 용량은 도쿄 하나에서 계단식으로, 지연은 도쿄+오사카에서 낮은 부하로 — 포화된 서버에서는 리전 간 10ms 차이가 엔진 대기에 삼켜진다.
