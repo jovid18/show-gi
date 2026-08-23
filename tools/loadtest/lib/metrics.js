@@ -18,6 +18,11 @@ export const interventions = new Counter('showgi_interventions');
 export const rejects = new Counter('showgi_rejects');
 export const queueTimeouts = new Counter('showgi_queue_timeouts');
 
-// 멈춘 판. 시한이 우리를 풀어 준 회차다 — 0이 아니면 도구가 판을 못 끌고 간 것이고,
-// 그 회차의 동시 판수는 설정한 값보다 작다.
+// 시한이 끊은 판. `cut` 라벨로 갈린다 — 둘을 합치면 깨짐 신호로 쓸 수 없다.
+//
+//   cut=stall   스냅샷이 STALL_TIMEOUT_MS 동안 안 왔다. 서버가 멈춘 것이다
+//   cut=capped  판이 GAME_TIMEOUT_MS 를 넘겼다. 우리 시한이 자른 것이다
+//
+// capped 는 회차 길이가 그 시한에 가까우면 저절로 생긴다. 「깨질 때까지」 올리는 회차에서
+// 보는 것은 stall 쪽이고, capped 를 섞으면 서버가 무너진 것처럼 보인다.
 export const stalls = new Counter('showgi_stalls');

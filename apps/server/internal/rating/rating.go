@@ -25,6 +25,10 @@ type Rating struct {
 }
 
 // Default 는 아무것도 모를 때의 레이팅이다. 이 척도의 중앙이다.
+//
+// 아래 MaxDeviation 과 함께 Glicko 원 논문의 기본값이라 흔들지 않는다. 낮게 시작하는
+// 관례도 있는데(将棋ウォーズ의 30級) 그것은 올라가는 경험을 주려는 설계이고, 이 값은
+// 화면에 안 나가므로 그 이득이 없다 — 낮추면 초기 짝짓기만 나빠진다.
 const Default = 1500
 
 // MaxDeviation 은 「전혀 모른다」에 해당하는 RD 다. 001_init.sql 의 rating_sd 기본값과 같다.

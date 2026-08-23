@@ -67,15 +67,18 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 12
         height = 6
         properties = {
-          title  = "사후 분석 — 밀린 手와 버려진 판"
+          title  = "사후 분석 — 밀린 手, 버려진 판, 中断된 판"
           region = var.aws_region
           view   = "timeSeries"
           period = local.dash_period
           metrics = [
             concat(["show-gi", "AnalysisBacklogPlies"], local.dash_dims, [{ stat = "Maximum", label = "밀린 手" }]),
             concat(["show-gi", "AnalysisGamesDropped"], local.dash_dims, [{ stat = "Sum", label = "버려진 판", yAxis = "right" }]),
+            # 상대의 수를 시한 안에 못 얻어 접은 판. 부하 회차에서 서버가 무너지는 신호가
+            # 이것이고, games.result 로는 셀 수 없다(journal §104).
+            concat(["show-gi", "GamesAborted"], local.dash_dims, [{ stat = "Sum", label = "中断된 판", yAxis = "right" }]),
           ]
-          # 축을 가른다. 밀린 手는 수백까지 가고 버려진 판은 0이나 1이라, 한 축에 두면
+          # 축을 가른다. 밀린 手는 수백까지 가고 나머지 둘은 0이나 1이라, 한 축에 두면
           # 뒤엣것이 바닥에 붙어 안 보인다.
           yAxis = { right = { min = 0 } }
         }

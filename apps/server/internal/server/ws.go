@@ -407,7 +407,7 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// DB가 없으면 기록하지 않고 대국은 그대로 된다 — 엔진·캐시와 같은 판단이다.
 	var recorder *dbRecorder
 	if h.opts.Store != nil {
-		recorder = newDBRecorder(ctx, h.opts.Store, h.opts.Level, recordTarget{
+		recorder = newDBRecorder(ctx, h.opts.Store, h.opts.Metrics, h.opts.Level, recordTarget{
 			userID:    userID,
 			openingID: setup.opening.ID,
 			resumeID:  setup.resumeID,

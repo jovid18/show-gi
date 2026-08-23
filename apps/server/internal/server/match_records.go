@@ -107,7 +107,9 @@ func (m *matchRecords) new(
 		// 주소를 사람마다 새로 뜬다. 반복 변수의 주소를 그대로 넘기면 두 기록기가
 		// 같은 값을 가리키고, 그러면 한 판이 한 사람의 행 두 개로 남는다.
 		userID := p.UserID
-		entry.rec[c] = newDBRecorder(ctx, m.store, m.level, recordTarget{userID: &userID, matchID: matchID})
+		// 계측을 안 넘긴다. 대인전은 FinishedWith 로 결과를 적으므로 Finished 를 지나지
+		// 않고, game_finished_total 은 그 자리에서만 오른다.
+		entry.rec[c] = newDBRecorder(ctx, m.store, nil, m.level, recordTarget{userID: &userID, matchID: matchID})
 		entry.ready[c] = make(chan struct{})
 		entry.player[c] = p
 		out[c] = matchRecorder{db: entry.rec[c], note: m.noting(entry, c), counted: m.counting(entry)}

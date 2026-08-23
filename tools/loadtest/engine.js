@@ -41,14 +41,16 @@ export default function engineGame() {
   let gameTimer = 0;
 
   // 판을 닫는 자리를 한 곳에 둔다. 두 군데서 닫으면 games 가 두 번 세어진다.
-  const finish = (stalled) => {
+  //
+  // cut 은 무엇이 끊었나다 — 빈 문자열이면 판이 스스로 끝난 것이고, 아니면 시한이다.
+  const finish = (cut) => {
     clearTimeout(stallTimer);
     clearTimeout(gameTimer);
     if (!counted) {
       counted = true;
       games.add(1, { kind: 'engine' });
-      if (stalled) {
-        stalls.add(1, { kind: 'engine' });
+      if (cut !== '') {
+        stalls.add(1, { kind: 'engine', cut });
       }
     }
     ws.close();
@@ -58,9 +60,9 @@ export default function engineGame() {
   // 생각하는 상대를 우리가 끊는다.
   const bump = () => {
     clearTimeout(stallTimer);
-    stallTimer = setTimeout(() => finish(true), STALL_TIMEOUT_MS);
+    stallTimer = setTimeout(() => finish('stall'), STALL_TIMEOUT_MS);
   };
-  gameTimer = setTimeout(() => finish(true), GAME_TIMEOUT_MS);
+  gameTimer = setTimeout(() => finish('capped'), GAME_TIMEOUT_MS);
   bump();
 
   ws.addEventListener('message', (event) => {
@@ -73,7 +75,7 @@ export default function engineGame() {
       return;
     }
     if (msg.type === 'summary') {
-      finish(false);
+      finish('');
       return;
     }
     if (msg.type !== 'snapshot') {
@@ -87,7 +89,7 @@ export default function engineGame() {
     if (s.status !== 'playing') {
       // 총평을 기다리지 않는다. 판이 끝난 뒤에 오는데(api.md §5) 회차 길이를
       // 그 대기로 늘리면 동시 판수가 실제보다 낮게 유지된다.
-      finish(false);
+      finish('');
       return;
     }
     // 판정 중이거나 상대가 생각하는 중이면 둘 수 없다. 보내면 not_your_turn 이다.
@@ -134,6 +136,6 @@ export default function engineGame() {
   });
 
   // 끊기는 것도 결과다. 세션이 시한을 넘겨 닫히면 서버는 그 판을 abandoned 로 남긴다.
-  ws.addEventListener('error', () => finish(false));
-  ws.addEventListener('close', () => finish(false));
+  ws.addEventListener('error', () => finish(''));
+  ws.addEventListener('close', () => finish(''));
 }

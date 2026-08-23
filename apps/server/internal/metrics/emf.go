@@ -130,6 +130,10 @@ func (e *Emitter) collect() []metric {
 		// 버려진 판은 평가치도 실력도 없이 남는다. 0이 아니면 그 자체로 사고다.
 		{"AnalysisGamesDropped", "Count",
 			e.delta("AnalysisGamesDropped", r.AnalysisGames.SumFunc(dropped))},
+		// 상대의 수를 시한 안에 못 얻어 접은 판. games.result 로는 셀 수 없어서
+		// (사람이 창을 닫은 판과 같은 값이 된다) 부하 회차의 깨짐 신호가 이것이다.
+		{"GamesAborted", "Count",
+			e.delta("GamesAborted", r.GamesFinished.SumFunc(aborted))},
 	}
 
 	// 배열은 비어 있으면 아예 안 낸다. 빈 배열을 올리면 그 회차가 0 관측으로 읽히는
@@ -184,3 +188,5 @@ func computed(labels map[string]string) bool { return labels["result"] == result
 func searchPool(labels map[string]string) bool { return labels["pool"] == PoolSearch }
 
 func dropped(labels map[string]string) bool { return labels["result"] == AnalysisDropped }
+
+func aborted(labels map[string]string) bool { return labels["status"] == "aborted" }

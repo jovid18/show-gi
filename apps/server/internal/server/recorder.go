@@ -6,6 +6,7 @@ import (
 
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
+	"github.com/jovid18/show-gi/apps/server/internal/metrics"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
@@ -17,6 +18,8 @@ import (
 // 그 줄을 세우지 않는다.
 type dbRecorder struct {
 	events chan recordEvent
+	// metrics 는 nil 일 수 있다. 계측이 꺼진 배포에서도 기록은 돌아야 한다.
+	metrics *metrics.Registry
 	// done 은 마지막 이벤트까지 쓴 뒤 대국 id를 한 번 실어 보낸다. 버퍼가 1이라 받는
 	// 쪽이 없어도 막히지 않는다.
 	//
@@ -86,8 +89,8 @@ type recordTarget struct {
 }
 
 // newDBRecorder 는 대국 하나를 기록할 Recorder 를 만든다. ctx 가 끝나면 정리한다.
-func newDBRecorder(ctx context.Context, st *store.Store, level intervene.Level, target recordTarget) *dbRecorder {
-	r := &dbRecorder{events: make(chan recordEvent, recordQueue), done: make(chan int64, 1)}
+func newDBRecorder(ctx context.Context, st *store.Store, mx *metrics.Registry, level intervene.Level, target recordTarget) *dbRecorder {
+	r := &dbRecorder{events: make(chan recordEvent, recordQueue), metrics: mx, done: make(chan int64, 1)}
 	go r.run(ctx, st, level, target)
 	return r
 }
@@ -142,6 +145,11 @@ func (r *dbRecorder) HintTaken(key string, taken bool) {
 }
 
 func (r *dbRecorder) Finished(status game.Status, winner game.Side) {
+	// 지표는 status 그대로 센다. 아래 resultOf 는 aborted 를 abandoned 로 합치므로
+	// (승자로만 분기한다) 「엔진이 시한을 넘겼다」가 games.result 에서는 사라진다.
+	if r.metrics != nil {
+		r.metrics.GamesFinished.Inc(string(status))
+	}
 	r.FinishedWith(resultOf(status, winner))
 }
 
