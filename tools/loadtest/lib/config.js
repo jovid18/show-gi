@@ -15,7 +15,10 @@ export const MAX_PLIES = Number(__ENV.MAX_PLIES || 60);
 // 씨앗. 회차를 다시 돌릴 수 있어야 「느렸다」를 같은 수순으로 재현할 수 있다.
 export const SEED = Number(__ENV.SEED || 1);
 
-// 대인전에 쓸 사용자 번호. seed.sql 이 마지막에 찍어 주는 목록을 그대로 넘긴다.
+// 회차가 쓸 사용자 번호. seed.sql 이 마지막에 찍어 주는 목록을 그대로 넘긴다.
+//
+// 대인전에는 없으면 안 되고, 엔진 대국에는 있으면 그 사람의 판으로 남는다 — 없으면
+// 익명이라 cleanup.sql 이 닿지 않는다.
 export const LT_UIDS = (__ENV.LT_UIDS || '')
   .split(',')
   .map((s) => Number(s.trim()))
