@@ -156,7 +156,18 @@ type Registry struct {
 	MatchPairings    *Counter
 	MatchPairingWait *Histogram
 	MatchPairingGap  *Histogram
+
+	AnalysisBacklogGames *Gauge
+	AnalysisBacklogPlies *Gauge
+	AnalysisGames        *Counter
+	AnalysisDuration     *Histogram
 }
+
+// AnalysisBuckets 는 판 하나를 다 재는 데 걸리는 시간의 버킷이다. 30초부터 한 시간까지.
+//
+// DefaultBuckets 를 못 쓴다. 저쪽 상한이 30초인데 여기는 한 판이 手마다 판정 한 번이라
+// (match_analysis.go 의 analyze) 100手면 분 단위가 정상이다.
+var AnalysisBuckets = []float64{30, 60, 120, 300, 600, 1800, 3600}
 
 // New 는 이 앱의 지표를 다 만든 레지스트리다.
 //
@@ -182,8 +193,11 @@ func New(service, environment string) *Registry {
 
 	// 풀 두 개가 같은 계열에 라벨로 갈린다. 탐색부와 詰み solver 는 잡히는 이유가
 	// 달라서(cmd/api 의 matePoolSize) 어느 쪽이 밀렸는지가 구별되어야 한다.
+	// borrower 는 누가 빌렸나다(usi.WithBorrower). 이 라벨이 「사후 분석이 대국을
+	// 굶히는가」를 직접 답한다 — 분석이 도는 동안 borrower=game 의 대기가 튀는지로
+	// 갈린다. 분석기를 떼어 낼지의 판단이 그 숫자 하나에 걸려 있다.
 	r.PoolWait = r.NewHistogram("engine_pool_wait_seconds",
-		"엔진을 빌리기까지 기다린 시간(초)", DefaultBuckets, "pool")
+		"엔진을 빌리기까지 기다린 시간(초)", DefaultBuckets, "pool", "borrower")
 	r.PoolInUse = r.NewGauge("engine_pool_in_use",
 		"지금 빌려 나가 있는 엔진 수", "pool")
 	r.PoolSize = r.NewGauge("engine_pool_size",
@@ -218,6 +232,21 @@ func New(service, environment string) *Registry {
 	// 때문이다(queue.Band) — 서로를 모르는 두 사람은 그보다 먼 격차로도 붙는다.
 	r.MatchPairingGap = r.NewHistogram("match_pairing_rating_gap",
 		"짝이 된 두 사람의 레이팅 차", []float64{25, 50, 100, 200, 400, 800, 1600})
+
+	// 사후 분석의 넷. 지금까지 이 층은 로그 문자열로만 보였다(match_analysis.go).
+	//
+	// 밀린 것을 판과 手 둘로 센다. 판 수만으로는 밀린 일의 크기를 못 말한다 — 회차 4의
+	// 세 판이 27·34·123手였다(journal §91). 手 쪽이 나중에 스케일 기준이 될 값이다.
+	r.AnalysisBacklogGames = r.NewGauge("analysis_backlog_games",
+		"분석을 기다리는 판 수")
+	r.AnalysisBacklogPlies = r.NewGauge("analysis_backlog_plies",
+		"분석을 기다리는 手의 합")
+	// result 는 done·dropped·failed 다. dropped 는 줄이 넘쳐 버린 판이고
+	// (analysisQueue) failed 는 판정이 중간에 끊긴 판이다.
+	r.AnalysisGames = r.NewCounter("analysis_games_total",
+		"분석이 끝난 판 수", "result")
+	r.AnalysisDuration = r.NewHistogram("analysis_game_duration_seconds",
+		"판 하나를 처음부터 끝까지 재는 데 걸린 시간(초)", AnalysisBuckets)
 
 	return r
 }
@@ -362,6 +391,29 @@ func (h *Histogram) DrainSamples(pick func(labels map[string]string) bool) []flo
 		// 계열이 여럿이면 합친 것이 상한을 넘을 수 있다. 앞에서 자르면 라벨 하나가
 		// 배열을 다 먹으므로 고르게 솎는다.
 		out = thin(out, maxSamples)
+	}
+	return out
+}
+
+// DrainSamplesSplit 은 예약통을 한 번에 비우고 라벨 하나의 값으로 갈라 준다.
+//
+// DrainSamples 를 두 번 부를 수 없어서 있다 — 첫 번째 호출이 pick 과 무관하게 예약통을
+// 통째로 비우므로 두 번째는 늘 빈 배열이다. 같은 지표를 갈라서 두 벌 낼 때 이쪽을 쓴다.
+//
+// 솎지 않고 준다. 부르는 쪽이 합쳐서 낼지 갈라서 낼지를 정한 뒤에 솎아야 한다.
+func (h *Histogram) DrainSamplesSplit(
+	pick func(labels map[string]string) bool, by string,
+) map[string][]float64 {
+	h.f.mu.Lock()
+	defer h.f.mu.Unlock()
+	out := map[string][]float64{}
+	for _, s := range h.f.order {
+		labels := h.f.labelMap(s)
+		if (pick == nil || pick(labels)) && len(s.samples) > 0 {
+			out[labels[by]] = append(out[labels[by]], s.samples...)
+		}
+		s.samples = s.samples[:0]
+		s.sampled = 0
 	}
 	return out
 }

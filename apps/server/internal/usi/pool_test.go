@@ -109,13 +109,16 @@ type fakeMetrics struct {
 	inUse  int
 	peak   int
 	deltas int
+
+	borrowers []string
 }
 
 func (m *fakeMetrics) SetSize(n int) { m.mu.Lock(); m.size = n; m.mu.Unlock() }
 
-func (m *fakeMetrics) ObserveWait(d time.Duration) {
+func (m *fakeMetrics) ObserveWait(d time.Duration, borrower string) {
 	m.mu.Lock()
 	m.waits = append(m.waits, d)
+	m.borrowers = append(m.borrowers, borrower)
 	m.mu.Unlock()
 }
 
@@ -196,5 +199,44 @@ func TestDoubleReleaseKeepsGaugeAtZero(t *testing.T) {
 	defer m.mu.Unlock()
 	if m.inUse != 0 {
 		t.Fatalf("점유=%d — 이중 Release 가 게이지를 옮겼다", m.inUse)
+	}
+}
+
+// 이름을 안 붙이면 대국이다. 대국 중의 경로가 컨텍스트를 그대로 흘려보내므로
+// (세션 goroutine) 기본값이 그 자리를 가리켜야 라벨이 뜻을 갖는다.
+func TestBorrowerDefaultsToGame(t *testing.T) {
+	if got := BorrowerFrom(context.Background()); got != BorrowerGame {
+		t.Errorf("이름 없는 컨텍스트 = %q, want %q", got, BorrowerGame)
+	}
+	//nolint:staticcheck // nil 컨텍스트로도 안 죽어야 한다. 계측이 부르는 쪽을 못 막는다.
+	if got := BorrowerFrom(nil); got != BorrowerGame {
+		t.Errorf("nil 컨텍스트 = %q, want %q", got, BorrowerGame)
+	}
+	ctx := WithBorrower(context.Background(), BorrowerAnalysis)
+	if got := BorrowerFrom(ctx); got != BorrowerAnalysis {
+		t.Errorf("붙인 이름 = %q, want %q", got, BorrowerAnalysis)
+	}
+	// 빈 이름은 안 붙인다. 붙이면 라벨 하나가 빈 문자열로 갈려 계열이 늘어난다.
+	if got := BorrowerFrom(WithBorrower(ctx, "")); got != BorrowerAnalysis {
+		t.Errorf("빈 이름이 앞의 이름을 덮었다: %q", got)
+	}
+}
+
+// 빌린 쪽의 이름이 계측까지 간다. 풀을 지나면서 잃으면 라벨이 늘 game 으로 보인다.
+func TestPoolReportsBorrower(t *testing.T) {
+	p := newFakePool(t, 1)
+	m := &fakeMetrics{}
+	p.Observe(m)
+
+	e, err := p.Acquire(WithBorrower(context.Background(), BorrowerAnalysis))
+	if err != nil {
+		t.Fatalf("Acquire: %v", err)
+	}
+	p.Release(e)
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.borrowers) != 1 || m.borrowers[0] != BorrowerAnalysis {
+		t.Fatalf("borrowers=%v, want [%s]", m.borrowers, BorrowerAnalysis)
 	}
 }

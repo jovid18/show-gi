@@ -11,6 +11,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
+	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
 // 「検討」 — 手合割을 골라 0手目부터 아무 수나 둬 보면서 형세와 최선수 셋을 읽는 판.
@@ -136,7 +137,9 @@ func (h *exploreHandler) play(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), whatifTimeout)
+	// 이 표면의 탐색은 borrower=explore 다. 슬롯으로 이미 갈라 둔 자리이고(journal §85)
+	// 풀 대기도 갈려야 「검토가 대국을 기다리게 했나」를 볼 수 있다.
+	ctx, cancel := context.WithTimeout(usi.WithBorrower(r.Context(), usi.BorrowerExplore), whatifTimeout)
 	defer cancel()
 
 	node, err := whatifNodeOf(ctx, root, whatifRequest{Moves: req.Moves}, h.search, cacheOf(h.store))

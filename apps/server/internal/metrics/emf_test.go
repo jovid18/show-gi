@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"encoding/json"
+	"github.com/jovid18/show-gi/apps/server/internal/usi"
 	"strings"
 	"testing"
 	"time"
@@ -124,8 +125,8 @@ func TestEMFSearchSecondsExcludesCache(t *testing.T) {
 
 func TestEMFPoolWaitIsSearchPoolOnly(t *testing.T) {
 	r := New("api", "prod")
-	r.Pool(PoolSearch).ObserveWait(2 * time.Second)
-	r.Pool(PoolMate).ObserveWait(9 * time.Second)
+	r.Pool(PoolSearch).ObserveWait(2*time.Second, usi.BorrowerGame)
+	r.Pool(PoolMate).ObserveWait(9*time.Second, usi.BorrowerGame)
 	r.Pool(PoolSearch).ObserveInUse(2)
 	r.Pool(PoolMate).ObserveInUse(1)
 
@@ -170,15 +171,55 @@ func TestDrainEmptiesUnpickedSeriesToo(t *testing.T) {
 	r := New("api", "prod")
 	mate := r.Pool(PoolMate)
 	for range maxSamples + 50 {
-		mate.ObserveWait(9 * time.Second)
+		mate.ObserveWait(9*time.Second, usi.BorrowerGame)
 	}
 	// 회차 하나가 지난다. 낸 것은 탐색 풀뿐이다(collect 가 그것만 고른다).
 	emit(t, NewEmitter(r, nil), at)
 
 	// 그 뒤에 詰み 풀의 값이 바뀌면, 다음에 그것을 낼 때 새 값이 보여야 한다.
-	mate.ObserveWait(time.Millisecond)
+	mate.ObserveWait(time.Millisecond, usi.BorrowerGame)
 	got := r.PoolWait.DrainSamples(func(l map[string]string) bool { return l["pool"] == PoolMate })
 	if len(got) != 1 || got[0] != 0.001 {
 		t.Fatalf("詰み 풀 표본=%v — 안 비워져서 옛 값이 남았다", got)
+	}
+}
+
+// 풀 대기를 한 번 비워 둘로 낸다. 합친 것에는 분석·검토가 섞여 있어서, 대국이 실제로
+// 굶었는지는 borrower=game 쪽으로만 읽힌다.
+func TestEMFSplitsPoolWaitByBorrower(t *testing.T) {
+	r := New("api", "prod")
+	search := r.Pool(PoolSearch)
+	search.ObserveWait(time.Second, usi.BorrowerGame)
+	search.ObserveWait(4*time.Second, usi.BorrowerAnalysis)
+
+	doc := emit(t, NewEmitter(r, nil), at)
+	all := doc["EnginePoolWaitSeconds"].([]any)
+	if len(all) != 2 {
+		t.Fatalf("EnginePoolWaitSeconds=%v — 둘 다 있어야 한다", all)
+	}
+	game := doc["EnginePoolWaitGameSeconds"].([]any)
+	if len(game) != 1 || game[0] != 1.0 {
+		t.Fatalf("EnginePoolWaitGameSeconds=%v, want [1] — 분석이 섞였다", game)
+	}
+}
+
+// 버려진 판은 증분으로 나간다. 0이 아니면 그 자체가 사고라 알람이 걸릴 자리다.
+func TestEMFCountsDroppedAnalyses(t *testing.T) {
+	r := New("api", "prod")
+	r.Analysis().ObserveGame(AnalysisDropped, 0)
+	r.Analysis().ObserveGame(AnalysisDone, time.Minute)
+	r.Analysis().SetBacklog(2, 210)
+
+	e := NewEmitter(r, nil)
+	doc := emit(t, e, at)
+	if doc["AnalysisGamesDropped"] != 1.0 {
+		t.Fatalf("AnalysisGamesDropped=%v, want 1", doc["AnalysisGamesDropped"])
+	}
+	if doc["AnalysisBacklogPlies"] != 210.0 {
+		t.Fatalf("AnalysisBacklogPlies=%v, want 210", doc["AnalysisBacklogPlies"])
+	}
+	// 두 번째 회차는 증분이 0이다. 누적을 그대로 올리면 알람이 영영 울린 채로 있다.
+	if doc := emit(t, e, at); doc["AnalysisGamesDropped"] != 0.0 {
+		t.Fatalf("두 번째 회차 AnalysisGamesDropped=%v, want 0", doc["AnalysisGamesDropped"])
 	}
 }

@@ -310,6 +310,8 @@ type matchRecorder struct {
 	db *dbRecorder
 	// note 는 결과를 곁장부에 한 벌 더 적는다. nil 일 수 있다 — 테스트가 기록기만 볼 때다.
 	note func(match.Result)
+	// counted 는 手数를 곁장부에 적는다. note 와 같은 규약으로 nil 일 수 있다.
+	counted func(ply int)
 }
 
 func (m matchRecorder) Started(startSFEN string, myColor shogi.Color) {
@@ -320,6 +322,9 @@ func (m matchRecorder) Started(startSFEN string, myColor shogi.Color) {
 // (query/games.sql 의 InsertMove 에 없다) 대인전에는 「engine」이 없다.
 func (m matchRecorder) Moved(ply int, usi string) {
 	m.db.Moved(ply, usi, game.SideHuman)
+	if m.counted != nil {
+		m.counted(ply)
+	}
 }
 
 func (m matchRecorder) Finished(r match.Result) {

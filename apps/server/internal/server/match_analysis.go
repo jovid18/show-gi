@@ -9,9 +9,11 @@ import (
 
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
+	"github.com/jovid18/show-gi/apps/server/internal/metrics"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
+	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
 // matchAnalyzer 는 끝난 대인전을 다시 재서 평가치와 실력 추정치를 채운다(journal §83 · §95).
@@ -28,7 +30,10 @@ type matchAnalyzer struct {
 	store      *store.Store
 	newAnalyst func() game.Analyst
 
-	queue chan []analysisSeat
+	queue chan analysisJob
+
+	// analysis 는 계측 창구다. 늘 non-nil 이다(metrics.Registry.Analysis).
+	analysis *metrics.Analysis
 
 	// judgeDeadline 은 한 手를 재는 시한이다. 0이면 analysisJudgeDeadline —
 	// 대국이 game.Config.MoveDeadline 을 두는 것과 같은 규약이다.
@@ -36,6 +41,19 @@ type matchAnalyzer struct {
 
 	mu      sync.Mutex
 	pending map[int64]struct{}
+	// backlog 는 아직 안 꺼낸 일의 양이다. 판과 手 둘을 센다 — 판 수는 밀린 일의
+	// 크기를 못 말한다(journal §91의 27·34·123手).
+	backlogGames int
+	backlogPlies int
+}
+
+// analysisJob 은 줄에 서는 한 판이다.
+//
+// 手数를 같이 든다. 줄에 서 있는 동안 기보를 읽지 않고도 밀린 양을 手로 셀 수 있어야
+// 하고, 그 값이 나중에 스케일 기준이 된다.
+type analysisJob struct {
+	seats []analysisSeat
+	plies int
 }
 
 // analysisSeat 는 끝난 판의 한 자리다. 대인전 한 판이 games 행 둘로 남고
@@ -67,14 +85,17 @@ const analysisJudgeDeadline = game.DefaultMoveDeadline
 // newMatchAnalyzer 는 워커를 띄운다. store 나 analyst 가 없으면 nil 을 준다 — 엔진
 // 없는 배포에서 대인전이 그대로 도는 규약을 여기서도 지킨다. nil 인 채로 불려도 되도록
 // 아래 메서드가 전부 nil 수신자를 받는다.
-func newMatchAnalyzer(ctx context.Context, st *store.Store, newAnalyst func() game.Analyst) *matchAnalyzer {
+func newMatchAnalyzer(
+	ctx context.Context, st *store.Store, newAnalyst func() game.Analyst, reg *metrics.Registry,
+) *matchAnalyzer {
 	if st == nil || newAnalyst == nil {
 		return nil
 	}
 	a := &matchAnalyzer{
 		store:      st,
 		newAnalyst: newAnalyst,
-		queue:      make(chan []analysisSeat, analysisQueue),
+		queue:      make(chan analysisJob, analysisQueue),
+		analysis:   reg.Analysis(),
 		pending:    map[int64]struct{}{},
 	}
 	go a.run(ctx)
@@ -82,15 +103,31 @@ func newMatchAnalyzer(ctx context.Context, st *store.Store, newAnalyst func() ga
 }
 
 func (a *matchAnalyzer) run(ctx context.Context) {
+	// 빌리는 쪽의 이름을 여기서 한 번 붙인다. 아래 판정이 전부 이 컨텍스트를 지나므로
+	// 풀 대기가 borrower=analysis 로 갈린다(usi.WithBorrower).
+	ctx = usi.WithBorrower(ctx, usi.BorrowerAnalysis)
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case seats := <-a.queue:
-			a.analyze(ctx, seats)
-			a.forget(gameIDsOf(seats))
+		case job := <-a.queue:
+			a.took(job)
+			started := time.Now()
+			result := a.analyze(ctx, job.seats)
+			a.analysis.ObserveGame(result, time.Since(started))
+			a.forget(gameIDsOf(job.seats))
 		}
 	}
+}
+
+// took 은 줄에서 꺼낸 만큼 밀린 양을 내린다.
+func (a *matchAnalyzer) took(job analysisJob) {
+	a.mu.Lock()
+	a.backlogGames--
+	a.backlogPlies -= job.plies
+	games, plies := a.backlogGames, a.backlogPlies
+	a.mu.Unlock()
+	a.analysis.SetBacklog(games, plies)
 }
 
 // hold 는 그 판을 미리 「분석 중」으로 세운다.
@@ -108,7 +145,10 @@ func (a *matchAnalyzer) hold(id int64) {
 }
 
 // enqueue 는 끝난 한 판의 두 자리를 줄에 세운다. hold 로 이미 표시된 것을 받는다.
-func (a *matchAnalyzer) enqueue(seats []analysisSeat) {
+//
+// plies 는 그 판의 手数다. 0이어도 줄에는 선다 — 못 센 것과 안 둔 것을 여기서 가르지
+// 않고, 밀린 양만 그만큼 적게 잡힌다.
+func (a *matchAnalyzer) enqueue(seats []analysisSeat, plies int) {
 	if a == nil || len(seats) == 0 {
 		return
 	}
@@ -118,9 +158,16 @@ func (a *matchAnalyzer) enqueue(seats []analysisSeat) {
 	}
 
 	select {
-	case a.queue <- seats:
+	case a.queue <- analysisJob{seats: seats, plies: plies}:
+		a.mu.Lock()
+		a.backlogGames++
+		a.backlogPlies += plies
+		games, backlog := a.backlogGames, a.backlogPlies
+		a.mu.Unlock()
+		a.analysis.SetBacklog(games, backlog)
 	default:
 		a.forget(ids)
+		a.analysis.ObserveGame(metrics.AnalysisDropped, 0)
 		log.Printf("match: analysis queue is full, leaving games %v without evals", ids)
 	}
 }
@@ -252,13 +299,15 @@ func contiguousMoves(rec store.GameRecord) ([]string, bool) {
 //
 // Before 로 직전 칸을 덮는 것은 일부러다(kifu/import.go 와 같은 모양). 같은 칸에 두
 // 탐색이 쓰고, 그래야 되짚기가 읽는 값이 엔진 대국의 것과 같은 규약이 된다(journal §41).
-func (a *matchAnalyzer) analyze(ctx context.Context, seats []analysisSeat) {
+// analyze 는 그 판을 다 재고 결과 이름을 준다. 이름은 metrics.Analysis 의 어휘다 —
+// 중간에 끊긴 판은 done 이 아니다.
+func (a *matchAnalyzer) analyze(ctx context.Context, seats []analysisSeat) string {
 	ids := gameIDsOf(seats)
 	// 평가치는 두 행에 다 쓰지만(ids) 기보는 한 행에서 읽는다. 아래 로그가 rec.ID 를
 	// 쓰는 것은 그래서다 — 폴백이 걸린 판에서 ids[0] 을 적으면 안 읽은 행을 가리킨다.
 	rec, moves, whole, ok := a.kifuOf(ctx, seats)
 	if !ok {
-		return
+		return metrics.AnalysisFailed
 	}
 
 	// 1手目를 둔 색. 手数 홀짝으로 안 가른다 — 駒落ち는 上手가 먼저 두므로 그 규약이
@@ -284,6 +333,7 @@ func (a *matchAnalyzer) analyze(ctx context.Context, seats []analysisSeat) {
 
 	analyst := a.newAnalyst()
 	byColor := map[shogi.Color][]skill.Move{}
+	stopped := false
 	for ply := 1; ply <= len(moves); ply++ {
 		j, err := a.judge(ctx, analyst, start, moves[:ply], ply)
 		// 끊기는 이유가 둘이고 성질이 같다. 엔진이 못 답했거나, 판정이 국면을 못
@@ -305,8 +355,9 @@ func (a *matchAnalyzer) analyze(ctx context.Context, seats []analysisSeat) {
 			// 그 밖이면 남는 것이 더 긴 판의 앞부분뿐이고 그 구간이 체계적으로 쉬워서
 			// 낙폭이 낮게 나오므로, 통째로 버린다(journal §95).
 			if ply <= skill.AnchorToPly && ply < len(moves) {
-				return
+				return metrics.AnalysisFailed
 			}
+			stopped = true
 			break
 		}
 		if firstKnown && whole {
@@ -321,6 +372,10 @@ func (a *matchAnalyzer) analyze(ctx context.Context, seats []analysisSeat) {
 		}
 	}
 	a.updateSkill(ctx, seats, byColor)
+	if stopped {
+		return metrics.AnalysisFailed
+	}
+	return metrics.AnalysisDone
 }
 
 // judge 는 한 手를 시한 안에서 잰다. 시한을 넘기면 그 자리에서 끊긴 것으로 친다 —

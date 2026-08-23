@@ -32,7 +32,8 @@ type Metrics interface {
 	// SetSize 는 풀 크기다. 점유 수만으로는 포화를 못 읽는다.
 	SetSize(n int)
 	// ObserveWait 는 빌리기까지 기다린 시간이다. 안 기다렸으면 0이 들어간다.
-	ObserveWait(d time.Duration)
+	// borrower 는 누가 빌렸나다(WithBorrower).
+	ObserveWait(d time.Duration, borrower string)
 	// ObserveInUse 는 빌려 나간 엔진 수의 변화다. +1 과 -1 만 들어간다.
 	ObserveInUse(delta int)
 }
@@ -86,7 +87,7 @@ func (p *Pool) Acquire(ctx context.Context) (*Engine, error) {
 	start := time.Now()
 	select {
 	case e := <-p.free:
-		p.borrowed(start)
+		p.borrowed(ctx, start)
 		return e, nil
 	case <-p.done:
 		return nil, ErrPoolClosed
@@ -96,12 +97,50 @@ func (p *Pool) Acquire(ctx context.Context) (*Engine, error) {
 }
 
 // borrowed 는 빌려 간 것을 계측에 남긴다.
-func (p *Pool) borrowed(start time.Time) {
+func (p *Pool) borrowed(ctx context.Context, start time.Time) {
 	if p.metrics == nil {
 		return
 	}
-	p.metrics.ObserveWait(time.Since(start))
+	p.metrics.ObserveWait(time.Since(start), BorrowerFrom(ctx))
 	p.metrics.ObserveInUse(1)
+}
+
+// borrowerKey 는 빌리는 쪽의 이름을 나르는 컨텍스트 키다.
+type borrowerKey struct{}
+
+// 빌리는 쪽의 이름들. engine_pool_wait_seconds 의 borrower 라벨이 된다.
+//
+// BorrowerGame 이 기본값이다 — 대국 중의 경로가 그것이고, 상대 수·개입 판정·詰み
+// 게이지·힌트가 전부 세션에서 곧장 부른다. 나머지는 부르는 자리에서 붙인다.
+const (
+	BorrowerGame     = "game"
+	BorrowerAnalysis = "analysis"
+	BorrowerExplore  = "explore"
+	BorrowerWhatIf   = "whatif"
+	BorrowerQuiz     = "quiz"
+)
+
+// WithBorrower 는 이 컨텍스트로 빌리는 쪽의 이름을 정한다.
+//
+// 인자로 안 받고 컨텍스트로 나르는 이유는 부르는 자리와 빌리는 자리 사이에 탐색부가
+// 끼어 있기 때문이다. 이름은 맨 위(핸들러·분석기)에서만 알고, 그 사이의 함수들은
+// 누가 왜 부르는지 알 필요가 없다.
+func WithBorrower(ctx context.Context, name string) context.Context {
+	if name == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, borrowerKey{}, name)
+}
+
+// BorrowerFrom 은 그 이름을 되읽는다. 안 붙였으면 BorrowerGame 이다.
+func BorrowerFrom(ctx context.Context) string {
+	if ctx == nil {
+		return BorrowerGame
+	}
+	if name, ok := ctx.Value(borrowerKey{}).(string); ok && name != "" {
+		return name
+	}
+	return BorrowerGame
 }
 
 // Release 는 빌린 엔진을 돌려준다.
