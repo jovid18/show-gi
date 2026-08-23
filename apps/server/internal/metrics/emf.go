@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+
+	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
 // Namespace 는 CloudWatch 의 지표 이름 공간이다.
@@ -122,6 +124,12 @@ func (e *Emitter) collect() []metric {
 		{"EngineSearchesCached", "Count", e.delta("EngineSearchesCached", r.Searches.SumFunc(cached))},
 		{"EnginePoolInUse", "Count", r.PoolInUse.SumFunc(searchPool)},
 		{"WsSessionsActive", "Count", r.WSSessions.Total()},
+		// 밀린 手가 이 층의 부하 지표다. 판 수는 같이 안 올린다 — 두 값이 늘 같은
+		// 방향으로 움직이고, 갈라 보고 싶으면 /metrics 에 둘 다 있다.
+		{"AnalysisBacklogPlies", "Count", r.AnalysisBacklogPlies.Total()},
+		// 버려진 판은 평가치도 실력도 없이 남는다. 0이 아니면 그 자체로 사고다.
+		{"AnalysisGamesDropped", "Count",
+			e.delta("AnalysisGamesDropped", r.AnalysisGames.SumFunc(dropped))},
 	}
 
 	// 배열은 비어 있으면 아예 안 낸다. 빈 배열을 올리면 그 회차가 0 관측으로 읽히는
@@ -135,8 +143,20 @@ func (e *Emitter) collect() []metric {
 	if s := r.SearchDuration.DrainSamples(computed); len(s) > 0 {
 		out = append(out, metric{"EngineSearchSeconds", "Seconds", s})
 	}
-	if s := r.PoolWait.DrainSamples(searchPool); len(s) > 0 {
-		out = append(out, metric{"EnginePoolWaitSeconds", "Seconds", s})
+	// 한 번 비우고 둘로 낸다. 두 번 부르면 두 번째가 빈 배열이다(DrainSamplesSplit).
+	//
+	// 갈라 내는 것은 borrower=game 하나다. 합친 값에는 사후 분석과 검토가 섞여 있어서,
+	// 「대국이 실제로 굶었나」는 그쪽으로만 읽힌다.
+	byBorrower := r.PoolWait.DrainSamplesSplit(searchPool, "borrower")
+	var all []float64
+	for _, s := range byBorrower {
+		all = append(all, s...)
+	}
+	if len(all) > 0 {
+		out = append(out, metric{"EnginePoolWaitSeconds", "Seconds", thin(all, maxSamples)})
+	}
+	if s := byBorrower[usi.BorrowerGame]; len(s) > 0 {
+		out = append(out, metric{"EnginePoolWaitGameSeconds", "Seconds", thin(s, maxSamples)})
 	}
 	return out
 }
@@ -162,3 +182,5 @@ func cached(labels map[string]string) bool { return labels["result"] == resultCa
 func computed(labels map[string]string) bool { return labels["result"] == resultComputed }
 
 func searchPool(labels map[string]string) bool { return labels["pool"] == PoolSearch }
+
+func dropped(labels map[string]string) bool { return labels["result"] == AnalysisDropped }

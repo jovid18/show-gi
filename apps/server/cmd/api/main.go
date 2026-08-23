@@ -133,7 +133,7 @@ func main() {
 		// 대인전의 사후 분석. 여기가 대인전이 엔진을 만나는 유일한 자리다 — 두는 동안이
 		// 아니라 판이 끝난 뒤이고, 채우는 것은 되짚기의 평가치와 두 사람의 실력
 		// 추정치다(server.AnalyzeWith).
-		opts.Match.AnalyzeWith(ctx, opts.Store, opts.NewAnalyst)
+		opts.Match.AnalyzeWith(ctx, opts.Store, opts.NewAnalyst, opts.Metrics)
 		// 종반 판정·詰み 게이지·퀴즈의 詰み 트리가 셋 다 이 풀이다. 앞의 둘은 시간상
 		// 겹치지 않지만(판정은 사람의 수 직후, 게이지는 상대의 수 직후) 퀴즈는 판이
 		// 끝나는 자리에서 수십 초를 잡는다 — 그래서 하나로는 모자라다(matePoolSize).

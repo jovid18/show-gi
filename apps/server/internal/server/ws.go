@@ -23,6 +23,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
+	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
 // 대국은 WebSocket 이다. 상대의 수도 개입도 서버가 먼저 말을 거는 것이라 요청/응답이
@@ -570,7 +571,8 @@ func (h *gameHandler) generateQuiz(parent context.Context, rec store.GameRecord)
 	// 벗어난다 — 엔진 없는 배포에서 그 문장은 오지 않을 것을 기다리라는 거짓말이다.
 	var q quiz.Quiz
 	if h.opts.Quiz != nil {
-		ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), quizTimeout)
+		ctx := usi.WithBorrower(context.WithoutCancel(parent), usi.BorrowerQuiz)
+		ctx, cancel := context.WithTimeout(ctx, quizTimeout)
 		built, measured := h.opts.Quiz.Build(ctx, quizInput(rec))
 		cut := ctx.Err() != nil
 		cancel()

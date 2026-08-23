@@ -11,6 +11,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
+	"github.com/jovid18/show-gi/apps/server/internal/metrics"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -58,7 +59,7 @@ var stubLevel = intervene.Beginner
 func TestAnalysisFillsBothRowsOfAMatch(t *testing.T) {
 	st, seats := matchSeatsForAnalysis(t, "", plyList(3))
 
-	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst { return stubAnalyst{} })
+	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst { return stubAnalyst{} }, nil)
 	a.analyze(t.Context(), seats)
 
 	for _, id := range gameIDsOf(seats) {
@@ -88,7 +89,7 @@ func TestAnalysisFillsBothRowsOfAMatch(t *testing.T) {
 func TestAnalysisStopsWhenTheEngineFails(t *testing.T) {
 	st, seats := matchSeatsForAnalysis(t, "", plyList(2))
 
-	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst { return stubAnalyst{fail: true} })
+	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst { return stubAnalyst{fail: true} }, nil)
 	a.analyze(t.Context(), seats)
 
 	rec, err := st.GameRecordAnyOwner(t.Context(), seats[0].gameID)
@@ -110,7 +111,7 @@ func TestSkillFromAMatchGoesToWhoPlayedTheMove(t *testing.T) {
 
 	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.02, lossEven: 0.20}
-	})
+	}, nil)
 	a.analyze(t.Context(), seats)
 
 	want := map[shogi.Color]float64{shogi.Black: 0.02, shogi.White: 0.20}
@@ -146,7 +147,7 @@ func TestAFailureAfterTheWindowKeepsTheSamples(t *testing.T) {
 
 	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
 		return stubAnalyst{failFrom: skill.AnchorToPly + 20, lossOdd: 0.02, lossEven: 0.20}
-	})
+	}, nil)
 	a.analyze(t.Context(), seats)
 
 	want := map[shogi.Color]float64{shogi.Black: 0.02, shogi.White: 0.20}
@@ -178,7 +179,7 @@ func TestTheFirstMoverComesFromTheStartingPosition(t *testing.T) {
 
 	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.02, lossEven: 0.20}
-	})
+	}, nil)
 	a.analyze(t.Context(), seats)
 
 	// 1手目가 上手(後手)이므로 홀수 手의 낙폭이 後手에게 간다 — 平手의 반대다.
@@ -205,7 +206,7 @@ func TestAnUnreadableStartPositionFeedsNobody(t *testing.T) {
 
 	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.02, lossEven: 0.20}
-	})
+	}, nil)
 	a.analyze(t.Context(), seats)
 
 	for _, seat := range seats {
@@ -223,7 +224,7 @@ func TestAGameThatEndsInsideTheWindowStillFeeds(t *testing.T) {
 
 	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.02, lossEven: 0.20}
-	})
+	}, nil)
 	a.analyze(t.Context(), seats)
 
 	want := map[shogi.Color]float64{shogi.Black: 0.02, shogi.White: 0.20}
@@ -251,7 +252,7 @@ func TestAGapInTheRecordStopsTheAnalysis(t *testing.T) {
 
 	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.02, lossEven: 0.20}
-	})
+	}, nil)
 	a.analyze(t.Context(), seats)
 
 	for _, seat := range seats {
@@ -275,7 +276,7 @@ func TestAReplayFailureInsideTheWindowFeedsNobody(t *testing.T) {
 
 	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
 		return stubAnalyst{blindFrom: skill.AnchorFromPly + 10, lossOdd: 0.02, lossEven: 0.20}
-	})
+	}, nil)
 	a.analyze(t.Context(), seats)
 
 	for _, seat := range seats {
@@ -298,7 +299,7 @@ func TestAGapInOneRowFallsBackToTheOther(t *testing.T) {
 
 	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.02, lossEven: 0.20}
-	})
+	}, nil)
 	a.analyze(t.Context(), seats)
 
 	want := map[shogi.Color]float64{shogi.Black: 0.02, shogi.White: 0.20}
@@ -321,7 +322,7 @@ func TestAFailureOnTheLastPlyKeepsTheSamples(t *testing.T) {
 
 	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
 		return stubAnalyst{failFrom: total, lossOdd: 0.02, lossEven: 0.20}
-	})
+	}, nil)
 	a.analyze(t.Context(), seats)
 
 	for _, seat := range seats {
@@ -369,7 +370,7 @@ func TestAnUnreadableRowBlocksTheSkillUpdate(t *testing.T) {
 
 	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.02, lossEven: 0.20}
-	})
+	}, nil)
 	a.analyze(t.Context(), seats)
 
 	for _, seat := range seats {
@@ -396,7 +397,7 @@ func TestAGappedButLongerRowBlocksTheSkillUpdate(t *testing.T) {
 
 	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.02, lossEven: 0.20}
-	})
+	}, nil)
 	a.analyze(t.Context(), seats)
 
 	for _, seat := range seats {
@@ -428,7 +429,7 @@ func TestATruncatedRowLosesToTheLongerOne(t *testing.T) {
 
 	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.02, lossEven: 0.20}
-	})
+	}, nil)
 	a.analyze(t.Context(), seats)
 
 	// 창이 다 찼다는 것이 긴 행을 읽었다는 뜻이다. 잘린 행을 읽었으면 21~30手뿐이다.
@@ -456,7 +457,7 @@ func TestAnEmptyRowFillsEvalsButNotSkill(t *testing.T) {
 
 	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.02, lossEven: 0.20}
-	})
+	}, nil)
 	a.analyze(t.Context(), seats)
 
 	for _, seat := range seats {
@@ -481,7 +482,7 @@ func TestAShortMatchFeedsNobody(t *testing.T) {
 
 	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.02, lossEven: 0.20}
-	})
+	}, nil)
 	a.analyze(t.Context(), seats)
 
 	for _, seat := range seats {
@@ -498,7 +499,7 @@ func TestAHalfAnalyzedMatchFeedsNobody(t *testing.T) {
 
 	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
 		return stubAnalyst{failFrom: skill.AnchorFromPly + 10, lossOdd: 0.02, lossEven: 0.20}
-	})
+	}, nil)
 	a.analyze(t.Context(), seats)
 
 	for _, seat := range seats {
@@ -535,7 +536,7 @@ func TestMoverFollowsTheSideThatMovedFirst(t *testing.T) {
 // 줄에 서는 순간부터 「분석 중」이다. 워커가 그 판에 닿기 전이라도 화면이 기다릴 것을
 // 알아야 한다.
 func TestQueuedGamesReadAsAnalyzing(t *testing.T) {
-	a := &matchAnalyzer{queue: make(chan []analysisSeat, 1), pending: map[int64]struct{}{}}
+	a := &matchAnalyzer{queue: make(chan analysisJob, 1), pending: map[int64]struct{}{}}
 	seats := []analysisSeat{
 		{gameID: 7, userID: 1, color: shogi.Black},
 		{gameID: 8, userID: 2, color: shogi.White},
@@ -544,7 +545,7 @@ func TestQueuedGamesReadAsAnalyzing(t *testing.T) {
 	if a.analyzing(7) {
 		t.Error("아무것도 안 세운 판이 분석 중이다")
 	}
-	a.enqueue(seats)
+	a.enqueue(seats, 0)
 	if !a.analyzing(7) || !a.analyzing(8) {
 		t.Error("줄에 선 판이 분석 중이 아니다")
 	}
@@ -559,12 +560,12 @@ func TestQueuedGamesReadAsAnalyzing(t *testing.T) {
 func TestANilAnalyzerIsSafeToUse(t *testing.T) {
 	var a *matchAnalyzer
 	a.hold(1)
-	a.enqueue([]analysisSeat{{gameID: 1}, {gameID: 2}})
+	a.enqueue([]analysisSeat{{gameID: 1}, {gameID: 2}}, 0)
 	a.forget([]int64{1, 2})
 	if a.analyzing(1) {
 		t.Error("없는 분석기가 분석 중이라고 답했다")
 	}
-	if newMatchAnalyzer(t.Context(), nil, func() game.Analyst { return stubAnalyst{} }) != nil {
+	if newMatchAnalyzer(t.Context(), nil, func() game.Analyst { return stubAnalyst{} }, nil) != nil {
 		t.Error("store 가 없으면 분석기를 만들지 않는다")
 	}
 }
@@ -616,4 +617,59 @@ func matchSeatsForAnalysis(t *testing.T, startSFEN string, plies []int) (*store.
 		seats = append(seats, analysisSeat{gameID: id, userID: u, color: seat.color})
 	}
 	return st, seats
+}
+
+// 밀린 양이 판과 手 둘로 세어진다. 판 수만으로는 밀린 일의 크기를 못 말한다 —
+// 회차 4의 세 판이 27·34·123手였다(journal §91).
+func TestBacklogCountsGamesAndPlies(t *testing.T) {
+	reg := metrics.New("api", "test")
+	a := &matchAnalyzer{
+		queue:    make(chan analysisJob, 2),
+		pending:  map[int64]struct{}{},
+		analysis: reg.Analysis(),
+	}
+
+	a.enqueue([]analysisSeat{{gameID: 1}, {gameID: 2}}, 27)
+	a.enqueue([]analysisSeat{{gameID: 3}, {gameID: 4}}, 123)
+	if got := reg.AnalysisBacklogGames.Total(); got != 2 {
+		t.Errorf("밀린 판 = %v, want 2", got)
+	}
+	if got := reg.AnalysisBacklogPlies.Total(); got != 150 {
+		t.Errorf("밀린 手 = %v, want 150", got)
+	}
+
+	a.took(<-a.queue)
+	if got := reg.AnalysisBacklogPlies.Total(); got != 123 {
+		t.Errorf("꺼낸 뒤 밀린 手 = %v, want 123", got)
+	}
+	a.took(<-a.queue)
+	if got := reg.AnalysisBacklogGames.Total(); got != 0 {
+		t.Errorf("다 꺼낸 뒤 밀린 판 = %v, want 0", got)
+	}
+}
+
+// 줄이 넘쳐 버린 판은 dropped 로 세어진다. 지금까지 로그 한 줄로만 남던 자리다.
+func TestDroppedGamesAreCounted(t *testing.T) {
+	reg := metrics.New("api", "test")
+	a := &matchAnalyzer{
+		queue:    make(chan analysisJob, 1),
+		pending:  map[int64]struct{}{},
+		analysis: reg.Analysis(),
+	}
+
+	a.enqueue([]analysisSeat{{gameID: 1}, {gameID: 2}}, 40)
+	a.enqueue([]analysisSeat{{gameID: 3}, {gameID: 4}}, 40)
+
+	if got := reg.AnalysisGames.Total(); got != 1 {
+		t.Fatalf("센 판 = %v, want 1", got)
+	}
+	// 버려진 판은 「분석 중」 표시가 걷혀 있어야 한다. 안 걷으면 되짚기가 영영
+	// 「分析しています」로 남는다.
+	if a.analyzing(3) || a.analyzing(4) {
+		t.Error("버려진 판이 아직 분석 중이다")
+	}
+	// 밀린 양에도 안 들어간다. 줄에 못 섰으므로 그 手는 아무도 안 잰다.
+	if got := reg.AnalysisBacklogPlies.Total(); got != 40 {
+		t.Errorf("밀린 手 = %v, want 40", got)
+	}
 }

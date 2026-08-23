@@ -324,7 +324,7 @@ func TestTheRecorderContextEndsWithTheMatch(t *testing.T) {
 // 그 값도 멀쩡한 범위에 있어서 아무것도 안 잡는다.
 func TestCollectPairsEachSeatWithItsPlayer(t *testing.T) {
 	records := newMatchRecords(&storePlaceholder, intervene.Beginner)
-	records.analyzer = &matchAnalyzer{queue: make(chan []analysisSeat, 1), pending: map[int64]struct{}{}}
+	records.analyzer = &matchAnalyzer{queue: make(chan analysisJob, 1), pending: map[int64]struct{}{}}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -352,12 +352,13 @@ func TestCollectPairsEachSeatWithItsPlayer(t *testing.T) {
 
 	go records.collect(ctx, cancel, entry)
 
-	var seats []analysisSeat
+	var job analysisJob
 	select {
-	case seats = <-records.analyzer.queue:
+	case job = <-records.analyzer.queue:
 	case <-time.After(2 * time.Second):
 		t.Fatal("자리가 줄에 안 섰다")
 	}
+	seats := job.seats
 
 	want := map[shogi.Color]analysisSeat{
 		shogi.Black: {gameID: 101, userID: 11, color: shogi.Black},

@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"github.com/jovid18/show-gi/apps/server/internal/usi"
 	"strings"
 	"testing"
 	"time"
@@ -213,7 +214,7 @@ func TestNilRegistryHooksAreSilent(t *testing.T) {
 	var r *Registry
 	p := r.Pool(PoolSearch)
 	p.SetSize(3)
-	p.ObserveWait(time.Second)
+	p.ObserveWait(time.Second, usi.BorrowerGame)
 	p.ObserveInUse(1)
 	r.Search().ObserveSearch(time.Second, true)
 	r.ObservePanic("GET /x")
@@ -239,5 +240,32 @@ func TestUnlabeledFamiliesReachTheTextSurface(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("텍스트 표면에 %q 가 없다:\n%s", want, out)
 		}
+	}
+}
+
+// 사후 분석의 창구도 nil 레지스트리에서 조용해야 한다. 분석기가 구조체 리터럴로도
+// 서므로(match_analysis_test) 창구 자체가 nil 인 자리까지 같이 본다.
+func TestAnalysisHooksAreSilentWithoutRegistry(t *testing.T) {
+	var r *Registry
+	r.Analysis().SetBacklog(3, 300)
+	r.Analysis().ObserveGame(AnalysisDone, time.Second)
+
+	var a *Analysis
+	a.SetBacklog(1, 1)
+	a.ObserveGame(AnalysisDropped, 0)
+}
+
+// 버려진 판은 시간을 안 남긴다. 재 보지도 않고 나간 것이라, 그 0이 분포에 섞이면
+// 「판 하나를 재는 데 얼마나 걸리나」가 아래로 끌린다.
+func TestDroppedGamesLeaveNoDuration(t *testing.T) {
+	r := New("api", "test")
+	an := r.Analysis()
+	an.ObserveGame(AnalysisDropped, 0)
+	if got := r.AnalysisDuration.DrainSamples(nil); len(got) != 0 {
+		t.Fatalf("버려진 판의 시간이 남았다: %v", got)
+	}
+	an.ObserveGame(AnalysisDone, 90*time.Second)
+	if got := r.AnalysisDuration.DrainSamples(nil); len(got) != 1 || got[0] != 90 {
+		t.Fatalf("끝난 판의 시간=%v, want [90]", got)
 	}
 }

@@ -49,6 +49,12 @@ type roomRecord struct {
 	id    map[shogi.Color]int64
 	ready map[shogi.Color]chan struct{}
 
+	// plies 는 그 판에 둔 手数다. 두 자리가 같은 수를 다 적으므로 큰 쪽을 든다.
+	//
+	// 기록에서 되읽지 않고 여기서 센다 — 줄에 세울 때(analysisJob) 이 값이 필요하고,
+	// 그 자리에서 질의를 하나 더 하면 판이 끝나는 경로가 그만큼 늘어난다.
+	plies int
+
 	// player·result 는 자리마다의 대국자와 결과다. 레이팅을 옮기는 데 쓴다(match_rating.go).
 	//
 	// 결과를 기록기 채널이 아니라 여기로 한 벌 더 받는다. 레이팅은 두 사람을 같이
@@ -104,7 +110,7 @@ func (m *matchRecords) new(
 		entry.rec[c] = newDBRecorder(ctx, m.store, m.level, recordTarget{userID: &userID, matchID: matchID})
 		entry.ready[c] = make(chan struct{})
 		entry.player[c] = p
-		out[c] = matchRecorder{db: entry.rec[c], note: m.noting(entry, c)}
+		out[c] = matchRecorder{db: entry.rec[c], note: m.noting(entry, c), counted: m.counting(entry)}
 	}
 
 	m.mu.Lock()
@@ -181,7 +187,10 @@ func (m *matchRecords) collect(ctx context.Context, cancel context.CancelFunc, e
 		m.analyzer.forget(gameIDsOf(seats))
 		return
 	}
-	m.analyzer.enqueue(seats)
+	m.mu.Lock()
+	plies := entry.plies
+	m.mu.Unlock()
+	m.analyzer.enqueue(seats, plies)
 
 	// 레이팅은 두 행이 다 있을 때만 옮긴다. 반쪽인 판은 한 사람에게만 남은 판이라,
 	// 그것으로 두 사람의 값을 움직이면 기록과 레이팅이 갈린다.
@@ -197,6 +206,15 @@ func (m *matchRecords) noting(entry *roomRecord, c shogi.Color) func(match.Resul
 	return func(r match.Result) {
 		m.mu.Lock()
 		entry.result[c] = r
+		m.mu.Unlock()
+	}
+}
+
+// counting 은 手数를 곁장부에 적는 창구다. 두 자리가 같은 수를 적으므로 큰 값만 남긴다.
+func (m *matchRecords) counting(entry *roomRecord) func(int) {
+	return func(ply int) {
+		m.mu.Lock()
+		entry.plies = max(entry.plies, ply)
 		m.mu.Unlock()
 	}
 }

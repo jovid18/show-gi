@@ -222,7 +222,7 @@ func (h *whatifHandler) play(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), whatifTimeout)
+	ctx, cancel := context.WithTimeout(usi.WithBorrower(r.Context(), usi.BorrowerWhatIf), whatifTimeout)
 	defer cancel()
 
 	node, err := whatifNodeOf(ctx, rootOf(rec), req, h.search, cacheOf(h.store))
