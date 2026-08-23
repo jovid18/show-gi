@@ -35,11 +35,14 @@ const (
 	// exploreBodyLimit 은 본문 상한이다. 手合割 id 하나와 수순 한 줄이 전부다.
 	exploreBodyLimit = 16 << 10
 
-	// exploreSlots 는 이 표면이 동시에 잡을 수 있는 엔진 수다.
+	// exploreSlots 는 이 표면이 동시에 잡을 수 있는 엔진 수다. 이것이 유일한 벽이다.
 	//
 	// 풀은 대국이 쓰는 것과 같은 3개다(main.go 의 defaultEnginePoolSize). 안 묶으면
 	// 검토 세 건이 엔진을 다 잡고 대국의 착수가 그 뒤에 줄을 서므로, 개입 카드가 늦게 뜬다.
 	// 1이면 대국에 언제나 2개가 남는다 — 올릴 자리가 여기 하나다.
+	//
+	// 로그인 벽이 여기 있었다(journal §100). 걷었으므로 이 수가 곧 「검토가 엔진에서
+	// 가져갈 수 있는 전부」다.
 	exploreSlots = 1
 
 	// exploreWait 은 슬롯을 기다리는 시간이다. 처음 보는 국면 한 번이 ~1.5s이므로
@@ -48,25 +51,21 @@ const (
 	exploreWait = 3 * time.Second
 )
 
-// exploreHandler 는 검토 판의 한 걸음을 답한다. 되짚기와 달리 DB에 매여 있지 않다 —
-// 뿌리가 기록이 아니라 상수 표라, 캐시(positions)는 있으면 쓰고 없으면 그냥 느리다.
+// exploreHandler 는 검토 판의 한 걸음을 답한다. 되짚기와 달리 DB에도 로그인에도 매여
+// 있지 않다 — 뿌리가 기록이 아니라 상수 표라, 캐시(positions)는 있으면 쓰고 없으면 그냥
+// 느리고, 열리는 기록이 없으니 자격을 물을 것도 없다.
 type exploreHandler struct {
 	// store 는 캐시로만 쓴다. nil이면 답은 같고 같은 국면을 매번 다시 잰다.
 	store  *store.Store
 	search Searcher
-	// auth 는 이 표면의 첫 번째 벽이다. 남의 판을 막는 것이 아니라 엔진을 막는다 —
-	// 뿌리가 手合割 표라 여기서 열리는 기록이 없고(whatif.go 의 auth 와 갈리는 자리),
-	// 막는 것은 로그인 없이 아무나 깊이 12 탐색을 돌리는 일이다.
-	auth *authHandler
-	// slots 는 두 번째 벽이다. 빈자리가 없으면 exploreWait 만큼만 기다린다.
+	// slots 는 이 표면의 유일한 벽이다. 빈자리가 없으면 exploreWait 만큼만 기다린다.
 	slots chan struct{}
 }
 
-func newExploreHandler(st *store.Store, search Searcher, auth *authHandler) *exploreHandler {
+func newExploreHandler(st *store.Store, search Searcher) *exploreHandler {
 	return &exploreHandler{
 		store:  st,
 		search: search,
-		auth:   auth,
 		slots:  make(chan struct{}, exploreSlots),
 	}
 }
@@ -102,15 +101,6 @@ type exploreNode struct {
 }
 
 func (h *exploreHandler) play(w http.ResponseWriter, r *http.Request) {
-	// 첫 번째 벽. 로그인 기능이 없는 배포에서는 viewer 가 언제나 false이므로 이
-	// 표면이 통째로 닫힌다 — 그것이 맞다. 엔진을 열어 둘 근거가 로그인 하나다.
-	if _, ok := h.auth.viewer(r); !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{
-			"error": "login_required", "message": whatifMessages["login_required"],
-		})
-		return
-	}
-
 	var req exploreRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, exploreBodyLimit)).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{
@@ -133,7 +123,7 @@ func (h *exploreHandler) play(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 두 번째 벽. 대국이 쓰는 풀에서 하나만 빌린다(exploreSlots).
+	// 하나뿐인 벽. 대국이 쓰는 풀에서 하나만 빌린다(exploreSlots).
 	slotCtx, cancelSlot := context.WithTimeout(r.Context(), exploreWait)
 	defer cancelSlot()
 	select {

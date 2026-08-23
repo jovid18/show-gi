@@ -97,7 +97,7 @@ export function useBoardSurface({ boardRef, board, active, from, me, flipped }: 
   // 캔버스는 손으로 붙인다. JSX로 두면 StrictMode의 두 번째 마운트가 같은 캔버스에
   // WebGL 컨텍스트를 또 잡는데, 캔버스 하나에 컨텍스트는 하나뿐이라 앞의 것을 정리하는
   // 순간 뒤의 것이 같이 죽는다. 붙는 자리는 맨 뒤다 — 첫 자식은 打 화살표가 칸 크기를
-  // 재는 데 쓴다(`GameScreen.measureDrop`).
+  // 재는 데 쓴다(`useDropAnchor`).
   //
   // three.js는 늦게 들여온다. 판이 처음 뜨는 데 필요한 것이 아니고(그 자리는 CSS 판이
   // 이미 채운다) 번들에서 제일 무거운 한 덩어리라, 첫 그림을 그것 때문에 기다리게 두지

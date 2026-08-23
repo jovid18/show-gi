@@ -35,7 +35,6 @@ const MENU: MenuItem[] = [
     route: { name: 'explore', handicap: '', moves: [] },
     name: '検討',
     note: '好きな局面を並べて調べる',
-    needsAuth: true,
     hideWhilePlaying: true,
   },
   // 여기가 안내의 유일한 입구다(journal §86). 새 탭으로 안 연다 — 메뉴의 다른

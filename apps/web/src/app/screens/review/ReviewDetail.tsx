@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
-import { Board, type DropFrom, type Ray } from '@/components/Board';
+import { Board, type Ray } from '@/components/Board';
 import { Hand } from '@/components/Hand';
+import { Promotion } from '@/components/Promotion';
 // 대국 화면의 카드를 그대로 쓴다. 같은 판을 두 모양으로 그리면 「끝난 그 자리에서 본 것」과
 // 「나중에 되짚어 본 것」이 다른 말로 읽힌다 — 서버도 같은 payload 를 준다(§52).
 import { Summary } from '@/screens/game/Summary';
@@ -9,11 +10,11 @@ import { EvalGraph } from './EvalGraph';
 import { MoveOptions } from './MoveOptions';
 import { WhatIfPanel } from './WhatIfPanel';
 import { groupByOrigin, parseUsi, squaresOf, toUsiMove, type Destination } from '@/libs/game/moves';
-import { offsetWithin } from '@/libs/game/board-view';
 import { dateJa, resultJa } from '@/libs/review/labels';
 import { hrefOf, navigate } from '@/routes/router';
 import type { GameDetail, ReviewMove } from '@/protocol/review';
 import type { WhatIfNode } from '@/protocol/whatif';
+import { useDropAnchor } from '@/hooks/useDropAnchor';
 import { useEngineReady, useGameSummary } from '@/hooks/useReview';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
 import type { Side } from '@/models/piece';
@@ -96,10 +97,6 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
    * 목록이 계속 자리를 잡고 있으면 판이 그만큼 작아진다.
    */
   const [kifuOpen, setKifuOpen] = useState(false);
-  /** 打 화살표의 출발점 — 駒台에 놓인 그 駒의 실제 자리. 칸 산수 밖이라 재야 한다. */
-  const [dropFrom, setDropFrom] = useState<DropFrom | null>(null);
-  const dropPieceRef = useRef<HTMLButtonElement | null>(null);
-  const boardRef = useRef<HTMLDivElement>(null);
 
   const engineReady = useEngineReady();
   /**
@@ -244,6 +241,9 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
     const onKey = (e: KeyboardEvent) => {
       // 글자를 넣고 있는 중이면 그 키는 그쪽 것이다.
       if (e.target instanceof HTMLInputElement) return;
+      // 成りますか가 떠 있는 동안은 안 받는다. 手数를 옮기면 `goto` 가 물음과 분기를
+      // 같이 버려서, 답이 없는 취소가 하나 생긴다(journal §99).
+      if (promoting) return;
       switch (e.key) {
         case 'ArrowLeft':
           goto(ply - 1);
@@ -264,7 +264,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [goto, ply, last]);
+  }, [goto, ply, last, promoting]);
 
   // 분기에 들어가 있으면 그 국면이고, 아니면 실제로 둔 판이다. 분기의 첫 수를 두기 전에는
   // 둘이 같은 국면이라, 노드를 기다리는 동안 판이 비거나 깜빡이지 않는다.
@@ -310,8 +310,8 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
     if (!best) return null;
     const squares = squaresOf(best.usi);
     if (!squares) return null;
-    // 打도 긋는다. 판 위에 출발 칸이 없어서 駒台에서 자리를 재야 하고, 아래에서 잰다
-    // (`dropFrom`). 안 그리면 최선수가 打인 국면에서만 화살표가 통째로 사라진다.
+    // 打도 긋는다. 판 위에 출발 칸이 없어서 駒台에서 자리를 재야 하고, 그것은
+    // `useDropAnchor` 가 한다. 안 그리면 최선수가 打인 국면에서만 화살표가 통째로 사라진다.
     return { from: squares.from, to: squares.to, by: active.yourTurn ? 'human' : 'engine' };
   }, [branching, active]);
 
@@ -354,7 +354,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   const lit = useMemo(() => new Set(destinations.map((d) => d.to)), [destinations]);
   const playable = !!active && active.status === 'playing' && !pending && !promoting;
   /** 지금 수번의 駒台만 집을 수 있다. 판을 안 뒤집으므로 여기서 어느 쪽인지가 갈린다. */
-  const handSide = active?.turn === 'b' ? 'black' : 'white';
+  const handSide: Side = active?.turn === 'b' ? 'black' : 'white';
   const droppable = useMemo(
     () => (playable ? new Set([...grouped.keys()].filter((o) => o.endsWith('*'))) : new Set<string>()),
     [playable, grouped],
@@ -402,13 +402,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
     // 맨 위가 보이고 지금 자리는 한참 아래에 있다.
   }, [ply, kifuOpen]);
 
-  /**
-   * 지금 화살표가 駒台에서 출발하는가. 그렇다면 어느 쪽의 무슨 駒인가.
-   *
-   * identity가 안정적이어야 한다. 매 렌더마다 새 객체가 나오면 아래 효과가 다시 돌고
-   * `setDropFrom` 이 또 새 객체를 넣어 무한 루프가 된다 — 대국 화면에서 실제로 그렇게
-   * 화면이 하얘졌다(GameScreen 의 `dropping` 주석).
-   */
+  /** 지금 화살표가 駒台에서 출발하는가. 그렇다면 어느 쪽의 무슨 駒인가. */
   const dropping = useMemo(() => {
     if (!ray || ray.from !== null) return null;
     const move = parseUsi(active?.candidates[0]?.usi ?? '');
@@ -417,44 +411,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
     return { side: handSide, kind: move.piece };
   }, [ray, active, handSide]);
 
-  // 화면 폭이 바뀌면 `--sq` 가 따라 변하므로 그때마다 다시 잰다.
-  const measureDrop = useCallback(() => {
-    const grid = boardRef.current;
-    const piece = dropPieceRef.current;
-    const stage = grid?.closest('.game-board');
-    if (!grid || !piece || !(stage instanceof HTMLElement)) {
-      setDropFrom(null);
-      return;
-    }
-    const pieceAt = offsetWithin(piece, stage);
-    const gridAt = offsetWithin(grid, stage);
-    const square = grid.firstElementChild;
-    if (!pieceAt || !gridAt || !(square instanceof HTMLElement)) {
-      setDropFrom(null);
-      return;
-    }
-    // 판의 테두리 안쪽이 기준이다 — 화살표가 그 안에 놓이므로.
-    const next = {
-      x: pieceAt.x + piece.offsetWidth / 2 - (gridAt.x + grid.clientLeft),
-      y: pieceAt.y + piece.offsetHeight / 2 - (gridAt.y + grid.clientTop),
-      sq: square.offsetWidth,
-    };
-    // 같은 값이면 상태를 안 건드린다 — 재는 일이 리렌더를 부르고 리렌더가 다시 재는 고리를 끊는다.
-    setDropFrom((prev) => (prev && prev.x === next.x && prev.y === next.y && prev.sq === next.sq ? prev : next));
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!dropping) {
-      setDropFrom(null);
-      return;
-    }
-    measureDrop();
-    const stage = boardRef.current?.closest('.game-board');
-    if (!(stage instanceof HTMLElement)) return;
-    const observer = new ResizeObserver(measureDrop);
-    observer.observe(stage);
-    return () => observer.disconnect();
-  }, [dropping, measureDrop]);
+  const { dropFrom, boardRef, pieceRef } = useDropAnchor(dropping);
 
   const rows = useMemo(() => pairRows(game.moves), [game.moves]);
 
@@ -484,9 +441,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
       selected={handSide === side && origin?.endsWith('*') ? origin : null}
       playable={handSide === side ? droppable : new Set()}
       measure={dropping?.side === side ? dropping.kind : null}
-      droppingRef={(el) => {
-        dropPieceRef.current = el;
-      }}
+      droppingRef={pieceRef}
       onPick={handSide === side ? pickHand : () => {}}
     />
   );
@@ -703,23 +658,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
         )}
 
         {promoting && (
-          <div className="promotion" role="group" aria-label="成りの選択">
-            <span>成りますか。</span>
-            <button
-              type="button"
-              className="btn btn--primary"
-              onClick={() => playBranch(toUsiMove(promoting.origin, promoting.to, true))}
-            >
-              成る
-            </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => playBranch(toUsiMove(promoting.origin, promoting.to, false))}
-            >
-              不成
-            </button>
-          </div>
+          <Promotion onChoose={(promote) => playBranch(toUsiMove(promoting.origin, promoting.to, promote))} />
         )}
 
         <WhatIfPanel

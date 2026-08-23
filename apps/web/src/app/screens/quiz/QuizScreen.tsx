@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { Board } from '@/components/Board';
 import { Hand } from '@/components/Hand';
+import { Promotion } from '@/components/Promotion';
 import { groupByOrigin, squaresOf, toUsiMove, type Destination, type MoveSquares } from '@/libs/game/moves';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
 import type { Side } from '@/models/piece';
@@ -559,23 +560,7 @@ function QuizBoard({
         onPick={board.turn === 'black' ? pickHand : () => {}}
       />
 
-      {/* 되짚기와 같은 물음이다. 클래스도 어휘도 그쪽 것을 그대로 쓴다(`ReviewDetail`) —
-          이름을 새로 지으면 스타일이 없는 맨 `div` 가 판 위에 서고, 그건 눈으로만 잡힌다. */}
-      {promoting && (
-        <div className="promotion" role="group" aria-label="成りの選択">
-          <span>成りますか。</span>
-          <button
-            type="button"
-            className="btn btn--primary"
-            onClick={() => send(toUsiMove(promoting.origin, promoting.to, true))}
-          >
-            成る
-          </button>
-          <button type="button" className="btn" onClick={() => send(toUsiMove(promoting.origin, promoting.to, false))}>
-            不成
-          </button>
-        </div>
-      )}
+      {promoting && <Promotion onChoose={(promote) => send(toUsiMove(promoting.origin, promoting.to, promote))} />}
     </div>
   );
 }

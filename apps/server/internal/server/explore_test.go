@@ -18,41 +18,27 @@ import (
 )
 
 // 검토는 뿌리만 새롭다. 계산부(branch.go)는 되짚기가 이미 확인하고 있으므로, 여기서
-// 보는 것은 그 경계 다섯이다 — 뿌리가 手合割에서 오는가 · 관점이 先手인가 · 로그인 벽 ·
-// 슬롯 벽 · 깊이가 대국과 같은가(캐시가 한 무리여야 한다).
+// 보는 것은 그 경계 넷이다 — 뿌리가 手合割에서 오는가 · 관점이 先手인가 · 슬롯 벽 ·
+// 깊이가 대국과 같은가(캐시가 한 무리여야 한다).
 
-// exploreTest 는 로그인이 켜진 검토 핸들러 하나와 그 쿠키다. store 는 nil이다 —
-// 캐시가 없어도 답이 같은 것이 이 표면의 성질이고(exploreHandler.store), 여기서 확인하는
-// 것은 뿌리와 벽이라 DB에 닿을 이유가 없다.
-func exploreTest(t *testing.T, search Searcher) (*exploreHandler, *http.Cookie) {
+// exploreTest 는 검토 핸들러 하나다. store 는 nil이다 — 캐시가 없어도 답이 같은 것이
+// 이 표면의 성질이고(exploreHandler.store), 여기서 확인하는 것은 뿌리와 벽이라 DB에
+// 닿을 이유가 없다. 쿠키도 없다: 이 표면에 자격이 없다(journal §100).
+func exploreTest(t *testing.T, search Searcher) *exploreHandler {
 	t.Helper()
-
-	ah := signedInHandler()
-	value, err := ah.codec.Encode(7, "さとし", time.Now())
-	if err != nil {
-		t.Fatalf("encode session: %v", err)
-	}
-	return newExploreHandler(nil, search, ah), &http.Cookie{Name: sessionCookie, Value: value}
+	return newExploreHandler(nil, search)
 }
 
-// post 는 검토에 한 걸음 묻는다. c 가 nil이면 로그인 안 한 요청이다.
-func (h *exploreHandler) post(t *testing.T, body string, c *http.Cookie) *httptest.ResponseRecorder {
+// post 는 검토에 한 걸음 묻는다. 언제나 익명 요청이다.
+func (h *exploreHandler) post(t *testing.T, body string) *httptest.ResponseRecorder {
 	t.Helper()
-	return h.postCtx(t, t.Context(), body, c)
+	return h.postCtx(t, t.Context(), body)
 }
 
-func (h *exploreHandler) postCtx(
-	t *testing.T,
-	ctx context.Context,
-	body string,
-	c *http.Cookie,
-) *httptest.ResponseRecorder {
+func (h *exploreHandler) postCtx(t *testing.T, ctx context.Context, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
 	r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/explore", strings.NewReader(body))
-	if c != nil {
-		r.AddCookie(c)
-	}
 	rec := httptest.NewRecorder()
 	h.play(rec, r)
 	return rec
@@ -82,9 +68,9 @@ func TestExploreStartsFromTheHandicapPosition(t *testing.T) {
 	// 上手의 수를 준다. 二枚落ち의 0手目가 上手 차례라(journal §88) 下手의 수를 주면
 	// 후보가 전부 걸러지고, 그 실패는 「엔진이 이상한 답을 줬다」와 구별되지 않는다.
 	search := &fakeSearcher{results: []usi.SearchResult{found("3c3d", "8c8d", "4a3b")}}
-	h, who := exploreTest(t, search)
+	h := exploreTest(t, search)
 
-	node := decodeExplore(t, h.post(t, `{"handicap":"nimaiochi","moves":[]}`, who))
+	node := decodeExplore(t, h.post(t, `{"handicap":"nimaiochi","moves":[]}`))
 
 	start, err := shogi.ParseSFEN(nimai.SFEN)
 	if err != nil {
@@ -130,9 +116,9 @@ func TestExploreStartsFromTheHandicapPosition(t *testing.T) {
 // 이 자리가 틀리면 기본 상태에서 판이 안 선다.
 func TestExplorePlainIsTheEmptyID(t *testing.T) {
 	search := &fakeSearcher{results: []usi.SearchResult{found("7g7f")}}
-	h, who := exploreTest(t, search)
+	h := exploreTest(t, search)
 
-	rec := h.post(t, `{"handicap":"","moves":[]}`, who)
+	rec := h.post(t, `{"handicap":"","moves":[]}`)
 	node := decodeExplore(t, rec)
 
 	start, err := shogi.ParseSFEN(shogi.StartSFEN)
@@ -154,9 +140,9 @@ func TestExplorePlainIsTheEmptyID(t *testing.T) {
 func TestExploreKeepsTheSentePointOfView(t *testing.T) {
 	// 1手目 뒤는 後手 차례다. 엔진은 수번(後手)에게 +100이라고 답한다.
 	search := &fakeSearcher{results: []usi.SearchResult{found("8c8d", "3c3d")}}
-	h, who := exploreTest(t, search)
+	h := exploreTest(t, search)
 
-	node := decodeExplore(t, h.post(t, `{"handicap":"","moves":["7g7f"]}`, who))
+	node := decodeExplore(t, h.post(t, `{"handicap":"","moves":["7g7f"]}`))
 
 	if node.EvalCp == nil || *node.EvalCp != -100 {
 		t.Fatalf("evalCp = %v, want -100 (先手 관점)", node.EvalCp)
@@ -174,27 +160,27 @@ func TestExploreKeepsTheSentePointOfView(t *testing.T) {
 	}
 }
 
-// 로그인이 첫 번째 벽이다. 뚫리면 이 표면이 「아무 국면이나 깊이 12로 재 주는 자리」가
-// 되고, 그 풀은 대국이 쓰는 것과 같다(journal §37 · §85).
-func TestExploreNeedsSignIn(t *testing.T) {
+// 로그인 없이 된다(journal §100). 쿠키 없는 요청이 국면을 받고, 엔진도 실제로 돈다 —
+// 익명을 막는 것이 아니라 동시에 잡는 수를 묶는 것이 이 표면의 벽이다(exploreSlots).
+func TestExploreAllowsAnonymous(t *testing.T) {
 	search := &fakeSearcher{results: []usi.SearchResult{found("7g7f")}}
-	h, _ := exploreTest(t, search)
+	h := exploreTest(t, search)
 
-	rec := h.post(t, `{"handicap":"","moves":[]}`, nil)
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401 — body = %s", rec.Code, rec.Body.String())
+	rec := h.post(t, `{"handicap":"","moves":[]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 — body = %s", rec.Code, rec.Body.String())
 	}
-	if len(search.searches()) != 0 {
-		t.Error("로그인 안 한 요청이 엔진을 잡았다")
+	if len(search.searches()) == 0 {
+		t.Error("익명 요청이 엔진을 안 잡았다")
 	}
 }
 
 // 표에 없는 手合割. 엔진을 부르기 전에 거절한다.
 func TestExploreRejectsUnknownHandicap(t *testing.T) {
 	search := &fakeSearcher{results: []usi.SearchResult{found("7g7f")}}
-	h, who := exploreTest(t, search)
+	h := exploreTest(t, search)
 
-	rec := h.post(t, `{"handicap":"hachimaiochi","moves":[]}`, who)
+	rec := h.post(t, `{"handicap":"hachimaiochi","moves":[]}`)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400 — body = %s", rec.Code, rec.Body.String())
 	}
@@ -206,9 +192,9 @@ func TestExploreRejectsUnknownHandicap(t *testing.T) {
 // 못 두는 수는 거절한다. 화면이 규칙을 모르기 때문에 여기가 유일한 검사다.
 func TestExploreRejectsAnIllegalMove(t *testing.T) {
 	search := &fakeSearcher{results: []usi.SearchResult{found("7g7f")}}
-	h, who := exploreTest(t, search)
+	h := exploreTest(t, search)
 
-	rec := h.post(t, `{"handicap":"","moves":["7g7f","7f7e"]}`, who)
+	rec := h.post(t, `{"handicap":"","moves":["7g7f","7f7e"]}`)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400 — body = %s", rec.Code, rec.Body.String())
 	}
@@ -221,13 +207,13 @@ func TestExploreRejectsAnIllegalMove(t *testing.T) {
 // 그래도 유한해야 요청 하나가 되짚는 수가 묶인다.
 func TestExploreCapsTheLine(t *testing.T) {
 	search := &fakeSearcher{}
-	h, who := exploreTest(t, search)
+	h := exploreTest(t, search)
 
 	moves := make([]string, exploreMaxLine+1)
 	for i := range moves {
 		moves[i] = `"7g7f"`
 	}
-	rec := h.post(t, `{"handicap":"","moves":[`+strings.Join(moves, ",")+`]}`, who)
+	rec := h.post(t, `{"handicap":"","moves":[`+strings.Join(moves, ",")+`]}`)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400 — body = %s", rec.Code, rec.Body.String())
 	}
@@ -240,14 +226,14 @@ func TestExploreCapsTheLine(t *testing.T) {
 	}
 }
 
-// 슬롯이 두 번째 벽이다. 빈자리가 없으면 기다리게 두지 않고 「まだ読んでいます」로
+// 슬롯이 이 표면의 유일한 벽이다. 빈자리가 없으면 기다리게 두지 않고 「まだ読んでいます」로
 // 답한다 — 대국에 엔진 둘이 언제나 남아 있어야 한다(exploreSlots).
 //
 // 실제 대기는 exploreWait 인데, 테스트는 그만큼 멈춰 있을 이유가 없어서 요청 ctx의
 // 시한을 짧게 준다. 보는 것은 꽉 찬 슬롯에서 거절되고 엔진을 안 잡는다는 것 하나다.
 func TestExploreRejectsWhenAllSlotsAreBusy(t *testing.T) {
 	search := &fakeSearcher{results: []usi.SearchResult{found("7g7f")}}
-	h, who := exploreTest(t, search)
+	h := exploreTest(t, search)
 
 	for range exploreSlots {
 		h.slots <- struct{}{}
@@ -255,7 +241,7 @@ func TestExploreRejectsWhenAllSlotsAreBusy(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(t.Context(), time.Millisecond)
 	defer cancel()
-	rec := h.postCtx(t, ctx, `{"handicap":"","moves":[]}`, who)
+	rec := h.postCtx(t, ctx, `{"handicap":"","moves":[]}`)
 
 	if rec.Code != http.StatusTooManyRequests {
 		t.Fatalf("status = %d, want 429 — body = %s", rec.Code, rec.Body.String())
@@ -274,7 +260,7 @@ func TestExploreRejectsWhenAllSlotsAreBusy(t *testing.T) {
 	for range exploreSlots {
 		<-h.slots
 	}
-	if rec2 := h.post(t, `{"handicap":"","moves":[]}`, who); rec2.Code != http.StatusOK {
+	if rec2 := h.post(t, `{"handicap":"","moves":[]}`); rec2.Code != http.StatusOK {
 		t.Errorf("슬롯을 비운 뒤 status = %d, want 200", rec2.Code)
 	}
 }
@@ -282,9 +268,9 @@ func TestExploreRejectsWhenAllSlotsAreBusy(t *testing.T) {
 // 엔진이 답하지 못하면 503이다. 다시 눌러 볼 수 있는 실패이고, 검토는 아무것도 안 잃는다.
 func TestExploreReportsEngineFailure(t *testing.T) {
 	search := &fakeSearcher{err: errors.New("fake: engine is down")}
-	h, who := exploreTest(t, search)
+	h := exploreTest(t, search)
 
-	rec := h.post(t, `{"handicap":"","moves":[]}`, who)
+	rec := h.post(t, `{"handicap":"","moves":[]}`)
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want 503 — body = %s", rec.Code, rec.Body.String())
 	}
@@ -296,9 +282,9 @@ func TestExploreOpensEveryHandicap(t *testing.T) {
 	for _, hc := range handicap.All() {
 		t.Run(hc.ID, func(t *testing.T) {
 			search := &fakeSearcher{results: []usi.SearchResult{found("3c3d", "8c8d")}}
-			h, who := exploreTest(t, search)
+			h := exploreTest(t, search)
 
-			node := decodeExplore(t, h.post(t, `{"handicap":"`+hc.ID+`","moves":[]}`, who))
+			node := decodeExplore(t, h.post(t, `{"handicap":"`+hc.ID+`","moves":[]}`))
 			if node.Turn != "w" {
 				t.Errorf("turn = %q, want w — 駒落ち는 언제나 上手부터다(journal §88)", node.Turn)
 			}
