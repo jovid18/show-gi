@@ -17,27 +17,29 @@ SELECT 'loadtest', 'lt-' || i, 'LT' || i
 FROM generate_series(1, :n) AS s(i)
 ON CONFLICT (provider, provider_uid) DO NOTHING;
 
--- 레이팅을 1200 부터 700 씩 벌린다. 밴드가 대기 시간으로 넓어지는 것을 보려면 짝이
--- 바로 안 잡히는 간격이 필요하다.
+-- 레이팅을 1100 에서 700 씩 벌린다. 밴드가 대기로 넓어지는 것을 보려면 짝이 바로 안
+-- 잡히는 간격이 필요하다.
 --
 -- 700 은 계산으로 나온 값이다. 큐는 아무 둘이나 밴드 안에 있으면 붙이므로(internal/queue
 -- 의 Pairable) 기준은 심은 집합의 최소 쌍거리다. 밴드가 Base0(200) + Expand(20)·기다린초
 -- + 두 사람의 rating_sd 이니, 아래 sd 80 에서 처음 섰을 때가 360 이고 상한이 960 이다.
 --
---   360 < 간격 <= 960
+--   360 < 최소 쌍거리 <= 960
 --
 -- 아래쪽을 어기면 전부 즉시 붙어 넓어지는 것을 못 보고, 위쪽을 어기면 아무도 안 붙는다.
--- 700 이면 (700-360)/20 = 17초쯤 기다린 뒤에 이웃끼리 붙는다. sd 를 바꾸면 다시 계산한다.
+-- 700 이면 이웃끼리 (700-360)/20 = 17초에 붙는다. sd 를 바꾸면 다시 계산한다.
 --
--- 범위가 (n-1)*700 으로 커지므로 밴드를 재는 회차는 n 을 작게 잡는다 — n=4 면
--- 1200·1900·2600·3300 이고, n=12 면 끝이 8900 이라 사람 레이팅으로는 말이 안 된다.
--- 엔진 회차는 레이팅을 안 보니 n 을 크게 잡아도 된다.
+-- 밴드를 재는 회차는 n=2 다. 이 척도가 1500 중심에 시드가 ±400 이라(internal/rating 의
+-- Default·SeedSpread) 실사용자는 1100~1900 폭 800 에 있고, 그 안에 최소 쌍거리 360 을
+-- 지키는 사람은 둘까지다 — 셋이면 400 간격이라 2초에 붙고, 넷은 3*360 이 800 을 넘어
+-- 아예 안 된다. n 을 더 키우면 레이팅이 척도를 벗어난다(n=12 면 끝이 8900 이다).
 --
--- 큰 값이 새지는 않는다. skill_profile 을 읽는 질의가 둘뿐이고(GetRating·GetSkill) 둘 다
--- user_id 하나를 보며, 段級 앵커는 집계가 아니라 상수다(internal/skill 의 AnchorFromPly).
+-- 엔진 회차는 레이팅을 안 보므로 n 을 크게 잡아도 된다. 큰 값이 새지도 않는다 —
+-- skill_profile 을 읽는 질의가 둘뿐이고(GetRating·GetSkill) 둘 다 user_id 하나를 보며,
+-- 段級 앵커는 집계가 아니라 상수다(internal/skill 의 AnchorFromPly).
 INSERT INTO skill_profile (user_id, rating_est, rating_sd, rating_games, rating_updated_at)
 SELECT u.id,
-       1200 + 700 * (row_number() OVER (ORDER BY u.id) - 1),
+       1100 + 700 * (row_number() OVER (ORDER BY u.id) - 1),
        80,
        10,
        now()
