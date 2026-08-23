@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -44,7 +45,7 @@ func TestRequestIDFromCallerIsNotAdopted(t *testing.T) {
 
 // 다만 버리지는 않는다. 로그에 한 필드로 남아 앞단의 ID 로도 되짚을 수 있다.
 func TestClientRequestIDIsLogged(t *testing.T) {
-	var buf bytes.Buffer
+	var buf syncBuffer
 	restore := swapLogger(t, &buf)
 	defer restore()
 
@@ -241,7 +242,7 @@ func metricsText(t *testing.T, h http.Handler) string {
 // 가장 흔한 장애에 5xx 알람이 영원히 조용하다.
 func TestPanicBecomesFiveHundred(t *testing.T) {
 	reg := metrics.New("api", "test")
-	var buf bytes.Buffer
+	var buf syncBuffer
 	restore := swapLogger(t, &buf)
 	defer restore()
 
@@ -279,7 +280,7 @@ func TestPanicBecomesFiveHundred(t *testing.T) {
 // 끊는 신호인데 우리가 500으로 바꿔 쓰면 그 약속이 깨진다.
 func TestAbortHandlerStaysAbort(t *testing.T) {
 	reg := metrics.New("api", "test")
-	restore := swapLogger(t, &bytes.Buffer{})
+	restore := swapLogger(t, &syncBuffer{})
 	defer restore()
 
 	mux := http.NewServeMux()
@@ -300,12 +301,38 @@ func TestAbortHandlerStaysAbort(t *testing.T) {
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/abort", nil))
 }
 
+// syncBuffer 는 잠금을 두른 로그 통이다.
+//
+// 통 자체가 잠금을 들어야 한다. swapLogger 가 바꾸는 것은 전역 로거라, 앞 테스트에서
+// 늦게 끝나는 핸들러가 지금 테스트의 통에 쓴다 — WebSocket 은 하이재킹된 연결이라
+// httptest.Server.Close 가 그 핸들러를 안 기다린다(requestLine 이 경로로 고르는 이유).
+// 경로로 고르는 것은 남의 줄을 안 읽게 하는 장치이고, 쓰기와 읽기가 겹치는 것은 그대로 남는다.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+// Bytes 는 사본을 준다. 속의 슬라이스를 그대로 주면 잠금 밖에서 읽게 된다.
+func (b *syncBuffer) Bytes() []byte {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return bytes.Clone(b.buf.Bytes())
+}
+
+func (b *syncBuffer) String() string { return string(b.Bytes()) }
+
 // requestLine 은 buf 에서 그 경로의 요청 줄을 꺼낸다.
 //
 // 버퍼에 줄이 하나뿐이라고 보면 안 된다. swapLogger 가 바꾸는 것은 전역 로거이고,
 // WebSocket 은 하이재킹된 연결이라 httptest.Server.Close 가 그 핸들러를 안 기다린다 —
 // 앞 테스트의 /ws/match 핸들러가 늦게 끝나며 이 버퍼에 쓴다. 경로로 고르면 무관해진다.
-func requestLine(t *testing.T, buf *bytes.Buffer, path string) map[string]any {
+func requestLine(t *testing.T, buf *syncBuffer, path string) map[string]any {
 	t.Helper()
 	for _, raw := range bytes.Split(bytes.TrimSpace(buf.Bytes()), []byte("\n")) {
 		var line map[string]any
@@ -321,7 +348,7 @@ func requestLine(t *testing.T, buf *bytes.Buffer, path string) map[string]any {
 }
 
 // swapLogger 는 기본 로거를 buf 로 돌린다. 돌려주는 함수로 되돌린다.
-func swapLogger(t *testing.T, buf *bytes.Buffer) func() {
+func swapLogger(t *testing.T, buf *syncBuffer) func() {
 	t.Helper()
 	before := slog.Default()
 	slog.SetDefault(slog.New(LogHandler(slog.NewJSONHandler(buf, nil))))
@@ -332,7 +359,7 @@ func swapLogger(t *testing.T, buf *bytes.Buffer) func() {
 // 화면으로 가는」 것이 흔하고(그때 503이 나간다), 그것을 세면 알람이 정상 사용에 울린다.
 func TestClientGoneIsNotFiveHundred(t *testing.T) {
 	reg := metrics.New("api", "test")
-	restore := swapLogger(t, &bytes.Buffer{})
+	restore := swapLogger(t, &syncBuffer{})
 	defer restore()
 
 	mux := http.NewServeMux()
@@ -363,7 +390,7 @@ func TestClientGoneIsNotFiveHundred(t *testing.T) {
 // 끊기지 않은 5xx 는 그대로 5xx 다. 위 완화가 진짜 고장까지 덮으면 알람이 무의미해진다.
 func TestRealFiveHundredStillCounts(t *testing.T) {
 	reg := metrics.New("api", "test")
-	restore := swapLogger(t, &bytes.Buffer{})
+	restore := swapLogger(t, &syncBuffer{})
 	defer restore()
 
 	mux := http.NewServeMux()
