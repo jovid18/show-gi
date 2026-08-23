@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { Board } from '@/components/Board';
 import { Hand } from '@/components/Hand';
+import { Promotion } from '@/components/Promotion';
 import { groupByOrigin, toUsiMove, type Destination } from '@/libs/game/moves';
 import { lastMoveOf } from '@/libs/game/board-view';
 import { Kifu } from '@/screens/game/Kifu';
@@ -277,17 +278,11 @@ function MatchBoard({
           )}
         </div>
 
-        {pending && (
-          <div className="promotion" role="group" aria-label="成りの選択">
-            <span>成りますか。</span>
-            <button type="button" className="btn btn--primary" onClick={() => finishPromotion(true)}>
-              成る
-            </button>
-            <button type="button" className="btn" onClick={() => finishPromotion(false)}>
-              不成
-            </button>
-          </div>
-        )}
+        {/* 판이 끝났거나 연결이 끊기면 안 그린다. 상대의 投了와 시간 끊김은 내 차례에도
+            오고(`table.go`), 끊긴 소켓으로는 착수가 조용히 버려진다(`useMatch` 의 `send`).
+            둘 중 어느 쪽이든 이 모달이 화면을 덮고 있으면 「振り返る」도 재접속 버튼도 뒤에
+            깔리고, 취소가 없으므로 답할 수 없는 수를 내보내는 것이 유일한 출구가 된다. */}
+        {pending && !over && connection !== 'closed' && <Promotion onChoose={finishPromotion} />}
 
         {rejection && (
           <p className="rejection" role="alert">

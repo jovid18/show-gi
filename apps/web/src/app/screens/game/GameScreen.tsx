@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Board, type DropFrom, type Replay } from '@/components/Board';
+import { Board, type Replay } from '@/components/Board';
 import { Hand } from '@/components/Hand';
+import { Promotion } from '@/components/Promotion';
 import { Intervention } from './Intervention';
 import { Kifu } from './Kifu';
 import { Resume } from './Resume';
@@ -13,6 +14,7 @@ import { TAG_KIND_JA } from '@/libs/game/tags';
 import { useGame } from '@/hooks/useGame';
 import { useResumable } from '@/hooks/useResumable';
 import { useUnloadGuard } from '@/hooks/useUnloadGuard';
+import { useDropAnchor } from '@/hooks/useDropAnchor';
 import { hrefOf, navigate } from '@/routes/router';
 import type { Side } from '@/models/piece';
 import { parseSfen } from '@/models/sfen';
@@ -21,7 +23,7 @@ import { scoreJa, type ExploredMove } from '@/libs/whatif/branch';
 import { useWhatIf } from '@/hooks/useWhatIf';
 import { useTagAnnounce } from './hooks';
 import { useMoveSound } from '@/hooks/useMoveSound';
-import { checkRays, lastMoveOf, offsetWithin, rayOf, resultText } from '@/libs/game/board-view';
+import { checkRays, lastMoveOf, rayOf, resultText } from '@/libs/game/board-view';
 
 /**
  * 상대의 강함 눈금에 붙는 말(`snapshot.opponentStrength`).
@@ -92,10 +94,6 @@ export function GameScreen() {
    * (`positions`), 레이팅에는 한 톨도 안 닿는다 — 판정을 지나지 않는 수다.
    */
   const [explored, setExplored] = useState<ReadonlyMap<string, ExploredMove[]>>(new Map());
-  // 打 화살표가 출발할 자리. 駒台는 판 밖이라 칸 산수로는 안 나오고 재야 한다.
-  const [dropFrom, setDropFrom] = useState<DropFrom | null>(null);
-  const boardRef = useRef<HTMLDivElement>(null);
-  const dropPieceRef = useRef<HTMLButtonElement | null>(null);
 
   // 새 대국은 판만이 아니라 고르던 것까지 전부 비우고 시작한다.
   const newGame = (): void => {
@@ -345,62 +343,27 @@ export function GameScreen() {
   }, [intervening, branch.node, me, them]);
 
   /**
+   * 개입이 열리거나 닫히면 고르던 것을 버린다.
+   *
+   * `leaveSpot` 이 사람이 누르는 길마다 이미 이 일을 하는데, 개입은 스냅샷이 와서 저절로
+   * 닫히기도 한다. 그때 짜 둔 수가 남아 있으면 `commitMove` 가 보는 판이 바뀌어
+   * (분기 → 대국), 사람이 분기에서 고른 칸의 수가 실제 대국에 들어간다.
+   */
+  useEffect(() => {
+    setOrigin(null);
+    setPending(null);
+  }, [intervening]);
+
+  /**
    * 駒台에서 출발하는 화살표의 자리를 재야 하는 駒. 분기의 打과 힌트가 같은 장치를
    * 쓰고, 둘은 동시에 뜨지 않는다 — 힌트는 개입 중에 꺼진다.
    *
    * 재는 것과 빛나는 것을 갈라 뒀다. 이 값을 `<Hand dropping>` 에 그대로 넘기면 힌트가
    * `data-dropping` 을 켜서 駒台 駒에 초록 링이 붙는다 — 파란 테와 초록 링이 같은 駒에
    * 동시에 걸리고, 초록은 「상대가 무엇을 하는가」다.
-   *
-   * 여기서 객체를 새로 만들면 안 된다. 이 값이 아래 `useLayoutEffect` 의 의존성이라,
-   * 매 렌더마다 identity 가 바뀌면 효과가 다시 돌고 `setDropFrom` 이 또 새 객체를 넣어
-   * 무한 루프가 된다(화면이 통째로 하얘진다). 그래서 양쪽 다 useMemo 를 지난다.
    */
-  const dropping = useMemo(
-    () => branchDrop ?? (hint?.drop ? { side: me, kind: hint.drop } : null),
-    [branchDrop, hint?.drop, me],
-  );
-
-  // 화면 폭이 바뀌면 `--sq` 가 따라 변하므로 그때마다 다시 잰다.
-  const measureDrop = useCallback(() => {
-    const board = boardRef.current;
-    const piece = dropPieceRef.current;
-    const stage = board?.closest('.game-board');
-    if (!board || !piece || !(stage instanceof HTMLElement)) {
-      setDropFrom(null);
-      return;
-    }
-    const at = offsetWithin(piece, stage);
-    const of = offsetWithin(board, stage);
-    const square = board.firstElementChild;
-    if (!at || !of || !(square instanceof HTMLElement)) {
-      setDropFrom(null);
-      return;
-    }
-    // 같은 값이면 상태를 안 건드린다. 재는 일이 리렌더를 부르고 리렌더가 다시 재게
-    // 되는 고리가 이 함수에서 실제로 생겼다 — 새 객체를 넣는 것만으로 identity가
-    // 바뀌므로, 위쪽 의존성이 또 흔들리는 날에도 흰 화면 대신 아무 일도 안 일어나게 둔다.
-    const next = {
-      // 판의 테두리 안쪽이 기준이다 — 화살표가 그 안에 놓이므로.
-      x: at.x + piece.offsetWidth / 2 - (of.x + board.clientLeft),
-      y: at.y + piece.offsetHeight / 2 - (of.y + board.clientTop),
-      sq: square.offsetWidth,
-    };
-    setDropFrom((prev) => (prev && prev.x === next.x && prev.y === next.y && prev.sq === next.sq ? prev : next));
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!dropping) {
-      setDropFrom(null);
-      return;
-    }
-    measureDrop();
-    const stage = boardRef.current?.closest('.game-board');
-    if (!(stage instanceof HTMLElement)) return;
-    const observer = new ResizeObserver(measureDrop);
-    observer.observe(stage);
-    return () => observer.disconnect();
-  }, [dropping, measureDrop]);
+  const dropping = branchDrop ?? (hint?.drop ? { side: me, kind: hint.drop } : null);
+  const { dropFrom, boardRef, pieceRef } = useDropAnchor(dropping);
 
   /**
    * 물러진 수가 지나간 두 칸.
@@ -596,9 +559,7 @@ export function GameScreen() {
           // 이 자리의 내용이고, 그 수가 打일 수 있다. 대국 중에는 여기가 언제나 비어 있다.
           playable={playable && handTurn === them ? dropOrigins : EMPTY_SET}
           dropping={branchDrop?.side === them ? branchDrop.kind : null}
-          droppingRef={(el) => {
-            dropPieceRef.current = el;
-          }}
+          droppingRef={pieceRef}
           measure={dropping?.side === them ? dropping.kind : null}
           onPick={playable && handTurn === them ? pick : noop}
         />
@@ -643,9 +604,7 @@ export function GameScreen() {
           selected={handTurn === me && origin?.endsWith('*') ? origin : null}
           playable={playable && handTurn === me ? dropOrigins : EMPTY_SET}
           dropping={branchDrop?.side === me ? branchDrop.kind : null}
-          droppingRef={(el) => {
-            dropPieceRef.current = el;
-          }}
+          droppingRef={pieceRef}
           measure={dropping?.side === me ? dropping.kind : null}
           hintDrop={hint?.drop ?? null}
           onPick={playable && handTurn === me ? pick : noop}
@@ -765,17 +724,9 @@ export function GameScreen() {
           </p>
         )}
 
-        {pending && (
-          <div className="promotion" role="group" aria-label="成りの選択">
-            <span>成りますか。</span>
-            <button type="button" className="btn btn--primary" onClick={() => finishPromotion(true)}>
-              成る
-            </button>
-            <button type="button" className="btn" onClick={() => finishPromotion(false)}>
-              不成
-            </button>
-          </div>
-        )}
+        {/* 판이 끝나면 안 그린다. 취소가 없는 모달이라, 남아 있으면 총평도 「もう一局」도
+            뒤에 깔린 채 답할 수 없는 수만 남는다(대인전과 같은 자리). */}
+        {pending && snapshot.status === 'playing' && <Promotion onChoose={finishPromotion} />}
 
         <Kifu moves={moves} />
 

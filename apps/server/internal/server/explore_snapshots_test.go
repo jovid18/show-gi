@@ -124,7 +124,7 @@ func decodeSnapshotList(t *testing.T, rec *httptest.ResponseRecorder) []exploreS
 	return out.Snapshots
 }
 
-// 로그인 벽. 검토 자체와 같은 문구여야 한다(explore.go).
+// 로그인 벽. 검토에서 이 표면만 그 뒤에 있다(journal §100).
 func TestSnapshotsNeedLogin(t *testing.T) {
 	h, _ := snapshotWalls(t)
 

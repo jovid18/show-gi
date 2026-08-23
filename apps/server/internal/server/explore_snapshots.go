@@ -24,7 +24,7 @@ import (
 // SFEN 칸을 만들지 않는다. 저장된 값이 곧 다음 요청의 본문이라, 만드는 순간 journal §37 이
 // 닫아 둔 문이 이쪽으로 열린다.
 //
-// 로그인이 필요하다. 검토 자체가 그 벽 뒤에 있고(explore.go), 익명끼리는 구별할 수단이
+// 로그인이 필요하다. 검토 자체에는 그 벽이 없지만(journal §100) 익명끼리는 구별할 수단이
 // 없어서(002_anonymous_games.sql) 「내가 저장한 국면」이 성립하지 않는다.
 
 const (
@@ -249,8 +249,8 @@ func (h *exploreSnapshotHandler) remove(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// loginRequired 는 검토와 같은 문구로 거절한다(whatifMessages). 한 화면의 두 자리가 다른
-// 말을 쓰면 같은 일이 다른 일로 읽힌다.
+// loginRequired 는 이 표면 넷이 같은 문구로 거절한다(whatifMessages). 목록·저장·이름·삭제가
+// 같은 벽 뒤에 있어서, 자리마다 다른 말을 쓰면 같은 일이 다른 일로 읽힌다.
 func (h *exploreSnapshotHandler) loginRequired(w http.ResponseWriter) {
 	writeJSON(w, http.StatusUnauthorized, map[string]any{
 		"error": "login_required", "message": whatifMessages["login_required"],

@@ -5,10 +5,12 @@ import { Candidates } from './Candidates';
 import { Snapshots } from './Snapshots';
 import { Board, type Ray } from '@/components/Board';
 import { Hand } from '@/components/Hand';
+import { Promotion } from '@/components/Promotion';
+import { useDropAnchor } from '@/hooks/useDropAnchor';
 import { useEngineReady } from '@/hooks/useReview';
 import { useMoveSound } from '@/hooks/useMoveSound';
 import { useWhatIf } from '@/hooks/useWhatIf';
-import { groupByOrigin, squaresOf, toUsiMove, type Destination } from '@/libs/game/moves';
+import { groupByOrigin, parseUsi, squaresOf, toUsiMove, type Destination } from '@/libs/game/moves';
 import { getPlaying, subscribePlaying } from '@/libs/game/playing';
 import { exploreSend } from '@/libs/explore/http';
 import { baselineNoteJa, exploreStatusJa, sideJa } from '@/libs/explore/text';
@@ -95,6 +97,18 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
   const [motion, setMotion] = useState<Motion | null>(null);
   const motionId = useRef(0);
   const [soundOn, toggleSound] = useMoveSound(shown?.ply ?? 0);
+
+  /**
+   * 줄이 바뀌면 고르던 것을 버린다.
+   *
+   * `go` 도 같은 둘을 비우지만 그것만으로는 부족하다 — 주소는 뒤로 가기·앞으로 가기·
+   * 트랙패드 스와이프로도 바뀌고, 그 길에는 `go` 가 없다. 그때 成りますか가 그대로 떠 있으면
+   * 남의 국면에 대한 `{origin, to}` 를 들고 있게 되고, `成る` 가 새 줄에 그 수를 붙인다.
+   */
+  useEffect(() => {
+    setOrigin(null);
+    setPromoting(null);
+  }, [handicap, line]);
 
   /** 주소를 고쳐 쓴다. 한 수 두는 것이 이 일이다. */
   const go = useCallback(
@@ -189,11 +203,21 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
     if (!best) return null;
     const squares = squaresOf(best.usi);
     if (!squares) return null;
-    // 打이면 도착점만 찍힌다. 판 위에 출발 칸이 없어서 駒台에서 자리를 재야 하는데
-    // (Board 의 `dropFrom`), 그 측정 코드가 대국·되짚기에 이미 두 벌이라 세 벌로 늘리지
-    // 않았다. 어느 駒인지는 목록의 첫 줄이 말한다.
+    // 打도 긋는다. 판 위에 출발 칸이 없어서 駒台에서 자리를 재야 하고, 그것은
+    // `useDropAnchor` 가 한다 — 세 화면이 같은 훅을 쓴다(journal §99).
     return { from: squares.from, to: squares.to, by: active.yourTurn ? 'human' : 'engine' };
   }, [active]);
+
+  /** 화살표가 駒台에서 출발하는가. 그렇다면 어느 쪽의 무슨 駒인가 — 되짚기와 같은 자리다. */
+  const dropping = useMemo(() => {
+    if (!ray || ray.from !== null) return null;
+    const move = parseUsi(active?.candidates[0]?.usi ?? '');
+    if (move?.kind !== 'drop') return null;
+    // 打은 수번 측 駒台에서 나온다. `handSide` 가 이미 그 쪽이다.
+    return { side: handSide, kind: move.piece };
+  }, [ray, active, handSide]);
+
+  const { dropFrom, boardRef, pieceRef } = useDropAnchor(dropping);
 
   /**
    * 한 수가 판 위에서 움직인다. 판이 통째로 바뀌면 초심자는 무엇이 변했는지 못 본다
@@ -217,6 +241,12 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // 글자를 넣고 있는 중이면 그 키는 그쪽 것이다(되짚기와 같은 가드). 없으면 국면
+      // 이름을 적다가 누른 `←` 가 캐럿 대신 줄을 옮기고, 적던 이름이 남의 국면에 붙는다.
+      if (e.target instanceof HTMLInputElement) return;
+      // 成りますか가 떠 있는 동안은 안 받는다. 이 키가 자리를 옮기면 `go` 가 물음을 지우고
+      // 판이 다른 국면으로 가서, 답이 없는 취소가 하나 생긴다(journal §99).
+      if (promoting) return;
       if (e.key === 'ArrowLeft') back();
       else if (e.key === 'Home') toStart();
       else return;
@@ -224,7 +254,7 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [back, toStart]);
+  }, [back, toStart, promoting]);
 
   /**
    * 駒台 하나. 부르는 쪽이 색이 아니라 자리를 정한다 — 판이 뒤집히면 持ち駒도 따라와야
@@ -237,6 +267,10 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
       pieces={board?.hands[side] ?? {}}
       selected={handSide === side && origin?.endsWith('*') ? origin : null}
       playable={handSide === side ? droppable : new Set()}
+      // 재는 것만이다. `dropping` 으로 넘기면 駒台 駒에 초록 링이 붙는데, 그 링은
+      // 「상대가 무엇을 하는가」이고 이 화면의 화살표는 수번 쪽의 최선수다(되짚기와 같다).
+      measure={dropping?.side === side ? dropping.kind : null}
+      droppingRef={pieceRef}
       onPick={handSide === side && playable ? (next) => setOrigin(next === origin ? null : next) : () => {}}
     />
   );
@@ -308,7 +342,7 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
                 // 탈색하지 않는다. 탈색은 「지금이 아니다」를 말하는 장치인데, 이 화면은
                 // 전부가 「지금이 아니다」다 — 되짚기와 같은 판단이다.
                 dimmed={false}
-                dropFrom={null}
+                dropFrom={dropFrom}
                 hintSquare={null}
                 hintRay={null}
                 mateHeat={0}
@@ -316,6 +350,7 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
                 // 판을 돌리면 보는 쪽도 함께 돈다.
                 me={flipped ? 'white' : 'black'}
                 flipped={flipped}
+                boardRef={boardRef}
                 interactive={playable}
                 sound={{ on: soundOn, toggle: toggleSound }}
                 flip={{ on: flipped, toggle: () => setFlipped((f) => !f) }}
@@ -385,25 +420,7 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
             )}
           </section>
 
-          {promoting && (
-            <div className="promotion" role="group" aria-label="成りの選択">
-              <span>成りますか。</span>
-              <button
-                type="button"
-                className="btn btn--primary"
-                onClick={() => play(toUsiMove(promoting.origin, promoting.to, true))}
-              >
-                成る
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => play(toUsiMove(promoting.origin, promoting.to, false))}
-              >
-                不成
-              </button>
-            </div>
-          )}
+          {promoting && <Promotion onChoose={(promote) => play(toUsiMove(promoting.origin, promoting.to, promote))} />}
 
           {/* `active` 가 아니라 `shown` 을 넘긴다. `active` 는 「이 줄의 노드인가」라
               판을 잠그는 데 쓰는 값이고, 이 목록에 넘기면 한 수 둘 때마다 세 줄이 사라졌다가

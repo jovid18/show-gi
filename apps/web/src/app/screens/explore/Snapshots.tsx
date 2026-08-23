@@ -31,15 +31,27 @@ interface SnapshotsProps {
 const NAME_MAX = 40;
 
 export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) {
-  const { loaded, signedOut, pending, error, save, rename, remove, reload } = useExploreSnapshots();
+  const { loaded, signedOut, unavailable, pending, error, save, rename, remove, reload } = useExploreSnapshots();
   const [name, setName] = useState('');
   /** 이름을 고치는 중인 줄. 한 번에 하나다. */
   const [editing, setEditing] = useState<{ id: number; name: string } | null>(null);
   /** 지우기를 한 번 누른 줄. 두 번 눌러야 지워진다. */
   const [confirming, setConfirming] = useState<number | null>(null);
 
-  // 로그인이 없으면 아예 안 그린다. 그 문구는 이미 옆 패널에 서 있다(explore.go).
-  if (signedOut) return null;
+  // 기록이 없는 배포에는 이 표면이 아예 없다. 그때는 자리를 안 만든다 — 열 방법이 없는
+  // 기능을 한 줄로 알려 줘도 읽는 사람이 할 일이 없다(아래 로그인 벽과 갈리는 자리).
+  if (unavailable) return null;
+
+  // 로그인 안 한 사람에게는 한 줄만 남긴다. 검토 자체는 로그인 없이 돌므로(journal §100)
+  // 이 패널을 통째로 지우면 저장이 「없는 기능」으로 보인다 — 목록도 저장 칸도 안 그린다.
+  if (signedOut) {
+    return (
+      <section className="review-panel explore-snapshots" aria-label="保存した局面">
+        <h2 className="panel-title">保存した局面</h2>
+        <p className="explore-snapshot-empty">ログインすると、ならべた局面に名前をつけて残せます。</p>
+      </section>
+    );
+  }
 
   const line = moves.join(',');
 

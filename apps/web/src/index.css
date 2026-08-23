@@ -482,11 +482,25 @@ body {
 
 /* ── 판 ───────────────────────────────────────────────── */
 
+/* 판 무리가 駒台 위에 온다. 打 화살표는 駒台에 놓인 그 駒에서 출발하는데(`[data-anchored]`),
+   자리를 안 주면 위쪽 駒台에서는 그 자리에서 뻗고 아래쪽 駒台에서는 판 밖으로 나가는 순간
+   가려져서, 같은 화살표가 판을 뒤집는 것만으로 다르게 보였다. */
 .board-frame {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: auto auto;
   grid-template-rows: auto auto;
   gap: 0.3rem 0.35rem;
+}
+
+/* 판 테두리 밖에 서는 셋(좌표 두 줄과 손잡이 줄)은 판 위에 온다. 위 화살표가 판 밖으로
+   넘치므로, 안 올리면 그 선이 段·筋 숫자와 `駒音`·`盤を反転` 버튼을 덮는다. */
+.board-files,
+.board-ranks,
+.board-toggles {
+  position: relative;
+  z-index: 1;
 }
 
 .board-files,
@@ -1986,7 +2000,6 @@ body {
   line-height: 1.6;
 }
 
-.promotion,
 .resign-confirm {
   display: flex;
   flex-wrap: wrap;
@@ -1999,6 +2012,75 @@ body {
   box-shadow: var(--shadow-md);
   font-size: 0.8125rem;
   font-weight: 500;
+}
+
+/* ── 成りの選択 ───────────────────────────────────────── */
+
+/* 판 옆의 한 줄이 아니라 화면 가운데다. 답하기 전에는 판이 실제로 멈춰 있는데, 물음이
+   판 밖에 서면 그 사실이 「고장」으로 읽힌다(journal §99).
+
+   뒷막이 판까지 덮는다. 답이 오기 전에는 누를 것이 둘뿐이라는 것이 이 물음의 사실이고,
+   덮지 않으면 물음이 다시 배경의 한 조각이 된다. */
+.promotion-scrim {
+  position: fixed;
+  inset: 0;
+  /* 개입 카드(60)보다 위다. 개입 국면에서도 직접 둬 볼 수 있어서 둘이 같이 뜬다. */
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgb(6 5 4 / 0.55);
+  animation: promotion-in 140ms ease both;
+}
+
+.promotion {
+  display: grid;
+  gap: 0.9rem;
+  justify-items: center;
+  width: min(19rem, 100%);
+  padding: 1.2rem 1.35rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  animation: promotion-card-in 180ms ease both;
+}
+
+.promotion__ask {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+/* 둘이 같은 폭이다. 成る가 기본이지만 不成이 좁으면 「고르지 말라」로 읽힌다 —
+   고를 수 있는 것이 둘이라는 것이 이 물음의 내용이다. */
+.promotion__choices {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.promotion__choices .btn {
+  min-width: 5.5rem;
+}
+
+@keyframes promotion-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes promotion-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.4rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* 카드의 작은 머리. 대문자 추적으로 「값」이 아니라 「이름」임을 표시한다 —
@@ -4556,6 +4638,13 @@ body {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
+}
+
+/* 로그인 안 한 사람이 보는 한 줄. 목록도 저장 칸도 없다(journal §100). */
+.explore-snapshot-empty {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
 }
 
 /* 이름 칸과 버튼 한 줄. 이름을 고칠 때도 같은 모양이라 클래스를 같이 쓴다. */

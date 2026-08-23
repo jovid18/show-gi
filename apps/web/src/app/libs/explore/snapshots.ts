@@ -7,8 +7,20 @@ import type { ApiError } from '@/protocol/review';
  * 검토 한 걸음(`exploreSend`)과 갈라 둔다. 이쪽은 엔진을 안 타므로 저쪽의 429·503이 없다.
  */
 
-/** 로그인이 없으면 이 표면은 통째로 닫힌다. 화면이 그때 목록을 안 그린다. */
+/**
+ * 로그인이 없으면 이 표면 넷이 다 닫힌다. 검토 자체는 그 벽 밖이다(journal §100) —
+ * 그래서 화면이 패널을 지우지 않고 한 줄만 남긴다(`Snapshots`).
+ */
 export class SignedOutError extends Error {}
+
+/**
+ * 기록이 없는 배포다. 저장은 DB에 매여 있어서 검토가 서 있어도 이 넷만 안 선다
+ * (`server.go` 의 `snapshotsUnavailable`).
+ *
+ * 실패와 갈라 둔다. 다시 눌러서 열리는 자리가 아니라 **이 배포에 없는 기능**이고,
+ * 붉은 알림과 「もう一度読み込む」를 세워 두면 눌러도 같은 답만 온다.
+ */
+export class UnavailableError extends Error {}
 
 const FALLBACK_ERROR = '保存した局面を読み込めませんでした。';
 
@@ -16,6 +28,7 @@ const FALLBACK_ERROR = '保存した局面を読み込めませんでした。';
 async function reject(res: Response, fallback: string): Promise<never> {
   if (res.status === 401) throw new SignedOutError();
   const err = (await res.json().catch(() => null)) as ApiError | null;
+  if (err?.error === 'store_unavailable') throw new UnavailableError();
   throw new Error(err?.message || fallback);
 }
 

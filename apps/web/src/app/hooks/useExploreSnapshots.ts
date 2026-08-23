@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { Loaded } from '@/hooks/useReview';
-import { deleteSnapshot, fetchSnapshots, renameSnapshot, saveSnapshot, SignedOutError } from '@/libs/explore/snapshots';
+import {
+  deleteSnapshot,
+  fetchSnapshots,
+  renameSnapshot,
+  saveSnapshot,
+  SignedOutError,
+  UnavailableError,
+} from '@/libs/explore/snapshots';
 import type { ExploreSnapshot } from '@/protocol/explore';
 
 /**
@@ -16,10 +23,15 @@ import type { ExploreSnapshot } from '@/protocol/explore';
 export interface SnapshotSource {
   loaded: Loaded<ExploreSnapshot[]>;
   /**
-   * 로그인 벽에서 닫혔다. 화면이 이 표면을 아예 안 그린다 — 그 문구가 이미 옆 패널에
-   * 서 있다(explore.go).
+   * 로그인 벽에서 닫혔다. 목록도 저장 칸도 없고 화면이 한 줄만 남긴다 — 검토 자체는
+   * 로그인 없이 도므로(journal §100) 이 패널을 통째로 지우면 저장이 「없는 기능」이 된다.
    */
   signedOut: boolean;
+  /**
+   * 기록이 없는 배포라 이 표면이 아예 없다. 그때는 화면이 패널을 안 그린다 — 로그인 벽과
+   * 갈리는 자리다: 저쪽은 사람이 열 수 있고 이쪽은 열 방법이 없다.
+   */
+  unavailable: boolean;
   /** 고치는 요청이 도는 중. 목록을 지우지 않고 버튼만 잠근다. */
   pending: boolean;
   /** 마지막 실패. 서버가 준 일본어다(libs/explore/snapshots.ts). */
@@ -34,6 +46,7 @@ export interface SnapshotSource {
 export function useExploreSnapshots(): SnapshotSource {
   const [loaded, setLoaded] = useState<Loaded<ExploreSnapshot[]>>({ state: 'loading' });
   const [signedOut, setSignedOut] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -56,10 +69,11 @@ export function useExploreSnapshots(): SnapshotSource {
       .then((snapshots) => setLoaded({ state: 'ready', data: snapshots }))
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
-        if (err instanceof SignedOutError) {
+        if (err instanceof SignedOutError || err instanceof UnavailableError) {
           // 빈 목록으로 두면 「하나도 없다」로 읽히고, 그 옆에 눌러도 안 되는 저장
-          // 버튼이 선다.
-          setSignedOut(true);
+          // 버튼이 선다. 붉은 알림도 아니다 — 둘 다 다시 눌러서 열리는 실패가 아니다.
+          if (err instanceof SignedOutError) setSignedOut(true);
+          else setUnavailable(true);
           setLoaded({ state: 'ready', data: [] });
           return;
         }
@@ -83,6 +97,10 @@ export function useExploreSnapshots(): SnapshotSource {
       if (!alive.current) return false;
       if (err instanceof SignedOutError) {
         setSignedOut(true);
+        return false;
+      }
+      if (err instanceof UnavailableError) {
+        setUnavailable(true);
         return false;
       }
       setError(err instanceof Error ? err.message : '');
@@ -130,5 +148,5 @@ export function useExploreSnapshots(): SnapshotSource {
     [mutate],
   );
 
-  return { loaded, signedOut, pending, error, save, rename, remove, reload };
+  return { loaded, signedOut, unavailable, pending, error, save, rename, remove, reload };
 }
