@@ -120,6 +120,18 @@ func (s *Store) QueueWaiting(ctx context.Context, freshAfter time.Time) (int, er
 	return int(n), nil
 }
 
+// QueuePairOptions 는 후보를 고르는 창이다. 정책은 부르는 쪽이 정한다 — 여기 값을 두면
+// 그것을 흔들어 보는 데 DB 가 필요해진다(internal/queue).
+type QueuePairOptions struct {
+	// FreshAfter 는 이 시각 뒤로 다시 물어본 사람만 후보라는 뜻이다.
+	FreshAfter time.Time
+	// MaxGap 은 후보로 잠글 레이팅 폭이다. 밴드가 아니라 그 상한이다(queue.MaxBand) —
+	// 잠기는 행을 줄이는 것이 목적이고, 어떤 밴드보다 넓어야 한다.
+	MaxGap float64
+	// Limit 은 한 번에 잠글 후보 수다.
+	Limit int
+}
+
 // PairInQueue 는 짝을 하나 짓는다. 못 지으면 ErrNoQueueSeat.
 //
 // 트랜잭션 하나 안에서 세 가지를 한다: 내 행과 후보들을 잠그고(FOR UPDATE SKIP LOCKED),
@@ -134,8 +146,7 @@ func (s *Store) QueueWaiting(ctx context.Context, freshAfter time.Time) (int, er
 func (s *Store) PairInQueue(
 	ctx context.Context,
 	userID int64,
-	freshAfter time.Time,
-	limit int,
+	opts QueuePairOptions,
 	choose func(me QueueWaiter, candidates []QueueWaiter) (QueuePairing, bool),
 ) (QueuePairing, error) {
 	tx, err := s.pool.Begin(ctx)
@@ -156,8 +167,15 @@ func (s *Store) PairInQueue(
 		return QueuePairing{}, fmt.Errorf("lock queue waiter %d: %w", userID, err)
 	}
 
+	// 잠그는 폭이 내 레이팅 주변이다. 전부 잠그면 붙을 수 없는 사람까지 잠기고, 그동안
+	// 그 행을 노리던 다른 짝짓기가 헛돈다 — 아무도 기다리지 않는 대신(SKIP LOCKED)
+	// 그 회차를 포기하기 때문이다.
 	rows, err := q.LockQueueCandidates(ctx, db.LockQueueCandidatesParams{
-		UserID: userID, SeenAt: stamp(freshAfter), Limit: int32(limit),
+		UserID:   userID,
+		SeenAt:   stamp(opts.FreshAfter),
+		Rating:   me.Rating - opts.MaxGap,
+		Rating_2: me.Rating + opts.MaxGap,
+		Limit:    int32(opts.Limit),
 	})
 	if err != nil {
 		return QueuePairing{}, fmt.Errorf("lock queue candidates: %w", err)

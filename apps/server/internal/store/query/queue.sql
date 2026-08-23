@@ -72,6 +72,14 @@ FOR UPDATE SKIP LOCKED;
 --
 -- 낡은 행은 후보가 아니다($2). 위 SweepQueue 가 지우기 전에도 그 사람은 이미 화면을
 -- 떠났고, 그 사람과 짝을 지으면 상대가 아무도 안 오는 방에서 60초를 기다린다.
+--
+-- 레이팅으로 미리 자른다($3·$4). 밴드가 아니라 그 상한이고(queue.MaxBand) 두 가지를 한다.
+-- 잠기는 행이 「붙을 가능성이 있는 사람」으로 줄어서 남의 짝짓기가 헛돌지 않고, 후보
+-- 앞머리가 밴드 밖으로 채워지지 않는다 — 안 자르면 줄이 길 때 앞머리 20줄이 전부 밴드
+-- 밖일 수 있고, 그때 짝이 있는데도 안 잡힌다.
+--
+-- 이 폭은 어떤 밴드보다 넓다. 좁게 자르면 붙을 수 있는 짝을 잠그기 전에 버린다.
+--
 -- 이름을 같이 든다. 짝을 지으면 그 자리에서 방을 세워야 하고(match.Hub.CreatePaired) 방은
 -- 두 사람의 표시 이름을 든다 — 따로 읽으면 그 사이에 사람이 사라진 경우가 하나 더 생긴다.
 --
@@ -80,8 +88,9 @@ SELECT q.user_id, q.rating, q.deviation, q.joined_at, u.display_name
 FROM match_queue q
          JOIN users u ON u.id = q.user_id
 WHERE q.room_id IS NULL AND q.user_id <> $1 AND q.seen_at >= $2
+  AND q.rating BETWEEN $3 AND $4
 ORDER BY q.joined_at
-LIMIT $3
+LIMIT $5
 FOR UPDATE OF q SKIP LOCKED;
 
 -- name: SeatQueueWaiter :execrows

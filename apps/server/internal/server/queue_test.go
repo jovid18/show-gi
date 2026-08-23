@@ -162,6 +162,28 @@ func (f queueFixture) poll(t *testing.T, u queueUser) queuePayload {
 	return got
 }
 
+// pollUntilMatched 는 짝이 잡힐 때까지 다시 물어본다.
+//
+// 한 번에 잡혀야 한다고 재면 안 된다. 잠금이 SKIP LOCKED 라, 같은 DB 에서 도는 남의
+// 짝짓기가 내 행을 잠근 회차에는 정당하게 「기다리는 중」이 나온다 — 화면도 2초 뒤에
+// 다시 묻는다(useQueue).
+//
+// 반대 방향(「안 잡혀야 한다」)에는 재시도가 없다. 잠금은 짝을 없앨 뿐 만들지 못하므로
+// 그쪽은 한 번으로 충분하다.
+func (f queueFixture) pollUntilMatched(t *testing.T, u queueUser) queuePayload {
+	t.Helper()
+	var got queuePayload
+	for range 50 {
+		got = f.poll(t, u)
+		if got.Status == queueStatusMatched {
+			return got
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("%s: 짝이 안 잡혔다: %+v", u.name, got)
+	return got
+}
+
 // 로그인하지 않으면 줄에 못 선다. 익명은 서로 구별할 수단이 없어서 짝짓기가 성립하지 않는다.
 func TestJoiningTheQueueNeedsSignIn(t *testing.T) {
 	f := queueServer(t, 1)
@@ -224,11 +246,12 @@ func TestTwoWaitersMeetInOneRoom(t *testing.T) {
 		t.Fatalf("먼저 선 사람: status = %q, want %q", got.Status, queueStatusWaiting)
 	}
 
-	paired := f.poll(t, second)
-	if paired.Status != queueStatusMatched || paired.RoomID == "" {
-		t.Fatalf("나중에 선 사람: %+v, want matched", paired)
+	paired := f.pollUntilMatched(t, second)
+	if paired.RoomID == "" {
+		t.Fatalf("나중에 선 사람: %+v, 방이 비었다", paired)
 	}
 
+	// 먼저 선 쪽은 쪽지를 읽기만 한다 — 이쪽은 잠금과 무관하므로 한 번에 와야 한다.
 	told := f.poll(t, first)
 	if told.Status != queueStatusMatched {
 		t.Fatalf("먼저 선 사람: status = %q, want %q", told.Status, queueStatusMatched)
@@ -264,10 +287,7 @@ func TestAPairedRoomSkipsTheJoinScreen(t *testing.T) {
 	f := queueServer(t, 2)
 
 	f.poll(t, f.users[0])
-	paired := f.poll(t, f.users[1])
-	if paired.Status != queueStatusMatched {
-		t.Fatalf("짝이 안 잡혔다: %+v", paired)
-	}
+	paired := f.pollUntilMatched(t, f.users[1])
 
 	for _, u := range f.users {
 		rec := do(f.h, http.MethodGet, "/api/rooms/"+paired.RoomID, u.cookie)
@@ -331,20 +351,23 @@ func TestLeavingTheQueueRemovesTheWaiter(t *testing.T) {
 	}
 }
 
-// 짝짓기가 두 사람만 짓는다. 셋이 동시에 서면 하나는 남는다 — 남는 사람이 없으면
-// 어딘가에서 한 사람이 두 방에 앉아 있는 것이다.
+// 짝짓기가 두 사람만 짓는다. 셋이 서면 하나는 남는다 — 남는 사람이 없으면 어딘가에서
+// 한 사람이 두 방에 앉아 있는 것이다.
 func TestThreeWaitersLeaveOneBehind(t *testing.T) {
 	f := queueServer(t, 3)
+	first, second, third := f.users[0], f.users[1], f.users[2]
 
-	matched := 0
-	for _, u := range f.users {
-		if f.poll(t, u).Status == queueStatusMatched {
-			matched++
-		}
+	if got := f.poll(t, first); got.Status != queueStatusWaiting {
+		t.Fatalf("첫째: %+v, want waiting", got)
 	}
-	// 셋을 차례로 부르면 짝짓기는 한 번만 성립한다. 둘째가 첫째를 집고, 셋째에게는
-	// 남은 후보가 없다 — 첫째의 행은 쪽지가 붙어 후보에서 빠졌다.
-	if matched != 1 {
-		t.Fatalf("이 자리에서 짝이 %d 번 잡혔다, want 1", matched)
+	f.pollUntilMatched(t, second) // 둘째가 첫째를 집는다
+
+	// 셋째에게는 남은 후보가 없다. 첫째의 행은 쪽지가 붙어 후보에서 빠졌고, 둘째의 행은
+	// 짝을 지으면서 사라졌다.
+	if got := f.poll(t, third); got.Status != queueStatusWaiting {
+		t.Fatalf("셋째: %+v, want waiting — 이미 짝이 있는 사람과 붙었다", got)
+	}
+	if n := f.rows(t, third); n != 1 {
+		t.Errorf("셋째의 행이 %d개, want 1 — 줄에 남아 있어야 한다", n)
 	}
 }

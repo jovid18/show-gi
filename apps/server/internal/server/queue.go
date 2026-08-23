@@ -13,6 +13,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/match"
 	"github.com/jovid18/show-gi/apps/server/internal/metrics"
 	"github.com/jovid18/show-gi/apps/server/internal/queue"
+	"github.com/jovid18/show-gi/apps/server/internal/rating"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
@@ -151,7 +152,12 @@ func (h *queueHandler) pair(ctx context.Context, s auth.Session, fresh time.Time
 		mine    store.QueueWaiter
 	)
 
-	pairing, err := h.store.PairInQueue(ctx, s.UserID, fresh, queue.Candidates,
+	pairing, err := h.store.PairInQueue(ctx, s.UserID, store.QueuePairOptions{
+		FreshAfter: fresh,
+		// 잠글 폭은 밴드의 상한이다. 불확실성의 상한을 아는 것은 rating 쪽이라 여기서 넘긴다.
+		MaxGap: queue.MaxBand(rating.MaxDeviation),
+		Limit:  queue.Candidates,
+	},
 		func(me store.QueueWaiter, candidates []store.QueueWaiter) (store.QueuePairing, bool) {
 			// 고르는 시각을 여기서 잡는다. 밴드가 대기 시간으로 넓어지므로 잠금을
 			// 잡는 데 걸린 시간까지 세는 것이 맞다.

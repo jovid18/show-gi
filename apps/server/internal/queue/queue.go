@@ -59,6 +59,17 @@ const PickupTTL = 2 * time.Minute
 // 잠그면 그 사이 다른 인스턴스의 짝짓기가 앞머리에서 헛돈다(FOR UPDATE SKIP LOCKED).
 const Candidates = 20
 
+// MaxBand 는 어떤 밴드보다도 넓은 폭이다. maxDeviation 은 불확실성의 상한이다
+// (rating.MaxDeviation — 이 패키지는 그 값을 모르므로 받는다).
+//
+// 잠글 행을 고르는 데 쓴다. 질의가 밴드를 모르는 채로 앞머리 20줄을 잠그면 붙을 수
+// 없는 사람까지 잠기고, 그동안 다른 짝짓기가 그 행에서 헛돈다 — 이 폭으로 미리 자르면
+// 잠기는 것이 「붙을 가능성이 있는 사람」으로 줄어든다.
+//
+// 시간 항이 없다. 밴드는 기다린 만큼 넓어지지만 상한이 BaseMax 라, 여기에 불확실성
+// 둘을 더한 것이 그 최대다 — 이보다 좁게 자르면 붙을 수 있는 짝을 잠그기 전에 버린다.
+func MaxBand(maxDeviation float64) float64 { return BaseMax + 2*maxDeviation }
+
 // Band 는 그만큼 기다린 사람이 받아들이는 레이팅 차다. 두 사람의 불확실성이 더해진다 —
 // 모르는 사람에게 좁은 밴드는 뜻이 없다(journal §92).
 func Band(waited time.Duration, devA, devB float64) float64 {
