@@ -13,7 +13,7 @@ import (
 // Room 은 초대 링크 하나다. 정원이 둘이고, 둘이 정해지면 안 바뀐다.
 //
 // 들어오는 규칙은 셋이고 셋이 다 필요하다(journal §83): 로그인한 사람만
-// (server/match.go 가 막는다), 유추할 수 없는 id(newRoomID), 정원 2명.
+// (server/match.go 가 막는다), 유추할 수 없는 id(NewRoomID), 정원 2명.
 type Room struct {
 	ID string
 
@@ -121,7 +121,7 @@ func (h *Hub) sweepLoop(ctx context.Context, every time.Duration) {
 
 // Create 는 방 하나를 연다. 만든 사람이 host 이고 先手·後手를 고른다.
 func (h *Hub) Create(host Player, hostColor shogi.Color) *Room {
-	id := newRoomID()
+	id := NewRoomID()
 	now := h.cfg.now()
 	room := &Room{
 		ID:        id,
@@ -137,6 +137,42 @@ func (h *Hub) Create(host Player, hostColor shogi.Color) *Room {
 	defer h.mu.Unlock()
 	h.sweepLocked(now)
 	h.dropSurplusLocked(host.UserID)
+	h.rooms[id] = room
+	return room
+}
+
+// CreatePaired 는 대기열이 지은 짝의 방을 연다. 손님이 처음부터 정해져 있다.
+//
+// Create 와 갈리는 것이 셋이다.
+//
+//  1. id 를 받는다. 짝짓기가 그 값을 먼저 표에 적고(store.PairInQueue) 그 뒤에 이 방이
+//     서므로, 방이 id 를 뽑으면 표와 메모리가 다른 값을 들게 된다.
+//  2. 손님이 채워져 있다. Hub.Enter 에 화이트리스트가 없어서 방 id 만 있으면 아무나 빈
+//     자리에 앉는데(링크 방식에서는 그게 의도다), 큐 방식은 상대가 이미 정해져 있다 —
+//     자리가 둘 다 찬 방이라 seatOfLocked 가 그 둘만 통과시킨다.
+//  3. 상한을 안 건다(dropSurplusLocked). 이 방은 손님이 있어서 애초에 그 필터에
+//     안 걸리고, 부르면 이 사람이 따로 열어 둔 초대 링크가 조용히 죽는다.
+//
+// 확인 화면도 여기서 같이 없어진다. 손님이 앉아 있으면 방이 waiting 이 아니고
+// (Hub.SeatOf) 화면은 그때 확인을 안 그린다(screens/match/MatchScreen.tsx) — 스스로 줄에
+// 선 사람에게는 「자리를 태워도 되나」를 물을 이유가 없다(journal §92).
+func (h *Hub) CreatePaired(id string, host Player, hostColor shogi.Color, guest Player) *Room {
+	now := h.cfg.now()
+	seated := guest
+	room := &Room{
+		ID:        id,
+		hostColor: hostColor,
+		host:      host,
+		createdAt: now,
+		guest:     &seated,
+		connected: map[shogi.Color]int{},
+		ready:     make(chan struct{}),
+		closed:    make(chan struct{}),
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.sweepLocked(now)
 	h.rooms[id] = room
 	return room
 }

@@ -218,3 +218,26 @@ func TestNilRegistryHooksAreSilent(t *testing.T) {
 	r.Search().ObserveSearch(time.Second, true)
 	r.ObservePanic("GET /x")
 }
+
+// 라벨이 없는 계열도 텍스트 표면에 나가야 한다. 대기열의 셋이 이 앱의 첫 라벨 없는
+// 지표이고(match_pairings_total 외 둘), EMF 에는 안 올리므로 여기가 유일한 출구다.
+func TestUnlabeledFamiliesReachTheTextSurface(t *testing.T) {
+	r := New("api", "test")
+	// 짝 하나. 대기 시간은 두 사람 몫이 들어간다.
+	r.ObservePairing(3*time.Second, 5*time.Second, 120)
+
+	var b strings.Builder
+	if err := r.WriteText(&b); err != nil {
+		t.Fatalf("WriteText: %v", err)
+	}
+	out := b.String()
+	for _, want := range []string{
+		"match_pairings_total 1",
+		"match_pairing_wait_seconds_count 2",
+		"match_pairing_rating_gap_count 1",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("텍스트 표면에 %q 가 없다:\n%s", want, out)
+		}
+	}
+}

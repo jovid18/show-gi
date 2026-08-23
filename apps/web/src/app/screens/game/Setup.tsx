@@ -8,6 +8,7 @@ import { createRoom, type SeatChoice } from '@/protocol/match';
 import { fetchOpenings, type Opening } from '@/protocol/openings';
 import { ROUTE_GUIDE } from '@/routes/const';
 import { navigate } from '@/routes/router';
+import { Search } from '@/screens/match/Search';
 
 /**
  * 대국을 시작하기 전에 고르는 화면.
@@ -131,6 +132,11 @@ export function Setup({ initial, onStart }: SetupProps) {
           手番은 振り駒가 붙어 저쪽이 따로 고르고(FriendMatch), 手合割과 戦型은 컴퓨터에게
           시키는 것이라 사람 상대에게는 뜻이 없다. */}
       <FriendMatch />
+
+      {/* 사람 상대의 두 번째 갈래. 위가 「아는 사람에게 링크를 보낸다」이고 이쪽이
+          「모르는 사람을 서버가 찾아 준다」다 — 아래에 두는 것은 링크 쪽이 먼저 있었고
+          상대가 있는 사람에게는 그것이 확실하기 때문이다. */}
+      <Search />
 
       {/* 홈 메뉴에서 안 누른 사람이 다시 만나는 자리는 여기 하나다. 시작 버튼
           아래에 두는 것이 요점 — 위에 두면 두러 온 사람을 먼저 붙잡는다.

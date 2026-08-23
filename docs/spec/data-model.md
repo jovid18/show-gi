@@ -2,7 +2,7 @@
 
 **이 문서는 「무엇이 어떻게 생겼나」다.** 왜 그 모양인가는 [02-architecture §4](../02-architecture.md#4-데이터-모델--그래프-db를-쓰지-않는-이유)에 있고, 여기서 다시 쓰지 않는다 — 두 벌이면 한쪽이 조용히 낡는다.
 
-정본은 `apps/server/internal/store/migrations/*.sql` 이고, 이 문서는 그 15개 파일을 한 장으로 본 것이다. **레포에 파일이 있는 것과 프로덕션에 적용된 것은 다르다** — 어디까지 적용됐는지는 [06-status §3](../06-status.md).
+정본은 `apps/server/internal/store/migrations/*.sql` 이고, 이 문서는 그 16개 파일을 한 장으로 본 것이다. **레포에 파일이 있는 것과 프로덕션에 적용된 것은 다르다** — 어디까지 적용됐는지는 [06-status §3](../06-status.md).
 
 ---
 
@@ -13,6 +13,7 @@ erDiagram
     users ||--o| skill_profile : "1:0..1"
     users ||--o{ games : "0..N (익명 판은 NULL)"
     users ||--o{ explore_snapshots : "0..N"
+    users ||--o| match_queue : "1:0..1 (줄에 서 있는 동안만)"
 
     games ||--o{ game_moves : "확정된 수만"
     games ||--o{ interventions : "앱이 건 개입"
@@ -120,6 +121,17 @@ erDiagram
         timestamptz created_at
     }
 
+    match_queue {
+        bigint user_id PK, FK "한 사람이 한 행 — 줄에 서는 것이 멱등이다"
+        float8 rating "줄에 설 때 읽은 값 (시드·복원이 얹혀 있다)"
+        float8 deviation
+        timestamptz joined_at "밴드가 이 값으로 넓어진다"
+        timestamptz seen_at "낡으면 줄에서 빠진다"
+        text room_id "NULL = 아직 기다린다"
+        text color "'b' | 'w' — 잡힌 방에서 잡을 쪽"
+        timestamptz matched_at
+    }
+
     positions {
         text sfen_key PK "手数 제외 SFEN — 전치가 합쳐진다"
         char side_to_move "'b' | 'w'"
@@ -142,11 +154,11 @@ erDiagram
 
 ## 2. 세 덩어리로 갈린다
 
-표가 11개인데 **서로 안 닿는 세 덩어리**다. 이 경계가 이 스키마의 전부다.
+표가 12개인데 **서로 안 닿는 세 덩어리**다. 이 경계가 이 스키마의 전부다.
 
 | 덩어리                  | 표                                                                                      | 키가 무엇인가 | 사람에 매여 있나     |
 | ----------------------- | --------------------------------------------------------------------------------------- | ------------- | -------------------- |
-| **사람** (3)            | `users` · `skill_profile` · `explore_snapshots`                                         | `user_id`     | 그렇다               |
+| **사람** (4)            | `users` · `skill_profile` · `explore_snapshots` · `match_queue`                         | `user_id`     | 그렇다               |
 | **판** (6)              | `games` · `game_moves` · `interventions` · `game_undos` · `game_hints` · `game_quizzes` | `game_id`     | `games.user_id` 로만 |
 | **국면** (2, 엔진 캐시) | `positions` · `edges`                                                                   | `sfen_key`    | **아니다**           |
 
@@ -286,6 +298,7 @@ USI 엔진이 iterative deepening 중 `info depth 1 … / info depth 2 …` 를 
 | `013` | `skill_profile.rating_games` · `rating_updated_at`   | 칸 추가            |
 | `014` | `skill_profile.skill_abs_loss` · `skill_abs_samples` | 칸 추가            |
 | `015` | `explore_snapshots`                                  | 표 추가            |
+| `016` | `match_queue` + 부분 인덱스                          | 표 추가            |
 
 **`011` 을 뺀 전부가 추가만 한다.** 그래서 워크트리를 병렬로 돌려도 다른 세션의 서버가 모른 채 그냥 돈다 — `DROP`·`RENAME`·`NOT NULL` 추가는 남의 서버를 그 자리에서 깨뜨리므로 혼자 돌린다.
 

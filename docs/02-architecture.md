@@ -162,6 +162,14 @@ skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at,
              --   정의상 사람 사이의 값이다. **rating_games = 0 이 「레이팅 없음」이다** —
              --   rating_est 가 NOT NULL DEFAULT 0 이라 0으로는 그것을 못 말한다
              --   **어느 API 도 이 값을 안 돌려준다** — 매칭이 쓰는 내부 값이다
+match_queue(user_id PK, rating, deviation, joined_at, seen_at, room_id, color, matched_at)
+             -- 대인전 대기열 (016, §98). **한 사람이 한 행이라 줄에 서는 것이 멱등이다.**
+             -- 방과 반대로 표인 이유는 모든 인스턴스가 같은 줄을 봐야 하기 때문이다 —
+             -- 방은 초당 수십 번 바뀌는 상태머신이라 goroutine 소유가 맞다
+             -- rating/deviation — 줄에 설 때 읽은 값. 시드와 불확실성 복원이 얹혀 있다
+             -- room_id = NULL 이 「아직 기다린다」다. 채워지면 주인이 한 번 읽고 지운다
+             -- **밴드 식은 여기 없다** — 질의는 잠그고 오래된 순으로 주고,
+             --   고르는 것은 internal/queue 가 한다 (식이 두 벌이 되지 않게)
 explore_snapshots(id, user_id, name, handicap, moves text[], created_at)
              -- 검토 화면에서 이름을 붙여 남긴 국면 (015, §96). **SFEN 칸이 없다** —
              -- 手合割 id 와 0手目부터의 수순뿐이고, 불러오기가 그 두 칸을 주소에 실어

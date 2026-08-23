@@ -309,6 +309,19 @@ func Handler(opts Options) http.Handler {
 		mux.Handle("GET /ws/match", &matchHandlerWS{
 			hub: opts.Match.hub, auth: ah, records: opts.Match.records, metrics: opts.Metrics,
 		})
+
+		// 대기열(queue.go). 위 셋과 달리 DB에 매여 있다 — 줄이 표에 있고, 그래야 모든
+		// 인스턴스가 같은 줄을 본다(journal §92). 그래서 기록이 없는 배포에서는 방은
+		// 열리는데 줄은 안 선다.
+		if opts.Store != nil {
+			qh := &queueHandler{hub: opts.Match.hub, store: opts.Store, auth: ah, metrics: opts.Metrics}
+			mux.HandleFunc("POST /api/queue", qh.join)
+			mux.HandleFunc("DELETE /api/queue", qh.leave)
+		} else {
+			queueOff := func(w http.ResponseWriter, _ *http.Request) { queueUnavailable(w) }
+			mux.HandleFunc("POST /api/queue", queueOff)
+			mux.HandleFunc("DELETE /api/queue", queueOff)
+		}
 	}
 
 	if opts.NewOpponent != nil {

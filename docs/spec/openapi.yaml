@@ -747,6 +747,44 @@ paths:
               schema: { $ref: '#/components/schemas/Room' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /api/queue:
+    post:
+      tags: [match]
+      summary: 대기열에 서고, 그 자리에서 짝짓기까지 한다
+      description: |
+        **한 호출이 셋을 한다** — 줄에 서기 · 살아 있다고 알리기 · 짝짓기. 멱등이라
+        화면은 2초마다 이것만 부르고, 멈추면 서버가 12초 뒤 줄에서 걷어낸다.
+
+        리더도 sweeper 도 알림 채널도 없다. 청소는 이 요청이 문장 하나로 하고,
+        heartbeat 는 재시도가 겸한다 — 큐가 표라서(`match_queue`) 모든 인스턴스가
+        같은 줄을 본다.
+
+        **고르는 규칙은 밴드 안에서 FIFO 이고 밴드는 양쪽을 다 본다.** 조건이
+        `abs(rA − rB) ≤ LEAST(band(tA), band(tB))` 이고 밴드에 두 사람의 RD 가 더해진다.
+
+        **平手 확정 · 先手 랜덤.** 手合(駒落ち)은 미리 만드는 방에만 있다 — 레이팅 차를
+        cp 로 환산하는 계수가 없다.
+
+        `matched` 는 **한 번만 나간다.** 다시 물어보면 그 사람은 줄에 새로 선다.
+      responses:
+        '200':
+          description: 기다리는 중이거나 짝이 잡혔다
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueueStatus' }
+        '401': { $ref: '#/components/responses/LoginRequired' }
+        '503': { $ref: '#/components/responses/QueueUnavailable' }
+    delete:
+      tags: [match]
+      summary: 줄에서 빠진다
+      description: |
+        없는 사람이 불러도 `204` 다 — 「이미 없다」와 「방금 지웠다」가 화면에 같은 뜻이고,
+        탭을 닫는 자리에서 부르는 경로라 실패로 답할 이유가 없다.
+      responses:
+        '204': { description: 빠졌다 }
+        '401': { $ref: '#/components/responses/LoginRequired' }
+        '503': { $ref: '#/components/responses/QueueUnavailable' }
+
   /ws/game:
     get:
       tags: [engine]
@@ -859,6 +897,13 @@ components:
       description: |
         `store_unavailable` — 이 배포에 DB 가 없다. **대국은 된다** — 엔진이 죽어
         대국을 못 해도 지난 판은 볼 수 있어야 하고, 그 반대도 같다
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    QueueUnavailable:
+      description: |
+        `store_unavailable` — 줄이 표에 있어서(`match_queue`) 기록이 없는 배포에서는
+        못 선다. **방은 그대로 열린다** — 대인전의 다른 셋은 DB 를 안 탄다
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ApiError' }
@@ -1202,6 +1247,44 @@ components:
             「이 사람은 종반에 약하다」가 대인전 상대에게 넘어가면 안 된다
         waiting: { type: boolean, description: 아직 상대가 안 들어왔나 }
         isHost: { type: boolean }
+
+    QueueStatus:
+      oneOf:
+        - $ref: '#/components/schemas/QueueWaiting'
+        - $ref: '#/components/schemas/QueueMatched'
+      discriminator:
+        propertyName: status
+        mapping:
+          waiting: '#/components/schemas/QueueWaiting'
+          matched: '#/components/schemas/QueueMatched'
+
+    QueueWaiting:
+      type: object
+      required: [status, waitedMs, waiting]
+      properties:
+        status: { type: string, enum: [waiting] }
+        waitedMs:
+          type: integer
+          description: |
+            줄에 선 뒤로 흐른 시간. **정본이 서버**라 새로고침해도 이어 센다 —
+            화면이 세면 탭을 다시 열 때마다 0 으로 돌아간다
+        waiting:
+          type: integer
+          description: |
+            지금 줄에 서 있는 사람 수(자기 포함). 화면이 이걸 말해야
+            「안 잡히는 것」과 「고장」이 갈린다
+
+    QueueMatched:
+      type: object
+      required: [status, roomId, yourColor]
+      properties:
+        status: { type: string, enum: [matched] }
+        roomId:
+          type: string
+          description: |
+            갈 방. 손님이 처음부터 정해져 있어서 제3자가 못 앉고 **확인 화면도 건너뛴다**
+          pattern: '^[A-Za-z0-9]{8}$'
+        yourColor: { $ref: '#/components/schemas/Color' }
 
     WhatifCandidate:
       type: object
