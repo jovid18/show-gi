@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"hash/fnv"
 	"net/http"
 	"os"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/auth"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/match"
+	"github.com/jovid18/show-gi/apps/server/internal/rating"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
@@ -22,18 +24,40 @@ import (
 // 「두 요청이 같은 줄을 본다」라서, 표를 흉내내면 잴 것이 남지 않는다.
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
+//
+// 격리는 레이팅으로 한다(queueBase). 표를 비우지 않는 이유는 CI 가 패키지들을 같은 DB 에
+// 동시에 걸기 때문이다 — 비우면 그 순간 줄에 서 있던 남의 테스트가 깨진다.
+//
+// 그래서 「줄에 몇 명인가」를 정확한 수로 단정하지 않는다. 그 값은 표 전체를 세는 제품
+// 질의라(store.QueueWaiting) 남의 테스트가 섞인다. 내 행이 몇 개인가는 rows 가 따로 센다.
 type queueFixture struct {
 	h     http.Handler
 	hub   *match.Hub
 	store *store.Store
 	// users 는 로그인 쿠키가 붙은 사람들이다. 실행마다 새로 만든다.
 	users []queueUser
+	// base 는 이 테스트의 레이팅 자리다(queueBase). 사람마다 옮기려면 여기에 더한다.
+	base float64
 }
 
 type queueUser struct {
 	id     int64
 	name   string
 	cookie *http.Cookie
+}
+
+// queueBase 는 이 테스트의 사람들이 서는 레이팅 자리다.
+//
+// 테스트마다 만 점씩 떨어뜨린다. 밴드는 아무리 넓어도 BaseMax 에 RD 둘을 더한 값이라
+// 900을 못 넘으므로(queue.Band), 그 간격이면 남의 테스트 대기자와 절대 안 붙는다 —
+// 제품의 장치로 격리하는 것이고, 표를 비우는 것보다 안전하다.
+func queueBase(t *testing.T) float64 {
+	t.Helper()
+	h := fnv.New64a()
+	if _, err := h.Write([]byte(t.Name())); err != nil {
+		t.Fatalf("hash: %v", err)
+	}
+	return 1_000_000 + float64(h.Sum64()%100_000)*10_000
 }
 
 func queueServer(t *testing.T, people int) queueFixture {
@@ -82,7 +106,46 @@ func queueServer(t *testing.T, people int) queueFixture {
 		}
 		users = append(users, queueUser{id: id, name: uid, cookie: &http.Cookie{Name: sessionCookie, Value: value}})
 	}
-	return queueFixture{h: Handler(opts), hub: m.hub, store: st, users: users}
+
+	f := queueFixture{h: Handler(opts), hub: m.hub, store: st, users: users, base: queueBase(t)}
+	// 전원이 같은 자리에 선다. 벌려 놓을 테스트는 스스로 다시 부른다.
+	f.rate(t, func(int) float64 { return f.base })
+	return f
+}
+
+// rate 는 사람마다 레이팅을 심는다. 불확실성이 하한이라(rating.MinDeviation) 밴드가 가장
+// 좁고, 그래서 이 테스트의 사람들끼리만 붙는다.
+//
+// 제품의 쓰기 문(SaveMatchRatings)을 안 쓴다. 저쪽은 한 문장이 두 사람을 같이 옮기므로
+// 서로 다른 두 사람이 있어야 하는데, 여기는 혼자 서는 테스트에도 자리를 줘야 한다 —
+// 안 주면 그 사람이 기본 1500에 남아 다른 「혼자 서는 테스트」와 붙는다.
+func (f queueFixture) rate(t *testing.T, of func(i int) float64) {
+	t.Helper()
+	for i, u := range f.users {
+		_, err := f.store.Pool().Exec(t.Context(), `
+			INSERT INTO skill_profile (user_id, rating_est, rating_sd, rating_games, rating_updated_at)
+			VALUES ($1, $2, $3, 1, now())
+			ON CONFLICT (user_id) DO UPDATE
+			SET rating_est = EXCLUDED.rating_est, rating_sd = EXCLUDED.rating_sd,
+			    rating_games = 1, rating_updated_at = now()`,
+			u.id, of(i), float64(rating.MinDeviation))
+		if err != nil {
+			t.Fatalf("레이팅 심기(%s): %v", u.name, err)
+		}
+	}
+}
+
+// rows 는 그 사람이 큐에 들고 있는 행 수다. 0이나 1이어야 한다 — 표의 PK 가 그것을
+// 보장하지만, 「줄에 두 번 섰나」를 재는 자리에서 남의 테스트를 안 세려면 이쪽이 필요하다.
+func (f queueFixture) rows(t *testing.T, u queueUser) int {
+	t.Helper()
+	var n int
+	err := f.store.Pool().QueryRow(t.Context(),
+		`SELECT count(*) FROM match_queue WHERE user_id = $1`, u.id).Scan(&n)
+	if err != nil {
+		t.Fatalf("행 세기(%s): %v", u.name, err)
+	}
+	return n
 }
 
 // poll 은 줄에 서거나 다시 물어본다. 화면이 하는 것과 같은 호출이다.
@@ -115,16 +178,21 @@ func TestJoiningTheQueueNeedsSignIn(t *testing.T) {
 // 정했고(journal §92), 그때 화면이 말할 것이 「줄에 몇 명인가」다.
 func TestOneWaiterIsNotPaired(t *testing.T) {
 	f := queueServer(t, 1)
+	me := f.users[0]
 
-	got := f.poll(t, f.users[0])
+	got := f.poll(t, me)
 	if got.Status != queueStatusWaiting {
 		t.Fatalf("status = %q, want %q", got.Status, queueStatusWaiting)
 	}
-	if got.Waiting != 1 {
-		t.Errorf("줄에 %d명, want 1", got.Waiting)
-	}
 	if got.RoomID != "" {
 		t.Errorf("방이 %q 인데 짝이 없다", got.RoomID)
+	}
+	if f.rows(t, me) != 1 {
+		t.Errorf("내 행이 %d개, want 1 — 줄에 서지 못했다", f.rows(t, me))
+	}
+	// 자기 자신은 세어진다. 정확한 수를 안 보는 이유는 이 파일 머리에 있다.
+	if got.Waiting < 1 {
+		t.Errorf("줄에 %d명 — 자기 자신이 안 세어졌다", got.Waiting)
 	}
 }
 
@@ -132,13 +200,14 @@ func TestOneWaiterIsNotPaired(t *testing.T) {
 // 매 재시도마다 처음으로 돌아가서 영영 안 넓어진다.
 func TestPollingDoesNotResetTheWait(t *testing.T) {
 	f := queueServer(t, 1)
+	me := f.users[0]
 
-	first := f.poll(t, f.users[0])
+	first := f.poll(t, me)
 	time.Sleep(20 * time.Millisecond)
-	second := f.poll(t, f.users[0])
+	second := f.poll(t, me)
 
-	if second.Waiting != 1 {
-		t.Errorf("줄에 %d명, want 1 — 같은 사람이 두 줄이 됐다", second.Waiting)
+	if n := f.rows(t, me); n != 1 {
+		t.Errorf("내 행이 %d개, want 1 — 같은 사람이 두 줄이 됐다", n)
 	}
 	if second.WaitedMs < first.WaitedMs {
 		t.Errorf("기다린 시간이 %dms → %dms 로 줄었다", first.WaitedMs, second.WaitedMs)
@@ -215,20 +284,19 @@ func TestAPairedRoomSkipsTheJoinScreen(t *testing.T) {
 	}
 }
 
-// 밴드 밖의 두 사람은 안 붙는다. 레이팅이 굳은(불확실성이 작은) 두 사람을 멀리 떨어뜨려
-// 두면 밴드가 그 격차를 못 덮는다(queue.Band).
+// 밴드 밖의 두 사람은 안 붙는다. 불확실성이 하한이라 밴드가 Base0 + 100 이고, 격차
+// 1400은 어느 쪽 밴드로도 안 덮인다(queue.Band).
 func TestFarApartWaitersAreNotPaired(t *testing.T) {
 	f := queueServer(t, 2)
 	strong, weak := f.users[0], f.users[1]
 
-	// 판을 둔 사람들이라 불확실성이 하한 근처다. 밴드가 Base0 + 두 사람의 RD 이므로
-	// 격차 1400은 어느 쪽 밴드로도 안 덮인다.
-	err := f.store.SaveMatchRatings(t.Context(),
-		strong.id, store.MatchRating{Value: 2400, Deviation: 50},
-		weak.id, store.MatchRating{Value: 1000, Deviation: 50})
-	if err != nil {
-		t.Fatalf("SaveMatchRatings: %v", err)
-	}
+	// 이 테스트의 자리 안에서 벌린다. 밖으로 나가면 남의 테스트 대기자와 만난다.
+	f.rate(t, func(i int) float64 {
+		if i == 0 {
+			return f.base + 700
+		}
+		return f.base - 700
+	})
 
 	if got := f.poll(t, strong); got.Status != queueStatusWaiting {
 		t.Fatalf("센 사람: %+v, want waiting", got)
@@ -237,8 +305,11 @@ func TestFarApartWaitersAreNotPaired(t *testing.T) {
 	if got.Status != queueStatusWaiting {
 		t.Fatalf("약한 사람: %+v, want waiting — 밴드 밖인데 붙었다", got)
 	}
-	if got.Waiting != 2 {
-		t.Errorf("줄에 %d명, want 2", got.Waiting)
+	// 둘 다 줄에 남아 있다.
+	for _, u := range f.users {
+		if n := f.rows(t, u); n != 1 {
+			t.Errorf("%s: 행이 %d개, want 1", u.name, n)
+		}
 	}
 }
 
@@ -251,13 +322,12 @@ func TestLeavingTheQueueRemovesTheWaiter(t *testing.T) {
 	if rec := do(f.h, http.MethodDelete, "/api/queue", left.cookie); rec.Code != http.StatusNoContent {
 		t.Fatalf("DELETE /api/queue: status = %d", rec.Code)
 	}
-
-	got := f.poll(t, other)
-	if got.Status != queueStatusWaiting {
-		t.Fatalf("나간 사람과 짝이 됐다: %+v", got)
+	if n := f.rows(t, left); n != 0 {
+		t.Fatalf("나간 사람의 행이 %d개, want 0", n)
 	}
-	if got.Waiting != 1 {
-		t.Errorf("줄에 %d명, want 1", got.Waiting)
+
+	if got := f.poll(t, other); got.Status != queueStatusWaiting {
+		t.Fatalf("나간 사람과 짝이 됐다: %+v", got)
 	}
 }
 
@@ -266,22 +336,15 @@ func TestLeavingTheQueueRemovesTheWaiter(t *testing.T) {
 func TestThreeWaitersLeaveOneBehind(t *testing.T) {
 	f := queueServer(t, 3)
 
-	statuses := make([]queuePayload, 0, 3)
-	for _, u := range f.users {
-		statuses = append(statuses, f.poll(t, u))
-	}
-
 	matched := 0
-	for _, s := range statuses {
-		if s.Status == queueStatusMatched {
+	for _, u := range f.users {
+		if f.poll(t, u).Status == queueStatusMatched {
 			matched++
 		}
 	}
+	// 셋을 차례로 부르면 짝짓기는 한 번만 성립한다. 둘째가 첫째를 집고, 셋째에게는
+	// 남은 후보가 없다 — 첫째의 행은 쪽지가 붙어 후보에서 빠졌다.
 	if matched != 1 {
 		t.Fatalf("이 자리에서 짝이 %d 번 잡혔다, want 1", matched)
-	}
-	// 남은 한 사람은 아직 줄에 있다. 짝이 된 쪽의 쪽지는 아직 안 찾아갔다.
-	if last := statuses[2]; last.Status == queueStatusMatched && statuses[1].Status == queueStatusMatched {
-		t.Error("셋 다 짝이 됐다")
 	}
 }

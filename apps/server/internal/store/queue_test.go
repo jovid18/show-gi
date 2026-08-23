@@ -10,16 +10,23 @@ import (
 // 이 파일이 지키는 것은 질의의 원자성이다 — 고르는 규칙은 internal/queue, 화면까지의
 // 흐름은 server/queue_test.go 가 본다.
 
-// pairWith 는 무조건 그 사람과 짝을 짓는 고르기다. 밴드를 안 본다 — 여기서 재는 것은
-// 「누구를 고르나」가 아니라 「두 번 고를 수 있나」다.
-func pairWith(roomID string) func(QueueWaiter, []QueueWaiter) (QueuePairing, bool) {
+// pairWith 는 그 사람이 후보로 올라오면 짝을 짓는 고르기다. 밴드를 안 본다 — 여기서
+// 재는 것은 「누구를 고르나」가 아니라 「두 번 고를 수 있나」다.
+//
+// 그런데 id 를 받아야 한다. 큐는 표 하나에 사람마다 한 행이고 CI 는 패키지들을 같은 DB 에
+// 동시에 거는데, 아무나 집으면 이 테스트가 그 순간 줄에 서 있던 남의 테스트 대기자를
+// 낚아채 간다 — 그쪽은 「짝이 안 잡혀야 한다」를 재고 있고, 그래서 그쪽만 빨개진다.
+func pairWith(roomID string, only int64) func(QueueWaiter, []QueueWaiter) (QueuePairing, bool) {
 	return func(_ QueueWaiter, candidates []QueueWaiter) (QueuePairing, bool) {
-		if len(candidates) == 0 {
-			return QueuePairing{}, false
+		for _, c := range candidates {
+			if c.UserID != only {
+				continue
+			}
+			return QueuePairing{
+				Opponent: c, RoomID: roomID, MyColor: "b", OppColor: "w",
+			}, true
 		}
-		return QueuePairing{
-			Opponent: candidates[0], RoomID: roomID, MyColor: "b", OppColor: "w",
-		}, true
+		return QueuePairing{}, false
 	}
 }
 
@@ -42,7 +49,7 @@ func TestQueueSeatIsHandedOutOnce(t *testing.T) {
 	}
 
 	// b 가 짝을 짓는다. 자기 행은 그 자리에서 사라지고 a 의 행에 쪽지가 남는다.
-	pairing, err := s.PairInQueue(t.Context(), b, fresh, 20, pairWith("ROOM0001"))
+	pairing, err := s.PairInQueue(t.Context(), b, fresh, 20, pairWith("ROOM0001", a))
 	if err != nil {
 		t.Fatalf("PairInQueue: %v", err)
 	}
@@ -95,7 +102,9 @@ func TestMutualPairingSucceedsOnce(t *testing.T) {
 		go func(i int, id int64) {
 			defer wg.Done()
 			room := []string{"ROOMAAAA", "ROOMBBBB"}[i]
-			pairing, err := s.PairInQueue(t.Context(), id, fresh, 20, pairWith(room))
+			// 짝은 상대 한 사람뿐이다. 서로를 집으러 들어가는 것이 이 테스트의 내용이다.
+			other := []int64{b, a}[i]
+			pairing, err := s.PairInQueue(t.Context(), id, fresh, 20, pairWith(room, other))
 			mu.Lock()
 			defer mu.Unlock()
 			switch {
@@ -210,7 +219,9 @@ func TestStaleWaitersAreNotCandidates(t *testing.T) {
 		t.Fatalf("seen_at 밀기: %v", err)
 	}
 
-	_, err := s.PairInQueue(t.Context(), here, time.Now().Add(-time.Minute), 20, pairWith("ROOMGONE"))
+	// 떠난 사람만 짝으로 받는다. 그 사람이 후보에서 빠지는 것이 여기서 재는 것이고,
+	// 아무나 받으면 같은 DB 에서 동시에 도는 남의 대기자와 붙어 버린다.
+	_, err := s.PairInQueue(t.Context(), here, time.Now().Add(-time.Minute), 20, pairWith("ROOMGONE", gone))
 	if !errors.Is(err, ErrNoQueueSeat) {
 		t.Fatalf("PairInQueue: %v, want ErrNoQueueSeat — 떠난 사람과 짝이 됐다", err)
 	}
