@@ -66,12 +66,22 @@ func (m *matchRecords) updateRatings(ctx context.Context, entry *roomRecord) {
 	}
 }
 
-// ratingOf 는 그 사람의 지금 레이팅이다. 못 읽으면 rating.Unrated 다 — 판을 막지 않는다.
+// ratingOf 는 그 사람의 지금 레이팅이다.
+func (m *matchRecords) ratingOf(ctx context.Context, userID int64) rating.Rating {
+	return currentRating(ctx, m.store, userID)
+}
+
+// currentRating 은 그 사람의 지금 레이팅이다. 못 읽으면 rating.Unrated 다 — 부르는 쪽을
+// 막지 않는다.
 //
 // 두 가지를 여기서 얹는다. 레이팅이 없으면 지금까지의 낙폭 추정치로 시드를 만들고,
 // 있으면 안 둔 시간만큼 불확실성을 되돌린다.
-func (m *matchRecords) ratingOf(ctx context.Context, userID int64) rating.Rating {
-	got, err := m.store.MatchRating(ctx, userID)
+//
+// 자리가 하나인 이유는 그 둘이 쓰는 쪽마다 달라지면 안 되기 때문이다. 판이 끝나고
+// 갱신할 때와(updateRatings) 대기열이 밴드를 세울 때(queue.go)가 같은 값을 봐야 한다 —
+// 갈라 두면 대기열이 시드 없는 1500으로 짝을 짓고 그 판이 시드 위에서 채점된다.
+func currentRating(ctx context.Context, st *store.Store, userID int64) rating.Rating {
+	got, err := st.MatchRating(ctx, userID)
 	if err != nil {
 		log.Printf("match rating: read %d: %v", userID, err)
 		return rating.Unrated

@@ -4,9 +4,9 @@
 
 |                                    |                                                                               |
 | ---------------------------------- | ----------------------------------------------------------------------------- |
-| [api.md](api.md)                   | REST 26개의 요청·응답·상태코드 + **WebSocket 둘의 프로토콜**                  |
+| [api.md](api.md)                   | REST 27개의 요청·응답·상태코드 + **WebSocket 둘의 프로토콜**                  |
 | [openapi.yaml](openapi.yaml)       | 위의 REST 부분의 **기계용 정본** (OpenAPI 3.1)                                |
-| [data-model.md](data-model.md)     | 표 11개의 **ERD** 와 표 사이의 관계 · 마이그레이션 15개의 이력                |
+| [data-model.md](data-model.md)     | 표 12개의 **ERD** 와 표 사이의 관계 · 마이그레이션 16개의 이력                |
 | [architecture.md](architecture.md) | 그림 여섯 장 — 시스템 구성 · 모듈 의존 · **개입 루프 시퀀스** · 배포 토폴로지 |
 
 ## 어디가 정본인가
@@ -22,7 +22,7 @@
 | `internal/game/session.go` 의 판정·롤백 순서         | `architecture.md` §3.2 시퀀스                                       |
 | 모듈을 하나 더하거나 의존을 늘리면                   | `architecture.md` §2 — **없는 화살표가 설계다**                     |
 
-**「없는 것」을 적어 둔 자리 셋을 지우지 않는다.** [api.md §7](api.md)(이 API 에 없는 것) · [architecture.md §2](architecture.md)(없는 화살표 다섯) · [architecture.md §6](architecture.md)(무엇이 없으면 무엇이 꺼지나). 있는 줄 알고 찾는 시간이 없는 것을 읽는 시간보다 비싸다.
+**「없는 것」을 적어 둔 자리 셋을 지우지 않는다.** [api.md §7](api.md)(이 API 에 없는 것) · [architecture.md §2](architecture.md)(없는 화살표 여덟) · [architecture.md §6](architecture.md)(무엇이 없으면 무엇이 꺼지나). 있는 줄 알고 찾는 시간이 없는 것을 읽는 시간보다 비싸다.
 
 ## 읽는 순서
 

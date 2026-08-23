@@ -26,7 +26,7 @@ import (
 const DefaultTurnLimit = 60 * time.Second
 
 // OpenTTL 은 상대가 안 들어온 방이 사는 시간이다. 넘으면 링크가 죽는다 — 초대 링크가
-// 곧 열쇠라(newRoomID), 링크가 오래 살수록 새어 나간 링크가 오래 통한다.
+// 곧 열쇠라(NewRoomID), 링크가 오래 살수록 새어 나간 링크가 오래 통한다.
 const OpenTTL = 30 * time.Minute
 
 // FinishedTTL 은 끝난 판을 방에 남겨 두는 시간이다. 둘 다 결과를 보고 나갈 만큼만이고,
@@ -71,8 +71,8 @@ type Player struct {
 	Name string
 }
 
-// newRoomID 는 유추할 수 없는 방 id 하나를 만든다. 영숫자 8자다.
-func newRoomID() string {
+// NewRoomID 는 유추할 수 없는 방 id 하나를 만든다. 영숫자 8자다.
+func NewRoomID() string {
 	const limit = byte(256 - 256%len(roomIDAlphabet)) // 248
 
 	id := make([]byte, 0, roomIDLen)

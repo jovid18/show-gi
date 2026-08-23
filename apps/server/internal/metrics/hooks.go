@@ -57,6 +57,20 @@ func (r *Registry) Session(kind string) func() {
 	return func() { r.WSSessions.Add(-1, kind) }
 }
 
+// ObservePairing 은 대기열이 지은 짝 하나를 남긴다. 대기 시간은 두 사람 몫을 다 넣는다 —
+// 밴드가 양쪽을 보므로(queue.Pairable) 한쪽만 재면 절반만 남는다.
+//
+// gap 은 두 사람의 레이팅 차다. 음수를 넣지 않는 것은 부르는 쪽의 규약이다.
+func (r *Registry) ObservePairing(a, b time.Duration, gap float64) {
+	if r == nil {
+		return
+	}
+	r.MatchPairings.Inc()
+	r.MatchPairingWait.Observe(a.Seconds())
+	r.MatchPairingWait.Observe(b.Seconds())
+	r.MatchPairingGap.Observe(gap)
+}
+
 // Pool 은 엔진 풀 하나의 계측 창구다. usi 쪽 인터페이스를 이 타입이 만족한다.
 type Pool struct {
 	reg  *Registry

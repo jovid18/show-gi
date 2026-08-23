@@ -123,7 +123,7 @@ export function parseRoute(url: string): Route {
   if (parts[0] === ME_SEGMENT) return { name: 'me' };
   // 글자를 확인하고 넘긴다. 서버가 어차피 404로 답하지만, 아무 문자열이나 그대로
   // 주소에 실으면 그 값이 `fetch` 의 경로가 되고 화면이 못 읽는 답을 받는다.
-  // 영숫자 8자가 방 id 의 모양이다(서버의 newRoomID).
+  // 영숫자 8자가 방 id 의 모양이다(서버의 NewRoomID).
   if (parts[0] === ROOMS_SEGMENT) {
     const id = parts[1] ?? '';
     return /^[A-Za-z0-9]{8}$/.test(id) ? { name: 'room', id } : { name: 'home' };

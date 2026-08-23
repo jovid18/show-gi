@@ -92,6 +92,17 @@ type Intervention struct {
 	AfterCp *int32
 }
 
+type MatchQueue struct {
+	UserID    int64
+	Rating    float64
+	Deviation float64
+	JoinedAt  pgtype.Timestamptz
+	SeenAt    pgtype.Timestamptz
+	RoomID    *string
+	Color     *string
+	MatchedAt pgtype.Timestamptz
+}
+
 type Position struct {
 	SFENKey       string
 	SideToMove    string

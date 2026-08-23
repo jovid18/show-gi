@@ -130,7 +130,7 @@ describe('parseRoute', () => {
     });
   });
 
-  // 방 id 는 영숫자 8자 다(서버의 newRoomID). 모양이 아니면 대국으로 보낸다 —
+  // 방 id 는 영숫자 8자 다(서버의 NewRoomID). 모양이 아니면 대국으로 보낸다 —
   // 아무 문자열이나 통과시키면 그 값이 그대로 `fetch` 의 경로가 된다.
   it('방', () => {
     const id = 'AbCdEf12';
