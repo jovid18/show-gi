@@ -41,6 +41,10 @@ export default function humanMatch() {
     const res = http.post(`${BASE}/api/queue`, null, { headers, tags: { name: 'POST /api/queue' } });
     if (res.status !== 200) {
       rejects.add(1, { reason: `queue_${res.status}` });
+      // 물러나기 전에 한 박자 쉰다. 즉시 돌아가면 k6 가 곧바로 다음 이터레이션을 시작해서
+      // 같은 요청을 다시 보내고, 서버가 내려가 있는 동안 VU 수만큼 초당 수십 번이 된다 —
+      // 한 번 그렇게 재서 1분짜리 장애가 회차의 96.9% 실패로 읽혔다(journal §107).
+      sleep(QUEUE_INTERVAL);
       return;
     }
     const body = res.json();
