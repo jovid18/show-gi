@@ -63,23 +63,10 @@ resource "aws_launch_template" "app" {
   # 새로 만들면 RDS와 ALB의 규칙을 양쪽 다 고쳐야 하고, 그 둘이 어긋나는 것이 더 비싸다.
   vpc_security_group_ids = [aws_security_group.task.id]
 
-  # 스팟. 회수되면 사이트가 내려가는데, 그 길이가 「새 인스턴스를 받아 띄우는 시간」이
-  # 아니다 — 재고가 없으면 대체가 안 되고 돌아올 때까지다. 실제로 26분 내려갔다
-  # (journal §106). 타입 하나에 AZ 둘이라 풀이 좁은 것이 그 길이를 정한다.
+  # 스팟을 여기서 켜지 않는다. ASG 의 mixed_instances_policy 가 구매 방식을 쥐고 있고,
+  # 둘을 같이 적으면 기동이 거절된다.
   #
-  # 대국 중이었으면 그 판은 aborted 로 닫히고 이어하기가 살린다(journal §51).
-  #
-  # max_price 를 안 적는다. 적으면 시세가 그 위로 오를 때 인스턴스를 못 받는데,
-  # 상한 없는 스팟도 온디맨드 가격을 넘지 않는다 — 상한은 안전장치가 아니라 가동률 손해다.
-  instance_market_options {
-    market_type = "spot"
-
-    spot_options {
-      # 한 대뿐이므로 「중단되면 다시 받는다」가 유일한 전략이다. stop 이나 hibernate 는
-      # 그 인스턴스를 되살리려 하고, 그러면 용량이 돌아올 때까지 계속 내려가 있다.
-      instance_interruption_behavior = "terminate"
-    }
-  }
+  # 대국 중에 회수되면 그 판은 aborted 로 닫히고 이어하기가 살린다(journal §51).
 
   # 크레딧은 T 계열에만 있는 개념이라 다른 계열에 이 블록을 주면 기동이 거절된다.
   # 지금 기본값은 c6g.large 이므로 이 블록은 안 나간다(variables.tf 의 instance_type).
@@ -169,9 +156,34 @@ resource "aws_autoscaling_group" "app" {
   # ALB가 켜진 AZ에만 둔다(local.alb_subnet_ids). ALB는 활성 AZ의 타깃에만
   # 라우팅하므로, 세 번째 서브넷에 뜨면 인스턴스는 정상인데 사이트가 503이다.
 
-  launch_template {
-    id      = aws_launch_template.app.id
-    version = "$Latest"
+  # 타입 여럿을 후보로 준다. 스팟 풀은 「타입 × AZ」 이므로 이것이 가동률을 정한다 —
+  # 하나만 쓰면 그 풀이 마르는 순간 회수와 대체 실패가 같이 온다(journal §109).
+  #
+  # capacity-optimized-prioritized 는 재고가 깊은 풀을 고르되 순서를 힌트로 쓴다.
+  # 회차가 어느 클래스에서 돌았는지를 알아야 용량표를 적을 수 있어서 순서가 필요하다.
+  mixed_instances_policy {
+    instances_distribution {
+      # 전부 스팟이다. 온디맨드로 떨어지게 하려면 on_demand_base_capacity 를 1로 두는데,
+      # 그러면 한 대뿐이라 늘 온디맨드이고 값이 네 배가 된다.
+      on_demand_base_capacity                  = 0
+      on_demand_percentage_above_base_capacity = 0
+      spot_allocation_strategy                 = "capacity-optimized-prioritized"
+    }
+
+    launch_template {
+      launch_template_specification {
+        launch_template_id = aws_launch_template.app.id
+        version            = "$Latest"
+      }
+
+      dynamic "override" {
+        for_each = concat([var.instance_type], var.instance_type_fallbacks)
+
+        content {
+          instance_type = override.value
+        }
+      }
+    }
   }
 
   # ALB 헬스체크를 안 본다(EC2 가 기본값이다). 태스크가 배포 중에 잠깐 내려가는데

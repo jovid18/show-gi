@@ -45,6 +45,22 @@ variable "instance_type" {
   default     = "c6g.large"
 }
 
+variable "instance_type_fallbacks" {
+  description = <<-EOT
+    스팟 재고가 없을 때 대신 받을 타입들. `instance_type` 다음 순서로 시도한다.
+
+    **타입 하나로는 사이트가 재고에 매인다.** 회수 자체가 재고가 마른 신호라 대체도 같이
+    실패한다 — 2026-08-24 에 t4g.small 이 26분, c6g.large 가 1분 내려갔다
+    (journal §106 · §109). 풀이 `타입 수 × AZ 수` 이므로 타입을 늘리는 것이 가장 싼 수단이다.
+
+    **전부 비버스터블 2 vCPU arm64 다.** T 계열을 넣으면 크레딧 절벽이 돌아오고
+    (journal §108) 용량표의 행이 「몇 분 버티나」로 되돌아간다. Graviton3(c7g·m7g)는
+    코어가 더 빠르므로 표의 값은 하한으로 읽는다.
+  EOT
+  type        = list(string)
+  default     = ["c7g.large", "m6g.large", "m7g.large", "r6g.large", "c6gn.large"]
+}
+
 variable "task_cpu" {
   description = <<-EOT
     태스크가 예약하는 CPU 단위(1024 = 1 vCPU). **인스턴스의 vCPU를 넘으면 태스크가 아예
