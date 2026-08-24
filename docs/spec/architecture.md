@@ -19,7 +19,7 @@
 flowchart TB
     B["브라우저<br/>React + TS + three.js"]
 
-    subgraph task["ECS 태스크 하나 (t4g.small 스팟 · ARM64)"]
+    subgraph task["ECS 태스크 하나 (c6g.large 스팟 · ARM64)"]
         C["web 컨테이너<br/>Caddy — 정적 파일 + 프록시"]
         A["api 컨테이너<br/>Go 단일 서비스"]
         E1["USI 탐색 엔진 × 3<br/>YANEURAOU_ENGINE_NNUE"]
@@ -305,7 +305,7 @@ flowchart TB
 
     subgraph vpc["VPC"]
         ALB["ALB<br/>TLS 종료 · 헬스체크 /healthz"]
-        subgraph ec2["EC2 t4g.small 스팟 1대 (ARM64)"]
+        subgraph ec2["EC2 c6g.large 스팟 1대 (ARM64)"]
             subgraph ecs["ECS 태스크 1개"]
                 WEB["web · Caddy"]
                 API["api · Go + 엔진 5 프로세스"]

@@ -154,7 +154,7 @@ flowchart TD
 | エンジン | やねうら王 9.40 + 水匠5。詰み探索には専用 solver を使う                                        |
 | フロント | React + TypeScript + Vite + three.js。合法手の判定はすべてサーバ側                             |
 | DB       | PostgreSQL 17。対局と解析（局面ごとの評価値キャッシュ）を保存                                  |
-| インフラ | AWS ECS on EC2 スポット 1 台（t4g.small / ARM64）+ ALB + RDS + Route53、Terraform、GitHub OIDC |
+| インフラ | AWS ECS on EC2 スポット 1 台（c6g.large / ARM64）+ ALB + RDS + Route53、Terraform、GitHub OIDC |
 
 **対局状態はセッション goroutine 一つが所有します。** 指し直し中に古くなった解析結果は捨て、盤面と説明が食い違わないようにしています。
 

@@ -81,12 +81,19 @@ resource "aws_launch_template" "app" {
     }
   }
 
-  # T 계열은 크레딧으로 돈다. unlimited 이면 크레딧을 넘긴 만큼 vCPU 시간당 따로
-  # 청구되는데, 엔진 탐색이 그것을 태우기 쉬운 모양이다 — 한 수에 CPU를 몰아 쓴다.
-  # standard 는 넘기면 느려지는 대신 청구가 예측 가능하다. 한 사람이 쓰는 서비스에서
-  # 놀라운 청구서보다 잠깐 느린 탐색이 낫다.
-  credit_specification {
-    cpu_credits = "standard"
+  # 크레딧은 T 계열에만 있는 개념이라 다른 계열에 이 블록을 주면 기동이 거절된다.
+  # 지금 기본값은 c6g.large 이므로 이 블록은 안 나간다(variables.tf 의 instance_type).
+  #
+  # T 계열로 되돌릴 때를 위해 standard 를 유지한다. unlimited 이면 크레딧을 넘긴 만큼
+  # vCPU 시간당 따로 청구되는데 엔진 탐색이 그것을 태우기 쉽다 — 한 수에 CPU를 몰아 쓴다.
+  # 다만 standard 의 대가가 절벽이다. 실측으로 8판 계단이 7분 만에 크레딧을 태우고
+  # baseline 20% 로 떨어져 탐색이 0.24초에서 8.5초가 됐다(journal §108).
+  dynamic "credit_specification" {
+    for_each = startswith(var.instance_type, "t") ? [1] : []
+
+    content {
+      cpu_credits = "standard"
+    }
   }
 
   # 루트 볼륨. AMI 스냅샷보다 작게 못 준다 — AL2023 ECS AMI가 30 GiB라 그것이 하한이다.
