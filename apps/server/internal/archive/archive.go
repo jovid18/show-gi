@@ -13,6 +13,9 @@
 // engineDepth) 나머지 넷은 상수라, 캐시가 서로 못 쓰는 두 무리가 된다 — 깊이를 흔들어
 // 볼 때 히트율이 같이 떨어지는 것이 그 때문이다.
 //
+// 詰み 탐색은 같은 겹을 따로 지난다(Mate). 표를 갈라 둔 이유는 017_mate_positions.sql 에
+// 있고, 저쪽은 깊이가 아니라 手数 한계로 갈린다 — 이 파일의 규약이 그쪽에 그대로 안 걸린다.
+//
 // 무엇이 어디에 남는지는 positions·edges 의 DDL(001_init.sql)과 02-architecture.md §4.
 package archive
 

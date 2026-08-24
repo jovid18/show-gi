@@ -167,25 +167,56 @@ func emit(t *testing.T, e *Emitter, now time.Time) map[string]any {
 
 // 안 고른 계열의 예약통도 비워야 한다. 남겨 두면 그 계열은 100개가 찬 뒤로 교체
 // 확률이 0에 붙어, 나중에 그것을 내기 시작하는 날 첫 회차가 기동 무렵 값을 낸다.
+//
+// 예로 쓰는 것이 캐시가 답한 탐색이다. collect 가 computed 만 내므로(분포가 0 근처로
+// 몰리는 것을 막는다) 이쪽이 실제로 안 고르는 계열이다 — 詰み 풀 대기는 [journal §111]
+// 에서 나가기 시작해 더 이상 예가 아니다.
 func TestDrainEmptiesUnpickedSeriesToo(t *testing.T) {
 	r := New("api", "prod")
-	mate := r.Pool(PoolMate)
 	for range maxSamples + 50 {
-		mate.ObserveWait(9*time.Second, usi.BorrowerGame)
+		r.Search().ObserveSearch(9*time.Second, true)
 	}
-	// 회차 하나가 지난다. 낸 것은 탐색 풀뿐이다(collect 가 그것만 고른다).
+	// 회차 하나가 지난다. 낸 것은 엔진을 부른 탐색뿐이다.
 	emit(t, NewEmitter(r, nil), at)
 
-	// 그 뒤에 詰み 풀의 값이 바뀌면, 다음에 그것을 낼 때 새 값이 보여야 한다.
-	mate.ObserveWait(time.Millisecond, usi.BorrowerGame)
-	got := r.PoolWait.DrainSamples(func(l map[string]string) bool { return l["pool"] == PoolMate })
+	// 그 뒤에 캐시가 답한 탐색의 값이 바뀌면, 다음에 그것을 낼 때 새 값이 보여야 한다.
+	r.Search().ObserveSearch(time.Millisecond, true)
+	got := r.SearchDuration.DrainSamples(cached)
 	if len(got) != 1 || got[0] != 0.001 {
-		t.Fatalf("詰み 풀 표본=%v — 안 비워져서 옛 값이 남았다", got)
+		t.Fatalf("캐시가 답한 탐색의 표본=%v — 안 비워져서 옛 값이 남았다", got)
 	}
 }
 
-// 풀 대기를 한 번 비워 둘로 낸다. 합친 것에는 분석·검토가 섞여 있어서, 대국이 실제로
-// 굶었는지는 borrower=game 쪽으로만 읽힌다.
+// 詰み 풀 대기가 EMF 로 나간다. 이것이 없으면 詰み 풀이 줄을 섰는지를 프로덕션 데이터로
+// 알 수 없다 — [journal §110]이 그 자리를 부채로 잡아 뒀다.
+//
+// borrower 로 안 가른다. 풀 크기가 2라 대기가 0보다 큰 것 자체가 포화다.
+func TestEMFEmitsMatePoolWait(t *testing.T) {
+	r := New("api", "prod")
+	mate := r.Pool(PoolMate)
+	mate.ObserveWait(2*time.Second, usi.BorrowerGame)
+	mate.ObserveWait(6*time.Second, usi.BorrowerAnalysis)
+	// 탐색 풀의 값이 섞이면 안 된다.
+	r.Pool(PoolSearch).ObserveWait(time.Millisecond, usi.BorrowerGame)
+
+	doc := emit(t, NewEmitter(r, nil), at)
+	got := doc["MatePoolWaitSeconds"].([]any)
+	if len(got) != 2 {
+		t.Fatalf("MatePoolWaitSeconds=%v — 둘 다 있어야 한다", got)
+	}
+	for _, v := range got {
+		if v == 0.001 {
+			t.Fatalf("MatePoolWaitSeconds=%v — 탐색 풀의 값이 섞였다", got)
+		}
+	}
+	// 반대 방향도 본다. 詰み 값이 탐색 쪽 계열로 새면 그쪽 백분위가 망가진다.
+	if s := doc["EnginePoolWaitSeconds"].([]any); len(s) != 1 || s[0] != 0.001 {
+		t.Fatalf("EnginePoolWaitSeconds=%v, want [0.001] — 詰み 값이 섞였다", s)
+	}
+}
+
+// 풀 대기를 한 번 비워 셋으로 낸다. 합친 것에는 분석·검토가 섞여 있어서, 대국이 실제로
+// 굶었는지는 borrower=game 쪽으로만 읽힌다. 세 번째는 詰み 풀이다(아래).
 func TestEMFSplitsPoolWaitByBorrower(t *testing.T) {
 	r := New("api", "prod")
 	search := r.Pool(PoolSearch)

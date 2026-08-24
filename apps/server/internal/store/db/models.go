@@ -103,6 +103,13 @@ type MatchQueue struct {
 	MatchedAt pgtype.Timestamptz
 }
 
+type MatePosition struct {
+	SFENKey    string
+	DepthLimit int32
+	Moves      []string
+	CreatedAt  pgtype.Timestamptz
+}
+
 type Position struct {
 	SFENKey       string
 	SideToMove    string

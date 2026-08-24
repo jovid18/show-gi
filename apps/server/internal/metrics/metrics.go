@@ -150,6 +150,9 @@ type Registry struct {
 	Searches       *Counter
 	SearchDuration *Histogram
 
+	MateSearches       *Counter
+	MateSearchDuration *Histogram
+
 	WSSessions       *Gauge
 	WSSessionsOpened *Counter
 
@@ -211,6 +214,18 @@ func New(service, environment string) *Registry {
 	// 기다린 시간이다. 엔진 자체가 걸린 시간은 여기서 engine_pool_wait_seconds 를 뺀 것이다.
 	r.SearchDuration = r.NewHistogram("engine_search_duration_seconds",
 		"탐색 하나가 답을 받기까지 걸린 시간(초). 풀 대기를 포함한다", DefaultBuckets, "result")
+
+	// 詰み 탐색을 탐색부와 갈라 센다. 섞으면 위의 두 지표가 뜻을 잃는다 — 詰み 쪽은
+	// 한계까지 다 뒤진 nomate 가 가장 비싸서 분포의 모양이 아예 다르고, 그 두 지표가
+	// 부하 회차의 신호다(journal §106).
+	//
+	// result 는 cached·computed·unproven 이다. unproven 은 checkmate timeout —
+	// solver 를 부르고도 답을 못 얻어 캐시에 안 쌓인 것이라, 이 값이 크면 캐시가
+	// 영원히 안 채워지는 구간이 있다는 뜻이다.
+	r.MateSearches = r.NewCounter("engine_mate_searches_total",
+		"詰み 탐색 요청 수", "result")
+	r.MateSearchDuration = r.NewHistogram("engine_mate_search_duration_seconds",
+		"詰み 탐색 하나가 답을 받기까지 걸린 시간(초). 풀 대기를 포함한다", DefaultBuckets, "result")
 
 	// kind 는 game·match 다. 연결이 아니라 대국 세션을 센다.
 	r.WSSessions = r.NewGauge("ws_sessions_active",
@@ -402,22 +417,31 @@ func (h *Histogram) DrainSamples(pick func(labels map[string]string) bool) []flo
 	return out
 }
 
-// DrainSamplesSplit 은 예약통을 한 번에 비우고 라벨 하나의 값으로 갈라 준다.
+// LabeledSamples 는 계열 하나의 라벨과 표본이다.
+type LabeledSamples struct {
+	Labels  map[string]string
+	Samples []float64
+}
+
+// DrainSamplesAll 은 예약통을 한 번에 비우고 계열마다 갈라 준다.
 //
-// DrainSamples 를 두 번 부를 수 없어서 있다 — 첫 번째 호출이 pick 과 무관하게 예약통을
-// 통째로 비우므로 두 번째는 늘 빈 배열이다. 같은 지표를 갈라서 두 벌 낼 때 이쪽을 쓴다.
+// DrainSamples 를 두 번 부를 수 없어서 있다 — 그쪽은 pick 과 무관하게 예약통을 통째로
+// 비우므로 두 번째 호출이 늘 빈 배열이다. 같은 지표를 여러 벌로 낼 때 이쪽을 쓴다.
 //
-// 솎지 않고 준다. 부르는 쪽이 합쳐서 낼지 갈라서 낼지를 정한 뒤에 솎아야 한다.
-func (h *Histogram) DrainSamplesSplit(
-	pick func(labels map[string]string) bool, by string,
-) map[string][]float64 {
+// 라벨을 그대로 준다. 축 하나로 갈라 주면 두 축이 필요해지는 날 이 함수를 다시 고쳐야
+// 하는데, 풀 대기가 이미 pool·borrower 둘이다.
+//
+// 솎지 않고 준다. 부르는 쪽이 무엇끼리 합칠지 정한 뒤에 솎아야 한다.
+func (h *Histogram) DrainSamplesAll() []LabeledSamples {
 	h.f.mu.Lock()
 	defer h.f.mu.Unlock()
-	out := map[string][]float64{}
+	out := make([]LabeledSamples, 0, len(h.f.order))
 	for _, s := range h.f.order {
-		labels := h.f.labelMap(s)
-		if (pick == nil || pick(labels)) && len(s.samples) > 0 {
-			out[labels[by]] = append(out[labels[by]], s.samples...)
+		if len(s.samples) > 0 {
+			out = append(out, LabeledSamples{
+				Labels:  h.f.labelMap(s),
+				Samples: append([]float64(nil), s.samples...),
+			})
 		}
 		s.samples = s.samples[:0]
 		s.sampled = 0

@@ -43,6 +43,10 @@ const defaultEnginePoolSize = 3
 // 퀴즈 생성이 하나를 오래 잡으므로 대국 쪽에 한 자리를 남긴다.
 const defaultMatePoolSize = 2
 
+// defaultMatePlies 는 詰み 탐색의 手数 한계다. 11인 근거는 01-core.md §2 —
+// 비용이 7·9·11에서 평평해서 11이 詰み을 하나 더 찾고도 값이 같다.
+const defaultMatePlies = 11
+
 func main() {
 	addr := flag.String("addr", ":8080", "listen address")
 	flag.Parse()
@@ -97,13 +101,6 @@ func main() {
 			matePool.Observe(reg.Pool(metrics.PoolMate))
 		}
 
-		// 인터페이스에 nil 포인터를 넣지 않는다. *usi.Pool 이 nil이어도 인터페이스
-		// 값 자체는 non-nil이 되어 == nil 검사를 통과하고, 그 다음 줄에서 죽는다.
-		var mate game.MateSearcher
-		if matePool != nil {
-			mate = matePool
-		}
-
 		// 모든 탐색이 데이터가 된다. 엔진을 부르는 자리가 여섯인데(archive 의 목록) 기록을
 		// 그 여섯에 흩뿌리면 반드시 하나가 빠진다 — 그래서 풀을 한 겹 감싸고 여섯이 같은
 		// 하나를 받는다(internal/archive).
@@ -125,6 +122,25 @@ func main() {
 		// 등록 순서가 곧 종료 순서다(LIFO). 이 줄이 위 defer st.Close() 보다 뒤라서 기록이 다 흘러간 뒤 DB가 닫힌다.
 		defer searcher.Wait()
 
+		// 詰み 탐색도 같은 겹을 지난다. 탐색부와 표를 갈라 둔 이유는 017 의 DDL 에 있고,
+		// 여기서 값을 하는 것은 빌리는 넷이 같은 질문을 겹쳐서 한다는 것이다 — 게이지와
+		// 종반 판정이 같은 국면을 한 手 간격으로, 퀴즈가 판이 끝난 뒤 그 전부를 다시
+		// 묻는다(journal §110).
+		//
+		// 인터페이스에 nil 포인터를 넣지 않는다. *usi.Pool 이 nil이어도 인터페이스 값
+		// 자체는 non-nil이 되어 == nil 검사를 통과하고, 그 다음 줄에서 죽는다.
+		var mate game.MateSearcher
+		if matePool != nil {
+			var mateInto archive.MateStore
+			if opts.Store != nil {
+				mateInto = opts.Store
+			}
+			wrapped := archive.WrapMate(matePool, mateInto, matePlies())
+			wrapped.Observe(reg.MateSearch())
+			defer wrapped.Wait()
+			mate = wrapped
+		}
+
 		opts.NewOpponent = func() game.Opponent {
 			return game.NewAdaptiveOpponent(searcher, engineDepth(), opponentBand())
 		}
@@ -136,9 +152,10 @@ func main() {
 		// 재는 것은 두는 동안 手마다 미리 한다(journal §105). 착수 경로는 그래도 엔진을
 		// 안 지난다 — 미리 재는 것이 논블로킹이라 착수를 막지 않는다.
 		opts.Match.AnalyzeWith(ctx, opts.Store, opts.NewAnalyst, opts.Metrics, analysisWorkers(pool.Size()))
-		// 종반 판정·詰み 게이지·퀴즈의 詰み 트리가 셋 다 이 풀이다. 앞의 둘은 시간상
-		// 겹치지 않지만(판정은 사람의 수 직후, 게이지는 상대의 수 직후) 퀴즈는 판이
-		// 끝나는 자리에서 수십 초를 잡는다 — 그래서 하나로는 모자라다(matePoolSize).
+		// 이 풀을 빌리는 자리가 넷이다 — 종반 판정, 詰み 게이지, 퀴즈의 詰み 트리,
+		// 대인전 사후 분석. 앞의 둘은 시간상 겹치지 않지만(판정은 사람의 수 직후,
+		// 게이지는 상대의 수 직후) 퀴즈는 판이 끝나는 자리에서 수십 초를 잡는다 —
+		// 그래서 하나로는 모자라다(matePoolSize).
 		opts.Mate = mate
 
 		// 가정 수순도 같은 풀이다(internal/server/whatif.go). 대국과 자리를 다투지만,
@@ -347,17 +364,20 @@ func startMateEngines() *usi.Pool {
 		slog.Warn("endgame judgment and the mate gauge are disabled", "reason", "ENGINE_MATE_CMD is not set")
 		return nil
 	}
-	// 소비자가 셋이다 — 종반 판정, 詰み 게이지, 그리고 되짚기 퀴즈의 詰み 트리. 앞 둘은
-	// 시간상 안 겹치지만(판정은 사람의 수 직후, 게이지는 상대의 수 직후) 세 번째가 판이
-	// 끝나는 자리에서 수십 초 동안 풀을 잡는다 — 그래서 기본이 2다(journal §53).
+	// 소비자가 넷이다 — 종반 판정, 詰み 게이지, 되짚기 퀴즈의 詰み 트리, 대인전 사후
+	// 분석. 앞 둘은 시간상 안 겹치지만(판정은 사람의 수 직후, 게이지는 상대의 수 직후)
+	// 세 번째가 판이 끝나는 자리에서 수십 초 동안 풀을 잡는다 — 그래서 기본이 2다
+	// (journal §53). 넷째는 게이트 없이 手마다 부른다(journal §110).
 	//
 	// 「대국 쪽에 늘 한 자리가 남는다」는 아니다. 두 판이 동시에 끝나면 둘이 두 자리를 다
 	// 잡는다. 탐색 하나마다 빌리고 돌려주므로(Pool.Do) 굶는 것이 아니라 줄을 서는 것이고,
 	// 대국 쪽은 그것을 지연으로 겪는다.
 	pool, err := usi.NewPool(matePoolSize(), cmd, map[string]string{
-		"USI_Hash":   envOr("ENGINE_HASH_MB", "128"),
-		"Threads":    envOr("ENGINE_THREADS", "1"),
-		"DepthLimit": envOr("ENGINE_MATE_PLIES", "11"),
+		"USI_Hash": envOr("ENGINE_HASH_MB", "128"),
+		"Threads":  envOr("ENGINE_THREADS", "1"),
+		// 여기서 env 를 직접 읽지 않는다. 같은 값을 캐시도 읽으므로(archive.WrapMate)
+		// 파서가 둘이면 한쪽만 고쳐졌을 때 캐시가 얕은 한계의 답을 깊은 것으로 읽는다.
+		"DepthLimit": strconv.Itoa(matePlies()),
 	})
 	if err != nil {
 		slog.Error("endgame judgment is disabled", "err", err)
@@ -383,6 +403,24 @@ func matePoolSize() int {
 		}
 	}
 	return size
+}
+
+// matePlies 는 solver 의 手数 한계다. 손잡이는 ENGINE_MATE_PLIES 다.
+//
+// 읽는 자리가 둘이라 여기 하나로 모은다 — 풀에 주는 DepthLimit 과 캐시가 견주는 값이다.
+// 캐시 쪽이 이 값으로 「쌓인 답을 쓸 수 있나」를 판단하므로, 두 값이 갈리면 한계 9의
+// 「詰み이 없다」를 한계 11의 답으로 쓴다(archive.Mate.lookup).
+func matePlies() int {
+	plies := defaultMatePlies
+	if v := os.Getenv("ENGINE_MATE_PLIES"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			slog.Warn("bad ENGINE_MATE_PLIES", "value", v, "using", plies)
+		} else {
+			plies = n
+		}
+	}
+	return plies
 }
 
 // engineOptions 는 엔진 전체에 거는 설정이다. 대국마다 달라지는 값은 여기 두지 않는다.
