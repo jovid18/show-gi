@@ -242,13 +242,17 @@ func startEmitter(reg *metrics.Registry) func() {
 
 // analysisWorkers 는 사후 분석을 동시에 몇 갈래로 돌릴지다. 손잡이는 ANALYSIS_WORKERS 다.
 //
-// 기본이 풀보다 하나 적다. 분석은 대국과 같은 풀에서 엔진을 빌리므로(archive.Wrap 하나를
-// 여섯이 나눠 쓴다) 전부 가져가면 사람이 두는 판이 엔진을 기다린다 — 하나는 늘 남긴다.
+// 기본이 풀 크기다. 분석은 대국과 같은 풀에서 엔진을 빌리는데(archive.Wrap 하나를 여섯이
+// 나눠 쓴다), 그래도 다 가져가도 되는 이유는 풀이 우선순위로 빌려주기 때문이다 —
+// 사람이 기다리는 요청이 분석보다 먼저 받는다(usi.priorityOf).
 //
-// 풀이 커지면 이 값도 같이 커진다. 그것이 이 함수가 상수가 아닌 이유다: vCPU 를 올려도
-// 워커가 하나면 사후 분석 층은 그대로였다(journal §106).
+// 하나 적게 두는 쪽을 먼저 지었다가 걷었다. 예약이 아니라 상한이라, 라이브 대국이 둘이면
+// 남긴 하나를 서로 기다린다 — 지연은 안 막고 처리량만 깎았다(journal §106).
+//
+// 풀이 커지면 이 값도 같이 커진다. 그것이 이 함수가 상수가 아닌 이유다: 워커가 하나면
+// vCPU 를 올려도 사후 분석 층은 그대로였다(journal §106).
 func analysisWorkers(poolSize int) int {
-	n := max(poolSize-1, 1)
+	n := max(poolSize, 1)
 	if v := os.Getenv("ANALYSIS_WORKERS"); v != "" {
 		got, err := strconv.Atoi(v)
 		if err != nil || got < 1 {

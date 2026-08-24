@@ -240,3 +240,104 @@ func TestPoolReportsBorrower(t *testing.T) {
 		t.Fatalf("borrowers=%v, want [%s]", m.borrowers, BorrowerAnalysis)
 	}
 }
+
+// 사람이 기다리는 쪽이 먼저 받는다. 사후 분석이 풀을 다 쓰고 있어도 착수가 그 뒤로
+// 밀리지 않는 것이 이 줄의 이유다(journal §106).
+func TestAPersonWaitingGetsTheEngineFirst(t *testing.T) {
+	p := newFakePool(t, 1)
+
+	held, err := p.Acquire(t.Context())
+	if err != nil {
+		t.Fatalf("Acquire: %v", err)
+	}
+
+	// 분석이 먼저 줄에 선다. 채널이라면 이쪽이 먼저 받는다.
+	got := make(chan string, 2)
+	analysis := make(chan struct{})
+	go func() {
+		close(analysis)
+		e, err := p.Acquire(WithBorrower(t.Context(), BorrowerAnalysis))
+		if err != nil {
+			return
+		}
+		got <- BorrowerAnalysis
+		p.Release(e)
+	}()
+	<-analysis
+	waitForWaiters(t, p, 1, 1)
+
+	// 그 뒤에 대국이 선다.
+	game := make(chan struct{})
+	go func() {
+		close(game)
+		e, err := p.Acquire(WithBorrower(t.Context(), BorrowerGame))
+		if err != nil {
+			return
+		}
+		got <- BorrowerGame
+		p.Release(e)
+	}()
+	<-game
+	waitForWaiters(t, p, 0, 1)
+
+	p.Release(held)
+
+	select {
+	case first := <-got:
+		if first != BorrowerGame {
+			t.Errorf("first = %q, want %q", first, BorrowerGame)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("nobody got the engine")
+	}
+}
+
+// waitForWaiters 는 그 줄에 n 명이 설 때까지 기다린다. goroutine 이 Acquire 안까지
+// 들어갔는지를 밖에서 알 방법이 그것뿐이다.
+func waitForWaiters(t *testing.T, p *Pool, prio, n int) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		p.mu.Lock()
+		got := len(p.waiting[prio])
+		p.mu.Unlock()
+		if got >= n {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("waiting[%d] never reached %d", prio, n)
+}
+
+// 기다리다 그만둔 사람이 엔진을 들고 사라지지 않는다. 넘겨주는 쪽이 이미 골랐는데
+// 받는 쪽이 포기하면 그 엔진은 아무 줄에도 없게 된다.
+func TestGivingUpWhileBeingHandedAnEngineDoesNotLoseIt(t *testing.T) {
+	p := newFakePool(t, 1)
+
+	held, err := p.Acquire(t.Context())
+	if err != nil {
+		t.Fatalf("Acquire: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() {
+		_, err := p.Acquire(ctx)
+		done <- err
+	}()
+	waitForWaiters(t, p, 0, 1)
+
+	// 포기와 넘겨주기를 같이 일으킨다. 어느 쪽이 이기든 엔진은 풀에 남아야 한다.
+	cancel()
+	p.Release(held)
+	<-done
+
+	// 풀이 온전하면 다시 빌릴 수 있다.
+	ctx2, cancel2 := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel2()
+	back, err := p.Acquire(ctx2)
+	if err != nil {
+		t.Fatalf("the engine did not come back: %v", err)
+	}
+	p.Release(back)
+}
