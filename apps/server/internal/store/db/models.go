@@ -8,6 +8,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AnalysisPly struct {
+	MatchID   string
+	Ply       int32
+	StartSfen string
+	Moves     []string
+	Dead      bool
+	ClaimedAt pgtype.Timestamptz
+	DoneAt    pgtype.Timestamptz
+	BeforeCp  *int32
+	AfterCp   *int32
+	Blunder   *bool
+	DeltaWin  *float64
+	Threshold *float64
+	Decided   *bool
+	CreatedAt pgtype.Timestamptz
+}
+
 type Edge struct {
 	ParentKey   string
 	USI         string
