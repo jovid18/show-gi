@@ -146,6 +146,43 @@ resource "aws_cloudwatch_metric_alarm" "engine_pool_wait" {
   treat_missing_data = "notBreaching"
 }
 
+# 사후 분석이 밀린다. 위의 engine_pool_wait 은 이 상태를 못 본다 — 대인전 포화에서
+# 사람의 풀 대기는 표본이 아예 0이었다(journal §107 · §108). 병목이 풀이 아니라
+# 「엔진이 낼 수 있는 탐색 수」라서, 대국은 우선줄이라 안 밀리고 분석만 줄을 선다.
+#
+# 그래서 신호가 계열이 다르다. 이른 것은 EngineSearchSeconds 이고(대시보드가 맡는다)
+# 확정은 이 값의 지속 증가다. 실측으로 갈리는 폭이 넓다 — 6판이 최고 13에 0으로
+# 돌아오고, 8판은 4분째에 140을 넘겨 756까지 단조로 자랐다(journal §108).
+#
+# 임계 100 은 그 사이에 둔다. 6판은 근처에도 안 가고 8판은 4분째에 넘긴다.
+#
+# 5분을 다 요구하는 것은 봉우리를 거르기 위해서다. 판이 끝나는 순간 아직 안 잰 手가
+# 한꺼번에 들어오므로(journal §105) 단발로 100을 넘는 것은 정상이다 — 5분을 넘겨
+# 머무르는 것이 「따라가지 못하고 있다」다.
+#
+# 태스크가 둘이 되면 이 알람이 틀린다. 큐가 프로세스 안의 채널이라 값이 합이 아니라
+# 한 대의 줄이다(journal §101) — 스케일아웃보다 그것이 먼저다.
+resource "aws_cloudwatch_metric_alarm" "analysis_backlog" {
+  alarm_name          = "show-gi-analysis-backlog"
+  alarm_description   = "사후 분석 줄이 5분 내내 100手를 넘었다. 되짚기가 그만큼 늦게 준비된다 — 박스의 탐색 처리량이 도착을 못 따라가는 자리다(journal §108)"
+  namespace           = "show-gi"
+  metric_name         = "AnalysisBacklogPlies"
+  statistic           = "Maximum"
+  period              = 60
+  evaluation_periods  = 5
+  datapoints_to_alarm = 5
+  threshold           = 100
+  comparison_operator = "GreaterThanThreshold"
+
+  dimensions = { Service = "api", Environment = "prod" }
+
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
+
+  # 아무도 안 두면 지표가 안 나온다. 조용한 것은 위반이 아니다.
+  treat_missing_data = "notBreaching"
+}
+
 # ─── 스팟이 회수되기 전에 알기 ───────────────────────────────
 
 # 지표 알람으로는 회수를 미리 못 안다. HealthyHostCount 가 결측이 된 뒤에야 위반이

@@ -30,14 +30,19 @@ variable "instance_type" {
   description = <<-EOT
     ECS 컨테이너 인스턴스의 타입. **arm64여야 한다** — 엔진이 arm64 Debian 바이너리다.
 
-    t4g.small(2 vCPU / 2 GiB)이 실용 하한이다. t4g.micro는 1 GiB라 엔진 세 개와 Go 힙이
-    들어가면 탐색 중에 OOM 위험이 남고, 아끼는 것이 월 $8뿐이다.
+    **버스터블(T 계열)을 쓰지 않는다.** 엔진 탐색이 CPU를 계속 몰아 써서 크레딧이 마르고,
+    그러면 AWS가 baseline 20%로 조인다 — 실측으로 탐색이 0.24초에서 8.5초가 됐다
+    (journal §108). T 계열에서 「N판 된다」는 「N판을 몇 분 된다」라서 용량표에 적을 수 없다.
 
-    올릴 때는 `task_memory` 도 같이 올린다 — 둘이 갈리면 인스턴스는 커졌는데 태스크가
-    옛 값만 예약해서 남는 메모리를 아무도 안 쓴다.
+    c6g.large(2 vCPU / 4 GiB)가 그 자리를 대신한다. 지속 vCPU 당 값으로는 t4g.small 보다
+    싸다 — 크레딧이 마른 t4g.small 이 0.4 vCPU 라서다. m6g.large 는 같은 2 vCPU 에 8 GiB 라
+    안 쓰는 RAM 값을 더 낸다.
+
+    올릴 때 `task_memory` 는 따라 올리지 않아도 된다. 엔진이 쓰는 양은 `ENGINE_HASH_MB` 가
+    정하고 그 값이 그대로이므로, 늘려 봐야 아무도 안 쓴다.
   EOT
   type        = string
-  default     = "t4g.small"
+  default     = "c6g.large"
 }
 
 variable "task_cpu" {
@@ -45,7 +50,7 @@ variable "task_cpu" {
     태스크가 예약하는 CPU 단위(1024 = 1 vCPU). **인스턴스의 vCPU를 넘으면 태스크가 아예
     배치되지 않는다** — Fargate처럼 임의의 조합을 고르는 것이 아니라 실제 하드웨어에서 뺀다.
 
-    t4g.small이 2 vCPU라 2048이 상한이고, 그것을 다 쓴다 — 태스크가 하나뿐이라 남겨 둘
+    c6g.large가 2 vCPU라 2048이 상한이고, 그것을 다 쓴다 — 태스크가 하나뿐이라 남겨 둘
     이유가 없고, 엔진 탐색은 주는 만큼 쓴다.
   EOT
   type        = string
@@ -56,8 +61,9 @@ variable "task_memory" {
   description = <<-EOT
     태스크가 예약하는 메모리(MiB). **인스턴스에서 실제로 빠지는 값이다.**
 
-    t4g.small은 2048 MiB인데 OS와 ECS 에이전트가 먹고 남는 것이 ~1750 MiB라, 그보다 크게
-    적으면 태스크가 배치되지 않는다. 1536은 그 안에서 여유를 200 MiB 남긴 값이다.
+    c6g.large는 4096 MiB라 1536이 넉넉히 들어간다. 이 값을 안 올리는 이유는 엔진이 쓰는
+    양이 `ENGINE_HASH_MB` 로 정해져서다 — 예약만 늘리면 남는 것을 아무도 안 쓴다.
+    t4g.small(2048 MiB)에서는 OS와 ECS 에이전트가 먹고 남는 ~1750 MiB 가 상한이었다.
 
     엔진이 쓰는 양은 `ENGINE_POOL_SIZE` · `ENGINE_MATE_POOL_SIZE` · `ENGINE_HASH_MB` 로
     정해진다(ecs.tf의 그 자리). **이 값만 올리면 안 늘어난다.**
