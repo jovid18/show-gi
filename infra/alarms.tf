@@ -145,3 +145,88 @@ resource "aws_cloudwatch_metric_alarm" "engine_pool_wait" {
   # 아무도 안 두는 시간에는 표본이 없어 지표가 안 나온다. 조용한 것은 위반이 아니다.
   treat_missing_data = "notBreaching"
 }
+
+# ─── 스팟이 회수되기 전에 알기 ───────────────────────────────
+
+# 지표 알람으로는 회수를 미리 못 안다. HealthyHostCount 가 결측이 된 뒤에야 위반이
+# 되므로 위 no_healthy_target 은 실측으로 12분 늦게 울렸다(journal §107).
+#
+# AWS 가 EventBridge 로 두 가지를 미리 준다. 지표가 아니라 이벤트라 알람으로 못 받고,
+# 그래서 여기만 EventBridge 를 쓴다.
+#
+#   EC2 Instance Rebalance Recommendation  회수 위험이 높아졌다 (보통 가장 이르다)
+#   EC2 Spot Instance Interruption Warning 회수 2분 전
+#
+# 2분으로 용량을 못 구해 온다. 값은 「왜 내려갔나」를 나중에 추측하지 않는 것과,
+# 부하 회차 도중이면 그 회차가 곧 무효가 되는 것을 그 자리에서 아는 것이다 — 계단
+# 하나가 8분인데 박스가 12분을 산 날이 있었다(journal §107).
+resource "aws_sns_topic" "spot" {
+  name = "show-gi-spot"
+}
+
+# 알람 토픽에 얹지 않는다. 두 가지 이유이고 둘 다 실무적이다.
+#
+# 첫째, 알람 토픽에는 정책 리소스가 없어서 AWS 기본 정책으로 돌고 있다. EventBridge 를
+# 붙이려면 정책을 명시해야 하는데, 그 순간 기본 정책이 대체되어 지금 오는 알람 메일이
+# 조용히 끊길 수 있다.
+#
+# 둘째, 스팟 이벤트는 시끄럽다 — 하루에 다섯 번 뜬 날이 있다. 갈라 두면 이쪽만 끌 수 있다.
+resource "aws_sns_topic_subscription" "spot_email" {
+  count = var.alarm_email == "" ? 0 : 1
+
+  topic_arn = aws_sns_topic.spot.arn
+  protocol  = "email"
+  endpoint  = var.alarm_email
+}
+
+# EventBridge 가 이 토픽에 넣을 수 있게 한다. 기본 정책은 계정 안의 주체만 허용하고
+# 서비스 주체는 안 들어가 있어서, 이 문장이 없으면 규칙이 조용히 아무것도 안 한다.
+data "aws_iam_policy_document" "spot_topic" {
+  statement {
+    actions   = ["SNS:Publish"]
+    resources = [aws_sns_topic.spot.arn]
+
+    principals {
+      type        = "Service"
+      identifiers = ["events.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_sns_topic_policy" "spot" {
+  arn    = aws_sns_topic.spot.arn
+  policy = data.aws_iam_policy_document.spot_topic.json
+}
+
+# 계정 전체의 스팟 이벤트를 받는다. 인스턴스 id 로 좁히지 않는 이유는 그 id 가 회수마다
+# 바뀌기 때문이다 — 이 계정에 스팟은 이 서비스뿐이라 좁힐 것이 없다.
+resource "aws_cloudwatch_event_rule" "spot_interruption" {
+  name        = "show-gi-spot-interruption"
+  description = "스팟 회수 2분 전 통보와 재조정 권고"
+
+  event_pattern = jsonencode({
+    source = ["aws.ec2"]
+    "detail-type" = [
+      "EC2 Spot Instance Interruption Warning",
+      "EC2 Instance Rebalance Recommendation",
+    ]
+  })
+}
+
+# 메일로 읽을 수 있게 바꿔서 보낸다. 원본 이벤트를 그대로 보내면 JSON 한 덩어리가 와서
+# 무슨 일인지 읽는 데 시간이 걸린다.
+resource "aws_cloudwatch_event_target" "spot_to_sns" {
+  rule      = aws_cloudwatch_event_rule.spot_interruption.name
+  target_id = "sns"
+  arn       = aws_sns_topic.spot.arn
+
+  input_transformer {
+    input_paths = {
+      kind     = "$.detail-type"
+      instance = "$.detail.instance-id"
+      at       = "$.time"
+    }
+    # 따옴표가 있어야 SNS 가 문자열로 받는다. 없으면 규칙이 유효하지 않다.
+    input_template = "\"<kind> — <instance> at <at>\""
+  }
+}
