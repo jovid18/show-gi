@@ -158,16 +158,19 @@ resource "aws_autoscaling_group" "app" {
 
   # 타입 여럿을 후보로 준다. 스팟 풀은 「타입 × AZ」 이므로 이것이 가동률을 정한다 —
   # 하나만 쓰면 그 풀이 마르는 순간 회수와 대체 실패가 같이 온다(journal §109).
-  #
-  # capacity-optimized-prioritized 는 재고가 깊은 풀을 고르되 순서를 힌트로 쓴다.
-  # 회차가 어느 클래스에서 돌았는지를 알아야 용량표를 적을 수 있어서 순서가 필요하다.
   mixed_instances_policy {
     instances_distribution {
-      # 전부 스팟이다. 온디맨드로 떨어지게 하려면 on_demand_base_capacity 를 1로 두는데,
-      # 그러면 한 대뿐이라 늘 온디맨드이고 값이 네 배가 된다.
-      on_demand_base_capacity                  = 0
+      # 한 대뿐이라 base 가 1이면 통째로 온디맨드이고 0이면 통째로 스팟이다. 지금 값과
+      # 되돌릴 조건은 variables.tf 의 on_demand_base_capacity 에 있다.
+      on_demand_base_capacity                  = var.on_demand_base_capacity
       on_demand_percentage_above_base_capacity = 0
-      spot_allocation_strategy                 = "capacity-optimized-prioritized"
+
+      # 온디맨드는 override 순서대로 고른다. 회차가 어느 클래스에서 돌았는지가 용량표의
+      # 행을 정하므로 값이 재고에 따라 흔들리면 안 된다.
+      on_demand_allocation_strategy = "prioritized"
+
+      # 스팟은 재고가 깊은 풀을 고르되 순서를 힌트로 쓴다. base 가 1인 동안은 안 쓰인다.
+      spot_allocation_strategy = "capacity-optimized-prioritized"
     }
 
     launch_template {

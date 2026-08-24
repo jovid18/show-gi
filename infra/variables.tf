@@ -61,6 +61,21 @@ variable "instance_type_fallbacks" {
   default     = ["c7g.large", "m6g.large", "m7g.large", "r6g.large", "c6gn.large"]
 }
 
+variable "on_demand_base_capacity" {
+  description = <<-EOT
+    온디맨드로 받을 최소 대수. 1이면 한 대뿐인 이 ASG 가 통째로 온디맨드다.
+
+    **부하 회차 동안만 1이다.** 스팟이 80분에 네 번 가져갔고 회수 하나가 약 9분 장애다
+    (journal §109) — 계단이 8~15분이라 회차가 회수를 밟을 확률이 높고, 그러면 잰 것이
+    용량이 아니라 회수 복구 시간이 된다. c6g.large 온디맨드가 하루 $2.15 라 이틀 회차의
+    차액이 $3 쯤이고, 그것이 회차 하나를 다시 도는 값보다 싸다.
+
+    **회차가 끝나면 0으로 되돌린다.** 상시로 두면 값이 네 배다.
+  EOT
+  type        = number
+  default     = 1
+}
+
 variable "task_cpu" {
   description = <<-EOT
     태스크가 예약하는 CPU 단위(1024 = 1 vCPU). **인스턴스의 vCPU를 넘으면 태스크가 아예
@@ -77,19 +92,15 @@ variable "task_memory" {
   description = <<-EOT
     태스크가 예약하는 메모리(MiB). **인스턴스에서 실제로 빠지는 값이다.**
 
-    c6g.large는 4096 MiB이고 OS와 ECS 에이전트를 빼면 ~3800 MiB가 남는다. 3072는 그 안에서
-    여유를 700 MiB 남긴 값이다.
-
-    1536에서 올린 이유는 `ENGINE_POOL_SIZE` 를 4로 올렸기 때문이다 — 엔진 하나가
-    NNUE 63MB + 해시를 잡으므로 탐색 4 + mate 1 이면 ~635 MB 이고, 거기에 Go 힙과 Caddy가
-    더해진다. **엔진이 쓰는 양은 여전히 풀 크기와 `ENGINE_HASH_MB` 가 정한다** — 이 값만
-    올리면 남는 것을 아무도 안 쓴다.
+    c6g.large는 4096 MiB라 1536이 넉넉히 들어간다. 3072까지 올렸다가 되돌렸다 —
+    `ENGINE_POOL_SIZE` 를 4로 올린 회차에 맞춘 값이었고, 그 회차가 이득이 없어
+    풀이 2로 돌아왔다(journal §110). 탐색 2 + mate 1 이면 ~380 MB 다.
 
     엔진이 쓰는 양은 `ENGINE_POOL_SIZE` · `ENGINE_MATE_POOL_SIZE` · `ENGINE_HASH_MB` 로
     정해진다(ecs.tf의 그 자리). **이 값만 올리면 안 늘어난다.**
   EOT
   type        = string
-  default     = "3072"
+  default     = "1536"
 }
 
 variable "image_tag" {

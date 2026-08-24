@@ -34,7 +34,9 @@ import (
 // 두 판이 동시에 끝나면 진행 중인 대국의 착수가 그만큼 뒤로 밀린다. 그래도 안 올린 것은
 // 그 지연이 대국을 멈추지 않기 때문이다(mate 풀과 달리 여기는 원래도 여럿이 다툰다).
 // 올릴 자리는 태스크 정의의 ENGINE_POOL_SIZE 다.
-// Fargate에 4 vCPU를 준 이유가 이것이고, 느려지면 태스크 정의만 바꿔 올린다.
+//
+// 프로덕션은 2다. 코어가 2개뿐이고, 슬롯만 늘리면 대기가 탐색 시간으로 옮겨갈 뿐인 것을
+// 4로 재 봤다(journal §110). 올리는 것은 코어를 늘릴 때 같이 한다.
 const defaultEnginePoolSize = 3
 
 // defaultMatePoolSize 는 詰将棋 solver 의 기본 개수다. 2인 이유는 startMateEngines 에 있다 —

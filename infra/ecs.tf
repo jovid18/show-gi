@@ -181,13 +181,15 @@ resource "aws_ecs_task_definition" "app" {
       # 운영 손잡이(ENGINE_POOL_SIZE·ENGINE_HASH_MB 등)는 여기 둬도 된다.
       # 이미지 안에 없는 값이라 덮어쓸 대상이 없다.
       #
-      # 탐색 풀이 4다. 2였을 때 대인전 6판·엔진 4판에서 선이 그어졌는데 그 포화에서
-      # CPU 가 평균 71.7% 밖에 안 찼다(journal §109) — 천장이 vCPU 가 아니라 이 값일
-      # 수 있어서 올려 본다. `ANALYSIS_WORKERS` 기본값이 이 값이므로 분석 워커도 같이 4다.
+      # 탐색 풀이 2다. 4로 올려 재 봤고 이득이 없어 되돌렸다(journal §110).
       #
-      # 엔진 하나가 NNUE 63MB + 해시를 통째로 잡는다(internal/usi.Pool). 탐색 4 + mate 1 에
-      # 해시 64MB 면 ~635MB 이고, 여기에 Go 힙과 Caddy 가 더해진다 — task_memory 를 같이
-      # 올린 이유가 그것이다(variables.tf).
+      # 올릴 이유가 없는 것이 구조로 정해져 있다. 빌린 구간이 탐색 하나뿐이고(usi.Pool.Do
+      # 가 Acquire·탐색·Release 를 붙여 두고 DB 는 그 밖이다) 그 탐색이 CPU 바운드라,
+      # 슬롯을 코어보다 많이 줘도 같은 CPU 를 잘게 쪼개는 것뿐이다.
+      #
+      # 실측이 둘 다 그것을 말한다. 엔진 6판은 풀 대기 p95 가 8.52초에서 3.48초로
+      # 내려가는 대신 탐색 p95 가 7~20초로 올라갔고 CPU 는 99% 에서 99% 였다. 대인전
+      # 8판은 풀 대기가 매분 표본 100개에 p95 0.000 이었다 — 경합조차 없던 자원이다.
       #
       # 해시는 안 건드린다. 치환표 크기가 바뀌면 같은 국면의 탐색 결과가 달라져서
       # 앞 회차와 대조가 깨진다.
@@ -197,7 +199,7 @@ resource "aws_ecs_task_definition" "app" {
       # Environment 차원이 되므로, 이 값을 바꾸면 알람의 dimensions 도 같이 바꾼다
       # (infra/alarms.tf).
       environment = [
-        { name = "ENGINE_POOL_SIZE", value = "4" },
+        { name = "ENGINE_POOL_SIZE", value = "2" },
         { name = "ENGINE_MATE_POOL_SIZE", value = "1" },
         { name = "ENGINE_HASH_MB", value = "64" },
         { name = "ENVIRONMENT", value = "prod" },
