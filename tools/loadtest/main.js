@@ -42,6 +42,29 @@ function scenarios() {
   return { engine: engineScenario, match: matchScenario };
 }
 
+// scenarioSplit 은 시나리오별 하위 지표를 요약에 찍히게 한다.
+//
+// k6 는 태그가 붙은 하위 지표를 임계치로 선언해야 요약에 넣는다. 그래서 늘 통과하는
+// 조건을 선언으로 쓴다 — 게이트가 아니고, 표본이 0이어도 0으로 찍히고 통과한다.
+//
+// MODE=both 에서만 붙인다. 그 회차의 물음이 「둘이 서로 굶히나」인데 합친 move_cycle
+// 하나로는 답할 수 없어서다(journal §113). 한 갈래만 도는 회차는 전체가 곧 그 갈래다.
+function scenarioSplit() {
+  if (MODE !== 'both') {
+    return {};
+  }
+  const split = {};
+  for (const name of ['engine', 'match']) {
+    // 사람이 기다린 시간. 이 회차에서 갈라 볼 값이 이것 하나다 — 나머지 셋은 그 값을
+    // 몇 판·몇 手에서 잰 것인지 읽는 데 쓴다.
+    split[`showgi_move_cycle{scenario:${name}}`] = ['p(95)>=0'];
+    split[`showgi_games{scenario:${name}}`] = ['count>=0'];
+    split[`showgi_plies{scenario:${name}}`] = ['count>=0'];
+    split[`showgi_stalls{scenario:${name}}`] = ['count>=0'];
+  }
+  return split;
+}
+
 export const options = {
   scenarios: scenarios(),
   thresholds: {
@@ -50,6 +73,7 @@ export const options = {
     // 스스로 끊는 장치. 프로덕션에는 레이트 리밋이 아무 데도 없어서(Caddy·ALB·앱)
     // 막아 줄 것이 없다 — 5xx 가 늘면 회차가 스스로 멈춘다.
     http_req_failed: [{ threshold: 'rate<0.05', abortOnFail: true, delayAbortEval: '30s' }],
+    ...scenarioSplit(),
   },
 };
 
