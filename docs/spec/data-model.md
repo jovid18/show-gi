@@ -2,7 +2,7 @@
 
 **이 문서는 「무엇이 어떻게 생겼나」다.** 왜 그 모양인가는 [02-architecture §4](../02-architecture.md#4-데이터-모델--그래프-db를-쓰지-않는-이유)에 있고, 여기서 다시 쓰지 않는다 — 두 벌이면 한쪽이 조용히 낡는다.
 
-정본은 `apps/server/internal/store/migrations/*.sql` 이고, 이 문서는 그 16개 파일을 한 장으로 본 것이다. **레포에 파일이 있는 것과 프로덕션에 적용된 것은 다르다** — 어디까지 적용됐는지는 [06-status §3](../06-status.md).
+정본은 `apps/server/internal/store/migrations/*.sql` 이고, 이 문서는 그 18개 파일을 한 장으로 본 것이다. **레포에 파일이 있는 것과 프로덕션에 적용된 것은 다르다** — 어디까지 적용됐는지는 [06-status §3](../06-status.md).
 
 ---
 
@@ -148,19 +148,46 @@ erDiagram
         text_array tags "아직 아무도 안 채운다"
         int_array eval_by_depth "先手 관점 · d1..d12"
     }
+
+    mate_positions {
+        text sfen_key PK "positions 와 같은 형태 · FK 는 안 건다"
+        int depth_limit "이 답을 낸 solver 의 手数 한계"
+        text_array moves "증명된 수순 · 빈 배열이 증명된 「없다」"
+        timestamptz created_at
+    }
+
+    analysis_plies {
+        text match_id PK "방 id · FK 는 안 건다"
+        int ply PK
+        text start_sfen "재는 데 필요한 입력"
+        text_array moves "moves[:ply]"
+        boolean dead "미리 재는 것을 그만뒀다"
+        timestamptz claimed_at "리스"
+        timestamptz done_at "NULL = 밀린 手"
+        int before_cp "先手 관점"
+        int after_cp "先手 관점"
+        boolean blunder "skill.Move 가 먹는 값 넷"
+        float delta_win
+        float threshold
+        boolean decided
+        timestamptz created_at
+    }
 ```
 
 ---
 
 ## 2. 세 덩어리로 갈린다
 
-표가 12개인데 **서로 안 닿는 세 덩어리**다. 이 경계가 이 스키마의 전부다.
+표가 14개인데 **서로 안 닿는 네 덩어리**다. 이 경계가 이 스키마의 전부다.
 
-| 덩어리                  | 표                                                                                      | 키가 무엇인가 | 사람에 매여 있나     |
-| ----------------------- | --------------------------------------------------------------------------------------- | ------------- | -------------------- |
-| **사람** (4)            | `users` · `skill_profile` · `explore_snapshots` · `match_queue`                         | `user_id`     | 그렇다               |
-| **판** (6)              | `games` · `game_moves` · `interventions` · `game_undos` · `game_hints` · `game_quizzes` | `game_id`     | `games.user_id` 로만 |
-| **국면** (2, 엔진 캐시) | `positions` · `edges`                                                                   | `sfen_key`    | **아니다**           |
+| 덩어리                  | 표                                                                                      | 키가 무엇인가     | 사람에 매여 있나     |
+| ----------------------- | --------------------------------------------------------------------------------------- | ----------------- | -------------------- |
+| **사람** (4)            | `users` · `skill_profile` · `explore_snapshots` · `match_queue`                         | `user_id`         | 그렇다               |
+| **판** (6)              | `games` · `game_moves` · `interventions` · `game_undos` · `game_hints` · `game_quizzes` | `game_id`         | `games.user_id` 로만 |
+| **국면** (3, 엔진 캐시) | `positions` · `edges` · `mate_positions`                                                | `sfen_key`        | **아니다**           |
+| **작업 줄** (1)         | `analysis_plies`                                                                        | `(match_id, ply)` | **아니다**           |
+
+**작업 줄은 넷째 덩어리다.** `analysis_plies` 하나이고 키가 `(match_id, ply)` 다 — 사람에도 판 번호에도 안 매인다. 수명이 다른 셋과 다르다: **판이 끝나면 걷힌다**(`DiscardAnalysisMatch`). 기록이 아니라 아직 안 한 일이라서다.
 
 **국면 덩어리에 `user_id`도 `game_id`도 없다.** cp는 手番 관점, `tags`는 둔 쪽 기준이라 A가 잰 국면이 B에게 그대로 유효하다 — 그래서 로그인이 붙어도 여기는 권한 검사 대상이 아니다. 판 덩어리는 반대다.
 
@@ -299,6 +326,8 @@ USI 엔진이 iterative deepening 중 `info depth 1 … / info depth 2 …` 를 
 | `014` | `skill_profile.skill_abs_loss` · `skill_abs_samples` | 칸 추가            |
 | `015` | `explore_snapshots`                                  | 표 추가            |
 | `016` | `match_queue` + 부분 인덱스                          | 표 추가            |
+| `017` | `mate_positions`                                     | 표 추가            |
+| `018` | `analysis_plies` + 부분 인덱스                       | 표 추가            |
 
 **`011` 을 뺀 전부가 추가만 한다.** 그래서 워크트리를 병렬로 돌려도 다른 세션의 서버가 모른 채 그냥 돈다 — `DROP`·`RENAME`·`NOT NULL` 추가는 남의 서버를 그 자리에서 깨뜨리므로 혼자 돌린다.
 
