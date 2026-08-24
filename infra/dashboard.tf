@@ -46,7 +46,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 12
         height = 6
         properties = {
-          title  = "엔진 풀 대기 — 대국만 vs 전부 (초)"
+          title  = "엔진 풀 대기 (초) — 탐색: 대국만 vs 전부 · 詰み"
           region = var.aws_region
           view   = "timeSeries"
           period = local.dash_period
@@ -54,6 +54,10 @@ resource "aws_cloudwatch_dashboard" "main" {
             concat(["show-gi", "EnginePoolWaitGameSeconds"], local.dash_dims, [{ stat = "p95", label = "대국 p95" }]),
             concat(["show-gi", "EnginePoolWaitGameSeconds"], local.dash_dims, [{ stat = "Maximum", label = "대국 max" }]),
             concat(["show-gi", "EnginePoolWaitSeconds"], local.dash_dims, [{ stat = "p95", label = "전부 p95" }]),
+            # 詰み 풀을 같은 판에 그린다. 단위가 같고 묻는 것도 같다 — 어느 풀이 굶는가다.
+            # 크기가 2라 이 선이 0에서 뜨는 순간이 곧 포화다(journal §111).
+            concat(["show-gi", "MatePoolWaitSeconds"], local.dash_dims, [{ stat = "p95", label = "詰み p95" }]),
+            concat(["show-gi", "MatePoolWaitSeconds"], local.dash_dims, [{ stat = "Maximum", label = "詰み max" }]),
           ]
           # 알람과 같은 선을 긋는다. 임계치가 아직 실측이 아니라(alarms.tf) 이 선의 일은
           # 「평상시가 어디에 있나」를 눈에 보이게 하는 것이다.
@@ -160,6 +164,28 @@ resource "aws_cloudwatch_dashboard" "main" {
           # 0이 정상인 화면이라 축을 고정한다. 자동 축은 0만 있는 구간에서 눈금을 확대해
           # 아무 일도 없는 날의 그래프가 요동치는 것처럼 보인다.
           yAxis = { left = { min = 0 } }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 21
+        width  = 12
+        height = 6
+        properties = {
+          title  = "詰み 캐시 — 히트율(%)과 부른 횟수"
+          region = var.aws_region
+          view   = "timeSeries"
+          period = local.dash_period
+          metrics = [
+            [{ expression = "100 * cached / mates", label = "히트율", id = "hit" }],
+            concat(["show-gi", "MateSearches"], local.dash_dims, [{ stat = "Sum", id = "mates", visible = false }]),
+            concat(["show-gi", "MateSearchesCached"], local.dash_dims, [{ stat = "Sum", id = "cached", visible = false }]),
+            # 부른 총수를 같이 그린다. 히트율만 보면 조용해진 것과 안 쓰이는 것이 같은
+            # 그림이 되고, 이 층은 대국이 없으면 호출 자체가 0이다.
+            concat(["show-gi", "MateSearches"], local.dash_dims, [{ stat = "Sum", label = "부른 횟수", yAxis = "right" }]),
+          ]
+          yAxis = { left = { min = 0, max = 100 } }
         }
       },
     ]

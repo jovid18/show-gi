@@ -201,6 +201,65 @@ func (s *Store) Edges(ctx context.Context, parentKey string) ([]Edge, error) {
 	return out, nil
 }
 
+// Mate 는 캐시된 詰み 답 하나다.
+//
+// 증명된 것만 들어온다. checkmate timeout 은 행을 만들지 않으므로 「행이 없다」가
+// 그대로 「모른다」다(017_mate_positions.sql).
+type Mate struct {
+	SFENKey string
+	// DepthLimit 은 이 답을 낸 solver 의 手数 한계다. 읽는 쪽이 자기 한계와 견준다 —
+	// 얕은 한계의 「없다」는 깊은 한계의 「없다」가 아니다.
+	DepthLimit int
+	// Moves 는 증명된 詰み 수순이다. 비어 있으면 증명된 「詰み이 없다」다.
+	Moves []string
+}
+
+// ErrNoMate 는 캐시에 없을 때다. 「詰み이 없다」가 아니라 「아직 안 물어봤다」다 —
+// 그 둘을 한 값으로 만들면 있는 詰み을 놓친다.
+var ErrNoMate = errors.New("store: mate not cached")
+
+// GetMate 는 캐시된 詰み 답을 읽는다. 없으면 ErrNoMate.
+func (s *Store) GetMate(ctx context.Context, sfenKey string) (Mate, error) {
+	row, err := s.q.GetMate(ctx, sfenKey)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Mate{}, ErrNoMate
+	}
+	if err != nil {
+		return Mate{}, err
+	}
+	return Mate{SFENKey: row.SFENKey, DepthLimit: int(row.DepthLimit), Moves: row.Moves}, nil
+}
+
+// PutMate 는 증명된 詰み 답을 캐시에 넣는다. 덮을지 말지는 SQL의 WHERE 절이 정한다
+// (query/mate.sql).
+//
+// 덮지 않았으면 stored=false 다. PutPosition 과 같은 규약이다 — 조용히 버려지는 것과
+// 이미 더 깊은 답이 있는 것을 부르는 쪽이 가를 수 있어야 한다.
+func (s *Store) PutMate(ctx context.Context, m Mate) (stored bool, err error) {
+	moves := m.Moves
+	if moves == nil {
+		moves = []string{} // NOT NULL 칸이다. nil을 보내면 거절된다
+	}
+	_, err = s.q.UpsertMate(ctx, db.UpsertMateParams{
+		SFENKey:    m.SFENKey,
+		DepthLimit: int32(m.DepthLimit),
+		Moves:      moves,
+	})
+	// 같거나 얕은 한계라 갱신하지 않으면 RETURNING 이 아무 행도 안 준다. 에러가 아니다.
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// CountMatePositions 는 캐시에 쌓인 詰み 답의 개수다. CountPositions 와 같은 자리에 쓴다.
+func (s *Store) CountMatePositions(ctx context.Context) (int64, error) {
+	return s.q.CountMatePositions(ctx)
+}
+
 // ── 사용자 ───────────────────────────────────────────────
 
 // UpsertUser 는 로그인한 사람을 찾거나 만든다. 어느 쪽이든 id 를 돌려준다.

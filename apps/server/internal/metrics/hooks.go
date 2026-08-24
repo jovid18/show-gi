@@ -9,9 +9,13 @@ const (
 )
 
 // 탐색의 result 라벨 값. 캐시가 답한 것과 엔진을 부른 것을 가른다.
+//
+// unproven 은 詰み 탐색에만 있다. checkmate timeout 이라 캐시에 안 쌓인 것이고,
+// 「부르고도 캐시가 안 채워졌다」는 나머지 둘과 다른 사실이다.
 const (
 	resultCached   = "cached"
 	resultComputed = "computed"
+	resultUnproven = "unproven"
 )
 
 // WebSocket 세션의 kind 라벨 값. 대국 한 판이 세션 하나다.
@@ -125,6 +129,29 @@ func (s *Search) ObserveSearch(d time.Duration, cached bool) {
 	}
 	s.reg.Searches.Inc(result)
 	s.reg.SearchDuration.Observe(d.Seconds(), result)
+}
+
+// MateSearch 는 詰み 탐색의 계측 창구다. archive.MateMetrics 를 이 타입이 만족한다.
+type MateSearch struct{ reg *Registry }
+
+// MateSearch 는 詰み 탐색 계측 창구를 준다. Pool 과 같은 이유로 r 이 nil 이어도 non-nil 이다.
+func (r *Registry) MateSearch() *MateSearch { return &MateSearch{reg: r} }
+
+// ObserveMateSearch 는 詰み 탐색 하나를 남긴다. cached 면 solver 를 안 부른 것이고,
+// proven 이 false 면 부르고도 답을 못 얻어 캐시에 안 쌓인 것이다.
+func (s *MateSearch) ObserveMateSearch(d time.Duration, cached, proven bool) {
+	if s.reg == nil {
+		return
+	}
+	result := resultComputed
+	switch {
+	case cached:
+		result = resultCached
+	case !proven:
+		result = resultUnproven
+	}
+	s.reg.MateSearches.Inc(result)
+	s.reg.MateSearchDuration.Observe(d.Seconds(), result)
 }
 
 // Analysis 는 사후 분석의 계측 창구다(internal/server 의 matchAnalyzer).
