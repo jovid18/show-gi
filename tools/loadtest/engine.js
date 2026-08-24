@@ -13,6 +13,7 @@ import {
   HANDICAP,
   LT_UIDS,
   MAX_PLIES,
+  QUEUE_INTERVAL,
   SEED,
   SESSION_SECRET,
   STALL_TIMEOUT_MS,
@@ -34,6 +35,7 @@ export default function engineGame() {
   const query = HANDICAP ? `?handicap=${HANDICAP}` : '?color=b';
   const ws = new WebSocket(`${WS_BASE}/ws/game${query}`, null, { headers });
 
+  let opened = false;
   let sentAt = 0;
   let sentPly = -1;
   let sentRetracted = '';
@@ -57,6 +59,17 @@ export default function engineGame() {
       }
     }
     ws.close();
+    // 연결이 한 번도 안 열렸으면 한 박자 쉬고 물러난다. 즉시 끝나면 k6 가 곧바로 다음
+    // 이터레이션을 시작해서, 서버가 내려가 있는 동안 VU 수만큼 초당 수십 번이 된다 —
+    // 실제로 1분 18초에 1282번 돌았다(journal §109). match.js 는 거절 뒤 쉬는데
+    // (journal §107) 이쪽만 비어 있었다.
+    //
+    // 거절로 세는 것이 같이 필요하다. 이 지표에 abortOnFail 이 걸려 있어서(main.js)
+    // 죽은 서버에 건 회차가 계속 도는 대신 그 자리에서 멈춘다.
+    if (!opened) {
+      rejects.add(1, { reason: 'ws_not_opened' });
+      setTimeout(() => {}, QUEUE_INTERVAL * 1000);
+    }
   };
 
   // 멈춘 판을 우리가 끊는다. 서버의 착수 시한보다 넉넉히 크게 둔다 — 작으면 오래
@@ -69,6 +82,7 @@ export default function engineGame() {
   bump();
 
   ws.addEventListener('message', (event) => {
+    opened = true;
     bump();
     const msg = JSON.parse(event.data);
 
