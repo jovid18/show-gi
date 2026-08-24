@@ -14,8 +14,14 @@ var ErrPoolClosed = errors.New("usi: pool closed")
 // 선행 계산 때문에 대국 한 판에도 동시 탐색이 필요하다.
 // 빌린 동안 단독 소유다. 옵션은 Engine에 남으므로 값에 기대는 쪽은 매번 직접 건다(journal §6 ②).
 type Pool struct {
-	free chan *Engine
-	all  []*Engine
+	// mu 아래가 한 벌이다. free 채널 대신 손으로 줄을 세우는 이유는 우선순위다 —
+	// 채널은 먼저 기다린 쪽에 주고, 우리는 사람이 기다리는 쪽에 먼저 줘야 한다.
+	mu   sync.Mutex
+	idle []*Engine
+	// waiting 은 우선순위별 대기줄이다. 앞이 높은 쪽이고, 같은 줄 안에서는 FIFO 다.
+	waiting [prioCount][]chan *Engine
+
+	all []*Engine
 
 	done      chan struct{}
 	closeOnce sync.Once
@@ -47,7 +53,7 @@ func NewPool(size int, path string, opts map[string]string, args ...string) (*Po
 		return nil, errors.New("usi: pool size must be at least 1")
 	}
 	p := &Pool{
-		free: make(chan *Engine, size),
+		idle: make([]*Engine, 0, size),
 		all:  make([]*Engine, 0, size),
 		done: make(chan struct{}),
 	}
@@ -58,7 +64,7 @@ func NewPool(size int, path string, opts map[string]string, args ...string) (*Po
 			return nil, err
 		}
 		p.all = append(p.all, e)
-		p.free <- e
+		p.idle = append(p.idle, e)
 	}
 	return p, nil
 }
@@ -75,6 +81,9 @@ func (p *Pool) Observe(m Metrics) {
 
 // Acquire 는 엔진 하나를 빌린다. 빈 게 없으면 ctx가 끝날 때까지 기다린다.
 // 빌린 쪽은 반드시 Release 해야 한다.
+//
+// 기다리는 줄이 우선순위별로 갈린다(priorityOf). 사람이 화면 앞에서 기다리는 요청이
+// 사후 분석보다 먼저 받는다 — 그래야 분석이 풀을 다 쓰고 있어도 착수가 안 밀린다.
 func (p *Pool) Acquire(ctx context.Context) (*Engine, error) {
 	select {
 	case <-p.done:
@@ -85,14 +94,70 @@ func (p *Pool) Acquire(ctx context.Context) (*Engine, error) {
 	// 빈 게 있어 바로 받은 경우도 0으로 재 둔다. 기다린 것만 재면 백분위가 늘 나쁘게
 	// 보이고(대기가 있었던 회차만 표본이 된다) 「대개 안 기다린다」를 말할 수 없다.
 	start := time.Now()
+	prio := priorityOf(BorrowerFrom(ctx))
+
+	p.mu.Lock()
+	if n := len(p.idle); n > 0 {
+		e := p.idle[n-1]
+		p.idle = p.idle[:n-1]
+		p.mu.Unlock()
+		p.borrowed(ctx, start)
+		return e, nil
+	}
+	// 버퍼가 1이라 넘겨주는 쪽이 절대 안 막힌다. 막히면 Release 가 잠금을 들고 서고,
+	// 그러면 풀 전체가 선다.
+	ch := make(chan *Engine, 1)
+	p.waiting[prio] = append(p.waiting[prio], ch)
+	p.mu.Unlock()
+
 	select {
-	case e := <-p.free:
+	case e := <-ch:
 		p.borrowed(ctx, start)
 		return e, nil
 	case <-p.done:
+		p.giveUpWaiting(prio, ch)
 		return nil, ErrPoolClosed
 	case <-ctx.Done():
+		p.giveUpWaiting(prio, ch)
 		return nil, ctx.Err()
+	}
+}
+
+// giveUpWaiting 은 줄에서 빠진다. 빠지기 전에 이미 받았으면 그 엔진을 돌려준다 —
+// 안 돌려주면 그 엔진이 아무 데도 없는 채로 사라진다.
+func (p *Pool) giveUpWaiting(prio int, ch chan *Engine) {
+	p.mu.Lock()
+	for i, w := range p.waiting[prio] {
+		if w == ch {
+			p.waiting[prio] = append(p.waiting[prio][:i], p.waiting[prio][i+1:]...)
+			p.mu.Unlock()
+			return
+		}
+	}
+	p.mu.Unlock()
+	// 줄에 없다 = 넘겨주는 쪽이 이미 골랐다. 그 값은 버퍼에 있다.
+	if e := <-ch; e != nil {
+		p.Release(e)
+	}
+}
+
+// prioCount 는 대기줄의 수다.
+const prioCount = 2
+
+// priorityOf 는 빌리는 쪽을 대기줄로 나눈다. 0이 먼저 받는다.
+//
+// 가르는 기준은 「사람이 지금 그 응답을 기다리는가」 하나다. 대국·검토·가정 수순은
+// 화면이 멈춰 서 있고, 사후 분석과 퀴즈 생성은 아무도 안 기다린다 — 되짚기가 나중에
+// 폴링해서 받는다.
+//
+// 대국 안에서 판정과 상대 수를 더 가르지 않는다. 둘이 같은 사람의 대기 안에서 차례로
+// 일어나므로 순서를 바꿔도 그 사람이 기다리는 총 시간이 같다(journal §106).
+func priorityOf(borrower string) int {
+	switch borrower {
+	case BorrowerAnalysis, BorrowerQuiz:
+		return 1
+	default:
+		return 0
 	}
 }
 
@@ -148,16 +213,32 @@ func (p *Pool) Release(e *Engine) {
 	if e == nil {
 		return
 	}
-	select {
-	case p.free <- e:
-		// 돌아온 갈래에서만 내린다. select 앞에서 내리면 이중 Release 가 게이지를
-		// -1 로 굳힌다 — 아래 default 는 풀이 이미 꽉 찬 자리라 점유가 0인 상태다.
-		if p.metrics != nil {
-			p.metrics.ObserveInUse(-1)
+	p.mu.Lock()
+	// 빌려준 것보다 많이 돌아올 수는 없다. 여기 걸리면 호출 측 버그이므로 그 엔진을
+	// 버린다 — 넣으면 같은 엔진이 둘로 보이고 두 사람이 같이 쓴다.
+	if len(p.idle) >= len(p.all) {
+		p.mu.Unlock()
+		return
+	}
+	for prio := range p.waiting {
+		if q := p.waiting[prio]; len(q) > 0 {
+			ch := q[0]
+			p.waiting[prio] = q[1:]
+			p.mu.Unlock()
+			// 버퍼가 1이라 안 막힌다. 받는 쪽이 그 사이에 포기했으면 giveUpWaiting 이
+			// 이 값을 꺼내 다시 돌려준다.
+			ch <- e
+			if p.metrics != nil {
+				p.metrics.ObserveInUse(-1)
+			}
+			return
 		}
-	default:
-		// 빌려준 것보다 많이 돌아올 수는 없다. 여기 오면 호출 측 버그이므로
-		// 막지 말고 흘려보낸다 — 여기서 블록되면 원인이 안 보이는 교착이 된다.
+	}
+	p.idle = append(p.idle, e)
+	p.mu.Unlock()
+	// 돌아온 갈래에서만 내린다. 위에서 내리면 이중 Release 가 게이지를 -1 로 굳힌다.
+	if p.metrics != nil {
+		p.metrics.ObserveInUse(-1)
 	}
 }
 
