@@ -77,15 +77,19 @@ variable "task_memory" {
   description = <<-EOT
     태스크가 예약하는 메모리(MiB). **인스턴스에서 실제로 빠지는 값이다.**
 
-    c6g.large는 4096 MiB라 1536이 넉넉히 들어간다. 이 값을 안 올리는 이유는 엔진이 쓰는
-    양이 `ENGINE_HASH_MB` 로 정해져서다 — 예약만 늘리면 남는 것을 아무도 안 쓴다.
-    t4g.small(2048 MiB)에서는 OS와 ECS 에이전트가 먹고 남는 ~1750 MiB 가 상한이었다.
+    c6g.large는 4096 MiB이고 OS와 ECS 에이전트를 빼면 ~3800 MiB가 남는다. 3072는 그 안에서
+    여유를 700 MiB 남긴 값이다.
+
+    1536에서 올린 이유는 `ENGINE_POOL_SIZE` 를 4로 올렸기 때문이다 — 엔진 하나가
+    NNUE 63MB + 해시를 잡으므로 탐색 4 + mate 1 이면 ~635 MB 이고, 거기에 Go 힙과 Caddy가
+    더해진다. **엔진이 쓰는 양은 여전히 풀 크기와 `ENGINE_HASH_MB` 가 정한다** — 이 값만
+    올리면 남는 것을 아무도 안 쓴다.
 
     엔진이 쓰는 양은 `ENGINE_POOL_SIZE` · `ENGINE_MATE_POOL_SIZE` · `ENGINE_HASH_MB` 로
     정해진다(ecs.tf의 그 자리). **이 값만 올리면 안 늘어난다.**
   EOT
   type        = string
-  default     = "1536"
+  default     = "3072"
 }
 
 variable "image_tag" {

@@ -181,20 +181,23 @@ resource "aws_ecs_task_definition" "app" {
       # 운영 손잡이(ENGINE_POOL_SIZE·ENGINE_HASH_MB 등)는 여기 둬도 된다.
       # 이미지 안에 없는 값이라 덮어쓸 대상이 없다.
       #
-      # 기본값(탐색 3 · mate 2 · 해시 128MB)은 t4g.small 에 안 들어간다. 엔진 하나가
-      # NNUE 63MB + 해시를 통째로 잡으므로(internal/usi.Pool) 다섯 개면 ~955MB이고, Go 힙과
-      # Caddy를 더하면 1.3GB다 — 인스턴스에서 태스크가 쓸 수 있는 것이 ~1.7GB뿐이다.
+      # 탐색 풀이 4다. 2였을 때 대인전 6판·엔진 4판에서 선이 그어졌는데 그 포화에서
+      # CPU 가 평균 71.7% 밖에 안 찼다(journal §109) — 천장이 vCPU 가 아니라 이 값일
+      # 수 있어서 올려 본다. `ANALYSIS_WORKERS` 기본값이 이 값이므로 분석 워커도 같이 4다.
       #
-      # 줄여도 되는 이유는 쓰는 사람이 한 명이라는 것이다. 세 풀이 동시에 필요한 것은
-      # 상대 수·선행 계산·mate 탐색이 겹칠 때이고, 한 사람이 한 수를 두는 동안에는
-      # 그 셋이 순서대로 온다. 탐색 2 + mate 1 이면 개입 판정과 상대 수가 겹치는 것까지 덮는다.
+      # 엔진 하나가 NNUE 63MB + 해시를 통째로 잡는다(internal/usi.Pool). 탐색 4 + mate 1 에
+      # 해시 64MB 면 ~635MB 이고, 여기에 Go 힙과 Caddy 가 더해진다 — task_memory 를 같이
+      # 올린 이유가 그것이다(variables.tf).
+      #
+      # 해시는 안 건드린다. 치환표 크기가 바뀌면 같은 국면의 탐색 결과가 달라져서
+      # 앞 회차와 대조가 깨진다.
       #
       # ENVIRONMENT 가 지표의 손잡이다. 비어 있으면 서버가 EMF 를 안 내므로(cmd/api 의
       # startEmitter) 이 한 줄이 CloudWatch 커스텀 지표를 켜고 끈다. 값은 EMF 문서의
       # Environment 차원이 되므로, 이 값을 바꾸면 알람의 dimensions 도 같이 바꾼다
       # (infra/alarms.tf).
       environment = [
-        { name = "ENGINE_POOL_SIZE", value = "2" },
+        { name = "ENGINE_POOL_SIZE", value = "4" },
         { name = "ENGINE_MATE_POOL_SIZE", value = "1" },
         { name = "ENGINE_HASH_MB", value = "64" },
         { name = "ENVIRONMENT", value = "prod" },
