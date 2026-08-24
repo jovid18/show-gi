@@ -90,9 +90,16 @@ func newSession(t *testing.T, cfg Config) *Session {
 }
 
 // waitFor 는 조건을 만족하는 스냅샷이 올 때까지 구독 채널을 읽는다.
+// waitDeadline 은 한 스냅샷을 기다리는 시한이다.
+//
+// 넉넉해도 통과하는 테스트는 안 느려진다 — 조건이 맞는 순간 돌아오므로 이 값은 실패할
+// 때만 쓰인다. 3초였는데 CI 러너가 굶으면 넘어갔다: 게이지를 기다리는 자리가 착수 →
+// 판정 goroutine → 롤백 → 게이지 goroutine → broadcast 네 홉이라 가장 먼저 걸린다.
+const waitDeadline = 10 * time.Second
+
 func waitFor(t *testing.T, ch <-chan Snapshot, cond func(Snapshot) bool, what string) Snapshot {
 	t.Helper()
-	deadline := time.After(3 * time.Second)
+	deadline := time.After(waitDeadline)
 	for {
 		select {
 		case snap, ok := <-ch:
