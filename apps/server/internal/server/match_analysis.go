@@ -30,7 +30,12 @@ import (
 // 그래도 대인전이 대국 중에 엔진을 쓰기 시작한다. 같은 시간대의 엔진 대국과 풀을 다투는
 // 것이 이 설계의 값이다(journal §105).
 //
-// 워커가 하나다. 엔진 풀은 지금 두고 있는 사람들과 공유다(01-core.md §4).
+// 워커 수는 손잡이다. 엔진 풀을 지금 두고 있는 사람들과 공유하므로(01-core.md §4)
+// 기본값이 풀보다 하나 적다 — 라이브 대국이 빌릴 엔진 하나를 늘 남긴다(cmd/api).
+//
+// 워커가 여럿이면 같은 판의 analyze 와 늦은 미리 재기가 겹친다. 평가치는 안 틀어진다 —
+// DB 에 쓰는 것은 analyze 의 순차 루프뿐이고 미리 재는 쪽은 手数를 키로 한 맵에만
+// 쓴다(journal §106). 겹칠 때 새는 자리는 remember 가 막는다.
 //
 // 진행 상태는 메모리다. 배포하면 하던 분석이 끊기고 그 판은 평가치 없이 남는다 —
 // 방과 같은 성질이다(match.Hub). 실력 추정에 대인전이 간헐적으로만 기여하는 것은
@@ -157,12 +162,15 @@ const analysisJudgeDeadline = game.DefaultMoveDeadline
 // newMatchAnalyzer 는 워커를 띄운다. store 나 analyst 가 없으면 nil 을 준다 — 엔진
 // 없는 배포에서 대인전이 그대로 도는 규약을 여기서도 지킨다. nil 인 채로 불려도 되도록
 // 아래 메서드가 전부 nil 수신자를 받는다.
+// workers 는 동시에 재는 goroutine 수다. 1 미만이면 1로 올린다.
 func newMatchAnalyzer(
 	ctx context.Context, st *store.Store, newAnalyst func() game.Analyst, reg *metrics.Registry,
+	workers int,
 ) *matchAnalyzer {
 	if st == nil || newAnalyst == nil {
 		return nil
 	}
+	workers = max(workers, 1)
 	a := &matchAnalyzer{
 		store:      st,
 		newAnalyst: newAnalyst,
@@ -172,7 +180,9 @@ func newMatchAnalyzer(
 		pending:    map[int64]struct{}{},
 		ahead:      map[string]*aheadOfMatch{},
 	}
-	go a.run(ctx)
+	for range workers {
+		go a.run(ctx)
+	}
 	go a.abandonOnStop(ctx)
 	return a
 }
@@ -240,14 +250,21 @@ func (a *matchAnalyzer) lookAhead(ctx context.Context, analyst game.Analyst, p p
 		a.giveUp(p.matchID)
 		return
 	}
+	a.remember(p.matchID, p.ply, got)
+}
+
+// remember 는 미리 잰 것을 그 방의 자리에 넣는다. 자리가 없으면 버린다.
+//
+// 여기서 자리를 새로 만들지 않는 것이 규약이다. 워커가 둘 이상이면 같은 판의 analyze 와
+// 늦은 미리 재기가 동시에 도는데, discard 뒤에 도착한 쪽이 자리를 다시 만들면 그 항목을
+// 아무도 안 지운다 — 판마다 하나씩 샌다. 자리는 prefetch 가 만든다: 그쪽은 판이 살아
+// 있는 동안에만 불리므로 analyze 보다 반드시 먼저다.
+func (a *matchAnalyzer) remember(matchID string, ply int, got judged) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	m := a.ahead[p.matchID]
-	if m == nil {
-		m = &aheadOfMatch{plies: map[int]judged{}}
-		a.ahead[p.matchID] = m
+	if m := a.ahead[matchID]; m != nil && !m.dead {
+		m.plies[ply] = got
 	}
-	m.plies[p.ply] = got
 }
 
 // prefetch 는 방금 둔 手를 미리 재는 줄에 세운다. 착수 경로에서 불리므로 즉시 돌아온다.
@@ -259,6 +276,10 @@ func (a *matchAnalyzer) prefetch(matchID, start string, moves []string, ply int)
 	case a.plies <- plyJob{matchID: matchID, start: start, moves: moves, ply: ply}:
 		a.mu.Lock()
 		a.backlogPlies++
+		// 자리를 여기서 만든다. remember 가 안 만드는 이유는 그쪽 주석에 있다.
+		if a.ahead[matchID] == nil {
+			a.ahead[matchID] = &aheadOfMatch{plies: map[int]judged{}}
+		}
 		games, plies := a.backlogGames, a.backlogPlies
 		a.mu.Unlock()
 		a.analysis.SetBacklog(games, plies)
@@ -286,12 +307,9 @@ func (a *matchAnalyzer) givenUp(matchID string) bool {
 func (a *matchAnalyzer) giveUp(matchID string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	m := a.ahead[matchID]
-	if m == nil {
-		m = &aheadOfMatch{plies: map[int]judged{}}
-		a.ahead[matchID] = m
+	if m := a.ahead[matchID]; m != nil {
+		m.dead = true
 	}
-	m.dead = true
 }
 
 // recall 은 미리 재 둔 手를 준다.

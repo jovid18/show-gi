@@ -131,8 +131,9 @@ func (m *Match) analyzerOrNil() *matchAnalyzer {
 // 기동 중에 한 번만 부른다. Run 뒤에 부르면 곁장부 goroutine 과 경합한다.
 func (m *Match) AnalyzeWith(
 	ctx context.Context, st *store.Store, newAnalyst func() game.Analyst, reg *metrics.Registry,
+	workers int,
 ) {
-	m.records.analyzer = newMatchAnalyzer(ctx, st, newAnalyst, reg)
+	m.records.analyzer = newMatchAnalyzer(ctx, st, newAnalyst, reg, workers)
 }
 
 // Handler 는 라우팅만 조립한다. 테스트가 서버를 띄우지 않고 이걸 그대로 쓴다.

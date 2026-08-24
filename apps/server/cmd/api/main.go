@@ -130,10 +130,10 @@ func main() {
 			return game.NewEngineAnalyst(searcher, mate, opts.Level)
 		}
 
-		// 대인전의 사후 분석. 여기가 대인전이 엔진을 만나는 유일한 자리다 — 두는 동안이
-		// 아니라 판이 끝난 뒤이고, 채우는 것은 되짚기의 평가치와 두 사람의 실력
-		// 추정치다(server.AnalyzeWith).
-		opts.Match.AnalyzeWith(ctx, opts.Store, opts.NewAnalyst, opts.Metrics)
+		// 대인전의 사후 분석. 채우는 것은 되짚기의 평가치와 두 사람의 실력 추정치이고,
+		// 재는 것은 두는 동안 手마다 미리 한다(journal §105). 착수 경로는 그래도 엔진을
+		// 안 지난다 — 미리 재는 것이 논블로킹이라 착수를 막지 않는다.
+		opts.Match.AnalyzeWith(ctx, opts.Store, opts.NewAnalyst, opts.Metrics, analysisWorkers(pool.Size()))
 		// 종반 판정·詰み 게이지·퀴즈의 詰み 트리가 셋 다 이 풀이다. 앞의 둘은 시간상
 		// 겹치지 않지만(판정은 사람의 수 직후, 게이지는 상대의 수 직후) 퀴즈는 판이
 		// 끝나는 자리에서 수십 초를 잡는다 — 그래서 하나로는 모자라다(matePoolSize).
@@ -238,6 +238,27 @@ func startEmitter(reg *metrics.Registry) func() {
 		case <-time.After(2 * time.Second):
 		}
 	}
+}
+
+// analysisWorkers 는 사후 분석을 동시에 몇 갈래로 돌릴지다. 손잡이는 ANALYSIS_WORKERS 다.
+//
+// 기본이 풀보다 하나 적다. 분석은 대국과 같은 풀에서 엔진을 빌리므로(archive.Wrap 하나를
+// 여섯이 나눠 쓴다) 전부 가져가면 사람이 두는 판이 엔진을 기다린다 — 하나는 늘 남긴다.
+//
+// 풀이 커지면 이 값도 같이 커진다. 그것이 이 함수가 상수가 아닌 이유다: vCPU 를 올려도
+// 워커가 하나면 사후 분석 층은 그대로였다(journal §106).
+func analysisWorkers(poolSize int) int {
+	n := max(poolSize-1, 1)
+	if v := os.Getenv("ANALYSIS_WORKERS"); v != "" {
+		got, err := strconv.Atoi(v)
+		if err != nil || got < 1 {
+			slog.Warn("bad ANALYSIS_WORKERS", "value", v, "using", n)
+		} else {
+			n = got
+		}
+	}
+	slog.Info("match analysis ready", "workers", n, "pool", poolSize)
+	return n
 }
 
 // startAuth 는 Google 로그인을 켠다. 키가 없으면 nil 이고 익명 대국으로 남는다.
