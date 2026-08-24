@@ -24,6 +24,12 @@ Route53 (show-gi.com) → ALB (ACM TLS) → EC2 스팟 1대 (t4g.small / ARM64)
 
 `show-gi-operator` 사용자와 같은 이름의 **관리형 정책**. 정책 문서는 [`infra/iam-policy.json`](../infra/iam-policy.json)에 있다.
 
+> **이 정책은 크기 한도에 거의 닿아 있다.** 관리형 정책은 공백을 뺀 **6,144자**가 상한인데 지금 6,141자다. **다음에 권한을 더할 자리가 없다** — 더하려면 먼저 둘로 갈라 두 번째 관리형 정책을 만들어 붙여야 한다(사용자 하나에 10개까지 붙는다). 크기는 이렇게 센다:
+>
+> ```sh
+> python3 -c "import json;print(len(json.dumps(json.load(open('infra/iam-policy.json')),separators=(',',':'))))"
+> ```
+
 ```sh
 aws iam create-user --user-name show-gi-operator
 aws iam create-policy --policy-name show-gi-operator \
@@ -31,6 +37,21 @@ aws iam create-policy --policy-name show-gi-operator \
 aws iam attach-user-policy --user-name show-gi-operator \
   --policy-arn arn:aws:iam::058264445568:policy/show-gi-operator
 ```
+
+**고칠 때는 새 버전을 올린다.** 정책은 버전이 다섯까지 남으므로 오래된 것을 지우면서 올린다:
+
+```sh
+aws iam create-policy-version --set-as-default \
+  --policy-arn arn:aws:iam::058264445568:policy/show-gi-operator \
+  --policy-document file://infra/iam-policy.json
+
+# 다섯이 차면 위가 LimitExceeded 로 막힌다. 기본이 아닌 옛 버전을 지운다
+aws iam list-policy-versions --policy-arn arn:aws:iam::058264445568:policy/show-gi-operator
+aws iam delete-policy-version --version-id vN \
+  --policy-arn arn:aws:iam::058264445568:policy/show-gi-operator
+```
+
+**operator 자신은 이걸 못 한다.** 정책에 `iam:CreatePolicyVersion` 이 없다 — 자기 권한을 스스로 넓히는 자리라 일부러 없다. 관리자 자격으로 돌린다.
 
 > **인라인 정책(`put-user-policy`)으로는 안 된다.** 사용자 인라인 정책은 2048바이트가 상한이고 이 정책은 그보다 크다. 관리형 정책은 6144자까지 되고 버전 관리도 된다.
 >

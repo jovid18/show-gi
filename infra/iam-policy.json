@@ -250,7 +250,15 @@
         "sns:Subscribe",
         "sns:Unsubscribe",
         "sns:GetSubscriptionAttributes",
-        "sns:ListSubscriptionsByTopic"
+        "sns:ListSubscriptionsByTopic",
+        "events:PutRule",
+        "events:DeleteRule",
+        "events:DescribeRule",
+        "events:PutTargets",
+        "events:RemoveTargets",
+        "events:ListTargetsByRule",
+        "events:TagResource",
+        "events:ListTagsForResource"
       ],
       "Resource": "*",
       "Condition": {
