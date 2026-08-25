@@ -15,6 +15,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/auth"
@@ -61,11 +62,11 @@ type Options struct {
 	// 어느 임계치에서 걸린 개입인지를 모르면 나중에 상수를 흔들어 볼 수 없다.
 	Level intervene.Level
 
-	// AnalysisOnly 는 이 프로세스가 사람을 안 받는다는 뜻이다(ROLE=analysis).
-	// /healthz 와 /metrics 만 남고 나머지가 503이 된다(analysisOnly).
+	// Role 은 이 태스크가 어느 티어인가다. 손잡이는 ROLE 이고 읽는 것은 cmd/api 다.
+	// RoleAnalysis 면 /healthz 와 /metrics 만 남고 나머지가 503이 된다.
 	//
-	// 기본이 false 다. 티어를 안 가른 배포와 테스트가 지금까지와 같다.
-	AnalysisOnly bool
+	// 비어 있으면 RoleBoth 다. 티어를 안 가른 배포와 테스트가 지금까지와 같다.
+	Role string
 
 	// Search 는 가정 수순·手筋 힌트가 쓰는 엔진이다(whatif.go). nil이면 그 표면만 꺼지고
 	// 되짚기는 그대로 돈다.
@@ -142,6 +143,26 @@ func (m *Match) AnalyzeWith(
 	m.records.analyzer = newMatchAnalyzer(ctx, st, newAnalyst, reg, workers)
 }
 
+// 티어 이름. 값을 여기 두는 것은 라우팅이 이 이름으로 갈리기 때문이고, 손잡이(ROLE)를
+// 읽어 넘기는 것은 cmd/api 다.
+const (
+	RoleBoth        = "both"
+	RoleInteractive = "interactive"
+	RoleAnalysis    = "analysis"
+)
+
+// roleOf 는 /healthz 에 나갈 티어 이름이다. 비어 있으면 both 다.
+//
+// 이 값이 없으면 티어를 밖에서 구별할 방법이 없다. 대상 그룹이 분석 태스크를 물고
+// 있어도 /healthz 는 200 이라 계속 붙어 있고, 배포 워크플로의 확인도 그 태스크가
+// 답할 수 있다(.github/workflows/images.yml).
+func roleOf(opts Options) string {
+	if opts.Role == "" {
+		return RoleBoth
+	}
+	return opts.Role
+}
+
 // Handler 는 라우팅만 조립한다. 테스트가 서버를 띄우지 않고 이걸 그대로 쓴다.
 func Handler(opts Options) http.Handler {
 	mux := http.NewServeMux()
@@ -161,7 +182,7 @@ func Handler(opts Options) http.Handler {
 			cancel()
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
-			"ok": true, "engine": engineReady, "db": dbReady,
+			"ok": true, "engine": engineReady, "db": dbReady, "role": roleOf(opts),
 		})
 	})
 
@@ -187,12 +208,18 @@ func Handler(opts Options) http.Handler {
 	//
 	// 404가 아니라 503이다. 없애면 「배포가 낡았다」와 구별되지 않는다. 확인하는 자리
 	// 둘은 위에 이미 섰다 — 그것까지 막으면 ECS 가 이 태스크를 계속 죽인다.
-	if opts.AnalysisOnly {
+	if opts.Role == RoleAnalysis {
+		var said sync.Once
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			// 한 줄을 따로 남긴다. 이 503은 코드가 깨진 것이 아니라 대상 그룹 설정이
+			// 원인을 한 줄로 남긴다. 이 503은 코드가 깨진 것이 아니라 대상 그룹 설정이
 			// 틀렸다는 뜻인데, 요청 로그와 show-gi-5xx 알람은 그 둘을 구별하지 못한다.
-			slog.WarnContext(r.Context(), "a request reached the analysis tier",
-				"path", r.URL.Path, "hint", "the target group should not send people here")
+			//
+			// 한 번만 남긴다. 어느 경로였는지는 observe 가 요청마다 이미 적고, 여기까지
+			// 매번 적으면 스캐너 하나가 로그를 채운다 — 그 로그가 곧 요금이다.
+			said.Do(func() {
+				slog.WarnContext(r.Context(), "a request reached the analysis tier",
+					"hint", "the target group should not send people here")
+			})
 			writeJSON(w, http.StatusServiceUnavailable, map[string]any{
 				"error":   "not_served_here",
 				"message": "このサーバーでは対局を受け付けていません。",

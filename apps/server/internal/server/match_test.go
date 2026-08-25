@@ -76,7 +76,7 @@ func TestTheAnalysisTierServesNoMatchSurface(t *testing.T) {
 		SessionSecret: "session-secret",
 		Match:         NewMatch(ctx, nil, intervene.Beginner),
 		Metrics:       metrics.New("api", "test"),
-		AnalysisOnly:  true,
+		Role:          RoleAnalysis,
 	})
 
 	for _, tc := range []struct{ method, path string }{
@@ -116,6 +116,34 @@ func TestTheAnalysisTierServesNoMatchSurface(t *testing.T) {
 		if rec := do(h, http.MethodGet, path, nil); rec.Code != http.StatusOK {
 			t.Errorf("GET %s = %d, want %d", path, rec.Code, http.StatusOK)
 		}
+	}
+
+	// 그리고 티어를 드러내야 한다. 안 드러내면 대상 그룹이 이 태스크를 물고 있어도
+	// 200 이라 계속 붙어 있고, 배포 워크플로의 확인도 이쪽이 답할 수 있다.
+	rec = do(h, http.MethodGet, "/healthz", nil)
+	var health struct {
+		Role string `json:"role"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&health); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if health.Role != RoleAnalysis {
+		t.Errorf("role = %q, want %q", health.Role, RoleAnalysis)
+	}
+}
+
+// 티어를 안 가른 배포는 both 다. 배포 워크플로가 이 값으로 「사람을 받는 태스크가
+// 답했나」를 가르므로, 빈 값이 그대로 나가면 그 확인이 못 갈린다.
+func TestHealthzNamesTheDefaultTier(t *testing.T) {
+	rec := do(Handler(Options{}), http.MethodGet, "/healthz", nil)
+	var health struct {
+		Role string `json:"role"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&health); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if health.Role != RoleBoth {
+		t.Errorf("role = %q, want %q", health.Role, RoleBoth)
 	}
 }
 

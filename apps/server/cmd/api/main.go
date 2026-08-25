@@ -70,7 +70,7 @@ func main() {
 	// 티어. 줄을 집는가와 사람을 받는가를 여기서 한 번 읽는다 — 두 자리에서 각각
 	// os.Getenv 하면 잘못 적은 값이 한쪽에서만 경고를 내고 다른 쪽은 조용히 갈린다.
 	role := analysisRole()
-	opts.AnalysisOnly = role == roleAnalysis
+	opts.Role = role
 
 	// 지표. 서버·엔진 풀·탐색이 같은 레지스트리를 쓴다 — 무엇을 재는지가
 	// metrics.New 한 자리에 다 있어야 새 지표를 늘릴 때 EMF 쪽을 같이 보게 된다.
@@ -276,7 +276,7 @@ func startEmitter(reg *metrics.Registry) func() {
 // 풀이 커지면 이 값도 같이 커진다. 그것이 이 함수가 상수가 아닌 이유다: 워커가 하나면
 // vCPU 를 올려도 사후 분석 층은 그대로였다(journal §106).
 func analysisWorkers(poolSize int, role string) int {
-	if role == roleInteractive {
+	if role == server.RoleInteractive {
 		// 집는 쪽을 안 띄운다. 手는 그대로 표에 세워지고 분석 티어가 집는다.
 		slog.Info("match analysis ready", "role", role, "workers", 0, "pool", poolSize)
 		return 0
@@ -294,18 +294,11 @@ func analysisWorkers(poolSize int, role string) int {
 	return n
 }
 
-// 티어 이름. 손잡이는 ROLE 이다.
-const (
-	roleBoth        = "both"
-	roleInteractive = "interactive"
-	roleAnalysis    = "analysis"
-)
-
 // analysisRole 은 이 프로세스가 어느 티어인가다. 정하는 것이 둘이다 — 줄을 집는가와
 // 사람을 받는가.
 //
 //	interactive  집지 않는다. 사람을 받고 手를 줄에 세우기만 한다
-//	analysis     집는다. /healthz·/metrics 만 세운다(server.Options.AnalysisOnly)
+//	analysis     집는다. /healthz·/metrics 만 세운다(server.Options.Role)
 //	both         집고 받는다. 태스크가 하나인 배포의 모양이고 기본이다
 //
 // analysis 가 나머지를 404 가 아니라 503 으로 답하는 이유는 server.Handler 에 있다.
@@ -315,12 +308,12 @@ const (
 func analysisRole() string {
 	switch v := os.Getenv("ROLE"); v {
 	case "":
-		return roleBoth
-	case roleBoth, roleInteractive, roleAnalysis:
+		return server.RoleBoth
+	case server.RoleBoth, server.RoleInteractive, server.RoleAnalysis:
 		return v
 	default:
-		slog.Warn("bad ROLE", "value", v, "using", roleBoth)
-		return roleBoth
+		slog.Warn("bad ROLE", "value", v, "using", server.RoleBoth)
+		return server.RoleBoth
 	}
 }
 

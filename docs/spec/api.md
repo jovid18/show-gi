@@ -47,13 +47,15 @@
 
 | 메서드 · 경로        | 필요 | 응답 `200`                                                              |
 | -------------------- | ---- | ----------------------------------------------------------------------- |
-| `GET /healthz`       | —    | `{ok, engine, db}` — **엔진·DB 가 죽어도 200 이다**                     |
+| `GET /healthz`       | —    | `{ok, engine, db, role}` — **엔진·DB 가 죽어도 200 이다**               |
 | `GET /metrics`       | —    | Prometheus 텍스트. **밖에서 안 닿는다**(Caddy 가 안 프록시한다)         |
 | `GET /api/openings`  | —    | `{openings: [{id, name, note, source}]}` — 상대의 진형 4종              |
 | `GET /api/handicaps` | —    | `{handicaps: [{id, name, note}]}` — 手合割 7종. **平手는 목록에 없다**  |
 | `GET /api/me`        | —    | `{enabled, user: {id, name} \| null}` — **로그인이 꺼진 배포에도 있다** |
 
 > `/healthz` 가 엔진 없이도 200 인 것은 의도다. 여기서 실패하면 ECS 가 재시작을 반복해 사이트 전체가 내려간다 — 대신 `engine` 필드로 드러내고, 배포 워크플로가 그 값을 확인한다.
+>
+> **`role` 은 `both`(기본) · `interactive` · `analysis` 다.** 분석 티어도 200 을 주므로, 티어를 안 보면 그쪽이 대답한 확인을 성공으로 읽는다 — 배포 워크플로가 `analysis` 를 거절한다.
 
 ### 로그인
 
