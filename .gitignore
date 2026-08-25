@@ -69,3 +69,7 @@ apps/server/internal/kifu/testdata/floodgate/
 # `go build ./cmd/importkifu` 가 떨어뜨리는 14MB 바이너리
 apps/server/importkifu
 apps/server/internal/kifu/testdata/import10/
+
+# 로컬 헬퍼. Claude 가 자기 권한 파일을 못 고치므로(분류기) 규칙을 여기 적어 두고
+# 사람이 한 번 돌린다. settings.local.json 과 같은 성질이라 커밋하지 않는다
+.claude/how.sh
