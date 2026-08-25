@@ -62,12 +62,7 @@ type Options struct {
 	Level intervene.Level
 
 	// AnalysisOnly 는 이 프로세스가 사람을 안 받는다는 뜻이다(ROLE=analysis).
-	// 방과 대기열 표면이 503이 된다.
-	//
-	// 방이 짝지은 프로세스의 메모리에 서므로(journal §98) 분석 티어가 짝을 지으면 그
-	// 방을 아무도 못 연다 — 두 사람이 「열 수 없다」에서 멈추고 로그에 아무것도 안 남는다.
-	// 대상 그룹이 이 태스크에 사람을 안 보내는 것이 정상이고, 이 스위치는 그 설정이
-	// 틀렸을 때 조용히 깨지지 않게 한다.
+	// /healthz 와 /metrics 만 남고 나머지가 503이 된다(analysisOnly).
 	//
 	// 기본이 false 다. 티어를 안 가른 배포와 테스트가 지금까지와 같다.
 	AnalysisOnly bool
@@ -181,6 +176,25 @@ func Handler(opts Options) http.Handler {
 				slog.WarnContext(r.Context(), "cannot write /metrics", "err", err)
 			}
 		})
+	}
+
+	// 분석 티어는 여기서 끝난다. 사람이 쓰는 표면을 아예 안 세운다.
+	//
+	// 막는 이유가 둘이다. 방이 짝지은 프로세스의 메모리에 서므로(journal §98) 이 티어가
+	// 짝을 지으면 그 방을 아무도 못 열고 로그에 아무것도 안 남는다. 대국·검토·가정
+	// 수순은 깨지지 않지만 이 박스의 엔진을 분석보다 높은 우선순위로 가져간다
+	// (usi.priorityOf) — 그러면 티어를 가른 값이 없어진다.
+	//
+	// 404가 아니라 503이다. 없애면 「배포가 낡았다」와 구별되지 않는다. 확인하는 자리
+	// 둘은 위에 이미 섰다 — 그것까지 막으면 ECS 가 이 태스크를 계속 죽인다.
+	if opts.AnalysisOnly {
+		mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+				"error":   "not_served_here",
+				"message": "このサーバーでは対局を受け付けていません。",
+			})
+		})
+		return observe(opts.Metrics, mux)
 	}
 
 	// 로그인. 켜지지 않아도 /api/me 는 있다 — 화면이 「로그인이라는 것이 이 배포에
@@ -311,16 +325,7 @@ func Handler(opts Options) http.Handler {
 	//
 	// 셋 다 로그인이 필요하다. 익명은 서로 구별할 수단이 없어서 정원 2명이라는 규칙이
 	// 성립하지 않는다(internal/match 의 Room).
-	if opts.Match != nil && opts.AnalysisOnly {
-		// 짝을 안 짓는 티어다. 경로는 남기고 503으로 답한다 — 없애면 404가 되어
-		// 「배포가 낡았다」와 구별되지 않는다.
-		off := func(w http.ResponseWriter, _ *http.Request) { matchOffHere(w) }
-		mux.HandleFunc("POST /api/rooms", off)
-		mux.HandleFunc("GET /api/rooms/{id}", off)
-		mux.HandleFunc("GET /ws/match", off)
-		mux.HandleFunc("POST /api/queue", off)
-		mux.HandleFunc("DELETE /api/queue", off)
-	} else if opts.Match != nil {
+	if opts.Match != nil {
 		mh := &matchHandler{hub: opts.Match.hub, auth: ah}
 		mux.HandleFunc("POST /api/rooms", mh.create)
 		mux.HandleFunc("GET /api/rooms/{id}", mh.get)

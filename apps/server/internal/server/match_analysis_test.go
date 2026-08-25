@@ -1126,8 +1126,13 @@ func TestNoWorkersQueuesButNeverClaims(t *testing.T) {
 	t.Cleanup(func() { a.discard(context.Background(), other) })
 	a.prefetch(other, startSFENOf(""), repeatMove(1), 1)
 	waitFor(t, func() bool {
-		n, err := st.CountAnalysisBacklog(t.Context())
-		return err == nil && n > before
+		if n, err := st.CountAnalysisBacklog(t.Context()); err == nil && n > before {
+			return true
+		}
+		// 앞 테스트의 워커가 그 사이에 재 버렸을 수 있다(06-status.md §7). 그때도
+		// 「섰다」는 참이고, 전역 셈만 보면 다시 안 참이 되어 실행마다 답이 달라진다.
+		rows, err := st.MeasuredAnalysisPlies(t.Context(), other)
+		return err == nil && len(rows) > 0
 	}, "미리 재는 줄에 手가 서지 않았다")
 }
 

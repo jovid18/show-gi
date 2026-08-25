@@ -59,6 +59,8 @@ tools/loadtest/run.sh --prod MODE=match VUS_MATCH=12 THINK_MS=3000 DURATION=15m 
 
 **기본값을 `run.sh` 에 두지 않는다.** k6 스크립트가 이미 든다 — 손잡이 대부분이 `lib/config.js` 이고 시나리오 넷(`MODE`·`DURATION`·`VUS_ENGINE`·`VUS_MATCH`)이 `main.js` 다. 한 벌 더 두면 한쪽을 고칠 때 다른 쪽이 조용히 낡아 「무슨 값으로 잰 회차인가」가 갈린다. 그래서 로그 첫 줄도 **넘긴 손잡이만** 적는다(`SESSION_SECRET` 은 `***`).
 
+**원격에는 `SESSION_SECRET` 도 있어야 한다.** `--prod` 면 스크립트가 SSM 에서 읽고, 아니면 직접 넘겨야 한다 — 쿠키가 없으면 `MODE=engine` 이 경고만 하고 익명으로 돌아서 아래 가드가 그대로 뚫린다.
+
 **익명 판 가드는 플래그가 아니라 주소가 건다.** `--prod` 없이 `BASE` 만 원격으로 넘겨도 같은 곳에 걸리므로, 로컬이 아닌 주소에는 `LT_UIDS` 에 **양의 정수가 하나라도** 있어야 한다 — 비어 있는 것뿐 아니라 `LT_UIDS=abc` 도 막는다(`lib/config.js` 가 숫자 아닌 값을 걸러 버려 빈 목록과 같아진다).
 
 `k6 run tools/loadtest/main.js` 를 직접 불러도 같다. 다만 손잡이를 env 접두사로 붙여야 하고 cwd 가 레포 루트여야 하는데, **Claude 가 도는 세션에서는 그 모양이 `Bash(k6 run:*)` 허용 규칙에 안 걸린다** — 규칙이 접두사 매칭이라 `BASE=…` 로 시작하는 명령을 못 덮고, `$(aws ssm …)` 의 명령 치환도 마찬가지다. 그때는 판정이 분류기로 넘어가 같은 종류의 회차가 한 번은 통과하고 한 번은 막힌다.

@@ -52,7 +52,13 @@ if [ "$remote" = 1 ]; then
 	fi
 fi
 
-if [ "$prod" = 1 ] && [ "${SESSION_SECRET-}" = "" ]; then
+if [ "$remote" = 1 ] && [ "${SESSION_SECRET-}" = "" ]; then
+	# 쿠키가 없으면 판이 익명으로 남고, 위 LT_UIDS 가드가 지키려던 것이 그대로 뚫린다 —
+	# MODE=engine 은 익명이어도 경고만 하고 돈다(main.js 의 setup).
+	if [ "$prod" = 0 ]; then
+		echo "원격($BASE)에는 SESSION_SECRET 이 있어야 한다 — --prod 로 걸거나 직접 넘긴다" >&2
+		exit 2
+	fi
 	# 디스크에 안 남긴다. 그때 읽어 환경변수로만 넘긴다.
 	SESSION_SECRET=$(aws ssm get-parameter \
 		--name /show-gi/prod/SESSION_SECRET --with-decryption \

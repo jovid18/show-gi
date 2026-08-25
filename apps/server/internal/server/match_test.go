@@ -11,6 +11,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/auth"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/match"
+	"github.com/jovid18/show-gi/apps/server/internal/metrics"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
@@ -62,8 +63,9 @@ func TestCreatingARoomNeedsSignIn(t *testing.T) {
 	}
 }
 
-// 분석 티어는 짝을 안 짓는다. 방이 짝지은 프로세스의 메모리에 서므로(journal §98)
-// 여기서 방이 열리면 그 방을 아무도 못 열고, 두 사람이 「열 수 없다」에서 멈춘다.
+// 분석 티어는 사람이 쓰는 표면을 하나도 안 세운다. 방이 짝지은 프로세스의 메모리에
+// 서므로(journal §98) 여기서 방이 열리면 그 방을 아무도 못 열고, 대국·검토는 깨지지는
+// 않지만 이 박스의 엔진을 분석보다 먼저 가져간다.
 //
 // 404가 아니라 503이다. 없애면 「배포가 낡았다」와 구별되지 않는다.
 func TestTheAnalysisTierServesNoMatchSurface(t *testing.T) {
@@ -73,6 +75,7 @@ func TestTheAnalysisTierServesNoMatchSurface(t *testing.T) {
 		Google:        auth.NewGoogle("client-id", "client-secret"),
 		SessionSecret: "session-secret",
 		Match:         NewMatch(ctx, nil, intervene.Beginner),
+		Metrics:       metrics.New("api", "test"),
 		AnalysisOnly:  true,
 	})
 
@@ -82,6 +85,11 @@ func TestTheAnalysisTierServesNoMatchSurface(t *testing.T) {
 		{http.MethodGet, "/ws/match"},
 		{http.MethodPost, "/api/queue"},
 		{http.MethodDelete, "/api/queue"},
+		// 엔진을 빌리는 표면도 막힌다. 이쪽은 깨지지 않고 도는 대신 분석보다 높은
+		// 우선순위로 이 박스의 엔진을 가져간다(usi.priorityOf).
+		{http.MethodGet, "/ws/game"},
+		{http.MethodGet, "/api/me"},
+		{http.MethodGet, "/api/openings"},
 	} {
 		rec := do(h, tc.method, tc.path, nil)
 		if rec.Code != http.StatusServiceUnavailable {
@@ -98,13 +106,16 @@ func TestTheAnalysisTierServesNoMatchSurface(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if body.Error != "match_not_served_here" {
-		t.Errorf("error = %q, want %q", body.Error, "match_not_served_here")
+	if body.Error != "not_served_here" {
+		t.Errorf("error = %q, want %q", body.Error, "not_served_here")
 	}
 
-	// 확인하는 자리는 살아 있어야 한다. 이 티어도 같은 방식으로 건강을 답한다.
-	if rec := do(h, http.MethodGet, "/healthz", nil); rec.Code != http.StatusOK {
-		t.Errorf("GET /healthz = %d, want %d", rec.Code, http.StatusOK)
+	// 확인하는 자리 둘은 살아 있어야 한다. /healthz 를 막으면 ECS 가 이 태스크를
+	// 계속 죽이고, /metrics 를 막으면 백로그를 못 읽는다.
+	for _, path := range []string{"/healthz", "/metrics"} {
+		if rec := do(h, http.MethodGet, path, nil); rec.Code != http.StatusOK {
+			t.Errorf("GET %s = %d, want %d", path, rec.Code, http.StatusOK)
+		}
 	}
 }
 
