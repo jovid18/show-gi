@@ -93,10 +93,10 @@ func (s *Store) FinishAnalysisPly(ctx context.Context, matchID string, m Measure
 	return nil
 }
 
-// GiveUpAnalysisPlies 는 그 판을 미리 재는 것을 그만둔다. 이미 잰 값은 남는다.
-func (s *Store) GiveUpAnalysisPlies(ctx context.Context, matchID string) error {
-	if err := s.q.GiveUpAnalysisPlies(ctx, matchID); err != nil {
-		return fmt.Errorf("give up analysis plies: %w", err)
+// StopAnalysisAhead 는 그 판을 미리 재는 것을 그만둔다. 이미 잰 값은 남는다.
+func (s *Store) StopAnalysisAhead(ctx context.Context, matchID string) error {
+	if err := s.q.StopAnalysisAhead(ctx, matchID); err != nil {
+		return fmt.Errorf("stop measuring ahead: %w", err)
 	}
 	return nil
 }
