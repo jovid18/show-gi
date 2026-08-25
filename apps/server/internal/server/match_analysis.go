@@ -163,7 +163,13 @@ const analysisJudgeDeadline = game.DefaultMoveDeadline
 // newMatchAnalyzer 는 워커를 띄운다. store 나 analyst 가 없으면 nil 을 준다 — 엔진
 // 없는 배포에서 대인전이 그대로 도는 규약을 여기서도 지킨다. nil 인 채로 불려도 되도록
 // 아래 메서드가 전부 nil 수신자를 받는다.
-// workers 는 동시에 재는 goroutine 수다. 1 미만이면 1로 올린다.
+//
+// workers 는 줄을 집는 goroutine 수다. 0이면 집는 쪽을 아예 안 띄운다 — 상호작용
+// 티어가 그 모양이고, 그 티어는 手를 세우기만 한다(ROLE, cmd/api/main.go).
+//
+// 세우는 쪽과 게이지·청소는 workers 와 무관하게 돈다. 게이지가 집지 않는 티어에서도
+// 도는 이유는 분석 티어가 죽었을 때 지표가 「데이터 없음」이 아니라 부푸는 값이어야
+// 하기 때문이다 — 그때가 밀린 양이 제일 큰 자리다.
 func newMatchAnalyzer(
 	ctx context.Context, st *store.Store, newAnalyst func() game.Analyst, reg *metrics.Registry,
 	workers int,
@@ -171,7 +177,7 @@ func newMatchAnalyzer(
 	if st == nil || newAnalyst == nil {
 		return nil
 	}
-	workers = max(workers, 1)
+	workers = max(workers, 0)
 	a := &matchAnalyzer{
 		store:      st,
 		newAnalyst: newAnalyst,

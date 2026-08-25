@@ -271,6 +271,12 @@ func startEmitter(reg *metrics.Registry) func() {
 // 풀이 커지면 이 값도 같이 커진다. 그것이 이 함수가 상수가 아닌 이유다: 워커가 하나면
 // vCPU 를 올려도 사후 분석 층은 그대로였다(journal §106).
 func analysisWorkers(poolSize int) int {
+	role := analysisRole()
+	if role == roleInteractive {
+		// 집는 쪽을 안 띄운다. 手는 그대로 표에 세워지고 분석 티어가 집는다.
+		slog.Info("match analysis ready", "role", role, "workers", 0, "pool", poolSize)
+		return 0
+	}
 	n := max(poolSize, 1)
 	if v := os.Getenv("ANALYSIS_WORKERS"); v != "" {
 		got, err := strconv.Atoi(v)
@@ -280,8 +286,39 @@ func analysisWorkers(poolSize int) int {
 			n = got
 		}
 	}
-	slog.Info("match analysis ready", "workers", n, "pool", poolSize)
+	slog.Info("match analysis ready", "role", role, "workers", n, "pool", poolSize)
 	return n
+}
+
+// 티어 이름. 손잡이는 ROLE 이다.
+const (
+	roleBoth        = "both"
+	roleInteractive = "interactive"
+	roleAnalysis    = "analysis"
+)
+
+// analysisRole 은 이 프로세스가 사후 분석의 줄을 집는가다. 그것 하나만 정한다.
+//
+//	interactive  안 집는다. WS·방·엔진 대국을 받고 手를 줄에 세우기만 한다
+//	analysis     집는다. 로드밸런서가 이 태스크로 사람을 안 보낸다
+//	both         집는다. 태스크가 하나인 배포의 모양이고 기본이다
+//
+// 라우팅을 여기서 안 가른다. 어느 티어든 같은 핸들러를 세우고, 사람이 오지 않는 것은
+// 대상 그룹이 정한다 — 티어마다 다른 라우팅을 두면 「이 배포에 그 경로가 있나」가
+// 프로세스 안에서 갈려서 /healthz 하나로 확인할 수 없게 된다.
+//
+// 상호작용 티어를 여러 대로 올리는 것은 이 손잡이가 아니다. 방이 메모리에 서므로
+// (journal §98) 그쪽은 방을 프로세스 밖으로 내린 뒤다.
+func analysisRole() string {
+	switch v := os.Getenv("ROLE"); v {
+	case "":
+		return roleBoth
+	case roleBoth, roleInteractive, roleAnalysis:
+		return v
+	default:
+		slog.Warn("bad ROLE", "value", v, "using", roleBoth)
+		return roleBoth
+	}
 }
 
 // startAuth 는 Google 로그인을 켠다. 키가 없으면 nil 이고 익명 대국으로 남는다.

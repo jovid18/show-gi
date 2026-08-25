@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1086,6 +1087,48 @@ func TestTheWorkerCountIsHonoured(t *testing.T) {
 			t.Fatalf("only %d worker(s) took a job, want 2", i)
 		}
 	}
+}
+
+// 워커가 0이면 집지 않는다. 상호작용 티어가 그 모양이고(ROLE=interactive), 그 티어가
+// 판을 집으면 티어를 가른 이유가 없어진다 — 분석이 사람의 박스에서 돈다.
+//
+// 세우는 쪽은 그대로 돈다. 그것까지 멈추면 분석 티어가 집을 것이 없다.
+//
+//	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
+func TestNoWorkersQueuesButNeverClaims(t *testing.T) {
+	st, matchID, _ := matchSeatsForAnalysis(t, "", plyList(2))
+	clearQueues(t, st)
+
+	var built atomic.Int64
+	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
+		built.Add(1)
+		return stubAnalyst{}
+	}, nil, 0)
+	t.Cleanup(func() { a.dropJob(context.Background(), matchID) })
+
+	a.enqueue(t.Context(), matchID, 2)
+	// 워커는 뜨자마자 집으므로 이 창이면 넉넉하다(plyPollInterval 은 빈 줄에서만 쓴다).
+	time.Sleep(time.Second)
+
+	// 판정기 수로 잰다. run 이 맨 위에서 한 벌 만들므로 0이면 집는 쪽이 아예 없다.
+	// 「줄에 남았는가」로 재면 앞 테스트의 워커가 취소를 알아채기 전에 집어 가서 답이
+	// 실행마다 달라진다.
+	if n := built.Load(); n != 0 {
+		t.Errorf("판정기를 %d벌 만들었다 — 집는 쪽이 안 떠야 한다", n)
+	}
+
+	// 세우는 쪽. 手가 표에 적혀야 분석 티어가 집을 것이 생긴다.
+	before, err := st.CountAnalysisBacklog(t.Context())
+	if err != nil {
+		t.Fatalf("read the ply backlog: %v", err)
+	}
+	_, other, _ := matchSeatsForAnalysis(t, "", nil)
+	t.Cleanup(func() { a.discard(context.Background(), other) })
+	a.prefetch(other, startSFENOf(""), repeatMove(1), 1)
+	waitFor(t, func() bool {
+		n, err := st.CountAnalysisBacklog(t.Context())
+		return err == nil && n > before
+	}, "미리 재는 줄에 手가 서지 않았다")
 }
 
 // 자리마다 판 번호와 사람이 짝지어 나간다. 실력 추정이 그 짝으로 手를 나누므로
