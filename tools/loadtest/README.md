@@ -5,6 +5,7 @@
 k6 를 쓴다. **규칙 엔진이 필요 없다** — 서버가 스냅샷마다 `legalMoves` 를 통째로 주므로 그중 하나를 뽑으면 판이 진행된다.
 
 ```
+run.sh       회차를 거는 자리. 손잡이를 KEY=VALUE 로 받는다
 main.js      회차의 입구. MODE 로 시나리오를 고른다
 engine.js    엔진 대국 (/ws/game, 쿠키는 선택)
 match.js     대인전 (/api/queue → /ws/match, 로그인 필요)
@@ -36,19 +37,29 @@ export SESSION_SECRET=$(aws ssm get-parameter --name /show-gi/prod/SESSION_SECRE
   --query Parameter.Value --output text)
 ```
 
+**`run.sh --prod` 는 이 조회를 스스로 한다.** 손으로 `export` 하는 것은 `main.js` 를 직접 부를 때만 필요하다.
+
 ## 돌리는 법
+
+**`run.sh` 로 건다.** 손잡이는 그대로 `KEY=VALUE` 로 주고, 스크립트가 레포 루트를 스스로 찾는다.
 
 ```sh
 # 엔진 대국만. 쿠키를 달면 그 판들을 나중에 지울 수 있다
-BASE=http://localhost:8080 MODE=engine VUS_ENGINE=3 DURATION=3m \
-  LT_UIDS=5457,5458,5459 SESSION_SECRET="$SESSION_SECRET" k6 run tools/loadtest/main.js
+tools/loadtest/run.sh MODE=engine VUS_ENGINE=3 DURATION=3m LT_UIDS=5457,5458,5459
 
 # 대인전만
-MODE=match VUS_MATCH=4 LT_UIDS=5457,5458,5459,5460 k6 run tools/loadtest/main.js
+tools/loadtest/run.sh MODE=match VUS_MATCH=4 LT_UIDS=5457,5458,5459,5460
 
 # 둘을 동시에 — 서로 굶히는지를 재는 회차다
-MODE=both VUS_ENGINE=3 VUS_MATCH=4 LT_UIDS=… k6 run tools/loadtest/main.js
+tools/loadtest/run.sh MODE=both VUS_ENGINE=3 VUS_MATCH=4 LT_UIDS=…
+
+# 프로덕션. BASE 와 SESSION_SECRET 을 스크립트가 채운다
+tools/loadtest/run.sh --prod MODE=match VUS_MATCH=12 THINK_MS=3000 DURATION=15m LT_UIDS=…
 ```
+
+**기본값을 `run.sh` 에 두지 않는다.** 두면 `lib/config.js` 와 두 벌이 되고, 한쪽을 고칠 때 다른 쪽이 조용히 낡아 「무슨 값으로 잰 회차인가」가 갈린다. 스크립트가 하는 것은 셋뿐이다 — 레포 루트를 찾고, `--prod` 면 `BASE` 와 시크릿을 채우고, 회차 손잡이를 로그 첫 줄에 적는다.
+
+`k6 run tools/loadtest/main.js` 를 직접 불러도 같다. 다만 손잡이를 env 접두사로 붙여야 하고 cwd 가 레포 루트여야 하는데, **Claude 가 도는 세션에서는 그 모양이 `Bash(k6 run:*)` 허용 규칙에 안 걸린다** — 규칙이 접두사 매칭이라 `BASE=…` 로 시작하는 명령을 못 덮고, `$(aws ssm …)` 의 명령 치환도 마찬가지다. 그때는 판정이 분류기로 넘어가 같은 종류의 회차가 한 번은 통과하고 한 번은 막힌다.
 
 | 환경변수                               | 기본값                  | 무엇                                                                            |
 | -------------------------------------- | ----------------------- | ------------------------------------------------------------------------------- |
@@ -116,7 +127,7 @@ aws ecs update-service --region ap-northeast-1 --cluster show-gi --service show-
 - **태스크가 한 대다.** 부하가 곧 실사용자 장애다
 - 알람이 울리고 메일이 간다. 회차 시각을 저널에 적어 둔다 — 대인전 회차는 `show-gi-analysis-backlog` 이 걸리는 자리다([journal §108](../../docs/journal/101-120.md))
 - 끝나면 `cleanup.sql`. `users` 한 줄을 지우면 판·기보·평가치·레이팅·큐가 CASCADE 로 같이 사라진다
-- **`LT_UIDS` 없이 걸지 않는다.** 익명 판은 그 정리에 안 걸린다
+- **`LT_UIDS` 없이 걸지 않는다.** 익명 판은 그 정리에 안 걸린다 — `run.sh --prod` 가 그 자리를 막는다
 
 **부하와 지연을 같은 회차에서 재지 않는다.** 용량은 도쿄 하나에서 계단식으로, 지연은 도쿄+오사카에서 낮은 부하로 — 포화된 서버에서는 리전 간 10ms 차이가 엔진 대기에 삼켜진다.
 
