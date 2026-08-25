@@ -57,7 +57,9 @@ tools/loadtest/run.sh MODE=both VUS_ENGINE=3 VUS_MATCH=4 LT_UIDS=…
 tools/loadtest/run.sh --prod MODE=match VUS_MATCH=12 THINK_MS=3000 DURATION=15m LT_UIDS=…
 ```
 
-**기본값을 `run.sh` 에 두지 않는다.** 두면 `lib/config.js` 와 두 벌이 되고, 한쪽을 고칠 때 다른 쪽이 조용히 낡아 「무슨 값으로 잰 회차인가」가 갈린다. 스크립트가 하는 것은 셋뿐이다 — 레포 루트를 찾고, `--prod` 면 `BASE` 와 시크릿을 채우고, 회차 손잡이를 로그 첫 줄에 적는다.
+**기본값을 `run.sh` 에 두지 않는다.** k6 스크립트가 이미 든다 — 손잡이 대부분이 `lib/config.js` 이고 시나리오 넷(`MODE`·`DURATION`·`VUS_ENGINE`·`VUS_MATCH`)이 `main.js` 다. 한 벌 더 두면 한쪽을 고칠 때 다른 쪽이 조용히 낡아 「무슨 값으로 잰 회차인가」가 갈린다. 그래서 로그 첫 줄도 **넘긴 손잡이만** 적는다(`SESSION_SECRET` 은 `***`).
+
+**익명 판 가드는 플래그가 아니라 주소가 건다.** `--prod` 없이 `BASE` 만 원격으로 넘겨도 같은 곳에 걸리므로, 로컬이 아닌 주소에는 `LT_UIDS` 에 **양의 정수가 하나라도** 있어야 한다 — 비어 있는 것뿐 아니라 `LT_UIDS=abc` 도 막는다(`lib/config.js` 가 숫자 아닌 값을 걸러 버려 빈 목록과 같아진다).
 
 `k6 run tools/loadtest/main.js` 를 직접 불러도 같다. 다만 손잡이를 env 접두사로 붙여야 하고 cwd 가 레포 루트여야 하는데, **Claude 가 도는 세션에서는 그 모양이 `Bash(k6 run:*)` 허용 규칙에 안 걸린다** — 규칙이 접두사 매칭이라 `BASE=…` 로 시작하는 명령을 못 덮고, `$(aws ssm …)` 의 명령 치환도 마찬가지다. 그때는 판정이 분류기로 넘어가 같은 종류의 회차가 한 번은 통과하고 한 번은 막힌다.
 
@@ -127,7 +129,7 @@ aws ecs update-service --region ap-northeast-1 --cluster show-gi --service show-
 - **태스크가 한 대다.** 부하가 곧 실사용자 장애다
 - 알람이 울리고 메일이 간다. 회차 시각을 저널에 적어 둔다 — 대인전 회차는 `show-gi-analysis-backlog` 이 걸리는 자리다([journal §108](../../docs/journal/101-120.md))
 - 끝나면 `cleanup.sql`. `users` 한 줄을 지우면 판·기보·평가치·레이팅·큐가 CASCADE 로 같이 사라진다
-- **`LT_UIDS` 없이 걸지 않는다.** 익명 판은 그 정리에 안 걸린다 — `run.sh --prod` 가 그 자리를 막는다
+- **`LT_UIDS` 없이 걸지 않는다.** 익명 판은 그 정리에 안 걸린다 — `run.sh` 가 원격 주소면 그 자리를 막는다
 
 **부하와 지연을 같은 회차에서 재지 않는다.** 용량은 도쿄 하나에서 계단식으로, 지연은 도쿄+오사카에서 낮은 부하로 — 포화된 서버에서는 리전 간 10ms 차이가 엔진 대기에 삼켜진다.
 

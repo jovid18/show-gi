@@ -61,6 +61,17 @@ type Options struct {
 	// 어느 임계치에서 걸린 개입인지를 모르면 나중에 상수를 흔들어 볼 수 없다.
 	Level intervene.Level
 
+	// AnalysisOnly 는 이 프로세스가 사람을 안 받는다는 뜻이다(ROLE=analysis).
+	// 방과 대기열 표면이 503이 된다.
+	//
+	// 방이 짝지은 프로세스의 메모리에 서므로(journal §98) 분석 티어가 짝을 지으면 그
+	// 방을 아무도 못 연다 — 두 사람이 「열 수 없다」에서 멈추고 로그에 아무것도 안 남는다.
+	// 대상 그룹이 이 태스크에 사람을 안 보내는 것이 정상이고, 이 스위치는 그 설정이
+	// 틀렸을 때 조용히 깨지지 않게 한다.
+	//
+	// 기본이 false 다. 티어를 안 가른 배포와 테스트가 지금까지와 같다.
+	AnalysisOnly bool
+
 	// Search 는 가정 수순·手筋 힌트가 쓰는 엔진이다(whatif.go). nil이면 그 표면만 꺼지고
 	// 되짚기는 그대로 돈다.
 	Search Searcher
@@ -300,7 +311,16 @@ func Handler(opts Options) http.Handler {
 	//
 	// 셋 다 로그인이 필요하다. 익명은 서로 구별할 수단이 없어서 정원 2명이라는 규칙이
 	// 성립하지 않는다(internal/match 의 Room).
-	if opts.Match != nil {
+	if opts.Match != nil && opts.AnalysisOnly {
+		// 짝을 안 짓는 티어다. 경로는 남기고 503으로 답한다 — 없애면 404가 되어
+		// 「배포가 낡았다」와 구별되지 않는다.
+		off := func(w http.ResponseWriter, _ *http.Request) { matchOffHere(w) }
+		mux.HandleFunc("POST /api/rooms", off)
+		mux.HandleFunc("GET /api/rooms/{id}", off)
+		mux.HandleFunc("GET /ws/match", off)
+		mux.HandleFunc("POST /api/queue", off)
+		mux.HandleFunc("DELETE /api/queue", off)
+	} else if opts.Match != nil {
 		mh := &matchHandler{hub: opts.Match.hub, auth: ah}
 		mux.HandleFunc("POST /api/rooms", mh.create)
 		mux.HandleFunc("GET /api/rooms/{id}", mh.get)

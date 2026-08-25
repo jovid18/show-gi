@@ -207,6 +207,16 @@ func queueUnavailable(w http.ResponseWriter) {
 	})
 }
 
+// matchOffHere 는 이 태스크가 짝을 안 짓는다고 답한다(Options.AnalysisOnly).
+//
+// 사람이 여기까지 왔다는 것은 대상 그룹 설정이 틀렸다는 뜻이다. 그래도 화면에는
+// 「지금 안 된다」로 보여야 하므로 문구는 대기열이 꺼졌을 때와 같은 자리에 둔다.
+func matchOffHere(w http.ResponseWriter) {
+	writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+		"error": "match_not_served_here", "message": "対局相手の待ち列を利用できません。",
+	})
+}
+
 // leave 는 줄에서 빠진다. 없는 사람이 불러도 200이다 — 「이미 없다」와 「방금 지웠다」가
 // 화면에 같은 뜻이고, 탭을 닫는 자리에서 부르는 경로라 실패로 답할 이유가 없다.
 func (h *queueHandler) leave(w http.ResponseWriter, r *http.Request) {

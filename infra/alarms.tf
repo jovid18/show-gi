@@ -160,8 +160,9 @@ resource "aws_cloudwatch_metric_alarm" "engine_pool_wait" {
 # 한꺼번에 들어오므로(journal §105) 단발로 100을 넘는 것은 정상이다 — 5분을 넘겨
 # 머무르는 것이 「따라가지 못하고 있다」다.
 #
-# 태스크가 둘이 되면 이 알람이 틀린다. 큐가 프로세스 안의 채널이라 값이 합이 아니라
-# 한 대의 줄이다(journal §101) — 스케일아웃보다 그것이 먼저다.
+# 태스크가 둘이어도 통계가 맞다. 줄이 표라(018·019) 게이지가 표를 읽은 전역 값이고
+# 태스크마다 같은 숫자를 올린다 — Maximum 이 그 값 그대로다(journal §119).
+# Sum 으로 바꾸면 태스크 수만큼 곱해진다.
 resource "aws_cloudwatch_metric_alarm" "analysis_backlog" {
   alarm_name          = "show-gi-analysis-backlog"
   alarm_description   = "사후 분석 줄이 5분 내내 100手를 넘었다. 되짚기가 그만큼 늦게 준비된다 — 박스의 탐색 처리량이 도착을 못 따라가는 자리다(journal §108)"

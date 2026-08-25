@@ -62,6 +62,52 @@ func TestCreatingARoomNeedsSignIn(t *testing.T) {
 	}
 }
 
+// 분석 티어는 짝을 안 짓는다. 방이 짝지은 프로세스의 메모리에 서므로(journal §98)
+// 여기서 방이 열리면 그 방을 아무도 못 열고, 두 사람이 「열 수 없다」에서 멈춘다.
+//
+// 404가 아니라 503이다. 없애면 「배포가 낡았다」와 구별되지 않는다.
+func TestTheAnalysisTierServesNoMatchSurface(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	h := Handler(Options{
+		Google:        auth.NewGoogle("client-id", "client-secret"),
+		SessionSecret: "session-secret",
+		Match:         NewMatch(ctx, nil, intervene.Beginner),
+		AnalysisOnly:  true,
+	})
+
+	for _, tc := range []struct{ method, path string }{
+		{http.MethodPost, "/api/rooms"},
+		{http.MethodGet, "/api/rooms/AAAAAAAA"},
+		{http.MethodGet, "/ws/match"},
+		{http.MethodPost, "/api/queue"},
+		{http.MethodDelete, "/api/queue"},
+	} {
+		rec := do(h, tc.method, tc.path, nil)
+		if rec.Code != http.StatusServiceUnavailable {
+			t.Errorf("%s %s = %d, want %d", tc.method, tc.path, rec.Code, http.StatusServiceUnavailable)
+		}
+	}
+
+	// 대기열이 꺼진 것과 갈려야 한다. 둘 다 503이라 코드로만 구별된다 — 「DB가 없다」로
+	// 읽으면 티어 설정이 틀린 것을 DB 문제로 쫓게 된다.
+	rec := do(h, http.MethodPost, "/api/queue", nil)
+	var body struct {
+		Error string `json:"error"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.Error != "match_not_served_here" {
+		t.Errorf("error = %q, want %q", body.Error, "match_not_served_here")
+	}
+
+	// 확인하는 자리는 살아 있어야 한다. 이 티어도 같은 방식으로 건강을 답한다.
+	if rec := do(h, http.MethodGet, "/healthz", nil); rec.Code != http.StatusOK {
+		t.Errorf("GET /healthz = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
 // 방을 만들면 유추할 수 없는 id 하나가 나오고, 만든 사람이 고른 쪽이 그대로 온다.
 func TestCreateRoomReturnsAnUnguessableID(t *testing.T) {
 	h, _, signIn := matchTestServer(t)

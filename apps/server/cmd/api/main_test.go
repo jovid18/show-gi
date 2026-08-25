@@ -23,14 +23,14 @@ func TestTheRoleFallsBackToBoth(t *testing.T) {
 // 상호작용 티어는 집는 쪽을 안 띄운다. ANALYSIS_WORKERS 가 있어도 그렇다 — 손잡이가
 // 둘이면 어느 쪽이 이기는지가 배포 로그에서만 갈린다.
 func TestTheInteractiveTierTakesNoWorkers(t *testing.T) {
-	t.Setenv("ROLE", roleInteractive)
 	t.Setenv("ANALYSIS_WORKERS", "4")
-	if got := analysisWorkers(2); got != 0 {
+	if got := analysisWorkers(2, roleInteractive); got != 0 {
 		t.Errorf("워커가 %d개다, 0이어야 한다", got)
 	}
-
-	t.Setenv("ROLE", roleAnalysis)
-	if got := analysisWorkers(2); got != 4 {
+	if got := analysisWorkers(2, roleAnalysis); got != 4 {
+		t.Errorf("워커가 %d개다, ANALYSIS_WORKERS 인 4여야 한다", got)
+	}
+	if got := analysisWorkers(2, roleBoth); got != 4 {
 		t.Errorf("워커가 %d개다, ANALYSIS_WORKERS 인 4여야 한다", got)
 	}
 }

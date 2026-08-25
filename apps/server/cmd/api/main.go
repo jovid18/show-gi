@@ -67,6 +67,11 @@ func main() {
 	// 기록에서 틀리고, 그 위에서 상수를 흔들어 보게 된다.
 	opts := server.Options{Level: intervene.Beginner}
 
+	// 티어. 줄을 집는가와 사람을 받는가를 여기서 한 번 읽는다 — 두 자리에서 각각
+	// os.Getenv 하면 잘못 적은 값이 한쪽에서만 경고를 내고 다른 쪽은 조용히 갈린다.
+	role := analysisRole()
+	opts.AnalysisOnly = role == roleAnalysis
+
 	// 지표. 서버·엔진 풀·탐색이 같은 레지스트리를 쓴다 — 무엇을 재는지가
 	// metrics.New 한 자리에 다 있어야 새 지표를 늘릴 때 EMF 쪽을 같이 보게 된다.
 	reg := metrics.New("api", os.Getenv("ENVIRONMENT"))
@@ -151,7 +156,7 @@ func main() {
 		// 대인전의 사후 분석. 채우는 것은 되짚기의 평가치와 두 사람의 실력 추정치이고,
 		// 재는 것은 두는 동안 手마다 미리 한다(journal §105). 착수 경로는 그래도 엔진을
 		// 안 지난다 — 미리 재는 것이 논블로킹이라 착수를 막지 않는다.
-		opts.Match.AnalyzeWith(ctx, opts.Store, opts.NewAnalyst, opts.Metrics, analysisWorkers(pool.Size()))
+		opts.Match.AnalyzeWith(ctx, opts.Store, opts.NewAnalyst, opts.Metrics, analysisWorkers(pool.Size(), role))
 		// 이 풀을 빌리는 자리가 넷이다 — 종반 판정, 詰み 게이지, 퀴즈의 詰み 트리,
 		// 대인전 사후 분석. 앞의 둘은 시간상 겹치지 않지만(판정은 사람의 수 직후,
 		// 게이지는 상대의 수 직후) 퀴즈는 판이 끝나는 자리에서 수십 초를 잡는다 —
@@ -270,8 +275,7 @@ func startEmitter(reg *metrics.Registry) func() {
 //
 // 풀이 커지면 이 값도 같이 커진다. 그것이 이 함수가 상수가 아닌 이유다: 워커가 하나면
 // vCPU 를 올려도 사후 분석 층은 그대로였다(journal §106).
-func analysisWorkers(poolSize int) int {
-	role := analysisRole()
+func analysisWorkers(poolSize int, role string) int {
 	if role == roleInteractive {
 		// 집는 쪽을 안 띄운다. 手는 그대로 표에 세워지고 분석 티어가 집는다.
 		slog.Info("match analysis ready", "role", role, "workers", 0, "pool", poolSize)
@@ -297,15 +301,15 @@ const (
 	roleAnalysis    = "analysis"
 )
 
-// analysisRole 은 이 프로세스가 사후 분석의 줄을 집는가다. 그것 하나만 정한다.
+// analysisRole 은 이 프로세스가 어느 티어인가다. 정하는 것이 둘이다 — 줄을 집는가와
+// 사람을 받는가.
 //
-//	interactive  안 집는다. WS·방·엔진 대국을 받고 手를 줄에 세우기만 한다
-//	analysis     집는다. 로드밸런서가 이 태스크로 사람을 안 보낸다
-//	both         집는다. 태스크가 하나인 배포의 모양이고 기본이다
+//	interactive  집지 않는다. 사람을 받고 手를 줄에 세우기만 한다
+//	analysis     집는다. 방과 대기열이 503이다(server.Options.AnalysisOnly)
+//	both         집고 받는다. 태스크가 하나인 배포의 모양이고 기본이다
 //
-// 라우팅을 여기서 안 가른다. 어느 티어든 같은 핸들러를 세우고, 사람이 오지 않는 것은
-// 대상 그룹이 정한다 — 티어마다 다른 라우팅을 두면 「이 배포에 그 경로가 있나」가
-// 프로세스 안에서 갈려서 /healthz 하나로 확인할 수 없게 된다.
+// 경로를 없애지는 않는다. analysis 도 같은 핸들러를 세우고 짝짓는 표면만 503으로
+// 답한다 — 없애면 404가 되어 「배포가 낡았다」와 구별되지 않는다.
 //
 // 상호작용 티어를 여러 대로 올리는 것은 이 손잡이가 아니다. 방이 메모리에 서므로
 // (journal §98) 그쪽은 방을 프로세스 밖으로 내린 뒤다.
