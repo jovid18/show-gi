@@ -970,6 +970,37 @@ func TestAFullDrainDoesNotBlockTheMove(t *testing.T) {
 	}
 }
 
+// 판이 끝나면 그 판의 남은 手가 밀린 양에 한 번만 남는다.
+//
+// 안 끊으면 그 手가 표에도 남고 queuedPlies 에도 더해져 두 번 세어진다. 프로덕션에서
+// 실제로 그렇게 부풀었고(journal §116), 이 값이 오토스케일의 신호라 두 번 세면
+// 스케일러가 과잉 대응한다.
+func TestTheBacklogCountsAnUnmeasuredMoveOnce(t *testing.T) {
+	a, matchID := plyAnalyzer(t, nil)
+	reg := metrics.New("api", "test")
+	a.analysis = reg.Analysis()
+	const plies = 10
+
+	// 세우기만 하고 아무것도 안 잰다. 판이 끝나면 열 手 전부를 analyze 가 맡는다.
+	for ply := 1; ply <= plies; ply++ {
+		a.prefetch(matchID, startSFENOf(""), repeatMove(ply), ply)
+		drainOne(t, a)
+	}
+	a.sampleBacklog(t.Context())
+	base := reg.AnalysisBacklogPlies.Total() - float64(plies)
+
+	a.enqueue(t.Context(), matchID, []analysisSeat{{gameID: 1}, {gameID: 2}}, plies)
+	a.sampleBacklog(t.Context())
+	if got := reg.AnalysisBacklogPlies.Total() - base; got != plies {
+		t.Errorf("밀린 手 = %v, want %d (표와 줄이 같은 手를 같이 세고 있다)", got, plies)
+	}
+
+	// 끊은 手는 아무도 못 집는다. 집으면 analyze 와 같은 국면을 두 번 잰다.
+	if a.measureOnePly(t.Context(), stubAnalyst{}) {
+		t.Error("판이 끝난 뒤에도 그 판의 手가 집혔다")
+	}
+}
+
 // 미리 다 잰 판이 줄을 떠나면 밀린 양이 0으로 돌아온다.
 //
 // 세는 값과 job 이 드는 값이 어긋나면 차액이 영구히 남는다. 지표만 보면 「밀려 있다」로

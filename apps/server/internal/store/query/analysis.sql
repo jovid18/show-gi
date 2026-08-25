@@ -67,10 +67,16 @@ SET done_at   = now(),
     decided   = $7
 WHERE match_id = $1 AND ply = $8 AND done_at IS NULL;
 
--- name: GiveUpAnalysisPlies :exec
+-- name: StopAnalysisAhead :exec
 --
--- 그 판을 미리 재는 것을 그만둔다. 아직 안 잰 행만 표시한다 — 이미 잰 값은 판이 끝날 때
--- 그대로 쓰이고, 여기서 같이 덮으면 그만큼을 다시 재게 된다.
+-- 그 판을 미리 재는 것을 그만둔다. 부르는 자리가 둘이고 이유가 다르다 — 한 手가 실패했거나
+-- (뒤도 전부 같은 자리에서 실패한다), 판이 끝나 남은 手를 analyze 가 맡거나다.
+--
+-- 아직 안 잰 행만 표시한다. 이미 잰 값은 판이 끝날 때 그대로 쓰이고, 여기서 같이 덮으면
+-- 그만큼을 다시 재게 된다.
+--
+-- 이 표시가 밀린 양의 정본을 하나로 만든다. 안 하면 판이 끝난 뒤 남은 手가 표에도 남고
+-- queuedPlies 에도 더해져 **같은 手가 두 번 세어진다**(journal §116).
 UPDATE analysis_plies SET dead = true
 WHERE match_id = $1 AND done_at IS NULL;
 

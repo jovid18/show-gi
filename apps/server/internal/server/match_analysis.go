@@ -71,10 +71,12 @@ type matchAnalyzer struct {
 	// backlogGames 는 아직 안 꺼낸 판의 수다. 판 수만으로는 밀린 일의 크기를 못 말해서
 	// (journal §91의 27·34·123手) 手도 같이 세는데, 그쪽은 표가 든다(sampleBacklog).
 	backlogGames int
-	// queuedPlies 는 줄에 선 판들이 아직 안 잰 手数의 합이다.
+	// queuedPlies 는 줄에 선 판들이 아직 안 잰 手数의 합이다. 그 手는 analyze 가 잰다.
 	//
-	// 그 手들은 표에 행이 없다 — 미리 재기가 못 따라갔거나 배수구가 넘쳐서 안 세워진
-	// 것이고, analyze 가 그 자리에서 잰다. 여기서 안 세면 밀린 양이 실제 일보다 작아진다.
+	// 표와 겹치지 않는다. enqueue 가 그 판의 남은 행을 dead 로 끊으므로 밀린 양의 주인이
+	// 언제나 한쪽뿐이고, 안 끊으면 같은 手가 두 번 세어진다(journal §116).
+	//
+	// 여기서 안 세면 반대로 밀린 양이 실제 일보다 작아진다 — 표가 안 드는 手이기 때문이다.
 	queuedPlies int
 }
 
@@ -416,7 +418,7 @@ func (a *matchAnalyzer) lookAhead(ctx context.Context, analyst game.Analyst, p s
 		// 手 하나의 시한은 여기 안 걸린다. 그쪽은 judge 가 자기 ctx 를 따로 두르므로
 		// 이 ctx 는 멀쩡하고, 그때는 그만두는 것이 맞다.
 		if ctx.Err() == nil {
-			a.giveUp(ctx, p.MatchID)
+			a.stopAhead(ctx, p.MatchID)
 		}
 		return
 	}
@@ -455,12 +457,16 @@ func (a *matchAnalyzer) prefetch(matchID, start string, moves []string, ply int)
 	}
 }
 
-// giveUp 은 그 판을 미리 재는 것을 그만둔다. 이미 잰 값은 남는다.
+// stopAhead 는 그 판을 미리 재는 것을 그만둔다. 이미 잰 값은 남는다.
 //
-// 한 手가 실패하면 뒤의 手도 전부 같은 자리에서 실패한다(analyze 의 같은 판단) —
-// 그만두지 않으면 남은 手数만큼 탐색을 버린다.
-func (a *matchAnalyzer) giveUp(ctx context.Context, matchID string) {
-	if err := a.store.GiveUpAnalysisPlies(ctx, matchID); err != nil && ctx.Err() == nil {
+// 부르는 자리가 둘이고 이유가 다르다. 한 手가 실패했거나(뒤의 手도 전부 같은 자리에서
+// 실패하므로 안 그만두면 남은 手数만큼 탐색을 버린다), 판이 끝나 남은 手를 analyze 가
+// 맡거나다(enqueue).
+func (a *matchAnalyzer) stopAhead(ctx context.Context, matchID string) {
+	if a.store == nil {
+		return
+	}
+	if err := a.store.StopAnalysisAhead(ctx, matchID); err != nil && ctx.Err() == nil {
 		log.Printf("match: could not stop measuring %s: %v", matchID, err)
 	}
 }
@@ -555,7 +561,13 @@ func (a *matchAnalyzer) enqueue(ctx context.Context, matchID string, seats []ana
 		a.hold(id)
 	}
 
+	// 미리 재는 것을 여기서 끝낸다. 남은 手는 analyze 가 그 자리에서 재므로 표가 더 내줄
+	// 것이 없고, 안 끊으면 그 手가 표와 queuedPlies 양쪽에 남아 두 번 세어진다(journal §116).
+	// 덤으로 analyze 가 재는 手를 다른 워커가 동시에 집는 낭비도 없어진다.
+	a.stopAhead(ctx, matchID)
+
 	// 미리 재 둔 만큼을 뺀다. 남은 것이 이 줄에서 실제로 엔진을 부르는 양이다.
+	// 위에서 끊어도 이 값은 안 변한다 — 세는 것이 이미 잰 행이다(aheadCount).
 	pending := max(plies-a.aheadCount(ctx, matchID), 0)
 
 	select {
