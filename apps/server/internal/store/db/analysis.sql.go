@@ -11,6 +11,55 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const analysisJobBacklog = `-- name: AnalysisJobBacklog :one
+SELECT count(*) AS games, coalesce(sum(plies), 0)::bigint AS plies
+FROM analysis_jobs
+WHERE plies IS NOT NULL
+  AND (claimed_at IS NULL OR claimed_at < $1::timestamptz)
+`
+
+type AnalysisJobBacklogRow struct {
+	Games int64
+	Plies int64
+}
+
+// 아직 안 집힌 판의 수와 그 판들이 안 잰 手数다. 밀린 양의 판 몫과 手 몫이 이 한 행이다.
+//
+// 집힌 판은 안 센다. 그것은 지금 도는 일이지 밀린 일이 아니다 — 리스가 낡으면 다시 센다.
+func (q *Queries) AnalysisJobBacklog(ctx context.Context, leaseBefore pgtype.Timestamptz) (AnalysisJobBacklogRow, error) {
+	row := q.db.QueryRow(ctx, analysisJobBacklog, leaseBefore)
+	var i AnalysisJobBacklogRow
+	err := row.Scan(&i.Games, &i.Plies)
+	return i, err
+}
+
+const claimAnalysisJob = `-- name: ClaimAnalysisJob :one
+WITH next AS MATERIALIZED (
+    SELECT j.match_id FROM analysis_jobs j
+    WHERE j.plies IS NOT NULL
+      AND (j.claimed_at IS NULL OR j.claimed_at < $1::timestamptz)
+    ORDER BY j.created_at
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+)
+UPDATE analysis_jobs t SET claimed_at = now()
+FROM next n WHERE t.match_id = n.match_id
+RETURNING t.match_id, t.plies
+`
+
+type ClaimAnalysisJobRow struct {
+	MatchID string
+	Plies   *int32
+}
+
+// 자리가 찬 판 하나를 집는다. 없으면 0행이다. ClaimAnalysisPly 와 같은 모양이다.
+func (q *Queries) ClaimAnalysisJob(ctx context.Context, leaseBefore pgtype.Timestamptz) (ClaimAnalysisJobRow, error) {
+	row := q.db.QueryRow(ctx, claimAnalysisJob, leaseBefore)
+	var i ClaimAnalysisJobRow
+	err := row.Scan(&i.MatchID, &i.Plies)
+	return i, err
+}
+
 const claimAnalysisPly = `-- name: ClaimAnalysisPly :one
 WITH next AS MATERIALIZED (
     SELECT p.match_id, p.ply FROM analysis_plies p
@@ -93,6 +142,16 @@ DELETE FROM analysis_plies WHERE match_id = $1
 // 그 판의 행을 걷는다. 판이 끝난 뒤와, 반쪽이라 분석하지 않는 자리에서 부른다.
 func (q *Queries) DiscardAnalysisMatch(ctx context.Context, matchID string) error {
 	_, err := q.db.Exec(ctx, discardAnalysisMatch, matchID)
+	return err
+}
+
+const dropAnalysisJob = `-- name: DropAnalysisJob :exec
+DELETE FROM analysis_jobs WHERE match_id = $1
+`
+
+// 그 판을 줄에서 걷는다. 다 재고 나서와, 반쪽이라 분석하지 않는 자리에서 부른다.
+func (q *Queries) DropAnalysisJob(ctx context.Context, matchID string) error {
+	_, err := q.db.Exec(ctx, dropAnalysisJob, matchID)
 	return err
 }
 
@@ -181,6 +240,78 @@ func (q *Queries) FinishAnalysisPly(ctx context.Context, arg FinishAnalysisPlyPa
 	return err
 }
 
+const holdAnalysisJob = `-- name: HoldAnalysisJob :exec
+
+INSERT INTO analysis_jobs (match_id) VALUES ($1)
+ON CONFLICT (match_id) DO NOTHING
+`
+
+// 끝난 판의 줄(019). 자리는 games 가 들고 여기는 「무엇이 남았나」만 든다.
+//
+// 판의 자리를 미리 세운다. 手数는 아직 비어 있어 집히지 않는다.
+//
+// 번호가 나가기 전에 서야 한다 — 화면이 되짚기를 여는 순간 이미 「분석 중」이라야 하고,
+// 그 시점에는 자리가 하나뿐일 수 있다(matchRecords.collect).
+func (q *Queries) HoldAnalysisJob(ctx context.Context, matchID string) error {
+	_, err := q.db.Exec(ctx, holdAnalysisJob, matchID)
+	return err
+}
+
+const isGameAnalyzing = `-- name: IsGameAnalyzing :one
+SELECT EXISTS (
+    SELECT 1 FROM analysis_jobs j
+    JOIN games g ON g.match_id = j.match_id
+    WHERE g.id = $1
+)
+`
+
+// 그 판이 아직 줄에 있거나 도는 중인가. 되짚기가 이 값으로 「분석 중」과 「남지 않았다」를
+// 가른다(server/review.go).
+//
+// games 를 지나 찾는다. 자리를 표에 옮겨 적지 않기 때문이고, 그 조인은 games_match_idx 가 받는다.
+func (q *Queries) IsGameAnalyzing(ctx context.Context, id int64) (bool, error) {
+	row := q.db.QueryRow(ctx, isGameAnalyzing, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const matchSeats = `-- name: MatchSeats :many
+SELECT id, user_id, my_color FROM games
+WHERE match_id = $1
+ORDER BY my_color
+`
+
+type MatchSeatsRow struct {
+	ID      int64
+	UserID  *int64
+	MyColor string
+}
+
+// 그 판의 자리들이다. 대인전 한 판이 games 행 둘이고 그 행이 곧 자리다(012_match_games.sql).
+//
+// 색으로 정렬한다. 기보를 첫 자리의 행 하나에서만 읽으므로(analyze) 순서가 흔들리면
+// 「이 판을 잴 수 있나」의 답이 실행마다 달라진다.
+func (q *Queries) MatchSeats(ctx context.Context, matchID *string) ([]MatchSeatsRow, error) {
+	rows, err := q.db.Query(ctx, matchSeats, matchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MatchSeatsRow
+	for rows.Next() {
+		var i MatchSeatsRow
+		if err := rows.Scan(&i.ID, &i.UserID, &i.MyColor); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const measuredAnalysisPlies = `-- name: MeasuredAnalysisPlies :many
 SELECT ply, before_cp, after_cp, blunder, delta_win, threshold, decided
 FROM analysis_plies
@@ -230,6 +361,26 @@ func (q *Queries) MeasuredAnalysisPlies(ctx context.Context, matchID string) ([]
 	return items, nil
 }
 
+const readyAnalysisJob = `-- name: ReadyAnalysisJob :exec
+INSERT INTO analysis_jobs (match_id, plies) VALUES ($1, $2)
+ON CONFLICT (match_id) DO UPDATE SET plies = EXCLUDED.plies
+`
+
+type ReadyAnalysisJobParams struct {
+	MatchID string
+	Plies   *int32
+}
+
+// 자리가 다 찼다. 手数를 적으면 그때부터 집힌다.
+//
+// HoldAnalysisJob 이 세운 행을 채우는 것이 보통인데, 없으면 여기서 만든다. UPDATE 로만
+// 두면 그 앞이 한 번 실패했을 때 이 문장이 **조용히 아무 일도 안 하고** 그 판이 줄에
+// 안 선다 — 되짚기는 그것을 「남지 않았다」로만 보여 주므로 아무도 못 알아챈다.
+func (q *Queries) ReadyAnalysisJob(ctx context.Context, arg ReadyAnalysisJobParams) error {
+	_, err := q.db.Exec(ctx, readyAnalysisJob, arg.MatchID, arg.Plies)
+	return err
+}
+
 const stopAnalysisAhead = `-- name: StopAnalysisAhead :exec
 UPDATE analysis_plies SET dead = true
 WHERE match_id = $1 AND done_at IS NULL
@@ -245,6 +396,16 @@ WHERE match_id = $1 AND done_at IS NULL
 // queuedPlies 에도 더해져 **같은 手가 두 번 세어진다**(journal §116).
 func (q *Queries) StopAnalysisAhead(ctx context.Context, matchID string) error {
 	_, err := q.db.Exec(ctx, stopAnalysisAhead, matchID)
+	return err
+}
+
+const sweepAnalysisJobs = `-- name: SweepAnalysisJobs :exec
+DELETE FROM analysis_jobs WHERE created_at < $1
+`
+
+// 낡은 행을 걷는다. 자리가 영영 안 차는 반쪽 판이 이 표의 누수다.
+func (q *Queries) SweepAnalysisJobs(ctx context.Context, createdAt pgtype.Timestamptz) error {
+	_, err := q.db.Exec(ctx, sweepAnalysisJobs, createdAt)
 	return err
 }
 

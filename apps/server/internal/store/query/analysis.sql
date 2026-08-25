@@ -116,3 +116,81 @@ DELETE FROM analysis_plies WHERE match_id = $1;
 -- 낡은 행을 걷는다. 판이 비정상으로 끝나면 DiscardAnalysisMatch 가 안 돌고, 그때
 -- 남는 행이 이 표의 유일한 누수다.
 DELETE FROM analysis_plies WHERE created_at < $1;
+
+-- 끝난 판의 줄(019). 자리는 games 가 들고 여기는 「무엇이 남았나」만 든다.
+
+-- name: HoldAnalysisJob :exec
+--
+-- 판의 자리를 미리 세운다. 手数는 아직 비어 있어 집히지 않는다.
+--
+-- 번호가 나가기 전에 서야 한다 — 화면이 되짚기를 여는 순간 이미 「분석 중」이라야 하고,
+-- 그 시점에는 자리가 하나뿐일 수 있다(matchRecords.collect).
+INSERT INTO analysis_jobs (match_id) VALUES ($1)
+ON CONFLICT (match_id) DO NOTHING;
+
+-- name: ReadyAnalysisJob :exec
+--
+-- 자리가 다 찼다. 手数를 적으면 그때부터 집힌다.
+--
+-- HoldAnalysisJob 이 세운 행을 채우는 것이 보통인데, 없으면 여기서 만든다. UPDATE 로만
+-- 두면 그 앞이 한 번 실패했을 때 이 문장이 **조용히 아무 일도 안 하고** 그 판이 줄에
+-- 안 선다 — 되짚기는 그것을 「남지 않았다」로만 보여 주므로 아무도 못 알아챈다.
+INSERT INTO analysis_jobs (match_id, plies) VALUES ($1, $2)
+ON CONFLICT (match_id) DO UPDATE SET plies = EXCLUDED.plies;
+
+-- name: ClaimAnalysisJob :one
+--
+-- 자리가 찬 판 하나를 집는다. 없으면 0행이다. ClaimAnalysisPly 와 같은 모양이다.
+WITH next AS MATERIALIZED (
+    SELECT j.match_id FROM analysis_jobs j
+    WHERE j.plies IS NOT NULL
+      AND (j.claimed_at IS NULL OR j.claimed_at < sqlc.arg(lease_before)::timestamptz)
+    ORDER BY j.created_at
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+)
+UPDATE analysis_jobs t SET claimed_at = now()
+FROM next n WHERE t.match_id = n.match_id
+RETURNING t.match_id, t.plies;
+
+-- name: DropAnalysisJob :exec
+--
+-- 그 판을 줄에서 걷는다. 다 재고 나서와, 반쪽이라 분석하지 않는 자리에서 부른다.
+DELETE FROM analysis_jobs WHERE match_id = $1;
+
+-- name: AnalysisJobBacklog :one
+--
+-- 아직 안 집힌 판의 수와 그 판들이 안 잰 手数다. 밀린 양의 판 몫과 手 몫이 이 한 행이다.
+--
+-- 집힌 판은 안 센다. 그것은 지금 도는 일이지 밀린 일이 아니다 — 리스가 낡으면 다시 센다.
+SELECT count(*) AS games, coalesce(sum(plies), 0)::bigint AS plies
+FROM analysis_jobs
+WHERE plies IS NOT NULL
+  AND (claimed_at IS NULL OR claimed_at < sqlc.arg(lease_before)::timestamptz);
+
+-- name: IsGameAnalyzing :one
+--
+-- 그 판이 아직 줄에 있거나 도는 중인가. 되짚기가 이 값으로 「분석 중」과 「남지 않았다」를
+-- 가른다(server/review.go).
+--
+-- games 를 지나 찾는다. 자리를 표에 옮겨 적지 않기 때문이고, 그 조인은 games_match_idx 가 받는다.
+SELECT EXISTS (
+    SELECT 1 FROM analysis_jobs j
+    JOIN games g ON g.match_id = j.match_id
+    WHERE g.id = $1
+);
+
+-- name: MatchSeats :many
+--
+-- 그 판의 자리들이다. 대인전 한 판이 games 행 둘이고 그 행이 곧 자리다(012_match_games.sql).
+--
+-- 색으로 정렬한다. 기보를 첫 자리의 행 하나에서만 읽으므로(analyze) 순서가 흔들리면
+-- 「이 판을 잴 수 있나」의 답이 실행마다 달라진다.
+SELECT id, user_id, my_color FROM games
+WHERE match_id = $1
+ORDER BY my_color;
+
+-- name: SweepAnalysisJobs :exec
+--
+-- 낡은 행을 걷는다. 자리가 영영 안 차는 반쪽 판이 이 표의 누수다.
+DELETE FROM analysis_jobs WHERE created_at < $1;
