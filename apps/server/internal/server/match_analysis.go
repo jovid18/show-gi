@@ -167,9 +167,14 @@ const analysisJudgeDeadline = game.DefaultMoveDeadline
 // workers 는 줄을 집는 goroutine 수다. 0이면 집는 쪽을 아예 안 띄운다 — 상호작용
 // 티어가 그 모양이고, 그 티어는 手를 세우기만 한다(ROLE, cmd/api/main.go).
 //
-// 세우는 쪽과 게이지·청소는 workers 와 무관하게 돈다. 게이지가 집지 않는 티어에서도
-// 도는 이유는 분석 티어가 죽었을 때 지표가 「데이터 없음」이 아니라 부푸는 값이어야
-// 하기 때문이다 — 그때가 밀린 양이 제일 큰 자리다.
+// 세우는 쪽과 게이지는 workers 와 무관하게 돈다. 게이지가 집지 않는 티어에서도 도는
+// 이유는 분석 티어가 죽었을 때 지표가 「데이터 없음」이 아니라 부푸는 값이어야 하기
+// 때문이다 — 그때가 밀린 양이 제일 큰 자리다.
+//
+// 청소는 집는 티어만 돈다. 걷는 기준이 나이 하나뿐이라(plyTTL) 집지 않는 티어가 걷으면
+// 분석 티어가 죽어 있는 동안 쌓인 줄을 여섯 시간 뒤부터 지운다 — 백로그가 0으로
+// 내려가고 알람이 풀리고 되짚기가 「남지 않았다」로 보인다. 장애가 제일 클 때 그것이
+// 안 보이게 되는 것이고, 티어를 가르기 전에는 걷는 쪽이 곧 집는 쪽이라 없던 자리다.
 func newMatchAnalyzer(
 	ctx context.Context, st *store.Store, newAnalyst func() game.Analyst, reg *metrics.Registry,
 	workers int,
@@ -189,7 +194,9 @@ func newMatchAnalyzer(
 	}
 	go a.drainPlies(ctx)
 	go a.watchBacklog(ctx)
-	go a.sweepPlies(ctx)
+	if workers > 0 {
+		go a.sweepPlies(ctx)
+	}
 	return a
 }
 
@@ -270,7 +277,7 @@ func (a *matchAnalyzer) sampleBacklog(ctx context.Context) {
 	a.analysis.SetBacklog(games, waiting+queued)
 }
 
-// sweepPlies 는 낡은 행을 걷는다.
+// sweepPlies 는 낡은 행을 걷는다. 집는 티어에서만 돈다(newMatchAnalyzer).
 func (a *matchAnalyzer) sweepPlies(ctx context.Context) {
 	t := time.NewTicker(sweepInterval)
 	defer t.Stop()

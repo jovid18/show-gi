@@ -64,6 +64,12 @@ if [ "$remote" = 1 ] && [ "${SESSION_SECRET-}" = "" ]; then
 		--name /show-gi/prod/SESSION_SECRET --with-decryption \
 		--region ap-northeast-1 --profile show-gi \
 		--query Parameter.Value --output text)
+	# 빈 값이나 None 도 exit 0 이라 set -e 가 안 잡는다. 그대로 나가면 판이 익명으로
+	# 남아서 위 LT_UIDS 가드가 지키려던 것이 뚫린다.
+	if [ -z "$SESSION_SECRET" ] || [ "$SESSION_SECRET" = "None" ]; then
+		echo "SSM 에서 SESSION_SECRET 을 못 읽었다" >&2
+		exit 2
+	fi
 	export SESSION_SECRET
 fi
 
@@ -76,7 +82,8 @@ fi
 #
 # SESSION_SECRET 은 목록에 없다. 가리는 것보다 안 읽는 쪽이 확실하다.
 shown=""
-for k in BASE MODE DURATION VUS_ENGINE VUS_MATCH THINK_MS MAX_PLIES SEED LT_UIDS HANDICAP; do
+for k in BASE MODE DURATION VUS_ENGINE VUS_MATCH THINK_MS MAX_PLIES SEED LT_UIDS HANDICAP \
+	GAME_TIMEOUT_MS STALL_TIMEOUT_MS QUEUE_TRIES QUEUE_INTERVAL; do
 	eval "v=\${$k-}"
 	if [ -n "$v" ]; then
 		shown="$shown $k=$v"
