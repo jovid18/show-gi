@@ -67,17 +67,21 @@ if [ "$remote" = 1 ] && [ "${SESSION_SECRET-}" = "" ]; then
 	export SESSION_SECRET
 fi
 
-# 넘긴 손잡이가 로그 첫 줄에 남는다. 안 넘긴 것은 안 적는다 — 기본값은 k6 스크립트가
-# 들고 그 값이 바뀐 적이 있어서(MAX_PLIES 60 → 100), 여기서 「기본」이라고 적으면
-# 나중에 읽는 사람이 어느 값으로 잰 회차인지 알 수 없다.
+# 값이 있는 손잡이가 로그 첫 줄에 남는다. 인자로 준 것과 밖에서 export 한 것을 같이
+# 읽는다 — 인자만 적으면 `THINK_MS=5000 run.sh MODE=match` 회차가 나중에 「기본으로
+# 걸었다」로 읽힌다.
+#
+# 안 준 것은 안 적는다. 기본값은 k6 스크립트가 들고 그 값이 바뀐 적이 있어서
+# (MAX_PLIES 60 → 100) 여기서 「기본」이라고 적으면 어느 값으로 잰 회차인지 알 수 없다.
+#
+# SESSION_SECRET 은 목록에 없다. 가리는 것보다 안 읽는 쪽이 확실하다.
 shown=""
-for kv in "$@"; do
-	case "$kv" in
-	BASE=*) ;; # 아래 줄이 이미 적는다
-	SESSION_SECRET=*) shown="$shown SESSION_SECRET=***" ;;
-	*) shown="$shown $kv" ;;
-	esac
+for k in BASE MODE DURATION VUS_ENGINE VUS_MATCH THINK_MS MAX_PLIES SEED LT_UIDS HANDICAP; do
+	eval "v=\${$k-}"
+	if [ -n "$v" ]; then
+		shown="$shown $k=$v"
+	fi
 done
-echo "회차 $(date -u '+%Y-%m-%dT%H:%M:%SZ') — BASE=${BASE-}$shown"
+echo "회차 $(date -u '+%Y-%m-%dT%H:%M:%SZ') —$shown"
 
 exec k6 run "$repo/tools/loadtest/main.js"

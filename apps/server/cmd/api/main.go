@@ -305,11 +305,10 @@ const (
 // 사람을 받는가.
 //
 //	interactive  집지 않는다. 사람을 받고 手를 줄에 세우기만 한다
-//	analysis     집는다. 방과 대기열이 503이다(server.Options.AnalysisOnly)
+//	analysis     집는다. /healthz·/metrics 만 세운다(server.Options.AnalysisOnly)
 //	both         집고 받는다. 태스크가 하나인 배포의 모양이고 기본이다
 //
-// 경로를 없애지는 않는다. analysis 도 같은 핸들러를 세우고 짝짓는 표면만 503으로
-// 답한다 — 없애면 404가 되어 「배포가 낡았다」와 구별되지 않는다.
+// analysis 가 나머지를 404 가 아니라 503 으로 답하는 이유는 server.Handler 에 있다.
 //
 // 상호작용 티어를 여러 대로 올리는 것은 이 손잡이가 아니다. 방이 메모리에 서므로
 // (journal §98) 그쪽은 방을 프로세스 밖으로 내린 뒤다.

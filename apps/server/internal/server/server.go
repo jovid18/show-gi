@@ -188,7 +188,11 @@ func Handler(opts Options) http.Handler {
 	// 404가 아니라 503이다. 없애면 「배포가 낡았다」와 구별되지 않는다. 확인하는 자리
 	// 둘은 위에 이미 섰다 — 그것까지 막으면 ECS 가 이 태스크를 계속 죽인다.
 	if opts.AnalysisOnly {
-		mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			// 한 줄을 따로 남긴다. 이 503은 코드가 깨진 것이 아니라 대상 그룹 설정이
+			// 틀렸다는 뜻인데, 요청 로그와 show-gi-5xx 알람은 그 둘을 구별하지 못한다.
+			slog.WarnContext(r.Context(), "a request reached the analysis tier",
+				"path", r.URL.Path, "hint", "the target group should not send people here")
 			writeJSON(w, http.StatusServiceUnavailable, map[string]any{
 				"error":   "not_served_here",
 				"message": "このサーバーでは対局を受け付けていません。",
