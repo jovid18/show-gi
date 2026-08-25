@@ -173,7 +173,9 @@ func (m *matchRecords) collect(ctx context.Context, cancel context.CancelFunc, e
 				m.mu.Unlock()
 				// 번호가 나가기 전에 표시한다. 아래 ready 가 닫히는 순간 화면이
 				// 되짚기를 열 수 있고, 그때 이미 「분석 중」이라야 한다.
-				m.analyzer.hold(id)
+				//
+				// 판 하나에 한 행이라 두 자리가 같은 것을 세운다 — 멱등이다.
+				m.analyzer.hold(ctx, entry.matchID)
 			case <-ctx.Done():
 				// 서버가 내려간다.
 			}
@@ -202,14 +204,14 @@ func (m *matchRecords) collect(ctx context.Context, cancel context.CancelFunc, e
 	if len(seats) != len(entry.ready) {
 		// 반쪽이라 분석하지 않는다. 표시는 걷는다 — 안 걷으면 그 판이 영영
 		// 「분석 중」으로 남는다.
-		m.analyzer.forget(gameIDsOf(seats))
+		m.analyzer.dropJob(ctx, entry.matchID)
 		m.analyzer.discard(ctx, entry.matchID)
 		return
 	}
 	m.mu.Lock()
 	plies := entry.plies
 	m.mu.Unlock()
-	m.analyzer.enqueue(ctx, entry.matchID, seats, plies)
+	m.analyzer.enqueue(ctx, entry.matchID, plies)
 
 	// 레이팅은 두 행이 다 있을 때만 옮긴다. 반쪽인 판은 한 사람에게만 남은 판이라,
 	// 그것으로 두 사람의 값을 움직이면 기록과 레이팅이 갈린다.

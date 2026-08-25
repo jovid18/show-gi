@@ -57,7 +57,7 @@ var stubLevel = intervene.Beginner
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
 func TestAnalysisFillsBothRowsOfAMatch(t *testing.T) {
-	st, seats := matchSeatsForAnalysis(t, "", plyList(3))
+	st, _, seats := matchSeatsForAnalysis(t, "", plyList(3))
 
 	a := analyzerFor(st, func() game.Analyst { return stubAnalyst{} })
 	a.analyze(t.Context(), "", seats)
@@ -87,7 +87,7 @@ func TestAnalysisFillsBothRowsOfAMatch(t *testing.T) {
 // 엔진이 답을 못 하면 거기서 멈춘다. 판정 없이 남는 것이 잘못 채우는 것보다 낫고,
 // 그때 화면은 「분석 중」이 아니라 「남지 않았다」로 돌아간다.
 func TestAnalysisStopsWhenTheEngineFails(t *testing.T) {
-	st, seats := matchSeatsForAnalysis(t, "", plyList(2))
+	st, _, seats := matchSeatsForAnalysis(t, "", plyList(2))
 
 	a := analyzerFor(st, func() game.Analyst { return stubAnalyst{fail: true} })
 	a.analyze(t.Context(), "", seats)
@@ -107,7 +107,7 @@ func TestAnalysisStopsWhenTheEngineFails(t *testing.T) {
 // 그 값은 아무 테스트도 안 잡는다 — 두 프로파일 다 멀쩡한 범위에 있다.
 func TestSkillFromAMatchGoesToWhoPlayedTheMove(t *testing.T) {
 	// 창(21~60手)을 다 덮는 길이다. 그 밖은 안 센다(skill.AnchorFromPly).
-	st, seats := matchSeatsForAnalysis(t, "", plyList(skill.AnchorToPly))
+	st, _, seats := matchSeatsForAnalysis(t, "", plyList(skill.AnchorToPly))
 
 	a := analyzerFor(st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.02, lossEven: 0.20}
@@ -143,7 +143,7 @@ func TestSkillFromAMatchGoesToWhoPlayedTheMove(t *testing.T) {
 // 창을 다 지난 뒤에 엔진이 죽으면 그 표본은 남긴다. 창 뒤는 애초에 안 세는 구간이라
 // 온전한 표본이고, 버리면 긴 판일수록 기여가 사라진다.
 func TestAFailureAfterTheWindowKeepsTheSamples(t *testing.T) {
-	st, seats := matchSeatsForAnalysis(t, "", plyList(skill.AnchorToPly+40))
+	st, _, seats := matchSeatsForAnalysis(t, "", plyList(skill.AnchorToPly+40))
 
 	a := analyzerFor(st, func() game.Analyst {
 		return stubAnalyst{failFrom: skill.AnchorToPly + 20, lossOdd: 0.02, lossEven: 0.20}
@@ -175,7 +175,7 @@ func TestTheFirstMoverComesFromTheStartingPosition(t *testing.T) {
 	if !ok {
 		t.Fatal("香落ち 가 표에 없다")
 	}
-	st, seats := matchSeatsForAnalysis(t, kyoochi.SFEN, plyList(skill.AnchorToPly))
+	st, _, seats := matchSeatsForAnalysis(t, kyoochi.SFEN, plyList(skill.AnchorToPly))
 
 	a := analyzerFor(st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.02, lossEven: 0.20}
@@ -202,7 +202,7 @@ func TestTheFirstMoverComesFromTheStartingPosition(t *testing.T) {
 // 평가치까지 같이 빠지는지는 여기서 안 잰다 — 실엔진은 판정 안에서 같은 문자열을
 // 되만들다 같이 실패하지만(HasEvals), 이 stub 은 그 자리를 흉내 내지 않는다.
 func TestAnUnreadableStartPositionFeedsNobody(t *testing.T) {
-	st, seats := matchSeatsForAnalysis(t, "not a sfen", plyList(skill.AnchorToPly))
+	st, _, seats := matchSeatsForAnalysis(t, "not a sfen", plyList(skill.AnchorToPly))
 
 	a := analyzerFor(st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.02, lossEven: 0.20}
@@ -220,7 +220,7 @@ func TestAnUnreadableStartPositionFeedsNobody(t *testing.T) {
 // 아니다 — 앵커도 그렇게 쟀다(journal §94).
 func TestAGameThatEndsInsideTheWindowStillFeeds(t *testing.T) {
 	const total = skill.AnchorFromPly + 9 // 21~30手가 창에 걸친다
-	st, seats := matchSeatsForAnalysis(t, "", plyList(total))
+	st, _, seats := matchSeatsForAnalysis(t, "", plyList(total))
 
 	a := analyzerFor(st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.02, lossEven: 0.20}
@@ -248,7 +248,7 @@ func TestAGameThatEndsInsideTheWindowStillFeeds(t *testing.T) {
 // 기록기가 큐가 차면 이벤트를 버리고 계속하는 자리가 그것이다(dbRecorder.send).
 func TestAGapInTheRecordStopsTheAnalysis(t *testing.T) {
 	gapped := append(plyList(9), plyList(skill.AnchorToPly)[10:]...) // 10手目가 없다
-	st, seats := matchSeatsForAnalysis(t, "", gapped)
+	st, _, seats := matchSeatsForAnalysis(t, "", gapped)
 
 	a := analyzerFor(st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.02, lossEven: 0.20}
@@ -272,7 +272,7 @@ func TestAGapInTheRecordStopsTheAnalysis(t *testing.T) {
 // 국면을 못 되만든 자리도 엔진 실패와 같은 규칙으로 끊는다. 그 뒤가 전부 같이 실패하므로
 // 창 안에서 걸리면 남는 것이 더 긴 판의 앞부분뿐이다.
 func TestAReplayFailureInsideTheWindowFeedsNobody(t *testing.T) {
-	st, seats := matchSeatsForAnalysis(t, "", plyList(skill.AnchorToPly+40))
+	st, _, seats := matchSeatsForAnalysis(t, "", plyList(skill.AnchorToPly+40))
 
 	a := analyzerFor(st, func() game.Analyst {
 		return stubAnalyst{blindFrom: skill.AnchorFromPly + 10, lossOdd: 0.02, lossEven: 0.20}
@@ -291,7 +291,7 @@ func TestAReplayFailureInsideTheWindowFeedsNobody(t *testing.T) {
 func TestAGapInOneRowFallsBackToTheOther(t *testing.T) {
 	const missing = 10
 	gapped := append(plyList(missing-1), plyList(skill.AnchorToPly)[missing:]...)
-	st, seats := matchSeatsForAnalysis(t, "", gapped)
+	st, _, seats := matchSeatsForAnalysis(t, "", gapped)
 	// 두 번째 자리의 행만 메운다 — 첫 행이 구멍 난 채로 남는다.
 	if err := st.InsertMove(t.Context(), seats[1].gameID, missing, "7g7f"); err != nil {
 		t.Fatalf("insert move: %v", err)
@@ -318,7 +318,7 @@ func TestAGapInOneRowFallsBackToTheOther(t *testing.T) {
 // 버리면 「끊겼나」가 아니라 「어느 手에서 끊겼나」로 결과가 갈린다.
 func TestAFailureOnTheLastPlyKeepsTheSamples(t *testing.T) {
 	const total = skill.AnchorToPly - 15 // 창 안에서 끝나는 판
-	st, seats := matchSeatsForAnalysis(t, "", plyList(total))
+	st, _, seats := matchSeatsForAnalysis(t, "", plyList(total))
 
 	a := analyzerFor(st, func() game.Analyst {
 		return stubAnalyst{failFrom: total, lossOdd: 0.02, lossEven: 0.20}
@@ -364,7 +364,7 @@ func (hangingAnalyst) Judge(ctx context.Context, _ string, _ []string, _ int) (g
 // 못 읽은 행이 있으면 실력을 안 쌓는다. 「판 끝까지인가」는 두 행을 견줘 아는 값이라
 // 한쪽이 없으면 뜻이 없고, 그때 넣으면 긴 판이 짧게 끝난 판으로 들어간다.
 func TestAnUnreadableRowBlocksTheSkillUpdate(t *testing.T) {
-	st, seats := matchSeatsForAnalysis(t, "", plyList(skill.AnchorToPly))
+	st, _, seats := matchSeatsForAnalysis(t, "", plyList(skill.AnchorToPly))
 	// 첫 자리를 없는 번호로 바꾼다 — 읽기가 실패하는 자리와 같은 모양이다.
 	seats[0].gameID = -1
 
@@ -385,7 +385,7 @@ func TestAnUnreadableRowBlocksTheSkillUpdate(t *testing.T) {
 func TestAGappedButLongerRowBlocksTheSkillUpdate(t *testing.T) {
 	const short = 30
 	// 첫 자리는 구멍 난 채로 60手까지, 두 번째 자리는 성한 채로 30手까지.
-	st, seats := matchSeatsForAnalysis(t, "", plyList(short))
+	st, _, seats := matchSeatsForAnalysis(t, "", plyList(short))
 	for _, ply := range plyList(skill.AnchorToPly)[short:] {
 		if ply == short+5 {
 			continue // 구멍
@@ -419,7 +419,7 @@ func TestAGappedButLongerRowBlocksTheSkillUpdate(t *testing.T) {
 // 쓰면 그 판이 짧게 끝난 판으로 둔갑해 앞부분만 실력에 들어간다.
 func TestATruncatedRowLosesToTheLongerOne(t *testing.T) {
 	const short = 30
-	st, seats := matchSeatsForAnalysis(t, "", plyList(short))
+	st, _, seats := matchSeatsForAnalysis(t, "", plyList(short))
 	// 두 번째 자리만 끝까지 채운다. 첫 자리는 뒤가 잘린 채로 남는다.
 	for _, ply := range plyList(skill.AnchorToPly)[short:] {
 		if err := st.InsertMove(t.Context(), seats[1].gameID, ply, "7g7f"); err != nil {
@@ -448,7 +448,7 @@ func TestATruncatedRowLosesToTheLongerOne(t *testing.T) {
 // 한 행이 통째로 비면 평가치는 다른 행으로 채우고 실력은 안 쌓는다. 빈 행은 판 길이에
 // 대해 아무 말도 안 하므로, 남은 행이 끝까지인지 잘렸는지를 가릴 수가 없다.
 func TestAnEmptyRowFillsEvalsButNotSkill(t *testing.T) {
-	st, seats := matchSeatsForAnalysis(t, "", nil)
+	st, _, seats := matchSeatsForAnalysis(t, "", nil)
 	for _, ply := range plyList(skill.AnchorToPly) {
 		if err := st.InsertMove(t.Context(), seats[1].gameID, ply, "7g7f"); err != nil {
 			t.Fatalf("insert move %d: %v", ply, err)
@@ -478,7 +478,7 @@ func TestAnEmptyRowFillsEvalsButNotSkill(t *testing.T) {
 // 창(21手) 앞에서 끝난 판은 아무에게도 안 쌓인다. 46手에 끝난 판이 실제로 그랬다
 // (journal §94 — 그 판은 창에 남은 手가 0개였다).
 func TestAShortMatchFeedsNobody(t *testing.T) {
-	st, seats := matchSeatsForAnalysis(t, "", plyList(skill.AnchorFromPly-1))
+	st, _, seats := matchSeatsForAnalysis(t, "", plyList(skill.AnchorFromPly-1))
 
 	a := analyzerFor(st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.02, lossEven: 0.20}
@@ -495,7 +495,7 @@ func TestAShortMatchFeedsNobody(t *testing.T) {
 // 반쪽으로 끝난 판은 추정에 안 들어간다. 남는 것이 초반·중반뿐인데 그 구간이 체계적으로
 // 쉬워서 낙폭이 낮게 나온다 — 평가치는 앞쪽까지 채우고 추정만 버린다.
 func TestAHalfAnalyzedMatchFeedsNobody(t *testing.T) {
-	st, seats := matchSeatsForAnalysis(t, "", plyList(skill.AnchorToPly))
+	st, _, seats := matchSeatsForAnalysis(t, "", plyList(skill.AnchorToPly))
 
 	a := analyzerFor(st, func() game.Analyst {
 		return stubAnalyst{failFrom: skill.AnchorFromPly + 10, lossOdd: 0.02, lossEven: 0.20}
@@ -536,21 +536,28 @@ func TestMoverFollowsTheSideThatMovedFirst(t *testing.T) {
 // 줄에 서는 순간부터 「분석 중」이다. 워커가 그 판에 닿기 전이라도 화면이 기다릴 것을
 // 알아야 한다.
 func TestQueuedGamesReadAsAnalyzing(t *testing.T) {
-	a := &matchAnalyzer{queue: make(chan analysisJob, 1), pending: map[int64]struct{}{}}
-	seats := []analysisSeat{
-		{gameID: 7, userID: 1, color: shogi.Black},
-		{gameID: 8, userID: 2, color: shogi.White},
-	}
+	st, matchID, seats := matchSeatsForAnalysis(t, "", plyList(2))
+	a := &matchAnalyzer{store: st}
+	one, two := seats[0].gameID, seats[1].gameID
 
-	if a.analyzing(7) {
+	if a.analyzing(t.Context(), one) {
 		t.Error("아무것도 안 세운 판이 분석 중이다")
 	}
-	a.enqueue(t.Context(), "", seats, 0)
-	if !a.analyzing(7) || !a.analyzing(8) {
+
+	// 자리 하나만 왔을 때부터 표시된다. 화면이 자기 번호만 알면 되짚기를 여는데,
+	// 그때 「남지 않았다」로 보이면 그래프가 거기 굳는다.
+	a.hold(t.Context(), matchID)
+	if !a.analyzing(t.Context(), one) || !a.analyzing(t.Context(), two) {
+		t.Error("세운 판이 분석 중이 아니다")
+	}
+
+	a.enqueue(t.Context(), matchID, 2)
+	if !a.analyzing(t.Context(), one) {
 		t.Error("줄에 선 판이 분석 중이 아니다")
 	}
-	a.forget(gameIDsOf(seats))
-	if a.analyzing(7) || a.analyzing(8) {
+
+	a.dropJob(t.Context(), matchID)
+	if a.analyzing(t.Context(), one) || a.analyzing(t.Context(), two) {
 		t.Error("끝난 판이 아직 분석 중이다")
 	}
 }
@@ -559,10 +566,10 @@ func TestQueuedGamesReadAsAnalyzing(t *testing.T) {
 // 규약이라, 그 배포에서는 이 값이 nil 인 채로 같은 자리를 지난다.
 func TestANilAnalyzerIsSafeToUse(t *testing.T) {
 	var a *matchAnalyzer
-	a.hold(1)
-	a.enqueue(t.Context(), "", []analysisSeat{{gameID: 1}, {gameID: 2}}, 0)
-	a.forget([]int64{1, 2})
-	if a.analyzing(1) {
+	a.hold(t.Context(), "nil-1")
+	a.enqueue(t.Context(), "nil-1", 0)
+	a.dropJob(t.Context(), "nil-1")
+	if a.analyzing(t.Context(), 1) {
 		t.Error("없는 분석기가 분석 중이라고 답했다")
 	}
 	if newMatchAnalyzer(t.Context(), nil, func() game.Analyst { return stubAnalyst{} }, nil, 1) != nil {
@@ -583,7 +590,7 @@ func plyList(n int) []int {
 //
 // 수는 전부 같은 문자열이다. 분석기가 수를 두어 보지 않으므로(엔진이 판정한다) 합법일
 // 필요가 없고, 여기서 재는 것은 手数와 자리다.
-func matchSeatsForAnalysis(t *testing.T, startSFEN string, plies []int) (*store.Store, []analysisSeat) {
+func matchSeatsForAnalysis(t *testing.T, startSFEN string, plies []int) (*store.Store, string, []analysisSeat) {
 	t.Helper()
 	url := os.Getenv("SHOWGI_TEST_DATABASE_URL")
 	if url == "" {
@@ -616,21 +623,24 @@ func matchSeatsForAnalysis(t *testing.T, startSFEN string, plies []int) (*store.
 		}
 		seats = append(seats, analysisSeat{gameID: id, userID: u, color: seat.color})
 	}
-	return st, seats
+	return st, matchID, seats
 }
 
 // 밀린 양이 판과 手 둘로 세어진다. 판 수만으로는 밀린 일의 크기를 못 말한다 —
 // 회차 4의 세 판이 27·34·123手였다(journal §91).
 func TestBacklogCountsGamesAndPlies(t *testing.T) {
+	stA, matchA, _ := matchSeatsForAnalysis(t, "", plyList(1))
+	_, matchB, _ := matchSeatsForAnalysis(t, "", plyList(1))
+	clearQueues(t, stA)
 	reg := metrics.New("api", "test")
-	a := &matchAnalyzer{
-		queue:    make(chan analysisJob, 2),
-		pending:  map[int64]struct{}{},
-		analysis: reg.Analysis(),
-	}
+	a := &matchAnalyzer{store: stA, analysis: reg.Analysis()}
+	t.Cleanup(func() {
+		a.dropJob(context.Background(), matchA)
+		a.dropJob(context.Background(), matchB)
+	})
 
-	a.enqueue(t.Context(), "", []analysisSeat{{gameID: 1}, {gameID: 2}}, 27)
-	a.enqueue(t.Context(), "", []analysisSeat{{gameID: 3}, {gameID: 4}}, 123)
+	a.enqueue(t.Context(), matchA, 27)
+	a.enqueue(t.Context(), matchB, 123)
 	a.sampleBacklog(t.Context())
 	if got := reg.AnalysisBacklogGames.Total(); got != 2 {
 		t.Errorf("밀린 판 = %v, want 2", got)
@@ -639,93 +649,75 @@ func TestBacklogCountsGamesAndPlies(t *testing.T) {
 		t.Errorf("밀린 手 = %v, want 150", got)
 	}
 
-	a.took(<-a.queue)
-	a.sampleBacklog(t.Context())
-	if got := reg.AnalysisBacklogPlies.Total(); got != 123 {
-		t.Errorf("꺼낸 뒤 밀린 手 = %v, want 123", got)
+	// 집어 간 판은 밀린 것이 아니다 — 지금 도는 일이다.
+	if _, err := stA.ClaimAnalysisJob(t.Context(), time.Now().Add(-jobLease)); err != nil {
+		t.Fatalf("claim: %v", err)
 	}
-	a.took(<-a.queue)
+	a.sampleBacklog(t.Context())
+	if got := reg.AnalysisBacklogGames.Total(); got != 1 {
+		t.Errorf("집어 간 뒤 밀린 판 = %v, want 1", got)
+	}
+	if got := reg.AnalysisBacklogPlies.Total(); got != 123 {
+		t.Errorf("집어 간 뒤 밀린 手 = %v, want 123", got)
+	}
+}
+
+// 자리가 반쪽인 판은 줄에서 걷히고 버린 것으로 세어진다.
+//
+// 걷지 않으면 되짚기가 영영 「分析しています」로 남는다. 자리를 표에 옮겨 적지 않으므로
+// 반쪽인지는 games 를 읽어야 알고, 그 판정이 워커 쪽으로 옮겨 왔다(seatsOf).
+func TestAHalfMatchLeavesTheQueue(t *testing.T) {
+	st := testStore(t)
+	clearQueues(t, st)
+	reg := metrics.New("api", "test")
+	a := &matchAnalyzer{store: st, analysis: reg.Analysis()}
+
+	// 그 방의 games 행이 없다 — 자리가 0개인 판이다.
+	const matchID = "half-1"
+	t.Cleanup(func() { a.dropJob(context.Background(), matchID) })
+	a.hold(t.Context(), matchID)
+	a.enqueue(t.Context(), matchID, 40)
+
+	if !a.runOneJob(t.Context()) {
+		t.Fatal("줄에 선 판을 안 집었다")
+	}
+	if got := reg.AnalysisGames.SumFunc(func(l map[string]string) bool {
+		return l["result"] == metrics.AnalysisDropped
+	}); got != 1 {
+		t.Errorf("버린 판 = %v, want 1", got)
+	}
 	a.sampleBacklog(t.Context())
 	if got := reg.AnalysisBacklogGames.Total(); got != 0 {
-		t.Errorf("다 꺼낸 뒤 밀린 판 = %v, want 0", got)
+		t.Errorf("걷힌 뒤 밀린 판 = %v, want 0", got)
 	}
 }
 
-// 줄이 넘쳐 버린 판은 dropped 로 세어진다. 지금까지 로그 한 줄로만 남던 자리다.
-func TestDroppedGamesAreCounted(t *testing.T) {
-	reg := metrics.New("api", "test")
-	a := &matchAnalyzer{
-		queue:    make(chan analysisJob, 1),
-		pending:  map[int64]struct{}{},
-		analysis: reg.Analysis(),
-	}
-
-	a.enqueue(t.Context(), "", []analysisSeat{{gameID: 1}, {gameID: 2}}, 40)
-	a.enqueue(t.Context(), "", []analysisSeat{{gameID: 3}, {gameID: 4}}, 40)
-	a.sampleBacklog(t.Context())
-
-	if got := reg.AnalysisGames.Total(); got != 1 {
-		t.Fatalf("센 판 = %v, want 1", got)
-	}
-	// 버려진 판은 「분석 중」 표시가 걷혀 있어야 한다. 안 걷으면 되짚기가 영영
-	// 「分析しています」로 남는다.
-	if a.analyzing(3) || a.analyzing(4) {
-		t.Error("버려진 판이 아직 분석 중이다")
-	}
-	// 밀린 양에도 안 들어간다. 줄에 못 섰으므로 그 手는 아무도 안 잰다.
-	if got := reg.AnalysisBacklogPlies.Total(); got != 40 {
-		t.Errorf("밀린 手 = %v, want 40", got)
-	}
-}
-
-// 종료할 때 줄에 남은 판은 버린 것으로 세어진다. 안 세면 AnalysisGamesDropped 가 0을
-// 가리키는데, 되짚기는 그 판을 「남지 않았다」로만 보여 주므로 그 지표가 유일한 눈이다.
+// 프로세스가 사라져도 줄에 선 판은 안 없어진다.
 //
-// 프로덕션에서 재배포 한 번이 46판을 그렇게 잃고도 0이었다(journal §105).
-func TestStoppingCountsWhatIsStillQueued(t *testing.T) {
-	reg := metrics.New("api", "test")
-	a := &matchAnalyzer{
-		queue:    make(chan analysisJob, analysisQueue),
-		analysis: reg.Analysis(),
-		pending:  map[int64]struct{}{},
-	}
+// 메모리 채널이던 동안은 재배포 한 번이 46판을 평가치 없이 남겼다(journal §105).
+// 이제 판이 표에 있으므로 다음 워커가 그대로 집는다 — 리스가 낡기를 기다릴 것도 없이,
+// 그 판을 집었던 프로세스가 아예 없었던 것과 같다.
+func TestAQueuedGameSurvivesTheProcess(t *testing.T) {
+	st := testStore(t)
+	clearQueues(t, st)
+	const matchID = "survive-1"
+	gone := &matchAnalyzer{store: st, analysis: metrics.New("api", "test").Analysis()}
+	t.Cleanup(func() { gone.dropJob(context.Background(), matchID) })
 
-	// 워커는 안 띄운다. 이 자리가 재는 것은 「분석 중인 판이 안 풀려도 세는가」이고,
-	// 워커가 돌면 같은 job 을 그쪽이 가져갈 수 있어서 답이 실행마다 달라진다.
-	ctx, stop := context.WithCancel(context.Background())
-	go a.abandonOnStop(ctx)
+	gone.hold(t.Context(), matchID)
+	gone.enqueue(t.Context(), matchID, 40)
 
-	const queued = 3
-	for i := range queued {
-		id := int64(i + 1)
-		a.enqueue(ctx, "", []analysisSeat{{gameID: id}}, 100)
+	// 그 분석기는 이제 없다. 새로 뜬 쪽이 같은 판을 본다.
+	fresh := &matchAnalyzer{store: st, analysis: metrics.New("api", "test").Analysis()}
+	job, err := fresh.store.ClaimAnalysisJob(t.Context(), time.Now().Add(-jobLease))
+	if err != nil {
+		t.Fatalf("새 워커가 그 판을 못 집었다: %v", err)
 	}
-	a.sampleBacklog(ctx)
-	if got := reg.AnalysisBacklogPlies.Total(); got != queued*100 {
-		t.Fatalf("backlog before stop = %v, want %d", got, queued*100)
+	if job.MatchID != matchID {
+		t.Errorf("집은 판 = %q, want %q", job.MatchID, matchID)
 	}
-
-	stop()
-
-	dropped := func(labels map[string]string) bool {
-		return labels["result"] == metrics.AnalysisDropped
-	}
-	// abandonOnStop 이 다른 goroutine 이라 값이 도착하기를 기다린다.
-	deadline := time.Now().Add(2 * time.Second)
-	for reg.AnalysisGames.SumFunc(dropped) < queued && time.Now().Before(deadline) {
-		time.Sleep(5 * time.Millisecond)
-	}
-
-	if got := reg.AnalysisGames.SumFunc(dropped); got != queued {
-		t.Errorf("dropped = %v, want %d", got, queued)
-	}
-	if got := reg.AnalysisBacklogPlies.Total(); got != 0 {
-		t.Errorf("backlog after stop = %v, want 0", got)
-	}
-	for i := range queued {
-		if a.analyzing(int64(i + 1)) {
-			t.Errorf("game %d still reads as analyzing", i+1)
-		}
+	if job.Plies != 40 {
+		t.Errorf("안 잰 手数 = %d, want 40", job.Plies)
 	}
 }
 
@@ -775,10 +767,8 @@ func analyzerFor(st *store.Store, newAnalyst func() game.Analyst) *matchAnalyzer
 	return &matchAnalyzer{
 		store:      st,
 		newAnalyst: newAnalyst,
-		queue:      make(chan analysisJob, analysisQueue),
 		drain:      make(chan plyJob, drainBuffer),
 		analysis:   metrics.New("api", "test").Analysis(),
-		pending:    map[int64]struct{}{},
 	}
 }
 
@@ -808,6 +798,16 @@ func clearPlies(t *testing.T, st *store.Store) {
 	}
 }
 
+// clearQueues 는 두 줄을 다 비운다. 집는 질의가 판을 안 가리므로 남의 회차가 남긴 행이
+// 있으면 이 회차의 셈에 들어온다.
+func clearQueues(t *testing.T, st *store.Store) {
+	t.Helper()
+	clearPlies(t, st)
+	if err := st.SweepAnalysisJobs(t.Context(), time.Now()); err != nil {
+		t.Fatalf("clear the job queue: %v", err)
+	}
+}
+
 // plyAnalyzer 는 미리 재는 줄만 쓰는 분석기와 그 판의 id 를 준다.
 //
 // 워커는 안 띄운다. 여기서 재는 것이 줄의 셈이고, 워커가 돌면 같은 手를 그쪽이 가져갈
@@ -817,13 +817,11 @@ func plyAnalyzer(t *testing.T, st *store.Store) (*matchAnalyzer, string) {
 	if st == nil {
 		st = testStore(t)
 	}
-	clearPlies(t, st)
+	clearQueues(t, st)
 	a := &matchAnalyzer{
 		store:    st,
-		queue:    make(chan analysisJob, analysisQueue),
 		drain:    make(chan plyJob, drainBuffer),
 		analysis: metrics.New("api", "test").Analysis(),
-		pending:  map[int64]struct{}{},
 	}
 	matchID := "plies-" + time.Now().Format("150405.000000000")
 	t.Cleanup(func() { a.discard(context.Background(), matchID) })
@@ -846,7 +844,7 @@ func drainOne(t *testing.T, a *matchAnalyzer) {
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
 func TestAMoveMeasuredWhilePlayingIsNotMeasuredAgain(t *testing.T) {
-	st, seats := matchSeatsForAnalysis(t, "", plyList(3))
+	st, _, seats := matchSeatsForAnalysis(t, "", plyList(3))
 	a, matchID := plyAnalyzer(t, st)
 	// 판이 끝날 때 쓰는 판정기는 죽어 있다. 그래도 완주하면 미리 잰 것을 쓴 것이다.
 	a.newAnalyst = func() game.Analyst { return stubAnalyst{fail: true} }
@@ -960,7 +958,6 @@ func TestAFullDrainDoesNotBlockTheMove(t *testing.T) {
 	a := &matchAnalyzer{
 		drain:    make(chan plyJob, 1),
 		analysis: metrics.New("api", "test").Analysis(),
-		pending:  map[int64]struct{}{},
 	}
 	for ply := 1; ply <= 5; ply++ {
 		a.prefetch("drain-1", startSFENOf(""), repeatMove(ply), ply)
@@ -989,7 +986,7 @@ func TestTheBacklogCountsAnUnmeasuredMoveOnce(t *testing.T) {
 	a.sampleBacklog(t.Context())
 	base := reg.AnalysisBacklogPlies.Total() - float64(plies)
 
-	a.enqueue(t.Context(), matchID, []analysisSeat{{gameID: 1}, {gameID: 2}}, plies)
+	a.enqueue(t.Context(), matchID, plies)
 	a.sampleBacklog(t.Context())
 	if got := reg.AnalysisBacklogPlies.Total() - base; got != plies {
 		t.Errorf("밀린 手 = %v, want %d (표와 줄이 같은 手를 같이 세고 있다)", got, plies)
@@ -1001,48 +998,44 @@ func TestTheBacklogCountsAnUnmeasuredMoveOnce(t *testing.T) {
 	}
 }
 
-// 미리 다 잰 판이 줄을 떠나면 밀린 양이 0으로 돌아온다.
+// 미리 다 잰 판이 줄에 서면 그 판이 드는 일이 0이다.
 //
-// 세는 값과 job 이 드는 값이 어긋나면 차액이 영구히 남는다. 지표만 보면 「밀려 있다」로
-// 읽히는데 줄은 비어 있어서, 그 상태로는 밀린 것인지 못 센 것인지 가릴 수 없다.
-func TestTheBacklogReturnsToZeroWhenEveryMoveWasMeasuredAhead(t *testing.T) {
+// 세는 값과 실제가 어긋나면 차액이 영구히 남는다. 지표만 보면 「밀려 있다」로 읽히는데
+// 줄은 비어 있어서, 그 상태로는 밀린 것인지 못 센 것인지 가릴 수 없다.
+//
+// 게이지가 아니라 표를 본다. 게이지는 프로세스가 보는 전역 합이라 남의 자리가 남긴 행이
+// 섞이고, 여기서 지키려는 것은 「이 판이 얼마를 남기나」다.
+func TestAFullyMeasuredGameQueuesNoWork(t *testing.T) {
 	a, matchID := plyAnalyzer(t, nil)
-	reg := metrics.New("api", "test")
-	a.analysis = reg.Analysis()
 	const plies = 30
+	t.Cleanup(func() { a.dropJob(context.Background(), matchID) })
 
 	for ply := 1; ply <= plies; ply++ {
 		a.prefetch(matchID, startSFENOf(""), repeatMove(ply), ply)
 		drainOne(t, a)
 	}
-	// 밀린 양을 차이로 본다. 줄이 표라 다른 자리가 남긴 행이 같은 값에 섞이는데,
-	// 여기서 재려는 것은 「이 판이 얼마를 더하고 얼마를 되돌리나」다.
-	a.sampleBacklog(t.Context())
-	base := reg.AnalysisBacklogPlies.Total() - float64(plies)
-	if got := reg.AnalysisBacklogPlies.Total() - base; got != plies {
-		t.Fatalf("세운 뒤 밀린 手 = %v, want %d", got, plies)
-	}
-
 	measureAhead(t, a, matchID, plies)
-	a.sampleBacklog(t.Context())
-	if got := reg.AnalysisBacklogPlies.Total() - base; got != 0 {
-		t.Fatalf("backlog after measuring ahead = %v, want 0", got)
+
+	a.enqueue(t.Context(), matchID, plies)
+	job, err := a.store.ClaimAnalysisJob(t.Context(), time.Now().Add(-jobLease))
+	if err != nil {
+		t.Fatalf("판이 줄에 안 섰다: %v", err)
+	}
+	if job.MatchID != matchID {
+		t.Fatalf("집은 판 = %q, want %q", job.MatchID, matchID)
+	}
+	// 미리 다 쟀으므로 이 줄에서 엔진을 부를 일이 없다.
+	if job.Plies != 0 {
+		t.Errorf("안 잰 手数 = %d, want 0", job.Plies)
 	}
 
-	// 판이 끝난다. 남은 일이 없으므로 밀린 양이 안 올라야 한다.
-	a.enqueue(t.Context(), matchID, []analysisSeat{{gameID: 1}, {gameID: 2}}, plies)
-	a.sampleBacklog(t.Context())
-	if got := reg.AnalysisBacklogPlies.Total() - base; got != 0 {
-		t.Errorf("backlog when the game joins the queue = %v, want 0", got)
+	// 그 판의 手도 남지 않는다 — 미리 잰 것은 done 이고, 안 잰 것은 enqueue 가 끊는다.
+	rows, err := a.store.MeasuredAnalysisPlies(t.Context(), matchID)
+	if err != nil {
+		t.Fatalf("read measured: %v", err)
 	}
-	job := <-a.queue
-	a.took(job)
-	a.sampleBacklog(t.Context())
-	if got := reg.AnalysisBacklogPlies.Total() - base; got != 0 {
-		t.Errorf("backlog after the game leaves the queue = %v, want 0", got)
-	}
-	if got := reg.AnalysisBacklogGames.Total(); got != 0 {
-		t.Errorf("backlog games = %v, want 0", got)
+	if len(rows) != plies {
+		t.Errorf("미리 잰 手 = %d, want %d", len(rows), plies)
 	}
 }
 
@@ -1063,8 +1056,10 @@ func (b blockingAnalyst) Judge(context.Context, string, []string, int) (game.Jud
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
 func TestTheWorkerCountIsHonoured(t *testing.T) {
-	_, first := matchSeatsForAnalysis(t, "", plyList(2))
-	st, second := matchSeatsForAnalysis(t, "", plyList(2))
+	_, matchA, _ := matchSeatsForAnalysis(t, "", plyList(2))
+	st, matchB, _ := matchSeatsForAnalysis(t, "", plyList(2))
+	// 워커를 띄우기 전에 비운다. 남의 회차가 남긴 판을 집으면 아래 셈이 흔들린다.
+	clearQueues(t, st)
 
 	entered := make(chan struct{}, 4)
 	release := make(chan struct{})
@@ -1072,12 +1067,15 @@ func TestTheWorkerCountIsHonoured(t *testing.T) {
 		return blockingAnalyst{entered: entered, release: release}
 	}, nil, 2)
 	t.Cleanup(func() { close(release) })
+	t.Cleanup(func() {
+		a.dropJob(context.Background(), matchA)
+		a.dropJob(context.Background(), matchB)
+	})
 
-	// 판 단위 줄로 잰다. 手 쪽으로 재면 이 자리가 흔들린다 — 그 줄은 표라서 프로세스가
-	// 같이 쓰고(query/analysis.sql) 무엇이 언제 집히는지가 이 테스트의 손 밖에 있다.
-	// 여기서 재려는 것은 「워커 수만큼 동시에 도는가」이고, 그건 두 줄에서 같은 사실이다.
-	a.enqueue(t.Context(), "workers-a", first, 2)
-	a.enqueue(t.Context(), "workers-b", second, 2)
+	// 판 단위 줄로 잰다. 판 하나가 워커 하나를 통째로 잡으므로 「둘이 동시에 도는가」가
+	// 그 자리에서 바로 보인다 — 手 쪽은 무엇이 언제 집히는지가 더 잘게 갈린다.
+	a.enqueue(t.Context(), matchA, 2)
+	a.enqueue(t.Context(), matchB, 2)
 
 	// 둘이 같이 판정 안에 있어야 한다. 워커가 하나면 두 번째가 안 온다 — 첫 번째가
 	// release 를 기다리며 서 있기 때문이다.
@@ -1087,5 +1085,37 @@ func TestTheWorkerCountIsHonoured(t *testing.T) {
 		case <-time.After(10 * time.Second):
 			t.Fatalf("only %d worker(s) took a job, want 2", i)
 		}
+	}
+}
+
+// 자리마다 판 번호와 사람이 짝지어 나간다. 실력 추정이 그 짝으로 手를 나누므로
+// (matchAnalyzer.updateSkill) 여기서 어긋나면 두 사람의 手가 한 프로파일에 쌓이고,
+// 그 값도 멀쩡한 범위에 있어서 아무것도 안 잡는다.
+//
+// 자리를 줄에 옮겨 적지 않는다(019). games 행 둘이 곧 두 자리라 이 함수가 그 규약의
+// 유일한 자리이고, 색을 코드 한 글자에서 되돌리는 것도 여기다.
+func TestSeatsComeFromTheGameRows(t *testing.T) {
+	st, matchID, made := matchSeatsForAnalysis(t, "", plyList(1))
+	a := &matchAnalyzer{store: st}
+
+	seats := a.seatsOf(t.Context(), matchID)
+	if len(seats) != 2 {
+		t.Fatalf("자리 %d개, want 2", len(seats))
+	}
+	// 순서가 색으로 정해진다. 기보를 첫 자리에서만 읽으므로(analyze) 여기가 흔들리면
+	// 「이 판을 잴 수 있나」가 실행마다 달라진다.
+	if seats[0].color != shogi.Black {
+		t.Errorf("첫 자리 = %s, want 先手", seats[0].color)
+	}
+	want := map[shogi.Color]analysisSeat{made[0].color: made[0], made[1].color: made[1]}
+	for _, got := range seats {
+		if got != want[got.color] {
+			t.Errorf("%s 자리 = %+v, want %+v", got.color, got, want[got.color])
+		}
+	}
+
+	// 그 방이 없으면 아무것도 안 준다. 반쪽 판을 분석하면 채운 평가치가 한 사람에게만 보인다.
+	if got := a.seatsOf(t.Context(), "no-such-room"); got != nil {
+		t.Errorf("없는 방의 자리 = %+v, want nil", got)
 	}
 }

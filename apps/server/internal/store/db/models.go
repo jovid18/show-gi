@@ -8,6 +8,13 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AnalysisJob struct {
+	MatchID   string
+	Plies     *int32
+	ClaimedAt pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
+}
+
 type AnalysisPly struct {
 	MatchID   string
 	Ply       int32

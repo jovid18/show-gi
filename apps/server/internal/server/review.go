@@ -218,9 +218,9 @@ func (h *reviewHandler) detail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := detailOf(rec)
-	// 여기서만 붙인다. 목록은 판을 여러 개 들고 오는데 그 하나하나에 물으면 목록이
-	// 분석기의 잠금을 그만큼 잡는다 — 그래프가 있는 자리는 여기뿐이다.
-	out.Analyzing = h.analyzer.analyzing(rec.ID)
+	// 여기서만 붙인다. 목록은 판을 여러 개 들고 오는데 그 하나하나에 물으면 질의가
+	// 판 수만큼 는다(analysis_jobs · 019) — 그래프가 있는 자리는 여기뿐이다.
+	out.Analyzing = h.analyzer.analyzing(r.Context(), rec.ID)
 	writeJSON(w, http.StatusOK, out)
 }
 
