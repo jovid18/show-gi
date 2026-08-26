@@ -12,7 +12,7 @@ Route53 (show-gi.com) → ALB (ACM TLS) → EC2 스팟 1대 (c6g.large / ARM64)
 
 **여전히 서버에 들어가지 않는다.** 22번 포트도 없고 컨테이너에는 ECS Exec으로 들어간다 — 인스턴스가 돌아왔지만 그것을 손으로 준비하는 일은 시작 템플릿(`infra/ec2.tf`)이 맡는다.
 
-> **스팟이라 회수될 수 있다.** 2분 전 통보를 받으면 ECS 에이전트가 태스크를 내리고(`ECS_ENABLE_SPOT_INSTANCE_DRAINING`) ASG가 새 인스턴스를 받는다. 그 사이 **2~3분 사이트가 503**이고, 대국 중이었으면 그 판은 `aborted` 로 닫혀 이어하기에 걸린다.
+> **스팟이라 회수될 수 있다.** 2분 전 통보를 받으면 ECS 에이전트가 태스크를 내리고(`ECS_ENABLE_SPOT_INSTANCE_DRAINING`) ASG가 새 인스턴스를 받는다. 그 사이 **2\~3분 사이트가 503**이고, 대국 중이었으면 그 판은 `aborted` 로 닫혀 이어하기에 걸린다.
 
 ---
 
@@ -22,20 +22,33 @@ Route53 (show-gi.com) → ALB (ACM TLS) → EC2 스팟 1대 (c6g.large / ARM64)
 
 ### IAM
 
-`show-gi-operator` 사용자와 같은 이름의 **관리형 정책**. 정책 문서는 [`infra/iam-policy.json`](../infra/iam-policy.json)에 있다.
+`show-gi-operator` 사용자와 **관리형 정책 둘**. 하나로는 크기가 안 맞아서 갈랐다.
 
-> **이 정책은 크기 한도에 거의 닿아 있다.** 관리형 정책은 공백을 뺀 **6,144자**가 상한인데 지금 6,141자다. **다음에 권한을 더할 자리가 없다** — 더하려면 먼저 둘로 갈라 두 번째 관리형 정책을 만들어 붙여야 한다(사용자 하나에 10개까지 붙는다). 크기는 이렇게 센다:
+| 정책                         | 문서                                                                    | 무엇                                             |
+| ---------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------ |
+| `show-gi-operator`           | [`infra/iam-policy.json`](../infra/iam-policy.json)                     | 나머지 전부. **꽉 찼다** (6,141 / 6,144자)       |
+| `show-gi-operator-autoscale` | [`infra/iam-policy-autoscale.json`](../infra/iam-policy-autoscale.json) | `application-autoscaling` 과 그 서비스 링크 역할 |
+
+> **첫 정책에 더 넣을 자리가 없다.** 관리형 정책은 공백을 뺀 **6,144자**가 상한이고 지금 6,141자다 — **남은 것이 3자**다. 그래서 2026-08-26 에 두 번째 정책을 만들었다(사용자 하나에 관리형 정책 10개까지 붙는다). **다음 권한도 두 번째 쪽에 넣는다.** 크기는 이렇게 센다:
 >
 > ```sh
 > python3 -c "import json;print(len(json.dumps(json.load(open('infra/iam-policy.json')),separators=(',',':'))))"
 > ```
+>
+> 갈랐다고 첫 정책을 줄인 것은 아니다. 액션을 `service:*` 로 묶으면 자리가 나지만 그것은 최소권한을 크기와 바꾸는 것이고, 정책 둘이 붙는 데는 아무 대가가 없다.
 
 ```sh
 aws iam create-user --user-name show-gi-operator
+
 aws iam create-policy --policy-name show-gi-operator \
   --policy-document file://infra/iam-policy.json
 aws iam attach-user-policy --user-name show-gi-operator \
   --policy-arn arn:aws:iam::058264445568:policy/show-gi-operator
+
+aws iam create-policy --policy-name show-gi-operator-autoscale \
+  --policy-document file://infra/iam-policy-autoscale.json
+aws iam attach-user-policy --user-name show-gi-operator \
+  --policy-arn arn:aws:iam::058264445568:policy/show-gi-operator-autoscale
 ```
 
 **고칠 때는 새 버전을 올린다.** 정책은 버전이 다섯까지 남으므로 오래된 것을 지우면서 올린다:
@@ -115,9 +128,15 @@ ACM 인증서 검증과 RDS 생성 때문에 10분쯤 걸린다. `aws_acm_certif
 
 **파라미터를 먼저 등록해야 한다(§2).** 태스크 정의가 `/show-gi/prod/*`를 `secrets`로 참조하므로, 없으면 태스크가 시작조차 못 한다.
 
+### apply 가 도는 대를 갈아치울 때
+
+**`on_demand_base_capacity` 를 바꾸는 apply 가 그렇다**([journal §124](../docs/journal/121-140.md)). `on_demand_percentage_above_base_capacity` 가 그 값에서 유도되므로(`infra/ec2.tf`) 둘이 같이 움직이고, ASG 는 구매 정책을 맞추려고 **도는 인스턴스를 반대편 종류로 바꿔 끼운다.** 새 대를 먼저 띄우고 옛 대를 내리지만, 태스크는 그 사이 옮겨 앉으므로 **실측으로 상호작용이 76초 내려갔다.**
+
+요금만 바꾸는 값으로 읽기 쉬운데 배포와 같은 종류의 창이다. **사람이 안 보는 시간에 건다.**
+
 ### apply 가 서비스를 다시 만들 때
 
-`aws_ecs_service` 의 `capacity_provider_strategy` 는 바꿀 수 없는 속성이라, 그 값이 바뀌는 apply 는 서비스를 지우고 다시 만든다. 그동안 사이트가 내려간다 — **2026-08-26 에 11분이었다**([journal §120](../docs/journal/101-120.md)). 재생성 자체는 1~2분이고, 나머지는 아래 함정이다.
+`aws_ecs_service` 의 `capacity_provider_strategy` 는 바꿀 수 없는 속성이라, 그 값이 바뀌는 apply 는 서비스를 지우고 다시 만든다. 그동안 사이트가 내려간다 — **2026-08-26 에 11분이었다**([journal §120](../docs/journal/101-120.md)). 재생성 자체는 1\~2분이고, 나머지는 아래 함정이다.
 
 **그동안 `show-gi-no-healthy-target` 이 울릴 수 있다.** 1분 다섯 회차라 창이 5분을 넘기면 메일이 오고, 태스크가 다시 뜨면 스스로 풀린다.
 
@@ -316,28 +335,79 @@ aws ecs execute-command --cluster show-gi --task <task-id> --container web \
   --interactive --command 'wget -qO- localhost:8080/metrics' --profile show-gi
 ```
 
-알람은 셋이다. **메일을 받으려면 `terraform.tfvars` 에 `alarm_email` 을 적고 apply 한 뒤, 확인 메일의 링크를 한 번 눌러야 한다** — 누르기 전에는 구독이 `pending` 이라 알람이 울려도 안 온다.
+알람은 다섯이다. **메일을 받으려면 `terraform.tfvars` 에 `alarm_email` 을 적고 apply 한 뒤, 확인 메일의 링크를 한 번 눌러야 한다** — 누르기 전에는 구독이 `pending` 이라 알람이 울려도 안 온다.
 
-| 알람                        | 언제                                                 | 무엇을 보나                                                                                                                                                                                                                                                                                |
-| --------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `show-gi-no-healthy-target` | 정상 타깃이 5분 동안 없다                            | 사이트가 내려갔다. EMF 와 무관하게 AWS 가 늘 내는 지표다. 5분인 것은 정상 배포·스팟 회수가 그보다 짧아서다                                                                                                                                                                                 |
-| `show-gi-5xx`               | 5분 안에 5xx 나 panic 1건 이상                       | 우리 버그. 같은 시각의 `request_id` 로 로그를 찾는다                                                                                                                                                                                                                                       |
-| `show-gi-engine-pool-wait`  | **대국** 풀 대기 p95 가 최근 5분 중 3분에서 3초 초과 | **풀이 아니라 vCPU 를 올릴 자리다** — 풀을 키우면 대기가 탐색 시간으로 옮겨간다([journal §104](../docs/journal/101-120.md)). 임계 3초는 실측이다                                                                                                                                           |
-| `show-gi-analysis-backlog`  | 사후 분석 줄이 5분 내내 100手 초과                   | **대인전 포화는 위 알람이 못 본다** — 병목이 풀이 아니라 탐색 처리량이라 사람의 풀 대기는 포화에서도 표본 0이다. 임계 100 은 실측 사이다(6판 최고 13 · 8판 4분째 140, [journal §108](../docs/journal/101-120.md)). **태스크가 둘이 되면 틀린다** — 큐가 프로세스 안의 채널이라 합이 아니다 |
+| 알람                        | 언제                                                 | 무엇을 보나                                                                                                                                                                                                                                                                                  |
+| --------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `show-gi-no-healthy-target` | 정상 타깃이 5분 동안 없다                            | 사이트가 내려갔다. EMF 와 무관하게 AWS 가 늘 내는 지표다. 5분인 것은 정상 배포·스팟 회수가 그보다 짧아서다                                                                                                                                                                                   |
+| `show-gi-5xx`               | 5분 안에 5xx 나 panic 1건 이상                       | 우리 버그. 같은 시각의 `request_id` 로 로그를 찾는다                                                                                                                                                                                                                                         |
+| `show-gi-engine-pool-wait`  | **대국** 풀 대기 p95 가 최근 5분 중 3분에서 3초 초과 | **풀이 아니라 vCPU 를 올릴 자리다** — 풀을 키우면 대기가 탐색 시간으로 옮겨간다([journal §104](../docs/journal/101-120.md)). 임계 3초는 실측이다                                                                                                                                             |
+| `show-gi-analysis-backlog`  | 사후 분석 줄이 5분 내내 100手 초과                   | **대인전 포화는 위 알람이 못 본다** — 병목이 풀이 아니라 탐색 처리량이라 사람의 풀 대기는 포화에서도 표본 0이다. 임계 100 은 실측 사이다(6판 최고 13 · 8판 4분째 140, [journal §108](../docs/journal/101-120.md)). **이 알람이 분석 대를 하나 올린다** — 아래 §「분석 대수를 알람이 돌린다」 |
+| `show-gi-analysis-idle`     | 사후 분석 줄이 30분 내내 비어 있다                   | **사람에게 안 알린다.** 분석 대를 하나 빼는 신호뿐이고, 언제 움직였는지는 `describe-scaling-activities` 가 든다 — 아래 §「분석 대수를 알람이 돌린다」                                                                                                                                        |
 
-## 운영자 정책에 로그 읽기·알람 권한 올리기
+## 분석 대수를 알람이 돌린다
 
-**운영자는 자기 정책을 못 고친다**(권한 상승 방지). 관리자 자격으로 한 번 올려야 한다.
+**손잡이가 사람 손을 떠났다**([journal §124](../docs/journal/121-140.md)). `AnalysisBacklogPlies` 가 100을 5분 넘기면 분석 티어의 대수가 1에서 2로 오르고, 줄이 30분 비면 되돌아온다. `infra/autoscale.tf` 가 그 배선이다.
 
-지금 올려야 하는 것이 둘이다 — 로그 읽기(`logs:GetLogEvents` 등)와 **알람·SNS**(`cloudwatch:PutMetricAlarm`·`sns:*`, [§90](../docs/journal/82-100.md)). 올리기 전에는 `infra/alarms.tf` 의 apply 가 `AccessDenied` 로 끝난다.
+층이 셋이라 확인할 자리도 셋이다.
+
+```
+알람            show-gi-analysis-backlog        (올림)  ·  show-gi-analysis-idle  (내림)
+서비스 desired  Application Auto Scaling 이 든다        ← terraform 은 이 값을 무시한다
+EC2 대수        ECS 용량 공급자가 미배치 태스크를 보고 따라 올린다   실측 3분
+```
+
+```sh
+# 정책이 언제 무엇을 했나. 스케일 인·아웃이 한 목록에 시각 순으로 나온다
+aws application-autoscaling describe-scaling-activities --service-namespace ecs \
+  --resource-id service/show-gi/show-gi-analysis \
+  --profile show-gi --region ap-northeast-1 \
+  --query 'ScalingActivities[].{at:StartTime,cause:Cause,status:StatusCode}'
+
+# 지금 desired 가 몇인가 (정책이 든 값)
+aws ecs describe-services --cluster show-gi --services show-gi-analysis \
+  --profile show-gi --region ap-northeast-1 \
+  --query 'services[0].{desired:desiredCount,running:runningCount,pending:pendingCount}'
+
+# EC2 가 따라 올랐나
+aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names show-gi-analysis \
+  --profile show-gi --region ap-northeast-1 \
+  --query 'AutoScalingGroups[0].{desired:DesiredCapacity,max:MaxSize,instances:length(Instances)}'
+```
+
+**상한을 올리는 것은 여전히 사람이다.** `var.analysis_max_instances` 가 ASG 의 `max_size` 이자 scalable target 의 `max_capacity` 이고 지금 2다 — 3대를 재 본 적이 없어서 그 위는 근거가 없다([journal §123](../docs/journal/121-140.md)).
+
+> **대시보드의 「오토스케일」 위젯이 이 셋을 한 화면에 그린다.** 백로그가 오르고 대수가 따라 오르고 백로그가 내려오는 순서가 거기서 보인다. 대수는 올랐는데 백로그가 안 내려오면 상한이 모자란 것이다.
+
+**apply 로 대수를 못 내린다.** `desired_count` 의 주인이 정책이라 `aws_ecs_service.analysis` 가 그 값을 무시한다(`ignore_changes`) — 회차 뒤에 억지로 내려야 하면 스케일 인 알람을 기다리거나 콘솔에서 직접 desired 를 고친다.
+
+## 운영자 정책에 권한을 올리기
+
+**운영자는 자기 정책을 못 고친다**(권한 상승 방지). 관리자 자격으로 올려야 한다.
+
+**어느 정책에 넣는가가 먼저다.** 첫 정책(`show-gi-operator`)은 6,141 / 6,144자로 꽉 찼으므로 **새 권한은 `show-gi-operator-autoscale` 쪽에 넣는다**(§0 의 표).
 
 ```sh
 # 버전은 5개가 상한이라, 차면 오래된 것을 지우면서 올린다
 aws iam create-policy-version \
-  --policy-arn arn:aws:iam::058264445568:policy/show-gi-operator \
-  --policy-document file://infra/iam-policy.json \
+  --policy-arn arn:aws:iam::058264445568:policy/show-gi-operator-autoscale \
+  --policy-document file://infra/iam-policy-autoscale.json \
   --set-as-default --profile <관리자 프로파일>
 ```
+
+올린 뒤 확인은 실물로 한다. `AccessDenied` 가 아니면 통한 것이다.
+
+```sh
+aws application-autoscaling describe-scalable-targets --service-namespace ecs \
+  --profile show-gi --region ap-northeast-1
+```
+
+지금까지 이 자리에서 올린 것 둘이다.
+
+| 언제       | 무엇                                                                                                             | 막고 있던 것                  |
+| ---------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| 2026-08-20 | 로그 읽기(`logs:GetLogEvents` 등)와 알람·SNS([§90](../docs/journal/82-100.md))                                   | `infra/alarms.tf` 의 apply    |
+| 2026-08-26 | `application-autoscaling:*` · `ecs.application-autoscaling` 서비스 링크 역할([§124](../docs/journal/121-140.md)) | `infra/autoscale.tf` 의 apply |
 
 ### 스키마를 넣는 법 — 노트북에서 직접
 
@@ -455,19 +525,19 @@ aws logs tail /ecs/show-gi --follow --region ap-northeast-1 --profile show-gi
 
 **해커톤이 끝나고 상시 가동으로 바꿨다**(2026-08-17). 그래서 표를 주 단위에서 **월 단위**로 옮겼다 — 이제 「대회 기간의 비용」이 아니라 「계속 나가는 비용」이다.
 
-|                                         | 월 (추정)     |
-| --------------------------------------- | ------------- |
-| EC2 c6g.large **스팟** 1대 (상호작용)   | **~$27**      |
-| EC2 c6g.large **스팟** 1대 (분석)       | **~$27**      |
-| EBS gp3 30 GiB × 2 (그 인스턴스의 루트) | ~$6           |
-| ALB                                     | ~$18          |
-| RDS db.t4g.micro + 20 GB                | ~$15          |
-| ECR, 로그, Parameter Store              | $1 미만       |
-| **합계**                                | **~$94 / 월** |
+|                                         | 월 (추정)      |
+| --------------------------------------- | -------------- |
+| EC2 c6g.large **스팟** 1대 (상호작용)   | **\~$27**      |
+| EC2 c6g.large **스팟** 1대 (분석)       | **\~$27**      |
+| EBS gp3 30 GiB × 2 (그 인스턴스의 루트) | \~$6           |
+| ALB                                     | \~$18          |
+| RDS db.t4g.micro + 20 GB                | \~$15          |
+| ECR, 로그, Parameter Store              | $1 미만        |
+| **합계**                                | **\~$94 / 월** |
 
-> **분석 대가 2026-08-26 에 늘었다**([journal §120](../docs/journal/101-120.md)). 티어를 가르면 대가 하나 더 서고, 그 대수가 `var.analysis_instances` 다 — 회차 동안 2로 올리면 그 회차만큼 한 대 값이 더 나간다. **부하 회차 동안은 스팟이 아니라 온디맨드라(`on_demand_base_capacity = 1`) 대당 하루 $2.15 다.**
+> **분석 대가 2026-08-26 에 늘었다**([journal §120](../docs/journal/101-120.md)). 티어를 가르면 대가 하나 더 선다. **그 대수를 이제 알람이 든다**([journal §124](../docs/journal/121-140.md)) — 상시로는 1대이고 밀린 手가 임계를 넘는 동안만 2대라, 값은 **부하가 실제로 걸린 시간만큼**만 는다. 사람이 정하는 것은 상한(`var.analysis_max_instances`) 하나다. **그 두 번째 대는 스팟이다** — `on_demand_base_capacity` 가 평시에 0 이고 그룹 공통이라 「분석만 온디맨드」로는 못 나눈다. **부하 회차를 걸 때는 그 값을 1 로 올린다**(대당 하루 $2.15) — 회수 하나가 약 9분 장애라 잰 것이 처리량이 아니라 복구 시간이 된다. **올리고 내리는 apply 가 도는 대를 갈아치우므로**(위 §1) 회차 앞뒤로 창이 하나씩 열린다.
 
-**컴퓨트가 더 이상 가장 큰 항목이 아니다.** 한때 Fargate 4 vCPU / 8 GiB로 월 약 $115였고 그것 때문에 서비스를 0으로 내려 뒀는데, 스팟 한 대로 옮기면서 **컴퓨트가 $8**이 됐다. **2026-08-24 에 컴퓨트가 다시 올랐다** — `t4g.small`(~$5) 에서 `c6g.large`(~$27) 로 옮겼다. 버스터블 크레딧이 마르면 탐색이 8배 느려져서 용량을 못 적는다는 것이 이유이고, **지속 vCPU 당 값으로는 오히려 싸다**([journal §108](../docs/journal/101-120.md)). 그래도 아직 ALB·RDS 가 약 $33 이라 표의 절반이다.
+**컴퓨트가 더 이상 가장 큰 항목이 아니다.** 한때 Fargate 4 vCPU / 8 GiB로 월 약 $115였고 그것 때문에 서비스를 0으로 내려 뒀는데, 스팟 한 대로 옮기면서 **컴퓨트가 $8**이 됐다. **2026-08-24 에 컴퓨트가 다시 올랐다** — `t4g.small`(\~$5) 에서 `c6g.large`(\~$27) 로 옮겼다. 버스터블 크레딧이 마르면 탐색이 8배 느려져서 용량을 못 적는다는 것이 이유이고, **지속 vCPU 당 값으로는 오히려 싸다**([journal §108](../docs/journal/101-120.md)). 그래도 아직 ALB·RDS 가 약 $33 이라 표의 절반이다.
 
 > **ALB를 없애는 것은 간단하지 않다.** TLS 종료·ACM 자동 갱신·WebSocket 유지가 거기 얹혀 있어서, 빼면 Caddy가 인증서를 다시 맡고 그 인증서를 스팟 인스턴스의 휘발성 디스크에 두게 된다 — 회수될 때마다 재발급이고 Let's Encrypt 한도에 걸린다([alb.tf](../infra/alb.tf) 머리말이 그 이야기다).
 

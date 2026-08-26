@@ -321,7 +321,8 @@ resource "aws_ecs_capacity_provider" "interactive" {
 }
 
 # 분석 쪽은 켠다. 배치 못 한 태스크를 보고 ASG 의 desired 를 올리는 것이 이 블록이고,
-# 그래서 늘리는 손잡이가 서비스의 desired_count 하나가 된다(var.analysis_instances).
+# 그래서 늘리는 손잡이가 서비스의 desired_count 하나가 된다 — 그 값을 스케일 정책이
+# 든다(autoscale.tf).
 resource "aws_ecs_capacity_provider" "analysis" {
   name = "show-gi-analysis"
 
@@ -465,11 +466,14 @@ resource "aws_ecs_service" "app" {
 #
 # 늘리는 손잡이가 desired_count 하나다. 용량 공급자가 미배치 태스크를 보고 EC2 를 따라
 # 올린다(위 analysis) — 태스크를 늘리는 것이 곧 대를 늘리는 것이다.
+#
+# 그 값의 주인이 terraform 이 아니다. 밀린 手가 정하고(autoscale.tf), 여기 적힌 1은
+# 서비스를 처음 만들 때만 쓰인다.
 resource "aws_ecs_service" "analysis" {
   name            = "show-gi-analysis"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.analysis.arn
-  desired_count   = var.analysis_instances
+  desired_count   = 1
 
   capacity_provider_strategy {
     capacity_provider = aws_ecs_capacity_provider.analysis.name
@@ -495,7 +499,11 @@ resource "aws_ecs_service" "analysis" {
 
   lifecycle {
     # 배포는 CI가 새 리비전을 등록해서 한다(상호작용 쪽과 같은 판단).
-    ignore_changes = [task_definition]
+    #
+    # desired_count 를 무시하는 것은 상호작용 쪽과 갈리는 자리다. 스케일 정책이 그 값을
+    # 드는데(autoscale.tf) terraform 도 들면 스케일 아웃이 다음 apply 에 취소된다 —
+    # 회차가 손잡이 하나만 고쳐 apply 하는 자리라 그것이 조용히 회차를 무효로 만든다.
+    ignore_changes = [task_definition, desired_count]
   }
 
   depends_on = [

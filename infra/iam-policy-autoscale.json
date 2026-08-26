@@ -1,0 +1,27 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ManageProjectAppAutoScalingInTokyo",
+      "Effect": "Allow",
+      "Action": ["application-autoscaling:*"],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "ap-northeast-1"
+        }
+      }
+    },
+    {
+      "Sid": "CreateAppAutoScalingServiceLinkedRole",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "iam:AWSServiceName": "ecs.application-autoscaling.amazonaws.com"
+        }
+      }
+    }
+  ]
+}

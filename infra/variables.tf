@@ -71,33 +71,46 @@ variable "on_demand_base_capacity" {
     용량이 아니라 회수 복구 시간이 된다. c6g.large 온디맨드가 하루 $2.15 라 이틀 회차의
     차액이 $3 쯤이고, 그것이 회차 하나를 다시 도는 값보다 싸다.
 
-    **회차가 끝나면 0으로 되돌린다.** 상시로 두면 값이 네 배다.
+    **회차가 끝나면 0으로 되돌린다.** 상시로 두면 값이 네 배다. **다만 그 apply 가 도는
+    대를 갈아치운다**(journal §124) — 아래 percentage 가 이 값에서 유도되므로 ASG 가 구매
+    정책을 맞추려고 온디맨드를 스팟으로 바꿔 끼우고, 실측으로 상호작용 태스크가 76초
+    내려갔다. **사람이 안 보는 시간에 건다.**
+
+    **오토스케일이 붙으면서 뜻이 하나 늘었다**(journal §124). 부하 때 자동으로 붙는 두 번째
+    대도 이 값이 0이면 스팟이라, 하필 그때 회수되면 9분치 분석 처리량이 날아간다. 그룹 공통
+    변수라 「분석만 온디맨드」로는 못 나눈다 — 나누려면 변수를 쪼개야 하고, 그럴 이유가
+    생기는 것은 실사용자가 그 부하를 만드는 날이다.
   EOT
   type        = number
-  default     = 1
+  default     = 0
 }
 
-variable "analysis_instances" {
+variable "analysis_max_instances" {
   description = <<-EOT
-    분석 티어의 대수. 서비스의 desired_count 이자 그 ASG 의 max_size 다.
+    분석 티어의 대수 상한. ASG 의 max_size 이자 scalable target 의 max_capacity 다.
+
+    **desired 는 여기서 안 정한다.** 한때 이 값이 서비스의 desired_count 이기도 했는데
+    스케일 정책이 그 자리를 받았다(autoscale.tf) — terraform 이 desired 의 주인이면
+    스케일 아웃이 다음 apply 에 취소된다. 남은 것이 상한 하나다.
 
     손잡이가 하나인 것은 network_mode 가 host 라 태스크 하나에 인스턴스 하나이기
     때문이다(ecs.tf) — 태스크를 늘리면 용량 공급자가 EC2 를 따라 올린다.
 
-    **회차의 축이 이 값이다.** 지금까지 잰 것은 전부 「안 나빠졌다」이고, 「좋아졌다」는
-    같은 부하에 이 값만 1 에서 2 로 올려 밀린 手가 스스로 내려오는 것으로만 나온다.
+    **2 다.** 1대 6판 지속 · 2대 12판 지속까지 실측으로 있고(journal §121 · §122),
+    3대는 안 봤다(journal §123) — 그 값은 이 상한을 올리는 날에야 쓰인다.
+
+    **상한이지 요금이 아니다.** 줄이 30분 비면 정책이 대수를 1로 되돌리므로(autoscale.tf)
+    이 값을 2로 두는 것만으로는 값이 안 는다. 부하가 도는 동안만 대당 하루 $2.15 다.
 
     상호작용 티어는 이 손잡이가 없다. 방이 짝지은 프로세스의 메모리에 서므로
     (journal §98) 두 대면 초대·매칭이 절반 확률로 깨진다.
-
-    **값이 곧 요금이다.** c6g.large 온디맨드가 대당 하루 $2.15 다.
   EOT
   type        = number
-  default     = 1
+  default     = 2
 
   validation {
-    condition     = var.analysis_instances >= 1
-    error_message = "analysis_instances 는 1 이상이어야 한다 — 0이면 밀린 手를 아무도 안 집는다."
+    condition     = var.analysis_max_instances >= 1
+    error_message = "analysis_max_instances 는 1 이상이어야 한다 — 0이면 밀린 手를 아무도 안 집는다."
   }
 }
 

@@ -254,6 +254,9 @@ func (a *matchAnalyzer) watchBacklog(ctx context.Context) {
 // 못 세면 아무것도 안 놓는다. 낡은 값이 남는 쪽이고, 0으로 놓으면 그 순간
 // 「따라잡았다」로 읽혀 스케일 판단이 거꾸로 간다.
 //
+// 그 낡은 값이 이제 대수를 든다(journal §124). 질의가 계속 실패하고 마지막 값이 1 이상이면
+// 스케일 인이 안 걸려 대가 둘로 남는다 — 잃는 것이 요금이라 이쪽으로 기울여 둔다.
+//
 // 두 줄을 각각 센다. 手 몫은 미리 재는 줄의 안 잰 행이고, 판 몫은 끝난 판이 아직 안 잰
 // 手数의 합이다 — 겹치지 않는 이유는 enqueue 가 그 판의 手를 끊기 때문이다(journal §116).
 func (a *matchAnalyzer) sampleBacklog(ctx context.Context) {

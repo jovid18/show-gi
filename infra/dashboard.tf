@@ -40,6 +40,7 @@ resource "aws_cloudwatch_dashboard" "main" {
             "2. **버려진 판**이 0이 아니면 그 자체가 사고다. 그 판은 평가치도 실력 추정도 없이 남고 다시 재지 않는다.",
             "3. 대기가 아니라 **탐색 시간**이 길면 원인이 줄이 아니라 CPU다 — 태스크 하나가 2 vCPU 이고 엔진이 최대 셋 돈다(journal §91).",
             "4. **탐색 수**는 티어 둘을 합친 값이고, 대를 늘렸을 때 보는 것은 **캐시를 뺀 몫**이다 — 캐시가 답한 것은 엔진을 안 쓰므로 합계는 거의 안 움직인다(journal §121). 모양은 **분석 백로그**가, 크기는 그 값이 말한다.",
+            "5. **오토스케일**은 밀린 手가 100을 5분 넘기면 대를 하나 올린다(journal §124). 그 위젯에서 볼 것은 순서다 — 백로그가 올라가고, 대수가 따라 오르고, 백로그가 스스로 내려온다. 대수는 올랐는데 백로그가 안 내려오면 상한(`analysis_max_instances`)이 모자란 것이다.",
           ])
         }
       },
@@ -176,6 +177,36 @@ resource "aws_cloudwatch_dashboard" "main" {
       {
         type   = "metric"
         x      = 0
+        y      = 21
+        width  = 12
+        height = 6
+        properties = {
+          title  = "오토스케일 — 밀린 手가 분석 대수를 움직인다"
+          region = var.aws_region
+          view   = "timeSeries"
+          period = local.dash_period
+          metrics = [
+            concat(["show-gi", "AnalysisBacklogPlies"], local.dash_dims, [{ stat = "Maximum", label = "밀린 手" }]),
+            # 대수는 ASG 그룹 지표로 본다. 정책이 실제로 움직이는 것은 서비스의
+            # desired_count 인데 그 값은 Container Insights 를 켜야 지표로 나오고,
+            # 여기서 묻는 것은 「EC2 가 붙었나」라서 아래쪽이 답이다(ec2.tf).
+            ["AWS/AutoScaling", "GroupDesiredCapacity", "AutoScalingGroupName", aws_autoscaling_group.tier["analysis"].name,
+            { stat = "Maximum", label = "분석 대수 — 목표", yAxis = "right" }],
+            ["AWS/AutoScaling", "GroupInServiceInstances", "AutoScalingGroupName", aws_autoscaling_group.tier["analysis"].name,
+            { stat = "Maximum", label = "분석 대수 — 붙은 것", yAxis = "right" }],
+          ]
+          # 임계선을 그린다. 이 선을 5분 넘긴 것이 스케일 아웃의 조건이라, 선이 없으면
+          # 「왜 지금 올랐나」를 눈으로 못 맞춘다(alarms.tf 의 analysis_backlog).
+          annotations = {
+            horizontal = [{ label = "스케일 아웃 임계 100", value = 100 }]
+          }
+          # 두 선의 크기가 두 자릿수 다르다. 대수는 1~2 라 왼쪽 축에 두면 바닥에 붙는다.
+          yAxis = { right = { min = 0, max = 3 } }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
         y      = 21
         width  = 12
         height = 6
