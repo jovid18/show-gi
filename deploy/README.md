@@ -128,6 +128,12 @@ ACM 인증서 검증과 RDS 생성 때문에 10분쯤 걸린다. `aws_acm_certif
 
 **파라미터를 먼저 등록해야 한다(§2).** 태스크 정의가 `/show-gi/prod/*`를 `secrets`로 참조하므로, 없으면 태스크가 시작조차 못 한다.
 
+### apply 가 도는 대를 갈아치울 때
+
+**`on_demand_base_capacity` 를 바꾸는 apply 가 그렇다**([journal §124](../docs/journal/121-140.md)). `on_demand_percentage_above_base_capacity` 가 그 값에서 유도되므로(`infra/ec2.tf`) 둘이 같이 움직이고, ASG 는 구매 정책을 맞추려고 **도는 인스턴스를 반대편 종류로 바꿔 끼운다.** 새 대를 먼저 띄우고 옛 대를 내리지만, 태스크는 그 사이 옮겨 앉으므로 **실측으로 상호작용이 76초 내려갔다.**
+
+요금만 바꾸는 값으로 읽기 쉬운데 배포와 같은 종류의 창이다. **사람이 안 보는 시간에 건다.**
+
 ### apply 가 서비스를 다시 만들 때
 
 `aws_ecs_service` 의 `capacity_provider_strategy` 는 바꿀 수 없는 속성이라, 그 값이 바뀌는 apply 는 서비스를 지우고 다시 만든다. 그동안 사이트가 내려간다 — **2026-08-26 에 11분이었다**([journal §120](../docs/journal/101-120.md)). 재생성 자체는 1\~2분이고, 나머지는 아래 함정이다.
