@@ -4,16 +4,88 @@
 # 비밀을 셸로 내보내는 스크립트, compose 오버레이, 헬스체크 루프, ECR 로그인, 인증서 볼륨 —
 # 전부 ECS·ALB의 기본 기능으로 대체된다. 내가 쓴 것만 내가 유지보수해야 한다.
 #
-# 용량은 EC2 스팟 한 대에서 온다(ec2.tf). 한때 Fargate였고, 그때 사라졌던 시작 템플릿과
+# 용량은 EC2 스팟에서 온다(ec2.tf). 한때 Fargate였고, 그때 사라졌던 시작 템플릿과
 # ASG가 그래서 돌아왔다 — 배포 스크립트는 안 돌아왔다. 그건 Fargate가 아니라 ECS가 맡던 일이다.
 #
-# 태스크 하나에 컨테이너 둘을 넣는다. host 모드에서는 두 컨테이너가 인스턴스의 네트워크
+# 서비스가 둘이고 가르는 것은 SERVER_ROLE 이다.
+#
+#   show-gi            상호작용.  web + api. 대상 그룹 뒤에 있고 1대로 고정이다
+#   show-gi-analysis   분석.      api 하나. 대상 그룹에 안 붙고 대수가 손잡이다
+#
+# 상호작용 태스크에 컨테이너 둘을 넣는다. host 모드에서는 두 컨테이너가 인스턴스의 네트워크
 # 네임스페이스를 같이 쓰므로 web이 localhost:8080으로 api에 닿는다.
 # 따로 떼면 타깃 그룹과 서비스가 두 벌이 되는데, 따로 스케일할 이유가 없다.
 
 locals {
   api_image = "${aws_ecr_repository.app["api"].repository_url}:${var.image_tag}"
   web_image = "${aws_ecr_repository.app["web"].repository_url}:${var.image_tag}"
+
+  # 비밀은 값이 아니라 경로로 들어간다. ECS 가 Parameter Store 에서 읽어 컨테이너에
+  # 직접 넣는다 — 값이 디스크에 남지 않고 로그에도 안 찍힌다. deploy/env.sh 를 대체한 자리다.
+  ssm_prefix = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/show-gi/prod"
+
+  # 티어 둘이 같은 이미지를 같은 손잡이로 돌린다. 갈리는 것은 SERVER_ROLE 과 비밀 목록
+  # 둘뿐이라 나머지를 여기 모은다 — 갈라 적으면 한쪽만 고쳐서 두 티어가 다른 엔진 설정으로
+  # 돌고, 그러면 회차의 값이 티어 간에 대조가 안 된다.
+  #
+  # ENGINE_CMD 를 여기 두지 않는다. 엔진 실행 경로는 이미지 내부 구조라 Terraform이 알 수
+  # 없는 값이고, 태스크 정의의 environment 는 이미지의 ENV 를 덮어쓴다. 양쪽에 적어두면
+  # 이미지를 바꿀 때 조용히 어긋난다 — 실제로 엔진을 やねうら王로 바꾼 배포에서 여기 남아
+  # 있던 fairy-stockfish 가 이겨서, 배포는 성공했는데 대국만 안 되는 상태가 됐다.
+  #
+  # 운영 손잡이(ENGINE_POOL_SIZE·ENGINE_HASH_MB 등)는 여기 둬도 된다.
+  # 이미지 안에 없는 값이라 덮어쓸 대상이 없다.
+  #
+  # 탐색 풀이 2다. 4로 올려 재 봤고 이득이 없어 되돌렸다(journal §110).
+  #
+  # 올릴 이유가 없는 것이 구조로 정해져 있다. 빌린 구간이 탐색 하나뿐이고(usi.Pool.Do
+  # 가 Acquire·탐색·Release 를 붙여 두고 DB 는 그 밖이다) 그 탐색이 CPU 바운드라,
+  # 슬롯을 코어보다 많이 줘도 같은 CPU 를 잘게 쪼개는 것뿐이다.
+  #
+  # 실측이 둘 다 그것을 말한다. 엔진 6판은 풀 대기 p95 가 8.52초에서 3.48초로
+  # 내려가는 대신 탐색 p95 가 7~20초로 올라갔고 CPU 는 99% 에서 99% 였다. 대인전
+  # 8판은 풀 대기가 매분 표본 100개에 p95 0.000 이었다 — 경합조차 없던 자원이다.
+  #
+  # 해시는 안 건드린다. 치환표 크기가 바뀌면 같은 국면의 탐색 결과가 달라져서
+  # 앞 회차와 대조가 깨진다.
+  #
+  # ENVIRONMENT 가 지표의 손잡이다. 비어 있으면 서버가 EMF 를 안 내므로(cmd/api 의
+  # startEmitter) 이 한 줄이 CloudWatch 커스텀 지표를 켜고 끈다. 값은 EMF 문서의
+  # Environment 차원이 되므로, 이 값을 바꾸면 알람의 dimensions 도 같이 바꾼다
+  # (infra/alarms.tf). 티어를 차원으로 안 올리는 이유는 journal §120 에 있다.
+  api_env = [
+    { name = "ENGINE_POOL_SIZE", value = "2" },
+    { name = "ENGINE_MATE_POOL_SIZE", value = "1" },
+    { name = "ENGINE_HASH_MB", value = "64" },
+    { name = "ENVIRONMENT", value = "prod" },
+    { name = "LOG_LEVEL", value = "info" },
+  ]
+
+  # 빈 목록 셋과 hostPort 를 적어 둔다. 안 적으면 AWS 가 채운 값과 우리 JSON 이 달라서
+  # plan 이 매번 태스크 정의를 「바뀌었다」로 읽고 리비전을 하나씩 쌓는다 — 서비스가
+  # task_definition 변경을 무시하므로 해는 없지만, 그러면 apply 가 무엇을 바꾸는지를
+  # 손잡이 하나 고칠 때마다 다시 읽어야 한다.
+  #
+  # host 모드에서 hostPort 는 containerPort 와 같아야 한다. 여기 적는 값이 그것이고,
+  # 한 인스턴스에 태스크가 하나뿐인 이유이기도 하다.
+  api_container = {
+    name           = "api"
+    image          = local.api_image
+    essential      = true
+    portMappings   = [{ containerPort = 8080, hostPort = 8080, protocol = "tcp" }]
+    mountPoints    = []
+    systemControls = []
+    volumesFrom    = []
+
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = aws_cloudwatch_log_group.app.name
+        "awslogs-region"        = var.aws_region
+        "awslogs-stream-prefix" = "api"
+      }
+    }
+  }
 }
 
 resource "aws_ecs_cluster" "main" {
@@ -152,10 +224,14 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([
     {
-      name         = "web"
-      image        = local.web_image
-      essential    = true
-      portMappings = [{ containerPort = 80, protocol = "tcp" }]
+      name           = "web"
+      image          = local.web_image
+      essential      = true
+      portMappings   = [{ containerPort = 80, hostPort = 80, protocol = "tcp" }]
+      environment    = []
+      mountPoints    = []
+      systemControls = []
+      volumesFrom    = []
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -166,70 +242,127 @@ resource "aws_ecs_task_definition" "app" {
       }
       dependsOn = [{ containerName = "api", condition = "START" }]
     },
-    {
-      name         = "api"
-      image        = local.api_image
-      essential    = true
-      portMappings = [{ containerPort = 8080, protocol = "tcp" }]
+    merge(local.api_container, {
+      # 사람을 받는 티어다. 手를 줄에 세우기만 하고 집지는 않는다 —
+      # 집는 쪽은 아래 show-gi-analysis 이고, 가르는 손잡이가 이 한 줄이다.
+      #
+      # 여기가 both 로 돌면 이 박스의 엔진이 분석에도 쓰여서 티어를 가른 값이 없어진다.
+      environment = concat(local.api_env, [{ name = "SERVER_ROLE", value = "interactive" }])
 
-      # ENGINE_CMD 를 여기 두지 않는다. 엔진 실행 경로는 이미지 내부 구조라
-      # Terraform이 알 수 없는 값이고, 태스크 정의의 environment 는 이미지의 ENV 를
-      # 덮어쓴다. 양쪽에 적어두면 이미지를 바꿀 때 조용히 어긋난다 —
-      # 실제로 엔진을 やねうら王로 바꾼 배포에서 여기 남아 있던 fairy-stockfish 가
-      # 이겨서, 배포는 성공했는데 대국만 안 되는 상태가 됐다.
-      #
-      # 운영 손잡이(ENGINE_POOL_SIZE·ENGINE_HASH_MB 등)는 여기 둬도 된다.
-      # 이미지 안에 없는 값이라 덮어쓸 대상이 없다.
-      #
-      # 탐색 풀이 2다. 4로 올려 재 봤고 이득이 없어 되돌렸다(journal §110).
-      #
-      # 올릴 이유가 없는 것이 구조로 정해져 있다. 빌린 구간이 탐색 하나뿐이고(usi.Pool.Do
-      # 가 Acquire·탐색·Release 를 붙여 두고 DB 는 그 밖이다) 그 탐색이 CPU 바운드라,
-      # 슬롯을 코어보다 많이 줘도 같은 CPU 를 잘게 쪼개는 것뿐이다.
-      #
-      # 실측이 둘 다 그것을 말한다. 엔진 6판은 풀 대기 p95 가 8.52초에서 3.48초로
-      # 내려가는 대신 탐색 p95 가 7~20초로 올라갔고 CPU 는 99% 에서 99% 였다. 대인전
-      # 8판은 풀 대기가 매분 표본 100개에 p95 0.000 이었다 — 경합조차 없던 자원이다.
-      #
-      # 해시는 안 건드린다. 치환표 크기가 바뀌면 같은 국면의 탐색 결과가 달라져서
-      # 앞 회차와 대조가 깨진다.
-      #
-      # ENVIRONMENT 가 지표의 손잡이다. 비어 있으면 서버가 EMF 를 안 내므로(cmd/api 의
-      # startEmitter) 이 한 줄이 CloudWatch 커스텀 지표를 켜고 끈다. 값은 EMF 문서의
-      # Environment 차원이 되므로, 이 값을 바꾸면 알람의 dimensions 도 같이 바꾼다
-      # (infra/alarms.tf).
-      environment = [
-        { name = "ENGINE_POOL_SIZE", value = "2" },
-        { name = "ENGINE_MATE_POOL_SIZE", value = "1" },
-        { name = "ENGINE_HASH_MB", value = "64" },
-        { name = "ENVIRONMENT", value = "prod" },
-        { name = "LOG_LEVEL", value = "info" },
-      ]
-
-      # 여기가 env.sh를 대체하는 지점이다. ECS가 Parameter Store에서 읽어
-      # 컨테이너에 직접 넣는다. 값이 디스크에 남지 않고, 로그에도 안 찍힌다.
+      # 로그인과 세션이 이 티어에만 있다. 분석 티어는 사람을 안 받으므로 DATABASE_URL 뿐이다.
       secrets = [
         for k in [
           "DATABASE_URL",
           "SESSION_SECRET",
           "GOOGLE_CLIENT_ID",
           "GOOGLE_CLIENT_SECRET",
-          ] : {
-          name      = k
-          valueFrom = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/show-gi/prod/${k}"
-        }
+        ] : { name = k, valueFrom = "${local.ssm_prefix}/${k}" }
       ]
-
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.app.name
-          "awslogs-region"        = var.aws_region
-          "awslogs-stream-prefix" = "api"
-        }
-      }
-    },
+    }),
   ])
+}
+
+# 분석 티어. 사람을 안 받으므로 web 컨테이너가 없다.
+#
+# 컨테이너가 하나인 것이 이 티어의 정의다. Caddy 는 사람의 요청을 api 로 넘기는 자리인데
+# 여기는 대상 그룹 뒤에 없어서 넘길 요청이 없고, 띄우면 80 을 잡아 아무도 안 보는 서버가
+# 인스턴스마다 하나씩 는다.
+#
+# /healthz 를 밖에서 못 물어본다. 대신 이 티어가 죽으면 AnalysisBacklogPlies 가
+# 부푸는 것으로 보인다(alarms.tf) — 게이지를 티어마다 올리는 이유가 그것이다(journal §119).
+resource "aws_ecs_task_definition" "analysis" {
+  # 옛 리비전을 지우지 않는다. 이유는 상호작용 쪽과 같다(위).
+  skip_destroy = true
+
+  family                   = "show-gi-analysis"
+  requires_compatibilities = ["EC2"]
+
+  # host 인 것은 상호작용 쪽과 같은 이유다(위). 포트가 겹치므로 이 모드가 곧
+  # 「한 인스턴스에 태스크 하나」의 강제이기도 하다 — 늘리는 것이 태스크가 아니라 EC2 다.
+  network_mode = "host"
+
+  cpu    = var.task_cpu
+  memory = var.task_memory
+
+  execution_role_arn = aws_iam_role.task_execution.arn
+  task_role_arn      = aws_iam_role.task.arn
+
+  container_definitions = jsonencode([
+    merge(local.api_container, {
+      # 줄을 집는 티어다. /healthz·/metrics 말고는 전부 503 이다(cmd/api 의 analysisRole).
+      environment = concat(local.api_env, [{ name = "SERVER_ROLE", value = "analysis" }])
+
+      # DATABASE_URL 하나다. 로그인도 세션도 이 티어에 없으므로 나머지 셋은 줄 이유가 없고,
+      # 안 주는 만큼 이 박스가 뚫렸을 때 나가는 것이 적다.
+      secrets = [
+        { name = "DATABASE_URL", valueFrom = "${local.ssm_prefix}/DATABASE_URL" },
+      ]
+    }),
+  ])
+}
+
+# ─── 용량 공급자 ────────────────────────────────────────────
+
+# 티어마다 하나다. 하는 일은 「이 서비스의 태스크를 저 ASG 에만 얹는다」이고,
+# 그것이 없으면 ECS 가 클러스터의 아무 인스턴스에나 얹어서 갈라 둔 것이 섞인다.
+#
+# 상호작용 쪽은 managed_scaling 이 꺼져 있다. 켜 봐야 min=max=1 이라 움직일 값이 없고,
+# 꺼 두면 그 ASG 의 대수를 terraform 이 계속 든다.
+resource "aws_ecs_capacity_provider" "interactive" {
+  name = "show-gi-interactive"
+
+  auto_scaling_group_provider {
+    auto_scaling_group_arn = aws_autoscaling_group.tier["interactive"].arn
+
+    managed_scaling {
+      status = "DISABLED"
+    }
+  }
+}
+
+# 분석 쪽은 켠다. 배치 못 한 태스크를 보고 ASG 의 desired 를 올리는 것이 이 블록이고,
+# 그래서 늘리는 손잡이가 서비스의 desired_count 하나가 된다(var.analysis_instances).
+resource "aws_ecs_capacity_provider" "analysis" {
+  name = "show-gi-analysis"
+
+  auto_scaling_group_provider {
+    auto_scaling_group_arn = aws_autoscaling_group.tier["analysis"].arn
+
+    managed_scaling {
+      status = "ENABLED"
+
+      # 100 은 「인스턴스를 남기지 않는다」다. 여유분을 두면 늘 한 대가 놀고, 이 티어는
+      # 사람이 안 기다리므로 그 값을 낼 이유가 없다 — 밀린 手는 늦게 재도 사람이 안 본다.
+      target_capacity = 100
+
+      # 한 번에 한 대씩 움직인다. 대당 2 vCPU 인데 회차가 재는 것이 「한 대 늘리면
+      # 처리량이 얼마나 느나」라서, 계단이 두 대씩이면 그 기울기를 못 읽는다.
+      minimum_scaling_step_size = 1
+      maximum_scaling_step_size = 1
+
+      # 새 대가 뜨고 ECS 에 등록되어 태스크를 받기까지가 실측으로 4분쯤이다(journal §109).
+      # 그 전에 다음 계단을 밟으면 아직 일을 시작 안 한 대를 「모자라다」로 읽는다.
+      instance_warmup_period = 240
+    }
+
+    # 종료 보호를 안 켠다. 스케일 인이 일하는 중인 대를 가져가도 그 手의 행이 표에 남고
+    # 임차가 풀리면 다른 대가 다시 집는다(journal §118) — 잃는 것이 판이 아니라 시간이다.
+    managed_termination_protection = "DISABLED"
+  }
+}
+
+# 클러스터에 등록해야 서비스가 이름으로 고를 수 있다. 기본 전략은 안 둔다 —
+# 두 서비스가 각자 자기 것을 명시하므로, 기본값이 있으면 잘못 적었을 때 조용히 붙는다.
+#
+# 여기서 이름을 빼는 것으로는 공급자가 안 지워진다. 쓰는 서비스가 있는 동안 삭제가
+# 거절되므로, 되돌릴 때는 서비스를 먼저 옮긴다.
+resource "aws_ecs_cluster_capacity_providers" "main" {
+  cluster_name = aws_ecs_cluster.main.name
+
+  capacity_providers = [
+    aws_ecs_capacity_provider.interactive.name,
+    aws_ecs_capacity_provider.analysis.name,
+  ]
 }
 
 # ─── 서비스 ─────────────────────────────────────────────────
@@ -268,7 +401,14 @@ resource "aws_ecs_service" "app" {
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
   desired_count   = 1
-  launch_type     = "EC2"
+
+  # launch_type 이 아니라 용량 공급자로 얹는다. launch_type = "EC2" 는 클러스터에 등록된
+  # 아무 인스턴스나 고르므로, 분석 대가 생긴 순간 이 태스크가 그쪽에 앉을 수 있다 —
+  # 그러면 분석 대가 하나 줄고 상호작용 대가 빈 채로 요금만 나간다.
+  capacity_provider_strategy {
+    capacity_provider = aws_ecs_capacity_provider.interactive.name
+    weight            = 1
+  }
 
   # 컨테이너에 셸로 들어갈 수 있게 한다. SSH도, 배스천도 필요 없다:
   #   aws ecs execute-command --cluster show-gi --task <id> --container api --interactive --command /bin/sh
@@ -310,8 +450,58 @@ resource "aws_ecs_service" "app" {
   }
 
   # ASG가 먼저다. 클러스터에 등록된 인스턴스가 없으면 서비스가 태스크를 못 띄우고,
-  # 첫 apply 에서 그 상태로 몇 분을 기다린다.
-  depends_on = [aws_lb_listener.https, aws_autoscaling_group.app]
+  # 첫 apply 에서 그 상태로 몇 분을 기다린다. 용량 공급자도 클러스터에 붙은 뒤여야
+  # 이름으로 고를 수 있다.
+  depends_on = [
+    aws_lb_listener.https,
+    aws_autoscaling_group.tier,
+    aws_ecs_cluster_capacity_providers.main,
+  ]
+}
+
+# 분석 티어. 대상 그룹에 안 붙는다 — 여기에 사람이 오면 방이 이 프로세스의 메모리에 서서
+# 짝이 안 맞고(journal §98) 로그에 아무것도 안 남는다. 배포 워크플로가 /healthz 의 role 을
+# 열 번 물어 그것을 막는다(.github/workflows/images.yml).
+#
+# 늘리는 손잡이가 desired_count 하나다. 용량 공급자가 미배치 태스크를 보고 EC2 를 따라
+# 올린다(위 analysis) — 태스크를 늘리는 것이 곧 대를 늘리는 것이다.
+resource "aws_ecs_service" "analysis" {
+  name            = "show-gi-analysis"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.analysis.arn
+  desired_count   = var.analysis_instances
+
+  capacity_provider_strategy {
+    capacity_provider = aws_ecs_capacity_provider.analysis.name
+    weight            = 1
+  }
+
+  enable_execute_command = true
+
+  # 옛 태스크를 먼저 내리고 새 것을 띄운다. 상호작용 쪽과 같은 값이고 이유도 같다 —
+  # 인스턴스가 태스크 하나에 맞춰져 있어 두 개가 동시에 못 올라간다.
+  #
+  # 내려가 있는 동안 밀린 手가 쌓이지만 행이 표에 남으므로 잃지 않는다(journal §118).
+  deployment_minimum_healthy_percent = 0
+  deployment_maximum_percent         = 100
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
+  # health_check_grace_period_seconds 가 없다. 그 값은 로드밸런서 헬스체크를 봐주는
+  # 유예라서 대상 그룹이 없는 서비스에는 못 준다 — 적으면 ECS 가 거절한다.
+
+  lifecycle {
+    # 배포는 CI가 새 리비전을 등록해서 한다(상호작용 쪽과 같은 판단).
+    ignore_changes = [task_definition]
+  }
+
+  depends_on = [
+    aws_autoscaling_group.tier,
+    aws_ecs_cluster_capacity_providers.main,
+  ]
 }
 
 output "cluster" {
@@ -320,4 +510,8 @@ output "cluster" {
 
 output "service" {
   value = aws_ecs_service.app.name
+}
+
+output "analysis_service" {
+  value = aws_ecs_service.analysis.name
 }

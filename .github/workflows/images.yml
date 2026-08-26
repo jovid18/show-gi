@@ -74,6 +74,21 @@ jobs:
     needs: build # 두 이미지가 다 올라간 뒤에만
     runs-on: ubuntu-latest
 
+    # 티어마다 서비스가 하나이고 태스크 정의 계열도 따로다(infra/ecs.tf). 여기서 둘 다
+    # 굴리지 않으면 분석 티어가 처음 등록된 이미지에 그대로 굳는다 — 코드가 바뀌어도
+    # 사람이 쓰는 화면만 새것이 되고, 밀린 手는 옛 바이너리가 잰다.
+    #
+    # fail-fast 를 끈다. 한쪽이 실패해도 다른 쪽은 끝까지 가는 편이 낫다 —
+    # 취소된 배포는 「무엇이 떠 있나」를 로그만 봐서는 알 수 없다.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: show-gi
+            web: true
+          - service: show-gi-analysis
+            web: false # 분석 티어는 사람을 안 받으므로 컨테이너가 api 하나다
+
     steps:
       - uses: aws-actions/configure-aws-credentials@v6
         with:
@@ -87,8 +102,10 @@ jobs:
         # JMESPath의 multi-select hash는 `{key: value}` 쌍만 받는다 — `{family, cpu}` 같은
         # 축약 표기가 없다. 그리고 describe 응답에는 register가 거부하는 필드
         # (revision, status, taskDefinitionArn 등)가 섞여 있어 필요한 것만 골라 뽑는다.
+        #
+        # 계열 이름이 서비스 이름과 같다(infra/ecs.tf 의 family).
         run: |
-          aws ecs describe-task-definition --task-definition show-gi \
+          aws ecs describe-task-definition --task-definition ${{ matrix.service }} \
             --query 'taskDefinition.{family: family, taskRoleArn: taskRoleArn, executionRoleArn: executionRoleArn, networkMode: networkMode, containerDefinitions: containerDefinitions, requiresCompatibilities: requiresCompatibilities, cpu: cpu, memory: memory, runtimePlatform: runtimePlatform}' \
             > task-definition.json
 
@@ -101,6 +118,7 @@ jobs:
 
       - uses: aws-actions/amazon-ecs-render-task-definition@v1
         id: render-web
+        if: matrix.web
         with:
           task-definition: ${{ steps.render-api.outputs.task-definition }}
           container-name: web
@@ -108,10 +126,12 @@ jobs:
 
       # 새 리비전을 등록하고 서비스를 굴린다. 롤링 배포·헬스체크·실패 시 롤백은
       # ECS가 한다 — 예전에 deploy.sh가 손으로 하던 일이다.
+      #
+      # 건너뛴 단계의 출력은 빈 문자열이라 `||` 가 api 만 갈아끼운 쪽을 집는다.
       - uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
-          task-definition: ${{ steps.render-web.outputs.task-definition }}
-          service: show-gi
+          task-definition: ${{ steps.render-web.outputs.task-definition || steps.render-api.outputs.task-definition }}
+          service: ${{ matrix.service }}
           cluster: show-gi
           # 안정될 때까지 기다린다. 기다리지 않으면 배포가 실패해도 워크플로가 초록으로 남는다
           wait-for-service-stability: true
@@ -120,7 +140,11 @@ jobs:
       # ECS가 "안정"이라고 해도 대국이 되는지는 모른다 — 헬스체크는 엔진을 안 건드린다.
       # 엔진이 안 뜨면 사이트는 살아 있고 /ws/game 만 503이라 배포가 초록으로 끝난다.
       # 실제로 한 번 그렇게 통과했으므로 여기서 막는다.
+      #
+      # 분석 티어에서는 안 돈다. 대상 그룹 뒤에 없어서 밖에서 물어볼 주소가 없고,
+      # 그쪽이 죽은 것은 AnalysisBacklogPlies 가 부푸는 것으로 보인다(infra/alarms.tf).
       - name: Verify the engine came up
+        if: matrix.service == 'show-gi'
         run: |
           body="$(curl -fsS --retry 5 --retry-delay 5 https://show-gi.com/healthz)"
           echo "$body"

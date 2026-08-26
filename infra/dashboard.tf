@@ -12,6 +12,9 @@
 locals {
   # 차원 둘을 다 적어야 한다. EMF 가 Service·Environment 를 차원으로 내므로 하나만
   # 적으면 그런 계열이 없다(alarms.tf 의 engine_pool_wait 과 같은 함정).
+  #
+  # 티어가 둘인데 차원은 그대로다. 두 티어가 같은 계열에 올리므로 위젯의 값은 둘을 합친
+  # 것이고, 통계가 그 합치는 법이다 — 카운터는 Sum, 게이지는 Maximum 이다(journal §120).
   dash_dims = ["Service", "api", "Environment", "prod"]
 
   # 위젯 하나가 보는 창. EMF 가 1분에 한 줄이라 그보다 잘게 볼 수 없다.
@@ -35,7 +38,8 @@ resource "aws_cloudwatch_dashboard" "main" {
             "",
             "1. **엔진 풀 대기 — 대국**이 튀면 사람이 기다린 것이다. 같은 창에서 **분석 백로그**가 같이 올랐으면 사후 분석이 대국을 굶긴 것이고, 그것이 분석기를 별도 서비스로 뗄지의 판단 근거다(journal §101).",
             "2. **버려진 판**이 0이 아니면 그 자체가 사고다. 그 판은 평가치도 실력 추정도 없이 남고 다시 재지 않는다.",
-            "3. 대기가 아니라 **탐색 시간**이 길면 원인이 줄이 아니라 CPU다 — 태스크가 2 vCPU 이고 엔진이 최대 셋 돈다(journal §91).",
+            "3. 대기가 아니라 **탐색 시간**이 길면 원인이 줄이 아니라 CPU다 — 태스크 하나가 2 vCPU 이고 엔진이 최대 셋 돈다(journal §91).",
+            "4. **탐색 수**는 티어 둘을 합친 값이다. 분석 대를 늘렸을 때 여기가 올라가고 **분석 백로그**가 내려오는 것이 그 계단의 판정이다(journal §120).",
           ])
         }
       },
@@ -102,7 +106,7 @@ resource "aws_cloudwatch_dashboard" "main" {
             concat(["show-gi", "EngineSearchSeconds"], local.dash_dims, [{ stat = "p50", label = "탐색 p50" }]),
             concat(["show-gi", "EngineSearchSeconds"], local.dash_dims, [{ stat = "p95", label = "탐색 p95" }]),
             concat(["show-gi", "EngineSearchSeconds"], local.dash_dims, [{ stat = "Maximum", label = "탐색 max" }]),
-            concat(["show-gi", "EnginePoolInUse"], local.dash_dims, [{ stat = "Maximum", label = "점유", yAxis = "right" }]),
+            concat(["show-gi", "EnginePoolInUse"], local.dash_dims, [{ stat = "Maximum", label = "점유(제일 바쁜 대)", yAxis = "right" }]),
           ]
           # 풀이 둘이다. 점유가 2에 붙어 있는 동안의 대기가 진짜 포화다.
           yAxis = { right = { min = 0, max = 3 } }

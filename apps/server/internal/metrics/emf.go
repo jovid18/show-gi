@@ -90,6 +90,9 @@ func (e *Emitter) EmitTo(w io.Writer, now time.Time) error {
 			// 하나라서 route 나 pool 은 여기 올리지 않는다 — 지표 수가 그 값의 개수만큼
 			// 곱해진다. Environment 는 개수가 배포 환경 수만큼이고(지금 하나), 그것이
 			// 없으면 두 번째 환경이 프로덕션과 같은 계열에 값을 섞어 알람을 흔든다.
+			//
+			// 티어(SERVER_ROLE)도 안 올린다. 티어 둘이 같은 계열에 올리고 CloudWatch 의
+			// 통계가 합친다 — 카운터는 Sum, 게이지는 Maximum 이다(journal §120).
 			"Dimensions": [][]string{{"Service", "Environment"}},
 			"Metrics":    defs,
 		}},

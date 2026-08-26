@@ -1,10 +1,11 @@
-# ECS의 용량 공급. Fargate에서 EC2 스팟 한 대로 옮긴 자리다.
+# ECS의 용량 공급. Fargate에서 EC2 스팟으로 옮긴 자리다.
 #
 # 태스크는 4 vCPU / 8 GiB였고 Fargate에서 24시간 돌리면 월 $115다. 쓰는 사람이 한 명인
 # 서비스에 그 값을 낼 이유가 없어서 desired_count 가 0으로 내려가 있었는데, 0이면
 # 배포 워크플로의 헬스체크가 매 머지마다 빨간불이 된다 — 상시 빨간 CI는 안 보는 CI다.
 #
-# t4g.small 스팟 한 대면 월 ~$8이고, 그 위에 태스크가 늘 하나 떠 있다.
+# 시작 템플릿은 하나이고 그룹이 둘이다. 티어마다 한 그룹이고 그 위에 태스크가 하나씩
+# 뜬다(아래 asg_tiers).
 
 # ECS 최적화 AMI. arm64를 고른다 — 엔진이 arm64 Debian 바이너리라 x86에서는 안 돈다
 # (CI도 arm64로 굽는다). SSM 파라미터라 AWS가 갱신하면 다음 apply가 새 AMI를 집는다.
@@ -136,40 +137,63 @@ resource "aws_launch_template" "app" {
 
 # ─── 오토스케일링 그룹 ──────────────────────────────────────
 
-# 스케일링을 하지 않는다. 1/1/1로 고정이고, 이 그룹이 하는 일은 「한 대를 늘 살려
-# 둔다」 하나다 — 스팟이 회수되면 대신 새 인스턴스를 받아 온다. 받아 올 재고가 있을
-# 때만 그렇다(journal §106).
+# 그룹이 둘이고 가르는 것은 티어다(ecs.tf 의 SERVER_ROLE). 시작 템플릿도 클러스터도
+# 같고, 다른 것은 「몇 대까지 가나」 하나다.
 #
-# health_check_type 이 EC2 다. 앱 상태를 아무도 안 본다는 뜻이다 — 앱이 느려지거나
-# 죽어도 인스턴스는 교체되지 않고, 이미 종료된 것을 치우는 것이 전부다.
+#   show-gi            상호작용.  1/1/1 고정
+#   show-gi-analysis   분석.      1 ~ var.analysis_instances
 #
-# 용량 공급자(capacity provider)를 안 만든다. 그것이 하는 일은 태스크 수를 보고 인스턴스를
-# 늘리는 것인데, 여기는 태스크도 인스턴스도 1로 고정이라 늘릴 것이 없다. 서비스가
-# launch_type = "EC2" 로 클러스터에 등록된 인스턴스에 바로 얹는다.
-resource "aws_autoscaling_group" "app" {
-  name                = "show-gi"
+# 태스크가 아니라 EC2 를 늘린다. network_mode 가 host 라 포트가 겹쳐서 한 인스턴스에
+# api 태스크가 둘 못 뜨고(ecs.tf), task_cpu 가 인스턴스의 2 vCPU 를 통째로 예약하므로
+# CPU 만으로도 한 대에 하나다.
+#
+# 상호작용 쪽은 안 늘린다. 방이 짝지은 프로세스의 메모리에 서므로(journal §98) 두 대면
+# 초대·매칭이 절반 확률로 깨진다 — 그것을 안 건드리는 것이 티어를 가른 값이다.
+#
+# for_each 로 묶은 이유는 줄 수가 아니라 대조다. 두 그룹의 구매 정책·타입 후보가 갈리면
+# 「분석 2대」 회차가 상호작용 회차와 다른 박스에서 돈 것이 되어 용량표에 못 적는다.
+locals {
+  asg_tiers = {
+    interactive = { name = "show-gi", max = 1 }
+    analysis    = { name = "show-gi-analysis", max = var.analysis_instances }
+  }
+}
+
+resource "aws_autoscaling_group" "tier" {
+  for_each = local.asg_tiers
+
+  name                = each.value.name
   min_size            = 1
-  max_size            = 1
-  desired_capacity    = 1
+  max_size            = each.value.max
   vpc_zone_identifier = local.alb_subnet_ids
+
+  # desired_capacity 를 안 적는다. 상호작용은 min=max=1 이라 적을 값이 하나뿐이고,
+  # 분석은 ECS 용량 공급자가 미배치 태스크를 보고 이 값을 움직인다(ecs.tf) —
+  # terraform 이 그것을 되돌리면 스케일 아웃이 다음 apply 에 취소된다.
 
   # ALB가 켜진 AZ에만 둔다(local.alb_subnet_ids). ALB는 활성 AZ의 타깃에만
   # 라우팅하므로, 세 번째 서브넷에 뜨면 인스턴스는 정상인데 사이트가 503이다.
+  #
+  # 분석 티어는 ALB 뒤에 없지만 같은 서브넷을 쓴다. 회차의 값이 AZ 간 RDS 왕복에
+  # 흔들리지 않아야 한다 — 상호작용 대와 같은 자리에서 재는 것이 대조의 전제다.
 
   # 타입 여럿을 후보로 준다. 스팟 풀은 「타입 × AZ」 이므로 이것이 가동률을 정한다 —
   # 하나만 쓰면 그 풀이 마르는 순간 회수와 대체 실패가 같이 온다(journal §109).
   mixed_instances_policy {
     instances_distribution {
-      # 한 대뿐이라 base 가 1이면 통째로 온디맨드이고 0이면 통째로 스팟이다. 지금 값과
-      # 되돌릴 조건은 variables.tf 의 on_demand_base_capacity 에 있다.
-      on_demand_base_capacity                  = var.on_demand_base_capacity
-      on_demand_percentage_above_base_capacity = 0
+      # 값과 되돌릴 조건은 variables.tf 의 on_demand_base_capacity 에 있다.
+      on_demand_base_capacity = var.on_demand_base_capacity
+
+      # base 를 넘는 대는 base 를 따라간다. 분석 티어가 두 대일 때 한 대만 스팟이면
+      # 회수 하나가 그 회차의 절반을 가져가고(약 9분, journal §109), 잰 것이 처리량이
+      # 아니라 복구 시간이 된다. 회차가 아닐 때는 둘 다 스팟이다.
+      on_demand_percentage_above_base_capacity = var.on_demand_base_capacity > 0 ? 100 : 0
 
       # 온디맨드는 override 순서대로 고른다. 회차가 어느 클래스에서 돌았는지가 용량표의
       # 행을 정하므로 값이 재고에 따라 흔들리면 안 된다.
       on_demand_allocation_strategy = "prioritized"
 
-      # 스팟은 재고가 깊은 풀을 고르되 순서를 힌트로 쓴다. base 가 1인 동안은 안 쓰인다.
+      # 스팟은 재고가 깊은 풀을 고르되 순서를 힌트로 쓴다.
       spot_allocation_strategy = "capacity-optimized-prioritized"
     }
 
@@ -192,19 +216,33 @@ resource "aws_autoscaling_group" "app" {
   # ALB 헬스체크를 안 본다(EC2 가 기본값이다). 태스크가 배포 중에 잠깐 내려가는데
   # (deployment_maximum_percent = 100), ALB 기준으로 보면 ASG가 그것을 인스턴스 고장으로
   # 읽고 멀쩡한 인스턴스를 죽인다 — 그러면 배포마다 인스턴스가 새로 뜬다.
+  #
+  # 앱 상태를 아무도 안 본다는 뜻이기도 하다. 앱이 느려지거나 죽어도 인스턴스는 교체되지
+  # 않고, 이미 종료된 것을 치우는 것이 전부다.
 
   # 스팟이 회수된 뒤 새 인스턴스가 ECS에 등록되고 태스크를 받는 데 시간이 걸린다.
   health_check_grace_period = 180
 
-  # ASG가 인스턴스를 갈아치울 때 태그를 새로 다는 대신 시작 템플릿의 것을 쓴다.
-  # 여기 tag 블록을 두면 default_tags 와 두 벌이 되어 plan 이 매번 흔들린다.
+  # 콘솔의 인스턴스 목록에서 티어가 갈려야 한다. Name 은 default_tags 에 없으므로
+  # (providers.tf) 여기 두어도 plan 이 안 흔들린다 — 시작 템플릿의 같은 태그를 덮는다.
+  tag {
+    key                 = "Name"
+    value               = each.value.name
+    propagate_at_launch = true
+  }
 
   lifecycle {
-    # desired_capacity 를 무시하지 않는다. 스케일링하는 것이 없으므로 terraform 이
-    # 이 값의 유일한 주인이고, 손으로 바꿔도 다음 apply 가 되돌리는 것이 맞다
-    # (aws_ecs_service.app.desired_count 와 같은 판단이다).
-    create_before_destroy = false
+    # 분석 쪽 desired 의 주인이 ECS 다. 상호작용 쪽은 min=max=1 이라 무시하든 말든
+    # 값이 하나뿐이고, 두 그룹이 한 resource 라 여기서 갈라 적을 수가 없다.
+    ignore_changes = [desired_capacity]
   }
+}
+
+# 자원 주소가 바뀌었다. 이름을 안 옮기면 terraform 이 도는 그룹을 지우고 다시 만든다 —
+# 인스턴스가 한 대뿐이라 그 사이가 그대로 장애다.
+moved {
+  from = aws_autoscaling_group.app
+  to   = aws_autoscaling_group.tier["interactive"]
 }
 
 output "instance_type" {
