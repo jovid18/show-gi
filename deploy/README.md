@@ -115,6 +115,18 @@ ACM 인증서 검증과 RDS 생성 때문에 10분쯤 걸린다. `aws_acm_certif
 
 **파라미터를 먼저 등록해야 한다(§2).** 태스크 정의가 `/show-gi/prod/*`를 `secrets`로 참조하므로, 없으면 태스크가 시작조차 못 한다.
 
+### apply 가 서비스를 다시 만들 때
+
+`aws_ecs_service` 의 `capacity_provider_strategy` 는 바꿀 수 없는 속성이라, 그 값이 바뀌는 apply 는 서비스를 지우고 다시 만든다. 그동안 사이트가 내려간다 — 정상 배포와 같은 종류의 창이고 3분쯤이다.
+
+**그동안 `show-gi-no-healthy-target` 이 울릴 수 있다.** 1분 다섯 회차라 창이 5분을 넘기면 메일이 오고, 태스크가 다시 뜨면 스스로 풀린다.
+
+**다시 만들어진 서비스는 terraform 이 등록한 리비전(`latest` 태그)을 가리킨다.** 무엇이 떠 있는지는 커밋 SHA 로 보는 것이 규약이므로([images.yml](../.github/workflows/images.yml)), **그 apply 는 머지보다 먼저 한다** — 머지가 CI 를 돌려 SHA 로 다시 고정한다.
+
+```
+브랜치에서 apply → 뜬 것 확인 → PR 머지 → CI 가 두 서비스를 SHA 로 배포
+```
+
 ## 2. 환경변수 등록 (한 번, 값이 바뀔 때마다)
 
 배포용 값은 **SSM Parameter Store**에 둔다. ECS 태스크 정의가 `secrets`로 참조해 컨테이너에 직접 주입하므로, 값이 어느 디스크에도 남지 않고 로그에도 찍히지 않는다.
@@ -150,6 +162,15 @@ aws ssm put-parameter --name $P/GOOGLE_CLIENT_SECRET --type SecureString --value
 main 머지 → 이미지 빌드(arm64) → ECR push → 태스크 정의 새 리비전 → 롤링 배포 → 안정될 때까지 대기
 ```
 
+**서비스가 둘이고 워크플로가 둘 다 굴린다**([journal §120](../docs/journal/101-120.md)). 계열 이름이 서비스 이름과 같다.
+
+| 서비스             | 계열               | 컨테이너  | 대상 그룹     |
+| ------------------ | ------------------ | --------- | ------------- |
+| `show-gi`          | `show-gi`          | web + api | 붙는다        |
+| `show-gi-analysis` | `show-gi-analysis` | api 하나  | **안 붙는다** |
+
+**엔진 확인은 상호작용 쪽에서만 한다.** 분석 티어는 밖에서 물어볼 주소가 없어서, 그쪽이 죽은 것은 `show-gi-analysis-backlog` 알람이 대신 말한다.
+
 **배포 스크립트가 없다.** 예전 EC2 구성에서는 60줄짜리 셸이 체크아웃·비밀 로드·ECR 로그인·pull·헬스체크를 손으로 했는데, 그 일이 전부 ECS의 기본 동작으로 대체됐다. 직접 쓴 것만 직접 유지보수해야 한다.
 
 | 예전에 스크립트가 하던 일       | 지금                           |
@@ -169,6 +190,8 @@ aws ecs list-task-definitions --family-prefix show-gi --sort DESC --max-items 5 
 aws ecs update-service --cluster show-gi --service show-gi \
   --task-definition show-gi:<리비전> --region ap-northeast-1 --profile show-gi
 ```
+
+분석 티어는 이름을 둘 다 바꿔 부른다 — `--family-prefix show-gi-analysis`, `--service show-gi-analysis`, `--task-definition show-gi-analysis:<리비전>`.
 
 ### 들여다보기
 
@@ -277,6 +300,8 @@ aws logs filter-log-events --log-group-name /ecs/show-gi   --filter-pattern '{ $
 # --container web 이다. api 이미지는 debian-slim + ca-certificates·libgomp1 뿐이라
 # wget 도 curl 도 없다(apps/server/Dockerfile). web 은 caddy-alpine 이라 busybox wget 이
 # 있고, host 네트워크라 같은 localhost:8080 에 닿는다.
+#
+# 분석 티어에는 이 길이 없다 — 그 태스크에는 web 컨테이너가 없다(journal §120).
 aws ecs execute-command --cluster show-gi --task <task-id> --container web \
   --interactive --command 'wget -qO- localhost:8080/metrics' --profile show-gi
 ```
@@ -420,14 +445,17 @@ aws logs tail /ecs/show-gi --follow --region ap-northeast-1 --profile show-gi
 
 **해커톤이 끝나고 상시 가동으로 바꿨다**(2026-08-17). 그래서 표를 주 단위에서 **월 단위**로 옮겼다 — 이제 「대회 기간의 비용」이 아니라 「계속 나가는 비용」이다.
 
-|                                     | 월 (추정)     |
-| ----------------------------------- | ------------- |
-| EC2 c6g.large **스팟** 1대 (상시)   | **~$27**      |
-| EBS gp3 30 GiB (그 인스턴스의 루트) | ~$3           |
-| ALB                                 | ~$18          |
-| RDS db.t4g.micro + 20 GB            | ~$15          |
-| ECR, 로그, Parameter Store          | $1 미만       |
-| **합계**                            | **~$64 / 월** |
+|                                         | 월 (추정)     |
+| --------------------------------------- | ------------- |
+| EC2 c6g.large **스팟** 1대 (상호작용)   | **~$27**      |
+| EC2 c6g.large **스팟** 1대 (분석)       | **~$27**      |
+| EBS gp3 30 GiB × 2 (그 인스턴스의 루트) | ~$6           |
+| ALB                                     | ~$18          |
+| RDS db.t4g.micro + 20 GB                | ~$15          |
+| ECR, 로그, Parameter Store              | $1 미만       |
+| **합계**                                | **~$94 / 월** |
+
+> **분석 대가 2026-08-26 에 늘었다**([journal §120](../docs/journal/101-120.md)). 티어를 가르면 대가 하나 더 서고, 그 대수가 `var.analysis_instances` 다 — 회차 동안 2로 올리면 그 회차만큼 한 대 값이 더 나간다. **부하 회차 동안은 스팟이 아니라 온디맨드라(`on_demand_base_capacity = 1`) 대당 하루 $2.15 다.**
 
 **컴퓨트가 더 이상 가장 큰 항목이 아니다.** 한때 Fargate 4 vCPU / 8 GiB로 월 약 $115였고 그것 때문에 서비스를 0으로 내려 뒀는데, 스팟 한 대로 옮기면서 **컴퓨트가 $8**이 됐다. **2026-08-24 에 컴퓨트가 다시 올랐다** — `t4g.small`(~$5) 에서 `c6g.large`(~$27) 로 옮겼다. 버스터블 크레딧이 마르면 탐색이 8배 느려져서 용량을 못 적는다는 것이 이유이고, **지속 vCPU 당 값으로는 오히려 싸다**([journal §108](../docs/journal/101-120.md)). 그래도 아직 ALB·RDS 가 약 $33 이라 표의 절반이다.
 
@@ -439,11 +467,11 @@ aws logs tail /ecs/show-gi --follow --region ap-northeast-1 --profile show-gi
 cd infra && terraform destroy      # 전부 지운다
 ```
 
-컴퓨트만 잠깐 끄려면 **`desired_capacity` 를 0으로 내린다** — 태스크가 아니라 인스턴스다. `desired_count` 만 0으로 내리면 인스턴스는 그대로 돌면서 태스크만 없어져서, 돈은 그대로 나가고 사이트만 죽는다.
+컴퓨트만 잠깐 끄려면 **ASG 의 크기를 0으로 내린다** — 태스크가 아니라 인스턴스다. `desired_count` 만 0으로 내리면 인스턴스는 그대로 돌면서 태스크만 없어져서, 돈은 그대로 나가고 사이트만 죽는다.
 
 ```sh
-# infra/ec2.tf 의 min_size·max_size·desired_capacity 를 0으로 고치고
+# infra/ec2.tf 의 asg_tiers 와 min_size 를 0으로 고치고
 cd infra && terraform apply
 ```
 
-> **`aws autoscaling set-desired-capacity` 로 내리지 않는다.** `desired_capacity` 는 terraform 이 주인이라(ec2.tf의 `lifecycle` 주석) 다음 apply 가 코드 값으로 되돌린다 — CLI로 내린 것은 조용히 다시 켜진다.
+> **`aws autoscaling set-desired-capacity` 로 내리지 않는다.** 분석 그룹의 `desired_capacity` 는 ECS 용량 공급자가 주인이라 손으로 내려도 다시 올라오고, 상호작용 그룹은 `min=max=1` 이라 내려갈 값이 없다. 그래서 크기를 정하는 것은 언제나 `min_size`·`max_size` 쪽이다.

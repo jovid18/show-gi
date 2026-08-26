@@ -150,9 +150,11 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
         Resource = "*" # 태스크 정의 등록은 리소스를 지정할 수 없다
       },
       {
+        # 티어마다 서비스가 하나다. 분석 쪽이 빠지면 배포가 그 서비스에서만 실패하고,
+        # 사람이 쓰는 화면은 새것이라 한동안 아무도 안 알아챈다.
         Effect   = "Allow"
         Action   = ["ecs:DescribeServices", "ecs:UpdateService"]
-        Resource = aws_ecs_service.app.id
+        Resource = [aws_ecs_service.app.id, aws_ecs_service.analysis.id]
       },
       {
         # 새 리비전에 역할을 붙이려면 넘길 권한이 필요하다.

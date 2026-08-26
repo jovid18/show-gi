@@ -63,7 +63,8 @@ variable "instance_type_fallbacks" {
 
 variable "on_demand_base_capacity" {
   description = <<-EOT
-    온디맨드로 받을 최소 대수. 1이면 한 대뿐인 이 ASG 가 통째로 온디맨드다.
+    온디맨드로 받을 그룹당 최소 대수. 1이면 두 그룹이 통째로 온디맨드다 —
+    base 를 넘는 대도 base 를 따라가게 묶어 뒀다(ec2.tf).
 
     **부하 회차 동안만 1이다.** 스팟이 80분에 네 번 가져갔고 회수 하나가 약 9분 장애다
     (journal §109) — 계단이 8~15분이라 회차가 회수를 밟을 확률이 높고, 그러면 잰 것이
@@ -74,6 +75,30 @@ variable "on_demand_base_capacity" {
   EOT
   type        = number
   default     = 1
+}
+
+variable "analysis_instances" {
+  description = <<-EOT
+    분석 티어의 대수. 서비스의 desired_count 이자 그 ASG 의 max_size 다.
+
+    손잡이가 하나인 것은 network_mode 가 host 라 태스크 하나에 인스턴스 하나이기
+    때문이다(ecs.tf) — 태스크를 늘리면 용량 공급자가 EC2 를 따라 올린다.
+
+    **회차의 축이 이 값이다.** 지금까지 잰 것은 전부 「안 나빠졌다」이고, 「좋아졌다」는
+    같은 부하에 이 값만 1 에서 2 로 올려 밀린 手가 스스로 내려오는 것으로만 나온다.
+
+    상호작용 티어는 이 손잡이가 없다. 방이 짝지은 프로세스의 메모리에 서므로
+    (journal §98) 두 대면 초대·매칭이 절반 확률로 깨진다.
+
+    **값이 곧 요금이다.** c6g.large 온디맨드가 대당 하루 $2.15 다.
+  EOT
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.analysis_instances >= 1
+    error_message = "analysis_instances 는 1 이상이어야 한다 — 0이면 밀린 手를 아무도 안 집는다."
+  }
 }
 
 variable "task_cpu" {
