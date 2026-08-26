@@ -119,12 +119,15 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 12
         height = 6
         properties = {
-          title  = "국면 캐시 히트율 (%)"
+          title  = "국면 캐시 히트율 (%) · 엔진이 실제로 돌린 탐색"
           region = var.aws_region
           view   = "timeSeries"
           period = local.dash_period
           metrics = [
             [{ expression = "100 * cached / searches", label = "히트율", id = "hit" }],
+            # 대를 늘렸을 때 크기를 말하는 선이다. 합계는 캐시가 덮어서 거의 안 움직인다 —
+            # 회차 실측이 합계 +11% 에 이 값 +46% 였다(journal §121).
+            [{ expression = "searches - cached", label = "계산 탐색", id = "computed", yAxis = "right" }],
             concat(["show-gi", "EngineSearches"], local.dash_dims, [{ stat = "Sum", id = "searches", visible = false }]),
             concat(["show-gi", "EngineSearchesCached"], local.dash_dims, [{ stat = "Sum", id = "cached", visible = false }]),
           ]
