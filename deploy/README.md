@@ -121,6 +121,16 @@ ACM 인증서 검증과 RDS 생성 때문에 10분쯤 걸린다. `aws_acm_certif
 
 **그동안 `show-gi-no-healthy-target` 이 울릴 수 있다.** 1분 다섯 회차라 창이 5분을 넘기면 메일이 오고, 태스크가 다시 뜨면 스스로 풀린다.
 
+> **용량 공급자를 처음 붙이는 apply 는 나눠 건다.** 도는 인스턴스가 공급자에 표시되기까지 몇 분이 걸리고, 그 전에 서비스가 만들어지면 배치가 실패하며 **서킷 브레이커가 닫은 배포는 스스로 안 열린다**(실측 11분, [journal §120](../docs/journal/101-120.md)). 공급자와 클러스터 연결을 먼저 올리고, 아래가 이름을 돌려준 뒤에 서비스를 건다.
+>
+> ```sh
+> aws ecs describe-container-instances --cluster show-gi --container-instances <arn> \
+>   --query 'containerInstances[0].capacityProviderName' \
+>   --region ap-northeast-1 --profile show-gi
+> ```
+>
+> 이미 닫혔으면 서비스를 다시 만든다 — `terraform apply -replace=aws_ecs_service.app`.
+
 **다시 만들어진 서비스는 terraform 이 등록한 리비전(`latest` 태그)을 가리킨다.** 무엇이 떠 있는지는 커밋 SHA 로 보는 것이 규약이므로([images.yml](../.github/workflows/images.yml)), **그 apply 는 머지보다 먼저 한다** — 머지가 CI 를 돌려 SHA 로 다시 고정한다.
 
 ```

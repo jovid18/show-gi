@@ -61,11 +61,21 @@ locals {
     { name = "LOG_LEVEL", value = "info" },
   ]
 
+  # 빈 목록 셋과 hostPort 를 적어 둔다. 안 적으면 AWS 가 채운 값과 우리 JSON 이 달라서
+  # plan 이 매번 태스크 정의를 「바뀌었다」로 읽고 리비전을 하나씩 쌓는다 — 서비스가
+  # task_definition 변경을 무시하므로 해는 없지만, 그러면 apply 가 무엇을 바꾸는지를
+  # 손잡이 하나 고칠 때마다 다시 읽어야 한다.
+  #
+  # host 모드에서 hostPort 는 containerPort 와 같아야 한다. 여기 적는 값이 그것이고,
+  # 한 인스턴스에 태스크가 하나뿐인 이유이기도 하다.
   api_container = {
-    name         = "api"
-    image        = local.api_image
-    essential    = true
-    portMappings = [{ containerPort = 8080, protocol = "tcp" }]
+    name           = "api"
+    image          = local.api_image
+    essential      = true
+    portMappings   = [{ containerPort = 8080, hostPort = 8080, protocol = "tcp" }]
+    mountPoints    = []
+    systemControls = []
+    volumesFrom    = []
 
     logConfiguration = {
       logDriver = "awslogs"
@@ -214,10 +224,14 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([
     {
-      name         = "web"
-      image        = local.web_image
-      essential    = true
-      portMappings = [{ containerPort = 80, protocol = "tcp" }]
+      name           = "web"
+      image          = local.web_image
+      essential      = true
+      portMappings   = [{ containerPort = 80, hostPort = 80, protocol = "tcp" }]
+      environment    = []
+      mountPoints    = []
+      systemControls = []
+      volumesFrom    = []
       logConfiguration = {
         logDriver = "awslogs"
         options = {
