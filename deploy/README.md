@@ -3,7 +3,7 @@
 도쿄(`ap-northeast-1`) ECS. ALB가 TLS를 끝내고, 태스크 안의 Caddy가 정적 파일을 서빙하며 api로 프록시한다. 구조와 그 선택의 근거는 [docs/02-architecture.md](../docs/02-architecture.md).
 
 ```
-Route53 (show-gi.com) → ALB (ACM TLS) → EC2 스팟 1대 (c6g.large / ARM64)
+Route53 (show-gi.com) → ALB (ACM TLS) → EC2 스팟 1대 (t4g.micro / ARM64)
                                           └ ECS 태스크 (network_mode: host)
                                               ├ web  :80    Caddy — 정적 + /api·/ws 프록시
                                               └ api  :8080  Go + 엔진 동봉
@@ -525,15 +525,18 @@ aws logs tail /ecs/show-gi --follow --region ap-northeast-1 --profile show-gi
 
 **해커톤이 끝나고 상시 가동으로 바꿨다**(2026-08-17). 그래서 표를 주 단위에서 **월 단위**로 옮겼다 — 이제 「대회 기간의 비용」이 아니라 「계속 나가는 비용」이다.
 
-|                                         | 월 (추정)      |
-| --------------------------------------- | -------------- |
-| EC2 c6g.large **스팟** 1대 (상호작용)   | **\~$27**      |
-| EC2 c6g.large **스팟** 1대 (분석)       | **\~$27**      |
-| EBS gp3 30 GiB × 2 (그 인스턴스의 루트) | \~$6           |
-| ALB                                     | \~$18          |
-| RDS db.t4g.micro + 20 GB                | \~$15          |
-| ECR, 로그, Parameter Store              | $1 미만        |
-| **합계**                                | **\~$94 / 월** |
+|                                     | 월 (추정)      |
+| ----------------------------------- | -------------- |
+| EC2 t4g.micro **스팟** 1대          | **\~$3**       |
+| EBS gp3 30 GiB (그 인스턴스의 루트) | \~$3           |
+| ALB                                 | \~$18          |
+| RDS db.t4g.micro + 20 GB            | \~$15          |
+| ECR, 로그, Parameter Store          | $1 미만        |
+| **합계**                            | **\~$40 / 월** |
+
+> **절약 모드다**([journal §125](../docs/journal/121-140.md)). 부하 회차를 한동안 안 돌기로 하고 2026-08-27 에 내렸다 — 대가 둘에서 하나가 됐고(분석 티어의 하한이 0 이고 상호작용이 `SERVER_ROLE=both` 로 겸한다) 타입이 `c6g.large` 에서 `t4g.micro` 가 됐다. **컴퓨트가 $54 에서 $3 이 됐고, 이제 청구서의 대부분은 ALB 와 RDS 다.**
+>
+> **회차를 다시 돌리기 전에 되돌린다.** T 계열은 크레딧이 마르면 탐색이 8배 느려져서 용량표가 성립하지 않는다([journal §108](../docs/journal/101-120.md)). 되돌릴 것은 `instance_type` · `instance_type_fallbacks` · `task_memory` · 상호작용 `SERVER_ROLE` 과 분석 쪽 하한 둘이고, **그 apply 가 도는 대를 갈아치운다**(위 §1).
 
 > **분석 대가 2026-08-26 에 늘었다**([journal §120](../docs/journal/101-120.md)). 티어를 가르면 대가 하나 더 선다. **그 대수를 이제 알람이 든다**([journal §124](../docs/journal/121-140.md)) — 상시로는 1대이고 밀린 手가 임계를 넘는 동안만 2대라, 값은 **부하가 실제로 걸린 시간만큼**만 는다. 사람이 정하는 것은 상한(`var.analysis_max_instances`) 하나다. **그 두 번째 대는 스팟이다** — `on_demand_base_capacity` 가 평시에 0 이고 그룹 공통이라 「분석만 온디맨드」로는 못 나눈다. **부하 회차를 걸 때는 그 값을 1 로 올린다**(대당 하루 $2.15) — 회수 하나가 약 9분 장애라 잰 것이 처리량이 아니라 복구 시간이 된다. **올리고 내리는 apply 가 도는 대를 갈아치우므로**(위 §1) 회차 앞뒤로 창이 하나씩 열린다.
 

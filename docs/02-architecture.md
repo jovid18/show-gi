@@ -242,7 +242,7 @@ explore_snapshots(id, user_id, name, handicap, moves text[], created_at)
 
 ## 6. 인프라
 
-- **ECS on EC2**(c6g.large 스팟, ARM64). **티어가 둘이고 대가 티어마다 하나씩이다**([§120](journal/101-120.md)) — 사람을 받는 태스크는 web(Caddy) + api 이고 앞에 ALB가 ACM 인증서로 TLS를 끝내며, 밀린 手를 재는 태스크는 api 하나에 대상 그룹 뒤가 아니다. 가르는 손잡이는 `SERVER_ROLE` 이고, 늘리는 손잡이는 분석 쪽 대수 하나다 — **그 대수를 사람이 아니라 알람이 돌린다**([§124](journal/121-140.md)): 밀린 手가 임계를 넘기면 서비스의 `desired_count` 가 오르고 용량 공급자가 EC2 를 따라 올린다
+- **ECS on EC2**(스팟, ARM64). **티어는 둘인데 지금은 대가 하나다**([§120](journal/101-120.md) · [§125](journal/121-140.md)) — 절약 모드라 `t4g.micro` 한 대가 `SERVER_ROLE=both` 로 겸하고, 회차용은 `c6g.large` 둘이다 — 사람을 받는 태스크는 web(Caddy) + api 이고 앞에 ALB가 ACM 인증서로 TLS를 끝내며, 밀린 手를 재는 태스크는 api 하나에 대상 그룹 뒤가 아니다. 가르는 손잡이는 `SERVER_ROLE` 이고, 늘리는 손잡이는 분석 쪽 대수 하나다 — **그 대수를 사람이 아니라 알람이 돌린다**([§124](journal/121-140.md)): 밀린 手가 임계를 넘기면 서비스의 `desired_count` 가 오르고 용량 공급자가 EC2 를 따라 올린다
 - **RDS postgres 17.** 앱 태스크의 보안그룹에서만 접근 가능하고, 7일 자동 백업이 붙는다
 - 비밀은 SSM Parameter Store → 태스크 정의의 `secrets`로 주입. 디스크에 남지 않는다
 - **관측은 로그 한 줄기에 얹는다**([§90](journal/82-100.md)) — api 가 stderr 로 JSON 로그를, stdout 으로 CloudWatch EMF 한 줄을 내고 둘 다 같은 로그 그룹에 들어간다. 지표 수집기를 따로 띄우지 않는다: 태스크가 몇 대뿐이라 Prometheus 를 세우는 값이 안 나오고, EMF 는 `awslogs` 드라이버 그대로 돌아 인프라가 늘지 않는다. **티어 둘이 같은 계열에 올린다** — 차원을 안 늘린 이유와 그 대가는 [§120](journal/101-120.md)에 있다

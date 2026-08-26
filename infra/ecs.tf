@@ -243,11 +243,15 @@ resource "aws_ecs_task_definition" "app" {
       dependsOn = [{ containerName = "api", condition = "START" }]
     },
     merge(local.api_container, {
-      # 사람을 받는 티어다. 手를 줄에 세우기만 하고 집지는 않는다 —
-      # 집는 쪽은 아래 show-gi-analysis 이고, 가르는 손잡이가 이 한 줄이다.
+      # 사람을 받는 티어다. both 라 줄을 세우기도 하고 집기도 한다.
       #
-      # 여기가 both 로 돌면 이 박스의 엔진이 분석에도 쓰여서 티어를 가른 값이 없어진다.
-      environment = concat(local.api_env, [{ name = "SERVER_ROLE", value = "interactive" }])
+      # 절약 모드의 자리다(journal §125). 분석 티어가 평시에 0대라 이 대가 겸하지 않으면
+      # 밀린 手를 아무도 안 집는다 — 부하가 오면 알람이 전용 대를 부르고, 그때는 둘이
+      # 같이 집는다.
+      #
+      # 되돌릴 때 interactive 로 바꾼다. 그러면 이 박스의 엔진이 분석에 안 쓰여서
+      # 티어를 가른 값(사람의 착수가 분석에 안 밀린다)이 돌아온다.
+      environment = concat(local.api_env, [{ name = "SERVER_ROLE", value = "both" }])
 
       # 로그인과 세션이 이 티어에만 있다. 분석 티어는 사람을 안 받으므로 DATABASE_URL 뿐이다.
       secrets = [

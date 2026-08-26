@@ -30,19 +30,18 @@ variable "instance_type" {
   description = <<-EOT
     ECS 컨테이너 인스턴스의 타입. **arm64여야 한다** — 엔진이 arm64 Debian 바이너리다.
 
-    **버스터블(T 계열)을 쓰지 않는다.** 엔진 탐색이 CPU를 계속 몰아 써서 크레딧이 마르고,
-    그러면 AWS가 baseline 20%로 조인다 — 실측으로 탐색이 0.24초에서 8.5초가 됐다
-    (journal §108). T 계열에서 「N판 된다」는 「N판을 몇 분 된다」라서 용량표에 적을 수 없다.
+    **지금은 절약 모드다**(journal §125). 부하 회차를 한동안 안 도므로 t4g.micro 로 내렸다 —
+    스팟 실측이 시간당 $0.0044 라 월 $3 쯤이고, c6g.large($0.036/시)의 8분의 1 이다.
 
-    c6g.large(2 vCPU / 4 GiB)가 그 자리를 대신한다. 지속 vCPU 당 값으로는 t4g.small 보다
-    싸다 — 크레딧이 마른 t4g.small 이 0.4 vCPU 라서다. m6g.large 는 같은 2 vCPU 에 8 GiB 라
-    안 쓰는 RAM 값을 더 낸다.
+    **이 값으로는 용량표가 성립하지 않는다.** T 계열은 크레딧이 마르면 baseline 으로 조여서
+    탐색이 0.24초에서 8.5초가 된다(journal §108) — 「N판 된다」가 「N판을 몇 분 된다」가 되고,
+    그 분수는 회차 시작 시점의 크레딧 잔량이 정한다. **회차를 다시 돌리기 전에 c6g.large 로
+    되돌린다.** 사람 하나가 가끔 두는 지금은 크레딧이 쌓이는 쪽이라 버틴다.
 
-    올릴 때 `task_memory` 는 따라 올리지 않아도 된다. 엔진이 쓰는 양은 `ENGINE_HASH_MB` 가
-    정하고 그 값이 그대로이므로, 늘려 봐야 아무도 안 쓴다.
+    task_memory 가 이 값에 묶인다. t4g.micro 가 1 GiB 라 1536 은 아예 안 들어간다.
   EOT
   type        = string
-  default     = "c6g.large"
+  default     = "t4g.micro"
 }
 
 variable "instance_type_fallbacks" {
@@ -53,12 +52,15 @@ variable "instance_type_fallbacks" {
     실패한다 — 2026-08-24 에 t4g.small 이 26분, c6g.large 가 1분 내려갔다
     (journal §106 · §109). 풀이 `타입 수 × AZ 수` 이므로 타입을 늘리는 것이 가장 싼 수단이다.
 
-    **전부 비버스터블 2 vCPU arm64 다.** T 계열을 넣으면 크레딧 절벽이 돌아오고
-    (journal §108) 용량표의 행이 「몇 분 버티나」로 되돌아간다. Graviton3(c7g·m7g)는
-    코어가 더 빠르므로 표의 값은 하한으로 읽는다.
+    **전부 arm64 여야 하고 1 GiB 이상이어야 한다.** t3·t3a 는 x86_64 라 넣으면 안 된다 —
+    그 타입을 받은 날 이미지가 아예 안 뜬다. 메모리도 같은 종류의 함정이다: task_memory 가
+    여기 있는 어느 타입에서도 들어가야 하고, 못 들어가는 것이 섞이면 그날 태스크가 안 뜬다.
+
+    절약 모드라 T 계열이다(journal §125). 회차용으로 되돌릴 때는 `instance_type` 과 함께
+    비버스터블 2 vCPU 목록으로 바꾼다 — c7g·m6g·m7g·r6g·c6gn 의 `.large` 였다.
   EOT
   type        = list(string)
-  default     = ["c7g.large", "m6g.large", "m7g.large", "r6g.large", "c6gn.large"]
+  default     = ["t4g.small", "t4g.medium"]
 }
 
 variable "on_demand_base_capacity" {
@@ -130,15 +132,18 @@ variable "task_memory" {
   description = <<-EOT
     태스크가 예약하는 메모리(MiB). **인스턴스에서 실제로 빠지는 값이다.**
 
-    c6g.large는 4096 MiB라 1536이 넉넉히 들어간다. 3072까지 올렸다가 되돌렸다 —
-    `ENGINE_POOL_SIZE` 를 4로 올린 회차에 맞춘 값이었고, 그 회차가 이득이 없어
-    풀이 2로 돌아왔다(journal §110). 탐색 2 + mate 1 이면 ~380 MB 다.
+    **인스턴스가 ECS 에 등록하는 양을 넘으면 태스크가 아예 배치되지 않는다.** t4g.micro 가
+    1 GiB 이고 OS·에이전트 몫이 빠지므로 쓸 수 있는 것이 900 MiB 쯤이다.
 
-    엔진이 쓰는 양은 `ENGINE_POOL_SIZE` · `ENGINE_MATE_POOL_SIZE` · `ENGINE_HASH_MB` 로
-    정해진다(ecs.tf의 그 자리). **이 값만 올리면 안 늘어난다.**
+    768 은 실측 위에 얹은 값이다. 회차 중 클러스터 지표가 사용 15.2% · 예약 40.3% 였고,
+    등록 7.8 GiB 에 태스크 둘이라 **태스크당 약 595 MiB** 다(journal §125) — 여유가 29% 다.
+    **터지면 t4g.small 로 올린다**(월 $3.6 차이). 엔진 몫은 탐색 2 + 詰み 1 에 ~380 MB 이고
+    (journal §110) 나머지가 Go 서버와 Caddy 다. 엔진 몫은 `ENGINE_POOL_SIZE` ·
+    `ENGINE_MATE_POOL_SIZE` · `ENGINE_HASH_MB` 가 정한다(ecs.tf의 그 자리).
+    **이 값만 올리면 안 늘어난다.**
   EOT
   type        = string
-  default     = "1536"
+  default     = "768"
 }
 
 variable "image_tag" {

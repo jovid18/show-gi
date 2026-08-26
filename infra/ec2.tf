@@ -70,9 +70,9 @@ resource "aws_launch_template" "app" {
   # 대국 중에 회수되면 그 판은 aborted 로 닫히고 이어하기가 살린다(journal §51).
 
   # 크레딧은 T 계열에만 있는 개념이라 다른 계열에 이 블록을 주면 기동이 거절된다.
-  # 지금 기본값은 c6g.large 이므로 이 블록은 안 나간다(variables.tf 의 instance_type).
+  # 절약 모드라 지금 기본값이 t4g.micro 이고, 그래서 이 블록이 실제로 나간다.
   #
-  # T 계열로 되돌릴 때를 위해 standard 를 유지한다. unlimited 이면 크레딧을 넘긴 만큼
+  # standard 다. unlimited 이면 크레딧을 넘긴 만큼
   # vCPU 시간당 따로 청구되는데 엔진 탐색이 그것을 태우기 쉽다 — 한 수에 CPU를 몰아 쓴다.
   # 다만 standard 의 대가가 절벽이다. 실측으로 8판 계단이 7분 만에 크레딧을 태우고
   # baseline 20% 로 떨어져 탐색이 0.24초에서 8.5초가 됐다(journal §108).
@@ -141,7 +141,11 @@ resource "aws_launch_template" "app" {
 # 같고, 다른 것은 「몇 대까지 가나」 하나다.
 #
 #   show-gi            상호작용.  1/1/1 고정
-#   show-gi-analysis   분석.      1 ~ var.analysis_max_instances
+#   show-gi-analysis   분석.      0 ~ var.analysis_max_instances
+#
+# 분석 쪽 아래가 0 인 것이 절약 모드다(journal §125). 부하가 없으면 그 대가 아예 안 서고,
+# 밀린 手는 상호작용 대가 겸해서 집는다(ecs.tf 의 SERVER_ROLE). 임계를 넘으면 알람이
+# 전용 대를 부르므로 배선은 그대로다.
 #
 # 태스크가 아니라 EC2 를 늘린다. network_mode 가 host 라 포트가 겹쳐서 한 인스턴스에
 # api 태스크가 둘 못 뜨고(ecs.tf), task_cpu 가 인스턴스의 2 vCPU 를 통째로 예약하므로
@@ -154,8 +158,8 @@ resource "aws_launch_template" "app" {
 # 「분석 2대」 회차가 상호작용 회차와 다른 박스에서 돈 것이 되어 용량표에 못 적는다.
 locals {
   asg_tiers = {
-    interactive = { name = "show-gi", max = 1 }
-    analysis    = { name = "show-gi-analysis", max = var.analysis_max_instances }
+    interactive = { name = "show-gi", min = 1, max = 1 }
+    analysis    = { name = "show-gi-analysis", min = 0, max = var.analysis_max_instances }
   }
 }
 
@@ -163,7 +167,7 @@ resource "aws_autoscaling_group" "tier" {
   for_each = local.asg_tiers
 
   name                = each.value.name
-  min_size            = 1
+  min_size            = each.value.min
   max_size            = each.value.max
   vpc_zone_identifier = local.alb_subnet_ids
 

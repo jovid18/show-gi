@@ -11,14 +11,17 @@
 # 잡혀 있고(journal §108 · §119) 그 알람이 alarms.tf 에 있다 — 이 파일은 그 알람에
 # 손잡이를 잇는 것까지다.
 
-# 정책이 움직일 수 있는 폭. 아래가 1인 것은 0이면 밀린 手를 아무도 안 집기 때문이고,
+# 정책이 움직일 수 있는 폭.
+#
+# 아래가 0 이다. 한때 1 이었는데 그때는 이 티어만 줄을 집었다 — 지금은 상호작용 대가
+# SERVER_ROLE=both 로 겸하므로(ecs.tf) 0 이어도 아무도 안 집는 일이 없다(journal §125).
 # 위는 var.analysis_max_instances 다.
 resource "aws_appautoscaling_target" "analysis" {
   service_namespace  = "ecs"
   resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.analysis.name}"
   scalable_dimension = "ecs:service:DesiredCount"
 
-  min_capacity = 1
+  min_capacity = 0
   max_capacity = var.analysis_max_instances
 }
 
