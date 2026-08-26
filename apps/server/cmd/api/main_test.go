@@ -17,9 +17,9 @@ func TestTheRoleFallsBackToBoth(t *testing.T) {
 		{"analyis", server.RoleBoth},
 		{"Analysis", server.RoleBoth},
 	} {
-		t.Setenv("ROLE", tc.set)
+		t.Setenv("SERVER_ROLE", tc.set)
 		if got := analysisRole(); got != tc.want {
-			t.Errorf("ROLE=%q 에서 %q, %q 여야 한다", tc.set, got, tc.want)
+			t.Errorf("SERVER_ROLE=%q 에서 %q, %q 여야 한다", tc.set, got, tc.want)
 		}
 	}
 }

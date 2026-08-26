@@ -1089,7 +1089,7 @@ func TestTheWorkerCountIsHonoured(t *testing.T) {
 	}
 }
 
-// 워커가 0이면 집지 않는다. 상호작용 티어가 그 모양이고(ROLE=interactive), 그 티어가
+// 워커가 0이면 집지 않는다. 상호작용 티어가 그 모양이고(SERVER_ROLE=interactive), 그 티어가
 // 판을 집으면 티어를 가른 이유가 없어진다 — 분석이 사람의 박스에서 돈다.
 //
 // 세우는 쪽은 그대로 돈다. 그것까지 멈추면 분석 티어가 집을 것이 없다.

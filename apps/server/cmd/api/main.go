@@ -295,7 +295,11 @@ func analysisWorkers(poolSize int, role string) int {
 }
 
 // analysisRole 은 이 프로세스가 어느 티어인가다. 정하는 것이 둘이다 — 줄을 집는가와
-// 사람을 받는가.
+// 사람을 받는가. 손잡이는 SERVER_ROLE 이다.
+//
+// ROLE 이 아닌 이유는 그 이름이 이미 남의 것이기 때문이다 — .github/workflows 가
+// IAM 역할 ARN 을 그 이름으로 들고 있고, 밖에서 들어온 값이 하필 아래 셋 중 하나면
+// 티어가 조용히 갈린다. 다른 손잡이들과 같은 방식으로 주어를 붙였다(ENGINE_·ANALYSIS_).
 //
 //	interactive  집지 않는다. 사람을 받고 手를 줄에 세우기만 한다
 //	analysis     집는다. /healthz·/metrics 만 세운다(server.Options.Role)
@@ -306,13 +310,13 @@ func analysisWorkers(poolSize int, role string) int {
 // 상호작용 티어를 여러 대로 올리는 것은 이 손잡이가 아니다. 방이 메모리에 서므로
 // (journal §98) 그쪽은 방을 프로세스 밖으로 내린 뒤다.
 func analysisRole() string {
-	switch v := os.Getenv("ROLE"); v {
+	switch v := os.Getenv("SERVER_ROLE"); v {
 	case "":
 		return server.RoleBoth
 	case server.RoleBoth, server.RoleInteractive, server.RoleAnalysis:
 		return v
 	default:
-		slog.Warn("bad ROLE", "value", v, "using", server.RoleBoth)
+		slog.Warn("bad SERVER_ROLE", "value", v, "using", server.RoleBoth)
 		return server.RoleBoth
 	}
 }

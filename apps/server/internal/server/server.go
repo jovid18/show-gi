@@ -62,7 +62,7 @@ type Options struct {
 	// 어느 임계치에서 걸린 개입인지를 모르면 나중에 상수를 흔들어 볼 수 없다.
 	Level intervene.Level
 
-	// Role 은 이 태스크가 어느 티어인가다. 손잡이는 ROLE 이고 읽는 것은 cmd/api 다.
+	// Role 은 이 태스크가 어느 티어인가다. 손잡이는 SERVER_ROLE 이고 읽는 것은 cmd/api 다.
 	// RoleAnalysis 면 /healthz 와 /metrics 만 남고 나머지가 503이 된다.
 	//
 	// 비어 있으면 RoleBoth 다. 티어를 안 가른 배포와 테스트가 지금까지와 같다.
@@ -143,7 +143,7 @@ func (m *Match) AnalyzeWith(
 	m.records.analyzer = newMatchAnalyzer(ctx, st, newAnalyst, reg, workers)
 }
 
-// 티어 이름. 값을 여기 두는 것은 라우팅이 이 이름으로 갈리기 때문이고, 손잡이(ROLE)를
+// 티어 이름. 값을 여기 두는 것은 라우팅이 이 이름으로 갈리기 때문이고, 손잡이(SERVER_ROLE)를
 // 읽어 넘기는 것은 cmd/api 다.
 const (
 	RoleBoth        = "both"

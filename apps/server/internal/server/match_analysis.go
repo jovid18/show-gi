@@ -165,7 +165,7 @@ const analysisJudgeDeadline = game.DefaultMoveDeadline
 // 아래 메서드가 전부 nil 수신자를 받는다.
 //
 // workers 는 줄을 집는 goroutine 수다. 0이면 집는 쪽을 아예 안 띄운다 — 상호작용
-// 티어가 그 모양이고, 그 티어는 手를 세우기만 한다(ROLE, cmd/api/main.go).
+// 티어가 그 모양이고, 그 티어는 手를 세우기만 한다(SERVER_ROLE, cmd/api/main.go).
 //
 // 세우는 쪽과 게이지는 workers 와 무관하게 돈다. 게이지가 집지 않는 티어에서도 도는
 // 이유는 분석 티어가 죽었을 때 지표가 「데이터 없음」이 아니라 부푸는 값이어야 하기
