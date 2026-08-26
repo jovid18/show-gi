@@ -67,6 +67,11 @@ func main() {
 	// 기록에서 틀리고, 그 위에서 상수를 흔들어 보게 된다.
 	opts := server.Options{Level: intervene.Beginner}
 
+	// 티어. 줄을 집는가와 사람을 받는가를 여기서 한 번 읽는다 — 두 자리에서 각각
+	// os.Getenv 하면 잘못 적은 값이 한쪽에서만 경고를 내고 다른 쪽은 조용히 갈린다.
+	role := analysisRole()
+	opts.Role = role
+
 	// 지표. 서버·엔진 풀·탐색이 같은 레지스트리를 쓴다 — 무엇을 재는지가
 	// metrics.New 한 자리에 다 있어야 새 지표를 늘릴 때 EMF 쪽을 같이 보게 된다.
 	reg := metrics.New("api", os.Getenv("ENVIRONMENT"))
@@ -151,7 +156,7 @@ func main() {
 		// 대인전의 사후 분석. 채우는 것은 되짚기의 평가치와 두 사람의 실력 추정치이고,
 		// 재는 것은 두는 동안 手마다 미리 한다(journal §105). 착수 경로는 그래도 엔진을
 		// 안 지난다 — 미리 재는 것이 논블로킹이라 착수를 막지 않는다.
-		opts.Match.AnalyzeWith(ctx, opts.Store, opts.NewAnalyst, opts.Metrics, analysisWorkers(pool.Size()))
+		opts.Match.AnalyzeWith(ctx, opts.Store, opts.NewAnalyst, opts.Metrics, analysisWorkers(pool.Size(), role))
 		// 이 풀을 빌리는 자리가 넷이다 — 종반 판정, 詰み 게이지, 퀴즈의 詰み 트리,
 		// 대인전 사후 분석. 앞의 둘은 시간상 겹치지 않지만(판정은 사람의 수 직후,
 		// 게이지는 상대의 수 직후) 퀴즈는 판이 끝나는 자리에서 수십 초를 잡는다 —
@@ -270,7 +275,12 @@ func startEmitter(reg *metrics.Registry) func() {
 //
 // 풀이 커지면 이 값도 같이 커진다. 그것이 이 함수가 상수가 아닌 이유다: 워커가 하나면
 // vCPU 를 올려도 사후 분석 층은 그대로였다(journal §106).
-func analysisWorkers(poolSize int) int {
+func analysisWorkers(poolSize int, role string) int {
+	if role == server.RoleInteractive {
+		// 집는 쪽을 안 띄운다. 手는 그대로 표에 세워지고 분석 티어가 집는다.
+		slog.Info("match analysis ready", "role", role, "workers", 0, "pool", poolSize)
+		return 0
+	}
 	n := max(poolSize, 1)
 	if v := os.Getenv("ANALYSIS_WORKERS"); v != "" {
 		got, err := strconv.Atoi(v)
@@ -280,8 +290,35 @@ func analysisWorkers(poolSize int) int {
 			n = got
 		}
 	}
-	slog.Info("match analysis ready", "workers", n, "pool", poolSize)
+	slog.Info("match analysis ready", "role", role, "workers", n, "pool", poolSize)
 	return n
+}
+
+// analysisRole 은 이 프로세스가 어느 티어인가다. 정하는 것이 둘이다 — 줄을 집는가와
+// 사람을 받는가. 손잡이는 SERVER_ROLE 이다.
+//
+// ROLE 이 아닌 이유는 그 이름이 이미 남의 것이기 때문이다 — .github/workflows 가
+// IAM 역할 ARN 을 그 이름으로 들고 있고, 밖에서 들어온 값이 하필 아래 셋 중 하나면
+// 티어가 조용히 갈린다. 다른 손잡이들과 같은 방식으로 주어를 붙였다(ENGINE_·ANALYSIS_).
+//
+//	interactive  집지 않는다. 사람을 받고 手를 줄에 세우기만 한다
+//	analysis     집는다. /healthz·/metrics 만 세운다(server.Options.Role)
+//	both         집고 받는다. 태스크가 하나인 배포의 모양이고 기본이다
+//
+// analysis 가 나머지를 404 가 아니라 503 으로 답하는 이유는 server.Handler 에 있다.
+//
+// 상호작용 티어를 여러 대로 올리는 것은 이 손잡이가 아니다. 방이 메모리에 서므로
+// (journal §98) 그쪽은 방을 프로세스 밖으로 내린 뒤다.
+func analysisRole() string {
+	switch v := os.Getenv("SERVER_ROLE"); v {
+	case "":
+		return server.RoleBoth
+	case server.RoleBoth, server.RoleInteractive, server.RoleAnalysis:
+		return v
+	default:
+		slog.Warn("bad SERVER_ROLE", "value", v, "using", server.RoleBoth)
+		return server.RoleBoth
+	}
 }
 
 // startAuth 는 Google 로그인을 켠다. 키가 없으면 nil 이고 익명 대국으로 남는다.

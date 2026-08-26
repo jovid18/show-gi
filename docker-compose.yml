@@ -45,6 +45,9 @@ services:
       # 사후 분석 워커 수. 비우면 코드가 엔진 풀 크기를 쓴다(cmd/api 의 analysisWorkers).
       # 부하 회차에서 이 값만 바꿔 가며 재려고 뚫어 둔다
       ANALYSIS_WORKERS: ${ANALYSIS_WORKERS:-}
+      # 티어. 비우면 both 다. 로컬에서 갈라 보려면 SERVER_ROLE=interactive 로 띄운다 —
+      # 안 뚫어 두면 그 확인이 조용히 both 로 돌아 「갈렸다」로 잘못 읽힌다
+      SERVER_ROLE: ${SERVER_ROLE:-}
       # 비우는 것이 기본이다. Vite는 Host를 안 고쳐 넘기므로 서버가 요청에서
       # `http://localhost:5173` 을 그대로 되짚는다 — 등록한 redirect URI와 같다
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
