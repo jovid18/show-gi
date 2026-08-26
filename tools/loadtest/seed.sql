@@ -13,9 +13,16 @@
 BEGIN;
 
 -- ① 만들 사람 수. 아래 generate_series 의 두 번째 인자다.
+--
+-- **VU 합보다 많아야 한다**(README 의 LT_UIDS). 대인전은 2 VU 가 판 하나이므로
+-- 「동시 판수 × 2 + 여유」이고, 64 면 31판까지 걸 수 있다. 2대의 천장이 12판이라
+-- (journal §122) 3대·4대를 재는 계단까지 이 값으로 덮인다.
+--
+-- 늘리기만 하면 된다. ON CONFLICT DO NOTHING 이라 이미 있는 사람은 그대로 남는다 —
+-- **다만 cleanup.sql 을 돌린 뒤라면 번호가 전부 새로 붙으므로 아래 SELECT 를 다시 읽는다.**
 INSERT INTO users (provider, provider_uid, display_name)
 SELECT 'loadtest', 'lt-' || i, 'LT' || i
-FROM generate_series(1, 16) AS s(i)
+FROM generate_series(1, 64) AS s(i)
 ON CONFLICT (provider, provider_uid) DO NOTHING;
 
 -- 레이팅. 기본은 전원이 척도의 중앙(internal/rating 의 Default)이다.
