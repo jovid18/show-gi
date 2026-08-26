@@ -117,7 +117,7 @@ ACM 인증서 검증과 RDS 생성 때문에 10분쯤 걸린다. `aws_acm_certif
 
 ### apply 가 서비스를 다시 만들 때
 
-`aws_ecs_service` 의 `capacity_provider_strategy` 는 바꿀 수 없는 속성이라, 그 값이 바뀌는 apply 는 서비스를 지우고 다시 만든다. 그동안 사이트가 내려간다 — 정상 배포와 같은 종류의 창이고 3분쯤이다.
+`aws_ecs_service` 의 `capacity_provider_strategy` 는 바꿀 수 없는 속성이라, 그 값이 바뀌는 apply 는 서비스를 지우고 다시 만든다. 그동안 사이트가 내려간다 — **2026-08-26 에 11분이었다**([journal §120](../docs/journal/101-120.md)). 재생성 자체는 1~2분이고, 나머지는 아래 함정이다.
 
 **그동안 `show-gi-no-healthy-target` 이 울릴 수 있다.** 1분 다섯 회차라 창이 5분을 넘기면 메일이 오고, 태스크가 다시 뜨면 스스로 풀린다.
 
