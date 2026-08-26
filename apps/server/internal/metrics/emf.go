@@ -93,6 +93,8 @@ func (e *Emitter) EmitTo(w io.Writer, now time.Time) error {
 			//
 			// 티어(SERVER_ROLE)도 안 올린다. 티어 둘이 같은 계열에 올리고 CloudWatch 의
 			// 통계가 합친다 — 카운터는 Sum, 게이지는 Maximum 이다(journal §120).
+			// 엔진이 실제로 한 일은 EngineSearches 에서 EngineSearchesCached 를 뺀다(journal §121).
+			// 엔진이 실제로 한 일은 EngineSearches 에서 EngineSearchesCached 를 뺀다(journal §121).
 			"Dimensions": [][]string{{"Service", "Environment"}},
 			"Metrics":    defs,
 		}},
