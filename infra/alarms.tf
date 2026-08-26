@@ -181,7 +181,10 @@ resource "aws_cloudwatch_metric_alarm" "analysis_backlog" {
 
   dimensions = { Service = "api", Environment = "prod" }
 
-  alarm_actions = [aws_sns_topic.alarms.arn]
+  # 이 알람이 둘을 한다 — 사람에게 알리고 분석 대를 하나 올린다(autoscale.tf).
+  # 신호를 갈라 두지 않는 것이 값이다. 스케일용 임계를 따로 두면 「울린 것」과 「대를
+  # 올린 것」이 다른 자리가 되고, 회차의 그림에서 원인과 반응이 안 붙는다.
+  alarm_actions = [aws_sns_topic.alarms.arn, aws_appautoscaling_policy.analysis_out.arn]
   ok_actions    = [aws_sns_topic.alarms.arn]
 
   # 아무도 안 두면 지표가 안 나온다. 조용한 것은 위반이 아니다.

@@ -77,27 +77,32 @@ variable "on_demand_base_capacity" {
   default     = 1
 }
 
-variable "analysis_instances" {
+variable "analysis_max_instances" {
   description = <<-EOT
-    분석 티어의 대수. 서비스의 desired_count 이자 그 ASG 의 max_size 다.
+    분석 티어의 대수 상한. ASG 의 max_size 이자 scalable target 의 max_capacity 다.
+
+    **desired 는 여기서 안 정한다.** 한때 이 값이 서비스의 desired_count 이기도 했는데
+    스케일 정책이 그 자리를 받았다(autoscale.tf) — terraform 이 desired 의 주인이면
+    스케일 아웃이 다음 apply 에 취소된다. 남은 것이 상한 하나다.
 
     손잡이가 하나인 것은 network_mode 가 host 라 태스크 하나에 인스턴스 하나이기
     때문이다(ecs.tf) — 태스크를 늘리면 용량 공급자가 EC2 를 따라 올린다.
 
-    **회차의 축이 이 값이다.** 지금까지 잰 것은 전부 「안 나빠졌다」이고, 「좋아졌다」는
-    같은 부하에 이 값만 1 에서 2 로 올려 밀린 手가 스스로 내려오는 것으로만 나온다.
+    **2 다.** 1대 6판 지속 · 2대 12판 지속까지 실측으로 있고(journal §121 · §122),
+    3대는 안 봤다(journal §123) — 그 값은 이 상한을 올리는 날에야 쓰인다.
+
+    **상한이지 요금이 아니다.** 줄이 30분 비면 정책이 대수를 1로 되돌리므로(autoscale.tf)
+    이 값을 2로 두는 것만으로는 값이 안 는다. 부하가 도는 동안만 대당 하루 $2.15 다.
 
     상호작용 티어는 이 손잡이가 없다. 방이 짝지은 프로세스의 메모리에 서므로
     (journal §98) 두 대면 초대·매칭이 절반 확률로 깨진다.
-
-    **값이 곧 요금이다.** c6g.large 온디맨드가 대당 하루 $2.15 다.
   EOT
   type        = number
-  default     = 1
+  default     = 2
 
   validation {
-    condition     = var.analysis_instances >= 1
-    error_message = "analysis_instances 는 1 이상이어야 한다 — 0이면 밀린 手를 아무도 안 집는다."
+    condition     = var.analysis_max_instances >= 1
+    error_message = "analysis_max_instances 는 1 이상이어야 한다 — 0이면 밀린 手를 아무도 안 집는다."
   }
 }
 

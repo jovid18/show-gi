@@ -141,7 +141,7 @@ resource "aws_launch_template" "app" {
 # 같고, 다른 것은 「몇 대까지 가나」 하나다.
 #
 #   show-gi            상호작용.  1/1/1 고정
-#   show-gi-analysis   분석.      1 ~ var.analysis_instances
+#   show-gi-analysis   분석.      1 ~ var.analysis_max_instances
 #
 # 태스크가 아니라 EC2 를 늘린다. network_mode 가 host 라 포트가 겹쳐서 한 인스턴스에
 # api 태스크가 둘 못 뜨고(ecs.tf), task_cpu 가 인스턴스의 2 vCPU 를 통째로 예약하므로
@@ -155,7 +155,7 @@ resource "aws_launch_template" "app" {
 locals {
   asg_tiers = {
     interactive = { name = "show-gi", max = 1 }
-    analysis    = { name = "show-gi-analysis", max = var.analysis_instances }
+    analysis    = { name = "show-gi-analysis", max = var.analysis_max_instances }
   }
 }
 
@@ -222,6 +222,15 @@ resource "aws_autoscaling_group" "tier" {
 
   # 스팟이 회수된 뒤 새 인스턴스가 ECS에 등록되고 태스크를 받는 데 시간이 걸린다.
   health_check_grace_period = 180
+
+  # 대수를 지표로 낸다. 켜지 않으면 AWS/AutoScaling 계열이 아예 안 나오고, 그러면
+  # 「밀린 手가 대수를 움직였다」를 한 화면에 못 그린다(dashboard.tf) — ECS 쪽 태스크
+  # 수는 Container Insights 를 켜야 나오는데 그것은 유료다.
+  #
+  # 둘만 켠다. 그룹 지표는 무료지만 화면에 필요한 것이 목표와 실제 둘이고, 나머지는
+  # 같은 이야기를 다른 이름으로 한다.
+  metrics_granularity = "1Minute"
+  enabled_metrics     = ["GroupDesiredCapacity", "GroupInServiceInstances"]
 
   # 콘솔의 인스턴스 목록에서 티어가 갈려야 한다. Name 은 default_tags 에 없으므로
   # (providers.tf) 여기 두어도 plan 이 안 흔들린다 — 시작 템플릿의 같은 태그를 덮는다.

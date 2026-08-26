@@ -22,20 +22,33 @@ Route53 (show-gi.com) → ALB (ACM TLS) → EC2 스팟 1대 (c6g.large / ARM64)
 
 ### IAM
 
-`show-gi-operator` 사용자와 같은 이름의 **관리형 정책**. 정책 문서는 [`infra/iam-policy.json`](../infra/iam-policy.json)에 있다.
+`show-gi-operator` 사용자와 **관리형 정책 둘**. 하나로는 크기가 안 맞아서 갈랐다.
 
-> **이 정책은 크기 한도에 거의 닿아 있다.** 관리형 정책은 공백을 뺀 **6,144자**가 상한인데 지금 6,141자다. **다음에 권한을 더할 자리가 없다** — 더하려면 먼저 둘로 갈라 두 번째 관리형 정책을 만들어 붙여야 한다(사용자 하나에 10개까지 붙는다). 크기는 이렇게 센다:
+| 정책                         | 문서                                                                    | 무엇                                             |
+| ---------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------ |
+| `show-gi-operator`           | [`infra/iam-policy.json`](../infra/iam-policy.json)                     | 나머지 전부. **꽉 찼다** (6,141 / 6,144자)       |
+| `show-gi-operator-autoscale` | [`infra/iam-policy-autoscale.json`](../infra/iam-policy-autoscale.json) | `application-autoscaling` 과 그 서비스 링크 역할 |
+
+> **첫 정책에 더 넣을 자리가 없다.** 관리형 정책은 공백을 뺀 **6,144자**가 상한이고 지금 6,141자다 — **남은 것이 3자**다. 그래서 2026-08-26 에 두 번째 정책을 만들었다(사용자 하나에 관리형 정책 10개까지 붙는다). **다음 권한도 두 번째 쪽에 넣는다.** 크기는 이렇게 센다:
 >
 > ```sh
 > python3 -c "import json;print(len(json.dumps(json.load(open('infra/iam-policy.json')),separators=(',',':'))))"
 > ```
+>
+> 갈랐다고 첫 정책을 줄인 것은 아니다. 액션을 `service:*` 로 묶으면 자리가 나지만 그것은 최소권한을 크기와 바꾸는 것이고, 정책 둘이 붙는 데는 아무 대가가 없다.
 
 ```sh
 aws iam create-user --user-name show-gi-operator
+
 aws iam create-policy --policy-name show-gi-operator \
   --policy-document file://infra/iam-policy.json
 aws iam attach-user-policy --user-name show-gi-operator \
   --policy-arn arn:aws:iam::058264445568:policy/show-gi-operator
+
+aws iam create-policy --policy-name show-gi-operator-autoscale \
+  --policy-document file://infra/iam-policy-autoscale.json
+aws iam attach-user-policy --user-name show-gi-operator \
+  --policy-arn arn:aws:iam::058264445568:policy/show-gi-operator-autoscale
 ```
 
 **고칠 때는 새 버전을 올린다.** 정책은 버전이 다섯까지 남으므로 오래된 것을 지우면서 올린다:
@@ -316,28 +329,79 @@ aws ecs execute-command --cluster show-gi --task <task-id> --container web \
   --interactive --command 'wget -qO- localhost:8080/metrics' --profile show-gi
 ```
 
-알람은 셋이다. **메일을 받으려면 `terraform.tfvars` 에 `alarm_email` 을 적고 apply 한 뒤, 확인 메일의 링크를 한 번 눌러야 한다** — 누르기 전에는 구독이 `pending` 이라 알람이 울려도 안 온다.
+알람은 다섯이다. **메일을 받으려면 `terraform.tfvars` 에 `alarm_email` 을 적고 apply 한 뒤, 확인 메일의 링크를 한 번 눌러야 한다** — 누르기 전에는 구독이 `pending` 이라 알람이 울려도 안 온다.
 
-| 알람                        | 언제                                                 | 무엇을 보나                                                                                                                                                                                                                                                                                |
-| --------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `show-gi-no-healthy-target` | 정상 타깃이 5분 동안 없다                            | 사이트가 내려갔다. EMF 와 무관하게 AWS 가 늘 내는 지표다. 5분인 것은 정상 배포·스팟 회수가 그보다 짧아서다                                                                                                                                                                                 |
-| `show-gi-5xx`               | 5분 안에 5xx 나 panic 1건 이상                       | 우리 버그. 같은 시각의 `request_id` 로 로그를 찾는다                                                                                                                                                                                                                                       |
-| `show-gi-engine-pool-wait`  | **대국** 풀 대기 p95 가 최근 5분 중 3분에서 3초 초과 | **풀이 아니라 vCPU 를 올릴 자리다** — 풀을 키우면 대기가 탐색 시간으로 옮겨간다([journal §104](../docs/journal/101-120.md)). 임계 3초는 실측이다                                                                                                                                           |
-| `show-gi-analysis-backlog`  | 사후 분석 줄이 5분 내내 100手 초과                   | **대인전 포화는 위 알람이 못 본다** — 병목이 풀이 아니라 탐색 처리량이라 사람의 풀 대기는 포화에서도 표본 0이다. 임계 100 은 실측 사이다(6판 최고 13 · 8판 4분째 140, [journal §108](../docs/journal/101-120.md)). **태스크가 둘이 되면 틀린다** — 큐가 프로세스 안의 채널이라 합이 아니다 |
+| 알람                        | 언제                                                 | 무엇을 보나                                                                                                                                                                                                                                                                                  |
+| --------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `show-gi-no-healthy-target` | 정상 타깃이 5분 동안 없다                            | 사이트가 내려갔다. EMF 와 무관하게 AWS 가 늘 내는 지표다. 5분인 것은 정상 배포·스팟 회수가 그보다 짧아서다                                                                                                                                                                                   |
+| `show-gi-5xx`               | 5분 안에 5xx 나 panic 1건 이상                       | 우리 버그. 같은 시각의 `request_id` 로 로그를 찾는다                                                                                                                                                                                                                                         |
+| `show-gi-engine-pool-wait`  | **대국** 풀 대기 p95 가 최근 5분 중 3분에서 3초 초과 | **풀이 아니라 vCPU 를 올릴 자리다** — 풀을 키우면 대기가 탐색 시간으로 옮겨간다([journal §104](../docs/journal/101-120.md)). 임계 3초는 실측이다                                                                                                                                             |
+| `show-gi-analysis-backlog`  | 사후 분석 줄이 5분 내내 100手 초과                   | **대인전 포화는 위 알람이 못 본다** — 병목이 풀이 아니라 탐색 처리량이라 사람의 풀 대기는 포화에서도 표본 0이다. 임계 100 은 실측 사이다(6판 최고 13 · 8판 4분째 140, [journal §108](../docs/journal/101-120.md)). **이 알람이 분석 대를 하나 올린다** — 아래 §「분석 대수를 알람이 돌린다」 |
+| `show-gi-analysis-idle`     | 사후 분석 줄이 30분 내내 비어 있다                   | **사람에게 안 알린다.** 분석 대를 하나 빼는 신호뿐이고, 언제 움직였는지는 `describe-scaling-activities` 가 든다 — 아래 §「분석 대수를 알람이 돌린다」                                                                                                                                        |
 
-## 운영자 정책에 로그 읽기·알람 권한 올리기
+## 분석 대수를 알람이 돌린다
 
-**운영자는 자기 정책을 못 고친다**(권한 상승 방지). 관리자 자격으로 한 번 올려야 한다.
+**손잡이가 사람 손을 떠났다**([journal §124](../docs/journal/121-140.md)). `AnalysisBacklogPlies` 가 100을 5분 넘기면 분석 티어의 대수가 1에서 2로 오르고, 줄이 30분 비면 되돌아온다. `infra/autoscale.tf` 가 그 배선이다.
 
-지금 올려야 하는 것이 둘이다 — 로그 읽기(`logs:GetLogEvents` 등)와 **알람·SNS**(`cloudwatch:PutMetricAlarm`·`sns:*`, [§90](../docs/journal/82-100.md)). 올리기 전에는 `infra/alarms.tf` 의 apply 가 `AccessDenied` 로 끝난다.
+층이 셋이라 확인할 자리도 셋이다.
+
+```
+알람            show-gi-analysis-backlog        (올림)  ·  show-gi-analysis-idle  (내림)
+서비스 desired  Application Auto Scaling 이 든다        ← terraform 은 이 값을 무시한다
+EC2 대수        ECS 용량 공급자가 미배치 태스크를 보고 따라 올린다   실측 3분
+```
+
+```sh
+# 정책이 언제 무엇을 했나. 스케일 인·아웃이 한 목록에 시각 순으로 나온다
+aws application-autoscaling describe-scaling-activities --service-namespace ecs \
+  --resource-id service/show-gi/show-gi-analysis \
+  --profile show-gi --region ap-northeast-1 \
+  --query 'ScalingActivities[].{at:StartTime,cause:Cause,status:StatusCode}'
+
+# 지금 desired 가 몇인가 (정책이 든 값)
+aws ecs describe-services --cluster show-gi --services show-gi-analysis \
+  --profile show-gi --region ap-northeast-1 \
+  --query 'services[0].{desired:desiredCount,running:runningCount,pending:pendingCount}'
+
+# EC2 가 따라 올랐나
+aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names show-gi-analysis \
+  --profile show-gi --region ap-northeast-1 \
+  --query 'AutoScalingGroups[0].{desired:DesiredCapacity,max:MaxSize,instances:length(Instances)}'
+```
+
+**상한을 올리는 것은 여전히 사람이다.** `var.analysis_max_instances` 가 ASG 의 `max_size` 이자 scalable target 의 `max_capacity` 이고 지금 2다 — 3대를 재 본 적이 없어서 그 위는 근거가 없다([journal §123](../docs/journal/121-140.md)).
+
+> **대시보드의 「오토스케일」 위젯이 이 셋을 한 화면에 그린다.** 백로그가 오르고 대수가 따라 오르고 백로그가 내려오는 순서가 거기서 보인다. 대수는 올랐는데 백로그가 안 내려오면 상한이 모자란 것이다.
+
+**apply 로 대수를 못 내린다.** `desired_count` 의 주인이 정책이라 `aws_ecs_service.analysis` 가 그 값을 무시한다(`ignore_changes`) — 회차 뒤에 억지로 내려야 하면 스케일 인 알람을 기다리거나 콘솔에서 직접 desired 를 고친다.
+
+## 운영자 정책에 권한을 올리기
+
+**운영자는 자기 정책을 못 고친다**(권한 상승 방지). 관리자 자격으로 올려야 한다.
+
+**어느 정책에 넣는가가 먼저다.** 첫 정책(`show-gi-operator`)은 6,141 / 6,144자로 꽉 찼으므로 **새 권한은 `show-gi-operator-autoscale` 쪽에 넣는다**(§0 의 표).
 
 ```sh
 # 버전은 5개가 상한이라, 차면 오래된 것을 지우면서 올린다
 aws iam create-policy-version \
-  --policy-arn arn:aws:iam::058264445568:policy/show-gi-operator \
-  --policy-document file://infra/iam-policy.json \
+  --policy-arn arn:aws:iam::058264445568:policy/show-gi-operator-autoscale \
+  --policy-document file://infra/iam-policy-autoscale.json \
   --set-as-default --profile <관리자 프로파일>
 ```
+
+올린 뒤 확인은 실물로 한다. `AccessDenied` 가 아니면 통한 것이다.
+
+```sh
+aws application-autoscaling describe-scalable-targets --service-namespace ecs \
+  --profile show-gi --region ap-northeast-1
+```
+
+지금까지 이 자리에서 올린 것 둘이다.
+
+| 언제       | 무엇                                                                                                             | 막고 있던 것                  |
+| ---------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| 2026-08-20 | 로그 읽기(`logs:GetLogEvents` 등)와 알람·SNS([§90](../docs/journal/82-100.md))                                   | `infra/alarms.tf` 의 apply    |
+| 2026-08-26 | `application-autoscaling:*` · `ecs.application-autoscaling` 서비스 링크 역할([§124](../docs/journal/121-140.md)) | `infra/autoscale.tf` 의 apply |
 
 ### 스키마를 넣는 법 — 노트북에서 직접
 
