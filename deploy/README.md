@@ -529,7 +529,7 @@ aws logs tail /ecs/show-gi --follow --region ap-northeast-1 --profile show-gi
 | ECR, 로그, Parameter Store              | $1 미만       |
 | **합계**                                | **~$94 / 월** |
 
-> **분석 대가 2026-08-26 에 늘었다**([journal §120](../docs/journal/101-120.md)). 티어를 가르면 대가 하나 더 서고, 그 대수가 `var.analysis_instances` 다 — 회차 동안 2로 올리면 그 회차만큼 한 대 값이 더 나간다. **부하 회차 동안은 스팟이 아니라 온디맨드라(`on_demand_base_capacity = 1`) 대당 하루 $2.15 다.**
+> **분석 대가 2026-08-26 에 늘었다**([journal §120](../docs/journal/101-120.md)). 티어를 가르면 대가 하나 더 선다. **그 대수를 이제 알람이 든다**([journal §124](../docs/journal/121-140.md)) — 상시로는 1대이고 밀린 手가 임계를 넘는 동안만 2대라, 값은 **부하가 실제로 걸린 시간만큼**만 는다. 사람이 정하는 것은 상한(`var.analysis_max_instances`) 하나다. **부하 회차 동안은 스팟이 아니라 온디맨드라(`on_demand_base_capacity = 1`) 대당 하루 $2.15 다.**
 
 **컴퓨트가 더 이상 가장 큰 항목이 아니다.** 한때 Fargate 4 vCPU / 8 GiB로 월 약 $115였고 그것 때문에 서비스를 0으로 내려 뒀는데, 스팟 한 대로 옮기면서 **컴퓨트가 $8**이 됐다. **2026-08-24 에 컴퓨트가 다시 올랐다** — `t4g.small`(~$5) 에서 `c6g.large`(~$27) 로 옮겼다. 버스터블 크레딧이 마르면 탐색이 8배 느려져서 용량을 못 적는다는 것이 이유이고, **지속 vCPU 당 값으로는 오히려 싸다**([journal §108](../docs/journal/101-120.md)). 그래도 아직 ALB·RDS 가 약 $33 이라 표의 절반이다.
 
