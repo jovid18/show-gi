@@ -242,7 +242,7 @@ game_undos    ply 3 = 3c3d    ← 사람이 스스로 무른 수
 
 - `skill_abs_loss = NULL` 이 「아직 모른다」다. 개수를 따로 세는 것은 `014` 이전 행이 `skill_samples` 만 차 있기 때문이다
 - `rating_games = 0` 이 「레이팅 없음」이다 — `rating_est` 가 `NOT NULL DEFAULT 0` 이라 0으로는 그것을 못 말한다
-- 21~60手의 갈리지 않은 국면만 `skill_abs_loss` 에 센다
+- 21\~60手의 갈리지 않은 국면만 `skill_abs_loss` 에 센다
 
 ---
 
