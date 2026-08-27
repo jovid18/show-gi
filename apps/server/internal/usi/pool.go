@@ -14,11 +14,11 @@ var ErrPoolClosed = errors.New("usi: pool closed")
 // 선행 계산 때문에 대국 한 판에도 동시 탐색이 필요하다.
 // 빌린 동안 단독 소유다. 옵션은 Engine에 남으므로 값에 기대는 쪽은 매번 직접 건다(journal §6 ②).
 type Pool struct {
-	// mu 아래가 한 벌이다. free 채널 대신 손으로 줄을 세우는 이유는 우선순위다 —
+	// mu 아래가 한 벌이다. free 채널 대신 손으로 큐를 세우는 이유는 우선순위다 —
 	// 채널은 먼저 기다린 쪽에 주고, 우리는 사람이 기다리는 쪽에 먼저 줘야 한다.
 	mu   sync.Mutex
 	idle []*Engine
-	// waiting 은 우선순위별 대기줄이다. 앞이 높은 쪽이고, 같은 줄 안에서는 FIFO 다.
+	// waiting 은 우선순위별 대기 큐다. 앞이 높은 쪽이고, 같은 큐 안에서는 FIFO 다.
 	waiting [prioCount][]chan *Engine
 
 	all []*Engine
@@ -82,7 +82,7 @@ func (p *Pool) Observe(m Metrics) {
 // Acquire 는 엔진 하나를 빌린다. 빈 게 없으면 ctx가 끝날 때까지 기다린다.
 // 빌린 쪽은 반드시 Release 해야 한다.
 //
-// 기다리는 줄이 우선순위별로 갈린다(priorityOf). 사람이 화면 앞에서 기다리는 요청이
+// 기다리는 큐가 우선순위별로 갈린다(priorityOf). 사람이 화면 앞에서 기다리는 요청이
 // 사후 분석보다 먼저 받는다 — 그래야 분석이 풀을 다 쓰고 있어도 착수가 안 밀린다.
 func (p *Pool) Acquire(ctx context.Context) (*Engine, error) {
 	select {
@@ -123,7 +123,7 @@ func (p *Pool) Acquire(ctx context.Context) (*Engine, error) {
 	}
 }
 
-// giveUpWaiting 은 줄에서 빠진다. 빠지기 전에 이미 받았으면 그 엔진을 돌려준다 —
+// giveUpWaiting 은 큐에서 빠진다. 빠지기 전에 이미 받았으면 그 엔진을 돌려준다 —
 // 안 돌려주면 그 엔진이 아무 데도 없는 채로 사라진다.
 func (p *Pool) giveUpWaiting(prio int, ch chan *Engine) {
 	p.mu.Lock()
@@ -135,16 +135,16 @@ func (p *Pool) giveUpWaiting(prio int, ch chan *Engine) {
 		}
 	}
 	p.mu.Unlock()
-	// 줄에 없다 = 넘겨주는 쪽이 이미 골랐다. 그 값은 버퍼에 있다.
+	// 큐에 없다 = 넘겨주는 쪽이 이미 골랐다. 그 값은 버퍼에 있다.
 	if e := <-ch; e != nil {
 		p.Release(e)
 	}
 }
 
-// prioCount 는 대기줄의 수다.
+// prioCount 는 대기 큐의 수다.
 const prioCount = 2
 
-// priorityOf 는 빌리는 쪽을 대기줄로 나눈다. 0이 먼저 받는다.
+// priorityOf 는 빌리는 쪽을 대기 큐로 나눈다. 0이 먼저 받는다.
 //
 // 가르는 기준은 「사람이 지금 그 응답을 기다리는가」 하나다. 대국·검토·가정 수순은
 // 화면이 멈춰 서 있고, 사후 분석과 퀴즈 생성은 아무도 안 기다린다 — 되짚기가 나중에

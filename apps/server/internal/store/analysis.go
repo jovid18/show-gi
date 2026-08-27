@@ -11,7 +11,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store/db"
 )
 
-// 미리 재는 手의 줄(018)의 표 접근. 정책은 하나도 없다 — 리스 길이도 폴링 간격도 부르는
+// 미리 재는 手의 큐(018)의 표 접근. 정책은 하나도 없다 — 리스 길이도 폴링 간격도 부르는
 // 쪽이 준다(server.matchAnalyzer). 큐와 같은 규약이다.
 
 // AnalysisPly 는 아직 안 잰 手 하나다. 재는 데 필요한 입력이 전부 여기 있다.
@@ -40,7 +40,7 @@ type MeasuredPly struct {
 // ErrNoAnalysisPly 는 지금 집을 手가 없다는 것 하나다.
 var ErrNoAnalysisPly = errors.New("store: no ply to analyze")
 
-// EnqueueAnalysisPly 는 방금 둔 手를 줄에 세운다. 같은 手를 두 번 세워도 한 행이다.
+// EnqueueAnalysisPly 는 방금 둔 手를 큐에 세운다. 같은 手를 두 번 세워도 한 행이다.
 func (s *Store) EnqueueAnalysisPly(ctx context.Context, p AnalysisPly) error {
 	err := s.q.EnqueueAnalysisPly(ctx, db.EnqueueAnalysisPlyParams{
 		MatchID:   p.MatchID,
@@ -169,12 +169,12 @@ func derefInt32(v *int32) int {
 
 func derefBool(v *bool) bool { return v != nil && *v }
 
-// 끝난 판의 줄(019)의 표 접근. 미리 재는 줄과 같은 규약이다 — 정책은 부르는 쪽이 든다.
+// 끝난 판의 큐(019)의 표 접근. 미리 재는 큐와 같은 규약이다 — 정책은 부르는 쪽이 든다.
 
 // AnalysisJob 은 집어 온 판 하나다.
 type AnalysisJob struct {
 	MatchID string
-	// Plies 는 아직 안 잰 手数다. 판의 길이가 아니라 이 줄에서 엔진을 부르는 양이다.
+	// Plies 는 아직 안 잰 手数다. 판의 길이가 아니라 이 큐에서 엔진을 부르는 양이다.
 	Plies int
 }
 
@@ -221,7 +221,7 @@ func (s *Store) ClaimAnalysisJob(ctx context.Context, leaseBefore time.Time) (An
 	return AnalysisJob{MatchID: row.MatchID, Plies: derefInt32(row.Plies)}, nil
 }
 
-// DropAnalysisJob 은 그 판을 줄에서 걷는다.
+// DropAnalysisJob 은 그 판을 큐에서 걷는다.
 func (s *Store) DropAnalysisJob(ctx context.Context, matchID string) error {
 	if err := s.q.DropAnalysisJob(ctx, matchID); err != nil {
 		return fmt.Errorf("drop analysis job: %w", err)
@@ -238,7 +238,7 @@ func (s *Store) AnalysisJobBacklog(ctx context.Context, leaseBefore time.Time) (
 	return int(row.Games), int(row.Plies), nil
 }
 
-// IsGameAnalyzing 은 그 판이 아직 줄에 있거나 도는 중인가다.
+// IsGameAnalyzing 은 그 판이 아직 큐에 있거나 도는 중인가다.
 func (s *Store) IsGameAnalyzing(ctx context.Context, gameID int64) (bool, error) {
 	ok, err := s.q.IsGameAnalyzing(ctx, gameID)
 	if err != nil {

@@ -81,7 +81,7 @@ export const options = {
 // 열린 뒤에 알게 되고, 그때는 이미 지워야 할 익명 판이 남는다.
 export function setup() {
   if (MODE !== 'engine' && (SESSION_SECRET === '' || LT_UIDS.length === 0)) {
-    throw new Error('대인전에는 SESSION_SECRET 과 LT_UIDS 가 둘 다 필요하다 — 쿠키가 없으면 줄에 설 수 없다');
+    throw new Error('대인전에는 SESSION_SECRET 과 LT_UIDS 가 둘 다 필요하다 — 쿠키가 없으면 큐에 설 수 없다');
   }
 
   if (SESSION_SECRET === '' || LT_UIDS.length === 0) {

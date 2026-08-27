@@ -342,12 +342,12 @@ aws ecs execute-command --cluster show-gi --task <task-id> --container web \
 | `show-gi-no-healthy-target` | 정상 타깃이 5분 동안 없다                            | 사이트가 내려갔다. EMF 와 무관하게 AWS 가 늘 내는 지표다. 5분인 것은 정상 배포·스팟 회수가 그보다 짧아서다                                                                                                                                                                                   |
 | `show-gi-5xx`               | 5분 안에 5xx 나 panic 1건 이상                       | 우리 버그. 같은 시각의 `request_id` 로 로그를 찾는다                                                                                                                                                                                                                                         |
 | `show-gi-engine-pool-wait`  | **대국** 풀 대기 p95 가 최근 5분 중 3분에서 3초 초과 | **풀이 아니라 vCPU 를 올릴 자리다** — 풀을 키우면 대기가 탐색 시간으로 옮겨간다([journal §104](../docs/journal/101-120.md)). 임계 3초는 실측이다                                                                                                                                             |
-| `show-gi-analysis-backlog`  | 사후 분석 줄이 5분 내내 100手 초과                   | **대인전 포화는 위 알람이 못 본다** — 병목이 풀이 아니라 탐색 처리량이라 사람의 풀 대기는 포화에서도 표본 0이다. 임계 100 은 실측 사이다(6판 최고 13 · 8판 4분째 140, [journal §108](../docs/journal/101-120.md)). **이 알람이 분석 대를 하나 올린다** — 아래 §「분석 대수를 알람이 돌린다」 |
-| `show-gi-analysis-idle`     | 사후 분석 줄이 30분 내내 비어 있다                   | **사람에게 안 알린다.** 분석 대를 하나 빼는 신호뿐이고, 언제 움직였는지는 `describe-scaling-activities` 가 든다 — 아래 §「분석 대수를 알람이 돌린다」                                                                                                                                        |
+| `show-gi-analysis-backlog`  | 사후 분석 큐가 5분 내내 100手 초과                   | **대인전 포화는 위 알람이 못 본다** — 병목이 풀이 아니라 탐색 처리량이라 사람의 풀 대기는 포화에서도 표본 0이다. 임계 100 은 실측 사이다(6판 최고 13 · 8판 4분째 140, [journal §108](../docs/journal/101-120.md)). **이 알람이 분석 대를 하나 올린다** — 아래 §「분석 대수를 알람이 돌린다」 |
+| `show-gi-analysis-idle`     | 사후 분석 큐가 30분 내내 비어 있다                   | **사람에게 안 알린다.** 분석 대를 하나 빼는 신호뿐이고, 언제 움직였는지는 `describe-scaling-activities` 가 든다 — 아래 §「분석 대수를 알람이 돌린다」                                                                                                                                        |
 
 ## 분석 대수를 알람이 돌린다
 
-**손잡이가 사람 손을 떠났다**([journal §124](../docs/journal/121-140.md)). `AnalysisBacklogPlies` 가 100을 5분 넘기면 분석 티어의 대수가 1에서 2로 오르고, 줄이 30분 비면 되돌아온다. `infra/autoscale.tf` 가 그 배선이다.
+**손잡이가 사람 손을 떠났다**([journal §124](../docs/journal/121-140.md)). `AnalysisBacklogPlies` 가 100을 5분 넘기면 분석 티어의 대수가 1에서 2로 오르고, 큐가 30분 비면 되돌아온다. `infra/autoscale.tf` 가 그 배선이다.
 
 층이 셋이라 확인할 자리도 셋이다.
 

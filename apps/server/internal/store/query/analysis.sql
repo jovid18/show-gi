@@ -1,11 +1,11 @@
--- 미리 재는 手의 줄(018). 메모리 채널이던 것을 표로 내렸고, 근거는 journal §115.
+-- 미리 재는 手의 큐(018). 메모리 채널이던 것을 표로 내렸고, 근거는 journal §115.
 --
 -- 모든 잠금이 SKIP LOCKED 다 — 워커가 서로를 기다리는 자리를 만들지 않는다
 -- (LockQueueCandidates 와 같은 계열).
 
 -- name: EnqueueAnalysisPly :exec
 --
--- 방금 둔 手를 줄에 세운다. 착수 경로가 이 문장을 기다리지 않는다 — 부르는 쪽이
+-- 방금 둔 手를 큐에 세운다. 착수 경로가 이 문장을 기다리지 않는다 — 부르는 쪽이
 -- 배수구 goroutine 이다(matchAnalyzer.drain).
 --
 -- 두 번 세워도 한 행이다(ON CONFLICT). 착수 경로가 같은 手를 두 번 부를 수 있고
@@ -117,7 +117,7 @@ DELETE FROM analysis_plies WHERE match_id = $1;
 -- 남는 행이 이 표의 유일한 누수다.
 DELETE FROM analysis_plies WHERE created_at < $1;
 
--- 끝난 판의 줄(019). 자리는 games 가 들고 여기는 「무엇이 남았나」만 든다.
+-- 끝난 판의 큐(019). 자리는 games 가 들고 여기는 「무엇이 남았나」만 든다.
 
 -- name: HoldAnalysisJob :exec
 --
@@ -133,7 +133,7 @@ ON CONFLICT (match_id) DO NOTHING;
 -- 자리가 다 찼다. 手数를 적으면 그때부터 집힌다.
 --
 -- HoldAnalysisJob 이 세운 행을 채우는 것이 보통인데, 없으면 여기서 만든다. UPDATE 로만
--- 두면 그 앞이 한 번 실패했을 때 이 문장이 **조용히 아무 일도 안 하고** 그 판이 줄에
+-- 두면 그 앞이 한 번 실패했을 때 이 문장이 **조용히 아무 일도 안 하고** 그 판이 큐에
 -- 안 선다 — 되짚기는 그것을 「남지 않았다」로만 보여 주므로 아무도 못 알아챈다.
 INSERT INTO analysis_jobs (match_id, plies) VALUES ($1, $2)
 ON CONFLICT (match_id) DO UPDATE SET plies = EXCLUDED.plies;
@@ -155,7 +155,7 @@ RETURNING t.match_id, t.plies;
 
 -- name: DropAnalysisJob :exec
 --
--- 그 판을 줄에서 걷는다. 다 재고 나서와, 반쪽이라 분석하지 않는 자리에서 부른다.
+-- 그 판을 큐에서 걷는다. 다 재고 나서와, 반쪽이라 분석하지 않는 자리에서 부른다.
 DELETE FROM analysis_jobs WHERE match_id = $1;
 
 -- name: AnalysisJobBacklog :one
@@ -170,7 +170,7 @@ WHERE plies IS NOT NULL
 
 -- name: IsGameAnalyzing :one
 --
--- 그 판이 아직 줄에 있거나 도는 중인가. 되짚기가 이 값으로 「분석 중」과 「남지 않았다」를
+-- 그 판이 아직 큐에 있거나 도는 중인가. 되짚기가 이 값으로 「분석 중」과 「남지 않았다」를
 -- 가른다(server/review.go).
 --
 -- games 를 지나 찾는다. 자리를 표에 옮겨 적지 않기 때문이고, 그 조인은 games_match_idx 가 받는다.

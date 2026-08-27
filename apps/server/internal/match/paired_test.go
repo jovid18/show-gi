@@ -59,7 +59,7 @@ func TestPairedRoomIsNotWaiting(t *testing.T) {
 	}
 }
 
-// 큐 방은 상한을 안 건드린다. 줄에 선 사람이 따로 열어 둔 초대 링크가 조용히 죽으면
+// 큐 방은 상한을 안 건드린다. 큐에 선 사람이 따로 열어 둔 초대 링크가 조용히 죽으면
 // 안 되고, 반대로 초대 링크를 여는 것이 큐 방을 걷어가서도 안 된다.
 func TestPairedRoomAndTheInviteLinkCoexist(t *testing.T) {
 	h := newTestHub(t)

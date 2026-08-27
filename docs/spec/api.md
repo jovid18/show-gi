@@ -146,13 +146,13 @@
 | `POST /api/queue`   | `200 {status:"waiting", waitedMs, waiting}` 또는 `200 {status:"matched", roomId, yourColor}` | `401 unauthorized` · `503 store_unavailable` |
 | `DELETE /api/queue` | `204`                                                                                        | `401 unauthorized` · `503 store_unavailable` |
 
-**`POST` 하나가 셋을 한다** — 줄에 서기 · 살아 있다고 알리기 · 짝짓기. 멱등이라 화면은 이것을 2초마다 부르기만 하고, 멈추면 서버가 12초 뒤 줄에서 걷어낸다(`queue.StaleAfter`).
+**`POST` 하나가 셋을 한다** — 큐에 서기 · 살아 있다고 알리기 · 짝짓기. 멱등이라 화면은 이것을 2초마다 부르기만 하고, 멈추면 서버가 12초 뒤 큐에서 걷어낸다(`queue.StaleAfter`).
 
-**대인전의 다른 셋과 달리 DB 에 매여 있다.** 줄이 표에 있어야 모든 인스턴스가 같은 줄을 본다 — 기록이 없는 배포에서는 방은 열리는데 줄은 `503` 이다.
+**대인전의 다른 셋과 달리 DB 에 매여 있다.** 큐가 표에 있어야 모든 인스턴스가 같은 큐를 본다 — 기록이 없는 배포에서는 방은 열리는데 큐는 `503` 이다.
 
 **상대에 대해 아무것도 안 준다.** 짝이 잡힌 답에 이름조차 없다 — 이름은 방에 붙으면 `MatchSnapshot` 이 주고, 레이팅은 어느 쪽으로도 안 나간다.
 
-`matched` 는 **한 번만 나간다.** 읽는 것과 지우는 것이 한 문장이라(`TakeQueueSeat`) 다시 물어보면 그 사람은 줄에 새로 선다.
+`matched` 는 **한 번만 나간다.** 읽는 것과 지우는 것이 한 문장이라(`TakeQueueSeat`) 다시 물어보면 그 사람은 큐에 새로 선다.
 
 ---
 

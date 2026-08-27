@@ -61,7 +61,7 @@ type roomRecord struct {
 
 	// plies 는 그 판에 둔 手数다. 두 자리가 같은 수를 다 적으므로 큰 쪽을 든다.
 	//
-	// 기록에서 되읽지 않고 여기서 센다 — 줄에 세울 때(analysisJob) 이 값이 필요하고,
+	// 기록에서 되읽지 않고 여기서 센다 — 큐에 세울 때(analysisJob) 이 값이 필요하고,
 	// 그 자리에서 질의를 하나 더 하면 판이 끝나는 경로가 그만큼 늘어난다.
 	plies int
 
@@ -183,7 +183,7 @@ func (m *matchRecords) collect(ctx context.Context, cancel context.CancelFunc, e
 	}
 	wg.Wait()
 
-	// 번호가 둘 다 있어야 줄을 세운다. 한쪽만 있으면 그 판은 반쪽이라, 채운 평가치가
+	// 번호가 둘 다 있어야 큐에 세운다. 한쪽만 있으면 그 판은 반쪽이라, 채운 평가치가
 	// 한 사람에게만 보인다.
 	//
 	// 사람과 색을 같이 실어 보낸다. 분석기가 실력 추정도 쌓는데(matchAnalyzer) 그러려면
@@ -231,11 +231,11 @@ func (m *matchRecords) noting(entry *roomRecord, c shogi.Color) func(match.Resul
 	}
 }
 
-// counting 은 手数를 곁장부에 적고 그 手를 미리 재는 줄에 세운다. 두 자리가 같은 수를
+// counting 은 手数를 곁장부에 적고 그 手를 미리 재는 큐에 세운다. 두 자리가 같은 수를
 // 적으므로 앞선 자리만 세운다.
 //
 // 즉시 돌아온다 — 테이블 goroutine 이 부르는 자리다(match.Recorder). 세우는 것이
-// 논블로킹이라(matchAnalyzer.prefetch) 줄이 차 있어도 착수가 안 늦는다.
+// 논블로킹이라(matchAnalyzer.prefetch) 큐가 차 있어도 착수가 안 늦는다.
 func (m *matchRecords) counting(entry *roomRecord) func(int, string) {
 	return func(ply int, usi string) {
 		m.mu.Lock()

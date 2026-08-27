@@ -38,17 +38,17 @@ import (
 // DB 에 쓰는 것은 analyze 의 순차 루프뿐이고 미리 재는 쪽은 자기 手의 행에만
 // 쓴다(journal §106). 겹칠 때 새는 자리는 remember 가 막는다.
 //
-// 미리 재는 줄은 표다(analysis_plies · 018). 그래서 배포가 끼어도 그 手는 안 없어지고,
+// 미리 재는 큐는 표다(analysis_plies · 018). 그래서 배포가 끼어도 그 手는 안 없어지고,
 // 리스가 낡으면 다음 워커가 도로 집는다 — 프로세스 밖에 있는 것이 소비자를 여럿으로
 // 늘릴 수 있게 하는 자리이기도 하다(journal §115).
 //
-// 판 단위 줄도 표다(analysis_jobs · 019). 자리는 안 옮겨 적는다 — games 행 둘이 곧 두
+// 판 단위 큐도 표다(analysis_jobs · 019). 자리는 안 옮겨 적는다 — games 행 둘이 곧 두
 // 자리라(012_match_games.sql) 여기 실으면 같은 사실이 두 벌이 된다(journal §118).
 type matchAnalyzer struct {
 	store      *store.Store
 	newAnalyst func() game.Analyst
 
-	// drain 은 표에 아직 못 적은 手를 잠깐 드는 자리다. 줄이 아니라 배수구다 — 밀린 양은
+	// drain 은 표에 아직 못 적은 手를 잠깐 드는 자리다. 큐가 아니라 배수구다 — 밀린 양은
 	// 표가 들고(analysis_plies) 여기 있는 것은 INSERT 를 기다리는 것뿐이다.
 	//
 	// 착수 경로가 DB 를 안 기다리게 하는 장치가 이것 하나다. 세우는 자리가 테이블
@@ -116,7 +116,7 @@ const jobLease = 30 * time.Minute
 
 // drainBuffer 는 표에 아직 못 적은 手를 몇 개까지 들 것인가다.
 //
-// 줄의 길이가 아니다. 밀린 양은 표가 들므로 여기 쌓이는 것은 INSERT 한 번이 늦은 만큼
+// 큐의 길이가 아니다. 밀린 양은 표가 들므로 여기 쌓이는 것은 INSERT 한 번이 늦은 만큼
 // 뿐이고, 그래서 「밀렸다」를 알아차리기 전에 메모리가 자라던 자리가 없어졌다(journal §105).
 //
 // 넘치면 버린다. 버려도 잃는 것이 없다 — 그 手는 판이 끝날 때 그 자리에서 잰다.
@@ -132,7 +132,7 @@ const plyLease = 3 * time.Minute
 // plyPollInterval 은 잴 手가 없을 때 다시 물어보기까지의 시간이다.
 //
 // 짧을 이유가 없다. 미리 재는 것을 기다리는 사람이 없고, 판이 끝나는 자리는 폴링이
-// 아니라 줄이 깨운다(run).
+// 아니라 큐가 깨운다(run).
 const plyPollInterval = 2 * time.Second
 
 // backlogSampleInterval 은 밀린 양을 재는 주기다. EMF 가 분당 한 줄이라(metrics.DefaultInterval)
@@ -164,7 +164,7 @@ const analysisJudgeDeadline = game.DefaultMoveDeadline
 // 없는 배포에서 대인전이 그대로 도는 규약을 여기서도 지킨다. nil 인 채로 불려도 되도록
 // 아래 메서드가 전부 nil 수신자를 받는다.
 //
-// workers 는 줄을 집는 goroutine 수다. 0이면 집는 쪽을 아예 안 띄운다 — 상호작용
+// workers 는 큐를 집는 goroutine 수다. 0이면 집는 쪽을 아예 안 띄운다 — 상호작용
 // 티어가 그 모양이고, 그 티어는 手를 세우기만 한다(SERVER_ROLE, cmd/api/main.go).
 //
 // 세우는 쪽과 게이지는 workers 와 무관하게 돈다. 게이지가 집지 않는 티어에서도 도는
@@ -172,7 +172,7 @@ const analysisJudgeDeadline = game.DefaultMoveDeadline
 // 때문이다 — 그때가 밀린 양이 제일 큰 자리다.
 //
 // 청소는 집는 티어만 돈다. 걷는 기준이 나이 하나뿐이라(plyTTL) 집지 않는 티어가 걷으면
-// 분석 티어가 죽어 있는 동안 쌓인 줄을 여섯 시간 뒤부터 지운다 — 백로그가 0으로
+// 분석 티어가 죽어 있는 동안 쌓인 큐를 여섯 시간 뒤부터 지운다 — 백로그가 0으로
 // 내려가고 알람이 풀리고 되짚기가 「남지 않았다」로 보인다. 장애가 제일 클 때 그것이
 // 안 보이게 되는 것이고, 티어를 가르기 전에는 걷는 쪽이 곧 집는 쪽이라 없던 자리다.
 func newMatchAnalyzer(
@@ -234,7 +234,7 @@ func (a *matchAnalyzer) writePly(ctx context.Context, p plyJob) {
 // watchBacklog 은 밀린 양을 주기로 재어 지표에 놓는다.
 //
 // 늘고 주는 자리마다 세지 않는다. 手가 표에 있으므로 세는 것이 질의 하나이고, 카운터를
-// 손으로 맞추면 차액이 남을 수 있다 — 그때 지표는 「밀려 있다」인데 줄은 비어 있어서
+// 손으로 맞추면 차액이 남을 수 있다 — 그때 지표는 「밀려 있다」인데 큐는 비어 있어서
 // 밀린 것인지 못 센 것인지 가릴 수 없다.
 func (a *matchAnalyzer) watchBacklog(ctx context.Context) {
 	t := time.NewTicker(backlogSampleInterval)
@@ -257,7 +257,7 @@ func (a *matchAnalyzer) watchBacklog(ctx context.Context) {
 // 그 낡은 값이 이제 대수를 든다(journal §124). 질의가 계속 실패하고 마지막 값이 1 이상이면
 // 스케일 인이 안 걸려 대가 둘로 남는다 — 잃는 것이 요금이라 이쪽으로 기울여 둔다.
 //
-// 두 줄을 각각 센다. 手 몫은 미리 재는 줄의 안 잰 행이고, 판 몫은 끝난 판이 아직 안 잰
+// 두 큐를 각각 센다. 手 몫은 미리 재는 큐의 안 잰 행이고, 판 몫은 끝난 판이 아직 안 잰
 // 手数의 합이다 — 겹치지 않는 이유는 enqueue 가 그 판의 手를 끊기 때문이다(journal §116).
 func (a *matchAnalyzer) sampleBacklog(ctx context.Context) {
 	if a == nil || a.store == nil {
@@ -293,7 +293,7 @@ func (a *matchAnalyzer) sweepPlies(ctx context.Context) {
 			if err := a.store.SweepAnalysisPlies(ctx, cutoff); err != nil && ctx.Err() == nil {
 				log.Printf("match: could not sweep old plies: %v", err)
 			}
-			// 자리가 영영 안 차는 반쪽 판이 판 줄의 누수다.
+			// 자리가 영영 안 차는 반쪽 판이 판 큐의 누수다.
 			if err := a.store.SweepAnalysisJobs(ctx, cutoff); err != nil && ctx.Err() == nil {
 				log.Printf("match: could not sweep old jobs: %v", err)
 			}
@@ -301,7 +301,7 @@ func (a *matchAnalyzer) sweepPlies(ctx context.Context) {
 	}
 }
 
-// 종료할 때 줄을 비우지 않는다. 판이 표에 있으므로 프로세스가 사라져도 그 판은 안
+// 종료할 때 큐를 비우지 않는다. 판이 표에 있으므로 프로세스가 사라져도 그 판은 안
 // 없어지고, 리스가 낡으면 다음 워커가 도로 집는다 — 메모리 채널이던 동안 재배포 한 번이
 // 46판을 잃었던 자리다(journal §105 · §118).
 
@@ -316,7 +316,7 @@ func (a *matchAnalyzer) run(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		// 판 단위가 먼저다. 그쪽은 사람이 되짚기 화면에서 기다리는 줄이고(analyzing)
+		// 판 단위가 먼저다. 그쪽은 사람이 되짚기 화면에서 기다리는 큐고(analyzing)
 		// 미리 재는 것은 아무도 안 기다린다.
 		if a.runOneJob(ctx) || a.measureOnePly(ctx, ahead) {
 			continue
@@ -330,7 +330,7 @@ func (a *matchAnalyzer) run(ctx context.Context) {
 	}
 }
 
-// runOneJob 은 끝난 판 하나를 집어 재고 줄에서 걷는다. 집을 것이 없으면 false 다.
+// runOneJob 은 끝난 판 하나를 집어 재고 큐에서 걷는다. 집을 것이 없으면 false 다.
 func (a *matchAnalyzer) runOneJob(ctx context.Context) bool {
 	if a.store == nil {
 		return false
@@ -349,7 +349,7 @@ func (a *matchAnalyzer) runOneJob(ctx context.Context) bool {
 	seats := a.seatsOf(ctx, job.MatchID)
 	if len(seats) == 0 {
 		// 자리를 못 읽었다. 그 판은 평가치 없이 남는다 — 다시 집어도 같은 자리에서
-		// 같은 답이므로 줄에서 걷는다.
+		// 같은 답이므로 큐에서 걷는다.
 		a.dropJob(ctx, job.MatchID)
 		a.discard(ctx, job.MatchID)
 		a.analysis.ObserveGame(metrics.AnalysisDropped, 0)
@@ -390,7 +390,7 @@ func (a *matchAnalyzer) seatsOf(ctx context.Context, matchID string) []analysisS
 	return out
 }
 
-// measureOnePly 는 줄에서 手 하나를 집어 잰다. 집을 것이 없으면 false 다.
+// measureOnePly 는 큐에서 手 하나를 집어 잰다. 집을 것이 없으면 false 다.
 //
 // 하나씩 집는다. 여럿을 한 번에 잠그면 그중 하나가 시한을 다 쓰는 동안 나머지가 그
 // 워커에 묶이고, 그 사이 다른 워커는 빈손으로 폴링한다.
@@ -532,7 +532,7 @@ func (a *matchAnalyzer) discard(ctx context.Context, matchID string) {
 	}
 }
 
-// hold 는 그 판을 줄에 세우되 아직 집히지 않게 둔다. 그 순간부터 「분석 중」이다.
+// hold 는 그 판을 큐에 세우되 아직 집히지 않게 둔다. 그 순간부터 「분석 중」이다.
 //
 // 자리가 다 차기 전에 서야 한다. 두 행의 번호는 따로 정해지는데(matchRecords.collect)
 // 화면은 자기 번호 하나만 알면 되짚기를 열 수 있다 — 다른 쪽 번호를 기다리는 사이에 열면
@@ -548,23 +548,23 @@ func (a *matchAnalyzer) hold(ctx context.Context, matchID string) {
 
 // enqueue 는 자리가 다 찬 판을 집히게 한다. hold 로 이미 서 있는 행을 채운다.
 //
-// plies 는 그 판의 手数다. 0이어도 줄에는 선다 — 못 센 것과 안 둔 것을 여기서 가르지
+// plies 는 그 판의 手数다. 0이어도 큐에는 선다 — 못 센 것과 안 둔 것을 여기서 가르지
 // 않고, 밀린 양만 그만큼 적게 잡힌다.
 func (a *matchAnalyzer) enqueue(ctx context.Context, matchID string, plies int) {
 	if a == nil || a.store == nil || matchID == "" {
 		return
 	}
 	// 미리 재는 것을 여기서 끝낸다. 남은 手는 analyze 가 그 자리에서 재므로 표가 더 내줄
-	// 것이 없고, 안 끊으면 그 手가 두 줄에 같이 남아 두 번 세어진다(journal §116).
+	// 것이 없고, 안 끊으면 그 手가 두 큐에 같이 남아 두 번 세어진다(journal §116).
 	// 덤으로 analyze 가 재는 手를 다른 워커가 동시에 집는 낭비도 없어진다.
 	a.stopAhead(ctx, matchID)
 
-	// 미리 재 둔 만큼을 뺀다. 남은 것이 이 줄에서 실제로 엔진을 부르는 양이다.
+	// 미리 재 둔 만큼을 뺀다. 남은 것이 이 큐에서 실제로 엔진을 부르는 양이다.
 	// 위에서 끊어도 이 값은 안 변한다 — 세는 것이 이미 잰 행이다(aheadCount).
 	pending := max(plies-a.aheadCount(ctx, matchID), 0)
 
 	if err := a.store.ReadyAnalysisJob(ctx, matchID, pending); err != nil {
-		// 줄에 못 세웠다. 그 판은 평가치 없이 남는다 — 표시를 걷지 않으면 화면이
+		// 큐에 못 세웠다. 그 판은 평가치 없이 남는다 — 표시를 걷지 않으면 화면이
 		// 영영 「분석 중」이다.
 		a.dropJob(ctx, matchID)
 		a.discard(ctx, matchID)
@@ -573,7 +573,7 @@ func (a *matchAnalyzer) enqueue(ctx context.Context, matchID string, plies int) 
 	}
 }
 
-// dropJob 은 그 판을 줄에서 걷는다. 다 재고 나서와, 반쪽이라 분석하지 않는 자리에서 부른다.
+// dropJob 은 그 판을 큐에서 걷는다. 다 재고 나서와, 반쪽이라 분석하지 않는 자리에서 부른다.
 //
 // 「분석 중」이 여기서 꺼진다. 안 걷으면 그 판이 영영 그 표시로 남는다.
 func (a *matchAnalyzer) dropJob(ctx context.Context, matchID string) {
@@ -585,7 +585,7 @@ func (a *matchAnalyzer) dropJob(ctx context.Context, matchID string) {
 	}
 }
 
-// analyzing 은 그 판이 아직 줄에 있거나 도는 중인가다. 되짚기가 이 값으로 「분석 중」과
+// analyzing 은 그 판이 아직 큐에 있거나 도는 중인가다. 되짚기가 이 값으로 「분석 중」과
 // 「남지 않았다」를 가른다.
 //
 // 못 읽으면 false 다. 「남지 않았다」로 보이는 쪽이고, true 로 두면 화면이 오지 않을

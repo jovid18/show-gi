@@ -13,7 +13,7 @@
 
 # 정책이 움직일 수 있는 폭.
 #
-# 아래가 0 이다. 한때 1 이었는데 그때는 이 티어만 줄을 집었다 — 지금은 상호작용 대가
+# 아래가 0 이다. 한때 1 이었는데 그때는 이 티어만 큐를 집었다 — 지금은 상호작용 대가
 # SERVER_ROLE=both 로 겸하므로(ecs.tf) 0 이어도 아무도 안 집는 일이 없다(journal §125).
 # 위는 var.analysis_max_instances 다.
 resource "aws_appautoscaling_target" "analysis" {
@@ -71,7 +71,7 @@ resource "aws_appautoscaling_policy" "analysis_in" {
     adjustment_type         = "ChangeInCapacity"
     metric_aggregation_type = "Maximum"
 
-    # 올리는 쪽보다 길다. 대를 뺀 직후에 줄이 다시 차는 것이 「뺀 것이 틀렸다」인데,
+    # 올리는 쪽보다 길다. 대를 뺀 직후에 큐가 다시 차는 것이 「뺀 것이 틀렸다」인데,
     # 그 판단이 서려면 남은 대가 한 계단을 받아 봐야 한다.
     cooldown = 600
 
@@ -96,7 +96,7 @@ resource "aws_appautoscaling_policy" "analysis_in" {
 # describe-scaling-activities 가 든다(deploy/README.md).
 resource "aws_cloudwatch_metric_alarm" "analysis_idle" {
   alarm_name          = "show-gi-analysis-idle"
-  alarm_description   = "사후 분석 줄이 30분 내내 비어 있다. 분석 대를 하나 뺀다"
+  alarm_description   = "사후 분석 큐가 30분 내내 비어 있다. 분석 대를 하나 뺀다"
   namespace           = "show-gi"
   metric_name         = "AnalysisBacklogPlies"
   statistic           = "Maximum"

@@ -1,10 +1,10 @@
-// 대인전 한 판. 줄에 서서 짝을 기다리고, 잡히면 그 방에서 끝까지 둔다.
+// 대인전 한 판. 큐에 서서 짝을 기다리고, 잡히면 그 방에서 끝까지 둔다.
 //
 // 로그인이 필요하다. 쿠키는 우리가 굽는다(lib/session.js) — Google 왕복이 없으므로
 // 헤드리스에서 그대로 돈다.
 //
 // VU 하나가 사람 하나다. 그래서 LT_UIDS 가 VU 수보다 적으면 두 VU 가 같은 사람으로
-// 줄에 서고, 큐가 사람마다 한 행이라(match_queue 의 PK) 둘이 서로를 못 만난다.
+// 큐에 서고, 큐가 사람마다 한 행이라(match_queue 의 PK) 둘이 서로를 못 만난다.
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { WebSocket } from 'k6/experimental/websockets';
@@ -37,7 +37,7 @@ export default function humanMatch() {
   const joinedAt = Date.now();
   let room = '';
   for (let i = 0; i < QUEUE_TRIES; i++) {
-    // POST 하나가 셋을 한다 — 줄에 서기·살아 있다고 알리기·짝짓기(api.md §2).
+    // POST 하나가 셋을 한다 — 큐에 서기·살아 있다고 알리기·짝짓기(api.md §2).
     const res = http.post(`${BASE}/api/queue`, null, { headers, tags: { name: 'POST /api/queue' } });
     if (res.status !== 200) {
       rejects.add(1, { reason: `queue_${res.status}` });
@@ -55,7 +55,7 @@ export default function humanMatch() {
     sleep(QUEUE_INTERVAL);
   }
   if (room === '') {
-    // 짝이 안 잡힌 것도 결과다. 줄에서 스스로 빠진다 — 안 빠지면 다음 회차의
+    // 짝이 안 잡힌 것도 결과다. 큐에서 스스로 빠진다 — 안 빠지면 다음 회차의
     // 첫 짝이 이 유령과 잡힌다(seen_at 이 낡기까지 12초가 걸린다).
     queueTimeouts.add(1);
     http.del(`${BASE}/api/queue`, null, { headers });
