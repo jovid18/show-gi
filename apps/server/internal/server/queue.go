@@ -19,22 +19,22 @@ import (
 
 // 대기열의 HTTP 표면. 근거는 journal §92 · §98.
 //
-// 큐에 서는 그 요청이 짝짓기까지 한다. 리더도 sweeper 도 알림 채널도 없다 — 기다리는
+// 대기열에 서는 그 요청이 짝짓기까지 한다. 리더도 sweeper 도 알림 채널도 없다 — 기다리는
 // 쪽이 스스로 재시도하고, 그 호출이 heartbeat 와 만료 청소를 겸한다.
 //
 // WebSocket 이 아닌 이유는 기다리는 동안 서버가 할 말이 없기 때문이다. 짝은 상대가
-// 큐에 서는 순간 생기는데 그것을 아는 것은 그 사람의 요청이고, 알림을 붙이면 인스턴스
-// 사이의 통로가 하나 필요해진다 — 큐를 표로 둔 이유가 그것을 안 만드는 것이었다.
+// 대기열에 서는 순간 생기는데 그것을 아는 것은 그 사람의 요청이고, 알림을 붙이면 인스턴스
+// 사이의 통로가 하나 필요해진다 — 대기열을 표로 둔 이유가 그것을 안 만드는 것이었다.
 
 type queueHandler struct {
 	hub   *match.Hub
 	store *store.Store
 	auth  *authHandler
-	// metrics 는 nil 일 수 있다. 그때는 짝짓기가 안 세어지고 큐는 그대로 돈다.
+	// metrics 는 nil 일 수 있다. 그때는 짝짓기가 안 세어지고 대기열은 그대로 돈다.
 	metrics *metrics.Registry
 }
 
-// queuePayload 는 큐에 선 사람이 받는 답이다.
+// queuePayload 는 대기열에 선 사람이 받는 답이다.
 //
 // 상대에 대해 아무것도 안 준다. 짝이 잡혀도 이름조차 여기 없다 — 방에 붙으면 그때
 // 스냅샷이 준다(02-architecture.md §7 위협 2). 레이팅은 어느 쪽으로도 안 나간다.
@@ -44,10 +44,10 @@ type queuePayload struct {
 	// RoomID·YourColor 는 matched 에만 온다. 화면이 그 방으로 옮겨 간다.
 	RoomID    string `json:"roomId,omitempty"`
 	YourColor string `json:"yourColor,omitempty"`
-	// WaitedMs 는 큐에 선 뒤로 흐른 시간이다. 화면이 그것을 세지 않는 이유는 새로고침이다 —
+	// WaitedMs 는 대기열에 선 뒤로 흐른 시간이다. 화면이 그것을 세지 않는 이유는 새로고침이다 —
 	// 정본이 표에 있어야 탭을 다시 열어도 이어 센다(joined_at).
 	WaitedMs int64 `json:"waitedMs"`
-	// Waiting 은 지금 큐에 서 있는 사람 수다(자기 포함).
+	// Waiting 은 지금 대기열에 서 있는 사람 수다(자기 포함).
 	//
 	// 화면이 이걸 말해야 「안 잡히는 것」과 「고장」이 갈린다 — 동시 접속자가 없으면
 	// 안 잡히는 것을 그대로 받아들이기로 정했고(journal §92), 그러면 사람에게 그 사실을
@@ -60,14 +60,14 @@ const (
 	queueStatusMatched = "matched"
 )
 
-// join 은 큐에 서고, 그 자리에서 짝짓기까지 해 본다. 다시 물어보는 것도 이 경로다.
+// join 은 대기열에 서고, 그 자리에서 짝짓기까지 해 본다. 다시 물어보는 것도 이 경로다.
 //
 // 멱등이다. 한 사람이 한 행이고(match_queue 의 PK) 두 번째 호출은 seen_at 만 옮긴다 —
 // 화면의 재시도가 그대로 heartbeat 가 된다.
 func (h *queueHandler) join(w http.ResponseWriter, r *http.Request) {
 	s, ok := h.auth.viewer(r)
 	if !ok {
-		// 401이다. 새어 나갈 것이 없다 — 방과 달리 큐에는 「있다/없다」를 말할 대상이
+		// 401이다. 새어 나갈 것이 없다 — 방과 달리 대기열에는 「있다/없다」를 말할 대상이
 		// 없고, 화면은 이 답을 보고 「로그인하고 다시」를 그려야 한다(match.go 의 create).
 		writeJSON(w, http.StatusUnauthorized, map[string]any{
 			"error": "unauthorized", "message": "対局相手を探すにはログインが必要です。",
@@ -86,7 +86,7 @@ func (h *queueHandler) join(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 이미 잡힌 자리가 있으면 그것이 답이다. 짝짓기보다 먼저 본다 — 안 그러면 방으로
-	// 갈 사람이 큐에 다시 서고, 그 사이 상대는 아무도 안 오는 방에서 기다린다.
+	// 갈 사람이 대기열에 다시 서고, 그 사이 상대는 아무도 안 오는 방에서 기다린다.
 	switch seat, err := h.store.TakeQueueSeat(ctx, s.UserID); {
 	case err == nil:
 		writeJSON(w, http.StatusOK, queuePayload{
@@ -99,7 +99,7 @@ func (h *queueHandler) join(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 레이팅은 큐에 설 때 한 번 읽는다. 시드와 불확실성 복원이 여기서 얹힌다 —
+	// 레이팅은 대기열에 설 때 한 번 읽는다. 시드와 불확실성 복원이 여기서 얹힌다 —
 	// 판이 끝나고 갱신하는 쪽과 같은 자리를 쓴다(match_rating.go 의 currentRating).
 	mine, err := h.enqueue(ctx, s.UserID)
 	if err != nil {
@@ -117,7 +117,7 @@ func (h *queueHandler) join(w http.ResponseWriter, r *http.Request) {
 
 	waiting, err := h.store.QueueWaiting(ctx, fresh)
 	if err != nil {
-		// 세는 데 실패한 것뿐이다. 큐에는 서 있으므로 0으로 답한다 — 화면이 그때
+		// 세는 데 실패한 것뿐이다. 대기열에는 서 있으므로 0으로 답한다 — 화면이 그때
 		// 「탐색 중」만 그린다.
 		log.Printf("queue: count: %v", err)
 	}
@@ -130,7 +130,7 @@ func (h *queueHandler) join(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// enqueue 는 큐에 선다. 이미 서 있으면 살아 있다고 알리고 처음 값을 받아 온다.
+// enqueue 는 대기열에 선다. 이미 서 있으면 살아 있다고 알리고 처음 값을 받아 온다.
 func (h *queueHandler) enqueue(ctx context.Context, userID int64) (store.QueueWaiter, error) {
 	r := currentRating(ctx, h.store, userID)
 	return h.store.JoinQueue(ctx, userID, r.Value, r.Deviation)
@@ -142,7 +142,7 @@ func (h *queueHandler) enqueue(ctx context.Context, userID int64) (store.QueueWa
 // 이미 남에게 잡혔다) 아무도 안 오는 방이 남는다 — 반대로 이 순서에서 그 사이에
 // 프로세스가 죽으면 두 사람이 없는 방으로 가고, 그때 화면은 「열 수 없다」를 그린다.
 func (h *queueHandler) pair(ctx context.Context, s auth.Session, fresh time.Time) (store.QueueSeat, bool) {
-	// 색은 짝짓기 밖에서 뽑는다. 큐는 平手 확정 · 先手 랜덤이다(journal §92) — 手合은
+	// 색은 짝짓기 밖에서 뽑는다. 대기열은 平手 확정 · 先手 랜덤이다(journal §92) — 手合은
 	// 미리 만드는 방에만 두고, 레이팅 차를 手合으로 옮기는 계수가 없다.
 	//
 	// 방 id 도 여기서 뽑는다. 표에 적히는 값이라 방보다 먼저 있어야 한다.
@@ -167,7 +167,7 @@ func (h *queueHandler) pair(ctx context.Context, s auth.Session, fresh time.Time
 			}
 			opp, ok := findWaiter(candidates, picked.UserID)
 			if !ok {
-				return store.QueuePairing{}, false // 있을 수 없다. 방금 그 큐에서 골랐다
+				return store.QueuePairing{}, false // 있을 수 없다. 방금 그 대기열에서 골랐다
 			}
 			mine = me
 			return store.QueuePairing{
@@ -207,7 +207,7 @@ func queueUnavailable(w http.ResponseWriter) {
 	})
 }
 
-// leave 는 큐에서 빠진다. 없는 사람이 불러도 200이다 — 「이미 없다」와 「방금 지웠다」가
+// leave 는 대기열에서 빠진다. 없는 사람이 불러도 200이다 — 「이미 없다」와 「방금 지웠다」가
 // 화면에 같은 뜻이고, 탭을 닫는 자리에서 부르는 경로라 실패로 답할 이유가 없다.
 func (h *queueHandler) leave(w http.ResponseWriter, r *http.Request) {
 	s, ok := h.auth.viewer(r)
@@ -241,7 +241,7 @@ func waitersOf(ws []store.QueueWaiter) []queue.Waiter {
 	return out
 }
 
-// findWaiter 는 고른 사람을 표에서 온 큐에서 되찾는다. 이름이 그쪽에만 있다.
+// findWaiter 는 고른 사람을 표에서 온 대기열에서 되찾는다. 이름이 그쪽에만 있다.
 func findWaiter(ws []store.QueueWaiter, userID int64) (store.QueueWaiter, bool) {
 	for _, w := range ws {
 		if w.UserID == userID {

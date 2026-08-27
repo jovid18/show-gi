@@ -8,7 +8,7 @@ import { Counter, Trend } from 'k6/metrics';
 // 서버의 engine_search_duration_seconds 와 갈리는 자리다(저쪽은 탐색 하나다).
 export const moveCycle = new Trend('showgi_move_cycle', true);
 
-// 짝이 잡히기까지 큐에서 기다린 시간. 서버도 재지만(match_pairing_wait_seconds)
+// 짝이 잡히기까지 대기열에서 기다린 시간. 서버도 재지만(match_pairing_wait_seconds)
 // 이쪽은 못 잡힌 회차까지 안다.
 export const queueWait = new Trend('showgi_queue_wait', true);
 

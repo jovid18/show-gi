@@ -7,7 +7,7 @@
 
 -- name: JoinQueue :one
 --
--- 큐에 서거나, 이미 서 있으면 살아 있다고 알린다. 한 사람이 한 행이라 멱등이다.
+-- 대기열에 서거나, 이미 서 있으면 살아 있다고 알린다. 한 사람이 한 행이라 멱등이다.
 --
 -- 두 번째 호출이 레이팅을 다시 안 쓴다. 서 있는 동안 그 값이 바뀔 수가 없고(대기 중에
 -- 판이 끝나지 않는다), 다시 쓰면 joined_at 을 지키는 의미가 없어진다 — 밴드가 그 값으로
@@ -33,14 +33,14 @@ RETURNING room_id, color;
 
 -- name: LeaveQueue :exec
 --
--- 큐에서 빠진다. 짝이 잡힌 행도 지운다 — 화면을 떠난 사람의 자리를 남겨 두면 상대가
+-- 대기열에서 빠진다. 짝이 잡힌 행도 지운다 — 화면을 떠난 사람의 자리를 남겨 두면 상대가
 -- 아무도 안 오는 방에서 기다린다.
 DELETE FROM match_queue WHERE user_id = $1;
 
 -- name: SweepQueue :exec
 --
--- 낡은 행을 걷는다. 큐에 서는 그 요청이 부른다 — 리더도 sweeper 도 두지 않는 것이
--- 이 큐의 설계다(journal §92).
+-- 낡은 행을 걷는다. 대기열에 서는 그 요청이 부른다 — 리더도 sweeper 도 두지 않는 것이
+-- 이 대기열의 설계다(journal §92).
 --
 -- 두 가지를 한 문장에서 건다. 다시 안 물어보는 대기자($1 보다 오래된 seen_at)와,
 -- 짝이 잡혔는데 안 찾아간 자리($2 보다 오래된 matched_at)다.
@@ -75,7 +75,7 @@ FOR UPDATE SKIP LOCKED;
 --
 -- 레이팅으로 미리 자른다($3·$4). 밴드가 아니라 그 상한이고(queue.MaxBand) 두 가지를 한다.
 -- 잠기는 행이 「붙을 가능성이 있는 사람」으로 줄어서 남의 짝짓기가 헛돌지 않고, 후보
--- 앞머리가 밴드 밖으로 채워지지 않는다 — 안 자르면 큐가 길 때 앞머리 20줄이 전부 밴드
+-- 앞머리가 밴드 밖으로 채워지지 않는다 — 안 자르면 대기열이 길 때 앞머리 20줄이 전부 밴드
 -- 밖일 수 있고, 그때 짝이 있는데도 안 잡힌다.
 --
 -- 이 폭은 어떤 밴드보다 넓다. 좁게 자르면 붙을 수 있는 짝을 잠그기 전에 버린다.
@@ -83,7 +83,7 @@ FOR UPDATE SKIP LOCKED;
 -- 이름을 같이 든다. 짝을 지으면 그 자리에서 방을 세워야 하고(match.Hub.CreatePaired) 방은
 -- 두 사람의 표시 이름을 든다 — 따로 읽으면 그 사이에 사람이 사라진 경우가 하나 더 생긴다.
 --
--- 잠그는 것은 큐 행이다(OF q). users 를 같이 잠그면 로그인 하나가 짝짓기를 기다린다.
+-- 잠그는 것은 대기열 행이다(OF q). users 를 같이 잠그면 로그인 하나가 짝짓기를 기다린다.
 SELECT q.user_id, q.rating, q.deviation, q.joined_at, u.display_name
 FROM match_queue q
          JOIN users u ON u.id = q.user_id
@@ -104,5 +104,5 @@ WHERE user_id = $1 AND room_id IS NULL;
 
 -- name: CountQueueWaiting :one
 --
--- 지금 큐에 서 있는 사람 수다. 화면에 나가지 않는다 — 운영 확인과 테스트용이다.
+-- 지금 대기열에 서 있는 사람 수다. 화면에 나가지 않는다 — 운영 확인과 테스트용이다.
 SELECT count(*) FROM match_queue WHERE room_id IS NULL AND seen_at >= $1;

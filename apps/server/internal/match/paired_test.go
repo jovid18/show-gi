@@ -10,7 +10,7 @@ import (
 // 이 파일이 지키는 것은 대기열이 지은 방 하나다(journal §92 · §98). 링크로 만든 방과
 // 갈리는 자리만 본다 — 나머지는 room_test.go 가 이미 지킨다.
 
-// 큐 방은 상대가 이미 정해져 있다. 링크 방식과 정반대라, 방 id 를 알아도 제3자가
+// 대기열 방은 상대가 이미 정해져 있다. 링크 방식과 정반대라, 방 id 를 알아도 제3자가
 // 앉을 수 없어야 한다.
 func TestPairedRoomAdmitsOnlyTheTwo(t *testing.T) {
 	h := newTestHub(t)
@@ -59,8 +59,8 @@ func TestPairedRoomIsNotWaiting(t *testing.T) {
 	}
 }
 
-// 큐 방은 상한을 안 건드린다. 큐에 선 사람이 따로 열어 둔 초대 링크가 조용히 죽으면
-// 안 되고, 반대로 초대 링크를 여는 것이 큐 방을 걷어가서도 안 된다.
+// 대기열 방은 상한을 안 건드린다. 대기열에 선 사람이 따로 열어 둔 초대 링크가 조용히 죽으면
+// 안 되고, 반대로 초대 링크를 여는 것이 대기열 방을 걷어가서도 안 된다.
 func TestPairedRoomAndTheInviteLinkCoexist(t *testing.T) {
 	h := newTestHub(t)
 
@@ -68,21 +68,21 @@ func TestPairedRoomAndTheInviteLinkCoexist(t *testing.T) {
 	paired := h.CreatePaired(NewRoomID(), alice, shogi.Black, bob)
 
 	if _, err := h.Peek(invite.ID, alice.UserID); err != nil {
-		t.Errorf("큐 방을 세우면서 초대 링크가 죽었다: %v", err)
+		t.Errorf("대기열 방을 세우면서 초대 링크가 죽었다: %v", err)
 	}
 	if _, err := h.Peek(paired.ID, alice.UserID); err != nil {
-		t.Errorf("큐 방을 못 읽는다: %v", err)
+		t.Errorf("대기열 방을 못 읽는다: %v", err)
 	}
 
-	// 반대 방향. 새 초대 링크가 큐 방을 걷어가지 않는다 — 손님이 앉은 방은 필터에서
+	// 반대 방향. 새 초대 링크가 대기열 방을 걷어가지 않는다 — 손님이 앉은 방은 필터에서
 	// 이미 빠진다(dropSurplusLocked).
 	h.Create(alice, shogi.Black)
 	if _, err := h.Peek(paired.ID, alice.UserID); err != nil {
-		t.Errorf("새 초대 링크가 큐 방을 걷어갔다: %v", err)
+		t.Errorf("새 초대 링크가 대기열 방을 걷어갔다: %v", err)
 	}
 }
 
-// 큐 방도 둘이 다 붙어야 시작한다. 링크 방식과 같은 규약이다 — 한 사람만 와 있는
+// 대기열 방도 둘이 다 붙어야 시작한다. 링크 방식과 같은 규약이다 — 한 사람만 와 있는
 // 판에서 시계가 돌면 상대가 안 온 것이 시간패가 된다.
 func TestPairedRoomStartsOnlyWhenBothConnect(t *testing.T) {
 	h := newTestHub(t)

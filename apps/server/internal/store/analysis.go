@@ -12,7 +12,7 @@ import (
 )
 
 // 미리 재는 手의 큐(018)의 표 접근. 정책은 하나도 없다 — 리스 길이도 폴링 간격도 부르는
-// 쪽이 준다(server.matchAnalyzer). 큐와 같은 규약이다.
+// 쪽이 준다(server.matchAnalyzer). 대기열과 같은 규약이다.
 
 // AnalysisPly 는 아직 안 잰 手 하나다. 재는 데 필요한 입력이 전부 여기 있다.
 type AnalysisPly struct {

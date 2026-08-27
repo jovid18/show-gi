@@ -84,7 +84,7 @@ func TestPickIsFifoInsideTheBand(t *testing.T) {
 	}
 }
 
-// 밴드 밖은 건너뛴다. 첫 줄이 안 맞으면 다음 줄을 본다 — 앞에서 멈추면 줄 하나가
+// 밴드 밖은 건너뛴다. 첫 후보가 안 맞으면 다음을 본다 — 앞에서 멈추면 후보 하나가
 // 뒤의 모든 짝을 막는다.
 func TestPickSkipsOutsideTheBand(t *testing.T) {
 	me := waiter(9, 1500, 0)

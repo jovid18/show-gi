@@ -237,13 +237,13 @@ func New(service, environment string) *Registry {
 	// 넷을 더하면 그 선을 넘고, 그 결정은 밴드 상수를 실제로 재는 회차에 같이 온다
 	// (journal §92의 남은 것). 그때까지는 /metrics 와 컨테이너 안에서 읽는다.
 	//
-	// 대기 중인 사람을 게이지로 안 센다. 큐는 표에 있고(match_queue) 프로세스가 그것을
+	// 대기 중인 사람을 게이지로 안 센다. 대기열은 표에 있고(match_queue) 프로세스가 그것을
 	// 소유하지 않아서, 인스턴스마다 올렸다 내리면 탭을 닫은 사람이 영영 안 내려간다 —
 	// 「지금 몇 명이 기다리나」는 표를 세는 쪽이 답한다(store.QueueWaiting).
 	r.MatchPairings = r.NewCounter("match_pairings_total",
 		"대기열이 지은 짝 수")
 	r.MatchPairingWait = r.NewHistogram("match_pairing_wait_seconds",
-		"짝이 잡히기까지 큐에서 기다린 시간(초). 짝마다 두 사람 몫이 들어간다", DefaultBuckets)
+		"짝이 잡히기까지 대기열에서 기다린 시간(초). 짝마다 두 사람 몫이 들어간다", DefaultBuckets)
 	// 경계가 밴드의 어휘다. 상한이 BaseMax(800)를 넘어가는 것은 불확실성이 얹히기
 	// 때문이다(queue.Band) — 서로를 모르는 두 사람은 그보다 먼 격차로도 붙는다.
 	r.MatchPairingGap = r.NewHistogram("match_pairing_rating_gap",

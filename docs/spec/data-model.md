@@ -13,7 +13,7 @@ erDiagram
     users ||--o| skill_profile : "1:0..1"
     users ||--o{ games : "0..N (익명 판은 NULL)"
     users ||--o{ explore_snapshots : "0..N"
-    users ||--o| match_queue : "1:0..1 (큐에 서 있는 동안만)"
+    users ||--o| match_queue : "1:0..1 (대기열에 서 있는 동안만)"
 
     games ||--o{ game_moves : "확정된 수만"
     games ||--o{ interventions : "앱이 건 개입"
@@ -122,11 +122,11 @@ erDiagram
     }
 
     match_queue {
-        bigint user_id PK, FK "한 사람이 한 행 — 큐에 서는 것이 멱등이다"
-        float8 rating "큐에 설 때 읽은 값 (시드·복원이 얹혀 있다)"
+        bigint user_id PK, FK "한 사람이 한 행 — 대기열에 서는 것이 멱등이다"
+        float8 rating "대기열에 설 때 읽은 값 (시드·복원이 얹혀 있다)"
         float8 deviation
         timestamptz joined_at "밴드가 이 값으로 넓어진다"
-        timestamptz seen_at "낡으면 큐에서 빠진다"
+        timestamptz seen_at "낡으면 대기열에서 빠진다"
         text room_id "NULL = 아직 기다린다"
         text color "'b' | 'w' — 잡힌 방에서 잡을 쪽"
         timestamptz matched_at

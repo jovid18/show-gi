@@ -17,18 +17,18 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 이 파일이 지키는 것은 큐에 선 두 사람이 같은 방에서 만나는가다. 고르는 규칙 자체는
+// 이 파일이 지키는 것은 대기열에 선 두 사람이 같은 방에서 만나는가다. 고르는 규칙 자체는
 // internal/queue 가 DB 없이 지킨다.
 //
-// 진짜 DB가 필요하다. 큐가 표이고(016_match_queue.sql) 여기서 재는 것 대부분이
-// 「두 요청이 같은 큐를 본다」라서, 표를 흉내내면 잴 것이 남지 않는다.
+// 진짜 DB가 필요하다. 대기열이 표이고(016_match_queue.sql) 여기서 재는 것 대부분이
+// 「두 요청이 같은 대기열을 본다」라서, 표를 흉내내면 잴 것이 남지 않는다.
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
 //
 // 격리는 레이팅으로 한다(queueBase). 표를 비우지 않는 이유는 CI 가 패키지들을 같은 DB 에
-// 동시에 걸기 때문이다 — 비우면 그 순간 큐에 서 있던 남의 테스트가 깨진다.
+// 동시에 걸기 때문이다 — 비우면 그 순간 대기열에 서 있던 남의 테스트가 깨진다.
 //
-// 그래서 「큐에 몇 명인가」를 정확한 수로 단정하지 않는다. 그 값은 표 전체를 세는 제품
+// 그래서 「대기열에 몇 명인가」를 정확한 수로 단정하지 않는다. 그 값은 표 전체를 세는 제품
 // 질의라(store.QueueWaiting) 남의 테스트가 섞인다. 내 행이 몇 개인가는 rows 가 따로 센다.
 type queueFixture struct {
 	h     http.Handler
@@ -84,8 +84,8 @@ func queueServer(t *testing.T, people int) queueFixture {
 	}
 	codec := auth.NewCodec(opts.SessionSecret)
 
-	// 실행마다 다른 사람이어야 한다. 남은 큐 행을 물려받으면 두 번째 실행에서 짝이
-	// 엉뚱하게 잡힌다 — 큐는 「지금 서 있는 사람」이 전부인 표라 그 사고가 조용하다.
+	// 실행마다 다른 사람이어야 한다. 남은 대기열 행을 물려받으면 두 번째 실행에서 짝이
+	// 엉뚱하게 잡힌다 — 대기열은 「지금 서 있는 사람」이 전부인 표라 그 사고가 조용하다.
 	stamp := t.Name() + "-" + time.Now().Format("150405.000000000")
 	users := make([]queueUser, 0, people)
 	for i := range people {
@@ -95,7 +95,7 @@ func queueServer(t *testing.T, people int) queueFixture {
 			t.Fatalf("upsert %s: %v", uid, err)
 		}
 		t.Cleanup(func() {
-			// users 를 지우면 큐 행이 딸려 간다(ON DELETE CASCADE).
+			// users 를 지우면 대기열 행이 딸려 간다(ON DELETE CASCADE).
 			if _, err := st.Pool().Exec(context.Background(), `DELETE FROM users WHERE id = $1`, id); err != nil {
 				t.Errorf("정리: %v", err)
 			}
@@ -135,8 +135,8 @@ func (f queueFixture) rate(t *testing.T, of func(i int) float64) {
 	}
 }
 
-// rows 는 그 사람이 큐에 들고 있는 행 수다. 0이나 1이어야 한다 — 표의 PK 가 그것을
-// 보장하지만, 「큐에 두 번 섰나」를 재는 자리에서 남의 테스트를 안 세려면 이쪽이 필요하다.
+// rows 는 그 사람이 대기열에 들고 있는 행 수다. 0이나 1이어야 한다 — 표의 PK 가 그것을
+// 보장하지만, 「대기열에 두 번 섰나」를 재는 자리에서 남의 테스트를 안 세려면 이쪽이 필요하다.
 func (f queueFixture) rows(t *testing.T, u queueUser) int {
 	t.Helper()
 	var n int
@@ -148,7 +148,7 @@ func (f queueFixture) rows(t *testing.T, u queueUser) int {
 	return n
 }
 
-// poll 은 큐에 서거나 다시 물어본다. 화면이 하는 것과 같은 호출이다.
+// poll 은 대기열에 서거나 다시 물어본다. 화면이 하는 것과 같은 호출이다.
 func (f queueFixture) poll(t *testing.T, u queueUser) queuePayload {
 	t.Helper()
 	rec := do(f.h, http.MethodPost, "/api/queue", u.cookie)
@@ -184,7 +184,8 @@ func (f queueFixture) pollUntilMatched(t *testing.T, u queueUser) queuePayload {
 	return got
 }
 
-// 로그인하지 않으면 큐에 못 선다. 익명은 서로 구별할 수단이 없어서 짝짓기가 성립하지 않는다.
+// 로그인하지 않으면 대기열에 못 선다. 익명은 서로 구별할 수단이 없어서 짝짓기가
+// 성립하지 않는다.
 func TestJoiningTheQueueNeedsSignIn(t *testing.T) {
 	f := queueServer(t, 1)
 
@@ -197,7 +198,7 @@ func TestJoiningTheQueueNeedsSignIn(t *testing.T) {
 }
 
 // 혼자 서면 안 잡힌다. 동시 접속자가 없으면 안 잡히는 것을 그대로 받아들이기로
-// 정했고(journal §92), 그때 화면이 말할 것이 「큐에 몇 명인가」다.
+// 정했고(journal §92), 그때 화면이 말할 것이 「대기열에 몇 명인가」다.
 func TestOneWaiterIsNotPaired(t *testing.T) {
 	f := queueServer(t, 1)
 	me := f.users[0]
@@ -210,15 +211,15 @@ func TestOneWaiterIsNotPaired(t *testing.T) {
 		t.Errorf("방이 %q 인데 짝이 없다", got.RoomID)
 	}
 	if f.rows(t, me) != 1 {
-		t.Errorf("내 행이 %d개, want 1 — 큐에 서지 못했다", f.rows(t, me))
+		t.Errorf("내 행이 %d개, want 1 — 대기열에 서지 못했다", f.rows(t, me))
 	}
 	// 자기 자신은 세어진다. 정확한 수를 안 보는 이유는 이 파일 머리에 있다.
 	if got.Waiting < 1 {
-		t.Errorf("큐에 %d명 — 자기 자신이 안 세어졌다", got.Waiting)
+		t.Errorf("대기열에 %d명 — 자기 자신이 안 세어졌다", got.Waiting)
 	}
 }
 
-// 다시 물어보는 것이 멱등이다. 큐가 늘지 않고 선 시각도 안 밀린다 — 밀리면 밴드가
+// 다시 물어보는 것이 멱등이다. 대기열이 늘지 않고 선 시각도 안 밀린다 — 밀리면 밴드가
 // 매 재시도마다 처음으로 돌아가서 영영 안 넓어진다.
 func TestPollingDoesNotResetTheWait(t *testing.T) {
 	f := queueServer(t, 1)
@@ -267,7 +268,7 @@ func TestTwoWaitersMeetInOneRoom(t *testing.T) {
 	if again := f.poll(t, first); again.Status != queueStatusWaiting {
 		t.Errorf("같은 자리를 두 번 받았다: %+v", again)
 	}
-	// 위 호출로 다시 큐에 섰다. 뒷정리는 users 삭제가 한다(CASCADE).
+	// 위 호출로 다시 대기열에 섰다. 뒷정리는 users 삭제가 한다(CASCADE).
 
 	// 그 방은 두 사람의 것이다. 제3자는 없는 방과 같은 답을 받는다(match.Hub.CreatePaired).
 	if _, err := f.hub.Peek(paired.RoomID, first.id); err != nil {
@@ -325,7 +326,7 @@ func TestFarApartWaitersAreNotPaired(t *testing.T) {
 	if got.Status != queueStatusWaiting {
 		t.Fatalf("약한 사람: %+v, want waiting — 밴드 밖인데 붙었다", got)
 	}
-	// 둘 다 큐에 남아 있다.
+	// 둘 다 대기열에 남아 있다.
 	for _, u := range f.users {
 		if n := f.rows(t, u); n != 1 {
 			t.Errorf("%s: 행이 %d개, want 1", u.name, n)
@@ -333,7 +334,7 @@ func TestFarApartWaitersAreNotPaired(t *testing.T) {
 	}
 }
 
-// 큐에서 빠지면 짝이 안 된다. 탭을 닫는 자리에서 부르는 경로다.
+// 대기열에서 빠지면 짝이 안 된다. 탭을 닫는 자리에서 부르는 경로다.
 func TestLeavingTheQueueRemovesTheWaiter(t *testing.T) {
 	f := queueServer(t, 2)
 	left, other := f.users[0], f.users[1]
@@ -368,6 +369,6 @@ func TestThreeWaitersLeaveOneBehind(t *testing.T) {
 		t.Fatalf("셋째: %+v, want waiting — 이미 짝이 있는 사람과 붙었다", got)
 	}
 	if n := f.rows(t, third); n != 1 {
-		t.Errorf("셋째의 행이 %d개, want 1 — 큐에 남아 있어야 한다", n)
+		t.Errorf("셋째의 행이 %d개, want 1 — 대기열에 남아 있어야 한다", n)
 	}
 }

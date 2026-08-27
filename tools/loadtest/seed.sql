@@ -34,7 +34,7 @@ ON CONFLICT (provider, provider_uid) DO NOTHING;
 -- 그때는 낙폭 추정치에서 시드를 만든다(rating.SeedFromLoss).
 --
 -- 밴드가 대기로 넓어지는 것을 보려면 벌려야 하고, 그 회차는 사람이 둘이다. 이유가
--- 두 조건이 겹쳐서다. 큐는 아무 둘이나 밴드 안에 있으면 붙이므로(internal/queue 의
+-- 두 조건이 겹쳐서다. 대기열은 아무 둘이나 밴드 안에 있으면 붙이므로(internal/queue 의
 -- Pairable) 기준은 최소 쌍거리인데,
 --
 --   최소 쌍거리 > 360          처음 섰을 때의 밴드(Base0 200 + sd 80 + sd 80)

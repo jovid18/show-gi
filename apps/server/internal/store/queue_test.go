@@ -13,8 +13,8 @@ import (
 // pairWith 는 그 사람이 후보로 올라오면 짝을 짓는 고르기다. 밴드를 안 본다 — 여기서
 // 재는 것은 「누구를 고르나」가 아니라 「두 번 고를 수 있나」다.
 //
-// 그런데 id 를 받아야 한다. 큐는 표 하나에 사람마다 한 행이고 CI 는 패키지들을 같은 DB 에
-// 동시에 거는데, 아무나 집으면 이 테스트가 그 순간 큐에 서 있던 남의 테스트 대기자를
+// 그런데 id 를 받아야 한다. 대기열은 표 하나에 사람마다 한 행이고 CI 는 패키지들을 같은 DB 에
+// 동시에 거는데, 아무나 집으면 이 테스트가 그 순간 대기열에 서 있던 남의 테스트 대기자를
 // 낚아채 간다 — 그쪽은 「짝이 안 잡혀야 한다」를 재고 있고, 그래서 그쪽만 빨개진다.
 func pairWith(roomID string, only int64) func(QueueWaiter, []QueueWaiter) (QueuePairing, bool) {
 	return func(_ QueueWaiter, candidates []QueueWaiter) (QueuePairing, bool) {
@@ -60,7 +60,7 @@ func pairEventually(
 	return pairing, err
 }
 
-// 큐에 서고 짝이 잡히고 자리를 찾아가기까지. 자리는 한 번만 나가야 한다.
+// 대기열에 서고 짝이 잡히고 자리를 찾아가기까지. 자리는 한 번만 나가야 한다.
 func TestQueueSeatIsHandedOutOnce(t *testing.T) {
 	s := open(t)
 	a := owner(t, s, "a")
@@ -186,7 +186,7 @@ func TestMutualPairingSucceedsOnce(t *testing.T) {
 	}
 }
 
-// 다시 안 물어보는 사람은 큐에서 빠지고, 안 찾아간 자리도 걷힌다. 큐에 sweeper 가
+// 다시 안 물어보는 사람은 대기열에서 빠지고, 안 찾아간 자리도 걷힌다. 대기열에 sweeper 가
 // 없으므로(journal §92) 이 문장이 유일한 청소다.
 func TestSweepDropsStaleRowsAndUnclaimedSeats(t *testing.T) {
 	s := open(t)
@@ -244,7 +244,7 @@ func TestSweepDropsStaleRowsAndUnclaimedSeats(t *testing.T) {
 		t.Fatalf("QueueWaiting: %v", err)
 	}
 	if n < 1 {
-		t.Errorf("큐에 %d명, want 1 이상", n)
+		t.Errorf("대기열에 %d명, want 1 이상", n)
 	}
 }
 
