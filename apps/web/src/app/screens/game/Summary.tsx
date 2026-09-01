@@ -93,7 +93,7 @@ function Focus({ focus, gameId }: { focus: NonNullable<GameSummary['stats']['foc
  * 아직 안 온 동안에도 자리를 잡는다. 기록이 다 쓰이기를 기다려 늦게 오는데, 그때 자리가
  * 없으면 문장이 도착하는 순간 아래 버튼들이 밀려 내려가 누르던 손이 어긋난다.
  */
-export function Summary({ summary }: { summary: GameSummary | null }) {
+export function Summary({ summary, imported = false }: { summary: GameSummary | null; imported?: boolean }) {
   return (
     <section className="summary" aria-label="この対局のふりかえり">
       <h2 className="summary__head">ふりかえり</h2>
@@ -112,7 +112,10 @@ export function Summary({ summary }: { summary: GameSummary | null }) {
               <dd>{summary.stats.playerMoves}</dd>
             </div>
             <div>
-              <dt>戻した回数</dt>
+              {/* 취해 온 판에서는 아무도 그 수를 막지 않았다. 「戻した回数」라고 적으면
+                  없던 일을 있었다고 말하는 것이 된다 — 문장도 같은 자리에서 갈린다
+                  (`explain.GameFacts.Intervened`). */}
+              <dt>{imported ? '悪手の数' : '戻した回数'}</dt>
               <dd>{summary.stats.interventions}</dd>
             </div>
           </dl>

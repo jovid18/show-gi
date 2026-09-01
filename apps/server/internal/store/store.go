@@ -844,6 +844,7 @@ func (s *Store) ListGames(ctx context.Context, limit int, ownerID *int64) ([]Gam
 			ID: r.ID, MyColor: r.MyColor,
 			StartedAt: r.StartedAt.Time, FinishedAt: r.FinishedAt.Time,
 			Result: r.Result, StartSFEN: r.StartSfen, MatchID: r.MatchID,
+			ImportedFrom: r.ImportedFrom,
 		}, r.MoveCount, r.InterventionCount))
 	}
 	return out, nil
@@ -863,6 +864,7 @@ func (s *Store) ListGamesAnyOwner(ctx context.Context, limit int) ([]GameSummary
 			ID: r.ID, MyColor: r.MyColor,
 			StartedAt: r.StartedAt.Time, FinishedAt: r.FinishedAt.Time,
 			Result: r.Result, StartSFEN: r.StartSfen, MatchID: r.MatchID,
+			ImportedFrom: r.ImportedFrom,
 		}, r.MoveCount, r.InterventionCount))
 	}
 	return out, nil

@@ -4823,10 +4823,24 @@ body {
   gap: 0.75rem;
 }
 
+/* 파일 상자 자신은 안 보인다. 라벨이 그 자리를 맡는다(ImportScreen) — 기본 버튼의
+   글자는 브라우저가 자기 언어로 정해서 이 화면에만 일본어가 아닌 것이 남는다.
+   `display: none` 이 아니다: 그러면 키보드로 못 닿는다. */
 .import__file {
-  flex: 1 1 14rem;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* 고른 파일 이름. 라벨이 「무엇을 골랐나」를 안 말하므로 이 줄이 그 자리를 맡는다. */
+.import__filename {
   font-size: 0.8125rem;
-  color: var(--fg-2);
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .import__button {
@@ -4846,9 +4860,23 @@ body {
   background: var(--brand-soft);
 }
 
-.import__button:disabled {
+.import__button:disabled,
+.import__button[data-disabled] {
   opacity: 0.5;
   cursor: default;
+}
+
+/* 라벨이 버튼 노릇을 한다. 안의 상자가 감춰져 있어 글자만 남는다. */
+label.import__button {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+/* 키보드로 상자에 닿았을 때. 상자가 안 보이므로 테가 라벨에 서야 한다. */
+label.import__button:focus-within {
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
 }
 
 /* 취해 오기. 화면에서 가장 센 하나다 — 읽기는 몇 번이든 다시 할 수 있지만 이쪽은

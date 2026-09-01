@@ -107,6 +107,10 @@ SELECT
     (SELECT count(*) FROM game_moves m WHERE m.game_id = g.id) AS move_count,
     (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count,
     g.match_id,
+    -- 재채점이 취해 온 판을 빼야 한다. 그 판에는 개입 루프가 안 돌아서 임계치를 넘은
+    -- 수가 기보에 그대로 남아 있고, 섞으면 「통과한 수는 임계치 아래」가 깨진다
+    -- (calibrate_measure_test.go).
+    g.imported_from,
     -- 재채점이 手合割을 알아야 한다(internal/handicap). 기준점이 판마다 다르면 낙폭을
     -- 판을 가로질러 비교할 수 없고, 그 비교가 이 질의를 쓰는 유일한 이유다(journal §39).
     g.start_sfen

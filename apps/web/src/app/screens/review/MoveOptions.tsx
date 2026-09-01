@@ -242,9 +242,14 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
             </button>
 
             {/* 왜 나빴는지는 고른 줄에만. 넷을 한꺼번에 펼치면 목록이 글이 된다. */}
-            {chosen === o.usi && (o.retracted?.message || o.blunder?.message) && (
-              <p className="review-iv-note">{o.retracted?.message || o.blunder?.message}</p>
-            )}
+            {chosen === o.usi && o.retracted?.message && <p className="review-iv-note">{o.retracted.message}</p>}
+
+            {/* 취해 온 판의 悪手는 고르는 것과 무관하게 편다.
+
+                그 줄은 실제로 둔 수라 눌러도 분기가 안 열리고(`onPick` 의 played),
+                그래서 위 조건으로는 문구에 닿는 길이 아예 없다. 목록이 글이 되지도
+                않는다 — 한 국면에 悪手 줄은 하나뿐이다. */}
+            {o.blunder?.message && <p className="review-iv-note">{o.blunder.message}</p>}
           </li>
         ))}
       </ul>

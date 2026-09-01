@@ -638,7 +638,9 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
 
         {/* 날짜·결과 바로 아래다. 셋 다 「이 판이 어떤 판이었나」이고, 아래의 패널들은
             「지금 보고 있는 手数」다 — 성격이 갈리는 자리에 선이 그어져야 한다. */}
-        {summary.state !== 'error' && <Summary summary={summary.state === 'ready' ? summary.data : null} />}
+        {summary.state !== 'error' && (
+          <Summary summary={summary.state === 'ready' ? summary.data : null} imported={game.imported === true} />
+        )}
 
         {/* 퀴즈로 가는 문. 링크다 — 주소 하나가 화면 하나라 새 탭과 링크 복사가 살아 있어야
             한다(App.tsx). 문항이 없는 판에서도 열린다: 있는지 없는지는 그 화면이 말한다.

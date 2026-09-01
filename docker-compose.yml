@@ -48,6 +48,10 @@ services:
       # 티어. 비우면 both 다. 로컬에서 갈라 보려면 SERVER_ROLE=interactive 로 띄운다 —
       # 안 뚫어 두면 그 확인이 조용히 both 로 돌아 「갈렸다」로 잘못 읽힌다
       SERVER_ROLE: ${SERVER_ROLE:-}
+      # 취해 온 기보의 정규화. 없으면 그 폴백만 꺼지고, 결정적 파서로 읽히는 기보는
+      # 그대로 들어온다(internal/kifunorm). 모델은 안 적으면 코드의 기본값이다
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
       # 비우는 것이 기본이다. Vite는 Host를 안 고쳐 넘기므로 서버가 요청에서
       # `http://localhost:5173` 을 그대로 되짚는다 — 등록한 redirect URI와 같다
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}

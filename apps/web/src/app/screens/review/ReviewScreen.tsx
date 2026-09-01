@@ -98,8 +98,11 @@ function GameCard({ game }: { game: GameSummary }) {
         </span>
       ) : (
         // 0회도 적는다. 止まらなかった것도 성적이다 — 빈 자리로 두면 셌는지조차 안 보인다.
+        //
+        // 취해 온 판은 「悪手」다. 아무도 안 막았으므로 「介入」이라고 적으면 없던 일을
+        // 있었다고 말하는 것이 된다 — 총평·기보 표식과 같은 자리다(docs/journal §126).
         <span className="review-card-iv" data-none={game.interventionCount === 0 || undefined}>
-          介入 {game.interventionCount}回
+          {game.imported === true ? '悪手' : '介入'} {game.interventionCount}回
         </span>
       )}
     </>

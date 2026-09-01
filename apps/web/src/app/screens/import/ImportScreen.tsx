@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useKifuImport } from '@/hooks/useKifuImport';
 import type { ChosenResult } from '@/protocol/kifu';
@@ -23,8 +23,8 @@ export function ImportScreen() {
   const [text, setText] = useState('');
   const [color, setColor] = useState<MyColor | null>(null);
   const [chosen, setChosen] = useState<ChosenResult | null>(null);
+  const [fileName, setFileName] = useState('');
   const { phase, preview, error, read, submit, reset } = useKifuImport();
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const busy = phase !== 'idle';
 
@@ -41,6 +41,7 @@ export function ImportScreen() {
   const pickFile = useCallback(
     async (file: File | undefined) => {
       if (!file) return;
+      setFileName(file.name);
       changeText(await file.text());
     },
     [changeText],
@@ -79,14 +80,20 @@ export function ImportScreen() {
       />
 
       <div className="import__row">
-        <input
-          ref={fileRef}
-          type="file"
-          accept={ACCEPT}
-          className="import__file"
-          disabled={busy}
-          onChange={(e) => void pickFile(e.target.files?.[0])}
-        />
+        {/* 파일 상자는 감추고 라벨을 버튼처럼 쓴다. `<input type="file">` 의 기본 버튼은
+            글자를 브라우저가 정하므로(한국어 브라우저에서 「파일 선택」이 뜬다) 화면에
+            일본어가 아닌 것이 섞인다 — 이 앱에서 그건 그 자리에서 「번역이 덜 된 앱」이다. */}
+        <label className="import__button" data-disabled={busy || undefined}>
+          ファイルを選ぶ
+          <input
+            type="file"
+            accept={ACCEPT}
+            className="import__file"
+            disabled={busy}
+            onChange={(e) => void pickFile(e.target.files?.[0])}
+          />
+        </label>
+        {fileName !== '' && <span className="import__filename">{fileName}</span>}
         <button
           type="button"
           className="import__button"

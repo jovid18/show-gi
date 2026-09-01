@@ -30,18 +30,58 @@ func TestRenderSummaryCoversEveryCombination(t *testing.T) {
 			for _, tr := range []Trend{TrendUnknown, TrendImproved, TrendWorsened, TrendSteady} {
 				for _, w := range weights {
 					for _, top := range tops {
-						f := GameFacts{Outcome: o, Top: top, Weight: w, Phase: p, Trend: tr, Level: intervene.Beginner}
-						got := RenderSummary(f)
-						if got == "" {
-							t.Fatalf("%+v: 빈 문장", f)
-						}
-						if n := len([]rune(got)); n > SummaryMaxRunes {
-							t.Fatalf("%+v: 총평이 %d자다 (상한 %d): %q", f, n, SummaryMaxRunes, got)
+						// 개입이 돈 판과 취해 온 판 둘 다 돈다. 문구가 그 값으로 갈리므로
+						// (phraseTop) 한쪽만 돌면 다른 쪽의 조합이 시험을 안 지난다.
+						for _, iv := range []bool{true, false} {
+							f := GameFacts{
+								Outcome: o, Top: top, Weight: w, Phase: p, Trend: tr,
+								Level: intervene.Beginner, Intervened: iv,
+							}
+							got := RenderSummary(f)
+							if got == "" {
+								t.Fatalf("%+v: 빈 문장", f)
+							}
+							if n := len([]rune(got)); n > SummaryMaxRunes {
+								t.Fatalf("%+v: 총평이 %d자다 (상한 %d): %q", f, n, SummaryMaxRunes, got)
+							}
 						}
 					}
 				}
 			}
 		}
+	}
+}
+
+// 취해 온 판에서는 아무도 그 수를 막지 않았다. 「戻す」로 말하면 없던 일을 있었다고
+// 말하는 것이고, 그건 이 화면에서 가장 새기 쉬운 거짓이다(journal §126).
+func TestSummaryDoesNotSayItWasStoppedWhenNothingWas(t *testing.T) {
+	cats := [][]intervene.Category{
+		nil,
+		{intervene.CategoryHangsPiece},
+		{intervene.CategoryHangsPiece, intervene.CategoryOther},
+	}
+	for _, top := range cats {
+		for _, w := range []Weight{WeightNone, WeightOnce, WeightSome, WeightMany} {
+			f := GameFacts{Outcome: OutcomeLost, Top: top, Weight: w, Intervened: false}
+			got := RenderSummary(f)
+			for _, bad := range []string{"戻し", "戻す"} {
+				if strings.Contains(got, bad) {
+					t.Errorf("%+v: 아무도 안 막았는데 %q 라고 한다: %q", f, bad, got)
+				}
+			}
+		}
+	}
+}
+
+// 개입이 돈 판에서는 그대로 「戻す」로 말한다. 위 시험이 지나가려고 문구를 통째로
+// 바꿔 버리는 것을 막는다.
+func TestSummaryStillSaysStoppedWhenItWas(t *testing.T) {
+	f := GameFacts{
+		Outcome: OutcomeLost, Top: []intervene.Category{intervene.CategoryHangsPiece},
+		Weight: WeightOnce, Intervened: true,
+	}
+	if got := RenderSummary(f); !strings.Contains(got, "戻し") {
+		t.Errorf("개입이 돈 판인데 안 막았다는 듯이 말한다: %q", got)
 	}
 }
 

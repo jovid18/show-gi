@@ -53,7 +53,19 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 		stuckRuns  = map[int]int{}
 		stuckGames int
 	)
+	imported := 0
 	for _, g := range games {
+		// 취해 온 기보는 이 모집단이 아니다(journal §126).
+		//
+		// 여기가 재구성하는 것은 「개입 루프가 돈 판」이다 — 임계치를 넘은 수는 물러져서
+		// 기보에 없고, 그래서 아래 검증이 「통과한 수는 임계치 아래」를 참으로 쓴다.
+		// 취해 온 판에서는 아무도 안 막았으므로 그 수가 기보에 그대로 남아 있고, 섞으면
+		// 그 검증이 ply 연결이 틀렸다고 말한다. 실제로 그렇게 빨개졌다.
+		if g.Imported {
+			imported++
+			continue
+		}
+
 		rec, err := s.GameRecordAnyOwner(t.Context(), g.ID)
 		if err != nil {
 			t.Fatalf("GameRecord(%d): %v", g.ID, err)
@@ -81,7 +93,7 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 
 	// ─── 표본 ────────────────────────────────────────────────────────
 	var b strings.Builder
-	fmt.Fprintf(&b, "\n표본 — 평가치가 기록된 판 %d개\n", len(scored))
+	fmt.Fprintf(&b, "\n표본 — 평가치가 기록된 판 %d개 (취해 온 기보 %d개는 뺐다)\n", len(scored), imported)
 	fmt.Fprintf(&b, "%6s %6s %9s %6s  %s\n", "game", "총수", "채점가능", "개입", "결과")
 	accepted, fired := 0, 0
 	for _, sg := range scored {
