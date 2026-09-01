@@ -94,9 +94,11 @@ type judged struct {
 	beforeCp int
 	afterCp  int
 	move     skill.Move
-	// category·bestCp 는 취해 온 판의 悪手 줄에만 쓴다(interventions). 대인전은 개입이
-	// 없어 언제나 빈 값이고, 스칼라와 짧은 문자열이라 이 구조체를 가볍게 둔 이유
-	// (explain.Facts 의 태그 슬라이스)에 안 걸린다.
+	// category·bestCp 는 취해 온 판의 悪手 줄에만 **읽힌다**(interventions). 대인전의 手도
+	// 같은 판정을 지나 값이 차지만 그쪽은 이 칸을 안 본다 — 개입이 없는 갈래다.
+	//
+	// 스칼라와 짧은 문자열이라 이 구조체를 가볍게 둔 이유(explain.Facts 의 태그 슬라이스)에
+	// 안 걸린다.
 	category string
 	bestCp   int
 }

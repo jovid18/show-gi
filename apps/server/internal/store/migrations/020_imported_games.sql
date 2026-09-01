@@ -29,8 +29,9 @@ CREATE INDEX IF NOT EXISTS games_imported_idx ON games (user_id, started_at)
 
 -- 미리 잰 手가 판정 결과까지 들고 있어야 취해 온 판의 悪手 줄이 만들어진다.
 --
--- 대인전은 이 두 칸이 언제나 NULL 이다 — 개입이 없는 판이라 카테고리를 쓸 자리가 없고,
--- 그쪽 경로는 이 칸을 안 읽는다(server 의 judged).
+-- 대인전의 手도 이 칸을 채운다. 그쪽 경로가 같은 intervene.Judge 를 지나므로(server 의
+-- judgeOne) 임계치를 넘은 手에는 카테고리가 붙는데, **대인전은 그것을 안 읽는다** —
+-- 개입이 없는 갈래라 悪手 줄을 만들지 않는다. 채워지는 것과 읽히는 것이 갈리는 자리다.
 ALTER TABLE analysis_plies ADD COLUMN IF NOT EXISTS category text;
 ALTER TABLE analysis_plies ADD COLUMN IF NOT EXISTS best_cp  int;
 

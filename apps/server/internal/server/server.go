@@ -295,7 +295,13 @@ func Handler(opts Options) http.Handler {
 		// 분석기가 없으면 열지 않는다 — 판만 남고 평가치가 영영 안 채워지는 자리가 되어
 		// 되짚기가 「解析しています」에 굳는다.
 		if a := opts.Match.analyzerOrNil(); a != nil {
-			kh := &kifuHandler{store: opts.Store, auth: ah, norm: opts.KifuNorm, analyzer: a}
+			kh := &kifuHandler{
+				store:    opts.Store,
+				auth:     ah,
+				norm:     opts.KifuNorm,
+				analyzer: a,
+				budget:   newTranscribeBudget(),
+			}
 			mux.HandleFunc("POST /api/kifu/parse", kh.parse)
 			mux.HandleFunc("POST /api/kifu/import", kh.create)
 		} else {

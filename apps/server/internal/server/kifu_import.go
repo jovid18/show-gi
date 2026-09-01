@@ -48,11 +48,19 @@ const (
 	importPreviewTail = 3
 )
 
+// importBodyMax 는 요청 몸통의 상한이다. 원문 상한(kifunorm.MaxInput)보다 넉넉하다 —
+// JSON 이스케이프와 나머지 칸이 원문 위에 얹히므로, 딱 맞게 걸면 상한 안쪽의 기보가
+// 길이 때문에 거절된다.
+const importBodyMax = 4*kifunorm.MaxInput + 1<<10
+
 type kifuHandler struct {
 	store    *store.Store
 	auth     *authHandler
 	norm     *kifunorm.Client
 	analyzer *matchAnalyzer
+	// budget 은 정규화를 부르는 횟수의 벽이다. 하루 몫이 판을 세는 자리라 이쪽을
+	// 안 막는다(kifu_budget.go).
+	budget *transcribeBudget
 }
 
 // importRequest 는 두 뿌리가 같이 쓰는 몸통이다. parse 는 Text 만 본다.
@@ -86,7 +94,8 @@ type importPreview struct {
 }
 
 func (h *kifuHandler) parse(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.viewer(w, r); !ok {
+	s, ok := h.viewer(w, r)
+	if !ok {
 		return
 	}
 	req, ok := decodeImport(w, r)
@@ -94,7 +103,7 @@ func (h *kifuHandler) parse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	g, notation, err := h.read(r.Context(), req.Text)
+	g, notation, err := h.read(r.Context(), s.UserID, req.Text)
 	if err != nil {
 		writeImportError(w, err)
 		return
@@ -135,7 +144,7 @@ func (h *kifuHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	g, notation, err := h.read(r.Context(), req.Text)
+	g, notation, err := h.read(r.Context(), s.UserID, req.Text)
 	if err != nil {
 		writeImportError(w, err)
 		return
@@ -171,7 +180,7 @@ func (h *kifuHandler) create(w http.ResponseWriter, r *http.Request) {
 //
 // **순서가 이 기능의 전제다.** 같은 기보가 언제나 같은 결과를 주는 것이 기본값이고,
 // 정규화는 그 기본값이 성립하지 않는 자리에만 선다(internal/kifunorm).
-func (h *kifuHandler) read(ctx context.Context, text string) (kifu.ParsedGame, kifu.Notation, error) {
+func (h *kifuHandler) read(ctx context.Context, userID int64, text string) (kifu.ParsedGame, kifu.Notation, error) {
 	if len(text) > kifunorm.MaxInput {
 		return kifu.ParsedGame{}, "", kifunorm.ErrTooLarge
 	}
@@ -180,6 +189,13 @@ func (h *kifuHandler) read(ctx context.Context, text string) (kifu.ParsedGame, k
 		return g, notation, nil
 	}
 	if h.norm == nil {
+		return kifu.ParsedGame{}, "", err
+	}
+	// 부르기 전에 몫을 센다. 여기서 막히면 결정적 파서가 낸 오류가 그대로 나가고,
+	// 사람에게는 「읽을 수 없는 기보」와 같은 화면이다 — 벽에 닿았다는 것을 알려 줄
+	// 값이 없다(알려 주면 그것이 곧 「다시 시도하면 된다」로 읽힌다).
+	if !h.budget.take(userID) {
+		log.Printf("kifu: user %d is over the transcription budget", userID)
 		return kifu.ParsedGame{}, "", err
 	}
 
@@ -238,7 +254,17 @@ func (h *kifuHandler) viewer(w http.ResponseWriter, r *http.Request) (auth.Sessi
 func decodeImport(w http.ResponseWriter, r *http.Request) (importRequest, bool) {
 	var req importRequest
 	// 원문 상한을 몸통에서 건다. 여기서 안 걸면 남이 이 프로세스의 메모리를 정한다.
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, kifunorm.MaxInput+1<<10)).Decode(&req); err != nil {
+	//
+	// 여유를 준다. JSON 이스케이프와 나머지 칸이 원문보다 크므로, 딱 맞게 걸면 상한
+	// 안쪽의 기보가 「형식이 틀렸다」로 거절된다.
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, importBodyMax)).Decode(&req); err != nil {
+		// 넘쳐서 끊긴 것은 「못 읽었다」가 아니다. 같은 문장을 주면 사람이 형식을
+		// 고치려 들고, 고칠 것은 길이다.
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			writeImportError(w, kifunorm.ErrTooLarge)
+			return importRequest{}, false
+		}
 		writeJSON(w, http.StatusBadRequest, map[string]any{
 			"error": "body", "message": "棋譜を読み取れませんでした。",
 		})

@@ -35,8 +35,8 @@ type MeasuredPly struct {
 	DeltaWin          float64
 	Threshold         float64
 	Decided           bool
-	// Category·BestCp 는 취해 온 판의 悪手 줄을 만드는 데만 쓴다. 대인전은 개입이 없어
-	// 언제나 빈 값이다(020_imported_games.sql).
+	// Category·BestCp 는 취해 온 판의 悪手 줄을 만드는 데만 **읽는다**. 대인전의 手도
+	// 같은 판정을 지나므로 값은 채워지지만 그쪽은 이 칸을 안 본다(020_imported_games.sql).
 	Category string
 	BestCp   int
 }

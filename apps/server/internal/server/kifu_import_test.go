@@ -259,3 +259,61 @@ func shuffleGameUSI(plies int) string {
 	}
 	return "position startpos moves " + strings.Join(moves, " ")
 }
+
+// 하루 몫은 판이 만들어지는 것을 센다. 옮겨 적는 일은 그 전에 일어나므로, 읽기만
+// 반복하는 사람은 그 벽에 영영 안 닿으면서 토큰을 계속 쓴다(journal §126).
+func TestTranscribeBudgetCapsTheHour(t *testing.T) {
+	now := time.Now()
+	b := newTranscribeBudget()
+	b.now = func() time.Time { return now }
+
+	for i := range maxTranscribesPerHour {
+		if !b.take(1) {
+			t.Fatalf("call %d was refused inside the budget", i+1)
+		}
+	}
+	if b.take(1) {
+		t.Error("the call past the budget went through")
+	}
+	// 사람마다 따로 센다. 한 사람이 다 쓰면 다른 사람이 못 읽는 것은 벽이 아니라 고장이다.
+	if !b.take(2) {
+		t.Error("another person was refused because of somebody else's calls")
+	}
+
+	// 창이 미끄러진다. 정시 초기화면 창이 바뀌는 순간에 두 배가 지나간다.
+	now = now.Add(time.Hour + time.Second)
+	if !b.take(1) {
+		t.Error("the budget never came back after the window passed")
+	}
+	// 창 밖으로 나간 사람은 표에서 지운다 — 안 지우면 이 맵이 로그인한 사람 수만큼 자란다.
+	if _, still := b.hits[2]; still {
+		t.Error("a person whose calls all fell out of the window is still held")
+	}
+}
+
+// nil 예산은 막지 않는다. 분석기 없이 만든 테스트용 핸들러가 그 모양이다.
+func TestNilBudgetLetsEverythingThrough(t *testing.T) {
+	var b *transcribeBudget
+	for range maxTranscribesPerHour + 5 {
+		if !b.take(1) {
+			t.Fatal("a nil budget refused a call")
+		}
+	}
+}
+
+// 넘쳐서 끊긴 몸통은 「못 읽었다」가 아니다. 같은 문장을 주면 사람이 형식을 고치려 든다.
+func TestAnOversizedBodySaysItIsTooLarge(t *testing.T) {
+	w := httptest.NewRecorder()
+	body := `{"text":"` + strings.Repeat("x", importBodyMax+1<<10) + `"}`
+	r := httptest.NewRequest(http.MethodPost, "/api/kifu/parse", strings.NewReader(body))
+	if _, ok := decodeImport(w, r); ok {
+		t.Fatal("accepted a body over the limit")
+	}
+	var got struct{ Error string }
+	if err := json.NewDecoder(w.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Error != "too_large" {
+		t.Errorf("error = %q, want too_large", got.Error)
+	}
+}
