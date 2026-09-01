@@ -84,8 +84,8 @@ type ClaimAnalysisPlyRow struct {
 
 // 안 잰 手 하나를 집는다. 없으면 0행이다.
 //
-// 리스를 시각으로 받는다($1 = 지금 - 리스). 상수를 SQL 에 안 적는 것은 큐가 밴드를
-// 안 적은 것과 같은 이유다 — 같은 값이 Go 와 SQL 에 두 벌 있으면 한쪽이 조용히 낡는다.
+// 리스를 시각으로 받는다($1 = 지금 - 리스). 상수를 SQL 에 안 적는 것은 대기열이
+// 밴드를 안 적은 것과 같은 이유다 — 같은 값이 Go 와 SQL 에 두 벌 있으면 한쪽이 조용히 낡는다.
 //
 // 낡은 리스를 도로 집는 것이 이 문장의 두 번째 일이다. 워커가 배포나 스팟 회수로
 // 사라지면 그 手는 claimed_at 만 찍힌 채 남고, 그 시각이 낡으면 여기가 되찾는다.
@@ -149,7 +149,7 @@ const dropAnalysisJob = `-- name: DropAnalysisJob :exec
 DELETE FROM analysis_jobs WHERE match_id = $1
 `
 
-// 그 판을 줄에서 걷는다. 다 재고 나서와, 반쪽이라 분석하지 않는 자리에서 부른다.
+// 그 판을 큐에서 걷는다. 다 재고 나서와, 반쪽이라 분석하지 않는 자리에서 부른다.
 func (q *Queries) DropAnalysisJob(ctx context.Context, matchID string) error {
 	_, err := q.db.Exec(ctx, dropAnalysisJob, matchID)
 	return err
@@ -176,12 +176,12 @@ type EnqueueAnalysisPlyParams struct {
 	Moves     []string
 }
 
-// 미리 재는 手의 줄(018). 메모리 채널이던 것을 표로 내렸고, 근거는 journal §115.
+// 미리 재는 手의 큐(018). 메모리 채널이던 것을 표로 내렸고, 근거는 journal §115.
 //
 // 모든 잠금이 SKIP LOCKED 다 — 워커가 서로를 기다리는 자리를 만들지 않는다
 // (LockQueueCandidates 와 같은 계열).
 //
-// 방금 둔 手를 줄에 세운다. 착수 경로가 이 문장을 기다리지 않는다 — 부르는 쪽이
+// 방금 둔 手를 큐에 세운다. 착수 경로가 이 문장을 기다리지 않는다 — 부르는 쪽이
 // 배수구 goroutine 이다(matchAnalyzer.drain).
 //
 // 두 번 세워도 한 행이다(ON CONFLICT). 착수 경로가 같은 手를 두 번 부를 수 있고
@@ -246,7 +246,7 @@ INSERT INTO analysis_jobs (match_id) VALUES ($1)
 ON CONFLICT (match_id) DO NOTHING
 `
 
-// 끝난 판의 줄(019). 자리는 games 가 들고 여기는 「무엇이 남았나」만 든다.
+// 끝난 판의 큐(019). 자리는 games 가 들고 여기는 「무엇이 남았나」만 든다.
 //
 // 판의 자리를 미리 세운다. 手数는 아직 비어 있어 집히지 않는다.
 //
@@ -265,7 +265,7 @@ SELECT EXISTS (
 )
 `
 
-// 그 판이 아직 줄에 있거나 도는 중인가. 되짚기가 이 값으로 「분석 중」과 「남지 않았다」를
+// 그 판이 아직 큐에 있거나 도는 중인가. 되짚기가 이 값으로 「분석 중」과 「남지 않았다」를
 // 가른다(server/review.go).
 //
 // games 를 지나 찾는다. 자리를 표에 옮겨 적지 않기 때문이고, 그 조인은 games_match_idx 가 받는다.
@@ -374,7 +374,7 @@ type ReadyAnalysisJobParams struct {
 // 자리가 다 찼다. 手数를 적으면 그때부터 집힌다.
 //
 // HoldAnalysisJob 이 세운 행을 채우는 것이 보통인데, 없으면 여기서 만든다. UPDATE 로만
-// 두면 그 앞이 한 번 실패했을 때 이 문장이 **조용히 아무 일도 안 하고** 그 판이 줄에
+// 두면 그 앞이 한 번 실패했을 때 이 문장이 **조용히 아무 일도 안 하고** 그 판이 큐에
 // 안 선다 — 되짚기는 그것을 「남지 않았다」로만 보여 주므로 아무도 못 알아챈다.
 func (q *Queries) ReadyAnalysisJob(ctx context.Context, arg ReadyAnalysisJobParams) error {
 	_, err := q.db.Exec(ctx, readyAnalysisJob, arg.MatchID, arg.Plies)

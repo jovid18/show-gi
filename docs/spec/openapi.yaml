@@ -494,7 +494,7 @@ paths:
         엔진을 지키는 것은 아래 슬롯 하나다.
 
         **엔진 슬롯이 1개다.** 풀은 대국이 쓰는 것과 같은 3개인데, 안 묶으면 검토 세 건이
-        엔진을 다 잡고 대국의 착수가 그 뒤에 줄을 선다.
+        엔진을 다 잡고 대국의 착수가 그 뒤에 큐에 선다.
       requestBody:
         required: true
         description: 본문 상한 16 KiB
@@ -750,12 +750,12 @@ paths:
       tags: [match]
       summary: 대기열에 서고, 그 자리에서 짝짓기까지 한다
       description: |
-        **한 호출이 셋을 한다** — 줄에 서기 · 살아 있다고 알리기 · 짝짓기. 멱등이라
-        화면은 2초마다 이것만 부르고, 멈추면 서버가 12초 뒤 줄에서 걷어낸다.
+        **한 호출이 셋을 한다** — 대기열에 서기 · 살아 있다고 알리기 · 짝짓기. 멱등이라
+        화면은 2초마다 이것만 부르고, 멈추면 서버가 12초 뒤 대기열에서 걷어낸다.
 
         리더도 sweeper 도 알림 채널도 없다. 청소는 이 요청이 문장 하나로 하고,
-        heartbeat 는 재시도가 겸한다 — 큐가 표라서(`match_queue`) 모든 인스턴스가
-        같은 줄을 본다.
+        heartbeat 는 재시도가 겸한다 — 대기열이 표라서(`match_queue`) 모든 인스턴스가
+        같은 대기열을 본다.
 
         **고르는 규칙은 밴드 안에서 FIFO 이고 밴드는 양쪽을 다 본다.** 조건이
         `abs(rA − rB) ≤ LEAST(band(tA), band(tB))` 이고 밴드에 두 사람의 RD 가 더해진다.
@@ -763,7 +763,7 @@ paths:
         **平手 확정 · 先手 랜덤.** 手合(駒落ち)은 미리 만드는 방에만 있다 — 레이팅 차를
         cp 로 환산하는 계수가 없다.
 
-        `matched` 는 **한 번만 나간다.** 다시 물어보면 그 사람은 줄에 새로 선다.
+        `matched` 는 **한 번만 나간다.** 다시 물어보면 그 사람은 대기열에 새로 선다.
       responses:
         '200':
           description: 기다리는 중이거나 짝이 잡혔다
@@ -774,7 +774,7 @@ paths:
         '503': { $ref: '#/components/responses/QueueUnavailable' }
     delete:
       tags: [match]
-      summary: 줄에서 빠진다
+      summary: 대기열에서 빠진다
       description: |
         없는 사람이 불러도 `204` 다 — 「이미 없다」와 「방금 지웠다」가 화면에 같은 뜻이고,
         탭을 닫는 자리에서 부르는 경로라 실패로 답할 이유가 없다.
@@ -900,7 +900,7 @@ components:
           schema: { $ref: '#/components/schemas/ApiError' }
     QueueUnavailable:
       description: |
-        `store_unavailable` — 줄이 표에 있어서(`match_queue`) 기록이 없는 배포에서는
+        `store_unavailable` — 대기열이 표에 있어서(`match_queue`) 기록이 없는 배포에서는
         못 선다. **방은 그대로 열린다** — 대인전의 다른 셋은 DB 를 안 탄다
       content:
         application/json:
@@ -1264,12 +1264,12 @@ components:
         waitedMs:
           type: integer
           description: |
-            줄에 선 뒤로 흐른 시간. **정본이 서버**라 새로고침해도 이어 센다 —
+            대기열에 선 뒤로 흐른 시간. **정본이 서버**라 새로고침해도 이어 센다 —
             화면이 세면 탭을 다시 열 때마다 0 으로 돌아간다
         waiting:
           type: integer
           description: |
-            지금 줄에 서 있는 사람 수(자기 포함). 화면이 이걸 말해야
+            지금 대기열에 서 있는 사람 수(자기 포함). 화면이 이걸 말해야
             「안 잡히는 것」과 「고장」이 갈린다
 
     QueueMatched:

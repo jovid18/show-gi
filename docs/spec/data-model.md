@@ -13,7 +13,7 @@ erDiagram
     users ||--o| skill_profile : "1:0..1"
     users ||--o{ games : "0..N (익명 판은 NULL)"
     users ||--o{ explore_snapshots : "0..N"
-    users ||--o| match_queue : "1:0..1 (줄에 서 있는 동안만)"
+    users ||--o| match_queue : "1:0..1 (대기열에 서 있는 동안만)"
 
     games ||--o{ game_moves : "확정된 수만"
     games ||--o{ interventions : "앱이 건 개입"
@@ -122,11 +122,11 @@ erDiagram
     }
 
     match_queue {
-        bigint user_id PK, FK "한 사람이 한 행 — 줄에 서는 것이 멱등이다"
-        float8 rating "줄에 설 때 읽은 값 (시드·복원이 얹혀 있다)"
+        bigint user_id PK, FK "한 사람이 한 행 — 대기열에 서는 것이 멱등이다"
+        float8 rating "대기열에 설 때 읽은 값 (시드·복원이 얹혀 있다)"
         float8 deviation
         timestamptz joined_at "밴드가 이 값으로 넓어진다"
-        timestamptz seen_at "낡으면 줄에서 빠진다"
+        timestamptz seen_at "낡으면 대기열에서 빠진다"
         text room_id "NULL = 아직 기다린다"
         text color "'b' | 'w' — 잡힌 방에서 잡을 쪽"
         timestamptz matched_at
@@ -192,9 +192,9 @@ erDiagram
 | **사람** (4)            | `users` · `skill_profile` · `explore_snapshots` · `match_queue`                         | `user_id`     | 그렇다               |
 | **판** (6)              | `games` · `game_moves` · `interventions` · `game_undos` · `game_hints` · `game_quizzes` | `game_id`     | `games.user_id` 로만 |
 | **국면** (3, 엔진 캐시) | `positions` · `edges` · `mate_positions`                                                | `sfen_key`    | **아니다**           |
-| **작업 줄** (2)         | `analysis_plies` · `analysis_jobs`                                                      | `match_id`    | **아니다**           |
+| **작업 큐** (2)         | `analysis_plies` · `analysis_jobs`                                                      | `match_id`    | **아니다**           |
 
-**작업 줄은 넷째 덩어리다.** 둘 다 방 id 로 묶이고 사람에도 판 번호에도 안 매인다. 수명이 다른 셋과 다르다: **판이 끝나면 걷힌다**(`DiscardAnalysisMatch`·`DropAnalysisJob`). 기록이 아니라 아직 안 한 일이라서다.
+**작업 큐는 넷째 덩어리다.** 둘 다 방 id 로 묶이고 사람에도 판 번호에도 안 매인다. 수명이 다른 셋과 다르다: **판이 끝나면 걷힌다**(`DiscardAnalysisMatch`·`DropAnalysisJob`). 기록이 아니라 아직 안 한 일이라서다.
 
 **자리도 수순도 여기 다 적히지는 않는다.** `analysis_jobs` 가 자리를 안 드는 것은 `games` 행 둘이 곧 두 자리이기 때문이고([journal §118](../journal/101-120.md)), `analysis_plies` 가 수순을 드는 것은 `game_moves` 에 구멍이 날 수 있어서다([journal §115](../journal/101-120.md)). **가르는 기준은 「정본이 이미 있는가」다.**
 

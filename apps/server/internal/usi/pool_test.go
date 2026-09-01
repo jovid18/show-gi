@@ -139,7 +139,7 @@ func TestPoolObservesWaitAndUse(t *testing.T) {
 		t.Fatalf("SetSize 를 안 불렀다: size=%d", m.size)
 	}
 
-	// 엔진 하나를 붙들고 있는 동안 다른 탐색이 줄을 선다. 그 대기가 지표에 남아야 한다.
+	// 엔진 하나를 붙들고 있는 동안 다른 탐색이 큐에 선다. 그 대기가 지표에 남아야 한다.
 	held, err := p.Acquire(t.Context())
 	if err != nil {
 		t.Fatalf("Acquire: %v", err)
@@ -167,7 +167,7 @@ func TestPoolObservesWaitAndUse(t *testing.T) {
 	if len(m.waits) != 2 {
 		t.Fatalf("대기 관측이 %d개 — 안 기다린 것도 0으로 남아야 한다", len(m.waits))
 	}
-	// 줄을 선 쪽은 붙들고 있던 시간만큼 기다렸다. 둘 중 하나가 그 값이어야 한다.
+	// 큐에 선 쪽은 붙들고 있던 시간만큼 기다렸다. 둘 중 하나가 그 값이어야 한다.
 	if max(m.waits[0], m.waits[1]) < 40*time.Millisecond {
 		t.Errorf("대기 시간이 %v — 기다린 것이 안 잡혔다", m.waits)
 	}
@@ -242,7 +242,7 @@ func TestPoolReportsBorrower(t *testing.T) {
 }
 
 // 사람이 기다리는 쪽이 먼저 받는다. 사후 분석이 풀을 다 쓰고 있어도 착수가 그 뒤로
-// 밀리지 않는 것이 이 줄의 이유다(journal §106).
+// 밀리지 않는 것이 이 큐의 이유다(journal §106).
 func TestAPersonWaitingGetsTheEngineFirst(t *testing.T) {
 	p := newFakePool(t, 1)
 
@@ -251,7 +251,7 @@ func TestAPersonWaitingGetsTheEngineFirst(t *testing.T) {
 		t.Fatalf("Acquire: %v", err)
 	}
 
-	// 분석이 먼저 줄에 선다. 채널이라면 이쪽이 먼저 받는다.
+	// 분석이 먼저 큐에 선다. 채널이라면 이쪽이 먼저 받는다.
 	got := make(chan string, 2)
 	analysis := make(chan struct{})
 	go func() {
@@ -292,7 +292,7 @@ func TestAPersonWaitingGetsTheEngineFirst(t *testing.T) {
 	}
 }
 
-// waitForWaiters 는 그 줄에 n 명이 설 때까지 기다린다. goroutine 이 Acquire 안까지
+// waitForWaiters 는 그 큐에 n 명이 설 때까지 기다린다. goroutine 이 Acquire 안까지
 // 들어갔는지를 밖에서 알 방법이 그것뿐이다.
 func waitForWaiters(t *testing.T, p *Pool, prio, n int) {
 	t.Helper()
@@ -310,7 +310,7 @@ func waitForWaiters(t *testing.T, p *Pool, prio, n int) {
 }
 
 // 기다리다 그만둔 사람이 엔진을 들고 사라지지 않는다. 넘겨주는 쪽이 이미 골랐는데
-// 받는 쪽이 포기하면 그 엔진은 아무 줄에도 없게 된다.
+// 받는 쪽이 포기하면 그 엔진은 아무 큐에도 없게 된다.
 func TestGivingUpWhileBeingHandedAnEngineDoesNotLoseIt(t *testing.T) {
 	p := newFakePool(t, 1)
 

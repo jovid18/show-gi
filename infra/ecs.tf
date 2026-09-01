@@ -243,7 +243,7 @@ resource "aws_ecs_task_definition" "app" {
       dependsOn = [{ containerName = "api", condition = "START" }]
     },
     merge(local.api_container, {
-      # 사람을 받는 티어다. both 라 줄을 세우기도 하고 집기도 한다.
+      # 사람을 받는 티어다. both 라 큐를 세우기도 하고 집기도 한다.
       #
       # 절약 모드의 자리다(journal §125). 분석 티어가 평시에 0대라 이 대가 겸하지 않으면
       # 밀린 手를 아무도 안 집는다 — 부하가 오면 알람이 전용 대를 부르고, 그때는 둘이
@@ -293,7 +293,7 @@ resource "aws_ecs_task_definition" "analysis" {
 
   container_definitions = jsonencode([
     merge(local.api_container, {
-      # 줄을 집는 티어다. /healthz·/metrics 말고는 전부 503 이다(cmd/api 의 analysisRole).
+      # 큐를 집는 티어다. /healthz·/metrics 말고는 전부 503 이다(cmd/api 의 analysisRole).
       environment = concat(local.api_env, [{ name = "SERVER_ROLE", value = "analysis" }])
 
       # DATABASE_URL 하나다. 로그인도 세션도 이 티어에 없으므로 나머지 셋은 줄 이유가 없고,

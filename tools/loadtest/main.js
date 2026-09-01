@@ -5,7 +5,7 @@
 // 것을 볼 수 있고, 그것이 이 회차의 주된 물음이다(journal §101).
 //
 //   MODE=engine   엔진 대국만. 쿠키는 있으면 쓰고 없으면 익명이다
-//   MODE=match    대인전만. 로그인·큐가 필요하다
+//   MODE=match    대인전만. 로그인·대기열이 필요하다
 //   MODE=both     둘을 동시에. 서로 굶히는지를 재는 회차다
 import engineGame from './engine.js';
 import humanMatch from './match.js';
@@ -81,7 +81,7 @@ export const options = {
 // 열린 뒤에 알게 되고, 그때는 이미 지워야 할 익명 판이 남는다.
 export function setup() {
   if (MODE !== 'engine' && (SESSION_SECRET === '' || LT_UIDS.length === 0)) {
-    throw new Error('대인전에는 SESSION_SECRET 과 LT_UIDS 가 둘 다 필요하다 — 쿠키가 없으면 줄에 설 수 없다');
+    throw new Error('대인전에는 SESSION_SECRET 과 LT_UIDS 가 둘 다 필요하다 — 쿠키가 없으면 대기열에 설 수 없다');
   }
 
   if (SESSION_SECRET === '' || LT_UIDS.length === 0) {
@@ -92,7 +92,7 @@ export function setup() {
   }
 
   // __VU 는 회차 전체에서 유일하다. 그래서 목록이 두 시나리오의 VU 합보다 짧으면 두
-  // VU 가 같은 사람을 잡고, 큐가 사람마다 한 행이라(match_queue 의 PK) 서로를 못 만난다.
+  // VU 가 같은 사람을 잡고, 대기열이 사람마다 한 행이라(match_queue 의 PK) 서로를 못 만난다.
   const need = (MODE === 'match' ? 0 : VUS_ENGINE) + (MODE === 'engine' ? 0 : VUS_MATCH);
   if (LT_UIDS.length < need) {
     throw new Error(`LT_UIDS 가 ${LT_UIDS.length}개인데 VU 가 ${need}개다 — 사람이 겹치면 짝이 안 잡힌다`);

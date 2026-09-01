@@ -132,7 +132,7 @@ func (e *Emitter) collect() []metric {
 		{"EngineSearches", "Count", e.delta("EngineSearches", r.Searches.Total())},
 		{"EngineSearchesCached", "Count", e.delta("EngineSearchesCached", r.Searches.SumFunc(cached))},
 		// 詰み 층은 이 둘로만 보인다. 풀 지표는 여전히 searchPool 필터를 지나서
-		// (아래 EnginePoolInUse) 詰み 풀이 줄을 섰는지는 프로덕션 데이터로 알 수 없다.
+		// (아래 EnginePoolInUse) 詰み 풀이 큐에 섰는지는 프로덕션 데이터로 알 수 없다.
 		//
 		// 두 값이 필요하다. 캐시가 일하는지는 비율이라, 부른 총수 없이 히트 수만 올리면
 		// 조용해진 것과 안 쓰이는 것이 같은 그림이 된다.
@@ -167,7 +167,7 @@ func (e *Emitter) collect() []metric {
 	// 한 번 비우고 셋으로 낸다. 두 번 부르면 두 번째가 빈 배열이다(DrainSamplesAll).
 	//
 	// 갈라 내는 것 둘이다. borrower=game 은 「대국이 실제로 굶었나」다 — 합친 값에는
-	// 사후 분석과 검토가 섞여 있어서 그쪽으로만 읽힌다. pool=mate 는 詰み 풀이 줄을
+	// 사후 분석과 검토가 섞여 있어서 그쪽으로만 읽힌다. pool=mate 는 詰み 풀이 큐에
 	// 섰나이고, 크기가 2라 대기가 0보다 큰 것 자체가 포화이므로 borrower 로 더 안
 	// 가른다(journal §111).
 	var searchAll, searchGame, mateAll []float64

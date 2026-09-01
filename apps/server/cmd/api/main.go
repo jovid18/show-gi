@@ -67,7 +67,7 @@ func main() {
 	// 기록에서 틀리고, 그 위에서 상수를 흔들어 보게 된다.
 	opts := server.Options{Level: intervene.Beginner}
 
-	// 티어. 줄을 집는가와 사람을 받는가를 여기서 한 번 읽는다 — 두 자리에서 각각
+	// 티어. 큐를 집는가와 사람을 받는가를 여기서 한 번 읽는다 — 두 자리에서 각각
 	// os.Getenv 하면 잘못 적은 값이 한쪽에서만 경고를 내고 다른 쪽은 조용히 갈린다.
 	role := analysisRole()
 	opts.Role = role
@@ -167,7 +167,7 @@ func main() {
 		// 겹치면 풀이 순서대로 빌려주고 그만큼 기다린다 — 지연은 여기서 허용된 비용이다.
 		//
 		// 검토(internal/server/explore.go)도 이 풀이다. 저쪽은 뿌리가 0手目라 아무
-		// 국면이나 물을 수 있어서 「그만큼 기다린다」로 두면 대국의 착수가 그 뒤에 줄을 선다 —
+		// 국면이나 물을 수 있어서 「그만큼 기다린다」로 두면 대국의 착수가 그 뒤에 큐에 선다 —
 		// 그래서 그 표면만 자기 슬롯을 하나 갖는다(exploreSlots, journal §85).
 		opts.Search = searcher
 
@@ -294,14 +294,14 @@ func analysisWorkers(poolSize int, role string) int {
 	return n
 }
 
-// analysisRole 은 이 프로세스가 어느 티어인가다. 정하는 것이 둘이다 — 줄을 집는가와
+// analysisRole 은 이 프로세스가 어느 티어인가다. 정하는 것이 둘이다 — 큐를 집는가와
 // 사람을 받는가. 손잡이는 SERVER_ROLE 이다.
 //
 // ROLE 이 아닌 이유는 그 이름이 이미 남의 것이기 때문이다 — .github/workflows 가
 // IAM 역할 ARN 을 그 이름으로 들고 있고, 밖에서 들어온 값이 하필 아래 셋 중 하나면
 // 티어가 조용히 갈린다. 다른 손잡이들과 같은 방식으로 주어를 붙였다(ENGINE_·ANALYSIS_).
 //
-//	interactive  집지 않는다. 사람을 받고 手를 줄에 세우기만 한다
+//	interactive  집지 않는다. 사람을 받고 手를 큐에 세우기만 한다
 //	analysis     집는다. /healthz·/metrics 만 세운다(server.Options.Role)
 //	both         집고 받는다. 태스크가 하나인 배포의 모양이고 기본이다
 //
@@ -407,7 +407,7 @@ func startMateEngines() *usi.Pool {
 	// (journal §53). 넷째는 게이트 없이 手마다 부른다(journal §110).
 	//
 	// 「대국 쪽에 늘 한 자리가 남는다」는 아니다. 두 판이 동시에 끝나면 둘이 두 자리를 다
-	// 잡는다. 탐색 하나마다 빌리고 돌려주므로(Pool.Do) 굶는 것이 아니라 줄을 서는 것이고,
+	// 잡는다. 탐색 하나마다 빌리고 돌려주므로(Pool.Do) 굶는 것이 아니라 큐에 서는 것이고,
 	// 대국 쪽은 그것을 지연으로 겪는다.
 	pool, err := usi.NewPool(matePoolSize(), cmd, map[string]string{
 		"USI_Hash": envOr("ENGINE_HASH_MB", "128"),

@@ -15,7 +15,7 @@ import (
 // 대인전 대기열의 표 접근. 정책은 하나도 없다 — 밴드도 만료 시간도 부르는 쪽이 준다
 // (internal/queue). 여기가 상수를 들면 그것을 흔들어 보는 데 DB가 필요해진다.
 
-// QueueWaiter 는 줄에 서 있는 한 사람이다. internal/queue.Waiter 와 같은 칸이고,
+// QueueWaiter 는 대기열에 서 있는 한 사람이다. internal/queue.Waiter 와 같은 칸이고,
 // 그 타입을 안 쓰는 이유는 store 가 그 패키지를 모르는 채로 있어야 하기 때문이다.
 type QueueWaiter struct {
 	UserID            int64
@@ -50,7 +50,8 @@ var ErrNoQueueSeat = errors.New("store: no queue seat")
 
 // SweepQueue 는 낡은 행을 걷는다. 다시 안 물어보는 대기자와 안 찾아간 자리 둘이다.
 //
-// 줄에 서는 그 요청이 부른다 — 리더도 sweeper 도 두지 않는 것이 이 큐의 설계다(journal §92).
+// 대기열에 서는 그 요청이 부른다 — 리더도 sweeper 도 두지 않는 것이 이 대기열의
+// 설계다(journal §92).
 func (s *Store) SweepQueue(ctx context.Context, staleBefore, pickupBefore time.Time) error {
 	err := s.q.SweepQueue(ctx, db.SweepQueueParams{
 		SeenAt:    stamp(staleBefore),
@@ -62,7 +63,7 @@ func (s *Store) SweepQueue(ctx context.Context, staleBefore, pickupBefore time.T
 	return nil
 }
 
-// JoinQueue 는 줄에 서고, 이미 서 있으면 살아 있다고 알린다. 한 사람이 한 행이라 멱등이다.
+// JoinQueue 는 대기열에 서고, 이미 서 있으면 살아 있다고 알린다. 한 사람이 한 행이라 멱등이다.
 //
 // 레이팅은 처음 설 때 한 번만 적힌다(query/queue.sql). 돌려주는 값은 표에 있는 것이라,
 // 두 번째 호출은 넘긴 값이 아니라 처음 값을 받는다 — 밴드가 그 위에서 돈다.
@@ -102,7 +103,7 @@ func (s *Store) TakeQueueSeat(ctx context.Context, userID int64) (QueueSeat, err
 	return QueueSeat{RoomID: *row.RoomID, Color: *row.Color}, nil
 }
 
-// LeaveQueue 는 줄에서 빠진다. 없는 사람을 지워도 에러가 아니다 — 「이미 없다」와
+// LeaveQueue 는 대기열에서 빠진다. 없는 사람을 지워도 에러가 아니다 — 「이미 없다」와
 // 「방금 지웠다」가 부르는 쪽에 같은 뜻이다.
 func (s *Store) LeaveQueue(ctx context.Context, userID int64) error {
 	if err := s.q.LeaveQueue(ctx, userID); err != nil {
@@ -111,7 +112,7 @@ func (s *Store) LeaveQueue(ctx context.Context, userID int64) error {
 	return nil
 }
 
-// QueueWaiting 은 지금 줄에 서 있는 사람 수다. 화면에 안 나간다 — 확인용이다.
+// QueueWaiting 은 지금 대기열에 서 있는 사람 수다. 화면에 안 나간다 — 확인용이다.
 func (s *Store) QueueWaiting(ctx context.Context, freshAfter time.Time) (int, error) {
 	n, err := s.q.CountQueueWaiting(ctx, stamp(freshAfter))
 	if err != nil {

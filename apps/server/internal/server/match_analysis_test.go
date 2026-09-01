@@ -534,7 +534,7 @@ func TestMoverFollowsTheSideThatMovedFirst(t *testing.T) {
 	}
 }
 
-// 줄에 서는 순간부터 「분석 중」이다. 워커가 그 판에 닿기 전이라도 화면이 기다릴 것을
+// 큐에 서는 순간부터 「분석 중」이다. 워커가 그 판에 닿기 전이라도 화면이 기다릴 것을
 // 알아야 한다.
 func TestQueuedGamesReadAsAnalyzing(t *testing.T) {
 	st, matchID, seats := matchSeatsForAnalysis(t, "", plyList(2))
@@ -554,7 +554,7 @@ func TestQueuedGamesReadAsAnalyzing(t *testing.T) {
 
 	a.enqueue(t.Context(), matchID, 2)
 	if !a.analyzing(t.Context(), one) {
-		t.Error("줄에 선 판이 분석 중이 아니다")
+		t.Error("큐에 선 판이 분석 중이 아니다")
 	}
 
 	a.dropJob(t.Context(), matchID)
@@ -663,7 +663,7 @@ func TestBacklogCountsGamesAndPlies(t *testing.T) {
 	}
 }
 
-// 자리가 반쪽인 판은 줄에서 걷히고 버린 것으로 세어진다.
+// 자리가 반쪽인 판은 큐에서 걷히고 버린 것으로 세어진다.
 //
 // 걷지 않으면 되짚기가 영영 「分析しています」로 남는다. 자리를 표에 옮겨 적지 않으므로
 // 반쪽인지는 games 를 읽어야 알고, 그 판정이 워커 쪽으로 옮겨 왔다(seatsOf).
@@ -680,7 +680,7 @@ func TestAHalfMatchLeavesTheQueue(t *testing.T) {
 	a.enqueue(t.Context(), matchID, 40)
 
 	if !a.runOneJob(t.Context()) {
-		t.Fatal("줄에 선 판을 안 집었다")
+		t.Fatal("큐에 선 판을 안 집었다")
 	}
 	if got := reg.AnalysisGames.SumFunc(func(l map[string]string) bool {
 		return l["result"] == metrics.AnalysisDropped
@@ -693,7 +693,7 @@ func TestAHalfMatchLeavesTheQueue(t *testing.T) {
 	}
 }
 
-// 프로세스가 사라져도 줄에 선 판은 안 없어진다.
+// 프로세스가 사라져도 큐에 선 판은 안 없어진다.
 //
 // 메모리 채널이던 동안은 재배포 한 번이 46판을 평가치 없이 남겼다(journal §105).
 // 이제 판이 표에 있으므로 다음 워커가 그대로 집는다 — 리스가 낡기를 기다릴 것도 없이,
@@ -761,7 +761,7 @@ func measureAhead(t *testing.T, a *matchAnalyzer, matchID string, want int) {
 
 // analyzerFor 는 판이 끝난 뒤의 분석만 보는 분석기다. 워커를 안 띄운다.
 //
-// 띄우면 그 워커가 다음 테스트의 手를 집어 간다 — 줄이 표가 된 뒤로 집는 질의가 판을
+// 띄우면 그 워커가 다음 테스트의 手를 집어 간다 — 큐가 표가 된 뒤로 집는 질의가 판을
 // 안 가리기 때문이다(query/analysis.sql). 워커가 실제로 도는 것을 재는 자리는
 // TestTheWorkerCountIsHonoured 하나다.
 func analyzerFor(st *store.Store, newAnalyst func() game.Analyst) *matchAnalyzer {
@@ -788,7 +788,7 @@ func testStore(t *testing.T) *store.Store {
 	return st
 }
 
-// clearPlies 는 미리 재는 줄을 비운다.
+// clearPlies 는 미리 재는 큐를 비운다.
 //
 // 집는 질의가 판을 안 가리므로(ClaimAnalysisPly) 남의 회차가 남긴 행이 있으면 이 회차의
 // 워커가 그것을 집는다. 비워도 잃는 사실이 없다 — 그 手는 판이 끝날 때 재어진다.
@@ -799,7 +799,7 @@ func clearPlies(t *testing.T, st *store.Store) {
 	}
 }
 
-// clearQueues 는 두 줄을 다 비운다. 집는 질의가 판을 안 가리므로 남의 회차가 남긴 행이
+// clearQueues 는 두 큐를 다 비운다. 집는 질의가 판을 안 가리므로 남의 회차가 남긴 행이
 // 있으면 이 회차의 셈에 들어온다.
 func clearQueues(t *testing.T, st *store.Store) {
 	t.Helper()
@@ -809,9 +809,9 @@ func clearQueues(t *testing.T, st *store.Store) {
 	}
 }
 
-// plyAnalyzer 는 미리 재는 줄만 쓰는 분석기와 그 판의 id 를 준다.
+// plyAnalyzer 는 미리 재는 큐만 쓰는 분석기와 그 판의 id 를 준다.
 //
-// 워커는 안 띄운다. 여기서 재는 것이 줄의 셈이고, 워커가 돌면 같은 手를 그쪽이 가져갈
+// 워커는 안 띄운다. 여기서 재는 것이 큐의 셈이고, 워커가 돌면 같은 手를 그쪽이 가져갈
 // 수 있어서 답이 실행마다 달라진다 — 워커가 하는 일은 손으로 한다(measureOnePly).
 func plyAnalyzer(t *testing.T, st *store.Store) (*matchAnalyzer, string) {
 	t.Helper()
@@ -909,7 +909,7 @@ func TestALookAheadFailureStopsMeasuringThatGame(t *testing.T) {
 	}
 }
 
-// 판이 줄을 떠난 뒤에 도착한 미리 재기는 자리를 다시 만들지 않는다. 만들면 그 항목을
+// 판이 큐를 떠난 뒤에 도착한 미리 재기는 자리를 다시 만들지 않는다. 만들면 그 항목을
 // 아무도 안 지워서 판마다 하나씩 샌다 — 워커가 둘 이상일 때 생기는 자리다(journal §106).
 func TestALateMeasurementDoesNotResurrectTheMatch(t *testing.T) {
 	a, matchID := plyAnalyzer(t, nil)
@@ -990,7 +990,7 @@ func TestTheBacklogCountsAnUnmeasuredMoveOnce(t *testing.T) {
 	a.enqueue(t.Context(), matchID, plies)
 	a.sampleBacklog(t.Context())
 	if got := reg.AnalysisBacklogPlies.Total() - base; got != plies {
-		t.Errorf("밀린 手 = %v, want %d (표와 줄이 같은 手를 같이 세고 있다)", got, plies)
+		t.Errorf("밀린 手 = %v, want %d (표와 큐가 같은 手를 같이 세고 있다)", got, plies)
 	}
 
 	// 끊은 手는 아무도 못 집는다. 집으면 analyze 와 같은 국면을 두 번 잰다.
@@ -999,10 +999,10 @@ func TestTheBacklogCountsAnUnmeasuredMoveOnce(t *testing.T) {
 	}
 }
 
-// 미리 다 잰 판이 줄에 서면 그 판이 드는 일이 0이다.
+// 미리 다 잰 판이 큐에 서면 그 판이 드는 일이 0이다.
 //
 // 세는 값과 실제가 어긋나면 차액이 영구히 남는다. 지표만 보면 「밀려 있다」로 읽히는데
-// 줄은 비어 있어서, 그 상태로는 밀린 것인지 못 센 것인지 가릴 수 없다.
+// 큐는 비어 있어서, 그 상태로는 밀린 것인지 못 센 것인지 가릴 수 없다.
 //
 // 게이지가 아니라 표를 본다. 게이지는 프로세스가 보는 전역 합이라 남의 자리가 남긴 행이
 // 섞이고, 여기서 지키려는 것은 「이 판이 얼마를 남기나」다.
@@ -1020,12 +1020,12 @@ func TestAFullyMeasuredGameQueuesNoWork(t *testing.T) {
 	a.enqueue(t.Context(), matchID, plies)
 	job, err := a.store.ClaimAnalysisJob(t.Context(), time.Now().Add(-jobLease))
 	if err != nil {
-		t.Fatalf("판이 줄에 안 섰다: %v", err)
+		t.Fatalf("판이 큐에 안 섰다: %v", err)
 	}
 	if job.MatchID != matchID {
 		t.Fatalf("집은 판 = %q, want %q", job.MatchID, matchID)
 	}
-	// 미리 다 쟀으므로 이 줄에서 엔진을 부를 일이 없다.
+	// 미리 다 쟀으므로 이 큐에서 엔진을 부를 일이 없다.
 	if job.Plies != 0 {
 		t.Errorf("안 잰 手数 = %d, want 0", job.Plies)
 	}
@@ -1073,7 +1073,7 @@ func TestTheWorkerCountIsHonoured(t *testing.T) {
 		a.dropJob(context.Background(), matchB)
 	})
 
-	// 판 단위 줄로 잰다. 판 하나가 워커 하나를 통째로 잡으므로 「둘이 동시에 도는가」가
+	// 판 단위 큐로 잰다. 판 하나가 워커 하나를 통째로 잡으므로 「둘이 동시에 도는가」가
 	// 그 자리에서 바로 보인다 — 手 쪽은 무엇이 언제 집히는지가 더 잘게 갈린다.
 	a.enqueue(t.Context(), matchA, 2)
 	a.enqueue(t.Context(), matchB, 2)
@@ -1107,11 +1107,11 @@ func TestNoWorkersQueuesButNeverClaims(t *testing.T) {
 	t.Cleanup(func() { a.dropJob(context.Background(), matchID) })
 
 	a.enqueue(t.Context(), matchID, 2)
-	// 워커는 뜨자마자 집으므로 이 창이면 넉넉하다(plyPollInterval 은 빈 줄에서만 쓴다).
+	// 워커는 뜨자마자 집으므로 이 창이면 넉넉하다(plyPollInterval 은 빈 큐에서만 쓴다).
 	time.Sleep(time.Second)
 
 	// 판정기 수로 잰다. run 이 맨 위에서 한 벌 만들므로 0이면 집는 쪽이 아예 없다.
-	// 「줄에 남았는가」로 재면 앞 테스트의 워커가 취소를 알아채기 전에 집어 가서 답이
+	// 「큐에 남았는가」로 재면 앞 테스트의 워커가 취소를 알아채기 전에 집어 가서 답이
 	// 실행마다 달라진다.
 	if n := built.Load(); n != 0 {
 		t.Errorf("판정기를 %d벌 만들었다 — 집는 쪽이 안 떠야 한다", n)
@@ -1133,14 +1133,14 @@ func TestNoWorkersQueuesButNeverClaims(t *testing.T) {
 		// 「섰다」는 참이고, 전역 셈만 보면 다시 안 참이 되어 실행마다 답이 달라진다.
 		rows, err := st.MeasuredAnalysisPlies(t.Context(), other)
 		return err == nil && len(rows) > 0
-	}, "미리 재는 줄에 手가 서지 않았다")
+	}, "미리 재는 큐에 手가 서지 않았다")
 }
 
 // 자리마다 판 번호와 사람이 짝지어 나간다. 실력 추정이 그 짝으로 手를 나누므로
 // (matchAnalyzer.updateSkill) 여기서 어긋나면 두 사람의 手가 한 프로파일에 쌓이고,
 // 그 값도 멀쩡한 범위에 있어서 아무것도 안 잡는다.
 //
-// 자리를 줄에 옮겨 적지 않는다(019). games 행 둘이 곧 두 자리라 이 함수가 그 규약의
+// 자리를 큐에 옮겨 적지 않는다(019). games 행 둘이 곧 두 자리라 이 함수가 그 규약의
 // 유일한 자리이고, 색을 코드 한 글자에서 되돌리는 것도 여기다.
 func TestSeatsComeFromTheGameRows(t *testing.T) {
 	st, matchID, made := matchSeatsForAnalysis(t, "", plyList(1))

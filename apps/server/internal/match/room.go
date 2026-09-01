@@ -148,13 +148,13 @@ func (h *Hub) Create(host Player, hostColor shogi.Color) *Room {
 //  1. id 를 받는다. 짝짓기가 그 값을 먼저 표에 적고(store.PairInQueue) 그 뒤에 이 방이
 //     서므로, 방이 id 를 뽑으면 표와 메모리가 다른 값을 들게 된다.
 //  2. 손님이 채워져 있다. Hub.Enter 에 화이트리스트가 없어서 방 id 만 있으면 아무나 빈
-//     자리에 앉는데(링크 방식에서는 그게 의도다), 큐 방식은 상대가 이미 정해져 있다 —
+//     자리에 앉는데(링크 방식에서는 그게 의도다), 대기열 방식은 상대가 이미 정해져 있다 —
 //     자리가 둘 다 찬 방이라 seatOfLocked 가 그 둘만 통과시킨다.
 //  3. 상한을 안 건다(dropSurplusLocked). 이 방은 손님이 있어서 애초에 그 필터에
 //     안 걸리고, 부르면 이 사람이 따로 열어 둔 초대 링크가 조용히 죽는다.
 //
 // 확인 화면도 여기서 같이 없어진다. 손님이 앉아 있으면 방이 waiting 이 아니고
-// (Hub.SeatOf) 화면은 그때 확인을 안 그린다(screens/match/MatchScreen.tsx) — 스스로 줄에
+// (Hub.SeatOf) 화면은 그때 확인을 안 그린다(screens/match/MatchScreen.tsx) — 스스로 대기열에
 // 선 사람에게는 「자리를 태워도 되나」를 물을 이유가 없다(journal §92).
 func (h *Hub) CreatePaired(id string, host Player, hostColor shogi.Color, guest Player) *Room {
 	now := h.cfg.now()

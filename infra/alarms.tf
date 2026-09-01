@@ -113,7 +113,7 @@ resource "aws_cloudwatch_metric_alarm" "server_errors" {
 # ─── 무엇이 느린가 ───────────────────────────────────────────
 
 # 엔진 풀 대기. 이 앱에서 지연의 원인은 거의 이것이다 — 풀이 프로덕션에서 탐색 2개뿐이고
-# (ecs.tf 의 ENGINE_POOL_SIZE) 빌리는 자리가 여섯이라, 겹치면 뒤에 온 요청이 줄을 선다.
+# (ecs.tf 의 ENGINE_POOL_SIZE) 빌리는 자리가 여섯이라, 겹치면 뒤에 온 요청이 큐에 선다.
 #
 # 보는 것은 borrower=game 이다. 합친 값에는 사후 분석과 검토가 섞여 있어서, 그쪽이 튀어도
 # 사람이 기다린 것인지 알 수 없다.
@@ -151,7 +151,7 @@ resource "aws_cloudwatch_metric_alarm" "engine_pool_wait" {
 
 # 사후 분석이 밀린다. 위의 engine_pool_wait 은 이 상태를 못 본다 — 대인전 포화에서
 # 사람의 풀 대기는 표본이 아예 0이었다(journal §107 · §108). 병목이 풀이 아니라
-# 「엔진이 낼 수 있는 탐색 수」라서, 대국은 우선줄이라 안 밀리고 분석만 줄을 선다.
+# 「엔진이 낼 수 있는 탐색 수」라서, 대국은 우선 큐라 안 밀리고 분석만 큐에 선다.
 #
 # 그래서 신호가 계열이 다르다. 이른 것은 EngineSearchSeconds 이고(대시보드가 맡는다)
 # 확정은 이 값의 지속 증가다. 실측으로 갈리는 폭이 넓다 — 6판이 최고 13에 0으로
@@ -164,12 +164,12 @@ resource "aws_cloudwatch_metric_alarm" "engine_pool_wait" {
 # 한꺼번에 들어오므로(journal §105) 단발로 100을 넘는 것은 정상이다 — 5분을 넘겨
 # 머무르는 것이 「따라가지 못하고 있다」다.
 #
-# 태스크가 둘이어도 통계가 맞다. 줄이 표라(018·019) 게이지가 표를 읽은 전역 값이고
+# 태스크가 둘이어도 통계가 맞다. 큐가 표라(018·019) 게이지가 표를 읽은 전역 값이고
 # 태스크마다 같은 숫자를 올린다 — Maximum 이 그 값 그대로다(journal §119).
 # Sum 으로 바꾸면 태스크 수만큼 곱해진다.
 resource "aws_cloudwatch_metric_alarm" "analysis_backlog" {
   alarm_name          = "show-gi-analysis-backlog"
-  alarm_description   = "사후 분석 줄이 5분 내내 100手를 넘었다. 되짚기가 그만큼 늦게 준비된다 — 박스의 탐색 처리량이 도착을 못 따라가는 자리다(journal §108)"
+  alarm_description   = "사후 분석 큐가 5분 내내 100手를 넘었다. 되짚기가 그만큼 늦게 준비된다 — 박스의 탐색 처리량이 도착을 못 따라가는 자리다(journal §108)"
   namespace           = "show-gi"
   metric_name         = "AnalysisBacklogPlies"
   statistic           = "Maximum"
