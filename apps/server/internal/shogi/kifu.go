@@ -73,17 +73,21 @@ func vertJa(from, to int, c Color) string {
 // 좌우 — 두는 쪽에서 봤을 때 어느 쪽에서 왔는가.
 // 先手는 1筋이 오른쪽이므로 筋 번호가 작을수록 오른쪽이다.
 //
-// 같은 筋(d==0)이면 좌우로 갈리지 않는데도 「左」가 나온다 — disambiguate 가 「둘이 같은 라벨이면
-// 버린다」로 걸러내는 것을 전제한 값이다. 단독으로 부르지 않는다.
+// 같은 筋(d==0)은 좌도 우도 아니라서 빈 문자열이다. 그 자리를 「左」로 메우면 진짜 왼쪽에서
+// 온 駒와 라벨이 같아져 disambiguate 가 둘을 못 가르고, 그러면 같은 표기가 두 수를 가리킨다 —
+// 実 코퍼스 296판 중 16판에서 실제로 나왔다(journal §126). 그 자리는 直이나 상하가 맡는다.
 func horizJa(from, to int, c Color) string {
 	d := FileOf(from) - FileOf(to)
 	if c == White {
 		d = -d
 	}
-	if d < 0 {
+	switch {
+	case d < 0:
 		return "右"
+	case d > 0:
+		return "左"
 	}
-	return "左"
+	return ""
 }
 
 // MoveJa 는 수 하나를 棋譜 표기로 적는다.
@@ -159,6 +163,96 @@ func disambiguate(from, to int, cands []int, c Color) string {
 		return s
 	}
 	return "" // 여기까지 와서 갈리지 않는 경우는 실질적으로 없다
+}
+
+// IsOriginModifier 는 그 글자가 원위치 수식어인가 — 右左上引寄直.
+//
+// disambiguate 가 붙이는 어휘와 같은 표를 본다. 읽는 쪽과 쓰는 쪽이 다른 표를 보면
+// 이쪽이 만든 표기를 저쪽이 못 읽는 자리가 생긴다.
+func IsOriginModifier(r rune) bool {
+	switch r {
+	case '右', '左', '上', '引', '寄', '直':
+		return true
+	}
+	return false
+}
+
+// ResolveOrigin 은 원위치가 안 적힌 표기에서 출발칸을 되찾는다. disambiguate 의 반대 방향이다.
+//
+// KIF 는 「７六歩(77)」처럼 출발칸을 적지만 KI2 와 사람이 쓴 평문은 안 적는다. 후보는 룰
+// 엔진이 뽑고(movers) mods 가 거른다.
+//
+// 하나로 안 좁혀지면 실패한다. 골라 버리면 그 뒤의 수순이 통째로 다른 판이 되고, 결과가
+// 합법수라 ValidateMove 도 안 잡는다.
+//
+// mods 는 표기에 붙은 수식어를 순서 그대로 이어 붙인 것이다 — 「右上」이면 둘 다 건다.
+func (pos Position) ResolveOrigin(t PieceType, to int, mods string) (int, error) {
+	cands := pos.movers(t, to, pos.Turn)
+	switch len(cands) {
+	case 0:
+		return 0, fmt.Errorf("no %s can reach %s", kanjiPiece[t], SquareJa(to))
+	// 후보가 하나면 수식어는 뜻이 없다. 남이 굳이 붙여 놨어도 가리키는 곳이 하나다.
+	case 1:
+		return cands[0], nil
+	}
+	for _, r := range mods {
+		if !IsOriginModifier(r) {
+			return 0, fmt.Errorf("unknown modifier %q", string(r))
+		}
+	}
+
+	// ① 이 패키지가 그 국면에서 쓸 표기와 글자까지 같은 후보. disambiguate 의 정확한
+	//    반대라, 스스로 적은 표기는 언제나 여기서 걸린다.
+	//
+	//    독립 조건으로 거르는 것만으로는 모자란다 — 같은 筋의 駒는 좌우가 없어서
+	//    「引」 하나로 적히는데, 그것을 「vertJa 가 引인 것」으로 읽으면 왼쪽에서 온
+	//    「左引」의 駒까지 같이 걸린다(journal §126).
+	if f, ok := onlyOne(cands, func(f int) bool {
+		return disambiguate(f, to, cands, pos.Turn) == mods
+	}); ok {
+		return f, nil
+	}
+
+	// ② 남이 적은 표기. 같은 국면을 다른(그러나 옳은) 수식어로 적는 도구가 있어서,
+	//    수식어를 하나씩 조건으로 걸어 좁힌다.
+	if f, ok := onlyOne(cands, func(f int) bool {
+		for _, r := range mods {
+			if !matchesModifier(r, f, to, pos.Turn) {
+				return false
+			}
+		}
+		return true
+	}); ok {
+		return f, nil
+	}
+
+	return 0, fmt.Errorf("%d %s can reach %s, %q does not say which", len(cands), kanjiPiece[t], SquareJa(to), mods)
+}
+
+// onlyOne 은 조건에 맞는 후보가 정확히 하나일 때만 그것을 준다.
+func onlyOne(cands []int, ok func(int) bool) (int, bool) {
+	found, n := 0, 0
+	for _, f := range cands {
+		if ok(f) {
+			found, n = f, n+1
+		}
+	}
+	return found, n == 1
+}
+
+// matchesModifier 는 수식어 하나가 그 출발칸을 가리키는가. IsOriginModifier 가 참인
+// 글자만 온다.
+func matchesModifier(r rune, from, to int, c Color) bool {
+	switch r {
+	case '上', '引', '寄':
+		return vertJa(from, to, c) == string(r)
+	// 直 은 바로 아래에서 곧장 올라온 것이다. disambiguate 가 붙이는 조건과 같다.
+	case '直':
+		return FileOf(from) == FileOf(to) && vertJa(from, to, c) == "上"
+	case '右', '左':
+		return horizJa(from, to, c) == string(r)
+	}
+	return false
 }
 
 // LineJa 는 수순 전체를 棋譜 표기로 옮긴다. "pass"(手抜き)는 빈 문자열로 남긴다.
