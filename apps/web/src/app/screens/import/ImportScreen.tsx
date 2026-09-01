@@ -19,12 +19,20 @@ import { navigate } from '@/routes/router';
 /** 받는 파일. 어느 쪽이든 안이 글자라 브라우저가 읽어 상자에 붓는다. */
 const ACCEPT = '.kif,.kifu,.ki2,.csa,.txt,text/plain';
 
+/**
+ * 받는 파일의 크기. 서버의 원문 상한과 같다(`kifunorm.MaxInput`).
+ *
+ * 읽기 전에 본다. 읽고 나서 막으면 브라우저가 그 파일을 통째로 문자열로 만든 뒤이고,
+ * 큰 파일에서는 그 사이에 탭이 멈춘다.
+ */
+const MAX_BYTES = 64 * 1024;
+
 export function ImportScreen() {
   const [text, setText] = useState('');
   const [color, setColor] = useState<MyColor | null>(null);
   const [chosen, setChosen] = useState<ChosenResult | null>(null);
   const [fileName, setFileName] = useState('');
-  const { phase, preview, error, read, submit, reset } = useKifuImport();
+  const { phase, preview, error, read, submit, reset, fail } = useKifuImport();
 
   const busy = phase !== 'idle';
 
@@ -42,9 +50,13 @@ export function ImportScreen() {
     async (file: File | undefined) => {
       if (!file) return;
       setFileName(file.name);
+      if (file.size > MAX_BYTES) {
+        fail('棋譜が大きすぎます。1局分だけ貼り付けてください。');
+        return;
+      }
       changeText(await file.text());
     },
-    [changeText],
+    [changeText, fail],
   );
 
   /** 기보가 결과를 말하면 안 묻는다. 기록이 사람의 기억보다 맞다. */

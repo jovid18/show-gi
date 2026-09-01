@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -315,5 +316,35 @@ func TestAnOversizedBodySaysItIsTooLarge(t *testing.T) {
 	}
 	if got.Error != "too_large" {
 		t.Errorf("error = %q, want too_large", got.Error)
+	}
+}
+
+// 千日手는 shogi.ValidateMove 가 안 막는다. 합법 수순만으로 몇 천 手를 적을 수 있고,
+// 그 판이 手数만큼의 엔진 판정을 줄에 세운다 — 정규화 계층의 벽은 그 길을 안 막는다.
+func TestADeterministicallyReadKifuIsStillCapped(t *testing.T) {
+	h := &kifuHandler{}
+	long := shuffleGameUSI(maxImportPlies + 2)
+
+	// 먼저 그 수순이 실제로 읽히는지 본다. 안 읽히면 이 시험이 벽이 아니라 파서를 재게 된다.
+	g, _, err := kifu.Read(long)
+	if err != nil {
+		t.Fatalf("the sample does not parse, so this proves nothing: %v", err)
+	}
+	if len(g.Moves) <= maxImportPlies {
+		t.Fatalf("the sample is %d plies, not over the cap", len(g.Moves))
+	}
+
+	if _, _, err := h.read(t.Context(), 1, long); !errors.Is(err, errTooManyPlies) {
+		t.Fatalf("err = %v, want errTooManyPlies", err)
+	}
+
+	w := httptest.NewRecorder()
+	writeImportError(w, errTooManyPlies)
+	var got struct{ Error string }
+	if err := json.NewDecoder(w.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Error != "too_many_plies" {
+		t.Errorf("error = %q, want too_many_plies", got.Error)
 	}
 }

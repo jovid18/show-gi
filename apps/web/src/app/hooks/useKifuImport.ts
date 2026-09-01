@@ -76,5 +76,13 @@ export function useKifuImport() {
   /** 원문이 바뀌면 미리보기는 그 판의 것이 아니다. 남겨 두면 남의 手数를 보고 취해 온다. */
   const reset = useCallback(() => setState(initial), []);
 
-  return { ...state, read, submit, reset };
+  /**
+   * 서버에 안 물어보고 실패로 두는 자리. 파일이 상한보다 큰 것이 그쪽이다 —
+   * 읽어서 보내 봐야 400 이고, 그 전에 브라우저가 큰 파일을 통째로 문자열로 만든다.
+   *
+   * 오류 자리를 하나로 둔다. 화면이 자기 오류를 따로 들면 같은 자리에 두 벌을 그리게 된다.
+   */
+  const fail = useCallback((message: string) => setState({ phase: 'idle', preview: null, error: message }), []);
+
+  return { ...state, read, submit, reset, fail };
 }

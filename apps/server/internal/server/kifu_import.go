@@ -39,6 +39,16 @@ import (
 // 답하면 그때 옮긴다.
 const maxImportsPerDay = 10
 
+// maxImportPlies 는 한 판으로 받아들이는 手数의 상한이다.
+//
+// **결정적 파서에도 건다.** 정규화 계층에 같은 벽이 있지만(kifunorm.MaxMoves) 그쪽은
+// 자기 응답을 묶는 것이고, 여기를 안 걸면 KIF 하나로 그 벽을 통째로 지나간다 — 千日手는
+// shogi.ValidateMove 가 안 막으므로 합법 수순만으로 몇 천 手를 적을 수 있고, 그 판이
+// 手数만큼의 엔진 판정을 줄에 세운다.
+//
+// 사람이 둔 한 판은 이 값을 안 넘는다. 프로 공식전 최장기가 400手대다.
+const maxImportPlies = 512
+
 // importPreviewHead·importPreviewTail 은 미리보기에 세우는 手数다.
 //
 // 앞뒤를 같이 보여 준다. 앞만 보여 주면 「뒤가 잘렸는가」를 사람이 알 수 없고, 그것이
@@ -186,7 +196,7 @@ func (h *kifuHandler) read(ctx context.Context, userID int64, text string) (kifu
 	}
 	g, notation, err := kifu.Read(text)
 	if err == nil {
-		return g, notation, nil
+		return g, notation, plyLimit(g)
 	}
 	if h.norm == nil {
 		return kifu.ParsedGame{}, "", err
@@ -212,11 +222,35 @@ func (h *kifuHandler) read(ctx context.Context, userID int64, text string) (kifu
 	if err != nil {
 		return kifu.ParsedGame{}, "", err
 	}
-	g.Sente, g.Gote = got.Sente, got.Gote
+	// 이름은 옮겨 적는 쪽이 낸 값이다. 길이를 잘라 든다 — 스키마가 모양만 묶고 크기는
+	// 안 묶어서, 그대로 두면 남의 응답 하나가 미리보기의 크기를 정한다.
+	g.Sente, g.Gote = clip(got.Sente), clip(got.Gote)
 	if g.Result == kifu.ResultUnknown {
 		g.Result = resultFromWord(got.Result)
 	}
-	return g, kifu.NotationLLM, nil
+	return g, kifu.NotationLLM, plyLimit(g)
+}
+
+// plyLimit 은 한 판의 手数가 상한 안인가다.
+func plyLimit(g kifu.ParsedGame) error {
+	if len(g.Moves) > maxImportPlies {
+		return errTooManyPlies
+	}
+	return nil
+}
+
+// errTooManyPlies 는 한 판으로 보기에 너무 긴 수순이다.
+var errTooManyPlies = errors.New("kifu: too many plies for one game")
+
+// maxNameRunes 는 미리보기에 싣는 이름의 길이다. 대국자 이름이 이보다 길 일이 없다.
+const maxNameRunes = 64
+
+func clip(v string) string {
+	r := []rune(v)
+	if len(r) <= maxNameRunes {
+		return v
+	}
+	return string(r[:maxNameRunes])
 }
 
 // save 는 판과 기보를 남긴다. 평가치는 아직 비어 있다 — 채우는 것은 분석 워커다.
@@ -286,6 +320,11 @@ func decodeImport(w http.ResponseWriter, r *http.Request) (importRequest, bool) 
 func writeImportError(w http.ResponseWriter, err error) {
 	var me *kifu.MoveError
 	switch {
+	case errors.Is(err, errTooManyPlies):
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"error":   "too_many_plies",
+			"message": fmt.Sprintf("手数が多すぎます。1局分（%d手まで）を貼り付けてください。", maxImportPlies),
+		})
 	case errors.Is(err, kifunorm.ErrTooLarge):
 		writeJSON(w, http.StatusBadRequest, map[string]any{
 			"error": "too_large", "message": "棋譜が大きすぎます。1局分だけ貼り付けてください。",
