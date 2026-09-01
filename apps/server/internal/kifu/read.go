@@ -21,6 +21,11 @@ const (
 	// NotationPlain 은 표식도 手数도 없이 표기만 늘어놓은 것이다 — 블로그나 채팅에서
 	// 복사해 온 모양이고, 사람이 붙여 넣는 것 중 가장 흔한 「형식이 아닌 형식」이다.
 	NotationPlain Notation = "plain"
+	// NotationLLM 은 결정적 파서가 전부 실패해 정규화 계층을 지난 판이다
+	// (internal/kifunorm). **Read 는 이 값을 안 준다** — 옮겨 적힌 뒤 다시 이 패키지를
+	// 지나므로(ParseMoves) 그 판도 수는 룰 엔진이 만든 것이지만, 표기를 누가 손댔는지는
+	// 기록에 남아야 한다.
+	NotationLLM Notation = "llm"
 )
 
 // MoveError 는 몇 手目에서 못 읽었는가다.

@@ -81,6 +81,12 @@ type gameSummary struct {
 	// 개입이 0건이고 평가치가 비는데, 그것을 「블런더 없이 잘 둔 판」으로 그리면 거짓말이
 	// 된다 — 그 둘은 없는 것이지 0인 것이 아니다.
 	IsMatch bool `json:"isMatch,omitempty"`
+	// Imported 는 밖에서 둔 판을 취해 온 것인가다(journal §126).
+	//
+	// 화면이 이 값으로 개입 줄의 이름을 옮긴다. 여기서 둔 판의 그 줄은 「止められた手」
+	// 지만 취해 온 판에서는 아무도 안 막았고 그 수가 기보에 그대로 남아 있다 — 같은
+	// 이름을 쓰면 없던 일을 있었다고 말하는 것이다.
+	Imported bool `json:"imported,omitempty"`
 	// Analyzing 은 평가치를 지금 채우는 중인가다. 대인전에만 뜬다(matchAnalyzer).
 	//
 	// 화면이 이 값으로 「분석 중」과 「남지 않았다」를 가른다. 갈라 두지 않으면 판이
@@ -289,6 +295,7 @@ func summaryOf(g store.GameSummary) gameSummary {
 		MoveCount:         g.MoveCount,
 		InterventionCount: g.InterventionCount,
 		IsMatch:           g.MatchID != "",
+		Imported:          g.Imported,
 		HandicapJa:        handicap.NameOf(g.StartSFEN),
 	}
 	if !g.FinishedAt.IsZero() {

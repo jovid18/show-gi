@@ -10,6 +10,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/match"
 	"github.com/jovid18/show-gi/apps/server/internal/metrics"
+	"github.com/jovid18/show-gi/apps/server/internal/quiz"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -58,6 +59,10 @@ type matchAnalyzer struct {
 	// analysis 는 계측 창구다. 늘 non-nil 이다(metrics.Registry.Analysis).
 	analysis *metrics.Analysis
 
+	// quiz·level 은 취해 온 기보에만 쓴다. 대인전은 문항을 안 만들고 개입도 없다.
+	quiz  *quiz.Builder
+	level intervene.Level
+
 	// judgeDeadline 은 한 手를 재는 시한이다. 0이면 analysisJudgeDeadline —
 	// 대국이 game.Config.MoveDeadline 을 두는 것과 같은 규약이다.
 	judgeDeadline time.Duration
@@ -89,6 +94,11 @@ type judged struct {
 	beforeCp int
 	afterCp  int
 	move     skill.Move
+	// category·bestCp 는 취해 온 판의 悪手 줄에만 쓴다(interventions). 대인전은 개입이
+	// 없어 언제나 빈 값이고, 스칼라와 짧은 문자열이라 이 구조체를 가볍게 둔 이유
+	// (explain.Facts 의 태그 슬라이스)에 안 걸린다.
+	category string
+	bestCp   int
 }
 
 // errCannotReplay 는 엔진은 답했는데 판정이 국면을 못 되만든 자리다(Judgement.HasEvals).
@@ -175,19 +185,18 @@ const analysisJudgeDeadline = game.DefaultMoveDeadline
 // 분석 티어가 죽어 있는 동안 쌓인 큐를 여섯 시간 뒤부터 지운다 — 백로그가 0으로
 // 내려가고 알람이 풀리고 되짚기가 「남지 않았다」로 보인다. 장애가 제일 클 때 그것이
 // 안 보이게 되는 것이고, 티어를 가르기 전에는 걷는 쪽이 곧 집는 쪽이라 없던 자리다.
-func newMatchAnalyzer(
-	ctx context.Context, st *store.Store, newAnalyst func() game.Analyst, reg *metrics.Registry,
-	workers int,
-) *matchAnalyzer {
-	if st == nil || newAnalyst == nil {
+func newMatchAnalyzer(ctx context.Context, deps AnalysisDeps) *matchAnalyzer {
+	if deps.Store == nil || deps.NewAnalyst == nil {
 		return nil
 	}
-	workers = max(workers, 0)
+	workers := max(deps.Workers, 0)
 	a := &matchAnalyzer{
-		store:      st,
-		newAnalyst: newAnalyst,
+		store:      deps.Store,
+		newAnalyst: deps.NewAnalyst,
 		drain:      make(chan plyJob, drainBuffer),
-		analysis:   reg.Analysis(),
+		analysis:   deps.Metrics.Analysis(),
+		quiz:       deps.Quiz,
+		level:      deps.Level,
 	}
 	for range workers {
 		go a.run(ctx)
@@ -370,10 +379,16 @@ func (a *matchAnalyzer) runOneJob(ctx context.Context) bool {
 // 색은 코드 한 글자로 저장돼 있다(match.ColorCode). 여기서 되돌리는 것이 그 규약의
 // 반대 방향이고, 자리가 하나뿐이면 반쪽 판이라 아무것도 안 준다 — 채운 평가치가 한
 // 사람에게만 보이는 판을 만들지 않는다(matchRecords.collect 와 같은 판단).
-func (a *matchAnalyzer) seatsOf(ctx context.Context, matchID string) []analysisSeat {
-	rows, err := a.store.MatchSeats(ctx, matchID)
+//
+// 취해 온 기보는 자리가 하나다. 키가 그 갈래를 말한다(kifu_analysis.go) — 표에 갈래를
+// 적는 칸을 안 만든 이유가 그것이다.
+func (a *matchAnalyzer) seatsOf(ctx context.Context, key string) []analysisSeat {
+	if gameID, ok := importedGameID(key); ok {
+		return a.importSeat(ctx, gameID)
+	}
+	rows, err := a.store.MatchSeats(ctx, key)
 	if err != nil {
-		log.Printf("match: could not read the seats of %s: %v", matchID, err)
+		log.Printf("match: could not read the seats of %s: %v", key, err)
 		return nil
 	}
 	if len(rows) != 2 {
@@ -381,13 +396,17 @@ func (a *matchAnalyzer) seatsOf(ctx context.Context, matchID string) []analysisS
 	}
 	out := make([]analysisSeat, 0, len(rows))
 	for _, r := range rows {
-		c := shogi.Black
-		if r.Color == match.ColorCode(shogi.White) {
-			c = shogi.White
-		}
-		out = append(out, analysisSeat{gameID: r.GameID, userID: r.UserID, color: c})
+		out = append(out, analysisSeat{gameID: r.GameID, userID: r.UserID, color: colorOf(r.Color)})
 	}
 	return out
+}
+
+// colorOf 는 기록에 적힌 한 글자를 색으로 되돌린다(match.ColorCode 의 반대 방향).
+func colorOf(code string) shogi.Color {
+	if code == match.ColorCode(shogi.White) {
+		return shogi.White
+	}
+	return shogi.Black
 }
 
 // measureOnePly 는 큐에서 手 하나를 집어 잰다. 집을 것이 없으면 false 다.
@@ -445,6 +464,8 @@ func (a *matchAnalyzer) remember(ctx context.Context, matchID string, got judged
 		DeltaWin:  got.move.DeltaWin,
 		Threshold: got.move.Threshold,
 		Decided:   got.move.Decided,
+		Category:  got.category,
+		BestCp:    got.bestCp,
 	})
 	if err != nil && ctx.Err() == nil {
 		log.Printf("match: could not store ply %d of %s: %v", got.move.Ply, matchID, err)
@@ -493,6 +514,8 @@ func (a *matchAnalyzer) measuredOf(ctx context.Context, matchID string) map[int]
 		out[r.Ply] = judged{
 			beforeCp: r.BeforeCp,
 			afterCp:  r.AfterCp,
+			category: r.Category,
+			bestCp:   r.BestCp,
 			move: skill.Move{
 				Blunder:   r.Blunder,
 				DeltaWin:  r.DeltaWin,
@@ -594,7 +617,7 @@ func (a *matchAnalyzer) analyzing(ctx context.Context, gameID int64) bool {
 	if a == nil || a.store == nil {
 		return false
 	}
-	ok, err := a.store.IsGameAnalyzing(ctx, gameID)
+	ok, err := a.store.IsGameAnalyzing(ctx, gameID, importKey(gameID))
 	if err != nil {
 		log.Printf("match: could not tell whether game %d is being analyzed: %v", gameID, err)
 		return false
@@ -708,8 +731,10 @@ func contiguousMoves(rec store.GameRecord) ([]string, bool) {
 // 탐색이 쓰고, 그래야 되짚기가 읽는 값이 엔진 대국의 것과 같은 규약이 된다(journal §41).
 // analyze 는 그 판을 다 재고 결과 이름을 준다. 이름은 metrics.Analysis 의 어휘다 —
 // 중간에 끊긴 판은 done 이 아니다.
-func (a *matchAnalyzer) analyze(ctx context.Context, matchID string, seats []analysisSeat) string {
+func (a *matchAnalyzer) analyze(ctx context.Context, key string, seats []analysisSeat) string {
 	ids := gameIDsOf(seats)
+	// 취해 온 판은 판정 결과가 悪手 줄로 남는다. 대인전은 개입이 없어 그 자리가 비어 있다.
+	_, imported := importedGameID(key)
 	// 평가치는 두 행에 다 쓰지만(ids) 기보는 한 행에서 읽는다. 아래 로그가 rec.ID 를
 	// 쓰는 것은 그래서다 — 폴백이 걸린 판에서 ids[0] 을 적으면 안 읽은 행을 가리킨다.
 	rec, moves, whole, ok := a.kifuOf(ctx, seats)
@@ -740,7 +765,7 @@ func (a *matchAnalyzer) analyze(ctx context.Context, matchID string, seats []ana
 
 	analyst := a.newAnalyst()
 	// 미리 재 둔 것을 한 번에 읽는다. 아래 루프가 手마다 이 맵을 먼저 본다.
-	measured := a.measuredOf(ctx, matchID)
+	measured := a.measuredOf(ctx, key)
 	byColor := map[shogi.Color][]skill.Move{}
 	stopped := false
 	for ply := 1; ply <= len(moves); ply++ {
@@ -771,10 +796,17 @@ func (a *matchAnalyzer) analyze(ctx context.Context, matchID string, seats []ana
 			stopped = true
 			break
 		}
-		if firstKnown && whole {
-			if m := got.move; m.InAnchorWindow() {
-				c := moverAt(first, ply)
-				byColor[c] = append(byColor[c], m)
+		if firstKnown {
+			c := moverAt(first, ply)
+			if whole {
+				if m := got.move; m.InAnchorWindow() {
+					byColor[c] = append(byColor[c], m)
+				}
+			}
+			// 취해 온 판에서만, 그 사람이 둔 悪手를 줄로 남긴다. 상대의 悪手까지 남기면
+			// 마이페이지의 「崩れやすいところ」가 두 사람 몫을 한 사람 것으로 센다.
+			if imported && got.move.Blunder && c == seats[0].color {
+				a.recordBlunder(ctx, seats[0].gameID, ply, c, got)
 			}
 		}
 		a.setEval(ctx, ids, ply, got.afterCp)
@@ -785,6 +817,11 @@ func (a *matchAnalyzer) analyze(ctx context.Context, matchID string, seats []ana
 	a.updateSkill(ctx, seats, byColor)
 	if stopped {
 		return metrics.AnalysisFailed
+	}
+	// 문항은 다 잰 판에서만 만든다. 중간에 끊긴 판은 뒤쪽 평가치가 비어 있어서, 문항이
+	// 「아직 안 잰 자리」를 가리키게 된다.
+	if imported {
+		a.buildQuiz(ctx, seats[0].gameID)
 	}
 	return metrics.AnalysisDone
 }
@@ -817,6 +854,8 @@ func (a *matchAnalyzer) judgeOne(
 		beforeCp: j.SenteCpBefore,
 		afterCp:  j.SenteCpAfter,
 		move:     skillMoveOf(j, ply),
+		category: string(j.Verdict.Category),
+		bestCp:   j.Verdict.BestCp,
 	}, nil
 }
 

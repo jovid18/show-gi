@@ -30,6 +30,10 @@ type stubAnalyst struct {
 	// lossOdd·lossEven 은 홀수·짝수 手의 승률 낙폭이다. 둘을 갈라 두면 누구의 프로파일에
 	// 무엇이 쌓였는지를 값으로 셀 수 있다.
 	lossOdd, lossEven float64
+	// blunder 가 참이면 낙폭이 있는 手를 개입 판정으로 답한다. 취해 온 판의 悪手 줄이
+	// 그 값에서 나오고(kifu_analysis.go), 대인전 쪽 회차는 이 칸을 안 켠다 — 켜면
+	// skill.Move.Blunder 가 바뀌어 그쪽 회차의 셈이 같이 움직인다.
+	blunder bool
 }
 
 func (s stubAnalyst) Judge(_ context.Context, _ string, _ []string, ply int) (game.Judgement, error) {
@@ -40,11 +44,17 @@ func (s stubAnalyst) Judge(_ context.Context, _ string, _ []string, ply int) (ga
 	if ply%2 == 0 {
 		loss = s.lossEven
 	}
+	v := intervene.Verdict{DeltaWin: loss}
+	if s.blunder && loss > 0 {
+		v.Kind = intervene.KindBlunder
+		v.Category = intervene.CategoryHangsPiece
+		v.BestCp, v.AfterCp = ply*10, ply*10-100
+	}
 	// 手数를 그대로 값으로 쓴다 — 어느 칸에 무엇이 들어갔는지 눈으로 셀 수 있다.
 	return game.Judgement{
 		HasEvals:      s.blindFrom == 0 || ply < s.blindFrom,
 		SenteCpBefore: ply * 10, SenteCpAfter: ply*10 + 1,
-		Verdict:   intervene.Verdict{DeltaWin: loss},
+		Verdict:   v,
 		Threshold: stubLevel.Threshold(),
 	}, nil
 }
@@ -573,7 +583,10 @@ func TestANilAnalyzerIsSafeToUse(t *testing.T) {
 	if a.analyzing(t.Context(), 1) {
 		t.Error("없는 분석기가 분석 중이라고 답했다")
 	}
-	if newMatchAnalyzer(t.Context(), nil, func() game.Analyst { return stubAnalyst{} }, nil, 1) != nil {
+	if newMatchAnalyzer(t.Context(), AnalysisDeps{
+		NewAnalyst: func() game.Analyst { return stubAnalyst{} },
+		Workers:    1,
+	}) != nil {
 		t.Error("store 가 없으면 분석기를 만들지 않는다")
 	}
 }
@@ -1064,9 +1077,11 @@ func TestTheWorkerCountIsHonoured(t *testing.T) {
 
 	entered := make(chan struct{}, 4)
 	release := make(chan struct{})
-	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
-		return blockingAnalyst{entered: entered, release: release}
-	}, nil, 2)
+	a := newMatchAnalyzer(t.Context(), AnalysisDeps{
+		Store:      st,
+		NewAnalyst: func() game.Analyst { return blockingAnalyst{entered: entered, release: release} },
+		Workers:    2,
+	})
 	t.Cleanup(func() { close(release) })
 	t.Cleanup(func() {
 		a.dropJob(context.Background(), matchA)
@@ -1100,10 +1115,13 @@ func TestNoWorkersQueuesButNeverClaims(t *testing.T) {
 	clearQueues(t, st)
 
 	var built atomic.Int64
-	a := newMatchAnalyzer(t.Context(), st, func() game.Analyst {
-		built.Add(1)
-		return stubAnalyst{}
-	}, nil, 0)
+	a := newMatchAnalyzer(t.Context(), AnalysisDeps{
+		Store: st,
+		NewAnalyst: func() game.Analyst {
+			built.Add(1)
+			return stubAnalyst{}
+		},
+	})
 	t.Cleanup(func() { a.dropJob(context.Background(), matchID) })
 
 	a.enqueue(t.Context(), matchID, 2)

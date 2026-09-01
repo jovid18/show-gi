@@ -28,6 +28,27 @@ INSERT INTO games (user_id, my_color, start_sfen, match_id)
 VALUES ($1, $2, $3, $4)
 RETURNING id;
 
+-- name: CreateImportedGame :one
+--
+-- 밖에서 둔 판을 취해 온 자리. 자리가 하나다 — 상대의 몫은 안 만든다.
+--
+-- opening_tag 가 없다. 그 칸은 「사람이 고른 컴퓨터의 진형」이라 채울 것이 없다
+-- (CreateMatchGame 과 같은 이유).
+--
+-- user_id 가 NULL 로 오지 않는다. 로그인한 사람만 취해 올 수 있다 — 익명끼리는 구별할
+-- 수단이 없어서(002_anonymous_games.sql) 「누구의 기보인가」에 답할 수가 없다.
+INSERT INTO games (user_id, my_color, start_sfen, imported_from)
+VALUES ($1, $2, $3, $4)
+RETURNING id;
+
+-- name: CountImportsSince :one
+--
+-- 그 사람이 언제부터 지금까지 취해 온 판 수. 하루 몫의 벽이 이 값으로 선다.
+--
+-- 판당 手数만큼의 탐색이라(server/kifu_import.go) 이 벽이 곧 엔진 예산의 벽이다.
+SELECT count(*) FROM games
+WHERE user_id = $1 AND imported_from IS NOT NULL AND started_at >= $2;
+
 -- name: FinishGame :exec
 UPDATE games SET finished_at = now(), result = $2 WHERE id = $1;
 
@@ -117,6 +138,8 @@ SELECT
     -- 대인전 판은 여기 그대로 뜬다. 마이페이지의 집계에서만 빠진다(journal §83) —
     -- 그쪽은 개입 비율이 뜻을 갖는 자리이고, 목록은 「무엇을 뒀나」라 뜻이 다르다.
     g.match_id,
+    -- 취해 온 판인가. 값이 아니라 있는가만 밖으로 나간다(020_imported_games.sql).
+    g.imported_from,
     -- 手合割을 되짚는 유일한 칸이다(internal/handicap 의 Of). 칸을 새로 만들지 않은
     -- 이유가 이것이다 — 시작 국면이 곧 手合이라, 이름을 따로 적으면 둘이 갈릴 수 있다.
     g.start_sfen
@@ -132,7 +155,7 @@ LIMIT $1;
 -- 여기서는 개입을 세지 않는다. 어차피 아래에서 전부 읽어 오므로, 따로 센 숫자와
 -- 실제로 온 줄 수가 두는 중인 판에서 어긋날 수 있다 — 목록(ListGames)은 줄을 안 읽으니
 -- 거기서만 센다.
-SELECT id, my_color, started_at, finished_at, result, start_sfen, opening_tag, match_id
+SELECT id, my_color, started_at, finished_at, result, start_sfen, opening_tag, match_id, imported_from
 FROM games
 WHERE id = $1;
 
@@ -143,7 +166,7 @@ WHERE id = $1;
 --
 -- 끝나지 않은 판도 0행이다 — ListGamesForOwner 와 같은 조건이고, 같은 이유로 404다.
 -- 「있지만 못 본다」를 알려주는 순간 중단된 판의 존재가 새어 나간다.
-SELECT id, my_color, started_at, finished_at, result, start_sfen, opening_tag, match_id
+SELECT id, my_color, started_at, finished_at, result, start_sfen, opening_tag, match_id, imported_from
 FROM games
 WHERE id = $1
   AND result IN ('win', 'loss', 'draw')

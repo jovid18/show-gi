@@ -51,6 +51,16 @@ FROM next n
 WHERE t.match_id = n.match_id AND t.ply = n.ply
 RETURNING t.match_id, t.ply, t.start_sfen, t.moves;
 
+-- name: BulkEnqueueAnalysisPlies :copyfrom
+--
+-- 판 하나의 手를 한 번에 세운다. 취해 온 기보만 이 문장을 쓴다 — 대인전은 두는 동안 한
+-- 手씩 쌓지만(EnqueueAnalysisPly) 취해 온 판은 수순 전부를 이미 알고, 그래서 워커가 몇이든
+-- 手들이 병렬로 재어진다.
+--
+-- ON CONFLICT 가 없다. 방금 만든 판의 번호라 (match_id, ply) 가 부딪힐 수가 없고,
+-- COPY 는 애초에 그 절을 못 든다.
+INSERT INTO analysis_plies (match_id, ply, start_sfen, moves) VALUES ($1, $2, $3, $4);
+
 -- name: FinishAnalysisPly :exec
 --
 -- 잰 값을 그 행에 적는다.
@@ -64,8 +74,10 @@ SET done_at   = now(),
     blunder   = $4,
     delta_win = $5,
     threshold = $6,
-    decided   = $7
-WHERE match_id = $1 AND ply = $8 AND done_at IS NULL;
+    decided   = $7,
+    category  = $8,
+    best_cp   = $9
+WHERE match_id = $1 AND ply = $10 AND done_at IS NULL;
 
 -- name: StopAnalysisAhead :exec
 --
@@ -86,7 +98,7 @@ WHERE match_id = $1 AND done_at IS NULL;
 --
 -- 手마다 묻지 않는다. 판이 끝나는 자리에서 手数만큼 왕복하면 그 자체가 밀리는 값이고,
 -- 이 표는 판 하나가 곧 한 묶음이라 한 번에 읽는 것이 자연스럽다.
-SELECT ply, before_cp, after_cp, blunder, delta_win, threshold, decided
+SELECT ply, before_cp, after_cp, blunder, delta_win, threshold, decided, category, best_cp
 FROM analysis_plies
 WHERE match_id = $1 AND done_at IS NOT NULL
 ORDER BY ply;
@@ -174,11 +186,28 @@ WHERE plies IS NOT NULL
 -- 가른다(server/review.go).
 --
 -- games 를 지나 찾는다. 자리를 표에 옮겨 적지 않기 때문이고, 그 조인은 games_match_idx 가 받는다.
-SELECT EXISTS (
-    SELECT 1 FROM analysis_jobs j
-    JOIN games g ON g.match_id = j.match_id
-    WHERE g.id = $1
-);
+SELECT (
+    EXISTS (
+        SELECT 1 FROM analysis_jobs j
+        JOIN games g ON g.match_id = j.match_id
+        WHERE g.id = sqlc.arg(game_id)::bigint
+    )
+    -- 취해 온 판은 games.match_id 가 NULL 이라 위 조인에 안 걸린다. 줄에 세울 때 쓴 키를
+    -- 부르는 쪽이 그대로 넘긴다 — 키의 모양을 Go 한 곳에만 두기 위해서다.
+    OR EXISTS (
+        SELECT 1 FROM analysis_jobs j WHERE j.match_id = sqlc.arg(import_key)::text
+    )
+) AS analyzing;
+
+-- name: ImportSeat :one
+--
+-- 취해 온 판의 자리다. 한 판이 games 행 하나이고 그 행이 곧 자리다 — 대인전이 행 둘인
+-- 것과 다른 자리이고(MatchSeats), 그래서 분석기가 키를 보고 둘을 가른다.
+--
+-- 주인이 없는 행은 안 준다. 취해 오기가 로그인한 사람만이라 그런 행이 생길 수 없지만,
+-- 자리에 사람이 없으면 실력을 쌓을 곳이 없어 판을 재도 반쪽이 된다.
+SELECT id, user_id, my_color FROM games
+WHERE id = $1 AND user_id IS NOT NULL AND imported_from IS NOT NULL;
 
 -- name: MatchSeats :many
 --
