@@ -254,12 +254,19 @@ resource "aws_ecs_task_definition" "app" {
       environment = concat(local.api_env, [{ name = "SERVER_ROLE", value = "both" }])
 
       # 로그인과 세션이 이 티어에만 있다. 분석 티어는 사람을 안 받으므로 DATABASE_URL 뿐이다.
+      #
+      # OPENAI_API_KEY 도 이 티어뿐이다. 기보를 취해 오는 요청이 사람에게서 오고
+      # (server/kifu_import.go) 분석 워커는 그 계층을 안 지난다 — 옮겨 적는 일은 판이
+      # 줄에 서기 전에 이미 끝나 있다.
+      #
+      # 없어도 뜬다. 그때 결정적 파서로 읽히는 기보만 들어온다(internal/kifunorm).
       secrets = [
         for k in [
           "DATABASE_URL",
           "SESSION_SECRET",
           "GOOGLE_CLIENT_ID",
           "GOOGLE_CLIENT_SECRET",
+          "OPENAI_API_KEY",
         ] : { name = k, valueFrom = "${local.ssm_prefix}/${k}" }
       ]
     }),
