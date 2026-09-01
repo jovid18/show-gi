@@ -212,6 +212,7 @@ func TestReadPicksTheNotation(t *testing.T) {
 		{"csa", string(csa), NotationCSA},
 		{"usi", "position startpos moves 7g7f 3c3d", NotationUSI},
 		{"ki2", "▲7六歩 △3四歩 ▲2六歩", NotationKI2},
+		{"plain", "７六歩 ３四歩 ２六歩", NotationPlain},
 	} {
 		g, got, err := Read(tc.in)
 		if err != nil {

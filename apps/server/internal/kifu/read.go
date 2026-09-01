@@ -18,6 +18,9 @@ const (
 	NotationKI2 Notation = "ki2"
 	NotationCSA Notation = "csa"
 	NotationUSI Notation = "usi"
+	// NotationPlain 은 표식도 手数도 없이 표기만 늘어놓은 것이다 — 블로그나 채팅에서
+	// 복사해 온 모양이고, 사람이 붙여 넣는 것 중 가장 흔한 「형식이 아닌 형식」이다.
+	NotationPlain Notation = "plain"
 )
 
 // MoveError 는 몇 手目에서 못 읽었는가다.
@@ -53,6 +56,7 @@ var readers = []struct {
 	{NotationCSA, ParseCSA},
 	{NotationKIF, ParseKIF},
 	{NotationKI2, ParseKI2},
+	{NotationPlain, ParsePlain},
 }
 
 // Read 는 결정적 파서들을 차례로 대 보고 처음 읽히는 것을 준다.
@@ -228,4 +232,66 @@ func endOf(text string) (func(shogi.Color) GameResult, bool) {
 		return func(shogi.Color) GameResult { return ResultUnknown }, true
 	}
 	return nil, false
+}
+
+// ParsePlain 은 공백으로 떨어진 표기만 있는 텍스트를 읽는다 — 「７六歩 ３四歩 ２六歩」.
+//
+// 낱말 하나라도 못 읽으면 실패한다. 건너뛰면 아무 산문에서나 수처럼 생긴 조각을 주워
+// 반쯤 읽은 기보를 만든다.
+//
+// 마지막에 대 보는 파서다. 가장 느슨해서 먼저 두면 남의 형식을 가로챈다.
+func ParsePlain(input string) (ParsedGame, error) {
+	return ParseMoves("", strings.Fields(input))
+}
+
+// ── 표기 낱말의 목록 ────────────────────────────────────────
+
+// ParseMoves 는 手 하나씩 떨어진 표기 목록을 읽는다. 정규화 계층이 내는 모양이다
+// (internal/kifunorm).
+//
+// **여기가 정규화 계층의 출력이 수가 되는 유일한 문이다.** 낱말 하나하나가 룰 엔진을
+// 지나므로, 옮겨 적는 쪽이 지어낸 것은 여기서 걸린다.
+//
+// 手番은 국면이 든다 — 표식(▲△)이 없어도 되고, 붙어 있으면 떼고 읽는다. 手가 하나 빠지면
+// 다음 낱말이 상대의 駒를 움직이는 것이 되어 대개 ValidateMove 가 잡는다.
+func ParseMoves(handicapName string, moves []string) (ParsedGame, error) {
+	pos, sfen, err := startOf(handicapName)
+	if err != nil {
+		return ParsedGame{}, err
+	}
+	g := ParsedGame{StartSFEN: sfen}
+	prevTo := -1
+
+	for _, raw := range moves {
+		text := strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(raw), "▲△▼▽"))
+		if text == "" {
+			continue
+		}
+		// 판이 끝난 사유가 낱말로 섞여 올 수 있다. 수가 아니므로 결과로만 받는다.
+		if end, ok := endOf(text); ok {
+			g.Result = end(pos.Turn)
+			continue
+		}
+
+		m, err := oneMove(text, pos, prevTo)
+		if err != nil {
+			return g, &MoveError{Ply: len(g.Moves) + 1, Text: raw, Err: err}
+		}
+		if err := pos.ValidateMove(m); err != nil {
+			return g, &MoveError{Ply: len(g.Moves) + 1, Text: raw, Err: err}
+		}
+		g.Moves = append(g.Moves, m.USI())
+		prevTo = int(m.To)
+		pos = pos.Apply(m)
+	}
+	return g, nil
+}
+
+// oneMove 는 낱말 하나를 수로 만든다. USI 와 일본어 표기가 섞여 올 수 있다 —
+// 옮겨 적는 쪽이 원문의 표기를 그대로 두기 때문이다.
+func oneMove(text string, pos shogi.Position, prevTo int) (shogi.Move, error) {
+	if usiMoveRe.MatchString(text) {
+		return shogi.ParseUSIMove(text)
+	}
+	return parseKIFMove(text, pos, prevTo)
 }
