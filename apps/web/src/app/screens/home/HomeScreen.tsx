@@ -42,6 +42,14 @@ const MENU: MenuItem[] = [
   { route: { name: 'guide' }, name: 'あそびかた', note: 'このアプリの遊びかた' },
   // 로그인해야 뜬다. 익명에게는 401인 화면이라(profile.go) 줄만 서 있으면 눌러서
   // 빈 화면을 보게 된다 — 그 자리는 아래 ログイン 줄이 맡는다(journal §76).
+  // 로그인해야 뜬다. 익명은 401이고(kifu_import.go), 취해 온 판은 그 사람의 것으로
+  // 남아야 되짚기에서 다시 열린다 — マイページ와 같은 자리다.
+  {
+    route: { name: 'import' },
+    name: '棋譜を取り込む',
+    note: 'ほかで指した対局を解析する',
+    needsAuth: true,
+  },
   { route: { name: 'me' }, name: 'マイページ', note: '成績と棋力の目安', needsAuth: true },
 ];
 

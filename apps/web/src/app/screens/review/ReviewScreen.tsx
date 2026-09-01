@@ -80,6 +80,10 @@ function GameCard({ game }: { game: GameSummary }) {
           {dateJa(game.startedAt)}
         </time>
         {game.handicapJa !== undefined && <span className="review-card-handicap">{game.handicapJa}</span>}
+        {/* 취해 온 판은 그렇다고 말한다. 여기서 둔 판과 같은 목록에 서므로, 안 적으면
+            「언제 이런 판을 뒀지」가 된다(docs/journal §126). 뒤 세 칸이 아니라 첫 칸에
+            붙는 것은 手合割과 같은 이유다 — 저쪽은 폭이 고정된 숫자 칸이다. */}
+        {game.imported === true && <span className="review-card-source">取り込み</span>}
       </span>
       <span className="review-card-result" data-result={game.result}>
         {resultJa(game.result)}

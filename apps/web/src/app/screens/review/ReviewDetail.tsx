@@ -592,10 +592,14 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
                         <span className="review-kifu-number">{move.ply}</span>
                         <span className="review-kifu-move">{move.ja || move.usi}</span>
                         {/* 이 手数에 물러진 수가 있었다. 확정된 수 옆에 서야 「이 수를 두기
-                        전에 한 번 막혔다」로 읽힌다. */}
+                        전에 한 번 막혔다」로 읽힌다.
+
+                        취해 온 판에서는 「悪手」다. 아무도 그 수를 막지 않았고 그 수가
+                        기보에 그대로 남아 있어서, 「介入」이라고 적으면 없던 일을 있었다고
+                        말하는 것이 된다(docs/journal §126). */}
                         {stopped.has(move.ply) && (
-                          <span className="review-kifu-mark" aria-label="介入あり">
-                            介入
+                          <span className="review-kifu-mark" aria-label={game.imported === true ? '悪手' : '介入あり'}>
+                            {game.imported === true ? '悪手' : '介入'}
                           </span>
                         )}
                         {move.evalCp !== undefined && (

@@ -89,6 +89,13 @@ describe('parseRoute', () => {
     expect(parseRoute('/guide/anything')).toEqual({ name: 'guide' });
   });
 
+  // 취해 오기도 꼬리를 안 본다. 주소가 아무것도 안 든다 — 붙여 넣은 글은 화면 안에만 있다.
+  it('취해 오기', () => {
+    expect(parseRoute('/import')).toEqual({ name: 'import' });
+    expect(parseRoute('/import/')).toEqual({ name: 'import' });
+    expect(parseRoute('/import/anything')).toEqual({ name: 'import' });
+  });
+
   // 검토는 쿼리를 보는 유일한 화면이다. 여기가 틀리면 링크로 받은 국면이 안 열린다.
   it('검토 — 手合割과 수순이 쿼리에 있다', () => {
     expect(parseRoute('/explore')).toEqual({ name: 'explore', handicap: '', moves: [] });
@@ -165,6 +172,7 @@ describe('hrefOf', () => {
       '/reviews/12/quiz',
       '/me',
       '/guide',
+      '/import',
       '/rooms/AbCdEf12',
     ]) {
       expect(hrefOf(parseRoute(path))).toBe(path);

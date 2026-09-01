@@ -69,6 +69,14 @@ interface Option {
    * 합치면 「AI가 막았다」와 「내가 되돌렸다」가 같은 표식이 된다.
    */
   undone: { tries: number } | null;
+  /**
+   * 취해 온 판에서 悪手로 판정된 수라면 그 카테고리.
+   *
+   * `retracted` 와 갈라 둔다. 저쪽은 「두려던 것을 AI 가 막았다」라 기보에 없는 수인데,
+   * 이쪽은 **그대로 둔 수**다 — 같은 칸에 넣으면 화면이 그 수를 물러진 것으로 그리고,
+   * 없던 개입을 있었다고 말하게 된다(docs/journal §126).
+   */
+  blunder: { categoryJa: string; message: string } | null;
 }
 
 export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveOptionsProps) {
@@ -99,6 +107,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
         played: patch.played ?? at?.played ?? null,
         retracted: patch.retracted ?? at?.retracted ?? null,
         undone: patch.undone ?? at?.undone ?? null,
+        blunder: patch.blunder ?? at?.blunder ?? null,
       });
     };
 
@@ -123,6 +132,18 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
     // 받고 있었는데 둔 수만 빠져 있었다.
     const next: ReviewMove | undefined = atRoot ? game.moves[ply] : undefined;
     if (next) put(next.usi, next.ja || next.usi, { played: next.by, ...moverScore(measured.get(next.usi)) });
+
+    // 취해 온 판의 悪手는 실제로 둔 수 그 자체다. 아무도 안 막았으므로 아래 「물러진 수」
+    // 목록에는 줄이 없고(`retractedUsi` 가 비어 있다), 여기서 그 줄에 이름을 붙이지 않으면
+    // 판정한 것이 화면 어디에도 안 나온다.
+    if (next && game.imported === true) {
+      const iv = game.interventions.find((v) => v.ply === ply + 1);
+      if (iv) {
+        put(next.usi, next.ja || next.usi, {
+          blunder: { categoryJa: iv.categoryJa ?? '', message: iv.message ?? '' },
+        });
+      }
+    }
 
     // 물러진 수. 같은 수를 두 번 물린 일이 흔하므로(622의 77手) 줄을 겹치지 않고 센다 —
     // 낙폭이 −36%/−32% 로 달랐던 것은 판정 당시의 흔들림이고, 나란히 적으면 없는 차이를
@@ -202,6 +223,10 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
                     {o.retracted.tries > 1 && ` ×${o.retracted.tries}`}
                   </span>
                 )}
+                {/* 취해 온 판의 悪手. 위 줄과 모양이 같다 — 둘 다 「이 수가 왜 나빴나」를
+                    카테고리 이름으로 말하고, 한 판이 둘을 겸할 수 없어서(취해 온 판에는
+                    개입이 없다) 같은 목록에 나란히 설 일이 없다. */}
+                {o.blunder && <span data-role="blunder">{o.blunder.categoryJa || '悪手'}</span>}
                 {/* AI가 막은 것과 다른 표식이다. 저 줄은 카테고리 이름(タダ捨て)을 들고
                     이 줄은 「待った」를 든다 — 같은 목록에 나란히 서므로 표식이 갈려야
                     「막힌 수」와 「내가 되돌린 수」를 구별할 수 있다. */}
@@ -217,7 +242,9 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
             </button>
 
             {/* 왜 나빴는지는 고른 줄에만. 넷을 한꺼번에 펼치면 목록이 글이 된다. */}
-            {chosen === o.usi && o.retracted?.message && <p className="review-iv-note">{o.retracted.message}</p>}
+            {chosen === o.usi && (o.retracted?.message || o.blunder?.message) && (
+              <p className="review-iv-note">{o.retracted?.message || o.blunder?.message}</p>
+            )}
           </li>
         ))}
       </ul>

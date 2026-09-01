@@ -2481,7 +2481,10 @@ body {
 
 /* 手合割 딱지. **「対人」과 같은 모양이다** — 둘 다 숫자가 아니라 그 판의 종류다.
    되짚기 상세의 날짜 줄도 같은 클래스를 쓴다(ReviewDetail). */
-.review-card-handicap {
+.review-card-handicap,
+/* 취해 온 판의 표식. 手合割과 같은 알약이다 — 둘 다 「이 판이 어떤 판인가」라
+   첫 칸에서 날짜 옆에 선다. */
+.review-card-source {
   padding: 0.05rem 0.4rem;
   border: 1px solid var(--line-2);
   border-radius: var(--r-pill);
@@ -4761,4 +4764,197 @@ body {
   border-color: rgb(var(--ray-check) / 0.5);
   color: rgb(var(--ray-check));
   font-weight: 600;
+}
+
+/* ── 棋譜の取り込み ─────────────────────────────────────────
+   밖에서 둔 자기 기보를 붙여 넣는 화면(docs/journal §126).
+
+   안내 화면과 같은 폭이다 — 둘 다 글과 상자가 세로로 쌓이는 자리라, 폭이 다르면
+   화면을 옮길 때 본문의 왼쪽 끝이 흔들린다. */
+.import {
+  max-width: 46rem;
+  margin: 0 auto;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.import__title {
+  margin: 0;
+  font-size: clamp(1.25rem, 4vw, 1.5rem);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.import__lead {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.75;
+  color: var(--fg-2);
+}
+
+.import__label {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* 원문 상자. 글꼴이 등폭이다 — 棋譜는 자릿수가 맞아야 사람이 手数를 눈으로 센다. */
+.import__text {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.import__text:focus-visible {
+  outline: 2px solid var(--brand-line);
+  outline-offset: 1px;
+}
+
+.import__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.import__file {
+  flex: 1 1 14rem;
+  font-size: 0.8125rem;
+  color: var(--fg-2);
+}
+
+.import__button {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.import__button:hover:not(:disabled),
+.import__button:focus-visible:not(:disabled) {
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
+}
+
+.import__button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* 취해 오기. 화면에서 가장 센 하나다 — 읽기는 몇 번이든 다시 할 수 있지만 이쪽은
+   판을 만든다. */
+.import__button[data-primary] {
+  justify-self: start;
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+}
+
+.import__button[data-primary]:hover:not(:disabled),
+.import__button[data-primary]:focus-visible:not(:disabled) {
+  background: var(--brand-strong);
+}
+
+.import__error {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #e0cdc7;
+  border-radius: var(--r-sm);
+  background: #fdf6f4;
+  font-size: 0.875rem;
+  /* `.btn--danger` 와 같은 값이다 — 되돌릴 수 없는 것과 실패를 말하는 색이 화면에 하나여야 한다. */
+  color: #9c3f2e;
+}
+
+.import__preview {
+  display: grid;
+  gap: 0.9rem;
+  padding: clamp(0.9rem, 3vw, 1.25rem);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.import__subtitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.import__note {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+/* 읽어 낸 사실들. 가로로 늘어놓는다 — 값이 짧고 개수가 적어서, 세로로 쌓으면
+   미리보기가 실제 手順보다 길어진다. */
+.import__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  margin: 0;
+}
+
+.import__facts > div {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.import__facts dt {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.import__facts dd {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+/* 앞뒤 手順. 사람이 자기 판인지 알아보는 단서라 駒 글꼴로 그린다 — 되짚기의 棋譜와
+   같은 어휘여야 「같은 수」로 읽힌다. */
+.import__moves {
+  margin: 0;
+  font-family: var(--font-koma);
+  font-size: 0.875rem;
+  line-height: 1.9;
+  color: var(--fg-2);
+  word-break: break-all;
+}
+
+.import__choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.import__choice legend {
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.import__choice label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.875rem;
+  cursor: pointer;
 }
