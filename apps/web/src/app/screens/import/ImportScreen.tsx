@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 
 import { useKifuImport } from '@/hooks/useKifuImport';
+import { SIGN_IN_PATH, type MeResponse } from '@/protocol/auth';
 import type { ChosenResult } from '@/protocol/kifu';
 import type { MyColor } from '@/protocol/review';
 import { navigate } from '@/routes/router';
@@ -27,7 +28,39 @@ const ACCEPT = '.kif,.kifu,.ki2,.csa,.txt,text/plain';
  */
 const MAX_BYTES = 64 * 1024;
 
-export function ImportScreen() {
+export function ImportScreen({ me }: { me: MeResponse }) {
+  // 로그인 안 한 것은 오류가 아니다. 메뉴에서는 이 줄이 로그인한 사람에게만 보이지만
+  // (HomeScreen) 주소를 직접 열면 익명으로 여기 선다 — 그때 상자를 그려 주면 사람이
+  // 기보를 다 붙여 넣고 누른 뒤에야 로그인이 필요하다는 것을 알게 된다.
+  if (me.user === null) return <SignInFirst enabled={me.enabled} />;
+  return <ImportForm />;
+}
+
+/**
+ * 취해 오기가 로그인을 요구하는 이유를 먼저 말한다. 익명끼리는 구별할 수단이 없어서
+ * (`002_anonymous_games.sql`) 「누구의 기보인가」에 답할 수가 없다.
+ */
+function SignInFirst({ enabled }: { enabled: boolean }) {
+  return (
+    <section className="import">
+      <h1 className="import__title">棋譜を取り込む</h1>
+      <p className="import__lead">
+        ほかで指した自分の対局を貼り付けると、この場で解析してクイズと棋力の目安を出します。
+        <br />
+        取り込んだ一局はあなたの記録として残るため、ログインが必要です。
+      </p>
+      {enabled && (
+        <p className="profile__signin">
+          <a className="btn btn--primary" href={SIGN_IN_PATH}>
+            ログイン
+          </a>
+        </p>
+      )}
+    </section>
+  );
+}
+
+function ImportForm() {
   const [text, setText] = useState('');
   const [color, setColor] = useState<MyColor | null>(null);
   const [chosen, setChosen] = useState<ChosenResult | null>(null);
