@@ -984,6 +984,11 @@ WHERE g.user_id = $1
   -- 배포가 대국 중에 끼면 실제로 그 상태가 만들어진다: 테이블이 접히면서(abort) 수가
   -- 있는 행이 abandoned 로 닫히고, 그것이 정확히 이 질의의 조건이다.
   AND g.match_id IS NULL
+  -- 취해 온 판도 이어할 수 없다. 지금은 걸릴 수가 없다 — 그 판은 win·loss·draw 로만
+  -- 닫히고(server 의 importedResultOf) abandoned 가 되는 경로가 없다. 조건을 적어 두는
+  -- 것은 그 사실이 다른 파일에 있기 때문이다: 실패한 취해 오기를 abandoned 로 닫는
+  -- 코드가 들어오는 날, 이 질의가 남이 딴 데서 둔 수순을 엔진 세션으로 이어 준다.
+  AND g.imported_from IS NULL
 ORDER BY g.id DESC
 LIMIT 1
 `
