@@ -62,7 +62,13 @@ interface Options {
  * 셰이더의 격자만 옛 자리에 남고, 어느 쪽이 맞는지 화면을 띄워야만 알게 된다.
  */
 function measure(boardEl: HTMLElement, surface: BoardSurface, layoutRef: React.RefObject<Layout | null>): void {
-  const square = boardEl.firstElementChild;
+  // 칸을 클래스로 찾는다. `firstElementChild` 는 **아래에서 붙이는 캔버스가 걸린다** —
+  // React 가 칸을 다시 세우는 렌더에서 그 요소가 앞으로 올라오고, 그때 cell 이 한 칸이
+  // 아니라 판 폭이 되어 gap 이 음수가 된다(journal §127).
+  //
+  // 여기는 처음 한 번과 리사이즈에만 재므로 아직 안 물렸다. 打 화살표 쪽은 렌더마다
+  // 재서 실제로 물렸다(useDropAnchor).
+  const square = boardEl.querySelector('.square');
   if (!(square instanceof HTMLElement)) return;
   const cell = square.getBoundingClientRect().width;
   // 캔버스는 판의 테두리 안쪽을 채운다. 테두리 폭을 여기서 빼는 대신 판의
