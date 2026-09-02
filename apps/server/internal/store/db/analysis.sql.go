@@ -33,6 +33,13 @@ func (q *Queries) AnalysisJobBacklog(ctx context.Context, leaseBefore pgtype.Tim
 	return i, err
 }
 
+type BulkEnqueueAnalysisPliesParams struct {
+	MatchID   string
+	Ply       int32
+	StartSfen string
+	Moves     []string
+}
+
 const claimAnalysisJob = `-- name: ClaimAnalysisJob :one
 WITH next AS MATERIALIZED (
     SELECT j.match_id FROM analysis_jobs j
@@ -207,8 +214,10 @@ SET done_at   = now(),
     blunder   = $4,
     delta_win = $5,
     threshold = $6,
-    decided   = $7
-WHERE match_id = $1 AND ply = $8 AND done_at IS NULL
+    decided   = $7,
+    category  = $8,
+    best_cp   = $9
+WHERE match_id = $1 AND ply = $10 AND done_at IS NULL
 `
 
 type FinishAnalysisPlyParams struct {
@@ -219,6 +228,8 @@ type FinishAnalysisPlyParams struct {
 	DeltaWin  *float64
 	Threshold *float64
 	Decided   *bool
+	Category  *string
+	BestCp    *int32
 	Ply       int32
 }
 
@@ -235,6 +246,8 @@ func (q *Queries) FinishAnalysisPly(ctx context.Context, arg FinishAnalysisPlyPa
 		arg.DeltaWin,
 		arg.Threshold,
 		arg.Decided,
+		arg.Category,
+		arg.BestCp,
 		arg.Ply,
 	)
 	return err
@@ -257,23 +270,58 @@ func (q *Queries) HoldAnalysisJob(ctx context.Context, matchID string) error {
 	return err
 }
 
-const isGameAnalyzing = `-- name: IsGameAnalyzing :one
-SELECT EXISTS (
-    SELECT 1 FROM analysis_jobs j
-    JOIN games g ON g.match_id = j.match_id
-    WHERE g.id = $1
-)
+const importSeat = `-- name: ImportSeat :one
+SELECT id, user_id, my_color FROM games
+WHERE id = $1 AND user_id IS NOT NULL AND imported_from IS NOT NULL
 `
+
+type ImportSeatRow struct {
+	ID      int64
+	UserID  *int64
+	MyColor string
+}
+
+// 취해 온 판의 자리다. 한 판이 games 행 하나이고 그 행이 곧 자리다 — 대인전이 행 둘인
+// 것과 다른 자리이고(MatchSeats), 그래서 분석기가 키를 보고 둘을 가른다.
+//
+// 주인이 없는 행은 안 준다. 취해 오기가 로그인한 사람만이라 그런 행이 생길 수 없지만,
+// 자리에 사람이 없으면 실력을 쌓을 곳이 없어 판을 재도 반쪽이 된다.
+func (q *Queries) ImportSeat(ctx context.Context, id int64) (ImportSeatRow, error) {
+	row := q.db.QueryRow(ctx, importSeat, id)
+	var i ImportSeatRow
+	err := row.Scan(&i.ID, &i.UserID, &i.MyColor)
+	return i, err
+}
+
+const isGameAnalyzing = `-- name: IsGameAnalyzing :one
+SELECT (
+    EXISTS (
+        SELECT 1 FROM analysis_jobs j
+        JOIN games g ON g.match_id = j.match_id
+        WHERE g.id = $1::bigint
+    )
+    -- 취해 온 판은 games.match_id 가 NULL 이라 위 조인에 안 걸린다. 줄에 세울 때 쓴 키를
+    -- 부르는 쪽이 그대로 넘긴다 — 키의 모양을 Go 한 곳에만 두기 위해서다.
+    OR EXISTS (
+        SELECT 1 FROM analysis_jobs j WHERE j.match_id = $2::text
+    )
+) AS analyzing
+`
+
+type IsGameAnalyzingParams struct {
+	GameID    int64
+	ImportKey string
+}
 
 // 그 판이 아직 큐에 있거나 도는 중인가. 되짚기가 이 값으로 「분석 중」과 「남지 않았다」를
 // 가른다(server/review.go).
 //
 // games 를 지나 찾는다. 자리를 표에 옮겨 적지 않기 때문이고, 그 조인은 games_match_idx 가 받는다.
-func (q *Queries) IsGameAnalyzing(ctx context.Context, id int64) (bool, error) {
-	row := q.db.QueryRow(ctx, isGameAnalyzing, id)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
+func (q *Queries) IsGameAnalyzing(ctx context.Context, arg IsGameAnalyzingParams) (*bool, error) {
+	row := q.db.QueryRow(ctx, isGameAnalyzing, arg.GameID, arg.ImportKey)
+	var analyzing *bool
+	err := row.Scan(&analyzing)
+	return analyzing, err
 }
 
 const matchSeats = `-- name: MatchSeats :many
@@ -313,7 +361,7 @@ func (q *Queries) MatchSeats(ctx context.Context, matchID *string) ([]MatchSeats
 }
 
 const measuredAnalysisPlies = `-- name: MeasuredAnalysisPlies :many
-SELECT ply, before_cp, after_cp, blunder, delta_win, threshold, decided
+SELECT ply, before_cp, after_cp, blunder, delta_win, threshold, decided, category, best_cp
 FROM analysis_plies
 WHERE match_id = $1 AND done_at IS NOT NULL
 ORDER BY ply
@@ -327,6 +375,8 @@ type MeasuredAnalysisPliesRow struct {
 	DeltaWin  *float64
 	Threshold *float64
 	Decided   *bool
+	Category  *string
+	BestCp    *int32
 }
 
 // 그 판에서 미리 재 둔 것을 한 번에 읽는다.
@@ -350,6 +400,8 @@ func (q *Queries) MeasuredAnalysisPlies(ctx context.Context, matchID string) ([]
 			&i.DeltaWin,
 			&i.Threshold,
 			&i.Decided,
+			&i.Category,
+			&i.BestCp,
 		); err != nil {
 			return nil, err
 		}

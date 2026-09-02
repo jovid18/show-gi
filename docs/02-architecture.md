@@ -2,17 +2,18 @@
 
 ## 1. 기술 결정 (확정)
 
-| 항목     | 결정                                              | 근거                                                                 |
-| -------- | ------------------------------------------------- | -------------------------------------------------------------------- |
-| 서버     | **Go 단일 서비스**                                | §2                                                                   |
-| 프론트   | React + TS + Vite                                 | 확정 사항. 판 렌더는 새로 쓴다 (§8)                                  |
-| 3D       | three.js, **정사영 + 1.5컷**(§41)                 | [프론트엔드](03-frontend.md)                                         |
-| DB       | **PostgreSQL 단일. 그래프 DB 쓰지 않는다**        | §4                                                                   |
-| 엔진     | **やねうら王 + 水匠5**. `ENGINE_CMD`로 교체 가능  | §3                                                                   |
-| 문구     | **LLM을 안 쓴다.** 개입 문구·총평은 결정적 템플릿 | §2 아래 · [`internal/explain`](../apps/server/internal/explain)      |
-| 인증     | **Google OAuth만**                                | LINE은 채널 개설에 시간이 든다                                       |
-| 배포     | AWS ECS on EC2 스팟 1대 + ALB, Terraform, Route53 | §6                                                                   |
-| 모노레포 | pnpm 워크스페이스 + `apps/server`(Go 별도 go.mod) | `../more-more`와 동일 구조. oxfmt/oxlint, `.githooks`, CI까지 그대로 |
+| 항목     | 결정                                                                    | 근거                                                                                 |
+| -------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 서버     | **Go 단일 서비스**                                                      | §2                                                                                   |
+| 프론트   | React + TS + Vite                                                       | 확정 사항. 판 렌더는 새로 쓴다 (§8)                                                  |
+| 3D       | three.js, **정사영 + 1.5컷**(§41)                                       | [프론트엔드](03-frontend.md)                                                         |
+| DB       | **PostgreSQL 단일. 그래프 DB 쓰지 않는다**                              | §4                                                                                   |
+| 엔진     | **やねうら王 + 水匠5**. `ENGINE_CMD`로 교체 가능                        | §3                                                                                   |
+| 문구     | **LLM을 안 쓴다.** 개입 문구·총평은 결정적 템플릿                       | §2 아래 · [`internal/explain`](../apps/server/internal/explain)                      |
+| LLM      | **한 자리뿐 — 취해 온 기보의 서식 정규화.** 글자만 옮기고 국면을 모른다 | [§126](journal/121-140.md) · [`internal/kifunorm`](../apps/server/internal/kifunorm) |
+| 인증     | **Google OAuth만**                                                      | LINE은 채널 개설에 시간이 든다                                                       |
+| 배포     | AWS ECS on EC2 스팟 1대 + ALB, Terraform, Route53                       | §6                                                                                   |
+| 모노레포 | pnpm 워크스페이스 + `apps/server`(Go 별도 go.mod)                       | `../more-more`와 동일 구조. oxfmt/oxlint, `.githooks`, CI까지 그대로                 |
 
 ---
 

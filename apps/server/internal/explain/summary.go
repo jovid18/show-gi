@@ -117,6 +117,15 @@ type GameFacts struct {
 	Level intervene.Level
 	// Standing 은 판이 끝난 시점의 형세다. 빈 값은 StandingUnknown 과 같게 다룬다.
 	Standing Standing
+	// Intervened 는 그 판에서 개입이 돌았나다. 거짓이면 판정은 했지만 아무도 그 수를
+	// 막지 않았고, 그 수는 기보에 그대로 남아 있다 — 취해 온 기보가 그쪽이다(journal §126).
+	//
+	// 문장이 이 값으로 갈린다. 「戻す」로 말하는 문장 넷이 그 판에서는 없던 일을 있었다고
+	// 말하게 되고, 그것이 이 화면에서 가장 새기 쉬운 거짓이다.
+	//
+	// 제로값이 「안 막았다」인 것이 안전한 쪽이다. 안 채우고 부르면 개입이 돈 판이
+	// 덜 구체적인 문장을 받을 뿐이지만, 반대로 두면 취해 온 판이 거짓을 말한다.
+	Intervened bool
 }
 
 // RenderSummary 는 한 판의 총평이다. 재료(GameFacts)에 있는 것만 말하고, 없는 것은
@@ -131,13 +140,19 @@ func RenderSummary(f GameFacts) string {
 		// 이 화면의 일이다.
 		//
 		// 「형세 손해가 없었다」로 말하지 않는다. 그건 재지 않은 것이다(journal §52) —
-		// 개입이 안 걸린 것은 임계치를 넘지 않았다는 뜻이고, 손해가 없었다는 뜻이 아니다.
-		// 화면의 표가 말하는 戻した回数 0 과 같은 것을 말하는 문장이다.
-		b.WriteString("手を戻す場面はありませんでした。もう一局、少し長い将棋も試してみましょう。")
+		// 임계치를 넘지 않았다는 뜻이고, 손해가 없었다는 뜻이 아니다. 두 문장 다 그래서
+		// 「없었다」가 아니라 「그 자리가 없었다」·「찾지 못했다」로 말한다.
+		if f.Intervened {
+			// 화면의 표가 말하는 戻した回数 0 과 같은 것을 말하는 문장이다.
+			b.WriteString("手を戻す場面はありませんでした。")
+		} else {
+			b.WriteString("大きな悪手は見つかりませんでした。")
+		}
+		b.WriteString("もう一局、少し長い将棋も試してみましょう。")
 		return b.String()
 	}
 
-	b.WriteString(phraseTop(f.Top, f.Weight))
+	b.WriteString(phraseTop(f.Top, f.Weight, f.Intervened))
 	if p, ok := phaseJa[f.Phase]; ok && p != "" {
 		b.WriteString(p)
 	}
@@ -186,8 +201,19 @@ var trendJa = map[Trend]string{
 
 // phraseTop 은 「무엇으로 걸렸나」다. 이름은 개입 카드와 같은 어휘를 쓴다(CategoryJa) —
 // 두 벌이 되면 같은 실수가 카드와 총평에서 다른 이름으로 불린다.
-func phraseTop(top []intervene.Category, w Weight) string {
+func phraseTop(top []intervene.Category, w Weight, intervened bool) string {
 	first := CategoryJa(top[0])
+	if !intervened {
+		// 취해 온 판. 아무도 그 수를 막지 않았고 그 수가 기보에 남아 있으므로 「戻す」로
+		// 말할 수가 없다 — 같은 사실을 「あった」로 말한다.
+		if len(top) == 1 {
+			if w == WeightOnce {
+				return fmt.Sprintf("「%s」が一度ありました。", first)
+			}
+			return fmt.Sprintf("「%s」がいちばん多かったです。", first)
+		}
+		return fmt.Sprintf("「%s」と「%s」がありました。", first, CategoryJa(top[1]))
+	}
 	if len(top) == 1 {
 		if w == WeightOnce {
 			return fmt.Sprintf("「%s」で一度戻しました。", first)

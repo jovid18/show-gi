@@ -27,7 +27,7 @@ type AnalysisPly struct {
 // MeasuredPly 는 미리 재 둔 手 하나다. server 의 judged 와 같은 칸이고, 그 타입을
 // 안 쓰는 이유는 store 가 game·skill 을 모르는 채로 있어야 하기 때문이다.
 //
-// 평가치 둘은 先手 관점이다. 나머지 넷은 skill.Move 가 먹는 값 그대로다.
+// 평가치 둘은 先手 관점이다. 그 뒤 넷은 skill.Move 가 먹는 값 그대로다.
 type MeasuredPly struct {
 	Ply               int
 	BeforeCp, AfterCp int
@@ -35,6 +35,10 @@ type MeasuredPly struct {
 	DeltaWin          float64
 	Threshold         float64
 	Decided           bool
+	// Category·BestCp 는 취해 온 판의 悪手 줄을 만드는 데만 **읽는다**. 대인전의 手도
+	// 같은 판정을 지나므로 값은 채워지지만 그쪽은 이 칸을 안 본다(020_imported_games.sql).
+	Category string
+	BestCp   int
 }
 
 // ErrNoAnalysisPly 는 지금 집을 手가 없다는 것 하나다.
@@ -77,6 +81,7 @@ func (s *Store) ClaimAnalysisPly(ctx context.Context, leaseBefore time.Time) (An
 // 판이 끝나 걷힌 뒤에 도착한 늦은 측정이 판을 되살리지 않는다(query/analysis.sql).
 func (s *Store) FinishAnalysisPly(ctx context.Context, matchID string, m MeasuredPly) error {
 	before, after := int32(m.BeforeCp), int32(m.AfterCp)
+	best := int32(m.BestCp)
 	err := s.q.FinishAnalysisPly(ctx, db.FinishAnalysisPlyParams{
 		MatchID:   matchID,
 		Ply:       int32(m.Ply),
@@ -86,6 +91,8 @@ func (s *Store) FinishAnalysisPly(ctx context.Context, matchID string, m Measure
 		DeltaWin:  &m.DeltaWin,
 		Threshold: &m.Threshold,
 		Decided:   &m.Decided,
+		Category:  nilIfEmpty(m.Category),
+		BestCp:    &best,
 	})
 	if err != nil {
 		return fmt.Errorf("finish analysis ply: %w", err)
@@ -120,6 +127,8 @@ func (s *Store) MeasuredAnalysisPlies(ctx context.Context, matchID string) ([]Me
 			DeltaWin:  derefFloat(r.DeltaWin),
 			Threshold: derefFloat(r.Threshold),
 			Decided:   derefBool(r.Decided),
+			Category:  derefString(r.Category),
+			BestCp:    derefInt32(r.BestCp),
 		})
 	}
 	return out, nil
@@ -168,6 +177,22 @@ func derefInt32(v *int32) int {
 }
 
 func derefBool(v *bool) bool { return v != nil && *v }
+
+func derefString(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
+}
+
+// nilIfEmpty 는 빈 문자열을 NULL 로 적는다. 「카테고리가 없다」와 「빈 카테고리다」를
+// 표에서 가르는 자리다 — 대인전의 手는 언제나 앞쪽이다.
+func nilIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
 
 // 끝난 판의 큐(019)의 표 접근. 미리 재는 큐와 같은 규약이다 — 정책은 부르는 쪽이 든다.
 
@@ -239,12 +264,55 @@ func (s *Store) AnalysisJobBacklog(ctx context.Context, leaseBefore time.Time) (
 }
 
 // IsGameAnalyzing 은 그 판이 아직 큐에 있거나 도는 중인가다.
-func (s *Store) IsGameAnalyzing(ctx context.Context, gameID int64) (bool, error) {
-	ok, err := s.q.IsGameAnalyzing(ctx, gameID)
+//
+// 키를 받는다. 대인전은 games.match_id 로 조인해 찾지만 취해 온 판은 그 칸이 NULL 이라
+// 줄에 세울 때 쓴 키가 있어야 찾는다 — 키의 모양은 부르는 쪽에만 있다(server 의 importKey).
+func (s *Store) IsGameAnalyzing(ctx context.Context, gameID int64, importKey string) (bool, error) {
+	ok, err := s.q.IsGameAnalyzing(ctx, db.IsGameAnalyzingParams{GameID: gameID, ImportKey: importKey})
 	if err != nil {
 		return false, fmt.Errorf("is game analyzing: %w", err)
 	}
-	return ok, nil
+	return ok != nil && *ok, nil
+}
+
+// ImportSeat 은 취해 온 판의 자리 하나다. 없으면 ErrNoGame.
+//
+// 대인전이 행 둘이라 자리 둘인 것과 갈리는 자리다(MatchSeats). 분석기가 키를 보고
+// 어느 쪽을 부를지 정한다.
+func (s *Store) ImportSeat(ctx context.Context, gameID int64) (MatchSeat, error) {
+	row, err := s.q.ImportSeat(ctx, gameID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return MatchSeat{}, ErrNoGame
+	}
+	if err != nil {
+		return MatchSeat{}, fmt.Errorf("import seat: %w", err)
+	}
+	var user int64
+	if row.UserID != nil {
+		user = *row.UserID
+	}
+	return MatchSeat{GameID: row.ID, UserID: user, Color: row.MyColor}, nil
+}
+
+// BulkEnqueueAnalysisPlies 는 판 하나의 手를 한 번에 세운다. 취해 온 기보만 부른다 —
+// 수순 전부를 이미 알기 때문이고, 그래서 워커가 몇이든 手들이 병렬로 재어진다.
+func (s *Store) BulkEnqueueAnalysisPlies(ctx context.Context, plies []AnalysisPly) error {
+	if len(plies) == 0 {
+		return nil
+	}
+	rows := make([]db.BulkEnqueueAnalysisPliesParams, 0, len(plies))
+	for _, p := range plies {
+		rows = append(rows, db.BulkEnqueueAnalysisPliesParams{
+			MatchID:   p.MatchID,
+			Ply:       int32(p.Ply),
+			StartSfen: p.StartSFEN,
+			Moves:     p.Moves,
+		})
+	}
+	if _, err := s.q.BulkEnqueueAnalysisPlies(ctx, rows); err != nil {
+		return fmt.Errorf("bulk enqueue analysis plies: %w", err)
+	}
+	return nil
 }
 
 // MatchSeats 는 그 판의 자리들을 색 순으로 준다.

@@ -99,6 +99,9 @@ func factsOf(rec store.GameRecord, level intervene.Level) (explain.GameFacts, su
 		Phase:    explain.PhaseNone,
 		Trend:    explain.TrendUnknown,
 		Standing: standingOf(rec),
+		// 취해 온 판에서는 아무도 그 수를 막지 않았다. 문장이 「戻す」로 말하면
+		// 없던 일을 있었다고 말하게 된다(explain.GameFacts.Intervened).
+		Intervened: !rec.Imported,
 	}
 
 	// 사람이 둔 수만 센다. Moves 는 확정된 수 전부라 상대의 것이 섞여 있다.

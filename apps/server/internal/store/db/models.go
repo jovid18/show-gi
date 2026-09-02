@@ -30,6 +30,8 @@ type AnalysisPly struct {
 	Threshold *float64
 	Decided   *bool
 	CreatedAt pgtype.Timestamptz
+	Category  *string
+	BestCp    *int32
 }
 
 type Edge struct {
@@ -50,17 +52,18 @@ type ExploreSnapshot struct {
 }
 
 type Game struct {
-	ID         int64
-	UserID     *int64
-	MyColor    string
-	StartedAt  pgtype.Timestamptz
-	FinishedAt pgtype.Timestamptz
-	Result     *string
-	OpeningTag *string
-	RootKey    *string
-	StartSfen  *string
-	StyleTags  []string
-	MatchID    *string
+	ID           int64
+	UserID       *int64
+	MyColor      string
+	StartedAt    pgtype.Timestamptz
+	FinishedAt   pgtype.Timestamptz
+	Result       *string
+	OpeningTag   *string
+	RootKey      *string
+	StartSfen    *string
+	StyleTags    []string
+	MatchID      *string
+	ImportedFrom *string
 }
 
 type GameHint struct {

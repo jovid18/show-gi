@@ -56,6 +56,7 @@ erDiagram
         text opening_tag "상대가 고른 진형"
         text_array style_tags "사람이 짠 囲い·전법·戦型"
         text match_id "있으면 대인전 · NULL 이면 AI 연습"
+        text imported_from "있으면 취해 온 기보 · 무엇으로 읽었나"
         text result "win|loss|draw|abandoned|declined"
         timestamptz started_at
         timestamptz finished_at
@@ -157,7 +158,7 @@ erDiagram
     }
 
     analysis_plies {
-        text match_id PK "방 id · FK 는 안 건다"
+        text match_id PK "분석 키 · FK 는 안 건다"
         int ply PK
         text start_sfen "재는 데 필요한 입력"
         text_array moves "moves[:ply]"
@@ -170,11 +171,13 @@ erDiagram
         float delta_win
         float threshold
         boolean decided
+        text category "취해 온 판의 悪手 이름 · 대인전은 NULL"
+        int best_cp "두는 쪽 관점 · 대인전은 NULL"
         timestamptz created_at
     }
 
     analysis_jobs {
-        text match_id PK "방 id · FK 는 안 건다"
+        text match_id PK "분석 키 · FK 는 안 건다"
         int plies "아직 안 잰 手数 · NULL 이 「자리가 안 찼다」"
         timestamptz claimed_at "리스"
         timestamptz created_at
@@ -192,9 +195,13 @@ erDiagram
 | **사람** (4)            | `users` · `skill_profile` · `explore_snapshots` · `match_queue`                         | `user_id`     | 그렇다               |
 | **판** (6)              | `games` · `game_moves` · `interventions` · `game_undos` · `game_hints` · `game_quizzes` | `game_id`     | `games.user_id` 로만 |
 | **국면** (3, 엔진 캐시) | `positions` · `edges` · `mate_positions`                                                | `sfen_key`    | **아니다**           |
-| **작업 큐** (2)         | `analysis_plies` · `analysis_jobs`                                                      | `match_id`    | **아니다**           |
+| **작업 큐** (2)         | `analysis_plies` · `analysis_jobs`                                                      | 분석 키       | **아니다**           |
 
-**작업 큐는 넷째 덩어리다.** 둘 다 방 id 로 묶이고 사람에도 판 번호에도 안 매인다. 수명이 다른 셋과 다르다: **판이 끝나면 걷힌다**(`DiscardAnalysisMatch`·`DropAnalysisJob`). 기록이 아니라 아직 안 한 일이라서다.
+**작업 큐는 넷째 덩어리다.** 둘 다 분석 키로 묶이고 사람에도 판 번호에도 안 매인다. 수명이 다른 셋과 다르다: **판이 끝나면 걷힌다**(`DiscardAnalysisMatch`·`DropAnalysisJob`). 기록이 아니라 아직 안 한 일이라서다.
+
+**`match_id` 컬럼이 「방 id」가 아니라 분석 키다**([journal §126](../journal/121-140.md)). 갈래가 둘이다 — 대인전은 방 id(영숫자 8자), 취해 온 기보는 `import:<games.id>`. 콜론이 그 둘을 갈라 놓는다. **컬럼 이름을 안 바꿨다**: 공유 DB에서 `RENAME` 은 남의 서버를 그 자리에서 깨뜨린다.
+
+**취해 온 판은 자리가 하나다.** `games` 행 하나가 곧 그 자리이고, 그래서 분석기가 키를 보고 어느 쪽 질의를 부를지 정한다(`MatchSeats` 대 `ImportSeat`).
 
 **자리도 수순도 여기 다 적히지는 않는다.** `analysis_jobs` 가 자리를 안 드는 것은 `games` 행 둘이 곧 두 자리이기 때문이고([journal §118](../journal/101-120.md)), `analysis_plies` 가 수순을 드는 것은 `game_moves` 에 구멍이 날 수 있어서다([journal §115](../journal/101-120.md)). **가르는 기준은 「정본이 이미 있는가」다.**
 
@@ -317,27 +324,28 @@ USI 엔진이 iterative deepening 중 `info depth 1 … / info depth 2 …` 를 
 
 ## 8. 마이그레이션 이력
 
-| 번호  | 무엇                                                 | 종류               |
-| ----- | ---------------------------------------------------- | ------------------ |
-| `001` | 초기 8표 + `vector` 확장                             | 신규               |
-| `002` | `games.user_id` NULL 허용 · `start_sfen` 추가        | 익명 대국          |
-| `003` | `kb_chunks` seed (囲い·전법·手筋·블런더 카테고리)    | 데이터             |
-| `004` | `explain_cache` seed                                 | 데이터             |
-| `005` | `interventions.best_cp` · `after_cp`                 | 칸 추가            |
-| `006` | `skill_profile.skill_loss` · `skill_samples`         | 칸 추가            |
-| `007` | `game_quizzes`                                       | 표 추가            |
-| `008` | `game_undos`                                         | 표 추가            |
-| `009` | `games.style_tags` + GIN 인덱스                      | 칸 추가            |
-| `010` | `game_hints`                                         | 표 추가            |
-| `011` | **LLM 계층 제거** — 표 2개·칸 2개 DROP               | **되돌릴 수 없다** |
-| `012` | `games.match_id` + 부분 인덱스                       | 칸 추가            |
-| `013` | `skill_profile.rating_games` · `rating_updated_at`   | 칸 추가            |
-| `014` | `skill_profile.skill_abs_loss` · `skill_abs_samples` | 칸 추가            |
-| `015` | `explore_snapshots`                                  | 표 추가            |
-| `016` | `match_queue` + 부분 인덱스                          | 표 추가            |
-| `017` | `mate_positions`                                     | 표 추가            |
-| `018` | `analysis_plies` + 부분 인덱스                       | 표 추가            |
-| `019` | `analysis_jobs` + 부분 인덱스                        | 표 추가            |
+| 번호  | 무엇                                                                      | 종류               |
+| ----- | ------------------------------------------------------------------------- | ------------------ |
+| `001` | 초기 8표 + `vector` 확장                                                  | 신규               |
+| `002` | `games.user_id` NULL 허용 · `start_sfen` 추가                             | 익명 대국          |
+| `003` | `kb_chunks` seed (囲い·전법·手筋·블런더 카테고리)                         | 데이터             |
+| `004` | `explain_cache` seed                                                      | 데이터             |
+| `005` | `interventions.best_cp` · `after_cp`                                      | 칸 추가            |
+| `006` | `skill_profile.skill_loss` · `skill_samples`                              | 칸 추가            |
+| `007` | `game_quizzes`                                                            | 표 추가            |
+| `008` | `game_undos`                                                              | 표 추가            |
+| `009` | `games.style_tags` + GIN 인덱스                                           | 칸 추가            |
+| `010` | `game_hints`                                                              | 표 추가            |
+| `011` | **LLM 계층 제거** — 표 2개·칸 2개 DROP                                    | **되돌릴 수 없다** |
+| `012` | `games.match_id` + 부분 인덱스                                            | 칸 추가            |
+| `013` | `skill_profile.rating_games` · `rating_updated_at`                        | 칸 추가            |
+| `014` | `skill_profile.skill_abs_loss` · `skill_abs_samples`                      | 칸 추가            |
+| `015` | `explore_snapshots`                                                       | 표 추가            |
+| `016` | `match_queue` + 부분 인덱스                                               | 표 추가            |
+| `017` | `mate_positions`                                                          | 표 추가            |
+| `018` | `analysis_plies` + 부분 인덱스                                            | 표 추가            |
+| `019` | `analysis_jobs` + 부분 인덱스                                             | 표 추가            |
+| `020` | `games.imported_from` + 부분 인덱스 · `analysis_plies.category`·`best_cp` | 칸 추가            |
 
 **`011` 을 뺀 전부가 추가만 한다.** 그래서 워크트리를 병렬로 돌려도 다른 세션의 서버가 모른 채 그냥 돈다 — `DROP`·`RENAME`·`NOT NULL` 추가는 남의 서버를 그 자리에서 깨뜨리므로 혼자 돌린다.
 

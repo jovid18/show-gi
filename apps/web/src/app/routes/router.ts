@@ -17,6 +17,7 @@ import {
   EXPLORE_PARAM_MOVES,
   EXPLORE_SEGMENT,
   GUIDE_SEGMENT,
+  IMPORT_SEGMENT,
   ME_SEGMENT,
   PLAY_SEGMENT,
   QUIZ_SEGMENT,
@@ -25,6 +26,7 @@ import {
   ROUTE_GAME,
   ROUTE_GUIDE,
   ROUTE_HOME,
+  ROUTE_IMPORT,
   ROUTE_ME,
   ROUTE_REVIEWS,
   routeExplore,
@@ -49,6 +51,8 @@ export type Route =
   | { name: 'quiz'; id: number }
   | { name: 'me' }
   | { name: 'guide' }
+  // 취해 오기. 주소가 아무것도 안 든다 — 붙여 넣은 글은 화면 안에만 있다.
+  | { name: 'import' }
   // 검토. 주소가 판을 든다 — 手合割과 지금까지의 수순이 쿼리에 있고, 그래서 이 화면만
   // 라우트가 `?` 뒤를 본다(routes/const.ts 의 routeExplore).
   | { name: 'explore'; handicap: string; moves: string[] }
@@ -120,6 +124,7 @@ export function parseRoute(url: string): Route {
   if (parts[0] === PLAY_SEGMENT) return { name: 'game' };
   if (parts[0] === EXPLORE_SEGMENT) return exploreRouteOf(search);
   if (parts[0] === GUIDE_SEGMENT) return { name: 'guide' };
+  if (parts[0] === IMPORT_SEGMENT) return { name: 'import' };
   if (parts[0] === ME_SEGMENT) return { name: 'me' };
   // 글자를 확인하고 넘긴다. 서버가 어차피 404로 답하지만, 아무 문자열이나 그대로
   // 주소에 실으면 그 값이 `fetch` 의 경로가 되고 화면이 못 읽는 답을 받는다.
@@ -167,6 +172,8 @@ export function hrefOf(route: Route): string {
       return ROUTE_ME;
     case 'guide':
       return ROUTE_GUIDE;
+    case 'import':
+      return ROUTE_IMPORT;
     case 'explore':
       return routeExplore(route.handicap, route.moves);
     case 'room':

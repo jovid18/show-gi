@@ -487,6 +487,37 @@ func (s *Store) CreateMatchGame(ctx context.Context, userID int64, myColor, star
 }
 
 // FinishGame 은 대국을 닫는다.
+// CreateImportedGame 은 밖에서 둔 판을 취해 온 자리다. 자리가 하나다 — 상대의 몫은
+// 안 만든다(대인전이 행 둘인 것과 갈리는 자리다).
+//
+// notation 은 무엇으로 읽었는가다(kifu.Notation). 이 칸이 곧 「취해 온 판인가」이기도
+// 해서 빈 값으로 오면 안 된다 — 그러면 여기서 둔 판과 구별이 없어진다.
+func (s *Store) CreateImportedGame(ctx context.Context, userID int64, myColor, startSFEN, notation string) (int64, error) {
+	if notation == "" {
+		return 0, errors.New("store: an imported game needs a notation")
+	}
+	id, err := s.q.CreateImportedGame(ctx, db.CreateImportedGameParams{
+		UserID:       &userID,
+		MyColor:      myColor,
+		StartSfen:    &startSFEN,
+		ImportedFrom: &notation,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("create imported game: %w", err)
+	}
+	return id, nil
+}
+
+// CountImportsSince 는 그 사람이 그 시각 이후로 취해 온 판 수다. 하루 몫의 벽이 이
+// 값으로 선다(server/kifu_import.go).
+func (s *Store) CountImportsSince(ctx context.Context, userID int64, since time.Time) (int, error) {
+	n, err := s.q.CountImportsSince(ctx, db.CountImportsSinceParams{UserID: &userID, StartedAt: stamp(since)})
+	if err != nil {
+		return 0, fmt.Errorf("count imports: %w", err)
+	}
+	return int(n), nil
+}
+
 func (s *Store) FinishGame(ctx context.Context, gameID int64, result GameResult) error {
 	r := string(result)
 	if err := s.q.FinishGame(ctx, db.FinishGameParams{ID: gameID, Result: &r}); err != nil {
@@ -728,6 +759,12 @@ type GameSummary struct {
 	// 手合割을 되짚는 유일한 칸이다(internal/handicap 의 Of). 이름을 따로 저장하지
 	// 않으므로 이 값과 실제 판이 갈릴 자리가 없고, 그래서 마이그레이션도 필요 없었다.
 	StartSFEN string
+	// Imported 는 밖에서 둔 판을 취해 온 것인가다(020_imported_games.sql).
+	//
+	// 그 판에도 평가치와 개입이 있다 — 사후 분석이 채운다(server/kifu_analysis.go).
+	// 갈리는 것은 그 개입을 아무도 안 막았다는 것뿐이고, 화면이 그 값으로 표기를
+	// 「止められた手」에서 「悪手」로 옮긴다.
+	Imported bool
 }
 
 // RecordedMove 는 기보의 한 수다.
@@ -807,6 +844,7 @@ func (s *Store) ListGames(ctx context.Context, limit int, ownerID *int64) ([]Gam
 			ID: r.ID, MyColor: r.MyColor,
 			StartedAt: r.StartedAt.Time, FinishedAt: r.FinishedAt.Time,
 			Result: r.Result, StartSFEN: r.StartSfen, MatchID: r.MatchID,
+			ImportedFrom: r.ImportedFrom,
 		}, r.MoveCount, r.InterventionCount))
 	}
 	return out, nil
@@ -826,6 +864,7 @@ func (s *Store) ListGamesAnyOwner(ctx context.Context, limit int) ([]GameSummary
 			ID: r.ID, MyColor: r.MyColor,
 			StartedAt: r.StartedAt.Time, FinishedAt: r.FinishedAt.Time,
 			Result: r.Result, StartSFEN: r.StartSfen, MatchID: r.MatchID,
+			ImportedFrom: r.ImportedFrom,
 		}, r.MoveCount, r.InterventionCount))
 	}
 	return out, nil
@@ -922,6 +961,7 @@ func summaryOf(h gameHead, moves, ivs int64) GameSummary {
 		InterventionCount: int(ivs),
 		MatchID:           deref(h.MatchID),
 		StartSFEN:         deref(h.StartSFEN),
+		Imported:          h.ImportedFrom != nil,
 	}
 }
 
@@ -937,6 +977,9 @@ type gameHead struct {
 	StartSFEN  *string
 	OpeningTag *string
 	MatchID    *string
+	// ImportedFrom 은 무엇으로 읽었는가다. 값은 밖으로 안 나가고 「NULL 이 아닌가」만
+	// 나간다(020_imported_games.sql).
+	ImportedFrom *string
 }
 
 // GameRecord 는 그 사람의 한 판을 통째로 읽는다. ownerID 가 nil이면 익명 판이다.
@@ -954,7 +997,7 @@ func (s *Store) GameRecord(ctx context.Context, gameID int64, ownerID *int64) (G
 		ID: head.ID, MyColor: head.MyColor,
 		StartedAt: head.StartedAt.Time, FinishedAt: head.FinishedAt.Time,
 		Result: head.Result, StartSFEN: head.StartSfen, OpeningTag: head.OpeningTag,
-		MatchID: head.MatchID,
+		MatchID: head.MatchID, ImportedFrom: head.ImportedFrom,
 	})
 }
 
@@ -971,7 +1014,7 @@ func (s *Store) GameRecordAnyOwner(ctx context.Context, gameID int64) (GameRecor
 		ID: head.ID, MyColor: head.MyColor,
 		StartedAt: head.StartedAt.Time, FinishedAt: head.FinishedAt.Time,
 		Result: head.Result, StartSFEN: head.StartSfen, OpeningTag: head.OpeningTag,
-		MatchID: head.MatchID,
+		MatchID: head.MatchID, ImportedFrom: head.ImportedFrom,
 	})
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/auth"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
+	"github.com/jovid18/show-gi/apps/server/internal/kifunorm"
 	"github.com/jovid18/show-gi/apps/server/internal/metrics"
 	"github.com/jovid18/show-gi/apps/server/internal/quiz"
 	"github.com/jovid18/show-gi/apps/server/internal/server"
@@ -81,6 +82,14 @@ func main() {
 	if st := openStore(ctx); st != nil {
 		defer st.Close()
 		opts.Store = st
+	}
+
+	// 취해 온 기보의 정규화 창구. 키가 없으면 nil 이고, 그때 결정적 파서로 읽히는
+	// 기보만 들어온다 — Google 로그인이 값 하나만 비어도 표면째 닫히는 것과 달리
+	// 여기는 폴백 한 겹만 꺼진다(internal/kifunorm).
+	opts.KifuNorm = kifunorm.New(os.Getenv("OPENAI_API_KEY"), os.Getenv("OPENAI_MODEL"))
+	if opts.KifuNorm == nil {
+		slog.Info("kifu: no OPENAI_API_KEY, unreadable formats will be refused")
 	}
 
 	opts.Google = startAuth()
@@ -153,10 +162,6 @@ func main() {
 			return game.NewEngineAnalyst(searcher, mate, opts.Level)
 		}
 
-		// 대인전의 사후 분석. 채우는 것은 되짚기의 평가치와 두 사람의 실력 추정치이고,
-		// 재는 것은 두는 동안 手마다 미리 한다(journal §105). 착수 경로는 그래도 엔진을
-		// 안 지난다 — 미리 재는 것이 논블로킹이라 착수를 막지 않는다.
-		opts.Match.AnalyzeWith(ctx, opts.Store, opts.NewAnalyst, opts.Metrics, analysisWorkers(pool.Size(), role))
 		// 이 풀을 빌리는 자리가 넷이다 — 종반 판정, 詰み 게이지, 퀴즈의 詰み 트리,
 		// 대인전 사후 분석. 앞의 둘은 시간상 겹치지 않지만(판정은 사람의 수 직후,
 		// 게이지는 상대의 수 직후) 퀴즈는 판이 끝나는 자리에서 수십 초를 잡는다 —
@@ -178,6 +183,21 @@ func main() {
 		// mate 가 nil이면 「최선수는?」 문항만 나온다 — 없어지는 쪽이 詰み 문항이다
 		// (Build 가 b.mate != nil 로 가른다). searcher 가 없으면 이 자리 자체가 없다.
 		opts.Quiz = quiz.NewBuilder(mate, searcher, engineDepth())
+
+		// 사후 분석. 갈래가 둘이다 — 대인전은 되짚기의 평가치와 두 사람의 실력 추정치를
+		// 채우고(journal §105), 취해 온 기보는 거기에 悪手 줄과 문항까지 만든다(§126).
+		// 착수 경로는 그래도 엔진을 안 지난다 — 미리 재는 것이 논블로킹이라 착수를 막지 않는다.
+		//
+		// 퀴즈 생성기보다 뒤에 선다. 취해 온 판의 문항을 이 분석기가 만들기 때문이고,
+		// Run 보다는 앞이라 곁장부 goroutine 과 경합하지 않는다.
+		opts.Match.AnalyzeWith(ctx, server.AnalysisDeps{
+			Store:      opts.Store,
+			NewAnalyst: opts.NewAnalyst,
+			Metrics:    opts.Metrics,
+			Workers:    analysisWorkers(pool.Size(), role),
+			Quiz:       opts.Quiz,
+			Level:      opts.Level,
+		})
 	}
 
 	err := server.Run(ctx, *addr, opts)

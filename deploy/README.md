@@ -179,7 +179,12 @@ aws ssm put-parameter --name $P/SESSION_SECRET --type SecureString \
   --value "$(openssl rand -base64 32)" --overwrite
 aws ssm put-parameter --name $P/GOOGLE_CLIENT_ID     --type String       --value '<id>'     --overwrite
 aws ssm put-parameter --name $P/GOOGLE_CLIENT_SECRET --type SecureString --value '<secret>' --overwrite
+# 취해 온 기보의 서식 정규화. **없어도 뜬다** — 결정적 파서(KIF·KI2·CSA·USI·평문)가 읽는
+# 기보는 이 값과 무관하고, 어느 파서로도 안 읽히는 텍스트만 여기를 지난다(journal §126)
+aws ssm put-parameter --name $P/OPENAI_API_KEY --type SecureString --value '<key>' --overwrite
 ```
+
+> **`OPENAI_API_KEY` 를 안 넣으면 태스크가 안 뜬다.** 태스크 정의의 `secrets` 에 이름이 있으면 ECS 가 값을 못 찾을 때 컨테이너를 시작하지 않는다 — 「없으면 그 계층만 꺼진다」는 **서버의 규약이지 ECS 의 규약이 아니다.** 쓸 생각이 없으면 빈 문자열로라도 넣거나 `infra/ecs.tf` 의 목록에서 이름을 뺀다.
 
 > `POSTGRES_PASSWORD`를 반드시 넣는다. 안 넣으면 compose의 기본값(`showgi`)이 쓰이는데 그건 **퍼블릭 레포에 적혀 있는 값**이다. 5432는 루프백에만 열려 있지만, 기본값으로 운영하지 않는다.
 

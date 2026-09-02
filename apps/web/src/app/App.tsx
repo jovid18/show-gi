@@ -43,6 +43,14 @@ const ExploreScreen = lazy(async () => ({
 }));
 
 /**
+ * 취해 오기도 나중에 받는다. 상자 하나와 미리보기가 전부라 첫 화면에 실릴 이유가 없고,
+ * 라우트가 이미 갈라져 있다.
+ */
+const ImportScreen = lazy(async () => ({
+  default: (await import('@/screens/import/ImportScreen')).ImportScreen,
+}));
+
+/**
  * 대인전도 나중에 받는다. 엔진 대국과 코드를 안 나눠 쓴다 — 개입도 힌트도 없는
  * 화면이라(docs/journal §83) 첫 화면에 실릴 이유가 없고, 라우트가 이미 갈라져 있다.
  */
@@ -70,6 +78,7 @@ const TITLE_JA: Record<Route['name'], string> = {
   guide: 'あそびかた | show-gi',
   room: '対人戦 | show-gi',
   explore: '検討 | show-gi',
+  import: '棋譜の取り込み | show-gi',
 };
 
 /**
@@ -163,6 +172,10 @@ export function App() {
               // 방마다 새로 세운다. `roomId` 만 갈아 끼우면 이 컴포넌트가 살아남아
               // 앞 방의 스냅샷과 시계를 한 틱 동안 그린다(퀴즈 화면과 같은 자리).
               <MatchScreen key={route.id} roomId={route.id} />
+            ) : route.name === 'import' ? (
+              /* 로그인 여부를 App 이 이미 들고 있다. 화면에서 `useViewer` 를 한 번 더
+                 부르면 `/api/me` 요청이 하나 더 나간다(홈 메뉴와 같은 규약). */
+              <ImportScreen me={me} />
             ) : route.name === 'explore' ? (
               // 手合割마다 새로 세운다. 뿌리가 바뀌면 다른 판이라, 컴포넌트가 살아남으면
               // 한 틱 동안 앞 手合의 국면이 새 手合의 이름 아래에 선다(퀴즈와 같은 자리).

@@ -563,17 +563,24 @@ const quizSaveTimeout = 10 * time.Second
 // 엔진 풀을 오래 잡는다. mate 풀이 하나면 그동안 다른 대국의 詰み 게이지와 종반 판정이
 // 막힌다 — 그래서 풀 크기를 손잡이로 뺐다(cmd/api/main.go startMateEngines).
 func (h *gameHandler) generateQuiz(parent context.Context, rec store.GameRecord) {
-	if h.opts.Store == nil {
+	generateQuiz(parent, h.opts.Store, h.opts.Quiz, rec)
+}
+
+// generateQuiz 는 끝난 판에서 문항을 만들어 저장한다. 부르는 자리가 둘이다 —
+// 엔진 대국이 끝나는 자리(gameHandler)와 취해 온 기보의 분석이 끝나는 자리
+// (matchAnalyzer.buildQuiz). 어느 쪽이든 기록 하나만 있으면 된다.
+func generateQuiz(parent context.Context, st *store.Store, builder *quiz.Builder, rec store.GameRecord) {
+	if st == nil {
 		return
 	}
 
 	// 생성기가 없어도 행은 남긴다. 안 남기면 화면이 「아직 만드는 중」에서 영영 안
 	// 벗어난다 — 엔진 없는 배포에서 그 문장은 오지 않을 것을 기다리라는 거짓말이다.
 	var q quiz.Quiz
-	if h.opts.Quiz != nil {
+	if builder != nil {
 		ctx := usi.WithBorrower(context.WithoutCancel(parent), usi.BorrowerQuiz)
 		ctx, cancel := context.WithTimeout(ctx, quizTimeout)
-		built, measured := h.opts.Quiz.Build(ctx, quizInput(rec))
+		built, measured := builder.Build(ctx, quizInput(rec))
 		cut := ctx.Err() != nil
 		cancel()
 
@@ -614,7 +621,7 @@ func (h *gameHandler) generateQuiz(parent context.Context, rec store.GameRecord)
 	// 그대로 쓰면 만들어 놓고 못 남기는 자리가 되어 화면이 영영 기다린다.
 	save, cancel := context.WithTimeout(context.WithoutCancel(parent), quizSaveTimeout)
 	defer cancel()
-	if err := h.opts.Store.SaveGameQuiz(save, rec.ID, quiz.Version, payload); err != nil {
+	if err := st.SaveGameQuiz(save, rec.ID, quiz.Version, payload); err != nil {
 		log.Printf("ws: quiz: game %d: save: %v", rec.ID, err)
 		return
 	}

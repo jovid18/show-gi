@@ -61,6 +61,14 @@ export const routeExplore = (handicap: string, moves: readonly string[]): string
 export const ROUTE_GUIDE = '/guide';
 
 /**
+ * 취해 오기. 밖에서 둔 자기 기보를 붙여 넣는 화면이다(journal §126).
+ *
+ * 판도 사람도 주소에 안 싣는다 — 여기서 만들어지는 판은 취해 온 뒤에야 번호를 갖고,
+ * 그 순간 화면이 되짚기로 옮겨 간다.
+ */
+export const ROUTE_IMPORT = '/import';
+
+/**
  * 판 하나. 주소에 id가 들어가는 유일한 자리다.
  *
  * `ply` 를 주면 그 手数에서 열린다. 총평이 「이 국면을 다시 봐라」로 짚은 자리가
@@ -132,3 +140,6 @@ export const ME_SEGMENT = 'me';
 
 /** `/guide` 의 첫 조각. */
 export const GUIDE_SEGMENT = 'guide';
+
+/** `/import` 의 첫 조각. */
+export const IMPORT_SEGMENT = 'import';

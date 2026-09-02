@@ -122,6 +122,23 @@ func Find(id string) (Handicap, bool) {
 	return Handicap{}, false
 }
 
+// FindByName 은 일본어 이름으로 手合割을 찾는다. 취해 온 기보의 「手合割：香落ち」 줄이
+// 그 자리다(internal/kifu).
+//
+// 平手는 이 표에 없으므로 없는 것으로 답한다. 부르는 쪽이 그때 평수 초기 국면을 쓴다.
+func FindByName(name string) (Handicap, bool) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return Handicap{}, false
+	}
+	for _, h := range list {
+		if h.Name == name {
+			return h, true
+		}
+	}
+	return Handicap{}, false
+}
+
 // Of 는 시작 국면으로 手合割을 되짚는다. 이어하는 판과 되짚기가 기록의 start_sfen
 // 하나에서 手合을 다시 얻는 자리다 — 그래서 칸을 새로 만들지 않았다.
 //

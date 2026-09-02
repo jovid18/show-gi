@@ -592,10 +592,14 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
                         <span className="review-kifu-number">{move.ply}</span>
                         <span className="review-kifu-move">{move.ja || move.usi}</span>
                         {/* 이 手数에 물러진 수가 있었다. 확정된 수 옆에 서야 「이 수를 두기
-                        전에 한 번 막혔다」로 읽힌다. */}
+                        전에 한 번 막혔다」로 읽힌다.
+
+                        취해 온 판에서는 「悪手」다. 아무도 그 수를 막지 않았고 그 수가
+                        기보에 그대로 남아 있어서, 「介入」이라고 적으면 없던 일을 있었다고
+                        말하는 것이 된다(docs/journal §126). */}
                         {stopped.has(move.ply) && (
-                          <span className="review-kifu-mark" aria-label="介入あり">
-                            介入
+                          <span className="review-kifu-mark" aria-label={game.imported === true ? '悪手' : '介入あり'}>
+                            {game.imported === true ? '悪手' : '介入'}
                           </span>
                         )}
                         {move.evalCp !== undefined && (
@@ -634,7 +638,9 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
 
         {/* 날짜·결과 바로 아래다. 셋 다 「이 판이 어떤 판이었나」이고, 아래의 패널들은
             「지금 보고 있는 手数」다 — 성격이 갈리는 자리에 선이 그어져야 한다. */}
-        {summary.state !== 'error' && <Summary summary={summary.state === 'ready' ? summary.data : null} />}
+        {summary.state !== 'error' && (
+          <Summary summary={summary.state === 'ready' ? summary.data : null} imported={game.imported === true} />
+        )}
 
         {/* 퀴즈로 가는 문. 링크다 — 주소 하나가 화면 하나라 새 탭과 링크 복사가 살아 있어야
             한다(App.tsx). 문항이 없는 판에서도 열린다: 있는지 없는지는 그 화면이 말한다.
