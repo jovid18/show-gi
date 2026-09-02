@@ -348,3 +348,56 @@ func TestADeterministicallyReadKifuIsStillCapped(t *testing.T) {
 		t.Errorf("error = %q, want too_many_plies", got.Error)
 	}
 }
+
+// 駒落ち는 上手가 먼저 둔다. 手数 홀짝으로 「사람의 수」를 가르면 그 판에서 규약이
+// 뒤집혀, 상대의 悪手가 사람 것으로 쌓인다(journal §88 · §126).
+//
+//	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
+func TestAHandicapImportBlamesTheRightSide(t *testing.T) {
+	st := testStore(t)
+	userID, err := st.UpsertUser(t.Context(), "test", "handicap-"+time.Now().Format("150405.000000000"), "テスト")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 香落ち. 上手(白)가 1手目를 둔다.
+	kif := "手合割：香落ち\n下手：わたし\n上手：あいて\n" +
+		"   1 ３四歩(33)\n   2 ７六歩(77)\n   3 ８四歩(83)\n   4 ２六歩(27)\n"
+	g, notation, err := kifu.Read(kif)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(g.StartSFEN, "lnsgkgsn1/") {
+		t.Fatalf("StartSFEN = %q, want the 香落ち position", g.StartSFEN)
+	}
+
+	// 사람은 下手 다 — 색으로는 b 이고, 그쪽이 **2手目부터** 둔다.
+	h := &kifuHandler{store: st}
+	gameID, err := h.save(t.Context(), userID, "b", string(notation), g, store.ResultWin)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 짝수 手(下手의 수)에만 낙폭을 준다. 홀짝을 잘못 이었으면 悪手가 0건이 된다.
+	a := analyzerFor(st, func() game.Analyst {
+		return stubAnalyst{lossOdd: 0, lossEven: 0.9, blunder: true}
+	})
+	a.level = intervene.Beginner
+	key := importKey(gameID)
+	if got := a.analyze(t.Context(), key, a.seatsOf(t.Context(), key)); got != "done" {
+		t.Fatalf("analyze = %q, want done", got)
+	}
+
+	rec, err := st.GameRecordAnyOwner(t.Context(), gameID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.Interventions) == 0 {
+		t.Fatal("no blunder was recorded — the first mover of a handicap game is the uwate, not the human")
+	}
+	for _, iv := range rec.Interventions {
+		if iv.Ply%2 == 1 {
+			t.Errorf("ply %d is the uwate's move; it must not count as this player's blunder", iv.Ply)
+		}
+	}
+}
