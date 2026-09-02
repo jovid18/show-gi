@@ -22,7 +22,7 @@ import (
 //
 // 두 단계다. 읽기(POST /api/kifu/parse)는 엔진도 DB도 안 쓰고 즉시 답하며, 취해 오기
 // (POST /api/kifu/import)가 판을 만들어 줄에 세운다 — 잘못 읽은 기보에 엔진 몇 분을
-// 쓰지 않기 위해서고, 그 사이에 사람이 手数와 첫 수를 눈으로 확인한다.
+// 쓰지 않기 위해서고, 그 사이에 사람이 手数와 앞뒤의 수를 눈으로 확인한다.
 //
 // 원문을 두 번 받는다. 서버에 중간 상태를 안 두기 위해서다 — 파싱이 결정적이라 같은
 // 원문이 같은 결과를 주고, 그 한 번을 아끼자고 세션 표를 만들 값이 없다.
@@ -46,7 +46,8 @@ const maxImportsPerDay = 10
 // shogi.ValidateMove 가 안 막으므로 합법 수순만으로 몇 천 手를 적을 수 있고, 그 판이
 // 手数만큼의 엔진 판정을 줄에 세운다.
 //
-// 사람이 둔 한 판은 이 값을 안 넘는다. 프로 공식전 최장기가 400手대다.
+// 값을 실측으로 잡은 것이 아니다 [미확정]. 막으려는 것은 「사람이 둔 한 판」이 아니라
+// 千日手를 이어 붙인 수순이고, 실사용에서 이 값에 닿는 기보가 나오면 그때 옮긴다.
 const maxImportPlies = 512
 
 // importPreviewHead·importPreviewTail 은 미리보기에 세우는 手数다.
@@ -71,6 +72,9 @@ type kifuHandler struct {
 	// budget 은 정규화를 부르는 횟수의 벽이다. 하루 몫이 판을 세는 자리라 이쪽을
 	// 안 막는다(kifu_budget.go).
 	budget *transcribeBudget
+	// cached 는 방금 옮겨 적은 결과다. 미리보기에서 확인한 판이 취해 오는 판과 같아야
+	// 하고, 정규화는 다시 물으면 같은 답을 준다는 보장이 없다(kifu_budget.go).
+	cached *transcribeCache
 }
 
 // importRequest 는 두 뿌리가 같이 쓰는 몸통이다. parse 는 Text 만 본다.
@@ -149,7 +153,8 @@ func (h *kifuHandler) create(w http.ResponseWriter, r *http.Request) {
 		log.Printf("kifu: could not count today's imports for %d: %v", s.UserID, err)
 	} else if n >= maxImportsPerDay {
 		writeJSON(w, http.StatusTooManyRequests, map[string]any{
-			"error": "quota", "message": "棋譜の取り込みは1日10局までです。明日またお試しください。",
+			"error":   "quota",
+			"message": fmt.Sprintf("棋譜の取り込みは1日%d局までです。明日またお試しください。", maxImportsPerDay),
 		})
 		return
 	}
@@ -201,6 +206,14 @@ func (h *kifuHandler) read(ctx context.Context, userID int64, text string) (kifu
 	if h.norm == nil {
 		return kifu.ParsedGame{}, "", err
 	}
+
+	// 방금 옮겨 적은 것이 있으면 그것을 쓴다. 미리보기와 취해 오기가 원문을 두 번
+	// 보내는데(위 패키지 주석) 「같은 원문이면 같은 결과」가 이 계층에는 없어서,
+	// 다시 물으면 사람이 확인한 것과 다른 판이 들어올 수 있다.
+	if got, ok := h.cached.get(userID, text); ok {
+		return replay(got)
+	}
+
 	// 부르기 전에 몫을 센다. 여기서 막히면 결정적 파서가 낸 오류가 그대로 나가고,
 	// 사람에게는 「읽을 수 없는 기보」와 같은 화면이다 — 벽에 닿았다는 것을 알려 줄
 	// 값이 없다(알려 주면 그것이 곧 「다시 시도하면 된다」로 읽힌다).
@@ -217,8 +230,18 @@ func (h *kifuHandler) read(ctx context.Context, userID int64, text string) (kifu
 		return kifu.ParsedGame{}, "", err
 	}
 	log.Printf("kifu: transcribed with %s: %d tokens, %d moves", h.norm.Model(), got.Tokens, len(got.Moves))
+	h.cached.put(userID, text, got)
+	return replay(got)
+}
 
-	g, err = kifu.ParseMoves(got.Handicap, got.Moves)
+// replay 는 옮겨 적은 표기를 룰 엔진으로 지나 판을 만든다.
+//
+// **여기가 정규화 계층의 출력이 수가 되는 유일한 문이다.** 캐시에서 온 것도 같은 문을
+// 지난다 — 옮겨 적은 글자를 들고 있는 것이고, 수를 들고 있는 것이 아니다.
+//
+// 오류는 룰 엔진의 것을 그대로 돌려준다. 「몇 手目가 이상한가」를 아는 것이 그쪽이다.
+func replay(got kifunorm.Result) (kifu.ParsedGame, kifu.Notation, error) {
+	g, err := kifu.ParseMoves(got.Handicap, got.Moves)
 	if err != nil {
 		return kifu.ParsedGame{}, "", err
 	}

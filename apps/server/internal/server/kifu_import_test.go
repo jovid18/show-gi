@@ -13,6 +13,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/kifu"
+	"github.com/jovid18/show-gi/apps/server/internal/kifunorm"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
@@ -399,5 +400,60 @@ func TestAHandicapImportBlamesTheRightSide(t *testing.T) {
 		if iv.Ply%2 == 1 {
 			t.Errorf("ply %d is the uwate's move; it must not count as this player's blunder", iv.Ply)
 		}
+	}
+}
+
+// 미리보기에서 확인한 판이 취해 오는 판과 같아야 한다.
+//
+// 원문을 두 번 보내는 설계는 「같은 원문이면 같은 결과」에 기대는데, 그 전제가 정규화
+// 계층에는 없다 — 다시 물으면 다른 표기가 올 수 있고, 그러면 확인한 것과 들어온 것이
+// 갈린다(journal §126).
+func TestATranscriptionIsReusedForTheImport(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		// 회차마다 다른 답을 준다. 두 번 부르면 두 번째 것이 들어오므로 그 자리에서 보인다.
+		moves := `["7六歩","3四歩"]`
+		if calls > 1 {
+			moves = `["2六歩","3四歩"]`
+		}
+		fmt.Fprintf(w, `{"status":"completed","output":[{"type":"message","content":[{"type":"output_text",`+
+			`"text":%q}]}],"usage":{"total_tokens":1}}`,
+			`{"handicap":"","sente":"","gote":"","result":"unknown","moves":`+moves+`}`)
+	}))
+	t.Cleanup(srv.Close)
+
+	norm := kifunorm.New("k", "")
+	kifunorm.SetURLForTest(norm, srv.URL)
+	h := &kifuHandler{norm: norm, budget: newTranscribeBudget(), cached: newTranscribeCache()}
+
+	// 어느 결정적 파서로도 안 읽히는 텍스트여야 정규화가 선다.
+	const junk = "<td>1</td><td>読めない書式</td>"
+	if _, _, err := kifu.Read(junk); err == nil {
+		t.Fatal("a deterministic parser read the sample; this proves nothing")
+	}
+
+	first, _, err := h.read(t.Context(), 7, junk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, _, err := h.read(t.Context(), 7, junk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Errorf("calls = %d, want 1 — the import re-asked and may get a different game", calls)
+	}
+	if first.Moves[0] != second.Moves[0] {
+		t.Errorf("the import got %q where the preview showed %q", second.Moves[0], first.Moves[0])
+	}
+
+	// 다른 사람의 항목은 안 준다. 해시가 같으면 원문도 같지만, 남의 자리를 들여다보는
+	// 문을 열어 두지 않는다.
+	if _, _, err := h.read(t.Context(), 8, junk); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Errorf("calls = %d, want 2 — another person read somebody else's entry", calls)
 	}
 }

@@ -209,3 +209,11 @@ func snippet(b []byte) string {
 	}
 	return string(b)
 }
+
+// SetURLForTest 는 부르는 주소를 갈아 끼운다. 테스트 전용이다 — 이 패키지 밖에서
+// 배선을 확인하려면 창구를 stub 서버로 돌릴 자리가 있어야 한다(server 의 취해 오기 시험).
+func SetURLForTest(c *Client, url string) {
+	if c != nil {
+		c.url = url
+	}
+}

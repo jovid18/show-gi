@@ -301,6 +301,7 @@ func Handler(opts Options) http.Handler {
 				norm:     opts.KifuNorm,
 				analyzer: a,
 				budget:   newTranscribeBudget(),
+				cached:   newTranscribeCache(),
 			}
 			mux.HandleFunc("POST /api/kifu/parse", kh.parse)
 			mux.HandleFunc("POST /api/kifu/import", kh.create)

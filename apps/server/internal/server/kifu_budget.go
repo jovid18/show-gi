@@ -1,8 +1,13 @@
 package server
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"strconv"
 	"sync"
 	"time"
+
+	"github.com/jovid18/show-gi/apps/server/internal/kifunorm"
 )
 
 // 정규화 계층을 부르는 횟수의 벽. 근거는 journal §126.
@@ -82,4 +87,98 @@ func keepAfter(at []time.Time, cutoff time.Time) []time.Time {
 		}
 	}
 	return nil
+}
+
+// 옮겨 적은 결과를 짧게 들고 있는 자리. 근거는 journal §126.
+//
+// **사람이 미리보기에서 확인한 판이 취해 오는 판과 같아야 한다.** 원문을 두 번 받는
+// 설계는 「파싱이 결정적이다」에 기대는데(kifu_import.go) 그 전제가 정규화 계층에는
+// 없다 — 같은 텍스트를 두 번 물어 다른 표기가 올 수 있고, 그러면 확인한 것과 들어온
+// 것이 갈린다. 두 번째 호출의 토큰도 그대로 값이다.
+//
+// 결정적 파서로 읽히는 기보는 여기 안 온다. 그쪽은 두 번 읽어도 같은 답이다.
+
+// transcribeTTL 은 옮겨 적은 결과를 들고 있는 시간이다.
+//
+// 미리보기를 보고 자리를 고르는 데 걸리는 시간이면 된다. 길게 잡을 값이 없다 —
+// 지나면 다시 옮겨 적고, 그때 몫도 다시 센다.
+const transcribeTTL = 10 * time.Minute
+
+// transcribeCacheMax 는 들고 있는 항목 수의 상한이다. 넘으면 오래된 것부터 버린다 —
+// 이 맵이 자라는 것을 막는 자리이고, 버려도 다시 옮겨 적으면 된다.
+const transcribeCacheMax = 64
+
+type transcribeCache struct {
+	mu   sync.Mutex
+	at   map[string]transcribeEntry
+	now  func() time.Time
+	seen int
+}
+
+type transcribeEntry struct {
+	got kifunorm.Result
+	at  time.Time
+}
+
+func newTranscribeCache() *transcribeCache {
+	return &transcribeCache{at: map[string]transcribeEntry{}}
+}
+
+// transcribeKey 는 사람과 원문을 함께 묶는다.
+//
+// 사람을 넣는 것은 남의 항목을 못 보게 하려는 것이다. 해시가 같으면 원문도 같으므로
+// 새어 나갈 사실이 없지만, 넣지 않으면 「이 텍스트를 누가 올렸나」를 물어볼 수 있는
+// 자리가 된다.
+func transcribeKey(userID int64, text string) string {
+	sum := sha256.Sum256([]byte(text))
+	return strconv.FormatInt(userID, 10) + ":" + hex.EncodeToString(sum[:])
+}
+
+// get 은 아직 살아 있는 항목을 준다.
+func (c *transcribeCache) get(userID int64, text string) (kifunorm.Result, bool) {
+	if c == nil {
+		return kifunorm.Result{}, false
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	e, ok := c.at[transcribeKey(userID, text)]
+	if !ok || c.clock().Sub(e.at) > transcribeTTL {
+		return kifunorm.Result{}, false
+	}
+	return e.got, true
+}
+
+// put 은 옮겨 적은 결과를 남긴다.
+func (c *transcribeCache) put(userID int64, text string, got kifunorm.Result) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	now := c.clock()
+	// 낡은 것을 먼저 걷는다. 그것만으로 상한 아래로 안 내려가면 오래된 것부터 버린다.
+	for k, e := range c.at {
+		if now.Sub(e.at) > transcribeTTL {
+			delete(c.at, k)
+		}
+	}
+	for len(c.at) >= transcribeCacheMax {
+		oldest, at := "", time.Time{}
+		for k, e := range c.at {
+			if at.IsZero() || e.at.Before(at) {
+				oldest, at = k, e.at
+			}
+		}
+		delete(c.at, oldest)
+	}
+	c.at[transcribeKey(userID, text)] = transcribeEntry{got: got, at: now}
+}
+
+func (c *transcribeCache) clock() time.Time {
+	if c.now != nil {
+		return c.now()
+	}
+	return time.Now()
 }
