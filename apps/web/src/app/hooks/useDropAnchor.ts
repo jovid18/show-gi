@@ -54,7 +54,11 @@ export function useDropAnchor(dropping: DropPiece | null): DropAnchor {
     }
     const pieceAt = offsetWithin(from, stage);
     const gridAt = offsetWithin(grid, stage);
-    const square = grid.firstElementChild;
+    // 칸을 클래스로 찾는다. `firstElementChild` 로 잡으면 three.js 판에서 **캔버스가 걸린다** —
+    // `useBoardSurface` 가 `appendChild` 로 붙이는 요소라 React 가 칸을 다시 세우는 렌더에서
+    // 앞으로 올라오고, 그때 한 칸 크기(62px)가 판 전체 폭(568px)이 된다. 打 화살표가
+    // 589px 대신 2999px 로 판 밖까지 뻗은 자리다(journal §127).
+    const square = grid.querySelector('.square');
     if (!pieceAt || !gridAt || !(square instanceof HTMLElement)) {
       setDropFrom(null);
       return;
