@@ -51,8 +51,9 @@ func (e *MoveError) Unwrap() error { return e.Err }
 // ErrNoMoves 는 형식은 알아봤는데 수가 하나도 없는 자리다.
 var ErrNoMoves = errors.New("no moves")
 
-// readers 의 순서가 곧 시도 순서다. 좁은 형식이 먼저다 — USI 는 다른 셋이 흉내 낼 수
-// 없는 모양이고, KI2 는 가장 느슨해서 마지막이라야 남의 기보를 가로채지 않는다.
+// readers 의 순서가 곧 시도 순서다. **좁은 형식이 먼저다** — USI 는 나머지가 흉내 낼 수
+// 없는 모양이고, 평문은 가장 느슨해서(공백으로 끊은 표기면 다 본다) 마지막이라야 남의
+// 형식을 가로채지 않는다.
 var readers = []struct {
 	name Notation
 	read func(string) (ParsedGame, error)
