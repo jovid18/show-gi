@@ -22,7 +22,7 @@ import (
 // 쓴다 — /api/explore 처럼 탐색을 기다리는 경로가 있어서 위쪽이 필요하다.
 var DefaultBuckets = []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30}
 
-// maxSamples 는 예약통에 담아 두는 관측 수다. EMF 의 숫자 배열 상한이 100이라 그 값이다.
+// maxSamples 는 표본통에 담아 두는 관측 수다. EMF 의 숫자 배열 상한이 100이라 그 값이다.
 const maxSamples = 100
 
 // kind 는 지표의 종류다. 텍스트 표면의 TYPE 줄에 그대로 나간다.
@@ -66,7 +66,7 @@ type series struct {
 	// 버킷만으로는 배열을 못 만들고(개수가 100을 넘는다) 배열만으로는 정확한 개수를
 	// 못 낸다. 그래서 둘을 같이 든다.
 	samples []float64
-	// sampled 는 예약통을 비운 뒤로 들어온 관측 수다. count 와 따로 두는 것이
+	// sampled 는 표본통을 비운 뒤로 들어온 관측 수다. count 와 따로 두는 것이
 	// 필수다 — 교체 확률의 분모가 누적이면 회차가 지날수록 확률이 0으로 내려가고,
 	// 배열이 「그 회차 앞머리 100건」으로 굳는다.
 	sampled uint64
@@ -367,7 +367,7 @@ func (h *Histogram) Observe(v float64, labelValues ...string) {
 	s.observe(v)
 }
 
-// observe 는 예약통에 값을 담는다. 호출 측이 mu 를 잡고 있어야 한다.
+// observe 는 표본통에 값을 담는다. 호출 측이 mu 를 잡고 있어야 한다.
 //
 // 상한까지는 그대로 담고 그 뒤로는 확률 maxSamples/sampled 로 자리를 바꾼다(알고리즘 R).
 // 앞의 100개만 남기면 회차 앞머리의 요청만 백분위에 반영된다.
@@ -390,7 +390,7 @@ func (h *Histogram) Count(pick func(labels map[string]string) bool) uint64 {
 	return uint64(h.f.sumFunc(pick, func(s *series) float64 { return float64(s.count) }))
 }
 
-// DrainSamples 는 예약통을 비우고 pick 이 고른 계열의 값만 준다.
+// DrainSamples 는 표본통을 비우고 pick 이 고른 계열의 값만 준다.
 //
 // 비우는 것은 EMF 가 회차마다 그 회차의 분포를 내야 하기 때문이다. 버킷은 안 건드린다 —
 // 텍스트 표면은 누적이어야 한다.
@@ -423,9 +423,9 @@ type LabeledSamples struct {
 	Samples []float64
 }
 
-// DrainSamplesAll 은 예약통을 한 번에 비우고 계열마다 나눠 준다.
+// DrainSamplesAll 은 표본통을 한 번에 비우고 계열마다 나눠 준다.
 //
-// DrainSamples 를 두 번 부를 수 없어서 있다 — 그쪽은 pick 과 무관하게 예약통을 통째로
+// DrainSamples 를 두 번 부를 수 없어서 있다 — 그쪽은 pick 과 무관하게 표본통을 통째로
 // 비우므로 두 번째 호출이 늘 빈 배열이다. 같은 지표를 여러 벌로 낼 때 이쪽을 쓴다.
 //
 // 라벨을 그대로 준다. 축 하나로 나누면 두 축이 필요해지는 날 이 함수를 다시 고쳐야
