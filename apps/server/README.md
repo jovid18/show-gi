@@ -144,20 +144,22 @@ docker run --rm --platform linux/arm64 --cpus 4 --network show-gi-net \
 GOMAXPROCS=2 go test -race -count=300 -run '<그 테스트>' ./internal/game/
 ```
 
-| 환경변수                              | 없으면              | 쓰는 곳                                                                                                                                                                                                                                                               |
-| ------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SHOWGI_TEST_DATABASE_URL`            | DB 테스트 skip      | `internal/store`, `internal/intervene` 의 재채점 측정, `internal/game` 의 블런더 재분류 측정, `internal/kifu` 의 段級 앵커 측정                                                                                                                                       |
-| `SHOWGI_USI_CMD`                      | 실엔진 테스트 skip  | `TestRealEngine`, `TestWSAgainstRealEngine`                                                                                                                                                                                                                           |
-| `SHOWGI_MATE_CMD`                     | 詰み 측정 skip      | `TestMeasureMateSearch`, `TestMeasureBlunderMate`, `TestMeasureBlunderTsumero`                                                                                                                                                                                        |
-| `SHOWGI_USI_CMD` + `SHOWGI_MEASURE`   | 밴드 측정 skip      | `TestMeasureSkill*` — 실력 추정이 밴드를 옮기는 폭을 잰다(journal §47). DB는 안 쓴다                                                                                                                                                                                  |
-| `SHOWGI_MEASURE`                      | 측정 전부 skip      | `TestMeasure*` — 몇 분 걸린다                                                                                                                                                                                                                                         |
-| `SHOWGI_MEASURE` 만                   | 부하 측정 skip      | `TestMeasureTagHintLoad` — 手筋 게이트가 한 판에 쓰는 비용(journal §56). **엔진도 DB도 안 쓴다**                                                                                                                                                                      |
-| `SHOWGI_USI_CMD` + `SHOWGI_MEASURE`   | 기준점 측정 skip    | `TestMeasureBaseline` — 手合割별 「형세 0」을 표와 나란히 찍는다(journal §84). DB는 안 쓴다                                                                                                                                                                           |
-| `SHOWGI_OPENAI_KEY`                   | 실 OpenAI 호출 skip | `internal/kifunorm` 의 `TestLiveNormalizeReachesTheRuleEngine` — 결정적 파서가 전부 실패하는 텍스트가 정규화를 지나 룰 엔진까지 통과하는지를 본다. 모델은 `SHOWGI_OPENAI_MODEL` 로 갈아 끼운다. **CI 에서 안 돈다**                                                   |
-| `SHOWGI_KIFU_SCAN`                    | 기보 스캔 skip      | `internal/kifu` 의 `TestScan*` 다섯. 엔진도 DB도 안 쓴다                                                                                                                                                                                                              |
-| `SHOWGI_KIFU_DUMP`                    | 덤프 skip           | `TestDumpFormationCases` — 사례마다 마크다운 한 장을 그 경로에 떨군다                                                                                                                                                                                                 |
-| `SHOWGI_TEST_ENGINE_PATH`             | 기보 임포트 skip    | `internal/kifu` 의 `TestImportGame`. **여기만 `SHOWGI_USI_CMD` 를 안 쓴다**                                                                                                                                                                                           |
-| `SHOWGI_RANK_KIFU` + `SHOWGI_MEASURE` | 段級 앵커 측정 skip | `TestMeasureRankAnchors` — 급수가 붙은 기보로 段級 척도를 잰다([journal §94](../../docs/journal/82-100.md)). 엔진 경로는 `SHOWGI_USI_CMD`·`SHOWGI_TEST_ENGINE_PATH` 둘 다 받는다. **DB도 있어야 돈다** — 없으면 skip이다(캐시가 없으면 판마다 탐색을 200번 다시 한다) |
+| 환경변수                              | 없으면                                      | 쓰는 곳                                                                                                                                                                                                                                                               |
+| ------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SHOWGI_TEST_DATABASE_URL`            | DB 테스트 skip                              | `internal/store`, `internal/intervene` 의 재채점 측정, `internal/game` 의 블런더 재분류 측정, `internal/kifu` 의 段級 앵커 측정                                                                                                                                       |
+| `SHOWGI_USI_CMD`                      | 실엔진 테스트 skip                          | `TestRealEngine`, `TestWSAgainstRealEngine`                                                                                                                                                                                                                           |
+| `SHOWGI_MATE_CMD`                     | 詰み 측정 skip                              | `TestMeasureMateSearch`, `TestMeasureBlunderMate`, `TestMeasureBlunderTsumero`                                                                                                                                                                                        |
+| `SHOWGI_USI_CMD` + `SHOWGI_MEASURE`   | 밴드 측정 skip                              | `TestMeasureSkill*` — 실력 추정이 밴드를 옮기는 폭을 잰다(journal §47). DB는 안 쓴다                                                                                                                                                                                  |
+| `SHOWGI_MEASURE`                      | 측정 전부 skip                              | `TestMeasure*` — 몇 분 걸린다                                                                                                                                                                                                                                         |
+| `SHOWGI_MEASURE` 만                   | 부하 측정 skip                              | `TestMeasureTagHintLoad` — 手筋 게이트가 한 판에 쓰는 비용(journal §56). **엔진도 DB도 안 쓴다**                                                                                                                                                                      |
+| `SHOWGI_USI_CMD` + `SHOWGI_MEASURE`   | 기준점 측정 skip                            | `TestMeasureBaseline` — 手合割별 「형세 0」을 표와 나란히 찍는다(journal §84). DB는 안 쓴다                                                                                                                                                                           |
+| `SHOWGI_BOARD_IMAGES`                 | 기본은 `internal/boardread/testdata/images` | 판독을 재는 그림이 있는 폴더. 위의 「판독을 재는 그림」                                                                                                                                                                                                               |
+| `SHOWGI_BOARDREAD_MODEL`              | `boardread.DefaultModel`                    | 그 측정이 쓸 모델. 견주려면 여기를 갈아 끼운다                                                                                                                                                                                                                        |
+| `SHOWGI_OPENAI_KEY`                   | 실 OpenAI 호출 skip                         | `internal/kifunorm` 의 `TestLiveNormalizeReachesTheRuleEngine` — 결정적 파서가 전부 실패하는 텍스트가 정규화를 지나 룰 엔진까지 통과하는지를 본다. 모델은 `SHOWGI_OPENAI_MODEL` 로 갈아 끼운다. **CI 에서 안 돈다**                                                   |
+| `SHOWGI_KIFU_SCAN`                    | 기보 스캔 skip                              | `internal/kifu` 의 `TestScan*` 다섯. 엔진도 DB도 안 쓴다                                                                                                                                                                                                              |
+| `SHOWGI_KIFU_DUMP`                    | 덤프 skip                                   | `TestDumpFormationCases` — 사례마다 마크다운 한 장을 그 경로에 떨군다                                                                                                                                                                                                 |
+| `SHOWGI_TEST_ENGINE_PATH`             | 기보 임포트 skip                            | `internal/kifu` 의 `TestImportGame`. **여기만 `SHOWGI_USI_CMD` 를 안 쓴다**                                                                                                                                                                                           |
+| `SHOWGI_RANK_KIFU` + `SHOWGI_MEASURE` | 段級 앵커 측정 skip                         | `TestMeasureRankAnchors` — 급수가 붙은 기보로 段級 척도를 잰다([journal §94](../../docs/journal/82-100.md)). 엔진 경로는 `SHOWGI_USI_CMD`·`SHOWGI_TEST_ENGINE_PATH` 둘 다 받는다. **DB도 있어야 돈다** — 없으면 skip이다(캐시가 없으면 판마다 탐색을 200번 다시 한다) |
 
 > **`SHOWGI_MEASURE` 는 혼자서는 아무것도 안 연다.** `TestMeasure*` 는 전부 `*_CMD` 와 **둘 다** 있어야 돈다. 한쪽만 주면 실엔진 테스트는 돌고 측정만 조용히 건너뛴다 — 초록이 「쟀다」는 뜻이 아닌 자리가 여기 한 겹 더 있다.
 
@@ -200,6 +202,46 @@ go test ./internal/kifu/ -run MeasureRankAnchors -v -timeout 6h
 ```
 
 > **seed 를 안 고정하면 이 루프가 성립하지 않는다.** 매번 다른 10판을 뽑으면 「고쳐서 나아진 것」과 「표본이 쉬워진 것」을 못 가른다.
+
+## 판독을 재는 그림
+
+판이 찍힌 그림에서 국면을 얼마나 맞게 읽는지를 넓게 보는 데 쓴다([journal](../../docs/journal/121-140.md) §129). **레포에 커밋하지 않는다** — 앱 화면과 방송 캡처는 남의 것이고 이 레포는 퍼블릭이다. floodgate 기보와 같은 규약이고, 경로가 `.gitignore` 에 있다.
+
+### 픽스처 하나 앉히기 — **라벨은 이 기능 자체로 만든다**
+
+1. `docker compose up -d api` 후 `/position` 에 그림을 올린다
+2. 확인 화면에서 **사유가 0이 될 때까지** 판을 고치고 「この局面を解析する」를 누른다
+3. 그 주소를 그대로 붙여 넣는다
+
+```sh
+cd apps/server/internal/boardread/testdata
+./fixture.sh ~/Desktop/shot.png 'http://localhost:5173/explore?s=ln1gkg1nl%2F…'
+
+# SFEN 한 줄이어도 되고, 세 번째 인자로 이름을 정할 수도 있다
+./fixture.sh ~/Desktop/shot.png 'ln1gkg1nl/3s3+b1/… b B2p 1' mid-game
+```
+
+주소에서 `s=` 를 꺼내는 것이 그 스크립트가 하는 일의 절반이다 — 손으로 풀면 `+`(成)가 공백이 되어 조용히 틀린다. **라벨을 룰 엔진에 물어보고 성립하지 않으면 안 앉힌다**: 틀린 라벨은 없는 라벨보다 나쁘다(측정이 조용히 나빠 보인다). 번호는 이어서 매겨진다 — 이름 순이 곧 표의 줄 순서라, 회차 둘을 나란히 놓고 읽으려면 그 순서가 고정돼야 한다.
+
+### 재기
+
+```sh
+SHOWGI_MEASURE=1 SHOWGI_OPENAI_KEY=… go test ./internal/boardread/ -run MeasureBoardRead -v -timeout 20m
+
+# 모델을 갈아 끼워 견준다
+SHOWGI_MEASURE=1 SHOWGI_OPENAI_KEY=… SHOWGI_BOARDREAD_MODEL=… \
+  go test ./internal/boardread/ -run MeasureBoardRead -v -timeout 20m
+
+# 그림을 레포 밖에 둘 때
+SHOWGI_MEASURE=1 SHOWGI_OPENAI_KEY=… SHOWGI_BOARD_IMAGES=~/board-shots \
+  go test ./internal/boardread/ -run MeasureBoardRead -v -timeout 20m
+```
+
+**라벨이 없어도 재진다.** 실물 한 판은 언제나 40장이고 성립하는 국면이라, 룰 검산의 사유가 하나라도 있으면 그 판독은 틀렸다 — 그 수만으로도 회차를 견줄 수 있다. 라벨이 있으면 81칸과 駒台까지 맞춰 본다.
+
+**手番은 안 본다.** 사진이 말해 주지 않는 값이라 이 계층은 언제나 `b` 를 적고, 고르는 것은 사람이다 — 라벨의 手番이 무엇이든 채점에 안 들어간다.
+
+**통과선을 안 건다.** 어긋나면 문장으로 말하고 사람이 저널의 표를 옮긴다(`TestMeasureBaseline` 과 같은 판단) — 자동으로 선을 두면 모델이나 프롬프트가 흔들릴 때 그 선이 조용히 따라 움직인다.
 
 ## 스키마를 바꿀 때
 

@@ -66,6 +66,10 @@ crash.log
 # floodgate 기보 — 남의 대국 기록이고 5MB 넘는다. 받는 절차는 apps/server/README.md
 apps/server/internal/kifu/testdata/floodgate/
 
+# 판독을 재는 그림과 그 라벨 — 앱 화면과 방송 캡처는 남의 것이다. 위와 같은 규약이고,
+# 넣는 절차는 apps/server/README.md
+apps/server/internal/boardread/testdata/images/
+
 # `go build ./cmd/importkifu` 가 떨어뜨리는 14MB 바이너리
 apps/server/importkifu
 apps/server/internal/kifu/testdata/import10/
