@@ -49,7 +49,7 @@ type TesujiOption struct {
 // 날이 온다.
 func tesujiOptions(pos shogi.Position, c shogi.Color) []TesujiOption {
 	// LegalMoves 는 pos.Turn 쪽의 수만 낸다. 상대 차례에 물으면 조용히 빈 결과가 오므로
-	// (에러가 아니라 「手筋이 없다」로 보인다) 여기서 갈라 둔다 — tag.targetSquares 가
+	// (에러가 아니라 「手筋이 없다」로 보인다) 여기서 따로 둔다 — tag.targetSquares 가
 	// 같은 함정에 물렸던 자리다.
 	if pos.Turn != c {
 		return nil

@@ -10,7 +10,7 @@ import { navigate } from '@/routes/router';
  * 스스로 대기열에 선 사람에게는 「자리를 태워도 되나」를 물을 이유가 없다(journal §92).
  *
  * 상대에 대해 아무것도 안 보여준다. 段級도 전적도 레이팅도 없다 — 레이팅은 밴드를
- * 세우는 내부 값이고, 보여주면 사람이 그것을 지키려 두기 시작한다(docs/01-core.md §5).
+ * 잡는 내부 값이고, 보여주면 사람이 그것을 지키려 두기 시작한다(docs/01-core.md §5).
  */
 export function Search() {
   const { me } = useViewer();

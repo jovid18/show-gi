@@ -41,7 +41,7 @@ func TestReadMapsTheDrawnGridStraightToSFEN(t *testing.T) {
 		t.Fatalf("SFEN =\n%q\nwant\n%q", got.SFEN, want)
 	}
 	// 룰 엔진이 읽을 수 있어야 쓸 수 있다. 여기서 걸리면 위의 문자열 비교가 맞아도
-	// 국면이 안 선다.
+	// 국면이 안 만들어진다.
 	if _, err := shogi.ParseSFEN(got.SFEN); err != nil {
 		t.Fatalf("ParseSFEN(%q): %v", got.SFEN, err)
 	}
@@ -99,7 +99,7 @@ func TestReadKeepsTooManyPiecesButStaysWithinInt8(t *testing.T) {
 	}
 }
 
-// 판이 없는 그림은 고장이 아니라 사실이다. 사유를 갈라 두면 화면이 「다시 눌러 보라」가
+// 판이 없는 그림은 고장이 아니라 사실이다. 사유를 따로 두면 화면이 「다시 눌러 보라」가
 // 아니라 「판이 보이는 그림을 올려라」를 말할 수 있다.
 func TestReadRefusesAnImageWithNoBoard(t *testing.T) {
 	c := stub(t, read{Found: false})

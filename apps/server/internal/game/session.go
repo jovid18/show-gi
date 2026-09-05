@@ -22,7 +22,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
 )
 
-// Analyst 는 착수 한 수를 판정한다. 판정과 탐색을 갈라 두려고 인터페이스로 뒀다 —
+// Analyst 는 착수 한 수를 판정한다. 판정과 탐색을 따로 두려고 인터페이스로 뒀다 —
 // 세션은 「이 수가 블런더인가」만 알고 그것을 어떻게 구했는지는 모른다.
 type Analyst interface {
 	// Judge 는 startSFEN + moves 로 도달한 국면에서 마지막 한 수를 판정한다.
@@ -436,7 +436,7 @@ func New(ctx context.Context, cfg Config) (*Session, error) {
 	}
 
 	// run 전에 되만든다. 여기까지는 goroutine 이 하나뿐이고 Recorder 도 아직 아무 말을
-	// 안 들었으므로, 되만들기가 실패하면 세션이 아예 안 선다 — 반쯤 선 판을 접는 길을
+	// 안 들었으므로, 되만들기가 실패하면 세션이 아예 안 열린다 — 반쯤 열린 판을 접는 길을
 	// 만들지 않는다.
 	if err := st.replay(cfg.StartMoves); err != nil {
 		return nil, err
@@ -452,7 +452,7 @@ var ErrCannotResume = errors.New("game: cannot rebuild the position from the rec
 // replay 는 기보를 그대로 다시 둬서 끊긴 자리로 판을 되돌린다.
 //
 // 한 수라도 안 맞으면 통째로 거절한다. 눈감고 이어 두면 한 칸 어긋난 판이 「그때 두던
-// 판」의 얼굴로 서고, 그 뒤로 서버도 화면도 조용하다 — 사람만 자기 持ち駒가 다른 것을 본다.
+// 판」의 얼굴로 열리고, 그 뒤로 서버도 화면도 조용하다 — 사람만 자기 持ち駒가 다른 것을 본다.
 func (st *state) replay(moves []string) error {
 	for i, u := range moves {
 		m, err := shogi.ParseUSIMove(u)
@@ -930,7 +930,7 @@ func (st *state) rollback(r judgeResult) {
 // advance 는 검증이 끝난 수를 판에 반영한다. 표기는 착수 전 국면에서 만들어야 한다.
 //
 // 종료 판정은 안 한다. 되만드는 쪽(replay)은 「끝나 있으면 이어할 수 없다」를 답해야
-// 하는데, 그 답을 finish 가 내면 아직 서지도 않은 세션이 Recorder 에 종료를 흘린다.
+// 하는데, 그 답을 finish 가 내면 아직 열리지도 않은 세션이 Recorder 에 종료를 흘린다.
 func (st *state) advance(m shogi.Move, by Side) {
 	ja := st.pos.MoveJa(m, st.prevTo)
 	st.pos = st.pos.Apply(m)
@@ -990,7 +990,7 @@ func (st *state) recordLastMove() {
 // 확정된 수 뒤에서만 부른다. 물러진 수 위에서 세면 되물러 사라진 형태가 기록에 남고,
 // 그건 「짰다」가 아니라 「짤 뻔했다」다.
 //
-// 화면과 같은 함수(styleTags)를 쓴다 — 갈라 두면 판에 뜬 이름과 마이페이지가 세는
+// 화면과 같은 함수(styleTags)를 쓴다 — 따로 두면 판에 뜬 이름과 마이페이지가 세는
 // 이름이 달라진다. 手筋만 뺀다. 그쪽은 엔진 평가치에 매여 있고 이름의 정확도가 아직
 // 보류 중이다(Recorder.Named).
 func (st *state) recordStyleTags() {
@@ -1499,7 +1499,7 @@ func (st *state) closeSubs() {
 
 // notify 는 막히지 않고 최신 스냅샷을 넣는다.
 //
-// 느린 클라이언트 하나가 세션 goroutine 을 멈추면 그 대국이 통째로 선다. 스냅샷은
+// 느린 클라이언트 하나가 세션 goroutine 을 멈추면 그 대국이 통째로 멈춘다. 스냅샷은
 // 언제나 전체 상태라 중간 것을 버려도 손실이 없다.
 func notify(ch chan Snapshot, snap Snapshot) {
 	for range 2 {

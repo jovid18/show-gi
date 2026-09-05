@@ -56,11 +56,11 @@ type serverMsg struct {
 	Reason   string         `json:"reason,omitempty"`  // 기계용 코드(영어)
 	Message  string         `json:"message,omitempty"` // 화면용 문구(일본어)
 
-	// WhatIf 는 가정 수순의 지금 자리다. 스냅샷과 갈라 둔다 — 이건 대국의 상태가 아니라
+	// WhatIf 는 가정 수순의 지금 자리다. 스냅샷과 따로 둔다 — 이건 대국의 상태가 아니라
 	// 「안 벌어진 일」이고, 하나로 합치면 화면이 두 판을 같은 것으로 그린다.
 	WhatIf *whatifNode `json:"whatif,omitempty"`
 
-	// Summary 는 대국이 끝난 뒤 한 번 오는 총평이다. 갈라 둔 이유는 WhatIf 와 같다 —
+	// Summary 는 대국이 끝난 뒤 한 번 오는 총평이다. 따로 둔 이유는 WhatIf 와 같다 —
 	// 국면의 상태가 아니라 판 전체에 대한 이야기이고, 기록이 다 쓰이기를 기다리므로
 	// 결과 문구보다 늦게 도착한다(sendSummary).
 	Summary *gameSummaryPayload `json:"summary,omitempty"`
@@ -175,7 +175,7 @@ func newSetup(r *http.Request, opts Options) gameSetup {
 	return s
 }
 
-// errNoResume 는 이어할 수 없다는 것 하나다. 왜인지는 안 갈라 준다 — 없는 판·남의 판·
+// errNoResume 는 이어할 수 없다는 것 하나다. 왜인지는 안 가른다 — 없는 판·남의 판·
 // 이미 다른 탭이 점유한 판이 같은 답을 받아야 남의 판 번호를 훑어볼 수 없다(§46).
 var errNoResume = errors.New("ws: cannot resume")
 
@@ -587,7 +587,7 @@ func generateQuiz(parent context.Context, st *store.Store, builder *quiz.Builder
 		// 못 본 채로 비었을 때만 안 적는다.
 		//
 		// 「끝까지 못 봤다」가 참이어도 나온 것은 사실이다 — 다 지어진 詰み 트리는 gap
-		// 후보 하나를 못 쟀다고 틀려지지 않고, 잰 gap 문항은 트리가 못 섰다고 틀려지지
+		// 후보 하나를 못 쟀다고 틀려지지 않고, 잰 gap 문항은 트리를 못 지었다고 틀려지지
 		// 않는다. 둘을 한 깃발로 묶으면 한쪽의 사소한 실패가 멀쩡한 다른 쪽을 지운다.
 		//
 		// 버리는 것은 빈 결과뿐이다. 그때만 「이 판에 문항이 없다」와 「못 봤다」가 같은

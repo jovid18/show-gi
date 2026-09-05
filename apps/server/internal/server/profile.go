@@ -20,12 +20,12 @@ import (
 
 // weaknessMin 은 약점이라고 부르기 전에 필요한 개입 횟수다.
 //
-// 한 번 걸린 것은 약점이 아니다. 한 판에서 한 번 나온 카테고리까지 목록에 세우면
+// 한 번 걸린 것은 약점이 아니다. 한 판에서 한 번 나온 카테고리까지 목록에 올리면
 // 「당신의 약점」이 그날 우연히 둔 수 하나가 되고, 그건 초심자에게 틀린 것을 가르치는
-// 쪽에 선다(01-core.md). [미확정] — 회차 2가 8건뿐이라 표본으로 잡은 값이 아니다.
+// 쪽에 있다(01-core.md). [미확정] — 회차 2가 8건뿐이라 표본으로 잡은 값이 아니다.
 const weaknessMin = 2
 
-// weaknessTop 은 화면에 세우는 줄 수다. 아홉 종류를 다 세우면 목록이 「무엇이 약한가」가
+// weaknessTop 은 화면에 그리는 줄 수다. 아홉 종류를 다 그리면 목록이 「무엇이 약한가」가
 // 아니라 「무엇에 걸렸나」가 된다.
 const weaknessTop = 3
 
@@ -63,7 +63,7 @@ type profilePayload struct {
 	// 같이 보낸다 — 화면이 목록을 더해 구하면 잘린 뒤의 합이라 틀린 분모가 된다.
 	Interventions int            `json:"interventions"`
 	Weaknesses    []weaknessView `json:"weaknesses,omitempty"`
-	// Styles 는 지금까지 짠 囲い·전법·戦型이다. 약점과 나란히 서는 자리라 같은
+	// Styles 는 지금까지 짠 囲い·전법·戦型이다. 약점과 나란히 놓이는 자리라 같은
 	// 모집단에서 나온다(store.PlayerTally).
 	Styles []styleView `json:"styles,omitempty"`
 }
@@ -71,13 +71,13 @@ type profilePayload struct {
 // styleView 는 짠 진형 한 줄이다.
 //
 // 약점과 모양이 다르다. 저쪽은 비율이 뜻을 갖지만(전체 개입 중 몇 %가 이것인가) 이쪽은
-// 「몇 판에서 짰나」라 분모가 판 수이고, 그 판 수는 이미 전적에 서 있다.
+// 「몇 판에서 짰나」라 분모가 판 수이고, 그 판 수는 이미 전적에 나와 있다.
 type styleView struct {
 	Code string `json:"code"`
 	// NameJa 는 판에 뜨는 이름과 같은 어휘다(tag.Tag.NameJa). 화면이 코드를 일본어로
 	// 바꾸기 시작하면 대국 중의 이름과 여기가 갈린다.
 	NameJa string `json:"nameJa"`
-	// Kind 는 축의 코드다(castle·formation·opening). 셋을 한 목록에 세우므로 이것이
+	// Kind 는 축의 코드다(castle·formation·opening). 셋을 한 목록에 넣으므로 이것이
 	// 없으면 「美濃囲い」와 「中飛車」가 같은 종류로 읽힌다.
 	//
 	// 일본어로 안 바꾼다. 축의 이름은 화면이 이미 갖고 있고(libs/game/tags.ts),
@@ -176,7 +176,7 @@ func weaknessesOf(counts map[string]int) (int, []weaknessView) {
 	return total, out
 }
 
-// styleTop 은 화면에 세우는 줄 수다. 약점(3)보다 넉넉하다 — 저쪽은 「무엇이 약한가」라
+// styleTop 은 화면에 그리는 줄 수다. 약점(3)보다 넉넉하다 — 저쪽은 「무엇이 약한가」라
 // 짧아야 읽히지만 이쪽은 목록 자체가 기록이고, 축이 셋이라 3줄이면 한 축이 통째로 빠진다.
 const styleTop = 8
 

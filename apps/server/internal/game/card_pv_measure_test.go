@@ -14,7 +14,7 @@ import (
 //
 //	SHOWGI_MEASURE=1 SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/game/ -run MeasureCardBest -v
 //
-// 재는 국면은 사람이 둔 첫 판에서 사람이 두고 난 뒤의 자리들이다 — 개입 카드가 서는 것과
+// 재는 국면은 사람이 둔 첫 판에서 사람이 두고 난 뒤의 자리들이다 — 개입 카드가 뜨는 것과
 // 같은 모양(상대 차례)이다. 물러진 수 자체는 기보에 없으므로(롤백됐다) 그 국면을 그대로
 // 되만들 수는 없고, 여기서 재는 것은 「그 깊이에서 k가 1위를 바꾸는 빈도」다.
 func TestMeasureCardBestDivergence(t *testing.T) {

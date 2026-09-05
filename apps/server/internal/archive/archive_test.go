@@ -283,7 +283,7 @@ func TestRecordsNothingOnSearchFailure(t *testing.T) {
 	}
 }
 
-// 기록이 실패해도 탐색은 성공이다. 분석을 못 남긴 것과 대국이 서지 않는 것의 값이 다르다.
+// 기록이 실패해도 탐색은 성공이다. 분석을 못 남긴 것과 대국이 깨지는 것의 값이 다르다.
 func TestSearchSucceedsWhenWritingFails(t *testing.T) {
 	st := newStore()
 	st.putErr = errors.New("database is down")

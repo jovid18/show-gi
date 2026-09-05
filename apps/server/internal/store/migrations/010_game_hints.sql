@@ -8,7 +8,7 @@
 --
 -- **`interventions` 에 안 넣는다.** 저쪽은 「앱이 먼저 말을 건 자리」이고 이쪽은 사람이
 -- 부른 자리라, 섞으면 「개입 N회」가 사람이 스스로 물어본 횟수까지 세게 된다 — 待った를
--- 갈라 둔 것과 같은 이유다. `taken`(알려줘도 못 찾았나)은 여기 칸으로 옮겨 온다.
+-- 따로 둔 것과 같은 이유다. `taken`(알려줘도 못 찾았나)은 여기 칸으로 옮겨 온다.
 CREATE TABLE game_hints (
     id      bigserial PRIMARY KEY,
     game_id bigint    NOT NULL REFERENCES games ON DELETE CASCADE,

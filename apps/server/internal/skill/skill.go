@@ -53,7 +53,7 @@ type Estimate struct {
 	AbsLoss float64
 	// AbsSamples 는 AbsLoss 에 들어간 수의 개수다.
 	//
-	// Samples 와 갈라 둔다. 이 칸이 뒤에 생겨서 그 전에 쌓인 프로파일은 Samples 가
+	// Samples 와 따로 둔다. 이 칸이 뒤에 생겨서 그 전에 쌓인 프로파일은 Samples 가
 	// 차 있는데 AbsLoss 가 비어 있고, 그것을 0으로 메우면 「매 수 최선」이 된다
 	// (014_skill_absolute_loss.sql).
 	AbsSamples int
@@ -64,7 +64,7 @@ type Estimate struct {
 const PriorLoss = 0.5
 
 // Unknown 은 아직 아무 수도 안 본 추정치다. 추정기가 꺼져 있을 때도 이 값이다 —
-// 부르는 쪽이 「없음」과 「모름」을 갈라 볼 이유가 없고, 둘 다 기준선 밴드로 간다.
+// 부르는 쪽이 「없음」과 「모름」을 구분할 이유가 없고, 둘 다 기준선 밴드로 간다.
 var Unknown = Estimate{Loss: PriorLoss}
 
 // RiseRate·FallRate 는 낙폭이 오를 때와 내릴 때의 반영 비율이다. 둘은 비대칭이다.

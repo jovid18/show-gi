@@ -66,7 +66,7 @@ func TestTesujiOptionsIgnoresShapesAlreadyOnTheBoard(t *testing.T) {
 	}
 }
 
-// 상대 차례에는 후보가 없다. LegalMoves 가 pos.Turn 쪽 수만 내므로, 갈라 두지
+// 상대 차례에는 후보가 없다. LegalMoves 가 pos.Turn 쪽 수만 내므로, 따로 두지
 // 않으면 「手筋이 없다」와 「물어볼 차례가 아니다」가 같은 빈 결과가 된다.
 func TestTesujiOptionsNeedsItToBeThatColorsTurn(t *testing.T) {
 	pos := mustSFEN(t, strings.Replace(forkOneMoveAway, " b ", " w ", 1))
@@ -108,7 +108,7 @@ func gateOne(t *testing.T, s MultiSearcher, opts []TesujiOption) ([]TesujiOption
 }
 
 // gateOneK 는 k를 짚어 준다. 줄 밖을 확정 탈락으로 말하려면 k줄을 다 받아야 하므로
-// (gateTesujiOptions), 줄을 몇 개만 세우는 테스트는 k도 그만큼으로 줘야 그 국면이 된다.
+// (gateTesujiOptions), 줄을 몇 개만 두는 테스트는 k도 그만큼으로 줘야 그 국면이 된다.
 func gateOneK(t *testing.T, s MultiSearcher, k int, opts []TesujiOption) ([]TesujiOption, int) {
 	t.Helper()
 	kept, dropped, err := gateTesujiOptions(t.Context(), s, 12, k, shogi.StartSFEN, nil, opts, shogi.Black)

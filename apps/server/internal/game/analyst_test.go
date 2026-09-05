@@ -175,7 +175,7 @@ func TestTrimRefutation(t *testing.T) {
 		"몇 수 앞에서 벌어진다":   {[]refutationStep{quiet, quiet, takes(30), quiet}, 3},
 		"같은 칸의 교환은 끝까지":  {[]refutationStep{quiet, takes(30), takes(30), takes(30), quiet}, 4},
 		"다른 칸이면 별개 교환이다": {[]refutationStep{takes(30), takes(41), takes(41)}, 1},
-		// 王手는 혼자 서지 못한다. 응수가 강제라, 답을 빼면 「먹으면 되지 않나」가 된다.
+		// 王手는 혼자 성립하지 못한다. 응수가 강제라, 답을 빼면 「먹으면 되지 않나」가 된다.
 		"王手는 응수까지":      {[]refutationStep{check, quiet, quiet}, 2},
 		"連続王手는 이어지는 동안": {[]refutationStep{check, takes(30), check, quiet, quiet}, 4},
 		"조용한 수뿐이면 첫 수만": {[]refutationStep{quiet, quiet, quiet}, 1},

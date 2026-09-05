@@ -29,7 +29,7 @@ export function useQuiz(id: number): QuizSource {
   // 기다리기 시작한 시각. 세는 것이 아니라 재는 것이다 — 아래.
   const since = useRef<number | null>(null);
 
-  // 판이 바뀌면 이 훅이 통째로 다시 선다 — App 이 `key` 로 판마다 새로 세운다. 여기서
+  // 판이 바뀌면 이 훅이 통째로 새로 만들어진다 — App 이 `key` 로 판마다 새로 세운다. 여기서
   // 손으로 되돌리려 하면 안 된다: `id` 가 바뀐 그 렌더에는 `useFetch` 가 아직 앞 판의 답을
   // 들고 있어서, 지운 자리가 같은 렌더에서 그 값으로 다시 채워진다.
 
@@ -37,7 +37,7 @@ export function useQuiz(id: number): QuizSource {
   //
   // 한 번 실패한 것으로 끝내지 않는다. 요청 하나가 500을 받거나 네트워크가 한 번 끊긴
   // 것은 「문항이 안 온다」가 아니다 — 그래서 부르는 중이든 실패했든 직전 답으로 판단한다
-  // (아래에서 그 답을 화면에 그대로 세우는 것과 같은 이유다).
+  // (아래에서 그 답을 화면에 그대로 내보내는 것과 같은 이유다).
   const stillWaiting = last.current != null && !last.current.ready;
   const waiting = loaded.state === 'ready' ? !loaded.data.ready : stillWaiting;
 
@@ -73,7 +73,7 @@ export function useQuiz(id: number): QuizSource {
   }, [waiting, gaveUp, attempts, reload]);
 
   // 「もう一度」는 세던 것도 되돌린다. 안 되돌리면 눌러도 요청 하나가 나가고 화면은
-  // 그만둔 자리에 그대로 서서, 버튼이 아무 일도 안 하는 것처럼 보인다.
+  // 그만둔 자리에 그대로 멈춰서, 버튼이 아무 일도 안 하는 것처럼 보인다.
   const retry = useCallback(() => {
     since.current = null;
     setAttempts(0);
@@ -86,7 +86,7 @@ export function useQuiz(id: number): QuizSource {
   if (loaded.state === 'ready') {
     last.current = loaded.data;
   }
-  // 부르는 중이든 한 번 실패했든, 직전 답이 있으면 그것을 그대로 세워 둔다.
+  // 부르는 중이든 한 번 실패했든, 직전 답이 있으면 그것을 그대로 들고 있는다.
   if (loaded.state !== 'ready' && last.current && !gaveUp) {
     return { loaded: { state: 'ready', data: last.current }, reload: retry, gaveUp };
   }

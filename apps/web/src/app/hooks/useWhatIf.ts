@@ -71,7 +71,7 @@ const NO_FLOOR: readonly string[] = [];
  * 그 앞은 지금 다시 둘 국면이라, 거기까지 물러나면 이 장치가 최선수 셋으로 「지금 어떻게
  * 두라」를 답하게 된다(01-core.md §7).
  *
- * 서버도 같은 벽을 갖고 있고(ws.go 의 `branchRoot`), 두 벌인 것이 맞다 — 화면은 버튼을
+ * 서버도 같은 제한을 갖고 있고(ws.go 의 `branchRoot`), 두 벌인 것이 맞다 — 화면은 버튼을
  * 안 그리고 서버는 요청을 거절하므로, 하나가 뚫려도 다른 하나가 남는다.
  */
 export function useWhatIf<T extends WhatIfNode = WhatIfNode>(
@@ -97,7 +97,7 @@ export function useWhatIf<T extends WhatIfNode = WhatIfNode>(
    * 되돌아가면 그때 그 자리가 다시 보여야 한다(03-frontend.md §3). 다시 물으면 후보의
    * 평가치가 흔들리므로(§34 ②), 물러났다 나아가는 것만으로 숫자가 바뀌면 그건 판의
    * 사실이 아니게 된다. 서버 쪽 `positions` 캐시가 같은 일을 하지만, 여기가 있으면
-   * 왕복 자체가 없어서 누른 즉시 판이 선다.
+   * 왕복 자체가 없어서 누른 즉시 판이 그려진다.
    */
   const seen = useRef(new Map<string, T>());
   /** 떠난 요청은 버린다. 빠르게 두면 응답이 순서대로 오지 않는다. */

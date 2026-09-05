@@ -31,12 +31,12 @@ import { navigate } from '@/routes/router';
  * 그 아래쪽을 先手로 두는 정규화는 서버가 이미 했다(`internal/boardread`).
  *
  * **로그인이 필요하다.** 그림을 읽는 것이 돈을 쓰는 일이라 사람마다 세야 하고, 익명끼리는
- * 구별할 수단이 없다. 고치는 것과 분석하는 것에는 그 벽이 없다 — 그쪽은 룰 계산과
+ * 구별할 수단이 없다. 고치는 것과 분석하는 것에는 로그인이 필요 없다 — 그쪽은 룰 계산과
  * 엔진 슬롯이라 이미 익명에게 열려 있다.
  */
 export function PositionScreen({ me }: { me: MeResponse }) {
   // 로그인 안 한 것은 오류가 아니다. 메뉴에서는 이 줄이 로그인한 사람에게만 보이지만
-  // 주소를 직접 열면 익명으로 여기 선다 — 그때 상자를 그려 주면 사람이 그림을 고르고
+  // 주소를 직접 열면 익명으로 여기 들어온다 — 그때 상자를 그려 주면 사람이 그림을 고르고
   // 누른 뒤에야 로그인이 필요하다는 것을 알게 된다(ImportScreen 과 같은 자리).
   if (me.user === null) return <SignInFirst enabled={me.enabled} />;
   return <PositionForm />;

@@ -146,7 +146,7 @@ ON CONFLICT (match_id) DO NOTHING;
 --
 -- HoldAnalysisJob 이 세운 행을 채우는 것이 보통인데, 없으면 여기서 만든다. UPDATE 로만
 -- 두면 그 앞이 한 번 실패했을 때 이 문장이 **조용히 아무 일도 안 하고** 그 판이 큐에
--- 안 선다 — 되짚기는 그것을 「남지 않았다」로만 보여 주므로 아무도 못 알아챈다.
+-- 안 만들어진다 — 되짚기는 그것을 「남지 않았다」로만 보여 주므로 아무도 못 알아챈다.
 INSERT INTO analysis_jobs (match_id, plies) VALUES ($1, $2)
 ON CONFLICT (match_id) DO UPDATE SET plies = EXCLUDED.plies;
 

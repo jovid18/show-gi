@@ -143,7 +143,7 @@ resource "aws_launch_template" "app" {
 #   show-gi            상호작용.  1/1/1 고정
 #   show-gi-analysis   분석.      0 ~ var.analysis_max_instances
 #
-# 분석 쪽 아래가 0 인 것이 절약 모드다(journal §125). 부하가 없으면 그 대가 아예 안 서고,
+# 분석 쪽 아래가 0 인 것이 절약 모드다(journal §125). 부하가 없으면 그 대가 아예 안 뜨고,
 # 밀린 手는 상호작용 대가 겸해서 집는다(ecs.tf 의 SERVER_ROLE). 임계를 넘으면 알람이
 # 전용 대를 부르므로 배선은 그대로다.
 #
@@ -246,7 +246,7 @@ resource "aws_autoscaling_group" "tier" {
 
   lifecycle {
     # 분석 쪽 desired 의 주인이 ECS 다. 상호작용 쪽은 min=max=1 이라 무시하든 말든
-    # 값이 하나뿐이고, 두 그룹이 한 resource 라 여기서 갈라 적을 수가 없다.
+    # 값이 하나뿐이고, 두 그룹이 한 resource 라 여기서 따로 적을 수가 없다.
     ignore_changes = [desired_capacity]
   }
 }

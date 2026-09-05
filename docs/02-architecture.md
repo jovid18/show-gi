@@ -129,7 +129,7 @@ games        (id, user_id, my_color, started_at, finished_at, result, opening_ta
              -- 집계 셋이 그 조건으로 대인전을 뺀다. 밖으로는 불리언 하나만 나간다
 game_hints   (id, game_id, ply, sfen_key, stage, best_usi, taken, created_at)
              -- 사람이 **불러서** 받은 최선수 힌트 (010_game_hints.sql, §78).
-             -- **interventions 와 갈라 둔다** — 저쪽은 앱이 먼저 말을 건 자리다
+             -- **interventions 와 따로 둔다** — 저쪽은 앱이 먼저 말을 건 자리다
              -- result 어휘의 정본은 `store.GameResult` 다 — 칸에 CHECK 가 없어서
              -- 'declined'(§51)가 DDL 없이 늘었다. 中断은 'abandoned' 로 적힌다 —
              -- 'aborted' 는 세션·프로토콜 쪽 Status 이지 이 칸의 값이 아니다
@@ -147,12 +147,12 @@ game_quizzes (game_id primary key, version, payload jsonb, generated_at)
              -- 詰み 문항이 트리라 행으로 쪼개면 채점 질의가 그 모양을 SQL에서 다시 만든다
              -- **정답이 payload 안에 있고 응답에 안 실린다** — 채점이 서버에 있다
 game_undos   (id, game_id, ply, usi, eval_cp, created_at)
-             -- 사람이 스스로 무른 수 (008, §72). `interventions` 와 갈라 둔 이유는 예산도
+             -- 사람이 스스로 무른 수 (008, §72). `interventions` 와 따로 둔 이유는 예산도
              -- 뜻도 다르기 때문이다 — 이쪽은 판정을 **통과한** 수라 레이팅에서 안 빠진다
 skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at,
               skill_loss, skill_samples, rating_games, rating_updated_at,
               skill_abs_loss, skill_abs_samples)
-             -- **한 표에 척도가 셋이다.** 갈라 둔 이유는 비교 가능성이다 (013, §92 · 014, §94)
+             -- **한 표에 척도가 셋이다.** 따로 둔 이유는 비교 가능성이다 (013, §92 · 014, §94)
              -- skill_loss/samples — 엔진 대국의 적응용 (006, §48). 임계치에 대한 비율이라
              --   임계치가 사람마다 갈리는 순간 사람 사이에 비교할 수 없다.
              --   대인전도 판이 끝난 뒤 두 축을 다 먹인다 (§95)

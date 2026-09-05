@@ -229,7 +229,7 @@ func TestWorkerReportsEveryObservation(t *testing.T) {
 }
 
 // 절대 낙폭은 평균이다. 段級이 이 값에서 나오므로(rank.go) 「최근 몇 수」가 아니라
-// 「이 판 전체」여야 하고, 그것이 비대칭 EMA와 갈라 둔 이유다.
+// 「이 판 전체」여야 하고, 그것이 비대칭 EMA와 따로 둔 이유다.
 func TestAbsLossIsTheMeanOfRawDrops(t *testing.T) {
 	tr := NewTrack()
 	for _, d := range []float64{0.1, 0, 0.2} {

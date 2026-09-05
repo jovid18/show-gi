@@ -46,7 +46,7 @@ func TestResumeMovesRejectsAGapInPlies(t *testing.T) {
 		t.Errorf("moves = %v", got)
 	}
 
-	// 2手目가 빠졌다. 여기서 눈감으면 3手目가 2手目 자리에 서서 없던 판이 된다.
+	// 2手目가 빠졌다. 여기서 눈감으면 3手目가 2手目 자리로 밀려서 없던 판이 된다.
 	broken := store.GameRecord{
 		GameSummary: store.GameSummary{ID: 7},
 		Moves:       []store.RecordedMove{{Ply: 1, USI: "7g7f"}, {Ply: 3, USI: "2g2f"}},

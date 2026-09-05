@@ -24,7 +24,7 @@ type MateEngine interface {
 	SearchMate(ctx context.Context, startSFEN string, moves []string) (usi.MateResult, error)
 }
 
-// MateMetrics 는 詰み 탐색 하나를 받는 자리다. 탐색부와 갈라 둔다 —
+// MateMetrics 는 詰み 탐색 하나를 받는 자리다. 탐색부와 따로 둔다 —
 // 섞으면 engine_search_duration_seconds 가 부하 신호로서의 뜻을 잃는다(journal §106).
 type MateMetrics interface {
 	// ObserveMateSearch 는 詰み 탐색 하나가 답을 받기까지 걸린 시간이다. 풀 대기가
@@ -52,7 +52,7 @@ type Mate struct {
 	// metrics 는 기동 중에 한 번 달리고 그 뒤로는 읽기만 한다. nil 이면 계측이 꺼진다.
 	metrics MateMetrics
 
-	// wg 는 떠 있는 기록들이다. Searcher.wg 와 갈라 둔다 — 종료할 때 둘 다 기다린다.
+	// wg 는 떠 있는 기록들이다. Searcher.wg 와 따로 둔다 — 종료할 때 둘 다 기다린다.
 	wg sync.WaitGroup
 }
 
@@ -93,7 +93,7 @@ func (a *Mate) SearchMate(ctx context.Context, startSFEN string, moves []string)
 	// 다루게 된다 — Searcher 가 positionAfter 를 같은 이유로 지나간다.
 	//
 	// 캐시가 꺼져 있으면 되만들지도 않는다. 100手째의 판정이 그 수순을 전부 다시 두는
-	// 것이고, 쓸 데가 없으면 그것이 그대로 낭비다 — CPU 가 벽인 박스다(journal §110).
+	// 것이고, 쓸 데가 없으면 그것이 그대로 낭비다 — CPU 가 병목인 박스다(journal §110).
 	var pos shogi.Position
 	usable := false
 	if a.store != nil {

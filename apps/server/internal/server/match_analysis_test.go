@@ -27,7 +27,7 @@ type stubAnalyst struct {
 	// blindFrom 이 0이 아니면 그 手数부터 국면을 못 되만든 것으로 답한다. 엔진은 답했는데
 	// 판정이 부호를 못 정한 자리이고, 실엔진에서는 그 뒤가 전부 같이 실패한다.
 	blindFrom int
-	// lossOdd·lossEven 은 홀수·짝수 手의 승률 낙폭이다. 둘을 갈라 두면 누구의 프로파일에
+	// lossOdd·lossEven 은 홀수·짝수 手의 승률 낙폭이다. 둘을 따로 두면 누구의 프로파일에
 	// 무엇이 쌓였는지를 값으로 셀 수 있다.
 	lossOdd, lossEven float64
 	// blunder 가 참이면 낙폭이 있는 手를 개입 판정으로 답한다. 취해 온 판의 悪手 줄이
@@ -1053,7 +1053,7 @@ func TestAFullyMeasuredGameQueuesNoWork(t *testing.T) {
 	}
 }
 
-// blockingAnalyst 는 판정 안에서 멈춰 서 있는다. 동시에 몇이 들어왔는지를 세는 데 쓴다.
+// blockingAnalyst 는 판정 안에서 멈춰 있는다. 동시에 몇이 들어왔는지를 세는 데 쓴다.
 type blockingAnalyst struct {
 	entered chan struct{}
 	release chan struct{}

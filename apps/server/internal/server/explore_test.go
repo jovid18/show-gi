@@ -18,11 +18,11 @@ import (
 )
 
 // 검토는 뿌리만 새롭다. 계산부(branch.go)는 되짚기가 이미 확인하고 있으므로, 여기서
-// 보는 것은 그 경계 넷이다 — 뿌리가 手合割에서 오는가 · 관점이 先手인가 · 슬롯 벽 ·
+// 보는 것은 그 경계 넷이다 — 뿌리가 手合割에서 오는가 · 관점이 先手인가 · 슬롯 제한 ·
 // 깊이가 대국과 같은가(캐시가 한 무리여야 한다).
 
 // exploreTest 는 검토 핸들러 하나다. store 는 nil이다 — 캐시가 없어도 답이 같은 것이
-// 이 표면의 성질이고(exploreHandler.store), 여기서 확인하는 것은 뿌리와 벽이라 DB에
+// 이 표면의 성질이고(exploreHandler.store), 여기서 확인하는 것은 뿌리와 제한이라 DB에
 // 닿을 이유가 없다. 쿠키도 없다: 이 표면에 자격이 없다(journal §100).
 func exploreTest(t *testing.T, search Searcher) *exploreHandler {
 	t.Helper()
@@ -113,7 +113,7 @@ func TestExploreStartsFromTheHandicapPosition(t *testing.T) {
 }
 
 // 빈 id 가 平手다. 표에 平手가 없고 그것이 화면의 기본값이라(internal/handicap),
-// 이 자리가 틀리면 기본 상태에서 판이 안 선다.
+// 이 자리가 틀리면 기본 상태에서 판이 안 만들어진다.
 func TestExplorePlainIsTheEmptyID(t *testing.T) {
 	search := &fakeSearcher{results: []usi.SearchResult{found("7g7f")}}
 	h := exploreTest(t, search)
@@ -161,7 +161,7 @@ func TestExploreKeepsTheSentePointOfView(t *testing.T) {
 }
 
 // 로그인 없이 된다(journal §100). 쿠키 없는 요청이 국면을 받고, 엔진도 실제로 돈다 —
-// 익명을 막는 것이 아니라 동시에 잡는 수를 묶는 것이 이 표면의 벽이다(exploreSlots).
+// 익명을 막는 것이 아니라 동시에 잡는 수를 묶는 것이 이 표면의 제한이다(exploreSlots).
 func TestExploreAllowsAnonymous(t *testing.T) {
 	search := &fakeSearcher{results: []usi.SearchResult{found("7g7f")}}
 	h := exploreTest(t, search)
@@ -226,7 +226,7 @@ func TestExploreCapsTheLine(t *testing.T) {
 	}
 }
 
-// 슬롯이 이 표면의 유일한 벽이다. 빈자리가 없으면 기다리게 두지 않고 「まだ読んでいます」로
+// 슬롯이 이 표면의 유일한 제한이다. 빈자리가 없으면 기다리게 두지 않고 「まだ読んでいます」로
 // 답한다 — 대국에 엔진 둘이 언제나 남아 있어야 한다(exploreSlots).
 //
 // 실제 대기는 exploreWait 인데, 테스트는 그만큼 멈춰 있을 이유가 없어서 요청 ctx의
@@ -293,7 +293,7 @@ func TestExploreOpensEveryHandicap(t *testing.T) {
 			}
 			// △3四歩는 일곱 종 어디에서나 둘 수 있다 — 落とす 것에 歩가 없다.
 			if !slices.Contains(node.LegalMoves, "3c3d") {
-				t.Errorf("legalMoves 에 △3四歩가 없다 — 판이 안 섰다")
+				t.Errorf("legalMoves 에 △3四歩가 없다 — 판이 안 만들어졌다")
 			}
 		})
 	}
@@ -302,7 +302,7 @@ func TestExploreOpensEveryHandicap(t *testing.T) {
 // 뿌리가 판(SFEN)으로도 온다. 사진에서 읽어 와 사람이 확인한 국면이 手合割+수순으로는
 // 표현이 안 되므로 §37이 닫아 둔 문을 여기서 연다(journal §129).
 func TestExploreStartsFromAGivenPosition(t *testing.T) {
-	// 平手 초기 국면에서 ▲7六歩만 둔 판. 뿌리가 그대로 서는지를 보는 자리라 내용은
+	// 平手 초기 국면에서 ▲7六歩만 둔 판. 뿌리가 그대로 만들어지는지를 보는 자리라 내용은
 	// 아무 국면이어도 되지만, 아는 국면이면 틀렸을 때 무엇이 틀렸는지가 보인다.
 	const sfen = "lnsgkgsnl/1r5b1/ppppppppp/9/9/2P6/PP1PPPPPP/1B5R1/LNSGKGSNL w - 1"
 	search := &fakeSearcher{results: []usi.SearchResult{found("3c3d", "8c8d", "4a3b")}}

@@ -44,7 +44,7 @@ type Handicap struct {
 	// 그것을 안 걸고 재면 같은 국면이 1.5배로 나오고(첫 측정이 그랬다, journal §84) 표가
 	// 통째로 다른 척도가 된다. 그 숫자가 무엇을 정하는지는 패키지 주석에 있다.
 	//
-	// [미확정] K=600이 초기값인 것과 같은 벽이다 — 재측정은 baseline_measure_test.go.
+	// [미확정] K=600이 초기값인 것과 같은 처지다 — 재측정은 baseline_measure_test.go.
 	BaselineCp int
 }
 

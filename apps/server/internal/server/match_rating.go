@@ -79,7 +79,7 @@ func (m *matchRecords) ratingOf(ctx context.Context, userID int64) rating.Rating
 //
 // 자리가 하나인 이유는 그 둘이 쓰는 쪽마다 달라지면 안 되기 때문이다. 판이 끝나고
 // 갱신할 때와(updateRatings) 대기열이 밴드를 세울 때(queue.go)가 같은 값을 봐야 한다 —
-// 갈라 두면 대기열이 시드 없는 1500으로 짝을 짓고 그 판이 시드 위에서 채점된다.
+// 따로 두면 대기열이 시드 없는 1500으로 짝을 짓고 그 판이 시드 위에서 채점된다.
 func currentRating(ctx context.Context, st *store.Store, userID int64) rating.Rating {
 	got, err := st.MatchRating(ctx, userID)
 	if err != nil {
@@ -110,7 +110,7 @@ func currentRating(ctx context.Context, st *store.Store, userID int64) rating.Ra
 // ratingOutcomeOf 는 대인전의 결과를 갱신식의 어휘로 옮긴다. 두 번째 값이 false 면
 // 승부가 안 난 판이다.
 //
-// summary.go 의 outcomeOf 와 이름을 갈라 둔다. 저쪽은 총평의 어휘로 옮기고 받는 타입도
+// summary.go 의 outcomeOf 와 이름을 따로 둔다. 저쪽은 총평의 어휘로 옮기고 받는 타입도
 // store.GameResult 라, 같은 이름이면 어느 척도로 가는지가 안 보인다.
 func ratingOutcomeOf(r match.Result) (rating.Outcome, bool) {
 	switch r {

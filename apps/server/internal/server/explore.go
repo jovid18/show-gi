@@ -44,13 +44,13 @@ const (
 	// exploreBodyLimit 은 본문 상한이다. 手合割 id 하나와 수순 한 줄이 전부다.
 	exploreBodyLimit = 16 << 10
 
-	// exploreSlots 는 이 표면이 동시에 잡을 수 있는 엔진 수다. 이것이 유일한 벽이다.
+	// exploreSlots 는 이 표면이 동시에 잡을 수 있는 엔진 수다. 이것이 유일한 제한이다.
 	//
 	// 풀은 대국이 쓰는 것과 같은 3개다(main.go 의 defaultEnginePoolSize). 안 묶으면
 	// 검토 세 건이 엔진을 다 잡고 대국의 착수가 그 뒤에 큐에 서므로, 개입 카드가 늦게 뜬다.
 	// 1이면 대국에 언제나 2개가 남는다 — 올릴 자리가 여기 하나다.
 	//
-	// 로그인 벽이 여기 있었다(journal §100). 걷었으므로 이 수가 곧 「검토가 엔진에서
+	// 로그인 검사가 여기 있었다(journal §100). 걷었으므로 이 수가 곧 「검토가 엔진에서
 	// 가져갈 수 있는 전부」다.
 	exploreSlots = 1
 
@@ -67,7 +67,7 @@ type exploreHandler struct {
 	// store 는 캐시로만 쓴다. nil이면 답은 같고 같은 국면을 매번 다시 잰다.
 	store  *store.Store
 	search Searcher
-	// slots 는 이 표면의 유일한 벽이다. 빈자리가 없으면 exploreWait 만큼만 기다린다.
+	// slots 는 이 표면의 유일한 제한이다. 빈자리가 없으면 exploreWait 만큼만 기다린다.
 	slots chan struct{}
 }
 
@@ -155,7 +155,7 @@ func (h *exploreHandler) play(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 하나뿐인 벽. 대국이 쓰는 풀에서 하나만 빌린다(exploreSlots).
+	// 하나뿐인 제한. 대국이 쓰는 풀에서 하나만 빌린다(exploreSlots).
 	slotCtx, cancelSlot := context.WithTimeout(r.Context(), exploreWait)
 	defer cancelSlot()
 	select {
@@ -168,7 +168,7 @@ func (h *exploreHandler) play(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 이 표면의 탐색은 borrower=explore 다. 슬롯으로 이미 갈라 둔 자리이고(journal §85)
+	// 이 표면의 탐색은 borrower=explore 다. 슬롯으로 이미 따로 둔 자리이고(journal §85)
 	// 풀 대기도 갈려야 「검토가 대국을 기다리게 했나」를 볼 수 있다.
 	ctx, cancel := context.WithTimeout(usi.WithBorrower(r.Context(), usi.BorrowerExplore), whatifTimeout)
 	defer cancel()

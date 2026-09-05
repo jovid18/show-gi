@@ -15,7 +15,7 @@ import (
 // 「이전에 남았던 게임이 있습니다. 이어하시겠습니까?」의 서버 쪽.
 //
 // 여기는 묻고 답하는 자리뿐이다. 실제로 이어 두는 것은 /ws/game?resume=<id> 이고
-// (ws.go), 그쪽이 점유·되열기·국면 되만들기를 전부 한다. 갈라 둔 이유는 이 물음이
+// (ws.go), 그쪽이 점유·되열기·국면 되만들기를 전부 한다. 따로 둔 이유는 이 물음이
 // 대국을 열기 전에 나와야 하기 때문이다 — 붙는 순간 판이 하나 열린다(useGame).
 //
 // 되짚기 목록과 길이 갈린다. 저쪽은 결과가 나온 판만 주고(§51) 이쪽은 그 반대 —
@@ -118,7 +118,7 @@ func (h *resumeHandler) decline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 없는 판·남의 판·이미 답한 판이 같은 404다. 갈라 주면 남의 판 번호를 훑어볼 수
+	// 없는 판·남의 판·이미 답한 판이 같은 404다. 가르면 남의 판 번호를 훑어볼 수
 	// 있다(§46).
 	err = h.store.DeclineResume(r.Context(), id, *owner)
 	if errors.Is(err, store.ErrNoGame) {

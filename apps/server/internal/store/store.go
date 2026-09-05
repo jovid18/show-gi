@@ -444,7 +444,7 @@ const (
 	ResultDraw      GameResult = "draw"
 	ResultAbandoned GameResult = "abandoned" // 끝나지 않고 연결이 끊겼다. 이어할 수 있다
 	// ResultDeclined 는 abandoned 인 판을 사람이 안 이어하겠다고 답한 것이다.
-	// 갈라 두는 이유는 하나뿐이다 — 다시 물어보지 않기 위해서다(ResumableGame).
+	// 따로 두는 이유는 하나뿐이다 — 다시 물어보지 않기 위해서다(ResumableGame).
 	ResultDeclined GameResult = "declined"
 )
 
@@ -470,7 +470,7 @@ func (s *Store) CreateGame(ctx context.Context, userID *int64, myColor, startSFE
 // CreateMatchGame 은 대인전 한 판의 한쪽 몫을 연다. 같은 대국에서 두 번 불려
 // 행 두 개가 된다 — 그 둘을 다시 묶는 열쇠가 matchID 다(012_match_games.sql).
 //
-// CreateGame 과 갈라 둔 이유는 채우는 칸이 다르기 때문이다. 저쪽은 opening_tag
+// CreateGame 과 따로 둔 이유는 채우는 칸이 다르기 때문이다. 저쪽은 opening_tag
 // (컴퓨터의 진형)를 채우고 이쪽은 match_id 를 채운다 — 한 함수로 두면 부르는 쪽마다
 // 「이번엔 어느 칸을 비우나」를 알아야 한다.
 func (s *Store) CreateMatchGame(ctx context.Context, userID int64, myColor, startSFEN, matchID string) (int64, error) {
@@ -508,8 +508,8 @@ func (s *Store) CreateImportedGame(ctx context.Context, userID int64, myColor, s
 	return id, nil
 }
 
-// CountImportsSince 는 그 사람이 그 시각 이후로 취해 온 판 수다. 하루 몫의 벽이 이
-// 값으로 선다(server/kifu_import.go).
+// CountImportsSince 는 그 사람이 그 시각 이후로 취해 온 판 수다. 하루 몫의 상한이 이
+// 값으로 정해진다(server/kifu_import.go).
 func (s *Store) CountImportsSince(ctx context.Context, userID int64, since time.Time) (int, error) {
 	n, err := s.q.CountImportsSince(ctx, db.CountImportsSinceParams{UserID: &userID, StartedAt: stamp(since)})
 	if err != nil {
@@ -568,7 +568,7 @@ func (s *Store) ResumableGame(ctx context.Context, userID int64) (ResumableGame,
 	return out, nil
 }
 
-// ClaimedGame 은 이어하기가 점유한 판이다. 새 세션을 세우는 데 필요한 것 전부다.
+// ClaimedGame 은 이어하기가 점유한 판이다. 새 세션을 만드는 데 필요한 것 전부다.
 type ClaimedGame struct {
 	ID        int64
 	MyColor   string
@@ -579,7 +579,7 @@ type ClaimedGame struct {
 // ClaimGameForResume 은 판 하나를 이어하기로 점유하고 되연다. 없거나 남의 것이거나
 // 이미 누가 점유했으면 ErrNoGame — 셋을 구별해서 돌려주지 않는다(GameRecord 와 같다).
 //
-// 점유가 곧 되열기다(query/games.sql). 그래서 이 함수가 성공한 뒤 세션이 서지 못하면
+// 점유가 곧 되열기다(query/games.sql). 그래서 이 함수가 성공한 뒤 세션이 열리지 못하면
 // 그 판은 result 가 NULL인 채로 남는데, 기록 쪽이 ctx 취소에서 다시 abandoned 로
 // 닫는다(server/recorder.go) — 되돌리는 코드를 따로 두지 않는 이유다.
 func (s *Store) ClaimGameForResume(ctx context.Context, gameID, userID int64) (ClaimedGame, error) {
@@ -796,7 +796,7 @@ type RecordedIntervention struct {
 
 // RecordedUndo 는 사람이 스스로 무른 수 하나다.
 //
-// 개입(RecordedIntervention)과 갈라 둔다. 판이 되돌아간 것은 같지만 시작한 쪽이
+// 개입(RecordedIntervention)과 따로 둔다. 판이 되돌아간 것은 같지만 시작한 쪽이
 // 반대라, 한 목록에 섞으면 「AI가 막았다」와 「내가 무르고 싶었다」가 같은 줄이 된다 —
 // 되짚기에서 그 둘은 정반대의 이야기다(008_game_undos.sql).
 type RecordedUndo struct {
@@ -885,7 +885,7 @@ type PlayerTally struct {
 
 // PlayerTally 는 그 사람의 전적과 약점을 한 번에 센다. ownerID 가 nil이면 익명 판이다.
 //
-// 한 함수인 이유는 같은 모집단에서 나와야 하기 때문이다 — 갈라 두면 나중에 한쪽 질의의
+// 한 함수인 이유는 같은 모집단에서 나와야 하기 때문이다 — 따로 두면 나중에 한쪽 질의의
 // 조건만 고쳐지고, 그때 화면의 두 숫자가 조용히 다른 것을 세게 된다(server/summary.go 의
 // factsOf 가 같은 이유로 한 함수다).
 func (s *Store) PlayerTally(ctx context.Context, ownerID *int64) (PlayerTally, error) {
@@ -1065,7 +1065,7 @@ func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error)
 			LevelBucket:  deref(iv.LevelBucket),
 			RetractedUSI: deref(iv.RetractedUsi),
 		}
-		// 없는 것과 0을 갈라 둔다. 0cp는 호각이고, 없는 것은 migrations/005 앞의 행이다.
+		// 없는 것과 0을 따로 둔다. 0cp는 호각이고, 없는 것은 migrations/005 앞의 행이다.
 		if iv.BestCp != nil {
 			cp := int(*iv.BestCp)
 			rec.BestCp = &cp
@@ -1145,7 +1145,7 @@ func derefFloat(f *float64) float64 {
 func (s *Store) Pool() *pgxpool.Pool { return s.pool }
 
 // ─── 부른 힌트 ───────────────────────────────────────────────
-// 사람이 불러서 받은 최선수 힌트. 개입과 갈라 두는 이유는 010_game_hints.sql.
+// 사람이 불러서 받은 최선수 힌트. 개입과 따로 두는 이유는 010_game_hints.sql.
 
 // HintUse 는 이어하는 판이 되찾아야 하는 것 전부다.
 //
@@ -1168,7 +1168,7 @@ func (s *Store) RecordHint(ctx context.Context, gameID int64, ply int, sfenKey s
 	})
 }
 
-// HintsUsed 는 그 판이 지금까지 쓴 힌트다. 이어하기가 세션을 세우기 전에 읽는다.
+// HintsUsed 는 그 판이 지금까지 쓴 힌트다. 이어하기가 세션을 만들기 전에 읽는다.
 func (s *Store) HintsUsed(ctx context.Context, gameID int64) (HintUse, error) {
 	out := HintUse{Stages: map[string]int{}}
 

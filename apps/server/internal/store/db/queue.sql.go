@@ -252,7 +252,7 @@ type TakeQueueSeatRow struct {
 
 // 짝이 잡혔으면 그 자리를 주고 행을 지운다. 아직이면 0행이다.
 //
-// 읽는 것과 지우는 것이 한 문장이다. 갈라 두면 그 사이에 다시 물어본 요청이 같은 자리를
+// 읽는 것과 지우는 것이 한 문장이다. 따로 두면 그 사이에 다시 물어본 요청이 같은 자리를
 // 두 번 받고, 화면이 두 번 방으로 간다 — 방은 정원이 둘이라 두 번째가 남의 자리를 노린다.
 func (q *Queries) TakeQueueSeat(ctx context.Context, userID int64) (TakeQueueSeatRow, error) {
 	row := q.db.QueryRow(ctx, takeQueueSeat, userID)

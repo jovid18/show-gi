@@ -136,9 +136,9 @@ func (h *queueHandler) enqueue(ctx context.Context, userID int64) (store.QueueWa
 	return h.store.JoinQueue(ctx, userID, r.Value, r.Deviation)
 }
 
-// pair 는 짝을 하나 지어 방을 세운다. 못 지으면 두 번째 값이 false 다.
+// pair 는 짝을 하나 지어 방을 만든다. 못 지으면 두 번째 값이 false 다.
 //
-// 표를 먼저 고치고 방을 나중에 세운다. 순서가 반대면 짝짓기가 어긋났을 때(내 행이
+// 표를 먼저 고치고 방을 나중에 만든다. 순서가 반대면 짝짓기가 어긋났을 때(내 행이
 // 이미 남에게 잡혔다) 아무도 안 오는 방이 남는다 — 반대로 이 순서에서 그 사이에
 // 프로세스가 죽으면 두 사람이 없는 방으로 가고, 그때 화면은 「열 수 없다」를 그린다.
 func (h *queueHandler) pair(ctx context.Context, s auth.Session, fresh time.Time) (store.QueueSeat, bool) {
@@ -184,7 +184,7 @@ func (h *queueHandler) pair(ctx context.Context, s auth.Session, fresh time.Time
 		return store.QueueSeat{}, false
 	}
 
-	// 방을 세운다. 손님이 처음부터 정해져 있어서 제3자가 앉을 수 없고, 확인 화면도
+	// 방을 만든다. 손님이 처음부터 정해져 있어서 제3자가 앉을 수 없고, 확인 화면도
 	// 안 뜬다(match.Hub.CreatePaired).
 	h.hub.CreatePaired(roomID,
 		match.Player{UserID: s.UserID, Name: s.Name}, myColor,
@@ -199,7 +199,7 @@ func (h *queueHandler) pair(ctx context.Context, s auth.Session, fresh time.Time
 	return store.QueueSeat{RoomID: roomID, Color: pairing.MyColor}, true
 }
 
-// queueUnavailable 은 표를 못 읽었다는 답이다. 로그인 실패와 갈라 둔다 — 이쪽은 다시
+// queueUnavailable 은 표를 못 읽었다는 답이다. 로그인 실패와 따로 둔다 — 이쪽은 다시
 // 눌러 볼 만한 실패이고, 화면이 재시도를 멈추지 않아도 된다.
 func queueUnavailable(w http.ResponseWriter) {
 	writeJSON(w, http.StatusServiceUnavailable, map[string]any{

@@ -51,7 +51,7 @@ export function Waiting({
       )}
 
       {/* 끊긴 동안에는 링크를 안 그린다. 배너가 「이 방은 끝났다」고 말하는 옆에
-          복사 버튼이 서 있으면 그 링크를 보내는 사람이 생긴다 — 화면이 두 말을 하면
+          복사 버튼이 떠 있으면 그 링크를 보내는 사람이 생긴다 — 화면이 두 말을 하면
           사람은 하고 싶은 쪽을 믿는다. */}
       {dropped ? null : room.waiting ? (
         <>
@@ -105,7 +105,7 @@ function InviteLink({ url }: { url: string }) {
               setCopied(true);
               window.setTimeout(() => setCopied(false), 2000);
             })
-            // 복사가 막혀 있어도 화면은 그대로 선다 — 위 입력칸에 주소가 있다.
+            // 복사가 막혀 있어도 화면은 그대로 뜬다 — 위 입력칸에 주소가 있다.
             .catch(() => setCopied(false));
         }}
       >

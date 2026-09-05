@@ -26,7 +26,7 @@ func named(rec *fakeRecorder) []string {
 	return out
 }
 
-// 사람이 짠 이름이 기록으로 간다. 판에 뜨는 것과 같은 이름이어야 한다 — 갈라 두면
+// 사람이 짠 이름이 기록으로 간다. 판에 뜨는 것과 같은 이름이어야 한다 — 따로 두면
 // 대국 중에 본 이름과 마이페이지가 세는 이름이 다른 것이 된다(recordStyleTags).
 func TestNamedStyleTagsAreRecordedOncePerGame(t *testing.T) {
 	rec := &fakeRecorder{}
@@ -65,7 +65,7 @@ func TestNamedStyleTagsAreRecordedOncePerGame(t *testing.T) {
 }
 
 // 상대의 囲い는 기록하지 않는다. 판에 뜨는 것이 플레이어 쪽뿐이라(styleTags),
-// 기록만 양쪽을 담으면 마이페이지가 사람이 본 적 없는 이름을 세운다.
+// 기록만 양쪽을 담으면 마이페이지가 사람이 본 적 없는 이름을 내건다.
 func TestOpponentStyleTagsAreNotRecorded(t *testing.T) {
 	rec := &fakeRecorder{}
 	s := newSession(t, Config{

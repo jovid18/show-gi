@@ -14,7 +14,7 @@ import (
 type mateSolver struct {
 	mate MateSearcher
 	memo map[string]int
-	// unknown 은 solver 가 결론을 못 낸 국면이다. memo 와 갈라 둔다 — 저쪽의 0은
+	// unknown 은 solver 가 결론을 못 낸 국면이다. memo 와 따로 둔다 — 저쪽의 0은
 	// 「詰み이 없다」는 결론이고 이쪽은 결론이 아니다.
 	unknown map[string]struct{}
 	budget  int
@@ -231,7 +231,7 @@ func preferMate(usiMove string, mated bool, cur string, curMated bool) bool {
 func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position) (*MateItem, int) {
 	sol := newMateSolver(b.mate)
 
-	// 「詰み이 없었다」와 「solver 가 답을 못 했다」를 갈라 센다. 둘을 뭉쳐 로그에 「문항
+	// 「詰み이 없었다」와 「solver 가 답을 못 했다」를 따로 센다. 둘을 뭉쳐 로그에 「문항
 	// 0개」로만 남기면, 엔진이 통째로 답하지 않는 배포에서도 그림이 똑같아서 기능이
 	// 조용히 사라진 것을 알 수 없다.
 	scanned, unanswered := 0, 0
@@ -275,7 +275,7 @@ func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position
 
 		nodes, ok := sol.buildTree(ctx, pos, d)
 		if !ok {
-			// 버린 이유를 갈라 적는다. 예산이 남았는데 버렸다면 어딘가에서 solver 가
+			// 버린 이유를 따로 적는다. 예산이 남았는데 버렸다면 어딘가에서 solver 가
 			// 결론을 못 냈다는 뜻이고, 그것은 DepthLimit(기본 11) 밖으로 늘어난 갈래일 수
 			// 있다 — 7手 뿌리에서 한 手 낭비하면 13手가 된다. 뭉쳐 적으면 프로덕션에서
 			// 詰み 문항이 늘 사라지는 이유를 첫 판에서 못 읽는다(§53).

@@ -65,7 +65,7 @@ type Hub struct {
 	cfg HubConfig
 }
 
-// HubConfig 는 방을 세우는 데 필요한 것들이다.
+// HubConfig 는 방을 만드는 데 필요한 것들이다.
 type HubConfig struct {
 	// NewRecorders 는 대국이 시작될 때 先手·後手마다 기록기를 하나씩 만든다. nil 이면 안 남는다.
 	//
@@ -100,7 +100,7 @@ const sweepInterval = time.Minute
 // sweepLoop 은 아무도 Hub 를 안 건드려도 만료를 훑는다.
 //
 // 손이 닿을 때만 훑으면 혼자 기다리는 방이 안 걷힌다. 방을 만들고 링크를 보낸 사람은
-// Ready·Closed 에 서 있을 뿐 Hub 를 부르지 않는데, 그동안 다른 사람이 아무도 안 오면
+// Ready·Closed 에 머물러 있을 뿐 Hub 를 부르지 않는데, 그동안 다른 사람이 아무도 안 오면
 // sweepLocked 가 돌 일이 없다 — 그 화면은 만료가 지나도 이미 죽은 링크를 계속
 // 광고한다(journal §83). 알려 주는 채널은 이미 있고(closed), 없던 것은 그것을 닫을
 // 계기뿐이었다.

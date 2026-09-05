@@ -439,7 +439,7 @@ func TestListGamesSkipsEmptyGames(t *testing.T) {
 // 하나이고, 같은 cp 차이가 위치에 따라 다른 낙폭이 된다(journal §39 ⑥). 그래서 이 두
 // 칸이 없으면 K를 바꿔 다시 채점할 수도, 물러진 수를 최선수와 한 축에 놓을 수도 없다.
 //
-// 0과 없음을 갈라 둔다. 개입이 안 걸린 행과 「정말로 0cp였다」가 섞이면 화면이 없는 값을
+// 0과 없음을 따로 둔다. 개입이 안 걸린 행과 「정말로 0cp였다」가 섞이면 화면이 없는 값을
 // 호각으로 그린다.
 func TestInterventionKeepsBothCp(t *testing.T) {
 	s := open(t)

@@ -30,7 +30,7 @@ const MAX_BYTES = 64 * 1024;
 
 export function ImportScreen({ me }: { me: MeResponse }) {
   // 로그인 안 한 것은 오류가 아니다. 메뉴에서는 이 줄이 로그인한 사람에게만 보이지만
-  // (HomeScreen) 주소를 직접 열면 익명으로 여기 선다 — 그때 상자를 그려 주면 사람이
+  // (HomeScreen) 주소를 직접 열면 익명으로 여기 들어온다 — 그때 상자를 그려 주면 사람이
   // 기보를 다 붙여 넣고 누른 뒤에야 로그인이 필요하다는 것을 알게 된다.
   if (me.user === null) return <SignInFirst enabled={me.enabled} />;
   return <ImportForm />;

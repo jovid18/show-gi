@@ -32,7 +32,7 @@ import (
 
 // maxImportsPerDay 는 한 사람이 하루에 취해 올 수 있는 판 수다.
 //
-// 엔진 예산의 벽이다. 판 하나가 手数만큼의 판정이고 §91 실측으로 판당 2~8분이라,
+// 엔진 예산의 상한이다. 판 하나가 手数만큼의 판정이고 §91 실측으로 판당 2~8분이라,
 // 이 값이 곧 「한 사람이 분석 대를 얼마나 오래 잡을 수 있나」다.
 //
 // [미확정] 표본으로 잡은 값이 아니다. 사람이 하루에 되짚고 싶은 판이 몇인지를 회차가
@@ -41,8 +41,8 @@ const maxImportsPerDay = 10
 
 // maxImportPlies 는 한 판으로 받아들이는 手数의 상한이다.
 //
-// **결정적 파서에도 건다.** 정규화 계층에 같은 벽이 있지만(kifunorm.MaxMoves) 그쪽은
-// 자기 응답을 묶는 것이고, 여기를 안 걸면 KIF 하나로 그 벽을 통째로 지나간다 — 千日手는
+// **결정적 파서에도 건다.** 정규화 계층에 같은 상한이 있지만(kifunorm.MaxMoves) 그쪽은
+// 자기 응답을 묶는 것이고, 여기를 안 걸면 KIF 하나로 그 상한을 통째로 건너뛴다 — 千日手는
 // shogi.ValidateMove 가 안 막으므로 합법 수순만으로 몇 천 手를 적을 수 있고, 그 판이
 // 手数만큼의 엔진 판정을 줄에 세운다.
 //
@@ -69,7 +69,7 @@ type kifuHandler struct {
 	auth     *authHandler
 	norm     *kifunorm.Client
 	analyzer *matchAnalyzer
-	// budget 은 정규화를 부르는 횟수의 벽이다. 하루 몫이 판을 세는 자리라 이쪽을
+	// budget 은 정규화를 부르는 횟수의 상한이다. 하루 몫이 판을 세는 자리라 이쪽을
 	// 안 막는다(kifu_budget.go).
 	budget *hourlyBudget
 	// cached 는 방금 옮겨 적은 결과다. 미리보기에서 확인한 판이 취해 오는 판과 같아야
@@ -77,7 +77,7 @@ type kifuHandler struct {
 	cached *transcribeCache
 }
 
-// importRequest 는 두 뿌리가 같이 쓰는 몸통이다. parse 는 Text 만 본다.
+// importRequest 는 두 경로가 같이 쓰는 몸통이다. parse 는 Text 만 본다.
 type importRequest struct {
 	Text string `json:"text"`
 	// MyColor 는 그 판에서 자기 자리다. "b"(先手·下手) 또는 "w"(後手·上手).
@@ -147,7 +147,7 @@ func (h *kifuHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 벽이 먼저다. 읽기는 값이 들고(정규화 계층은 돈을 쓴다) 그 뒤가 엔진 몇 분이라,
+	// 몫을 먼저 센다. 읽기는 값이 들고(정규화 계층은 돈을 쓴다) 그 뒤가 엔진 몇 분이라,
 	// 넘긴 요청은 아무것도 하기 전에 돌려보낸다.
 	if n, err := h.store.CountImportsSince(r.Context(), s.UserID, time.Now().Add(-24*time.Hour)); err != nil {
 		log.Printf("kifu: could not count today's imports for %d: %v", s.UserID, err)
@@ -215,7 +215,7 @@ func (h *kifuHandler) read(ctx context.Context, userID int64, text string) (kifu
 	}
 
 	// 부르기 전에 몫을 센다. 여기서 막히면 결정적 파서가 낸 오류가 그대로 나가고,
-	// 사람에게는 「읽을 수 없는 기보」와 같은 화면이다 — 벽에 닿았다는 것을 알려 줄
+	// 사람에게는 「읽을 수 없는 기보」와 같은 화면이다 — 상한에 닿았다는 것을 알려 줄
 	// 값이 없다(알려 주면 그것이 곧 「다시 시도하면 된다」로 읽힌다).
 	if !h.budget.take(userID) {
 		log.Printf("kifu: user %d is over the transcription budget", userID)

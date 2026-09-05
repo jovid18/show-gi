@@ -89,7 +89,7 @@ type gameSummary struct {
 	Imported bool `json:"imported,omitempty"`
 	// Analyzing 은 평가치를 지금 채우는 중인가다. 대인전에만 뜬다(matchAnalyzer).
 	//
-	// 화면이 이 값으로 「분석 중」과 「남지 않았다」를 가른다. 갈라 두지 않으면 판이
+	// 화면이 이 값으로 「분석 중」과 「남지 않았다」를 가른다. 따로 두지 않으면 판이
 	// 끝나자마자 들어온 사람이 「평가치가 남지 않았습니다」를 보고 영영 없는 줄 안다.
 	Analyzing bool `json:"analyzing,omitempty"`
 }
@@ -110,7 +110,7 @@ type gameDetail struct {
 	BaselineCp    int                  `json:"baselineCp,omitempty"`
 	Moves         []reviewMove         `json:"moves"`
 	Interventions []reviewIntervention `json:"interventions"`
-	// Undos 는 사람이 스스로 무른 수들이다. 개입과 갈라서 준다 — 판이 되돌아간 것은
+	// Undos 는 사람이 스스로 무른 수들이다. 개입과 따로 준다 — 판이 되돌아간 것은
 	// 같지만 시작한 쪽이 반대라, 한 배열로 주면 화면이 그 둘을 같은 줄로 그린다(§72).
 	Undos []reviewUndo `json:"undos"`
 }
@@ -259,7 +259,7 @@ func (h *reviewHandler) summary(w http.ResponseWriter, r *http.Request) {
 // record 는 {id} 가 가리키는 기록을 읽고, 실패면 그 자리에서 답하고 false 를 준다.
 //
 // detail 과 summary 가 같은 함수를 쓴다. 주인 거르기도 「끝난 판만」도 GameRecord 가
-// 들고 있으므로(§46 · §51), 여기를 갈라 두면 한쪽만 고쳐진 채 남고 그 한쪽이 곧 구멍이다.
+// 들고 있으므로(§46 · §51), 여기를 따로 두면 한쪽만 고쳐진 채 남고 그 한쪽이 곧 구멍이다.
 func (h *reviewHandler) record(w http.ResponseWriter, r *http.Request) (store.GameRecord, bool) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
@@ -361,7 +361,7 @@ func detailOf(rec store.GameRecord) gameDetail {
 		}
 
 		// 재현이 여기까지 이어졌고, 手数에 구멍이 없을 때만 이어 둔다. 구멍을 무시하고
-		// 이어 두면 3手目가 2手目 자리에 서서 없던 국면을 그린다 — 여기서 멈추고
+		// 이어 두면 3手目가 2手目 자리로 밀려서 없던 국면을 그린다 — 여기서 멈추고
 		// 그 뒤의 手数는 표기도 국면도 없이 나간다.
 		if len(posAt) == i+1 && m.Ply == i+1 {
 			if next, ja, ok := advance(posAt[i], toAt[i], m.USI); ok {

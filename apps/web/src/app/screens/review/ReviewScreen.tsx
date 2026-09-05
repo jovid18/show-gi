@@ -17,7 +17,7 @@ import { useGameDetail, useGameList } from '@/hooks/useReview';
  */
 export function ReviewScreen({ route }: { route: Route }) {
   if (route.name === 'review') {
-    // 판이 바뀌면 새로 세운다. `key` 가 없으면 手数가 앞 판의 값에서 이어진다.
+    // 판이 바뀌면 새로 만든다. `key` 가 없으면 手数가 앞 판의 값에서 이어진다.
     return <SelectedGame key={route.id} id={route.id} initialPly={route.ply} />;
   }
   return <GameList />;
@@ -89,7 +89,7 @@ function GameCard({ game }: { game: GameSummary }) {
         {resultJa(game.result)}
       </span>
       <span className="review-card-moves">{game.moveCount}手</span>
-      {/* 대인전은 개입 횟수 자리에 「対人」이 선다. 거기에 「介入 0回」를 적으면 「한 번도
+      {/* 대인전은 개입 횟수 자리에 「対人」이 온다. 거기에 「介入 0回」를 적으면 「한 번도
           안 걸린 잘 둔 판」으로 읽히는데, 사실은 재지 않았다이다 — 그 둘이 초심자에게
           정반대다(docs/journal §83). */}
       {game.isMatch === true ? (

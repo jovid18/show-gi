@@ -18,7 +18,7 @@ import (
 
 // 대인전도 WebSocket 이다 — 상대의 수를 서버가 먼저 말해 주므로 요청/응답이 아니다.
 //
-// /ws/game 과 갈라 둔 이유는 세션의 수명이다. 저쪽은 「연결 하나 = 대국 하나」라
+// /ws/game 과 따로 둔 이유는 세션의 수명이다. 저쪽은 「연결 하나 = 대국 하나」라
 // 끊기면 판이 끝나는데(journal §46), 여기는 상대가 남아 있어서 끝낼 수가 없다 — 끊긴
 // 사람은 같은 링크로 다시 들어와 이어 둔다. 그동안 그 사람의 시계는 흐른다.
 //
@@ -51,7 +51,7 @@ type matchServerMsg struct {
 }
 
 // matchRejects 는 착수가 거절된 이유 중 룰 엔진 밖의 것들이다. 엔진 대국의 것과
-// 갈라 둔다 — 저쪽에는 무르기와 힌트의 거절이 다섯 더 있고, 여기에만 있는 것이
+// 따로 둔다 — 저쪽에는 무르기와 힌트의 거절이 다섯 더 있고, 여기에만 있는 것이
 // 방이 걷혔다는 것 하나다.
 //
 // 「아직 상대가 안 들어왔다」가 없다. 그 상태에서는 착수가 도달할 자리가 없다 —
@@ -135,7 +135,7 @@ func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 여기서 자리가 정해진다. 위 Peek 와 이 사이에 방이 움직일 수 있다 — 남이
 	// 앉거나(정원 2명), 그 창 안에서 방이 걷히거나(만료·상한). 창은 밀리초 단위다.
 	//
-	// 문구를 안 보낸다. 둘을 갈라 말할 수가 없고(Enter 는 하나의 ErrNoRoom 이다),
+	// 문구를 안 보낸다. 둘을 구분해 말할 수가 없고(Enter 는 하나의 ErrNoRoom 이다),
 	// 그냥 닫으면 화면이 「이 방은 열 수 없습니다」를 그린다 — 그 화면이 가능한 이유를
 	// 전부 늘어놓으므로(screens/match/Unavailable.tsx) 어느 쪽이든 맞는 말이 된다.
 	room, color, err := h.hub.Enter(roomID, match.Player{UserID: s.UserID, Name: s.Name})
@@ -163,7 +163,7 @@ func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case <-room.Ready():
 	case <-room.Closed():
 		// 방이 걷혔다. 이 갈래가 없으면 여기서 기다리던 사람은 영영 「상대를
-		// 기다립니다」에 서 있고, 그 화면이 이미 죽은 링크를 계속 광고한다.
+		// 기다립니다」에 머물러 있고, 그 화면이 이미 죽은 링크를 계속 광고한다.
 		emitMatch(ctx, out, matchReject("room_closed"))
 		// 문구가 나갈 틈을 준다. 곧바로 돌아가면 defer 가 연결을 닫아 그 프레임이
 		// 사라지고, 화면에는 「끊겼다」만 남는다 — 이유를 말하려고 보낸 것이 그 문구다.

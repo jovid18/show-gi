@@ -13,7 +13,7 @@ import (
 // 여기는 기록에서 사실을 결정적으로 뽑는다.
 //
 // 화면에 나가는 것이 숫자(summaryStats)와 문장 둘인데, 같은 수를 두 벌로 두지 않으려고
-// 갈라 뒀다 — 그래서 explain.GameFacts 에는 숫자가 아예 없다.
+// 따로 뒀다 — 그래서 explain.GameFacts 에는 숫자가 아예 없다.
 
 // summaryStats 는 화면이 그대로 그리는 숫자다. 문장은 이 값들을 말하지 않는다.
 type summaryStats struct {
@@ -90,7 +90,7 @@ func summarize(rec store.GameRecord, level intervene.Level) gameSummaryPayload {
 	return gameSummaryPayload{Body: explain.RenderSummary(facts), Stats: stats}
 }
 
-// factsOf 는 기록에서 사실과 숫자를 한 번에 센다. 갈라 두면 문장이 말하는 카테고리와
+// factsOf 는 기록에서 사실과 숫자를 한 번에 센다. 따로 두면 문장이 말하는 카테고리와
 // 화면의 표가 어긋날 수 있어 한 함수다.
 func factsOf(rec store.GameRecord, level intervene.Level) (explain.GameFacts, summaryStats) {
 	f := explain.GameFacts{

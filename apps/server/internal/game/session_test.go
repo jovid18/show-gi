@@ -356,7 +356,7 @@ func TestEngineResignGivesTheWinToTheHuman(t *testing.T) {
 	}
 }
 
-// 판정이 실패하면 수는 그대로 서지만 조용히 넘기지 않는다. 개입이 없는 화면은
+// 판정이 실패하면 수는 그대로 두어지지만 조용히 넘기지 않는다. 개입이 없는 화면은
 // 「이 수는 괜찮았다」와 똑같이 생겼는데, 여기서는 확인 자체를 못 한 것이다.
 func TestJudgeFailureLeavesANotice(t *testing.T) {
 	opp := &scriptedOpponent{moves: []string{"3c3d"}}
@@ -379,7 +379,7 @@ func TestJudgeFailureLeavesANotice(t *testing.T) {
 	if got.Notice.Message == "" {
 		t.Fatal("문구가 비었다 — 화면은 이걸 그대로 그린다")
 	}
-	// 수는 그대로 선다. 판정이 고장 났다고 대국을 멈추지 않는다.
+	// 수는 그대로 두어진다. 판정이 고장 났다고 대국을 멈추지 않는다.
 	if got.Ply < 1 || got.Moves[0].USI != "7g7f" {
 		t.Fatalf("판정이 실패한 수가 기보에서 사라졌다: %+v", got.Moves)
 	}

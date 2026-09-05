@@ -6,9 +6,9 @@ import type { GameDetail, ReviewIntervention, ReviewMove } from '@/protocol/revi
 import type { WhatIfNode } from '@/protocol/whatif';
 
 /**
- * 그 국면에서 둘 수 있었던 수들을 한 줄로 세운다.
+ * 그 국면에서 둘 수 있었던 수들을 한 줄로 늘어놓는다.
  *
- * 최선수와 물러진 수와 실제로 둔 수를 한 목록에 담아 평가치로 정렬한다. 갈라 두면
+ * 최선수와 물러진 수와 실제로 둔 수를 한 목록에 담아 평가치로 정렬한다. 따로 두면
  * 「내가 둔 것이 최선수 몇 위쯤인가」를 눈으로 견줄 수 없다 — 위가 좋고 아래가 나쁘고,
  * 내가 어디 있었는지가 그 사이의 한 줄이다.
  *
@@ -41,7 +41,7 @@ interface MoveOptionsProps {
   /**
    * 줄을 눌렀을 때.
    *
-   * 실제로 둔 수는 「가정」이 아니다. 그 줄을 분기로 열면 판은 같은 국면에 서는데 화면이
+   * 실제로 둔 수는 「가정」이 아니다. 그 줄을 분기로 열면 판은 같은 국면에 머무는데 화면이
    * 「もしも」라고 말하게 된다 — 실제로 벌어진 일에 그 말을 붙이면 거짓이다. 그래서 그 줄은
    * 한 수 진행으로 처리한다(`played`).
    */
@@ -64,7 +64,7 @@ interface Option {
   /**
    * 사람이 스스로 무른 수라면 그 횟수.
    *
-   * `retracted` 와 갈라 둔다. 한 수가 둘을 겸할 수도 있다 — 두었다 물러지고, 다른
+   * `retracted` 와 따로 둔다. 한 수가 둘을 겸할 수도 있다 — 두었다 물러지고, 다른
    * 수를 두었다가 그것도 스스로 무른 자리에서 같은 수가 다시 올라온다. 한 칸으로
    * 합치면 「AI가 막았다」와 「내가 되돌렸다」가 같은 표식이 된다.
    */
@@ -72,7 +72,7 @@ interface Option {
   /**
    * 취해 온 판에서 悪手로 판정된 수라면 그 카테고리.
    *
-   * `retracted` 와 갈라 둔다. 저쪽은 「두려던 것을 AI 가 막았다」라 기보에 없는 수인데,
+   * `retracted` 와 따로 둔다. 저쪽은 「두려던 것을 AI 가 막았다」라 기보에 없는 수인데,
    * 이쪽은 **그대로 둔 수**다 — 같은 칸에 넣으면 화면이 그 수를 물러진 것으로 그리고,
    * 없던 개입을 있었다고 말하게 된다(docs/journal §126).
    */
@@ -165,7 +165,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
       });
     }
 
-    // 사람이 스스로 무른 수(待った). 물러진 수와 같은 자리에 같은 규약으로 선다 —
+    // 사람이 스스로 무른 수(待った). 물러진 수와 같은 자리에 같은 규약으로 그려진다 —
     // 둘 다 「이 국면에서 뒀는데 기보에 없는 수」라서 여기 말고는 보일 자리가 없다.
     // 갈리는 것은 표식 하나다: 저쪽은 AI가 막았고 이쪽은 사람이 되돌렸다(회차 1 #4).
     const undone = new Map<string, number>();
@@ -182,8 +182,8 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
       put(usi, first?.ja || usi, { undone: { tries }, ...moverScore(measured.get(usi)), ...stored });
     }
 
-    // 詰み이 cp보다 언제나 바깥이다. cp만으로 세우면 「3手で詰み」과 「+2900」이 이웃으로
-    // 서는데 그 둘은 이웃이 아니다(`rankOf`).
+    // 詰み이 cp보다 언제나 바깥이다. cp만으로 줄 세우면 「3手で詰み」과 「+2900」이 이웃으로
+    // 놓이는데 그 둘은 이웃이 아니다(`rankOf`).
     return [...byUsi.values()].toSorted((a, b) => rankOf(b) - rankOf(a));
   }, [game.moves, game.interventions, game.undos, ply, node, measured, atRoot, byOpponent]);
 

@@ -99,7 +99,7 @@ func TestBrokenPayloadIsRefused(t *testing.T) {
 	}
 }
 
-// 사람이 둔 한 판이 아니다. 그대로 받으면 분석 큐에 手 수천 개가 한 번에 선다.
+// 사람이 둔 한 판이 아니다. 그대로 받으면 분석 큐에 手 수천 개가 한 번에 들어간다.
 func TestTooManyMovesIsRefused(t *testing.T) {
 	moves := make([]string, MaxMoves+1)
 	for i := range moves {

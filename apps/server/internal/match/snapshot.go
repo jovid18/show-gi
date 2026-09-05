@@ -7,7 +7,7 @@ import (
 )
 
 // 클라이언트가 보는 타입들이다. json 태그가 곧 웹과의 계약이다 — game.Snapshot 과
-// 같은 규약이고, 갈라 둔 이유는 여기 없는 것들 때문이다: 개입·힌트·무르기·게이지·
+// 같은 규약이고, 따로 둔 이유는 여기 없는 것들 때문이다: 개입·힌트·무르기·게이지·
 // 태그·상대의 강함이 전부 없고, 대신 시계와 상대의 접속이 있다.
 //
 // 스냅샷은 언제나 통째로 나간다 — 저쪽과 같은 이유이고, 여기는 하나가 더 있다:
@@ -23,13 +23,13 @@ const (
 	StatusResigned   Status = "resigned"
 	StatusRepetition Status = "repetition"
 	// StatusTimeout 은 수번 쪽이 1手 제한시간을 넘긴 것이다. 승패가 난다 —
-	// 엔진 대국의 aborted(상대의 수를 못 얻어 접은 것)와 갈라 두는 자리다.
+	// 엔진 대국의 aborted(상대의 수를 못 얻어 접은 것)와 따로 두는 자리다.
 	StatusTimeout Status = "timeout"
 	// StatusAborted 는 승패 없이 접힌 것이다. 서버가 내려갈 때뿐이다.
 	StatusAborted Status = "aborted"
 	// StatusExpired 는 한 수도 안 둔 채 시간이 다 된 것이다. 승패가 없다.
 	//
-	// aborted 와 갈라 둔다. 둘 다 승패가 없지만 화면이 할 말이 정반대다 — 저쪽은
+	// aborted 와 따로 둔다. 둘 다 승패가 없지만 화면이 할 말이 정반대다 — 저쪽은
 	// 「서버 사정」이고 이쪽은 「아무도 안 뒀다」인데, 하나로 뭉치면 그냥 자리를 비운 판에서
 	// 두 사람 다 서버를 탓하게 된다.
 	StatusExpired Status = "expired"

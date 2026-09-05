@@ -13,7 +13,7 @@ import (
 // games 행 두 개로 남고, 그래서 되짚기·마이페이지·전적 질의가 소유자 조건을 한 줄도
 // 안 고치고 그대로 돈다(journal §83).
 //
-// game.Recorder 와 갈라 둔 이유는 말할 것이 다르기 때문이다. 저쪽은 평가치·개입·
+// game.Recorder 와 따로 둔 이유는 말할 것이 다르기 때문이다. 저쪽은 평가치·개입·
 // 무르기·힌트까지 아홉을 받는데 여기서 벌어지는 일은 셋뿐이고, 같은 인터페이스를 쓰면
 // 이 패키지가 「안 부르는 메서드 여섯」을 들고 있게 된다.
 //
@@ -93,7 +93,7 @@ type viewSnapshot struct{ st *snapshotData }
 // goroutine 에 명령을 보내고 답을 기다리는 것뿐이라는 점이 game.Session 과 같다.
 type Table struct {
 	cmds chan command
-	// finished 는 승패가 정해진 순간 닫힌다. done 과 갈라 둔 이유는 그 둘의 시각이
+	// finished 는 승패가 정해진 순간 닫힌다. done 과 따로 둔 이유는 그 둘의 시각이
 	// 다르기 때문이다 — 끝난 판도 한동안 답하므로(finishedGrace) done 은 그만큼 늦게
 	// 닫히고, 「振り返り」 링크를 그 뒤에 보내면 사람은 이미 화면을 떠나 있다.
 	finished  chan struct{}
@@ -345,7 +345,7 @@ func (st *state) play(by shogi.Color, usi string) (Snapshot, error) {
 	st.prevTo = int(m.To)
 	st.moves = append(st.moves, recordedMove{usi: m.USI(), ja: ja, by: by})
 	st.repeats[st.pos.RepetitionKey()]++
-	// 시계는 착수와 같은 자리에서 다시 시작한다. 갈라 두면 그 사이가 어느 쪽 시간도
+	// 시계는 착수와 같은 자리에서 다시 시작한다. 따로 두면 그 사이가 어느 쪽 시간도
 	// 아닌 구간이 되고, 느린 DB 쓰기 하나가 상대의 시간을 먹는다.
 	st.turnFrom = st.now()
 
@@ -383,7 +383,7 @@ func (st *state) resign(by shogi.Color) (Snapshot, error) {
 	return st.snapshot().for_(by), nil
 }
 
-// timeout 은 수번 쪽의 시간이 다 됐을 때다. 대개 승패가 난다 — 중단과 갈라 두는 자리다.
+// timeout 은 수번 쪽의 시간이 다 됐을 때다. 대개 승패가 난다 — 중단과 따로 두는 자리다.
 //
 // 한 수도 안 뒀으면 예외다. 아무도 안 뒀으면 판이 없었던 것이다(journal §83).
 func (st *state) timeout() {
@@ -496,7 +496,7 @@ func (t *Table) Snapshot(ctx context.Context, by shogi.Color) (Snapshot, error) 
 
 // Subscribe 는 그쪽의 화면에 붙는다. 떼는 것은 돌려주는 함수다.
 //
-// 접속 표시가 여기 붙어 있다. 구독이 곧 「그 사람이 화면을 보고 있다」이고, 갈라 두면
+// 접속 표시가 여기 붙어 있다. 구독이 곧 「그 사람이 화면을 보고 있다」이고, 따로 두면
 // 끊긴 연결이 붙어 있는 것으로 남는 경로가 생긴다.
 func (t *Table) Subscribe(ctx context.Context, by shogi.Color) (<-chan Snapshot, func(), error) {
 	raw := make(chan viewSnapshot, 1)

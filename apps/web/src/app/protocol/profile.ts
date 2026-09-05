@@ -21,14 +21,14 @@ export interface Profile {
    * 담기므로(009_game_style_tags.sql) 「回」가 아니라 「局」이다.
    *
    * 手筋은 안 온다. 이름의 정확도가 아직 보류라(journal §45), 「당신이 쓴 手筋」로
-   * 세우면 오진이 사람의 기록으로 굳는다.
+   * 적으면 오진이 사람의 기록으로 굳는다.
    */
   styles?: { code: string; nameJa: string; kind: StyleTag['kind']; games: number }[];
 }
 
 export type ProfileState =
   | { status: 'loading' }
-  // 로그인 안 함과 오류를 갈라 둔다 — 앞은 「ログインしてください」이고 뒤는 실패다.
+  // 로그인 안 함과 오류를 따로 둔다 — 앞은 「ログインしてください」이고 뒤는 실패다.
   | { status: 'anonymous' }
   | { status: 'error' }
   | { status: 'ready'; profile: Profile };

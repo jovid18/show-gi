@@ -13,7 +13,7 @@ BEGIN;
 -- (game.engineAnalyst.Judge 가 startSFEN + moves[:ply] 만 받는다) 워커가 몇이든 같은
 -- 판의 서로 다른 手를 동시에 잰다. 판 단위면 소비자를 늘려도 동시 진행 판 수에서 막힌다.
 --
--- 결과 칸까지 같은 행에 든다. 메모리에서 aheadOfMatch.plies 가 하던 일이고, 갈라 두면
+-- 결과 칸까지 같은 행에 든다. 메모리에서 aheadOfMatch.plies 가 하던 일이고, 따로 두면
 -- 「재는 것」과 「잰 것」이 두 표가 되는데 둘의 수명이 정확히 같다.
 CREATE TABLE analysis_plies (
     -- 방 id 다(internal/match 의 영숫자 8자). games.match_id 와 같은 값이지만 FK를 안 건다 —

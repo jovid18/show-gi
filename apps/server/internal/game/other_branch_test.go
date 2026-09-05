@@ -46,7 +46,7 @@ func collect(t *testing.T, res usi.SearchResult) (*branchStub, string, []explain
 	return s, best, branches
 }
 
-// 갈래 하나는 내 수·상대의 응수·그 결말 셋이 다 있을 때만 선다.
+// 갈래 하나는 내 수·상대의 응수·그 결말 셋이 다 있을 때만 만들어진다.
 func TestOtherBranchesCarriesTheWholeFork(t *testing.T) {
 	stub, best, got := collect(t, usi.SearchResult{Lines: []usi.SearchLine{
 		pvLine(1, -350, "6g6f", "8b5b"),
@@ -123,7 +123,7 @@ func TestOtherBranchesStillNamesTheReplyWhenTheSearchFails(t *testing.T) {
 	}
 }
 
-// 상대의 최선수 자체가 못 두는 수면 아무것도 안 준다. 그 위에 세운 갈래는 전부 거짓이다.
+// 상대의 최선수 자체가 못 두는 수면 아무것도 안 준다. 그 위에 지은 갈래는 전부 거짓이다.
 func TestOtherBranchesRefusesAnIllegalReply(t *testing.T) {
 	s := &branchStub{}
 	a := &engineAnalyst{search: s, depth: JudgeDepth, level: intervene.Beginner}

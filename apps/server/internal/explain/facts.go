@@ -147,7 +147,7 @@ func (f Facts) used() Facts {
 		// 잡히는 駒 하나와, 상대의 최선수 뒤에 갈라지는 세 갈래다(journal §54).
 		//
 		// 여기만 수를 적을 수 있다. 다른 카테고리는 이유를 이름으로 대므로 수가 필요
-		// 없고, 이 갈래들이 서는 국면은 되물러서 이미 사라졌다 — 「지금 어떻게 두라」가
+		// 없고, 이 갈래들이 성립하는 국면은 되물러서 이미 사라졌다 — 「지금 어떻게 두라」가
 		// 되지 않는다.
 		u.Known = true
 		u.Threatened = f.Threatened
@@ -155,7 +155,7 @@ func (f Facts) used() Facts {
 
 	default:
 		// missed_mate · shallow_trap · unpromoted · idle_check · king_exposed.
-		// 카테고리 자체가 이미 구체적이라 붙일 사실이 없다. Known 을 세우지 않는 것이
+		// 카테고리 자체가 이미 구체적이라 붙일 사실이 없다. Known 을 켜지 않는 것이
 		// 곧 「이 문장은 국면을 안 짚는다」이고, 그러면 카테고리 문구가 그대로 나간다.
 	}
 	return u

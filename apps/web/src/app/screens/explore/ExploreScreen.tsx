@@ -37,7 +37,7 @@ import { navigate } from '@/routes/router';
  *
  * 대국 중에는 열지 않는다. 최선수 셋을 아무 국면에서나 답하는 화면이라, 두는 중에
  * 열리면 「평소엔 최선수를 보여주지 않는다」가 탭 하나로 뚫린다(01-core.md §1 · §7).
- * 헤더도 그때 이 탭을 안 그린다(App.tsx) — 벽이 둘이다.
+ * 헤더도 그때 이 탭을 안 그린다(App.tsx) — 막는 자리가 둘이다.
  */
 interface ExploreScreenProps {
   /** 手合割 id. 빈 값이 平手다. 주소에서 온다. */
@@ -47,7 +47,7 @@ interface ExploreScreenProps {
   /**
    * 뿌리 국면. 사진에서 읽어 와 사람이 확인한 판이 여기로 온다(journal §129).
    *
-   * 비어 있으면 `handicap` 이 뿌리다. 둘은 같이 서지 않으므로(서버가 `bad_root` 로
+   * 비어 있으면 `handicap` 이 뿌리다. 둘은 같이 올 수 없으므로(서버가 `bad_root` 로
    * 거절한다) 값이 있는 쪽 하나만 채워져서 온다.
    */
   sfen: string;
@@ -80,7 +80,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
 
   /**
    * 주소가 바뀌면 그 국면을 묻는다. 이 효과가 이 화면의 유일한 흐름이다 — 누르는 쪽은
-   * 주소만 고치고, 판이 서는 것은 여기서 시작된다.
+   * 주소만 고치고, 판이 그려지는 것은 여기서 시작된다.
    *
    * 서버가 이미 잰 국면이면 왕복도 탐색도 없고(`positions`), 지나온 자리면 왕복조차
    * 없다(`useWhatIf` 의 `seen`).
@@ -140,7 +140,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
    * 같은 자리를 다시 묻는다. 없으면 첫 요청이 실패한 자리가 막다른 길이다.
    *
    * 이 표면의 실패 둘은 설계된 것이다 — 검토가 이미 하나 돌고 있으면 429이고
-   * (`exploreSlots`), 엔진이 못 답하면 503이다. 그런데 0手目에서 그러면 판이 안 서고
+   * (`exploreSlots`), 엔진이 못 답하면 503이다. 그런데 0手目에서 그러면 판이 안 그려지고
    * 되돌릴 줄도 없어서(`branching` 이 false다) 누를 것이 하나도 남지 않는다. 주소가 같으니
    * 手合割을 다시 눌러도 `navigate` 가 같은 자리로 보고 아무것도 안 한다.
    */
@@ -205,7 +205,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
    *
    * 되짚기와 갈리는 자리다. 저쪽은 확정된 판 위에 안 긋는다: 넘겨 보는 것만으로 답이
    * 그려지면 스스로 찾을 자리가 없어지기 때문이다(ReviewDetail 의 `ray`). 검토는 답을
-   * 보러 오는 화면이라 그 근거가 서지 않는다 — 옆의 목록이 이미 같은 수를 첫 줄로 들고
+   * 보러 오는 화면이라 그 근거가 성립하지 않는다 — 옆의 목록이 이미 같은 수를 첫 줄로 들고
    * 있고, 판에 안 그으면 그 수가 어디서 어디로 가는지를 좌표로 읽어야 한다.
    */
   const ray = useMemo<Ray | null>(() => {
@@ -385,8 +385,8 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
             <p className="review-status">{error || engineReady === false ? '' : '局面を読み込んでいます…'}</p>
           )}
 
-          {/* 되돌리는 둘. 줄이 없으면 이 줄 자체가 안 선다 — 눌러도 안 되는 버튼을
-              세워 두면 다음에 진짜로 못 누를 때 같이 무시된다(홈 메뉴와 같은 규칙).
+          {/* 되돌리는 둘. 줄이 없으면 이 줄 자체가 안 뜬다 — 눌러도 안 되는 버튼을
+              그려 두면 다음에 진짜로 못 누를 때 같이 무시된다(홈 메뉴와 같은 규칙).
               `.btn` 에는 disabled 모양이 따로 없어서 더 그렇다.
 
               「盤を反転」은 판이 주는 손잡이 줄에 있다(`Board` 의 `flip`, journal §96). */}
@@ -440,11 +440,11 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
 
           {/* `active` 가 아니라 `shown` 을 넘긴다. `active` 는 「이 줄의 노드인가」라
               판을 잠그는 데 쓰는 값이고, 이 목록에 넘기면 한 수 둘 때마다 세 줄이 사라졌다가
-              다시 선다 — `Candidates` 가 막겠다고 적어 둔 그 그림이다. 자리는 지키고
+              다시 그려진다 — `Candidates` 가 막겠다고 적어 둔 그 그림이다. 자리는 지키고
               흐리게 하고 못 누르게 한다(`stale`). */}
           <Candidates node={shown} stale={stale} onPick={play} />
 
-          {/* 지금까지의 줄. 실제 기보와 같은 어휘로 같은 모양으로 선다 — 手数 · 수 · cp.
+          {/* 지금까지의 줄. 실제 기보와 같은 어휘로 같은 모양으로 그려진다 — 手数 · 수 · cp.
               값은 지나온 자리에서 꺼낸다(`evalOf`) — 다시 묻지 않으므로 추가 탐색이 0이다. */}
           {shown && shown.line.length > 0 && (
             <section className="review-panel explore-line-panel" aria-label="並べた手順">

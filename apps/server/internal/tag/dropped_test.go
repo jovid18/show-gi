@@ -21,7 +21,7 @@ func castleCode(in Input) string {
 
 // 打って 채운 囲い에는 이름을 안 붙인다.
 //
-// 같은 국면에 수순만 둘로 갈라 넣는다 — 이 규칙은 그것만으로 이름을 가른다.
+// 같은 국면에 수순만 둘로 나눠 넣는다 — 이 규칙은 그것만으로 이름을 가른다.
 func TestCastleCompletedByADropIsNotNamed(t *testing.T) {
 	pos, err := shogi.ParseSFEN(hidariMinoByDropSFEN)
 	if err != nil {

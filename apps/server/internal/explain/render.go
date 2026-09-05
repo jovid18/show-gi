@@ -109,7 +109,7 @@ func renderBranches(u Facts) string {
 	}
 	// 줄은 문장이 아니라 표다. 조사로 이으면 「…で 5手で自分が詰まされる」처럼 で가 겹치고,
 	// 그 자리를 피하려고 詰み과 cp의 말투를 가르면 같은 값이 두 어휘를 갖는다. 화살표는 그
-	// 둘을 같은 모양으로 세운다 — 프롬프트가 사실을 적는 모양과도 같다.
+	// 둘을 같은 모양으로 적는다 — 프롬프트가 사실을 적는 모양과도 같다.
 	for _, br := range u.Branches {
 		fmt.Fprintf(&b, "\n%s → %s → %s", br.PlayerJa, br.ReplyJa, BranchScoreJa(br))
 	}

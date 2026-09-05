@@ -178,7 +178,7 @@ func levelFor(r *http.Request, status int, canceled bool) slog.Level {
 
 // requestID 는 이 요청의 ID 다. 언제나 우리가 만든다.
 //
-// 밖에서 온 값을 채택하지 않는다. Caddy 가 이 헤더를 세우지도 지우지도 않으므로
+// 밖에서 온 값을 채택하지 않는다. Caddy 가 이 헤더를 붙이지도 지우지도 않으므로
 // (apps/web/Caddyfile) 누구나 같은 값을 계속 보낼 수 있고, 그러면 request_id 가
 // 요청 하나를 가리키지 못한다 — 장애를 되짚어야 하는 바로 그때. 앞단이 이 헤더를
 // 실제로 소유하는 날 여기를 바꾼다. 온 값은 버리지 않고 따로 남긴다(clientRequestID).

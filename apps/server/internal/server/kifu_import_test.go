@@ -167,7 +167,7 @@ func TestImportedGameGetsEvalsAndBlunders(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 홀수 手(사람의 수)만 낙폭이 크게 나오도록 갈라 둔다.
+	// 홀수 手(사람의 수)만 낙폭이 크게 나오도록 따로 둔다.
 	a := analyzerFor(st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.9, lossEven: 0, blunder: true}
 	})
@@ -263,7 +263,7 @@ func shuffleGameUSI(plies int) string {
 }
 
 // 하루 몫은 판이 만들어지는 것을 센다. 옮겨 적는 일은 그 전에 일어나므로, 읽기만
-// 반복하는 사람은 그 벽에 영영 안 닿으면서 토큰을 계속 쓴다(journal §126).
+// 반복하는 사람은 그 상한에 영영 안 닿으면서 토큰을 계속 쓴다(journal §126).
 func TestTranscribeBudgetCapsTheHour(t *testing.T) {
 	now := time.Now()
 	b := newHourlyBudget(maxTranscribesPerHour)
@@ -277,7 +277,7 @@ func TestTranscribeBudgetCapsTheHour(t *testing.T) {
 	if b.take(1) {
 		t.Error("the call past the budget went through")
 	}
-	// 사람마다 따로 센다. 한 사람이 다 쓰면 다른 사람이 못 읽는 것은 벽이 아니라 고장이다.
+	// 사람마다 따로 센다. 한 사람이 다 쓰면 다른 사람이 못 읽는 것은 상한이 아니라 고장이다.
 	if !b.take(2) {
 		t.Error("another person was refused because of somebody else's calls")
 	}
@@ -321,12 +321,12 @@ func TestAnOversizedBodySaysItIsTooLarge(t *testing.T) {
 }
 
 // 千日手는 shogi.ValidateMove 가 안 막는다. 합법 수순만으로 몇 천 手를 적을 수 있고,
-// 그 판이 手数만큼의 엔진 판정을 줄에 세운다 — 정규화 계층의 벽은 그 길을 안 막는다.
+// 그 판이 手数만큼의 엔진 판정을 줄에 세운다 — 정규화 계층의 상한은 그 길을 안 막는다.
 func TestADeterministicallyReadKifuIsStillCapped(t *testing.T) {
 	h := &kifuHandler{}
 	long := shuffleGameUSI(maxImportPlies + 2)
 
-	// 먼저 그 수순이 실제로 읽히는지 본다. 안 읽히면 이 시험이 벽이 아니라 파서를 재게 된다.
+	// 먼저 그 수순이 실제로 읽히는지 본다. 안 읽히면 이 시험이 상한이 아니라 파서를 재게 된다.
 	g, _, err := kifu.Read(long)
 	if err != nil {
 		t.Fatalf("the sample does not parse, so this proves nothing: %v", err)

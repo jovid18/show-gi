@@ -53,7 +53,7 @@ func (imp *Importer) ImportGame(ctx context.Context, g ParsedGame) (ImportResult
 		ply := i + 1
 
 		// 결과를 안 쓴다 — 목적이 archive 가 남기는 positions·edges 행이고, 그게 임포트의 산출물이다(그래서 실패해도 임포트는 성립한다).
-		// Wait() 로 그 기록을 DB에 내려앉힌 뒤라야 아래 Judge 가 같은 국면을 캐시로 맞힌다 — 없으면 같은 국면을 두 번 판다.
+		// Wait() 로 그 기록이 DB에 들어간 뒤라야 아래 Judge 가 같은 국면을 캐시로 맞힌다 — 없으면 같은 국면을 두 번 판다.
 		if _, err := imp.searcher.SearchMultiPV(ctx, startSFEN, g.Moves[:i], imp.depth, imp.multiPV); err != nil {
 			log.Printf("kifu: multiPV before ply %d: %v", ply, err)
 		}

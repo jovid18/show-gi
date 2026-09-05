@@ -2,7 +2,7 @@ package metrics
 
 import "time"
 
-// 엔진 풀의 pool 라벨 값. 두 풀이 다른 바이너리이고 잡히는 이유도 달라서 갈라 둔다.
+// 엔진 풀의 pool 라벨 값. 두 풀이 다른 바이너리이고 잡히는 이유도 달라서 따로 둔다.
 const (
 	PoolSearch = "search"
 	PoolMate   = "mate"
@@ -157,7 +157,7 @@ func (s *MateSearch) ObserveMateSearch(d time.Duration, cached, proven bool) {
 // Analysis 는 사후 분석의 계측 창구다(internal/server 의 matchAnalyzer).
 //
 // 창구 자체가 nil 이어도 메서드가 돈다. Pool 과 갈리는 자리다 — 저쪽은 늘 생성자를
-// 지나는데, 이쪽은 분석기를 구조체 리터럴로 세우는 자리가 있다.
+// 지나는데, 이쪽은 분석기를 구조체 리터럴로 만드는 자리가 있다.
 type Analysis struct{ reg *Registry }
 
 // Analysis 는 그 창구를 준다. Pool 과 같은 이유로 r 이 nil 이어도 non-nil 이다.

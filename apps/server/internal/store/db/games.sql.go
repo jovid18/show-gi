@@ -185,7 +185,7 @@ type CountGameStyleTagsForOwnerRow struct {
 // 마이페이지의 「짠 진형」. 판 수를 센다 — 한 판에서 같은 이름이 여러 번 나오는 일은
 // 위 질의가 이미 막았으므로, 이 숫자는 언제나 「그 이름으로 둔 판이 몇 판인가」다.
 //
-// 거르는 조건이 전적·약점과 같아야 한다: 셋이 한 화면에 서는데 모집단이 갈리면
+// 거르는 조건이 전적·약점과 같아야 한다: 셋이 한 화면에 나오는데 모집단이 갈리면
 // 「12판 뒀는데 진형은 30판에서 나온 것」이 된다.
 // ::text 를 적어야 한다. unnest 의 결과 타입을 sqlc 가 못 읽어 interface{} 로
 // 만들고, 그러면 코드가 문자열인지 아닌지를 부르는 쪽이 매번 확인해야 한다.
@@ -243,9 +243,9 @@ type CountImportsSinceParams struct {
 	StartedAt pgtype.Timestamptz
 }
 
-// 그 사람이 언제부터 지금까지 취해 온 판 수. 하루 몫의 벽이 이 값으로 선다.
+// 그 사람이 언제부터 지금까지 취해 온 판 수. 하루 몫의 상한이 이 값으로 정해진다.
 //
-// 판당 手数만큼의 탐색이라(server/kifu_import.go) 이 벽이 곧 엔진 예산의 벽이다.
+// 판당 手数만큼의 탐색이라(server/kifu_import.go) 이 상한이 곧 엔진 예산의 상한이다.
 func (q *Queries) CountImportsSince(ctx context.Context, arg CountImportsSinceParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countImportsSince, arg.UserID, arg.StartedAt)
 	var count int64
@@ -329,7 +329,7 @@ type CreateGameParams struct {
 // user_id 는 로그인 전이면 NULL이다 (002_anonymous_games.sql).
 //
 // opening_tag 는 사람이 고른 상대의 진형 id다 (internal/book). 「おまかせ」면 NULL.
-// 이 칸이 있어야 이어하기가 상대를 원래대로 다시 세운다 — 북은 상태를 안 들고 매번
+// 이 칸이 있어야 이어하기가 상대를 원래대로 다시 만든다 — 북은 상태를 안 들고 매번
 // (start_sfen, moves) 에서 다시 구하므로(game.bookOpponent) id 하나면 그 자리로 돌아간다.
 func (q *Queries) CreateGame(ctx context.Context, arg CreateGameParams) (int64, error) {
 	row := q.db.QueryRow(ctx, createGame,
@@ -429,7 +429,7 @@ type DeclineResumeParams struct {
 // (docs/01-core.md §5), 사람이 안 이어하겠다고 한 것과 기록을 버리는 것은 다른 일이다.
 //
 // declined 는 abandoned 의 하위 상태다: 중단된 채로 끝났고 사람이 그러기로 정했다.
-// 갈라 두는 이유는 하나뿐이다 — 이걸 다시 물어보지 않기 위해서다.
+// 따로 두는 이유는 하나뿐이다 — 이걸 다시 물어보지 않기 위해서다.
 func (q *Queries) DeclineResume(ctx context.Context, arg DeclineResumeParams) (int64, error) {
 	result, err := q.db.Exec(ctx, declineResume, arg.ID, arg.UserID)
 	if err != nil {
@@ -568,7 +568,7 @@ type InsertHintParams struct {
 }
 
 // ─── 부른 힌트 ───────────────────────────────────────────────
-// 사람이 불러서 받은 최선수 힌트. 개입과 갈라 두는 이유는 010_game_hints.sql.
+// 사람이 불러서 받은 최선수 힌트. 개입과 따로 두는 이유는 010_game_hints.sql.
 func (q *Queries) InsertHint(ctx context.Context, arg InsertHintParams) error {
 	_, err := q.db.Exec(ctx, insertHint,
 		arg.GameID,
@@ -659,7 +659,7 @@ type InsertUndoParams struct {
 }
 
 // ─── 무르기 ─────────────────────────────────────────────────
-// 사람이 스스로 무른 수. 개입과 갈라 두는 이유는 008_game_undos.sql.
+// 사람이 스스로 무른 수. 개입과 따로 두는 이유는 008_game_undos.sql.
 //
 // 평가치는 인자로 안 받는다. 그 값은 판정이 game_moves 에 이미 채워 뒀거나 아직
 // 안 채웠거나 둘 중 하나이고, 세션이 그것을 다시 들고 다니면 같은 숫자가 두 벌이 된다.

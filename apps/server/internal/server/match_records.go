@@ -93,7 +93,7 @@ func newMatchRecords(st *store.Store, level intervene.Level) *matchRecords {
 // 기록이 abandoned 로 닫히는데, 대인전은 그때도 판이 계속 돈다.
 //
 // 그래서 판마다 ctx 를 한 겹 더 판다. 서버 ctx 를 그대로 주면 기록기 goroutine 이
-// 판이 끝난 뒤에도 이벤트 채널에 영원히 서 있는다 — 엔진 대국은 세션 ctx 가 연결과 함께
+// 판이 끝난 뒤에도 이벤트 채널에 영원히 매달려 있는다 — 엔진 대국은 세션 ctx 가 연결과 함께
 // 끝나서 그 자리가 없는데, 여기는 없앨 사람이 없다. 끝난 판마다 goroutine 둘과 256칸짜리
 // 채널 둘이 남고, 배포 전까지 계속 쌓인다.
 func (m *matchRecords) new(

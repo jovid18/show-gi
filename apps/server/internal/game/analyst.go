@@ -29,7 +29,7 @@ type engineAnalyst struct {
 // JudgeDepth 는 개입 판정에 쓰는 탐색 깊이다. DefaultDepth 와 같은 값이어야 한다.
 //
 // 같은 값인 것이 캐시의 조건이다. 상대 수와 판정이 같은 국면을 묻는데 깊이가 갈리면
-// positions 가 서로 못 쓰는 두 무리가 된다(internal/archive) — 상수를 잇대어 두면
+// positions 가 서로 못 쓰는 두 무리가 된다(internal/archive) — 상수를 한 값에 묶어 두면
 // 한쪽만 옮기는 일이 안 일어난다.
 //
 // 짧게 잡던 자리였다. 「판정은 정밀도보다 속도」로 12를 골랐는데(depth 10 × k=1 이
@@ -516,7 +516,7 @@ type refutationStep struct {
 	// captureSq 는 딴 칸. 안 땄으면 -1. 교환은 한 칸에서 벌어지는 것이라 이어지는지를
 	// 이 값이 정한다.
 	captureSq int
-	// gaveCheck 는 王手를 걸었는가. 王手는 응수가 강제라 혼자 서지 못한다.
+	// gaveCheck 는 王手를 걸었는가. 王手는 응수가 강제라 혼자 성립하지 못한다.
 	gaveCheck bool
 }
 

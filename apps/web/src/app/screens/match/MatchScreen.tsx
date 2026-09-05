@@ -19,7 +19,7 @@ import { Waiting } from './Waiting';
 /**
  * 사람과 두는 판.
  *
- * 엔진 대국 화면과 갈라 둔 이유는 여기 없는 것들 때문이다 — 개입 카드도, 힌트도,
+ * 엔진 대국 화면과 따로 둔 이유는 여기 없는 것들 때문이다 — 개입 카드도, 힌트도,
  * 待った도, 詰み 게이지도, 상대의 강함 눈금도 없다. 그것들을 조건으로 감싸 한 화면에
  * 넣으면 파일이 두 제품을 그리게 되고, 개입 쪽을 고칠 때마다 이쪽이 안 깨졌는지를
  * 매번 확인해야 한다(docs/journal §83).
@@ -44,7 +44,7 @@ export function MatchScreen({ roomId }: { roomId: string }) {
     const ac = new AbortController();
     void fetchRoom(roomId, ac.signal)
       .then((room) => setPeek({ room, done: true }))
-      // 못 읽어도 화면은 선다 — 아래가 「열 수 없다」를 그린다. 실패와 404를 같이 두는
+      // 못 읽어도 화면은 뜬다 — 아래가 「열 수 없다」를 그린다. 실패와 404를 같이 두는
       // 것은 서버가 이미 그 둘을 같은 답으로 주기 때문이다.
       .catch(() => setPeek({ room: null, done: true }));
     return () => ac.abort();
@@ -364,7 +364,7 @@ function Clock({ leftMs, limitMs, yours }: { leftMs: number; limitMs: number; yo
 }
 
 /**
- * 결과 한 줄. `board-view.ts` 의 것과 갈라 둔다 — 저쪽은 승자를 `human`/`engine` 으로
+ * 결과 한 줄. `board-view.ts` 의 것과 따로 둔다 — 저쪽은 승자를 `human`/`engine` 으로
  * 읽는데 여기는 사람이 둘이라 `you`/`opponent` 다. 그리고 여기에만 있는 것이 시간패다.
  */
 function matchResultText(snapshot: MatchSnapshot): string | null {

@@ -47,7 +47,7 @@ case $label in
   ;;
 esac
 
-# 룰 엔진에 물어본다. 사유가 하나라도 있으면 앉히지 않는다.
+# 룰 엔진에 물어본다. 사유가 하나라도 있으면 픽스처로 안 넣는다.
 check=$(curl -sS --max-time 10 -X POST "$api/api/position/check" \
   -H 'Content-Type: application/json' \
   --data "$(printf '{"sfen":%s}' "$(printf '%s' "$label" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')")") || {

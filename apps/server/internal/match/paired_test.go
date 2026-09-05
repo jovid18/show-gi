@@ -68,7 +68,7 @@ func TestPairedRoomAndTheInviteLinkCoexist(t *testing.T) {
 	paired := h.CreatePaired(NewRoomID(), alice, shogi.Black, bob)
 
 	if _, err := h.Peek(invite.ID, alice.UserID); err != nil {
-		t.Errorf("대기열 방을 세우면서 초대 링크가 죽었다: %v", err)
+		t.Errorf("대기열 방을 만들면서 초대 링크가 죽었다: %v", err)
 	}
 	if _, err := h.Peek(paired.ID, alice.UserID); err != nil {
 		t.Errorf("대기열 방을 못 읽는다: %v", err)

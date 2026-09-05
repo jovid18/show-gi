@@ -13,11 +13,11 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 벽 셋과 왕복 하나. 벽(로그인·이름·수순)은 기록에 닿기 전에 거절되므로 DB 없이 확인하고,
+// 거절 셋과 왕복 하나. 거절(로그인·이름·수순)은 기록에 닿기 전에 끝나므로 DB 없이 확인하고,
 // 그래서 그 셋은 CI에서도 돈다.
 
-// snapshotWalls 는 store 없는 핸들러다. 벽에서 거절되는 요청은 기록에 안 닿으므로,
-// 여기서 500이 나오면 그 요청이 벽을 지나갔다는 뜻이다.
+// snapshotWalls 는 store 없는 핸들러다. 거절되는 요청은 기록에 안 닿으므로,
+// 여기서 500이 나오면 그 요청이 검사를 통과했다는 뜻이다.
 func snapshotWalls(t *testing.T) (*exploreSnapshotHandler, *http.Cookie) {
 	t.Helper()
 
@@ -124,7 +124,7 @@ func decodeSnapshotList(t *testing.T, rec *httptest.ResponseRecorder) []exploreS
 	return out.Snapshots
 }
 
-// 로그인 벽. 검토에서 이 표면만 그 뒤에 있다(journal §100).
+// 로그인 검사. 검토에서 이 표면만 그 뒤에 있다(journal §100).
 func TestSnapshotsNeedLogin(t *testing.T) {
 	h, _ := snapshotWalls(t)
 
@@ -148,7 +148,7 @@ func TestSnapshotsNeedLogin(t *testing.T) {
 
 // 둘 수 없는 수는 저장되지 않는다. 막지 않으면 불러올 때마다 거절되는 행이 기록에 남는다.
 //
-// store 가 nil이라 벽을 지나가면 패닉이다 — 지나가지 않는 것이 이 테스트다.
+// store 가 nil이라 검사를 통과하면 패닉이다 — 통과하지 않는 것이 이 테스트다.
 func TestSnapshotsRejectAnIllegalLine(t *testing.T) {
 	h, who := snapshotWalls(t)
 
@@ -184,7 +184,7 @@ func TestSnapshotRoundTrip(t *testing.T) {
 	saved := decodeSnapshot(t, h.call(t, http.MethodPost, "/api/explore/snapshots",
 		`{"name":"  矢倉の入り口  ","handicap":"nimaiochi","moves":`+line+`}`, who), http.StatusCreated)
 
-	// 양끝 공백을 지운다. 안 지우면 목록에 빈 것처럼 보이는 줄이 선다.
+	// 양끝 공백을 지운다. 안 지우면 목록에 빈 것처럼 보이는 줄이 남는다.
 	if saved.Name != "矢倉の入り口" {
 		t.Errorf("name = %q", saved.Name)
 	}

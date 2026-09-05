@@ -80,7 +80,7 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 
 		ss, band, ok := rescore(rec)
 		if !ok {
-			continue // 평가치가 안 남은 판. 개입률의 분모를 못 세운다
+			continue // 평가치가 안 남은 판. 개입률의 분모를 못 채운다
 		}
 		all = append(all, ss...)
 		bands = append(bands, band)

@@ -364,7 +364,7 @@ func TestLineIsCapped(t *testing.T) {
 	}
 }
 
-// 두어 보면서 자른다. 엔진 PV의 꼬리에 이 국면에서 안 서는 수가 섞여 오는 일이 있고,
+// 두어 보면서 자른다. 엔진 PV의 꼬리에 이 국면에서 못 두는 수가 섞여 오는 일이 있고,
 // 그대로 저장하면 채점 뒤에 못 두는 수순이 화면에 나간다.
 func TestLineStopsAtTheFirstIllegalMove(t *testing.T) {
 	pos := shogi.StartPosition()

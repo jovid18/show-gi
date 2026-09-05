@@ -121,7 +121,7 @@ describe('playerCp', () => {
     expect(playerCp({ cp: -151, mateIn: undefined }, false)).toBe(-151);
   });
 
-  // 詰み의 cp는 환산값(±30000)이라 ±800 자에 얹으면 언제나 양 끝이다. 그 줄은 말로만 선다.
+  // 詰み의 cp는 환산값(±30000)이라 ±800 자에 얹으면 언제나 양 끝이다. 그 줄은 말로만 남는다.
   it('詰み은 색으로 말하지 않는다', () => {
     expect(playerCp({ cp: 29990, mateIn: 1 }, false)).toBeUndefined();
   });
@@ -131,8 +131,8 @@ describe('playerCp', () => {
   });
 });
 
-// 詰み이 cp보다 언제나 바깥이다. cp만으로 세우면 「3手で詰み」과 「+2900」이 이웃으로
-// 서는데 그 둘은 이웃이 아니다. 그리고 빨리 죽는 쪽이 더 나쁘다.
+// 詰み이 cp보다 언제나 바깥이다. cp만으로 줄 세우면 「3手で詰み」과 「+2900」이 이웃으로
+// 놓이는데 그 둘은 이웃이 아니다. 그리고 빨리 죽는 쪽이 더 나쁘다.
 describe('rankOf', () => {
   it('詰み이 어떤 cp보다 위다', () => {
     expect(rankOf({ cp: undefined, mateIn: 7 })).toBeGreaterThan(rankOf({ cp: 29000, mateIn: undefined }));
@@ -147,7 +147,7 @@ describe('rankOf', () => {
     expect(rankOf({ cp: undefined, mateIn: -1 })).toBeLessThan(rankOf({ cp: undefined, mateIn: -9 }));
   });
 
-  // 값이 없는 줄은 맨 아래다. 0으로 채우면 호각으로 읽히고 목록 가운데에 선다.
+  // 값이 없는 줄은 맨 아래다. 0으로 채우면 호각으로 읽히고 목록 가운데에 놓인다.
   it('값이 없으면 맨 아래다', () => {
     expect(rankOf({ cp: undefined, mateIn: undefined })).toBeLessThan(rankOf({ cp: -29000, mateIn: undefined }));
   });

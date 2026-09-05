@@ -6,14 +6,14 @@
 // 자체에 붙인다 — usi.Pool 을 한 겹 감싸고, 부르는 쪽은 감싼 줄도 모른다.
 //
 // 기준이 같아야 재활용이 된다. 기본 깊이는 여섯 자리가 모두 14이고(game.DefaultDepth ·
-// JudgeDepth · whatifDepth 가 한 값에 잇대어 있다), 갈리는 것은 MultiPV뿐이다 — 그건 「같은 깊이면 후보가 많은
-// 쪽이 이긴다」로 질의가 정리한다(query/positions.sql).
+// JudgeDepth · whatifDepth 가 한 값을 함께 쓴다), 갈리는 것은 MultiPV뿐이다 — 그건
+// 「같은 깊이면 후보가 많은 쪽이 이긴다」로 질의가 정리한다(query/positions.sql).
 //
 // ENGINE_DEPTH 를 걸면 그 여섯이 갈린다. 상대 수와 퀴즈만 그 값을 읽고(cmd/api/main.go 의
 // engineDepth) 나머지 넷은 상수라, 캐시가 서로 못 쓰는 두 무리가 된다 — 깊이를 흔들어
 // 볼 때 히트율이 같이 떨어지는 것이 그 때문이다.
 //
-// 詰み 탐색은 같은 겹을 따로 지난다(Mate). 표를 갈라 둔 이유는 017_mate_positions.sql 에
+// 詰み 탐색은 같은 겹을 따로 지난다(Mate). 표를 따로 둔 이유는 017_mate_positions.sql 에
 // 있고, 저쪽은 깊이가 아니라 手数 한계로 갈린다 — 이 파일의 규약이 그쪽에 그대로 안 걸린다.
 //
 // 무엇이 어디에 남는지는 positions·edges 의 DDL(001_init.sql)과 02-architecture.md §4.
@@ -268,7 +268,7 @@ func (a *Searcher) recordPath(startSFEN string, moves []string, res usi.SearchRe
 // record 는 탐색 하나를 데이터로 옮긴다.
 //
 // 실패해도 대국에 영향이 없다. 여기서 나는 에러는 전부 로그로 끝난다 — 분석을
-// 남기지 못한 것과 대국이 서지 않는 것의 값이 다르다.
+// 남기지 못한 것과 대국이 깨지는 것의 값이 다르다.
 func (a *Searcher) record(startSFEN string, moves []string, res usi.SearchResult) {
 	ctx, cancel := context.WithTimeout(context.Background(), writeTimeout)
 	defer cancel()
@@ -383,7 +383,7 @@ func (a *Searcher) link(
 
 // namesFor 는 그 수가 새로 만든 囲い·전법·戦型·手筋의 코드다.
 //
-// 앞뒤를 견준다. 「지금 판에 서 있는 형태 전부」로 하면 한 번 껐던 이름이 두 수 뒤에
+// 앞뒤를 견준다. 「지금 판에 있는 형태 전부」로 하면 한 번 껐던 이름이 두 수 뒤에
 // 통과하는데(journal §34 ⑦), 저장은 그 실수를 영구히 남긴다.
 func (a *Searcher) namesFor(
 	ctx context.Context,

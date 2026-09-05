@@ -20,7 +20,7 @@ import (
 
 // 판이 찍힌 그림에서 국면을 취해 오는 표면. 근거와 정한 것은 journal §129.
 //
-// 두 뿌리다. 읽기(POST /api/position/read)가 그림을 국면 하나로 옮기고, 검사
+// 경로가 둘이다. 읽기(POST /api/position/read)가 그림을 국면 하나로 옮기고, 검사
 // (POST /api/position/check)가 「이 국면이 성립하는가」에 답한다 — 확인 화면이 한 칸을
 // 고칠 때마다 후자를 부르므로, 二歩가 되는 순간 그 자리에서 보인다.
 //
@@ -31,7 +31,7 @@ import (
 // 남겨 두면 「사람이 올린 사진」이라는 지울 규약이 하나 더 생기고, 그 값이 없다.
 //
 // **읽기는 로그인한 사람만이다.** 지키는 것이 돈이라 사람마다 세야 하고, 익명끼리는
-// 구별할 수단이 없다(002_anonymous_games.sql). 검사와 분석에는 그 벽이 없다.
+// 구별할 수단이 없다(002_anonymous_games.sql). 검사와 분석에는 로그인이 필요 없다.
 
 // maxBoardReadsPerHour 는 한 사람이 한 시간에 그림을 읽힐 수 있는 횟수다.
 //
@@ -56,7 +56,7 @@ type positionHandler struct {
 	// read 는 그림을 읽는 창구다. 키가 없으면 nil 이고, 그때 이 표면은 안 열린다.
 	read   *boardread.Client
 	budget *hourlyBudget
-	// keep 은 그림과 라벨을 모아 두는 폴더다. 비어 있으면 그 경로가 통째로 안 선다.
+	// keep 은 그림과 라벨을 모아 두는 폴더다. 비어 있으면 그 경로가 통째로 안 열린다.
 	//
 	// **판독을 재는 그림을 모으는 자리다**(apps/server/README.md). 사람이 확인 화면에서
 	// 고친 판이 곧 라벨이라, 이 폴더가 켜져 있으면 「올리고 · 고치고 · 누르고」 세 걸음이
@@ -90,13 +90,13 @@ type positionCheckRequest struct {
 // positionResponse 는 국면 하나와 그것에 대해 룰 엔진이 말할 수 있는 전부다.
 //
 // 읽기와 검사가 같은 모양을 준다. 확인 화면이 「방금 읽은 판」과 「내가 고친 판」을
-// 같은 코드로 그리는 자리이고, 갈라 두면 그 화면에 표가 둘 생긴다.
+// 같은 코드로 그리는 자리이고, 따로 두면 그 화면에 표가 둘 생긴다.
 type positionResponse struct {
 	SFEN string `json:"sfen"`
 	// ImageID 는 남겨 둔 그림의 이름이다(`board-01`). 폴더가 안 켜져 있으면 안 온다.
 	//
 	// 화면이 이 값을 들고 있다가 「解析する」를 누를 때 되돌려준다 — 그때 사람이 고친
-	// 판이 이 그림의 라벨로 앉는다(POST /api/position/label).
+	// 판이 이 그림의 라벨이 된다(POST /api/position/label).
 	ImageID string `json:"imageId,omitempty"`
 	// Faults 는 이 국면이 어긴 규칙 전부다. 비어 있어야 분석으로 넘어갈 수 있다.
 	Faults []positionFault `json:"faults"`
@@ -142,7 +142,7 @@ func (h *positionHandler) readImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 벽이 먼저다. 부른 뒤에 세면 시한에 걸린 호출이 몫을 안 쓰는데, 그 실패가 가장
+	// 몫을 먼저 센다. 부른 뒤에 세면 시한에 걸린 호출이 몫을 안 쓰는데, 그 실패가 가장
 	// 비싼 호출이다(hourlyBudget.take).
 	if !h.budget.take(s.UserID) {
 		writeJSON(w, http.StatusTooManyRequests, map[string]any{
@@ -197,12 +197,12 @@ type positionLabelRequest struct {
 	SFEN    string `json:"sfen"`
 }
 
-// label 은 사람이 확인한 국면을 그 그림의 라벨로 앉힌다.
+// label 은 사람이 확인한 국면을 그 그림의 라벨로 저장한다.
 //
 // **성립하지 않는 판은 안 받는다.** 틀린 라벨은 없는 라벨보다 나쁘다 — 측정이 조용히
 // 나빠 보이고, 그 원인을 모델에서 찾게 된다.
 //
-// 이 뿌리는 폴더가 켜져 있을 때만 라우팅된다(server.go).
+// 이 경로는 폴더가 켜져 있을 때만 라우팅된다(server.go).
 func (h *positionHandler) label(w http.ResponseWriter, r *http.Request) {
 	if _, ok := h.viewer(w, r); !ok {
 		return
@@ -291,7 +291,7 @@ func (h *positionHandler) keepImage(image []byte) string {
 }
 
 // maxKept 는 이 폴더가 드는 그림 수의 상한이다. 번호가 두 자리를 넘으면 이름 순서가
-// 표의 줄 순서와 어긋나고(board-9 가 board-10 뒤에 선다), 재는 표본으로도 충분히 크다.
+// 표의 줄 순서와 어긋나고(board-9 가 board-10 뒤로 간다), 재는 표본으로도 충분히 크다.
 const maxKept = 99
 
 // nextKeptNumber 는 폴더에서 다음 번호를 고른다. 비어 있으면 1이다.
