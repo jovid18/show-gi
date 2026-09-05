@@ -50,6 +50,14 @@ const MENU: MenuItem[] = [
     note: 'ほかで指した対局を解析する',
     needsAuth: true,
   },
+  // 그림을 읽는 것이 돈을 쓰는 일이라 사람마다 세야 하고, 익명끼리는 구별할 수단이
+  // 없다(position.go) — 위 줄과 같은 이유의 벽이다.
+  {
+    route: { name: 'position' },
+    name: '局面を読み取る',
+    note: '盤の画像から形勢を調べる',
+    needsAuth: true,
+  },
   { route: { name: 'me' }, name: 'マイページ', note: '成績と棋力の目安', needsAuth: true },
 ];
 

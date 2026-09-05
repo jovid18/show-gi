@@ -27,8 +27,9 @@ export const ROUTE_ME = '/me';
  * 뒤로 가기·링크 공유가 그것으로 살아나고, 그러지 않으면 20手를 걸어 들어간 국면이
  * 새로고침 한 번에 0手目로 돌아간다.
  *
- * 국면(SFEN)이 아니라 수순이다. 서버가 받는 것도 그것이라(explore.go) 주소와 요청이
- * 같은 말을 하고, 남이 준 링크가 「있을 수 없는 판」을 열 수가 없다.
+ * 뿌리가 둘이다. 手合割 id 가 하나이고, 사진에서 읽어 온 국면(`?s=<SFEN>`)이 다른 하나다
+ * (journal §129) — 그 국면은 手合割+수순으로 표현할 수가 없어서 주소에 판이 실린다.
+ * 남이 준 링크가 「있을 수 없는 판」을 여는 것은 서버가 막는다(`shogi.Faults`).
  */
 export const ROUTE_EXPLORE = '/explore';
 
@@ -42,14 +43,25 @@ export const EXPLORE_PARAM_HANDICAP = 'h';
 export const EXPLORE_PARAM_MOVES = 'm';
 
 /**
+ * 뿌리 국면을 싣는 쿼리 이름. 사진에서 읽어 온 판이 여기로 온다.
+ *
+ * 手合割(`h`)과 같이 못 실린다. 둘 다 뿌리를 정하는 값이라 같이 오면 서버가 거절하고
+ * (`bad_root`), 그래서 주소를 만드는 쪽도 하나만 적는다(`routeExplore`).
+ */
+export const EXPLORE_PARAM_SFEN = 's';
+
+/**
  * 검토 화면의 주소.
  *
  * `,` 와 `*` 를 그대로 둔다. `URLSearchParams` 로 만들면 `%2C`·`%2A` 로 부풀어서
  * 40手 줄의 주소가 두 배가 되는데, 둘 다 쿼리에 그냥 쓸 수 있는 글자다(RFC 3986 sub-delims).
  */
-export const routeExplore = (handicap: string, moves: readonly string[]): string => {
+export const routeExplore = (handicap: string, moves: readonly string[], sfen = ''): string => {
   const q: string[] = [];
-  if (handicap) q.push(`${EXPLORE_PARAM_HANDICAP}=${handicap}`);
+  // 판이 있으면 手合割은 안 적는다. 뿌리는 하나여야 하고, 서버가 둘을 같이 받으면
+  // 거절한다 — 주소가 그 거절을 만들 수 있으면 링크 하나가 통째로 안 열린다.
+  if (sfen) q.push(`${EXPLORE_PARAM_SFEN}=${encodeURIComponent(sfen)}`);
+  else if (handicap) q.push(`${EXPLORE_PARAM_HANDICAP}=${handicap}`);
   if (moves.length > 0) q.push(`${EXPLORE_PARAM_MOVES}=${moves.join(',')}`);
   return q.length === 0 ? ROUTE_EXPLORE : `${ROUTE_EXPLORE}?${q.join('&')}`;
 };
@@ -67,6 +79,18 @@ export const ROUTE_GUIDE = '/guide';
  * 그 순간 화면이 되짚기로 옮겨 간다.
  */
 export const ROUTE_IMPORT = '/import';
+
+/**
+ * 국면을 사진에서 취해 오는 화면(journal §129).
+ *
+ * 주소가 아무것도 안 든다. 올린 그림과 읽어 낸 판은 화면 안에만 있고, 사람이 확인을
+ * 끝내면 그 국면이 검토의 주소가 되어(`routeExplore` 의 `s`) 이 화면을 떠난다 —
+ * 남는 것이 주소 한 줄이라 새로고침에도 링크 공유에도 판이 살아 있다.
+ */
+export const ROUTE_POSITION = '/position';
+
+/** `/position` 의 첫 조각. */
+export const POSITION_SEGMENT = 'position';
 
 /**
  * 판 하나. 주소에 id가 들어가는 유일한 자리다.

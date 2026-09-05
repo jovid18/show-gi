@@ -71,7 +71,7 @@ type kifuHandler struct {
 	analyzer *matchAnalyzer
 	// budget 은 정규화를 부르는 횟수의 벽이다. 하루 몫이 판을 세는 자리라 이쪽을
 	// 안 막는다(kifu_budget.go).
-	budget *transcribeBudget
+	budget *hourlyBudget
 	// cached 는 방금 옮겨 적은 결과다. 미리보기에서 확인한 판이 취해 오는 판과 같아야
 	// 하고, 정규화는 다시 물으면 같은 답을 준다는 보장이 없다(kifu_budget.go).
 	cached *transcribeCache

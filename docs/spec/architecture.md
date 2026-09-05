@@ -88,9 +88,10 @@ flowchart TB
         QZ["quiz<br/>생성 · 채점"]
         KF["kifu<br/>KIF·KI2·CSA·USI 파서"]
         KN["kifunorm<br/>서식 정규화 (OpenAI)"]
+        BR["boardread<br/>판 사진 판독 (OpenAI)"]
     end
 
-    SV --> GM & MT & QZ & AU & ST & AR & KF & KN
+    SV --> GM & MT & QZ & AU & ST & AR & KF & KN & BR
     GM --> IV & SK & EX & TG & BK & HC & SH & AR
     MT --> SH & ST
     ST --> RT
@@ -105,9 +106,10 @@ flowchart TB
     style RT fill:#fff3cd,stroke:#856404
     style QU fill:#fff3cd,stroke:#856404
     style KN fill:#f8d7da,stroke:#842029
+    style BR fill:#f8d7da,stroke:#842029
 ```
 
-### 없는 화살표 여덟이 설계다
+### 없는 화살표 열둘이 설계다
 
 | 없는 것                 | 뜻                                                                                                                                                                                                     |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -121,6 +123,8 @@ flowchart TB
 | `queue` → `match`       | 대기열은 방을 모른다. 짝을 지어 방을 세우는 것은 `server` 다 (표 먼저 · 방 나중)                                                                                                                       |
 | `kifunorm` → `shogi`    | **정규화 계층은 판을 모른다.** 하는 일이 글자를 옮겨 적는 것이고, 그것이 수가 되는 것은 `kifu` → `shogi.ValidateMove` 를 지난 뒤다 — 그래서 그 출력에 믿는 부분이 없다 ([§126](../journal/121-140.md)) |
 | `kifu` → `kifunorm`     | **파서는 네트워크도 비밀도 모른다.** 둘을 잇는 것은 `server` 이고, 순서가 「결정적 파서 먼저, 전부 실패하면 정규화」다                                                                                 |
+| `boardread` → `shogi`   | **판독 계층도 판을 모른다.** 격자를 그려진 대로 적고, 그것이 국면이 되는 것은 `shogi.Faults` 를 지난 뒤다 — 프롬프트가 筋도 段도 手番도 말하지 않는다 ([§129](../journal/121-140.md))                  |
+| `boardread` → `usi`     | **판독은 엔진을 모른다.** 「이 국면 어때」를 묻는 경로가 없고, 스키마에도 그것을 담을 칸이 없다                                                                                                        |
 
 `server` 가 `store` 를 직접 부르는 화살표가 있는 것은 되짚기·마이페이지 쪽이다. **대국 상태는 다르다** — HTTP 핸들러가 그것을 직접 읽기 시작하면 그 순간 구조가 무너진다.
 

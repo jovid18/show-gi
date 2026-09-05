@@ -20,12 +20,20 @@ import (
 // 그 자리가 이제 셋이다 — 끝난 판은 DB 기록에서, 두는 중인 판은 세션 스냅샷에서, 여기는
 // 手合割 표에서(internal/handicap) 뿌리를 얻는다(journal §85).
 //
-// 판(SFEN)은 여기서도 받지 않는다. 받는 것은 手合割 id와 수순뿐이고 서버가 매번 되짚어
-// 한 수씩 룰 엔진에 검증시킨다 — §37이 닫아 둔 문("아무 국면이나 깊이 12로 재 주는 공개
-// 엔진")이 그대로 닫혀 있는 것이 이 표면의 조건이다.
+// 뿌리가 둘이다. 手合割 id와 수순이 하나이고, 판(SFEN) 하나가 다른 하나다.
 //
-// 그래도 이 표면이 그 문에 가장 가깝다. 뿌리가 0手目라 합법적으로 도달하는 국면이면
-// 무엇이든 물을 수 있다. 그래서 벽이 둘이다 — 로그인과 엔진 슬롯 하나.
+// **SFEN 을 받게 된 것은 사진에서 읽어 온 국면 때문이다**(journal §129). 그 국면은
+// 手合割+수순으로 표현할 수가 없어서 §37이 닫아 둔 문을 열었는데, 그 문의 이유가
+// 「아무 국면이나 재 주는 공개 엔진이 된다」였고 그것을 막는 것은 SFEN 의 부재가 아니라
+// 아래 슬롯이다 — 뿌리가 0手目인 이상 합법적으로 도달하는 국면은 이미 무엇이든 물을
+// 수 있었다(§85).
+//
+// **재생이 하던 검증을 룰 엔진이 대신한다.** 手合割 뿌리는 한 수씩 ValidateMove 를
+// 지나가므로 국면이 성립하는 것이 공짜인데, SFEN 뿌리에는 지나갈 수순이 없다 —
+// 그래서 shogi.Faults 가 통과하지 않는 판은 여기서 거절된다.
+//
+// 저장·불러오기는 SFEN 을 안 든다(explore_snapshots.go). 저장된 값이 곧 다음 요청의
+// 본문이라 그쪽에 SFEN 칸을 두면 문이 기록 쪽으로 한 번 더 열리고, 그 값이 없다(§96).
 
 const (
 	// exploreMaxLine 은 검토 한 줄의 상한이다. 되짚기(whatifMaxLine=60)보다 긴 것이
@@ -79,6 +87,11 @@ type exploreRequest struct {
 	// Handicap 은 手合割 id다. 빈 값이 平手다 — 화면의 기본값이고 표에 없다
 	// (internal/handicap 의 규약).
 	Handicap string `json:"handicap"`
+	// SFEN 은 뿌리 국면이다. 사진에서 읽어 와 사람이 확인한 판이 여기로 온다.
+	//
+	// Handicap 과 같이 못 온다. 둘 다 뿌리를 정하는 값이라, 같이 오면 어느 쪽이
+	// 뿌리인지를 서버가 골라야 하고 그 선택은 화면과 어긋날 수 있다.
+	SFEN string `json:"sfen,omitempty"`
 	// Moves 는 양쪽 수가 전부 들어 있는 한 줄이다. 서버는 한 수도 대신 두지 않는다.
 	Moves []string `json:"moves"`
 }
@@ -116,7 +129,25 @@ func (h *exploreHandler) play(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	root, hc, ok := exploreRoot(req.Handicap)
+	if req.SFEN != "" && req.Handicap != "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"error": "bad_root", "message": "手合割と局面は同時に指定できません。",
+		})
+		return
+	}
+
+	if req.SFEN != "" {
+		// 뿌리가 성립하는 판인지를 먼저 본다. 여기가 재생을 대신하는 자리라, 지나가면
+		// 그 뒤는 手合割 뿌리와 한 줄이다.
+		if msg, ok := exploreRootFault(req.SFEN); !ok {
+			writeJSON(w, http.StatusBadRequest, map[string]any{
+				"error": "bad_position", "message": msg,
+			})
+			return
+		}
+	}
+
+	root, hc, ok := exploreRoot(req.Handicap, req.SFEN)
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]any{
 			"error": "bad_handicap", "message": "その手合割は選べません。",
@@ -158,7 +189,7 @@ func (h *exploreHandler) play(w http.ResponseWriter, r *http.Request) {
 		// 엔진 고장·시한 초과, 그리고 시작 국면을 못 읽는 경우(errWhatifPly). 뒤엣것은
 		// 표가 깨진 것이라 사람이 고칠 일이고, 화면에는 둘 다 「다시 눌러 볼 수 있는
 		// 실패」로 나간다 — 검토는 아무것도 안 잃는다.
-		log.Printf("explore: handicap %q, %d moves: %v", req.Handicap, len(req.Moves), err)
+		log.Printf("explore: handicap %q, sfen %q, %d moves: %v", req.Handicap, req.SFEN, len(req.Moves), err)
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
 			"error": "engine_unavailable", "message": whatifMessages["engine_unavailable"],
 		})
@@ -176,7 +207,15 @@ func (h *exploreHandler) play(w http.ResponseWriter, r *http.Request) {
 //
 // Moves 가 비어 있다. 확정된 수가 하나도 없다는 뜻이고, 그래서 요청의 수순이 곧
 // 분기 전체다(whatifRequest.Ply 는 0).
-func exploreRoot(id string) (whatifRoot, handicap.Handicap, bool) {
+func exploreRoot(id, sfen string) (whatifRoot, handicap.Handicap, bool) {
+	if sfen != "" {
+		// 手合割이 없다. 임의의 국면에 「형세 0」이 정의되지 않으므로 기준점도 이름도
+		// 안 실린다 — 平手의 0을 그대로 쓰고, 화면이 「互角ライン」을 말하지 않는다.
+		//
+		// 아래쪽을 先手로 둔 판이다(internal/boardread). 그래서 관점을 Black 으로
+		// 두는 것이 곧 「사진을 찍은 사람 관점」이다.
+		return whatifRoot{StartSFEN: sfen, Human: shogi.Black}, handicap.Handicap{}, true
+	}
 	if id == "" {
 		// 平手. 빈 StartSFEN 이 平手라는 규약이 이미 있다(game.Config.StartSFEN) —
 		// 기준점도 0이라 뺄 것이 없다(internal/handicap).
@@ -187,4 +226,20 @@ func exploreRoot(id string) (whatifRoot, handicap.Handicap, bool) {
 		return whatifRoot{}, handicap.Handicap{}, false
 	}
 	return whatifRoot{StartSFEN: h.SFEN, Human: shogi.Black}, h, true
+}
+
+// exploreRootFault 는 SFEN 뿌리가 성립하는지를 본다. 거짓이면 둘째 값이 화면에 나갈 문구다.
+//
+// 첫 사유만 말한다. 확인 화면이 이미 사유 전부를 보여 주고 고칠 자리를 주므로
+// (POST /api/position/check) 여기까지 온 것은 그 화면을 지나지 않은 요청이고, 그때
+// 필요한 것은 목록이 아니라 「이 판으로는 분석할 수 없다」다.
+func exploreRootFault(sfen string) (string, bool) {
+	pos, err := shogi.ParseSFEN(sfen)
+	if err != nil {
+		return "局面を読み取れませんでした。", false
+	}
+	if faults := pos.Faults(); len(faults) > 0 {
+		return faults[0].Message(), false
+	}
+	return "", true
 }

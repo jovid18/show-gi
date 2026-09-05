@@ -28,26 +28,32 @@ import (
 // [미확정] 실측이 아니다. 사람이 한 판을 붙여 넣는 데 몇 번 시도하는지를 회차가 답하면 옮긴다.
 const maxTranscribesPerHour = 20
 
-// transcribeBudget 은 사람마다 최근 호출 시각을 든다.
+// hourlyBudget 은 사람마다 최근 호출 시각을 든다.
 //
 // 창을 미끄러뜨린다. 시각을 세는 쪽이 「정시에 초기화」보다 낫다 — 후자는 창이 바뀌는
 // 순간에 두 배가 지나간다.
-type transcribeBudget struct {
+//
+// 벽이 둘이다. 기보를 옮겨 적는 것과 그림에서 판을 읽는 것이 각자 창을 갖는다
+// (maxTranscribesPerHour · maxBoardReadsPerHour) — 한 벌로 세면 그림 한 장이 기보
+// 스무 번의 몫을 나눠 쓰게 되고, 값이 다른 두 호출에 같은 자를 대는 일이 된다.
+type hourlyBudget struct {
 	mu   sync.Mutex
 	hits map[int64][]time.Time
+	// limit 은 한 시간에 허용하는 호출 수다.
+	limit int
 	// now 는 테스트가 갈아 끼우는 자리다. nil이면 time.Now.
 	now func() time.Time
 }
 
-func newTranscribeBudget() *transcribeBudget {
-	return &transcribeBudget{hits: map[int64][]time.Time{}}
+func newHourlyBudget(limit int) *hourlyBudget {
+	return &hourlyBudget{hits: map[int64][]time.Time{}, limit: limit}
 }
 
 // take 는 한 번 부를 자리를 얻는다. 벽에 닿았으면 false 다.
 //
 // 부르기 전에 센다. 부른 뒤에 세면 시한에 걸린 호출이 몫을 안 쓰고, 그 실패가 가장
 // 비싼 호출이다(응답을 기다린 만큼 이미 토큰을 썼다).
-func (b *transcribeBudget) take(userID int64) bool {
+func (b *hourlyBudget) take(userID int64) bool {
 	if b == nil {
 		return true
 	}
@@ -65,14 +71,14 @@ func (b *transcribeBudget) take(userID int64) bool {
 		b.hits[id] = kept
 	}
 
-	if len(b.hits[userID]) >= maxTranscribesPerHour {
+	if len(b.hits[userID]) >= b.limit {
 		return false
 	}
 	b.hits[userID] = append(b.hits[userID], b.clock())
 	return true
 }
 
-func (b *transcribeBudget) clock() time.Time {
+func (b *hourlyBudget) clock() time.Time {
 	if b.now != nil {
 		return b.now()
 	}
