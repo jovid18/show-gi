@@ -40,20 +40,26 @@ import (
 // 넘는 것은 사진이 아니라 다른 것이다.
 const MaxImage = 6 << 20
 
-// DefaultModel 은 값이 안 주어졌을 때의 모델이다.
+// DefaultModel 은 값이 안 주어졌을 때의 모델이다. **실측으로 골랐다**(journal §129).
 //
 // kifunorm 과 달리 mini 가 아니다. 저쪽은 글자를 옮기는 일이고 여기는 81칸의 작은
 // 글자와 그 방향을 읽는 일이라, 정확도가 곧 이 기능의 값이다.
 //
-// [미확정] 실측으로 고른 값이 아니다. 확인 화면에서 사람이 몇 칸을 고치는지를 세면
-// 그때 옮긴다 — 그래서 환경변수로 갈아 끼울 자리를 남긴다(BOARDREAD_MODEL).
-const DefaultModel = "gpt-5.4"
+// 라벨 붙인 그림 8장에서 gpt-5.4 가 92.9%·성립하는 판 0/8 인데 이 모델이 98.1%·8/8 이다.
+// 프롬프트를 네 번 고쳐 얻은 것이 2.8%p 인데 모델 하나가 5.2%p 를 냈다 — **이 계층에서는
+// 모델이 프롬프트보다 큰 손잡이다.** 토큰은 두 배쯤 쓴다.
+//
+// 갈아 끼울 자리를 남긴다(BOARDREAD_MODEL). 재는 법은 apps/server/README.md.
+const DefaultModel = "gpt-5.5"
 
 // defaultTimeout 은 한 번의 호출에 주는 시한이다.
 //
-// kifunorm(30s)보다 길다. 81칸을 큰 해상도로 보는 호출이라 더 걸리고, 사람이 그림을
+// kifunorm(30s)보다 한참 길다. 81칸을 큰 해상도로 보는 호출이라 더 걸리고, 사람이 그림을
 // 올려 둔 채 기다리는 자리라 한 번에 끝나는 편이 다시 올리는 것보다 낫다.
-const defaultTimeout = 60 * time.Second
+//
+// 60초에서 올렸다. 그 값에서 실측 8장 중 한 장이 걸렸고(journal §129), 걸린 호출은
+// 사람에게 「読み取れませんでした」로 보인다 — 다시 올리면 토큰을 한 번 더 쓴다.
+const defaultTimeout = 2 * time.Minute
 
 const endpoint = "https://api.openai.com/v1/responses"
 
@@ -229,6 +235,18 @@ func imageMIME(b []byte) (string, bool) {
 		return "image/webp", true
 	}
 	return "", false
+}
+
+// Ext 는 이 그림의 확장자다(`.png`). 아는 형식이 아니면 빈 값이다.
+//
+// **앞머리로 정한다.** 그림을 파일로 떨어뜨리는 자리가 이름을 지을 때 쓰는데(server 의
+// 픽스처 수집), 클라이언트가 말한 형식을 쓰면 남이 준 글자가 파일 이름에 들어간다.
+func Ext(image []byte) string {
+	mime, ok := imageMIME(image)
+	if !ok {
+		return ""
+	}
+	return "." + strings.TrimPrefix(mime, "image/")
 }
 
 // snippet 은 오류에 실을 만큼만 자른다. 남의 응답 전체를 로그에 붓지 않는다.

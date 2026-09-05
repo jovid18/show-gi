@@ -38,15 +38,22 @@ Each row holds 9 cells, the LEFTMOST cell first, across to the RIGHTMOST.
 Never work out a coordinate, never renumber, never rotate or mirror the board.
 
 A cell is "." when the square is empty, otherwise one piece token:
-  P pawn  L lance  N knight  S silver  G gold  B bishop  R rook  K king
+  P pawn 歩   L lance 香   N knight 桂   S silver 銀
+  G gold 金   B bishop 角  R rook 飛     K king 玉 or 王
   +P +L +N +S +B +R  for a promoted piece
-UPPERCASE when that piece's pointed tip aims at the TOP of the image.
-lowercase when its pointed tip aims at the BOTTOM of the image.
-That tip is the only thing that tells you whose piece it is, so read it per piece.
+Whose piece it is comes from which way the piece faces, and the character on it faces the
+same way as the piece's point:
+  UPPERCASE when the character reads the right way up. That piece belongs to the player at
+    the BOTTOM and it points at the top.
+  lowercase when the character is upside down, as if the board were turned around. That
+    piece belongs to the player at the TOP and it points at the bottom.
+Decide this square by square, from that square's own character. Pieces next to each other
+are often the two players', so never carry a decision over from the piece beside it.
 
 Promoted pieces are usually written in a different colour:
   と or 成歩 = +P    杏 or 成香 = +L    圭 or 成桂 = +N
   全 or 成銀 = +S    馬 = +B           龍 or 竜 = +R
+
 王 and 玉 are both K.
 
 nearHand is the piece stand of the player at the BOTTOM of the image, farHand the one at

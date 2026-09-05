@@ -50,6 +50,9 @@ type boardReadScore struct {
 	short int
 	// Squares 는 라벨과 맞은 칸 수다. 라벨이 없으면 -1.
 	squares int
+	// Missed 는 틀린 칸이다. 어느 종류를 어느 종류로 읽는지가 다음에 무엇을 고칠지를
+	// 정하므로, 수만 세면 표를 보고도 할 일을 못 고른다.
+	missed []string
 	// Hands 는 라벨과 駒台가 맞는가다. 라벨이 없으면 이 값을 안 본다.
 	hands  bool
 	tokens int
@@ -127,7 +130,7 @@ func measureOne(t *testing.T, c *Client, path string) boardReadScore {
 	if !ok {
 		return score
 	}
-	score.squares, score.hands = compare(want, pos)
+	score.squares, score.hands, score.missed = compare(want, pos)
 	return score
 }
 
@@ -150,18 +153,37 @@ func labelFor(t *testing.T, path string) (shogi.Position, bool) {
 	return pos, true
 }
 
-// compare 는 라벨과 판독을 맞춘다. 첫 값이 맞은 칸 수(81까지), 둘째가 駒台가 맞는가다.
+// compare 는 라벨과 판독을 맞춘다. 맞은 칸 수(81까지) · 駒台가 맞는가 · 틀린 칸이다.
 //
 // 手番을 안 본다. 사진이 말해 주지 않는 값이라 이 계층은 언제나 "b" 를 적고, 고르는
 // 것은 사람이다(Result.SFEN).
-func compare(want, got shogi.Position) (int, bool) {
+func compare(want, got shogi.Position) (int, bool, []string) {
 	same := 0
+	var missed []string
 	for sq := range want.Board {
 		if want.Board[sq] == got.Board[sq] {
 			same++
+			continue
 		}
+		missed = append(missed, fmt.Sprintf("%s %s→%s",
+			shogi.SquareJa(sq), pieceJa(want.Board[sq]), pieceJa(got.Board[sq])))
 	}
-	return same, want.Hands == got.Hands
+	return same, want.Hands == got.Hands, missed
+}
+
+// pieceJa 는 駒 하나를 「▲銀」처럼 적는다. 빈 칸은 「空」이다.
+//
+// 편을 붙인다. 종류만 적으면 「銀→銀」이 나오는데, 그건 편을 뒤집어 읽은 자리이고
+// 이 계층에서 가장 흔한 오독일 수 있다.
+func pieceJa(p shogi.Piece) string {
+	if p.Empty() {
+		return "空"
+	}
+	mark := "▲"
+	if p.Color() == shogi.White {
+		mark = "△"
+	}
+	return mark + shogi.PieceJa(p.Type())
 }
 
 // boardImages 는 폴더의 그림을 이름 순으로 준다.
@@ -221,6 +243,48 @@ func reportBoardRead(t *testing.T, scores []boardReadScore) {
 			}
 		}
 		t.Logf("| %s | %d | %d | %s | %s | %d |", s.name, len(s.faults), s.short, cells, hands, s.tokens)
+	}
+
+	// 틀린 칸을 그림마다 풀어 적는다. 「무엇을 무엇으로 읽는가」가 표의 숫자보다 값지다.
+	for _, s := range scores {
+		if len(s.missed) == 0 {
+			continue
+		}
+		t.Log("")
+		t.Logf("  %s — %d칸", s.name, len(s.missed))
+		for _, m := range s.missed {
+			t.Logf("    %s", m)
+		}
+	}
+
+	// 어느 짝으로 헷갈리는지를 모아 센다. 한 그림에서만 나는 것과 여러 그림에서 나는
+	// 것을 갈라야, 고칠 값이 있는 자리를 고를 수 있다.
+	pairs := map[string]int{}
+	for _, s := range scores {
+		for _, m := range s.missed {
+			if i := strings.Index(m, " "); i >= 0 {
+				pairs[m[i+1:]]++
+			}
+		}
+	}
+	if len(pairs) > 0 {
+		t.Log("")
+		t.Log("  헷갈리는 짝 (잦은 순):")
+		keys := make([]string, 0, len(pairs))
+		for k := range pairs {
+			keys = append(keys, k)
+		}
+		sort.Slice(keys, func(i, j int) bool {
+			if pairs[keys[i]] != pairs[keys[j]] {
+				return pairs[keys[i]] > pairs[keys[j]]
+			}
+			return keys[i] < keys[j]
+		})
+		for _, k := range keys {
+			if pairs[k] > 1 {
+				t.Logf("    %s × %d", k, pairs[k])
+			}
+		}
 	}
 
 	// 사유를 한 번 더 풀어 적는다. 어느 종류가 잦은지가 다음에 무엇을 고칠지를 정한다.
