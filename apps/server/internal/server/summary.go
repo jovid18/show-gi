@@ -9,7 +9,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 대국 후 총평의 세는 쪽이다. 문장으로 바꾸는 일은 explain.RenderSummary 가 하고,
+// 대국 후 총평에서 세는 쪽이다. 문장으로 바꾸는 일은 explain.RenderSummary 가 하고,
 // 여기는 기록에서 사실을 결정적으로 뽑는다.
 //
 // 화면에 나가는 것이 숫자(summaryStats)와 문장 둘인데, 같은 수를 두 벌로 두지 않으려고

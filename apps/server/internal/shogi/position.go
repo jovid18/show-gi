@@ -65,7 +65,7 @@ type PositionFault struct {
 	Square int
 	// Type 은 문제가 된 말 종류다. 없으면 NoPieceType.
 	Type PieceType
-	// Count 는 사유가 세는 값이다 — 말 수의 초과분, 玉의 개수. 나머지는 0.
+	// Count 는 그 사유가 말하는 수다 — 말 수의 초과분, 玉의 개수. 나머지는 0.
 	Count int
 }
 
