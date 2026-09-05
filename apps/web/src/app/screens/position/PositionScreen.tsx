@@ -8,6 +8,7 @@ import {
   checkPosition,
   readImageFile,
   readPosition,
+  saveLabel,
   type PositionFault,
 } from '@/protocol/position';
 import { parseSfen, toSfen, type Board as BoardModel } from '@/models/sfen';
@@ -69,6 +70,13 @@ function PositionForm() {
 
   /** 읽어 낸 판. 사람이 고치는 정본이 여기 하나다. */
   const [board, setBoard] = useState<BoardModel | null>(null);
+  /**
+   * 남겨 둔 그림의 이름. 판독을 재는 그림을 모을 때만 온다(`PositionResponse.imageId`).
+   *
+   * 있으면 「解析する」가 라벨도 같이 남긴다 — 「올리고 · 고치고 · 누르고」 세 걸음이
+   * 그림과 정답의 짝을 하나 쌓는다.
+   */
+  const [imageId, setImageId] = useState<string | null>(null);
   const [faults, setFaults] = useState<PositionFault[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
 
@@ -106,6 +114,7 @@ function PositionForm() {
     setBoard(null);
     setFaults([]);
     setWarnings([]);
+    setImageId(null);
     setError(null);
     setReading(true);
     try {
@@ -113,6 +122,7 @@ function PositionForm() {
       setBoard(parseSfen(res.sfen));
       setFaults(res.faults);
       setWarnings(res.warnings);
+      setImageId(res.imageId ?? null);
     } catch (e) {
       setError(e instanceof PositionError ? e.message : '画像から局面を読み取れませんでした。');
     } finally {
@@ -182,6 +192,9 @@ function PositionForm() {
 
   const analyze = (): void => {
     if (!analyzable) return;
+    // 라벨을 먼저 띄운다. 기다리지 않는다 — 분석으로 넘어가는 것이 사람이 누른 일이고,
+    // 라벨은 곁다리다(`saveLabel` 은 실패를 삼킨다).
+    if (imageId !== null) void saveLabel(imageId, sfen);
     navigate({ name: 'explore', handicap: '', moves: [], sfen });
   };
 

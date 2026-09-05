@@ -84,6 +84,12 @@ type Options struct {
 	// 놓아 온 링크는 이 창구가 없어도 분석된다.
 	BoardRead *boardread.Client
 
+	// BoardImageDir 은 판독을 재는 그림과 그 라벨을 모아 두는 폴더다.
+	//
+	// 비어 있으면 그 경로가 통째로 안 선다 — 그림도 안 남고 라벨 뿌리도 라우팅되지 않는다.
+	// 로컬에서 픽스처를 모으는 자리이고, 프로덕션은 이 값을 안 준다.
+	BoardImageDir string
+
 	// Quiz 는 되짚기 퀴즈의 생성기다. nil이면 문항이 안 만들어지고, 그때 되짚기의
 	// 퀴즈 자리는 조용히 비어 있다 — 읽는 표면은 이 값과 무관하게 늘 있다(quiz.go).
 	//
@@ -371,8 +377,18 @@ func Handler(opts Options) http.Handler {
 	// 손으로 놓아 온 화면도 그것을 쓴다.
 	mux.HandleFunc("POST /api/position/check", (&positionHandler{}).check)
 	if opts.BoardRead != nil {
-		ph := &positionHandler{auth: ah, read: opts.BoardRead, budget: newHourlyBudget(maxBoardReadsPerHour)}
+		ph := &positionHandler{
+			auth:   ah,
+			read:   opts.BoardRead,
+			budget: newHourlyBudget(maxBoardReadsPerHour),
+			keep:   opts.BoardImageDir,
+		}
 		mux.HandleFunc("POST /api/position/read", ph.readImage)
+		// 라벨 뿌리는 폴더가 켜져 있을 때만 선다. 파일을 쓰는 자리라 안 쓸 배포에서는
+		// 경로가 아예 없는 편이 낫다 — 꺼져 있다는 것을 상수 하나로 읽을 수 있어야 한다.
+		if opts.BoardImageDir != "" {
+			mux.HandleFunc("POST /api/position/label", ph.label)
+		}
 	} else {
 		mux.HandleFunc("POST /api/position/read", boardReadUnavailable)
 	}

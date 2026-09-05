@@ -7,6 +7,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/jovid18/show-gi/apps/server/internal/auth"
@@ -52,7 +56,24 @@ type positionHandler struct {
 	// read 는 그림을 읽는 창구다. 키가 없으면 nil 이고, 그때 이 표면은 안 열린다.
 	read   *boardread.Client
 	budget *hourlyBudget
+	// keep 은 그림과 라벨을 모아 두는 폴더다. 비어 있으면 그 경로가 통째로 안 선다.
+	//
+	// **판독을 재는 그림을 모으는 자리다**(apps/server/README.md). 사람이 확인 화면에서
+	// 고친 판이 곧 라벨이라, 이 폴더가 켜져 있으면 「올리고 · 고치고 · 누르고」 세 걸음이
+	// 그림과 라벨의 짝을 하나 남긴다.
+	//
+	// 프로덕션은 이 값을 안 준다 — 태스크 정의에 없다.
+	keep string
 }
+
+// keptName 은 이 폴더가 짓는 이름의 모양이다. 서버가 짓고 화면이 그대로 되돌려준다.
+//
+// **모양을 검사해야 한다.** 이 값이 파일 경로가 되므로, 화면이 준 글자를 그대로 쓰면
+// `../` 하나로 폴더 밖에 쓸 수 있다.
+var keptName = regexp.MustCompile(`^board-[0-9]{2,4}$`)
+
+// keptPrefix 는 그 이름의 앞머리다. 번호만 이어서 붙는다.
+const keptPrefix = "board-"
 
 // positionReadRequest 는 그림 한 장이다.
 type positionReadRequest struct {
@@ -72,6 +93,11 @@ type positionCheckRequest struct {
 // 같은 코드로 그리는 자리이고, 갈라 두면 그 화면에 표가 둘 생긴다.
 type positionResponse struct {
 	SFEN string `json:"sfen"`
+	// ImageID 는 남겨 둔 그림의 이름이다(`board-01`). 폴더가 안 켜져 있으면 안 온다.
+	//
+	// 화면이 이 값을 들고 있다가 「解析する」를 누를 때 되돌려준다 — 그때 사람이 고친
+	// 판이 이 그림의 라벨로 앉는다(POST /api/position/label).
+	ImageID string `json:"imageId,omitempty"`
 	// Faults 는 이 국면이 어긴 규칙 전부다. 비어 있어야 분석으로 넘어갈 수 있다.
 	Faults []positionFault `json:"faults"`
 	// Warnings 는 거절이 아닌 것들이다. 말이 몇 장 모자라다·이미 詰んでいる.
@@ -141,7 +167,9 @@ func (h *positionHandler) readImage(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("position: read an image for %d with %s in %d tokens", s.UserID, h.read.Model(), got.Tokens)
 
-	writeJSON(w, http.StatusOK, checked(got.SFEN))
+	res := checked(got.SFEN)
+	res.ImageID = h.keepImage(image)
+	writeJSON(w, http.StatusOK, res)
 }
 
 func (h *positionHandler) check(w http.ResponseWriter, r *http.Request) {
@@ -161,6 +189,108 @@ func (h *positionHandler) check(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, checked(req.SFEN))
+}
+
+// positionLabelRequest 는 「이 그림의 정답은 이 국면이다」다.
+type positionLabelRequest struct {
+	ImageID string `json:"imageId"`
+	SFEN    string `json:"sfen"`
+}
+
+// label 은 사람이 확인한 국면을 그 그림의 라벨로 앉힌다.
+//
+// **성립하지 않는 판은 안 받는다.** 틀린 라벨은 없는 라벨보다 나쁘다 — 측정이 조용히
+// 나빠 보이고, 그 원인을 모델에서 찾게 된다.
+//
+// 이 뿌리는 폴더가 켜져 있을 때만 라우팅된다(server.go).
+func (h *positionHandler) label(w http.ResponseWriter, r *http.Request) {
+	if _, ok := h.viewer(w, r); !ok {
+		return
+	}
+
+	var req positionLabelRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, positionCheckBodyMax)).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"error": "bad_request", "message": "リクエストを読み取れませんでした。",
+		})
+		return
+	}
+	// 모양을 먼저 본다. 이 값이 파일 경로가 되므로 여기가 유일한 방어다.
+	if !keptName.MatchString(req.ImageID) {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"error": "bad_image_id", "message": "画像の名前が正しくありません。",
+		})
+		return
+	}
+	pos, err := shogi.ParseSFEN(req.SFEN)
+	if err != nil || len(pos.Faults()) > 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"error": "bad_position", "message": "成り立たない局面はラベルにできません。",
+		})
+		return
+	}
+
+	path := filepath.Join(h.keep, req.ImageID+".sfen")
+	if err := os.WriteFile(path, []byte(pos.SFEN()+"\n"), 0o644); err != nil {
+		log.Printf("position: could not write %s: %v", path, err)
+		writeJSON(w, http.StatusInternalServerError, map[string]any{
+			"error": "internal", "message": "ラベルを保存できませんでした。",
+		})
+		return
+	}
+	log.Printf("position: labelled %s", path)
+	writeJSON(w, http.StatusOK, map[string]any{"imageId": req.ImageID})
+}
+
+// keepImage 는 읽은 그림을 폴더에 남기고 그 이름을 준다. 폴더가 안 켜져 있으면 빈 값이다.
+//
+// **이름을 서버가 짓는다.** `board-01` 부터 번호만 이어 붙고, 클라이언트가 준 글자는
+// 한 자도 안 들어간다 — 파일 이름을 남이 정하게 두는 것이 이런 자리의 유일한 위험이다.
+// 확장자도 앞머리로 정한 형식에서 온다(boardread.Ext).
+//
+// **폴더를 안 만든다.** 없으면 로그 한 줄로 끝난다 — 오타 하나로 엉뚱한 곳에 폴더가
+// 생기는 것보다 안 써지는 편이 낫다.
+//
+// 실패해도 요청은 성공이다. 이건 곁다리이고, 사람이 기다리는 것은 읽어 낸 국면이다.
+func (h *positionHandler) keepImage(image []byte) string {
+	if h.keep == "" {
+		return ""
+	}
+	ext := boardread.Ext(image)
+	if ext == "" {
+		return ""
+	}
+	name := fmt.Sprintf("%s%02d", keptPrefix, nextKeptNumber(h.keep))
+	path := filepath.Join(h.keep, name+ext)
+	if err := os.WriteFile(path, image, 0o644); err != nil {
+		log.Printf("position: could not keep the image: %v", err)
+		return ""
+	}
+	log.Printf("position: kept %s", path)
+	return name
+}
+
+// nextKeptNumber 는 폴더에서 다음 번호를 고른다. 비어 있으면 1이다.
+//
+// 있는 것 중 가장 큰 값 다음이다. 개수를 세지 않는다 — 중간을 지우면 개수가 줄어서
+// 이미 있는 이름을 다시 짓고, 그러면 남의 그림을 덮는다.
+func nextKeptNumber(dir string) int {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		// 폴더가 없으면 쓰기에서 걸린다. 여기서 말하지 않는다 — 로그가 두 줄이 된다.
+		return 1
+	}
+	max := 0
+	for _, e := range entries {
+		name := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
+		if !strings.HasPrefix(name, keptPrefix) {
+			continue
+		}
+		if n, err := strconv.Atoi(strings.TrimPrefix(name, keptPrefix)); err == nil && n > max {
+			max = n
+		}
+	}
+	return max + 1
 }
 
 func (h *positionHandler) viewer(w http.ResponseWriter, r *http.Request) (auth.Session, bool) {

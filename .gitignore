@@ -68,7 +68,11 @@ apps/server/internal/kifu/testdata/floodgate/
 
 # 판독을 재는 그림과 그 라벨 — 앱 화면과 방송 캡처는 남의 것이다. 위와 같은 규약이고,
 # 넣는 절차는 apps/server/README.md
-apps/server/internal/boardread/testdata/images/
+#
+# **폴더 자체는 남긴다.** compose 가 여기를 볼륨으로 붙이므로, 없으면 도커가 root 소유로
+# 만들고 그 뒤로 서버가 못 쓴다 — 새로 클론한 사람이 만나는 고장이다
+apps/server/internal/boardread/testdata/images/*
+!apps/server/internal/boardread/testdata/images/.gitkeep
 
 # `go build ./cmd/importkifu` 가 떨어뜨리는 14MB 바이너리
 apps/server/importkifu

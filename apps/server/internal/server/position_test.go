@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -321,5 +323,131 @@ func TestReadDoesNotCountAnonymousRequests(t *testing.T) {
 	// 익명 요청이 몫을 한 개도 안 썼어야 한다.
 	if rec := h.postRead(t, 7, fakePNG); rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 — anonymous requests must not spend a quota", rec.Code)
+	}
+}
+
+// 판독을 재는 그림을 모으는 자리(apps/server/README.md). 폴더가 켜져 있을 때만 서고,
+// 이름을 서버가 지으므로 화면이 준 글자가 경로가 되지 않는다.
+
+// labelTest 는 그림을 모으는 핸들러다. 폴더는 그 시험의 것이라 남는 것이 없다.
+func labelTest(t *testing.T) (*positionHandler, string) {
+	t.Helper()
+	dir := t.TempDir()
+	h := positionTest(t, startGrid())
+	h.keep = dir
+	return h, dir
+}
+
+func (h *positionHandler) postLabel(t *testing.T, userID int64, id, sfen string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	body, err := json.Marshal(positionLabelRequest{ImageID: id, SFEN: sfen})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/position/label", strings.NewReader(string(body)))
+	if userID > 0 {
+		signIn(t, h, r, userID)
+	}
+	rec := httptest.NewRecorder()
+	h.label(rec, r)
+	return rec
+}
+
+// 「올리고 · 고치고 · 누르고」 세 걸음이 그림과 정답의 짝을 하나 남긴다.
+func TestReadKeepsTheImageAndLabelPutsTheAnswerBesideIt(t *testing.T) {
+	h, dir := labelTest(t)
+
+	res := decodePosition(t, h.postRead(t, 7, fakePNG))
+	if res.ImageID != "board-01" {
+		t.Fatalf("imageId = %q, want board-01", res.ImageID)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "board-01.png")); err != nil {
+		t.Fatalf("the image was not kept: %v", err)
+	}
+
+	if rec := h.postLabel(t, 7, res.ImageID, startSFEN); rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "board-01.sfen"))
+	if err != nil {
+		t.Fatalf("the label was not written: %v", err)
+	}
+	if strings.TrimSpace(string(got)) != startSFEN {
+		t.Fatalf("label = %q, want %q", strings.TrimSpace(string(got)), startSFEN)
+	}
+}
+
+// 번호는 있는 것 중 가장 큰 값 다음이다. 개수를 세면 중간을 지웠을 때 남의 그림을 덮는다.
+func TestKeptNumbersDoNotReuseAName(t *testing.T) {
+	h, dir := labelTest(t)
+
+	for _, want := range []string{"board-01", "board-02", "board-03"} {
+		if got := decodePosition(t, h.postRead(t, 7, fakePNG)).ImageID; got != want {
+			t.Fatalf("imageId = %q, want %q", got, want)
+		}
+	}
+	// 가운데를 지운다. 개수를 세는 구현이면 여기서 board-03 을 다시 지어 덮는다.
+	if err := os.Remove(filepath.Join(dir, "board-02.png")); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	if got := decodePosition(t, h.postRead(t, 7, fakePNG)).ImageID; got != "board-04" {
+		t.Fatalf("imageId = %q, want board-04", got)
+	}
+}
+
+// 이 값이 파일 경로가 되므로 모양 검사가 유일한 방어다.
+func TestLabelRefusesANameItDidNotMake(t *testing.T) {
+	h, dir := labelTest(t)
+
+	for _, bad := range []string{"../../etc/passwd", "board-01/../x", "board", "board-1", "", "board-99999"} {
+		if rec := h.postLabel(t, 7, bad, startSFEN); rec.Code != http.StatusBadRequest {
+			t.Errorf("imageId %q: status = %d, want 400", bad, rec.Code)
+		}
+	}
+	// 폴더 밖에도 안에도 아무것도 안 생겼어야 한다.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read dir: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("the refused names left %d files behind", len(entries))
+	}
+}
+
+// 틀린 라벨은 없는 라벨보다 나쁘다 — 측정이 조용히 나빠 보이고 원인을 모델에서 찾게 된다.
+func TestLabelRefusesAPositionThatCannotStand(t *testing.T) {
+	h, dir := labelTest(t)
+	id := decodePosition(t, h.postRead(t, 7, fakePNG)).ImageID
+
+	for name, sfen := range map[string]string{
+		"二歩":       "4k4/9/9/9/4P4/9/4P4/9/4K4 b - 1",
+		"SFEN이 아님": "not a position",
+	} {
+		t.Run(name, func(t *testing.T) {
+			if rec := h.postLabel(t, 7, id, sfen); rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400", rec.Code)
+			}
+			if _, err := os.Stat(filepath.Join(dir, id+".sfen")); err == nil {
+				t.Fatal("an impossible position was written as a label")
+			}
+		})
+	}
+}
+
+// 폴더가 안 켜져 있으면 그림도 안 남고 id 도 안 온다. 프로덕션이 그 자리다.
+func TestReadKeepsNothingWhenTheFolderIsOff(t *testing.T) {
+	h := positionTest(t, startGrid())
+
+	if got := decodePosition(t, h.postRead(t, 7, fakePNG)).ImageID; got != "" {
+		t.Fatalf("imageId = %q, want empty when collecting is off", got)
+	}
+}
+
+func TestLabelNeedsASignIn(t *testing.T) {
+	h, _ := labelTest(t)
+
+	if rec := h.postLabel(t, 0, "board-01", startSFEN); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
 	}
 }

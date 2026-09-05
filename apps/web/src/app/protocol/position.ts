@@ -40,6 +40,13 @@ export interface PositionResponse {
   sfen: string;
   faults: PositionFault[];
   warnings: string[];
+  /**
+   * 남겨 둔 그림의 이름(`board-01`). 그림을 모으는 폴더가 켜져 있을 때만 온다.
+   *
+   * 화면이 이 값을 들고 있다가 「解析する」를 누를 때 되돌려준다 — 그때 사람이 고친 판이
+   * 이 그림의 라벨로 앉는다(`saveLabel`). 안 오면 그 걸음이 없다.
+   */
+  imageId?: string;
 }
 
 /** 실패의 사유 코드. 화면이 「다시 눌러 보라」와 「그림을 바꿔라」를 갈라 말한다. */
@@ -89,6 +96,27 @@ export async function checkPosition(sfen: string, signal: AbortSignal | null = n
     signal,
   });
   return unwrap(res);
+}
+
+/**
+ * 사람이 확인한 국면을 그 그림의 라벨로 앉힌다(journal §129).
+ *
+ * 판독을 재는 그림을 모을 때만 도는 자리다 — 서버의 폴더가 꺼져 있으면 `imageId` 가
+ * 안 오므로 부르는 쪽이 아예 안 부른다.
+ *
+ * 실패해도 삼키고 넘어간다. 사람이 누른 것은 「이 국면을 분석해라」이고, 라벨을 남기는
+ * 것은 곁다리다 — 여기서 막으면 분석이 안 되는 것으로 보인다.
+ */
+export async function saveLabel(imageId: string, sfen: string): Promise<void> {
+  try {
+    await fetch('/api/position/label', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageId, sfen }),
+    });
+  } catch {
+    // 곁다리다. 위 주석 참조.
+  }
 }
 
 async function unwrap(res: Response): Promise<PositionResponse> {

@@ -100,6 +100,13 @@ func main() {
 		slog.Info("position: no OPENAI_API_KEY, reading a position from an image is off")
 	}
 
+	// 판독을 재는 그림과 라벨을 모아 두는 폴더. 로컬에서만 켠다 — 프로덕션은 이 값을
+	// 안 주고, 없으면 그림도 안 남고 라벨 뿌리도 안 선다(apps/server/README.md).
+	opts.BoardImageDir = os.Getenv("SHOWGI_BOARD_IMAGE_DIR")
+	if opts.BoardImageDir != "" {
+		slog.Info("position: collecting board images", "dir", opts.BoardImageDir)
+	}
+
 	opts.Google = startAuth()
 	opts.SessionSecret = os.Getenv("SESSION_SECRET")
 	opts.PublicOrigin = os.Getenv("PUBLIC_ORIGIN")
