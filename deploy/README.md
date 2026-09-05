@@ -530,14 +530,21 @@ aws logs tail /ecs/show-gi --follow --region ap-northeast-1 --profile show-gi
 
 **해커톤이 끝나고 상시 가동으로 바꿨다**(2026-08-17). 그래서 표를 주 단위에서 **월 단위**로 옮겼다 — 이제 「대회 기간의 비용」이 아니라 「계속 나가는 비용」이다.
 
-|                                     | 월 (추정)      |
-| ----------------------------------- | -------------- |
-| EC2 t4g.small **스팟** 1대          | **\~$7**       |
-| EBS gp3 30 GiB (그 인스턴스의 루트) | \~$3           |
-| ALB                                 | \~$18          |
-| RDS db.t4g.micro + 20 GB            | \~$15          |
-| ECR, 로그, Parameter Store          | $1 미만        |
-| **합계**                            | **\~$44 / 월** |
+> **2026-09-04 에 통째로 내렸다**([journal §128](../docs/journal/121-140.md)). `terraform destroy` 로 69개를 지웠고 **DB 데이터를 버렸다** — 스냅샷도 안 남겼다. 지금 나가는 것은 **Route53 호스팅 존 월 $0.50** 뿐이다. 아래 표는 **떠 있을 때의 값**이고, 되살리는 절차는 이 절 끝에 있다.
+
+|                                     | 월 (추정)          |
+| ----------------------------------- | ------------------ |
+| EC2 t4g.small **스팟** 1대          | **\~$7**           |
+| EBS gp3 30 GiB (그 인스턴스의 루트) | \~$3               |
+| ALB (2 AZ, 퍼블릭 IPv4 둘)          | \~$18\~25          |
+| RDS db.t4g.micro + 20 GB            | \~$15              |
+| CloudWatch 커스텀 지표 17개         | \~$5               |
+| ECR, 로그, Parameter Store          | $1 미만            |
+| **합계**                            | **\~$48\~55 / 월** |
+
+**단가 곱셈이고 청구서를 대조한 값이 아니다.** `show-gi-operator` 에 `ce:GetCostAndUsage`·`budgets:ViewBudget`·`cloudwatch:ListMetrics` 가 없어서 이 계정의 요금을 이 프로파일로는 못 본다. **ALB 행의 폭이 그 대가다** — 퍼블릭 IPv4 둘(월 \~$7)이 포함인지 안 갈렸다.
+
+**컴퓨트도 ALB 도 RDS 도 이미 하한이다.** ALB 는 서로 다른 AZ 의 서브넷 둘이 AWS 하한이라 1개로는 못 만들고, `db.t4g.micro` 는 제일 작은 타입이며 20 GiB 는 gp3 최소치다. 더 내리는 방법은 **끄는 것**뿐이라 [journal §128](../docs/journal/121-140.md) 이 그 셋을 갈랐다.
 
 > **절약 모드다**([journal §125](../docs/journal/121-140.md)). 부하 회차를 한동안 안 돌기로 하고 2026-08-27 에 내렸다 — 대가 둘에서 하나가 됐고(분석 티어의 하한이 0 이고 상호작용이 `SERVER_ROLE=both` 로 겸한다) 타입이 `c6g.large` 에서 `t4g.small` 이 됐다. **컴퓨트가 $54 에서 $7 이 됐고, 이제 청구서의 대부분은 ALB 와 RDS 다.**
 >
@@ -549,13 +556,48 @@ aws logs tail /ecs/show-gi --follow --region ap-northeast-1 --profile show-gi
 
 > **ALB를 없애는 것은 간단하지 않다.** TLS 종료·ACM 자동 갱신·WebSocket 유지가 거기 얹혀 있어서, 빼면 Caddy가 인증서를 다시 맡고 그 인증서를 스팟 인스턴스의 휘발성 디스크에 두게 된다 — 회수될 때마다 재발급이고 Let's Encrypt 한도에 걸린다([alb.tf](../infra/alb.tf) 머리말이 그 이야기다).
 
-**정리할 때는 통째로 지운다.** 켜둔 채 잊으면 위 금액이 계속 나간다.
+### 내리는 세 단계
+
+**얼마나 내려 둘지가 어느 단계를 고르는지를 정한다.** 값과 함정은 [journal §128](../docs/journal/121-140.md) 에 표로 있다.
+
+|               | 내리는 것                     | 남는 월 요금 |
+| ------------- | ----------------------------- | ------------ |
+| ① 컴퓨트만    | ASG `min_size`·`max_size` → 0 | \~$38\~45    |
+| ② ① + DB 정지 | RDS stop                      | \~$21\~28    |
+| ③ 통째로      | `terraform destroy`           | **\~$0.50**  |
+
+**① 은 값이 안 좋다.** ALB 와 RDS 가 그대로 돌아서 20% 만 빠지고 사이트는 죽는다.
+
+**② 는 RDS 정지가 최대 7일이다.** 그 뒤 AWS 가 자동으로 켜므로 더 길게 내려 둘 거면 7일마다 다시 정지한다 — 잊으면 조용히 원래 요금으로 돌아온다.
+
+**③ 은 DB 를 스냅샷 없이 지운다.** `rds.tf` 가 `skip_final_snapshot = true` · `deletion_protection = false` 다. 데이터를 남길 거면 **destroy 앞에** 수동 스냅샷을 만들고(`aws rds create-db-snapshot`, 20 GiB 에 월 \~$2, state 밖이라 destroy 가 안 건드린다) 되살릴 때 `aws_db_instance` 에 `snapshot_identifier` 를 준다.
 
 ```sh
-cd infra && terraform destroy      # 전부 지운다
+cd infra && terraform plan -destroy -out=destroy.tfplan   # 무엇이 지워지는지 먼저 본다
+cd infra && terraform apply destroy.tfplan                 # 그 목록만 지운다
 ```
 
-컴퓨트만 잠깐 끄려면 **ASG 의 크기를 0으로 내린다** — 태스크가 아니라 인스턴스다. `desired_count` 만 0으로 내리면 인스턴스는 그대로 돌면서 태스크만 없어져서, 돈은 그대로 나가고 사이트만 죽는다.
+**계획을 파일로 저장해서 적용한다.** 그 사이에 자원이 생겨도 반영되지 않으므로, 검토한 것과 지워지는 것이 같다.
+
+> **destroy 는 한 번에 안 끝난다**([journal §128](../docs/journal/121-140.md)). `aws_ecs_service.app` 삭제가 20분 타임아웃에 걸리고 나머지가 그 뒤에 막힌다 — 그때 RDS 와 A 레코드는 이미 지워져서 **사이트는 내려갔는데 ALB·EC2 는 살아 있는** 상태다. 원인은 `aws_iam_role_policy_attachment.instance_ecs` 가 서비스보다 먼저 지워져 ECS 에이전트가 끊기는 것이고, `describe-container-instances` 의 `agentConnected` 가 `false` 면 그거다. **기다려서 안 풀린다.**
+>
+> ```sh
+> aws ecs deregister-container-instance --cluster show-gi \
+>   --container-instance <id> --force --region ap-northeast-1 --profile show-gi
+> ```
+>
+> 이러면 서비스가 그 자리에서 `INACTIVE` 가 되고, 남은 것을 다시 plan·apply 하면 끝난다. **`terraform destroy` 를 이어서 돌릴 때 plan 을 앞단에서 죽이지 않는다** — `OperationTypePlan` 잠금이 남고 `force-unlock` 이 필요해진다.
+
+### 되살릴 때 apply 하나로 안 되는 것 넷
+
+- **ECR 이미지 재푸시** — 리포지토리가 지워지므로 `images.yml` 을 한 번 돌린다
+- **SNS 이메일 구독 재확인** — 구독은 `pending` 으로만 만들어지고 메일에서 한 번 눌러야 활성된다(§알람). 안 누르면 알람이 울려도 조용하다
+- **`admin_cidr`** — 노트북 IP 가 바뀌었으면 다시 준다. 없으면 규칙 자체가 안 생긴다
+- **`terraform.tfvars`** — 커밋 안 되는 파일이고 `domain`·`alarm_email`·`admin_cidr` 이 거기 있다
+
+DB 비밀번호는 신경 쓰지 않아도 된다 — `random_password.db` 가 새로 만들고 `aws_ssm_parameter.database_url` 이 갱신한다. **도메인과 Google OAuth 설정은 안 건드린다**: 호스팅 존이 `data` 소스라 destroy 대상이 아니고, ACM 인증서는 재발급과 DNS 검증이 자동이다.
+
+> **컴퓨트만 끌 때는 태스크가 아니라 인스턴스다.** `desired_count` 만 0으로 내리면 인스턴스는 그대로 돌면서 태스크만 없어져서, 돈은 그대로 나가고 사이트만 죽는다.
 
 ```sh
 # infra/ec2.tf 의 asg_tiers 와 min_size 를 0으로 고치고
