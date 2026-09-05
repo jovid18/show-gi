@@ -26,11 +26,15 @@ type engineAnalyst struct {
 	level  intervene.Level
 }
 
-// JudgeDepth 는 개입 판정에 쓰는 탐색 깊이다.
+// JudgeDepth 는 개입 판정에 쓰는 탐색 깊이다. DefaultDepth 와 같은 값이어야 한다.
 //
-// 실측(06-status.md)에서 depth 10 × k=1이 최장 144ms, 12가 400ms다. 판정은 정밀도보다
-// 속도가 중요하고 착수 직후에 도는 유일한 탐색이라 여기를 짧게 잡는다.
-const JudgeDepth = 12
+// 같은 값인 것이 캐시의 조건이다. 상대 수와 판정이 같은 국면을 묻는데 깊이가 갈리면
+// positions 가 서로 못 쓰는 두 무리가 된다(internal/archive) — 상수를 잇대어 두면
+// 한쪽만 옮기는 일이 안 일어난다.
+//
+// 짧게 잡던 자리였다. 「판정은 정밀도보다 속도」로 12를 골랐는데(depth 10 × k=1 이
+// 최장 144ms, 12가 400ms) 판정 결과가 곧 개입 여부라 정밀도 쪽으로 바꿨다(journal §130).
+const JudgeDepth = DefaultDepth
 
 // ShallowDepth 는 초보자의 시야를 모사하는 깊이다.
 //

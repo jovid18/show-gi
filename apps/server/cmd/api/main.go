@@ -15,6 +15,7 @@ import (
 
 	"github.com/jovid18/show-gi/apps/server/internal/archive"
 	"github.com/jovid18/show-gi/apps/server/internal/auth"
+	"github.com/jovid18/show-gi/apps/server/internal/boardread"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/kifunorm"
@@ -90,6 +91,13 @@ func main() {
 	opts.KifuNorm = kifunorm.New(os.Getenv("OPENAI_API_KEY"), os.Getenv("OPENAI_MODEL"))
 	if opts.KifuNorm == nil {
 		slog.Info("kifu: no OPENAI_API_KEY, unreadable formats will be refused")
+	}
+
+	// 판이 찍힌 그림에서 국면을 읽는 창구(internal/boardread). 키는 위와 같은 것을 쓰고
+	// 모델만 갈라 둔다 — 글자를 옮기는 일과 81칸을 읽는 일에 같은 모델을 댈 이유가 없다.
+	opts.BoardRead = boardread.New(os.Getenv("OPENAI_API_KEY"), os.Getenv("BOARDREAD_MODEL"))
+	if opts.BoardRead == nil {
+		slog.Info("position: no OPENAI_API_KEY, reading a position from an image is off")
 	}
 
 	opts.Google = startAuth()
@@ -548,7 +556,11 @@ func envInt(name string, fallback int) int {
 // engineDepth 는 상대 수를 고를 때의 탐색 깊이다.
 //
 // 시간이 아니라 깊이인 이유는 game.NewAdaptiveOpponent 주석에 있다. 지연이 문제가 되면
-// 여기를 줄인다(14→12). 시간 상한을 걸어 중간에 자르는 쪽이 아니다.
+// 여기를 줄인다(기본값이 14이므로 12가 그 손잡이다). 시간 상한을 걸어 중간에 자르는
+// 쪽이 아니다.
+//
+// **이 값을 걸면 여섯 자리가 갈린다.** 상대 수와 퀴즈만 여기를 읽고 나머지 넷은
+// 상수라, 캐시가 서로 못 쓰는 두 무리가 된다(internal/archive).
 func engineDepth() int {
 	v := os.Getenv("ENGINE_DEPTH")
 	if v == "" {
