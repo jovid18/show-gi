@@ -18,7 +18,15 @@ type engineOpponent struct {
 }
 
 // DefaultDepth 는 상대 수를 고를 때의 탐색 깊이다. 실측으로 정한다.
-const DefaultDepth = 12
+//
+// 12에서 14로 올렸다(journal §130). 手合割 기준점 표가 처음부터 depth 14로 재 놓은
+// 값이라(§91) 화면 값과 기준점이 서로 다른 자를 쓰고 있었고, 그 둘을 맞추는 것이 이
+// 값을 올린 근거다.
+//
+// 값이 지연이다. depth 14 는 12의 약 네 배이고(§10 의 k≈10 에서 8.4s 대 2.0s),
+// 올린 날 positions 의 기존 행은 전부 다시 재야 한다 — 저장된 computed_depth 가 12라
+// 캐시가 통째로 식는다(§37).
+const DefaultDepth = 14
 
 // NewEngineOpponent 는 엔진의 최선수를 그대로 두는 상대를 만든다.
 //

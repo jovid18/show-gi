@@ -15,11 +15,13 @@ import { useEffect, useState } from 'react';
 import {
   EXPLORE_PARAM_HANDICAP,
   EXPLORE_PARAM_MOVES,
+  EXPLORE_PARAM_SFEN,
   EXPLORE_SEGMENT,
   GUIDE_SEGMENT,
   IMPORT_SEGMENT,
   ME_SEGMENT,
   PLAY_SEGMENT,
+  POSITION_SEGMENT,
   QUIZ_SEGMENT,
   REVIEWS_SEGMENT,
   ROOMS_SEGMENT,
@@ -28,6 +30,7 @@ import {
   ROUTE_HOME,
   ROUTE_IMPORT,
   ROUTE_ME,
+  ROUTE_POSITION,
   ROUTE_REVIEWS,
   routeExplore,
   routeQuiz,
@@ -53,9 +56,15 @@ export type Route =
   | { name: 'guide' }
   // 취해 오기. 주소가 아무것도 안 든다 — 붙여 넣은 글은 화면 안에만 있다.
   | { name: 'import' }
+  // 국면을 사진에서 취해 오기. 여기도 주소가 아무것도 안 든다 — 올린 그림과 읽어 낸
+  // 판이 화면 안에만 있고, 확인이 끝나면 그 국면이 검토의 주소가 된다.
+  | { name: 'position' }
   // 검토. 주소가 판을 든다 — 手合割과 지금까지의 수순이 쿼리에 있고, 그래서 이 화면만
   // 라우트가 `?` 뒤를 본다(routes/const.ts 의 routeExplore).
-  | { name: 'explore'; handicap: string; moves: string[] }
+  //
+  // `sfen` 이 있으면 그것이 뿌리다(journal §129). 手合割과 동시에 서지 않으므로 값이
+  // 있는 쪽 하나만 채워진다.
+  | { name: 'explore'; handicap: string; moves: string[]; sfen?: string }
   // 방 하나. id 가 문자열인 유일한 라우트다 — 판 번호와 달리 이 값은 난수이고,
   // 그것이 유추를 막는 장치의 전부다(routes/const.ts 의 routeRoom).
   | { name: 'room'; id: string };
@@ -68,6 +77,15 @@ export type Route =
  * (explore.go) 그때는 판이 안 서고 에러만 남는다.
  */
 const USI_MOVE = /^(?:[1-9][a-i][1-9][a-i]\+?|[PLNSGBR]\*[1-9][a-i])$/;
+
+/**
+ * 뿌리 국면의 모양. 판 9단 · 手番 · 持ち駒 · 手数다.
+ *
+ * 「성립하는 판인가」는 안 본다 — 그 판단의 정본은 서버의 룰 엔진 하나뿐이다. 여기서
+ * 보는 것은 「주소에 실린 이 값이 SFEN 을 자칭하는가」이고, 그것으로 남의 링크에 든
+ * 아무 문자열이 그대로 요청 본문이 되는 것만 막는다.
+ */
+const SFEN_SHAPE = /^[1-9a-zA-Z+/]{17,90} [bw] (?:-|[0-9a-zA-Z]{1,29})(?: \d{1,4})?$/;
 
 /**
  * 쿼리에서 값 하나를 꺼낸다.
@@ -99,13 +117,19 @@ function queryValue(search: string, name: string): string {
  */
 function exploreRouteOf(search: string): Route {
   const handicap = queryValue(search, EXPLORE_PARAM_HANDICAP);
+  const sfen = queryValue(search, EXPLORE_PARAM_SFEN);
   const raw = queryValue(search, EXPLORE_PARAM_MOVES);
   const moves = raw === '' ? [] : raw.split(',');
   // 手合割 id 는 「주소에 실릴 수 있는 모양인가」까지만 본다. 목록에 있는지는 서버가
   // 정하고(`bad_handicap`), 여기서 어휘를 한 벌 더 적으면 八枚落ち 같은 id 가 붙는 날
   // 그 手合의 공유 링크가 전부 조용히 平手 0手目로 열린다 — 수순까지 함께 버려진다.
   const ok = /^[A-Za-z0-9_-]{0,32}$/.test(handicap) && moves.every((m) => USI_MOVE.test(m));
-  return ok ? { name: 'explore', handicap, moves } : { name: 'explore', handicap: '', moves: [] };
+  if (!ok) return { name: 'explore', handicap: '', moves: [] };
+  // 국면도 모양까지만 본다. 성립하는 판인지는 룰 엔진이 정하고(`bad_position`), 여기서
+  // 그 판단을 한 벌 더 적으면 서버와 두 벌이 되어 어긋났을 때 어느 쪽이 맞는지 아무도
+  // 모른다(models/sfen.ts 의 첫 주석과 같은 이유).
+  if (sfen !== '' && SFEN_SHAPE.test(sfen)) return { name: 'explore', handicap: '', moves, sfen };
+  return { name: 'explore', handicap, moves };
 }
 
 /**
@@ -125,6 +149,7 @@ export function parseRoute(url: string): Route {
   if (parts[0] === EXPLORE_SEGMENT) return exploreRouteOf(search);
   if (parts[0] === GUIDE_SEGMENT) return { name: 'guide' };
   if (parts[0] === IMPORT_SEGMENT) return { name: 'import' };
+  if (parts[0] === POSITION_SEGMENT) return { name: 'position' };
   if (parts[0] === ME_SEGMENT) return { name: 'me' };
   // 글자를 확인하고 넘긴다. 서버가 어차피 404로 답하지만, 아무 문자열이나 그대로
   // 주소에 실으면 그 값이 `fetch` 의 경로가 되고 화면이 못 읽는 답을 받는다.
@@ -174,8 +199,10 @@ export function hrefOf(route: Route): string {
       return ROUTE_GUIDE;
     case 'import':
       return ROUTE_IMPORT;
+    case 'position':
+      return ROUTE_POSITION;
     case 'explore':
-      return routeExplore(route.handicap, route.moves);
+      return routeExplore(route.handicap, route.moves, route.sfen);
     case 'room':
       return routeRoom(route.id);
   }

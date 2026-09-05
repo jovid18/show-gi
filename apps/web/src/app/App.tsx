@@ -50,6 +50,10 @@ const ImportScreen = lazy(async () => ({
   default: (await import('@/screens/import/ImportScreen')).ImportScreen,
 }));
 
+const PositionScreen = lazy(async () => ({
+  default: (await import('@/screens/position/PositionScreen')).PositionScreen,
+}));
+
 /**
  * 대인전도 나중에 받는다. 엔진 대국과 코드를 안 나눠 쓴다 — 개입도 힌트도 없는
  * 화면이라(docs/journal §83) 첫 화면에 실릴 이유가 없고, 라우트가 이미 갈라져 있다.
@@ -79,6 +83,7 @@ const TITLE_JA: Record<Route['name'], string> = {
   room: '対人戦 | show-gi',
   explore: '検討 | show-gi',
   import: '棋譜の取り込み | show-gi',
+  position: '局面の読み取り | show-gi',
 };
 
 /**
@@ -176,10 +181,19 @@ export function App() {
               /* 로그인 여부를 App 이 이미 들고 있다. 화면에서 `useViewer` 를 한 번 더
                  부르면 `/api/me` 요청이 하나 더 나간다(홈 메뉴와 같은 규약). */
               <ImportScreen me={me} />
+            ) : route.name === 'position' ? (
+              // 사진에서 국면을 취해 오는 화면. 취해 오기와 같은 자리에 선다 —
+              // 로그인 벽이 있고, 끝나면 다른 화면으로 옮겨 간다(journal §129).
+              <PositionScreen me={me} />
             ) : route.name === 'explore' ? (
               // 手合割마다 새로 세운다. 뿌리가 바뀌면 다른 판이라, 컴포넌트가 살아남으면
               // 한 틱 동안 앞 手合의 국면이 새 手合의 이름 아래에 선다(퀴즈와 같은 자리).
-              <ExploreScreen key={route.handicap} handicap={route.handicap} moves={route.moves} />
+              <ExploreScreen
+                key={route.sfen ?? route.handicap}
+                handicap={route.handicap}
+                moves={route.moves}
+                sfen={route.sfen ?? ''}
+              />
             ) : route.name === 'quiz' ? (
               // 판마다 새로 세운다. `id` 만 갈아 끼우면 이 컴포넌트가 그대로 살아서
               // 앞 판의 답과 기다린 횟수를 물려받고, 한 틱 동안 남의 문항을 그린다.

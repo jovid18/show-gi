@@ -84,3 +84,56 @@ export function parseSfen(sfen: string): Board {
 
   return { squares, hands, turn: turnField === 'b' ? 'black' : 'white' };
 }
+
+/** 持ち駒를 적는 순서. 관례대로 飛→角→金→銀→桂→香→歩 (`HAND_ORDER` 와 같은 표다). */
+const HAND_SFEN_ORDER = ['R', 'B', 'G', 'S', 'N', 'L', 'P'] as const;
+
+/**
+ * 판을 SFEN 한 줄로 되돌린다. `parseSfen` 의 역이다.
+ *
+ * 이 파일에서 유일하게 「글자를 만드는」 자리다. 사진에서 읽어 온 판을 사람이 한 칸씩
+ * 고치는 화면이 있어서 필요해졌고(journal §129), 고친 판이 주소가 되어 서버로 간다.
+ *
+ * **여기서도 규칙을 판단하지 않는다.** 二歩든 玉이 둘이든 그대로 적는다 — 성립하는
+ * 판인가는 서버의 룰 엔진이 답하고(`/api/position/check`), 화면은 그 답을 보여 줄 뿐이다.
+ * 여기서 걸러 버리면 사람이 고치는 중간 상태를 화면이 그릴 수 없게 된다.
+ *
+ * 手数를 1로 적는다. 사진 한 장에는 手数가 없고, 검토의 뿌리는 언제나 0手目다.
+ */
+export function toSfen(board: Board): string {
+  const ranks: string[] = [];
+  for (let row = 0; row < BOARD_SIZE; row += 1) {
+    let rank = '';
+    let empty = 0;
+    for (let col = 0; col < BOARD_SIZE; col += 1) {
+      const piece = board.squares[row * BOARD_SIZE + col] ?? null;
+      if (piece === null) {
+        empty += 1;
+        continue;
+      }
+      if (empty > 0) {
+        rank += String(empty);
+        empty = 0;
+      }
+      // 승격 표시는 `+` 접두이고, 색은 대소문자다 — `parseSfen` 이 읽는 그 규약이다.
+      const letter = piece.side === 'black' ? piece.kind : piece.kind.toLowerCase();
+      rank += letter;
+    }
+    if (empty > 0) rank += String(empty);
+    ranks.push(rank);
+  }
+
+  let hands = '';
+  for (const side of ['black', 'white'] as const) {
+    for (const kind of HAND_SFEN_ORDER) {
+      const n = board.hands[side][kind] ?? 0;
+      if (n <= 0) continue;
+      // 1장은 개수를 안 적는다. 적으면 왕복이 안 맞고, 서버의 출력도 그 규약이다.
+      if (n >= 2) hands += String(n);
+      hands += side === 'black' ? kind : kind.toLowerCase();
+    }
+  }
+
+  const turn = board.turn === 'black' ? 'b' : 'w';
+  return `${ranks.join('/')} ${turn} ${hands === '' ? '-' : hands} 1`;
+}
