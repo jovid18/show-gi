@@ -579,6 +579,15 @@ cd infra && terraform apply destroy.tfplan                 # 그 목록만 지�
 
 **계획을 파일로 저장해서 적용한다.** 그 사이에 자원이 생겨도 반영되지 않으므로, 검토한 것과 지워지는 것이 같다.
 
+> **destroy 는 한 번에 안 끝난다**([journal §128](../docs/journal/121-140.md)). `aws_ecs_service.app` 삭제가 20분 타임아웃에 걸리고 나머지가 그 뒤에 막힌다 — 그때 RDS 와 A 레코드는 이미 지워져서 **사이트는 내려갔는데 ALB·EC2 는 살아 있는** 상태다. 원인은 `aws_iam_role_policy_attachment.instance_ecs` 가 서비스보다 먼저 지워져 ECS 에이전트가 끊기는 것이고, `describe-container-instances` 의 `agentConnected` 가 `false` 면 그거다. **기다려서 안 풀린다.**
+>
+> ```sh
+> aws ecs deregister-container-instance --cluster show-gi \
+>   --container-instance <id> --force --region ap-northeast-1 --profile show-gi
+> ```
+>
+> 이러면 서비스가 그 자리에서 `INACTIVE` 가 되고, 남은 것을 다시 plan·apply 하면 끝난다. **`terraform destroy` 를 이어서 돌릴 때 plan 을 앞단에서 죽이지 않는다** — `OperationTypePlan` 잠금이 남고 `force-unlock` 이 필요해진다.
+
 ### 되살릴 때 apply 하나로 안 되는 것 넷
 
 - **ECR 이미지 재푸시** — 리포지토리가 지워지므로 `images.yml` 을 한 번 돌린다

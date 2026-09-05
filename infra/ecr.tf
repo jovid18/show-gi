@@ -17,6 +17,11 @@ resource "aws_ecr_repository" "app" {
   name                 = "show-gi/${each.key}"
   image_tag_mutability = "MUTABLE" # latest 태그를 옮겨 쓴다
 
+  # 이미지가 든 리포지토리는 그냥 안 지워진다. 이 값이 없으면 destroy 가
+  # RepositoryNotEmptyException 으로 막히고, 그 자리가 정리의 마지막 두 개다
+  # (journal §128). 잃는 것이 없다 — 이미지는 커밋에서 CI 가 다시 굽는다.
+  force_delete = true
+
   image_scanning_configuration {
     scan_on_push = true
   }
