@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ROUTE_HOME, ROUTE_REVIEWS, routeQuiz, routeReview, routeRoom } from './const';
+import { ROUTE_HOME, ROUTE_REVIEWS, routeExplore, routeQuiz, routeReview, routeRoom } from './const';
 import { hrefOf, parseRoute } from './router';
 
 // 주소를 읽는 쪽은 새로고침과 뒤로 가기가 지나가는 유일한 문이다. 조용히 틀리면
@@ -185,7 +185,68 @@ describe('hrefOf', () => {
       expect(hrefOf(parseRoute(path))).toBe(path);
     }
   });
+
+  // 사진에서 읽어 온 국면도 주소가 든다(journal §129). 왕복이 안 맞으면 새로고침 한 번에
+  // 확인까지 끝낸 판이 사라진다.
+  it('뿌리 국면도 왕복한다', () => {
+    for (const path of [
+      `/explore?s=${encodeURIComponent(START_SFEN)}`,
+      `/explore?s=${encodeURIComponent(START_SFEN)}&m=7g7f,3c3d`,
+    ]) {
+      expect(hrefOf(parseRoute(path))).toBe(path);
+    }
+  });
 });
+
+/**
+ * 뿌리 국면. 「성립하는 판인가」는 안 본다 — 그 판단의 정본은 서버의 룰 엔진 하나뿐이고,
+ * 여기서 한 벌 더 적으면 어긋났을 때 어느 쪽이 맞는지 아무도 모른다.
+ */
+describe('뿌리 국면', () => {
+  it('판이 실리면 그것이 뿌리다', () => {
+    expect(parseRoute(`/explore?s=${encodeURIComponent(START_SFEN)}`)).toEqual({
+      name: 'explore',
+      handicap: '',
+      moves: [],
+      sfen: START_SFEN,
+    });
+  });
+
+  it('성립하지 않는 판도 그대로 넘긴다 — 거절은 서버가 한다', () => {
+    // 二歩. 모양은 SFEN 이라 여기를 지나고, 서버가 `bad_position` 으로 답한다.
+    const nifu = '4k4/9/9/9/4P4/9/4P4/9/4K4 b - 1';
+    expect(parseRoute(`/explore?s=${encodeURIComponent(nifu)}`)).toMatchObject({ sfen: nifu });
+  });
+
+  it('SFEN 모양이 아니면 뿌리가 없는 것으로 연다', () => {
+    for (const bad of ['not-a-position', 'lnsgkgsnl b - 1', `${START_SFEN} extra field here`, '<script>']) {
+      expect(parseRoute(`/explore?s=${encodeURIComponent(bad)}`)).toEqual({
+        name: 'explore',
+        handicap: '',
+        moves: [],
+      });
+    }
+  });
+
+  // 뿌리는 하나여야 한다. 서버가 둘을 같이 받으면 거절하므로(`bad_root`) 주소를 만드는
+  // 쪽도 만드는 쪽도 하나만 적는다.
+  it('판이 있으면 手合割은 안 실린다', () => {
+    expect(routeExplore('nimaiochi', ['7g7f'], START_SFEN)).toBe(`/explore?s=${encodeURIComponent(START_SFEN)}&m=7g7f`);
+    expect(parseRoute(`/explore?h=nimaiochi&s=${encodeURIComponent(START_SFEN)}`)).toEqual({
+      name: 'explore',
+      handicap: '',
+      moves: [],
+      sfen: START_SFEN,
+    });
+  });
+
+  it('사진에서 국면을 취해 오는 화면은 주소가 아무것도 안 든다', () => {
+    expect(parseRoute('/position')).toEqual({ name: 'position' });
+    expect(hrefOf({ name: 'position' })).toBe('/position');
+  });
+});
+
+const START_SFEN = 'lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1';
 
 // 주소 조각은 서버가 준 값이다. 타입이 number 라도 JSON 은 그것을 보장하지 않으므로,
 // 주소를 만드는 쪽이 막아야 한다 — 안 막으면 프로토콜 상대 주소가 만들어져 링크가

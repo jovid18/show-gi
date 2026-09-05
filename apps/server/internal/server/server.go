@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/auth"
+	"github.com/jovid18/show-gi/apps/server/internal/boardread"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/kifunorm"
@@ -76,6 +77,12 @@ type Options struct {
 	// KifuNorm 은 읽을 수 없는 형식의 기보를 표기 한 벌로 옮기는 창구다(internal/kifunorm).
 	// nil이면 그 폴백만 꺼지고, 결정적 파서로 읽히는 기보는 그대로 취해 온다.
 	KifuNorm *kifunorm.Client
+
+	// BoardRead 는 판이 찍힌 그림에서 국면을 읽는 창구다(internal/boardread).
+	//
+	// 없으면 그 표면만 안 열린다. 검토는 SFEN 뿌리를 그대로 받으므로, 국면을 손으로
+	// 놓아 온 링크는 이 창구가 없어도 분석된다.
+	BoardRead *boardread.Client
 
 	// Quiz 는 되짚기 퀴즈의 생성기다. nil이면 문항이 안 만들어지고, 그때 되짚기의
 	// 퀴즈 자리는 조용히 비어 있다 — 읽는 표면은 이 값과 무관하게 늘 있다(quiz.go).
@@ -300,7 +307,7 @@ func Handler(opts Options) http.Handler {
 				auth:     ah,
 				norm:     opts.KifuNorm,
 				analyzer: a,
-				budget:   newTranscribeBudget(),
+				budget:   newHourlyBudget(maxTranscribesPerHour),
 				cached:   newTranscribeCache(),
 			}
 			mux.HandleFunc("POST /api/kifu/parse", kh.parse)
@@ -355,6 +362,19 @@ func Handler(opts Options) http.Handler {
 			writeJSON(w, http.StatusOK, map[string]any{"game": nil})
 		})
 		mux.HandleFunc("POST /api/resumable/{id}/decline", storeUnavailable)
+	}
+
+	// 사진에서 국면을 취해 오는 표면(position.go). DB 블록 밖이다 — 판을 만들지도
+	// 기록에 남기지도 않고, 나온 국면은 주소가 되어 검토로 흘러간다.
+	//
+	// 검사는 창구가 없어도 선다. 룰 계산이라 그림 읽기와 딸려 꺼질 이유가 없고, 국면을
+	// 손으로 놓아 온 화면도 그것을 쓴다.
+	mux.HandleFunc("POST /api/position/check", (&positionHandler{}).check)
+	if opts.BoardRead != nil {
+		ph := &positionHandler{auth: ah, read: opts.BoardRead, budget: newHourlyBudget(maxBoardReadsPerHour)}
+		mux.HandleFunc("POST /api/position/read", ph.readImage)
+	} else {
+		mux.HandleFunc("POST /api/position/read", boardReadUnavailable)
 	}
 
 	// 검토(explore.go). DB 블록 밖이다 — 뿌리가 手合割 표라 기록이 없어도 경로가 서고,

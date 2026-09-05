@@ -137,7 +137,11 @@ func (h *exploreSnapshotHandler) save(w http.ResponseWriter, r *http.Request) {
 
 	// 手合割을 검토 자체와 같은 문으로 확인한다. 어휘가 두 벌이면 새 手合이 붙는 날
 	// 저장만 조용히 거절한다.
-	root, _, ok := exploreRoot(req.Handicap)
+	//
+	// SFEN 뿌리를 안 넘긴다. 저장하는 것이 手合割 id와 수순뿐이라 이 표면에는 그 값이
+	// 아예 없고, 그것이 §96이 닫아 둔 문이다 — 저장된 값이 곧 다음 요청의 본문이므로
+	// 여기 SFEN 칸이 생기는 순간 기록 쪽으로 문이 한 번 더 열린다.
+	root, _, ok := exploreRoot(req.Handicap, "")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]any{
 			"error": "bad_handicap", "message": "その手合割は選べません。",

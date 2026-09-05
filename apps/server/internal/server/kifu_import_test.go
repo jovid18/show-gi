@@ -266,7 +266,7 @@ func shuffleGameUSI(plies int) string {
 // 반복하는 사람은 그 벽에 영영 안 닿으면서 토큰을 계속 쓴다(journal §126).
 func TestTranscribeBudgetCapsTheHour(t *testing.T) {
 	now := time.Now()
-	b := newTranscribeBudget()
+	b := newHourlyBudget(maxTranscribesPerHour)
 	b.now = func() time.Time { return now }
 
 	for i := range maxTranscribesPerHour {
@@ -295,7 +295,7 @@ func TestTranscribeBudgetCapsTheHour(t *testing.T) {
 
 // nil 예산은 막지 않는다. 분석기 없이 만든 테스트용 핸들러가 그 모양이다.
 func TestNilBudgetLetsEverythingThrough(t *testing.T) {
-	var b *transcribeBudget
+	var b *hourlyBudget
 	for range maxTranscribesPerHour + 5 {
 		if !b.take(1) {
 			t.Fatal("a nil budget refused a call")
@@ -425,7 +425,7 @@ func TestATranscriptionIsReusedForTheImport(t *testing.T) {
 
 	norm := kifunorm.New("k", "")
 	kifunorm.SetURLForTest(norm, srv.URL)
-	h := &kifuHandler{norm: norm, budget: newTranscribeBudget(), cached: newTranscribeCache()}
+	h := &kifuHandler{norm: norm, budget: newHourlyBudget(maxTranscribesPerHour), cached: newTranscribeCache()}
 
 	// 어느 결정적 파서로도 안 읽히는 텍스트여야 정규화가 선다.
 	const junk = "<td>1</td><td>読めない書式</td>"

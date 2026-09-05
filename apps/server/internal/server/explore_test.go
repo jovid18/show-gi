@@ -298,3 +298,94 @@ func TestExploreOpensEveryHandicap(t *testing.T) {
 		})
 	}
 }
+
+// 뿌리가 판(SFEN)으로도 온다. 사진에서 읽어 와 사람이 확인한 국면이 手合割+수순으로는
+// 표현이 안 되므로 §37이 닫아 둔 문을 여기서 연다(journal §129).
+func TestExploreStartsFromAGivenPosition(t *testing.T) {
+	// 平手 초기 국면에서 ▲7六歩만 둔 판. 뿌리가 그대로 서는지를 보는 자리라 내용은
+	// 아무 국면이어도 되지만, 아는 국면이면 틀렸을 때 무엇이 틀렸는지가 보인다.
+	const sfen = "lnsgkgsnl/1r5b1/ppppppppp/9/9/2P6/PP1PPPPPP/1B5R1/LNSGKGSNL w - 1"
+	search := &fakeSearcher{results: []usi.SearchResult{found("3c3d", "8c8d", "4a3b")}}
+	h := exploreTest(t, search)
+
+	node := decodeExplore(t, h.post(t, `{"sfen":"`+sfen+`","moves":[]}`))
+
+	if node.SFEN != sfen {
+		t.Errorf("sfen = %q, want %q", node.SFEN, sfen)
+	}
+	if node.Ply != 0 || node.BasePly != 0 {
+		t.Errorf("ply = %d / basePly = %d, want 0 0", node.Ply, node.BasePly)
+	}
+	// 手合割이 없다. 임의의 국면에 「형세 0」이 정의되지 않으므로 기준점도 이름도
+	// 안 실리고, 화면이 「互角ライン」을 말하지 않는다.
+	if node.BaselineCp != 0 || node.HandicapJa != "" {
+		t.Errorf("baselineCp=%d handicapJa=%q, want 0 and empty", node.BaselineCp, node.HandicapJa)
+	}
+	// 아래쪽을 先手로 둔 판이라(internal/boardread) 관점이 Black 이다 — 이 국면은
+	// 後手 차례이므로 「내 차례」가 아니다.
+	if node.Turn != "w" || node.YourTurn {
+		t.Errorf("turn=%q yourTurn=%v, want w false", node.Turn, node.YourTurn)
+	}
+	// 깊이와 후보 수가 手合割 뿌리와 같아야 positions 가 한 무리로 남는다.
+	calls := search.searches()
+	if len(calls) != 1 || calls[0].depth != game.DefaultDepth || calls[0].multiPV != whatifCandidates {
+		t.Fatalf("searches = %+v, want one at depth %d / multiPV %d", calls, game.DefaultDepth, whatifCandidates)
+	}
+}
+
+// 판 뿌리에서도 수순을 얹을 수 있다. 그 자리에서 계속 둬 보는 것이 이 표면의 내용이다.
+func TestExploreWalksOnFromAGivenPosition(t *testing.T) {
+	const sfen = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1"
+	search := &fakeSearcher{results: []usi.SearchResult{found("3c3d"), found("8h2b+")}}
+	h := exploreTest(t, search)
+
+	node := decodeExplore(t, h.post(t, `{"sfen":"`+sfen+`","moves":["7g7f"]}`))
+
+	if node.Ply != 1 {
+		t.Errorf("ply = %d, want 1", node.Ply)
+	}
+	if len(node.Line) != 1 || node.Line[0].USI != "7g7f" {
+		t.Errorf("line = %+v, want the one move we sent", node.Line)
+	}
+}
+
+// 재생이 하던 검증을 룰 엔진이 대신한다. 手合割 뿌리는 한 수씩 ValidateMove 를 지나가서
+// 국면이 성립하는 것이 공짜인데, 판 뿌리에는 지나갈 수순이 없다.
+func TestExploreRefusesAPositionThatCannotStand(t *testing.T) {
+	cases := map[string]string{
+		// 같은 筋에 歩가 둘이다.
+		"二歩":        "4k4/9/9/9/4P4/9/4P4/9/4K4 b - 1",
+		"玉이 없다":     "4k4/9/9/9/9/9/9/9/9 b - 1",
+		"말이 한 벌을 넘": "lnsgkgsnl/1r5b1/ppppppppp/9/4P4/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1",
+		// 手番이 아닌 쪽이 王手를 받고 있다 — 사람이 手番을 잘못 고른 자리다.
+		"왕수 방치":    "4k4/9/9/9/4R4/9/9/9/3K5 b - 1",
+		"SFEN이 아님": "not a position",
+	}
+	for name, sfen := range cases {
+		t.Run(name, func(t *testing.T) {
+			search := &fakeSearcher{results: []usi.SearchResult{found("3c3d")}}
+			h := exploreTest(t, search)
+
+			rec := h.post(t, `{"sfen":"`+sfen+`","moves":[]}`)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400 — body = %s", rec.Code, rec.Body.String())
+			}
+			// 엔진을 한 번도 안 불렀어야 한다. 성립하지 않는 판에 슬롯을 쓰면 그 자리가
+			// 곧 「아무 국면이나 재 주는」 문이 된다.
+			if got := search.searches(); len(got) != 0 {
+				t.Errorf("searches = %d, want 0 — an impossible position must not reach the engine", len(got))
+			}
+		})
+	}
+}
+
+// 뿌리를 정하는 값이 둘 다 오면 서버가 골라야 하고, 그 선택은 화면과 어긋날 수 있다.
+func TestExploreRefusesTwoRootsAtOnce(t *testing.T) {
+	search := &fakeSearcher{results: []usi.SearchResult{found("3c3d")}}
+	h := exploreTest(t, search)
+
+	rec := h.post(t, `{"handicap":"nimaiochi","sfen":"lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1","moves":[]}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 — body = %s", rec.Code, rec.Body.String())
+	}
+}

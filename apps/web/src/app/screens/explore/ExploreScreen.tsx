@@ -25,9 +25,11 @@ import { navigate } from '@/routes/router';
 /**
  * 「検討」 — 手合割을 골라 0手目부터 직접 판을 움직여 보면서 형세와 최선수 셋을 읽는다.
  *
- * 되짚기·개입 카드와 같은 장치를 쓴다(`useWhatIf`). 갈리는 것은 뿌리 하나뿐이고
- * (journal §37 · §85) 여기의 뿌리는 手合割 표다 — 그래서 이 화면은 판을 서버에 안 보낸다.
- * 보내는 것은 手合割 id와 수순이고, 서버가 매번 되짚어 한 수씩 룰 엔진에 검증시킨다.
+ * 되짚기·개입 카드와 같은 장치를 쓴다(`useWhatIf`). 갈리는 것은 뿌리뿐이고
+ * (journal §37 · §85) 여기의 뿌리는 둘이다 — 手合割 표 하나와, 사진에서 읽어 와 사람이
+ * 확인한 국면 하나다(§129). 手合割 뿌리는 id와 수순만 보내고 서버가 매번 되짚어 한 수씩
+ * 룰 엔진에 검증시키고, 판 뿌리는 그 재생이 불가능하므로 서버가 국면 자체를 검사한다
+ * (`shogi.Faults`).
  *
  * 줄의 정본은 주소다. 화면이 상태로 들고 있지 않고 `?m=` 에 적는다 — 새로고침·뒤로
  * 가기·링크 공유가 그것으로 살아난다. 한 수 두는 것은 「주소를 고쳐 쓰는 일」이고, 그러면
@@ -42,9 +44,16 @@ interface ExploreScreenProps {
   handicap: string;
   /** 지금까지 둔 수순. 주소에서 온다 — 이 화면이 들고 있는 것이 아니다. */
   moves: string[];
+  /**
+   * 뿌리 국면. 사진에서 읽어 와 사람이 확인한 판이 여기로 온다(journal §129).
+   *
+   * 비어 있으면 `handicap` 이 뿌리다. 둘은 같이 서지 않으므로(서버가 `bad_root` 로
+   * 거절한다) 값이 있는 쪽 하나만 채워져서 온다.
+   */
+  sfen: string;
 }
 
-export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
+export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
   const playing = useSyncExternalStore(subscribePlaying, getPlaying);
   const engineReady = useEngineReady();
 
@@ -62,10 +71,11 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
   const line = moves.join(',');
   const urlMoves = useMemo(() => (line === '' ? [] : line.split(',')), [line]);
 
-  const send = useMemo(() => exploreSend(handicap), [handicap]);
-  // `resetKey` 가 手合割이다. 열쇠는 줄만 보므로(`useWhatIf` 의 `keyOf`) 안 비우면
-  // 六枚落ち의 0手目가 平手의 0手目와 같은 자리로 읽힌다.
-  const whatif = useWhatIf<ExploreNode>(send, handicap);
+  const send = useMemo(() => exploreSend(handicap, sfen), [handicap, sfen]);
+  // `resetKey` 가 뿌리다. 열쇠는 줄만 보므로(`useWhatIf` 의 `keyOf`) 안 비우면
+  // 六枚落ち의 0手目가 平手의 0手目와 같은 자리로 읽힌다 — 사진에서 읽어 온 국면도
+  // 같은 이유로 여기 들어간다.
+  const whatif = useWhatIf<ExploreNode>(send, sfen || handicap);
   const { node, pending, error, at } = whatif;
 
   /**
@@ -78,7 +88,7 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
   useEffect(() => {
     if (playing || engineReady === false) return;
     at(0, urlMoves);
-  }, [playing, engineReady, handicap, urlMoves, at]);
+  }, [playing, engineReady, handicap, sfen, urlMoves, at]);
 
   /**
    * 판에 얹을 수 있는 노드인가.
@@ -108,7 +118,7 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
   useEffect(() => {
     setOrigin(null);
     setPromoting(null);
-  }, [handicap, line]);
+  }, [handicap, sfen, line]);
 
   /** 주소를 고쳐 쓴다. 한 수 두는 것이 이 일이다. */
   const go = useCallback(
@@ -117,9 +127,9 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
       setPromoting(null);
       // 이력을 쌓지 않는다. 주소는 공유와 새로고침을 위해 따라와야 하지만, 40手를
       // 걸어 본 사람이 화면을 벗어나려고 뒤로 가기를 40번 누르게 두지 않는다.
-      navigate({ name: 'explore', handicap, moves: next }, { replace: true });
+      navigate({ name: 'explore', handicap, moves: next, sfen }, { replace: true });
     },
-    [handicap],
+    [handicap, sfen],
   );
 
   const play = useCallback((usi: string) => go([...urlMoves, usi]), [go, urlMoves]);
@@ -286,6 +296,8 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
     );
   }
 
+  /** 뿌리가 사진에서 읽어 온 판인가. 手合割 줄과 저장이 이 값으로 갈린다. */
+  const rooted = sfen !== '';
   const score = shown ? scoreJa(shown.evalCp, shown.mateIn) : '';
   const baseline = baselineNoteJa(shown);
   const branching = urlMoves.length > 0;
@@ -297,11 +309,15 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
           {/* 手合割. 목록에 平手가 없다 — 접지 않는 것이 기본값이라 이 자리가 그 버튼을
               직접 그린다(protocol/handicaps.ts). */}
           <div className="explore-handicaps" role="group" aria-label="手合割">
+            {/* 판이 뿌리면 어느 手合割도 눌린 것으로 안 그린다. 이 국면은 手合割이 아니라
+                사진에서 온 것이라, 「平手」에 불이 들어와 있으면 그 버튼이 아무 일도 안 할
+                것처럼 보이는데 실제로는 읽어 온 국면을 버린다(journal §129). */}
+            {rooted && <span className="explore-rooted">画像から読み取った局面</span>}
             <button
               type="button"
               className="explore-handicap"
-              data-on={handicap === '' || undefined}
-              aria-pressed={handicap === ''}
+              data-on={(!rooted && handicap === '') || undefined}
+              aria-pressed={!rooted && handicap === ''}
               onClick={() => pickHandicap('')}
             >
               平手
@@ -311,8 +327,8 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
                 key={h.id}
                 type="button"
                 className="explore-handicap"
-                data-on={handicap === h.id || undefined}
-                aria-pressed={handicap === h.id}
+                data-on={(!rooted && handicap === h.id) || undefined}
+                aria-pressed={!rooted && handicap === h.id}
                 title={h.note}
                 onClick={() => pickHandicap(h.id)}
               >
@@ -450,7 +466,18 @@ export function ExploreScreen({ handicap, moves }: ExploreScreenProps) {
 
           {/* 저장한 국면. 목록의 마지막이다 — 위 셋은 판을 보며 읽는 것이고 이쪽은 축이
               다르다. 줄 수에 상한이 없어서 위에 두면 그 아래가 화면 밖으로 밀린다. */}
-          <Snapshots handicap={handicap} moves={urlMoves} savable={!!active} onLoad={openLine} />
+          {/* 판이 뿌리면 저장을 안 그린다. 저장하는 것이 手合割 id 와 수순뿐이라
+              (journal §96) 이 국면을 저장하면 **다른 국면**(平手 0手目 + 같은 수순)이
+              남는다 — 조용히 틀린 것을 남기느니 그 손잡이를 안 준다. */}
+          {rooted ? (
+            <section className="explore-note">
+              <p className="review-status">
+                画像から読み取った局面は保存できません。このページのURLがそのまま局面です。
+              </p>
+            </section>
+          ) : (
+            <Snapshots handicap={handicap} moves={urlMoves} savable={!!active} onLoad={openLine} />
+          )}
         </aside>
       </div>
     </div>
