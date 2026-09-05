@@ -29,6 +29,13 @@ func StartPosition() Position {
 	return p
 }
 
+// handComplement 는 持ち駒 한 종류에 적을 수 있는 최대 수다. 한 판의 말 수다.
+//
+// 종류마다의 한 벌 수(歩 18·香 4…)로 자르지 않는다. 넘치는 것은 국면에 실려 나가
+// InventoryExcess 가 「歩가 몇 장 많다」로 짚어 주는 편이, 파싱에서 거절해 「왜 안 되는지」를
+// 안 말하는 것보다 낫다 — 여기서 막는 것은 Hands 의 int8 이 넘치는 값뿐이다.
+const handComplement = 40
+
 func ParseSFEN(s string) (Position, error) {
 	var pos Position
 	fields := strings.Fields(strings.TrimSpace(s))
@@ -107,6 +114,12 @@ func ParseSFEN(s string) (Position, error) {
 			t, ok := letterTypes[upper]
 			if !ok || t == King {
 				return pos, fmt.Errorf("sfen: invalid piece in hand %q", string(ch))
+			}
+			// 한 벌보다 많은 수는 개수가 아니다. **Hands 가 int8 이라 여기서 안 막으면
+			// 조용히 음수가 된다** — 200 이 −56 이 되고, 그 판은 Faults 를 통과하면서
+			// 룰 엔진이 打 70개를 내주는데 엔진에는 「1장」이 나간다(journal §NN).
+			if count > handComplement {
+				return pos, fmt.Errorf("sfen: %d %c in hand is more than one set", count, upper)
 			}
 			c := Black
 			if ch >= 'a' {

@@ -29,6 +29,8 @@ const (
 	PositionDeadPiece
 	// PositionCheckIgnored: 수번이 아닌 쪽이 王手를 받고 있다.
 	PositionCheckIgnored
+	// PositionHandNegative: 持ち駒 수가 음수다.
+	PositionHandNegative
 )
 
 var positionReasonNames = map[PositionReason]string{
@@ -38,6 +40,7 @@ var positionReasonNames = map[PositionReason]string{
 	PositionNifu:         "nifu",
 	PositionDeadPiece:    "dead piece",
 	PositionCheckIgnored: "check ignored",
+	PositionHandNegative: "negative hand",
 }
 
 func (r PositionReason) String() string {
@@ -53,8 +56,11 @@ func (r PositionReason) String() string {
 // 눈으로 찾아야 한다.
 type PositionFault struct {
 	Reason PositionReason
-	// Color 는 어긴 쪽이다.
+	// Color 는 어긴 쪽이다. 말 수 초과는 양쪽을 합쳐 세므로 그 사유에는 뜻이 없다
+	// (HasColor 가 거짓이다).
 	Color Color
+	// HasColor 는 Color 가 뜻을 갖는가다. 거짓이면 로그가 편을 안 적는다.
+	HasColor bool
 	// Square 는 문제가 된 칸이다. 칸으로 짚을 수 없는 사유(말 수·玉 수)면 -1.
 	Square int
 	// Type 은 문제가 된 말 종류다. 없으면 NoPieceType.
@@ -65,7 +71,10 @@ type PositionFault struct {
 
 // Error 는 로그용이다 — 영어. 화면에는 Message 쪽이 나간다.
 func (f PositionFault) Error() string {
-	s := fmt.Sprintf("%s: %s", f.Color, f.Reason)
+	s := f.Reason.String()
+	if f.HasColor {
+		s = fmt.Sprintf("%s: %s", f.Color, s)
+	}
 	if f.Type != NoPieceType {
 		s += " " + string(typeLetters[f.Type.Base()])
 	}
@@ -95,6 +104,8 @@ func (f PositionFault) Message() string {
 		return fmt.Sprintf("%sの筋に歩が二枚あります（二歩）。", SquareJa(f.Square))
 	case PositionDeadPiece:
 		return fmt.Sprintf("%sの%sは、そこから動かすことができません。", SquareJa(f.Square), PieceJa(f.Type))
+	case PositionHandNegative:
+		return fmt.Sprintf("%sの持ち駒の数が正しくありません。", PieceJa(f.Type))
 	case PositionCheckIgnored:
 		// 手番을 잘못 고른 자리가 여기로 온다. 사진은 手番을 말해 주지 않으므로
 		// 사람이 고르는 값이고, 王手를 받고 있는 쪽이 곧 手番이다.
@@ -133,8 +144,20 @@ func (pos Position) Faults() []PositionFault {
 		// 검사가 조용히 통과하고, 둘이면 엔진 쪽이 정의되어 있지 않다.
 		if n := kingCount(pos, color); n != 1 {
 			out = append(out, PositionFault{
-				Reason: PositionKingCount, Color: color, Square: -1, Type: King, Count: n,
+				Reason: PositionKingCount, Color: color, HasColor: true, Square: -1, Type: King, Count: n,
 			})
+		}
+
+		// 음수 持ち駒. ParseSFEN 이 막지만 Apply 로도 음수가 될 수 있고(그 함수 주석),
+		// 음수는 InventoryExcess 를 통과한다 — 합이 줄어들 뿐이라 「많다」로 안 걸린다.
+		// 그런데 movegen 은 `== 0` 만 보므로 打을 만들어 낸다.
+		for t := Pawn; t <= Rook; t++ {
+			if pos.Hands[color][t] < 0 {
+				out = append(out, PositionFault{
+					Reason: PositionHandNegative, Color: color, HasColor: true, Square: -1, Type: t,
+					Count: int(pos.Hands[color][t]),
+				})
+			}
 		}
 
 		out = append(out, nifuFaults(pos, color)...)
@@ -146,7 +169,7 @@ func (pos Position) Faults() []PositionFault {
 	// 언제나 거짓이고, 그 거짓이 「王手가 없다」로 읽힌다.
 	if kingCount(pos, pos.Turn.Other()) == 1 && pos.InCheck(pos.Turn.Other()) {
 		out = append(out, PositionFault{
-			Reason: PositionCheckIgnored, Color: pos.Turn.Other(), Square: pos.KingSquare(pos.Turn.Other()),
+			Reason: PositionCheckIgnored, Color: pos.Turn.Other(), HasColor: true, Square: pos.KingSquare(pos.Turn.Other()),
 		})
 	}
 
@@ -179,7 +202,7 @@ func nifuFaults(pos Position, c Color) []PositionFault {
 			// 화면이 「지울 후보」를 가리킨다.
 			if seen >= 2 {
 				out = append(out, PositionFault{
-					Reason: PositionNifu, Color: c, Square: sq, Type: Pawn,
+					Reason: PositionNifu, Color: c, HasColor: true, Square: sq, Type: Pawn,
 				})
 			}
 		}
@@ -210,7 +233,7 @@ func deadPieceFaults(pos Position, c Color) []PositionFault {
 		}
 		if dead {
 			out = append(out, PositionFault{
-				Reason: PositionDeadPiece, Color: c, Square: sq, Type: p.Type(),
+				Reason: PositionDeadPiece, Color: c, HasColor: true, Square: sq, Type: p.Type(),
 			})
 		}
 	}

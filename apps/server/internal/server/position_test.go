@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -449,5 +450,55 @@ func TestLabelNeedsASignIn(t *testing.T) {
 
 	if rec := h.postLabel(t, 0, "board-01", startSFEN); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", rec.Code)
+	}
+}
+
+// 못 읽는 SFEN 에 빈 사유 목록을 주면 「이 판은 성립한다」로 읽힌다. 읽기는 판독 계층이
+// 낸 글자를 그대로 넘기므로 부르는 쪽이 이미 읽어 봤다는 보장이 없다. 셀프리뷰가 잡았다.
+func TestCheckedSaysSomethingWhenTheSFENDoesNotParse(t *testing.T) {
+	res := checked("not a position")
+	if len(res.Faults) == 0 {
+		t.Fatal("an unreadable SFEN came back with no faults — that reads as 'this position is fine'")
+	}
+	if res.Faults[0].Message == "" {
+		t.Error("the fault has no Japanese message")
+	}
+}
+
+// 이름을 고르고 쓰는 사이가 벌어져 있다. 같은 이름을 두 번 지으면 먼저 올린 사람의
+// imageId 가 남의 그림에 라벨을 붙인다 — 틀린 라벨은 없는 라벨보다 나쁘다.
+func TestKeepImageNeverOverwrites(t *testing.T) {
+	h, dir := labelTest(t)
+
+	const n = 8
+	ids := make(chan string, n)
+	var wg sync.WaitGroup
+	for range n {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ids <- h.keepImage(fakePNG)
+		}()
+	}
+	wg.Wait()
+	close(ids)
+
+	seen := map[string]bool{}
+	for id := range ids {
+		if id == "" {
+			t.Error("keepImage gave no name")
+			continue
+		}
+		if seen[id] {
+			t.Errorf("%s was handed out twice — one image overwrote the other", id)
+		}
+		seen[id] = true
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read dir: %v", err)
+	}
+	if len(entries) != n {
+		t.Fatalf("%d files on disk, want %d — a write was lost", len(entries), n)
 	}
 }

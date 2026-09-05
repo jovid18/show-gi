@@ -470,7 +470,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
               (journal §96) 이 국면을 저장하면 **다른 국면**(平手 0手目 + 같은 수순)이
               남는다 — 조용히 틀린 것을 남기느니 그 손잡이를 안 준다. */}
           {rooted ? (
-            <section className="explore-note">
+            <section className="review-panel explore-note">
               <p className="review-status">
                 画像から読み取った局面は保存できません。このページのURLがそのまま局面です。
               </p>

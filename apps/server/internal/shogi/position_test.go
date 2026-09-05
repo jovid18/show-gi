@@ -1,6 +1,9 @@
 package shogi
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // 성립하는 국면에서는 사유가 하나도 안 나와야 한다. 여기가 새면 확인 화면이 정상인
 // 판을 거절하고, 그건 기능이 통째로 안 되는 것과 같다.
@@ -199,4 +202,65 @@ func faultErrors(faults []PositionFault) []string {
 		out = append(out, f.Error())
 	}
 	return out
+}
+
+// 持ち駒 수가 Hands 의 int8 을 넘으면 조용히 음수가 된다. 그 판은 예전에 Faults 를
+// 통과하면서 movegen 이 打을 만들어 냈고(`== 0` 만 본다), 엔진에는 다시 직렬화한
+// 「1장」이 나갔다 — 룰 엔진과 엔진이 다른 판을 보게 된다. 셀프리뷰가 잡았다.
+func TestParseSFENRefusesAHandThatCannotFit(t *testing.T) {
+	for _, sfen := range []string{
+		"9/9/9/9/4k4/9/9/9/4K4 b 200P 1",
+		"9/9/9/9/4k4/9/9/9/4K4 b 41P 1",
+		"9/9/9/9/4k4/9/9/9/4K4 w 128p 1",
+	} {
+		if _, err := ParseSFEN(sfen); err == nil {
+			t.Errorf("ParseSFEN(%q) = nil error, want a refusal", sfen)
+		}
+	}
+	// 한 벌을 넘는 것은 그대로 받는다. 거절이 아니라 사유로 말한다(InventoryExcess).
+	pos, err := ParseSFEN("9/9/9/9/4k4/9/9/9/4K4 b 19P 1")
+	if err != nil {
+		t.Fatalf("19 pawns in hand should parse: %v", err)
+	}
+	if !hasReason(pos.Faults(), PositionPieceExcess) {
+		t.Errorf("Faults() = %v, want a piece-excess fault", faultErrors(pos.Faults()))
+	}
+}
+
+// 음수 持ち駒는 InventoryExcess 를 통과한다 — 합이 줄어들 뿐이라 「많다」로 안 걸린다.
+// Apply 가 미검증 투입으로 음수를 만들 수 있으므로(그 함수 주석) 여기서 짚어야 한다.
+func TestFaultsCatchesANegativeHand(t *testing.T) {
+	pos, err := ParseSFEN("9/9/9/9/4k4/9/9/9/4K4 b - 1")
+	if err != nil {
+		t.Fatalf("ParseSFEN: %v", err)
+	}
+	pos.Hands[Black][Pawn] = -56
+
+	if !hasReason(pos.Faults(), PositionHandNegative) {
+		t.Fatalf("Faults() = %v, want a negative-hand fault", faultErrors(pos.Faults()))
+	}
+	if hasHangul(PositionFault{Reason: PositionHandNegative, Type: Pawn, Square: -1}.Message()) {
+		t.Error("the message reaches the user in Korean")
+	}
+}
+
+// 말 수 초과는 양쪽을 합쳐 센다. 편을 적으면 後手의 초과를 「先手」로 적는다.
+func TestPieceExcessDoesNotClaimASide(t *testing.T) {
+	pos, err := ParseSFEN("lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b 3p 1")
+	if err != nil {
+		t.Fatalf("ParseSFEN: %v", err)
+	}
+	for _, f := range pos.Faults() {
+		if f.Reason != PositionPieceExcess {
+			continue
+		}
+		if f.HasColor {
+			t.Errorf("piece excess claims a side: %s", f.Error())
+		}
+		if strings.Contains(f.Error(), "sente") || strings.Contains(f.Error(), "gote") {
+			t.Errorf("the log names a side: %s", f.Error())
+		}
+		return
+	}
+	t.Fatal("no piece-excess fault to check")
 }

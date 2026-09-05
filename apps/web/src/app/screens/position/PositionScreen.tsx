@@ -79,6 +79,14 @@ function PositionForm() {
   const [imageId, setImageId] = useState<string | null>(null);
   const [faults, setFaults] = useState<PositionFault[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
+  /**
+   * `faults` 가 어느 판의 것인가.
+   *
+   * 검사는 왕복이라 한 걸음 늦는다. 그 사이에 사람이 칸을 고치고 누르면 **직전 판의
+   * 판정으로 버튼이 열려 있어서**, 二歩인 판이 검토로 넘어가 서버에 거절당한다 —
+   * 뒤로 가면 화면이 다시 서면서 올린 그림과 고친 것이 전부 사라진다.
+   */
+  const [checkedSfen, setCheckedSfen] = useState('');
 
   const sfen = useMemo(() => (board ? toSfen(board) : ''), [board]);
 
@@ -100,6 +108,7 @@ function PositionForm() {
         if (mine !== checkID.current) return;
         setFaults(res.faults);
         setWarnings(res.warnings);
+        setCheckedSfen(sfen);
       })
       .catch(() => {
         // 검사가 못 돌아도 판은 그린다. 여기서 사유를 비우면 「문제가 없다」로 읽혀서
@@ -114,6 +123,7 @@ function PositionForm() {
     setBoard(null);
     setFaults([]);
     setWarnings([]);
+    setCheckedSfen('');
     setImageId(null);
     setError(null);
     setReading(true);
@@ -122,6 +132,7 @@ function PositionForm() {
       setBoard(parseSfen(res.sfen));
       setFaults(res.faults);
       setWarnings(res.warnings);
+      setCheckedSfen(res.sfen);
       setImageId(res.imageId ?? null);
     } catch (e) {
       setError(e instanceof PositionError ? e.message : '画像から局面を読み取れませんでした。');
@@ -187,8 +198,13 @@ function PositionForm() {
     [faults],
   );
 
-  /** 사유가 하나라도 있으면 분석으로 안 넘어간다. 서버도 같은 문으로 거절한다. */
-  const analyzable = board !== null && faults.length === 0;
+  /**
+   * 사유가 하나라도 있으면 분석으로 안 넘어간다. 서버도 같은 문으로 거절한다.
+   *
+   * **판정이 지금 판의 것일 때만이다.** 검사가 왕복이라 고친 직후에는 아직 직전 판의
+   * 결과를 들고 있고, 그때 열려 있으면 성립하지 않는 판이 넘어간다.
+   */
+  const analyzable = board !== null && faults.length === 0 && checkedSfen === sfen;
 
   const analyze = (): void => {
     if (!analyzable) return;
@@ -286,7 +302,11 @@ function PositionForm() {
             <button type="button" className="btn btn--primary" disabled={!analyzable} onClick={analyze}>
               この局面を解析する
             </button>
-            {!analyzable && <span className="import__filename">局面を直すと解析できます。</span>}
+            {!analyzable && (
+              <span className="import__filename">
+                {checkedSfen === sfen ? '局面を直すと解析できます。' : '局面を確かめています…'}
+              </span>
+            )}
           </div>
         </>
       )}

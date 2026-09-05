@@ -218,6 +218,18 @@ describe('뿌리 국면', () => {
     expect(parseRoute(`/explore?s=${encodeURIComponent(nifu)}`)).toMatchObject({ sfen: nifu });
   });
 
+  // 40장이 전부 성하고 빈 칸이 잘게 흩어지면 판 칸이 123자가 된다. 상한이 90이던 동안
+  // 그런 판은 **조용히 버려지고** 平手가 열렸다 — 링크를 받은 사람이 남이 본 것과 다른
+  // 판을 본다. 셀프리뷰가 잡았다.
+  it('판 칸이 긴 국면도 그대로 싣는다', () => {
+    // 성한 駒는 `+P` 로 두 글자다. 40장이 전부 성하고 빈 칸이 잘게 흩어지면 판 칸이
+    // 123자가 되므로, 여기서 보는 것은 **길이 관문**이다 — 룰은 서버가 본다.
+    const board = [...Array(6).fill('+p+p+p+p+p+p+p+p+p'), '9', '9', '9'].join('/');
+    const long = `${board} b - 1`;
+    expect(board.length).toBeGreaterThan(90);
+    expect(parseRoute(`/explore?s=${encodeURIComponent(long)}`)).toMatchObject({ sfen: long });
+  });
+
   it('SFEN 모양이 아니면 뿌리가 없는 것으로 연다', () => {
     for (const bad of ['not-a-position', 'lnsgkgsnl b - 1', `${START_SFEN} extra field here`, '<script>']) {
       expect(parseRoute(`/explore?s=${encodeURIComponent(bad)}`)).toEqual({

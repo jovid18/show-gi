@@ -260,15 +260,39 @@ func (h *positionHandler) keepImage(image []byte) string {
 	if ext == "" {
 		return ""
 	}
-	name := fmt.Sprintf("%s%02d", keptPrefix, nextKeptNumber(h.keep))
-	path := filepath.Join(h.keep, name+ext)
-	if err := os.WriteFile(path, image, 0o644); err != nil {
-		log.Printf("position: could not keep the image: %v", err)
-		return ""
+	// 이름을 고르고 쓰는 사이가 벌어져 있다. O_EXCL 로 「내가 만든 것」만 받아들이고,
+	// 남이 먼저 만들었으면 다음 번호로 넘어간다 — 안 그러면 동시에 올린 두 장이 같은
+	// 이름을 골라 하나가 지워지고, 먼저 올린 사람의 imageId 가 **남의 그림**에 라벨을
+	// 붙인다. 틀린 라벨은 없는 라벨보다 나쁘다.
+	for n := nextKeptNumber(h.keep); n <= maxKept; n++ {
+		name := fmt.Sprintf("%s%02d", keptPrefix, n)
+		path := filepath.Join(h.keep, name+ext)
+		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+		if errors.Is(err, os.ErrExist) {
+			continue
+		}
+		if err != nil {
+			log.Printf("position: could not keep the image: %v", err)
+			return ""
+		}
+		_, err = f.Write(image)
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+		if err != nil {
+			log.Printf("position: could not keep the image: %v", err)
+			return ""
+		}
+		log.Printf("position: kept %s", path)
+		return name
 	}
-	log.Printf("position: kept %s", path)
-	return name
+	log.Printf("position: %s is full", h.keep)
+	return ""
 }
+
+// maxKept 는 이 폴더가 드는 그림 수의 상한이다. 번호가 두 자리를 넘으면 이름 순서가
+// 표의 줄 순서와 어긋나고(board-9 가 board-10 뒤에 선다), 재는 표본으로도 충분히 크다.
+const maxKept = 99
 
 // nextKeptNumber 는 폴더에서 다음 번호를 고른다. 비어 있으면 1이다.
 //
@@ -305,13 +329,17 @@ func (h *positionHandler) viewer(w http.ResponseWriter, r *http.Request) (auth.S
 
 // checked 는 국면 하나에 룰 엔진이 말할 수 있는 것을 붙인다.
 //
-// 못 읽는 SFEN 이 여기 오면 사유 없이 그대로 돌려준다 — 부르는 쪽이 이미 읽어 본
-// 문자열이라, 여기서 두 번째 오류 경로를 만들면 어느 쪽이 진실인지가 흐려진다.
+// **못 읽는 SFEN 도 사유를 하나 든다.** 빈 목록은 「이 판은 성립한다」로 읽히는데,
+// 읽기(readImage)는 판독 계층이 낸 글자를 그대로 여기 넘기므로 부르는 쪽이 이미
+// 읽어 봤다는 보장이 없다 — 그 자리에서 빈 목록을 주면 없는 국면이 성립한다고 답한다.
 func checked(sfen string) positionResponse {
 	res := positionResponse{SFEN: sfen, Faults: []positionFault{}, Warnings: []string{}}
 
 	pos, err := shogi.ParseSFEN(sfen)
 	if err != nil {
+		res.Faults = append(res.Faults, positionFault{
+			Reason: "unreadable", Message: "局面を読み取れませんでした。",
+		})
 		return res
 	}
 
