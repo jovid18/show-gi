@@ -118,7 +118,7 @@ func (h *resumeHandler) decline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 없는 판·남의 판·이미 답한 판이 같은 404다. 가르면 남의 판 번호를 훑어볼 수
+	// 없는 판·남의 판·이미 답한 판이 같은 404다. 구별해 주면 남의 판 번호를 훑어볼 수
 	// 있다(§46).
 	err = h.store.DeclineResume(r.Context(), id, *owner)
 	if errors.Is(err, store.ErrNoGame) {

@@ -261,7 +261,7 @@ func (h *exploreSnapshotHandler) loginRequired(w http.ResponseWriter) {
 	})
 }
 
-// notFound 는 없는 국면과 남의 국면에 같은 답을 준다. 가르면 남이 몇 개 저장했는지를
+// notFound 는 없는 국면과 남의 국면에 같은 답을 준다. 구별해 주면 남이 몇 개 저장했는지를
 // 번호로 훑어볼 수 있다.
 func (h *exploreSnapshotHandler) notFound(w http.ResponseWriter) {
 	writeJSON(w, http.StatusNotFound, map[string]any{

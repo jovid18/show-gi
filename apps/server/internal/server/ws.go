@@ -175,7 +175,7 @@ func newSetup(r *http.Request, opts Options) gameSetup {
 	return s
 }
 
-// errNoResume 는 이어할 수 없다는 것 하나다. 왜인지는 안 가른다 — 없는 판·남의 판·
+// errNoResume 는 이어할 수 없다는 것 하나다. 왜인지는 알려주지 않는다 — 없는 판·남의 판·
 // 이미 다른 탭이 점유한 판이 같은 답을 받아야 남의 판 번호를 훑어볼 수 없다(§46).
 var errNoResume = errors.New("ws: cannot resume")
 
