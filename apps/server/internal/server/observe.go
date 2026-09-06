@@ -22,8 +22,7 @@ const maxRequestIDLen = 64
 
 // routeOther 는 라우팅에 안 걸린 요청의 route 라벨이다.
 //
-// 안 걸린 경로를 그대로 라벨로 쓰면 스캐너 하나가 계열을 무한히 늘리고, 그 메모리는
-// 프로세스가 사는 동안 안 돌아온다.
+// 안 걸린 경로를 그대로 라벨로 쓰면 계열이 무한히 늘어난다(journal §90).
 const routeOther = "other"
 
 // statusClientGone 은 부르는 쪽이 먼저 끊은 요청의 status 라벨이다. nginx 의 499 를 쓴다 —

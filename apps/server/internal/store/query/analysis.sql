@@ -34,7 +34,7 @@ ON CONFLICT (match_id, ply) DO NOTHING;
 -- 낡은 리스를 도로 집는 것이 이 문장의 두 번째 일이다. 워커가 배포나 스팟 회수로
 -- 사라지면 그 手는 claimed_at 만 찍힌 채 남고, 그 시각이 낡으면 여기가 되찾는다.
 --
--- 고르는 쪽을 MATERIALIZED CTE 로 못 박는다. `IN (SELECT ... LIMIT 1 FOR UPDATE)` 로 쓰면
+-- 고르는 쪽을 MATERIALIZED CTE 로 못 박는다. IN (SELECT ... LIMIT 1 FOR UPDATE) 로 쓰면
 -- 계획에 따라 그 서브쿼리가 바깥 행마다 다시 돌아 여러 행을 잠그는데, 돌려받는 것은
 -- 한 행이라 나머지는 아무도 재지 않은 채 「집힌」 상태로 남는다. 워커 하나로 재 봤더니
 -- 그 값이 여덟까지 갔다(journal §115).
@@ -91,7 +91,7 @@ WHERE match_id = $1 AND ply = $13 AND done_at IS NULL;
 -- 그만큼을 다시 재게 된다.
 --
 -- 이 표시가 밀린 양의 정본을 하나로 만든다. 안 하면 판이 끝난 뒤 남은 手가 표에도 남고
--- queuedPlies 에도 더해져 **같은 手가 두 번 세어진다**(journal §116).
+-- queuedPlies 에도 더해져 같은 手가 두 번 세어진다(journal §116).
 UPDATE analysis_plies SET dead = true
 WHERE match_id = $1 AND done_at IS NULL;
 
@@ -149,7 +149,7 @@ ON CONFLICT (match_id) DO NOTHING;
 -- 자리가 다 찼다. 手数를 적으면 그때부터 집힌다.
 --
 -- HoldAnalysisJob 이 세운 행을 채우는 것이 보통인데, 없으면 여기서 만든다. UPDATE 로만
--- 두면 그 앞이 한 번 실패했을 때 이 문장이 **조용히 아무 일도 안 하고** 그 판이 큐에
+-- 두면 그 앞이 한 번 실패했을 때 이 문장이 조용히 아무 일도 안 하고 그 판이 큐에
 -- 안 만들어진다 — 되짚기는 그것을 「남지 않았다」로만 보여 주므로 아무도 못 알아챈다.
 INSERT INTO analysis_jobs (match_id, plies) VALUES ($1, $2)
 ON CONFLICT (match_id) DO UPDATE SET plies = EXCLUDED.plies;

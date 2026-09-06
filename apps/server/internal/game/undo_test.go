@@ -210,8 +210,8 @@ func TestUndoIsRefusedAfterTheGameEnds(t *testing.T) {
 
 // 무른 수도 실력 추정에 남는다 — 회차 1 #4 의 두 번째 요구다.
 //
-// 판정을 통과한 수는 그때 추정기가 이미 먹었고(applyVerdict), 무르기는 그것을 안 되돌린다.
-// 되돌리면 「어려운 수를 두고 무르면 실력이 안 떨어진다」가 되어 상대가 실제보다 약해진다.
+// 판정을 통과한 수는 그때 추정기가 이미 먹었고(applyVerdict), 무르기는 그것을 안
+// 되돌린다 — 되돌렸을 때 무엇이 무너지는지는 journal §72.
 func TestUndoKeepsTheMoveInTheSkillEstimate(t *testing.T) {
 	rater := newFakeRater()
 	analyst := &fixedAnalyst{

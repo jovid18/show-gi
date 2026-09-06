@@ -23,22 +23,17 @@ import (
 // 두 갈래로 일한다. 두는 동안 手마다 미리 재 두고(lookAhead), 판이 끝나면 그 결과로
 // 평가치를 쓰고 실력을 커밋한다(analyze). 미리 못 잰 手는 끝날 때 그 자리에서 잰다.
 //
-// 미리 재는 쪽이 없으면 판이 끝나는 순간 그 판의 手数가 한꺼번에 몰린다 — 프로덕션에서
-// 그 봉우리를 쟀다(journal §105).
+// 미리 재는 쪽이 없으면 판이 끝나는 순간 手数가 한꺼번에 몰린다. 그 봉우리와, 대인전이
+// 대국 중에 엔진을 쓰기 시작한다는 것의 값은 journal §105.
 //
 // 착수 경로는 여전히 엔진을 모른다. internal/match 가 usi 를 import 하지 않는 규약은
-// 그대로이고, 미리 재는 것은 기록기를 지나 이 패키지에서 일어나며 착수를 막지 않는다.
+// 그대로이고, 미리 재는 것은 기록기를 지나 이 패키지에서 일어난다.
 //
-// 그래도 대인전이 대국 중에 엔진을 쓰기 시작한다. 같은 시간대의 엔진 대국과 풀을 다투는
-// 것이 이 설계의 값이다(journal §105).
-//
-// 워커 수는 손잡이다. 엔진 풀을 지금 두고 있는 사람들과 공유하는데(01-core.md §4)
-// 기본값이 풀 크기와 같다 — 풀이 사람이 기다리는 쪽에 먼저 빌려주므로 다 가져가도
-// 착수가 안 밀린다(usi.priorityOf · cmd/api).
+// 워커 수는 손잡이다. 기본값이 풀 크기와 같다 — 풀이 사람이 기다리는 쪽에 먼저
+// 빌려주므로 다 가져가도 착수가 안 밀린다(usi.priorityOf · cmd/api).
 //
 // 워커가 여럿이면 같은 판의 analyze 와 늦은 미리 재기가 겹친다. 평가치는 안 틀어진다 —
-// DB 에 쓰는 것은 analyze 의 순차 루프뿐이고 미리 재는 쪽은 자기 手의 행에만
-// 쓴다(journal §106). 겹칠 때 새는 자리는 remember 가 막는다.
+// DB 에 쓰는 것은 analyze 의 순차 루프뿐이다(journal §106). 새는 자리는 remember 가 막는다.
 //
 // 미리 재는 큐는 표다(analysis_plies · 018). 그래서 배포가 끼어도 그 手는 안 없어지고,
 // 리스가 낡으면 다음 워커가 도로 집는다 — 프로세스 밖에 있는 것이 소비자를 여럿으로
@@ -95,7 +90,7 @@ type judged struct {
 	before eval.Score
 	after  eval.Score
 	move   skill.Move
-	// category·bestCp 는 가져온 판의 悪手 줄에만 **읽힌다**(interventions). 대인전의 手도
+	// category·bestCp 는 가져온 판의 悪手 줄에만 읽힌다(interventions). 대인전의 手도
 	// 같은 판정을 지나 값이 차지만 그쪽은 이 칸을 안 본다 — 개입이 없는 갈래다.
 	//
 	// 스칼라와 짧은 문자열이라 이 구조체를 가볍게 둔 이유(explain.Facts 의 태그 슬라이스)에
@@ -166,11 +161,11 @@ const sweepInterval = 30 * time.Minute
 // 쓴다(game.DefaultMoveDeadline).
 //
 // 없으면 한 手가 워커를 영영 붙잡는다. 판정이 매 手 詰み solver 를 부르는데
-// (game.engineAnalyst.Judge) 그것이 `go mate infinite` 이라 스스로 안 끝나고, 취소로만
+// (game.engineAnalyst.Judge) 그것이 go mate infinite 이라 스스로 안 끝나고, 취소로만
 // 풀린다(usi.Engine.SearchMate). 대국 쪽은 세션이 시한을 걸어서 그 자리가 없다.
 //
-// 붙잡히는 것이 워커 하나로 안 끝난다. solver 풀이 둘뿐이고 詰み 게이지·종반 판정·퀴즈와
-// 공유라, 한 국면이 그 절반을 프로세스가 죽을 때까지 들고 있는다.
+// 붙잡히는 것이 워커 하나로 안 끝난다. solver 풀이 둘뿐이라 한 국면이 그 절반을
+// 들고 있는다(journal §95).
 const analysisJudgeDeadline = game.DefaultMoveDeadline
 
 // newMatchAnalyzer 는 워커를 띄운다. store 나 analyst 가 없으면 nil 을 준다 — 엔진

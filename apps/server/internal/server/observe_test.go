@@ -96,8 +96,8 @@ func TestRouteLabelIsThePattern(t *testing.T) {
 	}
 }
 
-// 라우팅에 안 걸린 요청은 라벨 하나로 모인다. 실제 경로를 라벨로 쓰면 스캐너 하나가
-// 계열을 무한히 늘리고, 그 메모리는 프로세스가 사는 동안 안 돌아온다.
+// 라우팅에 안 걸린 요청은 라벨 하나로 모인다. 실제 경로를 쓰면 계열이 무한히 늘어난다
+// (journal §90).
 func TestUnmatchedRoutesShareOneLabel(t *testing.T) {
 	reg := metrics.New("api", "test")
 	h := Handler(Options{Metrics: reg})

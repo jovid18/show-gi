@@ -21,8 +21,7 @@ type candidate struct {
 // 걸어 1위−2위 차를 잰다. 좁혀서 얼마를 아끼는지는 BestCandidates 의 doc.
 //
 // 두 기준이 서로 다른 것을 걸러 낸다 — 낙폭은 「사람이 여기서 틀렸다」이고, gap은 「정답이
-// 하나뿐이다」다. 낙폭만 쓰면 정답이 여럿인 국면이 문항이 되어 좋은 수를 둔 사람이
-// 「不正解」를 받고, gap만 쓰면 사람이 이미 맞게 둔 국면이 뽑힌다.
+// 하나뿐이다」다. 하나만 쓰면 어느 쪽으로 틀리는지는 journal §53.
 // 두 번째 값은 엔진이 답한 후보의 수다(mateItem 과 같은 규약).
 func (b *Builder) bestItems(
 	ctx context.Context, in Input, posAt []shogi.Position, mate *MateItem,

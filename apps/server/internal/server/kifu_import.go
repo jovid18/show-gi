@@ -27,7 +27,7 @@ import (
 // 원문을 두 번 받는다. 서버에 중간 상태를 안 두기 위해서다 — 파싱이 결정적이라 같은
 // 원문이 같은 결과를 주고, 그 한 번을 아끼자고 세션 표를 만들 값이 없다.
 //
-// **로그인한 사람만이다.** 익명끼리는 구별할 수단이 없어서(002_anonymous_games.sql)
+// 로그인한 사람만이다. 익명끼리는 구별할 수단이 없어서(002_anonymous_games.sql)
 // 「누구의 기보인가」에 답할 수가 없다.
 
 // maxImportsPerDay 는 한 사람이 하루에 가져올 수 있는 판 수다.
@@ -41,10 +41,9 @@ const maxImportsPerDay = 10
 
 // maxImportPlies 는 한 판으로 받아들이는 手数의 상한이다.
 //
-// **결정적 파서에도 건다.** 정규화 계층에 같은 상한이 있지만(kifunorm.MaxMoves) 그쪽은
-// 자기 응답을 묶는 것이고, 여기를 안 걸면 KIF 하나로 그 상한을 통째로 건너뛴다 — 千日手는
-// shogi.ValidateMove 가 안 막으므로 합법 수순만으로 몇 천 手를 적을 수 있고, 그 판이
-// 手数만큼의 엔진 판정을 줄에 세운다.
+// 결정적 파서에도 건다. 정규화 계층의 같은 상한은(kifunorm.MaxMoves) 자기 응답을 묶는
+// 것이라, 여기를 안 걸면 KIF 하나로 건너뛴다 — 千日手를 ValidateMove 가 안 막으므로
+// 합법 수순만으로 몇 천 手를 적을 수 있고, 그 판이 手数만큼의 판정을 줄에 세운다.
 //
 // 값을 실측으로 잡은 것이 아니다 [미확정]. 막으려는 것은 「사람이 둔 한 판」이 아니라
 // 千日手를 이어 붙인 수순이고, 실사용에서 이 값에 닿는 기보가 나오면 그때 옮긴다.
@@ -193,8 +192,8 @@ func (h *kifuHandler) create(w http.ResponseWriter, r *http.Request) {
 
 // read 는 결정적 파서를 먼저 대 보고, 전부 실패했을 때만 정규화 계층을 부른다.
 //
-// **순서가 이 기능의 전제다.** 같은 기보가 언제나 같은 결과를 주는 것이 기본값이고,
-// 정규화는 그 기본값이 성립하지 않는 자리에서만 돈다(internal/kifunorm).
+// 순서가 이 기능의 전제다(CLAUDE.md · journal §126). 정규화는 결정적 파서가 전부
+// 실패한 자리에서만 돈다(internal/kifunorm).
 func (h *kifuHandler) read(ctx context.Context, userID int64, text string) (kifu.ParsedGame, kifu.Notation, error) {
 	if len(text) > kifunorm.MaxInput {
 		return kifu.ParsedGame{}, "", kifunorm.ErrTooLarge
@@ -236,7 +235,7 @@ func (h *kifuHandler) read(ctx context.Context, userID int64, text string) (kifu
 
 // replay 는 옮겨 적은 표기를 룰 엔진으로 지나 판을 만든다.
 //
-// **여기가 정규화 계층의 출력이 수가 되는 유일한 문이다.** 캐시에서 온 것도 같은 문을
+// 여기가 정규화 계층의 출력이 수가 되는 유일한 문이다. 캐시에서 온 것도 같은 문을
 // 지난다 — 옮겨 적은 글자를 들고 있는 것이고, 수를 들고 있는 것이 아니다.
 //
 // 오류는 룰 엔진의 것을 그대로 돌려준다. 「몇 手目가 이상한가」를 아는 것이 그쪽이다.
@@ -374,8 +373,8 @@ func jaMoveError(ply int) string {
 
 // previewOf 는 읽은 것을 미리보기로 옮긴다.
 //
-// 표기를 여기서 만든다. 원문의 표기를 그대로 돌려주면 정규화를 지난 판과 안 지난 판이
-// 화면에서 다른 모양이 되고, 사람이 「이게 내가 올린 그 판인가」를 표기로 확인할 수 없다.
+// 표기를 여기서 만든다 — 원문 표기를 그대로 주면 정규화를 지난 판과 안 지난 판이
+// 화면에서 달라 보인다.
 func previewOf(g kifu.ParsedGame, notation kifu.Notation) importPreview {
 	out := importPreview{
 		Plies:       len(g.Moves),
@@ -446,7 +445,7 @@ func resultFromWord(v string) kifu.GameResult {
 	return kifu.ResultUnknown
 }
 
-// importedResultOf 는 기록에 적을 결과를 정한다. games.result 는 **주인 관점**이라 기보의
+// importedResultOf 는 기록에 적을 결과를 정한다. games.result 는 주인 관점이라 기보의
 // 先手/後手 승패를 자리로 뒤집는다 — 안 뒤집으면 後手로 둔 판의 승패가 통째로 반대가 된다.
 //
 // 기보가 말하면 그쪽이 이긴다. 사람이 자기 승패를 잘못 고르는 것보다 기록이 맞고,

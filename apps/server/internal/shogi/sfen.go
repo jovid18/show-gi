@@ -115,9 +115,9 @@ func ParseSFEN(s string) (Position, error) {
 			if !ok || t == King {
 				return pos, fmt.Errorf("sfen: invalid piece in hand %q", string(ch))
 			}
-			// 한 벌보다 많은 수는 개수가 아니다. **Hands 가 int8 이라 여기서 안 막으면
-			// 조용히 음수가 된다** — 200 이 −56 이 되고, 그 판은 Faults 를 통과하면서
-			// 룰 엔진이 打 70개를 내주는데 엔진에는 「1장」이 나간다(journal §NN).
+			// 한 벌보다 많은 수는 개수가 아니다. Hands 가 int8 이라 여기서 안 막으면
+			// 조용히 음수가 된다 — 200 이 −56 이 되고, 그 판은 Faults 를 통과하면서
+			// 룰 엔진이 打 70개를 내주는데 엔진에는 「1장」이 나간다(journal §97).
 			if count > handComplement {
 				return pos, fmt.Errorf("sfen: %d %c in hand is more than one set", count, upper)
 			}

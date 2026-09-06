@@ -36,7 +36,7 @@ type MeasuredPly struct {
 	DeltaWin      float64
 	Threshold     float64
 	Decided       bool
-	// Category·Best 는 가져온 판의 悪手 줄을 만드는 데만 **읽는다**. 대인전의 手도
+	// Category·Best 는 가져온 판의 悪手 줄을 만드는 데만 읽는다. 대인전의 手도
 	// 같은 판정을 지나므로 값은 채워지지만 그쪽은 이 칸을 안 본다(020_imported_games.sql).
 	Category string
 	Best     eval.Score

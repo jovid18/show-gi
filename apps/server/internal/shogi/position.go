@@ -116,10 +116,9 @@ func (f PositionFault) Message() string {
 
 // Faults 는 이 국면이 어긴 규칙 전부다. 비면 성립하는 국면이다.
 //
-// 하나에서 멈추지 않는다. 잘못 읽은 사진은 여러 자리가 함께 틀리고, 한 번에 하나만
-// 말하면 사람이 고치고 다시 누르기를 사유 수만큼 반복한다.
+// 하나에서 멈추지 않는다. 잘못 읽은 사진은 여러 자리가 함께 틀린다(journal §129).
 //
-// **말이 부족한 것은 여기서 안 본다.** 詰将棋처럼 말이 빠진 국면이 정상인 경우가 있어
+// 말이 부족한 것은 여기서 안 본다. 詰将棋처럼 말이 빠진 국면이 정상인 경우가 있어
 // InventoryExcess 가 이미 그렇게 나눠 두었고, 사진에서 온 판의 「39枚」는 거절이 아니라
 // 경고로 화면에 나간다(InventoryShortage).
 func (pos Position) Faults() []PositionFault {
@@ -150,7 +149,7 @@ func (pos Position) Faults() []PositionFault {
 
 		// 음수 持ち駒. ParseSFEN 이 막지만 Apply 로도 음수가 될 수 있고(그 함수 주석),
 		// 음수는 InventoryExcess 를 통과한다 — 합이 줄어들 뿐이라 「많다」로 안 걸린다.
-		// 그런데 movegen 은 `== 0` 만 보므로 打을 만들어 낸다.
+		// 그런데 movegen 은 == 0 만 보므로 打을 만들어 낸다.
 		for t := Pawn; t <= Rook; t++ {
 			if pos.Hands[color][t] < 0 {
 				out = append(out, PositionFault{

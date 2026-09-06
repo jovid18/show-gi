@@ -531,9 +531,8 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 	go h.generateQuiz(base, rec)
 
 	payload := summarize(rec, h.opts.Level)
-	// 段級은 기록이 아니라 추정기에서 온다. 기록에는 낙폭이 물러진 수에만 있어(§39 ⑥)
-	// 그것으로 다시 세면 통과한 수를 못 보고, 그 값은 상대가 겨냥한 강함과도 갈린다
-	// (journal §31).
+	// 段級은 기록이 아니라 추정기에서 온다. 기록으로 다시 세면 왜 틀리는지는
+	// journal §62, 상대의 강함과 갈리는 이유는 §31.
 	payload.Skill = skills.change()
 	// 번호는 여기서만 붙는다. 대국 화면은 자기 판의 번호를 모르고(기록이 WS 밖에서
 	// 비동기로 쓰인다), 총평이 되짚기로 건너가는 링크를 그리려면 그것이 필요하다.

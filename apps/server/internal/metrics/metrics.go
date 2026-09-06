@@ -233,9 +233,9 @@ func New(service, environment string) *Registry {
 	r.WSSessionsOpened = r.NewCounter("ws_sessions_opened_total",
 		"열린 WebSocket 대국 세션 수", "kind")
 
-	// 대기열의 셋은 EMF 에 안 올린다. 저쪽은 열 개로 묶여 있어서(emf.go 의 collect) 여기서
-	// 넷을 더하면 그 선을 넘고, 그 결정은 밴드 상수를 실제로 재는 회차에 같이 온다
-	// (journal §92의 남은 것). 그때까지는 /metrics 와 컨테이너 안에서 읽는다.
+	// 대기열의 셋은 EMF 에 안 올린다. 저쪽이 열 개로 묶여 있어(emf.go 의 collect) 선을
+	// 넘고, 그 결정은 밴드 상수를 재는 회차에 같이 온다(journal §92). 그때까지는
+	// /metrics 와 컨테이너 안에서 읽는다.
 	//
 	// 대기 중인 사람을 게이지로 안 센다. 대기열은 표에 있고(match_queue) 프로세스가 그것을
 	// 소유하지 않아서, 인스턴스마다 올렸다 내리면 탭을 닫은 사람이 영영 안 내려간다 —

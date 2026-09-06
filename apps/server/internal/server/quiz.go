@@ -143,8 +143,7 @@ func (h *quizHandler) get(w http.ResponseWriter, r *http.Request) {
 type mateRequest struct {
 	Moves []string `json:"moves"`
 	// Attempt 는 이 문항에서 몇 번째 시도인가(1부터). 화면이 센다 — 서버에 남기지
-	// 않는다. 몇 번 틀렸는지는 그 판의 사실이 아니라 지금 이 사람이 이 화면에서 하고 있는
-	// 일이고, 남기면 되짚기를 다시 열 때마다 「이미 세 번 틀린 문항」이 된다.
+	// 않는 이유는 journal §61.
 	//
 	// 이 값으로 정답을 살 수는 없다. 크게 적어 보내도 나가는 것은 Hint 뿐이고, 정답은
 	// 맞힐 때까지 응답에 실리지 않는다 — 그것이 채점을 서버에 둔 이유다(quizHintAttempt).
@@ -618,9 +617,8 @@ func mateMessage(p quiz.MateProgress, hint string) string {
 		// (ENGINE_MATE_PLIES, 기본 11) 안에서 詰み을 못 찾았거나, 애초에 안 물어봤다
 		// (1手 노드에서는 답이 안 바뀌므로 묻지 않는다 — quiz.expand).
 		//
-		// 그래서 「詰みません」도 「詰みが消えました」도 안 된다. 한계를 넘겨 늘어난 詰み은
-		// 여전히 강제되고(7手 뿌리에서 한 手 낭비하면 13手가 될 수 있다) 안 물어본 쪽은
-		// 말할 것이 아예 없다. 「이 수로는 詰み이 안 된다」는 둘 다에서 참이다.
+		// 그래서 「詰みません」도 「詰みが消えました」도 안 된다 — 둘 다에서 참인 말은
+		// 「이 수로는 詰み이 안 된다」뿐이다(journal §53).
 		head := "この手では詰みになりません。"
 		if p.Rest > 0 {
 			head = fmt.Sprintf("詰みは残りますが、%d手に伸びてしまいます。", 2+p.Rest)

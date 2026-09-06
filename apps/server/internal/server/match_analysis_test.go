@@ -174,7 +174,7 @@ func TestAFailureAfterTheWindowKeepsTheSamples(t *testing.T) {
 	}
 }
 
-// 手番이 시작 SFEN 에서 나온다. 駒落ち는 上手(後手)가 1手目를 두므로, `ply` 홀짝으로
+// 手番이 시작 SFEN 에서 나온다. 駒落ち는 上手(後手)가 1手目를 두므로, ply 홀짝으로
 // 가르면 두 사람의 값이 통째로 바뀐 채 멀쩡해 보인다(journal §88).
 //
 // 대인전은 지금 平手 확정이라 이 국면은 실제로 안 나온다. 그래도 재는 것은, 홀짝으로
@@ -365,7 +365,7 @@ func TestAJudgementCannotHangTheAnalyzer(t *testing.T) {
 	}
 }
 
-// hangingAnalyst 는 취소될 때까지 안 돌아온다 — `go mate infinite` 이 걸린 자리와 같다.
+// hangingAnalyst 는 취소될 때까지 안 돌아온다 — go mate infinite 이 걸린 자리와 같다.
 type hangingAnalyst struct{}
 
 func (hangingAnalyst) Judge(ctx context.Context, _ string, _ []string, _ int) (game.Judgement, error) {

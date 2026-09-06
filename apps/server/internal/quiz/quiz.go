@@ -163,8 +163,7 @@ type MateVerdict struct {
 	Correct bool `json:"correct,omitempty"`
 	// Defense 는 玉方의 최장 방어다. Correct && !Mated 일 때만 있다.
 	//
-	// 최장이 동률인 응수가 여럿일 때 결정적으로 고른다 — 매번 다르게 응수하면 같은
-	// 문제가 열 때마다 다르게 흘러가고, 사람은 그것을 고장으로 읽는다.
+	// 최장이 동률인 응수가 여럿일 때 결정적으로 고른다(journal §53).
 	Defense string `json:"defense,omitempty"`
 	// Rest 는 이 수와 Defense 뒤에 남는 詰みまでの手数다. 0이면 詰み이 사라진다.
 	//

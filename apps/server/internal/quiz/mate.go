@@ -180,9 +180,8 @@ func (s *mateSolver) defend(
 		if d == 0 {
 			return 0, "", shogi.Position{}, true
 		}
-		// 동률이면 USI 순서로 정한다. 매번 다르게 응수하면 같은 문제가 열 때마다
-		// 다르게 흘러가고, 사람은 그것을 고장으로 읽는다. 手数가 같으니 문제의 성질은
-		// 안 변한다.
+		// 동률이면 USI 순서로 정한다. 같은 문제가 언제나 같게 흘러가야 하고(journal §53)
+		// 手数가 같으니 문제의 성질은 안 변한다.
 		u := r.USI()
 		if d > best || (d == best && u < defense) {
 			best, defense, next = d, u, rp
@@ -244,9 +243,8 @@ func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position
 		}
 	}()
 
-	// 정석 구간도 훑는다. OpeningPlies 는 「최선수는?」 문항의 것이고(둘 만한 수가
-	// 여럿인 자리를 문항으로 안 내려는 값이다) 詰み에는 그 이유가 없다 — 棒銀·早石田의
-	// 함정으로 20手 안에 끝나는 판이 이 기능이 겨냥하는 초심자 그 자체다.
+	// 정석 구간도 훑는다. OpeningPlies 는 「최선수는?」 문항의 것이고 詰み에는 그 이유가
+	// 없다(journal §53).
 	for i := 0; i < len(posAt); i++ {
 		pos := posAt[i]
 		if pos.Turn != in.Human {
