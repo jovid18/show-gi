@@ -74,7 +74,7 @@ type Options struct {
 	// 되짚기는 그대로 돈다.
 	Search Searcher
 
-	// KifuNorm 은 읽을 수 없는 형식의 기보를 표기 한 벌로 옮기는 창구다(internal/kifunorm).
+	// KifuNorm 은 읽을 수 없는 형식의 기보를 결정적 파서가 읽는 표기로 옮기는 창구다(internal/kifunorm).
 	// nil이면 그 폴백만 꺼지고, 결정적 파서로 읽히는 기보는 그대로 가져온다.
 	KifuNorm *kifunorm.Client
 

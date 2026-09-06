@@ -134,7 +134,7 @@ func (st *state) snapshot() *snapshotData {
 	return d
 }
 
-// for_ 는 그쪽이 보는 한 벌로 편다. 여기가 「너」와 「상대」가 정해지는 유일한 자리다.
+// for_ 는 그쪽이 보는 모양으로 편다. 여기가 「너」와 「상대」가 정해지는 유일한 자리다.
 func (d *snapshotData) for_(you shogi.Color) Snapshot {
 	s := Snapshot{
 		SFEN:           d.sfen,

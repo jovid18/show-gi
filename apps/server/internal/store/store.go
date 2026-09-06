@@ -966,7 +966,7 @@ func summaryOf(h gameHead, moves, ivs int64) GameSummary {
 }
 
 // gameHead 는 한 판의 머리다. 주인을 보는 질의와 안 보는 질의가 같은 칸을 다른
-// 행 타입으로 주므로, 아래 읽는 코드를 한 벌로 두려고 여기서 만난다 —
+// 행 타입으로 주므로, 아래 읽는 코드를 하나로 두려고 여기서 만난다 —
 // 목록 두 질의도 같은 이유로 여기서 만난다(summaryOf).
 type gameHead struct {
 	ID         int64

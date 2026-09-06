@@ -34,7 +34,7 @@ const maxTranscribesPerHour = 20
 // 순간에 두 배가 지나간다.
 //
 // 상한이 둘이다. 기보를 옮겨 적는 것과 그림에서 판을 읽는 것이 각자 창을 갖는다
-// (maxTranscribesPerHour · maxBoardReadsPerHour) — 한 벌로 세면 그림 한 장이 기보
+// (maxTranscribesPerHour · maxBoardReadsPerHour) — 하나로 세면 그림 한 장이 기보
 // 스무 번의 몫을 나눠 쓰게 되고, 값이 다른 두 호출에 같은 자를 대는 일이 된다.
 type hourlyBudget struct {
 	mu   sync.Mutex

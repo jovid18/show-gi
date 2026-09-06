@@ -11,7 +11,7 @@ import type { WhatIfNode, WhatIfRequest } from '@/protocol/whatif';
  *
  * 오가는 길은 세 가지다. 되짚는 판은 HTTP, 대국 중의 블런더 화면은 그 대국의
  * WebSocket, 검토는 또 다른 HTTP다(`/api/explore`). 그 차이를 `send` 하나로 밀어내서
- * 장치는 한 벌로 둔다.
+ * 장치는 하나로 둔다.
  *
  * 노드 타입이 표면마다 늘어날 수 있다. 검토는 `WhatIfNode` 에 그 手合의 「형세 0」을
  * 얹어서 받는데(`ExploreNode`), 그 칸을 여기 공용 타입에 넣으면 되짚기·대국이 절대
