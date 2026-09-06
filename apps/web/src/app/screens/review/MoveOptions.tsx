@@ -70,7 +70,7 @@ interface Option {
    */
   undone: { tries: number } | null;
   /**
-   * 취해 온 판에서 悪手로 판정된 수라면 그 카테고리.
+   * 가져온 판에서 悪手로 판정된 수라면 그 카테고리.
    *
    * `retracted` 와 따로 둔다. 저쪽은 「두려던 것을 AI 가 막았다」라 기보에 없는 수인데,
    * 이쪽은 **그대로 둔 수**다 — 같은 칸에 넣으면 화면이 그 수를 물러진 것으로 그리고,
@@ -133,7 +133,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
     const next: ReviewMove | undefined = atRoot ? game.moves[ply] : undefined;
     if (next) put(next.usi, next.ja || next.usi, { played: next.by, ...moverScore(measured.get(next.usi)) });
 
-    // 취해 온 판의 悪手는 실제로 둔 수 그 자체다. 아무도 안 막았으므로 아래 「물러진 수」
+    // 가져온 판의 悪手는 실제로 둔 수 그 자체다. 아무도 안 막았으므로 아래 「물러진 수」
     // 목록에는 줄이 없고(`retractedUsi` 가 비어 있다), 여기서 그 줄에 이름을 붙이지 않으면
     // 판정한 것이 화면 어디에도 안 나온다.
     if (next && game.imported === true) {
@@ -223,8 +223,8 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
                     {o.retracted.tries > 1 && ` ×${o.retracted.tries}`}
                   </span>
                 )}
-                {/* 취해 온 판의 悪手. 위 줄과 모양이 같다 — 둘 다 「이 수가 왜 나빴나」를
-                    카테고리 이름으로 말하고, 한 판이 둘을 겸할 수 없어서(취해 온 판에는
+                {/* 가져온 판의 悪手. 위 줄과 모양이 같다 — 둘 다 「이 수가 왜 나빴나」를
+                    카테고리 이름으로 말하고, 한 판이 둘을 겸할 수 없어서(가져온 판에는
                     개입이 없다) 같은 목록에 나란히 설 일이 없다. */}
                 {o.blunder && <span data-role="blunder">{o.blunder.categoryJa || '悪手'}</span>}
                 {/* AI가 막은 것과 다른 표식이다. 저 줄은 카테고리 이름(タダ捨て)을 들고
@@ -244,7 +244,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
             {/* 왜 나빴는지는 고른 줄에만. 넷을 한꺼번에 펼치면 목록이 글이 된다. */}
             {chosen === o.usi && o.retracted?.message && <p className="review-iv-note">{o.retracted.message}</p>}
 
-            {/* 취해 온 판의 悪手는 고르는 것과 무관하게 편다.
+            {/* 가져온 판의 悪手는 고르는 것과 무관하게 편다.
 
                 그 줄은 실제로 둔 수라 눌러도 분기가 안 열리고(`onPick` 의 played),
                 그래서 위 조건으로는 문구에 닿는 길이 아예 없다. 목록이 글이 되지도

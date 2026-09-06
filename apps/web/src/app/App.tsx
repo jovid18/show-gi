@@ -43,7 +43,7 @@ const ExploreScreen = lazy(async () => ({
 }));
 
 /**
- * 취해 오기도 나중에 받는다. 상자 하나와 미리보기가 전부라 첫 화면에 실릴 이유가 없고,
+ * 가져오기도 나중에 받는다. 상자 하나와 미리보기가 전부라 첫 화면에 실릴 이유가 없고,
  * 라우트가 이미 갈라져 있다.
  */
 const ImportScreen = lazy(async () => ({
@@ -182,7 +182,7 @@ export function App() {
                  부르면 `/api/me` 요청이 하나 더 나간다(홈 메뉴와 같은 규약). */
               <ImportScreen me={me} />
             ) : route.name === 'position' ? (
-              // 사진에서 국면을 취해 오는 화면. 취해 오기와 같은 자리에 있다 —
+              // 사진에서 국면을 가져오는 화면. 가져오기와 같은 자리에 있다 —
               // 로그인 검사가 있고, 끝나면 다른 화면으로 옮겨 간다(journal §129).
               <PositionScreen me={me} />
             ) : route.name === 'explore' ? (

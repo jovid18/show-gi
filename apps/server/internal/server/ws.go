@@ -567,7 +567,7 @@ func (h *gameHandler) generateQuiz(parent context.Context, rec store.GameRecord)
 }
 
 // generateQuiz 는 끝난 판에서 문항을 만들어 저장한다. 부르는 자리가 둘이다 —
-// 엔진 대국이 끝나는 자리(gameHandler)와 취해 온 기보의 분석이 끝나는 자리
+// 엔진 대국이 끝나는 자리(gameHandler)와 가져온 기보의 분석이 끝나는 자리
 // (matchAnalyzer.buildQuiz). 어느 쪽이든 기록 하나만 있으면 된다.
 func generateQuiz(parent context.Context, st *store.Store, builder *quiz.Builder, rec store.GameRecord) {
 	if st == nil {

@@ -59,7 +59,7 @@ type matchAnalyzer struct {
 	// analysis 는 계측 창구다. 늘 non-nil 이다(metrics.Registry.Analysis).
 	analysis *metrics.Analysis
 
-	// quiz·level 은 취해 온 기보에만 쓴다. 대인전은 문항을 안 만들고 개입도 없다.
+	// quiz·level 은 가져온 기보에만 쓴다. 대인전은 문항을 안 만들고 개입도 없다.
 	quiz  *quiz.Builder
 	level intervene.Level
 
@@ -94,7 +94,7 @@ type judged struct {
 	beforeCp int
 	afterCp  int
 	move     skill.Move
-	// category·bestCp 는 취해 온 판의 悪手 줄에만 **읽힌다**(interventions). 대인전의 手도
+	// category·bestCp 는 가져온 판의 悪手 줄에만 **읽힌다**(interventions). 대인전의 手도
 	// 같은 판정을 지나 값이 차지만 그쪽은 이 칸을 안 본다 — 개입이 없는 갈래다.
 	//
 	// 스칼라와 짧은 문자열이라 이 구조체를 가볍게 둔 이유(explain.Facts 의 태그 슬라이스)에
@@ -382,7 +382,7 @@ func (a *matchAnalyzer) runOneJob(ctx context.Context) bool {
 // 반대 방향이고, 자리가 하나뿐이면 반쪽 판이라 아무것도 안 준다 — 채운 평가치가 한
 // 사람에게만 보이는 판을 만들지 않는다(matchRecords.collect 와 같은 판단).
 //
-// 취해 온 기보는 자리가 하나다. 키가 그 갈래를 말한다(kifu_analysis.go) — 표에 갈래를
+// 가져온 기보는 자리가 하나다. 키가 그 갈래를 말한다(kifu_analysis.go) — 표에 갈래를
 // 적는 칸을 안 만든 이유가 그것이다.
 func (a *matchAnalyzer) seatsOf(ctx context.Context, key string) []analysisSeat {
 	if gameID, ok := importedGameID(key); ok {
@@ -735,7 +735,7 @@ func contiguousMoves(rec store.GameRecord) ([]string, bool) {
 // 중간에 끊긴 판은 done 이 아니다.
 func (a *matchAnalyzer) analyze(ctx context.Context, key string, seats []analysisSeat) string {
 	ids := gameIDsOf(seats)
-	// 취해 온 판은 판정 결과가 悪手 줄로 남는다. 대인전은 개입이 없어 그 자리가 비어 있다.
+	// 가져온 판은 판정 결과가 悪手 줄로 남는다. 대인전은 개입이 없어 그 자리가 비어 있다.
 	_, imported := importedGameID(key)
 	// 평가치는 두 행에 다 쓰지만(ids) 기보는 한 행에서 읽는다. 아래 로그가 rec.ID 를
 	// 쓰는 것은 그래서다 — 폴백이 걸린 판에서 ids[0] 을 적으면 안 읽은 행을 가리킨다.
@@ -805,7 +805,7 @@ func (a *matchAnalyzer) analyze(ctx context.Context, key string, seats []analysi
 					byColor[c] = append(byColor[c], m)
 				}
 			}
-			// 취해 온 판에서만, 그 사람이 둔 悪手를 줄로 남긴다. 상대의 悪手까지 남기면
+			// 가져온 판에서만, 그 사람이 둔 悪手를 줄로 남긴다. 상대의 悪手까지 남기면
 			// 마이페이지의 「崩れやすいところ」가 두 사람 몫을 한 사람 것으로 센다.
 			if imported && got.move.Blunder && c == seats[0].color {
 				a.recordBlunder(ctx, seats[0].gameID, ply, c, got)

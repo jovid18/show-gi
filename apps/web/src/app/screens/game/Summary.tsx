@@ -112,7 +112,7 @@ export function Summary({ summary, imported = false }: { summary: GameSummary | 
               <dd>{summary.stats.playerMoves}</dd>
             </div>
             <div>
-              {/* 취해 온 판에서는 아무도 그 수를 막지 않았다. 「戻した回数」라고 적으면
+              {/* 가져온 판에서는 아무도 그 수를 막지 않았다. 「戻した回数」라고 적으면
                   없던 일을 있었다고 말하는 것이 된다 — 문장도 같은 자리에서 갈린다
                   (`explain.GameFacts.Intervened`). */}
               <dt>{imported ? '悪手の数' : '戻した回数'}</dt>

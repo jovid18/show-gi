@@ -15,7 +15,7 @@ import { parseSfen, toSfen, type Board as BoardModel } from '@/models/sfen';
 import { navigate } from '@/routes/router';
 
 /**
- * 「局面を読み取る」 — 판이 찍힌 그림을 올려 국면을 취해 오는 화면(journal §129).
+ * 「局面を読み取る」 — 판이 찍힌 그림을 올려 국면을 가져오는 화면(journal §129).
  *
  * 세 걸음이다. 그림을 올리고, 읽어 낸 판을 사람이 확인해 고치고, 手番을 고른다.
  * 그 셋이 끝나면 국면이 검토의 주소가 되어(`routeExplore` 의 `s`) 이 화면을 떠난다 —

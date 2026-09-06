@@ -18,9 +18,9 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 밖에서 둔 자기 기보를 취해 오는 표면. 근거와 정한 것은 journal §126.
+// 밖에서 둔 자기 기보를 가져오는 표면. 근거와 정한 것은 journal §126.
 //
-// 두 단계다. 읽기(POST /api/kifu/parse)는 엔진도 DB도 안 쓰고 즉시 답하며, 취해 오기
+// 두 단계다. 읽기(POST /api/kifu/parse)는 엔진도 DB도 안 쓰고 즉시 답하며, 가져오기
 // (POST /api/kifu/import)가 판을 만들어 줄에 세운다 — 잘못 읽은 기보에 엔진 몇 분을
 // 쓰지 않기 위해서고, 그 사이에 사람이 手数와 앞뒤의 수를 눈으로 확인한다.
 //
@@ -30,7 +30,7 @@ import (
 // **로그인한 사람만이다.** 익명끼리는 구별할 수단이 없어서(002_anonymous_games.sql)
 // 「누구의 기보인가」에 답할 수가 없다.
 
-// maxImportsPerDay 는 한 사람이 하루에 취해 올 수 있는 판 수다.
+// maxImportsPerDay 는 한 사람이 하루에 가져올 수 있는 판 수다.
 //
 // 엔진 예산의 상한이다. 판 하나가 手数만큼의 판정이고 §91 실측으로 판당 2~8분이라,
 // 이 값이 곧 「한 사람이 분석 대를 얼마나 오래 잡을 수 있나」다.
@@ -53,7 +53,7 @@ const maxImportPlies = 512
 // importPreviewHead·importPreviewTail 은 미리보기에 세우는 手数다.
 //
 // 앞뒤를 같이 보여 준다. 앞만 보여 주면 「뒤가 잘렸는가」를 사람이 알 수 없고, 그것이
-// 취해 오기에서 가장 흔한 오류다.
+// 가져오기에서 가장 흔한 오류다.
 const (
 	importPreviewHead = 6
 	importPreviewTail = 3
@@ -72,7 +72,7 @@ type kifuHandler struct {
 	// budget 은 정규화를 부르는 횟수의 상한이다. 하루 몫이 판을 세는 자리라 이쪽을
 	// 안 막는다(kifu_budget.go).
 	budget *hourlyBudget
-	// cached 는 방금 옮겨 적은 결과다. 미리보기에서 확인한 판이 취해 오는 판과 같아야
+	// cached 는 방금 옮겨 적은 결과다. 미리보기에서 확인한 판이 가져오는 판과 같아야
 	// 하고, 정규화는 다시 물으면 같은 답을 준다는 보장이 없다(kifu_budget.go).
 	cached *transcribeCache
 }
@@ -125,7 +125,7 @@ func (h *kifuHandler) parse(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, previewOf(g, notation))
 }
 
-// importResponse 는 취해 온 판의 번호다. 화면이 그 자리에서 되짚기로 옮겨 간다.
+// importResponse 는 가져온 판의 번호다. 화면이 그 자리에서 되짚기로 옮겨 간다.
 type importResponse struct {
 	GameID int64 `json:"gameId"`
 }
@@ -183,7 +183,7 @@ func (h *kifuHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 줄에 세우는 데 실패해도 판은 남는다. 평가치 없는 판이 되짚기에 그대로 뜨고,
-	// 사람은 자기 기보를 잃지 않는다 — 다시 취해 오면 새 판으로 다시 선다.
+	// 사람은 자기 기보를 잃지 않는다 — 다시 가져오면 새 판으로 다시 선다.
 	if err := h.analyzer.enqueueImport(r.Context(), gameID, g.StartSFEN, g.Moves); err != nil {
 		log.Printf("kifu: could not queue imported game %d: %v", gameID, err)
 	}
@@ -207,7 +207,7 @@ func (h *kifuHandler) read(ctx context.Context, userID int64, text string) (kifu
 		return kifu.ParsedGame{}, "", err
 	}
 
-	// 방금 옮겨 적은 것이 있으면 그것을 쓴다. 미리보기와 취해 오기가 원문을 두 번
+	// 방금 옮겨 적은 것이 있으면 그것을 쓴다. 미리보기와 가져오기가 원문을 두 번
 	// 보내는데(위 패키지 주석) 「같은 원문이면 같은 결과」가 이 계층에는 없어서,
 	// 다시 물으면 사람이 확인한 것과 다른 판이 들어올 수 있다.
 	if got, ok := h.cached.get(userID, text); ok {
@@ -290,7 +290,7 @@ func (h *kifuHandler) save(
 		}
 	}
 	// 결과를 여기서 적는다. 되짚기 목록에 뜨는 조건이 result IN (win, loss, draw) 라,
-	// 안 적으면 방금 취해 온 판이 어디에도 안 보인다.
+	// 안 적으면 방금 가져온 판이 어디에도 안 보인다.
 	if err := h.store.FinishGame(ctx, gameID, result); err != nil {
 		return 0, err
 	}
@@ -398,7 +398,7 @@ func previewOf(g kifu.ParsedGame, notation kifu.Notation) importPreview {
 }
 
 // lineJa 는 수순을 棋譜 표기로 옮긴다. 못 옮기면 빈 목록이다 — 미리보기가 없는 것은
-// 手数만 보고 취해 오는 화면이고, 그것 때문에 임포트를 막지는 않는다.
+// 手数만 보고 가져오는 화면이고, 그것 때문에 임포트를 막지는 않는다.
 func lineJa(g kifu.ParsedGame) []string {
 	pos, err := shogi.ParseSFEN(g.StartSFEN)
 	if err != nil {
@@ -476,11 +476,11 @@ func importedResultOf(fromKifu kifu.GameResult, color, chosen string) (store.Gam
 		return store.ResultDraw, true
 	}
 	// 중단된 판은 안 받는다. 되짚기 목록에 뜨는 조건이 셋 중 하나라(query/games.sql)
-	// abandoned 로 적으면 취해 온 판이 어디에도 안 보인다.
+	// abandoned 로 적으면 가져온 판이 어디에도 안 보인다.
 	return "", false
 }
 
-// kifuImportUnavailable 은 취해 오기가 꺼져 있는 배포의 답이다. DB나 엔진이 없는 자리이고,
+// kifuImportUnavailable 은 가져오기가 꺼져 있는 배포의 답이다. DB나 엔진이 없는 자리이고,
 // 화면은 /healthz 를 보고 그 줄을 미리 감춘다.
 func kifuImportUnavailable(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusServiceUnavailable, map[string]any{

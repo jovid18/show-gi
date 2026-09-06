@@ -30,7 +30,7 @@ func TestRenderSummaryCoversEveryCombination(t *testing.T) {
 			for _, tr := range []Trend{TrendUnknown, TrendImproved, TrendWorsened, TrendSteady} {
 				for _, w := range weights {
 					for _, top := range tops {
-						// 개입이 돈 판과 취해 온 판 둘 다 돈다. 문구가 그 값으로 갈리므로
+						// 개입이 돈 판과 가져온 판 둘 다 돈다. 문구가 그 값으로 갈리므로
 						// (phraseTop) 한쪽만 돌면 다른 쪽의 조합이 시험을 안 지난다.
 						for _, iv := range []bool{true, false} {
 							f := GameFacts{
@@ -52,7 +52,7 @@ func TestRenderSummaryCoversEveryCombination(t *testing.T) {
 	}
 }
 
-// 취해 온 판에서는 아무도 그 수를 막지 않았다. 「戻す」로 말하면 없던 일을 있었다고
+// 가져온 판에서는 아무도 그 수를 막지 않았다. 「戻す」로 말하면 없던 일을 있었다고
 // 말하는 것이고, 그건 이 화면에서 가장 새기 쉬운 거짓이다(journal §126).
 func TestSummaryDoesNotSayItWasStoppedWhenNothingWas(t *testing.T) {
 	cats := [][]intervene.Category{

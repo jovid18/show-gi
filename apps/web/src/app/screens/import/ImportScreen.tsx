@@ -7,10 +7,10 @@ import type { MyColor } from '@/protocol/review';
 import { navigate } from '@/routes/router';
 
 /**
- * 밖에서 둔 자기 기보를 취해 오는 화면(docs/journal §126).
+ * 밖에서 둔 자기 기보를 가져오는 화면(docs/journal §126).
  *
  * 두 단계로 나눠 놓았다. 먼저 읽어서 手数와 앞뒤 수를 보여 주고, 사람이 「이 판이 맞다」와
- * 「내가 어느 쪽이었나」를 확인한 뒤에야 취해 온다 — 잘못 읽은 기보 하나가 엔진 몇 분이라,
+ * 「내가 어느 쪽이었나」를 확인한 뒤에야 가져온다 — 잘못 읽은 기보 하나가 엔진 몇 분이라,
  * 확인이 없으면 그 시간이 통째로 버려진다.
  *
  * 붙여 넣기와 파일 선택이 같은 자리로 흘러간다. 파일은 글자를 읽어 같은 상자에 넣을 뿐이라
@@ -37,7 +37,7 @@ export function ImportScreen({ me }: { me: MeResponse }) {
 }
 
 /**
- * 취해 오기가 로그인을 요구하는 이유를 먼저 말한다. 익명끼리는 구별할 수단이 없어서
+ * 가져오기가 로그인을 요구하는 이유를 먼저 말한다. 익명끼리는 구별할 수단이 없어서
  * (`002_anonymous_games.sql`) 「누구의 기보인가」에 답할 수가 없다.
  */
 function SignInFirst({ enabled }: { enabled: boolean }) {
@@ -73,7 +73,7 @@ function ImportForm() {
     (next: string) => {
       setText(next);
       // 원문이 바뀌면 앞의 미리보기는 다른 판의 것이다. 남겨 두면 사람이 남의 手数를
-      // 보면서 취해 오기를 누른다.
+      // 보면서 가져오기를 누른다.
       if (preview || error) reset();
     },
     [preview, error, reset],
@@ -196,7 +196,7 @@ function ImportForm() {
           </dl>
 
           {/* 앞뒤를 같이 보여 준다. 앞만 보여 주면 「뒤가 잘렸는가」를 알 수 없고,
-              그것이 취해 오기에서 가장 흔한 오류다. */}
+              그것이 가져오기에서 가장 흔한 오류다. */}
           <p className="import__moves">
             {preview.head.join(' ')}
             {preview.tail !== undefined && preview.tail.length > 0 && ` … ${preview.tail.join(' ')}`}

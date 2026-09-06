@@ -56,7 +56,7 @@ erDiagram
         text opening_tag "상대가 고른 진형"
         text_array style_tags "사람이 짠 囲い·전법·戦型"
         text match_id "있으면 대인전 · NULL 이면 AI 연습"
-        text imported_from "있으면 취해 온 기보 · 무엇으로 읽었나"
+        text imported_from "있으면 가져온 기보 · 무엇으로 읽었나"
         text result "win|loss|draw|abandoned|declined"
         timestamptz started_at
         timestamptz finished_at
@@ -171,7 +171,7 @@ erDiagram
         float delta_win
         float threshold
         boolean decided
-        text category "취해 온 판의 悪手 이름 · 대인전은 NULL"
+        text category "가져온 판의 悪手 이름 · 대인전은 NULL"
         int best_cp "두는 쪽 관점 · 대인전은 NULL"
         timestamptz created_at
     }
@@ -199,9 +199,9 @@ erDiagram
 
 **작업 큐는 넷째 덩어리다.** 둘 다 분석 키로 묶이고 사람에도 판 번호에도 안 매인다. 수명이 다른 셋과 다르다: **판이 끝나면 걷힌다**(`DiscardAnalysisMatch`·`DropAnalysisJob`). 기록이 아니라 아직 안 한 일이라서다.
 
-**`match_id` 컬럼이 「방 id」가 아니라 분석 키다**([journal §126](../journal/121-140.md)). 갈래가 둘이다 — 대인전은 방 id(영숫자 8자), 취해 온 기보는 `import:<games.id>`. 콜론이 그 둘을 가른다. **컬럼 이름을 안 바꿨다**: 공유 DB에서 `RENAME` 은 남의 서버를 그 자리에서 깨뜨린다.
+**`match_id` 컬럼이 「방 id」가 아니라 분석 키다**([journal §126](../journal/121-140.md)). 갈래가 둘이다 — 대인전은 방 id(영숫자 8자), 가져온 기보는 `import:<games.id>`. 콜론이 그 둘을 가른다. **컬럼 이름을 안 바꿨다**: 공유 DB에서 `RENAME` 은 남의 서버를 그 자리에서 깨뜨린다.
 
-**취해 온 판은 자리가 하나다.** `games` 행 하나가 곧 그 자리이고, 그래서 분석기가 키를 보고 어느 쪽 질의를 부를지 정한다(`MatchSeats` 대 `ImportSeat`).
+**가져온 판은 자리가 하나다.** `games` 행 하나가 곧 그 자리이고, 그래서 분석기가 키를 보고 어느 쪽 질의를 부를지 정한다(`MatchSeats` 대 `ImportSeat`).
 
 **자리도 수순도 여기 다 적히지는 않는다.** `analysis_jobs` 가 자리를 안 드는 것은 `games` 행 둘이 곧 두 자리이기 때문이고([journal §118](../journal/101-120.md)), `analysis_plies` 가 수순을 드는 것은 `game_moves` 에 구멍이 날 수 있어서다([journal §115](../journal/101-120.md)). **가르는 기준은 「정본이 이미 있는가」다.**
 

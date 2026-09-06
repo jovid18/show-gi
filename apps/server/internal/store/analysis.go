@@ -35,7 +35,7 @@ type MeasuredPly struct {
 	DeltaWin          float64
 	Threshold         float64
 	Decided           bool
-	// Category·BestCp 는 취해 온 판의 悪手 줄을 만드는 데만 **읽는다**. 대인전의 手도
+	// Category·BestCp 는 가져온 판의 悪手 줄을 만드는 데만 **읽는다**. 대인전의 手도
 	// 같은 판정을 지나므로 값은 채워지지만 그쪽은 이 칸을 안 본다(020_imported_games.sql).
 	Category string
 	BestCp   int
@@ -265,7 +265,7 @@ func (s *Store) AnalysisJobBacklog(ctx context.Context, leaseBefore time.Time) (
 
 // IsGameAnalyzing 은 그 판이 아직 큐에 있거나 도는 중인가다.
 //
-// 키를 받는다. 대인전은 games.match_id 로 조인해 찾지만 취해 온 판은 그 칸이 NULL 이라
+// 키를 받는다. 대인전은 games.match_id 로 조인해 찾지만 가져온 판은 그 칸이 NULL 이라
 // 줄에 세울 때 쓴 키가 있어야 찾는다 — 키의 모양은 부르는 쪽에만 있다(server 의 importKey).
 func (s *Store) IsGameAnalyzing(ctx context.Context, gameID int64, importKey string) (bool, error) {
 	ok, err := s.q.IsGameAnalyzing(ctx, db.IsGameAnalyzingParams{GameID: gameID, ImportKey: importKey})
@@ -275,7 +275,7 @@ func (s *Store) IsGameAnalyzing(ctx context.Context, gameID int64, importKey str
 	return ok != nil && *ok, nil
 }
 
-// ImportSeat 은 취해 온 판의 자리 하나다. 없으면 ErrNoGame.
+// ImportSeat 은 가져온 판의 자리 하나다. 없으면 ErrNoGame.
 //
 // 대인전이 행 둘이라 자리 둘인 것과 갈리는 자리다(MatchSeats). 분석기가 키를 보고
 // 어느 쪽을 부를지 정한다.
@@ -294,7 +294,7 @@ func (s *Store) ImportSeat(ctx context.Context, gameID int64) (MatchSeat, error)
 	return MatchSeat{GameID: row.ID, UserID: user, Color: row.MyColor}, nil
 }
 
-// BulkEnqueueAnalysisPlies 는 판 하나의 手를 한 번에 세운다. 취해 온 기보만 부른다 —
+// BulkEnqueueAnalysisPlies 는 판 하나의 手를 한 번에 세운다. 가져온 기보만 부른다 —
 // 수순 전부를 이미 알기 때문이고, 그래서 워커가 몇이든 手들이 병렬로 재어진다.
 func (s *Store) BulkEnqueueAnalysisPlies(ctx context.Context, plies []AnalysisPly) error {
 	if len(plies) == 0 {

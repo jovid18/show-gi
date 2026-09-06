@@ -10,7 +10,7 @@ import (
 )
 
 // Notation 은 무엇으로 읽었는가다. games.imported_from 에 그대로 들어가고, 그 칸이
-// 「취해 온 기보인가」와 「LLM 이 손댔는가」를 같이 말한다(020_imported_games.sql).
+// 「가져온 기보인가」와 「LLM 이 손댔는가」를 같이 말한다(020_imported_games.sql).
 type Notation string
 
 const (

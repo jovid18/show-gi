@@ -30,7 +30,7 @@ type stubAnalyst struct {
 	// lossOdd·lossEven 은 홀수·짝수 手의 승률 낙폭이다. 둘을 따로 두면 누구의 프로파일에
 	// 무엇이 쌓였는지를 값으로 셀 수 있다.
 	lossOdd, lossEven float64
-	// blunder 가 참이면 낙폭이 있는 手를 개입 판정으로 답한다. 취해 온 판의 悪手 줄이
+	// blunder 가 참이면 낙폭이 있는 手를 개입 판정으로 답한다. 가져온 판의 悪手 줄이
 	// 그 값에서 나오고(kifu_analysis.go), 대인전 쪽 회차는 이 칸을 안 켠다 — 켜면
 	// skill.Move.Blunder 가 바뀌어 그쪽 회차의 셈이 같이 움직인다.
 	blunder bool

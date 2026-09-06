@@ -89,8 +89,8 @@ describe('parseRoute', () => {
     expect(parseRoute('/guide/anything')).toEqual({ name: 'guide' });
   });
 
-  // 취해 오기도 꼬리를 안 본다. 주소가 아무것도 안 든다 — 붙여 넣은 글은 화면 안에만 있다.
-  it('취해 오기', () => {
+  // 가져오기도 꼬리를 안 본다. 주소가 아무것도 안 든다 — 붙여 넣은 글은 화면 안에만 있다.
+  it('가져오기', () => {
     expect(parseRoute('/import')).toEqual({ name: 'import' });
     expect(parseRoute('/import/')).toEqual({ name: 'import' });
     expect(parseRoute('/import/anything')).toEqual({ name: 'import' });
@@ -252,7 +252,7 @@ describe('뿌리 국면', () => {
     });
   });
 
-  it('사진에서 국면을 취해 오는 화면은 주소가 아무것도 안 든다', () => {
+  it('사진에서 국면을 가져오는 화면은 주소가 아무것도 안 든다', () => {
     expect(parseRoute('/position')).toEqual({ name: 'position' });
     expect(hrefOf({ name: 'position' })).toBe('/position');
   });

@@ -75,7 +75,7 @@ type Options struct {
 	Search Searcher
 
 	// KifuNorm 은 읽을 수 없는 형식의 기보를 표기 한 벌로 옮기는 창구다(internal/kifunorm).
-	// nil이면 그 폴백만 꺼지고, 결정적 파서로 읽히는 기보는 그대로 취해 온다.
+	// nil이면 그 폴백만 꺼지고, 결정적 파서로 읽히는 기보는 그대로 가져온다.
 	KifuNorm *kifunorm.Client
 
 	// BoardRead 는 판이 찍힌 그림에서 국면을 읽는 창구다(internal/boardread).
@@ -151,19 +151,19 @@ func (m *Match) analyzerOrNil() *matchAnalyzer {
 // AnalysisDeps 는 사후 분석이 쓰는 한 벌이다.
 //
 // 구조체로 받는 것은 자리 수 때문이 아니라 갈래 둘이 서로 다른 칸을 쓰기 때문이다 —
-// 대인전은 앞의 넷만 보고, 취해 온 기보는 Quiz·Level 까지 본다.
+// 대인전은 앞의 넷만 보고, 가져온 기보는 Quiz·Level 까지 본다.
 type AnalysisDeps struct {
 	Store      *store.Store
 	NewAnalyst func() game.Analyst
 	Metrics    *metrics.Registry
 	Workers    int
 
-	// Quiz 는 취해 온 판의 문항 생성기다. nil이면 그 판에 문항이 안 생긴다 —
+	// Quiz 는 가져온 판의 문항 생성기다. nil이면 그 판에 문항이 안 생긴다 —
 	// 엔진 대국이 판이 끝나는 자리에서 만드는 것과 같은 규약이고, 대인전은 애초에
 	// 문항을 안 만든다.
 	Quiz *quiz.Builder
 
-	// Level 은 취해 온 판의 悪手 줄에 적히는 실력 구간이다. 판정이 쓴 임계치와 같은
+	// Level 은 가져온 판의 悪手 줄에 적히는 실력 구간이다. 판정이 쓴 임계치와 같은
 	// 값이라야 나중에 상수를 흔들어 볼 수 있다(Options.Level).
 	Level intervene.Level
 }
@@ -178,8 +178,8 @@ func (m *Match) AnalyzeWith(ctx context.Context, deps AnalysisDeps) {
 	m.records.analyzer = newMatchAnalyzer(ctx, deps)
 }
 
-// Analyzer 는 취해 온 기보를 줄에 세울 상대다. 대인전이 꺼진 배포에서는 nil 이고,
-// 그때 취해 오기 표면도 같이 닫힌다(kifu_import.go).
+// Analyzer 는 가져온 기보를 줄에 세울 상대다. 대인전이 꺼진 배포에서는 nil 이고,
+// 그때 가져오기 표면도 같이 닫힌다(kifu_import.go).
 func (m *Match) Analyzer() *matchAnalyzer { return m.analyzerOrNil() }
 
 // 티어 이름. 값을 여기 두는 것은 라우팅이 이 이름으로 갈리기 때문이고, 손잡이(SERVER_ROLE)를
@@ -304,7 +304,7 @@ func Handler(opts Options) http.Handler {
 
 		rev := &reviewHandler{store: opts.Store, auth: ah, level: opts.Level, analyzer: opts.Match.analyzerOrNil()}
 
-		// 밖에서 둔 자기 기보를 취해 오는 표면(kifu_import.go). 로그인이 필요하고,
+		// 밖에서 둔 자기 기보를 가져오는 표면(kifu_import.go). 로그인이 필요하고,
 		// 분석기가 없으면 열지 않는다 — 판만 남고 평가치가 영영 안 채워지는 자리가 되어
 		// 되짚기가 「解析しています」에 굳는다.
 		if a := opts.Match.analyzerOrNil(); a != nil {
@@ -370,7 +370,7 @@ func Handler(opts Options) http.Handler {
 		mux.HandleFunc("POST /api/resumable/{id}/decline", storeUnavailable)
 	}
 
-	// 사진에서 국면을 취해 오는 표면(position.go). DB 블록 밖이다 — 판을 만들지도
+	// 사진에서 국면을 가져오는 표면(position.go). DB 블록 밖이다 — 판을 만들지도
 	// 기록에 남기지도 않고, 나온 국면은 주소가 되어 검토로 흘러간다.
 	//
 	// 검사는 창구가 없어도 열린다. 룰 계산이라 그림 읽기와 딸려 꺼질 이유가 없고, 국면을

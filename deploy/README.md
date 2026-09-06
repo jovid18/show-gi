@@ -179,7 +179,7 @@ aws ssm put-parameter --name $P/SESSION_SECRET --type SecureString \
   --value "$(openssl rand -base64 32)" --overwrite
 aws ssm put-parameter --name $P/GOOGLE_CLIENT_ID     --type String       --value '<id>'     --overwrite
 aws ssm put-parameter --name $P/GOOGLE_CLIENT_SECRET --type SecureString --value '<secret>' --overwrite
-# 취해 온 기보의 서식 정규화. **없어도 뜬다** — 결정적 파서(KIF·KI2·CSA·USI·평문)가 읽는
+# 가져온 기보의 서식 정규화. **없어도 뜬다** — 결정적 파서(KIF·KI2·CSA·USI·평문)가 읽는
 # 기보는 이 값과 무관하고, 어느 파서로도 안 읽히는 텍스트만 여기를 지난다(journal §126)
 aws ssm put-parameter --name $P/OPENAI_API_KEY --type SecureString --value '<key>' --overwrite
 ```

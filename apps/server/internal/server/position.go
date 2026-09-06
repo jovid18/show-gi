@@ -18,7 +18,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// 판이 찍힌 그림에서 국면을 취해 오는 표면. 근거와 정한 것은 journal §129.
+// 판이 찍힌 그림에서 국면을 가져오는 표면. 근거와 정한 것은 journal §129.
 //
 // 경로가 둘이다. 읽기(POST /api/position/read)가 그림을 국면 하나로 옮기고, 검사
 // (POST /api/position/check)가 「이 국면이 성립하는가」에 답한다 — 확인 화면이 한 칸을

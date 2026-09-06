@@ -56,7 +56,7 @@ func TestImportedResultIsFromTheOwnersSide(t *testing.T) {
 }
 
 // 미리보기는 앞뒤를 같이 보여 준다. 앞만 보여 주면 「뒤가 잘렸는가」를 사람이 알 수 없고,
-// 그것이 취해 오기에서 가장 흔한 오류다.
+// 그것이 가져오기에서 가장 흔한 오류다.
 func TestPreviewShowsBothEnds(t *testing.T) {
 	g, notation, err := kifu.Read(sampleKIF)
 	if err != nil {
@@ -145,7 +145,7 @@ func TestUnreadableMoveSaysWhichPly(t *testing.T) {
 	}
 }
 
-// 취해 온 판이 사후 분석을 지나면 평가치와 悪手 줄이 같이 채워지고, 段級에 쌓인다.
+// 가져온 판이 사후 분석을 지나면 평가치와 悪手 줄이 같이 채워지고, 段級에 쌓인다.
 // 사람이 정한 것이 「전부 합친다」다(journal §126).
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
@@ -213,7 +213,7 @@ func TestImportedGameGetsEvalsAndBlunders(t *testing.T) {
 	}
 }
 
-// 되짚기가 「解析しています」를 그리려면 취해 온 판도 「분석 중」으로 보여야 한다.
+// 되짚기가 「解析しています」를 그리려면 가져온 판도 「분석 중」으로 보여야 한다.
 // games.match_id 로 조인하는 쪽에는 안 걸린다.
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
@@ -403,7 +403,7 @@ func TestAHandicapImportBlamesTheRightSide(t *testing.T) {
 	}
 }
 
-// 미리보기에서 확인한 판이 취해 오는 판과 같아야 한다.
+// 미리보기에서 확인한 판이 가져오는 판과 같아야 한다.
 //
 // 원문을 두 번 보내는 설계는 「같은 원문이면 같은 결과」에 기대는데, 그 전제가 정규화
 // 계층에는 없다 — 다시 물으면 다른 표기가 올 수 있고, 그러면 확인한 것과 들어온 것이

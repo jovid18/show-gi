@@ -16,7 +16,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/boardread"
 )
 
-// 사진에서 국면을 취해 오는 표면은 경계가 넷이다 — 로그인 · 시간당 몫 · 그림이 그림인가 ·
+// 사진에서 국면을 가져오는 표면은 경계가 넷이다 — 로그인 · 시간당 몫 · 그림이 그림인가 ·
 // 룰 엔진이 무엇을 말하는가. 판독 자체는 internal/boardread 가 확인한다.
 
 const startSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1"

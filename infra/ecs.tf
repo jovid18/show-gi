@@ -255,7 +255,7 @@ resource "aws_ecs_task_definition" "app" {
 
       # 로그인과 세션이 이 티어에만 있다. 분석 티어는 사람을 안 받으므로 DATABASE_URL 뿐이다.
       #
-      # OPENAI_API_KEY 도 이 티어뿐이다. 기보를 취해 오는 요청이 사람에게서 오고
+      # OPENAI_API_KEY 도 이 티어뿐이다. 기보를 가져오는 요청이 사람에게서 오고
       # (server/kifu_import.go) 분석 워커는 그 계층을 안 지난다 — 옮겨 적는 일은 판이
       # 줄에 서기 전에 이미 끝나 있다.
       #

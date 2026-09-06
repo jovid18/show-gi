@@ -85,7 +85,7 @@ func main() {
 		opts.Store = st
 	}
 
-	// 취해 온 기보의 정규화 창구. 키가 없으면 nil 이고, 그때 결정적 파서로 읽히는
+	// 가져온 기보의 정규화 창구. 키가 없으면 nil 이고, 그때 결정적 파서로 읽히는
 	// 기보만 들어온다 — Google 로그인이 값 하나만 비어도 표면째 닫히는 것과 달리
 	// 여기는 폴백 한 겹만 꺼진다(internal/kifunorm).
 	opts.KifuNorm = kifunorm.New(os.Getenv("OPENAI_API_KEY"), os.Getenv("OPENAI_MODEL"))
@@ -200,10 +200,10 @@ func main() {
 		opts.Quiz = quiz.NewBuilder(mate, searcher, engineDepth())
 
 		// 사후 분석. 갈래가 둘이다 — 대인전은 되짚기의 평가치와 두 사람의 실력 추정치를
-		// 채우고(journal §105), 취해 온 기보는 거기에 悪手 줄과 문항까지 만든다(§126).
+		// 채우고(journal §105), 가져온 기보는 거기에 悪手 줄과 문항까지 만든다(§126).
 		// 착수 경로는 그래도 엔진을 안 지난다 — 미리 재는 것이 논블로킹이라 착수를 막지 않는다.
 		//
-		// 퀴즈 생성기보다 뒤에 만든다. 취해 온 판의 문항을 이 분석기가 만들기 때문이고,
+		// 퀴즈 생성기보다 뒤에 만든다. 가져온 판의 문항을 이 분석기가 만들기 때문이고,
 		// Run 보다는 앞이라 곁장부 goroutine 과 경합하지 않는다.
 		opts.Match.AnalyzeWith(ctx, server.AnalysisDeps{
 			Store:      opts.Store,

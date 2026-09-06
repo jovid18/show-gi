@@ -73,15 +73,15 @@ export const routeExplore = (handicap: string, moves: readonly string[], sfen = 
 export const ROUTE_GUIDE = '/guide';
 
 /**
- * 취해 오기. 밖에서 둔 자기 기보를 붙여 넣는 화면이다(journal §126).
+ * 가져오기. 밖에서 둔 자기 기보를 붙여 넣는 화면이다(journal §126).
  *
- * 판도 사람도 주소에 안 싣는다 — 여기서 만들어지는 판은 취해 온 뒤에야 번호를 갖고,
+ * 판도 사람도 주소에 안 싣는다 — 여기서 만들어지는 판은 가져온 뒤에야 번호를 갖고,
  * 그 순간 화면이 되짚기로 옮겨 간다.
  */
 export const ROUTE_IMPORT = '/import';
 
 /**
- * 국면을 사진에서 취해 오는 화면(journal §129).
+ * 국면을 사진에서 가져오는 화면(journal §129).
  *
  * 주소가 아무것도 안 든다. 올린 그림과 읽어 낸 판은 화면 안에만 있고, 사람이 확인을
  * 끝내면 그 국면이 검토의 주소가 되어(`routeExplore` 의 `s`) 이 화면을 떠난다 —

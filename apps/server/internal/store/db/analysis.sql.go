@@ -281,10 +281,10 @@ type ImportSeatRow struct {
 	MyColor string
 }
 
-// 취해 온 판의 자리다. 한 판이 games 행 하나이고 그 행이 곧 자리다 — 대인전이 행 둘인
+// 가져온 판의 자리다. 한 판이 games 행 하나이고 그 행이 곧 자리다 — 대인전이 행 둘인
 // 것과 다른 자리이고(MatchSeats), 그래서 분석기가 키를 보고 둘을 가른다.
 //
-// 주인이 없는 행은 안 준다. 취해 오기가 로그인한 사람만이라 그런 행이 생길 수 없지만,
+// 주인이 없는 행은 안 준다. 가져오기가 로그인한 사람만이라 그런 행이 생길 수 없지만,
 // 자리에 사람이 없으면 실력을 쌓을 곳이 없어 판을 재도 반쪽이 된다.
 func (q *Queries) ImportSeat(ctx context.Context, id int64) (ImportSeatRow, error) {
 	row := q.db.QueryRow(ctx, importSeat, id)
@@ -300,7 +300,7 @@ SELECT (
         JOIN games g ON g.match_id = j.match_id
         WHERE g.id = $1::bigint
     )
-    -- 취해 온 판은 games.match_id 가 NULL 이라 위 조인에 안 걸린다. 줄에 세울 때 쓴 키를
+    -- 가져온 판은 games.match_id 가 NULL 이라 위 조인에 안 걸린다. 줄에 세울 때 쓴 키를
     -- 부르는 쪽이 그대로 넘긴다 — 키의 모양을 Go 한 곳에만 두기 위해서다.
     OR EXISTS (
         SELECT 1 FROM analysis_jobs j WHERE j.match_id = $2::text

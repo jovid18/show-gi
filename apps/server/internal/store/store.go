@@ -487,10 +487,10 @@ func (s *Store) CreateMatchGame(ctx context.Context, userID int64, myColor, star
 }
 
 // FinishGame 은 대국을 닫는다.
-// CreateImportedGame 은 밖에서 둔 판을 취해 온 자리다. 자리가 하나다 — 상대의 몫은
+// CreateImportedGame 은 밖에서 둔 판을 가져온 자리다. 자리가 하나다 — 상대의 몫은
 // 안 만든다(대인전이 행 둘인 것과 갈리는 자리다).
 //
-// notation 은 무엇으로 읽었는가다(kifu.Notation). 이 칸이 곧 「취해 온 판인가」이기도
+// notation 은 무엇으로 읽었는가다(kifu.Notation). 이 칸이 곧 「가져온 판인가」이기도
 // 해서 빈 값으로 오면 안 된다 — 그러면 여기서 둔 판과 구별이 없어진다.
 func (s *Store) CreateImportedGame(ctx context.Context, userID int64, myColor, startSFEN, notation string) (int64, error) {
 	if notation == "" {
@@ -508,7 +508,7 @@ func (s *Store) CreateImportedGame(ctx context.Context, userID int64, myColor, s
 	return id, nil
 }
 
-// CountImportsSince 는 그 사람이 그 시각 이후로 취해 온 판 수다. 하루 몫의 상한이 이
+// CountImportsSince 는 그 사람이 그 시각 이후로 가져온 판 수다. 하루 몫의 상한이 이
 // 값으로 정해진다(server/kifu_import.go).
 func (s *Store) CountImportsSince(ctx context.Context, userID int64, since time.Time) (int, error) {
 	n, err := s.q.CountImportsSince(ctx, db.CountImportsSinceParams{UserID: &userID, StartedAt: stamp(since)})
@@ -759,7 +759,7 @@ type GameSummary struct {
 	// 手合割을 되짚는 유일한 칸이다(internal/handicap 의 Of). 이름을 따로 저장하지
 	// 않으므로 이 값과 실제 판이 갈릴 자리가 없고, 그래서 마이그레이션도 필요 없었다.
 	StartSFEN string
-	// Imported 는 밖에서 둔 판을 취해 온 것인가다(020_imported_games.sql).
+	// Imported 는 밖에서 둔 판을 가져온 것인가다(020_imported_games.sql).
 	//
 	// 그 판에도 평가치와 개입이 있다 — 사후 분석이 채운다(server/kifu_analysis.go).
 	// 갈리는 것은 그 개입을 아무도 안 막았다는 것뿐이고, 화면이 그 값으로 표기를

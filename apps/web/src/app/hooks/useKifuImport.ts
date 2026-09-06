@@ -4,9 +4,9 @@ import type { ChosenResult, KifuImported, KifuPreview, KifuRequest } from '@/pro
 import type { ApiError, MyColor } from '@/protocol/review';
 
 /**
- * 취해 오기의 두 요청.
+ * 가져오기의 두 요청.
  *
- * 상태를 화면이 아니라 여기서 든다. 「읽는 중」과 「취해 오는 중」이 같은 버튼을 잠그고
+ * 상태를 화면이 아니라 여기서 든다. 「읽는 중」과 「가져오는 중」이 같은 버튼을 잠그고
  * 같은 자리에 오류를 그리므로, 따로 두면 두 벌을 맞춰야 한다.
  *
  * 오류 문구는 서버가 만든 것을 그대로 쓴다. 서버가 「몇 手目를 못 읽었나」를 알고,
@@ -57,7 +57,7 @@ export function useKifuImport() {
     }
   }, []);
 
-  /** 취해 온다. 성공하면 판 번호를 준다 — 화면이 그 자리에서 되짚기로 옮겨 간다. */
+  /** 가져온다. 성공하면 판 번호를 준다 — 화면이 그 자리에서 되짚기로 옮겨 간다. */
   const submit = useCallback(async (text: string, myColor: MyColor, result?: ChosenResult): Promise<number | null> => {
     setState((s) => ({ ...s, phase: 'importing', error: null }));
     try {
@@ -73,7 +73,7 @@ export function useKifuImport() {
     }
   }, []);
 
-  /** 원문이 바뀌면 미리보기는 그 판의 것이 아니다. 남겨 두면 남의 手数를 보고 취해 온다. */
+  /** 원문이 바뀌면 미리보기는 그 판의 것이 아니다. 남겨 두면 남의 手数를 보고 가져온다. */
   const reset = useCallback(() => setState(initial), []);
 
   /**
