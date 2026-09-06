@@ -208,6 +208,8 @@ git config pull.ff only
   - **한 문단은 세 줄까지.** 넘으면 대개 두 가지를 한 자리에서 말하고 있는 것이다
   - **doc 주석의 첫 줄은 「무엇인가」다.** 「왜」는 빈 줄 뒤에 온다
 
+- **다이어그램은 `docs/diagrams/*.drawio` 가 원본이고 `docs/diagrams/build.sh` 가 `docs/images/` 로 내보낸다.** 내보낸 SVG를 손으로 고치지 않는다 — 다음 빌드에 덮인다. 한 원본에서 밝은 판과 어두운 판 두 벌이 나가고, README의 `<picture>` 가 GitHub 테마로 고른다. 한 파일에 `light-dark()` 로 담으면 읽는 사람 OS를 따라가서 GitHub 테마와 어긋난다. CLI가 필요하다 — `brew install --cask drawio`
+
 - **`회차 N #M` 은 플레이테스트 회차의 항목 번호다.** 회차와 그 판이 [docs/playtests/README.md](docs/playtests/README.md)의 표에 있다 — `journal §NN` 과 같은 규약이라 문서 이름을 적지 않는다
 
 - **취소선은 한 회차만 산다.** 뒤집힌 경위는 저널이 기록하므로, 요약표와 미결 목록에는 **최종 문장만** 남긴다 — 취소선을 겹쳐 쌓으면 지금 무엇이 맞는지를 읽는 사람이 층을 세어 가며 찾아야 한다

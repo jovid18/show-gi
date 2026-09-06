@@ -69,21 +69,10 @@ _▲3三角成를 되돌린 순간. 馬가 잡히는 이유와, 그대로 진행
 
 ## 3. 개입 루프
 
-```mermaid
-flowchart TD
-    A[플레이어 차례] --> B{힌트를 불렀나}
-    B -- 불렀다 --> C["1회째: 駒만<br/>2회째: 手를 짚는다<br/>판당 6회까지"]
-    B -- 안 불렀다 --> D[착수]
-    C --> D
-    D --> E["판정: 승률의 낙폭 Δ"]
-    E -- "Δ ≤ 임계치" --> F[상대의 手]
-    F --> K[다음 플레이어 차례]
-    E -- "Δ > 임계치" --> G["제지: 이유를 설명<br/>다시 두기"]
-    G --> H["「그대로 뒀다면」을<br/>실제로 놓아 본다"]
-    H --> K
-    G -. "기록" .-> I[(개입 로그)]
-    E -.-> J[실력 추정]
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/intervention-loop.dark.svg">
+  <img alt="개입 루프 — 착수마다 승률의 낙폭을 재고, 임계치를 넘으면 제지해 다시 두게 한다" src="docs/images/intervention-loop.svg" width="900">
+</picture>
 
 판정식은 평가치를 그대로 쓰지 않고, **승률로 옮긴 뒤 낙폭**을 본다. cp의 차는 언제나 같은 무게가 아니다. 호각에 가까운 국면의 300cp와, 이미 크게 벌어진 국면의 300cp는 이길 가망의 변화가 전혀 다르기 때문이다.
 
@@ -136,25 +125,10 @@ _98手째에 있던 7手詰め. 남은 手數와 「王手가 되는 수만」�
 
 ## 5. 기술 구성
 
-```mermaid
-flowchart TD
-    B["브라우저<br/>React + TypeScript + three.js"]
-    B -- "WebSocket(대국) / REST(그 외)" --> S
-
-    subgraph S["Go API — apps/server"]
-      G["game — 대국 세션 상태 기계<br/>1 세션 = goroutine 하나가 상태를 소유"]
-      I["intervene — 개입 판정<br/>엔진을 모른다(입력은 평가치와 詰み 거리뿐)"]
-      SK["skill — 실력 추정<br/>엔진도 DB도 판도 모른다"]
-      E["explain — 설명 문구(결정적 템플릿)"]
-      T["tag — 囲い·戦法·戦型·手筋의 이름"]
-      SH["shogi — 룰 엔진(합법수·반칙·기보 표기)"]
-      U["usi — 엔진 프로세스 풀"]
-      AR["archive — 모든 탐색을 데이터로 남긴다"]
-    end
-
-    S -- "stdin/stdout" --> EN["USI 엔진 N개<br/>やねうら王 9.40 + 水匠5<br/>+ 詰将棋 solver(별도 바이너리)"]
-    S --> DB["PostgreSQL 17"]
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/architecture.dark.svg">
+  <img alt="브라우저 · Go API 의 여덟 패키지 · USI 엔진 · PostgreSQL 의 구성" src="docs/images/architecture.svg" width="900">
+</picture>
 
 | 구분   | 내용                                                                                        |
 | ------ | ------------------------------------------------------------------------------------------- |

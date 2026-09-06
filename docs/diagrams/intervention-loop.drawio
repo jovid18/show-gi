@@ -1,0 +1,93 @@
+<mxfile host="show-gi">
+  <diagram id="intervention-loop" name="개입 루프">
+    <mxGraphModel grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" value="플레이어 차례" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="430" y="40" width="200" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="3" value="힌트를 불렀나" style="rhombus;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#f8f4ec,#232019);strokeColor=light-dark(#bfb094,#5a5248);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="420" y="126" width="220" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="1회째: 駒만&lt;br&gt;2회째: 手를 짚는다&lt;br&gt;&lt;b&gt;판당 6회까지&lt;/b&gt;" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="760" y="130" width="250" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="5" value="착수" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="430" y="254" width="200" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="6" value="판정&lt;br&gt;&lt;b&gt;승률의 낙폭 Δ&lt;/b&gt;" style="rhombus;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#f8f4ec,#232019);strokeColor=light-dark(#bfb094,#5a5248);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="400" y="334" width="260" height="96" as="geometry" />
+        </mxCell>
+        <mxCell id="7" value="&lt;b&gt;제지&lt;/b&gt; — 이유를 설명&lt;br&gt;다시 두기" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.8;fillColor=light-dark(#e4ede7,#1e2c25);strokeColor=light-dark(#2f5d45,#6f9b84);fontColor=light-dark(#1f4433,#cfe3d8);fontFamily=Helvetica;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="30" y="350" width="230" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="8" value="「그대로 뒀다면」을&lt;br&gt;실제로 놓아 본다" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.8;fillColor=light-dark(#e4ede7,#1e2c25);strokeColor=light-dark(#2f5d45,#6f9b84);fontColor=light-dark(#1f4433,#cfe3d8);fontFamily=Helvetica;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="30" y="460" width="230" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="9" value="상대의 手" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="430" y="480" width="200" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="10" value="다음 플레이어 차례" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="420" y="600" width="220" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="11" value="개입 로그" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=10;html=1;whiteSpace=wrap;strokeWidth=1.2;dashed=1;dashPattern=4 3;fillColor=light-dark(#f4f1ea,#201e1a);strokeColor=light-dark(#b3a894,#514a41);fontColor=light-dark(#574f45,#b0a698);fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="30" y="596" width="150" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="12" value="실력 추정" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.2;dashed=1;dashPattern=4 3;fillColor=light-dark(#f4f1ea,#201e1a);strokeColor=light-dark(#b3a894,#514a41);fontColor=light-dark(#574f45,#b0a698);fontFamily=Helvetica;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="760" y="358" width="160" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);" edge="1" parent="1" source="2" target="3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="14" value="불렀다" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="3" target="4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="15" value="안 불렀다" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);" edge="1" parent="1" source="3" target="5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="4" target="5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="885" y="278" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);" edge="1" parent="1" source="5" target="6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="18" value="Δ &gt; 임계치" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#2f5d45,#7fae95);fontColor=light-dark(#1f4433,#a9cebb);strokeWidth=1.8;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="6" target="7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="19" value="Δ ≤ 임계치" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);" edge="1" parent="1" source="6" target="9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#2f5d45,#7fae95);fontColor=light-dark(#1f4433,#a9cebb);strokeWidth=1.8;" edge="1" parent="1" source="7" target="8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="21" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#2f5d45,#7fae95);fontColor=light-dark(#1f4433,#a9cebb);strokeWidth=1.8;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="8" target="10">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="330" y="496" />
+              <mxPoint x="330" y="624" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);" edge="1" parent="1" source="9" target="10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="23" value="기록" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#b3a894,#6b6459);fontColor=light-dark(#8b8175,#a0968a);dashed=1;dashPattern=4 4;endArrow=openThin;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="7" target="11">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="8" y="382" />
+              <mxPoint x="8" y="628" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="24" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#b3a894,#6b6459);fontColor=light-dark(#8b8175,#a0968a);dashed=1;dashPattern=4 4;endArrow=openThin;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="6" target="12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

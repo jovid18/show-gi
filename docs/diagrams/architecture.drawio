@@ -1,0 +1,55 @@
+<mxfile host="show-gi">
+  <diagram id="architecture" name="기술 구성">
+    <mxGraphModel grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" value="&lt;b&gt;브라우저&lt;/b&gt;&lt;br&gt;React + TypeScript + Vite + three.js" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.6;fillColor=light-dark(#f4f6f8,#191d20);strokeColor=light-dark(#9fb3c4,#4d5a63);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="268" y="40" width="400" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="3" value="Go API — apps/server" style="rounded=1;arcSize=6;html=1;whiteSpace=wrap;strokeWidth=1.8;dashed=1;dashPattern=6 4;fillColor=light-dark(#faf7f1,#171614);strokeColor=light-dark(#2f5d45,#6f9b84);fontColor=light-dark(#1f4433,#a9cebb);fontFamily=Helvetica;fontSize=13;fontStyle=1;verticalAlign=top;align=left;spacingLeft=14;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="160" width="856" height="320" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="&lt;b&gt;game&lt;/b&gt; — 대국 세션 상태 기계&lt;br&gt;1 세션 = goroutine 하나가 상태를 소유" style="rounded=1;arcSize=12;html=1;whiteSpace=wrap;strokeWidth=1.2;fillColor=light-dark(#ffffff,#201e1a);strokeColor=light-dark(#d6cbb6,#463f38);fontColor=light-dark(#26211b,#ddd5c8);fontFamily=Helvetica;fontSize=12;align=left;spacingLeft=10;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="64" y="208" width="396" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="5" value="&lt;b&gt;shogi&lt;/b&gt; — 룰 엔진&lt;br&gt;합법수 · 반칙 · 기보 표기" style="rounded=1;arcSize=12;html=1;whiteSpace=wrap;strokeWidth=1.2;fillColor=light-dark(#ffffff,#201e1a);strokeColor=light-dark(#d6cbb6,#463f38);fontColor=light-dark(#26211b,#ddd5c8);fontFamily=Helvetica;fontSize=12;align=left;spacingLeft=10;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="476" y="208" width="396" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="6" value="&lt;b&gt;intervene&lt;/b&gt; — 개입 판정&lt;br&gt;엔진을 모른다 (평가치와 詰み 거리뿐)" style="rounded=1;arcSize=12;html=1;whiteSpace=wrap;strokeWidth=1.2;fillColor=light-dark(#ffffff,#201e1a);strokeColor=light-dark(#d6cbb6,#463f38);fontColor=light-dark(#26211b,#ddd5c8);fontFamily=Helvetica;fontSize=12;align=left;spacingLeft=10;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="64" y="274" width="396" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="7" value="&lt;b&gt;explain&lt;/b&gt; — 설명 문구&lt;br&gt;결정적 템플릿. 카테고리가 말할 사실을 정한다" style="rounded=1;arcSize=12;html=1;whiteSpace=wrap;strokeWidth=1.2;fillColor=light-dark(#ffffff,#201e1a);strokeColor=light-dark(#d6cbb6,#463f38);fontColor=light-dark(#26211b,#ddd5c8);fontFamily=Helvetica;fontSize=12;align=left;spacingLeft=10;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="476" y="274" width="396" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="8" value="&lt;b&gt;skill&lt;/b&gt; — 실력 추정&lt;br&gt;엔진도 DB도 판도 모른다" style="rounded=1;arcSize=12;html=1;whiteSpace=wrap;strokeWidth=1.2;fillColor=light-dark(#ffffff,#201e1a);strokeColor=light-dark(#d6cbb6,#463f38);fontColor=light-dark(#26211b,#ddd5c8);fontFamily=Helvetica;fontSize=12;align=left;spacingLeft=10;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="64" y="340" width="396" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="9" value="&lt;b&gt;tag&lt;/b&gt; — 囲い · 戦法 · 戦型 · 手筋의 이름" style="rounded=1;arcSize=12;html=1;whiteSpace=wrap;strokeWidth=1.2;fillColor=light-dark(#ffffff,#201e1a);strokeColor=light-dark(#d6cbb6,#463f38);fontColor=light-dark(#26211b,#ddd5c8);fontFamily=Helvetica;fontSize=12;align=left;spacingLeft=10;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="476" y="340" width="396" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="10" value="&lt;b&gt;usi&lt;/b&gt; — 엔진 프로세스 풀" style="rounded=1;arcSize=12;html=1;whiteSpace=wrap;strokeWidth=1.2;fillColor=light-dark(#ffffff,#201e1a);strokeColor=light-dark(#d6cbb6,#463f38);fontColor=light-dark(#26211b,#ddd5c8);fontFamily=Helvetica;fontSize=12;align=left;spacingLeft=10;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="64" y="406" width="396" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="11" value="&lt;b&gt;archive&lt;/b&gt; — 모든 탐색을 데이터로 남긴다" style="rounded=1;arcSize=12;html=1;whiteSpace=wrap;strokeWidth=1.2;fillColor=light-dark(#ffffff,#201e1a);strokeColor=light-dark(#d6cbb6,#463f38);fontColor=light-dark(#26211b,#ddd5c8);fontFamily=Helvetica;fontSize=12;align=left;spacingLeft=10;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="476" y="406" width="396" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="12" value="USI 엔진 N개&lt;br&gt;やねうら王 9.40 + 水匠5&lt;br&gt;+ 詰将棋 solver (별도 바이너리)" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.6;fillColor=light-dark(#f6f1e6,#221f19);strokeColor=light-dark(#b8a480,#584f42);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="476" y="540" width="396" height="74" as="geometry" />
+        </mxCell>
+        <mxCell id="13" value="PostgreSQL 17&lt;br&gt;대국 · 국면별 평가치 캐시" style="shape=cylinder3;boundedLbl=1;backgroundOutline=1;size=12;html=1;whiteSpace=wrap;strokeWidth=1.6;fillColor=light-dark(#f4f6f8,#191d20);strokeColor=light-dark(#9fb3c4,#4d5a63);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="64" y="540" width="396" height="74" as="geometry" />
+        </mxCell>
+        <mxCell id="14" value="WebSocket (대국)  /  REST (그 외)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="2" target="3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="15" value="stdin / stdout" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="3" target="12">
+          <mxGeometry relative="1" x="0.6" as="geometry" />
+        </mxCell>
+        <mxCell id="16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="3" target="13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
