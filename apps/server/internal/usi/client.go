@@ -92,7 +92,7 @@ func (r SearchResult) Ranked() []SearchLine {
 // DepthEval 은 한 수의 특정 깊이 평가치다.
 type DepthEval struct {
 	Depth int
-	Cp    int
+	Score eval.Score
 }
 
 // EvalByDepth 는 그 수의 깊이별 평가치를 오름차순으로 준다. edges.eval_by_depth 에 그대로 들어간다.
@@ -101,7 +101,7 @@ func (r SearchResult) EvalByDepth(move string) []DepthEval {
 	var out []DepthEval
 	for _, l := range r.History {
 		if l.Move == move {
-			out = append(out, DepthEval{Depth: l.Depth, Cp: eval.ApproxCp(l.Score)})
+			out = append(out, DepthEval{Depth: l.Depth, Score: l.Score})
 		}
 	}
 	slices.SortFunc(out, func(a, b DepthEval) int { return a.Depth - b.Depth })

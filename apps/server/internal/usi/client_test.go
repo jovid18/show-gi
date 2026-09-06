@@ -249,13 +249,13 @@ func TestEvalByDepth(t *testing.T) {
 	}
 
 	best := res.EvalByDepth("7g7f")
-	if len(best) != 2 || best[0].Depth != 1 || best[0].Cp != 31 || best[1].Depth != 2 || best[1].Cp != 42 {
+	if len(best) != 2 || best[0].Depth != 1 || eval.ApproxCp(best[0].Score) != 31 || best[1].Depth != 2 || eval.ApproxCp(best[1].Score) != 42 {
 		t.Fatalf("7g7f 깊이별 = %+v (d1:31, d2:42 기대)", best)
 	}
 
 	// 함정 수: 얕게는 +12, 깊게는 -5
 	trap := res.EvalByDepth("2g2f")
-	if len(trap) != 2 || trap[0].Cp != 12 || trap[1].Cp != -5 {
+	if len(trap) != 2 || eval.ApproxCp(trap[0].Score) != 12 || eval.ApproxCp(trap[1].Score) != -5 {
 		t.Fatalf("2g2f 깊이별 = %+v (d1:12, d2:-5 기대)", trap)
 	}
 

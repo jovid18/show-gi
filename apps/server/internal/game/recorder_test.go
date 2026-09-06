@@ -5,6 +5,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
@@ -28,8 +29,8 @@ func (r *fakeRecorder) all() []string {
 }
 
 func (r *fakeRecorder) Started(startSFEN string, _ shogi.Color) { r.add("started") }
-func (r *fakeRecorder) Evaluated(ply int, senteCp int) {
-	r.add(fmt.Sprintf("eval %d %+d", ply, senteCp))
+func (r *fakeRecorder) Evaluated(ply int, sente eval.Score) {
+	r.add(fmt.Sprintf("eval %d %+d", ply, eval.ApproxCp(sente)))
 }
 
 func (r *fakeRecorder) Moved(ply int, usi string, by Side) {

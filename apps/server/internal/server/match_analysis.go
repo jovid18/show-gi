@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/match"
@@ -91,9 +92,9 @@ type plyJob struct {
 // 대인전에는 개입이 없어서 아무도 안 읽고, 판이 끝날 때까지 살려 두면 방마다 手数만큼
 // 쌓인다.
 type judged struct {
-	beforeCp int
-	afterCp  int
-	move     skill.Move
+	before eval.Score
+	after  eval.Score
+	move   skill.Move
 	// category·bestCp 는 가져온 판의 悪手 줄에만 **읽힌다**(interventions). 대인전의 手도
 	// 같은 판정을 지나 값이 차지만 그쪽은 이 칸을 안 본다 — 개입이 없는 갈래다.
 	//
@@ -460,8 +461,8 @@ func (a *matchAnalyzer) lookAhead(ctx context.Context, analyst game.Analyst, p s
 func (a *matchAnalyzer) remember(ctx context.Context, matchID string, got judged) {
 	err := a.store.FinishAnalysisPly(ctx, matchID, store.MeasuredPly{
 		Ply:       got.move.Ply,
-		BeforeCp:  got.beforeCp,
-		AfterCp:   got.afterCp,
+		Before:    got.before,
+		After:     got.after,
 		Blunder:   got.move.Blunder,
 		DeltaWin:  got.move.DeltaWin,
 		Threshold: got.move.Threshold,
@@ -514,8 +515,8 @@ func (a *matchAnalyzer) measuredOf(ctx context.Context, matchID string) map[int]
 	out := make(map[int]judged, len(rows))
 	for _, r := range rows {
 		out[r.Ply] = judged{
-			beforeCp: r.BeforeCp,
-			afterCp:  r.AfterCp,
+			before:   r.Before,
+			after:    r.After,
 			category: r.Category,
 			bestCp:   r.BestCp,
 			move: skill.Move{
@@ -811,9 +812,9 @@ func (a *matchAnalyzer) analyze(ctx context.Context, key string, seats []analysi
 				a.recordBlunder(ctx, seats[0].gameID, ply, c, got)
 			}
 		}
-		a.setEval(ctx, ids, ply, got.afterCp)
+		a.setEval(ctx, ids, ply, got.after)
 		if ply > 1 {
-			a.setEval(ctx, ids, ply-1, got.beforeCp)
+			a.setEval(ctx, ids, ply-1, got.before)
 		}
 	}
 	a.updateSkill(ctx, seats, byColor)
@@ -853,8 +854,8 @@ func (a *matchAnalyzer) judgeOne(
 		return judged{}, errCannotReplay
 	}
 	return judged{
-		beforeCp: j.SenteCpBefore,
-		afterCp:  j.SenteCpAfter,
+		before:   j.SenteBefore,
+		after:    j.SenteAfter,
 		move:     skillMoveOf(j, ply),
 		category: string(j.Verdict.Category),
 		bestCp:   j.Verdict.BestCp,
@@ -970,9 +971,9 @@ func (a *matchAnalyzer) saveMoves(ctx context.Context, userID int64, moves []ski
 	return nil
 }
 
-func (a *matchAnalyzer) setEval(ctx context.Context, ids []int64, ply, senteCp int) {
+func (a *matchAnalyzer) setEval(ctx context.Context, ids []int64, ply int, sente eval.Score) {
 	for _, id := range ids {
-		if err := a.store.SetMoveEval(ctx, id, ply, senteCp); err != nil {
+		if err := a.store.SetMoveEval(ctx, id, ply, sente); err != nil {
 			log.Printf("match: set eval of game %d ply %d: %v", id, ply, err)
 		}
 	}

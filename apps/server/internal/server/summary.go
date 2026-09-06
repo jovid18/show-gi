@@ -3,6 +3,7 @@ package server
 import (
 	"sort"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
@@ -296,8 +297,10 @@ func standingOf(rec store.GameRecord) explain.Standing {
 		if m.Ply > last {
 			last = m.Ply
 		}
-		if m.EvalCp != nil && m.Ply > best {
-			best, cp = m.Ply, *m.EvalCp
+		// 詰み도 이 자로 누른다. 총평이 묻는 것은 「이기고 있었나」이고, 눌린 값이
+		// 그 자리에서 圧倒的に有利/不利 로 떨어져 답이 옳다(eval.ApproxCp).
+		if m.Score != nil && m.Ply > best {
+			best, cp = m.Ply, eval.ApproxCp(*m.Score)
 		}
 	}
 	if best < 0 || last-best > explain.StandingMaxLag {

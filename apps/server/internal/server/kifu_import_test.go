@@ -185,7 +185,7 @@ func TestImportedGameGetsEvalsAndBlunders(t *testing.T) {
 		t.Error("Imported = false for a game that was imported")
 	}
 	for _, m := range rec.Moves {
-		if m.EvalCp == nil {
+		if m.Score == nil {
 			t.Errorf("ply %d has no eval", m.Ply)
 		}
 	}

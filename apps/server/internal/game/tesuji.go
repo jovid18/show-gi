@@ -1,6 +1,7 @@
 package game
 
 import (
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
 )
@@ -17,13 +18,13 @@ import (
 const TesujiLossCp = 100
 
 // NamedTesuji 는 그 수가 새로 만들고 엔진이 값을 인정한 手筋의 이름이다.
-// 두 cp는 先手 관점이다(edges.eval_by_depth 와 같은 규약).
+// 두 점수는 先手 관점이다(edges 의 깊이별 값과 같은 규약).
 // 세션 밖(archive·whatif)도 같은 함수를 지나야 대국 중과 기록의 이름이 갈리지 않는다.
-func NamedTesuji(before, after shogi.Position, c shogi.Color, lastUSI string, senteCpBefore, senteCpAfter int) []tag.Tag {
+func NamedTesuji(before, after shogi.Position, c shogi.Color, lastUSI string, senteBefore, senteAfter eval.Score) []tag.Tag {
 	return namedTesuji(before, after, c, lastUSI, Judgement{
-		SenteCpBefore: senteCpBefore,
-		SenteCpAfter:  senteCpAfter,
-		HasEvals:      true,
+		SenteBefore: senteBefore,
+		SenteAfter:  senteAfter,
+		HasEvals:    true,
 	})
 }
 
@@ -78,11 +79,21 @@ func freshTesuji(before, after shogi.Position, c shogi.Color, lastUSI string) []
 //
 // 견주는 두 값은 intervene 이 개입을 판정할 때 쓰는 그 둘이다. 새 축을 만들지 않는다 —
 // 그쪽이 「낙폭」이라고 부르는 것을 여기서는 cp로 보고, 임계치만 다르다.
+//
+// 詰み이 한쪽에라도 있으면 이름을 안 붙인다. 이 게이트가 cp 뺄셈이라 詰み을 섞으면
+// 자가 다른 두 값의 차가 되고, 그때 「모르면 이름을 붙이지 않는다」가 유일한 정직한 답이다.
+// 종반의 手筋 이름을 그만큼 잃지만, 詰み이 보이는 국면에서 사람에게 필요한 말은 手筋
+// 이름이 아니다.
 func enginePaidOff(j Judgement, c shogi.Color) bool {
 	if !j.HasEvals {
 		return false
 	}
-	before, after := cpFor(j.SenteCpBefore, c), cpFor(j.SenteCpAfter, c)
+	beforeCp, okBefore := j.SenteBefore.Centipawns()
+	afterCp, okAfter := j.SenteAfter.Centipawns()
+	if !okBefore || !okAfter {
+		return false
+	}
+	before, after := cpFor(beforeCp, c), cpFor(afterCp, c)
 	return before-after <= TesujiLossCp
 }
 

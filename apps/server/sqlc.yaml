@@ -17,6 +17,20 @@ sql:
         sql_package: pgx/v5
         emit_json_tags: false
         emit_pointers_for_null_types: true
+        # 원소마다 NULL 이 있는 배열이다. sqlc 는 배열 원소의 널 가능성을 못 보므로
+        # ([]int32 로 낸다) 여기서 짚어 준다 — 안 짚으면 스캔이 그 자리에서 실패한다.
+        # 두 배열은 길이가 같고 같은 자리에서 하나만 값이 있다(021_tagged_evals.sql).
+        overrides:
+          - column: edges.eval_by_depth
+            go_type:
+              type: int32
+              pointer: true
+              slice: true
+          - column: edges.mate_by_depth
+            go_type:
+              type: int32
+              pointer: true
+              slice: true
         # 컬럼 이름이 그대로 필드가 되면 SfenKey·PlyHint 처럼 읽힌다. 그건 그대로 두고,
         # 약어만 Go 관례에 맞춘다.
         rename:

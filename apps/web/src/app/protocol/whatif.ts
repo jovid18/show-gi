@@ -41,16 +41,21 @@ export interface WhatIfMove {
 export interface WhatIfCandidate {
   usi: string;
   ja: string;
-  /** 그 수를 둔 쪽 관점 cp. 주인은 노드의 `turn` 이다. */
-  evalCp: number;
+  /**
+   * 그 수를 둔 쪽 관점 cp. 주인은 노드의 `turn` 이다.
+   *
+   * 詰み이면 안 온다. `mateIn` 과 배타적이고, 저장 쪽도 같은 규약이다 —
+   * 한 숫자에 둘을 담았더니 화살표가 1手詰み을 안 가리켰다(docs/journal §131).
+   */
+  evalCp?: number;
   /**
    * 최선수 대비 낙폭 — 「이 수를 고르면 얼마를 내주나」.
    *
-   * 없는 자리가 둘이다: 최선수 자신(기준)과 詰み이 섞인 줄. 뒤엣것은 cp가 환산값이라
-   * 뺄셈이 낙폭이 아니게 된다(서버의 `candidatesOf`).
+   * 없는 자리가 둘이다: 최선수 자신(기준)과 詰み이 섞인 줄. 뒤엣것은 뺄 cp 자체가
+   * 없다 — 자가 다른 두 값의 차가 낙폭일 수 없다(서버의 `candidatesOf`).
    */
   lossCp?: number;
-  /** 詰み까지의 手数. 없으면 詰み이 아니다 — cp로 보내면 30000이 그대로 화면에 나간다. */
+  /** 詰み까지의 手数. 없으면 詰み이 아니다 — 이 칸이 차면 `evalCp` 는 안 온다. */
   mateIn?: number;
 }
 

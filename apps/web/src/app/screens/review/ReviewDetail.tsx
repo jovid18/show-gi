@@ -19,7 +19,7 @@ import { useEngineReady, useGameSummary } from '@/hooks/useReview';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
 import type { Side } from '@/models/piece';
 import type { Motion } from '@/models/square';
-import { branchMotion, evalText, stepMotion } from '@/libs/whatif/branch';
+import { branchMotion, scoreJa, stepMotion } from '@/libs/whatif/branch';
 import { httpSend } from '@/libs/whatif/http';
 import { useWhatIf } from '@/hooks/useWhatIf';
 import { useMoveEvals } from '@/hooks/useMoveEvals';
@@ -602,9 +602,14 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
                             {game.imported === true ? '悪手' : '介入'}
                           </span>
                         )}
-                        {move.evalCp !== undefined && (
-                          <span className="review-kifu-eval" data-sign={move.evalCp >= 0 ? 'plus' : 'minus'}>
-                            {evalText(move.evalCp)}
+                        {/* 詰み은 cp로 말하지 않는다. 그 자리에서 뜻이 있는 말은 手数 하나뿐이고,
+                        서버가 그때 `evalCp` 를 아예 안 보낸다(`ReviewMove.evalCp`). */}
+                        {(move.mateIn !== undefined || move.evalCp !== undefined) && (
+                          <span
+                            className="review-kifu-eval"
+                            data-sign={(move.mateIn ?? move.evalCp ?? 0) >= 0 ? 'plus' : 'minus'}
+                          >
+                            {scoreJa(move.evalCp, move.mateIn)}
                           </span>
                         )}
                       </button>

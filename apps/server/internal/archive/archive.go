@@ -170,11 +170,11 @@ func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiP
 	}
 
 	// 깊이별 값은 수마다 다른 행에 있다. 한 번에 읽어 수로 묶는다.
-	byMove := map[string][]int{}
+	byMove := map[string][]eval.Score{}
 	if edges, err := a.store.Edges(ctx, key); err == nil {
 		for _, e := range edges {
-			if len(e.EvalByDepth) > 0 {
-				byMove[e.USI] = e.EvalByDepth
+			if len(e.ByDepth) > 0 {
+				byMove[e.USI] = e.ByDepth
 			}
 		}
 	} else {
@@ -193,13 +193,9 @@ func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiP
 
 		// 저장은 先手 관점이고 탐색 결과는 수번 관점이다. 되돌리는 것을 빠뜨리면
 		// 後手로 잡은 판에서만 부호가 뒤집히고, 에러는 안 난다.
-		//
-		// 깊이별 값은 컬럼이 평평한 정수라 태그가 없다(edges.eval_by_depth). 되돌린 줄은
-		// 그래서 전부 cp 이고, 詰み이었던 깊이는 환산값으로 남는다 — 그 컬럼을 쓰는 쪽이
-		// 얕음/깊음의 격차만 보므로 지금은 그 자리에서 갈리지 않는다(journal §131).
-		for d, cp := range byMove[c.USI] {
+		for d, sc := range byMove[c.USI] {
 			res.History = append(res.History, usi.SearchLine{
-				Depth: d + 1, MultiPV: i + 1, Move: c.USI, Score: eval.Cp(senteCp(cp, pos.Turn)),
+				Depth: d + 1, MultiPV: i + 1, Move: c.USI, Score: senteScore(sc, pos.Turn),
 			})
 		}
 	}
@@ -329,11 +325,11 @@ func (a *Searcher) record(startSFEN string, moves []string, res usi.SearchResult
 		if len(byDepth) == 0 {
 			continue
 		}
-		cps := make([]int, 0, len(byDepth))
+		scores := make([]eval.Score, 0, len(byDepth))
 		for _, d := range byDepth {
-			cps = append(cps, senteCp(d.Cp, pos.Turn))
+			scores = append(scores, senteScore(d.Score, pos.Turn))
 		}
-		if err := a.store.PutEdge(ctx, store.Edge{ParentKey: key, USI: c.USI, EvalByDepth: cps}); err != nil {
+		if err := a.store.PutEdge(ctx, store.Edge{ParentKey: key, USI: c.USI, ByDepth: scores}); err != nil {
 			log.Printf("archive: put edge %s %s: %v", key, c.USI, err)
 			return
 		}
@@ -403,9 +399,8 @@ func (a *Searcher) namesFor(
 	if len(childCands) > 0 {
 		if p, err := a.store.GetPosition(ctx, Key(parent)); err == nil && len(p.Candidates) > 0 {
 			// 부모의 값은 부모의 수번(=둔 쪽) 관점, 자식의 값은 상대 관점이다.
-			// 手筋 판정이 cp 뺄셈이라 詰み 줄도 환산해서 넘긴다(game.NamedTesuji).
-			before := senteCp(eval.ApproxCp(p.Candidates[0].Score), mover)
-			after := senteCp(eval.ApproxCp(childCands[0].Score), child.Turn)
+			before := senteScore(p.Candidates[0].Score, mover)
+			after := senteScore(childCands[0].Score, child.Turn)
 			for _, t := range game.NamedTesuji(parent, child, mover, usiMove, before, after) {
 				names = append(names, t.Code)
 			}
@@ -494,6 +489,14 @@ func senteCp(moverCp int, mover shogi.Color) int {
 		return moverCp
 	}
 	return -moverCp
+}
+
+// senteScore 는 senteCp 와 같은 연산이고 詰み까지의 手数도 함께 뒤집는다.
+func senteScore(mover eval.Score, c shogi.Color) eval.Score {
+	if c == shogi.Black {
+		return mover
+	}
+	return mover.Neg()
 }
 
 func sideOf(c shogi.Color) string {

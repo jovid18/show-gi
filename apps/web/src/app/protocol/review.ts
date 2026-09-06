@@ -77,8 +77,15 @@ export interface ReviewMove {
    * 빼지는 않으므로(둔 것은 둔 것이다) 화면은 「판을 못 그리는 수」를 만난다.
    */
   sfen?: string;
-  /** 플레이어 관점 cp. 없으면 그 手数에 평가치가 안 붙은 것이고, 0(호각)과 다르다. */
+  /**
+   * 플레이어 관점 cp. 없으면 그 手数에 평가치가 안 붙었거나 詰み이고, 0(호각)과 다르다.
+   *
+   * 詰み이면 이 칸이 비고 `mateIn` 이 찬다. 두 칸이 같이 오지 않는 것이 서버 쪽 규약이고
+   * (`store.Candidate` 와 같다), 그래서 화면은 언제나 `mateIn` 을 먼저 본다.
+   */
   evalCp?: number;
+  /** 詰み까지의 手数(플레이어 관점). 양수면 내가 詰ます 쪽이다. */
+  mateIn?: number;
   /** 王手를 받고 있는 玉의 칸(`5a`). 서버가 짚는다 — 화면은 규칙을 모른다. */
   checked?: string;
 }
@@ -131,6 +138,8 @@ export interface ReviewUndo {
   ja?: string;
   /** 그 수 뒤의 평가치(플레이어 관점 cp). 무를 때 판정이 아직 안 끝났으면 없다. */
   evalCp?: number;
+  /** 詰み까지의 手数(플레이어 관점). `ReviewMove` 와 같은 규약이다. */
+  mateIn?: number;
 }
 
 export interface GameDetail extends GameSummary {

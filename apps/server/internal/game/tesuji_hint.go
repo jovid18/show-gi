@@ -103,13 +103,10 @@ func gateTesujiOptions(
 		return nil, len(opts), nil
 	}
 
-	// 낙폭이 cp 뺄셈이라 詰み 줄도 환산해서 넣는다(eval.ApproxCp). 종반에서 자가
-	// 흐려지지만 手筋 이름이 걸리는 구간이 아니고, 여기서 태그를 살리면 「모르는 줄」이
-	// 늘어 게이트가 조용히 닫힌다(journal §131).
-	best := eval.ApproxCp(lines[0].Score)
-	cp := make(map[string]int, len(lines))
+	best := lines[0].Score
+	score := make(map[string]eval.Score, len(lines))
 	for _, l := range lines {
-		cp[l.Move] = eval.ApproxCp(l.Score)
+		score[l.Move] = l.Score
 	}
 	// 줄 밖의 후보는 마지막 줄보다 나쁘다. 그 마지막 줄이 이미 상한 밖이면 밖은
 	// 전부 탈락이 확정이고, 안이면 모르는 것이다 — 그 둘을 같은 침묵으로 섞지 않는다.
@@ -117,10 +114,19 @@ func gateTesujiOptions(
 	// k줄을 다 받았을 때만 그렇게 말할 수 있다. 중간 순위 하나가 안 오면 Ranked 가
 	// 그것을 빼고 주므로, 「밖」에는 안 온 그 순위도 섞인다 — 그것은 마지막 줄보다
 	// 나쁘지 않다. 덜 받았으면 경계를 모르는 것이고, 모르면 이름을 붙이지 않는다.
-	decided := len(lines) == k && best-eval.ApproxCp(lines[len(lines)-1].Score) > TesujiLossCp
+	//
+	// 詰み이 섞이면 「모른다」다. 경계를 cp 뺄셈으로 재는 자리라 자가 다른 두 값의 차를
+	// 임계치와 견줄 수 없고, 그때는 밖을 잘라도 되는지를 말할 수 없다(enginePaidOff 와
+	// 같은 판단이다).
+	decided := false
+	if len(lines) == k {
+		bestCp, okBest := best.Centipawns()
+		lastCp, okLast := lines[len(lines)-1].Score.Centipawns()
+		decided = okBest && okLast && bestCp-lastCp > TesujiLossCp
+	}
 
 	for _, o := range opts {
-		after, ok := cp[o.USI]
+		after, ok := score[o.USI]
 		if !ok {
 			if !decided {
 				dropped++
@@ -130,9 +136,9 @@ func gateTesujiOptions(
 		// 두 값이 한 탐색의 형제 줄이라 뿌리가 같다. 개입 판정과 같은 축을 쓰되
 		// 임계치만 다른 것은 그대로다(enginePaidOff).
 		j := Judgement{
-			SenteCpBefore: senteCp(best, c),
-			SenteCpAfter:  senteCp(after, c),
-			HasEvals:      true,
+			SenteBefore: senteScore(best, c),
+			SenteAfter:  senteScore(after, c),
+			HasEvals:    true,
 		}
 		if enginePaidOff(j, c) {
 			kept = append(kept, o)

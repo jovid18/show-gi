@@ -85,6 +85,17 @@ const winRate = (cp: number): number => 1 / (1 + Math.exp(-cp / K));
 const valueOf = (cp: number, base: number): number => (AXIS === 'winrate' ? winRate(cp - base) : clamp(cp - base));
 
 const Y_DOMAIN: [number, number] = AXIS === 'winrate' ? [0, 1] : [-CLAMP, CLAMP];
+
+/**
+ * 한 手数의 세로 위치. 값이 없으면 그 자리에 점을 안 찍는다.
+ *
+ * 詰み은 자를 것이 없다 — 축의 끝이 그 자리에서 유일하게 옳은 값이고, cp로 환산해서
+ * 넣으면 어차피 같은 자리에 찍히면서 숫자만 거짓이 된다(서버가 그때  를 안 보낸다).
+ */
+function pointOf(row: { evalCp?: number; mateIn?: number }, base: number): number | undefined {
+  if (row.mateIn) return row.mateIn > 0 ? Y_DOMAIN[1] : Y_DOMAIN[0];
+  return row.evalCp === undefined ? undefined : valueOf(row.evalCp, base);
+}
 const Y_TICKS = AXIS === 'winrate' ? [0, 0.25, 0.5, 0.75, 1] : [-CLAMP, -600, 0, 600, CLAMP];
 /** 호각. 승률에서는 0.5이고 cp에서는 0이다. 駒落ち에서는 「핸디캡이 그대로인 자리」다(valueOf). */
 const Y_EVEN = AXIS === 'winrate' ? 0.5 : 0;
@@ -107,7 +118,8 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
   const data = useMemo<Point[]>(() => {
     const main = new Map<number, number>();
     for (const m of game.moves) {
-      if (m.evalCp !== undefined) main.set(m.ply, valueOf(m.evalCp, base));
+      const at = pointOf(m, base);
+      if (at !== undefined) main.set(m.ply, at);
     }
 
     /**

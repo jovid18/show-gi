@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
@@ -130,8 +131,11 @@ type reviewMove struct {
 	SFEN string `json:"sfen,omitempty"`
 	// EvalCp 는 플레이어 관점 cp다 — DB의 先手 관점을 여기서 뒤집는다(패키지 doc).
 	//
-	// nil이면 그 手数에 평가치가 안 붙었다. 0과 다르다 — 0은 호각이다.
+	// nil이면 그 手数에 평가치가 안 붙었거나 詰み이다. 0과 다르다 — 0은 호각이다.
 	EvalCp *int `json:"evalCp,omitempty"`
+	// MateIn 은 詰み까지의 手数다(플레이어 관점). 0이면 詰み이 아니다 — 이 칸이 차면
+	// EvalCp 는 비어 있고, 화면은 手数로 말한다(scoreJa).
+	MateIn int `json:"mateIn,omitempty"`
 	// Checked 는 이 수 뒤에 王手를 받고 있는 玉의 칸이다(5a). 아니면 빈 값 — checkedSquare 참조.
 	Checked string `json:"checked,omitempty"`
 }
@@ -181,6 +185,8 @@ type reviewUndo struct {
 	// EvalCp 는 플레이어 관점 cp다 — DB의 先手 관점을 여기서 뒤집는다(패키지 doc).
 	// 무를 때 판정이 아직 그 手数를 안 채웠으면 nil이다.
 	EvalCp *int `json:"evalCp,omitempty"`
+	// MateIn 은 詰み까지의 手数다(플레이어 관점). reviewMove 와 같은 규약이다.
+	MateIn int `json:"mateIn,omitempty"`
 }
 
 // list 는 최근 대국 목록이다.
@@ -352,13 +358,7 @@ func detailOf(rec store.GameRecord) gameDetail {
 		if (m.Ply%2 == 1) == humanFirst {
 			view.By = game.SideHuman
 		}
-		if m.EvalCp != nil {
-			cp := *m.EvalCp
-			if humanColor == shogi.White {
-				cp = -cp
-			}
-			view.EvalCp = &cp
-		}
+		view.EvalCp, view.MateIn = playerEvalJSON(m.Score, humanColor)
 
 		// 재현이 여기까지 이어졌고, 手数에 구멍이 없을 때만 이어 둔다. 구멍을 무시하고
 		// 이어 두면 3手目가 2手目 자리로 밀려서 없던 국면을 그린다 — 여기서 멈추고
@@ -410,13 +410,7 @@ func detailOf(rec store.GameRecord) gameDetail {
 		// 기보와 같은 줄을 쓴다. 이 값은 game_moves.eval_cp 에서 그대로 옮겨온
 		// 先手 관점이라(store.RecordUndo), 위 moves 루프와 같은 변환이라야 같은 수가
 		// 두 목록에서 같은 숫자로 나온다 — 개입 쪽 flipToPlayer 는 관점의 출처가 다르다.
-		if u.EvalCp != nil {
-			cp := *u.EvalCp
-			if humanColor == shogi.White {
-				cp = -cp
-			}
-			view.EvalCp = &cp
-		}
+		view.EvalCp, view.MateIn = playerEvalJSON(u.Score, humanColor)
 		// 무른 수는 Ply-1 手目의 국면에서 두어졌다 — 개입과 같은 자리, 같은 이유다.
 		if u.Ply >= 1 && u.Ply-1 < len(posAt) {
 			if _, ja, ok := advance(posAt[u.Ply-1], toAt[u.Ply-1], u.USI); ok {
@@ -427,6 +421,25 @@ func detailOf(rec store.GameRecord) gameDetail {
 	}
 
 	return out
+}
+
+// playerEvalJSON 은 저장된 先手 관점 점수를 화면이 받는 두 칸으로 옮긴다.
+//
+// 詰み이면 cp 칸을 비운다. 여기 숫자를 넣으려면 환산해야 하고, 환산값은 평가치가 아니다 —
+// 화면은 手数가 있으면 그것으로 말한다(scoreJa). 둘 다 없으면 「아직 안 잰 手数」다.
+func playerEvalJSON(s *eval.Score, human shogi.Color) (*int, int) {
+	if s == nil {
+		return nil, 0
+	}
+	v := *s
+	if human == shogi.White {
+		v = v.Neg()
+	}
+	if n, ok := v.MateIn(); ok {
+		return nil, n
+	}
+	cp, _ := v.Centipawns()
+	return &cp, 0
 }
 
 // flipToPlayer 는 수번 측 cp를 플레이어 관점으로 옮긴다(패키지 doc의 규약).

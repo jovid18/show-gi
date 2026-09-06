@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
@@ -345,8 +346,10 @@ const mateCp = 30000
 func rescore(rec store.GameRecord) (samples []sample, band bandRow, ok bool) {
 	ev := make(map[int]int, len(rec.Moves))
 	for _, m := range rec.Moves {
-		if m.EvalCp != nil {
-			ev[m.Ply] = *m.EvalCp
+		// 판정과 같은 자로 읽는다 — 이 재채점이 K와 임계치를 흔들어 보는 자리라,
+		// 詰み도 제품이 판정에 넣는 그 값으로 눌려야 한다(eval.ApproxCp).
+		if m.Score != nil {
+			ev[m.Ply] = eval.ApproxCp(*m.Score)
 		}
 	}
 	if len(ev) == 0 {

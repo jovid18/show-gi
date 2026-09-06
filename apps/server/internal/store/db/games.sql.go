@@ -619,17 +619,18 @@ func (q *Queries) InsertIntervention(ctx context.Context, arg InsertIntervention
 }
 
 const insertMove = `-- name: InsertMove :exec
-INSERT INTO game_moves (game_id, ply, usi, eval_cp)
-VALUES ($1, $2, $3, $4)
+INSERT INTO game_moves (game_id, ply, usi, eval_cp, eval_mate)
+VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (game_id, ply) DO UPDATE
-SET usi = EXCLUDED.usi, eval_cp = EXCLUDED.eval_cp
+SET usi = EXCLUDED.usi, eval_cp = EXCLUDED.eval_cp, eval_mate = EXCLUDED.eval_mate
 `
 
 type InsertMoveParams struct {
-	GameID int64
-	Ply    int32
-	USI    string
-	EvalCp *int32
+	GameID   int64
+	Ply      int32
+	USI      string
+	EvalCp   *int32
+	EvalMate *int32
 }
 
 // 확정된 수만 들어온다. 물러진 수가 여기 들어가면 기보가 롤백을 반영하지 못한다.
@@ -642,14 +643,17 @@ func (q *Queries) InsertMove(ctx context.Context, arg InsertMoveParams) error {
 		arg.Ply,
 		arg.USI,
 		arg.EvalCp,
+		arg.EvalMate,
 	)
 	return err
 }
 
 const insertUndo = `-- name: InsertUndo :exec
 
-INSERT INTO game_undos (game_id, ply, usi, eval_cp)
-VALUES ($1, $2, $3, (SELECT eval_cp FROM game_moves WHERE game_id = $1 AND ply = $2))
+INSERT INTO game_undos (game_id, ply, usi, eval_cp, eval_mate)
+VALUES ($1, $2, $3,
+        (SELECT eval_cp FROM game_moves WHERE game_id = $1 AND ply = $2),
+        (SELECT eval_mate FROM game_moves WHERE game_id = $1 AND ply = $2))
 `
 
 type InsertUndoParams struct {
@@ -719,16 +723,18 @@ func (q *Queries) ListGameInterventions(ctx context.Context, gameID int64) ([]Li
 }
 
 const listGameMoves = `-- name: ListGameMoves :many
-SELECT ply, usi, eval_cp FROM game_moves WHERE game_id = $1 ORDER BY ply
+SELECT ply, usi, eval_cp, eval_mate FROM game_moves WHERE game_id = $1 ORDER BY ply
 `
 
 type ListGameMovesRow struct {
-	Ply    int32
-	USI    string
-	EvalCp *int32
+	Ply      int32
+	USI      string
+	EvalCp   *int32
+	EvalMate *int32
 }
 
-// eval_cp 는 先手 관점이고 NULL일 수 있다(store.RecordedMove).
+// 점수는 先手 관점이고 둘 다 NULL일 수 있다(store.RecordedMove). eval_cp 와 eval_mate 는
+// 배타적이고, 그것을 드는 것은 주석이 아니라 CHECK 다(021_tagged_evals.sql).
 func (q *Queries) ListGameMoves(ctx context.Context, gameID int64) ([]ListGameMovesRow, error) {
 	rows, err := q.db.Query(ctx, listGameMoves, gameID)
 	if err != nil {
@@ -738,7 +744,12 @@ func (q *Queries) ListGameMoves(ctx context.Context, gameID int64) ([]ListGameMo
 	var items []ListGameMovesRow
 	for rows.Next() {
 		var i ListGameMovesRow
-		if err := rows.Scan(&i.Ply, &i.USI, &i.EvalCp); err != nil {
+		if err := rows.Scan(
+			&i.Ply,
+			&i.USI,
+			&i.EvalCp,
+			&i.EvalMate,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -750,13 +761,14 @@ func (q *Queries) ListGameMoves(ctx context.Context, gameID int64) ([]ListGameMo
 }
 
 const listGameUndos = `-- name: ListGameUndos :many
-SELECT ply, usi, eval_cp FROM game_undos WHERE game_id = $1 ORDER BY ply, id
+SELECT ply, usi, eval_cp, eval_mate FROM game_undos WHERE game_id = $1 ORDER BY ply, id
 `
 
 type ListGameUndosRow struct {
-	Ply    int32
-	USI    string
-	EvalCp *int32
+	Ply      int32
+	USI      string
+	EvalCp   *int32
+	EvalMate *int32
 }
 
 // 같은 ply에 여러 행이 온다(무르고 다시 두고 또 무른 경우). id 로 이어 정렬해 무른
@@ -770,7 +782,12 @@ func (q *Queries) ListGameUndos(ctx context.Context, gameID int64) ([]ListGameUn
 	var items []ListGameUndosRow
 	for rows.Next() {
 		var i ListGameUndosRow
-		if err := rows.Scan(&i.Ply, &i.USI, &i.EvalCp); err != nil {
+		if err := rows.Scan(
+			&i.Ply,
+			&i.USI,
+			&i.EvalCp,
+			&i.EvalMate,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1029,18 +1046,24 @@ func (q *Queries) ResumableGameForOwner(ctx context.Context, userID *int64) (Res
 }
 
 const setMoveEval = `-- name: SetMoveEval :exec
-UPDATE game_moves SET eval_cp = $3 WHERE game_id = $1 AND ply = $2
+UPDATE game_moves SET eval_cp = $3, eval_mate = $4 WHERE game_id = $1 AND ply = $2
 `
 
 type SetMoveEvalParams struct {
-	GameID int64
-	Ply    int32
-	EvalCp *int32
+	GameID   int64
+	Ply      int32
+	EvalCp   *int32
+	EvalMate *int32
 }
 
 // 평가치만 채운다. 수를 덮지 않는다 — upsert로 두면 물러진 수로 기보를 덮는 길이 생긴다.
 // 없는 ply면 아무 일도 안 한다(평가치가 수보다 먼저 오는 경로가 없다).
 func (q *Queries) SetMoveEval(ctx context.Context, arg SetMoveEvalParams) error {
-	_, err := q.db.Exec(ctx, setMoveEval, arg.GameID, arg.Ply, arg.EvalCp)
+	_, err := q.db.Exec(ctx, setMoveEval,
+		arg.GameID,
+		arg.Ply,
+		arg.EvalCp,
+		arg.EvalMate,
+	)
 	return err
 }

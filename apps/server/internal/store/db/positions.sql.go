@@ -53,7 +53,7 @@ func (q *Queries) GetPosition(ctx context.Context, sfenKey string) (Position, er
 }
 
 const listEdges = `-- name: ListEdges :many
-SELECT parent_key, usi, child_key, tags, eval_by_depth FROM edges WHERE parent_key = $1
+SELECT parent_key, usi, child_key, tags, eval_by_depth, mate_by_depth FROM edges WHERE parent_key = $1
 `
 
 // 한 국면에서 나가는 수들. 깊이별 평가치를 되찾는 유일한 길이다(store.Edges).
@@ -72,6 +72,7 @@ func (q *Queries) ListEdges(ctx context.Context, parentKey string) ([]Edge, erro
 			&i.ChildKey,
 			&i.Tags,
 			&i.EvalByDepth,
+			&i.MateByDepth,
 		); err != nil {
 			return nil, err
 		}
@@ -85,14 +86,16 @@ func (q *Queries) ListEdges(ctx context.Context, parentKey string) ([]Edge, erro
 
 const upsertEdge = `-- name: UpsertEdge :exec
 
-INSERT INTO edges (parent_key, usi, child_key, tags, eval_by_depth)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO edges (parent_key, usi, child_key, tags, eval_by_depth, mate_by_depth)
+VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (parent_key, usi) DO UPDATE
 SET child_key     = COALESCE(EXCLUDED.child_key, edges.child_key),
     tags          = CASE WHEN cardinality(EXCLUDED.tags) > 0
                          THEN EXCLUDED.tags ELSE edges.tags END,
     eval_by_depth = CASE WHEN cardinality(EXCLUDED.eval_by_depth) > 0
-                         THEN EXCLUDED.eval_by_depth ELSE edges.eval_by_depth END
+                         THEN EXCLUDED.eval_by_depth ELSE edges.eval_by_depth END,
+    mate_by_depth = CASE WHEN cardinality(EXCLUDED.eval_by_depth) > 0
+                         THEN EXCLUDED.mate_by_depth ELSE edges.mate_by_depth END
 `
 
 type UpsertEdgeParams struct {
@@ -100,7 +103,8 @@ type UpsertEdgeParams struct {
 	USI         string
 	ChildKey    *string
 	Tags        []string
-	EvalByDepth []int32
+	EvalByDepth []*int32
+	MateByDepth []*int32
 }
 
 // 국면 사이의 한 수. 분석을 버리지 않기 위한 자리다(02-architecture.md §4).
@@ -115,6 +119,7 @@ func (q *Queries) UpsertEdge(ctx context.Context, arg UpsertEdgeParams) error {
 		arg.ChildKey,
 		arg.Tags,
 		arg.EvalByDepth,
+		arg.MateByDepth,
 	)
 	return err
 }

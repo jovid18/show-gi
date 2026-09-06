@@ -77,6 +77,7 @@ edges (
   child_key      text references positions,
   tags           text[],         -- ['mino','bougin','ryoudori'] — 이 수로 성립한 태그
   eval_by_depth  int[],          -- [d1, d2, ... dN] 선수(sente) 관점 cp
+  mate_by_depth  int[],          -- 같은 자리의 詰み 手数. 둘 중 하나만 값이 있다 (021)
   primary key (parent_key, usi)
 );
 create index on edges using gin (tags);
@@ -133,7 +134,7 @@ game_hints   (id, game_id, ply, sfen_key, stage, best_usi, taken, created_at)
              -- result 어휘의 정본은 `store.GameResult` 다 — 칸에 CHECK 가 없어서
              -- 'declined'(§51)가 DDL 없이 늘었다. 中断은 'abandoned' 로 적힌다 —
              -- 'aborted' 는 세션·프로토콜 쪽 Status 이지 이 칸의 값이 아니다
-game_moves   (game_id, ply, usi, sfen_key, eval_cp)
+game_moves   (game_id, ply, usi, sfen_key, eval_cp, eval_mate)   -- 둘은 배타적이다 (CHECK, 021)
              -- **지금 판에 남아 있는 수순만.** 물러진 수도 스스로 무른 수도 여기 안 들어온다
 interventions(id, game_id, ply, kind, category, delta_win, level_bucket,
               retracted_usi, hinted_tag, taken bool, created_at, best_cp, after_cp)
@@ -146,7 +147,7 @@ game_quizzes (game_id primary key, version, payload jsonb, generated_at)
              -- 되짚기 퀴즈 (007, §53). 한 판에 한 행이고 **문항 전체가 jsonb 하나**다 —
              -- 詰み 문항이 트리라 행으로 쪼개면 채점 질의가 그 모양을 SQL에서 다시 만든다
              -- **정답이 payload 안에 있고 응답에 안 실린다** — 채점이 서버에 있다
-game_undos   (id, game_id, ply, usi, eval_cp, created_at)
+game_undos   (id, game_id, ply, usi, eval_cp, eval_mate, created_at)
              -- 사람이 스스로 무른 수 (008, §72). `interventions` 와 따로 둔 이유는 예산도
              -- 뜻도 다르기 때문이다 — 이쪽은 판정을 **통과한** 수라 레이팅에서 안 빠진다
 skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at,

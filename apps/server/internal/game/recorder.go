@@ -1,6 +1,7 @@
 package game
 
 import (
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
@@ -25,15 +26,15 @@ type Recorder interface {
 	// 그쪽은 Retracted 로 간다.
 	Moved(ply int, usi string, by Side)
 
-	// Evaluated 는 그 手数의 국면 평가치를 나중에 채운다. 先手 관점 cp 다.
+	// Evaluated 는 그 手数의 국면 평가치를 나중에 채운다. 先手 관점이다.
 	//
 	// Moved 와 갈라져 있는 이유는 값을 아는 시점이 다르기 때문이다. 판정은 사람이 둔
 	// 뒤에 돌고, 그때 두 국면의 평가치가 한꺼번에 손에 들어온다 — 사람의 수 뒤와
 	// 그 직전 상대 수 뒤다. 그래서 상대 수의 평가치는 한 수 늦게 채워진다.
 	//
-	// 관점을 先手로 고정하는 것은 edges.eval_by_depth 와 같은 규약이다. 「플레이어
+	// 관점을 先手로 고정하는 것은 edges 의 깊이별 값과 같은 규약이다. 「플레이어
 	// 관점」으로 적으면 색이 다른 두 판을 나란히 못 놓는다.
-	Evaluated(ply int, senteCp int)
+	Evaluated(ply int, sente eval.Score)
 
 	// Retracted 는 개입으로 물러진 수다.
 	//

@@ -158,11 +158,11 @@ func TestRecordsThePositionAndItsCandidates(t *testing.T) {
 	if !ok {
 		t.Fatal("후보의 간선이 안 쌓였다")
 	}
-	if len(e.EvalByDepth) != 12 {
-		t.Fatalf("evalByDepth = %v", e.EvalByDepth)
+	if len(e.ByDepth) != 12 {
+		t.Fatalf("byDepth = %v", e.ByDepth)
 	}
-	if e.EvalByDepth[11] != 60 {
-		t.Errorf("가장 깊은 값 = %d, want 60", e.EvalByDepth[11])
+	if e.ByDepth[11] != eval.Cp(60) {
+		t.Errorf("가장 깊은 값 = %+v, want cp 60", e.ByDepth[11])
 	}
 }
 
@@ -183,8 +183,8 @@ func TestFlipsEvalToSentePointOfView(t *testing.T) {
 	if !ok {
 		t.Fatal("간선이 안 쌓였다")
 	}
-	if e.EvalByDepth[3] != -100 {
-		t.Errorf("후手 +100 이 先手 관점 %d 으로 쌓였다, want -100", e.EvalByDepth[3])
+	if e.ByDepth[3] != eval.Cp(-100) {
+		t.Errorf("후手 +100 이 先手 관점 %+v 으로 쌓였다, want cp -100", e.ByDepth[3])
 	}
 }
 

@@ -315,7 +315,7 @@ func TestSetMoveEvalFillsOnlyTheEval(t *testing.T) {
 	if err := s.InsertMove(t.Context(), id, 1, "7g7f"); err != nil {
 		t.Fatalf("InsertMove: %v", err)
 	}
-	if err := s.SetMoveEval(t.Context(), id, 1, -137); err != nil {
+	if err := s.SetMoveEval(t.Context(), id, 1, eval.Cp(-137)); err != nil {
 		t.Fatalf("SetMoveEval: %v", err)
 	}
 
@@ -333,7 +333,7 @@ func TestSetMoveEvalFillsOnlyTheEval(t *testing.T) {
 	}
 
 	// 없는 ply — 조용히 아무 일도 없어야 한다.
-	if err := s.SetMoveEval(t.Context(), id, 99, 500); err != nil {
+	if err := s.SetMoveEval(t.Context(), id, 99, eval.Cp(500)); err != nil {
 		t.Fatalf("없는 ply에서 에러: %v", err)
 	}
 	var n int
@@ -357,7 +357,7 @@ func TestGameRecordRoundTrip(t *testing.T) {
 			t.Fatalf("InsertMove(%d): %v", ply, err)
 		}
 	}
-	if err := s.SetMoveEval(t.Context(), id, 2, -120); err != nil {
+	if err := s.SetMoveEval(t.Context(), id, 2, eval.Cp(-120)); err != nil {
 		t.Fatalf("SetMoveEval: %v", err)
 	}
 	if err := s.InsertIntervention(t.Context(), id, Intervention{
@@ -387,11 +387,11 @@ func TestGameRecordRoundTrip(t *testing.T) {
 	}
 
 	// 평가치는 붙은 手数에만 있다. 안 붙은 자리가 0이 되면 호각과 구별이 안 된다.
-	if got.Moves[0].EvalCp != nil {
-		t.Errorf("moves[0].EvalCp = %d, want nil", *got.Moves[0].EvalCp)
+	if got.Moves[0].Score != nil {
+		t.Errorf("moves[0].Score = %+v, want nil", *got.Moves[0].Score)
 	}
-	if got.Moves[1].EvalCp == nil || *got.Moves[1].EvalCp != -120 {
-		t.Errorf("moves[1].EvalCp = %v, want -120", got.Moves[1].EvalCp)
+	if got.Moves[1].Score == nil || *got.Moves[1].Score != eval.Cp(-120) {
+		t.Errorf("moves[1].Score = %v, want cp -120", got.Moves[1].Score)
 	}
 
 	if len(got.Interventions) != 1 {

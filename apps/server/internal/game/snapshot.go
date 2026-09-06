@@ -7,6 +7,7 @@ package game
 // 서버가 어긋나도 아무도 모른다.
 
 import (
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
@@ -178,15 +179,15 @@ type Judgement struct {
 	// 개입이 안 걸렸으면 비어 있다.
 	Refutation []RefutationMove
 
-	// SenteCpBefore·SenteCpAfter 는 착수 전·후 국면의 평가치다. 先手 관점 cp이고
+	// SenteBefore·SenteAfter 는 착수 전·후 국면의 평가치다. 先手 관점이고
 	// HasEvals 가 false면 판을 못 읽어 구하지 못한 것이다.
 	//
-	// 판정에는 안 쓴다 — 기보에 남기기 위한 값이다. cp를 원본으로 남겨두면 승률
-	// 상수 K를 바꿔 지난 대국을 다시 채점할 수 있다(01-core.md §2의 K는 아직 실측 전이다).
+	// 판정에는 안 쓴다 — 기보에 남기기 위한 값이다. 원본을 남겨두면 승률 상수 K를
+	// 바꿔 지난 대국을 다시 채점할 수 있다(01-core.md §2의 K는 아직 실측 전이다).
 	// 승률만 남기면 그 길이 닫힌다.
-	SenteCpBefore int
-	SenteCpAfter  int
-	HasEvals      bool
+	SenteBefore eval.Score
+	SenteAfter  eval.Score
+	HasEvals    bool
 
 	// Facts 는 설명 계층이 문장으로 바꿀 사실들이다. 개입이 안 걸렸으면 비어 있다.
 	//

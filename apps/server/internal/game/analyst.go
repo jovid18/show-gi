@@ -136,9 +136,8 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	// 앞쪽은 착수 전 국면이라 그것이 곧 직전 상대 수 뒤의 평가치다 —
 	// 상대가 둘 때는 그 값을 아는 코드가 없으므로 여기서 한 수 늦게 채워진다.
 	if moverKnown {
-		// 기보의 평가치도 컬럼이 평평한 정수다(game_moves.eval_cp).
-		j.SenteCpBefore = senteCp(eval.ApproxCp(best.Score), mover)
-		j.SenteCpAfter = senteCp(eval.ApproxCp(after.Score.Neg()), mover) // after 는 상대 관점이다
+		j.SenteBefore = senteScore(best.Score, mover)
+		j.SenteAfter = senteScore(after.Score.Neg(), mover) // after 는 상대 관점이다
 		j.HasEvals = true
 	}
 	if v.Kind != intervene.KindNone {
@@ -386,6 +385,14 @@ func senteCp(moverCp int, mover shogi.Color) int {
 		return moverCp
 	}
 	return -moverCp
+}
+
+// senteScore 는 senteCp 와 같은 연산이고 詰み까지의 手数도 함께 뒤집는다.
+func senteScore(mover eval.Score, c shogi.Color) eval.Score {
+	if c == shogi.Black {
+		return mover
+	}
+	return mover.Neg()
 }
 
 // RefutationPlies 는 반박 수순의 상한이다. 실제 길이는 국면이 정한다(trimRefutation).

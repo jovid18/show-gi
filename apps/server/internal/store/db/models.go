@@ -16,22 +16,24 @@ type AnalysisJob struct {
 }
 
 type AnalysisPly struct {
-	MatchID   string
-	Ply       int32
-	StartSfen string
-	Moves     []string
-	Dead      bool
-	ClaimedAt pgtype.Timestamptz
-	DoneAt    pgtype.Timestamptz
-	BeforeCp  *int32
-	AfterCp   *int32
-	Blunder   *bool
-	DeltaWin  *float64
-	Threshold *float64
-	Decided   *bool
-	CreatedAt pgtype.Timestamptz
-	Category  *string
-	BestCp    *int32
+	MatchID    string
+	Ply        int32
+	StartSfen  string
+	Moves      []string
+	Dead       bool
+	ClaimedAt  pgtype.Timestamptz
+	DoneAt     pgtype.Timestamptz
+	BeforeCp   *int32
+	AfterCp    *int32
+	Blunder    *bool
+	DeltaWin   *float64
+	Threshold  *float64
+	Decided    *bool
+	CreatedAt  pgtype.Timestamptz
+	Category   *string
+	BestCp     *int32
+	BeforeMate *int32
+	AfterMate  *int32
 }
 
 type Edge struct {
@@ -39,7 +41,8 @@ type Edge struct {
 	USI         string
 	ChildKey    *string
 	Tags        []string
-	EvalByDepth []int32
+	EvalByDepth []*int32
+	MateByDepth []*int32
 }
 
 type ExploreSnapshot struct {
@@ -78,11 +81,12 @@ type GameHint struct {
 }
 
 type GameMove struct {
-	GameID  int64
-	Ply     int32
-	USI     string
-	SFENKey *string
-	EvalCp  *int32
+	GameID   int64
+	Ply      int32
+	USI      string
+	SFENKey  *string
+	EvalCp   *int32
+	EvalMate *int32
 }
 
 type GameQuiz struct {
@@ -99,6 +103,7 @@ type GameUndo struct {
 	USI       string
 	EvalCp    *int32
 	CreatedAt pgtype.Timestamptz
+	EvalMate  *int32
 }
 
 type Intervention struct {

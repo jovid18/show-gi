@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
@@ -530,8 +531,8 @@ func (a *fixedAnalyst) Judge(ctx context.Context, startSFEN string, moves []stri
 	if a.evalAfter != 0 || a.evalBefore != 0 {
 		pos, _, err := replay(startSFEN, moves)
 		if err == nil {
-			j.SenteCpBefore = senteCp(a.evalBefore, pos.Turn)
-			j.SenteCpAfter = senteCp(-a.evalAfter, pos.Turn)
+			j.SenteBefore = senteScore(eval.Cp(a.evalBefore), pos.Turn)
+			j.SenteAfter = senteScore(eval.Cp(-a.evalAfter), pos.Turn)
 			j.HasEvals = true
 		}
 	}

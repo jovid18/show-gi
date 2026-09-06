@@ -103,13 +103,15 @@ func whatifNodeOf(
 
 	// 캐시의 점수는 수번 측 관점이다(store.Candidate). 여기서 뒤집는다 — 패키지 doc 참조.
 	//
-	// cp 와 手数를 둘 다 내보낸다. 화면은 手数가 있으면 그쪽으로 말하지만(scoreJa),
-	// cp 는 형세 열이 이어지는 데 쓰이므로 詰み이어도 자리를 비우지 않는다 —
-	// 비우면 그 手数가 목록에서 통째로 빠진다(useMoveEvals).
+	// 詰み이면 cp 칸을 비운다. 되짚기의 기보 줄과 같은 규약이다(reviewMove.EvalCp) —
+	// 환산값은 평가치가 아니고, 화면은 手数가 있으면 그것으로 말한다(scoreJa).
 	top := playerScore(cands[0].Score, pos.Turn, human)
-	cp := eval.ApproxCp(top)
-	node.EvalCp = &cp
-	node.MateIn, _ = top.MateIn()
+	if n, ok := top.MateIn(); ok {
+		node.MateIn = n
+	} else {
+		cp, _ := top.Centipawns()
+		node.EvalCp = &cp
+	}
 	node.Candidates = candidatesOf(pos, prevTo, cands)
 	return node, nil
 }
@@ -175,18 +177,19 @@ func candidatesOf(pos shogi.Position, prevTo int, cands []store.Candidate) []wha
 			continue
 		}
 		seen[l.USI] = true
-		mateIn, _ := l.Score.MateIn()
-		c := whatifCandidate{
-			USI: l.USI, Ja: pos.MoveJa(m, prevTo),
-			EvalCp: eval.ApproxCp(l.Score), MateIn: mateIn,
+		mateIn, isMate := l.Score.MateIn()
+		cp, _ := l.Score.Centipawns()
+		c := whatifCandidate{USI: l.USI, Ja: pos.MoveJa(m, prevTo), MateIn: mateIn}
+		if !isMate {
+			c.EvalCp = &cp
 		}
 		// 낙폭은 최선수 대비다. 화면이 뺄셈을 하지 않는다 — 두 값을 나란히 두면
 		// 어느 쪽이 기준인지가 흐려진다.
 		//
 		// 詰み이 한쪽에라도 있으면 안 적는다. 그 줄의 cp는 환산값(±MateCp)이라 뺄셈이
 		// 29000 같은 수를 내놓고, 그것은 낙폭이 아니라 자가 다른 두 값의 차다.
-		if len(out) > 0 && out[0].MateIn == 0 && c.MateIn == 0 {
-			c.LossCp = out[0].EvalCp - c.EvalCp
+		if len(out) > 0 && out[0].EvalCp != nil && c.EvalCp != nil {
+			c.LossCp = *out[0].EvalCp - *c.EvalCp
 		}
 		out = append(out, c)
 	}

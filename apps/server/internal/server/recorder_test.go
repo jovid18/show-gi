@@ -11,6 +11,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
@@ -266,7 +267,7 @@ const evalOnlyAfterSente = 120
 type evalOnlyAnalyst struct{}
 
 func (evalOnlyAnalyst) Judge(_ context.Context, _ string, _ []string, _ int) (game.Judgement, error) {
-	return game.Judgement{SenteCpBefore: 40, SenteCpAfter: evalOnlyAfterSente, HasEvals: true}, nil
+	return game.Judgement{SenteBefore: eval.Cp(40), SenteAfter: eval.Cp(evalOnlyAfterSente), HasEvals: true}, nil
 }
 
 // 개입 하나가 interventions 행까지 간다.

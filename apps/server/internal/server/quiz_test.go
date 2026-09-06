@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/quiz"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -19,11 +20,11 @@ func quizRecord(myColor string, result store.GameResult, moves ...store.Recorded
 	return rec
 }
 
-func move(ply int, usiMove string, cp *int) store.RecordedMove {
-	return store.RecordedMove{Ply: ply, USI: usiMove, EvalCp: cp}
+func move(ply int, usiMove string, score *eval.Score) store.RecordedMove {
+	return store.RecordedMove{Ply: ply, USI: usiMove, Score: score}
 }
 
-func cpOf(v int) *int { return &v }
+func cpOf(v int) *eval.Score { s := eval.Cp(v); return &s }
 
 func TestQuizInputCarriesColorAndResult(t *testing.T) {
 	rec := quizRecord("w", store.ResultWin, move(1, "7g7f", cpOf(30)), move(2, "3c3d", cpOf(20)))

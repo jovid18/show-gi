@@ -13,6 +13,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -75,9 +76,9 @@ func TestDetailAttributesMovesByColor(t *testing.T) {
 // 평가치는 DB에 先手 관점으로 들어 있다. 後手로 둔 판에서 뒤집지 않으면 잃은 판이
 // 이긴 판으로 보인다.
 func TestDetailFlipsEvalForWhite(t *testing.T) {
-	cp := 320
+	sc := eval.Cp(320)
 	rec := recordOf("w", "7g7f")
-	rec.Moves[0].EvalCp = &cp
+	rec.Moves[0].Score = &sc
 
 	got := detailOf(rec)
 	if got.Moves[0].EvalCp == nil || *got.Moves[0].EvalCp != -320 {
@@ -94,7 +95,7 @@ func TestDetailFlipsEvalForWhite(t *testing.T) {
 
 // TestDetailCarriesTheHandicapBaseline 는 되짚기가 手合割의 「형세 0」을 같이 내려보내는지다.
 //
-// EvalCp 와 같은 관점이어야 한다(플레이어). 부호가 어긋나면 형세 그래프가 駒落ち 판을
+// moves[].evalCp 와 같은 관점이어야 한다(플레이어). 부호가 어긋나면 형세 그래프가 駒落ち 판을
 // 반대로 그리고, 그 그림은 「접어 준 것을 다 잃었다」와 「그대로 들고 있다」를 뒤집는다.
 func TestDetailCarriesTheHandicapBaseline(t *testing.T) {
 	nimai, ok := handicap.Find("nimaiochi")
@@ -394,12 +395,12 @@ func TestListRejectsOutOfRangeLimit(t *testing.T) {
 // 무른 수는 기보에 없다 — 되짚기가 그 수를 이름으로 부르려면 Ply-1 手目의 국면을
 // 다시 만들어야 한다(개입과 같은 규약).
 func TestDetailNamesUndoneMove(t *testing.T) {
-	cp := 123
+	sc := eval.Cp(123)
 	rec := recordOf("b", "7g7f", "3c3d")
 	rec.Undos = []store.RecordedUndo{{
-		Ply:    3, // 3手目에 뒀다가 무른 수
-		USI:    "8h2b+",
-		EvalCp: &cp,
+		Ply:   3, // 3手目에 뒀다가 무른 수
+		USI:   "8h2b+",
+		Score: &sc,
 	}}
 
 	got := detailOf(rec)
@@ -419,9 +420,9 @@ func TestDetailNamesUndoneMove(t *testing.T) {
 // 後手로 둔 판에서는 무른 수의 평가치도 플레이어 관점으로 뒤집힌다.
 // 기보의 moves[].evalCp 와 같은 변환이라야 한 화면에서 두 줄이 같은 자를 쓴다(§60).
 func TestDetailFlipsUndoEvalForWhite(t *testing.T) {
-	cp := 200
+	sc := eval.Cp(200)
 	rec := recordOf("w", "7g7f")
-	rec.Undos = []store.RecordedUndo{{Ply: 2, USI: "3c3d", EvalCp: &cp}}
+	rec.Undos = []store.RecordedUndo{{Ply: 2, USI: "3c3d", Score: &sc}}
 
 	got := detailOf(rec)
 	if len(got.Undos) != 1 {

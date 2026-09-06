@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
@@ -634,8 +635,8 @@ func TestScanTesujiShapesOverFloodgateGames(t *testing.T) {
 				mover := pos.Turn
 				pos = pos.Apply(m)
 
-				// 두 cp가 같으면 낙폭 0 — 게이트를 중립화한 룰 층이다.
-				for _, tg := range game.NamedTesuji(before, pos, mover, u, 0, 0) {
+				// 두 값이 같으면 낙폭 0 — 게이트를 중립화한 룰 층이다.
+				for _, tg := range game.NamedTesuji(before, pos, mover, u, eval.Cp(0), eval.Cp(0)) {
 					local[tg.Code]++
 					localPly[tg.Code] = append(localPly[tg.Code], i+1)
 					n++

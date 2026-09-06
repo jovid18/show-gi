@@ -32,14 +32,16 @@ SELECT count(*) FROM positions;
 -- 아는 것만 채우고 남의 칸을 지우지 않는다. 한 수의 사실이 두 번에 걸쳐 온다 —
 -- 후보를 잴 때는 깊이별 평가치를, 자식 국면을 잴 때는 도착 국면과 태그를 안다.
 -- 늦게 오는 쪽이 먼저 온 것을 지우면 절반이 사라진다.
-INSERT INTO edges (parent_key, usi, child_key, tags, eval_by_depth)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO edges (parent_key, usi, child_key, tags, eval_by_depth, mate_by_depth)
+VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (parent_key, usi) DO UPDATE
 SET child_key     = COALESCE(EXCLUDED.child_key, edges.child_key),
     tags          = CASE WHEN cardinality(EXCLUDED.tags) > 0
                          THEN EXCLUDED.tags ELSE edges.tags END,
     eval_by_depth = CASE WHEN cardinality(EXCLUDED.eval_by_depth) > 0
-                         THEN EXCLUDED.eval_by_depth ELSE edges.eval_by_depth END;
+                         THEN EXCLUDED.eval_by_depth ELSE edges.eval_by_depth END,
+    mate_by_depth = CASE WHEN cardinality(EXCLUDED.eval_by_depth) > 0
+                         THEN EXCLUDED.mate_by_depth ELSE edges.mate_by_depth END;
 
 -- name: CountEdges :one
 SELECT count(*) FROM edges;

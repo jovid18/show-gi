@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/store/db"
 )
 
@@ -29,12 +30,12 @@ type AnalysisPly struct {
 //
 // 평가치 둘은 先手 관점이다. 그 뒤 넷은 skill.Move 가 먹는 값 그대로다.
 type MeasuredPly struct {
-	Ply               int
-	BeforeCp, AfterCp int
-	Blunder           bool
-	DeltaWin          float64
-	Threshold         float64
-	Decided           bool
+	Ply           int
+	Before, After eval.Score
+	Blunder       bool
+	DeltaWin      float64
+	Threshold     float64
+	Decided       bool
 	// Category·BestCp 는 가져온 판의 悪手 줄을 만드는 데만 **읽는다**. 대인전의 手도
 	// 같은 판정을 지나므로 값은 채워지지만 그쪽은 이 칸을 안 본다(020_imported_games.sql).
 	Category string
@@ -80,19 +81,22 @@ func (s *Store) ClaimAnalysisPly(ctx context.Context, leaseBefore time.Time) (An
 // FinishAnalysisPly 는 잰 값을 그 행에 적는다. 행이 없으면 아무 일도 안 일어난다 —
 // 판이 끝나 걷힌 뒤에 도착한 늦은 측정이 판을 되살리지 않는다(query/analysis.sql).
 func (s *Store) FinishAnalysisPly(ctx context.Context, matchID string, m MeasuredPly) error {
-	before, after := int32(m.BeforeCp), int32(m.AfterCp)
+	beforeCp, beforeMate := evalColumns(&m.Before)
+	afterCp, afterMate := evalColumns(&m.After)
 	best := int32(m.BestCp)
 	err := s.q.FinishAnalysisPly(ctx, db.FinishAnalysisPlyParams{
-		MatchID:   matchID,
-		Ply:       int32(m.Ply),
-		BeforeCp:  &before,
-		AfterCp:   &after,
-		Blunder:   &m.Blunder,
-		DeltaWin:  &m.DeltaWin,
-		Threshold: &m.Threshold,
-		Decided:   &m.Decided,
-		Category:  nilIfEmpty(m.Category),
-		BestCp:    &best,
+		MatchID:    matchID,
+		Ply:        int32(m.Ply),
+		BeforeCp:   beforeCp,
+		AfterCp:    afterCp,
+		BeforeMate: beforeMate,
+		AfterMate:  afterMate,
+		Blunder:    &m.Blunder,
+		DeltaWin:   &m.DeltaWin,
+		Threshold:  &m.Threshold,
+		Decided:    &m.Decided,
+		Category:   nilIfEmpty(m.Category),
+		BestCp:     &best,
 	})
 	if err != nil {
 		return fmt.Errorf("finish analysis ply: %w", err)
@@ -121,8 +125,8 @@ func (s *Store) MeasuredAnalysisPlies(ctx context.Context, matchID string) ([]Me
 	for _, r := range rows {
 		out = append(out, MeasuredPly{
 			Ply:       int(r.Ply),
-			BeforeCp:  derefInt32(r.BeforeCp),
-			AfterCp:   derefInt32(r.AfterCp),
+			Before:    derefScore(scoreOf(r.BeforeCp, r.BeforeMate)),
+			After:     derefScore(scoreOf(r.AfterCp, r.AfterMate)),
 			Blunder:   derefBool(r.Blunder),
 			DeltaWin:  derefFloat(r.DeltaWin),
 			Threshold: derefFloat(r.Threshold),
