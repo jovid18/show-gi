@@ -86,7 +86,7 @@ func (h *matchHandler) create(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// get 은 들어가기 전에 방을 확인한다. 자리를 잡지 않는다 — 앉는 것은 WebSocket 이다.
+// get 은 들어가기 전에 방을 확인한다. 자리를 잡지 않는다 — 앉는 것은 WebSocket 이 붙을 때다.
 //
 // 손님이 링크를 열면 이 답으로 「◯◯さんの対局に参加しますか」가 뜬다. 그 화면 없이
 // 곧바로 붙이면, 링크를 잘못 누른 사람이 자기도 모르게 자리를 차지하고 그 방은
