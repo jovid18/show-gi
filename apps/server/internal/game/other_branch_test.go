@@ -99,7 +99,7 @@ func TestOtherBranchesDropsWhatItCannotVerify(t *testing.T) {
 	}
 }
 
-// 詰み은 cp로 말하지 않는다. 30000은 평가치가 아니라 환산값이다(explain.BranchScoreJa).
+// 詰み은 cp로 말하지 않는다. 그 줄에는 cp 가 아예 없다(explain.BranchScoreJa).
 func TestOtherBranchesKeepsMateOutOfCp(t *testing.T) {
 	_, _, got := collect(t, usi.SearchResult{Lines: []usi.SearchLine{
 		{Depth: JudgeDepth, MultiPV: 1, Move: "5g5f", Score: eval.Mate(-5), PV: []string{"5g5f", "5a4b"}},

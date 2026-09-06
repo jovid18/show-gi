@@ -118,7 +118,7 @@ func renderBranches(u Facts) string {
 
 // BranchScoreJa 는 갈래 하나의 결말을 적는다.
 //
-// 詰み을 cp로 말하지 않는다. 30000은 평가치가 아니라 환산값이고, 초심자에게 그 숫자는
+// 詰み을 cp로 말하지 않는다. 詰み에는 cp 가 아예 없고(eval.Score), 초심자에게 큰 숫자는
 // 아무것도 아니다 — 화면 쪽 scoreJa 와 같은 판단이다.
 func BranchScoreJa(b Branch) string {
 	switch {

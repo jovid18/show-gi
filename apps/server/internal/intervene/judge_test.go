@@ -22,8 +22,8 @@ func TestWinRateIsCentredAndMonotone(t *testing.T) {
 
 // 이 표가 종반 규칙이 필요한 이유 전부다.
 func TestWinRateSaturatesWhenWinning(t *testing.T) {
-	mate := WinRate(29970) // 詰み을 cp로 환산한 값
-	won := WinRate(2000)
+	mate := WinRateOf(eval.Mate(3), 0)
+	won := WinRateOf(eval.Cp(2000), 0)
 	if d := mate - won; d > 0.05 {
 		t.Fatalf("포화가 예상보다 약하다: Δ=%.3f", d)
 	}
@@ -98,7 +98,7 @@ func TestLostMateIsCaughtEvenThoughWinRateBarelyMoves(t *testing.T) {
 }
 
 func TestMateStillThereIsNotABlunder(t *testing.T) {
-	in := Input{Best: eval.Cp(29970), After: eval.Cp(29950), MateBefore: 3, MateAfter: 3, Level: Beginner}
+	in := Input{Best: eval.Mate(3), After: eval.Mate(3), MateBefore: 3, MateAfter: 3, Level: Beginner}
 	if v := Judge(in); v.Kind != KindNone {
 		t.Fatalf("詰み이 남아 있는데 걸렸다: %+v", v)
 	}
@@ -118,7 +118,7 @@ func TestMateStillThereIsNotABlunder(t *testing.T) {
 // 「詰みを逃した」고 가르쳤다(journal §76).
 func TestSlowerMateIsNotMissedMate(t *testing.T) {
 	// 5手詰이 있었는데 8手가 됐다 — 詰み은 그대로 있다.
-	kept := Input{Best: eval.Cp(29950), After: eval.Cp(29920), MateBefore: 5, MateAfter: 8, Level: Beginner}
+	kept := Input{Best: eval.Mate(5), After: eval.Mate(8), MateBefore: 5, MateAfter: 8, Level: Beginner}
 	v := Judge(kept)
 	if v.Kind != KindBlunder || !v.LostMate {
 		t.Fatalf("5→8은 걸려야 한다: %+v", v)
@@ -137,7 +137,7 @@ func TestSlowerMateIsNotMissedMate(t *testing.T) {
 
 // 탐색은 11까지 하지만 판정은 5까지만 한다.
 func TestLongMateIsNotJudged(t *testing.T) {
-	in := Input{Best: eval.Cp(29900), After: eval.Cp(2000), MateBefore: 9, MateAfter: 0, Level: Beginner}
+	in := Input{Best: eval.Mate(9), After: eval.Cp(2000), MateBefore: 9, MateAfter: 0, Level: Beginner}
 	if v := Judge(in); v.Kind != KindNone {
 		t.Fatalf("9手詰을 놓친 것으로 개입했다 — 8급에게 실수가 아니다: %+v", v)
 	}
@@ -149,7 +149,7 @@ func TestLongMateIsNotJudged(t *testing.T) {
 
 // 詰まされる 수는 종반 규칙이 아니라 승률 낙폭이 잡는다 — 그래서 규칙이 겹치지 않는다.
 func TestBeingMatedIsCaughtByWinRate(t *testing.T) {
-	in := Input{Best: eval.Cp(-500), After: eval.Cp(-29970), Level: Beginner}
+	in := Input{Best: eval.Cp(-500), After: eval.Mate(-3), Level: Beginner}
 	v := Judge(in)
 	if v.Kind != KindBlunder || v.LostMate {
 		t.Fatalf("詰まされる 수는 낙폭으로 걸려야 한다: %+v", v)

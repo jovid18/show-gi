@@ -206,7 +206,7 @@ func TestRankedDropsTheSameMoveTwice(t *testing.T) {
 	}
 }
 
-// 후보 순서가 점수를 태그째로 본다. 엔진의 생 cp 는 환산값(eval.MateCp)을 넘어오므로
+// 후보 순서가 점수를 태그째로 본다. 엔진의 생 cp 는 詰み을 눌러 담던 값을 넘어오므로
 // (±35281 = 「이기는데 手数를 모름」) 숫자 하나로 줄을 세우면 1手詰み이 그 뒤로 밀리고,
 // 그 순서가 그대로 저장돼 판 위의 초록 화살표가 詰み을 안 가리켰다(journal §131).
 func TestRankedPutsMateAboveTheEnginesRawCeiling(t *testing.T) {

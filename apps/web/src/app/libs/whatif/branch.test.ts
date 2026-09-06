@@ -75,12 +75,18 @@ describe('branchMotion', () => {
   });
 });
 
-// 詰み은 cp로 말하지 않는다. 30000은 평가치가 아니라 환산값이고, 초심자에게
-// 「+30000」은 아무것도 아니다.
+// 詰み은 cp로 말하지 않는다. 서버가 그때 cp 를 아예 안 보내고, 억지로 환산해 봐야
+// 초심자에게 큰 숫자는 아무것도 아니다.
 describe('scoreJa', () => {
   it('詰み은 手数로 말한다', () => {
-    expect(scoreJa(30000, 5)).toBe('5手で詰み');
-    expect(scoreJa(-30000, -3)).toBe('3手で詰まされる');
+    expect(scoreJa(undefined, 5)).toBe('5手で詰み');
+    expect(scoreJa(undefined, -3)).toBe('3手で詰まされる');
+  });
+
+  // cp 가 같이 와도 手数가 이긴다. 서버는 둘을 같이 안 보내지만, 그 규약이 무너지는
+  // 날에도 화면이 큰 숫자를 그리지는 않아야 한다.
+  it('cp 가 같이 와도 手数가 이긴다', () => {
+    expect(scoreJa(29990, 1)).toBe('1手で詰み');
   });
 
   it('평가치는 부호까지 적는다', () => {
@@ -101,7 +107,7 @@ describe('rowScoreJa', () => {
   // 手数는 세는 값이라 관점을 바꿔도 자가 안 갈린다. 안 뒤집으면 상대의 詰み을 내 詰み으로
   // 말하게 된다 — `lets_mate` 카테고리 전체가 그 자리다.
   it('상대가 두는 자리면 詰み의 주어가 바뀐다', () => {
-    const row = { cp: 30000, mateIn: 3 };
+    const row = { cp: undefined, mateIn: 3 };
     expect(rowScoreJa(row, false)).toBe('3手で詰み');
     expect(rowScoreJa(row, true)).toBe('3手で詰まされる');
   });
@@ -121,8 +127,9 @@ describe('playerCp', () => {
     expect(playerCp({ cp: -151, mateIn: undefined }, false)).toBe(-151);
   });
 
-  // 詰み의 cp는 환산값(±30000)이라 ±800 자에 얹으면 언제나 양 끝이다. 그 줄은 말로만 남는다.
+  // 詰み은 얹을 cp 자체가 없다. 규약이 무너져 cp 가 같이 오더라도 그 줄은 말로만 남는다.
   it('詰み은 색으로 말하지 않는다', () => {
+    expect(playerCp({ cp: undefined, mateIn: 1 }, false)).toBeUndefined();
     expect(playerCp({ cp: 29990, mateIn: 1 }, false)).toBeUndefined();
   });
 

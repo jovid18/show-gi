@@ -92,7 +92,7 @@ type Branch struct {
 	// Cp 는 거기까지 갔을 때의 플레이어 관점 평가치다. MateIn 이 0이 아니면 안 쓴다.
 	Cp int
 	// MateIn 은 詰み까지의 手数. 양수면 내가 詰ます 쪽이다. 없으면 0 —
-	// cp로 적으면 30000이 그대로 문장에 나간다(whatifCandidate 와 같은 판단이다).
+	// cp 칸을 안 본다. 詰み에는 cp 가 없다(whatifCandidate 와 같은 판단이다).
 	MateIn int
 }
 

@@ -360,8 +360,8 @@ func TestWhatIfDropsDuplicateCachedCandidates(t *testing.T) {
 	}
 }
 
-// 詰み은 cp가 아니라 手数로 나간다. 30000이라는 숫자를 화면에 그대로 흘리면 그건
-// 평가치가 아니라 환산값이다.
+// 詰み은 cp가 아니라 手数로 나간다. cp 칸은 그때 비어 있다 — 채우려면 환산해야 하고
+// 환산값은 평가치가 아니다.
 func TestWhatIfReportsMateInPlies(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d")
 	search := &fakeSearcher{results: []usi.SearchResult{{
@@ -405,8 +405,8 @@ func TestWhatIfPointsTheArrowAtTheMateNotTheRawCeiling(t *testing.T) {
 	}
 }
 
-// 詰み이 섞인 줄에는 낙폭을 안 적는다. cp가 환산값이라 뺄셈이 29900을 내놓고, 화면은
-// 그것을 「최선수보다 29900 손해」로 읽는다 — 자가 다른 두 값의 차다.
+// 詰み이 섞인 줄에는 낙폭을 안 적는다. 뺄 cp 자체가 없고, 억지로 환산해서 빼면
+// 자가 다른 두 값의 차가 나온다.
 func TestWhatIfLeavesLossOutWhenMateIsInTheList(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d")
 	search := &fakeSearcher{results: []usi.SearchResult{{

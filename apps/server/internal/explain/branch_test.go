@@ -40,8 +40,8 @@ func TestRenderCarriesEveryBranch(t *testing.T) {
 	}
 }
 
-// 詰み을 cp로 말하지 않는다. 30000은 평가치가 아니라 환산값이다.
-func TestBranchScoreJaNeverPrintsTheMateCp(t *testing.T) {
+// 詰み을 cp로 말하지 않는다. 그 자리에서 뜻이 있는 말은 手数 하나뿐이다.
+func TestBranchScoreJaNeverPrintsACpForAMate(t *testing.T) {
 	if got := BranchScoreJa(Branch{MateIn: 3}); got != "3手で相手を詰ませられる" {
 		t.Errorf("got %q", got)
 	}
