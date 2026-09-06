@@ -19,6 +19,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 )
 
 const (
@@ -29,29 +31,22 @@ const (
 	stopGrace = 2 * time.Second
 )
 
-// MateCp 는 mate 점수를 cp로 환산할 때의 상한이다.
-const MateCp = 30000
-
 // SearchLine 은 info 라인 하나 (점수는 수번 측 관점).
 type SearchLine struct {
 	Depth   int
 	MultiPV int // 1부터. MultiPV 미사용이면 항상 1
 	Move    string
-	ScoreCp int
-	IsMate  bool
-	MateIn  int
+	Score   eval.Score
 	PV      []string
 }
 
 // SearchResult 는 go 커맨드 한 번의 결과.
 type SearchResult struct {
-	Best    string // USI 수, 또는 "resign"/"win"/"none"
-	Depth   int    // 도달한 최대 깊이
-	ScoreCp int    // 수번 측 관점 centipawn (mate는 환산값)
-	IsMate  bool
-	MateIn  int          // IsMate일 때: 양수 = 수번 측이 이김
-	PV      []string     // 최선 수순
-	Lines   []SearchLine // 순위별 최종 후보 (가장 깊은 것)
+	Best  string       // USI 수, 또는 "resign"/"win"/"none"
+	Depth int          // 도달한 최대 깊이
+	Score eval.Score   // 수번 측 관점
+	PV    []string     // 최선 수순
+	Lines []SearchLine // 순위별 최종 후보 (가장 깊은 것)
 
 	// History 는 받은 info 라인 전부를 (깊이, 순위)별로 남긴 것이다.
 	// 얕은 평가와 깊은 평가의 격차가 개입 판정의 입력이라 마지막 깊이만 남기면 안 된다(journal §6 ②).
@@ -90,14 +85,14 @@ func (r SearchResult) Ranked() []SearchLine {
 		at[l.Move] = len(out)
 		out = append(out, l)
 	}
-	slices.SortStableFunc(out, func(x, y SearchLine) int { return y.ScoreCp - x.ScoreCp })
+	slices.SortStableFunc(out, func(x, y SearchLine) int { return eval.Compare(y.Score, x.Score) })
 	return out
 }
 
 // DepthEval 은 한 수의 특정 깊이 평가치다.
 type DepthEval struct {
 	Depth int
-	Cp    int
+	Score eval.Score
 }
 
 // EvalByDepth 는 그 수의 깊이별 평가치를 오름차순으로 준다. edges.eval_by_depth 에 그대로 들어간다.
@@ -106,7 +101,7 @@ func (r SearchResult) EvalByDepth(move string) []DepthEval {
 	var out []DepthEval
 	for _, l := range r.History {
 		if l.Move == move {
-			out = append(out, DepthEval{Depth: l.Depth, Cp: l.ScoreCp})
+			out = append(out, DepthEval{Depth: l.Depth, Score: l.Score})
 		}
 	}
 	slices.SortFunc(out, func(a, b DepthEval) int { return a.Depth - b.Depth })
@@ -115,13 +110,13 @@ func (r SearchResult) EvalByDepth(move string) []DepthEval {
 
 // ScoreAtDepth 는 그 깊이에서 1위였던 줄의 점수다 — 「이 국면을 여기까지만 읽으면 얼마로 보이나」.
 // 초보자의 시야를 모사하는 쪽이 이것이다(journal §15). 없는 깊이를 메우지 않는다.
-func (r SearchResult) ScoreAtDepth(depth int) (int, bool) {
+func (r SearchResult) ScoreAtDepth(depth int) (eval.Score, bool) {
 	for _, l := range r.History {
 		if l.Depth == depth && l.MultiPV == 1 {
-			return l.ScoreCp, true
+			return l.Score, true
 		}
 	}
-	return 0, false
+	return eval.Score{}, false
 }
 
 // Engine 은 USI 엔진 1개. 프로세스가 죽으면 다음 호출에서 재기동한다.
@@ -547,15 +542,19 @@ func parseScore(line string, res *SearchResult) {
 			hasScore = true
 			switch kind {
 			case "cp":
-				sl.ScoreCp = v
+				sl.Score = eval.Cp(v)
 			case "mate":
-				sl.IsMate = true
-				sl.MateIn = v
-				if v >= 0 {
-					sl.ScoreCp = MateCp - 10*v
-				} else {
-					sl.ScoreCp = -MateCp - 10*v
+				// mate 0 은 어느 쪽이 詰んでいる인지를 안 말한다(eval.Mate). 이 엔진은
+				// 안 내므로(mated 국면에 mate -1 을 낸다) 여기 오면 우리가 모르는
+				// 출력이고, 모르는 것을 뜻이 있는 값으로 옮기지 않는다.
+				//
+				// 줄을 통째로 버린다. 점수만 빼고 나머지를 쓰면 그 줄의 PV 가 앞 깊이의
+				// 점수 옆에 앉는다. "-0" 도 여기로 온다 — Atoi 가 부호를 지우므로 그쪽만
+				// 살려 낼 방법도 없다.
+				if v == 0 {
+					return
 				}
+				sl.Score = eval.Mate(v)
 			}
 		case "pv":
 			// pv는 항상 info 라인의 마지막 필드들
@@ -592,9 +591,7 @@ apply:
 	// 1위 라인은 기존 필드에도 반영 (MultiPV 미사용 호출과 호환)
 	if idx == 1 {
 		if hasScore {
-			res.ScoreCp = sl.ScoreCp
-			res.IsMate = sl.IsMate
-			res.MateIn = sl.MateIn
+			res.Score = sl.Score
 		}
 		if len(sl.PV) > 0 {
 			res.PV = sl.PV

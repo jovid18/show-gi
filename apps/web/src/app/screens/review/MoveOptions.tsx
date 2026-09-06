@@ -118,7 +118,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
      * 그리는 쪽이 정한다(`rowScoreJa`).
      */
     const moverScore = (at: MoveEval | undefined): Partial<Option> =>
-      at === undefined ? {} : { cp: byOpponent ? -at.cp : at.cp, mateIn: at.mateIn };
+      at === undefined ? {} : { cp: at.cp === undefined ? undefined : byOpponent ? -at.cp : at.cp, mateIn: at.mateIn };
 
     for (const c of node?.candidates ?? []) {
       put(c.usi, c.ja || c.usi, { cp: c.evalCp, mateIn: c.mateIn, best: true });
@@ -157,7 +157,13 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
     for (const [usi, { iv, tries }] of tried) {
       // 저장된 것이 있으면 그것, 없으면 다시 잰 것. 둘 다 「그 수를 두면 얼마」이고 둘 다
       // 플레이어 관점이라 같은 자로 옮긴다(`afterCp` 는 `moves[].evalCp` 와 같은 자다).
-      const stored: Partial<Option> = iv.afterCp === undefined ? {} : { cp: byOpponent ? -iv.afterCp : iv.afterCp };
+      //
+      // 詰み이면 手数 쪽이 온다 — 두 칸이 같이 오지 않는 것이 서버 쪽 규약이다.
+      const stored: Partial<Option> = iv.afterMate
+        ? { mateIn: byOpponent ? -iv.afterMate : iv.afterMate }
+        : iv.afterCp === undefined
+          ? {}
+          : { cp: byOpponent ? -iv.afterCp : iv.afterCp };
       put(usi, iv.retractedJa || usi, {
         retracted: { categoryJa: iv.categoryJa ?? '', message: iv.message ?? '', tries },
         ...moverScore(measured.get(usi)),
@@ -176,9 +182,14 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
     for (const [usi, tries] of undone) {
       // 저장된 평가치는 `moves[].evalCp` 에서 옮겨 온 것이라 이미 플레이어 관점이다 —
       // 물러진 수의 `afterCp` 와 같은 자, 같은 변환이다.
+      // 詰み이면 手数 쪽이 온다. 두 칸이 같이 오지 않는 것이 서버 쪽 규약이라
+      // (`ReviewUndo.evalCp`) 여기서도 手数를 먼저 본다.
       const first = game.undos.find((u) => u.usi === usi && u.ply === ply + 1);
-      const stored: Partial<Option> =
-        first?.evalCp === undefined ? {} : { cp: byOpponent ? -first.evalCp : first.evalCp };
+      const stored: Partial<Option> = first?.mateIn
+        ? { mateIn: byOpponent ? -first.mateIn : first.mateIn }
+        : first?.evalCp === undefined
+          ? {}
+          : { cp: byOpponent ? -first.evalCp : first.evalCp };
       put(usi, first?.ja || usi, { undone: { tries }, ...moverScore(measured.get(usi)), ...stored });
     }
 

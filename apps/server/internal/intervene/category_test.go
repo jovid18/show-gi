@@ -1,10 +1,14 @@
 package intervene
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
+)
 
 // 개입이 걸릴 만큼 나쁜 수. 카테고리만 보고 싶은 테스트에서 공통으로 쓴다.
 func blunderInput(f Features) Input {
-	return Input{BestCp: 0, AfterCp: -1600, Features: f, Level: Beginner}
+	return Input{Best: eval.Cp(0), After: eval.Cp(-1600), Features: f, Level: Beginner}
 }
 
 func TestCategoryPicksTheMostConcreteReason(t *testing.T) {
@@ -32,7 +36,7 @@ func TestCategoryPicksTheMostConcreteReason(t *testing.T) {
 		},
 		{
 			"얕은 이득에 낚임 — 한 수만 보면 이득, 깊게 보면 손해",
-			Features{Known: true, ShallowCp: 200, HasShallow: true},
+			Features{Known: true, Shallow: eval.Cp(200), HasShallow: true},
 			CategoryShallowTrap,
 		},
 		{
@@ -101,16 +105,16 @@ func TestKingExposedNeedsBothSidesToMove(t *testing.T) {
 // 반전 폭이 작으면 함정이 아니라 그냥 평가가 흔들린 것이다.
 func TestShallowTrapNeedsARealReversal(t *testing.T) {
 	// 얕게 +50, 깊게 −100. 벌어진 폭이 150이라 임계치에 못 미친다.
-	in := blunderInput(Features{Known: true, ShallowCp: 50, HasShallow: true})
-	in.AfterCp = -100
+	in := blunderInput(Features{Known: true, Shallow: eval.Cp(50), HasShallow: true})
+	in.After = eval.Cp(-100)
 	// 그 자체로는 개입이 안 걸리는 크기라 낙폭은 따로 만든다
-	in.BestCp = 1600
+	in.Best = eval.Cp(1600)
 	if got := Judge(in).Category; got == CategoryShallowTrap {
-		t.Errorf("반전 폭 %d(<%d)인데 함정이라고 했다", in.Features.ShallowCp-in.AfterCp, ShallowTrapCp)
+		t.Errorf("반전 폭이 %v→%v(<%d)인데 함정이라고 했다", in.Features.Shallow, in.After, ShallowTrapCp)
 	}
 
 	// 얕게 보면 손해인 수는 애초에 함정이 아니다 — 초보자도 손해로 본다
-	in = blunderInput(Features{Known: true, ShallowCp: -50, HasShallow: true})
+	in = blunderInput(Features{Known: true, Shallow: eval.Cp(-50), HasShallow: true})
 	if got := Judge(in).Category; got == CategoryShallowTrap {
 		t.Errorf("얕게 봐도 손해인 수를 함정이라고 했다")
 	}
@@ -119,7 +123,7 @@ func TestShallowTrapNeedsARealReversal(t *testing.T) {
 // 詰み을 놓친 것은 다른 축이다 — 판을 읽었든 아니든 이유가 이미 정해져 있다.
 func TestMissedMateWinsOverBoardFacts(t *testing.T) {
 	in := Input{
-		BestCp: 29970, AfterCp: 2000,
+		Best: eval.Mate(3), After: eval.Cp(2000),
 		MateBefore: 3, MateAfter: 0,
 		Features: Features{Known: true, CapturedValue: 10, GivesCheck: true},
 		Level:    Beginner,
@@ -143,7 +147,7 @@ func TestUnknownFeaturesFallBackToOther(t *testing.T) {
 // 개입하지 않은 수에는 카테고리가 없다. 「나쁘지 않은데 카테고리가 있다」는 상태를
 // 만들면 약점 프로파일이 그 위에서 쌓인다.
 func TestNoCategoryWhenNotIntervening(t *testing.T) {
-	in := Input{BestCp: 0, AfterCp: -50, Features: Features{Known: true, GivesCheck: true}}
+	in := Input{Best: eval.Cp(0), After: eval.Cp(-50), Features: Features{Known: true, GivesCheck: true}}
 	if v := Judge(in); v.Category != CategoryNone {
 		t.Fatalf("개입하지 않았는데 카테고리가 붙었다: %+v", v)
 	}
@@ -158,9 +162,9 @@ func TestUnpromotedBeatsEveryOtherReason(t *testing.T) {
 	// 딴 것도 있고(greedy_capture), 그냥 잡히기도 하고(hangs_piece), 王手까지 거는
 	// 수를 만든다. 이 셋이 전부 켜져 있어도 成 여부가 이유여야 한다.
 	in := Input{
-		BestCp:  120,
-		AfterCp: -900,
-		Level:   Beginner,
+		Best:  eval.Cp(120),
+		After: eval.Cp(-900),
+		Level: Beginner,
 		Features: Features{
 			Known:          true,
 			UnpromotedOnly: true,
@@ -188,7 +192,7 @@ func TestUnpromotedBeatsEveryOtherReason(t *testing.T) {
 
 // TestShallowTrapReadsTheBaseline 은 駒落ち에서도 그 카테고리가 나오는지를 본다.
 //
-// 이 규칙만 절대 부호를 읽는다(ShallowCp > Baseline · AfterCp < Baseline). 기준점을
+// 이 규칙만 절대 부호를 읽는다(Shallow > Baseline · After < Baseline). 기준점을
 // 안 보면 二枚落ち에서 앞 조건이 언제나 참이고 뒤 조건이 거의 언제나 거짓이라, 판정은
 // 걸리는데 이름이 other 로 떨어진다 — 개입은 살아 있고 설명만 조용히 나빠지는 모양이라
 // 눈으로는 안 잡힌다(journal §84).
@@ -198,8 +202,8 @@ func TestShallowTrapReadsTheBaseline(t *testing.T) {
 	// 얕게는 기준점보다 좋아 보이고(+400) 깊게는 나쁘다(-900). 낙폭이 입문 임계치를
 	// 넘어야 카테고리가 붙으므로(Judge) -900이다 — -400은 통과해서 이름이 아예 안 생긴다.
 	flat := Input{
-		BestCp: 0, AfterCp: -900, Level: Beginner,
-		Features: Features{Known: true, HasShallow: true, ShallowCp: 400},
+		Best: eval.Cp(0), After: eval.Cp(-900), Level: Beginner,
+		Features: Features{Known: true, HasShallow: true, Shallow: eval.Cp(400)},
 	}
 	if got := Judge(flat).Category; got != CategoryShallowTrap {
 		t.Fatalf("전제가 깨졌다 — 平手에서 %q 다", got)
@@ -207,8 +211,8 @@ func TestShallowTrapReadsTheBaseline(t *testing.T) {
 
 	// 같은 국면을 二枚落ち로 옮긴다. 기준점을 안 보면 여기서 이름이 갈린다.
 	komaochi := Input{
-		BestCp: nimai, AfterCp: nimai - 900, BaselineCp: nimai, Level: Beginner,
-		Features: Features{Known: true, HasShallow: true, ShallowCp: nimai + 400},
+		Best: eval.Cp(nimai), After: eval.Cp(nimai - 900), BaselineCp: nimai, Level: Beginner,
+		Features: Features{Known: true, HasShallow: true, Shallow: eval.Cp(nimai + 400)},
 	}
 	v := Judge(komaochi)
 	if v.Kind != KindBlunder {

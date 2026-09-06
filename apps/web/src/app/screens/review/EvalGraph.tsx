@@ -26,9 +26,11 @@ interface EvalGraphProps {
 /**
  * 세로축을 여기서 자른다.
  *
- * 詰み은 ±30000으로 온다. 그 값을 그대로 그리면 나머지 100수가 0 근처에 눌려 한 줄이
- * 되고, 정작 「어디서 기울었나」가 안 보인다. 銀 하나가 대략 500이라, 이 폭이면 駒 하나
- * 손해가 눈에 보이는 크기가 된다.
+ * 우세 구간이 없으면 나머지 100수가 0 근처에 눌려 한 줄이 되고, 정작 「어디서 기울었나」가
+ * 안 보인다. 銀 하나가 대략 500이라, 이 폭이면 駒 하나 손해가 눈에 보이는 크기가 된다.
+ *
+ * 詰み은 여기 안 온다 — `cp` 칸이 비고 `mateIn` 만 오므로(`ReviewMove.evalCp`) 그 手数는
+ * `pointOf` 가 축의 끝에 바로 찍는다. 자를 것이 없는 값이라 거기가 유일하게 옳은 자리다.
  *
  * 자른 것은 자른 것으로 보여야 한다 — 위아래 끝에 닿은 선은 「그 이상」이라는 뜻이다.
  */
@@ -85,6 +87,17 @@ const winRate = (cp: number): number => 1 / (1 + Math.exp(-cp / K));
 const valueOf = (cp: number, base: number): number => (AXIS === 'winrate' ? winRate(cp - base) : clamp(cp - base));
 
 const Y_DOMAIN: [number, number] = AXIS === 'winrate' ? [0, 1] : [-CLAMP, CLAMP];
+
+/**
+ * 한 手数의 세로 위치. 값이 없으면 그 자리에 점을 안 찍는다.
+ *
+ * 詰み은 자를 것이 없다 — 축의 끝이 그 자리에서 유일하게 옳은 값이고, cp로 환산해서
+ * 넣으면 어차피 같은 자리에 찍히면서 숫자만 거짓이 된다(서버가 그때  를 안 보낸다).
+ */
+function pointOf(row: { evalCp: number | undefined; mateIn: number | undefined }, base: number): number | undefined {
+  if (row.mateIn) return row.mateIn > 0 ? Y_DOMAIN[1] : Y_DOMAIN[0];
+  return row.evalCp === undefined ? undefined : valueOf(row.evalCp, base);
+}
 const Y_TICKS = AXIS === 'winrate' ? [0, 0.25, 0.5, 0.75, 1] : [-CLAMP, -600, 0, 600, CLAMP];
 /** 호각. 승률에서는 0.5이고 cp에서는 0이다. 駒落ち에서는 「핸디캡이 그대로인 자리」다(valueOf). */
 const Y_EVEN = AXIS === 'winrate' ? 0.5 : 0;
@@ -107,7 +120,8 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
   const data = useMemo<Point[]>(() => {
     const main = new Map<number, number>();
     for (const m of game.moves) {
-      if (m.evalCp !== undefined) main.set(m.ply, valueOf(m.evalCp, base));
+      const at = pointOf({ evalCp: m.evalCp, mateIn: m.mateIn }, base);
+      if (at !== undefined) main.set(m.ply, at);
     }
 
     /**
@@ -121,8 +135,11 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
       const root = main.get(node.basePly);
       if (root !== undefined) branch.set(node.basePly, root);
       node.line.forEach((move, i) => {
+        // 검은선과 같은 자로 찍는다. `cp` 만 보면 詰み이 있는 手数에 구멍이 나고,
+        // 하필 그 자리에서 검은선은 축의 끝에 점을 찍는다(`pointOf`).
         const at = evalOf(i + 1);
-        if (at?.cp !== undefined) branch.set(move.ply, valueOf(at.cp, base));
+        const y = at === null ? undefined : pointOf({ evalCp: at.cp, mateIn: at.mateIn }, base);
+        if (y !== undefined) branch.set(move.ply, y);
       });
     }
 

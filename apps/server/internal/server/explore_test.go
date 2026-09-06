@@ -148,8 +148,8 @@ func TestExploreKeepsTheSentePointOfView(t *testing.T) {
 		t.Fatalf("evalCp = %v, want -100 (先手 관점)", node.EvalCp)
 	}
 	// 후보의 cp는 뒤집지 않는다. 그 값의 주인은 그 수를 두는 쪽이다(whatifCandidate).
-	if node.Candidates[0].EvalCp != 100 {
-		t.Errorf("candidates[0].evalCp = %d, want 100 (수번 관점)", node.Candidates[0].EvalCp)
+	if c := node.Candidates[0].EvalCp; c == nil || *c != 100 {
+		t.Errorf("candidates[0].evalCp = %v, want 100 (수번 관점)", node.Candidates[0].EvalCp)
 	}
 	// 한 수도 대신 두지 않는다 — 줄에 있는 것은 받은 수뿐이다.
 	if len(node.Line) != 1 || node.Line[0].USI != "7g7f" || node.Line[0].Ja != "▲7六歩" {

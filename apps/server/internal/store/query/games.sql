@@ -58,10 +58,10 @@ UPDATE games SET finished_at = now(), result = $2 WHERE id = $1;
 --
 -- 같은 ply를 다시 쓰는 것은 롤백 뒤 다시 둔 경우다. 덮어쓴다 — 기보는 「지금 판에
 -- 남아 있는 수순」이지 시도의 목록이 아니다. 시도는 interventions 가 센다.
-INSERT INTO game_moves (game_id, ply, usi, eval_cp)
-VALUES ($1, $2, $3, $4)
+INSERT INTO game_moves (game_id, ply, usi, eval_cp, eval_mate)
+VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (game_id, ply) DO UPDATE
-SET usi = EXCLUDED.usi, eval_cp = EXCLUDED.eval_cp;
+SET usi = EXCLUDED.usi, eval_cp = EXCLUDED.eval_cp, eval_mate = EXCLUDED.eval_mate;
 
 -- name: InsertIntervention :exec
 --
@@ -70,9 +70,9 @@ SET usi = EXCLUDED.usi, eval_cp = EXCLUDED.eval_cp;
 -- 칸별 규약은 store.Intervention 에 있다.
 INSERT INTO interventions (
     game_id, ply, kind, category, delta_win, level_bucket, retracted_usi,
-    best_cp, after_cp
+    best_cp, after_cp, best_mate, after_mate
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 -- name: CountGames :one
 SELECT count(*) FROM games;
@@ -84,7 +84,7 @@ SELECT count(*) FROM interventions;
 --
 -- 평가치만 채운다. 수를 덮지 않는다 — upsert로 두면 물러진 수로 기보를 덮는 길이 생긴다.
 -- 없는 ply면 아무 일도 안 한다(평가치가 수보다 먼저 오는 경로가 없다).
-UPDATE game_moves SET eval_cp = $3 WHERE game_id = $1 AND ply = $2;
+UPDATE game_moves SET eval_cp = $3, eval_mate = $4 WHERE game_id = $1 AND ply = $2;
 
 -- ─── 리뷰(읽기) ─────────────────────────────────────────────
 
@@ -255,14 +255,16 @@ WHERE id = $1
 
 -- name: ListGameMoves :many
 --
--- eval_cp 는 先手 관점이고 NULL일 수 있다(store.RecordedMove).
-SELECT ply, usi, eval_cp FROM game_moves WHERE game_id = $1 ORDER BY ply;
+-- 점수는 先手 관점이고 둘 다 NULL일 수 있다(store.RecordedMove). eval_cp 와 eval_mate 는
+-- 배타적이고, 그것을 드는 것은 주석이 아니라 CHECK 다(021_tagged_evals.sql).
+SELECT ply, usi, eval_cp, eval_mate FROM game_moves WHERE game_id = $1 ORDER BY ply;
 
 -- name: ListGameInterventions :many
 --
 -- 같은 ply에 여러 행이 온다(InsertIntervention). id 로 이어 정렬해 물러진 순서를
 -- 지킨다 — 한 국면에서 두 번 걸렸을 때 어느 쪽이 먼저였는지가 곧 이야기다.
-SELECT ply, kind, category, delta_win, level_bucket, retracted_usi, best_cp, after_cp
+SELECT ply, kind, category, delta_win, level_bucket, retracted_usi,
+       best_cp, after_cp, best_mate, after_mate
 FROM interventions
 WHERE game_id = $1
 ORDER BY ply, id;
@@ -309,8 +311,10 @@ GROUP BY i.category;
 -- 평가치는 인자로 안 받는다. 그 값은 판정이 game_moves 에 이미 채워 뒀거나 아직
 -- 안 채웠거나 둘 중 하나이고, 세션이 그것을 다시 들고 다니면 같은 숫자가 두 벌이 된다.
 -- 여기서 옮겨 담고 아래 DeleteMovesFrom 이 원본을 지운다 — 순서가 뒤집히면 NULL이 남는다.
-INSERT INTO game_undos (game_id, ply, usi, eval_cp)
-VALUES ($1, $2, $3, (SELECT eval_cp FROM game_moves WHERE game_id = $1 AND ply = $2));
+INSERT INTO game_undos (game_id, ply, usi, eval_cp, eval_mate)
+VALUES ($1, $2, $3,
+        (SELECT eval_cp FROM game_moves WHERE game_id = $1 AND ply = $2),
+        (SELECT eval_mate FROM game_moves WHERE game_id = $1 AND ply = $2));
 
 -- name: DeleteMovesFrom :exec
 --
@@ -322,7 +326,7 @@ DELETE FROM game_moves WHERE game_id = $1 AND ply >= $2;
 --
 -- 같은 ply에 여러 행이 온다(무르고 다시 두고 또 무른 경우). id 로 이어 정렬해 무른
 -- 순서를 지킨다 — ListGameInterventions 와 같은 규약이다.
-SELECT ply, usi, eval_cp FROM game_undos WHERE game_id = $1 ORDER BY ply, id;
+SELECT ply, usi, eval_cp, eval_mate FROM game_undos WHERE game_id = $1 ORDER BY ply, id;
 
 -- name: CountGameUndos :one
 --

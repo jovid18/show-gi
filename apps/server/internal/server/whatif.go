@@ -134,14 +134,16 @@ type whatifCandidate struct {
 	Ja  string `json:"ja"`
 	// EvalCp 는 그 수를 둔 쪽 관점 cp다 — 이 값의 주인만 Turn 이고, 노드의 EvalCp 는
 	// 패키지 doc 대로 플레이어 관점이다.
-	EvalCp int `json:"evalCp"`
+	//
+	// 詰み이면 안 온다. MateIn 과 배타적이고, 그 배타가 저장 쪽 규약과 같다(store.Candidate).
+	EvalCp *int `json:"evalCp,omitempty"`
 	// LossCp 는 최선수 대비 낙폭이다 — 「이 수를 고르면 얼마를 내주나」.
 	//
 	// 없는 자리가 둘이다: 최선수 자신(기준이라 0)과 詰み이 섞인 줄(candidatesOf).
 	// 그래서 0을 안 내보낸다 — 화면이 「낙폭 0」과 「낙폭을 모른다」를 갈라야 한다.
 	LossCp int `json:"lossCp,omitempty"`
-	// MateIn 은 詰み까지의 手数다. 0이면 詰み이 아니다 — cp만 내보내면 30000이라는
-	// 숫자가 화면에 그대로 나가고, 그건 평가치가 아니라 환산값이다.
+	// MateIn 은 詰み까지의 手数다. 0이면 詰み이 아니다 — 이 칸이 차면 EvalCp 는 비어 있고,
+	// 화면은 手数로 말한다(scoreJa).
 	MateIn int `json:"mateIn,omitempty"`
 }
 

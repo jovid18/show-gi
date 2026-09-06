@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
@@ -133,8 +134,8 @@ func replayBlunder(b blunderRow, moves []string) (shogi.Position, shogi.Move, er
 // 조건을 고치는 순간 측정만 조용히 옛 규칙을 잰다.
 func offlineCategory(f intervene.Features) intervene.Category {
 	return intervene.Judge(intervene.Input{
-		BestCp:   30000,
-		AfterCp:  -30000,
+		Best:     eval.Mate(1),
+		After:    eval.Mate(-1),
 		Features: f,
 		Level:    intervene.Beginner,
 	}).Category

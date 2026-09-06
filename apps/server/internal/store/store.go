@@ -11,12 +11,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/store/db"
 )
 
@@ -49,17 +52,51 @@ func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 
 // Candidate 는 한 국면의 후보 수 하나다. positions.candidates 에 JSON으로 들어간다.
 //
-// Cp 는 수번 측 관점이다 — 엔진이 답하는 그대로다. 여기서 플레이어 관점으로 돌려놓으면
+// Score 는 수번 측 관점이다 — 엔진이 답하는 그대로다. 여기서 플레이어 관점으로 돌려놓으면
 // 같은 국면이 사람의 색에 따라 두 행이 되어 캐시가 성립하지 않는다.
 type Candidate struct {
-	USI string   `json:"usi"`
-	Cp  int      `json:"cp"`
-	PV  []string `json:"pv,omitempty"`
-	// MateIn 은 詰み까지의 手数다(수번 측이 이기면 양수). 詰み이 아니면 0.
-	//
-	// cp만으로는 복원할 수 없다. mate 는 30000에서 手数를 뺀 값으로 환산되어 들어오므로,
-	// 캐시에서 꺼낼 때 그 숫자를 그대로 화면에 쓰면 「+29995」가 나간다.
-	MateIn int `json:"mate,omitempty"`
+	USI   string
+	Score eval.Score
+	PV    []string
+}
+
+// candidateJSON 은 행에 실제로 들어가는 모양이다. cp 와 mate 가 배타적이라 둘 중 하나만
+// 나간다 — 합성값을 만들 자리가 없어야 해서 태그를 스키마가 든다(journal §131).
+type candidateJSON struct {
+	USI  string   `json:"usi"`
+	Cp   *int     `json:"cp,omitempty"`
+	Mate *int     `json:"mate,omitempty"`
+	PV   []string `json:"pv,omitempty"`
+}
+
+func (c Candidate) MarshalJSON() ([]byte, error) {
+	out := candidateJSON{USI: c.USI, PV: c.PV}
+	if n, ok := c.Score.MateIn(); ok {
+		out.Mate = &n
+	} else {
+		cp, _ := c.Score.Centipawns()
+		out.Cp = &cp
+	}
+	return json.Marshal(out)
+}
+
+// UnmarshalJSON 은 옛 행도 읽는다. 2026-09 이전의 행은 詰み 줄에 cp 와 mate 를 함께 적었고
+// 그 cp 는 환산값이라 — mate 가 있으면 그쪽이 이긴다. 그래서 마이그레이션이 없다.
+func (c *Candidate) UnmarshalJSON(b []byte) error {
+	var in candidateJSON
+	if err := json.Unmarshal(b, &in); err != nil {
+		return err
+	}
+	c.USI, c.PV = in.USI, in.PV
+	switch {
+	case in.Mate != nil:
+		c.Score = eval.Mate(*in.Mate)
+	case in.Cp != nil:
+		c.Score = eval.Cp(*in.Cp)
+	default:
+		c.Score = eval.Score{}
+	}
+	return nil
 }
 
 // Position 은 캐시된 국면 하나다.
@@ -96,6 +133,14 @@ func (s *Store) GetPosition(ctx context.Context, sfenKey string) (Position, erro
 		if err := json.Unmarshal(row.Candidates, &out.Candidates); err != nil {
 			return Position{}, fmt.Errorf("decode candidates for %s: %w", sfenKey, err)
 		}
+		// 순서를 여기서 한 번 더 세운다. 쓸 때 이미 정본 순서지만
+		// (usi.SearchResult.Ranked), 2026-09 이전에 쌓인 행은 詰み을 환산값으로 세워서
+		// 이기는 詰み이 첫째가 아닌 것이 실제로 있다(journal §131). 그 행을 고치는
+		// 마이그레이션 대신 읽는 자리가 든다 — 쓰는 쪽과 같은 비교자라 새 행에서는
+		// 아무것도 안 옮긴다.
+		slices.SortStableFunc(out.Candidates, func(a, b Candidate) int {
+			return eval.Compare(b.Score, a.Score)
+		})
 	}
 	return out, nil
 }
@@ -154,10 +199,13 @@ type Edge struct {
 	ChildKey string
 	// Tags 는 이 수가 새로 만든 囲い·전법·手筋의 코드다.
 	Tags []string
-	// EvalByDepth 는 깊이 1..N의 先手 관점 cp다(schema 주석과 같은 규약).
+	// ByDepth 는 깊이 1..N의 先手 관점 점수다(schema 주석과 같은 규약).
 	//
 	// 추가 탐색이 없다 — PvInterval=0 덕에 depth N 탐색 한 번이 1..N을 전부 준다.
-	EvalByDepth []int
+	//
+	// 행에서는 배열 둘이다. cp 와 詰み이 배타적이라 같은 자리에서 하나만 값이 있고,
+	// 그 배타를 스키마가 든다(021_tagged_evals.sql).
+	ByDepth []eval.Score
 }
 
 // PutEdge 는 한 수의 분석을 남긴다. 이미 있는 칸은 덮지 않는다.
@@ -169,10 +217,81 @@ func (s *Store) PutEdge(ctx context.Context, e Edge) error {
 	if arg.Tags == nil {
 		arg.Tags = []string{} // NOT NULL 칸이다. nil을 보내면 거절된다
 	}
-	for _, cp := range e.EvalByDepth {
-		arg.EvalByDepth = append(arg.EvalByDepth, int32(cp))
+	for _, sc := range e.ByDepth {
+		if n, ok := sc.MateIn(); ok {
+			arg.EvalByDepth = append(arg.EvalByDepth, nil)
+			arg.MateByDepth = append(arg.MateByDepth, ptr(int32(n)))
+			continue
+		}
+		cp, _ := sc.Centipawns()
+		arg.EvalByDepth = append(arg.EvalByDepth, ptr(int32(cp)))
+		arg.MateByDepth = append(arg.MateByDepth, nil)
 	}
 	return s.q.UpsertEdge(ctx, arg)
+}
+
+// ptr 은 스칼라를 nullable 칸에 넣을 수 있게 감싼다(sqlc 가 포인터로 낸다).
+func ptr[T any](v T) *T { return &v }
+
+// scoreOf 는 배타적인 두 칸을 점수 하나로 합친다. 둘 다 비면 nil — 「아직 안 잰 手数」다.
+// 둘 다 값이 있는 행은 CHECK 가 막는다(021_tagged_evals.sql).
+func scoreOf(cp, mate *int32) *eval.Score {
+	switch {
+	case mate != nil:
+		return ptr(eval.Mate(int(*mate)))
+	case cp != nil:
+		return ptr(eval.Cp(int(*cp)))
+	}
+	return nil
+}
+
+// derefScore 는 없는 점수를 호각(Cp 0)으로 읽는다. 「모른다」와 「0cp」를 갈라야 하는
+// 자리에서는 쓰지 않는다 — 그쪽은 *eval.Score 를 그대로 든다(RecordedMove).
+func derefScore(s *eval.Score) eval.Score {
+	if s == nil {
+		return eval.Score{}
+	}
+	return *s
+}
+
+// evalColumns 는 점수를 배타적인 두 칸으로 가른다. scoreOf 의 반대다.
+func evalColumns(s *eval.Score) (cp, mate *int32) {
+	if s == nil {
+		return nil, nil
+	}
+	if n, ok := s.MateIn(); ok {
+		return nil, ptr(int32(n))
+	}
+	v, _ := s.Centipawns()
+	return ptr(int32(v)), nil
+}
+
+// scoresByDepth 는 배열 둘을 깊이 순 점수로 합친다. 한 자리라도 「둘 다 있음」이나
+// 「둘 다 없음」이면 nil 이다 — 자리가 곧 깊이라 부분 복구가 곧 깊이 어긋남이다.
+//
+// 詰み 배열이 통째로 비어 있는 것은 「전부 cp」다. 021 이 그 칸을 nullable 로 더하고
+// 채우지 않으므로 그 앞에 쌓인 행이 전부 이 모양이고, 길이가 다르다고 버리면 그 행들의
+// 깊이별 값이 통째로 사라진다 — 얕은 평가가 없어져 「얕게 보면 이득」이 캐시 히트에서
+// 영영 안 걸린다.
+func scoresByDepth(cps, mates []*int32) []eval.Score {
+	if len(mates) == 0 {
+		mates = make([]*int32, len(cps))
+	}
+	if len(cps) != len(mates) {
+		return nil
+	}
+	out := make([]eval.Score, 0, len(cps))
+	for i := range cps {
+		switch {
+		case cps[i] != nil && mates[i] == nil:
+			out = append(out, eval.Cp(int(*cps[i])))
+		case cps[i] == nil && mates[i] != nil:
+			out = append(out, eval.Mate(int(*mates[i])))
+		default:
+			return nil
+		}
+	}
+	return out
 }
 
 // CountEdges 는 쌓인 수의 개수다. 캐시와 같은 자리에서 발표 숫자로 쓴다.
@@ -193,8 +312,12 @@ func (s *Store) Edges(ctx context.Context, parentKey string) ([]Edge, error) {
 		if r.ChildKey != nil {
 			e.ChildKey = *r.ChildKey
 		}
-		for _, cp := range r.EvalByDepth {
-			e.EvalByDepth = append(e.EvalByDepth, int(cp))
+		// 자리가 곧 깊이다(i 번째 = depth i+1). 그래서 구멍을 건너뛰면 안 된다 —
+		// 뒤가 통째로 한 칸씩 밀리고 얕은 값을 묻는 쪽이 다른 깊이의 답을 받는다.
+		// 한 자리라도 성립하지 않으면 그 수의 깊이별 값을 통째로 버린다.
+		e.ByDepth = scoresByDepth(r.EvalByDepth, r.MateByDepth)
+		if e.ByDepth == nil && len(r.EvalByDepth) > 0 {
+			log.Printf("store: edge %s %s has a malformed by-depth pair, dropping it", r.ParentKey, r.USI)
 		}
 		out = append(out, e)
 	}
@@ -659,15 +782,16 @@ func (s *Store) InsertMove(ctx context.Context, gameID int64, ply int, usi strin
 	return nil
 }
 
-// SetMoveEval 은 그 手数의 평가치를 나중에 채운다. 先手 관점 cp 다(journal §26).
+// SetMoveEval 은 그 手数의 평가치를 나중에 채운다. 先手 관점이다(journal §26).
 //
 // 수가 먼저 들어가 있어야 한다. 없는 ply면 아무 일도 일어나지 않는다.
-func (s *Store) SetMoveEval(ctx context.Context, gameID int64, ply, cp int) error {
-	v := int32(cp)
+func (s *Store) SetMoveEval(ctx context.Context, gameID int64, ply int, score eval.Score) error {
+	cp, mate := evalColumns(&score)
 	if err := s.q.SetMoveEval(ctx, db.SetMoveEvalParams{
-		GameID: gameID,
-		Ply:    int32(ply),
-		EvalCp: &v,
+		GameID:   gameID,
+		Ply:      int32(ply),
+		EvalCp:   cp,
+		EvalMate: mate,
 	}); err != nil {
 		return fmt.Errorf("set move eval: %w", err)
 	}
@@ -683,12 +807,12 @@ type Intervention struct {
 	LevelBucket string
 	// RetractedUSI 는 개입이 막지 않았다면 실제로 뒀을 수다.
 	RetractedUSI string
-	// BestCp·AfterCp 는 낙폭을 만든 두 원본이다(수번 측 관점). 제지형만.
+	// Best·After 는 낙폭을 만든 두 원본이다(수번 측 관점). 제지형만.
 	//
 	// 둘 다 0이면 안 적는다 — 판정을 안 거친 행과 「정말로 0cp였다」를 섞지 않기 위해서다.
 	// 호각인 국면에서 개입이 걸릴 일은 없으므로 이 규칙이 실제 값을 버리지는 않는다.
-	BestCp  int
-	AfterCp int
+	Best  eval.Score
+	After eval.Score
 }
 
 // InsertIntervention 은 개입 하나를 남긴다.
@@ -712,9 +836,9 @@ func (s *Store) InsertIntervention(ctx context.Context, gameID int64, iv Interve
 	}
 	d := iv.DeltaWin
 	arg.DeltaWin = &d
-	if iv.BestCp != 0 || iv.AfterCp != 0 {
-		b, a := int32(iv.BestCp), int32(iv.AfterCp)
-		arg.BestCp, arg.AfterCp = &b, &a
+	if iv.Best != (eval.Score{}) || iv.After != (eval.Score{}) {
+		arg.BestCp, arg.BestMate = evalColumns(&iv.Best)
+		arg.AfterCp, arg.AfterMate = evalColumns(&iv.After)
 	}
 
 	if err := s.q.InsertIntervention(ctx, arg); err != nil {
@@ -771,9 +895,9 @@ type GameSummary struct {
 type RecordedMove struct {
 	Ply int
 	USI string
-	// EvalCp 는 先手 관점 cp이고 nil일 수 있다 — 평가치는 수보다 늦게 오므로
+	// Score 는 先手 관점 점수이고 nil일 수 있다 — 평가치는 수보다 늦게 오므로
 	// 연결이 끊긴 판의 마지막 몇 수는 안 채워진 채로 남는다.
-	EvalCp *int
+	Score *eval.Score
 }
 
 // RecordedIntervention 은 남아 있는 개입 하나다.
@@ -787,11 +911,11 @@ type RecordedIntervention struct {
 	DeltaWin     float64
 	LevelBucket  string
 	RetractedUSI string
-	// BestCp·AfterCp 는 낙폭을 만든 두 원본이다(수번 측 관점). 없을 수 있다 —
+	// Best·After 는 낙폭을 만든 두 원본이다(수번 측 관점). 없을 수 있다 —
 	// migrations/005 앞에 기록된 판에는 영원히 없다. 버린 값은 되찾을 수 없고,
 	// 화면은 그 자리를 다시 재서 채운다.
-	BestCp  *int
-	AfterCp *int
+	Best  *eval.Score
+	After *eval.Score
 }
 
 // RecordedUndo 는 사람이 스스로 무른 수 하나다.
@@ -802,9 +926,9 @@ type RecordedIntervention struct {
 type RecordedUndo struct {
 	Ply int
 	USI string
-	// EvalCp 는 先手 관점 cp이고 nil일 수 있다 — 무를 때 판정이 아직 그 手数를
+	// Score 는 先手 관점 점수이고 nil일 수 있다 — 무를 때 판정이 아직 그 手数를
 	// 안 채웠으면 옮겨 담을 값이 없다(RecordUndo).
-	EvalCp *int
+	Score *eval.Score
 }
 
 // GameRecord 는 한 판 전체다.
@@ -1049,11 +1173,7 @@ func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error)
 	}
 
 	for _, m := range moves {
-		rec := RecordedMove{Ply: int(m.Ply), USI: m.USI}
-		if m.EvalCp != nil {
-			cp := int(*m.EvalCp)
-			rec.EvalCp = &cp
-		}
+		rec := RecordedMove{Ply: int(m.Ply), USI: m.USI, Score: scoreOf(m.EvalCp, m.EvalMate)}
 		out.Moves = append(out.Moves, rec)
 	}
 	for _, iv := range ivs {
@@ -1066,22 +1186,12 @@ func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error)
 			RetractedUSI: deref(iv.RetractedUsi),
 		}
 		// 없는 것과 0을 따로 둔다. 0cp는 호각이고, 없는 것은 migrations/005 앞의 행이다.
-		if iv.BestCp != nil {
-			cp := int(*iv.BestCp)
-			rec.BestCp = &cp
-		}
-		if iv.AfterCp != nil {
-			cp := int(*iv.AfterCp)
-			rec.AfterCp = &cp
-		}
+		rec.Best = scoreOf(iv.BestCp, iv.BestMate)
+		rec.After = scoreOf(iv.AfterCp, iv.AfterMate)
 		out.Interventions = append(out.Interventions, rec)
 	}
 	for _, u := range undos {
-		rec := RecordedUndo{Ply: int(u.Ply), USI: u.USI}
-		if u.EvalCp != nil {
-			cp := int(*u.EvalCp)
-			rec.EvalCp = &cp
-		}
+		rec := RecordedUndo{Ply: int(u.Ply), USI: u.USI, Score: scoreOf(u.EvalCp, u.EvalMate)}
 		out.Undos = append(out.Undos, rec)
 	}
 	return out, nil

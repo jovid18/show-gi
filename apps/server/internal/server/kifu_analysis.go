@@ -99,11 +99,11 @@ func (a *matchAnalyzer) importSeat(ctx context.Context, gameID int64) []analysis
 // 화면은 그 手数의 수를 기보에서 찾는다(web 의 ReviewDetail).
 func (a *matchAnalyzer) recordBlunder(ctx context.Context, gameID int64, ply int, mover shogi.Color, got judged) {
 	// 평가치는 두는 쪽 관점으로 뒤집는다. judged 가 든 것은 先手 관점이고
-	// (game.Judgement.SenteCpAfter) interventions 의 두 칸은 두는 쪽 관점이다
-	// (intervene.Verdict.AfterCp). 안 뒤집으면 後手가 둔 悪手의 부호가 통째로 반대가 된다.
-	afterCp := got.afterCp
+	// (game.Judgement.SenteAfter) interventions 의 두 칸은 두는 쪽 관점이다
+	// (intervene.Verdict.After). 안 뒤집으면 後手가 둔 悪手의 부호가 통째로 반대가 된다.
+	after := got.after
 	if mover == shogi.White {
-		afterCp = -afterCp
+		after = after.Neg()
 	}
 
 	iv := store.Intervention{
@@ -112,8 +112,8 @@ func (a *matchAnalyzer) recordBlunder(ctx context.Context, gameID int64, ply int
 		Category:    got.category,
 		DeltaWin:    got.move.DeltaWin,
 		LevelBucket: levelBucket(a.level),
-		BestCp:      got.bestCp,
-		AfterCp:     afterCp,
+		Best:        got.best,
+		After:       after,
 	}
 	if err := a.store.InsertIntervention(ctx, gameID, iv); err != nil && ctx.Err() == nil {
 		log.Printf("kifu: could not record the blunder at ply %d of game %d: %v", ply, gameID, err)

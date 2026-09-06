@@ -98,7 +98,9 @@ func playWeaklyWith(t *testing.T, pool *usi.Pool, opp Opponent, plies int, sk sk
 	}
 	// 수번이 사람(先手)이면 그대로, 상대면 뒤집는다
 	if pos.Turn == shogi.Black {
-		return res.ScoreCp
+		cp, _ := res.Score.Centipawns()
+		return cp
 	}
-	return -res.ScoreCp
+	cp, _ := res.Score.Neg().Centipawns()
+	return cp
 }

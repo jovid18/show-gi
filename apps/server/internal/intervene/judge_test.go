@@ -1,6 +1,10 @@
 package intervene
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
+)
 
 func TestWinRateIsCentredAndMonotone(t *testing.T) {
 	if got := WinRate(0); got != 0.5 {
@@ -18,8 +22,8 @@ func TestWinRateIsCentredAndMonotone(t *testing.T) {
 
 // 이 표가 종반 규칙이 필요한 이유 전부다.
 func TestWinRateSaturatesWhenWinning(t *testing.T) {
-	mate := WinRate(29970) // 詰み을 cp로 환산한 값
-	won := WinRate(2000)
+	mate := WinRateOf(eval.Mate(3), 0)
+	won := WinRateOf(eval.Cp(2000), 0)
 	if d := mate - won; d > 0.05 {
 		t.Fatalf("포화가 예상보다 약하다: Δ=%.3f", d)
 	}
@@ -38,14 +42,14 @@ func TestWinRateSaturatesWhenWinning(t *testing.T) {
 // 그런 구간은 5수째의 飛 헌납을 놓치면서 25수째의 정당한 선택은 못 봐준다.
 func TestOpeningVarietyIsProtectedByThresholds(t *testing.T) {
 	for _, cp := range []int{50, 100, 200} {
-		in := Input{BestCp: 0, AfterCp: -cp, Level: Intermediate}
+		in := Input{Best: eval.Cp(0), After: eval.Cp(-cp), Level: Intermediate}
 		if v := Judge(in); v.Kind != KindNone {
 			t.Errorf("%dcp 손해에 개입했다 — 오프닝 선택 폭이 죽는다: Δ=%.3f", cp, v.DeltaWin)
 		}
 	}
 	// 銀(약 1000cp) 이상을 공짜로 주면 제일 너그러운 입문에서도 걸린다
 	for _, cp := range []int{1000, 1600, 2000} {
-		in := Input{BestCp: 0, AfterCp: -cp, Level: Beginner}
+		in := Input{Best: eval.Cp(0), After: eval.Cp(-cp), Level: Beginner}
 		if v := Judge(in); v.Kind != KindBlunder {
 			t.Errorf("%dcp 헌납이 안 걸렸다: Δ=%.3f", cp, v.DeltaWin)
 		}
@@ -54,8 +58,8 @@ func TestOpeningVarietyIsProtectedByThresholds(t *testing.T) {
 
 func TestLevelThresholds(t *testing.T) {
 	// 승률을 약 15%p 떨어뜨리는 수. 중급·초급은 걸리고 입문은 안 걸린다.
-	in := Input{BestCp: 0, AfterCp: -350}
-	delta := WinRate(in.BestCp) - WinRate(in.AfterCp)
+	in := Input{Best: eval.Cp(0), After: eval.Cp(-350)}
+	delta := WinRateOf(in.Best, 0) - WinRateOf(in.After, 0)
 	if delta < 0.12 || delta > 0.18 {
 		t.Fatalf("테스트 전제가 깨졌다: Δ=%.3f (0.12~0.18 기대)", delta)
 	}
@@ -78,8 +82,8 @@ func TestLevelThresholds(t *testing.T) {
 // 종반 — 승률로는 안 걸리는 수가 詰み 거리로는 걸려야 한다.
 func TestLostMateIsCaughtEvenThoughWinRateBarelyMoves(t *testing.T) {
 	in := Input{
-		BestCp:     29970, // 詰み
-		AfterCp:    2000,  // 여전히 이기고 있다
+		Best:       eval.Mate(3),  // 詰み
+		After:      eval.Cp(2000), // 여전히 이기고 있다
 		MateBefore: 3,
 		MateAfter:  0, // 놓쳤다
 		Level:      Beginner,
@@ -94,7 +98,7 @@ func TestLostMateIsCaughtEvenThoughWinRateBarelyMoves(t *testing.T) {
 }
 
 func TestMateStillThereIsNotABlunder(t *testing.T) {
-	in := Input{BestCp: 29970, AfterCp: 29950, MateBefore: 3, MateAfter: 3, Level: Beginner}
+	in := Input{Best: eval.Mate(3), After: eval.Mate(3), MateBefore: 3, MateAfter: 3, Level: Beginner}
 	if v := Judge(in); v.Kind != KindNone {
 		t.Fatalf("詰み이 남아 있는데 걸렸다: %+v", v)
 	}
@@ -114,7 +118,7 @@ func TestMateStillThereIsNotABlunder(t *testing.T) {
 // 「詰みを逃した」고 가르쳤다(journal §76).
 func TestSlowerMateIsNotMissedMate(t *testing.T) {
 	// 5手詰이 있었는데 8手가 됐다 — 詰み은 그대로 있다.
-	kept := Input{BestCp: 29950, AfterCp: 29920, MateBefore: 5, MateAfter: 8, Level: Beginner}
+	kept := Input{Best: eval.Mate(5), After: eval.Mate(8), MateBefore: 5, MateAfter: 8, Level: Beginner}
 	v := Judge(kept)
 	if v.Kind != KindBlunder || !v.LostMate {
 		t.Fatalf("5→8은 걸려야 한다: %+v", v)
@@ -125,7 +129,7 @@ func TestSlowerMateIsNotMissedMate(t *testing.T) {
 
 	// 같은 국면에서 詰み이 사라지면 저쪽이다.
 	gone := kept
-	gone.MateAfter, gone.AfterCp = 0, 2000
+	gone.MateAfter, gone.After = 0, eval.Cp(2000)
 	if v := Judge(gone); v.Category != CategoryMissedMate {
 		t.Fatalf("詰み이 사라졌는데 %q 다", v.Category)
 	}
@@ -133,7 +137,7 @@ func TestSlowerMateIsNotMissedMate(t *testing.T) {
 
 // 탐색은 11까지 하지만 판정은 5까지만 한다.
 func TestLongMateIsNotJudged(t *testing.T) {
-	in := Input{BestCp: 29900, AfterCp: 2000, MateBefore: 9, MateAfter: 0, Level: Beginner}
+	in := Input{Best: eval.Mate(9), After: eval.Cp(2000), MateBefore: 9, MateAfter: 0, Level: Beginner}
 	if v := Judge(in); v.Kind != KindNone {
 		t.Fatalf("9手詰을 놓친 것으로 개입했다 — 8급에게 실수가 아니다: %+v", v)
 	}
@@ -145,7 +149,7 @@ func TestLongMateIsNotJudged(t *testing.T) {
 
 // 詰まされる 수는 종반 규칙이 아니라 승률 낙폭이 잡는다 — 그래서 규칙이 겹치지 않는다.
 func TestBeingMatedIsCaughtByWinRate(t *testing.T) {
-	in := Input{BestCp: -500, AfterCp: -29970, Level: Beginner}
+	in := Input{Best: eval.Cp(-500), After: eval.Mate(-3), Level: Beginner}
 	v := Judge(in)
 	if v.Kind != KindBlunder || v.LostMate {
 		t.Fatalf("詰まされる 수는 낙폭으로 걸려야 한다: %+v", v)
@@ -167,7 +171,7 @@ func TestBaselineRestoresTheJudgementInKomaochi(t *testing.T) {
 	const yonmai = 1561 // internal/handicap 의 실측값
 
 	// 기준점 없이: 銀 하나 값(약 1000cp)을 흘렸는데 통과한다. 이 줄이 초록인 것이 문제였다.
-	blind := Input{BestCp: yonmai, AfterCp: yonmai - 1000, Level: Beginner}
+	blind := Input{Best: eval.Cp(yonmai), After: eval.Cp(yonmai - 1000), Level: Beginner}
 	if v := Judge(blind); v.Kind != KindNone {
 		t.Fatalf("전제가 깨졌다 — 기준점 없이도 걸렸다: Δ=%.3f", v.DeltaWin)
 	}
@@ -182,15 +186,15 @@ func TestBaselineRestoresTheJudgementInKomaochi(t *testing.T) {
 
 	// 낙폭이 平手의 그것과 같아야 한다. 기준점이 하는 일은 좌표를 옮기는 것뿐이라,
 	// 같은 상대 손해는 어느 手合에서도 같은 숫자여야 한다.
-	flat := Judge(Input{BestCp: 0, AfterCp: -1000, Level: Beginner})
+	flat := Judge(Input{Best: eval.Cp(0), After: eval.Cp(-1000), Level: Beginner})
 	if d := v.DeltaWin - flat.DeltaWin; d > 1e-9 || d < -1e-9 {
 		t.Errorf("낙폭이 手合에 따라 갈렸다: 四枚落ち %.6f vs 平手 %.6f", v.DeltaWin, flat.DeltaWin)
 	}
 
 	// 원본 cp는 안 옮긴다. 재채점이 이 두 칸에서 도므로(Input.BaselineCp) 기준점을
 	// 뺀 값이 저장되면 원본이 어디에도 없어진다.
-	if v.BestCp != yonmai || v.AfterCp != yonmai-1000 {
-		t.Errorf("Verdict 의 cp가 기준점만큼 옮겨졌다: %d / %d", v.BestCp, v.AfterCp)
+	if v.Best != eval.Cp(yonmai) || v.After != eval.Cp(yonmai-1000) {
+		t.Errorf("Verdict 의 값이 기준점만큼 옮겨졌다: %v / %v", v.Best, v.After)
 	}
 }
 
@@ -204,7 +208,7 @@ func TestBaselineRestoresTheJudgementInKomaochi(t *testing.T) {
 func TestBaselineIsANoOpAtHirate(t *testing.T) {
 	for cp := -2000; cp <= 2000; cp += 250 {
 		for _, after := range []int{cp, cp - 300, cp - 900} {
-			v := Judge(Input{BestCp: cp, AfterCp: after, Level: Beginner})
+			v := Judge(Input{Best: eval.Cp(cp), After: eval.Cp(after), Level: Beginner})
 			want := WinRate(cp) - WinRate(after)
 			if d := v.DeltaWin - want; d > 1e-12 || d < -1e-12 {
 				t.Fatalf("cp %d → %d: Δ=%.12f, 옛 식은 %.12f", cp, after, v.DeltaWin, want)
@@ -220,10 +224,10 @@ func TestBaselineIsANoOpAtHirate(t *testing.T) {
 func TestBaselineSubtractsFromBothTerms(t *testing.T) {
 	// 같은 상대 손해는 기준점을 어디로 옮겨도 같은 낙폭이어야 한다.
 	const best, after = 400, -200
-	want := Judge(Input{BestCp: best, AfterCp: after, Level: Beginner}).DeltaWin
+	want := Judge(Input{Best: eval.Cp(best), After: eval.Cp(after), Level: Beginner}).DeltaWin
 	for _, base := range []int{-2000, -270, 0, 741, 1490, 3000} {
 		got := Judge(Input{
-			BestCp: best + base, AfterCp: after + base, BaselineCp: base, Level: Beginner,
+			Best: eval.Cp(best + base), After: eval.Cp(after + base), BaselineCp: base, Level: Beginner,
 		}).DeltaWin
 		if d := got - want; d > 1e-12 || d < -1e-12 {
 			t.Errorf("기준점 %d: Δ=%.12f, want %.12f", base, got, want)

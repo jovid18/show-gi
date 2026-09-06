@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -46,7 +47,7 @@ func (m *perLineMate) SearchMate(_ context.Context, _ string, moves []string) (u
 //
 // 그것이 opponentMate 의 게이트다 — 이 값이 없으면 solver를 아예 안 부른다.
 func mateSearcher(mateIn int) usi.SearchResult {
-	return usi.SearchResult{Best: "7g7f", ScoreCp: -3000, IsMate: true, MateIn: mateIn}
+	return usi.SearchResult{Best: "7g7f", Score: eval.Mate(mateIn)}
 }
 
 func TestOpponentMateNeedsBothConditions(t *testing.T) {
@@ -206,7 +207,7 @@ func TestLetsMateOutranksMaterialCategories(t *testing.T) {
 		"駒得보다 앞":   greedy,
 		"王手보다 앞":   check,
 	} {
-		v := intervene.Judge(intervene.Input{BestCp: 30000, AfterCp: -30000, Features: f})
+		v := intervene.Judge(intervene.Input{Best: eval.Mate(1), After: eval.Mate(-1), Features: f})
 		if v.Category != intervene.CategoryLetsMate {
 			t.Errorf("%s: 카테고리 = %s, want lets_mate", name, v.Category)
 		}
@@ -216,7 +217,7 @@ func TestLetsMateOutranksMaterialCategories(t *testing.T) {
 	// 그것이 詰み까지 막는다.
 	unp := base
 	unp.UnpromotedOnly = true
-	v := intervene.Judge(intervene.Input{BestCp: 30000, AfterCp: -30000, Features: unp})
+	v := intervene.Judge(intervene.Input{Best: eval.Mate(1), After: eval.Mate(-1), Features: unp})
 	if v.Category != intervene.CategoryUnpromoted {
 		t.Errorf("不成: 카테고리 = %s, want unpromoted", v.Category)
 	}

@@ -158,7 +158,8 @@ func weakGameOpponentTurns(t *testing.T, pool *usi.Pool, plies int) [][]string {
 func playerCpOf(res usi.SearchResult, move string) int {
 	for _, l := range res.Lines {
 		if l.Move == move {
-			return -l.ScoreCp
+			cp, _ := l.Score.Neg().Centipawns()
+			return cp
 		}
 	}
 	return 0
@@ -171,7 +172,7 @@ func candidateSpan(res usi.SearchResult) (lo, hi int) {
 		if l.Move == "" {
 			continue
 		}
-		cp := -l.ScoreCp
+		cp, _ := l.Score.Neg().Centipawns()
 		if first {
 			lo, hi, first = cp, cp, false
 			continue

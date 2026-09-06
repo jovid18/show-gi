@@ -10,6 +10,7 @@ import (
 	"log"
 
 	"github.com/jovid18/show-gi/apps/server/internal/archive"
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -100,10 +101,17 @@ func whatifNodeOf(
 		return node, nil
 	}
 
-	// 캐시의 cp는 수번 측 관점이다(store.Candidate). 여기서 뒤집는다 — 패키지 doc 참조.
-	cp := playerCp(cands[0].Cp, pos.Turn, human)
-	node.EvalCp = &cp
-	node.MateIn = playerCp(cands[0].MateIn, pos.Turn, human)
+	// 캐시의 점수는 수번 측 관점이다(store.Candidate). 여기서 뒤집는다 — 패키지 doc 참조.
+	//
+	// 詰み이면 cp 칸을 비운다. 되짚기의 기보 줄과 같은 규약이다(reviewMove.EvalCp) —
+	// 환산값은 평가치가 아니고, 화면은 手数가 있으면 그것으로 말한다(scoreJa).
+	top := playerScore(cands[0].Score, pos.Turn, human)
+	if n, ok := top.MateIn(); ok {
+		node.MateIn = n
+	} else {
+		cp, _ := top.Centipawns()
+		node.EvalCp = &cp
+	}
 	node.Candidates = candidatesOf(pos, prevTo, cands)
 	return node, nil
 }
@@ -140,12 +148,13 @@ func evalOf(
 	return archive.Candidates(res), nil
 }
 
-// playerCp 는 수번 측 값을 플레이어 관점으로 옮긴다(패키지 doc의 규약).
-func playerCp(moverCp int, turn, human shogi.Color) int {
+// playerScore 는 수번 측 값을 플레이어 관점으로 옮긴다(패키지 doc의 규약).
+// cp 도 詰み까지의 手数도 부호만 뒤집힌다.
+func playerScore(s eval.Score, turn, human shogi.Color) eval.Score {
 	if turn == human {
-		return moverCp
+		return s
 	}
-	return -moverCp
+	return s.Neg()
 }
 
 // candidatesOf 는 탐색의 후보들을 화면이 그릴 수 있는 모양으로 옮긴다.
@@ -168,14 +177,19 @@ func candidatesOf(pos shogi.Position, prevTo int, cands []store.Candidate) []wha
 			continue
 		}
 		seen[l.USI] = true
-		c := whatifCandidate{USI: l.USI, Ja: pos.MoveJa(m, prevTo), EvalCp: l.Cp, MateIn: l.MateIn}
+		mateIn, isMate := l.Score.MateIn()
+		cp, _ := l.Score.Centipawns()
+		c := whatifCandidate{USI: l.USI, Ja: pos.MoveJa(m, prevTo), MateIn: mateIn}
+		if !isMate {
+			c.EvalCp = &cp
+		}
 		// 낙폭은 최선수 대비다. 화면이 뺄셈을 하지 않는다 — 두 값을 나란히 두면
 		// 어느 쪽이 기준인지가 흐려진다.
 		//
-		// 詰み이 한쪽에라도 있으면 안 적는다. 그 줄의 cp는 환산값(±MateCp)이라 뺄셈이
+		// 詰み이 한쪽에라도 있으면 안 적는다. 뺄 cp 자체가 없고, 억지로 환산하면 뺄셈이
 		// 29000 같은 수를 내놓고, 그것은 낙폭이 아니라 자가 다른 두 값의 차다.
-		if len(out) > 0 && out[0].MateIn == 0 && c.MateIn == 0 {
-			c.LossCp = out[0].EvalCp - c.EvalCp
+		if len(out) > 0 && out[0].EvalCp != nil && c.EvalCp != nil {
+			c.LossCp = *out[0].EvalCp - *c.EvalCp
 		}
 		out = append(out, c)
 	}

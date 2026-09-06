@@ -1,6 +1,10 @@
 package store
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
+)
 
 // 무르기는 기보를 자르고 무른 수를 따로 남긴다. 둘 다 SQL에만 있는 규칙이라
 // (query/games.sql) 가짜로는 검증할 수 없다.
@@ -17,7 +21,7 @@ func TestRecordUndoCutsTheKifuAndKeepsTheMove(t *testing.T) {
 			t.Fatalf("InsertMove %d: %v", ply, err)
 		}
 	}
-	if err := s.SetMoveEval(t.Context(), id, 1, 123); err != nil {
+	if err := s.SetMoveEval(t.Context(), id, 1, eval.Cp(123)); err != nil {
 		t.Fatalf("SetMoveEval: %v", err)
 	}
 
@@ -42,8 +46,8 @@ func TestRecordUndoCutsTheKifuAndKeepsTheMove(t *testing.T) {
 		t.Fatalf("무른 수 = %+v", u)
 	}
 	// 평가치는 지우기 전에 옮겨 담는다. 순서가 뒤집히면 여기가 nil이 된다.
-	if u.EvalCp == nil || *u.EvalCp != 123 {
-		t.Fatalf("무른 수의 평가치 = %v (123 기대)", u.EvalCp)
+	if u.Score == nil || *u.Score != eval.Cp(123) {
+		t.Fatalf("무른 수의 평가치 = %v (cp 123 기대)", u.Score)
 	}
 
 	// 개입 횟수에 안 섞인다 — 목록의 그 숫자는 「AI가 몇 번 막았나」다.

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -113,13 +114,13 @@ func (s *fakeStore) rows() int {
 
 // 깊이별 라인이 붙은 탐색 결과. PvInterval=0 이라 엔진이 실제로 이렇게 준다.
 func result(depth int, moves ...string) usi.SearchResult {
-	res := usi.SearchResult{Depth: depth, Best: moves[0], ScoreCp: 100}
+	res := usi.SearchResult{Depth: depth, Best: moves[0], Score: eval.Cp(100)}
 	for i, m := range moves {
 		cp := 100 - i*40
-		res.Lines = append(res.Lines, usi.SearchLine{Depth: depth, MultiPV: i + 1, Move: m, ScoreCp: cp})
+		res.Lines = append(res.Lines, usi.SearchLine{Depth: depth, MultiPV: i + 1, Move: m, Score: eval.Cp(cp)})
 		// 얕은 깊이의 값도 함께 온다. 이것이 edges.eval_by_depth 가 되는 원본이다.
 		for d := 1; d <= depth; d++ {
-			res.History = append(res.History, usi.SearchLine{Depth: d, MultiPV: i + 1, Move: m, ScoreCp: cp - (depth - d)})
+			res.History = append(res.History, usi.SearchLine{Depth: d, MultiPV: i + 1, Move: m, Score: eval.Cp(cp - (depth - d))})
 		}
 	}
 	return res
@@ -147,7 +148,7 @@ func TestRecordsThePositionAndItsCandidates(t *testing.T) {
 	if p.ComputedDepth != 12 || p.SideToMove != "b" {
 		t.Errorf("position = %+v", p)
 	}
-	if len(p.Candidates) != 2 || p.Candidates[0].USI != "7g7f" || p.Candidates[0].Cp != 100 {
+	if len(p.Candidates) != 2 || p.Candidates[0].USI != "7g7f" || p.Candidates[0].Score != eval.Cp(100) {
 		t.Fatalf("candidates = %+v", p.Candidates)
 	}
 
@@ -157,11 +158,11 @@ func TestRecordsThePositionAndItsCandidates(t *testing.T) {
 	if !ok {
 		t.Fatal("후보의 간선이 안 쌓였다")
 	}
-	if len(e.EvalByDepth) != 12 {
-		t.Fatalf("evalByDepth = %v", e.EvalByDepth)
+	if len(e.ByDepth) != 12 {
+		t.Fatalf("byDepth = %v", e.ByDepth)
 	}
-	if e.EvalByDepth[11] != 60 {
-		t.Errorf("가장 깊은 값 = %d, want 60", e.EvalByDepth[11])
+	if e.ByDepth[11] != eval.Cp(60) {
+		t.Errorf("가장 깊은 값 = %+v, want cp 60", e.ByDepth[11])
 	}
 }
 
@@ -182,8 +183,8 @@ func TestFlipsEvalToSentePointOfView(t *testing.T) {
 	if !ok {
 		t.Fatal("간선이 안 쌓였다")
 	}
-	if e.EvalByDepth[3] != -100 {
-		t.Errorf("후手 +100 이 先手 관점 %d 으로 쌓였다, want -100", e.EvalByDepth[3])
+	if e.ByDepth[3] != eval.Cp(-100) {
+		t.Errorf("후手 +100 이 先手 관점 %+v 으로 쌓였다, want cp -100", e.ByDepth[3])
 	}
 }
 
@@ -350,7 +351,7 @@ func TestServesFromTheCache(t *testing.T) {
 		t.Fatalf("엔진을 %d번 불렀다, want 1", eng.calls)
 	}
 
-	if second.Best != first.Best || second.ScoreCp != first.ScoreCp || second.Depth != first.Depth {
+	if second.Best != first.Best || second.Score != first.Score || second.Depth != first.Depth {
 		t.Errorf("best/score/depth 가 갈렸다: %+v vs %+v", second, first)
 	}
 	if len(second.Lines) != 3 {
@@ -367,7 +368,7 @@ func TestServesFromTheCache(t *testing.T) {
 		t.Fatal("캐시에서 온 결과에 depth 2 가 없다")
 	}
 	if got != want {
-		t.Errorf("depth 2 = %d, want %d", got, want)
+		t.Errorf("depth 2 = %+v, want %+v", got, want)
 	}
 }
 
@@ -396,7 +397,7 @@ func TestCacheKeepsTheMoverPointOfView(t *testing.T) {
 		want, _ := first.ScoreAtDepth(d)
 		got, ok := second.ScoreAtDepth(d)
 		if !ok || got != want {
-			t.Errorf("depth %d = %d(ok=%v), want %d", d, got, ok, want)
+			t.Errorf("depth %d = %+v(ok=%v), want %+v", d, got, ok, want)
 		}
 	}
 }

@@ -83,8 +83,10 @@ export interface ExploredMove {
 /**
  * 한 줄에 세우기 위한 순서값. 詰み이 cp보다 언제나 바깥이다.
  *
- * 詰み을 환산값(30000)으로 섞으면 「3手で詰み」과 「+2900」이 이웃으로 놓이고, 그 둘은
- * 이웃이 아니다. 그리고 빨리 죽는 쪽이 더 나쁘다 — 부호만 보고 자르면 그 순서가 뒤집힌다.
+ * 한 숫자로 섞으면 「3手で詰み」과 「+2900」이 이웃으로 놓이고, 그 둘은 이웃이 아니다.
+ * 서버도 같은 규칙으로 센다(`eval.Compare`) — 갈리면 목록의 1위와 판 위의 초록 화살표가
+ * 다른 수를 가리킨다(docs/journal §131). 그리고 빨리 죽는 쪽이 더 나쁘다 — 부호만 보고
+ * 자르면 그 순서가 뒤집힌다.
  */
 export function rankOf(r: { cp: number | undefined; mateIn: number | undefined }): number {
   if (r.mateIn) return r.mateIn > 0 ? 1e6 - r.mateIn : -1e6 - r.mateIn;
@@ -118,8 +120,8 @@ export function evalTone(cp: number | undefined, base = 0): string {
 /**
  * 그 자리의 값 한 줄.
  *
- * 詰み은 cp로 말하지 않는다. 30000은 평가치가 아니라 환산값이고, 초심자에게
- * 「+30000」은 아무것도 아니다 — 「몇 手で詰み」이 그 자리에서 유일하게 뜻이 있는 말이다.
+ * 詰み은 cp로 말하지 않는다. 서버가 그때 `cp` 를 아예 안 보내고, 억지로 환산해 봐야
+ * 초심자에게 큰 숫자는 아무것도 아니다 — 「몇 手で詰み」이 그 자리에서 유일하게 뜻이 있다.
  */
 export function scoreJa(cp: number | undefined, mateIn?: number): string {
   if (mateIn) {
@@ -155,11 +157,11 @@ export function rowScoreJa(row: MoverScore, byOpponent: boolean): string {
 
 /**
  * 색에 넘길 값. 파랑·빨강은 이 앱 어디서나 「나에게 좋은가」라서 플레이어 관점이어야
- * 하고(`evalTone`), 열의 숫자는 둔 쪽 관점이라 여기서 뒤집는다. 서버의 `playerCp` 와
+ * 하고(`evalTone`), 열의 숫자는 둔 쪽 관점이라 여기서 뒤집는다. 서버의 `playerScore` 와
  * 같은 일이다(branch.go).
  *
- * 詰み은 색으로 말하지 않는다. 그 줄의 cp는 환산값(±30000)이라 ±800 자에 얹으면 언제나
- * 양 끝이고, 「몇 手で詰み」이 이미 그 줄에서 유일하게 뜻이 있는 말이다.
+ * 詰み은 색으로 말하지 않는다. 그 줄에는 얹을 cp 자체가 없고, 「몇 手で詰み」이 이미
+ * 그 줄에서 유일하게 뜻이 있는 말이다.
  */
 export function playerCp(row: MoverScore, byOpponent: boolean): number | undefined {
   if (row.mateIn || row.cp === undefined) return undefined;

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
@@ -530,8 +531,8 @@ func (a *fixedAnalyst) Judge(ctx context.Context, startSFEN string, moves []stri
 	if a.evalAfter != 0 || a.evalBefore != 0 {
 		pos, _, err := replay(startSFEN, moves)
 		if err == nil {
-			j.SenteCpBefore = senteCp(a.evalBefore, pos.Turn)
-			j.SenteCpAfter = senteCp(-a.evalAfter, pos.Turn)
+			j.SenteBefore = senteScore(eval.Cp(a.evalBefore), pos.Turn)
+			j.SenteAfter = senteScore(eval.Cp(-a.evalAfter), pos.Turn)
 			j.HasEvals = true
 		}
 	}
@@ -921,7 +922,7 @@ func TestEvalsAreRecordedFromSentesSide(t *testing.T) {
 			if tc.human == shogi.White {
 				ply = 2
 			}
-			want := fmt.Sprintf("eval %d %+d", ply, tc.wantAfter)
+			want := fmt.Sprintf("eval %d %s", ply, eval.Cp(tc.wantAfter))
 			if got[0] != want {
 				t.Fatalf("%q, want %q (전체 %v)", got[0], want, got)
 			}

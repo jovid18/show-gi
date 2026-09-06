@@ -324,10 +324,10 @@ type bandRow struct {
 	cps  []int
 }
 
-// mateCp 는 mate 점수가 cp로 환산되어 들어온 값의 하한이다(usi.MateCp).
+// mateCp 는 cp 로 쓸 수 없을 만큼 큰 값의 하한이다.
 //
 // 밴드 통계에서 뺀다 — 詰み이 보이는 국면은 밴드가 조절할 수 있는 구간이 아니고,
-// 30000 짜리 한 값이 중앙값 빼고 전부를 망가뜨린다. 여기에 usi 를 import 하지 않는
+// 그런 값 하나가 중앙값 빼고 전부를 망가뜨린다. 여기에 usi 를 import 하지 않는
 // 것은 이 패키지가 엔진 쪽을 모르게 두기 위해서다.
 const mateCp = 30000
 
@@ -345,8 +345,12 @@ const mateCp = 30000
 func rescore(rec store.GameRecord) (samples []sample, band bandRow, ok bool) {
 	ev := make(map[int]int, len(rec.Moves))
 	for _, m := range rec.Moves {
-		if m.EvalCp != nil {
-			ev[m.Ply] = *m.EvalCp
+		// 판정과 같은 자로 읽는다 — 이 재채점이 K와 임계치를 흔들어 보는 자리다.
+		// 詰み은 cp 가 아니라 그 자리에서 승률이 양 끝이므로 표본에서 뺀다.
+		if m.Score != nil {
+			if cp, ok := m.Score.Centipawns(); ok {
+				ev[m.Ply] = cp
+			}
 		}
 	}
 	if len(ev) == 0 {

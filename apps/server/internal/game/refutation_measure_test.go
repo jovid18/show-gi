@@ -102,7 +102,7 @@ func TestRealEngineRefutationDiag(t *testing.T) {
 		if m, err := shogi.ParseUSIMove(ln.Move); err == nil && !m.IsDrop() && m.To == target {
 			mark = "  ← 되잡는 수"
 		}
-		t.Logf("%2d위 %-6s %+5d%s", i+1, ln.Move, ln.ScoreCp, mark)
+		t.Logf("%2d위 %-6s %6s%s", i+1, ln.Move, ln.Score, mark)
 	}
 
 	// 되잡는 수를 직접 둬 본다. 사람이 기대한 수순이 실재하는가.
@@ -116,8 +116,8 @@ func TestRealEngineRefutationDiag(t *testing.T) {
 			t.Fatalf("되잡기 탐색: %v", err)
 		}
 		// 엔진은 수번 측(=상대) 관점으로 답한다. 내 관점으로 뒤집는다.
-		t.Logf("되잡는 수 %-6s → 내 관점 %+5d, 상대의 다음 수 %s (PV %s)",
-			m.USI(), -r.ScoreCp, r.Best, strings.Join(r.PV[:min(4, len(r.PV))], " "))
+		t.Logf("되잡는 수 %-6s → 내 관점 %6s, 상대의 다음 수 %s (PV %s)",
+			m.USI(), r.Score.Neg(), r.Best, strings.Join(r.PV[:min(4, len(r.PV))], " "))
 	}
 
 	line := refutationLine(shogi.StartSFEN, moves, after.PV, RefutationPlies, false).line

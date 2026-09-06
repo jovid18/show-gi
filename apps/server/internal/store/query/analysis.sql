@@ -68,16 +68,19 @@ INSERT INTO analysis_plies (match_id, ply, start_sfen, moves) VALUES ($1, $2, $3
 -- 행이 없으면 아무 일도 안 일어난다. 그것이 규약이다 — 판이 끝나 자리가 걷힌 뒤에
 -- 도착한 늦은 측정이 판을 되살리면 그 항목을 아무도 안 지운다(journal §106).
 UPDATE analysis_plies
-SET done_at   = now(),
-    before_cp = $2,
-    after_cp  = $3,
-    blunder   = $4,
-    delta_win = $5,
-    threshold = $6,
-    decided   = $7,
-    category  = $8,
-    best_cp   = $9
-WHERE match_id = $1 AND ply = $10 AND done_at IS NULL;
+SET done_at     = now(),
+    before_cp   = $2,
+    after_cp    = $3,
+    before_mate = $4,
+    after_mate  = $5,
+    blunder     = $6,
+    delta_win   = $7,
+    threshold   = $8,
+    decided     = $9,
+    category    = $10,
+    best_cp     = $11,
+    best_mate   = $12
+WHERE match_id = $1 AND ply = $13 AND done_at IS NULL;
 
 -- name: StopAnalysisAhead :exec
 --
@@ -98,7 +101,8 @@ WHERE match_id = $1 AND done_at IS NULL;
 --
 -- 手마다 묻지 않는다. 판이 끝나는 자리에서 手数만큼 왕복하면 그 자체가 밀리는 값이고,
 -- 이 표는 판 하나가 곧 한 묶음이라 한 번에 읽는 것이 자연스럽다.
-SELECT ply, before_cp, after_cp, blunder, delta_win, threshold, decided, category, best_cp
+SELECT ply, before_cp, after_cp, before_mate, after_mate,
+       blunder, delta_win, threshold, decided, category, best_cp, best_mate
 FROM analysis_plies
 WHERE match_id = $1 AND done_at IS NOT NULL
 ORDER BY ply;

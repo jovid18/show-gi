@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
@@ -24,7 +25,7 @@ func (s *stubMulti) SearchMultiPV(_ context.Context, _ string, _ []string, _, mu
 
 // line 은 상대(수번 측) 관점 cp로 후보 하나를 만든다.
 func line(move string, engineCp int) usi.SearchLine {
-	return usi.SearchLine{Depth: 12, MultiPV: 1, Move: move, ScoreCp: engineCp}
+	return usi.SearchLine{Depth: 12, MultiPV: 1, Move: move, Score: eval.Cp(engineCp)}
 }
 
 func chooseFrom(t *testing.T, best string, lines ...usi.SearchLine) string {
@@ -107,14 +108,14 @@ func TestPicksTheClosestSafeMoveBelowTheBand(t *testing.T) {
 	}
 }
 
-// 詰み 줄은 밴드의 자가 아니다. ScoreCp 가 환산값이라 기준점을 판 밖으로 끌고 간다.
+// 詰み 줄은 밴드의 자가 아니다. cp 가 없는 값이라 섞으면 기준점이 판 밖으로 나간다.
 func TestBandIgnoresMateLines(t *testing.T) {
 	s := &stubMulti{res: usi.SearchResult{
 		Best: "7g7f",
 		Lines: []usi.SearchLine{
 			line("7g7f", 200),  // 플레이어 −200
 			line("2g2f", -200), // 플레이어 +200 — 기본 밴드 안 ← 이것
-			{Depth: 12, MultiPV: 3, Move: "6g6f", ScoreCp: -usi.MateCp, IsMate: true, MateIn: -3},
+			{Depth: 12, MultiPV: 3, Move: "6g6f", Score: eval.Mate(-3)},
 		},
 	}}
 	o := NewAdaptiveOpponent(s, 12, DefaultBand)

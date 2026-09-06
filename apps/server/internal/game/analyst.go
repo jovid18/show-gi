@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
@@ -69,9 +70,9 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	}
 
 	in := intervene.Input{
-		BestCp:  best.ScoreCp,
-		AfterCp: -after.ScoreCp, // 사람 관점으로 뒤집는다
-		Level:   a.level,
+		Best:  best.Score,
+		After: after.Score.Neg(), // 사람 관점으로 뒤집는다
+		Level: a.level,
 	}
 
 	// 카테고리에 쓸 국면 사실. 판정 자체는 여기에 매이지 않는다 — 못 읽으면
@@ -93,8 +94,8 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		in.Features.UnpromotedOnly = UnpromotedOnly(m, best.Best)
 		// 얕은 평가는 이미 받아 둔 info 라인에 있다. PvInterval=0 덕에 depth 14
 		// 탐색 한 번이 depth 1~12를 전부 돌려주므로 추가 탐색이 없다(01-core.md §4).
-		if cp, ok := after.ScoreAtDepth(ShallowDepth); ok {
-			in.Features.ShallowCp, in.Features.HasShallow = -cp, true // 사람 관점
+		if sc, ok := after.ScoreAtDepth(ShallowDepth); ok {
+			in.Features.Shallow, in.Features.HasShallow = sc.Neg(), true // 사람 관점
 		}
 		facts.Tags = detectTags(pos.Apply(m), mover, startSFEN, moves)
 	} else {
@@ -115,8 +116,8 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	//
 	// 대신 이미 구해둔 탐색 결과를 쓴다. 착수 후 국면이 수번 측에게 불리한 mate로
 	// 나오면(MateIn < 0) 그것이 곧 「상대가 詰まされる」 = 내 詰み이 남았다는 뜻이다.
-	if in.MateBefore > 0 && after.IsMate && after.MateIn < 0 {
-		in.MateAfter = -after.MateIn
+	if n, ok := after.Score.MateIn(); ok && in.MateBefore > 0 && n < 0 {
+		in.MateAfter = -n
 	}
 
 	// 반대 부호가 반대 카테고리다. MateIn > 0 은 착수 후 국면의 수번(=상대)이 詰ます
@@ -133,8 +134,8 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	// 앞쪽은 착수 전 국면이라 그것이 곧 직전 상대 수 뒤의 평가치다 —
 	// 상대가 둘 때는 그 값을 아는 코드가 없으므로 여기서 한 수 늦게 채워진다.
 	if moverKnown {
-		j.SenteCpBefore = senteCp(best.ScoreCp, mover)
-		j.SenteCpAfter = senteCp(-after.ScoreCp, mover) // after 는 상대 관점이다
+		j.SenteBefore = senteScore(best.Score, mover)
+		j.SenteAfter = senteScore(after.Score.Neg(), mover) // after 는 상대 관점이다
 		j.HasEvals = true
 	}
 	if v.Kind != intervene.KindNone {
@@ -203,7 +204,7 @@ func (a *engineAnalyst) opponentMate(
 		return nil
 	}
 	// 게이트. 이 값은 위에서 이미 구한 탐색의 것이라 여기서 엔진을 부르지 않는다.
-	if !after.IsMate || after.MateIn <= 0 {
+	if n, ok := after.Score.MateIn(); !ok || n <= 0 {
 		return nil
 	}
 
@@ -317,10 +318,10 @@ func (a *engineAnalyst) otherBranches(
 			continue
 		}
 		b := explain.Branch{PlayerJa: mine.MoveJa(mv, prevTo)}
-		if l.IsMate {
-			b.MateIn = l.MateIn
+		if n, ok := l.Score.MateIn(); ok {
+			b.MateIn = n
 		} else {
-			b.Cp = l.ScoreCp
+			b.Cp, _ = l.Score.Centipawns()
 		}
 
 		next := mine.Apply(mv)
@@ -382,6 +383,14 @@ func senteCp(moverCp int, mover shogi.Color) int {
 		return moverCp
 	}
 	return -moverCp
+}
+
+// senteScore 는 senteCp 와 같은 연산이고 詰み까지의 手数도 함께 뒤집는다.
+func senteScore(mover eval.Score, c shogi.Color) eval.Score {
+	if c == shogi.Black {
+		return mover
+	}
+	return mover.Neg()
 }
 
 // RefutationPlies 는 반박 수순의 상한이다. 실제 길이는 국면이 정한다(trimRefutation).

@@ -147,7 +147,7 @@ func (o *adaptiveOpponent) Choose(ctx context.Context, startSFEN string, moves [
 	// 지금 형세 — 후보의 최솟값이다. 상대가 무엇을 둬도 플레이어 관점 cp는 이보다
 	// 낮아지지 않으므로(수를 두는 쪽이 상대다) 이 값이 곧 「상대가 가장 잘 뒀을 때」다.
 	//
-	// 뿌리 점수(res.ScoreCp)를 쓰지 않는다 — 같은 값이지만 저쪽은 거른 뒤를 모른다.
+	// 뿌리 점수(res.Score)를 쓰지 않는다 — 같은 값이지만 저쪽은 거른 뒤를 모른다.
 	// 던지는 수가 최선이었던 국면에서 기준점이 우리가 두지 않을 수의 것이 된다.
 	now := opts[0].playerCp
 	for _, opt := range opts[1:] {
@@ -176,13 +176,14 @@ type option struct {
 
 // options 는 후보에서 둘 수 있는 것만 남긴다.
 //
-// 詰み 줄을 뺀다. ScoreCp 가 환산값(usi.MateCp)이라 밴드 산수에 섞이면 기준점이
-// 판 밖으로 나간다. 빼도 지금까지와 같게 돈다 — 詰み 줄은 어느 쪽이든 밴드에서 가장 먼
-// 후보였으므로 뽑히지 않았고, 전부 詰み이면 후보가 비어 최선수로 물러선다(부르는 쪽).
+// 詰み 줄을 뺀다. 밴드 산수는 cp 로만 성립하고, 詰み 줄은 어느 쪽이든 밴드에서 가장 먼
+// 후보였으므로 빼도 지금까지와 같게 돈다 — 전부 詰み이면 후보가 비어 최선수로 물러선다
+// (부르는 쪽). 그 「빼기」를 이제 타입이 강제한다(eval.Score.Centipawns).
 func (o *adaptiveOpponent) options(pos shogi.Position, lines []usi.SearchLine) []option {
 	out := make([]option, 0, len(lines))
 	for _, line := range lines {
-		if line.Move == "" || line.IsMate {
+		cp, ok := line.Score.Centipawns()
+		if line.Move == "" || !ok {
 			continue
 		}
 		m, err := shogi.ParseUSIMove(line.Move)
@@ -193,7 +194,7 @@ func (o *adaptiveOpponent) options(pos shogi.Position, lines []usi.SearchLine) [
 		if MoveFeatures(pos, m).HangsPiece() {
 			continue
 		}
-		out = append(out, option{move: line.Move, playerCp: -line.ScoreCp})
+		out = append(out, option{move: line.Move, playerCp: -cp})
 	}
 	return out
 }

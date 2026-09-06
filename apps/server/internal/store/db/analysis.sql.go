@@ -208,29 +208,35 @@ func (q *Queries) EnqueueAnalysisPly(ctx context.Context, arg EnqueueAnalysisPly
 
 const finishAnalysisPly = `-- name: FinishAnalysisPly :exec
 UPDATE analysis_plies
-SET done_at   = now(),
-    before_cp = $2,
-    after_cp  = $3,
-    blunder   = $4,
-    delta_win = $5,
-    threshold = $6,
-    decided   = $7,
-    category  = $8,
-    best_cp   = $9
-WHERE match_id = $1 AND ply = $10 AND done_at IS NULL
+SET done_at     = now(),
+    before_cp   = $2,
+    after_cp    = $3,
+    before_mate = $4,
+    after_mate  = $5,
+    blunder     = $6,
+    delta_win   = $7,
+    threshold   = $8,
+    decided     = $9,
+    category    = $10,
+    best_cp     = $11,
+    best_mate   = $12
+WHERE match_id = $1 AND ply = $13 AND done_at IS NULL
 `
 
 type FinishAnalysisPlyParams struct {
-	MatchID   string
-	BeforeCp  *int32
-	AfterCp   *int32
-	Blunder   *bool
-	DeltaWin  *float64
-	Threshold *float64
-	Decided   *bool
-	Category  *string
-	BestCp    *int32
-	Ply       int32
+	MatchID    string
+	BeforeCp   *int32
+	AfterCp    *int32
+	BeforeMate *int32
+	AfterMate  *int32
+	Blunder    *bool
+	DeltaWin   *float64
+	Threshold  *float64
+	Decided    *bool
+	Category   *string
+	BestCp     *int32
+	BestMate   *int32
+	Ply        int32
 }
 
 // 잰 값을 그 행에 적는다.
@@ -242,12 +248,15 @@ func (q *Queries) FinishAnalysisPly(ctx context.Context, arg FinishAnalysisPlyPa
 		arg.MatchID,
 		arg.BeforeCp,
 		arg.AfterCp,
+		arg.BeforeMate,
+		arg.AfterMate,
 		arg.Blunder,
 		arg.DeltaWin,
 		arg.Threshold,
 		arg.Decided,
 		arg.Category,
 		arg.BestCp,
+		arg.BestMate,
 		arg.Ply,
 	)
 	return err
@@ -361,22 +370,26 @@ func (q *Queries) MatchSeats(ctx context.Context, matchID *string) ([]MatchSeats
 }
 
 const measuredAnalysisPlies = `-- name: MeasuredAnalysisPlies :many
-SELECT ply, before_cp, after_cp, blunder, delta_win, threshold, decided, category, best_cp
+SELECT ply, before_cp, after_cp, before_mate, after_mate,
+       blunder, delta_win, threshold, decided, category, best_cp, best_mate
 FROM analysis_plies
 WHERE match_id = $1 AND done_at IS NOT NULL
 ORDER BY ply
 `
 
 type MeasuredAnalysisPliesRow struct {
-	Ply       int32
-	BeforeCp  *int32
-	AfterCp   *int32
-	Blunder   *bool
-	DeltaWin  *float64
-	Threshold *float64
-	Decided   *bool
-	Category  *string
-	BestCp    *int32
+	Ply        int32
+	BeforeCp   *int32
+	AfterCp    *int32
+	BeforeMate *int32
+	AfterMate  *int32
+	Blunder    *bool
+	DeltaWin   *float64
+	Threshold  *float64
+	Decided    *bool
+	Category   *string
+	BestCp     *int32
+	BestMate   *int32
 }
 
 // 그 판에서 미리 재 둔 것을 한 번에 읽는다.
@@ -396,12 +409,15 @@ func (q *Queries) MeasuredAnalysisPlies(ctx context.Context, matchID string) ([]
 			&i.Ply,
 			&i.BeforeCp,
 			&i.AfterCp,
+			&i.BeforeMate,
+			&i.AfterMate,
 			&i.Blunder,
 			&i.DeltaWin,
 			&i.Threshold,
 			&i.Decided,
 			&i.Category,
 			&i.BestCp,
+			&i.BestMate,
 		); err != nil {
 			return nil, err
 		}

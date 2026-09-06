@@ -6,6 +6,8 @@ import (
 	"errors"
 	"os"
 	"testing"
+
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 )
 
 // 진짜 postgres에 붙는다. 없으면 건너뛴다 — CI 러너에는 DB가 없다.
@@ -55,8 +57,8 @@ func TestPositionRoundTrip(t *testing.T) {
 		SideToMove: "b",
 		PlyHint:    12,
 		Candidates: []Candidate{
-			{USI: "7g7f", Cp: 143, PV: []string{"7g7f", "3c3d"}},
-			{USI: "2g2f", Cp: 121},
+			{USI: "7g7f", Score: eval.Cp(143), PV: []string{"7g7f", "3c3d"}},
+			{USI: "2g2f", Score: eval.Cp(121)},
 		},
 		ComputedDepth: 12,
 	}
@@ -72,11 +74,78 @@ func TestPositionRoundTrip(t *testing.T) {
 	if got.SideToMove != "b" || got.PlyHint != 12 || got.ComputedDepth != 12 {
 		t.Fatalf("스칼라 왕복 불일치: %+v", got)
 	}
-	if len(got.Candidates) != 2 || got.Candidates[0].USI != "7g7f" || got.Candidates[0].Cp != 143 {
+	if len(got.Candidates) != 2 || got.Candidates[0].USI != "7g7f" || got.Candidates[0].Score != eval.Cp(143) {
 		t.Fatalf("후보 왕복 불일치: %+v", got.Candidates)
 	}
 	if len(got.Candidates[0].PV) != 2 || got.Candidates[1].PV != nil {
 		t.Fatalf("PV 왕복 불일치: %+v", got.Candidates)
+	}
+}
+
+// 옛 행의 순서를 읽는 자리가 고친다. 2026-09 이전에 쌓인 행은 詰み을 환산값으로
+// 세워서 이기는 詰み이 첫째가 아닌 것이 있고(로컬 캐시에 6국면), 그 행의 첫 후보가
+// 그대로 판 위의 초록 화살표였다(journal §131).
+func TestAnOldRowsMateComesBackFirst(t *testing.T) {
+	s := open(t)
+	k := key(t, s)
+
+	// 엔진의 생 cp 는 환산값을 넘어온다 — 「이기는데 手数를 모름」이 ±35281 이다.
+	stored := Position{
+		SFENKey: k, SideToMove: "b", ComputedDepth: 12,
+		Candidates: []Candidate{
+			{USI: "5i4i", Score: eval.Cp(35281)},
+			{USI: "9f6i", Score: eval.Cp(35281)},
+			{USI: "5i4h", Score: eval.Mate(7)},
+		},
+	}
+	if ok, err := s.PutPosition(t.Context(), stored); err != nil || !ok {
+		t.Fatalf("PutPosition: stored=%v err=%v", ok, err)
+	}
+
+	got, err := s.GetPosition(t.Context(), k)
+	if err != nil {
+		t.Fatalf("GetPosition: %v", err)
+	}
+	if len(got.Candidates) != 3 || got.Candidates[0].USI != "5i4h" {
+		t.Fatalf("첫 후보 = %+v, want 5i4h", got.Candidates)
+	}
+	// 같은 점수끼리는 쌓인 순서를 지킨다. 안 그러면 화살표가 읽을 때마다 옮겨 다닌다.
+	if got.Candidates[1].USI != "5i4i" || got.Candidates[2].USI != "9f6i" {
+		t.Errorf("동점 후보의 순서가 갈렸다: %+v", got.Candidates)
+	}
+}
+
+// 021 앞에 쌓인 간선은 詰み 배열이 통째로 비어 있다. 그 행을 「길이가 다르다」로 버리면
+// 얕은 평가가 사라지고, 「얕게 보면 이득」이 캐시 히트에서 영영 안 걸린다.
+func TestAnEdgeWrittenBeforeTheMateColumnStillReadsBack(t *testing.T) {
+	s := open(t)
+	k := key(t, s)
+
+	if _, err := s.PutPosition(t.Context(), Position{SFENKey: k, SideToMove: "b", ComputedDepth: 3}); err != nil {
+		t.Fatalf("PutPosition: %v", err)
+	}
+	// 021 앞의 모양을 그대로 만든다 — cp 배열만 있고 詰み 배열은 NULL 이다.
+	if _, err := s.pool.Exec(t.Context(),
+		`INSERT INTO edges (parent_key, usi, eval_by_depth) VALUES ($1, $2, $3)`,
+		k, "7g7f", []int32{10, 20, 30}); err != nil {
+		t.Fatalf("옛 모양 간선 넣기: %v", err)
+	}
+
+	edges, err := s.Edges(t.Context(), k)
+	if err != nil {
+		t.Fatalf("Edges: %v", err)
+	}
+	if len(edges) != 1 {
+		t.Fatalf("edges = %d, want 1", len(edges))
+	}
+	want := []eval.Score{eval.Cp(10), eval.Cp(20), eval.Cp(30)}
+	if len(edges[0].ByDepth) != len(want) {
+		t.Fatalf("byDepth = %v, want %v", edges[0].ByDepth, want)
+	}
+	for i, w := range want {
+		if edges[0].ByDepth[i] != w {
+			t.Errorf("depth %d = %v, want %v", i+1, edges[0].ByDepth[i], w)
+		}
 	}
 }
 
@@ -87,7 +156,7 @@ func TestShallowerResultDoesNotOverwrite(t *testing.T) {
 
 	deep := Position{
 		SFENKey: k, SideToMove: "b", ComputedDepth: 14,
-		Candidates: []Candidate{{USI: "7g7f", Cp: 100}},
+		Candidates: []Candidate{{USI: "7g7f", Score: eval.Cp(100)}},
 	}
 	if stored, err := s.PutPosition(t.Context(), deep); err != nil || !stored {
 		t.Fatalf("깊은 결과 저장: stored=%v err=%v", stored, err)
@@ -95,7 +164,7 @@ func TestShallowerResultDoesNotOverwrite(t *testing.T) {
 
 	shallow := Position{
 		SFENKey: k, SideToMove: "b", ComputedDepth: 10,
-		Candidates: []Candidate{{USI: "9g9f", Cp: -999}},
+		Candidates: []Candidate{{USI: "9g9f", Score: eval.Cp(-999)}},
 	}
 	stored, err := s.PutPosition(t.Context(), shallow)
 	if err != nil {
@@ -112,7 +181,7 @@ func TestShallowerResultDoesNotOverwrite(t *testing.T) {
 
 	// 같은 깊이도 덮지 않는다 — 같은 국면·같은 깊이는 같은 결과라 쓸 이유가 없다
 	same := deep
-	same.Candidates = []Candidate{{USI: "2g2f", Cp: 1}}
+	same.Candidates = []Candidate{{USI: "2g2f", Score: eval.Cp(1)}}
 	if stored, err := s.PutPosition(t.Context(), same); err != nil || stored {
 		t.Fatalf("같은 깊이가 덮였다: stored=%v err=%v", stored, err)
 	}
@@ -120,7 +189,7 @@ func TestShallowerResultDoesNotOverwrite(t *testing.T) {
 	// 더 깊으면 덮는다
 	deeper := deep
 	deeper.ComputedDepth = 16
-	deeper.Candidates = []Candidate{{USI: "2g2f", Cp: 200}}
+	deeper.Candidates = []Candidate{{USI: "2g2f", Score: eval.Cp(200)}}
 	if stored, err := s.PutPosition(t.Context(), deeper); err != nil || !stored {
 		t.Fatalf("더 깊은 결과가 안 덮였다: stored=%v err=%v", stored, err)
 	}
@@ -280,7 +349,7 @@ func TestSetMoveEvalFillsOnlyTheEval(t *testing.T) {
 	if err := s.InsertMove(t.Context(), id, 1, "7g7f"); err != nil {
 		t.Fatalf("InsertMove: %v", err)
 	}
-	if err := s.SetMoveEval(t.Context(), id, 1, -137); err != nil {
+	if err := s.SetMoveEval(t.Context(), id, 1, eval.Cp(-137)); err != nil {
 		t.Fatalf("SetMoveEval: %v", err)
 	}
 
@@ -298,7 +367,7 @@ func TestSetMoveEvalFillsOnlyTheEval(t *testing.T) {
 	}
 
 	// 없는 ply — 조용히 아무 일도 없어야 한다.
-	if err := s.SetMoveEval(t.Context(), id, 99, 500); err != nil {
+	if err := s.SetMoveEval(t.Context(), id, 99, eval.Cp(500)); err != nil {
 		t.Fatalf("없는 ply에서 에러: %v", err)
 	}
 	var n int
@@ -322,7 +391,7 @@ func TestGameRecordRoundTrip(t *testing.T) {
 			t.Fatalf("InsertMove(%d): %v", ply, err)
 		}
 	}
-	if err := s.SetMoveEval(t.Context(), id, 2, -120); err != nil {
+	if err := s.SetMoveEval(t.Context(), id, 2, eval.Cp(-120)); err != nil {
 		t.Fatalf("SetMoveEval: %v", err)
 	}
 	if err := s.InsertIntervention(t.Context(), id, Intervention{
@@ -352,11 +421,11 @@ func TestGameRecordRoundTrip(t *testing.T) {
 	}
 
 	// 평가치는 붙은 手数에만 있다. 안 붙은 자리가 0이 되면 호각과 구별이 안 된다.
-	if got.Moves[0].EvalCp != nil {
-		t.Errorf("moves[0].EvalCp = %d, want nil", *got.Moves[0].EvalCp)
+	if got.Moves[0].Score != nil {
+		t.Errorf("moves[0].Score = %+v, want nil", *got.Moves[0].Score)
 	}
-	if got.Moves[1].EvalCp == nil || *got.Moves[1].EvalCp != -120 {
-		t.Errorf("moves[1].EvalCp = %v, want -120", got.Moves[1].EvalCp)
+	if got.Moves[1].Score == nil || *got.Moves[1].Score != eval.Cp(-120) {
+		t.Errorf("moves[1].Score = %v, want cp -120", got.Moves[1].Score)
 	}
 
 	if len(got.Interventions) != 1 {
@@ -447,7 +516,7 @@ func TestInterventionKeepsBothCp(t *testing.T) {
 
 	if err := s.InsertIntervention(t.Context(), id, Intervention{
 		Ply: 41, Kind: "blunder", Category: "hangs_piece",
-		DeltaWin: 0.42, RetractedUSI: "8h3c+", BestCp: 180, AfterCp: -640,
+		DeltaWin: 0.42, RetractedUSI: "8h3c+", Best: eval.Cp(180), After: eval.Cp(-640),
 	}); err != nil {
 		t.Fatalf("InsertIntervention: %v", err)
 	}
@@ -472,15 +541,15 @@ func TestInterventionKeepsBothCp(t *testing.T) {
 	}
 
 	blunder := rec.Interventions[0]
-	if blunder.BestCp == nil || blunder.AfterCp == nil {
-		t.Fatalf("두 원본이 안 남았다: best=%v after=%v", blunder.BestCp, blunder.AfterCp)
+	if blunder.Best == nil || blunder.After == nil {
+		t.Fatalf("두 원본이 안 남았다: best=%v after=%v", blunder.Best, blunder.After)
 	}
-	if *blunder.BestCp != 180 || *blunder.AfterCp != -640 {
-		t.Errorf("cp가 어긋났다: best=%d after=%d", *blunder.BestCp, *blunder.AfterCp)
+	if *blunder.Best != eval.Cp(180) || *blunder.After != eval.Cp(-640) {
+		t.Errorf("점수가 어긋났다: best=%v after=%v", *blunder.Best, *blunder.After)
 	}
 
-	if tesuji := rec.Interventions[1]; tesuji.BestCp != nil || tesuji.AfterCp != nil {
-		t.Errorf("판정을 안 거친 행에 cp가 붙었다: best=%v after=%v", tesuji.BestCp, tesuji.AfterCp)
+	if tesuji := rec.Interventions[1]; tesuji.Best != nil || tesuji.After != nil {
+		t.Errorf("판정을 안 거친 행에 값이 붙었다: best=%v after=%v", tesuji.Best, tesuji.After)
 	}
 }
 

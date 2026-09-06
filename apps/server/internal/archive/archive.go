@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -169,11 +170,11 @@ func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiP
 	}
 
 	// 깊이별 값은 수마다 다른 행에 있다. 한 번에 읽어 수로 묶는다.
-	byMove := map[string][]int{}
+	byMove := map[string][]eval.Score{}
 	if edges, err := a.store.Edges(ctx, key); err == nil {
 		for _, e := range edges {
-			if len(e.EvalByDepth) > 0 {
-				byMove[e.USI] = e.EvalByDepth
+			if len(e.ByDepth) > 0 {
+				byMove[e.USI] = e.ByDepth
 			}
 		}
 	} else {
@@ -183,21 +184,18 @@ func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiP
 	res := usi.SearchResult{Depth: p.ComputedDepth}
 	for i, c := range p.Candidates {
 		if i == 0 {
-			res.Best, res.ScoreCp = c.USI, c.Cp
-			res.IsMate, res.MateIn = c.MateIn != 0, c.MateIn
-			res.PV = c.PV
+			res.Best, res.Score, res.PV = c.USI, c.Score, c.PV
 		}
 		line := usi.SearchLine{
-			Depth: p.ComputedDepth, MultiPV: i + 1, Move: c.USI, ScoreCp: c.Cp,
-			IsMate: c.MateIn != 0, MateIn: c.MateIn, PV: c.PV,
+			Depth: p.ComputedDepth, MultiPV: i + 1, Move: c.USI, Score: c.Score, PV: c.PV,
 		}
 		res.Lines = append(res.Lines, line)
 
 		// 저장은 先手 관점이고 탐색 결과는 수번 관점이다. 되돌리는 것을 빠뜨리면
 		// 後手로 잡은 판에서만 부호가 뒤집히고, 에러는 안 난다.
-		for d, cp := range byMove[c.USI] {
+		for d, sc := range byMove[c.USI] {
 			res.History = append(res.History, usi.SearchLine{
-				Depth: d + 1, MultiPV: i + 1, Move: c.USI, ScoreCp: senteCp(cp, pos.Turn),
+				Depth: d + 1, MultiPV: i + 1, Move: c.USI, Score: senteScore(sc, pos.Turn),
 			})
 		}
 	}
@@ -327,11 +325,11 @@ func (a *Searcher) record(startSFEN string, moves []string, res usi.SearchResult
 		if len(byDepth) == 0 {
 			continue
 		}
-		cps := make([]int, 0, len(byDepth))
+		scores := make([]eval.Score, 0, len(byDepth))
 		for _, d := range byDepth {
-			cps = append(cps, senteCp(d.Cp, pos.Turn))
+			scores = append(scores, senteScore(d.Score, pos.Turn))
 		}
-		if err := a.store.PutEdge(ctx, store.Edge{ParentKey: key, USI: c.USI, EvalByDepth: cps}); err != nil {
+		if err := a.store.PutEdge(ctx, store.Edge{ParentKey: key, USI: c.USI, ByDepth: scores}); err != nil {
 			log.Printf("archive: put edge %s %s: %v", key, c.USI, err)
 			return
 		}
@@ -401,8 +399,8 @@ func (a *Searcher) namesFor(
 	if len(childCands) > 0 {
 		if p, err := a.store.GetPosition(ctx, Key(parent)); err == nil && len(p.Candidates) > 0 {
 			// 부모의 값은 부모의 수번(=둔 쪽) 관점, 자식의 값은 상대 관점이다.
-			before := senteCp(p.Candidates[0].Cp, mover)
-			after := senteCp(childCands[0].Cp, child.Turn)
+			before := senteScore(p.Candidates[0].Score, mover)
+			after := senteScore(childCands[0].Score, child.Turn)
 			for _, t := range game.NamedTesuji(parent, child, mover, usiMove, before, after) {
 				names = append(names, t.Code)
 			}
@@ -479,11 +477,7 @@ func Candidates(res usi.SearchResult) []store.Candidate {
 	ranked := res.Ranked()
 	out := make([]store.Candidate, 0, len(ranked))
 	for _, l := range ranked {
-		c := store.Candidate{USI: l.Move, Cp: l.ScoreCp, PV: l.PV}
-		if l.IsMate {
-			c.MateIn = l.MateIn
-		}
-		out = append(out, c)
+		out = append(out, store.Candidate{USI: l.Move, Score: l.Score, PV: l.PV})
 	}
 	return out
 }
@@ -495,6 +489,14 @@ func senteCp(moverCp int, mover shogi.Color) int {
 		return moverCp
 	}
 	return -moverCp
+}
+
+// senteScore 는 senteCp 와 같은 연산이고 詰み까지의 手数도 함께 뒤집는다.
+func senteScore(mover eval.Score, c shogi.Color) eval.Score {
+	if c == shogi.Black {
+		return mover
+	}
+	return mover.Neg()
 }
 
 func sideOf(c shogi.Color) string {

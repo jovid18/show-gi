@@ -227,7 +227,7 @@ func decidedAt(cut float64, j game.Judgement) bool {
 	if cut >= 1 {
 		return false
 	}
-	w := intervene.WinRate(j.Verdict.BestCp)
+	w := intervene.WinRateOf(j.Verdict.Best, 0)
 	return w >= cut || w <= 1-cut
 }
 

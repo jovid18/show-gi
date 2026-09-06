@@ -1013,9 +1013,9 @@ func (st *state) recordEvals(j Judgement) {
 		return
 	}
 	ply := len(st.moves)
-	st.cfg.Recorder.Evaluated(ply, j.SenteCpAfter)
+	st.cfg.Recorder.Evaluated(ply, j.SenteAfter)
 	if ply >= 2 {
-		st.cfg.Recorder.Evaluated(ply-1, j.SenteCpBefore)
+		st.cfg.Recorder.Evaluated(ply-1, j.SenteBefore)
 	}
 }
 

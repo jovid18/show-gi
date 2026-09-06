@@ -3,6 +3,7 @@ package quiz
 import (
 	"context"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
@@ -16,9 +17,16 @@ type Input struct {
 	// Moves 는 확정된 수 전부다. 手数 순이고 구멍이 없어야 한다 — 부르는 쪽이 채워 준다.
 	Moves []string
 	Human shogi.Color
-	// EvalCp[i] 는 i+1 手目를 둔 뒤의 先手 관점 cp다. nil이면 그 手数에 값이 없다
+	// Evals[i] 는 i+1 手目를 둔 뒤의 先手 관점 점수다. nil이면 그 手数에 값이 없다
 	// (평가치는 수보다 늦게 오므로 마지막 몇 수가 비어 있을 수 있다 — store.RecordedMove).
-	EvalCp []*int
+	Evals []*eval.Score
+	// BaselineCp 는 이 판의 「형세 0」이다(先手 관점, 平手는 0).
+	//
+	// 낙폭을 승률로 재기 때문에 필요하다. cp 뺄셈이던 시절에는 기준점이 두 항에서
+	// 저절로 지워졌지만(로그 함수가 아니라 뺄셈이었다) 승률은 그 구간에서 포화한다 —
+	// 안 빼면 二枚落ち(+1386)에서 모든 낙폭이 0에 눌려 문항이 手数 순으로 뽑힌다.
+	// 개입 판정이 같은 값을 빼는 것과 같은 이유다(intervene.Input.BaselineCp).
+	BaselineCp int
 	// OpeningPlies 는 컴퓨터가 고른 진형의 수순 길이다. 그 안의 국면은 문항 후보가 아니다.
 	//
 	// 10수 만에 投了한 판에서 「최선수는?」 셋이 전부 오프닝이 되는 것을 막는다. 정석
@@ -29,22 +37,30 @@ type Input struct {
 	Won bool
 }
 
-// PlayerEval 은 i+1 手目를 둔 뒤의 사람 관점 cp다. 없으면 ok=false.
+// PlayerEval 은 i+1 手目를 둔 뒤의 사람 관점 점수다. 없으면 ok=false.
 //
 // DB의 先手 관점을 여기서 뒤집는다 — 안 뒤집으면 後手로 둔 판의 낙폭 부호가 통째로
 // 반대가 되고, 그러면 문항이 잘 둔 자리에서 뽑힌다.
 //
 // 공개해 둔 것은 옮겨 담는 쪽이(server/ws.go quizInput) 부호 규약을 시험으로 못박을 수
 // 있어야 하기 때문이다.
-func (in Input) PlayerEval(i int) (int, bool) {
-	if i < 0 || i >= len(in.EvalCp) || in.EvalCp[i] == nil {
-		return 0, false
-	}
-	cp := *in.EvalCp[i]
+// PlayerBaselineCp 는 「형세 0」을 사람 관점으로 옮긴 것이다. PlayerEval 과 같은 자다.
+func (in Input) PlayerBaselineCp() int {
 	if in.Human == shogi.White {
-		cp = -cp
+		return -in.BaselineCp
 	}
-	return cp, true
+	return in.BaselineCp
+}
+
+func (in Input) PlayerEval(i int) (eval.Score, bool) {
+	if i < 0 || i >= len(in.Evals) || in.Evals[i] == nil {
+		return eval.Score{}, false
+	}
+	s := *in.Evals[i]
+	if in.Human == shogi.White {
+		s = s.Neg()
+	}
+	return s, true
 }
 
 // Builder 는 문항을 만든다. 엔진 둘을 쓴다 — 詰み solver 와 탐색부는 다른 바이너리다

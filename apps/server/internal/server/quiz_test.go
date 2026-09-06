@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/quiz"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -19,11 +20,11 @@ func quizRecord(myColor string, result store.GameResult, moves ...store.Recorded
 	return rec
 }
 
-func move(ply int, usiMove string, cp *int) store.RecordedMove {
-	return store.RecordedMove{Ply: ply, USI: usiMove, EvalCp: cp}
+func move(ply int, usiMove string, score *eval.Score) store.RecordedMove {
+	return store.RecordedMove{Ply: ply, USI: usiMove, Score: score}
 }
 
-func cpOf(v int) *int { return &v }
+func cpOf(v int) *eval.Score { s := eval.Cp(v); return &s }
 
 func TestQuizInputCarriesColorAndResult(t *testing.T) {
 	rec := quizRecord("w", store.ResultWin, move(1, "7g7f", cpOf(30)), move(2, "3c3d", cpOf(20)))
@@ -35,8 +36,8 @@ func TestQuizInputCarriesColorAndResult(t *testing.T) {
 	if !in.Won {
 		t.Error("won = false, but the record says win — Converted hangs on this")
 	}
-	if len(in.Moves) != 2 || len(in.EvalCp) != 2 {
-		t.Fatalf("moves = %d, evals = %d, want 2 and 2", len(in.Moves), len(in.EvalCp))
+	if len(in.Moves) != 2 || len(in.Evals) != 2 {
+		t.Fatalf("moves = %d, evals = %d, want 2 and 2", len(in.Moves), len(in.Evals))
 	}
 	if in.StartSFEN != shogi.StartSFEN {
 		t.Errorf("startSfen = %q, want the even-game start position", in.StartSFEN)
@@ -70,14 +71,14 @@ func TestQuizInputEvalsLineUpWithMoves(t *testing.T) {
 	)
 	in := quizInput(rec)
 
-	if len(in.EvalCp) != 3 {
-		t.Fatalf("evals = %d, want 3", len(in.EvalCp))
+	if len(in.Evals) != 3 {
+		t.Fatalf("evals = %d, want 3", len(in.Evals))
 	}
-	if in.EvalCp[1] != nil {
+	if in.Evals[1] != nil {
 		t.Error("evals[1] should stay nil — a missing eval is not zero, zero is even")
 	}
-	if got, ok := in.PlayerEval(0); !ok || got != 10 {
-		t.Errorf("PlayerEval(0) = (%d, %v), want (10, true)", got, ok)
+	if got, ok := in.PlayerEval(0); !ok || got != eval.Cp(10) {
+		t.Errorf("PlayerEval(0) = (%v, %v), want (+10cp, true)", got, ok)
 	}
 }
 
@@ -86,8 +87,8 @@ func TestQuizInputFlipsEvalsForWhite(t *testing.T) {
 	rec := quizRecord("w", store.ResultLoss, move(1, "7g7f", cpOf(120)))
 	in := quizInput(rec)
 
-	if got, ok := in.PlayerEval(0); !ok || got != -120 {
-		t.Errorf("PlayerEval(0) = (%d, %v), want (-120, true)", got, ok)
+	if got, ok := in.PlayerEval(0); !ok || got != eval.Cp(-120) {
+		t.Errorf("PlayerEval(0) = (%v, %v), want (-120cp, true)", got, ok)
 	}
 }
 

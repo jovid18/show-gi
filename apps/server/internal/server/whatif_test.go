@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/jovid18/show-gi/apps/server/internal/archive"
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -70,9 +71,9 @@ func found(moves ...string) usi.SearchResult {
 	res := usi.SearchResult{Depth: whatifDepth}
 	for i, m := range moves {
 		cp := 100 - i*40
-		res.Lines = append(res.Lines, usi.SearchLine{Depth: whatifDepth, MultiPV: i + 1, Move: m, ScoreCp: cp})
+		res.Lines = append(res.Lines, usi.SearchLine{Depth: whatifDepth, MultiPV: i + 1, Move: m, Score: eval.Cp(cp)})
 		if i == 0 {
-			res.Best, res.ScoreCp = m, cp
+			res.Best, res.Score = m, eval.Cp(cp)
 		}
 	}
 	return res
@@ -150,8 +151,8 @@ func TestWhatIfKeepsThePlayerPointOfView(t *testing.T) {
 		t.Fatalf("evalCp = %v, want -100", node.EvalCp)
 	}
 	// 후보의 cp는 뒤집지 않는다. 그 값의 주인은 그 수를 두는 쪽이고, 그게 Turn 이다.
-	if node.Candidates[0].EvalCp != 100 {
-		t.Errorf("candidates[0].evalCp = %d, want 100 (수번 관점)", node.Candidates[0].EvalCp)
+	if c := node.Candidates[0].EvalCp; c == nil || *c != 100 {
+		t.Errorf("candidates[0].evalCp = %v, want 100 (수번 관점)", node.Candidates[0].EvalCp)
 	}
 }
 
@@ -339,9 +340,9 @@ func TestWhatIfDropsDuplicateCachedCandidates(t *testing.T) {
 			SideToMove:    "b",
 			ComputedDepth: whatifDepth,
 			Candidates: []store.Candidate{
-				{USI: "2g2f", Cp: 96},
-				{USI: "6i7h", Cp: 76},
-				{USI: "2g2f", Cp: 51},
+				{USI: "2g2f", Score: eval.Cp(96)},
+				{USI: "6i7h", Score: eval.Cp(76)},
+				{USI: "2g2f", Score: eval.Cp(51)},
 			},
 		},
 	}}
@@ -359,14 +360,14 @@ func TestWhatIfDropsDuplicateCachedCandidates(t *testing.T) {
 	}
 }
 
-// 詰み은 cp가 아니라 手数로 나간다. 30000이라는 숫자를 화면에 그대로 흘리면 그건
-// 평가치가 아니라 환산값이다.
+// 詰み은 cp가 아니라 手数로 나간다. cp 칸은 그때 비어 있다 — 채우려면 환산해야 하고
+// 환산값은 평가치가 아니다.
 func TestWhatIfReportsMateInPlies(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d")
 	search := &fakeSearcher{results: []usi.SearchResult{{
-		Depth: whatifDepth, Best: "2g2f", ScoreCp: usi.MateCp, IsMate: true, MateIn: 5,
+		Depth: whatifDepth, Best: "2g2f", Score: eval.Mate(5),
 		Lines: []usi.SearchLine{
-			{Depth: whatifDepth, MultiPV: 1, Move: "2g2f", ScoreCp: usi.MateCp, IsMate: true, MateIn: 5},
+			{Depth: whatifDepth, MultiPV: 1, Move: "2g2f", Score: eval.Mate(5)},
 		},
 	}}}
 
@@ -379,15 +380,40 @@ func TestWhatIfReportsMateInPlies(t *testing.T) {
 	}
 }
 
-// 詰み이 섞인 줄에는 낙폭을 안 적는다. cp가 환산값이라 뺄셈이 29900을 내놓고, 화면은
-// 그것을 「최선수보다 29900 손해」로 읽는다 — 자가 다른 두 값의 차다.
+// 화살표가 1手詰み을 가리킨다. 엔진의 생 cp 는 환산값을 넘어오므로(±35281 =
+// 「이기는데 手数를 모름」) 숫자 하나로 줄을 세우던 동안 詰み이 그 뒤로 밀렸고,
+// 첫 후보가 화살표이자 노드의 값이라 화면 셋이 함께 틀렸다(journal §131).
+func TestWhatIfPointsTheArrowAtTheMateNotTheRawCeiling(t *testing.T) {
+	rec := recordOf("b", "7g7f", "3c3d")
+	search := &fakeSearcher{results: []usi.SearchResult{{
+		Depth: whatifDepth, Best: "2g2f", Score: eval.Mate(1),
+		Lines: []usi.SearchLine{
+			{Depth: whatifDepth, MultiPV: 1, Move: "6g6f", Score: eval.Cp(35281), PV: []string{"6g6f"}},
+			{Depth: whatifDepth, MultiPV: 2, Move: "2g2f", Score: eval.Mate(1), PV: []string{"2g2f"}},
+		},
+	}}}
+
+	node, err := whatifNodeOf(t.Context(), rootOf(rec), whatifRequest{Ply: 2}, search, nil)
+	if err != nil {
+		t.Fatalf("whatifNodeOf: %v", err)
+	}
+	if len(node.Candidates) != 2 || node.Candidates[0].USI != "2g2f" {
+		t.Fatalf("첫 후보 = %+v, want 2g2f", node.Candidates)
+	}
+	if node.MateIn != 1 {
+		t.Errorf("노드의 mateIn = %d, want 1", node.MateIn)
+	}
+}
+
+// 詰み이 섞인 줄에는 낙폭을 안 적는다. 뺄 cp 자체가 없고, 억지로 환산해서 빼면
+// 자가 다른 두 값의 차가 나온다.
 func TestWhatIfLeavesLossOutWhenMateIsInTheList(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d")
 	search := &fakeSearcher{results: []usi.SearchResult{{
-		Depth: whatifDepth, Best: "2g2f", ScoreCp: usi.MateCp - 50, IsMate: true, MateIn: 5,
+		Depth: whatifDepth, Best: "2g2f", Score: eval.Mate(5),
 		Lines: []usi.SearchLine{
-			{Depth: whatifDepth, MultiPV: 1, Move: "2g2f", ScoreCp: usi.MateCp - 50, IsMate: true, MateIn: 5},
-			{Depth: whatifDepth, MultiPV: 2, Move: "6g6f", ScoreCp: 100},
+			{Depth: whatifDepth, MultiPV: 1, Move: "2g2f", Score: eval.Mate(5)},
+			{Depth: whatifDepth, MultiPV: 2, Move: "6g6f", Score: eval.Cp(100)},
 		},
 	}}}
 
@@ -418,9 +444,9 @@ func TestWhatIfUsesTheCache(t *testing.T) {
 			SideToMove:    "b",
 			ComputedDepth: whatifDepth,
 			Candidates: []store.Candidate{
-				{USI: "2g2f", Cp: 96},
-				{USI: "6i7h", Cp: 76},
-				{USI: "5i6h", Cp: 51},
+				{USI: "2g2f", Score: eval.Cp(96)},
+				{USI: "6i7h", Score: eval.Cp(76)},
+				{USI: "5i6h", Score: eval.Cp(51)},
 			},
 		},
 	}}
@@ -453,9 +479,9 @@ func TestWhatIfIgnoresTooFewCachedCandidates(t *testing.T) {
 	key := archive.Key(replayed(t, root, 2))
 
 	rows := map[string]store.Position{
-		"후보가 하나": {ComputedDepth: whatifDepth, Candidates: []store.Candidate{{USI: "2g2f", Cp: 96}}},
+		"후보가 하나": {ComputedDepth: whatifDepth, Candidates: []store.Candidate{{USI: "2g2f", Score: eval.Cp(96)}}},
 		"얕게 쟀다": {ComputedDepth: whatifDepth - 2, Candidates: []store.Candidate{
-			{USI: "2g2f", Cp: 1}, {USI: "6g6f", Cp: 2}, {USI: "1g1f", Cp: 3},
+			{USI: "2g2f", Score: eval.Cp(1)}, {USI: "6g6f", Score: eval.Cp(2)}, {USI: "1g1f", Score: eval.Cp(3)},
 		}},
 	}
 	for name, row := range rows {

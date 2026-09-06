@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
@@ -48,12 +49,12 @@ func (s stubAnalyst) Judge(_ context.Context, _ string, _ []string, ply int) (ga
 	if s.blunder && loss > 0 {
 		v.Kind = intervene.KindBlunder
 		v.Category = intervene.CategoryHangsPiece
-		v.BestCp, v.AfterCp = ply*10, ply*10-100
+		v.Best, v.After = eval.Cp(ply*10), eval.Cp(ply*10-100)
 	}
 	// 手数를 그대로 값으로 쓴다 — 어느 칸에 무엇이 들어갔는지 눈으로 셀 수 있다.
 	return game.Judgement{
-		HasEvals:      s.blindFrom == 0 || ply < s.blindFrom,
-		SenteCpBefore: ply * 10, SenteCpAfter: ply*10 + 1,
+		HasEvals:    s.blindFrom == 0 || ply < s.blindFrom,
+		SenteBefore: eval.Cp(ply * 10), SenteAfter: eval.Cp(ply*10 + 1),
 		Verdict:   v,
 		Threshold: stubLevel.Threshold(),
 	}, nil
@@ -79,18 +80,18 @@ func TestAnalysisFillsBothRowsOfAMatch(t *testing.T) {
 			t.Fatalf("read game %d: %v", id, err)
 		}
 		for _, m := range rec.Moves {
-			if m.EvalCp == nil {
+			if m.Score == nil {
 				t.Fatalf("game %d ply %d has no eval", id, m.Ply)
 			}
 		}
 		// 마지막 手数만 After 로 남는다. 앞의 칸은 다음 회차가 Before 로 덮는다
 		// (kifu/import.go 와 같은 모양).
 		last := rec.Moves[len(rec.Moves)-1]
-		if *last.EvalCp != len(rec.Moves)*10+1 {
-			t.Errorf("game %d last eval = %d, want %d", id, *last.EvalCp, len(rec.Moves)*10+1)
+		if *last.Score != eval.Cp(len(rec.Moves)*10+1) {
+			t.Errorf("game %d last eval = %+v, want cp %d", id, *last.Score, len(rec.Moves)*10+1)
 		}
-		if first := rec.Moves[0]; *first.EvalCp != 20 {
-			t.Errorf("game %d first eval = %d, want 20 (2手째가 Before 로 덮는다)", id, *first.EvalCp)
+		if first := rec.Moves[0]; *first.Score != eval.Cp(20) {
+			t.Errorf("game %d first eval = %+v, want cp 20 (2手째가 Before 로 덮는다)", id, *first.Score)
 		}
 	}
 }
@@ -108,8 +109,8 @@ func TestAnalysisStopsWhenTheEngineFails(t *testing.T) {
 		t.Fatalf("read game: %v", err)
 	}
 	for _, m := range rec.Moves {
-		if m.EvalCp != nil {
-			t.Errorf("ply %d got an eval %d, want none", m.Ply, *m.EvalCp)
+		if m.Score != nil {
+			t.Errorf("ply %d got an eval %+v, want none", m.Ply, *m.Score)
 		}
 	}
 }
@@ -274,7 +275,7 @@ func TestAGapInTheRecordStopsTheAnalysis(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read game: %v", err)
 		}
-		if rec.Moves[0].EvalCp != nil {
+		if rec.Moves[0].Score != nil {
 			t.Error("구멍 난 기보에 평가치를 채웠다")
 		}
 	}
@@ -421,7 +422,7 @@ func TestAGappedButLongerRowBlocksTheSkillUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read game: %v", err)
 	}
-	if rec.Moves[0].EvalCp == nil {
+	if rec.Moves[0].Score == nil {
 		t.Error("평가치까지 건너뛰었다")
 	}
 }
@@ -481,7 +482,7 @@ func TestAnEmptyRowFillsEvalsButNotSkill(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read game: %v", err)
 	}
-	if rec.Moves[0].EvalCp == nil {
+	if rec.Moves[0].Score == nil {
 		t.Error("성한 행의 평가치까지 건너뛰었다")
 	}
 }
@@ -523,7 +524,7 @@ func TestAHalfAnalyzedMatchFeedsNobody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read game: %v", err)
 	}
-	if rec.Moves[0].EvalCp == nil {
+	if rec.Moves[0].Score == nil {
 		t.Error("멈추기 전의 평가치까지 버렸다")
 	}
 }
@@ -879,13 +880,13 @@ func TestAMoveMeasuredWhilePlayingIsNotMeasuredAgain(t *testing.T) {
 			t.Fatalf("read game %d: %v", id, err)
 		}
 		for _, m := range rec.Moves {
-			if m.EvalCp == nil {
+			if m.Score == nil {
 				t.Fatalf("game %d ply %d has no eval", id, m.Ply)
 			}
 		}
 		// 미리 잰 값이 그대로 들어갔는지 본다. 마지막 手만 After 로 남는다.
-		if last := rec.Moves[len(rec.Moves)-1]; *last.EvalCp != 31 {
-			t.Errorf("game %d last eval = %d, want 31", id, *last.EvalCp)
+		if last := rec.Moves[len(rec.Moves)-1]; *last.Score != eval.Cp(31) {
+			t.Errorf("game %d last eval = %+v, want cp 31", id, *last.Score)
 		}
 	}
 

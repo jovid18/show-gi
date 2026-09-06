@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/metrics"
@@ -57,7 +58,7 @@ type recordEvent struct {
 	// 이건 이름이라, 같은 칸에 넣으면 이벤트마다 뜻이 달라지는 칸이 하나 생긴다.
 	code    string
 	by      game.Side
-	cp      int
+	score   eval.Score
 	verdict intervene.Verdict
 	status  game.Status
 	winner  game.Side
@@ -115,8 +116,8 @@ func (r *dbRecorder) Moved(ply int, usi string, by game.Side) {
 
 // Moved 와 같은 채널로 보낸다. 평가치는 그 수가 들어간 뒤에 와야 하고, 한 채널이면
 // 순서가 저절로 지켜진다. 큐를 따로 두면 평가치가 먼저 도착해 조용히 버려질 수 있다.
-func (r *dbRecorder) Evaluated(ply int, senteCp int) {
-	r.send(recordEvent{kind: evEvaluated, ply: ply, cp: senteCp})
+func (r *dbRecorder) Evaluated(ply int, sente eval.Score) {
+	r.send(recordEvent{kind: evEvaluated, ply: ply, score: sente})
 }
 
 func (r *dbRecorder) Retracted(ply int, usi string, v intervene.Verdict) {
@@ -218,7 +219,7 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 			if gameID == 0 {
 				return
 			}
-			if err := st.SetMoveEval(write, gameID, ev.ply, ev.cp); err != nil {
+			if err := st.SetMoveEval(write, gameID, ev.ply, ev.score); err != nil {
 				log.Printf("game record: eval %d: %v", ev.ply, err)
 			}
 
@@ -231,8 +232,8 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 				Kind:         string(ev.verdict.Kind),
 				Category:     string(ev.verdict.Category),
 				DeltaWin:     ev.verdict.DeltaWin,
-				BestCp:       ev.verdict.BestCp,
-				AfterCp:      ev.verdict.AfterCp,
+				Best:         ev.verdict.Best,
+				After:        ev.verdict.After,
 				LevelBucket:  levelBucket(level),
 				RetractedUSI: ev.usi,
 			}); err != nil {

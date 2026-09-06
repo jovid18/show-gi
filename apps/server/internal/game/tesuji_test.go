@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
@@ -27,9 +28,9 @@ const (
 // 부호 버그가 상쇄되어 안 잡힌다.
 func forkJudgement(before, after int, human shogi.Color) Judgement {
 	return Judgement{
-		SenteCpBefore: senteCp(before, human),
-		SenteCpAfter:  senteCp(after, human),
-		HasEvals:      true,
+		SenteBefore: senteScore(eval.Cp(before), human),
+		SenteAfter:  senteScore(eval.Cp(after), human),
+		HasEvals:    true,
 	}
 }
 
@@ -261,7 +262,9 @@ func TestRealEngineGatesTesujiShapes(t *testing.T) {
 			}
 
 			got := namedTesuji(pos, after, me, tc.moves[len(tc.moves)-1], j)
-			loss := cpFor(j.SenteCpBefore, me) - cpFor(j.SenteCpAfter, me)
+			beforeCp, _ := j.SenteBefore.Centipawns()
+			afterCp, _ := j.SenteAfter.Centipawns()
+			loss := cpFor(beforeCp, me) - cpFor(afterCp, me)
 			t.Logf("%s 최선수=%s 낙폭=%+dcp 이름=%v", tc.moves[len(tc.moves)-1], j.BestUSI, loss, codes(got))
 
 			// 전제 — 룰 층은 셋 다 이름을 낸다. 갈리는 것은 엔진뿐이어야 한다.

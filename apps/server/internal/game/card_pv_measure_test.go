@@ -77,8 +77,8 @@ func TestMeasureCardBestDivergence(t *testing.T) {
 		checked++
 		if one[0].Move != three[0].Move {
 			differed++
-			t.Logf("%3d手  k=1 %-6s (%+5d)  ≠  k=3 %-6s (%+5d)",
-				i+1, one[0].Move, one[0].ScoreCp, three[0].Move, three[0].ScoreCp)
+			t.Logf("%3d手  k=1 %-6s (%8s)  ≠  k=3 %-6s (%8s)",
+				i+1, one[0].Move, one[0].Score, three[0].Move, three[0].Score)
 		}
 	}
 
