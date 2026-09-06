@@ -620,8 +620,8 @@ func (st *state) undo(ctx context.Context, gaugeDone chan mateResult, tesujiDone
 		return st.snapshot(), ErrFinished
 	}
 	// 판정 중이거나 상대가 생각 중이면 국면이 아직 사람에게 안 돌아왔다. 그 사이에
-	// 되감으면 날아오는 결과가 되감기 전 국면의 것이고, 세대로 버려지긴 하지만 사람
-	// 눈에는 「눌렀는데 한 수 뒤에 무너졌다」로 보인다.
+	// 되감으면 날아오는 결과가 되감기 전 국면의 것이다 — 세대가 버리지만 화면에
+	// 보이는 것은 그게 아니다(journal §72).
 	if st.judging || st.thinking || st.pos.Turn != st.cfg.HumanColor {
 		return st.snapshot(), ErrNotYourTurn
 	}
@@ -870,8 +870,8 @@ func (st *state) observeSkill(j Judgement) {
 // 국면 세대(searchGen)를 안 본다. 게이지·手筋 이름은 특정 국면에 대한 답이라 판이
 // 움직이면 거짓이 되지만, 이것은 사람에 대한 값이라 판이 움직여도 그대로 참이다.
 //
-// 알리는 것은 단계가 바뀔 때뿐이다. 값은 매 수 조금씩 움직이는데 화면에 나가는 것은
-// 5단계라, 매번 보내면 같은 그림을 다시 그리는 스냅샷만 늘어난다.
+// 알리는 것은 단계가 바뀔 때뿐이다 — 매번 보내면 같은 그림을 다시 그리는 스냅샷만
+// 늘어난다(journal §47).
 func (st *state) applySkill(e skill.Estimate) {
 	before := strengthStep(skillShift(st.skill))
 	st.skill = e

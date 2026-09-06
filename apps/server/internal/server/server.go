@@ -362,8 +362,8 @@ func Handler(opts Options) http.Handler {
 		mux.HandleFunc("POST /api/games/{id}/quiz/mate", storeUnavailable)
 		mux.HandleFunc("POST /api/games/{id}/quiz/best", storeUnavailable)
 		mux.HandleFunc("POST /api/games/{id}/whatif", storeUnavailable)
-		// 여기는 503이 아니라 「없다」다. 기록이 없는 배포에는 이어할 판이 있을 수가
-		// 없고, 첫 화면이 늘 부르는 자리라 실패로 답하면 물음 카드가 아니라 오류가 뜬다.
+		// 여기는 503이 아니라 「없다」다. 첫 화면이 늘 부르는 자리라 실패로 답하면
+		// 물음 카드가 아니라 오류가 뜬다.
 		mux.HandleFunc("GET /api/resumable", func(w http.ResponseWriter, _ *http.Request) {
 			writeJSON(w, http.StatusOK, map[string]any{"game": nil})
 		})

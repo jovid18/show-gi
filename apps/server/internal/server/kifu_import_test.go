@@ -372,7 +372,7 @@ func TestAHandicapImportBlamesTheRightSide(t *testing.T) {
 		t.Fatalf("StartSFEN = %q, want the 香落ち position", g.StartSFEN)
 	}
 
-	// 사람은 下手다 — 색으로는 b 이고, 그쪽이 **2手目부터** 둔다.
+	// 사람은 下手다 — 색으로는 b 이고, 그쪽이 2手目부터 둔다.
 	h := &kifuHandler{store: st}
 	gameID, err := h.save(t.Context(), userID, "b", string(notation), g, store.ResultWin)
 	if err != nil {

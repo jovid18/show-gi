@@ -75,8 +75,8 @@ const mateInOneSFEN = "3lkl3/9/5S3/9/9/9/9/9/8K b G 1"
 
 // 위 국면이 정말로 1手詰인지를 엔진 없이 먼저 못박는다.
 //
-// 손으로 만든 국면이라 이 확인이 없으면, 게이지가 안 켜졌을 때 배선이 틀린 건지 국면이
-// 틀린 건지를 못 가른다 — 囲い 좌표를 룰 엔진으로 재검증하는 것과 같은 자리다(09-tags.md §1).
+// 손으로 만든 국면이라 이 확인이 없으면 배선과 국면 중 무엇이 틀렸는지를 못 가른다
+// (journal §31).
 func TestMateInOneSFENReallyIsMateInOne(t *testing.T) {
 	pos, err := shogi.ParseSFEN(mateInOneSFEN)
 	if err != nil {

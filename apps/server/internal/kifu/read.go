@@ -22,7 +22,7 @@ const (
 	// 복사해 온 모양이고, 사람이 붙여 넣는 것 중 가장 흔한 「형식이 아닌 형식」이다.
 	NotationPlain Notation = "plain"
 	// NotationLLM 은 결정적 파서가 전부 실패해 정규화 계층을 지난 판이다
-	// (internal/kifunorm). **Read 는 이 값을 안 준다** — 옮겨 적힌 뒤 다시 이 패키지를
+	// (internal/kifunorm). Read 는 이 값을 안 준다 — 옮겨 적힌 뒤 다시 이 패키지를
 	// 지나므로(ParseMoves) 그 판도 수는 룰 엔진이 만든 것이지만, 표기를 누가 손댔는지는
 	// 기록에 남아야 한다.
 	NotationLLM Notation = "llm"
@@ -51,7 +51,7 @@ func (e *MoveError) Unwrap() error { return e.Err }
 // ErrNoMoves 는 형식은 알아봤는데 수가 하나도 없는 자리다.
 var ErrNoMoves = errors.New("no moves")
 
-// readers 의 순서가 곧 시도 순서다. **좁은 형식이 먼저다** — USI 는 나머지가 흉내 낼 수
+// readers 의 순서가 곧 시도 순서다. 좁은 형식이 먼저다 — USI 는 나머지가 흉내 낼 수
 // 없는 모양이고, 평문은 가장 느슨해서(공백으로 끊은 표기면 다 본다) 마지막이라야 남의
 // 형식을 가로채지 않는다.
 var readers = []struct {
@@ -67,7 +67,7 @@ var readers = []struct {
 
 // Read 는 결정적 파서들을 차례로 대 보고 처음 읽히는 것을 준다.
 //
-// **여기가 성공하면 LLM 은 안 부른다.** 같은 기보가 언제나 같은 결과를 주는 것이
+// 여기가 성공하면 LLM 은 안 부른다. 같은 기보가 언제나 같은 결과를 주는 것이
 // 기본값이고, 정규화 계층은 그 기본값이 안 되는 자리에서만 돈다(internal/kifunorm).
 //
 // 수를 하나라도 읽은 뒤에 깨진 형식은 그 자리에서 답이 된다. 그 오류가 「이 기보는
@@ -255,7 +255,7 @@ func ParsePlain(input string) (ParsedGame, error) {
 // ParseMoves 는 手 하나씩 떨어진 표기 목록을 읽는다. 정규화 계층이 내는 모양이다
 // (internal/kifunorm).
 //
-// **여기가 정규화 계층의 출력이 수가 되는 유일한 문이다.** 낱말 하나하나가 룰 엔진을
+// 여기가 정규화 계층의 출력이 수가 되는 유일한 문이다. 낱말 하나하나가 룰 엔진을
 // 지나므로, 옮겨 적는 쪽이 지어낸 것은 여기서 걸린다.
 //
 // 手番은 국면이 든다 — 표식(▲△)이 없어도 되고, 붙어 있으면 떼고 읽는다. 手가 하나 빠지면

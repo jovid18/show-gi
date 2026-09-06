@@ -102,9 +102,8 @@ func Pairable(a, b Waiter, now time.Time) bool {
 
 // Pick 은 후보 중에서 짝 하나를 고른다. 없으면 두 번째 값이 false 다.
 //
-// 밴드 안에서 FIFO 다. 밴드가 품질을 보장하니 그 안의 후보는 정의상 받아들일 만하고,
-// 그중에서는 오래 기다린 쪽이 먼저다 — 최근접으로 고르면 가까운 짝을 가로채서 남은
-// 둘이 최악으로 붙는다(journal §92).
+// 밴드 안에서 FIFO 다. 밴드가 품질을 보장하니 그 안에서는 오래 기다린 쪽이 먼저이고,
+// 최근접으로 골랐을 때 무엇이 나빠지는지는 journal §92.
 //
 // candidates 는 오래 기다린 순이어야 한다. 질의가 그 순서로 준다.
 func Pick(me Waiter, candidates []Waiter, now time.Time) (Waiter, bool) {

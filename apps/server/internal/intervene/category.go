@@ -117,8 +117,7 @@ type Features struct {
 // HangsPiece 는 놓인 駒를 그냥 내주는가다.
 //
 // 두 곳이 같은 정의를 쓴다. 개입의 タダ捨て 판정이자 적응형 상대의 「던지지 않는다」
-// 필터다(01-core.md §6). 정의가 갈리면 화면이 「その駒は取り返せない場所に置かれています」
-// 라고 가르쳐놓고 컴퓨터가 바로 그 수를 두는 일이 생긴다 — 그 순간 배운 것이 무너진다.
+// 필터이고, 갈렸을 때 무엇이 무너지는지는 01-core.md §6.
 func (f Features) HangsPiece() bool {
 	return f.Known && f.LandsAttacked && !f.LandsDefended && f.MovedValue > f.CapturedValue
 }

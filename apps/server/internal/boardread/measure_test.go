@@ -18,19 +18,18 @@ import (
 //
 //	SHOWGI_MEASURE=1 SHOWGI_OPENAI_KEY=… go test ./internal/boardread/ -run MeasureBoardRead -v
 //
-// **그림을 레포에 커밋하지 않는다.** 앱 화면과 방송 캡처는 남의 것이고 이 레포는
-// 퍼블릭이다 — floodgate 기보와 같은 규약이고, 경로가 `.gitignore` 에 있다.
+// 그림을 레포에 커밋하지 않는다. 남의 것이고 이 레포는 퍼블릭이다 — 경로가
+// .gitignore 에 있다.
 //
-// **표를 고치지 않는다.** 임계치도 걸지 않는다 — 어긋나면 문장으로 말하고 사람이 저널의
-// 표를 옮긴다(handicap 의 TestMeasureBaseline 과 같은 판단). 자동으로 통과선을 두면
-// 모델이나 프롬프트가 흔들릴 때 그 선이 조용히 따라 움직인다.
+// 표를 고치지 않고 임계치도 안 건다. 자동으로 통과선을 두면 모델이나 프롬프트가
+// 흔들릴 때 그 선이 조용히 따라 움직인다(handicap 의 TestMeasureBaseline 과 같은 판단).
 //
 // 재는 것이 둘이다.
 //
-//   - **룰 검산의 사유 수.** 라벨이 없어도 나온다 — 실물 한 판은 언제나 40장이고
+//   - 룰 검산의 사유 수. 라벨이 없어도 나온다 — 실물 한 판은 언제나 40장이고
 //     성립하는 국면이라, 사유가 하나라도 있으면 그 판독은 틀렸다.
-//   - **칸 단위 정확도.** 그림 옆에 `<이름>.sfen` 을 두면 칸 81개와 駒台를 맞춰 본다.
-//     그 파일은 확인 화면에서 판을 고친 뒤 주소의 `s=` 를 그대로 붙여 만들면 된다 —
+//   - 칸 단위 정확도. 그림 옆에 <이름>.sfen 을 두면 칸 81개와 駒台를 맞춰 본다.
+//     그 파일은 확인 화면에서 판을 고친 뒤 주소의 s= 를 그대로 붙여 만들면 된다 —
 //     이 기능 자체가 라벨을 만드는 도구다.
 
 // measureDir 은 그림을 두는 곳이다. 환경변수로 덮을 수 있다.
@@ -134,7 +133,7 @@ func measureOne(t *testing.T, c *Client, path string) boardReadScore {
 	return score
 }
 
-// labelFor 는 그림 옆의 `<이름>.sfen` 을 읽는다. 없으면 두 번째 값이 거짓이다.
+// labelFor 는 그림 옆의 <이름>.sfen 을 읽는다. 없으면 두 번째 값이 거짓이다.
 func labelFor(t *testing.T, path string) (shogi.Position, bool) {
 	t.Helper()
 

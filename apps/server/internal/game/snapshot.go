@@ -214,8 +214,7 @@ type Judgement struct {
 }
 
 // DecidedWinRate 는 「이미 갈렸다」의 경계다. 최선수의 승률이 이 밖이면 그 국면의 낙폭은
-// 실력 신호가 아니다 — 승률이 포화해 나쁜 수도 낙폭이 0에 가깝고, 무너지는 몇 수만
-// 크게 잡혀 판 평균을 그 꼬리가 정한다(journal §94).
+// 실력 신호가 아니다(journal §94).
 const DecidedWinRate = 0.95
 
 // Decided 는 그 수를 두기 전에 승패가 이미 갈려 있었나다.

@@ -205,7 +205,7 @@ func faultErrors(faults []PositionFault) []string {
 }
 
 // 持ち駒 수가 Hands 의 int8 을 넘으면 조용히 음수가 된다. 그 판은 예전에 Faults 를
-// 통과하면서 movegen 이 打을 만들어 냈고(`== 0` 만 본다), 엔진에는 다시 직렬화한
+// 통과하면서 movegen 이 打을 만들어 냈고(== 0 만 본다), 엔진에는 다시 직렬화한
 // 「1장」이 나갔다 — 룰 엔진과 엔진이 다른 판을 보게 된다. 셀프리뷰가 잡았다.
 func TestParseSFENRefusesAHandThatCannotFit(t *testing.T) {
 	for _, sfen := range []string{

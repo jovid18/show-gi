@@ -12,7 +12,7 @@ import (
 
 // 실제로 OpenAI 를 부른다. 키가 없으면 skip 이다 — CI 에서 안 돈다.
 //
-// 재는 것은 「모델이 잘 옮기는가」가 아니라 **배선이 성립하는가**다: 결정적 파서가 전부
+// 재는 것은 「모델이 잘 옮기는가」가 아니라 배선이 성립하는가다: 결정적 파서가 전부
 // 실패하는 텍스트가 정규화를 지나 룰 엔진까지 통과하는가. 모델이 지어내면 kifu.ParseMoves
 // 에서 걸리므로, 이 시험이 초록이면 그 판은 합법 수순이다.
 func TestLiveNormalizeReachesTheRuleEngine(t *testing.T) {
