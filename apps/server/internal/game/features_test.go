@@ -6,6 +6,7 @@ import (
 
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
@@ -47,7 +48,7 @@ func TestHangingBishopIsSeen(t *testing.T) {
 
 	// 그래서 이 수는 두 카테고리에 걸린다. 눈으로 확인할 수 있는 쪽을 말해야 한다 —
 	// 「王手에 계속이 없다」보다 「그 駒가 그냥 잡힌다」가 초심자에게 배울 것이 된다.
-	v := intervene.Judge(intervene.Input{BestCp: 0, AfterCp: -1600, Features: f})
+	v := intervene.Judge(intervene.Input{Best: eval.Cp(0), After: eval.Cp(-1600), Features: f})
 	if v.Category != intervene.CategoryHangsPiece {
 		t.Errorf("カテゴリ %q 기대, got %q", intervene.CategoryHangsPiece, v.Category)
 	}
@@ -104,7 +105,7 @@ func TestPinnedAttackerCannotHangAPiece(t *testing.T) {
 	if f.LandsAttacked {
 		t.Error("핀에 묶여 못 움직이는 飛를 「딸 수 있다」로 셌다")
 	}
-	if got := intervene.Judge(intervene.Input{BestCp: 0, AfterCp: -1600, Features: f}).Category; got == intervene.CategoryHangsPiece {
+	if got := intervene.Judge(intervene.Input{Best: eval.Cp(0), After: eval.Cp(-1600), Features: f}).Category; got == intervene.CategoryHangsPiece {
 		t.Error("아무도 못 잡는 駒를 タダ捨て라고 했다")
 	}
 }

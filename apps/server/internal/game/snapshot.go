@@ -220,7 +220,7 @@ const DecidedWinRate = 0.95
 
 // Decided 는 그 수를 두기 전에 승패가 이미 갈려 있었나다.
 func (j Judgement) Decided() bool {
-	w := intervene.WinRate(j.Verdict.BestCp)
+	w := intervene.WinRateOf(j.Verdict.Best, 0)
 	return w >= DecidedWinRate || w <= 1-DecidedWinRate
 }
 

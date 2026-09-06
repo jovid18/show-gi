@@ -34,6 +34,7 @@ type AnalysisPly struct {
 	BestCp     *int32
 	BeforeMate *int32
 	AfterMate  *int32
+	BestMate   *int32
 }
 
 type Edge struct {
@@ -121,7 +122,9 @@ type Intervention struct {
 	// 판정 당시 최선수의 cp(수번 측 관점). 제지형만. 과거 행은 NULL
 	BestCp *int32
 	// 물러진 수를 둔 뒤의 cp(수번 측 관점). 제지형만. 과거 행은 NULL
-	AfterCp *int32
+	AfterCp   *int32
+	BestMate  *int32
+	AfterMate *int32
 }
 
 type MatchQueue struct {

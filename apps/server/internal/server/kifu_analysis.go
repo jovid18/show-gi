@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -101,15 +100,11 @@ func (a *matchAnalyzer) importSeat(ctx context.Context, gameID int64) []analysis
 func (a *matchAnalyzer) recordBlunder(ctx context.Context, gameID int64, ply int, mover shogi.Color, got judged) {
 	// 평가치는 두는 쪽 관점으로 뒤집는다. judged 가 든 것은 先手 관점이고
 	// (game.Judgement.SenteAfter) interventions 의 두 칸은 두는 쪽 관점이다
-	// (intervene.Verdict.AfterCp). 안 뒤집으면 後手가 둔 悪手의 부호가 통째로 반대가 된다.
-	//
-	// 여기서 태그가 눌린다. 이 칸은 판정을 다시 채점하는 자리라 intervene 과 같은
-	// 자여야 하고, 그 자가 평평한 cp 다(eval.ApproxCp 의 doc).
+	// (intervene.Verdict.After). 안 뒤집으면 後手가 둔 悪手의 부호가 통째로 반대가 된다.
 	after := got.after
 	if mover == shogi.White {
 		after = after.Neg()
 	}
-	afterCp := eval.ApproxCp(after)
 
 	iv := store.Intervention{
 		Ply:         ply,
@@ -117,8 +112,8 @@ func (a *matchAnalyzer) recordBlunder(ctx context.Context, gameID int64, ply int
 		Category:    got.category,
 		DeltaWin:    got.move.DeltaWin,
 		LevelBucket: levelBucket(a.level),
-		BestCp:      got.bestCp,
-		AfterCp:     afterCp,
+		Best:        got.best,
+		After:       after,
 	}
 	if err := a.store.InsertIntervention(ctx, gameID, iv); err != nil && ctx.Err() == nil {
 		log.Printf("kifu: could not record the blunder at ply %d of game %d: %v", ply, gameID, err)

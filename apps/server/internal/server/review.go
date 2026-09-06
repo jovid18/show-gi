@@ -164,9 +164,13 @@ type reviewIntervention struct {
 	// AfterCp 는 그 수를 두면 얼마가 되나다. moves[].evalCp 와 같은 자여야 되짚기
 	// 화면이 물러진 수·실제로 둔 수·최선수를 한 줄에 세울 수 있다. 옛 기록에는 없다(§39).
 	AfterCp *int `json:"afterCp,omitempty"`
+	// AfterMate 는 그 수 뒤의 詰み까지의 手数다. AfterCp 와 배타적이다(reviewMove 와 같은 규약).
+	AfterMate int `json:"afterMate,omitempty"`
 	// BestCp 는 판정 당시 최선수의 cp. 낙폭과 겹치지 않는다 — 낙폭은 그때 K로 구한
 	// 승률 차라 K가 바뀌면 낡고, 이 값은 원본이라 안 낡는다.
 	BestCp *int `json:"bestCp,omitempty"`
+	// BestMate 는 그 최선수가 詰み이었을 때의 手数다. BestCp 와 배타적이다.
+	BestMate int `json:"bestMate,omitempty"`
 }
 
 // reviewUndo 는 사람이 스스로 무른 수 하나다.
@@ -389,13 +393,10 @@ func detailOf(rec store.GameRecord) gameDetail {
 			LevelBucket:  iv.LevelBucket,
 			RetractedUSI: iv.RetractedUSI,
 		}
-		// 관점은 여기서 맞춘다(flipToPlayer).
-		if iv.AfterCp != nil {
-			view.AfterCp = flipToPlayer(*iv.AfterCp, humanColor)
-		}
-		if iv.BestCp != nil {
-			view.BestCp = flipToPlayer(*iv.BestCp, humanColor)
-		}
+		// 관점은 여기서 맞춘다. 개입은 늘 사람이 둔 수라 그 국면의 수번이 사람이다 —
+		// 그래서 색만 보면 된다(playerEvalJSON).
+		view.AfterCp, view.AfterMate = playerEvalJSON(iv.After, humanColor)
+		view.BestCp, view.BestMate = playerEvalJSON(iv.Best, humanColor)
 		// 물러진 수는 Ply-1 手目의 국면에서 두어졌다. 거기까지 재현했을 때만 표기가 나온다.
 		if iv.RetractedUSI != "" && iv.Ply >= 1 && iv.Ply-1 < len(posAt) {
 			if _, ja, ok := advance(posAt[iv.Ply-1], toAt[iv.Ply-1], iv.RetractedUSI); ok {
@@ -409,7 +410,7 @@ func detailOf(rec store.GameRecord) gameDetail {
 		view := reviewUndo{Ply: u.Ply, USI: u.USI}
 		// 기보와 같은 줄을 쓴다. 이 값은 game_moves.eval_cp 에서 그대로 옮겨온
 		// 先手 관점이라(store.RecordUndo), 위 moves 루프와 같은 변환이라야 같은 수가
-		// 두 목록에서 같은 숫자로 나온다 — 개입 쪽 flipToPlayer 는 관점의 출처가 다르다.
+		// 두 목록에서 같은 숫자로 나온다 — 개입 쪽은 관점의 출처가 다르다.
 		view.EvalCp, view.MateIn = playerEvalJSON(u.Score, humanColor)
 		// 무른 수는 Ply-1 手目의 국면에서 두어졌다 — 개입과 같은 자리, 같은 이유다.
 		if u.Ply >= 1 && u.Ply-1 < len(posAt) {
@@ -440,13 +441,4 @@ func playerEvalJSON(s *eval.Score, human shogi.Color) (*int, int) {
 	}
 	cp, _ := v.Centipawns()
 	return &cp, 0
-}
-
-// flipToPlayer 는 수번 측 cp를 플레이어 관점으로 옮긴다(패키지 doc의 규약).
-// 개입은 늘 사람이 둔 수라 그 국면의 수번이 사람이다 — 그래서 색만 보면 된다.
-func flipToPlayer(cp int, human shogi.Color) *int {
-	if human == shogi.White {
-		cp = -cp
-	}
-	return &cp
 }

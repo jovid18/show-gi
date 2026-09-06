@@ -117,6 +117,8 @@ export interface ReviewIntervention {
    * 자리를 다시 재서 채운다(`useMoveEvals`).
    */
   afterCp?: number;
+  /** 그 수 뒤의 詰み까지의 手数(플레이어 관점). `afterCp` 와 배타적이다. */
+  afterMate?: number;
   /** 판정 당시 최선수의 cp(플레이어 관점). 낙폭을 다시 구하려면 이것과 `afterCp` 가 필요하다. */
   bestCp?: number;
   /** 물러진 수의 棋譜 표기. 그 국면까지 재현이 못 갔으면 없다. */

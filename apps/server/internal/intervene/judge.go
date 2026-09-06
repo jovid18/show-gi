@@ -11,7 +11,11 @@
 // 판정의 근거는 docs/01-core.md §2.
 package intervene
 
-import "math"
+import (
+	"math"
+
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
+)
 
 // K 는 cp를 승률로 바꿀 때의 기울기다. 크면 완만해지고 작으면 가팔라진다.
 //
@@ -25,6 +29,22 @@ const K = 600.0
 // -800이 국면마다 다른 뜻이 된다.
 func WinRate(cp int) float64 {
 	return 1 / (1 + math.Exp(-float64(cp)/K))
+}
+
+// WinRateOf 는 점수 하나를 기준점에서 읽은 승률이다.
+//
+// 詰み은 K를 안 지난다. 이기는 詰み이 1, 지는 詰み이 0이고 그것이 사실 그대로다 —
+// cp로 환산해서 넣으면 K를 어떻게 바꿔도 안 움직이는 숫자가 식에 하나 앉는다.
+// 기준점도 안 뺀다: 手合割은 cp의 자이고 詰み은 그 자 위에 없다.
+func WinRateOf(s eval.Score, baselineCp int) float64 {
+	if n, ok := s.MateIn(); ok {
+		if n > 0 {
+			return 1
+		}
+		return 0
+	}
+	cp, _ := s.Centipawns()
+	return WinRate(cp - baselineCp)
 }
 
 // Level 은 개입 임계치를 정하는 실력 구간이다.
@@ -68,23 +88,23 @@ const (
 // 수 번호가 없다. "언제 두었나"는 판정의 입력이 아니다 — 오프닝을 봐주는 것은
 // 수 번호가 아니라 무엇을 뒀는가로 갈려야 하고(01-core.md §2), 그건 부르는 쪽이 정한다.
 type Input struct {
-	// BestCp 는 착수 전 국면의 최선수 평가치. 두는 쪽 관점.
-	BestCp int
-	// AfterCp 는 착수 후 국면의 평가치를 둔 쪽 관점으로 뒤집은 것.
+	// Best 는 착수 전 국면의 최선수 평가치. 두는 쪽 관점.
+	Best eval.Score
+	// After 는 착수 후 국면의 평가치를 둔 쪽 관점으로 뒤집은 것.
 	//
 	// 엔진은 늘 수번 측 관점으로 답하므로, 착수 후에는 상대 관점이 된다.
 	// 부르는 쪽에서 부호를 뒤집어 넘긴다 — 여기서 뒤집으면 "누구 관점인가"가
 	// 두 군데에 흩어진다.
-	AfterCp int
+	After eval.Score
 
-	// BaselineCp 는 이 판의 「형세 0」이다. BestCp·AfterCp 와 같은 관점(두는 쪽)이고,
+	// BaselineCp 는 이 판의 「형세 0」이다. Best·After 와 같은 관점(두는 쪽)이고,
 	// 平手는 0이다. 駒落ち는 그 手合의 초기 평가치가 들어온다(internal/handicap).
 	//
 	// 없으면 駒落ち에서 개입이 사라진다. 승률이 양쪽 끝에서 포화해(01-core.md §2) 銀
 	// 헌납도 임계치에 안 닿기 때문이고, 이 값을 빼면 발화선이 平手의 감도로 돌아온다
 	// (journal §88). 平手는 이 칸이 0이라 지금까지와 한 비트도 다르지 않다.
 	//
-	// Verdict 의 BestCp·AfterCp 는 이 값을 안 빼고 원본으로 남는다 — K를 바꿔 다시
+	// Verdict 의 Best·After 는 이 값을 안 빼고 원본으로 남는다 — K를 바꿔 다시
 	// 채점하는 자리가 그 두 칸이고(005_intervention_cp.sql), 기준점은 games.start_sfen
 	// 에서 언제든 다시 구할 수 있다. 빼서 저장하면 원본이 어디에도 없어진다.
 	BaselineCp int
@@ -112,12 +132,13 @@ type Verdict struct {
 	// 통과한 수에도 있다. 실력 추정이 매 수의 이 값으로 도므로(internal/skill), 여기가
 	// 개입한 수에서만 채워지면 신호가 개입에 오염된 표본만 남는다.
 	DeltaWin float64
-	// BestCp·AfterCp 는 낙폭을 만든 두 원본이다. 둘 다 두는 쪽 관점(Input 과 같다).
+	// Best·After 는 낙폭을 만든 두 원본이다. 둘 다 두는 쪽 관점(Input 과 같다).
 	//
 	// 낙폭만 남기면 K 를 바꿔 다시 채점할 수 없다 — 미지수가 둘인데 식이 하나다
-	// (migrations/005_intervention_cp.sql · journal §39 ⑥ · §41).
-	BestCp  int
-	AfterCp int
+	// (migrations/005_intervention_cp.sql · journal §39 ⑥ · §41). 詰み을 cp로 눌러
+	// 담으면 그 자리가 K와 무관해져서 다시 채점할 값이 아니게 된다 — 태그째로 남긴다.
+	Best  eval.Score
+	After eval.Score
 	// LostMate 는 종반 판정으로 걸렸는가. 설명 문구가 갈린다.
 	LostMate bool
 	// Category 는 왜 나쁜가다. Kind 가 KindNone 이면 비어 있다.
@@ -134,12 +155,12 @@ const JudgeMatePlies = 5
 func Judge(in Input) Verdict {
 	// 기준점에서 재기 시작한다. 두 항에 같은 값을 빼므로 平手(0)에서는 지금까지와
 	// 한 비트도 다르지 않고, 駒落ち에서만 판정이 포화 구간을 벗어난다(Input.BaselineCp).
-	delta := WinRate(in.BestCp-in.BaselineCp) - WinRate(in.AfterCp-in.BaselineCp)
+	delta := WinRateOf(in.Best, in.BaselineCp) - WinRateOf(in.After, in.BaselineCp)
 
 	// 통과한 수도 낙폭을 담아 돌려준다. 임계치를 안 넘었다는 것이 손해가 없다는 뜻이
 	// 아니고, 실력 추정은 걸린 수가 아니라 매 수의 낙폭으로 돈다(internal/skill).
 	// Kind 하나만 보면 되던 자리는 그대로다 — 통과는 KindNone 이다.
-	pass := Verdict{DeltaWin: delta, BestCp: in.BestCp, AfterCp: in.AfterCp}
+	pass := Verdict{DeltaWin: delta, Best: in.Best, After: in.After}
 
 	// 종반 — 승률이 포화해 낙폭이 판정력을 잃는 구간이다. 이기고 있는 쪽에만 필요하다 —
 	// 지는 쪽은 승률이 멀쩡히 움직여 아래 낙폭 판정이 이미 잡는다(01-core.md §2).
@@ -149,8 +170,8 @@ func Judge(in Input) Verdict {
 			return Verdict{
 				Kind:     KindBlunder,
 				DeltaWin: delta,
-				BestCp:   in.BestCp,
-				AfterCp:  in.AfterCp,
+				Best:     in.Best,
+				After:    in.After,
 				LostMate: true,
 				Category: classify(in, true),
 			}
@@ -162,8 +183,8 @@ func Judge(in Input) Verdict {
 		return Verdict{
 			Kind:     KindBlunder,
 			DeltaWin: delta,
-			BestCp:   in.BestCp,
-			AfterCp:  in.AfterCp,
+			Best:     in.Best,
+			After:    in.After,
 			Category: classify(in, false),
 		}
 	}

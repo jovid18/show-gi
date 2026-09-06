@@ -145,7 +145,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
    */
   const unmeasured = useMemo(() => {
     const out = game.interventions
-      .filter((iv) => iv.ply === ply + 1 && !!iv.retractedUsi && iv.afterCp === undefined)
+      .filter((iv) => iv.ply === ply + 1 && !!iv.retractedUsi && iv.afterCp === undefined && iv.afterMate === undefined)
       .map((iv) => iv.retractedUsi as string);
     const played = game.moves[ply]?.usi;
     if (played && rootNode && !rootNode.candidates.some((c) => c.usi === played)) out.push(played);

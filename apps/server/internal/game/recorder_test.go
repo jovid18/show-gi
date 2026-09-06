@@ -30,7 +30,7 @@ func (r *fakeRecorder) all() []string {
 
 func (r *fakeRecorder) Started(startSFEN string, _ shogi.Color) { r.add("started") }
 func (r *fakeRecorder) Evaluated(ply int, sente eval.Score) {
-	r.add(fmt.Sprintf("eval %d %+d", ply, eval.ApproxCp(sente)))
+	r.add(fmt.Sprintf("eval %d %s", ply, sente))
 }
 
 func (r *fakeRecorder) Moved(ply int, usi string, by Side) {

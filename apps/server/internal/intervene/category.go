@@ -1,5 +1,7 @@
 package intervene
 
+import "github.com/jovid18/show-gi/apps/server/internal/eval"
+
 // Category 는 블런더가 왜 나쁜가다. DB의 interventions.category 에 그대로 들어간다.
 //
 // 엔진은 「−800점」까지만 말한다. 그 숫자를 「이 駒는 그냥 잡힙니다」로 바꾸는 것이 여기이고,
@@ -99,8 +101,8 @@ type Features struct {
 	// ThreatGain 은 같은 칸들의 상대 공격 利き 증가량. 줄었으면 음수다.
 	ThreatGain int
 
-	// ShallowCp 는 착수 후 국면의 얕은 평가(둔 쪽 관점). HasShallow 가 false면 없는 값이다.
-	ShallowCp  int
+	// Shallow 는 착수 후 국면의 얕은 평가(둔 쪽 관점). HasShallow 가 false면 없는 값이다.
+	Shallow    eval.Score
 	HasShallow bool
 
 	// OpponentMatePlies 는 이 수 뒤에 상대가 내 玉을 詰ます 手数다. 없으면 0.
@@ -126,6 +128,36 @@ func (f Features) HangsPiece() bool {
 //
 // [미확정] 300은 죽어 있지 않다는 것까지만 확인됐다(journal §39 ⑤).
 const ShallowTrapCp = 300
+
+// shallowTrap 은 「얕게 보면 이득, 깊게 보면 손해」인가다. 기준점에서 읽는다.
+//
+// 詰み이 한쪽에라도 있으면 폭을 안 잰다 — 부호가 반대라는 것이 이미 최대 반전이고,
+// cp로 눌러서 재면 그 값이 임계치를 우연히 넘느냐로 답이 갈린다.
+func shallowTrap(shallow, after eval.Score, baselineCp int) bool {
+	shallowCp, shallowIsCp := shallow.Centipawns()
+	afterCp, afterIsCp := after.Centipawns()
+
+	if !above(shallow, shallowCp, shallowIsCp, baselineCp) {
+		return false
+	}
+	if above(after, afterCp, afterIsCp, baselineCp) {
+		return false
+	}
+	// 한쪽이 詰み이면 폭이 없다. 부호가 갈린 것 자체가 잴 수 있는 가장 큰 반전이다.
+	if !shallowIsCp || !afterIsCp {
+		return true
+	}
+	return shallowCp-afterCp >= ShallowTrapCp
+}
+
+// above 는 그 점수가 이 판의 「형세 0」보다 위인가다. 詰み은 이기는 쪽만 위다.
+func above(s eval.Score, cp int, isCp bool, baselineCp int) bool {
+	if !isCp {
+		n, _ := s.MateIn()
+		return n > 0
+	}
+	return cp > baselineCp
+}
 
 // classify 는 개입하기로 정해진 수의 이유를 고른다.
 //
@@ -172,8 +204,10 @@ func classify(in Input, lostMate bool) Category {
 	// 언제나 참이고 뒤 조건이 거의 언제나 거짓이 된다 — 二枚落ち(+1386)에서 이 카테고리가
 	// 판 내내 안 나온다는 뜻이고, 하필 가장 교육적인 자리다(01-core.md §3).
 	// 반전 폭은 차이라서 기준점과 무관하다.
-	case f.HasShallow && f.ShallowCp > in.BaselineCp && in.AfterCp < in.BaselineCp &&
-		f.ShallowCp-in.AfterCp >= ShallowTrapCp:
+	//
+	// 詰み은 부호만 읽는다. 「얕게 보면 詰ませる, 깊게 보면 진다」가 가장 큰 반전이라
+	// 폭을 재 볼 것이 없고, 눌러 담으면 그 폭이 임계치를 우연히 넘느냐로 갈린다.
+	case f.HasShallow && shallowTrap(f.Shallow, in.After, in.BaselineCp):
 		return CategoryShallowTrap
 
 	// 駒는 땄는데 형세가 나빠졌다. 딴 것만으로는 부족하다 — 다른 데서 벌어진 일 때문에

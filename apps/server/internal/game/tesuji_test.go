@@ -262,7 +262,9 @@ func TestRealEngineGatesTesujiShapes(t *testing.T) {
 			}
 
 			got := namedTesuji(pos, after, me, tc.moves[len(tc.moves)-1], j)
-			loss := cpFor(eval.ApproxCp(j.SenteBefore), me) - cpFor(eval.ApproxCp(j.SenteAfter), me)
+			beforeCp, _ := j.SenteBefore.Centipawns()
+			afterCp, _ := j.SenteAfter.Centipawns()
+			loss := cpFor(beforeCp, me) - cpFor(afterCp, me)
 			t.Logf("%s 최선수=%s 낙폭=%+dcp 이름=%v", tc.moves[len(tc.moves)-1], j.BestUSI, loss, codes(got))
 
 			// 전제 — 룰 층은 셋 다 이름을 낸다. 갈리는 것은 엔진뿐이어야 한다.

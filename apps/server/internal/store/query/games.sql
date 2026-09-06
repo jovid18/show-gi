@@ -70,9 +70,9 @@ SET usi = EXCLUDED.usi, eval_cp = EXCLUDED.eval_cp, eval_mate = EXCLUDED.eval_ma
 -- 칸별 규약은 store.Intervention 에 있다.
 INSERT INTO interventions (
     game_id, ply, kind, category, delta_win, level_bucket, retracted_usi,
-    best_cp, after_cp
+    best_cp, after_cp, best_mate, after_mate
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 -- name: CountGames :one
 SELECT count(*) FROM games;
@@ -263,7 +263,8 @@ SELECT ply, usi, eval_cp, eval_mate FROM game_moves WHERE game_id = $1 ORDER BY 
 --
 -- 같은 ply에 여러 행이 온다(InsertIntervention). id 로 이어 정렬해 물러진 순서를
 -- 지킨다 — 한 국면에서 두 번 걸렸을 때 어느 쪽이 먼저였는지가 곧 이야기다.
-SELECT ply, kind, category, delta_win, level_bucket, retracted_usi, best_cp, after_cp
+SELECT ply, kind, category, delta_win, level_bucket, retracted_usi,
+       best_cp, after_cp, best_mate, after_mate
 FROM interventions
 WHERE game_id = $1
 ORDER BY ply, id;

@@ -16,7 +16,6 @@ import (
 	"github.com/coder/websocket/wsjson"
 
 	"github.com/jovid18/show-gi/apps/server/internal/book"
-	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/metrics"
@@ -634,19 +633,6 @@ func generateQuiz(parent context.Context, st *store.Store, builder *quiz.Builder
 	log.Printf("ws: quiz: game %d: %d-ply mate item, %d best items", rec.ID, mate, len(q.Best))
 }
 
-// quizCp 는 저장된 점수를 문항 생성기가 보는 정수로 옮긴다.
-//
-// 詰み도 눌러서 넘긴다. 이 값이 하는 일은 「어느 手数에서 크게 흘렸나」로 후보를 좁히는
-// 것뿐이고, 詰み이 사라진 자리는 눌린 값에서도 가장 큰 낙폭으로 잡힌다. 문항이 실제로
-// 서는지는 그다음에 국면을 다시 재서 정한다(quiz.Builder.score).
-func quizCp(s *eval.Score) *int {
-	if s == nil {
-		return nil
-	}
-	cp := eval.ApproxCp(*s)
-	return &cp
-}
-
 // quizInput 은 기록을 문항 생성기의 입력으로 옮긴다. 여기서 옮겨야 internal/quiz 가
 // store 를 모르고, 그래야 문항 기준이 기록의 모양에 안 매인다.
 func quizInput(rec store.GameRecord) quiz.Input {
@@ -666,7 +652,7 @@ func quizInput(rec store.GameRecord) quiz.Input {
 			break
 		}
 		in.Moves = append(in.Moves, m.USI)
-		in.EvalCp = append(in.EvalCp, quizCp(m.Score))
+		in.Evals = append(in.Evals, m.Score)
 	}
 	return in
 }

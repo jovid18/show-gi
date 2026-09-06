@@ -186,7 +186,7 @@ func candidatesOf(pos shogi.Position, prevTo int, cands []store.Candidate) []wha
 		// 낙폭은 최선수 대비다. 화면이 뺄셈을 하지 않는다 — 두 값을 나란히 두면
 		// 어느 쪽이 기준인지가 흐려진다.
 		//
-		// 詰み이 한쪽에라도 있으면 안 적는다. 그 줄의 cp는 환산값(±MateCp)이라 뺄셈이
+		// 詰み이 한쪽에라도 있으면 안 적는다. 뺄 cp 자체가 없고, 억지로 환산하면 뺄셈이
 		// 29000 같은 수를 내놓고, 그것은 낙폭이 아니라 자가 다른 두 값의 차다.
 		if len(out) > 0 && out[0].EvalCp != nil && c.EvalCp != nil {
 			c.LossCp = *out[0].EvalCp - *c.EvalCp

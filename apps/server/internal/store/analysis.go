@@ -36,10 +36,10 @@ type MeasuredPly struct {
 	DeltaWin      float64
 	Threshold     float64
 	Decided       bool
-	// Category·BestCp 는 가져온 판의 悪手 줄을 만드는 데만 **읽는다**. 대인전의 手도
+	// Category·Best 는 가져온 판의 悪手 줄을 만드는 데만 **읽는다**. 대인전의 手도
 	// 같은 판정을 지나므로 값은 채워지지만 그쪽은 이 칸을 안 본다(020_imported_games.sql).
 	Category string
-	BestCp   int
+	Best     eval.Score
 }
 
 // ErrNoAnalysisPly 는 지금 집을 手가 없다는 것 하나다.
@@ -83,7 +83,7 @@ func (s *Store) ClaimAnalysisPly(ctx context.Context, leaseBefore time.Time) (An
 func (s *Store) FinishAnalysisPly(ctx context.Context, matchID string, m MeasuredPly) error {
 	beforeCp, beforeMate := evalColumns(&m.Before)
 	afterCp, afterMate := evalColumns(&m.After)
-	best := int32(m.BestCp)
+	bestCp, bestMate := evalColumns(&m.Best)
 	err := s.q.FinishAnalysisPly(ctx, db.FinishAnalysisPlyParams{
 		MatchID:    matchID,
 		Ply:        int32(m.Ply),
@@ -96,7 +96,8 @@ func (s *Store) FinishAnalysisPly(ctx context.Context, matchID string, m Measure
 		Threshold:  &m.Threshold,
 		Decided:    &m.Decided,
 		Category:   nilIfEmpty(m.Category),
-		BestCp:     &best,
+		BestCp:     bestCp,
+		BestMate:   bestMate,
 	})
 	if err != nil {
 		return fmt.Errorf("finish analysis ply: %w", err)
@@ -132,7 +133,7 @@ func (s *Store) MeasuredAnalysisPlies(ctx context.Context, matchID string) ([]Me
 			Threshold: derefFloat(r.Threshold),
 			Decided:   derefBool(r.Decided),
 			Category:  derefString(r.Category),
-			BestCp:    derefInt32(r.BestCp),
+			Best:      derefScore(scoreOf(r.BestCp, r.BestMate)),
 		})
 	}
 	return out, nil

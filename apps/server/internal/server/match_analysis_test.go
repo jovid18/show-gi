@@ -49,7 +49,7 @@ func (s stubAnalyst) Judge(_ context.Context, _ string, _ []string, ply int) (ga
 	if s.blunder && loss > 0 {
 		v.Kind = intervene.KindBlunder
 		v.Category = intervene.CategoryHangsPiece
-		v.BestCp, v.AfterCp = ply*10, ply*10-100
+		v.Best, v.After = eval.Cp(ply*10), eval.Cp(ply*10-100)
 	}
 	// 手数를 그대로 값으로 쓴다 — 어느 칸에 무엇이 들어갔는지 눈으로 셀 수 있다.
 	return game.Judgement{

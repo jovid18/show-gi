@@ -28,6 +28,21 @@ ALTER TABLE game_undos ADD COLUMN IF NOT EXISTS eval_mate int;
 -- 위의 태그가 그 경로에서만 다시 눌린다 — 걷히는 표라도 값이 지나가는 길은 같다.
 ALTER TABLE analysis_plies ADD COLUMN IF NOT EXISTS before_mate int;
 ALTER TABLE analysis_plies ADD COLUMN IF NOT EXISTS after_mate int;
+ALTER TABLE analysis_plies ADD COLUMN IF NOT EXISTS best_mate int;
+
+-- 판정의 두 원본. 이 칸이 있는 이유가 「K를 바꿔 다시 채점한다」인데
+-- (005_intervention_cp.sql) 詰み을 cp로 눌러 적으면 그 값이 K와 무관해져서 다시 채점할
+-- 것이 아니게 된다 — 눌린 숫자는 어떤 K에서도 같은 승률을 낸다.
+ALTER TABLE interventions ADD COLUMN IF NOT EXISTS best_mate int;
+ALTER TABLE interventions ADD COLUMN IF NOT EXISTS after_mate int;
+
+ALTER TABLE interventions DROP CONSTRAINT IF EXISTS interventions_best_one_of;
+ALTER TABLE interventions ADD CONSTRAINT interventions_best_one_of
+    CHECK (best_cp IS NULL OR best_mate IS NULL);
+
+ALTER TABLE interventions DROP CONSTRAINT IF EXISTS interventions_after_one_of;
+ALTER TABLE interventions ADD CONSTRAINT interventions_after_one_of
+    CHECK (after_cp IS NULL OR after_mate IS NULL);
 
 ALTER TABLE game_moves DROP CONSTRAINT IF EXISTS game_moves_eval_one_of;
 ALTER TABLE game_moves ADD CONSTRAINT game_moves_eval_one_of
@@ -45,6 +60,8 @@ ALTER TABLE game_undos ADD CONSTRAINT game_undos_eval_one_of
 -- 그쪽 값은 다시 재면 나온다. 값이 있는 DB 에 이 파일을 돌리는 날에는 이 문단을 먼저 읽는다.
 UPDATE game_moves SET eval_cp = NULL WHERE abs(eval_cp) > 20000;
 UPDATE game_undos SET eval_cp = NULL WHERE abs(eval_cp) > 20000;
+UPDATE interventions SET best_cp = NULL WHERE abs(best_cp) > 20000;
+UPDATE interventions SET after_cp = NULL WHERE abs(after_cp) > 20000;
 UPDATE edges SET eval_by_depth = NULL
 WHERE EXISTS (SELECT 1 FROM unnest(eval_by_depth) v WHERE abs(v) > 20000);
 

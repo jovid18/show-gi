@@ -922,7 +922,7 @@ func TestEvalsAreRecordedFromSentesSide(t *testing.T) {
 			if tc.human == shogi.White {
 				ply = 2
 			}
-			want := fmt.Sprintf("eval %d %+d", ply, tc.wantAfter)
+			want := fmt.Sprintf("eval %d %s", ply, eval.Cp(tc.wantAfter))
 			if got[0] != want {
 				t.Fatalf("%q, want %q (전체 %v)", got[0], want, got)
 			}

@@ -2,17 +2,17 @@ package eval
 
 import "testing"
 
-// 이 버그의 자리다. 엔진의 생 cp 는 MateCp 를 넘어오므로(±35281 = 「이기는데 手数를
-// 모름」) 환산값으로 줄을 세우면 1手詰み이 그 뒤로 밀린다(journal §131).
+// 이 버그의 자리다. 엔진의 생 cp 가 詰み을 눌러 담던 값(30000 − 10×手数)을 넘어오므로
+// (±35281 = 「이기는데 手数를 모름」) 숫자 하나로 줄을 세우면 1手詰み이 그 뒤로 밀린다.
 func TestAWinningMateOutranksTheEnginesRawCeiling(t *testing.T) {
 	const rawCeiling = 35281
 	if got := Compare(Mate(1), Cp(rawCeiling)); got <= 0 {
 		t.Errorf("Compare(mate 1, cp %d) = %d, 詰み이 위여야 한다", rawCeiling, got)
 	}
-	// 환산값으로 재면 뒤집힌다 — 고치기 전의 순서가 이것이었다.
-	if ApproxCp(Mate(1)) >= rawCeiling {
-		t.Fatalf("환산값 %d 가 생 cp %d 를 넘는다 — 이 시험이 재는 것이 사라졌다",
-			ApproxCp(Mate(1)), rawCeiling)
+	// 늦게 이기는 詰み도 마찬가지다. 手数가 아무리 커도 cp 뒤로 안 간다 — 그것이
+	// 상수를 키우는 것과 태그로 가르는 것의 차이다(journal §131).
+	if got := Compare(Mate(999), Cp(rawCeiling)); got <= 0 {
+		t.Errorf("Compare(mate 999, cp %d) = %d, 詰み이 위여야 한다", rawCeiling, got)
 	}
 }
 
@@ -68,23 +68,21 @@ func TestNegFlipsBothKinds(t *testing.T) {
 	}
 }
 
-// 평평한 정수 컬럼으로 나가는 자리의 값. 지금 쌓여 있는 행이 이 자로 적혀 있어서
-// (edges.eval_by_depth · game_moves.eval_cp) 여기가 바뀌면 옛 행과 새 행이 갈린다.
-func TestApproxCpKeepsTheStoredScale(t *testing.T) {
-	cases := []struct {
+// 로그에 적히는 모양. 눌러 적을 자리를 안 남기려고 둔 것이라, 이 함수가 없어지면
+// 측정 코드가 다시 환산 함수를 찾는다.
+func TestStringSaysWhichKindItIs(t *testing.T) {
+	for _, c := range []struct {
 		in   Score
-		want int
+		want string
 	}{
-		{Cp(143), 143},
-		{Cp(-35281), -35281},
-		{Mate(0), -MateCp}, // 안 만드는 값이지만 Compare 와 같은 방향이어야 한다
-		{Mate(1), MateCp - 10},
-		{Mate(3), MateCp - 30},
-		{Mate(-2), -MateCp + 20},
-	}
-	for _, c := range cases {
-		if got := ApproxCp(c.in); got != c.want {
-			t.Errorf("ApproxCp(%+v) = %d, want %d", c.in, got, c.want)
+		{Cp(143), "+143cp"},
+		{Cp(-20), "-20cp"},
+		{Cp(0), "+0cp"},
+		{Mate(3), "mate +3"},
+		{Mate(-2), "mate -2"},
+	} {
+		if got := c.in.String(); got != c.want {
+			t.Errorf("%#v.String() = %q, want %q", c.in, got, c.want)
 		}
 	}
 }

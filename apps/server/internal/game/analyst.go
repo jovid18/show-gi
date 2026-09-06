@@ -69,12 +69,10 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		return Judgement{}, fmt.Errorf("judge: search after: %w", err)
 	}
 
-	// 판정은 평평한 cp 하나로 돈다. 詰み 줄도 환산해서 넣는다 — K와 임계치가 그 자를
-	// 쓰고 실측으로 잡힌 값이라, 여기서 태그를 살리면 판정이 옮겨 간다(journal §131).
 	in := intervene.Input{
-		BestCp:  eval.ApproxCp(best.Score),
-		AfterCp: eval.ApproxCp(after.Score.Neg()), // 사람 관점으로 뒤집는다
-		Level:   a.level,
+		Best:  best.Score,
+		After: after.Score.Neg(), // 사람 관점으로 뒤집는다
+		Level: a.level,
 	}
 
 	// 카테고리에 쓸 국면 사실. 판정 자체는 여기에 매이지 않는다 — 못 읽으면
@@ -97,7 +95,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		// 얕은 평가는 이미 받아 둔 info 라인에 있다. PvInterval=0 덕에 depth 14
 		// 탐색 한 번이 depth 1~12를 전부 돌려주므로 추가 탐색이 없다(01-core.md §4).
 		if sc, ok := after.ScoreAtDepth(ShallowDepth); ok {
-			in.Features.ShallowCp, in.Features.HasShallow = eval.ApproxCp(sc.Neg()), true // 사람 관점
+			in.Features.Shallow, in.Features.HasShallow = sc.Neg(), true // 사람 관점
 		}
 		facts.Tags = detectTags(pos.Apply(m), mover, startSFEN, moves)
 	} else {

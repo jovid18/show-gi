@@ -42,12 +42,12 @@ func mateLine(move string, in int) usi.SearchLine {
 // gameInput 은 위 수순으로 만든 Input 이다. 평가치는 전 手数에 있고 낙폭은 手数가 늦을수록 크다 —
 // 후보를 고르는 순서를 시험이 알고 있어야 한다.
 func gameInput() Input {
-	evals := make([]*int, len(gameMoves))
+	evals := make([]*eval.Score, len(gameMoves))
 	for i := range evals {
-		cp := -20 * i // 先手 관점으로 계속 나빠진다 = 사람의 낙폭이 매 수 20cp
-		evals[i] = &cp
+		s := eval.Cp(-20 * i) // 先手 관점으로 계속 나빠진다 = 사람의 낙폭이 매 수 20cp
+		evals[i] = &s
 	}
-	return Input{Moves: gameMoves, Human: shogi.Black, EvalCp: evals}
+	return Input{Moves: gameMoves, Human: shogi.Black, Evals: evals}
 }
 
 // build 는 「최선수는?」 문항만 뽑는다. Build 가 값 둘을 주므로 시험이 매번 풀어 쓰지

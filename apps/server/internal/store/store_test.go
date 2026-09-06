@@ -482,7 +482,7 @@ func TestInterventionKeepsBothCp(t *testing.T) {
 
 	if err := s.InsertIntervention(t.Context(), id, Intervention{
 		Ply: 41, Kind: "blunder", Category: "hangs_piece",
-		DeltaWin: 0.42, RetractedUSI: "8h3c+", BestCp: 180, AfterCp: -640,
+		DeltaWin: 0.42, RetractedUSI: "8h3c+", Best: eval.Cp(180), After: eval.Cp(-640),
 	}); err != nil {
 		t.Fatalf("InsertIntervention: %v", err)
 	}
@@ -507,15 +507,15 @@ func TestInterventionKeepsBothCp(t *testing.T) {
 	}
 
 	blunder := rec.Interventions[0]
-	if blunder.BestCp == nil || blunder.AfterCp == nil {
-		t.Fatalf("두 원본이 안 남았다: best=%v after=%v", blunder.BestCp, blunder.AfterCp)
+	if blunder.Best == nil || blunder.After == nil {
+		t.Fatalf("두 원본이 안 남았다: best=%v after=%v", blunder.Best, blunder.After)
 	}
-	if *blunder.BestCp != 180 || *blunder.AfterCp != -640 {
-		t.Errorf("cp가 어긋났다: best=%d after=%d", *blunder.BestCp, *blunder.AfterCp)
+	if *blunder.Best != eval.Cp(180) || *blunder.After != eval.Cp(-640) {
+		t.Errorf("점수가 어긋났다: best=%v after=%v", *blunder.Best, *blunder.After)
 	}
 
-	if tesuji := rec.Interventions[1]; tesuji.BestCp != nil || tesuji.AfterCp != nil {
-		t.Errorf("판정을 안 거친 행에 cp가 붙었다: best=%v after=%v", tesuji.BestCp, tesuji.AfterCp)
+	if tesuji := rec.Interventions[1]; tesuji.Best != nil || tesuji.After != nil {
+		t.Errorf("판정을 안 거친 행에 값이 붙었다: best=%v after=%v", tesuji.Best, tesuji.After)
 	}
 }
 

@@ -137,12 +137,14 @@ game_hints   (id, game_id, ply, sfen_key, stage, best_usi, taken, created_at)
 game_moves   (game_id, ply, usi, sfen_key, eval_cp, eval_mate)   -- 둘은 배타적이다 (CHECK, 021)
              -- **지금 판에 남아 있는 수순만.** 물러진 수도 스스로 무른 수도 여기 안 들어온다
 interventions(id, game_id, ply, kind, category, delta_win, level_bucket,
-              retracted_usi, hinted_tag, taken bool, created_at, best_cp, after_cp)
+              retracted_usi, hinted_tag, taken bool, created_at,
+              best_cp, after_cp, best_mate, after_mate)
              -- explain_tier/cost_yen 은 LLM 계층과 함께 지웠다 (011)
              -- kind: 'blunder'(제지형, 착수 후 롤백) | 'tesuji'(제안형, 착수 전 알림)
              -- retracted_usi는 blunder만, hinted_tag/taken은 tesuji만 (CHECK 제약이 막는다)
              -- (game_id, ply)는 유니크가 아니다 — 한 국면에서 여러 번 물러지는 일이 있다
-             -- best_cp/after_cp 는 물러진 수의 원본 cp다 (005, §41). 그 전 행은 영원히 NULL
+             -- best_cp/after_cp 는 물러진 수의 원본 점수다 (005, §41). 그 전 행은 영원히 NULL
+             -- 詰み은 best_mate/after_mate 가 든다. cp 와 배타적이다 (CHECK, 021)
 game_quizzes (game_id primary key, version, payload jsonb, generated_at)
              -- 되짚기 퀴즈 (007, §53). 한 판에 한 행이고 **문항 전체가 jsonb 하나**다 —
              -- 詰み 문항이 트리라 행으로 쪼개면 채점 질의가 그 모양을 SQL에서 다시 만든다

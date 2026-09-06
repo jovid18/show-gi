@@ -5,13 +5,14 @@ import (
 	"log"
 	"sort"
 
+	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// candidate 는 gap을 재 볼 후보 하나다. drop 은 사람 관점 낙폭(cp)이다.
+// candidate 는 gap을 재 볼 후보 하나다. drop 은 사람 관점 승률 낙폭이다.
 type candidate struct {
 	index int // posAt 의 자리 = 그 국면까지 둔 手数
-	drop  int
+	drop  float64
 }
 
 // bestItems 는 「この局面の最善手は?」 문항을 고른다.
@@ -96,7 +97,12 @@ func (b *Builder) candidates(in Input, posAt []shogi.Position, skip int) []candi
 		if !ok {
 			continue
 		}
-		out = append(out, candidate{index: i, drop: before - after})
+		// 낙폭을 승률로 잰다. 개입 판정과 같은 축이다 — cp 뺄셈으로 두면 詰み이 섞인
+		// 자리에서 자가 없어지고, 축을 하나 더 만들면 「크게 흘린 자리」의 뜻이 두 벌이 된다.
+		out = append(out, candidate{
+			index: i,
+			drop:  intervene.WinRateOf(before, 0) - intervene.WinRateOf(after, 0),
+		})
 	}
 
 	sort.SliceStable(out, func(x, y int) bool {

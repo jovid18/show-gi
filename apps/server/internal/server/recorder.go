@@ -232,8 +232,8 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 				Kind:         string(ev.verdict.Kind),
 				Category:     string(ev.verdict.Category),
 				DeltaWin:     ev.verdict.DeltaWin,
-				BestCp:       ev.verdict.BestCp,
-				AfterCp:      ev.verdict.AfterCp,
+				Best:         ev.verdict.Best,
+				After:        ev.verdict.After,
 				LevelBucket:  levelBucket(level),
 				RetractedUSI: ev.usi,
 			}); err != nil {

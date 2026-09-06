@@ -101,7 +101,7 @@ type judged struct {
 	// 스칼라와 짧은 문자열이라 이 구조체를 가볍게 둔 이유(explain.Facts 의 태그 슬라이스)에
 	// 안 걸린다.
 	category string
-	bestCp   int
+	best     eval.Score
 }
 
 // errCannotReplay 는 엔진은 답했는데 판정이 국면을 못 되만든 자리다(Judgement.HasEvals).
@@ -468,7 +468,7 @@ func (a *matchAnalyzer) remember(ctx context.Context, matchID string, got judged
 		Threshold: got.move.Threshold,
 		Decided:   got.move.Decided,
 		Category:  got.category,
-		BestCp:    got.bestCp,
+		Best:      got.best,
 	})
 	if err != nil && ctx.Err() == nil {
 		log.Printf("match: could not store ply %d of %s: %v", got.move.Ply, matchID, err)
@@ -518,7 +518,7 @@ func (a *matchAnalyzer) measuredOf(ctx context.Context, matchID string) map[int]
 			before:   r.Before,
 			after:    r.After,
 			category: r.Category,
-			bestCp:   r.BestCp,
+			best:     r.Best,
 			move: skill.Move{
 				Blunder:   r.Blunder,
 				DeltaWin:  r.DeltaWin,
@@ -858,7 +858,7 @@ func (a *matchAnalyzer) judgeOne(
 		after:    j.SenteAfter,
 		move:     skillMoveOf(j, ply),
 		category: string(j.Verdict.Category),
-		bestCp:   j.Verdict.BestCp,
+		best:     j.Verdict.Best,
 	}, nil
 }
 

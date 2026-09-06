@@ -94,8 +94,8 @@ func (imp *Importer) ImportGame(ctx context.Context, g ParsedGame) (ImportResult
 				DeltaWin:     v.DeltaWin,
 				LevelBucket:  "pro",
 				RetractedUSI: move,
-				BestCp:       v.BestCp,
-				AfterCp:      v.AfterCp,
+				Best:         v.Best,
+				After:        v.After,
 			}
 			if err := imp.store.InsertIntervention(ctx, gameID, iv); err != nil {
 				log.Printf("kifu: intervention ply %d: %v", ply, err)

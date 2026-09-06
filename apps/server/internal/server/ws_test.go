@@ -13,7 +13,6 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
-	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
@@ -630,7 +629,7 @@ func worstMove(t *testing.T, ctx context.Context, pool *usi.Pool, start string, 
 			t.Fatalf("worstMove: %v", err)
 		}
 		// 착수 후 국면은 상대 관점이다. 상대에게 좋을수록 나에게 나쁘다.
-		if mine := eval.ApproxCp(res.Score.Neg()); mine < worstCp {
+		if mine, ok := res.Score.Neg().Centipawns(); ok && mine < worstCp {
 			worst, worstCp = mv, mine
 		}
 	}

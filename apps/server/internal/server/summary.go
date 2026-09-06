@@ -292,29 +292,32 @@ func trendOf(ivs []store.RecordedIntervention, lastPly int) explain.Trend {
 // 手合割의 기준점도 여기서 뺀다 — 「이기고 있었나」는 手合割에 대해 묻는 것이라야 뜻이 있다.
 func standingOf(rec store.GameRecord) explain.Standing {
 	last, best := 0, -1
-	var cp int
+	var score eval.Score
 	for _, m := range rec.Moves {
 		if m.Ply > last {
 			last = m.Ply
 		}
-		// 詰み도 이 자로 누른다. 총평이 묻는 것은 「이기고 있었나」이고, 눌린 값이
-		// 그 자리에서 圧倒的に有利/不利 로 떨어져 답이 옳다(eval.ApproxCp).
 		if m.Score != nil && m.Ply > best {
-			best, cp = m.Ply, eval.ApproxCp(*m.Score)
+			best, score = m.Ply, *m.Score
 		}
 	}
 	if best < 0 || last-best > explain.StandingMaxLag {
 		return explain.StandingUnknown
 	}
-	// 手合割의 기준점을 뺀다. 둘 다 先手 관점이라 뒤집기 전에 뺀다(handicap.BaselineCp).
-	// 안 빼면 二枚落ち에서 +1386을 +900까지 흘린 판이 「圧倒的に有利でした」로 나간다 —
-	// 판정과 같은 좌표를 써야 총평도 같은 사실을 말한다.
-	cp -= handicap.BaselineCp(rec.StartSFEN)
 	if rec.MyColor != "b" {
-		cp = -cp
+		score = score.Neg()
 	}
 
-	switch rate := intervene.WinRate(cp); {
+	// 手合割의 기준점을 뺀다. 안 빼면 二枚落ち에서 +1386을 +900까지 흘린 판이
+	// 「圧倒的に有利でした」로 나간다 — 판정과 같은 좌표를 써야 총평도 같은 사실을 말한다.
+	//
+	// 詰み은 기준점을 안 지난다(WinRateOf). 「詰ませられる 자리였나」에는 手合이 없다.
+	baseline := handicap.BaselineCp(rec.StartSFEN)
+	if rec.MyColor != "b" {
+		baseline = -baseline
+	}
+
+	switch rate := intervene.WinRateOf(score, baseline); {
 	case rate >= explain.StandingAheadRate:
 		return explain.StandingAhead
 	case rate <= 1-explain.StandingAheadRate:

@@ -583,9 +583,9 @@ func (q *Queries) InsertHint(ctx context.Context, arg InsertHintParams) error {
 const insertIntervention = `-- name: InsertIntervention :exec
 INSERT INTO interventions (
     game_id, ply, kind, category, delta_win, level_bucket, retracted_usi,
-    best_cp, after_cp
+    best_cp, after_cp, best_mate, after_mate
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 `
 
 type InsertInterventionParams struct {
@@ -598,6 +598,8 @@ type InsertInterventionParams struct {
 	RetractedUsi *string
 	BestCp       *int32
 	AfterCp      *int32
+	BestMate     *int32
+	AfterMate    *int32
 }
 
 // (game_id, ply) 는 유니크가 아니다. 한 국면에서 몇 수를 시도하고 전부 물러지는 일이
@@ -614,6 +616,8 @@ func (q *Queries) InsertIntervention(ctx context.Context, arg InsertIntervention
 		arg.RetractedUsi,
 		arg.BestCp,
 		arg.AfterCp,
+		arg.BestMate,
+		arg.AfterMate,
 	)
 	return err
 }
@@ -674,7 +678,8 @@ func (q *Queries) InsertUndo(ctx context.Context, arg InsertUndoParams) error {
 }
 
 const listGameInterventions = `-- name: ListGameInterventions :many
-SELECT ply, kind, category, delta_win, level_bucket, retracted_usi, best_cp, after_cp
+SELECT ply, kind, category, delta_win, level_bucket, retracted_usi,
+       best_cp, after_cp, best_mate, after_mate
 FROM interventions
 WHERE game_id = $1
 ORDER BY ply, id
@@ -689,6 +694,8 @@ type ListGameInterventionsRow struct {
 	RetractedUsi *string
 	BestCp       *int32
 	AfterCp      *int32
+	BestMate     *int32
+	AfterMate    *int32
 }
 
 // 같은 ply에 여러 행이 온다(InsertIntervention). id 로 이어 정렬해 물러진 순서를
@@ -711,6 +718,8 @@ func (q *Queries) ListGameInterventions(ctx context.Context, gameID int64) ([]Li
 			&i.RetractedUsi,
 			&i.BestCp,
 			&i.AfterCp,
+			&i.BestMate,
+			&i.AfterMate,
 		); err != nil {
 			return nil, err
 		}

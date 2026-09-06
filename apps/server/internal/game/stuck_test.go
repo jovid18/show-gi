@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -156,12 +155,12 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 			t.Fatalf("%s: %v", m.USI(), err)
 		}
 		in := intervene.Input{
-			BestCp:   eval.ApproxCp(before.Score),
-			AfterCp:  eval.ApproxCp(after.Score.Neg()),
+			Best:     before.Score,
+			After:    after.Score.Neg(),
 			Features: MoveFeatures(pos, m),
 		}
 		if sc, ok := after.ScoreAtDepth(ShallowDepth); ok {
-			in.Features.ShallowCp, in.Features.HasShallow = eval.ApproxCp(sc.Neg()), true
+			in.Features.Shallow, in.Features.HasShallow = sc.Neg(), true
 		}
 
 		blunder := false
@@ -194,7 +193,7 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 			if !blunder {
 				samePieceOK++
 				if len(samePieceSurvivors) < 8 {
-					samePieceSurvivors = append(samePieceSurvivors, fmt.Sprintf("%s(%+d)", m.USI(), in.AfterCp))
+					samePieceSurvivors = append(samePieceSurvivors, fmt.Sprintf("%s(%s)", m.USI(), in.After))
 				}
 			}
 		}
@@ -202,15 +201,18 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 		if in.Features.HasShallow {
 			haveShallow++
 			if len(samples) < 6 {
-				samples = append(samples, fmt.Sprintf("%s shallow=%+d deep=%+d", m.USI(), in.Features.ShallowCp, in.AfterCp))
+				samples = append(samples, fmt.Sprintf("%s shallow=%s deep=%s", m.USI(), in.Features.Shallow, in.After))
 			}
 		}
-		if in.Features.HasShallow && in.Features.ShallowCp > 0 {
+		// 반전 폭은 cp 축의 값이다. 詰み 줄은 그 자가 없어 이 표에서 빠진다.
+		shallowCp, shallowIsCp := in.Features.Shallow.Centipawns()
+		afterCp, afterIsCp := in.After.Centipawns()
+		if in.Features.HasShallow && shallowIsCp && shallowCp > 0 {
 			plausible++
 			if blunder {
 				plausibleBlunder++
 				for _, th := range []int{100, 200, 300, 500} {
-					if in.AfterCp < 0 && in.Features.ShallowCp-in.AfterCp >= th {
+					if afterIsCp && afterCp < 0 && shallowCp-afterCp >= th {
 						reversalHits[th]++
 					}
 				}
@@ -219,7 +221,7 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 	}
 
 	n := len(legal)
-	fmt.Printf("\n=== %d수째 · 합법수 %d개 · 최선 %s (%+dcp) ===\n", ply, n, before.Best, eval.ApproxCp(before.Score))
+	fmt.Printf("\n=== %d수째 · 합법수 %d개 · 최선 %s (%s) ===\n", ply, n, before.Best, before.Score)
 	for _, lv := range []intervene.Level{intervene.Beginner, intervene.Novice, intervene.Intermediate} {
 		fmt.Printf("  임계치 %.2f  블런더 %3d/%d (%.0f%%)\n",
 			lv.Threshold(), counts[lv], n, 100*float64(counts[lv])/float64(n))
@@ -231,7 +233,7 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 		if line.Move == "" {
 			continue
 		}
-		fmt.Printf("    %2d위  %-6s %+d\n", i+1, line.Move, eval.ApproxCp(line.Score))
+		fmt.Printf("    %2d위  %-6s %s\n", i+1, line.Move, line.Score)
 	}
 
 	fmt.Printf("  **최선수(%s)와 같은 駒를 움직이는 수: %d개, 그중 통과 %d개**\n",

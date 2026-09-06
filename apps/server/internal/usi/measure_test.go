@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
@@ -162,11 +161,19 @@ func TestMeasureDepthMultiPV(t *testing.T) {
 
 				// 후보의 cp 는 두는 쪽(=컴퓨터) 관점이다. 최선보다 얼마나 손해인지가
 				// 곧 플레이어에게 돌아가는 이득이므로, 낙폭이 밴드에 드는 후보를 찾는다.
-				best := eval.ApproxCp(res.Lines[0].Score)
+				// 이 측정은 cp 낙폭이다. 詰み 줄은 자가 없어 건너뛴다.
+				best, ok := res.Lines[0].Score.Centipawns()
+				if !ok {
+					continue
+				}
 				worst := 0
 				found := false
 				for _, l := range res.Lines {
-					loss := best - eval.ApproxCp(l.Score)
+					cp, ok := l.Score.Centipawns()
+					if !ok {
+						continue
+					}
+					loss := best - cp
 					if loss > worst {
 						worst = loss
 					}

@@ -4,7 +4,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -99,7 +98,9 @@ func playWeaklyWith(t *testing.T, pool *usi.Pool, opp Opponent, plies int, sk sk
 	}
 	// 수번이 사람(先手)이면 그대로, 상대면 뒤집는다
 	if pos.Turn == shogi.Black {
-		return eval.ApproxCp(res.Score)
+		cp, _ := res.Score.Centipawns()
+		return cp
 	}
-	return eval.ApproxCp(res.Score.Neg())
+	cp, _ := res.Score.Neg().Centipawns()
+	return cp
 }

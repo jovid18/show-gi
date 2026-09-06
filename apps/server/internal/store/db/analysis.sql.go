@@ -218,8 +218,9 @@ SET done_at     = now(),
     threshold   = $8,
     decided     = $9,
     category    = $10,
-    best_cp     = $11
-WHERE match_id = $1 AND ply = $12 AND done_at IS NULL
+    best_cp     = $11,
+    best_mate   = $12
+WHERE match_id = $1 AND ply = $13 AND done_at IS NULL
 `
 
 type FinishAnalysisPlyParams struct {
@@ -234,6 +235,7 @@ type FinishAnalysisPlyParams struct {
 	Decided    *bool
 	Category   *string
 	BestCp     *int32
+	BestMate   *int32
 	Ply        int32
 }
 
@@ -254,6 +256,7 @@ func (q *Queries) FinishAnalysisPly(ctx context.Context, arg FinishAnalysisPlyPa
 		arg.Decided,
 		arg.Category,
 		arg.BestCp,
+		arg.BestMate,
 		arg.Ply,
 	)
 	return err
@@ -368,7 +371,7 @@ func (q *Queries) MatchSeats(ctx context.Context, matchID *string) ([]MatchSeats
 
 const measuredAnalysisPlies = `-- name: MeasuredAnalysisPlies :many
 SELECT ply, before_cp, after_cp, before_mate, after_mate,
-       blunder, delta_win, threshold, decided, category, best_cp
+       blunder, delta_win, threshold, decided, category, best_cp, best_mate
 FROM analysis_plies
 WHERE match_id = $1 AND done_at IS NOT NULL
 ORDER BY ply
@@ -386,6 +389,7 @@ type MeasuredAnalysisPliesRow struct {
 	Decided    *bool
 	Category   *string
 	BestCp     *int32
+	BestMate   *int32
 }
 
 // 그 판에서 미리 재 둔 것을 한 번에 읽는다.
@@ -413,6 +417,7 @@ func (q *Queries) MeasuredAnalysisPlies(ctx context.Context, matchID string) ([]
 			&i.Decided,
 			&i.Category,
 			&i.BestCp,
+			&i.BestMate,
 		); err != nil {
 			return nil, err
 		}

@@ -78,8 +78,9 @@ SET done_at     = now(),
     threshold   = $8,
     decided     = $9,
     category    = $10,
-    best_cp     = $11
-WHERE match_id = $1 AND ply = $12 AND done_at IS NULL;
+    best_cp     = $11,
+    best_mate   = $12
+WHERE match_id = $1 AND ply = $13 AND done_at IS NULL;
 
 -- name: StopAnalysisAhead :exec
 --
@@ -101,7 +102,7 @@ WHERE match_id = $1 AND done_at IS NULL;
 -- 手마다 묻지 않는다. 판이 끝나는 자리에서 手数만큼 왕복하면 그 자체가 밀리는 값이고,
 -- 이 표는 판 하나가 곧 한 묶음이라 한 번에 읽는 것이 자연스럽다.
 SELECT ply, before_cp, after_cp, before_mate, after_mate,
-       blunder, delta_win, threshold, decided, category, best_cp
+       blunder, delta_win, threshold, decided, category, best_cp, best_mate
 FROM analysis_plies
 WHERE match_id = $1 AND done_at IS NOT NULL
 ORDER BY ply;

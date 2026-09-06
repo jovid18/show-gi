@@ -4,7 +4,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
@@ -48,7 +47,9 @@ func tesujiLoss(t *testing.T, an Analyst, moves []string) (int, []tag.Tag) {
 		t.Fatalf("판정: %v", err)
 	}
 	me := before.Turn
-	loss := cpFor(eval.ApproxCp(j.SenteBefore), me) - cpFor(eval.ApproxCp(j.SenteAfter), me)
+	beforeCp, _ := j.SenteBefore.Centipawns()
+	afterCp, _ := j.SenteAfter.Centipawns()
+	loss := cpFor(beforeCp, me) - cpFor(afterCp, me)
 	return loss, namedTesuji(before, after, me, moves[len(moves)-1], j)
 }
 
@@ -167,7 +168,9 @@ func TestMeasureDecorativeFork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("판정: %v", err)
 	}
-	loss := cpFor(eval.ApproxCp(j.SenteBefore), shogi.Black) - cpFor(eval.ApproxCp(j.SenteAfter), shogi.Black)
+	beforeCp, _ := j.SenteBefore.Centipawns()
+	afterCp, _ := j.SenteAfter.Centipawns()
+	loss := cpFor(beforeCp, shogi.Black) - cpFor(afterCp, shogi.Black)
 	passed := codes(namedTesuji(before, after, shogi.Black, moves[0], j))
 
 	res, err := pool.SearchMultiPV(t.Context(), start, moves, JudgeDepth, TesujiHintRootK)

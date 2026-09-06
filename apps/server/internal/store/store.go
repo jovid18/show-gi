@@ -799,12 +799,12 @@ type Intervention struct {
 	LevelBucket string
 	// RetractedUSI 는 개입이 막지 않았다면 실제로 뒀을 수다.
 	RetractedUSI string
-	// BestCp·AfterCp 는 낙폭을 만든 두 원본이다(수번 측 관점). 제지형만.
+	// Best·After 는 낙폭을 만든 두 원본이다(수번 측 관점). 제지형만.
 	//
 	// 둘 다 0이면 안 적는다 — 판정을 안 거친 행과 「정말로 0cp였다」를 섞지 않기 위해서다.
 	// 호각인 국면에서 개입이 걸릴 일은 없으므로 이 규칙이 실제 값을 버리지는 않는다.
-	BestCp  int
-	AfterCp int
+	Best  eval.Score
+	After eval.Score
 }
 
 // InsertIntervention 은 개입 하나를 남긴다.
@@ -828,9 +828,9 @@ func (s *Store) InsertIntervention(ctx context.Context, gameID int64, iv Interve
 	}
 	d := iv.DeltaWin
 	arg.DeltaWin = &d
-	if iv.BestCp != 0 || iv.AfterCp != 0 {
-		b, a := int32(iv.BestCp), int32(iv.AfterCp)
-		arg.BestCp, arg.AfterCp = &b, &a
+	if iv.Best != (eval.Score{}) || iv.After != (eval.Score{}) {
+		arg.BestCp, arg.BestMate = evalColumns(&iv.Best)
+		arg.AfterCp, arg.AfterMate = evalColumns(&iv.After)
 	}
 
 	if err := s.q.InsertIntervention(ctx, arg); err != nil {
@@ -903,11 +903,11 @@ type RecordedIntervention struct {
 	DeltaWin     float64
 	LevelBucket  string
 	RetractedUSI string
-	// BestCp·AfterCp 는 낙폭을 만든 두 원본이다(수번 측 관점). 없을 수 있다 —
+	// Best·After 는 낙폭을 만든 두 원본이다(수번 측 관점). 없을 수 있다 —
 	// migrations/005 앞에 기록된 판에는 영원히 없다. 버린 값은 되찾을 수 없고,
 	// 화면은 그 자리를 다시 재서 채운다.
-	BestCp  *int
-	AfterCp *int
+	Best  *eval.Score
+	After *eval.Score
 }
 
 // RecordedUndo 는 사람이 스스로 무른 수 하나다.
@@ -1178,14 +1178,8 @@ func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error)
 			RetractedUSI: deref(iv.RetractedUsi),
 		}
 		// 없는 것과 0을 따로 둔다. 0cp는 호각이고, 없는 것은 migrations/005 앞의 행이다.
-		if iv.BestCp != nil {
-			cp := int(*iv.BestCp)
-			rec.BestCp = &cp
-		}
-		if iv.AfterCp != nil {
-			cp := int(*iv.AfterCp)
-			rec.AfterCp = &cp
-		}
+		rec.Best = scoreOf(iv.BestCp, iv.BestMate)
+		rec.After = scoreOf(iv.AfterCp, iv.AfterMate)
 		out.Interventions = append(out.Interventions, rec)
 	}
 	for _, u := range undos {
