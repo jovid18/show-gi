@@ -488,7 +488,7 @@ func TestRealEngineIntervention(t *testing.T) {
 	// 없으므로 짚지 않는 것이 맞다(01-core.md §3). 억지로 끼워 맞추면 설명이 틀리고,
 	// 그게 이 제품에서 가장 큰 실패다. 그래서 값을 못 박지 않는다.
 	//
-	// 이유가 붙는 쪽은 TestRealEngineHangingPiece 가 본다 — 결과가 정해진 수로 묻는다.
+	// 짚을 이유가 있는 쪽은 TestRealEngineHangingPiece 가 본다 — 결과가 정해진 수로 묻는다.
 	if iv.Category == "" {
 		t.Error("개입했는데 카테고리가 비어 있다")
 	}

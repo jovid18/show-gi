@@ -140,7 +140,7 @@ func TestUnknownFeaturesFallBackToOther(t *testing.T) {
 	}
 }
 
-// 개입하지 않은 수에는 카테고리가 없다. 「나쁘지 않은데 이유가 붙어 있다」는 상태를
+// 개입하지 않은 수에는 카테고리가 없다. 「나쁘지 않은데 카테고리가 있다」는 상태를
 // 만들면 약점 프로파일이 그 위에서 쌓인다.
 func TestNoCategoryWhenNotIntervening(t *testing.T) {
 	in := Input{BestCp: 0, AfterCp: -50, Features: Features{Known: true, GivesCheck: true}}
