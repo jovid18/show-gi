@@ -20,6 +20,13 @@ type Input struct {
 	// Evals[i] 는 i+1 手目를 둔 뒤의 先手 관점 점수다. nil이면 그 手数에 값이 없다
 	// (평가치는 수보다 늦게 오므로 마지막 몇 수가 비어 있을 수 있다 — store.RecordedMove).
 	Evals []*eval.Score
+	// BaselineCp 는 이 판의 「형세 0」이다(先手 관점, 平手는 0).
+	//
+	// 낙폭을 승률로 재기 때문에 필요하다. cp 뺄셈이던 시절에는 기준점이 두 항에서
+	// 저절로 지워졌지만(로그 함수가 아니라 뺄셈이었다) 승률은 그 구간에서 포화한다 —
+	// 안 빼면 二枚落ち(+1386)에서 모든 낙폭이 0에 눌려 문항이 手数 순으로 뽑힌다.
+	// 개입 판정이 같은 값을 빼는 것과 같은 이유다(intervene.Input.BaselineCp).
+	BaselineCp int
 	// OpeningPlies 는 컴퓨터가 고른 진형의 수순 길이다. 그 안의 국면은 문항 후보가 아니다.
 	//
 	// 10수 만에 投了한 판에서 「최선수는?」 셋이 전부 오프닝이 되는 것을 막는다. 정석
@@ -37,6 +44,14 @@ type Input struct {
 //
 // 공개해 둔 것은 옮겨 담는 쪽이(server/ws.go quizInput) 부호 규약을 시험으로 못박을 수
 // 있어야 하기 때문이다.
+// PlayerBaselineCp 는 「형세 0」을 사람 관점으로 옮긴 것이다. PlayerEval 과 같은 자다.
+func (in Input) PlayerBaselineCp() int {
+	if in.Human == shogi.White {
+		return -in.BaselineCp
+	}
+	return in.BaselineCp
+}
+
 func (in Input) PlayerEval(i int) (eval.Score, bool) {
 	if i < 0 || i >= len(in.Evals) || in.Evals[i] == nil {
 		return eval.Score{}, false

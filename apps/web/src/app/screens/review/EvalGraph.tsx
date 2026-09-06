@@ -94,7 +94,7 @@ const Y_DOMAIN: [number, number] = AXIS === 'winrate' ? [0, 1] : [-CLAMP, CLAMP]
  * 詰み은 자를 것이 없다 — 축의 끝이 그 자리에서 유일하게 옳은 값이고, cp로 환산해서
  * 넣으면 어차피 같은 자리에 찍히면서 숫자만 거짓이 된다(서버가 그때  를 안 보낸다).
  */
-function pointOf(row: { evalCp?: number; mateIn?: number }, base: number): number | undefined {
+function pointOf(row: { evalCp: number | undefined; mateIn: number | undefined }, base: number): number | undefined {
   if (row.mateIn) return row.mateIn > 0 ? Y_DOMAIN[1] : Y_DOMAIN[0];
   return row.evalCp === undefined ? undefined : valueOf(row.evalCp, base);
 }
@@ -120,7 +120,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
   const data = useMemo<Point[]>(() => {
     const main = new Map<number, number>();
     for (const m of game.moves) {
-      const at = pointOf(m, base);
+      const at = pointOf({ evalCp: m.evalCp, mateIn: m.mateIn }, base);
       if (at !== undefined) main.set(m.ply, at);
     }
 
@@ -135,8 +135,11 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
       const root = main.get(node.basePly);
       if (root !== undefined) branch.set(node.basePly, root);
       node.line.forEach((move, i) => {
+        // 검은선과 같은 자로 찍는다. `cp` 만 보면 詰み이 있는 手数에 구멍이 나고,
+        // 하필 그 자리에서 검은선은 축의 끝에 점을 찍는다(`pointOf`).
         const at = evalOf(i + 1);
-        if (at?.cp !== undefined) branch.set(move.ply, valueOf(at.cp, base));
+        const y = at === null ? undefined : pointOf({ evalCp: at.cp, mateIn: at.mateIn }, base);
+        if (y !== undefined) branch.set(move.ply, y);
       });
     }
 

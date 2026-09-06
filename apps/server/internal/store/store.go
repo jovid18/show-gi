@@ -268,7 +268,15 @@ func evalColumns(s *eval.Score) (cp, mate *int32) {
 
 // scoresByDepth 는 배열 둘을 깊이 순 점수로 합친다. 한 자리라도 「둘 다 있음」이나
 // 「둘 다 없음」이면 nil 이다 — 자리가 곧 깊이라 부분 복구가 곧 깊이 어긋남이다.
+//
+// 詰み 배열이 통째로 비어 있는 것은 「전부 cp」다. 021 이 그 칸을 nullable 로 더하고
+// 채우지 않으므로 그 앞에 쌓인 행이 전부 이 모양이고, 길이가 다르다고 버리면 그 행들의
+// 깊이별 값이 통째로 사라진다 — 얕은 평가가 없어져 「얕게 보면 이득」이 캐시 히트에서
+// 영영 안 걸린다.
 func scoresByDepth(cps, mates []*int32) []eval.Score {
+	if len(mates) == 0 {
+		mates = make([]*int32, len(cps))
+	}
 	if len(cps) != len(mates) {
 		return nil
 	}

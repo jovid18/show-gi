@@ -62,6 +62,11 @@ UPDATE game_moves SET eval_cp = NULL WHERE abs(eval_cp) > 20000;
 UPDATE game_undos SET eval_cp = NULL WHERE abs(eval_cp) > 20000;
 UPDATE interventions SET best_cp = NULL WHERE abs(best_cp) > 20000;
 UPDATE interventions SET after_cp = NULL WHERE abs(after_cp) > 20000;
+-- 이미 잰 手도 비운다. 그 행은 판이 끝날 때 game_moves 로 옮겨 담기므로
+-- (MeasuredAnalysisPlies → setEval) 안 비우면 방금 청소한 칸에 눌린 값이 다시 들어간다.
+UPDATE analysis_plies SET before_cp = NULL WHERE abs(before_cp) > 20000;
+UPDATE analysis_plies SET after_cp = NULL WHERE abs(after_cp) > 20000;
+UPDATE analysis_plies SET best_cp = NULL WHERE abs(best_cp) > 20000;
 UPDATE edges SET eval_by_depth = NULL
 WHERE EXISTS (SELECT 1 FROM unnest(eval_by_depth) v WHERE abs(v) > 20000);
 

@@ -99,9 +99,13 @@ func (b *Builder) candidates(in Input, posAt []shogi.Position, skip int) []candi
 		}
 		// 낙폭을 승률로 잰다. 개입 판정과 같은 축이다 — cp 뺄셈으로 두면 詰み이 섞인
 		// 자리에서 자가 없어지고, 축을 하나 더 만들면 「크게 흘린 자리」의 뜻이 두 벌이 된다.
+		//
+		// 기준점을 뺀다. 승률은 포화하므로 뺄셈과 달리 기준점이 두 항에서 안 지워진다
+		// (Input.BaselineCp).
+		base := in.PlayerBaselineCp()
 		out = append(out, candidate{
 			index: i,
-			drop:  intervene.WinRateOf(before, 0) - intervene.WinRateOf(after, 0),
+			drop:  intervene.WinRateOf(before, base) - intervene.WinRateOf(after, base),
 		})
 	}
 

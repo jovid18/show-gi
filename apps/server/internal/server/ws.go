@@ -637,7 +637,10 @@ func generateQuiz(parent context.Context, st *store.Store, builder *quiz.Builder
 // store 를 모르고, 그래야 문항 기준이 기록의 모양에 안 매인다.
 func quizInput(rec store.GameRecord) quiz.Input {
 	in := quiz.Input{
-		StartSFEN:    startSFENOf(rec.StartSFEN),
+		StartSFEN: startSFENOf(rec.StartSFEN),
+		// 낙폭을 승률로 재므로 기준점이 필요하다 — 안 넘기면 駒落ち 판의 문항이
+		// 手数 순으로 뽑힌다(quiz.Input.BaselineCp).
+		BaselineCp:   handicap.BaselineCp(rec.StartSFEN),
 		Human:        shogi.Black,
 		Won:          rec.Result == store.ResultWin,
 		OpeningPlies: openingPlies(rec),

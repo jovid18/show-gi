@@ -547,9 +547,12 @@ func parseScore(line string, res *SearchResult) {
 				// mate 0 은 어느 쪽이 詰んでいる인지를 안 말한다(eval.Mate). 이 엔진은
 				// 안 내므로(mated 국면에 mate -1 을 낸다) 여기 오면 우리가 모르는
 				// 출력이고, 모르는 것을 뜻이 있는 값으로 옮기지 않는다.
+				//
+				// 줄을 통째로 버린다. 점수만 빼고 나머지를 쓰면 그 줄의 PV 가 앞 깊이의
+				// 점수 옆에 앉는다. "-0" 도 여기로 온다 — Atoi 가 부호를 지우므로 그쪽만
+				// 살려 낼 방법도 없다.
 				if v == 0 {
-					hasScore = false
-					continue
+					return
 				}
 				sl.Score = eval.Mate(v)
 			}

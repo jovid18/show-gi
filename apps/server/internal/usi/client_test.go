@@ -123,6 +123,19 @@ func TestParseScoreDropsMateZero(t *testing.T) {
 	if len(res.History) != 1 || res.History[0].Depth != 8 {
 		t.Errorf("mate 0 이 깊이별 기록에 들어갔다: %+v", res.History)
 	}
+	if len(res.PV) != 3 || res.PV[2] != "2g2f" {
+		t.Errorf("버린 줄의 PV 가 남았다: %v", res.PV)
+	}
+
+	// "-0" 도 같은 자리로 온다. Atoi 가 부호를 지우므로 갈라 볼 방법이 없고,
+	// 갈라 봐야 뜻이 정해지지도 않는다.
+	parseScore("info depth 9 multipv 1 score mate -0 pv 3g3f", &res)
+	if res.Score != eval.Cp(120) {
+		t.Errorf("mate -0 이 점수를 덮었다: %+v", res.Score)
+	}
+	if len(res.PV) != 3 {
+		t.Errorf("mate -0 줄의 PV 가 남았다: %v", res.PV)
+	}
 }
 
 // fail-high/low 속보(lowerbound/upperbound)의 짧은 pv가 이미 받은 exact 수순을 덮어쓰면 안 된다.

@@ -115,6 +115,40 @@ func TestAnOldRowsMateComesBackFirst(t *testing.T) {
 	}
 }
 
+// 021 앞에 쌓인 간선은 詰み 배열이 통째로 비어 있다. 그 행을 「길이가 다르다」로 버리면
+// 얕은 평가가 사라지고, 「얕게 보면 이득」이 캐시 히트에서 영영 안 걸린다.
+func TestAnEdgeWrittenBeforeTheMateColumnStillReadsBack(t *testing.T) {
+	s := open(t)
+	k := key(t, s)
+
+	if _, err := s.PutPosition(t.Context(), Position{SFENKey: k, SideToMove: "b", ComputedDepth: 3}); err != nil {
+		t.Fatalf("PutPosition: %v", err)
+	}
+	// 021 앞의 모양을 그대로 만든다 — cp 배열만 있고 詰み 배열은 NULL 이다.
+	if _, err := s.pool.Exec(t.Context(),
+		`INSERT INTO edges (parent_key, usi, eval_by_depth) VALUES ($1, $2, $3)`,
+		k, "7g7f", []int32{10, 20, 30}); err != nil {
+		t.Fatalf("옛 모양 간선 넣기: %v", err)
+	}
+
+	edges, err := s.Edges(t.Context(), k)
+	if err != nil {
+		t.Fatalf("Edges: %v", err)
+	}
+	if len(edges) != 1 {
+		t.Fatalf("edges = %d, want 1", len(edges))
+	}
+	want := []eval.Score{eval.Cp(10), eval.Cp(20), eval.Cp(30)}
+	if len(edges[0].ByDepth) != len(want) {
+		t.Fatalf("byDepth = %v, want %v", edges[0].ByDepth, want)
+	}
+	for i, w := range want {
+		if edges[0].ByDepth[i] != w {
+			t.Errorf("depth %d = %v, want %v", i+1, edges[0].ByDepth[i], w)
+		}
+	}
+}
+
 // 이 PR의 핵심. 얕은 결과가 깊은 결과를 덮으면 개입 판정이 얕은 값 위에서 돈다.
 func TestShallowerResultDoesNotOverwrite(t *testing.T) {
 	s := open(t)
