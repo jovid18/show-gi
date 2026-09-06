@@ -334,7 +334,7 @@ func detailOf(rec store.GameRecord) gameDetail {
 
 	start, err := shogi.ParseSFEN(startSFENOf(rec.StartSFEN))
 	if err != nil {
-		// 시작 국면을 못 읽으면 아예 안 둔다. 평수 초기 국면으로 대신 두면 수들이
+		// 시작 국면을 못 읽으면 아예 안 둔다. 平手 초기 국면으로 대신 두면 수들이
 		// 거기서도 합법일 수 있고, 그러면 한 번도 없었던 국면을 그럴듯하게 그린다.
 		// 기보는 그대로 내보낸다 — 판도 표기도 없지만 「무엇을 뒀는가」는 여전히 사실이다.
 		log.Printf("review: game %d: start sfen %q: %v", rec.ID, rec.StartSFEN, err)

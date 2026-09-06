@@ -321,7 +321,7 @@ func (h *Hub) startLocked(room *Room) {
 		now:       h.cfg.now,
 	})
 	if err != nil {
-		// 평수 초기 국면을 못 만드는 경우다 — 실질적으로 없다. 방을 그대로 두면 두 화면이
+		// 平手 초기 국면을 못 만드는 경우다 — 실질적으로 없다. 방을 그대로 두면 두 화면이
 		// 영영 기다리므로 남기고, 링크는 만료가 걷어간다.
 		log.Printf("match: cannot start the table in room %s: %v", room.ID, err)
 		return

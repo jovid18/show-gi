@@ -152,7 +152,7 @@ export function useGame(): GameState {
 
   useEffect(() => {
     // 고르기 전에는 붙지 않는다. 여기서 미리 붙으면 그 순간 판이 하나 열려 기록에
-    // 남고, 사람이 아직 아무것도 고르지 않은 채로 先手 평수 대국이 시작된다.
+    // 남고, 사람이 아직 아무것도 고르지 않은 채로 先手 平手 대국이 시작된다.
     if (!live || !setup) return;
 
     const socket = new WebSocket(socketUrl(setup, resumeId));

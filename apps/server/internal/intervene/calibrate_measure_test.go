@@ -394,7 +394,7 @@ func rescore(rec store.GameRecord) (samples []sample, band bandRow, ok bool) {
 // perspective 는 저장된 先手 관점 cp를 사람 관점으로 옮기는 부호와, 사람이 홀수 手数를
 // 두는가를 준다.
 //
-// 시작 국면의 수번을 본다 — 평수면 先手지만 start_sfen 이 다른 국면일 수 있다.
+// 시작 국면의 수번을 본다 — 平手면 先手지만 start_sfen 이 다른 국면일 수 있다.
 func perspective(rec store.GameRecord) (sign int, humanOdd bool) {
 	startBlack := true
 	if f := strings.Fields(rec.StartSFEN); len(f) >= 2 {

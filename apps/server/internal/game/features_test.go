@@ -142,7 +142,7 @@ func TestGuardSteppingForwardCostsShield(t *testing.T) {
 }
 
 // 玉 자신이 움직이는 수는 반대로 나온다. 착수 전 자리를 계속 보면
-// 「빈 칸 주변이 허술해졌다」가 되어 玉을 옮기는 정상적인 수마다 그 문구가 나간다.
+// 「빈 칸 주변이 허술해졌다」가 되어 玉을 옮기는 정상적인 수마다 카테고리가 붙는다.
 func TestKingMovingIsMeasuredFromItsNewSquare(t *testing.T) {
 	f := featuresAfter(t, shogi.StartSFEN, "5i5h")
 	if f.ShieldLoss > 0 {

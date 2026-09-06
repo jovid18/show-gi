@@ -47,7 +47,7 @@ export function Promotion({ onChoose }: PromotionProps) {
     const pad = document.body.style.paddingRight;
     // 자리 잡는 스크롤바가 있으면 그 폭을 메운다. 안 메우면 잠그는 순간 판과 駒台가 옆으로
     // 뛰고, 그건 「판이 멈춰 있다」고 말하는 자리에서 판이 움직이는 것이다. macOS 는 겹쳐
-    // 그리는 스크롤바라 0이 나오고, 그래서 이 자리는 Windows·Linux 에서만 값을 한다.
+    // 그리는 스크롤바라 0이 나오고, 그래서 이 자리는 Windows·Linux 에서만 제구실을 한다.
     const gap = window.innerWidth - document.documentElement.clientWidth;
     document.body.style.overflow = 'hidden';
     if (gap > 0) document.body.style.paddingRight = `${gap}px`;

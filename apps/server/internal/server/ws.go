@@ -143,7 +143,7 @@ type gameSetup struct {
 
 // newSetup 은 쿼리에서 새 판의 설정을 읽는다. 못 읽는 값은 조용히 기본값이다 — 목록을
 // 서버가 주므로(GET /api/openings) 이상한 값이 오는 것은 클라이언트가 틀린 경우이고,
-// 그때 대국을 거절하는 것보다 평수로 시작하는 것이 낫다. 고른 것이 실제로 걸렸는지는
+// 그때 대국을 거절하는 것보다 平手로 시작하는 것이 낫다. 고른 것이 실제로 걸렸는지는
 // 스냅샷의 opponentOpening · handicap 으로 화면에서 보인다.
 func newSetup(r *http.Request, opts Options) gameSetup {
 	s := gameSetup{human: opts.HumanColor, startSFEN: opts.StartSFEN}

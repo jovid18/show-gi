@@ -8,7 +8,7 @@ import type { ApiError } from '@/protocol/review';
  */
 
 /**
- * 로그인이 없으면 이 표면 넷이 다 닫힌다. 검토 자체는 그 밖이다(journal §100) —
+ * 로그인이 없으면 이 표면 넷이 다 닫힌다. 검토 자체는 로그인 없이 돈다(journal §100) —
  * 그래서 화면이 패널을 지우지 않고 한 줄만 남긴다(`Snapshots`).
  */
 export class SignedOutError extends Error {}

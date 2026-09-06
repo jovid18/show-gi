@@ -243,7 +243,7 @@ function MatchBoard({
 
       <aside className="game-side">
         <div className="game-state">
-          {/* 상대가 누구인지는 판 내내 서 있어야 한다. 차례 문구에만 실으면 자기 차례일
+          {/* 상대가 누구인지는 판 내내 떠 있어야 한다. 차례 문구에만 실으면 자기 차례일
               때 그 사람이 화면에서 사라진다 — 대인전에서 「지금 누구와 두고 있나」는 판이
               끝날 때까지 유효한 사실이다. */}
           <p className="match-who">
@@ -254,7 +254,7 @@ function MatchBoard({
             {result ?? (snapshot.yourTurn ? 'あなたの番です。' : '相手の番です。')}
           </p>
 
-          {/* 시계는 판이 도는 동안만 그린다. 끝난 판에 0초가 서 있으면 시간패로
+          {/* 시계는 판이 도는 동안만 그린다. 끝난 판에 0초가 떠 있으면 시간패로
               끝난 것처럼 읽힌다 — 결과 문구가 그것을 이미 말한다. */}
           {!over && <Clock leftMs={left} limitMs={snapshot.turnLimitMs} yours={snapshot.yourTurn} />}
 

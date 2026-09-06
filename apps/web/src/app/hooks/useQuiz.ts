@@ -139,7 +139,7 @@ async function postJSON<Req, Res>(path: string, body: Req, signal: AbortSignal):
  * 요청 하나를 걸고 마지막 답만 남긴다.
  *
  * 떠난 요청은 버린다. 연타하면 응답이 순서대로 오지 않고, 늦게 온 것이 화면을 덮으면
- * 다른 수의 채점 결과가 지금 수의 것으로 서게 된다(useReview 의 같은 규약).
+ * 다른 수의 채점 결과가 지금 수의 것으로 남게 된다(useReview 의 같은 규약).
  */
 function useGrader<Req, Res>(path: string): [Grading<Res>, (body: Req) => Promise<Res | null>, () => void] {
   const [state, setState] = useState<Grading<Res>>({ result: null, pending: false, error: null });

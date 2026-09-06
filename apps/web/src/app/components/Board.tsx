@@ -395,7 +395,7 @@ export function Board({
         )}
 
         {/* 게이지는 판 밖으로 번진다(inset 이 음수라 테두리 위에 얹힌다). 그래서 판 안의
-            어느 것과도 자리를 다투지 않고, 마지막에 그려도 무엇을 가리지 않는다. */}
+            어느 것과도 자리를 다투지 않고, 마지막에 그려도 아무것도 가리지 않는다. */}
         {mateHeat > 0 && (
           <span className="mate-flame" style={{ '--heat': mateHeat } as CSSProperties} aria-hidden="true" />
         )}

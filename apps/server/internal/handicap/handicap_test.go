@@ -66,7 +66,7 @@ func TestSFENIsTheHandicapItSaysItIs(t *testing.T) {
 			t.Errorf("%s: 持ち駒가 있다. 駒落ち는 판에서 빼는 것이다", h.ID)
 		}
 
-		// 빠진 駒를 세운 판과 평수를 비교한다.
+		// 빠진 駒를 세운 판과 平手를 비교한다.
 		gone := map[shogi.PieceType]int{}
 		for sq := range pos.Board {
 			s, p := start.Board[sq], pos.Board[sq]
@@ -75,7 +75,7 @@ func TestSFENIsTheHandicapItSaysItIs(t *testing.T) {
 			case p.Empty() && s.Color() == shogi.White:
 				gone[s.Type()]++
 			default:
-				t.Errorf("%s: %d번 칸이 평수와 다르다(%s → %s)", h.ID, sq, ja(s.Type()), ja(p.Type()))
+				t.Errorf("%s: %d번 칸이 平手와 다르다(%s → %s)", h.ID, sq, ja(s.Type()), ja(p.Type()))
 			}
 		}
 		expect := map[shogi.PieceType]int{}

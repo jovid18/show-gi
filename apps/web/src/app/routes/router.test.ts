@@ -15,7 +15,7 @@ describe('parseRoute', () => {
   it('대국은 /play 다', () => {
     expect(parseRoute('/play')).toEqual({ name: 'game' });
     expect(parseRoute('/play/')).toEqual({ name: 'game' });
-    // 꼬리가 붙어도 대국이다 — 이 화면은 주소에 무엇도 안 싣는다.
+    // 꼬리가 붙어도 대국이다 — 이 화면은 주소에 아무것도 안 싣는다.
     expect(parseRoute('/play/nope')).toEqual({ name: 'game' });
   });
 

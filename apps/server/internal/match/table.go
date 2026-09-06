@@ -52,7 +52,7 @@ type Config struct {
 	Recorders map[shogi.Color]Recorder
 	// TurnLimit 이 0이면 DefaultTurnLimit.
 	TurnLimit time.Duration
-	// StartSFEN 이 비면 평수 초기 국면.
+	// StartSFEN 이 비면 平手 초기 국면.
 	StartSFEN string
 	// now 는 테스트가 시계를 잡는 자리다. nil 이면 time.Now.
 	now func() time.Time
@@ -204,7 +204,7 @@ func (t *Table) run(ctx context.Context, st *state) {
 	timer := time.NewTimer(st.limit)
 	defer timer.Stop()
 
-	// grace 는 판이 끝난 뒤에만 걸린다. 그 전에는 nil 채널이라 select 에서 안 골린다 —
+	// grace 는 판이 끝난 뒤에만 걸린다. 그 전에는 nil 채널이라 select 가 그 갈래를 안 고른다 —
 	// Go 에서 nil 채널의 수신은 영원히 안 준비되고, 그것이 「아직 그 갈래가 없다」를
 	// 표현하는 가장 싼 방법이다.
 	var graceC <-chan time.Time

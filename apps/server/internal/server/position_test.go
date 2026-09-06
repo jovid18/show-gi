@@ -43,7 +43,7 @@ func positionTest(t *testing.T, answer string) *positionHandler {
 	}
 }
 
-// startGrid 는 평수 초기 국면을 「先手로 앉아 찍은 화면」으로 적은 답이다.
+// startGrid 는 平手 초기 국면을 「先手로 앉아 찍은 화면」으로 적은 답이다.
 func startGrid() string {
 	rows := []string{
 		`["l","n","s","g","k","g","s","n","l"]`,

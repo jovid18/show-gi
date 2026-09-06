@@ -537,7 +537,7 @@ type ResumableGame struct {
 	StartedAt time.Time
 	// OpeningID 는 그때 고른 상대의 진형이다. 「おまかせ」였으면 빈 값.
 	OpeningID string
-	// StartSFEN 은 그 판의 0手目다. 비어 있으면 평수 — 카드가 手合割을 말하는 근거다
+	// StartSFEN 은 그 판의 0手目다. 비어 있으면 平手 — 카드가 手合割을 말하는 근거다
 	// (GameSummary.StartSFEN 과 같은 규약).
 	StartSFEN string
 	MoveCount int
@@ -753,7 +753,7 @@ type GameSummary struct {
 	// 읽는 쪽이 그것을 「블런더가 0건인 좋은 판」으로 그리면 거짓이 되므로, 총평과 퀴즈가
 	// 이 값을 보고 그 자리를 닫는다(server/review.go · quiz.go).
 	MatchID string
-	// StartSFEN 은 그 판의 0手目다. 비어 있으면 평수 초기 국면이다(game.Config.StartSFEN
+	// StartSFEN 은 그 판의 0手目다. 비어 있으면 平手 초기 국면이다(game.Config.StartSFEN
 	// 과 같은 규약).
 	//
 	// 手合割을 되짚는 유일한 칸이다(internal/handicap 의 Of). 이름을 따로 저장하지

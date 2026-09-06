@@ -69,7 +69,7 @@ func TestCheaperTargetsAreStillTheShapeOfAFork(t *testing.T) {
 }
 
 // 手番이 상대일 때도 같은 답이 나와야 한다. LegalMoves 는 pos.Turn 쪽 수만
-// 내므로, 手番을 맞추지 않으면 조용히 「両取りが없다」가 된다 — 에러가 안 나는 버그다.
+// 내므로, 手番을 맞추지 않으면 조용히 「両取り가 없다」가 된다 — 에러가 안 나는 버그다.
 func TestForkIsFoundRegardlessOfWhoseTurnItIs(t *testing.T) {
 	const board = "8k/9/3g1g3/9/4N4/9/9/9/8K "
 

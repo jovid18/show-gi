@@ -53,7 +53,7 @@ func TestSilverOnTheKnightHeadIsKeitouNoGin(t *testing.T) {
 	}
 }
 
-// 방향이 뒤집히면 안 된다. 桂의 뒤에 놓인 銀은 桂頭が아니다 — 桂는 앞으로만 뛰므로
+// 방향이 뒤집히면 안 된다. 桂의 뒤에 놓인 銀은 桂頭가 아니다 — 桂는 앞으로만 뛰므로
 // 뒤의 駒에 대해서는 아무 성질도 없다. 방향을 반대로 적으면 이 테스트만 실패한다.
 func TestSilverBehindTheKnightIsNotKeitouNoGin(t *testing.T) {
 	pos := forkBoard(t, "4k4/9/9/4S4/4n4/9/9/9/8K b - 1") // 5四銀 · 5五桂 — 銀이 桂의 뒤

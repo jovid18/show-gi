@@ -566,8 +566,8 @@ func envInt(name string, fallback int) int {
 // 여기를 줄인다(기본값이 14이므로 12가 그 손잡이다). 시간 상한을 걸어 중간에 자르는
 // 쪽이 아니다.
 //
-// 이 값을 걸면 캐시가 둘로 나뉜다. 상대 수와 퀴즈만 여기를 읽고 나머지 넷은 상수라,
-// 여섯 자리가 서로 못 쓰는 두 무리가 된다(internal/archive).
+// 이 값을 걸면 여섯 자리가 둘로 갈린다. 상대 수와 퀴즈만 여기를 읽고 나머지 넷은 상수라,
+// 캐시가 서로 못 쓰는 두 무리가 된다(internal/archive).
 func engineDepth() int {
 	v := os.Getenv("ENGINE_DEPTH")
 	if v == "" {

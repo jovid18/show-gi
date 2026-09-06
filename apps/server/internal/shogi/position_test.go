@@ -9,7 +9,7 @@ import (
 // 판을 거절하고, 그건 기능이 통째로 안 되는 것과 같다.
 func TestFaultsAcceptsRealPositions(t *testing.T) {
 	cases := map[string]string{
-		"평수 초기 국면": "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1",
+		"平手 초기 국면": "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1",
 		// 玉 둘과 歩 한 장뿐인 판. 말이 부족한 것은 사유가 아니다.
 		"말이 빠진 국면":  "4k4/9/9/9/9/9/4P4/9/4K4 b - 1",
 		"持ち駒가 있는 판": "4k4/9/9/9/9/9/9/9/4K4 b RBGSNLPrb 1",

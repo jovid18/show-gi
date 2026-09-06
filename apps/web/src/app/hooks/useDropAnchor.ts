@@ -77,7 +77,7 @@ export function useDropAnchor(dropping: DropPiece | null): DropAnchor {
   const kind = dropping?.kind ?? null;
 
   // 렌더마다 다시 잰다. 의존성 목록이 없는 것이 의도다 — 駒台 駒의 자리는 판을 뒤집는
-  // 것, 持ち駒가 한 종류 늘거나 줄는 것, 옆 패널이 생기는 것으로 다 옮겨 가고, 그 셋 중
+  // 것, 持ち駒가 한 종류 늘거나 주는 것, 옆 패널이 생기는 것으로 다 옮겨 가고, 그 셋 중
   // 어느 것도 `side`·`kind` 를 바꾸지 않는다. 판을 뒤집었을 때 화살표가 반대쪽 駒台에서
   // 뻗어 있던 것이 그 자리다.
   //

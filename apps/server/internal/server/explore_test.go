@@ -123,7 +123,7 @@ func TestExplorePlainIsTheEmptyID(t *testing.T) {
 
 	start, err := shogi.ParseSFEN(shogi.StartSFEN)
 	if err != nil {
-		t.Fatalf("평수 초기 국면: %v", err)
+		t.Fatalf("平手 초기 국면: %v", err)
 	}
 	if node.SFEN != start.SFEN() {
 		t.Errorf("sfen = %q, want %q", node.SFEN, start.SFEN())

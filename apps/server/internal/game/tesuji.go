@@ -61,7 +61,7 @@ func freshTesuji(before, after shogi.Position, c shogi.Color, lastUSI string) []
 	}
 
 	// 여기 오는 수는 이미 룰 엔진이 검증한 것이다. 그래도 파싱 실패를 없는 것으로
-	// 넘기는 이유는, 이름 하나가 안 뜨는 것과 대국이 깨지는 것의 값이 다르기 때문이다.
+	// 넘기는 이유는, 이름 하나가 안 뜨는 것과 대국이 도는 것의 값이 다르기 때문이다.
 	last, err := shogi.ParseUSIMove(lastUSI)
 	if err != nil {
 		return out

@@ -356,7 +356,7 @@ func TestDetailAttributesByPlyNotIndex(t *testing.T) {
 
 // 시작 국면을 못 읽으면 한 수도 두지 않는다.
 //
-// 평수 초기 국면으로 대신 두면 그 수들이 거기서도 합법일 수 있고, 그러면 한 번도 없었던
+// 平手 초기 국면으로 대신 두면 그 수들이 거기서도 합법일 수 있고, 그러면 한 번도 없었던
 // 국면을 그럴듯하게 그린다 — 리뷰에서 그건 판을 못 그리는 것보다 나쁘다.
 func TestDetailRefusesToReplayFromBrokenStart(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d")

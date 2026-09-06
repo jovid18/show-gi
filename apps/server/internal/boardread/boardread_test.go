@@ -19,7 +19,7 @@ import (
 var png = append([]byte("\x89PNG\r\n\x1a\n"), []byte("not really a png")...)
 
 // 이 시험이 이 패키지의 요점이다. 그림의 위 줄부터·왼쪽부터가 곧 SFEN 판 칸의 순서라
-// 옮기는 코드에 좌표 계산이 없다는 것을, 평수 초기 국면 한 판으로 확인한다.
+// 옮기는 코드에 좌표 계산이 없다는 것을, 平手 초기 국면 한 판으로 확인한다.
 //
 // 격자는 「先手로 앉은 사람이 보는 화면」이다 — 자기 駒(대문자)가 아래 줄에 있다.
 func TestReadMapsTheDrawnGridStraightToSFEN(t *testing.T) {

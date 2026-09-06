@@ -81,7 +81,7 @@ func TestHandicapSetupForcesShitate(t *testing.T) {
 	}
 
 	// 모르는 id는 조용히 平手다 — 목록을 서버가 주므로(newSetup) 여기 오는 이상한 값은
-	// 클라이언트가 틀린 경우이고, 그때 대국을 거절하는 것보다 평수로 두는 것이 낫다.
+	// 클라이언트가 틀린 경우이고, 그때 대국을 거절하는 것보다 平手로 두는 것이 낫다.
 	r = httptest.NewRequest(http.MethodGet, "/ws/game?handicap=nope", nil)
 	if got := newSetup(r, Options{}); got.startSFEN != "" {
 		t.Errorf("모르는 手合에 국면이 붙었다: %q", got.startSFEN)

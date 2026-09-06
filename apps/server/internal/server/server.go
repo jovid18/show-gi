@@ -50,7 +50,7 @@ type Options struct {
 	Mate game.MateSearcher
 
 	// StartSFEN·HumanColor·ObservePlies 는 대국을 어디서 시작할지 정한다. 비어 있으면
-	// 평수 초기 국면·先手·기본 관측 구간이다. 지금은 테스트만 채운다 — 되짚기는 이 값이
+	// 平手 초기 국면·先手·기본 관측 구간이다. 지금은 테스트만 채운다 — 되짚기는 이 값이
 	// 아니라 기록의 games.start_sfen 을 쓴다(review.go·whatif.go).
 	StartSFEN    string
 	HumanColor   shogi.Color

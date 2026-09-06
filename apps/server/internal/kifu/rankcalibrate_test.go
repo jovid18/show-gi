@@ -53,8 +53,6 @@ func TestMeasureRankAnchors(t *testing.T) {
 		t.Skip("SHOWGI_TEST_DATABASE_URL 과 엔진 경로(SHOWGI_USI_CMD)가 필요하다")
 	}
 
-	// 앵커를 몇 手부터 잴지. 초반은 定跡 구간이라 급수 신호가 없다 — 기본값 1은
-	// 「전부 잰다」이고, 구간 표를 보고 이 값을 정한 뒤 다시 돌리는 것이 쓰는 법이다.
 	// 앵커를 어느 手数 창에서 잴지. 초반은 定跡이라 급수 신호가 없고, 판마다 길이가
 	// 달라서 끝까지 세면 자가 실력이 아니라 판 길이의 함수가 된다.
 	// 기본값이 런타임과 같아야 한다. 앵커를 다른 창에서 재면 그 값을 skill 에 옮겨 적는
@@ -362,7 +360,7 @@ func absDrop(j game.Judgement) float64 {
 }
 
 // moverAt 은 그 手数를 둔 쪽이다. Judgement 이 手番을 안 내놓아서 여기서 센다 —
-// 駒落ち는 上手가 먼저 두므로 手数의 홀짝만으로는 갈린다(journal §88).
+// 駒落ち는 上手가 먼저 두므로 手数의 홀짝만으로는 못 가른다(journal §88).
 func moverAt(startSFEN string, ply int) shogi.Color {
 	first := shogi.Black
 	if f := strings.Fields(startSFEN); len(f) > 1 && f[1] == "w" {

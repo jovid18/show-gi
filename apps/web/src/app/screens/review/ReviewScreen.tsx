@@ -90,14 +90,14 @@ function GameCard({ game }: { game: GameSummary }) {
       </span>
       <span className="review-card-moves">{game.moveCount}手</span>
       {/* 대인전은 개입 횟수 자리에 「対人」이 온다. 거기에 「介入 0回」를 적으면 「한 번도
-          안 걸린 잘 둔 판」으로 읽히는데, 사실은 재지 않았다이다 — 그 둘이 초심자에게
+          안 걸린 잘 둔 판」으로 읽히는데, 사실은 재지 않은 것이다 — 그 둘이 초심자에게
           정반대다(docs/journal §83). */}
       {game.isMatch === true ? (
         <span className="review-card-iv" data-match>
           対人
         </span>
       ) : (
-        // 0회도 적는다. 止まらなかった것도 성적이다 — 빈 자리로 두면 셌는지조차 안 보인다.
+        // 0회도 적는다. 한 번도 안 막힌 것도 성적이다 — 빈 자리로 두면 셌는지조차 안 보인다.
         //
         // 가져온 판은 「悪手」다. 아무도 안 막았으므로 「介入」이라고 적으면 없던 일을
         // 있었다고 말하는 것이 된다 — 총평·기보 표식과 같은 자리다(docs/journal §126).

@@ -26,7 +26,7 @@ func whatifNodeOf(
 ) (whatifNode, error) {
 	start, err := shogi.ParseSFEN(startSFENOf(root.StartSFEN))
 	if err != nil {
-		// 시작 국면을 못 읽으면 한 수도 두지 않는다. 평수 초기 국면으로 대신 두면
+		// 시작 국면을 못 읽으면 한 수도 두지 않는다. 平手 초기 국면으로 대신 두면
 		// 한 번도 없었던 국면 위에서 가정을 세우게 된다(detailOf 와 같은 판단이다).
 		return whatifNode{}, fmt.Errorf("%w: start sfen %q: %v", errWhatifPly, root.StartSFEN, err)
 	}

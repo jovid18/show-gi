@@ -5,7 +5,7 @@ package server
 
 import "github.com/jovid18/show-gi/apps/server/internal/shogi"
 
-// startSFENOf 는 기록된 시작 국면이다. 비어 있으면 평수 초기 국면이다 —
+// startSFENOf 는 기록된 시작 국면이다. 비어 있으면 平手 초기 국면이다 —
 // 세션은 기본 국면도 문자열로 적지만(session.go), 002 이전에 열린 판에는 칸이 비어 있다.
 func startSFENOf(recorded string) string {
 	if recorded == "" {

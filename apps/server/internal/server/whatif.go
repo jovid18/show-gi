@@ -90,7 +90,7 @@ type whatifRequest struct {
 // whatifRoot 은 분기가 자라날 정본이다. 요청은 여기에 대해서만 뜻이 있고, 뿌리를
 // 얻는 곳은 표면마다 다르다(journal §37).
 type whatifRoot struct {
-	// StartSFEN 은 0手目의 국면. 비어 있으면 평수 초기 국면이다.
+	// StartSFEN 은 0手目의 국면. 비어 있으면 平手 초기 국면이다.
 	StartSFEN string
 	// Moves 는 확정된 수다. 여기까지가 실제로 벌어진 일이고, 분기는 그 뒤에 붙는다.
 	Moves []string
