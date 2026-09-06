@@ -1,6 +1,6 @@
-# show-gi — AI가 「언제 입을 열지」를 스스로 정한다
+# show-gi — 쇼기 학습 애플리케이션
 
-[![show-gi — 입을 열 때를 스스로 정하는 쇼기 상대](apps/web/public/og.png)](https://show-gi.com)
+[![show-gi — 쇼기 학습 애플리케이션](apps/web/public/og.png)](https://show-gi.com)
 
 > **AI가 사람의 행동에 개입할 타이밍과 강도를 스스로 조절하는 제품.** 검증 도메인은 쇼기(将棋)다.
 
