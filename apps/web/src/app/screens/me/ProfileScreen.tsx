@@ -32,7 +32,7 @@ export function ProfileScreen({ onSignOut }: { onSignOut: () => void }) {
           ログインしていない対局は記録が誰のものか分からないため、ここには出ません。
         </p>
         {/* 여기까지 온 사람에게 갈 곳을 준다. 메뉴에서는 이 줄이 로그인한 사람에게만
-            보이지만(HomeScreen), 주소를 직접 열거나 로그아웃한 뒤에는 익명으로 여기 선다 —
+            보이지만(HomeScreen), 주소를 직접 열거나 로그아웃한 뒤에는 익명으로 여기 들어온다 —
             그때 안내만 있고 누를 것이 없으면 막다른 화면이 된다. */}
         <p className="profile__signin">
           <a className="btn btn--primary" href={SIGN_IN_PATH}>
@@ -135,7 +135,7 @@ export function ProfileScreen({ onSignOut }: { onSignOut: () => void }) {
         )}
       </section>
 
-      {/* 「崩れやすいところ」의 반대편이다. 저쪽이 무너진 자리라면 이쪽은 실제로 세운
+      {/* 「崩れやすいところ」의 반대편이다. 저쪽이 무너진 자리라면 이쪽은 실제로 지은
           것이고, 마이페이지가 지적만 하는 화면이 되지 않게 하는 것이 이 절의 몫이다. */}
       <section className="profile__block" aria-label="組んだ形">
         <h2 className="profile__head">組んだ形</h2>

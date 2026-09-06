@@ -15,7 +15,7 @@ import (
 //
 // 세션 goroutine을 막지 않는다. 이벤트를 버퍼 채널에 던지고 자기 goroutine이 쓴다.
 // 상태를 goroutine 하나가 소유한다는 것이 이 프로젝트의 정합성이라, DB가 느리다고
-// 그 줄을 세우지 않는다.
+// 그 줄을 만들지 않는다.
 type dbRecorder struct {
 	events chan recordEvent
 	// metrics 는 nil 일 수 있다. 계측이 꺼진 배포에서도 기록은 돌아야 한다.
@@ -114,7 +114,7 @@ func (r *dbRecorder) Moved(ply int, usi string, by game.Side) {
 }
 
 // Moved 와 같은 채널로 보낸다. 평가치는 그 수가 들어간 뒤에 와야 하고, 한 채널이면
-// 순서가 저절로 지켜진다. 큐를 갈라 두면 평가치가 먼저 도착해 조용히 버려질 수 있다.
+// 순서가 저절로 지켜진다. 큐를 따로 두면 평가치가 먼저 도착해 조용히 버려질 수 있다.
 func (r *dbRecorder) Evaluated(ply int, senteCp int) {
 	r.send(recordEvent{kind: evEvaluated, ply: ply, cp: senteCp})
 }
@@ -135,7 +135,7 @@ func (r *dbRecorder) Named(code string) {
 	r.send(recordEvent{kind: evNamed, code: code})
 }
 
-// Hinted 는 사람이 불러서 받은 힌트 한 번이다. 개입과 갈라 두는 이유는 010_game_hints.sql.
+// Hinted 는 사람이 불러서 받은 힌트 한 번이다. 개입과 따로 두는 이유는 010_game_hints.sql.
 func (r *dbRecorder) Hinted(ply int, key string, stage int, bestUSI string) {
 	r.send(recordEvent{kind: evHinted, ply: ply, code: key, stage: stage, usi: bestUSI})
 }
@@ -168,7 +168,7 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 	write := context.WithoutCancel(ctx)
 
 	// 이어하는 판은 시작부터 id 를 안다. 점유가 그 행을 이미 되열어 놨으므로
-	// (store.ClaimGameForResume), 세션이 서지 못하고 끝나도 아래 ctx 취소 경로가 다시
+	// (store.ClaimGameForResume), 세션이 열리지 못하고 끝나도 아래 ctx 취소 경로가 다시
 	// abandoned 로 닫는다 — 되열린 채로 남으면 그 판은 되짚기에도(§51) 이어하기에도
 	// 안 걸리는 유령이 된다.
 	gameID := target.resumeID

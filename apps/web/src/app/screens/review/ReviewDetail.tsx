@@ -32,7 +32,7 @@ import { useMoveEvals } from '@/hooks/useMoveEvals';
  *
  * 어느 국면에서든 그 자리에서 둬 볼 수 있다. 手数에 멈추면 서버가 그 국면을 한 번 재고,
  * 그때부터 판이 살아 있다 — 사람 차례든 상대 차례든 그 쪽 駒를 집을 수 있고, 두면 그 수의
- * cp가 붙고 상대의 최선수가 초록 화살표로 선다(useWhatIf).
+ * cp가 붙고 상대의 최선수가 초록 화살표로 그려진다(useWhatIf).
  */
 interface ReviewDetailProps {
   game: GameDetail;
@@ -50,16 +50,16 @@ interface ReviewDetailProps {
  * 手数에 멈춘 뒤 국면을 물어보기까지 기다리는 시간.
  *
  * 넘기는 중에는 안 묻는다. ▶ 를 연달아 누르거나 → 를 누른 채로 두면 지나가는 手数마다
- * 깊이 12 탐색이 걸리고, 그건 엔진 풀을 대국과 나눠 쓰는 구조에서 남의 대국을 세우는 일이다.
+ * 깊이 12 탐색이 걸리고, 그건 엔진 풀을 대국과 나눠 쓰는 구조에서 남의 대국을 하나 더 여는 일이다.
  */
 const SETTLE_MS = 350;
 
 /**
- * 棋譜를 2단으로 놓는다 — ▲과 △이 한 줄에 선다.
+ * 棋譜를 2단으로 놓는다 — ▲과 △이 한 줄에 놓인다.
  *
  * 실제 기보가 그렇게 적히고, 세로 길이가 절반이 되어 판을 밀어내지 않는다. 手数의 홀짝으로
  * 자리를 정한다 — 中盤에서 시작하는 판(games.start_sfen)에서는 1手目가 後手일 수 있지만,
- * 그때도 「같은 手数가 같은 열에 선다」가 유지되는 쪽이 읽기 쉽다.
+ * 그때도 「같은 手数가 같은 열에 놓인다」가 유지되는 쪽이 읽기 쉽다.
  *
  * 구멍이 난 기보(큐가 넘쳐 한 수가 빠졌다)에서도 자리가 밀리지 않는다 — 홀짝이 자리를
  * 정하므로 빠진 칸이 빈 칸으로 남는다.
@@ -103,7 +103,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
    * 이 판의 총평. 판 전체를 말하는 유일한 자리라 手数를 옮겨도 안 바뀐다.
    *
    * 못 읽었을 때는 카드를 아예 안 그린다 — `null` 로 넘기면 「まとめています…」가 영원히
-   * 서 있고, 그건 기다리면 온다는 거짓말이다. 이 화면의 본론은 기보이고 그쪽은 이미 왔다.
+   * 떠 있고, 그건 기다리면 온다는 거짓말이다. 이 화면의 본론은 기보이고 그쪽은 이미 왔다.
    */
   const summary = useGameSummary(game.id).loaded;
   const whatif = useWhatIf(httpSend(game.id), game.id);
@@ -134,7 +134,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   const rootNode = active && active.line.length === 0 ? active : null;
 
   /**
-   * 이 자리에서 값이 없는 채로 목록에 설 수 있는 수들. 그 자리를 다시 재서 채운다.
+   * 이 자리에서 값이 없는 채로 목록에 오를 수 있는 수들. 그 자리를 다시 재서 채운다.
    *
    * 둘이다 — 값이 저장돼 있지 않은 물러진 수와, 후보 셋 밖의 실제로 둔 수다. 뒤엣것이
    * 빠져 있어서 「내가 둔 수에만 값이 안 뜬다」가 됐다(2026-08-14-human-2.md §6 #7).
@@ -199,7 +199,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
    * 그래프를 누르면 그 手数로 간다.
    *
    * 「빨간 점이면 개입 목록을 꺼낸다」는 없다. 목록이 그 국면에서 둘 수 있었던 수
-   * 전부라 언제나 서 있고, 꺼낼 것이 없다.
+   * 전부라 언제나 떠 있고, 꺼낼 것이 없다.
    */
   const onGraphPick = goto;
 
@@ -297,7 +297,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   /**
    * 판 위의 화살표. 회상에서는 물러진 수, 분기에서는 수번 쪽의 최선수다.
    *
-   * 확정된 판 위에는 안 긋는다. 手数에 멈추기만 해도 그어지면 「둬 보면 최선수가 선다」와
+   * 확정된 판 위에는 안 긋는다. 手数에 멈추기만 해도 그어지면 「둬 보면 최선수가 나온다」와
    * 어긋나고(03-frontend.md §3), 넘겨 보는 것만으로 답이 판에 그려진다.
    *
    * 두 뜻이 같은 초록 화살표를 쓴다. 회상의 것은 「네가 두려던 나쁜 수」이고 분기의 것은
@@ -594,7 +594,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
                         {/* 이 手数에 물러진 수가 있었다. 확정된 수 옆에 서야 「이 수를 두기
                         전에 한 번 막혔다」로 읽힌다.
 
-                        취해 온 판에서는 「悪手」다. 아무도 그 수를 막지 않았고 그 수가
+                        가져온 판에서는 「悪手」다. 아무도 그 수를 막지 않았고 그 수가
                         기보에 그대로 남아 있어서, 「介入」이라고 적으면 없던 일을 있었다고
                         말하는 것이 된다(docs/journal §126). */}
                         {stopped.has(move.ply) && (
@@ -680,7 +680,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
         />
 
         {/* 한 목록이다. 최선수·실제로 둔 수·물러진 수가 같은 국면의 같은 종류의 사실이라
-            평가치 하나로 세운다 — 「내가 둔 것이 몇 번째쯤이었나」가 그 사이의 한 줄이 된다. */}
+            평가치 하나로 줄 세운다 — 「내가 둔 것이 몇 번째쯤이었나」가 그 사이의 한 줄이 된다. */}
         <MoveOptions
           game={game}
           ply={ply}

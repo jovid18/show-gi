@@ -444,7 +444,7 @@ const (
 	ResultDraw      GameResult = "draw"
 	ResultAbandoned GameResult = "abandoned" // 끝나지 않고 연결이 끊겼다. 이어할 수 있다
 	// ResultDeclined 는 abandoned 인 판을 사람이 안 이어하겠다고 답한 것이다.
-	// 갈라 두는 이유는 하나뿐이다 — 다시 물어보지 않기 위해서다(ResumableGame).
+	// 따로 두는 이유는 하나뿐이다 — 다시 물어보지 않기 위해서다(ResumableGame).
 	ResultDeclined GameResult = "declined"
 )
 
@@ -470,7 +470,7 @@ func (s *Store) CreateGame(ctx context.Context, userID *int64, myColor, startSFE
 // CreateMatchGame 은 대인전 한 판의 한쪽 몫을 연다. 같은 대국에서 두 번 불려
 // 행 두 개가 된다 — 그 둘을 다시 묶는 열쇠가 matchID 다(012_match_games.sql).
 //
-// CreateGame 과 갈라 둔 이유는 채우는 칸이 다르기 때문이다. 저쪽은 opening_tag
+// CreateGame 과 따로 둔 이유는 채우는 칸이 다르기 때문이다. 저쪽은 opening_tag
 // (컴퓨터의 진형)를 채우고 이쪽은 match_id 를 채운다 — 한 함수로 두면 부르는 쪽마다
 // 「이번엔 어느 칸을 비우나」를 알아야 한다.
 func (s *Store) CreateMatchGame(ctx context.Context, userID int64, myColor, startSFEN, matchID string) (int64, error) {
@@ -487,10 +487,10 @@ func (s *Store) CreateMatchGame(ctx context.Context, userID int64, myColor, star
 }
 
 // FinishGame 은 대국을 닫는다.
-// CreateImportedGame 은 밖에서 둔 판을 취해 온 자리다. 자리가 하나다 — 상대의 몫은
+// CreateImportedGame 은 밖에서 둔 판을 가져온 자리다. 자리가 하나다 — 상대의 몫은
 // 안 만든다(대인전이 행 둘인 것과 갈리는 자리다).
 //
-// notation 은 무엇으로 읽었는가다(kifu.Notation). 이 칸이 곧 「취해 온 판인가」이기도
+// notation 은 무엇으로 읽었는가다(kifu.Notation). 이 칸이 곧 「가져온 판인가」이기도
 // 해서 빈 값으로 오면 안 된다 — 그러면 여기서 둔 판과 구별이 없어진다.
 func (s *Store) CreateImportedGame(ctx context.Context, userID int64, myColor, startSFEN, notation string) (int64, error) {
 	if notation == "" {
@@ -508,8 +508,8 @@ func (s *Store) CreateImportedGame(ctx context.Context, userID int64, myColor, s
 	return id, nil
 }
 
-// CountImportsSince 는 그 사람이 그 시각 이후로 취해 온 판 수다. 하루 몫의 벽이 이
-// 값으로 선다(server/kifu_import.go).
+// CountImportsSince 는 그 사람이 그 시각 이후로 가져온 판 수다. 하루 몫의 상한이 이
+// 값으로 정해진다(server/kifu_import.go).
 func (s *Store) CountImportsSince(ctx context.Context, userID int64, since time.Time) (int, error) {
 	n, err := s.q.CountImportsSince(ctx, db.CountImportsSinceParams{UserID: &userID, StartedAt: stamp(since)})
 	if err != nil {
@@ -537,7 +537,7 @@ type ResumableGame struct {
 	StartedAt time.Time
 	// OpeningID 는 그때 고른 상대의 진형이다. 「おまかせ」였으면 빈 값.
 	OpeningID string
-	// StartSFEN 은 그 판의 0手目다. 비어 있으면 평수 — 카드가 手合割을 말하는 근거다
+	// StartSFEN 은 그 판의 0手目다. 비어 있으면 平手 — 카드가 手合割을 말하는 근거다
 	// (GameSummary.StartSFEN 과 같은 규약).
 	StartSFEN string
 	MoveCount int
@@ -568,7 +568,7 @@ func (s *Store) ResumableGame(ctx context.Context, userID int64) (ResumableGame,
 	return out, nil
 }
 
-// ClaimedGame 은 이어하기가 점유한 판이다. 새 세션을 세우는 데 필요한 것 전부다.
+// ClaimedGame 은 이어하기가 점유한 판이다. 새 세션을 만드는 데 필요한 것 전부다.
 type ClaimedGame struct {
 	ID        int64
 	MyColor   string
@@ -579,7 +579,7 @@ type ClaimedGame struct {
 // ClaimGameForResume 은 판 하나를 이어하기로 점유하고 되연다. 없거나 남의 것이거나
 // 이미 누가 점유했으면 ErrNoGame — 셋을 구별해서 돌려주지 않는다(GameRecord 와 같다).
 //
-// 점유가 곧 되열기다(query/games.sql). 그래서 이 함수가 성공한 뒤 세션이 서지 못하면
+// 점유가 곧 되열기다(query/games.sql). 그래서 이 함수가 성공한 뒤 세션이 열리지 못하면
 // 그 판은 result 가 NULL인 채로 남는데, 기록 쪽이 ctx 취소에서 다시 abandoned 로
 // 닫는다(server/recorder.go) — 되돌리는 코드를 따로 두지 않는 이유다.
 func (s *Store) ClaimGameForResume(ctx context.Context, gameID, userID int64) (ClaimedGame, error) {
@@ -753,13 +753,13 @@ type GameSummary struct {
 	// 읽는 쪽이 그것을 「블런더가 0건인 좋은 판」으로 그리면 거짓이 되므로, 총평과 퀴즈가
 	// 이 값을 보고 그 자리를 닫는다(server/review.go · quiz.go).
 	MatchID string
-	// StartSFEN 은 그 판의 0手目다. 비어 있으면 평수 초기 국면이다(game.Config.StartSFEN
+	// StartSFEN 은 그 판의 0手目다. 비어 있으면 平手 초기 국면이다(game.Config.StartSFEN
 	// 과 같은 규약).
 	//
 	// 手合割을 되짚는 유일한 칸이다(internal/handicap 의 Of). 이름을 따로 저장하지
 	// 않으므로 이 값과 실제 판이 갈릴 자리가 없고, 그래서 마이그레이션도 필요 없었다.
 	StartSFEN string
-	// Imported 는 밖에서 둔 판을 취해 온 것인가다(020_imported_games.sql).
+	// Imported 는 밖에서 둔 판을 가져온 것인가다(020_imported_games.sql).
 	//
 	// 그 판에도 평가치와 개입이 있다 — 사후 분석이 채운다(server/kifu_analysis.go).
 	// 갈리는 것은 그 개입을 아무도 안 막았다는 것뿐이고, 화면이 그 값으로 표기를
@@ -796,7 +796,7 @@ type RecordedIntervention struct {
 
 // RecordedUndo 는 사람이 스스로 무른 수 하나다.
 //
-// 개입(RecordedIntervention)과 갈라 둔다. 판이 되돌아간 것은 같지만 시작한 쪽이
+// 개입(RecordedIntervention)과 따로 둔다. 판이 되돌아간 것은 같지만 시작한 쪽이
 // 반대라, 한 목록에 섞으면 「AI가 막았다」와 「내가 무르고 싶었다」가 같은 줄이 된다 —
 // 되짚기에서 그 둘은 정반대의 이야기다(008_game_undos.sql).
 type RecordedUndo struct {
@@ -870,7 +870,7 @@ func (s *Store) ListGamesAnyOwner(ctx context.Context, limit int) ([]GameSummary
 	return out, nil
 }
 
-// PlayerTally 는 마이페이지가 읽는 두 벌의 세기다. 모집단이 하나다 — 두 질의가 같은
+// PlayerTally 는 마이페이지가 읽는 세 가지 집계다. 모집단이 하나다 — 세 질의가 같은
 // 조건으로 걸러서(query/games.sql), 「12판 뒀는데 약점은 30판에서 나온 것」이 될 수 없다.
 type PlayerTally struct {
 	// Results 는 결과별 판 수다. 키는 GameResult 이고 끝난 셋뿐이다.
@@ -883,10 +883,10 @@ type PlayerTally struct {
 	StyleTags map[string]int
 }
 
-// PlayerTally 는 그 사람의 전적과 약점을 한 번에 센다. ownerID 가 nil이면 익명 판이다.
+// PlayerTally 는 그 사람의 전적·약점·진형을 한 번에 센다. ownerID 가 nil이면 익명 판이다.
 //
-// 한 함수인 이유는 같은 모집단에서 나와야 하기 때문이다 — 갈라 두면 나중에 한쪽 질의의
-// 조건만 고쳐지고, 그때 화면의 두 숫자가 조용히 다른 것을 세게 된다(server/summary.go 의
+// 한 함수인 이유는 같은 모집단에서 나와야 하기 때문이다 — 따로 두면 나중에 한쪽 질의의
+// 조건만 고쳐지고, 그때 화면의 숫자들이 조용히 다른 것을 세게 된다(server/summary.go 의
 // factsOf 가 같은 이유로 한 함수다).
 func (s *Store) PlayerTally(ctx context.Context, ownerID *int64) (PlayerTally, error) {
 	out := PlayerTally{
@@ -945,7 +945,7 @@ func listLimit(limit int) int32 {
 	return int32(limit)
 }
 
-// summaryOf 는 머리와 두 세기를 한 줄로 만든다.
+// summaryOf 는 머리에 手数와 개입 개수를 붙여 한 줄로 만든다.
 //
 // 머리를 구조체로 받는다. *string 이 셋이라(result·match_id·start_sfen) 위치 인자로
 // 늘어놓으면 두 개를 바꿔 넣어도 컴파일이 되고, 그 버그는 목록 화면에서 「전부 平手」로만
@@ -966,7 +966,7 @@ func summaryOf(h gameHead, moves, ivs int64) GameSummary {
 }
 
 // gameHead 는 한 판의 머리다. 주인을 보는 질의와 안 보는 질의가 같은 칸을 다른
-// 행 타입으로 주므로, 아래 읽는 코드를 한 벌로 두려고 여기서 만난다 —
+// 행 타입으로 주므로, 아래 읽는 코드를 하나로 두려고 여기서 만난다 —
 // 목록 두 질의도 같은 이유로 여기서 만난다(summaryOf).
 type gameHead struct {
 	ID         int64
@@ -1065,7 +1065,7 @@ func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error)
 			LevelBucket:  deref(iv.LevelBucket),
 			RetractedUSI: deref(iv.RetractedUsi),
 		}
-		// 없는 것과 0을 갈라 둔다. 0cp는 호각이고, 없는 것은 migrations/005 앞의 행이다.
+		// 없는 것과 0을 따로 둔다. 0cp는 호각이고, 없는 것은 migrations/005 앞의 행이다.
 		if iv.BestCp != nil {
 			cp := int(*iv.BestCp)
 			rec.BestCp = &cp
@@ -1145,7 +1145,7 @@ func derefFloat(f *float64) float64 {
 func (s *Store) Pool() *pgxpool.Pool { return s.pool }
 
 // ─── 부른 힌트 ───────────────────────────────────────────────
-// 사람이 불러서 받은 최선수 힌트. 개입과 갈라 두는 이유는 010_game_hints.sql.
+// 사람이 불러서 받은 최선수 힌트. 개입과 따로 두는 이유는 010_game_hints.sql.
 
 // HintUse 는 이어하는 판이 되찾아야 하는 것 전부다.
 //
@@ -1168,7 +1168,7 @@ func (s *Store) RecordHint(ctx context.Context, gameID int64, ply int, sfenKey s
 	})
 }
 
-// HintsUsed 는 그 판이 지금까지 쓴 힌트다. 이어하기가 세션을 세우기 전에 읽는다.
+// HintsUsed 는 그 판이 지금까지 쓴 힌트다. 이어하기가 세션을 만들기 전에 읽는다.
 func (s *Store) HintsUsed(ctx context.Context, gameID int64) (HintUse, error) {
 	out := HintUse{Stages: map[string]int{}}
 
@@ -1214,7 +1214,7 @@ var ErrNoSnapshot = errors.New("store: explore snapshot not found")
 // SaveExploreSnapshot 은 국면 하나를 남긴다. 개수를 안 막는다(query/explore.sql).
 func (s *Store) SaveExploreSnapshot(ctx context.Context, userID int64, name, handicap string, moves []string) (ExploreSnapshot, error) {
 	// nil 을 빈 배열로 바꾼다. moves 가 text[] NOT NULL 이라 nil 슬라이스는 pgx 가 NULL 로
-	// 보내고 삽입이 제약에서 떨어진다 — 0手目 저장이 그 자리다.
+	// 보내고 삽입이 제약에 걸려 실패한다 — 0手目 저장이 그 자리다.
 	if moves == nil {
 		moves = []string{}
 	}

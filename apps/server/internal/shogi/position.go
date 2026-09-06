@@ -13,7 +13,7 @@ import "fmt"
 
 // PositionReason 은 국면이 성립하지 않는 사유다.
 //
-// Reason(수의 사유)과 갈라 둔다. 한 벌로 묶으면 「二歩」가 두 뜻을 갖는다 — 저쪽은
+// Reason(수의 사유)과 따로 둔다. 하나로 묶으면 「二歩」가 두 뜻을 갖는다 — 저쪽은
 // 「그 수를 두면 二歩가 된다」이고 여기는 「이미 二歩인 판이다」다.
 type PositionReason int
 
@@ -65,7 +65,7 @@ type PositionFault struct {
 	Square int
 	// Type 은 문제가 된 말 종류다. 없으면 NoPieceType.
 	Type PieceType
-	// Count 는 사유가 세는 값이다 — 말 수의 초과분, 玉의 개수. 나머지는 0.
+	// Count 는 그 사유가 말하는 수다 — 말 수의 초과분, 玉의 개수. 나머지는 0.
 	Count int
 }
 
@@ -120,7 +120,7 @@ func (f PositionFault) Message() string {
 // 말하면 사람이 고치고 다시 누르기를 사유 수만큼 반복한다.
 //
 // **말이 부족한 것은 여기서 안 본다.** 詰将棋처럼 말이 빠진 국면이 정상인 경우가 있어
-// InventoryExcess 가 이미 그렇게 갈라 두었고, 사진에서 온 판의 「39枚」는 거절이 아니라
+// InventoryExcess 가 이미 그렇게 나눠 두었고, 사진에서 온 판의 「39枚」는 거절이 아니라
 // 경고로 화면에 나간다(InventoryShortage).
 func (pos Position) Faults() []PositionFault {
 	var out []PositionFault

@@ -219,7 +219,7 @@ var castles = []shape{
 	},
 	{
 		// 振り飛車穴熊 — 居飛車穴熊를 좌우로 뒤집은 자리다. 振り飛車는 飛를 왼쪽으로
-		// 振るので玉が右へ行き、隅も1九になる。
+		// 振るので 玉이 오른쪽으로 가고, 隅도 1九가 된다.
 		//
 		// squareFor 의 거울(後手용 180° 회전)과 다른 뒤집기라 따로 적어야 한다.
 		// 좌우 대칭은 先手 안에서의 이야기이고, 그걸 회전으로 얻을 수는 없다.
@@ -494,7 +494,7 @@ func Detect(in Input) []Tag {
 	case swung:
 		out = append(out, mine)
 	case castled && rookOnStartFile(in.Pos, in.Color):
-		// 振っていない + 囲った = 居飛車. 囲い이 없으면 아직 아무 선택도 안 드러났다.
+		// 振っていない + 囲った = 居飛車. 囲い가 없으면 아직 아무 선택도 안 드러났다.
 		out = append(out, ibisha)
 	}
 

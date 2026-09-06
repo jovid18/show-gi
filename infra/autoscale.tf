@@ -57,7 +57,7 @@ resource "aws_appautoscaling_policy" "analysis_out" {
   }
 }
 
-# 되돌리는 쪽. 없으면 회차 뒤에 두 대가 그대로 서서 하루 $2.15 가 계속 나간다 —
+# 되돌리는 쪽. 없으면 회차 뒤에 두 대가 그대로 떠서 하루 $2.15 가 계속 나간다 —
 # terraform 이 desired 의 주인이 아니게 됐으므로(ecs.tf 의 ignore_changes) apply 로도
 # 안 내려온다.
 resource "aws_appautoscaling_policy" "analysis_in" {

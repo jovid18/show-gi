@@ -55,7 +55,7 @@ func TestOpponentSearchDeadlineAbortsTheGame(t *testing.T) {
 	}
 }
 
-// 판정이 안 돌아오면 수는 그대로 서고 대국이 이어진다. 개입은 부가이고 대국이 본체다.
+// 판정이 안 돌아오면 수는 그대로 두어지고 대국이 이어진다. 개입은 부가이고 대국이 본체다.
 // 대신 아무 말도 안 하지 않는다 — 개입이 없는 화면은 「괜찮은 수」와 똑같이 생겼다.
 func TestJudgeDeadlineLetsTheMoveStandWithANotice(t *testing.T) {
 	an := &fixedAnalyst{verdict: blunder(), delay: 5 * time.Second}

@@ -14,7 +14,7 @@ import (
 // 목록이 늘어날 때 다시 물릴 자리이기도 하다.
 //
 // 사람 쪽은 「방해하지 않는 수」를 룰 엔진이 뽑은 것에서 고른다(quietMove). 정석대로 받아주는
-// 상대를 세우지 않는 이유는 북이 애초에 그것을 전제하지 않기 때문이다(package 주석).
+// 상대를 만들지 않는 이유는 북이 애초에 그것을 전제하지 않기 때문이다(package 주석).
 func TestOpeningMovesAreLegal(t *testing.T) {
 	for _, o := range All() {
 		for _, opp := range []shogi.Color{shogi.Black, shogi.White} {

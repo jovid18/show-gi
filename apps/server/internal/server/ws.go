@@ -56,11 +56,11 @@ type serverMsg struct {
 	Reason   string         `json:"reason,omitempty"`  // 기계용 코드(영어)
 	Message  string         `json:"message,omitempty"` // 화면용 문구(일본어)
 
-	// WhatIf 는 가정 수순의 지금 자리다. 스냅샷과 갈라 둔다 — 이건 대국의 상태가 아니라
+	// WhatIf 는 가정 수순의 지금 자리다. 스냅샷과 따로 둔다 — 이건 대국의 상태가 아니라
 	// 「안 벌어진 일」이고, 하나로 합치면 화면이 두 판을 같은 것으로 그린다.
 	WhatIf *whatifNode `json:"whatif,omitempty"`
 
-	// Summary 는 대국이 끝난 뒤 한 번 오는 총평이다. 갈라 둔 이유는 WhatIf 와 같다 —
+	// Summary 는 대국이 끝난 뒤 한 번 오는 총평이다. 따로 둔 이유는 WhatIf 와 같다 —
 	// 국면의 상태가 아니라 판 전체에 대한 이야기이고, 기록이 다 쓰이기를 기다리므로
 	// 결과 문구보다 늦게 도착한다(sendSummary).
 	Summary *gameSummaryPayload `json:"summary,omitempty"`
@@ -143,7 +143,7 @@ type gameSetup struct {
 
 // newSetup 은 쿼리에서 새 판의 설정을 읽는다. 못 읽는 값은 조용히 기본값이다 — 목록을
 // 서버가 주므로(GET /api/openings) 이상한 값이 오는 것은 클라이언트가 틀린 경우이고,
-// 그때 대국을 거절하는 것보다 평수로 시작하는 것이 낫다. 고른 것이 실제로 걸렸는지는
+// 그때 대국을 거절하는 것보다 平手로 시작하는 것이 낫다. 고른 것이 실제로 걸렸는지는
 // 스냅샷의 opponentOpening · handicap 으로 화면에서 보인다.
 func newSetup(r *http.Request, opts Options) gameSetup {
 	s := gameSetup{human: opts.HumanColor, startSFEN: opts.StartSFEN}
@@ -175,7 +175,7 @@ func newSetup(r *http.Request, opts Options) gameSetup {
 	return s
 }
 
-// errNoResume 는 이어할 수 없다는 것 하나다. 왜인지는 안 갈라 준다 — 없는 판·남의 판·
+// errNoResume 는 이어할 수 없다는 것 하나다. 왜인지는 알려주지 않는다 — 없는 판·남의 판·
 // 이미 다른 탭이 점유한 판이 같은 답을 받아야 남의 판 번호를 훑어볼 수 없다(§46).
 var errNoResume = errors.New("ws: cannot resume")
 
@@ -567,7 +567,7 @@ func (h *gameHandler) generateQuiz(parent context.Context, rec store.GameRecord)
 }
 
 // generateQuiz 는 끝난 판에서 문항을 만들어 저장한다. 부르는 자리가 둘이다 —
-// 엔진 대국이 끝나는 자리(gameHandler)와 취해 온 기보의 분석이 끝나는 자리
+// 엔진 대국이 끝나는 자리(gameHandler)와 가져온 기보의 분석이 끝나는 자리
 // (matchAnalyzer.buildQuiz). 어느 쪽이든 기록 하나만 있으면 된다.
 func generateQuiz(parent context.Context, st *store.Store, builder *quiz.Builder, rec store.GameRecord) {
 	if st == nil {
@@ -587,7 +587,7 @@ func generateQuiz(parent context.Context, st *store.Store, builder *quiz.Builder
 		// 못 본 채로 비었을 때만 안 적는다.
 		//
 		// 「끝까지 못 봤다」가 참이어도 나온 것은 사실이다 — 다 지어진 詰み 트리는 gap
-		// 후보 하나를 못 쟀다고 틀려지지 않고, 잰 gap 문항은 트리가 못 섰다고 틀려지지
+		// 후보 하나를 못 쟀다고 틀려지지 않고, 잰 gap 문항은 트리를 못 지었다고 틀려지지
 		// 않는다. 둘을 한 깃발로 묶으면 한쪽의 사소한 실패가 멀쩡한 다른 쪽을 지운다.
 		//
 		// 버리는 것은 빈 결과뿐이다. 그때만 「이 판에 문항이 없다」와 「못 봤다」가 같은
@@ -600,7 +600,7 @@ func generateQuiz(parent context.Context, st *store.Store, builder *quiz.Builder
 		//
 		// 한 자리를 못 본 것으로는 안 버린다. 중반의 무관한 국면에서 solver 가 결론을 못
 		// 내는 것은 흔하고(df-pn 이 timeout 하는 자리다), 그것으로 행을 안 남기면 그 판은
-		// 5분을 기다린 뒤 「안 왔다」에 서게 된다.
+		// 5분을 기다린 뒤 「안 왔다」에 머물게 된다.
 		if (cut || !measured) && built.Empty() {
 			log.Printf("ws: quiz: game %d: nothing was measured (timed out: %v) — leaving no row rather than claiming there was nothing", rec.ID, cut)
 			return

@@ -28,7 +28,7 @@ function Rank({ rank, label }: { rank: SkillRank; label: string }) {
  * 그냥 「8級」이라고 쓰면 초심자는 그것을 공인된 실력으로 읽는다.
  *
  * before 가 없으면 화살표를 안 그린다. 첫 판이면 잰 적이 없고, 그때 기준선을 「시작할
- * 때의 실력」으로 그리면 아무도 안 잰 숫자가 사람에 대한 판정으로 선다.
+ * 때의 실력」으로 그리면 아무도 안 잰 숫자가 사람에 대한 판정으로 굳는다.
  */
 function SkillChange({ skill }: { skill: NonNullable<GameSummary['skill']> }) {
   return (
@@ -86,7 +86,7 @@ function Focus({ focus, gameId }: { focus: NonNullable<GameSummary['stats']['foc
 /**
  * 대국이 끝난 뒤의 총평.
  *
- * 문장과 숫자를 갈라 그린다. 문장은 판이 어떤 모양이었는지를 말하고 숫자는 표로 선다 —
+ * 문장과 숫자를 나눠 그린다. 문장은 판이 어떤 모양이었는지를 말하고 숫자는 표로 나온다 —
  * 같은 수를 두 곳에 두면 어긋났을 때 어느 쪽이 맞는지 알 수 없어서, 문장을 만드는 쪽이
  * 애초에 숫자를 안 받는다(`explain.GameFacts`).
  *
@@ -112,7 +112,7 @@ export function Summary({ summary, imported = false }: { summary: GameSummary | 
               <dd>{summary.stats.playerMoves}</dd>
             </div>
             <div>
-              {/* 취해 온 판에서는 아무도 그 수를 막지 않았다. 「戻した回数」라고 적으면
+              {/* 가져온 판에서는 아무도 그 수를 막지 않았다. 「戻した回数」라고 적으면
                   없던 일을 있었다고 말하는 것이 된다 — 문장도 같은 자리에서 갈린다
                   (`explain.GameFacts.Intervened`). */}
               <dt>{imported ? '悪手の数' : '戻した回数'}</dt>

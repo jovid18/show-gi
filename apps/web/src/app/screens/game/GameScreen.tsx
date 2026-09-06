@@ -147,7 +147,7 @@ export function GameScreen() {
    * 물러진 수 하나가 분기의 바닥이다. 그 앞으로는 어느 버튼으로도 못 간다.
    *
    * 바닥 앞은 곧 지금 다시 둘 국면이라, 거기서 후보 셋을 그리면 대국 중에 답을
-   * 알려주는 것이 된다(01-core.md §7). 서버도 같은 벽을 갖고 있다(ws.go 의 `branchRoot`).
+   * 알려주는 것이 된다(01-core.md §7). 서버도 같은 제한을 갖고 있다(ws.go 의 `branchRoot`).
    */
   const retractedUsi = intervention?.retractedUsi;
   const floor = useMemo(() => (retractedUsi ? [retractedUsi] : []), [retractedUsi]);
@@ -194,7 +194,7 @@ export function GameScreen() {
    * 방금 둬 본 수를 그 자리에 적어 둔다.
    *
    * 값의 관점을 여기서 뒤집는다. 노드의 cp는 플레이어 관점인데 목록은 그 수를 둔 쪽
-   * 관점으로 서므로(후보와 같은 자여야 한 줄에 나란히 선다), 상대가 둔 수면 부호가 반대다.
+   * 관점으로 나오므로(후보와 같은 자여야 한 줄에 나란히 선다), 상대가 둔 수면 부호가 반대다.
    */
   useEffect(() => {
     const node = branch.node;
@@ -233,7 +233,7 @@ export function GameScreen() {
     });
   }, [branch.node]);
 
-  /** 지금 자리에서 둬 본 수들. 후보 셋 밖의 것만 카드가 줄로 세운다. */
+  /** 지금 자리에서 둬 본 수들. 후보 셋 밖의 것만 카드가 줄로 늘어놓는다. */
   const exploredHere = useMemo(() => {
     const key = (branch.node?.line ?? []).map((m) => m.usi).join(' ');
     return explored.get(key) ?? [];
@@ -358,7 +358,7 @@ export function GameScreen() {
    * 駒台에서 출발하는 화살표의 자리를 재야 하는 駒. 분기의 打과 힌트가 같은 장치를
    * 쓰고, 둘은 동시에 뜨지 않는다 — 힌트는 개입 중에 꺼진다.
    *
-   * 재는 것과 빛나는 것을 갈라 뒀다. 이 값을 `<Hand dropping>` 에 그대로 넘기면 힌트가
+   * 재는 것과 빛나는 것을 따로 뒀다. 이 값을 `<Hand dropping>` 에 그대로 넘기면 힌트가
    * `data-dropping` 을 켜서 駒台 駒에 초록 링이 붙는다 — 파란 테와 초록 링이 같은 駒에
    * 동시에 걸리고, 초록은 「상대가 무엇을 하는가」다.
    */

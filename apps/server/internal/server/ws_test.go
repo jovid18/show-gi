@@ -271,9 +271,9 @@ func TestWSAgainstRealEngine(t *testing.T) {
 
 // TestWSKomaochiAgainstRealEngine 은 駒落ち 판이 실엔진에서 끝까지 도는지다.
 //
-// 위 테스트와 갈라 두는 것은 확인할 것이 다르기 때문이다: 저쪽은 「대국이 도는가」이고
+// 위 테스트와 따로 두는 것은 확인할 것이 다르기 때문이다: 저쪽은 「대국이 도는가」이고
 // 여기는 「접어 준 판이 그 手合의 판인가」다 — 시작 국면 · 手番 · 手合割 이름 셋이 한
-// 자리에서 정해지므로(newSetup) 하나만 어긋나도 사람이 上手를 잡거나 판이 平手로 선다.
+// 자리에서 정해지므로(newSetup) 하나만 어긋나도 사람이 上手를 잡거나 판이 平手로 열린다.
 //
 // 적응형 상대로 띄운다. 밴드의 원점이 手合割에서 오므로(game.adaptiveOpponent.Choose)
 // 실엔진 후보로 그 길을 한 번 밟아 두는 자리가 여기밖에 없다.
@@ -488,7 +488,7 @@ func TestRealEngineIntervention(t *testing.T) {
 	// 없으므로 짚지 않는 것이 맞다(01-core.md §3). 억지로 끼워 맞추면 설명이 틀리고,
 	// 그게 이 제품에서 가장 큰 실패다. 그래서 값을 못 박지 않는다.
 	//
-	// 이유가 붙는 쪽은 TestRealEngineHangingPiece 가 본다 — 결과가 정해진 수로 묻는다.
+	// 짚을 이유가 있는 쪽은 TestRealEngineHangingPiece 가 본다 — 결과가 정해진 수로 묻는다.
 	if iv.Category == "" {
 		t.Error("개입했는데 카테고리가 비어 있다")
 	}
@@ -506,7 +506,7 @@ func TestRealEngineIntervention(t *testing.T) {
 
 // TestRealEngineHangingPiece 는 이유가 화면까지 가는지를 본다.
 //
-// 앞 테스트는 「개입이 걸리는가」이고 여기는 「왜 나쁜지를 말하는가」다. 갈라 두는
+// 앞 테스트는 「개입이 걸리는가」이고 여기는 「왜 나쁜지를 말하는가」다. 따로 두는
 // 이유는 최악수가 늘 짚을 만한 수는 아니기 때문이다 — 저쪽에서 나오는 ▲1七香은
 // 정당하게 미분류다.
 //

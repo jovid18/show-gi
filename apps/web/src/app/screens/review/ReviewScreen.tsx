@@ -17,7 +17,7 @@ import { useGameDetail, useGameList } from '@/hooks/useReview';
  */
 export function ReviewScreen({ route }: { route: Route }) {
   if (route.name === 'review') {
-    // 판이 바뀌면 새로 세운다. `key` 가 없으면 手数가 앞 판의 값에서 이어진다.
+    // 판이 바뀌면 새로 만든다. `key` 가 없으면 手数가 앞 판의 값에서 이어진다.
     return <SelectedGame key={route.id} id={route.id} initialPly={route.ply} />;
   }
   return <GameList />;
@@ -80,7 +80,7 @@ function GameCard({ game }: { game: GameSummary }) {
           {dateJa(game.startedAt)}
         </time>
         {game.handicapJa !== undefined && <span className="review-card-handicap">{game.handicapJa}</span>}
-        {/* 취해 온 판은 그렇다고 말한다. 여기서 둔 판과 같은 목록에 서므로, 안 적으면
+        {/* 가져온 판은 그렇다고 말한다. 여기서 둔 판과 같은 목록에 서므로, 안 적으면
             「언제 이런 판을 뒀지」가 된다(docs/journal §126). 뒤 세 칸이 아니라 첫 칸에
             붙는 것은 手合割과 같은 이유다 — 저쪽은 폭이 고정된 숫자 칸이다. */}
         {game.imported === true && <span className="review-card-source">取り込み</span>}
@@ -89,17 +89,17 @@ function GameCard({ game }: { game: GameSummary }) {
         {resultJa(game.result)}
       </span>
       <span className="review-card-moves">{game.moveCount}手</span>
-      {/* 대인전은 개입 횟수 자리에 「対人」이 선다. 거기에 「介入 0回」를 적으면 「한 번도
-          안 걸린 잘 둔 판」으로 읽히는데, 사실은 재지 않았다이다 — 그 둘이 초심자에게
+      {/* 대인전은 개입 횟수 자리에 「対人」이 온다. 거기에 「介入 0回」를 적으면 「한 번도
+          안 걸린 잘 둔 판」으로 읽히는데, 사실은 재지 않은 것이다 — 그 둘이 초심자에게
           정반대다(docs/journal §83). */}
       {game.isMatch === true ? (
         <span className="review-card-iv" data-match>
           対人
         </span>
       ) : (
-        // 0회도 적는다. 止まらなかった것도 성적이다 — 빈 자리로 두면 셌는지조차 안 보인다.
+        // 0회도 적는다. 한 번도 안 막힌 것도 성적이다 — 빈 자리로 두면 셌는지조차 안 보인다.
         //
-        // 취해 온 판은 「悪手」다. 아무도 안 막았으므로 「介入」이라고 적으면 없던 일을
+        // 가져온 판은 「悪手」다. 아무도 안 막았으므로 「介入」이라고 적으면 없던 일을
         // 있었다고 말하는 것이 된다 — 총평·기보 표식과 같은 자리다(docs/journal §126).
         <span className="review-card-iv" data-none={game.interventionCount === 0 || undefined}>
           {game.imported === true ? '悪手' : '介入'} {game.interventionCount}回

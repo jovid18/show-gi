@@ -8,7 +8,7 @@
 -- user_id 는 로그인 전이면 NULL이다 (002_anonymous_games.sql).
 --
 -- opening_tag 는 사람이 고른 상대의 진형 id다 (internal/book). 「おまかせ」면 NULL.
--- 이 칸이 있어야 이어하기가 상대를 원래대로 다시 세운다 — 북은 상태를 안 들고 매번
+-- 이 칸이 있어야 이어하기가 상대를 원래대로 다시 만든다 — 북은 상태를 안 들고 매번
 -- (start_sfen, moves) 에서 다시 구하므로(game.bookOpponent) id 하나면 그 자리로 돌아간다.
 INSERT INTO games (user_id, my_color, start_sfen, opening_tag)
 VALUES ($1, $2, $3, $4)
@@ -30,12 +30,12 @@ RETURNING id;
 
 -- name: CreateImportedGame :one
 --
--- 밖에서 둔 판을 취해 온 자리. 자리가 하나다 — 상대의 몫은 안 만든다.
+-- 밖에서 둔 판을 가져온 자리. 자리가 하나다 — 상대의 몫은 안 만든다.
 --
 -- opening_tag 가 없다. 그 칸은 「사람이 고른 컴퓨터의 진형」이라 채울 것이 없다
 -- (CreateMatchGame 과 같은 이유).
 --
--- user_id 가 NULL 로 오지 않는다. 로그인한 사람만 취해 올 수 있다 — 익명끼리는 구별할
+-- user_id 가 NULL 로 오지 않는다. 로그인한 사람만 가져올 수 있다 — 익명끼리는 구별할
 -- 수단이 없어서(002_anonymous_games.sql) 「누구의 기보인가」에 답할 수가 없다.
 INSERT INTO games (user_id, my_color, start_sfen, imported_from)
 VALUES ($1, $2, $3, $4)
@@ -43,9 +43,9 @@ RETURNING id;
 
 -- name: CountImportsSince :one
 --
--- 그 사람이 언제부터 지금까지 취해 온 판 수. 하루 몫의 벽이 이 값으로 선다.
+-- 그 사람이 언제부터 지금까지 가져온 판 수. 하루 몫의 상한이 이 값으로 정해진다.
 --
--- 판당 手数만큼의 탐색이라(server/kifu_import.go) 이 벽이 곧 엔진 예산의 벽이다.
+-- 판당 手数만큼의 탐색이라(server/kifu_import.go) 이 상한이 곧 엔진 예산의 상한이다.
 SELECT count(*) FROM games
 WHERE user_id = $1 AND imported_from IS NOT NULL AND started_at >= $2;
 
@@ -107,7 +107,7 @@ SELECT
     (SELECT count(*) FROM game_moves m WHERE m.game_id = g.id) AS move_count,
     (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count,
     g.match_id,
-    -- 재채점이 취해 온 판을 빼야 한다. 그 판에는 개입 루프가 안 돌아서 임계치를 넘은
+    -- 재채점이 가져온 판을 빼야 한다. 그 판에는 개입 루프가 안 돌아서 임계치를 넘은
     -- 수가 기보에 그대로 남아 있고, 섞으면 「통과한 수는 임계치 아래」가 깨진다
     -- (calibrate_measure_test.go).
     g.imported_from,
@@ -142,7 +142,7 @@ SELECT
     -- 대인전 판은 여기 그대로 뜬다. 마이페이지의 집계에서만 빠진다(journal §83) —
     -- 그쪽은 개입 비율이 뜻을 갖는 자리이고, 목록은 「무엇을 뒀나」라 뜻이 다르다.
     g.match_id,
-    -- 취해 온 판인가. 값이 아니라 있는가만 밖으로 나간다(020_imported_games.sql).
+    -- 가져온 판인가. 값이 아니라 있는가만 밖으로 나간다(020_imported_games.sql).
     g.imported_from,
     -- 手合割을 되짚는 유일한 칸이다(internal/handicap 의 Of). 칸을 새로 만들지 않은
     -- 이유가 이것이다 — 시작 국면이 곧 手合이라, 이름을 따로 적으면 둘이 갈릴 수 있다.
@@ -210,9 +210,9 @@ WHERE g.user_id = $1
   -- 배포가 대국 중에 끼면 실제로 그 상태가 만들어진다: 테이블이 접히면서(abort) 수가
   -- 있는 행이 abandoned 로 닫히고, 그것이 정확히 이 질의의 조건이다.
   AND g.match_id IS NULL
-  -- 취해 온 판도 이어할 수 없다. 지금은 걸릴 수가 없다 — 그 판은 win·loss·draw 로만
+  -- 가져온 판도 이어할 수 없다. 지금은 걸릴 수가 없다 — 그 판은 win·loss·draw 로만
   -- 닫히고(server 의 importedResultOf) abandoned 가 되는 경로가 없다. 조건을 적어 두는
-  -- 것은 그 사실이 다른 파일에 있기 때문이다: 실패한 취해 오기를 abandoned 로 닫는
+  -- 것은 그 사실이 다른 파일에 있기 때문이다: 실패한 가져오기를 abandoned 로 닫는
   -- 코드가 들어오는 날, 이 질의가 남이 딴 데서 둔 수순을 엔진 세션으로 이어 준다.
   AND g.imported_from IS NULL
 ORDER BY g.id DESC
@@ -242,7 +242,7 @@ RETURNING id, my_color, start_sfen, opening_tag;
 -- (docs/01-core.md §5), 사람이 안 이어하겠다고 한 것과 기록을 버리는 것은 다른 일이다.
 --
 -- declined 는 abandoned 의 하위 상태다: 중단된 채로 끝났고 사람이 그러기로 정했다.
--- 갈라 두는 이유는 하나뿐이다 — 이걸 다시 물어보지 않기 위해서다.
+-- 따로 두는 이유는 하나뿐이다 — 이걸 다시 물어보지 않기 위해서다.
 UPDATE games
 SET result = 'declined'
 WHERE id = $1
@@ -302,7 +302,7 @@ WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
 GROUP BY i.category;
 
 -- ─── 무르기 ─────────────────────────────────────────────────
--- 사람이 스스로 무른 수. 개입과 갈라 두는 이유는 008_game_undos.sql.
+-- 사람이 스스로 무른 수. 개입과 따로 두는 이유는 008_game_undos.sql.
 
 -- name: InsertUndo :exec
 --
@@ -327,7 +327,7 @@ SELECT ply, usi, eval_cp FROM game_undos WHERE game_id = $1 ORDER BY ply, id;
 -- name: CountGameUndos :one
 --
 -- 이어하는 판이 3회 제한을 리셋하지 않게 한다(game.Config.UndoUsed). 세션은 연결에
--- 매여 있어 이어할 때마다 새로 서는데, 카운터도 같이 0이 되면 제한이 제한이 아니다.
+-- 매여 있어 이어할 때마다 새로 만들어지는데, 카운터도 같이 0이 되면 제한이 제한이 아니다.
 SELECT count(*) FROM game_undos WHERE game_id = $1;
 
 -- ─── 전법·囲い ───────────────────────────────────────────────
@@ -347,7 +347,7 @@ WHERE id = @game_id AND NOT (style_tags @> ARRAY[@code::text]);
 -- 마이페이지의 「짠 진형」. 판 수를 센다 — 한 판에서 같은 이름이 여러 번 나오는 일은
 -- 위 질의가 이미 막았으므로, 이 숫자는 언제나 「그 이름으로 둔 판이 몇 판인가」다.
 --
--- 거르는 조건이 전적·약점과 같아야 한다: 셋이 한 화면에 서는데 모집단이 갈리면
+-- 거르는 조건이 전적·약점과 같아야 한다: 셋이 한 화면에 나오는데 모집단이 갈리면
 -- 「12판 뒀는데 진형은 30판에서 나온 것」이 된다.
 -- ::text 를 적어야 한다. unnest 의 결과 타입을 sqlc 가 못 읽어 interface{} 로
 -- 만들고, 그러면 코드가 문자열인지 아닌지를 부르는 쪽이 매번 확인해야 한다.
@@ -363,7 +363,7 @@ WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
 GROUP BY t.code;
 
 -- ─── 부른 힌트 ───────────────────────────────────────────────
--- 사람이 불러서 받은 최선수 힌트. 개입과 갈라 두는 이유는 010_game_hints.sql.
+-- 사람이 불러서 받은 최선수 힌트. 개입과 따로 두는 이유는 010_game_hints.sql.
 
 -- name: InsertHint :exec
 INSERT INTO game_hints (game_id, ply, sfen_key, stage, best_usi)

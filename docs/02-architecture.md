@@ -2,18 +2,18 @@
 
 ## 1. 기술 결정 (확정)
 
-| 항목     | 결정                                                                                                   | 근거                                                                                                                                                                          |
-| -------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 서버     | **Go 단일 서비스**                                                                                     | §2                                                                                                                                                                            |
-| 프론트   | React + TS + Vite                                                                                      | 확정 사항. 판 렌더는 새로 쓴다 (§8)                                                                                                                                           |
-| 3D       | three.js, **정사영 + 1.5컷**(§41)                                                                      | [프론트엔드](03-frontend.md)                                                                                                                                                  |
-| DB       | **PostgreSQL 단일. 그래프 DB 쓰지 않는다**                                                             | §4                                                                                                                                                                            |
-| 엔진     | **やねうら王 + 水匠5**. `ENGINE_CMD`로 교체 가능                                                       | §3                                                                                                                                                                            |
-| 문구     | **LLM을 안 쓴다.** 개입 문구·총평은 결정적 템플릿                                                      | §2 아래 · [`internal/explain`](../apps/server/internal/explain)                                                                                                               |
-| LLM      | **두 자리 — 취해 온 기보의 서식 정규화와 판 사진의 판독.** 둘 다 받아 적기만 하고 **좌표를 안 만진다** | [§126](journal/121-140.md) · [§129](journal/121-140.md) · [`internal/kifunorm`](../apps/server/internal/kifunorm) · [`internal/boardread`](../apps/server/internal/boardread) |
-| 인증     | **Google OAuth만**                                                                                     | LINE은 채널 개설에 시간이 든다                                                                                                                                                |
-| 배포     | AWS ECS on EC2 스팟 1대 + ALB, Terraform, Route53                                                      | §6                                                                                                                                                                            |
-| 모노레포 | pnpm 워크스페이스 + `apps/server`(Go 별도 go.mod)                                                      | `../more-more`와 동일 구조. oxfmt/oxlint, `.githooks`, CI까지 그대로                                                                                                          |
+| 항목     | 결정                                                                                                  | 근거                                                                                                                                                                          |
+| -------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 서버     | **Go 단일 서비스**                                                                                    | §2                                                                                                                                                                            |
+| 프론트   | React + TS + Vite                                                                                     | 확정 사항. 판 렌더는 새로 쓴다 (§8)                                                                                                                                           |
+| 3D       | three.js, **정사영 + 1.5컷**(§41)                                                                     | [프론트엔드](03-frontend.md)                                                                                                                                                  |
+| DB       | **PostgreSQL 단일. 그래프 DB 쓰지 않는다**                                                            | §4                                                                                                                                                                            |
+| 엔진     | **やねうら王 + 水匠5**. `ENGINE_CMD`로 교체 가능                                                      | §3                                                                                                                                                                            |
+| 문구     | **LLM을 안 쓴다.** 개입 문구·총평은 결정적 템플릿                                                     | §2 아래 · [`internal/explain`](../apps/server/internal/explain)                                                                                                               |
+| LLM      | **두 자리 — 가져온 기보의 서식 정규화와 판 사진의 판독.** 둘 다 받아 적기만 하고 **좌표를 안 만진다** | [§126](journal/121-140.md) · [§129](journal/121-140.md) · [`internal/kifunorm`](../apps/server/internal/kifunorm) · [`internal/boardread`](../apps/server/internal/boardread) |
+| 인증     | **Google OAuth만**                                                                                    | LINE은 채널 개설에 시간이 든다                                                                                                                                                |
+| 배포     | AWS ECS on EC2 스팟 1대 + ALB, Terraform, Route53                                                     | §6                                                                                                                                                                            |
+| 모노레포 | pnpm 워크스페이스 + `apps/server`(Go 별도 go.mod)                                                     | `../more-more`와 동일 구조. oxfmt/oxlint, `.githooks`, CI까지 그대로                                                                                                          |
 
 ---
 
@@ -76,7 +76,7 @@ edges (
   usi            text,
   child_key      text references positions,
   tags           text[],         -- ['mino','bougin','ryoudori'] — 이 수로 성립한 태그
-  eval_by_depth  int[],          -- [d1, d2, ... d12] 선수(sente) 관점 cp
+  eval_by_depth  int[],          -- [d1, d2, ... dN] 선수(sente) 관점 cp
   primary key (parent_key, usi)
 );
 create index on edges using gin (tags);
@@ -92,13 +92,13 @@ create index on edges using gin (tags);
 
 ### `eval_by_depth`는 공짜로 얻는다
 
-**깊이는 12이다.** 한때 14로 적어뒀는데 선행 계산이 8.4초가 나와 못 썼고([journal §10](journal/06-20.md)), 초반 캐시 히트율 65.7%를 재고 **14로 안 붙이기로 닫았다**([journal §91](journal/82-100.md)). 지금 프로덕션에서 도는 것은 판정·상대 수·가정 수순이 전부 12다(`game.JudgeDepth` · `game.DefaultDepth`) — 저널의 실측표에 남은 `depth 14` 는 기준점을 재던 측정값이지 이 배열의 길이가 아니다.
+**지금 프로덕션에서 도는 것은 판정·상대 수·가정 수순이 전부 14다**(`game.JudgeDepth` · `game.DefaultDepth` 가 한 값을 함께 쓴다, [journal §130](journal/121-140.md)) — 手合割 기준점 표가 처음부터 depth 14라 화면 값과 자를 맞춘 것이다. **선행 계산은 그것과 별개로 14에 안 붙인다**: 한때 붙여 봤는데 8.4초가 나와 못 썼고([journal §10](journal/06-20.md)), 초반 캐시 히트율 65.7%를 재고 닫았다([journal §91](journal/82-100.md)).
 
-USI 엔진은 iterative deepening 중 `info depth 1 score cp … / info depth 2 …`를 계속 뱉는다. **`go` 한 번의 info 라인을 깊이별로 주워담으면 그게 곧 이 배열이다.** 별도 탐색을 12번 돌릴 필요가 없다.
+USI 엔진은 iterative deepening 중 `info depth 1 score cp … / info depth 2 …`를 계속 뱉는다. **`go` 한 번의 info 라인을 깊이별로 주워담으면 그게 곧 이 배열이다.** 별도 탐색을 깊이마다 다시 돌릴 필요가 없다.
 
 **이 배열은 표시용 데이터가 아니라 개입 판정의 입력이다.** 초보자는 깊게 읽지 않으므로, 얕은 평가와 깊은 평가의 차이가 곧 **"초보자에게 보이는 것과 실제의 격차"**다. 그 격차의 부호가 양쪽 개입을 그대로 정의한다.
 
-| shallow (d2) | deep (d12) | 정체                        | 개입            |
+| shallow (d2) | deep (d14) | 정체                        | 개입            |
 | ------------ | ---------- | --------------------------- | --------------- |
 | 좋아 보임    | 실은 나쁨  | **함정** — 얕은 이득에 낚임 | 제지형 (블런더) |
 | 나빠 보임    | 실은 좋음  | **手筋** — 捨て駒·踏み込み  | 제안형 (힌트)   |
@@ -129,7 +129,7 @@ games        (id, user_id, my_color, started_at, finished_at, result, opening_ta
              -- 집계 셋이 그 조건으로 대인전을 뺀다. 밖으로는 불리언 하나만 나간다
 game_hints   (id, game_id, ply, sfen_key, stage, best_usi, taken, created_at)
              -- 사람이 **불러서** 받은 최선수 힌트 (010_game_hints.sql, §78).
-             -- **interventions 와 갈라 둔다** — 저쪽은 앱이 먼저 말을 건 자리다
+             -- **interventions 와 따로 둔다** — 저쪽은 앱이 먼저 말을 건 자리다
              -- result 어휘의 정본은 `store.GameResult` 다 — 칸에 CHECK 가 없어서
              -- 'declined'(§51)가 DDL 없이 늘었다. 中断은 'abandoned' 로 적힌다 —
              -- 'aborted' 는 세션·프로토콜 쪽 Status 이지 이 칸의 값이 아니다
@@ -147,12 +147,12 @@ game_quizzes (game_id primary key, version, payload jsonb, generated_at)
              -- 詰み 문항이 트리라 행으로 쪼개면 채점 질의가 그 모양을 SQL에서 다시 만든다
              -- **정답이 payload 안에 있고 응답에 안 실린다** — 채점이 서버에 있다
 game_undos   (id, game_id, ply, usi, eval_cp, created_at)
-             -- 사람이 스스로 무른 수 (008, §72). `interventions` 와 갈라 둔 이유는 예산도
+             -- 사람이 스스로 무른 수 (008, §72). `interventions` 와 따로 둔 이유는 예산도
              -- 뜻도 다르기 때문이다 — 이쪽은 판정을 **통과한** 수라 레이팅에서 안 빠진다
 skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at,
               skill_loss, skill_samples, rating_games, rating_updated_at,
               skill_abs_loss, skill_abs_samples)
-             -- **한 표에 척도가 셋이다.** 갈라 둔 이유는 비교 가능성이다 (013, §92 · 014, §94)
+             -- **한 표에 척도가 셋이다.** 따로 둔 이유는 비교 가능성이다 (013, §92 · 014, §94)
              -- skill_loss/samples — 엔진 대국의 적응용 (006, §48). 임계치에 대한 비율이라
              --   임계치가 사람마다 갈리는 순간 사람 사이에 비교할 수 없다.
              --   대인전도 판이 끝난 뒤 두 축을 다 먹인다 (§95)

@@ -15,7 +15,7 @@ import { parseSfen, toSfen, type Board as BoardModel } from '@/models/sfen';
 import { navigate } from '@/routes/router';
 
 /**
- * 「局面を読み取る」 — 판이 찍힌 그림을 올려 국면을 취해 오는 화면(journal §129).
+ * 「局面を読み取る」 — 판이 찍힌 그림을 올려 국면을 가져오는 화면(journal §129).
  *
  * 세 걸음이다. 그림을 올리고, 읽어 낸 판을 사람이 확인해 고치고, 手番을 고른다.
  * 그 셋이 끝나면 국면이 검토의 주소가 되어(`routeExplore` 의 `s`) 이 화면을 떠난다 —
@@ -31,12 +31,12 @@ import { navigate } from '@/routes/router';
  * 그 아래쪽을 先手로 두는 정규화는 서버가 이미 했다(`internal/boardread`).
  *
  * **로그인이 필요하다.** 그림을 읽는 것이 돈을 쓰는 일이라 사람마다 세야 하고, 익명끼리는
- * 구별할 수단이 없다. 고치는 것과 분석하는 것에는 그 벽이 없다 — 그쪽은 룰 계산과
+ * 구별할 수단이 없다. 고치는 것과 분석하는 것에는 로그인이 필요 없다 — 그쪽은 룰 계산과
  * 엔진 슬롯이라 이미 익명에게 열려 있다.
  */
 export function PositionScreen({ me }: { me: MeResponse }) {
   // 로그인 안 한 것은 오류가 아니다. 메뉴에서는 이 줄이 로그인한 사람에게만 보이지만
-  // 주소를 직접 열면 익명으로 여기 선다 — 그때 상자를 그려 주면 사람이 그림을 고르고
+  // 주소를 직접 열면 익명으로 여기 들어온다 — 그때 상자를 그려 주면 사람이 그림을 고르고
   // 누른 뒤에야 로그인이 필요하다는 것을 알게 된다(ImportScreen 과 같은 자리).
   if (me.user === null) return <SignInFirst enabled={me.enabled} />;
   return <PositionForm />;
@@ -84,7 +84,7 @@ function PositionForm() {
    *
    * 검사는 왕복이라 한 걸음 늦는다. 그 사이에 사람이 칸을 고치고 누르면 **직전 판의
    * 판정으로 버튼이 열려 있어서**, 二歩인 판이 검토로 넘어가 서버에 거절당한다 —
-   * 뒤로 가면 화면이 다시 서면서 올린 그림과 고친 것이 전부 사라진다.
+   * 뒤로 가면 화면이 다시 뜨면서 올린 그림과 고친 것이 전부 사라진다.
    */
   const [checkedSfen, setCheckedSfen] = useState('');
 

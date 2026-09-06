@@ -9,11 +9,11 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 대국 후 총평의 세는 쪽이다. 문장으로 바꾸는 일은 explain.RenderSummary 가 하고,
+// 대국 후 총평에서 세는 쪽이다. 문장으로 바꾸는 일은 explain.RenderSummary 가 하고,
 // 여기는 기록에서 사실을 결정적으로 뽑는다.
 //
 // 화면에 나가는 것이 숫자(summaryStats)와 문장 둘인데, 같은 수를 두 벌로 두지 않으려고
-// 갈라 뒀다 — 그래서 explain.GameFacts 에는 숫자가 아예 없다.
+// 따로 뒀다 — 그래서 explain.GameFacts 에는 숫자가 아예 없다.
 
 // summaryStats 는 화면이 그대로 그리는 숫자다. 문장은 이 값들을 말하지 않는다.
 type summaryStats struct {
@@ -84,13 +84,13 @@ type gameSummaryPayload struct {
 	Skill *skillChange `json:"skill,omitempty"`
 }
 
-// summarize 는 기록 하나를 총평으로 바꾼다. 문장과 표가 같은 세기에서 나온다(factsOf).
+// summarize 는 기록 하나를 총평으로 바꾼다. 문장과 표가 같은 집계에서 나온다(factsOf).
 func summarize(rec store.GameRecord, level intervene.Level) gameSummaryPayload {
 	facts, stats := factsOf(rec, level)
 	return gameSummaryPayload{Body: explain.RenderSummary(facts), Stats: stats}
 }
 
-// factsOf 는 기록에서 사실과 숫자를 한 번에 센다. 갈라 두면 문장이 말하는 카테고리와
+// factsOf 는 기록에서 사실과 숫자를 한 번에 센다. 따로 두면 문장이 말하는 카테고리와
 // 화면의 표가 어긋날 수 있어 한 함수다.
 func factsOf(rec store.GameRecord, level intervene.Level) (explain.GameFacts, summaryStats) {
 	f := explain.GameFacts{
@@ -99,7 +99,7 @@ func factsOf(rec store.GameRecord, level intervene.Level) (explain.GameFacts, su
 		Phase:    explain.PhaseNone,
 		Trend:    explain.TrendUnknown,
 		Standing: standingOf(rec),
-		// 취해 온 판에서는 아무도 그 수를 막지 않았다. 문장이 「戻す」로 말하면
+		// 가져온 판에서는 아무도 그 수를 막지 않았다. 문장이 「戻す」로 말하면
 		// 없던 일을 있었다고 말하게 된다(explain.GameFacts.Intervened).
 		Intervened: !rec.Imported,
 	}

@@ -213,7 +213,7 @@ func TestFormationMirrorsForGote(t *testing.T) {
 func TestIbishaNeedsACastleFirst(t *testing.T) {
 	rook := square{2, 8, shogi.Rook} // 初形의 飛. 振っていない
 
-	bare := place(shogi.Black, rook) // 囲い이 없다
+	bare := place(shogi.Black, rook) // 囲い가 없다
 	if got := Detect(Input{Pos: bare, Color: shogi.Black, PlayerMoves: []string{"7g7f"}}); len(got) != 0 {
 		t.Errorf("囲い도 없는데 %v 가 떴다", codes(got))
 	}
@@ -247,7 +247,7 @@ func TestADroppedRookIsNotASwing(t *testing.T) {
 }
 
 // 初期配置에서는 아무것도 뜨지 않는다. 居飛車가 「飛を振っていない」だけ로 성립하면
-// 첫 수 전에 뜬다 — 플레이어가 아직 하지 않은 선택에 이름이 붙는다. 囲い을 함께
+// 첫 수 전에 뜬다 — 플레이어가 아직 하지 않은 선택에 이름이 붙는다. 囲い를 함께
 // 요구하는 것이 그것을 막고, 그 조건이 풀리면 이 테스트가 실패한다.
 func TestStartPositionHasNoTags(t *testing.T) {
 	pos := shogi.StartPosition()

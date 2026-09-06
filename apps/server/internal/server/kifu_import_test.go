@@ -56,7 +56,7 @@ func TestImportedResultIsFromTheOwnersSide(t *testing.T) {
 }
 
 // 미리보기는 앞뒤를 같이 보여 준다. 앞만 보여 주면 「뒤가 잘렸는가」를 사람이 알 수 없고,
-// 그것이 취해 오기에서 가장 흔한 오류다.
+// 그것이 가져오기에서 가장 흔한 오류다.
 func TestPreviewShowsBothEnds(t *testing.T) {
 	g, notation, err := kifu.Read(sampleKIF)
 	if err != nil {
@@ -145,7 +145,7 @@ func TestUnreadableMoveSaysWhichPly(t *testing.T) {
 	}
 }
 
-// 취해 온 판이 사후 분석을 지나면 평가치와 悪手 줄이 같이 채워지고, 段級에 쌓인다.
+// 가져온 판이 사후 분석을 지나면 평가치와 悪手 줄이 같이 채워지고, 段級에 쌓인다.
 // 사람이 정한 것이 「전부 합친다」다(journal §126).
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
@@ -167,7 +167,7 @@ func TestImportedGameGetsEvalsAndBlunders(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 홀수 手(사람의 수)만 낙폭이 크게 나오도록 갈라 둔다.
+	// 홀수 手(사람의 수)만 낙폭이 크게 나오도록 따로 둔다.
 	a := analyzerFor(st, func() game.Analyst {
 		return stubAnalyst{lossOdd: 0.9, lossEven: 0, blunder: true}
 	})
@@ -213,7 +213,7 @@ func TestImportedGameGetsEvalsAndBlunders(t *testing.T) {
 	}
 }
 
-// 되짚기가 「解析しています」를 그리려면 취해 온 판도 「분석 중」으로 보여야 한다.
+// 되짚기가 「解析しています」를 그리려면 가져온 판도 「분석 중」으로 보여야 한다.
 // games.match_id 로 조인하는 쪽에는 안 걸린다.
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
@@ -263,7 +263,7 @@ func shuffleGameUSI(plies int) string {
 }
 
 // 하루 몫은 판이 만들어지는 것을 센다. 옮겨 적는 일은 그 전에 일어나므로, 읽기만
-// 반복하는 사람은 그 벽에 영영 안 닿으면서 토큰을 계속 쓴다(journal §126).
+// 반복하는 사람은 그 상한에 영영 안 닿으면서 토큰을 계속 쓴다(journal §126).
 func TestTranscribeBudgetCapsTheHour(t *testing.T) {
 	now := time.Now()
 	b := newHourlyBudget(maxTranscribesPerHour)
@@ -277,7 +277,7 @@ func TestTranscribeBudgetCapsTheHour(t *testing.T) {
 	if b.take(1) {
 		t.Error("the call past the budget went through")
 	}
-	// 사람마다 따로 센다. 한 사람이 다 쓰면 다른 사람이 못 읽는 것은 벽이 아니라 고장이다.
+	// 사람마다 따로 센다. 한 사람이 다 쓰면 다른 사람이 못 읽는 것은 상한이 아니라 고장이다.
 	if !b.take(2) {
 		t.Error("another person was refused because of somebody else's calls")
 	}
@@ -321,12 +321,12 @@ func TestAnOversizedBodySaysItIsTooLarge(t *testing.T) {
 }
 
 // 千日手는 shogi.ValidateMove 가 안 막는다. 합법 수순만으로 몇 천 手를 적을 수 있고,
-// 그 판이 手数만큼의 엔진 판정을 줄에 세운다 — 정규화 계층의 벽은 그 길을 안 막는다.
+// 그 판이 手数만큼의 엔진 판정을 줄에 세운다 — 정규화 계층의 상한은 그 길을 안 막는다.
 func TestADeterministicallyReadKifuIsStillCapped(t *testing.T) {
 	h := &kifuHandler{}
 	long := shuffleGameUSI(maxImportPlies + 2)
 
-	// 먼저 그 수순이 실제로 읽히는지 본다. 안 읽히면 이 시험이 벽이 아니라 파서를 재게 된다.
+	// 먼저 그 수순이 실제로 읽히는지 본다. 안 읽히면 이 시험이 상한이 아니라 파서를 재게 된다.
 	g, _, err := kifu.Read(long)
 	if err != nil {
 		t.Fatalf("the sample does not parse, so this proves nothing: %v", err)
@@ -372,7 +372,7 @@ func TestAHandicapImportBlamesTheRightSide(t *testing.T) {
 		t.Fatalf("StartSFEN = %q, want the 香落ち position", g.StartSFEN)
 	}
 
-	// 사람은 下手 다 — 색으로는 b 이고, 그쪽이 **2手目부터** 둔다.
+	// 사람은 下手다 — 색으로는 b 이고, 그쪽이 **2手目부터** 둔다.
 	h := &kifuHandler{store: st}
 	gameID, err := h.save(t.Context(), userID, "b", string(notation), g, store.ResultWin)
 	if err != nil {
@@ -403,7 +403,7 @@ func TestAHandicapImportBlamesTheRightSide(t *testing.T) {
 	}
 }
 
-// 미리보기에서 확인한 판이 취해 오는 판과 같아야 한다.
+// 미리보기에서 확인한 판이 가져오는 판과 같아야 한다.
 //
 // 원문을 두 번 보내는 설계는 「같은 원문이면 같은 결과」에 기대는데, 그 전제가 정규화
 // 계층에는 없다 — 다시 물으면 다른 표기가 올 수 있고, 그러면 확인한 것과 들어온 것이

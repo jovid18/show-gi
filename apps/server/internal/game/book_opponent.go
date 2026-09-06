@@ -30,7 +30,7 @@ type bookOpponent struct {
 // 감싸는 자리는 배선이다(server/ws.go) — Config 에 진형을 받지 않는 이유는 세션이
 // 상대의 수순을 아는 자리를 만들지 않기 위해서다(Config.OpponentOpening).
 //
-// color 는 상대가 잡은 쪽이다. 사람의 색을 넘기면 진형이 통째로 반대편에 선다.
+// color 는 상대가 잡은 쪽이다. 사람의 색을 넘기면 진형이 통째로 반대편에 짜인다.
 func NewBookOpponent(inner Opponent, o book.Opening, color shogi.Color) Opponent {
 	return &bookOpponent{inner: inner, color: color, moves: o.Moves(color)}
 }
@@ -115,7 +115,7 @@ func (o *bookOpponent) next(startSFEN string, moves []string) (string, bool) {
 	return usi, true
 }
 
-// startSFENOr 는 빈 값을 평수 초기 국면으로 바꾼다. Config.StartSFEN 의 규약과 같다.
+// startSFENOr 는 빈 값을 平手 초기 국면으로 바꾼다. Config.StartSFEN 의 규약과 같다.
 func startSFENOr(s string) string {
 	if s == "" {
 		return shogi.StartSFEN

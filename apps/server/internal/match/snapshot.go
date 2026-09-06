@@ -7,7 +7,7 @@ import (
 )
 
 // 클라이언트가 보는 타입들이다. json 태그가 곧 웹과의 계약이다 — game.Snapshot 과
-// 같은 규약이고, 갈라 둔 이유는 여기 없는 것들 때문이다: 개입·힌트·무르기·게이지·
+// 같은 규약이고, 따로 둔 이유는 여기 없는 것들 때문이다: 개입·힌트·무르기·게이지·
 // 태그·상대의 강함이 전부 없고, 대신 시계와 상대의 접속이 있다.
 //
 // 스냅샷은 언제나 통째로 나간다 — 저쪽과 같은 이유이고, 여기는 하나가 더 있다:
@@ -23,13 +23,13 @@ const (
 	StatusResigned   Status = "resigned"
 	StatusRepetition Status = "repetition"
 	// StatusTimeout 은 수번 쪽이 1手 제한시간을 넘긴 것이다. 승패가 난다 —
-	// 엔진 대국의 aborted(상대의 수를 못 얻어 접은 것)와 갈라 두는 자리다.
+	// 엔진 대국의 aborted(상대의 수를 못 얻어 접은 것)와 따로 두는 자리다.
 	StatusTimeout Status = "timeout"
 	// StatusAborted 는 승패 없이 접힌 것이다. 서버가 내려갈 때뿐이다.
 	StatusAborted Status = "aborted"
 	// StatusExpired 는 한 수도 안 둔 채 시간이 다 된 것이다. 승패가 없다.
 	//
-	// aborted 와 갈라 둔다. 둘 다 승패가 없지만 화면이 할 말이 정반대다 — 저쪽은
+	// aborted 와 따로 둔다. 둘 다 승패가 없지만 화면이 할 말이 정반대다 — 저쪽은
 	// 「서버 사정」이고 이쪽은 「아무도 안 뒀다」인데, 하나로 뭉치면 그냥 자리를 비운 판에서
 	// 두 사람 다 서버를 탓하게 된다.
 	StatusExpired Status = "expired"
@@ -57,8 +57,8 @@ type Snapshot struct {
 	Ply      int    `json:"ply"`
 	Turn     string `json:"turn"` // "b" | "w"
 	YourTurn bool   `json:"yourTurn"`
-	// InCheck 는 수번 쪽이 王手를 받고 있는가다. 보는 사람 기준이 아니다 — 왕수를
-	// 건 쪽도 상대 玉에 표시가 서야 하고(엔진 대국과 같다), 어느 玉인지는 화면이
+	// InCheck 는 수번 쪽이 王手를 받고 있는가다. 보는 사람 기준이 아니다 — 王手를
+	// 건 쪽도 상대 玉에 표시가 떠야 하고(엔진 대국과 같다), 어느 玉인지는 화면이
 	// turn 으로 짚는다.
 	InCheck bool `json:"inCheck"`
 
@@ -134,7 +134,7 @@ func (st *state) snapshot() *snapshotData {
 	return d
 }
 
-// for_ 는 그쪽이 보는 한 벌로 편다. 여기가 「너」와 「상대」가 정해지는 유일한 자리다.
+// for_ 는 그쪽이 보는 모양으로 편다. 여기가 「너」와 「상대」가 정해지는 유일한 자리다.
 func (d *snapshotData) for_(you shogi.Color) Snapshot {
 	s := Snapshot{
 		SFEN:           d.sfen,

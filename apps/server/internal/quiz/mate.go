@@ -14,7 +14,7 @@ import (
 type mateSolver struct {
 	mate MateSearcher
 	memo map[string]int
-	// unknown 은 solver 가 결론을 못 낸 국면이다. memo 와 갈라 둔다 — 저쪽의 0은
+	// unknown 은 solver 가 결론을 못 낸 국면이다. memo 와 따로 둔다 — 저쪽의 0은
 	// 「詰み이 없다」는 결론이고 이쪽은 결론이 아니다.
 	unknown map[string]struct{}
 	budget  int
@@ -129,7 +129,7 @@ func (s *mateSolver) expand(ctx context.Context, nodes map[string]MateNode, pos 
 
 			// 2+rest < plies 는 뿌리 手数가 최소가 아니었다는 뜻이고 solver 가 최소를
 			// 준다는 전제와 어긋난다. 일어나면 그 수는 더 빠른 詰み이므로 정답으로 두고
-			// (맞은 것을 틀렸다고 말하지 않는다) 여기에 소리를 남긴다.
+			// (맞은 것을 틀렸다고 말하지 않는다) 여기에 로그를 남긴다.
 			if 2+rest < plies {
 				log.Printf("quiz: mate tree: %s cuts %d-ply mate to %d — the root distance was not minimal", usiMove, plies, 2+rest)
 			}
@@ -231,7 +231,7 @@ func preferMate(usiMove string, mated bool, cur string, curMated bool) bool {
 func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position) (*MateItem, int) {
 	sol := newMateSolver(b.mate)
 
-	// 「詰み이 없었다」와 「solver 가 답을 못 했다」를 갈라 센다. 둘을 뭉쳐 로그에 「문항
+	// 「詰み이 없었다」와 「solver 가 답을 못 했다」를 따로 센다. 둘을 뭉쳐 로그에 「문항
 	// 0개」로만 남기면, 엔진이 통째로 답하지 않는 배포에서도 그림이 똑같아서 기능이
 	// 조용히 사라진 것을 알 수 없다.
 	scanned, unanswered := 0, 0
@@ -275,7 +275,7 @@ func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position
 
 		nodes, ok := sol.buildTree(ctx, pos, d)
 		if !ok {
-			// 버린 이유를 갈라 적는다. 예산이 남았는데 버렸다면 어딘가에서 solver 가
+			// 버린 이유를 따로 적는다. 예산이 남았는데 버렸다면 어딘가에서 solver 가
 			// 결론을 못 냈다는 뜻이고, 그것은 DepthLimit(기본 11) 밖으로 늘어난 갈래일 수
 			// 있다 — 7手 뿌리에서 한 手 낭비하면 13手가 된다. 뭉쳐 적으면 프로덕션에서
 			// 詰み 문항이 늘 사라지는 이유를 첫 판에서 못 읽는다(§53).
@@ -295,9 +295,9 @@ func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position
 //
 // 수를 견주지 않고 手数로 센다. 「엔진이 준 수순의 첫 수와 같은가」로 보면 余詰(같은
 // 手数의 다른 詰み筋)을 놓친 것으로 세는데 실전 국면에서는 흔하다. 어느 筋으로 詰ましても
-// 판은 그 手数 안에 끝나므로, 그 뒤로 더 길게 이어졌다가 곧 놓친 것이다.
+// 판은 그 手数 안에 끝나므로, 그 뒤로 더 길게 이어졌다면 그것이 곧 놓친 것이다.
 //
-// 이긴 것만으로는 모자라다. 엔진은 質 때문에 投了하기도 하고, 못 두는 수를 내놓아도
+// 이긴 것만으로는 모자라다. 엔진은 詰み 전에 投了하기도 하고, 못 두는 수를 내놓아도
 // 사람의 승리로 닫힌다(game/session.go 의 applyEngineMove).
 //
 // 그때 手数만 보면 「あなたが決めた詰みです」가 두어진 적 없는 詰み을 두고 나간다.

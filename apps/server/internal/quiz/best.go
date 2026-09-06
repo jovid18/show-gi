@@ -110,7 +110,7 @@ func (b *Builder) candidates(in Input, posAt []shogi.Position, skip int) []candi
 
 // score 는 한 국면의 1위·2위를 재서 문항을 만든다.
 //
-// ok=false 는 「문항이 안 된다」이고, failed=true 는 못 쟀다이다. 갈라 두는 이유는
+// ok=false 는 「문항이 안 된다」이고, failed=true 는 못 쟀다이다. 따로 두는 이유는
 // 조건에 안 맞는 것은 흔한 결과이고 못 잰 것은 회차가 온전하지 않다는 뜻이라서다(Build).
 func (b *Builder) score(ctx context.Context, in Input, pos shogi.Position, i int) (item BestItem, ok, failed bool) {
 	res, err := b.search.SearchMultiPV(ctx, pos.SFEN(), nil, b.depth, BestMultiPV)

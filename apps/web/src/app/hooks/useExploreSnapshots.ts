@@ -15,7 +15,7 @@ import type { ExploreSnapshot } from '@/protocol/explore';
  * 검토에서 저장한 국면 목록과 그것을 고치는 셋.
  *
  * 고친 뒤에 다시 묻지 않고 서버가 답한 행으로 그 자리만 고친다 — 다시 물으면 목록이
- * 한 번 사라졌다 서고, 그 사이에 방금 저장한 줄을 못 찾는다.
+ * 한 번 사라졌다 다시 그려지고, 그 사이에 방금 저장한 줄을 못 찾는다.
  *
  * `useFetch` 를 안 쓴다(useReview). 저쪽은 주소 하나를 읽는 것뿐이고, 여기는 목록의
  * 주인이라 고치는 자리가 셋이다.
@@ -23,12 +23,12 @@ import type { ExploreSnapshot } from '@/protocol/explore';
 export interface SnapshotSource {
   loaded: Loaded<ExploreSnapshot[]>;
   /**
-   * 로그인 벽에서 닫혔다. 목록도 저장 칸도 없고 화면이 한 줄만 남긴다 — 검토 자체는
+   * 로그인 검사에서 닫혔다. 목록도 저장 칸도 없고 화면이 한 줄만 남긴다 — 검토 자체는
    * 로그인 없이 도므로(journal §100) 이 패널을 통째로 지우면 저장이 「없는 기능」이 된다.
    */
   signedOut: boolean;
   /**
-   * 기록이 없는 배포라 이 표면이 아예 없다. 그때는 화면이 패널을 안 그린다 — 로그인 벽과
+   * 기록이 없는 배포라 이 표면이 아예 없다. 그때는 화면이 패널을 안 그린다 — 로그인 검사와
    * 갈리는 자리다: 저쪽은 사람이 열 수 있고 이쪽은 열 방법이 없다.
    */
   unavailable: boolean;
@@ -36,7 +36,7 @@ export interface SnapshotSource {
   pending: boolean;
   /** 마지막 실패. 서버가 준 일본어다(libs/explore/snapshots.ts). */
   error: string;
-  /** 지금 보고 있는 자리를 남긴다. 성공하면 true — 부르는 쪽이 입력을 비운다. */
+  /** 지금 보고 있는 국면을 남긴다. 성공하면 true — 부르는 쪽이 입력을 비운다. */
   save: (name: string, handicap: string, moves: readonly string[]) => Promise<boolean>;
   rename: (id: number, name: string) => Promise<boolean>;
   remove: (id: number) => Promise<boolean>;
@@ -71,7 +71,7 @@ export function useExploreSnapshots(): SnapshotSource {
         if (controller.signal.aborted) return;
         if (err instanceof SignedOutError || err instanceof UnavailableError) {
           // 빈 목록으로 두면 「하나도 없다」로 읽히고, 그 옆에 눌러도 안 되는 저장
-          // 버튼이 선다. 붉은 알림도 아니다 — 둘 다 다시 눌러서 열리는 실패가 아니다.
+          // 버튼이 뜬다. 붉은 알림도 아니다 — 둘 다 다시 눌러서 열리는 실패가 아니다.
           if (err instanceof SignedOutError) setSignedOut(true);
           else setUnavailable(true);
           setLoaded({ state: 'ready', data: [] });

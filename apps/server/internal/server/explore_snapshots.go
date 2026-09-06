@@ -24,7 +24,7 @@ import (
 // SFEN 칸을 만들지 않는다. 저장된 값이 곧 다음 요청의 본문이라, 만드는 순간 journal §37 이
 // 닫아 둔 문이 이쪽으로 열린다.
 //
-// 로그인이 필요하다. 검토 자체에는 그 벽이 없지만(journal §100) 익명끼리는 구별할 수단이
+// 로그인이 필요하다. 검토 자체에는 그 검사가 없지만(journal §100) 익명끼리는 구별할 수단이
 // 없어서(002_anonymous_games.sql) 「내가 저장한 국면」이 성립하지 않는다.
 
 const (
@@ -101,7 +101,7 @@ func (h *exploreSnapshotHandler) list(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"snapshots": out})
 }
 
-// save 는 지금 보고 있는 자리를 남긴다.
+// save 는 지금 보고 있는 국면을 남긴다.
 //
 // 수순을 룰 엔진에 되짚어 본다. 합법성 검사뿐이라 엔진 슬롯을 안 잡는다(journal §96) —
 // 안 하면 불러올 때마다 거절되는 행이 기록에 남는다.
@@ -254,14 +254,14 @@ func (h *exploreSnapshotHandler) remove(w http.ResponseWriter, r *http.Request) 
 }
 
 // loginRequired 는 이 표면 넷이 같은 문구로 거절한다(whatifMessages). 목록·저장·이름·삭제가
-// 같은 벽 뒤에 있어서, 자리마다 다른 말을 쓰면 같은 일이 다른 일로 읽힌다.
+// 같은 검사 뒤에 있어서, 자리마다 다른 말을 쓰면 같은 일이 다른 일로 읽힌다.
 func (h *exploreSnapshotHandler) loginRequired(w http.ResponseWriter) {
 	writeJSON(w, http.StatusUnauthorized, map[string]any{
 		"error": "login_required", "message": whatifMessages["login_required"],
 	})
 }
 
-// notFound 는 없는 국면과 남의 국면에 같은 답을 준다. 갈라 주면 남이 몇 개 저장했는지를
+// notFound 는 없는 국면과 남의 국면에 같은 답을 준다. 구별해 주면 남이 몇 개 저장했는지를
 // 번호로 훑어볼 수 있다.
 func (h *exploreSnapshotHandler) notFound(w http.ResponseWriter) {
 	writeJSON(w, http.StatusNotFound, map[string]any{
@@ -283,7 +283,7 @@ func exploreSnapshotID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 
 // exploreSnapshotName 은 이름을 다듬는다. 두 번째 값이 false면 너무 길다.
 //
-// 양끝 공백을 지운다. 안 지우면 공백 하나가 이름인 줄이 목록에 빈 채로 선다.
+// 양끝 공백을 지운다. 안 지우면 공백 하나가 이름인 줄이 목록에 빈 채로 남는다.
 func exploreSnapshotName(raw string) (string, bool) {
 	name := strings.TrimSpace(raw)
 	if utf8.RuneCountInString(name) > exploreSnapshotNameMax {
@@ -311,7 +311,7 @@ func exploreSnapshotViewOf(row store.ExploreSnapshot) exploreSnapshotView {
 		out.Moves = []string{}
 	}
 	// 표에서 못 찾아도 id 는 싣는다. 이 칸까지 비우면 그 줄이 平手로 보이고 불러오기도
-	// 平手 0手目로 열려, 다른 국면이 같은 이름으로 선다.
+	// 平手 0手目로 열려, 다른 국면이 같은 이름으로 남는다.
 	out.Handicap = row.Handicap
 	if hc, ok := handicap.Find(row.Handicap); ok {
 		out.HandicapJa = hc.Name

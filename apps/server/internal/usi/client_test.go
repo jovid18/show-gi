@@ -155,9 +155,9 @@ func TestRankedPutsTheHighestScoreFirst(t *testing.T) {
 	}
 }
 
-// 같은 수가 두 순위에 앉는다 — 순위 칸은 깊이마다 덮어써지는데, 마지막 iteration에서 안 온
+// 같은 수가 두 순위를 차지한다 — 순위 칸은 깊이마다 덮어써지는데, 마지막 iteration에서 안 온
 // 순위는 얕은 깊이의 줄을 그대로 들고 남기 때문이다. 그대로 내보내면 검토 화면의 후보
-// 셋에 같은 수가 두 번 서고, 그 목록은 화면에서 지워지지 않는 줄을 하나 남긴다(§87).
+// 셋에 같은 수가 두 번 들어가고, 그 목록은 화면에서 지워지지 않는 줄을 하나 남긴다(§87).
 func TestRankedDropsTheSameMoveTwice(t *testing.T) {
 	var res SearchResult
 	// 얕은 깊이에서 3위였던 8g8f 가 깊은 깊이에서 2위가 됐다. 3위 자리는 다시 오지 않았다.

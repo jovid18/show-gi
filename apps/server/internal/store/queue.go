@@ -22,7 +22,7 @@ type QueueWaiter struct {
 	Rating, Deviation float64
 	JoinedAt          time.Time
 	// Name 은 표시 이름이다. 후보로 올라온 사람에게만 채워진다 — 짝이 되면 그 자리에서
-	// 방을 세우고(match.Hub.CreatePaired) 방이 그 값을 들기 때문이다. 고르는 데는 안 쓴다.
+	// 방을 만들고(match.Hub.CreatePaired) 방이 그 값을 들기 때문이다. 고르는 데는 안 쓴다.
 	Name string
 }
 
@@ -38,7 +38,7 @@ type QueuePairing struct {
 	// Opponent 는 고른 짝이다.
 	Opponent QueueWaiter
 	// RoomID 는 두 사람이 갈 방이다. 짝짓기보다 먼저 정해진다 — 표에 적을 값이라
-	// 방을 세우기 전에 있어야 한다(server/queue.go).
+	// 방을 만들기 전에 있어야 한다(server/queue.go).
 	RoomID string
 	// MyColor·OppColor 는 그 방에서 두 사람이 잡는 쪽이다. 표에 적히는 것은 짝의 것
 	// 하나다 — 내 행은 이 자리에서 지워지고, 내 쪽은 부르는 쪽이 이미 손에 들고 있다.
@@ -161,7 +161,7 @@ func (s *Store) PairInQueue(
 	me, err := q.LockQueueWaiter(ctx, userID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// 내 행이 없거나 남이 잠그고 있다. 둘 다 「이번에는 못 짓는다」로 같다 —
-		// 갈라 봐도 부르는 쪽이 할 일이 하나다(다음 재시도).
+		// 구분해도 부르는 쪽이 할 일이 하나다(다음 재시도).
 		return QueuePairing{}, ErrNoQueueSeat
 	}
 	if err != nil {

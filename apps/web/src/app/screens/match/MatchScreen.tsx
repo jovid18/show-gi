@@ -19,7 +19,7 @@ import { Waiting } from './Waiting';
 /**
  * 사람과 두는 판.
  *
- * 엔진 대국 화면과 갈라 둔 이유는 여기 없는 것들 때문이다 — 개입 카드도, 힌트도,
+ * 엔진 대국 화면과 따로 둔 이유는 여기 없는 것들 때문이다 — 개입 카드도, 힌트도,
  * 待った도, 詰み 게이지도, 상대의 강함 눈금도 없다. 그것들을 조건으로 감싸 한 화면에
  * 넣으면 파일이 두 제품을 그리게 되고, 개입 쪽을 고칠 때마다 이쪽이 안 깨졌는지를
  * 매번 확인해야 한다(docs/journal §83).
@@ -44,7 +44,7 @@ export function MatchScreen({ roomId }: { roomId: string }) {
     const ac = new AbortController();
     void fetchRoom(roomId, ac.signal)
       .then((room) => setPeek({ room, done: true }))
-      // 못 읽어도 화면은 선다 — 아래가 「열 수 없다」를 그린다. 실패와 404를 같이 두는
+      // 못 읽어도 화면은 뜬다 — 아래가 「열 수 없다」를 그린다. 실패와 404를 같이 두는
       // 것은 서버가 이미 그 둘을 같은 답으로 주기 때문이다.
       .catch(() => setPeek({ room: null, done: true }));
     return () => ac.abort();
@@ -243,7 +243,7 @@ function MatchBoard({
 
       <aside className="game-side">
         <div className="game-state">
-          {/* 상대가 누구인지는 판 내내 서 있어야 한다. 차례 문구에만 실으면 자기 차례일
+          {/* 상대가 누구인지는 판 내내 떠 있어야 한다. 차례 문구에만 실으면 자기 차례일
               때 그 사람이 화면에서 사라진다 — 대인전에서 「지금 누구와 두고 있나」는 판이
               끝날 때까지 유효한 사실이다. */}
           <p className="match-who">
@@ -254,7 +254,7 @@ function MatchBoard({
             {result ?? (snapshot.yourTurn ? 'あなたの番です。' : '相手の番です。')}
           </p>
 
-          {/* 시계는 판이 도는 동안만 그린다. 끝난 판에 0초가 서 있으면 시간패로
+          {/* 시계는 판이 도는 동안만 그린다. 끝난 판에 0초가 떠 있으면 시간패로
               끝난 것처럼 읽힌다 — 결과 문구가 그것을 이미 말한다. */}
           {!over && <Clock leftMs={left} limitMs={snapshot.turnLimitMs} yours={snapshot.yourTurn} />}
 
@@ -364,7 +364,7 @@ function Clock({ leftMs, limitMs, yours }: { leftMs: number; limitMs: number; yo
 }
 
 /**
- * 결과 한 줄. `board-view.ts` 의 것과 갈라 둔다 — 저쪽은 승자를 `human`/`engine` 으로
+ * 결과 한 줄. `board-view.ts` 의 것과 따로 둔다 — 저쪽은 승자를 `human`/`engine` 으로
  * 읽는데 여기는 사람이 둘이라 `you`/`opponent` 다. 그리고 여기에만 있는 것이 시간패다.
  */
 function matchResultText(snapshot: MatchSnapshot): string | null {

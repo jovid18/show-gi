@@ -20,7 +20,7 @@ import { isPromoted, mobilityOf, type GridDirection, type JumpDirection } from '
  * 점들이 원으로 보여서 어느 칸을 가리키는지가 흐려진다. 격자로 두면 점 하나가
  * 판의 한 칸에 그대로 대응한다 — 玉과 銀을 나란히 놓으면 그 차이가 바로 보인다.
  *
- * 위아래로 살짝 내려 잡은 것은 오각형이 위에서 좁아지기 때문이다. 간격은 두 축이 같다.
+ * 세로 축을 살짝 내려 잡은 것은 오각형이 위에서 좁아지기 때문이다. 간격은 두 축이 같다.
  */
 const COL = { west: 19, center: 50, east: 81 };
 const ROW = { north: 22, middle: 53, south: 84 };

@@ -261,7 +261,7 @@ ON CONFLICT (match_id) DO NOTHING
 
 // 끝난 판의 큐(019). 자리는 games 가 들고 여기는 「무엇이 남았나」만 든다.
 //
-// 판의 자리를 미리 세운다. 手数는 아직 비어 있어 집히지 않는다.
+// 판의 자리를 미리 잡아 둔다. 手数는 아직 비어 있어 집히지 않는다.
 //
 // 번호가 나가기 전에 서야 한다 — 화면이 되짚기를 여는 순간 이미 「분석 중」이라야 하고,
 // 그 시점에는 자리가 하나뿐일 수 있다(matchRecords.collect).
@@ -281,10 +281,10 @@ type ImportSeatRow struct {
 	MyColor string
 }
 
-// 취해 온 판의 자리다. 한 판이 games 행 하나이고 그 행이 곧 자리다 — 대인전이 행 둘인
+// 가져온 판의 자리다. 한 판이 games 행 하나이고 그 행이 곧 자리다 — 대인전이 행 둘인
 // 것과 다른 자리이고(MatchSeats), 그래서 분석기가 키를 보고 둘을 가른다.
 //
-// 주인이 없는 행은 안 준다. 취해 오기가 로그인한 사람만이라 그런 행이 생길 수 없지만,
+// 주인이 없는 행은 안 준다. 가져오기가 로그인한 사람만이라 그런 행이 생길 수 없지만,
 // 자리에 사람이 없으면 실력을 쌓을 곳이 없어 판을 재도 반쪽이 된다.
 func (q *Queries) ImportSeat(ctx context.Context, id int64) (ImportSeatRow, error) {
 	row := q.db.QueryRow(ctx, importSeat, id)
@@ -300,7 +300,7 @@ SELECT (
         JOIN games g ON g.match_id = j.match_id
         WHERE g.id = $1::bigint
     )
-    -- 취해 온 판은 games.match_id 가 NULL 이라 위 조인에 안 걸린다. 줄에 세울 때 쓴 키를
+    -- 가져온 판은 games.match_id 가 NULL 이라 위 조인에 안 걸린다. 줄에 세울 때 쓴 키를
     -- 부르는 쪽이 그대로 넘긴다 — 키의 모양을 Go 한 곳에만 두기 위해서다.
     OR EXISTS (
         SELECT 1 FROM analysis_jobs j WHERE j.match_id = $2::text
@@ -427,7 +427,7 @@ type ReadyAnalysisJobParams struct {
 //
 // HoldAnalysisJob 이 세운 행을 채우는 것이 보통인데, 없으면 여기서 만든다. UPDATE 로만
 // 두면 그 앞이 한 번 실패했을 때 이 문장이 **조용히 아무 일도 안 하고** 그 판이 큐에
-// 안 선다 — 되짚기는 그것을 「남지 않았다」로만 보여 주므로 아무도 못 알아챈다.
+// 안 만들어진다 — 되짚기는 그것을 「남지 않았다」로만 보여 주므로 아무도 못 알아챈다.
 func (q *Queries) ReadyAnalysisJob(ctx context.Context, arg ReadyAnalysisJobParams) error {
 	_, err := q.db.Exec(ctx, readyAnalysisJob, arg.MatchID, arg.Plies)
 	return err

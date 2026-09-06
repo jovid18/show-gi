@@ -44,7 +44,7 @@ type Handicap struct {
 	// 그것을 안 걸고 재면 같은 국면이 1.5배로 나오고(첫 측정이 그랬다, journal §84) 표가
 	// 통째로 다른 척도가 된다. 그 숫자가 무엇을 정하는지는 패키지 주석에 있다.
 	//
-	// [미확정] K=600이 초기값인 것과 같은 벽이다 — 재측정은 baseline_measure_test.go.
+	// [미확정] K=600이 초기값인 것과 같은 처지다 — 재측정은 baseline_measure_test.go.
 	BaselineCp int
 }
 
@@ -109,7 +109,7 @@ var list = []Handicap{
 func All() []Handicap { return list }
 
 // Find 는 id 로 手合割을 찾는다. 빈 id 는 平手라 없는 것으로 답한다 — 부르는 쪽이
-// 그때 지금까지처럼 평수 초기 국면으로 판을 연다(패키지 주석).
+// 그때 지금까지처럼 平手 초기 국면으로 판을 연다(패키지 주석).
 func Find(id string) (Handicap, bool) {
 	if id == "" {
 		return Handicap{}, false
@@ -122,10 +122,10 @@ func Find(id string) (Handicap, bool) {
 	return Handicap{}, false
 }
 
-// FindByName 은 일본어 이름으로 手合割을 찾는다. 취해 온 기보의 「手合割：香落ち」 줄이
+// FindByName 은 일본어 이름으로 手合割을 찾는다. 가져온 기보의 「手合割：香落ち」 줄이
 // 그 자리다(internal/kifu).
 //
-// 平手는 이 표에 없으므로 없는 것으로 답한다. 부르는 쪽이 그때 평수 초기 국면을 쓴다.
+// 平手는 이 표에 없으므로 없는 것으로 답한다. 부르는 쪽이 그때 平手 초기 국면을 쓴다.
 func FindByName(name string) (Handicap, bool) {
 	name = strings.TrimSpace(name)
 	if name == "" {

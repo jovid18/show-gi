@@ -16,7 +16,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/boardread"
 )
 
-// 사진에서 국면을 취해 오는 표면은 경계가 넷이다 — 로그인 · 시간당 몫 · 그림이 그림인가 ·
+// 사진에서 국면을 가져오는 표면은 경계가 넷이다 — 로그인 · 시간당 몫 · 그림이 그림인가 ·
 // 룰 엔진이 무엇을 말하는가. 판독 자체는 internal/boardread 가 확인한다.
 
 const startSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1"
@@ -43,7 +43,7 @@ func positionTest(t *testing.T, answer string) *positionHandler {
 	}
 }
 
-// startGrid 는 평수 초기 국면을 「先手로 앉아 찍은 화면」으로 적은 답이다.
+// startGrid 는 平手 초기 국면을 「先手로 앉아 찍은 화면」으로 적은 답이다.
 func startGrid() string {
 	rows := []string{
 		`["l","n","s","g","k","g","s","n","l"]`,
@@ -139,9 +139,9 @@ func TestReadNeedsASignIn(t *testing.T) {
 	}
 }
 
-// 벽이 부르기 전에 선다. 부른 뒤에 세면 시한에 걸린 호출이 몫을 안 쓰는데, 그 실패가
+// 몫을 부르기 전에 센다. 부른 뒤에 세면 시한에 걸린 호출이 몫을 안 쓰는데, 그 실패가
 // 가장 비싼 호출이다.
-func TestReadStopsAtTheHourlyWall(t *testing.T) {
+func TestReadStopsAtTheHourlyLimit(t *testing.T) {
 	h := positionTest(t, startGrid())
 
 	for i := range maxBoardReadsPerHour {
@@ -154,7 +154,7 @@ func TestReadStopsAtTheHourlyWall(t *testing.T) {
 		t.Fatalf("status = %d, want 429 — body = %s", rec.Code, rec.Body.String())
 	}
 
-	// 몫은 사람마다다. 남의 몫이 내 벽이 되면 안 된다.
+	// 몫은 사람마다다. 남의 몫이 내 상한이 되면 안 된다.
 	if rec := h.postRead(t, 8, fakePNG); rec.Code != http.StatusOK {
 		t.Fatalf("another person: status = %d, want 200", rec.Code)
 	}
@@ -187,7 +187,7 @@ func TestReadSaysWhenThereIsNoBoard(t *testing.T) {
 	}
 }
 
-// 키가 없으면 이 뿌리만 안 열린다. 검사와 검토는 그대로 돈다.
+// 키가 없으면 이 경로만 안 열린다. 검사와 검토는 그대로 돈다.
 func TestReadWithoutAKeyIsUnavailable(t *testing.T) {
 	rec := httptest.NewRecorder()
 	boardReadUnavailable(rec, httptest.NewRequest(http.MethodPost, "/api/position/read", nil))
@@ -311,8 +311,8 @@ func TestDecodeImageAcceptsADataURL(t *testing.T) {
 	}
 }
 
-// 세션이 없는 요청은 UserID 를 안 든다. 벽이 사람을 세는 자리라 그 값이 0이면 익명
-// 전체가 한 몫을 나눠 쓰게 되고, 그래서 로그인 벽이 이 벽의 조건이다.
+// 세션이 없는 요청은 UserID 를 안 든다. 상한이 사람을 세는 자리라 그 값이 0이면 익명
+// 전체가 한 몫을 나눠 쓰게 되고, 그래서 로그인 검사가 이 상한의 조건이다.
 func TestReadDoesNotCountAnonymousRequests(t *testing.T) {
 	h := positionTest(t, startGrid())
 
@@ -327,7 +327,7 @@ func TestReadDoesNotCountAnonymousRequests(t *testing.T) {
 	}
 }
 
-// 판독을 재는 그림을 모으는 자리(apps/server/README.md). 폴더가 켜져 있을 때만 서고,
+// 판독을 재는 그림을 모으는 자리(apps/server/README.md). 폴더가 켜져 있을 때만 열리고,
 // 이름을 서버가 지으므로 화면이 준 글자가 경로가 되지 않는다.
 
 // labelTest 는 그림을 모으는 핸들러다. 폴더는 그 시험의 것이라 남는 것이 없다.

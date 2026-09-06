@@ -20,7 +20,7 @@ export function GuideScreen() {
     <article className="guide">
       <header className="guide__hero">
         {/* 로고는 `public/` 에 있다(brand/icons.sh). 여기만 큰 것을 쓰므로 192를 부른다 —
-            헤더의 96과 갈라 두면 둘 다 자기 크기에 맞는 파일을 받는다. */}
+            헤더의 96과 따로 두면 둘 다 자기 크기에 맞는 파일을 받는다. */}
         <img className="guide__logo" src="/icon-192.png" alt="" width={96} height={96} decoding="async" />
         <div>
           <h1 className="guide__title">はじめての方へ</h1>
@@ -83,7 +83,7 @@ export function GuideScreen() {
           。指した瞬間に戻され、まわりが暗くなって説明のカードが出ます。
         </p>
 
-        {/* 세 걸음을 가로로 세운다. 실제 화면을 흉내 내는 것이 아니라 순서를 말하는
+        {/* 세 걸음을 가로로 늘어놓는다. 실제 화면을 흉내 내는 것이 아니라 순서를 말하는
             그림이라 판을 그리지 않는다 — 판을 그리면 「그때 판이 이렇게 생겼다」로 읽힌다. */}
         <ol className="guide__flow">
           <li className="guide__flow-step">
@@ -129,7 +129,7 @@ export function GuideScreen() {
           </div>
         </dl>
 
-        {/* 원칙 하나를 눈에 띄게 세운다. 이걸 모르면 「왜 정답을 안 알려주지」가 고장으로
+        {/* 원칙 하나를 눈에 띄게 내건다. 이걸 모르면 「왜 정답을 안 알려주지」가 고장으로
             읽힌다 — 실제로 그 자리에서 갈렸다(docs/01-core.md §1). */}
         <p className="guide__note">
           カードは<strong>「次にこう指せ」とは言いません。</strong>

@@ -131,7 +131,7 @@ func scanOne(path string) gameScan {
 	}
 
 	// 手番이 번갈아 간다는 것에 기대지 않고 적용한 색으로 가른다. 中断된 기보나
-	// 평수가 아닌 시작 국면에서 짝수/홀수 가정이 조용히 뒤집힌다.
+	// 平手가 아닌 시작 국면에서 짝수/홀수 가정이 조용히 뒤집힌다.
 	moves := map[shogi.Color][]string{}
 	seen := map[shogi.Color]map[string]bool{shogi.Black: {}, shogi.White: {}}
 
@@ -317,7 +317,7 @@ func reportLatePlies(t *testing.T, results []gameScan) {
 		row(string(k), byKind[k])
 	}
 
-	// ibisha 를 갈라 본다. 저것만 성질이 다르다 — 「振らなか다」는 상태이고 囲い이
+	// ibisha 를 따로 본다. 저것만 성질이 다르다 — 「振っていない」는 상태이고 囲い가
 	// 서야 뜨므로 저절로 늦다. 나머지 여섯은 「振った 수」라 序盤의 사실이다. 섞으면
 	// 중앙값이 끌려 올라가서 경계를 잘못 고르게 된다.
 	header("戦法·戦型을 코드별로 — 경계는 여기서 고른다")
@@ -488,7 +488,7 @@ func TestScanWhatStandsAroundAnUnnamedKing(t *testing.T) {
 	// 玉이 서 있는 囲い 자리(先手 기준). 위 측정에서 미검출이 몰린 곳이다.
 	interesting := map[[2]int]string{{2, 8}: "美濃側 2八", {7, 8}: "矢倉側 7八"}
 
-	// 玉 주변에서 囲い을 이루는 칸들(先手 2八 기준의 상대 위치).
+	// 玉 주변에서 囲い를 이루는 칸들(先手 2八 기준의 상대 위치).
 	around := [][2]int{{1, 0}, {2, 0}, {3, 0}, {1, 1}, {0, 1}, {-1, 0}, {1, -1}, {0, -1}}
 
 	var (
@@ -797,7 +797,7 @@ func senteView(file, rank int, c shogi.Color) (int, int) {
 }
 
 // neighbourhood 는 玉 주변 칸에 선 자기 駒를 「칸:駒」로 늘어놓는다. 빈 칸과 상대 駒는
-// 적지 않는다 — 囲い은 자기 駒의 배치이고, 나머지를 적으면 같은 형태가 수십 갈래로 흩어진다.
+// 적지 않는다 — 囲い는 자기 駒의 배치이고, 나머지를 적으면 같은 형태가 수십 갈래로 흩어진다.
 func neighbourhood(pos shogi.Position, c shogi.Color, kf, kr int, around [][2]int) string {
 	var parts []string
 	for _, d := range around {

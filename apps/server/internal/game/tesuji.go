@@ -61,7 +61,7 @@ func freshTesuji(before, after shogi.Position, c shogi.Color, lastUSI string) []
 	}
 
 	// 여기 오는 수는 이미 룰 엔진이 검증한 것이다. 그래도 파싱 실패를 없는 것으로
-	// 넘기는 이유는, 이름 하나가 안 뜨는 것과 대국이 서는 것의 값이 다르기 때문이다.
+	// 넘기는 이유는, 이름 하나가 안 뜨는 것과 대국이 도는 것의 값이 다르기 때문이다.
 	last, err := shogi.ParseUSIMove(lastUSI)
 	if err != nil {
 		return out
@@ -73,7 +73,7 @@ func freshTesuji(before, after shogi.Position, c shogi.Color, lastUSI string) []
 //
 // 捨て駒를 죽이지 않는 것이 이 형태의 값이다. 손으로 쓴 판정은 「그 駒가 잡히는가」를
 // 물었고, 그러면 腹銀처럼 잡히는 것이 정상인 寄せ 手筋이 전부 탈락한다(tag/placement.go).
-// 엔진은 depth 12로 읽으므로 성립하는 捨て駒는 평가치가 떨어지지 않고, 성립하지 않는
+// 엔진은 depth 14로 읽으므로 성립하는 捨て駒는 평가치가 떨어지지 않고, 성립하지 않는
 // 것만 떨어진다 — 조건 하나가 両取り와 寄せ를 함께 가른다.
 //
 // 견주는 두 값은 intervene 이 개입을 판정할 때 쓰는 그 둘이다. 새 축을 만들지 않는다 —

@@ -139,7 +139,7 @@ func maxGameID(t *testing.T, st *store.Store) int64 {
 // 대국을 만든다. 그때 max(id)는 남의 판을 집어 오고, 그 판에는 result 가 영영 안 찍혀서
 // 10초를 기다리다 「abandoned 로 안 찍혔다」로 죽는다. 실제로 그렇게 깨졌다.
 //
-// 그래서 시작 국면으로 한 번 더 거른다. 대국 세션은 평수 초기 국면을 이 문자열
+// 그래서 시작 국면으로 한 번 더 거른다. 대국 세션은 平手 초기 국면을 이 문자열
 // 그대로 적고(session.go), 다른 패키지의 테스트는 자기 이름을 적는다.
 func waitForNewGame(t *testing.T, st *store.Store, before int64) int64 {
 	t.Helper()

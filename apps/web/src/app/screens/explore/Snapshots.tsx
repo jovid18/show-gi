@@ -23,7 +23,7 @@ interface SnapshotsProps {
    * 막지만 그 실패를 사람에게 보일 이유가 없다.
    */
   savable: boolean;
-  /** 저장된 국면을 판에 세운다. 부르는 쪽이 주소를 고친다. */
+  /** 저장된 국면을 판에 올린다. 부르는 쪽이 주소를 고친다. */
   onLoad: (handicap: string, moves: string[]) => void;
 }
 
@@ -39,7 +39,7 @@ export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) 
   const [confirming, setConfirming] = useState<number | null>(null);
 
   // 기록이 없는 배포에는 이 표면이 아예 없다. 그때는 자리를 안 만든다 — 열 방법이 없는
-  // 기능을 한 줄로 알려 줘도 읽는 사람이 할 일이 없다(아래 로그인 벽과 갈리는 자리).
+  // 기능을 한 줄로 알려 줘도 읽는 사람이 할 일이 없다(아래 로그인 검사와 갈리는 자리).
   if (unavailable) return null;
 
   // 로그인 안 한 사람에게는 한 줄만 남긴다. 검토 자체는 로그인 없이 돌므로(journal §100)

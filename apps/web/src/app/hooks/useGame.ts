@@ -72,7 +72,7 @@ export interface GameState {
   /**
    * 중단된 판을 이어서 연다.
    *
-   * 새 판을 여는 것과 같은 연결이다. 서버가 기보에서 국면을 다시 세우므로
+   * 새 판을 여는 것과 같은 연결이다. 서버가 기보에서 국면을 다시 만들므로
    * (`journal` §46), 화면 쪽에서 갈리는 것은 주소의 쿼리 하나뿐이다.
    */
   resume: (game: ResumableGame) => void;
@@ -120,10 +120,10 @@ function socketUrl(setup: GameSetup, resumeId: number | null): string {
 export function useGame(): GameState {
   const [connection, setConnection] = useState<Connection>('idle');
   const [setup, setSetup] = useState<GameSetup | null>(null);
-  // 판이 열려 있는가. setup 과 갈라 둔다 — setup 은 다음 판의 기본값으로 남아야 하고,
+  // 판이 열려 있는가. setup 과 따로 둔다 — setup 은 다음 판의 기본값으로 남아야 하고,
   // 그것으로 「지금 두는 중인가」를 겸하면 대국을 접는 순간 고른 것도 같이 사라진다.
   const [live, setLive] = useState(false);
-  // 이어하는 판의 번호. setup 과 갈라 둔다 — setup 은 다음 판의 기본값으로 남지만
+  // 이어하는 판의 번호. setup 과 따로 둔다 — setup 은 다음 판의 기본값으로 남지만
   // 이 값은 그 연결 하나에만 산다. 섞어 두면 「もう一局」이 끝난 판을 또 이어하려 든다.
   const [resumeId, setResumeId] = useState<number | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -152,7 +152,7 @@ export function useGame(): GameState {
 
   useEffect(() => {
     // 고르기 전에는 붙지 않는다. 여기서 미리 붙으면 그 순간 판이 하나 열려 기록에
-    // 남고, 사람이 아직 아무것도 고르지 않은 채로 先手 평수 대국이 시작된다.
+    // 남고, 사람이 아직 아무것도 고르지 않은 채로 先手 平手 대국이 시작된다.
     if (!live || !setup) return;
 
     const socket = new WebSocket(socketUrl(setup, resumeId));
@@ -200,7 +200,7 @@ export function useGame(): GameState {
       } else if (msg.type === 'whatif') {
         settle((p) => p.resolve(msg.whatif));
       } else if (msg.type === 'whatif_error') {
-        // 착수 거절과 갈라 둔다. 저쪽은 판 위의 실패라 판 옆에 뜨고, 이쪽은 가정 수순
+        // 착수 거절과 따로 둔다. 저쪽은 판 위의 실패라 판 옆에 뜨고, 이쪽은 가정 수순
         // 패널 안의 실패다 — 한 자리에 뭉치면 「두다가 뭘 잘못했나」로 읽힌다.
         settle((p) => p.reject(new Error(msg.message)));
       }

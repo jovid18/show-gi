@@ -74,7 +74,7 @@ func TestMatchRatingRoundTrips(t *testing.T) {
 		t.Errorf("추정치가 %+v 로 바뀌었다, want {0.3 9}", got.Skill)
 	}
 
-	// 두 번째 판은 덮고 세기만 한다.
+	// 두 번째 판은 값을 덮고 판 수만 하나 올린다.
 	if err := s.SaveMatchRatings(t.Context(), a, MatchRating{Value: 1555, Deviation: 270}, b, wantB); err != nil {
 		t.Fatalf("두 번째 SaveMatchRatings: %v", err)
 	}

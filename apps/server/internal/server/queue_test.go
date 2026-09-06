@@ -108,7 +108,7 @@ func queueServer(t *testing.T, people int) queueFixture {
 	}
 
 	f := queueFixture{h: Handler(opts), hub: m.hub, store: st, users: users, base: queueBase(t)}
-	// 전원이 같은 자리에 선다. 벌려 놓을 테스트는 스스로 다시 부른다.
+	// 전원이 같은 레이팅에 놓인다. 벌려 놓을 테스트는 스스로 다시 부른다.
 	f.rate(t, func(int) float64 { return f.base })
 	return f
 }

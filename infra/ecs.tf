@@ -25,7 +25,7 @@ locals {
   ssm_prefix = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/show-gi/prod"
 
   # 티어 둘이 같은 이미지를 같은 손잡이로 돌린다. 갈리는 것은 SERVER_ROLE 과 비밀 목록
-  # 둘뿐이라 나머지를 여기 모은다 — 갈라 적으면 한쪽만 고쳐서 두 티어가 다른 엔진 설정으로
+  # 둘뿐이라 나머지를 여기 모은다 — 따로 적으면 한쪽만 고쳐서 두 티어가 다른 엔진 설정으로
   # 돌고, 그러면 회차의 값이 티어 간에 대조가 안 된다.
   #
   # ENGINE_CMD 를 여기 두지 않는다. 엔진 실행 경로는 이미지 내부 구조라 Terraform이 알 수
@@ -209,7 +209,7 @@ resource "aws_ecs_task_definition" "app" {
   # 서버에서 밖으로 나가는 호출이라 그 길이 막히면 로그인이 통째로 깨진다.
   #
   # bridge 는 안 된다. Caddy가 reverse_proxy localhost:8080 으로 api 를 부르는데
-  # (apps/web/Caddyfile) bridge 는 컨테이너마다 네임스페이스를 갈라서 그 한 줄이 깨진다.
+  # (apps/web/Caddyfile) bridge 는 컨테이너마다 네임스페이스를 나눠서 그 한 줄이 깨진다.
   # host 는 두 컨테이너가 인스턴스의 네임스페이스를 같이 쓰므로 그대로 닿는다.
   network_mode = "host"
 
@@ -255,7 +255,7 @@ resource "aws_ecs_task_definition" "app" {
 
       # 로그인과 세션이 이 티어에만 있다. 분석 티어는 사람을 안 받으므로 DATABASE_URL 뿐이다.
       #
-      # OPENAI_API_KEY 도 이 티어뿐이다. 기보를 취해 오는 요청이 사람에게서 오고
+      # OPENAI_API_KEY 도 이 티어뿐이다. 기보를 가져오는 요청이 사람에게서 오고
       # (server/kifu_import.go) 분석 워커는 그 계층을 안 지난다 — 옮겨 적는 일은 판이
       # 줄에 서기 전에 이미 끝나 있다.
       #
@@ -315,7 +315,7 @@ resource "aws_ecs_task_definition" "analysis" {
 # ─── 용량 공급자 ────────────────────────────────────────────
 
 # 티어마다 하나다. 하는 일은 「이 서비스의 태스크를 저 ASG 에만 얹는다」이고,
-# 그것이 없으면 ECS 가 클러스터의 아무 인스턴스에나 얹어서 갈라 둔 것이 섞인다.
+# 그것이 없으면 ECS 가 클러스터의 아무 인스턴스에나 얹어서 따로 둔 것이 섞인다.
 #
 # 상호작용 쪽은 managed_scaling 이 꺼져 있다. 켜 봐야 min=max=1 이라 움직일 값이 없고,
 # 꺼 두면 그 ASG 의 대수를 terraform 이 계속 든다.
@@ -471,7 +471,7 @@ resource "aws_ecs_service" "app" {
   ]
 }
 
-# 분석 티어. 대상 그룹에 안 붙는다 — 여기에 사람이 오면 방이 이 프로세스의 메모리에 서서
+# 분석 티어. 대상 그룹에 안 붙는다 — 여기에 사람이 오면 방이 이 프로세스의 메모리에 있어서
 # 짝이 안 맞고(journal §98) 로그에 아무것도 안 남는다. 배포 워크플로가 /healthz 의 role 을
 # 열 번 물어 그것을 막는다(.github/workflows/images.yml).
 #

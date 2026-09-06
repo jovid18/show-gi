@@ -88,7 +88,7 @@ func TestResumableGameIsTheLatestAbandonedOne(t *testing.T) {
 	}
 
 	// 「いいえ」라고 답하면 그 자리에서 후보가 아니다. 다시 물어보지 않는 것이 이
-	// 상태를 갈라 둔 유일한 이유다.
+	// 상태를 따로 둔 유일한 이유다.
 	if err := s.DeclineResume(t.Context(), newest, me); err != nil {
 		t.Fatalf("DeclineResume: %v", err)
 	}

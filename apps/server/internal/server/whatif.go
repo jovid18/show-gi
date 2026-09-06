@@ -90,7 +90,7 @@ type whatifRequest struct {
 // whatifRoot 은 분기가 자라날 정본이다. 요청은 여기에 대해서만 뜻이 있고, 뿌리를
 // 얻는 곳은 표면마다 다르다(journal §37).
 type whatifRoot struct {
-	// StartSFEN 은 0手目의 국면. 비어 있으면 평수 초기 국면이다.
+	// StartSFEN 은 0手目의 국면. 비어 있으면 平手 초기 국면이다.
 	StartSFEN string
 	// Moves 는 확정된 수다. 여기까지가 실제로 벌어진 일이고, 분기는 그 뒤에 붙는다.
 	Moves []string
@@ -257,10 +257,10 @@ var whatifMessages = map[string]string{
 	"bad_line":           "この手順はこれ以上進められません。",
 	"engine_unavailable": "エンジンが応答しませんでした。",
 	"busy":               "まだ読んでいます。",
-	// 대국 중에만 나온다. 되짚기에는 이 벽이 없다 — 끝난 판이라 무엇을 둬 봐도
+	// 대국 중에만 나온다. 되짚기에는 이 제한이 없다 — 끝난 판이라 무엇을 둬 봐도
 	// 아무도 안 잃는다(ws.go 의 branchRoot).
 	"locked": "対局中は、戻された手のあとだけ試せます。",
-	// 검토에서 국면을 저장·불러올 때만 나온다(explore_snapshots.go). 검토 자체에는 이 벽이
+	// 검토에서 국면을 저장·불러올 때만 나온다(explore_snapshots.go). 검토 자체에는 이 검사가
 	// 없다(journal §100) — 사람마다 다른 기록을 여는 쪽에만 자격이 필요하다.
 	"login_required": "局面の保存はログインしてから使えます。",
 }

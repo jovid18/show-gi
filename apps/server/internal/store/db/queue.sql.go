@@ -126,7 +126,7 @@ type LockQueueCandidatesRow struct {
 //
 // 이 폭은 어떤 밴드보다 넓다. 좁게 자르면 붙을 수 있는 짝을 잠그기 전에 버린다.
 //
-// 이름을 같이 든다. 짝을 지으면 그 자리에서 방을 세워야 하고(match.Hub.CreatePaired) 방은
+// 이름을 같이 든다. 짝을 지으면 그 자리에서 방을 만들어야 하고(match.Hub.CreatePaired) 방은
 // 두 사람의 표시 이름을 든다 — 따로 읽으면 그 사이에 사람이 사라진 경우가 하나 더 생긴다.
 //
 // 잠그는 것은 대기열 행이다(OF q). users 를 같이 잠그면 로그인 하나가 짝짓기를 기다린다.
@@ -252,7 +252,7 @@ type TakeQueueSeatRow struct {
 
 // 짝이 잡혔으면 그 자리를 주고 행을 지운다. 아직이면 0행이다.
 //
-// 읽는 것과 지우는 것이 한 문장이다. 갈라 두면 그 사이에 다시 물어본 요청이 같은 자리를
+// 읽는 것과 지우는 것이 한 문장이다. 따로 두면 그 사이에 다시 물어본 요청이 같은 자리를
 // 두 번 받고, 화면이 두 번 방으로 간다 — 방은 정원이 둘이라 두 번째가 남의 자리를 노린다.
 func (q *Queries) TakeQueueSeat(ctx context.Context, userID int64) (TakeQueueSeatRow, error) {
 	row := q.db.QueryRow(ctx, takeQueueSeat, userID)

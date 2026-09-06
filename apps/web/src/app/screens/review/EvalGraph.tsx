@@ -16,7 +16,7 @@ import type { WhatIf } from '@/hooks/useWhatIf';
  */
 interface EvalGraphProps {
   game: GameDetail;
-  /** 지금 보고 있는 手数. 그 자리가 굵은 점으로 선다. */
+  /** 지금 보고 있는 手数. 그 자리가 굵은 점으로 찍힌다. */
   ply: number;
   /** 지금 서 있는 분기. 없으면 초록선이 없다. */
   whatif: WhatIf;
@@ -232,7 +232,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
               어디를 볼지 고를 수 없다 — 눌러서 이동하는 장치인데 반쪽이 된다.
 
               20씩인 것은 20手가 쇼기에서 한 국면 덩어리(序盤·囲い가 짜이는 구간)에 가깝고,
-              167手 판에서 눈금이 여덟 개쯤으로 앉아 서로 안 겹치기 때문이다. 마지막 手数는
+              167手 판에서 눈금이 여덟 개쯤이라 서로 안 겹치기 때문이다. 마지막 手数는
               눈금으로 안 넣는다 — 총 手数는 아래 바의 제목(`棋譜 167手`)이 이미 든다. */}
           <XAxis
             dataKey="ply"

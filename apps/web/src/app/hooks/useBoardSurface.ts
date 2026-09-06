@@ -50,7 +50,7 @@ interface Options {
    * 판을 뒤집어 그리는가(사람이 後手).
    *
    * 셰이더의 격자는 화면 왼쪽 위가 0이므로, 뒤집힌 판에서는 넘기는 배열도 같이 뒤집어야
-   * 그늘이 제 칸에 앉는다.
+   * 그늘이 제 칸에 놓인다.
    */
   flipped: boolean;
 }
@@ -63,7 +63,7 @@ interface Options {
  */
 function measure(boardEl: HTMLElement, surface: BoardSurface, layoutRef: React.RefObject<Layout | null>): void {
   // 칸을 클래스로 찾는다. `firstElementChild` 는 **아래에서 붙이는 캔버스가 걸린다** —
-  // React 가 칸을 다시 세우는 렌더에서 그 요소가 앞으로 올라오고, 그때 cell 이 한 칸이
+  // React 가 칸을 다시 그리는 렌더에서 그 요소가 앞으로 올라오고, 그때 cell 이 한 칸이
   // 아니라 판 폭이 되어 gap 이 음수가 된다(journal §127).
   //
   // 여기는 처음 한 번과 리사이즈에만 재므로 아직 안 물렸다. 打 화살표 쪽은 렌더마다

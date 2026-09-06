@@ -53,7 +53,7 @@ func main() {
 	addr := flag.String("addr", ":8080", "listen address")
 	flag.Parse()
 
-	// 로그를 먼저 세운다. 이 아래의 기동 로그부터 구조화된 한 줄로 나가야 하고,
+	// 로그를 먼저 준비한다. 이 아래의 기동 로그부터 구조화된 한 줄로 나가야 하고,
 	// 그중 「무엇이 꺼진 채로 떴나」가 장애를 가르는 첫 정보다.
 	setupLogging()
 
@@ -85,7 +85,7 @@ func main() {
 		opts.Store = st
 	}
 
-	// 취해 온 기보의 정규화 창구. 키가 없으면 nil 이고, 그때 결정적 파서로 읽히는
+	// 가져온 기보의 정규화 창구. 키가 없으면 nil 이고, 그때 결정적 파서로 읽히는
 	// 기보만 들어온다 — Google 로그인이 값 하나만 비어도 표면째 닫히는 것과 달리
 	// 여기는 폴백 한 겹만 꺼진다(internal/kifunorm).
 	opts.KifuNorm = kifunorm.New(os.Getenv("OPENAI_API_KEY"), os.Getenv("OPENAI_MODEL"))
@@ -94,14 +94,14 @@ func main() {
 	}
 
 	// 판이 찍힌 그림에서 국면을 읽는 창구(internal/boardread). 키는 위와 같은 것을 쓰고
-	// 모델만 갈라 둔다 — 글자를 옮기는 일과 81칸을 읽는 일에 같은 모델을 댈 이유가 없다.
+	// 모델만 따로 둔다 — 글자를 옮기는 일과 81칸을 읽는 일에 같은 모델을 댈 이유가 없다.
 	opts.BoardRead = boardread.New(os.Getenv("OPENAI_API_KEY"), os.Getenv("BOARDREAD_MODEL"))
 	if opts.BoardRead == nil {
 		slog.Info("position: no OPENAI_API_KEY, reading a position from an image is off")
 	}
 
 	// 판독을 재는 그림과 라벨을 모아 두는 폴더. 로컬에서만 켠다 — 프로덕션은 이 값을
-	// 안 주고, 없으면 그림도 안 남고 라벨 뿌리도 안 선다(apps/server/README.md).
+	// 안 주고, 없으면 그림도 안 남고 라벨 경로도 안 열린다(apps/server/README.md).
 	opts.BoardImageDir = os.Getenv("SHOWGI_BOARD_IMAGE_DIR")
 	if opts.BoardImageDir != "" {
 		slog.Info("position: collecting board images", "dir", opts.BoardImageDir)
@@ -151,7 +151,7 @@ func main() {
 		// 등록 순서가 곧 종료 순서다(LIFO). 이 줄이 위 defer st.Close() 보다 뒤라서 기록이 다 흘러간 뒤 DB가 닫힌다.
 		defer searcher.Wait()
 
-		// 詰み 탐색도 같은 겹을 지난다. 탐색부와 표를 갈라 둔 이유는 017 의 DDL 에 있고,
+		// 詰み 탐색도 같은 겹을 지난다. 탐색부와 표를 따로 둔 이유는 017 의 DDL 에 있고,
 		// 여기서 값을 하는 것은 빌리는 넷이 같은 질문을 겹쳐서 한다는 것이다 — 게이지와
 		// 종반 판정이 같은 국면을 한 手 간격으로, 퀴즈가 판이 끝난 뒤 그 전부를 다시
 		// 묻는다(journal §110).
@@ -200,10 +200,10 @@ func main() {
 		opts.Quiz = quiz.NewBuilder(mate, searcher, engineDepth())
 
 		// 사후 분석. 갈래가 둘이다 — 대인전은 되짚기의 평가치와 두 사람의 실력 추정치를
-		// 채우고(journal §105), 취해 온 기보는 거기에 悪手 줄과 문항까지 만든다(§126).
+		// 채우고(journal §105), 가져온 기보는 거기에 悪手 줄과 문항까지 만든다(§126).
 		// 착수 경로는 그래도 엔진을 안 지난다 — 미리 재는 것이 논블로킹이라 착수를 막지 않는다.
 		//
-		// 퀴즈 생성기보다 뒤에 선다. 취해 온 판의 문항을 이 분석기가 만들기 때문이고,
+		// 퀴즈 생성기보다 뒤에 만든다. 가져온 판의 문항을 이 분석기가 만들기 때문이고,
 		// Run 보다는 앞이라 곁장부 goroutine 과 경합하지 않는다.
 		opts.Match.AnalyzeWith(ctx, server.AnalysisDeps{
 			Store:      opts.Store,
@@ -231,7 +231,7 @@ func main() {
 // log.Printf 도 같은 JSON 한 줄로 나가고, 그 백여 곳을 옮겨 적지 않아도 된다 —
 // 옮겨 적어서 얻는 것은 필드뿐이고, 그것이 필요한 자리만 옮긴다.
 //
-// stderr 인 것은 EMF 와 갈라 두려는 것이다. 지표는 stdout 으로 나가고 둘 다 같은 로그
+// stderr 인 것은 EMF 와 따로 두려는 것이다. 지표는 stdout 으로 나가고 둘 다 같은 로그
 // 그룹에 들어가지만, 사람이 로컬에서 볼 때는 한쪽만 보는 편이 낫다.
 func setupLogging() {
 	level, badLevel := logLevel()
@@ -337,12 +337,12 @@ func analysisWorkers(poolSize int, role string) int {
 // 티어가 조용히 갈린다. 다른 손잡이들과 같은 방식으로 주어를 붙였다(ENGINE_·ANALYSIS_).
 //
 //	interactive  집지 않는다. 사람을 받고 手를 큐에 세우기만 한다
-//	analysis     집는다. /healthz·/metrics 만 세운다(server.Options.Role)
+//	analysis     집는다. /healthz·/metrics 만 연다(server.Options.Role)
 //	both         집고 받는다. 태스크가 하나인 배포의 모양이고 기본이다
 //
 // analysis 가 나머지를 404 가 아니라 503 으로 답하는 이유는 server.Handler 에 있다.
 //
-// 상호작용 티어를 여러 대로 올리는 것은 이 손잡이가 아니다. 방이 메모리에 서므로
+// 상호작용 티어를 여러 대로 올리는 것은 이 손잡이가 아니다. 방이 메모리에 있으므로
 // (journal §98) 그쪽은 방을 프로세스 밖으로 내린 뒤다.
 func analysisRole() string {
 	switch v := os.Getenv("SERVER_ROLE"); v {
@@ -461,7 +461,7 @@ func startMateEngines() *usi.Pool {
 
 // matePoolSize 는 詰将棋 solver 를 몇 개 띄우나다. 손잡이는 ENGINE_MATE_POOL_SIZE 다.
 //
-// 탐색부의 ENGINE_POOL_SIZE 와 갈라 둔다. 두 풀이 다른 바이너리이고 잡히는 이유도
+// 탐색부의 ENGINE_POOL_SIZE 와 따로 둔다. 두 풀이 다른 바이너리이고 잡히는 이유도
 // 다르다 — 저쪽은 상대의 수 계산이고 이쪽은 게이지·종반 판정·퀴즈 생성이다. 한 값으로
 // 묶으면 어느 쪽 때문에 올렸는지 다음에 아무도 모른다.
 func matePoolSize() int {
@@ -566,8 +566,8 @@ func envInt(name string, fallback int) int {
 // 여기를 줄인다(기본값이 14이므로 12가 그 손잡이다). 시간 상한을 걸어 중간에 자르는
 // 쪽이 아니다.
 //
-// **이 값을 걸면 여섯 자리가 갈린다.** 상대 수와 퀴즈만 여기를 읽고 나머지 넷은
-// 상수라, 캐시가 서로 못 쓰는 두 무리가 된다(internal/archive).
+// 이 값을 걸면 여섯 자리가 둘로 갈린다. 상대 수와 퀴즈만 여기를 읽고 나머지 넷은 상수라,
+// 캐시가 서로 못 쓰는 두 무리가 된다(internal/archive).
 func engineDepth() int {
 	v := os.Getenv("ENGINE_DEPTH")
 	if v == "" {

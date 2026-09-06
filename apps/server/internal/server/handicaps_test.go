@@ -35,7 +35,7 @@ func TestHandicapsListNeedsNothing(t *testing.T) {
 			t.Errorf("빈 칸이 있다: %+v", h)
 		}
 	}
-	// 판도 기준점도 새지 않는다(handicapItem 주석). 화면이 판을 세우는 길을 안 만든다.
+	// 판도 기준점도 새지 않는다(handicapItem 주석). 화면이 판을 만드는 길을 안 연다.
 	// 기준점은 표에서 뽑아 본다 — 숫자를 여기 적어 두면 값을 옮기는 날 이 확인이 조용히 죽는다.
 	body2 := rec.Body.String()
 	if strings.Contains(body2, "ppppppppp") {
@@ -81,7 +81,7 @@ func TestHandicapSetupForcesShitate(t *testing.T) {
 	}
 
 	// 모르는 id는 조용히 平手다 — 목록을 서버가 주므로(newSetup) 여기 오는 이상한 값은
-	// 클라이언트가 틀린 경우이고, 그때 대국을 거절하는 것보다 평수로 두는 것이 낫다.
+	// 클라이언트가 틀린 경우이고, 그때 대국을 거절하는 것보다 平手로 두는 것이 낫다.
 	r = httptest.NewRequest(http.MethodGet, "/ws/game?handicap=nope", nil)
 	if got := newSetup(r, Options{}); got.startSFEN != "" {
 		t.Errorf("모르는 手合에 국면이 붙었다: %q", got.startSFEN)

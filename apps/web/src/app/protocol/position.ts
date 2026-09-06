@@ -1,8 +1,8 @@
-// 사진에서 국면을 취해 오는 표면의 계약. 서버의 `internal/server/position.go` 와 짝이다.
+// 사진에서 국면을 가져오는 표면의 계약. 서버의 `internal/server/position.go` 와 짝이다.
 //
-// 두 뿌리가 같은 모양을 준다 — 읽기가 국면 하나를 만들고, 검사가 「이 국면이 성립하는가」에
+// 두 경로가 같은 모양을 준다 — 읽기가 국면 하나를 만들고, 검사가 「이 국면이 성립하는가」에
 // 답한다. 확인 화면이 「방금 읽은 판」과 「내가 고친 판」을 같은 코드로 그리는 자리라
-// 갈라 두지 않는다(journal §129).
+// 따로 두지 않는다(journal §129).
 
 import type { ApiError } from '@/protocol/review';
 
@@ -44,12 +44,12 @@ export interface PositionResponse {
    * 남겨 둔 그림의 이름(`board-01`). 그림을 모으는 폴더가 켜져 있을 때만 온다.
    *
    * 화면이 이 값을 들고 있다가 「解析する」를 누를 때 되돌려준다 — 그때 사람이 고친 판이
-   * 이 그림의 라벨로 앉는다(`saveLabel`). 안 오면 그 걸음이 없다.
+   * 이 그림의 라벨이 된다(`saveLabel`). 안 오면 그 걸음이 없다.
    */
   imageId?: string;
 }
 
-/** 실패의 사유 코드. 화면이 「다시 눌러 보라」와 「그림을 바꿔라」를 갈라 말한다. */
+/** 실패의 사유 코드. 화면이 「다시 눌러 보라」와 「그림을 바꿔라」를 구분해 말한다. */
 export type PositionErrorCode =
   | 'unauthorized'
   | 'quota'
@@ -99,7 +99,7 @@ export async function checkPosition(sfen: string, signal: AbortSignal | null = n
 }
 
 /**
- * 사람이 확인한 국면을 그 그림의 라벨로 앉힌다(journal §129).
+ * 사람이 확인한 국면을 그 그림의 라벨로 저장한다(journal §129).
  *
  * 판독을 재는 그림을 모을 때만 도는 자리다 — 서버의 폴더가 꺼져 있으면 `imageId` 가
  * 안 오므로 부르는 쪽이 아예 안 부른다.

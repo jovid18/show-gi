@@ -54,8 +54,8 @@ describe('parseSfen', () => {
  */
 describe('toSfen', () => {
   const cases: Record<string, string> = {
-    '평수 초기 국면': 'lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1',
-    '持ち駒이 양쪽에 있다': '4k4/9/9/9/9/9/9/9/4K4 b R2G3Pb4l 1',
+    '平手 초기 국면': 'lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1',
+    '持ち駒가 양쪽에 있다': '4k4/9/9/9/9/9/9/9/4K4 b R2G3Pb4l 1',
     '성한 駒가 섞여 있다': '4k4/4+P4/2+r6/9/9/9/6+s2/9/4K4 w - 1',
     '수번이 後手다': 'lnsgkgsnl/1r5b1/ppppppppp/9/9/2P6/PP1PPPPPP/1B5R1/LNSGKGSNL w - 1',
     '판이 비어 있다': '9/9/9/9/9/9/9/9/9 b - 1',
@@ -77,7 +77,7 @@ describe('toSfen', () => {
   });
 
   // 持ち駒 순서는 관례대로 飛→角→金→銀→桂→香→歩다. 서버의 출력과 같아야 한다.
-  it('持ち駒을 관례 순서로 적는다', () => {
+  it('持ち駒를 관례 순서로 적는다', () => {
     const board = parseSfen('4k4/9/9/9/9/9/9/9/4K4 b - 1');
     board.hands.black = { P: 1, L: 1, N: 1, S: 1, G: 1, B: 1, R: 1 };
     expect(toSfen(board)).toBe('4k4/9/9/9/9/9/9/9/4K4 b RBGSNLP 1');

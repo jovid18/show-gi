@@ -18,7 +18,7 @@ import (
 // TesujiHintRootK 는 착수 전 국면 하나를 잴 때 읽는 줄 수다.
 //
 // 후보마다 착수 후 국면을 따로 재지 않는다. 한 탐색의 형제 줄을 견주면 뿌리가 같아서
-// 낙폭이 지평 비대칭에 안 기울고(journal §41), 비용이 후보 수와 무관해진다.
+// 낙폭이 지평선 효과에 안 기울고(journal §41), 비용이 후보 수와 무관해진다.
 //
 // PV 도 함께 온다. 「이름은 붙었는데 딸 수가 없는」 형태를 가려내려면 최선 수순이
 // 있어야 한다(§45 의 kaku_ryodori).
@@ -49,7 +49,7 @@ type TesujiOption struct {
 // 날이 온다.
 func tesujiOptions(pos shogi.Position, c shogi.Color) []TesujiOption {
 	// LegalMoves 는 pos.Turn 쪽의 수만 낸다. 상대 차례에 물으면 조용히 빈 결과가 오므로
-	// (에러가 아니라 「手筋이 없다」로 보인다) 여기서 갈라 둔다 — tag.targetSquares 가
+	// (에러가 아니라 「手筋이 없다」로 보인다) 여기서 따로 둔다 — tag.targetSquares 가
 	// 같은 함정에 물렸던 자리다.
 	if pos.Turn != c {
 		return nil

@@ -94,7 +94,6 @@ func (e *Emitter) EmitTo(w io.Writer, now time.Time) error {
 			// 티어(SERVER_ROLE)도 안 올린다. 티어 둘이 같은 계열에 올리고 CloudWatch 의
 			// 통계가 합친다 — 카운터는 Sum, 게이지는 Maximum 이다(journal §120).
 			// 엔진이 실제로 한 일은 EngineSearches 에서 EngineSearchesCached 를 뺀다(journal §121).
-			// 엔진이 실제로 한 일은 EngineSearches 에서 EngineSearchesCached 를 뺀다(journal §121).
 			"Dimensions": [][]string{{"Service", "Environment"}},
 			"Metrics":    defs,
 		}},
@@ -118,7 +117,7 @@ type metric struct {
 // collect 는 이번 회차에 낼 지표를 고른다.
 //
 // 여기 있는 것만 CloudWatch 에 올라간다. 텍스트 표면(/metrics)이 라벨을 다 들고 있는
-// 것과 갈리는 자리이고, 갈라 둔 이유는 요금이다.
+// 것과 갈리는 자리이고, 따로 둔 이유는 요금이다.
 //
 // 지금 열두 개 + 분포 다섯이다. 열 개로 묶어 두던 선을 詰み 층의 셋이 넘었다(journal §111) —
 // 차원이 Service·Environment 둘뿐이라 이름 하나가 과금 지표 하나이고, 개당 월 $0.30 이다.
@@ -142,7 +141,7 @@ func (e *Emitter) collect() []metric {
 		{"EnginePoolInUse", "Count", r.PoolInUse.SumFunc(searchPool)},
 		{"WsSessionsActive", "Count", r.WSSessions.Total()},
 		// 밀린 手가 이 층의 부하 지표다. 판 수는 같이 안 올린다 — 두 값이 늘 같은
-		// 방향으로 움직이고, 갈라 보고 싶으면 /metrics 에 둘 다 있다.
+		// 방향으로 움직이고, 나눠 보고 싶으면 /metrics 에 둘 다 있다.
 		{"AnalysisBacklogPlies", "Count", r.AnalysisBacklogPlies.Total()},
 		// 버려진 판은 평가치도 실력도 없이 남는다. 0이 아니면 그 자체로 사고다.
 		{"AnalysisGamesDropped", "Count",
@@ -166,7 +165,7 @@ func (e *Emitter) collect() []metric {
 	}
 	// 한 번 비우고 셋으로 낸다. 두 번 부르면 두 번째가 빈 배열이다(DrainSamplesAll).
 	//
-	// 갈라 내는 것 둘이다. borrower=game 은 「대국이 실제로 굶었나」다 — 합친 값에는
+	// 따로 내는 것 둘이다. borrower=game 은 「대국이 실제로 굶었나」다 — 합친 값에는
 	// 사후 분석과 검토가 섞여 있어서 그쪽으로만 읽힌다. pool=mate 는 詰み 풀이 큐에
 	// 섰나이고, 크기가 2라 대기가 0보다 큰 것 자체가 포화이므로 borrower 로 더 안
 	// 가른다(journal §111).

@@ -67,7 +67,7 @@ func KnightHeadSilver(pos shogi.Position, sq int, c shogi.Color) (Tag, bool) {
 		return Tag{}, false
 	}
 
-	// 銀의 한 칸 뒤(상대 쪽에서 보면 앞)에 상대 桂가 서 있으면 그 桂의 머리다.
+	// 銀의 한 칸 앞(상대 쪽에서 보면 뒤)에 상대 桂가 서 있으면 그 桂의 머리다.
 	enemy := c.Other()
 	file, rank := shogi.FileOf(sq), shogi.RankOf(sq)-forwardStep(enemy)
 	if !onBoard(file, rank) {

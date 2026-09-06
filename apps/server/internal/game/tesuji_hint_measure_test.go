@@ -21,7 +21,7 @@ import (
 //	SHOWGI_MEASURE=1 SHOWGI_USI_CMD=/opt/yaneuraou/run \
 //	  go test ./internal/game/ -run MeasureTesujiHintGate -v -timeout 60m
 //
-// 세션을 세우지 않고 maybeTesujiHint 의 조건을 그대로 다시 쓴다. 세션으로 돌리면 사람의
+// 세션을 만들지 않고 maybeTesujiHint 의 조건을 그대로 다시 쓴다. 세션으로 돌리면 사람의
 // 착수 시각을 흉내내야 하는데 기보에 시각이 없어서, 그 흉내가 곧 결론이 되어 버린다.
 //
 // k마다 엔진을 새로 띄운다. 치환표가 더워진 채로 다음 k를 재면 뒤에 오는 k가 공짜로

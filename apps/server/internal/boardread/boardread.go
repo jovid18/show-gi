@@ -356,7 +356,7 @@ func writeSide(b *strings.Builder, h hand, near bool) {
 	}
 }
 
-// itoa 는 작은 수 하나를 적는다. strconv 를 부르지 않는 것은 값이 1~18 뿐이라서다.
+// itoa 는 작은 수 하나를 적는다. strconv 를 부르지 않는 것은 값이 두 자리를 넘지 않아서다(빈 칸 1~9 · 持ち駒 1~maxInHand).
 func itoa(n int) string {
 	if n < 10 {
 		return string(rune('0' + n))

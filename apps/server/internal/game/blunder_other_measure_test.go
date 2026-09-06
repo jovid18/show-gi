@@ -24,7 +24,7 @@ import (
 //	SHOWGI_TEST_DATABASE_URL='postgres://showgi:showgi@localhost:5432/showgi' \
 //	  SHOWGI_MEASURE=1 go test ./internal/game/ -run MeasureBlunderOther -v
 //
-// 판정하지 않는다 — 값을 찍고 지나간다. 프로덕션 데이터를 읽는 측정이라 판을 세우면
+// 판정하지 않는다 — 값을 찍고 지나간다. 프로덕션 데이터를 읽는 측정이라 판을 만들면
 // 대국이 쌓일 때마다 CI가 빨개진다.
 
 // blunderRow 는 개입 한 건과 그것을 복원하는 데 필요한 전부다.
@@ -184,7 +184,7 @@ func TestMeasureBlunderOther(t *testing.T) {
 			continue
 		}
 		f, _ := moveFacts(pos, m)
-		// UnpromotedOnly · ShallowCp 는 엔진이 있어야 나온다. 여기서는 세우지 않는다 —
+		// UnpromotedOnly · ShallowCp 는 엔진이 있어야 나온다. 여기서는 만들지 않는다 —
 		// 저장된 카테고리가 그 둘이 아니라는 것이 이미 「그때 안 걸렸다」는 뜻이다.
 		got := offlineCategory(f)
 

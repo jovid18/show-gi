@@ -46,7 +46,7 @@ const roomIDAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123
 
 // ErrNoRoom 은 그 사람이 그 방에 못 들어간다는 것 하나다.
 //
-// 왜인지를 안 갈라 준다(journal §83). 이어하기가 남의 판 번호에 대해 하는 것과 같은
+// 왜인지는 알려주지 않는다(journal §83). 이어하기가 남의 판 번호에 대해 하는 것과 같은
 // 판단이다(server/ws.go 의 errNoResume).
 var ErrNoRoom = errors.New("match: no such room")
 

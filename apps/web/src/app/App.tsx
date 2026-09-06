@@ -16,7 +16,7 @@ import { hrefOf, navigate, useRoute, type Route } from '@/routes/router';
 const ReviewScreen = lazy(async () => ({ default: (await import('@/screens/review/ReviewScreen')).ReviewScreen }));
 
 /**
- * 퀴즈도 나중에 받는다. 되짚기와 갈라 둔다 — 판 하나를 보러 온 사람이 퀴즈 화면까지
+ * 퀴즈도 나중에 받는다. 되짚기와 따로 둔다 — 판 하나를 보러 온 사람이 퀴즈 화면까지
  * 내려받을 이유가 없고, 라우트가 이미 갈라져 있어서 떼는 데 드는 것이 이 두 줄이다.
  */
 const QuizScreen = lazy(async () => ({ default: (await import('@/screens/quiz/QuizScreen')).QuizScreen }));
@@ -43,7 +43,7 @@ const ExploreScreen = lazy(async () => ({
 }));
 
 /**
- * 취해 오기도 나중에 받는다. 상자 하나와 미리보기가 전부라 첫 화면에 실릴 이유가 없고,
+ * 가져오기도 나중에 받는다. 상자 하나와 미리보기가 전부라 첫 화면에 실릴 이유가 없고,
  * 라우트가 이미 갈라져 있다.
  */
 const ImportScreen = lazy(async () => ({
@@ -123,7 +123,7 @@ export function App() {
           걸리면 이 줄도 방과 함께 어두워져야 하고, 위에 있으면 판만 남는 그림이 깨진다. */}
       <header className="app-head">
         <div className="app-head__inner">
-          {/* 홈이 아닌 화면에만, 두는 중이 아닐 때만 선다(journal §86). 로고와 같은
+          {/* 홈이 아닌 화면에만, 두는 중이 아닐 때만 뜬다(journal §86). 로고와 같은
               곳으로 가는데 하나로 안 합치는 것은, 화살표가 「뒤로」를 글자 없이 말하는
               유일한 표식이라서다 — 로고는 그 자리에서 제품 이름이다. */}
           {!onHome && !playing && (
@@ -174,7 +174,7 @@ export function App() {
                  요청이 하나 더 나간다. */
               <ProfileScreen onSignOut={signOut} />
             ) : route.name === 'room' ? (
-              // 방마다 새로 세운다. `roomId` 만 갈아 끼우면 이 컴포넌트가 살아남아
+              // 방마다 새로 만든다. `roomId` 만 갈아 끼우면 이 컴포넌트가 살아남아
               // 앞 방의 스냅샷과 시계를 한 틱 동안 그린다(퀴즈 화면과 같은 자리).
               <MatchScreen key={route.id} roomId={route.id} />
             ) : route.name === 'import' ? (
@@ -182,12 +182,12 @@ export function App() {
                  부르면 `/api/me` 요청이 하나 더 나간다(홈 메뉴와 같은 규약). */
               <ImportScreen me={me} />
             ) : route.name === 'position' ? (
-              // 사진에서 국면을 취해 오는 화면. 취해 오기와 같은 자리에 선다 —
-              // 로그인 벽이 있고, 끝나면 다른 화면으로 옮겨 간다(journal §129).
+              // 사진에서 국면을 가져오는 화면. 가져오기와 같은 자리에 있다 —
+              // 로그인 검사가 있고, 끝나면 다른 화면으로 옮겨 간다(journal §129).
               <PositionScreen me={me} />
             ) : route.name === 'explore' ? (
-              // 手合割마다 새로 세운다. 뿌리가 바뀌면 다른 판이라, 컴포넌트가 살아남으면
-              // 한 틱 동안 앞 手合의 국면이 새 手合의 이름 아래에 선다(퀴즈와 같은 자리).
+              // 手合割마다 새로 만든다. 뿌리가 바뀌면 다른 판이라, 컴포넌트가 살아남으면
+              // 한 틱 동안 앞 手合의 국면이 새 手合의 이름 아래에 뜬다(퀴즈와 같은 자리).
               <ExploreScreen
                 key={route.sfen ?? route.handicap}
                 handicap={route.handicap}
@@ -195,7 +195,7 @@ export function App() {
                 sfen={route.sfen ?? ''}
               />
             ) : route.name === 'quiz' ? (
-              // 판마다 새로 세운다. `id` 만 갈아 끼우면 이 컴포넌트가 그대로 살아서
+              // 판마다 새로 만든다. `id` 만 갈아 끼우면 이 컴포넌트가 그대로 살아서
               // 앞 판의 답과 기다린 횟수를 물려받고, 한 틱 동안 남의 문항을 그린다.
               <QuizScreen key={route.id} id={route.id} />
             ) : (
@@ -215,7 +215,7 @@ export function App() {
  * 링크일 때는 `navigate` 를 탄다. `<a href>` 로 두면 브라우저가 문서를 통째로 새로 받아
  * 상시 마운트된 대국 화면이 들고 있던 총평이 사라진다.
  *
- * 안쪽이 같고 겉이 갈리는 것뿐이라 한 자리에 둔다 — 갈라 두면 마크의 크기·`alt`·
+ * 안쪽이 같고 겉이 갈리는 것뿐이라 한 자리에 둔다 — 따로 두면 마크의 크기·`alt`·
  * 우선순위가 두 벌이 되고, 한쪽만 고치는 날이 온다.
  */
 function BrandMark({ locked }: { locked: boolean }) {

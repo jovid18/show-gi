@@ -128,7 +128,7 @@ aws ecs update-service --region ap-northeast-1 --cluster show-gi --service show-
 ## 프로덕션에 걸 때
 
 - **레이트 리밋이 아무 데도 없다**(Caddy·ALB·앱). 막아 줄 것이 없으므로 `http_req_failed` 임계에 `abortOnFail` 이 걸려 있다 — 5xx 가 5%를 넘으면 회차가 스스로 멈춘다
-- **태스크가 한 대다.** 부하가 곧 실사용자 장애다
+- **태스크가 하나다.** 부하가 곧 실사용자 장애다
 - 알람이 울리고 메일이 간다. 회차 시각을 저널에 적어 둔다 — 대인전 회차는 `show-gi-analysis-backlog` 이 걸리는 자리다([journal §108](../../docs/journal/101-120.md))
 - 끝나면 `cleanup.sql`. `users` 한 줄을 지우면 판·기보·평가치·레이팅·대기열이 CASCADE 로 같이 사라진다
 - **`LT_UIDS` 없이 걸지 않는다.** 익명 판은 그 정리에 안 걸린다 — `run.sh` 가 원격 주소면 그 자리를 막는다

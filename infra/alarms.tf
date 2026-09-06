@@ -1,4 +1,4 @@
-# 알람. 지표를 내는 것과 「누가 알아채나」는 다른 일이라 파일을 갈라 둔다.
+# 알람. 지표를 내는 것과 「누가 알아채나」는 다른 일이라 파일을 따로 둔다.
 #
 # 커스텀 지표는 api 컨테이너가 stdout 으로 내는 EMF 에서 나온다(internal/metrics).
 # CloudWatch 가 로그에서 뽑아 show-gi 이름 공간에 넣으므로, 여기서 만들 것은 없고
@@ -65,7 +65,7 @@ resource "aws_cloudwatch_metric_alarm" "no_healthy_target" {
 # 5xx 와 panic 을 합쳐서 본다. 이 앱에서 5xx 는 대개 우리 버그다 — 엔진·DB가 없는
 # 상태는 503으로 나가지만 그건 기동 때 한 번 정해지고 화면이 미리 막는다.
 #
-# 둘을 갈라 두면 한쪽이 알람 없는 쪽이 된다. panic 이 업그레이드된 연결에서 나면 그
+# 둘을 따로 두면 한쪽이 알람 없는 쪽이 된다. panic 이 업그레이드된 연결에서 나면 그
 # 요청의 상태가 이미 101이라 5xx 로 안 잡히기 때문이다(internal/server/observe.go).
 resource "aws_cloudwatch_metric_alarm" "server_errors" {
   alarm_name          = "show-gi-5xx"
@@ -158,7 +158,7 @@ resource "aws_cloudwatch_metric_alarm" "engine_pool_wait" {
 # 돌아오고, 8판은 4분째에 140을 넘겨 756까지 단조로 자랐다(journal §108).
 #
 # 임계 100 은 그 사이에 둔다. 다만 6판의 최고가 회차마다 11~84 로 흔들려서(journal §119)
-# 값으로 보면 여유가 16 뿐이다 — 갈라 주는 것은 아래 5분 지속이다.
+# 값으로 보면 여유가 16 뿐이다 — 판가름하는 것은 아래 5분 지속이다.
 #
 # 5분을 다 요구하는 것은 봉우리를 거르기 위해서다. 판이 끝나는 순간 아직 안 잰 手가
 # 한꺼번에 들어오므로(journal §105) 단발로 100을 넘는 것은 정상이다 — 5분을 넘겨
@@ -182,7 +182,7 @@ resource "aws_cloudwatch_metric_alarm" "analysis_backlog" {
   dimensions = { Service = "api", Environment = "prod" }
 
   # 이 알람이 둘을 한다 — 사람에게 알리고 분석 대를 하나 올린다(autoscale.tf).
-  # 신호를 갈라 두지 않는 것이 값이다. 스케일용 임계를 따로 두면 「울린 것」과 「대를
+  # 신호를 따로 두지 않는 것이 값이다. 스케일용 임계를 따로 두면 「울린 것」과 「대를
   # 올린 것」이 다른 자리가 되고, 회차의 그림에서 원인과 반응이 안 붙는다.
   alarm_actions = [aws_sns_topic.alarms.arn, aws_appautoscaling_policy.analysis_out.arn]
   ok_actions    = [aws_sns_topic.alarms.arn]
@@ -215,7 +215,7 @@ resource "aws_sns_topic" "spot" {
 # 붙이려면 정책을 명시해야 하는데, 그 순간 기본 정책이 대체되어 지금 오는 알람 메일이
 # 조용히 끊길 수 있다.
 #
-# 둘째, 스팟 이벤트는 시끄럽다 — 하루에 다섯 번 뜬 날이 있다. 갈라 두면 이쪽만 끌 수 있다.
+# 둘째, 스팟 이벤트는 시끄럽다 — 하루에 다섯 번 뜬 날이 있다. 따로 두면 이쪽만 끌 수 있다.
 resource "aws_sns_topic_subscription" "spot_email" {
   count = var.alarm_email == "" ? 0 : 1
 

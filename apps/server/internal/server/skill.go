@@ -73,7 +73,7 @@ func (h *gameHandler) saveSkill(ctx context.Context, userID *int64) func(skill.E
 // 변했나」를 말하려면 두 값이 필요한데, 추정기는 마지막 값 하나만 갖고 그것도 자기
 // goroutine 안이다.
 //
-// 저장(saveSkill)과 갈라 둔다. 익명 대국에는 저장할 자리가 없는데(002_anonymous_games.sql)
+// 저장(saveSkill)과 따로 둔다. 익명 대국에는 저장할 자리가 없는데(002_anonymous_games.sql)
 // 판 안에서의 변화는 익명에게도 있다.
 type skillRun struct {
 	// before 는 판이 시작할 때의 값이다. 만든 뒤로 안 바뀌므로 잠금 밖이다.
@@ -119,7 +119,7 @@ func (r *skillRun) change() *skillChange {
 	c := &skillChange{After: rankView{Step: now.Step, Max: skill.RankMax, NameJa: now.NameJa}}
 	// 처음 두는 사람에게는 「전」이 없다. 익명이거나 첫 판이면 기준선에서 시작하는데,
 	// 그 값을 「이 판을 시작할 때의 실력」이라고 그리면 아무도 안 잰 숫자가 사람에 대한
-	// 판정으로 화면에 선다.
+	// 판정으로 화면에 나온다.
 	if was, ok := skill.RankOf(r.before); ok {
 		c.Before = &rankView{Step: was.Step, Max: skill.RankMax, NameJa: was.NameJa}
 	}

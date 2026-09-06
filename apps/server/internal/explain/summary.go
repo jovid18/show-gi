@@ -7,7 +7,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 )
 
-// 대국 후 총평. 개입 문구와 같은 규약 위에 선다 — 재료를 결정적으로 세고, 그 재료만으로
+// 대국 후 총평. 개입 문구와 같은 규약 위에 있다 — 재료를 결정적으로 세고, 그 재료만으로
 // 문장을 만든다. 다른 것은 재료와 문장의 길이뿐이다.
 //
 // 무엇을 재료로 주는지가 곧 이 기능의 정직성이다. 아래 GameFacts 주석이 그 목록이다.
@@ -118,13 +118,13 @@ type GameFacts struct {
 	// Standing 은 판이 끝난 시점의 형세다. 빈 값은 StandingUnknown 과 같게 다룬다.
 	Standing Standing
 	// Intervened 는 그 판에서 개입이 돌았나다. 거짓이면 판정은 했지만 아무도 그 수를
-	// 막지 않았고, 그 수는 기보에 그대로 남아 있다 — 취해 온 기보가 그쪽이다(journal §126).
+	// 막지 않았고, 그 수는 기보에 그대로 남아 있다 — 가져온 기보가 그쪽이다(journal §126).
 	//
 	// 문장이 이 값으로 갈린다. 「戻す」로 말하는 문장 넷이 그 판에서는 없던 일을 있었다고
 	// 말하게 되고, 그것이 이 화면에서 가장 새기 쉬운 거짓이다.
 	//
 	// 제로값이 「안 막았다」인 것이 안전한 쪽이다. 안 채우고 부르면 개입이 돈 판이
-	// 덜 구체적인 문장을 받을 뿐이지만, 반대로 두면 취해 온 판이 거짓을 말한다.
+	// 덜 구체적인 문장을 받을 뿐이지만, 반대로 두면 가져온 판이 거짓을 말한다.
 	Intervened bool
 }
 
@@ -204,7 +204,7 @@ var trendJa = map[Trend]string{
 func phraseTop(top []intervene.Category, w Weight, intervened bool) string {
 	first := CategoryJa(top[0])
 	if !intervened {
-		// 취해 온 판. 아무도 그 수를 막지 않았고 그 수가 기보에 남아 있으므로 「戻す」로
+		// 가져온 판. 아무도 그 수를 막지 않았고 그 수가 기보에 남아 있으므로 「戻す」로
 		// 말할 수가 없다 — 같은 사실을 「あった」로 말한다.
 		if len(top) == 1 {
 			if w == WeightOnce {

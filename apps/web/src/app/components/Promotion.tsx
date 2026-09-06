@@ -20,7 +20,7 @@ interface PromotionProps {
 /**
  * 成る·不成을 묻는 모달. 다섯 화면이 같은 물음을 쓴다.
  *
- * 판 옆에 한 줄로 서 있었다. 눈은 도착 칸에 있는데 물음은 판 밖에 서서, 물었다는 것
+ * 판 옆에 한 줄로 서 있었다. 눈은 도착 칸에 있는데 물음은 판 밖에 있어서, 물었다는 것
  * 자체가 안 보이고 「판이 안 움직인다」로 읽혔다(journal §99). 답하기 전에는 판이 실제로
  * 멈춰 있으므로 화면을 덮는 것이 사실과 맞는다.
  *
@@ -47,7 +47,7 @@ export function Promotion({ onChoose }: PromotionProps) {
     const pad = document.body.style.paddingRight;
     // 자리 잡는 스크롤바가 있으면 그 폭을 메운다. 안 메우면 잠그는 순간 판과 駒台가 옆으로
     // 뛰고, 그건 「판이 멈춰 있다」고 말하는 자리에서 판이 움직이는 것이다. macOS 는 겹쳐
-    // 그리는 스크롤바라 0이 나오고, 그래서 이 자리는 Windows·Linux 에서만 값을 한다.
+    // 그리는 스크롤바라 0이 나오고, 그래서 이 자리는 Windows·Linux 에서만 제구실을 한다.
     const gap = window.innerWidth - document.documentElement.clientWidth;
     document.body.style.overflow = 'hidden';
     if (gap > 0) document.body.style.paddingRight = `${gap}px`;

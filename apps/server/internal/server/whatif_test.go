@@ -195,7 +195,7 @@ func TestWhatIfAppliesTheMoveAndStops(t *testing.T) {
 	if node.BasePly != 2 || node.Ply != 3 {
 		t.Errorf("basePly=%d ply=%d, want 2 3", node.BasePly, node.Ply)
 	}
-	// 되잡는 수가 화살표로 선다 — 「그래서 상대가 어떻게 하나」가 그 한 줄이다.
+	// 되잡는 수가 화살표로 그려진다 — 「그래서 상대가 어떻게 하나」가 그 한 줄이다.
 	if len(node.Candidates) != 1 || node.Candidates[0].Ja != "△同銀" {
 		t.Errorf("candidates = %+v, want △同銀", node.Candidates)
 	}
@@ -559,7 +559,7 @@ func TestWhatIfRejectsOverlongLine(t *testing.T) {
 // 대국 중에는 물러진 수 위에서만 분기가 자란다.
 //
 // 이 표면은 최선수 셋을 답해 준다. 뿌리를 자유롭게 고를 수 있으면 그것이 곧 「지금 어떻게
-// 둬야 하나」의 답이 되고, 그건 안 알려주기로 한 것이다(01-core.md §7). 되짚기에는 이 벽이
+// 둬야 하나」의 답이 되고, 그건 안 알려주기로 한 것이다(01-core.md §7). 되짚기에는 이 제한이
 // 없다 — 끝난 판이라 무엇을 둬 봐도 아무도 안 잃는다.
 func TestBranchRootOnlyOpensOnTheRetractedMove(t *testing.T) {
 	var played confirmed

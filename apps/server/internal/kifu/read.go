@@ -10,7 +10,7 @@ import (
 )
 
 // Notation 은 무엇으로 읽었는가다. games.imported_from 에 그대로 들어가고, 그 칸이
-// 「취해 온 기보인가」와 「LLM 이 손댔는가」를 같이 말한다(020_imported_games.sql).
+// 「가져온 기보인가」와 「LLM 이 손댔는가」를 같이 말한다(020_imported_games.sql).
 type Notation string
 
 const (
@@ -68,7 +68,7 @@ var readers = []struct {
 // Read 는 결정적 파서들을 차례로 대 보고 처음 읽히는 것을 준다.
 //
 // **여기가 성공하면 LLM 은 안 부른다.** 같은 기보가 언제나 같은 결과를 주는 것이
-// 기본값이고, 정규화 계층은 그 기본값이 안 되는 자리에만 선다(internal/kifunorm).
+// 기본값이고, 정규화 계층은 그 기본값이 안 되는 자리에서만 돈다(internal/kifunorm).
 //
 // 수를 하나라도 읽은 뒤에 깨진 형식은 그 자리에서 답이 된다. 그 오류가 「이 기보는
 // 98手目가 이상하다」라서, 뒤의 파서가 0手로 실패한 오류보다 사람에게 값이 크다.

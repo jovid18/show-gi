@@ -105,7 +105,7 @@ func (p *Pool) Acquire(ctx context.Context) (*Engine, error) {
 		return e, nil
 	}
 	// 버퍼가 1이라 넘겨주는 쪽이 절대 안 막힌다. 막히면 Release 가 잠금을 들고 서고,
-	// 그러면 풀 전체가 선다.
+	// 그러면 풀 전체가 멈춘다.
 	ch := make(chan *Engine, 1)
 	p.waiting[prio] = append(p.waiting[prio], ch)
 	p.mu.Unlock()

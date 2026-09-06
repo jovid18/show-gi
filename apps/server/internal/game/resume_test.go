@@ -76,9 +76,9 @@ func TestResumedGameKeepsCountingPlies(t *testing.T) {
 	}
 }
 
-// 한 수라도 안 맞으면 세션이 아예 안 선다. 기록은 큐가 넘치면 이벤트를 버리므로
+// 한 수라도 안 맞으면 세션이 아예 안 열린다. 기록은 큐가 넘치면 이벤트를 버리므로
 // (server/recorder.go) 이런 기보가 실제로 나올 수 있고, 눈감고 이어 두면 그 뒤가 통째로
-// 밀린 없던 판이 「그때 두던 판」의 얼굴로 선다.
+// 밀린 없던 판이 「그때 두던 판」의 얼굴로 열린다.
 func TestStartMovesRejectsABrokenRecord(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

@@ -24,7 +24,7 @@ const (
 	StatusRepetition Status = "repetition" // 千日手
 	// StatusAborted 는 상대의 수를 못 얻어서 판을 접은 것이다. 승패가 없다.
 	//
-	// 投了와 갈라 둔다. 엔진이 답하지 않은 것을 「相手が投了しました」로
+	// 投了와 따로 둔다. 엔진이 답하지 않은 것을 「相手が投了しました」로
 	// 적으면 지고 있던 판이 기록에서 이긴 판이 되고, 그건 이 회차가 반대 방향으로 이미
 	// 한 번 겪은 실패다(playtests/2026-08-13-human-1.md). 기록에서는 abandoned 로
 	// 떨어지므로(server/recorder.go 의 resultOf) 이어하기 목록에 그대로 올라온다 —
@@ -132,7 +132,7 @@ type Snapshot struct {
 	// UndoLeft 는 사람이 아직 무를 수 있는 횟수다(UndoMaxPerGame 에서 뺀 것).
 	// 0이면 다 썼다. 화면이 남은 횟수를 그대로 그린다.
 	//
-	// CanUndo 와 갈라 두는 이유는 뜻이 다르기 때문이다. 이쪽은 「예산이 얼마 남았나」라
+	// CanUndo 와 따로 두는 이유는 뜻이 다르기 때문이다. 이쪽은 「예산이 얼마 남았나」라
 	// 상대 차례에도 참이고, 저쪽은 「지금 이 순간 누를 수 있나」다. 하나로 합치면 상대가
 	// 생각하는 동안 남은 횟수가 0으로 보인다.
 	UndoLeft int `json:"undoLeft"`
@@ -283,7 +283,7 @@ type Intervention struct {
 
 // Notice 는 대국을 멈추지 않은 실패 하나다.
 //
-// 개입(Intervention)과 갈라 둔다. 저쪽은 판에 대한 판단이고 이쪽은 우리 쪽 사정이다.
+// 개입(Intervention)과 따로 둔다. 저쪽은 판에 대한 판단이고 이쪽은 우리 쪽 사정이다.
 // 섞으면 「시한을 넘겨 못 확인했다」가 화면에서 「이 수는 괜찮았다」로 읽히는데, 학습 앱에서
 // 그 둘은 정반대다 — 초심자는 아무 말이 없으면 통과한 것으로 읽는다.
 type Notice struct {
@@ -296,7 +296,7 @@ type Notice struct {
 
 // 알림 문구. 여기가 유일한 목록이다 — 화면은 Message 를 그대로 그린다.
 const (
-	// NoticeJudgeSkipped 는 방금 둔 수를 판정하지 못했다는 것이다. 수는 그대로 선다.
+	// NoticeJudgeSkipped 는 방금 둔 수를 판정하지 못했다는 것이다. 수는 그대로 두어진다.
 	NoticeJudgeSkipped = "judge_skipped"
 
 	// NoticeHintFailed 는 부른 힌트를 못 만들었다는 것이다. 예산은 안 줄었다 —

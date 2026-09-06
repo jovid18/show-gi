@@ -85,7 +85,7 @@ func TestMeasureBoardRead(t *testing.T) {
 	scores := make([]boardReadScore, 0, len(images))
 	for _, path := range images {
 		// 한 장씩 순서대로 부른다. 병렬로 부르면 시간당 몫에 그만큼 빨리 닿고
-		// (서버의 maxBoardReadsPerHour), 실패가 한 장의 것인지 벽의 것인지 흐려진다.
+		// (서버의 maxBoardReadsPerHour), 실패가 한 장의 것인지 상한의 것인지 흐려진다.
 		scores = append(scores, measureOne(t, c, path))
 	}
 

@@ -2,10 +2,10 @@ import { SIGN_IN_PATH, type MeResponse } from '@/protocol/auth';
 import { hrefOf, navigate, type Route } from '@/routes/router';
 
 /**
- * 홈. 갈 수 있는 곳을 세로로 한 줄씩 세운 메뉴가 전부다(journal §86).
+ * 홈. 갈 수 있는 곳을 세로로 한 줄씩 늘어놓은 메뉴가 전부다(journal §86).
  *
  * 서버에 아무것도 안 묻는다. 로그인 여부는 이미 App이 들고 있는 것을 받아 쓴다 —
- * 여기서 한 번 더 물으면 첫 화면에 요청이 하나 늘고, 늘어난 만큼 메뉴가 늦게 선다.
+ * 여기서 한 번 더 물으면 첫 화면에 요청이 하나 늘고, 늘어난 만큼 메뉴가 늦게 뜬다.
  */
 
 interface MenuItem {
@@ -14,7 +14,7 @@ interface MenuItem {
   note: string;
   /** 눈에 먼저 들어오는 한 줄. 대국 하나뿐이다 — 둘이 되면 어느 쪽도 첫째가 아니다. */
   primary?: boolean;
-  /** 로그인한 사람에게만 그린다. 눌러도 401인 줄을 세우면 고장으로 읽힌다(journal §76). */
+  /** 로그인한 사람에게만 그린다. 눌러도 401인 줄을 그리면 고장으로 읽힌다(journal §76). */
   needsAuth?: boolean;
   /**
    * 두는 중에는 안 그린다. 지금은 검토 하나다 — 이유는 아래 `MENU`.
@@ -29,8 +29,8 @@ interface MenuItem {
 const MENU: MenuItem[] = [
   { route: { name: 'game' }, name: '対局', note: 'コンピュータと一局指す', primary: true },
   { route: { name: 'reviews' }, name: '振り返り', note: '終わった対局を見直す' },
-  // 두는 중에는 줄 자체가 사라진다 — 그 벽이 왜 있는지는 01-core.md §1. 화면
-  // 쪽에도 같은 벽이 있다(ExploreScreen). 링크와 새로고침으로 들어오는 길이 남는다.
+  // 두는 중에는 줄 자체가 사라진다 — 왜 막는지는 01-core.md §1. 화면
+  // 쪽에도 같은 장치가 있다(ExploreScreen). 링크와 새로고침으로 들어오는 길이 남는다.
   {
     route: { name: 'explore', handicap: '', moves: [] },
     name: '検討',
@@ -40,9 +40,9 @@ const MENU: MenuItem[] = [
   // 여기가 안내의 유일한 입구다(journal §86). 새 탭으로 안 연다 — 메뉴의 다른
   // 줄과 같은 탭으로 간다.
   { route: { name: 'guide' }, name: 'あそびかた', note: 'このアプリの遊びかた' },
-  // 로그인해야 뜬다. 익명에게는 401인 화면이라(profile.go) 줄만 서 있으면 눌러서
+  // 로그인해야 뜬다. 익명에게는 401인 화면이라(profile.go) 줄만 떠 있으면 눌러서
   // 빈 화면을 보게 된다 — 그 자리는 아래 ログイン 줄이 맡는다(journal §76).
-  // 로그인해야 뜬다. 익명은 401이고(kifu_import.go), 취해 온 판은 그 사람의 것으로
+  // 로그인해야 뜬다. 익명은 401이고(kifu_import.go), 가져온 판은 그 사람의 것으로
   // 남아야 되짚기에서 다시 열린다 — マイページ와 같은 자리다.
   {
     route: { name: 'import' },
@@ -51,7 +51,7 @@ const MENU: MenuItem[] = [
     needsAuth: true,
   },
   // 그림을 읽는 것이 돈을 쓰는 일이라 사람마다 세야 하고, 익명끼리는 구별할 수단이
-  // 없다(position.go) — 위 줄과 같은 이유의 벽이다.
+  // 없다(position.go) — 위 줄과 같은 이유로 막는다.
   {
     route: { name: 'position' },
     name: '局面を読み取る',

@@ -8,7 +8,7 @@ import type { WhatIfNode } from '@/protocol/whatif';
 /**
  * `aborted` 는 상대의 수를 못 얻어 판을 접은 것이다. 승패가 없어 `winner` 가 안 온다.
  *
- * `resigned` 와 갈라 둔다 — 엔진이 답하지 않은 것을 「相手が投了しました」로 그리면
+ * `resigned` 와 따로 둔다 — 엔진이 답하지 않은 것을 「相手が投了しました」로 그리면
  * 지고 있던 판이 화면에서 이긴 판이 된다. 기록에는 `abandoned` 로 남아 이어하기
  * 목록에 그대로 올라온다.
  */
@@ -122,7 +122,7 @@ export interface StyleTag {
 /**
  * 대국은 그대로 도는데 서버가 못 해준 것 하나. 다음 착수에서 서버가 지운다.
  *
- * 개입(`intervention`)과 갈라 온다. 저쪽은 판에 대한 판단이고 이쪽은 서버 사정이라,
+ * 개입(`intervention`)과 따로 온다. 저쪽은 판에 대한 판단이고 이쪽은 서버 사정이라,
  * 섞으면 「시한을 넘겨 확인 못 했다」가 「이 수는 괜찮았다」로 읽힌다.
  */
 export interface Notice {
@@ -253,7 +253,7 @@ export interface SkillRank {
 /**
  * 대국이 끝난 뒤 한 번 오는 총평.
  *
- * 스냅샷과 갈라 온다 — 국면의 상태가 아니라 판 전체에 대한 이야기이고, 기록이 다
+ * 스냅샷과 따로 온다 — 국면의 상태가 아니라 판 전체에 대한 이야기이고, 기록이 다
  * 쓰이기를 기다리므로 결과 문구보다 늦게 도착한다(서버의 `dbRecorder.done`).
  *
  * 숫자와 문장이 갈려 있다. `body` 는 手数도 개입 횟수도 말하지 않고, 그 숫자는 `stats`
@@ -271,7 +271,7 @@ export interface GameSummary {
    */
   skill?: { before?: SkillRank; after: SkillRank };
   /**
-   * 이 판이 기록에 남은 번호. 되짚기로 건너가는 링크가 이 값으로 선다 — 대국 화면은
+   * 이 판이 기록에 남은 번호. 되짚기로 건너가는 링크가 이 값으로 만들어진다 — 대국 화면은
    * 그때까지 자기 판의 번호를 모른다(기록이 WS 밖에서 비동기로 쓰인다).
    *
    * 되짚기가 부르는 총평에는 없다 — 이미 그 판을 열고 있어서 쓸 데가 없다.
@@ -298,7 +298,7 @@ export type ServerMessage =
   | { type: 'snapshot'; snapshot: Snapshot }
   | { type: 'summary'; summary: GameSummary }
   | { type: 'error'; reason: string; message: string }
-  // 가정 수순의 한 자리. 스냅샷과 갈라 온다 — 대국의 상태가 아니라 「안 벌어진 일」이고,
+  // 가정 수순의 한 자리. 스냅샷과 따로 온다 — 대국의 상태가 아니라 「안 벌어진 일」이고,
   // 하나로 합치면 화면이 두 판을 같은 것으로 그린다.
   | { type: 'whatif'; whatif: WhatIfNode }
   | { type: 'whatif_error'; reason: string; message: string };

@@ -83,7 +83,7 @@ export interface ExploredMove {
 /**
  * 한 줄에 세우기 위한 순서값. 詰み이 cp보다 언제나 바깥이다.
  *
- * 詰み을 환산값(30000)으로 섞으면 「3手で詰み」과 「+2900」이 이웃으로 서고, 그 둘은
+ * 詰み을 환산값(30000)으로 섞으면 「3手で詰み」과 「+2900」이 이웃으로 놓이고, 그 둘은
  * 이웃이 아니다. 그리고 빨리 죽는 쪽이 더 나쁘다 — 부호만 보고 자르면 그 순서가 뒤집힌다.
  */
 export function rankOf(r: { cp: number | undefined; mateIn: number | undefined }): number {
@@ -130,7 +130,7 @@ export function scoreJa(cp: number | undefined, mateIn?: number): string {
 
 /**
  * 목록 한 줄의 값. 둘 다 「그 수를 둔 쪽 관점」이다 — 후보끼리 견주는 자라 이쪽이어야
- * 위가 「그 쪽에게 좋은 수」로 선다.
+ * 위가 「그 쪽에게 좋은 수」가 된다.
  *
  * `ExploredMove` 와 `WhatIfCandidate` 가 이 모양을 만족한다. 두 화면(대국 중의 블런더 목록과
  * 되짚기의 「この局面で指せた手」)이 같은 목록이라 부호 규칙도 한 벌이어야 한다 — 두 벌이면

@@ -26,7 +26,7 @@ func TestNotationNamesOneMove(t *testing.T) {
 	}
 }
 
-// 적은 표기가 같은 국면에서 그대로 되읽혀야 한다. 되짚기 화면이 부르는 표기와 취해 온
+// 적은 표기가 같은 국면에서 그대로 되읽혀야 한다. 되짚기 화면이 부르는 표기와 가져온
 // 기보가 읽는 표기가 갈리면, 이쪽이 쓴 것을 저쪽이 못 읽는다(internal/kifu 의 왕복 시험이
 // 실 코퍼스로 같은 것을 건다).
 func TestResolveOriginIsTheInverseOfDisambiguate(t *testing.T) {

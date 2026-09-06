@@ -24,7 +24,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// Version 은 문항 생성기의 판이다. 올리면 옛 행이 무시된다 — 문항 기준이 바뀌면 옛
+// Version 은 문항 생성기의 판번호다. 올리면 옛 행이 무시된다 — 문항 기준이 바뀌면 옛
 // 문항은 그 기준으로 만든 것이 아니라서 채점 규약이 어긋난다(migrations/007).
 const Version = 1
 
@@ -65,7 +65,7 @@ const (
 
 	// BestMultiPV 는 gap을 재는 MultiPV다. 쓰는 것은 1·2위뿐인데 5인 이유가 둘이다 —
 	// 실측표에 있는 칸이 k=5라 비용을 아는 값이고(956ms), 그 행이 가정 수순의 k=3 요청을
-	// 그대로 받아친다(archive 는 같은 깊이면 후보가 많은 쪽을 쓴다). 탐색이 버려지지 않는다.
+	// 그 요청에 그대로 답한다(archive 는 같은 깊이면 후보가 많은 쪽을 쓴다). 탐색이 버려지지 않는다.
 	BestMultiPV = 5
 
 	// BestMinGapCp 는 문항으로 삼을 1위−2위 차의 하한이다.

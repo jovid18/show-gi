@@ -178,7 +178,7 @@ func TestMeasureBlunderMate(t *testing.T) {
 
 // TestMeasureLetsMateOnRecords 는 프로덕션 경로 그대로 기록을 다시 판정한다.
 //
-// 위의 두 측정은 「詰み이 있느냐」를 직접 물었다. 이것은 NewEngineAnalyst 를 세워
+// 위의 두 측정은 「詰み이 있느냐」를 직접 물었다. 이것은 NewEngineAnalyst 를 만들어
 // Judge 를 부르므로, 플레이어가 실제로 보게 될 카테고리와 문장이 나온다 — 배선이
 // 어딘가 빠져 있으면 여기서만 드러난다.
 //

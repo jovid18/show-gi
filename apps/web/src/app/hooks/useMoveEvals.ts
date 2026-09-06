@@ -6,7 +6,7 @@ import { httpSend } from '@/libs/whatif/http';
  * 다시 잰 값 하나.
  *
  * 플레이어 관점이다 — 서버가 `whatifNode.evalCp` 를 그렇게 내보낸다(branch.go 의
- * `playerCp`). 후보(`WhatIfCandidate.evalCp`)는 둔 쪽 관점이라, 한 열에 나란히 세우는
+ * `playerCp`). 후보(`WhatIfCandidate.evalCp`)는 둔 쪽 관점이라, 한 열에 나란히 놓는
  * 쪽이 뒤집어서 쓴다.
  *
  * `mateIn` 이 같이 온다. cp만 받으면 詰み인 자리가 `+29990` 으로 그려지고, 그건
@@ -76,7 +76,7 @@ export function useMoveEvals(gameId: number, basePly: number, usis: readonly str
           // 오는 대로 그린다. 다 모아서 한 번에 띄우면 다섯 수짜리 국면에서 4초를 기다린다.
           setEvals(new Map(known));
         } catch {
-          // 한 줄을 못 잰 것으로 목록을 세우지 않는다. 그 줄만 값 없이 남는다.
+          // 한 줄을 못 잰 것으로 목록을 접지 않는다. 그 줄만 값 없이 남는다.
         }
       }
     })();

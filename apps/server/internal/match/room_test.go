@@ -169,7 +169,7 @@ func TestTableStartsOnlyWhenBothAreConnected(t *testing.T) {
 }
 
 // 아무도 Hub 를 안 건드려도 만료가 걷힌다. 방을 만들고 링크를 보낸 사람은 Closed 에
-// 서 있을 뿐 Hub 를 부르지 않으므로, 훑는 계기가 남의 요청뿐이면 그 화면은 만료가 지나도
+// 머물러 있을 뿐 Hub 를 부르지 않으므로, 훑는 계기가 남의 요청뿐이면 그 화면은 만료가 지나도
 // 이미 죽은 링크를 계속 광고한다(journal §83).
 func TestAWaitingHostLearnsTheRoomExpiredWithoutAnyoneElse(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())

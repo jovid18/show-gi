@@ -14,7 +14,7 @@ import { Search } from '@/screens/match/Search';
  * 대국을 시작하기 전에 고르는 화면.
  *
  * 여기서 고르기 전에는 서버에 붙지 않는다(`useGame`). 미리 붙으면 그 순간 판이 하나
- * 열려 기록에 남고, 아무것도 고르지 않은 채로 先手 평수 대국이 시작된다.
+ * 열려 기록에 남고, 아무것도 고르지 않은 채로 先手 平手 대국이 시작된다.
  *
  * 고를 것을 셋으로 묶어 뒀다 — 얼마나 접나(手合割) · 어느 쪽을 잡나 · 상대가
  * 무엇을 하나다. 난이도 눈금은 여기 없다. 그건 두는 동안 상대가 스스로 맞춘다(journal §47).
@@ -50,7 +50,7 @@ export function Setup({ initial, onStart }: SetupProps) {
   const [handicap, setHandicap] = useState<string | null>(initial?.handicap ?? null);
   const [handicaps, setHandicaps] = useState<Handicap[]>([]);
 
-  // 목록을 못 받아도 화면은 선다 — 「おまかせ」와 「平手」 하나로 대국은 시작할 수 있다
+  // 목록을 못 받아도 화면은 뜬다 — 「おまかせ」와 「平手」 하나로 대국은 시작할 수 있다
   // (fetchOpenings · fetchHandicaps).
   useEffect(() => {
     const ac = new AbortController();
@@ -161,7 +161,7 @@ export function Setup({ initial, onStart }: SetupProps) {
 /**
  * 平手에서만 고르는 둘 — 手番과 상대의 진형.
  *
- * 한 덩이로 갈라 둔다. 駒落ち에서 둘이 같이 사라지고 이유도 하나라서, 조건을 두 군데
+ * 한 덩이로 따로 둔다. 駒落ち에서 둘이 같이 사라지고 이유도 하나라서, 조건을 두 군데
  * 두면 나중에 한쪽만 남는다(Setup 의 doc).
  */
 function HirateChoices({
@@ -248,7 +248,7 @@ function HirateChoices({
  * 로그인해야 열린다. 익명은 서로 구별할 수단이 없어서 「이 방의 상대가 아까 그
  * 사람인가」에 답할 수 없고, 그러면 정원 2명이라는 규칙이 성립하지 않는다.
  *
- * 눌러도 안 되는 버튼을 안 띄운다 — 로그인 안 한 사람에게는 이유를 적은 줄이 선다
+ * 눌러도 안 되는 버튼을 안 띄운다 — 로그인 안 한 사람에게는 이유를 적은 줄이 뜬다
  * (홈 메뉴가 マイページ·検討 을 감추는 것과 같은 규칙, journal §76).
  *
  * 手番을 위 화면과 따로 고른다. 저쪽은 엔진 상대의 설정이고 여기는 사람 상대라
