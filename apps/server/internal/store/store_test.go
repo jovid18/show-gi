@@ -6,6 +6,8 @@ import (
 	"errors"
 	"os"
 	"testing"
+
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 )
 
 // 진짜 postgres에 붙는다. 없으면 건너뛴다 — CI 러너에는 DB가 없다.
@@ -55,8 +57,8 @@ func TestPositionRoundTrip(t *testing.T) {
 		SideToMove: "b",
 		PlyHint:    12,
 		Candidates: []Candidate{
-			{USI: "7g7f", Cp: 143, PV: []string{"7g7f", "3c3d"}},
-			{USI: "2g2f", Cp: 121},
+			{USI: "7g7f", Score: eval.Cp(143), PV: []string{"7g7f", "3c3d"}},
+			{USI: "2g2f", Score: eval.Cp(121)},
 		},
 		ComputedDepth: 12,
 	}
@@ -72,11 +74,44 @@ func TestPositionRoundTrip(t *testing.T) {
 	if got.SideToMove != "b" || got.PlyHint != 12 || got.ComputedDepth != 12 {
 		t.Fatalf("스칼라 왕복 불일치: %+v", got)
 	}
-	if len(got.Candidates) != 2 || got.Candidates[0].USI != "7g7f" || got.Candidates[0].Cp != 143 {
+	if len(got.Candidates) != 2 || got.Candidates[0].USI != "7g7f" || got.Candidates[0].Score != eval.Cp(143) {
 		t.Fatalf("후보 왕복 불일치: %+v", got.Candidates)
 	}
 	if len(got.Candidates[0].PV) != 2 || got.Candidates[1].PV != nil {
 		t.Fatalf("PV 왕복 불일치: %+v", got.Candidates)
+	}
+}
+
+// 옛 행의 순서를 읽는 자리가 고친다. 2026-09 이전에 쌓인 행은 詰み을 환산값으로
+// 세워서 이기는 詰み이 첫째가 아닌 것이 있고(로컬 캐시에 6국면), 그 행의 첫 후보가
+// 그대로 판 위의 초록 화살표였다(journal §131).
+func TestAnOldRowsMateComesBackFirst(t *testing.T) {
+	s := open(t)
+	k := key(t, s)
+
+	// 엔진의 생 cp 는 환산값을 넘어온다 — 「이기는데 手数를 모름」이 ±35281 이다.
+	stored := Position{
+		SFENKey: k, SideToMove: "b", ComputedDepth: 12,
+		Candidates: []Candidate{
+			{USI: "5i4i", Score: eval.Cp(35281)},
+			{USI: "9f6i", Score: eval.Cp(35281)},
+			{USI: "5i4h", Score: eval.Mate(7)},
+		},
+	}
+	if ok, err := s.PutPosition(t.Context(), stored); err != nil || !ok {
+		t.Fatalf("PutPosition: stored=%v err=%v", ok, err)
+	}
+
+	got, err := s.GetPosition(t.Context(), k)
+	if err != nil {
+		t.Fatalf("GetPosition: %v", err)
+	}
+	if len(got.Candidates) != 3 || got.Candidates[0].USI != "5i4h" {
+		t.Fatalf("첫 후보 = %+v, want 5i4h", got.Candidates)
+	}
+	// 같은 점수끼리는 쌓인 순서를 지킨다. 안 그러면 화살표가 읽을 때마다 옮겨 다닌다.
+	if got.Candidates[1].USI != "5i4i" || got.Candidates[2].USI != "9f6i" {
+		t.Errorf("동점 후보의 순서가 갈렸다: %+v", got.Candidates)
 	}
 }
 
@@ -87,7 +122,7 @@ func TestShallowerResultDoesNotOverwrite(t *testing.T) {
 
 	deep := Position{
 		SFENKey: k, SideToMove: "b", ComputedDepth: 14,
-		Candidates: []Candidate{{USI: "7g7f", Cp: 100}},
+		Candidates: []Candidate{{USI: "7g7f", Score: eval.Cp(100)}},
 	}
 	if stored, err := s.PutPosition(t.Context(), deep); err != nil || !stored {
 		t.Fatalf("깊은 결과 저장: stored=%v err=%v", stored, err)
@@ -95,7 +130,7 @@ func TestShallowerResultDoesNotOverwrite(t *testing.T) {
 
 	shallow := Position{
 		SFENKey: k, SideToMove: "b", ComputedDepth: 10,
-		Candidates: []Candidate{{USI: "9g9f", Cp: -999}},
+		Candidates: []Candidate{{USI: "9g9f", Score: eval.Cp(-999)}},
 	}
 	stored, err := s.PutPosition(t.Context(), shallow)
 	if err != nil {
@@ -112,7 +147,7 @@ func TestShallowerResultDoesNotOverwrite(t *testing.T) {
 
 	// 같은 깊이도 덮지 않는다 — 같은 국면·같은 깊이는 같은 결과라 쓸 이유가 없다
 	same := deep
-	same.Candidates = []Candidate{{USI: "2g2f", Cp: 1}}
+	same.Candidates = []Candidate{{USI: "2g2f", Score: eval.Cp(1)}}
 	if stored, err := s.PutPosition(t.Context(), same); err != nil || stored {
 		t.Fatalf("같은 깊이가 덮였다: stored=%v err=%v", stored, err)
 	}
@@ -120,7 +155,7 @@ func TestShallowerResultDoesNotOverwrite(t *testing.T) {
 	// 더 깊으면 덮는다
 	deeper := deep
 	deeper.ComputedDepth = 16
-	deeper.Candidates = []Candidate{{USI: "2g2f", Cp: 200}}
+	deeper.Candidates = []Candidate{{USI: "2g2f", Score: eval.Cp(200)}}
 	if stored, err := s.PutPosition(t.Context(), deeper); err != nil || !stored {
 		t.Fatalf("더 깊은 결과가 안 덮였다: stored=%v err=%v", stored, err)
 	}

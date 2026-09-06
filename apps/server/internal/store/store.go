@@ -12,11 +12,13 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/store/db"
 )
 
@@ -49,17 +51,51 @@ func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 
 // Candidate 는 한 국면의 후보 수 하나다. positions.candidates 에 JSON으로 들어간다.
 //
-// Cp 는 수번 측 관점이다 — 엔진이 답하는 그대로다. 여기서 플레이어 관점으로 돌려놓으면
+// Score 는 수번 측 관점이다 — 엔진이 답하는 그대로다. 여기서 플레이어 관점으로 돌려놓으면
 // 같은 국면이 사람의 색에 따라 두 행이 되어 캐시가 성립하지 않는다.
 type Candidate struct {
-	USI string   `json:"usi"`
-	Cp  int      `json:"cp"`
-	PV  []string `json:"pv,omitempty"`
-	// MateIn 은 詰み까지의 手数다(수번 측이 이기면 양수). 詰み이 아니면 0.
-	//
-	// cp만으로는 복원할 수 없다. mate 는 30000에서 手数를 뺀 값으로 환산되어 들어오므로,
-	// 캐시에서 꺼낼 때 그 숫자를 그대로 화면에 쓰면 「+29995」가 나간다.
-	MateIn int `json:"mate,omitempty"`
+	USI   string
+	Score eval.Score
+	PV    []string
+}
+
+// candidateJSON 은 행에 실제로 들어가는 모양이다. cp 와 mate 가 배타적이라 둘 중 하나만
+// 나간다 — 합성값을 만들 자리가 없어야 해서 태그를 스키마가 든다(journal §131).
+type candidateJSON struct {
+	USI  string   `json:"usi"`
+	Cp   *int     `json:"cp,omitempty"`
+	Mate *int     `json:"mate,omitempty"`
+	PV   []string `json:"pv,omitempty"`
+}
+
+func (c Candidate) MarshalJSON() ([]byte, error) {
+	out := candidateJSON{USI: c.USI, PV: c.PV}
+	if n, ok := c.Score.MateIn(); ok {
+		out.Mate = &n
+	} else {
+		cp, _ := c.Score.Centipawns()
+		out.Cp = &cp
+	}
+	return json.Marshal(out)
+}
+
+// UnmarshalJSON 은 옛 행도 읽는다. 2026-09 이전의 행은 詰み 줄에 cp 와 mate 를 함께 적었고
+// 그 cp 는 환산값이라 — mate 가 있으면 그쪽이 이긴다. 그래서 마이그레이션이 없다.
+func (c *Candidate) UnmarshalJSON(b []byte) error {
+	var in candidateJSON
+	if err := json.Unmarshal(b, &in); err != nil {
+		return err
+	}
+	c.USI, c.PV = in.USI, in.PV
+	switch {
+	case in.Mate != nil:
+		c.Score = eval.Mate(*in.Mate)
+	case in.Cp != nil:
+		c.Score = eval.Cp(*in.Cp)
+	default:
+		c.Score = eval.Score{}
+	}
+	return nil
 }
 
 // Position 은 캐시된 국면 하나다.
@@ -96,6 +132,14 @@ func (s *Store) GetPosition(ctx context.Context, sfenKey string) (Position, erro
 		if err := json.Unmarshal(row.Candidates, &out.Candidates); err != nil {
 			return Position{}, fmt.Errorf("decode candidates for %s: %w", sfenKey, err)
 		}
+		// 순서를 여기서 한 번 더 세운다. 쓸 때 이미 정본 순서지만
+		// (usi.SearchResult.Ranked), 2026-09 이전에 쌓인 행은 詰み을 환산값으로 세워서
+		// 이기는 詰み이 첫째가 아닌 것이 실제로 있다(journal §131). 그 행을 고치는
+		// 마이그레이션 대신 읽는 자리가 든다 — 쓰는 쪽과 같은 비교자라 새 행에서는
+		// 아무것도 안 옮긴다.
+		slices.SortStableFunc(out.Candidates, func(a, b Candidate) int {
+			return eval.Compare(b.Score, a.Score)
+		})
 	}
 	return out, nil
 }

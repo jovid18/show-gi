@@ -126,12 +126,14 @@ func (b *Builder) score(ctx context.Context, in Input, pos shogi.Position, i int
 	if top.Move == "" || second.Move == "" {
 		return BestItem{}, false, false // 순위가 비어서 온 자리 (usi.parseScore 의 방어)
 	}
-	// mate 점수인 국면은 뺀다 — 「츠메 관련 제외」의 두 번째 그물이고, cp로 환산된
-	// mate 점수(30000 - 10×手数)로 gap을 재면 手数 차가 cp 차로 보인다.
-	if top.IsMate || second.IsMate {
+	// mate 점수인 국면은 뺀다 — 「츠메 관련 제외」의 두 번째 그물이고, 詰み을 cp로
+	// 환산해 gap을 재면 手数 차가 cp 차로 보인다. 이제 그 빼기를 타입이 강제한다.
+	topCp, okTop := top.Score.Centipawns()
+	secondCp, okSecond := second.Score.Centipawns()
+	if !okTop || !okSecond {
 		return BestItem{}, false, false
 	}
-	if top.ScoreCp-second.ScoreCp < BestMinGapCp {
+	if topCp-secondCp < BestMinGapCp {
 		return BestItem{}, false, false
 	}
 	// 사람이 이미 최선수를 둔 국면은 문항이 아니다. 낙폭으로 좁혔으니 여기 올 일은 드물지만,
@@ -155,8 +157,8 @@ func (b *Builder) score(ctx context.Context, in Input, pos shogi.Position, i int
 		SFEN: pos.SFEN(),
 		// cp는 사람 관점이다 — 그 국면의 수번이 사람이라 수번 관점이 곧 그것이다.
 		Answer:   answer.USI(),
-		AnswerCp: top.ScoreCp,
-		SecondCp: second.ScoreCp,
+		AnswerCp: topCp,
+		SecondCp: secondCp,
 		Played:   in.Moves[i],
 		Line:     lineAfter(pos, top.PV),
 	}, true, false

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -158,7 +159,7 @@ func weakGameOpponentTurns(t *testing.T, pool *usi.Pool, plies int) [][]string {
 func playerCpOf(res usi.SearchResult, move string) int {
 	for _, l := range res.Lines {
 		if l.Move == move {
-			return -l.ScoreCp
+			return eval.ApproxCp(l.Score.Neg())
 		}
 	}
 	return 0
@@ -171,7 +172,7 @@ func candidateSpan(res usi.SearchResult) (lo, hi int) {
 		if l.Move == "" {
 			continue
 		}
-		cp := -l.ScoreCp
+		cp := eval.ApproxCp(l.Score.Neg())
 		if first {
 			lo, hi, first = cp, cp, false
 			continue

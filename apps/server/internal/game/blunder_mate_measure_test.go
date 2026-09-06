@@ -113,8 +113,8 @@ func TestMeasureBlunderMate(t *testing.T) {
 		// analyst.go 가 after 로 부르는 바로 그 탐색이고, MateIn 이 양수인 경우를
 		// 지금은 쓰지 않고 버린다.
 		if res, err := pool.SearchDepth(ctx, b.startSFEN, played, JudgeDepth); err == nil {
-			if res.IsMate && res.MateIn > 0 {
-				r.searchMateIn = res.MateIn
+			if n, ok := res.Score.MateIn(); ok && n > 0 {
+				r.searchMateIn = n
 			}
 		}
 

@@ -10,6 +10,7 @@ import (
 	"log"
 
 	"github.com/jovid18/show-gi/apps/server/internal/archive"
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -100,10 +101,15 @@ func whatifNodeOf(
 		return node, nil
 	}
 
-	// 캐시의 cp는 수번 측 관점이다(store.Candidate). 여기서 뒤집는다 — 패키지 doc 참조.
-	cp := playerCp(cands[0].Cp, pos.Turn, human)
+	// 캐시의 점수는 수번 측 관점이다(store.Candidate). 여기서 뒤집는다 — 패키지 doc 참조.
+	//
+	// cp 와 手数를 둘 다 내보낸다. 화면은 手数가 있으면 그쪽으로 말하지만(scoreJa),
+	// cp 는 형세 열이 이어지는 데 쓰이므로 詰み이어도 자리를 비우지 않는다 —
+	// 비우면 그 手数가 목록에서 통째로 빠진다(useMoveEvals).
+	top := playerScore(cands[0].Score, pos.Turn, human)
+	cp := eval.ApproxCp(top)
 	node.EvalCp = &cp
-	node.MateIn = playerCp(cands[0].MateIn, pos.Turn, human)
+	node.MateIn, _ = top.MateIn()
 	node.Candidates = candidatesOf(pos, prevTo, cands)
 	return node, nil
 }
@@ -140,12 +146,13 @@ func evalOf(
 	return archive.Candidates(res), nil
 }
 
-// playerCp 는 수번 측 값을 플레이어 관점으로 옮긴다(패키지 doc의 규약).
-func playerCp(moverCp int, turn, human shogi.Color) int {
+// playerScore 는 수번 측 값을 플레이어 관점으로 옮긴다(패키지 doc의 규약).
+// cp 도 詰み까지의 手数도 부호만 뒤집힌다.
+func playerScore(s eval.Score, turn, human shogi.Color) eval.Score {
 	if turn == human {
-		return moverCp
+		return s
 	}
-	return -moverCp
+	return s.Neg()
 }
 
 // candidatesOf 는 탐색의 후보들을 화면이 그릴 수 있는 모양으로 옮긴다.
@@ -168,7 +175,11 @@ func candidatesOf(pos shogi.Position, prevTo int, cands []store.Candidate) []wha
 			continue
 		}
 		seen[l.USI] = true
-		c := whatifCandidate{USI: l.USI, Ja: pos.MoveJa(m, prevTo), EvalCp: l.Cp, MateIn: l.MateIn}
+		mateIn, _ := l.Score.MateIn()
+		c := whatifCandidate{
+			USI: l.USI, Ja: pos.MoveJa(m, prevTo),
+			EvalCp: eval.ApproxCp(l.Score), MateIn: mateIn,
+		}
 		// 낙폭은 최선수 대비다. 화면이 뺄셈을 하지 않는다 — 두 값을 나란히 두면
 		// 어느 쪽이 기준인지가 흐려진다.
 		//

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -155,12 +156,12 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 			t.Fatalf("%s: %v", m.USI(), err)
 		}
 		in := intervene.Input{
-			BestCp:   before.ScoreCp,
-			AfterCp:  -after.ScoreCp,
+			BestCp:   eval.ApproxCp(before.Score),
+			AfterCp:  eval.ApproxCp(after.Score.Neg()),
 			Features: MoveFeatures(pos, m),
 		}
-		if cp, ok := after.ScoreAtDepth(ShallowDepth); ok {
-			in.Features.ShallowCp, in.Features.HasShallow = -cp, true
+		if sc, ok := after.ScoreAtDepth(ShallowDepth); ok {
+			in.Features.ShallowCp, in.Features.HasShallow = eval.ApproxCp(sc.Neg()), true
 		}
 
 		blunder := false
@@ -218,7 +219,7 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 	}
 
 	n := len(legal)
-	fmt.Printf("\n=== %d수째 · 합법수 %d개 · 최선 %s (%+dcp) ===\n", ply, n, before.Best, before.ScoreCp)
+	fmt.Printf("\n=== %d수째 · 합법수 %d개 · 최선 %s (%+dcp) ===\n", ply, n, before.Best, eval.ApproxCp(before.Score))
 	for _, lv := range []intervene.Level{intervene.Beginner, intervene.Novice, intervene.Intermediate} {
 		fmt.Printf("  임계치 %.2f  블런더 %3d/%d (%.0f%%)\n",
 			lv.Threshold(), counts[lv], n, 100*float64(counts[lv])/float64(n))
@@ -230,7 +231,7 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 		if line.Move == "" {
 			continue
 		}
-		fmt.Printf("    %2d위  %-6s %+d\n", i+1, line.Move, line.ScoreCp)
+		fmt.Printf("    %2d위  %-6s %+d\n", i+1, line.Move, eval.ApproxCp(line.Score))
 	}
 
 	fmt.Printf("  **최선수(%s)와 같은 駒를 움직이는 수: %d개, 그중 통과 %d개**\n",

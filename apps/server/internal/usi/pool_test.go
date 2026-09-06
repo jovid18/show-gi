@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 )
 
 func newFakePool(t *testing.T, size int) *Pool {
@@ -42,7 +44,7 @@ func TestPoolConcurrentSearches(t *testing.T) {
 		if errs[i] != nil {
 			t.Fatalf("%d번 탐색 실패: %v", i, errs[i])
 		}
-		if results[i].Best != "7g7f" || results[i].ScoreCp != 42 {
+		if results[i].Best != "7g7f" || results[i].Score != eval.Cp(42) {
 			t.Fatalf("%d번 결과가 섞임: %+v", i, results[i])
 		}
 	}

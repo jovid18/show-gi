@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -70,7 +71,7 @@ func judgeOtherBlunder(t *testing.T, stub *pvStub, moves []string) Judgement {
 // 그 수다 — 카드는 같은 국면을 k=3으로 묻고 1위가 갈린다.
 func afterK1() usi.SearchResult {
 	return usi.SearchResult{
-		Depth: JudgeDepth, Best: "3c3d", ScoreCp: 1600,
+		Depth: JudgeDepth, Best: "3c3d", Score: eval.Cp(1600),
 		PV: []string{"3c3d", "2g2f"},
 	}
 }

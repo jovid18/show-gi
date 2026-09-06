@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 )
 
 const testSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1"
@@ -42,7 +44,7 @@ func TestSearch(t *testing.T) {
 	if res.Best != "7g7f" {
 		t.Fatalf("Best = %q", res.Best)
 	}
-	if res.ScoreCp != 42 || res.IsMate {
+	if res.Score != eval.Cp(42) {
 		t.Fatalf("Score = %+v (cp 42 기대)", res)
 	}
 	if res.Depth != 2 {
@@ -96,11 +98,11 @@ func TestSetOptionSurvivesRestart(t *testing.T) {
 func TestParseScoreMate(t *testing.T) {
 	var res SearchResult
 	parseScore("info depth 5 score mate 3 nodes 1000", &res)
-	if !res.IsMate || res.MateIn != 3 || res.ScoreCp != MateCp-30 {
+	if res.Score != eval.Mate(3) {
 		t.Fatalf("mate 파싱: %+v", res)
 	}
 	parseScore("info depth 5 score mate -2 nodes 1000", &res)
-	if !res.IsMate || res.MateIn != -2 || res.ScoreCp != -MateCp+20 {
+	if res.Score != eval.Mate(-2) {
 		t.Fatalf("mate(-) 파싱: %+v", res)
 	}
 }
@@ -113,8 +115,8 @@ func TestParseScoreBoundKeepsExactPv(t *testing.T) {
 	if len(res.Lines) != 1 || len(res.Lines[0].PV) != 4 {
 		t.Fatalf("bound 라인이 exact pv를 덮어씀: %+v", res.Lines)
 	}
-	if res.ScoreCp != 900 || len(res.PV) != 4 {
-		t.Fatalf("top-level 결과가 bound로 오염됨: cp=%d pv=%v", res.ScoreCp, res.PV)
+	if res.Score != eval.Cp(900) || len(res.PV) != 4 {
+		t.Fatalf("top-level 결과가 bound로 오염됨: score=%+v pv=%v", res.Score, res.PV)
 	}
 
 	// 그 순위에 아직 아무것도 없으면 속보라도 채워 둔다
@@ -125,7 +127,7 @@ func TestParseScoreBoundKeepsExactPv(t *testing.T) {
 	}
 	// 이후 exact 라인이 오면 갱신
 	parseScore("info depth 11 multipv 2 score cp 280 pv 2g2f 8c8d 2f2e", &res2)
-	if len(res2.Lines[1].PV) != 3 || res2.Lines[1].ScoreCp != 280 {
+	if len(res2.Lines[1].PV) != 3 || res2.Lines[1].Score != eval.Cp(280) {
 		t.Fatalf("exact 라인이 bound를 갱신하지 않음: %+v", res2.Lines[1])
 	}
 }
@@ -173,7 +175,7 @@ func TestRankedDropsTheSameMoveTwice(t *testing.T) {
 		t.Fatalf("순서 = %s %s, want 4f5g 8g8f", got[0].Move, got[1].Move)
 	}
 	// 남는 것은 깊은 쪽이다. 얕은 값이 남으면 낙폭이 그만큼 어긋난다.
-	if got[1].Depth != 12 || got[1].ScoreCp != 288 {
+	if got[1].Depth != 12 || got[1].Score != eval.Cp(288) {
 		t.Fatalf("얕은 줄이 남았다: %+v", got[1])
 	}
 
@@ -181,8 +183,25 @@ func TestRankedDropsTheSameMoveTwice(t *testing.T) {
 	var late SearchResult
 	parseScore("info depth 6 multipv 1 score cp 80 pv 3g3f 8c8d 2g2f", &late)
 	parseScore("info depth 14 multipv 2 score cp 60 pv 3g3f 8c8d 6i7h", &late)
-	if got := late.Ranked(); len(got) != 1 || got[0].Depth != 14 || got[0].ScoreCp != 60 {
+	if got := late.Ranked(); len(got) != 1 || got[0].Depth != 14 || got[0].Score != eval.Cp(60) {
 		t.Fatalf("얕은 순위가 깊은 줄을 이겼다: %+v", got)
+	}
+}
+
+// 후보 순서가 점수를 태그째로 본다. 엔진의 생 cp 는 환산값(eval.MateCp)을 넘어오므로
+// (±35281 = 「이기는데 手数를 모름」) 숫자 하나로 줄을 세우면 1手詰み이 그 뒤로 밀리고,
+// 그 순서가 그대로 저장돼 판 위의 초록 화살표가 詰み을 안 가리켰다(journal §131).
+func TestRankedPutsMateAboveTheEnginesRawCeiling(t *testing.T) {
+	var res SearchResult
+	parseScore("info depth 14 multipv 1 score cp 35281 pv 4f5g 5a4b", &res)
+	parseScore("info depth 14 multipv 2 score mate 1 pv 2b3c 5a4b", &res)
+
+	got := res.Ranked()
+	if len(got) != 2 || got[0].Move != "2b3c" {
+		t.Fatalf("1手詰み이 1위가 아니다: %+v", got)
+	}
+	if n, ok := got[0].Score.MateIn(); !ok || n != 1 {
+		t.Errorf("1위의 점수 = %+v, want mate 1", got[0].Score)
 	}
 }
 
@@ -223,7 +242,7 @@ func TestEvalByDepth(t *testing.T) {
 	}
 
 	// 최종 순위별 결과는 가장 깊은 값이어야 한다
-	if len(res.Lines) != 2 || res.Lines[0].ScoreCp != 42 || res.Lines[1].ScoreCp != -5 {
+	if len(res.Lines) != 2 || res.Lines[0].Score != eval.Cp(42) || res.Lines[1].Score != eval.Cp(-5) {
 		t.Fatalf("Lines = %+v", res.Lines)
 	}
 	if got := res.EvalByDepth("9i9h"); got != nil {
@@ -243,7 +262,7 @@ func TestHistorySkipsBoundLines(t *testing.T) {
 
 	// 같은 (깊이, 순위)가 다시 오면 나중 것이 이긴다
 	parseScore("info depth 8 multipv 1 score cp 120 pv 7g7f 3c3d 6g6f", &res)
-	if len(res.History) != 1 || res.History[0].ScoreCp != 120 {
+	if len(res.History) != 1 || res.History[0].Score != eval.Cp(120) {
 		t.Fatalf("같은 깊이·순위가 중복 기록됨: %+v", res.History)
 	}
 }
@@ -272,7 +291,7 @@ func TestSearchCancelSwallowsBestmove(t *testing.T) {
 	if err != nil {
 		t.Fatalf("취소 후 Search 실패: %v", err)
 	}
-	if res.Best != "7g7f" || res.ScoreCp != 42 {
+	if res.Best != "7g7f" || res.Score != eval.Cp(42) {
 		t.Fatalf("취소 후 결과가 오염됨: %+v", res)
 	}
 }
@@ -332,8 +351,8 @@ func TestRealEngine(t *testing.T) {
 			t.Fatalf("깊이가 오름차순이 아님: %+v", byDepth)
 		}
 	}
-	t.Logf("best=%s cp=%d depth=%d, %s의 깊이별=%+v",
-		res.Best, res.ScoreCp, res.Depth, res.Lines[0].Move, byDepth)
+	t.Logf("best=%s score=%+v depth=%d, %s의 깊이별=%+v",
+		res.Best, res.Score, res.Depth, res.Lines[0].Move, byDepth)
 }
 
 // stop을 무시하는 엔진은 버리고 재기동한다. 취소는 그래도 즉시 돌아온다.

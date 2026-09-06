@@ -155,7 +155,7 @@ export function rowScoreJa(row: MoverScore, byOpponent: boolean): string {
 
 /**
  * 색에 넘길 값. 파랑·빨강은 이 앱 어디서나 「나에게 좋은가」라서 플레이어 관점이어야
- * 하고(`evalTone`), 열의 숫자는 둔 쪽 관점이라 여기서 뒤집는다. 서버의 `playerCp` 와
+ * 하고(`evalTone`), 열의 숫자는 둔 쪽 관점이라 여기서 뒤집는다. 서버의 `playerScore` 와
  * 같은 일이다(branch.go).
  *
  * 詰み은 색으로 말하지 않는다. 그 줄의 cp는 환산값(±30000)이라 ±800 자에 얹으면 언제나

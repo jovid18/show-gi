@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
@@ -78,7 +79,7 @@ func TestMeasureCardBestDivergence(t *testing.T) {
 		if one[0].Move != three[0].Move {
 			differed++
 			t.Logf("%3d手  k=1 %-6s (%+5d)  ≠  k=3 %-6s (%+5d)",
-				i+1, one[0].Move, one[0].ScoreCp, three[0].Move, three[0].ScoreCp)
+				i+1, one[0].Move, eval.ApproxCp(one[0].Score), three[0].Move, eval.ApproxCp(three[0].Score))
 		}
 	}
 

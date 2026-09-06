@@ -3,6 +3,7 @@ package game
 import (
 	"context"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
 )
@@ -102,10 +103,13 @@ func gateTesujiOptions(
 		return nil, len(opts), nil
 	}
 
-	best := lines[0].ScoreCp
+	// 낙폭이 cp 뺄셈이라 詰み 줄도 환산해서 넣는다(eval.ApproxCp). 종반에서 자가
+	// 흐려지지만 手筋 이름이 걸리는 구간이 아니고, 여기서 태그를 살리면 「모르는 줄」이
+	// 늘어 게이트가 조용히 닫힌다(journal §131).
+	best := eval.ApproxCp(lines[0].Score)
 	cp := make(map[string]int, len(lines))
 	for _, l := range lines {
-		cp[l.Move] = l.ScoreCp
+		cp[l.Move] = eval.ApproxCp(l.Score)
 	}
 	// 줄 밖의 후보는 마지막 줄보다 나쁘다. 그 마지막 줄이 이미 상한 밖이면 밖은
 	// 전부 탈락이 확정이고, 안이면 모르는 것이다 — 그 둘을 같은 침묵으로 섞지 않는다.
@@ -113,7 +117,7 @@ func gateTesujiOptions(
 	// k줄을 다 받았을 때만 그렇게 말할 수 있다. 중간 순위 하나가 안 오면 Ranked 가
 	// 그것을 빼고 주므로, 「밖」에는 안 온 그 순위도 섞인다 — 그것은 마지막 줄보다
 	// 나쁘지 않다. 덜 받았으면 경계를 모르는 것이고, 모르면 이름을 붙이지 않는다.
-	decided := len(lines) == k && best-lines[len(lines)-1].ScoreCp > TesujiLossCp
+	decided := len(lines) == k && best-eval.ApproxCp(lines[len(lines)-1].Score) > TesujiLossCp
 
 	for _, o := range opts {
 		after, ok := cp[o.USI]

@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
@@ -183,21 +184,22 @@ func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiP
 	res := usi.SearchResult{Depth: p.ComputedDepth}
 	for i, c := range p.Candidates {
 		if i == 0 {
-			res.Best, res.ScoreCp = c.USI, c.Cp
-			res.IsMate, res.MateIn = c.MateIn != 0, c.MateIn
-			res.PV = c.PV
+			res.Best, res.Score, res.PV = c.USI, c.Score, c.PV
 		}
 		line := usi.SearchLine{
-			Depth: p.ComputedDepth, MultiPV: i + 1, Move: c.USI, ScoreCp: c.Cp,
-			IsMate: c.MateIn != 0, MateIn: c.MateIn, PV: c.PV,
+			Depth: p.ComputedDepth, MultiPV: i + 1, Move: c.USI, Score: c.Score, PV: c.PV,
 		}
 		res.Lines = append(res.Lines, line)
 
 		// 저장은 先手 관점이고 탐색 결과는 수번 관점이다. 되돌리는 것을 빠뜨리면
 		// 後手로 잡은 판에서만 부호가 뒤집히고, 에러는 안 난다.
+		//
+		// 깊이별 값은 컬럼이 평평한 정수라 태그가 없다(edges.eval_by_depth). 되돌린 줄은
+		// 그래서 전부 cp 이고, 詰み이었던 깊이는 환산값으로 남는다 — 그 컬럼을 쓰는 쪽이
+		// 얕음/깊음의 격차만 보므로 지금은 그 자리에서 갈리지 않는다(journal §131).
 		for d, cp := range byMove[c.USI] {
 			res.History = append(res.History, usi.SearchLine{
-				Depth: d + 1, MultiPV: i + 1, Move: c.USI, ScoreCp: senteCp(cp, pos.Turn),
+				Depth: d + 1, MultiPV: i + 1, Move: c.USI, Score: eval.Cp(senteCp(cp, pos.Turn)),
 			})
 		}
 	}
@@ -401,8 +403,9 @@ func (a *Searcher) namesFor(
 	if len(childCands) > 0 {
 		if p, err := a.store.GetPosition(ctx, Key(parent)); err == nil && len(p.Candidates) > 0 {
 			// 부모의 값은 부모의 수번(=둔 쪽) 관점, 자식의 값은 상대 관점이다.
-			before := senteCp(p.Candidates[0].Cp, mover)
-			after := senteCp(childCands[0].Cp, child.Turn)
+			// 手筋 판정이 cp 뺄셈이라 詰み 줄도 환산해서 넘긴다(game.NamedTesuji).
+			before := senteCp(eval.ApproxCp(p.Candidates[0].Score), mover)
+			after := senteCp(eval.ApproxCp(childCands[0].Score), child.Turn)
 			for _, t := range game.NamedTesuji(parent, child, mover, usiMove, before, after) {
 				names = append(names, t.Code)
 			}
@@ -479,11 +482,7 @@ func Candidates(res usi.SearchResult) []store.Candidate {
 	ranked := res.Ranked()
 	out := make([]store.Candidate, 0, len(ranked))
 	for _, l := range ranked {
-		c := store.Candidate{USI: l.Move, Cp: l.ScoreCp, PV: l.PV}
-		if l.IsMate {
-			c.MateIn = l.MateIn
-		}
-		out = append(out, c)
+		out = append(out, store.Candidate{USI: l.Move, Score: l.Score, PV: l.PV})
 	}
 	return out
 }

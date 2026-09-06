@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
@@ -35,7 +36,7 @@ func (s *branchStub) SearchMultiPV(_ context.Context, _ string, moves []string, 
 var thrownBishopMoves = []string{"7g7f", "3c3d", "8h3c+"}
 
 func pvLine(rank int, cp int, pv ...string) usi.SearchLine {
-	return usi.SearchLine{Depth: JudgeDepth, MultiPV: rank, Move: pv[0], ScoreCp: cp, PV: pv}
+	return usi.SearchLine{Depth: JudgeDepth, MultiPV: rank, Move: pv[0], Score: eval.Cp(cp), PV: pv}
 }
 
 func collect(t *testing.T, res usi.SearchResult) (*branchStub, string, []explain.Branch) {
@@ -101,7 +102,7 @@ func TestOtherBranchesDropsWhatItCannotVerify(t *testing.T) {
 // 詰み은 cp로 말하지 않는다. 30000은 평가치가 아니라 환산값이다(explain.BranchScoreJa).
 func TestOtherBranchesKeepsMateOutOfCp(t *testing.T) {
 	_, _, got := collect(t, usi.SearchResult{Lines: []usi.SearchLine{
-		{Depth: JudgeDepth, MultiPV: 1, Move: "5g5f", ScoreCp: -usi.MateCp + 5, IsMate: true, MateIn: -5, PV: []string{"5g5f", "5a4b"}},
+		{Depth: JudgeDepth, MultiPV: 1, Move: "5g5f", Score: eval.Mate(-5), PV: []string{"5g5f", "5a4b"}},
 	}})
 
 	if len(got) != 1 {

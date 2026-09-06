@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -46,7 +47,7 @@ func (m *perLineMate) SearchMate(_ context.Context, _ string, moves []string) (u
 //
 // 그것이 opponentMate 의 게이트다 — 이 값이 없으면 solver를 아예 안 부른다.
 func mateSearcher(mateIn int) usi.SearchResult {
-	return usi.SearchResult{Best: "7g7f", ScoreCp: -3000, IsMate: true, MateIn: mateIn}
+	return usi.SearchResult{Best: "7g7f", Score: eval.Mate(mateIn)}
 }
 
 func TestOpponentMateNeedsBothConditions(t *testing.T) {

@@ -6,7 +6,7 @@ import { httpSend } from '@/libs/whatif/http';
  * 다시 잰 값 하나.
  *
  * 플레이어 관점이다 — 서버가 `whatifNode.evalCp` 를 그렇게 내보낸다(branch.go 의
- * `playerCp`). 후보(`WhatIfCandidate.evalCp`)는 둔 쪽 관점이라, 한 열에 나란히 놓는
+ * `playerScore`). 후보(`WhatIfCandidate.evalCp`)는 둔 쪽 관점이라, 한 열에 나란히 놓는
  * 쪽이 뒤집어서 쓴다.
  *
  * `mateIn` 이 같이 온다. cp만 받으면 詰み인 자리가 `+29990` 으로 그려지고, 그건

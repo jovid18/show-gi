@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
@@ -31,11 +32,11 @@ func (f *fakeSearch) SearchMultiPV(
 
 // line 은 후보 하나다. cp는 수번 관점이고, 그 국면의 수번이 사람이라 곧 사람 관점이다.
 func line(move string, cp int) usi.SearchLine {
-	return usi.SearchLine{Move: move, ScoreCp: cp, PV: []string{move}}
+	return usi.SearchLine{Move: move, Score: eval.Cp(cp), PV: []string{move}}
 }
 
 func mateLine(move string, in int) usi.SearchLine {
-	return usi.SearchLine{Move: move, ScoreCp: usi.MateCp - 10*in, IsMate: true, MateIn: in, PV: []string{move}}
+	return usi.SearchLine{Move: move, Score: eval.Mate(in), PV: []string{move}}
 }
 
 // gameInput 은 위 수순으로 만든 Input 이다. 평가치는 전 手数에 있고 낙폭은 手数가 늦을수록 크다 —

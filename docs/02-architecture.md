@@ -65,7 +65,7 @@ positions (
   sfen_key       text primary key,
   side_to_move   char(1),
   ply_hint       int,
-  candidates     jsonb,          -- MultiPV 상위 k: [{usi, cp, pv}]
+  candidates     jsonb,          -- MultiPV 상위 k: [{usi, cp | mate, pv}] — cp 와 mate 는 배타적이다(journal §131)
   computed_depth int,            -- 더 얕게 계산한 결과로 덮어쓰지 않는다
   created_at     timestamptz default now()
 );

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -99,7 +100,7 @@ func (s *rootSearch) SearchMultiPV(_ context.Context, _ string, _ []string, _, m
 // 줄이 한 개로 줄어든다 — adaptive_test.go 의 line 이 그렇게 생겼고, 저쪽은 Lines 를
 // 그대로 읽어서 안 걸린다.
 func rootLine(rank int, move string, cp int) usi.SearchLine {
-	return usi.SearchLine{Depth: 12, MultiPV: rank, Move: move, ScoreCp: cp}
+	return usi.SearchLine{Depth: 12, MultiPV: rank, Move: move, Score: eval.Cp(cp)}
 }
 
 func gateOne(t *testing.T, s MultiSearcher, opts []TesujiOption) ([]TesujiOption, int) {

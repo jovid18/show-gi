@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -70,7 +71,7 @@ func TestMeasureBaseline(t *testing.T) {
 		// 駒落ち의 0手目는 上手 차례라 엔진의 관점이 上手다(handicap.Handicap.SFEN).
 		// 표는 언제나 下手 관점이므로(Handicap.BaselineCp) 그때 부호를 뒤집는다 — 手番을
 		// SFEN에서 읽는 것은 이 파일이 그 규약을 두 벌 적지 않게 하려는 것이다.
-		got := res.ScoreCp
+		got := eval.ApproxCp(res.Score)
 		if turnOf(sfen) == "w" {
 			got = -got
 		}
