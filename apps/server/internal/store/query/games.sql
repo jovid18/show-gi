@@ -327,7 +327,7 @@ SELECT ply, usi, eval_cp FROM game_undos WHERE game_id = $1 ORDER BY ply, id;
 -- name: CountGameUndos :one
 --
 -- 이어하는 판이 3회 제한을 리셋하지 않게 한다(game.Config.UndoUsed). 세션은 연결에
--- 매여 있어 이어할 때마다 새로 서는데, 카운터도 같이 0이 되면 제한이 제한이 아니다.
+-- 매여 있어 이어할 때마다 새로 만들어지는데, 카운터도 같이 0이 되면 제한이 제한이 아니다.
 SELECT count(*) FROM game_undos WHERE game_id = $1;
 
 -- ─── 전법·囲い ───────────────────────────────────────────────

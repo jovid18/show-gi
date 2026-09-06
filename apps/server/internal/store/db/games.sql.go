@@ -214,7 +214,7 @@ SELECT count(*) FROM game_undos WHERE game_id = $1
 `
 
 // 이어하는 판이 3회 제한을 리셋하지 않게 한다(game.Config.UndoUsed). 세션은 연결에
-// 매여 있어 이어할 때마다 새로 서는데, 카운터도 같이 0이 되면 제한이 제한이 아니다.
+// 매여 있어 이어할 때마다 새로 만들어지는데, 카운터도 같이 0이 되면 제한이 제한이 아니다.
 func (q *Queries) CountGameUndos(ctx context.Context, gameID int64) (int64, error) {
 	row := q.db.QueryRow(ctx, countGameUndos, gameID)
 	var count int64

@@ -84,7 +84,7 @@ type gameSummaryPayload struct {
 	Skill *skillChange `json:"skill,omitempty"`
 }
 
-// summarize 는 기록 하나를 총평으로 바꾼다. 문장과 표가 같은 세기에서 나온다(factsOf).
+// summarize 는 기록 하나를 총평으로 바꾼다. 문장과 표가 같은 집계에서 나온다(factsOf).
 func summarize(rec store.GameRecord, level intervene.Level) gameSummaryPayload {
 	facts, stats := factsOf(rec, level)
 	return gameSummaryPayload{Body: explain.RenderSummary(facts), Stats: stats}

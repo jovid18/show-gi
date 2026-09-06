@@ -183,7 +183,7 @@ func (h *kifuHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 줄에 세우는 데 실패해도 판은 남는다. 평가치 없는 판이 되짚기에 그대로 뜨고,
-	// 사람은 자기 기보를 잃지 않는다 — 다시 가져오면 새 판으로 다시 선다.
+	// 사람은 자기 기보를 잃지 않는다 — 다시 가져오면 새 판으로 다시 줄에 선다.
 	if err := h.analyzer.enqueueImport(r.Context(), gameID, g.StartSFEN, g.Moves); err != nil {
 		log.Printf("kifu: could not queue imported game %d: %v", gameID, err)
 	}
@@ -194,7 +194,7 @@ func (h *kifuHandler) create(w http.ResponseWriter, r *http.Request) {
 // read 는 결정적 파서를 먼저 대 보고, 전부 실패했을 때만 정규화 계층을 부른다.
 //
 // **순서가 이 기능의 전제다.** 같은 기보가 언제나 같은 결과를 주는 것이 기본값이고,
-// 정규화는 그 기본값이 성립하지 않는 자리에만 선다(internal/kifunorm).
+// 정규화는 그 기본값이 성립하지 않는 자리에서만 돈다(internal/kifunorm).
 func (h *kifuHandler) read(ctx context.Context, userID int64, text string) (kifu.ParsedGame, kifu.Notation, error) {
 	if len(text) > kifunorm.MaxInput {
 		return kifu.ParsedGame{}, "", kifunorm.ErrTooLarge

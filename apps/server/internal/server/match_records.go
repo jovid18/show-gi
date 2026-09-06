@@ -115,7 +115,7 @@ func (m *matchRecords) new(
 	}
 	out := map[shogi.Color]match.Recorder{}
 	for c, p := range map[shogi.Color]match.Player{shogi.Black: black, shogi.White: white} {
-		// 주소를 사람마다 새로 뜬다. 반복 변수의 주소를 그대로 넘기면 두 기록기가
+		// 사람마다 변수를 새로 두고 그 주소를 넘긴다. 반복 변수의 주소를 그대로 넘기면 두 기록기가
 		// 같은 값을 가리키고, 그러면 한 판이 한 사람의 행 두 개로 남는다.
 		userID := p.UserID
 		// 계측을 안 넘긴다. 대인전은 FinishedWith 로 결과를 적으므로 Finished 를 지나지

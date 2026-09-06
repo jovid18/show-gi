@@ -600,7 +600,7 @@ func generateQuiz(parent context.Context, st *store.Store, builder *quiz.Builder
 		//
 		// 한 자리를 못 본 것으로는 안 버린다. 중반의 무관한 국면에서 solver 가 결론을 못
 		// 내는 것은 흔하고(df-pn 이 timeout 하는 자리다), 그것으로 행을 안 남기면 그 판은
-		// 5분을 기다린 뒤 「안 왔다」에 서게 된다.
+		// 5분을 기다린 뒤 「안 왔다」에 머물게 된다.
 		if (cut || !measured) && built.Empty() {
 			log.Printf("ws: quiz: game %d: nothing was measured (timed out: %v) — leaving no row rather than claiming there was nothing", rec.ID, cut)
 			return

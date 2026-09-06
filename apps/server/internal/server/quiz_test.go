@@ -387,7 +387,7 @@ func TestLineIsRenderedFromTheAnswerPosition(t *testing.T) {
 	}
 }
 
-// 저장된 수순이 그 국면에서 안 서면 거기까지만 준다. 500으로 답하면 맞은 답이 오류가 된다.
+// 저장된 수순이 그 국면에서 못 두는 수면 거기까지만 준다. 500으로 답하면 맞은 답이 오류가 된다.
 func TestLineStopsInsteadOfFailing(t *testing.T) {
 	pos := shogi.StartPosition()
 	got := lineFrom(pos.SFEN(), "7g7f", []string{"3c3d", "9i9b"})
@@ -404,7 +404,7 @@ func TestNoLineForOlderQuizzes(t *testing.T) {
 	}
 }
 
-// 정답이 그 국면에서 안 서면 수순도 없다 — 문항이 깨진 것이고, 반쪽을 그리지 않는다.
+// 정답이 그 국면에서 못 두는 수면 수순도 없다 — 문항이 깨진 것이고, 반쪽을 그리지 않는다.
 func TestNoLineWhenTheStoredAnswerDoesNotStand(t *testing.T) {
 	pos := shogi.StartPosition()
 	if got := lineFrom(pos.SFEN(), "9i9b", []string{"3c3d"}); got != nil {

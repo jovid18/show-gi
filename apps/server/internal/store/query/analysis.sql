@@ -133,7 +133,7 @@ DELETE FROM analysis_plies WHERE created_at < $1;
 
 -- name: HoldAnalysisJob :exec
 --
--- 판의 자리를 미리 세운다. 手数는 아직 비어 있어 집히지 않는다.
+-- 판의 자리를 미리 잡아 둔다. 手数는 아직 비어 있어 집히지 않는다.
 --
 -- 번호가 나가기 전에 서야 한다 — 화면이 되짚기를 여는 순간 이미 「분석 중」이라야 하고,
 -- 그 시점에는 자리가 하나뿐일 수 있다(matchRecords.collect).

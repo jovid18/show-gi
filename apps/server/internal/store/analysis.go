@@ -217,7 +217,7 @@ type MatchSeat struct {
 // ErrNoAnalysisJob 은 지금 집을 판이 없다는 것 하나다.
 var ErrNoAnalysisJob = errors.New("store: no game to analyze")
 
-// HoldAnalysisJob 은 판의 자리를 미리 세운다. 두 번 불려도 한 행이다.
+// HoldAnalysisJob 은 판의 자리를 미리 잡아 둔다. 두 번 불려도 한 행이다.
 func (s *Store) HoldAnalysisJob(ctx context.Context, matchID string) error {
 	if err := s.q.HoldAnalysisJob(ctx, matchID); err != nil {
 		return fmt.Errorf("hold analysis job: %w", err)

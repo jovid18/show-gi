@@ -154,7 +154,7 @@ func TestSessionGaugeReturnsToZero(t *testing.T) {
 		Metrics:     reg,
 		NewOpponent: func() game.Opponent { return &scriptedOpponent{moves: []string{"3c3d"}} },
 	})
-	read(t, ctx, conn) // 첫 스냅샷을 받아 세션이 실제로 섰음을 본다
+	read(t, ctx, conn) // 첫 스냅샷을 받아 세션이 실제로 열렸는지를 본다
 	if got := reg.WSSessions.Total(); got != 1 {
 		t.Fatalf("대국 중 세션 수=%v", got)
 	}

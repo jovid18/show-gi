@@ -342,7 +342,7 @@ func analysisWorkers(poolSize int, role string) int {
 //
 // analysis 가 나머지를 404 가 아니라 503 으로 답하는 이유는 server.Handler 에 있다.
 //
-// 상호작용 티어를 여러 대로 올리는 것은 이 손잡이가 아니다. 방이 메모리에 서므로
+// 상호작용 티어를 여러 대로 올리는 것은 이 손잡이가 아니다. 방이 메모리에 있으므로
 // (journal §98) 그쪽은 방을 프로세스 밖으로 내린 뒤다.
 func analysisRole() string {
 	switch v := os.Getenv("SERVER_ROLE"); v {
