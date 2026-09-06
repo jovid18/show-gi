@@ -39,7 +39,7 @@ export async function fetchSnapshots(signal: AbortSignal): Promise<ExploreSnapsh
 }
 
 /**
- * 지금 보고 있는 자리를 남긴다. 이름이 비면 서버가 하나 짓는다.
+ * 지금 보고 있는 국면을 남긴다. 이름이 비면 서버가 하나 짓는다.
  *
  * 판을 안 보낸다. 手合割 id 와 수순이고, 합법성은 서버가 되짚어 확인한다 — 화면이
  * 규칙을 모르는 것은 여기서도 같다.

@@ -36,7 +36,7 @@ export interface SnapshotSource {
   pending: boolean;
   /** 마지막 실패. 서버가 준 일본어다(libs/explore/snapshots.ts). */
   error: string;
-  /** 지금 보고 있는 자리를 남긴다. 성공하면 true — 부르는 쪽이 입력을 비운다. */
+  /** 지금 보고 있는 국면을 남긴다. 성공하면 true — 부르는 쪽이 입력을 비운다. */
   save: (name: string, handicap: string, moves: readonly string[]) => Promise<boolean>;
   rename: (id: number, name: string) => Promise<boolean>;
   remove: (id: number) => Promise<boolean>;

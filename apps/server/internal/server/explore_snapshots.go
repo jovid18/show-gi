@@ -101,7 +101,7 @@ func (h *exploreSnapshotHandler) list(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"snapshots": out})
 }
 
-// save 는 지금 보고 있는 자리를 남긴다.
+// save 는 지금 보고 있는 국면을 남긴다.
 //
 // 수순을 룰 엔진에 되짚어 본다. 합법성 검사뿐이라 엔진 슬롯을 안 잡는다(journal §96) —
 // 안 하면 불러올 때마다 거절되는 행이 기록에 남는다.

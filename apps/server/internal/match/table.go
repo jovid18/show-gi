@@ -302,7 +302,7 @@ func (st *state) handle(c command) {
 
 	case cmdSubscribe:
 		st.subs[c.sub] = struct{}{}
-		// 붙자마자 지금 자리를 하나 준다. 없으면 다음 착수까지 빈 화면이다.
+		// 붙자마자 지금 국면을 한 번 보낸다. 없으면 다음 착수까지 빈 화면이다.
 		notify(c.sub, viewSnapshot{st: st.snapshot()})
 		c.reply <- result{}
 
