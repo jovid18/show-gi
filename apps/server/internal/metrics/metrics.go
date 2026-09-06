@@ -18,7 +18,7 @@ import (
 
 // DefaultBuckets 는 초 단위 지연에 쓰는 버킷 경계다. 5ms 부터 30초까지.
 //
-// 위쪽이 긴 것은 엔진 탐색이 깊이 12에서 초 단위이기 때문이다. HTTP 요청도 같은 경계를
+// 위쪽이 긴 것은 엔진 탐색이 깊이 14에서 초 단위이기 때문이다. HTTP 요청도 같은 경계를
 // 쓴다 — /api/explore 처럼 탐색을 기다리는 경로가 있어서 위쪽이 필요하다.
 var DefaultBuckets = []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30}
 
@@ -373,7 +373,7 @@ func (h *Histogram) Observe(v float64, labelValues ...string) {
 // 앞의 100개만 남기면 회차 앞머리의 요청만 백분위에 반영된다.
 //
 // 분모가 sampled 인 것이 요점이다. 누적(count)을 쓰면 회차가 지날수록 확률이 0으로
-// 내려가 그 굳는 상태가 되고, 하필 바쁜 분에 틀린다.
+// 내려가 바로 그 굳은 상태가 되고, 하필 바쁜 분에 틀린다.
 func (s *series) observe(v float64) {
 	s.sampled++
 	if len(s.samples) < maxSamples {

@@ -11,7 +11,7 @@ import (
 // store 를 안 본다. 이 패키지가 아는 것은 국면과 평가치뿐이라, 기록의 모양이 바뀌어도
 // 문항 기준은 그대로다 — 옮겨 담는 자리는 부르는 쪽이다(server/quiz.go).
 type Input struct {
-	// StartSFEN 은 0手目의 국면이다. 비어 있으면 평수 초기 국면이다.
+	// StartSFEN 은 0手目의 국면이다. 비어 있으면 平手 초기 국면이다.
 	StartSFEN string
 	// Moves 는 확정된 수 전부다. 手数 순이고 구멍이 없어야 한다 — 부르는 쪽이 채워 준다.
 	Moves []string

@@ -115,7 +115,7 @@ func (o *bookOpponent) next(startSFEN string, moves []string) (string, bool) {
 	return usi, true
 }
 
-// startSFENOr 는 빈 값을 평수 초기 국면으로 바꾼다. Config.StartSFEN 의 규약과 같다.
+// startSFENOr 는 빈 값을 平手 초기 국면으로 바꾼다. Config.StartSFEN 의 규약과 같다.
 func startSFENOr(s string) string {
 	if s == "" {
 		return shogi.StartSFEN

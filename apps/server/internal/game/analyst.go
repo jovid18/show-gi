@@ -91,7 +91,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		in.BaselineCp = handicap.BaselineCpFor(startSFEN, mover)
 		in.Features, facts = moveFacts(pos, m)
 		in.Features.UnpromotedOnly = UnpromotedOnly(m, best.Best)
-		// 얕은 평가는 이미 받아 둔 info 라인에 있다. PvInterval=0 덕에 depth 12
+		// 얕은 평가는 이미 받아 둔 info 라인에 있다. PvInterval=0 덕에 depth 14
 		// 탐색 한 번이 depth 1~12를 전부 돌려주므로 추가 탐색이 없다(01-core.md §4).
 		if cp, ok := after.ScoreAtDepth(ShallowDepth); ok {
 			in.Features.ShallowCp, in.Features.HasShallow = -cp, true // 사람 관점
@@ -143,7 +143,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		// 기본은 이미 손에 든 착수 후 탐색의 PV다 — 공짜이고 분류도 필요 없어서, 카테고리가
 		// 이유를 못 대는 3분의 2(journal §17)가 여기서 설명을 갖는다.
 		//
-		// 詰まされる 국면은 증명된 詰み 수순을 쓴다. PV는 깊이 12에서의 읽기라 뒤로 갈수록
+		// 詰まされる 국면은 증명된 詰み 수순을 쓴다. PV는 깊이 14에서의 읽기라 뒤로 갈수록
 		// 확실하지 않은데, 詰み 수순은 모든 응수에 대해 증명된 것이라 끝까지 참이다.
 		//
 		// other 는 카드와 같은 질문을 다시 던진다(cardPV). 그 카테고리만 문장에 수를
@@ -386,7 +386,7 @@ func senteCp(moverCp int, mover shogi.Color) int {
 
 // RefutationPlies 는 반박 수순의 상한이다. 실제 길이는 국면이 정한다(trimRefutation).
 //
-// 깊이 12 탐색의 PV는 뒤로 갈수록 확실하지 않고, 화면에서는 「왜 나쁜가」가 아니라
+// 깊이 14 탐색의 PV는 뒤로 갈수록 확실하지 않고, 화면에서는 「왜 나쁜가」가 아니라
 // 강의가 된다. 여기는 그 두 가지를 막는 한도이고, 보통은 이보다 훨씬 앞에서 잘린다.
 const RefutationPlies = 8
 
@@ -520,8 +520,8 @@ type refutationStep struct {
 	gaveCheck bool
 }
 
-// trimRefutation 은 손익이 바뀌는 첫 수(딴다·王手)에서 시작해 같은 칸에서 주고받는 동안
-// 끊는다. 상수 길이가 국면마다 틀리고, 교환·王手는 반쪽만 보여주면 거짓이 되기 때문이다
+// trimRefutation 은 손익이 바뀌는 첫 수(딴다·王手)부터 같은 칸에서 주고받는 동안은 이어
+// 붙이고, 그 주고받기가 끝나는 자리에서 끊는다. 상수 길이가 국면마다 틀리고, 교환·王手는 반쪽만 보여주면 거짓이 되기 때문이다
 // (규칙 비교와 실측 8수 사례는 journal §20). 그런 수가 없으면 첫 수만 남긴다.
 func trimRefutation(steps []refutationStep) int {
 	for i, s := range steps {

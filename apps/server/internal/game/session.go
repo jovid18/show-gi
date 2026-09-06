@@ -119,7 +119,7 @@ type Config struct {
 	ObservePlies int
 	// HumanColor 는 사람이 잡는 쪽. 기본은 先手(Black).
 	HumanColor shogi.Color
-	// StartSFEN 이 비면 평수 초기 국면.
+	// StartSFEN 이 비면 平手 초기 국면.
 	StartSFEN string
 	// StartMoves 는 StartSFEN 에서 이미 둬진 수순이다. 이어하기가 기록에서 국면을 다시
 	// 세울 때만 채운다(server/ws.go, journal §51). 판을 살려 두는 대신 기보로 다시 두므로
