@@ -77,6 +77,7 @@ flowchart TB
 
     subgraph rules["규칙"]
         SH["shogi<br/>합법수 · 반칙 · 棋譜 표기"]
+        EV["eval<br/>cp XOR 詰み 手数"]
     end
 
     subgraph io["밖"]
@@ -95,8 +96,10 @@ flowchart TB
     GM --> IV & SK & EX & TG & BK & HC & SH & AR
     MT --> SH & ST
     ST --> RT
-    IV --> SH
-    AR --> US & ST
+    IV --> SH & EV
+    AR --> US & ST & EV
+    US --> EV
+    ST --> EV
     QZ --> SH & ST
     KF --> SH & HC
 
@@ -109,11 +112,12 @@ flowchart TB
     style BR fill:#f8d7da,stroke:#842029
 ```
 
-### 없는 화살표 열둘이 설계다
+### 없는 화살표 열셋이 설계다
 
 | 없는 것                 | 뜻                                                                                                                                                                                                     |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `intervene` → `usi`     | **개입 판정은 엔진을 모른다.** 입력이 이미 구해진 평가치와 詰み 거리뿐이라, 상수(K·임계치)를 흔들어 보는 데 엔진이 필요 없다                                                                           |
+| `intervene` → `usi`     | **개입 판정은 엔진을 모른다.** 입력이 이미 구해진 평가치와 詰み 거리뿐이라, 상수(K·임계치)를 흔들어 보는 데 엔진이 필요 없다. `eval` 은 값 타입이라 이 성질을 안 건드린다                              |
+| `eval` → 무엇이든       | **리프다.** 점수 하나를 태그째로 들 뿐이고, 그래서 `usi` 도 `store` 도 `intervene` 도 순환 없이 들여온다 ([§131](../journal/121-140.md))                                                               |
 | `skill` → 무엇이든      | **판도 DB도 모른다.** 입력이 낙폭과 「걸렸나」뿐이다                                                                                                                                                   |
 | `rating` → 무엇이든     | 같은 성질이다 — 입력이 두 사람의 지금 레이팅과 승패뿐이다. **어느 API 도 이 값을 안 돌려준다**                                                                                                         |
 | `explain` → `intervene` | **판단하지 않는다.** 정해진 사실을 문장으로만 바꾼다 — 순수 함수라 되무르는 자리에서 불러도 판정과 문장이 갈릴 길이 없다                                                                               |
@@ -142,7 +146,7 @@ flowchart LR
         S6["퀴즈 생성"]
     end
     six --> AR["archive.Wrap"]
-    AR -- hit --> C[("positions.candidates<br/>edges.eval_by_depth")]
+    AR -- hit --> C[("positions.candidates<br/>edges 의 깊이별 배열 둘")]
     AR -- miss --> P["usi 풀 · go depth N"]
     P -- 쓴다 --> C
 ```
@@ -214,7 +218,7 @@ sequenceDiagram
     E-->>J: matePlies
     end
 
-    J->>J: intervene.Decide(best_cp, after_cp, shallow, mate, base, level)
+    J->>J: intervene.Judge(best, after, shallow, mate, base, level)
     Note over J: 엔진을 모른다. 입력이 평가치와 詰み 거리뿐이다
     J-->>S: judgeDone ← Verdict
 
@@ -253,11 +257,11 @@ sequenceDiagram
 
 ### 3.3 하나의 배열이 개입의 두 방향을 정의한다
 
-`edges.eval_by_depth` 하나에서 나온다.
+`edges` 의 깊이별 배열 하나에서 나온다 — cp 와 詰み 手数가 같은 자리에서 하나씩이다(021).
 
 ```mermaid
 flowchart LR
-    EV["eval_by_depth<br/>d1 … d12"] --> CMP{"shallow(d2) vs deep(d12)"}
+    EBD["eval_by_depth · mate_by_depth<br/>d1 … d14"] --> CMP{"shallow(d2) vs deep(d14)"}
     CMP -- "좋아 보이는데 실은 나쁨" --> T["함정<br/>제지형 — 되무른다"]
     CMP -- "나빠 보이는데 실은 좋음" --> J["手筋<br/>제안형 — 알린다"]
     T --> M1["「여기까지만 보면 이득입니다」"]
