@@ -28,14 +28,15 @@ type Score struct {
 // Cp 는 centipawn 점수다. 양수면 수번 측이 좋다.
 func Cp(v int) Score { return Score{v: v} }
 
-// Mate 는 詰み까지의 手数다. 양수면 수번 측이 詰ます 쪽이다.
+// Mate 는 詰み까지의 手数다. 양수면 수번 측이 詰ます 쪽이고, 음수면 詰まされる 쪽이다.
 //
-// n <= 0 은 수번 측이 詰まされる 쪽이다. USI 의 score mate 0 은 「이미 詰んでいる」이라
-// 지는 쪽에 넣는다 — 그 국면에는 둘 수가 없어 후보 줄로는 안 온다.
+// n 에 0 을 넣지 않는다. 부호가 없어서 Neg 가 관점을 못 옮기고(-0 = 0), 그래서 「내가
+// 詰んでいる」과 「상대가 詰んでいる」이 한 값이 된다 — 여기서 뜻을 정하면 어느 쪽으로
+// 정하든 절반이 거짓이다. 그래서 값이 들어오는 자리에서 막는다(usi.parseScore).
+//
+// 엔진이 그 값을 안 낸다. 이미 詰んでいる 국면에 물으면 score mate -1 에 bestmove
+// resign 이다 — 실측이고, 그 사실이 무너지면 실엔진 테스트가 먼저 빨개진다(journal §131).
 func Mate(n int) Score { return Score{mate: true, v: n} }
-
-// IsMate 는 詰み 점수인가다.
-func (s Score) IsMate() bool { return s.mate }
 
 // MateIn 은 詰み까지의 手数다. cp 점수면 0, false — Centipawns 와 대칭이라 ok 를 버려도
 // 값이 새지 않는다.
@@ -55,17 +56,23 @@ func (s Score) Centipawns() (int, bool) {
 }
 
 // Neg 는 관점을 상대 쪽으로 뒤집는다. cp 도 手数도 부호만 바뀐다.
+//
+// Mate(0) 만 자기 자신으로 돌아온다. 엔진이 안 내는 값이라 여기 오지 않는다(Mate).
 func (s Score) Neg() Score { return Score{mate: s.mate, v: -s.v} }
 
 // ApproxCp 는 태그를 버리고 정수 하나로 누른다.
 //
 // 눌러야만 하는 자리에서만 쓴다 — 스키마가 int 인 컬럼(edges.eval_by_depth ·
 // game_moves.eval_cp)과 이미 나간 JSON 계약이다. 순서를 정하는 데는 안 쓴다.
+//
+// 0 을 이기는 쪽에 안 넣는다. Compare 는 Mate(0) 을 맨 아래로 보내므로 여기서 양수를
+// 주면 한 패키지가 같은 값을 두 방향으로 읽는다 — 들어올 수 없는 값이지만(Mate) 두
+// 자가 어긋나 있는 것 자체가 다음 사람의 함정이다.
 func ApproxCp(s Score) int {
 	if !s.mate {
 		return s.v
 	}
-	if s.v >= 0 {
+	if s.v > 0 {
 		return MateCp - 10*s.v
 	}
 	return -MateCp - 10*s.v
@@ -78,8 +85,9 @@ const mateRank = int64(1) << 40
 // Compare 는 수번 측에게 좋은 쪽이 크다. 이기는 詰み > 어떤 cp > 지는 詰み이고,
 // 짧게 이기는 쪽이 위, 늦게 지는 쪽이 위다.
 //
-// 화면 쪽 rankOf 와 같은 규칙이다(apps/web/src/app/libs/whatif/branch.ts). 둘이 갈리면
-// 목록의 1위와 판 위의 초록 화살표가 다른 수를 가리킨다.
+// 0 이 아닌 手数에서 화면 쪽 rankOf 와 같은 규칙이다(apps/web/src/app/libs/whatif/branch.ts).
+// 둘이 갈리면 목록의 1위와 판 위의 초록 화살표가 다른 수를 가리킨다. 0 은 저쪽이 cp 로
+// 흘려보내고 이쪽은 맨 아래로 보내는데, 그 값은 애초에 안 만든다(Mate).
 func Compare(a, b Score) int {
 	x, y := rank(a), rank(b)
 	switch {

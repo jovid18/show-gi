@@ -544,6 +544,13 @@ func parseScore(line string, res *SearchResult) {
 			case "cp":
 				sl.Score = eval.Cp(v)
 			case "mate":
+				// mate 0 은 어느 쪽이 詰んでいる인지를 안 말한다(eval.Mate). 이 엔진은
+				// 안 내므로(mated 국면에 mate -1 을 낸다) 여기 오면 우리가 모르는
+				// 출력이고, 모르는 것을 뜻이 있는 값으로 옮기지 않는다.
+				if v == 0 {
+					hasScore = false
+					continue
+				}
 				sl.Score = eval.Mate(v)
 			}
 		case "pv":

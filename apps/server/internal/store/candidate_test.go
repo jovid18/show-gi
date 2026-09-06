@@ -48,8 +48,8 @@ func TestCandidateRoundTrips(t *testing.T) {
 		{USI: "7g7f", Score: eval.Cp(0), PV: []string{"7g7f", "3c3d"}},
 		{USI: "7g7f", Score: eval.Cp(-35281)},
 		{USI: "2b3c", Score: eval.Mate(-3)},
-		// mate 0 은 「이미 詰んでいる」이라 지는 쪽이다. omitempty 로 적으면 이 행이
-		// cp 0 으로 돌아왔다 — 포인터로 내보내는 이유가 이 한 줄이다.
+		// 0 은 안 만드는 값이지만(eval.Mate) 행에 적히면 돌아와야 한다. omitempty 로
+		// 적으면 cp 0 으로 돌아왔다 — 포인터로 내보내는 이유가 이 한 줄이다.
 		{USI: "2b3c", Score: eval.Mate(0)},
 	} {
 		b, err := json.Marshal(want)

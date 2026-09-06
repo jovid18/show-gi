@@ -77,7 +77,7 @@ func TestApproxCpKeepsTheStoredScale(t *testing.T) {
 	}{
 		{Cp(143), 143},
 		{Cp(-35281), -35281},
-		{Mate(0), MateCp},
+		{Mate(0), -MateCp}, // 안 만드는 값이지만 Compare 와 같은 방향이어야 한다
 		{Mate(1), MateCp - 10},
 		{Mate(3), MateCp - 30},
 		{Mate(-2), -MateCp + 20},

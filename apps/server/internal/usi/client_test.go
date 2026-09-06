@@ -107,6 +107,24 @@ func TestParseScoreMate(t *testing.T) {
 	}
 }
 
+// mate 0 은 어느 쪽이 詰んでいる인지를 안 말한다. 이 엔진은 안 내므로(실측: mated
+// 국면에 mate -1) 오면 우리가 모르는 출력이고, 모르는 것에 뜻을 주지 않는다.
+func TestParseScoreDropsMateZero(t *testing.T) {
+	var res SearchResult
+	parseScore("info depth 8 multipv 1 score cp 120 pv 7g7f 3c3d 2g2f", &res)
+	parseScore("info depth 9 multipv 1 score mate 0 pv 7g7f 3c3d 2g2f", &res)
+
+	if res.Score != eval.Cp(120) {
+		t.Errorf("mate 0 이 점수를 덮었다: %+v", res.Score)
+	}
+	if len(res.Lines) != 1 || res.Lines[0].Score != eval.Cp(120) {
+		t.Errorf("mate 0 이 후보 줄에 들어갔다: %+v", res.Lines)
+	}
+	if len(res.History) != 1 || res.History[0].Depth != 8 {
+		t.Errorf("mate 0 이 깊이별 기록에 들어갔다: %+v", res.History)
+	}
+}
+
 // fail-high/low 속보(lowerbound/upperbound)의 짧은 pv가 이미 받은 exact 수순을 덮어쓰면 안 된다.
 func TestParseScoreBoundKeepsExactPv(t *testing.T) {
 	var res SearchResult
