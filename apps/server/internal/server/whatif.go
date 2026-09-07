@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
@@ -38,7 +37,12 @@ const (
 
 	// whatifTimeout 은 탐색 하나에 주는 시한이다. 요청 ctx만으로는 안 된다 —
 	// http.Server.Shutdown 이 진행 중 요청의 ctx를 취소하지 않아 종료가 막힌다(usi.Pool.Close).
-	whatifTimeout = 20 * time.Second
+	//
+	// 대국의 착수와 같은 값을 쓴다. 시한이 두 계급인 것은 「사람이 그 답을 기다리며 판이
+	// 멈춰 서는가」로 갈린 것이고(game.DefaultMoveDeadline), 되짚기와 검토가 바로 그쪽이다 —
+	// 이 답이 안 오면 화면에 그릴 것이 없다. 20초로 두었던 동안은 조용히 사라져도 되는
+	// 쪽(DefaultExtraDeadline)과 같은 계급이었고, 실측이 그 자리에서 갈렸다 — journal §132.
+	whatifTimeout = game.DefaultMoveDeadline
 )
 
 // Searcher 는 가정 수순이 엔진에 묻는 것 전부다 — *usi.Pool 이 이걸 만족한다.

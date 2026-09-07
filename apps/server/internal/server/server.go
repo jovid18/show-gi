@@ -31,7 +31,16 @@ import (
 )
 
 // shutdownGrace 는 종료 신호를 받고 진행 중인 요청을 기다려주는 시간이다.
-// 엔진 탐색이 걸린 요청이 있어도 이 안에서는 끝난다.
+//
+// 엔진 탐색이 걸린 요청은 이 안에서 안 끝난다. 탐색 하나의 시한이 이보다 길어서
+// (whatifTimeout · game.DefaultMoveDeadline) Shutdown 이 먼저 돌아온다.
+//
+// 그래도 프로세스는 그 탐색을 기다린다. cmd/api 의 defer 사슬이 usi.Pool.Close 에서
+// 막히기 때문이고(Engine.Close 가 탐색과 같은 mutex를 잡는다) — 종료를 실제로 묶는 것은
+// 이 값이 아니라 탐색 시한이다.
+//
+// 잃는 것은 없다. 그 사슬이 풀보다 archive.Searcher.Wait 를 먼저 지나서 쌓을 분석은 이미
+// 흘러갔고, ECS 가 30초에 SIGKILL 해도(stopTimeout 을 안 적었다) 남는 것은 DB 연결이다.
 const shutdownGrace = 10 * time.Second
 
 // Options 는 서버가 밖에서 받아야 하는 것들이다.
