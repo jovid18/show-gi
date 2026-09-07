@@ -110,6 +110,11 @@ curl -s localhost:8080/metrics | grep engine_
 go test -race ./...
 
 # ② DB — 규칙이 SQL의 WHERE 절에만 있어 가짜로는 검증이 안 된다
+#
+# **api 컨테이너를 같이 띄워 두지 않는다.** 분석 워커 3개가 같은 DB 큐를 폴링해서
+# 테스트가 넣은 판을 집어 가고, `TestTheWorkerCountIsHonoured` 가 그 자리에서 굶는다
+# (journal §132)
+docker stop show-gi-api
 docker compose up -d db
 for f in internal/store/migrations/*.sql; do   # 번호 순서대로 전부
   docker exec -i show-gi-db psql -U showgi -d showgi -v ON_ERROR_STOP=1 < "$f"
