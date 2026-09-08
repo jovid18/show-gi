@@ -58,7 +58,7 @@ type Hub struct {
 	mu    sync.Mutex
 	rooms map[string]*Room
 
-	// ctx 는 테이블의 수명이다. 연결이 아니라 서버가 준다 — 대인전 판은 한쪽이
+	// ctx 는 테이블의 수명이다. 연결 대신 서버가 준다 — 대인전 판은 한쪽이
 	// 끊겨도 살아 있어야 하고(match.go 패키지 주석), 그래서 요청 ctx 에 매달 수 없다.
 	ctx context.Context
 
@@ -153,8 +153,8 @@ func (h *Hub) Create(host Player, hostColor shogi.Color) *Room {
 //  3. 상한을 안 건다(dropSurplusLocked). 이 방은 손님이 있어서 애초에 그 필터에
 //     안 걸리고, 부르면 이 사람이 따로 열어 둔 초대 링크가 경고 없이 죽는다.
 //
-// 확인 화면도 여기서 같이 없어진다. 손님이 앉아 있으면 방이 waiting 이 아니고
-// (Hub.SeatOf) 화면은 그때 확인을 안 그린다(journal §92).
+// 확인 화면도 여기서 같이 없어진다. 손님이 앉아 있으면 방 상태가 waiting 에서
+// 벗어나고(Hub.SeatOf) 화면은 그때 확인을 안 그린다(journal §92).
 func (h *Hub) CreatePaired(id string, host Player, hostColor shogi.Color, guest Player) *Room {
 	now := h.cfg.now()
 	seated := guest
@@ -177,7 +177,7 @@ func (h *Hub) CreatePaired(id string, host Player, hostColor shogi.Color, guest 
 }
 
 // openRoomsPerHost 는 한 사람이 아직 안 시작한 방을 몇 개까지 들고 있을 수 있나다.
-// 넘으면 거절이 아니라 오래된 것을 버린다(journal §83).
+// 넘으면 거절 대신 오래된 것을 버린다(journal §83).
 //
 // 1이라 「방을 만든다」가 사람마다 멱등이다. 열린 링크가 언제나 최신 하나뿐이고, 새로
 // 만드는 순간 옛것이 죽는다 — 방을 볼 화면도 걷을 API도 없어서(match.go), 상한을 넘게

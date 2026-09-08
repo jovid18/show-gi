@@ -15,7 +15,7 @@ const COLOR_JA: Record<ResumableGame['myColor'], string> = {
   w: '後手',
 };
 
-/** 駒落ち는 先手/後手가 아니라 下手/上手다. 사람은 언제나 下手다(`newSetup`). */
+/** 駒落ち는 先手/後手 대신 下手/上手로 부른다. 사람은 언제나 下手다(`newSetup`). */
 const SHITATE_JA = '下手';
 
 interface ResumeProps {
@@ -32,7 +32,7 @@ export function Resume({ game, onResume, onDecline }: ResumeProps) {
       <dl className="resume__facts">
         <div>
           <dt>手番</dt>
-          {/* 駒落ち에서는 이 판의 어휘가 갈린다 — 先手/後手가 아니라 下手/上手다. */}
+          {/* 駒落ち에서는 이 판의 어휘가 下手/上手로 갈린다. */}
           <dd>{game.handicapJa === undefined ? COLOR_JA[game.myColor] : SHITATE_JA}</dd>
         </div>
         {/* 駒落ち 판에는 戦型이 없다. 진형과 手合割은 같이 못 고르므로(Setup) 그 자리에

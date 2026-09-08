@@ -17,8 +17,8 @@ export class SignedOutError extends Error {}
  * 기록이 없는 배포다. 저장은 DB에 매여 있어서 검토가 열려 있어도 이 넷만 안 열린다
  * (`server.go` 의 `snapshotsUnavailable`).
  *
- * 실패와 따로 둔다. 다시 눌러서 열리는 자리가 아니라 **이 배포에 없는 기능**이고,
- * 붉은 알림과 「もう一度読み込む」를 그려 두면 눌러도 같은 답만 온다.
+ * 실패와 따로 둔다. **이 배포에 없는 기능**이라, 붉은 알림과 「もう一度読み込む」를
+ * 그려 두면 눌러도 같은 답만 온다.
  */
 export class UnavailableError extends Error {}
 

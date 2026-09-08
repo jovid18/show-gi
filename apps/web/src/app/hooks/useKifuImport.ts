@@ -6,8 +6,8 @@ import type { ApiError, MyColor } from '@/protocol/review';
 /**
  * 가져오기의 두 요청.
  *
- * 상태를 화면이 아니라 여기서 든다. 「읽는 중」과 「가져오는 중」이 같은 버튼을 잠그고
- * 같은 자리에 오류를 그리므로, 따로 두면 두 벌을 맞춰야 한다.
+ * 상태를 여기서 든다. 「읽는 중」과 「가져오는 중」이 같은 버튼을 잠그고 같은 자리에
+ * 오류를 그리므로, 따로 두면 두 벌을 맞춰야 한다.
  *
  * 오류 문구는 서버가 만든 것을 그대로 쓴다. 서버가 「몇 手目를 못 읽었나」를 알고,
  * 화면이 그 문장을 다시 지으면 어휘가 두 벌이 된다.
@@ -38,7 +38,7 @@ async function post<T>(path: string, body: KifuRequest): Promise<T> {
   try {
     message = ((await res.json()) as ApiError).message || message;
   } catch {
-    // 본문이 JSON이 아니다(프록시가 낸 502 같은 것). 위 기본 문구로 간다.
+    // 본문이 JSON이 아닐 때다(프록시가 낸 502 같은 것). 위 기본 문구로 간다.
   }
   throw new Error(message);
 }
@@ -73,7 +73,7 @@ export function useKifuImport() {
     }
   }, []);
 
-  /** 원문이 바뀌면 미리보기는 그 판의 것이 아니다. 남겨 두면 남의 手数를 보고 가져온다. */
+  /** 원문이 바뀌면 미리보기는 다른 판의 것이 된다. 남겨 두면 남의 手数를 보고 가져온다. */
   const reset = useCallback(() => setState(initial), []);
 
   /**

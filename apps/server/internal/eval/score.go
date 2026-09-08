@@ -11,8 +11,8 @@ import "fmt"
 // 필드가 비공개라 합성값을 만들 수 없다. USI 는 score cp 와 score mate 를 배타적으로
 // 내므로(한 라인에 둘이 같이 오지 않는다) 담는 쪽도 그 모양이어야 한다.
 //
-// 제로값은 Cp(0) 이다 — 「점수를 아직 모른다」가 아니라 「호각」이라는 뜻이고, 모르는
-// 것은 부르는 쪽이 ok 플래그로 든다(usi.SearchResult.ScoreAtDepth).
+// 제로값은 Cp(0) 이고, 그것이 뜻하는 것은 「호각」이다 — 「점수를 아직 모른다」는
+// 부르는 쪽이 ok 플래그로 든다(usi.SearchResult.ScoreAtDepth).
 type Score struct {
 	mate bool
 	v    int

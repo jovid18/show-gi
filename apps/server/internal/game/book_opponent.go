@@ -37,8 +37,8 @@ func NewBookOpponent(inner Opponent, o book.Opening, color shogi.Color) Opponent
 
 // AdaptsToSkill 은 안쪽에 물어본다.
 //
-// 여기서 false 를 답하면 진형을 고른 판에서 강함 눈금이 경고 없이 사라진다 — 화면은
-// 추정기 유무가 아니라 이 성질로 갈린다(journal §47).
+// 여기서 false 를 답하면 진형을 고른 판에서 강함 눈금이 경고 없이 사라진다 —
+// 화면이 그 눈금을 띄울지는 이 성질로 갈린다(journal §47).
 func (o *bookOpponent) AdaptsToSkill() bool { return adaptsToSkill(o.inner) }
 
 func (o *bookOpponent) Choose(ctx context.Context, startSFEN string, moves []string, sk skill.Estimate) (string, error) {
@@ -49,7 +49,7 @@ func (o *bookOpponent) Choose(ctx context.Context, startSFEN string, moves []str
 }
 
 // ChooseBest 는 북을 건너뛴다(BestPlayer). 불리는 자리가 사람이 詰み을 걸고 있는
-// 종반이라 진형을 조립할 국면이 아니고, 북이 그 자리에서 수순을 이어 두면 「최선으로
+// 종반이라 진형을 조립할 국면에서 벗어났고, 북이 그 자리에서 수순을 이어 두면 「최선으로
 // 버틴다」가 그 판에서만 경고 없이 안 지켜진다.
 func (o *bookOpponent) ChooseBest(ctx context.Context, startSFEN string, moves []string) (string, error) {
 	if b, ok := o.inner.(BestPlayer); ok {
@@ -93,7 +93,7 @@ func (o *bookOpponent) next(startSFEN string, moves []string) (string, bool) {
 		return "", false
 	}
 	if pos.Turn != o.color || pos.InCheck(o.color) {
-		// 王手를 받고 있으면 진형이 아니라 玉이 급하다.
+		// 王手를 받고 있으면 진형보다 玉이 급하다.
 		return "", false
 	}
 

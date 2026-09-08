@@ -145,7 +145,7 @@ func (b *Builder) score(ctx context.Context, in Input, pos shogi.Position, i int
 	if topCp-secondCp < BestMinGapCp {
 		return BestItem{}, false, false
 	}
-	// 사람이 이미 최선수를 둔 국면은 문항이 아니다. 낙폭으로 좁혔으니 여기 올 일은 드물지만,
+	// 사람이 이미 최선수를 둔 국면은 문항에서 뺀다. 낙폭으로 좁혔으니 여기 올 일은 드물지만,
 	// 오면 「あなたの手は正解でした」를 문제로 내는 셈이 된다.
 	if in.Moves[i] == top.Move {
 		return BestItem{}, false, false
@@ -178,7 +178,7 @@ func (b *Builder) score(ctx context.Context, in Input, pos shogi.Position, i int
 //
 // 두어 보면서 자른다. 엔진 PV의 꼬리는 치환표에서 온 것이라 이 국면에서 성립하지 않는
 // 수가 섞여 들어올 수 있고, 그대로 저장하면 채점 뒤에 못 두는 수순이 화면에 나간다.
-// 처음 막히는 자리에서 끊고 거기까지만 남긴다 — 짧아지는 것은 괜찮지만 틀린 것은 아니다.
+// 처음 막히는 자리에서 끊고 거기까지만 남긴다 — 짧아지는 것은 괜찮고 틀린 것은 안 된다.
 //
 // 정본 표기로 다시 적는 것은 Answer 와 같은 이유다(위) — 화면이 이 값으로 판을 그린다.
 func lineAfter(pos shogi.Position, pv []string) []string {

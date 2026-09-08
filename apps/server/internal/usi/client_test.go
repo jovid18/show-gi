@@ -210,7 +210,7 @@ func TestRankedDropsTheSameMoveTwice(t *testing.T) {
 		t.Fatalf("얕은 줄이 남았다: %+v", got[1])
 	}
 
-	// 순위가 아니라 깊이가 기준이다 — 깊은 줄이 뒤 순위에 있어도 그쪽이 남는다.
+	// 기준은 깊이다 — 깊은 줄이 뒤 순위에 있어도 그쪽이 남는다.
 	var late SearchResult
 	parseScore("info depth 6 multipv 1 score cp 80 pv 3g3f 8c8d 2g2f", &late)
 	parseScore("info depth 14 multipv 2 score cp 60 pv 3g3f 8c8d 6i7h", &late)
@@ -281,7 +281,7 @@ func TestEvalByDepth(t *testing.T) {
 	}
 }
 
-// 속보 라인의 점수는 확정값이 아니다. 깊이별 기록에 들어가면 개입 판정이
+// 속보 라인의 점수는 미확정이다. 깊이별 기록에 들어가면 개입 판정이
 // 엔진이 "아직 모른다"고 말한 값을 근거로 삼게 된다.
 func TestHistorySkipsBoundLines(t *testing.T) {
 	var res SearchResult

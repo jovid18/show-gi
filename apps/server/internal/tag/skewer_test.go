@@ -21,7 +21,7 @@ func TestLanceSkewerIsDengakuZashi(t *testing.T) {
 	}
 }
 
-// 한 줄에 하나만 있으면 串刺し가 아니다. 그냥 노리는 것이다.
+// 한 줄에 하나만 있는 것은 그냥 노리는 것이고, 串刺し로 안 센다.
 func TestOnePieceOnTheFileIsNotASkewer(t *testing.T) {
 	pos := forkBoard(t, "8k/9/9/9/4r4/9/9/9/4L3K b - 1")
 

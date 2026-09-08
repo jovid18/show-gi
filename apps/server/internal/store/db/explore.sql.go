@@ -30,7 +30,7 @@ type CreateExploreSnapshotRow struct {
 	CreatedAt pgtype.Timestamptz
 }
 
-// 검토 화면에서 저장한 국면(migrations/015). 판이 아니라 手合割 id 와 수순 한 줄이다.
+// 검토 화면에서 저장한 국면(migrations/015). 담는 것은 手合割 id 와 수순 한 줄이다.
 //
 // 개수를 안 막는다. 근거는 journal §96.
 func (q *Queries) CreateExploreSnapshot(ctx context.Context, arg CreateExploreSnapshotParams) (CreateExploreSnapshotRow, error) {

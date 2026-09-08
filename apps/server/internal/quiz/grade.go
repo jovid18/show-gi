@@ -48,7 +48,7 @@ type MateProgress struct {
 	Plies int
 	// Outcome 은 마지막 수의 결과다. 수를 하나도 안 냈으면 MateOngoing 이다.
 	Outcome MateOutcome
-	// Rest·Best 는 오답일 때만 채워진다. 「王手가 아니다」에는 안 채운다 — 그쪽은
+	// Rest·Best 는 오답일 때만 채워진다. 「王手가 아닌 수」에는 안 채운다 — 그쪽은
 	// 시도가 소진되지 않는 안내라, 답을 실어 보내면 조용한 수 한 번으로 답을 꺼낼 수 있다.
 	//
 	// Rest 는 그 수 뒤에 남는 詰みまでの手数다. 0이면 詰み을 놓치는 수이고, 아니면 詰み이
@@ -59,7 +59,7 @@ type MateProgress struct {
 	// BestFrom 은 Best 가 성립하는 국면이고 SFEN 과 다를 수 있다.
 	//
 	// 오답이면 판이 그 수만큼 나아가 있어서, 거기서 Best 를 두어 보면 불법이다 — 그 수를
-	// 이름으로 부를 수 있는 국면이 이쪽이다. 정답 표기를 만들려고 있는 것이 아니다:
+	// 이름으로 부를 수 있는 국면이 이쪽이다. 정답 표기를 만드는 자리와는 다르다:
 	// 오답 응답에는 정답이 안 실리고, 여기서 나오는 것은 세 번째 오답의 「무엇을 움직이나」
 	// 하나다(§61의 originJa).
 	BestFrom string
@@ -108,12 +108,12 @@ func GradeMate(item MateItem, moves []string) (MateProgress, error) {
 
 		// 정본 표기로 찾는다. 트리의 키는 Move.USI() 가 만든 것이라, 요청 문자열을
 		// 그대로 쓰면 이 조회가 파서가 얼마나 엄격한가에 매인다 — 지금은 정본만 통과하지만
-		// (shogi.ParseUSIMove) 그 성질이 흔들리면 「王手가 아니다」가 요청 오류를 뒤집어쓴다.
+		// (shogi.ParseUSIMove) 그 성질이 흔들리면 「王手가 아닌 수」가 요청 오류를 뒤집어쓴다.
 		v, known := node.Moves[m.USI()]
 		if !known {
-			// 합법이지만 트리에 없다 = 王手가 아니다. 판을 안 움직이고 되돌린다.
+			// 합법이지만 트리에 없다 = 王手가 아닌 수다. 판을 안 움직이고 되돌린다.
 			//
-			// 정답을 안 준다. 이쪽은 오답이 아니라 다시 두라는 안내라 시도가 소진되지
+			// 정답을 안 준다. 이쪽은 오답 대신 다시 두라는 안내라 시도가 소진되지
 			// 않는데, 여기서 Best 를 실어 보내면 아무 조용한 수나 한 번 눌러서 답을
 			// 꺼낼 수 있다 — 채점을 서버에 둔 이유가 그것이다.
 			out.Outcome = MateNotCheck
@@ -143,7 +143,7 @@ func GradeMate(item MateItem, moves []string) (MateProgress, error) {
 
 	out.SFEN = pos.SFEN()
 
-	// 문항이 아직 안 끝났으면 둘 수 있는 수를 준다. 「王手가 아니다」도 여기 들어간다 —
+	// 문항이 아직 안 끝났으면 둘 수 있는 수를 준다. 「王手가 아닌 수」도 여기 들어간다 —
 	// 그때 판은 그대로이고 사람은 다시 둬야 하는데, 이 둘을 안 채워 보내면 화면이 문제
 	// 국면으로 되돌아가서 그때까지 맞힌 수가 사라진 것처럼 보인다.
 	if out.Outcome == MateOngoing || out.Outcome == MateNotCheck {

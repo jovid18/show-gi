@@ -255,8 +255,8 @@ func TestUndoKeepsTheMoveInTheSkillEstimate(t *testing.T) {
 	}
 }
 
-// 무른 수는 기보가 아니라 무르기 기록으로 간다. 기보에 남으면 되감기가
-// 되감기가 아니게 되고, interventions 로 가면 개입 횟수가 부풀어 오른다.
+// 무른 수는 무르기 기록으로 간다. 기보에 남으면 되감기가 되감기가 아니게 되고,
+// interventions 로 가면 개입 횟수가 부풀어 오른다.
 func TestUndoRecordsTheMoveOutsideTheKifu(t *testing.T) {
 	rec := &fakeRecorder{}
 	opp := &scriptedOpponent{moves: []string{"3c3d"}}

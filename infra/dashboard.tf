@@ -6,14 +6,14 @@
 # 지표 이름은 EMF 가 내는 것과 맞춰야 한다(internal/metrics 의 collect). 어긋나면 위젯이
 # 「데이터 없음」으로 경고 없이 비고, 알람과 달리 누구도 안 알려준다.
 #
-# 대시보드 3개까지 무료다. 하나로 두는 것은 그 한도 때문이 아니라, 회차 중에 볼 화면이
+# 대시보드 3개까지 무료다. 그런데도 하나로 두는 것은, 회차 중에 볼 화면이
 # 둘이면 사람이 둘 다 안 보기 때문이다.
 
 locals {
-  # 차원 둘을 다 적어야 한다. EMF 가 Service·Environment 를 차원으로 내므로 하나만
+  # dimensions 둘을 다 적어야 한다. EMF 가 Service·Environment 를 dimensions 로 내므로 하나만
   # 적으면 그런 계열이 없다(alarms.tf 의 engine_pool_wait 과 같은 함정).
   #
-  # 티어가 둘인데 차원은 그대로다. 두 티어가 같은 계열에 올리므로 위젯의 값은 둘을 합친
+  # 티어가 둘인데 dimensions 는 그대로다. 두 티어가 같은 계열에 올리므로 위젯의 값은 둘을 합친
   # 것이고, 통계가 그 합치는 법이다 — 카운터는 Sum, 게이지는 Maximum 이다(journal §120).
   dash_dims = ["Service", "api", "Environment", "prod"]
 
@@ -38,7 +38,7 @@ resource "aws_cloudwatch_dashboard" "main" {
             "",
             "1. **엔진 풀 대기 — 대국**이 튀면 사람이 기다린 것이다. 같은 창에서 **분석 백로그**가 같이 올랐으면 사후 분석이 대국을 굶긴 것이고, 그것이 분석기를 별도 서비스로 뗄지의 판단 근거다(journal §101).",
             "2. **버려진 판**이 0이 아니면 그 자체가 사고다. 그 판은 평가치도 실력 추정도 없이 남고 다시 재지 않는다.",
-            "3. 대기가 아니라 **탐색 시간**이 길면 원인이 큐가 아니라 CPU다 — 태스크 하나가 2 vCPU 이고 엔진이 최대 셋 돈다(journal §91).",
+            "3. 대기보다 **탐색 시간**이 길면 원인은 큐 대신 CPU다 — 태스크 하나가 2 vCPU 이고 엔진이 최대 셋 돈다(journal §91).",
             "4. **탐색 수**는 티어 둘을 합친 값이고, 대를 늘렸을 때 보는 것은 **캐시를 뺀 몫**이다 — 캐시가 답한 것은 엔진을 안 쓰므로 합계는 거의 안 움직인다(journal §121). 모양은 **분석 백로그**가, 크기는 그 값이 말한다.",
             "5. **오토스케일**은 밀린 手가 100을 5분 넘기면 대를 하나 올린다(journal §124). 그 위젯에서 볼 것은 순서다 — 백로그가 올라가고, 대수가 따라 오르고, 백로그가 스스로 내려온다. 대수는 올랐는데 백로그가 안 내려오면 상한(`analysis_max_instances`)이 모자란 것이다.",
           ])
@@ -64,7 +64,7 @@ resource "aws_cloudwatch_dashboard" "main" {
             concat(["show-gi", "MatePoolWaitSeconds"], local.dash_dims, [{ stat = "p95", label = "詰み p95" }]),
             concat(["show-gi", "MatePoolWaitSeconds"], local.dash_dims, [{ stat = "Maximum", label = "詰み max" }]),
           ]
-          # 알람과 같은 선을 긋는다. 임계치가 아직 실측이 아니라(alarms.tf) 이 선의 일은
+          # 알람과 같은 선을 긋는다. 임계치가 아직 실측 전이라(alarms.tf) 이 선의 일은
           # 「평상시가 어디에 있나」를 눈에 보이게 하는 것이다.
           annotations = { horizontal = [{ label = "알람 임계 3초", value = 3 }] }
         }

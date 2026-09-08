@@ -52,7 +52,7 @@ export function useFetch<T>(path: string): Source<T> {
     getJSON<T>(path, controller.signal)
       .then((data) => setLoaded({ state: 'ready', data }))
       .catch((err: unknown) => {
-        // 우리가 취소한 것이다. 화면에 오류를 띄우면 사실이 아니다.
+        // 우리가 취소한 것이다. 화면에 오류를 띄우면 사실과 어긋난다.
         if (controller.signal.aborted) return;
         setLoaded({ state: 'error', message: err instanceof Error ? err.message : FALLBACK_ERROR });
       });

@@ -260,7 +260,7 @@ func TestScanTagsOverFloodgateGames(t *testing.T) {
 // 종반에 飛가 떠돌다 5筋에 한 번 서면 中飛車가 되고, 角이 어쩌다 교환되어 있으면
 // 角換わり가 된다. 같은 판에서 한쪽이 15수에 居飛車, 131수에 中飛車가 된 것이 그 증거다.
 //
-// 경계를 몇 수로 둘지는 눈대중이 아니라 이 표로 정한다.
+// 경계를 몇 수로 둘지는 이 표로 정한다.
 func reportLatePlies(t *testing.T, results []gameScan) {
 	t.Helper()
 
@@ -685,9 +685,9 @@ func TestScanTesujiShapesOverFloodgateGames(t *testing.T) {
 //
 // forkNames 는 龍·馬를 든다 — 「飛의 縦横·角의 斜め를 그대로 갖는다」가 이유였다. 그런데
 // 종반에 적진에 들어간 龍은 거의 언제나 두 개를 동시에 노린다. 그러면 十字飛車라는
-// 이름이 「飛로 두 방향을 찌른 手筋」이 아니라 「龍이 龍답게 서 있다」가 된다.
+// 이름이 「飛로 두 방향을 찌른 手筋」 대신 「龍이 龍답게 서 있다」가 된다.
 //
-// 프로덕션 경로가 아니다. Fork 를 판 위에서 직접 훑어 駒 종류까지 본다 — 여기서
+// 프로덕션 경로를 안 지난다. Fork 를 판 위에서 직접 훑어 駒 종류까지 본다 — 여기서
 // 필요한 것이 「어느 駒였나」인데 NamedTesuji 는 이름만 돌려주기 때문이다.
 func TestScanForksByPromotion(t *testing.T) {
 	if os.Getenv("SHOWGI_KIFU_SCAN") == "" {

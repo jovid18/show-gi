@@ -20,9 +20,8 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// DefaultTurnLimit 은 한 수에 주는 시간이다. 持ち時間이 아니라 1手 제한이고, 시계가
-// 있는 이유는 빨리 두게 하려는 것이 아니라 판이 끝나게 하려는 것이다. 60초는 실측이
-// 아니라 정한 값이다(journal §83).
+// DefaultTurnLimit 은 한 수에 주는 시간이다. 持ち時間 대신 1手 제한이고, 시계는 판이
+// 끝나게 하려고 있다. 60초는 실측 없이 정한 값이다(journal §83).
 const DefaultTurnLimit = 60 * time.Second
 
 // OpenTTL 은 상대가 안 들어온 방이 사는 시간이다. 넘으면 링크가 죽는다 — 초대 링크가

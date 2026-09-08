@@ -173,7 +173,7 @@ func TestMateCachesProvenNoMate(t *testing.T) {
 	}
 }
 
-// timeout 은 안 쌓는다. 「이 한계 안에서는 모른다」이지 「없다」가 아니다(01-core.md §2).
+// timeout 은 안 쌓는다. 「이 한계 안에서는 모른다」일 뿐이다(01-core.md §2).
 func TestMateDoesNotCacheUnproven(t *testing.T) {
 	eng := &fakeMateEngine{res: usi.MateResult{}} // Proven=false
 	st := newMateStore()
@@ -200,7 +200,7 @@ func TestMateDoesNotCacheUnproven(t *testing.T) {
 	}
 }
 
-// 얕은 한계의 답은 못 쓴다. 한계 9의 「詰み이 없다」는 한계 11에서 참이 아니다.
+// 얕은 한계의 답은 못 쓴다. 한계 9의 「詰み이 없다」는 한계 11에서 거짓일 수 있다.
 func TestMateIgnoresShallowerLimit(t *testing.T) {
 	eng := &fakeMateEngine{res: usi.MateResult{Moves: []string{"1a1b"}, Proven: true}}
 	st := newMateStore()
@@ -224,7 +224,7 @@ func TestMateIgnoresShallowerLimit(t *testing.T) {
 	}
 }
 
-// 깊은 한계가 찾은 긴 詰み은 얕은 한계로 묻는 쪽에 못 준다 — 그 한계로는 증명이 아니다.
+// 깊은 한계가 찾은 긴 詰み은 얕은 한계로 묻는 쪽에 못 준다 — 그 한계로는 증명되지 않았다.
 func TestMateIgnoresLineLongerThanLimit(t *testing.T) {
 	eng := &fakeMateEngine{res: usi.MateResult{Proven: true}}
 	st := newMateStore()

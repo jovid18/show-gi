@@ -64,7 +64,7 @@ func TestFinishedCastlesStillGetTheirName(t *testing.T) {
 //
 // 囲い와 이유가 다르다. 저쪽은 「짓다 만 형태에 이름이 없다」였고(§44), 이쪽은 飛를 어느
 // 筋으로 振るか가 그 사람이 고르는 것이라서다. 첫 수 앞에서 「中飛車になります」가 뜨면
-// 그건 힌트가 아니라 지시이고, 사람이 실제로 그렇게 읽었다(회차 1 #0 · §71).
+// 그건 지시가 되고, 사람이 실제로 그렇게 읽었다(회차 1 #0 · §71).
 func TestPreMoveHintsLeaveFormationsOut(t *testing.T) {
 	s := newSession(t, Config{
 		Opponent:   legalOpponent{},
@@ -97,7 +97,7 @@ func TestSwungRooksStillGetTheirName(t *testing.T) {
 	defer cancel()
 
 	// ▲7六歩 → 상대의 응수를 기다렸다가 ▲6八飛. 6筋이고 자기 2段이라 四間飛車다.
-	// 상대 수는 비동기로 온다 — 기다리지 않고 두면 「내 차례가 아니다」로 막힌다.
+	// 상대 수는 비동기로 온다 — 기다리지 않고 두면 ErrNotYourTurn 으로 막힌다.
 	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
 		t.Fatalf("7g7f: %v", err)
 	}

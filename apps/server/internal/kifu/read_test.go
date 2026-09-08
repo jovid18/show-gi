@@ -151,7 +151,7 @@ func TestParseUSI(t *testing.T) {
 	}
 }
 
-// USI 는 사람이 쓰는 표기가 아니라서, 모르는 낱말은 「이 텍스트는 USI 가 아니다」다.
+// USI 는 기계가 내는 표기라, 모르는 낱말은 「이 텍스트는 USI 가 아니다」다.
 // 건너뛰면 남의 기보를 반쯤 읽는다.
 func TestParseUSIRefusesUnknownWords(t *testing.T) {
 	if _, err := ParseUSI("7g7f 3c3d ７六歩"); err == nil {

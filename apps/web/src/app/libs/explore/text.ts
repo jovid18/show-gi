@@ -33,7 +33,7 @@ export function exploreStatusJa(node: ExploreNode | null, pending: boolean): str
       // 詰み은 수번 쪽이 지는 것이다. 부호를 뒤집으면 이기는 판이 지는 판으로 읽힌다.
       return `詰みです。${side}の負けです。`;
     case 'stalemate':
-      // 쇼기에서 手詰まり는 무승부가 아니라 패배다.
+      // 쇼기에서 手詰まり는 패배다(체스의 무승부와 다르다).
       return `手詰まりです。${side}の負けです。`;
     default:
       // 양쪽 다 둘 수 있다. 상대의 응수를 직접 둬 보는 것이 이 화면의 내용이고,

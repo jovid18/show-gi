@@ -51,7 +51,7 @@ func TestPlayerTallyCountsTheSamePopulationAsTheList(t *testing.T) {
 		t.Errorf("abandoned = %d, want 0", n)
 	}
 
-	// 개입도 같은 판들만 센다 — abandoned 판의 것 하나가 빠져 5가 아니라 4다:
+	// 개입도 같은 판들만 센다 — abandoned 판의 것 하나가 빠져 5에서 4로 준다:
 	// win 2 + loss 1 + draw 1.
 	if n := got.Categories["hangs_piece"]; n != 4 {
 		t.Errorf("hangs_piece = %d, want 4 (전적과 다른 모집단을 세고 있다)", n)

@@ -223,7 +223,7 @@ function currentURL(): string {
  *
  * `replace` 는 이력을 쌓지 않고 지금 자리를 고쳐 쓴다. 검토에서 한 수 둘 때가 그렇다:
  * 주소는 공유·새로고침을 위해 따라와야 하지만, 40手를 걸어 본 사람이 화면을 벗어나려고
- * 뒤로 가기를 40번 눌러야 하는 것은 아니다.
+ * 뒤로 가기를 40번 누르게 두지 않는다.
  */
 export function navigate(route: Route, options?: { replace?: boolean }): void {
   const href = hrefOf(route);

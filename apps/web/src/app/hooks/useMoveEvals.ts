@@ -10,7 +10,7 @@ import { httpSend } from '@/libs/whatif/http';
  * 쪽이 뒤집어서 쓴다.
  *
  * 둘은 배타적이다. 詰み인 자리에는 `mateIn` 만 오고 `cp` 는 안 온다 — cp로 받으면 그
- * 숫자가 평가치가 아니라 환산값이 되고, 화면은 手数로 말한다(`scoreJa`).
+ * 숫자가 환산값이 되고, 화면은 手数로 말한다(`scoreJa`).
  */
 export interface MoveEval {
   cp: number | undefined;
@@ -20,7 +20,7 @@ export interface MoveEval {
 /**
  * 「그 국면에서 이 수를 두면 얼마가 되나」를 수 여러 개에 대해 받아 온다.
  *
- * 물러진 수는 확정된 수가 아니라 `game_moves` 에 행이 없고, 개입 기록에는 낙폭만 남아 있던
+ * 물러진 수는 확정된 수가 아니어서 `game_moves` 에 행이 없고, 개입 기록에는 낙폭만 남아 있던
  * 시절의 판이 있다(migrations/005 이전 — 그 값은 되돌릴 수 없다, journal §39 ⑥).
  * 그래서 그 자리를 다시 재서 채운다.
  *

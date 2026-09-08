@@ -6,10 +6,10 @@ import "github.com/jovid18/show-gi/apps/server/internal/intervene"
 //
 // 화면이 코드(hangs_piece)를 일본어로 바꾸기 시작하면 어휘가 두 벌이 되고 어긋났을 때
 // 어느 쪽이 맞는지 알 수 없다. 읽는 사람은 그 수가 왜 나빴는지를 아직 모르는 사람이라,
-// 전문 용어가 아니라 읽으면 뜻이 통하는 말로 고른다.
+// 전문 용어 대신 읽으면 뜻이 통하는 말로 고른다.
 var categoryNames = map[intervene.Category]string{
 	intervene.CategoryMissedMate: "詰み逃し",
-	// 「逃し」가 아니다. 詰み은 남아 있고 멀어졌을 뿐이라, 되짚기 목록과 총평이
+	// 「逃し」를 쓰지 않는다. 詰み은 남아 있고 멀어졌을 뿐이라, 되짚기 목록과 총평이
 	// 같은 이름으로 부르면 이긴 판에 「놓쳤다」가 남는다(journal §76).
 	intervene.CategorySlowerMate:    "詰みの遠回り",
 	intervene.CategoryLetsMate:      "詰まされる",
@@ -24,7 +24,7 @@ var categoryNames = map[intervene.Category]string{
 
 // CategoryJa 는 카테고리의 짧은 일본어 이름이다. 모르는 값이면 미분류와 같이 부른다.
 //
-// 빈 문자열은 빈 문자열로 돌려준다. 그건 「개입하지 않았다」이지 미분류가 아니다
+// 빈 문자열은 빈 문자열로 돌려준다. 그건 「개입하지 않았다」이고 미분류와 다르다
 // (CategoryNone). 이름을 붙이면 없는 개입에 이름이 생긴다.
 func CategoryJa(c intervene.Category) string {
 	if c == intervene.CategoryNone {

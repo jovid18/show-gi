@@ -17,7 +17,7 @@ export const PLAY_SEGMENT = 'play';
 
 export const ROUTE_REVIEWS = '/reviews';
 
-/** 마이페이지. 판이 아니라 사람 하나라 id가 없다. */
+/** 마이페이지. 사람 하나를 가리켜서 id가 없다. */
 export const ROUTE_ME = '/me';
 
 /**
@@ -112,8 +112,8 @@ export const routeReview = (id: number, ply?: number): string => {
  * 주소 조각으로 쓸 수 있는 숫자인가. 아니면 `null`.
  *
  * 타입이 `number` 인데 실제 값은 **서버가 준 JSON** 이다. 문자열이 들어오면 그대로
- * 이어 붙어서 `/reviews///example.com` 같은 프로토콜 상대 주소가 만들어지고, 그건
- * 내부 링크가 아니라 외부 이동이다. 타입 대신 코드가 그것을 막는다.
+ * 이어 붙어서 `/reviews///example.com` 같은 프로토콜 상대 주소가 만들어지고, 그건 외부
+ * 이동이다. 타입 대신 코드가 그것을 막는다.
  */
 const pathNumber = (value: number, min: number): string | null => {
   const n = Number(value);
@@ -134,7 +134,7 @@ export const routeQuiz = (id: number): string => {
  * 방 하나. 주소에 들어가는 값이 곧 열쇠다 — 영숫자 8자 난수라 유추할 수 없고, 그래서
  * 이 주소를 아는 것이 입장 자격의 절반이다(나머지 절반은 로그인과 정원 2명).
  *
- * `/reviews/:id` 와 달리 숫자가 아니다. 연번이면 로그인한 아무나 남의 방을 훑어볼 수
+ * `/reviews/:id` 와 달리 난수 문자열이다. 연번이면 로그인한 아무나 남의 방을 훑어볼 수
  * 있고, 그때 이 기능의 전제가 깨진다.
  */
 export const routeRoom = (id: string): string => (ROOM_ID.test(id) ? `${ROOMS_SEGMENT_PATH}/${id}` : ROUTE_HOME);

@@ -57,7 +57,7 @@ type Snapshot struct {
 	Ply      int    `json:"ply"`
 	Turn     string `json:"turn"` // "b" | "w"
 	YourTurn bool   `json:"yourTurn"`
-	// InCheck 는 수번 쪽이 王手를 받고 있는가다. 보는 사람 기준이 아니다 — 王手를
+	// InCheck 는 수번 쪽이 王手를 받고 있는가다. 보는 사람 기준을 안 쓴다 — 王手를
 	// 건 쪽도 상대 玉에 표시가 떠야 하고(엔진 대국과 같다), 어느 玉인지는 화면이
 	// turn 으로 짚는다.
 	InCheck bool `json:"inCheck"`

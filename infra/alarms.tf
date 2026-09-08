@@ -4,7 +4,7 @@
 # CloudWatch 가 로그에서 뽑아 show-gi 이름 공간에 넣으므로, 여기서 만들 것은 없고
 # 이름을 맞추기만 한다 — 이름이 어긋나면 알람이 「데이터 없음」으로 그대로 산다.
 #
-# 티어 둘이 같은 계열에 올린다. 차원에 티어를 안 올린 이유와 그 대가는 journal §120 에
+# 티어 둘이 같은 계열에 올린다. dimensions 에 티어를 안 올린 이유와 그 대가는 journal §120 에
 # 있고, 여기서 지켜야 하는 것은 통계 하나다 — 카운터는 Sum, 게이지는 Maximum 이다.
 #
 # ALB 쪽 지표는 EMF 와 무관하게 AWS 가 항상 낸다. 그래서 「사이트가 떴나」는 그쪽을
@@ -29,7 +29,7 @@ resource "aws_sns_topic_subscription" "alarms_email" {
 
 # ─── 사이트가 떴나 ───────────────────────────────────────────
 
-# 정상 타깃이 0인 상태. 「비정상 수」가 아니라 「정상 수」를 보는 이유는 타깃이 아예
+# 정상 타깃이 0인 상태. 「비정상 수」 대신 「정상 수」를 보는 이유는 타깃이 아예
 # 등록되지 않은 경우까지 같은 알람이 덮기 때문이다 — 비정상 수는 그때 0을 낸다.
 #
 # 5분인 것은 정상 배포가 그보다 짧기 때문이다. 대상 그룹 뒤가 한 대라 배포는 하나뿐인
@@ -129,7 +129,7 @@ resource "aws_cloudwatch_metric_alarm" "server_errors" {
 # 잡고 세 판째는 넘긴다.
 resource "aws_cloudwatch_metric_alarm" "engine_pool_wait" {
   alarm_name          = "show-gi-engine-pool-wait"
-  alarm_description   = "대국이 엔진을 빌리기까지의 대기 p95가 최근 5분 중 3분에서 3초를 넘었다. 풀이 아니라 vCPU 를 올릴 자리다(journal §104)"
+  alarm_description   = "대국이 엔진을 빌리기까지의 대기 p95가 최근 5분 중 3분에서 3초를 넘었다. 풀 대신 vCPU 를 올릴 자리다(journal §104)"
   namespace           = "show-gi"
   metric_name         = "EnginePoolWaitGameSeconds"
   extended_statistic  = "p95"
@@ -139,18 +139,18 @@ resource "aws_cloudwatch_metric_alarm" "engine_pool_wait" {
   threshold           = 3
   comparison_operator = "GreaterThanThreshold"
 
-  # 차원 둘을 다 적어야 한다. EMF 가 Service·Environment 를 차원으로 내므로
+  # dimensions 둘을 다 적어야 한다. EMF 가 Service·Environment 를 dimensions 로 내므로
   # 하나만 적으면 그런 계열이 없어서 알람이 「데이터 없음」으로 그대로 산다.
   dimensions = { Service = "api", Environment = "prod" }
 
   alarm_actions = [aws_sns_topic.alarms.arn]
 
-  # 누구도 안 두는 시간에는 표본이 없어 지표가 안 나온다. 조용한 것은 위반이 아니다.
+  # 누구도 안 두는 시간에는 표본이 없어 지표가 안 나온다. 조용한 것을 위반으로 읽지 않는다.
   treat_missing_data = "notBreaching"
 }
 
 # 사후 분석이 밀린다. 위의 engine_pool_wait 은 이 상태를 못 본다 — 대인전 포화에서
-# 사람의 풀 대기는 표본이 아예 0이었다(journal §107 · §108). 병목이 풀이 아니라
+# 사람의 풀 대기는 표본이 아예 0이었다(journal §107 · §108). 병목은
 # 「엔진이 낼 수 있는 탐색 수」라서, 대국은 우선 큐라 안 밀리고 분석만 큐에 선다.
 #
 # 그래서 신호가 계열이 다르다. 이른 것은 EngineSearchSeconds 이고(대시보드가 맡는다)
@@ -182,21 +182,21 @@ resource "aws_cloudwatch_metric_alarm" "analysis_backlog" {
   dimensions = { Service = "api", Environment = "prod" }
 
   # 이 알람이 둘을 한다 — 사람에게 알리고 분석 대를 하나 올린다(autoscale.tf).
-  # 신호를 따로 두지 않는 것이 값이다. 스케일용 임계를 따로 두면 「울린 것」과 「대를
-  # 올린 것」이 다른 자리가 되고, 회차의 그림에서 원인과 반응이 안 붙는다.
+  # 신호를 따로 두지 않는 쪽이 값이 크다. 스케일용 임계를 따로 두면 알람이 울린 시각과
+  # 대를 올린 시각이 갈려서, 측정 결과를 봐도 무엇이 무엇 때문인지 가릴 수 없다.
   alarm_actions = [aws_sns_topic.alarms.arn, aws_appautoscaling_policy.analysis_out.arn]
   ok_actions    = [aws_sns_topic.alarms.arn]
 
-  # 누구도 안 두면 지표가 안 나온다. 조용한 것은 위반이 아니다.
+  # 누구도 두지 않으면 지표가 나오지 않는다. 조용한 것을 위반으로 읽지 않는다.
   treat_missing_data = "notBreaching"
 }
 
 # ─── 스팟이 회수되기 전에 알기 ───────────────────────────────
 
-# 지표 알람으로는 회수를 미리 못 안다. HealthyHostCount 가 결측이 된 뒤에야 위반이
+# 지표 알람으로는 회수를 미리 알 수 없다. HealthyHostCount 가 결측이 된 뒤에야 위반이
 # 되므로 위 no_healthy_target 은 실측으로 12분 늦게 울렸다(journal §107).
 #
-# AWS 가 EventBridge 로 두 가지를 미리 준다. 지표가 아니라 이벤트라 알람으로 못 받고,
+# AWS 가 EventBridge 로 두 가지를 미리 준다. 지표 대신 이벤트로 오므로 알람으로 못 받고,
 # 그래서 여기만 EventBridge 를 쓴다.
 #
 #   EC2 Instance Rebalance Recommendation  회수 위험이 높아졌다 (보통 가장 이르다)

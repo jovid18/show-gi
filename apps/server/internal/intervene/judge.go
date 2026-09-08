@@ -19,7 +19,7 @@ import (
 
 // K 는 cp를 승률로 바꿀 때의 기울기다. 크면 완만해지고 작으면 가팔라진다.
 //
-// 600은 실측값이 아니라 초기값이다 — 맞춰 볼 승패 딱지도, 맞춰 볼 정밀도도
+// 600은 실측 없이 잡은 초기값이다 — 맞춰 볼 승패 딱지도, 맞춰 볼 정밀도도
 // 없다(journal §39 ⑥·⑦).
 const K = 600.0
 
@@ -85,8 +85,8 @@ const (
 
 // Input 은 한 수를 판정하는 데 필요한 전부다.
 //
-// 수 번호가 없다. "언제 두었나"는 판정의 입력이 아니다 — 오프닝을 봐주는 것은
-// 수 번호가 아니라 무엇을 뒀는가로 갈려야 하고(01-core.md §2), 그건 부르는 쪽이 정한다.
+// 수 번호가 없다. "언제 두었나"는 판정에 안 들어간다 — 오프닝을 봐주는 것은
+// 수 번호보다 무엇을 뒀는가로 갈려야 하고(01-core.md §2), 그건 부르는 쪽이 정한다.
 type Input struct {
 	// Best 는 착수 전 국면의 최선수 평가치. 두는 쪽 관점.
 	Best eval.Score
@@ -157,8 +157,8 @@ func Judge(in Input) Verdict {
 	// 한 비트도 다르지 않고, 駒落ち에서만 판정이 포화 구간을 벗어난다(Input.BaselineCp).
 	delta := WinRateOf(in.Best, in.BaselineCp) - WinRateOf(in.After, in.BaselineCp)
 
-	// 통과한 수도 낙폭을 담아 돌려준다. 임계치를 안 넘었다는 것이 손해가 없다는 뜻이
-	// 아니고, 실력 추정은 걸린 수가 아니라 매 수의 낙폭으로 돈다(internal/skill).
+	// 통과한 수도 낙폭을 담아 돌려준다. 임계치를 안 넘었어도 손해는 남고, 실력 추정은
+	// 걸린 수 대신 매 수의 낙폭으로 돈다(internal/skill).
 	// Kind 하나만 보면 되던 자리는 그대로다 — 통과는 KindNone 이다.
 	pass := Verdict{DeltaWin: delta, Best: in.Best, After: in.After}
 

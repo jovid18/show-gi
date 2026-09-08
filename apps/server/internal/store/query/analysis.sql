@@ -178,7 +178,7 @@ DELETE FROM analysis_jobs WHERE match_id = $1;
 --
 -- 아직 안 집힌 판의 수와 그 판들이 안 잰 手数다. 밀린 양의 판 몫과 手 몫이 이 한 행이다.
 --
--- 집힌 판은 안 센다. 그것은 지금 도는 일이지 밀린 일이 아니다 — 리스가 낡으면 다시 센다.
+-- 집힌 판은 안 센다. 그것은 지금 도는 일이다 — 리스가 낡으면 다시 센다.
 SELECT count(*) AS games, coalesce(sum(plies), 0)::bigint AS plies
 FROM analysis_jobs
 WHERE plies IS NOT NULL

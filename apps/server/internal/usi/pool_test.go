@@ -175,7 +175,7 @@ func TestPoolObservesWaitAndUse(t *testing.T) {
 	}
 }
 
-// 계측을 안 붙인 풀은 그대로 돈다. 지표는 대국의 전제가 아니다.
+// 계측을 안 붙인 풀은 그대로 돈다. 지표 없이도 대국이 돌아야 한다.
 func TestPoolWithoutMetrics(t *testing.T) {
 	p := newFakePool(t, 1)
 	if _, err := p.SearchDepth(t.Context(), testSFEN, nil, 6); err != nil {

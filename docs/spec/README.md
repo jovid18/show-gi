@@ -32,4 +32,4 @@
 
 - **API 를 붙일 것이다** → [api.md §1](api.md) 의 규약 둘 → §2 라우트 표 → 필요한 스키마
 - **DB 를 만질 것이다** → [data-model.md §2](data-model.md) 의 세 덩어리 → §3 (한 手数가 여러 표에 있다)
-- **왜 이렇게 만들었나가 궁금하다** → 여기가 아니라 [01-core](../01-core.md) · [02-architecture](../02-architecture.md)
+- **왜 이렇게 만들었나가 궁금하다** → [01-core](../01-core.md) · [02-architecture](../02-architecture.md)

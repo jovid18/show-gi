@@ -28,8 +28,8 @@ func NamedTesuji(before, after shogi.Position, c shogi.Color, lastUSI string, se
 	})
 }
 
-// namedTesuji 는 게이트(엔진)와 이름(룰)의 AND다. 판에 서 있는 것 전부가 아니라 그 수가 새로
-// 만든 것만 통과시킨다 — 안 그러면 게이트가 없는 것과 같다(journal §34 ⑦).
+// namedTesuji 는 게이트(엔진)와 이름(룰)의 AND다. 그 수가 새로 만든 것만 통과시킨다 — 판에
+// 서 있는 것 전부에 이름을 주면 게이트가 없는 것과 같다(journal §34 ⑦).
 // 모르면 이름을 붙이지 않는다 — 평가치가 없으면 빈 결과다.
 //
 // j 의 두 평가치가 after 의 것이라, 부르는 쪽은 결과를 국면 세대와 함께 들고 있어야
@@ -43,7 +43,7 @@ func namedTesuji(before, after shogi.Position, c shogi.Color, lastUSI string, j 
 
 // freshTesuji 는 그 수가 새로 만든 手筋의 이름이다 — 엔진은 묻지 않는다.
 //
-// 이름으로 견준다. 같은 이름이 다른 자리에 하나 더 생긴 것은 새 소식이 아니고, 화면이
+// 이름으로 견준다. 같은 이름이 다른 자리에 하나 더 생긴 것은 새 소식으로 안 센다 — 화면이
 // 어차피 이름 단위로 한 번만 띄운다.
 //
 // 打つ 手筋은 견줄 것이 없다. 방금 놓인 駒에만 붙는 이름이라 언제나 새것이고, 그래서
@@ -82,8 +82,7 @@ func freshTesuji(before, after shogi.Position, c shogi.Color, lastUSI string) []
 //
 // 詰み이 한쪽에라도 있으면 이름을 안 붙인다. 이 게이트가 cp 뺄셈이라 詰み을 섞으면
 // 자가 다른 두 값의 차가 되고, 그때 「모르면 이름을 붙이지 않는다」가 하나뿐인 정직한 답이다.
-// 종반의 手筋 이름을 그만큼 잃지만, 詰み이 보이는 국면에서 사람에게 필요한 말은 手筋
-// 이름이 아니다.
+// 종반의 手筋 이름을 그만큼 잃는다. 詰み이 보이는 국면에서 사람은 手筋 이름을 찾지 않는다.
 func enginePaidOff(j Judgement, c shogi.Color) bool {
 	if !j.HasEvals {
 		return false

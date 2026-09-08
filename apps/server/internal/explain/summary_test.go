@@ -11,7 +11,7 @@ import (
 // 개입 문구의 Render 와 같은 자리다.
 //
 // 그리고 길이 상한 안에 들어와야 한다(SummaryMaxRunes). 절이 넷까지 이어 붙으므로
-// 문구를 하나 늘리면 카드를 넘길 수 있고, 그 조합은 손으로 세어 찾을 것이 아니다.
+// 문구를 하나 늘리면 카드를 넘길 수 있고, 그 조합을 손으로 세어 찾을 수는 없다.
 func TestRenderSummaryCoversEveryCombination(t *testing.T) {
 	cats := []intervene.Category{
 		intervene.CategoryHangsPiece, intervene.CategoryOther, intervene.CategoryMissedMate,

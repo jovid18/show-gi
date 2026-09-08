@@ -121,7 +121,7 @@ describe('parseRoute', () => {
       '/explore?m=7g7f,zzz',
       '/explore?m=7g7f,,3c3d',
       '/explore?m=7g7f 3c3d',
-      // 手合割 id 는 주소에 실릴 수 있는 모양까지만 본다 — 이건 그 모양이 아니다
+      // 手合割 id 는 주소에 실릴 수 있는 모양까지만 본다 — 이건 그 모양을 벗어난다
       `/explore?h=${'a'.repeat(33)}`,
     ]) {
       expect(parseRoute(bad)).toEqual({ name: 'explore', handicap: '', moves: [] });

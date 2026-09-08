@@ -25,7 +25,7 @@ func mustMove(t *testing.T, usi string) Move {
 }
 
 // wantReason 은 수가 불법이고 그 사유가 want 인지 확인한다.
-// 문구가 아니라 코드로 본다 — 문구는 언제든 다듬을 수 있고, 판정은 그러면 안 된다.
+// 문구 대신 코드로 본다 — 문구는 언제든 다듬을 수 있고, 판정은 그러면 안 된다.
 func wantReason(t *testing.T, err error, want Reason, ctx string) {
 	t.Helper()
 	if err == nil {
@@ -398,7 +398,7 @@ func TestNeighbors8ClipsAtTheEdge(t *testing.T) {
 	if got := len(Neighbors8(SquareOf(5, 1))); got != 5 {
 		t.Errorf("가장자리는 5칸이다: %d", got)
 	}
-	// 자기 자신은 안 들어간다 — 玉 자신의 칸은 「주변」이 아니다
+	// 자기 자신은 안 들어간다 — 玉 자신의 칸은 「주변」에서 뺀다
 	for _, sq := range Neighbors8(SquareOf(5, 5)) {
 		if sq == SquareOf(5, 5) {
 			t.Error("자기 칸이 이웃에 들어갔다")

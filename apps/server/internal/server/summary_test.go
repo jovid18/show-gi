@@ -205,14 +205,14 @@ func TestFocusIsStableOnTies(t *testing.T) {
 	}
 }
 
-// 개입이 없으면 짚을 것도 없다. 화면이 그때 그 줄을 안 그린다.
+// 개입이 없으면 짚을 것도 없다. 화면이 그때 그 줄을 그리지 않는다.
 func TestNoInterventionsNoFocus(t *testing.T) {
 	if got := focusOf(nil); got != nil {
 		t.Errorf("%+v, want nil", got)
 	}
 }
 
-// 총평의 문장 쪽에는 手数가 없어야 한다. 숫자는 summaryStats 가 들고, 문장은 그것을
+// 총평의 문장 쪽에는 手数가 없어야 한다. 숫자는 summaryStats 가 갖고, 문장은 그것을
 // 말하지 않는다(summary.go 의 규약).
 func TestFocusDoesNotReachTheSentence(t *testing.T) {
 	rec := store.GameRecord{
@@ -229,7 +229,7 @@ func TestFocusDoesNotReachTheSentence(t *testing.T) {
 	// 전체의 모양을 말하는 자리다 — 문장이 手数를 옮겨 적으면 두 벌이 된다.
 	//
 	// 手数를 같은 구간 안에서 옮긴다(둘 다 序盤) — 구간이 갈리면 Phase 가 달라지는 것이
-	// 맞고, 그건 이 테스트가 잡으려는 것이 아니다.
+	// 맞고, 이 테스트가 잡으려는 자리는 따로 있다.
 	other := rec
 	other.Interventions = []store.RecordedIntervention{{Ply: 12, Category: "hangs_piece", DeltaWin: 0.7}}
 	otherFacts, _ := factsOf(other, intervene.Beginner)
@@ -239,7 +239,7 @@ func TestFocusDoesNotReachTheSentence(t *testing.T) {
 }
 
 // standingOf 는 마지막으로 채워진 평가치를 사람 관점으로 읽는다. 부호 뒤집기(後手)와
-// 「너무 오래된 평가치는 안 쓴다」가 이 함수의 전부다.
+// 「너무 오래된 평가치는 쓰지 않는다」가 이 함수의 전부다.
 func TestStandingOfReadsTheLastFilledEval(t *testing.T) {
 	cpScore := func(v int) *eval.Score { s := eval.Cp(v); return &s }
 
@@ -273,7 +273,7 @@ func TestStandingOfReadsTheLastFilledEval(t *testing.T) {
 			want:    explain.StandingUnknown,
 		},
 		{
-			// 평가치가 판의 끝에서 멀면 지금 형세가 아니다.
+			// 평가치가 판의 끝에서 멀면 지금 형세를 말할 수 없다.
 			name: "마지막 평가치가 너무 뒤에 있다", myColor: "b",
 			moves: []store.RecordedMove{{Ply: 1, Score: cpScore(1782)}, {Ply: 2}, {Ply: 3}, {Ply: 4}, {Ply: 5}},
 			want:  explain.StandingUnknown,

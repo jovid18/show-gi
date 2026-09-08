@@ -83,8 +83,8 @@ export function GuideScreen() {
           。指した瞬間に戻され、まわりが暗くなって説明のカードが出ます。
         </p>
 
-        {/* 세 걸음을 가로로 늘어놓는다. 실제 화면을 흉내 내는 것이 아니라 순서를 말하는
-            그림이라 판을 그리지 않는다 — 판을 그리면 「그때 판이 이렇게 생겼다」로 읽힌다. */}
+        {/* 세 걸음을 가로로 늘어놓는다. 순서를 말하는 그림이라 판을 그리지 않는다 —
+            판을 그리면 「그때 판이 이렇게 생겼다」로 읽힌다. */}
         <ol className="guide__flow">
           <li className="guide__flow-step">
             <span className="guide__flow-num" aria-hidden="true">

@@ -67,7 +67,7 @@ func TestPairableIncludesTheEdge(t *testing.T) {
 	}
 }
 
-// 밴드 안에서 FIFO 다. 최근접이 아니다 — 가까운 짝을 가로채면 남은 둘이 최악으로 붙는다.
+// 밴드 안에서 FIFO 다. 최근접을 안 고른다 — 가까운 짝을 가로채면 남은 둘이 최악으로 붙는다.
 func TestPickIsFifoInsideTheBand(t *testing.T) {
 	me := waiter(9, 1500, 0)
 	// 셋 다 밴드 안이다(격차 100·50·10). 오래 기다린 순으로 온다.
@@ -100,7 +100,7 @@ func TestPickSkipsOutsideTheBand(t *testing.T) {
 	}
 }
 
-// 자기 자신은 짝이 아니다. 질의가 이미 빼고 주지만, 여기서 한 번 더 보는 것은
+// 자기 자신은 짝에서 뺀다. 질의가 이미 빼고 주지만, 여기서 한 번 더 보는 것은
 // 혼자 두는 판이 경고 없이 만들어지는 것을 막기 위해서다.
 func TestPickNeverPicksItself(t *testing.T) {
 	me := waiter(9, 1500, 0)

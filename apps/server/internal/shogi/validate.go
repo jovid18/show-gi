@@ -147,7 +147,7 @@ func (pos Position) InventoryExcess() map[PieceType]int {
 
 // ValidateMove 는 수의 합법성을 검사하고, 불법이면 사유를 담은 *IllegalMoveError 를 돌려준다.
 //
-// 합법 여부의 진실은 LegalMoves 하나뿐이다. 아래의 긴 분기는 판정이 아니라 진단 —
+// 합법 여부의 진실은 LegalMoves 하나뿐이다. 아래의 긴 분기는 판정 대신 진단 —
 // "왜 안 되는지"를 초심자에게 말해주기 위한 것이고, 판정 결과를 바꾸지 않는다.
 func (pos Position) ValidateMove(m Move) error {
 	me := pos.Turn

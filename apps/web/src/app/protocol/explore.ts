@@ -11,8 +11,8 @@ import type { WhatIfNode } from '@/protocol/whatif';
  *
  * 뿌리가 둘이다 — 手合割 id 하나와 판(SFEN) 하나이고, 둘은 같이 못 온다. 판을 받게 된
  * 것은 사진에서 읽어 온 국면 때문이고(journal §129), 그 국면은 手合割+수순으로 표현할
- * 수가 없다. 그 문의 이유였던 「아무 국면이나 재 주는 공개 엔진」을 막는 것은 SFEN 의
- * 부재가 아니라 서버의 슬롯 하나다(§85).
+ * 수가 없다. 그 문의 이유였던 「아무 국면이나 재 주는 공개 엔진」은 서버의 슬롯 하나가
+ * 막는다(§85).
  *
  * 手数가 없다. 뿌리가 언제나 0手目라 되짚기의 `ply` 에 해당하는 값이 상수다.
  */
@@ -52,8 +52,8 @@ export interface ExploreNode extends WhatIfNode {
 /**
  * 검토 화면에서 이름을 붙여 저장한 국면. 서버의 `internal/server/explore_snapshots.go` 와 짝이다.
  *
- * 국면(SFEN)이 아니라 手合割 하나와 수순 한 줄이다 — 불러오기가 이 두 칸을 주소에 실어
- * `/api/explore` 로 다시 묻는다(`routeExplore`). SFEN 을 저장하지 않는 이유는 journal §96.
+ * 手合割 하나와 수순 한 줄이다 — 불러오기가 이 두 칸을 주소에 실어 `/api/explore` 로
+ * 다시 묻는다(`routeExplore`). SFEN 을 저장하지 않는 이유는 journal §96.
  *
  * 手数가 없다. `moves.length` 가 그 값이라 실으면 두 칸이 어긋날 수 있다.
  */

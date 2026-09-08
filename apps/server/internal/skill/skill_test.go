@@ -208,8 +208,8 @@ func TestWorkerStaysQuietWhenUnknown(t *testing.T) {
 	}
 }
 
-// onChange 는 판정마다 불린다. 끝에 한 번이 아니다 — 새로고침하면 판이 끝나므로
-// 몰아 쓰면 끊긴 판의 추정 전체가 사라진다(query/skill.sql).
+// onChange 는 판정마다 불린다 — 새로고침하면 판이 끝나므로 몰아 쓰면 끊긴 판의
+// 추정 전체가 사라진다(query/skill.sql).
 func TestWorkerReportsEveryObservation(t *testing.T) {
 	seen := make(chan Estimate, 4)
 	w := NewWorkerFrom(t.Context(), Unknown, func(e Estimate) { seen <- e })
@@ -228,7 +228,7 @@ func TestWorkerReportsEveryObservation(t *testing.T) {
 	}
 }
 
-// 절대 낙폭은 평균이다. 段級이 이 값에서 나오므로(rank.go) 「최근 몇 수」가 아니라
+// 절대 낙폭은 평균이다. 段級이 이 값에서 나오므로(rank.go) 「최근 몇 수」 대신
 // 「이 판 전체」여야 하고, 그것이 비대칭 EMA와 따로 둔 이유다.
 func TestAbsLossIsTheMeanOfRawDrops(t *testing.T) {
 	tr := NewTrack()

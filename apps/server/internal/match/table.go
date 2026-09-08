@@ -38,7 +38,7 @@ const (
 	// ResultAbandoned 는 승부가 안 난 채로 끝난 판이다. 두 자리에서 온다:
 	// 서버가 내려갔을 때(StatusAborted)와, 한 수도 안 둔 채 시간이 다 됐을 때(StatusExpired).
 	//
-	// 수를 두고 나서의 시간패는 여기가 아니라 win/loss 다 — 승부가 났기 때문이다.
+	// 수를 두고 나서의 시간패는 win/loss 로 간다 — 승부가 났기 때문이다.
 	ResultAbandoned Result = "abandoned"
 )
 
@@ -47,8 +47,8 @@ type Config struct {
 	// Black·White 는 두 대국자다. 先手·後手가 여기서 확정된다 — 방을 만든 사람이 고른 것이
 	// 그대로 들어오고, 대국이 이어지는 동안 안 바뀐다.
 	Black, White Player
-	// Recorders 는 先手·後手마다 하나씩이다. nil 이면 그쪽을 기록하지 않는다 — 익명 대국이
-	// 아니라 DB 가 없는 배포를 위한 자리다(엔진 대국과 같은 판단).
+	// Recorders 는 先手·後手마다 하나씩이다. nil 이면 그쪽을 기록하지 않는다 — DB 가 없는
+	// 배포를 위한 자리이고, 익명 대국을 뜻하지 않는다(엔진 대국과 같은 판단).
 	Recorders map[shogi.Color]Recorder
 	// TurnLimit 이 0이면 DefaultTurnLimit.
 	TurnLimit time.Duration
@@ -132,7 +132,7 @@ type recordedMove struct {
 	by  shogi.Color
 }
 
-// NewTable 은 대국을 시작하고 시계를 건다. ctx 가 끝나면 대국도 끝난다 — 연결이 아니라
+// NewTable 은 대국을 시작하고 시계를 건다. ctx 가 끝나면 대국도 끝난다 — 연결 대신
 // 서버의 수명이다(방을 들고 있는 Hub 가 준다).
 func NewTable(ctx context.Context, cfg Config) (*Table, error) {
 	sfen := cfg.StartSFEN
@@ -165,7 +165,7 @@ func NewTable(ctx context.Context, cfg Config) (*Table, error) {
 	}
 	st.repeats[pos.RepetitionKey()]++
 
-	// 기록 행은 대국이 시작되는 자리에서 만든다. 첫 수가 아니라 여기인 이유는 행이 첫
+	// 기록 행은 대국이 시작되는 자리에서 만든다. 첫 수를 기다리지 않는 이유는 행이 첫
 	// Moved 보다 먼저 있어야 하기 때문이다 — 기록기가 행 없이 온 수를 그냥 버린다
 	// (server/recorder.go 의 gameID == 0).
 	//
@@ -189,7 +189,7 @@ func NewTable(ctx context.Context, cfg Config) (*Table, error) {
 // finishedGrace 는 판이 끝난 뒤에도 테이블이 답하는 시간이다.
 //
 // 끝나는 그때에 문을 닫으면, 하필 그때 끊겼다 다시 붙은 사람이 결과 대신 오류를
-// 본다 — 投了를 받은 쪽이 새로고침하는 것은 드문 일이 아니다.
+// 본다 — 投了를 받은 쪽이 새로고침하는 일은 흔하다.
 //
 // 방보다 길어야 한다(FinishedTTL). 같게 두면 둘이 닫히는 순서가 정해지지 않아
 // 「방은 열려 있는데 테이블은 닫힌」 창이 생긴다(journal §83).

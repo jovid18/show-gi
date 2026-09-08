@@ -57,7 +57,7 @@ UPDATE games SET finished_at = now(), result = $2 WHERE id = $1;
 -- 확정된 수만 들어온다. 물러진 수가 여기 들어가면 기보가 롤백을 반영하지 못한다.
 --
 -- 같은 ply를 다시 쓰는 것은 롤백 뒤 다시 둔 경우다. 덮어쓴다 — 기보는 「지금 판에
--- 남아 있는 수순」이지 시도의 목록이 아니다. 시도는 interventions 가 센다.
+-- 남아 있는 수순」이다. 시도는 interventions 가 센다.
 INSERT INTO game_moves (game_id, ply, usi, eval_cp, eval_mate)
 VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (game_id, ply) DO UPDATE
@@ -65,7 +65,7 @@ SET usi = EXCLUDED.usi, eval_cp = EXCLUDED.eval_cp, eval_mate = EXCLUDED.eval_ma
 
 -- name: InsertIntervention :exec
 --
--- (game_id, ply) 는 유니크가 아니다. 한 국면에서 몇 수를 시도하고 전부 물러지는 일이
+-- (game_id, ply) 에 유니크가 없다. 한 국면에서 몇 수를 시도하고 전부 물러지는 일이
 -- 실제로 있고 그 반복이 곧 기록할 값이다(journal §17).
 -- 칸별 규약은 store.Intervention 에 있다.
 INSERT INTO interventions (
@@ -142,7 +142,7 @@ SELECT
     -- 대인전 판은 여기 그대로 뜬다. 마이페이지의 집계에서만 빠진다(journal §83) —
     -- 그쪽은 개입 비율이 뜻을 갖는 자리이고, 목록은 「무엇을 뒀나」라 뜻이 다르다.
     g.match_id,
-    -- 가져온 판인가. 값이 아니라 있는가만 밖으로 나간다(020_imported_games.sql).
+    -- 가져온 판인가. 값 대신 있는가만 밖으로 나간다(020_imported_games.sql).
     g.imported_from,
     -- 手合割을 되짚는 하나뿐인 칸이다(internal/handicap 의 Of). 칸을 새로 만들지 않은
     -- 이유가 이것이다 — 시작 국면이 곧 手合이라, 이름을 따로 적으면 둘이 갈릴 수 있다.
@@ -195,8 +195,8 @@ SELECT
     g.my_color,
     g.started_at,
     g.opening_tag,
-    -- 이어하기 카드가 手合을 말하는 자리다. 위 ListGamesForOwner 와 같은 이유로 이름이
-    -- 아니라 국면을 든다.
+    -- 이어하기 카드가 手合을 말하는 자리다. 위 ListGamesForOwner 와 같은 이유로 이름
+    -- 대신 국면을 든다.
     g.start_sfen,
     (SELECT count(*) FROM game_moves m WHERE m.game_id = g.id) AS move_count
 FROM games g
@@ -248,7 +248,7 @@ SET result = 'declined'
 WHERE id = $1
   AND user_id = $2
   AND result = 'abandoned'
-  -- 이어하기 세 질의가 같은 조건을 갖는다. 대인전 행은 이 장치가 닿을 자리가 아니다 —
+  -- 이어하기 세 질의가 같은 조건을 갖는다. 대인전 행은 이 장치가 안 닿는 자리다 —
   -- 지금은 두 상태 다 어느 목록에도 안 뜨므로 눈에 보이는 차이가 없지만, 셋 중 하나만
   -- 빠져 있으면 나중에 상태의 뜻이 바뀌는 날 그 하나가 구멍이 된다.
   AND match_id IS NULL;
@@ -256,7 +256,7 @@ WHERE id = $1
 -- name: ListGameMoves :many
 --
 -- 점수는 先手 관점이고 둘 다 NULL일 수 있다(store.RecordedMove). eval_cp 와 eval_mate 는
--- 배타적이고, 그것을 드는 것은 주석이 아니라 CHECK 다(021_tagged_evals.sql).
+-- 배타적이고, 그것을 드는 것은 CHECK 다(021_tagged_evals.sql).
 SELECT ply, usi, eval_cp, eval_mate FROM game_moves WHERE game_id = $1 ORDER BY ply;
 
 -- name: ListGameInterventions :many
@@ -288,7 +288,7 @@ GROUP BY g.result;
 -- name: CountInterventionCategoriesForOwner :many
 --
 -- 마이페이지의 약점. 판을 가로질러 센다 — 총평은 한 판 안에서 세지만(server/summary.go)
--- 「무엇이 약한가」는 한 판으로 답할 것이 아니다.
+-- 「무엇이 약한가」는 한 판으로 답할 수 없다.
 --
 -- 거르는 조건이 위와 같아야 한다: 전적에 안 들어간 판의 개입이 약점에는 들어가면
 -- 같은 화면의 두 숫자가 다른 모집단을 센다.
@@ -331,7 +331,7 @@ SELECT ply, usi, eval_cp, eval_mate FROM game_undos WHERE game_id = $1 ORDER BY 
 -- name: CountGameUndos :one
 --
 -- 이어하는 판이 3회 제한을 리셋하지 않게 한다(game.Config.UndoUsed). 세션은 연결에
--- 매여 있어 이어할 때마다 새로 만들어지는데, 카운터도 같이 0이 되면 제한이 제한이 아니다.
+-- 매여 있어 이어할 때마다 새로 만들어지는데, 카운터도 같이 0이 되면 제한이 풀린다.
 SELECT count(*) FROM game_undos WHERE game_id = $1;
 
 -- ─── 전법·囲い ───────────────────────────────────────────────

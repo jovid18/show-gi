@@ -197,15 +197,15 @@ erDiagram
 | **국면** (3, 엔진 캐시) | `positions` · `edges` · `mate_positions`                                                | `sfen_key`    | **아니다**           |
 | **작업 큐** (2)         | `analysis_plies` · `analysis_jobs`                                                      | 분석 키       | **아니다**           |
 
-**작업 큐는 넷째 덩어리다.** 둘 다 분석 키로 묶이고 사람에도 판 번호에도 안 매인다. 수명이 다른 셋과 다르다: 판이 끝나면 걷힌다(`DiscardAnalysisMatch`·`DropAnalysisJob`). 기록이 아니라 아직 안 한 일이라서다.
+**작업 큐는 넷째 덩어리다.** 둘 다 분석 키로 묶이고 사람에도 판 번호에도 안 매인다. 수명이 다른 셋과 다르다: 판이 끝나면 걷힌다(`DiscardAnalysisMatch`·`DropAnalysisJob`). 아직 안 한 일이라서다.
 
-**`match_id` 컬럼이 「방 id」가 아니라 분석 키다**([journal §126](../journal/121-140.md)). 갈래가 둘이다 — 대인전은 방 id(영숫자 8자), 가져온 기보는 `import:<games.id>`. 콜론이 그 둘을 가른다. 컬럼 이름을 안 바꿨다: 공유 DB에서 `RENAME` 은 남의 서버를 그 자리에서 깨뜨린다.
+**`match_id` 컬럼에는 분석 키가 든다**([journal §126](../journal/121-140.md)). 이름이 「방 id」로 읽히지만 갈래가 둘이다 — 대인전은 방 id(영숫자 8자), 가져온 기보는 `import:<games.id>`. 콜론이 그 둘을 가른다. 컬럼 이름을 안 바꿨다: 공유 DB에서 `RENAME` 은 남의 서버를 그 자리에서 깨뜨린다.
 
 **가져온 판은 자리가 하나다.** `games` 행 하나가 곧 그 자리이고, 그래서 분석기가 키를 보고 어느 쪽 질의를 부를지 정한다(`MatchSeats` 대 `ImportSeat`).
 
 **자리도 수순도 여기 다 적히지는 않는다.** `analysis_jobs` 가 자리를 안 드는 것은 `games` 행 둘이 곧 두 자리이기 때문이고([journal §118](../journal/101-120.md)), `analysis_plies` 가 수순을 드는 것은 `game_moves` 에 구멍이 날 수 있어서다([journal §115](../journal/101-120.md)). 가르는 기준은 「정본이 이미 있는가」다.
 
-**국면 덩어리에 `user_id`도 `game_id`도 없다.** cp는 手番 관점, `tags`는 둔 쪽 기준이라 A가 잰 국면이 B에게 그대로 유효하다 — 그래서 로그인이 붙어도 여기는 권한 검사 대상이 아니다. 판 덩어리는 반대다.
+**국면 덩어리에 `user_id`도 `game_id`도 없다.** cp는 手番 관점, `tags`는 둔 쪽 기준이라 A가 잰 국면이 B에게 그대로 유효하다 — 그래서 로그인이 붙어도 여기에는 권한 검사가 없다. 판 덩어리는 반대다.
 
 `games.root_key → positions.sfen_key` 가 두 덩어리를 잇는 하나뿐인 FK인데, 이것도 판을 국면에 매달지는 않는다 — 시작 국면 하나를 가리키기만 한다.
 
@@ -223,7 +223,7 @@ game_undos    ply 3 = 3c3d    ← 사람이 스스로 무른 수
 
 같은 `(game_id, ply)` 가 세 표에 다른 값으로 있는 것이 정상이다. 그래서:
 
-- `interventions` 의 `(game_id, ply)` 는 유니크가 아니다 — 한 국면에서 여러 번 물러진다
+- `interventions` 의 `(game_id, ply)` 에는 UNIQUE 가 없다 — 한 국면에서 여러 번 물러진다
 - `game_undos` 도 마찬가지다
 - **되짚기 화면은 세 배열을 갈라서 받는다**(`moves` · `interventions` · `undos`) — 한 배열로 합치면 화면이 「앱이 막은 수」와 「사람이 스스로 무른 수」를 같은 줄로 그린다
 
@@ -266,7 +266,7 @@ game_undos    ply 3 = 3c3d    ← 사람이 스스로 무른 수
 | `declined`  | 이어하기를 사람이 「いいえ」로 닫았다 |
 | `NULL`      | 아직 두는 중                          |
 
-> `aborted` 는 이 칸의 값이 아니다 — 세션·프로토콜 쪽 `game.Status` 다. 표를 읽을 때 가장 흔히 섞이는 자리다.
+> `aborted` 는 이 칸에 안 들어온다 — 세션·프로토콜 쪽 `game.Status` 의 값이다. 표를 읽을 때 가장 흔히 섞이는 자리다.
 
 ---
 

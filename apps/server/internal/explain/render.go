@@ -58,7 +58,7 @@ func Render(f Facts) string {
 		}
 
 	case intervene.CategorySlowerMate:
-		// 앞의 手数만 숫자로 말한다. 착수 후의 手数는 증명이 아니라 탐색이 본 값이라
+		// 앞의 手数만 숫자로 말한다. 착수 후의 手数는 탐색이 본 값일 뿐이라
 		// 쓰면 틀린 手数를 가르친다(Facts.MateBefore).
 		if u.MateBefore > 0 {
 			return fmt.Sprintf("%d手で詰ませられましたが、この手だと遠回りになります。", u.MateBefore)
@@ -77,8 +77,8 @@ func Render(f Facts) string {
 			return renderBranches(u)
 		}
 		// 갈래를 못 구했으면 무엇을 잡히는지까지는 안다. 반박 수순의 첫 수가 그것이고,
-		// 그 수가 합법이라는 것은 룰 엔진이 확인했다. 「잃습니다」가 아니라 「取れます」인
-		// 것은 실제로 그렇게 둘지는 상대가 정하기 때문이다.
+		// 그 수가 합법이라는 것은 룰 엔진이 확인했다. 「잃습니다」 대신 「取れます」로
+		// 적는 것은 실제로 그렇게 둘지는 상대가 정하기 때문이다.
 		if u.Threatened != "" {
 			return fmt.Sprintf("その手は形勢を大きく損ねます。相手は%sを取れます。", u.Threatened)
 		}
@@ -107,7 +107,7 @@ func renderBranches(u Facts) string {
 	default:
 		fmt.Fprintf(&b, "この手には%sが厳しく、そのあとはこうなります。", u.OpponentBest)
 	}
-	// 줄은 문장이 아니라 표다. 조사로 이으면 「…で 5手で自分が詰まされる」처럼 で가 겹치고,
+	// 줄은 문장 대신 표로 적는다. 조사로 이으면 「…で 5手で自分が詰まされる」처럼 で가 겹치고,
 	// 그 자리를 피하려고 詰み과 cp의 말투를 가르면 같은 값이 두 어휘를 갖는다. 화살표는 그
 	// 둘을 같은 모양으로 적는다 — 프롬프트가 사실을 적는 모양과도 같다.
 	for _, br := range u.Branches {

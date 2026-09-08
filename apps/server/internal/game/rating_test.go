@@ -164,7 +164,7 @@ func TestStrengthIsAbsentUnlessTheOpponentActuallyAdapts(t *testing.T) {
 		}
 	}
 
-	// 반대쪽 — adaptive 는 첫 스냅샷부터 한복판을 말한다. 0이 아니다.
+	// 반대쪽 — adaptive 는 첫 스냅샷부터 한복판을 말한다. 0이 안 온다.
 	adaptive := NewAdaptiveOpponent(&stubMulti{res: usi.SearchResult{Best: "3c3d"}}, 12, DefaultBand)
 	s := newSession(t, Config{
 		Opponent: adaptive, HumanColor: shogi.Black,

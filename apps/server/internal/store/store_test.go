@@ -409,7 +409,7 @@ func TestGameRecordRoundTrip(t *testing.T) {
 		t.Fatalf("GameRecord: %v", err)
 	}
 
-	// 手数 순서다. 넣은 순서가 아니라 — 위에서 map으로 넣은 것이 그 확인이다.
+	// 手数 순서다. 넣은 순서를 안 따른다 — 위에서 map으로 넣은 것이 그 확인이다.
 	want := []string{"7g7f", "3c3d", "8h2b+"}
 	if len(got.Moves) != len(want) {
 		t.Fatalf("moves = %d, want %d", len(got.Moves), len(want))
@@ -469,7 +469,7 @@ func TestListGamesSkipsEmptyGames(t *testing.T) {
 		t.Fatalf("InsertMove: %v", err)
 	}
 	// 둘 다 끝내 둔다. 목록은 결과가 나온 판만 주므로(§51), 안 끝내면 empty 가
-	// EXISTS 가 아니라 그 조건에 걸려 빠진다 — 여기서 보려는 것이 아니다.
+	// EXISTS 대신 그 조건에 걸려 빠진다 — 그건 여기서 보려는 것과 다르다.
 	for _, id := range []int64{empty, played} {
 		if err := s.FinishGame(t.Context(), id, ResultWin); err != nil {
 			t.Fatalf("FinishGame: %v", err)
@@ -585,8 +585,8 @@ func TestGameQuizRoundTrip(t *testing.T) {
 		t.Errorf("payload = %s, want it to carry the mate item", got)
 	}
 
-	// 판이 다르면 없는 것이다. 문항 기준이 바뀌면 옛 문항은 그 기준으로 만든 것이
-	// 아니라서 채점 규약이 어긋난다(migrations/007).
+	// 판이 다르면 없는 것이다. 문항 기준이 바뀌면 옛 문항은 다른 기준으로 만든 것이라
+	// 채점 규약이 어긋난다(migrations/007).
 	if _, err := s.GameQuiz(t.Context(), id, 2); !errors.Is(err, ErrNoQuiz) {
 		t.Fatalf("판이 다른데 왔다: %v", err)
 	}

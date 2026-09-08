@@ -35,7 +35,7 @@ func forkJudgement(before, after int, human shogi.Color) Judgement {
 }
 
 // forkPositions 는 그 수의 앞뒤 국면을 함께 만든다. 게이트가 「이 수가 만든 것」만
-// 이름 붙이므로 앞 국면이 없으면 아무것도 새것이 아니다.
+// 이름 붙이므로 앞 국면이 없으면 새것이 하나도 없다.
 func forkPositions(t *testing.T, start string, moves ...string) (before, after shogi.Position) {
 	t.Helper()
 	before, err := positionAfter(start, moves[:len(moves)-1])
@@ -156,7 +156,7 @@ func TestTesujiGateFlipsForGote(t *testing.T) {
 // 이름을 붙이는 것이 되고, 형태는 그대로 서 있으므로 화면에서는 아무 이상이 안 보인다.
 func TestTesujiNameDoesNotOutliveItsPosition(t *testing.T) {
 	// 상대는 玉을 한 칸 옮긴다 — 両取り는 그대로 서 있다. 형태가 사라지는 수를 두면
-	// 이 테스트가 세대가 아니라 기하 때문에 통과한다.
+	// 이 테스트가 세대 대신 기하 때문에 통과한다.
 	opp := &scriptedOpponent{moves: []string{"1a1b"}, delay: 150 * time.Millisecond}
 	an := &fixedAnalyst{evalBefore: 50, evalAfter: -40} // 사람 관점 +50 → +40
 	s := newSession(t, Config{
@@ -203,7 +203,7 @@ func TestTesujiNameDoesNotOutliveItsPosition(t *testing.T) {
 }
 
 // TestRealEngineGatesTesujiShapes 는 게이트를 엔진에게 맡긴 것이 실제로 갈리는지 잰다.
-// 룰 층은 셋 다 이름을 내고, 통과시킬지는 우리 코드가 아니라 水匠5가 읽는다.
+// 룰 층은 셋 다 이름을 내고, 통과시킬지는 水匠5가 읽는다.
 //
 // 손으로 쓴 1수 읽기를 지운 PR이라 여기가 첫 관문이다 — go test ./... 만으로는
 // 이 테스트가 경고 없이 skip 되고 초록으로 보인다(apps/server/README.md 「테스트」 ③).
@@ -303,7 +303,7 @@ func TestDropTesujiPassesThroughTheSameGate(t *testing.T) {
 // 両取り가 그대로 서 있다가 아무 상관 없는 조용한 수에 이름을 받는다.
 //
 // 화면이 이름을 한 대국에 한 번만 띄우므로(useTagAnnounce) 플레이어가 보는 것은
-// 그 틀린 쪽이 된다 — 늦게 온 올바른 판정이 아니라.
+// 그 틀린 쪽이 된다 — 올바른 판정이 늦게 와도 못 띄운다.
 func TestARejectedShapeIsNotNamedByALaterQuietMove(t *testing.T) {
 	// 상대는 玉만 왔다 갔다 한다 — 両取り는 계속 서 있다.
 	opp := &scriptedOpponent{moves: []string{"1a1b", "1b1a"}, delay: 120 * time.Millisecond}

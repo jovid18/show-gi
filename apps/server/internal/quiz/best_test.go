@@ -234,7 +234,7 @@ func TestGradeBest(t *testing.T) {
 		t.Errorf("a legal wrong move graded as (%v, %v), want (false, nil)", ok, err)
 	}
 
-	// 불법수는 오답이 아니라 요청 오류다. 뭉치면 프론트 버그가 오답으로 위장해 안 보인다.
+	// 불법수는 오답 대신 요청 오류로 답한다. 뭉치면 프론트 버그가 오답으로 위장해 안 보인다.
 	// 1a1b 는 後手의 香을 움직이는 수라 先手 차례에 불법이다.
 	if _, err := GradeBest(item, "1a1b"); err == nil {
 		t.Error("an illegal move graded as an answer")
@@ -284,7 +284,7 @@ func TestBestItemsSurviveAFailureElsewhere(t *testing.T) {
 	}
 	items, measured := build(fs, in)
 
-	// 한 자리를 못 본 것은 「아무것도 못 봤다」가 아니다. 나머지를 봤으므로 「문항이
+	// 한 자리를 못 본 것과 「아무것도 못 봤다」는 다르다. 나머지를 봤으므로 「문항이
 	// 없다」도 결론으로 성립하고, 부르는 쪽은 그 결론을 남길 수 있어야 한다.
 	if !measured {
 		t.Error("measured = false, but the other candidates were answered")
@@ -355,7 +355,7 @@ func TestLineStartsAfterTheAnswer(t *testing.T) {
 	}
 }
 
-// BestLinePlies 에서 자른다. 길게 실으면 「왜 최선인가」가 아니라 한 판을 다시 보여주는
+// BestLinePlies 에서 자른다. 길게 실으면 「왜 최선인가」 대신 한 판을 다시 보여주는
 // 것이 된다.
 func TestLineIsCapped(t *testing.T) {
 	pos := shogi.StartPosition()
@@ -376,7 +376,7 @@ func TestLineStopsAtTheFirstIllegalMove(t *testing.T) {
 	}
 }
 
-// 정답 하나뿐인 PV에는 이어질 것이 없다. 빈 슬라이스가 아니라 nil이어야 omitempty 가 먹는다.
+// 정답 하나뿐인 PV에는 이어질 것이 없다. 빈 슬라이스 대신 nil이어야 omitempty 가 먹는다.
 func TestNoLineWhenThePvIsJustTheAnswer(t *testing.T) {
 	pos := shogi.StartPosition()
 	if got := lineAfter(pos, []string{"7g7f"}); got != nil {
@@ -387,7 +387,7 @@ func TestNoLineWhenThePvIsJustTheAnswer(t *testing.T) {
 	}
 }
 
-// 정답 자신을 못 두면 뒤도 없다 — 그 PV는 이 국면의 것이 아니다.
+// 정답 자신을 못 두면 뒤도 없다 — 그 PV는 다른 국면에서 온 것이다.
 func TestNoLineWhenTheAnswerItselfIsIllegal(t *testing.T) {
 	pos := shogi.StartPosition()
 	if got := lineAfter(pos, []string{"9i9b", "3c3d"}); got != nil {

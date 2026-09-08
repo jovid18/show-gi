@@ -25,12 +25,12 @@ resource "aws_appautoscaling_target" "analysis" {
   max_capacity = var.analysis_max_instances
 }
 
-# 목표 추적(TargetTracking)이 아니라 단계 조정(StepScaling)이다. 목표 추적은 알람 둘을
+# 목표 추적(TargetTracking) 대신 단계 조정(StepScaling)이다. 목표 추적은 알람 둘을
 # 스스로 만들고 임계를 스스로 정하는데, 이 층의 임계는 실측으로 이미 잡혀 있다 —
 # 그것을 다시 짓는 것은 두 번째 진실이고, 회차마다 어느 쪽이 울렸는지를 따져야 한다.
 #
 # 밀린 手는 대수에 반비례하지도 않는다. 2대가 8판을 받을 때 최고가 12 였다(journal §121) —
-# 목표 추적이 요구하는 「용량 한 단위당 부하」 꼴이 아니다.
+# 목표 추적이 요구하는 「용량 한 단위당 부하」 꼴에서 벗어난다.
 resource "aws_appautoscaling_policy" "analysis_out" {
   name               = "show-gi-analysis-out"
   service_namespace  = aws_appautoscaling_target.analysis.service_namespace
@@ -82,7 +82,7 @@ resource "aws_appautoscaling_policy" "analysis_in" {
   }
 }
 
-# 스케일 인의 신호는 임계 100 의 반대쪽이 아니다.
+# 스케일 인의 신호를 임계 100 의 반대쪽에 두지 않는다.
 #
 # 밀린 手는 포화 신호라 「비었다」와 「대수가 충분하다」가 같은 값을 낸다 — 2대가 8판을
 # 받을 때 최고가 12 였고 추세가 없었다(journal §121). 임계를 그 사이에 두면 부하가 도는
@@ -92,7 +92,7 @@ resource "aws_appautoscaling_policy" "analysis_in" {
 # 뜻이고, 30분을 다 요구하는 것은 여유가 있는 상태와 일이 없는 상태를 가르기 위해서다 —
 # 부하가 도는 동안은 手가 계속 도착하므로 30분 연속 0 이 안 나온다.
 #
-# 사람에게는 안 알린다. 조용해진 것은 사고가 아니라서 SNS 를 안 붙였고, 언제 움직였는지는
+# 사람에게는 안 알린다. 조용해진 것을 사고로 보지 않아 SNS 를 안 붙였고, 언제 움직였는지는
 # describe-scaling-activities 가 든다(deploy/README.md).
 resource "aws_cloudwatch_metric_alarm" "analysis_idle" {
   alarm_name          = "show-gi-analysis-idle"
@@ -106,14 +106,14 @@ resource "aws_cloudwatch_metric_alarm" "analysis_idle" {
   threshold           = 1
   comparison_operator = "LessThanThreshold"
 
-  # 차원 둘을 다 적는다. EMF 가 Service·Environment 를 내므로 하나만 적으면 그런 계열이
+  # dimensions 둘을 다 적는다. EMF 가 Service·Environment 를 내므로 하나만 적으면 그런 계열이
   # 없어서 알람이 「데이터 없음」으로 그대로 산다(alarms.tf 의 같은 함정).
   dimensions = { Service = "api", Environment = "prod" }
 
   alarm_actions = [aws_appautoscaling_policy.analysis_in.arn]
 
   # 이 게이지는 태스크가 도는 동안 매분 나온다(비어 있으면 0 이다). 그래서 결측은
-  # 「조용하다」가 아니라 「양쪽 티어가 다 내려가 있다」이고, 그 상태에서 대수를 정할
+  # 「조용하다」 대신 「양쪽 티어가 다 내려가 있다」이고, 그 상태에서 대수를 정할
   # 근거가 없다.
   treat_missing_data = "notBreaching"
 }

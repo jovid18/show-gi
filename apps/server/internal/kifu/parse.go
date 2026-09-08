@@ -136,7 +136,7 @@ var timeRe = regexp.MustCompile(`\(\s*\d+:\d+[^)]*\)\s*$`)
 // 手合割 줄이 시작 국면을 정한다. 표에 없는 手合은 실패다(startOf).
 //
 // ParseCSA 는 아직 平手만 읽는다. P 행을 안 보고 언제나 shogi.StartSFEN 에서 시작해서,
-// 駒落ち CSA 는 파싱이 아니라 ValidateMove 에서 엉뚱한 手数에 터진다.
+// 駒落ち CSA 는 파싱을 지나 ValidateMove 에서 엉뚱한 手数에 터진다.
 func ParseKIF(input string) (ParsedGame, error) {
 	g := ParsedGame{StartSFEN: shogi.StartSFEN}
 	pos := shogi.StartPosition()
@@ -195,7 +195,7 @@ func ParseKIF(input string) (ParsedGame, error) {
 			continue
 		}
 
-		// 판이 끝난 사유는 수가 아니다. 投了가 던지는 쪽의 手番에 적히는 규약까지 endOf 가 든다.
+		// 판이 끝난 사유는 endOf 가 따로 가른다. 投了가 던지는 쪽의 手番에 적히는 규약까지 거기 있다.
 		if end, ok := endOf(rest); ok {
 			g.Result = end(pos.Turn)
 			continue

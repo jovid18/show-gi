@@ -55,8 +55,8 @@ VALUES ($1, $2, $3, 1, now()),
 ON CONFLICT (user_id) DO UPDATE
 SET rating_est        = EXCLUDED.rating_est,
     rating_sd         = EXCLUDED.rating_sd,
-    -- 넘겨받은 값이 아니라 지금 값에 더한다. 부르는 쪽이 읽은 뒤로 다른 판이 끝났으면
-    -- 그 판까지 세어야 하고, 세는 것이 이 칸의 유일한 일이다.
+    -- 넘겨받은 값 대신 지금 값에 더한다. 부르는 쪽이 읽은 뒤로 다른 판이 끝났으면
+    -- 그 판까지 세어야 하고, 세는 것이 이 칸의 하나뿐인 일이다.
     rating_games      = skill_profile.rating_games + 1,
     rating_updated_at = now()
 `

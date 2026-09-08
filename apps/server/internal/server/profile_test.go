@@ -6,8 +6,8 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 한 번 걸린 것은 약점이 아니다. 그날 우연히 둔 수 하나가 「당신의 약점 1위」가 되면
-// 안 된다(weaknessMin).
+// 한 번 걸린 것만으로는 약점이 되지 못한다. 그날 우연히 둔 수 하나가 「당신의 약점 1위」가
+// 되면 안 된다(weaknessMin).
 func TestOneOffCategoryIsNotAWeakness(t *testing.T) {
 	total, got := weaknessesOf(map[string]int{"hangs_piece": 5, "lets_mate": 1})
 	if total != 6 {
@@ -59,7 +59,7 @@ func TestNoInterventionsGivesNothing(t *testing.T) {
 	}
 }
 
-// 전적은 끝난 셋만 더한다. abandoned·declined 가 섞이면 목록에 안 보이는 판이
+// 전적은 끝난 셋만 더한다. abandoned·declined 가 섞이면 목록에 보이지 않는 판이
 // 전적에는 들어간다(query/games.sql 의 조건과 같아야 한다).
 func TestRecordCountsOnlyFinishedGames(t *testing.T) {
 	got := winLossDraw(map[store.GameResult]int{

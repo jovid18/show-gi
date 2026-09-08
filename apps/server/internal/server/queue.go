@@ -23,21 +23,21 @@ import (
 // 쪽이 스스로 재시도하고, 그 호출이 heartbeat 와 만료 청소를 겸한다.
 //
 // WebSocket 이 아닌 이유는 기다리는 동안 서버가 할 말이 없기 때문이다. 알림을 붙이면
-// 인스턴스 사이의 통로가 하나 필요해지고, 대기열을 표로 둔 이유가 그것을 안 만드는
+// 인스턴스 사이의 통로가 하나 필요해지고, 대기열을 표로 둔 이유가 그것을 만들지 않는
 // 것이었다(journal §98).
 
 type queueHandler struct {
 	hub   *match.Hub
 	store *store.Store
 	auth  *authHandler
-	// metrics 는 nil 일 수 있다. 그때는 짝짓기가 안 세어지고 대기열은 그대로 돈다.
+	// metrics 는 nil 일 수 있다. 그때는 짝짓기가 세어지지 않고 대기열은 그대로 돈다.
 	metrics *metrics.Registry
 }
 
 // queuePayload 는 대기열에 선 사람이 받는 답이다.
 //
-// 상대에 대해 아무것도 안 준다. 짝이 잡혀도 이름조차 여기 없다 — 방에 붙으면 그때
-// 스냅샷이 준다(02-architecture.md §7 위협 2). 레이팅은 어느 쪽으로도 안 나간다.
+// 상대에 대해 아무것도 주지 않는다. 짝이 잡혀도 이름조차 여기 없다 — 방에 붙으면 그때
+// 스냅샷이 준다(02-architecture.md §7 위협 2). 레이팅은 어느 쪽으로도 나가지 않는다.
 type queuePayload struct {
 	// Status 는 waiting·matched 둘이다.
 	Status string `json:"status"`
@@ -49,8 +49,8 @@ type queuePayload struct {
 	WaitedMs int64 `json:"waitedMs"`
 	// Waiting 은 지금 대기열에 서 있는 사람 수다(자기 포함).
 	//
-	// 화면이 이걸 말해야 「안 잡히는 것」과 「고장」이 갈린다 — 동시 접속자가 없으면
-	// 안 잡히는 것을 그대로 받아들이기로 정했고(journal §92), 그러면 사람에게 그 사실을
+	// 화면이 이걸 말해야 「잡히지 않는 것」과 「고장」이 갈린다 — 동시 접속자가 없으면
+	// 잡히지 않는 것을 그대로 받아들이기로 정했고(journal §92), 그러면 사람에게 그 사실을
 	// 알려 줄 자리가 하나 필요하다.
 	Waiting int `json:"waiting"`
 }
@@ -79,14 +79,14 @@ func (h *queueHandler) join(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	fresh := now.Add(-queue.StaleAfter)
 
-	// 오래된 행을 먼저 걷는다. 실패해도 계속 간다 — 청소가 안 된 것이고, 짝짓기 쪽은
+	// 오래된 행을 먼저 걷는다. 실패해도 계속 간다 — 청소가 되지 않은 것이고, 짝짓기 쪽은
 	// seen_at 을 스스로 보므로(LockQueueCandidates) 죽은 대기자와 짝이 되지는 않는다.
 	if err := h.store.SweepQueue(ctx, fresh, now.Add(-queue.PickupTTL)); err != nil {
 		log.Printf("queue: sweep: %v", err)
 	}
 
-	// 이미 잡힌 자리가 있으면 그것이 답이다. 짝짓기보다 먼저 본다 — 안 그러면 방으로
-	// 갈 사람이 대기열에 다시 서고, 그 사이 상대는 누구도 안 오는 방에서 기다린다.
+	// 이미 잡힌 자리가 있으면 그것이 답이다. 짝짓기보다 먼저 본다 — 그러지 않으면 방으로
+	// 갈 사람이 대기열에 다시 서고, 그 사이 상대는 누구도 오지 않는 방에서 기다린다.
 	switch seat, err := h.store.TakeQueueSeat(ctx, s.UserID); {
 	case err == nil:
 		writeJSON(w, http.StatusOK, queuePayload{
@@ -123,7 +123,7 @@ func (h *queueHandler) join(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, queuePayload{
 		Status: queueStatusWaiting,
-		// 음수를 안 내보낸다. 선 시각은 DB 의 시계라 앞서 있을 수 있고, 화면은 이 값을
+		// 음수를 내보내지 않는다. 선 시각은 DB 의 시계라 앞서 있을 수 있고, 화면은 이 값을
 		// 초로 잘라 그리므로 -1초가 그대로 나간다.
 		WaitedMs: max(0, time.Since(mine.JoinedAt).Milliseconds()),
 		Waiting:  waiting,
@@ -136,10 +136,10 @@ func (h *queueHandler) enqueue(ctx context.Context, userID int64) (store.QueueWa
 	return h.store.JoinQueue(ctx, userID, r.Value, r.Deviation)
 }
 
-// pair 는 짝을 하나 지어 방을 만든다. 못 지으면 두 번째 값이 false 다.
+// pair 는 짝을 하나 지어 방을 만든다. 짓지 못하면 두 번째 값이 false 다.
 //
 // 표를 먼저 고치고 방을 나중에 만든다. 순서가 반대면 짝짓기가 어긋났을 때(내 행이
-// 이미 남에게 잡혔다) 누구도 안 오는 방이 남는다 — 반대로 이 순서에서 그 사이에
+// 이미 남에게 잡혔다) 누구도 오지 않는 방이 남는다 — 반대로 이 순서에서 그 사이에
 // 프로세스가 죽으면 두 사람이 없는 방으로 가고, 그때 화면은 「열 수 없다」를 그린다.
 func (h *queueHandler) pair(ctx context.Context, s auth.Session, fresh time.Time) (store.QueueSeat, bool) {
 	// 색은 짝짓기 밖에서 뽑는다. 대기열은 平手 확정 · 先手 랜덤이다(journal §92) — 手合은
@@ -185,7 +185,7 @@ func (h *queueHandler) pair(ctx context.Context, s auth.Session, fresh time.Time
 	}
 
 	// 방을 만든다. 손님이 처음부터 정해져 있어서 제3자가 앉을 수 없고, 확인 화면도
-	// 안 뜬다(match.Hub.CreatePaired).
+	// 뜨지 않는다(match.Hub.CreatePaired).
 	h.hub.CreatePaired(roomID,
 		match.Player{UserID: s.UserID, Name: s.Name}, myColor,
 		match.Player{UserID: pairing.Opponent.UserID, Name: pairing.Opponent.Name})
@@ -199,7 +199,7 @@ func (h *queueHandler) pair(ctx context.Context, s auth.Session, fresh time.Time
 	return store.QueueSeat{RoomID: roomID, Color: pairing.MyColor}, true
 }
 
-// queueUnavailable 은 표를 못 읽었다는 답이다. 로그인 실패와 따로 둔다 — 이쪽은 다시
+// queueUnavailable 은 표를 읽지 못했다는 답이다. 로그인 실패와 따로 둔다 — 이쪽은 다시
 // 눌러 볼 만한 실패이고, 화면이 재시도를 멈추지 않아도 된다.
 func queueUnavailable(w http.ResponseWriter) {
 	writeJSON(w, http.StatusServiceUnavailable, map[string]any{
@@ -225,8 +225,8 @@ func (h *queueHandler) leave(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// waiterOf 는 표에서 온 대기자를 고르는 쪽의 어휘로 옮긴다. 이름을 안 넘긴다 —
-// internal/queue 는 사람을 모르고, 그것이 밴드 상수를 DB 없이 흔들어 볼 수 있는 이유다.
+// waiterOf 는 표에서 온 대기자를 고르는 쪽의 어휘로 옮긴다. 이름을 넘기지 않는다 —
+// internal/queue 는 사람을 모른다. 그래서 밴드 상수를 DB 없이 흔들어 볼 수 있다.
 func waiterOf(w store.QueueWaiter) queue.Waiter {
 	return queue.Waiter{
 		UserID: w.UserID, Rating: w.Rating, Deviation: w.Deviation, JoinedAt: w.JoinedAt,

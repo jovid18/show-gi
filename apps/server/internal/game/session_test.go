@@ -156,7 +156,7 @@ func TestSnapshotCarriesLegalMovesOnlyOnHumanTurn(t *testing.T) {
 		t.Fatalf("초기 국면 합법수 = %d (30 기대)", len(snap.LegalMoves))
 	}
 
-	// 엔진이 생각하는 동안에는 사람 차례가 아니다
+	// 엔진이 생각하는 동안에는 사람 차례가 오지 않는다
 	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
 		t.Fatalf("Play: %v", err)
 	}
@@ -193,8 +193,8 @@ func TestSessionAnswersWhileEngineThinks(t *testing.T) {
 	}
 }
 
-// 투료로 국면이 바뀐 뒤 도착한 탐색 결과는 그 국면에 대한 답이 아니다. 기보에 붙으면 안 된다.
-// 판정 기준은 걸린 시간이 아니라 국면이다 — 오래 걸려도 국면이 그대로면 유효하다.
+// 투료로 국면이 바뀐 뒤 도착한 탐색 결과는 다른 국면의 답이다. 기보에 붙으면 안 된다.
+// 판정 기준은 국면이다 — 오래 걸려도 국면이 그대로면 유효하다.
 func TestStaleEngineResultIsDropped(t *testing.T) {
 	opp := &scriptedOpponent{moves: []string{"3c3d"}, delay: 200 * time.Millisecond}
 	s := newSession(t, Config{Opponent: opp, HumanColor: shogi.Black})
@@ -583,7 +583,7 @@ func TestBlunderIsRolledBack(t *testing.T) {
 	}
 }
 
-// 반박 수순은 판정이 아니라 화면에 그릴 재료다. 세션은 손대지 않고 그대로 싣는다.
+// 반박 수순은 화면에 그릴 재료다. 세션은 손대지 않고 그대로 싣는다.
 func TestRefutationRidesAlongToTheSnapshot(t *testing.T) {
 	line := []RefutationMove{{USI: "3c3d", Ja: "△3四歩", By: SideEngine, SFEN: "after-3c3d"}}
 	s := newSession(t, Config{
@@ -601,7 +601,7 @@ func TestRefutationRidesAlongToTheSnapshot(t *testing.T) {
 	if len(got.Intervention.Refutation) != 1 || got.Intervention.Refutation[0].USI != line[0].USI {
 		t.Fatalf("반박 수순이 그대로 실리지 않았다: %+v", got.Intervention.Refutation)
 	}
-	// 기보는 물러진 상태 그대로다 — 반박 수순은 판에 둔 수가 아니다.
+	// 기보는 물러진 상태 그대로다 — 반박 수순은 판에 두지 않는다.
 	if len(got.Moves) != 0 {
 		t.Fatalf("반박 수순이 기보에 섞였다: %+v", got.Moves)
 	}
@@ -768,8 +768,8 @@ func TestBuildHintStaysBehindItsStage(t *testing.T) {
 		best  string
 		want  *Hint
 	}{
-		// 횟수를 여기 박지 않는다. 지키는 것은 「칸마다 실리는 것이 다르다」이지
-		// 2나 4라는 값이 아니다 — 값은 실측으로 움직인다(journal §39).
+		// 횟수를 여기 박지 않는다. 지키는 것은 「칸마다 실리는 것이 다르다」다 —
+		// 2나 4라는 값은 실측으로 움직인다(journal §39).
 		{"아직 안 열린다", HintPieceAfter - 1, "5d5f", nil},
 		{"첫 칸 — 칸만", HintPieceAfter, "5d5f", &Hint{Square: "5d"}},
 		{"그 사이 — 그대로", HintMoveAfter - 1, "5d5f", &Hint{Square: "5d"}},
@@ -852,7 +852,7 @@ func TestStuckHintOpensAndResets(t *testing.T) {
 	if _, err := s.Play(t.Context(), "7g7f"); err != nil {
 		t.Fatalf("통과할 Play: %v", err)
 	}
-	// 상대 응수까지 기다린다 — 그 전에는 내 차례가 아니다.
+	// 상대 응수까지 기다린다 — 그 전에는 내 차례가 오지 않는다.
 	waitFor(t, ch, func(s Snapshot) bool { return s.YourTurn && s.Ply >= 2 }, "상대 응수 뒤 내 차례")
 
 	// 여기서 「힌트가 없다」만 보면 아무것도 안 지킨다 — playHuman 이 착수마다

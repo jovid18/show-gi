@@ -14,8 +14,7 @@ import (
 )
 
 // fixedBest 는 언제나 같은 수를 최선수로 답하는 탐색이다. 부르는 힌트가 재는 것은
-// 예산과 단계이지 엔진이 아니라서, 여기서 진짜 탐색을 쓰면 국면마다 답이 갈려
-// 무엇을 재는지가 흐려진다.
+// 예산과 단계다. 여기서 진짜 탐색을 쓰면 국면마다 답이 갈려 무엇을 재는지가 흐려진다.
 type fixedBest struct{ best string }
 
 func (f *fixedBest) SearchMultiPV(

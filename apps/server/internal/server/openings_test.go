@@ -51,7 +51,7 @@ func TestNewSetupFromQuery(t *testing.T) {
 		{"?color=b", shogi.White, shogi.Black, ""},
 		{"?opening=shikenbisha", shogi.Black, shogi.Black, "四間飛車"},
 		{"?color=w&opening=yagura", shogi.Black, shogi.White, "矢倉"},
-		// 못 읽는 값은 경고 없이 기본값이다(newSetup).
+		// 읽지 못하는 값은 경고 없이 기본값이다(newSetup).
 		{"?color=x&opening=nope", shogi.White, shogi.White, ""},
 	}
 	for _, tc := range cases {

@@ -197,7 +197,7 @@ func TestRunningOutOfTimeLosesTheGame(t *testing.T) {
 		t.Fatalf("play: %v", err)
 	}
 
-	// Done 이 아니라 Finished 를 기다린다. 끝난 판은 한동안 더 답하므로
+	// Done 대신 Finished 를 기다린다. 끝난 판은 한동안 더 답하므로
 	// (finishedGrace) Done 은 그만큼 늦게 닫힌다.
 	select {
 	case <-table.Finished():
@@ -233,7 +233,7 @@ func TestATimeoutWithNoMovesIsNotALoss(t *testing.T) {
 	if err != nil {
 		t.Fatalf("snapshot: %v", err)
 	}
-	// aborted 가 아니라 expired 다. 화면이 할 말이 정반대라 따로 뒀다 —
+	// aborted 대신 expired 다. 화면이 할 말이 정반대라 따로 뒀다 —
 	// 저쪽은 「서버 사정」이고 이쪽은 「누구도 안 뒀다」다.
 	if snap.Status != StatusExpired || snap.Winner != "" {
 		t.Fatalf("the screen sees %s/%q, want expired with no winner", snap.Status, snap.Winner)

@@ -86,7 +86,7 @@ func (e *Emitter) EmitTo(w io.Writer, now time.Time) error {
 		"Timestamp": now.UnixMilli(),
 		"CloudWatchMetrics": []map[string]any{{
 			"Namespace": Namespace,
-			// 차원이 Service·Environment 둘이다. 차원 조합 하나가 곧 과금 대상 지표
+			// dimensions 는 Service·Environment 둘이다. dimensions 조합 하나가 곧 과금 대상 지표
 			// 하나라서 route 나 pool 은 여기 올리지 않는다 — 지표 수가 그 값의 개수만큼
 			// 곱해진다. Environment 는 개수가 배포 환경 수만큼이고(지금 하나), 그것이
 			// 없으면 두 번째 환경이 프로덕션과 같은 계열에 값을 섞어 알람을 흔든다.
@@ -120,7 +120,7 @@ type metric struct {
 // 것과 갈리는 자리이고, 따로 둔 이유는 요금이다.
 //
 // 지금 열두 개 + 분포 다섯이다. 열 개로 묶어 두던 선을 詰み 층의 셋이 넘었다(journal §111) —
-// 차원이 Service·Environment 둘뿐이라 이름 하나가 과금 지표 하나이고, 개당 월 $0.30 이다.
+// dimensions 가 Service·Environment 둘뿐이라 이름 하나가 과금 지표 하나이고, 개당 월 $0.30 이다.
 // 늘릴 때마다 이 숫자를 고친다.
 func (e *Emitter) collect() []metric {
 	r := e.reg
@@ -152,8 +152,8 @@ func (e *Emitter) collect() []metric {
 			e.delta("GamesAborted", r.GamesFinished.SumFunc(aborted))},
 	}
 
-	// 배열은 비어 있으면 아예 안 낸다. 빈 배열을 올리면 그 회차가 0 관측으로 읽히는
-	// 것이 아니라 EMF 검증에 걸려 줄 전체가 버려진다.
+	// 배열은 비어 있으면 아예 안 낸다. 빈 배열은 0 관측으로 읽히지 않고, EMF 검증에
+	// 걸려 줄 전체가 버려진다.
 	if s := r.HTTPDuration.DrainSamples(nil); len(s) > 0 {
 		out = append(out, metric{"HttpDurationSeconds", "Seconds", s})
 	}

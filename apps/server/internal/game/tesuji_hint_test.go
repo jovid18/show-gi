@@ -52,7 +52,7 @@ func TestTesujiOptionsFindsAMoveThatWouldFork(t *testing.T) {
 	}
 }
 
-// 이미 서 있는 형태는 후보가 아니다. 桂를 5五에 미리 놓아 두면 両取り가 이미
+// 이미 서 있는 형태는 후보에서 뺀다. 桂를 5五에 미리 놓아 두면 両取り가 이미
 // 성립해 있고, 그 국면에서 아무 수나 두는 것이 手筋이 되어서는 안 된다 —
 // journal §34 ⑦이 잡은 「두 수 뒤 조용한 수가 이름을 받는다」와 같은 자리다.
 func TestTesujiOptionsIgnoresShapesAlreadyOnTheBoard(t *testing.T) {
@@ -68,7 +68,7 @@ func TestTesujiOptionsIgnoresShapesAlreadyOnTheBoard(t *testing.T) {
 }
 
 // 상대 차례에는 후보가 없다. LegalMoves 가 pos.Turn 쪽 수만 내므로, 따로 두지
-// 않으면 「手筋이 없다」와 「물어볼 차례가 아니다」가 같은 빈 결과가 된다.
+// 않으면 「手筋이 없다」와 「물어볼 차례가 안 됐다」가 같은 빈 결과가 된다.
 func TestTesujiOptionsNeedsItToBeThatColorsTurn(t *testing.T) {
 	pos := mustSFEN(t, strings.Replace(forkOneMoveAway, " b ", " w ", 1))
 
@@ -191,9 +191,9 @@ func TestGateWithoutASearcherNamesNothing(t *testing.T) {
 	}
 }
 
-// 줄 밖이라고 다 「못 본 것」은 아니다. 마지막 줄이 이미 상한 밖이면 그보다 나쁜
-// 것들은 확정 탈락이고, 안이면 모르는 것이다. 둘을 같은 침묵으로 섞으면
-// 「手筋이 없었다」와 「못 봤다」가 같은 화면이 된다.
+// 줄 밖에서도 둘이 갈린다. 마지막 줄이 이미 상한 밖이면 그보다 나쁜 것들은 확정
+// 탈락이고, 안이면 모르는 것이다. 둘을 같은 침묵으로 섞으면 「手筋이 없었다」와
+// 「못 봤다」가 같은 화면이 된다.
 func TestGateCountsOnlyTheCandidatesItCouldNotDecide(t *testing.T) {
 	outside := []TesujiOption{{USI: "1a1b"}, {USI: "2a2b"}}
 
@@ -252,7 +252,7 @@ func TestTesujiHintTagsAreDeduped(t *testing.T) {
 	}
 }
 
-// countingSearch 는 몇 번 불렸는지만 센다. 통과 여부는 여기서 볼 것이 아니다.
+// countingSearch 는 몇 번 불렸는지만 센다. 통과 여부는 여기서 안 본다.
 type countingSearch struct {
 	mu    sync.Mutex
 	calls int

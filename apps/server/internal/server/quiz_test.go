@@ -10,7 +10,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 문항 만들기는 DB도 엔진도 안 타는 함수 둘에 걸려 있다 — 기록을 입력으로 옮기는 자리와
+// 문항 만들기는 DB도 엔진도 타지 않는 함수 둘에 걸려 있다 — 기록을 입력으로 옮기는 자리와
 // 문장을 만드는 자리다. 여기가 틀리면 한 번도 벌어지지 않은 국면이 문항이 되거나,
 // 화면이 사실과 다른 문장을 말한다.
 
@@ -83,7 +83,7 @@ func TestQuizInputEvalsLineUpWithMoves(t *testing.T) {
 }
 
 func TestQuizInputFlipsEvalsForWhite(t *testing.T) {
-	// DB는 先手 관점이다. 안 뒤집으면 後手로 둔 판의 낙폭 전체가 반대가 된다.
+	// DB는 先手 관점이다. 뒤집지 않으면 後手로 둔 판의 낙폭 전체가 반대가 된다.
 	rec := quizRecord("w", store.ResultLoss, move(1, "7g7f", cpOf(120)))
 	in := quizInput(rec)
 
@@ -116,8 +116,8 @@ func TestOpeningPliesFromTheBook(t *testing.T) {
 // 오답을 한 문장으로 뭉치지 않는다. 「この手では詰みません」은 詰み이 남는 수에는
 // 거짓이고, 초심자는 그것이 거짓인지 확인할 수단이 없다.
 func TestMateMessageSplitsTheTwoWrongAnswers(t *testing.T) {
-	// Rest == 0 은 「한계 안에서 못 찾았다」거나 「안 물어봤다」다(1手 노드). 그래서
-	// 詰み이 사라졌다고도, 아예 없다고도 말할 수 없다 — 「이 수로는 詰み이 안 된다」만 참이다.
+	// Rest == 0 은 「한계 안에서 찾지 못했다」거나 「물어보지 않았다」다(1手 노드). 그래서
+	// 詰み이 사라졌다고도, 아예 없다고도 말할 수 없다 — 「이 수로는 詰み이 되지 않는다」만 참이다.
 	lost := mateMessage(quiz.MateProgress{Outcome: quiz.MateWrong, Rest: 0}, "▲5二金")
 	if strings.Contains(lost, "詰みません") || strings.Contains(lost, "消え") {
 		t.Errorf("message = %q, must not claim the mate is gone or never existed", lost)
@@ -158,7 +158,7 @@ func TestMateMessageWithholdsTheAnswer(t *testing.T) {
 }
 
 func TestMateMessageOnANonCheck(t *testing.T) {
-	// 오답이 아니라 안내다 — 규약을 모른 채 오답 처리되는 것이 배움을 막는다.
+	// 오답 대신 안내로 답한다 — 규약을 모른 채 오답 처리되는 것이 배움을 막는다.
 	got := mateMessage(quiz.MateProgress{Outcome: quiz.MateNotCheck}, "")
 	if !strings.Contains(got, "王手") {
 		t.Errorf("message = %q, want it to name the rule it is teaching", got)
@@ -178,8 +178,8 @@ func TestMateMessageWhileOngoing(t *testing.T) {
 	}
 }
 
-// 수를 하나도 안 낸 요청은 정답이 아니다. 문항을 여는 자리가 바로 그 요청이라
-// (rootChecks) 여기서 「正解です」라고 하면 아무것도 안 한 사람에게 맞혔다고 말한다.
+// 수를 하나도 내지 않은 요청에는 정답을 주지 않는다. 문항을 여는 자리가 바로 그 요청이라
+// (rootChecks) 여기서 「正解です」라고 하면 아무것도 하지 않은 사람에게 맞혔다고 말한다.
 func TestMateMessageOnAnEmptyAttempt(t *testing.T) {
 	got := mateMessage(quiz.MateProgress{Outcome: quiz.MateOngoing, Plies: 3}, "")
 	if strings.Contains(got, "正解") {
@@ -191,7 +191,7 @@ func TestMateMessageOnAnEmptyAttempt(t *testing.T) {
 }
 
 func TestBestMessageNamesWhatWasPlayedInTheGame(t *testing.T) {
-	// 이 문항이 문제집이 아니라 자기 기보인 이유가 이 한 줄이다.
+	// 이 한 줄이 문항을 문제집 대신 자기 기보로 만든다.
 	item := quiz.BestItem{SFEN: quizCollisionSFEN, Answer: "2f2e", Played: "6g6f", AnswerCp: 300, SecondCp: 50}
 	got := bestMessage(bestResponse{
 		Correct: false,
@@ -292,7 +292,7 @@ func TestAfterMoveOpensThePositionThatWasPlayed(t *testing.T) {
 		t.Errorf("the drop and the board move must not produce the same position: %q", movedNext)
 	}
 
-	// 못 두는 수는 넷 다 빈 값이다. 여기서 실패를 오류로 올리면 맞은 답이 500이 된다.
+	// 둘 수 없는 수는 넷 다 빈 값이다. 여기서 실패를 오류로 올리면 맞은 답이 500이 된다.
 	if c, j, n, k := afterMove(quizCollisionSFEN, "1a1b"); c != "" || j != "" || n != "" || k != "" {
 		t.Errorf("afterMove on an illegal move = %q/%q/%q/%q, want all empty", c, j, n, k)
 	}
@@ -310,7 +310,7 @@ func TestMoveOriginJaOnlyWhenTheNotationsCollide(t *testing.T) {
 	if got := moveOriginJa(quizCollisionSFEN, "G*3e", "4f3e"); got != "持ち駒の金" {
 		t.Errorf("origin = %q, want 持ち駒の金", got)
 	}
-	// 같은 수면 붙일 이유가 없다 — 맞힌 사람에게 어디서 왔는지 설명할 자리가 아니다.
+	// 같은 수면 붙일 이유가 없다 — 맞힌 사람에게 어디서 왔는지 설명할 일이 없다.
 	if got := moveOriginJa(quizCollisionSFEN, "4f3e", "4f3e"); got != "" {
 		t.Errorf("origin = %q, want empty when the two moves are the same", got)
 	}
@@ -388,7 +388,7 @@ func TestLineIsRenderedFromTheAnswerPosition(t *testing.T) {
 	}
 }
 
-// 저장된 수순이 그 국면에서 못 두는 수면 거기까지만 준다. 500으로 답하면 맞은 답이 오류가 된다.
+// 저장된 수순이 그 국면에서 둘 수 없는 수면 거기까지만 준다. 500으로 답하면 맞은 답이 오류가 된다.
 func TestLineStopsInsteadOfFailing(t *testing.T) {
 	pos := shogi.StartPosition()
 	got := lineFrom(pos.SFEN(), "7g7f", []string{"3c3d", "9i9b"})
@@ -397,7 +397,7 @@ func TestLineStopsInsteadOfFailing(t *testing.T) {
 	}
 }
 
-// 옛 판에는 이 칸이 없다. 그때 화면이 그 줄 전체를 안 그린다.
+// 옛 판에는 이 칸이 없다. 그때 화면이 그 줄 전체를 그리지 않는다.
 func TestNoLineForOlderQuizzes(t *testing.T) {
 	pos := shogi.StartPosition()
 	if got := lineFrom(pos.SFEN(), "7g7f", nil); got != nil {
@@ -405,7 +405,7 @@ func TestNoLineForOlderQuizzes(t *testing.T) {
 	}
 }
 
-// 정답이 그 국면에서 못 두는 수면 수순도 없다 — 문항이 깨진 것이고, 반쪽을 그리지 않는다.
+// 정답이 그 국면에서 둘 수 없는 수면 수순도 없다 — 문항이 깨진 것이고, 반쪽을 그리지 않는다.
 func TestNoLineWhenTheStoredAnswerDoesNotStand(t *testing.T) {
 	pos := shogi.StartPosition()
 	if got := lineFrom(pos.SFEN(), "9i9b", []string{"3c3d"}); got != nil {

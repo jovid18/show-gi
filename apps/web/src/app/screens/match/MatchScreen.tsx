@@ -201,7 +201,7 @@ function MatchBoard({
   return (
     <div className="game">
       <div className="game-main">
-        {/* 駒台 라벨은 이름이 아니라 「相手」다. 표시 이름은 사람이 정하는 값이라
+        {/* 駒台 라벨은 「相手」로 고정한다. 표시 이름은 사람이 정하는 값이라
             길 수 있고(`users.display_name`), 이 라벨은 폭이 3.2em 으로 고정이라 넘치면
             줄이 접혀 駒台가 통째로 부푼다 — 실제로 일곱 글자 이름에서 세 줄이 됐다.
             누구인가는 옆 패널이 말한다(아래 `.match-who`). */}
@@ -346,7 +346,7 @@ function MatchBoard({
 }
 
 /**
- * 남은 시간 하나. 누구의 것인지는 색이 아니라 글자가 말한다 — 색만으로 가르면
+ * 남은 시간 하나. 누구의 것인지는 글자가 말한다 — 색만으로 가르면
  * 색맹인 사람에게 두 시계가 같아 보이고, 여기 시계는 하나뿐이라 더 그렇다.
  */
 function Clock({ leftMs, limitMs, yours }: { leftMs: number; limitMs: number; yours: boolean }) {
@@ -387,8 +387,8 @@ function matchResultText(snapshot: MatchSnapshot): string | null {
     // 승패를 말하지 않는다. 서버가 내려간 것이라 두 사람 다 잘못한 것이 없다.
     case 'aborted':
       return 'サーバーの都合でこの対局は中断しました。';
-    // 여기도 승패가 없다. 다만 이유가 반대라 문장이 다르다 — 서버 사정이 아니라
-    // 누구도 안 둔 것이고, 그것을 「サーバーの都合」로 적으면 없는 고장을 알리게 된다.
+    // 여기도 승패가 없다. 다만 이유가 반대라 문장이 다르다 — 이쪽은 누구도 안 둔
+    // 것이고, 그것을 「サーバーの都合」로 적으면 없는 고장을 알리게 된다.
     case 'expired':
       return '一手も指されないまま持ち時間が過ぎました。この対局は成立しませんでした。';
     default:

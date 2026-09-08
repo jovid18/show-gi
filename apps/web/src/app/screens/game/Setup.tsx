@@ -21,8 +21,7 @@ import { Search } from '@/screens/match/Search';
  *
  * 手合割이 맨 위이고, 고르면 아래 둘이 사라진다. 駒落ち는 사람이 下手로 정해져 있고
  * (그래서 먼저 두는 쪽은 접어 준 上手다, journal §88) 진형은 平手 수순이라 같이 못 쓴다 —
- * 서버도 같은 순서로 덮으므로(`newSetup`) 화면이 그 규칙을 되비추는 것이지 새로 정하는 것이
- * 아니다.
+ * 서버도 같은 순서로 덮으므로(`newSetup`) 화면은 그 규칙을 되비추기만 한다.
  */
 
 const COLORS: { value: Color; label: string; note: string }[] = [
@@ -65,12 +64,12 @@ export function Setup({ initial, onStart }: SetupProps) {
 
       <fieldset className="setup__group">
         <legend className="setup__legend">手合割</legend>
-        {/* `--wrap` 이 아니라 `--handicap` 이다. 저쪽은 첫 칸을 전폭으로 빼는 것이
+        {/* `--wrap` 대신 `--handicap` 이다. 저쪽은 첫 칸을 전폭으로 빼는 것이
             전제라(index.css) 여기서 쓰면 여덟 중 하나가 마지막 줄에 혼자 남는다. */}
         <div className="setup__choices setup__choices--handicap">
-          {/* 「平手」가 기본이고 서버 목록에 없다. 접지 않는 것은 물어볼 것이 아니라
-              기본값이라, 진형의 「おまかせ」와 같은 자리에서 화면이 직접 그린다 —
-              다만 카드는 나머지와 같은 폭이다(index.css 의 `--handicap`). */}
+          {/* 「平手」가 기본이고 서버 목록에 없다. 접지 않는 것이 기본값이라 진형의
+              「おまかせ」와 같은 자리에서 화면이 직접 그린다 — 다만 카드는 나머지와
+              같은 폭이다(index.css 의 `--handicap`). */}
           <button
             type="button"
             className="setup__choice"
@@ -141,7 +140,7 @@ export function Setup({ initial, onStart }: SetupProps) {
       {/* 홈 메뉴에서 안 누른 사람이 다시 만나는 자리는 여기 하나다. 시작 버튼
           아래에 두는 것이 요점 — 위에 두면 두러 온 사람을 먼저 붙잡는다.
 
-          새 탭이 아니다(journal §86). 여기서 고르던 手番·戦型은 되돌아오면 초기값으로
+          같은 탭에서 연다(journal §86). 여기서 고르던 手番·戦型은 되돌아오면 초기값으로
           돌아가는데, 아직 판이 열리기 전이라 잃는 것이 그것뿐이다. */}
       <a
         className="setup__guide"

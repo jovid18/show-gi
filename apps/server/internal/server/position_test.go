@@ -139,7 +139,7 @@ func TestReadNeedsASignIn(t *testing.T) {
 	}
 }
 
-// 몫을 부르기 전에 센다. 부른 뒤에 세면 시한에 걸린 호출이 몫을 안 쓰는데, 그 실패가
+// 몫을 부르기 전에 센다. 부른 뒤에 세면 시한에 걸린 호출이 몫을 쓰지 않는데, 그 실패가
 // 가장 비싼 호출이다.
 func TestReadStopsAtTheHourlyLimit(t *testing.T) {
 	h := positionTest(t, startGrid())
@@ -160,7 +160,7 @@ func TestReadStopsAtTheHourlyLimit(t *testing.T) {
 	}
 }
 
-// 클라이언트가 말한 형식을 안 믿는다. 앞머리가 아는 셋이 아니면 저쪽 API 로 안 나간다.
+// 클라이언트가 말한 형식을 믿지 않는다. 앞머리가 아는 셋이 아니면 저쪽 API 로 나가지 않는다.
 func TestReadRefusesWhatIsNotAnImage(t *testing.T) {
 	h := positionTest(t, startGrid())
 
@@ -173,7 +173,7 @@ func TestReadRefusesWhatIsNotAnImage(t *testing.T) {
 	}
 }
 
-// 판이 없는 그림은 고장이 아니라 사실이다. 화면이 「다시 눌러 보라」가 아니라 「판이
+// 판이 없는 그림은 고장 없이 나오는 사실이다. 화면은 「다시 눌러 보라」 대신 「판이
 // 보이는 그림을 올려라」를 말해야 한다.
 func TestReadSaysWhenThereIsNoBoard(t *testing.T) {
 	h := positionTest(t, `{"found":false,"rows":[],"nearHand":{"P":0,"L":0,"N":0,"S":0,"G":0,"B":0,"R":0},"farHand":{"P":0,"L":0,"N":0,"S":0,"G":0,"B":0,"R":0}}`)
@@ -187,7 +187,7 @@ func TestReadSaysWhenThereIsNoBoard(t *testing.T) {
 	}
 }
 
-// 키가 없으면 이 경로만 안 열린다. 검사와 검토는 그대로 돈다.
+// 키가 없으면 이 경로만 열리지 않는다. 검사와 검토는 그대로 돈다.
 func TestReadWithoutAKeyIsUnavailable(t *testing.T) {
 	rec := httptest.NewRecorder()
 	boardReadUnavailable(rec, httptest.NewRequest(http.MethodPost, "/api/position/read", nil))
@@ -197,7 +197,7 @@ func TestReadWithoutAKeyIsUnavailable(t *testing.T) {
 	}
 }
 
-// 검사가 엔진도 로그인도 안 쓴다. 확인 화면이 한 칸을 고칠 때마다 부르는 자리다.
+// 검사가 엔진도 로그인도 쓰지 않는다. 확인 화면이 한 칸을 고칠 때마다 부르는 자리다.
 func TestCheckAnswersWithoutASignIn(t *testing.T) {
 	res := decodePosition(t, postCheck(t, startSFEN))
 
@@ -209,7 +209,7 @@ func TestCheckAnswersWithoutASignIn(t *testing.T) {
 	}
 }
 
-// 사유가 칸을 든다. 안 주면 사람이 81칸에서 二歩를 눈으로 찾아야 한다.
+// 사유에 칸이 담긴다. 주지 않으면 사람이 81칸에서 二歩를 눈으로 찾아야 한다.
 func TestCheckPointsAtTheSquare(t *testing.T) {
 	res := decodePosition(t, postCheck(t, "4k4/9/9/9/4P4/9/4P4/9/4K4 b - 1"))
 
@@ -246,7 +246,7 @@ func TestCheckCatchesTheWrongTurn(t *testing.T) {
 	}
 }
 
-// 말이 모자란 것은 거절이 아니다. 駒台가 잘려 나간 사진도 정상이라 경고로만 나간다.
+// 말이 모자라도 거절하지 않는다. 駒台가 잘려 나간 사진도 정상이라 경고로만 나간다.
 func TestCheckWarnsAboutMissingPieces(t *testing.T) {
 	res := decodePosition(t, postCheck(t, "4k4/9/9/9/9/9/9/9/4K4 b - 1"))
 
@@ -311,7 +311,7 @@ func TestDecodeImageAcceptsADataURL(t *testing.T) {
 	}
 }
 
-// 세션이 없는 요청은 UserID 를 안 든다. 상한이 사람을 세는 자리라 그 값이 0이면 익명
+// 세션이 없는 요청은 UserID 를 담지 않는다. 상한이 사람을 세는 자리라 그 값이 0이면 익명
 // 전체가 한 몫을 나눠 쓰게 되고, 그래서 로그인 검사가 이 상한의 조건이다.
 func TestReadDoesNotCountAnonymousRequests(t *testing.T) {
 	h := positionTest(t, startGrid())
@@ -321,7 +321,7 @@ func TestReadDoesNotCountAnonymousRequests(t *testing.T) {
 			t.Fatalf("status = %d, want 401", rec.Code)
 		}
 	}
-	// 익명 요청이 몫을 한 개도 안 썼어야 한다.
+	// 익명 요청이 몫을 한 개도 쓰지 않았어야 한다.
 	if rec := h.postRead(t, 7, fakePNG); rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 — anonymous requests must not spend a quota", rec.Code)
 	}
@@ -406,7 +406,7 @@ func TestLabelRefusesANameItDidNotMake(t *testing.T) {
 			t.Errorf("imageId %q: status = %d, want 400", bad, rec.Code)
 		}
 	}
-	// 폴더 밖에도 안에도 아무것도 안 생겼어야 한다.
+	// 폴더 밖에도 안에도 아무것도 생기지 않았어야 한다.
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatalf("read dir: %v", err)
@@ -436,7 +436,7 @@ func TestLabelRefusesAPositionThatCannotStand(t *testing.T) {
 	}
 }
 
-// 폴더가 안 켜져 있으면 그림도 안 남고 id 도 안 온다. 프로덕션이 그 자리다.
+// 폴더가 켜져 있지 않으면 그림도 남지 않고 id 도 오지 않는다. 프로덕션이 그 자리다.
 func TestReadKeepsNothingWhenTheFolderIsOff(t *testing.T) {
 	h := positionTest(t, startGrid())
 
@@ -453,8 +453,8 @@ func TestLabelNeedsASignIn(t *testing.T) {
 	}
 }
 
-// 못 읽는 SFEN 에 빈 사유 목록을 주면 「이 판은 성립한다」로 읽힌다. 읽기는 판독 계층이
-// 낸 글자를 그대로 넘기므로 부르는 쪽이 이미 읽어 봤다는 보장이 없다. 셀프리뷰가 잡았다.
+// 읽지 못하는 SFEN 에 빈 사유 목록을 주면 「이 판은 성립한다」로 읽힌다. 읽기는 판독 계층이
+// 내놓은 글자를 그대로 넘기므로 부르는 쪽이 이미 읽어 봤다는 보장이 없다. 셀프리뷰가 잡았다.
 func TestCheckedSaysSomethingWhenTheSFENDoesNotParse(t *testing.T) {
 	res := checked("not a position")
 	if len(res.Faults) == 0 {

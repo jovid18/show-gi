@@ -17,7 +17,7 @@ import (
 // 그 이상은 사람이 대국 직후에 읽지 않는다.
 const SummaryMaxRunes = 160
 
-// Outcome 은 판이 어떻게 끝났는가다. 화면 문자열이 아니라 식별자라 영어로 둔다.
+// Outcome 은 판이 어떻게 끝났는가다. 화면에 안 나가는 식별자라 영어로 둔다.
 type Outcome string
 
 const (
@@ -27,7 +27,7 @@ const (
 	OutcomeUnfinished Outcome = "unfinished" // 끝나지 않고 끊긴 판
 )
 
-// Phase 는 개입이 몰린 구간이다. 手数가 아니라 구간으로 적는다 — 「23手目」은 사람이
+// Phase 는 개입이 몰린 구간이다. 手数 대신 구간으로 적는다 — 「23手目」은 사람이
 // 되짚을 수 있는 정보이지만 총평은 판 전체의 모양을 말하는 자리이고, 그 한 수는 이미
 // 되짚기 화면이 짚어 준다.
 type Phase string
@@ -42,7 +42,7 @@ const (
 
 // Weight 는 얼마나 자주 걸렸나를 등급으로 말한 것이다.
 //
-// 정확한 횟수가 아니라 등급이다. 숫자는 화면의 표가 그리고(summaryStats) 여기는
+// 정확한 횟수 대신 등급으로 둔다. 숫자는 화면의 표가 그리고(summaryStats) 여기는
 // 문장이 과장하지 않을 만큼만 안다 — 한 번 걸린 판에 「何度も」라고 쓰는 것을 막는 자리다.
 // 등급과 표는 어긋날 수 없다: 등급이 횟수에서 나온다.
 type Weight string
@@ -60,8 +60,8 @@ const (
 // (journal §68). 형세를 안 보면 「졌다 = 무너졌다」가 되어, 사실은 이기고 있던 판을
 // 그렇게 배운다.
 //
-// 投了를 기록에서 직접 읽지 않는다. games 에 종료 사유 칸이 없고, 있어도 이 문장이
-// 필요한 것은 사유가 아니라 형세다. 詰まされた 판은 마지막 평가치가 자기 쪽으로 크게
+// 投了를 기록에서 직접 읽지 않는다. games 에 종료 사유 칸이 없고, 있어도 이 문장에
+// 필요한 것은 형세 쪽이다. 詰まされた 판은 마지막 평가치가 자기 쪽으로 크게
 // 기울 수 없으므로, lost 이면서 Ahead 인 것은 던진 것이다.
 type Standing string
 
@@ -72,7 +72,7 @@ const (
 	StandingBehind  Standing = "behind"
 )
 
-// StandingAheadRate 는 「분명히 이기고 있었다」로 부를 승률이다. cp가 아니라 승률로
+// StandingAheadRate 는 「분명히 이기고 있었다」로 부를 승률이다. cp 대신 승률로
 // 적는다 — cp는 우세 구간에서 의미가 압축되어 같은 값이 국면마다 다른 뜻이 된다
 // (intervene.WinRate 의 그 이유). K=600에서 0.85는 +1041cp 언저리다.
 //
@@ -139,8 +139,8 @@ func RenderSummary(f GameFacts) string {
 		// 이 화면의 일이다.
 		//
 		// 「형세 손해가 없었다」로 말하지 않는다. 그건 재지 않은 것이다(journal §52) —
-		// 임계치를 넘지 않았다는 뜻이고, 손해가 없었다는 뜻이 아니다. 두 문장 다 그래서
-		// 「없었다」가 아니라 「그 자리가 없었다」·「찾지 못했다」로 말한다.
+		// 임계치를 넘지 않았다는 뜻일 뿐 손해가 없었다는 보장이 못 된다. 두 문장 다
+		// 그래서 「없었다」 대신 「그 자리가 없었다」·「찾지 못했다」로 말한다.
 		if f.Intervened {
 			// 화면의 표가 말하는 戻した回数 0 과 같은 것을 말하는 문장이다.
 			b.WriteString("手を戻す場面はありませんでした。")
@@ -155,8 +155,8 @@ func RenderSummary(f GameFacts) string {
 	if p, ok := phaseJa[f.Phase]; ok && p != "" {
 		b.WriteString(p)
 	}
-	// 「崩れた」는 이기고 있던 판에 못 쓴다. 그 판에서 배울 것은 무너진 것이 아니라
-	// 더 둘 수 있었다는 것이고, 둘은 정반대의 조언이다.
+	// 「崩れた」는 이기고 있던 판에 못 쓴다. 그 판에서 배울 것은 「무너졌다」 대신
+	// 「더 둘 수 있었다」이고, 둘은 정반대의 조언이다.
 	if t, ok := trendJa[f.Trend]; ok && t != "" && !(f.Standing == StandingAhead && f.Trend == TrendWorsened) {
 		b.WriteString(t)
 	}
@@ -182,7 +182,7 @@ var outcomeJa = map[Outcome]string{
 }
 
 // phaseJa 는 구간을 말하는 절이다. even 과 none 은 비운다 — 「どこでもつまずいた」는
-// 정보가 아니고, 없는 특징을 말하면 문장이 길어지기만 한다.
+// 정보를 주지 못하고, 없는 특징을 말하면 문장이 길어지기만 한다.
 var phaseJa = map[Phase]string{
 	PhaseEarly:  "つまずいたのは主に序盤です。",
 	PhaseMiddle: "つまずいたのは主に中盤です。",

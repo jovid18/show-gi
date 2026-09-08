@@ -15,13 +15,13 @@ func tradedBishops(ss ...square) shogi.Position {
 	return pos
 }
 
-// 빈 판은 角換わり가 아니다. 「판에 角이 없다」만 보면 駒를 몇 개 놓은 국면이 전부
+// 빈 판에는 角換わり가 안 붙는다. 「판에 角이 없다」만 보면 駒를 몇 개 놓은 국면이 전부
 // 角換わり가 된다 — 없는 것과 交換된 것을 구별하지 못한다. 실제로 그렇게 떴다.
 func TestAnEmptyBoardIsNotABishopTrade(t *testing.T) {
 	if bishopsTraded(place(shogi.Black)) {
 		t.Error("빈 판이 角換わり로 읽혔다")
 	}
-	// 持ち駒에 한쪽만 있어도 交換이 아니다.
+	// 한쪽만 持ち駒에 들고 있으면 交換으로 안 센다.
 	half := place(shogi.Black)
 	half.Hands[shogi.Black][shogi.Bishop] = 1
 	if bishopsTraded(half) {
@@ -32,7 +32,7 @@ func TestAnEmptyBoardIsNotABishopTrade(t *testing.T) {
 	}
 }
 
-// 판에 角이 남아 있으면 交換이 끝난 것이 아니다. 馬(성한 角)도 센다.
+// 판에 角이 남아 있으면 交換이 아직 안 끝났다. 馬(성한 角)도 센다.
 func TestABishopOnTheBoardMeansNoTrade(t *testing.T) {
 	for _, pt := range []shogi.PieceType{shogi.Bishop, shogi.PromBishop} {
 		pos := tradedBishops(square{5, 5, pt})
@@ -91,8 +91,8 @@ func TestAiFuribishaNeedsBothSidesToSwing(t *testing.T) {
 	}
 }
 
-// 袖飛車·右四間飛車는 振り飛車가 아니다. 飛를 옮기지만 居飛車系라, 相振り飛車를
-// 셀 때 그 둘을 세면 「양쪽이 振った」가 거짓이 된다.
+// 袖飛車·右四間飛車는 飛를 옮겨도 居飛車系다. 振り飛車로 세면 相振り飛車를 셀 때
+// 「양쪽이 振った」가 거짓이 된다.
 func TestIbishaFamilyDoesNotCountAsFuribisha(t *testing.T) {
 	for _, usi := range []string{"2h3h", "2h4h"} {
 		got := Detect(Input{

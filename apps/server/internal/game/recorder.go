@@ -64,7 +64,7 @@ type Recorder interface {
 	// 한 판에 코드마다 한 번이다. 囲い는 판에서 매번 다시 세어지므로(styleTags) 같은
 	// 이름이 수십 번 나오는데, 남길 값은 「짰다」 하나다.
 	//
-	// 手筋은 안 온다. 이름의 정확도가 아직 프로덕션 수준이 아니고(journal §45),
+	// 手筋은 안 온다. 이름의 정확도가 아직 프로덕션 수준에 못 미치고(journal §45),
 	// 「당신이 쓴 手筋」으로 적으면 그 오진이 사람의 기록으로 굳는다. 나머지 셋은 판과
 	// 수순만으로 정해져 엔진 평가치에 안 걸린다.
 	Named(code string)
@@ -75,7 +75,7 @@ type Recorder interface {
 	// 섞으면 「개입 N회」가 사람이 스스로 물어본 횟수까지 세게 된다 — 待った를 따로 둔 것과
 	// 같은 이유다(010_game_hints.sql).
 	//
-	// key 는 그 국면의 shogi.PositionKey 다. 手数가 아니라 이것이 「같은 국면」의 자다 —
+	// key 는 그 국면의 shogi.PositionKey 다. 「같은 국면」을 이것으로 가른다 —
 	// 되돌아온 자리가 手数로는 갈리지만 국면으로는 같아야 3회째가 막힌다.
 	Hinted(ply int, key string, stage int, bestUSI string)
 

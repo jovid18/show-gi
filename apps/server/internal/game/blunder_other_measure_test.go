@@ -186,7 +186,7 @@ func TestMeasureBlunderOther(t *testing.T) {
 		}
 		f, _ := moveFacts(pos, m)
 		// UnpromotedOnly · ShallowCp 는 엔진이 있어야 나온다. 여기서는 만들지 않는다 —
-		// 저장된 카테고리가 그 둘이 아니라는 것이 이미 「그때 안 걸렸다」는 뜻이다.
+		// 저장된 카테고리가 그 둘과 다르다는 것이 이미 「그때 안 걸렸다」는 뜻이다.
 		got := offlineCategory(f)
 
 		if b.category == "other" {
@@ -243,8 +243,7 @@ func TestMeasureBlunderOther(t *testing.T) {
 		summarizeOther(t, x.feats)
 	}
 
-	// 종반 가설. other 가 대국의 뒤쪽에 몰려 있으면 분류기의 실패가 아니라
-	// 적용 범위 밖이라는 뜻이 된다.
+	// 종반 가설. other 가 대국의 뒤쪽에 몰려 있으면 분류기의 적용 범위 밖이라는 뜻이 된다.
 	//
 	// 「대국의 몇 % 지점인가」로 재지 않는다 — ply 가 기록된 手数를 넘어 비율이 뜻을
 	// 잃는다(journal §40). 대신 ply 와 총 手数를 따로 찍고 넘어간 건수를 함께 센다.

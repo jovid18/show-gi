@@ -71,7 +71,7 @@ export function useExploreSnapshots(): SnapshotSource {
         if (controller.signal.aborted) return;
         if (err instanceof SignedOutError || err instanceof UnavailableError) {
           // 빈 목록으로 두면 「하나도 없다」로 읽히고, 그 옆에 눌러도 안 되는 저장
-          // 버튼이 뜬다. 붉은 알림도 아니다 — 둘 다 다시 눌러서 열리는 실패가 아니다.
+          // 버튼이 뜬다. 붉은 알림도 안 쓴다 — 둘 다 다시 눌러도 열리지 않는다.
           if (err instanceof SignedOutError) setSignedOut(true);
           else setUnavailable(true);
           setLoaded({ state: 'ready', data: [] });

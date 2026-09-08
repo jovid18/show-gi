@@ -103,7 +103,7 @@ func TestMeasureKifuIsLegal(t *testing.T) {
 // (05-roadmap.md 미결). 적응형 상대의 k와 개입 판정의 depth가 여기서 정해진다.
 //
 // 시간 상한을 두지 않는다. 여기서 재려는 값이 바로 그 시간이라, 잘라내면 "얼마나
-// 느린가"가 뭉개진다. 줄여야 하면 상한이 아니라 재는 칸 수를 줄인다.
+// 느린가"가 뭉개진다. 줄여야 하면 상한 대신 재는 칸 수를 줄인다.
 //
 // 결과는 평가함수에 종속이다. 엔진이나 nn.bin 을 바꾸면 다시 재고, 01-core.md §6의
 // 밴드 숫자도 같이 다시 본다.
@@ -200,7 +200,7 @@ func TestMeasureDepthMultiPV(t *testing.T) {
 // 그래서 여기 드는 시간이 그대로 모든 수에 얹힌다. 탐색부와 별도 바이너리라
 // TestMeasureDepthMultiPV 의 표에 안 들어 있고, D3 상수를 잡기 전에 알아야 한다.
 //
-// 한계는 DepthLimit(詰み手数)으로 준다 — 시간이 아니라 수로 잘라야 같은 국면이 같은 답을 준다.
+// 한계는 DepthLimit(詰み手数)으로 준다 — 시간 대신 수로 잘라야 같은 국면이 같은 답을 준다.
 //
 //	SHOWGI_MATE_CMD=/opt/yaneuraou/run-mate SHOWGI_MEASURE=1 go test ./internal/usi/ -run MeasureMate -timeout 1h
 func TestMeasureMateSearch(t *testing.T) {

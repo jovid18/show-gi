@@ -50,7 +50,7 @@ func slidesOf(t PieceType) []delta {
 
 // attackTargets 는 sq의 말이 노리는 칸들을 fn에 전달한다. fn이 false를 반환하면 중단.
 //
-// 자기 말이 있는 칸도 포함하고, 핀은 보지 않는다. 「그 말이 실제로 갈 수 있는가」가 아니라
+// 자기 말이 있는 칸도 포함하고, 핀은 보지 않는다. 「그 말이 실제로 갈 수 있는가」 대신
 // 「노리고 있는가」를 세는 것이고, 방어 利き을 세려면 그래야 한다.
 // 아래 세 질의(IsAttacked·AttackCount·Attackers)가 이 규칙을 그대로 물려받는다.
 func (pos *Position) attackTargets(sq int, fn func(to int) bool) {

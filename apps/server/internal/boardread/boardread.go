@@ -37,12 +37,12 @@ import (
 // MaxImage 는 받는 그림의 크기 상한이다.
 //
 // 화면 캡처 한 장이 보통 2MB 아래다. 그 세 배로 두면 사람이 올리는 것은 다 들어오고,
-// 넘는 것은 사진이 아니라 다른 것이다.
+// 그 위는 사진과 다른 것이다.
 const MaxImage = 6 << 20
 
 // DefaultModel 은 값이 안 주어졌을 때의 모델이다. 실측으로 골랐다(journal §129).
 //
-// kifunorm 과 달리 mini 가 아니다. 저쪽은 글자를 옮겨 적는 일이고 여기는 81칸의 작은
+// 여기는 mini 를 안 쓴다. kifunorm 쪽은 글자를 옮겨 적는 일이고, 여기는 81칸의 작은
 // 글자와 그 방향을 읽는 일이다.
 //
 // 라벨 붙인 그림 8장에서 gpt-5.4 가 92.9%·성립하는 판 0/8 인데 이 모델이 98.1%·8/8 이다.
@@ -72,8 +72,8 @@ var ErrTooLarge = errors.New("boardread: image too large")
 // ErrNotImage 는 받은 것이 아는 그림 형식이 아닌 자리다.
 var ErrNotImage = errors.New("boardread: not a png, jpeg or webp image")
 
-// ErrNoBoard 는 그림에 판이 없다고 답이 온 자리다. 고장이 아니라 사실이라 사유를 가른다 —
-// 화면이 「다시 눌러 보라」가 아니라 「판이 보이는 그림을 올려라」를 말해야 한다.
+// ErrNoBoard 는 그림에 판이 없다고 답이 온 자리다. 고장 없이도 나오는 답이라 사유를
+// 가른다 — 화면이 「다시 눌러 보라」 대신 「판이 보이는 그림을 올려라」를 말해야 한다.
 var ErrNoBoard = errors.New("boardread: no board in the image")
 
 // Client 는 읽기 창구다. 키가 없으면 New 가 nil 을 주고, nil 에 Read 를 불러도 안전하게
@@ -105,7 +105,7 @@ func New(key, model string) *Client {
 type Result struct {
 	// SFEN 은 아래쪽 편을 先手로 둔 국면이다.
 	//
-	// 手番이 언제나 "b" 로 적혀 있고, 그 한 글자는 아직 사실이 아니다 — 사진은 手番을
+	// 手番이 언제나 "b" 로 적혀 있고, 그 한 글자는 아직 미정이다 — 사진은 手番을
 	// 말해 주지 않으므로 사람이 고르고, 고른 값이 이 자리를 덮는다.
 	SFEN string
 	// Tokens 는 이 호출이 쓴 토큰 수다. 로그에만 나간다.
@@ -299,7 +299,7 @@ func sfenOf(got read) (string, error) {
 		}
 	}
 
-	// 手番은 아직 사실이 아니다. 사람이 고른 값이 이 자리를 덮는다(Result.SFEN).
+	// 手番은 아직 미정이다. 사람이 고른 값이 이 자리를 덮는다(Result.SFEN).
 	return board.String() + " b " + handField(got.NearHand, got.FarHand) + " 1", nil
 }
 
@@ -335,8 +335,8 @@ var handOrder = []struct {
 //
 // 종류마다 한 벌의 수(歩 18·香 4…)로 자르지 않는다. 넘치는 것은 그대로 국면에 실어
 // 보내고 룰 엔진이 「歩가 몇 장 많다」로 짚어 주는 편이, 경고 없이 깎아서 사람이 駒台를
-// 다시 세게 만드는 것보다 낫다 — 어느 종류든 이 값을 넘으면 그것은 이미 개수가 아니고,
-// 여기서 막는 것은 shogi.Position.Hands 의 int8 이 넘치는 값뿐이다.
+// 다시 세게 만드는 것보다 낫다 — 어느 종류든 이 값을 넘으면 그것은 이미 개수를 벗어난
+// 값이고, 여기서 막는 것은 shogi.Position.Hands 의 int8 이 넘치는 값뿐이다.
 const maxInHand = 40
 
 func writeSide(b *strings.Builder, h hand, near bool) {

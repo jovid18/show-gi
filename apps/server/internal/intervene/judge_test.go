@@ -35,7 +35,7 @@ func TestWinRateSaturatesWhenWinning(t *testing.T) {
 	}
 }
 
-// 오프닝의 다양성은 수 번호가 아니라 임계치가 지킨다.
+// 오프닝의 다양성은 수 번호 대신 임계치가 지킨다.
 //
 // 전법 선택은 보통 50~200cp 손해라 어느 레벨도 안 걸리고, 銀 이상을 공짜로 주면
 // 입문에서도 걸린다. 그래서 "초반 N수는 안 본다" 같은 구간이 필요 없다 —
@@ -147,7 +147,7 @@ func TestLongMateIsNotJudged(t *testing.T) {
 	}
 }
 
-// 詰まされる 수는 종반 규칙이 아니라 승률 낙폭이 잡는다 — 그래서 규칙이 겹치지 않는다.
+// 詰まされる 수는 종반 규칙 없이 승률 낙폭이 잡는다 — 그래서 규칙이 겹치지 않는다.
 func TestBeingMatedIsCaughtByWinRate(t *testing.T) {
 	in := Input{Best: eval.Cp(-500), After: eval.Mate(-3), Level: Beginner}
 	v := Judge(in)

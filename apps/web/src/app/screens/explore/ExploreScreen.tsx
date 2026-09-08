@@ -42,7 +42,7 @@ import { navigate } from '@/routes/router';
 interface ExploreScreenProps {
   /** 手合割 id. 빈 값이 平手다. 주소에서 온다. */
   handicap: string;
-  /** 지금까지 둔 수순. 주소에서 온다 — 이 화면이 들고 있는 것이 아니다. */
+  /** 지금까지 둔 수순. 주소가 들고 있고 이 화면은 읽기만 한다. */
   moves: string[];
   /**
    * 뿌리 국면. 사진에서 읽어 와 사람이 확인한 판이 여기로 온다(journal §129).
@@ -65,7 +65,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
   }, []);
 
   /**
-   * 줄의 열쇠. 배열이 아니라 문자열로 의존성에 넣는다 — `moves` 는 주소를 읽을 때마다
+   * 줄의 열쇠. 배열 대신 문자열로 의존성에 넣는다 — `moves` 는 주소를 읽을 때마다
    * 새 배열이라(routes/router.ts) 그대로 걸면 매 렌더마다 같은 자리를 다시 묻는다.
    */
   const line = moves.join(',');
@@ -267,7 +267,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
   }, [back, toStart, promoting]);
 
   /**
-   * 駒台 하나. 부르는 쪽이 색이 아니라 자리를 정한다 — 판이 뒤집히면 持ち駒도 따라와야
+   * 駒台 하나. 부르는 쪽이 자리를 보고 색을 정한다 — 판이 뒤집히면 持ち駒도 따라와야
    * 하는데, 색으로 박아 두면 판만 돌고 駒台가 그대로 남는다(되짚기와 같은 자리).
    */
   const hand = (side: Side): ReactElement => (
@@ -309,9 +309,9 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
           {/* 手合割. 목록에 平手가 없다 — 접지 않는 것이 기본값이라 이 자리가 그 버튼을
               직접 그린다(protocol/handicaps.ts). */}
           <div className="explore-handicaps" role="group" aria-label="手合割">
-            {/* 판이 뿌리면 어느 手合割도 눌린 것으로 안 그린다. 이 국면은 手合割이 아니라
-                사진에서 온 것이라, 「平手」에 불이 들어와 있으면 그 버튼이 아무 일도 안 할
-                것처럼 보이는데 실제로는 읽어 온 국면을 버린다(journal §129). */}
+            {/* 판이 뿌리면 어느 手合割도 눌린 것으로 안 그린다. 이 국면은 사진에서 온
+                것이라, 「平手」에 불이 들어와 있으면 그 버튼이 아무 일도 안 할 것처럼
+                보이는데 실제로는 읽어 온 국면을 버린다(journal §129). */}
             {rooted && <span className="explore-rooted">画像から読み取った局面</span>}
             <button
               type="button"
@@ -356,7 +356,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
                 motion={motion}
                 checks={[]}
                 // 탈색하지 않는다. 탈색은 「지금이 아니다」를 말하는 장치인데, 이 화면은
-                // 전부가 「지금이 아니다」다 — 되짚기와 같은 판단이다.
+                // 전부가 과거다 — 되짚기와 같은 판단이다.
                 dimmed={false}
                 dropFrom={dropFrom}
                 hintSquare={null}
@@ -379,7 +379,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
             <p className="review-broken">この局面は表示できません。</p>
           ) : (
             // 아직 국면이 없다. 「표시할 수 없다」로 적으면 안 된다 — 링크의 수순이
-            // 거절된 자리에서도 그 문장이 뜨고, 그때 못 그리는 것은 판이 아니라 그 줄이다.
+            // 거절된 자리에서도 그 문장이 뜨고, 그때 못 그리는 것은 그 줄이다.
             // 엔진이 없으면 기다릴 것도 없어서 「읽는 중」이 영원히 오지 않는 약속이 된다.
             // 두 이유 다 옆 패널이 이미 말한다(`error`).
             <p className="review-status">{error || engineReady === false ? '' : '局面を読み込んでいます…'}</p>
@@ -438,7 +438,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
 
           {promoting && <Promotion onChoose={(promote) => play(toUsiMove(promoting.origin, promoting.to, promote))} />}
 
-          {/* `active` 가 아니라 `shown` 을 넘긴다. `active` 는 「이 줄의 노드인가」라
+          {/* `active` 대신 `shown` 을 넘긴다. `active` 는 「이 줄의 노드인가」라
               판을 잠그는 데 쓰는 값이고, 이 목록에 넘기면 한 수 둘 때마다 세 줄이 사라졌다가
               다시 그려진다 — `Candidates` 가 막겠다고 적어 둔 그 그림이다. 자리는 지키고
               흐리게 하고 못 누르게 한다(`stale`). */}

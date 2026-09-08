@@ -33,7 +33,7 @@ const (
 	StatusAborted Status = "aborted"
 )
 
-// Side 는 대국자다. 화면 문자열이 아니라 식별자이므로 영어로 둔다.
+// Side 는 대국자다. 화면에 그대로 나가지 않는 식별자이므로 영어로 둔다.
 type Side string
 
 const (
@@ -125,7 +125,7 @@ type Snapshot struct {
 	TagHints []tag.Tag `json:"tagHints,omitempty"`
 
 	// MateHeat 는 詰み 게이지의 세기다(1..MateHeatMax). 0이면 꺼져 있다. 상대 玉 쪽
-	// 하나뿐이고 手数가 아니라 세기인 이유는 gauge.go.
+	// 하나뿐이고, 手数 대신 세기로 두는 이유는 gauge.go.
 	//
 	// 사람 차례에서만 구하고, 국면이 움직이면 그 자리에서 무효다(state.mateGen).
 	MateHeat int `json:"mateHeat,omitempty"`
@@ -191,9 +191,9 @@ type Judgement struct {
 
 	// Facts 는 설명 계층이 문장으로 바꿀 사실들이다. 개입이 안 걸렸으면 비어 있다.
 	//
-	// 판정의 출력이지 입력이 아니다. 무엇을 말해도 되는지가 카테고리에 달려 있어서
-	// (explain.Facts.used) 카테고리가 정해진 뒤에야 닫힌다. 그리고 여기 실리는 것은 이미
-	// 결정적으로 구해진 사실뿐이라, 설명이 판을 다시 읽는 일이 없다.
+	// 판정이 낸 출력이고, 입력으로 들어가지 않는다. 무엇을 말해도 되는지가 카테고리에
+	// 달려 있어서(explain.Facts.used) 카테고리가 정해진 뒤에야 닫힌다. 그리고 여기 실리는
+	// 것은 이미 결정적으로 구해진 사실뿐이라, 설명이 판을 다시 읽는 일이 없다.
 	Facts explain.Facts
 
 	// Threshold 는 이 판정에 쓰인 승률 낙폭 임계치다(intervene.Level.Threshold).
@@ -209,12 +209,12 @@ type Judgement struct {
 	BestUSI string
 
 	// Ply 는 판정한 手数다. 실력 추정이 창을 쓰기 때문에 필요하다 — 초반은 定跡이라
-	// 그 사람의 급수 신호가 아니다(skill.AnchorFromPly, journal §94).
+	// 그 사람의 급수를 못 드러낸다(skill.AnchorFromPly, journal §94).
 	Ply int
 }
 
 // DecidedWinRate 는 「이미 갈렸다」의 경계다. 최선수의 승률이 이 밖이면 그 국면의 낙폭은
-// 실력 신호가 아니다(journal §94).
+// 실력 신호로 못 쓴다(journal §94).
 const DecidedWinRate = 0.95
 
 // Decided 는 그 수를 두기 전에 승패가 이미 갈려 있었나다.
@@ -275,7 +275,7 @@ type Intervention struct {
 	// Refutation 은 「상대는 이렇게 벌한다」. 물러진 수를 그대로 뒀을 때의 최선 수순이고,
 	// 첫 수가 상대의 수다. 못 구했으면 비어 있다 — 화면은 그때 넘기기를 안 띄운다.
 	//
-	// 이것은 최선수가 아니다. 이 수순이 시작하는 국면은 되물러서 이미 사라졌으므로,
+	// 최선수는 여기 없다. 이 수순이 시작하는 국면은 되물러서 이미 사라졌으므로,
 	// 여기 있는 어느 수도 「지금 이렇게 두라」가 되지 않는다. 금지된 것은 플레이어가
 	// 뒀어야 할 수이고 이쪽은 왜 나쁜가에 속한다(01-core.md §1).
 	Refutation []RefutationMove `json:"refutation,omitempty"`
@@ -323,7 +323,7 @@ func newNotice(code string) *Notice {
 // 두면 0으로 돌아간다. 한 판 누적으로 세지 않는 이유는 journal §23.
 //
 // [미확정] 3과 5는 초기값이다. 재채점에서 2와 4로 내렸다가 되돌렸다 — 표본이
-// 전부 에이전트라 사람이 갇히는 모양이 아니었다(§39).
+// 전부 에이전트라 사람이 갇히는 모양과 달랐다(§39).
 const (
 	HintPieceAfter = 3
 	HintMoveAfter  = 5

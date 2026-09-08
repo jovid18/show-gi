@@ -50,7 +50,7 @@ func TestTheTagForcesTheCaller(t *testing.T) {
 	if cp, _ := Mate(3).Centipawns(); cp != 0 {
 		t.Errorf("mate 3 의 Centipawns = %d, want 0", cp)
 	}
-	// 제로값은 「모른다」가 아니라 호각이다.
+	// 제로값은 호각이다. 「모른다」는 ok 플래그가 든다.
 	if cp, ok := (Score{}).Centipawns(); !ok || cp != 0 {
 		t.Errorf("제로값 = (%d, %v), want (0, true)", cp, ok)
 	}

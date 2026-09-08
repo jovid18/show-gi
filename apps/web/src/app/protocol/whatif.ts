@@ -55,7 +55,7 @@ export interface WhatIfCandidate {
    * 없다 — 자가 다른 두 값의 차가 낙폭일 수 없다(서버의 `candidatesOf`).
    */
   lossCp?: number;
-  /** 詰み까지의 手数. 없으면 詰み이 아니다 — 이 칸이 차면 `evalCp` 는 안 온다. */
+  /** 詰み까지의 手数. 이 칸이 비면 詰み이 없고, 차면 `evalCp` 는 안 온다. */
   mateIn?: number;
 }
 
@@ -78,7 +78,7 @@ export interface WhatIfNode {
    * 화면이 규칙을 모르기 때문에 온다. 대국의 스냅샷과 같은 자리다.
    *
    * `null` 로 올 수 있다. 詰み·手詰まり 국면에는 둘 수가 없고, Go의 nil 슬라이스는
-   * `[]` 가 아니라 `null` 로 직렬화된다 — 타입에서 그걸 숨기면 `?? ` 사슬이 대국 판의
+   * `[]` 대신 `null` 로 직렬화된다 — 타입에서 그걸 숨기면 `?? ` 사슬이 대국 판의
    * 합법수로 흘러내린다(GameScreen에서 실제로 그랬다).
    */
   legalMoves: string[] | null;

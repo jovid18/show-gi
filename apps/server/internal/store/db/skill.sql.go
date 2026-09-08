@@ -59,8 +59,8 @@ type SaveSkillEstimateParams struct {
 	SkillAbsSamples int32
 }
 
-// 판정 한 건마다 부른다. 대국이 끝날 때 한 번이 아니다 — 새로고침하면 판이 끝나므로
-// (journal §46) 끝에 몰아 쓰면 중간에 끊긴 판의 추정이 통째로 사라진다.
+// 판정 한 건마다 부른다. 끝에 몰아 쓰지 않는다 — 새로고침하면 판이 끝나므로
+// (journal §46) 몰아 쓰면 중간에 끊긴 판의 추정 전체가 사라진다.
 //
 // weakness 는 건드리지 않는다. 카테고리별 발생률은 아직 쓰는 쪽이 없다.
 func (q *Queries) SaveSkillEstimate(ctx context.Context, arg SaveSkillEstimateParams) error {
@@ -97,7 +97,7 @@ type SaveSkillEstimateIfSamplesParams struct {
 
 // 읽은 값이 그대로일 때만 덮는다. 대인전의 사후 분석이 쓰는 자리다(server/match_analysis.go) —
 // 저쪽은 판을 다 재는 동안(수십 초) 지난 값을 손에 들고 있어서, 그냥 덮으면 그 사이에
-// 끝난 엔진 대국의 판정을 통째로 지운다.
+// 끝난 엔진 대국의 판정 전체를 지운다.
 //
 // 진 쪽은 아무것도 안 쓴다. 0행을 돌려주므로 부르는 쪽이 다시 읽어 얹는다.
 //

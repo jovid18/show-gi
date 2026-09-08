@@ -44,8 +44,8 @@ func TestSlowerMateNeverSaysTheMateWasLost(t *testing.T) {
 	}
 }
 
-// 착수 後의 手数는 문장에 하나도 안 나온다. 그 값은 solver 가 아니라 탐색이 준 것이라
-// 증명이 아니고, 같은 국면에 14·16·「없음」이 나왔다(journal §76). Facts 에 그 칸이
+// 착수 後의 手数는 문장에 하나도 안 나온다. 그 값은 solver 대신 탐색이 준 것이라 증명이
+// 못 되고, 같은 국면에 14·16·「없음」이 나왔다(journal §76). Facts 에 그 칸이
 // 아예 없는 것이 첫 번째 보증이고, 이 테스트가 두 번째다 — 문장이 다른 데서 숫자를 끌어
 // 오는 날을 잡는다.
 func TestSlowerMateSaysNoNumberForTheAfterSide(t *testing.T) {

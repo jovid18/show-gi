@@ -13,8 +13,8 @@ import (
 
 // MultiSearcher 는 후보 여러 개를 한 번에 받아오는 탐색이다. usi.Pool 이 만족한다.
 //
-// 적응형 상대에게 후보 풀이 없으면 성립하지 않는다 — 강함을 탐색 길이가 아니라
-// 고르는 쪽에서 얻겠다는 설계가 곧 MultiPV를 요구한다(01-core.md §6).
+// 적응형 상대에게 후보 풀이 없으면 성립하지 않는다 — 강함은 탐색 길이가 정하지 않고
+// 고르는 쪽이 정한다는 설계가 곧 MultiPV를 요구한다(01-core.md §6).
 type MultiSearcher interface {
 	SearchMultiPV(ctx context.Context, startSFEN string, moves []string, depth, multiPV int) (usi.SearchResult, error)
 }
@@ -77,7 +77,7 @@ type adaptiveOpponent struct {
 
 // NewAdaptiveOpponent 는 「지지만 던지지 않는」 상대를 만든다.
 //
-// 약화는 엔진이 아니라 고르는 자리에서 한다. 엔진이 스스로 실수를 섞으면 고른 수가 얼마나
+// 약화는 고르는 자리에서 한다. 엔진이 스스로 실수를 섞으면 고른 수가 얼마나
 // 나쁜지를 우리가 모르게 되고, 평가치가 오염되면 밴드 제어와 「180cp 나빴다」가 함께 무너진다
 // (01-core.md §6).
 //
@@ -98,9 +98,8 @@ func (o *adaptiveOpponent) AdaptsToSkill() bool { return true }
 // ChooseBest 는 밴드를 안 보고 최선수를 낸다(BestPlayer). 사람이 詰み을 걸고 있는 동안만
 // 불린다 — 근거는 MateChasePlies.
 //
-// 같은 k로 묻는다. 깊이도 k도 평소와 같아야 positions 캐시가 같은 행을 쓰고,
-// k가 갈리면 같은 국면의 1위가 갈린다(journal §34 ②). 조절을 끄는 것이지 다른
-// 탐색을 하는 것이 아니다.
+// 같은 k로 묻는다. 깊이도 k도 평소와 같아야 positions 캐시가 같은 행을 쓰고, k가 갈리면
+// 같은 국면의 1위가 갈린다(journal §34 ②). 여기서 끄는 것은 조절뿐이고 탐색은 평소와 같다.
 func (o *adaptiveOpponent) ChooseBest(ctx context.Context, startSFEN string, moves []string) (string, error) {
 	res, err := o.search.SearchMultiPV(ctx, startSFEN, moves, o.depth, o.k)
 	if err != nil {

@@ -118,7 +118,7 @@ func TestTwoPeoplePlayAMatch(t *testing.T) {
 	if bobFirst.YourColor != "w" || bobFirst.YourTurn {
 		t.Fatalf("bob is %s and yourTurn=%v, want w/false", bobFirst.YourColor, bobFirst.YourTurn)
 	}
-	// 상대 차례에는 합법수를 안 준다. 주면 상대의 수를 화면에서 훑어볼 수 있다.
+	// 상대 차례에는 합법수를 주지 않는다. 주면 상대의 수를 화면에서 훑어볼 수 있다.
 	if len(bobFirst.LegalMoves) != 0 {
 		t.Fatalf("bob got %d legal moves on alice's turn", len(bobFirst.LegalMoves))
 	}
@@ -185,14 +185,14 @@ func TestTwoPeoplePlayAMatch(t *testing.T) {
 		if len(rec.Moves) != 2 || rec.Moves[0].USI != "7g7f" || rec.Moves[1].USI != "3c3d" {
 			t.Fatalf("game %d has %+v, want 7g7f then 3c3d", rec.ID, rec.Moves)
 		}
-		// 개입도 평가치도 없다. 엔진을 안 부르는 판이라서다 — 그 사실이 총평과 퀴즈를
+		// 개입도 평가치도 없다. 엔진을 부르지 않는 판이라서다 — 그 사실이 총평과 퀴즈를
 		// 닫는 근거다(review.go · quiz.go).
 		if len(rec.Interventions) != 0 {
 			t.Fatalf("game %d has %d interventions, want none", rec.ID, len(rec.Interventions))
 		}
 	}
 
-	// 남의 판은 안 열린다. 대인전이라고 소유 검사가 느슨해지지 않는다.
+	// 남의 판은 열리지 않는다. 대인전이라고 소유 검사가 느슨해지지 않는다.
 	if _, err := st.GameRecord(t.Context(), aliceGame, &bob); err == nil {
 		t.Fatal("bob could read alice's row of the same match")
 	}
@@ -222,7 +222,7 @@ func dialMatch(t *testing.T, url, cookie string) *websocket.Conn {
 	return conn
 }
 
-// matchFrame 은 받은 프레임 하나다. matchServerMsg 를 그대로 안 쓰는 것은 화면이
+// matchFrame 은 받은 프레임 하나다. matchServerMsg 를 그대로 쓰지 않는 것은 화면이
 // 보는 모양으로 읽기 위해서다 — json 태그가 곧 계약이라, 필드 이름이 바뀌면 여기가 깨져야 한다.
 type matchFrame struct {
 	Type     string `json:"type"`

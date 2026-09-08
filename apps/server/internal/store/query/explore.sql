@@ -1,4 +1,4 @@
--- 검토 화면에서 저장한 국면(migrations/015). 판이 아니라 手合割 id 와 수순 한 줄이다.
+-- 검토 화면에서 저장한 국면(migrations/015). 담는 것은 手合割 id 와 수순 한 줄이다.
 
 -- name: CreateExploreSnapshot :one
 --

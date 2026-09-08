@@ -13,7 +13,7 @@ import type { WhatIfNode } from '@/protocol/whatif';
  * 내가 어디 있었는지가 그 사이의 한 줄이다.
  *
  * 값은 전부 지금 잰 것이다. 저장된 `moves[].evalCp` 는 대국 중 다른 k로 잰 값이라
- * 후보들과 같은 자가 아니다(같은 수가 +100과 +41로 나온 것을 봤다 — journal §34 ②).
+ * 후보들과 자가 다르다(같은 수가 +100과 +41로 나온 것을 봤다 — journal §34 ②).
  * 한 줄에 두 자를 섞지 않는다.
  */
 interface MoveOptionsProps {
@@ -41,9 +41,9 @@ interface MoveOptionsProps {
   /**
    * 줄을 눌렀을 때.
    *
-   * 실제로 둔 수는 「가정」이 아니다. 그 줄을 분기로 열면 판은 같은 국면에 머무는데 화면이
-   * 「もしも」라고 말하게 된다 — 실제로 벌어진 일에 그 말을 붙이면 거짓이다. 그래서 그 줄은
-   * 한 수 진행으로 처리한다(`played`).
+   * 실제로 둔 수에는 「가정」을 붙이지 않는다. 그 줄을 분기로 열면 판은 같은 국면에
+   * 머무는데 화면이 「もしも」라고 말하게 된다 — 실제로 벌어진 일에 그 말을 붙이면
+   * 거짓이다. 그래서 그 줄은 한 수 진행으로 처리한다(`played`).
    */
   onPick: (usi: string, played: boolean) => void;
 }
@@ -54,7 +54,7 @@ interface Option {
   ja: string;
   /** 지금 잰 평가치, 둔 쪽 관점. 못 잰 줄은 undefined — 자리는 지키고 값만 비운다. */
   cp: number | undefined;
-  /** 詰み까지의 手数, 둔 쪽 관점. 있으면 cp가 아니라 이것으로 말한다(`scoreJa`). */
+  /** 詰み까지의 手数, 둔 쪽 관점. 있으면 cp 대신 이것으로 말한다(`scoreJa`). */
   mateIn: number | undefined;
   best: boolean;
   /** 실제로 이 국면에서 둔 수인가. 누가 뒀는지까지 — 상대 차례면 컴퓨터가 둔 것이다. */
@@ -194,7 +194,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
     }
 
     // 詰み이 cp보다 언제나 바깥이다. cp만으로 줄 세우면 「3手で詰み」과 「+2900」이 이웃으로
-    // 놓이는데 그 둘은 이웃이 아니다(`rankOf`).
+    // 놓이는데, 그 둘은 서로 다른 자의 값이다(`rankOf`).
     return [...byUsi.values()].toSorted((a, b) => rankOf(b) - rankOf(a));
   }, [game.moves, game.interventions, game.undos, ply, node, measured, atRoot, byOpponent]);
 

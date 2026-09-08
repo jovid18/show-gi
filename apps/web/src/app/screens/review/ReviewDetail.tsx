@@ -129,7 +129,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
 
   /**
    * 뿌리에 서 있는 노드. 후보 셋이 왔는가를 아래에서 이것으로 본다 — 분기로 들어간
-   * 노드의 후보는 다른 국면의 것이라 확정된 기보의 수와 견줄 자가 아니다.
+   * 노드의 후보는 다른 국면의 것이라 확정된 기보의 수와 자가 다르다.
    */
   const rootNode = active && active.line.length === 0 ? active : null;
 
@@ -284,7 +284,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
    * 이 판을 만든 수. 회상 중에는 안 짚는다 — 그때 주인공은 물러진 수다.
    *
    * 분기에서는 그 줄의 마지막 수다. 실제로 둔 수와 같은 채널로 그린다 — 판 위에서는
-   * 어느 쪽이든 「방금 벌어진 것」이고, 이 판이 가정이라는 것은 판 위가 아니라 옆에서 말한다.
+   * 어느 쪽이든 「방금 벌어진 것」이고, 이 판이 가정이라는 것은 옆에서 말한다.
    */
   const lastMove = useMemo(() => {
     if (branching && active) {
@@ -416,7 +416,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   const rows = useMemo(() => pairRows(game.moves), [game.moves]);
 
   /**
-   * 이동 바 가운데 칸에 적히는 말. 手数가 아니라 수의 이름이다.
+   * 이동 바 가운데 칸에 적히는 말. 手数 대신 수의 이름이다.
    *
    * 「15 / 109」는 어디쯤인지만 말하고 거기가 무슨 수였나를 말하지 않는다. 되짚는 사람이
    * 찾는 것은 후자다. 총 手数는 이 옆 제목이 든다(`棋譜 109手`).
@@ -430,7 +430,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   }, [ply, game.moves, branching]);
 
   /**
-   * 駒台 하나를 그린다. 부르는 쪽이 색이 아니라 자리를 정한다 — 아래 판이 뒤집히면
+   * 駒台 하나를 그린다. 부르는 쪽이 자리를 보고 색을 정한다 — 아래 판이 뒤집히면
    * 持ち駒도 같이 따라와야 하는데, 색으로 박아 두면 판만 돌고 자기 駒台가 위에 남는다.
    */
   const hand = (side: Side): ReactElement => (
@@ -447,7 +447,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   );
 
   return (
-    /* `data-flipped` 는 駒의 방향이다. 자리는 CSS가 아니라 칸 번호가 뒤집고(Board 의
+    /* `data-flipped` 는 駒의 방향이다. 자리는 CSS 대신 칸 번호가 뒤집고(Board 의
        `seat`), 여기서 정하는 것은 「누가 나를 향해 서 있는가」뿐이다 — 대국 화면과 같다. */
     <div className="game review" data-flipped={flipped || undefined}>
       <div className="game-board">
@@ -457,7 +457,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
           <EvalGraph game={game} ply={ply} whatif={whatif} onPick={onGraphPick} />
         </section>
 
-        {/* 이 판은 실제로 벌어진 일이 아니다. 옆 패널의 제목만으로는 판을 보는 동안
+        {/* 이 판은 가정이다. 옆 패널의 제목만으로는 판을 보는 동안
             그 사실이 안 남는다 — 되짚기와 같은 판·같은 駒台라 더 그렇다. */}
         {branching && (
           <p className="review-branch-badge" role="status">
@@ -490,7 +490,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
             flipped={flipped}
             checks={[]}
             // 되짚기에서는 판을 탈색하지 않는다. 탈색은 「지금이 아니다」를 말하는 장치인데
-            // (index.css `.board-tint`), 이 화면은 전부가 지금이 아니다 — 그 안에서 한 국면만
+            // (index.css `.board-tint`), 이 화면은 전부가 과거다 — 그 안에서 한 국면만
             // 낮추면 무엇과 구별되는지가 없다. 대국 화면에는 남는다: 거기서는 살아 있는 판과
             // 회상이 같은 자리를 쓴다.
             dimmed={false}
@@ -545,7 +545,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
 
             {/* 이 칸이 「지금 어디인가」이고, 그 칸이 곧 기보를 여는 버튼이다
                 (将棋ウォーズ의 그 바). 「지금 어디」를 말하는 자리는 여기 하나로 둔다.
-                숫자만으로는 거기가 무슨 수였나를 모르므로 手数가 아니라 수의 이름을 쓴다. */}
+                숫자만으로는 거기가 무슨 수였나를 모르므로 수의 이름을 쓴다. */}
             <button
               type="button"
               className="review-jump"
@@ -692,7 +692,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
           node={shown}
           measured={measured}
           chosen={chosen}
-          // 실제로 둔 수를 누르는 것은 가정이 아니라 진행이다 — 같은 국면에 서면서
+          // 실제로 둔 수를 누르는 것은 한 수 진행이다 — 같은 국면에 서면서
           // 화면만 「もしも」가 되는 것을 막는다(MoveOptions 의 `onPick`).
           onPick={(usi, played) => (played ? goto(ply + 1) : playBranch(usi))}
         />

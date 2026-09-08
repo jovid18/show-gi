@@ -46,8 +46,8 @@ func (s *pvStub) SearchMultiPV(_ context.Context, _ string, moves []string, _, _
 var quietBlunder = []string{"1g1f"}
 
 // openedDiagonal 도 other 다. 다른 것은 상대가 딸 것이 생긴다는 점뿐이다 — 角道가
-// 서로 열려 있어서 8八의 角을 그냥 따인다. 판정 대상은 마지막의 端歩이고, 그 수는 딴 것도
-// 王手도 아니라 이름 붙은 어느 분기에도 안 걸린다.
+// 서로 열려 있어서 8八의 角을 그냥 따인다. 판정 대상은 마지막의 端歩이고, 딴 것도
+// 王手도 없어서 이름 붙은 어느 분기에도 안 걸린다.
 var openedDiagonal = []string{"7g7f", "3c3d", "1g1f"}
 
 // judgeOtherBlunder 는 그 수순의 마지막 수를 판정한다. 착수 전 0 → 착수 후 −1600이라
@@ -76,7 +76,7 @@ func afterK1() usi.SearchResult {
 	}
 }
 
-// 문장은 카드가 짚는 수를 말한다. 판정이 손에 든 k=1 PV가 아니다.
+// 문장은 카드가 짚는 수를 말한다. 판정이 손에 든 k=1 PV 는 말하지 않는다.
 func TestSentenceNamesTheMoveTheCardPoints(t *testing.T) {
 	stub := &pvStub{
 		single: afterK1(),

@@ -19,7 +19,7 @@ type GetGameQuizRow struct {
 	Payload []byte
 }
 
-// 되짚기 퀴즈. 한 판에 한 행이고 늘 통째로 읽고 쓴다(migrations/007).
+// 되짚기 퀴즈. 한 판에 한 행이고 늘 전부 읽고 쓴다(migrations/007).
 func (q *Queries) GetGameQuiz(ctx context.Context, gameID int64) (GetGameQuizRow, error) {
 	row := q.db.QueryRow(ctx, getGameQuiz, gameID)
 	var i GetGameQuizRow

@@ -27,7 +27,7 @@ func TestRequestIDIsGeneratedAndEchoed(t *testing.T) {
 }
 
 // 밖에서 온 ID 를 채택하지 않는다. 채택하면 누구나 같은 값을 계속 보내 request_id 가
-// 요청 하나를 못 가리키게 만들 수 있다 — 장애를 되짚어야 하는 바로 그때.
+// 요청 하나를 가리키지 못하게 만들 수 있다 — 장애를 되짚어야 하는 바로 그때.
 func TestRequestIDFromCallerIsNotAdopted(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	req.Header.Set(requestIDHeader, "abc-123_x.y")
@@ -96,7 +96,7 @@ func TestRouteLabelIsThePattern(t *testing.T) {
 	}
 }
 
-// 라우팅에 안 걸린 요청은 라벨 하나로 모인다. 실제 경로를 쓰면 계열이 무한히 늘어난다
+// 라우팅에 걸리지 않은 요청은 라벨 하나로 모인다. 실제 경로를 쓰면 계열이 무한히 늘어난다
 // (journal §90).
 func TestUnmatchedRoutesShareOneLabel(t *testing.T) {
 	reg := metrics.New("api", "test")
@@ -118,7 +118,7 @@ func TestUnmatchedRoutesShareOneLabel(t *testing.T) {
 }
 
 // 업그레이드가 지연 분포에 들어가면 안 된다. 대국 한 판이 분 단위라 다른 경로의
-// 백분위 전체를 못 읽게 만든다.
+// 백분위 전체를 읽지 못하게 만든다.
 func TestUpgradeIsCountedButNotTimed(t *testing.T) {
 	reg := metrics.New("api", "test")
 	opts := Options{
@@ -146,8 +146,8 @@ func TestUpgradeIsCountedButNotTimed(t *testing.T) {
 	}
 }
 
-// 세션 게이지는 대국이 끝나면 0으로 돌아온다. 안 돌아오면 며칠 뒤 「세션이 안 닫힌다」로
-// 보이는데, 그때는 그것이 지표 버그인지 서버 버그인지 가릴 수 없다.
+// 세션 게이지는 대국이 끝나면 0으로 돌아온다. 돌아오지 않으면 며칠 뒤 「세션이
+// 닫히지 않는다」로 보이는데, 그때는 그것이 지표 버그인지 서버 버그인지 가릴 수 없다.
 func TestSessionGaugeReturnsToZero(t *testing.T) {
 	reg := metrics.New("api", "test")
 	conn, ctx := dialWith(t, Options{
@@ -238,7 +238,7 @@ func metricsText(t *testing.T, h http.Handler) string {
 
 // 핸들러가 panic 하면 500으로 답하고, 지표와 로그에 남아야 한다.
 //
-// 안 잡으면 net/http 가 연결만 끊는다 — 상태 코드도 요청 로그도 지표도 없이. 그러면
+// 잡지 않으면 net/http 가 연결만 끊는다 — 상태 코드도 요청 로그도 지표도 없이. 그러면
 // 가장 흔한 장애에 5xx 알람이 영원히 조용하다.
 func TestPanicBecomesFiveHundred(t *testing.T) {
 	reg := metrics.New("api", "test")
@@ -303,10 +303,10 @@ func TestAbortHandlerStaysAbort(t *testing.T) {
 
 // syncBuffer 는 잠금을 두른 로그 통이다.
 //
-// 통 자체가 잠금을 들어야 한다. swapLogger 가 바꾸는 것은 전역 로거라, 앞 테스트에서
+// 통 자체가 잠금을 가져야 한다. swapLogger 가 바꾸는 것은 전역 로거라, 앞 테스트에서
 // 늦게 끝나는 핸들러가 지금 테스트의 통에 쓴다 — WebSocket 은 하이재킹된 연결이라
-// httptest.Server.Close 가 그 핸들러를 안 기다린다(requestLine 이 경로로 고르는 이유).
-// 경로로 고르는 것은 남의 줄을 안 읽게 하는 장치이고, 쓰기와 읽기가 겹치는 것은 그대로 남는다.
+// httptest.Server.Close 가 그 핸들러를 기다리지 않는다(requestLine 이 경로로 고르는 이유).
+// 경로로 고르는 것은 남의 줄을 읽지 않게 하는 장치이고, 쓰기와 읽기가 겹치는 것은 남는다.
 type syncBuffer struct {
 	mu  sync.Mutex
 	buf bytes.Buffer
@@ -330,7 +330,7 @@ func (b *syncBuffer) String() string { return string(b.Bytes()) }
 // requestLine 은 buf 에서 그 경로의 요청 줄을 꺼낸다.
 //
 // 버퍼에 줄이 하나뿐이라고 보면 안 된다. swapLogger 가 바꾸는 것은 전역 로거이고,
-// WebSocket 은 하이재킹된 연결이라 httptest.Server.Close 가 그 핸들러를 안 기다린다 —
+// WebSocket 은 하이재킹된 연결이라 httptest.Server.Close 가 그 핸들러를 기다리지 않는다 —
 // 앞 테스트의 /ws/match 핸들러가 늦게 끝나며 이 버퍼에 쓴다. 경로로 고르면 무관해진다.
 func requestLine(t *testing.T, buf *syncBuffer, path string) map[string]any {
 	t.Helper()

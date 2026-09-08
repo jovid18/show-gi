@@ -25,7 +25,7 @@ const (
 
 	// CategoryLetsMate 는 그 수로 내 玉이 詰まされる 것이다. missed_mate 의 거울상이다.
 	//
-	// 종반의 어휘는 駒得이 아니라 速度다 — 아래 분기들이 보는 중반의 모양(タダ捨て·駒得·
+	// 종반의 어휘는 駒得보다 速度다 — 아래 분기들이 보는 중반의 모양(タダ捨て·駒得·
 	// 王手·玉の薄さ)으로는 이 국면을 부를 말이 없다. 이것이 없어서 other 가 이유를 못
 	// 댔다(journal §40 ③).
 	CategoryLetsMate Category = "lets_mate"
@@ -75,7 +75,7 @@ type Features struct {
 
 	// LandsAttacked 는 상대가 그 칸의 駒를 실제로 딸 수 있는가(합법수로).
 	//
-	// 「노리고 있는가」가 아니다. 핀에 묶여 못 움직이는 駒는 노리기만 할 뿐이고,
+	// 「노리고 있는가」와 다르다. 핀에 묶여 못 움직이는 駒는 노리기만 할 뿐이고,
 	// 그걸 잡힌다고 말하면 화면의 단언이 거짓이 된다.
 	LandsAttacked bool
 	// LandsDefended 는 따인 뒤에 되딸 수 있는가.
@@ -108,7 +108,7 @@ type Features struct {
 	// OpponentMatePlies 는 이 수 뒤에 상대가 내 玉을 詰ます 手数다. 없으면 0.
 	//
 	// 채우는 쪽(game.engineAnalyst)이 둘을 다 확인한 뒤에 넣는다 — ① go mate 로 증명된
-	// 詰み일 것(탐색의 mate 점수가 아니다) ② 최선수 뒤에는 그 詰み이 없을 것. ②가 없으면
+	// 詰み일 것(탐색의 mate 점수는 안 쓴다) ② 최선수 뒤에는 그 詰み이 없을 것. ②가 없으면
 	// 이미 詰んでいた 국면의 죄를 이 수의 죄라고 가르친다. ②는 아직 실전에서 안 걸러졌다
 	// (journal §40 ③).
 	OpponentMatePlies int
@@ -123,7 +123,7 @@ func (f Features) HangsPiece() bool {
 }
 
 // ShallowTrapCp 는 「얕게 보면 이득」과 「깊게 보면 손해」 사이의 최소 반전 폭이다. 이만큼
-// 안 벌어지면 함정이 아니라 평가가 흔들린 것이다. 제안형의 reversal 임계치와 같은 축이다.
+// 안 벌어지면 함정 대신 평가가 흔들린 것으로 본다. 제안형의 reversal 임계치와 같은 축이다.
 //
 // [미확정] 300은 죽어 있지 않다는 것까지만 확인됐다(journal §39 ⑤).
 const ShallowTrapCp = 300
@@ -166,7 +166,7 @@ func above(s eval.Score, cp int, isCp bool, baselineCp int) bool {
 func classify(in Input, lostMate bool) Category {
 	if lostMate {
 		// 이 갈래는 詰み이 남았는지로 갈린다. 남았으면 사람은 아직 이기는 중이고,
-		// 배울 것은 「놓쳤다」가 아니라 「멀어졌다」다(journal §76).
+		// 배울 것은 「놓쳤다」 대신 「멀어졌다」다(journal §76).
 		if in.MateAfter > 0 {
 			return CategorySlowerMate
 		}
@@ -199,7 +199,7 @@ func classify(in Input, lostMate bool) Category {
 	// 뜻이라, 여기 남는 것은 「한 수 앞은 좋아 보이는」 부류다.
 	//
 	// 두 부호를 기준점에서 읽는다(Input.BaselineCp). 「좋아 보인다/실은 나쁘다」는
-	// 0cp가 아니라 그 판의 「형세 0」에 대한 말이라, 절대 부호로 쓰면 駒落ち에서 앞 조건이
+	// 0cp 대신 그 판의 「형세 0」에 대한 말이라, 절대 부호로 쓰면 駒落ち에서 앞 조건이
 	// 언제나 참이고 뒤 조건이 거의 언제나 거짓이 된다 — 二枚落ち(+1386)에서 이 카테고리가
 	// 판 내내 안 나온다는 뜻이고, 하필 가장 교육적인 자리다(01-core.md §3).
 	// 반전 폭은 차이라서 기준점과 무관하다.
@@ -210,7 +210,7 @@ func classify(in Input, lostMate bool) Category {
 		return CategoryShallowTrap
 
 	// 駒는 땄는데 형세가 나빠졌다. 딴 것만으로는 부족하다 — 다른 데서 벌어진 일 때문에
-	// 나쁜 수인데 마침 歩를 하나 공짜로 땄다면 딴 것은 이유가 아니고, 그걸 이유라고 말하면
+	// 나쁜 수인데 마침 歩를 하나 공짜로 땄다면 딴 것이 이유일 수 없고, 그걸 이유라고 말하면
 	// 틀린 설명이 된다. 그래서 대가가 실제로 보이는 둘로 좁힌다: 되따일 수 있거나(위에서
 	// 안 걸렸으니 교환은 유리해 보이는 쪽) 玉이 더 밀리거나(이름의 「옥 안전 무시」가 이쪽).
 	case f.CapturedValue > 0 && (f.LandsAttacked || f.ThreatGain > 0):

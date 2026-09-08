@@ -10,7 +10,7 @@ import { useEffect } from 'react';
  * 하는 것뿐이고, `returnValue` 는 그 규약을 켜는 스위치다.
  *
  * 화면 안의 이동에는 안 걸린다. 두는 중에는 다른 주소가 판으로 되돌아와(`App.tsx`)
- * 나갈 수 있는 자리가 아니고, 문서를 떠나는 이 길이 판을 잃는 하나뿐인 길이다.
+ * 나갈 수 있는 자리가 없고, 문서를 떠나는 이 길이 판을 잃는 하나뿐인 길이다.
  */
 export function useUnloadGuard(active: boolean): void {
   useEffect(() => {

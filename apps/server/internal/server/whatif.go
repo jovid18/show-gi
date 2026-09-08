@@ -21,7 +21,7 @@ import (
 
 const (
 	// whatifDepth 는 가정 수순의 깊이다. 대국이 쓰는 것과 같아야 한다 — 다르면
-	// positions 가 서로 못 쓰는 두 무리로 갈린다(캐시는 깊이로 견준다, 02-architecture.md §4).
+	// positions 가 서로 쓸 수 없는 두 무리로 갈린다(캐시는 깊이로 견준다, 02-architecture.md §4).
 	whatifDepth = game.DefaultDepth
 
 	// whatifCandidates 는 한 국면에 내놓는 후보의 수다. 첫 번째가 화면의 초록 화살표이고,
@@ -35,12 +35,12 @@ const (
 	// whatifBodyLimit 은 본문 상한이다. 手数 하나와 수순 한 줄이 전부라 이보다 클 이유가 없다.
 	whatifBodyLimit = 8 << 10
 
-	// whatifTimeout 은 탐색 하나에 주는 시한이다. 요청 ctx만으로는 안 된다 —
+	// whatifTimeout 은 탐색 하나에 주는 시한이다. 요청 ctx만으로는 모자란다 —
 	// http.Server.Shutdown 이 진행 중 요청의 ctx를 취소하지 않아 종료가 막힌다(usi.Pool.Close).
 	//
 	// 대국의 착수와 같은 값을 쓴다. 시한이 두 계급인 것은 「사람이 그 답을 기다리며 판이
 	// 멈춰 서는가」로 갈린 것이고(game.DefaultMoveDeadline), 되짚기와 검토가 바로 그쪽이다 —
-	// 이 답이 안 오면 화면에 그릴 것이 없다. 20초로 두었던 동안은 경고 없이 사라져도 되는
+	// 이 답이 오지 않으면 화면에 그릴 것이 없다. 20초로 두었던 동안은 경고 없이 사라져도 되는
 	// 쪽(DefaultExtraDeadline)과 같은 계급이었고, 실측이 그 자리에서 갈렸다 — journal §132.
 	whatifTimeout = game.DefaultMoveDeadline
 )
@@ -72,8 +72,8 @@ func cacheOf(st *store.Store) Cache {
 	return st
 }
 
-// whatifHandler 는 분기를 한 걸음 진행시킨다. 상태를 안 들고 있다 — 분기는 화면이
-// 들고 매번 전부 온다(whatifRequest).
+// whatifHandler 는 분기를 한 걸음 진행시킨다. 상태를 갖고 있지 않다 — 분기는 화면이
+// 갖고 있고 매번 전부 온다(whatifRequest).
 type whatifHandler struct {
 	store  *store.Store
 	search Searcher
@@ -104,7 +104,7 @@ type whatifRoot struct {
 // rootOf 는 DB 기록에서 뿌리를 만든다.
 //
 // 구멍에서 끊는다(구멍이 없던 국면을 만드는 이유는 detailOf). 되짚기는 거기서 멈추고
-// 뒤를 표기 없이 내보내면 되지만, 분기는 그 국면 위에서 새로 두는 일이라 아예 안 된다 —
+// 뒤를 표기 없이 내보내면 되지만, 분기는 그 국면 위에서 새로 두는 일이라 그럴 수 없다 —
 // 끊어 두면 그 뒤의 手数가 replayTo 에서 「기록 밖」으로 거절된다.
 func rootOf(rec store.GameRecord) whatifRoot {
 	root := whatifRoot{StartSFEN: rec.StartSFEN, Human: shogi.Black}
@@ -132,21 +132,21 @@ type whatifMove struct {
 }
 
 // whatifCandidate 는 그 국면에서 수번 쪽이 둘 수 있는 좋은 수 하나다. 첫 번째가
-// 최선수이자 화면의 초록 화살표다 — 대국 중에는 후보 목록을 안 켠다(journal §37 ②).
+// 최선수이자 화면의 초록 화살표다 — 대국 중에는 후보 목록을 켜지 않는다(journal §37 ②).
 type whatifCandidate struct {
 	USI string `json:"usi"`
 	Ja  string `json:"ja"`
 	// EvalCp 는 그 수를 둔 쪽 관점 cp다 — 이 값의 주인만 Turn 이고, 노드의 EvalCp 는
 	// 패키지 doc 대로 플레이어 관점이다.
 	//
-	// 詰み이면 안 온다. MateIn 과 배타적이고, 그 배타가 저장 쪽 규약과 같다(store.Candidate).
+	// 詰み이면 오지 않는다. MateIn 과 배타적이고, 그 배타가 저장 쪽 규약과 같다(store.Candidate).
 	EvalCp *int `json:"evalCp,omitempty"`
 	// LossCp 는 최선수 대비 낙폭이다 — 「이 수를 고르면 얼마를 내주나」.
 	//
 	// 없는 자리가 둘이다: 최선수 자신(기준이라 0)과 詰み이 섞인 줄(candidatesOf).
-	// 그래서 0을 안 내보낸다 — 화면이 「낙폭 0」과 「낙폭을 모른다」를 갈라야 한다.
+	// 그래서 0을 내보내지 않는다 — 화면이 「낙폭 0」과 「낙폭을 모른다」를 갈라야 한다.
 	LossCp int `json:"lossCp,omitempty"`
-	// MateIn 은 詰み까지의 手数다. 0이면 詰み이 아니다 — 이 칸이 차면 EvalCp 는 비어 있고,
+	// MateIn 은 詰み까지의 手数다. 0은 詰み이 없다는 표시다 — 이 칸이 차면 EvalCp 는 비어 있고,
 	// 화면은 手数로 말한다(scoreJa).
 	MateIn int `json:"mateIn,omitempty"`
 }
@@ -164,14 +164,14 @@ type whatifNode struct {
 	Turn     string `json:"turn"` // "b" | "w"
 	YourTurn bool   `json:"yourTurn"`
 	Checked  string `json:"checked,omitempty"`
-	// Status 는 대국과 같은 어휘다. 千日手는 여기서 안 본다 — 아래 주석 참조.
+	// Status 는 대국과 같은 어휘다. 千日手는 여기서 보지 않는다 — 아래 주석 참조.
 	Status game.Status `json:"status"`
 	// LegalMoves 는 화면이 규칙을 모르기 때문에 온다. 대국의 스냅샷과 같은 자리다.
 	LegalMoves []string `json:"legalMoves"`
 	// EvalCp 는 지금 국면의 플레이어 관점 cp다. 끝난 국면이면 없다.
 	//
 	// 줄의 마지막 수가 만든 값이 곧 이것이다. 화면은 앞선 노드를 이미 받아 뒀으므로
-	// 수마다의 cp를 여기서 또 보내지 않는다 — 추가 탐색이 0인 이유다.
+	// 수마다의 cp를 여기서 또 보내지 않는다 — 그래서 추가 탐색이 0이다.
 	EvalCp *int `json:"evalCp,omitempty"`
 	MateIn int  `json:"mateIn,omitempty"`
 
@@ -182,7 +182,7 @@ type whatifNode struct {
 // 요청이 거절되는 이유들. 화면에 나갈 문구는 핸들러가 붙인다.
 var (
 	// errWhatifPly 는 그 手数를 기록에서 재현할 수 없을 때의 오류다. 범위 밖이거나, 기보에
-	// 구멍이 나서 거기까지 못 둔다(review.go 의 재현이 멈추는 자리와 같은 조건이다).
+	// 구멍이 나서 거기까지 둘 수 없다(review.go 의 재현이 멈추는 자리와 같은 조건이다).
 	errWhatifPly = errors.New("whatif: cannot replay the record to that ply")
 	// errWhatifMove 는 분기의 수를 그 국면에서 둘 수 없을 때의 오류다.
 	errWhatifMove = errors.New("whatif: illegal move in the branch")
@@ -244,7 +244,7 @@ func (h *whatifHandler) play(w http.ResponseWriter, r *http.Request) {
 			"error": "bad_move", "message": whatifMessages["bad_move"],
 		})
 	default:
-		// 엔진 고장·시한 초과. 대국이 안 되는 것과 같은 종류라 503이다 — 다시 눌러
+		// 엔진 고장·시한 초과. 대국이 되지 않는 것과 같은 종류라 503이다 — 다시 눌러
 		// 볼 수 있는 실패이고, 판을 되짚는 쪽은 여전히 살아 있다.
 		log.Printf("whatif: game %d ply %d: %v", id, req.Ply, err)
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
@@ -264,7 +264,7 @@ var whatifMessages = map[string]string{
 	"engine_unavailable": "エンジンが応答しませんでした。",
 	"busy":               "まだ読んでいます。",
 	// 대국 중에만 나온다. 되짚기에는 이 제한이 없다 — 끝난 판이라 무엇을 둬 봐도
-	// 누구도 안 잃는다(ws.go 의 branchRoot).
+	// 누구도 잃지 않는다(ws.go 의 branchRoot).
 	"locked": "対局中は、戻された手のあとだけ試せます。",
 	// 검토에서 국면을 저장·불러올 때만 나온다(explore_snapshots.go). 검토 자체에는 이 검사가
 	// 없다(journal §100) — 사람마다 다른 기록을 여는 쪽에만 자격이 필요하다.

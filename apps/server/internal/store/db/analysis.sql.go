@@ -25,7 +25,7 @@ type AnalysisJobBacklogRow struct {
 
 // 아직 안 집힌 판의 수와 그 판들이 안 잰 手数다. 밀린 양의 판 몫과 手 몫이 이 한 행이다.
 //
-// 집힌 판은 안 센다. 그것은 지금 도는 일이지 밀린 일이 아니다 — 리스가 낡으면 다시 센다.
+// 집힌 판은 안 센다. 그것은 지금 도는 일이다 — 리스가 낡으면 다시 센다.
 func (q *Queries) AnalysisJobBacklog(ctx context.Context, leaseBefore pgtype.Timestamptz) (AnalysisJobBacklogRow, error) {
 	row := q.db.QueryRow(ctx, analysisJobBacklog, leaseBefore)
 	var i AnalysisJobBacklogRow
@@ -92,14 +92,14 @@ type ClaimAnalysisPlyRow struct {
 // 안 잰 手 하나를 집는다. 없으면 0행이다.
 //
 // 리스를 시각으로 받는다($1 = 지금 - 리스). 상수를 SQL 에 안 적는 것은 대기열이
-// 밴드를 안 적은 것과 같은 이유다 — 같은 값이 Go 와 SQL 에 두 벌 있으면 한쪽이 조용히 낡는다.
+// 밴드를 안 적은 것과 같은 이유다 — 같은 값이 Go 와 SQL 에 두 벌 있으면 한쪽이 경고 없이 어긋난다.
 //
-// 낡은 리스를 도로 집는 것이 이 문장의 두 번째 일이다. 워커가 배포나 스팟 회수로
+// 오래된 리스를 도로 집는 것이 이 문장의 두 번째 일이다. 워커가 배포나 스팟 회수로
 // 사라지면 그 手는 claimed_at 만 찍힌 채 남고, 그 시각이 낡으면 여기가 되찾는다.
 //
-// 고르는 쪽을 MATERIALIZED CTE 로 못 박는다. IN (SELECT ... LIMIT 1 FOR UPDATE) 로 쓰면
+// 고르는 쪽을 MATERIALIZED CTE 로 고정한다. IN (SELECT ... LIMIT 1 FOR UPDATE) 로 쓰면
 // 계획에 따라 그 서브쿼리가 바깥 행마다 다시 돌아 여러 행을 잠그는데, 돌려받는 것은
-// 한 행이라 나머지는 아무도 재지 않은 채 「집힌」 상태로 남는다. 워커 하나로 재 봤더니
+// 한 행이라 나머지는 누구도 재지 않은 채 「집힌」 상태로 남는다. 워커 하나로 재 봤더니
 // 그 값이 여덟까지 갔다(journal §115).
 func (q *Queries) ClaimAnalysisPly(ctx context.Context, leaseBefore pgtype.Timestamptz) (ClaimAnalysisPlyRow, error) {
 	row := q.db.QueryRow(ctx, claimAnalysisPly, leaseBefore)
@@ -120,7 +120,7 @@ WHERE done_at IS NULL AND NOT dead
 
 // 아직 안 잰 手数다. AnalysisBacklogPlies 가 이 값이고, 오토스케일의 신호가 된다.
 //
-// 그만둔 판은 안 센다. 아무도 재지 않을 것을 세면 백로그가 안 내려오고, 그 위에서
+// 그만둔 판은 안 센다. 누구도 재지 않을 것을 세면 백로그가 안 내려오고, 그 위에서
 // 스케일 판단이 돈다.
 func (q *Queries) CountAnalysisBacklog(ctx context.Context) (int64, error) {
 	row := q.db.QueryRow(ctx, countAnalysisBacklog)
@@ -195,7 +195,7 @@ type EnqueueAnalysisPlyParams struct {
 // (matchRecords.counting 의 뒤따라온 자리) 같은 국면을 두 번 재는 것은 그대로 낭비다.
 //
 // 그만둔 판에는 안 쌓는다(NOT EXISTS). 안 걸면 그 판의 남은 手가 전부 행이 되어
-// 밀린 양으로 세어지는데, 아무도 그것을 재지 않으므로 백로그가 안 내려온다.
+// 밀린 양으로 세어지는데, 누구도 그것을 재지 않으므로 백로그가 안 내려온다.
 func (q *Queries) EnqueueAnalysisPly(ctx context.Context, arg EnqueueAnalysisPlyParams) error {
 	_, err := q.db.Exec(ctx, enqueueAnalysisPly,
 		arg.MatchID,
@@ -242,7 +242,7 @@ type FinishAnalysisPlyParams struct {
 // 잰 값을 그 행에 적는다.
 //
 // 행이 없으면 아무 일도 안 일어난다. 그것이 규약이다 — 판이 끝나 자리가 걷힌 뒤에
-// 도착한 늦은 측정이 판을 되살리면 그 항목을 아무도 안 지운다(journal §106).
+// 도착한 늦은 측정이 판을 되살리면 그 항목을 누구도 안 지운다(journal §106).
 func (q *Queries) FinishAnalysisPly(ctx context.Context, arg FinishAnalysisPlyParams) error {
 	_, err := q.db.Exec(ctx, finishAnalysisPly,
 		arg.MatchID,
@@ -442,8 +442,8 @@ type ReadyAnalysisJobParams struct {
 // 자리가 다 찼다. 手数를 적으면 그때부터 집힌다.
 //
 // HoldAnalysisJob 이 세운 행을 채우는 것이 보통인데, 없으면 여기서 만든다. UPDATE 로만
-// 두면 그 앞이 한 번 실패했을 때 이 문장이 조용히 아무 일도 안 하고 그 판이 큐에
-// 안 만들어진다 — 되짚기는 그것을 「남지 않았다」로만 보여 주므로 아무도 못 알아챈다.
+// 두면 그 앞이 한 번 실패했을 때 이 문장이 경고 없이 아무 일도 안 하고 그 판이 큐에
+// 안 만들어진다 — 되짚기는 그것을 「남지 않았다」로만 보여 주므로 누구도 못 알아챈다.
 func (q *Queries) ReadyAnalysisJob(ctx context.Context, arg ReadyAnalysisJobParams) error {
 	_, err := q.db.Exec(ctx, readyAnalysisJob, arg.MatchID, arg.Plies)
 	return err
@@ -471,7 +471,7 @@ const sweepAnalysisJobs = `-- name: SweepAnalysisJobs :exec
 DELETE FROM analysis_jobs WHERE created_at < $1
 `
 
-// 낡은 행을 걷는다. 자리가 영영 안 차는 반쪽 판이 이 표의 누수다.
+// 오래된 행을 걷는다. 자리가 영영 안 차는 반쪽 판이 이 표의 누수다.
 func (q *Queries) SweepAnalysisJobs(ctx context.Context, createdAt pgtype.Timestamptz) error {
 	_, err := q.db.Exec(ctx, sweepAnalysisJobs, createdAt)
 	return err
@@ -481,8 +481,8 @@ const sweepAnalysisPlies = `-- name: SweepAnalysisPlies :exec
 DELETE FROM analysis_plies WHERE created_at < $1
 `
 
-// 낡은 행을 걷는다. 판이 비정상으로 끝나면 DiscardAnalysisMatch 가 안 돌고, 그때
-// 남는 행이 이 표의 유일한 누수다.
+// 오래된 행을 걷는다. 판이 비정상으로 끝나면 DiscardAnalysisMatch 가 안 돌고, 그때
+// 남는 행이 이 표의 하나뿐인 누수다.
 func (q *Queries) SweepAnalysisPlies(ctx context.Context, createdAt pgtype.Timestamptz) error {
 	_, err := q.db.Exec(ctx, sweepAnalysisPlies, createdAt)
 	return err

@@ -18,7 +18,7 @@ export interface Profile {
   weaknesses?: { code: string; nameJa: string; count: number; share: number }[];
   /**
    * 지금까지 짠 囲い·戦法·戦型. 많은 순이고 판 수다 — 한 판에 같은 이름은 한 번만
-   * 담기므로(009_game_style_tags.sql) 「回」가 아니라 「局」이다.
+   * 담기므로(009_game_style_tags.sql) 단위가 「回」 대신 「局」이다.
    *
    * 手筋은 안 온다. 이름의 정확도가 아직 보류라(journal §45), 「당신이 쓴 手筋」로
    * 적으면 오진이 사람의 기록으로 굳는다.

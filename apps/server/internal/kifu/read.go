@@ -93,7 +93,7 @@ var usiMoveRe = regexp.MustCompile(`^(?:[1-9][a-i][1-9][a-i]\+?|[PLNSGBR]\*[1-9]
 // 받는 모양이 셋이다 — "position startpos moves ...", "position sfen <4칸> moves ...",
 // 그리고 수만 공백으로 이어진 것. 앞의 둘은 접두어를 떼고 같은 자리로 흘려보낸다.
 //
-// 수가 아닌 낱말은 건너뛰지 않고 실패한다. USI 는 사람이 쓰는 표기가 아니라서 「모르는
+// 수가 아닌 낱말은 건너뛰지 않고 실패한다. USI 는 기계가 내는 표기라 「모르는
 // 낱말」이 곧 「이 텍스트는 USI 가 아니다」이고, 건너뛰면 남의 기보를 반쯤 읽는다.
 func ParseUSI(input string) (ParsedGame, error) {
 	g := ParsedGame{StartSFEN: shogi.StartSFEN}
@@ -145,7 +145,7 @@ func ParseUSI(input string) (ParsedGame, error) {
 
 // ── KI2 ─────────────────────────────────────────────────────
 
-// ki2MoveRe 는 표식으로 시작하는 낱말 하나다. 전각 공백(U+3000)은 \s 가 아니라서
+// ki2MoveRe 는 표식으로 시작하는 낱말 하나다. 전각 공백(U+3000)이 \s 에 안 들어가서
 // 「▲同　銀」이 한 낱말로 잡힌다 — KIF 가 그 자리에 넣는 공백이고 parseKIFMove 가 읽는다.
 var ki2MoveRe = regexp.MustCompile(`[▲△▼▽]([^▲△▼▽\s]+)`)
 
@@ -219,7 +219,7 @@ func ParseKI2(input string) (ParsedGame, error) {
 	return g, nil
 }
 
-// endOf 는 수가 아니라 판이 끝난 사유인 낱말을 가른다.
+// endOf 는 판이 끝난 사유인 낱말을 가른다.
 //
 // 답을 手番의 함수로 준다. 投了는 던지는 쪽의 手番에 적히므로 그 자리에서 진 사람이
 // 누구인지가 手番으로 정해진다(ParseKIF 의 같은 판단).

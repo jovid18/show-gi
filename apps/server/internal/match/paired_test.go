@@ -38,7 +38,7 @@ func TestPairedRoomAdmitsOnlyTheTwo(t *testing.T) {
 	}
 }
 
-// 확인 화면이 안 뜨는 근거가 이 값이다. 손님이 이미 앉아 있으면 방은 waiting 이 아니고,
+// 확인 화면이 안 뜨는 근거가 이 값이다. 손님이 이미 앉아 있으면 방 상태가 waiting 에서 벗어나고,
 // 화면은 그때 「참가하시겠습니까」를 안 그린다(screens/match/MatchScreen.tsx).
 func TestPairedRoomIsNotWaiting(t *testing.T) {
 	h := newTestHub(t)

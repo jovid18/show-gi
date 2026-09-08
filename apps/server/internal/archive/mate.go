@@ -113,8 +113,8 @@ func (a *Mate) SearchMate(ctx context.Context, startSFEN string, moves []string)
 	}
 	a.observe(start, false, res.Proven)
 
-	// 증명된 것만 쌓는다. timeout 은 「이 한계 안에서는 모른다」이지 「없다」가 아니라서,
-	// 없다고 저장하면 있는 詰み을 놓친 채 종반 판정이 돈다(01-core.md §2).
+	// 증명된 것만 쌓는다. timeout 은 「이 한계 안에서는 모른다」다 — 없다고 저장하면
+	// 있는 詰み을 놓친 채 종반 판정이 돈다(01-core.md §2).
 	if !usable || !res.Proven {
 		return res, nil
 	}
@@ -139,7 +139,7 @@ func (a *Mate) lookup(ctx context.Context, pos shogi.Position) (usi.MateResult, 
 		}
 		return usi.MateResult{}, false
 	}
-	// ① 얕은 한계의 답은 못 쓴다. 한계 9의 「詰み이 없다」는 한계 11에서 참이 아니다.
+	// ① 얕은 한계의 답은 못 쓴다. 한계 9의 「詰み이 없다」는 한계 11에서 거짓일 수 있다.
 	if m.DepthLimit < a.plies {
 		return usi.MateResult{}, false
 	}

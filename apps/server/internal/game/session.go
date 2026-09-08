@@ -43,11 +43,11 @@ type Opponent interface {
 
 // SkillAdapter 는 추정치로 강함이 실제로 달라지는 상대다. 안 만족하면 그 상대는 sk 를 버린다.
 //
-// Snapshot.OpponentStrength 는 추정기가 아니라 이 값을 보고 눈금을 켠다. 추정기만 보면
-// sk 를 무시하는 상대(engineOpponent)에도 눈금이 그려진다 — 프로덕션은 adaptive 하나라
+// Snapshot.OpponentStrength 는 이 값을 보고 눈금을 켠다. 추정기만 보면 sk 를
+// 무시하는 상대(engineOpponent)에도 눈금이 그려진다 — 프로덕션은 adaptive 하나라
 // 겉으로 드러나지 않는다.
 type SkillAdapter interface {
-	// AdaptsToSkill 은 이 상대가 추정치를 보는가다. 값이 아니라 성질이라 인자가 없다.
+	// AdaptsToSkill 은 이 상대가 추정치를 보는가다. 성질이라 인자가 없다.
 	AdaptsToSkill() bool
 }
 
@@ -115,7 +115,7 @@ type Config struct {
 	// 흔들리면 같은 국면의 같은 수가 걸리기도 안 걸리기도 한다.
 	Rater Rater
 	// ObservePlies 는 개입하지 않는 초반 구간이다. 기본값은 0 — 첫 수부터 판정한다.
-	// 오프닝의 다양성은 수 번호가 아니라 임계치가 지킨다(01-core.md §2).
+	// 오프닝의 다양성은 수 번호 대신 임계치가 지킨다(01-core.md §2).
 	ObservePlies int
 	// HumanColor 는 사람이 잡는 쪽. 기본은 先手(Black).
 	HumanColor shogi.Color
@@ -148,8 +148,8 @@ type Config struct {
 
 	// UndoUsed 는 이 판에서 이미 무른 횟수다. 이어하는 판만 채운다(server/ws.go).
 	//
-	// 예산이 세션이 아니라 판에 붙어서 여기로 받는다. 세션은 이어할 때마다 새로 서므로
-	// 카운터가 그때 0이 되면 UndoMaxPerGame 이 「연결당 3회」가 된다 — 새로고침 한 번에
+	// 예산이 판에 붙어서 여기로 받는다. 세션은 이어할 때마다 새로 서므로 카운터가
+	// 그때 0이 되면 UndoMaxPerGame 이 「연결당 3회」가 된다 — 새로고침 한 번에
 	// 예산이 다시 찬다.
 	UndoUsed int
 	// OpponentOpening 은 상대가 따르는 진형의 일본어 이름이다. 스냅샷으로 그대로 나간다.
@@ -180,7 +180,7 @@ var ErrNothingToUndo = errors.New("game: nothing to undo")
 // 정하므로 상한이 곧 기능이다 — 무제한이면 「블런더를 두면 물러진다」가 「아무 때나
 // 되돌린다」에 묻힌다(journal §72).
 //
-// [미확정] 3은 사람이 요청한 값이다. 실측으로 잡은 것이 아니다.
+// [미확정] 3은 사람이 요청한 값이다. 실측으로 잡은 근거는 아직 없다.
 const UndoMaxPerGame = 3
 
 // ErrNoHintLeft 는 그 판의 힌트 예산을 다 썼을 때다(HintMaxPerGame).
@@ -207,8 +207,9 @@ const HintMaxPerGame = 6
 // 움직이나」이고 3은 없다 — 갇힘 힌트와 같은 그림을 그린다(buildHint).
 const HintStageMax = 2
 
-// 대국 중 엔진 탐색에 거는 시한이다. 자를 시간이 아니라 버릴 시점이다 — 깊이 기반이라
-// 중간 결과는 depth N 결과가 아니고, 넘기면 전부 버린다(usi.Engine.SearchDepth).
+// 대국 중 엔진 탐색에 거는 시한이다. 탐색을 중간에 자르는 대신 결과를 버리는
+// 시점이다 — 깊이 기반이라 중간 결과는 depth N 결과가 못 되고, 넘기면 전부
+// 버린다(usi.Engine.SearchDepth).
 //
 // 값이 둘인 것은 무엇을 먼저 포기하는가다. 넷이 같은 풀을 다투므로(cmd/api/main.go)
 // 부가 기능이 오래 붙들면 대국이 굶는다. 숫자의 근거는 journal §56.
@@ -329,8 +330,8 @@ type state struct {
 	// chasing 은 사람이 詰み을 걸고 있는 채로 이 수를 뒀는가다. 상대가 밴드를 안 보고
 	// 최선으로 버티는 조건이고(MateChasePlies), 사람이 둘 때마다 다시 정해진다.
 	//
-	// 착수 전에 정해야 한다. 수를 놓은 뒤의 게이지는 그 국면의 것이 아니라, 그때 물으면
-	// 「지금 걸고 있는가」가 된다 — 그쪽은 상대 차례라 solver 가 답하지 않는다(maybeGauge).
+	// 착수 전에 정해야 한다. 수를 놓은 뒤에 물으면 게이지가 「지금 걸고 있는가」가
+	// 된다 — 그쪽은 상대 차례라 solver 가 답하지 않는다(maybeGauge).
 	chasing bool
 
 	// tesuji 는 엔진 게이트를 통과한 手筋 이름들이고, tesujiGen 은 그것을 구한 국면이다.
@@ -369,8 +370,8 @@ type state struct {
 	tagHintLastPly int
 
 	// 手筋 쪽 제안형 힌트. 예산(카운터)만 따로 센다 — 한 예산이면 囲い가 먼저 다 써서
-	// 手筋이 못 뜬다(journal §42). 이름이 아니라 후보를 들고 있는 것은 계단 ②③이 짚을
-	// 수가 여기 있어서다. 이름은 언제든 후보에서 편다(tesujiHintTags).
+	// 手筋이 못 뜬다(journal §42). 후보를 들고 있는 것은 계단 ②③이 짚을 수가 여기
+	// 있어서다. 이름은 언제든 후보에서 편다(tesujiHintTags).
 	tesujiOpts        []TesujiOption
 	tesujiHintGen     int
 	tesujiHinting     bool
@@ -390,7 +391,7 @@ type state struct {
 
 	// undos 는 사람이 스스로 무른 횟수다. 개입의 되무르기는 안 센다 — 예산이 다르고
 	// (UndoMaxPerGame), 개입을 세면 AI가 막을수록 사람의 무르기가 줄어든다.
-	// 이어하는 판은 0이 아니라 기록에 남은 값에서 시작한다(Config.UndoUsed).
+	// 이어하는 판은 기록에 남은 값에서 시작한다(Config.UndoUsed).
 	undos int
 
 	subs map[chan Snapshot]struct{}
@@ -651,7 +652,7 @@ func (st *state) undo(ctx context.Context, gaugeDone chan mateResult, tesujiDone
 	// 개입 카드·힌트·알림은 전부 직전 수에 대한 말이라 그 수가 사라지면 같이 사라진다.
 	st.intervention, st.hint, st.notice = nil, nil, nil
 	// 갇힘도 푼다. 「같은 국면에서 연속으로 물러졌다」를 세는 값인데(state.stuck), 사람이
-	// 스스로 되감은 것은 그 연속이 아니다 — 남겨 두면 다음 한 번에 계단이 열린다.
+	// 스스로 되감은 것은 거기 안 든다 — 남겨 두면 다음 한 번에 계단이 열린다.
 	st.stuck = 0
 
 	// 되돌아온 국면은 手筋 힌트를 물어봤던 바로 그 국면이다 — rollback 과 같은 근거다.
@@ -678,9 +679,9 @@ func (st *state) lastHumanMove() int {
 
 // rewindTo 는 n手까지 둔 국면으로 되감는다. 그 뒤의 수는 기보에서 사라진다.
 //
-// 처음부터 다시 둔다. 되돌릴 것이 판 하나가 아니라 千日手 계수·「同」이 보는 도착 칸·
-// 표기까지라, 손으로 되감는 코드는 하나를 빠뜨렸을 때 조용하다. 판당 세 번뿐이라
-// (UndoMaxPerGame) 다시 두는 비용은 문제가 되지 않는다.
+// 처음부터 다시 둔다. 되돌릴 것이 판 하나로 끝나지 않고 千日手 계수·「同」이 보는
+// 도착 칸·표기까지라, 손으로 되감는 코드는 하나를 빠뜨렸을 때 조용하다. 판당 세
+// 번뿐이라(UndoMaxPerGame) 다시 두는 비용은 문제가 되지 않는다.
 func (st *state) rewindTo(n int) error {
 	keep := append([]string(nil), st.usis[:n]...)
 
@@ -738,7 +739,7 @@ func (st *state) playHuman(ctx context.Context, usi string, engineDone chan engi
 	st.skipRating = st.hintedKey != "" && st.hintedKey == shogi.PositionKey(st.pos)
 	if st.skipRating && !st.hintReported {
 		// 첫 시도만 적는다. 그 뒤의 시도는 물러진 수라 기보에 안 남고, taken 은
-		// 「답을 쥔 채 무엇을 뒀나」이지 「몇 번 시도했나」가 아니다.
+		// 「답을 쥔 채 무엇을 뒀나」다. 「몇 번 시도했나」를 세지 않는다.
 		st.hintReported = true
 		if st.cfg.Recorder != nil {
 			st.cfg.Recorder.HintTaken(st.hintedKey, usi == st.hintedUSI)
@@ -974,8 +975,8 @@ func (st *state) finish(status Status, winner Side) {
 
 // recordLastMove 는 확정된 직전 수를 기록에 넘긴다.
 //
-// apply 안이 아니라 확정되는 자리마다 부른다. 착수와 확정이 같은 순간이 아니다 —
-// 사람의 수는 판정을 통과해야 확정되고, 물러지면 기보에서 사라진다.
+// 확정되는 자리마다 부른다. apply 안에서 부르지 않는다 — 착수와 확정은 다른
+// 순간이다. 사람의 수는 판정을 통과해야 확정되고, 물러지면 기보에서 사라진다.
 func (st *state) recordLastMove() {
 	if st.cfg.Recorder == nil || len(st.moves) == 0 {
 		return
@@ -987,8 +988,8 @@ func (st *state) recordLastMove() {
 
 // recordStyleTags 는 이 국면에서 사람에게 붙은 이름 중 처음 보는 것을 남긴다.
 //
-// 확정된 수 뒤에서만 부른다. 물러진 수 위에서 세면 되물러 사라진 형태가 기록에 남고,
-// 그건 「짰다」가 아니라 「짤 뻔했다」다.
+// 확정된 수 뒤에서만 부른다. 물러진 수 위에서 세면 되물러 사라진 형태가 기록에
+// 남는다 — 「짤 뻔했다」가 「짰다」로 적힌다.
 //
 // 화면과 같은 함수(styleTags)를 쓴다 — 따로 두면 판에 뜬 이름과 마이페이지가 세는
 // 이름이 달라진다. 手筋만 뺀다. 그쪽은 엔진 평가치에 매여 있고 이름의 정확도가 아직
@@ -1189,7 +1190,7 @@ func (st *state) movesBy(side Side) []string {
 // styleTags 는 화면에 나갈 이름 전부다 — 囲い·전법·戦型은 판에서 매번 다시 세고,
 // 手筋은 엔진 게이트를 통과한 것만 실린다.
 //
-// 두 축이 다르게 오는 것은 비용 때문이 아니다. 囲い는 판만 보면 알 수 있지만 手筋은
+// 두 축이 다르게 오는 것은 비용과 무관하다. 囲い는 판만 보면 알 수 있지만 手筋은
 // 「이득인가」를 엔진 평가치가 정하고 그 값은 판에서 다시 읽을 수 없다 — 그래서
 // 판정이 끝난 자리에서 한 번 구해 세대와 함께 들고 있는다(applyVerdict).
 //
@@ -1222,10 +1223,10 @@ const (
 //	囲い   짓다 만 형태에 이름이 없어서, 「이 수를 두면 이름이 생긴다」가 구현한
 //	       종류 수에 달린 임의의 한 수가 된다 — §44
 //	전법   飛를 어느 筋으로 振るか는 그 사람이 고르는 것이다. 첫 수 앞의
-//	       「中飛車になります」는 힌트가 아니라 지시다 — §71
+//	       「中飛車になります」는 힌트를 넘어 지시가 된다 — §71
 //
 // 남는 것은 戦型이다. 角換わり처럼 판 전체가 이미 그렇게 되어 있는가를 말하는 축이라
-// 「무엇을 골라라」가 아니다.
+// 「무엇을 골라라」를 담지 않는다.
 func hintable(t tag.Tag) bool {
 	return t.Kind == tag.KindOpening
 }
@@ -1301,7 +1302,7 @@ func (st *state) maybeTesujiHint(ctx context.Context, done chan tesujiHintResult
 	if st.cfg.TesujiHint == nil || st.status != StatusPlaying {
 		return
 	}
-	// 사람 차례에서만 묻는다. 상대 차례의 手筋은 알릴 것이 아니라 당할 것이다.
+	// 사람 차례에서만 묻는다. 상대 차례의 手筋은 사람이 당하는 쪽이라 알릴 것이 없다.
 	if st.pos.Turn != st.cfg.HumanColor {
 		return
 	}
@@ -1311,10 +1312,10 @@ func (st *state) maybeTesujiHint(ctx context.Context, done chan tesujiHintResult
 	if st.tesujiHintCount >= TagHintMaxPerGame {
 		return
 	}
-	// 쿨다운은 띄운 자리가 아니라 물어본 자리에서 잰다. 뜬 자리에서만 재면 게이트가 한
-	// 번도 안 열리는 판에서 이 탐색이 사람 차례마다 돈다(journal §56 · §74). 탐색이 후보
-	// 수와 무관하게 한 번이 된 뒤에도(gateTesujiOptions) 그대로인 것은, 아끼는 것이 탐색
-	// 횟수만이 아니라 룰 필터이기 때문이다. 상한(tesujiHintCount)은 뜬 횟수를 센다.
+	// 쿨다운은 물어본 자리에서 잰다. 뜬 자리에서만 재면 게이트가 한 번도 안 열리는
+	// 판에서 이 탐색이 사람 차례마다 돈다(journal §56 · §74). 탐색이 후보 수와 무관하게
+	// 한 번이 된 뒤에도(gateTesujiOptions) 그대로인 것은, 아끼는 것이 탐색 횟수와 룰
+	// 필터 둘이기 때문이다. 상한(tesujiHintCount)은 뜬 횟수를 센다.
 	ply := len(st.moves)
 	if st.tesujiHintAsked && ply-st.tesujiHintLastPly < TagHintCooldown {
 		return
@@ -1608,7 +1609,7 @@ func (st *state) askHint(ctx context.Context, done chan hintResult) error {
 		return ErrFinished
 	}
 	// 판정 중이거나 상대가 생각 중이면 국면이 아직 사람에게 안 왔다 — 그때의 최선수는
-	// 사람이 둘 자리의 것이 아니다. 무르기와 같은 자리, 같은 이유다(undo).
+	// 사람이 둘 자리의 답이 못 된다. 무르기와 같은 자리, 같은 이유다(undo).
 	if st.judging || st.thinking || st.pos.Turn != st.cfg.HumanColor {
 		return ErrNotYourTurn
 	}
@@ -1647,7 +1648,7 @@ func (st *state) askHint(ctx context.Context, done chan hintResult) error {
 
 // applyHintResult 는 구해진 최선수를 그 국면의 다음 단계로 그린다.
 //
-// 예산은 물어본 자리가 아니라 답이 온 여기서 센다. 그래야 탐색이 실패한 회차가
+// 예산은 물어본 자리 대신 답이 온 여기서 센다. 그래야 탐색이 실패한 회차가
 // 예산을 먹지 않는다.
 func (st *state) applyHintResult(r hintResult) {
 	if !st.hinting || r.gen != st.hintGen {

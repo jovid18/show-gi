@@ -19,7 +19,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// detailOf 는 DB를 안 탄다. 재현이 이 패키지의 순수 함수라서, 기록을 손으로 만들어
+// detailOf 는 DB를 타지 않는다. 재현이 이 패키지의 순수 함수라서, 기록을 손으로 만들어
 // 엔진도 DB도 없이 확인할 수 있다 — 여기가 리뷰 화면의 정합성이 걸린 자리다.
 
 func recordOf(myColor string, usis ...string) store.GameRecord {
@@ -115,13 +115,13 @@ func TestDetailCarriesTheHandicapBaseline(t *testing.T) {
 		t.Errorf("上手로 둔 판: baselineCp = %d, want %d", got, -nimai.BaselineCp)
 	}
 
-	// 平手는 0이라 응답에 아예 안 나간다(omitempty).
+	// 平手는 0이라 응답에 아예 나가지 않는다(omitempty).
 	if got := detailOf(recordOf("b", "7g7f")).BaselineCp; got != 0 {
 		t.Errorf("平手: baselineCp = %d, want 0", got)
 	}
 }
 
-// 평가치가 없는 手数는 없는 채로 나가야 한다. 0으로 채우면 호각과 구별이 안 된다.
+// 평가치가 없는 手数는 없는 채로 나가야 한다. 0으로 채우면 호각과 구별할 수 없다.
 func TestDetailKeepsMissingEvalMissing(t *testing.T) {
 	got := detailOf(recordOf("b", "7g7f"))
 	if got.Moves[0].EvalCp != nil {
@@ -143,7 +143,7 @@ func TestDetailStopsAtGapInPlies(t *testing.T) {
 	if got.Moves[0].SFEN == "" {
 		t.Error("moves[0].sfen is empty — 구멍 앞은 그려져야 한다")
 	}
-	// 수 자체는 남는다. 둔 것은 둔 것이고, 판을 못 그릴 뿐이다.
+	// 수 자체는 남는다. 둔 것은 둔 것이고, 판을 그리지 못할 뿐이다.
 	if len(got.Moves) != 2 {
 		t.Fatalf("moves = %d, want 2", len(got.Moves))
 	}
@@ -208,7 +208,7 @@ func TestDetailToleratesInterventionBeyondKifu(t *testing.T) {
 	}
 }
 
-// 中盤에서 시작하는 판. 手数의 홀짝이 아니라 시작 국면의 手番이 누가 먼저인지를 정한다.
+// 中盤에서 시작하는 판. 누가 먼저인지는 手数의 홀짝 대신 시작 국면의 手番이 정한다.
 func TestDetailUsesStartPositionForTurnOrder(t *testing.T) {
 	rec := recordOf("b", "3c3d")
 	rec.StartSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/2P6/PP1PPPPPP/1B5R1/LNSGKGSNL w - 2"
@@ -224,7 +224,7 @@ func TestDetailUsesStartPositionForTurnOrder(t *testing.T) {
 }
 
 // DB가 없으면 503이다. 엔진과 조건이 갈린다 — 엔진이 죽어도 지난 판은 볼 수 있어야 하고,
-// 여기가 404면 "기록이 없다"와 "기록을 못 읽는다"가 섞인다.
+// 여기가 404면 "기록이 없다"와 "기록을 읽지 못한다"가 섞인다.
 func TestReviewWithoutStore(t *testing.T) {
 	h := Handler(Options{})
 	for _, path := range []string{"/api/games", "/api/games/1", "/api/games/1/summary"} {
@@ -254,7 +254,7 @@ func TestReviewWithoutStore(t *testing.T) {
 // 것과 같은 함수가 만든다(§52). 여기가 보는 것은 그 라우트가 실제로 붙어 있는가다 —
 // GET /api/games/{id} 와 한 세그먼트 차이라, 어긋나면 화면이 총평 대신 기보를 받는다.
 //
-// 엔진을 안 넣는다. 총평은 기록만 읽어 만들어지므로(summarize) 이 표면은 엔진이 없어도
+// 엔진을 넣지 않는다. 총평은 기록만 읽어 만들어지므로(summarize) 이 표면은 엔진이 없어도
 // 답해야 하고, 그것이 지켜지는지가 여기서 갈린다.
 func TestSummaryRouteReadsFinishedGame(t *testing.T) {
 	st := openStoreForTest(t)
@@ -311,14 +311,14 @@ func TestSummaryRouteReadsFinishedGame(t *testing.T) {
 	if got.Body == "" {
 		t.Error("총평 문장이 비었다 — 라우터가 없어도 결정적 문구가 나가야 한다")
 	}
-	// 사람이 先手로 한 수 뒀다. 이 수가 안 세어지면 화면의 표가 남의 手数를 그린다.
+	// 사람이 先手로 한 수 뒀다. 이 수가 세어지지 않으면 화면의 표가 남의 手数를 그린다.
 	if got.Stats.PlayerMoves != 1 {
 		t.Errorf("playerMoves = %d, want 1", got.Stats.PlayerMoves)
 	}
 }
 
-// 王手는 서버가 짚는다. 화면은 규칙을 모르므로, 이 칸이 안 오면 리뷰에서 王手가
-// 전부 안 보인다.
+// 王手는 서버가 짚는다. 화면은 규칙을 모르므로, 이 칸이 오지 않으면 리뷰에서 王手가
+// 전부 보이지 않는다.
 func TestDetailMarksCheck(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d", "8h2b+", "3a2b", "B*4b")
 	got := detailOf(rec)
@@ -334,7 +334,7 @@ func TestDetailMarksCheck(t *testing.T) {
 	}
 }
 
-// 기보에 구멍이 나도 누구의 수인지는 안 흔들린다. 배열의 자리로 세면 구멍 뒤가
+// 기보에 구멍이 나도 누구의 수인지는 흔들리지 않는다. 배열의 자리로 세면 구멍 뒤가
 // 한 칸씩 밀려서 리뷰가 남의 실수를 내 것으로 보여준다.
 func TestDetailAttributesByPlyNotIndex(t *testing.T) {
 	rec := store.GameRecord{
@@ -355,10 +355,10 @@ func TestDetailAttributesByPlyNotIndex(t *testing.T) {
 	}
 }
 
-// 시작 국면을 못 읽으면 한 수도 두지 않는다.
+// 시작 국면을 읽지 못하면 한 수도 두지 않는다.
 //
 // 平手 초기 국면으로 대신 두면 그 수들이 거기서도 합법일 수 있고, 그러면 한 번도 없었던
-// 국면을 그럴듯하게 그린다 — 리뷰에서 그건 판을 못 그리는 것보다 나쁘다.
+// 국면을 그럴듯하게 그린다 — 리뷰에서 그건 판을 그리지 못하는 것보다 나쁘다.
 func TestDetailRefusesToReplayFromBrokenStart(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d")
 	rec.StartSFEN = "not-a-sfen"
@@ -433,7 +433,7 @@ func TestDetailFlipsUndoEvalForWhite(t *testing.T) {
 	}
 }
 
-// 무르기는 개입 횟수에 안 섞인다. 목록의 그 숫자는 「AI가 몇 번 막았나」다.
+// 무르기는 개입 횟수에 섞이지 않는다. 목록의 그 숫자는 「AI가 몇 번 막았나」다.
 func TestUndosDoNotCountAsInterventions(t *testing.T) {
 	rec := recordOf("b", "7g7f")
 	rec.Undos = []store.RecordedUndo{{Ply: 1, USI: "7g7f"}}

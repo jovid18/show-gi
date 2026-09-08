@@ -8,7 +8,7 @@ import type { Profile, ProfileState } from '@/protocol/profile';
  * 열 때마다 새로 부른다. 방금 끝난 판이 전적에 들어 있어야 하고, 되짚기 목록이 같은
  * 이유로 그렇게 한다(App.tsx).
  *
- * 401을 오류로 그리지 않는다 — 로그인 안 한 것은 실패가 아니라 상태다.
+ * 401을 오류로 그리지 않는다 — 로그인 안 한 것은 하나의 상태다.
  */
 export function useProfile(): ProfileState {
   const [state, setState] = useState<ProfileState>({ status: 'loading' });

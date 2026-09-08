@@ -21,8 +21,8 @@ export function ProfileScreen({ onSignOut }: { onSignOut: () => void }) {
 
   if (state.status === 'loading') return <p className="review-status">読み込み中…</p>;
 
-  // 로그인 안 한 것은 오류가 아니다. 익명 판은 서로 구별할 수단이 없어서 이 화면이
-  // 답할 것이 애초에 없다 — 그러니 「失敗しました」가 아니라 무엇을 하면 되는지를 쓴다.
+  // 로그인 안 한 것을 오류로 다루지 않는다. 익명 판은 서로 구별할 수단이 없어서 이
+  // 화면이 답할 것이 애초에 없다 — 그러니 「失敗しました」 대신 무엇을 하면 되는지를 쓴다.
   if (state.status === 'anonymous') {
     return (
       <section className="profile">
@@ -147,7 +147,7 @@ export function ProfileScreen({ onSignOut }: { onSignOut: () => void }) {
                     없으면 둘이 같은 종류로 읽힌다. 대국 중의 알림과 같은 표다. */}
                 <span className="profile__styles-kind">{TAG_KIND_JA[s.kind]}</span>
                 <span className="profile__styles-name">{s.nameJa}</span>
-                {/* 「回」가 아니라 「局」이다. 한 판에 같은 이름은 한 번만 담긴다. */}
+                {/* 단위는 「回」 대신 「局」이다. 한 판에 같은 이름은 한 번만 담긴다. */}
                 <span className="profile__styles-count">{s.games}局</span>
               </li>
             ))}

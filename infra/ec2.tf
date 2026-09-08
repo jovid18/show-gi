@@ -147,14 +147,14 @@ resource "aws_launch_template" "app" {
 # 밀린 手는 상호작용 대가 겸해서 집는다(ecs.tf 의 SERVER_ROLE). 임계를 넘으면 알람이
 # 전용 대를 부르므로 배선은 그대로다.
 #
-# 태스크가 아니라 EC2 를 늘린다. network_mode 가 host 라 포트가 겹쳐서 한 인스턴스에
+# 늘리는 것은 EC2 다. network_mode 가 host 라 포트가 겹쳐서 한 인스턴스에
 # api 태스크가 둘 못 뜨고(ecs.tf), task_cpu 가 인스턴스의 2 vCPU 를 전부 예약하므로
 # CPU 만으로도 한 대에 하나다.
 #
 # 상호작용 쪽은 안 늘린다. 방이 짝지은 프로세스의 메모리에 있으므로(journal §98) 두 대면
 # 초대·매칭이 절반 확률로 깨진다 — 그것을 안 건드리는 것이 티어를 가른 값이다.
 #
-# for_each 로 묶은 이유는 줄 수가 아니라 대조다. 두 그룹의 구매 정책·타입 후보가 갈리면
+# for_each 로 묶은 이유는 대조다. 두 그룹의 구매 정책·타입 후보가 갈리면
 # 「분석 2대」 회차가 상호작용 회차와 다른 박스에서 돈 것이 되어 용량표에 못 적는다.
 locals {
   asg_tiers = {
@@ -189,8 +189,8 @@ resource "aws_autoscaling_group" "tier" {
       on_demand_base_capacity = var.on_demand_base_capacity
 
       # base 를 넘는 대는 base 를 따라간다. 분석 티어가 두 대일 때 한 대만 스팟이면
-      # 회수 하나가 그 회차의 절반을 가져가고(약 9분, journal §109), 잰 것이 처리량이
-      # 아니라 복구 시간이 된다. 회차가 아닐 때는 둘 다 스팟이다.
+      # 회수 하나가 그 회차의 절반을 가져가고(약 9분, journal §109), 재는 것이 처리량에서
+      # 복구 시간으로 바뀐다. 회차가 아닐 때는 둘 다 스팟이다.
       on_demand_percentage_above_base_capacity = var.on_demand_base_capacity > 0 ? 100 : 0
 
       # 온디맨드는 override 순서대로 고른다. 회차가 어느 클래스에서 돌았는지가 용량표의

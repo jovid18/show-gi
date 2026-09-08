@@ -7,7 +7,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
 )
 
-// 처음 두는 사람에게는 「전」이 없어야 한다. 기준선을 그리면 누구도 안 잰 숫자가 사람에
+// 처음 두는 사람에게는 「전」이 없어야 한다. 기준선을 그리면 누구도 재지 않은 숫자가 사람에
 // 대한 판정으로 화면에 나온다(journal §62).
 func TestFirstGameHasNoBefore(t *testing.T) {
 	r := newSkillRun(skill.Unknown)
@@ -111,9 +111,9 @@ func mustRank(t *testing.T, absLoss float64) skill.Rank {
 }
 
 // estimate 는 段級이 붙을 만한 추정치다. 이름은 절대 낙폭에서만 나오므로(skill.RankOf)
-// 두 축을 같은 개수로 채운다 — 대국 중에 오는 값이 그 모양이다.
+// 두 쪽을 같은 개수로 채운다 — 대국 중에 오는 값이 그 모양이다.
 //
-// 밴드가 보는 Loss 는 아무 값이나 둔다. 段級이 그 칸을 안 보는 것이 이 파일이 확인하는
+// 밴드가 보는 Loss 는 아무 값이나 둔다. 段級이 그 칸을 보지 않는 것이 이 파일이 확인하는
 // 것 중 하나다.
 func estimate(absLoss float64, samples int) skill.Estimate {
 	return skill.Estimate{Loss: 0.5, Samples: samples, AbsLoss: absLoss, AbsSamples: samples}

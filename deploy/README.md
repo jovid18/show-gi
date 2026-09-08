@@ -35,7 +35,7 @@ Route53 (show-gi.com) → ALB (ACM TLS) → EC2 스팟 1대 (t4g.small / ARM64)
 > python3 -c "import json;print(len(json.dumps(json.load(open('infra/iam-policy.json')),separators=(',',':'))))"
 > ```
 >
-> 갈랐다고 첫 정책을 줄인 것은 아니다. 액션을 `service:*` 로 묶으면 자리가 나지만 그것은 최소권한을 크기와 바꾸는 것이고, 정책 둘이 붙는 데는 아무 대가가 없다.
+> 갈랐어도 첫 정책은 그대로 꽉 차 있다. 액션을 `service:*` 로 묶으면 자리가 나지만 그것은 최소권한을 크기와 바꾸는 것이고, 정책 둘이 붙는 데는 아무 대가가 없다.
 
 ```sh
 aws iam create-user --user-name show-gi-operator
@@ -105,7 +105,7 @@ aws dynamodb create-table --table-name show-gi-terraform-lock \
   --billing-mode PAY_PER_REQUEST --region ap-northeast-1
 ```
 
-**부트스트랩은 관리자 자격으로 한다.** `show-gi-operator`에게는 버킷을 만들 권한이 없다 — 자기가 쓸 state 저장소를 자기가 만들 수 있으면 그건 최소권한이 아니다.
+**부트스트랩은 관리자 자격으로 한다.** `show-gi-operator`에게는 버킷을 만들 권한이 없다 — 자기가 쓸 state 저장소를 자기가 만들 수 있으면 최소권한이 무너진다.
 
 ### 도메인
 
@@ -162,7 +162,7 @@ ACM 인증서 검증과 RDS 생성 때문에 10분쯤 걸린다. `aws_acm_certif
 
 배포용 값은 SSM Parameter Store에 둔다. ECS 태스크 정의가 `secrets`로 참조해 컨테이너에 직접 주입하므로, 값이 어느 디스크에도 남지 않고 로그에도 찍히지 않는다.
 
-Secrets Manager를 쓰지 않은 이유는 단순하다 — 우리에게 필요한 건 로테이션이 아니라 보관이고, Parameter Store의 표준 파라미터는 무료다.
+Secrets Manager를 쓰지 않은 이유는 단순하다 — 우리에게 필요한 건 로테이션 말고 보관이고, Parameter Store의 표준 파라미터는 무료다.
 
 ```sh
 P=/show-gi/prod
@@ -186,7 +186,7 @@ aws ssm put-parameter --name $P/GOOGLE_CLIENT_SECRET --type SecureString --value
 aws ssm put-parameter --name $P/OPENAI_API_KEY --type SecureString --value '<key>' --overwrite
 ```
 
-> `OPENAI_API_KEY` 를 안 넣으면 태스크가 안 뜬다. 태스크 정의의 `secrets` 에 이름이 있으면 ECS 가 값을 못 찾을 때 컨테이너를 시작하지 않는다 — 「없으면 그 계층만 꺼진다」는 서버의 규약이지 ECS 의 규약이 아니다. 쓸 생각이 없으면 빈 문자열로라도 넣거나 `infra/ecs.tf` 의 목록에서 이름을 뺀다.
+> `OPENAI_API_KEY` 를 안 넣으면 태스크가 안 뜬다. 태스크 정의의 `secrets` 에 이름이 있으면 ECS 가 값을 못 찾을 때 컨테이너를 시작하지 않는다 — 「없으면 그 계층만 꺼진다」는 서버의 규약이고 ECS 는 그것을 모른다. 쓸 생각이 없으면 빈 문자열로라도 넣거나 `infra/ecs.tf` 의 목록에서 이름을 뺀다.
 
 > `POSTGRES_PASSWORD`를 반드시 넣는다. 안 넣으면 compose의 기본값(`showgi`)이 쓰이는데 그건 퍼블릭 레포에 적혀 있는 값이다. 5432는 루프백에만 열려 있지만, 기본값으로 운영하지 않는다.
 
@@ -277,7 +277,7 @@ aws ecs execute-command --cluster show-gi --container api \
 
 기동 스크립트나 배포 파이프가 마이그레이션을 실행하는 방식은 앞으로도 쓰지 않는다.
 
-> `/docker-entrypoint-initdb.d` 는 우리가 켠 것이 아니라 postgres 이미지의 기본 동작이다. `docker-entrypoint.sh` 가 거기 있는 `.sql`·`.sh` 를 알파벳 순으로 실행한다. 그래서 「로컬 편하게 하자」고 마이그레이션을 걸어두기 쉬운 자리인데, 데이터 디렉터리가 비어 있을 때만 돈다(`if [ -z "$DATABASE_ALREADY_EXISTS" ]`).
+> `/docker-entrypoint-initdb.d` 는 postgres 이미지가 기본으로 켜 둔 것이다. `docker-entrypoint.sh` 가 거기 있는 `.sql`·`.sh` 를 알파벳 순으로 실행한다. 그래서 「로컬 편하게 하자」고 마이그레이션을 걸어두기 쉬운 자리인데, 데이터 디렉터리가 비어 있을 때만 돈다(`if [ -z "$DATABASE_ALREADY_EXISTS" ]`).
 >
 > 새로 clone한 사람은 스키마가 들어가고 기존 볼륨을 가진 사람은 안 들어가는데 에러도 안 난다. 「내 컴퓨터에선 되는데」가 정확히 그렇게 만들어진다.
 
@@ -285,7 +285,7 @@ aws ecs execute-command --cluster show-gi --container api \
 - 태스크가 여러 개면 같은 DDL이 동시에 여러 번 돈다
 - 실패하면 기동 실패로 나타나서, 스키마 문제인지 앱 문제인지가 로그에서 갈리지 않는다
 
-아래의 일회용 ECS 태스크는 접근이 막혔을 때의 대비책으로만 남긴다. 평소 경로가 아니다.
+아래의 일회용 ECS 태스크는 접근이 막혔을 때의 대비책으로만 남긴다.
 
 ## 이미지 CVE 를 보는 법
 
@@ -299,7 +299,7 @@ aws ecr describe-image-scan-findings --repository-name show-gi/api --image-id im
   --region ap-northeast-1 --profile show-gi
 ```
 
-**`api` 에 perl CVE 가 남아 있는 것은 정상이다.** `perl-base` 가 데비안 Essential 이라 못 빼고 업스트림에 패치가 없다 — 런타임이 실행하지 않으므로 닿을 수 없다([상태 문서](../docs/06-status.md) §8). 보는 값은 절대 개수가 아니라 회차 사이의 차이다.
+**`api` 에 perl CVE 가 남아 있는 것은 정상이다.** `perl-base` 가 데비안 Essential 이라 못 빼고 업스트림에 패치가 없다 — 런타임이 실행하지 않으므로 닿을 수 없다([상태 문서](../docs/06-status.md) §8). 절대 개수 대신 회차 사이의 차이를 본다.
 
 ## 엔진이 떴는지 보는 법
 
@@ -358,13 +358,13 @@ aws ecs execute-command --cluster show-gi --task <task-id> --container web \
 
 알람은 다섯이다. 메일을 받으려면 `terraform.tfvars` 에 `alarm_email` 을 적고 apply 한 뒤, 확인 메일의 링크를 한 번 눌러야 한다 — 누르기 전에는 구독이 `pending` 이라 알람이 울려도 안 온다.
 
-| 알람                        | 언제                                                 | 무엇을 보나                                                                                                                                                                                                                                                                              |
-| --------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `show-gi-no-healthy-target` | 정상 타깃이 5분 동안 없다                            | 사이트가 내려갔다. EMF 와 무관하게 AWS 가 늘 내는 지표다. 5분인 것은 정상 배포·스팟 회수가 그보다 짧아서다                                                                                                                                                                               |
-| `show-gi-5xx`               | 5분 안에 5xx 나 panic 1건 이상                       | 우리 버그. 같은 시각의 `request_id` 로 로그를 찾는다                                                                                                                                                                                                                                     |
-| `show-gi-engine-pool-wait`  | **대국** 풀 대기 p95 가 최근 5분 중 3분에서 3초 초과 | **풀이 아니라 vCPU 를 올릴 자리다** — 풀을 키우면 대기가 탐색 시간으로 옮겨간다([journal §104](../docs/journal/101-120.md)). 임계 3초는 실측이다                                                                                                                                         |
-| `show-gi-analysis-backlog`  | 사후 분석 큐가 5분 내내 100手 초과                   | **대인전 포화는 위 알람이 못 본다** — 병목이 풀이 아니라 탐색 처리량이라 사람의 풀 대기는 포화에서도 표본 0이다. 임계 100 은 실측 사이다(6판 최고 13 · 8판 4분째 140, [journal §108](../docs/journal/101-120.md)). 이 알람이 분석 대를 하나 올린다 — 아래 §「분석 대수를 알람이 돌린다」 |
-| `show-gi-analysis-idle`     | 사후 분석 큐가 30분 내내 비어 있다                   | **사람에게 안 알린다.** 분석 대를 하나 빼는 신호뿐이고, 언제 움직였는지는 `describe-scaling-activities` 가 든다 — 아래 §「분석 대수를 알람이 돌린다」                                                                                                                                    |
+| 알람                        | 언제                                                 | 무엇을 보나                                                                                                                                                                                                                                                                  |
+| --------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `show-gi-no-healthy-target` | 정상 타깃이 5분 동안 없다                            | 사이트가 내려갔다. EMF 와 무관하게 AWS 가 늘 내는 지표다. 5분인 것은 정상 배포·스팟 회수가 그보다 짧아서다                                                                                                                                                                   |
+| `show-gi-5xx`               | 5분 안에 5xx 나 panic 1건 이상                       | 우리 버그. 같은 시각의 `request_id` 로 로그를 찾는다                                                                                                                                                                                                                         |
+| `show-gi-engine-pool-wait`  | **대국** 풀 대기 p95 가 최근 5분 중 3분에서 3초 초과 | **vCPU 를 올릴 자리다** — 풀을 키우면 대기가 탐색 시간으로 옮겨간다([journal §104](../docs/journal/101-120.md)). 임계 3초는 실측이다                                                                                                                                         |
+| `show-gi-analysis-backlog`  | 사후 분석 큐가 5분 내내 100手 초과                   | **대인전 포화는 위 알람이 못 본다** — 병목이 탐색 처리량이라 사람의 풀 대기는 포화에서도 표본 0이다. 임계 100 은 실측 사이다(6판 최고 13 · 8판 4분째 140, [journal §108](../docs/journal/101-120.md)). 이 알람이 분석 대를 하나 올린다 — 아래 §「분석 대수를 알람이 돌린다」 |
+| `show-gi-analysis-idle`     | 사후 분석 큐가 30분 내내 비어 있다                   | **사람에게 안 알린다.** 분석 대를 하나 빼는 신호뿐이고, 언제 움직였는지는 `describe-scaling-activities` 가 든다 — 아래 §「분석 대수를 알람이 돌린다」                                                                                                                        |
 
 ## 분석 대수를 알람이 돌린다
 
@@ -489,14 +489,14 @@ aws ecs run-task --cluster show-gi --task-definition show-gi-migrate --launch-ty
 
 SQL을 퍼블릭 레포의 raw URL에서 받아온다 — 파일을 컨테이너에 넣을 방법을 따로 만들 필요가 없다. 레포가 퍼블릭이라 자격증명도 필요 없다.
 
-결과는 종료 코드로 본다. `ON_ERROR_STOP=1` 때문에 한 문장이라도 실패하면 0이 아니다.
+결과는 종료 코드로 본다. `ON_ERROR_STOP=1` 때문에 한 문장이라도 실패하면 0으로 끝나지 않는다.
 
 ```sh
 aws ecs describe-tasks --cluster show-gi --tasks <task-arn> \
   --query 'tasks[0].containers[0].exitCode' --region ap-northeast-1 --profile show-gi
 ```
 
-> `show-gi-migrate` 태스크 정의는 Terraform 밖에서 등록됐고, 그래서 destroy 와 함께 사라졌다([journal §133](../docs/journal/121-140.md)). 「새 환경에서 재현되지 않는다」가 예측이 아니라 실제로 일어난 자리다 — `docs/06-status.md` §7의 부채 목록에 있다.
+> `show-gi-migrate` 태스크 정의는 Terraform 밖에서 등록됐고, 그래서 destroy 와 함께 사라졌다([journal §133](../docs/journal/121-140.md)). 「새 환경에서 재현되지 않는다」가 실제로 일어난 자리다 — `docs/06-status.md` §7의 부채 목록에 있다.
 
 조회만 할 때도 같은 방법을 쓴다. 명령의 `wget … && psql -f` 자리를 `psql "$DATABASE_URL" -c '…'`로 바꾸면 된다.
 
@@ -518,7 +518,7 @@ docker compose logs -f web                      # 인증서 발급 로그
 
 ## 자주 물리는 곳
 
-**태스크가 시작하자마자 죽는다.** 대부분 비밀 주입 실패다. `secrets`에 적힌 파라미터가 하나라도 없으면 ECS는 컨테이너를 띄우지 못하고, 그 실패는 애플리케이션 로그가 아니라 태스크 중지 이유에 남는다.
+**태스크가 시작하자마자 죽는다.** 대부분 비밀 주입 실패다. `secrets`에 적힌 파라미터가 하나라도 없으면 ECS는 컨테이너를 띄우지 못하고, 그 실패는 애플리케이션 로그 대신 태스크 중지 이유에 남는다.
 
 ```sh
 aws ecs describe-tasks --cluster show-gi --tasks <task-id> \
@@ -553,7 +553,7 @@ aws logs put-retention-policy --log-group-name /aws/rds/instance/show-gi/postgre
 
 ## 비용과 정리
 
-**해커톤이 끝나고 상시 가동으로 바꿨다**(2026-08-17). 그래서 표를 주 단위에서 월 단위로 옮겼다 — 이제 「대회 기간의 비용」이 아니라 「계속 나가는 비용」이다.
+**해커톤이 끝나고 상시 가동으로 바꿨다**(2026-08-17). 그래서 표를 주 단위에서 월 단위로 옮겼다 — 이제 「계속 나가는 비용」이다.
 
 > 2026-09-04 에 전부 내렸다가 2026-09-08 에 다시 올렸다([journal §128](../docs/journal/121-140.md) · [journal §133](../docs/journal/121-140.md)). 지금은 아래 표대로 나가고 있다 — 절약 모드 그대로다. 되살릴 때 DB 데이터는 못 되찾았다(destroy 가 스냅샷을 안 남겼다). 내리는 세 단계와 되살리는 절차는 이 절 끝에 있다.
 
@@ -586,15 +586,15 @@ aws ce get-cost-and-usage --region us-east-1 --profile show-gi \
 
 **컴퓨트도 ALB 도 RDS 도 이미 하한이다.** ALB 는 서로 다른 AZ 의 서브넷 둘이 AWS 하한이라 1개로는 못 만들고, `db.t4g.micro` 는 제일 작은 타입이며 20 GiB 는 gp3 최소치다. 더 내리는 방법은 끄는 것뿐이라 [journal §128](../docs/journal/121-140.md) 이 그 셋을 갈랐다.
 
-> 하한이 아닌 자리가 하나 남아 있다 — RDS 의 퍼블릭 IPv4($3.65)다. 크기가 아니라 통로라서 줄이는 방법이 다르다([journal §134](../docs/journal/121-140.md)).
+> 하한이 아닌 자리가 하나 남아 있다 — RDS 의 퍼블릭 IPv4($3.65)다. 통로라서 줄이는 방법이 크기와 다르다([journal §134](../docs/journal/121-140.md)).
 
 > 절약 모드다([journal §125](../docs/journal/121-140.md)). 부하 회차를 한동안 안 돌기로 하고 2026-08-27 에 내렸다 — 대가 둘에서 하나가 됐고(분석 티어의 하한이 0 이고 상호작용이 `SERVER_ROLE=both` 로 겸한다) 타입이 `c6g.large` 에서 `t4g.small` 이 됐다. 컴퓨트가 $54 에서 $7 이 됐고, 이제 청구서의 대부분은 ALB 와 RDS 다.
 >
 > 회차를 다시 돌리기 전에 되돌린다. T 계열은 크레딧이 마르면 탐색이 8배 느려져서 용량표가 성립하지 않는다([journal §108](../docs/journal/101-120.md)). 되돌릴 것은 `instance_type` · `instance_type_fallbacks` · `task_memory` · 상호작용 `SERVER_ROLE` 과 분석 쪽 하한 둘이고, 그 apply 가 도는 대를 갈아치운다(위 §1).
 
-> 분석 대가 2026-08-26 에 늘었다([journal §120](../docs/journal/101-120.md)). 티어를 가르면 대가 하나 더 선다. 그 대수를 이제 알람이 든다([journal §124](../docs/journal/121-140.md)) — 상시로는 1대이고 밀린 手가 임계를 넘는 동안만 2대라, 값은 부하가 실제로 걸린 시간만큼만 는다. 사람이 정하는 것은 상한(`var.analysis_max_instances`) 하나다. 그 두 번째 대는 스팟이다 — `on_demand_base_capacity` 가 평시에 0 이고 그룹 공통이라 「분석만 온디맨드」로는 못 나눈다. 부하 회차를 걸 때는 그 값을 1 로 올린다(대당 하루 $2.15) — 회수 하나가 약 9분 장애라 잰 것이 처리량이 아니라 복구 시간이 된다. 올리고 내리는 apply 가 도는 대를 갈아치우므로(위 §1) 회차 앞뒤로 창이 하나씩 열린다.
+> 분석 대가 2026-08-26 에 늘었다([journal §120](../docs/journal/101-120.md)). 티어를 가르면 대가 하나 더 선다. 그 대수를 이제 알람이 든다([journal §124](../docs/journal/121-140.md)) — 상시로는 1대이고 밀린 手가 임계를 넘는 동안만 2대라, 값은 부하가 실제로 걸린 시간만큼만 는다. 사람이 정하는 것은 상한(`var.analysis_max_instances`) 하나다. 그 두 번째 대는 스팟이다 — `on_demand_base_capacity` 가 평시에 0 이고 그룹 공통이라 「분석만 온디맨드」로는 못 나눈다. 부하 회차를 걸 때는 그 값을 1 로 올린다(대당 하루 $2.15) — 회수 하나가 약 9분 장애라 잰 것이 처리량 대신 복구 시간이 된다. 올리고 내리는 apply 가 도는 대를 갈아치우므로(위 §1) 회차 앞뒤로 창이 하나씩 열린다.
 
-**컴퓨트가 더 이상 가장 큰 항목이 아니다.** 한때 Fargate 4 vCPU / 8 GiB로 월 약 $115였고 그것 때문에 서비스를 0으로 내려 뒀는데, 스팟 한 대로 옮기면서 컴퓨트가 $8이 됐다. 2026-08-24 에 컴퓨트가 다시 올랐다 — `t4g.small`(\~$5) 에서 `c6g.large`(\~$27) 로 옮겼다. 버스터블 크레딧이 마르면 탐색이 8배 느려져서 용량을 못 적는다는 것이 이유이고, 지속 vCPU 당 값으로는 오히려 싸다([journal §108](../docs/journal/101-120.md)). 그래도 아직 ALB·RDS 가 약 $33 이라 표의 절반이다.
+**가장 큰 항목이 컴퓨트에서 ALB·RDS 로 넘어갔다.** 한때 Fargate 4 vCPU / 8 GiB로 월 약 $115였고 그것 때문에 서비스를 0으로 내려 뒀는데, 스팟 한 대로 옮기면서 컴퓨트가 $8이 됐다. 2026-08-24 에 컴퓨트가 다시 올랐다 — `t4g.small`(\~$5) 에서 `c6g.large`(\~$27) 로 옮겼다. 버스터블 크레딧이 마르면 탐색이 8배 느려져서 용량을 못 적는다는 것이 이유이고, 지속 vCPU 당 값으로는 오히려 싸다([journal §108](../docs/journal/101-120.md)). 그래도 아직 ALB·RDS 가 약 $33 이라 표의 절반이다.
 
 > ALB를 없애는 것은 간단하지 않다. TLS 종료·ACM 자동 갱신·WebSocket 유지가 거기 얹혀 있어서, 빼면 Caddy가 인증서를 다시 맡고 그 인증서를 스팟 인스턴스의 휘발성 디스크에 두게 된다 — 회수될 때마다 재발급이고 Let's Encrypt 한도에 걸린다([alb.tf](../infra/alb.tf) 머리말이 그 이야기다).
 
@@ -632,12 +632,12 @@ cd infra && terraform apply destroy.tfplan                 # 그 목록만 지�
 
 ### 되살릴 때 apply 하나로 안 되는 것 여섯
 
-**한 번 해 봤고 넷이 아니었다**([journal §133](../docs/journal/121-140.md)). 순서대로다.
+**한 번 해 봤고 여섯이었다**([journal §133](../docs/journal/121-140.md)). 순서대로다.
 
 |     |                                                                                                                                                                             |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | **`terraform.tfvars`** — 커밋 안 되는 파일이고 `domain`·`alarm_email`·`admin_cidr` 이 거기 있다                                                                             |
-| 2   | **`admin_cidr`** — 노트북 IP 가 바뀌었으면 다시 준다. 없으면 규칙 자체가 안 생긴다. 낡으면 거절이 아니라 타임아웃이다                                                       |
+| 2   | **`admin_cidr`** — 노트북 IP 가 바뀌었으면 다시 준다. 없으면 규칙 자체가 안 생긴다. 낡으면 거절 없이 타임아웃이 난다                                                        |
 | 3   | **단계를 나눠 건다** — 아래. 전부 apply 하면 서비스가 빈 ECR 과 없는 `DATABASE_URL` 을 가리켜 첫 배포가 실패한다                                                            |
 | 4   | **ECR 이미지 재푸시** — 리포지토리가 지워지므로 `images.yml` 을 한 번 돌린다                                                                                                |
 | 5   | **마이그레이션 전부** — 새 RDS 는 표가 하나도 없다. `/healthz` 는 그 상태에서도 `db: true` 다(`Open` → `Ping` 뿐이라) — 사이트가 떠 있는 것으로 보이고 대국에서 처음 깨진다 |
@@ -664,11 +664,11 @@ terraform apply     # ④ 나머지. ACM 검증과 RDS 때문에 10~15분
 
 그다음 마이그레이션(§4)을 넣고 `images.yml` 을 한 번 더 돌린다. ④의 서비스는 `DATABASE_URL` 이 생기기 전에 만들어져 첫 배포가 실패하는데, 그 재실행이 새 리비전으로 다시 굴려 고친다 — `-replace` 가 필요 없다.
 
-DB 비밀번호는 신경 쓰지 않아도 된다 — `random_password.db` 가 새로 만들고 `aws_ssm_parameter.database_url` 이 갱신한다. 도메인과 Google OAuth 설정은 안 건드린다: 호스팅 존이 `data` 소스라 destroy 대상이 아니고, ACM 인증서는 재발급과 DNS 검증이 자동이다. SSM 의 나머지 넷도 안 지워진다(`SESSION_SECRET`·`GOOGLE_CLIENT_ID`·`GOOGLE_CLIENT_SECRET`·`OPENAI_API_KEY` — 손으로 넣은 것이라 state 밖이다).
+DB 비밀번호는 신경 쓰지 않아도 된다 — `random_password.db` 가 새로 만들고 `aws_ssm_parameter.database_url` 이 갱신한다. 도메인과 Google OAuth 설정은 안 건드린다: 호스팅 존은 `data` 소스라 destroy 밖이고, ACM 인증서는 재발급과 DNS 검증이 자동이다. SSM 의 나머지 넷도 안 지워진다(`SESSION_SECRET`·`GOOGLE_CLIENT_ID`·`GOOGLE_CLIENT_SECRET`·`OPENAI_API_KEY` — 손으로 넣은 것이라 state 밖이다).
 
 > 계획 파일에 DB 비밀번호가 평문으로 들어간다. `terraform plan -out` 산출물이 그렇다. `.gitignore` 가 `*.tfplan` 을 막지만, 다른 클론에서 그 줄이 없으면 `git add -A` 한 번으로 샌다 — 퍼블릭 레포다.
 
-> 컴퓨트만 끌 때는 태스크가 아니라 인스턴스다. `desired_count` 만 0으로 내리면 인스턴스는 그대로 돌면서 태스크만 없어져서, 돈은 그대로 나가고 사이트만 죽는다.
+> 컴퓨트만 끌 때는 태스크 대신 인스턴스를 내린다. `desired_count` 만 0으로 내리면 인스턴스는 그대로 돌면서 태스크만 없어져서, 돈은 그대로 나가고 사이트만 죽는다.
 
 ```sh
 # infra/ec2.tf 의 asg_tiers 와 min_size 를 0으로 고치고

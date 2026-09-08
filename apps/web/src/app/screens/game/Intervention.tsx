@@ -46,7 +46,7 @@ interface Row {
   mateIn: number | undefined;
   /**
    * 최선수 대비 낙폭. 서버가 준 것만 쓴다 — 여기서 뺄셈을 하면 낙폭의 정의가 두 벌이
-   * 되고, 사람이 둬 본 수는 그 자리의 후보 탐색에서 나온 값이 아니라 애초에 기준이 없다.
+   * 되고, 사람이 둬 본 수는 그 자리의 후보 탐색을 지나지 않아 애초에 기준이 없다.
    */
   lossCp: number | undefined;
   /** 엔진이 1위로 꼽은 수인가. 판 위의 초록 화살표가 가리키는 것과 같다. */
@@ -86,7 +86,7 @@ function noteJa(node: WhatIfNode | null, pending: boolean, failed: boolean): str
     case 'checkmate':
       return node.yourTurn ? '詰みです。ここで負けになります。' : '詰みです。ここで勝ちになります。';
     case 'stalemate':
-      // 쇼기에서 手詰まり는 무승부가 아니라 패배다.
+      // 쇼기에서 手詰まり는 패배다(체스의 무승부와 다르다).
       return node.yourTurn ? '手詰まりです。ここで負けになります。' : '手詰まりです。ここで勝ちになります。';
     default:
       // 어느 쪽이든 사람이 둔다. 상대 차례면 「상대라면 어떻게 둘까」를 직접 둬 보는 것이

@@ -77,7 +77,7 @@ func TestCategoryPicksTheMostConcreteReason(t *testing.T) {
 	}
 }
 
-// 공짜로 딴 것은 이유가 아니다.
+// 공짜로 딴 것을 이유로 대지 않는다.
 //
 // 반대쪽에서 벌어진 일 때문에 나쁜 수인데 마침 歩를 하나 공짜로 땄다면, 딴 것을
 // 이유라고 말하는 순간 설명이 틀린다. 짚을 것이 없으면 미분류로 두는 편이 낫다.
@@ -102,7 +102,7 @@ func TestKingExposedNeedsBothSidesToMove(t *testing.T) {
 	}
 }
 
-// 반전 폭이 작으면 함정이 아니라 그냥 평가가 흔들린 것이다.
+// 반전 폭이 작으면 함정 대신 그냥 평가가 흔들린 것으로 본다.
 func TestShallowTrapNeedsARealReversal(t *testing.T) {
 	// 얕게 +50, 깊게 −100. 벌어진 폭이 150이라 임계치에 못 미친다.
 	in := blunderInput(Features{Known: true, Shallow: eval.Cp(50), HasShallow: true})
@@ -113,7 +113,7 @@ func TestShallowTrapNeedsARealReversal(t *testing.T) {
 		t.Errorf("반전 폭이 %v→%v(<%d)인데 함정이라고 했다", in.Features.Shallow, in.After, ShallowTrapCp)
 	}
 
-	// 얕게 보면 손해인 수는 애초에 함정이 아니다 — 초보자도 손해로 본다
+	// 얕게 보면 손해인 수는 애초에 함정이 못 된다 — 초보자도 손해로 본다
 	in = blunderInput(Features{Known: true, Shallow: eval.Cp(-50), HasShallow: true})
 	if got := Judge(in).Category; got == CategoryShallowTrap {
 		t.Errorf("얕게 봐도 손해인 수를 함정이라고 했다")
@@ -157,7 +157,7 @@ func TestNoCategoryWhenNotIntervening(t *testing.T) {
 //
 // 실측에서 이 수가 greedy_capture 로 떨어져 「잡는 것이 문제」라고 가르쳤고, 플레이어가
 // 그 문장을 믿고 세 수를 더 헤맸다(08-playtest.md §8). 그래서 이 테스트가 지키는 것은
-// 「unpromoted 로 간다」가 아니라 「다른 이유를 대지 않는다」다.
+// 「unpromoted 로 간다」 대신 「다른 이유를 대지 않는다」다.
 func TestUnpromotedBeatsEveryOtherReason(t *testing.T) {
 	// 딴 것도 있고(greedy_capture), 그냥 잡히기도 하고(hangs_piece), 王手까지 거는
 	// 수를 만든다. 이 셋이 전부 켜져 있어도 成 여부가 이유여야 한다.

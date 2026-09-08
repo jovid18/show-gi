@@ -15,7 +15,7 @@ import sys
 
 ROOTS = ('docs', 'apps', 'deploy', 'infra', 'tools', '.claude')
 SKIP = ('node_modules', 'docs/images', '.git', 'dist')
-머리말_상한 = 35  # 보이는 길이로 잰다. 넘으면 라벨이 아니라 문장이다
+머리말_상한 = 35  # 보이는 길이로 잰다. 넘으면 라벨보다 문장에 가깝다
 
 BOLD = re.compile(r'\*\*(.+?)\*\*')
 LIST = re.compile(r'^(?:[-*+]|\d+\.)\s')

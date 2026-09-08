@@ -33,7 +33,7 @@ for kv in "$@"; do
 	esac
 done
 
-# 원격에 거는가는 플래그가 아니라 주소가 정한다. --prod 없이 BASE 만 넘겨도 같은 곳에
+# 원격에 거는가는 주소가 정한다. --prod 없이 BASE 만 넘겨도 같은 곳에
 # 걸리므로, 아래 가드를 플래그에 매달면 그 경로로 그냥 지나간다.
 case "${BASE-}" in
 '' | http://localhost* | http://127.0.0.1* | https://localhost* | https://127.0.0.1*) remote=0 ;;

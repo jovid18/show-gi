@@ -4,7 +4,7 @@ import "github.com/jovid18/show-gi/apps/server/internal/shogi"
 
 // 打つ 手筋 — 어떻게 놓였는가가 곧 이름이다. 다른 手筋과 입력이 갈린다: 4四의 歩가
 // 打った 것인지 4五에서 걸어온 것인지가 판에 안 남는데 그 차이가 곧 이름이다. 그래서
-// FindTesuji 가 아니라 방금 둔 수를 받는다. 이득을 안 묻는 것은 다른 手筋과 같다
+// FindTesuji 대신 방금 둔 수를 받는다. 이득을 안 묻는 것은 다른 手筋과 같다
 // (09-tags.md §5).
 var (
 	tatakiNoFu = Tag{Code: "tataki_no_fu", NameJa: "叩きの歩", Kind: KindTesuji}
@@ -32,8 +32,8 @@ func enemyCampEdge(c shogi.Color) int {
 // 한다. 歩의 머리도 뺀다 — 그것은 合わせの歩라는 다른 手筋이다.
 //
 // と金·成銀의 머리는 지금 안 센다. 움직임이 金과 같으니 같은 手筋이 성립할 텐데,
-// 그것은 「이 이름이 무엇을 말하는가」가 아니라 넓혀도 되는가의 문제라 근거가 따로
-// 필요하다. 좁게 두면 안 뜰 뿐이고, 넓게 두면 틀린 이름이 뜬다.
+// 그것은 넓혀도 되는가의 문제라 근거가 따로 필요하다. 좁게 두면 안 뜰 뿐이고,
+// 넓게 두면 틀린 이름이 뜬다.
 func DropTesuji(pos shogi.Position, last shogi.Move, c shogi.Color) []Tag {
 	if !last.IsDrop() {
 		return nil
@@ -52,7 +52,7 @@ func DropTesuji(pos shogi.Position, last shogi.Move, c shogi.Color) []Tag {
 	switch {
 	case front.Empty():
 		// 적진 바로 앞이라야 「다음 수로 成る」가 노림이 된다. 그보다 뒤면 그냥 歩打이고,
-		// 적진 안이면 이미 成れる 자리라 「垂らす」가 아니다.
+		// 적진 안이면 이미 成れる 자리라 「垂らす」라고 부르지 않는다.
 		if rank == enemyCampEdge(c) {
 			return []Tag{tareFu}
 		}

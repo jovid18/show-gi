@@ -95,7 +95,7 @@ export function GameScreen() {
    */
   const [explored, setExplored] = useState<ReadonlyMap<string, ExploredMove[]>>(new Map());
 
-  // 새 대국은 판만이 아니라 고르던 것까지 전부 비우고 시작한다.
+  // 새 대국은 판과 고르던 것까지 전부 비우고 시작한다.
   const newGame = (): void => {
     setOrigin(null);
     setPending(null);
@@ -212,7 +212,7 @@ export function GameScreen() {
      * 맨 아래로 보내므로 목록이 정반대를 말한다.
      *
      * 그 수 자체가 詰み이므로 이 자리에서는 1手詰め다 — 후보 목록의 詰み 수가 엔진에서
-     * 같은 값으로 오는 것과 맞는다. 手詰まり는 詰み이 아니라 그 말을 못 쓰고, 실전에서
+     * 같은 값으로 오는 것과 맞는다. 手詰まり는 詰み과 달라 그 말을 못 쓰고, 실전에서
      * 거의 안 나와 값 없이 둔다.
      */
     const ended = node.status === 'checkmate' ? 1 : undefined;
@@ -286,7 +286,7 @@ export function GameScreen() {
   /**
    * 지금 판을 만든 수. 뿌리에서는 물러진 그 수이고, 들어갔으면 분기의 마지막 수다.
    * 실제로 둔 수와 같은 채널로 그린다 — 판 위에서는 어느 쪽이든 「방금 벌어진 것」이고,
-   * 이 판이 가정이라는 것은 판 위가 아니라 카드가 말한다.
+   * 이 판이 가정이라는 것은 카드가 말한다.
    */
   const branchPlayed = useMemo(() => {
     if (!intervening || !intervention) return null;
@@ -330,8 +330,8 @@ export function GameScreen() {
    * 초록 화살표가 駒台에서 출발하는가 — 최선수가 打일 때다. 그때 그 駒가 駒台에서 함께
    * 빛나 화살표의 짝이 된다.
    *
-   * 수번 쪽의 駒台다. 누가 둘 차례인가로 쪽을 정한다 — 화면의 위아래가 아니라
-   * 대국자로 가른다. 後手로 두면 「相手 = 白」이 성립하지 않는다.
+   * 수번 쪽의 駒台다. 화면의 위아래 대신 누가 둘 차례인가로 쪽을 정한다. 後手로 두면
+   * 「相手 = 白」이 성립하지 않는다.
    */
   const branchDrop = useMemo(() => {
     const node = branch.node;
@@ -369,7 +369,7 @@ export function GameScreen() {
    * 물러진 수가 지나간 두 칸.
    *
    * 판은 이미 그 수를 둔 국면이므로 유령 駒는 뿌리에서 한 번만 난다 — 분기로 한 수라도
-   * 들어가면 그 판은 물러진 수의 국면이 아니다. 어느 駒였는지는 되돌아온 판
+   * 들어가면 그 판은 다른 국면이 된다. 어느 駒였는지는 되돌아온 판
    * (`snapshot.sfen`)의 출발 칸에서 읽는다 — 성한 수라면 도착 칸에는 이미 성한 駒가 서 있어서,
    * 날아가는 것이 무엇이었는지가 거기엔 없다.
    */
@@ -452,7 +452,7 @@ export function GameScreen() {
   /** 지금 집을 수 있는 駒台. 대국에서는 언제나 내 쪽이고, 분기에서는 수번 쪽이다. */
   const handTurn: Side = intervening ? (branch.node?.yourTurn ? me : them) : me;
 
-  /** 한 수 둔다. 개입 중이면 대국이 아니라 분기로 간다 — 판의 뜻이 그것 하나다. */
+  /** 한 수 둔다. 개입 중이면 대국 대신 분기로 간다 — 판의 뜻이 그것 하나다. */
   const commitMove = (usi: string): void => {
     if (intervening) branch.play(usi);
     else play(usi);
@@ -529,7 +529,7 @@ export function GameScreen() {
   };
 
   return (
-    // data-flipped 는 駒의 방향을 위한 것이다. 판의 자리는 CSS가 아니라 자리 번호로
+    // data-flipped 는 駒의 방향을 위한 것이다. 판의 자리는 CSS 대신 자리 번호로
     // 뒤집혀 있고(Board 의 `seat`), 여기서 도는 것은 글자가 누구를 향하는가뿐이다.
     <div className="game" data-intervening={intervening || undefined} data-flipped={flipped || undefined}>
       {/* 판만 남기고 어두워진다. 클릭은 막지 않는다 — 잠글 것은 이미 판 쪽에서 잠겼고,
@@ -548,7 +548,7 @@ export function GameScreen() {
           </div>
         )}
 
-        {/* 위가 상대다. 어느 색인지가 아니라 누구인지로 자리를 정한다 — 자기 駒台가
+        {/* 위가 상대다. 어느 색인지 대신 누구인지로 자리를 정한다 — 자기 駒台가
             아래에 있어야 판과 같은 방향으로 읽힌다(Board 의 `flipped`). */}
         <Hand
           side={them}
@@ -574,8 +574,8 @@ export function GameScreen() {
           checked={intervening ? (atRoot ? null : (branch.node?.checked ?? null)) : checked}
           played={branchPlayed}
           replay={replay}
-          // 개입 중에는 수번 쪽의 최선수다. 그 국면은 되물러서 사라진 자리라 「지금
-          // 이렇게 두라」가 아니다 — 지금 판의 최선수는 여기 절대 안 뜬다(01-core.md §7).
+          // 개입 중에는 수번 쪽의 최선수다. 그 국면은 되물러서 사라진 자리라 「그때
+          // 이렇게 뒀어야 했다」다 — 지금 판의 최선수는 여기 절대 안 뜬다(01-core.md §7).
           ray={branchRay}
           // 대국 화면은 미끄러뜨리지 않는다. 판이 움직이는 자리가 유령 駒이고,
           // 둘을 같이 켜면 같은 수를 두 방식으로 두 번 그린다.
@@ -714,7 +714,7 @@ export function GameScreen() {
           </p>
         )}
 
-        {/* 서버가 못 해준 것. 개입 카드 자리가 아니다 — 저쪽은 판에 대한 판단이고 이쪽은
+        {/* 서버가 못 해준 것. 개입 카드와 자리를 나눈다 — 저쪽은 판에 대한 판단이고 이쪽은
             서버 사정이라, 한 자리에 뭉치면 「시한을 넘겨 확인 못 했다」가 판정으로 읽힌다.
             개입 중에는 안 그린다: 그때는 물러졌다는 사실이 이미 화면을 다 쓰고 있고,
             애초에 판정이 성공해야 개입이 뜨므로 둘이 같이 올 일이 없다. */}

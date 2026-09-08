@@ -21,7 +21,7 @@ const (
 	PositionUnknown PositionReason = iota
 	// PositionPieceExcess: 한 벌을 넘은 말이 있다.
 	PositionPieceExcess
-	// PositionKingCount: 한쪽의 玉이 하나가 아니다.
+	// PositionKingCount: 한쪽의 玉이 없거나 둘 이상이다.
 	PositionKingCount
 	// PositionNifu: 같은 筋에 성하지 않은 자기 歩가 둘 이상이다.
 	PositionNifu
@@ -119,7 +119,7 @@ func (f PositionFault) Message() string {
 // 하나에서 멈추지 않는다. 잘못 읽은 사진은 여러 자리가 함께 틀린다(journal §129).
 //
 // 말이 부족한 것은 여기서 안 본다. 詰将棋처럼 말이 빠진 국면이 정상인 경우가 있어
-// InventoryExcess 가 이미 그렇게 나눠 두었고, 사진에서 온 판의 「39枚」는 거절이 아니라
+// InventoryExcess 가 이미 그렇게 나눠 두었고, 사진에서 온 판의 「39枚」는 거절 대신
 // 경고로 화면에 나간다(InventoryShortage).
 func (pos Position) Faults() []PositionFault {
 	var out []PositionFault
@@ -185,7 +185,7 @@ func kingCount(pos Position, c Color) int {
 	return n
 }
 
-// nifuFaults 는 같은 筋의 성하지 않은 歩를 둘째부터 짚는다. と金은 二歩가 아니다.
+// nifuFaults 는 같은 筋의 성하지 않은 歩를 둘째부터 짚는다. と金은 二歩에서 뺀다.
 func nifuFaults(pos Position, c Color) []PositionFault {
 	var out []PositionFault
 	for col := range 9 {
@@ -241,7 +241,7 @@ func deadPieceFaults(pos Position, c Color) []PositionFault {
 
 // InventoryShortage 는 한 벌에서 빠진 말 종류와 그 수다(비면 40장이 다 있다).
 //
-// 거절 사유가 아니다. 사진에서 읽어 온 판에서는 이것이 곧 「한 장을 놓쳤다」의 신호이지만
+// 거절 사유로 안 쓴다. 사진에서 읽어 온 판에서는 이것이 곧 「한 장을 놓쳤다」의 신호이지만
 // (실물 한 판은 언제나 40장이다) 駒台가 잘려 나간 사진도 정상이라, 화면이 경고로만 쓴다.
 func (pos Position) InventoryShortage() map[PieceType]int {
 	count := map[PieceType]int{}

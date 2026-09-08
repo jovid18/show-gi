@@ -35,15 +35,15 @@ func TestEMFDocumentShape(t *testing.T) {
 		t.Errorf("Namespace=%v", d["Namespace"])
 	}
 
-	// 차원은 Service·Environment 둘이다. 더 늘어나면 지표 수가 그만큼 곱해지고
+	// dimensions 는 Service·Environment 둘이다. 더 늘어나면 지표 수가 그만큼 곱해지고
 	// 그게 요금이다. Environment 가 빠지면 두 환경이 한 계열에 섞인다.
 	dims := d["Dimensions"].([]any)
 	if len(dims) != 1 {
-		t.Fatalf("차원 집합이 하나가 아니다: %v", dims)
+		t.Fatalf("dimensions 집합이 하나가 아니다: %v", dims)
 	}
 	set := dims[0].([]any)
 	if len(set) != 2 || set[0] != "Service" || set[1] != "Environment" {
-		t.Fatalf("차원이 Service·Environment 가 아니다: %v", set)
+		t.Fatalf("dimensions 가 Service·Environment 가 아니다: %v", set)
 	}
 	if doc["Service"] != "api" || doc["Environment"] != "prod" {
 		t.Errorf("Service=%v Environment=%v", doc["Service"], doc["Environment"])
@@ -67,7 +67,7 @@ func TestEMFCountersAreDeltas(t *testing.T) {
 		t.Fatalf("첫 회차 HttpRequests=%v", got)
 	}
 
-	// 다음 회차에서 두 건이 더 왔다. 누적(7)이 아니라 증분(2)이어야 한다.
+	// 다음 회차에서 두 건이 더 왔다. 누적(7) 대신 증분(2)이어야 한다.
 	r.HTTPRequests.Add(2, "GET /healthz", "200")
 	if got := emit(t, e, at)["HttpRequests"]; got != 2.0 {
 		t.Fatalf("두 번째 회차 HttpRequests=%v — 누적을 올리면 Sum 이 매번 전부를 더한다", got)
@@ -101,7 +101,7 @@ func TestEMFArraysStayUnderSpecLimit(t *testing.T) {
 	if len(vs) > 100 {
 		t.Fatalf("배열이 %d개 — 스펙 상한은 100이다", len(vs))
 	}
-	// 개수는 배열이 아니라 카운터로 낸다. 표본을 잘라도 개수는 정확해야 한다.
+	// 개수는 카운터로 낸다. 표본을 잘라도 개수는 정확해야 한다.
 	if n := r.HTTPDuration.Count(nil); n != 1000 {
 		t.Fatalf("관측 수=%d", n)
 	}
@@ -170,7 +170,7 @@ func emit(t *testing.T, e *Emitter, now time.Time) map[string]any {
 //
 // 예로 쓰는 것이 캐시가 답한 탐색이다. collect 가 computed 만 내므로(분포가 0 근처로
 // 몰리는 것을 막는다) 이쪽이 실제로 안 고르는 계열이다 — 詰み 풀 대기는 [journal §111]
-// 에서 나가기 시작해 더 이상 예가 아니다.
+// 에서 나가기 시작해 더 이상 예로 못 쓴다.
 func TestDrainEmptiesUnpickedSeriesToo(t *testing.T) {
 	r := New("api", "prod")
 	for range maxSamples + 50 {

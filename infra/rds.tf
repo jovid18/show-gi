@@ -27,8 +27,8 @@ resource "aws_security_group" "db" {
   vpc_id      = data.aws_vpc.default.id
 }
 
-# 태스크 보안그룹에서만 들어올 수 있다. CIDR이 아니라 보안그룹을 참조하는 것이
-# 요점이다 — Fargate 태스크는 배포마다 IP가 바뀌므로 CIDR로는 애초에 표현할 수 없다.
+# 태스크 보안그룹에서만 들어올 수 있다. CIDR 대신 보안그룹을 참조한다 — Fargate
+# 태스크는 배포마다 IP가 바뀌므로 CIDR로는 애초에 표현할 수 없다.
 resource "aws_vpc_security_group_ingress_rule" "db_from_app" {
   security_group_id            = aws_security_group.db.id
   description                  = "postgres from the ECS task"
@@ -40,7 +40,7 @@ resource "aws_vpc_security_group_ingress_rule" "db_from_app" {
 
 # 운영자 노트북에서 직접 붙는 통로.
 #
-# NAT나 bastion이 필요한 상황이 아니다. RDS가 default VPC의 default 서브넷에 있고
+# NAT나 bastion 없이 붙는다. RDS가 default VPC의 default 서브넷에 있고
 # 그 서브넷은 이미 IGW가 붙은 퍼블릭 서브넷이라(Fargate를 assignPublicIp=ENABLED로
 # 띄우는 것과 같은 이유), 막고 있는 것은 publicly_accessible 과 이 규칙뿐이다.
 # NAT는 프라이빗 서브넷의 아웃바운드용이라 여기에 끼지 않는다.

@@ -32,7 +32,7 @@ import (
 // ⑥ 되짚기 퀴즈의 「최선수는?」. 詰み 탐색은 여기 없다 — 다른 바이너리라 풀이 따로다
 // (defaultMatePoolSize).
 //
-// 3은 그 여섯을 다 덮는 값이 아니다. 퀴즈가 판이 끝날 때 십여 초를 쓰므로(journal §53)
+// 3으로 그 여섯을 다 덮지는 못한다. 퀴즈가 판이 끝날 때 십여 초를 쓰므로(journal §53)
 // 두 판이 동시에 끝나면 진행 중인 대국의 착수가 그만큼 뒤로 밀린다. 그래도 안 올린 것은
 // 그 지연이 대국을 멈추지 않기 때문이다(mate 풀과 달리 여기는 원래도 여럿이 다툰다).
 // 올릴 자리는 태스크 정의의 ENGINE_POOL_SIZE 다.
@@ -113,7 +113,7 @@ func main() {
 
 	// 대인전. 엔진 앞에 둔다 — 엔진이 없어도 사람끼리는 둘 수 있다.
 	//
-	// ctx 는 여기서 준다. 대국의 수명은 연결이 아니라 이 프로세스다.
+	// ctx 는 여기서 준다. 대국은 연결이 끊겨도 이 프로세스만큼 산다.
 	// 핸들러의 r.Context() 에 매달면 한쪽이 탭을 닫는 순간 시계까지 멈춰서, 남은
 	// 사람의 대국이 끝나지도 이어지지도 못한다(server.NewMatch).
 	opts.Match = server.NewMatch(ctx, opts.Store, opts.Level)
@@ -218,7 +218,7 @@ func main() {
 	err := server.Run(ctx, *addr, opts)
 	stopMetrics()
 	if err != nil {
-		// log.Fatal 이 아니다. 그쪽은 slog 를 info 로 지나가므로 LOG_LEVEL 을 올린
+		// log.Fatal 을 쓰지 않는다. 그쪽은 slog 를 info 로 지나가므로 LOG_LEVEL 을 올린
 		// 배포에서는 「왜 죽었나」가 로그에 아예 안 남는다 — 빈 로그로 재시작을 반복한다.
 		slog.Error("server stopped", "err", err)
 		os.Exit(1)
@@ -305,8 +305,8 @@ func startEmitter(reg *metrics.Registry) func() {
 // 나눠 쓴다), 그래도 다 가져가도 되는 이유는 풀이 우선순위로 빌려주기 때문이다 —
 // 사람이 기다리는 요청이 분석보다 먼저 받는다(usi.priorityOf).
 //
-// 하나 적게 두는 쪽을 먼저 지었다가 걷었다. 예약이 아니라 상한이라, 라이브 대국이 둘이면
-// 남긴 하나를 서로 기다린다 — 지연은 안 막고 처리량만 깎았다(journal §106).
+// 하나 적게 두는 쪽을 먼저 지었다가 걷었다. 풀은 예약 없이 상한만 주므로, 라이브 대국이
+// 둘이면 남긴 하나를 서로 기다린다 — 지연은 안 막고 처리량만 깎았다(journal §106).
 //
 // 풀이 커지면 이 값도 같이 커진다. 그것이 이 함수가 상수가 아닌 이유다: 워커가 하나면
 // vCPU 를 올려도 사후 분석 층은 그대로였다(journal §106).
@@ -340,9 +340,9 @@ func analysisWorkers(poolSize int, role string) int {
 //	analysis     집는다. /healthz·/metrics 만 연다(server.Options.Role)
 //	both         집고 받는다. 태스크가 하나인 배포의 모양이고 기본이다
 //
-// analysis 가 나머지를 404 가 아니라 503 으로 답하는 이유는 server.Handler 에 있다.
+// analysis 가 나머지를 404 대신 503 으로 답하는 이유는 server.Handler 에 있다.
 //
-// 상호작용 티어를 여러 대로 올리는 것은 이 손잡이가 아니다. 방이 메모리에 있으므로
+// 이 손잡이로 상호작용 티어를 여러 대로 올리지는 못한다. 방이 메모리에 있으므로
 // (journal §98) 그쪽은 방을 프로세스 밖으로 내린 뒤다.
 func analysisRole() string {
 	switch v := os.Getenv("SERVER_ROLE"); v {
@@ -359,8 +359,8 @@ func analysisRole() string {
 // startAuth 는 Google 로그인을 켠다. 키가 없으면 nil 이고 익명 대국으로 남는다.
 //
 // 없다고 프로세스를 죽이지 않는다. 엔진·DB 와 같은 판단이고, 여기서는 특히 그렇다 —
-// 로그인은 대국의 전제가 아니라 그 판이 누구 것으로 남느냐일 뿐이다. 어느 쪽으로 돌고
-// 있는지는 기동 로그가 한 줄로 말한다.
+// 로그인이 바꾸는 것은 그 판이 누구 것으로 남느냐 하나다. 어느 쪽으로 돌고 있는지는
+// 기동 로그가 한 줄로 말한다.
 func startAuth() *auth.Google {
 	g := auth.NewGoogle(os.Getenv("GOOGLE_CLIENT_ID"), os.Getenv("GOOGLE_CLIENT_SECRET"))
 	if g == nil {
@@ -428,7 +428,7 @@ func startEngines() *usi.Pool {
 
 // startMateEngines 는 詰将棋 solver 풀을 띄운다. 없으면 nil.
 //
-// 탐색 한계는 手数(DepthLimit) 로 준다. 시간이 아니라 수로 자르는 이유는 다른 탐색과
+// 탐색 한계는 手数(DepthLimit) 로 준다. 시간으로 자르지 않는 이유는 다른 탐색과
 // 같다 — 같은 국면이 같은 답을 줘야 캐시할 수 있다. 11인 것은 실측 결과다(06-status.md).
 func startMateEngines() *usi.Pool {
 	cmd := os.Getenv("ENGINE_MATE_CMD")
@@ -442,8 +442,8 @@ func startMateEngines() *usi.Pool {
 	// (journal §53). 넷째는 게이트 없이 手마다 부른다(journal §110).
 	//
 	// 「대국 쪽에 늘 한 자리가 남는다」는 아니다. 두 판이 동시에 끝나면 둘이 두 자리를 다
-	// 잡는다. 탐색 하나마다 빌리고 돌려주므로(Pool.Do) 굶는 것이 아니라 큐에 서는 것이고,
-	// 대국 쪽은 그것을 지연으로 겪는다.
+	// 잡는다. 탐색 하나마다 빌리고 돌려주므로(Pool.Do) 큐에 서서 기다리고, 대국 쪽은
+	// 그것을 지연으로 겪는다.
 	pool, err := usi.NewPool(matePoolSize(), cmd, map[string]string{
 		"USI_Hash": envOr("ENGINE_HASH_MB", "128"),
 		"Threads":  envOr("ENGINE_THREADS", "1"),
@@ -516,7 +516,7 @@ func engineOptions() map[string]string {
 	//
 	// 더 중요한 이유는 결정성이다. 스레드가 여럿이면 고정 깊이에서도 탐색 순서와
 	// 치환표 경합 때문에 같은 국면이 같은 답을 주지 않는다. 그러면 positions 캐시가
-	// "같은 국면 = 같은 결과"를 전제로 못 한다. 동시 탐색은 스레드가 아니라 풀로 얻는다.
+	// "같은 국면 = 같은 결과"를 전제로 못 한다. 동시 탐색은 스레드 대신 풀로 얻는다.
 	opts["Threads"] = envOr("ENGINE_THREADS", "1")
 
 	// 정석 북은 우리가 따로 만든다(D4). 그냥 두면 없는 파일을 찾다 매 기동 에러를 남긴다.
@@ -562,9 +562,8 @@ func envInt(name string, fallback int) int {
 
 // engineDepth 는 상대 수를 고를 때의 탐색 깊이다.
 //
-// 시간이 아니라 깊이인 이유는 game.NewAdaptiveOpponent 주석에 있다. 지연이 문제가 되면
-// 여기를 줄인다(기본값이 14이므로 12가 그 손잡이다). 시간 상한을 걸어 중간에 자르는
-// 쪽이 아니다.
+// 깊이로 거는 이유는 game.NewAdaptiveOpponent 주석에 있다. 지연이 문제가 되면 여기를
+// 줄인다(기본값이 14이므로 12가 그 손잡이다). 시간 상한을 걸어 중간에 자르지 않는다.
 //
 // 이 값을 걸면 여섯 자리가 둘로 갈린다. 상대 수와 퀴즈만 여기를 읽고 나머지 넷은 상수라,
 // 캐시가 서로 못 쓰는 두 무리가 된다(internal/archive).

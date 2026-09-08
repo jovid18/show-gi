@@ -20,8 +20,8 @@ export interface Destination {
 /**
  * USI 한 수를 풀어 놓은 것.
  *
- * 규칙 판단이 아니라 문자열 해석이다. 둘 수 있는 수인지는 여기서 알 수 없고 알 필요도
- * 없다 — 합법수는 서버가 목록으로 주고, 물러진 수는 서버가 이미 판정을 끝낸 것이다.
+ * 문자열 해석뿐이다. 둘 수 있는 수인지는 여기서 알 수 없고 알 필요도 없다 — 합법수는
+ * 서버가 목록으로 주고, 물러진 수는 서버가 이미 판정을 끝낸 것이다.
  */
 export type ParsedMove =
   | { kind: 'board'; from: string; to: string; promote: boolean }
@@ -78,8 +78,8 @@ export function groupByOrigin(legalMoves: readonly string[]): Map<Origin, Destin
  * 한 수가 지나간 두 칸(화면 배열 인덱스).
  *
  * `components/Board` 의 `LastMove` 와 같은 모양인데 그 타입을 들여오지 않는다 — `libs` 가
- * 화면 부품을 참조하면 층의 방향이 거꾸로 선다(`models/square` 의 `Motion` 이 판이 아니라
- * 거기 있는 것과 같은 이유).
+ * 화면 부품을 참조하면 층의 방향이 거꾸로 선다(`models/square` 의 `Motion` 이 거기 있는
+ * 것과 같은 이유).
  */
 export interface MoveSquares {
   /** 출발 칸. 打이면 null — 짚을 자리가 판 위에 없다. */

@@ -23,8 +23,8 @@ describe('stepMotion', () => {
     expect(stepMotion(moves('7g7f'), 1, 0, 3)).toEqual({ from: sq('7f'), to: sq('7g'), id: 3 });
   });
 
-  // 뛰어넘는 것은 한 수가 아니다. 슬라이더로 40手를 건너뛰는 자리에 움직임을 그리면
-  // 있지도 않았던 한 수를 그리게 된다.
+  // 뛰어넘는 것은 여러 手를 한 번에 지나는 일이다. 슬라이더로 40手를 건너뛰는 자리에
+  // 움직임을 그리면 있지도 않았던 한 수를 그리게 된다.
   it('뛰어넘으면 아무것도 안 난다', () => {
     const kifu = moves('7g7f', '3c3d', '8h2b+');
     expect(stepMotion(kifu, 0, 3, 4)).toBeNull();
@@ -139,7 +139,7 @@ describe('playerCp', () => {
 });
 
 // 詰み이 cp보다 언제나 바깥이다. cp만으로 줄 세우면 「3手で詰み」과 「+2900」이 이웃으로
-// 놓이는데 그 둘은 이웃이 아니다. 그리고 빨리 죽는 쪽이 더 나쁘다.
+// 놓이는데, 그 둘은 서로 다른 자의 값이다. 그리고 빨리 죽는 쪽이 더 나쁘다.
 describe('rankOf', () => {
   it('詰み이 어떤 cp보다 위다', () => {
     expect(rankOf({ cp: undefined, mateIn: 7 })).toBeGreaterThan(rankOf({ cp: 29000, mateIn: undefined }));
@@ -197,7 +197,7 @@ describe('evalTone', () => {
   // 기준점을 안 빼면 한 줄도 빠짐없이 최대 파랑이 된다(journal §84).
   it('기준점을 빼서 「그 手合에서 좋은가」로 칠한다', () => {
     const rokumai = 2003;
-    // 접어 준 만큼 그대로 들고 있으면 호각이다 — 파랑이 아니다.
+    // 접어 준 만큼 그대로 들고 있으면 호각이다 — 색이 안 붙는다.
     expect(evalTone(rokumai, rokumai)).toBe('rgb(var(--hint) / 0.00)');
     // 핸디캡의 절반을 흘렸으면 빨강 쪽 끝이다.
     expect(evalTone(1100, rokumai)).toBe('rgb(var(--ray-check) / 0.50)');

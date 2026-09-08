@@ -14,7 +14,7 @@ const StartSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b -
 // 되돌리기가 제품 기능인 이상 이 성질이 설계의 핵심이다.
 type Position struct {
 	Board [81]Piece
-	// Hands 는 PieceType 값 그대로 색인한다 — 0-based 오프셋이 아니다. 크기 8은 Rook=7 때문이고
+	// Hands 는 PieceType 값 그대로 색인한다 — 0-based 오프셋을 안 쓴다. 크기 8은 Rook=7 때문이고
 	// index 0(NoPieceType)은 영구 미사용. 王은 잡혀도 持ち駒가 되지 않아 index 8이 없다.
 	Hands   [2][8]int8 // [Color][PieceType Pawn..Rook]
 	Turn    Color
@@ -115,7 +115,7 @@ func ParseSFEN(s string) (Position, error) {
 			if !ok || t == King {
 				return pos, fmt.Errorf("sfen: invalid piece in hand %q", string(ch))
 			}
-			// 한 벌보다 많은 수는 개수가 아니다. Hands 가 int8 이라 여기서 안 막으면
+			// 한 벌보다 많은 수는 개수를 벗어난다. Hands 가 int8 이라 여기서 안 막으면
 			// 경고 없이 음수가 된다 — 200 이 −56 이 되고, 그 판은 Faults 를 통과하면서
 			// 룰 엔진이 打 70개를 내주는데 엔진에는 「1장」이 나간다(journal §97).
 			if count > handComplement {

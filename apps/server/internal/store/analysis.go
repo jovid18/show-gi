@@ -204,7 +204,7 @@ func nilIfEmpty(s string) *string {
 // AnalysisJob 은 집어 온 판 하나다.
 type AnalysisJob struct {
 	MatchID string
-	// Plies 는 아직 안 잰 手数다. 판의 길이가 아니라 이 큐에서 엔진을 부르는 양이다.
+	// Plies 는 아직 안 잰 手数다. 판의 길이 대신 이 큐에서 엔진을 부르는 양이다.
 	Plies int
 }
 

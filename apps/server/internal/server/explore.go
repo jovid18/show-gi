@@ -24,15 +24,14 @@ import (
 //
 // SFEN 을 받게 된 것은 사진에서 읽어 온 국면 때문이다(journal §129). 그 국면은
 // 手合割+수순으로 표현할 수가 없어서 §37이 닫아 둔 문을 열었는데, 그 문의 이유가
-// 「아무 국면이나 재 주는 공개 엔진이 된다」였고 그것을 막는 것은 SFEN 의 부재가 아니라
-// 아래 슬롯이다 — 뿌리가 0手目인 이상 합법적으로 도달하는 국면은 이미 무엇이든 물을
-// 수 있었다(§85).
+// 「아무 국면이나 재 주는 공개 엔진이 된다」였고 그것을 막는 것은 아래 슬롯이다 —
+// 뿌리가 0手目인 이상 합법적으로 도달하는 국면은 이미 무엇이든 물을 수 있었다(§85).
 //
 // 재생이 하던 검증을 룰 엔진이 대신한다. 手合割 뿌리는 한 수씩 ValidateMove 를
 // 지나가므로 국면이 성립하는 것이 공짜인데, SFEN 뿌리에는 지나갈 수순이 없다 —
 // 그래서 shogi.Faults 가 통과하지 않는 판은 여기서 거절된다.
 //
-// 저장·불러오기는 SFEN 을 안 든다(explore_snapshots.go). 저장된 값이 곧 다음 요청의
+// 저장·불러오기는 SFEN 을 담지 않는다(explore_snapshots.go). 저장된 값이 곧 다음 요청의
 // 본문이라 그쪽에 SFEN 칸을 두면 문이 기록 쪽으로 한 번 더 열리고, 그 값이 없다(§96).
 
 const (
@@ -46,7 +45,7 @@ const (
 
 	// exploreSlots 는 이 표면이 동시에 잡을 수 있는 엔진 수다. 이것이 하나뿐인 제한이다.
 	//
-	// 풀은 대국이 쓰는 것과 같은 3개다(main.go 의 defaultEnginePoolSize). 안 묶으면
+	// 풀은 대국이 쓰는 것과 같은 3개다(main.go 의 defaultEnginePoolSize). 묶지 않으면
 	// 검토 세 건이 엔진을 다 잡고 대국의 착수가 그 뒤에 큐에 서므로, 개입 카드가 늦게 뜬다.
 	// 1이면 대국에 언제나 2개가 남는다 — 올릴 자리가 여기 하나다.
 	//
@@ -64,7 +63,7 @@ const (
 )
 
 // exploreHandler 는 검토 판의 한 걸음을 답한다. 되짚기와 달리 DB에도 로그인에도 매여
-// 있지 않다 — 뿌리가 기록이 아니라 상수 표라, 캐시(positions)는 있으면 쓰고 없으면 그냥
+// 있지 않다 — 뿌리가 기록 대신 상수 표라, 캐시(positions)는 있으면 쓰고 없으면 그냥
 // 느리고, 열리는 기록이 없으니 자격을 물을 것도 없다.
 type exploreHandler struct {
 	// store 는 캐시로만 쓴다. nil이면 답은 같고 같은 국면을 매번 다시 잰다.
@@ -92,7 +91,7 @@ type exploreRequest struct {
 	Handicap string `json:"handicap"`
 	// SFEN 은 뿌리 국면이다. 사진에서 읽어 와 사람이 확인한 판이 여기로 온다.
 	//
-	// Handicap 과 같이 못 온다. 둘 다 뿌리를 정하는 값이라, 같이 오면 어느 쪽이
+	// Handicap 과 같이 오지 못한다. 둘 다 뿌리를 정하는 값이라, 같이 오면 어느 쪽이
 	// 뿌리인지를 서버가 골라야 하고 그 선택은 화면과 어긋날 수 있다.
 	SFEN string `json:"sfen,omitempty"`
 	// Moves 는 양쪽 수가 전부 들어 있는 한 줄이다. 서버는 한 수도 대신 두지 않는다.
@@ -102,7 +101,7 @@ type exploreRequest struct {
 // exploreNode 는 검토의 한 국면이다. 되짚기의 노드에 그 手合의 「형세 0」 두 칸을 얹는다.
 //
 // 화면이 그 값을 만들 수 없다. 二枚落ち의 0手目가 +1386인데(handicap.BaselineCp) 그것을
-// 안 말해 주면 「+1383」이 「압승 중」으로 읽히고, 후보 목록의 색도 한 줄도 빠짐없이 최대
+// 말해 주지 않으면 「+1383」이 「압승 중」으로 읽히고, 후보 목록의 색도 한 줄도 빠짐없이 최대
 // 파랑이 된다(evalTone 의 base). 대국·되짚기가 같은 값을 스냅샷과 상세에 실어 보내는
 // 것과 같은 자리다(game.Snapshot.BaselineCp · GameDetail.BaselineCp).
 //
@@ -110,10 +109,10 @@ type exploreRequest struct {
 // 뒤집는데(detailOf), 검토의 관점은 언제나 下手로 고정돼 있다(exploreRoot).
 type exploreNode struct {
 	whatifNode
-	// HandicapJa 는 그 手合割의 이름이다. 平手면 안 온다 — 목록의 HandicapJa 와 같은
+	// HandicapJa 는 그 手合割의 이름이다. 平手면 오지 않는다 — 목록의 HandicapJa 와 같은
 	// 규약이고(review.go), 화면이 이름을 만들지 않는다.
 	HandicapJa string `json:"handicapJa,omitempty"`
-	// BaselineCp 는 그 手合의 「형세 0」이다(先手 관점 cp). 平手면 0이라 안 온다.
+	// BaselineCp 는 그 手合의 「형세 0」이다(先手 관점 cp). 平手면 0이라 오지 않는다.
 	BaselineCp int `json:"baselineCp,omitempty"`
 }
 
@@ -189,9 +188,9 @@ func (h *exploreHandler) play(w http.ResponseWriter, r *http.Request) {
 			"error": "bad_move", "message": whatifMessages["bad_move"],
 		})
 	default:
-		// 엔진 고장·시한 초과, 그리고 시작 국면을 못 읽는 경우(errWhatifPly). 뒤엣것은
+		// 엔진 고장·시한 초과, 그리고 시작 국면을 읽지 못하는 경우(errWhatifPly). 뒤엣것은
 		// 표가 깨진 것이라 사람이 고칠 일이고, 화면에는 둘 다 「다시 눌러 볼 수 있는
-		// 실패」로 나간다 — 검토는 아무것도 안 잃는다.
+		// 실패」로 나간다 — 검토는 아무것도 잃지 않는다.
 		log.Printf("explore: handicap %q, sfen %q, %d moves: %v", req.Handicap, req.SFEN, len(req.Moves), err)
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
 			"error": "engine_unavailable", "message": whatifMessages["engine_unavailable"],
@@ -202,10 +201,10 @@ func (h *exploreHandler) play(w http.ResponseWriter, r *http.Request) {
 // exploreRoot 는 手合割 하나를 검토의 뿌리로 옮긴다. 두 번째 값은 그 手合 자체다 —
 // 이름과 기준점이 응답에 실린다(exploreNode).
 //
-// 관점을 下手로 고정한다. 되짚기의 뿌리는 사람이 어느 쪽으로 뒀는가를 들고 있어서
+// 관점을 下手로 고정한다. 되짚기의 뿌리는 사람이 어느 쪽으로 뒀는가를 갖고 있어서
 // (whatifRoot.Human) 노드의 cp가 그 사람 관점인데, 검토에는 플레이어가 없다. 先手인 것은
-// 手合割이 정한다 — 駒落ち는 上手의 駒를 빼고 그 上手부터 두므로(journal §88) 0手目는
-// 「내 차례」가 아니지만, 기준점 표가 下手 관점 cp라(internal/handicap) 관점을 여기로 맞추면
+// 手合割이 정한다 — 駒落ち는 上手의 駒를 빼고 그 上手부터 두므로(journal §88) 0手目의
+// 手番은 상대 쪽이지만, 기준점 표가 下手 관점 cp라(internal/handicap) 관점을 여기로 맞추면
 // 화면의 숫자와 「互角ライン」이 같은 자를 쓴다.
 //
 // Moves 가 비어 있다. 확정된 수가 하나도 없다는 뜻이고, 그래서 요청의 수순이 곧
@@ -213,7 +212,7 @@ func (h *exploreHandler) play(w http.ResponseWriter, r *http.Request) {
 func exploreRoot(id, sfen string) (whatifRoot, handicap.Handicap, bool) {
 	if sfen != "" {
 		// 手合割이 없다. 임의의 국면에 「형세 0」이 정의되지 않으므로 기준점도 이름도
-		// 안 실린다 — 平手의 0을 그대로 쓰고, 화면이 「互角ライン」을 말하지 않는다.
+		// 실리지 않는다 — 平手의 0을 그대로 쓰고, 화면이 「互角ライン」을 말하지 않는다.
 		//
 		// 아래쪽을 先手로 둔 판이다(internal/boardread). 그래서 관점을 Black 으로
 		// 두는 것이 곧 「사진을 찍은 사람 관점」이다.
@@ -235,7 +234,7 @@ func exploreRoot(id, sfen string) (whatifRoot, handicap.Handicap, bool) {
 //
 // 첫 사유만 말한다. 확인 화면이 이미 사유 전부를 보여 주고 고칠 자리를 주므로
 // (POST /api/position/check) 여기까지 온 것은 그 화면을 지나지 않은 요청이고, 그때
-// 필요한 것은 목록이 아니라 「이 판으로는 분석할 수 없다」다.
+// 필요한 것은 목록 대신 「이 판으로는 분석할 수 없다」 한 줄이다.
 func exploreRootFault(sfen string) (string, bool) {
 	pos, err := shogi.ParseSFEN(sfen)
 	if err != nil {

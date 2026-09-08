@@ -50,7 +50,7 @@ export function PositionEditor({ board, faults, onChange }: PositionEditorProps)
   };
 
   const setHand = (side: Side, kind: string, n: number): void => {
-    // 0 밑으로도 위로도 안 내려간다. 40장이 한 판의 전부라 그 위는 개수가 아니다.
+    // 0 밑으로도 위로도 안 내려간다. 40장이 한 판의 전부라 그 위의 값은 판에 없다.
     const count = Math.max(0, Math.min(40, n));
     onChange({
       ...board,

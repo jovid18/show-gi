@@ -16,7 +16,7 @@ import (
 // 거절 셋과 왕복 하나. 거절(로그인·이름·수순)은 기록에 닿기 전에 끝나므로 DB 없이 확인하고,
 // 그래서 그 셋은 CI에서도 돈다.
 
-// snapshotWalls 는 store 없는 핸들러다. 거절되는 요청은 기록에 안 닿으므로,
+// snapshotWalls 는 store 없는 핸들러다. 거절되는 요청은 기록에 닿지 않으므로,
 // 여기서 500이 나오면 그 요청이 검사를 통과한 것이다.
 func snapshotWalls(t *testing.T) (*exploreSnapshotHandler, *http.Cookie) {
 	t.Helper()
@@ -64,7 +64,7 @@ func snapshotStore(t *testing.T) (*exploreSnapshotHandler, *http.Cookie, *http.C
 	return &exploreSnapshotHandler{store: st, auth: ah}, cookies[0], cookies[1]
 }
 
-// call 은 요청 하나를 건다. c 가 nil이면 로그인 안 한 요청이다.
+// call 은 요청 하나를 건다. c 가 nil이면 로그인하지 않은 요청이다.
 func (h *exploreSnapshotHandler) call(
 	t *testing.T,
 	method, path, body string,
@@ -155,7 +155,7 @@ func TestSnapshotsRejectAnIllegalLine(t *testing.T) {
 	for _, c := range []struct {
 		name, body, want string
 	}{
-		// 先手의 첫 수로 後手의 수를 뒀다. 모양은 USI 그대로라 정규식으로는 안 걸린다.
+		// 先手의 첫 수로 後手의 수를 뒀다. 모양은 USI 그대로라 정규식으로는 걸리지 않는다.
 		{"手番이 아닌 수", `{"handicap":"","moves":["3c3d"]}`, "bad_move"},
 		// 二歩. 룰 엔진만 아는 거절이다.
 		{"二歩", `{"handicap":"","moves":["2g2f","3c3d","P*2e"]}`, "bad_move"},
@@ -184,7 +184,7 @@ func TestSnapshotRoundTrip(t *testing.T) {
 	saved := decodeSnapshot(t, h.call(t, http.MethodPost, "/api/explore/snapshots",
 		`{"name":"  矢倉の入り口  ","handicap":"nimaiochi","moves":`+line+`}`, who), http.StatusCreated)
 
-	// 양끝 공백을 지운다. 안 지우면 목록에 빈 것처럼 보이는 줄이 남는다.
+	// 양끝 공백을 지운다. 지우지 않으면 목록에 빈 것처럼 보이는 줄이 남는다.
 	if saved.Name != "矢倉の入り口" {
 		t.Errorf("name = %q", saved.Name)
 	}

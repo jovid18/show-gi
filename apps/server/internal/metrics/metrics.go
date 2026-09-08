@@ -1,8 +1,8 @@
 // Package metrics 는 서버가 자기 상태를 숫자로 낸다.
 //
 // 표면이 둘이고 대상이 다르다. /metrics 는 Prometheus 텍스트로 라벨을 다 들고(태스크
-// 안에서만 닿는다), CloudWatch EMF 는 차원을 뺀 집계만 stdout 으로 낸다 — EMF 는 차원
-// 조합 하나가 곧 과금 대상 지표 하나라서 route 를 차원으로 올리면 지표 수가 경로 수만큼
+// 안에서만 닿는다), CloudWatch EMF 는 dimensions 를 뺀 집계만 stdout 으로 낸다 — EMF 는
+// dimensions 조합 하나가 곧 과금 대상 지표 하나라서 route 를 올리면 지표 수가 경로 수만큼
 // 늘어난다(journal §90).
 //
 // 의존성이 없다. client_golang 을 넣지 않은 것은 이 레포의 직접 의존성이 셋뿐이고
@@ -130,7 +130,7 @@ func (f *family) sumFunc(pick func(map[string]string) bool, of func(*series) flo
 
 // Registry 는 이 프로세스가 내는 지표를 다 들고 있다. 무엇을 재는지는 New 에 한 자리로 있다.
 type Registry struct {
-	// service·environment 는 EMF 의 차원이자 엔티티 정보다. 텍스트 표면에는 안 나간다.
+	// service·environment 는 EMF 의 dimensions 이자 엔티티 정보다. 텍스트 표면에는 안 나간다.
 	service     string
 	environment string
 
@@ -227,7 +227,7 @@ func New(service, environment string) *Registry {
 	r.MateSearchDuration = r.NewHistogram("engine_mate_search_duration_seconds",
 		"詰み 탐색 하나가 답을 받기까지 걸린 시간(초). 풀 대기를 포함한다", DefaultBuckets, "result")
 
-	// kind 는 game·match 다. 연결이 아니라 대국 세션을 센다.
+	// kind 는 game·match 다. 연결 대신 대국 세션을 센다.
 	r.WSSessions = r.NewGauge("ws_sessions_active",
 		"열려 있는 WebSocket 대국 세션 수", "kind")
 	r.WSSessionsOpened = r.NewCounter("ws_sessions_opened_total",

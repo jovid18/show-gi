@@ -75,7 +75,7 @@ type recordEvent struct {
 const recordQueue = 256
 
 // recordTarget 은 이 판을 어느 행에 남기나다. 연결이 열릴 때 한 번 정해지고 그 판
-// 내내 안 바뀐다: 두는 중에 다른 탭에서 로그아웃해도 이 판은 시작할 때의 주인으로 끝난다.
+// 내내 바뀌지 않는다: 두는 중에 다른 탭에서 로그아웃해도 이 판은 시작할 때의 주인으로 끝난다.
 type recordTarget struct {
 	// userID 는 nil일 수 있다 — 로그인 전 대국이다(002_anonymous_games.sql).
 	userID *int64
@@ -125,7 +125,7 @@ func (r *dbRecorder) Retracted(ply int, usi string, v intervene.Verdict) {
 }
 
 // Moved 와 같은 채널로 보낸다. 무르기는 그 手数까지의 기보를 지우므로, 지우기가
-// 아직 안 쓴 착수를 앞질러 가면 지워야 할 수가 그 뒤에 들어와 되살아난다.
+// 아직 쓰지 않은 착수를 앞질러 가면 지워야 할 수가 그 뒤에 들어와 되살아난다.
 func (r *dbRecorder) Undone(ply int, usi string) {
 	r.send(recordEvent{kind: evUndone, ply: ply, usi: usi})
 }
@@ -162,8 +162,8 @@ func (r *dbRecorder) FinishedWith(result store.GameResult) {
 
 // run 은 이벤트를 순서대로 쓴다.
 //
-// 쓰기는 세션 ctx 를 안 쓴다. 연결이 끊기면 세션 ctx 가 먼저 취소되는데, 그 시점에
-// 아직 안 쓴 이벤트가 남아 있으면 전부 실패한다 — 대국이 끝나는 순간이 바로 마지막
+// 쓰기는 세션 ctx 를 쓰지 않는다. 연결이 끊기면 세션 ctx 가 먼저 취소되는데, 그 시점에
+// 아직 쓰지 않은 이벤트가 남아 있으면 전부 실패한다 — 대국이 끝나는 순간이 바로 마지막
 // 이벤트가 몰리는 순간이라 그게 제일 아깝다.
 func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.Level, target recordTarget) {
 	write := context.WithoutCancel(ctx)
@@ -171,7 +171,7 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 	// 이어하는 판은 시작부터 id 를 안다. 점유가 그 행을 이미 되열어 놨으므로
 	// (store.ClaimGameForResume), 세션이 열리지 못하고 끝나도 아래 ctx 취소 경로가 다시
 	// abandoned 로 닫는다 — 되열린 채로 남으면 그 판은 되짚기에도(§51) 이어하기에도
-	// 안 걸리는 유령이 된다.
+	// 걸리지 않는 유령이 된다.
 	gameID := target.resumeID
 	finished := false
 
@@ -311,7 +311,7 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 				break
 			}
 			// 끝나지 않고 연결이 끊긴 판은 그렇게 남긴다 — 빈 result 로 두면
-			// 「아직 두는 중인 판」과 구별이 안 된다.
+			// 「아직 두는 중인 판」과 구별할 수 없다.
 			if gameID != 0 && !finished {
 				if err := st.FinishGame(write, gameID, store.ResultAbandoned); err != nil {
 					log.Printf("game record: abandon: %v", err)

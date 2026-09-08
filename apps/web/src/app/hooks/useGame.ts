@@ -163,7 +163,7 @@ export function useGame(): GameState {
      * 이 소켓이 아직 지금 대국의 것인가.
      *
      * 정리에서 `socket.close()` 를 부르면 그 `close` 이벤트가 뒤늦게 도착해 방금 정한
-     * 상태를 덮는다. 「もう一局」이 시작 화면이 아니라 「接続が切れました」로 가던
+     * 상태를 덮는다. 「もう一局」이 시작 화면 대신 「接続が切れました」로 가던
      * 것이 이것이었다 — 우리가 일부러 닫은 것을 사고로 보고하고 있었다.
      */
     let current = true;
@@ -185,8 +185,8 @@ export function useGame(): GameState {
         return; // 우리가 못 읽는 것은 무시한다. 판을 지우는 것보다 낫다
       }
       if (msg.type === 'snapshot') {
-        // 서버는 착수 하나에 개입 하나를 싣고 다음 착수까지 들고 있는다. 그래서 "있다"가
-        // 아니라 없다가 생긴 순간이 새 개입이다.
+        // 서버는 착수 하나에 개입 하나를 싣고 다음 착수까지 들고 있는다. 그래서 새 개입은
+        // "없다"에서 "있다"로 바뀐 순간이다 — "있다"만 보면 착수마다 같은 것을 다시 센다.
         const has = Boolean(msg.snapshot.intervention);
         if (has && !hadIntervention.current) setInterventionEpisode((n) => n + 1);
         hadIntervention.current = has;
@@ -277,7 +277,7 @@ export function useGame(): GameState {
     setConnection('idle');
     // setup 은 지우지 않는다 — 시작 화면이 그 값에서 시작한다(GameState.setup).
     setLive(false);
-    // 이어하기는 지운다. 이 판은 이제 그 판이 아니다.
+    // 이어하기는 지운다. 이 판은 이제 다른 판이다.
     setResumeId(null);
   }, []);
 

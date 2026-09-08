@@ -83,7 +83,7 @@ func TestOneMissingSquareIsNotTheCastle(t *testing.T) {
 	}
 }
 
-// 같은 칸에 상대 駒가 있으면 내 囲い가 아니다.
+// 같은 칸에 상대 駒가 있으면 내 囲い로 안 뜬다.
 func TestOpponentPiecesDoNotFormMyCastle(t *testing.T) {
 	sh := shapeByCode(t, "hon_mino")
 	var pos shogi.Position
@@ -175,11 +175,11 @@ func TestMovingTheRookWithinItsFileIsNotASwing(t *testing.T) {
 	}
 }
 
-// ▲3四飛(横歩取り)는 袖飛車가 아니다. 筋만 보면 3筋으로 같지만, 袖飛車는 飛를 자기
+// ▲3四飛(横歩取り)에는 袖飛車가 안 붙는다. 筋만 보면 3筋으로 같지만, 袖飛車는 飛를 자기
 // 2段(3八)에 振り, 横歩取り은 敵陣 3四로 뛰어들어 横歩를 딴다. 段을 안 보면 둘이 같은
 // 이름이 된다 — floodgate 1국에서 실제로 ▲3四飛에 袖飛車가 떴다.
 func TestYokofudoriIsNotSodeBisha(t *testing.T) {
-	// 2八→2四(筋 안)→3四(敵陣으로 筋 변경). 자기 2段 3八이 아니다.
+	// 2八→2四(筋 안)→3四(敵陣으로 筋 변경). 도착이 자기 2段 3八에서 벗어난다.
 	if got, ok := DetectFormation([]string{"2h2d", "2d3d"}, shogi.Black); ok {
 		t.Errorf("▲3四飛(横歩取り)인데 %v 가 떴다", got.Code)
 	}
@@ -227,9 +227,9 @@ func TestIbishaNeedsACastleFirst(t *testing.T) {
 }
 
 // 수순이 없으면 居飛車라고 말하지 않는다. StartSFEN 으로 중간부터 시작한 세션이
-// 그렇다 — 振った 기록이 없다는 것이 振っていない는 뜻이 아니다.
+// 그렇다 — 기록이 비어 있는 것과 振っていない은 다르다.
 //
-// 판을 함께 보는 것이 그것을 막는다. 飛가 6筋에 있으면 수순이 비어 있어도 居飛車가 아니다.
+// 판을 함께 보는 것이 그것을 막는다. 飛가 6筋에 있으면 수순이 비어 있어도 居飛車를 안 붙인다.
 func TestIbishaIsNotClaimedWhenTheHistoryIsMissing(t *testing.T) {
 	ss := append(append([]square{}, shapeByCode(t, "kin_yagura").squares...),
 		square{6, 8, shogi.Rook}) // 이미 振ってある 국면
@@ -239,7 +239,7 @@ func TestIbishaIsNotClaimedWhenTheHistoryIsMissing(t *testing.T) {
 	}
 }
 
-// 打는 좇던 칸과 안 맞는다. 飛가 잡혔다가 6筋에 打たれても 四間飛車가 아니다.
+// 打는 좇던 칸과 안 맞는다. 飛가 잡혔다가 6筋에 打たれても 四間飛車는 안 붙는다.
 func TestADroppedRookIsNotASwing(t *testing.T) {
 	if got, ok := DetectFormation([]string{"R*6h"}, shogi.Black); ok {
 		t.Errorf("打으로 전법이 붙었다: %v", got.Code)

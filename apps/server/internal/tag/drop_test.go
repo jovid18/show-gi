@@ -28,7 +28,7 @@ func TestPawnDroppedOnAGoldsHeadIsTatakiNoFu(t *testing.T) {
 	}
 }
 
-// 판만 봐서는 알 수 없다. 같은 국면이라도 그 歩가 걸어온 것이면 叩き가 아니다 —
+// 판만 봐서는 알 수 없다. 같은 국면이라도 그 歩가 걸어온 것이면 叩き로 안 뜬다 —
 // 이 부류가 방금 둔 수를 받는 이유가 여기 있고, 그 시그니처가 없으면 이 구별이 사라진다.
 func TestAPawnThatWalkedThereIsNotTataki(t *testing.T) {
 	got := dropNames(t, "4k4/9/4g4/4P4/9/9/9/9/4K4 b - 1", "5e5d", shogi.Black)

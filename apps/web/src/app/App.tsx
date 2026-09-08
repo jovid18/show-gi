@@ -70,7 +70,7 @@ const MatchScreen = lazy(async () => ({
  * 그 뒤의 이동이라, 같은 화면이 두 이름을 가지면 안 된다.
  */
 const TITLE_JA: Record<Route['name'], string> = {
-  // 홈만 「화면 이름 | show-gi」가 아니다. 여기가 `index.html` 의 `<title>` 이 가리키는
+  // 홈만 「화면 이름 | show-gi」 꼴에서 빠진다. 여기가 `index.html` 의 `<title>` 이 가리키는
   // 바로 그 자리라(canonical · OG · sitemap 도 같다), 다르게 적으면 첫 로드와 그 뒤의
   // 이동이 같은 화면에 두 이름을 준다.
   home: 'show-gi — 口を出すときを自分で決める将棋の相手',
@@ -107,7 +107,7 @@ export function App() {
    * `replace` 다. 이력에 쌓으면 뒤로 가기가 두 자리를 오가게 되고, 판을 벗어날 수
    * 없다는 사실이 「뒤로 가기가 고장 났다」로 읽힌다.
    *
-   * 브라우저를 아예 떠나는 길은 여기가 아니라 `useUnloadGuard` 가 묻는다.
+   * 브라우저를 아예 떠나는 길은 `useUnloadGuard` 가 묻는다.
    */
   useEffect(() => {
     if (playing && !onGame) navigate({ name: 'game' }, { replace: true });
@@ -209,7 +209,7 @@ export function App() {
 }
 
 /**
- * 로고와 제품 이름. 두는 중에는 링크가 아니다(journal §86) — 눌러도 판으로 되돌아오므로
+ * 로고와 제품 이름. 두는 중에는 링크를 끈다(journal §86) — 눌러도 판으로 되돌아오므로
  * (App의 `useEffect`) 링크로 두면 「눌렀는데 아무 일도 안 일어난다」가 되고, 그건 고장으로 읽힌다.
  *
  * 링크일 때는 `navigate` 를 탄다. `<a href>` 로 두면 브라우저가 문서 전체를 새로 받아

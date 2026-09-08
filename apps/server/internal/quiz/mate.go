@@ -15,7 +15,7 @@ type mateSolver struct {
 	mate MateSearcher
 	memo map[string]int
 	// unknown 은 solver 가 결론을 못 낸 국면이다. memo 와 따로 둔다 — 저쪽의 0은
-	// 「詰み이 없다」는 결론이고 이쪽은 결론이 아니다.
+	// 「詰み이 없다」는 결론이고 이쪽은 결론 없음이다.
 	unknown map[string]struct{}
 	budget  int
 	// answered 는 solver 가 결론을 준 횟수다. 0이면 엔진 전체가 답하지 않았다는 뜻이고,
@@ -127,7 +127,7 @@ func (s *mateSolver) expand(ctx context.Context, nodes map[string]MateNode, pos 
 			v.Defense = defense
 			next = append(next, branch{pos: after, plies: rest})
 
-			// 2+rest < plies 는 뿌리 手数가 최소가 아니었다는 뜻이고 solver 가 최소를
+			// 2+rest < plies 는 뿌리 手数보다 짧은 詰み이 있었다는 뜻이고 solver 가 최소를
 			// 준다는 전제와 어긋난다. 일어나면 그 수는 더 빠른 詰み이므로 정답으로 두고
 			// (맞은 것을 틀렸다고 말하지 않는다) 여기에 로그를 남긴다.
 			if 2+rest < plies {
@@ -236,7 +236,7 @@ func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position
 	scanned, unanswered := 0, 0
 	defer func() {
 		if scanned == 0 {
-			return // 사람 차례 국면이 아예 없었다. 훑을 것이 없던 것이지 실패가 아니다
+			return // 사람 차례 국면이 아예 없었다. 훑을 것이 없던 것이고 실패로 세지 않는다
 		}
 		if unanswered > 0 {
 			log.Printf("quiz: the mate solver did not answer for %d of %d human-turn positions", unanswered, scanned)
@@ -256,7 +256,7 @@ func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position
 		if !known {
 			unanswered++
 			// 예산이 끝났거나 ctx가 죽었으면 뒤도 마찬가지다. 한 국면을 못 잰 것이면
-			// 그 국면만 건너뛴다 — 「모른다」가 「없다」는 아니지만 훑기는 이어진다.
+			// 그 국면만 건너뛴다 — 「모른다」를 「없다」로 적지 않고 훑기는 이어진다.
 			if sol.budget <= 0 || ctx.Err() != nil {
 				return nil, sol.answered
 			}
@@ -268,7 +268,7 @@ func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position
 
 		converted := b.converted(in, posAt, i, d)
 		if converted && d < MateMinPliesIfConverted {
-			continue // 이미 決めた 1手詰め을 다시 내는 것은 문항이 아니다
+			continue // 이미 決めた 1手詰め을 다시 내는 것은 문항에서 뺀다
 		}
 
 		nodes, ok := sol.buildTree(ctx, pos, d)
@@ -307,7 +307,7 @@ func (b *Builder) converted(in Input, posAt []shogi.Position, i, plies int) bool
 	// len(in.Moves) 로 세면 사람이 실제로 決めた 詰み이 「놓쳤다」로 나간다.
 	//
 	// 手数가 정확히 맞아야 한다. 짧으면 상대가 잘못 받아 빨리 끝난 것이고, 그때 사람이
-	// 둔 것은 이 문항의 수순이 아니다.
+	// 둔 것은 이 문항의 수순과 다르다.
 	//
 	// 길 수는 없다 — solver 가 無駄合い까지 세므로 제대로 決めた 詰み은 plies 를 안 넘는다.
 	// 그래서 이 조건이 좁아지는 방향은 「놓쳤다」쪽이고, 그쪽은 참이다.

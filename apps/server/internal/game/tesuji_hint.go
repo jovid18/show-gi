@@ -29,7 +29,7 @@ import (
 // 붙이지 않는다.
 //
 // 3은 실측이다(§74). 큰 k 는 비용만 오르고 통과한 이름이 안 는다 — MultiPV 는 형제
-// 줄을 함께 유지하느라 가지치기가 k 마다 달라서, k 가 조율값이 아니라 정의의 일부다.
+// 줄을 함께 유지하느라 가지치기가 k 마다 달라서, k 자체가 정의의 일부다.
 const TesujiHintRootK = 3
 
 // TesujiOption 은 지금 두면 새 手筋 이름이 생기는 수 하나다.
@@ -50,7 +50,7 @@ type TesujiOption struct {
 // 날이 온다.
 func tesujiOptions(pos shogi.Position, c shogi.Color) []TesujiOption {
 	// LegalMoves 는 pos.Turn 쪽의 수만 낸다. 상대 차례에 물으면 경고 없이 빈 결과가 오므로
-	// (에러가 아니라 「手筋이 없다」로 보인다) 여기서 따로 둔다 — tag.targetSquares 가
+	// (에러 없이 「手筋이 없다」로 보인다) 여기서 따로 둔다 — tag.targetSquares 가
 	// 같은 함정에 물렸던 자리다.
 	if pos.Turn != c {
 		return nil
@@ -71,11 +71,11 @@ func tesujiOptions(pos shogi.Position, c shogi.Color) []TesujiOption {
 // 탐색은 한 번이다. 착수 前 국면을 k 줄로 재고, 후보의 값을 그 형제 줄에서 꺼낸다.
 // 사람이 둘 차례이므로 줄의 점수가 곧 사람 관점이고, 부호를 뒤집는 자리가 없다.
 //
-// k가 상수가 아니라 인자인 것은 depth 와 같은 이유다 — 값을 흔들어 보는 데 세션이
+// k를 상수로 두지 않고 인자로 받는 것은 depth 와 같은 이유다 — 값을 흔들어 보는 데 세션이
 // 필요 없어야 한다. 프로덕션이 넣는 값은 TesujiHintRootK.
 //
 // dropped 는 모르는 채로 남은 후보 수다 — 줄 밖이고 마지막 줄이 아직 상한 안이라
-// 확정 탈락이라고 말할 수 없는 것들. 0이 아니면 결과가 「전부」가 아니다.
+// 확정 탈락이라고 말할 수 없는 것들. 0이 아니면 결과에서 빠진 후보가 있다.
 //
 // 모르면 이름을 붙이지 않는다. 탐색이 실패하면 전부 빈 결과다 — 룰만으로
 // 통과시키면 이 게이트가 없는 것과 같아진다(tesuji.go 의 같은 규약).

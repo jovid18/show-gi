@@ -24,7 +24,7 @@ import (
 // 300手 KIF 가 30KB 안쪽이라 그 두 배면 사람이 붙여 넣는 것은 다 들어온다.
 const MaxInput = 64 << 10
 
-// MaxMoves 는 받아들이는 手数의 상한이다. 넘으면 거절한다 — 사람이 둔 한 판이 아니다.
+// MaxMoves 는 받아들이는 手数의 상한이다. 넘으면 거절한다 — 사람이 둔 한 판을 벗어난 手数다.
 const MaxMoves = 512
 
 // DefaultModel 은 값이 안 주어졌을 때의 모델이다. 하는 일이 글자 옮기기라 mini 로 충분하다.
@@ -68,7 +68,7 @@ func New(key, model string) *Client {
 	}
 }
 
-// Result 는 옮겨 적은 것이다. 아직 수가 아니라 글자다 — 수가 되는 것은 kifu.ParseMoves 를
+// Result 는 옮겨 적은 것이다. 담긴 것은 아직 글자다 — 수가 되는 것은 kifu.ParseMoves 를
 // 지난 뒤다.
 type Result struct {
 	// Handicap 은 원문이 말한 手合割 이름이다. 없으면 빈 값(平手).

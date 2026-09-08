@@ -170,7 +170,7 @@ func (s *Store) PutPosition(ctx context.Context, p Position) (stored bool, err e
 		Candidates:    payload,
 		ComputedDepth: int32(p.ComputedDepth),
 	})
-	// 더 얕아서 갱신하지 않으면 RETURNING 이 아무 행도 안 준다. 에러가 아니다.
+	// 더 얕아서 갱신하지 않으면 RETURNING 이 아무 행도 안 준다. 에러로 안 본다.
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -331,13 +331,13 @@ func (s *Store) Edges(ctx context.Context, parentKey string) ([]Edge, error) {
 type Mate struct {
 	SFENKey string
 	// DepthLimit 은 이 답을 낸 solver 의 手数 한계다. 읽는 쪽이 자기 한계와 견준다 —
-	// 얕은 한계의 「없다」는 깊은 한계의 「없다」가 아니다.
+	// 얕은 한계의 「없다」와 깊은 한계의 「없다」는 다른 사실이다.
 	DepthLimit int
 	// Moves 는 증명된 詰み 수순이다. 비어 있으면 증명된 「詰み이 없다」다.
 	Moves []string
 }
 
-// ErrNoMate 는 캐시에 없을 때다. 「詰み이 없다」가 아니라 「아직 안 물어봤다」다 —
+// ErrNoMate 는 캐시에 없을 때다. 「詰み이 없다」 대신 「아직 안 물어봤다」다 —
 // 그 둘을 한 값으로 만들면 있는 詰み을 놓친다.
 var ErrNoMate = errors.New("store: mate not cached")
 
@@ -368,7 +368,7 @@ func (s *Store) PutMate(ctx context.Context, m Mate) (stored bool, err error) {
 		DepthLimit: int32(m.DepthLimit),
 		Moves:      moves,
 	})
-	// 같거나 얕은 한계라 갱신하지 않으면 RETURNING 이 아무 행도 안 준다. 에러가 아니다.
+	// 같거나 얕은 한계라 갱신하지 않으면 RETURNING 이 아무 행도 안 준다. 에러로 안 본다.
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -427,7 +427,7 @@ func (s *Store) SkillProfile(ctx context.Context, userID int64) (SkillEstimate, 
 	}
 	e := SkillEstimate{Loss: *row.SkillLoss, Samples: int(row.SkillSamples)}
 	// 절대 낙폭은 따로 본다. 이 칸 없이 쌓인 행이 있어서(014_skill_absolute_loss.sql)
-	// 하나가 있다고 다른 하나가 있는 것이 아니다.
+	// 하나가 있어도 다른 하나는 없을 수 있다.
 	if row.SkillAbsLoss != nil {
 		e.AbsLoss, e.AbsSamples = *row.SkillAbsLoss, int(row.SkillAbsSamples)
 	}
@@ -502,7 +502,7 @@ type MatchRating struct {
 	SkillKnown bool
 }
 
-// MatchRating 은 그 사람의 레이팅이다. 행이 없어도 에러가 아니다 — Games 0으로 온다.
+// MatchRating 은 그 사람의 레이팅이다. 행이 없어도 에러를 안 낸다 — Games 0으로 온다.
 //
 // 시드도 불확실성 복원도 여기서 안 한다. 그건 갱신식과 같은 자리에 있어야 하고
 // (internal/rating) 여기가 그것을 하면 상수가 두 벌이 된다.
@@ -818,7 +818,7 @@ type Intervention struct {
 // InsertIntervention 은 개입 하나를 남긴다.
 //
 // 같은 ply에 여러 번 불릴 수 있다. 그 반복이 곧 「그 국면이 그 사람에게 얼마나
-// 어려웠나」이고, 그래서 (game_id, ply) 는 유니크가 아니다(journal §17).
+// 어려웠나」이고, 그래서 (game_id, ply) 에 유니크를 안 건다(journal §17).
 func (s *Store) InsertIntervention(ctx context.Context, gameID int64, iv Intervention) error {
 	arg := db.InsertInterventionParams{
 		GameID: gameID,
@@ -1107,8 +1107,8 @@ type gameHead struct {
 }
 
 // GameRecord 는 그 사람의 한 판 전체를 읽는다. ownerID 가 nil이면 익명 판이다.
-// 없거나 남의 것이면 ErrNoGame — 둘을 구별해서 돌려주지 않는다. 「없다」와 「당신 것이
-// 아니다」가 갈리면 그것만으로 남의 판이 몇 번까지 있는지 세어 볼 수 있다.
+// 없거나 남의 것이면 ErrNoGame — 둘을 구별해서 돌려주지 않는다. 「없다」와 「남의
+// 것이다」가 갈리면 그것만으로 남의 판이 몇 번까지 있는지 세어 볼 수 있다.
 func (s *Store) GameRecord(ctx context.Context, gameID int64, ownerID *int64) (GameRecord, error) {
 	head, err := s.q.GetGameForOwner(ctx, db.GetGameForOwnerParams{ID: gameID, OwnerID: ownerID})
 	if errors.Is(err, pgx.ErrNoRows) {

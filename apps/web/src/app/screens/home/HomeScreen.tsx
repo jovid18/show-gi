@@ -12,7 +12,7 @@ interface MenuItem {
   route: Route;
   name: string;
   note: string;
-  /** 눈에 먼저 들어오는 한 줄. 대국 하나뿐이다 — 둘이 되면 어느 쪽도 첫째가 아니다. */
+  /** 눈에 먼저 들어오는 한 줄. 대국 하나뿐이다 — 둘이 되면 첫째가 사라진다. */
   primary?: boolean;
   /** 로그인한 사람에게만 그린다. 눌러도 401인 줄을 그리면 고장으로 읽힌다(journal §76). */
   needsAuth?: boolean;
@@ -83,7 +83,7 @@ export function HomeScreen({ me, playing }: { me: MeResponse; playing: boolean }
       <nav className="home__menu" aria-label="メニュー">
         {MENU.filter((item) => (!item.needsAuth || me.user !== null) && !(item.hideWhilePlaying && playing)).map(
           (item) => {
-            // 버튼이 아니라 링크다. 주소가 화면을 정하므로 가운데 클릭·링크 복사·
+            // 링크로 그린다. 주소가 화면을 정하므로 가운데 클릭·링크 복사·
             // 새 탭이 그냥 동작해야 하고, 그건 `<a href>` 만이 준다.
             return (
               <a

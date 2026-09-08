@@ -49,7 +49,7 @@ type queueUser struct {
 // queueBase 는 이 테스트의 사람들이 서는 레이팅 자리다.
 //
 // 테스트마다 만 점씩 떨어뜨린다. 밴드는 아무리 넓어도 BaseMax 에 RD 둘을 더한 값이라
-// 900을 못 넘으므로(queue.Band), 그 간격이면 남의 테스트 대기자와 절대 안 붙는다 —
+// 900을 넘지 못하므로(queue.Band), 그 간격이면 남의 테스트 대기자와 절대 붙지 않는다 —
 // 제품의 장치로 격리하는 것이고, 표를 비우는 것보다 안전하다.
 func queueBase(t *testing.T) float64 {
 	t.Helper()
@@ -116,9 +116,9 @@ func queueServer(t *testing.T, people int) queueFixture {
 // rate 는 사람마다 레이팅을 심는다. 불확실성이 하한이라(rating.MinDeviation) 밴드가 가장
 // 좁고, 그래서 이 테스트의 사람들끼리만 붙는다.
 //
-// 제품의 쓰기 문(SaveMatchRatings)을 안 쓴다. 저쪽은 한 문장이 두 사람을 같이 옮기므로
+// 제품의 쓰기 문(SaveMatchRatings)을 쓰지 않는다. 저쪽은 한 문장이 두 사람을 같이 옮기므로
 // 서로 다른 두 사람이 있어야 하는데, 여기는 혼자 서는 테스트에도 자리를 줘야 한다 —
-// 안 주면 그 사람이 기본 1500에 남아 다른 「혼자 서는 테스트」와 붙는다.
+// 주지 않으면 그 사람이 기본 1500에 남아 다른 「혼자 서는 테스트」와 붙는다.
 func (f queueFixture) rate(t *testing.T, of func(i int) float64) {
 	t.Helper()
 	for i, u := range f.users {
@@ -135,8 +135,8 @@ func (f queueFixture) rate(t *testing.T, of func(i int) float64) {
 	}
 }
 
-// rows 는 그 사람이 대기열에 들고 있는 행 수다. 0이나 1이어야 한다 — 표의 PK 가 그것을
-// 보장하지만, 「대기열에 두 번 섰나」를 재는 자리에서 남의 테스트를 안 세려면 이쪽이 필요하다.
+// rows 는 그 사람이 대기열에 남겨 둔 행 수다. 0이나 1이어야 한다 — 표의 PK 가 그것을
+// 보장하지만, 「대기열에 두 번 섰나」를 재는 자리에서 남의 테스트를 세지 않으려면 이쪽이 필요하다.
 func (f queueFixture) rows(t *testing.T, u queueUser) int {
 	t.Helper()
 	var n int
@@ -165,10 +165,10 @@ func (f queueFixture) poll(t *testing.T, u queueUser) queuePayload {
 // pollUntilMatched 는 짝이 잡힐 때까지 다시 물어본다.
 //
 // 한 번에 잡혀야 한다고 재면 안 된다. 잠금이 SKIP LOCKED 라, 같은 DB 에서 도는 남의
-// 짝짓기가 내 행을 잠근 회차에는 정당하게 「기다리는 중」이 나온다 — 화면도 2초 뒤에
+// 짝짓기가 내 행을 잠근 순간에는 정당하게 「기다리는 중」이 나온다 — 화면도 2초 뒤에
 // 다시 묻는다(useQueue).
 //
-// 반대 방향(「안 잡혀야 한다」)에는 재시도가 없다. 잠금은 짝을 없앨 뿐 만들지 못하므로
+// 반대 방향(「잡히지 않아야 한다」)에는 재시도가 없다. 잠금은 짝을 없앨 뿐 만들지 못하므로
 // 그쪽은 한 번으로 충분하다.
 func (f queueFixture) pollUntilMatched(t *testing.T, u queueUser) queuePayload {
 	t.Helper()
@@ -184,7 +184,7 @@ func (f queueFixture) pollUntilMatched(t *testing.T, u queueUser) queuePayload {
 	return got
 }
 
-// 로그인하지 않으면 대기열에 못 선다. 익명은 서로 구별할 수단이 없어서 짝짓기가
+// 로그인하지 않으면 대기열에 설 수 없다. 익명은 서로 구별할 수단이 없어서 짝짓기가
 // 성립하지 않는다.
 func TestJoiningTheQueueNeedsSignIn(t *testing.T) {
 	f := queueServer(t, 1)
@@ -197,7 +197,7 @@ func TestJoiningTheQueueNeedsSignIn(t *testing.T) {
 	}
 }
 
-// 혼자 서면 안 잡힌다. 동시 접속자가 없으면 안 잡히는 것을 그대로 받아들이기로
+// 혼자 서면 잡히지 않는다. 동시 접속자가 없으면 잡히지 않는 것을 그대로 받아들이기로
 // 정했고(journal §92), 그때 화면이 말할 것이 「대기열에 몇 명인가」다.
 func TestOneWaiterIsNotPaired(t *testing.T) {
 	f := queueServer(t, 1)
@@ -213,14 +213,14 @@ func TestOneWaiterIsNotPaired(t *testing.T) {
 	if f.rows(t, me) != 1 {
 		t.Errorf("내 행이 %d개, want 1 — 대기열에 서지 못했다", f.rows(t, me))
 	}
-	// 자기 자신은 세어진다. 정확한 수를 안 보는 이유는 이 파일 머리에 있다.
+	// 자기 자신은 세어진다. 정확한 수를 보지 않는 이유는 이 파일 머리에 있다.
 	if got.Waiting < 1 {
 		t.Errorf("대기열에 %d명 — 자기 자신이 안 세어졌다", got.Waiting)
 	}
 }
 
-// 다시 물어보는 것이 멱등이다. 대기열이 늘지 않고 선 시각도 안 밀린다 — 밀리면 밴드가
-// 매 재시도마다 처음으로 돌아가서 영영 안 넓어진다.
+// 다시 물어보는 것이 멱등이다. 대기열이 늘지 않고 선 시각도 밀리지 않는다 — 밀리면 밴드가
+// 매 재시도마다 처음으로 돌아가서 영영 넓어지지 않는다.
 func TestPollingDoesNotResetTheWait(t *testing.T) {
 	f := queueServer(t, 1)
 	me := f.users[0]
@@ -282,8 +282,8 @@ func TestTwoWaitersMeetInOneRoom(t *testing.T) {
 	}
 }
 
-// 확인 화면이 안 뜬다. 손님이 처음부터 앉아 있어서 방이 waiting 이 아니고, 화면은
-// 그때 「참가하시겠습니까」를 안 그린다(journal §92).
+// 확인 화면이 뜨지 않는다. 손님이 처음부터 앉아 있어서 방이 waiting 을 건너뛰고, 화면은
+// 그때 「참가하시겠습니까」를 그리지 않는다(journal §92).
 func TestAPairedRoomSkipsTheJoinScreen(t *testing.T) {
 	f := queueServer(t, 2)
 
@@ -305,8 +305,8 @@ func TestAPairedRoomSkipsTheJoinScreen(t *testing.T) {
 	}
 }
 
-// 밴드 밖의 두 사람은 안 붙는다. 불확실성이 하한이라 밴드가 Base0 + 100 이고, 격차
-// 1400은 어느 쪽 밴드로도 안 덮인다(queue.Band).
+// 밴드 밖의 두 사람은 붙지 않는다. 불확실성이 하한이라 밴드가 Base0 + 100 이고, 격차
+// 1400은 어느 쪽 밴드로도 덮이지 않는다(queue.Band).
 func TestFarApartWaitersAreNotPaired(t *testing.T) {
 	f := queueServer(t, 2)
 	strong, weak := f.users[0], f.users[1]
@@ -334,7 +334,7 @@ func TestFarApartWaitersAreNotPaired(t *testing.T) {
 	}
 }
 
-// 대기열에서 빠지면 짝이 안 된다. 탭을 닫는 자리에서 부르는 경로다.
+// 대기열에서 빠지면 짝이 맺어지지 않는다. 탭을 닫는 자리에서 부르는 경로다.
 func TestLeavingTheQueueRemovesTheWaiter(t *testing.T) {
 	f := queueServer(t, 2)
 	left, other := f.users[0], f.users[1]

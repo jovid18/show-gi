@@ -33,7 +33,7 @@ export interface PositionFault {
 /**
  * 국면 하나와, 그것에 대해 룰 엔진이 말할 수 있는 전부.
  *
- * `faults` 가 비어 있어야 분석으로 넘어갈 수 있다. `warnings` 는 거절이 아니다 —
+ * `faults` 가 비어 있어야 분석으로 넘어갈 수 있다. `warnings` 는 막지 않는다 —
  * 말이 몇 장 모자라거나 이미 詰んでいる 국면이고, 둘 다 그대로 분석할 수 있다.
  */
 export interface PositionResponse {

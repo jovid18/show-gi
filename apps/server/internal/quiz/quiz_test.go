@@ -20,8 +20,7 @@ const mate1SFEN = "4k4/9/3G1G3/9/9/9/9/9/4K4 b G 1"
 // mateIn 은 테스트용 詰み 탐색이다. 攻方은 王手만 걸고 玉方은 최장 방어를 고른다.
 //
 // 트리를 짓는 쪽과 셈이 다르다 — 여기는 攻方 수에 대한 최솟값을 재귀로 구하고, 저쪽은
-// 응수의 최댓값에 2를 더한다. 그래서 이것으로 저쪽을 견주는 것이 자기 자신과의 대조가
-// 아니다.
+// 응수의 최댓값에 2를 더한다. 그래서 이것으로 저쪽을 견주는 것은 서로 다른 셈끼리의 대조다.
 func mateIn(pos shogi.Position, limit int) int {
 	if limit <= 0 {
 		return 0
@@ -139,7 +138,7 @@ func TestMateItemFindsMateInOne(t *testing.T) {
 	}
 
 	// 이 국면에는 1手詰め이 여럿이다(G*5b 도 4c5b 도 詰む). 실전 국면에서 余詰은
-	// 예외가 아니라 보통이고, 그래서 「하나가 정답」이라고 단정하지 않는다 — 대신
+	// 드물지 않고 보통이라, 그래서 「하나가 정답」이라고 단정하지 않는다 — 대신
 	// 결정적으로 고르는지를 본다. 규약은 詰み 우선, 그다음 USI 순서다.
 	if want := smallestMate(pos); node.Best != want {
 		t.Errorf("best = %q, want %q (mate first, then USI order)", node.Best, want)
@@ -428,7 +427,7 @@ func mustKey(t *testing.T, sfen string) string {
 
 // 王手가 아닌 수를 낸 뒤에도 진행이 남아 있어야 한다.
 //
-// 판은 안 움직이지만 그 자리는 문제 국면이 아니라 지금까지 진행된 국면이다. 둘 수 있는
+// 판은 안 움직여도 그 자리는 문제 국면으로 돌아가지 않고 진행된 국면에 머문다. 둘 수 있는
 // 수를 안 채워 보내면 화면이 문항 쪽으로 되돌아가서 맞힌 수가 사라진 것처럼 보인다.
 func TestGradeMateKeepsProgressAfterANonCheck(t *testing.T) {
 	fm := &fakeMate{limit: 9}
@@ -480,7 +479,7 @@ func TestGradeMateKeepsProgressAfterANonCheck(t *testing.T) {
 	if got.Plies != mid.Plies {
 		t.Errorf("plies = %d, want %d", got.Plies, mid.Plies)
 	}
-	// 진행된 수순은 그대로 남는다 — 「王手가 아니다」는 되돌리는 것이지 지우는 것이 아니다.
+	// 진행된 수순은 그대로 남는다 — 「王手가 아닌 수」는 되돌릴 뿐 지우지 않는다.
 	if len(got.Line) != len(mid.Line) {
 		t.Errorf("line = %v, want %v", got.Line, mid.Line)
 	}
@@ -546,7 +545,7 @@ func TestGradeMateGivesTheAnswerWithItsOwnPosition(t *testing.T) {
 
 // 王手가 아닌 수에는 정답을 안 준다.
 //
-// 그쪽은 오답이 아니라 다시 두라는 안내라 시도가 소진되지 않는다. 답을 실어 보내면 아무
+// 그쪽은 오답 대신 다시 두라는 안내라 시도가 소진되지 않는다. 답을 실어 보내면 아무
 // 조용한 수나 한 번 눌러서 답을 꺼낼 수 있고, 그러면 채점을 서버에 둔 이유가 사라진다.
 func TestGradeMateDoesNotLeakTheAnswerOnANonCheck(t *testing.T) {
 	fm := &fakeMate{limit: 7}
@@ -564,7 +563,7 @@ func TestGradeMateDoesNotLeakTheAnswerOnANonCheck(t *testing.T) {
 	}
 }
 
-// 이겼다고 詰ました 것은 아니다.
+// 이긴 판이라고 詰ました 것으로 세지 않는다.
 //
 // 엔진은 投了하기도 하고 못 두는 수를 내놓기도 하는데, 둘 다 사람의 승리로 닫힌다. 手数만
 // 보면 「あなたが決めた詰みです」가 두어진 적 없는 詰み을 두고 나간다.
@@ -582,7 +581,7 @@ func TestConvertedNeedsAnActualCheckmate(t *testing.T) {
 		t.Error("converted = false, but the game ended in checkmate")
 	}
 
-	// 같은 手数 안에 끝났지만 詰み이 아니다 — 상대가 던졌거나 못 두는 수를 냈다.
+	// 같은 手数 안에 끝났지만 詰み은 없다 — 상대가 던졌거나 못 두는 수를 냈다.
 	resigned := mated
 	resigned.Moves = []string{"G*5b", "6b5b"}
 	q, _ = NewBuilder(&fakeMate{limit: 9}, nil, 12).Build(context.Background(), resigned)
@@ -594,7 +593,7 @@ func TestConvertedNeedsAnActualCheckmate(t *testing.T) {
 	}
 }
 
-// 엔진이 아무것도 못 답하면 「문항이 없다」가 아니다.
+// 엔진이 아무것도 못 답한 판에 「문항이 없다」를 적지 않는다.
 //
 // 배포가 생성 도중에 끼면 풀이 닫혀 모든 탐색이 즉시 실패하는데, 그때 나온 빈 결과를
 // 저장하면 화면이 「이 판엔 문항이 없다」로 단정한다 — 생성이 판이 끝날 때 한 번뿐이라
@@ -610,7 +609,7 @@ func TestBuildReportsADegradedRun(t *testing.T) {
 		t.Error("measured = true, but the solver answered nothing")
 	}
 
-	// 엔진이 아예 없는 배포는 못 본 것이 아니다. 그 배포에 문항이 없는 것은 사실이라
+	// 엔진이 아예 없는 배포는 못 본 것과 다르다. 그 배포에 문항이 없는 것은 사실이라
 	// 그대로 적어도 된다.
 	q, measured = NewBuilder(nil, nil, 12).Build(context.Background(), in)
 	if q.Mate != nil || len(q.Best) != 0 {

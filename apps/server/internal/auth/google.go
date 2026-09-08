@@ -81,7 +81,7 @@ func (g *Google) AuthURL(redirectURI, state string) string {
 // Identity 는 Google이 말해 주는 그 사람이다.
 type Identity struct {
 	// Sub 는 Google 안에서 이 계정을 가리키는 불변 식별자다. users.provider_uid 가
-	// 이것이고, 이메일이 아니다 — 이메일은 바뀌고 재사용된다.
+	// 이것이다 — 이메일은 바뀌고 재사용되므로 그 자리에 못 쓴다.
 	Sub   string
 	Name  string
 	Email string
@@ -150,7 +150,7 @@ func (g *Google) Exchange(ctx context.Context, code, redirectURI string) (Identi
 // 토큰이었다면 이야기가 정반대다.
 //
 // 그래서 JWT 라이브러리를 끌어오지 않는다. 여기서 하는 일은 base64 한 번과 JSON
-// 한 번이고, 대신 aud 만 확인한다 — 서명이 아니라 설정 실수를 잡는 자리다.
+// 한 번이고, 대신 aud 만 확인한다 — 설정 실수를 잡는 자리다.
 func (g *Google) identityFrom(idToken string) (Identity, error) {
 	parts := strings.Split(idToken, ".")
 	if len(parts) != 3 {

@@ -13,7 +13,7 @@ import (
 // 대국 중 엔진 탐색의 시한 — 탐색 하나가 판 전체를 붙들지 못하게 한다.
 //
 // 사람이 둔 첫 판이 정확히 그것으로 멈췄다(playtests/2026-08-13-human-1.md #2 · #9).
-// 시한은 결과를 버리는 것이지 자르는 것이 아니라서, 확인할 것은 「제때 포기하는가」와
+// 시한은 결과를 자르지 않고 버린다. 그래서 확인할 것은 「제때 포기하는가」와
 // 「포기한 뒤 판이 어떻게 되는가」 둘이다.
 
 // 부가 기능이 대국보다 오래 풀을 붙들면 안 된다. 두 값이 뒤집혀도 이 파일의 나머지
@@ -55,8 +55,8 @@ func TestOpponentSearchDeadlineAbortsTheGame(t *testing.T) {
 	}
 }
 
-// 판정이 안 돌아오면 수는 그대로 두어지고 대국이 이어진다. 개입은 부가이고 대국이 본체다.
-// 대신 아무 말도 안 하지 않는다 — 개입이 없는 화면은 「괜찮은 수」와 똑같이 생겼다.
+// 판정이 돌아오지 않으면 수는 그대로 두어지고 대국이 이어진다. 개입은 부가이고 대국이 본체다.
+// 그래도 알림 없이 넘기지는 않는다 — 개입이 없는 화면은 「괜찮은 수」와 똑같이 생겼다.
 func TestJudgeDeadlineLetsTheMoveStandWithANotice(t *testing.T) {
 	an := &fixedAnalyst{verdict: blunder(), delay: 5 * time.Second}
 	s := newSession(t, Config{

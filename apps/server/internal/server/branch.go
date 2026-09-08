@@ -1,6 +1,6 @@
 package server
 
-// 「가정 수순 한 걸음」의 계산부. HTTP 핸들러의 것이 아니다 — 대국 화면(ws.go)과
+// 「가정 수순 한 걸음」의 계산부. 핸들러 한 곳에 매이지 않는다 — 대국 화면(ws.go)과
 // 되짚기 화면(whatif.go)이 같은 whatifNodeOf 를 부르고 뿌리를 얻는 곳만 다르다.
 
 import (
@@ -16,7 +16,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// whatifNodeOf 는 분기를 한 걸음 진행시킨다. 세션을 안 탄다 — 뿌리를 손에 들고 있는
+// whatifNodeOf 는 분기를 한 걸음 진행시킨다. 세션을 타지 않는다 — 뿌리를 손에 들고 있는
 // 채로 도는 함수라, 엔진 하나만 손으로 만들어 넣으면 전부 확인할 수 있다(cache는 nil로 둔다).
 func whatifNodeOf(
 	ctx context.Context,
@@ -27,7 +27,7 @@ func whatifNodeOf(
 ) (whatifNode, error) {
 	start, err := shogi.ParseSFEN(startSFENOf(root.StartSFEN))
 	if err != nil {
-		// 시작 국면을 못 읽으면 한 수도 두지 않는다. 平手 초기 국면으로 대신 두면
+		// 시작 국면을 읽지 못하면 한 수도 두지 않는다. 平手 초기 국면으로 대신 두면
 		// 한 번도 없었던 국면 위에서 가정을 세우게 된다(detailOf 와 같은 판단이다).
 		return whatifNode{}, fmt.Errorf("%w: start sfen %q: %v", errWhatifPly, root.StartSFEN, err)
 	}
@@ -74,9 +74,9 @@ func whatifNodeOf(
 
 	legal := pos.LegalMoves()
 	if len(legal) == 0 {
-		// 千日手는 여기서 안 본다. 그건 같은 국면이 네 번 나왔는가라서 수순 전체를
-		// 세야 하는데, 분기는 실제 대국이 아니라 「둬 보는 것」이고 거기까지 가는 일이
-		// 거의 없다. 없는 것을 절반만 세느니 안 센다.
+		// 千日手는 여기서 보지 않는다. 그건 같은 국면이 네 번 나왔는가라서 수순 전체를
+		// 세야 하는데, 분기는 「둬 보는 것」이라 거기까지 가는 일이 거의 없다.
+		// 없는 것을 절반만 세느니 세지 않는다.
 		node.Status = game.StatusCheckmate
 		if !pos.InCheck(pos.Turn) {
 			node.Status = game.StatusStalemate
@@ -104,7 +104,7 @@ func whatifNodeOf(
 	// 캐시의 점수는 수번 측 관점이다(store.Candidate). 여기서 뒤집는다 — 패키지 doc 참조.
 	//
 	// 詰み이면 cp 칸을 비운다. 되짚기의 기보 줄과 같은 규약이다(reviewMove.EvalCp) —
-	// 환산값은 평가치가 아니고, 화면은 手数가 있으면 그것으로 말한다(scoreJa).
+	// 환산값과 평가치는 자가 다르고, 화면은 手数가 있으면 그것으로 말한다(scoreJa).
 	top := playerScore(cands[0].Score, pos.Turn, human)
 	if n, ok := top.MateIn(); ok {
 		node.MateIn = n
@@ -159,11 +159,11 @@ func playerScore(s eval.Score, turn, human shogi.Color) eval.Score {
 
 // candidatesOf 는 탐색의 후보들을 화면이 그릴 수 있는 모양으로 옮긴다.
 //
-// 여기서도 엔진 출력을 검증한다. 못 두는 수가 하나 섞이면 그 줄만 버린다 —
+// 여기서도 엔진 출력을 검증한다. 둘 수 없는 수가 하나 섞이면 그 줄만 버린다 —
 // 화면에서 「이렇게 뒀어야 한다」는 단언이라 틀린 것을 그리느니 적게 그린다.
 //
 // 같은 수도 그 자리에서 버린다. usi.Ranked 가 막지만 이 표면은 캐시를 직접 읽어
-// 그쪽을 안 지나고(evalOf), 이미 쌓인 목록에는 중복이 들어 있다(journal §87).
+// 그쪽을 지나지 않고(evalOf), 이미 쌓인 목록에는 중복이 들어 있다(journal §87).
 func candidatesOf(pos shogi.Position, prevTo int, cands []store.Candidate) []whatifCandidate {
 	out := make([]whatifCandidate, 0, whatifCandidates)
 	seen := make(map[string]bool, whatifCandidates)
@@ -186,8 +186,8 @@ func candidatesOf(pos shogi.Position, prevTo int, cands []store.Candidate) []wha
 		// 낙폭은 최선수 대비다. 화면이 뺄셈을 하지 않는다 — 두 값을 함께 두면
 		// 어느 쪽이 기준인지가 흐려진다.
 		//
-		// 詰み이 한쪽에라도 있으면 안 적는다. 뺄 cp 자체가 없고, 억지로 환산하면 뺄셈이
-		// 29000 같은 수를 내놓고, 그것은 낙폭이 아니라 자가 다른 두 값의 차다.
+		// 詰み이 한쪽에라도 있으면 적지 않는다. 뺄 cp 자체가 없고, 억지로 환산하면 뺄셈이
+		// 29000 같은 수를 내놓는데, 그것은 낙폭 대신 자가 다른 두 값의 차다.
 		if len(out) > 0 && out[0].EvalCp != nil && c.EvalCp != nil {
 			c.LossCp = *out[0].EvalCp - *c.EvalCp
 		}
@@ -216,7 +216,7 @@ func replayTo(start shogi.Position, moves []string, ply int) (shogi.Position, in
 	return pos, prevTo, nil
 }
 
-// step 은 한 수를 두어 본다. 못 두는 수면 ok=false — 사람의 수도 엔진의 수도 여기를 지난다.
+// step 은 한 수를 두어 본다. 둘 수 없는 수면 ok=false — 사람의 수도 엔진의 수도 여기를 지난다.
 func step(pos shogi.Position, prevTo, ply int, u string, human shogi.Color) (whatifMove, shogi.Position, bool) {
 	m, err := shogi.ParseUSIMove(u)
 	if err != nil {
@@ -230,7 +230,7 @@ func step(pos shogi.Position, prevTo, ply int, u string, human shogi.Color) (wha
 		by = game.SideHuman
 	}
 	// 표기는 두기 전 국면에서 나온다. 두고 나면 그 駒가 이미 도착 칸에 서 있어서
-	// 어느 駒가 갔는지 구별이 안 된다.
+	// 어느 駒가 갔는지 구별할 수 없다.
 	ja := pos.MoveJa(m, prevTo)
 	next := pos.Apply(m)
 	return whatifMove{

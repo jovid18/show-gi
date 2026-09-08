@@ -10,10 +10,10 @@ import (
 func TestFaultsAcceptsRealPositions(t *testing.T) {
 	cases := map[string]string{
 		"平手 초기 국면": "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1",
-		// 玉 둘과 歩 한 장뿐인 판. 말이 부족한 것은 사유가 아니다.
+		// 玉 둘과 歩 한 장뿐인 판. 말이 부족한 것은 사유에서 뺀다.
 		"말이 빠진 국면":  "4k4/9/9/9/9/9/4P4/9/4K4 b - 1",
 		"持ち駒가 있는 판": "4k4/9/9/9/9/9/9/9/4K4 b RBGSNLPrb 1",
-		// と金은 같은 筋에 둘이 있어도 二歩가 아니다.
+		// と金은 같은 筋에 둘이 있어도 二歩에서 뺀다.
 		"と金과 歩가 같은 筋": "4k4/9/9/9/4+P4/9/4P4/9/4K4 b - 1",
 		// 王手를 받고 있는 쪽이 手番이면 정상이다. 飛가 玉과 같은 筋에 서 있다.
 		"수번 쪽이 왕수를 받고 있다": "4k4/9/9/9/4R4/9/9/9/3K5 w - 1",
@@ -217,7 +217,7 @@ func TestParseSFENRefusesAHandThatCannotFit(t *testing.T) {
 			t.Errorf("ParseSFEN(%q) = nil error, want a refusal", sfen)
 		}
 	}
-	// 한 벌을 넘는 것은 그대로 받는다. 거절이 아니라 사유로 말한다(InventoryExcess).
+	// 한 벌을 넘는 것은 그대로 받는다. 거절 대신 사유로 말한다(InventoryExcess).
 	pos, err := ParseSFEN("9/9/9/9/4k4/9/9/9/4K4 b 19P 1")
 	if err != nil {
 		t.Fatalf("19 pawns in hand should parse: %v", err)

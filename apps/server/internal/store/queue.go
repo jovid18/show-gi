@@ -66,7 +66,7 @@ func (s *Store) SweepQueue(ctx context.Context, staleBefore, pickupBefore time.T
 // JoinQueue 는 대기열에 서고, 이미 서 있으면 살아 있다고 알린다. 한 사람이 한 행이라 멱등이다.
 //
 // 레이팅은 처음 설 때 한 번만 적힌다(query/queue.sql). 돌려주는 값은 표에 있는 것이라,
-// 두 번째 호출은 넘긴 값이 아니라 처음 값을 받는다 — 밴드가 그 위에서 돈다.
+// 두 번째 호출은 넘긴 값 대신 처음 값을 받는다 — 밴드가 그 위에서 돈다.
 func (s *Store) JoinQueue(ctx context.Context, userID int64, rating, deviation float64) (QueueWaiter, error) {
 	row, err := s.q.JoinQueue(ctx, db.JoinQueueParams{
 		UserID: userID, Rating: rating, Deviation: deviation,
@@ -103,7 +103,7 @@ func (s *Store) TakeQueueSeat(ctx context.Context, userID int64) (QueueSeat, err
 	return QueueSeat{RoomID: *row.RoomID, Color: *row.Color}, nil
 }
 
-// LeaveQueue 는 대기열에서 빠진다. 없는 사람을 지워도 에러가 아니다 — 「이미 없다」와
+// LeaveQueue 는 대기열에서 빠진다. 없는 사람을 지워도 에러를 안 낸다 — 「이미 없다」와
 // 「방금 지웠다」가 부르는 쪽에 같은 뜻이다.
 func (s *Store) LeaveQueue(ctx context.Context, userID int64) error {
 	if err := s.q.LeaveQueue(ctx, userID); err != nil {
@@ -126,7 +126,7 @@ func (s *Store) QueueWaiting(ctx context.Context, freshAfter time.Time) (int, er
 type QueuePairOptions struct {
 	// FreshAfter 는 후보를 이 시각 뒤로 다시 물어본 사람으로 한정한다.
 	FreshAfter time.Time
-	// MaxGap 은 후보로 잠글 레이팅 폭이다. 밴드가 아니라 그 상한이다(queue.MaxBand) —
+	// MaxGap 은 후보로 잠글 레이팅 폭이다. 밴드의 상한이다(queue.MaxBand) —
 	// 잠기는 행을 줄이는 것이 목적이고, 어떤 밴드보다 넓어야 한다.
 	MaxGap float64
 	// Limit 은 한 번에 잠글 후보 수다.

@@ -1,6 +1,6 @@
 // Package usi 는 USI(Universal Shogi Interface) 엔진 하위 프로세스를 관리한다.
 //
-// 값어치는 기능이 아니라 방어다 — 전부 한 번씩 물려본 것들이고 목록은 02-architecture.md §8에 있다.
+// 값어치는 방어에 있다 — 전부 한 번씩 물려본 것들이고 목록은 02-architecture.md §8에 있다.
 // Engine 하나는 탐색을 직렬화한다. 동시 탐색이 필요하면 Pool을 쓴다.
 package usi
 
@@ -50,7 +50,7 @@ type SearchResult struct {
 
 	// History 는 받은 info 라인 전부를 (깊이, 순위)별로 남긴 것이다.
 	// 얕은 평가와 깊은 평가의 격차가 개입 판정의 입력이라 마지막 깊이만 남기면 안 된다(journal §6 ②).
-	// 속보(lowerbound/upperbound)는 점수가 확정값이 아니라 넣지 않는다.
+	// 속보(lowerbound/upperbound)는 점수가 미확정이라 넣지 않는다.
 	History []SearchLine
 }
 
@@ -234,8 +234,8 @@ ready:
 		_ = e.send("setoption name USI_Ponder value false")
 	}
 
-	// PvInterval=0. 배포 설정이 아니라 이 파서가 동작하기 위한 조건이다 —
-	// 기본 간격이면 우리 탐색이 더 빨라 깊이별 평가치가 마지막 하나만 남는다(journal §10).
+	// PvInterval=0. 이 파서가 동작하기 위한 조건이다 — 기본 간격이면 우리 탐색이 더 빨라
+	// 깊이별 평가치가 마지막 하나만 남는다(journal §10).
 	if e.opts["PvInterval"] {
 		_ = e.send("setoption name PvInterval value 0")
 	}
@@ -335,7 +335,7 @@ func (e *Engine) Name() string {
 
 // SearchDepth 는 고정 깊이까지 탐색시킨다. 시간 기반(go movetime)은 이 패키지에 일부러 없다 —
 // 재현되지 않으면 캐시도 밴드 제어도 성립하지 않는다(01-core.md §4). 자체 시한도 없다.
-// ctx로 끊을 수는 있고, 끊으면 중간 결과는 버린다 — depth N 결과가 아니라서 쓸 수 없다.
+// ctx로 끊을 수는 있고, 끊으면 중간 결과는 버린다 — depth N 결과로 못 쓴다.
 func (e *Engine) SearchDepth(ctx context.Context, startSFEN string, moves []string, depth int) (SearchResult, error) {
 	return e.search(ctx, startSFEN, moves, "go depth "+strconv.Itoa(depth), 0)
 }
@@ -346,7 +346,7 @@ type MateResult struct {
 	Moves []string
 
 	// Proven 은 탐색이 한계 안에서 결론을 냈다는 뜻이고, 이 구분이 캐시의 전부다.
-	// checkmate timeout은 "모른다"이지 "없다"가 아니다 — "없다"로 저장하면 있는 詰み을 놓친다(01-core.md §2).
+	// checkmate timeout은 "모른다"다 — "없다"로 저장하면 있는 詰み을 놓친다(01-core.md §2).
 	Proven bool
 }
 
@@ -427,7 +427,7 @@ func (e *Engine) search(ctx context.Context, startSFEN string, moves []string, g
 	if err == nil {
 		return res, nil
 	}
-	// 취소는 고장이 아니다. 재시도하면 부른 쪽이 그만두라고 한 일을 한 번 더 하게 된다.
+	// 취소는 고장으로 안 본다. 재시도하면 부른 쪽이 그만두라고 한 일을 한 번 더 하게 된다.
 	if ctx.Err() != nil {
 		return SearchResult{}, err
 	}
@@ -573,7 +573,7 @@ apply:
 		res.Depth = sl.Depth
 	}
 
-	// 깊이별 기록. 속보는 점수가 확정값이 아니라 넣지 않는다.
+	// 깊이별 기록. 속보는 점수가 미확정이라 넣지 않는다.
 	if hasScore && !bound && len(sl.PV) > 0 {
 		recordHistory(res, sl)
 	}

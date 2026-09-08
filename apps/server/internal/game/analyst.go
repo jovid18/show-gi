@@ -215,7 +215,7 @@ func (a *engineAnalyst) opponentMate(
 		return nil
 	}
 
-	// ② 최선수 뒤. 여기서도 詰まされる면 이미 진 국면이라 그 수의 죄가 아니다.
+	// ② 최선수 뒤. 여기서도 詰まされる면 이미 진 국면이라 그 수에 죄가 없다.
 	bestLine := append(append([]string(nil), before...), bestUSI)
 	if b, err := a.mate.SearchMate(ctx, startSFEN, bestLine); err != nil || b.Found() {
 		// 탐색이 실패해도 안 붙인다. ②를 확인하지 못한 채 붙이면 그 문구가 거짓일 수
@@ -395,8 +395,8 @@ func senteScore(mover eval.Score, c shogi.Color) eval.Score {
 
 // RefutationPlies 는 반박 수순의 상한이다. 실제 길이는 국면이 정한다(trimRefutation).
 //
-// 깊이 14 탐색의 PV는 뒤로 갈수록 확실하지 않고, 화면에서는 「왜 나쁜가」가 아니라
-// 강의가 된다. 여기는 그 두 가지를 막는 한도이고, 보통은 이보다 훨씬 앞에서 잘린다.
+// 깊이 14 탐색의 PV는 뒤로 갈수록 확실하지 않고, 화면에서는 「왜 나쁜가」가 강의로
+// 바뀐다. 여기는 그 두 가지를 막는 한도이고, 보통은 이보다 훨씬 앞에서 잘린다.
 const RefutationPlies = 8
 
 // refutationLine 은 착수 후 PV를 棋譜 표기·국면이 붙은 수순으로 옮긴다. 첫 값은 물러진 수 직후.
@@ -542,7 +542,7 @@ func trimRefutation(steps []refutationStep) int {
 			prev, cur := steps[end-1], steps[end]
 			switch {
 			// 王手에는 응수가 강제다. 답을 빼고 보여주면 「먹으면 되지 않나」가 되는데,
-			// 실측한 両王手 국면에서는 그 「먹는 수」가 아예 합법수가 아니었다.
+			// 실측한 両王手 국면에서는 그 「먹는 수」가 아예 합법수에 없었다.
 			case prev.gaveCheck:
 			// 이어지는 王手도 같은 수순이다. 連続王手는 거기서 이야기가 끝난다.
 			case cur.gaveCheck:

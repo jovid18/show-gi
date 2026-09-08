@@ -16,7 +16,7 @@ func pieceValue(t shogi.PieceType) int { return shogi.PieceValue(t) }
 // 화면이 「잡지 말라」로 읽히는 설명을 냈다(08-playtest.md §8).
 //
 // 판정은 여기서 하고 intervene 에는 참거짓만 간다(journal §15).
-// 거울상(成らずの妙手)은 안 본다 — 초심자의 실수 모양이 아니다. [미확정]
+// 거울상(成らずの妙手)은 안 본다 — 초심자에게는 안 나오는 모양이다. [미확정]
 func UnpromotedOnly(played shogi.Move, bestUSI string) bool {
 	if played.IsDrop() || played.Promote || bestUSI == "" {
 		return false
@@ -41,7 +41,7 @@ func MoveFeatures(before shogi.Position, m shogi.Move) intervene.Features {
 
 // moveFacts 는 판정에 쓸 사실과 설명에 쓸 사실을 한 번에 뽑는다.
 //
-// 나눠서 두 번 세면 경고 없이 어긋난다 — 카테고리는 タダ捨て가 아니라고 판정했는데 문장은
+// 나눠서 두 번 세면 경고 없이 어긋난다 — 카테고리는 タダ捨て를 부정했는데 문장은
 // 「取れる相手の駒が2枚あります」라고 말하는 식이다. 같은 것을 두 곳에서 세는 것이 그
 // 어긋남의 원인이므로 세는 자리를 하나로 둔다.
 //
@@ -66,7 +66,7 @@ func moveFacts(before shogi.Position, m shogi.Move) (intervene.Features, explain
 	// 성했으면 성한 이름이다. 판이 그렇게 그리고 棋譜도 그렇게 적는다.
 	d.MovedPiece = shogi.PieceJa(after.Board[to].Type())
 
-	// 利き이 아니라 합법수로 묻는다. IsAttacked 는 핀을 안 본다 — 玉 앞에 묶여
+	// 利き 대신 합법수로 묻는다. IsAttacked 는 핀을 안 본다 — 玉 앞에 묶여
 	// 움직일 수 없는 駒도 「노리고 있다」로 센다. 玉 주변의 압력을 재는 데는 그걸로
 	// 충분하지만(AttackCount), 여기서 나온 값은 「その駒は取り返せない場所に
 	// 置かれています」라는 화면에 그대로 나가는 단언이 된다. 못 잡는 駒를 두고
@@ -74,7 +74,7 @@ func moveFacts(before shogi.Position, m shogi.Move) (intervene.Features, explain
 	capturers := legalCapturesOn(after, to)
 	f.LandsAttacked = len(capturers) > 0
 
-	// 수가 아니라 매수를 센다. 같은 駒의 成·不成은 수로 둘이지만 판 위에서는 한 장이라,
+	// 매수를 센다. 같은 駒의 成·不成은 수로 둘이지만 판 위에서는 한 장이라,
 	// 수로 세면 화면이 「2枚あります」라고 거짓을 말한다.
 	d.Attackers = distinctSources(capturers)
 
@@ -152,8 +152,8 @@ func kingPressure(pos *shogi.Position, c shogi.Color) (defend, threat int) {
 // Apply 이고, 그 옆에서 엔진 탐색이 수백 ms를 쓴다.
 func replay(startSFEN string, moves []string) (shogi.Position, shogi.Move, error) {
 	// 부르는 쪽이 이미 막고 있지만 여기서도 막는다. 판정은 세션 goroutine 밖의
-	// 맨 go func() 에서 도는데 recover 가 없어서, 여기서 panic 하면 대국이 아니라
-	// 서버 프로세스가 죽는다. 전제를 30줄 떨어진 다른 파일에 맡기지 않는다.
+	// 맨 go func() 에서 도는데 recover 가 없어서, 여기서 panic 하면 서버 프로세스가
+	// 죽는다. 전제를 30줄 떨어진 다른 파일에 맡기지 않는다.
 	if len(moves) == 0 {
 		return shogi.Position{}, shogi.Move{}, errors.New("replay: no moves")
 	}

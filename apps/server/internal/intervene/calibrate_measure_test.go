@@ -55,7 +55,7 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 	)
 	imported := 0
 	for _, g := range games {
-		// 가져온 기보는 이 모집단이 아니다(journal §126).
+		// 가져온 기보는 이 모집단에서 뺀다(journal §126).
 		//
 		// 여기가 재구성하는 것은 「개입 루프가 돈 판」이다 — 임계치를 넘은 수는 물러져서
 		// 기보에 없고, 그래서 아래 검증이 「통과한 수는 임계치 아래」를 참으로 쓴다.
@@ -158,7 +158,7 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 	// ─── ② 판마다 얼마나 갈리나 ──────────────────────────────────────
 	//
 	// 임계치를 흔드는 것보다 이쪽이 크다. 같은 상수에서 한 판은 0%이고 한 판은
-	// 30%대다 — 개입률은 상수가 아니라 그 판이 정한다.
+	// 30%대다 — 개입률은 상수 대신 그 판이 정한다.
 	b.Reset()
 	b.WriteString("\n② 판마다 얼마나 갈리나\n")
 	fmt.Fprintf(&b, "%6s %8s   %s\n", "game", "사람수", "θ=0.25   θ=0.18   θ=0.12")
@@ -183,7 +183,7 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 	// ─── ③ K ────────────────────────────────────────────────────────
 	//
 	// 물러진 수는 여기 못 들어온다. 기록에 남은 것은 그 수의 delta 뿐이고 원본 cp
-	// 둘이 아니라, K를 바꾸면 다시 못 구한다(§39). 그래서 이 표는 통과한 수만
+	// 둘은 없어서, K를 바꾸면 다시 못 구한다(§39). 그래서 이 표는 통과한 수만
 	// 세는 하한이다 — K를 바꿔 새로 걸리는 수가 몇인가.
 	b.Reset()
 	b.WriteString("\n③ K — 통과한 수 중 몇 개가 새로 걸리나 (임계치 0.25 고정)\n")
@@ -285,7 +285,7 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 }
 
 // sample 은 사람의 착수 시도 하나다. 물러진 것과 통과한 것을 같은 자리에 담는다 —
-// 개입률의 분모가 그 둘의 합이고, 한쪽만 세면 비율이 아니라 개수가 된다.
+// 개입률의 분모가 그 둘의 합이고, 한쪽만 세면 비율 대신 개수가 된다.
 type sample struct {
 	game     int64
 	ply      int
@@ -326,7 +326,7 @@ type bandRow struct {
 
 // mateCp 는 cp 로 쓸 수 없을 만큼 큰 값의 하한이다.
 //
-// 밴드 통계에서 뺀다 — 詰み이 보이는 국면은 밴드가 조절할 수 있는 구간이 아니고,
+// 밴드 통계에서 뺀다 — 詰み이 보이는 국면은 밴드가 조절할 수 없는 구간이고,
 // 그런 값 하나가 중앙값 빼고 전부를 망가뜨린다. 여기에 usi 를 import 하지 않는
 // 것은 이 패키지가 엔진 쪽을 모르게 두기 위해서다.
 const mateCp = 30000
@@ -346,7 +346,7 @@ func rescore(rec store.GameRecord) (samples []sample, band bandRow, ok bool) {
 	ev := make(map[int]int, len(rec.Moves))
 	for _, m := range rec.Moves {
 		// 판정과 같은 자로 읽는다 — 이 재채점이 K와 임계치를 흔들어 보는 자리다.
-		// 詰み은 cp 가 아니라 그 자리에서 승률이 양 끝이므로 표본에서 뺀다.
+		// 詰み은 cp 로 못 읽고 그 자리에서 승률이 양 끝이므로 표본에서 뺀다.
 		if m.Score != nil {
 			if cp, ok := m.Score.Centipawns(); ok {
 				ev[m.Ply] = cp

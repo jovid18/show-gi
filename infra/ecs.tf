@@ -1,11 +1,11 @@
 # ECS. docker compose + 손으로 쓴 배포 스크립트를 대신한다.
 #
-# 바꾼 이유는 비용이 아니라 직접 쓴 배포 글루가 전부 사라지기 때문이다: 배포 스크립트,
+# 바꾼 이유는 직접 쓴 배포 글루가 전부 사라지기 때문이다: 배포 스크립트,
 # 비밀을 셸로 내보내는 스크립트, compose 오버레이, 헬스체크 루프, ECR 로그인, 인증서 볼륨 —
 # 전부 ECS·ALB의 기본 기능으로 대체된다. 내가 쓴 것만 내가 유지보수해야 한다.
 #
 # 용량은 EC2 스팟에서 온다(ec2.tf). 한때 Fargate였고, 그때 사라졌던 시작 템플릿과
-# ASG가 그래서 돌아왔다 — 배포 스크립트는 안 돌아왔다. 그건 Fargate가 아니라 ECS가 맡던 일이다.
+# ASG가 그래서 돌아왔다 — 배포 스크립트는 안 돌아왔다. 그건 ECS가 맡던 일이다.
 #
 # 서비스가 둘이고 가르는 것은 SERVER_ROLE 이다.
 #
@@ -20,7 +20,7 @@ locals {
   api_image = "${aws_ecr_repository.app["api"].repository_url}:${var.image_tag}"
   web_image = "${aws_ecr_repository.app["web"].repository_url}:${var.image_tag}"
 
-  # 비밀은 값이 아니라 경로로 들어간다. ECS 가 Parameter Store 에서 읽어 컨테이너에
+  # 비밀은 값 대신 경로로 들어간다. ECS 가 Parameter Store 에서 읽어 컨테이너에
   # 직접 넣는다 — 값이 디스크에 남지 않고 로그에도 안 찍힌다. deploy/env.sh 를 대체한 자리다.
   ssm_prefix = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/show-gi/prod"
 
@@ -51,8 +51,8 @@ locals {
   #
   # ENVIRONMENT 가 지표의 손잡이다. 비어 있으면 서버가 EMF 를 안 내므로(cmd/api 의
   # startEmitter) 이 한 줄이 CloudWatch 커스텀 지표를 켜고 끈다. 값은 EMF 문서의
-  # Environment 차원이 되므로, 이 값을 바꾸면 알람의 dimensions 도 같이 바꾼다
-  # (infra/alarms.tf). 티어를 차원으로 안 올리는 이유는 journal §120 에 있다.
+  # Environment 가 dimensions 가 되므로, 이 값을 바꾸면 알람 쪽도 같이 바꾼다
+  # (infra/alarms.tf). 티어를 dimensions 로 안 올리는 이유는 journal §120 에 있다.
   api_env = [
     { name = "ENGINE_POOL_SIZE", value = "2" },
     { name = "ENGINE_MATE_POOL_SIZE", value = "1" },
@@ -108,7 +108,7 @@ resource "aws_cloudwatch_log_group" "app" {
 # ─── 역할 ───────────────────────────────────────────────────
 
 # 실행 역할: ECS 에이전트가 쓴다. 이미지를 받아오고 비밀을 읽어 컨테이너에 주입한다.
-# 애플리케이션이 쓰는 역할이 아니다 — 그래서 앱이 뚫려도 이 권한은 노출되지 않는다.
+# 애플리케이션은 이 역할을 안 쓴다 — 그래서 앱이 뚫려도 이 권한은 노출되지 않는다.
 resource "aws_iam_role" "task_execution" {
   name = "show-gi-task-execution"
 
@@ -203,7 +203,7 @@ resource "aws_ecs_task_definition" "app" {
   family                   = "show-gi"
   requires_compatibilities = ["EC2"]
 
-  # awsvpc 가 아니라 host 다. EC2 런치 타입에서 awsvpc 를 쓰면 태스크 ENI에
+  # awsvpc 대신 host 다. EC2 런치 타입에서 awsvpc 를 쓰면 태스크 ENI에
   # 공인 IP를 붙일 수 없고(그 옵션은 Fargate 전용이다), 그러면 밖으로 나가는 길이 NAT
   # 게이트웨이뿐이다 — 월 $40이라 인스턴스보다 비싸다. Google OAuth의 토큰 교환이
   # 서버에서 밖으로 나가는 호출이라 그 길이 막히면 로그인 전체가 깨진다.
@@ -214,8 +214,8 @@ resource "aws_ecs_task_definition" "app" {
   network_mode = "host"
 
   # 엔진 탐색이 CPU를 지속적으로 쓴다. 인스턴스가 t4g.small(2 vCPU / 2 GiB) 한 대라
-  # 이 값이 그 안에 들어와야 태스크가 배치된다 — Fargate와 달리 남는 만큼 쓰는 것이
-  # 아니라 인스턴스에서 실제로 예약된다.
+  # 이 값이 그 안에 들어와야 태스크가 배치된다 — Fargate와 달리 인스턴스에서 실제로
+  # 예약된다.
   cpu    = var.task_cpu
   memory = var.task_memory
 
@@ -289,7 +289,7 @@ resource "aws_ecs_task_definition" "analysis" {
   requires_compatibilities = ["EC2"]
 
   # host 인 것은 상호작용 쪽과 같은 이유다(위). 포트가 겹치므로 이 모드가 곧
-  # 「한 인스턴스에 태스크 하나」의 강제이기도 하다 — 늘리는 것이 태스크가 아니라 EC2 다.
+  # 「한 인스턴스에 태스크 하나」의 강제이기도 하다 — 늘리는 단위가 태스크 대신 EC2 다.
   network_mode = "host"
 
   cpu    = var.task_cpu
@@ -358,7 +358,7 @@ resource "aws_ecs_capacity_provider" "analysis" {
     }
 
     # 종료 보호를 안 켠다. 스케일 인이 일하는 중인 대를 가져가도 그 手의 행이 표에 남고
-    # 임차가 풀리면 다른 대가 다시 집는다(journal §118) — 잃는 것이 판이 아니라 시간이다.
+    # 임차가 풀리면 다른 대가 다시 집는다(journal §118) — 잃는 것은 시간뿐이고 판은 남는다.
     managed_termination_protection = "DISABLED"
 
     # AWS 기본값이라 코드에 안 보이던 값이다. 켜져 있으면 ECS 가 ASG 에
@@ -425,7 +425,7 @@ resource "aws_ecs_service" "app" {
   task_definition = aws_ecs_task_definition.app.arn
   desired_count   = 1
 
-  # launch_type 이 아니라 용량 공급자로 얹는다. launch_type = "EC2" 는 클러스터에 등록된
+  # launch_type 대신 용량 공급자로 얹는다. launch_type = "EC2" 는 클러스터에 등록된
   # 아무 인스턴스나 고르므로, 분석 대가 생긴 순간 이 태스크가 그쪽에 앉을 수 있다 —
   # 그러면 분석 대가 하나 줄고 상호작용 대가 빈 채로 요금만 나간다.
   capacity_provider_strategy {
@@ -489,7 +489,7 @@ resource "aws_ecs_service" "app" {
 # 늘리는 손잡이가 desired_count 하나다. 용량 공급자가 미배치 태스크를 보고 EC2 를 따라
 # 올린다(위 analysis) — 태스크를 늘리는 것이 곧 대를 늘리는 것이다.
 #
-# 그 값의 주인이 terraform 이 아니다. 밀린 手가 정하고(autoscale.tf), 여기 적힌 1은
+# 그 값은 terraform 이 안 정한다. 밀린 手가 정하고(autoscale.tf), 여기 적힌 1은
 # 서비스를 처음 만들 때만 쓰인다.
 resource "aws_ecs_service" "analysis" {
   name            = "show-gi-analysis"

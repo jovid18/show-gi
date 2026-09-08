@@ -56,7 +56,7 @@ func TestRefutationLineStartsWithTheOpponent(t *testing.T) {
 }
 
 // 길이는 국면이 정한다. 角을 던지면 되따는 한 수로 이유가 끝나고, 거기에 수를
-// 더 붙이면 그건 정보가 아니라 잡음이다. 사용자 피드백이 이 자리에서 나왔다.
+// 더 붙이면 잡음이 된다. 사용자 피드백이 이 자리에서 나왔다.
 func TestRefutationLineStopsWhenTheFirstMovePunishes(t *testing.T) {
 	// 角交換을 유도해 두고 그 角을 그냥 던진다. 벌하는 수는 되따는 한 수뿐이다.
 	thrownBishop := []string{"7g7f", "3c3d", "8h2b+"}
@@ -191,7 +191,7 @@ func TestTrimRefutation(t *testing.T) {
 }
 
 // assertLine 은 수와 표기를 견준다. 국면은 값으로 안 박는다 — SFEN 문자열을 테스트에
-// 적어두면 룰 엔진이 아니라 그 문자열을 지키게 된다. 있는지와 매 수 달라지는지만 본다.
+// 적어두면 룰 엔진 대신 그 문자열을 지키게 된다. 있는지와 매 수 달라지는지만 본다.
 func assertLine(t *testing.T, got, want []RefutationMove) {
 	t.Helper()
 

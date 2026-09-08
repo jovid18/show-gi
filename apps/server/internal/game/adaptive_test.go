@@ -108,7 +108,7 @@ func TestPicksTheClosestSafeMoveBelowTheBand(t *testing.T) {
 	}
 }
 
-// 詰み 줄은 밴드의 자가 아니다. cp 가 없는 값이라 섞으면 기준점이 판 밖으로 나간다.
+// 詰み 줄은 밴드가 재지 않는다. cp 가 없는 값이라 섞으면 기준점이 판 밖으로 나간다.
 func TestBandIgnoresMateLines(t *testing.T) {
 	s := &stubMulti{res: usi.SearchResult{
 		Best: "7g7f",
@@ -298,7 +298,7 @@ func TestBandHoldsUntilEnoughMoves(t *testing.T) {
 // 양보는 밴드까지다. 아무리 헤매도 駒를 그냥 주는 수는 안 고른다 — 화면이
 // 「取り返せない場所」라고 가르친 수를 상대가 두면 방금 배운 것이 깨진다(§16).
 func TestEasingOffNeverThrowsAPiece(t *testing.T) {
-	// ▲7六歩 뒤 後手 차례. △8八角成은 角을 그냥 준다 — 밴드가 어디로 가든 후보가 아니다.
+	// ▲7六歩 뒤 後手 차례. △8八角成은 角을 그냥 준다 — 밴드가 어디로 가든 후보에 안 든다.
 	s := &stubMulti{res: usi.SearchResult{
 		Best: "3c3d",
 		Lines: []usi.SearchLine{

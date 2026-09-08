@@ -276,7 +276,7 @@ export function Board({
     flipped ? { ...r, from: r.from === null ? null : seat(r.from), to: seat(r.to) } : r;
   /**
    * 판을 three.js가 그리는가. 판을 재는 쪽이 ref를 잡고 있으면 그걸 같이 쓴다 —
-   * 여기서 두 번째 ref를 붙이면 표면이 판이 아니라 아무것도 안 붙은 요소를 잰다.
+   * 여기서 두 번째 ref를 붙이면 표면이 아무것도 안 붙은 요소를 잰다.
    */
   const ownRef = useRef<HTMLDivElement>(null);
   const surfaceRef = boardRef ?? ownRef;

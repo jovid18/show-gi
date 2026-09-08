@@ -1,6 +1,6 @@
 // `/ws/game` 의 계약. 서버의 `internal/game/session.go` · `internal/server/ws.go` 와 짝이다.
 //
-// Go 의 nil 슬라이스는 `[]` 가 아니라 `null` 로 직렬화된다. 대국 시작 직후의 `moves`,
+// Go 의 nil 슬라이스는 `[]` 대신 `null` 로 직렬화된다. 대국 시작 직후의 `moves`,
 // 엔진 차례의 `legalMoves` 가 실제로 그렇게 온다 — 타입에서 숨기면 첫 렌더에서 터진다.
 
 import type { WhatIfNode } from '@/protocol/whatif';
@@ -58,7 +58,7 @@ export interface Intervention {
    * 증명된 詰み 수순일 때만 온다(서버의 analyst.go). 자를 필요가 없는 하나뿐인 수순이라
    * 그렇고, 「그때 어떻게 뒀어야 했나」는 후보 셋을 직접 둬 보는 쪽이 맡는다.
    *
-   * 최선수가 아니다. 이 수순이 시작하는 국면은 되물러서 이미 사라졌다.
+   * 최선수와 다르다. 이 수순이 시작하는 국면은 되물러서 이미 사라졌다.
    */
   refutation?: RefutationMove[];
 }
@@ -204,7 +204,7 @@ export interface Snapshot {
    * 위험한 것은 제지형 개입이 이미 막고 있고(docs/01-core.md §7), 같은 테두리에 둘을
    * 그리면 이기는 중인지 지는 중인지가 반대로 읽힌다.
    *
-   * 手数가 아니라 세기다. 手数가 여기 있으면 화면이 안 그려도 이미 알려준 것이 된다.
+   * 세기만 온다. 手数가 여기 있으면 화면이 안 그려도 이미 알려준 것이 된다.
    */
   mateHeat?: number;
   /**
@@ -213,7 +213,7 @@ export interface Snapshot {
    * 안 오면 조절이 꺼져 있다 — 0이나 3으로 메우지 않는다. 조절하지 않는 판에
    * 눈금을 그리면 없는 기능을 말하게 된다.
    *
-   * 「あなたの実力」이 아니다. 아는 것은 이 판에서 얼마나 헤맸는가뿐이다.
+   * 「あなたの実力」과 다르다. 아는 것은 이 판에서 얼마나 헤맸는가뿐이다.
    */
   opponentStrength?: number;
   /**
@@ -253,8 +253,8 @@ export interface SkillRank {
 /**
  * 대국이 끝난 뒤 한 번 오는 총평.
  *
- * 스냅샷과 따로 온다 — 국면의 상태가 아니라 판 전체에 대한 이야기이고, 기록이 다
- * 쓰이기를 기다리므로 결과 문구보다 늦게 도착한다(서버의 `dbRecorder.done`).
+ * 스냅샷과 따로 온다 — 판 전체에 대한 이야기이고, 기록이 다 쓰이기를 기다리므로 결과
+ * 문구보다 늦게 도착한다(서버의 `dbRecorder.done`).
  *
  * 숫자와 문장이 갈려 있다. `body` 는 手数도 개입 횟수도 말하지 않고, 그 숫자는 `stats`
  * 에 있다(서버의 `explain.GameFacts`).
@@ -298,8 +298,8 @@ export type ServerMessage =
   | { type: 'snapshot'; snapshot: Snapshot }
   | { type: 'summary'; summary: GameSummary }
   | { type: 'error'; reason: string; message: string }
-  // 가정 수순의 한 자리. 스냅샷과 따로 온다 — 대국의 상태가 아니라 「안 벌어진 일」이고,
-  // 하나로 합치면 화면이 두 판을 같은 것으로 그린다.
+  // 가정 수순의 한 자리. 스냅샷과 따로 온다 — 「안 벌어진 일」이고, 하나로 합치면
+  // 화면이 두 판을 같은 것으로 그린다.
   | { type: 'whatif'; whatif: WhatIfNode }
   | { type: 'whatif_error'; reason: string; message: string };
 

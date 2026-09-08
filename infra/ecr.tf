@@ -116,7 +116,7 @@ resource "aws_iam_role" "github_actions" {
           #
           # 값이 둘인 이유: GitHub이 subject claim에 불변 ID를 넣기 시작했다.
           # 실제로 오는 sub는 repo:jovid18@143411145/show-gi@1327659382:ref:... 형태이고,
-          # 문서에 흔히 적힌 repo:소유자/레포:ref:...가 아니다. 소유자나 레포 이름을
+          # 문서에 흔히 적힌 repo:소유자/레포:ref:... 형태와 다르다. 소유자나 레포 이름을
           # 바꿔도 신뢰가 끊기지 않게 하려는 변경이라 ID 쪽이 오히려 더 안전하다.
           #
           # 현재 형식을 확인하는 법:

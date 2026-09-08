@@ -16,17 +16,17 @@ import (
 // 세지만, 여기는 「지금까지 어땠나」에 답한다.
 //
 // 세는 것은 기록이고 段級만 추정기에서 온다. 그 둘이 갈리는 이유는 journal §62 —
-// 낙폭은 물러진 수에만 남아서(§39 ⑥) 기록으로 다시 세면 통과한 수를 못 본다.
+// 낙폭은 물러진 수에만 남아서(§39 ⑥) 기록으로 다시 세면 통과한 수를 보지 못한다.
 
 // weaknessMin 은 약점이라고 부르기 전에 필요한 개입 횟수다.
 //
-// 한 번 걸린 것은 약점이 아니다. 한 판에서 한 번 나온 카테고리까지 목록에 올리면
+// 한 번 걸린 것만으로는 약점이 되지 못한다. 한 판에서 한 번 나온 카테고리까지 목록에 올리면
 // 「당신의 약점」이 그날 우연히 둔 수 하나가 되고, 그건 초심자에게 틀린 것을 가르치는
-// 쪽에 있다(01-core.md). [미확정] — 회차 2가 8건뿐이라 표본으로 잡은 값이 아니다.
+// 쪽에 있다(01-core.md). [미확정] — 회차 2가 8건뿐이라 표본 없이 정한 값이다.
 const weaknessMin = 2
 
-// weaknessTop 은 화면에 그리는 줄 수다. 아홉 종류를 다 그리면 목록이 「무엇이 약한가」가
-// 아니라 「무엇에 걸렸나」가 된다.
+// weaknessTop 은 화면에 그리는 줄 수다. 아홉 종류를 다 그리면 목록이 「무엇이 약한가」
+// 대신 「무엇에 걸렸나」가 된다.
 const weaknessTop = 3
 
 type profileHandler struct {
@@ -41,7 +41,7 @@ type weaknessView struct {
 	// 일본어로 바꾸기 시작하면 어휘가 세 벌이 된다.
 	NameJa string `json:"nameJa"`
 	Count  int    `json:"count"`
-	// Share 는 이 사람의 전체 개입 중 비율(0~1)이다. 횟수만으로는 안 읽힌다 —
+	// Share 는 이 사람의 전체 개입 중 비율(0~1)이다. 횟수만으로는 읽히지 않는다 —
 	// 12번이 많은지 적은지는 전체를 알아야 답이 나온다.
 	Share float64 `json:"share"`
 }
@@ -55,7 +55,7 @@ type recordView struct {
 
 type profilePayload struct {
 	Name string `json:"name"`
-	// Rank 는 지금의 段級이다. 없을 수 있다 — 표본이 모자라면 이름을 안 붙인다
+	// Rank 는 지금의 段級이다. 없을 수 있다 — 표본이 모자라면 이름을 붙이지 않는다
 	// (skill.RankOf). 그때 화면은 「まだ測っていません」을 그린다.
 	Rank   *rankView  `json:"rank,omitempty"`
 	Record recordView `json:"record"`
@@ -80,7 +80,7 @@ type styleView struct {
 	// Kind 는 축의 코드다(castle·formation·opening). 셋을 한 목록에 넣으므로 이것이
 	// 없으면 「美濃囲い」와 「中飛車」가 같은 종류로 읽힌다.
 	//
-	// 일본어로 안 바꾼다. 축의 이름은 화면이 이미 갖고 있고(libs/game/tags.ts),
+	// 일본어로 바꾸지 않는다. 축의 이름은 화면이 이미 갖고 있고(libs/game/tags.ts),
 	// 여기서 또 만들면 대국 중의 알림과 이 목록이 다른 말을 쓴다. 이름(NameJa)이 반대인
 	// 것은 그쪽 어휘의 주인이 internal/tag 이기 때문이다.
 	Kind  string `json:"kind"`
@@ -89,7 +89,7 @@ type styleView struct {
 
 // get 은 로그인한 사람의 프로파일 하나다.
 //
-// 익명에게는 안 준다. 익명 판은 서로 구별할 수단이 없어서(002_anonymous_games.sql)
+// 익명에게는 주지 않는다. 익명 판은 서로 구별할 수단이 없어서(002_anonymous_games.sql)
 // 「이 사람의 전적」이 그 배포에서 익명으로 둔 모든 사람의 전적이 된다 — 되짚기가
 // 익명에게 익명 판을 보여 주는 것과는 다른 자리다. 그쪽은 판 하나를 여는 일이고 여기는
 // 사람에 대한 요약이다.
@@ -115,7 +115,7 @@ func (h *profileHandler) get(w http.ResponseWriter, r *http.Request) {
 	out.Interventions, out.Weaknesses = weaknessesOf(tally.Categories)
 	out.Styles = stylesOf(tally.StyleTags)
 
-	// 못 읽어도 나머지는 준다. 段級이 없는 것은 「아직 안 쟀다」와 같은 화면이고,
+	// 읽지 못해도 나머지는 준다. 段級이 없는 것은 「아직 재지 않았다」와 같은 화면이고,
 	// 전적까지 같이 죽일 이유가 없다(Options.Store 와 같은 판단).
 	if got, ok, err := h.store.SkillProfile(r.Context(), s.UserID); err != nil {
 		log.Printf("profile: skill for %d: %v", s.UserID, err)
@@ -183,7 +183,7 @@ const styleTop = 8
 // stylesOf 는 이름별 판 수를 화면의 목록으로 바꾼다.
 //
 // 모르는 코드는 버린다. 정의를 지운 뒤에도 옛 기록에는 그 코드가 남아 있고, 이름을
-// 못 찾은 것을 코드째로 내보내면 일본어 화면에 영어가 뜬다(tag.ByCode).
+// 찾지 못한 것을 코드째로 내보내면 일본어 화면에 영어가 뜬다(tag.ByCode).
 //
 // 순서는 약점과 같은 규칙이다: 많은 순, 같으면 코드 순. 무작위면 새로고침마다
 // 목록이 뒤집힌다.

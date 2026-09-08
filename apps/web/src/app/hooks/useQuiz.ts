@@ -26,7 +26,7 @@ export function useQuiz(id: number): QuizSource {
   const { loaded, reload } = useFetch<QuizPayload>(`/api/games/${id}/quiz`);
   const [attempts, setAttempts] = useState(0);
   const last = useRef<QuizPayload | null>(null);
-  // 기다리기 시작한 시각. 세는 것이 아니라 재는 것이다 — 아래.
+  // 기다리기 시작한 시각. 횟수 대신 시간을 잰다 — 아래.
   const since = useRef<number | null>(null);
 
   // 판이 바뀌면 이 훅 전체가 새로 만들어진다 — App 이 `key` 로 판마다 새로 세운다. 여기서
@@ -36,7 +36,7 @@ export function useQuiz(id: number): QuizSource {
   // 아직 기다리는 중인가.
   //
   // 한 번 실패한 것으로 끝내지 않는다. 요청 하나가 500을 받거나 네트워크가 한 번 끊긴
-  // 것은 「문항이 안 온다」가 아니다 — 그래서 부르는 중이든 실패했든 직전 답으로 판단한다
+  // 것으로는 「문항이 안 온다」를 못 정한다 — 그래서 부르는 중이든 실패했든 직전 답을 본다
   // (아래에서 그 답을 화면에 그대로 내보내는 것과 같은 이유다).
   const stillWaiting = last.current != null && !last.current.ready;
   const waiting = loaded.state === 'ready' ? !loaded.data.ready : stillWaiting;
@@ -45,8 +45,8 @@ export function useQuiz(id: number): QuizSource {
   // 이 코드 전에 끝난 판, 생성기가 없는 배포, 문항 판이 올라가 옛 행이 죽은 뒤가 전부 그렇다.
   // 계속 물으면 화면이 오지 않을 것을 기다리라고 말하게 된다.
   //
-  // 끊는 기준은 몇 번 물었나가 아니라 얼마나 기다렸나다. 세는 쪽은 「효과가 몇 번 다시
-  // 도는가」에 매이는데 그것은 뜻하는 바가 아니고 실제로 어긋났다 — 개발 모드에서 5초
+  // 끊는 기준은 물은 횟수 대신 기다린 시간이다. 세는 쪽은 「효과가 몇 번 다시
+  // 도는가」에 매이는데 그것은 재려던 것과 다르고 실제로 어긋났다 — 개발 모드에서 5초
   // 간격이 22초에 9회로 돌았다. 재는 쪽은 그 횟수가 무엇이든 서버가 스스로 자르는 시각과
   // 같은 자리에서 끊긴다.
   if (waiting && since.current === null) {
@@ -107,7 +107,7 @@ const QUIZ_POLL_MS = 5000;
  *
  * 서버가 스스로 자르는 시한과 같은 값이다(`quizTimeout`). 그보다 짧게 잡으면 아직
  * 정직하게 만들고 있는 판에 「안 왔다」고 말하게 되고, 길게 잡으면 서버가 이미 포기한
- * 뒤에도 기다린다 — 어느 쪽도 사실이 아니다.
+ * 뒤에도 기다린다 — 어느 쪽도 사실과 어긋난다.
  */
 const QUIZ_WAIT_MS = 5 * 60 * 1000;
 

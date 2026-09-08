@@ -164,15 +164,15 @@ function MateQuestion({ id, item }: { id: number; item: MateItem }) {
   const res = grading.result;
   const done = res?.outcome === 'solved' || res?.outcome === 'wrong';
   // `not_check` 도 서버가 준 자리를 그대로 쓴다. 그때 판은 안 움직였지만 그 자리는
-  // 문제 국면이 아니라 지금까지 진행된 국면이다 — 문항 쪽으로 되돌리면 맞힌 수가
-  // 사라진 것처럼 보인다(quiz.GradeMate 가 그래서 그 경우에도 둘 수 있는 수를 준다).
+  // 지금까지 진행된 국면이다 — 문항 쪽으로 되돌리면 맞힌 수가 사라진 것처럼
+  // 보인다(quiz.GradeMate 가 그래서 그 경우에도 둘 수 있는 수를 준다).
   const sfen = res ? res.sfen : item.sfen;
   const legal = res ? (res.legalMoves ?? []) : item.legalMoves;
   const plies = res ? res.plies : item.plies;
 
   const play = (usi: string): void => {
     const next = [...mine, usi];
-    // 시도 횟수는 틀린 횟수다. 王手가 아닌 수는 안내이지 오답이 아니라 세지 않는다 —
+    // 시도 횟수는 틀린 횟수다. 王手가 아닌 수는 안내로 처리해 세지 않는다 —
     // 서버가 그 자리에서 정답을 안 주는 이유와 같다(quiz.MateNotCheck).
     void grade({ moves: next, attempt: wrongs + 1 }).then((got) => {
       if (!got) return;
@@ -254,8 +254,8 @@ function verdictTone(res: MateResult | null, error: string | null): VerdictTone 
 /**
  * 「この局面の最善手は?」 문항.
  *
- * 첫 수만 받는다. 그 뒤를 이어 두게 하면 「최선수인가」가 아니라 「그 수순이 좋은가」를
- * 묻는 다른 문항이 되고, 그것은 판정에 엔진이 다시 필요하다(§53).
+ * 첫 수만 받는다. 그 뒤를 이어 두게 하면 「그 수순이 좋은가」를 묻는 다른 문항이
+ * 되고, 그것은 판정에 엔진이 다시 필요하다(§53).
  */
 function BestQuestion({ id, item }: { id: number; item: BestItem }) {
   const [grading, grade, clear] = useBestGrader(id);
@@ -390,7 +390,7 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
  * 문항의 국면에서 사람이 잡은 쪽을 얻는다.
  *
  * 문항은 늘 사람이 둘 차례인 국면에서 뽑히므로(quiz.bestItems·mateItem) 그 手番이 곧
- * 사람이다. 진행된 판이 아니라 문항의 국면을 본다 — 진행된 판은 답한 뒤 상대 차례가 된다.
+ * 사람이다. 문항의 국면을 본다 — 진행된 판은 답한 뒤 상대 차례가 된다.
  */
 function sideOf(sfen: string): Side {
   try {

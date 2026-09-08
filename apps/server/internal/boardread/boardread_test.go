@@ -99,8 +99,8 @@ func TestReadKeepsTooManyPiecesButStaysWithinInt8(t *testing.T) {
 	}
 }
 
-// 판이 없는 그림은 고장이 아니라 사실이다. 사유를 따로 두면 화면이 「다시 눌러 보라」가
-// 아니라 「판이 보이는 그림을 올려라」를 말할 수 있다.
+// 판이 없는 그림은 고장 없이도 나오는 답이다. 사유를 따로 두면 화면이 「다시 눌러 보라」
+// 대신 「판이 보이는 그림을 올려라」를 말할 수 있다.
 func TestReadRefusesAnImageWithNoBoard(t *testing.T) {
 	c := stub(t, read{Found: false})
 	if _, err := c.Read(context.Background(), png); !errors.Is(err, ErrNoBoard) {
