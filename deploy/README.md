@@ -287,6 +287,20 @@ aws ecs execute-command --cluster show-gi --container api \
 
 아래의 일회용 ECS 태스크는 **접근이 막혔을 때의 대비책**으로만 남긴다. 평소 경로가 아니다.
 
+## 이미지 CVE 를 보는 법
+
+**push 마다 자동으로 스캔된다**(실측 8초, [journal §134](../docs/journal/121-140.md)). 내용이 안 바뀐 빌드는 digest 가 같아서 안 걸리고, 한 이미지는 24시간에 한 번이다.
+
+**`describe-images` 로 보면 안 된다.** 새 basic scanning 은 그 응답의 `imageScanStatus` 를 채우지 않아서 **스캔이 끝난 이미지도 `null` 로 보인다.** 확인하는 명령은 이것뿐이다.
+
+```sh
+aws ecr describe-image-scan-findings --repository-name show-gi/api --image-id imageTag=latest \
+  --query '{s:imageScanStatus.status,counts:imageScanFindings.findingSeverityCounts,at:imageScanFindings.imageScanCompletedAt}' \
+  --region ap-northeast-1 --profile show-gi
+```
+
+**`api` 에 perl CVE 가 남아 있는 것은 정상이다.** `perl-base` 가 데비안 Essential 이라 못 빼고 업스트림에 패치가 없다 — 런타임이 실행하지 않으므로 닿을 수 없다([상태 문서](../docs/06-status.md) §8). **보는 값은 절대 개수가 아니라 회차 사이의 차이다.**
+
 ## 엔진이 떴는지 보는 법
 
 `/healthz` 는 **엔진이 없어도 200이다.** 여기서 실패를 내면 ECS가 태스크를 죽이고 재시작을 반복해 사이트 전체가 내려가기 때문이다. 대신 필드로 드러낸다.

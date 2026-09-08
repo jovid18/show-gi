@@ -75,8 +75,12 @@ RUN printf '#!/bin/sh\ncd /opt/yaneuraou\nexec ./engine "$@"\n' > /opt/yaneuraou
 # bookworm 에서 컴파일한 바이너리가 여기서 도는 것은 실측했다 — 탐색·詰み 둘 다
 # usiok 와 readyok 를 준다(glibc 는 옛 바이너리에 하위 호환이고 libgomp.so.1 은 soname 이 같다).
 FROM debian:trixie-slim
+
+# ca-certificates 하나다. 엔진이 요구하는 공유 라이브러리는 libstdc++ · libm · libc ·
+# libgcc_s 넷이고 전부 베이스에 이미 있다 — 한때 같이 깔던 libgomp1 은 ldd 로 확인해 보니
+# 두 바이너리 어느 쪽도 링크하지 않는다(journal §134).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates libgomp1 \
+    && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=engine /opt/yaneuraou /opt/yaneuraou
