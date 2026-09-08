@@ -124,7 +124,7 @@ func (s *Store) QueueWaiting(ctx context.Context, freshAfter time.Time) (int, er
 // QueuePairOptions 는 후보를 고르는 창이다. 정책은 부르는 쪽이 정한다 — 여기 값을 두면
 // 그것을 흔들어 보는 데 DB 가 필요해진다(internal/queue).
 type QueuePairOptions struct {
-	// FreshAfter 는 이 시각 뒤로 다시 물어본 사람만 후보라는 뜻이다.
+	// FreshAfter 는 후보를 이 시각 뒤로 다시 물어본 사람으로 한정한다.
 	FreshAfter time.Time
 	// MaxGap 은 후보로 잠글 레이팅 폭이다. 밴드가 아니라 그 상한이다(queue.MaxBand) —
 	// 잠기는 행을 줄이는 것이 목적이고, 어떤 밴드보다 넓어야 한다.

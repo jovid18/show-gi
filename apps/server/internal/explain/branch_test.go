@@ -34,7 +34,7 @@ func TestRenderCarriesEveryBranch(t *testing.T) {
 		}
 	}
 	// 화면이 pre-line 으로 받는다. 한 줄로 이어지면 어느 수가 어느 결말에 걸리는지가
-	// 안 읽히고, 이 문구는 그 대응이 전부다.
+	// 안 읽히고, 이 문구가 재는 것은 그 대응이다.
 	if got := strings.Count(body, "\n"); got != 3 {
 		t.Errorf("줄이 %d개다: %q", got+1, body)
 	}

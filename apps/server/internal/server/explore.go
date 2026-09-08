@@ -41,7 +41,7 @@ const (
 	// 여기는 0手目부터라 한 판을 통째로 걸어 볼 수 있어야 한다.
 	exploreMaxLine = 200
 
-	// exploreBodyLimit 은 본문 상한이다. 手合割 id 하나와 수순 한 줄이 전부다.
+	// exploreBodyLimit 은 본문 상한이다. 手合割 id 하나와 수순 한 줄만 온다.
 	exploreBodyLimit = 16 << 10
 
 	// exploreSlots 는 이 표면이 동시에 잡을 수 있는 엔진 수다. 이것이 유일한 제한이다.

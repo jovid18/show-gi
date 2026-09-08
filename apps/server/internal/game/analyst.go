@@ -115,7 +115,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	// go mate 가 「상대의 詰み」을 답한다. 내가 알아야 하는 것과 반대다.
 	//
 	// 대신 이미 구해둔 탐색 결과를 쓴다. 착수 후 국면이 수번 측에게 불리한 mate로
-	// 나오면(MateIn < 0) 그것이 곧 「상대가 詰まされる」 = 내 詰み이 남았다는 뜻이다.
+	// 나오면(MateIn < 0) 그것이 곧 「상대가 詰まされる」 = 내 詰み이 남은 것이다.
 	if n, ok := after.Score.MateIn(); ok && in.MateBefore > 0 && n < 0 {
 		in.MateAfter = -n
 	}

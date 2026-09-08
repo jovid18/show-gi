@@ -444,7 +444,7 @@ func TestATruncatedRowLosesToTheLongerOne(t *testing.T) {
 	})
 	a.analyze(t.Context(), "", seats)
 
-	// 창이 다 찼다는 것이 긴 행을 읽었다는 뜻이다. 잘린 행을 읽었으면 21~30手뿐이다.
+	// 창이 다 찼으면 긴 행을 읽은 것이다. 잘린 행을 읽었으면 21~30手뿐이다.
 	const wantSamples = (skill.AnchorToPly - skill.AnchorFromPly + 1) / 2
 	for _, seat := range seats {
 		e, ok, err := st.SkillProfile(t.Context(), seat.userID)
@@ -967,8 +967,8 @@ func TestAStaleClaimIsTakenBack(t *testing.T) {
 
 // 배수구가 차도 착수가 안 막힌다. 넘친 手는 판이 끝날 때 그 자리에서 잰다.
 //
-// 여기에 DB 가 필요 없다. 배수구는 표에 적기 전의 자리라, 착수 경로가 DB 를 안 기다리는
-// 것이 이 자리에서 재는 전부다.
+// 여기에 DB 가 필요 없다. 배수구는 표에 적기 전의 자리라, 이 자리는 착수 경로가 DB 를 안
+// 기다리는 것만 잰다.
 func TestAFullDrainDoesNotBlockTheMove(t *testing.T) {
 	a := &matchAnalyzer{
 		drain:    make(chan plyJob, 1),

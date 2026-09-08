@@ -22,7 +22,7 @@ export function Waiting({
   /** 서버가 말한 거절. 방이 걷혔을 때 그 이유가 여기로 온다. */
   rejection: string | null;
 }) {
-  // 방 하나 못 받고 끊겼다는 것은 앉지 못했다는 뜻이다. 앞의 확인(`fetchRoom`)을
+  // 방 하나 못 받고 끊겼으면 앉지 못한 것이다. 앞의 확인(`fetchRoom`)을
   // 통과했는데도 그렇다면 그 사이에 남이 자리를 채운 것이고, 그 답은 「열 수 없다」 하나다.
   if (connection === 'closed' && !room) return <Unavailable />;
 

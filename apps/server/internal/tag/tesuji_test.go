@@ -134,7 +134,7 @@ func TestTheRuleLayerDoesNotAskWhetherTheForkerSurvives(t *testing.T) {
 	}
 }
 
-// 「十字」는 縦과 横이 교차한다는 뜻이다. 같은 段의 둘을 노리는 飛는 両取り이긴 해도
+// 「十字」는 縦과 横이 교차하는 모양이다. 같은 段의 둘을 노리는 飛는 両取り이긴 해도
 // 十字飛車가 아니고, 그 이름을 붙이면 초심자는 다음에 그 형태를 못 알아본다.
 func TestJujiBishaNeedsBothDirections(t *testing.T) {
 	// 5五飛가 3五金·8五金을 노린다 — 둘 다 같은 段이다

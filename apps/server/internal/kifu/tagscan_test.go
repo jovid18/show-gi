@@ -230,7 +230,7 @@ func TestScanTagsOverFloodgateGames(t *testing.T) {
 	// 囲い가 21/42라 미구현 21종이 오탐과 구별되지 않는다.
 	//
 	// 그래서 대리 지표를 하나 둔다: 끝까지 양쪽 다 囲い가 하나도 안 붙은 판의 비율.
-	// 프로 수준 엔진끼리의 대국이라 이 값이 크면 그만큼 못 보고 있다는 뜻이다.
+	// 프로 수준 엔진끼리의 대국이라 이 값이 크면 그만큼 못 보고 있다.
 	t.Logf("양쪽 다 囲い가 안 붙은 판: %d / %d", noCastle, parsed)
 
 	type kv struct {

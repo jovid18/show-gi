@@ -32,7 +32,7 @@ const SessionTTL = 30 * 24 * time.Hour
 // 사람」으로 같고, 구별해서 화면에 말하면 서명 위조를 시도하는 쪽에 힌트가 된다.
 var ErrNoSession = errors.New("auth: no valid session")
 
-// Session 은 쿠키에 담기는 전부다.
+// Session 은 쿠키에 담기는 내용이다.
 //
 // 이름을 같이 담는 이유는 화면 한 줄 때문에 매 요청이 users 를 읽지 않게 하려는
 // 것이다. 서명돼 있으므로 위조되지 않고, 낡을 수 있는 것은 사용자가 Google 쪽에서

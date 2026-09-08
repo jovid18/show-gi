@@ -32,12 +32,12 @@ const (
 	// 한 자 3바이트라 13자에서 걸린다.
 	exploreSnapshotNameMax = 40
 
-	// exploreSnapshotBodyLimit 은 본문 상한이다. 이름 하나와 手合割 id 하나, 수순 한 줄이 전부다.
+	// exploreSnapshotBodyLimit 은 본문 상한이다. 이름 하나와 手合割 id 하나, 수순 한 줄만 온다.
 	exploreSnapshotBodyLimit = 16 << 10
 )
 
-// exploreSnapshotHandler 는 저장된 국면을 읽고 쓴다. Searcher 를 안 들고 있는 것이 이 표면이
-// 엔진과 무관하다는 뜻이다.
+// exploreSnapshotHandler 는 저장된 국면을 읽고 쓴다. Searcher 를 안 들고 있어서 이 표면은
+// 엔진과 무관하다.
 type exploreSnapshotHandler struct {
 	store *store.Store
 	auth  *authHandler

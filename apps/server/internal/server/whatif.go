@@ -181,12 +181,12 @@ type whatifNode struct {
 
 // 요청이 거절되는 이유들. 화면에 나갈 문구는 핸들러가 붙인다.
 var (
-	// errWhatifPly 는 그 手数를 기록에서 재현할 수 없다는 뜻이다. 범위 밖이거나, 기보에
+	// errWhatifPly 는 그 手数를 기록에서 재현할 수 없을 때의 오류다. 범위 밖이거나, 기보에
 	// 구멍이 나서 거기까지 못 둔다(review.go 의 재현이 멈추는 자리와 같은 조건이다).
 	errWhatifPly = errors.New("whatif: cannot replay the record to that ply")
-	// errWhatifMove 는 분기의 수가 그 국면에서 둘 수 없는 수라는 뜻이다.
+	// errWhatifMove 는 분기의 수를 그 국면에서 둘 수 없을 때의 오류다.
 	errWhatifMove = errors.New("whatif: illegal move in the branch")
-	// errWhatifEngine 은 엔진이 답하지 못했다는 뜻이다.
+	// errWhatifEngine 은 엔진이 답하지 못했을 때의 오류다.
 	errWhatifEngine = errors.New("whatif: engine")
 )
 

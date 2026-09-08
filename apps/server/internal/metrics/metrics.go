@@ -221,7 +221,7 @@ func New(service, environment string) *Registry {
 	//
 	// result 는 cached·computed·unproven 이다. unproven 은 checkmate timeout —
 	// solver 를 부르고도 답을 못 얻어 캐시에 안 쌓인 것이라, 이 값이 크면 캐시가
-	// 영원히 안 채워지는 구간이 있다는 뜻이다.
+	// 영원히 안 채워지는 구간이 있다.
 	r.MateSearches = r.NewCounter("engine_mate_searches_total",
 		"詰み 탐색 요청 수", "result")
 	r.MateSearchDuration = r.NewHistogram("engine_mate_search_duration_seconds",
@@ -372,7 +372,7 @@ func (h *Histogram) Observe(v float64, labelValues ...string) {
 // 상한까지는 그대로 담고 그 뒤로는 확률 maxSamples/sampled 로 자리를 바꾼다(알고리즘 R).
 // 앞의 100개만 남기면 회차 앞머리의 요청만 백분위에 반영된다.
 //
-// 분모가 sampled 인 것이 요점이다. 누적(count)을 쓰면 회차가 지날수록 확률이 0으로
+// 분모는 sampled 를 쓴다. 누적(count)을 쓰면 회차가 지날수록 확률이 0으로
 // 내려가 바로 그 굳은 상태가 되고, 하필 바쁜 분에 틀린다.
 func (s *series) observe(v float64) {
 	s.sampled++

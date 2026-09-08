@@ -239,7 +239,7 @@ func TestCheckCatchesTheWrongTurn(t *testing.T) {
 	if len(res.Faults) != 1 || res.Faults[0].Reason != "check ignored" {
 		t.Fatalf("faults = %v, want a check-ignored fault", res.Faults)
 	}
-	// 같은 판에 手番만 바꾸면 성립한다. 그것이 이 사유가 말하는 전부다.
+	// 같은 판에 手番만 바꾸면 성립한다. 이 사유는 그것만 말한다.
 	ok := decodePosition(t, postCheck(t, "4k4/9/9/9/4R4/9/9/9/3K5 w - 1"))
 	if len(ok.Faults) != 0 {
 		t.Fatalf("faults = %v, want none once the turn is the other side", ok.Faults)

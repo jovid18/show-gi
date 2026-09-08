@@ -144,7 +144,7 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 	reversalHits := map[int]int{}
 
 	// 반박 수순이 실제로 몇 수가 되는가. 길이를 상수로 박지 않기로 한 근거이고,
-	// 여기서 전부 1수로 쪼그라들면 이 기능이 겨냥한 자리(§17)를 못 덮는다는 뜻이다.
+	// 여기서 전부 1수로 쪼그라들면 이 기능이 겨냥한 자리(§17)를 못 덮는다.
 	lineLen := map[int]int{}
 	var lineSamples []string
 

@@ -17,7 +17,7 @@ import (
 // 그래서 그 셋은 CI에서도 돈다.
 
 // snapshotWalls 는 store 없는 핸들러다. 거절되는 요청은 기록에 안 닿으므로,
-// 여기서 500이 나오면 그 요청이 검사를 통과했다는 뜻이다.
+// 여기서 500이 나오면 그 요청이 검사를 통과한 것이다.
 func snapshotWalls(t *testing.T) (*exploreSnapshotHandler, *http.Cookie) {
 	t.Helper()
 
@@ -179,7 +179,7 @@ func TestSnapshotRoundTrip(t *testing.T) {
 	h, who, _ := snapshotStore(t)
 
 	// 二枚落ち는 上手가 먼저 둔다(journal §88). 下手의 수를 앞에 두면 거절되므로, 이 줄이
-	// 통과하는 것 자체가 검사가 手番을 본다는 뜻이다.
+	// 통과하면 검사가 手番을 본 것이다.
 	line := `["3c3d","7g7f","8c8d"]`
 	saved := decodeSnapshot(t, h.call(t, http.MethodPost, "/api/explore/snapshots",
 		`{"name":"  矢倉の入り口  ","handicap":"nimaiochi","moves":`+line+`}`, who), http.StatusCreated)

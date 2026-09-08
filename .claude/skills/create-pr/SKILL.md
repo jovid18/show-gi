@@ -5,7 +5,7 @@ description: Create a pull request for this repository using the show-gi PR temp
 
 # Create Pull Request (show-gi)
 
-Open a PR with `gh` using this repo's template. **Do not use `git-workflow:create-pull-request`** — that skill carries the Ecube Labs template with Jira links and a Korean-language body, neither of which applies here.
+Open a PR with `gh` using this repo's template. Do not use `git-workflow:create-pull-request` — that skill carries the Ecube Labs template with Jira links and a Korean-language body, neither of which applies here.
 
 ## Conventions
 
@@ -30,16 +30,16 @@ git diff main...HEAD --name-status
 If the branch is `main`, stop and tell the user to move to a feature branch.
 If the branch isn't pushed, push it: `git push -u origin HEAD`.
 
-**Describe the diff, not the branch history.** This repo squash-merges, so what lands on `main` is one commit containing the final state. Read the diff; `git log` is for your own orientation only.
+Describe the diff, not the branch history. This repo squash-merges, so what lands on `main` is one commit containing the final state. Read the diff; `git log` is for your own orientation only.
 
 Concretely, this means:
 
-- A file created and then deleted on the branch **does not appear in the diff** and must not appear in the body. From `main`'s point of view it never existed.
+- A file created and then deleted on the branch does not appear in the diff and must not appear in the body. From `main`'s point of view it never existed.
 - Never write "switched from X to Y", "initially did X", "refactored to", or "removed the earlier". If the branch went EC2 → ECS, the PR added ECS. There was no EC2.
 - Deletions belong in the body only when the file exists on `main` today.
 - Design decisions are worth stating; the order you arrived at them is not. "Deploys run on ECS because the alternative needs bespoke scripts" is useful — "we tried compose first" is noise.
 
-This matters most when **updating** an existing PR, since the body was usually written for an earlier shape of the branch. Rewrite it from the current diff rather than appending to it.
+This matters most when updating an existing PR, since the body was usually written for an earlier shape of the branch. Rewrite it from the current diff rather than appending to it.
 
 ### 2. Draft the body
 
@@ -65,7 +65,7 @@ If a PR knowingly leaves something for a later PR, say so in one line at the end
 
 #### Migrations
 
-If the diff adds or edits anything under `apps/server/internal/store/migrations/`, the body **must** name the files that have to be run, as the last line of Impact:
+If the diff adds or edits anything under `apps/server/internal/store/migrations/`, the body must name the files that have to be run, as the last line of Impact:
 
 ```markdown
 **Migration:** `002_anonymous_games.sql`
@@ -73,7 +73,7 @@ If the diff adds or edits anything under `apps/server/internal/store/migrations/
 
 Filenames only — the runbook already says how to run them, and the diff already shows what they contain. The point is that someone re-reading the PR later can see it touched the database without hunting through the diff.
 
-Deploys never run DDL (`deploy/README.md` §4). Schema goes in **before** the merge, applied by hand through a database client, so a merged PR whose migration was skipped leaves the new code running against an old schema.
+Deploys never run DDL (`deploy/README.md` §4). Schema goes in before the merge, applied by hand through a database client, so a merged PR whose migration was skipped leaves the new code running against an old schema.
 
 The `migration` label attaches automatically from the path — don't add it by hand, and don't remove it.
 
@@ -86,7 +86,7 @@ EOF
 )"
 ```
 
-Show the returned URL and **stop there**. Never merge — the user merges from the GitHub PR page themselves. Don't run `gh pr merge`, and don't ask whether to merge.
+Show the returned URL and stop there. Never merge — the user merges from the GitHub PR page themselves. Don't run `gh pr merge`, and don't ask whether to merge.
 
 ## Notes
 

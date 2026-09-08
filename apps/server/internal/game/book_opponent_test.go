@@ -85,7 +85,7 @@ func TestBookYieldsAfterCapture(t *testing.T) {
 // TestBookIsDerivedFromMoves 는 되무르기와 맞는지다.
 //
 // 개입이 수를 물리면 moves 가 줄어든다. 카운터를 들고 있었다면 그 수를 센 채로 남아 진형이
-// 한 칸 건너뛴다 — 상태를 안 들고 있다는 것이 그 버그가 아예 없다는 뜻이다.
+// 한 칸 건너뛴다 — 상태를 안 들고 있어서 그 버그가 아예 없다.
 func TestBookIsDerivedFromMoves(t *testing.T) {
 	inner := &stubOpponent{}
 	opp := NewBookOpponent(inner, mustFind(t, "shikenbisha"), shogi.White)

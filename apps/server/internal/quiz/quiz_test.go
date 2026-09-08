@@ -699,7 +699,7 @@ func TestMateTreeDoesNotAskAtOnePlyNodes(t *testing.T) {
 		t.Fatalf("mate = %+v, want a 1-ply problem", q.Mate)
 	}
 
-	// 훑기의 한 번이 전부다 — 트리는 룰 엔진만으로 지어진다.
+	// 훑기는 한 번뿐이다 — 트리는 룰 엔진만으로 지어진다.
 	if fm.calls != 1 {
 		t.Errorf("asked the solver %d times, want 1 (the scan only)", fm.calls)
 	}

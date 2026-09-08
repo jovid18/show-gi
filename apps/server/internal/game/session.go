@@ -295,7 +295,7 @@ type state struct {
 
 	thinking bool
 	// searchGen 은 국면이 바뀔 때마다 오른다. 탐색을 띄울 때의 값을 pendingGen 에
-	// 적어두고, 결과가 돌아왔을 때 둘이 다르면 버린다 — 그 사이에 국면이 움직였다는 뜻이다.
+	// 적어두고, 결과가 돌아왔을 때 둘이 다르면 버린다 — 그 사이에 국면이 움직인 것이다.
 	// D3에서 롤백이 들어오면 이게 실제로 값을 한다.
 	searchGen  int
 	pendingGen int
@@ -384,7 +384,7 @@ type state struct {
 	// 세션 goroutine 만 읽고 쓴다 — 추정기는 채널로 올려보낼 뿐이다(Rater).
 	skill skill.Estimate
 
-	// 물러질 수 있으므로 착수 직전 국면을 들고 있는다. Position 이 값 타입이라 복사면 끝이다.
+	// 물러질 수 있으므로 착수 직전 국면을 들고 있는다. Position 이 값 타입이라 복사로 충분하다.
 	prevPos    shogi.Position
 	prevPrevTo int
 
@@ -1233,7 +1233,7 @@ func hintable(t tag.Tag) bool {
 // computeTagHints 는 플레이어의 합법수 중 새 이름을 만드는 것을 찾는다. 무엇을 권할지는
 // hintable 이 정한다.
 //
-// 엔진을 안 부른다 — 戦型은 판과 수순만으로 정해지므로 합법수마다 둬 보면 끝이다.
+// 엔진을 안 부른다 — 戦型은 판과 수순만으로 정해지므로 합법수마다 둬 보면 된다.
 // 手筋은 평가치가 있어야 해서 비동기로 따로 구한다(maybeTesujiHint).
 func (st *state) computeTagHints() {
 	st.tagHintGen = st.searchGen
@@ -1334,7 +1334,7 @@ func (st *state) maybeTesujiHint(ctx context.Context, done chan tesujiHintResult
 	color := st.cfg.HumanColor
 	deadline := st.extraDeadline()
 	// 판도 값으로 복사해 넘긴다. 룰로 거르는 동안에도 세션은 다음 수를 받는다.
-	// shogi.Position 이 값 타입이라 복사면 끝이다.
+	// shogi.Position 이 값 타입이라 복사로 충분하다.
 	pos := st.pos
 	// 슬라이스를 그대로 넘기면 다음 착수의 append 가 같은 배열을 건드릴 수 있다.
 	moves := append([]string(nil), st.usis...)

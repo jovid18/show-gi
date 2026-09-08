@@ -31,6 +31,24 @@ if [ "$branch" = "main" ]; then
 	exit 1
 fi
 
+# ─── 산문 규약 ─────────────────────────────────────────────
+#
+# 굵게가 머리말 자리에만 있는지, 주석이 금지된 맺음 문구로 끝나지 않는지 본다.
+# 포맷 검사보다 앞에 두는 이유는 아래에 스테이징이 비면 빠져나가는 길이 있어서다.
+# python3 이 없는 클론에서는 건너뛴다 — 강제하는 것은 CI 쪽이다.
+
+if command -v python3 >/dev/null 2>&1; then
+	if ! python3 tools/prose/bold.py >/dev/null 2>&1; then
+		echo "✗ 굵게가 머리말 자리 밖에 있다. 어디인지 보려면:"
+		echo "    python3 tools/prose/bold.py        # 센다"
+		echo "    python3 tools/prose/bold.py --fix  # 걷는다"
+		exit 1
+	fi
+	if ! python3 tools/prose/phrase.py; then
+		exit 1
+	fi
+fi
+
 # ─── 포맷 · 린트 ────────────────────────────────────────────
 #
 # 에디터의 다른 포매터가 끼어들어도 커밋에는 oxfmt/gofmt/terraform 결과만 들어가게 한다.

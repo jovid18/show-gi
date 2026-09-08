@@ -48,7 +48,7 @@ const maxBoardReadsPerHour = 10
 // 걸면 상한 안쪽의 사진이 길이 때문에 거절된다(importBodyMax 와 같은 이유).
 const positionBodyMax = boardread.MaxImage/3*4 + 1<<10
 
-// positionCheckBodyMax 는 검사 요청 몸통의 상한이다. SFEN 한 줄이 전부다.
+// positionCheckBodyMax 는 검사 요청 몸통의 상한이다. SFEN 한 줄만 온다.
 const positionCheckBodyMax = 4 << 10
 
 type positionHandler struct {
@@ -87,7 +87,7 @@ type positionCheckRequest struct {
 	SFEN string `json:"sfen"`
 }
 
-// positionResponse 는 국면 하나와 그것에 대해 룰 엔진이 말할 수 있는 전부다.
+// positionResponse 는 국면 하나와 그것에 대해 룰 엔진이 말할 수 있는 것을 담는다.
 //
 // 읽기와 검사가 같은 모양을 준다. 확인 화면이 「방금 읽은 판」과 「내가 고친 판」을
 // 같은 코드로 그리는 자리이고, 따로 두면 그 화면에 표가 둘 생긴다.

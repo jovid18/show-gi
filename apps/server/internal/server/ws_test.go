@@ -612,7 +612,7 @@ func TestRealEngineHangingPiece(t *testing.T) {
 
 	// 반박 수순은 증명된 詰み일 때만 온다. PV를 잘라 보내던 자리인데 어디서 자를지가
 	// 국면마다 달랐다(§20 · §25 · §54). 이 국면은 詰み이 아니므로 비어 있는 것이 맞고,
-	// 차 있으면 그 수순이 다시 새고 있다는 뜻이다.
+	// 차 있으면 그 수순이 다시 새고 있다.
 	t.Logf("반박 수순: %+v", iv.Refutation)
 	if len(iv.Refutation) > 0 {
 		t.Errorf("詰み이 아닌 국면에 수순이 실렸다: %+v", iv.Refutation)

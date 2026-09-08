@@ -467,7 +467,7 @@ export function GameScreen() {
     (snapshot.judging ? '今の手を確かめています。' : snapshot.thinking ? '相手が考えています。' : 'あなたの番です。');
   const statusTone = result ? 'result' : snapshot.judging || snapshot.thinking ? 'wait' : 'turn';
 
-  // 서버가 안 보내면 조절이 꺼져 있다는 뜻이다. 기본값으로 메우지 않는다(protocol/game.ts).
+  // 서버가 안 보내면 조절이 꺼져 있다. 기본값으로 메우지 않는다(protocol/game.ts).
   const strength = snapshot.opponentStrength;
 
   const pick = (next: string): void => {

@@ -669,7 +669,7 @@ type ResumableGame struct {
 // ResumableGame 은 이 사람이 이어할 수 있는 가장 최근 판을 준다. 없으면 ErrNoGame.
 //
 // 익명은 부를 자리가 없다 — userID 를 값으로 받으므로 부르는 쪽이 로그인을 이미
-// 확인했다는 뜻이다(server/resume.go).
+// 확인한다(server/resume.go).
 func (s *Store) ResumableGame(ctx context.Context, userID int64) (ResumableGame, error) {
 	row, err := s.q.ResumableGameForOwner(ctx, &userID)
 	if errors.Is(err, pgx.ErrNoRows) {
