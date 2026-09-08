@@ -34,11 +34,11 @@ _▲3三角成를 되돌린 순간. 馬가 잡히는 이유와, 그대로 진행
 
 ## 2. 아키텍처
 
-Go 한 프로세스 안의 여덟 패키지가 역할을 나누고, 엔진은 파이프 건너편의 별도 프로세스.
+도쿄 리전 한 곳. ALB 뒤에서 ECS on EC2 스팟이 티어 둘로 갈라지고, 엔진은 api 컨테이너의 자식 프로세스.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/architecture.dark.svg">
-  <img alt="브라우저 · Go API 의 여덟 패키지 · USI 엔진 · PostgreSQL 의 구성" src="docs/images/architecture.svg" width="900">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/aws-architecture.dark.svg">
+  <img alt="AWS 구성 — Route 53 · ALB · ECS on EC2 스팟 티어 둘 · RDS · CloudWatch 알람과 오토 스케일링 · GitHub Actions 배포" src="docs/images/aws-architecture.svg" width="960">
 </picture>
 
 | 구분   | 내용                                                                                      |
@@ -48,6 +48,15 @@ Go 한 프로세스 안의 여덟 패키지가 역할을 나누고, 엔진은 �
 | 프론트 | React + TypeScript + Vite + three.js. 합법수 판정은 전부 서버                             |
 | DB     | PostgreSQL 17. 대국과 해석(국면별 평가치 캐시)                                            |
 | 인프라 | AWS ECS on EC2 스팟(c6g.large / ARM64) + ALB + RDS + Route53. Terraform, GitHub OIDC 배포 |
+
+### 서버 내부 — 여덟 패키지
+
+Go 한 프로세스 안에서 역할을 나눈다. 합법수 판정도 개입 판정도 서버 쪽이고, 브라우저는 그리는 일만 한다.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/architecture.dark.svg">
+  <img alt="브라우저 · Go API 의 여덟 패키지 · USI 엔진 · PostgreSQL 의 구성" src="docs/images/architecture.svg" width="900">
+</picture>
 
 규약 셋:
 
