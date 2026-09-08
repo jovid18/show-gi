@@ -219,8 +219,6 @@ cd apps/server && gofmt -l . && go vet ./... && go test -race ./...
 terraform -chdir=infra fmt -check && terraform -chdir=infra validate
 ```
 
-`-race` 유지. 엔진 프로세스와 세션 goroutine이 동시에 도는 구조라 데이터 경합이 가장 값비싼 버그.
-
 자세한 구성은 [apps/server/README.md](apps/server/README.md)와 [apps/web/README.md](apps/web/README.md), 배포 절차는 [deploy/README.md](deploy/README.md).
 
 ## 8. 라이선스
