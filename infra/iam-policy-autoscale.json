@@ -31,6 +31,9 @@
         "cloudwatch:GetMetricStatistics",
         "ecr:DescribeImages",
         "ecr:DescribeImageScanFindings",
+        "ecr:GetRegistryScanningConfiguration",
+        "events:ListRules",
+        "events:DescribeRule",
         "sns:ListTopics",
         "dynamodb:DescribeTable"
       ],
@@ -50,6 +53,7 @@
         "pricing:GetProducts",
         "pricing:DescribeServices",
         "iam:ListRoles",
+        "iam:GetRole",
         "iam:ListOpenIDConnectProviders"
       ],
       "Resource": "*"

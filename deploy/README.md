@@ -524,6 +524,13 @@ aws logs tail /ecs/show-gi --follow --region ap-northeast-1 --profile show-gi
 
 **스키마를 고쳤는데 반영이 안 된다.** DDL은 배포가 하지 않는다. 사람이 넣는다(§4).
 
+**RDS 로그 그룹의 보존 기간이 없다.** RDS 가 만든 그룹이라 terraform 밖이고([journal §133](../docs/journal/121-140.md)), 새 DB 를 세울 때마다 다시 없다. 마이그레이션과 같은 종류의 손 작업이다 — `/ecs/show-gi` 와 같은 14일로 맞춘다.
+
+```sh
+aws logs put-retention-policy --log-group-name /aws/rds/instance/show-gi/postgresql \
+  --retention-in-days 14 --region ap-northeast-1 --profile show-gi
+```
+
 **엔진이 안 뜬다.** `fairy-stockfish`는 데비안에서 `/usr/games`에 깔리고 그 경로는 기본 PATH에 없다. Dockerfile이 PATH를 넣어주고 있으니, 직접 실행해볼 때만 주의하면 된다.
 
 **로컬에서 8080이 안 잡힌다.** `../shogi` 프로젝트 컨테이너가 쓰고 있다. `cd ../shogi && docker compose down`.
@@ -536,19 +543,36 @@ aws logs tail /ecs/show-gi --follow --region ap-northeast-1 --profile show-gi
 
 > **2026-09-04 에 통째로 내렸다가 2026-09-08 에 다시 올렸다**([journal §128](../docs/journal/121-140.md) · [journal §133](../docs/journal/121-140.md)). 지금은 아래 표대로 나가고 있다 — 절약 모드 그대로다. **되살릴 때 DB 데이터는 못 되찾았다**(destroy 가 스냅샷을 안 남겼다). 내리는 세 단계와 되살리는 절차는 이 절 끝에 있다.
 
-|                                     | 월 (추정)          |
-| ----------------------------------- | ------------------ |
-| EC2 t4g.small **스팟** 1대          | **\~$7**           |
-| EBS gp3 30 GiB (그 인스턴스의 루트) | \~$3               |
-| ALB (2 AZ, 퍼블릭 IPv4 둘)          | \~$18\~25          |
-| RDS db.t4g.micro + 20 GB            | \~$15              |
-| CloudWatch 커스텀 지표 17개         | \~$5               |
-| ECR, 로그, Parameter Store          | $1 미만            |
-| **합계**                            | **\~$48\~55 / 월** |
+|                                      | 월 (실측)                   |
+| ------------------------------------ | --------------------------- |
+| RDS db.t4g.micro + 20 GiB + 백업     | **$19.93**                  |
+| ALB                                  | **$17.74**                  |
+| **퍼블릭 IPv4 4개**                  | **$14.36**                  |
+| EC2 t4g.small **스팟** 1대           | **$7.65**                   |
+| EBS gp3 30 GiB (그 인스턴스의 루트)  | **$2.85**                   |
+| CloudWatch 커스텀 지표 17개          | **$0** — 청구에 안 나온다   |
+| ECR, 로그, Parameter Store, DNS 질의 | $0.05 미만                  |
+| **합계**                             | **$62.55 / 월** (세금 별도) |
 
-**단가 곱셈이고 청구서를 대조한 값이 아니다.** `show-gi-operator` 에 `ce:GetCostAndUsage`·`budgets:ViewBudget`·`cloudwatch:ListMetrics` 가 없어서 이 계정의 요금을 이 프로파일로는 못 본다. **ALB 행의 폭이 그 대가다** — 퍼블릭 IPv4 둘(월 \~$7)이 포함인지 안 갈렸다.
+**2026-09-03 하루를 30.4배 한 값이다** — 절약 모드로 온전히 떠 있던 날이고, Cost Explorer 실측이다([journal §133](../docs/journal/121-140.md)). 그 전 세 절이 들고 있던 추정($48\~55)은 **낮았다**: 퍼블릭 IPv4 라인이 표에 아예 없었고, 대신 넣어 둔 CloudWatch $5 는 청구에 안 나온다.
+
+**주소가 넷이다** — ALB 2 · EC2 1 · **RDS 1**(`publicly_accessible = true`). 마지막 하나는 노트북에서 마이그레이션을 넣는 통로이고, `show-gi-migrate` 를 `infra/` 로 옮기면 **월 $3.65 와 `admin_cidr` 관리가 같이 없어진다.**
+
+**월초에 한 번 붙는 것 둘.** Route53 호스팅 존 $1.50(계정에 존이 셋, show-gi 몫 $0.50)과 세금.
+
+**이제 프로파일로 직접 본다.** [journal §133](../docs/journal/121-140.md)이 `ce:GetCostAndUsage` 를 두 번째 정책에 얹었다. **호출당 $0.01 이라 일별·서비스별로 한 번씩만 부른다.**
+
+```sh
+aws ce get-cost-and-usage --region us-east-1 --profile show-gi \
+  --time-period Start=2026-09-01,End=2026-09-09 --granularity DAILY \
+  --metrics UnblendedCost --group-by Type=DIMENSION,Key=SERVICE
+```
+
+**리전은 `us-east-1` 이다.** Cost Explorer 는 글로벌 서비스라 도쿄로 부르면 답하지 않고, 같은 이유로 정책의 그 문장에는 리전 조건이 없다.
 
 **컴퓨트도 ALB 도 RDS 도 이미 하한이다.** ALB 는 서로 다른 AZ 의 서브넷 둘이 AWS 하한이라 1개로는 못 만들고, `db.t4g.micro` 는 제일 작은 타입이며 20 GiB 는 gp3 최소치다. 더 내리는 방법은 **끄는 것**뿐이라 [journal §128](../docs/journal/121-140.md) 이 그 셋을 갈랐다.
+
+> **하한이 아닌 자리가 하나 남아 있다** — RDS 의 퍼블릭 IPv4($3.65)다. 크기가 아니라 **통로**라서 줄이는 방법이 다르다([journal §133](../docs/journal/121-140.md)).
 
 > **절약 모드다**([journal §125](../docs/journal/121-140.md)). 부하 회차를 한동안 안 돌기로 하고 2026-08-27 에 내렸다 — 대가 둘에서 하나가 됐고(분석 티어의 하한이 0 이고 상호작용이 `SERVER_ROLE=both` 로 겸한다) 타입이 `c6g.large` 에서 `t4g.small` 이 됐다. **컴퓨트가 $54 에서 $7 이 됐고, 이제 청구서의 대부분은 ALB 와 RDS 다.**
 >

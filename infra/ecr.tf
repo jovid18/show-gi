@@ -22,6 +22,9 @@ resource "aws_ecr_repository" "app" {
   # (journal §128). 잃는 것이 없다 — 이미지는 커밋에서 CI 가 다시 굽는다.
   force_delete = true
 
+  # 이 플래그만으로는 스캔이 안 돈다. 리포지토리 설정은 true 인데 두 이미지 다
+  # ScanNotFoundException 이다(journal §133) — 레지스트리 쪽 스캔 설정을 봐야 하고,
+  # 그 권한을 같은 회차에서 정책에 넣었다. 지금은 CVE 를 아무도 안 보는 상태다.
   image_scanning_configuration {
     scan_on_push = true
   }
