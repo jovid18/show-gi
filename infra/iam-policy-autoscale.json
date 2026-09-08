@@ -31,7 +31,9 @@
         "cloudwatch:GetMetricStatistics",
         "ecr:DescribeImages",
         "ecr:DescribeImageScanFindings",
+        "ecr:StartImageScan",
         "ecr:GetRegistryScanningConfiguration",
+        "ecr:PutRegistryScanningConfiguration",
         "events:ListRules",
         "events:DescribeRule",
         "sns:ListTopics",
@@ -43,6 +45,18 @@
           "aws:RequestedRegion": "ap-northeast-1"
         }
       }
+    },
+    {
+      "Sid": "ManageProjectBudget",
+      "Effect": "Allow",
+      "Action": [
+        "budgets:ViewBudget",
+        "budgets:ModifyBudget",
+        "budgets:TagResource",
+        "budgets:UntagResource",
+        "budgets:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:budgets::058264445568:budget/show-gi-*"
     },
     {
       "Sid": "ReadGlobalCostAndInventory",

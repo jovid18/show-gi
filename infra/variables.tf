@@ -112,7 +112,7 @@ variable "analysis_max_instances" {
     **상한이지 요금이 아니다.** 큐가 30분 비면 정책이 대수를 1로 되돌리므로(autoscale.tf)
     이 값을 2로 두는 것만으로는 값이 안 는다. 부하가 도는 동안만 대당 하루 $2.15 다.
 
-    **다만 그 창이 30분보다 길다**(journal §133). 스케일인한 대가
+    **다만 그 창이 30분보다 길다**(journal §134). 스케일인한 대가
     ecs-managed-draining 훅 때문에 Terminating:Wait 에 최대 한 시간 더 머문다 —
     실측이 55분이었다.
 

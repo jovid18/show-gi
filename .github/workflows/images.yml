@@ -69,6 +69,13 @@ jobs:
           # 레이어 캐시를 GitHub Actions 캐시에 둔다. 없으면 매번 pnpm install부터 다시 한다
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          # provenance 를 끈다. 켜져 있으면 태그가 이미지가 아니라 OCI 인덱스를 가리키고,
+          # ECR 기본 스캔은 인덱스를 스캔하지 않는다 — scan_on_push 를 켜 둔 채로 여덟 달
+          # 동안 스캔이 하나도 없던 이유다(journal §134). 서명을 읽는 쪽이 아직 없다.
+          #
+          # 라이프사이클 규칙도 같이 정상이 된다. push 하나가 매니페스트 3개(인덱스 ·
+          # 첨부 · 이미지)를 만들어서 「최근 10개」가 실제로는 3회분이었다.
+          provenance: false
 
   deploy:
     needs: build # 두 이미지가 다 올라간 뒤에만

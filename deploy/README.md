@@ -524,7 +524,7 @@ aws logs tail /ecs/show-gi --follow --region ap-northeast-1 --profile show-gi
 
 **스키마를 고쳤는데 반영이 안 된다.** DDL은 배포가 하지 않는다. 사람이 넣는다(§4).
 
-**RDS 로그 그룹의 보존 기간이 없다.** RDS 가 만든 그룹이라 terraform 밖이고([journal §133](../docs/journal/121-140.md)), 새 DB 를 세울 때마다 다시 없다. 마이그레이션과 같은 종류의 손 작업이다 — `/ecs/show-gi` 와 같은 14일로 맞춘다.
+**RDS 로그 그룹의 보존 기간이 없다.** RDS 가 만든 그룹이라 terraform 밖이고([journal §134](../docs/journal/121-140.md)), 새 DB 를 세울 때마다 다시 없다. 마이그레이션과 같은 종류의 손 작업이다 — `/ecs/show-gi` 와 같은 14일로 맞춘다.
 
 ```sh
 aws logs put-retention-policy --log-group-name /aws/rds/instance/show-gi/postgresql \
@@ -554,13 +554,13 @@ aws logs put-retention-policy --log-group-name /aws/rds/instance/show-gi/postgre
 | ECR, 로그, Parameter Store, DNS 질의 | $0.05 미만                  |
 | **합계**                             | **$62.55 / 월** (세금 별도) |
 
-**2026-09-03 하루를 30.4배 한 값이다** — 절약 모드로 온전히 떠 있던 날이고, Cost Explorer 실측이다([journal §133](../docs/journal/121-140.md)). 그 전 세 절이 들고 있던 추정($48\~55)은 **낮았다**: 퍼블릭 IPv4 라인이 표에 아예 없었고, 대신 넣어 둔 CloudWatch $5 는 청구에 안 나온다.
+**2026-09-03 하루를 30.4배 한 값이다** — 절약 모드로 온전히 떠 있던 날이고, Cost Explorer 실측이다([journal §134](../docs/journal/121-140.md)). 그 전 세 절이 들고 있던 추정($48\~55)은 **낮았다**: 퍼블릭 IPv4 라인이 표에 아예 없었고, 대신 넣어 둔 CloudWatch $5 는 청구에 안 나온다.
 
-**주소가 넷이다** — ALB 2 · EC2 1 · **RDS 1**(`publicly_accessible = true`). 마지막 하나는 노트북에서 마이그레이션을 넣는 통로이고, `show-gi-migrate` 를 `infra/` 로 옮기면 **월 $3.65 와 `admin_cidr` 관리가 같이 없어진다.**
+**주소가 넷이다** — ALB 2 · EC2 1 · **RDS 1**(`publicly_accessible = true`). 마지막 하나는 노트북에서 마이그레이션을 넣는 통로이고, `show-gi-migrate` 를 `infra/` 로 옮기면 **월 $3.65 와 `admin_cidr` 관리가 같이 없어진다**([journal §134](../docs/journal/121-140.md)).
 
 **월초에 한 번 붙는 것 둘.** Route53 호스팅 존 $1.50(계정에 존이 셋, show-gi 몫 $0.50)과 세금.
 
-**이제 프로파일로 직접 본다.** [journal §133](../docs/journal/121-140.md)이 `ce:GetCostAndUsage` 를 두 번째 정책에 얹었다. **호출당 $0.01 이라 일별·서비스별로 한 번씩만 부른다.**
+**이제 프로파일로 직접 본다.** [journal §134](../docs/journal/121-140.md)가 그 표를 청구서와 맞췄다. **호출당 $0.01 이라 일별·서비스별로 한 번씩만 부른다.**
 
 ```sh
 aws ce get-cost-and-usage --region us-east-1 --profile show-gi \
@@ -572,7 +572,7 @@ aws ce get-cost-and-usage --region us-east-1 --profile show-gi \
 
 **컴퓨트도 ALB 도 RDS 도 이미 하한이다.** ALB 는 서로 다른 AZ 의 서브넷 둘이 AWS 하한이라 1개로는 못 만들고, `db.t4g.micro` 는 제일 작은 타입이며 20 GiB 는 gp3 최소치다. 더 내리는 방법은 **끄는 것**뿐이라 [journal §128](../docs/journal/121-140.md) 이 그 셋을 갈랐다.
 
-> **하한이 아닌 자리가 하나 남아 있다** — RDS 의 퍼블릭 IPv4($3.65)다. 크기가 아니라 **통로**라서 줄이는 방법이 다르다([journal §133](../docs/journal/121-140.md)).
+> **하한이 아닌 자리가 하나 남아 있다** — RDS 의 퍼블릭 IPv4($3.65)다. 크기가 아니라 **통로**라서 줄이는 방법이 다르다([journal §134](../docs/journal/121-140.md)).
 
 > **절약 모드다**([journal §125](../docs/journal/121-140.md)). 부하 회차를 한동안 안 돌기로 하고 2026-08-27 에 내렸다 — 대가 둘에서 하나가 됐고(분석 티어의 하한이 0 이고 상호작용이 `SERVER_ROLE=both` 로 겸한다) 타입이 `c6g.large` 에서 `t4g.small` 이 됐다. **컴퓨트가 $54 에서 $7 이 됐고, 이제 청구서의 대부분은 ALB 와 RDS 다.**
 >
