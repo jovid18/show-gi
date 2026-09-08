@@ -128,6 +128,8 @@ ACM 인증서 검증과 RDS 생성 때문에 10분쯤 걸린다. `aws_acm_certif
 
 **파라미터를 먼저 등록해야 한다(§2).** 태스크 정의가 `/show-gi/prod/*`를 `secrets`로 참조하므로, 없으면 태스크가 시작조차 못 한다.
 
+> **빈 계정에 처음 올릴 때는 위 네 줄로 안 된다.** ECR 이 비어 있고 서비스가 `DATABASE_URL` 보다 먼저 만들어져서 첫 배포가 실패한다 — 나눠 거는 순서는 §비용과 정리의 「되살릴 때 apply 하나로 안 되는 것 여섯」에 있다([journal §133](../docs/journal/121-140.md)).
+
 ### apply 가 도는 대를 갈아치울 때
 
 **`on_demand_base_capacity` 를 바꾸는 apply 가 그렇다**([journal §124](../docs/journal/121-140.md)). `on_demand_percentage_above_base_capacity` 가 그 값에서 유도되므로(`infra/ec2.tf`) 둘이 같이 움직이고, ASG 는 구매 정책을 맞추려고 **도는 인스턴스를 반대편 종류로 바꿔 끼운다.** 새 대를 먼저 띄우고 옛 대를 내리지만, 태스크는 그 사이 옮겨 앉으므로 **실측으로 상호작용이 76초 내려갔다.**
@@ -446,11 +448,13 @@ psql "$(aws ssm get-parameter --name /show-gi/prod/DATABASE_URL --with-decryptio
 
 ### 그래도 남겨두는 길 — 일회용 태스크
 
-위 통로가 막혔을 때(집 밖에서 작업, IP를 아직 등록 안 함) 쓴다. **다만 조회에는 못 쓴다** — 결과가 CloudWatch로만 나가는데 운영자 정책에 로그 읽기 권한이 없다([상태 문서](../docs/06-status.md) §7). 넣을 수는 있고 볼 수는 없다.
+위 통로가 막혔을 때(집 밖에서 작업, IP를 아직 등록 안 함) 쓴다. **결과는 로그로 본다** — 운영자 정책에 `logs:GetLogEvents`·`FilterLogEvents`·`StartLiveTail` 이 있다(2026-08-20 에 열렸다, [상태 문서](../docs/06-status.md) §7). 종료 코드로도 갈린다.
+
+> **지금은 이 길이 없다.** `show-gi-migrate` 태스크 정의가 Terraform 밖에 있어서 [journal §128](../docs/journal/121-140.md)의 destroy 가 지웠고 되살릴 때 아무도 다시 등록하지 않았다([journal §133](../docs/journal/121-140.md)). **쓰려면 아래 정의를 먼저 등록해야 한다** — 그래서 지금 실효 경로는 노트북(`admin_cidr`) 하나다.
 
 **ECS Exec으로 앱 컨테이너에 들어가는 방법도 있지만 `session-manager-plugin` 설치가 필요하고, 그 설치에는 sudo가 든다.** 아래 방법은 아무것도 안 깔고 되며, 실제로 초기 스키마를 이렇게 넣었다.
 
-`show-gi-migrate` 태스크 정의가 이미 등록돼 있다 — postgres 이미지에 `DATABASE_URL`만 주입된 것이고, 명령은 실행할 때마다 덮어쓴다.
+`show-gi-migrate` 태스크 정의는 postgres 이미지에 `DATABASE_URL`만 주입한 것이고, 명령은 실행할 때마다 덮어쓴다. **지금 계정에는 없다**(위).
 
 > **이쪽은 Fargate로 남긴다**(아래 `--launch-type FARGATE`). 앱 태스크는 EC2로 옮겼지만, 인스턴스가 앱 태스크 하나에 맞춰진 한 대뿐이라 **마이그레이션 태스크를 얹을 자리가 없다** — EC2로 바꾸면 배치가 안 돼서 영원히 `PROVISIONING` 에 머문다. 어차피 몇 초 도는 일회용이라 Fargate 쪽이 값도 거의 0이고, 태스크 정의가 갈려 있으므로 앱을 옮긴 것이 여기에 영향을 주지 않는다.
 
@@ -478,7 +482,7 @@ aws ecs describe-tasks --cluster show-gi --tasks <task-arn> \
   --query 'tasks[0].containers[0].exitCode' --region ap-northeast-1 --profile show-gi
 ```
 
-> `show-gi-migrate` 태스크 정의는 **Terraform 밖에서 등록됐다.** 새 환경을 세울 때는 다시 등록해야 한다 — `docs/06-status.md` §7의 부채 목록에 있다.
+> `show-gi-migrate` 태스크 정의는 **Terraform 밖에서 등록됐고, 그래서 destroy 와 함께 사라졌다**([journal §133](../docs/journal/121-140.md)). 「새 환경에서 재현되지 않는다」가 예측이 아니라 실제로 일어난 자리다 — `docs/06-status.md` §7의 부채 목록에 있다.
 
 조회만 할 때도 같은 방법을 쓴다. 명령의 `wget … && psql -f` 자리를 `psql "$DATABASE_URL" -c '…'`로 바꾸면 된다.
 
@@ -530,7 +534,7 @@ aws logs tail /ecs/show-gi --follow --region ap-northeast-1 --profile show-gi
 
 **해커톤이 끝나고 상시 가동으로 바꿨다**(2026-08-17). 그래서 표를 주 단위에서 **월 단위**로 옮겼다 — 이제 「대회 기간의 비용」이 아니라 「계속 나가는 비용」이다.
 
-> **2026-09-04 에 통째로 내렸다**([journal §128](../docs/journal/121-140.md)). `terraform destroy` 로 69개를 지웠고 **DB 데이터를 버렸다** — 스냅샷도 안 남겼다. 지금 나가는 것은 **Route53 호스팅 존 월 $0.50** 뿐이다. 아래 표는 **떠 있을 때의 값**이고, 되살리는 절차는 이 절 끝에 있다.
+> **2026-09-04 에 통째로 내렸다가 2026-09-08 에 다시 올렸다**([journal §128](../docs/journal/121-140.md) · [journal §133](../docs/journal/121-140.md)). 지금은 아래 표대로 나가고 있다 — 절약 모드 그대로다. **되살릴 때 DB 데이터는 못 되찾았다**(destroy 가 스냅샷을 안 남겼다). 내리는 세 단계와 되살리는 절차는 이 절 끝에 있다.
 
 |                                     | 월 (추정)          |
 | ----------------------------------- | ------------------ |
@@ -588,14 +592,43 @@ cd infra && terraform apply destroy.tfplan                 # 그 목록만 지�
 >
 > 이러면 서비스가 그 자리에서 `INACTIVE` 가 되고, 남은 것을 다시 plan·apply 하면 끝난다. **`terraform destroy` 를 이어서 돌릴 때 plan 을 앞단에서 죽이지 않는다** — `OperationTypePlan` 잠금이 남고 `force-unlock` 이 필요해진다.
 
-### 되살릴 때 apply 하나로 안 되는 것 넷
+### 되살릴 때 apply 하나로 안 되는 것 여섯
 
-- **ECR 이미지 재푸시** — 리포지토리가 지워지므로 `images.yml` 을 한 번 돌린다
-- **SNS 이메일 구독 재확인** — 구독은 `pending` 으로만 만들어지고 메일에서 한 번 눌러야 활성된다(§알람). 안 누르면 알람이 울려도 조용하다
-- **`admin_cidr`** — 노트북 IP 가 바뀌었으면 다시 준다. 없으면 규칙 자체가 안 생긴다
-- **`terraform.tfvars`** — 커밋 안 되는 파일이고 `domain`·`alarm_email`·`admin_cidr` 이 거기 있다
+**한 번 해 봤고 넷이 아니었다**([journal §133](../docs/journal/121-140.md)). 순서대로다.
 
-DB 비밀번호는 신경 쓰지 않아도 된다 — `random_password.db` 가 새로 만들고 `aws_ssm_parameter.database_url` 이 갱신한다. **도메인과 Google OAuth 설정은 안 건드린다**: 호스팅 존이 `data` 소스라 destroy 대상이 아니고, ACM 인증서는 재발급과 DNS 검증이 자동이다.
+|     |                                                                                                                                                                                 |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **`terraform.tfvars`** — 커밋 안 되는 파일이고 `domain`·`alarm_email`·`admin_cidr` 이 거기 있다                                                                                 |
+| 2   | **`admin_cidr`** — 노트북 IP 가 바뀌었으면 다시 준다. 없으면 규칙 자체가 안 생긴다. **낡으면 거절이 아니라 타임아웃이다**                                                       |
+| 3   | **단계를 나눠 건다** — 아래. 통째로 apply 하면 서비스가 빈 ECR 과 없는 `DATABASE_URL` 을 가리켜 첫 배포가 실패한다                                                              |
+| 4   | **ECR 이미지 재푸시** — 리포지토리가 지워지므로 `images.yml` 을 한 번 돌린다                                                                                                    |
+| 5   | **마이그레이션 전부** — 새 RDS 는 표가 하나도 없다. **`/healthz` 는 그 상태에서도 `db: true` 다**(`Open` → `Ping` 뿐이라) — 사이트가 떠 있는 것으로 보이고 대국에서 처음 깨진다 |
+| 6   | **SNS 이메일 구독 재확인** — 구독은 `pending` 으로만 만들어지고 메일에서 한 번 눌러야 활성된다(§알람). **스팸함을 먼저 본다** — 2026-09-08 에 두 통이 다 거기 있었다            |
+
+**나눠 거는 순서** — 셋이 terraform 의 의존 그래프에 없다.
+
+```sh
+# ① ECR·OIDC·CI 역할. github_actions_deploy 는 넣지 않는다 — 서비스 ARN 을 참조해 스택을 끌고 온다
+terraform apply -target='aws_ecr_repository.app' -target='aws_ecr_lifecycle_policy.app' \
+  -target='aws_iam_openid_connect_provider.github' -target='aws_iam_role_policy.github_actions_push'
+
+# ② gh workflow run images.yml — build 초록 / deploy 빨강이 정상이다. latest 가 여기서 앉는다
+
+# ③ 클러스터·ASG·용량 공급자. 부착 둘과 egress 를 같이 넣는다 — 없으면 ECS 에이전트가
+#    나갈 구멍이 없어 인스턴스가 뜨고도 클러스터에 안 붙는다 (agentConnected 로 본다)
+terraform apply -target='aws_ecs_cluster_capacity_providers.main' \
+  -target='aws_iam_role_policy_attachment.instance_ecs' \
+  -target='aws_iam_role_policy_attachment.instance_ssm' \
+  -target='aws_vpc_security_group_egress_rule.task_all'
+
+terraform apply     # ④ 나머지. ACM 검증과 RDS 때문에 10~15분
+```
+
+그다음 **마이그레이션(§4)을 넣고 `images.yml` 을 한 번 더 돌린다.** ④의 서비스는 `DATABASE_URL` 이 생기기 전에 만들어져 첫 배포가 실패하는데, 그 재실행이 새 리비전으로 다시 굴려 고친다 — `-replace` 가 필요 없다.
+
+DB 비밀번호는 신경 쓰지 않아도 된다 — `random_password.db` 가 새로 만들고 `aws_ssm_parameter.database_url` 이 갱신한다. **도메인과 Google OAuth 설정은 안 건드린다**: 호스팅 존이 `data` 소스라 destroy 대상이 아니고, ACM 인증서는 재발급과 DNS 검증이 자동이다. **SSM 의 나머지 넷도 안 지워진다**(`SESSION_SECRET`·`GOOGLE_CLIENT_ID`·`GOOGLE_CLIENT_SECRET`·`OPENAI_API_KEY` — 손으로 넣은 것이라 state 밖이다).
+
+> **계획 파일에 DB 비밀번호가 평문으로 들어간다.** `terraform plan -out` 산출물이 그렇다. `.gitignore` 가 `*.tfplan` 을 막지만, 다른 클론에서 그 줄이 없으면 `git add -A` 한 번으로 샌다 — 퍼블릭 레포다.
 
 > **컴퓨트만 끌 때는 태스크가 아니라 인스턴스다.** `desired_count` 만 0으로 내리면 인스턴스는 그대로 돌면서 태스크만 없어져서, 돈은 그대로 나가고 사이트만 죽는다.
 

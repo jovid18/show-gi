@@ -45,6 +45,8 @@ coverage/
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+# plan 산출물에 DB 비밀번호가 평문으로 들어간다 (journal §133)
+*.tfplan
 crash.log
 
 # ─── 엔진 ──────────────────────────────────────────────────
