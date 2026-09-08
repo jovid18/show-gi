@@ -13,7 +13,7 @@ interface Played {
 /**
  * 한 수의 움직임. `undo`면 되감는 쪽이라 방향이 뒤집힌다.
  *
- * 읽을 수 없는 좌표면 안 그린다 — 엉뚱한 칸에서 駒가 날아오면 「무엇이 어디서 왔나」를
+ * 읽을 수 없는 좌표면 그리지 않는다 — 엉뚱한 칸에서 駒가 날아오면 「무엇이 어디서 왔나」를
  * 틀리게 가르친다.
  */
 function motionOf(usi: string, undo: boolean, id: number): Motion | null {
@@ -35,9 +35,9 @@ function motionOf(usi: string, undo: boolean, id: number): Motion | null {
 /**
  * 手数를 하나 넘어갈 때의 움직임.
  *
- * 뛰어넘으면 없다. 슬라이더로 40手를 건너뛰는 것은 한 수가 아니고, 거기에 움직임을
- * 그리면 있지도 않았던 한 수를 그리는 것이 된다. 뒤로 한 칸이면 그 수를 되감는다 —
- * 판이 그 방향으로 돌아가는 것이 사실이다.
+ * 뛰어넘으면 없다. 슬라이더로 40手를 건너뛰는 것은 여러 手를 한 번에 지나는 일이라,
+ * 거기에 움직임을 그리면 있지도 않았던 한 수를 그리는 것이 된다. 뒤로 한 칸이면 그
+ * 수를 되감는다 — 판이 그 방향으로 돌아가는 것이 사실이다.
  */
 export function stepMotion(moves: readonly Played[], from: number, to: number, id: number): Motion | null {
   if (to === from + 1) {
@@ -67,7 +67,7 @@ export function evalText(cp: number): string {
  *
  * 후보 셋 밖의 수다. 값은 그 수를 둔 뒤의 국면을 서버가 재서 온 것이고, 여기서는
  * 그 수를 둔 쪽 관점으로 뒤집혀 있다 — 후보(`WhatIfCandidate.evalCp`)와 같은 자를
- * 써야 한 줄에 나란히 설 수 있다.
+ * 써야 한 줄에 함께 설 수 있다.
  *
  * 들고 있는 것은 화면뿐이다. 새로고침하면 사라진다 — 대국의 사실이 아니라 그 사람이
  * 지금 무엇을 궁금해했는가라서, 남길 자리가 없다. 잰 값 자체는 서버가 이미 `positions` 에
@@ -83,10 +83,10 @@ export interface ExploredMove {
 /**
  * 한 줄에 세우기 위한 순서값. 詰み이 cp보다 언제나 바깥이다.
  *
- * 한 숫자로 섞으면 「3手で詰み」과 「+2900」이 이웃으로 놓이고, 그 둘은 이웃이 아니다.
- * 서버도 같은 규칙으로 센다(`eval.Compare`) — 갈리면 목록의 1위와 판 위의 초록 화살표가
- * 다른 수를 가리킨다(docs/journal §131). 그리고 빨리 죽는 쪽이 더 나쁘다 — 부호만 보고
- * 자르면 그 순서가 뒤집힌다.
+ * 한 숫자로 섞으면 「3手で詰み」과 「+2900」이 이웃으로 놓이고, 그 둘은 서로 다른 자의
+ * 값이다. 서버도 같은 규칙으로 센다(`eval.Compare`) — 갈리면 목록의 1위와 판 위의 초록
+ * 화살표가 다른 수를 가리킨다(docs/journal §131). 그리고 빨리 죽는 쪽이 더 나쁘다 —
+ * 부호만 보고 자르면 그 순서가 뒤집힌다.
  */
 export function rankOf(r: { cp: number | undefined; mateIn: number | undefined }): number {
   if (r.mateIn) return r.mateIn > 0 ? 1e6 - r.mateIn : -1e6 - r.mateIn;
@@ -96,17 +96,16 @@ export function rankOf(r: { cp: number | undefined; mateIn: number | undefined }
 /**
  * 색은 평가치가 정한다. 파랑이 좋고 빨강이 나쁘며, `±800cp` 에서 양 끝에 닿는다.
  *
- * 판 위에서 색을 넷으로 제한한 것과 어긋나지 않는다 — 여기는 판이 아니라 목록이라
- * 파랑·빨강이 판에서 뜻하는 것(힌트·王手)과 자리가 안 겹친다. 대신 판에 쓰는 토큰을
- * 그대로 쓴다.
+ * 판 위에서 색을 넷으로 제한한 것과 어긋나지 않는다 — 여기는 목록이라 파랑·빨강이 판에서
+ * 뜻하는 것(힌트·王手)과 자리가 겹치지 않는다. 대신 판에 쓰는 토큰을 그대로 쓴다.
  *
  * 넣는 값은 플레이어 관점이어야 한다. 「그 수를 둔 쪽에게 좋은가」를 그대로 칠하면
  * 상대의 결정타가 가장 파랗게 나온다 — 목록의 숫자는 둔 쪽 관점이라 부르는 쪽이
  * 뒤집어서 넘긴다.
  *
  * `base` 는 그 판의 「형세 0」이다(`Snapshot.baselineCp` · `GameDetail.baselineCp`).
- * 안 빼면 六枚落ち(+2003)에서 모든 후보가 ±800 을 넘어 방금 물러진 수까지 최대 파랑이
- * 된다 — 판정과 형세 그래프가 같은 값을 빼는 것과 같은 이유다(journal §84).
+ * 빼지 않으면 六枚落ち(+2003)에서 모든 후보가 ±800 을 넘어 방금 물러진 수까지 최대 파랑이
+ * 된다 — 판정과 형세 그래프가 같은 값을 빼는 것과 같은 판단이다(journal §84).
  */
 const TONE_FULL = 800;
 
@@ -120,8 +119,8 @@ export function evalTone(cp: number | undefined, base = 0): string {
 /**
  * 그 자리의 값 한 줄.
  *
- * 詰み은 cp로 말하지 않는다. 서버가 그때 `cp` 를 아예 안 보내고, 억지로 환산해 봐야
- * 초심자에게 큰 숫자는 아무것도 아니다 — 「몇 手で詰み」이 그 자리에서 유일하게 뜻이 있다.
+ * 詰み은 cp로 말하지 않는다. 서버가 그때 `cp` 를 아예 보내지 않고, 억지로 환산해 봐야
+ * 초심자에게 큰 숫자는 아무것도 아니다 — 「몇 手で詰み」이 그 자리에서 오직 뜻이 있다.
  */
 export function scoreJa(cp: number | undefined, mateIn?: number): string {
   if (mateIn) {
@@ -136,7 +135,7 @@ export function scoreJa(cp: number | undefined, mateIn?: number): string {
  *
  * `ExploredMove` 와 `WhatIfCandidate` 가 이 모양을 만족한다. 두 화면(대국 중의 블런더 목록과
  * 되짚기의 「この局面で指せた手」)이 같은 목록이라 부호 규칙도 한 벌이어야 한다 — 두 벌이면
- * 한쪽을 고칠 때 다른 쪽이 조용히 낡는다.
+ * 한쪽을 고칠 때 다른 쪽이 경고 없이 어긋난다.
  */
 export interface MoverScore {
   cp: number | undefined;
@@ -146,9 +145,9 @@ export interface MoverScore {
 /**
  * 그 줄의 값 한 칸. `byOpponent` 는 그 수를 두는 쪽이 상대인가다.
  *
- * 詰み의 手数만 플레이어 관점으로 옮긴다. 手数는 평가치가 아니라 세는 값이라 관점을
- * 바꿔도 자가 안 갈리고, 그대로 두면 상대의 詰み을 내 詰み으로 말하게 된다 —
- * `lets_mate` 카테고리 전체가 그 자리다. cp는 열의 자를 지켜 둔 쪽 관점으로 남는다.
+ * 詰み의 手数만 플레이어 관점으로 옮긴다. 手数는 세는 값이라 관점을 바꿔도 자가 갈리지 않고,
+ * 그대로 두면 상대의 詰み을 내 詰み으로 말하게 된다 — `lets_mate` 카테고리 전체가 그
+ * 자리다. cp는 열의 자를 지켜 둔 쪽 관점으로 남는다.
  */
 export function rowScoreJa(row: MoverScore, byOpponent: boolean): string {
   if (!row.mateIn) return scoreJa(row.cp, undefined);
@@ -161,7 +160,7 @@ export function rowScoreJa(row: MoverScore, byOpponent: boolean): string {
  * 같은 일이다(branch.go).
  *
  * 詰み은 색으로 말하지 않는다. 그 줄에는 얹을 cp 자체가 없고, 「몇 手で詰み」이 이미
- * 그 줄에서 유일하게 뜻이 있는 말이다.
+ * 그 줄에서 오직 뜻이 있는 말이다.
  */
 export function playerCp(row: MoverScore, byOpponent: boolean): number | undefined {
   if (row.mateIn || row.cp === undefined) return undefined;
@@ -179,7 +178,7 @@ export function branchStatusJa(node: WhatIfNode, pending: boolean): string {
     case 'checkmate':
       return node.yourTurn ? '詰みです。あなたの負けでした。' : '詰みです。あなたの勝ちでした。';
     case 'stalemate':
-      // 쇼기에서 手詰まり는 무승부가 아니라 패배다.
+      // 쇼기에서 手詰まり는 패배다(체스의 무승부와 다르다).
       return node.yourTurn ? '手詰まりです。あなたの負けでした。' : '手詰まりです。あなたの勝ちでした。';
     case 'resigned':
       return '相手が投了しました。';

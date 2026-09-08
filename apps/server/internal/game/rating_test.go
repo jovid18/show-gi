@@ -60,7 +60,7 @@ func (o *recordingOpponent) Choose(_ context.Context, _ string, _ []string, sk s
 }
 
 // 걸린 수도 통과한 수도 신호다. 물러진 것만 세면 표본이 개입에 오염되고, 통과한 것만
-// 세면 제일 큰 실수가 안 들어온다(journal §47).
+// 세면 제일 큰 실수가 들어오지 않는다(journal §47).
 func TestRaterSeesBothTheRetractedAndThePassedMove(t *testing.T) {
 	rater := newFakeRater()
 	an := &fixedAnalyst{verdict: blunder(), threshold: 0.25}
@@ -102,7 +102,7 @@ func TestRaterSeesBothTheRetractedAndThePassedMove(t *testing.T) {
 	}
 }
 
-// 추정치는 상대를 고를 때 쓰인다. 세션이 들고 있는 최신 값이 그대로 내려가야 한다.
+// 추정치는 상대를 고를 때 쓰인다. 세션이 갖고 있는 최신 값이 그대로 내려가야 한다.
 func TestOpponentIsGivenTheLatestEstimate(t *testing.T) {
 	rater := newFakeRater()
 	opp := newRecordingOpponent("3c3d")
@@ -138,9 +138,9 @@ func TestOpponentIsGivenTheLatestEstimate(t *testing.T) {
 // 추정기가 없으면 눈금을 그리지 않는다. 0을 보내면 화면이 「고정된 강함」과
 // 「조절 중이지만 아직 모름」을 구별할 수 없다.
 //
-// 상대가 추정치를 무시할 때도 안 그린다. 추정기만 보고 갈랐더니 「강함이 내려가는데
+// 상대가 추정치를 무시할 때도 그리지 않는다. 추정기만 보고 갈랐더니 「강함이 내려가는데
 // 상대는 최선수를 그대로 두는」 조립이 눈금을 얻고 있었다 — 프로덕션이 adaptive 하나라
-// 안 드러났을 뿐이다(SkillAdapter).
+// 드러나지 않았을 뿐이다(SkillAdapter).
 func TestStrengthIsAbsentUnlessTheOpponentActuallyAdapts(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -164,7 +164,7 @@ func TestStrengthIsAbsentUnlessTheOpponentActuallyAdapts(t *testing.T) {
 		}
 	}
 
-	// 반대쪽 — adaptive 는 첫 스냅샷부터 한복판을 말한다. 0이 아니다.
+	// 반대쪽 — adaptive 는 첫 스냅샷부터 한복판을 말한다. 0이 오지 않는다.
 	adaptive := NewAdaptiveOpponent(&stubMulti{res: usi.SearchResult{Best: "3c3d"}}, 12, DefaultBand)
 	s := newSession(t, Config{
 		Opponent: adaptive, HumanColor: shogi.Black,
@@ -179,7 +179,7 @@ func TestStrengthIsAbsentUnlessTheOpponentActuallyAdapts(t *testing.T) {
 	}
 }
 
-// 판정이 실패한 수는 추정에 안 들어간다 — 낙폭이 없는데 「손해 0」으로 세면
+// 판정이 실패한 수는 추정에 들어가지 않는다 — 낙폭이 없는데 「손해 0」으로 세면
 // 엔진이 죽어 있는 동안 플레이어가 최선수만 둔 것이 된다.
 func TestFailedJudgementIsNotASignal(t *testing.T) {
 	rater := newFakeRater()

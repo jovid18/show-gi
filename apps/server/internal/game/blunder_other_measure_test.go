@@ -14,12 +14,12 @@ import (
 )
 
 // journal §40의 숫자를 만든 자리다. other 가 개입의 절반을 넘는데,
-// 거기로 가는 길이 둘인 것을 DB가 못 가른다 — !Known(사실을 못 구했다)과
-// default:(구했는데 안 맞았다)가 똑같이 'other' 로 저장된다. 둘은 완전히 다른
+// 거기로 가는 길이 둘인 것을 DB가 가를 수 없다 — !Known(사실을 구하지 못했다)과
+// default:(구했는데 맞지 않았다)가 똑같이 'other' 로 저장된다. 둘은 완전히 다른
 // 문제라 처방이 갈리므로, 먼저 가르지 않으면 어떤 처방도 근거가 없다.
 //
 // 국면은 남아 있다 — games.start_sfen + game_moves + interventions.retracted_usi 로
-// 물러진 수의 국면이 그대로 복원된다. 되무른 수는 game_moves 에 안 남으므로
+// 물러진 수의 국면이 그대로 복원된다. 되무른 수는 game_moves 에 남지 않으므로
 // ply 미만의 수를 놓은 자리가 곧 착수 전 국면이다.
 //
 //	SHOWGI_TEST_DATABASE_URL='postgres://showgi:showgi@localhost:5432/showgi' \
@@ -104,7 +104,7 @@ func loadBlunders(t *testing.T, conn *pgx.Conn) ([]blunderRow, map[int64][]strin
 // replayBlunder 는 되무른 수의 착수 전 국면과 그 한 수를 복원한다.
 //
 // ply 는 그 수가 놓였을 자리의 번호다(session.go 의 len(st.usis)+1). 되무른 수는
-// game_moves 에 안 남으므로 앞의 ply-1 수가 그대로 착수 전 국면이 된다.
+// game_moves 에 남지 않으므로 앞의 ply-1 수가 그대로 착수 전 국면이 된다.
 func replayBlunder(b blunderRow, moves []string) (shogi.Position, shogi.Move, error) {
 	if b.retracted == "" {
 		return shogi.Position{}, shogi.Move{}, fmt.Errorf("retracted_usi 없음")
@@ -129,9 +129,9 @@ func replayBlunder(b blunderRow, moves []string) (shogi.Position, shogi.Move, er
 // offlineCategory 는 복원한 사실로 프로덕션과 같은 분류기를 돌린다.
 //
 // classify 가 비공개라 Judge 를 지나간다. 낙폭을 확실히 임계치 위로 두면 분류만
-// 남고, 여기서 갈릴 수 있는 유일한 분기인 shallow_trap 은 HasShallow=false 라
-// 애초에 안 걸린다. 규칙을 베껴 오지 않는다 — 베끼면 calibrate 가
-// 조건을 고치는 순간 측정만 조용히 옛 규칙을 잰다.
+// 남고, 여기서 갈릴 수 있는 하나뿐인 분기인 shallow_trap 은 HasShallow=false 라
+// 애초에 걸리지 않는다. 규칙을 베껴 오지 않는다 — 베끼면 calibrate 가
+// 조건을 고치는 순간 측정만 경고 없이 옛 규칙을 잰다.
 func offlineCategory(f intervene.Features) intervene.Category {
 	return intervene.Judge(intervene.Input{
 		Best:     eval.Mate(1),
@@ -155,7 +155,7 @@ func TestMeasureBlunderOther(t *testing.T) {
 		feats []intervene.Features
 	}
 	// other 가 어느 길로 갔는가와, 그 밖의 카테고리가 그대로 재현되는가는 다른
-	// 질문이다. 한 표에 섞으면 「54건」 아래에 56줄이 찍혀 표가 자기 합계와 안 맞는다.
+	// 질문이다. 한 표에 섞으면 「54건」 아래에 56줄이 찍혀 표가 자기 합계와 맞지 않는다.
 	buckets := map[string]*bucket{} // other 의 경로
 	control := map[string]*bucket{} // 그 밖의 재현 대조
 	adder := func(m map[string]*bucket) func(string, blunderRow, intervene.Features) {
@@ -186,7 +186,7 @@ func TestMeasureBlunderOther(t *testing.T) {
 		}
 		f, _ := moveFacts(pos, m)
 		// UnpromotedOnly · ShallowCp 는 엔진이 있어야 나온다. 여기서는 만들지 않는다 —
-		// 저장된 카테고리가 그 둘이 아니라는 것이 이미 「그때 안 걸렸다」는 뜻이다.
+		// 저장된 카테고리가 그 둘과 다르다는 것이 이미 「그때 걸리지 않았다」는 뜻이다.
 		got := offlineCategory(f)
 
 		if b.category == "other" {
@@ -228,7 +228,7 @@ func TestMeasureBlunderOther(t *testing.T) {
 	}
 
 	// ② 로 떨어진 것들의 사실을 그대로 찍는다. 새 카테고리는 여기서 나온다 —
-	// 어느 조건에 얼마나 못 미쳤는지가 보여야 「조건이 좁다」와 「분기가 없다」가 갈린다.
+	// 어느 조건에 얼마나 미치지 못했는지가 보여야 「조건이 좁다」와 「분기가 없다」가 갈린다.
 	if x := buckets["② default — 구했는데 안 맞았다"]; x != nil {
 		t.Logf("\n== ② default %d건의 사실 ==", len(x.rows))
 		t.Logf("  %-6s %-5s %-6s %-9s %-6s %-5s %-5s %-6s %-6s %-6s",
@@ -243,8 +243,7 @@ func TestMeasureBlunderOther(t *testing.T) {
 		summarizeOther(t, x.feats)
 	}
 
-	// 종반 가설. other 가 대국의 뒤쪽에 몰려 있으면 분류기의 실패가 아니라
-	// 적용 범위 밖이라는 뜻이 된다.
+	// 종반 가설. other 가 대국의 뒤쪽에 몰려 있으면 분류기의 적용 범위 밖이라는 뜻이 된다.
 	//
 	// 「대국의 몇 % 지점인가」로 재지 않는다 — ply 가 기록된 手数를 넘어 비율이 뜻을
 	// 잃는다(journal §40). 대신 ply 와 총 手数를 따로 찍고 넘어간 건수를 함께 센다.
@@ -277,13 +276,13 @@ func summarizeOther(t *testing.T, fs []intervene.Features) {
 	for _, f := range fs {
 		switch {
 		case f.CapturedValue > 0:
-			// 땄는데 greedy_capture 에 안 걸렸다 = 되따이지도 않고 玉도 안 밀렸다.
+			// 땄는데 greedy_capture 에 걸리지 않았다 = 되따이지도 않고 玉도 밀리지 않았다.
 			capturedNoCost++
 		case f.ShieldLoss > 0 || f.ThreatGain > 0:
 			// 玉 주변이 한쪽만 움직였다. king_exposed 는 둘 다를 요구한다.
 			kingOneSide++
 		case f.CapturedValue == 0 && !f.GivesCheck && f.ShieldLoss <= 0 && f.ThreatGain <= 0:
-			// 아무것도 안 땄고 王手도 아니고 玉 주변도 안 나빠졌다 — 조용한 악수다.
+			// 아무것도 따지 않았고 王手도 아니고 玉 주변도 나빠지지 않았다 — 조용한 악수다.
 			quiet++
 		default:
 			nothing++

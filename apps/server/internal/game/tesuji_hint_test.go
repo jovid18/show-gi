@@ -38,7 +38,7 @@ func optionFor(opts []TesujiOption, usiMove string) (TesujiOption, bool) {
 	return TesujiOption{}, false
 }
 
-// 스캐너가 아직 안 둔 수의 이름을 찾는다. 이것이 착수 후에 이름을 붙이는
+// 스캐너가 아직 두지 않은 수의 이름을 찾는다. 이것이 착수 후에 이름을 붙이는
 // namedTesuji 와 갈리는 지점 전부다.
 func TestTesujiOptionsFindsAMoveThatWouldFork(t *testing.T) {
 	opts := tesujiOptions(mustSFEN(t, forkOneMoveAway), shogi.Black)
@@ -52,7 +52,7 @@ func TestTesujiOptionsFindsAMoveThatWouldFork(t *testing.T) {
 	}
 }
 
-// 이미 서 있는 형태는 후보가 아니다. 桂를 5五에 미리 놓아 두면 両取り가 이미
+// 이미 서 있는 형태는 후보에서 뺀다. 桂를 5五에 미리 놓아 두면 両取り가 이미
 // 성립해 있고, 그 국면에서 아무 수나 두는 것이 手筋이 되어서는 안 된다 —
 // journal §34 ⑦이 잡은 「두 수 뒤 조용한 수가 이름을 받는다」와 같은 자리다.
 func TestTesujiOptionsIgnoresShapesAlreadyOnTheBoard(t *testing.T) {
@@ -68,7 +68,7 @@ func TestTesujiOptionsIgnoresShapesAlreadyOnTheBoard(t *testing.T) {
 }
 
 // 상대 차례에는 후보가 없다. LegalMoves 가 pos.Turn 쪽 수만 내므로, 따로 두지
-// 않으면 「手筋이 없다」와 「물어볼 차례가 아니다」가 같은 빈 결과가 된다.
+// 않으면 「手筋이 없다」와 「물어볼 차례가 되지 않았다」가 같은 빈 결과가 된다.
 func TestTesujiOptionsNeedsItToBeThatColorsTurn(t *testing.T) {
 	pos := mustSFEN(t, strings.Replace(forkOneMoveAway, " b ", " w ", 1))
 
@@ -94,11 +94,11 @@ func (s *rootSearch) SearchMultiPV(_ context.Context, _ string, _ []string, _, m
 }
 
 // rootLine 은 뿌리 줄 하나다. 점수는 뿌리에서 수번인 쪽 관점이라 게이트가 부호를
-// 안 뒤집는다.
+// 뒤집지 않는다.
 //
 // 순위를 받는다. Ranked 가 같은 순위를 하나로 접으므로(중복 제거) 전부 1위로 만들면
 // 줄이 한 개로 줄어든다 — adaptive_test.go 의 line 이 그렇게 생겼고, 저쪽은 Lines 를
-// 그대로 읽어서 안 걸린다.
+// 그대로 읽어서 걸리지 않는다.
 func rootLine(rank int, move string, cp int) usi.SearchLine {
 	return usi.SearchLine{Depth: 12, MultiPV: rank, Move: move, Score: eval.Cp(cp)}
 }
@@ -121,7 +121,7 @@ func gateOneK(t *testing.T, s MultiSearcher, k int, opts []TesujiOption) ([]Tesu
 
 var oneOption = []TesujiOption{{USI: "6g5e"}}
 
-// 잃는 수에는 이름을 안 붙인다. 최선 줄이 +100 인데 이 수의 줄이 −200 이므로
+// 잃는 수에는 이름을 붙이지 않는다. 최선 줄이 +100 인데 이 수의 줄이 −200 이므로
 // 낙폭 300cp — TesujiLossCp 를 넘는다.
 func TestGateDropsAMoveTheEngineCallsALoss(t *testing.T) {
 	s := &rootSearch{lines: []usi.SearchLine{
@@ -152,7 +152,7 @@ func TestGateKeepsAMoveWithinTheLossCap(t *testing.T) {
 }
 
 // 後手로 잡은 판에서도 같은 방향이다. senteCp·cpFor 가 한 번씩 도는 자리라,
-// 부호가 뒤집히면 지는 수에 이름이 붙는다 — 에러가 안 나고 조용하다(tesuji.go).
+// 부호가 뒤집히면 지는 수에 이름이 붙는다 — 에러가 나지 않고 조용하다(tesuji.go).
 func TestGateReadsTheLossFromThePlayersSide(t *testing.T) {
 	s := &rootSearch{lines: []usi.SearchLine{
 		rootLine(1, "7g7f", 100),
@@ -168,8 +168,8 @@ func TestGateReadsTheLossFromThePlayersSide(t *testing.T) {
 	}
 }
 
-// Lines[0] 을 최선으로 읽지 않는다. 아직 안 온 순위가 빈 줄로 남으므로, 그것을
-// 그대로 1위로 쓰면 최선이 0cp가 되고 낙폭이 통째로 어긋난다(usi.SearchResult.Ranked).
+// Lines[0] 을 최선으로 읽지 않는다. 아직 오지 않은 순위가 빈 줄로 남으므로, 그것을
+// 그대로 1위로 쓰면 최선이 0cp가 되고 낙폭 전체가 어긋난다(usi.SearchResult.Ranked).
 func TestGateIgnoresAnEmptyRank(t *testing.T) {
 	s := &rootSearch{lines: []usi.SearchLine{
 		{MultiPV: 1}, // 안 온 순위
@@ -191,9 +191,9 @@ func TestGateWithoutASearcherNamesNothing(t *testing.T) {
 	}
 }
 
-// 줄 밖이라고 다 「못 본 것」은 아니다. 마지막 줄이 이미 상한 밖이면 그보다 나쁜
-// 것들은 확정 탈락이고, 안이면 모르는 것이다. 둘을 같은 침묵으로 섞으면
-// 「手筋이 없었다」와 「못 봤다」가 같은 화면이 된다.
+// 줄 밖에서도 둘이 갈린다. 마지막 줄이 이미 상한 밖이면 그보다 나쁜 것들은 확정
+// 탈락이고, 안이면 모르는 것이다. 둘을 같은 침묵으로 섞으면 「手筋이 없었다」와
+// 「보지 못했다」가 같은 화면이 된다.
 func TestGateCountsOnlyTheCandidatesItCouldNotDecide(t *testing.T) {
 	outside := []TesujiOption{{USI: "1a1b"}, {USI: "2a2b"}}
 
@@ -213,7 +213,7 @@ func TestGateCountsOnlyTheCandidatesItCouldNotDecide(t *testing.T) {
 	})
 
 	t.Run("k줄을 다 못 받았으면 밖은 모르는 것", func(t *testing.T) {
-		// 상한 밖인 마지막 줄이지만 k=8 중 두 줄만 왔다. 안 온 순위가 그 사이에
+		// 상한 밖인 마지막 줄이지만 k=8 중 두 줄만 왔다. 오지 않은 순위가 그 사이에
 		// 있을 수 있어서 「밖은 더 나쁘다」가 성립하지 않는다.
 		s := &rootSearch{lines: []usi.SearchLine{
 			rootLine(1, "7g7f", 0),
@@ -252,7 +252,7 @@ func TestTesujiHintTagsAreDeduped(t *testing.T) {
 	}
 }
 
-// countingSearch 는 몇 번 불렸는지만 센다. 통과 여부는 여기서 볼 것이 아니다.
+// countingSearch 는 몇 번 불렸는지만 센다. 통과 여부는 여기서 보지 않는다.
 type countingSearch struct {
 	mu    sync.Mutex
 	calls int
@@ -271,7 +271,7 @@ func (s *countingSearch) count() int {
 	return s.calls
 }
 
-// 쿨다운은 「물어본 자리」에서 잰다. 띄운 자리에서만 재면 게이트가 한 번도 안 열리는
+// 쿨다운은 「물어본 자리」에서 잰다. 띄운 자리에서만 재면 게이트가 한 번도 열리지 않는
 // 판에서 이 탐색이 사람 차례마다 돌고, 그 판이 실제로 멈췄다(journal §56).
 func TestTesujiHintGateWaitsForTheCooldownEvenAfterAMiss(t *testing.T) {
 	search := &countingSearch{}
@@ -282,7 +282,7 @@ func TestTesujiHintGateWaitsForTheCooldownEvenAfterAMiss(t *testing.T) {
 	}
 	done := make(chan tesujiHintResult, 4)
 
-	// 안 물어본 회차는 기다릴 것이 없다. tesujiHinting 이 곧 「지금 띄웠다」다.
+	// 묻지 않은 자리는 기다릴 것이 없다. tesujiHinting 이 곧 「지금 띄웠다」다.
 	ask := func(ply int) {
 		t.Helper()
 		st.moves = make([]Move, ply)
@@ -307,7 +307,7 @@ func TestTesujiHintGateWaitsForTheCooldownEvenAfterAMiss(t *testing.T) {
 		t.Fatalf("쿨다운 안에서 %d번 더 물어봤다 (%d → %d)", got-first, first, got)
 	}
 
-	// 쿨다운을 넘기면 다시 묻는다. 안 그러면 이 방향이 힌트를 아예 죽인 것이 된다.
+	// 쿨다운을 넘기면 다시 묻는다. 그러지 않으면 이 방향이 힌트를 아예 죽인 것이 된다.
 	ask(TagHintCooldown)
 	if search.count() == first {
 		t.Fatal("쿨다운을 넘겼는데 다시 안 물어봤다")
@@ -325,7 +325,7 @@ func hasTag(tags []tag.Tag, code string) bool {
 
 // 세션 끝에서 본다 — 사람 차례가 되면 手筋 이름이 스냅샷에 실려 나간다.
 //
-// 비동기라 첫 스냅샷에는 없고 몇 밀리초 뒤에 합류한다. 그것이 waitFor 를 쓰는 이유다.
+// 비동기라 첫 스냅샷에는 없고 몇 밀리초 뒤에 합류한다. 그래서 waitFor 를 쓴다.
 func TestSessionAnnouncesATesujiThePlayerCouldMake(t *testing.T) {
 	search := &rootSearch{lines: []usi.SearchLine{
 		rootLine(1, "6g5e", 0), // 최선 줄이 곧 手筋 — 낙폭 0

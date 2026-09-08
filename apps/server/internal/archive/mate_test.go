@@ -32,7 +32,7 @@ func (f *fakeMateEngine) SearchMate(
 	return f.res, f.err
 }
 
-// fakeMateStore 는 쌓인 것을 그대로 들고 있는다. 기록이 goroutine에서 도므로 잠근다.
+// fakeMateStore 는 쌓인 것을 그대로 갖고 있다. 기록이 goroutine에서 도므로 잠근다.
 type fakeMateStore struct {
 	mu     sync.Mutex
 	rows   map[string]store.Mate
@@ -85,7 +85,7 @@ func (s *fakeMateStore) putCount() int {
 }
 
 // keyOf 는 그 수순 뒤 국면의 캐시 키다. 테스트가 키를 직접 만들지 않는다 —
-// 부르는 쪽과 같은 자를 써야 「히트해야 하는데 안 한다」를 잡는다.
+// 부르는 쪽과 같은 자를 써야 「히트해야 하는데 하지 않는다」를 잡는다.
 func keyOf(t *testing.T, startSFEN string, moves []string) string {
 	t.Helper()
 	pos, err := positionAfter(startSFEN, moves)
@@ -173,7 +173,7 @@ func TestMateCachesProvenNoMate(t *testing.T) {
 	}
 }
 
-// timeout 은 안 쌓는다. 「이 한계 안에서는 모른다」이지 「없다」가 아니다(01-core.md §2).
+// timeout 은 쌓지 않는다. 「이 한계 안에서는 모른다」일 뿐이다(01-core.md §2).
 func TestMateDoesNotCacheUnproven(t *testing.T) {
 	eng := &fakeMateEngine{res: usi.MateResult{}} // Proven=false
 	st := newMateStore()
@@ -200,7 +200,7 @@ func TestMateDoesNotCacheUnproven(t *testing.T) {
 	}
 }
 
-// 얕은 한계의 답은 못 쓴다. 한계 9의 「詰み이 없다」는 한계 11에서 참이 아니다.
+// 얕은 한계의 답은 쓸 수 없다. 한계 9의 「詰み이 없다」는 한계 11에서 거짓일 수 있다.
 func TestMateIgnoresShallowerLimit(t *testing.T) {
 	eng := &fakeMateEngine{res: usi.MateResult{Moves: []string{"1a1b"}, Proven: true}}
 	st := newMateStore()
@@ -224,7 +224,7 @@ func TestMateIgnoresShallowerLimit(t *testing.T) {
 	}
 }
 
-// 깊은 한계가 찾은 긴 詰み은 얕은 한계로 묻는 쪽에 못 준다 — 그 한계로는 증명이 아니다.
+// 깊은 한계가 찾은 긴 詰み은 얕은 한계로 묻는 쪽에 줄 수 없다 — 그 한계로는 증명되지 않았다.
 func TestMateIgnoresLineLongerThanLimit(t *testing.T) {
 	eng := &fakeMateEngine{res: usi.MateResult{Proven: true}}
 	st := newMateStore()
@@ -244,7 +244,7 @@ func TestMateIgnoresLineLongerThanLimit(t *testing.T) {
 	}
 }
 
-// 한계를 모르면 캐시를 안 쓴다. 쌓인 답이 유효한지 판단할 수 없다.
+// 한계를 모르면 캐시를 쓰지 않는다. 쌓인 답이 유효한지 판단할 수 없다.
 func TestMateWithoutLimitSkipsTheCache(t *testing.T) {
 	eng := &fakeMateEngine{res: usi.MateResult{Moves: []string{"1a1b"}, Proven: true}}
 	st := newMateStore()
@@ -309,7 +309,7 @@ func TestMateSharesRowsAcrossTranspositions(t *testing.T) {
 }
 
 // 퀴즈는 국면을 SFEN 으로 직접 넘긴다(quiz.MateSearcher). 그 경로도 같은 키여야 한다 —
-// 아니면 퀴즈가 게이지·판정이 쌓아 둔 것을 한 건도 못 쓴다.
+// 아니면 퀴즈가 게이지·판정이 쌓아 둔 것을 한 건도 쓸 수 없다.
 func TestMateSFENPathSharesRowsWithMovePath(t *testing.T) {
 	eng := &fakeMateEngine{res: usi.MateResult{Proven: true}}
 	st := newMateStore()
@@ -379,7 +379,7 @@ func TestMatePassesEngineError(t *testing.T) {
 	}
 }
 
-// 못 되만드는 수순에서는 캐시를 아예 안 쓴다. 없던 국면에 답을 쌓으면 안 된다.
+// 되만들 수 없는 수순에서는 캐시를 아예 쓰지 않는다. 없던 국면에 답을 쌓으면 안 된다.
 func TestMateSkipsCacheWhenLineIsUnplayable(t *testing.T) {
 	eng := &fakeMateEngine{res: usi.MateResult{Proven: true}}
 	st := newMateStore()

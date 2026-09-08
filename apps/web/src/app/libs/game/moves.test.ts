@@ -14,7 +14,7 @@ describe('parseUsi', () => {
   });
 
   it('읽을 수 없으면 null', () => {
-    // 물러진 수를 못 읽었다고 판이 안 그려지면 안 된다
+    // 물러진 수 하나를 읽지 못했다고 판이 사라져서는 안 된다
     expect(parseUsi('nonsense')).toBeNull();
     expect(parseUsi('7g7z')).toBeNull();
     expect(parseUsi('K*5e')).toBeNull(); // 玉은 持ち駒가 되지 않는다
@@ -61,7 +61,7 @@ describe('groupByOrigin', () => {
   });
 
   it('읽을 수 없는 표기는 조용히 버린다', () => {
-    // 서버가 주는 목록이라 여기 걸릴 일이 없지만, 걸렸을 때 판 전체가 안 그려지면 안 된다
+    // 서버가 주는 목록이라 여기 걸릴 일이 없지만, 걸렸을 때도 판 전체는 그려져야 한다
     expect(groupByOrigin(['nonsense', '7g7f']).size).toBe(1);
   });
 });
@@ -90,8 +90,8 @@ describe('squaresOf', () => {
     expect(squaresOf('8h2b+')).toEqual(squaresOf('8h2b'));
   });
 
-  it('읽을 수 없으면 안 짚는다', () => {
-    // 엉뚱한 칸을 칠하느니 비운다 — 판 전체가 안 그려지는 것보다 낫다
+  it('읽을 수 없으면 짚지 않는다', () => {
+    // 엉뚱한 칸을 칠하느니 비운다 — 판 전체가 그려지지 않는 것보다 낫다
     expect(squaresOf('')).toBeNull();
     expect(squaresOf('nonsense')).toBeNull();
     expect(squaresOf('0a0b')).toBeNull();

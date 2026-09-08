@@ -13,7 +13,7 @@ import (
 // 측정에 쓰는 대국. 将棋ウォーズ 8급 vs 6~7급 — 실제 사람의 대국이다.
 //
 // 손으로 쓴 SFEN을 쓰지 않는다. 그렇게 했다가 歩가 19장인 판을 만들었고 룰 엔진이 잡았다.
-// 프로 대국도 안 쓴다 — 잘 둔 판일수록 상위 수들이 좁게 몰려서, 우리 사용자가 실제로
+// 프로 대국도 쓰지 않는다 — 잘 둔 판일수록 상위 수들이 좁게 몰려서, 우리 사용자가 실제로
 // 도달하는 국면과 후보의 흩어짐이 다르다. 밴드 적중률은 국면에 크게 좌우된다.
 //
 // KIF에서 옮긴 뒤 전 수를 룰 엔진으로 검증했다(TestMeasureKifuIsLegal).
@@ -74,7 +74,7 @@ func measurePositions(t *testing.T) []measurePosition {
 
 // TestMeasureKifuIsLegal 은 위 수순이 실제로 둘 수 있는 수순인지 본다.
 //
-// 엔진이 없어도 도므로 CI에서 매번 돈다. 측정 국면이 조용히 망가지면 그 위에서 정해진
+// 엔진이 없어도 도므로 CI에서 매번 돈다. 측정 국면이 경고 없이 망가지면 그 위에서 정해진
 // 상수가 전부 근거를 잃으므로, 데이터 쪽을 코드와 같이 지킨다.
 func TestMeasureKifuIsLegal(t *testing.T) {
 	for name, kifu := range map[string]string{"A": kifuA, "B": kifuB} {
@@ -103,7 +103,7 @@ func TestMeasureKifuIsLegal(t *testing.T) {
 // (05-roadmap.md 미결). 적응형 상대의 k와 개입 판정의 depth가 여기서 정해진다.
 //
 // 시간 상한을 두지 않는다. 여기서 재려는 값이 바로 그 시간이라, 잘라내면 "얼마나
-// 느린가"가 뭉개진다. 줄여야 하면 상한이 아니라 재는 칸 수를 줄인다.
+// 느린가"가 뭉개진다. 줄여야 하면 상한 대신 재는 칸 수를 줄인다.
 //
 // 결과는 평가함수에 종속이다. 엔진이나 nn.bin 을 바꾸면 다시 재고, 01-core.md §6의
 // 밴드 숫자도 같이 다시 본다.
@@ -126,7 +126,7 @@ func TestMeasureDepthMultiPV(t *testing.T) {
 
 	positions := measurePositions(t)
 
-	// t.Logf 는 테스트가 끝나야 나온다. 오래 도는 측정에서는 진행이 안 보이므로 직접 찍는다.
+	// t.Logf 는 테스트가 끝나야 나온다. 오래 도는 측정에서는 진행이 보이지 않으므로 직접 찍는다.
 	fmt.Printf("engine=%s\n국면 %d개: ", e.Name(), len(positions))
 	for _, p := range positions {
 		fmt.Printf("%s ", p.name)
@@ -198,9 +198,9 @@ func TestMeasureDepthMultiPV(t *testing.T) {
 //
 // 매 수 돌아야 하는 탐색이다 — 종반 판정(01-core.md §2)과 詰み 게이지(01-core.md §7)가 둘 다 쓴다.
 // 그래서 여기 드는 시간이 그대로 모든 수에 얹힌다. 탐색부와 별도 바이너리라
-// TestMeasureDepthMultiPV 의 표에 안 들어 있고, D3 상수를 잡기 전에 알아야 한다.
+// TestMeasureDepthMultiPV 의 표에 들어 있지 않고, D3 상수를 잡기 전에 알아야 한다.
 //
-// 한계는 DepthLimit(詰み手数)으로 준다 — 시간이 아니라 수로 잘라야 같은 국면이 같은 답을 준다.
+// 한계는 DepthLimit(詰み手数)으로 준다 — 시간 대신 수로 잘라야 같은 국면이 같은 답을 준다.
 //
 //	SHOWGI_MATE_CMD=/opt/yaneuraou/run-mate SHOWGI_MEASURE=1 go test ./internal/usi/ -run MeasureMate -timeout 1h
 func TestMeasureMateSearch(t *testing.T) {

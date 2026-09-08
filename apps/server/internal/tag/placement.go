@@ -2,7 +2,7 @@ package tag
 
 import "github.com/jovid18/show-gi/apps/server/internal/shogi"
 
-// 자리로 정해지는 手筋 — 조건이 「자기가 안전한가」가 아니라 「그 자리가 그 자리인가」다
+// 자리로 정해지는 手筋 — 조건이 「자기가 안전한가」 대신 「그 자리가 그 자리인가」다
 // (寄せ라 駒損이 전제). 成駒를 뺀 기준은 「이름이 말하는 성질이 남아 있는가」
 // (journal §34 ⑤).
 
@@ -35,8 +35,8 @@ func onBoard(file, rank int) bool {
 
 // BellySilver 는 腹銀을 본다 — 銀이 상대 玉의 옆(같은 段, 한 筋 차이)에 붙어 있다.
 //
-// 玉의 「배」에 붙는다는 이름 그대로다. 위나 아래가 아니라 옆이다 —
-// 玉頭(위)에 두는 것은 다른 手筋이고, 옆은 玉의 도망갈 筋을 막는다.
+// 玉의 「배」에 붙는다는 이름 그대로다. 옆이라야 玉의 도망갈 筋을 막고,
+// 玉頭(위)에 두는 것은 다른 手筋이다.
 func BellySilver(pos shogi.Position, sq int, c shogi.Color) (Tag, bool) {
 	p := pos.Board[sq]
 	if p.Empty() || p.Color() != c || p.Type() != shogi.Silver {

@@ -1,6 +1,6 @@
 // 플레이테스트용 대국 프록시.
 //
-// **이 파일의 존재 이유는 토큰이다.** 서버는 한 수마다 legalMoves 200개가 든 스냅샷을
+// **이 파일이 있는 것은 토큰 때문이다.** 서버는 한 수마다 legalMoves 200개가 담긴 스냅샷을
 // 통째로 보내는데, 그것을 에이전트 문맥에 그대로 넣으면 한 판에 수십만 토큰이 든다.
 // 그래서 여기서 **판을 그리고 줄여서** 짧은 평문만 돌려주고, 원본 JSON은 전부
 // jsonl 파일로 흘린다. 리포트는 문맥이 아니라 그 파일에서 만든다.
@@ -93,7 +93,7 @@ async function settle(fromSeq) {
       seq > fromSeq && snap && (snap.status !== 'playing' || (snap.yourTurn && !snap.thinking && !snap.judging));
     if (done) return { errs };
     if (Date.now() > deadline) return { errs, timeout: true };
-    // 순서대로 기다리는 것이 요점이다 — 다음 프레임을 봐야 끝났는지 알 수 있다.
+    // 순서대로 기다린다 — 다음 프레임을 봐야 끝났는지 알 수 있다.
     // eslint-disable-next-line no-await-in-loop
     const m = await Promise.race([next(), new Promise((r) => setTimeout(() => r(null), 5000))]);
     if (m?.type === 'error') errs.push(m);

@@ -59,7 +59,7 @@ func TestNormalize(t *testing.T) {
 		t.Errorf("Tokens = %d, want 497", got.Tokens)
 	}
 
-	// 프롬프트에 국면도 평가치도 안 실린다. 보내는 것은 원문과 지시뿐이다.
+	// 프롬프트에 국면도 평가치도 실리지 않는다. 보내는 것은 원문과 지시뿐이다.
 	var sent request
 	if err := json.Unmarshal(gotBody, &sent); err != nil {
 		t.Fatal(err)
@@ -75,7 +75,7 @@ func TestNormalize(t *testing.T) {
 	}
 }
 
-// 반쯤 옮긴 것을 쓰면 뒷부분이 조용히 없어진 기보가 되고, 그 위에서 평가치와 段級이 돈다.
+// 반쯤 옮긴 것을 쓰면 뒷부분이 경고 없이 없어진 기보가 되고, 그 위에서 평가치와 段級이 돈다.
 func TestIncompleteResponseIsRefused(t *testing.T) {
 	c := serving(t, func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, `{"status":"incomplete","output":[{"type":"message","content":[{"type":"output_text","text":"{\"handicap\":\"\",\"sente\":\"\",\"gote\":\"\",\"result\":\"unknown\",\"moves\":[\"7六歩\"]}"}]}]}`)
@@ -99,7 +99,7 @@ func TestBrokenPayloadIsRefused(t *testing.T) {
 	}
 }
 
-// 사람이 둔 한 판이 아니다. 그대로 받으면 분석 큐에 手 수천 개가 한 번에 들어간다.
+// 사람이 둔 한 판을 벗어난 手数다. 그대로 받으면 분석 큐에 手 수천 개가 한 번에 들어간다.
 func TestTooManyMovesIsRefused(t *testing.T) {
 	moves := make([]string, MaxMoves+1)
 	for i := range moves {
@@ -161,7 +161,7 @@ func TestTooLargeIsRefusedWithoutCalling(t *testing.T) {
 	}
 }
 
-// 키가 없으면 이 계층만 꺼진다. nil 에 불러도 안전해야 부르는 쪽이 nil 검사를 안 흘린다.
+// 키가 없으면 이 계층만 꺼진다. nil 에 불러도 안전해야 부르는 쪽이 nil 검사를 흘리지 않는다.
 func TestNoKeyIsDisabled(t *testing.T) {
 	var c *Client
 	if got := New("", "m"); got != nil {

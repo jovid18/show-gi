@@ -30,9 +30,9 @@ type CreateExploreSnapshotRow struct {
 	CreatedAt pgtype.Timestamptz
 }
 
-// 검토 화면에서 저장한 국면(migrations/015). 판이 아니라 手合割 id 와 수순 한 줄이다.
+// 검토 화면에서 저장한 국면(migrations/015). 담는 것은 手合割 id 와 수순 한 줄이다.
 //
-// 개수를 안 막는다. 근거는 journal §96.
+// 개수를 막지 않는다. 근거는 journal §96.
 func (q *Queries) CreateExploreSnapshot(ctx context.Context, arg CreateExploreSnapshotParams) (CreateExploreSnapshotRow, error) {
 	row := q.db.QueryRow(ctx, createExploreSnapshot,
 		arg.UserID,
@@ -80,7 +80,7 @@ type ListExploreSnapshotsRow struct {
 	CreatedAt pgtype.Timestamptz
 }
 
-// 주인을 = 로 받는다. 익명(user_id NULL)이 애초에 안 걸린다.
+// 주인을 = 로 받는다. 익명(user_id NULL)이 애초에 걸리지 않는다.
 //
 // LIMIT 이 없다. 개수 상한이 없으므로 여기서 자르면 지울 수 없는 행이 생긴다(journal §96).
 func (q *Queries) ListExploreSnapshots(ctx context.Context, userID int64) ([]ListExploreSnapshotsRow, error) {

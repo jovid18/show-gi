@@ -6,7 +6,7 @@ import type { MatchMove } from '@/protocol/match';
 interface KifuProps {
   /**
    * 두 어휘를 다 받는다. 엔진 대국은 `human`/`engine` 이고 대인전은 `you`/`opponent`
-   * 인데(사람이 둘이라 절대 이름을 못 쓴다), 여기서 하는 일은 그 값을 `data-by` 에
+   * 인데(사람이 둘이라 절대 이름을 쓸 수 없다), 여기서 하는 일은 그 값을 `data-by` 에
    * 얹는 것뿐이라 따로 둘 이유가 없다 — 색은 CSS 가 네 값 다 안다.
    */
   moves: readonly (KifuMove | MatchMove)[];

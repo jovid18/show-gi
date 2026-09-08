@@ -1,7 +1,7 @@
 // Package rating 은 사람끼리 둔 판의 결과로 레이팅을 갱신한다.
 //
 // 엔진도 DB도 판도 모른다. 입력은 두 사람의 지금 레이팅과 승패뿐이다 — intervene 과
-// skill 이 같은 성질을 갖는 것과 같은 이유이고, 그래서 아래 상수를 흔들어 보는 데
+// skill 도 같은 성질을 갖고, 그래서 아래 상수를 흔들어 보는 데
 // 대국도 DB도 필요 없다.
 //
 // skill 과 따로 둔 근거는 journal §92. 여기 값은 승패로만 움직이므로 사람 사이의 값이다.
@@ -16,11 +16,11 @@ import (
 
 // Rating 은 한 사람의 레이팅과 그 불확실성이다. Glicko(1) 의 r 과 RD 다.
 //
-// Glicko-2 로 안 간 근거는 journal §92.
+// Glicko-2 로 가지 않은 근거는 journal §92.
 type Rating struct {
 	// Value 는 레이팅이다. 클수록 세다.
 	Value float64
-	// Deviation 은 그 값을 얼마나 못 믿는가다(RD). 매칭 밴드가 이 값을 그대로 더한다.
+	// Deviation 은 그 값을 얼마나 믿지 못하는가다(RD). 매칭 밴드가 이 값을 그대로 더한다.
 	Deviation float64
 }
 
@@ -28,7 +28,7 @@ type Rating struct {
 //
 // 아래 MaxDeviation 과 함께 Glicko 원 논문의 기본값이라 흔들지 않는다. 낮게 시작하는
 // 관례도 있는데(将棋ウォーズ의 30級) 그것은 올라가는 경험을 주려는 설계이고, 이 값은
-// 화면에 안 나가므로 그 이득이 없다 — 낮추면 초기 짝짓기만 나빠진다.
+// 화면에 나가지 않으므로 그 이득이 없다 — 낮추면 초기 짝짓기만 나빠진다.
 const Default = 1500
 
 // MaxDeviation 은 「전혀 모른다」에 해당하는 RD 다. 001_init.sql 의 rating_sd 기본값과 같다.
@@ -37,13 +37,13 @@ const MaxDeviation = 350
 // MinDeviation 은 RD 의 하한이다. 없으면 판을 많이 둔 사람의 레이팅이 굳어서, 실제로
 // 세진 뒤에도 밴드가 옛 자리에 머문다.
 //
-// [미확정] 50은 실측이 아니다.
+// [미확정] 50은 실측 없이 정한 값이다.
 const MinDeviation = 50
 
-// Unrated 는 한 판도 안 둔 사람이다. 시드가 없을 때 여기서 시작한다.
+// Unrated 는 한 판도 두지 않은 사람이다. 시드가 없을 때 여기서 시작한다.
 var Unrated = Rating{Value: Default, Deviation: MaxDeviation}
 
-// Outcome 은 한 사람 관점의 결과다. match.Result 를 안 쓴다 — 이 패키지는 그쪽을
+// Outcome 은 한 사람 관점의 결과다. match.Result 를 쓰지 않는다 — 이 패키지는 그쪽을
 // 모르고, 옮기는 자리는 부르는 쪽에 하나면 된다(server/match_rating.go).
 type Outcome float64
 
@@ -58,7 +58,7 @@ var q = math.Ln10 / 400
 
 // Update 는 한 판의 결과로 두 사람을 같이 갱신한다. outcome 은 a 관점이다.
 //
-// 둘을 한 함수에서 내는 이유는 순서 때문이다. 갱신된 값으로 상대를 계산하면 먼저
+// 둘을 한 함수에서 내보내는 것은 순서 때문이다. 갱신된 값으로 상대를 계산하면 먼저
 // 계산한 쪽이 이득을 보므로, 둘 다 갱신 전 값으로 상대를 본다.
 func Update(a, b Rating, outcome Outcome) (Rating, Rating) {
 	return one(a, b, outcome), one(b, a, Win-outcome)
@@ -74,7 +74,7 @@ func one(self, opp Rating, s Outcome) Rating {
 	dSquared := 1 / (q * q * g * g * e * (1 - e))
 
 	// 0으로 나누기를 막는다. e 가 0이나 1로 포화하면 dSquared 가 Inf 가 되고, 그때
-	// 아래 두 식이 NaN 을 낸다 — 레이팅 칸에 NaN 이 한 번 들어가면 그 뒤의 모든 판이
+	// 아래 두 식에서 NaN 이 나온다 — 레이팅 칸에 NaN 이 한 번 들어가면 그 뒤의 모든 판이
 	// NaN 이다.
 	if math.IsInf(dSquared, 0) || math.IsNaN(dSquared) {
 		return self
@@ -87,7 +87,7 @@ func one(self, opp Rating, s Outcome) Rating {
 	return Rating{Value: value, Deviation: clampDeviation(dev)}
 }
 
-// gOf 는 상대의 RD 가 이 판의 무게를 얼마나 줄이는가다. 못 믿는 상대를 이겨도 덜 오른다.
+// gOf 는 상대의 RD 가 이 판의 무게를 얼마나 줄이는가다. 믿을 수 없는 상대를 이겨도 덜 오른다.
 func gOf(dev float64) float64 {
 	return 1 / math.Sqrt(1+3*q*q*dev*dev/(math.Pi*math.Pi))
 }
@@ -97,17 +97,17 @@ func expected(self, opp, oppDev float64) float64 {
 	return 1 / (1 + math.Pow(10, -gOf(oppDev)*(self-opp)/400))
 }
 
-// InactivityToUnrated 는 한 판도 안 두면 RD 가 MaxDeviation 까지 되돌아가는 데 걸리는
-// 시간이다. Inflate 의 유일한 손잡이다 — Glicko 의 c 를 그대로 두면 그 값이 무엇을
+// InactivityToUnrated 는 한 판도 두지 않으면 RD 가 MaxDeviation 까지 되돌아가는 데 걸리는
+// 시간이다. Inflate 의 하나뿐인 손잡이다 — Glicko 의 c 를 그대로 두면 그 값이 무엇을
 // 뜻하는지 읽는 자리에서 알 수 없다.
 //
 // [미확정] 90일은 초기값이다.
 const InactivityToUnrated = 90 * 24 * time.Hour
 
-// Inflate 는 안 둔 시간만큼 RD 를 되돌린다. 읽는 자리에서 부른다 — 저장된 값은 마지막
+// Inflate 는 두지 않은 시간만큼 RD 를 되돌린다. 읽는 자리에서 부른다 — 저장된 값은 마지막
 // 판 직후의 것이고, 그 뒤로 흐른 시간은 저장할 수 없다.
 //
-// Value 는 안 건드린다.
+// Value 는 건드리지 않는다.
 func Inflate(r Rating, since time.Duration) Rating {
 	if since <= 0 {
 		return r
@@ -127,13 +127,13 @@ const SeedSpread = 400
 // SeedFromLoss 는 지금까지의 실력 추정치를 첫 레이팅으로 옮긴다. loss 는
 // skill.Estimate.Loss 다(0~1, 작을수록 세다).
 //
-// 그 추정치가 꼭 엔진 대국에서만 오는 것은 아니다. 승부가 안 난 대인전은 레이팅을
-// 안 움직이는데(match_rating.go) 실력 추정은 그 판도 먹으므로(journal §95), 그런 판만
+// 그 추정치는 엔진 대국 밖에서도 온다. 승부가 나지 않은 대인전은 레이팅을
+// 움직이지 않는데(match_rating.go) 실력 추정은 그 판도 먹으므로(journal §95), 그런 판만
 // 둔 사람은 사람과 둔 낙폭에서 시드를 받는다.
 //
 // 낙폭은 스스로 나쁘게 만들 수 있다. 일부러 헤맨 뒤 판을 버리면 시드가 아래 끝으로
 // 가고, 첫 레이팅 대국을 자기보다 약한 상대와 시작한다 — 엔진 대국으로 이미 열려
-// 있던 길이고 막는 자리는 여기가 아니다(journal §95의 남은 것).
+// 있던 길이고, 막을 자리는 따로다(journal §95의 남은 것).
 //
 // RD 는 MaxDeviation 그대로다. 낙폭은 절대 실력에 맞춰 본 적이 없는 척도라
 // (skill.RankOf) 여기서 나온 값을 믿을 근거가 없다.

@@ -31,7 +31,7 @@ interface HandProps {
    * 갇힘 힌트가 짚는 持ち駒의 종류. 파란 테를 두른다.
    *
    * 최선수가 打일 때 「그 駒」는 판 위에 없다. 駒台를 짚지 않으면 3회 단계가 打에서만
-   * 통째로 사라진다 — 실측한 국면 둘 중 하나가 바로 打이었다(journal §22).
+   * 전부 사라진다 — 실측한 국면 둘 중 하나가 바로 打이었다(journal §22).
    */
   hintDrop?: string | null;
   onPick: (origin: string) => void;
@@ -41,7 +41,7 @@ interface HandProps {
  * 駒台. 실제 대국에서 잡은 말이 놓이는 받침이다.
  *
  * 빈 받침도 자리를 지킨다 — 말이 늘고 줄 때마다 판이 위아래로 흔들리면
- * 초심자는 무엇이 변했는지 못 본다.
+ * 초심자는 무엇이 변했는지 보지 못한다.
  */
 export function Hand({
   side,
@@ -81,7 +81,7 @@ export function Hand({
               aria-label={`${nameOf(kind)} ${count}枚`}
               onClick={() => onPick(origin)}
             >
-              {/* 駒台에서는 움직임 표식을 끈다. 아직 판 위가 아니라 방향이 뜻을 갖지 않고,
+              {/* 駒台에서는 움직임 표식을 끈다. 아직 판 위에 없어서 방향이 뜻을 갖지 않고,
                   持ち駒는 성하지 않은 것뿐이라 붉은 글자도 나오지 않는다. */}
               {hintDrop === kind && <span className="hint-outline" aria-hidden="true" />}
               <Koma kind={kind} side={side} marks={false} />

@@ -42,7 +42,7 @@ func TestUpsertUserIsIdempotent(t *testing.T) {
 }
 
 // 로그인한 사람의 판은 그 사람 것으로 남아야 한다. games.user_id 는 nullable이라
-// (002_anonymous_games.sql) 안 채워도 조용히 성공한다 — 그래서 실물로 확인한다.
+// (002_anonymous_games.sql) 채우지 않아도 경고 없이 성공한다 — 그래서 실물로 확인한다.
 func TestCreateGameKeepsUserID(t *testing.T) {
 	s := open(t)
 	uid := "test/" + t.Name()
@@ -82,8 +82,8 @@ func TestGameRecordIsScopedToOwner(t *testing.T) {
 			t.Errorf("정리: %v", err)
 		}
 	})
-	// 끝내 놓아야 주인에게도 보인다(journal §51). 안 끝내면 아래 첫 줄이
-	// 「주인이 자기 판을 못 읽는다」로 실패하는데, 그건 주인 거르기와 아무 상관이 없다.
+	// 끝내 놓아야 주인에게도 보인다(journal §51). 끝내지 않으면 아래 첫 줄이
+	// 「주인이 자기 판을 읽을 수 없다」로 실패하는데, 그건 주인 거르기와 아무 상관이 없다.
 	if err := s.FinishGame(t.Context(), myGame, ResultWin); err != nil {
 		t.Fatalf("FinishGame: %v", err)
 	}
@@ -91,15 +91,15 @@ func TestGameRecordIsScopedToOwner(t *testing.T) {
 	if _, err := s.GameRecord(t.Context(), myGame, &mine); err != nil {
 		t.Errorf("주인이 자기 판을 못 읽는다: %v", err)
 	}
-	// 남이면 「없다」다. 403이면 그 번호의 판이 있다는 것을 알려주는 셈이다.
+	// 남이면 「없다」다. 403이면 그 번호의 판이 있다는 것을 알려주게 된다.
 	if _, err := s.GameRecord(t.Context(), myGame, &theirs); !errors.Is(err, ErrNoGame) {
 		t.Errorf("남의 판을 읽었다: err = %v, want %v", err, ErrNoGame)
 	}
-	// 로그인 안 한 사람에게도 안 보인다. 익명은 익명 판만 본다.
+	// 로그인하지 않은 사람에게도 보이지 않는다. 익명은 익명 판만 본다.
 	if _, err := s.GameRecord(t.Context(), myGame, nil); !errors.Is(err, ErrNoGame) {
 		t.Errorf("익명이 로그인한 사람의 판을 읽었다: err = %v, want %v", err, ErrNoGame)
 	}
-	// 주인을 안 보는 쪽은 그대로 읽힌다 — 측정이 쓰는 자리다.
+	// 주인을 보지 않는 쪽은 그대로 읽힌다 — 측정이 쓰는 자리다.
 	if _, err := s.GameRecordAnyOwner(t.Context(), myGame); err != nil {
 		t.Errorf("GameRecordAnyOwner: %v", err)
 	}

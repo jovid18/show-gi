@@ -7,7 +7,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/eval"
 )
 
-// DB가 필요 없다. 행의 모양만 보는 시험이라 여기가 CI에서 실제로 도는 유일한 store 층이다.
+// DB가 필요 없다. 행의 모양만 보는 시험이라 여기가 CI에서 실제로 도는 하나뿐인 store 층이다.
 
 // cp 와 mate 가 한 행에 같이 나가면 합성값이 다시 생긴다. 스키마가 그것을 막는다.
 func TestACandidateWritesEitherCpOrMateNeverBoth(t *testing.T) {
@@ -48,8 +48,8 @@ func TestCandidateRoundTrips(t *testing.T) {
 		{USI: "7g7f", Score: eval.Cp(0), PV: []string{"7g7f", "3c3d"}},
 		{USI: "7g7f", Score: eval.Cp(-35281)},
 		{USI: "2b3c", Score: eval.Mate(-3)},
-		// 0 은 안 만드는 값이지만(eval.Mate) 행에 적히면 돌아와야 한다. omitempty 로
-		// 적으면 cp 0 으로 돌아왔다 — 포인터로 내보내는 이유가 이 한 줄이다.
+		// 0 은 만들지 않는 값이지만(eval.Mate) 행에 적히면 돌아와야 한다. omitempty 로
+		// 적으면 cp 0 으로 돌아왔다 — 포인터로 내보내는 것이 이 한 줄 때문이다.
 		{USI: "2b3c", Score: eval.Mate(0)},
 	} {
 		b, err := json.Marshal(want)

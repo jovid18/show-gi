@@ -20,13 +20,13 @@ const requestIDHeader = "X-Request-Id"
 // maxRequestIDLen 은 밖에서 온 요청 ID 를 받아 줄 길이다. 우리가 만드는 것은 16자다.
 const maxRequestIDLen = 64
 
-// routeOther 는 라우팅에 안 걸린 요청의 route 라벨이다.
+// routeOther 는 라우팅에 걸리지 않은 요청의 route 라벨이다.
 //
-// 안 걸린 경로를 그대로 라벨로 쓰면 계열이 무한히 늘어난다(journal §90).
+// 걸리지 않은 경로를 그대로 라벨로 쓰면 계열이 무한히 늘어난다(journal §90).
 const routeOther = "other"
 
 // statusClientGone 은 부르는 쪽이 먼저 끊은 요청의 status 라벨이다. nginx 의 499 를 쓴다 —
-// HTTP 표준에 없는 값이지만 「서버가 깨진 것이 아니다」를 5xx 와 가르는 자리가 필요하다.
+// HTTP 표준에 없는 값이지만 「서버는 멀쩡하다」를 5xx 와 가르는 자리가 필요하다.
 const statusClientGone = "499"
 
 // ctxKey 는 이 패키지가 ctx 에 넣는 값의 키 타입이다.
@@ -79,12 +79,12 @@ func observe(reg *metrics.Registry, next http.Handler) http.Handler {
 		start := time.Now()
 
 		// 요청 한 줄을 defer 로 남긴다. 핸들러가 panic 하면 net/http 가 연결만 끊는데,
-		// 그러면 상태 코드도 로그 줄도 지표도 안 남는다 — 가장 흔한 장애가 지표에서
-		// 안 보이고 5xx 알람이 영원히 조용하다.
+		// 그러면 상태 코드도 로그 줄도 지표도 남지 않는다 — 가장 흔한 장애가 지표에서
+		// 보이지 않고 5xx 알람이 영원히 조용하다.
 		defer func() {
 			p := recover()
 			if p != nil && p != http.ErrAbortHandler {
-				// 아직 아무것도 안 썼으면 500을 준다. 업그레이드된 연결(101)에는
+				// 아직 아무것도 쓰지 않았으면 500을 준다. 업그레이드된 연결(101)에는
 				// 쓸 수 없으므로 그때는 상태만 남기고 지나간다.
 				if rec.code == 0 {
 					rec.WriteHeader(http.StatusInternalServerError)
@@ -114,7 +114,7 @@ func observed(reg *metrics.Registry, r *http.Request, rec *recorder, took time.D
 	// 검토·가정 수순은 엔진을 기다리는 동안 요청 ctx 가 죽으면 그 에러를 503으로 답한다
 	// (explore.go·whatif.go 의 default 갈래). 탐색이 몇 초라 「눌러 놓고 다른 화면으로
 	// 가는」 것이 흔하고, 그것을 5xx 로 세면 알람이 정상 사용에 울린다. 499는 nginx 가
-	// 쓰는 그 뜻이다 — 서버가 깨진 것이 아니라 부르는 쪽이 없어졌다.
+	// 쓰는 그 뜻이다 — 서버는 멀쩡하고 부르는 쪽이 없어졌다.
 	label := strconv.Itoa(status)
 	canceled := status >= http.StatusInternalServerError && r.Context().Err() != nil
 	if canceled {
@@ -131,11 +131,11 @@ func observed(reg *metrics.Registry, r *http.Request, rec *recorder, took time.D
 	}
 	if canceled {
 		// 나간 상태 코드는 그대로 남긴다. 지표의 라벨과 갈리는 자리라 로그가 그 둘을
-		// 다 들고 있어야 「왜 499로 세어졌나」를 되짚을 수 있다.
+		// 다 갖고 있어야 「왜 499로 세어졌나」를 되짚을 수 있다.
 		attrs = append(attrs, slog.Bool("client_gone", true))
 	}
 	// ALB 가 붙이는 추적 ID. 있으면 같이 남긴다 — 우리 로그와 ALB 로그를 잇는
-	// 유일한 값이고, 없는 환경(로컬·테스트)에서는 그냥 없다.
+	// 하나뿐인 값이고, 없는 환경(로컬·테스트)에서는 그냥 없다.
 	if trace := r.Header.Get("X-Amzn-Trace-Id"); trace != "" {
 		attrs = append(attrs, slog.String("trace_id", trace))
 	}
@@ -147,7 +147,7 @@ func observed(reg *metrics.Registry, r *http.Request, rec *recorder, took time.D
 	if p != nil {
 		reg.ObservePanic(route)
 		// 스택을 같이 남긴다. panic 은 로그 한 줄로는 어디서 났는지 알 수 없고,
-		// 여기서 안 남기면 net/http 가 자기 로거로 찍어 급이 INFO 가 된다.
+		// 여기서 남기지 않으면 net/http 가 자기 로거로 찍어 급이 INFO 가 된다.
 		attrs = append(attrs, slog.Any("panic", p), slog.String("stack", string(debug.Stack())))
 		slog.ErrorContext(r.Context(), "request panicked", attrs...)
 		return
@@ -163,7 +163,7 @@ func observed(reg *metrics.Registry, r *http.Request, rec *recorder, took time.D
 func levelFor(r *http.Request, status int, canceled bool) slog.Level {
 	switch {
 	case canceled:
-		// 사람이 화면을 떠난 것이라 우리 잘못이 아니다. Error 로 남기면 로그를 급으로
+		// 사람이 화면을 떠난 것이라 우리 잘못이 없다. Error 로 남기면 로그를 급으로
 		// 훑을 때 진짜 고장에 섞인다.
 		return slog.LevelInfo
 	case status >= http.StatusInternalServerError:
@@ -184,7 +184,7 @@ func levelFor(r *http.Request, status int, canceled bool) slog.Level {
 func requestID() string {
 	var b [8]byte
 	if _, err := rand.Read(b[:]); err != nil {
-		// 난수가 없어도 요청은 처리한다. ID 가 없는 것이 요청이 안 되는 것보다 싸다.
+		// 난수가 없어도 요청은 처리한다. ID 가 없는 것이 요청이 실패하는 것보다 싸다.
 		return ""
 	}
 	return hex.EncodeToString(b[:])
@@ -206,7 +206,7 @@ func clientRequestID(r *http.Request) string {
 //
 // 글자를 제한하는 것은 JSON 이 깨지는 것과는 무관하다(그건 인코더가 막는다) —
 // 로그를 보는 사람이 값의 끝을 알 수 있어야 하고, 길이가 무제한이면 한 요청이
-// 로그 한 줄을 통째로 차지할 수 있다.
+// 로그 한 줄 전체를 차지할 수 있다.
 func safeRequestID(v string) bool {
 	if v == "" || len(v) > maxRequestIDLen {
 		return false
@@ -225,7 +225,7 @@ func safeRequestID(v string) bool {
 // recorder 는 응답 상태를 엿본다.
 //
 // Unwrap 이 필수다. WebSocket 업그레이드는 감싼 ResponseWriter 를 이것으로 되짚어
-// Hijacker 를 찾으므로(coder/websocket 의 hijacker), 없으면 대국이 통째로 안 열린다.
+// Hijacker 를 찾으므로(coder/websocket 의 hijacker), 없으면 대국 전체가 열리지 않는다.
 type recorder struct {
 	http.ResponseWriter
 	code int
@@ -247,7 +247,7 @@ func (r *recorder) Write(b []byte) (int, error) {
 	return r.ResponseWriter.Write(b)
 }
 
-// status 는 실제로 나간 상태 코드다. 핸들러가 아무것도 안 썼으면 200이다(net/http 규약).
+// status 는 실제로 나간 상태 코드다. 핸들러가 아무것도 쓰지 않았으면 200이다(net/http 규약).
 func (r *recorder) status() int {
 	if r.code == 0 {
 		return http.StatusOK

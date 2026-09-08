@@ -15,7 +15,7 @@ const BOARD_SIZE = 9;
  * 打 화살표의 출발점 — 駒台에 놓인 그 駒의 실제 자리다. 판의 안쪽 모서리를 기준으로
  * 한 px이고, `--sq` 는 그때 재어 둔 칸 크기다.
  *
- * 칸 산수로는 안 나온다. 駒台는 판 밖의 형제 요소이고 그 안에서 持ち駒가 몇 종류인지·
+ * 칸 산수로는 나오지 않는다. 駒台는 판 밖의 형제 요소이고 그 안에서 持ち駒가 몇 종류인지·
  * 라벨이 얼마나 넓은지에 따라 자리가 달라진다 — 그래서 재야 하고, 재면 된다.
  */
 export interface DropFrom {
@@ -26,7 +26,7 @@ export interface DropFrom {
 
 /**
  * 물러진 수를 판 위에서 되짚기 위한 것. 칸은 화면 배열 인덱스(0~80)로 받는다 —
- * 좌표 문자열을 여기서 다시 풀면 못 읽는 값에 판이 통째로 안 그려질 수 있다.
+ * 좌표 문자열을 여기서 다시 풀면 읽을 수 없는 값 하나에 판 전체가 그려지지 않을 수 있다.
  */
 export interface Replay {
   /** 출발 칸. 持ち駒를 둔 수(打)면 null. */
@@ -47,7 +47,7 @@ export interface LastMove {
  * 방금 그 화면에서 벌어진 한 수를 판 위에 그은 선.
  *
  * 판은 언제나 이 수를 둔 뒤의 국면이다. 그래서 이 선은 지금 화면에 대한 사실이다 —
- * 수순을 넘겨 보지 않고 한 판 위에 여러 수를 겹쳐 그으면 그 순간 거짓말이 된다.
+ * 수순을 넘겨 보지 않고 한 판 위에 여러 수를 겹쳐 그으면 그때 거짓말이 된다.
  * 실제로 「상대가 아직 손에 없는 駒를 놓는 수」를 그리고 있었다.
  */
 export interface Ray {
@@ -97,18 +97,18 @@ interface BoardProps {
   dimmed: boolean;
   /** 打 화살표의 출발점. 재기 전이거나 打이 아니면 null. */
   dropFrom: DropFrom | null;
-  /** 갇힘 힌트가 짚는 칸. 파란 테를 두른다. 打이거나 아직 안 열렸으면 null. */
+  /** 갇힘 힌트가 짚는 칸. 파란 테를 두른다. 打이거나 아직 열리지 않았으면 null. */
   hintSquare: string | null;
   /** 갇힘 힌트의 마지막 단계 — 그 수 자체. 파란 화살표로 긋는다. */
   hintRay: Ray | null;
   /**
-   * 詰み 게이지의 세기(1~5). 0이면 안 그린다.
+   * 詰み 게이지의 세기(1~5). 0이면 그리지 않는다.
    *
    * 판 테두리에 보라 불꽃으로 붙는다. 판 안(칸·기물)은 「강조는 색이 아니라 빛」인데
    * 테두리는 다른 표면이라 색을 써도 그 체계를 흐리지 않는다(docs/01-core.md §7).
    *
    * 회상 중에는 0으로 받는다. 그때 판은 물러진 수의 국면이라, 지금 국면의 게이지를
-   * 거기에 얹으면 그 순간 거짓말이 된다 — 광선을 한 판 위에 겹쳐 긋지 않는 것과 같은 이유다.
+   * 거기에 얹으면 그때 거짓말이 된다 — 광선을 한 판 위에 겹쳐 긋지 않는 것과 같은 이유다.
    */
   mateHeat: number;
   /**
@@ -120,7 +120,7 @@ interface BoardProps {
    *
    * CSS로 돌리지 않는다. `transform` 을 쓰면 판 위의 자리를 재는 쪽이 전부 어긋난다 —
    * 打 화살표의 출발점은 변형 전의 배치 좌표를 재고 있고(`useDropAnchor`),
-   * 그게 이 판에서 유일하게 산수로 안 나오는 자리다. 대신 칸의 자리 번호만 뒤집으면
+   * 그게 이 판에서 산수만으로는 나오지 않는 하나뿐인 자리다. 대신 칸의 자리 번호만 뒤집으면
    * 배치는 그대로여서 재는 값이 계속 맞는다.
    */
   flipped: boolean;
@@ -128,12 +128,12 @@ interface BoardProps {
   boardRef?: RefObject<HTMLDivElement | null>;
   interactive: boolean;
   /**
-   * 착수음 스위치. 없으면 버튼이 안 나온다 — 되짚기에는 착수가 없어서 켤 것이 없다.
-   * 그늘 토글과 나란히 선다 — 판이 주는 손잡이가 한자리에 모인다(아래 `flip` 까지 셋).
+   * 착수음 스위치. 없으면 버튼이 나오지 않는다 — 되짚기에는 착수가 없어서 켤 것이 없다.
+   * 그늘 토글과 함께 선다 — 판이 주는 손잡이가 한자리에 모인다(아래 `flip` 까지 셋).
    */
   sound?: { on: boolean; toggle: () => void };
   /**
-   * 판을 뒤집는 스위치. 없으면 버튼이 안 나온다 — 그 손잡이를 판 밖에 두는 화면이
+   * 판을 뒤집는 스위치. 없으면 버튼이 나오지 않는다 — 그 손잡이를 판 밖에 두는 화면이
    * 아직 있다(ReviewDetail). 착수음·그늘과 한 줄에 서는 이유는 journal §96.
    */
   flip?: { on: boolean; toggle: () => void };
@@ -170,7 +170,7 @@ function ReplayKoma({ replay }: { replay: Replay }) {
  * 상대의 벌하는 수를 칸 중심에서 칸 중심으로 잇는 광선.
  *
  * 길이와 각도는 여기서 계산해 CSS로 넘긴다. `sqrt()`·`atan2()` 는 브라우저마다 언제
- * 들어왔는지가 갈리는데, 판이 안 그려지는 대가로 얻을 것이 없다. 자리는 유령 駒와 같이
+ * 들어왔는지가 갈리는데, 판이 그려지지 않는 대가로 얻을 것이 없다. 자리는 유령 駒와 같이
  * 칸 수로 준다 — 픽셀로 주면 `--sq` 가 화면 폭을 따라 변하는 만큼 어긋난다.
  */
 function RefutationRay({
@@ -187,7 +187,7 @@ function RefutationRay({
   const drop = ray.from === null;
 
   // 打은 판 위에 출발 칸이 없다. 駒台에 놓인 그 駒에서 출발해야 「어느 駒가 나가는가」가
-  // 읽히는데, 그 자리는 칸 산수 밖이라 재어서 받는다. 아직 못 쟀으면 안 긋는다 —
+  // 읽히는데, 그 자리는 칸 산수 밖이라 재어서 받는다. 아직 재지 못했으면 긋지 않는다 —
   // 엉뚱한 자리에서 뻗는 화살표는 없는 데서 駒를 가져오는 것으로 보인다.
   if (drop) {
     if (!dropFrom) return null;
@@ -276,26 +276,25 @@ export function Board({
     flipped ? { ...r, from: r.from === null ? null : seat(r.from), to: seat(r.to) } : r;
   /**
    * 판을 three.js가 그리는가. 판을 재는 쪽이 ref를 잡고 있으면 그걸 같이 쓴다 —
-   * 여기서 두 번째 ref를 붙이면 표면이 판이 아니라 아무것도 안 붙은 요소를 잰다.
+   * 여기서 두 번째 ref를 붙이면 표면이 아무것도 붙지 않은 요소를 잰다.
    */
   const ownRef = useRef<HTMLDivElement>(null);
   const surfaceRef = boardRef ?? ownRef;
 
   /**
-   * 그늘을 켜 두었는가.
+   * 그늘을 켜 두었는가. 사람이 토글로 켤 때만 참이다.
    *
-   * 회상 중에는 물어보지 않고 켠다. 그 자리가 「네가 두려던 칸이 왜 위험했나」이고,
-   * 판 위에서 글 없이 그 답을 하는 것이 이 표면이 있는 이유다(docs/03-frontend.md §1).
+   * 회상 중에도 자동으로 켜지지 않는다 — 근거는 아래 `exposed` 에 적었다.
    */
   const [showExposure, setShowExposure] = useState(false);
   /**
    * 그늘을 지금 그리나. 회상 중에도 사람이 켠 때만이다.
    *
    * 회상 중이라고 강제로 켜지 않는다. 탈색된 판 위의 둥근 얼룩은 「상대가 손을 뻗은 칸」
-   * 으로 안 읽히고 판에 낀 흠으로 읽힌다 — 그 자리에서 말해야 하는 「이 수를 물렀다」는
+   * 으로 읽히지 않고 판에 낀 흠으로 읽힌다 — 그 자리에서 말해야 하는 「이 수를 물렀다」는
    * 테와 화살표가 이미 말한다.
    *
-   * 켜고 싶으면 회상 중에도 켤 수 있다(토글을 안 잠근다).
+   * 켜고 싶으면 회상 중에도 켤 수 있다(토글을 잠그지 않는다).
    */
   const exposed = showExposure;
 
@@ -327,8 +326,8 @@ export function Board({
           const usi = toUsi(fromIndex(index));
           const label = `${FILES[index % BOARD_SIZE]}${RANKS[Math.floor(index / BOARD_SIZE)]}`;
           // 물러진 수가 지나간 두 칸. 도착 칸을 빼면 안 된다 — 打은 출발 칸이 없어서
-          // 화살표가 아예 안 나가고(ReviewDetail 의 `retracted`), 그때 도착 칸 표식이
-          // 「어디에 놓으려 했나」를 짚는 유일한 것이다. 한 칸이 둘을 겸하는 수는 없다.
+          // 화살표가 아예 나가지 않고(ReviewDetail 의 `retracted`), 그때 도착 칸 표식이
+          // 「어디에 놓으려 했나」를 짚는 하나뿐인 것이다. 한 칸이 둘을 겸하는 수는 없다.
           const mark = played?.from === index ? 'from' : played?.to === index ? 'to' : null;
           const last = lastMove?.to === index ? 'to' : lastMove?.from === index ? 'from' : undefined;
 
@@ -374,7 +373,7 @@ export function Board({
         {dimmed && <span className="board-tint" aria-hidden="true" />}
 
         {/* 王手가 먼저 켜진다. 「지금 이 판이 어떤 상태인가」가 「다음에 무엇이 오는가」보다
-            앞이다 — 王手인 줄 모르면 다음 수가 왜 그것인지도 안 읽힌다. */}
+            앞이다 — 王手인 줄 모르면 다음 수가 왜 그것인지도 읽히지 않는다. */}
         {checks.map((c) => (
           <RefutationRay key={`${c.from}-${c.to}`} ray={seatRay(c)} waitForGhost={false} dropFrom={null} />
         ))}
@@ -407,9 +406,9 @@ export function Board({
         ))}
       </div>
 
-      {/* 판이 주는 손잡이들. WebGL이 안 잡히면 그늘 쪽은 아예 안 내놓는다 — 눌러도
-          아무 일이 안 일어나는 버튼은 「고장 났다」로 읽힌다. 회상 중에도 잠그지
-          않는다 — 그늘이 강제로 켜지지 않으므로(위 `exposed`) 끄지 못하게 할 이유가
+      {/* 판이 주는 손잡이들. WebGL이 잡히지 않으면 그늘 쪽은 아예 내놓지 않는다 — 눌러도
+          아무 일도 일어나지 않는 버튼은 「고장 났다」로 읽힌다. 회상 중에도 잠그지
+          않는다 — 그늘이 강제로 켜지지 않으니(위 `exposed`) 끄지 못하게 할 이유가
           없다. */}
       {(ready || sound || flip) && (
         <div className="board-toggles">

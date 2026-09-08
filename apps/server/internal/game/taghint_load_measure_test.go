@@ -9,12 +9,12 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// 手筋 힌트 게이트가 한 판에 얼마를 쓰는가. 엔진도 DB도 안 쓰고 룰 엔진만 돌린다.
+// 手筋 힌트 게이트가 한 판에 얼마를 쓰는가. 엔진도 DB도 쓰지 않고 룰 엔진만 돌린다.
 //
 //	SHOWGI_MEASURE=1 go test ./internal/game/ -run MeasureTagHintLoad -v
 //
 // 재는 판은 사람이 둔 첫 판이다(games.id=397 · 298手 · 先手 · docs/playtests/2026-08-13-human-1.md).
-// 그 판이 종반에 멈췄고, 여기서 나오는 두 숫자가 그 이유의 절반이다 — 몇 번 여는가와
+// 그 판이 종반에 멈췄고, 여기서 나오는 두 숫자가 그 원인의 절반이다 — 몇 번 여는가와
 // 한 번이 얼마인가. 나머지 절반은 엔진 쪽 시한이고 그건 deadline_test.go 다.
 
 // humanOneKifu 는 그 판의 기보다. 로컬 DB가 초기화되면 위 문서와 이 파일만 남는다.
@@ -95,7 +95,7 @@ func TestMeasureTagHintLoad(t *testing.T) {
 }
 
 // humanThreeKifu 는 회차 3의 기보다(games.id=863 · 208手 · 사람이 後手).
-// 회차 1과 따로 두는 이유는 journal §76 — 그 판이 §74 뒤의 첫 사람 판이다.
+// 회차 1과 따로 두는 근거는 journal §76 — 그 판이 §74 뒤의 첫 사람 판이다.
 func humanThreeKifu(t *testing.T) []string {
 	t.Helper()
 	raw, err := os.ReadFile("testdata/human-3.usi")

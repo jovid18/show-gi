@@ -1,6 +1,6 @@
 # ALB가 TLS를 끝낸다. Caddy가 하던 인증서 발급·갱신이 ACM으로 넘어간다.
 #
-# Fargate로 옮기면서 이건 선택이 아니라 필수가 됐다 — Fargate는 로컬 디스크가
+# Fargate로 옮기면서 이건 필수가 됐다 — Fargate는 로컬 디스크가
 # 휘발성이라 Caddy가 받아둔 인증서가 배포마다 사라지고, 재발급을 반복하면
 # Let's Encrypt의 주당 5회 실패 한도에 걸려 사이트가 평문으로 떨어진다.
 # ACM 인증서는 AWS가 보관하고 자동 갱신한다.
@@ -66,11 +66,11 @@ resource "aws_lb_target_group" "web" {
   port        = 80
   protocol    = "HTTP"
   vpc_id      = data.aws_vpc.default.id
-  target_type = "instance" # host 모드라 태스크가 아니라 인스턴스가 등록된다
+  target_type = "instance" # host 모드라 태스크 대신 인스턴스가 등록된다
 
   health_check {
     path = "/healthz"
-    # web(Caddy)이 아니라 api까지 닿는 경로를 본다. Caddy만 살아 있고 api가
+    # api까지 닿는 경로를 본다. Caddy만 살아 있고 api가
     # 죽은 상태를 "정상"으로 보면, 배포가 성공한 척하고 끝난다
     matcher             = "200"
     interval            = 15
@@ -159,8 +159,8 @@ data "aws_route53_zone" "main" {
   private_zone = false
 }
 
-# EIP가 아니라 ALB를 가리키는 별칭 레코드다. ALB의 IP는 바뀌므로 A 레코드에
-# 주소를 박으면 언젠가 조용히 끊긴다
+# ALB를 가리키는 별칭 레코드다. ALB의 IP는 바뀌므로 A 레코드에
+# 주소를 박으면 언젠가 경고 없이 끊긴다
 resource "aws_route53_record" "apex" {
   zone_id = data.aws_route53_zone.main.zone_id
   name    = var.domain

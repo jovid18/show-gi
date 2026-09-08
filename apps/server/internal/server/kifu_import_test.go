@@ -27,7 +27,7 @@ const sampleKIF = `先手：わたし
    5 投了
 `
 
-// games.result 는 주인 관점이다. 안 뒤집으면 後手로 둔 판의 승패가 통째로 반대가 된다.
+// games.result 는 주인 관점이다. 뒤집지 않으면 後手로 둔 판의 승패 전체가 반대가 된다.
 func TestImportedResultIsFromTheOwnersSide(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
@@ -76,7 +76,7 @@ func TestPreviewShowsBothEnds(t *testing.T) {
 	if got.Transcribed {
 		t.Error("Transcribed = true for a kifu a deterministic parser read")
 	}
-	// 4手뿐이라 앞뒤로 안 자른다.
+	// 4手뿐이라 앞뒤로 자르지 않는다.
 	if len(got.Head) != 4 || len(got.Tail) != 0 {
 		t.Fatalf("head %v tail %v", got.Head, got.Tail)
 	}
@@ -156,7 +156,7 @@ func TestImportedGameGetsEvalsAndBlunders(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 段級의 창이 21~60手라(skill.AnchorFromPly) 짧은 판으로는 프로파일이 안 움직인다.
+	// 段級의 창이 21~60手라(skill.AnchorFromPly) 짧은 판으로는 프로파일이 움직이지 않는다.
 	g, notation, err := kifu.Read(shuffleGameUSI(32))
 	if err != nil {
 		t.Fatal(err)
@@ -200,7 +200,7 @@ func TestImportedGameGetsEvalsAndBlunders(t *testing.T) {
 		if iv.Kind != string(intervene.KindBlunder) {
 			t.Errorf("ply %d kind = %q", iv.Ply, iv.Kind)
 		}
-		// 아무도 안 막았다. 그 칸을 채우면 없던 일을 있었다고 말하는 것이다.
+		// 누구도 막지 않았다. 그 칸을 채우면 없던 일을 있었다고 말하는 것이다.
 		if iv.RetractedUSI != "" {
 			t.Errorf("ply %d has a retracted move: %q", iv.Ply, iv.RetractedUSI)
 		}
@@ -214,7 +214,7 @@ func TestImportedGameGetsEvalsAndBlunders(t *testing.T) {
 }
 
 // 되짚기가 「解析しています」를 그리려면 가져온 판도 「분석 중」으로 보여야 한다.
-// games.match_id 로 조인하는 쪽에는 안 걸린다.
+// games.match_id 로 조인하는 쪽에는 걸리지 않는다.
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
 func TestImportedGameShowsAsAnalyzing(t *testing.T) {
@@ -252,7 +252,7 @@ func TestImportedGameShowsAsAnalyzing(t *testing.T) {
 }
 
 // shuffleGameUSI 는 합법이면서 길기만 한 수순이다. 飛車를 좌우로 옮기는 것뿐이라
-// 국면이 거의 안 바뀌고, 그래서 段級의 창(21~60手)을 넘기는 데만 쓴다.
+// 국면이 거의 바뀌지 않고, 그래서 段級의 창(21~60手)을 넘기는 데만 쓴다.
 func shuffleGameUSI(plies int) string {
 	moves := []string{"7g7f", "3c3d"}
 	shuffle := []string{"2h3h", "8b7b", "3h2h", "7b8b"}
@@ -263,7 +263,7 @@ func shuffleGameUSI(plies int) string {
 }
 
 // 하루 몫은 판이 만들어지는 것을 센다. 옮겨 적는 일은 그 전에 일어나므로, 읽기만
-// 반복하는 사람은 그 상한에 영영 안 닿으면서 토큰을 계속 쓴다(journal §126).
+// 반복하는 사람은 그 상한에 영영 닿지 않으면서 토큰을 계속 쓴다(journal §126).
 func TestTranscribeBudgetCapsTheHour(t *testing.T) {
 	now := time.Now()
 	b := newHourlyBudget(maxTranscribesPerHour)
@@ -277,7 +277,7 @@ func TestTranscribeBudgetCapsTheHour(t *testing.T) {
 	if b.take(1) {
 		t.Error("the call past the budget went through")
 	}
-	// 사람마다 따로 센다. 한 사람이 다 쓰면 다른 사람이 못 읽는 것은 상한이 아니라 고장이다.
+	// 사람마다 따로 센다. 한 사람이 다 써서 다른 사람이 읽지 못하면 그것은 고장이다.
 	if !b.take(2) {
 		t.Error("another person was refused because of somebody else's calls")
 	}
@@ -287,7 +287,7 @@ func TestTranscribeBudgetCapsTheHour(t *testing.T) {
 	if !b.take(1) {
 		t.Error("the budget never came back after the window passed")
 	}
-	// 창 밖으로 나간 사람은 표에서 지운다 — 안 지우면 이 맵이 로그인한 사람 수만큼 자란다.
+	// 창 밖으로 나간 사람은 표에서 지운다 — 지우지 않으면 이 맵이 로그인한 사람 수만큼 자란다.
 	if _, still := b.hits[2]; still {
 		t.Error("a person whose calls all fell out of the window is still held")
 	}
@@ -303,7 +303,7 @@ func TestNilBudgetLetsEverythingThrough(t *testing.T) {
 	}
 }
 
-// 넘쳐서 끊긴 몸통은 「못 읽었다」가 아니다. 같은 문장을 주면 사람이 형식을 고치려 든다.
+// 넘쳐서 끊긴 몸통은 「읽지 못했다」와 다르다. 같은 문장을 주면 사람이 형식을 고치려 든다.
 func TestAnOversizedBodySaysItIsTooLarge(t *testing.T) {
 	w := httptest.NewRecorder()
 	body := `{"text":"` + strings.Repeat("x", importBodyMax+1<<10) + `"}`
@@ -320,13 +320,13 @@ func TestAnOversizedBodySaysItIsTooLarge(t *testing.T) {
 	}
 }
 
-// 千日手는 shogi.ValidateMove 가 안 막는다. 합법 수순만으로 몇 천 手를 적을 수 있고,
-// 그 판이 手数만큼의 엔진 판정을 줄에 세운다 — 정규화 계층의 상한은 그 길을 안 막는다.
+// 千日手는 shogi.ValidateMove 가 막지 않는다. 합법 수순만으로 몇 천 手를 적을 수 있고,
+// 그 판이 手数만큼의 엔진 판정을 줄에 세운다 — 정규화 계층의 상한은 그 길을 막지 않는다.
 func TestADeterministicallyReadKifuIsStillCapped(t *testing.T) {
 	h := &kifuHandler{}
 	long := shuffleGameUSI(maxImportPlies + 2)
 
-	// 먼저 그 수순이 실제로 읽히는지 본다. 안 읽히면 이 시험이 상한이 아니라 파서를 재게 된다.
+	// 먼저 그 수순이 실제로 읽히는지 본다. 읽히지 않으면 이 시험이 상한 대신 파서를 재게 된다.
 	g, _, err := kifu.Read(long)
 	if err != nil {
 		t.Fatalf("the sample does not parse, so this proves nothing: %v", err)
@@ -412,7 +412,7 @@ func TestATranscriptionIsReusedForTheImport(t *testing.T) {
 	calls := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		calls++
-		// 회차마다 다른 답을 준다. 두 번 부르면 두 번째 것이 들어오므로 그 자리에서 보인다.
+		// 부를 때마다 다른 답을 준다. 두 번 부르면 두 번째 것이 들어오므로 그 자리에서 보인다.
 		moves := `["7六歩","3四歩"]`
 		if calls > 1 {
 			moves = `["2六歩","3四歩"]`
@@ -427,7 +427,7 @@ func TestATranscriptionIsReusedForTheImport(t *testing.T) {
 	kifunorm.SetURLForTest(norm, srv.URL)
 	h := &kifuHandler{norm: norm, budget: newHourlyBudget(maxTranscribesPerHour), cached: newTranscribeCache()}
 
-	// 어느 결정적 파서로도 안 읽히는 텍스트여야 정규화가 선다.
+	// 어느 결정적 파서로도 읽히지 않는 텍스트여야 정규화가 선다.
 	const junk = "<td>1</td><td>読めない書式</td>"
 	if _, _, err := kifu.Read(junk); err == nil {
 		t.Fatal("a deterministic parser read the sample; this proves nothing")
@@ -448,7 +448,7 @@ func TestATranscriptionIsReusedForTheImport(t *testing.T) {
 		t.Errorf("the import got %q where the preview showed %q", second.Moves[0], first.Moves[0])
 	}
 
-	// 다른 사람의 항목은 안 준다. 해시가 같으면 원문도 같지만, 남의 자리를 들여다보는
+	// 다른 사람의 항목은 주지 않는다. 해시가 같으면 원문도 같지만, 남의 자리를 들여다보는
 	// 문을 열어 두지 않는다.
 	if _, _, err := h.read(t.Context(), 8, junk); err != nil {
 		t.Fatal(err)

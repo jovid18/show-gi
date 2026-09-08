@@ -2,7 +2,7 @@ package store
 
 import "testing"
 
-// 추정치가 판 사이로 넘어가는지. 이것이 안 되면 §47의 조절이 매 판 기준선에서 다시
+// 추정치가 판 사이로 넘어가는지. 이것이 되지 않으면 §47의 조절이 매 판 기준선에서 다시
 // 시작하고, 두 번째 판의 초심자가 첫 판과 똑같이 센 상대를 만난다.
 func TestSkillEstimateRoundTrips(t *testing.T) {
 	s := open(t)
@@ -68,7 +68,7 @@ func TestSkillEstimateRoundTrips(t *testing.T) {
 }
 
 // 읽은 값이 그대로일 때만 덮는다. 대인전의 사후 분석이 지난 값을 수십 초 들고 있어서,
-// 그냥 덮으면 그 사이에 끝난 엔진 대국의 판정이 통째로 사라진다(server/match_analysis.go).
+// 그냥 덮으면 그 사이에 끝난 엔진 대국의 판정 전체가 사라진다(server/match_analysis.go).
 func TestSkillEstimateOnlyOverwritesWhatItRead(t *testing.T) {
 	s := open(t)
 	uid := owner(t, s, "skill-cas")
@@ -79,7 +79,7 @@ func TestSkillEstimateOnlyOverwritesWhatItRead(t *testing.T) {
 		t.Fatalf("첫 저장: saved = %v, err = %v", saved, err)
 	}
 
-	// 그 사이에 다른 쪽이 썼다. 표본 수가 달라졌으므로 안 덮는다.
+	// 그 사이에 다른 쪽이 썼다. 표본 수가 달라졌으므로 덮지 않는다.
 	stale := SkillEstimate{Loss: 0.99, Samples: 8, AbsLoss: 0.2, AbsSamples: 8}
 	if saved, err := s.SaveSkillEstimateIfSamples(t.Context(), uid, stale, 3); err != nil || saved {
 		t.Fatalf("어긋난 저장: saved = %v, err = %v", saved, err)

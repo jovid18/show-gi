@@ -13,7 +13,7 @@ import (
 
 // 실제 플레이 테스트 기보. 77·81수째에서 「생각한 수가 전부 물러졌다」고 보고됐다.
 //
-// 보고는 전수 조사가 아니다 — 직접 둬본 몇 수가 전부 걸렸다는 것이다. 아래 조사가
+// 보고는 직접 둬본 몇 수가 전부 걸렸다는 것이고, 전수 조사를 지나지 않았다. 아래 조사가
 // 합법수 전부를 돌려 그 보고를 설명한다.
 const stuckKifu = `▲7六歩 △7二銀 ▲6八飛 △5二金右 ▲5八金左 △9四歩 ▲4八玉 △2四歩
 ▲3八玉 △2五歩 ▲2八玉 △3二金 ▲3八銀 △3四歩 ▲6六歩 △3三角
@@ -29,7 +29,7 @@ const stuckKifu = `▲7六歩 △7二銀 ▲6八飛 △5二金右 ▲5八金左 
 // kifuToUSI 는 棋譜 표기를 USI로 되돌린다.
 //
 // 손으로 옮기지 않는다 — 합법수마다 우리 MoveJa 를 돌려 표기가 일치하는 것을 찾는다.
-// 표기를 두 벌로 만들면 어긋났을 때 어느 쪽이 맞는지 알 수 없다(§6 ④와 같은 이유).
+// 표기를 두 벌로 만들면 어긋났을 때 어느 쪽이 맞는지 알 수 없다(§6 ④와 같은 판단이다).
 func kifuToUSI(t *testing.T, kifu string) ([]string, shogi.Position) {
 	t.Helper()
 
@@ -76,7 +76,7 @@ func TestKifuRoundTrips(t *testing.T) {
 // TestRealEngineStuckPosition 은 「무엇을 둬도 블런더」가 사실인지 잰다.
 //
 // 플레이 테스트에서 나온 보고이고, 사실이라면 판정식이 「이 수가 얼마나 나쁜가」만 보고
-// 「더 나은 선택지가 실제로 있었나」를 안 보기 때문이다.
+// 「더 나은 선택지가 실제로 있었나」를 보지 않기 때문이다.
 //
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/game/ -run RealEngineStuck -v
 func TestRealEngineStuckPosition(t *testing.T) {
@@ -118,7 +118,7 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 	}
 
 	// 후보 사다리. 「우세를 지키는 수가 하나뿐」이 사실인지를 여기서만 알 수 있다.
-	// 2위부터 음수면 진짜 바늘이고, 2위도 +500대면 바늘이 아니라 후보를 못 찾는 문제다.
+	// 2위부터 음수면 진짜 바늘이고, 2위도 +500대면 후보를 찾지 못하는 문제다.
 	ladder, err := pool.SearchMultiPV(t.Context(), shogi.StartSFEN, usis, JudgeDepth, CandidateK)
 	if err != nil {
 		t.Fatalf("후보 사다리: %v", err)
@@ -127,7 +127,7 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 	// 최선수가 움직이는 駒. 板 위의 수는 출발 칸, 打는 駒 종류로 잡는다.
 	//
 	// 「그 駒를 짚어주면 웬만하면 잘 둔다」가 계단식 힌트의 전제다. 그 駒를 움직이는
-	// 수 중 통과가 하나뿐이면 1단계는 도움이 아니라 2단계로 가는 계단일 뿐이다.
+	// 수 중 통과가 하나뿐이면 1단계는 2단계로 가는 계단일 뿐이다.
 	bestMove, bestErr := shogi.ParseUSIMove(before.Best)
 	samePiece, samePieceOK := 0, 0
 	var samePieceSurvivors []string
@@ -144,7 +144,7 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 	reversalHits := map[int]int{}
 
 	// 반박 수순이 실제로 몇 수가 되는가. 길이를 상수로 박지 않기로 한 근거이고,
-	// 여기서 전부 1수로 쪼그라들면 이 기능이 겨냥한 자리(§17)를 못 덮는다는 뜻이다.
+	// 여기서 전부 1수로 쪼그라들면 이 기능이 겨냥한 자리(§17)를 덮지 못한다.
 	lineLen := map[int]int{}
 	var lineSamples []string
 

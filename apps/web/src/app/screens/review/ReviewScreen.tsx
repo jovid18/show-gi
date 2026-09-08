@@ -39,7 +39,7 @@ function GameList() {
       </p>
     );
   }
-  // 한 수도 안 둔 판은 서버가 이미 걸렀다(review.go). 여기가 비면 정말로 없는 것이다.
+  // 한 수도 두지 않은 판은 서버가 이미 걸렀다(review.go). 여기가 비면 정말로 없는 것이다.
   if (loaded.data.length === 0) {
     return <p className="review-status">まだ対局の記録がありません。一局指してみてください。</p>;
   }
@@ -73,16 +73,16 @@ function GameCard({ game }: { game: GameSummary }) {
   return (
     <>
       {/* 날짜와 手合割이 첫 칸을 같이 쓴다. 手合割을 뒤 세 칸에 넣지 않는다 — 그쪽은
-          폭이 고정된 숫자 칸이고, 手合割은 平手면 아예 안 오므로 열을 늘리면 대부분의
+          폭이 고정된 숫자 칸이고, 手合割은 平手면 아예 오지 않으므로 열을 늘리면 대부분의
           줄이 빈다(index.css 의 `.review-card`). */}
       <span className="review-card-when">
         <time className="review-card-date" dateTime={game.startedAt}>
           {dateJa(game.startedAt)}
         </time>
         {game.handicapJa !== undefined && <span className="review-card-handicap">{game.handicapJa}</span>}
-        {/* 가져온 판은 그렇다고 말한다. 여기서 둔 판과 같은 목록에 서므로, 안 적으면
-            「언제 이런 판을 뒀지」가 된다(docs/journal §126). 뒤 세 칸이 아니라 첫 칸에
-            붙는 것은 手合割과 같은 이유다 — 저쪽은 폭이 고정된 숫자 칸이다. */}
+        {/* 가져온 판은 그렇다고 말한다. 여기서 둔 판과 같은 목록에 서므로, 적지 않으면
+            「언제 이런 판을 뒀지」가 된다(docs/journal §126). 첫 칸에 붙는 것은 手合割과
+            같다 — 뒤 세 칸은 폭이 고정된 숫자 칸이다. */}
         {game.imported === true && <span className="review-card-source">取り込み</span>}
       </span>
       <span className="review-card-result" data-result={game.result}>
@@ -90,16 +90,16 @@ function GameCard({ game }: { game: GameSummary }) {
       </span>
       <span className="review-card-moves">{game.moveCount}手</span>
       {/* 대인전은 개입 횟수 자리에 「対人」이 온다. 거기에 「介入 0回」를 적으면 「한 번도
-          안 걸린 잘 둔 판」으로 읽히는데, 사실은 재지 않은 것이다 — 그 둘이 초심자에게
+          걸리지 않은 잘 둔 판」으로 읽히는데, 사실은 재지 않은 것이다 — 그 둘이 초심자에게
           정반대다(docs/journal §83). */}
       {game.isMatch === true ? (
         <span className="review-card-iv" data-match>
           対人
         </span>
       ) : (
-        // 0회도 적는다. 한 번도 안 막힌 것도 성적이다 — 빈 자리로 두면 셌는지조차 안 보인다.
+        // 0회도 적는다. 한 번도 막히지 않은 것도 성적이다 — 빈 자리로 두면 셌는지조차 보이지 않는다.
         //
-        // 가져온 판은 「悪手」다. 아무도 안 막았으므로 「介入」이라고 적으면 없던 일을
+        // 가져온 판은 「悪手」다. 누구도 막지 않았으므로 「介入」이라고 적으면 없던 일을
         // 있었다고 말하는 것이 된다 — 총평·기보 표식과 같은 자리다(docs/journal §126).
         <span className="review-card-iv" data-none={game.interventionCount === 0 || undefined}>
           {game.imported === true ? '悪手' : '介入'} {game.interventionCount}回
@@ -119,7 +119,7 @@ function SelectedGame({ id, initialPly }: { id: number; initialPly?: number | un
   const { loaded, reload } = useGameDetail(id);
 
   // 분석 중일 때만 다시 묻는다. 대인전의 평가치는 판이 끝난 뒤에 채워지므로(서버의
-  // matchAnalyzer) 그동안 화면이 스스로 차야 한다 — 안 그러면 「분석하고 있습니다」를
+  // matchAnalyzer) 그동안 화면이 스스로 차야 한다 — 그러지 않으면 「분석하고 있습니다」를
   // 띄워 놓고 새로고침을 기다리게 만든다. 끝나면 `analyzing` 이 사라져 멈춘다.
   const analyzing = loaded.state === 'ready' && loaded.data.analyzing === true;
   useEffect(() => {

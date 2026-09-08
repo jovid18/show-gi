@@ -39,7 +39,7 @@ func (c Color) String() string {
 
 type PieceType int8
 
-// 승격형은 산술로 못 얻는다 — 金에 승격형이 없어서 歩~銀은 +8인데 角·飛는 +7이다.
+// 승격형은 산술로 얻을 수 없다 — 金에 승격형이 없어서 歩~銀은 +8인데 角·飛는 +7이다.
 // 반드시 Promoted()/Base() 를 쓴다. Pawn..Rook(1..7)이 연속인 것은 持ち駒 루프가 전제한다.
 const (
 	NoPieceType PieceType = iota
@@ -153,7 +153,7 @@ func RankOf(sq int) int { return sq/9 + 1 }
 //
 // 합법 판정의 실체가 LegalMoves 목록과의 구조체 동등 비교라(ValidateMove) 정규형을 지켜야 한다 —
 // 투입은 From 이 정확히 -1(-2도 IsDrop 은 통과한다) · Promote false, 반상 이동은 Drop 0.
-// 어기면 합법인 수가 ReasonUnknown 으로 거절되는데, USI 표기는 정규형과 똑같이 찍혀서 안 보인다.
+// 어기면 합법인 수가 ReasonUnknown 으로 거절되는데, USI 표기는 정규형과 똑같이 찍혀서 보이지 않는다.
 type Move struct {
 	From    int8
 	To      int8

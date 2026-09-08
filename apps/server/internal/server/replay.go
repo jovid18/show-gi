@@ -31,8 +31,8 @@ func advance(pos shogi.Position, prevTo int, usi string) (shogi.Position, string
 
 // checkedSquare 는 王手를 받고 있는 玉의 칸이다(5a). 王手가 아니면 빈 값.
 //
-// 화면이 스스로 안 구한다. 王手인지는 규칙을 알아야 알고, 규칙은 서버만 갖는다.
-// 玉이 없는 국면(기록된 SFEN이 그럴 수 있다)에서 -1이 오고, 그때는 안 짚는다.
+// 화면이 스스로 구하지 않는다. 王手인지는 규칙을 알아야 알고, 규칙은 서버만 갖는다.
+// 玉이 없는 국면(기록된 SFEN이 그럴 수 있다)에서 -1이 오고, 그때는 짚지 않는다.
 func checkedSquare(pos shogi.Position) string {
 	if !pos.InCheck(pos.Turn) {
 		return ""

@@ -23,7 +23,7 @@ describe('influenceOf', () => {
 
   it('쭉 가는 駒는 처음 만난 駒에서 멈추고 **그 칸까지 센다**', () => {
     // 5九香 위로. 5六에 상대 歩가 막고 서 있다 — 자기 歩로 막으면 그 歩의 利き이
-    // 5五에 얹혀서 「香가 뚫고 갔는가」를 이 자리에서 못 가른다.
+    // 5五에 얹혀서 「香가 뚫고 갔는가」를 이 자리에서 가를 수 없다.
     const { black } = influenceOf(board('9/9/9/9/9/4p4/9/9/4L4'));
     expect(at(black, '5h')).toBe(1);
     expect(at(black, '5g')).toBe(1);
@@ -87,7 +87,7 @@ describe('exposure', () => {
     expect(exposure(influence, 'black')[toIndex(fromUsi('5e'))]).toBe(1);
   });
 
-  it('아무도 안 받는 칸이 깊다', () => {
+  it('누구도 받지 않는 칸이 깊다', () => {
     // 後手 飛(5一)가 5五까지 내려온다. 받는 駒가 없다.
     const influence = influenceOf(board('4r4/9/9/9/9/9/9/9/9'));
     expect(exposure(influence, 'black')[toIndex(fromUsi('5e'))]).toBe(1);

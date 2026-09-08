@@ -18,7 +18,7 @@ import (
 
 // 검토 화면에서 이름을 붙여 남긴 국면. 저장·목록·이름 고치기·삭제 넷이고, 정한 것은 journal §96.
 //
-// 엔진을 안 탄다. 手合割 id 와 수순 한 줄을 기록에 넣고 꺼내는 일뿐이고, 불러오기는 화면이
+// 엔진을 타지 않는다. 手合割 id 와 수순 한 줄을 기록에 넣고 꺼내는 일뿐이고, 불러오기는 화면이
 // 주소를 고쳐 /api/explore 로 다시 묻는다(explore.go).
 //
 // SFEN 칸을 만들지 않는다. 저장된 값이 곧 다음 요청의 본문이라, 만드는 순간 journal §37 이
@@ -32,12 +32,12 @@ const (
 	// 한 자 3바이트라 13자에서 걸린다.
 	exploreSnapshotNameMax = 40
 
-	// exploreSnapshotBodyLimit 은 본문 상한이다. 이름 하나와 手合割 id 하나, 수순 한 줄이 전부다.
+	// exploreSnapshotBodyLimit 은 본문 상한이다. 이름 하나와 手合割 id 하나, 수순 한 줄만 온다.
 	exploreSnapshotBodyLimit = 16 << 10
 )
 
-// exploreSnapshotHandler 는 저장된 국면을 읽고 쓴다. Searcher 를 안 들고 있는 것이 이 표면이
-// 엔진과 무관하다는 뜻이다.
+// exploreSnapshotHandler 는 저장된 국면을 읽고 쓴다. Searcher 를 갖고 있지 않아서 이 표면은
+// 엔진과 무관하다.
 type exploreSnapshotHandler struct {
 	store *store.Store
 	auth  *authHandler
@@ -45,13 +45,13 @@ type exploreSnapshotHandler struct {
 
 // exploreSnapshotView 는 목록 한 줄이다.
 //
-// 手数를 안 싣는다. Moves 의 길이가 그 값이라 실으면 두 칸이 어긋날 수 있다.
+// 手数를 싣지 않는다. Moves 의 길이가 그 값이라 실으면 두 칸이 어긋날 수 있다.
 type exploreSnapshotView struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
-	// Handicap 은 手合割 id다. 平手면 안 온다 — 빈 값이 平手라는 규약을 그대로 쓴다.
+	// Handicap 은 手合割 id다. 平手면 오지 않는다 — 빈 값이 平手라는 규약을 그대로 쓴다.
 	Handicap string `json:"handicap,omitempty"`
-	// HandicapJa 는 그 手合割의 일본어 이름이다. 平手면 안 온다.
+	// HandicapJa 는 그 手合割의 일본어 이름이다. 平手면 오지 않는다.
 	//
 	// 화면이 id로 이름을 만들지 않는다(review.go 의 handicapJa 와 같은 규약).
 	HandicapJa string    `json:"handicapJa,omitempty"`
@@ -69,7 +69,7 @@ type exploreSnapshotRequest struct {
 	Moves []string `json:"moves"`
 }
 
-// exploreSnapshotRename 은 이름 고치기 요청이다. 국면은 안 바뀐다.
+// exploreSnapshotRename 은 이름 고치기 요청이다. 국면은 바뀌지 않는다.
 type exploreSnapshotRename struct {
 	Name string `json:"name"`
 }
@@ -103,8 +103,8 @@ func (h *exploreSnapshotHandler) list(w http.ResponseWriter, r *http.Request) {
 
 // save 는 지금 보고 있는 국면을 남긴다.
 //
-// 수순을 룰 엔진에 되짚어 본다. 합법성 검사뿐이라 엔진 슬롯을 안 잡는다(journal §96) —
-// 안 하면 불러올 때마다 거절되는 행이 기록에 남는다.
+// 수순을 룰 엔진에 되짚어 본다. 합법성 검사뿐이라 엔진 슬롯을 잡지 않는다(journal §96) —
+// 하지 않으면 불러올 때마다 거절되는 행이 기록에 남는다.
 func (h *exploreSnapshotHandler) save(w http.ResponseWriter, r *http.Request) {
 	s, ok := h.auth.viewer(r)
 	if !ok {
@@ -136,9 +136,9 @@ func (h *exploreSnapshotHandler) save(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 手合割을 검토 자체와 같은 문으로 확인한다. 어휘가 두 벌이면 새 手合이 붙는 날
-	// 저장만 조용히 거절한다.
+	// 저장만 경고 없이 거절한다.
 	//
-	// SFEN 뿌리를 안 넘긴다. 저장하는 것이 手合割 id와 수순뿐이라 이 표면에는 그 값이
+	// SFEN 뿌리를 넘기지 않는다. 저장하는 것이 手合割 id와 수순뿐이라 이 표면에는 그 값이
 	// 아예 없고, 그것이 §96이 닫아 둔 문이다 — 저장된 값이 곧 다음 요청의 본문이므로
 	// 여기 SFEN 칸이 생기는 순간 기록 쪽으로 문이 한 번 더 열린다.
 	root, _, ok := exploreRoot(req.Handicap, "")
@@ -150,7 +150,7 @@ func (h *exploreSnapshotHandler) save(w http.ResponseWriter, r *http.Request) {
 	}
 	start, err := shogi.ParseSFEN(startSFENOf(root.StartSFEN))
 	if err != nil {
-		// 手合割 표가 깨진 것이라 사람이 고칠 일이다. 여기까지 아무것도 안 썼으므로
+		// 手合割 표가 깨진 것이라 사람이 고칠 일이다. 여기까지 아무것도 쓰지 않았으므로
 		// 잃는 것은 없다.
 		log.Printf("explore snapshots: start sfen %q: %v", root.StartSFEN, err)
 		writeJSON(w, http.StatusInternalServerError, map[string]any{
@@ -180,7 +180,7 @@ func (h *exploreSnapshotHandler) save(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, exploreSnapshotViewOf(saved))
 }
 
-// rename 은 이름만 고친다. 수순을 같은 행에 덮어쓰면 옛 이름이 가리키던 자리가 조용히
+// rename 은 이름만 고친다. 수순을 같은 행에 덮어쓰면 옛 이름이 가리키던 자리가 경고 없이
 // 다른 국면이 된다.
 func (h *exploreSnapshotHandler) rename(w http.ResponseWriter, r *http.Request) {
 	s, ok := h.auth.viewer(r)
@@ -200,7 +200,7 @@ func (h *exploreSnapshotHandler) rename(w http.ResponseWriter, r *http.Request) 
 		})
 		return
 	}
-	// 빈 이름을 여기서는 안 받는다. 저장과 달리 그 행을 읽지 않으므로 이름을 지을
+	// 빈 이름을 여기서는 받지 않는다. 저장과 달리 그 행을 읽지 않으므로 이름을 지을
 	// 재료가 없다.
 	name, ok := exploreSnapshotName(req.Name)
 	if !ok || name == "" {
@@ -269,7 +269,7 @@ func (h *exploreSnapshotHandler) notFound(w http.ResponseWriter) {
 	})
 }
 
-// exploreSnapshotID 는 주소의 번호를 읽는다. 못 읽으면 이미 답을 썼다.
+// exploreSnapshotID 는 주소의 번호를 읽는다. 읽지 못하면 이미 답을 썼다.
 func exploreSnapshotID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
@@ -283,7 +283,7 @@ func exploreSnapshotID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 
 // exploreSnapshotName 은 이름을 다듬는다. 두 번째 값이 false면 너무 길다.
 //
-// 양끝 공백을 지운다. 안 지우면 공백 하나가 이름인 줄이 목록에 빈 채로 남는다.
+// 양끝 공백을 지운다. 지우지 않으면 공백 하나가 이름인 줄이 목록에 빈 채로 남는다.
 func exploreSnapshotName(raw string) (string, bool) {
 	name := strings.TrimSpace(raw)
 	if utf8.RuneCountInString(name) > exploreSnapshotNameMax {
@@ -292,8 +292,8 @@ func exploreSnapshotName(raw string) (string, bool) {
 	return name, true
 }
 
-// exploreSnapshotDefaultName 은 이름 없이 저장했을 때의 이름이다. 화면이 아니라 서버가
-// 짓는 이유와 手合割을 안 넣는 이유는 journal §96.
+// exploreSnapshotDefaultName 은 이름 없이 저장했을 때의 이름이다. 화면 대신 서버가
+// 짓는 이유와 手合割을 넣지 않는 이유는 journal §96.
 func exploreSnapshotDefaultName(ply int) string {
 	return fmt.Sprintf("%d手目の局面", ply)
 }
@@ -310,7 +310,7 @@ func exploreSnapshotViewOf(row store.ExploreSnapshot) exploreSnapshotView {
 	if out.Moves == nil {
 		out.Moves = []string{}
 	}
-	// 표에서 못 찾아도 id 는 싣는다. 이 칸까지 비우면 그 줄이 平手로 보이고 불러오기도
+	// 표에서 찾지 못해도 id 는 싣는다. 이 칸까지 비우면 그 줄이 平手로 보이고 불러오기도
 	// 平手 0手目로 열려, 다른 국면이 같은 이름으로 남는다.
 	out.Handicap = row.Handicap
 	if hc, ok := handicap.Find(row.Handicap); ok {

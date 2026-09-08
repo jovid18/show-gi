@@ -24,7 +24,7 @@ func padding(n int) []string {
 	return out
 }
 
-// 序盤을 넘겨 振った 것은 그 판의 전법이 아니다.
+// 序盤을 넘겨 振った 것에는 그 판의 전법 이름이 붙지 않는다.
 func TestFormationIgnoresASwingAfterTheOpening(t *testing.T) {
 	// 先手의 i번째 수는 2i+1 手째다. 경계 밖 첫 자리는 i=12 (25手째).
 	late := append(padding(12), "2h6h")
@@ -34,7 +34,7 @@ func TestFormationIgnoresASwingAfterTheOpening(t *testing.T) {
 	}
 }
 
-// 경계 바로 안쪽은 붙는다. 없으면 위 테스트가 「그냥 아무것도 안 붙는다」와 구별되지
+// 경계 바로 안쪽은 붙는다. 없으면 위 테스트가 「그냥 아무것도 붙지 않는다」와 구별되지
 // 않는다 — 경계를 재는 테스트는 언제나 양쪽을 함께 짚어야 한다.
 func TestFormationTakesASwingInsideTheOpening(t *testing.T) {
 	inTime := append(padding(11), "2h6h") // 23手째
@@ -45,7 +45,7 @@ func TestFormationTakesASwingInsideTheOpening(t *testing.T) {
 	}
 }
 
-// 경계는 「지금 몇 수째인가」가 아니라 「振った 것이 몇 수째였나」다.
+// 경계는 「지금 몇 수째인가」 대신 「振った 것이 몇 수째였나」에 건다.
 //
 // 지금 手数로 잘랐으면 12수에 얻은 四間飛車가 25수째에 사라지고, 그건 화면에서 이름이
 // 대국 도중에 꺼지는 것으로 보인다.
@@ -59,7 +59,7 @@ func TestFormationKeepsItsNameLongAfterTheOpening(t *testing.T) {
 }
 
 // 後手는 i번째 수가 2i+2 手째다. 부호가 틀리면 한쪽에서만 경계가 한 수 어긋나는데,
-// 그건 에러가 안 나고 기보를 세어봐야 보인다.
+// 그건 에러가 나지 않고 기보를 세어봐야 보인다.
 func TestFormationWindowMirrorsForGote(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -107,8 +107,8 @@ func TestKakuGawariOnlyInsideTheOpeningWindow(t *testing.T) {
 	}
 }
 
-// 경계를 넘은 판에서 아무 이름도 안 남는 것이 아니다. 囲い는 상태라 그대로 뜬다 —
-// 잘라낸 것이 戦法·戦型 축뿐이라는 것을 짚어 둔다.
+// 경계를 넘은 판에도 이름이 남는다. 囲い는 상태라 그대로 뜨고, 잘라낸 것은
+// 戦法·戦型 축뿐이라는 것을 짚어 둔다.
 func TestCastlesAreNotBoundByTheOpeningWindow(t *testing.T) {
 	// 片美濃(玉2八·銀3八·金4八)가 선 국면. 手数는 경계를 한참 넘긴다.
 	pos, err := shogi.ParseSFEN("8k/9/9/9/9/9/9/5GSK1/9 b - 1")

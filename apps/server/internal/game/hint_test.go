@@ -14,8 +14,7 @@ import (
 )
 
 // fixedBest 는 언제나 같은 수를 최선수로 답하는 탐색이다. 부르는 힌트가 재는 것은
-// 예산과 단계이지 엔진이 아니라서, 여기서 진짜 탐색을 쓰면 국면마다 답이 갈려
-// 무엇을 재는지가 흐려진다.
+// 예산과 단계다. 여기서 진짜 탐색을 쓰면 국면마다 답이 갈려 무엇을 재는지가 흐려진다.
 type fixedBest struct{ best string }
 
 func (f *fixedBest) SearchMultiPV(
@@ -24,8 +23,8 @@ func (f *fixedBest) SearchMultiPV(
 	return usi.SearchResult{Best: f.best}, nil
 }
 
-// countingRater 는 추정기로 몇 건이 갔는지만 센다. 값은 안 본다 — 이 테스트가 재는 것은
-// 「갔는가」이고, 얼마였는가는 skill 패키지가 따로 잰다.
+// countingRater 는 추정기로 몇 건이 갔는지만 센다. 값은 보지 않는다 — 이
+// 테스트가 재는 것은 「갔는가」이고, 얼마였는가는 skill 패키지가 따로 잰다.
 type countingRater struct {
 	mu sync.Mutex
 	n  int
@@ -37,7 +36,7 @@ func (r *countingRater) Observe(skill.Move) {
 	r.n++
 }
 
-// Estimates 는 아무것도 안 보낸다. 닫아 두면 세션이 그 채널을 영원히 안 읽는다.
+// Estimates 는 아무것도 보내지 않는다. 닫아 두면 세션이 그 채널을 영원히 읽지 않는다.
 func (r *countingRater) Estimates() <-chan skill.Estimate { return nil }
 
 func (r *countingRater) count() int {
@@ -115,7 +114,7 @@ func TestCalledHintOpensPieceThenMove(t *testing.T) {
 	}
 }
 
-// 예산은 판에 붙는다. 다 쓰면 다른 국면에서도 안 열린다.
+// 예산은 판에 붙는다. 다 쓰면 다른 국면에서도 열리지 않는다.
 func TestCalledHintRunsOutOfBudget(t *testing.T) {
 	s := hintSession(t, nil)
 	ch, cancel, err := s.Subscribe(t.Context())
@@ -157,7 +156,7 @@ func TestHintedMoveIsNotRated(t *testing.T) {
 	}
 	defer cancel()
 
-	// 답까지 본다. 2단계가 실제로 실린 뒤에 둬야 한다 — 그 전에 두면 아직 답을 안 본
+	// 답까지 본다. 2단계가 실제로 실린 뒤에 둬야 한다 — 그 전에 두면 아직 답을 보지 않은
 	// 것이고, 그때 레이팅에 들어가는 것이 오히려 맞다.
 	for stage := 1; stage <= HintStageMax; stage++ {
 		askStage(t, s, ch, stage)
@@ -171,7 +170,7 @@ func TestHintedMoveIsNotRated(t *testing.T) {
 		t.Fatalf("답을 본 수가 추정기로 갔다: %d건", n)
 	}
 
-	// 힌트를 안 부른 다음 수는 평소대로 센다 — 규칙이 판 전체로 새면 안 된다.
+	// 힌트를 부르지 않은 다음 수는 평소대로 센다 — 규칙이 판 전체로 새면 안 된다.
 	if _, err := s.Play(t.Context(), "2g2f"); err != nil {
 		t.Fatalf("Play 2: %v", err)
 	}
@@ -215,7 +214,7 @@ func TestHintTakenIsRecorded(t *testing.T) {
 	}
 }
 
-// 엔진이 없으면 버튼이 아예 안 산다. 눌러도 안 되는 것을 띄우지 않는다.
+// 엔진이 없으면 버튼이 아예 살지 않는다. 눌러도 되지 않는 것을 띄우지 않는다.
 func TestHintIsOffWithoutASearcher(t *testing.T) {
 	s := newSession(t, Config{
 		Opponent:   &scriptedOpponent{},

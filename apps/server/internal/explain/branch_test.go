@@ -23,7 +23,7 @@ func otherWithBranches() Facts {
 	}
 }
 
-// 받은 갈래를 하나도 빠뜨리지 않는다. 카테고리가 이유를 못 대는 자리라, 이 갈래들이
+// 받은 갈래를 하나도 빠뜨리지 않는다. 카테고리가 이유를 대지 못하는 자리라, 이 갈래들이
 // 그 문구가 말할 수 있는 가장 구체적인 것이다.
 func TestRenderCarriesEveryBranch(t *testing.T) {
 	body := Render(otherWithBranches())
@@ -34,7 +34,7 @@ func TestRenderCarriesEveryBranch(t *testing.T) {
 		}
 	}
 	// 화면이 pre-line 으로 받는다. 한 줄로 이어지면 어느 수가 어느 결말에 걸리는지가
-	// 안 읽히고, 이 문구는 그 대응이 전부다.
+	// 읽히지 않고, 이 문구가 재는 것은 그 대응이다.
 	if got := strings.Count(body, "\n"); got != 3 {
 		t.Errorf("줄이 %d개다: %q", got+1, body)
 	}
@@ -53,7 +53,7 @@ func TestBranchScoreJaNeverPrintsACpForAMate(t *testing.T) {
 	}
 }
 
-// 다른 카테고리는 갈래를 안 받는다. 받기 시작하면 「최선수를 보여주지 않는다」가
+// 다른 카테고리는 갈래를 받지 않는다. 받기 시작하면 「최선수를 보여주지 않는다」가
 // 카테고리마다 갈린다.
 func TestOnlyOtherKeepsTheBranches(t *testing.T) {
 	f := otherWithBranches()

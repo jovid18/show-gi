@@ -12,8 +12,8 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// branchStub 은 두 API를 다 만족한다. analyst 가 들고 있는 것은 Searcher 이고
-// 갈래 수집은 거기서 MultiSearcher 로 타입 단언을 하므로, 한쪽만 있으면 그 자리가 조용히
+// branchStub 은 두 API를 다 만족한다. analyst 가 갖고 있는 것은 Searcher 이고
+// 갈래 수집은 거기서 MultiSearcher 로 타입 단언을 하므로, 한쪽만 있으면 그 자리가 경고 없이
 // 비어 버린다 — 그 단언 자체도 여기서 확인된다.
 type branchStub struct {
 	res usi.SearchResult
@@ -81,7 +81,7 @@ func TestOtherBranchesCarriesTheWholeFork(t *testing.T) {
 	}
 }
 
-// 엔진 출력을 믿지 않는다. 못 두는 수가 섞이거나 응수가 없으면 그 줄만 버린다 —
+// 엔진 출력을 믿지 않는다. 둘 수 없는 수가 섞이거나 응수가 없으면 그 줄만 버린다 —
 // 반쪽짜리 갈래는 문장에서 곧 거짓이 된다.
 func TestOtherBranchesDropsWhatItCannotVerify(t *testing.T) {
 	_, best, got := collect(t, usi.SearchResult{Lines: []usi.SearchLine{
@@ -124,7 +124,7 @@ func TestOtherBranchesStillNamesTheReplyWhenTheSearchFails(t *testing.T) {
 	}
 }
 
-// 상대의 최선수 자체가 못 두는 수면 아무것도 안 준다. 그 위에 지은 갈래는 전부 거짓이다.
+// 상대의 최선수 자체가 둘 수 없는 수면 아무것도 주지 않는다. 그 위에 지은 갈래는 전부 거짓이다.
 func TestOtherBranchesRefusesAnIllegalReply(t *testing.T) {
 	s := &branchStub{}
 	a := &engineAnalyst{search: s, depth: JudgeDepth, level: intervene.Beginner}

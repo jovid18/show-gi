@@ -10,8 +10,8 @@ const (
 
 // 탐색의 result 라벨 값. 캐시가 답한 것과 엔진을 부른 것을 가른다.
 //
-// unproven 은 詰み 탐색에만 있다. checkmate timeout 이라 캐시에 안 쌓인 것이고,
-// 「부르고도 캐시가 안 채워졌다」는 나머지 둘과 다른 사실이다.
+// unproven 은 詰み 탐색에만 있다. checkmate timeout 이라 캐시에 쌓이지 않은 것이고,
+// 「부르고도 캐시가 채워지지 않았다」는 나머지 둘과 다른 사실이다.
 const (
 	resultCached   = "cached"
 	resultComputed = "computed"
@@ -31,9 +31,9 @@ func (r *Registry) ObserveHTTP(route, status string, d time.Duration) {
 		return
 	}
 	r.HTTPRequests.Inc(route, status)
-	// 101 은 업그레이드다. 그 요청은 대국이 끝날 때까지 안 돌아오므로 지연 분포에
-	// 넣으면 분 단위 값이 섞여 다른 경로의 백분위를 못 읽는다 — 대국의 길이는
-	// ws_sessions_active 와 요청 로그가 든다.
+	// 101 은 업그레이드다. 그 요청은 대국이 끝날 때까지 돌아오지 않으므로 지연 분포에
+	// 넣으면 분 단위 값이 섞여 다른 경로의 백분위를 읽을 수 없다 — 대국의 길이는
+	// ws_sessions_active 와 요청 로그가 맡는다.
 	if status == "101" {
 		return
 	}
@@ -51,7 +51,7 @@ func (r *Registry) ObservePanic(route string) {
 // Session 은 세션 하나가 열렸음을 남기고 닫을 때 부를 함수를 준다.
 //
 // 게이지를 두 자리에서 올리고 내리면 이른 return 하나가 새는 게이지를 만들고, 그건
-// 며칠 뒤 「세션이 안 닫힌다」로 보인다. 여는 쪽에서 defer 로 닫게 하는 것이 그 방어다.
+// 며칠 뒤 「세션이 닫히지 않는다」로 보인다. 여는 쪽에서 defer 로 닫게 하는 것이 그 방어다.
 func (r *Registry) Session(kind string) func() {
 	if r == nil {
 		return func() {}
@@ -86,7 +86,7 @@ type Pool struct {
 // nil 포인터를 인터페이스에 넣지 않으려고 창구 자체는 늘 non-nil 이다.
 func (r *Registry) Pool(name string) *Pool { return &Pool{reg: r, name: name} }
 
-// SetSize 는 풀에 있는 엔진 수를 놓는다. 점유 수만으로는 포화를 못 읽는다 —
+// SetSize 는 풀에 있는 엔진 수를 놓는다. 점유 수만으로는 포화를 읽을 수 없다 —
 // 「3 중 3」과 「8 중 3」이 같은 숫자로 보인다.
 func (p *Pool) SetSize(n int) {
 	if p.reg == nil {
@@ -95,8 +95,8 @@ func (p *Pool) SetSize(n int) {
 	p.reg.PoolSize.Set(float64(n), p.name)
 }
 
-// ObserveWait 는 엔진을 빌리기까지 기다린 시간을 남긴다. 안 기다렸으면 0이다 —
-// 0도 같이 넣어야 백분위가 「대개 안 기다린다」를 말할 수 있다.
+// ObserveWait 는 엔진을 빌리기까지 기다린 시간을 남긴다. 기다리지 않았으면 0이다 —
+// 0도 같이 넣어야 백분위가 「대개 기다리지 않는다」를 말할 수 있다.
 func (p *Pool) ObserveWait(d time.Duration, borrower string) {
 	if p.reg == nil {
 		return
@@ -118,7 +118,7 @@ type Search struct{ reg *Registry }
 // Search 는 탐색 계측 창구를 준다. Pool 과 같은 이유로 r 이 nil 이어도 non-nil 이다.
 func (r *Registry) Search() *Search { return &Search{reg: r} }
 
-// ObserveSearch 는 탐색 하나를 남긴다. cached 면 엔진을 안 부른 것이다.
+// ObserveSearch 는 탐색 하나를 남긴다. cached 면 엔진을 부르지 않은 것이다.
 func (s *Search) ObserveSearch(d time.Duration, cached bool) {
 	if s.reg == nil {
 		return
@@ -137,8 +137,8 @@ type MateSearch struct{ reg *Registry }
 // MateSearch 는 詰み 탐색 계측 창구를 준다. Pool 과 같은 이유로 r 이 nil 이어도 non-nil 이다.
 func (r *Registry) MateSearch() *MateSearch { return &MateSearch{reg: r} }
 
-// ObserveMateSearch 는 詰み 탐색 하나를 남긴다. cached 면 solver 를 안 부른 것이고,
-// proven 이 false 면 부르고도 답을 못 얻어 캐시에 안 쌓인 것이다.
+// ObserveMateSearch 는 詰み 탐색 하나를 남긴다. cached 면 solver 를 부르지 않은 것이고,
+// proven 이 false 면 부르고도 답을 얻지 못해 캐시에 쌓이지 않은 것이다.
 func (s *MateSearch) ObserveMateSearch(d time.Duration, cached, proven bool) {
 	if s.reg == nil {
 		return
@@ -179,8 +179,8 @@ func (a *Analysis) SetBacklog(games, plies int) {
 	a.reg.AnalysisBacklogPlies.Set(float64(plies))
 }
 
-// ObserveGame 은 판 하나가 큐를 떠난 것을 남긴다. dropped 는 아예 안 재고 나간 것이라
-// 시간을 안 넣는다.
+// ObserveGame 은 판 하나가 큐를 떠난 것을 남긴다. dropped 는 아예 재지 않고 나간 것이라
+// 시간을 넣지 않는다.
 func (a *Analysis) ObserveGame(result string, d time.Duration) {
 	if a == nil || a.reg == nil {
 		return

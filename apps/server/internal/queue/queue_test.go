@@ -21,7 +21,7 @@ func TestBandWidens(t *testing.T) {
 		{0, Base0},
 		{time.Second, Base0 + Expand},
 		{10 * time.Second, Base0 + 10*Expand},
-		// 상한에 닿은 뒤로는 안 넓어진다.
+		// 상한에 닿은 뒤로는 넓어지지 않는다.
 		{30 * time.Second, BaseMax},
 		{10 * time.Minute, BaseMax},
 	} {
@@ -67,7 +67,7 @@ func TestPairableIncludesTheEdge(t *testing.T) {
 	}
 }
 
-// 밴드 안에서 FIFO 다. 최근접이 아니다 — 가까운 짝을 가로채면 남은 둘이 최악으로 붙는다.
+// 밴드 안에서 FIFO 다. 최근접을 고르지 않는다 — 가까운 짝을 가로채면 남은 둘이 최악으로 붙는다.
 func TestPickIsFifoInsideTheBand(t *testing.T) {
 	me := waiter(9, 1500, 0)
 	// 셋 다 밴드 안이다(격차 100·50·10). 오래 기다린 순으로 온다.
@@ -84,12 +84,12 @@ func TestPickIsFifoInsideTheBand(t *testing.T) {
 	}
 }
 
-// 밴드 밖은 건너뛴다. 첫 후보가 안 맞으면 다음을 본다 — 앞에서 멈추면 후보 하나가
+// 밴드 밖은 건너뛴다. 첫 후보가 맞지 않으면 다음을 본다 — 앞에서 멈추면 후보 하나가
 // 뒤의 모든 짝을 막는다.
 func TestPickSkipsOutsideTheBand(t *testing.T) {
 	me := waiter(9, 1500, 0)
 	got, ok := Pick(me, []Waiter{
-		waiter(1, 2500, 30*time.Second), // 격차 1000. 상한 밴드도 못 넘는다
+		waiter(1, 2500, 30*time.Second), // 격차 1000. 상한 밴드도 넘을 수 없다
 		waiter(2, 1550, 10*time.Second),
 	}, now)
 	if !ok {
@@ -100,8 +100,8 @@ func TestPickSkipsOutsideTheBand(t *testing.T) {
 	}
 }
 
-// 자기 자신은 짝이 아니다. 질의가 이미 빼고 주지만, 여기서 한 번 더 보는 것은
-// 혼자 두는 판이 조용히 만들어지는 것을 막기 위해서다.
+// 자기 자신은 짝에서 뺀다. 질의가 이미 빼고 주지만, 여기서 한 번 더 보는 것은
+// 혼자 두는 판이 경고 없이 만들어지는 것을 막기 위해서다.
 func TestPickNeverPicksItself(t *testing.T) {
 	me := waiter(9, 1500, 0)
 	if _, ok := Pick(me, []Waiter{me}, now); ok {
@@ -115,7 +115,7 @@ func TestPickEmpty(t *testing.T) {
 	}
 }
 
-// 선 시각이 앞서 있어도 밴드가 Base0 아래로 안 내려간다. 선 시각은 DB 의 시계이고
+// 선 시각이 앞서 있어도 밴드가 Base0 아래로 내려가지 않는다. 선 시각은 DB 의 시계이고
 // 지금은 프로세스의 시계라 둘이 어긋날 수 있다.
 func TestBandIgnoresNegativeWait(t *testing.T) {
 	if got := Band(-time.Minute, 0, 0); got != Base0 {

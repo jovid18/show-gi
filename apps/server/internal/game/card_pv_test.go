@@ -41,13 +41,13 @@ func (s *pvStub) SearchMultiPV(_ context.Context, _ string, moves []string, _, _
 	return res, nil
 }
 
-// quietBlunder 는 카테고리가 other 로 떨어지는 수다. 아무것도 안 따고 王手도 아니고
-// 그냥 잡히지도 않아서, classify 의 이름 붙은 분기 어디에도 안 걸린다.
+// quietBlunder 는 카테고리가 other 로 떨어지는 수다. 아무것도 따지 않고 王手도 아니고
+// 그냥 잡히지도 않아서, classify 의 이름 붙은 분기 어디에도 걸리지 않는다.
 var quietBlunder = []string{"1g1f"}
 
 // openedDiagonal 도 other 다. 다른 것은 상대가 딸 것이 생긴다는 점뿐이다 — 角道가
-// 서로 열려 있어서 8八의 角을 그냥 따인다. 판정 대상은 마지막의 端歩이고, 그 수는 딴 것도
-// 王手도 아니라 이름 붙은 어느 분기에도 안 걸린다.
+// 서로 열려 있어서 8八의 角을 그냥 따인다. 판정 대상은 마지막의 端歩이고, 딴 것도
+// 王手도 없어서 이름 붙은 어느 분기에도 걸리지 않는다.
 var openedDiagonal = []string{"7g7f", "3c3d", "1g1f"}
 
 // judgeOtherBlunder 는 그 수순의 마지막 수를 판정한다. 착수 전 0 → 착수 후 −1600이라
@@ -76,7 +76,7 @@ func afterK1() usi.SearchResult {
 	}
 }
 
-// 문장은 카드가 짚는 수를 말한다. 판정이 손에 든 k=1 PV가 아니다.
+// 문장은 카드가 짚는 수를 말한다. 판정이 손에 든 k=1 PV 는 말하지 않는다.
 func TestSentenceNamesTheMoveTheCardPoints(t *testing.T) {
 	stub := &pvStub{
 		single: afterK1(),
@@ -123,7 +123,7 @@ func TestThreatenedPieceComesFromTheSameMove(t *testing.T) {
 	stub := &pvStub{
 		single: afterK1(),
 		multi: map[string]usi.SearchResult{
-			// 1위가 8八角을 그냥 딴다. k=1의 △3四歩은 이미 둔 수라 아무것도 안 딴다.
+			// 1위가 8八角을 그냥 딴다. k=1의 △3四歩은 이미 둔 수라 아무것도 따지 않는다.
 			"7g7f 3c3d 1g1f": {Depth: JudgeDepth, Lines: []usi.SearchLine{
 				pvLine(1, 1600, "2b8h+", "7i8h"),
 			}},
@@ -144,8 +144,8 @@ func TestThreatenedPieceComesFromTheSameMove(t *testing.T) {
 	}
 }
 
-// 카드 국면을 못 물으면 판정이 손에 든 PV로 돌아간다. 그때는 카드의 목록도 같은 이유로
-// 안 서므로 화면에 모순이 남지 않고, 설명은 그대로 나간다.
+// 카드 국면을 묻지 못하면 판정이 손에 든 PV로 돌아간다. 그때는 카드의 목록도 같은 이유로
+// 서지 않으므로 화면에 모순이 남지 않고, 설명은 그대로 나간다.
 func TestSentenceFallsBackWhenTheCardSearchFails(t *testing.T) {
 	stub := &pvStub{
 		single: afterK1(),
@@ -164,7 +164,7 @@ func TestSentenceFallsBackWhenTheCardSearchFails(t *testing.T) {
 	}
 }
 
-// 이름이 붙는 카테고리는 탐색을 더 걸지 않는다. 문장이 수를 안 적으므로 갈릴 자리가
+// 이름이 붙는 카테고리는 탐색을 더 걸지 않는다. 문장이 수를 적지 않으므로 갈릴 자리가
 // 없고(explain.Facts.used), 개입마다 탐색을 하나 더 무는 것은 그만큼 사람을 기다리게 한다.
 func TestNamedCategorySkipsTheCardSearch(t *testing.T) {
 	stub := &pvStub{single: afterK1(), multi: map[string]usi.SearchResult{}}

@@ -15,7 +15,7 @@ func slowerMateFacts(before int) Facts {
 		LostMate:   true,
 		Known:      true,
 		MateBefore: before,
-		// 이 카테고리가 말하지 않기로 한 사실들이다. 채워도 문장과 키에 안 새야 한다.
+		// 이 카테고리가 말하지 않기로 한 사실들이다. 채워도 문장과 키에 새지 않아야 한다.
 		MovedPiece: "歩",
 		Captured:   "銀",
 		Attackers:  2,
@@ -36,7 +36,7 @@ func TestSlowerMateNeverSaysTheMateWasLost(t *testing.T) {
 	if strings.Contains(got, "逃") {
 		t.Errorf("詰み이 남아 있는데 놓쳤다고 말한다: %q", got)
 	}
-	// 사실이 없을 때 나가는 문구도 같은 규칙을 지켜야 한다 — 되짚기는 카테고리만 들고
+	// 사실이 없을 때 나가는 문구도 같은 규칙을 지켜야 한다 — 되짚기는 카테고리만 갖고
 	// 문장을 다시 만든다(BaseMessage).
 	base := BaseMessage(intervene.CategorySlowerMate)
 	if strings.Contains(base, "逃") || !strings.Contains(base, "遠回り") {
@@ -44,8 +44,8 @@ func TestSlowerMateNeverSaysTheMateWasLost(t *testing.T) {
 	}
 }
 
-// 착수 後의 手数는 문장에 하나도 안 나온다. 그 값은 solver 가 아니라 탐색이 준 것이라
-// 증명이 아니고, 같은 국면에 14·16·「없음」이 나왔다(journal §76). Facts 에 그 칸이
+// 착수 後의 手数는 문장에 하나도 나오지 않는다. 그 값은 solver 대신 탐색이 준 것이라 증명이
+// 되지 못하고, 같은 국면에 14·16·「없음」이 나왔다(journal §76). Facts 에 그 칸이
 // 아예 없는 것이 첫 번째 보증이고, 이 테스트가 두 번째다 — 문장이 다른 데서 숫자를 끌어
 // 오는 날을 잡는다.
 func TestSlowerMateSaysNoNumberForTheAfterSide(t *testing.T) {
@@ -55,7 +55,7 @@ func TestSlowerMateSaysNoNumberForTheAfterSide(t *testing.T) {
 			t.Errorf("착수 전 手数(5) 말고 다른 숫자가 있다 (%q): %q", r, got)
 		}
 	}
-	// 이 카테고리가 말하지 않기로 한 사실들도 실려 있는데(slowerMateFacts), 문장에는 안 나온다.
+	// 이 카테고리가 말하지 않기로 한 사실들도 실려 있는데(slowerMateFacts), 문장에는 나오지 않는다.
 	for _, bad := range []string{"歩", "銀", "飛", "枚"} {
 		if strings.Contains(got, bad) {
 			t.Errorf("말하지 않기로 한 사실 %q 가 문장에 샜다: %q", bad, got)

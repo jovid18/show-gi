@@ -18,14 +18,14 @@ info:
     `message` 는 **화면에 그대로 나가는 일본어**다. 클라이언트가 코드로 문장을
     짓지 않는다 — 짓기 시작하면 어휘가 두 벌이 되고 한쪽만 고쳐진 채로 남는다.
 
-    **「없는 기능」과 「지금 못 쓰는 기능」과 「로그인이 필요한 기능」이 갈린다.**
+    **「없는 기능」과 「지금 쓸 수 없는 기능」과 「로그인이 필요한 기능」이 갈린다.**
 
     | 상태 | 응답 |
     | --- | --- |
     | 경로가 아예 없다 | `404` (그 기능이 이 배포에 없다) |
     | DB 가 없다 | `503 store_unavailable` |
     | 엔진이 없다 | `503 engine_unavailable` |
-    | 로그인 안 했다 | `401 unauthorized` / `login_required` |
+    | 로그인하지 않았다 | `401 unauthorized` / `login_required` |
     | 남의 것 · 없는 것 | **같은** `404 not_found` |
 
     마지막 줄이 의도다. 구별해 주면 id 를 하나씩 올려 보며 남의 기록이 있는지 셀 수 있다.
@@ -58,7 +58,7 @@ tags:
   - name: review
     description: 끝난 판을 되짚는다. DB 에 매여 있고 엔진과 무관하다
   - name: quiz
-    description: 되짚기 퀴즈. 채점이 서버에 있고 엔진을 안 쓴다
+    description: 되짚기 퀴즈. 채점이 서버에 있고 엔진을 쓰지 않는다
   - name: engine
     description: 엔진이 필요한 표면 — 가정 수순과 검토
   - name: snapshots
@@ -100,7 +100,7 @@ paths:
       tags: [health]
       summary: Prometheus 텍스트
       description: |
-        **밖에서 안 닿는다.** Caddy 가 `/ws` · `/api` · `/healthz` 만 프록시하므로
+        **밖에서 닿지 않는다.** Caddy 가 `/ws` · `/api` · `/healthz` 만 프록시하므로
         이 경로는 태스크 안에서만 열린다. 프로덕션에서 실제로 보는 것은 stdout 으로
         나가는 CloudWatch EMF 쪽이다.
       security: []
@@ -228,7 +228,7 @@ paths:
       tags: [review]
       summary: 마이페이지 — 段級·전적·崩れやすいところ
       description: |
-        **로그인 안 했으면 401.** 익명 판은 서로 구별할 수단이 없어 「이 사람의 전적」에
+        **로그인하지 않았으면 401.** 익명 판은 서로 구별할 수단이 없어 「이 사람의 전적」에
         답할 수가 없다.
 
         집계 셋(`record` · `weaknesses` · `styles`)이 **대인전을 뺀다**(`match_id IS NULL`).
@@ -248,14 +248,14 @@ paths:
       tags: [review]
       summary: 밖에서 둔 기보를 읽기만 한다
       description: |
-        **판도 안 만들고 엔진도 안 쓴다.** 가져오기와 따로 둔 이유가 그것이다 — 잘못
+        **판도 만들지 않고 엔진도 쓰지 않는다.** 그래서 가져오기와 따로 뒀다 — 잘못
         읽은 기보 하나가 엔진 몇 분이고, 그 사이에 사람이 手数와 앞뒤 수를 눈으로 확인한다.
 
         **읽는 순서가 규약이다**: USI → CSA → KIF → KI2 → 평문. 하나라도 성공하면
-        **OpenAI 를 안 부른다.** 전부 실패했을 때만 그 계층이 서고, 거기서 낸 표기도
+        **OpenAI 를 부르지 않는다.** 전부 실패했을 때만 그 계층이 서고, 거기서 나온 표기도
         룰 엔진의 전수 검증을 지나야 수가 된다 (journal §126).
 
-        **로그인 안 했으면 401.**
+        **로그인하지 않았으면 401.**
       requestBody:
         required: true
         content:
@@ -280,12 +280,12 @@ paths:
         같은 결과를 준다.
 
         `games.result` 는 **주인 관점**이다. 기보의 先手/後手 승패를 `myColor` 로 뒤집고,
-        기보가 결과를 안 말하면 `result` 를 요구한다(`400 result`).
+        기보가 결과를 말하지 않으면 `result` 를 요구한다(`400 result`).
 
         **상한 다섯**: 원문 64KB · 512手 · 사람당 하루 10판(`429 quota`) · 사람당 정규화
         20회/시간 · 분석기가 없으면 `503`. 하루 몫이 읽기보다 먼저 걸린다.
 
-        **하루 몫이 정규화를 안 막는다** — 그쪽은 판이 만들어지는 것을 세는데 옮겨
+        **하루 몫이 정규화를 막지 않는다** — 그쪽은 판이 만들어지는 것을 세는데 옮겨
         적는 일은 그 전에 일어난다. 그래서 시간당 상한이 따로 있다.
 
         판이 남은 뒤에도 평가치는 비어 있다. 채우는 것은 분석 워커이고, 그동안 되짚기가
@@ -316,7 +316,7 @@ paths:
       tags: [review]
       summary: 최근 대국 목록
       description: |
-        **결과가 나온 판만.** 두는 중도 中断도 안 온다.
+        **결과가 나온 판만.** 두는 중도 中断도 오지 않는다.
 
         익명 판은 쿠키 없이도 읽힌다 — 「자기 판」의 정의가 로그인한 사람에게는
         `user_id`, 익명에게는 `user_id IS NULL` 이다.
@@ -397,7 +397,7 @@ paths:
       tags: [quiz]
       summary: 그 판에서 뽑은 문항
       description: |
-        **정답이 안 실려 온다** — 채점이 서버에 있다.
+        **정답이 실려 오지 않는다** — 채점이 서버에 있다.
 
         `ready: false` 는 **아직 만드는 중**이고 「문항 없음」과 다르다. 생성이 수십 초
         걸려서, 그 사이에 화면이 「問題はありません」을 그리면 거짓이 된다 — 판이 끝나는
@@ -406,7 +406,7 @@ paths:
       parameters: [{ $ref: '#/components/parameters/GameID' }]
       responses:
         '200':
-          description: 문항 (정답은 안 실린다)
+          description: 문항 (정답은 실리지 않는다)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/QuizPayload' }
@@ -420,8 +420,8 @@ paths:
       tags: [quiz]
       summary: 詰み 문항 채점
       description: |
-        **내가 낸 수만 보낸다** — 玉方의 응수는 저장된 트리에서 서버가 꺼낸다.
-        **엔진을 안 쓴다.**
+        **내가 고른 수만 보낸다** — 玉方의 응수는 저장된 트리에서 서버가 꺼낸다.
+        **엔진을 쓰지 않는다.**
 
         `attempt` 를 크게 적어 정답을 살 수 없다. 나가는 것은 `hint` 뿐이고 세 번째
         오답에서만 온다 — 정답 수는 응답에 아예 없다.
@@ -442,7 +442,7 @@ paths:
                 attempt:
                   type: integer
                   minimum: 1
-                  description: 이 문항의 몇 번째 시도인가. **화면이 센다** — 서버에 안 남는다
+                  description: 이 문항의 몇 번째 시도인가. **화면이 센다** — 서버에 남지 않는다
       responses:
         '200':
           description: 채점 결과
@@ -466,7 +466,7 @@ paths:
     post:
       tags: [quiz]
       summary: 「최선수는?」 채점
-      description: 첫 수만 받는다. **엔진을 안 쓴다.** 정답은 맞혔을 때만 응답에 실린다.
+      description: 첫 수만 받는다. **엔진을 쓰지 않는다.** 정답은 맞혔을 때만 응답에 실린다.
       security: []
       parameters: [{ $ref: '#/components/parameters/GameID' }]
       requestBody:
@@ -480,8 +480,8 @@ paths:
                 index:
                   type: integer
                   description: |
-                    `best[]` 의 몇 번째 문항인가. 手数로 가리키지 않는 이유는 문항이
-                    뽑히는 기준이 바뀌어도 이 값의 뜻은 안 바뀌기 때문이다
+                    `best[]` 의 몇 번째 문항인가. 手数로 가리키지 않는다 — 문항이
+                    뽑히는 기준이 바뀌어도 이 값의 뜻은 바뀌지 않기 때문이다
                 move: { $ref: '#/components/schemas/USIMove' }
                 attempt: { type: integer, minimum: 1 }
       responses:
@@ -509,9 +509,9 @@ paths:
       summary: 가정 수순 한 걸음
       description: |
         **DB 와 엔진 둘 다 필요하다.** 뿌리는 서버가 자기 기록에서 다시 둬서 만든다 —
-        판(SFEN)을 안 받는다.
+        판(SFEN)을 받지 않는다.
 
-        `POST` 인데 아무것도 안 바꾼다. 본문에 수순 배열을 실어야 해서 `POST` 다.
+        `POST` 인데 아무것도 바꾸지 않는다. 본문에 수순 배열을 실어야 해서 `POST` 다.
       security: []
       parameters: [{ $ref: '#/components/parameters/GameID' }]
       requestBody:
@@ -560,8 +560,8 @@ paths:
         **로그인이 필요하다.** 그림 읽기가 돈을 쓰는 일이라 사람마다 세야 하고,
         익명끼리는 구별할 수단이 없다.
 
-        **이 계층은 그려진 것만 만진다.** 手番도 정하지 않고 합법인지도 안 보고,
-        무엇이 좋은 수인지는 묻지도 않는다 — 프롬프트가 筋도 段도 「5五」도 한 번 안 쓰고,
+        **이 계층은 그려진 것만 만진다.** 手番도 정하지 않고 합법인지도 보지 않고,
+        무엇이 좋은 수인지는 묻지도 않는다 — 프롬프트가 筋도 段도 「5五」도 한 번 쓰지 않고,
         시키는 말이 「위 줄부터·왼쪽부터·그려진 대로」 하나다. 그 순서가 SFEN 판 칸의
         순서와 같아서 옮기는 코드에 좌표 계산이 없다.
 
@@ -569,7 +569,7 @@ paths:
         한 글자는 아직 사실이 아니고, 사람이 「あなたの手番ですか」에 답한 값이 덮는다.
         아래쪽 편이 `b` 다 — 사진은 찍은 사람의 시점이다.
 
-        **그림을 안 남긴다.** 요청 하나에 실려 나가고 응답을 만든 뒤 버린다.
+        **그림을 남기지 않는다.** 요청 하나에 실려 나가고 응답을 만든 뒤 버린다.
 
         `OPENAI_API_KEY` 가 없으면 이 뿌리만 503 이다. 검사와 검토는 그대로 돈다.
       requestBody:
@@ -586,8 +586,8 @@ paths:
                   description: |
                     base64. 브라우저가 주는 `data:` URL 앞머리가 붙어 있어도 받는다.
                     형식은 **앞머리로 정한다**(PNG·JPEG·WebP) — 클라이언트가 말한 이름을
-                    안 믿는다. GIF 를 안 받는 것은 애니메이션이면 어느 프레임을 읽었는지가
-                    답에 안 적히기 때문이다.
+                    믿지 않는다. GIF 를 받지 않는 것은 애니메이션이면 어느 프레임을 읽었는지가
+                    답에 적히지 않기 때문이다.
       responses:
         '200':
           description: 읽어 낸 국면과, 그것에 대해 룰 엔진이 말할 수 있는 전부
@@ -611,7 +611,7 @@ paths:
               schema: { $ref: '#/components/schemas/ApiError' }
         '422':
           description: |
-            `no_board` — 그림에서 판을 못 찾았다. 고장이 아니라 사실이라 사유를 갈라 뒀다:
+            `no_board` — 그림에서 판을 찾지 못했다. 고장이 아니라 사실이라 사유를 갈라 뒀다:
             화면이 「다시 눌러 보라」가 아니라 「판이 보이는 그림을 올려라」를 말해야 한다
           content:
             application/json:
@@ -634,14 +634,14 @@ paths:
       description: |
         journal §129.
 
-        **엔진도 DB도 로그인도 안 쓴다.** 순수 룰 계산이라 확인 화면이 한 칸을 고칠
-        때마다 불러도 대국이 쓰는 풀에 안 닿고, 그래서 二歩가 되는 순간 그 자리에서 보인다.
+        **엔진도 DB도 로그인도 쓰지 않는다.** 순수 룰 계산이라 확인 화면이 한 칸을 고칠
+        때마다 불러도 대국이 쓰는 풀에 닿지 않고, 그래서 二歩가 되는 순간 그 자리에서 보인다.
 
         읽기와 같은 모양을 준다 — 확인 화면이 「방금 읽은 판」과 「내가 고친 판」을 같은
         코드로 그리는 자리라 따로 두지 않았다.
       requestBody:
         required: true
-        description: 본문 상한 4 KiB. SFEN 한 줄이 전부다
+        description: 본문 상한 4 KiB. SFEN 한 줄만 실린다
         content:
           application/json:
             schema:
@@ -671,7 +671,7 @@ paths:
 
         **로그인이 필요 없다** (journal §100). 엔진을 지키는 것은 아래 슬롯 하나다.
 
-        **뿌리가 둘이고 같이 못 온다** (journal §129). `handicap` 은 그 手合割의 0手目이고,
+        **뿌리가 둘이고 같이 올 수 없다** (journal §129). `handicap` 은 그 手合割의 0手目이고,
         `sfen` 은 사진에서 읽어 와 사람이 확인한 국면이다 — 그 국면은 手合割+수순으로
         표현할 수가 없다. 둘을 같이 주면 `bad_root`.
 
@@ -684,7 +684,7 @@ paths:
         하나였고, 뿌리가 0手目인 이상 합법적으로 도달하는 국면은 이미 무엇이든 물을 수
         있었다 (journal §85).
 
-        **엔진 슬롯이 1개다.** 풀은 대국이 쓰는 것과 같은 3개인데, 안 묶으면 검토 세 건이
+        **엔진 슬롯이 1개다.** 풀은 대국이 쓰는 것과 같은 3개인데, 묶지 않으면 검토 세 건이
         엔진을 다 잡고 대국의 착수가 그 뒤에 큐에 선다.
       requestBody:
         required: true
@@ -697,7 +697,7 @@ paths:
               properties:
                 handicap:
                   type: string
-                  description: '`/api/handicaps` 의 `id`. 빈 문자열이면 平手. `sfen` 과 같이 못 온다'
+                  description: '`/api/handicaps` 의 `id`. 빈 문자열이면 平手. `sfen` 과 같이 올 수 없다'
                 sfen:
                   type: string
                   description: |
@@ -711,7 +711,7 @@ paths:
       responses:
         '200':
           description: |
-            검토의 지금 자리. `sfen` 뿌리에는 `handicapJa` 도 `baselineCp` 도 안 실린다 —
+            검토의 지금 자리. `sfen` 뿌리에는 `handicapJa` 도 `baselineCp` 도 실리지 않는다 —
             임의의 국면에 手合割이 없어 「형세 0」이 정의되지 않는다
           content:
             application/json:
@@ -723,7 +723,7 @@ paths:
               schema: { $ref: '#/components/schemas/ApiError' }
         '429':
           description: |
-            `busy` — 엔진 슬롯을 3초 기다려도 안 났다. **이 API 에서 429 가 나가는
+            `busy` — 엔진 슬롯을 3초 기다려도 나지 않았다. **이 API 에서 429 가 나가는
             자리는 여기 하나다.** 다시 눌러 볼 수 있는 실패라 503 과 갈라 뒀다
           content:
             application/json:
@@ -760,8 +760,8 @@ paths:
       tags: [snapshots]
       summary: 지금 보고 있는 자리를 남긴다
       description: |
-        **판(SFEN)을 안 받는다.** 手合割 id 와 수순뿐이고, 저장 전에 룰 엔진으로 한 수씩
-        되짚어 본다 — 엔진 탐색이 아니라 합법성 검사라 슬롯을 안 잡는다.
+        **판(SFEN)을 받지 않는다.** 手合割 id 와 수순뿐이고, 저장 전에 룰 엔진으로 한 수씩
+        되짚어 본다 — 엔진 탐색이 아니라 합법성 검사라 슬롯을 잡지 않는다.
 
         이름이 비면 서버가 手数로 하나 짓는다. **개수 상한도 이름의 UNIQUE 도 없다** —
         같은 이름 둘은 手数와 저장 시각이 가른다.
@@ -802,7 +802,7 @@ paths:
       tags: [snapshots]
       summary: 이름만 고친다
       description: |
-        **국면은 안 바뀐다.** 수순을 같은 행에 덮어쓰면 옛 이름이 가리키던 자리가 조용히
+        **국면은 바뀌지 않는다.** 수순을 같은 행에 덮어쓰면 옛 이름이 가리키던 자리가 조용히
         다른 국면이 된다.
 
         없는 것과 남의 것이 **같은 404** 다.
@@ -853,7 +853,7 @@ paths:
       tags: [review]
       summary: 이어할 수 있는 中断된 판 하나
       description: |
-        **로그인 안 했으면 늘 `null`.** 기록이 없는 배포에서도 200 이다 — 첫 화면이 늘
+        **로그인하지 않았으면 늘 `null`.** 기록이 없는 배포에서도 200 이다 — 첫 화면이 늘
         부르는 자리라 실패로 답하면 물음 카드가 아니라 오류가 뜬다.
       security: []
       responses:
@@ -876,7 +876,7 @@ paths:
       tags: [review]
       summary: 「いいえ」 — 그 판을 中断된 채로 닫는다
       description: |
-        다시 안 물어본다. `result` 가 `declined` 가 되고, 되짚기 목록에도 안 걸린다.
+        다시 물어보지 않는다. `result` 가 `declined` 가 되고, 되짚기 목록에도 걸리지 않는다.
 
         **익명에게는 404 다** — 이어할 판이 애초에 없다. 없는 판·남의 판·이미 답한 판이
         모두 같은 404 다.
@@ -894,17 +894,17 @@ paths:
       tags: [match]
       summary: 사람끼리 두는 방 하나
       description: |
-        **로그인 안 했으면 401** — 아직 방이 없으므로 새어 나갈 것이 없다.
+        **로그인하지 않았으면 401** — 아직 방이 없으므로 새어 나갈 것이 없다.
 
         `?color=r`(振り駒)는 **서버가 뽑는다.** 클라이언트가 뽑아 `b`/`w` 로 보내면
-        마음에 안 드는 결과를 다시 뽑을 수 있고, 그러면 振り駒가 아니라 그냥 고르는 것이다.
+        마음에 들지 않는 결과를 다시 뽑을 수 있고, 그러면 振り駒가 아니라 그냥 고르는 것이다.
 
         호스트당 열린 방은 **1개**. 더 만들면 앞의 방이 밀려나고, 그 방에 들어가려던
         사람은 `room_closed` 를 받는다.
       parameters:
         - name: color
           in: query
-          description: 못 읽으면 `b`. 목록을 서버가 아는 값이라 이상한 값은 클라이언트가 틀린 것이고, 그때 방을 거절하는 것보다 先手로 여는 쪽이 낫다
+          description: 읽지 못하면 `b`. 목록을 서버가 아는 값이라 이상한 값은 클라이언트가 틀린 것이고, 그때 방을 거절하는 것보다 先手로 여는 쪽이 낫다
           schema: { type: string, enum: [b, w, r], default: b }
       responses:
         '200':
@@ -923,10 +923,10 @@ paths:
       tags: [match]
       summary: 그 방을 들어가기 전에 확인한다
       description: |
-        **자리를 안 잡는다** — 앉는 것은 `/ws/match` 가 붙을 때다. 링크를 잘못 누른 사람이 자기도
-        모르게 자리를 차지하면 정원 2명인 그 방은 그때부터 아무도 못 들어간다.
+        **자리를 잡지 않는다** — 앉는 것은 `/ws/match` 가 붙을 때다. 링크를 잘못 누른 사람이 자기도
+        모르게 자리를 차지하면 정원 2명인 그 방은 그때부터 누구도 들어갈 수 없다.
 
-        **볼 수 없으면 404 하나다.** 로그인 안 한 경우도 401 이 아니라 404 다 — 방 id 가
+        **볼 수 없으면 404 하나다.** 로그인하지 않은 경우도 401 이 아니라 404 다 — 방 id 가
         곧 열쇠라, 「있다/없다」를 로그인 여부로 구별해 주면 id 를 훑어볼 수 있다.
       security: []
       parameters:
@@ -1031,7 +1031,7 @@ paths:
         **엔진이 없어도 된다** — 룰 엔진과 시계뿐이다. 개입도 힌트도 待った도 없고,
         프로토콜에 그 메시지가 **아예 없다.**
 
-        **상대 차례에는 합법수 목록을 안 보낸다.** 주면 상대의 수를 화면에서 훑어볼 수
+        **상대 차례에는 합법수 목록을 보내지 않는다.** 주면 상대의 수를 화면에서 훑어볼 수
         있고, 그건 부정행위 보조다.
 
         로그인 필수 — 익명은 서로 구별할 수단이 없어 정원 2명이라는 규칙이 성립하지 않는다.
@@ -1092,21 +1092,21 @@ components:
     StoreUnavailable:
       description: |
         `store_unavailable` — 이 배포에 DB 가 없다. **대국은 된다** — 엔진이 죽어
-        대국을 못 해도 지난 판은 볼 수 있어야 하고, 그 반대도 같다
+        대국을 할 수 없어도 지난 판은 볼 수 있어야 하고, 그 반대도 같다
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ApiError' }
     QueueUnavailable:
       description: |
         `store_unavailable` — 대기열이 표에 있어서(`match_queue`) 기록이 없는 배포에서는
-        못 선다. **방은 그대로 열린다** — 대인전의 다른 셋은 DB 를 안 탄다
+        설 수 없다. **방은 그대로 열린다** — 대인전의 다른 셋은 DB 를 타지 않는다
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ApiError' }
     SnapshotStoreUnavailable:
       description: |
         `store_unavailable` — 검토 자체는 기록 없이도 서지만 저장은 그럴 수가 없다.
-        여기서 401 로 답하면 로그인한 뒤에도 안 되는 자리를 가리킨다
+        여기서 401 로 답하면 로그인한 뒤에도 되지 않는 자리를 가리킨다
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ApiError' }
@@ -1182,7 +1182,7 @@ components:
           type: string
           maxLength: 65536
           description: |
-            기보 원문. 형식을 안 받는다 — 서버가 결정적 파서를 차례로 대 보고,
+            기보 원문. 형식을 받지 않는다 — 서버가 결정적 파서를 차례로 대 보고,
             전부 실패하면 그때만 정규화 계층을 지난다
 
     KifuImportRequest:
@@ -1197,7 +1197,7 @@ components:
               type: string
               enum: [win, loss, draw]
               description: |
-                **기보가 결과를 안 말할 때만 쓴다.** 말하면 기록이 이긴다 — 사람이
+                **기보가 결과를 말하지 않을 때만 쓴다.** 말하면 기록이 이긴다 — 사람이
                 자기 승패를 잘못 고르는 것보다 기보가 맞다. 어느 쪽도 없으면 `400 result` 다
 
     KifuPreview:
@@ -1207,7 +1207,7 @@ components:
         plies: { type: integer, minimum: 1 }
         handicapJa:
           type: string
-          description: 手合割 이름. 平手면 안 온다 — GameSummary 와 같은 규약이다
+          description: 手合割 이름. 平手면 오지 않는다 — GameSummary 와 같은 규약이다
           examples: ['香落ち']
         sente: { type: string }
         gote: { type: string }
@@ -1215,12 +1215,12 @@ components:
           type: string
           enum: [sente, gote, draw]
           description: |
-            **기보가 말한 결과**다(先手/後手 기준, 주인 관점이 아니다). 안 말하면
-            안 오고, 그때 화면이 사람에게 묻는다
+            **기보가 말한 결과**다(先手/後手 기준, 주인 관점이 아니다). 말하지 않으면
+            오지 않고, 그때 화면이 사람에게 묻는다
         transcribed:
           type: boolean
           description: |
-            결정적 파서가 못 읽어 OpenAI 를 지났나. 참이면 화면이
+            결정적 파서가 읽지 못해 OpenAI 를 지났나. 참이면 화면이
             「AI が書式を読み取りました」를 한 줄 붙인다 — 옮겨 적은 수도 전부 룰
             엔진을 지나 왔지만, 사람이 눈으로 확인할 수 있게 하는 것이 지어내기에
             대한 두 번째 방어다
@@ -1232,7 +1232,7 @@ components:
           type: array
           items: { type: string }
           description: |
-            뒤쪽. 짧은 판에는 안 온다. **앞뒤를 같이 주는 것이 요점이다** — 앞만
+            뒤쪽. 짧은 판에는 오지 않는다. **앞뒤를 같이 준다** — 앞만
             주면 「뒤가 잘렸는가」를 사람이 알 수 없고, 그것이 가져오기의 가장 흔한 오류다
 
     GameSummary:
@@ -1246,7 +1246,7 @@ components:
           type: string
           format: date-time
           description: |
-            **두는 중이면 안 온다.** 빈 값으로 보내면 화면이 「1970년에 끝난 판」을 그린다.
+            **두는 중이면 오지 않는다.** 빈 값으로 보내면 화면이 「1970년에 끝난 판」을 그린다.
 
             이 두 경로(`/api/games` · `/api/games/{id}`)에서는 언제나 온다 — 결과가 나온
             판만 거르기 때문이다. 구조체가 두는 중인 판도 담을 수 있게 생긴 것이지, 이
@@ -1261,14 +1261,14 @@ components:
         moveCount:
           type: integer
           minimum: 1
-          description: 한 수도 안 둔 판은 목록에 없다 — 연결만 열렸다 끊긴 판이 실제로 그렇게 남는다
+          description: 한 수도 두지 않은 판은 목록에 없다 — 연결만 열렸다 끊긴 판이 실제로 그렇게 남는다
         interventionCount:
           type: integer
           description: 물러진 횟수. 같은 국면에서 여러 번 물러지면 그만큼 센다
         handicapJa:
           type: string
           description: |
-            그 판의 手合割 이름(일본어). **平手면 안 온다.** 화면이 이름을 만들지
+            그 판의 手合割 이름(일본어). **平手면 오지 않는다.** 화면이 이름을 만들지
             않는다 — 이 줄이 없으면 駒落ち 판의 형세 그래프가 +1386 에서 시작하는
             이유가 화면 어디에도 없어서, 되짚는 사람이 그것을 「엄청 잘 둔 판」으로 읽는다
           examples: ['二枚落ち']
@@ -1302,10 +1302,10 @@ components:
             baselineCp:
               type: integer
               description: |
-                이 판의 「형세 0」(플레이어 관점). 平手면 0 이라 안 온다.
+                이 판의 「형세 0」(플레이어 관점). 平手면 0 이라 오지 않는다.
 
                 **목록에는 없고 여기만 있다.** 쓰는 곳이 형세 그래프와 후보 줄의 색뿐이고,
-                빼면 駒落ち 판의 곡선이 천장에 붙어 어디서 흘렸는지가 안 보인다
+                빼면 駒落ち 판의 곡선이 천장에 붙어 어디서 흘렸는지가 보이지 않는다
             moves:
               type: array
               description: |
@@ -1339,7 +1339,7 @@ components:
           description: |
             **플레이어 관점** cp. DB 의 先手 관점을 여기서 뒤집는다.
 
-            `null` 은 그 手数에 평가치가 안 붙었다는 뜻이고 **0 과 다르다** — 0 은 호각이다
+            `null` 은 그 手数에 평가치가 붙지 않았다는 뜻이고 **0 과 다르다** — 0 은 호각이다
         checked:
           $ref: '#/components/schemas/Square'
           description: 이 수 뒤에 王手를 받고 있는 玉의 칸. 아니면 빈 값
@@ -1357,7 +1357,7 @@ components:
           type: string
           enum: [blunder, tesuji]
           description: '`blunder` = 제지형(착수 후 롤백) · `tesuji` = 제안형(착수 전 알림)'
-        category: { type: string, description: 기계용 코드. **화면에 안 나간다** }
+        category: { type: string, description: 기계용 코드. **화면에 나가지 않는다** }
         categoryJa: { type: string, description: 서버가 만든 일본어 }
         message: { type: string, description: 결정적 템플릿이 만든 일본어 }
         deltaWin: { type: number, format: double, description: 승률 낙폭 }
@@ -1365,7 +1365,7 @@ components:
         retractedUsi: { $ref: '#/components/schemas/USIMove' }
         retractedJa:
           type: string
-          description: 물러진 수의 棋譜 표기. 재현이 그 手数까지 못 갔으면 비어 있다
+          description: 물러진 수의 棋譜 표기. 재현이 그 手数까지 가지 못했으면 비어 있다
         afterCp:
           type: [integer, 'null']
           description: |
@@ -1375,7 +1375,7 @@ components:
           type: [integer, 'null']
           description: |
             판정 당시 최선수의 cp. `deltaWin` 과 겹치지 않는다 — 낙폭은 그때 K 로 구한
-            승률 차라 K 가 바뀌면 낡고, 이 값은 원본이라 안 낡는다
+            승률 차라 K 가 바뀌면 낡고, 이 값은 원본이라 낡지 않는다
 
     ReviewUndo:
       type: object
@@ -1472,7 +1472,7 @@ components:
               share: { type: number, format: double }
         styles:
           type: array
-          description: 사람이 짠 囲い·전법·戦型. **手筋은 안 담는다**
+          description: 사람이 짠 囲い·전법·戦型. **手筋은 담지 않는다**
           items:
             type: object
             required: [code, nameJa, kind, games]
@@ -1492,7 +1492,7 @@ components:
         moveCount:
           type: integer
           minimum: 1
-          description: 한 수도 안 둔 판은 목록에 없다 — 연결만 열렸다 끊긴 판이 실제로 그렇게 남는다
+          description: 한 수도 두지 않은 판은 목록에 없다 — 연결만 열렸다 끊긴 판이 실제로 그렇게 남는다
         opening: { type: string }
         openingJa: { type: string }
         handicap: { type: string }
@@ -1509,7 +1509,7 @@ components:
           description: |
             **상대에 대해 나가는 것은 표시 이름 하나다.** 段級도 전적도 없다 —
             「이 사람은 종반에 약하다」가 대인전 상대에게 넘어가면 안 된다
-        waiting: { type: boolean, description: 아직 상대가 안 들어왔나 }
+        waiting: { type: boolean, description: 아직 상대가 들어오지 않았나 }
         isHost: { type: boolean }
 
     QueueStatus:
@@ -1536,7 +1536,7 @@ components:
           type: integer
           description: |
             지금 대기열에 서 있는 사람 수(자기 포함). 화면이 이걸 말해야
-            「안 잡히는 것」과 「고장」이 갈린다
+            「잡히지 않는 것」과 「고장」이 갈린다
 
     QueueMatched:
       type: object
@@ -1546,7 +1546,7 @@ components:
         roomId:
           type: string
           description: |
-            갈 방. 손님이 처음부터 정해져 있어서 제3자가 못 앉고 **확인 화면도 건너뛴다**
+            갈 방. 손님이 처음부터 정해져 있어서 제3자가 앉을 수 없고 **확인 화면도 건너뛴다**
           pattern: '^[A-Za-z0-9]{8}$'
         yourColor: { $ref: '#/components/schemas/Color' }
 
@@ -1557,8 +1557,8 @@ components:
         usi: { $ref: '#/components/schemas/USIMove' }
         ja: { type: string }
         evalCp: { type: integer }
-        lossCp: { type: integer, description: 최선수와의 차. 최선수면 안 온다 }
-        mateIn: { type: integer, description: 詰みまでの手数. 없으면 안 온다 }
+        lossCp: { type: integer, description: 최선수와의 차. 최선수면 오지 않는다 }
+        mateIn: { type: integer, description: 詰みまでの手数. 없으면 오지 않는다 }
 
     WhatifNode:
       type: object
@@ -1600,13 +1600,13 @@ components:
         - $ref: '#/components/schemas/WhatifNode'
         - type: object
           properties:
-            handicapJa: { type: string, description: 平手면 안 온다. `sfen` 뿌리에도 안 온다 }
+            handicapJa: { type: string, description: 平手면 오지 않는다. `sfen` 뿌리에도 오지 않는다 }
             baselineCp:
               type: integer
               description: |
-                그 手合의 「형세 0」(**先手 관점**). 平手면 0 이라 안 온다.
+                그 手合의 「형세 0」(**先手 관점**). 平手면 0 이라 오지 않는다.
 
-                **`sfen` 뿌리에도 안 온다** (journal §129). 임의의 국면에 手合割이 없어
+                **`sfen` 뿌리에도 오지 않는다** (journal §129). 임의의 국면에 手合割이 없어
                 「형세 0」이 정의되지 않고, 그래서 화면이 「互角ライン」을 말하지 않는다.
 
                 **부호를 뒤집지 않는다.** 되짚기는 사람이 上手일 수 있어 기준점을 플레이어
@@ -1631,10 +1631,10 @@ components:
           description: |
             **이 국면이 어긴 규칙 전부.** 비어야 분석으로 넘어갈 수 있다.
 
-            하나에서 안 멈춘다 — 잘못 읽은 사진은 여러 자리가 함께 틀리고, 하나씩 말하면
+            하나에서 멈추지 않는다 — 잘못 읽은 사진은 여러 자리가 함께 틀리고, 하나씩 말하면
             사람이 고치고 다시 누르기를 사유 수만큼 반복한다.
 
-            **여기가 못 잡는 오독이 있다.** 銀을 成銀으로 읽은 판도 駒의 방향을 뒤집어 읽은
+            **여기서 잡지 못하는 오독이 있다.** 銀을 成銀으로 읽은 판도 駒의 방향을 뒤집어 읽은
             판도 여전히 합법적인 국면이라, 그 자리의 검증자는 사람뿐이다.
           items: { $ref: '#/components/schemas/PositionFault' }
         warnings:
@@ -1658,7 +1658,7 @@ components:
           minimum: 0
           maximum: 80
           description: |
-            화면 배열 인덱스. 칸으로 짚을 수 없는 사유(말 수·玉 수)면 안 온다.
+            화면 배열 인덱스. 칸으로 짚을 수 없는 사유(말 수·玉 수)면 오지 않는다.
             서버와 화면의 좌표 규약이 같아 변환이 없다.
         message:
           type: string
@@ -1670,7 +1670,7 @@ components:
       properties:
         id: { type: integer, format: int64 }
         name: { type: string }
-        handicap: { type: string, description: 平手면 안 온다 }
+        handicap: { type: string, description: 平手면 오지 않는다 }
         handicapJa: { type: string }
         moves:
           type: array
@@ -1713,7 +1713,7 @@ components:
               $ref: '#/components/schemas/Square'
               description: |
                 詰ます 쪽이 자기도 王手를 받고 있을 수 있다 — 王手를 풀면서 거는 수만
-                남은 국면이 그렇다. 안 보내면 첫 수를 둘 때까지 판이 그 사실을 안 그린다
+                남은 국면이 그렇다. 보내지 않으면 첫 수를 둘 때까지 판이 그 사실을 그리지 않는다
         best:
           type: array
           items:
@@ -1756,7 +1756,7 @@ components:
             「무엇을 어디서 움직이나」(「7九の銀」). **세 번째 오답에서만 온다.**
 
             정답 수는 이 응답에 **아예 없다.** 채점기는 정답을 알지만 전송 계층이
-            내보내지 않는다 — 그것이 채점을 서버에 둔 이유다
+            내보내지 않는다 — 그래서 채점을 서버에 뒀다
           examples: ['7九の銀']
 
     BestResponse:
@@ -1767,7 +1767,7 @@ components:
         answer:
           $ref: '#/components/schemas/USIMove'
           description: |
-            **맞혔을 때만 온다.** 문구에서 지우는 것으로는 안 됐다 — 응답에 남아
+            **맞혔을 때만 온다.** 문구에서 지우는 것으로는 되지 않았다 — 응답에 남아
             있으면 화면이 그것을 다른 칸에 그대로 적고 있었다
         answerJa: { type: string }
         answerCp:
@@ -1779,16 +1779,16 @@ components:
         move:
           $ref: '#/components/schemas/USIMove'
           description: |
-            **지금 이 문항에 낸 수.** `played` 와 다르다 — 저쪽은 그 판에서 실제로 둔
-            수다. 뭉치면 오답 문구가 그 판에서 둔 수만 말하게 되고, 방금 낸 사람에게는
-            자기가 낸 수가 어디에도 없는 문장이 된다
+            **지금 이 문항에 고른 수.** `played` 와 다르다 — 저쪽은 그 판에서 실제로 둔
+            수다. 뭉치면 오답 문구가 그 판에서 둔 수만 말하게 되고, 방금 고른 사람에게는
+            자기가 고른 수가 어디에도 없는 문장이 된다
         moveJa: { type: string }
         sfen:
           type: string
           description: |
-            낸 수를 둔 뒤의 판. 못 만들었으면 빈 값이고, 그때 화면은 문제 국면을 그대로
-            세운다. **낸 수를 판에서 보여주는 유일한 길이다** — 화면은 규칙을 모르므로
-            스스로 한 수도 못 둔다. 打과 반상 이동이 갈리는 자리도 여기다
+            고른 수를 둔 뒤의 판. 만들지 못했으면 빈 값이고, 그때 화면은 문제 국면을 그대로
+            세운다. **고른 수를 판에서 보여주는 유일한 길이다** — 화면은 규칙을 모르므로
+            스스로 한 수도 둘 수 없다. 打과 반상 이동이 갈리는 자리도 여기다
         checked: { $ref: '#/components/schemas/Square' }
         played:
           $ref: '#/components/schemas/USIMove'

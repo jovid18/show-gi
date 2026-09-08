@@ -10,11 +10,11 @@
 // 「같은 깊이면 후보가 많은 쪽이 이긴다」로 질의가 정리한다(query/positions.sql).
 //
 // ENGINE_DEPTH 를 걸면 그 여섯이 갈린다. 상대 수와 퀴즈만 그 값을 읽고(cmd/api/main.go 의
-// engineDepth) 나머지 넷은 상수라, 캐시가 서로 못 쓰는 두 무리가 된다 — 깊이를 흔들어
+// engineDepth) 나머지 넷은 상수라, 캐시가 서로 쓸 수 없는 두 무리가 된다 — 깊이를 흔들어
 // 볼 때 히트율이 같이 떨어지는 것이 그 때문이다.
 //
-// 詰み 탐색은 같은 겹을 따로 지난다(Mate). 표를 따로 둔 이유는 017_mate_positions.sql 에
-// 있고, 저쪽은 깊이가 아니라 手数 한계로 갈린다 — 이 파일의 규약이 그쪽에 그대로 안 걸린다.
+// 詰み 탐색은 같은 겹을 따로 지난다(Mate). 표를 따로 둔 근거는 017_mate_positions.sql 에
+// 있고, 저쪽은 手数 한계로 갈린다 — 이 파일의 규약이 그쪽에 그대로 걸리지 않는다.
 //
 // 무엇이 어디에 남는지는 positions·edges 의 DDL(001_init.sql)과 02-architecture.md §4.
 package archive
@@ -38,7 +38,7 @@ import (
 // writeTimeout 은 기록 한 건에 주는 시간이다.
 //
 // 대국을 기다리게 하지 않는다. 기록은 탐색이 끝난 뒤 따로 도는 goroutine이고,
-// 요청 ctx를 물려받지 않는다 — 물려받으면 사람이 다음 수를 두는 순간(개입 회차가
+// 요청 ctx를 물려받지 않는다 — 물려받으면 사람이 다음 수를 두는 순간(개입 판정이
 // 끝나 ctx가 닫히는 순간) 방금 잰 분석이 그대로 버려진다.
 const writeTimeout = 5 * time.Second
 
@@ -53,10 +53,10 @@ type Store interface {
 // Metrics 는 탐색 하나를 받는 자리다.
 //
 // 엔진을 부르는 여섯 자리가 다 여기를 지나므로 계측도 여기 하나면 된다 —
-// 기록을 이 자리에 붙인 것과 같은 이유다.
+// 기록도 같은 판단으로 이 자리에 붙였다.
 type Metrics interface {
 	// ObserveSearch 는 탐색 하나가 답을 받기까지 걸린 시간이다. 풀 대기가 들어 있다 —
-	// 재는 자리가 풀 바깥이라 부르는 쪽이 실제로 기다린 시간이다. cached 면 엔진을 안 부른 것이다.
+	// 재는 자리가 풀 바깥이라 부르는 쪽이 실제로 기다린 시간이다. cached 면 엔진을 부르지 않은 것이다.
 	ObserveSearch(d time.Duration, cached bool)
 }
 
@@ -68,7 +68,7 @@ type Engine interface {
 // Searcher 는 탐색을 그대로 넘기고 결과를 남긴다.
 //
 // game.MultiSearcher · game.Searcher · server.Searcher 를 한꺼번에 만족한다 —
-// 세 인터페이스가 같은 하나를 받아야 「여섯 자리 중 하나가 안 감싸졌다」가 생기지 않는다.
+// 세 인터페이스가 같은 하나를 받아야 「여섯 자리 중 하나가 감싸지지 않았다」가 생기지 않는다.
 type Searcher struct {
 	inner Engine
 	store Store
@@ -76,11 +76,11 @@ type Searcher struct {
 	// metrics 는 기동 중에 한 번 달리고 그 뒤로는 읽기만 한다. nil 이면 계측이 꺼진다.
 	metrics Metrics
 
-	// wg 는 떠 있는 기록들이다. 종료할 때 이것만 기다리면 방금 잰 분석이 안 버려진다.
+	// wg 는 떠 있는 기록들이다. 종료할 때 이것만 기다리면 방금 잰 분석이 버려지지 않는다.
 	wg sync.WaitGroup
 }
 
-// Wrap 은 탐색에 기록을 붙인다. st 가 nil이면 아무것도 안 쌓고 그대로 넘긴다 —
+// Wrap 은 탐색에 기록을 붙인다. st 가 nil이면 아무것도 쌓지 않고 그대로 넘긴다 —
 // DB가 없어도 대국은 된다는 이 레포의 판단과 같은 자리다.
 func Wrap(inner Engine, st Store) *Searcher {
 	return &Searcher{inner: inner, store: st}
@@ -111,14 +111,14 @@ func (a *Searcher) SearchMultiPV(
 ) (usi.SearchResult, error) {
 	start := time.Now()
 
-	// 이미 잰 국면이면 엔진을 안 부른다. 여기가 §12의 캐시를 실제로 쓰는 자리다 —
+	// 이미 잰 국면이면 엔진을 부르지 않는다. 여기가 §12의 캐시를 실제로 쓰는 자리다 —
 	// 상대의 수는 k=10으로 2초쯤 걸리고, 사람의 수를 판정하는 「착수 전」 탐색은 방금
 	// 그 상대가 이미 잰 그 국면이다.
 	if a.store != nil {
 		if pos, err := positionAfter(startSFEN, moves); err == nil {
 			if hit, ok := a.lookup(ctx, pos, depth, multiPV); ok {
 				// 히트에도 「이 국면에 오게 한 수」는 남긴다. 국면은 이미 있어도 그
-				// 국면으로 오는 길은 새것일 수 있다(전치가 그것이다) — 안 남기면 그
+				// 국면으로 오는 길은 새것일 수 있다(전치가 그것이다) — 남기지 않으면 그
 				// 간선이 영원히 비어 있고, A→B를 쌓는다는 말이 반만 사실이 된다.
 				line := slices.Clone(moves)
 				a.wg.Add(1)
@@ -151,11 +151,11 @@ func (a *Searcher) SearchMultiPV(
 	return res, nil
 }
 
-// lookup 은 이미 잰 국면을 탐색 결과의 모양으로 되돌린다. 못 쓰면 ok=false.
+// lookup 은 이미 잰 국면을 탐색 결과의 모양으로 되돌린다. 쓰지 못하면 ok=false.
 //
 // 되돌릴 것이 둘이다 — 후보 목록(Lines)은 positions, 부르는 쪽이 보는 깊이별
 // 값(History)은 edges.eval_by_depth 다. 쓰는 조건도 둘이라 깊이와 후보 수를 둘 다
-// 넘어야 한다. 어느 하나를 빠뜨렸을 때 무엇이 조용히 사라지는지는 journal §37.
+// 넘어야 한다. 어느 하나를 빠뜨렸을 때 무엇이 경고 없이 사라지는지는 journal §37.
 func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiPV int) (usi.SearchResult, bool) {
 	key := Key(pos)
 	p, err := a.store.GetPosition(ctx, key)
@@ -192,7 +192,7 @@ func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiP
 		res.Lines = append(res.Lines, line)
 
 		// 저장은 先手 관점이고 탐색 결과는 수번 관점이다. 되돌리는 것을 빠뜨리면
-		// 後手로 잡은 판에서만 부호가 뒤집히고, 에러는 안 난다.
+		// 後手로 잡은 판에서만 부호가 뒤집히고, 에러는 나지 않는다.
 		for d, sc := range byMove[c.USI] {
 			res.History = append(res.History, usi.SearchLine{
 				Depth: d + 1, MultiPV: i + 1, Move: c.USI, Score: senteScore(sc, pos.Turn),
@@ -207,9 +207,9 @@ func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiP
 
 // wanted 는 그 국면에서 실제로 있을 수 있는 후보 수다.
 //
-// 합법수가 k보다 적으면 후보도 k개가 안 된다. 그걸 「모자란다」로 보면 그 자리는
-// 영원히 캐시를 못 쓰고 매번 다시 잰다(journal §37). 합법수를 세는 것은 룰 엔진
-// 몫이라 엔진을 안 부른다.
+// 합법수가 k보다 적으면 후보도 k개가 되지 않는다. 그걸 「모자란다」로 보면 그 자리는
+// 영원히 캐시를 쓰지 못하고 매번 다시 잰다(journal §37). 합법수를 세는 것은 룰 엔진
+// 몫이라 엔진을 부르지 않는다.
 func wanted(pos shogi.Position, multiPV int) int {
 	if multiPV <= 1 {
 		return multiPV
@@ -217,7 +217,7 @@ func wanted(pos shogi.Position, multiPV int) int {
 	return min(multiPV, len(pos.LegalMoves()))
 }
 
-// positionAfter 는 시작 국면에서 그 수순을 둔 국면이다. 못 두면 에러다 —
+// positionAfter 는 시작 국면에서 그 수순을 둔 국면이다. 두지 못하면 에러다 —
 // 그 위에 데이터를 쌓거나 꺼내면 없던 국면을 다루게 된다.
 func positionAfter(startSFEN string, moves []string) (shogi.Position, error) {
 	pos, err := shogi.ParseSFEN(startSFEN)
@@ -305,7 +305,7 @@ func (a *Searcher) record(startSFEN string, moves []string, res usi.SearchResult
 	cands := Candidates(res)
 
 	// ① 국면. 후보와 도달 깊이가 함께 간다 — 깊이만 맞고 후보가 얕은 행은 다음
-	// 호출자가 못 쓴다(질의가 그래서 후보 수를 견준다).
+	// 호출자가 쓸 수 없다(질의가 그래서 후보 수를 견준다).
 	if _, err := a.store.PutPosition(ctx, store.Position{
 		SFENKey:       key,
 		SideToMove:    sideOf(pos.Turn),
@@ -394,7 +394,7 @@ func (a *Searcher) namesFor(
 	mover := parent.Turn
 
 	// 手筋은 엔진이 값을 인정한 것만이다. 부모의 평가치를 캐시에서 꺼내 온다 —
-	// 없으면 이 축은 통째로 건너뛴다.
+	// 없으면 이 판정 전체를 건너뛴다.
 	var names []string
 	if len(childCands) > 0 {
 		if p, err := a.store.GetPosition(ctx, Key(parent)); err == nil && len(p.Candidates) > 0 {
@@ -409,7 +409,7 @@ func (a *Searcher) namesFor(
 		}
 	}
 
-	// 囲い·전법·戦型은 엔진을 안 본다. 형태가 성립했는가뿐이라 판만 있으면 나온다.
+	// 囲い·전법·戦型은 엔진을 보지 않는다. 형태가 성립했는가뿐이라 판만 있으면 나온다.
 	// 전법은 수순이 있어야 나온다 — 수순 없이 부르면 飛를 振った 것을 모른다.
 	var prevMoverMoves []string
 	if len(moverMoves) > 0 {
@@ -462,7 +462,7 @@ func splitMovesBySide(startSFEN string, moves []string, mover shogi.Color) (move
 }
 
 // Key 는 국면 하나를 가리키는 키다. 정의는 shogi.PositionKey 에 있다 — internal/game
-// 도 같은 자를 써야 하는데 그쪽이 이 패키지를 못 들여오므로(store 가 딸려 온다), 정의를
+// 도 같은 자를 써야 하는데 그쪽이 이 패키지를 들여올 수 없으므로(store 가 딸려 온다), 정의를
 // 한 단계 아래로 내렸다. 이 이름은 부르는 쪽이 이미 넷이라 남겨 둔다.
 func Key(pos shogi.Position) string { return shogi.PositionKey(pos) }
 
@@ -483,7 +483,7 @@ func Candidates(res usi.SearchResult) []store.Candidate {
 }
 
 // senteCp 는 수번 측 관점 cp를 先手 관점으로 옮긴다. edges.eval_by_depth 의 규약이고
-// (001_init.sql) game.senteCp 와 같은 연산이다 — 색이 다른 두 판을 나란히 놓기 위한 것이다.
+// (001_init.sql) game.senteCp 와 같은 연산이다 — 색이 다른 두 판을 함께 놓기 위한 것이다.
 func senteCp(moverCp int, mover shogi.Color) int {
 	if mover == shogi.Black {
 		return moverCp

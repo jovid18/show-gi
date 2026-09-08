@@ -67,15 +67,15 @@ func (m *scriptedMate) count() int {
 // mateInOneSFEN 은 사람(先手)에게 1手詰이 있는 국면이다. G*5b 하나로 끝난다.
 //
 // 玉5a의 도망 칸은 4a·6a가 자기 香로 막혀 있고 4b·6b는 打った 金이 덮는다. 金을 玉으로
-// 되따지 못하는 것은 4三의 銀이 5b를 받치기 때문이고, 香는 直進뿐이라 5b에 못 닿는다.
+// 되따지 못하는 것은 4三의 銀이 5b를 받치기 때문이고, 香는 直進뿐이라 5b에 닿을 수 없다.
 //
 // 銀으로 받쳐야 한다. 5筋의 香로 받치면 그 香가 玉에게도 닿아 「先手 차례인데 後手가
 // 이미 王手를 받는」 국면이 된다. 아래 테스트가 그것을 잡는다.
 const mateInOneSFEN = "3lkl3/9/5S3/9/9/9/9/9/8K b G 1"
 
-// 위 국면이 정말로 1手詰인지를 엔진 없이 먼저 못박는다.
+// 위 국면이 정말로 1手詰인지를 엔진 없이 먼저 확인한다.
 //
-// 손으로 만든 국면이라 이 확인이 없으면 배선과 국면 중 무엇이 틀렸는지를 못 가른다
+// 손으로 만든 국면이라 이 확인이 없으면 배선과 국면 중 무엇이 틀렸는지를 가를 수 없다
 // (journal §31).
 func TestMateInOneSFENReallyIsMateInOne(t *testing.T) {
 	pos, err := shogi.ParseSFEN(mateInOneSFEN)
@@ -152,7 +152,7 @@ func TestMateGaugeLightsOnPlayerTurn(t *testing.T) {
 }
 
 // 게이지가 묻는 것은 「지금」 국면이다. 판정이 착수 전 국면을 묻는 것과 다른 자리라,
-// 여기가 어긋나면 화면이 한 수 낡은 불꽃을 그린다.
+// 여기가 어긋나면 화면이 한 수 오래된 불꽃을 그린다.
 func TestMateGaugeAsksTheCurrentPosition(t *testing.T) {
 	mate := &scriptedMate{plies: 1}
 	opp := &scriptedOpponent{moves: []string{"3c3d"}}
@@ -246,7 +246,7 @@ func TestNoMateSearcherMeansNoGauge(t *testing.T) {
 
 // 실제 solver 로 게이지가 끝까지 도는가.
 //
-// 가짜로는 안 잡히는 것이 하나 있다 — solver 가 「수번 측의 詰み」을 답한다는 전제다.
+// 가짜로는 잡히지 않는 것이 하나 있다 — solver 가 「수번 측의 詰み」을 답한다는 전제다.
 // 그 전제가 틀리면 게이지는 내 玉이 위험할 때 켜지는, 정확히 반대의 물건이 된다.
 // SHOWGI_MATE_CMD 가 없으면 건너뛴다 — CI 러너에는 엔진이 없다(README).
 //

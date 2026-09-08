@@ -54,7 +54,7 @@ func TestGaugeGoesBothWays(t *testing.T) {
 }
 
 func TestNilRegistryIsSilent(t *testing.T) {
-	// 지표가 꺼진 배포(테스트가 그렇다)에서 호출 자리가 nil 검사를 안 해도 되게 한다.
+	// 지표가 꺼진 배포(테스트가 그렇다)에서 호출 자리가 nil 검사를 하지 않아도 되게 한다.
 	var r *Registry
 	r.ObserveHTTP("GET /healthz", "200", 0)
 	r.Session(KindGame)()
@@ -176,10 +176,10 @@ func text(t *testing.T, r *Registry) string {
 	return b.String()
 }
 
-// 회차를 여러 번 비워도 표본이 그 회차 전체를 대표해야 한다.
+// 주기를 여러 번 비워도 표본이 그 주기 전체를 대표해야 한다.
 //
-// 교체 확률의 분모를 누적 관측 수로 두면 회차가 지날수록 확률이 0으로 내려가서,
-// 배열이 「그 회차 앞머리 100건」으로 굳는다. 그러면 앞이 조용하고 뒤가 밀린 분에
+// 교체 확률의 분모를 누적 관측 수로 두면 주기가 지날수록 확률이 0으로 내려가서,
+// 배열이 「그 주기 앞머리 100건」으로 굳는다. 그러면 앞이 조용하고 뒤가 밀린 분에
 // p95 가 0.01초로 나온다 — 하필 알람이 울려야 하는 분이다.
 func TestSamplesRepresentEachInterval(t *testing.T) {
 	const rounds, perRound = 20, 500
@@ -202,9 +202,9 @@ func TestSamplesRepresentEachInterval(t *testing.T) {
 		}
 	}
 
-	// 고르게 뽑으면 회차마다 50개 안팎이다. 굳으면 첫 회차 뒤로 0에 붙는다.
+	// 고르게 뽑으면 주기마다 50개 안팎이다. 굳으면 첫 주기 뒤로 0에 붙는다.
 	if late < rounds*maxSamples/4 {
-		t.Fatalf("느린 쪽 표본이 %d개 / %d회차 — 회차가 지나며 굳었다", late, rounds)
+		t.Fatalf("느린 쪽 표본이 %d개 / %d주기 — 주기가 지나며 굳었다", late, rounds)
 	}
 }
 
@@ -221,7 +221,7 @@ func TestNilRegistryHooksAreSilent(t *testing.T) {
 }
 
 // 라벨이 없는 계열도 텍스트 표면에 나가야 한다. 대기열의 셋이 이 앱의 첫 라벨 없는
-// 지표이고(match_pairings_total 외 둘), EMF 에는 안 올리므로 여기가 유일한 출구다.
+// 지표이고(match_pairings_total 외 둘), EMF 에는 올리지 않으므로 여기가 하나뿐인 출구다.
 func TestUnlabeledFamiliesReachTheTextSurface(t *testing.T) {
 	r := New("api", "test")
 	// 짝 하나. 대기 시간은 두 사람 몫이 들어간다.
@@ -255,7 +255,7 @@ func TestAnalysisHooksAreSilentWithoutRegistry(t *testing.T) {
 	a.ObserveGame(AnalysisDropped, 0)
 }
 
-// 버려진 판은 시간을 안 남긴다. 재 보지도 않고 나간 것이라, 그 0이 분포에 섞이면
+// 버려진 판은 시간을 남기지 않는다. 재 보지도 않고 나간 것이라, 그 0이 분포에 섞이면
 // 「판 하나를 재는 데 얼마나 걸리나」가 아래로 끌린다.
 func TestDroppedGamesLeaveNoDuration(t *testing.T) {
 	r := New("api", "test")

@@ -15,20 +15,20 @@ import type { ExploreSnapshot } from '@/protocol/explore';
  * 검토에서 저장한 국면 목록과 그것을 고치는 셋.
  *
  * 고친 뒤에 다시 묻지 않고 서버가 답한 행으로 그 자리만 고친다 — 다시 물으면 목록이
- * 한 번 사라졌다 다시 그려지고, 그 사이에 방금 저장한 줄을 못 찾는다.
+ * 한 번 사라졌다 다시 그려지고, 그 사이에 방금 저장한 줄을 찾지 못한다.
  *
- * `useFetch` 를 안 쓴다(useReview). 저쪽은 주소 하나를 읽는 것뿐이고, 여기는 목록의
+ * `useFetch` 를 쓰지 않는다(useReview). 저쪽은 주소 하나를 읽는 것뿐이고, 여기는 목록의
  * 주인이라 고치는 자리가 셋이다.
  */
 export interface SnapshotSource {
   loaded: Loaded<ExploreSnapshot[]>;
   /**
    * 로그인 검사에서 닫혔다. 목록도 저장 칸도 없고 화면이 한 줄만 남긴다 — 검토 자체는
-   * 로그인 없이 도므로(journal §100) 이 패널을 통째로 지우면 저장이 「없는 기능」이 된다.
+   * 로그인 없이 도므로(journal §100) 이 패널 전체를 지우면 저장이 「없는 기능」이 된다.
    */
   signedOut: boolean;
   /**
-   * 기록이 없는 배포라 이 표면이 아예 없다. 그때는 화면이 패널을 안 그린다 — 로그인 검사와
+   * 기록이 없는 배포라 이 표면이 아예 없다. 그때는 화면이 패널을 그리지 않는다 — 로그인 검사와
    * 갈리는 자리다: 저쪽은 사람이 열 수 있고 이쪽은 열 방법이 없다.
    */
   unavailable: boolean;
@@ -52,7 +52,7 @@ export function useExploreSnapshots(): SnapshotSource {
   const [attempt, setAttempt] = useState(0);
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
 
-  /** 떠난 뒤에 온 답으로 상태를 고치지 않는다. 고치기 셋은 취소를 안 건다. */
+  /** 떠난 뒤에 온 답으로 상태를 고치지 않는다. 고치기 셋은 취소를 걸지 않는다. */
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -70,8 +70,8 @@ export function useExploreSnapshots(): SnapshotSource {
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
         if (err instanceof SignedOutError || err instanceof UnavailableError) {
-          // 빈 목록으로 두면 「하나도 없다」로 읽히고, 그 옆에 눌러도 안 되는 저장
-          // 버튼이 뜬다. 붉은 알림도 아니다 — 둘 다 다시 눌러서 열리는 실패가 아니다.
+          // 빈 목록으로 두면 「하나도 없다」로 읽히고, 그 옆에 눌러도 듣지 않는 저장
+          // 버튼이 뜬다. 붉은 알림도 쓰지 않는다 — 둘 다 다시 눌러도 열리지 않는다.
           if (err instanceof SignedOutError) setSignedOut(true);
           else setUnavailable(true);
           setLoaded({ state: 'ready', data: [] });
@@ -85,7 +85,7 @@ export function useExploreSnapshots(): SnapshotSource {
 
   /**
    * 고치는 요청 하나를 감싼다. 셋이 같은 자리에서 잠기고 같은 자리에 실패를 남긴다 —
-   * 세 벌로 적으면 한쪽만 `pending` 을 안 내린다.
+   * 세 벌로 적으면 한쪽만 `pending` 을 내리지 않는다.
    */
   const mutate = useCallback(async (run: () => Promise<void>): Promise<boolean> => {
     setPending(true);

@@ -25,9 +25,9 @@ import (
 )
 
 // 段級 척도의 앵커를 재는 자리. 급수가 밖에서 정해진 기보를 프로덕션과 같은 판정 경로로
-// 다시 두고, 급수마다 절대 낙폭이 어디에 떨어지는지를 표로 낸다.
+// 다시 두고, 급수마다 절대 낙폭이 어디에 떨어지는지를 표로 출력한다.
 //
-// 상수는 이 테스트가 안 고친다. 재는 것과 정하는 것을 따로 두는 것은 재채점 측정과 같은
+// 상수는 이 테스트가 고치지 않는다. 재는 것과 정하는 것을 따로 두는 것은 재채점 측정과 같은
 // 규약이고(journal §39), 여기서 나온 값으로 경계를 박는 것은 사람의 결정이다(journal §94).
 //
 //	SHOWGI_MEASURE=1 SHOWGI_RANK_KIFU=~/kifu/manifest.txt \
@@ -35,7 +35,7 @@ import (
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run \
 //	go test ./internal/kifu/ -run MeasureRankAnchors -v -timeout 6h
 //
-// DB가 필요한 이유는 캐시다. 검토 화면(/explore)이 지나간 국면은 positions 에 같은 깊이로
+// DB가 필요한 것은 캐시 때문이다. 검토 화면(/explore)이 지나간 국면은 positions 에 같은 깊이로
 // 남아 있어서, 그 수순을 그대로 재생하면 판당 탐색 200번이 대부분 캐시로 답한다.
 func TestMeasureRankAnchors(t *testing.T) {
 	manifest := os.Getenv("SHOWGI_RANK_KIFU")
@@ -54,7 +54,7 @@ func TestMeasureRankAnchors(t *testing.T) {
 	}
 
 	// 앵커를 어느 手数 창에서 잴지. 초반은 定跡이라 급수 신호가 없고, 판마다 길이가
-	// 달라서 끝까지 세면 자가 실력이 아니라 판 길이의 함수가 된다.
+	// 달라서 끝까지 세면 자가 판 길이의 함수가 된다.
 	// 기본값이 런타임과 같아야 한다. 앵커를 다른 창에서 재면 그 값을 skill 에 옮겨 적는
 	// 순간 거짓이 된다(skill.AnchorFromPly).
 	w := rankWindow{from: skill.AnchorFromPly, to: skill.AnchorToPly}
@@ -119,7 +119,7 @@ func TestMeasureRankAnchors(t *testing.T) {
 	}
 
 	// 프로덕션과 같은 레벨로 판정한다. 임계치가 갈리면 개입률이 그 값의 함수가 되고
-	// (journal §92의 표) 그러면 이 표가 급수가 아니라 레벨을 재게 된다.
+	// (journal §92의 표) 그러면 이 표가 급수 대신 레벨을 재게 된다.
 	analyst := game.NewEngineAnalyst(searcher, mate, intervene.Beginner)
 
 	byLabel := map[string][]rankSide{}
@@ -141,11 +141,11 @@ func TestMeasureRankAnchors(t *testing.T) {
 		judged := len(sente.moves) + len(gote.moves)
 		measured += sente.count(w) + gote.count(w)
 		if judged < len(e.game.Moves) {
-			// 판정이 빠진 手가 있다. 표본이 조용히 줄어드는 자리라 판마다 남긴다.
+			// 판정이 빠진 手가 있다. 표본이 경고 없이 줄어드는 자리라 판마다 남긴다.
 			t.Errorf("%s: %d手 중 %d手만 쟀다", e.source, len(e.game.Moves), judged)
 		}
 		sente.label, gote.label = e.senteLabel, e.goteLabel
-		// 手가 0인 쪽은 안 센다. 낙폭 0으로 들어가면 그것이 「매 수 최선」이라 표를
+		// 手가 0인 쪽은 세지 않는다. 낙폭 0으로 들어가면 그것이 「매 수 최선」이라 표를
 		// 가장 센 쪽으로 끌고 간다.
 		if sente.count(w) > 0 {
 			byLabel[sente.label] = append(byLabel[sente.label], sente)
@@ -162,8 +162,8 @@ func TestMeasureRankAnchors(t *testing.T) {
 			sente.mean(w), gote.mean(w), sente.blunders(w)+gote.blunders(w), shortSource(e.source))
 	}
 
-	// 한 手도 못 쟀으면 표가 머리만 찍히고 초록으로 끝난다. 엔진이 죽었거나 수순이
-	// 안 재현된 것이고, 사람이 이 표에서 상수를 옮겨 적는 자리라 초록으로 두면 안 된다.
+	// 한 手도 재지 못했으면 표가 머리만 찍히고 초록으로 끝난다. 엔진이 죽었거나 수순이
+	// 재현되지 않은 것이고, 사람이 이 표에서 상수를 옮겨 적는 자리라 초록으로 두면 안 된다.
 	if measured == 0 {
 		t.Fatal("잰 手가 0이다 — 엔진이나 수순을 확인한다")
 	}
@@ -174,8 +174,8 @@ func TestMeasureRankAnchors(t *testing.T) {
 	reportRankPaired(paired, w)
 }
 
-// shortSource 는 표에 실을 기보 이름이다. 수순을 통째로 찍으면 한 줄이 수백 자가 되어
-// 표가 안 읽힌다 — 어느 줄인지 알 만큼만 남긴다.
+// shortSource 는 표에 실을 기보 이름이다. 수순 전체를 찍으면 한 줄이 수백 자가 되어
+// 표가 읽히지 않는다 — 어느 줄인지 알 만큼만 남긴다.
 func shortSource(source string) string {
 	const keep = 28
 	if len(source) <= keep {
@@ -184,8 +184,8 @@ func shortSource(source string) string {
 	return source[:keep] + "…"
 }
 
-// rankEntry 는 목록의 한 줄이다. 라벨이 파일 안에 없는 이유는 그것이 기보의 사실이
-// 아니라 출처의 사실이기 때문이다 — KIF 헤더의 이름 칸은 사이트마다 다르다.
+// rankEntry 는 목록의 한 줄이다. 라벨이 파일 안에 없는 것은 그것이 출처의 사실이기
+// 때문이다 — KIF 헤더의 이름 칸은 사이트마다 다르다.
 type rankEntry struct {
 	senteLabel string
 	goteLabel  string
@@ -193,11 +193,11 @@ type rankEntry struct {
 	game       ParsedGame
 }
 
-// rankSide 는 한 판의 한쪽 몫이다. 두 축을 같이 들고 있는 이유는 段級이 절대 낙폭에서,
+// rankSide 는 한 판의 한쪽 몫이다. 두 축을 같이 갖고 있는 것은 段級이 절대 낙폭에서,
 // 밴드가 EMA에서 나오기 때문이다(skill.Estimate) — 표에 둘 다 있어야 갈리는 것이 보인다.
 //
-// 手를 하나하나 들고 있는다. 초반은 定跡을 따라 두는 구간이라 그 사람의 급수가 아니라
-// 책의 품질이고, 앵커를 그 위에서 재면 급수 차이가 0으로 희석된다 — 그래서 「몇 手부터」를
+// 手를 하나하나 갖고 있다. 초반은 定跡을 따라 두는 구간이라 거기 나오는 것이 책의
+// 품질이고, 앵커를 그 위에서 재면 급수 차이가 0으로 희석된다 — 그래서 「몇 手부터」를
 // 나중에 정할 수 있어야 한다(rankFromPly).
 type rankSide struct {
 	label string
@@ -219,7 +219,7 @@ type rankMove struct {
 // rankDecided 는 「이미 갈렸다」의 기본 경계다. 런타임과 같은 값이어야 한다 —
 // 앵커가 이 경계 위에서 나왔다(game.DecidedWinRate).
 //
-// SHOWGI_RANK_DECIDED 로 옮긴다. 1이면 아무것도 안 빼므로, 이 경계가 결론을 만드는지를
+// SHOWGI_RANK_DECIDED 로 옮긴다. 1이면 아무것도 빼지 않으므로, 이 경계가 결론을 만드는지를
 // 같은 표본에서 확인할 수 있다 — 실제로 이 값 하나가 「갈린다/아니다」를 뒤집었다.
 const rankDecided = game.DecidedWinRate
 
@@ -256,7 +256,7 @@ func (s rankSide) count(w rankWindow) int {
 	return n
 }
 
-// mean 은 from手 이후의 절대 낙폭 평균이다. 그 구간에 手가 없으면 0이 아니라 NaN이다 —
+// mean 은 from手 이후의 절대 낙폭 평균이다. 그 구간에 手가 없으면 0 대신 NaN이다 —
 // 0은 「매 수 최선」이라 표에서 가장 센 쪽으로 읽힌다.
 func (s rankSide) mean(w rankWindow) float64 {
 	sum, n := 0.0, 0
@@ -272,7 +272,7 @@ func (s rankSide) mean(w rankWindow) float64 {
 	return sum / float64(n)
 }
 
-// rankBigDrops 는 「큰 실수」의 절대 경계들이다. 개입률과 재는 것이 같은데 레벨을 안 본다 —
+// rankBigDrops 는 「큰 실수」의 절대 경계들이다. 개입률과 재는 것이 같은데 레벨을 보지 않는다 —
 // 개입은 임계치가 분모라(intervene.Level.Threshold) 그 값이 갈리면 빈도가 따라 갈린다.
 var rankBigDrops = [...]float64{0.10, 0.20}
 
@@ -309,7 +309,7 @@ type rankPair struct{ sente, gote rankSide }
 
 // measureGame 은 한 판을 프로덕션 판정으로 다시 두고 양쪽 몫을 돌려준다.
 //
-// 개입을 안 건다. 물러진 수가 판에서 빠지면 그 수의 낙폭이 표본에서 사라지고, 그건
+// 개입을 걸지 않는다. 물러진 수가 판에서 빠지면 그 수의 낙폭이 표본에서 사라지고, 그건
 // 정확히 재려던 것이다.
 func measureGame(ctx context.Context, analyst game.Analyst, g ParsedGame, decided float64) map[shogi.Color]rankSide {
 	startSFEN := g.StartSFEN
@@ -323,8 +323,8 @@ func measureGame(ctx context.Context, analyst game.Analyst, g ParsedGame, decide
 		ply := i + 1
 		j, err := analyst.Judge(ctx, startSFEN, g.Moves[:ply], ply)
 		if err != nil {
-			// 한 수를 못 재면 그 수만 빠진다. 판을 버리지 않는 것은 手数가 표에 있어서
-			// 표본이 조용히 줄어드는 자리가 없기 때문이다.
+			// 한 수를 재지 못하면 그 수만 빠진다. 판을 버리지 않는 것은 手数가 표에 있어서
+			// 표본이 경고 없이 줄어드는 자리가 없기 때문이다.
 			continue
 		}
 		c := moverAt(startSFEN, ply)
@@ -347,20 +347,20 @@ func measureGame(ctx context.Context, analyst game.Analyst, g ParsedGame, decide
 }
 
 // absDrop 은 한 수의 절대 낙폭이다. skill 이 안에서 하는 것과 같은 계산이고, 여기서
-// 다시 쓰는 것은 그쪽이 판마다의 평균을 안 내놓기 때문이다(Estimate.AbsLoss 는 누계다).
+// 다시 쓰는 것은 그쪽이 판마다의 평균을 내놓지 않기 때문이다(Estimate.AbsLoss 는 누계다).
 func absDrop(j game.Judgement) float64 {
 	d := j.Verdict.DeltaWin
 	if d < 0 {
 		d = 0 // 두 탐색의 뿌리가 한 수 달라 음수가 나오는 국면이 있다(journal §41)
 	}
 	if j.Verdict.Kind == intervene.KindBlunder && d < skill.MateAbsLoss {
-		d = skill.MateAbsLoss // 詰み을 놓친 수는 승률이 거의 안 움직인다(skill.absMoveLoss)
+		d = skill.MateAbsLoss // 詰み을 놓친 수는 승률이 거의 움직이지 않는다(skill.absMoveLoss)
 	}
 	return d
 }
 
-// moverAt 은 그 手数를 둔 쪽이다. Judgement 이 手番을 안 내놓아서 여기서 센다 —
-// 駒落ち는 上手가 먼저 두므로 手数의 홀짝만으로는 못 가른다(journal §88).
+// moverAt 은 그 手数를 둔 쪽이다. Judgement 이 手番을 내놓지 않아서 여기서 센다 —
+// 駒落ち는 上手가 먼저 두므로 手数의 홀짝만으로는 가를 수 없다(journal §88).
 func moverAt(startSFEN string, ply int) shogi.Color {
 	first := shogi.Black
 	if f := strings.Fields(startSFEN); len(f) > 1 && f[1] == "w" {
@@ -375,8 +375,8 @@ func moverAt(startSFEN string, ply int) shogi.Color {
 	return shogi.Black
 }
 
-// reportRankLabels 는 급수마다의 앵커 후보를 낸다. SD가 급수 사이의 차이보다 크면
-// 그것이 이 측정의 답이고, 그때 눈금을 더 촘촘히 하는 것이 아니라 굵게 해야 한다
+// reportRankLabels 는 급수마다의 앵커 후보를 출력한다. SD가 급수 사이의 차이보다 크면
+// 그것이 이 측정의 답이고, 그때 눈금을 촘촘히 하는 대신 굵게 해야 한다
 // (journal §39의 판간 분산).
 func reportRankLabels(byLabel map[string][]rankSide, w rankWindow) {
 	fmt.Fprintf(os.Stderr, "\n%-10s %5s %6s %9s %9s %9s %9s %8s %8s %8s %8s %6s\n",
@@ -395,7 +395,7 @@ func reportRankLabels(byLabel map[string][]rankSide, w rankWindow) {
 		if len(sides) > 1 {
 			se = sd / math.Sqrt(float64(len(sides)))
 		}
-		// EMA도 같이 낸다. 밴드가 그 값을 보므로(skill.Estimate.Loss) 급수마다 상대가
+		// EMA도 같이 출력한다. 밴드가 그 값을 보므로(skill.Estimate.Loss) 급수마다 상대가
 		// 얼마나 세게 붙는지를 이 칸으로 읽는다 — 段級은 그 옆의 이름이 말한다.
 		ema := 0.0
 		for _, s := range sides {
@@ -411,7 +411,7 @@ func reportRankLabels(byLabel map[string][]rankSide, w rankWindow) {
 }
 
 // rankNameOf 는 그 절대 낙폭에 지금 척도가 붙이는 이름이다. 앵커가 이 표에서 나왔으므로
-// (skill.rankAnchors) 라벨과 이름이 어긋나면 상수가 낡은 것이다.
+// (skill.rankAnchors) 라벨과 이름이 어긋나면 상수가 오래된 것이다.
 func rankNameOf(absLoss float64) string {
 	r, ok := skill.RankOf(skill.Estimate{AbsLoss: absLoss, AbsSamples: skill.MinSamples})
 	if !ok {
@@ -420,8 +420,8 @@ func rankNameOf(absLoss float64) string {
 	return r.NameJa
 }
 
-// reportRankSeparation 은 라벨 둘이 실제로 갈리는지를 낸다. 앵커를 박기 전에 답해야
-// 하는 질문이 이것뿐이다 — 안 갈리면 경계를 어디에 놓아도 그 경계가 표본의 사실이 아니다.
+// reportRankSeparation 은 라벨 둘이 실제로 갈리는지를 출력한다. 앵커를 박기 전에 답해야
+// 하는 질문이 이것뿐이다 — 갈리지 않으면 경계를 어디에 놓아도 표본이 그 경계를 뒷받침하지 못한다.
 func reportRankSeparation(byLabel map[string][]rankSide, w rankWindow) {
 	labels := sortedRankLabels(byLabel, w)
 	if len(labels) < 2 {
@@ -431,7 +431,7 @@ func reportRankSeparation(byLabel map[string][]rankSide, w rankWindow) {
 	fmt.Fprintf(os.Stderr, "%s\n", strings.Repeat("─", 84))
 
 	// 두 축으로 잰다. 평균은 몇 수의 큰 낙폭이 정하고, 빈도는 그 큰 수가 얼마나 자주
-	// 오는가다 — 개입률과 같은 것을 보면서 레벨을 안 본다(rankBigDrops).
+	// 오는가다 — 개입률과 같은 것을 보면서 레벨을 보지 않는다(rankBigDrops).
 	axes := []struct {
 		name string
 		of   func(rankSide) float64
@@ -494,7 +494,7 @@ func statsOf(sides []rankSide, of func(rankSide) float64) (mean, sd float64, n i
 // (§39의 분산이 판의 성질이라면) 같은 판 수로 더 예민하다.
 //
 // 대신 교란이 하나 남는다. 약한 쪽이 실수하면 상대의 국면이 쉬워져서, 차이가 급수 때문인지
-// 국면 때문인지를 이 표로는 못 가른다 — 「갈리지 않는다」를 값싸게 확인하는 데 쓴다.
+// 국면 때문인지를 이 표로는 가를 수 없다 — 「갈리지 않는다」를 값싸게 확인하는 데 쓴다.
 func reportRankPaired(paired []rankPair, w rankWindow) {
 	if len(paired) == 0 {
 		return
@@ -504,7 +504,7 @@ func reportRankPaired(paired []rankPair, w rankWindow) {
 	for _, p := range paired {
 		weak, strong, ok := weakerFirst(p)
 		if !ok {
-			continue // 라벨을 척도 위에 못 놓았다(rankOrdinal)
+			continue // 라벨을 척도 위에 놓지 못했다(rankOrdinal)
 		}
 		n++
 		if weak.mean(w) > strong.mean(w) {
@@ -518,7 +518,7 @@ func reportRankPaired(paired []rankPair, w rankWindow) {
 	}
 }
 
-// weakerFirst 는 짝의 약한 쪽을 앞으로 놓는다. 라벨이 급수 표기가 아니면 못 놓는다.
+// weakerFirst 는 짝의 약한 쪽을 앞으로 놓는다. 라벨이 급수 표기가 아니면 놓을 수 없다.
 func weakerFirst(p rankPair) (weak, strong rankSide, ok bool) {
 	a, aok := rankOrdinal(p.sente.label)
 	b, bok := rankOrdinal(p.gote.label)
@@ -550,7 +550,7 @@ func rankOrdinal(label string) (int, bool) {
 }
 
 // sortedRankLabels 는 표의 줄 순서다. 급수 표기면 척도 순, 아니면 실측 낙폭 순이다 —
-// 이름을 못 읽었다고 표가 뒤섞이면 갈리는지를 눈으로 못 본다.
+// 이름을 읽지 못했다고 표가 뒤섞이면 갈리는지를 눈으로 볼 수 없다.
 func sortedRankLabels(byLabel map[string][]rankSide, w rankWindow) []string {
 	labels := make([]string, 0, len(byLabel))
 	for l := range byLabel {
@@ -570,7 +570,7 @@ func sortedRankLabels(byLabel map[string][]rankSide, w rankWindow) []string {
 }
 
 // meanSD 는 한 라벨의 평균과 표준편차다. 판마다의 평균을 표본 하나로 세는 것이 §39가
-// 잰 분산과 같은 단위다 — 手를 통째로 모아 세면 긴 판이 표를 끌고 간다.
+// 잰 분산과 같은 단위다 — 手를 전부 모아 세면 긴 판이 표를 끌고 간다.
 func meanSD(sides []rankSide, w rankWindow) (mean, sd float64) {
 	var vals []float64
 	for _, s := range sides {
@@ -595,7 +595,7 @@ func meanSD(sides []rankSide, w rankWindow) (mean, sd float64) {
 	return mean, math.Sqrt(sd / float64(len(vals)-1))
 }
 
-// labelBigRate 는 라벨 전체에서 큰 실수의 비율이다. 측면마다 재서 평균한다 — 手를 통째로
+// labelBigRate 는 라벨 전체에서 큰 실수의 비율이다. 측면마다 재서 평균한다 — 手를 전부
 // 모으면 긴 판이 표를 끌고 간다(meanSD 와 같은 규약).
 func labelBigRate(sides []rankSide, w rankWindow, cut float64) float64 {
 	sum, n := 0.0, 0
@@ -652,10 +652,10 @@ func trimmedMean(sides []rankSide, w rankWindow) float64 {
 }
 
 // rankSegments 는 구간 표의 경계다. 定跡이 어디까지인지를 이 표로 눈으로 본다 —
-// 초반의 낙폭이 뒤 구간보다 뚜렷하게 낮으면 그 구간은 사람이 아니라 책이 둔 것이다.
+// 초반의 낙폭이 뒤 구간보다 뚜렷하게 낮으면 그 구간은 책이 둔 것이다.
 var rankSegments = [...]int{1, 21, 41, 61}
 
-// reportRankPhases 는 급수마다 手数 구간별 평균을 낸다. 앵커를 몇 手부터 잴지가 이 표로
+// reportRankPhases 는 급수마다 手数 구간별 평균을 출력한다. 앵커를 몇 手부터 잴지가 이 표로
 // 정해진다(SHOWGI_RANK_FROM_PLY).
 func reportRankPhases(byLabel map[string][]rankSide) {
 	fmt.Fprintf(os.Stderr, "\n구간별 평균 낙폭 — 초반이 낮으면 定跡 구간이다\n")
@@ -758,7 +758,7 @@ func parseRankSource(source string) (ParsedGame, error) {
 // 한 수도 대신 두지 않으므로(server/explore.go) 주소 하나가 기보 하나다.
 func exploreGame(rawURL string) (ParsedGame, error) {
 	// 브라우저 주소창에서 복사하면 쉼표가 %2C 로 올 수 있다. 손으로 자르면 그 줄이
-	// 수 하나로 뭉치고, 그 판은 「재현이 안 된 판」이 아니라 「이상한 판」이 된다.
+	// 수 하나로 뭉치고, 그 판은 「재현되지 않은 판」 대신 「이상한 판」이 된다.
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return ParsedGame{}, fmt.Errorf("주소를 못 읽었다: %w", err)

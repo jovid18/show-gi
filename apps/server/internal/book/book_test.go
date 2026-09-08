@@ -9,12 +9,12 @@ import (
 
 // TestOpeningMovesAreLegal 은 수순을 룰 엔진에 검증시킨다.
 //
-// 진형 수순은 사람이 손으로 적은 것이라 눈으로는 틀린 것이 안 보인다 — 슬라이드가 막히거나
+// 진형 수순은 사람이 손으로 적은 것이라 눈으로는 틀린 것이 보이지 않는다 — 슬라이드가 막히거나
 // (▲6八飛는 玉이 들어오기 전이어야 한다) 가려던 칸이 자기 駒로 차 있는 종류다. 그리고 이
 // 목록이 늘어날 때 다시 물릴 자리이기도 하다.
 //
 // 사람 쪽은 「방해하지 않는 수」를 룰 엔진이 뽑은 것에서 고른다(quietMove). 정석대로 받아주는
-// 상대를 만들지 않는 이유는 북이 애초에 그것을 전제하지 않기 때문이다(package 주석).
+// 상대를 만들지 않는 것은 북이 애초에 그것을 전제하지 않기 때문이다(package 주석).
 func TestOpeningMovesAreLegal(t *testing.T) {
 	for _, o := range All() {
 		for _, opp := range []shogi.Color{shogi.Black, shogi.White} {
@@ -55,7 +55,7 @@ func TestOpeningMovesAreLegal(t *testing.T) {
 }
 
 // quietMove 는 판을 흔들지 않는 사람 쪽 한 수다. 결정적으로 고른다 — 무작위면 실패한
-// 회차를 다시 못 만든다.
+// 판을 다시 만들 수 없다.
 //
 // 자기 진영의 歩를 한 칸 미는 것만 고른다. 잡거나 成 하는 수를 섞으면 북과 무관한 이유로
 // 국면이 갈려서, 실패했을 때 수순이 틀린 것인지 이 함수가 이상한 것인지 알 수 없다.
@@ -73,7 +73,7 @@ func quietMove(pos shogi.Position) (shogi.Move, bool) {
 		}
 		return m, true
 	}
-	// 歩를 못 밀면(막혀 있으면) 아무 합법수나. 그래도 결정적이다.
+	// 歩를 밀지 못하면(막혀 있으면) 아무 합법수나. 그래도 결정적이다.
 	if len(legal) > 0 {
 		return legal[0], true
 	}
@@ -81,7 +81,7 @@ func quietMove(pos shogi.Position) (shogi.Move, bool) {
 }
 
 // TestMirrorIsInvolution 은 두 번 돌리면 제자리라는 것이다. 이것이 깨지면 後手 수순 전체가
-// 조용히 어긋난다 — Moves 가 그 변환 하나에 매여 있다.
+// 경고 없이 어긋난다 — Moves 가 그 변환 하나에 매여 있다.
 func TestMirrorIsInvolution(t *testing.T) {
 	for _, o := range All() {
 		for _, m := range o.black {
@@ -111,7 +111,7 @@ func TestMirrorSquare(t *testing.T) {
 }
 
 // TestMirrorKeepsSuffix 는 成 표시와 打 표기가 변환에서 살아남는지다. 지금 수순에는 둘 다
-// 없지만, 없다는 이유로 안 지키면 뒤에 한 줄 넣는 사람이 물린다.
+// 없지만, 없다는 이유로 지키지 않으면 뒤에 한 줄 넣는 사람이 물린다.
 func TestMirrorKeepsSuffix(t *testing.T) {
 	if got := mirror("7g7f+"); got != "3c3d+" {
 		t.Errorf("成: %q", got)
@@ -161,7 +161,7 @@ func TestOpeningMetadata(t *testing.T) {
 // ▲6八銀이 7九를 비우면서 8八의 角을 받치는 것을 없앴고, 그때 대각선이 열려 있으면
 // 상대가 그 자리에서 角을 잡는다(journal §48). 룰 엔진은 그 수가 합법이라고만 답한다.
 //
-// 사람 쪽이 자기 角길을 먼저 연다 — 그것이 이 위험을 만드는 유일한 조건이고,
+// 사람 쪽이 자기 角길을 먼저 연다 — 그것이 이 위험을 만드는 하나뿐인 조건이고,
 // 초심자도 첫 몇 수에 그냥 두는 수다.
 func TestOpeningNeverHangsAPiece(t *testing.T) {
 	for _, o := range All() {
@@ -221,10 +221,10 @@ func TestOpeningNeverHangsAPiece(t *testing.T) {
 	}
 }
 
-// hanging 은 c 의 駒 중 상대가 노리는데 아무도 받치지 않는 첫 칸이다. 없으면 -1.
+// hanging 은 c 의 駒 중 상대가 노리는데 누구도 받치지 않는 첫 칸이다. 없으면 -1.
 //
-// 歩는 안 본다 — 서로 마주 본 歩는 초반의 정상 상태이고, 그것까지 세면 어느 수순도 못 지나간다.
-// 玉도 안 본다: 王手는 다른 이야기이고 합법성 검사가 이미 막는다.
+// 歩는 보지 않는다 — 서로 마주 본 歩는 초반의 정상 상태이고, 그것까지 세면 어느 수순도 지나갈 수 없다.
+// 玉도 보지 않는다: 王手는 다른 이야기이고 합법성 검사가 이미 막는다.
 func hanging(pos shogi.Position, c shogi.Color) (int, shogi.PieceType) {
 	for sq := 0; sq < 81; sq++ {
 		p := pos.Board[sq]

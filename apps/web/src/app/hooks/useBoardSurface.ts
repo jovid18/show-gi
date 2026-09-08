@@ -2,8 +2,8 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
-// 값이 아니라 타입만 가져온다. 여기서 `three` 를 정적으로 들여오면 아래의 늦은
-// import가 아무 값도 못 한다 — 번들러가 이미 첫 덩어리에 넣어 버린다.
+// 타입만 가져온다. 여기서 `three` 를 정적으로 들여오면 아래의 늦은 import가 아무
+// 소용이 없다 — 번들러가 이미 첫 덩어리에 넣어 버린다.
 import type { BoardSurface, Layout } from '@/libs/three/surface';
 import type { Board } from '@/models/sfen';
 import type { Side } from '@/models/piece';
@@ -23,10 +23,10 @@ const FADE_MS = 240;
 /**
  * 그늘이 제일 깊을 때 나무를 얼마나 어둡게 하는가.
  *
- * 두 값인 이유는 판이 두 가지 밝기이기 때문이다. 평시에는 밝은 판 위라 이만큼이면
- * 충분한데, 회상 중에는 `.board-tint` 가 판을 통째로 낮춰 둬서(saturate 0.18 ·
- * brightness 0.55) 같은 세기가 낮아진 판에 묻힌다 — 브라우저에서 실제로 안 보였다.
- * 회상 쪽은 대신 그 한 칸 둘레에만 고이므로 판이 통째로 어두워지지 않는다.
+ * 두 값인 것은 판이 두 가지 밝기이기 때문이다. 평시에는 밝은 판 위라 이만큼이면
+ * 충분한데, 회상 중에는 `.board-tint` 가 판 전체를 낮춰 둬서(saturate 0.18 ·
+ * brightness 0.55) 같은 세기가 낮아진 판에 묻힌다 — 브라우저에서 실제로 보이지 않았다.
+ * 회상 쪽은 대신 그 한 칸 둘레에만 고이므로 판 전체가 어두워지지 않는다.
  */
 const PLAIN_DEPTH = 0.52;
 const RECALL_DEPTH = 0.82;
@@ -63,10 +63,10 @@ interface Options {
  */
 function measure(boardEl: HTMLElement, surface: BoardSurface, layoutRef: React.RefObject<Layout | null>): void {
   // 칸을 클래스로 찾는다. `firstElementChild` 는 **아래에서 붙이는 캔버스가 걸린다** —
-  // React 가 칸을 다시 그리는 렌더에서 그 요소가 앞으로 올라오고, 그때 cell 이 한 칸이
-  // 아니라 판 폭이 되어 gap 이 음수가 된다(journal §127).
+  // React 가 칸을 다시 그리는 렌더에서 그 요소가 앞으로 올라오고, 그때 cell 이 한 칸에서
+  // 판 폭으로 바뀌어 gap 이 음수가 된다(journal §127).
   //
-  // 여기는 처음 한 번과 리사이즈에만 재므로 아직 안 물렸다. 打 화살표 쪽은 렌더마다
+  // 여기는 처음 한 번과 리사이즈에만 재므로 아직 물리지 않았다. 打 화살표 쪽은 렌더마다
   // 재서 실제로 물렸다(useDropAnchor).
   const square = boardEl.querySelector('.square');
   if (!(square instanceof HTMLElement)) return;
@@ -89,8 +89,8 @@ function measure(boardEl: HTMLElement, surface: BoardSurface, layoutRef: React.R
 }
 
 /**
- * @returns WebGL이 실제로 잡혔는가. 안 잡히면 지금까지의 CSS 판 그대로 둔다 —
- * 판이 안 보이느니 나뭇결과 그늘이 없는 편이 낫다.
+ * @returns WebGL이 실제로 잡혔는가. 잡히지 않으면 지금까지의 CSS 판 그대로 둔다 —
+ * 판이 보이지 않느니 나뭇결과 그늘이 없는 편이 낫다.
  */
 export function useBoardSurface({ boardRef, board, active, from, me, flipped }: Options): boolean {
   const [ready, setReady] = useState(false);
@@ -105,9 +105,9 @@ export function useBoardSurface({ boardRef, board, active, from, me, flipped }: 
   // 순간 뒤의 것이 같이 죽는다. 붙는 자리는 맨 뒤다 — 첫 자식은 打 화살표가 칸 크기를
   // 재는 데 쓴다(`useDropAnchor`).
   //
-  // three.js는 늦게 들여온다. 판이 처음 뜨는 데 필요한 것이 아니고(그 자리는 CSS 판이
-  // 이미 채운다) 번들에서 제일 무거운 한 덩어리라, 첫 그림을 그것 때문에 기다리게 두지
-  // 않는다. 들어오면 그때 표면이 켜지고, 못 들어오면 CSS 판 그대로 남는다.
+  // three.js는 늦게 들여온다. 판이 처음 뜨는 자리는 CSS 판이 이미 채우고, 번들에서 제일
+  // 무거운 한 덩어리라 첫 그림을 그것 때문에 기다리게 두지 않는다. 들어오면 그때 표면이
+  // 켜지고, 들어오지 못하면 CSS 판 그대로 남는다.
   useEffect(() => {
     const boardEl = boardRef.current;
     if (!boardEl) return;
@@ -137,7 +137,7 @@ export function useBoardSurface({ boardRef, board, active, from, me, flipped }: 
         setReady(true);
       })
       .catch(() => {
-        // 청크를 못 받았다. 판은 CSS 그대로 돌고 있으므로 여기서 할 일이 없다.
+        // 청크를 받지 못했다. 판은 CSS 그대로 돌고 있으므로 여기서 할 일이 없다.
       });
 
     return () => {
@@ -154,7 +154,7 @@ export function useBoardSurface({ boardRef, board, active, from, me, flipped }: 
   //
   // 그리기 전에 도는 효과여야 한다. `ready` 가 켜지는 순간 `data-surface` 가 붙어 칸이
   // 투명해지는데, 그 프레임에 캔버스가 아직 비어 있으면 판이 한 번 검게 번쩍인다.
-  // `useEffect` 는 그린 뒤에 돌아서 그 한 프레임을 못 막는다 — 아래 그늘 쪽도 같다.
+  // `useEffect` 는 그린 뒤에 돌아서 그 한 프레임을 막지 못한다 — 아래 그늘 쪽도 같다.
   useLayoutEffect(() => {
     const boardEl = boardRef.current;
     const surface = surfaceRef.current;
@@ -190,8 +190,8 @@ export function useBoardSurface({ boardRef, board, active, from, me, flipped }: 
     const y = at === null ? layout.height / 2 : layout.gap + Math.floor(at / BOARD_SIZE) * span + layout.cell / 2;
 
     // 회상에서는 판을 다 덮지 않는다. 그때 판은 이미 탈색되어 낮아져 있고(`.board-tint`),
-    // 그 위에 판 전체를 어둡게 하면 낮아진 판과 구별이 안 되어 아무것도 안 보인다 —
-    // 브라우저에서 그렇게 나왔다. 짚어야 할 것도 판 전체가 아니라 그 한 칸이다.
+    // 그 위에 판 전체를 어둡게 하면 낮아진 판과 구별이 되지 않아 아무것도 보이지 않는다 —
+    // 브라우저에서 그렇게 나왔다. 짚어야 할 것도 그 한 칸이다.
     // 그래서 물러진 수가 간 칸 둘레에만, 대신 더 깊게 고인다.
     const full = at === null ? Math.hypot(layout.width, layout.height) + 64 : span * 3;
     surface.setDepth(at === null ? PLAIN_DEPTH : RECALL_DEPTH);

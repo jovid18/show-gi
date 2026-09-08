@@ -5,15 +5,15 @@ import (
 	"testing"
 )
 
-// 성립하는 국면에서는 사유가 하나도 안 나와야 한다. 여기가 새면 확인 화면이 정상인
-// 판을 거절하고, 그건 기능이 통째로 안 되는 것과 같다.
+// 성립하는 국면에서는 사유가 하나도 나오지 않아야 한다. 여기가 새면 확인 화면이 정상인
+// 판을 거절하고, 그건 기능 전체가 동작하지 않는 것과 같다.
 func TestFaultsAcceptsRealPositions(t *testing.T) {
 	cases := map[string]string{
 		"平手 초기 국면": "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1",
-		// 玉 둘과 歩 한 장뿐인 판. 말이 부족한 것은 사유가 아니다.
+		// 玉 둘과 歩 한 장뿐인 판. 말이 부족한 것은 사유에서 뺀다.
 		"말이 빠진 국면":  "4k4/9/9/9/9/9/4P4/9/4K4 b - 1",
 		"持ち駒가 있는 판": "4k4/9/9/9/9/9/9/9/4K4 b RBGSNLPrb 1",
-		// と金은 같은 筋에 둘이 있어도 二歩가 아니다.
+		// と金은 같은 筋에 둘이 있어도 二歩에서 뺀다.
 		"と金과 歩가 같은 筋": "4k4/9/9/9/4+P4/9/4P4/9/4K4 b - 1",
 		// 王手를 받고 있는 쪽이 手番이면 정상이다. 飛가 玉과 같은 筋에 서 있다.
 		"수번 쪽이 왕수를 받고 있다": "4k4/9/9/9/4R4/9/9/9/3K5 w - 1",
@@ -122,7 +122,7 @@ func TestFaultsReportsEveryProblemAtOnce(t *testing.T) {
 	}
 }
 
-// 玉이 없는 판에서 王手 검사가 조용히 통과하면 안 된다 — KingSquare 가 -1을 주고
+// 玉이 없는 판에서 王手 검사가 경고 없이 통과하면 안 된다 — KingSquare 가 -1을 주고
 // InCheck 이 언제나 거짓이라, 그 거짓이 「王手가 없다」로 읽힌다.
 func TestFaultsDoesNotAskAboutCheckWithoutAKing(t *testing.T) {
 	pos, err := ParseSFEN("9/9/9/9/9/9/9/9/4KR3 b - 1")
@@ -204,7 +204,7 @@ func faultErrors(faults []PositionFault) []string {
 	return out
 }
 
-// 持ち駒 수가 Hands 의 int8 을 넘으면 조용히 음수가 된다. 그 판은 예전에 Faults 를
+// 持ち駒 수가 Hands 의 int8 을 넘으면 경고 없이 음수가 된다. 그 판은 예전에 Faults 를
 // 통과하면서 movegen 이 打을 만들어 냈고(== 0 만 본다), 엔진에는 다시 직렬화한
 // 「1장」이 나갔다 — 룰 엔진과 엔진이 다른 판을 보게 된다. 셀프리뷰가 잡았다.
 func TestParseSFENRefusesAHandThatCannotFit(t *testing.T) {
@@ -217,7 +217,7 @@ func TestParseSFENRefusesAHandThatCannotFit(t *testing.T) {
 			t.Errorf("ParseSFEN(%q) = nil error, want a refusal", sfen)
 		}
 	}
-	// 한 벌을 넘는 것은 그대로 받는다. 거절이 아니라 사유로 말한다(InventoryExcess).
+	// 한 벌을 넘는 것은 그대로 받는다. 거절 대신 사유로 말한다(InventoryExcess).
 	pos, err := ParseSFEN("9/9/9/9/4k4/9/9/9/4K4 b 19P 1")
 	if err != nil {
 		t.Fatalf("19 pawns in hand should parse: %v", err)
@@ -227,7 +227,7 @@ func TestParseSFENRefusesAHandThatCannotFit(t *testing.T) {
 	}
 }
 
-// 음수 持ち駒는 InventoryExcess 를 통과한다 — 합이 줄어들 뿐이라 「많다」로 안 걸린다.
+// 음수 持ち駒는 InventoryExcess 를 통과한다 — 합이 줄어들 뿐이라 「많다」로 걸리지 않는다.
 // Apply 가 미검증 투입으로 음수를 만들 수 있으므로(그 함수 주석) 여기서 짚어야 한다.
 func TestFaultsCatchesANegativeHand(t *testing.T) {
 	pos, err := ParseSFEN("9/9/9/9/4k4/9/9/9/4K4 b - 1")

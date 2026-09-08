@@ -45,7 +45,7 @@ func (r iteratorForBulkEnqueueAnalysisPlies) Err() error {
 // 手들이 병렬로 재어진다.
 //
 // ON CONFLICT 가 없다. 방금 만든 판의 번호라 (match_id, ply) 가 부딪힐 수가 없고,
-// COPY 는 애초에 그 절을 못 든다.
+// COPY 는 애초에 그 절을 담을 수 없다.
 func (q *Queries) BulkEnqueueAnalysisPlies(ctx context.Context, arg []BulkEnqueueAnalysisPliesParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"analysis_plies"}, []string{"match_id", "ply", "start_sfen", "moves"}, &iteratorForBulkEnqueueAnalysisPlies{rows: arg})
 }

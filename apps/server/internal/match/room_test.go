@@ -94,7 +94,7 @@ func TestUnknownAndFullRoomsLookTheSame(t *testing.T) {
 	}
 }
 
-// 자리는 한 번 정해지면 안 바뀐다. 다시 들어와도 같은 쪽이라야 끊겼다 붙는 사람이
+// 자리는 한 번 정해지면 바뀌지 않는다. 다시 들어와도 같은 쪽이라야 끊겼다 붙는 사람이
 // 남의 자리에 앉지 않는다.
 func TestSeatsAreSticky(t *testing.T) {
 	h := newTestHub(t)
@@ -117,7 +117,7 @@ func TestSeatsAreSticky(t *testing.T) {
 }
 
 // 혼자 두는 판이 생기면 안 된다. 방을 만든 사람이 자기 링크를 열어도 손님 자리는
-// 안 찬다 — 차면 그 방은 그 사람 혼자 先手·後手를 다 잡은 판이 된다.
+// 차지 않는다 — 차면 그 방은 그 사람 혼자 先手·後手를 다 잡은 판이 된다.
 func TestHostCannotTakeTheGuestSeat(t *testing.T) {
 	h := newTestHub(t)
 
@@ -168,7 +168,7 @@ func TestTableStartsOnlyWhenBothAreConnected(t *testing.T) {
 	detachAlice()
 }
 
-// 아무도 Hub 를 안 건드려도 만료가 걷힌다. 방을 만들고 링크를 보낸 사람은 Closed 에
+// 누구도 Hub 를 건드리지 않아도 만료가 걷힌다. 방을 만들고 링크를 보낸 사람은 Closed 에
 // 머물러 있을 뿐 Hub 를 부르지 않으므로, 훑는 계기가 남의 요청뿐이면 그 화면은 만료가 지나도
 // 이미 죽은 링크를 계속 광고한다(journal §83).
 func TestAWaitingHostLearnsTheRoomExpiredWithoutAnyoneElse(t *testing.T) {
@@ -181,7 +181,7 @@ func TestAWaitingHostLearnsTheRoomExpiredWithoutAnyoneElse(t *testing.T) {
 	room := h.Create(alice, shogi.Black)
 	clock.advance(OpenTTL + time.Minute)
 
-	// 여기서 Hub 를 안 부른다. 부르면 그 호출이 훑어서 이 테스트가 무의미해진다.
+	// 여기서 Hub 를 부르지 않는다. 부르면 그 호출이 훑어서 이 테스트가 무의미해진다.
 	select {
 	case <-room.Closed():
 	case <-time.After(2 * time.Second):
@@ -189,7 +189,7 @@ func TestAWaitingHostLearnsTheRoomExpiredWithoutAnyoneElse(t *testing.T) {
 	}
 }
 
-// 아무도 안 들어온 방은 만료된다. 링크가 곧 열쇠라 오래 사는 열쇠를 안 둔다.
+// 누구도 들어오지 않은 방은 만료된다. 링크가 곧 열쇠라 오래 사는 열쇠를 두지 않는다.
 func TestOpenRoomExpires(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -230,8 +230,8 @@ func TestARoomDroppedForTheCapTellsItsWaiters(t *testing.T) {
 	}
 }
 
-// 손님이 앉은 방은 상한에 안 걸린다. 걷어가면 그 손님은 영영 기다리고, 방 주인은
-// 자기 방에 다시 못 들어간다.
+// 손님이 앉은 방은 상한에 걸리지 않는다. 걷어가면 그 손님은 영영 기다리고, 방 주인은
+// 자기 방에 다시 들어갈 수 없다.
 func TestARoomWithASeatedGuestSurvivesTheCap(t *testing.T) {
 	h := newTestHub(t)
 
@@ -273,7 +273,7 @@ func TestOpenRoomsPerHostAreCapped(t *testing.T) {
 	}
 }
 
-// 시작한 판은 상한에 안 걸린다. 걷어가면 두는 중인 두 사람이 그 자리에서 판을 잃는다.
+// 시작한 판은 상한에 걸리지 않는다. 걷어가면 두는 중인 두 사람이 그 자리에서 판을 잃는다.
 func TestAStartedGameIsNeverDroppedForTheCap(t *testing.T) {
 	h := newTestHub(t)
 
@@ -301,7 +301,7 @@ func TestAStartedGameIsNeverDroppedForTheCap(t *testing.T) {
 // Enter 와 Connect 가 잠금을 따로 잡으므로 그 사이에 방이 걷힐 수 있다. 그때 판을
 // 시작하면 ready 와 closed 가 둘 다 닫히고, 두 handler 의 select 가 무작위로 갈려서
 // 한 사람은 판에 앉고 다른 사람은 「期限が切れました」를 본다 — 그 판은 60초 뒤 시간패로
-// 끝나고 아무도 못 본 대국의 행 둘이 남는다.
+// 끝나고 누구도 보지 못한 대국의 행 둘이 남는다.
 func TestADroppedRoomNeverStartsATable(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)

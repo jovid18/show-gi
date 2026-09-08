@@ -9,7 +9,7 @@ func TestAWinningMateOutranksTheEnginesRawCeiling(t *testing.T) {
 	if got := Compare(Mate(1), Cp(rawCeiling)); got <= 0 {
 		t.Errorf("Compare(mate 1, cp %d) = %d, 詰み이 위여야 한다", rawCeiling, got)
 	}
-	// 늦게 이기는 詰み도 마찬가지다. 手数가 아무리 커도 cp 뒤로 안 간다 — 그것이
+	// 늦게 이기는 詰み도 마찬가지다. 手数가 아무리 커도 cp 뒤로 가지 않는다 — 그것이
 	// 상수를 키우는 것과 태그로 가르는 것의 차이다(journal §131).
 	if got := Compare(Mate(999), Cp(rawCeiling)); got <= 0 {
 		t.Errorf("Compare(mate 999, cp %d) = %d, 詰み이 위여야 한다", rawCeiling, got)
@@ -35,7 +35,7 @@ func TestCompareOrdersMatesAroundEveryCp(t *testing.T) {
 }
 
 // 태그가 갈려 있어야 부르는 쪽이 분기한다. cp 를 물으면 詰み은 답하지 않는다 —
-// 그것이 합성값이 다시 생기지 않게 막는 유일한 장치다.
+// 그것이 합성값이 다시 생기지 않게 막는 하나뿐인 장치다.
 func TestTheTagForcesTheCaller(t *testing.T) {
 	if _, ok := Mate(3).Centipawns(); ok {
 		t.Error("詰み이 cp 를 내줬다")
@@ -43,14 +43,14 @@ func TestTheTagForcesTheCaller(t *testing.T) {
 	if _, ok := Cp(300).MateIn(); ok {
 		t.Error("cp 가 詰み 手数를 내줬다")
 	}
-	// ok 를 버려도 값이 안 샌다. 두 접근자가 대칭이라 0 으로 떨어진다.
+	// ok 를 버려도 값이 새지 않는다. 두 접근자가 대칭이라 0 으로 떨어진다.
 	if n, _ := Cp(300).MateIn(); n != 0 {
 		t.Errorf("cp 300 의 MateIn = %d, want 0", n)
 	}
 	if cp, _ := Mate(3).Centipawns(); cp != 0 {
 		t.Errorf("mate 3 의 Centipawns = %d, want 0", cp)
 	}
-	// 제로값은 「모른다」가 아니라 호각이다.
+	// 제로값은 호각이다. 「모른다」는 ok 플래그가 맡는다.
 	if cp, ok := (Score{}).Centipawns(); !ok || cp != 0 {
 		t.Errorf("제로값 = (%d, %v), want (0, true)", cp, ok)
 	}
@@ -68,7 +68,7 @@ func TestNegFlipsBothKinds(t *testing.T) {
 	}
 }
 
-// 로그에 적히는 모양. 눌러 적을 자리를 안 남기려고 둔 것이라, 이 함수가 없어지면
+// 로그에 적히는 모양. 눌러 적을 자리를 남기지 않으려고 둔 것이라, 이 함수가 없어지면
 // 측정 코드가 다시 환산 함수를 찾는다.
 func TestStringSaysWhichKindItIs(t *testing.T) {
 	for _, c := range []struct {

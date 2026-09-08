@@ -39,7 +39,7 @@ func TestUndoTakesBackTheHumanMoveAndTheReply(t *testing.T) {
 	if !snap.YourTurn {
 		t.Fatalf("무른 뒤에는 사람 차례여야 한다: %+v", snap)
 	}
-	// 판이 실제로 되돌아갔는가 — 되감기가 기보만 자르고 국면을 안 되돌리면 여기서 걸린다.
+	// 판이 실제로 되돌아갔는가 — 되감기가 기보만 자르고 국면을 되돌리지 않으면 여기서 걸린다.
 	if snap.SFEN != shogi.StartSFEN {
 		t.Fatalf("국면이 안 돌아왔다: %s", snap.SFEN)
 	}
@@ -49,7 +49,7 @@ func TestUndoTakesBackTheHumanMoveAndTheReply(t *testing.T) {
 }
 
 // 무른 자리에서 다시 두면 그 판이 그대로 이어진다. 되감기가 千日手 계수나 도착 칸을
-// 안 되돌리면 여기서 표기가 어긋난다.
+// 되돌리지 않으면 여기서 표기가 어긋난다.
 func TestUndoLetsThePlayerPlayAgain(t *testing.T) {
 	opp := &scriptedOpponent{moves: []string{"3c3d", "8c8d"}}
 	s := newSession(t, Config{Opponent: opp, HumanColor: shogi.Black})
@@ -84,7 +84,7 @@ func TestUndoLetsThePlayerPlayAgain(t *testing.T) {
 // 예산은 판당 UndoMaxPerGame 이다.
 func TestUndoRunsOutAfterTheBudget(t *testing.T) {
 	// 정해진 수순을 쓰지 않는다. 되감으면 판은 처음으로 돌아가는데 대본은 그대로
-	// 앞으로 가서, 두 번째 회차의 수가 그 국면에서 불법이 된다.
+	// 앞으로 가서, 두 번째로 두는 수가 그 국면에서 불법이 된다.
 	s := newSession(t, Config{Opponent: legalOpponent{}, HumanColor: shogi.Black})
 
 	ch, cancel, err := s.Subscribe(t.Context())
@@ -154,7 +154,7 @@ func TestUndoBudgetCarriesIntoAResumedGame(t *testing.T) {
 	}
 }
 
-// 사람이 아직 한 수도 안 뒀으면 되돌릴 것이 없다.
+// 사람이 아직 한 수도 두지 않았으면 되돌릴 것이 없다.
 func TestUndoNeedsAHumanMoveToTakeBack(t *testing.T) {
 	opp := &scriptedOpponent{moves: []string{"3c3d"}}
 	s := newSession(t, Config{Opponent: opp, HumanColor: shogi.Black})
@@ -174,7 +174,7 @@ func TestUndoNeedsAHumanMoveToTakeBack(t *testing.T) {
 	}
 }
 
-// 상대가 생각하는 동안에는 못 무른다. 그 사이에 되감으면 날아오는 탐색 결과가
+// 상대가 생각하는 동안에는 무를 수 없다. 그 사이에 되감으면 날아오는 탐색 결과가
 // 되감기 전 국면의 것이다.
 func TestUndoIsRefusedWhileTheOpponentThinks(t *testing.T) {
 	opp := &scriptedOpponent{moves: []string{"3c3d"}, delay: 300 * time.Millisecond}
@@ -195,7 +195,7 @@ func TestUndoIsRefusedWhileTheOpponentThinks(t *testing.T) {
 	}
 }
 
-// 끝난 판은 못 무른다.
+// 끝난 판은 무를 수 없다.
 func TestUndoIsRefusedAfterTheGameEnds(t *testing.T) {
 	opp := &scriptedOpponent{moves: []string{"3c3d"}}
 	s := newSession(t, Config{Opponent: opp, HumanColor: shogi.Black})
@@ -211,7 +211,7 @@ func TestUndoIsRefusedAfterTheGameEnds(t *testing.T) {
 // 무른 수도 실력 추정에 남는다 — 회차 1 #4 의 두 번째 요구다.
 //
 // 판정을 통과한 수는 그때 추정기가 이미 먹었고(applyVerdict), 무르기는 그것을 안
-// 되돌린다 — 되돌렸을 때 무엇이 무너지는지는 journal §72.
+// 되돌린다 — 되돌렸을 때 무엇이 깨지는지는 journal §72.
 func TestUndoKeepsTheMoveInTheSkillEstimate(t *testing.T) {
 	rater := newFakeRater()
 	analyst := &fixedAnalyst{
@@ -255,8 +255,8 @@ func TestUndoKeepsTheMoveInTheSkillEstimate(t *testing.T) {
 	}
 }
 
-// 무른 수는 기보가 아니라 무르기 기록으로 간다. 기보에 남으면 되감기가
-// 되감기가 아니게 되고, interventions 로 가면 개입 횟수가 부풀어 오른다.
+// 무른 수는 무르기 기록으로 간다. 기보에 남으면 되감기가 되감기가 아니게 되고,
+// interventions 로 가면 개입 횟수가 부풀어 오른다.
 func TestUndoRecordsTheMoveOutsideTheKifu(t *testing.T) {
 	rec := &fakeRecorder{}
 	opp := &scriptedOpponent{moves: []string{"3c3d"}}

@@ -2,12 +2,12 @@
 #
 # 태스크는 4 vCPU / 8 GiB였고 Fargate에서 24시간 돌리면 월 $115다. 쓰는 사람이 한 명인
 # 서비스에 그 값을 낼 이유가 없어서 desired_count 가 0으로 내려가 있었는데, 0이면
-# 배포 워크플로의 헬스체크가 매 머지마다 빨간불이 된다 — 상시 빨간 CI는 안 보는 CI다.
+# 배포 워크플로의 헬스체크가 매 머지마다 빨간불이 된다 — 상시 빨간 CI는 보지 않는 CI다.
 #
 # 시작 템플릿은 하나이고 그룹이 둘이다. 티어마다 한 그룹이고 그 위에 태스크가 하나씩
 # 뜬다(아래 asg_tiers).
 
-# ECS 최적화 AMI. arm64를 고른다 — 엔진이 arm64 Debian 바이너리라 x86에서는 안 돈다
+# ECS 최적화 AMI. arm64를 고른다 — 엔진이 arm64 Debian 바이너리라 x86에서는 돌지 않는다
 # (CI도 arm64로 굽는다). SSM 파라미터라 AWS가 갱신하면 다음 apply가 새 AMI를 집는다.
 data "aws_ssm_parameter" "ecs_ami" {
   name = "/aws/service/ecs/optimized-ami/amazon-linux-2023/arm64/recommended/image_id"
@@ -84,7 +84,7 @@ resource "aws_launch_template" "app" {
     }
   }
 
-  # 루트 볼륨. AMI 스냅샷보다 작게 못 준다 — AL2023 ECS AMI가 30 GiB라 그것이 하한이다.
+  # 루트 볼륨. AMI 스냅샷보다 작게 줄 수 없다 — AL2023 ECS AMI가 30 GiB라 그것이 하한이다.
   block_device_mappings {
     device_name = "/dev/xvda"
 
@@ -105,7 +105,7 @@ resource "aws_launch_template" "app" {
   }
 
   # 에이전트에게 어느 클러스터인지 알려준다. 이 한 줄이 없으면 인스턴스는 뜨지만
-  # 클러스터에 등록되지 않고, 서비스는 「용량이 없다」로 태스크를 못 띄운다.
+  # 클러스터에 등록되지 않고, 서비스는 「용량이 없다」로 태스크를 띄우지 못한다.
   #
   # 스팟 드레이닝을 켜는 것이 두 번째 줄이다. 2분 전 통보를 받으면 에이전트가 태스크를
   # 내리고 ALB가 타깃을 빼므로, 회수 순간에 오는 요청이 죽은 인스턴스로 가지 않는다.
@@ -143,19 +143,19 @@ resource "aws_launch_template" "app" {
 #   show-gi            상호작용.  1/1/1 고정
 #   show-gi-analysis   분석.      0 ~ var.analysis_max_instances
 #
-# 분석 쪽 아래가 0 인 것이 절약 모드다(journal §125). 부하가 없으면 그 대가 아예 안 뜨고,
+# 분석 쪽 아래가 0 인 것이 절약 모드다(journal §125). 부하가 없으면 그 대가 아예 뜨지 않고,
 # 밀린 手는 상호작용 대가 겸해서 집는다(ecs.tf 의 SERVER_ROLE). 임계를 넘으면 알람이
 # 전용 대를 부르므로 배선은 그대로다.
 #
-# 태스크가 아니라 EC2 를 늘린다. network_mode 가 host 라 포트가 겹쳐서 한 인스턴스에
-# api 태스크가 둘 못 뜨고(ecs.tf), task_cpu 가 인스턴스의 2 vCPU 를 통째로 예약하므로
+# 늘리는 것은 EC2 다. network_mode 가 host 라 포트가 겹쳐서 한 인스턴스에
+# api 태스크가 둘 뜨지 못하고(ecs.tf), task_cpu 가 인스턴스의 2 vCPU 를 전부 예약하므로
 # CPU 만으로도 한 대에 하나다.
 #
-# 상호작용 쪽은 안 늘린다. 방이 짝지은 프로세스의 메모리에 있으므로(journal §98) 두 대면
-# 초대·매칭이 절반 확률로 깨진다 — 그것을 안 건드리는 것이 티어를 가른 값이다.
+# 상호작용 쪽은 늘리지 않는다. 방이 짝지은 프로세스의 메모리에 있으므로(journal §98) 두 대면
+# 초대·매칭이 절반 확률로 깨진다 — 그것을 건드리지 않는 것이 티어를 가른 값이다.
 #
-# for_each 로 묶은 이유는 줄 수가 아니라 대조다. 두 그룹의 구매 정책·타입 후보가 갈리면
-# 「분석 2대」 회차가 상호작용 회차와 다른 박스에서 돈 것이 되어 용량표에 못 적는다.
+# for_each 로 묶은 것은 대조 때문이다. 두 그룹의 구매 정책·타입 후보가 갈리면
+# 「분석 2대」 시험이 상호작용 시험과 다른 박스에서 돈 것이 되어 용량표에 적을 수 없다.
 locals {
   asg_tiers = {
     interactive = { name = "show-gi", min = 1, max = 1 }
@@ -171,14 +171,14 @@ resource "aws_autoscaling_group" "tier" {
   max_size            = each.value.max
   vpc_zone_identifier = local.alb_subnet_ids
 
-  # desired_capacity 를 안 적는다. 상호작용은 min=max=1 이라 적을 값이 하나뿐이고,
+  # desired_capacity 를 적지 않는다. 상호작용은 min=max=1 이라 적을 값이 하나뿐이고,
   # 분석은 ECS 용량 공급자가 미배치 태스크를 보고 이 값을 움직인다(ecs.tf) —
   # terraform 이 그것을 되돌리면 스케일 아웃이 다음 apply 에 취소된다.
 
   # ALB가 켜진 AZ에만 둔다(local.alb_subnet_ids). ALB는 활성 AZ의 타깃에만
   # 라우팅하므로, 세 번째 서브넷에 뜨면 인스턴스는 정상인데 사이트가 503이다.
   #
-  # 분석 티어는 ALB 뒤에 없지만 같은 서브넷을 쓴다. 회차의 값이 AZ 간 RDS 왕복에
+  # 분석 티어는 ALB 뒤에 없지만 같은 서브넷을 쓴다. 시험의 값이 AZ 간 RDS 왕복에
   # 흔들리지 않아야 한다 — 상호작용 대와 같은 자리에서 재는 것이 대조의 전제다.
 
   # 타입 여럿을 후보로 준다. 스팟 풀은 「타입 × AZ」 이므로 이것이 가동률을 정한다 —
@@ -189,11 +189,11 @@ resource "aws_autoscaling_group" "tier" {
       on_demand_base_capacity = var.on_demand_base_capacity
 
       # base 를 넘는 대는 base 를 따라간다. 분석 티어가 두 대일 때 한 대만 스팟이면
-      # 회수 하나가 그 회차의 절반을 가져가고(약 9분, journal §109), 잰 것이 처리량이
-      # 아니라 복구 시간이 된다. 회차가 아닐 때는 둘 다 스팟이다.
+      # 회수 하나가 그 시험의 절반을 가져가고(약 9분, journal §109), 재는 것이 처리량에서
+      # 복구 시간으로 바뀐다. 시험이 아닐 때는 둘 다 스팟이다.
       on_demand_percentage_above_base_capacity = var.on_demand_base_capacity > 0 ? 100 : 0
 
-      # 온디맨드는 override 순서대로 고른다. 회차가 어느 클래스에서 돌았는지가 용량표의
+      # 온디맨드는 override 순서대로 고른다. 시험이 어느 클래스에서 돌았는지가 용량표의
       # 행을 정하므로 값이 재고에 따라 흔들리면 안 된다.
       on_demand_allocation_strategy = "prioritized"
 
@@ -217,18 +217,18 @@ resource "aws_autoscaling_group" "tier" {
     }
   }
 
-  # ALB 헬스체크를 안 본다(EC2 가 기본값이다). 태스크가 배포 중에 잠깐 내려가는데
+  # ALB 헬스체크를 보지 않는다(EC2 가 기본값이다). 태스크가 배포 중에 잠깐 내려가는데
   # (deployment_maximum_percent = 100), ALB 기준으로 보면 ASG가 그것을 인스턴스 고장으로
   # 읽고 멀쩡한 인스턴스를 죽인다 — 그러면 배포마다 인스턴스가 새로 뜬다.
   #
-  # 앱 상태를 아무도 안 본다는 뜻이기도 하다. 앱이 느려지거나 죽어도 인스턴스는 교체되지
-  # 않고, 이미 종료된 것을 치우는 것이 전부다.
+  # 앱 상태는 누구도 보지 않는다. 앱이 느려지거나 죽어도 인스턴스는 교체되지
+  # 않고, 이미 종료된 것만 치운다.
 
   # 스팟이 회수된 뒤 새 인스턴스가 ECS에 등록되고 태스크를 받는 데 시간이 걸린다.
   health_check_grace_period = 180
 
-  # 대수를 지표로 낸다. 켜지 않으면 AWS/AutoScaling 계열이 아예 안 나오고, 그러면
-  # 「밀린 手가 대수를 움직였다」를 한 화면에 못 그린다(dashboard.tf) — ECS 쪽 태스크
+  # 대수를 지표로 내보낸다. 켜지 않으면 AWS/AutoScaling 계열이 아예 나오지 않고, 그러면
+  # 「밀린 手가 대수를 움직였다」를 한 화면에 그릴 수 없다(dashboard.tf) — ECS 쪽 태스크
   # 수는 Container Insights 를 켜야 나오는데 그것은 유료다.
   #
   # 둘만 켠다. 그룹 지표는 무료지만 화면에 필요한 것이 목표와 실제 둘이고, 나머지는
@@ -237,7 +237,7 @@ resource "aws_autoscaling_group" "tier" {
   enabled_metrics     = ["GroupDesiredCapacity", "GroupInServiceInstances"]
 
   # 콘솔의 인스턴스 목록에서 티어가 갈려야 한다. Name 은 default_tags 에 없으므로
-  # (providers.tf) 여기 두어도 plan 이 안 흔들린다 — 시작 템플릿의 같은 태그를 덮는다.
+  # (providers.tf) 여기 두어도 plan 이 흔들리지 않는다 — 시작 템플릿의 같은 태그를 덮는다.
   tag {
     key                 = "Name"
     value               = each.value.name
@@ -251,7 +251,7 @@ resource "aws_autoscaling_group" "tier" {
   }
 }
 
-# 자원 주소가 바뀌었다. 이름을 안 옮기면 terraform 이 도는 그룹을 지우고 다시 만든다 —
+# 자원 주소가 바뀌었다. 이름을 옮기지 않으면 terraform 이 도는 그룹을 지우고 다시 만든다 —
 # 인스턴스가 한 대뿐이라 그 사이가 그대로 장애다.
 moved {
   from = aws_autoscaling_group.app

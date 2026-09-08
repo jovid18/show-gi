@@ -26,7 +26,7 @@ type AddGameStyleTagParams struct {
 // ─── 전법·囲い ───────────────────────────────────────────────
 // 사람이 그 판에서 실제로 짠 이름. 근거는 009_game_style_tags.sql.
 //
-// 같은 이름을 두 번 안 담는다. 囲い는 판에서 매번 다시 세어지므로(game.styleTags) 한 판에
+// 같은 이름을 두 번 담지 않는다. 囲い는 판에서 매번 다시 세어지므로(game.styleTags) 한 판에
 // 같은 코드가 수십 번 온다 — 세션이 본 것을 기억해 거르지만, 이어하는 판은 그 기억을 잃는다
 // (세션이 연결에 매여 있다, §51). 그래서 거르는 자리를 여기에도 둔다.
 func (q *Queries) AddGameStyleTag(ctx context.Context, arg AddGameStyleTagParams) error {
@@ -63,7 +63,7 @@ type ClaimGameForResumeRow struct {
 // 요청은 0행을 받는다 — 탭 두 개가 같은 판을 동시에 이어하려 할 때 뒤엣것이 여기서
 // 걸리고, 그래야 세션 goroutine 둘이 한 대국 행에 기록을 겹쳐 쓰지 않는다.
 //
-// finished_at 도 같이 지운다. 안 지우면 「끝난 시각이 있는데 두는 중인 판」이 남는다.
+// finished_at 도 같이 지운다. 지우지 않으면 「끝난 시각이 있는데 두는 중인 판」이 남는다.
 func (q *Queries) ClaimGameForResume(ctx context.Context, arg ClaimGameForResumeParams) (ClaimGameForResumeRow, error) {
 	row := q.db.QueryRow(ctx, claimGameForResume, arg.ID, arg.UserID)
 	var i ClaimGameForResumeRow
@@ -115,7 +115,7 @@ SELECT count(*) FROM game_hints WHERE game_id = $1
 `
 
 // 이어하는 판이 6회 제한을 리셋하지 않게 한다(game.Config.HintsUsed) — CountGameUndos
-// 와 같은 자리, 같은 이유다.
+// 와 같은 자리에서 같은 판단을 한다.
 func (q *Queries) CountGameHints(ctx context.Context, gameID int64) (int64, error) {
 	row := q.db.QueryRow(ctx, countGameHints, gameID)
 	var count int64
@@ -129,7 +129,7 @@ FROM games g
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
   AND g.result IN ('win', 'loss', 'draw')
   AND g.user_id IS NOT DISTINCT FROM $1::bigint
-  -- 대인전 판은 안 센다(match_id IS NULL). 개입이 없는 판이라 분모에만 들어가고,
+  -- 대인전 판은 세지 않는다(match_id IS NULL). 개입이 없는 판이라 분모에만 들어가고,
   -- 그러면 「崩れやすいところ」의 비율이 그만큼 희석된다(journal §83).
   AND g.match_id IS NULL
 GROUP BY g.result
@@ -141,9 +141,9 @@ type CountGameResultsForOwnerRow struct {
 }
 
 // 마이페이지의 전적. 결과가 나온 판만 세는 것은 ListGamesForOwner 와 같은 규칙이다 —
-// 목록에 안 보이는 판이 전적에는 들어가면 두 화면이 같은 사람에 대해 다른 수를 말한다.
+// 목록에 보이지 않는 판이 전적에는 들어가면 두 화면이 같은 사람에 대해 다른 수를 말한다.
 //
-// 한 수도 안 둔 판을 빼는 것도 같은 이유다(그쪽의 EXISTS).
+// 한 수도 두지 않은 판을 빼는 것도 같다(그쪽의 EXISTS).
 func (q *Queries) CountGameResultsForOwner(ctx context.Context, ownerID *int64) ([]CountGameResultsForOwnerRow, error) {
 	rows, err := q.db.Query(ctx, countGameResultsForOwner, ownerID)
 	if err != nil {
@@ -171,7 +171,7 @@ CROSS JOIN LATERAL unnest(g.style_tags) AS t(code)
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
   AND g.result IN ('win', 'loss', 'draw')
   AND g.user_id IS NOT DISTINCT FROM $1::bigint
-  -- 대인전 판은 안 센다(match_id IS NULL). 개입이 없는 판이라 분모에만 들어가고,
+  -- 대인전 판은 세지 않는다(match_id IS NULL). 개입이 없는 판이라 분모에만 들어가고,
   -- 그러면 「崩れやすいところ」의 비율이 그만큼 희석된다(journal §83).
   AND g.match_id IS NULL
 GROUP BY t.code
@@ -187,7 +187,7 @@ type CountGameStyleTagsForOwnerRow struct {
 //
 // 거르는 조건이 전적·약점과 같아야 한다: 셋이 한 화면에 나오는데 모집단이 갈리면
 // 「12판 뒀는데 진형은 30판에서 나온 것」이 된다.
-// ::text 를 적어야 한다. unnest 의 결과 타입을 sqlc 가 못 읽어 interface{} 로
+// ::text 를 적어야 한다. unnest 의 결과 타입을 sqlc 가 읽지 못해 interface{} 로
 // 만들고, 그러면 코드가 문자열인지 아닌지를 부르는 쪽이 매번 확인해야 한다.
 func (q *Queries) CountGameStyleTagsForOwner(ctx context.Context, ownerID *int64) ([]CountGameStyleTagsForOwnerRow, error) {
 	rows, err := q.db.Query(ctx, countGameStyleTagsForOwner, ownerID)
@@ -214,7 +214,7 @@ SELECT count(*) FROM game_undos WHERE game_id = $1
 `
 
 // 이어하는 판이 3회 제한을 리셋하지 않게 한다(game.Config.UndoUsed). 세션은 연결에
-// 매여 있어 이어할 때마다 새로 만들어지는데, 카운터도 같이 0이 되면 제한이 제한이 아니다.
+// 매여 있어 이어할 때마다 새로 만들어지는데, 카운터도 같이 0이 되면 제한이 풀린다.
 func (q *Queries) CountGameUndos(ctx context.Context, gameID int64) (int64, error) {
 	row := q.db.QueryRow(ctx, countGameUndos, gameID)
 	var count int64
@@ -260,7 +260,7 @@ JOIN games g ON g.id = i.game_id
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
   AND g.result IN ('win', 'loss', 'draw')
   AND g.user_id IS NOT DISTINCT FROM $1::bigint
-  -- 대인전 판은 안 센다(match_id IS NULL). 개입이 없는 판이라 분모에만 들어가고,
+  -- 대인전 판은 세지 않는다(match_id IS NULL). 개입이 없는 판이라 분모에만 들어가고,
   -- 그러면 「崩れやすいところ」의 비율이 그만큼 희석된다(journal §83).
   AND g.match_id IS NULL
 GROUP BY i.category
@@ -272,9 +272,9 @@ type CountInterventionCategoriesForOwnerRow struct {
 }
 
 // 마이페이지의 약점. 판을 가로질러 센다 — 총평은 한 판 안에서 세지만(server/summary.go)
-// 「무엇이 약한가」는 한 판으로 답할 것이 아니다.
+// 「무엇이 약한가」는 한 판으로 답할 수 없다.
 //
-// 거르는 조건이 위와 같아야 한다: 전적에 안 들어간 판의 개입이 약점에는 들어가면
+// 거르는 조건이 위와 같아야 한다: 전적에 들어가지 않은 판의 개입이 약점에는 들어가면
 // 같은 화면의 두 숫자가 다른 모집단을 센다.
 func (q *Queries) CountInterventionCategoriesForOwner(ctx context.Context, ownerID *int64) ([]CountInterventionCategoriesForOwnerRow, error) {
 	rows, err := q.db.Query(ctx, countInterventionCategoriesForOwner, ownerID)
@@ -324,12 +324,12 @@ type CreateGameParams struct {
 // 대국 기록. 기보와 개입을 남긴다.
 //
 // 개입으로 물러진 수가 여기서만 남는다. 기보(game_moves)에는 확정된 수만 들어가므로,
-// interventions 에 안 적으면 그 수가 그대로 사라진다(docs/01-core.md §5).
+// interventions 에 적지 않으면 그 수가 그대로 사라진다(docs/01-core.md §5).
 //
 // user_id 는 로그인 전이면 NULL이다 (002_anonymous_games.sql).
 //
 // opening_tag 는 사람이 고른 상대의 진형 id다 (internal/book). 「おまかせ」면 NULL.
-// 이 칸이 있어야 이어하기가 상대를 원래대로 다시 만든다 — 북은 상태를 안 들고 매번
+// 이 칸이 있어야 이어하기가 상대를 원래대로 다시 만든다 — 북은 상태를 갖지 않고 매번
 // (start_sfen, moves) 에서 다시 구하므로(game.bookOpponent) id 하나면 그 자리로 돌아간다.
 func (q *Queries) CreateGame(ctx context.Context, arg CreateGameParams) (int64, error) {
 	row := q.db.QueryRow(ctx, createGame,
@@ -356,7 +356,7 @@ type CreateImportedGameParams struct {
 	ImportedFrom *string
 }
 
-// 밖에서 둔 판을 가져온 자리. 자리가 하나다 — 상대의 몫은 안 만든다.
+// 밖에서 둔 판을 가져온 자리. 자리가 하나다 — 상대의 몫은 만들지 않는다.
 //
 // opening_tag 가 없다. 그 칸은 「사람이 고른 컴퓨터의 진형」이라 채울 것이 없다
 // (CreateMatchGame 과 같은 이유).
@@ -389,7 +389,7 @@ type CreateMatchGameParams struct {
 }
 
 // 대인전 한 판의 한쪽 몫이다. 같은 대국이 이 질의로 두 번 불려 행 두 개가 된다 —
-// 그래야 소유 검사를 타는 다섯 질의가 한 줄도 안 바뀐다(012_match_games.sql).
+// 그래야 소유 검사를 타는 다섯 질의가 한 줄도 바뀌지 않는다(012_match_games.sql).
 //
 // opening_tag 가 없다. 그 칸은 「사람이 고른 컴퓨터의 진형」이라 상대가 사람이면
 // 채울 것이 없고, 빈 값을 넣으면 이어하기가 없는 북을 찾는다.
@@ -414,8 +414,8 @@ SET result = 'declined'
 WHERE id = $1
   AND user_id = $2
   AND result = 'abandoned'
-  -- 이어하기 세 질의가 같은 조건을 갖는다. 대인전 행은 이 장치가 닿을 자리가 아니다 —
-  -- 지금은 두 상태 다 어느 목록에도 안 뜨므로 눈에 보이는 차이가 없지만, 셋 중 하나만
+  -- 이어하기 세 질의가 같은 조건을 갖는다. 대인전 행은 이 장치가 닿지 않는 자리다 —
+  -- 지금은 두 상태 다 어느 목록에도 뜨지 않으므로 눈에 보이는 차이가 없지만, 셋 중 하나만
   -- 빠져 있으면 나중에 상태의 뜻이 바뀌는 날 그 하나가 구멍이 된다.
   AND match_id IS NULL
 `
@@ -426,10 +426,10 @@ type DeclineResumeParams struct {
 }
 
 // 「いいえ」다. 행을 지우지 않는다 — 그 판의 개입과 기보가 실력 추정의 원본이고
-// (docs/01-core.md §5), 사람이 안 이어하겠다고 한 것과 기록을 버리는 것은 다른 일이다.
+// (docs/01-core.md §5), 사람이 이어하지 않겠다고 한 것과 기록을 버리는 것은 다른 일이다.
 //
 // declined 는 abandoned 의 하위 상태다: 중단된 채로 끝났고 사람이 그러기로 정했다.
-// 따로 두는 이유는 하나뿐이다 — 이걸 다시 물어보지 않기 위해서다.
+// 따로 두는 것은 하나 때문이다 — 이걸 다시 물어보지 않기 위해서다.
 func (q *Queries) DeclineResume(ctx context.Context, arg DeclineResumeParams) (int64, error) {
 	result, err := q.db.Exec(ctx, declineResume, arg.ID, arg.UserID)
 	if err != nil {
@@ -487,7 +487,7 @@ type GetGameRow struct {
 }
 
 // 여기서는 개입을 세지 않는다. 어차피 아래에서 전부 읽어 오므로, 따로 센 숫자와
-// 실제로 온 줄 수가 두는 중인 판에서 어긋날 수 있다 — 목록(ListGames)은 줄을 안 읽으니
+// 실제로 온 줄 수가 두는 중인 판에서 어긋날 수 있다 — 목록(ListGames)은 줄을 읽지 않으니
 // 거기서만 센다.
 func (q *Queries) GetGame(ctx context.Context, id int64) (GetGameRow, error) {
 	row := q.db.QueryRow(ctx, getGame, id)
@@ -535,7 +535,7 @@ type GetGameForOwnerRow struct {
 // 판이 있다」를 알려주는 셈이라, 남의 판 개수를 세어 볼 수 있다.
 //
 // 끝나지 않은 판도 0행이다 — ListGamesForOwner 와 같은 조건이고, 같은 이유로 404다.
-// 「있지만 못 본다」를 알려주는 순간 중단된 판의 존재가 새어 나간다.
+// 「있지만 볼 수 없다」를 알려주는 순간 중단된 판의 존재가 새어 나간다.
 func (q *Queries) GetGameForOwner(ctx context.Context, arg GetGameForOwnerParams) (GetGameForOwnerRow, error) {
 	row := q.db.QueryRow(ctx, getGameForOwner, arg.ID, arg.OwnerID)
 	var i GetGameForOwnerRow
@@ -568,7 +568,7 @@ type InsertHintParams struct {
 }
 
 // ─── 부른 힌트 ───────────────────────────────────────────────
-// 사람이 불러서 받은 최선수 힌트. 개입과 따로 두는 이유는 010_game_hints.sql.
+// 사람이 불러서 받은 최선수 힌트. 개입과 따로 두는 근거는 010_game_hints.sql.
 func (q *Queries) InsertHint(ctx context.Context, arg InsertHintParams) error {
 	_, err := q.db.Exec(ctx, insertHint,
 		arg.GameID,
@@ -602,7 +602,7 @@ type InsertInterventionParams struct {
 	AfterMate    *int32
 }
 
-// (game_id, ply) 는 유니크가 아니다. 한 국면에서 몇 수를 시도하고 전부 물러지는 일이
+// (game_id, ply) 에 유니크가 없다. 한 국면에서 몇 수를 시도하고 전부 물러지는 일이
 // 실제로 있고 그 반복이 곧 기록할 값이다(journal §17).
 // 칸별 규약은 store.Intervention 에 있다.
 func (q *Queries) InsertIntervention(ctx context.Context, arg InsertInterventionParams) error {
@@ -640,7 +640,7 @@ type InsertMoveParams struct {
 // 확정된 수만 들어온다. 물러진 수가 여기 들어가면 기보가 롤백을 반영하지 못한다.
 //
 // 같은 ply를 다시 쓰는 것은 롤백 뒤 다시 둔 경우다. 덮어쓴다 — 기보는 「지금 판에
-// 남아 있는 수순」이지 시도의 목록이 아니다. 시도는 interventions 가 센다.
+// 남아 있는 수순」이다. 시도는 interventions 가 센다.
 func (q *Queries) InsertMove(ctx context.Context, arg InsertMoveParams) error {
 	_, err := q.db.Exec(ctx, insertMove,
 		arg.GameID,
@@ -667,10 +667,10 @@ type InsertUndoParams struct {
 }
 
 // ─── 무르기 ─────────────────────────────────────────────────
-// 사람이 스스로 무른 수. 개입과 따로 두는 이유는 008_game_undos.sql.
+// 사람이 스스로 무른 수. 개입과 따로 두는 근거는 008_game_undos.sql.
 //
-// 평가치는 인자로 안 받는다. 그 값은 판정이 game_moves 에 이미 채워 뒀거나 아직
-// 안 채웠거나 둘 중 하나이고, 세션이 그것을 다시 들고 다니면 같은 숫자가 두 벌이 된다.
+// 평가치는 인자로 받지 않는다. 그 값은 판정이 game_moves 에 이미 채워 뒀거나 아직
+// 채우지 않았거나 둘 중 하나이고, 세션이 그것을 다시 들고 다니면 같은 숫자가 두 벌이 된다.
 // 여기서 옮겨 담고 아래 DeleteMovesFrom 이 원본을 지운다 — 순서가 뒤집히면 NULL이 남는다.
 func (q *Queries) InsertUndo(ctx context.Context, arg InsertUndoParams) error {
 	_, err := q.db.Exec(ctx, insertUndo, arg.GameID, arg.Ply, arg.USI)
@@ -743,7 +743,7 @@ type ListGameMovesRow struct {
 }
 
 // 점수는 先手 관점이고 둘 다 NULL일 수 있다(store.RecordedMove). eval_cp 와 eval_mate 는
-// 배타적이고, 그것을 드는 것은 주석이 아니라 CHECK 다(021_tagged_evals.sql).
+// 배타적이고, 그것을 맡는 것은 CHECK 다(021_tagged_evals.sql).
 func (q *Queries) ListGameMoves(ctx context.Context, gameID int64) ([]ListGameMovesRow, error) {
 	rows, err := q.db.Query(ctx, listGameMoves, gameID)
 	if err != nil {
@@ -818,12 +818,12 @@ SELECT
     (SELECT count(*) FROM game_moves m WHERE m.game_id = g.id) AS move_count,
     (SELECT count(*) FROM interventions i WHERE i.game_id = g.id) AS intervention_count,
     g.match_id,
-    -- 재채점이 가져온 판을 빼야 한다. 그 판에는 개입 루프가 안 돌아서 임계치를 넘은
+    -- 재채점이 가져온 판을 빼야 한다. 그 판에는 개입 루프가 돌지 않아서 임계치를 넘은
     -- 수가 기보에 그대로 남아 있고, 섞으면 「통과한 수는 임계치 아래」가 깨진다
     -- (calibrate_measure_test.go).
     g.imported_from,
     -- 재채점이 手合割을 알아야 한다(internal/handicap). 기준점이 판마다 다르면 낙폭을
-    -- 판을 가로질러 비교할 수 없고, 그 비교가 이 질의를 쓰는 유일한 이유다(journal §39).
+    -- 판을 가로질러 비교할 수 없고, 이 질의는 그 비교 하나만을 위해 있다(journal §39).
     g.start_sfen
 FROM games g
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
@@ -848,7 +848,7 @@ type ListGamesRow struct {
 //
 // 리뷰 화면의 첫 목록. 최신부터.
 //
-// 한 수도 안 둔 판은 빼고 센다. 연결만 열렸다 끊긴 판이 실제로 그렇게 남는데
+// 한 수도 두지 않은 판은 빼고 센다. 연결만 열렸다 끊긴 판이 실제로 그렇게 남는데
 // (ws 핸들러가 붙는 즉시 CreateGame 한다), 되짚을 것이 없는 줄을 목록 맨 위에 놓으면
 // 진짜 대국이 아래로 밀린다. 세는 쪽과 거르는 쪽이 같은 EXISTS 라 둘이 어긋나지 않는다.
 //
@@ -897,10 +897,10 @@ SELECT
     -- 대인전 판은 여기 그대로 뜬다. 마이페이지의 집계에서만 빠진다(journal §83) —
     -- 그쪽은 개입 비율이 뜻을 갖는 자리이고, 목록은 「무엇을 뒀나」라 뜻이 다르다.
     g.match_id,
-    -- 가져온 판인가. 값이 아니라 있는가만 밖으로 나간다(020_imported_games.sql).
+    -- 가져온 판인가. 값 대신 있는가만 밖으로 나간다(020_imported_games.sql).
     g.imported_from,
-    -- 手合割을 되짚는 유일한 칸이다(internal/handicap 의 Of). 칸을 새로 만들지 않은
-    -- 이유가 이것이다 — 시작 국면이 곧 手合이라, 이름을 따로 적으면 둘이 갈릴 수 있다.
+    -- 手合割을 되짚는 하나뿐인 칸이다(internal/handicap 의 Of). 시작 국면이 곧 手合이라
+    -- 칸을 새로 만들지 않았다 — 이름을 따로 적으면 둘이 갈릴 수 있다.
     g.start_sfen
 FROM games g
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
@@ -928,14 +928,14 @@ type ListGamesForOwnerRow struct {
 	StartSfen         *string
 }
 
-// 화면이 쓰는 쪽이다. 위 ListGames 는 주인을 안 보므로 측정 전용이다.
+// 화면이 쓰는 쪽이다. 위 ListGames 는 주인을 보지 않으므로 측정 전용이다.
 //
-// 주인이 NULL(로그인 안 함)이면 익명 판만 보인다. 익명 판은 서로 구별할 수단이
+// 주인이 NULL(로그인하지 않음)이면 익명 판만 보인다. 익명 판은 서로 구별할 수단이
 // 애초에 없으므로 지금까지와 같고, 갈리는 것은 로그인한 판이 그 사람에게만
 // 보인다는 쪽이다 (docs/02-architecture.md §7 위협 2).
 //
 // 결과가 나온 판만 준다 (journal §51). 두는 중(result NULL)도, 중단된
-// 판(abandoned·declined)도 안 나간다 — 되짚을 것이 없는 줄이고, 중단된 판은 이어하기가
+// 판(abandoned·declined)도 나가지 않는다 — 되짚을 것이 없는 줄이고, 중단된 판은 이어하기가
 // 가져갈 몫이다. 아래 GetGameForOwner 와 같은 조건이어야 한다: 목록에서만 빼면
 // /reviews/<id> 주소로 그냥 열린다(§46).
 func (q *Queries) ListGamesForOwner(ctx context.Context, arg ListGamesForOwnerParams) ([]ListGamesForOwnerRow, error) {
@@ -995,8 +995,8 @@ SELECT
     g.my_color,
     g.started_at,
     g.opening_tag,
-    -- 이어하기 카드가 手合을 말하는 자리다. 위 ListGamesForOwner 와 같은 이유로 이름이
-    -- 아니라 국면을 든다.
+    -- 이어하기 카드가 手合을 말하는 자리다. 위 ListGamesForOwner 와 같은 이유로 이름
+    -- 대신 국면을 담는다.
     g.start_sfen,
     (SELECT count(*) FROM game_moves m WHERE m.game_id = g.id) AS move_count
 FROM games g
@@ -1032,13 +1032,13 @@ type ResumableGameForOwnerRow struct {
 // 근거와 정한 것 셋은 journal §46 · §51.
 //
 // 로그인한 사람만이다. 셋 다 주인을 = 로 받아 익명 판(user_id NULL)이 애초에
-// 안 걸린다 — 익명끼리는 구별할 수단이 없어서(002_anonymous_games.sql) 「누구의 중단된
+// 걸리지 않는다 — 익명끼리는 구별할 수단이 없어서(002_anonymous_games.sql) 「누구의 중단된
 // 판인가」에 답할 수가 없다.
 //
 // 이어할 수 있는 판 하나. 가장 최근 것 하나만 준다 — 목록을 주면 사람이 「어느 판을
 // 이어할까」를 고르는 화면이 되는데, 물음은 「두던 판을 이어할까」 하나다.
 //
-// 한 수도 안 둔 판은 뺀다(ListGames 와 같은 EXISTS). 연결만 열렸다 끊긴 판이 그렇게
+// 한 수도 두지 않은 판은 뺀다(ListGames 와 같은 EXISTS). 연결만 열렸다 끊긴 판이 그렇게
 // 남는데, 그것을 이어하는 것은 새 판을 여는 것과 같다.
 func (q *Queries) ResumableGameForOwner(ctx context.Context, userID *int64) (ResumableGameForOwnerRow, error) {
 	row := q.db.QueryRow(ctx, resumableGameForOwner, userID)
@@ -1066,7 +1066,7 @@ type SetMoveEvalParams struct {
 }
 
 // 평가치만 채운다. 수를 덮지 않는다 — upsert로 두면 물러진 수로 기보를 덮는 길이 생긴다.
-// 없는 ply면 아무 일도 안 한다(평가치가 수보다 먼저 오는 경로가 없다).
+// 없는 ply면 아무 일도 하지 않는다(평가치가 수보다 먼저 오는 경로가 없다).
 func (q *Queries) SetMoveEval(ctx context.Context, arg SetMoveEvalParams) error {
 	_, err := q.db.Exec(ctx, setMoveEval,
 		arg.GameID,

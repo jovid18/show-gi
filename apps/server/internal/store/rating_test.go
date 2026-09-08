@@ -5,7 +5,7 @@ import "testing"
 // 레이팅이 판 사이로 넘어가는지, 그리고 「없다」가 「0점」과 갈리는지.
 //
 // 두 번째가 이 칸의 함정이다. rating_est 는 NOT NULL DEFAULT 0 이라 행만 있어도 값이
-// 0으로 읽히는데, 레이팅에서 0은 「모른다」가 아니라 「아주 약하다」다 —
+// 0으로 읽히는데, 레이팅에서 0은 「모른다」 대신 「아주 약하다」로 읽힌다 —
 // Games 가 그 둘을 가른다(013_match_rating.sql).
 func TestMatchRatingRoundTrips(t *testing.T) {
 	s := open(t)
@@ -64,7 +64,7 @@ func TestMatchRatingRoundTrips(t *testing.T) {
 		}
 	}
 
-	// 엔진 대국의 추정치가 안 지워졌다. 같은 행의 다른 칸이라, 한쪽 저장이 다른 쪽을
+	// 엔진 대국의 추정치가 지워지지 않았다. 같은 행의 다른 칸이라, 한쪽 저장이 다른 쪽을
 	// 덮으면 대인전 한 판이 그 사람의 개입 임계치를 기준선으로 되돌린다.
 	got, err = s.MatchRating(t.Context(), a)
 	if err != nil {

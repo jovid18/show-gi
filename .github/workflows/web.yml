@@ -32,6 +32,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm lint
+
+      # 산문 규약. 굵게가 머리말 자리에만 있는지, 주석이 금지된 맺음 문구로 끝나지
+      # 않는지 본다. pre-commit 도 같은 검사를 돌리지만 --no-verify 로 뚫리므로
+      # 강제하는 자리는 여기다. lint 와 같은 이유로 루트에서 돈다
+      - run: python3 tools/prose/bold.py
+      - run: python3 tools/prose/phrase.py
+
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build

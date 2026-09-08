@@ -103,7 +103,7 @@ func TestPoolFailsCleanly(t *testing.T) {
 	}
 }
 
-// fakeMetrics 는 풀이 내는 숫자를 그대로 받아 둔다.
+// fakeMetrics 는 풀이 내보내는 숫자를 그대로 받아 둔다.
 type fakeMetrics struct {
 	mu     sync.Mutex
 	size   int
@@ -132,7 +132,7 @@ func (m *fakeMetrics) ObserveInUse(delta int) {
 	m.mu.Unlock()
 }
 
-// 계측이 붙으면 대기 시간과 점유 수가 나온다. 이게 포화를 읽는 유일한 신호다.
+// 계측이 붙으면 대기 시간과 점유 수가 나온다. 이게 포화를 읽는 하나뿐인 신호다.
 func TestPoolObservesWaitAndUse(t *testing.T) {
 	p := newFakePool(t, 1)
 	m := &fakeMetrics{}
@@ -175,7 +175,7 @@ func TestPoolObservesWaitAndUse(t *testing.T) {
 	}
 }
 
-// 계측을 안 붙인 풀은 그대로 돈다. 지표는 대국의 전제가 아니다.
+// 계측을 붙이지 않은 풀은 그대로 돈다. 지표 없이도 대국이 돌아야 한다.
 func TestPoolWithoutMetrics(t *testing.T) {
 	p := newFakePool(t, 1)
 	if _, err := p.SearchDepth(t.Context(), testSFEN, nil, 6); err != nil {
@@ -184,7 +184,7 @@ func TestPoolWithoutMetrics(t *testing.T) {
 }
 
 // 이중 Release 는 호출 측 버그이지만 게이지를 망가뜨리면 안 된다. 음수로 굳으면
-// 점유가 실제보다 낮게 보여 포화가 안 보인다.
+// 점유가 실제보다 낮게 보여 포화가 보이지 않는다.
 func TestDoubleReleaseKeepsGaugeAtZero(t *testing.T) {
 	p := newFakePool(t, 1)
 	m := &fakeMetrics{}
@@ -204,13 +204,13 @@ func TestDoubleReleaseKeepsGaugeAtZero(t *testing.T) {
 	}
 }
 
-// 이름을 안 붙이면 대국이다. 대국 중의 경로가 컨텍스트를 그대로 흘려보내므로
+// 이름을 붙이지 않으면 대국이다. 대국 중의 경로가 컨텍스트를 그대로 흘려보내므로
 // (세션 goroutine) 기본값이 그 자리를 가리켜야 라벨이 뜻을 갖는다.
 func TestBorrowerDefaultsToGame(t *testing.T) {
 	if got := BorrowerFrom(context.Background()); got != BorrowerGame {
 		t.Errorf("이름 없는 컨텍스트 = %q, want %q", got, BorrowerGame)
 	}
-	//nolint:staticcheck // nil 컨텍스트로도 안 죽어야 한다. 계측이 부르는 쪽을 못 막는다.
+	//nolint:staticcheck // nil 컨텍스트로도 죽지 않아야 한다. 계측이 부르는 쪽을 막을 수 없다.
 	if got := BorrowerFrom(nil); got != BorrowerGame {
 		t.Errorf("nil 컨텍스트 = %q, want %q", got, BorrowerGame)
 	}
@@ -218,7 +218,7 @@ func TestBorrowerDefaultsToGame(t *testing.T) {
 	if got := BorrowerFrom(ctx); got != BorrowerAnalysis {
 		t.Errorf("붙인 이름 = %q, want %q", got, BorrowerAnalysis)
 	}
-	// 빈 이름은 안 붙인다. 붙이면 라벨 하나가 빈 문자열로 갈려 계열이 늘어난다.
+	// 빈 이름은 붙이지 않는다. 붙이면 라벨 하나가 빈 문자열로 갈려 계열이 늘어난다.
 	if got := BorrowerFrom(WithBorrower(ctx, "")); got != BorrowerAnalysis {
 		t.Errorf("빈 이름이 앞의 이름을 덮었다: %q", got)
 	}
@@ -244,7 +244,7 @@ func TestPoolReportsBorrower(t *testing.T) {
 }
 
 // 사람이 기다리는 쪽이 먼저 받는다. 사후 분석이 풀을 다 쓰고 있어도 착수가 그 뒤로
-// 밀리지 않는 것이 이 큐의 이유다(journal §106).
+// 밀리지 않아야 해서 이 큐를 뒀다(journal §106).
 func TestAPersonWaitingGetsTheEngineFirst(t *testing.T) {
 	p := newFakePool(t, 1)
 

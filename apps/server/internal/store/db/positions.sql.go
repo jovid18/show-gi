@@ -56,7 +56,7 @@ const listEdges = `-- name: ListEdges :many
 SELECT parent_key, usi, child_key, tags, eval_by_depth, mate_by_depth FROM edges WHERE parent_key = $1
 `
 
-// 한 국면에서 나가는 수들. 깊이별 평가치를 되찾는 유일한 길이다(store.Edges).
+// 한 국면에서 나가는 수들. 깊이별 평가치를 되찾는 하나뿐인 길이다(store.Edges).
 func (q *Queries) ListEdges(ctx context.Context, parentKey string) ([]Edge, error) {
 	rows, err := q.db.Query(ctx, listEdges, parentKey)
 	if err != nil {

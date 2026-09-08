@@ -1,7 +1,7 @@
 // 서버가 준 합법수 목록을 판이 쓰기 좋은 모양으로 바꾼다.
 //
-// 여기서 규칙을 판단하지 않는다. 목록에 있으면 둘 수 있고 없으면 못 둔다.
-// 그래서 二歩도 打ち歩詰め도 클라이언트가 알 필요가 없다 — 애초에 목록에 안 들어온다.
+// 여기서 규칙을 판단하지 않는다. 목록에 있으면 둘 수 있고 없으면 둘 수 없다.
+// 그래서 二歩도 打ち歩詰め도 클라이언트가 알 필요가 없다 — 애초에 목록에 들어오지 않는다.
 
 import { fromUsi, toIndex } from '@/models/square';
 
@@ -20,8 +20,8 @@ export interface Destination {
 /**
  * USI 한 수를 풀어 놓은 것.
  *
- * 규칙 판단이 아니라 문자열 해석이다. 둘 수 있는 수인지는 여기서 알 수 없고 알 필요도
- * 없다 — 합법수는 서버가 목록으로 주고, 물러진 수는 서버가 이미 판정을 끝낸 것이다.
+ * 문자열 해석뿐이다. 둘 수 있는 수인지는 여기서 알 수 없고 알 필요도 없다 — 합법수는
+ * 서버가 목록으로 주고, 물러진 수는 서버가 이미 판정을 끝낸 것이다.
  */
 export type ParsedMove =
   | { kind: 'board'; from: string; to: string; promote: boolean }
@@ -30,7 +30,7 @@ export type ParsedMove =
 const DROP = /^([PLNSGBR])\*([1-9][a-i])$/;
 const BOARD = /^([1-9][a-i])([1-9][a-i])(\+?)$/;
 
-/** 읽을 수 없으면 null. 판 전체를 못 그리게 되는 것보다 그 한 수를 버리는 편이 낫다. */
+/** 읽을 수 없으면 null. 판 전체를 그릴 수 없게 되는 것보다 그 한 수를 버리는 편이 낫다. */
 export function parseUsi(usi: string): ParsedMove | null {
   const drop = DROP.exec(usi);
   if (drop?.[1] && drop[2]) {
@@ -78,8 +78,8 @@ export function groupByOrigin(legalMoves: readonly string[]): Map<Origin, Destin
  * 한 수가 지나간 두 칸(화면 배열 인덱스).
  *
  * `components/Board` 의 `LastMove` 와 같은 모양인데 그 타입을 들여오지 않는다 — `libs` 가
- * 화면 부품을 참조하면 층의 방향이 거꾸로 선다(`models/square` 의 `Motion` 이 판이 아니라
- * 거기 있는 것과 같은 이유).
+ * 화면 부품을 참조하면 층의 방향이 거꾸로 선다(`models/square` 의 `Motion` 이 거기 있는
+ * 것과 같은 판단이다).
  */
 export interface MoveSquares {
   /** 출발 칸. 打이면 null — 짚을 자리가 판 위에 없다. */
@@ -91,11 +91,11 @@ export interface MoveSquares {
  * USI 한 수를 판 위의 두 자리로 옮긴다.
  *
  * 판이 어느 수로 이 모양이 되었는지를 짚는 값이다. 되짚기와 퀴즈가 같이 쓴다 — 퀴즈에서는
- * 이것이 「▲3五金」과 「▲3五金打」를 눈으로 가르는 유일한 자리다(회차 1 #17·#18): 출발 칸이
- * 빛나면 반상 이동이고, 안 빛나면 持ち駒에서 온 수다.
+ * 이것이 「▲3五金」과 「▲3五金打」를 눈으로 가르는 하나뿐인 자리다(회차 1 #17·#18): 출발 칸이
+ * 빛나면 반상 이동이고, 빛나지 않으면 持ち駒에서 온 수다.
  *
- * 읽을 수 없거나 좌표가 판을 벗어나면 null. 판 전체를 못 그리게 되는 것보다 그 한 수를
- * 안 짚는 편이 낫다.
+ * 읽을 수 없거나 좌표가 판을 벗어나면 null. 판 전체를 그릴 수 없게 되는 것보다 그 한 수를
+ * 짚지 않는 편이 낫다.
  */
 export function squaresOf(usi: string): MoveSquares | null {
   const move = parseUsi(usi);

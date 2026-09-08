@@ -107,7 +107,7 @@ func TestParseScoreMate(t *testing.T) {
 	}
 }
 
-// mate 0 은 어느 쪽이 詰んでいる인지를 안 말한다. 이 엔진은 안 내므로(실측: mated
+// mate 0 은 어느 쪽이 詰んでいる인지를 말하지 않는다. 이 엔진은 내보내지 않으므로(실측: mated
 // 국면에 mate -1) 오면 우리가 모르는 출력이고, 모르는 것에 뜻을 주지 않는다.
 func TestParseScoreDropsMateZero(t *testing.T) {
 	var res SearchResult
@@ -188,8 +188,8 @@ func TestRankedPutsTheHighestScoreFirst(t *testing.T) {
 	}
 }
 
-// 같은 수가 두 순위를 차지한다 — 순위 칸은 깊이마다 덮어써지는데, 마지막 iteration에서 안 온
-// 순위는 얕은 깊이의 줄을 그대로 들고 남기 때문이다. 그대로 내보내면 검토 화면의 후보
+// 같은 수가 두 순위를 차지한다 — 순위 칸은 깊이마다 덮어써지는데, 마지막 iteration에서 오지 않은
+// 순위는 얕은 깊이의 줄을 그대로 지닌 채 남기 때문이다. 그대로 내보내면 검토 화면의 후보
 // 셋에 같은 수가 두 번 들어가고, 그 목록은 화면에서 지워지지 않는 줄을 하나 남긴다(§87).
 func TestRankedDropsTheSameMoveTwice(t *testing.T) {
 	var res SearchResult
@@ -210,7 +210,7 @@ func TestRankedDropsTheSameMoveTwice(t *testing.T) {
 		t.Fatalf("얕은 줄이 남았다: %+v", got[1])
 	}
 
-	// 순위가 아니라 깊이가 기준이다 — 깊은 줄이 뒤 순위에 있어도 그쪽이 남는다.
+	// 기준은 깊이다 — 깊은 줄이 뒤 순위에 있어도 그쪽이 남는다.
 	var late SearchResult
 	parseScore("info depth 6 multipv 1 score cp 80 pv 3g3f 8c8d 2g2f", &late)
 	parseScore("info depth 14 multipv 2 score cp 60 pv 3g3f 8c8d 6i7h", &late)
@@ -221,7 +221,7 @@ func TestRankedDropsTheSameMoveTwice(t *testing.T) {
 
 // 후보 순서가 점수를 태그째로 본다. 엔진의 생 cp 는 詰み을 눌러 담던 값을 넘어오므로
 // (±35281 = 「이기는데 手数를 모름」) 숫자 하나로 줄을 세우면 1手詰み이 그 뒤로 밀리고,
-// 그 순서가 그대로 저장돼 판 위의 초록 화살표가 詰み을 안 가리켰다(journal §131).
+// 그 순서가 그대로 저장돼 판 위의 초록 화살표가 詰み을 가리키지 않았다(journal §131).
 func TestRankedPutsMateAboveTheEnginesRawCeiling(t *testing.T) {
 	var res SearchResult
 	parseScore("info depth 14 multipv 1 score cp 35281 pv 4f5g 5a4b", &res)
@@ -253,7 +253,7 @@ func TestParseScoreTruncatedFinalIterationKeepsFullPv(t *testing.T) {
 }
 
 // 원본 파서는 같은 순위를 계속 덮어써서 마지막 깊이만 남겼다.
-// 깊이별로 남지 않으면 "얕게는 좋아 보이는데 깊게는 나쁜 수"를 못 찾는다.
+// 깊이별로 남지 않으면 "얕게는 좋아 보이는데 깊게는 나쁜 수"를 찾을 수 없다.
 func TestEvalByDepth(t *testing.T) {
 	e := newFake(t)
 	res, err := e.SearchDepth(t.Context(), testSFEN, nil, 6)
@@ -281,7 +281,7 @@ func TestEvalByDepth(t *testing.T) {
 	}
 }
 
-// 속보 라인의 점수는 확정값이 아니다. 깊이별 기록에 들어가면 개입 판정이
+// 속보 라인의 점수는 미확정이다. 깊이별 기록에 들어가면 개입 판정이
 // 엔진이 "아직 모른다"고 말한 값을 근거로 삼게 된다.
 func TestHistorySkipsBoundLines(t *testing.T) {
 	var res SearchResult
@@ -330,7 +330,7 @@ func TestSearchCancelSwallowsBestmove(t *testing.T) {
 // TestRealEngine 은 진짜 USI 엔진에 붙여 파서를 확인한다.
 //
 // 가짜 엔진은 우리가 적은 것만 돌려주므로, 실제 출력을 읽는다는 증거가 되지 못한다.
-// 엔진마다 info 라인의 필드 순서와 잡토큰이 다르고, 거기서 깨지면 조용히 깨진다.
+// 엔진마다 info 라인의 필드 순서와 잡토큰이 다르고, 거기서 깨지면 경고 없이 깨진다.
 //
 // SHOWGI_USI_CMD 가 없으면 건너뛴다 — CI 러너에는 엔진이 없다.
 // 엔진을 갈아끼울 때(YaneuraOu) 이 테스트가 첫 관문이다:

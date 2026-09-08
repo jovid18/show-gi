@@ -2,12 +2,12 @@ package shogi
 
 // 국면 하나가 그 자체로 성립하는가. 수의 합법성(ValidateMove)과 다른 물음이다.
 //
-// 이 파일이 있는 이유는 밖에서 들어온 국면 때문이다. 다른 표면은 뿌리를 서버가 만들고
+// 이 파일이 있는 것은 밖에서 들어온 국면 때문이다. 다른 표면은 뿌리를 서버가 만들고
 // 수순을 한 수씩 ValidateMove 로 지나가므로 「재생이 곧 보증인」인데, 사진에서 읽어 온
 // 국면은 재생할 수순이 없다 — 그 보증인을 여기가 대신한다(journal §129).
 //
 // 잡는 것은 룰이 금지하는 모양뿐이다. 銀을 成銀으로 잘못 읽은 판은 여전히 합법적인
-// 국면이라 여기서 안 걸린다 — 그쪽의 검증자는 사람이고, 그래서 확인 화면이 있다.
+// 국면이라 여기서 걸리지 않는다 — 그쪽의 검증자는 사람이고, 그래서 확인 화면이 있다.
 
 import "fmt"
 
@@ -21,7 +21,7 @@ const (
 	PositionUnknown PositionReason = iota
 	// PositionPieceExcess: 한 벌을 넘은 말이 있다.
 	PositionPieceExcess
-	// PositionKingCount: 한쪽의 玉이 하나가 아니다.
+	// PositionKingCount: 한쪽의 玉이 없거나 둘 이상이다.
 	PositionKingCount
 	// PositionNifu: 같은 筋에 성하지 않은 자기 歩가 둘 이상이다.
 	PositionNifu
@@ -52,14 +52,14 @@ func (r PositionReason) String() string {
 
 // PositionFault 는 어긴 규칙 하나와 그것이 어디인가다.
 //
-// 칸을 든다. 확인 화면이 그 칸에 표시를 하므로, 사유만 주면 사람이 81칸에서 二歩를
+// 칸을 담는다. 확인 화면이 그 칸에 표시를 하므로, 사유만 주면 사람이 81칸에서 二歩를
 // 눈으로 찾아야 한다.
 type PositionFault struct {
 	Reason PositionReason
 	// Color 는 어긴 쪽이다. 말 수 초과는 양쪽을 합쳐 세므로 그 사유에는 뜻이 없다
 	// (HasColor 가 거짓이다).
 	Color Color
-	// HasColor 는 Color 가 뜻을 갖는가다. 거짓이면 로그가 편을 안 적는다.
+	// HasColor 는 Color 가 뜻을 갖는가다. 거짓이면 로그가 편을 적지 않는다.
 	HasColor bool
 	// Square 는 문제가 된 칸이다. 칸으로 짚을 수 없는 사유(말 수·玉 수)면 -1.
 	Square int
@@ -89,7 +89,7 @@ func (f PositionFault) Error() string {
 
 // Message 는 사용자에게 보여줄 일본어 문구다.
 //
-// 「누구의」를 안 적는다. 이 문구가 나가는 자리가 사진에서 읽어 온 판을 확인하는 화면
+// 「누구의」를 적지 않는다. 이 문구가 나가는 자리가 사진에서 읽어 온 판을 확인하는 화면
 // 하나뿐이고, 거기서는 아래쪽이 언제나 자기 편이라 화면이 칸을 짚어 보여 준다.
 func (f PositionFault) Message() string {
 	switch f.Reason {
@@ -118,8 +118,8 @@ func (f PositionFault) Message() string {
 //
 // 하나에서 멈추지 않는다. 잘못 읽은 사진은 여러 자리가 함께 틀린다(journal §129).
 //
-// 말이 부족한 것은 여기서 안 본다. 詰将棋처럼 말이 빠진 국면이 정상인 경우가 있어
-// InventoryExcess 가 이미 그렇게 나눠 두었고, 사진에서 온 판의 「39枚」는 거절이 아니라
+// 말이 부족한 것은 여기서 보지 않는다. 詰将棋처럼 말이 빠진 국면이 정상인 경우가 있어
+// InventoryExcess 가 이미 그렇게 나눠 두었고, 사진에서 온 판의 「39枚」는 거절 대신
 // 경고로 화면에 나간다(InventoryShortage).
 func (pos Position) Faults() []PositionFault {
 	var out []PositionFault
@@ -140,7 +140,7 @@ func (pos Position) Faults() []PositionFault {
 		color := Color(c)
 
 		// 玉은 양쪽에 하나씩이다. 없으면 InCheck 이 언제나 거짓이 되어 아래 王手
-		// 검사가 조용히 통과하고, 둘이면 엔진 쪽이 정의되어 있지 않다.
+		// 검사가 경고 없이 통과하고, 둘이면 엔진 쪽이 정의되어 있지 않다.
 		if n := kingCount(pos, color); n != 1 {
 			out = append(out, PositionFault{
 				Reason: PositionKingCount, Color: color, HasColor: true, Square: -1, Type: King, Count: n,
@@ -148,7 +148,7 @@ func (pos Position) Faults() []PositionFault {
 		}
 
 		// 음수 持ち駒. ParseSFEN 이 막지만 Apply 로도 음수가 될 수 있고(그 함수 주석),
-		// 음수는 InventoryExcess 를 통과한다 — 합이 줄어들 뿐이라 「많다」로 안 걸린다.
+		// 음수는 InventoryExcess 를 통과한다 — 합이 줄어들 뿐이라 「많다」로 걸리지 않는다.
 		// 그런데 movegen 은 == 0 만 보므로 打을 만들어 낸다.
 		for t := Pawn; t <= Rook; t++ {
 			if pos.Hands[color][t] < 0 {
@@ -164,7 +164,7 @@ func (pos Position) Faults() []PositionFault {
 	}
 
 	// 수번이 아닌 쪽이 王手를 받고 있으면 그 쪽이 직전에 자기 玉을 잡히게 두고
-	// 넘긴 판이다. 玉 수가 이미 틀렸으면 안 묻는다 — KingSquare 가 -1을 주어
+	// 넘긴 판이다. 玉 수가 이미 틀렸으면 묻지 않는다 — KingSquare 가 -1을 주어
 	// 언제나 거짓이고, 그 거짓이 「王手가 없다」로 읽힌다.
 	if kingCount(pos, pos.Turn.Other()) == 1 && pos.InCheck(pos.Turn.Other()) {
 		out = append(out, PositionFault{
@@ -185,7 +185,7 @@ func kingCount(pos Position, c Color) int {
 	return n
 }
 
-// nifuFaults 는 같은 筋의 성하지 않은 歩를 둘째부터 짚는다. と金은 二歩가 아니다.
+// nifuFaults 는 같은 筋의 성하지 않은 歩를 둘째부터 짚는다. と金은 二歩에서 뺀다.
 func nifuFaults(pos Position, c Color) []PositionFault {
 	var out []PositionFault
 	for col := range 9 {
@@ -211,7 +211,7 @@ func nifuFaults(pos Position, c Color) []PositionFault {
 
 // deadPieceFaults 는 두 번 다시 움직일 수 없는 자리의 말을 짚는다(行き所のない駒).
 //
-// 승격을 안 한 채로는 갈 수 없는 자리다. 성한 말은 뒤로도 가므로 여기 안 걸린다.
+// 승격을 하지 않은 채로는 갈 수 없는 자리다. 성한 말은 뒤로도 가므로 여기 걸리지 않는다.
 func deadPieceFaults(pos Position, c Color) []PositionFault {
 	var out []PositionFault
 	for sq, p := range pos.Board {
@@ -241,7 +241,7 @@ func deadPieceFaults(pos Position, c Color) []PositionFault {
 
 // InventoryShortage 는 한 벌에서 빠진 말 종류와 그 수다(비면 40장이 다 있다).
 //
-// 거절 사유가 아니다. 사진에서 읽어 온 판에서는 이것이 곧 「한 장을 놓쳤다」의 신호이지만
+// 거절 사유로 쓰지 않는다. 사진에서 읽어 온 판에서는 이것이 곧 「한 장을 놓쳤다」의 신호이지만
 // (실물 한 판은 언제나 40장이다) 駒台가 잘려 나간 사진도 정상이라, 화면이 경고로만 쓴다.
 func (pos Position) InventoryShortage() map[PieceType]int {
 	count := map[PieceType]int{}

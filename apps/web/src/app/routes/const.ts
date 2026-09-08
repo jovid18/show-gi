@@ -17,11 +17,11 @@ export const PLAY_SEGMENT = 'play';
 
 export const ROUTE_REVIEWS = '/reviews';
 
-/** 마이페이지. 판이 아니라 사람 하나라 id가 없다. */
+/** 마이페이지. 사람 하나를 가리켜서 id가 없다. */
 export const ROUTE_ME = '/me';
 
 /**
- * 검토. 판을 주소에 담는 유일한 화면이다.
+ * 검토. 판을 주소에 담는 하나뿐인 화면이다.
  *
  * 手合割 하나와 지금까지 둔 수순이 쿼리에 실린다(`?h=nimaiochi&m=7g7f,3c3d`). 새로고침·
  * 뒤로 가기·링크 공유가 그것으로 살아나고, 그러지 않으면 20手를 걸어 들어간 국면이
@@ -45,7 +45,7 @@ export const EXPLORE_PARAM_MOVES = 'm';
 /**
  * 뿌리 국면을 싣는 쿼리 이름. 사진에서 읽어 온 판이 여기로 온다.
  *
- * 手合割(`h`)과 같이 못 실린다. 둘 다 뿌리를 정하는 값이라 같이 오면 서버가 거절하고
+ * 手合割(`h`)과 같이 실릴 수 없다. 둘 다 뿌리를 정하는 값이라 같이 오면 서버가 거절하고
  * (`bad_root`), 그래서 주소를 만드는 쪽도 하나만 적는다(`routeExplore`).
  */
 export const EXPLORE_PARAM_SFEN = 's';
@@ -58,8 +58,8 @@ export const EXPLORE_PARAM_SFEN = 's';
  */
 export const routeExplore = (handicap: string, moves: readonly string[], sfen = ''): string => {
   const q: string[] = [];
-  // 판이 있으면 手合割은 안 적는다. 뿌리는 하나여야 하고, 서버가 둘을 같이 받으면
-  // 거절한다 — 주소가 그 거절을 만들 수 있으면 링크 하나가 통째로 안 열린다.
+  // 판이 있으면 手合割은 적지 않는다. 뿌리는 하나여야 하고, 서버가 둘을 같이 받으면
+  // 거절한다 — 주소가 그 거절을 만들 수 있으면 링크 하나 전체가 열리지 않는다.
   if (sfen) q.push(`${EXPLORE_PARAM_SFEN}=${encodeURIComponent(sfen)}`);
   else if (handicap) q.push(`${EXPLORE_PARAM_HANDICAP}=${handicap}`);
   if (moves.length > 0) q.push(`${EXPLORE_PARAM_MOVES}=${moves.join(',')}`);
@@ -67,23 +67,23 @@ export const routeExplore = (handicap: string, moves: readonly string[], sfen = 
 };
 
 /**
- * 안내. 판도 사람도 안 부르는 유일한 화면이다 — 서버에 아무것도 안 묻고, 로그인도 안
- * 본다. 주소가 있어야 하는 이유가 그래서 하나 더 있다: 검색 결과와 공유 링크가 여기로 온다.
+ * 안내. 판도 사람도 부르지 않는 하나뿐인 화면이다 — 서버에 아무것도 묻지 않고,
+ * 로그인도 보지 않는다. 그래도 주소는 있어야 한다 — 검색 결과와 공유 링크가 여기로 온다.
  */
 export const ROUTE_GUIDE = '/guide';
 
 /**
  * 가져오기. 밖에서 둔 자기 기보를 붙여 넣는 화면이다(journal §126).
  *
- * 판도 사람도 주소에 안 싣는다 — 여기서 만들어지는 판은 가져온 뒤에야 번호를 갖고,
- * 그 순간 화면이 되짚기로 옮겨 간다.
+ * 판도 사람도 주소에 싣지 않는다 — 여기서 만들어지는 판은 가져온 뒤에야 번호를 갖고,
+ * 그때 화면이 되짚기로 옮겨 간다.
  */
 export const ROUTE_IMPORT = '/import';
 
 /**
  * 국면을 사진에서 가져오는 화면(journal §129).
  *
- * 주소가 아무것도 안 든다. 올린 그림과 읽어 낸 판은 화면 안에만 있고, 사람이 확인을
+ * 주소가 아무것도 담지 않는다. 올린 그림과 읽어 낸 판은 화면 안에만 있고, 사람이 확인을
  * 끝내면 그 국면이 검토의 주소가 되어(`routeExplore` 의 `s`) 이 화면을 떠난다 —
  * 남는 것이 주소 한 줄이라 새로고침에도 링크 공유에도 판이 살아 있다.
  */
@@ -93,7 +93,7 @@ export const ROUTE_POSITION = '/position';
 export const POSITION_SEGMENT = 'position';
 
 /**
- * 판 하나. 주소에 id가 들어가는 유일한 자리다.
+ * 판 하나. 주소에 id가 들어가는 하나뿐인 자리다.
  *
  * `ply` 를 주면 그 手数에서 열린다. 총평이 「이 국면을 다시 봐라」로 짚은 자리가
  * 링크가 되려면 手数도 주소에 있어야 한다 — 화면 안의 상태로 두면 새로고침에 사라진다.
@@ -112,8 +112,8 @@ export const routeReview = (id: number, ply?: number): string => {
  * 주소 조각으로 쓸 수 있는 숫자인가. 아니면 `null`.
  *
  * 타입이 `number` 인데 실제 값은 **서버가 준 JSON** 이다. 문자열이 들어오면 그대로
- * 이어 붙어서 `/reviews///example.com` 같은 프로토콜 상대 주소가 만들어지고, 그건
- * 내부 링크가 아니라 외부 이동이다. 타입 대신 코드가 그것을 막는다.
+ * 이어 붙어서 `/reviews///example.com` 같은 프로토콜 상대 주소가 만들어지고, 그건 외부
+ * 이동이다. 타입 대신 코드가 그것을 막는다.
  */
 const pathNumber = (value: number, min: number): string | null => {
   const n = Number(value);
@@ -126,7 +126,7 @@ const pathNumber = (value: number, min: number): string | null => {
  */
 export const routeQuiz = (id: number): string => {
   const base = routeReview(id);
-  // 번호가 안 붙었으면 그 판의 퀴즈라는 말이 성립하지 않는다. 목록으로 떨어뜨린다.
+  // 번호가 붙지 않았으면 그 판의 퀴즈라는 말이 성립하지 않는다. 목록으로 떨어뜨린다.
   return base === ROUTE_REVIEWS ? ROUTE_REVIEWS : `${base}/${QUIZ_SEGMENT}`;
 };
 
@@ -134,8 +134,8 @@ export const routeQuiz = (id: number): string => {
  * 방 하나. 주소에 들어가는 값이 곧 열쇠다 — 영숫자 8자 난수라 유추할 수 없고, 그래서
  * 이 주소를 아는 것이 입장 자격의 절반이다(나머지 절반은 로그인과 정원 2명).
  *
- * `/reviews/:id` 와 달리 숫자가 아니다. 연번이면 로그인한 아무나 남의 방을 훑어볼 수
- * 있고, 그 순간 이 기능의 전제가 무너진다.
+ * `/reviews/:id` 와 달리 난수 문자열이다. 연번이면 로그인한 아무나 남의 방을 훑어볼 수
+ * 있고, 그때 이 기능의 전제가 깨진다.
  */
 export const routeRoom = (id: string): string => (ROOM_ID.test(id) ? `${ROOMS_SEGMENT_PATH}/${id}` : ROUTE_HOME);
 
@@ -143,7 +143,7 @@ export const routeRoom = (id: string): string => (ROOM_ID.test(id) ? `${ROOMS_SE
  * 방 id 의 모양. 서버가 뽑는 글자와 같다(`internal/match` 의 roomIDAlphabet) —
  * 영문 대소문자와 숫자뿐이고 `-`·`_` 가 없다.
  *
- * 길이를 안 박는다. 8자인 것은 서버의 선택이고, 그 값이 바뀌는 날 링크가 조용히
+ * 길이를 박지 않는다. 8자인 것은 서버의 선택이고, 그 값이 바뀌는 날 링크가 경고 없이
  * 홈으로 떨어지는 것이 더 나쁘다.
  */
 const ROOM_ID = /^[A-Za-z0-9]+$/;

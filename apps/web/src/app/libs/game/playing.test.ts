@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { getPlaying, setPlaying, subscribePlaying } from './playing';
 
-// 모듈 하나가 값을 들고 있으므로 테스트끼리 새어 나간다. 끝날 때마다 되돌린다.
+// 모듈 하나가 값을 갖고 있으므로 테스트끼리 새어 나간다. 끝날 때마다 되돌린다.
 afterEach(() => setPlaying(false));
 
 describe('playing', () => {
@@ -14,7 +14,7 @@ describe('playing', () => {
     expect(notify).toHaveBeenCalledTimes(1);
     expect(getPlaying()).toBe(true);
 
-    // 같은 값은 안 알린다. 매 手마다 스냅샷이 오는데 그때마다 헤더를 다시 그리면,
+    // 같은 값은 알리지 않는다. 매 手마다 스냅샷이 오는데 그때마다 헤더를 다시 그리면,
     // 사람이 두고 있는 동안 판 밖이 계속 흔들린다.
     setPlaying(true);
     expect(notify).toHaveBeenCalledTimes(1);
@@ -25,7 +25,7 @@ describe('playing', () => {
     stop();
   });
 
-  it('끊은 쪽에는 안 간다', () => {
+  it('끊은 쪽에는 가지 않는다', () => {
     const notify = vi.fn();
     subscribePlaying(notify)();
 
@@ -35,7 +35,7 @@ describe('playing', () => {
 
   // `useSyncExternalStore` 가 렌더마다 이 값을 견준다. 매번 새 것을 돌려주면 무한히 다시
   // 그린다 — 원시값이라 저절로 맞지만, 나중에 객체로 바꾸는 순간 여기서 걸려야 한다.
-  it('안 바뀌었으면 같은 것을 돌려준다', () => {
+  it('바뀌지 않았으면 같은 것을 돌려준다', () => {
     expect(getPlaying()).toBe(getPlaying());
   });
 });

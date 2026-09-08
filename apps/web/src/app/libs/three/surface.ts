@@ -8,8 +8,8 @@
 // 픽셀이 맞는 평면이고, 그 위의 駒·빛·광선은 전부 DOM 이다.
 //
 // three.js를 쓰는 값은 여기 하나에서 나온다 — 利き을 스칼라 필드로 합성하는 것.
-// 9×9 매수를 텍스처로 올리고 GPU가 칸 사이를 메워, 그늘이 칸 하나가 아니라 판에 드리운
-// 한 겹으로 읽힌다. DOM으로는 칸마다 상자를 81개 겹치는 것 말고는 방법이 없다.
+// 9×9 매수를 텍스처로 올리고 GPU가 칸 사이를 메워, 그늘이 판에 드리운 한 겹으로
+// 읽힌다. DOM으로는 칸마다 상자를 81개 겹치는 것 말고는 방법이 없다.
 
 import {
   ClampToEdgeWrapping,
@@ -55,7 +55,7 @@ export interface Reveal {
   /** 중심. 캔버스 왼쪽 위에서 잰 CSS 픽셀이다. */
   x: number;
   y: number;
-  /** 0이면 아직 아무것도 안 보이고, 판 대각선보다 크면 전부 보인다. */
+  /** 0이면 아직 아무것도 보이지 않고, 판 대각선보다 크면 전부 보인다. */
   radius: number;
 }
 
@@ -162,7 +162,7 @@ const FRAGMENT = /* glsl */ `
     float amount = uAmount * reveal;
 
     // 매수가 늘수록 깊어지되 포화한다. 3매와 4매의 차이가 1매와 2매의 차이만큼
-    // 벌어지면, 판에서 제일 중요한 「닿는가 안 닿는가」가 깊은 쪽에 묻힌다.
+    // 벌어지면, 판에서 제일 중요한 「닿는가 닿지 않는가」가 깊은 쪽에 묻힌다.
     float depth = 1.0 - exp(-0.62 * net);
     color *= 1.0 - uDepth * depth * amount;
 
@@ -173,7 +173,7 @@ const FRAGMENT = /* glsl */ `
 /**
  * 판 표면 하나. 캔버스 하나를 잡고 산다.
  *
- * 부르지 않으면 아무것도 안 그린다. 상시 rAF 루프를 두지 않는 것은 판이 대부분의
+ * 부르지 않으면 아무것도 그리지 않는다. 상시 rAF 루프를 두지 않는 것은 판이 대부분의
  * 시간 동안 가만히 있기 때문이고, 그 시간에 GPU를 돌리면 모바일에서 배터리만 먹는다.
  */
 export class BoardSurface {
@@ -269,7 +269,7 @@ export class BoardSurface {
     this.disposed = true;
     this.texture.dispose();
     this.material.dispose();
-    // 컨텍스트를 안 놓으면 판이 사라졌다 다시 뜨는 것을 몇 번 반복한 뒤
+    // 컨텍스트를 놓지 않으면 판이 사라졌다 다시 뜨는 것을 몇 번 반복한 뒤
     // 브라우저가 가장 오래된 WebGL 컨텍스트를 죽인다 — 그때 판이 검게 남는다.
     this.renderer.dispose();
     this.renderer.forceContextLoss();
@@ -288,7 +288,7 @@ export function paletteOf(element: Element): Palette {
   };
 }
 
-/** `#cbab78` 과 `203 171 120` 을 둘 다 받는다. 못 읽으면 넘겨받은 값으로 버틴다. */
+/** `#cbab78` 과 `203 171 120` 을 둘 다 받는다. 읽지 못하면 넘겨받은 값으로 버틴다. */
 function colorOf(raw: string, r: number, g: number, b: number): Vector3 {
   const text = raw.trim();
 

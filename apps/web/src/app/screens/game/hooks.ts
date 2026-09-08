@@ -11,9 +11,9 @@ import type { StyleTag } from '@/protocol/game';
  * 사이드바에 상시 띄우지 않는다. 「中飛車」가 상태 문구 아래에 홀로 떠 있으면 무엇을
  * 가리키는 말인지 알 수 없어 라벨을 하나 더 얹어야 하고, 사건으로 만들면 그것이
  * 필요 없어진다 — 짜는 순간 판 위에 잠깐 떴다 사라지면 「방금 내가 이걸 만들었다」가
- * 위치와 타이밍으로 전달되고, 지나가면 화면에 아무것도 안 남는다(03-frontend.md).
+ * 위치와 타이밍으로 전달되고, 지나가면 화면에 아무것도 남지 않는다(03-frontend.md).
  *
- * 이름을 기억한다. 囲い는 깨졌다가 다시 짜이므로 안 기억하면 같은 이름이 여러 번 뜬다.
+ * 이름을 기억한다. 囲い는 깨졌다가 다시 짜이므로 기억하지 않으면 같은 이름이 여러 번 뜬다.
  */
 export function useTagAnnounce(tags: StyleTag[] | undefined, ply: number): [StyleTag | null, () => void] {
   const seen = useRef(new Set<string>());
@@ -37,7 +37,7 @@ export function useTagAnnounce(tags: StyleTag[] | undefined, ply: number): [Styl
 
   // 언마운트를 타이머로 하지 않는다. `setTimeout` 으로 지우면 길이가 CSS 애니메이션과
   // 두 벌이 되고, 어긋나면 요소가 DOM 에 남은 채 `opacity: 0` 으로 보이지 않는다 —
-  // 에러도 안 나고 화면에도 안 나온다. 애니메이션이 끝나는 것을 신호로 쓰면 길이의
+  // 에러도 나지 않고 화면에도 나오지 않는다. 애니메이션이 끝나는 것을 신호로 쓰면 길이의
   // 주인이 CSS 하나가 된다.
   return [showing, () => setShowing(null)];
 }

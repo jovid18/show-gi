@@ -34,7 +34,7 @@ type quizPayload struct {
 	// Ready 는 생성이 끝났는가다. 거짓은 「아직 만드는 중」이고 「문항이 없다」와 다르다 —
 	// 만드는 데 수십 초가 걸려서, 그 사이에 화면이 「問題はありません」을 그리면 거짓이 된다.
 	//
-	// 판이 끝나는 자리에서 문항이 하나도 안 나와도 행을 남기는 것이 이 값을 위해서다(ws.go).
+	// 판이 끝나는 자리에서 문항이 하나도 나오지 않아도 행을 남기는 것이 이 값을 위해서다(ws.go).
 	Ready bool          `json:"ready"`
 	Mate  *matePayload  `json:"mate,omitempty"`
 	Best  []bestPayload `json:"best,omitempty"`
@@ -51,12 +51,12 @@ type matePayload struct {
 	// 놓친 詰み과 決めた 詰み은 사람에게 전혀 다른 이야기다.
 	Converted bool `json:"converted"`
 	// LegalMoves 는 王手인 수만이다. 詰将棋에서 攻方은 매 수 王手를 걸어야 하므로
-	// 그 밖은 애초에 문항의 입력이 아니다 — 화면은 이 배열만 빛낸다.
+	// 그 밖의 수는 애초에 문항의 입력에서 빠진다 — 화면은 이 배열만 빛낸다.
 	LegalMoves []string `json:"legalMoves"`
 	// Checked 는 王手를 받고 있는 玉의 칸이다.
 	//
 	// 詰ます 쪽이 자기도 王手를 받고 있을 수 있다 — 王手를 풀면서 거는 수만 남은 국면이
-	// 그렇다. 이 칸을 안 보내면 첫 수를 둘 때까지 판이 그 사실을 안 그리다가 갑자기 그린다.
+	// 그렇다. 이 칸을 보내지 않으면 첫 수를 둘 때까지 판이 그 사실을 그리지 않다가 갑자기 그린다.
 	// 화면은 규칙을 모르므로 이것도 서버가 준다(replay.go checkedSquare).
 	Checked string `json:"checked,omitempty"`
 }
@@ -64,7 +64,7 @@ type matePayload struct {
 // bestPayload 는 「この局面の最善手は?」 문항 하나다.
 type bestPayload struct {
 	// Index 는 채점 요청이 어느 문항인지 가리키는 값이다. 手数로 가리키지 않는 이유는
-	// 문항이 뽑히는 기준이 바뀌어도 이 값의 뜻은 「목록의 몇 번째」로 안 바뀌기 때문이다.
+	// 문항이 뽑히는 기준이 바뀌어도 이 값의 뜻은 「목록의 몇 번째」로 바뀌지 않기 때문이다.
 	Index int    `json:"index"`
 	Ply   int    `json:"ply"`
 	SFEN  string `json:"sfen"`
@@ -74,7 +74,7 @@ type bestPayload struct {
 	Checked string `json:"checked,omitempty"`
 }
 
-// get 은 그 판의 문항을 준다. 문항이 없으면 빈 몸통이고 404가 아니다 — 「문항이 없는
+// get 은 그 판의 문항을 준다. 문항이 없으면 404 대신 빈 몸통으로 답한다 — 「문항이 없는
 // 판」은 흔한 결과이고(10수 만에 投了한 판), 실패로 답하면 화면이 고장과 구별하지 못한다.
 func (h *quizHandler) get(w http.ResponseWriter, r *http.Request) {
 	rec, ok := h.review.record(w, r)
@@ -87,7 +87,7 @@ func (h *quizHandler) get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 대인전 판은 「다 됐고 문항이 없다」다. 행이 없는 것은 같지만 뜻이 반대다 —
-	// 저쪽은 아직 만드는 중이고 이쪽은 영영 안 만든다(문항을 짓는 층이 대인전 경로에 없다).
+	// 저쪽은 아직 만드는 중이고 이쪽은 영영 만들지 않는다(문항을 짓는 층이 대인전 경로에 없다).
 	// ready=false 로 두면 그 화면이 오지 않을 것을 계속 기다린다(journal §83).
 	//
 	// 판정은 돈다. 手마다 재서 평가치와 실력 추정을 남기므로(journal §105) 되짚기에
@@ -99,10 +99,10 @@ func (h *quizHandler) get(w http.ResponseWriter, r *http.Request) {
 		// 서버에서 거절된다.
 		legal := rootChecks(*q.Mate)
 
-		// 둘 수 있는 수가 없으면 문항을 안 보낸다. 詰み이 있는 국면에는 王手가 반드시
+		// 둘 수 있는 수가 없으면 문항을 보내지 않는다. 詰み이 있는 국면에는 王手가 반드시
 		// 하나는 있으므로 여기가 비는 것은 트리가 깨진 것이고, 그때 카드를 그리면 사람은
 		// 누를 수 없는 문제를 본다. 덤으로 null 이 나가는 길이 막힌다 — Go의 nil 슬라이스는
-		// [] 가 아니라 null 로 직렬화되고, 화면이 그것을 순회하면 그 자리에서 죽는다
+		// [] 대신 null 로 직렬화되고, 화면이 그것을 순회하면 그 자리에서 죽는다
 		// (protocol/whatif.ts 가 같은 함정을 이미 적어 뒀다).
 		if len(legal) == 0 {
 			log.Printf("quiz: game %d: the mate item at ply %d has no playable move", rec.ID, q.Mate.Ply)
@@ -137,7 +137,7 @@ func (h *quizHandler) get(w http.ResponseWriter, r *http.Request) {
 
 // mateRequest 는 「지금까지 내가 낸 수들」이다.
 //
-// 玉方의 응수는 안 받는다. 응수는 트리에 있어서 서버가 다시 만들 수 있고, 그러면
+// 玉方의 응수는 받지 않는다. 응수는 트리에 있어서 서버가 다시 만들 수 있고, 그러면
 // 화면과 서버가 어긋날 수 없다 — 가정 수순이 상대 수까지 함께 받는 것과 갈리는 자리이고
 // (whatif.go), 저쪽 응수는 엔진 탐색이라 같은 국면에서 같은 답이라는 보장이 없다.
 type mateRequest struct {
@@ -146,7 +146,7 @@ type mateRequest struct {
 	// 않는 이유는 journal §61.
 	//
 	// 이 값으로 정답을 살 수는 없다. 크게 적어 보내도 나가는 것은 Hint 뿐이고, 정답은
-	// 맞힐 때까지 응답에 실리지 않는다 — 그것이 채점을 서버에 둔 이유다(quizHintAttempt).
+	// 맞힐 때까지 응답에 실리지 않는다 — 그래서 채점을 서버에 둔다(quizHintAttempt).
 	Attempt int `json:"attempt,omitempty"`
 }
 
@@ -191,7 +191,7 @@ func (h *quizHandler) mate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// 「아직 안 만들어졌다」를 「없다」로 답하지 않는다. 이 PR이 화면에서 내내 가르는
+	// 「아직 만들어지지 않았다」를 「없다」로 답하지 않는다. 이 PR이 화면에서 내내 가르는
 	// 그 둘이고(quizPayload.Ready), 채점 쪽만 뭉치면 늦게 온 요청 하나가 「이 판엔 詰み이
 	// 없었다」는 거짓을 받는다.
 	if !ready {
@@ -210,7 +210,7 @@ func (h *quizHandler) mate(w http.ResponseWriter, r *http.Request) {
 	prog, err := quiz.GradeMate(*q.Mate, req.Moves)
 	if errors.Is(err, quiz.ErrBadMove) {
 		// 오답과 다르다. 화면이 王手만 빛내므로 여기 오는 것은 프론트 버그이거나
-		// 조작된 요청이고, 오답과 같은 응답으로 뭉치면 버그가 오답으로 위장해 안 보인다.
+		// 조작된 요청이고, 오답과 같은 응답으로 뭉치면 버그가 오답으로 위장해 보이지 않는다.
 		writeJSON(w, http.StatusBadRequest, map[string]any{
 			"error": "bad_move", "message": "その手はこの局面で指せません。",
 		})
@@ -224,7 +224,7 @@ func (h *quizHandler) mate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// null 을 안 보낸다. Go의 nil 슬라이스는 [] 가 아니라 null 로 직렬화되고,
+	// null 을 보내지 않는다. Go의 nil 슬라이스는 [] 대신 null 로 직렬화되고,
 	// 화면이 그것을 순회하면 그 자리에서 죽는다(protocol/whatif.ts).
 	line := prog.Line
 	if line == nil {
@@ -243,7 +243,7 @@ func (h *quizHandler) mate(w http.ResponseWriter, r *http.Request) {
 	}
 	out.DefenseJa = jaOfLine(q.Mate.SFEN, prog.Line, prog.Defense != "")
 	// 힌트는 정답이 성립하는 국면에서 만든다. prog.SFEN 은 오답이면 그 수만큼 나아가
-	// 있어서 거기서는 정답이 불법이고, 그러면 「무엇을 움직이나」가 통째로 빠진다
+	// 있어서 거기서는 정답이 불법이고, 그러면 「무엇을 움직이나」가 전부 빠진다
 	// (quiz.MateProgress.BestFrom).
 	if hinting(req.Attempt) && prog.Outcome == quiz.MateWrong {
 		out.Hint = originJa(prog.BestFrom, prog.Best)
@@ -267,10 +267,10 @@ type bestResponse struct {
 	// Answer·AnswerJa·AnswerCp·SecondCp 는 맞혔을 때만 있다.
 	//
 	// 첫 오답부터 정답을 싣고 있었고, 그러면 한 번 틀리는 것으로 문항이 끝난다 — 사람이
-	// 그걸 지적했다(2026-08-14-human-2.md §6 #10 · #11). 문구에서 지우는 것으로는 안 된다:
+	// 그걸 지적했다(2026-08-14-human-2.md §6 #10 · #11). 문구에서 지우는 것으로는 부족하다:
 	// 응답에 남아 있으면 화면이 그것을 다른 칸에 그대로 적고 있었다(quiz-scores).
 	//
-	// cp가 포인터다. 0은 호각이라는 실제 값이라 omitempty 로는 「없다」와 안 갈린다.
+	// cp가 포인터다. 0은 호각이라는 실제 값이라 omitempty 로는 「없다」와 갈리지 않는다.
 	Answer   string `json:"answer,omitempty"`
 	AnswerJa string `json:"answerJa,omitempty"`
 	// AnswerCp·SecondCp 는 사람 관점 cp다. 둘의 차가 이 문항이 뽑힌 기준이다.
@@ -285,10 +285,10 @@ type bestResponse struct {
 	// 문장이 된다(회차 1 #17 · §57).
 	Move   string `json:"move"`
 	MoveJa string `json:"moveJa,omitempty"`
-	// SFEN·Checked 는 그 수를 둔 뒤의 판이다. 못 만들었으면 빈 값이고, 그때 화면은 문제
+	// SFEN·Checked 는 그 수를 둔 뒤의 판이다. 만들지 못했으면 빈 값이고, 그때 화면은 문제
 	// 국면을 그대로 만든다.
 	//
-	// 낸 수를 판에서 보여주는 유일한 길이다 — 화면은 규칙을 모르므로 스스로 한 수 둘 수 없다.
+	// 낸 수를 판에서 보여주는 하나뿐인 길이다 — 화면은 규칙을 모르므로 스스로 한 수 둘 수 없다.
 	// 打과 반상 이동이 갈리는 자리도 여기다: 출발 칸이 빈다는 것을 판이 그려야 「▲3五金」과
 	// 「▲3五金打」가 한 글자 차이인 것이 눈에 걸린다(회차 1 #18).
 	SFEN    string `json:"sfen,omitempty"`
@@ -305,7 +305,7 @@ type bestResponse struct {
 }
 
 // lineMove 는 수순 한 수다. 되짚기의 기보 한 줄과 같은 어휘이고, 국면까지 준다 —
-// 화면은 규칙을 모르므로 스스로 한 수도 못 둔다(reviewMove 와 같은 근거).
+// 화면은 규칙을 모르므로 스스로 한 수도 둘 수 없다(reviewMove 와 같은 근거).
 type lineMove struct {
 	USI string `json:"usi"`
 	Ja  string `json:"ja"`
@@ -377,10 +377,10 @@ func (h *quizHandler) best(w http.ResponseWriter, r *http.Request) {
 // 정답을 둔 자리에서 시작한다. 저장된 것은 그 뒤의 수순뿐이라(quiz.BestItem.Line)
 // 여기서 한 수 먼저 둬야 판이 맞는다.
 //
-// 막히면 거기까지만 준다. 저장된 수순이 그 국면에서 못 두는 수인 것은 문항이 깨졌다는
+// 막히면 거기까지만 준다. 저장된 수순이 그 국면에서 둘 수 없는 수인 것은 문항이 깨졌다는
 // 뜻인데, 그때 500으로 답하면 맞은 답이 오류가 된다(afterMove 와 같은 판단).
 //
-// 「同」이 여기서부터는 산다 — 앞 수의 도착 칸을 이어 넘긴다. 문항의 첫 수에만 못 쓴다
+// 「同」이 여기서부터는 산다 — 앞 수의 도착 칸을 이어 넘긴다. 문항의 첫 수에만 쓸 수 없다
 // (그 국면에는 직전 수가 없다, jaAt 의 prevTo = -1).
 func lineFrom(sfen, answer string, line []string) []lineMove {
 	if len(line) == 0 {
@@ -418,7 +418,8 @@ func lineFrom(sfen, answer string, line []string) []lineMove {
 
 // load 는 저장된 문항을 읽는다.
 //
-// ready=false 는 아직 안 만들어졌다이고 실패가 아니다. ok=false 만 그 자리에서 답을 이미 썼다.
+// ready=false 는 아직 만들어지지 않았다는 표시다. 실패는 ok=false 쪽이고, 그때는 답을 그
+// 자리에서 이미 썼다.
 func (h *quizHandler) load(w http.ResponseWriter, r *http.Request, gameID int64) (q quiz.Quiz, ready, ok bool) {
 	failed := func() (quiz.Quiz, bool, bool) {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{
@@ -442,7 +443,7 @@ func (h *quizHandler) load(w http.ResponseWriter, r *http.Request, gameID int64)
 	return q, true, true
 }
 
-// decodeQuizBody 는 본문을 읽는다. 상한을 넘기거나 못 읽으면 그 자리에서 답하고 false 다.
+// decodeQuizBody 는 본문을 읽는다. 상한을 넘기거나 읽지 못하면 그 자리에서 답하고 false 다.
 func decodeQuizBody(w http.ResponseWriter, r *http.Request, into any) bool {
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, quizBodyLimit))
 	if err := dec.Decode(into); err != nil {
@@ -454,7 +455,7 @@ func decodeQuizBody(w http.ResponseWriter, r *http.Request, into any) bool {
 	return true
 }
 
-// rootChecks 는 문제 국면에서 트리가 아는 王手들이다. 수를 하나도 안 낸 채점이 곧
+// rootChecks 는 문제 국면에서 트리가 아는 王手들이다. 수를 하나도 내지 않은 채점이 곧
 // 첫 장면이라, 여는 자리와 진행하는 자리가 같은 함수를 지난다.
 func rootChecks(item quiz.MateItem) []string {
 	prog, err := quiz.GradeMate(item, nil)
@@ -465,7 +466,7 @@ func rootChecks(item quiz.MateItem) []string {
 	return prog.Legal
 }
 
-// checkedAt 은 그 국면에서 王手를 받고 있는 玉의 칸이다. 못 읽으면 빈 값.
+// checkedAt 은 그 국면에서 王手를 받고 있는 玉의 칸이다. 읽지 못하면 빈 값.
 func checkedAt(sfen string) string {
 	pos, err := shogi.ParseSFEN(sfen)
 	if err != nil {
@@ -474,7 +475,7 @@ func checkedAt(sfen string) string {
 	return checkedSquare(pos)
 }
 
-// jaAt 은 그 국면에서 그 수의 棋譜 표기다. 못 읽으면 빈 값 — 표기가 없어도 수는 사실이다.
+// jaAt 은 그 국면에서 그 수의 棋譜 표기다. 읽지 못하면 빈 값 — 표기가 없어도 수는 사실이다.
 func jaAt(sfen, usiMove string, prevTo int) string {
 	if usiMove == "" {
 		return ""
@@ -492,8 +493,8 @@ func jaAt(sfen, usiMove string, prevTo int) string {
 
 // afterMove 는 그 국면에서 그 수를 둔 결과다 — 정본 USI · 棋譜 표기 · 다음 국면 · 王手 칸.
 //
-// 못 두면 넷 다 빈 값이다. 채점은 이미 끝났으므로(quiz.GradeBest) 여기서 실패하는 것은
-// 표기와 판을 못 보여준다는 뜻일 뿐이고, 그때 500으로 답하면 맞은 답이 오류가 된다.
+// 두지 못하면 넷 다 빈 값이다. 채점은 이미 끝났으므로(quiz.GradeBest) 여기서 실패하는 것은
+// 표기와 판을 보여주지 못한다는 뜻일 뿐이고, 그때 500으로 답하면 맞은 답이 오류가 된다.
 //
 // 정본으로 돌려주는 이유는 문구가 이 값으로 「그 판에서 둔 수」와 견주기 때문이다
 // (bestMessage). 요청 문자열을 그대로 쓰면 그 비교가 파서가 얼마나 느슨한가에 매인다.
@@ -518,7 +519,7 @@ func afterMove(sfen, usiMove string) (canon, ja, next, checked string) {
 // moveOriginJa 는 정답 수가 어디서 오는가다 — 「4六の金」 혹은 「持ち駒の金」.
 //
 // 낸 수와 같은 칸으로 가는 다른 수일 때만 채운다. 그때 두 표기는 打 한 글자로만 갈리고
-// (▲3五金 / ▲3五金打) 나란히 놓아도 사람은 같은 수로 읽는다 — 회차 1 #17이 그것이다.
+// (▲3五金 / ▲3五金打) 함께 놓아도 사람은 같은 수로 읽는다 — 회차 1 #17이 그것이다.
 // 칸이 다르면 표기가 이미 갈려 있으므로 덧붙이면 문장만 길어진다.
 func moveOriginJa(sfen, answer, played string) string {
 	a, err := shogi.ParseUSIMove(answer)
@@ -592,7 +593,7 @@ func jaOfLine(startSFEN string, line []string, want bool) string {
 //
 // 정답을 말하는 자리는 없다. 세 번째부터는 이 한 마디가 나오고 그 뒤로는 몇 번 틀려도
 // 같다 — 사람이 그렇게 정했다(2026-08-14-human-2.md §6 #11). 두 번은 스스로 다시 보라는
-// 뜻이고, 세 번이면 판에서 무엇을 볼지조차 못 잡고 있다는 뜻이다.
+// 것이고, 세 번이면 판에서 무엇을 볼지조차 잡지 못하고 있다.
 const quizHintAttempt = 3
 
 // hinting 은 이 시도에서 힌트를 줄 차례인가다. 화면이 보낸 값을 믿는다 — 그것으로 살 수
@@ -614,11 +615,11 @@ func mateMessage(p quiz.MateProgress, hint string) string {
 
 	case quiz.MateWrong:
 		// 아는 만큼만 말한다. Rest == 0 은 두 가지다 — solver 가 자기 한계
-		// (ENGINE_MATE_PLIES, 기본 11) 안에서 詰み을 못 찾았거나, 애초에 안 물어봤다
-		// (1手 노드에서는 답이 안 바뀌므로 묻지 않는다 — quiz.expand).
+		// (ENGINE_MATE_PLIES, 기본 11) 안에서 詰み을 찾지 못했거나, 애초에 물어보지 않았다
+		// (1手 노드에서는 답이 바뀌지 않으므로 묻지 않는다 — quiz.expand).
 		//
-		// 그래서 「詰みません」도 「詰みが消えました」도 안 된다 — 둘 다에서 참인 말은
-		// 「이 수로는 詰み이 안 된다」뿐이다(journal §53).
+		// 그래서 「詰みません」도 「詰みが消えました」도 쓸 수 없다 — 둘 다에서 참인 말은
+		// 「이 수로는 詰み이 되지 않는다」뿐이다(journal §53).
 		head := "この手では詰みになりません。"
 		if p.Rest > 0 {
 			head = fmt.Sprintf("詰みは残りますが、%d手に伸びてしまいます。", 2+p.Rest)
@@ -631,9 +632,9 @@ func mateMessage(p quiz.MateProgress, hint string) string {
 		return head + "「最初から」でもう一度考えてみてください。"
 
 	default:
-		// 수를 하나도 안 낸 요청에는 「正解です」라고 하지 않는다. 문항을 여는 자리가
+		// 수를 하나도 내지 않은 요청에는 「正解です」라고 하지 않는다. 문항을 여는 자리가
 		// 바로 그 요청이고(rootChecks 가 빈 수순으로 채점을 부른다), 거기서 정답이라고
-		// 말하면 아무것도 안 한 사람에게 맞혔다고 하는 셈이다.
+		// 말하면 아무것도 하지 않은 사람에게 맞혔다고 하는 셈이다.
 		if len(p.Line) > 0 && p.Plies > 0 {
 			return fmt.Sprintf("正解です。あと%d手で詰みます。", p.Plies)
 		}
@@ -647,8 +648,8 @@ func mateMessage(p quiz.MateProgress, hint string) string {
 // 낸 수부터 말한다. 정답만 말하는 문장은 정답과 한 글자 차이인 수를 낸 사람에게
 // 「내가 그것을 뒀는데 틀렸다고 한다」가 된다 — 회차 1의 #17이 정확히 그 자리다.
 //
-// 오답이어도 그 판의 일로 되돌린다 — 사람이 실제로 둔 수를 함께 말하는 것이 이 문항이
-// 문제집이 아니라 자기 기보인 이유다.
+// 오답이어도 그 판의 일로 되돌린다 — 사람이 실제로 둔 수를 함께 말하는 것이 이 문항을
+// 문제집 대신 자기 기보로 만든다.
 //
 // item 을 함께 받는다. 응답에서 정답과 cp를 뺐으므로(bestResponse) 문장이 그것들을
 // 응답에서 읽을 수 없다 — 두 자리가 같은 값을 서로 다른 이유로 필요로 한다.
@@ -674,7 +675,7 @@ func bestMessage(r bestResponse, item quiz.BestItem) string {
 	}
 
 	// 정답과 같으면 말하지 않는다. 그때는 그 한 줄이 정답을 그대로 말해 버린다 — 낸 수와
-	// 같을 때 안 말하는 것은 방금 한 말의 되풀이라서다.
+	// 같을 때 말하지 않는 것은 방금 한 말의 되풀이라서다.
 	//
 	// 여기서도 두 표기가 打 한 글자로만 갈릴 수 있다. §57이 정답과 낸 수 사이에서 닫은
 	// 그 상처가, 문장에서 정답을 뺀 뒤에는 낸 수와 그 판의 수 사이로 옮겨 온다.

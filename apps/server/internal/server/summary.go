@@ -28,7 +28,7 @@ type summaryStats struct {
 	Focus *focusPoint `json:"focus,omitempty"`
 }
 
-// focusPoint 는 그 판에서 가장 크게 갈린 자리 하나다. 문장이 아니라 숫자 쪽에 둔다 —
+// focusPoint 는 그 판에서 가장 크게 갈린 자리 하나다. 문장 대신 숫자 쪽에 둔다 —
 // 이 파일의 규약이 그렇다(위 주석).
 type focusPoint struct {
 	// Ply 는 물러진 수의 手数다. 화면은 이 수를 두기 직전 국면을 연다 — 물러진 수는
@@ -60,7 +60,7 @@ type rankView struct {
 
 // skillChange 는 이 판에서 段級이 어떻게 움직였나다.
 //
-// 대국 중에는 안 보낸다. 자기 실력이 매 수 흔들리는 것을 보여 줄 이유가 없고
+// 대국 중에는 보내지 않는다. 자기 실력이 매 수 흔들리는 것을 보여 줄 이유가 없고
 // (skill.RiseRate 가 비대칭이라 블런더 하나에 몇 계단이 움직인다), 사람이 알고 싶은
 // 것은 한 판을 두고 나서의 결과다.
 type skillChange struct {
@@ -100,7 +100,7 @@ func factsOf(rec store.GameRecord, level intervene.Level) (explain.GameFacts, su
 		Phase:    explain.PhaseNone,
 		Trend:    explain.TrendUnknown,
 		Standing: standingOf(rec),
-		// 가져온 판에서는 아무도 그 수를 막지 않았다. 문장이 「戻す」로 말하면
+		// 가져온 판에서는 누구도 그 수를 막지 않았다. 문장이 「戻す」로 말하면
 		// 없던 일을 있었다고 말하게 된다(explain.GameFacts.Intervened).
 		Intervened: !rec.Imported,
 	}
@@ -127,7 +127,7 @@ func factsOf(rec store.GameRecord, level intervene.Level) (explain.GameFacts, su
 	}
 
 	// 물러진 수는 기보에 없다(game.Recorder). 그래서 개입의 手数가 마지막 확정 수보다
-	// 클 수 있고, 그 값을 안 보면 판이 실제보다 짧은 것으로 세어진다.
+	// 클 수 있고, 그 값을 보지 않으면 판이 실제보다 짧은 것으로 세어진다.
 	for _, iv := range rec.Interventions {
 		if iv.Ply > last {
 			last = iv.Ply
@@ -155,7 +155,7 @@ func factsOf(rec store.GameRecord, level intervene.Level) (explain.GameFacts, su
 
 // focusOf 는 「이 국면을 다시 봐라」로 짚을 자리 하나다. 낙폭이 가장 큰 개입을 고른다.
 //
-// 카테고리를 안 본다 — 어느 종류가 더 배울 것이 많은지는 우리가 모르고, 그걸 정하는
+// 카테고리를 보지 않는다 — 어느 종류가 더 배울 것이 많은지는 우리가 모르고, 그걸 정하는
 // 순간 순위표가 하나 더 생긴다(intervene 이 카테고리를 스칼라로 받는 것과 같은 이유, §15).
 //
 // 같은 낙폭이면 이른 手数다. 무작위면 같은 판을 두 번 열 때 다른 자리를 짚는다
@@ -224,7 +224,7 @@ const (
 )
 
 // phaseOf 는 개입이 몰린 구간이다. 과반이 아니면 even 이다 — 최다 구간을 그냥 말하면
-// 4·3·3에서도 「주로 서반」이 되고, 그건 사실이 아니다.
+// 4·3·3에서도 「주로 서반」이 되고, 그건 거짓말이다.
 func phaseOf(ivs []store.RecordedIntervention) explain.Phase {
 	if len(ivs) == 0 {
 		return explain.PhaseNone
@@ -257,7 +257,7 @@ func phaseOf(ivs []store.RecordedIntervention) explain.Phase {
 const trendMinSamples = 4
 
 // trendOf 는 후반이 나아졌는가다. 개입 밀도로 본다 — 낙폭의 평균은 물러진 수에만 있는
-// 값이라(§39 ⑥) 통과한 수가 늘어난 것을 못 본다.
+// 값이라(§39 ⑥) 통과한 수가 늘어난 것을 보지 못한다.
 func trendOf(ivs []store.RecordedIntervention, lastPly int) explain.Trend {
 	if lastPly <= 0 || len(ivs) < trendMinSamples {
 		return explain.TrendUnknown
@@ -285,7 +285,7 @@ func trendOf(ivs []store.RecordedIntervention, lastPly int) explain.Trend {
 // standingOf 는 판이 끝난 시점의 형세를 사람 관점으로 읽는다.
 //
 // 마지막으로 채워진 평가치를 쓴다. 평가치는 수보다 늦게 오므로 마지막 몇 수가 비어
-// 있을 수 있고(store.RecordedMove), 그것을 안 보면 한참 전의 형세로 말하게 된다 —
+// 있을 수 있고(store.RecordedMove), 그것을 보지 않으면 한참 전의 형세로 말하게 된다 —
 // 그래서 끝에서 StandingMaxLag 手 안의 것만 받는다.
 //
 // 부호를 뒤집는 자리다. EvalCp 는 先手 관점이고 여기서 필요한 것은 사람 관점이다.
@@ -308,10 +308,10 @@ func standingOf(rec store.GameRecord) explain.Standing {
 		score = score.Neg()
 	}
 
-	// 手合割의 기준점을 뺀다. 안 빼면 二枚落ち에서 +1386을 +900까지 흘린 판이
+	// 手合割의 기준점을 뺀다. 빼지 않으면 二枚落ち에서 +1386을 +900까지 흘린 판이
 	// 「圧倒的に有利でした」로 나간다 — 판정과 같은 좌표를 써야 총평도 같은 사실을 말한다.
 	//
-	// 詰み은 기준점을 안 지난다(WinRateOf). 「詰ませられる 자리였나」에는 手合이 없다.
+	// 詰み은 기준점을 지나지 않는다(WinRateOf). 「詰ませられる 자리였나」에는 手合이 없다.
 	baseline := handicap.BaselineCp(rec.StartSFEN)
 	if rec.MyColor != "b" {
 		baseline = -baseline

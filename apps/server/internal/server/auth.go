@@ -14,7 +14,7 @@ import (
 
 // 로그인 표면. 흐름은 셋뿐이다 — Google로 보내고, 돌아온 것을 받아 쿠키를 굽고, 지운다.
 //
-// 로그인은 대국의 전제가 아니다. 키가 없어도, DB가 없어도, 사람이 로그인을 안 해도
+// 로그인 없이도 대국이 된다. 키가 없어도, DB가 없어도, 사람이 로그인을 하지 않아도
 // 지금처럼 익명으로 둘 수 있다(games.user_id 가 nullable인 이유, journal §18).
 // 로그인이 바꾸는 것은 그 판이 누구의 것으로 남느냐 하나다.
 
@@ -44,7 +44,7 @@ type authHandler struct {
 
 // enabled 는 로그인 표면을 열 수 있는지다. 셋이 다 있어야 한다 —
 // store 까지 필요하다. 사용자를 남길 곳이 없으면 로그인해도 그 판이 익명으로
-// 남고, 그러면 로그인 버튼이 아무것도 안 하는 버튼이 된다.
+// 남고, 그러면 로그인 버튼이 아무것도 하지 않는 버튼이 된다.
 func (h *authHandler) enabled() bool {
 	return h != nil && h.google != nil && h.codec != nil && h.store != nil
 }
@@ -53,7 +53,7 @@ func (h *authHandler) enabled() bool {
 func (h *authHandler) start(w http.ResponseWriter, r *http.Request) {
 	state, err := randomState()
 	if err != nil {
-		// 난수가 안 나오는 것은 프로세스가 이상한 것이다. 로그인만 접는다.
+		// 난수가 나오지 않는 것은 프로세스가 이상한 것이다. 로그인만 접는다.
 		log.Printf("auth: cannot make state: %v", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]any{
 			"error": "internal", "message": "ログインを開始できませんでした。",
@@ -69,7 +69,7 @@ func (h *authHandler) start(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 		Secure:   secure,
 		// Lax 여야 한다. 콜백은 accounts.google.com 에서 오는 최상위 GET 이동이라
-		// Strict 로 두면 그때 쿠키가 안 실려 로그인이 매번 실패한다.
+		// Strict 로 두면 그때 쿠키가 실리지 않아 로그인이 매번 실패한다.
 		SameSite: http.SameSiteLaxMode,
 	})
 	http.Redirect(w, r, h.google.AuthURL(h.redirectURI(r), state), http.StatusFound)
@@ -140,7 +140,7 @@ func (h *authHandler) logout(w http.ResponseWriter, r *http.Request) {
 // viewer 는 지금 로그인한 사람이다. 없으면 두 번째 값이 false 다.
 //
 // 핸들러가 이 함수 하나로만 사람을 안다. 쿠키 이름과 서명 검증이 여기 한 곳에
-// 있어야 「어떤 경로는 만료를 안 본다」가 생기지 않는다.
+// 있어야 「어떤 경로는 만료를 보지 않는다」가 생기지 않는다.
 func (h *authHandler) viewer(r *http.Request) (auth.Session, bool) {
 	if !h.enabled() {
 		return auth.Session{}, false
@@ -158,8 +158,8 @@ func (h *authHandler) viewer(r *http.Request) (auth.Session, bool) {
 
 // me 는 화면이 헤더를 그리려고 부르는 곳이다.
 //
-// enabled 를 같이 준다. 화면은 「로그인 안 함」과 「로그인이라는 것이 이 배포에
-// 아예 없음」을 구분해 그려야 한다 — 키가 없는 환경에서 눌러도 안 되는 버튼을
+// enabled 를 같이 준다. 화면은 「로그인하지 않음」과 「로그인이라는 것이 이 배포에
+// 아예 없음」을 구분해 그려야 한다 — 키가 없는 환경에서 눌러도 아무 일도 없는 버튼을
 // 띄우면 그게 곧 고장으로 보인다.
 //
 // skill_profile 은 여기 싣지 않는다. 실력 프로파일은 본인만 보는 민감 정보이고
@@ -199,7 +199,7 @@ func (h *authHandler) origin(r *http.Request) string {
 }
 
 // secure 는 쿠키에 Secure 를 붙일지다. origin 과 같은 판단을 쓴다 — 갈리면 로컬에서
-// 로그인이 조용히 안 되거나(평문에 Secure 쿠키), 프로덕션에서 쿠키가 평문으로 샌다.
+// 로그인이 경고 없이 실패하거나(평문에 Secure 쿠키), 프로덕션에서 쿠키가 평문으로 샌다.
 func (h *authHandler) secure(r *http.Request) bool {
 	return strings.HasPrefix(h.origin(r), "https://")
 }

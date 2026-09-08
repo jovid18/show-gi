@@ -162,7 +162,7 @@ func TestWSUnknownMessageType(t *testing.T) {
 	}
 }
 
-// 엔진이 없으면 대국만 막고 나머지는 살린다. 죽으면 ECS가 재시작을 돌며 사이트가 통째로 내려간다.
+// 엔진이 없으면 대국만 막고 나머지는 살린다. 죽으면 ECS가 재시작을 돌며 사이트 전체가 내려간다.
 func TestWSUnavailableWithoutEngine(t *testing.T) {
 	srv := httptest.NewServer(Handler(Options{}))
 	defer srv.Close()
@@ -326,8 +326,8 @@ func TestWSKomaochiAgainstRealEngine(t *testing.T) {
 		t.Errorf("手合割 = %q, want %q", snap.HandicapJa, nimai.Name)
 	}
 
-	// 上手의 1手目를 기다린다. 엔진이 먼저 두는 판이라 여기서 안 기다리면 아래 첫
-	// 착수가 「네 차례가 아니다」로 거절되고, 그 실패는 手番 규약이 뒤집힌 것과 구별되지 않는다.
+	// 上手의 1手目를 기다린다. 엔진이 먼저 두는 판이라 여기서 기다리지 않으면 아래 첫
+	// 착수가 手番 위반으로 거절되고, 그 실패는 手番 규약이 뒤집힌 것과 구별되지 않는다.
 	snap = readUntil(t, ctx, conn, func(m serverMsg) bool {
 		return m.Snapshot != nil && (m.Snapshot.YourTurn || m.Snapshot.Status != game.StatusPlaying)
 	}, "上手의 1手目").Snapshot
@@ -402,11 +402,11 @@ func hasHangul(s string) bool {
 }
 
 // TestRealEngineIntervention 은 진짜 엔진으로 블런더를 두면 물러지는지 본다.
-// D3의 완료 기준이고, 가짜 판정으로는 증명이 안 된다 — 우리가 적어둔 답이 돌아올 뿐이다.
+// D3의 완료 기준이고, 가짜 판정으로는 증명되지 않는다 — 우리가 적어둔 답이 돌아올 뿐이다.
 //
 // 실제 8급 대국의 중반 국면에서 시작한다. 초기 국면부터 아무 수나 두면 20수 만에
-// 절망적인 형세가 되는데, 지고 있을 때도 승률이 포화해 개입이 안 걸린다 —
-// 이기고 있을 때와 같은 이유다(01-core.md §2). 판정이 의미를 갖는 것은 형세가
+// 절망적인 형세가 되는데, 지고 있을 때도 승률이 포화해 개입이 걸리지 않는다 —
+// 이기고 있을 때와 같다(01-core.md §2). 판정이 의미를 갖는 것은 형세가
 // 팽팽한 구간이고, 그게 실제 사용자가 있는 곳이다.
 //
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/server/ -run RealEngineIntervention -v
@@ -486,7 +486,7 @@ func TestRealEngineIntervention(t *testing.T) {
 	// 여기서 나오는 것은 실제로 other 다. 엔진이 제일 싫어하는 수가 ▲1七香 —
 	// 駒를 던지지도, 王手를 걸지도, 玉을 열지도 않고 그냥 손해인 수다. 짚을 이유가
 	// 없으므로 짚지 않는 것이 맞다(01-core.md §3). 억지로 끼워 맞추면 설명이 틀리고,
-	// 그게 이 제품에서 가장 큰 실패다. 그래서 값을 못 박지 않는다.
+	// 그게 이 제품에서 가장 큰 실패다. 그래서 값을 확인하지 않는다.
 	//
 	// 짚을 이유가 있는 쪽은 TestRealEngineHangingPiece 가 본다 — 결과가 정해진 수로 묻는다.
 	if iv.Category == "" {
@@ -510,7 +510,7 @@ func TestRealEngineIntervention(t *testing.T) {
 // 이유는 최악수가 늘 짚을 만한 수는 아니기 때문이다 — 저쪽에서 나오는 ▲1七香은
 // 정당하게 미분류다.
 //
-// 수는 프로덕션에서 실제로 걸린 것을 그대로 쓴다(journal §13). 角을 아무도
+// 수는 프로덕션에서 실제로 걸린 것을 그대로 쓴다(journal §13). 角을 누구도
 // 지켜주지 않는 3三에 던지는 수다.
 //
 // 국면을 ▲7六歩 △3四歩 뒤로 고정해서 시작한다. 상대에게 한 수를 맡기면
@@ -596,12 +596,12 @@ func TestRealEngineHangingPiece(t *testing.T) {
 	// 낱말 하나로 고정하지 않는다. タダ捨て는 사실이 실리면 「取れる相手の駒が2枚」처럼
 	// 숫자로 말하고, 없으면 「相手の利きを確かめて」로 간다(explain.Render). 둘 다 「상대가
 	// 그 駒를 잡는다」는 같은 이야기인데, 낱말을 박아 두면 사실이 실리는 날 깨진다 —
-	// 실제로 깨져 있었고 CI에 엔진이 없어 아무도 몰랐다(journal §47).
+	// 실제로 깨져 있었고 CI에 엔진이 없어 누구도 몰랐다(journal §47).
 	if !strings.Contains(iv.Message, "利き") && !strings.Contains(iv.Message, "取れる相手の駒") {
 		t.Errorf("タダ捨て 문구가 아니다: %q", iv.Message)
 	}
 
-	// 카드가 그 국면을 연다 — 수순을 읊는 자리가 아니다(journal §54). 여기가 비면
+	// 카드가 그 국면을 연다 — 수순을 읊는 대신 판을 보여 준다(journal §54). 여기가 비면
 	// 화면은 「そのとき、こう指していたら」를 띄울 판이 없다.
 	if iv.RetractedSFEN == "" {
 		t.Fatal("물러진 수 직후의 국면이 안 왔다 — 카드가 열 판이 없다")
@@ -612,7 +612,7 @@ func TestRealEngineHangingPiece(t *testing.T) {
 
 	// 반박 수순은 증명된 詰み일 때만 온다. PV를 잘라 보내던 자리인데 어디서 자를지가
 	// 국면마다 달랐다(§20 · §25 · §54). 이 국면은 詰み이 아니므로 비어 있는 것이 맞고,
-	// 차 있으면 그 수순이 다시 새고 있다는 뜻이다.
+	// 차 있으면 그 수순이 다시 새고 있다.
 	t.Logf("반박 수순: %+v", iv.Refutation)
 	if len(iv.Refutation) > 0 {
 		t.Errorf("詰み이 아닌 국면에 수순이 실렸다: %+v", iv.Refutation)
@@ -645,7 +645,7 @@ const kifuBOpening = `7g7f 8b4b 2h6h 4c4d 5i4h 3c3d 4h3h 2b3c 6i5h 3a3b
 // TestRealEngineStrengthReachesTheClient 는 실력 추정이 화면까지 오는가를 본다.
 //
 // 배선이 길다 — 판정 → 추정기 goroutine → 세션 → 스냅샷 → WS. 가짜 판정으로는 첫 칸을
-// 못 채우고(낙폭이 우리가 적은 값이다), 단위 테스트로는 마지막 칸을 못 본다.
+// 채우지 못하고(낙폭이 우리가 적은 값이다), 단위 테스트로는 마지막 칸을 볼 수 없다.
 // 프로덕션과 같은 조립이다: NewAdaptiveOpponent + NewEngineAnalyst(journal §47).
 //
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/server/ -run RealEngineStrength -v
@@ -697,7 +697,7 @@ func TestRealEngineStrengthReachesTheClient(t *testing.T) {
 	if snap == nil || !snap.YourTurn {
 		t.Fatalf("시작 스냅샷: %+v", snap)
 	}
-	// 아무것도 보기 전에는 한복판이다 — 그리고 0이 아니다. 0은 「조절이 꺼졌다」는 뜻이다.
+	// 아무것도 보기 전에는 한복판이다. 0 은 「조절이 꺼졌다」는 표시라 여기서는 나오면 안 된다.
 	if snap.OpponentStrength != 3 {
 		t.Fatalf("첫 스냅샷의 강함이 한복판이 아니다: %d", snap.OpponentStrength)
 	}
@@ -713,9 +713,9 @@ func TestRealEngineStrengthReachesTheClient(t *testing.T) {
 			t.Fatalf("%d번째 Write: %v", i+1, err)
 		}
 
-		// 먼저 「판정 중」을 기다린다. 물러지면 Ply 가 0으로 돌아오므로 앞선 회차의
-		// 스냅샷과 뜻으로 구별되지 않고, 그대로 「판정 결과」를 기다리면 직전 회차가 남긴
-		// 스냅샷이 즉시 맞아 이 회차를 안 재고 넘어간다. judging 은 이 착수에만 켜진다.
+		// 먼저 「판정 중」을 기다린다. 물러지면 Ply 가 0으로 돌아오므로 직전 착수의
+		// 스냅샷과 뜻으로 구별되지 않고, 그대로 「판정 결과」를 기다리면 직전 착수가 남긴
+		// 스냅샷이 즉시 맞아 이번 착수를 재지 않고 넘어간다. judging 은 이 착수에만 켜진다.
 		readUntil(t, ctx, conn, func(m serverMsg) bool {
 			if m.Type == "error" {
 				t.Fatalf("%s 가 거절됨: %s", worst, m.Reason)

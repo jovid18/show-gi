@@ -11,7 +11,7 @@ import (
 // 개입 문구의 Render 와 같은 자리다.
 //
 // 그리고 길이 상한 안에 들어와야 한다(SummaryMaxRunes). 절이 넷까지 이어 붙으므로
-// 문구를 하나 늘리면 카드를 넘길 수 있고, 그 조합은 손으로 세어 찾을 것이 아니다.
+// 문구를 하나 늘리면 카드를 넘길 수 있고, 그 조합을 손으로 세어 찾을 수는 없다.
 func TestRenderSummaryCoversEveryCombination(t *testing.T) {
 	cats := []intervene.Category{
 		intervene.CategoryHangsPiece, intervene.CategoryOther, intervene.CategoryMissedMate,
@@ -31,7 +31,7 @@ func TestRenderSummaryCoversEveryCombination(t *testing.T) {
 				for _, w := range weights {
 					for _, top := range tops {
 						// 개입이 돈 판과 가져온 판 둘 다 돈다. 문구가 그 값으로 갈리므로
-						// (phraseTop) 한쪽만 돌면 다른 쪽의 조합이 시험을 안 지난다.
+						// (phraseTop) 한쪽만 돌면 다른 쪽의 조합이 시험을 지나지 않는다.
 						for _, iv := range []bool{true, false} {
 							f := GameFacts{
 								Outcome: o, Top: top, Weight: w, Phase: p, Trend: tr,
@@ -52,7 +52,7 @@ func TestRenderSummaryCoversEveryCombination(t *testing.T) {
 	}
 }
 
-// 가져온 판에서는 아무도 그 수를 막지 않았다. 「戻す」로 말하면 없던 일을 있었다고
+// 가져온 판에서는 누구도 그 수를 막지 않았다. 「戻す」로 말하면 없던 일을 있었다고
 // 말하는 것이고, 그건 이 화면에서 가장 새기 쉬운 거짓이다(journal §126).
 func TestSummaryDoesNotSayItWasStoppedWhenNothingWas(t *testing.T) {
 	cats := [][]intervene.Category{
@@ -73,7 +73,7 @@ func TestSummaryDoesNotSayItWasStoppedWhenNothingWas(t *testing.T) {
 	}
 }
 
-// 개입이 돈 판에서는 그대로 「戻す」로 말한다. 위 시험이 지나가려고 문구를 통째로
+// 개입이 돈 판에서는 그대로 「戻す」로 말한다. 위 시험이 지나가려고 문구 전체를
 // 바꿔 버리는 것을 막는다.
 func TestSummaryStillSaysStoppedWhenItWas(t *testing.T) {
 	f := GameFacts{

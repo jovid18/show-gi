@@ -10,10 +10,10 @@ import (
 
 // 안내 화면(あそびかた)이 카테고리 열 개를 미리 늘어놓는다. 대국 화면·되짚기·총평은
 // 서버가 만든 이름을 받아 쓰지만 저기는 실제로 걸린 개입이 없어 받을 데가 없고, 그래서
-// 이 레포에서 어휘가 두 벌인 유일한 자리다.
+// 이 레포에서 어휘가 두 벌인 하나뿐인 자리다.
 //
 // 그 한 벌을 여기서 잠근다 — 카테고리를 늘리거나 이름을 고치면 이 테스트가 깨지고,
-// 안 고치면 안내 화면만 옛 이름으로 남는다. 코드 쪽 사정은 categories.ts 에 적어 뒀다.
+// 고치지 않으면 안내 화면만 옛 이름으로 남는다. 코드 쪽 사정은 categories.ts 에 적어 뒀다.
 const guideCategoriesPath = "../../../web/src/app/libs/game/categories.ts"
 
 // { code: 'missed_mate', nameJa: '詰み逃し', note: … } 에서 앞의 둘만 뗀다.
@@ -61,7 +61,7 @@ func TestGuideCategoriesMatchServer(t *testing.T) {
 		}
 	}
 
-	// 이름을 안 지어냈는지 한 번 더 본다 — 위 표가 CategoryJa 를 거쳐 왔으므로
+	// 이름을 지어내지 않았는지 한 번 더 본다 — 위 표가 CategoryJa 를 거쳐 왔으므로
 	// 여기까지 왔으면 미분류의 이름도 서버 것이다.
 	if got["other"] != CategoryJa(intervene.CategoryOther) {
 		t.Errorf("미분류의 이름이 서버와 다르다")

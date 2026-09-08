@@ -17,12 +17,12 @@ resource "aws_ecr_repository" "app" {
   name                 = "show-gi/${each.key}"
   image_tag_mutability = "MUTABLE" # latest 태그를 옮겨 쓴다
 
-  # 이미지가 든 리포지토리는 그냥 안 지워진다. 이 값이 없으면 destroy 가
+  # 이미지가 남아 있는 리포지토리는 그냥 지워지지 않는다. 이 값이 없으면 destroy 가
   # RepositoryNotEmptyException 으로 막히고, 그 자리가 정리의 마지막 두 개다
   # (journal §128). 잃는 것이 없다 — 이미지는 커밋에서 CI 가 다시 굽는다.
   force_delete = true
 
-  # 이 플래그 혼자서는 아무 일도 안 한다. 레지스트리 쪽 설정이 규칙 없이 비어 있으면
+  # 이 플래그 혼자서는 아무 일도 하지 않는다. 레지스트리 쪽 설정이 규칙 없이 비어 있으면
   # 그쪽이 이기고, 실제로 두 이미지 다 ScanNotFoundException 이었다(journal §134).
   # 규칙은 아래 aws_ecr_registry_scanning_configuration 이 넣는다.
   image_scanning_configuration {
@@ -52,7 +52,7 @@ resource "aws_ecr_registry_scanning_configuration" "basic" {
   }
 }
 
-# 태그별로 이미지를 쌓아두면 저장 요금이 조용히 는다. 되돌릴 만큼만 남긴다.
+# 태그별로 이미지를 쌓아두면 저장 요금이 경고 없이 는다. 되돌릴 만큼만 남긴다.
 resource "aws_ecr_lifecycle_policy" "app" {
   for_each   = aws_ecr_repository.app
   repository = each.value.name
@@ -114,9 +114,9 @@ resource "aws_iam_role" "github_actions" {
           # 조건을 repo:jovid18/show-gi:*로 열어두면 남의 브랜치에서 이미지를
           # 밀어 넣을 수 있다. 배포되는 이미지는 main에서만 나온다.
           #
-          # 값이 둘인 이유: GitHub이 subject claim에 불변 ID를 넣기 시작했다.
+          # 값을 둘 적는다. GitHub이 subject claim에 불변 ID를 넣기 시작했다.
           # 실제로 오는 sub는 repo:jovid18@143411145/show-gi@1327659382:ref:... 형태이고,
-          # 문서에 흔히 적힌 repo:소유자/레포:ref:...가 아니다. 소유자나 레포 이름을
+          # 문서에 흔히 적힌 repo:소유자/레포:ref:... 형태와 다르다. 소유자나 레포 이름을
           # 바꿔도 신뢰가 끊기지 않게 하려는 변경이라 ID 쪽이 오히려 더 안전하다.
           #
           # 현재 형식을 확인하는 법:
@@ -181,7 +181,7 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
       },
       {
         # 티어마다 서비스가 하나다. 분석 쪽이 빠지면 배포가 그 서비스에서만 실패하고,
-        # 사람이 쓰는 화면은 새것이라 한동안 아무도 안 알아챈다.
+        # 사람이 쓰는 화면은 새것이라 한동안 누구도 알아채지 못한다.
         Effect   = "Allow"
         Action   = ["ecs:DescribeServices", "ecs:UpdateService"]
         Resource = [aws_ecs_service.app.id, aws_ecs_service.analysis.id]

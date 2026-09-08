@@ -50,7 +50,7 @@ func TestRecordUndoCutsTheKifuAndKeepsTheMove(t *testing.T) {
 		t.Fatalf("무른 수의 평가치 = %v (cp 123 기대)", u.Score)
 	}
 
-	// 개입 횟수에 안 섞인다 — 목록의 그 숫자는 「AI가 몇 번 막았나」다.
+	// 개입 횟수에 섞이지 않는다 — 목록의 그 숫자는 「AI가 몇 번 막았나」다.
 	if rec.InterventionCount != 0 {
 		t.Fatalf("무르기가 개입 횟수에 섞였다: %d", rec.InterventionCount)
 	}

@@ -58,7 +58,7 @@ func TestSignInRoutesAreAbsentWithoutKeys(t *testing.T) {
 }
 
 // Store 가 없으면 로그인해도 그 판이 익명으로 남는다. 그러면 버튼이 아무 일도
-// 안 하는 버튼이 되므로 표면을 아예 열지 않는다.
+// 하지 않는 버튼이 되므로 표면을 아예 열지 않는다.
 func TestSignInNeedsStore(t *testing.T) {
 	h := &authHandler{google: auth.NewGoogle("id", "secret"), codec: auth.NewCodec("secret")}
 	if h.enabled() {
@@ -101,14 +101,14 @@ func TestStartRedirectsToGoogle(t *testing.T) {
 	if !state.HttpOnly {
 		t.Error("the state cookie is readable from JavaScript")
 	}
-	// 콜백은 accounts.google.com 에서 오는 최상위 이동이다. Strict 면 그때 안 실린다.
+	// 콜백은 accounts.google.com 에서 오는 최상위 이동이다. Strict 면 그때 실리지 않는다.
 	if state.SameSite != http.SameSiteLaxMode {
 		t.Errorf("SameSite = %v, want Lax", state.SameSite)
 	}
 }
 
-// state 가 안 맞는 콜백은 우리가 시작하지 않은 것이다 — 남의 계정으로 로그인시키는
-// 공격이 정확히 이 모양으로 온다. 세션을 굽지 않고 조용히 화면으로 돌려보낸다.
+// state 가 맞지 않는 콜백은 우리가 시작하지 않은 것이다 — 남의 계정으로 로그인시키는
+// 공격이 정확히 이 모양으로 온다. 세션을 굽지 않고 경고 없이 화면으로 돌려보낸다.
 func TestCallbackRejectsStateMismatch(t *testing.T) {
 	h := signedInHandler()
 
@@ -178,7 +178,7 @@ func TestViewerReadsSignedCookie(t *testing.T) {
 }
 
 // 로그인이 꺼진 배포에서는 쿠키가 있어도 사람이 없다. 켜고 끄는 것이 한 자리여야
-// 「어떤 경로만 예전 쿠키를 본다」가 안 생긴다.
+// 「어떤 경로만 예전 쿠키를 본다」가 생기지 않는다.
 func TestViewerIgnoresCookieWhenDisabled(t *testing.T) {
 	value, err := auth.NewCodec("session-secret").Encode(7, "さとし", time.Now())
 	if err != nil {
@@ -205,7 +205,7 @@ func TestOriginIsHTTPSOutsideLocalhost(t *testing.T) {
 	} {
 		r := httptest.NewRequest(http.MethodGet, "/api/me", nil)
 		r.Host = c.host
-		// X-Forwarded-Proto 는 안 본다. 있어도 결과가 같아야 한다.
+		// X-Forwarded-Proto 는 보지 않는다. 있어도 결과가 같아야 한다.
 		r.Header.Set("X-Forwarded-Proto", "http")
 		if got := h.origin(r); got != c.want {
 			t.Errorf("origin(%q) = %q, want %q", c.host, got, c.want)
@@ -229,7 +229,7 @@ func TestPublicOriginWins(t *testing.T) {
 }
 
 // signedInHandler 는 켜진 로그인 표면이다. store 는 nil이 아니기만 하면 되는
-// 자리라 콜백의 성공 경로는 여기서 안 탄다(DB가 필요하다).
+// 자리라 콜백의 성공 경로는 여기서 타지 않는다(DB가 필요하다).
 func signedInHandler() *authHandler {
 	return &authHandler{
 		google: auth.NewGoogle("client-id", "client-secret"),
@@ -266,7 +266,7 @@ func TestOwnerFollowsTheSession(t *testing.T) {
 		t.Errorf("owner = %v, want 7", got)
 	}
 
-	// 위조된 쿠키는 익명으로 떨어진다 — 남의 판이 아니라 익명 판을 본다.
+	// 위조된 쿠키는 익명으로 떨어진다 — 남의 판 대신 익명 판을 본다.
 	r2 := httptest.NewRequest(http.MethodGet, "/api/games", nil)
 	r2.AddCookie(&http.Cookie{Name: sessionCookie, Value: value + "x"})
 	if got := h.owner(r2); got != nil {
@@ -274,7 +274,7 @@ func TestOwnerFollowsTheSession(t *testing.T) {
 	}
 }
 
-// 로그인이 없는 배포에서도 되짚기는 돌아야 한다. nil 핸들러에서 죽으면 그 순간
+// 로그인이 없는 배포에서도 되짚기는 돌아야 한다. nil 핸들러에서 죽으면 그때
 // /api/games 가 500이 된다.
 func TestOwnerOnNilHandler(t *testing.T) {
 	var h *authHandler

@@ -23,7 +23,7 @@ func matchTestServer(t *testing.T) (http.Handler, *match.Hub, func(userID int64,
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	// store 는 nil이다 — 대인전은 DB 없이도 돈다(기록만 안 남는다).
+	// store 는 nil이다 — 대인전은 DB 없이도 돈다(기록만 남지 않는다).
 	m := NewMatch(ctx, nil, intervene.Beginner)
 	opts := Options{
 		Google:        auth.NewGoogle("client-id", "client-secret"),
@@ -53,7 +53,7 @@ func do(h http.Handler, method, path string, c *http.Cookie) *httptest.ResponseR
 	return rec
 }
 
-// 로그인하지 않으면 방을 못 만든다(journal §83).
+// 로그인하지 않으면 방을 만들 수 없다(journal §83).
 func TestCreatingARoomNeedsSignIn(t *testing.T) {
 	h, _, _ := matchTestServer(t)
 
@@ -63,11 +63,11 @@ func TestCreatingARoomNeedsSignIn(t *testing.T) {
 	}
 }
 
-// 분석 티어는 사람이 쓰는 표면을 하나도 안 연다. 방이 짝지은 프로세스의 메모리에
-// 서므로(journal §98) 여기서 방이 열리면 그 방을 아무도 못 열고, 대국·검토는 깨지지는
+// 분석 티어는 사람이 쓰는 표면을 하나도 열지 않는다. 방이 짝지은 프로세스의 메모리에
+// 서므로(journal §98) 여기서 방이 열리면 그 방을 누구도 열 수 없고, 대국·검토는 깨지지는
 // 않지만 이 박스의 엔진을 분석보다 먼저 가져간다.
 //
-// 404가 아니라 503이다. 없애면 「배포가 낡았다」와 구별되지 않는다.
+// 404 대신 503 으로 답한다. 404 면 「배포가 낡았다」와 구별되지 않는다.
 func TestTheAnalysisTierServesNoMatchSurface(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -111,14 +111,14 @@ func TestTheAnalysisTierServesNoMatchSurface(t *testing.T) {
 	}
 
 	// 확인하는 자리 둘은 살아 있어야 한다. /healthz 를 막으면 ECS 가 이 태스크를
-	// 계속 죽이고, /metrics 를 막으면 백로그를 못 읽는다.
+	// 계속 죽이고, /metrics 를 막으면 백로그를 읽을 수 없다.
 	for _, path := range []string{"/healthz", "/metrics"} {
 		if rec := do(h, http.MethodGet, path, nil); rec.Code != http.StatusOK {
 			t.Errorf("GET %s = %d, want %d", path, rec.Code, http.StatusOK)
 		}
 	}
 
-	// 그리고 티어를 드러내야 한다. 안 드러내면 대상 그룹이 이 태스크를 물고 있어도
+	// 그리고 티어를 드러내야 한다. 드러내지 않으면 대상 그룹이 이 태스크를 물고 있어도
 	// 200 이라 계속 붙어 있고, 배포 워크플로의 확인도 이쪽이 답할 수 있다.
 	rec = do(h, http.MethodGet, "/healthz", nil)
 	var health struct {
@@ -132,8 +132,8 @@ func TestTheAnalysisTierServesNoMatchSurface(t *testing.T) {
 	}
 }
 
-// 티어를 안 가른 배포는 both 다. 배포 워크플로가 이 값으로 「사람을 받는 태스크가
-// 답했나」를 가르므로, 빈 값이 그대로 나가면 그 확인이 못 갈린다.
+// 티어를 가르지 않은 배포는 both 다. 배포 워크플로가 이 값으로 「사람을 받는 태스크가
+// 답했나」를 가르므로, 빈 값이 그대로 나가면 그 확인이 갈라지지 않는다.
 func TestHealthzNamesTheDefaultTier(t *testing.T) {
 	rec := do(Handler(Options{}), http.MethodGet, "/healthz", nil)
 	var health struct {
@@ -170,8 +170,8 @@ func TestCreateRoomReturnsAnUnguessableID(t *testing.T) {
 	}
 }
 
-// 振り駒는 서버가 뽑는다. 클라이언트가 뽑아 b·w 로 보내면 마음에 안 드는 결과를
-// 다시 뽑을 수 있고, 그러면 振り駒가 아니라 그냥 고르는 것이 된다.
+// 振り駒는 서버가 뽑는다. 클라이언트가 뽑아 b·w 로 보내면 마음에 들지 않는 결과를
+// 다시 뽑을 수 있고, 그러면 振り駒 대신 그냥 고르는 것이 된다.
 func TestFurigomaGivesEitherSeat(t *testing.T) {
 	h, _, signIn := matchTestServer(t)
 
@@ -195,7 +195,7 @@ func TestFurigomaGivesEitherSeat(t *testing.T) {
 	}
 }
 
-// 로그인 안 한 사람에게는 404다 — 401이 아니다(journal §83).
+// 로그인하지 않은 사람에게는 401 대신 404 로 답한다(journal §83).
 func TestPeekingWithoutSignInLooksLikeAMissingRoom(t *testing.T) {
 	h, _, signIn := matchTestServer(t)
 
@@ -216,7 +216,7 @@ func TestPeekingWithoutSignInLooksLikeAMissingRoom(t *testing.T) {
 	}
 }
 
-// 세 번째 사람에게는 없는 방이다. 링크가 새어도 관전조차 안 된다.
+// 세 번째 사람에게는 없는 방이다. 링크가 새어도 관전조차 되지 않는다.
 func TestAThirdPersonSeesNothing(t *testing.T) {
 	h, hub, signIn := matchTestServer(t)
 
@@ -231,7 +231,7 @@ func TestAThirdPersonSeesNothing(t *testing.T) {
 		t.Fatalf("bob cannot enter: %v", err)
 	}
 
-	// 두 사람은 그대로 보이고, 캐롤에게는 안 보인다.
+	// 두 사람은 그대로 보이고, 캐롤에게는 보이지 않는다.
 	for _, c := range []struct {
 		who  *http.Cookie
 		want int
@@ -247,7 +247,7 @@ func TestAThirdPersonSeesNothing(t *testing.T) {
 	}
 }
 
-// 손님이 보는 것은 방 주인의 이름과 자기가 잡을 쪽뿐이다. 段級도 전적도 안 나간다 —
+// 손님이 보는 것은 방 주인의 이름과 자기가 잡을 쪽뿐이다. 段級도 전적도 나가지 않는다 —
 // 실력 프로파일은 본인만 보는 값이다(02-architecture.md §7 위협 2).
 func TestPeekTellsTheGuestTheirSide(t *testing.T) {
 	h, _, signIn := matchTestServer(t)
@@ -277,7 +277,7 @@ func TestPeekTellsTheGuestTheirSide(t *testing.T) {
 	}
 }
 
-// 대인전 표면은 통째로 켜고 끈다. 없으면 세 경로가 다 404여야 한다 — 반쯤 열려
+// 대인전 표면 전체는 켜고 끈다. 없으면 세 경로가 다 404여야 한다 — 반쯤 열려
 // 있으면 화면이 「있는데 고장난 것」으로 읽는다.
 func TestMatchRoutesAreAbsentWithoutAHub(t *testing.T) {
 	h := Handler(Options{
@@ -326,7 +326,7 @@ func TestHostCannotFillTheGuestSeatOverHTTP(t *testing.T) {
 		t.Fatalf("decode: %v", err)
 	}
 
-	// 방 주인이 자기 링크를 몇 번 열어도 손님 자리는 안 찬다.
+	// 방 주인이 자기 링크를 몇 번 열어도 손님 자리는 차지 않는다.
 	for range 3 {
 		if _, _, err := hub.Enter(room.ID, match.Player{UserID: 1, Name: "アリス"}); err != nil {
 			t.Fatalf("host enter: %v", err)
@@ -345,8 +345,8 @@ func TestHostCannotFillTheGuestSeatOverHTTP(t *testing.T) {
 //
 // 기록기의 done 은 값 하나짜리 채널이라, 연결마다 그것을 직접 읽으면 먼저 읽은 쪽이
 // 가져간다 — 같은 쪽으로 탭을 둘 열어 두거나 판이 끝나는 순간에 새로고침하면 두 번째는
-// 5초를 기다린 끝에 「振り返り」 링크를 못 그리고, 로그에는 거짓말이 남는다
-// (「기록이 안 끝났다」). 받는 쪽을 하나로 모아 곁장부에 옮겨 두는 것이 그 답이다.
+// 5초를 기다린 끝에 「振り返り」 링크를 그리지 못하고, 로그에는 거짓말이 남는다
+// (「기록이 끝나지 않았다」). 받는 쪽을 하나로 모아 곁장부에 옮겨 두는 것이 그 답이다.
 func TestTheGameIDCanBeAskedForTwice(t *testing.T) {
 	records := newMatchRecords(&storePlaceholder, intervene.Beginner)
 	ctx, cancel := context.WithCancel(context.Background())

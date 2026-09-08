@@ -48,5 +48,5 @@ SELECT count(*) FROM edges;
 
 -- name: ListEdges :many
 --
--- 한 국면에서 나가는 수들. 깊이별 평가치를 되찾는 유일한 길이다(store.Edges).
+-- 한 국면에서 나가는 수들. 깊이별 평가치를 되찾는 하나뿐인 길이다(store.Edges).
 SELECT * FROM edges WHERE parent_key = $1;

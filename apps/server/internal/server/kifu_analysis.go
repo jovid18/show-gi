@@ -12,7 +12,7 @@ import (
 )
 
 // 가져온 기보의 사후 분석. 줄도 워커도 대인전의 것을 그대로 탄다(match_analysis.go) —
-// 재는 일이 똑같아서다: 판 하나에 手数만큼의 판정이고, 아무도 그 앞에서 기다리지 않는다.
+// 재는 일이 똑같아서다: 판 하나에 手数만큼의 판정이고, 누구도 그 앞에서 기다리지 않는다.
 //
 // 갈리는 것 셋이다. 자리가 하나이고(대인전은 games 행 둘), 手를 한 번에 다 세우고
 // (대인전은 두는 동안 하나씩), 판정 결과가 悪手 줄로 남는다(대인전은 개입이 없다).
@@ -21,10 +21,10 @@ import (
 
 // importKeyPrefix 는 분석 키의 갈래를 가른다.
 //
-// analysis_jobs.match_id 를 「방 id」가 아니라 분석 키로 읽는다. 컬럼 이름을 안 바꾼 것은
+// analysis_jobs.match_id 를 「방 id」 대신 분석 키로 읽는다. 컬럼 이름을 바꾸지 않은 것은
 // 공유 DB에서 RENAME 이 남의 서버를 그 자리에서 깨뜨리기 때문이다(CLAUDE.md).
 //
-// 방 id 와 안 부딪힌다 — 그쪽은 영숫자 8자라 콜론이 안 들어간다(internal/match).
+// 방 id 와 부딪히지 않는다 — 그쪽은 영숫자 8자라 콜론이 들어가지 않는다(internal/match).
 const importKeyPrefix = "import:"
 
 // importKey 는 가져온 판 하나의 분석 키다. 모양이 이 파일에만 있고, 표를 읽는 질의도
@@ -48,7 +48,7 @@ func importedGameID(key string) (int64, bool) {
 
 // enqueueImport 는 가져온 판의 手를 전부 줄에 세우고 그 판을 「분석 중」으로 만든다.
 //
-// 手를 한 번에 세우는 것이 이 갈래의 값이다. 수순 전부를 이미 알기 때문이고, 그래서
+// 이 갈래는 手를 한 번에 다 세운다. 수순 전부를 이미 알기 때문이고, 그래서
 // 워커가 몇이든 手들이 병렬로 재어진다 — 판이 집힐 때는 대개 다 재어져 있어서
 // analyze 가 결과를 모으기만 한다.
 //
@@ -77,7 +77,7 @@ func (a *matchAnalyzer) enqueueImport(ctx context.Context, gameID int64, startSF
 	return a.store.ReadyAnalysisJob(ctx, key, len(moves))
 }
 
-// importSeat 은 가져온 판의 자리 하나다. 못 읽으면 빈 목록이라 부르는 쪽이 그 판을
+// importSeat 은 가져온 판의 자리 하나다. 읽지 못하면 빈 목록이라 부르는 쪽이 그 판을
 // 큐에서 걷는다(runOneJob).
 func (a *matchAnalyzer) importSeat(ctx context.Context, gameID int64) []analysisSeat {
 	row, err := a.store.ImportSeat(ctx, gameID)
@@ -91,16 +91,16 @@ func (a *matchAnalyzer) importSeat(ctx context.Context, gameID int64) []analysis
 // recordBlunder 는 그 手의 판정을 悪手 줄로 남긴다.
 //
 // 여기서 둔 판의 개입과 같은 표를 쓴다(interventions). 그래야 되짚기의 목록도 마이페이지의
-// 「崩れやすいところ」도 한 줄 안 고치고 가져온 판을 같이 센다 — 사람이 정한 것이
+// 「崩れやすいところ」도 한 줄 고치지 않고 가져온 판을 같이 센다 — 사람이 정한 것이
 // 「전부 합친다」다(journal §126).
 //
-// retracted_usi 를 안 적는다. 그 칸은 「개입이 막지 않았다면 뒀을 수」인데 가져온 판에서는
-// 아무도 안 막았고 그 수가 기보에 그대로 남아 있다 — 적으면 없던 일을 있었다고 말하는 것이다.
+// retracted_usi 를 적지 않는다. 그 칸은 「개입이 막지 않았다면 뒀을 수」인데 가져온 판에서는
+// 누구도 막지 않았고 그 수가 기보에 그대로 남아 있다 — 적으면 없던 일을 있었다고 말하는 것이다.
 // 화면은 그 手数의 수를 기보에서 찾는다(web 의 ReviewDetail).
 func (a *matchAnalyzer) recordBlunder(ctx context.Context, gameID int64, ply int, mover shogi.Color, got judged) {
-	// 평가치는 두는 쪽 관점으로 뒤집는다. judged 가 든 것은 先手 관점이고
+	// 평가치는 두는 쪽 관점으로 뒤집는다. judged 에 담긴 것은 先手 관점이고
 	// (game.Judgement.SenteAfter) interventions 의 두 칸은 두는 쪽 관점이다
-	// (intervene.Verdict.After). 안 뒤집으면 後手가 둔 悪手의 부호가 통째로 반대가 된다.
+	// (intervene.Verdict.After). 뒤집지 않으면 後手가 둔 悪手의 부호 전체가 반대가 된다.
 	after := got.after
 	if mover == shogi.White {
 		after = after.Neg()

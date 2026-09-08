@@ -27,7 +27,7 @@ func ja(t shogi.PieceType) string {
 // TestSFENIsTheHandicapItSaysItIs 는 표의 SFEN이 이름과 맞는지를 판에서 확인한다.
 //
 // 이 표는 손으로 적은 문자열이라 한 글자만 틀려도 이름과 다른 판이 뜨고, 그 판은 파싱도
-// 되고 대국도 돌아서 아무 테스트도 안 잡는다. 그래서 「무엇이 빠졌나」를 세어 본다.
+// 되고 대국도 돌아서 아무 테스트도 잡지 않는다. 그래서 「무엇이 빠졌나」를 세어 본다.
 func TestSFENIsTheHandicapItSaysItIs(t *testing.T) {
 	// 上手(後手)에서 빠져야 하는 駒. 落とす 것이 늘어나는 쪽으로 쌓인다.
 	want := map[string][]shogi.PieceType{

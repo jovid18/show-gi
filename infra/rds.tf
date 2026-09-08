@@ -27,8 +27,8 @@ resource "aws_security_group" "db" {
   vpc_id      = data.aws_vpc.default.id
 }
 
-# 태스크 보안그룹에서만 들어올 수 있다. CIDR이 아니라 보안그룹을 참조하는 것이
-# 요점이다 — Fargate 태스크는 배포마다 IP가 바뀌므로 CIDR로는 애초에 표현할 수 없다.
+# 태스크 보안그룹에서만 들어올 수 있다. CIDR 대신 보안그룹을 참조한다 — Fargate
+# 태스크는 배포마다 IP가 바뀌므로 CIDR로는 애초에 표현할 수 없다.
 resource "aws_vpc_security_group_ingress_rule" "db_from_app" {
   security_group_id            = aws_security_group.db.id
   description                  = "postgres from the ECS task"
@@ -40,16 +40,16 @@ resource "aws_vpc_security_group_ingress_rule" "db_from_app" {
 
 # 운영자 노트북에서 직접 붙는 통로.
 #
-# NAT나 bastion이 필요한 상황이 아니다. RDS가 default VPC의 default 서브넷에 있고
+# NAT나 bastion 없이 붙는다. RDS가 default VPC의 default 서브넷에 있고
 # 그 서브넷은 이미 IGW가 붙은 퍼블릭 서브넷이라(Fargate를 assignPublicIp=ENABLED로
-# 띄우는 것과 같은 이유), 막고 있는 것은 publicly_accessible 과 이 규칙뿐이다.
+# 띄우는 것과 같다), 막고 있는 것은 publicly_accessible 과 이 규칙뿐이다.
 # NAT는 프라이빗 서브넷의 아웃바운드용이라 여기에 끼지 않는다.
 #
 # 실질 방어선은 이 규칙이다. 여기 없는 주소는 포트에 닿지도 못한다. 비밀번호는
 # 그 다음 겹이다.
 #
-# admin_cidr 이 없으면 규칙 자체가 안 생긴다 — 값을 안 준 apply가 통로를 열어두지
-# 않는다. 반대로 값을 안 주고 apply하면 이미 있던 규칙이 지워진다. 그게 의도다.
+# admin_cidr 이 없으면 규칙 자체가 생기지 않는다 — 값을 주지 않은 apply가 통로를
+# 열어두지 않는다. 반대로 값을 주지 않고 apply하면 이미 있던 규칙이 지워진다. 그게 의도다.
 resource "aws_vpc_security_group_ingress_rule" "db_from_admin" {
   count = var.admin_cidr == null ? 0 : 1
 
@@ -84,21 +84,21 @@ resource "aws_db_instance" "main" {
   # 조회 결과가 CloudWatch로만 나가고 지금 운영자 정책에는 로그 읽기 권한이 없다
   # (docs/06-status.md §7). 즉 넣을 수는 있고 볼 수는 없는 상태가 된다.
   #
-  # 담기는 것이 본인 대국 기록이고, 접근이 단일 IP로 제한되며, 대회가 끝나면 통째로
+  # 담기는 것이 본인 대국 기록이고, 접근이 단일 IP로 제한되며, 대회가 끝나면 전부
   # 지운다는 세 조건에서 감수한다. 운영 서비스라면 반대로 둔다.
   publicly_accessible = true
 
-  # 7일치는 무료다. 이게 RDS로 옮기는 이유의 절반이다 —
+  # 7일치는 무료다. RDS로 옮긴 까닭의 절반이 이것이다 —
   # 시점 복구가 되면 잘못된 마이그레이션도 되돌릴 수 있다
   backup_retention_period = 7
-  backup_window           = "18:00-19:00" # JST 03:00-04:00, 작업 안 하는 시간
+  backup_window           = "18:00-19:00" # JST 03:00-04:00, 작업하지 않는 시간
   maintenance_window      = "Mon:19:30-Mon:20:30"
 
   # 마이너 버전은 알아서 올린다. 마감 주에 보안 패치를 손으로 챙길 여유가 없다
   auto_minor_version_upgrade = true
 
-  # 대회가 끝나면 통째로 지운다. 스냅샷을 요구하면 destroy가 막혀서,
-  # 정리해야 할 때 정리가 안 된다. 운영 서비스라면 반대로 둔다
+  # 대회가 끝나면 전부 지운다. 스냅샷을 요구하면 destroy가 막혀서,
+  # 정리해야 할 때 정리할 수 없다. 운영 서비스라면 반대로 둔다
   skip_final_snapshot = true
   deletion_protection = false
 

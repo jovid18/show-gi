@@ -71,7 +71,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
           # provenance 를 끈다. 켜져 있으면 태그가 이미지가 아니라 OCI 인덱스를 가리키고,
           # ECR 기본 스캔은 인덱스를 스캔하지 않는다 — scan_on_push 를 켜 둔 채로 여덟 달
-          # 동안 스캔이 하나도 없던 이유다(journal §134). 서명을 읽는 쪽이 아직 없다.
+          # 동안 스캔이 하나도 없던 것이 그래서다(journal §134). 서명을 읽는 쪽이 아직 없다.
           #
           # 라이프사이클 규칙도 같이 정상이 된다. push 하나가 매니페스트 3개(인덱스 ·
           # 첨부 · 이미지)를 만들어서 「최근 10개」가 실제로는 3회분이었다.
@@ -94,7 +94,7 @@ jobs:
           - service: show-gi
             web: true
           - service: show-gi-analysis
-            web: false # 분석 티어는 사람을 안 받으므로 컨테이너가 api 하나다
+            web: false # 분석 티어는 사람을 받지 않으므로 컨테이너가 api 하나다
 
     steps:
       - uses: aws-actions/configure-aws-credentials@v6
@@ -144,11 +144,11 @@ jobs:
           wait-for-service-stability: true
           wait-for-minutes: 10
 
-      # ECS가 "안정"이라고 해도 대국이 되는지는 모른다 — 헬스체크는 엔진을 안 건드린다.
-      # 엔진이 안 뜨면 사이트는 살아 있고 /ws/game 만 503이라 배포가 초록으로 끝난다.
+      # ECS가 "안정"이라고 해도 대국이 되는지는 모른다 — 헬스체크는 엔진을 건드리지 않는다.
+      # 엔진이 뜨지 않으면 사이트는 살아 있고 /ws/game 만 503이라 배포가 초록으로 끝난다.
       # 실제로 한 번 그렇게 통과했으므로 여기서 막는다.
       #
-      # 분석 티어에서는 안 돈다. 대상 그룹 뒤에 없어서 밖에서 물어볼 주소가 없고,
+      # 분석 티어에서는 돌지 않는다. 대상 그룹 뒤에 없어서 밖에서 물어볼 주소가 없고,
       # 그쪽이 죽은 것은 AnalysisBacklogPlies 가 부푸는 것으로 보인다(infra/alarms.tf).
       - name: Verify the engine came up
         if: matrix.service == 'show-gi'
@@ -156,11 +156,11 @@ jobs:
           body="$(curl -fsS --retry 5 --retry-delay 5 https://show-gi.com/healthz)"
           echo "$body"
           if [ "$(printf '%s' "$body" | jq -r .engine)" != "true" ]; then
-            echo "✗ 배포는 됐지만 엔진이 안 떴다 — 대국이 불가능한 상태다"
+            echo "✗ 배포는 됐지만 엔진이 뜨지 않았다 — 대국이 불가능한 상태다"
             exit 1
           fi
           # 답한 것이 사람을 받는 태스크여야 한다. 분석 티어가 대상 그룹에 잘못 붙으면
-          # 그쪽도 200 을 주므로, 티어를 안 보면 이 확인이 깨진 배포를 통과시킨다.
+          # 그쪽도 200 을 주므로, 티어를 보지 않으면 이 확인이 깨진 배포를 통과시킨다.
           #
           # 여러 번 물어본다. 대상 그룹이 라운드로빈이고 스티키가 없어서(infra/alb.tf)
           # 한 번만 보면 잘못 붙은 대를 만날 확률이 1/N 이다 — 대가 둘이면 동전 던지기다.

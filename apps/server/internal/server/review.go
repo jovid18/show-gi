@@ -18,11 +18,11 @@ import (
 
 // 끝난 판을 되짚는 표면. /ws/game 과 달리 요청/응답이다.
 //
-// 저장된 USI만으로는 판도 표기도 못 그리므로 여기서 한 판을 다시 둔다. 클라이언트가
+// 저장된 USI만으로는 판도 표기도 그리지 못하므로 여기서 한 판을 다시 둔다. 클라이언트가
 // 두게 하면 룰 엔진이 두 벌이 된다 — 화면은 규칙을 모른다(01-core.md).
 
 // 목록의 기본 크기와 상한이다. 리뷰는 「방금 둔 판」을 보러 오는 화면이라 깊은
-// 페이지네이션이 필요 없다 — 상한만 막아두면 커서를 안 만들어도 된다.
+// 페이지네이션이 필요 없다 — 상한만 막아두면 커서를 만들지 않아도 된다.
 const (
 	listLimitDefault = 20
 	listLimitMax     = 100
@@ -30,7 +30,7 @@ const (
 
 // reviewHandler 는 기록을 읽는다. 세션 goroutine과 아무 관계가 없다 — 이미 끝난 판이다.
 //
-// 읽는 것은 자기 판뿐이다(journal §33 · §46). 로그인 안 한 사람에게는 익명 판이
+// 읽는 것은 자기 판뿐이다(journal §33 · §46). 로그인하지 않은 사람에게는 익명 판이
 // 자기 판이다 — 익명끼리는 애초에 구별할 수단이 없어 지금까지와 같고, 갈리는 것은
 // 로그인한 판이 그 사람에게만 보인다는 쪽이다(02-architecture.md §7 위협 2).
 type reviewHandler struct {
@@ -39,12 +39,12 @@ type reviewHandler struct {
 	// analyzer 는 묻기만 한다 — 이 핸들러가 엔진과 무관하다는 성질은 그대로다.
 	// nil 일 수 있다(엔진 없는 배포).
 	analyzer *matchAnalyzer
-	// level 은 총평(summary.go)에만 쓴다. 엔진이 아니다 — 이 핸들러가 엔진과 무관하다는
-	// 성질은 그대로다.
+	// level 은 총평(summary.go)에만 쓴다 — 엔진을 부르지 않으므로 이 핸들러가 엔진과
+	// 무관하다는 성질은 그대로다.
 	level intervene.Level
 }
 
-// owner 는 이 요청이 볼 수 있는 주인이다. 로그인 안 했으면 nil = 익명 판.
+// owner 는 이 요청이 볼 수 있는 주인이다. 로그인하지 않았으면 nil = 익명 판.
 //
 // 되짚기와 가정 수순이 같은 함수를 쓴다. 거르는 규칙이 두 벌이 되면 한쪽만
 // 고쳐진 채로 남고, 그 한쪽이 곧 구멍이다.
@@ -61,14 +61,14 @@ type gameSummary struct {
 	ID        int64     `json:"id"`
 	MyColor   string    `json:"myColor"` // "b" | "w"
 	StartedAt time.Time `json:"startedAt"`
-	// FinishedAt·Result 는 아직 두는 중인 판이면 안 온다. 빈 값으로 보내면
+	// FinishedAt·Result 는 아직 두는 중인 판이면 오지 않는다. 빈 값으로 보내면
 	// 화면이 「1970년에 끝난 판」을 그린다.
 	FinishedAt *time.Time `json:"finishedAt,omitempty"`
 	Result     string     `json:"result,omitempty"` // "win" | "loss" | "draw" | "abandoned"
 
 	MoveCount         int `json:"moveCount"`
 	InterventionCount int `json:"interventionCount"`
-	// HandicapJa 는 그 판의 手合割 이름이다(일본어). 平手면 안 온다.
+	// HandicapJa 는 그 판의 手合割 이름이다(일본어). 平手면 오지 않는다.
 	//
 	// 화면이 이름을 만들지 않는다 — 표는 서버에 있고(internal/handicap) 목록에 나가는
 	// 것은 이름뿐이다. 이 줄이 없으면 駒落ち 판의 형세 그래프가 +1386(二枚落ち)에서 시작하는
@@ -80,12 +80,12 @@ type gameSummary struct {
 	//
 	// 화면이 이 값으로 두 자리를 닫는다: 총평과 퀴즈. 대인전에는 엔진 판정이 없어서
 	// 개입이 0건이고 평가치가 비는데, 그것을 「블런더 없이 잘 둔 판」으로 그리면 거짓말이
-	// 된다 — 그 둘은 없는 것이지 0인 것이 아니다.
+	// 된다. 그 둘은 없는 값이다 — 0으로 잰 값과 다르다.
 	IsMatch bool `json:"isMatch,omitempty"`
 	// Imported 는 밖에서 둔 판을 가져온 것인가다(journal §126).
 	//
 	// 화면이 이 값으로 개입 줄의 이름을 옮긴다. 여기서 둔 판의 그 줄은 「止められた手」
-	// 지만 가져온 판에서는 아무도 안 막았고 그 수가 기보에 그대로 남아 있다 — 같은
+	// 지만 가져온 판에서는 누구도 막지 않았고 그 수가 기보에 그대로 남아 있다 — 같은
 	// 이름을 쓰면 없던 일을 있었다고 말하는 것이다.
 	Imported bool `json:"imported,omitempty"`
 	// Analyzing 은 평가치를 지금 채우는 중인가다. 대인전에만 뜬다(matchAnalyzer).
@@ -101,12 +101,12 @@ type gameDetail struct {
 	// StartSFEN 은 0手目의 국면이다. 手数를 하나씩 되감으면 여기까지 온다.
 	StartSFEN string `json:"startSfen"`
 	// BaselineCp 는 이 판의 「형세 0」이다. reviewMove.EvalCp 와 같은 관점(플레이어)이고,
-	// 平手면 안 온다(0).
+	// 平手면 오지 않는다(0).
 	//
 	// 목록에는 없고 여기만 있다. 쓰는 곳이 판 하나를 펼친 화면뿐이라서다 — 형세
 	// 그래프(EvalGraph)와 후보 줄의 색(evalTone) 둘이다. 빼지 않으면 駒落ち 판의 곡선이
-	// 천장에 붙어 어디서 흘렸는지가 안 보이고 「호각」 선이 핸디캡을 다 잃은 자리에
-	// 그려지며, 후보 줄은 전부 최대 파랑이 된다. 판정이 같은 값을 빼는 것과 같은 이유이고
+	// 천장에 붙어 어디서 흘렸는지가 보이지 않고 「호각」 선이 핸디캡을 다 잃은 자리에
+	// 그려지며, 후보 줄은 전부 최대 파랑이 된다. 판정이 같은 값을 빼는 것과 같은 판단이고
 	// (intervene.Input.BaselineCp), 그래서 화면이 이 숫자를 다시 만들지 않는다.
 	BaselineCp    int                  `json:"baselineCp,omitempty"`
 	Moves         []reviewMove         `json:"moves"`
@@ -127,13 +127,13 @@ type reviewMove struct {
 	//
 	// 비어 있을 수 있다. 기록이 중간에 끊겼거나(큐가 넘쳐 한 수가 빠졌다) 읽을 수 없는
 	// 수가 들어 있으면 거기서부터 재현이 멈춘다. 그때 그 수를 목록에서 빼지는 않는다 —
-	// 둔 것은 둔 것이고, 판을 못 그릴 뿐이다.
+	// 둔 것은 둔 것이고, 판을 그리지 못할 뿐이다.
 	SFEN string `json:"sfen,omitempty"`
 	// EvalCp 는 플레이어 관점 cp다 — DB의 先手 관점을 여기서 뒤집는다(패키지 doc).
 	//
-	// nil이면 그 手数에 평가치가 안 붙었거나 詰み이다. 0과 다르다 — 0은 호각이다.
+	// nil이면 그 手数에 평가치가 붙지 않았거나 詰み이다. 0과 다르다 — 0은 호각이다.
 	EvalCp *int `json:"evalCp,omitempty"`
-	// MateIn 은 詰み까지의 手数다(플레이어 관점). 0이면 詰み이 아니다 — 이 칸이 차면
+	// MateIn 은 詰み까지의 手数다(플레이어 관점). 0은 詰み이 없다는 표시다 — 이 칸이 차면
 	// EvalCp 는 비어 있고, 화면은 手数로 말한다(scoreJa).
 	MateIn int `json:"mateIn,omitempty"`
 	// Checked 는 이 수 뒤에 王手를 받고 있는 玉의 칸이다(5a). 아니면 빈 값 — checkedSquare 참조.
@@ -149,7 +149,7 @@ type reviewIntervention struct {
 	// Ply-1 手目의 판을 그려야 한다 — 물러진 수는 거기서 두어졌다.
 	Ply      int    `json:"ply"`
 	Kind     string `json:"kind"`     // "blunder" | "tesuji"
-	Category string `json:"category"` // 기계용 코드. 화면에 안 나간다
+	Category string `json:"category"` // 기계용 코드. 화면에 나가지 않는다
 	// CategoryJa·Message 는 서버가 만든 일본어다. 화면이 코드로 문장을 짓지 않는다.
 	CategoryJa string `json:"categoryJa,omitempty"`
 	Message    string `json:"message,omitempty"`
@@ -158,7 +158,7 @@ type reviewIntervention struct {
 	LevelBucket  string  `json:"levelBucket,omitempty"`
 	RetractedUSI string  `json:"retractedUsi,omitempty"`
 	// RetractedJa 는 물러진 수의 棋譜 표기다. 그 手数의 국면을 다시 만들어야 나오므로
-	// 재현이 거기까지 못 갔으면 비어 있다.
+	// 재현이 거기까지 가지 못했으면 비어 있다.
 	RetractedJa string `json:"retractedJa,omitempty"`
 
 	// AfterCp 는 그 수를 두면 얼마가 되나다. moves[].evalCp 와 같은 자여야 되짚기
@@ -167,7 +167,7 @@ type reviewIntervention struct {
 	// AfterMate 는 그 수 뒤의 詰み까지의 手数다. AfterCp 와 배타적이다(reviewMove 와 같은 규약).
 	AfterMate int `json:"afterMate,omitempty"`
 	// BestCp 는 판정 당시 최선수의 cp. 낙폭과 겹치지 않는다 — 낙폭은 그때 K로 구한
-	// 승률 차라 K가 바뀌면 낡고, 이 값은 원본이라 안 낡는다.
+	// 승률 차라 K가 바뀌면 낡고, 이 값은 원본이라 어긋나지 않는다.
 	BestCp *int `json:"bestCp,omitempty"`
 	// BestMate 는 그 최선수가 詰み이었을 때의 手数다. BestCp 와 배타적이다.
 	BestMate int `json:"bestMate,omitempty"`
@@ -184,10 +184,10 @@ type reviewUndo struct {
 	Ply int    `json:"ply"`
 	USI string `json:"usi"`
 	// Ja 는 무른 수의 棋譜 표기다. 그 手数의 국면을 다시 만들어야 나오므로 재현이
-	// 거기까지 못 갔으면 비어 있다.
+	// 거기까지 가지 못했으면 비어 있다.
 	Ja string `json:"ja,omitempty"`
 	// EvalCp 는 플레이어 관점 cp다 — DB의 先手 관점을 여기서 뒤집는다(패키지 doc).
-	// 무를 때 판정이 아직 그 手数를 안 채웠으면 nil이다.
+	// 무를 때 판정이 아직 그 手数를 채우지 않았으면 nil이다.
 	EvalCp *int `json:"evalCp,omitempty"`
 	// MateIn 은 詰み까지의 手数다(플레이어 관점). reviewMove 와 같은 규약이다.
 	MateIn int `json:"mateIn,omitempty"`
@@ -198,7 +198,7 @@ func (h *reviewHandler) list(w http.ResponseWriter, r *http.Request) {
 	limit := listLimitDefault
 	if raw := r.URL.Query().Get("limit"); raw != "" {
 		// 32비트로 파싱한다. 이 값은 결국 LIMIT의 int32가 되는데, Atoi로 받으면
-		// 64비트에서 int32 범위를 넘는 수가 통과해 변환에서 조용히 음수가 된다.
+		// 64비트에서 int32 범위를 넘는 수가 통과해 변환에서 경고 없이 음수가 된다.
 		// 여기서 자리수를 정해 두면 범위를 넘는 입력이 거절로 끝난다.
 		n, err := strconv.ParseInt(raw, 10, 32)
 		if err != nil || n <= 0 {
@@ -223,18 +223,18 @@ func (h *reviewHandler) list(w http.ResponseWriter, r *http.Request) {
 	for _, g := range games {
 		out = append(out, summaryOf(g))
 	}
-	// 배열이 아니라 객체로 감싼다. 나중에 커서를 붙일 때 형태를 안 바꿔도 된다.
+	// 배열 대신 객체로 감싼다. 나중에 커서를 붙일 때 형태를 바꾸지 않아도 된다.
 	writeJSON(w, http.StatusOK, map[string]any{"games": out})
 }
 
-// detail 은 한 판을 통째로 준다 — 手数마다의 국면까지.
+// detail 은 한 판 전체를 준다 — 手数마다의 국면까지.
 func (h *reviewHandler) detail(w http.ResponseWriter, r *http.Request) {
 	rec, ok := h.record(w, r)
 	if !ok {
 		return
 	}
 	out := detailOf(rec)
-	// 여기서만 붙인다. 목록은 판을 여러 개 들고 오는데 그 하나하나에 물으면 질의가
+	// 여기서만 붙인다. 목록은 판을 여러 개 가져오는데 그 하나하나에 물으면 질의가
 	// 판 수만큼 는다(analysis_jobs · 019) — 그래프가 있는 자리는 여기뿐이다.
 	out.Analyzing = h.analyzer.analyzing(r.Context(), rec.ID)
 	writeJSON(w, http.StatusOK, out)
@@ -252,7 +252,7 @@ func (h *reviewHandler) summary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 대인전 판에는 총평이 없다. 총평이 세는 것은 개입이고(explain.GameFacts) 대인전은
-	// 판정을 안 돌리므로, 그대로 만들면 「一度も止められませんでした」가 나간다 — 사실은
+	// 판정을 돌리지 않으므로, 그대로 만들면 「一度も止められませんでした」가 나간다 — 사실은
 	// 재지 않았다이고, 그 둘이 초심자에게 정반대다.
 	//
 	// 빈 총평을 200으로 주지 않는다. 화면이 자리를 그리고 나서 지우게 되고, 그 한 틱
@@ -269,7 +269,7 @@ func (h *reviewHandler) summary(w http.ResponseWriter, r *http.Request) {
 // record 는 {id} 가 가리키는 기록을 읽고, 실패면 그 자리에서 답하고 false 를 준다.
 //
 // detail 과 summary 가 같은 함수를 쓴다. 주인 거르기도 「끝난 판만」도 GameRecord 가
-// 들고 있으므로(§46 · §51), 여기를 따로 두면 한쪽만 고쳐진 채 남고 그 한쪽이 곧 구멍이다.
+// 갖고 있으므로(§46 · §51), 여기를 따로 두면 한쪽만 고쳐진 채 남고 그 한쪽이 곧 구멍이다.
 func (h *reviewHandler) record(w http.ResponseWriter, r *http.Request) (store.GameRecord, bool) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
@@ -344,7 +344,7 @@ func detailOf(rec store.GameRecord) gameDetail {
 
 	start, err := shogi.ParseSFEN(startSFENOf(rec.StartSFEN))
 	if err != nil {
-		// 시작 국면을 못 읽으면 아예 안 둔다. 平手 초기 국면으로 대신 두면 수들이
+		// 시작 국면을 읽지 못하면 아예 두지 않는다. 平手 초기 국면으로 대신 두면 수들이
 		// 거기서도 합법일 수 있고, 그러면 한 번도 없었던 국면을 그럴듯하게 그린다.
 		// 기보는 그대로 내보낸다 — 판도 표기도 없지만 「무엇을 뒀는가」는 여전히 사실이다.
 		log.Printf("review: game %d: start sfen %q: %v", rec.ID, rec.StartSFEN, err)
@@ -356,7 +356,7 @@ func detailOf(rec store.GameRecord) gameDetail {
 	}
 
 	for i, m := range rec.Moves {
-		// 手数로 정한다, 배열의 자리가 아니라. 기보에 구멍이 나면 그 뒤가 한 칸씩
+		// 배열의 자리 대신 手数로 정한다. 기보에 구멍이 나면 그 뒤가 한 칸씩
 		// 밀리는데, 그때 자리로 세면 리뷰가 남의 실수를 내 것으로 보여준다.
 		view := reviewMove{Ply: m.Ply, USI: m.USI, By: game.SideEngine}
 		if (m.Ply%2 == 1) == humanFirst {
@@ -412,7 +412,7 @@ func detailOf(rec store.GameRecord) gameDetail {
 		// 先手 관점이라(store.RecordUndo), 위 moves 루프와 같은 변환이라야 같은 수가
 		// 두 목록에서 같은 숫자로 나온다 — 개입 쪽은 관점의 출처가 다르다.
 		view.EvalCp, view.MateIn = playerEvalJSON(u.Score, humanColor)
-		// 무른 수는 Ply-1 手目의 국면에서 두어졌다 — 개입과 같은 자리, 같은 이유다.
+		// 무른 수는 Ply-1 手目의 국면에서 두어졌다 — 개입과 같은 자리에서 같은 판단을 한다.
 		if u.Ply >= 1 && u.Ply-1 < len(posAt) {
 			if _, ja, ok := advance(posAt[u.Ply-1], toAt[u.Ply-1], u.USI); ok {
 				view.Ja = ja
@@ -426,8 +426,8 @@ func detailOf(rec store.GameRecord) gameDetail {
 
 // playerEvalJSON 은 저장된 先手 관점 점수를 화면이 받는 두 칸으로 옮긴다.
 //
-// 詰み이면 cp 칸을 비운다. 여기 숫자를 넣으려면 환산해야 하고, 환산값은 평가치가 아니다 —
-// 화면은 手数가 있으면 그것으로 말한다(scoreJa). 둘 다 없으면 「아직 안 잰 手数」다.
+// 詰み이면 cp 칸을 비운다. 여기 숫자를 넣으려면 환산해야 하는데, 환산값과 평가치는 다르다 —
+// 화면은 手数가 있으면 그것으로 말한다(scoreJa). 둘 다 없으면 「아직 재지 않은 手数」다.
 func playerEvalJSON(s *eval.Score, human shogi.Color) (*int, int) {
 	if s == nil {
 		return nil, 0

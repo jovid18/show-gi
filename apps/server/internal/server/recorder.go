@@ -12,7 +12,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// dbRecorder 는 대국을 DB에 남긴다. game 과 store 가 만나는 유일한 자리다.
+// dbRecorder 는 대국을 DB에 남긴다. game 과 store 가 만나는 하나뿐인 자리다.
 //
 // 세션 goroutine을 막지 않는다. 이벤트를 버퍼 채널에 던지고 자기 goroutine이 쓴다.
 // 상태를 goroutine 하나가 소유한다는 것이 이 프로젝트의 정합성이라, DB가 느리다고
@@ -75,7 +75,7 @@ type recordEvent struct {
 const recordQueue = 256
 
 // recordTarget 은 이 판을 어느 행에 남기나다. 연결이 열릴 때 한 번 정해지고 그 판
-// 내내 안 바뀐다: 두는 중에 다른 탭에서 로그아웃해도 이 판은 시작할 때의 주인으로 끝난다.
+// 내내 바뀌지 않는다: 두는 중에 다른 탭에서 로그아웃해도 이 판은 시작할 때의 주인으로 끝난다.
 type recordTarget struct {
 	// userID 는 nil일 수 있다 — 로그인 전 대국이다(002_anonymous_games.sql).
 	userID *int64
@@ -101,7 +101,7 @@ func (r *dbRecorder) send(ev recordEvent) {
 	case r.events <- ev:
 	default:
 		// 버리고 계속한다. 기록은 부가 기능이고 대국이 본체다.
-		// 조용히 버리지는 않는다 — 구멍이 생긴 것을 나중에 알아야 한다.
+		// 경고 없이 버리지는 않는다 — 구멍이 생긴 것을 나중에 알아야 한다.
 		log.Printf("game record: queue full, dropping event kind=%d", ev.kind)
 	}
 }
@@ -115,7 +115,7 @@ func (r *dbRecorder) Moved(ply int, usi string, by game.Side) {
 }
 
 // Moved 와 같은 채널로 보낸다. 평가치는 그 수가 들어간 뒤에 와야 하고, 한 채널이면
-// 순서가 저절로 지켜진다. 큐를 따로 두면 평가치가 먼저 도착해 조용히 버려질 수 있다.
+// 순서가 저절로 지켜진다. 큐를 따로 두면 평가치가 먼저 도착해 경고 없이 버려질 수 있다.
 func (r *dbRecorder) Evaluated(ply int, sente eval.Score) {
 	r.send(recordEvent{kind: evEvaluated, ply: ply, score: sente})
 }
@@ -125,7 +125,7 @@ func (r *dbRecorder) Retracted(ply int, usi string, v intervene.Verdict) {
 }
 
 // Moved 와 같은 채널로 보낸다. 무르기는 그 手数까지의 기보를 지우므로, 지우기가
-// 아직 안 쓴 착수를 앞질러 가면 지워야 할 수가 그 뒤에 들어와 되살아난다.
+// 아직 쓰지 않은 착수를 앞질러 가면 지워야 할 수가 그 뒤에 들어와 되살아난다.
 func (r *dbRecorder) Undone(ply int, usi string) {
 	r.send(recordEvent{kind: evUndone, ply: ply, usi: usi})
 }
@@ -162,8 +162,8 @@ func (r *dbRecorder) FinishedWith(result store.GameResult) {
 
 // run 은 이벤트를 순서대로 쓴다.
 //
-// 쓰기는 세션 ctx 를 안 쓴다. 연결이 끊기면 세션 ctx 가 먼저 취소되는데, 그 시점에
-// 아직 안 쓴 이벤트가 남아 있으면 전부 실패한다 — 대국이 끝나는 순간이 바로 마지막
+// 쓰기는 세션 ctx 를 쓰지 않는다. 연결이 끊기면 세션 ctx 가 먼저 취소되는데, 그 시점에
+// 아직 쓰지 않은 이벤트가 남아 있으면 전부 실패한다 — 대국이 끝나는 순간이 바로 마지막
 // 이벤트가 몰리는 순간이라 그게 제일 아깝다.
 func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.Level, target recordTarget) {
 	write := context.WithoutCancel(ctx)
@@ -171,7 +171,7 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 	// 이어하는 판은 시작부터 id 를 안다. 점유가 그 행을 이미 되열어 놨으므로
 	// (store.ClaimGameForResume), 세션이 열리지 못하고 끝나도 아래 ctx 취소 경로가 다시
 	// abandoned 로 닫는다 — 되열린 채로 남으면 그 판은 되짚기에도(§51) 이어하기에도
-	// 안 걸리는 유령이 된다.
+	// 걸리지 않는 유령이 된다.
 	gameID := target.resumeID
 	finished := false
 
@@ -274,7 +274,7 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 
 		case evFinished:
 			// 행이 없어도 신호는 보낸다. 행 만들기가 실패한 판(DB가 흔들린 경우)에서
-			// 조용히 나가면 이 채널을 기다리는 쪽이 영원히 기다린다 — 대인전은 그
+			// 경고 없이 나가면 이 채널을 기다리는 쪽이 영원히 기다린다 — 대인전은 그
 			// 기다림이 곧 기록기 goroutine 둘의 수명이라(server/match_records.go 의 collect)
 			// 그때부터 프로세스가 끝날 때까지 남는다.
 			//
@@ -311,7 +311,7 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 				break
 			}
 			// 끝나지 않고 연결이 끊긴 판은 그렇게 남긴다 — 빈 result 로 두면
-			// 「아직 두는 중인 판」과 구별이 안 된다.
+			// 「아직 두는 중인 판」과 구별할 수 없다.
 			if gameID != 0 && !finished {
 				if err := st.FinishGame(write, gameID, store.ResultAbandoned); err != nil {
 					log.Printf("game record: abandon: %v", err)

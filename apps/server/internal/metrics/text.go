@@ -13,7 +13,7 @@ import (
 // 새 경로는 밖에서 보이지 않는다(apps/web/Caddyfile). 그래서 인증을 따로 두지 않았다.
 //
 // 다 만든 뒤에 한 번 쓴다. w 에 직접 쓰면서 잠금을 잡고 있으면, 읽는 쪽이 중간에
-// 멈춘 순간(ECS Exec 세션이 끊긴다) 그 계열의 잠금이 안 풀리고 — 서버에 WriteTimeout
+// 멈춘 순간(ECS Exec 세션이 끊긴다) 그 계열의 잠금이 풀리지 않고 — 서버에 WriteTimeout
 // 이 없다 — 모든 요청과 엔진 대여가 같이 멈춘다.
 func (r *Registry) WriteText(w io.Writer) error {
 	bw := &bytes.Buffer{}

@@ -29,7 +29,7 @@ type resumeHandler struct {
 
 // resumableGame 은 물음 카드가 그리는 것 전부다.
 //
-// 기보를 안 싣는다. 화면이 그릴 것은 「몇 手目까지 두던 판인가」뿐이고, 수순을 실으면
+// 기보를 싣지 않는다. 화면이 그릴 것은 「몇 手目까지 두던 판인가」뿐이고, 수순을 실으면
 // 이 표면이 되짚기의 우회로가 된다 — 그쪽은 끝난 판만 연다.
 type resumableGame struct {
 	ID        int64     `json:"id"`
@@ -37,7 +37,7 @@ type resumableGame struct {
 	StartedAt time.Time `json:"startedAt"`
 	MoveCount int       `json:"moveCount"`
 
-	// Opening 은 그때 고른 상대의 진형 id다. 「おまかせ」였으면 안 온다.
+	// Opening 은 그때 고른 상대의 진형 id다. 「おまかせ」였으면 오지 않는다.
 	//
 	// 이어할 때 클라이언트가 되보내지 않는다 — 서버가 그 행에서 읽는다(ws.go). 이건
 	// 「이어하지 않기로 하면 다음 판의 기본값이 무엇인가」를 화면이 아는 데 쓴다.
@@ -45,9 +45,9 @@ type resumableGame struct {
 	// OpeningJa 는 그 진형의 일본어 이름이다. 화면이 id로 문장을 짓지 않는다.
 	OpeningJa string `json:"openingJa,omitempty"`
 
-	// Handicap·HandicapJa 는 그 판의 手合割이다. 平手면 둘 다 안 온다.
+	// Handicap·HandicapJa 는 그 판의 手合割이다. 平手면 둘 다 오지 않는다.
 	//
-	// 위 진형과 같은 짝이고 같은 이유다: 이어할 때 되보내지는 않고(서버가 그 행에서
+	// 위 진형과 같은 짝이고 쓰임도 같다: 이어할 때 되보내지는 않고(서버가 그 행에서
 	// 읽는다) 「다음 판의 기본값」이 무엇인지를 화면이 아는 데 쓴다 — 六枚落ち를 이어 두던
 	// 사람의 「もう一局」이 平手로 떨어지면 그 자리에서 판이 뒤집힌다.
 	Handicap   string `json:"handicap,omitempty"`
@@ -56,10 +56,10 @@ type resumableGame struct {
 
 // find 는 이어할 수 있는 판을 준다. 없으면 {"game":null} 이다.
 //
-// 없는 것이 404가 아니다. 화면이 늘 부르는 자리이고(첫 화면), 404면 「이어할 판이
+// 없을 때 404 를 주지 않는다. 화면이 늘 부르는 자리이고(첫 화면), 404면 「이어할 판이
 // 없다」와 「서버가 고장났다」가 같은 그림이 된다 — /api/me 와 같은 판단이다(§46).
 //
-// 로그인 안 했으면 늘 null이다. 익명 판은 서로 구별할 수단이 없어서
+// 로그인하지 않았으면 늘 null이다. 익명 판은 서로 구별할 수단이 없어서
 // (002_anonymous_games.sql) 「누구의 중단된 판인가」에 답할 수가 없다.
 func (h *resumeHandler) find(w http.ResponseWriter, r *http.Request) {
 	owner := h.auth.owner(r)
@@ -98,8 +98,8 @@ func (h *resumeHandler) find(w http.ResponseWriter, r *http.Request) {
 
 // decline 은 「いいえ」다. 그 판은 중단된 채로 끝나고 다시 물어보지 않는다.
 //
-// 되짚기에서도 안 보인다 — 결과가 나온 판만 나가므로(§51) declined 는 그 목록에
-// 애초에 안 걸린다. 사람이 「이어하지 않겠다」고 답한 순간 그 판은 화면에서 사라진다.
+// 되짚기에서도 보이지 않는다 — 결과가 나온 판만 나가므로(§51) declined 는 그 목록에
+// 애초에 걸리지 않는다. 사람이 「이어하지 않겠다」고 답한 순간 그 판은 화면에서 사라진다.
 func (h *resumeHandler) decline(w http.ResponseWriter, r *http.Request) {
 	owner := h.auth.owner(r)
 	if owner == nil {

@@ -10,12 +10,12 @@ import (
 // 이 파일이 지키는 것은 질의의 원자성이다 — 고르는 규칙은 internal/queue, 화면까지의
 // 흐름은 server/queue_test.go 가 본다.
 
-// pairWith 는 그 사람이 후보로 올라오면 짝을 짓는 고르기다. 밴드를 안 본다 — 여기서
-// 재는 것은 「누구를 고르나」가 아니라 「두 번 고를 수 있나」다.
+// pairWith 는 그 사람이 후보로 올라오면 짝을 짓는 고르기다. 밴드를 보지 않는다 — 여기서
+// 재는 것은 「누구를 고르나」 대신 「두 번 고를 수 있나」다.
 //
 // 그런데 id 를 받아야 한다. 대기열은 표 하나에 사람마다 한 행이고 CI 는 패키지들을 같은 DB 에
-// 동시에 거는데, 아무나 집으면 이 테스트가 그 순간 대기열에 서 있던 남의 테스트 대기자를
-// 낚아채 간다 — 그쪽은 「짝이 안 잡혀야 한다」를 재고 있고, 그래서 그쪽만 빨개진다.
+// 동시에 거는데, 아무나 집으면 이 테스트가 그때 대기열에 서 있던 남의 테스트 대기자를
+// 낚아채 간다 — 그쪽은 「짝이 잡히지 않아야 한다」를 재고 있고, 그래서 그쪽만 빨개진다.
 func pairWith(roomID string, only int64) func(QueueWaiter, []QueueWaiter) (QueuePairing, bool) {
 	return func(_ QueueWaiter, candidates []QueueWaiter) (QueuePairing, bool) {
 		for _, c := range candidates {
@@ -30,8 +30,8 @@ func pairWith(roomID string, only int64) func(QueueWaiter, []QueueWaiter) (Queue
 	}
 }
 
-// pairOptions 는 후보 창을 넓게 잡는다. 여기서 재는 것이 「누구를 고르나」가 아니라
-// 질의의 원자성이라, 레이팅 폭은 제한하지 않는다.
+// pairOptions 는 후보 창을 넓게 잡는다. 여기서 재는 것이 질의의 원자성이라,
+// 레이팅 폭은 제한하지 않는다.
 func pairOptions(fresh time.Time) QueuePairOptions {
 	return QueuePairOptions{FreshAfter: fresh, MaxGap: 1e9, Limit: 20}
 }
@@ -100,18 +100,18 @@ func TestQueueSeatIsHandedOutOnce(t *testing.T) {
 	if seat.RoomID != "ROOM0001" || seat.Color != "w" {
 		t.Fatalf("자리가 %+v, want {ROOM0001 w}", seat)
 	}
-	// 두 번은 안 나간다. 나가면 화면이 두 번 방으로 가고, 두 번째는 남의 자리를 노린다.
+	// 두 번은 나가지 않는다. 나가면 화면이 두 번 방으로 가고, 두 번째는 남의 자리를 노린다.
 	if _, err := s.TakeQueueSeat(t.Context(), a); !errors.Is(err, ErrNoQueueSeat) {
 		t.Errorf("같은 자리가 두 번 나갔다: %v", err)
 	}
 }
 
 // 서로를 동시에 집으면 한쪽만 성공해야 한다. 둘 다 성공하면 방이 둘 생기고 두 사람이
-// 각각 두 방에 앉는다 — 잠금이 전부 SKIP LOCKED 인 이유가 이 자리다(query/queue.sql).
+// 각각 두 방에 앉는다 — 잠금이 전부 SKIP LOCKED 인 것이 이 자리 때문이다(query/queue.sql).
 //
-// 「둘 다 실패」는 정상이다. 같은 DB 에서 도는 남의 짝짓기가 두 행 중 하나를 잠근 회차가
-// 그렇고, 그때 제품의 답도 다음 재시도다 — 그래서 한 회차에 재는 것은 「둘은 아니다」이고,
-// 「하나는 된다」는 회차를 다시 걸어 확인한다.
+// 「둘 다 실패」는 정상이다. 같은 DB 에서 도는 남의 짝짓기가 두 행 중 하나를 잠근 때가
+// 그렇고, 그때 제품의 답도 다음 재시도다 — 그래서 한 번에 재는 것은 「둘 다는 안 된다」이고,
+// 「하나는 된다」는 다시 걸어 확인한다.
 func TestMutualPairingSucceedsOnce(t *testing.T) {
 	s := open(t)
 	a := owner(t, s, "a")
@@ -148,7 +148,7 @@ func TestMutualPairingSucceedsOnce(t *testing.T) {
 					ok++
 					rooms = append(rooms, pairing.RoomID)
 				case errors.Is(err, ErrNoQueueSeat):
-					// 진 쪽이거나, 남이 잠근 회차다. 다음 회차에서 다시 건다
+					// 진 쪽이거나, 남이 잠근 때다. 다음 번에 다시 건다
 				default:
 					errored = append(errored, err)
 				}
@@ -186,8 +186,8 @@ func TestMutualPairingSucceedsOnce(t *testing.T) {
 	}
 }
 
-// 다시 안 물어보는 사람은 대기열에서 빠지고, 안 찾아간 자리도 걷힌다. 대기열에 sweeper 가
-// 없으므로(journal §92) 이 문장이 유일한 청소다.
+// 다시 물어보지 않는 사람은 대기열에서 빠지고, 찾아가지 않은 자리도 걷힌다. 대기열에 sweeper 가
+// 없으므로(journal §92) 이 문장이 하나뿐인 청소다.
 func TestSweepDropsStaleRowsAndUnclaimedSeats(t *testing.T) {
 	s := open(t)
 	stale := owner(t, s, "stale")
@@ -201,14 +201,14 @@ func TestSweepDropsStaleRowsAndUnclaimedSeats(t *testing.T) {
 		}
 	}
 	// seated 에 쪽지를 남긴다. live 가 짝을 지으면 live 의 행이 사라지므로,
-	// 짝짓기가 아니라 손으로 적어 「안 찾아간 자리」만 만든다.
+	// 짝짓기 대신 손으로 적어 「찾아가지 않은 자리」만 만든다.
 	if _, err := s.pool.Exec(t.Context(),
 		`UPDATE match_queue SET room_id = 'ROOMSEAT', color = 'b', matched_at = now() WHERE user_id = $1`,
 		seated); err != nil {
 		t.Fatalf("자리 적기: %v", err)
 	}
 	// 두 사람의 시각을 과거로 밀어 둔다. 시계를 잡을 자리가 없으므로(now() 가 DB 안이다)
-	// 행을 직접 옮기는 것이 이 표를 늙게 하는 유일한 방법이다.
+	// 행을 직접 옮기는 것이 이 표를 늙게 하는 하나뿐인 방법이다.
 	if _, err := s.pool.Exec(t.Context(),
 		`UPDATE match_queue SET seen_at = now() - interval '1 hour' WHERE user_id = $1`, stale); err != nil {
 		t.Fatalf("seen_at 밀기: %v", err)
@@ -248,7 +248,7 @@ func TestSweepDropsStaleRowsAndUnclaimedSeats(t *testing.T) {
 	}
 }
 
-// 낡은 대기자는 후보가 아니다. 걷히기 전에도 그 사람은 이미 화면을 떠났다.
+// 오래된 대기자는 후보에서 빠진다. 걷히기 전에도 그 사람은 이미 화면을 떠났다.
 func TestStaleWaitersAreNotCandidates(t *testing.T) {
 	s := open(t)
 	gone := owner(t, s, "gone")

@@ -7,7 +7,7 @@ import (
 )
 
 // 反駁手順의 재료는 전부 룰 엔진에서 나온다. 엔진 없이 도는 테스트여야 한다 —
-// 이 레포에서 제일 흔한 함정이 「환경변수가 없으면 조용히 skip 되고 초록으로 보인다」이고,
+// 이 레포에서 제일 흔한 함정이 「환경변수가 없으면 경고 없이 skip 되고 초록으로 보인다」이고,
 // 화면에 그대로 나가는 표기가 거기 걸리면 안 된다(journal §15).
 
 // 5四에서 駒를 주고받는 국면. 사람이 銀으로 歩를 따면 金이 되딸 수 있다.
@@ -17,7 +17,7 @@ const exchangeSFEN = "1b2k4/9/5g3/4p4/4S4/9/9/9/4R3K b - 1"
 var tookThePawn = []string{"5e5d"}
 
 // 벌하는 수가 몇 수 뒤에 오는 국면. 그 앞의 조용한 수는 준비 수순이라 남는다 —
-// 카테고리가 이유를 못 대는 자리가 바로 이 모양이다(journal §17).
+// 카테고리가 이유를 대지 못하는 자리가 바로 이 모양이다(journal §17).
 func TestRefutationLineRunsUntilTheDamageLands(t *testing.T) {
 	pv := []string{"5a4a", "1i2i", "4c5d"}
 
@@ -56,7 +56,7 @@ func TestRefutationLineStartsWithTheOpponent(t *testing.T) {
 }
 
 // 길이는 국면이 정한다. 角을 던지면 되따는 한 수로 이유가 끝나고, 거기에 수를
-// 더 붙이면 그건 정보가 아니라 잡음이다. 사용자 피드백이 이 자리에서 나왔다.
+// 더 붙이면 잡음이 된다. 사용자 피드백이 이 자리에서 나왔다.
 func TestRefutationLineStopsWhenTheFirstMovePunishes(t *testing.T) {
 	// 角交換을 유도해 두고 그 角을 그냥 던진다. 벌하는 수는 되따는 한 수뿐이다.
 	thrownBishop := []string{"7g7f", "3c3d", "8h2b+"}
@@ -67,14 +67,14 @@ func TestRefutationLineStopsWhenTheFirstMovePunishes(t *testing.T) {
 	if len(line) != 1 {
 		t.Fatalf("수순 길이 %d, 기대 1: %+v", len(line), line)
 	}
-	// 물러진 수의 도착 칸을 되따는 수라 「同」이어야 한다. 이게 안 붙으면 화면에서
+	// 물러진 수의 도착 칸을 되따는 수라 「同」이어야 한다. 이게 붙지 않으면 화면에서
 	// 「무엇을 벌하는 수인지」가 사라진다.
 	if line[0].Ja != "△同銀" {
 		t.Errorf("벌하는 수의 표기가 %q, 기대 %q", line[0].Ja, "△同銀")
 	}
 }
 
-// 상한 안에서 아무 일도 안 일어나면 벌하는 첫 수만 남는다. 모르는 것을 길이로 메우지 않는다.
+// 상한 안에서 아무 일도 일어나지 않으면 벌하는 첫 수만 남는다. 모르는 것을 길이로 메우지 않는다.
 func TestRefutationLineOnlyLooksAsFarAsTheLimit(t *testing.T) {
 	pv := []string{"5a4a", "1i2i", "4c5d"} // 따는 수가 상한 밖이다
 
@@ -85,7 +85,7 @@ func TestRefutationLineOnlyLooksAsFarAsTheLimit(t *testing.T) {
 	}
 }
 
-// 엔진 출력을 믿지 않는다. 못 두는 수가 섞여 오면 거기서 끊는다 — 건너뛰고 이어
+// 엔진 출력을 믿지 않는다. 둘 수 없는 수가 섞여 오면 거기서 끊는다 — 건너뛰고 이어
 // 붙이지 않는다. 뒤에 오는 수는 그 수를 둔 국면의 것이라, 이어 붙이면 없는 수순이 된다.
 func TestRefutationLineCutsAtAnUnplayableMove(t *testing.T) {
 	cases := map[string][]string{
@@ -134,7 +134,7 @@ const doubleCheckKifu = `▲7六歩 △5二玉 ▲6六歩 △4二銀 ▲2六歩 
 // 王手라 玉을 움직일 수밖에 없다. 붉은 화살표 두 줄이 곧 그 사실이다.
 //
 // 엔진 없이 돈다. 王手를 거는 말을 찾는 것은 룰 엔진의 일이고, 화면에 나가는 단언이라
-// 환경변수가 없으면 조용히 skip 되는 자리에 두지 않는다.
+// 환경변수가 없으면 경고 없이 skip 되는 자리에 두지 않는다.
 func TestCheckLinesFindsBothCheckersOfADoubleCheck(t *testing.T) {
 	usis, _ := kifuToUSI(t, doubleCheckKifu)
 
@@ -154,7 +154,7 @@ func TestCheckLinesFindsBothCheckersOfADoubleCheck(t *testing.T) {
 		}
 	}
 
-	// 두 줄이라는 것과 「먹어서 못 푼다」가 같은 사실이어야 한다. 玉을 움직이는 수뿐이다.
+	// 두 줄이라는 것과 「먹어서 풀 수 없다」가 같은 사실이어야 한다. 玉을 움직이는 수뿐이다.
 	for _, m := range pos.LegalMoves() {
 		if pos.Board[m.From].Type() != shogi.King {
 			t.Errorf("両王手인데 玉 말고 두는 수가 있다: %s", m.USI())
@@ -190,8 +190,9 @@ func TestTrimRefutation(t *testing.T) {
 	}
 }
 
-// assertLine 은 수와 표기를 견준다. 국면은 값으로 안 박는다 — SFEN 문자열을 테스트에
-// 적어두면 룰 엔진이 아니라 그 문자열을 지키게 된다. 있는지와 매 수 달라지는지만 본다.
+// assertLine 은 수와 표기를 견준다. 국면은 값으로 박지 않는다 — SFEN 문자열을
+// 테스트에 적어두면 룰 엔진 대신 그 문자열을 지키게 된다. 있는지와 매 수
+// 달라지는지만 본다.
 func assertLine(t *testing.T, got, want []RefutationMove) {
 	t.Helper()
 
@@ -203,7 +204,7 @@ func assertLine(t *testing.T, got, want []RefutationMove) {
 		if m.USI != want[i].USI || m.Ja != want[i].Ja || m.By != want[i].By {
 			t.Errorf("%d번째 수 %+v, 기대 %+v", i, m, want[i])
 		}
-		// 화면이 이 값으로 판을 그린다. 비어 있으면 넘기기가 통째로 안 된다.
+		// 화면이 이 값으로 판을 그린다. 비어 있으면 넘기기 전체가 되지 않는다.
 		if m.SFEN == "" {
 			t.Errorf("%d번째 수(%s)에 국면이 없다", i, m.USI)
 		}

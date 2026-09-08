@@ -28,7 +28,7 @@ func TestPawnDroppedOnAGoldsHeadIsTatakiNoFu(t *testing.T) {
 	}
 }
 
-// 판만 봐서는 알 수 없다. 같은 국면이라도 그 歩가 걸어온 것이면 叩き가 아니다 —
+// 판만 봐서는 알 수 없다. 같은 국면이라도 그 歩가 걸어온 것이면 叩き로 뜨지 않는다 —
 // 이 부류가 방금 둔 수를 받는 이유가 여기 있고, 그 시그니처가 없으면 이 구별이 사라진다.
 func TestAPawnThatWalkedThereIsNotTataki(t *testing.T) {
 	got := dropNames(t, "4k4/9/4g4/4P4/9/9/9/9/4K4 b - 1", "5e5d", shogi.Black)
@@ -83,7 +83,7 @@ func TestDropTesujiMirrorsForGote(t *testing.T) {
 	}
 }
 
-// 상대의 打으로는 내 이름이 나오지 않는다. 색을 안 보면 상대의 手筋이 내 화면에 뜬다.
+// 상대의 打으로는 내 이름이 나오지 않는다. 색을 보지 않으면 상대의 手筋이 내 화면에 뜬다.
 func TestDropTesujiNeedsMyOwnPawn(t *testing.T) {
 	if got := dropNames(t, "4k4/9/9/4P4/9/9/9/9/4K4 b - 1", "P*5d", shogi.White); len(got) != 0 {
 		t.Errorf("先手의 歩인데 後手 手筋로 %v 가 떴다", got)

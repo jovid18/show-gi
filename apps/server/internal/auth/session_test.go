@@ -98,7 +98,7 @@ func TestDecodeRejectsGarbage(t *testing.T) {
 	}
 }
 
-// user_id 0 은 「로그인 안 함」과 구별되지 않는다. 통과하면 그 세션이 유령이 된다.
+// user_id 0 은 「로그인하지 않음」과 구별되지 않는다. 통과하면 그 세션이 유령이 된다.
 func TestDecodeRejectsZeroUser(t *testing.T) {
 	c := NewCodec(testSecret)
 	now := time.Unix(1_700_000_000, 0)

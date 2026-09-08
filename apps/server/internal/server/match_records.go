@@ -11,9 +11,9 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// matchRecords 는 방마다 만든 기록기를 들고 있다.
+// matchRecords 는 방마다 만든 기록기를 갖고 있다.
 //
-// 들고 있는 이유는 판 번호 하나다. 대인전 한 판은 games 행 두 개로 남고
+// 갖고 있는 것은 판 번호 하나 때문이다. 대인전 한 판은 games 행 두 개로 남고
 // (012_match_games.sql) 先手·後手마다 번호가 다른데, 그 번호를 아는 것은 기록기뿐이다 —
 // 판이 끝난 뒤 「振り返り」 링크가 그 값으로 만들어진다.
 //
@@ -21,13 +21,13 @@ import (
 // 따로 판다 — Hub 가 방을 걷어갈 때 이쪽에 알려주는 길을 내면 두 패키지가 서로를 알게 된다.
 type matchRecords struct {
 	store *store.Store
-	// level 은 개입 임계치다. 대인전에서는 아무것도 안 정한다 — 개입이 없으므로
+	// level 은 개입 임계치다. 대인전에서는 아무것도 정하지 않는다 — 개입이 없으므로
 	// 기록기가 그 값을 쓸 행(interventions)이 생기지 않는다. 넘기는 것은 기록기를
 	// 한 벌만 두기 위해서다(matchRecorder).
 	level intervene.Level
 
 	// analyzer 는 판이 끝난 뒤 평가치와 실력 추정치를 채우는 쪽이다. nil 일 수 있다 —
-	// 엔진이 없는 배포에서는 대인전이 그대로 돌고 그 둘만 안 붙는다(matchAnalyzer).
+	// 엔진이 없는 배포에서는 대인전이 그대로 돌고 그 둘만 붙지 않는다(matchAnalyzer).
 	analyzer *matchAnalyzer
 
 	mu     sync.Mutex
@@ -43,7 +43,7 @@ type roomRecord struct {
 	//
 	// dbRecorder.done 은 값 하나짜리 채널이라 먼저 읽은 쪽이 가져가 버린다. 판이 끝나는
 	// 순간에 새로고침하거나 같은 쪽으로 탭을 둘 열어 두는 것은 드문 일이 아닌데, 그때
-	// 두 번째 연결은 5초를 기다린 끝에 링크를 못 그리고 로그에는 「기록이 안 끝났다」는
+	// 두 번째 연결은 5초를 기다린 끝에 링크를 그리지 못하고 로그에는 「기록이 끝나지 않았다」는
 	// 거짓말이 남는다 — 그래서 받는 쪽을 하나로 모으고(collect) 여기 옮겨 둔다.
 	//
 	// ready 는 닫히는 채널이라 몇이 기다려도 다 깨어난다. 값을 실어 보내면 다시
@@ -59,7 +59,7 @@ type roomRecord struct {
 	start string
 	moves []string
 
-	// plies 는 그 판에 둔 手数다. 두 자리가 같은 수를 다 적으므로 큰 쪽을 든다.
+	// plies 는 그 판에 둔 手数다. 두 자리가 같은 수를 다 적으므로 큰 쪽을 쓴다.
 	//
 	// 기록에서 되읽지 않고 여기서 센다 — 큐에 세울 때(analysisJob) 이 값이 필요하고,
 	// 그 자리에서 질의를 하나 더 하면 판이 끝나는 경로가 그만큼 늘어난다.
@@ -67,8 +67,8 @@ type roomRecord struct {
 
 	// player·result 는 자리마다의 대국자와 결과다. 레이팅을 옮기는 데 쓴다(match_rating.go).
 	//
-	// 결과를 기록기 채널이 아니라 여기로 한 벌 더 받는다. 레이팅은 두 사람을 같이
-	// 옮기므로 한쪽 관점의 행 하나로는 짝을 못 맞추고, 행에서 되읽으면 그 판의 수까지
+	// 결과를 기록기 채널과 별개로 여기서 한 벌 더 받는다. 레이팅은 두 사람을 같이
+	// 옮기므로 한쪽 관점의 행 하나로는 짝을 맞출 수 없고, 행에서 되읽으면 그 판의 수까지
 	// 같이 끌고 온다(store.GameRecord).
 	player map[shogi.Color]match.Player
 	result map[shogi.Color]match.Result
@@ -79,7 +79,7 @@ type roomRecord struct {
 //
 // 판이 시작한 시각부터 센다. 그래서 이 값은 한 판이 걸릴 수 있는 최대 시간보다
 // 길어야 한다 — 짧으면 오래 두는 판이 끝나기도 전에 항목이 사라지고, 그때 「振り返り」
-// 링크가 안 그려진다. 방의 만료(40분)로 잡았다가 그 함정을 봤다: 1手 60초라 100手만
+// 링크가 그려지지 않는다. 방의 만료(40분)로 잡았다가 그 함정을 봤다: 1手 60초라 100手만
 // 둬도 그 값을 넘긴다.
 const recordSweepAfter = 24 * time.Hour
 
@@ -118,7 +118,7 @@ func (m *matchRecords) new(
 		// 사람마다 변수를 새로 두고 그 주소를 넘긴다. 반복 변수의 주소를 그대로 넘기면 두 기록기가
 		// 같은 값을 가리키고, 그러면 한 판이 한 사람의 행 두 개로 남는다.
 		userID := p.UserID
-		// 계측을 안 넘긴다. 대인전은 FinishedWith 로 결과를 적으므로 Finished 를 지나지
+		// 계측을 넘기지 않는다. 대인전은 FinishedWith 로 결과를 적으므로 Finished 를 지나지
 		// 않고, game_finished_total 은 그 자리에서만 오른다.
 		entry.rec[c] = newDBRecorder(ctx, m.store, nil, m.level, recordTarget{userID: &userID, matchID: matchID})
 		entry.ready[c] = make(chan struct{})
@@ -146,7 +146,7 @@ func (m *matchRecords) new(
 // 먼저 읽은 쪽이 가져간다(roomRecord.id).
 //
 // 先手·後手마다 goroutine 을 따로 둔다. 한 자리에서 차례로 기다리면 한쪽이 늦는 것이
-// 다른 쪽의 신호를 막는다 — 그러면 멀쩡히 기록된 사람이 「振り返り」 링크를 못 받고,
+// 다른 쪽의 신호를 막는다 — 그러면 멀쩡히 기록된 사람이 「振り返り」 링크를 받지 못하고,
 // 기다리는 5초도 둘이 나눠 쓰게 된다.
 func (m *matchRecords) collect(ctx context.Context, cancel context.CancelFunc, entry *roomRecord) {
 	// 마지막에 접는다. 번호를 받았다는 것은 evFinished 까지 다 썼다는 뜻이라
@@ -158,13 +158,13 @@ func (m *matchRecords) collect(ctx context.Context, cancel context.CancelFunc, e
 		wg.Add(1)
 		go func(c shogi.Color, rec *dbRecorder) {
 			defer wg.Done()
-			// 번호를 못 받아도 신호는 연다. 기다리는 쪽이 매달려 있으면 안 된다 —
+			// 번호를 받지 못해도 신호는 연다. 기다리는 쪽이 매달려 있으면 안 된다 —
 			// 그때는 entry.id 가 비어 있어서 gameIDOf 가 false 를 준다.
 			defer close(entry.ready[c])
 
 			select {
 			case id := <-rec.done:
-				// 0은 「행이 없다」다. 그때는 안 적는다 — 없는 판으로 링크를 그릴 수 없다.
+				// 0은 「행이 없다」다. 그때는 적지 않는다 — 없는 판으로 링크를 그릴 수 없다.
 				if id == 0 {
 					return
 				}
@@ -202,7 +202,7 @@ func (m *matchRecords) collect(ctx context.Context, cancel context.CancelFunc, e
 	}
 	m.mu.Unlock()
 	if len(seats) != len(entry.ready) {
-		// 반쪽이라 분석하지 않는다. 표시는 걷는다 — 안 걷으면 그 판이 영영
+		// 반쪽이라 분석하지 않는다. 표시는 걷는다 — 걷지 않으면 그 판이 영영
 		// 「분석 중」으로 남는다.
 		m.analyzer.dropJob(ctx, entry.matchID)
 		m.analyzer.discard(ctx, entry.matchID)
@@ -235,7 +235,7 @@ func (m *matchRecords) noting(entry *roomRecord, c shogi.Color) func(match.Resul
 // 적으므로 앞선 자리만 세운다.
 //
 // 즉시 돌아온다 — 테이블 goroutine 이 부르는 자리다(match.Recorder). 세우는 것이
-// 논블로킹이라(matchAnalyzer.prefetch) 큐가 차 있어도 착수가 안 늦는다.
+// 논블로킹이라(matchAnalyzer.prefetch) 큐가 차 있어도 착수가 늦지 않는다.
 func (m *matchRecords) counting(entry *roomRecord) func(int, string) {
 	return func(ply int, usi string) {
 		m.mu.Lock()
@@ -255,7 +255,7 @@ func (m *matchRecords) counting(entry *roomRecord) func(int, string) {
 	}
 }
 
-// opening 은 시작 국면을 곁장부에 적는 창구다. 두 자리가 같은 값을 주므로 먼저 온 것을 든다.
+// opening 은 시작 국면을 곁장부에 적는 창구다. 두 자리가 같은 값을 주므로 먼저 온 것을 쓴다.
 func (m *matchRecords) opening(entry *roomRecord) func(string) {
 	return func(startSFEN string) {
 		m.mu.Lock()
@@ -266,7 +266,7 @@ func (m *matchRecords) opening(entry *roomRecord) func(string) {
 	}
 }
 
-// gameIDOf 는 그쪽의 판 번호를 기다렸다 준다. 못 얻으면 두 번째 값이 false 다.
+// gameIDOf 는 그쪽의 판 번호를 기다렸다 준다. 얻지 못하면 두 번째 값이 false 다.
 //
 // 몇이 물어도 다 답한다 — 신호가 닫히는 채널이고 값은 곁장부에 남아 있다(roomRecord.id).
 func (m *matchRecords) gameIDOf(

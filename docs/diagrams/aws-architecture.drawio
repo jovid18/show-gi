@@ -58,7 +58,7 @@
         <mxCell id="i2" value="EC2 스팟 t4g.small (ARM64) · 태스크 하나에 컨테이너 하나" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=12;verticalAlign=middle;" vertex="1" parent="1">
           <mxGeometry x="704" y="546" width="360" height="46" as="geometry" />
         </mxCell>
-        <mxCell id="api2" value="&lt;b&gt;api&lt;/b&gt; — Go :8080&#10;SERVER_ROLE=analysis · 대상 그룹에 안 붙는다" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=12;verticalAlign=middle;" vertex="1" parent="1">
+        <mxCell id="api2" value="&lt;b&gt;api&lt;/b&gt; — Go :8080&#10;SERVER_ROLE=analysis · 대상 그룹에 붙지 않는다" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=12;verticalAlign=middle;" vertex="1" parent="1">
           <mxGeometry x="704" y="620" width="360" height="76" as="geometry" />
         </mxCell>
         <mxCell id="engine2" value="USI 엔진 프로세스 — api 의 자식&#10;종국된 판을 手 단위로 해석" style="rounded=1;arcSize=8;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#f8f4ec,#232019);strokeColor=light-dark(#bfb094,#5a5248);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=12;verticalAlign=middle;" vertex="1" parent="1">

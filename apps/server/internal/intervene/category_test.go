@@ -77,7 +77,7 @@ func TestCategoryPicksTheMostConcreteReason(t *testing.T) {
 	}
 }
 
-// 공짜로 딴 것은 이유가 아니다.
+// 공짜로 딴 것을 이유로 대지 않는다.
 //
 // 반대쪽에서 벌어진 일 때문에 나쁜 수인데 마침 歩를 하나 공짜로 땄다면, 딴 것을
 // 이유라고 말하는 순간 설명이 틀린다. 짚을 것이 없으면 미분류로 두는 편이 낫다.
@@ -102,25 +102,25 @@ func TestKingExposedNeedsBothSidesToMove(t *testing.T) {
 	}
 }
 
-// 반전 폭이 작으면 함정이 아니라 그냥 평가가 흔들린 것이다.
+// 반전 폭이 작으면 함정 대신 그냥 평가가 흔들린 것으로 본다.
 func TestShallowTrapNeedsARealReversal(t *testing.T) {
-	// 얕게 +50, 깊게 −100. 벌어진 폭이 150이라 임계치에 못 미친다.
+	// 얕게 +50, 깊게 −100. 벌어진 폭이 150이라 임계치에 미치지 못한다.
 	in := blunderInput(Features{Known: true, Shallow: eval.Cp(50), HasShallow: true})
 	in.After = eval.Cp(-100)
-	// 그 자체로는 개입이 안 걸리는 크기라 낙폭은 따로 만든다
+	// 그 자체로는 개입이 걸리지 않는 크기라 낙폭은 따로 만든다
 	in.Best = eval.Cp(1600)
 	if got := Judge(in).Category; got == CategoryShallowTrap {
 		t.Errorf("반전 폭이 %v→%v(<%d)인데 함정이라고 했다", in.Features.Shallow, in.After, ShallowTrapCp)
 	}
 
-	// 얕게 보면 손해인 수는 애초에 함정이 아니다 — 초보자도 손해로 본다
+	// 얕게 보면 손해인 수는 애초에 함정이 되지 못한다 — 초보자도 손해로 본다
 	in = blunderInput(Features{Known: true, Shallow: eval.Cp(-50), HasShallow: true})
 	if got := Judge(in).Category; got == CategoryShallowTrap {
 		t.Errorf("얕게 봐도 손해인 수를 함정이라고 했다")
 	}
 }
 
-// 詰み을 놓친 것은 다른 축이다 — 판을 읽었든 아니든 이유가 이미 정해져 있다.
+// 詰み을 놓친 것은 별개다 — 판을 읽었든 아니든 이유가 이미 정해져 있다.
 func TestMissedMateWinsOverBoardFacts(t *testing.T) {
 	in := Input{
 		Best: eval.Mate(3), After: eval.Cp(2000),
@@ -133,7 +133,7 @@ func TestMissedMateWinsOverBoardFacts(t *testing.T) {
 	}
 }
 
-// 판을 못 읽었으면 모른다고 말한다. 지어내면 초심자는 틀린 것을 그대로 배운다.
+// 판을 읽지 못했으면 모른다고 말한다. 지어내면 초심자는 틀린 것을 그대로 배운다.
 func TestUnknownFeaturesFallBackToOther(t *testing.T) {
 	v := Judge(blunderInput(Features{}))
 	if v.Kind != KindBlunder {
@@ -157,7 +157,7 @@ func TestNoCategoryWhenNotIntervening(t *testing.T) {
 //
 // 실측에서 이 수가 greedy_capture 로 떨어져 「잡는 것이 문제」라고 가르쳤고, 플레이어가
 // 그 문장을 믿고 세 수를 더 헤맸다(08-playtest.md §8). 그래서 이 테스트가 지키는 것은
-// 「unpromoted 로 간다」가 아니라 「다른 이유를 대지 않는다」다.
+// 「unpromoted 로 간다」 대신 「다른 이유를 대지 않는다」다.
 func TestUnpromotedBeatsEveryOtherReason(t *testing.T) {
 	// 딴 것도 있고(greedy_capture), 그냥 잡히기도 하고(hangs_piece), 王手까지 거는
 	// 수를 만든다. 이 셋이 전부 켜져 있어도 成 여부가 이유여야 한다.
@@ -193,14 +193,14 @@ func TestUnpromotedBeatsEveryOtherReason(t *testing.T) {
 // TestShallowTrapReadsTheBaseline 은 駒落ち에서도 그 카테고리가 나오는지를 본다.
 //
 // 이 규칙만 절대 부호를 읽는다(Shallow > Baseline · After < Baseline). 기준점을
-// 안 보면 二枚落ち에서 앞 조건이 언제나 참이고 뒤 조건이 거의 언제나 거짓이라, 판정은
-// 걸리는데 이름이 other 로 떨어진다 — 개입은 살아 있고 설명만 조용히 나빠지는 모양이라
-// 눈으로는 안 잡힌다(journal §84).
+// 보지 않으면 二枚落ち에서 앞 조건이 언제나 참이고 뒤 조건이 거의 언제나 거짓이라, 판정은
+// 걸리는데 이름이 other 로 떨어진다 — 개입은 살아 있고 설명만 경고 없이 나빠지는 모양이라
+// 눈으로는 잡히지 않는다(journal §84).
 func TestShallowTrapReadsTheBaseline(t *testing.T) {
 	const nimai = 1490 // internal/handicap 의 실측값
 
 	// 얕게는 기준점보다 좋아 보이고(+400) 깊게는 나쁘다(-900). 낙폭이 입문 임계치를
-	// 넘어야 카테고리가 붙으므로(Judge) -900이다 — -400은 통과해서 이름이 아예 안 생긴다.
+	// 넘어야 카테고리가 붙으므로(Judge) -900이다 — -400은 통과해서 이름이 아예 생기지 않는다.
 	flat := Input{
 		Best: eval.Cp(0), After: eval.Cp(-900), Level: Beginner,
 		Features: Features{Known: true, HasShallow: true, Shallow: eval.Cp(400)},
@@ -209,7 +209,7 @@ func TestShallowTrapReadsTheBaseline(t *testing.T) {
 		t.Fatalf("전제가 깨졌다 — 平手에서 %q 다", got)
 	}
 
-	// 같은 국면을 二枚落ち로 옮긴다. 기준점을 안 보면 여기서 이름이 갈린다.
+	// 같은 국면을 二枚落ち로 옮긴다. 기준점을 보지 않으면 여기서 이름이 갈린다.
 	komaochi := Input{
 		Best: eval.Cp(nimai), After: eval.Cp(nimai - 900), BaselineCp: nimai, Level: Beginner,
 		Features: Features{Known: true, HasShallow: true, Shallow: eval.Cp(nimai + 400)},

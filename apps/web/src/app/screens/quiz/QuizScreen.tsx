@@ -86,7 +86,7 @@ function Questions({
       {/* 「아직 만드는 중」과 「문항이 없다」를 구분해 말한다. 만드는 데 수십 초가 걸려서,
           그 사이에 「問題はありません」을 그리면 그것이 거짓이 된다. */}
       {/* 기다리기를 그만둔 것과 문항이 없는 것은 다른 말이다. 그만둔 쪽에서 아는 것은
-          「정해진 동안 안 왔다」뿐이라, 없다고 단정하면 그것이 거짓이 된다. */}
+          「정해진 동안 오지 않았다」뿐이라, 없다고 단정하면 그것이 거짓이 된다. */}
       {!quiz.ready && gaveUp ? (
         <p className="quiz-status">
           問題がまだ届きません。時間をおいてから、もう一度開いてみてください。
@@ -100,7 +100,7 @@ function Questions({
         </p>
       ) : empty ? (
         // 이유를 말하지 않는다. 「詰み이 없었고 뚜렷한 한 수도 없었다」는 서버가 모르는
-        // 사실이다 — 생성기가 없는 배포는 아무것도 안 찾아보고 빈 행을 남기고(ws.go), 트리가
+        // 사실이다 — 생성기가 없는 배포는 아무것도 찾아보지 않고 빈 행을 남기고(ws.go), 트리가
         // 깨져 詰み 문항이 빠진 판도 여기로 온다(quiz.go get). 초심자가 확인할 수 없는 것을
         // 말하지 않는 것이 이 제품의 규칙이고, 그 규칙이 가장 걸리는 자리가 빈 화면이다.
         <p className="quiz-status">この対局からは問題が作れませんでした。</p>
@@ -113,7 +113,7 @@ function Questions({
 
               넘어간 문항을 지우지 않는다 — `hidden` 으로 덮어 둔다. 언마운트하면 채점
               결과와 시도 횟수가 함께 사라져서, 돌아왔을 때 세 번 틀린 문항이 처음
-              열린 것처럼 된다. `hidden` 은 접근성 트리에서도 빠지므로 낭독기가 안 읽는다. */}
+              열린 것처럼 된다. `hidden` 은 접근성 트리에서도 빠지므로 낭독기가 읽지 않는다. */}
           {pages.map((page, i) => (
             <div key={page.key} hidden={i !== at}>
               {page.node}
@@ -152,28 +152,28 @@ function Questions({
  */
 function MateQuestion({ id, item }: { id: number; item: MateItem }) {
   const [grading, grade, clear] = useMateGrader(id);
-  // 내가 낸 수만 들고 있다. 玉方의 응수는 서버가 트리에서 꺼내 두므로, 화면이 그것을
+  // 내가 낸 수만 갖고 있다. 玉方의 응수는 서버가 트리에서 꺼내 두므로, 화면이 그것을
   // 기억하면 두 벌이 되고 어긋날 수 있다(protocol/quiz.ts).
   const [mine, setMine] = useState<string[]>([]);
   /**
-   * 이 문항을 몇 번 틀렸나. 「最初から」로 안 지워진다 — 지우면 세 번째 힌트에 영원히
-   * 못 닿는다(다시 풀려면 그 버튼을 누르는 것이 유일한 길이라, 그때마다 0으로 돌아간다).
+   * 이 문항을 몇 번 틀렸나. 「最初から」로 지워지지 않는다 — 지우면 세 번째 힌트에 영원히
+   * 닿을 수 없다(다시 풀려면 그 버튼을 누르는 것이 하나뿐인 길이라, 그때마다 0으로 돌아간다).
    */
   const [wrongs, setWrongs] = useState(0);
 
   const res = grading.result;
   const done = res?.outcome === 'solved' || res?.outcome === 'wrong';
-  // `not_check` 도 서버가 준 자리를 그대로 쓴다. 그때 판은 안 움직였지만 그 자리는
-  // 문제 국면이 아니라 지금까지 진행된 국면이다 — 문항 쪽으로 되돌리면 맞힌 수가
-  // 사라진 것처럼 보인다(quiz.GradeMate 가 그래서 그 경우에도 둘 수 있는 수를 준다).
+  // `not_check` 도 서버가 준 자리를 그대로 쓴다. 그때 판은 움직이지 않았지만 그 자리는
+  // 지금까지 진행된 국면이다 — 문항 쪽으로 되돌리면 맞힌 수가 사라진 것처럼
+  // 보인다(quiz.GradeMate 가 그래서 그 경우에도 둘 수 있는 수를 준다).
   const sfen = res ? res.sfen : item.sfen;
   const legal = res ? (res.legalMoves ?? []) : item.legalMoves;
   const plies = res ? res.plies : item.plies;
 
   const play = (usi: string): void => {
     const next = [...mine, usi];
-    // 시도 횟수는 틀린 횟수다. 王手가 아닌 수는 안내이지 오답이 아니라 세지 않는다 —
-    // 서버가 그 자리에서 정답을 안 주는 이유와 같다(quiz.MateNotCheck).
+    // 시도 횟수는 틀린 횟수다. 王手가 아닌 수는 안내로 처리해 세지 않는다 —
+    // 서버가 그 자리에서 정답을 주지 않는 것과 같은 판단이다(quiz.MateNotCheck).
     void grade({ moves: next, attempt: wrongs + 1 }).then((got) => {
       if (!got) return;
       if (got.outcome === 'wrong') setWrongs((n) => n + 1);
@@ -254,19 +254,19 @@ function verdictTone(res: MateResult | null, error: string | null): VerdictTone 
 /**
  * 「この局面の最善手は?」 문항.
  *
- * 첫 수만 받는다. 그 뒤를 이어 두게 하면 「최선수인가」가 아니라 「그 수순이 좋은가」를
- * 묻는 다른 문항이 되고, 그것은 판정에 엔진이 다시 필요하다(§53).
+ * 첫 수만 받는다. 그 뒤를 이어 두게 하면 「그 수순이 좋은가」를 묻는 다른 문항이
+ * 되고, 그것은 판정에 엔진이 다시 필요하다(§53).
  */
 function BestQuestion({ id, item }: { id: number; item: BestItem }) {
   const [grading, grade, clear] = useBestGrader(id);
-  /** 이 문항을 몇 번 틀렸나. 「もう一度」로 안 지워진다(詰み 쪽과 같은 이유). */
+  /** 이 문항을 몇 번 틀렸나. 「もう一度」로 지워지지 않는다(詰み 쪽과 같다). */
   const [wrongs, setWrongs] = useState(0);
   const res = grading.result;
   /**
    * 맞혔는가. cp 표가 여기 걸린다.
    *
    * 맞혔을 때만 그 자리를 만든다. 채점 결과가 있다는 것만 보면, 오답 문구에서 정답을
-   * 지워도 표가 정답과 두 cp를 그대로 적는다 — 서버도 오답에는 그 값들을 안 보낸다
+   * 지워도 표가 정답과 두 cp를 그대로 적는다 — 서버도 오답에는 그 값들을 보내지 않는다
    * (playtests/2026-08-14-human-2.md §6 #10 · #11).
    */
   const solved = res?.correct === true;
@@ -286,11 +286,11 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
   };
 
   // 낸 수를 판에서 보여준다. 서버가 그 수를 둔 뒤의 국면을 주므로 화면이 수를 두지
-  // 않는다 — 화면은 규칙을 모른다. 못 만들었으면(`sfen` 이 빈 값) 문제 국면 그대로다.
+  // 않는다 — 화면은 규칙을 모른다. 만들지 못했으면(`sfen` 이 빈 값) 문제 국면 그대로다.
   //
   // 문장만으로는 부족했던 자리다: 정답과 打 한 글자로만 갈리는 수를 낸 사람은 무엇이
   // 등록됐는지 확인할 길이 화면에 하나도 없었다(회차 1 #17·#18). 출발 칸이 빛나면 반상
-  // 이동이고 안 빛나면 持ち駒에서 온 수라, 그 한 글자가 판 위에서 갈린다.
+  // 이동이고 빛나지 않으면 持ち駒에서 온 수라, 그 한 글자가 판 위에서 갈린다.
   const moved = res?.sfen ? { sfen: res.sfen, checked: res.checked ?? null, move: res.move } : null;
 
   /** 수순을 짚어 보는 중이면 그 국면이 판을 이긴다. */
@@ -348,11 +348,11 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
         </dl>
       )}
 
-      {/* 회차 2 #12. 정답만으로는 왜 최선인지가 안 보였다 — 「その手が捨てる手に見える」.
+      {/* 회차 2 #12. 정답만으로는 왜 최선인지가 보이지 않았다 — 「その手が捨てる手に見える」.
           누르면 판이 그 자리로 간다: 取り返す·逃げる가 거기서 눈에 들어온다.
 
           추가 탐색이 0이다 — 문항을 만들 때 이미 손에 있던 수순을 잘라 둔 것이다.
-          옛 판에는 그 칸이 없어서 이 줄이 통째로 안 뜬다. */}
+          옛 판에는 그 칸이 없어서 이 줄이 통째로 뜨지 않는다. */}
       {line.length > 0 && (
         <div className="quiz-line">
           <span className="quiz-line__head">このあとの進み方</span>
@@ -376,7 +376,7 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
       )}
 
       {/* 맞혔는지에 따라 다른 말이다. 맞힌 뒤의 「もう一度」는 다시 둬 보는 것이고,
-          틀린 뒤의 그것은 아직 안 끝난 문항을 이어 푸는 자리다. */}
+          틀린 뒤의 그것은 아직 끝나지 않은 문항을 이어 푸는 자리다. */}
       {res && (
         <button type="button" className="review-retry" onClick={reset}>
           {solved ? 'もう一度' : 'もう一度考える'}
@@ -390,7 +390,7 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
  * 문항의 국면에서 사람이 잡은 쪽을 얻는다.
  *
  * 문항은 늘 사람이 둘 차례인 국면에서 뽑히므로(quiz.bestItems·mateItem) 그 手番이 곧
- * 사람이다. 진행된 판이 아니라 문항의 국면을 본다 — 진행된 판은 답한 뒤 상대 차례가 된다.
+ * 사람이다. 문항의 국면을 본다 — 진행된 판은 답한 뒤 상대 차례가 된다.
  */
 function sideOf(sfen: string): Side {
   try {
@@ -411,7 +411,7 @@ type VerdictTone = 'none' | 'right' | 'wrong' | 'note' | 'error';
  * 채점 결과 한 줄.
  *
  * 자리를 지킨다. 문장이 있을 때만 그리면 답할 때마다 아래 것들이 밀려 올라가고, 그러면
- * 방금 무엇이 바뀌었는지를 눈이 못 따라간다(WhatIfPanel 이 같은 자리를 이미 밟았다).
+ * 방금 무엇이 바뀌었는지를 눈이 따라가지 못한다(WhatIfPanel 이 같은 자리를 이미 밟았다).
  */
 function QuizVerdict({ message, tone, pending }: { message: string | null; tone: VerdictTone; pending: boolean }) {
   return (
@@ -441,8 +441,8 @@ function QuizBoard({
    * 사람이 잡은 쪽. 문항의 국면에서 얻어 밖에서 넘긴다.
    *
    * 여기 판의 手番으로 다시 세면 안 된다 — 문항이 끝난 뒤의 판은 상대 차례라, 그때
-   * 駒台의 이름이 뒤집혀 자기 駒台가 `相手` 가 된다. 판을 안 뒤집으므로(아래) 그 이름이
-   * 누가 누구인지를 말하는 유일한 자리다(ReviewDetail 이 같은 이유로 `myColor` 를 쓴다).
+   * 駒台의 이름이 뒤집혀 자기 駒台가 `相手` 가 된다. 판을 뒤집지 않으므로(아래) 그 이름이
+   * 누가 누구인지를 말하는 하나뿐인 자리다(ReviewDetail 도 같은 판단으로 `myColor` 를 쓴다).
    */
   me: Side;
   legalMoves: readonly string[];
@@ -451,7 +451,7 @@ function QuizBoard({
    * 이 판을 지금 모양으로 만든 한 수. 두 칸을 함께 짚는다.
    *
    * 打과 반상 이동이 여기서 갈린다 — 출발 칸이 빛나지 않으면 持ち駒에서 온 수다. 「▲3五金」과
-   * 「▲3五金打」가 한 글자 차이라 문장만으로는 안 갈렸고, 그것이 회차 1 #17의 절반이었다.
+   * 「▲3五金打」가 한 글자 차이라 문장만으로는 갈리지 않았고, 그것이 회차 1 #17의 절반이었다.
    */
   lastMove: MoveSquares | null;
   interactive: boolean;

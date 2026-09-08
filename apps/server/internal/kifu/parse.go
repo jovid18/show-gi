@@ -54,7 +54,7 @@ var pieceFromKanji = map[string]shogi.PieceType{
 	"成香": shogi.PromLance, "成桂": shogi.PromKnight, "成銀": shogi.PromSilver,
 }
 
-// 값을 안 쓴다 — 「投入할 수 있는 駒인가」(즉 玉이 아닌가)만 본다.
+// 값을 쓰지 않는다 — 「投入할 수 있는 駒인가」(즉 玉이 아닌가)만 본다.
 // USI 문자는 shogi.Move.USI() 가 자기 표(shogi.typeLetters)로 만든다.
 var dropLetter = map[shogi.PieceType]byte{
 	shogi.Pawn: 'P', shogi.Lance: 'L', shogi.Knight: 'N',
@@ -70,7 +70,7 @@ var csaToPiece = map[string]shogi.PieceType{
 }
 
 // parseFile 은 목적칸의 筋 숫자다. 전각(２)이 KIF 의 것이고 반각(2)은 사람이 쓴 평문과
-// shogi.SquareJa 가 내는 모양이다 — 둘 다 받아야 이 패키지가 자기 렌더러의 출력을 다시 읽는다.
+// shogi.SquareJa 가 내보내는 모양이다 — 둘 다 받아야 이 패키지가 자기 렌더러의 출력을 다시 읽는다.
 func parseFile(r rune) (int, bool) {
 	switch {
 	case r >= '１' && r <= '９':
@@ -84,7 +84,7 @@ func parseFile(r rune) (int, bool) {
 // headerValue 는 「先手：名前」 같은 헤더 줄에서 값을 떼어 낸다.
 //
 // 콜론이 두 가지다. 전각(：)이 KIF 의 것이지만 반각(:)으로 쓰는 도구가 있고, 어느 쪽이든
-// 못 읽으면 그 줄이 통째로 없는 것이 된다.
+// 읽지 못하면 그 줄 전체가 없는 것이 된다.
 func headerValue(line, key string) (string, bool) {
 	if !strings.HasPrefix(line, key) {
 		return "", false
@@ -109,7 +109,7 @@ func headerName(line string, keys ...string) (string, bool) {
 }
 
 // startOf 는 手合割 이름으로 0手目를 만든다. 이름을 모르면 실패한다 — 모르는 手合을
-// 平手로 읽으면 첫 수부터 반칙이 되고, 그 오류가 手合 때문이라는 것을 아무도 못 본다.
+// 平手로 읽으면 첫 수부터 반칙이 되고, 그 오류가 手合 때문이라는 것을 누구도 볼 수 없다.
 func startOf(name string) (shogi.Position, string, error) {
 	if name == "" || name == "平手" {
 		return shogi.StartPosition(), shogi.StartSFEN, nil
@@ -135,8 +135,8 @@ var timeRe = regexp.MustCompile(`\(\s*\d+:\d+[^)]*\)\s*$`)
 //
 // 手合割 줄이 시작 국면을 정한다. 표에 없는 手合은 실패다(startOf).
 //
-// ParseCSA 는 아직 平手만 읽는다. P 행을 안 보고 언제나 shogi.StartSFEN 에서 시작해서,
-// 駒落ち CSA 는 파싱이 아니라 ValidateMove 에서 엉뚱한 手数에 터진다.
+// ParseCSA 는 아직 平手만 읽는다. P 행을 보지 않고 언제나 shogi.StartSFEN 에서 시작해서,
+// 駒落ち CSA 는 파싱을 지나 ValidateMove 에서 엉뚱한 手数에 터진다.
 func ParseKIF(input string) (ParsedGame, error) {
 	g := ParsedGame{StartSFEN: shogi.StartSFEN}
 	pos := shogi.StartPosition()
@@ -159,7 +159,7 @@ func ParseKIF(input string) (ParsedGame, error) {
 			g.Gote = v
 			continue
 		}
-		// 手合割은 시작 국면을 정한다. 이 줄을 안 읽으면 駒落ち 기보가 平手 위에서 읽히다가
+		// 手合割은 시작 국면을 정한다. 이 줄을 읽지 않으면 駒落ち 기보가 平手 위에서 읽히다가
 		// 엉뚱해 보이는 반칙으로 죽는다.
 		//
 		// 수를 하나라도 읽은 뒤에 오면 무시한다 — 그때 국면을 갈아 끼우면 앞의 수들이
@@ -179,7 +179,7 @@ func ParseKIF(input string) (ParsedGame, error) {
 			continue
 		}
 
-		// 手数는 「수 줄인가」를 가리는 데만 쓰고 값은 안 믿는다 — 순서는 줄 순서가 정한다.
+		// 手数는 「수 줄인가」를 가리는 데만 쓰고 값은 믿지 않는다 — 순서는 줄 순서가 정한다.
 		// 그래서 KIF의 変化(분기) 블록은 헤더 줄만 걸러지고 그 아래 수들이 본선에 이어 붙어 ValidateMove 에서 터진다.
 		if !kifMoveRe.MatchString(line) {
 			continue
@@ -195,7 +195,7 @@ func ParseKIF(input string) (ParsedGame, error) {
 			continue
 		}
 
-		// 판이 끝난 사유는 수가 아니다. 投了가 던지는 쪽의 手番에 적히는 규약까지 endOf 가 든다.
+		// 판이 끝난 사유는 endOf 가 따로 가른다. 投了가 던지는 쪽의 手番에 적히는 규약까지 거기 있다.
 		if end, ok := endOf(rest); ok {
 			g.Result = end(pos.Turn)
 			continue
@@ -272,10 +272,10 @@ func parseKIFMove(text string, pos shogi.Position, prevTo int) (shogi.Move, erro
 		idx++
 	}
 
-	// 수식어(右左直寄引上)를 먼저 걷는다. 成 을 먼저 보면 「３三銀右成」에서 승격이 조용히
-	// 빠지고, 결과가 합법수라 ValidateMove 도 안 잡는다.
+	// 수식어(右左直寄引上)를 먼저 걷는다. 成 을 먼저 보면 「３三銀右成」에서 승격이 경고 없이
+	// 빠지고, 결과가 합법수라 ValidateMove 도 잡지 않는다.
 	//
-	// 걷은 것을 버리지 않는다 — 원위치가 안 적힌 표기에서는 이것이 출발칸을 정하는 유일한 단서다.
+	// 걷은 것을 버리지 않는다 — 원위치가 적히지 않은 표기에서는 이것이 출발칸을 정하는 하나뿐인 단서다.
 	modStart := idx
 	for idx < len(runes) && shogi.IsOriginModifier(runes[idx]) {
 		idx++
@@ -314,10 +314,10 @@ func parseKIFMove(text string, pos shogi.Position, prevTo int) (shogi.Move, erro
 		return shogi.Move{From: int8(from), To: int8(to), Promote: promote}, nil
 	}
 
-	// 안 적혀 있으면 룰 엔진이 되찾는다. KI2 와 사람이 쓴 평문이 그쪽이다.
+	// 적혀 있지 않으면 룰 엔진이 되찾는다. KI2 와 사람이 쓴 평문이 그쪽이다.
 	from, err := pos.ResolveOrigin(pt, to, mods)
 	if err != nil {
-		// 打 를 안 적은 投入이다. KI2 는 반상의 같은 駒가 그 칸에 못 갈 때 打 를 생략한다.
+		// 打 를 적지 않은 投入이다. KI2 는 반상의 같은 駒가 그 칸에 갈 수 없을 때 打 를 생략한다.
 		if d, dropErr := dropAt(pt, to); dropErr == nil && pos.ValidateMove(d) == nil {
 			return d, nil
 		}
@@ -326,7 +326,7 @@ func parseKIFMove(text string, pos shogi.Position, prevTo int) (shogi.Move, erro
 	return shogi.Move{From: int8(from), To: int8(to), Promote: promote}, nil
 }
 
-// dropAt 은 投入 수를 만든다. 玉과 成한 駒는 持ち駒로 못 든다 — 「と打」같은 표기는 없다.
+// dropAt 은 投入 수를 만든다. 玉과 成한 駒는 持ち駒로 들 수 없다 — 「と打」같은 표기는 없다.
 func dropAt(pt shogi.PieceType, to int) (shogi.Move, error) {
 	if _, ok := dropLetter[pt]; !ok {
 		return shogi.Move{}, fmt.Errorf("cannot drop %v", pt)
@@ -357,7 +357,7 @@ func ParseCSA(input string) (ParsedGame, error) {
 			strings.HasPrefix(line, "$"):
 			continue
 		// 投了와 시간초과는 같은 결과다 — 手番 쪽이 진다. %TIME_UP 을 받는 것은 실 코퍼스(journal §44의 341판)에 3판 있어서고,
-		// 안 받으면 그 판이 Unknown 으로 떨어져 K 실측의 승패 표본에서 빠진다. %KACHI·%TSUMI·%ILLEGAL_* 는 아직 같은 이유로 안 받는다.
+		// 받지 않으면 그 판이 Unknown 으로 떨어져 K 실측의 승패 표본에서 빠진다. %KACHI·%TSUMI·%ILLEGAL_* 는 아직 같은 이유로 받지 않는다.
 		case strings.HasPrefix(line, "%TORYO"), strings.HasPrefix(line, "%TIME_UP"):
 			if pos.Turn == shogi.Black {
 				g.Result = ResultGoteWin
@@ -407,7 +407,7 @@ func parseCSAMove(line string, pos shogi.Position) (shogi.Move, error) {
 
 	from := shogi.SquareOf(fromFile, fromRank)
 	// CSA는 착수 후의 駒를 적어(+8822UM) 표기에 成 이 없다 — 출발 칸에 서 있던 駒와 견줘 역산한다.
-	// parseCSAMove 가 pos 를 받는 이유가 이 줄이고, 그래서 CSA는 앞에서부터 순서대로만 읽을 수 있다.
+	// parseCSAMove 가 pos 를 받는 것이 이 줄 때문이고, 그래서 CSA는 앞에서부터 순서대로만 읽을 수 있다.
 	boardPiece := pos.Board[from]
 	promote := !boardPiece.Empty() && boardPiece.Type().CanPromote() && pt == boardPiece.Type().Promoted()
 

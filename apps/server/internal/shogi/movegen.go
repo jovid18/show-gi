@@ -50,7 +50,7 @@ func slidesOf(t PieceType) []delta {
 
 // attackTargets 는 sq의 말이 노리는 칸들을 fn에 전달한다. fn이 false를 반환하면 중단.
 //
-// 자기 말이 있는 칸도 포함하고, 핀은 보지 않는다. 「그 말이 실제로 갈 수 있는가」가 아니라
+// 자기 말이 있는 칸도 포함하고, 핀은 보지 않는다. 「그 말이 실제로 갈 수 있는가」 대신
 // 「노리고 있는가」를 세는 것이고, 방어 利き을 세려면 그래야 한다.
 // 아래 세 질의(IsAttacked·AttackCount·Attackers)가 이 규칙을 그대로 물려받는다.
 func (pos *Position) attackTargets(sq int, fn func(to int) bool) {
@@ -118,7 +118,7 @@ func (pos *Position) IsAttacked(sq int, by Color) bool {
 
 // AttackCount: sq를 노리는 by 색 말의 개수. 세는 규칙은 attackTargets 와 같다.
 //
-// 玉 주변의 攻め와 守り를 견줄 때 bool로는 「지키던 말이 하나 줄었다」가 안 보인다 —
+// 玉 주변의 攻め와 守り를 견줄 때 bool로는 「지키던 말이 하나 줄었다」가 보이지 않는다 —
 // 0이 되기 전까지 아무 일도 없는 것이 되어버린다.
 func (pos *Position) AttackCount(sq int, by Color) int {
 	n := 0
@@ -276,10 +276,10 @@ func (pos *Position) pseudoBoardMoves(from int, emit func(Move)) {
 	t := p.Type()
 	pos.attackTargets(from, func(to int) bool {
 		if !pos.Board[to].Empty() && pos.Board[to].Color() == me {
-			return true // 자기 말 위로는 못 감
+			return true // 자기 말 위로는 갈 수 없다
 		}
 		m := Move{From: int8(from), To: int8(to)}
-		// 승격 변형을 먼저 낸다 — 순서 자체가 조건이다. 강제 승격이면 그 자리에서 끊어
+		// 승격 변형을 먼저 내보낸다 — 순서 자체가 조건이다. 강제 승격이면 그 자리에서 끊어
 		// 미승격 변형을 만들지 않는다. (승격은 출발칸·도착칸 어느 한쪽만 존 안이면 성립한다.)
 		if t.CanPromote() && (inPromoZone(from, me) || inPromoZone(to, me)) {
 			emit(Move{From: int8(from), To: int8(to), Promote: true})

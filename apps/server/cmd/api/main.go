@@ -32,9 +32,9 @@ import (
 // ⑥ 되짚기 퀴즈의 「최선수는?」. 詰み 탐색은 여기 없다 — 다른 바이너리라 풀이 따로다
 // (defaultMatePoolSize).
 //
-// 3은 그 여섯을 다 덮는 값이 아니다. 퀴즈가 판이 끝날 때 십여 초를 쓰므로(journal §53)
-// 두 판이 동시에 끝나면 진행 중인 대국의 착수가 그만큼 뒤로 밀린다. 그래도 안 올린 것은
-// 그 지연이 대국을 멈추지 않기 때문이다(mate 풀과 달리 여기는 원래도 여럿이 다툰다).
+// 3으로 그 여섯을 다 덮지는 못한다. 퀴즈가 판이 끝날 때 십여 초를 쓰므로(journal §53)
+// 두 판이 동시에 끝나면 진행 중인 대국의 착수가 그만큼 뒤로 밀린다. 그래도 올리지 않은
+// 것은 그 지연이 대국을 멈추지 않기 때문이다(mate 풀과 달리 여기는 원래도 여럿이 다툰다).
 // 올릴 자리는 태스크 정의의 ENGINE_POOL_SIZE 다.
 //
 // 프로덕션은 2다. 코어가 2개뿐이고, 슬롯만 늘리면 대기가 탐색 시간으로 옮겨갈 뿐인 것을
@@ -70,7 +70,7 @@ func main() {
 	opts := server.Options{Level: intervene.Beginner}
 
 	// 티어. 큐를 집는가와 사람을 받는가를 여기서 한 번 읽는다 — 두 자리에서 각각
-	// os.Getenv 하면 잘못 적은 값이 한쪽에서만 경고를 내고 다른 쪽은 조용히 갈린다.
+	// os.Getenv 하면 잘못 적은 값이 한쪽에서만 경고를 남기고 다른 쪽은 경고 없이 갈린다.
 	role := analysisRole()
 	opts.Role = role
 
@@ -101,7 +101,7 @@ func main() {
 	}
 
 	// 판독을 재는 그림과 라벨을 모아 두는 폴더. 로컬에서만 켠다 — 프로덕션은 이 값을
-	// 안 주고, 없으면 그림도 안 남고 라벨 경로도 안 열린다(apps/server/README.md).
+	// 주지 않고, 없으면 그림도 남지 않고 라벨 경로도 열리지 않는다(apps/server/README.md).
 	opts.BoardImageDir = os.Getenv("SHOWGI_BOARD_IMAGE_DIR")
 	if opts.BoardImageDir != "" {
 		slog.Info("position: collecting board images", "dir", opts.BoardImageDir)
@@ -113,7 +113,7 @@ func main() {
 
 	// 대인전. 엔진 앞에 둔다 — 엔진이 없어도 사람끼리는 둘 수 있다.
 	//
-	// ctx 는 여기서 준다. 대국의 수명은 연결이 아니라 이 프로세스다.
+	// ctx 는 여기서 준다. 대국은 연결이 끊겨도 이 프로세스만큼 산다.
 	// 핸들러의 r.Context() 에 매달면 한쪽이 탭을 닫는 순간 시계까지 멈춰서, 남은
 	// 사람의 대국이 끝나지도 이어지지도 못한다(server.NewMatch).
 	opts.Match = server.NewMatch(ctx, opts.Store, opts.Level)
@@ -138,7 +138,7 @@ func main() {
 		// 두면 바로 다시 물어볼 국면이라 캐시 적중이 저절로 따라온다(journal §37).
 		//
 		// DB가 없으면 그대로 통과시킨다. 인터페이스에 nil 포인터를 넣지 않는 것은
-		// 아래 mate solver 와 같은 이유다.
+		// 아래 mate solver 에서와 같다.
 		var into archive.Store
 		if opts.Store != nil {
 			into = opts.Store
@@ -147,7 +147,7 @@ func main() {
 		// 계측도 같은 자리에 붙는다. 엔진을 부르는 여섯 자리가 다 여기를 지나므로
 		// 하나만 달면 되고, 캐시가 답한 것과 엔진을 부른 것이 여기서 갈린다.
 		searcher.Observe(reg.Search())
-		// 떠 있는 기록이 끝나기를 기다린다. 안 기다리면 마지막 수의 분석이 버려진다.
+		// 떠 있는 기록이 끝나기를 기다린다. 기다리지 않으면 마지막 수의 분석이 버려진다.
 		// 등록 순서가 곧 종료 순서다(LIFO). 이 줄이 위 defer st.Close() 보다 뒤라서 기록이 다 흘러간 뒤 DB가 닫힌다.
 		defer searcher.Wait()
 
@@ -201,7 +201,7 @@ func main() {
 
 		// 사후 분석. 갈래가 둘이다 — 대인전은 되짚기의 평가치와 두 사람의 실력 추정치를
 		// 채우고(journal §105), 가져온 기보는 거기에 悪手 줄과 문항까지 만든다(§126).
-		// 착수 경로는 그래도 엔진을 안 지난다 — 미리 재는 것이 논블로킹이라 착수를 막지 않는다.
+		// 착수 경로는 그래도 엔진을 지나지 않는다 — 미리 재는 것이 논블로킹이라 착수를 막지 않는다.
 		//
 		// 퀴즈 생성기보다 뒤에 만든다. 가져온 판의 문항을 이 분석기가 만들기 때문이고,
 		// Run 보다는 앞이라 곁장부 goroutine 과 경합하지 않는다.
@@ -218,8 +218,8 @@ func main() {
 	err := server.Run(ctx, *addr, opts)
 	stopMetrics()
 	if err != nil {
-		// log.Fatal 이 아니다. 그쪽은 slog 를 info 로 지나가므로 LOG_LEVEL 을 올린
-		// 배포에서는 「왜 죽었나」가 로그에 아예 안 남는다 — 빈 로그로 재시작을 반복한다.
+		// log.Fatal 을 쓰지 않는다. 그쪽은 slog 를 info 로 지나가므로 LOG_LEVEL 을 올린
+		// 배포에서는 「왜 죽었나」가 로그에 아예 남지 않는다 — 빈 로그로 재시작을 반복한다.
 		slog.Error("server stopped", "err", err)
 		os.Exit(1)
 	}
@@ -243,18 +243,18 @@ func setupLogging() {
 	// 요청 ID 를 ctx 에서 꺼내 모든 줄에 붙인다. 핸들러가 직접 넘기지 않아도 붙는다.
 	slog.SetDefault(slog.New(server.LogHandler(h)))
 
-	// 로거가 선 뒤에 알린다. 이 파일의 다른 환경변수도 다 그렇게 하고, 조용히 기본값으로
+	// 로거가 선 뒤에 알린다. 이 파일의 다른 환경변수도 다 그렇게 하고, 경고 없이 기본값으로
 	// 떨어지면 LOG_LEVEL=warning 같은 오타가 「설정 안 함」과 구별되지 않는다.
 	if badLevel != "" {
 		slog.Warn("bad LOG_LEVEL", "value", badLevel, "using", level)
 	}
 }
 
-// logLevel 은 남길 로그의 급이다. 두 번째 값은 못 읽은 원문이고, 읽었으면 빈 문자열이다.
+// logLevel 은 남길 로그의 급이다. 두 번째 값은 읽지 못한 원문이고, 읽었으면 빈 문자열이다.
 //
 // 기본은 info 다 — debug 는 요청 한 줄에 헬스체크까지 들어와 로그의 대부분이 그것이 된다
-// (server.levelFor). 위로 올리지도 않는다: 아직 slog 로 안 옮긴 log.Print* 가 전부
-// info 라 warn 이면 그것들이 통째로 사라진다(apps/server/README.md 의 그 경고).
+// (server.levelFor). 위로 올리지도 않는다: 아직 slog 로 옮기지 않은 log.Print* 가 전부
+// info 라 warn 이면 그것들 전체가 사라진다(apps/server/README.md 의 그 경고).
 func logLevel() (slog.Level, string) {
 	raw := os.Getenv("LOG_LEVEL")
 	if raw == "" {
@@ -269,11 +269,11 @@ func logLevel() (slog.Level, string) {
 
 // startEmitter 는 지표를 CloudWatch 로 내보내기 시작한다.
 //
-// ENVIRONMENT 가 비면 아무것도 안 낸다. 로컬에서 EMF 줄이 stdout 에 섞이는 것을 막는
-// 것이 절반이고, 나머지 절반은 요금이다 — EMF 는 지표를 자동으로 만들어서, 켠 줄도
+// ENVIRONMENT 가 비면 아무것도 내보내지 않는다. 로컬에서 EMF 줄이 stdout 에 섞이는 것을
+// 막는 것이 절반이고, 나머지 절반은 요금이다 — EMF 는 지표를 자동으로 만들어서, 켠 줄도
 // 모르는 채로 커스텀 지표가 쌓이는 쪽이 나쁘다. 그때도 /metrics 는 그대로 있다.
-// 돌려주는 함수는 마지막 회차를 내고 돌아온다. main 이 끝나기 직전에 부른다 —
-// defer 로는 안 되는데, 리스너 오류가 log.Fatal 로 끝나면 defer 가 안 돈다.
+// 돌려주는 함수는 마지막 한 줄을 내보내고 돌아온다. main 이 끝나기 직전에 부른다 —
+// defer 로 두면 리스너 오류가 log.Fatal 로 끝날 때 그 defer 가 돌지 않는다.
 func startEmitter(reg *metrics.Registry) func() {
 	if os.Getenv("ENVIRONMENT") == "" {
 		slog.Info("metrics stay local", "reason", "ENVIRONMENT is not set", "surface", "/metrics")
@@ -281,15 +281,15 @@ func startEmitter(reg *metrics.Registry) func() {
 	}
 
 	// 수명을 프로세스에 맞춘다. main 의 ctx 가 아닌 것은, 리스너가 오류로 죽는 경우
-	// 그 ctx 가 취소되지 않아 마지막 회차를 기다리다 프로세스가 멈추기 때문이다.
+	// 그 ctx 가 취소되지 않아 마지막 한 줄을 기다리다 프로세스가 멈추기 때문이다.
 	ctx, stop := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		metrics.NewEmitter(reg, os.Stdout).Run(ctx, metrics.DefaultInterval)
 	}()
-	// 끝나면서 한 줄을 더 낸다. 안 내면 종료 직전 회차가 사라지고, 배포마다 그 구간이
-	// 비어 그래프에 규칙적인 구멍이 생긴다.
+	// 끝나면서 한 줄을 더 내보낸다. 내보내지 않으면 마지막 주기가 사라지고, 배포마다
+	// 그 구간이 비어 그래프에 규칙적인 구멍이 생긴다.
 	return func() {
 		stop()
 		select {
@@ -302,17 +302,17 @@ func startEmitter(reg *metrics.Registry) func() {
 // analysisWorkers 는 사후 분석을 동시에 몇 갈래로 돌릴지다. 손잡이는 ANALYSIS_WORKERS 다.
 //
 // 기본이 풀 크기다. 분석은 대국과 같은 풀에서 엔진을 빌리는데(archive.Wrap 하나를 여섯이
-// 나눠 쓴다), 그래도 다 가져가도 되는 이유는 풀이 우선순위로 빌려주기 때문이다 —
+// 나눠 쓴다), 그래도 다 가져가도 되는 것은 풀이 우선순위로 빌려주기 때문이다 —
 // 사람이 기다리는 요청이 분석보다 먼저 받는다(usi.priorityOf).
 //
-// 하나 적게 두는 쪽을 먼저 지었다가 걷었다. 예약이 아니라 상한이라, 라이브 대국이 둘이면
-// 남긴 하나를 서로 기다린다 — 지연은 안 막고 처리량만 깎았다(journal §106).
+// 하나 적게 두는 쪽을 먼저 지었다가 걷었다. 풀은 예약 없이 상한만 주므로, 라이브 대국이
+// 둘이면 남긴 하나를 서로 기다린다 — 지연은 막지 못하고 처리량만 깎았다(journal §106).
 //
-// 풀이 커지면 이 값도 같이 커진다. 그것이 이 함수가 상수가 아닌 이유다: 워커가 하나면
+// 풀이 커지면 이 값도 같이 커진다. 그래서 이 함수가 상수가 아니다 — 워커가 하나면
 // vCPU 를 올려도 사후 분석 층은 그대로였다(journal §106).
 func analysisWorkers(poolSize int, role string) int {
 	if role == server.RoleInteractive {
-		// 집는 쪽을 안 띄운다. 手는 그대로 표에 세워지고 분석 티어가 집는다.
+		// 집는 쪽을 띄우지 않는다. 手는 그대로 표에 세워지고 분석 티어가 집는다.
 		slog.Info("match analysis ready", "role", role, "workers", 0, "pool", poolSize)
 		return 0
 	}
@@ -332,17 +332,17 @@ func analysisWorkers(poolSize int, role string) int {
 // analysisRole 은 이 프로세스가 어느 티어인가다. 정하는 것이 둘이다 — 큐를 집는가와
 // 사람을 받는가. 손잡이는 SERVER_ROLE 이다.
 //
-// ROLE 이 아닌 이유는 그 이름이 이미 남의 것이기 때문이다 — .github/workflows 가
-// IAM 역할 ARN 을 그 이름으로 들고 있고, 밖에서 들어온 값이 하필 아래 셋 중 하나면
-// 티어가 조용히 갈린다. 다른 손잡이들과 같은 방식으로 주어를 붙였다(ENGINE_·ANALYSIS_).
+// ROLE 로 두지 않는다. 그 이름은 이미 남의 것이다 — .github/workflows 가 IAM 역할
+// ARN 을 그 이름으로 갖고 있고, 밖에서 들어온 값이 하필 아래 셋 중 하나면 티어가
+// 경고 없이 갈린다. 다른 손잡이들과 같은 방식으로 주어를 붙였다(ENGINE_·ANALYSIS_).
 //
 //	interactive  집지 않는다. 사람을 받고 手를 큐에 세우기만 한다
 //	analysis     집는다. /healthz·/metrics 만 연다(server.Options.Role)
 //	both         집고 받는다. 태스크가 하나인 배포의 모양이고 기본이다
 //
-// analysis 가 나머지를 404 가 아니라 503 으로 답하는 이유는 server.Handler 에 있다.
+// analysis 가 나머지를 404 대신 503 으로 답하는 이유는 server.Handler 에 있다.
 //
-// 상호작용 티어를 여러 대로 올리는 것은 이 손잡이가 아니다. 방이 메모리에 있으므로
+// 이 손잡이로 상호작용 티어를 여러 대로 올리지는 못한다. 방이 메모리에 있으므로
 // (journal §98) 그쪽은 방을 프로세스 밖으로 내린 뒤다.
 func analysisRole() string {
 	switch v := os.Getenv("SERVER_ROLE"); v {
@@ -359,8 +359,8 @@ func analysisRole() string {
 // startAuth 는 Google 로그인을 켠다. 키가 없으면 nil 이고 익명 대국으로 남는다.
 //
 // 없다고 프로세스를 죽이지 않는다. 엔진·DB 와 같은 판단이고, 여기서는 특히 그렇다 —
-// 로그인은 대국의 전제가 아니라 그 판이 누구 것으로 남느냐일 뿐이다. 어느 쪽으로 돌고
-// 있는지는 기동 로그가 한 줄로 말한다.
+// 로그인이 바꾸는 것은 그 판이 누구 것으로 남느냐 하나다. 어느 쪽으로 돌고 있는지는
+// 기동 로그가 한 줄로 말한다.
 func startAuth() *auth.Google {
 	g := auth.NewGoogle(os.Getenv("GOOGLE_CLIENT_ID"), os.Getenv("GOOGLE_CLIENT_SECRET"))
 	if g == nil {
@@ -428,8 +428,8 @@ func startEngines() *usi.Pool {
 
 // startMateEngines 는 詰将棋 solver 풀을 띄운다. 없으면 nil.
 //
-// 탐색 한계는 手数(DepthLimit) 로 준다. 시간이 아니라 수로 자르는 이유는 다른 탐색과
-// 같다 — 같은 국면이 같은 답을 줘야 캐시할 수 있다. 11인 것은 실측 결과다(06-status.md).
+// 탐색 한계는 手数(DepthLimit) 로 준다. 시간으로 자르지 않는 것은 다른 탐색과 같다 —
+// 같은 국면이 같은 답을 줘야 캐시할 수 있다. 11인 것은 실측 결과다(06-status.md).
 func startMateEngines() *usi.Pool {
 	cmd := os.Getenv("ENGINE_MATE_CMD")
 	if cmd == "" {
@@ -437,12 +437,12 @@ func startMateEngines() *usi.Pool {
 		return nil
 	}
 	// 소비자가 넷이다 — 종반 판정, 詰み 게이지, 되짚기 퀴즈의 詰み 트리, 대인전 사후
-	// 분석. 앞 둘은 시간상 안 겹치지만(판정은 사람의 수 직후, 게이지는 상대의 수 직후)
+	// 분석. 앞 둘은 시간상 겹치지 않지만(판정은 사람의 수 직후, 게이지는 상대의 수 직후)
 	// 세 번째가 판이 끝나는 자리에서 수십 초 동안 풀을 잡는다 — 그래서 기본이 2다
 	// (journal §53). 넷째는 게이트 없이 手마다 부른다(journal §110).
 	//
-	// 「대국 쪽에 늘 한 자리가 남는다」는 아니다. 두 판이 동시에 끝나면 둘이 두 자리를 다
-	// 잡는다. 탐색 하나마다 빌리고 돌려주므로(Pool.Do) 굶는 것이 아니라 큐에 서는 것이고,
+	// 「대국 쪽에 늘 한 자리가 남는다」는 성립하지 않는다. 두 판이 동시에 끝나면 둘이 두
+	// 자리를 다 잡는다. 탐색 하나마다 빌리고 돌려주므로(Pool.Do) 큐에 서서 기다리고,
 	// 대국 쪽은 그것을 지연으로 겪는다.
 	pool, err := usi.NewPool(matePoolSize(), cmd, map[string]string{
 		"USI_Hash": envOr("ENGINE_HASH_MB", "128"),
@@ -463,7 +463,7 @@ func startMateEngines() *usi.Pool {
 //
 // 탐색부의 ENGINE_POOL_SIZE 와 따로 둔다. 두 풀이 다른 바이너리이고 잡히는 이유도
 // 다르다 — 저쪽은 상대의 수 계산이고 이쪽은 게이지·종반 판정·퀴즈 생성이다. 한 값으로
-// 묶으면 어느 쪽 때문에 올렸는지 다음에 아무도 모른다.
+// 묶으면 어느 쪽 때문에 올렸는지 다음에 누구도 모른다.
 func matePoolSize() int {
 	size := defaultMatePoolSize
 	if v := os.Getenv("ENGINE_MATE_POOL_SIZE"); v != "" {
@@ -497,18 +497,18 @@ func matePlies() int {
 
 // engineOptions 는 엔진 전체에 거는 설정이다. 대국마다 달라지는 값은 여기 두지 않는다.
 //
-// 엔진이 모르는 옵션은 조용히 무시되므로(광고된 것만 보낸다) 엔진을 바꿔도 깨지지 않는다.
-// 대신 값이 틀린 채로 도는 것은 안 깨진다 — 엔진을 바꿀 때 같이 확인할 것.
+// 엔진이 모르는 옵션은 경고 없이 무시되므로(광고된 것만 보낸다) 엔진을 바꿔도 깨지지 않는다.
+// 대신 값이 틀린 채로 돌아도 깨지지 않는다 — 엔진을 바꿀 때 같이 확인할 것.
 func engineOptions() map[string]string {
 	opts := map[string]string{}
 
 	// 평가함수가 요구하는 cp 보정값. 水匠5는 24다.
-	// 이게 틀리면 cp 척도가 통째로 달라지고 블런더 임계치가 그 위에서 잡힌다.
+	// 이게 틀리면 cp 척도 전체가 달라지고 블런더 임계치가 그 위에서 잡힌다.
 	if v := os.Getenv("ENGINE_FV_SCALE"); v != "" {
 		opts["FV_SCALE"] = v
 	}
 
-	// 치환표 크기(MB). 엔진 하나가 통째로 잡는 메모리라 풀 크기만큼 곱해진다.
+	// 치환표 크기(MB). 엔진 하나 전체가 잡는 메모리라 풀 크기만큼 곱해진다.
 	// YaneuraOu의 기본값은 1024라, 3개만 띄워도 3GB를 잡고 기동 때 그만큼 지운다.
 	opts["USI_Hash"] = envOr("ENGINE_HASH_MB", "128")
 
@@ -516,7 +516,7 @@ func engineOptions() map[string]string {
 	//
 	// 더 중요한 이유는 결정성이다. 스레드가 여럿이면 고정 깊이에서도 탐색 순서와
 	// 치환표 경합 때문에 같은 국면이 같은 답을 주지 않는다. 그러면 positions 캐시가
-	// "같은 국면 = 같은 결과"를 전제로 못 한다. 동시 탐색은 스레드가 아니라 풀로 얻는다.
+	// "같은 국면 = 같은 결과"를 전제로 삼을 수 없다. 동시 탐색은 스레드 대신 풀로 얻는다.
 	opts["Threads"] = envOr("ENGINE_THREADS", "1")
 
 	// 정석 북은 우리가 따로 만든다(D4). 그냥 두면 없는 파일을 찾다 매 기동 에러를 남긴다.
@@ -562,12 +562,11 @@ func envInt(name string, fallback int) int {
 
 // engineDepth 는 상대 수를 고를 때의 탐색 깊이다.
 //
-// 시간이 아니라 깊이인 이유는 game.NewAdaptiveOpponent 주석에 있다. 지연이 문제가 되면
-// 여기를 줄인다(기본값이 14이므로 12가 그 손잡이다). 시간 상한을 걸어 중간에 자르는
-// 쪽이 아니다.
+// 깊이로 거는 이유는 game.NewAdaptiveOpponent 주석에 있다. 지연이 문제가 되면 여기를
+// 줄인다(기본값이 14이므로 12가 그 손잡이다). 시간 상한을 걸어 중간에 자르지 않는다.
 //
 // 이 값을 걸면 여섯 자리가 둘로 갈린다. 상대 수와 퀴즈만 여기를 읽고 나머지 넷은 상수라,
-// 캐시가 서로 못 쓰는 두 무리가 된다(internal/archive).
+// 캐시를 서로 쓸 수 없는 두 무리가 된다(internal/archive).
 func engineDepth() int {
 	v := os.Getenv("ENGINE_DEPTH")
 	if v == "" {

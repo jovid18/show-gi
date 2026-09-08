@@ -11,11 +11,11 @@ export interface ResumableGame {
   myColor: 'b' | 'w';
   startedAt: string;
   moveCount: number;
-  /** 그때 고른 상대의 진형 id. 「おまかせ」였으면 안 온다. */
+  /** 그때 고른 상대의 진형 id. 「おまかせ」였으면 오지 않는다. */
   opening?: string;
   /** 그 진형의 일본어 이름. 화면이 id로 문장을 짓지 않는다. */
   openingJa?: string;
-  /** 그 판의 手合割 id. 平手였으면 안 온다. */
+  /** 그 판의 手合割 id. 平手였으면 오지 않는다. */
   handicap?: string;
   /** 그 手合割의 일본어 이름(二枚落ち). 위 진형과 같은 짝이다. */
   handicapJa?: string;
@@ -27,7 +27,7 @@ export interface ResumableGame {
  * 실패해도 null이다. 여기가 막혀도 새 대국은 그대로 시작할 수 있어야 하고, 「이어할
  * 판이 없다」와 그림이 같다 — `fetchOpenings` 와 같은 판단이다.
  *
- * 로그인 안 했으면 서버가 늘 null을 준다. 익명 판은 서로 구별할 수단이 없어서 「누구의
+ * 로그인하지 않았으면 서버가 늘 null을 준다. 익명 판은 서로 구별할 수단이 없어서 「누구의
  * 중단된 판인가」에 답할 수가 없다.
  */
 export async function fetchResumable(signal: AbortSignal): Promise<ResumableGame | null> {
@@ -44,7 +44,7 @@ export async function fetchResumable(signal: AbortSignal): Promise<ResumableGame
 /**
  * 「いいえ」를 남긴다. 그 판은 중단된 채로 끝나고 다시 물어보지 않는다.
  *
- * 답을 안 기다린다. 실패해도 사람은 이미 새 대국으로 넘어가야 하고, 실패의 결과는
+ * 답을 기다리지 않는다. 실패해도 사람은 이미 새 대국으로 넘어가야 하고, 실패의 결과는
  * 「다음에 한 번 더 물어본다」뿐이다 — 그것 때문에 시작 화면을 막지 않는다.
  */
 export function declineResume(id: number): void {

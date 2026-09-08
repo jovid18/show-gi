@@ -1,7 +1,7 @@
 # infra/ 검증. 로컬에서 `terraform -chdir=infra fmt -check && terraform -chdir=infra validate`와 같다.
 #
 # 이 검사가 없던 동안 정렬은 사람이 그 줄을 직접 칠 때만 맞았다(journal §90).
-# oxfmt는 .tf를 모르고 pre-commit도 웹·Go만 봤으므로, 손으로 안 돌린 PR은 그대로 지나갔다.
+# oxfmt는 .tf를 모르고 pre-commit도 웹·Go만 봤으므로, 손으로 돌리지 않은 PR은 그대로 지나갔다.
 
 name: Terraform
 

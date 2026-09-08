@@ -3,7 +3,7 @@
 // 연결 하나가 대국 하나이고 서버가 먼저 말을 건다(api.md §5). 그래서 이 함수는
 // 수를 두는 루프가 아니라 스냅샷에 반응하는 핸들러다.
 //
-// 그래도 쿠키를 굽는다. 익명으로 열면 games.user_id 가 NULL 로 남아 회차가 만든 판과
+// 그래도 쿠키를 굽는다. 익명으로 열면 games.user_id 가 NULL 로 남아 시험이 만든 판과
 // 실제 익명 사용자의 판을 구별할 수 없고, cleanup.sql 이 그 판에 닿지 않는다.
 import { WebSocket } from 'k6/experimental/websockets';
 import { clearTimeout, setTimeout } from 'k6/timers';
@@ -26,7 +26,7 @@ import { think } from './lib/think.js';
 
 export default function engineGame() {
   // 둘이 다 있어야 그 사람의 판으로 남긴다. 하나만 있으면 익명으로 돈다 — 시딩 없이
-  // 로컬에서 걸어 보는 자리를 남긴다. 그 회차는 main.js 의 setup 이 경고한다.
+  // 로컬에서 걸어 보는 자리를 남긴다. 그 시험은 main.js 의 setup 이 경고한다.
   const authed = SESSION_SECRET !== '' && LT_UIDS.length > 0;
   const uid = authed ? LT_UIDS[(__VU - 1) % LT_UIDS.length] : 0;
   const headers = authed ? cookieHeader(mintSession(SESSION_SECRET, uid, `LT${uid}`, 3600)) : {};
@@ -59,13 +59,13 @@ export default function engineGame() {
       }
     }
     ws.close();
-    // 연결이 한 번도 안 열렸으면 한 박자 쉬고 물러난다. 즉시 끝나면 k6 가 곧바로 다음
+    // 연결이 한 번도 열리지 않았으면 한 박자 쉬고 물러난다. 즉시 끝나면 k6 가 곧바로 다음
     // 이터레이션을 시작해서, 서버가 내려가 있는 동안 VU 수만큼 초당 수십 번이 된다 —
     // 실제로 1분 18초에 1282번 돌았다(journal §109). match.js 는 거절 뒤 쉬는데
     // (journal §107) 이쪽만 비어 있었다.
     //
     // 거절로 세는 것이 같이 필요하다. 이 지표에 abortOnFail 이 걸려 있어서(main.js)
-    // 죽은 서버에 건 회차가 계속 도는 대신 그 자리에서 멈춘다.
+    // 죽은 서버에 건 시험이 계속 도는 대신 그 자리에서 멈춘다.
     if (!opened) {
       rejects.add(1, { reason: 'ws_not_opened' });
       setTimeout(() => {}, QUEUE_INTERVAL * 1000);
@@ -87,7 +87,7 @@ export default function engineGame() {
     const msg = JSON.parse(event.data);
 
     if (msg.type === 'error') {
-      // 정상 경로에서는 안 온다. 서버가 준 legalMoves 만 보내므로, 오면 우리 버그다.
+      // 정상 경로에서는 오지 않는다. 서버가 준 legalMoves 만 보내므로, 오면 우리 버그다.
       rejects.add(1, { reason: msg.reason });
       return;
     }
@@ -104,7 +104,7 @@ export default function engineGame() {
       interventions.add(1, { category: s.intervention.category || 'unknown' });
     }
     if (s.status !== 'playing') {
-      // 총평을 기다리지 않는다. 판이 끝난 뒤에 오는데(api.md §5) 회차 길이를
+      // 총평을 기다리지 않는다. 판이 끝난 뒤에 오는데(api.md §5) 시험 길이를
       // 그 대기로 늘리면 동시 판수가 실제보다 낮게 유지된다.
       finish('');
       return;
@@ -117,7 +117,7 @@ export default function engineGame() {
     //
     // 내 차례인 스냅샷이 한 手에 여러 번 온다 — 힌트가 도착하거나 상대의 세기가 바뀌면
     // 그때마다 전체 상태가 다시 나간다(api.md §5 의 「부분 갱신이 없다」). 보낸 뒤로
-    // 판이 안 움직였으면 그것은 그 스냅샷들이고, 두 번째 착수는 판정 중에 도착해
+    // 판이 움직이지 않았으면 그것은 그 스냅샷들이고, 두 번째 착수는 판정 중에 도착해
     // not_your_turn 으로 거절된다.
     //
     // 개입은 예외다. 물러진 手는 手数가 그대로 돌아오는데 그때는 다시 둬야 한다.
@@ -149,7 +149,7 @@ export default function engineGame() {
     // 잠그지 않으면 같은 手에 타이머가 여러 개 걸린다.
     sentPly = s.ply;
     sentRetracted = retracted;
-    // 앞선 타이머를 지운다. 개입이 오면 같은 手에 다시 두는데, 안 지우면 그 타이머가
+    // 앞선 타이머를 지운다. 개입이 오면 같은 手에 다시 두는데, 지우지 않으면 그 타이머가
     // 나중에 깨어나 물러진 수를 그대로 보낸다.
     clearTimeout(thinkTimer);
     thinkTimer = think(() => {

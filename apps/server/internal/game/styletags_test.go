@@ -68,7 +68,7 @@ func TestSnapshotCarriesPlayersOwnStyleTags(t *testing.T) {
 	}
 }
 
-// 初期配置에서는 아무 이름도 안 뜬다. 화면이 첫 수 전에 라벨을 그리지 않게.
+// 初期配置에서는 아무 이름도 뜨지 않는다. 화면이 첫 수 전에 라벨을 그리지 않게.
 func TestSnapshotHasNoStyleTagsAtTheStart(t *testing.T) {
 	opp := &scriptedOpponent{}
 	s := newSession(t, Config{Opponent: opp, HumanColor: shogi.Black})

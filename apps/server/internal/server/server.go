@@ -4,7 +4,7 @@
 // 핸들러는 채널로 물어본다 — 지름길을 내는 순간 잠금이 필요해진다.
 //
 // 화면에 나가는 cp는 전부 플레이어 관점이다. DB(先手 관점)·엔진과 캐시(수번 관점)에서
-// 오는 값은 이 패키지 경계에서 뒤집는다 — 안 뒤집으면 색이 다른 두 판을 나란히 못 놓고,
+// 오는 값은 이 패키지 경계에서 뒤집는다 — 뒤집지 않으면 색이 다른 두 판을 함께 놓지 못하고,
 // 한 줄을 넘겨 보는 동안 부호가 뒤집힌다(journal §33).
 package server
 
@@ -32,21 +32,21 @@ import (
 
 // shutdownGrace 는 종료 신호를 받고 진행 중인 요청을 기다려주는 시간이다.
 //
-// 엔진 탐색이 걸린 요청은 이 안에서 안 끝난다. 탐색 하나의 시한이 이보다 길어서
+// 엔진 탐색이 걸린 요청은 이 안에서 끝나지 않는다. 탐색 하나의 시한이 이보다 길어서
 // (whatifTimeout · game.DefaultMoveDeadline) Shutdown 이 먼저 돌아온다.
 //
 // 그래도 프로세스는 그 탐색을 기다린다. cmd/api 의 defer 사슬이 usi.Pool.Close 에서
 // 막히기 때문이고(Engine.Close 가 탐색과 같은 mutex를 잡는다) — 종료를 실제로 묶는 것은
-// 이 값이 아니라 탐색 시한이다.
+// 탐색 시한이다.
 //
 // 잃는 것은 없다. 그 사슬이 풀보다 archive.Searcher.Wait 를 먼저 지나서 쌓을 분석은 이미
-// 흘러갔고, ECS 가 30초에 SIGKILL 해도(stopTimeout 을 안 적었다) 남는 것은 DB 연결이다.
+// 흘러갔고, ECS 가 30초에 SIGKILL 해도(stopTimeout 을 적지 않았다) 남는 것은 DB 연결이다.
 const shutdownGrace = 10 * time.Second
 
 // Options 는 서버가 밖에서 받아야 하는 것들이다.
 type Options struct {
 	// NewOpponent 는 대국마다 상대를 하나 만든다. nil이면 /ws/game 이 503이다 —
-	// 프로세스는 안 죽인다(아래 /healthz 참조).
+	// 프로세스는 죽이지 않는다(아래 /healthz 참조).
 	NewOpponent func() game.Opponent
 
 	// NewAnalyst 가 nil이면 개입 없이 대국만 한다.
@@ -59,8 +59,8 @@ type Options struct {
 	Mate game.MateSearcher
 
 	// StartSFEN·HumanColor·ObservePlies 는 대국을 어디서 시작할지 정한다. 비어 있으면
-	// 平手 초기 국면·先手·기본 관측 구간이다. 지금은 테스트만 채운다 — 되짚기는 이 값이
-	// 아니라 기록의 games.start_sfen 을 쓴다(review.go·whatif.go).
+	// 平手 초기 국면·先手·기본 관측 구간이다. 지금은 테스트만 채운다 — 되짚기는 이 값 대신
+	// 기록의 games.start_sfen 을 쓴다(review.go·whatif.go).
 	StartSFEN    string
 	HumanColor   shogi.Color
 	ObservePlies int
@@ -76,7 +76,7 @@ type Options struct {
 	// Role 은 이 태스크가 어느 티어인가다. 손잡이는 SERVER_ROLE 이고 읽는 것은 cmd/api 다.
 	// RoleAnalysis 면 /healthz 와 /metrics 만 남고 나머지가 503이 된다.
 	//
-	// 비어 있으면 RoleBoth 다. 티어를 안 가른 배포와 테스트가 지금까지와 같다.
+	// 비어 있으면 RoleBoth 다. 티어를 가르지 않은 배포와 테스트가 지금까지와 같다.
 	Role string
 
 	// Search 는 가정 수순·手筋 힌트가 쓰는 엔진이다(whatif.go). nil이면 그 표면만 꺼지고
@@ -89,25 +89,25 @@ type Options struct {
 
 	// BoardRead 는 판이 찍힌 그림에서 국면을 읽는 창구다(internal/boardread).
 	//
-	// 없으면 그 표면만 안 열린다. 검토는 SFEN 뿌리를 그대로 받으므로, 국면을 손으로
+	// 없으면 그 표면만 열리지 않는다. 검토는 SFEN 뿌리를 그대로 받으므로, 국면을 손으로
 	// 놓아 온 링크는 이 창구가 없어도 분석된다.
 	BoardRead *boardread.Client
 
 	// BoardImageDir 은 판독을 재는 그림과 그 라벨을 모아 두는 폴더다.
 	//
-	// 비어 있으면 그 기능이 통째로 꺼진다 — 그림도 안 남고 라벨 경로도 라우팅되지 않는다.
-	// 로컬에서 픽스처를 모으는 자리이고, 프로덕션은 이 값을 안 준다.
+	// 비어 있으면 그 기능 전체가 꺼진다 — 그림도 남지 않고 라벨 경로도 라우팅되지 않는다.
+	// 로컬에서 픽스처를 모으는 자리이고, 프로덕션은 이 값을 주지 않는다.
 	BoardImageDir string
 
-	// Quiz 는 되짚기 퀴즈의 생성기다. nil이면 문항이 안 만들어지고, 그때 되짚기의
-	// 퀴즈 자리는 조용히 비어 있다 — 읽는 표면은 이 값과 무관하게 늘 있다(quiz.go).
+	// Quiz 는 되짚기 퀴즈의 생성기다. nil이면 문항이 만들어지지 않고, 그때 되짚기의
+	// 퀴즈 자리는 경고 없이 비어 있다 — 읽는 표면은 이 값과 무관하게 늘 있다(quiz.go).
 	//
 	// 총평과 달리 여기서만 만들어진다. 되짚기에서 만들면 그 탐색이 진행 중인 다른
 	// 대국의 착수를 기다리게 한다(journal §53).
 	Quiz *quiz.Builder
 
 	// Google·SessionSecret 이 다 있어야 로그인이 켜진다(Store 도 필요하다 — auth.go).
-	// 하나라도 비면 표면이 통째로 닫히고 익명 대국으로 남는다.
+	// 하나라도 비면 표면 전체가 닫히고 익명 대국으로 남는다.
 	Google        *auth.Google
 	SessionSecret string
 
@@ -118,10 +118,10 @@ type Options struct {
 	// 요청 로그는 그대로 남는다 — 테스트가 그 상태로 돈다.
 	Metrics *metrics.Registry
 
-	// Match 는 대인전에 필요한 한 벌이다. nil이면 그 표면이 통째로 닫힌다 —
-	// 엔진도 DB도 안 쓰는 기능이라(internal/match) 그 둘과 따로 켜고 끈다.
+	// Match 는 대인전에 필요한 한 벌이다. nil이면 그 표면 전체가 닫힌다 —
+	// 엔진도 DB도 쓰지 않는 기능이라(internal/match) 그 둘과 따로 켜고 끈다.
 	//
-	// 밖에서 받는 이유는 수명이다. 방에서 시작된 대국은 연결이 아니라 서버가 사는 동안
+	// 밖에서 받는 이유는 수명이다. 방에서 시작된 대국은 연결이 끊긴 뒤에도 서버가 사는 동안
 	// 살아 있어야 하고(match 패키지 주석), Handler 에는 그런 ctx 가 없다.
 	Match *Match
 }
@@ -139,7 +139,7 @@ type Match struct {
 // 기록기를 여기서 끼운다. internal/match 가 store 를 모르는 것은 internal/game 이
 // 모르는 것과 같은 규약이고(server/recorder.go 가 그 다리다), 여기가 그 다리의 대인전 몫이다.
 //
-// st 가 nil이어도 방은 열린다 — 기록만 안 남는다.
+// st 가 nil이어도 방은 열린다 — 기록만 남지 않는다.
 func NewMatch(ctx context.Context, st *store.Store, level intervene.Level) *Match {
 	records := newMatchRecords(st, level)
 	return &Match{
@@ -159,7 +159,7 @@ func (m *Match) analyzerOrNil() *matchAnalyzer {
 
 // AnalysisDeps 는 사후 분석이 쓰는 한 벌이다.
 //
-// 구조체로 받는 것은 자리 수 때문이 아니라 갈래 둘이 서로 다른 칸을 쓰기 때문이다 —
+// 구조체로 받는 까닭은 갈래 둘이 서로 다른 칸을 쓴다는 데 있다 —
 // 대인전은 앞의 넷만 보고, 가져온 기보는 Quiz·Level 까지 본다.
 type AnalysisDeps struct {
 	Store      *store.Store
@@ -167,9 +167,9 @@ type AnalysisDeps struct {
 	Metrics    *metrics.Registry
 	Workers    int
 
-	// Quiz 는 가져온 판의 문항 생성기다. nil이면 그 판에 문항이 안 생긴다 —
+	// Quiz 는 가져온 판의 문항 생성기다. nil이면 그 판에 문항이 생기지 않는다 —
 	// 엔진 대국이 판이 끝나는 자리에서 만드는 것과 같은 규약이고, 대인전은 애초에
-	// 문항을 안 만든다.
+	// 문항을 만들지 않는다.
 	Quiz *quiz.Builder
 
 	// Level 은 가져온 판의 悪手 줄에 적히는 실력 구간이다. 판정이 쓴 임계치와 같은
@@ -234,7 +234,7 @@ func Handler(opts Options) http.Handler {
 		})
 	})
 
-	// 지표. 밖에서 안 닿는다 — Caddy 가 /ws·/api·/healthz 만 프록시하므로 이 경로는
+	// 지표. 밖에서 닿지 않는다 — Caddy 가 /ws·/api·/healthz 만 프록시하므로 이 경로는
 	// 태스크 안에서만 열린다(apps/web/Caddyfile). 프로덕션에서 실제로 보는 것은
 	// stdout 으로 나가는 EMF 쪽이고(internal/metrics), 여기는 로컬과 컨테이너 안에서
 	// 같은 숫자를 라벨까지 붙여 읽는 자리다.
@@ -247,20 +247,20 @@ func Handler(opts Options) http.Handler {
 		})
 	}
 
-	// 분석 티어는 여기서 끝난다. 사람이 쓰는 표면을 아예 안 연다.
+	// 분석 티어는 여기서 끝난다. 사람이 쓰는 표면을 아예 열지 않는다.
 	//
 	// 막는 이유가 둘이다. 방이 짝지은 프로세스의 메모리에 있으므로(journal §98) 이 티어가
-	// 짝을 지으면 그 방을 아무도 못 열고 로그에 아무것도 안 남는다. 대국·검토·가정
+	// 짝을 지으면 그 방을 누구도 열지 못하고 로그에 아무것도 남지 않는다. 대국·검토·가정
 	// 수순은 깨지지 않지만 이 박스의 엔진을 분석보다 높은 우선순위로 가져간다
 	// (usi.priorityOf) — 그러면 티어를 가른 값이 없어진다.
 	//
-	// 404가 아니라 503이다. 없애면 「배포가 낡았다」와 구별되지 않는다. 확인하는 자리
+	// 404 대신 503 으로 답한다. 404 면 「배포가 낡았다」와 구별되지 않는다. 확인하는 자리
 	// 둘은 위에서 이미 열렸다 — 그것까지 막으면 ECS 가 이 태스크를 계속 죽인다.
 	if opts.Role == RoleAnalysis {
 		var said sync.Once
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			// 원인을 한 줄로 남긴다. 이 503은 코드가 깨진 것이 아니라 대상 그룹 설정이
-			// 틀렸다는 뜻인데, 요청 로그와 show-gi-5xx 알람은 그 둘을 구별하지 못한다.
+			// 원인을 한 줄로 남긴다. 이 503 은 대상 그룹 설정이 틀렸다는 표시인데, 요청
+			// 로그와 show-gi-5xx 알람은 그것을 코드가 깨진 5xx 와 구별하지 못한다.
 			//
 			// 한 번만 남긴다. 어느 경로였는지는 observe 가 요청마다 이미 적고, 여기까지
 			// 매번 적으면 스캐너 하나가 로그를 채운다 — 그 로그가 곧 요금이다.
@@ -295,7 +295,7 @@ func Handler(opts Options) http.Handler {
 	// (internal/book) 무엇이 꺼져 있어도 이 자리는 답한다.
 	mux.HandleFunc("GET /api/openings", openings)
 
-	// 手合割 목록. 위와 같은 이유로 아무것에도 안 매여 있다(internal/handicap).
+	// 手合割 목록. 위와 같은 이유로 아무것에도 매여 있지 않다(internal/handicap).
 	mux.HandleFunc("GET /api/handicaps", handicaps)
 
 	// 끝난 판을 되짚는 표면(review.go). DB에 매여 있고 엔진과 무관하다 — 가정 수순만
@@ -308,13 +308,13 @@ func Handler(opts Options) http.Handler {
 		})
 	}
 	if opts.Store != nil {
-		// 마이페이지. 판 하나가 아니라 사람 하나를 읽는다(profile.go).
+		// 마이페이지. 판 하나 대신 사람 하나를 읽는다(profile.go).
 		mux.HandleFunc("GET /api/me/profile", (&profileHandler{store: opts.Store, auth: ah}).get)
 
 		rev := &reviewHandler{store: opts.Store, auth: ah, level: opts.Level, analyzer: opts.Match.analyzerOrNil()}
 
 		// 밖에서 둔 자기 기보를 가져오는 표면(kifu_import.go). 로그인이 필요하고,
-		// 분석기가 없으면 열지 않는다 — 판만 남고 평가치가 영영 안 채워지는 자리가 되어
+		// 분석기가 없으면 열지 않는다 — 판만 남고 평가치가 영영 채워지지 않는 자리가 되어
 		// 되짚기가 「解析しています」에 굳는다.
 		if a := opts.Match.analyzerOrNil(); a != nil {
 			kh := &kifuHandler{
@@ -371,8 +371,8 @@ func Handler(opts Options) http.Handler {
 		mux.HandleFunc("POST /api/games/{id}/quiz/mate", storeUnavailable)
 		mux.HandleFunc("POST /api/games/{id}/quiz/best", storeUnavailable)
 		mux.HandleFunc("POST /api/games/{id}/whatif", storeUnavailable)
-		// 여기는 503이 아니라 「없다」다. 첫 화면이 늘 부르는 자리라 실패로 답하면
-		// 물음 카드가 아니라 오류가 뜬다.
+		// 여기는 503 대신 「없다」로 답한다. 첫 화면이 늘 부르는 자리라 실패로 답하면
+		// 물음 카드 자리에 오류가 뜬다.
 		mux.HandleFunc("GET /api/resumable", func(w http.ResponseWriter, _ *http.Request) {
 			writeJSON(w, http.StatusOK, map[string]any{"game": nil})
 		})
@@ -393,7 +393,7 @@ func Handler(opts Options) http.Handler {
 			keep:   opts.BoardImageDir,
 		}
 		mux.HandleFunc("POST /api/position/read", ph.readImage)
-		// 라벨 경로는 폴더가 켜져 있을 때만 열린다. 파일을 쓰는 자리라 안 쓸 배포에서는
+		// 라벨 경로는 폴더가 켜져 있을 때만 열린다. 파일을 쓰는 자리라 쓰지 않을 배포에서는
 		// 경로가 아예 없는 편이 낫다 — 꺼져 있다는 것을 상수 하나로 읽을 수 있어야 한다.
 		if opts.BoardImageDir != "" {
 			mux.HandleFunc("POST /api/position/label", ph.label)
@@ -419,11 +419,11 @@ func Handler(opts Options) http.Handler {
 		})
 	}
 
-	// 검토에서 저장한 국면(explore_snapshots.go). 엔진을 안 탄다 — 기록에 넣고 꺼내는
+	// 검토에서 저장한 국면(explore_snapshots.go). 엔진을 타지 않는다 — 기록에 넣고 꺼내는
 	// 일뿐이고, 불러오기는 화면이 주소를 고쳐 위의 /api/explore 로 다시 묻는 것이다.
 	//
 	// 위 블록과 달리 DB에 매여 있다. 검토는 기록이 없어도 열리지만 저장은 그럴 수가 없고,
-	// 그때 401(로그인)로 답하면 로그인한 뒤에도 안 되는 자리를 가리킨다 — 그래서 503이다.
+	// 그때 401(로그인)로 답하면 로그인한 뒤에도 열리지 않는 자리를 가리킨다 — 그래서 503이다.
 	if opts.Store != nil {
 		sn := &exploreSnapshotHandler{store: opts.Store, auth: ah}
 		mux.HandleFunc("GET /api/explore/snapshots", sn.list)
@@ -443,7 +443,7 @@ func Handler(opts Options) http.Handler {
 		mux.HandleFunc("DELETE /api/explore/snapshots/{id}", snapshotsUnavailable)
 	}
 
-	// 대인전(match.go · ws_match.go). 엔진도 DB도 안 탄다 — 룰 엔진과 시계뿐이라
+	// 대인전(match.go · ws_match.go). 엔진도 DB도 타지 않는다 — 룰 엔진과 시계뿐이라
 	// 다른 무엇이 꺼져 있어도 이 셋은 답한다. 기록만 DB 유무에 걸린다.
 	//
 	// 셋 다 로그인이 필요하다. 익명은 서로 구별할 수단이 없어서 정원 2명이라는 규칙이
@@ -458,7 +458,7 @@ func Handler(opts Options) http.Handler {
 
 		// 대기열(queue.go). 위 셋과 달리 DB에 매여 있다 — 대기열이 표에 있고, 그래야 모든
 		// 인스턴스가 같은 대기열을 본다(journal §92). 그래서 기록이 없는 배포에서는 방은
-		// 열리는데 대기열은 안 열린다.
+		// 열리는데 대기열은 열리지 않는다.
 		if opts.Store != nil {
 			qh := &queueHandler{hub: opts.Match.hub, store: opts.Store, auth: ah, metrics: opts.Metrics}
 			mux.HandleFunc("POST /api/queue", qh.join)
