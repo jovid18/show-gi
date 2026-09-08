@@ -62,7 +62,19 @@ RUN printf '#!/bin/sh\ncd /opt/yaneuraou\nexec ./engine "$@"\n' > /opt/yaneuraou
     && chmod +x /opt/yaneuraou/run /opt/yaneuraou/run-mate
 
 # ── 런타임 ──────────────────────────────────────────────────────────────────
-FROM debian:bookworm-slim
+#
+# trixie(13)다. 위의 빌드 스테이지들과 세대가 다른 것이 의도다.
+#
+# bookworm 이 oldstable 이 되면서 perl 과 openssl 의 CVE 에 패치가 안 온다. 첫 스캔에서
+# CRITICAL 이 넷이었고(journal §134) 그 넷이 perl 5.36.0-7+deb12u3 셋과
+# openssl 3.0.20-1~deb12u2 하나인데, **apt-get upgrade 로는 안 고쳐진다** — 그 자리에서
+# Candidate 가 Installed 와 같다. trixie 는 perl 5.40.1-6 · openssl 3.5.7-1~deb13u2 다.
+#
+# 엔진 스테이지는 안 옮겼다. 그쪽은 이미지에 안 실리고(/opt/yaneuraou 만 복사된다) CVE 에
+# 기여하지 않는데, ARMV8 빌드가 통과한 조합이 하나뿐이라 건드리는 값이 크다(위).
+# bookworm 에서 컴파일한 바이너리가 여기서 도는 것은 실측했다 — 탐색·詰み 둘 다
+# usiok 와 readyok 를 준다(glibc 는 옛 바이너리에 하위 호환이고 libgomp.so.1 은 soname 이 같다).
+FROM debian:trixie-slim
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates libgomp1 \
     && rm -rf /var/lib/apt/lists/*

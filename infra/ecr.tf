@@ -22,8 +22,33 @@ resource "aws_ecr_repository" "app" {
   # (journal §128). 잃는 것이 없다 — 이미지는 커밋에서 CI 가 다시 굽는다.
   force_delete = true
 
+  # 이 플래그 혼자서는 아무 일도 안 한다. 레지스트리 쪽 설정이 규칙 없이 비어 있으면
+  # 그쪽이 이기고, 실제로 두 이미지 다 ScanNotFoundException 이었다(journal §134).
+  # 규칙은 아래 aws_ecr_registry_scanning_configuration 이 넣는다.
   image_scanning_configuration {
     scan_on_push = true
+  }
+}
+
+# 스캔을 실제로 돌리는 자리.
+#
+# 이것이 계정 단위 자원이다. 위의 리포지토리 플래그와 달리 레지스트리 하나에 설정이
+# 하나뿐이고, 여기 적은 규칙 목록이 그 계정의 전부를 대체한다 — 그래서 필터로 우리
+# 리포지토리만 좁힌다. 다른 프로젝트가 나중에 자기 규칙을 넣으면 이 블록이 그것을
+# 지우므로, 그때는 목록에 더하는 쪽으로 고친다(OIDC 공급자와 같은 종류의 자리다).
+#
+# BASIC 을 쓴다. ENHANCED 는 Inspector 로 넘어가며 스캔한 이미지 수만큼 과금되는데,
+# 이 레포는 한 커밋에 두 이미지이고 CVE 를 볼 사람이 하나다.
+resource "aws_ecr_registry_scanning_configuration" "basic" {
+  scan_type = "BASIC"
+
+  rule {
+    scan_frequency = "SCAN_ON_PUSH"
+
+    repository_filter {
+      filter      = "show-gi/*"
+      filter_type = "WILDCARD"
+    }
   }
 }
 

@@ -360,6 +360,17 @@ resource "aws_ecs_capacity_provider" "analysis" {
     # 종료 보호를 안 켠다. 스케일 인이 일하는 중인 대를 가져가도 그 手의 행이 표에 남고
     # 임차가 풀리면 다른 대가 다시 집는다(journal §118) — 잃는 것이 판이 아니라 시간이다.
     managed_termination_protection = "DISABLED"
+
+    # AWS 기본값이라 코드에 안 보이던 값이다. 켜져 있으면 ECS 가 ASG 에
+    # ecs-managed-draining-termination-hook 을 심고, 스케일 인은 그 훅을 지나서 끝난다.
+    #
+    # 실측으로 그 훅이 완료되지 않는다. 2026-09-08 에 분석 대 둘이 각각 60분 45초 ·
+    # 60분 42초 만에 종료됐다 — HeartbeatTimeout 3600초가 만료되고 DefaultResult 가
+    # CONTINUE 로 끝낸 값이다(journal §134). 스케일 인마다 한 시간을 더 낸다.
+    #
+    # 끄지 않은 것은 대안의 값을 안 재 봤기 때문이다. 끄면 즉시 종료되는 대신 드레이닝이
+    # 없어지고, 훅의 타임아웃만 줄이면 ECS 가 뒤늦게 완료를 보낼 때 무슨 일이 나는지 모른다.
+    managed_draining = "ENABLED"
   }
 }
 
