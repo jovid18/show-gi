@@ -135,7 +135,7 @@ func observed(reg *metrics.Registry, r *http.Request, rec *recorder, took time.D
 		attrs = append(attrs, slog.Bool("client_gone", true))
 	}
 	// ALB 가 붙이는 추적 ID. 있으면 같이 남긴다 — 우리 로그와 ALB 로그를 잇는
-	// 유일한 값이고, 없는 환경(로컬·테스트)에서는 그냥 없다.
+	// 하나뿐인 값이고, 없는 환경(로컬·테스트)에서는 그냥 없다.
 	if trace := r.Header.Get("X-Amzn-Trace-Id"); trace != "" {
 		attrs = append(attrs, slog.String("trace_id", trace))
 	}
@@ -206,7 +206,7 @@ func clientRequestID(r *http.Request) string {
 //
 // 글자를 제한하는 것은 JSON 이 깨지는 것과는 무관하다(그건 인코더가 막는다) —
 // 로그를 보는 사람이 값의 끝을 알 수 있어야 하고, 길이가 무제한이면 한 요청이
-// 로그 한 줄을 통째로 차지할 수 있다.
+// 로그 한 줄 전체를 차지할 수 있다.
 func safeRequestID(v string) bool {
 	if v == "" || len(v) > maxRequestIDLen {
 		return false
@@ -225,7 +225,7 @@ func safeRequestID(v string) bool {
 // recorder 는 응답 상태를 엿본다.
 //
 // Unwrap 이 필수다. WebSocket 업그레이드는 감싼 ResponseWriter 를 이것으로 되짚어
-// Hijacker 를 찾으므로(coder/websocket 의 hijacker), 없으면 대국이 통째로 안 열린다.
+// Hijacker 를 찾으므로(coder/websocket 의 hijacker), 없으면 대국 전체가 안 열린다.
 type recorder struct {
 	http.ResponseWriter
 	code int

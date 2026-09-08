@@ -23,7 +23,7 @@ const SQUARES = BOARD_SIZE * BOARD_SIZE;
 /**
  * 화면 배열에서의 방향. `n` 이 先手가 나아가는 쪽(위)이다.
  *
- * 後手 駒는 판 위에서 통째로 180° 돌아 있으므로 두 성분을 함께 뒤집는다 —
+ * 後手 駒는 판 위에서 전부 180° 돌아 있으므로 두 성분을 함께 뒤집는다 —
  * 한쪽만 뒤집으면 桂가 좌우로 뒤집힌 거울상이 된다.
  */
 const STEP: Record<GridDirection, [number, number]> = {

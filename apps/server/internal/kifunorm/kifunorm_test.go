@@ -75,7 +75,7 @@ func TestNormalize(t *testing.T) {
 	}
 }
 
-// 반쯤 옮긴 것을 쓰면 뒷부분이 조용히 없어진 기보가 되고, 그 위에서 평가치와 段級이 돈다.
+// 반쯤 옮긴 것을 쓰면 뒷부분이 경고 없이 없어진 기보가 되고, 그 위에서 평가치와 段級이 돈다.
 func TestIncompleteResponseIsRefused(t *testing.T) {
 	c := serving(t, func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, `{"status":"incomplete","output":[{"type":"message","content":[{"type":"output_text","text":"{\"handicap\":\"\",\"sente\":\"\",\"gote\":\"\",\"result\":\"unknown\",\"moves\":[\"7六歩\"]}"}]}]}`)

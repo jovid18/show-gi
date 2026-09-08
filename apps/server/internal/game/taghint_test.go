@@ -36,7 +36,7 @@ func TestPreMoveHintsLeaveCastlesOut(t *testing.T) {
 	}
 }
 
-// 그런데 완성된 囲い에는 이름이 붙어야 한다. 위 테스트만 있으면 「囲い 감지를 통째로
+// 그런데 완성된 囲い에는 이름이 붙어야 한다. 위 테스트만 있으면 「囲い 감지 전체를
 // 껐다」와 구별되지 않는다 — 경계를 재는 테스트는 양쪽을 함께 짚어야 한다.
 func TestFinishedCastlesStillGetTheirName(t *testing.T) {
 	// 위 국면에서 金을 4八로 올린 뒤 — 片美濃가 서 있다.
@@ -82,7 +82,7 @@ func TestPreMoveHintsLeaveFormationsOut(t *testing.T) {
 	}
 }
 
-// 그런데 振った 뒤에는 이름이 붙어야 한다. 위 테스트만 있으면 「전법 감지를 통째로
+// 그런데 振った 뒤에는 이름이 붙어야 한다. 위 테스트만 있으면 「전법 감지 전체를
 // 껐다」와 구별되지 않는다 — 囲い 쪽과 같은 짝이다.
 func TestSwungRooksStillGetTheirName(t *testing.T) {
 	s := newSession(t, Config{
@@ -109,8 +109,8 @@ func TestSwungRooksStillGetTheirName(t *testing.T) {
 	waitFor(t, ch, func(snap Snapshot) bool { return hasTag(snap.StyleTags, "shiken_bisha") }, "四間飛車 이름")
 }
 
-// 제안 채널에 남는 것은 戦型 하나다. 셋 중 둘을 뺐으므로, 무엇이 남았는지를 못 박아
-// 두지 않으면 다음에 축을 하나 더 빼면서 채널이 조용히 죽는다.
+// 제안 채널에 남는 것은 戦型 하나다. 셋 중 둘을 뺐으므로, 무엇이 남았는지를 확인해
+// 두지 않으면 다음에 축을 하나 더 빼면서 채널이 경고 없이 죽는다.
 func TestPreMoveHintsAreOpeningsOnly(t *testing.T) {
 	for _, k := range []tag.Kind{tag.KindCastle, tag.KindFormation, tag.KindTesuji} {
 		if hintable(tag.Tag{Kind: k}) {

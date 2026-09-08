@@ -7,7 +7,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/eval"
 )
 
-// DB가 필요 없다. 행의 모양만 보는 시험이라 여기가 CI에서 실제로 도는 유일한 store 층이다.
+// DB가 필요 없다. 행의 모양만 보는 시험이라 여기가 CI에서 실제로 도는 하나뿐인 store 층이다.
 
 // cp 와 mate 가 한 행에 같이 나가면 합성값이 다시 생긴다. 스키마가 그것을 막는다.
 func TestACandidateWritesEitherCpOrMateNeverBoth(t *testing.T) {

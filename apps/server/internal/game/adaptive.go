@@ -48,7 +48,7 @@ var DefaultBand = Band{LoCp: 100, HiCp: 300}
 //
 // 조절하는 것은 밴드뿐이다. 두 안전 필터도 후보 k도 안 건드린다 — 쉽게 해주는 것과
 // 던지는 것은 다르고, 화면이 「取り返せない場所」라고 가르친 수를 상대가 두면 방금 배운
-// 것이 무너진다(journal §16 · §21 ①).
+// 것이 깨진다(journal §16 · §21 ①).
 //
 // [미확정] 초기값이다. 근거와 남은 것은 journal §47.
 const SkillShiftCp = 300
@@ -238,7 +238,7 @@ func closestToBand(opts []option, band Band) string {
 // 흔들린다(skill.MinSamples).
 //
 // 양쪽을 따로 정규화한다. (loss - prior) * 2 로 쓰면 그 식이 prior = 0.5 를 몰래
-// 못 박는다 — 그 값은 아직 실측 전이고(§47), 0.3으로 옮기는 날 너그러운 쪽이 최대 폭을
+// 고정한다 — 그 값은 아직 실측 전이고(§47), 0.3으로 옮기는 날 너그러운 쪽이 최대 폭을
 // 40% 넘어가고 세지는 쪽은 60%에서 잘린다. 아래는 prior 가 어디에 있어도 양 끝이
 // 정확히 ±SkillShiftCp 다. prior = 0.5 에서는 옛 식과 같은 값이라 §47의 실측이 그대로 산다.
 func skillShift(sk skill.Estimate) int {
@@ -268,12 +268,12 @@ func skillShift(sk skill.Estimate) int {
 // (journal §31).
 func strengthStep(shiftCp int) int {
 	// 한 눈금이 SkillShiftCp 의 절반이다. 상수 나눗셈으로 쓰지 않는다 — SkillShiftCp 가
-	// 홀수가 되는 날 정수 나눗셈이 조용히 한 칸을 먹는다.
+	// 홀수가 되는 날 정수 나눗셈이 경고 없이 한 칸을 먹는다.
 	step := 3 - int(math.Round(float64(shiftCp)/(float64(SkillShiftCp)/2)))
 	return min(max(step, 1), 5)
 }
 
-// shifted 는 밴드를 통째로 옮긴 것이다. 폭은 그대로다 — 넓히는 것과 옮기는 것은 다르고,
+// shifted 는 밴드 전체를 옮긴 것이다. 폭은 그대로다 — 넓히는 것과 옮기는 것은 다르고,
 // 넓히면 같은 실력에서도 상대의 강함이 수마다 튄다.
 func (b Band) shifted(cp int) Band {
 	return Band{LoCp: b.LoCp + cp, HiCp: b.HiCp + cp}

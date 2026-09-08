@@ -18,7 +18,7 @@ type mateSolver struct {
 	// 「詰み이 없다」는 결론이고 이쪽은 결론이 아니다.
 	unknown map[string]struct{}
 	budget  int
-	// answered 는 solver 가 결론을 준 횟수다. 0이면 엔진이 통째로 답하지 않았다는 뜻이고,
+	// answered 는 solver 가 결론을 준 횟수다. 0이면 엔진 전체가 답하지 않았다는 뜻이고,
 	// 그 하나가 「이 판에 문항이 없다」와 「못 봤다」를 가른다(Build).
 	answered int
 }
@@ -225,14 +225,14 @@ func preferMate(usiMove string, mated bool, cur string, curMated bool) bool {
 // 사람 차례 국면을 手数 순으로 훑어 처음으로 MateMaxPlies 안에 들어온 것이 문제다.
 // 뒤에 더 짧은 詰み이 있어도 그쪽을 안 고른다 — 최초가 판에서 詰み이 처음 성립한 자리이고,
 // 늦은 국면일수록 승부가 이미 갈려 배울 것이 적다(§53).
-// 두 번째 값은 solver 가 결론을 준 횟수다. 0이면 엔진이 통째로 답하지 않았다는 뜻이고,
+// 두 번째 값은 solver 가 결론을 준 횟수다. 0이면 엔진 전체가 답하지 않았다는 뜻이고,
 // 부르는 쪽이 그것으로 「문항이 없다」와 「못 봤다」를 가른다(Build).
 func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position) (*MateItem, int) {
 	sol := newMateSolver(b.mate)
 
 	// 「詰み이 없었다」와 「solver 가 답을 못 했다」를 따로 센다. 둘을 뭉쳐 로그에 「문항
-	// 0개」로만 남기면, 엔진이 통째로 답하지 않는 배포에서도 그림이 똑같아서 기능이
-	// 조용히 사라진 것을 알 수 없다.
+	// 0개」로만 남기면, 엔진 전체가 답하지 않는 배포에서도 그림이 똑같아서 기능이
+	// 경고 없이 사라진 것을 알 수 없다.
 	scanned, unanswered := 0, 0
 	defer func() {
 		if scanned == 0 {

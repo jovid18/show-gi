@@ -29,7 +29,7 @@ export function useQuiz(id: number): QuizSource {
   // 기다리기 시작한 시각. 세는 것이 아니라 재는 것이다 — 아래.
   const since = useRef<number | null>(null);
 
-  // 판이 바뀌면 이 훅이 통째로 새로 만들어진다 — App 이 `key` 로 판마다 새로 세운다. 여기서
+  // 판이 바뀌면 이 훅 전체가 새로 만들어진다 — App 이 `key` 로 판마다 새로 세운다. 여기서
   // 손으로 되돌리려 하면 안 된다: `id` 가 바뀐 그 렌더에는 `useFetch` 가 아직 앞 판의 답을
   // 들고 있어서, 지운 자리가 같은 렌더에서 그 값으로 다시 채워진다.
 
@@ -61,7 +61,7 @@ export function useQuiz(id: number): QuizSource {
   // 계속 참이고(위에서 부르는 중에도 참으로 두었다) `gaveUp` 은 거짓이고 `reload` 는 고정이다.
   // 그래서 이것을 빼면 효과가 다시 안 돌아 타이머가 한 번만 걸린다.
   //
-  // 다시 걸어 주는 값은 의도한 것 하나로 못박는다. `waiting` 이 부르는 중에 흔들리는
+  // 다시 걸어 주는 값은 의도한 것 하나로 고정한다. `waiting` 이 부르는 중에 흔들리는
   // 것에 폴링을 얹으면, 그 흔들림을 없애는 순간 폴링이 같이 멈춘다.
   useEffect(() => {
     if (!waiting || gaveUp) return;
@@ -82,7 +82,7 @@ export function useQuiz(id: number): QuizSource {
 
   // 다시 물을 때 직전 답을 그대로 둔다. `useFetch` 는 부를 때마다 `loading` 으로
   // 돌아가는데, 그러면 「問題を作っています」가 5초마다 「読み込み中…」으로 번쩍인다 —
-  // 화면이 그 두 상태를 통째로 다른 것으로 그리기 때문이다(QuizScreen).
+  // 화면이 그 두 상태 전체를 다른 것으로 그리기 때문이다(QuizScreen).
   if (loaded.state === 'ready') {
     last.current = loaded.data;
   }

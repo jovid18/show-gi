@@ -164,7 +164,7 @@ func TestDetailSurvivesBrokenMove(t *testing.T) {
 }
 
 // 물러진 수는 기보에 없다. Ply-1 手目의 국면에서 두어졌고, 리뷰는 거기서
-// 표기를 만들어야 한다 — 이것이 개입에 오염되지 않은 유일한 신호다(01-core.md §5).
+// 표기를 만들어야 한다 — 이것이 개입에 오염되지 않은 하나뿐인 신호다(01-core.md §5).
 func TestDetailNamesRetractedMove(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d", "6g6f")
 	rec.Interventions = []store.RecordedIntervention{{
@@ -318,7 +318,7 @@ func TestSummaryRouteReadsFinishedGame(t *testing.T) {
 }
 
 // 王手는 서버가 짚는다. 화면은 규칙을 모르므로, 이 칸이 안 오면 리뷰에서 王手가
-// 통째로 안 보인다.
+// 전부 안 보인다.
 func TestDetailMarksCheck(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d", "8h2b+", "3a2b", "B*4b")
 	got := detailOf(rec)
@@ -379,7 +379,7 @@ func TestDetailRefusesToReplayFromBrokenStart(t *testing.T) {
 }
 
 // limit 은 32비트로 파싱한다. int32 범위를 넘는 수가 통과하면 그 값이 LIMIT의
-// int32로 바뀌면서 조용히 음수가 된다 — 거절로 끝나야 한다.
+// int32로 바뀌면서 경고 없이 음수가 된다 — 거절로 끝나야 한다.
 func TestListRejectsOutOfRangeLimit(t *testing.T) {
 	h := &reviewHandler{}
 	for _, raw := range []string{"0", "-1", "2147483648", "abc"} {

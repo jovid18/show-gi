@@ -171,7 +171,7 @@ func GradeBest(item BestItem, move string) (bool, error) {
 	if err := pos.ValidateMove(m); err != nil {
 		return false, ErrBadMove
 	}
-	// 정본끼리 견준다. 저장할 때 정본으로 못 박아 둔 이유가(best.go) 여기서 요청
+	// 정본끼리 견준다. 저장할 때 정본으로 고정해 둔 이유가(best.go) 여기서 요청
 	// 문자열을 그대로 쓰면 사라진다 — 파서가 느슨해지는 날 맞은 답이 「不正解」가 된다.
 	return m.USI() == item.Answer, nil
 }
@@ -193,7 +193,7 @@ func LegalMovesAt(sfen string) ([]string, error) {
 }
 
 // sortedKeys 는 map의 키를 정렬해 준다. map 순회는 순서가 없어서 그대로 내보내면 같은
-// 국면이 열 때마다 다른 순서로 오고, 화면이 그 순서를 쓰는 날 조용히 갈린다.
+// 국면이 열 때마다 다른 순서로 오고, 화면이 그 순서를 쓰는 날 경고 없이 갈린다.
 func sortedKeys(m map[string]MateVerdict) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {

@@ -175,7 +175,7 @@ func TestAFailureAfterTheWindowKeepsTheSamples(t *testing.T) {
 }
 
 // 手番이 시작 SFEN 에서 나온다. 駒落ち는 上手(後手)가 1手目를 두므로, ply 홀짝으로
-// 가르면 두 사람의 값이 통째로 바뀐 채 멀쩡해 보인다(journal §88).
+// 가르면 두 사람의 값 전체가 바뀐 채 멀쩡해 보인다(journal §88).
 //
 // 대인전은 지금 平手 확정이라 이 국면은 실제로 안 나온다. 그래도 재는 것은, 홀짝으로
 // 되돌리는 회귀를 잡는 것이 여기 하나뿐이기 때문이다.
@@ -299,7 +299,7 @@ func TestAReplayFailureInsideTheWindowFeedsNobody(t *testing.T) {
 }
 
 // 한쪽 행에만 구멍이 나면 다른 행으로 잰다. 두 행을 기록기가 각자 쓰므로 한쪽만 비는
-// 것이 실제 모양이고, 그때 멀쩡한 행이 있는데 판을 통째로 버리면 두 사람 다 잃는다.
+// 것이 실제 모양이고, 그때 멀쩡한 행이 있는데 판 전체를 버리면 두 사람 다 잃는다.
 func TestAGapInOneRowFallsBackToTheOther(t *testing.T) {
 	const missing = 10
 	gapped := append(plyList(missing-1), plyList(skill.AnchorToPly)[missing:]...)
@@ -457,7 +457,7 @@ func TestATruncatedRowLosesToTheLongerOne(t *testing.T) {
 	}
 }
 
-// 한 행이 통째로 비면 평가치는 다른 행으로 채우고 실력은 안 쌓는다. 빈 행은 판 길이에
+// 한 행 전체가 비면 평가치는 다른 행으로 채우고 실력은 안 쌓는다. 빈 행은 판 길이에
 // 대해 아무 말도 안 하므로, 남은 행이 끝까지인지 잘렸는지를 가릴 수가 없다.
 func TestAnEmptyRowFillsEvalsButNotSkill(t *testing.T) {
 	st, _, seats := matchSeatsForAnalysis(t, "", nil)
@@ -917,14 +917,14 @@ func TestALookAheadFailureStopsMeasuringThatGame(t *testing.T) {
 	if calls != 0 {
 		t.Errorf("judge calls after giving up = %d, want 0", calls)
 	}
-	// 밀린 양에서도 빠진다. 아무도 재지 않을 것을 세면 백로그가 안 내려온다.
+	// 밀린 양에서도 빠진다. 누구도 재지 않을 것을 세면 백로그가 안 내려온다.
 	if got, err := a.store.CountAnalysisBacklog(t.Context()); err != nil || got != 0 {
 		t.Errorf("backlog = %d (err %v), want 0", got, err)
 	}
 }
 
 // 판이 큐를 떠난 뒤에 도착한 미리 재기는 자리를 다시 만들지 않는다. 만들면 그 항목을
-// 아무도 안 지워서 판마다 하나씩 샌다 — 워커가 둘 이상일 때 생기는 자리다(journal §106).
+// 누구도 안 지워서 판마다 하나씩 샌다 — 워커가 둘 이상일 때 생기는 자리다(journal §106).
 func TestALateMeasurementDoesNotResurrectTheMatch(t *testing.T) {
 	a, matchID := plyAnalyzer(t, nil)
 	a.prefetch(matchID, startSFENOf(""), repeatMove(1), 1)
@@ -940,7 +940,7 @@ func TestALateMeasurementDoesNotResurrectTheMatch(t *testing.T) {
 }
 
 // 워커가 사라진 手는 리스가 낡으면 도로 집힌다. 배포와 스팟 회수가 그 자리이고,
-// 안 되찾으면 그 手를 판이 끝날 때까지 아무도 안 잰다.
+// 안 되찾으면 그 手를 판이 끝날 때까지 누구도 안 잰다.
 func TestAStaleClaimIsTakenBack(t *testing.T) {
 	a, matchID := plyAnalyzer(t, nil)
 	a.prefetch(matchID, startSFENOf(""), repeatMove(1), 1)
@@ -1007,7 +1007,7 @@ func TestTheBacklogCountsAnUnmeasuredMoveOnce(t *testing.T) {
 		t.Errorf("밀린 手 = %v, want %d (표와 큐가 같은 手를 같이 세고 있다)", got, plies)
 	}
 
-	// 끊은 手는 아무도 못 집는다. 집으면 analyze 와 같은 국면을 두 번 잰다.
+	// 끊은 手는 누구도 못 집는다. 집으면 analyze 와 같은 국면을 두 번 잰다.
 	if a.measureOnePly(t.Context(), stubAnalyst{}) {
 		t.Error("판이 끝난 뒤에도 그 판의 手가 집혔다")
 	}
@@ -1089,7 +1089,7 @@ func TestTheWorkerCountIsHonoured(t *testing.T) {
 		a.dropJob(context.Background(), matchB)
 	})
 
-	// 판 단위 큐로 잰다. 판 하나가 워커 하나를 통째로 잡으므로 「둘이 동시에 도는가」가
+	// 판 단위 큐로 잰다. 판 하나가 워커 하나 전체를 잡으므로 「둘이 동시에 도는가」가
 	// 그 자리에서 바로 보인다 — 手 쪽은 무엇이 언제 집히는지가 더 잘게 갈린다.
 	a.enqueue(t.Context(), matchA, 2)
 	a.enqueue(t.Context(), matchB, 2)
@@ -1160,7 +1160,7 @@ func TestNoWorkersQueuesButNeverClaims(t *testing.T) {
 // 그 값도 멀쩡한 범위에 있어서 아무것도 안 잡는다.
 //
 // 자리를 큐에 옮겨 적지 않는다(019). games 행 둘이 곧 두 자리라 이 함수가 그 규약의
-// 유일한 자리이고, 색을 코드 한 글자에서 되돌리는 것도 여기다.
+// 하나뿐인 자리이고, 색을 코드 한 글자에서 되돌리는 것도 여기다.
 func TestSeatsComeFromTheGameRows(t *testing.T) {
 	st, matchID, made := matchSeatsForAnalysis(t, "", plyList(1))
 	a := &matchAnalyzer{store: st}

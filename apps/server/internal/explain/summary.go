@@ -117,7 +117,7 @@ type GameFacts struct {
 	Level intervene.Level
 	// Standing 은 판이 끝난 시점의 형세다. 빈 값은 StandingUnknown 과 같게 다룬다.
 	Standing Standing
-	// Intervened 는 그 판에서 개입이 돌았나다. 거짓이면 판정은 했지만 아무도 그 수를
+	// Intervened 는 그 판에서 개입이 돌았나다. 거짓이면 판정은 했지만 누구도 그 수를
 	// 막지 않았고, 그 수는 기보에 그대로 남아 있다 — 가져온 기보가 그쪽이다(journal §126).
 	//
 	// 문장이 이 값으로 갈린다 — 「戻す」로 말하는 문장 넷이 걸린 자리는 journal §126.
@@ -203,7 +203,7 @@ var trendJa = map[Trend]string{
 func phraseTop(top []intervene.Category, w Weight, intervened bool) string {
 	first := CategoryJa(top[0])
 	if !intervened {
-		// 가져온 판. 아무도 그 수를 막지 않았고 그 수가 기보에 남아 있으므로 「戻す」로
+		// 가져온 판. 누구도 그 수를 막지 않았고 그 수가 기보에 남아 있으므로 「戻す」로
 		// 말할 수가 없다 — 같은 사실을 「あった」로 말한다.
 		if len(top) == 1 {
 			if w == WeightOnce {

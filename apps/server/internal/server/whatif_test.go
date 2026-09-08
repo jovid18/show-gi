@@ -80,7 +80,7 @@ func found(moves ...string) usi.SearchResult {
 }
 
 // fakeCache 는 이미 잰 국면들이다. 키는 archive.Key 로 만든다 — 읽는 쪽과 쓰는 쪽이
-// 키를 각자 만들면 히트율이 조용히 0이 된다.
+// 키를 각자 만들면 히트율이 경고 없이 0이 된다.
 type fakeCache struct{ rows map[string]store.Position }
 
 func (c *fakeCache) GetPosition(_ context.Context, key string) (store.Position, error) {
@@ -586,7 +586,7 @@ func TestWhatIfRejectsOverlongLine(t *testing.T) {
 //
 // 이 표면은 최선수 셋을 답해 준다. 뿌리를 자유롭게 고를 수 있으면 그것이 곧 「지금 어떻게
 // 둬야 하나」의 답이 되고, 그건 안 알려주기로 한 것이다(01-core.md §7). 되짚기에는 이 제한이
-// 없다 — 끝난 판이라 무엇을 둬 봐도 아무도 안 잃는다.
+// 없다 — 끝난 판이라 무엇을 둬 봐도 누구도 안 잃는다.
 func TestBranchRootOnlyOpensOnTheRetractedMove(t *testing.T) {
 	var played confirmed
 	played.set(game.Snapshot{

@@ -25,7 +25,7 @@ import (
 // 아니라」는 더 이상 두 값을 가르지 않는다.
 //
 // 표를 고치지 않는다. 어긋나면 문장으로 말하고 사람이 옮긴다 — 자동으로 맞추면 엔진이
-// 흔들릴 때마다 판정 기준이 조용히 따라 움직이고, 그건 결정적이라는 성질을 잃는 것이다.
+// 흔들릴 때마다 판정 기준이 경고 없이 따라 움직이고, 그건 결정적이라는 성질을 잃는 것이다.
 func TestMeasureBaseline(t *testing.T) {
 	if os.Getenv("SHOWGI_MEASURE") == "" {
 		t.Skip("SHOWGI_MEASURE 미설정")
@@ -43,7 +43,7 @@ func TestMeasureBaseline(t *testing.T) {
 	}
 	defer pool.Close()
 
-	// 平手를 같이 잰다. 표에 없는 값이라 여기가 그 숫자를 남기는 유일한 자리이고,
+	// 平手를 같이 잰다. 표에 없는 값이라 여기가 그 숫자를 남기는 하나뿐인 자리이고,
 	// 「기준점 0을 쓰기로 했다」의 근거가 그 값이다(패키지 주석).
 	type row struct {
 		name string

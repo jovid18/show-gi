@@ -33,7 +33,7 @@ func NamedTesuji(before, after shogi.Position, c shogi.Color, lastUSI string, se
 // 모르면 이름을 붙이지 않는다 — 평가치가 없으면 빈 결과다.
 //
 // j 의 두 평가치가 after 의 것이라, 부르는 쪽은 결과를 국면 세대와 함께 들고 있어야
-// 한다(state.tesujiGen) — 낡은 평가치로 이름을 붙이는 것이 이 게이트를 없애는 것과 같다.
+// 한다(state.tesujiGen) — 오래된 평가치로 이름을 붙이는 것이 이 게이트를 없애는 것과 같다.
 func namedTesuji(before, after shogi.Position, c shogi.Color, lastUSI string, j Judgement) []tag.Tag {
 	if !enginePaidOff(j, c) {
 		return nil
@@ -81,7 +81,7 @@ func freshTesuji(before, after shogi.Position, c shogi.Color, lastUSI string) []
 // 그쪽이 「낙폭」이라고 부르는 것을 여기서는 cp로 보고, 임계치만 다르다.
 //
 // 詰み이 한쪽에라도 있으면 이름을 안 붙인다. 이 게이트가 cp 뺄셈이라 詰み을 섞으면
-// 자가 다른 두 값의 차가 되고, 그때 「모르면 이름을 붙이지 않는다」가 유일한 정직한 답이다.
+// 자가 다른 두 값의 차가 되고, 그때 「모르면 이름을 붙이지 않는다」가 하나뿐인 정직한 답이다.
 // 종반의 手筋 이름을 그만큼 잃지만, 詰み이 보이는 국면에서 사람에게 필요한 말은 手筋
 // 이름이 아니다.
 func enginePaidOff(j Judgement, c shogi.Color) bool {
@@ -98,7 +98,7 @@ func enginePaidOff(j Judgement, c shogi.Color) bool {
 }
 
 // cpFor 는 先手 관점 cp를 그 색 관점으로 되돌린다(senteCp 의 역).
-// 이름을 따로 두는 이유는 방향이 안 읽히면 부호 버그가 조용히 남기 때문이다 — 後手로 잡은
+// 이름을 따로 두는 이유는 방향이 안 읽히면 부호 버그가 눈에 안 띄게 남기 때문이다 — 後手로 잡은
 // 판에서만 手筋이 반대로 뜨고, 에러가 나지 않는다.
 func cpFor(cp int, c shogi.Color) int {
 	if c == shogi.Black {

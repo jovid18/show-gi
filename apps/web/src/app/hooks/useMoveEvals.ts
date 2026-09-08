@@ -6,7 +6,7 @@ import { httpSend } from '@/libs/whatif/http';
  * 다시 잰 값 하나.
  *
  * 플레이어 관점이다 — 서버가 `whatifNode.evalCp` 를 그렇게 내보낸다(branch.go 의
- * `playerScore`). 후보(`WhatIfCandidate.evalCp`)는 둔 쪽 관점이라, 한 열에 나란히 놓는
+ * `playerScore`). 후보(`WhatIfCandidate.evalCp`)는 둔 쪽 관점이라, 한 열에 함께 놓는
  * 쪽이 뒤집어서 쓴다.
  *
  * 둘은 배타적이다. 詰み인 자리에는 `mateIn` 만 오고 `cp` 는 안 온다 — cp로 받으면 그
@@ -71,7 +71,7 @@ export function useMoveEvals(gameId: number, basePly: number, usis: readonly str
           // 값 없이 남는다: 0으로 채우면 호각으로 읽힌다.
           //
           // 「詰みが見える」와 「값이 없다」를 가른다. 앞엣것은 `mateIn` 만 오고 `evalCp` 는
-          // 안 온다(서버 쪽 규약) — cp 만 보고 자르면 그 줄이 통째로 사라진다.
+          // 안 온다(서버 쪽 규약) — cp 만 보고 자르면 그 줄 전체가 사라진다.
           if (node.evalCp === undefined && node.mateIn === undefined) continue;
           const at: MoveEval = { cp: node.evalCp, mateIn: node.mateIn };
           seen.current.set(`${basePly}:${usi}`, at);

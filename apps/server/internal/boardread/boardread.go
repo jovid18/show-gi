@@ -182,7 +182,7 @@ func (c *Client) once(ctx context.Context, dataURL string) (Result, bool, error)
 	}
 	defer res.Body.Close()
 
-	// 응답을 통째로 읽되 상한을 건다. 여기서 무한정 읽으면 남의 서버가 이 프로세스의
+	// 응답 전체를 읽되 상한을 건다. 여기서 무한정 읽으면 남의 서버가 이 프로세스의
 	// 메모리를 정하게 된다.
 	raw, err := io.ReadAll(io.LimitReader(res.Body, 4<<20))
 	if err != nil {
@@ -334,7 +334,7 @@ var handOrder = []struct {
 // maxInHand 는 한 종류의 持ち駒로 적을 수 있는 최대 수다. 한 판의 말 수다.
 //
 // 종류마다 한 벌의 수(歩 18·香 4…)로 자르지 않는다. 넘치는 것은 그대로 국면에 실어
-// 보내고 룰 엔진이 「歩가 몇 장 많다」로 짚어 주는 편이, 조용히 깎아서 사람이 駒台를
+// 보내고 룰 엔진이 「歩가 몇 장 많다」로 짚어 주는 편이, 경고 없이 깎아서 사람이 駒台를
 // 다시 세게 만드는 것보다 낫다 — 어느 종류든 이 값을 넘으면 그것은 이미 개수가 아니고,
 // 여기서 막는 것은 shogi.Position.Hands 의 int8 이 넘치는 값뿐이다.
 const maxInHand = 40

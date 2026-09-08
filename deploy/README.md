@@ -83,11 +83,11 @@ aws iam delete-policy-version --version-id vN \
 
 액세스 키는 `~/.aws/credentials`의 `[show-gi]` 프로파일에 있다. 키를 레포에 커밋하거나 채팅에 붙여넣지 않는다.
 
-> 기본 프로파일의 리전이 서울(`ap-northeast-2`)이라, 프로파일을 빠뜨리면 자원이 조용히 서울에 생긴다. 프로파일에 리전을 박아두는 것이 그 방어이고, `backend.tf`에도 프로파일을 한 번 더 적은 이유가 같다 — 백엔드는 `variables.tf`를 읽지 못한다.
+> 기본 프로파일의 리전이 서울(`ap-northeast-2`)이라, 프로파일을 빠뜨리면 자원이 경고 없이 서울에 생긴다. 프로파일에 리전을 박아두는 것이 그 방어이고, `backend.tf`에도 프로파일을 한 번 더 적은 이유가 같다 — 백엔드는 `variables.tf`를 읽지 못한다.
 
 ### state 버킷과 잠금 테이블
 
-버킷은 버전 관리·기본 암호화·퍼블릭 접근 차단을 켰다. 버전 관리는 잘못된 apply로 state가 깨졌을 때 되돌릴 수 있는 유일한 수단이다.
+버킷은 버전 관리·기본 암호화·퍼블릭 접근 차단을 켰다. 버전 관리는 잘못된 apply로 state가 깨졌을 때 되돌릴 수 있는 하나뿐인 수단이다.
 
 ```sh
 B=show-gi-terraform-state-058264445568
@@ -281,7 +281,7 @@ aws ecs execute-command --cluster show-gi --container api \
 >
 > 새로 clone한 사람은 스키마가 들어가고 기존 볼륨을 가진 사람은 안 들어가는데 에러도 안 난다. 「내 컴퓨터에선 되는데」가 정확히 그렇게 만들어진다.
 
-- 되돌릴 수 없는 변경이 아무도 안 보는 사이에 실행된다. 컬럼 삭제 한 줄이 머지되는 순간 데이터가 사라지고, 그때 롤백할 수 있는 것은 코드뿐이다
+- 되돌릴 수 없는 변경이 누구도 안 보는 사이에 실행된다. 컬럼 삭제 한 줄이 머지되는 순간 데이터가 사라지고, 그때 롤백할 수 있는 것은 코드뿐이다
 - 태스크가 여러 개면 같은 DDL이 동시에 여러 번 돈다
 - 실패하면 기동 실패로 나타나서, 스키마 문제인지 앱 문제인지가 로그에서 갈리지 않는다
 
@@ -318,7 +318,7 @@ curl -s https://show-gi.com/healthz
 
 > 켜지는 순서가 셋이다. ① 관리자가 정책 버전을 올린다(아래) ② `terraform apply` — 알람이 생기고 `ENVIRONMENT` 가 든 새 리비전이 등록된다 ③ 다음 배포 — 서비스는 `task_definition` 변경을 무시하므로(`lifecycle.ignore_changes`) apply 만으로는 도는 태스크가 안 바뀐다. CI가 최신 리비전을 `describe` 해서 이미지만 갈아 끼우므로, main 에 무엇이든 머지되거나 `Images` 워크플로를 다시 돌리면 그때부터 지표가 올라온다.
 >
-> 그래서 ② 직후에는 알람 중 ALB 것만 데이터를 받는다. 5xx 와 풀 대기는 `notBreaching` 이라 조용히 `OK` 로 있는다 — 그게 정상이다.
+> 그래서 ② 직후에는 알람 중 ALB 것만 데이터를 받는다. 5xx 와 풀 대기는 `notBreaching` 이라 경고 없이 `OK` 로 있는다 — 그게 정상이다.
 
 ```sh
 # 지표가 실제로 올라오나 — 콘솔 대신 CLI로
@@ -464,7 +464,7 @@ psql "$(aws ssm get-parameter --name /show-gi/prod/DATABASE_URL --with-decryptio
 
 위 통로가 막혔을 때(집 밖에서 작업, IP를 아직 등록 안 함) 쓴다. 결과는 로그로 본다 — 운영자 정책에 `logs:GetLogEvents`·`FilterLogEvents`·`StartLiveTail` 이 있다(2026-08-20 에 열렸다, [상태 문서](../docs/06-status.md) §7). 종료 코드로도 갈린다.
 
-> 지금은 이 길이 없다. `show-gi-migrate` 태스크 정의가 Terraform 밖에 있어서 [journal §128](../docs/journal/121-140.md)의 destroy 가 지웠고 되살릴 때 아무도 다시 등록하지 않았다([journal §133](../docs/journal/121-140.md)). 쓰려면 아래 정의를 먼저 등록해야 한다 — 그래서 지금 실효 경로는 노트북(`admin_cidr`) 하나다.
+> 지금은 이 길이 없다. `show-gi-migrate` 태스크 정의가 Terraform 밖에 있어서 [journal §128](../docs/journal/121-140.md)의 destroy 가 지웠고 되살릴 때 누구도 다시 등록하지 않았다([journal §133](../docs/journal/121-140.md)). 쓰려면 아래 정의를 먼저 등록해야 한다 — 그래서 지금 실효 경로는 노트북(`admin_cidr`) 하나다.
 
 ECS Exec으로 앱 컨테이너에 들어가는 방법도 있지만 `session-manager-plugin` 설치가 필요하고, 그 설치에는 sudo가 든다. 아래 방법은 아무것도 안 깔고 되며, 실제로 초기 스키마를 이렇게 넣었다.
 
@@ -555,7 +555,7 @@ aws logs put-retention-policy --log-group-name /aws/rds/instance/show-gi/postgre
 
 **해커톤이 끝나고 상시 가동으로 바꿨다**(2026-08-17). 그래서 표를 주 단위에서 월 단위로 옮겼다 — 이제 「대회 기간의 비용」이 아니라 「계속 나가는 비용」이다.
 
-> 2026-09-04 에 통째로 내렸다가 2026-09-08 에 다시 올렸다([journal §128](../docs/journal/121-140.md) · [journal §133](../docs/journal/121-140.md)). 지금은 아래 표대로 나가고 있다 — 절약 모드 그대로다. 되살릴 때 DB 데이터는 못 되찾았다(destroy 가 스냅샷을 안 남겼다). 내리는 세 단계와 되살리는 절차는 이 절 끝에 있다.
+> 2026-09-04 에 전부 내렸다가 2026-09-08 에 다시 올렸다([journal §128](../docs/journal/121-140.md) · [journal §133](../docs/journal/121-140.md)). 지금은 아래 표대로 나가고 있다 — 절약 모드 그대로다. 되살릴 때 DB 데이터는 못 되찾았다(destroy 가 스냅샷을 안 남겼다). 내리는 세 단계와 되살리는 절차는 이 절 끝에 있다.
 
 |                                      | 월 (실측)                   |
 | ------------------------------------ | --------------------------- |
@@ -606,11 +606,11 @@ aws ce get-cost-and-usage --region us-east-1 --profile show-gi \
 | ------------- | ----------------------------- | ------------ |
 | ① 컴퓨트만    | ASG `min_size`·`max_size` → 0 | \~$38\~45    |
 | ② ① + DB 정지 | RDS stop                      | \~$21\~28    |
-| ③ 통째로      | `terraform destroy`           | **\~$0.50**  |
+| ③ 전부        | `terraform destroy`           | **\~$0.50**  |
 
 **① 은 값이 안 좋다.** ALB 와 RDS 가 그대로 돌아서 20% 만 빠지고 사이트는 죽는다.
 
-**② 는 RDS 정지가 최대 7일이다.** 그 뒤 AWS 가 자동으로 켜므로 더 길게 내려 둘 거면 7일마다 다시 정지한다 — 잊으면 조용히 원래 요금으로 돌아온다.
+**② 는 RDS 정지가 최대 7일이다.** 그 뒤 AWS 가 자동으로 켜므로 더 길게 내려 둘 거면 7일마다 다시 정지한다 — 잊으면 경고 없이 원래 요금으로 돌아온다.
 
 **③ 은 DB 를 스냅샷 없이 지운다.** `rds.tf` 가 `skip_final_snapshot = true` · `deletion_protection = false` 다. 데이터를 남길 거면 destroy 앞에 수동 스냅샷을 만들고(`aws rds create-db-snapshot`, 20 GiB 에 월 \~$2, state 밖이라 destroy 가 안 건드린다) 되살릴 때 `aws_db_instance` 에 `snapshot_identifier` 를 준다.
 
@@ -638,7 +638,7 @@ cd infra && terraform apply destroy.tfplan                 # 그 목록만 지�
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | **`terraform.tfvars`** — 커밋 안 되는 파일이고 `domain`·`alarm_email`·`admin_cidr` 이 거기 있다                                                                             |
 | 2   | **`admin_cidr`** — 노트북 IP 가 바뀌었으면 다시 준다. 없으면 규칙 자체가 안 생긴다. 낡으면 거절이 아니라 타임아웃이다                                                       |
-| 3   | **단계를 나눠 건다** — 아래. 통째로 apply 하면 서비스가 빈 ECR 과 없는 `DATABASE_URL` 을 가리켜 첫 배포가 실패한다                                                          |
+| 3   | **단계를 나눠 건다** — 아래. 전부 apply 하면 서비스가 빈 ECR 과 없는 `DATABASE_URL` 을 가리켜 첫 배포가 실패한다                                                            |
 | 4   | **ECR 이미지 재푸시** — 리포지토리가 지워지므로 `images.yml` 을 한 번 돌린다                                                                                                |
 | 5   | **마이그레이션 전부** — 새 RDS 는 표가 하나도 없다. `/healthz` 는 그 상태에서도 `db: true` 다(`Open` → `Ping` 뿐이라) — 사이트가 떠 있는 것으로 보이고 대국에서 처음 깨진다 |
 | 6   | **SNS 이메일 구독 재확인** — 구독은 `pending` 으로만 만들어지고 메일에서 한 번 눌러야 활성된다(§알람). 스팸함을 먼저 본다 — 2026-09-08 에 두 통이 다 거기 있었다            |

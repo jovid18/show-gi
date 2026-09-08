@@ -28,7 +28,7 @@ export interface QueueState {
  * 하는 일은 그것을 주기적으로 부르고, 짝이 잡히면 `onMatched` 를 부르는 것뿐이다.
  *
  * 멈추는 것을 서버에 알린다. 안 알려도 만료가 걷어가지만, 그동안 상대에게는 내가 대기열에
- * 있는 것으로 보이고 그 사이 잡힌 짝은 아무도 안 오는 방이 된다.
+ * 있는 것으로 보이고 그 사이 잡힌 짝은 누구도 안 오는 방이 된다.
  */
 export function useQueue(onMatched: (roomId: string) => void): QueueState {
   const [searching, setSearching] = useState(false);
@@ -95,7 +95,7 @@ export function useQueue(onMatched: (roomId: string) => void): QueueState {
   /**
    * 화면이 사라지는 것도 대기열에서 나가는 것이다. 대국이 시작되면 이 화면이 내려가는데
    * (`GameScreen`), 그때 대기열에 남아 있으면 만료까지의 몇 초 사이에 짝이 잡힐 수 있다 —
-   * 그 방은 아무도 안 들어가고 상대는 60초를 기다린다.
+   * 그 방은 누구도 안 들어가고 상대는 60초를 기다린다.
    *
    * 값을 ref 로 본다. 의존성에 `searching` 을 넣으면 이 정리가 대기열에 설 때마다 돌아서
    * 방금 대기열에 선 것을 그 자리에서 취소한다.

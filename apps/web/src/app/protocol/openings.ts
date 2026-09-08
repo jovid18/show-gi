@@ -1,7 +1,7 @@
 // `GET /api/openings` 의 계약. 서버의 `internal/server/openings.go` 와 짝이다.
 //
 // 수순이 여기 없다. 서버가 이름과 한 줄 설명까지만 보낸다 — 상대가 다음에 무엇을 둘지가
-// 페이로드에 있으면 devtools 하나로 초반이 통째로 보인다(그쪽 파일의 `openingItem` 주석).
+// 페이로드에 있으면 devtools 하나로 초반 전체가 보인다(그쪽 파일의 `openingItem` 주석).
 
 /** 고를 수 있는 진형 하나. */
 export interface Opening {

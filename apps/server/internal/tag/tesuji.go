@@ -28,7 +28,7 @@ var forkNames = map[shogi.PieceType]Tag{
 
 // targetSquares 는 그 駒가 딸 수 있는 상대 駒가 선 칸들이다 — 수를 세면 成·不成이
 // 둘로 샌다. 歩·玉은 이름의 관례로 뺀다(journal §45).
-// 手番을 c 로 안 맞추면 LegalMoves 가 상대 수만 내서 조용히 빈 결과를 준다.
+// 手番을 c 로 안 맞추면 LegalMoves 가 상대 수만 내서 경고 없이 빈 결과를 준다.
 func targetSquares(pos shogi.Position, sq int, c shogi.Color) []int {
 	pos.Turn = c
 

@@ -115,7 +115,7 @@ func TestAnOldRowsMateComesBackFirst(t *testing.T) {
 	}
 }
 
-// 021 앞에 쌓인 간선은 詰み 배열이 통째로 비어 있다. 그 행을 「길이가 다르다」로 버리면
+// 021 앞에 쌓인 간선은 詰み 배열 전체가 비어 있다. 그 행을 「길이가 다르다」로 버리면
 // 얕은 평가가 사라지고, 「얕게 보면 이득」이 캐시 히트에서 영영 안 걸린다.
 func TestAnEdgeWrittenBeforeTheMateColumnStillReadsBack(t *testing.T) {
 	s := open(t)
@@ -259,8 +259,8 @@ func TestGameWithoutUser(t *testing.T) {
 // 같은 ply에 여러 개입이 들어간다.
 //
 // 한 국면에서 몇 수를 시도하고 전부 물러지는 일이 실제로 있다(journal §17).
-// (game_id, ply) 가 유니크였다면 두 번째 시도부터 조용히 사라지고, 「그 국면이 그 사람에게
-// 얼마나 어려웠나」가 통째로 없어진다.
+// (game_id, ply) 가 유니크였다면 두 번째 시도부터 경고 없이 사라지고, 「그 국면이 그 사람에게
+// 얼마나 어려웠나」가 전부 없어진다.
 func TestManyInterventionsAtOnePly(t *testing.T) {
 	s := open(t)
 	id := newGame(t, s)
@@ -324,7 +324,7 @@ func TestReplayedPlyOverwritesTheKifu(t *testing.T) {
 }
 
 // interventions 는 kind별로 채우는 컬럼이 다르고 DB가 그걸 막는다.
-// 섞이면 실력 추정이 조용히 틀어지므로 Go 쪽 실수가 여기서 걸려야 한다.
+// 섞이면 실력 추정이 경고 없이 틀어지므로 Go 쪽 실수가 여기서 걸려야 한다.
 func TestInterventionKindConstraint(t *testing.T) {
 	s := open(t)
 	id := newGame(t, s)
@@ -366,7 +366,7 @@ func TestSetMoveEvalFillsOnlyTheEval(t *testing.T) {
 		t.Fatalf("평가치가 안 들어갔다: %v", cp)
 	}
 
-	// 없는 ply — 조용히 아무 일도 없어야 한다.
+	// 없는 ply — 경고 없이 아무 일도 없어야 한다.
 	if err := s.SetMoveEval(t.Context(), id, 99, eval.Cp(500)); err != nil {
 		t.Fatalf("없는 ply에서 에러: %v", err)
 	}
@@ -381,7 +381,7 @@ func TestSetMoveEvalFillsOnlyTheEval(t *testing.T) {
 
 // ── 리뷰(읽기) ───────────────────────────────────────────
 
-// 한 판을 넣고 그대로 꺼낸다. 읽는 쪽이 없어서 지금까지 아무도 확인하지 않던 자리다.
+// 한 판을 넣고 그대로 꺼낸다. 읽는 쪽이 없어서 지금까지 누구도 확인하지 않던 자리다.
 func TestGameRecordRoundTrip(t *testing.T) {
 	s := open(t)
 	id := newGame(t, s)

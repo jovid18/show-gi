@@ -22,7 +22,7 @@ export function resultJa(result: GameResult | undefined): string {
 }
 
 /**
- * 날짜. `ja-JP`를 못 박는다 — 브라우저 로케일을 따르면 같은 화면이 사람마다 다른
+ * 날짜. `ja-JP`를 고정한다 — 브라우저 로케일을 따르면 같은 화면이 사람마다 다른
  * 언어로 나오고, 이 앱의 화면은 전부 일본어다.
  */
 const DATE_JA = new Intl.DateTimeFormat('ja-JP', {

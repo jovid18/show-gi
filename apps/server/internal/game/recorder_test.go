@@ -63,7 +63,7 @@ func (r *fakeRecorder) Finished(status Status, winner Side) {
 // 물러진 수는 기보로 안 간다.
 //
 // 여기서 새면 기보가 롤백을 반영하지 못하고, 「개입이 막지 않았다면 뒀을 수」와
-// 「실제로 둔 수」가 한 통에 섞여 실력 추정이 조용히 틀어진다.
+// 「실제로 둔 수」가 한 통에 섞여 실력 추정이 경고 없이 틀어진다.
 func TestRecorderKeepsRetractedMovesOutOfTheKifu(t *testing.T) {
 	rec := &fakeRecorder{}
 	an := &fixedAnalyst{verdict: intervene.Verdict{

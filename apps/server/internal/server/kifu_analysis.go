@@ -12,7 +12,7 @@ import (
 )
 
 // 가져온 기보의 사후 분석. 줄도 워커도 대인전의 것을 그대로 탄다(match_analysis.go) —
-// 재는 일이 똑같아서다: 판 하나에 手数만큼의 판정이고, 아무도 그 앞에서 기다리지 않는다.
+// 재는 일이 똑같아서다: 판 하나에 手数만큼의 판정이고, 누구도 그 앞에서 기다리지 않는다.
 //
 // 갈리는 것 셋이다. 자리가 하나이고(대인전은 games 행 둘), 手를 한 번에 다 세우고
 // (대인전은 두는 동안 하나씩), 판정 결과가 悪手 줄로 남는다(대인전은 개입이 없다).
@@ -95,12 +95,12 @@ func (a *matchAnalyzer) importSeat(ctx context.Context, gameID int64) []analysis
 // 「전부 합친다」다(journal §126).
 //
 // retracted_usi 를 안 적는다. 그 칸은 「개입이 막지 않았다면 뒀을 수」인데 가져온 판에서는
-// 아무도 안 막았고 그 수가 기보에 그대로 남아 있다 — 적으면 없던 일을 있었다고 말하는 것이다.
+// 누구도 안 막았고 그 수가 기보에 그대로 남아 있다 — 적으면 없던 일을 있었다고 말하는 것이다.
 // 화면은 그 手数의 수를 기보에서 찾는다(web 의 ReviewDetail).
 func (a *matchAnalyzer) recordBlunder(ctx context.Context, gameID int64, ply int, mover shogi.Color, got judged) {
 	// 평가치는 두는 쪽 관점으로 뒤집는다. judged 가 든 것은 先手 관점이고
 	// (game.Judgement.SenteAfter) interventions 의 두 칸은 두는 쪽 관점이다
-	// (intervene.Verdict.After). 안 뒤집으면 後手가 둔 悪手의 부호가 통째로 반대가 된다.
+	// (intervene.Verdict.After). 안 뒤집으면 後手가 둔 悪手의 부호 전체가 반대가 된다.
 	after := got.after
 	if mover == shogi.White {
 		after = after.Neg()

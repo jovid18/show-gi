@@ -234,14 +234,14 @@ func TestATimeoutWithNoMovesIsNotALoss(t *testing.T) {
 		t.Fatalf("snapshot: %v", err)
 	}
 	// aborted 가 아니라 expired 다. 화면이 할 말이 정반대라 따로 뒀다 —
-	// 저쪽은 「서버 사정」이고 이쪽은 「아무도 안 뒀다」다.
+	// 저쪽은 「서버 사정」이고 이쪽은 「누구도 안 뒀다」다.
 	if snap.Status != StatusExpired || snap.Winner != "" {
 		t.Fatalf("the screen sees %s/%q, want expired with no winner", snap.Status, snap.Winner)
 	}
 }
 
 // 착수는 시계를 다시 시작한다. 안 그러면 두 번째 수부터 남은 시간이 이어져
-// 판이 첫 제한시간 안에 통째로 끝난다.
+// 판이 첫 제한시간 안에 전부 끝난다.
 func TestPlayingRestartsTheClock(t *testing.T) {
 	table, _, _ := newTestTable(t, 300*time.Millisecond)
 	ctx := context.Background()
@@ -261,7 +261,7 @@ func TestPlayingRestartsTheClock(t *testing.T) {
 	}
 }
 
-// 끝난 판도 한동안 답한다. 投了를 받은 쪽이 그 순간 새로고침하는 것은 흔한 일이고,
+// 끝난 판도 한동안 답한다. 投了를 받은 쪽이 그때 새로고침하는 것은 흔한 일이고,
 // 그때 결과 대신 오류가 뜨면 그 사람은 무슨 일이 났는지 모른다.
 func TestAFinishedTableStillAnswers(t *testing.T) {
 	table, _, _ := newTestTable(t, time.Minute)

@@ -7,7 +7,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
 )
 
-// 처음 두는 사람에게는 「전」이 없어야 한다. 기준선을 그리면 아무도 안 잰 숫자가 사람에
+// 처음 두는 사람에게는 「전」이 없어야 한다. 기준선을 그리면 누구도 안 잰 숫자가 사람에
 // 대한 판정으로 화면에 나온다(journal §62).
 func TestFirstGameHasNoBefore(t *testing.T) {
 	r := newSkillRun(skill.Unknown)

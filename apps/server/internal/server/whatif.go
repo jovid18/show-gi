@@ -40,7 +40,7 @@ const (
 	//
 	// 대국의 착수와 같은 값을 쓴다. 시한이 두 계급인 것은 「사람이 그 답을 기다리며 판이
 	// 멈춰 서는가」로 갈린 것이고(game.DefaultMoveDeadline), 되짚기와 검토가 바로 그쪽이다 —
-	// 이 답이 안 오면 화면에 그릴 것이 없다. 20초로 두었던 동안은 조용히 사라져도 되는
+	// 이 답이 안 오면 화면에 그릴 것이 없다. 20초로 두었던 동안은 경고 없이 사라져도 되는
 	// 쪽(DefaultExtraDeadline)과 같은 계급이었고, 실측이 그 자리에서 갈렸다 — journal §132.
 	whatifTimeout = game.DefaultMoveDeadline
 )
@@ -73,7 +73,7 @@ func cacheOf(st *store.Store) Cache {
 }
 
 // whatifHandler 는 분기를 한 걸음 진행시킨다. 상태를 안 들고 있다 — 분기는 화면이
-// 들고 매번 통째로 온다(whatifRequest).
+// 들고 매번 전부 온다(whatifRequest).
 type whatifHandler struct {
 	store  *store.Store
 	search Searcher
@@ -264,7 +264,7 @@ var whatifMessages = map[string]string{
 	"engine_unavailable": "エンジンが応答しませんでした。",
 	"busy":               "まだ読んでいます。",
 	// 대국 중에만 나온다. 되짚기에는 이 제한이 없다 — 끝난 판이라 무엇을 둬 봐도
-	// 아무도 안 잃는다(ws.go 의 branchRoot).
+	// 누구도 안 잃는다(ws.go 의 branchRoot).
 	"locked": "対局中は、戻された手のあとだけ試せます。",
 	// 검토에서 국면을 저장·불러올 때만 나온다(explore_snapshots.go). 검토 자체에는 이 검사가
 	// 없다(journal §100) — 사람마다 다른 기록을 여는 쪽에만 자격이 필요하다.

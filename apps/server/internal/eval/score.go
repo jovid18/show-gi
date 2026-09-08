@@ -28,7 +28,7 @@ func Cp(v int) Score { return Score{v: v} }
 // 정하든 절반이 거짓이다. 그래서 값이 들어오는 자리에서 막는다(usi.parseScore).
 //
 // 엔진이 그 값을 안 낸다. 이미 詰んでいる 국면에 물으면 score mate -1 에 bestmove
-// resign 이다 — 실측이고, 그 사실이 무너지면 실엔진 테스트가 먼저 빨개진다(journal §131).
+// resign 이다 — 실측이고, 그 사실이 깨지면 실엔진 테스트가 먼저 빨개진다(journal §131).
 func Mate(n int) Score { return Score{mate: true, v: n} }
 
 // MateIn 은 詰み까지의 手数다. cp 점수면 0, false — Centipawns 와 대칭이라 ok 를 버려도

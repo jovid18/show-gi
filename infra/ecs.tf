@@ -30,7 +30,7 @@ locals {
   #
   # ENGINE_CMD 를 여기 두지 않는다. 엔진 실행 경로는 이미지 내부 구조라 Terraform이 알 수
   # 없는 값이고, 태스크 정의의 environment 는 이미지의 ENV 를 덮어쓴다. 양쪽에 적어두면
-  # 이미지를 바꿀 때 조용히 어긋난다 — 실제로 엔진을 やねうら王로 바꾼 배포에서 여기 남아
+  # 이미지를 바꿀 때 경고 없이 어긋난다 — 실제로 엔진을 やねうら王로 바꾼 배포에서 여기 남아
   # 있던 fairy-stockfish 가 이겨서, 배포는 성공했는데 대국만 안 되는 상태가 됐다.
   #
   # 운영 손잡이(ENGINE_POOL_SIZE·ENGINE_HASH_MB 등)는 여기 둬도 된다.
@@ -99,7 +99,7 @@ resource "aws_ecs_cluster" "main" {
 
 resource "aws_cloudwatch_log_group" "app" {
   name = "/ecs/show-gi"
-  # 기본이 무기한이라 조용히 쌓인다. 14일인 것은 요청 로그와 EMF 가 같은 그룹으로
+  # 기본이 무기한이라 눈에 안 띄게 쌓인다. 14일인 것은 요청 로그와 EMF 가 같은 그룹으로
   # 들어오기 때문이다 — 지표는 CloudWatch 쪽에 15개월 남으므로 원본 로그를 길게 둘
   # 이유가 「그때 무슨 요청이었나」를 되짚는 것뿐이고, 그건 2주면 된다.
   retention_in_days = 14
@@ -206,7 +206,7 @@ resource "aws_ecs_task_definition" "app" {
   # awsvpc 가 아니라 host 다. EC2 런치 타입에서 awsvpc 를 쓰면 태스크 ENI에
   # 공인 IP를 붙일 수 없고(그 옵션은 Fargate 전용이다), 그러면 밖으로 나가는 길이 NAT
   # 게이트웨이뿐이다 — 월 $40이라 인스턴스보다 비싸다. Google OAuth의 토큰 교환이
-  # 서버에서 밖으로 나가는 호출이라 그 길이 막히면 로그인이 통째로 깨진다.
+  # 서버에서 밖으로 나가는 호출이라 그 길이 막히면 로그인 전체가 깨진다.
   #
   # bridge 는 안 된다. Caddy가 reverse_proxy localhost:8080 으로 api 를 부르는데
   # (apps/web/Caddyfile) bridge 는 컨테이너마다 네임스페이스를 나눠서 그 한 줄이 깨진다.
@@ -246,7 +246,7 @@ resource "aws_ecs_task_definition" "app" {
       # 사람을 받는 티어다. both 라 큐를 세우기도 하고 집기도 한다.
       #
       # 절약 모드의 자리다(journal §125). 분석 티어가 평시에 0대라 이 대가 겸하지 않으면
-      # 밀린 手를 아무도 안 집는다 — 부하가 오면 알람이 전용 대를 부르고, 그때는 둘이
+      # 밀린 手를 누구도 안 집는다 — 부하가 오면 알람이 전용 대를 부르고, 그때는 둘이
       # 같이 집는다.
       #
       # 되돌릴 때 interactive 로 바꾼다. 그러면 이 박스의 엔진이 분석에 안 쓰여서
@@ -276,7 +276,7 @@ resource "aws_ecs_task_definition" "app" {
 # 분석 티어. 사람을 안 받으므로 web 컨테이너가 없다.
 #
 # 컨테이너가 하나인 것이 이 티어의 정의다. Caddy 는 사람의 요청을 api 로 넘기는 자리인데
-# 여기는 대상 그룹 뒤에 없어서 넘길 요청이 없고, 띄우면 80 을 잡아 아무도 안 보는 서버가
+# 여기는 대상 그룹 뒤에 없어서 넘길 요청이 없고, 띄우면 80 을 잡아 누구도 안 보는 서버가
 # 인스턴스마다 하나씩 는다.
 #
 # /healthz 를 밖에서 못 물어본다. 대신 이 티어가 죽으면 AnalysisBacklogPlies 가
@@ -375,7 +375,7 @@ resource "aws_ecs_capacity_provider" "analysis" {
 }
 
 # 클러스터에 등록해야 서비스가 이름으로 고를 수 있다. 기본 전략은 안 둔다 —
-# 두 서비스가 각자 자기 것을 명시하므로, 기본값이 있으면 잘못 적었을 때 조용히 붙는다.
+# 두 서비스가 각자 자기 것을 명시하므로, 기본값이 있으면 잘못 적었을 때 경고 없이 붙는다.
 #
 # 여기서 이름을 빼는 것으로는 공급자가 안 지워진다. 쓰는 서비스가 있는 동안 삭제가
 # 거절되므로, 되돌릴 때는 서비스를 먼저 옮긴다.
@@ -524,7 +524,7 @@ resource "aws_ecs_service" "analysis" {
     #
     # desired_count 를 무시하는 것은 상호작용 쪽과 갈리는 자리다. 스케일 정책이 그 값을
     # 드는데(autoscale.tf) terraform 도 들면 스케일 아웃이 다음 apply 에 취소된다 —
-    # 회차가 손잡이 하나만 고쳐 apply 하는 자리라 그것이 조용히 회차를 무효로 만든다.
+    # 회차가 손잡이 하나만 고쳐 apply 하는 자리라 그것이 경고 없이 회차를 무효로 만든다.
     ignore_changes = [task_definition, desired_count]
   }
 

@@ -48,7 +48,7 @@ func TestMeasureTesujiHintGate(t *testing.T) {
 // k 를 올리면 그것들이 판정을 받기는 한다. 받는 것과 통과하는 것은 다르고, 앞 판에서는
 // 그 차이가 0이었다(§74). 이 판은 안 재봤다.
 //
-// 사람이 後手다 — 위 판과 갈리는 유일한 인자이고, 넘기지 않으면 상대의 차례를 재게 된다.
+// 사람이 後手다 — 위 판과 갈리는 하나뿐인 인자이고, 넘기지 않으면 상대의 차례를 재게 된다.
 func TestMeasureTesujiHintGateHuman3(t *testing.T) {
 	if os.Getenv("SHOWGI_MEASURE") == "" {
 		t.Skip("SHOWGI_MEASURE 미설정")

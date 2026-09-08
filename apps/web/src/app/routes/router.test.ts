@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ROUTE_HOME, ROUTE_REVIEWS, routeExplore, routeQuiz, routeReview, routeRoom } from './const';
 import { hrefOf, parseRoute } from './router';
 
-// 주소를 읽는 쪽은 새로고침과 뒤로 가기가 지나가는 유일한 문이다. 조용히 틀리면
+// 주소를 읽는 쪽은 새로고침과 뒤로 가기가 지나가는 하나뿐인 문이다. 경고 없이 틀리면
 // 「그 판을 열었는데 목록이 뜬다」로 나타나고, 화면에서는 버그로 안 보인다.
 describe('parseRoute', () => {
   it('빈 경로와 루트는 홈이다', () => {
@@ -11,7 +11,7 @@ describe('parseRoute', () => {
     expect(parseRoute('')).toEqual({ name: 'home' });
   });
 
-  // 여기가 어긋나면 홈과 대국이 통째로 자리를 바꾼다(journal §86).
+  // 여기가 어긋나면 홈과 대국 전체가 자리를 바꾼다(journal §86).
   it('대국은 /play 다', () => {
     expect(parseRoute('/play')).toEqual({ name: 'game' });
     expect(parseRoute('/play/')).toEqual({ name: 'game' });
@@ -96,7 +96,7 @@ describe('parseRoute', () => {
     expect(parseRoute('/import/anything')).toEqual({ name: 'import' });
   });
 
-  // 검토는 쿼리를 보는 유일한 화면이다. 여기가 틀리면 링크로 받은 국면이 안 열린다.
+  // 검토는 쿼리를 보는 하나뿐인 화면이다. 여기가 틀리면 링크로 받은 국면이 안 열린다.
   it('검토 — 手合割과 수순이 쿼리에 있다', () => {
     expect(parseRoute('/explore')).toEqual({ name: 'explore', handicap: '', moves: [] });
     expect(parseRoute('/explore/')).toEqual({ name: 'explore', handicap: '', moves: [] });
@@ -129,7 +129,7 @@ describe('parseRoute', () => {
   });
 
   // 없는 手合割을 여기서 자르지 않는다. 목록에 있는지는 서버가 정하고(`bad_handicap`),
-  // 화면이 어휘를 한 벌 더 들면 새 手合이 붙는 날 그 공유 링크가 조용히 平手로 열린다.
+  // 화면이 어휘를 한 벌 더 들면 새 手合이 붙는 날 그 공유 링크가 경고 없이 平手로 열린다.
   it('모르는 手合割 id 는 서버에 넘긴다', () => {
     expect(parseRoute('/explore?h=hachimaiochi2&m=7g7f')).toEqual({
       name: 'explore',
@@ -179,7 +179,7 @@ describe('hrefOf', () => {
     }
   });
 
-  // 검토는 쿼리까지 왕복해야 한다 — 주소가 판을 들고 있는 유일한 화면이다.
+  // 검토는 쿼리까지 왕복해야 한다 — 주소가 판을 들고 있는 하나뿐인 화면이다.
   it('검토도 왕복한다', () => {
     for (const path of ['/explore', '/explore?h=nimaiochi', '/explore?h=nimaiochi&m=7g7f,3c3d', '/explore?m=P*5e']) {
       expect(hrefOf(parseRoute(path))).toBe(path);
@@ -200,7 +200,7 @@ describe('hrefOf', () => {
 
 /**
  * 뿌리 국면. 「성립하는 판인가」는 안 본다 — 그 판단의 정본은 서버의 룰 엔진 하나뿐이고,
- * 여기서 한 벌 더 적으면 어긋났을 때 어느 쪽이 맞는지 아무도 모른다.
+ * 여기서 한 벌 더 적으면 어긋났을 때 어느 쪽이 맞는지 누구도 모른다.
  */
 describe('뿌리 국면', () => {
   it('판이 실리면 그것이 뿌리다', () => {
@@ -219,7 +219,7 @@ describe('뿌리 국면', () => {
   });
 
   // 40장이 전부 성하고 빈 칸이 잘게 흩어지면 판 칸이 123자가 된다. 상한이 90이던 동안
-  // 그런 판은 **조용히 버려지고** 平手가 열렸다 — 링크를 받은 사람이 남이 본 것과 다른
+  // 그런 판은 **경고 없이 버려지고** 平手가 열렸다 — 링크를 받은 사람이 남이 본 것과 다른
   // 판을 본다. 셀프리뷰가 잡았다.
   it('판 칸이 긴 국면도 그대로 싣는다', () => {
     // 성한 駒는 `+P` 로 두 글자다. 40장이 전부 성하고 빈 칸이 잘게 흩어지면 판 칸이

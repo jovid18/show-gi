@@ -12,7 +12,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
 )
 
-// 마이페이지. 판을 가로질러 보는 유일한 화면이다 — 되짚기는 한 판을 열고 총평은 한 판을
+// 마이페이지. 판을 가로질러 보는 하나뿐인 화면이다 — 되짚기는 한 판을 열고 총평은 한 판을
 // 세지만, 여기는 「지금까지 어땠나」에 답한다.
 //
 // 세는 것은 기록이고 段級만 추정기에서 온다. 그 둘이 갈리는 이유는 journal §62 —
@@ -63,7 +63,7 @@ type profilePayload struct {
 	// 같이 보낸다 — 화면이 목록을 더해 구하면 잘린 뒤의 합이라 틀린 분모가 된다.
 	Interventions int            `json:"interventions"`
 	Weaknesses    []weaknessView `json:"weaknesses,omitempty"`
-	// Styles 는 지금까지 짠 囲い·전법·戦型이다. 약점과 나란히 놓이는 자리라 같은
+	// Styles 는 지금까지 짠 囲い·전법·戦型이다. 약점과 함께 놓이는 자리라 같은
 	// 모집단에서 나온다(store.PlayerTally).
 	Styles []styleView `json:"styles,omitempty"`
 }
@@ -177,7 +177,7 @@ func weaknessesOf(counts map[string]int) (int, []weaknessView) {
 }
 
 // styleTop 은 화면에 그리는 줄 수다. 약점(3)보다 넉넉하다 — 저쪽은 「무엇이 약한가」라
-// 짧아야 읽히지만 이쪽은 목록 자체가 기록이고, 축이 셋이라 3줄이면 한 축이 통째로 빠진다.
+// 짧아야 읽히지만 이쪽은 목록 자체가 기록이고, 축이 셋이라 3줄이면 한 축 전체가 빠진다.
 const styleTop = 8
 
 // stylesOf 는 이름별 판 수를 화면의 목록으로 바꾼다.

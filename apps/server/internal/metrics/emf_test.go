@@ -49,7 +49,7 @@ func TestEMFDocumentShape(t *testing.T) {
 		t.Errorf("Service=%v Environment=%v", doc["Service"], doc["Environment"])
 	}
 
-	// 선언한 지표는 전부 루트에 값이 있어야 한다. 없으면 그 줄은 통째로 버려진다.
+	// 선언한 지표는 전부 루트에 값이 있어야 한다. 없으면 그 줄 전체는 버려진다.
 	for _, m := range d["Metrics"].([]any) {
 		name := m.(map[string]any)["Name"].(string)
 		if _, ok := doc[name]; !ok {

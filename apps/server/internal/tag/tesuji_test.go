@@ -69,7 +69,7 @@ func TestCheaperTargetsAreStillTheShapeOfAFork(t *testing.T) {
 }
 
 // 手番이 상대일 때도 같은 답이 나와야 한다. LegalMoves 는 pos.Turn 쪽 수만
-// 내므로, 手番을 맞추지 않으면 조용히 「両取り가 없다」가 된다 — 에러가 안 나는 버그다.
+// 내므로, 手番을 맞추지 않으면 경고 없이 「両取り가 없다」가 된다 — 에러가 안 나는 버그다.
 func TestForkIsFoundRegardlessOfWhoseTurnItIs(t *testing.T) {
 	const board = "8k/9/3g1g3/9/4N4/9/9/9/8K "
 
@@ -179,7 +179,7 @@ func TestPromotedPiecesDoNotBorrowTheBaseNames(t *testing.T) {
 		{"成桂", "8k/9/9/3g1g3/4+N4/9/9/9/8K b - 1", ""},
 		{"成銀", "8k/9/9/3g1g3/4+S4/9/9/9/8K b - 1", ""},
 		// 형태는 그대로 縦横·斜め다 — 안 붙는 이유가 형태가 아니라 이름이라는 것을
-		// 못박으려고, 생駒였다면 붙었을 국면을 그대로 쓴다.
+		// 고정으려고, 생駒였다면 붙었을 국면을 그대로 쓴다.
 		{"龍", "8k/9/4g4/9/1g2+R4/9/9/9/8K b - 1", ""},
 		{"馬", "8k/9/2g3g2/9/4+B4/9/9/9/8K b - 1", ""},
 	} {

@@ -79,14 +79,14 @@ func (h *queueHandler) join(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	fresh := now.Add(-queue.StaleAfter)
 
-	// 낡은 행을 먼저 걷는다. 실패해도 계속 간다 — 청소가 안 된 것이고, 짝짓기 쪽은
+	// 오래된 행을 먼저 걷는다. 실패해도 계속 간다 — 청소가 안 된 것이고, 짝짓기 쪽은
 	// seen_at 을 스스로 보므로(LockQueueCandidates) 죽은 대기자와 짝이 되지는 않는다.
 	if err := h.store.SweepQueue(ctx, fresh, now.Add(-queue.PickupTTL)); err != nil {
 		log.Printf("queue: sweep: %v", err)
 	}
 
 	// 이미 잡힌 자리가 있으면 그것이 답이다. 짝짓기보다 먼저 본다 — 안 그러면 방으로
-	// 갈 사람이 대기열에 다시 서고, 그 사이 상대는 아무도 안 오는 방에서 기다린다.
+	// 갈 사람이 대기열에 다시 서고, 그 사이 상대는 누구도 안 오는 방에서 기다린다.
 	switch seat, err := h.store.TakeQueueSeat(ctx, s.UserID); {
 	case err == nil:
 		writeJSON(w, http.StatusOK, queuePayload{
@@ -139,7 +139,7 @@ func (h *queueHandler) enqueue(ctx context.Context, userID int64) (store.QueueWa
 // pair 는 짝을 하나 지어 방을 만든다. 못 지으면 두 번째 값이 false 다.
 //
 // 표를 먼저 고치고 방을 나중에 만든다. 순서가 반대면 짝짓기가 어긋났을 때(내 행이
-// 이미 남에게 잡혔다) 아무도 안 오는 방이 남는다 — 반대로 이 순서에서 그 사이에
+// 이미 남에게 잡혔다) 누구도 안 오는 방이 남는다 — 반대로 이 순서에서 그 사이에
 // 프로세스가 죽으면 두 사람이 없는 방으로 가고, 그때 화면은 「열 수 없다」를 그린다.
 func (h *queueHandler) pair(ctx context.Context, s auth.Session, fresh time.Time) (store.QueueSeat, bool) {
 	// 색은 짝짓기 밖에서 뽑는다. 대기열은 平手 확정 · 先手 랜덤이다(journal §92) — 手合은

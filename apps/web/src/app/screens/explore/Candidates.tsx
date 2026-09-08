@@ -26,7 +26,7 @@ export function Candidates({ node, stale, onPick }: CandidatesProps) {
   const handicap = !!node?.handicapJa;
   /**
    * 색은 下手 관점이다. 파랑·빨강이 이 앱 어디서나 「나에게 좋은가」인데
-   * (`evalTone`) 검토의 「나」는 下手(SFEN의 `b` 쪽)로 못박혀 있다(서버의 `exploreRoot`) —
+   * (`evalTone`) 검토의 「나」는 下手(SFEN의 `b` 쪽)로 고정돼 있다(서버의 `exploreRoot`) —
    * 목록의 숫자는 둔 쪽 관점이라 여기서 뒤집어서 넘긴다.
    */
   const byOpponent = node?.turn === 'w';

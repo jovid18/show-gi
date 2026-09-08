@@ -8,7 +8,7 @@ interface InterventionProps {
   intervention: InterventionData;
   /**
    * 분기의 지금 자리. `null` 이면 아직 못 받았다 — 그동안에도 카드는 그대로 떠 있고
-   * 목록 자리만 비어 있다(카드가 통째로 바뀌지 않는다는 규칙이 이 컴포넌트의 전부다).
+   * 목록 자리만 비어 있다(카드 전체가 바뀌지 않는다는 규칙이 이 컴포넌트의 전부다).
    */
   node: WhatIfNode | null;
   pending: boolean;
@@ -133,7 +133,7 @@ export function Intervention({
   /**
    * 「상대는 이렇게 詰ませてくる」. 증명된 詰み 수순일 때만 온다(서버의 analyst.go).
    *
-   * 자를 자리가 없는 유일한 수순이라 남았다 — PV는 어디서 끊을지가 국면마다 달라서,
+   * 자를 자리가 없는 하나뿐인 수순이라 남았다 — PV는 어디서 끊을지가 국면마다 달라서,
    * 그 자리는 아래 목록이 대신한다.
    */
   const mateLine = intervention.refutation ?? [];

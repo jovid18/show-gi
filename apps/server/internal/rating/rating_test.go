@@ -18,7 +18,7 @@ func TestUpdateMovesBothWays(t *testing.T) {
 	}
 }
 
-// 무승부는 같은 실력끼리라면 아무도 안 움직인다. 기대값이 정확히 0.5라 갱신항이 0이다.
+// 무승부는 같은 실력끼리라면 누구도 안 움직인다. 기대값이 정확히 0.5라 갱신항이 0이다.
 func TestDrawBetweenEqualsHoldsStill(t *testing.T) {
 	a, b := Update(Unrated, Unrated, Draw)
 	if math.Abs(a.Value-Default) > 1e-9 || math.Abs(b.Value-Default) > 1e-9 {
@@ -119,7 +119,7 @@ func TestInflateStopsAtMax(t *testing.T) {
 	}
 }
 
-// 시드는 낙폭이 작을수록 높다. 뒤집히는 자리가 여기 하나이므로 부호를 못 박는다.
+// 시드는 낙폭이 작을수록 높다. 뒤집히는 자리가 여기 하나이므로 부호를 확인한다.
 func TestSeedFromLossIsMonotonic(t *testing.T) {
 	strong := SeedFromLoss(0)
 	middle := SeedFromLoss(0.5)

@@ -162,7 +162,7 @@ func TestWSUnknownMessageType(t *testing.T) {
 	}
 }
 
-// 엔진이 없으면 대국만 막고 나머지는 살린다. 죽으면 ECS가 재시작을 돌며 사이트가 통째로 내려간다.
+// 엔진이 없으면 대국만 막고 나머지는 살린다. 죽으면 ECS가 재시작을 돌며 사이트 전체가 내려간다.
 func TestWSUnavailableWithoutEngine(t *testing.T) {
 	srv := httptest.NewServer(Handler(Options{}))
 	defer srv.Close()
@@ -486,7 +486,7 @@ func TestRealEngineIntervention(t *testing.T) {
 	// 여기서 나오는 것은 실제로 other 다. 엔진이 제일 싫어하는 수가 ▲1七香 —
 	// 駒를 던지지도, 王手를 걸지도, 玉을 열지도 않고 그냥 손해인 수다. 짚을 이유가
 	// 없으므로 짚지 않는 것이 맞다(01-core.md §3). 억지로 끼워 맞추면 설명이 틀리고,
-	// 그게 이 제품에서 가장 큰 실패다. 그래서 값을 못 박지 않는다.
+	// 그게 이 제품에서 가장 큰 실패다. 그래서 값을 확인하지 않는다.
 	//
 	// 짚을 이유가 있는 쪽은 TestRealEngineHangingPiece 가 본다 — 결과가 정해진 수로 묻는다.
 	if iv.Category == "" {
@@ -510,7 +510,7 @@ func TestRealEngineIntervention(t *testing.T) {
 // 이유는 최악수가 늘 짚을 만한 수는 아니기 때문이다 — 저쪽에서 나오는 ▲1七香은
 // 정당하게 미분류다.
 //
-// 수는 프로덕션에서 실제로 걸린 것을 그대로 쓴다(journal §13). 角을 아무도
+// 수는 프로덕션에서 실제로 걸린 것을 그대로 쓴다(journal §13). 角을 누구도
 // 지켜주지 않는 3三에 던지는 수다.
 //
 // 국면을 ▲7六歩 △3四歩 뒤로 고정해서 시작한다. 상대에게 한 수를 맡기면
@@ -596,7 +596,7 @@ func TestRealEngineHangingPiece(t *testing.T) {
 	// 낱말 하나로 고정하지 않는다. タダ捨て는 사실이 실리면 「取れる相手の駒が2枚」처럼
 	// 숫자로 말하고, 없으면 「相手の利きを確かめて」로 간다(explain.Render). 둘 다 「상대가
 	// 그 駒를 잡는다」는 같은 이야기인데, 낱말을 박아 두면 사실이 실리는 날 깨진다 —
-	// 실제로 깨져 있었고 CI에 엔진이 없어 아무도 몰랐다(journal §47).
+	// 실제로 깨져 있었고 CI에 엔진이 없어 누구도 몰랐다(journal §47).
 	if !strings.Contains(iv.Message, "利き") && !strings.Contains(iv.Message, "取れる相手の駒") {
 		t.Errorf("タダ捨て 문구가 아니다: %q", iv.Message)
 	}

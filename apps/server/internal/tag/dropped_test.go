@@ -54,7 +54,7 @@ func TestDropMarkIsClearedWhenAPieceMovesOnto(t *testing.T) {
 }
 
 // 打은 駒가 필수 칸 밖이면 상관없다. 규칙이 「打이 있었나」가 아니라 「그 칸이 打으로
-// 채워졌나」라는 것을 못박는다 — 넓게 걸면 종반에 持ち駒를 쓰는 순간 이름이 전부 꺼진다.
+// 채워졌나」라는 것을 확인한다 — 넓게 걸면 종반에 持ち駒를 쓰는 순간 이름이 전부 꺼진다.
 func TestDropAwayFromTheCastleDoesNotSuppressIt(t *testing.T) {
 	pos, err := shogi.ParseSFEN(hidariMinoByDropSFEN)
 	if err != nil {

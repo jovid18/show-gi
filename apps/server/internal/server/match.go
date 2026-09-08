@@ -41,7 +41,7 @@ type roomPayload struct {
 	IsHost bool `json:"isHost"`
 }
 
-// notFound 는 대인전의 유일한 거절 응답이다.
+// notFound 는 대인전의 하나뿐인 거절 응답이다.
 //
 // 왜 안 되는지를 절대 알려주지 않는다. 없는 방·만료된 방·남이 이미 찬 방이 같은 답을
 // 받아야 방 id 를 훑어보는 것이 성립하지 않고(match.ErrNoRoom), 로그인 안 한 요청까지
@@ -90,7 +90,7 @@ func (h *matchHandler) create(w http.ResponseWriter, r *http.Request) {
 //
 // 손님이 링크를 열면 이 답으로 「◯◯さんの対局に参加しますか」가 뜬다. 그 화면 없이
 // 곧바로 붙이면, 링크를 잘못 누른 사람이 자기도 모르게 자리를 차지하고 그 방은
-// 그때부터 아무도 못 들어간다(정원 2명).
+// 그때부터 누구도 못 들어간다(정원 2명).
 func (h *matchHandler) get(w http.ResponseWriter, r *http.Request) {
 	s, ok := h.auth.viewer(r)
 	if !ok {

@@ -114,7 +114,7 @@ function socketUrl(setup: GameSetup, resumeId: number | null): string {
 /**
  * `/ws/game`에 붙어 대국 하나를 연다.
  *
- * 스냅샷은 항상 전체 상태라 여기서 이전 것과 합치지 않는다. 받은 것으로 통째로 바꾼다 —
+ * 스냅샷은 항상 전체 상태라 여기서 이전 것과 합치지 않는다. 받은 것으로 전부 바꾼다 —
  * 부분 갱신을 재구성하기 시작하면 D3의 롤백 뒤에 화면과 서버가 어긋나도 알 방법이 없다.
  */
 export function useGame(): GameState {
@@ -151,7 +151,7 @@ export function useGame(): GameState {
   }, []);
 
   useEffect(() => {
-    // 고르기 전에는 붙지 않는다. 여기서 미리 붙으면 그 순간 판이 하나 열려 기록에
+    // 고르기 전에는 붙지 않는다. 여기서 미리 붙으면 그때 판이 하나 열려 기록에
     // 남고, 사람이 아직 아무것도 고르지 않은 채로 先手 平手 대국이 시작된다.
     if (!live || !setup) return;
 

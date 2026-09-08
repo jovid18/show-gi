@@ -125,7 +125,7 @@ func TestAHalfFinishedMatchMovesNothing(t *testing.T) {
 	}
 }
 
-// 무승부는 같은 실력끼리라면 아무도 안 움직인다. 그래도 판 수는 는다 —
+// 무승부는 같은 실력끼리라면 누구도 안 움직인다. 그래도 판 수는 는다 —
 // 불확실성이 줄었기 때문이다.
 func TestADrawStillCountsAsAGame(t *testing.T) {
 	records, black, white := ratingRecords(t)

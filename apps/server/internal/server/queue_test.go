@@ -26,7 +26,7 @@ import (
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
 //
 // 격리는 레이팅으로 한다(queueBase). 표를 비우지 않는 이유는 CI 가 패키지들을 같은 DB 에
-// 동시에 걸기 때문이다 — 비우면 그 순간 대기열에 서 있던 남의 테스트가 깨진다.
+// 동시에 걸기 때문이다 — 비우면 그때 대기열에 서 있던 남의 테스트가 깨진다.
 //
 // 그래서 「대기열에 몇 명인가」를 정확한 수로 단정하지 않는다. 그 값은 표 전체를 세는 제품
 // 질의라(store.QueueWaiting) 남의 테스트가 섞인다. 내 행이 몇 개인가는 rows 가 따로 센다.

@@ -10,7 +10,7 @@ import (
 )
 
 // allCategories 는 카테고리 전부다. 새 카테고리가 붙으면 여기에 더한다 —
-// 아래 테스트들이 「전부에 대해」를 단정하므로, 빠뜨리면 그 단정이 조용히 약해진다.
+// 아래 테스트들이 「전부에 대해」를 단정하므로, 빠뜨리면 그 단정이 경고 없이 약해진다.
 var allCategories = []intervene.Category{
 	intervene.CategoryMissedMate,
 	intervene.CategoryLetsMate,

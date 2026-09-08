@@ -25,7 +25,7 @@ type engineOpponent struct {
 //
 // 값이 지연이다. depth 14 는 12의 약 네 배이고(§10 의 k≈10 에서 8.4s 대 2.0s),
 // 올린 날 positions 의 기존 행은 전부 다시 재야 한다 — 저장된 computed_depth 가 12라
-// 캐시가 통째로 식는다(§37).
+// 캐시 전체가 무효가 된다(§37).
 const DefaultDepth = 14
 
 // NewEngineOpponent 는 엔진의 최선수를 그대로 두는 상대를 만든다.

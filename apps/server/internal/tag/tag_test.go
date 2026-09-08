@@ -49,10 +49,10 @@ func TestEveryShapeMatchesItsOwnSquares(t *testing.T) {
 	}
 }
 
-// 後手 미러. 이 테스트가 없으면 後手 국면에서 태그가 조용히 안 뜬다 — 에러가
+// 後手 미러. 이 테스트가 없으면 後手 국면에서 태그가 경고 없이 안 뜬다 — 에러가
 // 나지 않는 종류의 버그라 기계로만 잡힌다.
 //
-// 미러가 맞는지를 값으로도 못 박는다: 先手 玉2八의 거울은 後手 玉8二다.
+// 미러가 맞는지를 값으로도 확인한다: 先手 玉2八의 거울은 後手 玉8二다.
 func TestShapesMirrorForGote(t *testing.T) {
 	for _, sh := range castles {
 		pos := place(shogi.White, sh.squares...)
@@ -114,7 +114,7 @@ func TestMoreSpecificCastleWins(t *testing.T) {
 
 // 축마다 하나씩, 囲い가 먼저. 「四間飛車 + 本美濃囲い」는 한 국면의 정상 상태다.
 //
-// 축이 서로 다른 입력에서 나온다는 것도 여기서 못 박힌다 — 囲い는 국면, 전법은 수순.
+// 축이 서로 다른 입력에서 나온다는 것도 여기서 확인된다 — 囲い는 국면, 전법은 수순.
 func TestDetectReturnsOnePerAxisCastleFirst(t *testing.T) {
 	pos := place(shogi.Black, shapeByCode(t, "hon_mino").squares...)
 	got := Detect(Input{Pos: pos, Color: shogi.Black, PlayerMoves: []string{"2h6h"}}) // 飛2八 → 6八
@@ -259,7 +259,7 @@ func TestStartPositionHasNoTags(t *testing.T) {
 }
 
 // SFEN에서 끝까지. 위 테스트들은 전부 squareFor 로 판을 만들어 재므로, 그 함수가
-// 통째로 틀려도 자기 일관성만으로 다 통과한다. 손으로 적은 SFEN 하나가 그 구멍을 막는다
+// 전부 틀려도 자기 일관성만으로 다 통과한다. 손으로 적은 SFEN 하나가 그 구멍을 막는다
 // — (筋, 段) 읽기가 룰 엔진의 좌표계와 어긋나면 여기만 실패한다.
 //
 // 8段: 9八~7八 빈칸, 6八飛, 5八金, 4八金, 3八銀, 2八玉, 1八 빈칸 = 본美濃 + 四間飛車.
@@ -293,7 +293,7 @@ func TestNoHangulInNames(t *testing.T) {
 	}
 }
 
-// 코드는 검색 키다 — 겹치면 코퍼스 항목이 조용히 다른 태그에 붙는다.
+// 코드는 검색 키다 — 겹치면 코퍼스 항목이 경고 없이 다른 태그에 붙는다.
 func TestCodesAreUniqueAndNamesFilled(t *testing.T) {
 	seen := map[string]bool{}
 	for _, tg := range All() {
@@ -324,7 +324,7 @@ func TestCastlesCarryTheirSource(t *testing.T) {
 }
 
 // 정의된 이름은 전부 코드로 되찾을 수 있어야 한다. 기록에 남는 것은 코드뿐이고
-// (games.style_tags), 못 찾으면 마이페이지가 그 줄을 통째로 버린다(server.stylesOf).
+// (games.style_tags), 못 찾으면 마이페이지가 그 줄 전체를 버린다(server.stylesOf).
 func TestByCodeFindsEveryDefinedTag(t *testing.T) {
 	for _, want := range All() {
 		got, ok := ByCode(want.Code)

@@ -160,7 +160,7 @@ data "aws_route53_zone" "main" {
 }
 
 # EIP가 아니라 ALB를 가리키는 별칭 레코드다. ALB의 IP는 바뀌므로 A 레코드에
-# 주소를 박으면 언젠가 조용히 끊긴다
+# 주소를 박으면 언젠가 경고 없이 끊긴다
 resource "aws_route53_record" "apex" {
   zone_id = data.aws_route53_zone.main.zone_id
   name    = var.domain

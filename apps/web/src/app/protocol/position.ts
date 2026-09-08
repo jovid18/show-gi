@@ -132,7 +132,7 @@ async function unwrap(res: Response): Promise<PositionResponse> {
 /**
  * 파일 하나를 base64 data URL 로 읽는다. 그 한 값이 `<img src>` 이면서 요청 본문이다.
  *
- * 크기를 읽기 전에 본다. 읽고 나서 막으면 브라우저가 그 파일을 통째로 메모리에 올린
+ * 크기를 읽기 전에 본다. 읽고 나서 막으면 브라우저가 그 파일 전체를 메모리에 올린
  * 뒤이고, 큰 파일에서는 그 사이에 탭이 멈춘다(`ImportScreen` 과 같은 판단).
  */
 export async function readImageFile(file: File): Promise<string> {

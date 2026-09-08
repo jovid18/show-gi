@@ -27,7 +27,7 @@ const sampleKIF = `先手：わたし
    5 投了
 `
 
-// games.result 는 주인 관점이다. 안 뒤집으면 後手로 둔 판의 승패가 통째로 반대가 된다.
+// games.result 는 주인 관점이다. 안 뒤집으면 後手로 둔 판의 승패 전체가 반대가 된다.
 func TestImportedResultIsFromTheOwnersSide(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
@@ -200,7 +200,7 @@ func TestImportedGameGetsEvalsAndBlunders(t *testing.T) {
 		if iv.Kind != string(intervene.KindBlunder) {
 			t.Errorf("ply %d kind = %q", iv.Ply, iv.Kind)
 		}
-		// 아무도 안 막았다. 그 칸을 채우면 없던 일을 있었다고 말하는 것이다.
+		// 누구도 안 막았다. 그 칸을 채우면 없던 일을 있었다고 말하는 것이다.
 		if iv.RetractedUSI != "" {
 			t.Errorf("ply %d has a retracted move: %q", iv.Ply, iv.RetractedUSI)
 		}

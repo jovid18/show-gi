@@ -164,7 +164,7 @@ func (c *transcribeCache) put(userID int64, text string, got kifunorm.Result) {
 	defer c.mu.Unlock()
 
 	now := c.clock()
-	// 낡은 것을 먼저 걷는다. 그것만으로 상한 아래로 안 내려가면 오래된 것부터 버린다.
+	// 오래된 것을 먼저 걷는다. 그것만으로 상한 아래로 안 내려가면 오래된 것부터 버린다.
 	for k, e := range c.at {
 		if now.Sub(e.at) > transcribeTTL {
 			delete(c.at, k)

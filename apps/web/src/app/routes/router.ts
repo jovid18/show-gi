@@ -65,7 +65,7 @@ export type Route =
   // `sfen` 이 있으면 그것이 뿌리다(journal §129). 手合割과 동시에 올 수 없으므로 값이
   // 있는 쪽 하나만 채워진다.
   | { name: 'explore'; handicap: string; moves: string[]; sfen?: string }
-  // 방 하나. id 가 문자열인 유일한 라우트다 — 판 번호와 달리 이 값은 난수이고,
+  // 방 하나. id 가 문자열인 하나뿐인 라우트다 — 판 번호와 달리 이 값은 난수이고,
   // 그것이 유추를 막는 장치의 전부다(routes/const.ts 의 routeRoom).
   | { name: 'room'; id: string };
 
@@ -82,7 +82,7 @@ const USI_MOVE = /^(?:[1-9][a-i][1-9][a-i]\+?|[PLNSGBR]\*[1-9][a-i])$/;
  * 뿌리 국면의 모양. 판 9단 · 手番 · 持ち駒 · 手数다.
  *
  * 판 칸의 상한이 140이다. 40장이 전부 성하고(`+P` 는 두 글자) 빈 칸이 잘게 흩어지면
- * 123자가 되므로 90은 **성립하는 판을 자른다** — 넘으면 아래에서 국면이 조용히 버려지고
+ * 123자가 되므로 90은 **성립하는 판을 자른다** — 넘으면 아래에서 국면이 경고 없이 버려지고
  * 平手가 열려서, 링크를 받은 사람이 남이 본 것과 다른 판을 본다.
  *
  * 「성립하는 판인가」는 안 본다 — 그 판단의 정본은 서버의 룰 엔진 하나뿐이다. 여기서
@@ -126,11 +126,11 @@ function exploreRouteOf(search: string): Route {
   const moves = raw === '' ? [] : raw.split(',');
   // 手合割 id 는 「주소에 실릴 수 있는 모양인가」까지만 본다. 목록에 있는지는 서버가
   // 정하고(`bad_handicap`), 여기서 어휘를 한 벌 더 적으면 八枚落ち 같은 id 가 붙는 날
-  // 그 手合의 공유 링크가 전부 조용히 平手 0手目로 열린다 — 수순까지 함께 버려진다.
+  // 그 手合의 공유 링크가 전부 경고 없이 平手 0手目로 열린다 — 수순까지 함께 버려진다.
   const ok = /^[A-Za-z0-9_-]{0,32}$/.test(handicap) && moves.every((m) => USI_MOVE.test(m));
   if (!ok) return { name: 'explore', handicap: '', moves: [] };
   // 국면도 모양까지만 본다. 성립하는 판인지는 룰 엔진이 정하고(`bad_position`), 여기서
-  // 그 판단을 한 벌 더 적으면 서버와 두 벌이 되어 어긋났을 때 어느 쪽이 맞는지 아무도
+  // 그 판단을 한 벌 더 적으면 서버와 두 벌이 되어 어긋났을 때 어느 쪽이 맞는지 누구도
   // 모른다(models/sfen.ts 의 첫 주석과 같은 이유).
   if (sfen !== '' && SFEN_SHAPE.test(sfen)) return { name: 'explore', handicap: '', moves, sfen };
   return { name: 'explore', handicap, moves };

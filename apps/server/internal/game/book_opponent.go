@@ -30,14 +30,14 @@ type bookOpponent struct {
 // 감싸는 자리는 배선이다(server/ws.go) — Config 에 진형을 받지 않는 이유는 세션이
 // 상대의 수순을 아는 자리를 만들지 않기 위해서다(Config.OpponentOpening).
 //
-// color 는 상대가 잡은 쪽이다. 사람의 색을 넘기면 진형이 통째로 반대편에 짜인다.
+// color 는 상대가 잡은 쪽이다. 사람의 색을 넘기면 진형 전체가 반대편에 짜인다.
 func NewBookOpponent(inner Opponent, o book.Opening, color shogi.Color) Opponent {
 	return &bookOpponent{inner: inner, color: color, moves: o.Moves(color)}
 }
 
 // AdaptsToSkill 은 안쪽에 물어본다.
 //
-// 여기서 false 를 답하면 진형을 고른 판에서 강함 눈금이 조용히 사라진다 — 화면은
+// 여기서 false 를 답하면 진형을 고른 판에서 강함 눈금이 경고 없이 사라진다 — 화면은
 // 추정기 유무가 아니라 이 성질로 갈린다(journal §47).
 func (o *bookOpponent) AdaptsToSkill() bool { return adaptsToSkill(o.inner) }
 
@@ -50,7 +50,7 @@ func (o *bookOpponent) Choose(ctx context.Context, startSFEN string, moves []str
 
 // ChooseBest 는 북을 건너뛴다(BestPlayer). 불리는 자리가 사람이 詰み을 걸고 있는
 // 종반이라 진형을 조립할 국면이 아니고, 북이 그 자리에서 수순을 이어 두면 「최선으로
-// 버틴다」가 그 판에서만 조용히 안 지켜진다.
+// 버틴다」가 그 판에서만 경고 없이 안 지켜진다.
 func (o *bookOpponent) ChooseBest(ctx context.Context, startSFEN string, moves []string) (string, error) {
 	if b, ok := o.inner.(BestPlayer); ok {
 		return b.ChooseBest(ctx, startSFEN, moves)
@@ -103,7 +103,7 @@ func (o *bookOpponent) next(startSFEN string, moves []string) (string, bool) {
 		return "", false
 	}
 	if err := pos.ValidateMove(m); err != nil {
-		// 사람이 그 칸을 먼저 쓴 경우다. 수순을 건너뛰지 않고 통째로 넘긴다 —
+		// 사람이 그 칸을 먼저 쓴 경우다. 수순을 건너뛰지 않고 전부 넘긴다 —
 		// 한 수만 빼고 이어 두면 그때부터는 어느 진형도 아닌 모양이 된다.
 		return "", false
 	}

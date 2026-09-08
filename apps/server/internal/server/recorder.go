@@ -12,7 +12,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// dbRecorder 는 대국을 DB에 남긴다. game 과 store 가 만나는 유일한 자리다.
+// dbRecorder 는 대국을 DB에 남긴다. game 과 store 가 만나는 하나뿐인 자리다.
 //
 // 세션 goroutine을 막지 않는다. 이벤트를 버퍼 채널에 던지고 자기 goroutine이 쓴다.
 // 상태를 goroutine 하나가 소유한다는 것이 이 프로젝트의 정합성이라, DB가 느리다고
@@ -101,7 +101,7 @@ func (r *dbRecorder) send(ev recordEvent) {
 	case r.events <- ev:
 	default:
 		// 버리고 계속한다. 기록은 부가 기능이고 대국이 본체다.
-		// 조용히 버리지는 않는다 — 구멍이 생긴 것을 나중에 알아야 한다.
+		// 경고 없이 버리지는 않는다 — 구멍이 생긴 것을 나중에 알아야 한다.
 		log.Printf("game record: queue full, dropping event kind=%d", ev.kind)
 	}
 }
@@ -115,7 +115,7 @@ func (r *dbRecorder) Moved(ply int, usi string, by game.Side) {
 }
 
 // Moved 와 같은 채널로 보낸다. 평가치는 그 수가 들어간 뒤에 와야 하고, 한 채널이면
-// 순서가 저절로 지켜진다. 큐를 따로 두면 평가치가 먼저 도착해 조용히 버려질 수 있다.
+// 순서가 저절로 지켜진다. 큐를 따로 두면 평가치가 먼저 도착해 경고 없이 버려질 수 있다.
 func (r *dbRecorder) Evaluated(ply int, sente eval.Score) {
 	r.send(recordEvent{kind: evEvaluated, ply: ply, score: sente})
 }
@@ -274,7 +274,7 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 
 		case evFinished:
 			// 행이 없어도 신호는 보낸다. 행 만들기가 실패한 판(DB가 흔들린 경우)에서
-			// 조용히 나가면 이 채널을 기다리는 쪽이 영원히 기다린다 — 대인전은 그
+			// 경고 없이 나가면 이 채널을 기다리는 쪽이 영원히 기다린다 — 대인전은 그
 			// 기다림이 곧 기록기 goroutine 둘의 수명이라(server/match_records.go 의 collect)
 			// 그때부터 프로세스가 끝날 때까지 남는다.
 			//

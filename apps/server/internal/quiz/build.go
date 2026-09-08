@@ -39,10 +39,10 @@ type Input struct {
 
 // PlayerEval 은 i+1 手目를 둔 뒤의 사람 관점 점수다. 없으면 ok=false.
 //
-// DB의 先手 관점을 여기서 뒤집는다 — 안 뒤집으면 後手로 둔 판의 낙폭 부호가 통째로
+// DB의 先手 관점을 여기서 뒤집는다 — 안 뒤집으면 後手로 둔 판의 낙폭 부호 전체가
 // 반대가 되고, 그러면 문항이 잘 둔 자리에서 뽑힌다.
 //
-// 공개해 둔 것은 옮겨 담는 쪽이(server/ws.go quizInput) 부호 규약을 시험으로 못박을 수
+// 공개해 둔 것은 옮겨 담는 쪽이(server/ws.go quizInput) 부호 규약을 시험으로 고정할 수
 // 있어야 하기 때문이다.
 // PlayerBaselineCp 는 「형세 0」을 사람 관점으로 옮긴 것이다. PlayerEval 과 같은 자다.
 func (in Input) PlayerBaselineCp() int {
@@ -88,7 +88,7 @@ func NewBuilder(mate MateSearcher, search MultiSearcher, depth int) *Builder {
 // 없다」가 아니라 「아무것도 못 봤다」이고, 그 둘은 화면에서 전혀 다른 말이 되어야 한다 —
 // 부르는 쪽은 거짓이면서 비었을 때만 아무것도 안 적는다(server/ws.go generateQuiz).
 //
-// 한 자리를 못 본 것과 통째로 못 본 것을 가른다. 중반의 무관한 국면 하나에서 solver 가
+// 한 자리를 못 본 것과 전부 못 본 것을 가른다. 중반의 무관한 국면 하나에서 solver 가
 // 결론을 못 낸 것은 흔한 일이고(df-pn이 timeout 하는 자리다) 그때 나머지는 다 봤으므로
 // 「문항이 없다」는 결론이 성립한다. 아무것도 못 본 쪽은 배포가 생성 도중에 껴서 엔진 풀이
 // 먼저 닫힌 경우다 — 그때만 결론을 못 낸다.

@@ -35,7 +35,7 @@ func TestCompareOrdersMatesAroundEveryCp(t *testing.T) {
 }
 
 // 태그가 갈려 있어야 부르는 쪽이 분기한다. cp 를 물으면 詰み은 답하지 않는다 —
-// 그것이 합성값이 다시 생기지 않게 막는 유일한 장치다.
+// 그것이 합성값이 다시 생기지 않게 막는 하나뿐인 장치다.
 func TestTheTagForcesTheCaller(t *testing.T) {
 	if _, ok := Mate(3).Centipawns(); ok {
 		t.Error("詰み이 cp 를 내줬다")

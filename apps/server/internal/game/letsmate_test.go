@@ -169,7 +169,7 @@ func TestMateRefutationIsNotTrimmed(t *testing.T) {
 // RefutationPlies(8)가 11手 詰み을 자르면 안 된다. 그 상한은 PV용이고, 詰み의 상한은
 // solver 의 DepthLimit(11)이다.
 func TestMateRefutationIgnoresThePlyCap(t *testing.T) {
-	// 초기 국면에서 서로 조용히 둘 수 있는 11手.
+	// 초기 국면에서 서로 부딪히지 않고 둘 수 있는 11手.
 	pv := []string{
 		"3c3d", "2g2f", "8c8d", "6g6f", "7c7d",
 		"5g5f", "6c6d", "4g4f", "5c5d", "3g3f", "4c4d",

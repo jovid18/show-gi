@@ -130,7 +130,7 @@ func (a *Mate) SearchMate(ctx context.Context, startSFEN string, moves []string)
 // lookup 은 쌓인 답을 쓸 수 있으면 돌려준다. 못 쓰면 ok=false.
 //
 // 조건이 둘이다. 어느 하나를 빠뜨리면 「모른다」나 「이 한계 밖의 詰み」이 「증명된 답」이
-// 되어 나가고, 그건 에러 없이 조용히 틀린 판정을 만든다.
+// 되어 나가고, 그건 에러 없이 경고 없이 틀린 판정을 만든다.
 func (a *Mate) lookup(ctx context.Context, pos shogi.Position) (usi.MateResult, bool) {
 	m, err := a.store.GetMate(ctx, Key(pos))
 	if err != nil {

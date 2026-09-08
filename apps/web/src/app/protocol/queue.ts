@@ -41,7 +41,7 @@ export async function pollQueue(signal: AbortSignal): Promise<QueueStatus> {
 
 /**
  * 대기열에서 빠진다. 안 부르고 화면을 떠나도 서버가 걷어가지만, 그때까지 상대에게는
- * 내가 대기열에 있는 것으로 보인다 — 그 사이에 잡힌 짝은 아무도 안 오는 방이 된다.
+ * 내가 대기열에 있는 것으로 보인다 — 그 사이에 잡힌 짝은 누구도 안 오는 방이 된다.
  */
 export async function leaveQueue(): Promise<void> {
   // `keepalive` 다. 탭을 닫는 자리에서도 부르므로(`useQueue`) 언마운트와 함께 취소되면

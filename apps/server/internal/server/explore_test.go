@@ -82,7 +82,7 @@ func TestExploreStartsFromTheHandicapPosition(t *testing.T) {
 	if node.Ply != 0 || node.BasePly != 0 {
 		t.Errorf("ply = %d / basePly = %d, want 0 0 — 검토의 뿌리는 언제나 0手目다", node.Ply, node.BasePly)
 	}
-	// 駒落ち는 上手의 駒를 빼고 그 上手부터 둔다(journal §88). 관점은 下手로 못박혀
+	// 駒落ち는 上手의 駒를 빼고 그 上手부터 둔다(journal §88). 관점은 下手로 확인돼
 	// 있으므로(exploreRoot) 0手目는 「내 차례」가 아니다 — 검토는 양쪽을 다 움직인다.
 	if node.Turn != "w" || node.YourTurn {
 		t.Errorf("turn=%q yourTurn=%v, want w false", node.Turn, node.YourTurn)
@@ -136,7 +136,7 @@ func TestExplorePlainIsTheEmptyID(t *testing.T) {
 }
 
 // 값은 下手 관점이다. 되짚기는 플레이어 관점인데 검토에는 플레이어가 없고,
-// 手合 기준점이 下手 관점 cp라 그쪽으로 못박았다(exploreRoot).
+// 手合 기준점이 下手 관점 cp라 그쪽으로 확인했다(exploreRoot).
 func TestExploreKeepsTheSentePointOfView(t *testing.T) {
 	// 1手目 뒤는 後手 차례다. 엔진은 수번(後手)에게 +100이라고 답한다.
 	search := &fakeSearcher{results: []usi.SearchResult{found("8c8d", "3c3d")}}
@@ -189,7 +189,7 @@ func TestExploreRejectsUnknownHandicap(t *testing.T) {
 	}
 }
 
-// 못 두는 수는 거절한다. 화면이 규칙을 모르기 때문에 여기가 유일한 검사다.
+// 못 두는 수는 거절한다. 화면이 규칙을 모르기 때문에 여기가 하나뿐인 검사다.
 func TestExploreRejectsAnIllegalMove(t *testing.T) {
 	search := &fakeSearcher{results: []usi.SearchResult{found("7g7f")}}
 	h := exploreTest(t, search)
@@ -203,7 +203,7 @@ func TestExploreRejectsAnIllegalMove(t *testing.T) {
 	}
 }
 
-// 줄의 상한. 되짚기보다 길고(뿌리가 0手目라 한 판을 통째로 걸어 볼 수 있어야 한다),
+// 줄의 상한. 되짚기보다 길고(뿌리가 0手目라 한 판 전체를 걸어 볼 수 있어야 한다),
 // 그래도 유한해야 요청 하나가 되짚는 수가 묶인다.
 func TestExploreCapsTheLine(t *testing.T) {
 	search := &fakeSearcher{}
@@ -226,7 +226,7 @@ func TestExploreCapsTheLine(t *testing.T) {
 	}
 }
 
-// 슬롯이 이 표면의 유일한 제한이다. 빈자리가 없으면 기다리게 두지 않고 「まだ読んでいます」로
+// 슬롯이 이 표면의 하나뿐인 제한이다. 빈자리가 없으면 기다리게 두지 않고 「まだ読んでいます」로
 // 답한다 — 대국에 엔진 둘이 언제나 남아 있어야 한다(exploreSlots).
 //
 // 실제 대기는 exploreWait 인데, 테스트는 그만큼 멈춰 있을 이유가 없어서 요청 ctx의
@@ -252,7 +252,7 @@ func TestExploreRejectsWhenAllSlotsAreBusy(t *testing.T) {
 	if len(search.searches()) != 0 {
 		t.Error("슬롯이 꽉 찼는데 탐색이 돌았다")
 	}
-	// 슬롯을 되돌려 놓지 않으면 다음 요청이 통째로 막힌다 — 거절 경로가 빌린 것을
+	// 슬롯을 되돌려 놓지 않으면 다음 요청 전체가 막힌다 — 거절 경로가 빌린 것을
 	// 반납하지 않는가를 여기서 본다.
 	if len(h.slots) != exploreSlots {
 		t.Errorf("슬롯 %d개가 남아 있다, want %d", len(h.slots), exploreSlots)
@@ -277,7 +277,7 @@ func TestExploreReportsEngineFailure(t *testing.T) {
 }
 
 // 手合割 일곱 종이 전부 검토의 뿌리가 된다. 표에 SFEN 오타가 하나 있으면 그 手合만
-// 조용히 안 열리므로 전수로 본다.
+// 경고 없이 안 열리므로 전수로 본다.
 func TestExploreOpensEveryHandicap(t *testing.T) {
 	for _, hc := range handicap.All() {
 		t.Run(hc.ID, func(t *testing.T) {

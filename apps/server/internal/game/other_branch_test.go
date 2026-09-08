@@ -13,7 +13,7 @@ import (
 )
 
 // branchStub 은 두 API를 다 만족한다. analyst 가 들고 있는 것은 Searcher 이고
-// 갈래 수집은 거기서 MultiSearcher 로 타입 단언을 하므로, 한쪽만 있으면 그 자리가 조용히
+// 갈래 수집은 거기서 MultiSearcher 로 타입 단언을 하므로, 한쪽만 있으면 그 자리가 경고 없이
 // 비어 버린다 — 그 단언 자체도 여기서 확인된다.
 type branchStub struct {
 	res usi.SearchResult

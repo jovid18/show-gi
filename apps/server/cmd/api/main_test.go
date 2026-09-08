@@ -6,7 +6,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/server"
 )
 
-// 티어 이름을 잘못 적으면 both 로 떨어진다. 조용히 떨어지면 안 되는 자리다 — 분석
+// 티어 이름을 잘못 적으면 both 로 떨어진다. 경고 없이 떨어지면 안 되는 자리다 — 분석
 // 티어를 띄웠다고 믿는데 상호작용 티어도 같이 집으면 회차가 아무것도 안 가른다.
 func TestTheRoleFallsBackToBoth(t *testing.T) {
 	for _, tc := range []struct{ set, want string }{

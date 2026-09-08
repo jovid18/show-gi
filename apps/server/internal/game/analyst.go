@@ -99,7 +99,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		}
 		facts.Tags = detectTags(pos.Apply(m), mover, startSFEN, moves)
 	} else {
-		// 판을 못 읽은 것은 우리 버그다. 판정은 계속하되 조용히 넘기지 않는다.
+		// 판을 못 읽은 것은 우리 버그다. 판정은 계속하되 경고 없이 넘기지 않는다.
 		log.Printf("game: could not replay for features, category will be other: %v", err)
 	}
 
@@ -240,7 +240,7 @@ const OtherBranches = 3
 // positions 에 남아 카드의 요청이 캐시에서 답한다(internal/archive · server.evalOf). 늘어난
 // 것은 카드가 뜨기 전에 도는 몫이다.
 //
-// 판정 자체는 안 건드린다 — 착수 직후에 도는 유일한 탐색을 무겁게 하면 개입이 안 걸린
+// 판정 자체는 안 건드린다 — 착수 직후에 도는 하나뿐인 탐색을 무겁게 하면 개입이 안 걸린
 // 수까지 느려진다(JudgeDepth).
 func (a *engineAnalyst) cardPV(ctx context.Context, startSFEN string, moves []string) []string {
 	multi, ok := a.search.(MultiSearcher)
@@ -302,7 +302,7 @@ func (a *engineAnalyst) otherBranches(
 	}
 
 	// 점수는 이 국면의 수번 관점이고, 그 수번은 사람이다(A가 사람의 수이고 B가 상대의
-	// 응수다). 그래서 뒤집지 않는다 — 뒤집으면 문장의 부호가 통째로 거짓말이 된다.
+	// 응수다). 그래서 뒤집지 않는다 — 뒤집으면 문장의 부호 전체가 거짓말이 된다.
 	out := make([]explain.Branch, 0, OtherBranches)
 	for _, l := range res.Lines {
 		if len(out) == OtherBranches {
@@ -377,7 +377,7 @@ func splitMoves(startSFEN string, moves []string, player shogi.Color) (playerMov
 //
 // 저장 관점을 先手로 고정하는 것은 edges.eval_by_depth 와 같은 규약이다
 // (02-architecture.md §4). 대국마다 사람의 색이 달라지므로 「플레이어 관점」으로 적으면
-// 색이 다른 두 판을 나란히 못 놓는다.
+// 색이 다른 두 판을 함께 못 놓는다.
 func senteCp(moverCp int, mover shogi.Color) int {
 	if mover == shogi.Black {
 		return moverCp

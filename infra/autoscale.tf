@@ -14,7 +14,7 @@
 # 정책이 움직일 수 있는 폭.
 #
 # 아래가 0 이다. 한때 1 이었는데 그때는 이 티어만 큐를 집었다 — 지금은 상호작용 대가
-# SERVER_ROLE=both 로 겸하므로(ecs.tf) 0 이어도 아무도 안 집는 일이 없다(journal §125).
+# SERVER_ROLE=both 로 겸하므로(ecs.tf) 0 이어도 누구도 안 집는 일이 없다(journal §125).
 # 위는 var.analysis_max_instances 다.
 resource "aws_appautoscaling_target" "analysis" {
   service_namespace  = "ecs"
@@ -107,7 +107,7 @@ resource "aws_cloudwatch_metric_alarm" "analysis_idle" {
   comparison_operator = "LessThanThreshold"
 
   # 차원 둘을 다 적는다. EMF 가 Service·Environment 를 내므로 하나만 적으면 그런 계열이
-  # 없어서 알람이 「데이터 없음」으로 조용히 산다(alarms.tf 의 같은 함정).
+  # 없어서 알람이 「데이터 없음」으로 그대로 산다(alarms.tf 의 같은 함정).
   dimensions = { Service = "api", Environment = "prod" }
 
   alarm_actions = [aws_appautoscaling_policy.analysis_in.arn]

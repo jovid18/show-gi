@@ -26,7 +26,7 @@ export interface DropFrom {
 
 /**
  * 물러진 수를 판 위에서 되짚기 위한 것. 칸은 화면 배열 인덱스(0~80)로 받는다 —
- * 좌표 문자열을 여기서 다시 풀면 못 읽는 값에 판이 통째로 안 그려질 수 있다.
+ * 좌표 문자열을 여기서 다시 풀면 못 읽는 값에 판 전체가 안 그려질 수 있다.
  */
 export interface Replay {
   /** 출발 칸. 持ち駒를 둔 수(打)면 null. */
@@ -47,7 +47,7 @@ export interface LastMove {
  * 방금 그 화면에서 벌어진 한 수를 판 위에 그은 선.
  *
  * 판은 언제나 이 수를 둔 뒤의 국면이다. 그래서 이 선은 지금 화면에 대한 사실이다 —
- * 수순을 넘겨 보지 않고 한 판 위에 여러 수를 겹쳐 그으면 그 순간 거짓말이 된다.
+ * 수순을 넘겨 보지 않고 한 판 위에 여러 수를 겹쳐 그으면 그때 거짓말이 된다.
  * 실제로 「상대가 아직 손에 없는 駒를 놓는 수」를 그리고 있었다.
  */
 export interface Ray {
@@ -108,7 +108,7 @@ interface BoardProps {
    * 테두리는 다른 표면이라 색을 써도 그 체계를 흐리지 않는다(docs/01-core.md §7).
    *
    * 회상 중에는 0으로 받는다. 그때 판은 물러진 수의 국면이라, 지금 국면의 게이지를
-   * 거기에 얹으면 그 순간 거짓말이 된다 — 광선을 한 판 위에 겹쳐 긋지 않는 것과 같은 이유다.
+   * 거기에 얹으면 그때 거짓말이 된다 — 광선을 한 판 위에 겹쳐 긋지 않는 것과 같은 이유다.
    */
   mateHeat: number;
   /**
@@ -120,7 +120,7 @@ interface BoardProps {
    *
    * CSS로 돌리지 않는다. `transform` 을 쓰면 판 위의 자리를 재는 쪽이 전부 어긋난다 —
    * 打 화살표의 출발점은 변형 전의 배치 좌표를 재고 있고(`useDropAnchor`),
-   * 그게 이 판에서 유일하게 산수로 안 나오는 자리다. 대신 칸의 자리 번호만 뒤집으면
+   * 그게 이 판에서 오직 산수로 안 나오는 자리다. 대신 칸의 자리 번호만 뒤집으면
    * 배치는 그대로여서 재는 값이 계속 맞는다.
    */
   flipped: boolean;
@@ -129,7 +129,7 @@ interface BoardProps {
   interactive: boolean;
   /**
    * 착수음 스위치. 없으면 버튼이 안 나온다 — 되짚기에는 착수가 없어서 켤 것이 없다.
-   * 그늘 토글과 나란히 선다 — 판이 주는 손잡이가 한자리에 모인다(아래 `flip` 까지 셋).
+   * 그늘 토글과 함께 선다 — 판이 주는 손잡이가 한자리에 모인다(아래 `flip` 까지 셋).
    */
   sound?: { on: boolean; toggle: () => void };
   /**
@@ -328,7 +328,7 @@ export function Board({
           const label = `${FILES[index % BOARD_SIZE]}${RANKS[Math.floor(index / BOARD_SIZE)]}`;
           // 물러진 수가 지나간 두 칸. 도착 칸을 빼면 안 된다 — 打은 출발 칸이 없어서
           // 화살표가 아예 안 나가고(ReviewDetail 의 `retracted`), 그때 도착 칸 표식이
-          // 「어디에 놓으려 했나」를 짚는 유일한 것이다. 한 칸이 둘을 겸하는 수는 없다.
+          // 「어디에 놓으려 했나」를 짚는 하나뿐인 것이다. 한 칸이 둘을 겸하는 수는 없다.
           const mark = played?.from === index ? 'from' : played?.to === index ? 'to' : null;
           const last = lastMove?.to === index ? 'to' : lastMove?.from === index ? 'from' : undefined;
 

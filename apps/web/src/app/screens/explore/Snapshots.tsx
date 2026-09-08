@@ -43,7 +43,7 @@ export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) 
   if (unavailable) return null;
 
   // 로그인 안 한 사람에게는 한 줄만 남긴다. 검토 자체는 로그인 없이 돌므로(journal §100)
-  // 이 패널을 통째로 지우면 저장이 「없는 기능」으로 보인다 — 목록도 저장 칸도 안 그린다.
+  // 이 패널 전체를 지우면 저장이 「없는 기능」으로 보인다 — 목록도 저장 칸도 안 그린다.
   if (signedOut) {
     return (
       <section className="review-panel explore-snapshots" aria-label="保存した局面">

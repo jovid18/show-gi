@@ -157,7 +157,7 @@ function MateQuestion({ id, item }: { id: number; item: MateItem }) {
   const [mine, setMine] = useState<string[]>([]);
   /**
    * 이 문항을 몇 번 틀렸나. 「最初から」로 안 지워진다 — 지우면 세 번째 힌트에 영원히
-   * 못 닿는다(다시 풀려면 그 버튼을 누르는 것이 유일한 길이라, 그때마다 0으로 돌아간다).
+   * 못 닿는다(다시 풀려면 그 버튼을 누르는 것이 하나뿐인 길이라, 그때마다 0으로 돌아간다).
    */
   const [wrongs, setWrongs] = useState(0);
 
@@ -442,7 +442,7 @@ function QuizBoard({
    *
    * 여기 판의 手番으로 다시 세면 안 된다 — 문항이 끝난 뒤의 판은 상대 차례라, 그때
    * 駒台의 이름이 뒤집혀 자기 駒台가 `相手` 가 된다. 판을 안 뒤집으므로(아래) 그 이름이
-   * 누가 누구인지를 말하는 유일한 자리다(ReviewDetail 이 같은 이유로 `myColor` 를 쓴다).
+   * 누가 누구인지를 말하는 하나뿐인 자리다(ReviewDetail 이 같은 이유로 `myColor` 를 쓴다).
    */
   me: Side;
   legalMoves: readonly string[];

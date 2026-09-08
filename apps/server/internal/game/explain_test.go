@@ -19,7 +19,7 @@ func hangsPieceVerdict() intervene.Verdict {
 // 카드의 문장은 explain.Render 가 만든다. 세션이 문구를 직접 짓지 않는다.
 //
 // 갈라지면 같은 수가 대국 중과 되짚기에서 다른 이유로 나쁜 것이 되고, 그 사실이 아무
-// 에러도 내지 않는다 — 화면만 조용히 다른 말을 한다.
+// 에러도 내지 않는다 — 화면만 경고 없이 다른 말을 한다.
 func TestInterventionMessageComesFromRender(t *testing.T) {
 	facts := explain.Facts{
 		Kind: intervene.KindBlunder, Category: intervene.CategoryHangsPiece,

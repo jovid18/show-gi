@@ -116,7 +116,7 @@ func ParseSFEN(s string) (Position, error) {
 				return pos, fmt.Errorf("sfen: invalid piece in hand %q", string(ch))
 			}
 			// 한 벌보다 많은 수는 개수가 아니다. Hands 가 int8 이라 여기서 안 막으면
-			// 조용히 음수가 된다 — 200 이 −56 이 되고, 그 판은 Faults 를 통과하면서
+			// 경고 없이 음수가 된다 — 200 이 −56 이 되고, 그 판은 Faults 를 통과하면서
 			// 룰 엔진이 打 70개를 내주는데 엔진에는 「1장」이 나간다(journal §97).
 			if count > handComplement {
 				return pos, fmt.Errorf("sfen: %d %c in hand is more than one set", count, upper)
@@ -232,8 +232,8 @@ func (pos Position) RepetitionKey() string {
 // positions.sfen_key(001_init.sql)와 game_hints.sfen_key(010)가 같은 뜻이다.
 //
 // 부르는 쪽이 이걸 다시 만들지 않는다. 키를 각자 만들면 한 글자만 갈려도 히트율이
-// 0이 되고, 그건 에러 없이 조용히 느려지는 종류다. internal/archive 가 이것을 쓰고,
-// internal/game 도 같은 자를 쓴다 — 저 둘은 서로를 못 들여오므로 여기가 유일한 자리다.
+// 0이 되고, 그건 에러 없이 경고 없이 느려지는 종류다. internal/archive 가 이것을 쓰고,
+// internal/game 도 같은 자를 쓴다 — 저 둘은 서로를 못 들여오므로 여기가 하나뿐인 자리다.
 func PositionKey(pos Position) string {
 	sfen := pos.SFEN()
 	if i := strings.LastIndexByte(sfen, ' '); i > 0 {

@@ -60,7 +60,7 @@ var matchRejects = map[string]string{
 	"not_your_turn": "相手の手番です。",
 	"finished":      "対局はすでに終わっています。",
 	"bad_move":      "指し手の形式が正しくありません。",
-	// 방이 걷혔다. 아무도 안 들어온 채 30분이 지났거나, 방을 만든 사람이 그 뒤로
+	// 방이 걷혔다. 누구도 안 들어온 채 30분이 지났거나, 방을 만든 사람이 그 뒤로
 	// 방을 여럿 더 만들어 이 방이 밀려났다(match.openRoomsPerHost).
 	"room_closed": "この対局部屋は期限が切れました。",
 }
@@ -110,7 +110,7 @@ func (h *matchHandlerWS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	//
 	// 자리는 안 잡는다(Peek). 잡는 것은 업그레이드가 성공한 뒤다 — 여기서 잡으면
 	// 업그레이드가 실패했을 때(프록시가 헤더를 지웠다·창을 닫았다) 자리가 타 버리고,
-	// 그 방은 그때부터 아무도 못 들어가는데 방 주인 화면은 링크를 계속 광고한다.
+	// 그 방은 그때부터 누구도 못 들어가는데 방 주인 화면은 링크를 계속 광고한다.
 	if _, err := h.hub.Peek(roomID, s.UserID); err != nil {
 		notFound(w)
 		return

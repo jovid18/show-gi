@@ -14,7 +14,7 @@ import (
 // 재는 것은 「누구를 고르나」가 아니라 「두 번 고를 수 있나」다.
 //
 // 그런데 id 를 받아야 한다. 대기열은 표 하나에 사람마다 한 행이고 CI 는 패키지들을 같은 DB 에
-// 동시에 거는데, 아무나 집으면 이 테스트가 그 순간 대기열에 서 있던 남의 테스트 대기자를
+// 동시에 거는데, 아무나 집으면 이 테스트가 그때 대기열에 서 있던 남의 테스트 대기자를
 // 낚아채 간다 — 그쪽은 「짝이 안 잡혀야 한다」를 재고 있고, 그래서 그쪽만 빨개진다.
 func pairWith(roomID string, only int64) func(QueueWaiter, []QueueWaiter) (QueuePairing, bool) {
 	return func(_ QueueWaiter, candidates []QueueWaiter) (QueuePairing, bool) {
@@ -187,7 +187,7 @@ func TestMutualPairingSucceedsOnce(t *testing.T) {
 }
 
 // 다시 안 물어보는 사람은 대기열에서 빠지고, 안 찾아간 자리도 걷힌다. 대기열에 sweeper 가
-// 없으므로(journal §92) 이 문장이 유일한 청소다.
+// 없으므로(journal §92) 이 문장이 하나뿐인 청소다.
 func TestSweepDropsStaleRowsAndUnclaimedSeats(t *testing.T) {
 	s := open(t)
 	stale := owner(t, s, "stale")
@@ -208,7 +208,7 @@ func TestSweepDropsStaleRowsAndUnclaimedSeats(t *testing.T) {
 		t.Fatalf("자리 적기: %v", err)
 	}
 	// 두 사람의 시각을 과거로 밀어 둔다. 시계를 잡을 자리가 없으므로(now() 가 DB 안이다)
-	// 행을 직접 옮기는 것이 이 표를 늙게 하는 유일한 방법이다.
+	// 행을 직접 옮기는 것이 이 표를 늙게 하는 하나뿐인 방법이다.
 	if _, err := s.pool.Exec(t.Context(),
 		`UPDATE match_queue SET seen_at = now() - interval '1 hour' WHERE user_id = $1`, stale); err != nil {
 		t.Fatalf("seen_at 밀기: %v", err)
@@ -248,7 +248,7 @@ func TestSweepDropsStaleRowsAndUnclaimedSeats(t *testing.T) {
 	}
 }
 
-// 낡은 대기자는 후보가 아니다. 걷히기 전에도 그 사람은 이미 화면을 떠났다.
+// 오래된 대기자는 후보가 아니다. 걷히기 전에도 그 사람은 이미 화면을 떠났다.
 func TestStaleWaitersAreNotCandidates(t *testing.T) {
 	s := open(t)
 	gone := owner(t, s, "gone")

@@ -84,7 +84,7 @@ type plyJob struct {
 // judged 는 미리 재 둔 手 하나의 결과다.
 //
 // game.Judgement 를 그대로 안 든다. 그 안의 explain.Facts 가 태그 슬라이스를 드는데
-// 대인전에는 개입이 없어서 아무도 안 읽고, 판이 끝날 때까지 살려 두면 방마다 手数만큼
+// 대인전에는 개입이 없어서 누구도 안 읽고, 판이 끝날 때까지 살려 두면 방마다 手数만큼
 // 쌓인다.
 type judged struct {
 	before eval.Score
@@ -149,12 +149,12 @@ const backlogSampleInterval = 5 * time.Second
 
 // plyTTL 은 걷는 쪽이 안 돈 행을 얼마 뒤에 버릴 것인가다.
 //
-// 판이 비정상으로 끝나면 discard 가 안 돌고, 그때 남는 행이 이 표의 유일한 누수다.
+// 판이 비정상으로 끝나면 discard 가 안 돌고, 그때 남는 행이 이 표의 하나뿐인 누수다.
 // 한 판을 넉넉히 넘기는 값이어야 한다 — 두는 중인 판의 행을 걷으면 그 手를 판이
 // 끝날 때 다시 잰다.
 const plyTTL = 6 * time.Hour
 
-// sweepInterval 은 낡은 행을 걷는 주기다.
+// sweepInterval 은 오래된 행을 걷는 주기다.
 const sweepInterval = 30 * time.Minute
 
 // analysisJudgeDeadline 은 한 手를 재는 데 줄 최대 시간이다. 대국의 판정과 같은 값을
@@ -258,10 +258,10 @@ func (a *matchAnalyzer) watchBacklog(ctx context.Context) {
 
 // sampleBacklog 은 지금 밀린 양을 지표에 놓는다. 판도 手도 표가 든다.
 //
-// 못 세면 아무것도 안 놓는다. 낡은 값이 남는 쪽이고, 0으로 놓으면 그 순간
+// 못 세면 아무것도 안 놓는다. 오래된 값이 남는 쪽이고, 0으로 놓으면 그때
 // 「따라잡았다」로 읽혀 스케일 판단이 거꾸로 간다.
 //
-// 그 낡은 값이 이제 대수를 정한다(journal §124). 질의가 계속 실패하고 마지막 값이 1 이상이면
+// 그 오래된 값이 이제 대수를 정한다(journal §124). 질의가 계속 실패하고 마지막 값이 1 이상이면
 // 스케일 인이 안 걸려 대가 둘로 남는다 — 잃는 것이 요금이라 이쪽으로 기울여 둔다.
 //
 // 두 큐를 각각 센다. 手 몫은 미리 재는 큐의 안 잰 행이고, 판 몫은 끝난 판이 아직 안 잰
@@ -287,7 +287,7 @@ func (a *matchAnalyzer) sampleBacklog(ctx context.Context) {
 	a.analysis.SetBacklog(games, waiting+queued)
 }
 
-// sweepPlies 는 낡은 행을 걷는다. 집는 티어에서만 돈다(newMatchAnalyzer).
+// sweepPlies 는 오래된 행을 걷는다. 집는 티어에서만 돈다(newMatchAnalyzer).
 func (a *matchAnalyzer) sweepPlies(ctx context.Context) {
 	t := time.NewTicker(sweepInterval)
 	defer t.Stop()
@@ -324,7 +324,7 @@ func (a *matchAnalyzer) run(ctx context.Context) {
 			return
 		}
 		// 판 단위가 먼저다. 그쪽은 사람이 되짚기 화면에서 기다리는 큐고(analyzing)
-		// 미리 재는 것은 아무도 안 기다린다.
+		// 미리 재는 것은 누구도 안 기다린다.
 		if a.runOneJob(ctx) || a.measureOnePly(ctx, ahead) {
 			continue
 		}
@@ -428,14 +428,14 @@ func (a *matchAnalyzer) measureOnePly(ctx context.Context, analyst game.Analyst)
 
 // lookAhead 는 手 하나를 미리 재서 표에 남긴다.
 //
-// 실패는 조용히 끝낸다 — 판이 끝날 때 같은 手를 다시 재고, 판정을 남기는 자리는 거기다.
+// 실패는 경고 없이 끝낸다 — 판이 끝날 때 같은 手를 다시 재고, 판정을 남기는 자리는 거기다.
 //
 // 그만둔 판인지 여기서 안 본다. 집는 질의가 이미 그 행을 안 준다(query/analysis.sql).
 func (a *matchAnalyzer) lookAhead(ctx context.Context, analyst game.Analyst, p store.AnalysisPly) {
 	got, err := a.judgeOne(ctx, analyst, p.StartSFEN, p.Moves, p.Ply)
 	if err != nil {
 		// 프로세스가 멈추는 중이면 그만두지 않는다. 그 실패는 판의 성질이 아니라 우리
-		// 사정이고, 그만두면 배포 한 번이 그때 두고 있던 판들의 미리 재기를 통째로 끈다 —
+		// 사정이고, 그만두면 배포 한 번이 그때 두고 있던 판들의 미리 재기 전체를 끈다 —
 		// 그 판들은 手数만큼을 끝날 때 몰아서 재게 된다(journal §115).
 		//
 		// 手 하나의 시한은 여기 안 걸린다. 그쪽은 judge 가 자기 ctx 를 따로 두르므로
@@ -451,7 +451,7 @@ func (a *matchAnalyzer) lookAhead(ctx context.Context, analyst game.Analyst, p s
 // remember 는 잰 것을 그 手의 행에 적는다.
 //
 // 행이 없으면 안 적는다. 워커가 둘 이상이면 같은 판의 analyze 와 늦은 미리 재기가 겹치는데,
-// 걷힌 뒤에 도착한 쪽이 행을 다시 만들면 그 항목을 아무도 안 지운다 — 판마다 하나씩
+// 걷힌 뒤에 도착한 쪽이 행을 다시 만들면 그 항목을 누구도 안 지운다 — 판마다 하나씩
 // 샌다(journal §106). 행을 만드는 것은 세우는 쪽뿐이다(writePly).
 func (a *matchAnalyzer) remember(ctx context.Context, matchID string, got judged) {
 	err := a.store.FinishAnalysisPly(ctx, matchID, store.MeasuredPly{
@@ -553,7 +553,7 @@ func (a *matchAnalyzer) discard(ctx context.Context, matchID string) {
 	}
 }
 
-// hold 는 그 판을 큐에 세우되 아직 집히지 않게 둔다. 그 순간부터 「분석 중」이다.
+// hold 는 그 판을 큐에 세우되 아직 집히지 않게 둔다. 그때부터 「분석 중」이다.
 //
 // 자리가 다 차기 전에 서야 한다. 두 행의 번호는 따로 정해지는데(matchRecords.collect)
 // 화면은 자기 번호 하나만 알면 되짚기를 열 수 있다 — 다른 쪽 번호를 기다리는 사이에 열면
@@ -643,7 +643,7 @@ func gameIDsOf(seats []analysisSeat) []int64 {
 // 앞부분만 실력에 들어간다(analyze 의 ply < len(moves)). 긴 쪽을 고르는 것이 그 답이다.
 //
 // 구멍 난 행을 그냥 쓸 수는 없다. 부르는 쪽이 색인을 手数로 쓰는데 한 칸이 비면 그 뒤가
-// 전부 밀리고, 수순이 불법이 되는 것보다 手番이 조용히 뒤집히는 쪽이 나쁘다.
+// 전부 밀리고, 수순이 불법이 되는 것보다 手番이 경고 없이 뒤집히는 쪽이 나쁘다.
 //
 // 같은 길이면 앞 자리가 이긴다. 자리는 색으로 정렬돼 있어서(collect) 그 답이 실행마다
 // 달라지지 않는다.
@@ -787,7 +787,7 @@ func (a *matchAnalyzer) analyze(ctx context.Context, key string, seats []analysi
 			// 한 手 짧게 끝난 판과 같은 표본이다.
 			//
 			// 그 밖이면 남는 것이 더 긴 판의 앞부분뿐이고 그 구간이 체계적으로 쉬워서
-			// 낙폭이 낮게 나오므로, 통째로 버린다(journal §95).
+			// 낙폭이 낮게 나오므로, 전부 버린다(journal §95).
 			if ply <= skill.AnchorToPly && ply < len(moves) {
 				return metrics.AnalysisFailed
 			}
@@ -888,15 +888,15 @@ func moverAt(first shogi.Color, ply int) shogi.Color {
 // updateSkill 은 한 판에서 주운 手를 두 사람의 프로파일에 쌓는다.
 //
 // 판을 다 잰 뒤에 한 번에 읽고 쓴다. 지난 값 위에 얹는 읽기-쓰기라, 재는 동안(깊이
-// 12짜리 탐색 수백 번) 열어 두면 그 사이의 쓰기가 통째로 덮인다.
+// 12짜리 탐색 수백 번) 열어 두면 그 사이의 쓰기 전체가 덮인다.
 //
 // 그래서 읽은 값이 그대로일 때만 쓴다(SaveSkillEstimateIfSamples). 그냥 덮으면 그
-// 사이에 끝난 엔진 대국이 통째로 사라진다 — 그쪽은 세션이 끝나서 다시 쓸 일이 없다.
+// 사이에 끝난 엔진 대국 전체가 사라진다 — 그쪽은 세션이 끝나서 다시 쓸 일이 없다.
 //
 // 진 회차는 다시 읽어 얹는다. 手는 이미 손에 있으므로 엔진을 다시 안 부른다.
 //
 // 마지막 쓰기는 취소를 뗀다. 판을 다 잰 뒤에 오는 자리라, 여기서 끊기면 재느라 쓴
-// 탐색이 통째로 버려지고 그 판은 다시 재지지 않는다 — 기록기가 같은 이유로 쓰기에
+// 탐색 전체가 버려지고 그 판은 다시 재지지 않는다 — 기록기가 같은 이유로 쓰기에
 // 세션 ctx 를 안 쓴다(dbRecorder.run).
 //
 // 종료를 이겨내지는 못한다. 이 워커를 기다려 주는 자리가 없어서 풀이 먼저 닫히면
@@ -923,7 +923,7 @@ func (a *matchAnalyzer) updateSkill(ctx context.Context, seats []analysisSeat, b
 // 떼어냈으므로(updateSkill) 상한이 여기 하나뿐이다.
 //
 // 사람마다 따로 센다. 한 예산을 둘이 나눠 쓰면 DB가 굼뜬 날 앞사람이 다 쓰고 뒷사람이
-// 조용히 빠진다.
+// 경고 없이 빠진다.
 const skillWriteTimeout = 10 * time.Second
 
 // skillCASTries 는 얹기를 몇 번까지 다시 해 볼 것인가다.

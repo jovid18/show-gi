@@ -35,7 +35,7 @@ export interface ExploreRequest {
  *
  * 부호를 뒤집을 일이 없다. 되짚기는 사람이 上手일 수 있어 기준점이 플레이어 관점으로
  * 뒤집혀 오는데, 검토의 관점은 언제나 下手다(서버의 `exploreRoot`) — 駒落ち의 0手目는
- * 上手 차례이지만(journal §88) 관점은 그것과 무관하게 못박혀 있다.
+ * 上手 차례이지만(journal §88) 관점은 그것과 무관하게 고정돼 있다.
  */
 export interface ExploreNode extends WhatIfNode {
   /**

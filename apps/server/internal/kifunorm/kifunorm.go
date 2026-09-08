@@ -94,7 +94,7 @@ func (c *Client) Model() string {
 // Normalize 는 원문을 결정적 파서가 읽는 표기로 옮긴다.
 //
 // 실패·시한·스키마 위반이 전부 같은 결과다 — 거절. 반쯤 옮긴 것을 쓰면 사람이 둔 판의
-// 뒷부분이 조용히 없어진 기보가 되고, 그 위에서 평가치와 段級이 돈다.
+// 뒷부분이 경고 없이 없어진 기보가 되고, 그 위에서 평가치와 段級이 돈다.
 //
 // 한 번만 다시 해 본다. 5xx 와 끊긴 연결은 다음 번에 붙지만, 스키마를 어긴 응답은 다시
 // 물어도 같은 자리에서 같은 답이다.
@@ -145,7 +145,7 @@ func (c *Client) once(ctx context.Context, text string) (Result, bool, error) {
 	}
 	defer res.Body.Close()
 
-	// 응답을 통째로 읽되 상한을 건다. 여기서 무한정 읽으면 남의 서버가 이 프로세스의
+	// 응답 전체를 읽되 상한을 건다. 여기서 무한정 읽으면 남의 서버가 이 프로세스의
 	// 메모리를 정하게 된다.
 	raw, err := io.ReadAll(io.LimitReader(res.Body, 4<<20))
 	if err != nil {
@@ -162,7 +162,7 @@ func (c *Client) once(ctx context.Context, text string) (Result, bool, error) {
 		return Result{}, false, fmt.Errorf("kifunorm: decode: %w", err)
 	}
 	// 잘린 응답은 반쪽 기보다. 시한이나 토큰 상한에 걸린 자리이고, 그대로 쓰면 뒷부분이
-	// 조용히 없어진다.
+	// 경고 없이 없어진다.
 	if out.Status != "" && out.Status != "completed" {
 		return Result{}, false, fmt.Errorf("kifunorm: response %s", out.Status)
 	}

@@ -243,7 +243,7 @@ func (h *quizHandler) mate(w http.ResponseWriter, r *http.Request) {
 	}
 	out.DefenseJa = jaOfLine(q.Mate.SFEN, prog.Line, prog.Defense != "")
 	// 힌트는 정답이 성립하는 국면에서 만든다. prog.SFEN 은 오답이면 그 수만큼 나아가
-	// 있어서 거기서는 정답이 불법이고, 그러면 「무엇을 움직이나」가 통째로 빠진다
+	// 있어서 거기서는 정답이 불법이고, 그러면 「무엇을 움직이나」가 전부 빠진다
 	// (quiz.MateProgress.BestFrom).
 	if hinting(req.Attempt) && prog.Outcome == quiz.MateWrong {
 		out.Hint = originJa(prog.BestFrom, prog.Best)
@@ -288,7 +288,7 @@ type bestResponse struct {
 	// SFEN·Checked 는 그 수를 둔 뒤의 판이다. 못 만들었으면 빈 값이고, 그때 화면은 문제
 	// 국면을 그대로 만든다.
 	//
-	// 낸 수를 판에서 보여주는 유일한 길이다 — 화면은 규칙을 모르므로 스스로 한 수 둘 수 없다.
+	// 낸 수를 판에서 보여주는 하나뿐인 길이다 — 화면은 규칙을 모르므로 스스로 한 수 둘 수 없다.
 	// 打과 반상 이동이 갈리는 자리도 여기다: 출발 칸이 빈다는 것을 판이 그려야 「▲3五金」과
 	// 「▲3五金打」가 한 글자 차이인 것이 눈에 걸린다(회차 1 #18).
 	SFEN    string `json:"sfen,omitempty"`
@@ -518,7 +518,7 @@ func afterMove(sfen, usiMove string) (canon, ja, next, checked string) {
 // moveOriginJa 는 정답 수가 어디서 오는가다 — 「4六の金」 혹은 「持ち駒の金」.
 //
 // 낸 수와 같은 칸으로 가는 다른 수일 때만 채운다. 그때 두 표기는 打 한 글자로만 갈리고
-// (▲3五金 / ▲3五金打) 나란히 놓아도 사람은 같은 수로 읽는다 — 회차 1 #17이 그것이다.
+// (▲3五金 / ▲3五金打) 함께 놓아도 사람은 같은 수로 읽는다 — 회차 1 #17이 그것이다.
 // 칸이 다르면 표기가 이미 갈려 있으므로 덧붙이면 문장만 길어진다.
 func moveOriginJa(sfen, answer, played string) string {
 	a, err := shogi.ParseUSIMove(answer)

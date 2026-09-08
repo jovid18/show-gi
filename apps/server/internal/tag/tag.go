@@ -321,7 +321,7 @@ func senteRank(rank int, c shogi.Color) int {
 // 종반에 떠돌던 飛가 「中飛車」가 된다 — 값의 근거와 341판 실측, 남은 [미확정] 은
 // journal §44.
 //
-// 아래 비율(이름이 처음 붙은 手数가 20수보다 뒤인 판)만 §44 에 없어서 여기가 유일본이다:
+// 아래 비율(이름이 처음 붙은 手数가 20수보다 뒤인 판)만 §44 에 없어서 여기가 하나뿐인 기록이다:
 //
 //	shiken_bisha 43%  sanken_bisha 40%  kaku_gawari 65%
 //	naka_bisha 62%  migi_shiken_bisha 96%  ai_furibisha 95%
@@ -581,7 +581,7 @@ func rookOnStartFile(pos shogi.Position, c shogi.Color) bool {
 
 // All 은 정의된 모든 태그다. 기보 스캔과 테스트가 축을 가로질러 훑는 데 쓴다 —
 // 축마다 컨테이너가 다르므로(castles·formationByFile) 이 하나가 없으면 부르는 쪽마다
-// 목록이 두 벌이 되고, 태그를 하나 더할 때 그중 하나가 조용히 빠진다.
+// 목록이 두 벌이 되고, 태그를 하나 더할 때 그중 하나가 경고 없이 빠진다.
 func All() []Tag {
 	out := make([]Tag, 0, len(castles)+len(formationByFile)+1)
 	for _, sh := range castles {
@@ -595,7 +595,7 @@ func All() []Tag {
 	}
 	out = append(out, ibisha, kakuGawari, aiFuribisha, kakukanFuribisha)
 
-	// 手筋은 駒 종류로 이름이 갈린다. 순서를 못 박아 테스트 출력이 흔들리지 않게 한다.
+	// 手筋은 駒 종류로 이름이 갈린다. 순서를 고정해 테스트 출력이 흔들리지 않게 한다.
 	for _, pt := range []shogi.PieceType{shogi.Knight, shogi.Silver, shogi.Rook, shogi.Bishop} {
 		out = append(out, forkNames[pt])
 	}

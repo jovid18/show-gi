@@ -140,7 +140,7 @@ func (pos Position) Faults() []PositionFault {
 		color := Color(c)
 
 		// 玉은 양쪽에 하나씩이다. 없으면 InCheck 이 언제나 거짓이 되어 아래 王手
-		// 검사가 조용히 통과하고, 둘이면 엔진 쪽이 정의되어 있지 않다.
+		// 검사가 경고 없이 통과하고, 둘이면 엔진 쪽이 정의되어 있지 않다.
 		if n := kingCount(pos, color); n != 1 {
 			out = append(out, PositionFault{
 				Reason: PositionKingCount, Color: color, HasColor: true, Square: -1, Type: King, Count: n,

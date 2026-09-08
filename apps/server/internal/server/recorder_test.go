@@ -215,7 +215,7 @@ func TestRecordFillsEvalTrajectory(t *testing.T) {
 
 	// 한 수씩 응수를 기다리고 보낸다. 판정은 세션 밖 goroutine이라 사람의 수는
 	// 판정이 끝나기 전에 반환된다(state.playHuman). 응수를 안 기다리고 이어 보내면
-	// 판정 중에 도착한 수가 not_your_turn 으로 거절되고, 아무도 다시 보내지 않으니
+	// 판정 중에 도착한 수가 not_your_turn 으로 거절되고, 누구도 다시 보내지 않으니
 	// 그 뒤 국면이 영영 안 온다.
 	for i, u := range []string{"7g7f", "2g2f"} {
 		if err := wsjson.Write(ctx, conn, clientMsg{Type: "move", USI: u}); err != nil {

@@ -32,7 +32,7 @@ const (
 //
 // 번호를 들고 다니는 이유는 화면이다. 「読み取れませんでした」만으로는 사람이 자기
 // 기보의 어디를 고쳐야 하는지 모르고, 문자열에서 번호를 다시 뽑는 코드는 오류 문구를
-// 고치는 날 조용히 낡는다.
+// 고치는 날 경고 없이 어긋난다.
 type MoveError struct {
 	Ply  int
 	Text string
@@ -155,7 +155,7 @@ var ki2MoveRe = regexp.MustCompile(`[▲△▼▽]([^▲△▼▽\s]+)`)
 // (shogi.Position.ResolveOrigin) — 수식어로도 안 좁혀지면 실패하고 고르지 않는다.
 //
 // 표식이 手番과 어긋나면 실패한다. 수가 빠졌거나 分岐가 섞인 자리이고, 그대로 읽으면
-// 남은 수순이 통째로 다른 판이 되는데 합법수라 ValidateMove 는 안 잡는다.
+// 남은 수순 전체가 다른 판이 되는데 합법수라 ValidateMove 는 안 잡는다.
 func ParseKI2(input string) (ParsedGame, error) {
 	g := ParsedGame{StartSFEN: shogi.StartSFEN}
 	pos := shogi.StartPosition()
@@ -185,7 +185,7 @@ func ParseKI2(input string) (ParsedGame, error) {
 			g.Gote = v
 			continue
 		}
-		// 分岐는 안 읽는다. 본선에 이어 붙이면 그 뒤가 통째로 다른 판이 된다.
+		// 分岐는 안 읽는다. 본선에 이어 붙이면 그 뒤 전체가 다른 판이 된다.
 		if strings.HasPrefix(line, "変化") {
 			break
 		}
@@ -255,7 +255,7 @@ func ParsePlain(input string) (ParsedGame, error) {
 // ParseMoves 는 手 하나씩 떨어진 표기 목록을 읽는다. 정규화 계층이 내는 모양이다
 // (internal/kifunorm).
 //
-// 여기가 정규화 계층의 출력이 수가 되는 유일한 문이다. 낱말 하나하나가 룰 엔진을
+// 여기가 정규화 계층의 출력이 수가 되는 하나뿐인 문이다. 낱말 하나하나가 룰 엔진을
 // 지나므로, 옮겨 적는 쪽이 지어낸 것은 여기서 걸린다.
 //
 // 手番은 국면이 든다 — 표식(▲△)이 없어도 되고, 붙어 있으면 떼고 읽는다. 手가 하나 빠지면

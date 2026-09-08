@@ -4,7 +4,7 @@
 # 달라져서 「지난번보다 나아졌나」를 말할 수 없다 — 같은 화면이 떠야 그 물음이 성립한다.
 #
 # 지표 이름은 EMF 가 내는 것과 맞춰야 한다(internal/metrics 의 collect). 어긋나면 위젯이
-# 「데이터 없음」으로 조용히 비고, 알람과 달리 아무도 안 알려준다.
+# 「데이터 없음」으로 경고 없이 비고, 알람과 달리 누구도 안 알려준다.
 #
 # 대시보드 3개까지 무료다. 하나로 두는 것은 그 한도 때문이 아니라, 회차 중에 볼 화면이
 # 둘이면 사람이 둘 다 안 보기 때문이다.
@@ -83,7 +83,7 @@ resource "aws_cloudwatch_dashboard" "main" {
           metrics = [
             concat(["show-gi", "AnalysisBacklogPlies"], local.dash_dims, [{ stat = "Maximum", label = "밀린 手" }]),
             concat(["show-gi", "AnalysisGamesDropped"], local.dash_dims, [{ stat = "Sum", label = "버려진 판", yAxis = "right" }]),
-            # 상대의 수를 시한 안에 못 얻어 접은 판. 부하 회차에서 서버가 무너지는 신호가
+            # 상대의 수를 시한 안에 못 얻어 접은 판. 부하 회차에서 서버가 버티지 못하는 신호가
             # 이것이고, games.result 로는 셀 수 없다(journal §104).
             concat(["show-gi", "GamesAborted"], local.dash_dims, [{ stat = "Sum", label = "中断된 판", yAxis = "right" }]),
           ]

@@ -108,7 +108,7 @@ func TestStartRedirectsToGoogle(t *testing.T) {
 }
 
 // state 가 안 맞는 콜백은 우리가 시작하지 않은 것이다 — 남의 계정으로 로그인시키는
-// 공격이 정확히 이 모양으로 온다. 세션을 굽지 않고 조용히 화면으로 돌려보낸다.
+// 공격이 정확히 이 모양으로 온다. 세션을 굽지 않고 경고 없이 화면으로 돌려보낸다.
 func TestCallbackRejectsStateMismatch(t *testing.T) {
 	h := signedInHandler()
 
@@ -274,7 +274,7 @@ func TestOwnerFollowsTheSession(t *testing.T) {
 	}
 }
 
-// 로그인이 없는 배포에서도 되짚기는 돌아야 한다. nil 핸들러에서 죽으면 그 순간
+// 로그인이 없는 배포에서도 되짚기는 돌아야 한다. nil 핸들러에서 죽으면 그때
 // /api/games 가 500이 된다.
 func TestOwnerOnNilHandler(t *testing.T) {
 	var h *authHandler

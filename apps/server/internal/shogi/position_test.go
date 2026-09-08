@@ -6,7 +6,7 @@ import (
 )
 
 // 성립하는 국면에서는 사유가 하나도 안 나와야 한다. 여기가 새면 확인 화면이 정상인
-// 판을 거절하고, 그건 기능이 통째로 안 되는 것과 같다.
+// 판을 거절하고, 그건 기능 전체가 안 되는 것과 같다.
 func TestFaultsAcceptsRealPositions(t *testing.T) {
 	cases := map[string]string{
 		"平手 초기 국면": "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1",
@@ -122,7 +122,7 @@ func TestFaultsReportsEveryProblemAtOnce(t *testing.T) {
 	}
 }
 
-// 玉이 없는 판에서 王手 검사가 조용히 통과하면 안 된다 — KingSquare 가 -1을 주고
+// 玉이 없는 판에서 王手 검사가 경고 없이 통과하면 안 된다 — KingSquare 가 -1을 주고
 // InCheck 이 언제나 거짓이라, 그 거짓이 「王手가 없다」로 읽힌다.
 func TestFaultsDoesNotAskAboutCheckWithoutAKing(t *testing.T) {
 	pos, err := ParseSFEN("9/9/9/9/9/9/9/9/4KR3 b - 1")
@@ -204,7 +204,7 @@ func faultErrors(faults []PositionFault) []string {
 	return out
 }
 
-// 持ち駒 수가 Hands 의 int8 을 넘으면 조용히 음수가 된다. 그 판은 예전에 Faults 를
+// 持ち駒 수가 Hands 의 int8 을 넘으면 경고 없이 음수가 된다. 그 판은 예전에 Faults 를
 // 통과하면서 movegen 이 打을 만들어 냈고(== 0 만 본다), 엔진에는 다시 직렬화한
 // 「1장」이 나갔다 — 룰 엔진과 엔진이 다른 판을 보게 된다. 셀프리뷰가 잡았다.
 func TestParseSFENRefusesAHandThatCannotFit(t *testing.T) {

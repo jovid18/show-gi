@@ -31,7 +31,7 @@ export function Waiting({
   }
 
   const url = `${window.location.origin}/rooms/${roomId}`;
-  // 끊긴 것을 조용히 넘기지 않는다. 대국이 시작되기 전에도 끊길 수 있고(배포·네트워크·
+  // 끊긴 것을 경고 없이 넘기지 않는다. 대국이 시작되기 전에도 끊길 수 있고(배포·네트워크·
   // 방 만료), 그대로 두면 이 화면이 이미 죽은 링크를 계속 광고한다(journal §83).
   const dropped = connection === 'closed';
 

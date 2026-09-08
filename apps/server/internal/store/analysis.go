@@ -166,7 +166,7 @@ func (s *Store) DiscardAnalysisMatch(ctx context.Context, matchID string) error 
 }
 
 // SweepAnalysisPlies 는 그 시각보다 오래된 행을 걷는다. 판이 비정상으로 끝나 걷는 쪽이
-// 안 돌았을 때 남는 행이 이 표의 유일한 누수다.
+// 안 돌았을 때 남는 행이 이 표의 하나뿐인 누수다.
 func (s *Store) SweepAnalysisPlies(ctx context.Context, before time.Time) error {
 	if err := s.q.SweepAnalysisPlies(ctx, stamp(before)); err != nil {
 		return fmt.Errorf("sweep analysis plies: %w", err)

@@ -7,7 +7,7 @@ import (
 )
 
 // 反駁手順의 재료는 전부 룰 엔진에서 나온다. 엔진 없이 도는 테스트여야 한다 —
-// 이 레포에서 제일 흔한 함정이 「환경변수가 없으면 조용히 skip 되고 초록으로 보인다」이고,
+// 이 레포에서 제일 흔한 함정이 「환경변수가 없으면 경고 없이 skip 되고 초록으로 보인다」이고,
 // 화면에 그대로 나가는 표기가 거기 걸리면 안 된다(journal §15).
 
 // 5四에서 駒를 주고받는 국면. 사람이 銀으로 歩를 따면 金이 되딸 수 있다.
@@ -134,7 +134,7 @@ const doubleCheckKifu = `▲7六歩 △5二玉 ▲6六歩 △4二銀 ▲2六歩 
 // 王手라 玉을 움직일 수밖에 없다. 붉은 화살표 두 줄이 곧 그 사실이다.
 //
 // 엔진 없이 돈다. 王手를 거는 말을 찾는 것은 룰 엔진의 일이고, 화면에 나가는 단언이라
-// 환경변수가 없으면 조용히 skip 되는 자리에 두지 않는다.
+// 환경변수가 없으면 경고 없이 skip 되는 자리에 두지 않는다.
 func TestCheckLinesFindsBothCheckersOfADoubleCheck(t *testing.T) {
 	usis, _ := kifuToUSI(t, doubleCheckKifu)
 
@@ -203,7 +203,7 @@ func assertLine(t *testing.T, got, want []RefutationMove) {
 		if m.USI != want[i].USI || m.Ja != want[i].Ja || m.By != want[i].By {
 			t.Errorf("%d번째 수 %+v, 기대 %+v", i, m, want[i])
 		}
-		// 화면이 이 값으로 판을 그린다. 비어 있으면 넘기기가 통째로 안 된다.
+		// 화면이 이 값으로 판을 그린다. 비어 있으면 넘기기 전체가 안 된다.
 		if m.SFEN == "" {
 			t.Errorf("%d번째 수(%s)에 국면이 없다", i, m.USI)
 		}

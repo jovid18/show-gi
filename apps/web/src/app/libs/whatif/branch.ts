@@ -67,7 +67,7 @@ export function evalText(cp: number): string {
  *
  * 후보 셋 밖의 수다. 값은 그 수를 둔 뒤의 국면을 서버가 재서 온 것이고, 여기서는
  * 그 수를 둔 쪽 관점으로 뒤집혀 있다 — 후보(`WhatIfCandidate.evalCp`)와 같은 자를
- * 써야 한 줄에 나란히 설 수 있다.
+ * 써야 한 줄에 함께 설 수 있다.
  *
  * 들고 있는 것은 화면뿐이다. 새로고침하면 사라진다 — 대국의 사실이 아니라 그 사람이
  * 지금 무엇을 궁금해했는가라서, 남길 자리가 없다. 잰 값 자체는 서버가 이미 `positions` 에
@@ -121,7 +121,7 @@ export function evalTone(cp: number | undefined, base = 0): string {
  * 그 자리의 값 한 줄.
  *
  * 詰み은 cp로 말하지 않는다. 서버가 그때 `cp` 를 아예 안 보내고, 억지로 환산해 봐야
- * 초심자에게 큰 숫자는 아무것도 아니다 — 「몇 手で詰み」이 그 자리에서 유일하게 뜻이 있다.
+ * 초심자에게 큰 숫자는 아무것도 아니다 — 「몇 手で詰み」이 그 자리에서 오직 뜻이 있다.
  */
 export function scoreJa(cp: number | undefined, mateIn?: number): string {
   if (mateIn) {
@@ -136,7 +136,7 @@ export function scoreJa(cp: number | undefined, mateIn?: number): string {
  *
  * `ExploredMove` 와 `WhatIfCandidate` 가 이 모양을 만족한다. 두 화면(대국 중의 블런더 목록과
  * 되짚기의 「この局面で指せた手」)이 같은 목록이라 부호 규칙도 한 벌이어야 한다 — 두 벌이면
- * 한쪽을 고칠 때 다른 쪽이 조용히 낡는다.
+ * 한쪽을 고칠 때 다른 쪽이 경고 없이 어긋난다.
  */
 export interface MoverScore {
   cp: number | undefined;
@@ -161,7 +161,7 @@ export function rowScoreJa(row: MoverScore, byOpponent: boolean): string {
  * 같은 일이다(branch.go).
  *
  * 詰み은 색으로 말하지 않는다. 그 줄에는 얹을 cp 자체가 없고, 「몇 手で詰み」이 이미
- * 그 줄에서 유일하게 뜻이 있는 말이다.
+ * 그 줄에서 오직 뜻이 있는 말이다.
  */
 export function playerCp(row: MoverScore, byOpponent: boolean): number | undefined {
   if (row.mateIn || row.cp === undefined) return undefined;

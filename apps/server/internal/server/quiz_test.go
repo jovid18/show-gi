@@ -46,7 +46,7 @@ func TestQuizInputCarriesColorAndResult(t *testing.T) {
 
 func TestQuizInputStopsAtAHoleInTheKifu(t *testing.T) {
 	// 기록은 큐가 넘치면 이벤트를 버린다(recorder.go). 구멍을 무시하고 이어 담으면 그 뒤가
-	// 통째로 밀려서, 문항이 한 번도 벌어지지 않은 국면을 가리킨다.
+	// 전부 밀려서, 문항이 한 번도 벌어지지 않은 국면을 가리킨다.
 	rec := quizRecord("b", store.ResultLoss,
 		move(1, "7g7f", cpOf(30)),
 		move(2, "3c3d", cpOf(20)),
@@ -83,7 +83,7 @@ func TestQuizInputEvalsLineUpWithMoves(t *testing.T) {
 }
 
 func TestQuizInputFlipsEvalsForWhite(t *testing.T) {
-	// DB는 先手 관점이다. 안 뒤집으면 後手로 둔 판의 낙폭이 통째로 반대가 된다.
+	// DB는 先手 관점이다. 안 뒤집으면 後手로 둔 판의 낙폭 전체가 반대가 된다.
 	rec := quizRecord("w", store.ResultLoss, move(1, "7g7f", cpOf(120)))
 	in := quizInput(rec)
 
@@ -336,7 +336,7 @@ func TestWithOriginKeepsTheNotationWhenThereIsNothingToAdd(t *testing.T) {
 }
 
 func TestJaAtLeavesUnreadableMovesEmpty(t *testing.T) {
-	// 표기가 없어도 수는 사실이다. 여기서 죽으면 채점 응답이 통째로 500이 된다.
+	// 표기가 없어도 수는 사실이다. 여기서 죽으면 채점 응답 전체가 500이 된다.
 	if got := jaAt(shogi.StartSFEN, "1a1b", -1); got != "" {
 		t.Errorf("ja = %q, want empty for an illegal move", got)
 	}
@@ -397,7 +397,7 @@ func TestLineStopsInsteadOfFailing(t *testing.T) {
 	}
 }
 
-// 옛 판에는 이 칸이 없다. 그때 화면이 그 줄을 통째로 안 그린다.
+// 옛 판에는 이 칸이 없다. 그때 화면이 그 줄 전체를 안 그린다.
 func TestNoLineForOlderQuizzes(t *testing.T) {
 	pos := shogi.StartPosition()
 	if got := lineFrom(pos.SFEN(), "7g7f", nil); got != nil {

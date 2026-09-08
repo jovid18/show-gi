@@ -200,7 +200,7 @@ func TestBaselineRestoresTheJudgementInKomaochi(t *testing.T) {
 
 // TestBaselineIsANoOpAtHirate 는 平手(기준점 0)의 낙폭이 옛 식과 한 비트도 다르지 않은지를
 // 본다. 265시도 재채점(journal §39)이 그 좌표에서 나왔으므로, 여기가 흔들리면 그 측정이
-// 통째로 다른 기준의 것이 된다.
+// 전부 다른 기준의 것이 된다.
 //
 // 옛 식을 여기 적어 두는 것이 이 테스트다. 「기준점 0을 넣은 것과 안 넣은 것이 같다」로
 // 쓰면 둘 다 0이라 아무것도 확인하지 않는다 — 두 항 중 한쪽에만 기준점을 빼는 버그가

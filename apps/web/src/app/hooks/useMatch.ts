@@ -77,7 +77,7 @@ export function useMatch(roomId: string): MatchState {
         setRoom(msg.room);
       } else if (msg.type === 'record') {
         // 번호인지 보고 받는다. 이 값이 「振り返り」 링크의 주소가 되므로, 숫자가
-        // 아닌 것이 오면 그대로 경로가 된다 — 여기가 그 유일한 문이다.
+        // 아닌 것이 오면 그대로 경로가 된다 — 여기가 그 하나뿐인 문이다.
         if (Number.isInteger(msg.gameId) && msg.gameId > 0) setGameId(msg.gameId);
       } else if (msg.type === 'error') {
         setRejection(msg.message);

@@ -101,7 +101,7 @@ type importPreview struct {
 	// 「AI が書式を読み取りました」를 한 줄 붙인다 — 사람이 확인할 수 있게 하는 것이
 	// 지어내기에 대한 두 번째 방어다(첫 번째는 룰 엔진의 전수 검증).
 	Transcribed bool `json:"transcribed"`
-	// Head·Tail 은 棋譜 표기의 앞뒤다. 사람이 자기 판인지 알아보는 유일한 단서다.
+	// Head·Tail 은 棋譜 표기의 앞뒤다. 사람이 자기 판인지 알아보는 하나뿐인 단서다.
 	Head []string `json:"head"`
 	Tail []string `json:"tail,omitempty"`
 }
@@ -235,7 +235,7 @@ func (h *kifuHandler) read(ctx context.Context, userID int64, text string) (kifu
 
 // replay 는 옮겨 적은 표기를 룰 엔진으로 지나 판을 만든다.
 //
-// 여기가 정규화 계층의 출력이 수가 되는 유일한 문이다. 캐시에서 온 것도 같은 문을
+// 여기가 정규화 계층의 출력이 수가 되는 하나뿐인 문이다. 캐시에서 온 것도 같은 문을
 // 지난다 — 옮겨 적은 글자를 들고 있는 것이고, 수를 들고 있는 것이 아니다.
 //
 // 오류는 룰 엔진의 것을 그대로 돌려준다. 「몇 手目가 이상한가」를 아는 것이 그쪽이다.
@@ -366,7 +366,7 @@ func writeImportError(w http.ResponseWriter, err error) {
 }
 
 // jaMoveError 는 몇 手目에서 멈췄는지를 말한다. 「そこまでは読めた」를 같이 말하는 것이
-// 사람이 고칠 자리를 찾는 유일한 단서다.
+// 사람이 고칠 자리를 찾는 하나뿐인 단서다.
 func jaMoveError(ply int) string {
 	return fmt.Sprintf("%d手目を読み取れませんでした。その手の書き方をご確認ください。", ply)
 }
@@ -446,7 +446,7 @@ func resultFromWord(v string) kifu.GameResult {
 }
 
 // importedResultOf 는 기록에 적을 결과를 정한다. games.result 는 주인 관점이라 기보의
-// 先手/後手 승패를 자리로 뒤집는다 — 안 뒤집으면 後手로 둔 판의 승패가 통째로 반대가 된다.
+// 先手/後手 승패를 자리로 뒤집는다 — 안 뒤집으면 後手로 둔 판의 승패 전체가 반대가 된다.
 //
 // 기보가 말하면 그쪽이 이긴다. 사람이 자기 승패를 잘못 고르는 것보다 기록이 맞고,
 // 안 말할 때만 사람이 고른 값을 쓴다.

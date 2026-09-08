@@ -84,7 +84,7 @@ func parseFile(r rune) (int, bool) {
 // headerValue 는 「先手：名前」 같은 헤더 줄에서 값을 떼어 낸다.
 //
 // 콜론이 두 가지다. 전각(：)이 KIF 의 것이지만 반각(:)으로 쓰는 도구가 있고, 어느 쪽이든
-// 못 읽으면 그 줄이 통째로 없는 것이 된다.
+// 못 읽으면 그 줄 전체가 없는 것이 된다.
 func headerValue(line, key string) (string, bool) {
 	if !strings.HasPrefix(line, key) {
 		return "", false
@@ -109,7 +109,7 @@ func headerName(line string, keys ...string) (string, bool) {
 }
 
 // startOf 는 手合割 이름으로 0手目를 만든다. 이름을 모르면 실패한다 — 모르는 手合을
-// 平手로 읽으면 첫 수부터 반칙이 되고, 그 오류가 手合 때문이라는 것을 아무도 못 본다.
+// 平手로 읽으면 첫 수부터 반칙이 되고, 그 오류가 手合 때문이라는 것을 누구도 못 본다.
 func startOf(name string) (shogi.Position, string, error) {
 	if name == "" || name == "平手" {
 		return shogi.StartPosition(), shogi.StartSFEN, nil
@@ -272,10 +272,10 @@ func parseKIFMove(text string, pos shogi.Position, prevTo int) (shogi.Move, erro
 		idx++
 	}
 
-	// 수식어(右左直寄引上)를 먼저 걷는다. 成 을 먼저 보면 「３三銀右成」에서 승격이 조용히
+	// 수식어(右左直寄引上)를 먼저 걷는다. 成 을 먼저 보면 「３三銀右成」에서 승격이 경고 없이
 	// 빠지고, 결과가 합법수라 ValidateMove 도 안 잡는다.
 	//
-	// 걷은 것을 버리지 않는다 — 원위치가 안 적힌 표기에서는 이것이 출발칸을 정하는 유일한 단서다.
+	// 걷은 것을 버리지 않는다 — 원위치가 안 적힌 표기에서는 이것이 출발칸을 정하는 하나뿐인 단서다.
 	modStart := idx
 	for idx < len(runes) && shogi.IsOriginModifier(runes[idx]) {
 		idx++

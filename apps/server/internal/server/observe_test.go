@@ -118,7 +118,7 @@ func TestUnmatchedRoutesShareOneLabel(t *testing.T) {
 }
 
 // 업그레이드가 지연 분포에 들어가면 안 된다. 대국 한 판이 분 단위라 다른 경로의
-// 백분위를 통째로 못 읽게 만든다.
+// 백분위 전체를 못 읽게 만든다.
 func TestUpgradeIsCountedButNotTimed(t *testing.T) {
 	reg := metrics.New("api", "test")
 	opts := Options{

@@ -16,7 +16,7 @@ import (
 const Provider = "google"
 
 // 엔드포인트는 상수로 둔다. Google의 discovery 문서를 매번 읽어 오는 쪽이 정석이지만,
-// 그건 기동할 때마다 외부 호출이 하나 더 생기고 그 호출이 실패하면 로그인이 통째로
+// 그건 기동할 때마다 외부 호출이 하나 더 생기고 그 호출이 실패하면 로그인 전체가
 // 꺼진다 — 이 주소들은 10년 넘게 그대로다.
 const (
 	authEndpoint  = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -38,7 +38,7 @@ type Google struct {
 }
 
 // NewGoogle 은 클라이언트를 만든다. 둘 중 하나라도 비면 nil이다 — 그러면 로그인
-// 표면이 통째로 꺼지고 익명 대국으로 남는다. 엔진·DB가 없을 때와 같은 판단이다.
+// 표면 전체가 꺼지고 익명 대국으로 남는다. 엔진·DB가 없을 때와 같은 판단이다.
 //
 // 자리표시자 unset 도 빈 것으로 본다. SSM이 빈 문자열을 거부해서 아직 발급되지
 // 않은 키가 그 값으로 들어가 있고(06-status.md §3), 그대로 켜면 로그인 버튼이
@@ -72,7 +72,7 @@ func (g *Google) AuthURL(redirectURI, state string) string {
 		// 받아 두면 보관 의무만 생긴다.
 		"access_type": {"online"},
 		// 계정이 여럿인 사람이 어느 계정인지 고를 수 있어야 한다. 없으면 브라우저에
-		// 로그인된 첫 계정으로 조용히 지나간다.
+		// 로그인된 첫 계정으로 경고 없이 지나간다.
 		"prompt": {"select_account"},
 	}
 	return authEndpoint + "?" + q.Encode()
@@ -146,7 +146,7 @@ func (g *Google) Exchange(ctx context.Context, code, redirectURI string) (Identi
 //
 // 서명을 검증하지 않는다. 이 토큰은 브라우저를 거치지 않고 우리가 방금 TLS로
 // 직접 부른 Google의 토큰 엔드포인트에서 왔다 — 가운데에 낄 수 있는 것이 없으므로
-// 검증할 것이 없고, Google 문서도 그 경우를 예외로 못 박아 둔다. 브라우저가 들고 온
+// 검증할 것이 없고, Google 문서도 그 경우를 예외로 고정해 둔다. 브라우저가 들고 온
 // 토큰이었다면 이야기가 정반대다.
 //
 // 그래서 JWT 라이브러리를 끌어오지 않는다. 여기서 하는 일은 base64 한 번과 JSON

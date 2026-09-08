@@ -104,7 +104,7 @@ func TestNoEvalsMeansNoTesujiName(t *testing.T) {
 	}
 }
 
-// 임계치의 양쪽을 못 박는다. 값이 [미확정]이라 언젠가 움직이는데, 비교 방향이
+// 임계치의 양쪽을 확인한다. 값이 [미확정]이라 언젠가 움직이는데, 비교 방향이
 // 뒤집히는 것은 값을 고르는 일과 다른 종류의 버그다.
 func TestTesujiGateComparesAgainstTheLossLimit(t *testing.T) {
 	before, after := forkPositions(t, forkStart, forkMove)
@@ -191,7 +191,7 @@ func TestTesujiNameDoesNotOutliveItsPosition(t *testing.T) {
 	}
 
 	// 그리고 물러진 수는 이름을 만들지 않는다. 되물러도 両取り는 서 있는 국면이라,
-	// 낡은 이름이 남으면 여기서 다시 뜬다.
+	// 오래된 이름이 남으면 여기서 다시 뜬다.
 	an.verdict = blunder()
 	if _, err := s.Play(t.Context(), "1i2i"); err != nil {
 		t.Fatalf("두 번째 Play: %v", err)
@@ -206,7 +206,7 @@ func TestTesujiNameDoesNotOutliveItsPosition(t *testing.T) {
 // 룰 층은 셋 다 이름을 내고, 통과시킬지는 우리 코드가 아니라 水匠5가 읽는다.
 //
 // 손으로 쓴 1수 읽기를 지운 PR이라 여기가 첫 관문이다 — go test ./... 만으로는
-// 이 테스트가 조용히 skip 되고 초록으로 보인다(apps/server/README.md 「테스트」 ③).
+// 이 테스트가 경고 없이 skip 되고 초록으로 보인다(apps/server/README.md 「테스트」 ③).
 //
 // 실전 국면으로 잰다. 駒를 몇 개만 놓은 국면에서는 평가치를 못 쓴다(journal §34) —
 // 그래서 마지막 하나만 인공 국면이고, 그것은 떨어지는 쪽이다.

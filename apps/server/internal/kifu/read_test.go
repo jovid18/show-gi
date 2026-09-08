@@ -90,7 +90,7 @@ func TestRenderedNotationReadsBack_Floodgate(t *testing.T) {
 	}
 }
 
-// 수식어가 안 좁히면 고르지 않는다. 골라 버리면 그 뒤가 통째로 다른 판이 되는데
+// 수식어가 안 좁히면 고르지 않는다. 골라 버리면 그 뒤 전체가 다른 판이 되는데
 // 합법수라 ValidateMove 도 안 잡는다.
 func TestAmbiguousNotationIsRefused(t *testing.T) {
 	// 6八金과 4八金이 둘 다 5八로 갈 수 있다. 「5八金」만으로는 어느 쪽인지 안 정해진다.
@@ -111,7 +111,7 @@ func TestAmbiguousNotationIsRefused(t *testing.T) {
 	}
 }
 
-// 수식어가 成 앞에 오는 표기. 이걸 못 읽으면 승격이 조용히 빠지고, 남는 수가 합법수라
+// 수식어가 成 앞에 오는 표기. 이걸 못 읽으면 승격이 경고 없이 빠지고, 남는 수가 합법수라
 // ValidateMove 도 안 잡는다.
 func TestModifierBeforePromotion(t *testing.T) {
 	// 7三銀과 5三銀이 둘 다 6二로 갈 수 있고, 6二는 成れる 자리다.
@@ -187,7 +187,7 @@ func TestHandicapHeaderSetsTheStart(t *testing.T) {
 }
 
 // 모르는 手合을 平手로 읽으면 첫 수부터 반칙이 되고, 그 오류가 手合 때문이라는 것을
-// 아무도 못 본다.
+// 누구도 못 본다.
 func TestUnknownHandicapIsRefused(t *testing.T) {
 	if _, err := ParseKIF("手合割：八枚落ち\n   1 ３四歩(33)\n"); err == nil {
 		t.Fatal("accepted a handicap that is not in the table")
@@ -235,7 +235,7 @@ func TestReadRefusesJunk(t *testing.T) {
 }
 
 // 몇 手目에서 깨졌는지가 화면에 나간다. 문구에서 번호를 다시 뽑는 코드는 오류 문구를
-// 고치는 날 조용히 낡는다.
+// 고치는 날 경고 없이 어긋난다.
 func TestReadSaysWhichMoveBroke(t *testing.T) {
 	_, _, err := Read("▲7六歩 △3四歩 ▲9九玉")
 	var me *MoveError

@@ -39,7 +39,7 @@ func NewWorkerFrom(ctx context.Context, start Estimate, onChange func(Estimate))
 	w := &Worker{
 		in: make(chan Move, queueSize),
 		// 버퍼 1 + 최신 값만 남긴다(push). 밴드는 「지금 얼마나 헤매는가」로 정하는 것이라
-		// 낡은 추정치를 순서대로 읽게 하면 한 수 늦은 값으로 상대를 고르게 된다.
+		// 오래된 추정치를 순서대로 읽게 하면 한 수 늦은 값으로 상대를 고르게 된다.
 		out: make(chan Estimate, 1),
 	}
 	go w.run(ctx, start, onChange)

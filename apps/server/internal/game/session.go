@@ -197,7 +197,7 @@ var ErrNoHint = errors.New("game: no hint available")
 //
 // 갇힘 힌트가 「최선수를 보여주지 않는다」(01-core.md §1)의 예외인 근거는 다섯 번
 // 실패해야 열려서 기댈 수 없다는 것이었다. 부르는 힌트는 기댈 수 있으므로 그 자리를
-// 예산이 대신 맡는다 — 한 국면의 답을 통째로 보려면 두 번을 쓰므로 한 판에 최대
+// 예산이 대신 맡는다 — 한 국면의 답 전체를 보려면 두 번을 쓰므로 한 판에 최대
 // 세 수까지다.
 //
 // [미확정] 6은 사람이 고른 값이다. 근거는 journal §78.
@@ -208,7 +208,7 @@ const HintMaxPerGame = 6
 const HintStageMax = 2
 
 // 대국 중 엔진 탐색에 거는 시한이다. 자를 시간이 아니라 버릴 시점이다 — 깊이 기반이라
-// 중간 결과는 depth N 결과가 아니고, 넘기면 통째로 버린다(usi.Engine.SearchDepth).
+// 중간 결과는 depth N 결과가 아니고, 넘기면 전부 버린다(usi.Engine.SearchDepth).
 //
 // 값이 둘인 것은 무엇을 먼저 포기하는가다. 넷이 같은 풀을 다투므로(cmd/api/main.go)
 // 부가 기능이 오래 붙들면 대국이 굶는다. 숫자의 근거는 journal §56.
@@ -217,7 +217,7 @@ const (
 	DefaultMoveDeadline = 60 * time.Second
 
 	// DefaultExtraDeadline 은 없어도 판이 도는 두 경로의 시한이다 — 詰み 게이지와 부르는 힌트.
-	// 이 둘은 조용히 없어지고, 사람이 알아채는 쪽은 언제나 위 둘이다.
+	// 이 둘은 경고 없이 없어지고, 사람이 알아채는 쪽은 언제나 위 둘이다.
 	DefaultExtraDeadline = 20 * time.Second
 )
 
@@ -318,7 +318,7 @@ type state struct {
 	//
 	// mateHeat 와 mateGen 을 함께 본다. 국면이 움직이면 그 세기는 무효이고, 지우는 대신
 	// 스냅샷이 둘을 대조한다 — 지우는 코드를 착수·롤백·종료에 흩어 두면 하나를
-	// 빠뜨렸을 때 낡은 불꽃이 새 국면에 남는다.
+	// 빠뜨렸을 때 오래된 불꽃이 새 국면에 남는다.
 	gauging  bool
 	gaugeGen int
 	mateHeat int
@@ -430,7 +430,7 @@ func New(ctx context.Context, cfg Config) (*Session, error) {
 	}
 	st.repeats[pos.RepetitionKey()]++
 	// 넘겨받은 표를 그대로 들지 않는다. 부르는 쪽이 계속 들고 있으면 세션 goroutine 밖에서
-	// 그 표가 바뀌고, 그 순간 상태 소유 규약이 깨진다.
+	// 그 표가 바뀌고, 그때 상태 소유 규약이 깨진다.
 	for k, v := range cfg.HintStages {
 		st.hintStages[k] = v
 	}
@@ -451,7 +451,7 @@ var ErrCannotResume = errors.New("game: cannot rebuild the position from the rec
 
 // replay 는 기보를 그대로 다시 둬서 끊긴 자리로 판을 되돌린다.
 //
-// 한 수라도 안 맞으면 통째로 거절한다. 눈감고 이어 두면 한 칸 어긋난 판이 「그때 두던
+// 한 수라도 안 맞으면 전부 거절한다. 눈감고 이어 두면 한 칸 어긋난 판이 「그때 두던
 // 판」의 얼굴로 열리고, 그 뒤로 서버도 화면도 조용하다 — 사람만 자기 持ち駒가 다른 것을 본다.
 func (st *state) replay(moves []string) error {
 	for i, u := range moves {
@@ -805,7 +805,7 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 
 	if r.err != nil {
 		// 판정이 실패했다고 대국을 멈추지 않는다. 개입은 부가 기능이고 대국이 본체다.
-		// 다만 조용히 넘기지도 않는다 — 개입이 없는 화면은 「이 수는 괜찮았다」와 똑같이
+		// 다만 경고 없이 넘기지도 않는다 — 개입이 없는 화면은 「이 수는 괜찮았다」와 똑같이
 		// 생겼는데 여기서는 확인 자체를 못 한 것이다(Notice).
 		log.Printf("game: judging failed, letting the move stand: %v", r.err)
 		st.notice = newNotice(NoticeJudgeSkipped)
@@ -898,13 +898,13 @@ func (st *state) rollback(r judgeResult) {
 	// 사라진다 — 계단이 手筋을 짚어야 하는 자리가 정확히 거기다(pointHintAtTesuji).
 	//
 	// 아직 도는 중이면 손대지 않는다. 세대를 옮기면 그 결과가 첫 검사에서 버려지고
-	// tesujiHinting 이 true 로 남아 그 판의 힌트가 통째로 멈춘다.
+	// tesujiHinting 이 true 로 남아 그 판의 힌트 전체가 멈춘다.
 	if !st.tesujiHinting && st.tesujiHintAsked && st.tesujiHintLastPly == len(st.usis) {
 		st.tesujiHintGen = st.searchGen
 	}
 
 	// 물러진 수는 여기서만 남는다. 기보에는 안 들어가므로, 이 한 줄이 없으면 개입에
-	// 오염되지 않은 유일한 실력 신호가 사라진다(01-core.md §5).
+	// 오염되지 않은 하나뿐인 실력 신호가 사라진다(01-core.md §5).
 	if st.cfg.Recorder != nil {
 		st.cfg.Recorder.Retracted(len(st.usis)+1, r.move.USI, r.judgement.Verdict)
 	}
@@ -1034,7 +1034,7 @@ func (st *state) maybeThink(ctx context.Context, engineDone chan engineResult) {
 	start := st.start
 	// 슬라이스를 그대로 넘기면 다음 착수의 append가 같은 배열을 건드릴 수 있다.
 	moves := append([]string(nil), st.usis...)
-	// 값으로 복사해 넘긴다. goroutine 이 세션 상태를 읽으면 그 순간 소유 규약이 깨진다.
+	// 값으로 복사해 넘긴다. goroutine 이 세션 상태를 읽으면 그때 소유 규약이 깨진다.
 	sk := st.skill
 	deadline := st.moveDeadline()
 	chasing := st.chasing
@@ -1144,7 +1144,7 @@ func (st *state) applyEngineMove(ctx context.Context, r engineResult, engineDone
 	}
 
 	// 엔진 출력을 그대로 믿지 않는다. 국면을 잘못 보냈거나 엔진이 헷갈린 경우
-	// 여기서 잡히고, 안 잡으면 기보가 조용히 깨진 채로 남는다.
+	// 여기서 잡히고, 안 잡으면 기보가 경고 없이 깨진 채로 남는다.
 	m, err := shogi.ParseUSIMove(r.usi)
 	if err == nil {
 		err = st.pos.ValidateMove(m)
@@ -1374,7 +1374,7 @@ func (st *state) applyTesujiHint(r tesujiHintResult) {
 	if r.gen != st.searchGen {
 		return // 국면이 움직였다. 낡은 평가치로 이름을 붙이는 것이 게이트를 없애는 것과 같다
 	}
-	// 에러보다 먼저 센다. 시한을 넘기면 남은 후보가 통째로 여기로 오는데(gateTesujiOptions),
+	// 에러보다 먼저 센다. 시한을 넘기면 남은 후보 전체가 여기로 오는데(gateTesujiOptions),
 	// 에러 뒤에 두면 그 판에서 제일 많이 잘린 회차만 로그에 안 남는다.
 	if r.dropped > 0 {
 		// 잘린 것을 안 세면 「手筋이 없었다」와 「못 봤다」가 같은 화면이 된다.
@@ -1499,7 +1499,7 @@ func (st *state) closeSubs() {
 
 // notify 는 막히지 않고 최신 스냅샷을 넣는다.
 //
-// 느린 클라이언트 하나가 세션 goroutine 을 멈추면 그 대국이 통째로 멈춘다. 스냅샷은
+// 느린 클라이언트 하나가 세션 goroutine 을 멈추면 그 대국 전체가 멈춘다. 스냅샷은
 // 언제나 전체 상태라 중간 것을 버려도 손실이 없다.
 func notify(ch chan Snapshot, snap Snapshot) {
 	for range 2 {
@@ -1699,7 +1699,7 @@ func (st *state) applyHintResult(r hintResult) {
 //
 // 두 문이 같은 그림을 그린다 — 1단계는 그 駒에 테, 2단계는 그 수에 화살표다. 갇힘
 // 힌트와 다른 것은 문을 여는 방식뿐이라(실패 횟수 vs 예산) 그리는 쪽은 한 벌이고,
-// 여기가 두 자 사이의 유일한 번역이다.
+// 여기가 두 자 사이의 하나뿐인 번역이다.
 func hintStuck(stage int) int {
 	if stage >= HintStageMax {
 		return HintMoveAfter

@@ -73,7 +73,7 @@ type series struct {
 }
 
 // register 는 계열을 등록한다. 같은 이름을 두 번 등록하면 panic 한다 —
-// 이름이 겹치면 텍스트 표면에서 두 TYPE 줄이 나가고, 그건 스크레이퍼가 조용히 버린다.
+// 이름이 겹치면 텍스트 표면에서 두 TYPE 줄이 나가고, 그건 스크레이퍼가 경고 없이 버린다.
 func (r *Registry) register(f *family) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -88,7 +88,7 @@ func (r *Registry) register(f *family) {
 // get 은 라벨 값 조합에 해당하는 series 를 찾고 없으면 만든다. 호출 측이 mu 를 잡고 있어야 한다.
 func (f *family) get(labelValues []string) *series {
 	if len(labelValues) != len(f.labels) {
-		// 호출 자리가 전부 리터럴이라 이건 코딩 오류다. 조용히 다른 계열에 더하면
+		// 호출 자리가 전부 리터럴이라 이건 코딩 오류다. 경고 없이 다른 계열에 더하면
 		// 지표가 틀린 채로 도는데, 지표는 틀렸다는 것 자체가 안 드러난다.
 		panic(fmt.Sprintf("metrics: %s wants %d label values, got %d", f.name, len(f.labels), len(labelValues)))
 	}
@@ -176,7 +176,7 @@ var AnalysisBuckets = []float64{30, 60, 120, 300, 600, 1800, 3600}
 // New 는 이 앱의 지표를 다 만든 레지스트리다.
 //
 // service·environment 는 EMF 에만 쓰인다. 비워 두면 각각 api·local 로 둔다 —
-// 로컬에서 낸 지표가 프로덕션 지표와 같은 자리에 쌓이면 그래프가 조용히 오염된다.
+// 로컬에서 낸 지표가 프로덕션 지표와 같은 자리에 쌓이면 그래프가 경고 없이 오염된다.
 func New(service, environment string) *Registry {
 	if service == "" {
 		service = "api"
@@ -395,7 +395,7 @@ func (h *Histogram) Count(pick func(labels map[string]string) bool) uint64 {
 // 비우는 것은 EMF 가 회차마다 그 회차의 분포를 내야 하기 때문이다. 버킷은 안 건드린다 —
 // 텍스트 표면은 누적이어야 한다.
 //
-// 안 고른 계열도 비운다. 남겨 두면 그 계열은 아무도 안 비워서 100개가 찬 뒤로 교체
+// 안 고른 계열도 비운다. 남겨 두면 그 계열은 누구도 안 비워서 100개가 찬 뒤로 교체
 // 확률이 0에 붙고, 나중에 그것을 내기 시작하는 날 첫 회차가 기동 무렵의 값을 낸다 —
 // pool=mate 와 result=cached 가 지금 그 자리다.
 func (h *Histogram) DrainSamples(pick func(labels map[string]string) bool) []float64 {
@@ -425,7 +425,7 @@ type LabeledSamples struct {
 
 // DrainSamplesAll 은 표본통을 한 번에 비우고 계열마다 나눠 준다.
 //
-// DrainSamples 를 두 번 부를 수 없어서 있다 — 그쪽은 pick 과 무관하게 표본통을 통째로
+// DrainSamples 를 두 번 부를 수 없어서 있다 — 그쪽은 pick 과 무관하게 표본통 전체를
 // 비우므로 두 번째 호출이 늘 빈 배열이다. 같은 지표를 여러 벌로 낼 때 이쪽을 쓴다.
 //
 // 라벨을 그대로 준다. 축 하나로 나누면 두 축이 필요해지는 날 이 함수를 다시 고쳐야

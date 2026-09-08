@@ -56,7 +56,7 @@ type positionHandler struct {
 	// read 는 그림을 읽는 창구다. 키가 없으면 nil 이고, 그때 이 표면은 안 열린다.
 	read   *boardread.Client
 	budget *hourlyBudget
-	// keep 은 그림과 라벨을 모아 두는 폴더다. 비어 있으면 그 경로가 통째로 안 열린다.
+	// keep 은 그림과 라벨을 모아 두는 폴더다. 비어 있으면 그 경로 전체가 안 열린다.
 	//
 	// 판독을 재는 그림을 모으는 자리다(apps/server/README.md). 사람이 확인 화면에서
 	// 고친 판이 곧 라벨이라, 이 폴더가 켜져 있으면 「올리고 · 고치고 · 누르고」 세 걸음이
@@ -214,7 +214,7 @@ func (h *positionHandler) label(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	// 모양을 먼저 본다. 이 값이 파일 경로가 되므로 여기가 유일한 방어다.
+	// 모양을 먼저 본다. 이 값이 파일 경로가 되므로 여기가 하나뿐인 방어다.
 	if !keptName.MatchString(req.ImageID) {
 		writeJSON(w, http.StatusBadRequest, map[string]any{
 			"error": "bad_image_id", "message": "画像の名前が正しくありません。",
@@ -244,7 +244,7 @@ func (h *positionHandler) label(w http.ResponseWriter, r *http.Request) {
 // keepImage 는 읽은 그림을 폴더에 남기고 그 이름을 준다. 폴더가 안 켜져 있으면 빈 값이다.
 //
 // 이름을 서버가 짓는다. board-01 부터 번호만 이어 붙고, 클라이언트가 준 글자는
-// 한 자도 안 들어간다 — 파일 이름을 남이 정하게 두는 것이 이런 자리의 유일한 위험이다.
+// 한 자도 안 들어간다 — 파일 이름을 남이 정하게 두는 것이 이런 자리의 하나뿐인 위험이다.
 // 확장자도 앞머리로 정한 형식에서 온다(boardread.Ext).
 //
 // 폴더를 안 만든다. 없으면 로그 한 줄로 끝난다 — 오타 하나로 엉뚱한 곳에 폴더가

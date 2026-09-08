@@ -132,7 +132,7 @@ func (m *fakeMetrics) ObserveInUse(delta int) {
 	m.mu.Unlock()
 }
 
-// 계측이 붙으면 대기 시간과 점유 수가 나온다. 이게 포화를 읽는 유일한 신호다.
+// 계측이 붙으면 대기 시간과 점유 수가 나온다. 이게 포화를 읽는 하나뿐인 신호다.
 func TestPoolObservesWaitAndUse(t *testing.T) {
 	p := newFakePool(t, 1)
 	m := &fakeMetrics{}

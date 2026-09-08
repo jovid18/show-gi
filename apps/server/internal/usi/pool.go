@@ -47,7 +47,7 @@ type Metrics interface {
 // NewPool 은 엔진 size개를 띄운다. 하나라도 실패하면 이미 띄운 것을 정리하고 에러를 낸다.
 //
 // opts 는 엔진마다 핸드셰이크 중에 걸린다(New 참조). 엔진 전체의 설정만 여기 둔다 —
-// USI_Hash 는 엔진 하나가 통째로 잡는 메모리라 풀 크기를 곱한 만큼 쓴다.
+// USI_Hash 는 엔진 하나 전체가 잡는 메모리라 풀 크기를 곱한 만큼 쓴다.
 func NewPool(size int, path string, opts map[string]string, args ...string) (*Pool, error) {
 	if size < 1 {
 		return nil, errors.New("usi: pool size must be at least 1")
@@ -147,7 +147,7 @@ const prioCount = 2
 // priorityOf 는 빌리는 쪽을 대기 큐로 나눈다. 0이 먼저 받는다.
 //
 // 가르는 기준은 「사람이 지금 그 응답을 기다리는가」 하나다. 대국·검토·가정 수순은
-// 화면이 멈춰 서 있고, 사후 분석과 퀴즈 생성은 아무도 안 기다린다 — 되짚기가 나중에
+// 화면이 멈춰 서 있고, 사후 분석과 퀴즈 생성은 누구도 안 기다린다 — 되짚기가 나중에
 // 폴링해서 받는다.
 //
 // 대국 안에서 판정과 상대 수를 더 가르지 않는다. 둘이 같은 사람의 대기 안에서 차례로

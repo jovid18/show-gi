@@ -169,7 +169,7 @@ func TestGateReadsTheLossFromThePlayersSide(t *testing.T) {
 }
 
 // Lines[0] 을 최선으로 읽지 않는다. 아직 안 온 순위가 빈 줄로 남으므로, 그것을
-// 그대로 1위로 쓰면 최선이 0cp가 되고 낙폭이 통째로 어긋난다(usi.SearchResult.Ranked).
+// 그대로 1위로 쓰면 최선이 0cp가 되고 낙폭 전체가 어긋난다(usi.SearchResult.Ranked).
 func TestGateIgnoresAnEmptyRank(t *testing.T) {
 	s := &rootSearch{lines: []usi.SearchLine{
 		{MultiPV: 1}, // 안 온 순위

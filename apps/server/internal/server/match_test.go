@@ -64,7 +64,7 @@ func TestCreatingARoomNeedsSignIn(t *testing.T) {
 }
 
 // 분석 티어는 사람이 쓰는 표면을 하나도 안 연다. 방이 짝지은 프로세스의 메모리에
-// 서므로(journal §98) 여기서 방이 열리면 그 방을 아무도 못 열고, 대국·검토는 깨지지는
+// 서므로(journal §98) 여기서 방이 열리면 그 방을 누구도 못 열고, 대국·검토는 깨지지는
 // 않지만 이 박스의 엔진을 분석보다 먼저 가져간다.
 //
 // 404가 아니라 503이다. 없애면 「배포가 낡았다」와 구별되지 않는다.
@@ -277,7 +277,7 @@ func TestPeekTellsTheGuestTheirSide(t *testing.T) {
 	}
 }
 
-// 대인전 표면은 통째로 켜고 끈다. 없으면 세 경로가 다 404여야 한다 — 반쯤 열려
+// 대인전 표면 전체는 켜고 끈다. 없으면 세 경로가 다 404여야 한다 — 반쯤 열려
 // 있으면 화면이 「있는데 고장난 것」으로 읽는다.
 func TestMatchRoutesAreAbsentWithoutAHub(t *testing.T) {
 	h := Handler(Options{

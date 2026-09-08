@@ -68,7 +68,7 @@ func TestSkillEstimateRoundTrips(t *testing.T) {
 }
 
 // 읽은 값이 그대로일 때만 덮는다. 대인전의 사후 분석이 지난 값을 수십 초 들고 있어서,
-// 그냥 덮으면 그 사이에 끝난 엔진 대국의 판정이 통째로 사라진다(server/match_analysis.go).
+// 그냥 덮으면 그 사이에 끝난 엔진 대국의 판정 전체가 사라진다(server/match_analysis.go).
 func TestSkillEstimateOnlyOverwritesWhatItRead(t *testing.T) {
 	s := open(t)
 	uid := owner(t, s, "skill-cas")

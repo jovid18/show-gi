@@ -83,7 +83,7 @@ type Facts struct {
 // Branch 는 「이렇게 두면 이렇게 된다」 한 줄이다.
 //
 // 셋이 함께여야 뜻이 있다 — 내 수·상대의 응수·그 결말. 하나라도 비면 채우는 쪽이
-// 그 줄을 통째로 버린다(otherBranches).
+// 그 줄 전체를 버린다(otherBranches).
 type Branch struct {
 	// PlayerJa 는 내가 두는 수의 棋譜 표기.
 	PlayerJa string
@@ -99,7 +99,7 @@ type Branch struct {
 // namesMoves 는 이 문장이 棋譜 표기를 적는가다.
 //
 // 갈래가 없어도 상대의 최선수 하나만으로 참이 된다 — renderBranches 가 그 하나만으로도
-// 쓸 문장을 갖고 있고, 여기서 갈래만 보면 그 사실이 문장에서 조용히 사라진다.
+// 쓸 문장을 갖고 있고, 여기서 갈래만 보면 그 사실이 문장에서 경고 없이 사라진다.
 func (f Facts) namesMoves() bool {
 	return f.OpponentBest != "" || len(f.Branches) > 0
 }

@@ -199,7 +199,7 @@ func (h *authHandler) origin(r *http.Request) string {
 }
 
 // secure 는 쿠키에 Secure 를 붙일지다. origin 과 같은 판단을 쓴다 — 갈리면 로컬에서
-// 로그인이 조용히 안 되거나(평문에 Secure 쿠키), 프로덕션에서 쿠키가 평문으로 샌다.
+// 로그인이 경고 없이 안 되거나(평문에 Secure 쿠키), 프로덕션에서 쿠키가 평문으로 샌다.
 func (h *authHandler) secure(r *http.Request) bool {
 	return strings.HasPrefix(h.origin(r), "https://")
 }

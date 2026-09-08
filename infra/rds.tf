@@ -84,7 +84,7 @@ resource "aws_db_instance" "main" {
   # 조회 결과가 CloudWatch로만 나가고 지금 운영자 정책에는 로그 읽기 권한이 없다
   # (docs/06-status.md §7). 즉 넣을 수는 있고 볼 수는 없는 상태가 된다.
   #
-  # 담기는 것이 본인 대국 기록이고, 접근이 단일 IP로 제한되며, 대회가 끝나면 통째로
+  # 담기는 것이 본인 대국 기록이고, 접근이 단일 IP로 제한되며, 대회가 끝나면 전부
   # 지운다는 세 조건에서 감수한다. 운영 서비스라면 반대로 둔다.
   publicly_accessible = true
 
@@ -97,7 +97,7 @@ resource "aws_db_instance" "main" {
   # 마이너 버전은 알아서 올린다. 마감 주에 보안 패치를 손으로 챙길 여유가 없다
   auto_minor_version_upgrade = true
 
-  # 대회가 끝나면 통째로 지운다. 스냅샷을 요구하면 destroy가 막혀서,
+  # 대회가 끝나면 전부 지운다. 스냅샷을 요구하면 destroy가 막혀서,
   # 정리해야 할 때 정리가 안 된다. 운영 서비스라면 반대로 둔다
   skip_final_snapshot = true
   deletion_protection = false

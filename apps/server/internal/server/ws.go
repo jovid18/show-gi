@@ -141,7 +141,7 @@ type gameSetup struct {
 	startMoves []string
 }
 
-// newSetup 은 쿼리에서 새 판의 설정을 읽는다. 못 읽는 값은 조용히 기본값이다 — 목록을
+// newSetup 은 쿼리에서 새 판의 설정을 읽는다. 못 읽는 값은 경고 없이 기본값이다 — 목록을
 // 서버가 주므로(GET /api/openings) 이상한 값이 오는 것은 클라이언트가 틀린 경우이고,
 // 그때 대국을 거절하는 것보다 平手로 시작하는 것이 낫다. 고른 것이 실제로 걸렸는지는
 // 스냅샷의 opponentOpening · handicap 으로 화면에서 보인다.
@@ -253,7 +253,7 @@ func (h *gameHandler) releaseResume(ctx context.Context, setup gameSetup) {
 // resumeMoves 는 기록의 기보를 수순 하나로 편다.
 //
 // 手数에 구멍이 있으면 거절한다. 기록은 큐가 넘치면 이벤트를 버리므로(recorder.go)
-// 한 수가 빠질 수 있고, 그것을 무시하고 이어 두면 그 뒤가 통째로 밀린 없던 판이 된다 —
+// 한 수가 빠질 수 있고, 그것을 무시하고 이어 두면 그 뒤 전체가 밀린 없던 판이 된다 —
 // 되짚기가 같은 자리에서 재현을 멈추는 것과 같은 판단이다(review.go 의 detailOf).
 func resumeMoves(rec store.GameRecord) ([]string, error) {
 	out := make([]string, 0, len(rec.Moves))
@@ -459,7 +459,7 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			case <-ctx.Done():
 				// 끝난 스냅샷이 이미 와 있는지 한 번 더 본다.
 				//
-				// 사람이 投了하고 그 순간 탭을 닫으면 두 case 가 동시에 준비되고, Go 는
+				// 사람이 投了하고 그때 탭을 닫으면 두 case 가 동시에 준비되고, Go 는
 				// 둘 중 하나를 무작위로 고른다. 여기가 이기면 총평도 퀴즈도 안 만들어지는데,
 				// 총평은 되짚기가 다시 청할 수 있어도 퀴즈에는 그런 자리가 없다(review.go).
 				if !summarized {

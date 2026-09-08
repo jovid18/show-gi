@@ -79,7 +79,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
   const { node, pending, error, at } = whatif;
 
   /**
-   * 주소가 바뀌면 그 국면을 묻는다. 이 효과가 이 화면의 유일한 흐름이다 — 누르는 쪽은
+   * 주소가 바뀌면 그 국면을 묻는다. 이 효과가 이 화면의 하나뿐인 흐름이다 — 누르는 쪽은
    * 주소만 고치고, 판이 그려지는 것은 여기서 시작된다.
    *
    * 서버가 이미 잰 국면이면 왕복도 탐색도 없고(`positions`), 지나온 자리면 왕복조차
@@ -148,7 +148,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
 
   /**
    * 다른 줄을 연다 — 手合割을 고르는 것과 저장한 국면을 불러오는 것 둘이다. 이쪽은
-   * 이력을 쌓는다(`replace` 없이): 걸어 보던 줄이 통째로 없어지지만 뒤로 가기 한 번으로
+   * 이력을 쌓는다(`replace` 없이): 걸어 보던 줄 전체가 없어지지만 뒤로 가기 한 번으로
    * 돌아오므로 「정말 버립니까」를 안 묻는다.
    */
   const openLine = useCallback((id: string, next: string[]) => {
@@ -230,7 +230,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
   const { dropFrom, boardRef, pieceRef } = useDropAnchor(dropping);
 
   /**
-   * 한 수가 판 위에서 움직인다. 판이 통째로 바뀌면 초심자는 무엇이 변했는지 못 본다
+   * 한 수가 판 위에서 움직인다. 판 전체가 바뀌면 초심자는 무엇이 변했는지 못 본다
    * (03-frontend.md §3).
    *
    * 줄이 자랐을 때만 그린다. 물리는 것은 판을 새로 받는 일이라(`branchMotion`) 거기에

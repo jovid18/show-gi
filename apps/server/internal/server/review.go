@@ -85,7 +85,7 @@ type gameSummary struct {
 	// Imported 는 밖에서 둔 판을 가져온 것인가다(journal §126).
 	//
 	// 화면이 이 값으로 개입 줄의 이름을 옮긴다. 여기서 둔 판의 그 줄은 「止められた手」
-	// 지만 가져온 판에서는 아무도 안 막았고 그 수가 기보에 그대로 남아 있다 — 같은
+	// 지만 가져온 판에서는 누구도 안 막았고 그 수가 기보에 그대로 남아 있다 — 같은
 	// 이름을 쓰면 없던 일을 있었다고 말하는 것이다.
 	Imported bool `json:"imported,omitempty"`
 	// Analyzing 은 평가치를 지금 채우는 중인가다. 대인전에만 뜬다(matchAnalyzer).
@@ -167,7 +167,7 @@ type reviewIntervention struct {
 	// AfterMate 는 그 수 뒤의 詰み까지의 手数다. AfterCp 와 배타적이다(reviewMove 와 같은 규약).
 	AfterMate int `json:"afterMate,omitempty"`
 	// BestCp 는 판정 당시 최선수의 cp. 낙폭과 겹치지 않는다 — 낙폭은 그때 K로 구한
-	// 승률 차라 K가 바뀌면 낡고, 이 값은 원본이라 안 낡는다.
+	// 승률 차라 K가 바뀌면 낡고, 이 값은 원본이라 안 어긋난다.
 	BestCp *int `json:"bestCp,omitempty"`
 	// BestMate 는 그 최선수가 詰み이었을 때의 手数다. BestCp 와 배타적이다.
 	BestMate int `json:"bestMate,omitempty"`
@@ -198,7 +198,7 @@ func (h *reviewHandler) list(w http.ResponseWriter, r *http.Request) {
 	limit := listLimitDefault
 	if raw := r.URL.Query().Get("limit"); raw != "" {
 		// 32비트로 파싱한다. 이 값은 결국 LIMIT의 int32가 되는데, Atoi로 받으면
-		// 64비트에서 int32 범위를 넘는 수가 통과해 변환에서 조용히 음수가 된다.
+		// 64비트에서 int32 범위를 넘는 수가 통과해 변환에서 경고 없이 음수가 된다.
 		// 여기서 자리수를 정해 두면 범위를 넘는 입력이 거절로 끝난다.
 		n, err := strconv.ParseInt(raw, 10, 32)
 		if err != nil || n <= 0 {
@@ -227,7 +227,7 @@ func (h *reviewHandler) list(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"games": out})
 }
 
-// detail 은 한 판을 통째로 준다 — 手数마다의 국면까지.
+// detail 은 한 판 전체를 준다 — 手数마다의 국면까지.
 func (h *reviewHandler) detail(w http.ResponseWriter, r *http.Request) {
 	rec, ok := h.record(w, r)
 	if !ok {

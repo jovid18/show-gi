@@ -49,7 +49,7 @@ func (o *scriptedOpponent) Choose(ctx context.Context, _ string, _ []string, _ s
 //
 // scriptedOpponent{delay: 0} 으로는 그 자리를 못 잡는다. 되만든 판이 상대 차례면
 // run 이 시작하자마자 maybeThink 을 걸고, 그 goroutine 의 답과 테스트의 Snapshot
-// 이 같은 select 에 나란히 준비된다 — 어느 쪽이 뽑히는지가 Go 의 무작위 선택과 그때의
+// 이 같은 select 에 함께 준비된다 — 어느 쪽이 뽑히는지가 Go 의 무작위 선택과 그때의
 // 부하에 달린다(journal §73).
 type silentOpponent struct{}
 
@@ -357,7 +357,7 @@ func TestEngineResignGivesTheWinToTheHuman(t *testing.T) {
 	}
 }
 
-// 판정이 실패하면 수는 그대로 두어지지만 조용히 넘기지 않는다. 개입이 없는 화면은
+// 판정이 실패하면 수는 그대로 두어지지만 경고 없이 넘기지 않는다. 개입이 없는 화면은
 // 「이 수는 괜찮았다」와 똑같이 생겼는데, 여기서는 확인 자체를 못 한 것이다.
 func TestJudgeFailureLeavesANotice(t *testing.T) {
 	opp := &scriptedOpponent{moves: []string{"3c3d"}}
@@ -759,7 +759,7 @@ func TestJudgesFromTheFirstMoveByDefault(t *testing.T) {
 	}
 }
 
-// 갇힘 힌트는 단계마다 실리는 것이 달라야 한다. 첫 칸에서 수를 통째로 내려보내면
+// 갇힘 힌트는 단계마다 실리는 것이 달라야 한다. 첫 칸에서 수 전체를 내려보내면
 // 계단이 화면에만 있고 답은 페이로드에 그대로 있다.
 func TestBuildHintStaysBehindItsStage(t *testing.T) {
 	for _, tc := range []struct {

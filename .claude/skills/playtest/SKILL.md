@@ -20,7 +20,7 @@ description: Run a playtest on prod — three agents play three full games in pa
 
 ## 토큰 규율 — 이 스킬의 절반은 이것이다
 
-서버는 한 수마다 `legalMoves` 200개가 든 스냅샷을 통째로 보낸다. 그것을 문맥에 넣으면 한 판에 수십만 토큰이 든다. 그래서:
+서버는 한 수마다 `legalMoves` 200개가 든 스냅샷 전체를 보낸다. 그것을 문맥에 넣으면 한 판에 수십만 토큰이 든다. 그래서:
 
 - 에이전트는 서버에 직접 붙지 않는다. `bridge.mjs` 프록시를 거친다. 프록시가 판을 그리고 줄여서 평문 15줄만 돌려준다 (한 수당 ~180 토큰)
 - **원본 JSON은 전부 jsonl 파일로 흐른다.** 리포트는 문맥이 아니라 그 파일과 DB에서 만든다

@@ -203,7 +203,7 @@ func TestSnapshotRoundTrip(t *testing.T) {
 		t.Errorf("목록의 수순이 %v", got[0].Moves)
 	}
 
-	// 이름만 고친다. 국면이 따라 움직이면 옛 이름이 가리키던 자리가 조용히 달라진다.
+	// 이름만 고친다. 국면이 따라 움직이면 옛 이름이 가리키던 자리가 경고 없이 달라진다.
 	if rec := h.call(t, http.MethodPatch, fmt.Sprintf("/api/explore/snapshots/%d", saved.ID),
 		`{"name":"矢倉"}`, who); rec.Code != http.StatusOK {
 		t.Fatalf("rename: status = %d — %s", rec.Code, rec.Body.String())

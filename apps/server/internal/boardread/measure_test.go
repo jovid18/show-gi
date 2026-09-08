@@ -22,7 +22,7 @@ import (
 // .gitignore 에 있다.
 //
 // 표를 고치지 않고 임계치도 안 건다. 자동으로 통과선을 두면 모델이나 프롬프트가
-// 흔들릴 때 그 선이 조용히 따라 움직인다(handicap 의 TestMeasureBaseline 과 같은 판단).
+// 흔들릴 때 그 선이 경고 없이 따라 움직인다(handicap 의 TestMeasureBaseline 과 같은 판단).
 //
 // 재는 것이 둘이다.
 //
@@ -36,7 +36,7 @@ import (
 const measureDir = "testdata/images"
 
 // measureTimeout 은 한 장에 주는 시한이다. Client 의 것보다 넉넉하다 — 여기서 끊기면
-// 그 장이 표에서 빠지고, 표본이 조용히 줄어드는 것이 가장 나쁘다.
+// 그 장이 표에서 빠지고, 표본이 경고 없이 줄어드는 것이 가장 나쁘다.
 const measureTimeout = 3 * time.Minute
 
 // boardReadScore 는 그림 한 장의 결과다.
@@ -144,7 +144,7 @@ func labelFor(t *testing.T, path string) (shogi.Position, bool) {
 	}
 	pos, err := shogi.ParseSFEN(strings.TrimSpace(string(raw)))
 	if err != nil {
-		// 라벨이 깨진 것은 사람이 고칠 일이다. 조용히 넘기면 그 장이 「라벨 없음」으로
+		// 라벨이 깨진 것은 사람이 고칠 일이다. 경고 없이 넘기면 그 장이 「라벨 없음」으로
 		// 세어지고 표가 실제보다 좋아 보인다.
 		t.Errorf("%s: %v", filepath.Base(label), err)
 		return shogi.Position{}, false
@@ -188,7 +188,7 @@ func pieceJa(p shogi.Piece) string {
 // boardImages 는 폴더의 그림을 이름 순으로 준다.
 //
 // 순서를 고정한다. 폴더가 주는 순서에 맡기면 회차마다 표의 줄이 섞이고, 「고쳐서
-// 나아진 것」을 두 표를 나란히 놓고 읽을 수가 없다(floodgate 의 seed 와 같은 이유).
+// 나아진 것」을 두 표를 함께 놓고 읽을 수가 없다(floodgate 의 seed 와 같은 이유).
 func boardImages(dir string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {

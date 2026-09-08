@@ -155,7 +155,7 @@ func (a *Searcher) SearchMultiPV(
 //
 // 되돌릴 것이 둘이다 — 후보 목록(Lines)은 positions, 부르는 쪽이 보는 깊이별
 // 값(History)은 edges.eval_by_depth 다. 쓰는 조건도 둘이라 깊이와 후보 수를 둘 다
-// 넘어야 한다. 어느 하나를 빠뜨렸을 때 무엇이 조용히 사라지는지는 journal §37.
+// 넘어야 한다. 어느 하나를 빠뜨렸을 때 무엇이 경고 없이 사라지는지는 journal §37.
 func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiPV int) (usi.SearchResult, bool) {
 	key := Key(pos)
 	p, err := a.store.GetPosition(ctx, key)
@@ -394,7 +394,7 @@ func (a *Searcher) namesFor(
 	mover := parent.Turn
 
 	// 手筋은 엔진이 값을 인정한 것만이다. 부모의 평가치를 캐시에서 꺼내 온다 —
-	// 없으면 이 축은 통째로 건너뛴다.
+	// 없으면 이 축 전체는 건너뛴다.
 	var names []string
 	if len(childCands) > 0 {
 		if p, err := a.store.GetPosition(ctx, Key(parent)); err == nil && len(p.Candidates) > 0 {
@@ -483,7 +483,7 @@ func Candidates(res usi.SearchResult) []store.Candidate {
 }
 
 // senteCp 는 수번 측 관점 cp를 先手 관점으로 옮긴다. edges.eval_by_depth 의 규약이고
-// (001_init.sql) game.senteCp 와 같은 연산이다 — 색이 다른 두 판을 나란히 놓기 위한 것이다.
+// (001_init.sql) game.senteCp 와 같은 연산이다 — 색이 다른 두 판을 함께 놓기 위한 것이다.
 func senteCp(moverCp int, mover shogi.Color) int {
 	if mover == shogi.Black {
 		return moverCp

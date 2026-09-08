@@ -28,7 +28,7 @@ let ctx: AudioContext | null = null;
 let noise: AudioBuffer | null = null;
 
 /**
- * 이 브라우저가 소리를 낼 수 있는가. 없으면 조용히 아무것도 안 한다 — 착수음은
+ * 이 브라우저가 소리를 낼 수 있는가. 없으면 경고 없이 아무것도 안 한다 — 착수음은
  * 이 제품의 기능이 아니라 감촉이고, 없다고 판을 못 두게 할 이유가 없다.
  */
 function audio(): AudioContext | null {
@@ -89,7 +89,7 @@ export function clack(): void {
       osc.type = 'triangle';
       osc.frequency.value = p.hz;
       const g = c.createGain();
-      // setValueAtTime 으로 시작을 못 박는다. 안 그러면 앞의 수에서 걸어 둔 램프가
+      // setValueAtTime 으로 시작을 고정한다. 안 그러면 앞의 수에서 걸어 둔 램프가
       // 이어져, 빨리 두면 소리가 점점 작아진다.
       g.gain.setValueAtTime(p.gain, t);
       g.gain.exponentialRampToValueAtTime(0.0001, t + p.decay);
@@ -98,6 +98,6 @@ export function clack(): void {
       osc.stop(t + p.decay);
     }
   } catch {
-    // 소리는 감촉이다. 못 내면 조용히 넘어간다.
+    // 소리는 감촉이다. 못 내면 경고 없이 넘어간다.
   }
 }

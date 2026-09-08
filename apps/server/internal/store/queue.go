@@ -48,7 +48,7 @@ type QueuePairing struct {
 // ErrNoQueueSeat 은 아직 짝이 안 잡혔다는 것 하나다.
 var ErrNoQueueSeat = errors.New("store: no queue seat")
 
-// SweepQueue 는 낡은 행을 걷는다. 다시 안 물어보는 대기자와 안 찾아간 자리 둘이다.
+// SweepQueue 는 오래된 행을 걷는다. 다시 안 물어보는 대기자와 안 찾아간 자리 둘이다.
 //
 // 대기열에 서는 그 요청이 부른다 — 리더도 sweeper 도 두지 않는 것이 이 대기열의
 // 설계다(journal §92).
@@ -138,7 +138,7 @@ type QueuePairOptions struct {
 // 트랜잭션 하나 안에서 세 가지를 한다: 내 행과 후보들을 잠그고(FOR UPDATE SKIP LOCKED),
 // choose 가 고르고, 그 결과를 짝의 행에 적고 내 행을 지운다.
 //
-// 잠금이 전부 SKIP LOCKED 라 아무도 기다리지 않는다. 그래서 A가 B를, B가 A를 동시에
+// 잠금이 전부 SKIP LOCKED 라 누구도 기다리지 않는다. 그래서 A가 B를, B가 A를 동시에
 // 집어도 교착이 없고 — 한쪽만 성공한다. 다른 쪽은 자기 행을 못 잠가서 이번 회차를
 // 포기하고, 다음 재시도에서 방 쪽지를 읽는다.
 //
@@ -169,7 +169,7 @@ func (s *Store) PairInQueue(
 	}
 
 	// 잠그는 폭이 내 레이팅 주변이다. 전부 잠그면 붙을 수 없는 사람까지 잠기고, 그동안
-	// 그 행을 노리던 다른 짝짓기가 헛돈다 — 아무도 기다리지 않는 대신(SKIP LOCKED)
+	// 그 행을 노리던 다른 짝짓기가 헛돈다 — 누구도 기다리지 않는 대신(SKIP LOCKED)
 	// 그 회차를 포기하기 때문이다.
 	rows, err := q.LockQueueCandidates(ctx, db.LockQueueCandidatesParams{
 		UserID:   userID,

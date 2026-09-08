@@ -81,7 +81,7 @@ func quietMove(pos shogi.Position) (shogi.Move, bool) {
 }
 
 // TestMirrorIsInvolution 은 두 번 돌리면 제자리라는 것이다. 이것이 깨지면 後手 수순 전체가
-// 조용히 어긋난다 — Moves 가 그 변환 하나에 매여 있다.
+// 경고 없이 어긋난다 — Moves 가 그 변환 하나에 매여 있다.
 func TestMirrorIsInvolution(t *testing.T) {
 	for _, o := range All() {
 		for _, m := range o.black {
@@ -161,7 +161,7 @@ func TestOpeningMetadata(t *testing.T) {
 // ▲6八銀이 7九를 비우면서 8八의 角을 받치는 것을 없앴고, 그때 대각선이 열려 있으면
 // 상대가 그 자리에서 角을 잡는다(journal §48). 룰 엔진은 그 수가 합법이라고만 답한다.
 //
-// 사람 쪽이 자기 角길을 먼저 연다 — 그것이 이 위험을 만드는 유일한 조건이고,
+// 사람 쪽이 자기 角길을 먼저 연다 — 그것이 이 위험을 만드는 하나뿐인 조건이고,
 // 초심자도 첫 몇 수에 그냥 두는 수다.
 func TestOpeningNeverHangsAPiece(t *testing.T) {
 	for _, o := range All() {
@@ -221,7 +221,7 @@ func TestOpeningNeverHangsAPiece(t *testing.T) {
 	}
 }
 
-// hanging 은 c 의 駒 중 상대가 노리는데 아무도 받치지 않는 첫 칸이다. 없으면 -1.
+// hanging 은 c 의 駒 중 상대가 노리는데 누구도 받치지 않는 첫 칸이다. 없으면 -1.
 //
 // 歩는 안 본다 — 서로 마주 본 歩는 초반의 정상 상태이고, 그것까지 세면 어느 수순도 못 지나간다.
 // 玉도 안 본다: 王手는 다른 이야기이고 합법성 검사가 이미 막는다.

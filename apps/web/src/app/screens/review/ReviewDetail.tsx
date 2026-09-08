@@ -100,7 +100,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
 
   const engineReady = useEngineReady();
   /**
-   * 이 판의 총평. 판 전체를 말하는 유일한 자리라 手数를 옮겨도 안 바뀐다.
+   * 이 판의 총평. 판 전체를 말하는 하나뿐인 자리라 手数를 옮겨도 안 바뀐다.
    *
    * 못 읽었을 때는 카드를 아예 안 그린다 — `null` 로 넘기면 「まとめています…」가 영원히
    * 떠 있고, 그건 기다리면 온다는 거짓말이다. 이 화면의 본론은 기보이고 그쪽은 이미 왔다.
@@ -167,7 +167,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
       setOrigin(null);
       setPromoting(null);
       clear();
-      // 분기에서 나오는 길에는 움직임을 안 그린다. 판이 다른 줄에서 통째로 갈아치워지는
+      // 분기에서 나오는 길에는 움직임을 안 그린다. 판이 다른 줄에서 전부 갈아치워지는
       // 것이라, 그 위에서 駒 하나가 미끄러지면 「이 한 수로 이렇게 됐다」는 거짓말이 된다.
       setMotion(branching ? null : stepMotion(game.moves, ply, target, nextMotionId()));
       setPly(target);
@@ -224,7 +224,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
     return () => clearTimeout(timer);
   }, [ply, branching, engineReady, at]);
 
-  // 분기가 한 걸음 나아가면 그 수가 판 위에서 움직인다. 판이 통째로 바뀌면 초심자는
+  // 분기가 한 걸음 나아가면 그 수가 판 위에서 움직인다. 판 전체가 바뀌면 초심자는
   // 무엇이 변했는지 못 본다(03-frontend.md §3) — 여기가 그 문장이 걸린 자리다.
   //
   // `useLayoutEffect` 여야 한다. `useEffect` 는 페인트 뒤에 도는데, 그러면 순서가
@@ -311,7 +311,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
     const squares = squaresOf(best.usi);
     if (!squares) return null;
     // 打도 긋는다. 판 위에 출발 칸이 없어서 駒台에서 자리를 재야 하고, 그것은
-    // `useDropAnchor` 가 한다. 안 그리면 최선수가 打인 국면에서만 화살표가 통째로 사라진다.
+    // `useDropAnchor` 가 한다. 안 그리면 최선수가 打인 국면에서만 화살표 전체가 사라진다.
     return { from: squares.from, to: squares.to, by: active.yourTurn ? 'human' : 'engine' };
   }, [branching, active]);
 

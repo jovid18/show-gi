@@ -2,7 +2,7 @@
 
 **동시에 몇 판까지 되나**를 재는 자리다([06-status.md](../../docs/06-status.md) §5의 열린 물음). 근거와 결정은 [journal §103](../../docs/journal/101-120.md).
 
-k6 를 쓴다. 규칙 엔진이 필요 없다 — 서버가 스냅샷마다 `legalMoves` 를 통째로 주므로 그중 하나를 뽑으면 판이 진행된다.
+k6 를 쓴다. 규칙 엔진이 필요 없다 — 서버가 스냅샷마다 `legalMoves` 를 전부 주므로 그중 하나를 뽑으면 판이 진행된다.
 
 ```
 run.sh       회차를 거는 자리. 손잡이를 KEY=VALUE 로 받는다
@@ -57,7 +57,7 @@ tools/loadtest/run.sh MODE=both VUS_ENGINE=3 VUS_MATCH=4 LT_UIDS=…
 tools/loadtest/run.sh --prod MODE=match VUS_MATCH=12 THINK_MS=3000 DURATION=15m LT_UIDS=…
 ```
 
-**기본값을 `run.sh` 에 두지 않는다.** k6 스크립트가 이미 든다 — 손잡이 대부분이 `lib/config.js` 이고 시나리오 넷(`MODE`·`DURATION`·`VUS_ENGINE`·`VUS_MATCH`)이 `main.js` 다. 한 벌 더 두면 한쪽을 고칠 때 다른 쪽이 조용히 낡아 「무슨 값으로 잰 회차인가」가 갈린다. 그래서 로그 첫 줄도 값이 있는 손잡이만 적는다 — 인자로 준 것과 밖에서 `export` 한 것을 같이 읽고, `SESSION_SECRET` 은 목록에 아예 없다.
+**기본값을 `run.sh` 에 두지 않는다.** k6 스크립트가 이미 든다 — 손잡이 대부분이 `lib/config.js` 이고 시나리오 넷(`MODE`·`DURATION`·`VUS_ENGINE`·`VUS_MATCH`)이 `main.js` 다. 한 벌 더 두면 한쪽을 고칠 때 다른 쪽이 경고 없이 어긋나 「무슨 값으로 잰 회차인가」가 갈린다. 그래서 로그 첫 줄도 값이 있는 손잡이만 적는다 — 인자로 준 것과 밖에서 `export` 한 것을 같이 읽고, `SESSION_SECRET` 은 목록에 아예 없다.
 
 **원격에는 `SESSION_SECRET` 도 있어야 한다.** `--prod` 면 스크립트가 SSM 에서 읽고, 아니면 직접 넘겨야 한다 — 쿠키가 없으면 `MODE=engine` 이 경고만 하고 익명으로 돌아서 아래 가드가 그대로 뚫린다.
 
@@ -83,7 +83,7 @@ tools/loadtest/run.sh --prod MODE=match VUS_MATCH=12 THINK_MS=3000 DURATION=15m 
 
 엔진 대국은 1 VU 가 판 하나이고 대인전은 2 VU 가 판 하나다(`match.js` 가 사람마다 대기열에 선다). 그래서 대인전 6판은 `VUS_MATCH=12` 이고, 이 자리를 판수로 읽어 절반짜리 회차를 한 번 걸었다([journal §113](../../docs/journal/101-120.md)). `LT_UIDS` 는 두 시나리오의 VU 합보다 많아야 한다.
 
-**`THINK_MS` 를 안 켜면 VU 하나가 사람 하나보다 크다.** 도구는 자기 차례가 된 그 순간 두므로 생각 시간이 0이다. 사람이 한 수에 T초를 쓰면 엔진 수요가 `2.15/(2.15+T)` 로 줄고(2.15초는 동시 1판에서 잰 착수 왕복 평균, [journal §104](../../docs/journal/101-120.md)), T=3초면 VU 8 이 사람 20명쯤이다. 그래서 그때 VU 수는 보수적 상한으로 읽는다 — VU N 에서 버티면 사람 N 명에서는 확실히 버틴다. 거꾸로는 아니다: 사람 20명은 순간적으로 동시 8판을 넘는 일이 생긴다.
+**`THINK_MS` 를 안 켜면 VU 하나가 사람 하나보다 크다.** 도구는 자기 차례가 된 그때 두므로 생각 시간이 0이다. 사람이 한 수에 T초를 쓰면 엔진 수요가 `2.15/(2.15+T)` 로 줄고(2.15초는 동시 1판에서 잰 착수 왕복 평균, [journal §104](../../docs/journal/101-120.md)), T=3초면 VU 8 이 사람 20명쯤이다. 그래서 그때 VU 수는 보수적 상한으로 읽는다 — VU N 에서 버티면 사람 N 명에서는 확실히 버틴다. 거꾸로는 아니다: 사람 20명은 순간적으로 동시 8판을 넘는 일이 생긴다.
 
 **켜면 그 환산이 없어지고 VU 수가 곧 사람 수다.** 환산 없이 읽는 쪽이 나으므로 새 회차는 켠다.
 
@@ -104,7 +104,7 @@ aws ecs update-service --region ap-northeast-1 --cluster show-gi --service show-
   --force-new-deployment --profile show-gi
 ```
 
-**단절이 생긴다** — `desiredCount=1` · `maximumPercent=100` 이라 낡은 태스크를 먼저 세우고, healthz 가 503 인 창이 약 50초였다. 잃는 것은 그 회차가 만든 판의 평가치뿐이라 부하 회차에서는 값싸다. 실사용자의 판에는 같은 동작이 사고다(같은 곳 ⑥).
+**단절이 생긴다** — `desiredCount=1` · `maximumPercent=100` 이라 오래된 태스크를 먼저 세우고, healthz 가 503 인 창이 약 50초였다. 잃는 것은 그 회차가 만든 판의 평가치뿐이라 부하 회차에서는 값싸다. 실사용자의 판에는 같은 동작이 사고다(같은 곳 ⑥).
 
 ## 도구가 재는 것
 

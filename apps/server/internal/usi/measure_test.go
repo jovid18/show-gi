@@ -74,7 +74,7 @@ func measurePositions(t *testing.T) []measurePosition {
 
 // TestMeasureKifuIsLegal 은 위 수순이 실제로 둘 수 있는 수순인지 본다.
 //
-// 엔진이 없어도 도므로 CI에서 매번 돈다. 측정 국면이 조용히 망가지면 그 위에서 정해진
+// 엔진이 없어도 도므로 CI에서 매번 돈다. 측정 국면이 경고 없이 망가지면 그 위에서 정해진
 // 상수가 전부 근거를 잃으므로, 데이터 쪽을 코드와 같이 지킨다.
 func TestMeasureKifuIsLegal(t *testing.T) {
 	for name, kifu := range map[string]string{"A": kifuA, "B": kifuB} {

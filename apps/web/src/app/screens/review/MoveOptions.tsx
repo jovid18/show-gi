@@ -133,7 +133,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
     const next: ReviewMove | undefined = atRoot ? game.moves[ply] : undefined;
     if (next) put(next.usi, next.ja || next.usi, { played: next.by, ...moverScore(measured.get(next.usi)) });
 
-    // 가져온 판의 悪手는 실제로 둔 수 그 자체다. 아무도 안 막았으므로 아래 「물러진 수」
+    // 가져온 판의 悪手는 실제로 둔 수 그 자체다. 누구도 안 막았으므로 아래 「물러진 수」
     // 목록에는 줄이 없고(`retractedUsi` 가 비어 있다), 여기서 그 줄에 이름을 붙이지 않으면
     // 판정한 것이 화면 어디에도 안 나온다.
     if (next && game.imported === true) {
@@ -146,7 +146,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
     }
 
     // 물러진 수. 같은 수를 두 번 물린 일이 흔하므로(622의 77手) 줄을 겹치지 않고 센다 —
-    // 낙폭이 −36%/−32% 로 달랐던 것은 판정 당시의 흔들림이고, 나란히 적으면 없는 차이를
+    // 낙폭이 −36%/−32% 로 달랐던 것은 판정 당시의 흔들림이고, 함께 적으면 없는 차이를
     // 가르치는 것이 된다.
     const tried = new Map<string, { iv: ReviewIntervention; tries: number }>();
     for (const iv of atRoot ? game.interventions : []) {

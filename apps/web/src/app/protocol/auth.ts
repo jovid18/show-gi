@@ -16,5 +16,5 @@ export interface MeResponse {
   user: Viewer | null;
 }
 
-/** 로그인을 시작하는 곳. 브라우저를 통째로 보낸다 — fetch로는 Google 화면을 못 띄운다. */
+/** 로그인을 시작하는 곳. 브라우저 전체를 보낸다 — fetch로는 Google 화면을 못 띄운다. */
 export const SIGN_IN_PATH = '/api/auth/google/start';

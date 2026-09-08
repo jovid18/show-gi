@@ -17,7 +17,7 @@ let playing = false;
 
 const listeners = new Set<() => void>();
 
-/** 대국 화면만 부른다. 값이 그대로면 아무도 안 깨운다. */
+/** 대국 화면만 부른다. 값이 그대로면 누구도 안 깨운다. */
 export function setPlaying(next: boolean): void {
   if (playing === next) return;
   playing = next;

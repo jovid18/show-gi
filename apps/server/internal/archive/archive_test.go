@@ -167,7 +167,7 @@ func TestRecordsThePositionAndItsCandidates(t *testing.T) {
 }
 
 // eval_by_depth 는 先手 관점이다(001_init.sql). 後手 차례의 국면에서 뒤집지 않으면
-// 색이 다른 두 판을 나란히 못 놓는다 — 이 컬럼이 있는 이유가 그것이다.
+// 색이 다른 두 판을 함께 못 놓는다 — 이 컬럼이 있는 이유가 그것이다.
 func TestFlipsEvalToSentePointOfView(t *testing.T) {
 	st := newStore()
 	// 1手 뒤는 後手 차례다. 엔진은 後手에게 +100이라고 답한다.
@@ -331,7 +331,7 @@ func play(t *testing.T, pos shogi.Position, usis ...string) shogi.Position {
 // 이미 잰 국면은 엔진을 안 부른다. 여기가 §12의 캐시를 실제로 쓰는 자리다.
 //
 // 그리고 깊이별 값이 함께 살아나야 한다 — 개입 판정이 보는 얕은 값이 그것이고, 캐시가
-// 그걸 빠뜨리면 「얕은 이득에 낚임」 카테고리가 조용히 사라진다(01-core.md §3).
+// 그걸 빠뜨리면 「얕은 이득에 낚임」 카테고리가 경고 없이 사라진다(01-core.md §3).
 func TestServesFromTheCache(t *testing.T) {
 	st := newStore()
 	eng := &fakeEngine{res: result(12, "7g7f", "2g2f", "6g6f")}
@@ -546,7 +546,7 @@ func (m *fakeSearchMetrics) ObserveSearch(_ time.Duration, cached bool) {
 }
 
 // 캐시가 답한 것과 엔진을 부른 것이 지표에서 갈려야 한다. 이 비율이 국면 캐시가
-// 실제로 일하는지를 말하는 유일한 숫자다.
+// 실제로 일하는지를 말하는 하나뿐인 숫자다.
 func TestObservesCacheHitsSeparately(t *testing.T) {
 	st := newStore()
 	eng := &fakeEngine{res: result(8, "3c3d")}

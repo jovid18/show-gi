@@ -221,7 +221,7 @@ func TestNilRegistryHooksAreSilent(t *testing.T) {
 }
 
 // 라벨이 없는 계열도 텍스트 표면에 나가야 한다. 대기열의 셋이 이 앱의 첫 라벨 없는
-// 지표이고(match_pairings_total 외 둘), EMF 에는 안 올리므로 여기가 유일한 출구다.
+// 지표이고(match_pairings_total 외 둘), EMF 에는 안 올리므로 여기가 하나뿐인 출구다.
 func TestUnlabeledFamiliesReachTheTextSurface(t *testing.T) {
 	r := New("api", "test")
 	// 짝 하나. 대기 시간은 두 사람 몫이 들어간다.

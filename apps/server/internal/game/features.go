@@ -30,7 +30,7 @@ func UnpromotedOnly(played shogi.Move, bestUSI string) bool {
 
 // MoveFeatures 는 착수 전 국면과 그 한 수에서 카테고리 판정에 쓸 사실을 뽑는다.
 //
-// 여기가 판을 읽는 유일한 자리다. intervene 은 여기서 나온 숫자만 받는다 —
+// 여기가 판을 읽는 하나뿐인 자리다. intervene 은 여기서 나온 숫자만 받는다 —
 // 그 패키지가 엔진도 판도 모른다는 성질이 카테고리에도 남아야 하기 때문이다.
 //
 // 엔진에서 오는 두 값(얕은 평가)은 부르는 쪽이 채운다. 이 함수는 룰 엔진만 쓴다.
@@ -41,7 +41,7 @@ func MoveFeatures(before shogi.Position, m shogi.Move) intervene.Features {
 
 // moveFacts 는 판정에 쓸 사실과 설명에 쓸 사실을 한 번에 뽑는다.
 //
-// 나눠서 두 번 세면 조용히 어긋난다 — 카테고리는 タダ捨て가 아니라고 판정했는데 문장은
+// 나눠서 두 번 세면 경고 없이 어긋난다 — 카테고리는 タダ捨て가 아니라고 판정했는데 문장은
 // 「取れる相手の駒が2枚あります」라고 말하는 식이다. 같은 것을 두 곳에서 세는 것이 그
 // 어긋남의 원인이므로 세는 자리를 하나로 둔다.
 //
@@ -147,7 +147,7 @@ func kingPressure(pos *shogi.Position, c shogi.Color) (defend, threat int) {
 
 // replay 는 startSFEN 에 수순을 놓아 착수 전 국면과 마지막 한 수를 돌려준다.
 //
-// 판정은 세션 goroutine 밖에서 도는데, 세션의 국면을 빌려다 읽으면 그 순간
+// 판정은 세션 goroutine 밖에서 도는데, 세션의 국면을 빌려다 읽으면 그때
 // 「상태를 소유하는 goroutine 하나」가 깨진다. 다시 놓는 편이 싸다 — 수십 번의
 // Apply 이고, 그 옆에서 엔진 탐색이 수백 ms를 쓴다.
 func replay(startSFEN string, moves []string) (shogi.Position, shogi.Move, error) {

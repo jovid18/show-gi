@@ -168,7 +168,7 @@ func TestTableStartsOnlyWhenBothAreConnected(t *testing.T) {
 	detachAlice()
 }
 
-// 아무도 Hub 를 안 건드려도 만료가 걷힌다. 방을 만들고 링크를 보낸 사람은 Closed 에
+// 누구도 Hub 를 안 건드려도 만료가 걷힌다. 방을 만들고 링크를 보낸 사람은 Closed 에
 // 머물러 있을 뿐 Hub 를 부르지 않으므로, 훑는 계기가 남의 요청뿐이면 그 화면은 만료가 지나도
 // 이미 죽은 링크를 계속 광고한다(journal §83).
 func TestAWaitingHostLearnsTheRoomExpiredWithoutAnyoneElse(t *testing.T) {
@@ -189,7 +189,7 @@ func TestAWaitingHostLearnsTheRoomExpiredWithoutAnyoneElse(t *testing.T) {
 	}
 }
 
-// 아무도 안 들어온 방은 만료된다. 링크가 곧 열쇠라 오래 사는 열쇠를 안 둔다.
+// 누구도 안 들어온 방은 만료된다. 링크가 곧 열쇠라 오래 사는 열쇠를 안 둔다.
 func TestOpenRoomExpires(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -301,7 +301,7 @@ func TestAStartedGameIsNeverDroppedForTheCap(t *testing.T) {
 // Enter 와 Connect 가 잠금을 따로 잡으므로 그 사이에 방이 걷힐 수 있다. 그때 판을
 // 시작하면 ready 와 closed 가 둘 다 닫히고, 두 handler 의 select 가 무작위로 갈려서
 // 한 사람은 판에 앉고 다른 사람은 「期限が切れました」를 본다 — 그 판은 60초 뒤 시간패로
-// 끝나고 아무도 못 본 대국의 행 둘이 남는다.
+// 끝나고 누구도 못 본 대국의 행 둘이 남는다.
 func TestADroppedRoomNeverStartsATable(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)

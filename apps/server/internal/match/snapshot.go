@@ -10,7 +10,7 @@ import (
 // 같은 규약이고, 따로 둔 이유는 여기 없는 것들 때문이다: 개입·힌트·무르기·게이지·
 // 태그·상대의 강함이 전부 없고, 대신 시계와 상대의 접속이 있다.
 //
-// 스냅샷은 언제나 통째로 나간다 — 저쪽과 같은 이유이고, 여기는 하나가 더 있다:
+// 스냅샷은 언제나 전부 나간다 — 저쪽과 같은 이유이고, 여기는 하나가 더 있다:
 // 화면이 둘이라 부분 갱신을 재구성하게 두면 두 화면이 서로 다르게 어긋난다.
 
 // Status 는 판이 끝났는지, 끝났다면 왜인지다.
@@ -30,7 +30,7 @@ const (
 	// StatusExpired 는 한 수도 안 둔 채 시간이 다 된 것이다. 승패가 없다.
 	//
 	// aborted 와 따로 둔다. 둘 다 승패가 없지만 화면이 할 말이 정반대다 — 저쪽은
-	// 「서버 사정」이고 이쪽은 「아무도 안 뒀다」인데, 하나로 뭉치면 그냥 자리를 비운 판에서
+	// 「서버 사정」이고 이쪽은 「누구도 안 뒀다」인데, 하나로 뭉치면 그냥 자리를 비운 판에서
 	// 두 사람 다 서버를 탓하게 된다.
 	StatusExpired Status = "expired"
 )
@@ -82,7 +82,7 @@ type Snapshot struct {
 	// OpponentOnline 은 상대가 지금 화면을 보고 있는가다.
 	//
 	// 판은 이 값과 무관하게 돈다. 나가 있어도 시계는 흐르고, 그것이 판이 끝나는
-	// 유일한 장치다(DefaultTurnLimit).
+	// 하나뿐인 장치다(DefaultTurnLimit).
 	OpponentOnline bool `json:"opponentOnline"`
 
 	// TurnLimitMs·TurnLeftMs 는 시계다. 서버가 정본이고 화면은 세기만 한다 —
@@ -134,7 +134,7 @@ func (st *state) snapshot() *snapshotData {
 	return d
 }
 
-// for_ 는 그쪽이 보는 모양으로 편다. 여기가 「너」와 「상대」가 정해지는 유일한 자리다.
+// for_ 는 그쪽이 보는 모양으로 편다. 여기가 「너」와 「상대」가 정해지는 하나뿐인 자리다.
 func (d *snapshotData) for_(you shogi.Color) Snapshot {
 	s := Snapshot{
 		SFEN:           d.sfen,

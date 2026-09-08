@@ -397,7 +397,7 @@ func TestKeptNumbersDoNotReuseAName(t *testing.T) {
 	}
 }
 
-// 이 값이 파일 경로가 되므로 모양 검사가 유일한 방어다.
+// 이 값이 파일 경로가 되므로 모양 검사가 하나뿐인 방어다.
 func TestLabelRefusesANameItDidNotMake(t *testing.T) {
 	h, dir := labelTest(t)
 
@@ -416,7 +416,7 @@ func TestLabelRefusesANameItDidNotMake(t *testing.T) {
 	}
 }
 
-// 틀린 라벨은 없는 라벨보다 나쁘다 — 측정이 조용히 나빠 보이고 원인을 모델에서 찾게 된다.
+// 틀린 라벨은 없는 라벨보다 나쁘다 — 측정이 이유 없이 나빠 보이고 원인을 모델에서 찾게 된다.
 func TestLabelRefusesAPositionThatCannotStand(t *testing.T) {
 	h, dir := labelTest(t)
 	id := decodePosition(t, h.postRead(t, 7, fakePNG)).ImageID

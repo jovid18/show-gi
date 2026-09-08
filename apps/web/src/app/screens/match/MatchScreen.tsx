@@ -35,7 +35,7 @@ export function MatchScreen({ roomId }: { roomId: string }) {
    *
    * WebSocket 이 붙는 순간 손님 자리가 확정되고(서버의 `Hub.Enter`) 시계가 돌기 시작한다 —
    * 그러면 링크를 잘못 누른 사람이 모르는 사이에 남의 방 자리를 태우고, 그 방은 그때부터
-   * 아무도 못 들어간다(정원 2명). 방을 만든 사람과 이미 앉은 사람은 그냥 지나간다.
+   * 누구도 못 들어간다(정원 2명). 방을 만든 사람과 이미 앉은 사람은 그냥 지나간다.
    */
   const [peek, setPeek] = useState<{ room: Room | null; done: boolean }>({ room: null, done: false });
   const [joined, setJoined] = useState(false);
@@ -388,7 +388,7 @@ function matchResultText(snapshot: MatchSnapshot): string | null {
     case 'aborted':
       return 'サーバーの都合でこの対局は中断しました。';
     // 여기도 승패가 없다. 다만 이유가 반대라 문장이 다르다 — 서버 사정이 아니라
-    // 아무도 안 둔 것이고, 그것을 「サーバーの都合」로 적으면 없는 고장을 알리게 된다.
+    // 누구도 안 둔 것이고, 그것을 「サーバーの都合」로 적으면 없는 고장을 알리게 된다.
     case 'expired':
       return '一手も指されないまま持ち時間が過ぎました。この対局は成立しませんでした。';
     default:

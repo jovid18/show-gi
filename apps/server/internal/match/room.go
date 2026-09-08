@@ -42,11 +42,11 @@ func (r *Room) Ready() <-chan struct{} { return r.ready }
 // Closed 는 방이 걷혔을 때 닫힌다. 기다리던 연결이 이것으로 안다(journal §83).
 func (r *Room) Closed() <-chan struct{} { return r.closed }
 
-// HostName 은 방을 만든 사람의 이름이다. 손님이 들어가기 전에 보는 유일한 정보다.
+// HostName 은 방을 만든 사람의 이름이다. 손님이 들어가기 전에 보는 하나뿐인 정보다.
 func (r *Room) HostName() string { return r.host.Name }
 
 // IsHost 는 그 사람이 이 방을 만들었는가다. 잠금이 필요 없다 — host 는 생성 뒤로
-// 안 바뀌는 유일한 자리다(guest 는 Hub.mu 가 지킨다).
+// 안 바뀌는 하나뿐인 자리다(guest 는 Hub.mu 가 지킨다).
 func (r *Room) IsHost(userID int64) bool { return userID == r.host.UserID }
 
 // Table 은 시작된 대국이다. 아직 시작 전이면 nil — Ready 를 기다린 뒤에 부른다.
@@ -97,10 +97,10 @@ func NewHub(ctx context.Context, cfg HubConfig) *Hub {
 // 걷히는 조건(OpenTTL·FinishedTTL)은 분 단위다.
 const sweepInterval = time.Minute
 
-// sweepLoop 은 아무도 Hub 를 안 건드려도 만료를 훑는다.
+// sweepLoop 은 누구도 Hub 를 안 건드려도 만료를 훑는다.
 //
 // 손이 닿을 때만 훑으면 혼자 기다리는 방이 안 걷힌다. 방을 만들고 링크를 보낸 사람은
-// Ready·Closed 에 머물러 있을 뿐 Hub 를 부르지 않는데, 그동안 다른 사람이 아무도 안 오면
+// Ready·Closed 에 머물러 있을 뿐 Hub 를 부르지 않는데, 그동안 다른 사람이 누구도 안 오면
 // sweepLocked 가 돌 일이 없다 — 그 화면은 만료가 지나도 이미 죽은 링크를 계속
 // 광고한다(journal §83). 알려 주는 채널은 이미 있고(closed), 없던 것은 그것을 닫을
 // 계기뿐이었다.
@@ -151,7 +151,7 @@ func (h *Hub) Create(host Player, hostColor shogi.Color) *Room {
 //     앉는데, 대기열 방식은 상대가 정해져 있다 — 자리가 둘 다 찬 방이라
 //     seatOfLocked 가 그 둘만 통과시킨다.
 //  3. 상한을 안 건다(dropSurplusLocked). 이 방은 손님이 있어서 애초에 그 필터에
-//     안 걸리고, 부르면 이 사람이 따로 열어 둔 초대 링크가 조용히 죽는다.
+//     안 걸리고, 부르면 이 사람이 따로 열어 둔 초대 링크가 경고 없이 죽는다.
 //
 // 확인 화면도 여기서 같이 없어진다. 손님이 앉아 있으면 방이 waiting 이 아니고
 // (Hub.SeatOf) 화면은 그때 확인을 안 그린다(journal §92).
@@ -207,7 +207,7 @@ func (h *Hub) dropSurplusLocked(hostID int64) {
 
 // dropLocked 는 방을 걷어가고 기다리던 연결에 알린다(journal §83).
 //
-// ready 가 이미 닫혔으면(대국이 시작됐으면) closed 는 아무도 안 본다. 그래도 닫는 것은
+// ready 가 이미 닫혔으면(대국이 시작됐으면) closed 는 누구도 안 본다. 그래도 닫는 것은
 // 「걷혔다」가 방의 사실이기 때문이고, 두 번 닫힐 일은 없다 — 삭제가 한 번뿐이다.
 func (h *Hub) dropLocked(room *Room) {
 	delete(h.rooms, room.ID)
@@ -254,7 +254,7 @@ func (h *Hub) Enter(id string, p Player) (*Room, shogi.Color, error) {
 	}
 	// 자기 방에 손님으로 못 앉는다 — seatOfLocked 가 이미 host 로 답했으므로 여기
 	// 오는 것은 다른 사람뿐이다. 그래도 한 번 더 보는 것은 나중에 위 분기가 바뀌었을 때
-	// 혼자 두는 판이 조용히 생기는 것을 막기 위해서다.
+	// 혼자 두는 판이 경고 없이 생기는 것을 막기 위해서다.
 	if p.UserID == room.host.UserID {
 		return room, room.hostColor, nil
 	}
@@ -291,7 +291,7 @@ func (h *Hub) startLocked(room *Room) {
 	// 사이에 이 방이 걷힐 수 있고(만료·상한), 그때 대국을 시작하면 ready 와 closed 가
 	// 둘 다 닫힌다 — 두 handler 의 select 가 무작위로 갈려서 한 사람은 판에 앉고
 	// 다른 사람은 「期限が切れました」를 보게 된다. 그 판은 60초 뒤 시간패로 끝나고,
-	// 아무도 못 본 대국의 행 둘이 남는다.
+	// 누구도 못 본 대국의 행 둘이 남는다.
 	if h.rooms[room.ID] != room {
 		return
 	}

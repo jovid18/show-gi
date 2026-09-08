@@ -129,9 +129,9 @@ func replayBlunder(b blunderRow, moves []string) (shogi.Position, shogi.Move, er
 // offlineCategory 는 복원한 사실로 프로덕션과 같은 분류기를 돌린다.
 //
 // classify 가 비공개라 Judge 를 지나간다. 낙폭을 확실히 임계치 위로 두면 분류만
-// 남고, 여기서 갈릴 수 있는 유일한 분기인 shallow_trap 은 HasShallow=false 라
+// 남고, 여기서 갈릴 수 있는 하나뿐인 분기인 shallow_trap 은 HasShallow=false 라
 // 애초에 안 걸린다. 규칙을 베껴 오지 않는다 — 베끼면 calibrate 가
-// 조건을 고치는 순간 측정만 조용히 옛 규칙을 잰다.
+// 조건을 고치는 순간 측정만 경고 없이 옛 규칙을 잰다.
 func offlineCategory(f intervene.Features) intervene.Category {
 	return intervene.Judge(intervene.Input{
 		Best:     eval.Mate(1),

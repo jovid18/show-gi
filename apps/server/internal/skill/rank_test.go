@@ -114,7 +114,7 @@ func TestEndsOfTheScale(t *testing.T) {
 }
 
 // 같은 실수가 레벨이 갈려도 같은 이름이어야 한다. 정규화값으로 세면 네 계급 움직이고
-// (journal §92의 표) 그 순간 실측 앵커가 통째로 낡는다.
+// (journal §92의 표) 그때 실측 앵커 전체가 어긋난다.
 func TestNameDoesNotDependOnTheThresholdThatJudged(t *testing.T) {
 	const drop = 0.06 // 승률 0.06 손해. 어느 레벨에서도 통과하는 크기다
 

@@ -98,7 +98,7 @@ func expected(self, opp, oppDev float64) float64 {
 }
 
 // InactivityToUnrated 는 한 판도 안 두면 RD 가 MaxDeviation 까지 되돌아가는 데 걸리는
-// 시간이다. Inflate 의 유일한 손잡이다 — Glicko 의 c 를 그대로 두면 그 값이 무엇을
+// 시간이다. Inflate 의 하나뿐인 손잡이다 — Glicko 의 c 를 그대로 두면 그 값이 무엇을
 // 뜻하는지 읽는 자리에서 알 수 없다.
 //
 // [미확정] 90일은 초기값이다.

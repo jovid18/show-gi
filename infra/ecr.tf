@@ -52,7 +52,7 @@ resource "aws_ecr_registry_scanning_configuration" "basic" {
   }
 }
 
-# 태그별로 이미지를 쌓아두면 저장 요금이 조용히 는다. 되돌릴 만큼만 남긴다.
+# 태그별로 이미지를 쌓아두면 저장 요금이 경고 없이 는다. 되돌릴 만큼만 남긴다.
 resource "aws_ecr_lifecycle_policy" "app" {
   for_each   = aws_ecr_repository.app
   repository = each.value.name
@@ -181,7 +181,7 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
       },
       {
         # 티어마다 서비스가 하나다. 분석 쪽이 빠지면 배포가 그 서비스에서만 실패하고,
-        # 사람이 쓰는 화면은 새것이라 한동안 아무도 안 알아챈다.
+        # 사람이 쓰는 화면은 새것이라 한동안 누구도 안 알아챈다.
         Effect   = "Allow"
         Action   = ["ecs:DescribeServices", "ecs:UpdateService"]
         Resource = [aws_ecs_service.app.id, aws_ecs_service.analysis.id]

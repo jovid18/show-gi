@@ -24,7 +24,7 @@ export interface SnapshotSource {
   loaded: Loaded<ExploreSnapshot[]>;
   /**
    * 로그인 검사에서 닫혔다. 목록도 저장 칸도 없고 화면이 한 줄만 남긴다 — 검토 자체는
-   * 로그인 없이 도므로(journal §100) 이 패널을 통째로 지우면 저장이 「없는 기능」이 된다.
+   * 로그인 없이 도므로(journal §100) 이 패널 전체를 지우면 저장이 「없는 기능」이 된다.
    */
   signedOut: boolean;
   /**

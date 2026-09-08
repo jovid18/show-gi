@@ -65,7 +65,7 @@ func (imp *Importer) ImportGame(ctx context.Context, g ParsedGame) (ImportResult
 
 		j, err := imp.analyst.Judge(ctx, startSFEN, g.Moves[:ply], ply)
 		if err != nil {
-			// 수는 이미 들어갔고 평가치·개입만 빠진다 — 표본이 조용히 줄어드는 자리다(ImportResult 에 세는 칸이 없어 로그에만 남는다).
+			// 수는 이미 들어갔고 평가치·개입만 빠진다 — 표본이 경고 없이 줄어드는 자리다(ImportResult 에 세는 칸이 없어 로그에만 남는다).
 			log.Printf("kifu: judge ply %d: %v", ply, err)
 			continue
 		}

@@ -141,7 +141,7 @@ func TestMeasureRankAnchors(t *testing.T) {
 		judged := len(sente.moves) + len(gote.moves)
 		measured += sente.count(w) + gote.count(w)
 		if judged < len(e.game.Moves) {
-			// 판정이 빠진 手가 있다. 표본이 조용히 줄어드는 자리라 판마다 남긴다.
+			// 판정이 빠진 手가 있다. 표본이 경고 없이 줄어드는 자리라 판마다 남긴다.
 			t.Errorf("%s: %d手 중 %d手만 쟀다", e.source, len(e.game.Moves), judged)
 		}
 		sente.label, gote.label = e.senteLabel, e.goteLabel
@@ -174,7 +174,7 @@ func TestMeasureRankAnchors(t *testing.T) {
 	reportRankPaired(paired, w)
 }
 
-// shortSource 는 표에 실을 기보 이름이다. 수순을 통째로 찍으면 한 줄이 수백 자가 되어
+// shortSource 는 표에 실을 기보 이름이다. 수순 전체를 찍으면 한 줄이 수백 자가 되어
 // 표가 안 읽힌다 — 어느 줄인지 알 만큼만 남긴다.
 func shortSource(source string) string {
 	const keep = 28
@@ -324,7 +324,7 @@ func measureGame(ctx context.Context, analyst game.Analyst, g ParsedGame, decide
 		j, err := analyst.Judge(ctx, startSFEN, g.Moves[:ply], ply)
 		if err != nil {
 			// 한 수를 못 재면 그 수만 빠진다. 판을 버리지 않는 것은 手数가 표에 있어서
-			// 표본이 조용히 줄어드는 자리가 없기 때문이다.
+			// 표본이 경고 없이 줄어드는 자리가 없기 때문이다.
 			continue
 		}
 		c := moverAt(startSFEN, ply)
@@ -411,7 +411,7 @@ func reportRankLabels(byLabel map[string][]rankSide, w rankWindow) {
 }
 
 // rankNameOf 는 그 절대 낙폭에 지금 척도가 붙이는 이름이다. 앵커가 이 표에서 나왔으므로
-// (skill.rankAnchors) 라벨과 이름이 어긋나면 상수가 낡은 것이다.
+// (skill.rankAnchors) 라벨과 이름이 어긋나면 상수가 오래된 것이다.
 func rankNameOf(absLoss float64) string {
 	r, ok := skill.RankOf(skill.Estimate{AbsLoss: absLoss, AbsSamples: skill.MinSamples})
 	if !ok {
@@ -570,7 +570,7 @@ func sortedRankLabels(byLabel map[string][]rankSide, w rankWindow) []string {
 }
 
 // meanSD 는 한 라벨의 평균과 표준편차다. 판마다의 평균을 표본 하나로 세는 것이 §39가
-// 잰 분산과 같은 단위다 — 手를 통째로 모아 세면 긴 판이 표를 끌고 간다.
+// 잰 분산과 같은 단위다 — 手를 전부 모아 세면 긴 판이 표를 끌고 간다.
 func meanSD(sides []rankSide, w rankWindow) (mean, sd float64) {
 	var vals []float64
 	for _, s := range sides {
@@ -595,7 +595,7 @@ func meanSD(sides []rankSide, w rankWindow) (mean, sd float64) {
 	return mean, math.Sqrt(sd / float64(len(vals)-1))
 }
 
-// labelBigRate 는 라벨 전체에서 큰 실수의 비율이다. 측면마다 재서 평균한다 — 手를 통째로
+// labelBigRate 는 라벨 전체에서 큰 실수의 비율이다. 측면마다 재서 평균한다 — 手를 전부
 // 모으면 긴 판이 표를 끌고 간다(meanSD 와 같은 규약).
 func labelBigRate(sides []rankSide, w rankWindow, cut float64) float64 {
 	sum, n := 0.0, 0

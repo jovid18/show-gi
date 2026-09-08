@@ -42,7 +42,7 @@ func TestUpsertUserIsIdempotent(t *testing.T) {
 }
 
 // 로그인한 사람의 판은 그 사람 것으로 남아야 한다. games.user_id 는 nullable이라
-// (002_anonymous_games.sql) 안 채워도 조용히 성공한다 — 그래서 실물로 확인한다.
+// (002_anonymous_games.sql) 안 채워도 경고 없이 성공한다 — 그래서 실물로 확인한다.
 func TestCreateGameKeepsUserID(t *testing.T) {
 	s := open(t)
 	uid := "test/" + t.Name()

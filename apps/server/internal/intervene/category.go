@@ -13,7 +13,7 @@ const (
 	CategoryNone Category = ""
 
 	// CategoryMissedMate 는 詰み을 놓친 것이다. 종반에는 승률이 포화해 낙폭이
-	// 판정력을 잃으므로, 이것만이 유일한 신호다(§2).
+	// 판정력을 잃으므로, 이것만이 하나뿐인 신호다(§2).
 	CategoryMissedMate Category = "missed_mate"
 
 	// CategorySlowerMate 는 詰み이 남았는데 멀어진 것이다.
@@ -117,7 +117,7 @@ type Features struct {
 // HangsPiece 는 놓인 駒를 그냥 내주는가다.
 //
 // 두 곳이 같은 정의를 쓴다. 개입의 タダ捨て 판정이자 적응형 상대의 「던지지 않는다」
-// 필터이고, 갈렸을 때 무엇이 무너지는지는 01-core.md §6.
+// 필터이고, 갈렸을 때 무엇이 깨지는지는 01-core.md §6.
 func (f Features) HangsPiece() bool {
 	return f.Known && f.LandsAttacked && !f.LandsDefended && f.MovedValue > f.CapturedValue
 }

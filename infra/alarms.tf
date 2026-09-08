@@ -2,7 +2,7 @@
 #
 # 커스텀 지표는 api 컨테이너가 stdout 으로 내는 EMF 에서 나온다(internal/metrics).
 # CloudWatch 가 로그에서 뽑아 show-gi 이름 공간에 넣으므로, 여기서 만들 것은 없고
-# 이름을 맞추기만 한다 — 이름이 어긋나면 알람이 「데이터 없음」으로 조용히 산다.
+# 이름을 맞추기만 한다 — 이름이 어긋나면 알람이 「데이터 없음」으로 그대로 산다.
 #
 # 티어 둘이 같은 계열에 올린다. 차원에 티어를 안 올린 이유와 그 대가는 journal §120 에
 # 있고, 여기서 지켜야 하는 것은 통계 하나다 — 카운터는 Sum, 게이지는 Maximum 이다.
@@ -32,7 +32,7 @@ resource "aws_sns_topic_subscription" "alarms_email" {
 # 정상 타깃이 0인 상태. 「비정상 수」가 아니라 「정상 수」를 보는 이유는 타깃이 아예
 # 등록되지 않은 경우까지 같은 알람이 덮기 때문이다 — 비정상 수는 그때 0을 낸다.
 #
-# 5분인 것은 정상 배포가 그보다 짧기 때문이다. 대상 그룹 뒤가 한 대라 배포는 유일한
+# 5분인 것은 정상 배포가 그보다 짧기 때문이다. 대상 그룹 뒤가 한 대라 배포는 하나뿐인
 # 태스크를 먼저 내리고(ecs.tf 의 deployment_minimum_healthy_percent = 0) 새 것을 띄우며,
 # 거기에 기동 유예 120초가 붙는다. 스팟 회수도 2~3분이다(README 맨 위). 1분 두 회차로
 # 두면 정상 배포마다 울리고, 그러면 사람이 알람을 무시하기 시작한다.
@@ -140,12 +140,12 @@ resource "aws_cloudwatch_metric_alarm" "engine_pool_wait" {
   comparison_operator = "GreaterThanThreshold"
 
   # 차원 둘을 다 적어야 한다. EMF 가 Service·Environment 를 차원으로 내므로
-  # 하나만 적으면 그런 계열이 없어서 알람이 「데이터 없음」으로 조용히 산다.
+  # 하나만 적으면 그런 계열이 없어서 알람이 「데이터 없음」으로 그대로 산다.
   dimensions = { Service = "api", Environment = "prod" }
 
   alarm_actions = [aws_sns_topic.alarms.arn]
 
-  # 아무도 안 두는 시간에는 표본이 없어 지표가 안 나온다. 조용한 것은 위반이 아니다.
+  # 누구도 안 두는 시간에는 표본이 없어 지표가 안 나온다. 조용한 것은 위반이 아니다.
   treat_missing_data = "notBreaching"
 }
 
@@ -187,7 +187,7 @@ resource "aws_cloudwatch_metric_alarm" "analysis_backlog" {
   alarm_actions = [aws_sns_topic.alarms.arn, aws_appautoscaling_policy.analysis_out.arn]
   ok_actions    = [aws_sns_topic.alarms.arn]
 
-  # 아무도 안 두면 지표가 안 나온다. 조용한 것은 위반이 아니다.
+  # 누구도 안 두면 지표가 안 나온다. 조용한 것은 위반이 아니다.
   treat_missing_data = "notBreaching"
 }
 
@@ -212,8 +212,8 @@ resource "aws_sns_topic" "spot" {
 # 알람 토픽에 얹지 않는다. 두 가지 이유이고 둘 다 실무적이다.
 #
 # 첫째, 알람 토픽에는 정책 리소스가 없어서 AWS 기본 정책으로 돌고 있다. EventBridge 를
-# 붙이려면 정책을 명시해야 하는데, 그 순간 기본 정책이 대체되어 지금 오는 알람 메일이
-# 조용히 끊길 수 있다.
+# 붙이려면 정책을 명시해야 하는데, 그때 기본 정책이 대체되어 지금 오는 알람 메일이
+# 경고 없이 끊길 수 있다.
 #
 # 둘째, 스팟 이벤트는 시끄럽다 — 하루에 다섯 번 뜬 날이 있다. 따로 두면 이쪽만 끌 수 있다.
 resource "aws_sns_topic_subscription" "spot_email" {
@@ -225,7 +225,7 @@ resource "aws_sns_topic_subscription" "spot_email" {
 }
 
 # EventBridge 가 이 토픽에 넣을 수 있게 한다. 기본 정책은 계정 안의 주체만 허용하고
-# 서비스 주체는 안 들어가 있어서, 이 문장이 없으면 규칙이 조용히 아무것도 안 한다.
+# 서비스 주체는 안 들어가 있어서, 이 문장이 없으면 규칙이 경고 없이 아무것도 안 한다.
 data "aws_iam_policy_document" "spot_topic" {
   statement {
     actions   = ["SNS:Publish"]

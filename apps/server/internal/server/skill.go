@@ -80,7 +80,7 @@ type skillRun struct {
 	before skill.Estimate
 
 	// 추정기 goroutine이 쓰고 총평 goroutine이 읽는다. 그 둘은 세션과 별개로 도는
-	// 서로 다른 goroutine이라, 여기가 이 파일에서 유일하게 잠금이 필요한 자리다.
+	// 서로 다른 goroutine이라, 여기가 이 파일에서 오직 잠금이 필요한 자리다.
 	mu     sync.Mutex
 	latest skill.Estimate
 }
@@ -118,7 +118,7 @@ func (r *skillRun) change() *skillChange {
 	}
 	c := &skillChange{After: rankView{Step: now.Step, Max: skill.RankMax, NameJa: now.NameJa}}
 	// 처음 두는 사람에게는 「전」이 없다. 익명이거나 첫 판이면 기준선에서 시작하는데,
-	// 그 값을 「이 판을 시작할 때의 실력」이라고 그리면 아무도 안 잰 숫자가 사람에 대한
+	// 그 값을 「이 판을 시작할 때의 실력」이라고 그리면 누구도 안 잰 숫자가 사람에 대한
 	// 판정으로 화면에 나온다.
 	if was, ok := skill.RankOf(r.before); ok {
 		c.Before = &rankView{Step: was.Step, Max: skill.RankMax, NameJa: was.NameJa}

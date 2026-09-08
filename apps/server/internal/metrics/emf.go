@@ -43,7 +43,7 @@ func NewEmitter(reg *Registry, w io.Writer) *Emitter {
 
 // Run 은 every 주기로 EMF 를 내고 ctx 가 끝날 때까지 막힌다.
 //
-// 끝나면서 한 줄을 더 낸다. 안 내면 종료 직전 회차가 통째로 사라지고, 배포마다
+// 끝나면서 한 줄을 더 낸다. 안 내면 종료 직전 회차 전체가 사라지고, 배포마다
 // 그 구간이 비어 그래프에 규칙적인 구멍이 생긴다.
 func (e *Emitter) Run(ctx context.Context, every time.Duration) {
 	if every <= 0 {
@@ -153,7 +153,7 @@ func (e *Emitter) collect() []metric {
 	}
 
 	// 배열은 비어 있으면 아예 안 낸다. 빈 배열을 올리면 그 회차가 0 관측으로 읽히는
-	// 것이 아니라 EMF 검증에 걸려 줄이 통째로 버려진다.
+	// 것이 아니라 EMF 검증에 걸려 줄 전체가 버려진다.
 	if s := r.HTTPDuration.DrainSamples(nil); len(s) > 0 {
 		out = append(out, metric{"HttpDurationSeconds", "Seconds", s})
 	}

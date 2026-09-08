@@ -101,7 +101,7 @@ func TestPickSkipsOutsideTheBand(t *testing.T) {
 }
 
 // 자기 자신은 짝이 아니다. 질의가 이미 빼고 주지만, 여기서 한 번 더 보는 것은
-// 혼자 두는 판이 조용히 만들어지는 것을 막기 위해서다.
+// 혼자 두는 판이 경고 없이 만들어지는 것을 막기 위해서다.
 func TestPickNeverPicksItself(t *testing.T) {
 	me := waiter(9, 1500, 0)
 	if _, ok := Pick(me, []Waiter{me}, now); ok {

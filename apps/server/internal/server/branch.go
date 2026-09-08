@@ -134,7 +134,7 @@ func evalOf(
 		case err == nil && p.ComputedDepth >= whatifDepth && len(p.Candidates) >= want:
 			return p.Candidates, nil
 		case err != nil && !errors.Is(err, store.ErrNoPosition):
-			// 캐시가 고장 나도 탐색은 된다. 조용히 넘기지 않고 다시 잰다.
+			// 캐시가 고장 나도 탐색은 된다. 경고 없이 넘기지 않고 다시 잰다.
 			log.Printf("whatif: read cache: %v", err)
 		}
 	}
@@ -183,7 +183,7 @@ func candidatesOf(pos shogi.Position, prevTo int, cands []store.Candidate) []wha
 		if !isMate {
 			c.EvalCp = &cp
 		}
-		// 낙폭은 최선수 대비다. 화면이 뺄셈을 하지 않는다 — 두 값을 나란히 두면
+		// 낙폭은 최선수 대비다. 화면이 뺄셈을 하지 않는다 — 두 값을 함께 두면
 		// 어느 쪽이 기준인지가 흐려진다.
 		//
 		// 詰み이 한쪽에라도 있으면 안 적는다. 뺄 cp 자체가 없고, 억지로 환산하면 뺄셈이

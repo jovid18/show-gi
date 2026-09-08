@@ -5,9 +5,9 @@ import type { WhatIfNode, WhatIfRequest } from '@/protocol/whatif';
 /**
  * 「そのとき、こう指していたら」 — 가정 수순 한 줄을 들고 있는다.
  *
- * 분기는 화면이 소유한다. 서버는 매번 통째로 받아 그 국면 하나를 답해 줄 뿐이고,
+ * 분기는 화면이 소유한다. 서버는 매번 전부 받아 그 국면 하나를 답해 줄 뿐이고,
  * 한 수도 대신 두지 않는다. 되돌릴 상태가 없어서 그럴 수 있다 — 끝난 판의 가정이든
- * 물러진 수 뒤의 가정이든 아무도 안 잃는다.
+ * 물러진 수 뒤의 가정이든 누구도 안 잃는다.
  *
  * 오가는 길은 세 가지다. 되짚는 판은 HTTP, 대국 중의 블런더 화면은 그 대국의
  * WebSocket, 검토는 또 다른 HTTP다(`/api/explore`). 그 차이를 `send` 하나로 밀어내서
@@ -54,7 +54,7 @@ const FALLBACK_ERROR = 'この手順を試せませんでした。';
  * 보낸 것과 받은 것의 열쇠가 같다. 서버가 응수를 대신 두던 때는 그렇지 않아서
  * (보낸 줄에 한 수가 더 붙어 왔다) 물릴 때마다 캐시가 헛쳤고, 그러면 같은 자리의 후보
  * 평가치가 조금씩 달라졌다 — 같은 국면·같은 깊이가 늘 같은 답을 주지는 않기 때문이다
- * (journal §34 ②). 대신 두지 않기로 하면서 그 버그가 통째로 사라졌다.
+ * (journal §34 ②). 대신 두지 않기로 하면서 그 버그 전체가 사라졌다.
  */
 function keyOf(req: WhatIfRequest): string {
   return `${req.ply}:${req.moves.join(' ')}`;
@@ -196,7 +196,7 @@ export function useWhatIf<T extends WhatIfNode = WhatIfNode>(
    */
   const evalOf = useCallback(
     (lineLength: number) => {
-      // 지금 줄보다 긴 자리는 모른다. `slice` 는 넘치면 조용히 짧게 잘라 주므로,
+      // 지금 줄보다 긴 자리는 모른다. `slice` 는 넘치면 경고 없이 짧게 잘라 주므로,
       // 막지 않으면 아직 안 가 본 장면에 직전 장면의 값이 붙는다 — 개입 카드에서
       // 물러진 수와 그 다음 수가 같은 숫자로 나왔다(브라우저에서 그 그림을 봤다).
       if (!node || lineLength > node.line.length) return null;

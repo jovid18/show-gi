@@ -49,7 +49,7 @@ type TesujiOption struct {
 // 다시 쓰게 된다. 아끼는 쪽이 훨씬 싸다 — 같은 판정이 두 벌이 되는 순간 한쪽만 고치는
 // 날이 온다.
 func tesujiOptions(pos shogi.Position, c shogi.Color) []TesujiOption {
-	// LegalMoves 는 pos.Turn 쪽의 수만 낸다. 상대 차례에 물으면 조용히 빈 결과가 오므로
+	// LegalMoves 는 pos.Turn 쪽의 수만 낸다. 상대 차례에 물으면 경고 없이 빈 결과가 오므로
 	// (에러가 아니라 「手筋이 없다」로 보인다) 여기서 따로 둔다 — tag.targetSquares 가
 	// 같은 함정에 물렸던 자리다.
 	if pos.Turn != c {
@@ -77,7 +77,7 @@ func tesujiOptions(pos shogi.Position, c shogi.Color) []TesujiOption {
 // dropped 는 모르는 채로 남은 후보 수다 — 줄 밖이고 마지막 줄이 아직 상한 안이라
 // 확정 탈락이라고 말할 수 없는 것들. 0이 아니면 결과가 「전부」가 아니다.
 //
-// 모르면 이름을 붙이지 않는다. 탐색이 실패하면 통째로 빈 결과다 — 룰만으로
+// 모르면 이름을 붙이지 않는다. 탐색이 실패하면 전부 빈 결과다 — 룰만으로
 // 통과시키면 이 게이트가 없는 것과 같아진다(tesuji.go 의 같은 규약).
 func gateTesujiOptions(
 	ctx context.Context,
@@ -97,7 +97,7 @@ func gateTesujiOptions(
 		return nil, len(opts), err
 	}
 	// Ranked 를 쓴다. Lines[0] 은 1위가 아닐 수 있다 — 아직 안 온 순위가 빈 줄로
-	// 남아 있고, 그것을 최선으로 읽으면 낙폭이 통째로 어긋난다(usi.SearchResult.Ranked).
+	// 남아 있고, 그것을 최선으로 읽으면 낙폭 전체가 어긋난다(usi.SearchResult.Ranked).
 	lines := root.Ranked()
 	if len(lines) == 0 {
 		return nil, len(opts), nil

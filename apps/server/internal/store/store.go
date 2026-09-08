@@ -149,7 +149,7 @@ func (s *Store) GetPosition(ctx context.Context, sfenKey string) (Position, erro
 // (query/positions.sql).
 //
 // 덮지 않았으면 stored=false 다 — 호출 측이 "내 결과가 더 얕았다"를 알 수 있어야
-// 조용히 버려지지 않는다.
+// 경고 없이 버려지지 않는다.
 func (s *Store) PutPosition(ctx context.Context, p Position) (stored bool, err error) {
 	// null 을 넣지 않는다. 질의가 jsonb_array_length 로 후보 수를 견주는데
 	// (같은 깊이면 많은 쪽이 이긴다) 그 함수는 배열이 아닌 값에서 에러를 낸다 —
@@ -269,9 +269,9 @@ func evalColumns(s *eval.Score) (cp, mate *int32) {
 // scoresByDepth 는 배열 둘을 깊이 순 점수로 합친다. 한 자리라도 「둘 다 있음」이나
 // 「둘 다 없음」이면 nil 이다 — 자리가 곧 깊이라 부분 복구가 곧 깊이 어긋남이다.
 //
-// 詰み 배열이 통째로 비어 있는 것은 「전부 cp」다. 021 이 그 칸을 nullable 로 더하고
+// 詰み 배열 전체가 비어 있는 것은 「전부 cp」다. 021 이 그 칸을 nullable 로 더하고
 // 채우지 않으므로 그 앞에 쌓인 행이 전부 이 모양이고, 길이가 다르다고 버리면 그 행들의
-// 깊이별 값이 통째로 사라진다 — 얕은 평가가 없어져 「얕게 보면 이득」이 캐시 히트에서
+// 깊이별 값 전체가 사라진다 — 얕은 평가가 없어져 「얕게 보면 이득」이 캐시 히트에서
 // 영영 안 걸린다.
 func scoresByDepth(cps, mates []*int32) []eval.Score {
 	if len(mates) == 0 {
@@ -299,7 +299,7 @@ func (s *Store) CountEdges(ctx context.Context) (int64, error) { return s.q.Coun
 
 // Edges 는 그 국면에서 나가는 수들이다.
 //
-// 깊이별 평가치를 되찾는 유일한 길이다 — positions.candidates 에는 마지막 깊이의
+// 깊이별 평가치를 되찾는 하나뿐인 길이다 — positions.candidates 에는 마지막 깊이의
 // 값만 있고, 개입 판정이 보는 얕은 값(depth 2)은 여기서만 나온다(01-core.md §3).
 func (s *Store) Edges(ctx context.Context, parentKey string) ([]Edge, error) {
 	rows, err := s.q.ListEdges(ctx, parentKey)
@@ -313,8 +313,8 @@ func (s *Store) Edges(ctx context.Context, parentKey string) ([]Edge, error) {
 			e.ChildKey = *r.ChildKey
 		}
 		// 자리가 곧 깊이다(i 번째 = depth i+1). 그래서 구멍을 건너뛰면 안 된다 —
-		// 뒤가 통째로 한 칸씩 밀리고 얕은 값을 묻는 쪽이 다른 깊이의 답을 받는다.
-		// 한 자리라도 성립하지 않으면 그 수의 깊이별 값을 통째로 버린다.
+		// 뒤 전체가 한 칸씩 밀리고 얕은 값을 묻는 쪽이 다른 깊이의 답을 받는다.
+		// 한 자리라도 성립하지 않으면 그 수의 깊이별 값 전체를 버린다.
 		e.ByDepth = scoresByDepth(r.EvalByDepth, r.MateByDepth)
 		if e.ByDepth == nil && len(r.EvalByDepth) > 0 {
 			log.Printf("store: edge %s %s has a malformed by-depth pair, dropping it", r.ParentKey, r.USI)
@@ -356,7 +356,7 @@ func (s *Store) GetMate(ctx context.Context, sfenKey string) (Mate, error) {
 // PutMate 는 증명된 詰み 답을 캐시에 넣는다. 덮을지 말지는 SQL의 WHERE 절이 정한다
 // (query/mate.sql).
 //
-// 덮지 않았으면 stored=false 다. PutPosition 과 같은 규약이다 — 조용히 버려지는 것과
+// 덮지 않았으면 stored=false 다. PutPosition 과 같은 규약이다 — 경고 없이 버려지는 것과
 // 이미 더 깊은 답이 있는 것을 부르는 쪽이 가를 수 있어야 한다.
 func (s *Store) PutMate(ctx context.Context, m Mate) (stored bool, err error) {
 	moves := m.Moves
@@ -459,7 +459,7 @@ func (s *Store) SaveSkillEstimate(ctx context.Context, userID int64, e SkillEsti
 // 값이 false면 그 사이에 다른 쪽이 썼다는 뜻이고, 아무것도 안 바뀐 것이다.
 //
 // 지난 값 위에 얹는 갱신을 오래 들고 있는 쪽이 쓴다(server/match_analysis.go). 그냥
-// 덮으면 그 사이에 끝난 엔진 대국의 판정을 통째로 지운다.
+// 덮으면 그 사이에 끝난 엔진 대국의 판정 전체를 지운다.
 func (s *Store) SaveSkillEstimateIfSamples(ctx context.Context, userID int64, e SkillEstimate, expected int) (bool, error) {
 	loss := e.Loss
 	params := db.SaveSkillEstimateIfSamplesParams{
@@ -556,7 +556,7 @@ func (s *Store) SaveMatchRatings(ctx context.Context, aID int64, a MatchRating, 
 // 셋만 「끝난 판」이다 — win·loss·draw. 화면이 읽는 질의가 그 셋으로 거르므로
 // (query/games.sql), 아래 둘은 클라이언트에 아예 안 나간다(journal §51).
 //
-// 칸에 CHECK 가 없어서 값을 늘리는 데 마이그레이션이 필요 없다. 대신 여기가 유일한
+// 칸에 CHECK 가 없어서 값을 늘리는 데 마이그레이션이 필요 없다. 대신 여기가 하나뿐인
 // 어휘 목록이다 — 001_init.sql 의 칸 주석은 declined 를 모른다(적용된 마이그레이션은
 // 안 고친다).
 type GameResult string
@@ -857,7 +857,7 @@ func (s *Store) CountInterventions(ctx context.Context) (int64, error) {
 
 // ── 리뷰(읽기) ───────────────────────────────────────────
 //
-// 여기까지가 쓰는 쪽이었다. 아래가 꺼내는 쪽이고, 리뷰 화면이 유일한 소비자다.
+// 여기까지가 쓰는 쪽이었다. 아래가 꺼내는 쪽이고, 리뷰 화면이 하나뿐인 소비자다.
 
 // GameSummary 는 리뷰 목록의 한 줄이다.
 type GameSummary struct {
@@ -880,13 +880,13 @@ type GameSummary struct {
 	// StartSFEN 은 그 판의 0手目다. 비어 있으면 平手 초기 국면이다(game.Config.StartSFEN
 	// 과 같은 규약).
 	//
-	// 手合割을 되짚는 유일한 칸이다(internal/handicap 의 Of). 이름을 따로 저장하지
+	// 手合割을 되짚는 하나뿐인 칸이다(internal/handicap 의 Of). 이름을 따로 저장하지
 	// 않으므로 이 값과 실제 판이 갈릴 자리가 없고, 그래서 마이그레이션도 필요 없었다.
 	StartSFEN string
 	// Imported 는 밖에서 둔 판을 가져온 것인가다(020_imported_games.sql).
 	//
 	// 그 판에도 평가치와 개입이 있다 — 사후 분석이 채운다(server/kifu_analysis.go).
-	// 갈리는 것은 그 개입을 아무도 안 막았다는 것뿐이고, 화면이 그 값으로 표기를
+	// 갈리는 것은 그 개입을 누구도 안 막았다는 것뿐이고, 화면이 그 값으로 표기를
 	// 「止められた手」에서 「悪手」로 옮긴다.
 	Imported bool
 }
@@ -953,7 +953,7 @@ var ErrNoGame = errors.New("store: game not found")
 // 안전한 쪽이 짧은 이름을 갖는다 — 나중에 손이 먼저 닿는 것이 그쪽이어야 한다.
 //
 // limit 을 여기서 자른다 — 자르는 변환을 하는 자리가 스스로 막아야 한다. int32(limit)
-// 이 큰 값을 조용히 음수로 만들면 LIMIT 이 거짓말을 한다.
+// 이 큰 값을 경고 없이 음수로 만들면 LIMIT 이 거짓말을 한다.
 func (s *Store) ListGames(ctx context.Context, limit int, ownerID *int64) ([]GameSummary, error) {
 	rows, err := s.q.ListGamesForOwner(ctx, db.ListGamesForOwnerParams{
 		Limit:   listLimit(limit),
@@ -976,7 +976,7 @@ func (s *Store) ListGames(ctx context.Context, limit int, ownerID *int64) ([]Gam
 
 // ListGamesAnyOwner 는 주인을 안 보고 전부 준다. 측정 전용이다 —
 // 상수 재채점이 기록된 판을 가로질러 읽는다(journal §39). HTTP 표면에서 부르면
-// 그 순간 남의 기보가 열린다(02-architecture.md §7 위협 2).
+// 그때 남의 기보가 열린다(02-architecture.md §7 위협 2).
 func (s *Store) ListGamesAnyOwner(ctx context.Context, limit int) ([]GameSummary, error) {
 	rows, err := s.q.ListGames(ctx, listLimit(limit))
 	if err != nil {
@@ -1010,7 +1010,7 @@ type PlayerTally struct {
 // PlayerTally 는 그 사람의 전적·약점·진형을 한 번에 센다. ownerID 가 nil이면 익명 판이다.
 //
 // 한 함수인 이유는 같은 모집단에서 나와야 하기 때문이다 — 따로 두면 나중에 한쪽 질의의
-// 조건만 고쳐지고, 그때 화면의 숫자들이 조용히 다른 것을 세게 된다(server/summary.go 의
+// 조건만 고쳐지고, 그때 화면의 숫자들이 경고 없이 다른 것을 세게 된다(server/summary.go 의
 // factsOf 가 같은 이유로 한 함수다).
 func (s *Store) PlayerTally(ctx context.Context, ownerID *int64) (PlayerTally, error) {
 	out := PlayerTally{
@@ -1106,7 +1106,7 @@ type gameHead struct {
 	ImportedFrom *string
 }
 
-// GameRecord 는 그 사람의 한 판을 통째로 읽는다. ownerID 가 nil이면 익명 판이다.
+// GameRecord 는 그 사람의 한 판 전체를 읽는다. ownerID 가 nil이면 익명 판이다.
 // 없거나 남의 것이면 ErrNoGame — 둘을 구별해서 돌려주지 않는다. 「없다」와 「당신 것이
 // 아니다」가 갈리면 그것만으로 남의 판이 몇 번까지 있는지 세어 볼 수 있다.
 func (s *Store) GameRecord(ctx context.Context, gameID int64, ownerID *int64) (GameRecord, error) {
@@ -1373,7 +1373,7 @@ func (s *Store) ExploreSnapshots(ctx context.Context, userID int64) ([]ExploreSn
 
 // RenameExploreSnapshot 은 이름만 고친다. 없거나 남의 것이면 ErrNoSnapshot.
 //
-// 수순을 같은 행에 덮어쓰지 않는다 — 옛 이름이 가리키던 국면이 조용히 달라진다.
+// 수순을 같은 행에 덮어쓰지 않는다 — 옛 이름이 가리키던 국면이 경고 없이 달라진다.
 func (s *Store) RenameExploreSnapshot(ctx context.Context, id, userID int64, name string) error {
 	n, err := s.q.RenameExploreSnapshot(ctx, db.RenameExploreSnapshotParams{ID: id, UserID: userID, Name: name})
 	if err != nil {

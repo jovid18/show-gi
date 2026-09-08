@@ -194,7 +194,7 @@ func TestUnpromotedBeatsEveryOtherReason(t *testing.T) {
 //
 // 이 규칙만 절대 부호를 읽는다(Shallow > Baseline · After < Baseline). 기준점을
 // 안 보면 二枚落ち에서 앞 조건이 언제나 참이고 뒤 조건이 거의 언제나 거짓이라, 판정은
-// 걸리는데 이름이 other 로 떨어진다 — 개입은 살아 있고 설명만 조용히 나빠지는 모양이라
+// 걸리는데 이름이 other 로 떨어진다 — 개입은 살아 있고 설명만 경고 없이 나빠지는 모양이라
 // 눈으로는 안 잡힌다(journal §84).
 func TestShallowTrapReadsTheBaseline(t *testing.T) {
 	const nimai = 1490 // internal/handicap 의 실측값

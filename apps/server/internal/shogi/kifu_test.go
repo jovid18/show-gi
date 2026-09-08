@@ -60,7 +60,7 @@ func TestResolveOriginIsTheInverseOfDisambiguate(t *testing.T) {
 	}
 }
 
-// 수식어로도 안 갈리면 고르지 않는다. 골라 버리면 그 뒤의 수순이 통째로 다른 판이 되는데,
+// 수식어로도 안 갈리면 고르지 않는다. 골라 버리면 그 뒤의 수순 전체가 다른 판이 되는데,
 // 남는 수가 합법수라 ValidateMove 도 안 잡는다.
 func TestResolveOriginRefusesWhenItCannotTell(t *testing.T) {
 	// 6八金과 4八金이 둘 다 5八로 갈 수 있다. 「金」만으로는 안 정해진다.

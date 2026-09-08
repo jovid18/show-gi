@@ -70,7 +70,7 @@ func main() {
 	opts := server.Options{Level: intervene.Beginner}
 
 	// 티어. 큐를 집는가와 사람을 받는가를 여기서 한 번 읽는다 — 두 자리에서 각각
-	// os.Getenv 하면 잘못 적은 값이 한쪽에서만 경고를 내고 다른 쪽은 조용히 갈린다.
+	// os.Getenv 하면 잘못 적은 값이 한쪽에서만 경고를 내고 다른 쪽은 경고 없이 갈린다.
 	role := analysisRole()
 	opts.Role = role
 
@@ -243,7 +243,7 @@ func setupLogging() {
 	// 요청 ID 를 ctx 에서 꺼내 모든 줄에 붙인다. 핸들러가 직접 넘기지 않아도 붙는다.
 	slog.SetDefault(slog.New(server.LogHandler(h)))
 
-	// 로거가 선 뒤에 알린다. 이 파일의 다른 환경변수도 다 그렇게 하고, 조용히 기본값으로
+	// 로거가 선 뒤에 알린다. 이 파일의 다른 환경변수도 다 그렇게 하고, 경고 없이 기본값으로
 	// 떨어지면 LOG_LEVEL=warning 같은 오타가 「설정 안 함」과 구별되지 않는다.
 	if badLevel != "" {
 		slog.Warn("bad LOG_LEVEL", "value", badLevel, "using", level)
@@ -254,7 +254,7 @@ func setupLogging() {
 //
 // 기본은 info 다 — debug 는 요청 한 줄에 헬스체크까지 들어와 로그의 대부분이 그것이 된다
 // (server.levelFor). 위로 올리지도 않는다: 아직 slog 로 안 옮긴 log.Print* 가 전부
-// info 라 warn 이면 그것들이 통째로 사라진다(apps/server/README.md 의 그 경고).
+// info 라 warn 이면 그것들 전체가 사라진다(apps/server/README.md 의 그 경고).
 func logLevel() (slog.Level, string) {
 	raw := os.Getenv("LOG_LEVEL")
 	if raw == "" {
@@ -334,7 +334,7 @@ func analysisWorkers(poolSize int, role string) int {
 //
 // ROLE 이 아닌 이유는 그 이름이 이미 남의 것이기 때문이다 — .github/workflows 가
 // IAM 역할 ARN 을 그 이름으로 들고 있고, 밖에서 들어온 값이 하필 아래 셋 중 하나면
-// 티어가 조용히 갈린다. 다른 손잡이들과 같은 방식으로 주어를 붙였다(ENGINE_·ANALYSIS_).
+// 티어가 경고 없이 갈린다. 다른 손잡이들과 같은 방식으로 주어를 붙였다(ENGINE_·ANALYSIS_).
 //
 //	interactive  집지 않는다. 사람을 받고 手를 큐에 세우기만 한다
 //	analysis     집는다. /healthz·/metrics 만 연다(server.Options.Role)
@@ -463,7 +463,7 @@ func startMateEngines() *usi.Pool {
 //
 // 탐색부의 ENGINE_POOL_SIZE 와 따로 둔다. 두 풀이 다른 바이너리이고 잡히는 이유도
 // 다르다 — 저쪽은 상대의 수 계산이고 이쪽은 게이지·종반 판정·퀴즈 생성이다. 한 값으로
-// 묶으면 어느 쪽 때문에 올렸는지 다음에 아무도 모른다.
+// 묶으면 어느 쪽 때문에 올렸는지 다음에 누구도 모른다.
 func matePoolSize() int {
 	size := defaultMatePoolSize
 	if v := os.Getenv("ENGINE_MATE_POOL_SIZE"); v != "" {
@@ -497,18 +497,18 @@ func matePlies() int {
 
 // engineOptions 는 엔진 전체에 거는 설정이다. 대국마다 달라지는 값은 여기 두지 않는다.
 //
-// 엔진이 모르는 옵션은 조용히 무시되므로(광고된 것만 보낸다) 엔진을 바꿔도 깨지지 않는다.
+// 엔진이 모르는 옵션은 경고 없이 무시되므로(광고된 것만 보낸다) 엔진을 바꿔도 깨지지 않는다.
 // 대신 값이 틀린 채로 도는 것은 안 깨진다 — 엔진을 바꿀 때 같이 확인할 것.
 func engineOptions() map[string]string {
 	opts := map[string]string{}
 
 	// 평가함수가 요구하는 cp 보정값. 水匠5는 24다.
-	// 이게 틀리면 cp 척도가 통째로 달라지고 블런더 임계치가 그 위에서 잡힌다.
+	// 이게 틀리면 cp 척도 전체가 달라지고 블런더 임계치가 그 위에서 잡힌다.
 	if v := os.Getenv("ENGINE_FV_SCALE"); v != "" {
 		opts["FV_SCALE"] = v
 	}
 
-	// 치환표 크기(MB). 엔진 하나가 통째로 잡는 메모리라 풀 크기만큼 곱해진다.
+	// 치환표 크기(MB). 엔진 하나 전체가 잡는 메모리라 풀 크기만큼 곱해진다.
 	// YaneuraOu의 기본값은 1024라, 3개만 띄워도 3GB를 잡고 기동 때 그만큼 지운다.
 	opts["USI_Hash"] = envOr("ENGINE_HASH_MB", "128")
 

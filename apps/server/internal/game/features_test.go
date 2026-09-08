@@ -23,7 +23,7 @@ func featuresAfter(t *testing.T, startSFEN string, usis ...string) intervene.Fea
 // 문서에 적힌 재현 수순 그대로다(journal §13). 프로덕션에서 실제로 걸린 수라
 // 여기가 틀리면 화면에 나가는 이유가 틀린다.
 func TestHangingBishopIsSeen(t *testing.T) {
-	// ▲7六歩 △3四歩 ▲3三角成 — 角을 아무도 지켜주지 않는 3三에 던진다
+	// ▲7六歩 △3四歩 ▲3三角成 — 角을 누구도 지켜주지 않는 3三에 던진다
 	f := featuresAfter(t, shogi.StartSFEN, "7g7f", "3c3d", "8h3c+")
 
 	if !f.Known {
@@ -63,7 +63,7 @@ func TestPromotionCountsAsThePromotedPiece(t *testing.T) {
 	}
 }
 
-// 딴 駒의 값이 실제로 잡힌다. 이게 0으로 새면 「駒는 땄는데」 카테고리가 통째로 죽는다.
+// 딴 駒의 값이 실제로 잡힌다. 이게 0으로 새면 「駒는 땄는데」 카테고리 전체가 죽는다.
 func TestCaptureValueIsRead(t *testing.T) {
 	// ▲7六歩 △3四歩 ▲2二角成 — 角으로 角을 딴다
 	f := featuresAfter(t, shogi.StartSFEN, "7g7f", "3c3d", "8h2b+")
@@ -125,7 +125,7 @@ func TestNothingCapturesWhenItIsCheckmate(t *testing.T) {
 }
 
 // 평시의 수는 玉 주변을 안 건드린다. 여기가 0이 아니면 어떤 수를 둬도
-// 「玉이 열렸다」가 붙어 설명이 통째로 못 미덥게 된다.
+// 「玉이 열렸다」가 붙어 설명 전체가 못 미덥게 된다.
 func TestQuietMoveDoesNotDisturbTheKing(t *testing.T) {
 	f := featuresAfter(t, shogi.StartSFEN, "7g7f")
 	if f.ShieldLoss != 0 || f.ThreatGain != 0 {

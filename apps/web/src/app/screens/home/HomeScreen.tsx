@@ -37,7 +37,7 @@ const MENU: MenuItem[] = [
     note: '好きな局面を並べて調べる',
     hideWhilePlaying: true,
   },
-  // 여기가 안내의 유일한 입구다(journal §86). 새 탭으로 안 연다 — 메뉴의 다른
+  // 여기가 안내의 하나뿐인 입구다(journal §86). 새 탭으로 안 연다 — 메뉴의 다른
   // 줄과 같은 탭으로 간다.
   { route: { name: 'guide' }, name: 'あそびかた', note: 'このアプリの遊びかた' },
   // 로그인해야 뜬다. 익명에게는 401인 화면이라(profile.go) 줄만 떠 있으면 눌러서

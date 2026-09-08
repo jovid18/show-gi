@@ -52,7 +52,7 @@ func TestRenderSummaryCoversEveryCombination(t *testing.T) {
 	}
 }
 
-// 가져온 판에서는 아무도 그 수를 막지 않았다. 「戻す」로 말하면 없던 일을 있었다고
+// 가져온 판에서는 누구도 그 수를 막지 않았다. 「戻す」로 말하면 없던 일을 있었다고
 // 말하는 것이고, 그건 이 화면에서 가장 새기 쉬운 거짓이다(journal §126).
 func TestSummaryDoesNotSayItWasStoppedWhenNothingWas(t *testing.T) {
 	cats := [][]intervene.Category{
@@ -73,7 +73,7 @@ func TestSummaryDoesNotSayItWasStoppedWhenNothingWas(t *testing.T) {
 	}
 }
 
-// 개입이 돈 판에서는 그대로 「戻す」로 말한다. 위 시험이 지나가려고 문구를 통째로
+// 개입이 돈 판에서는 그대로 「戻す」로 말한다. 위 시험이 지나가려고 문구 전체를
 // 바꿔 버리는 것을 막는다.
 func TestSummaryStillSaysStoppedWhenItWas(t *testing.T) {
 	f := GameFacts{

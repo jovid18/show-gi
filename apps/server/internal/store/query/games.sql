@@ -112,7 +112,7 @@ SELECT
     -- (calibrate_measure_test.go).
     g.imported_from,
     -- 재채점이 手合割을 알아야 한다(internal/handicap). 기준점이 판마다 다르면 낙폭을
-    -- 판을 가로질러 비교할 수 없고, 그 비교가 이 질의를 쓰는 유일한 이유다(journal §39).
+    -- 판을 가로질러 비교할 수 없고, 그 비교가 이 질의를 쓰는 하나뿐인 이유다(journal §39).
     g.start_sfen
 FROM games g
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
@@ -144,7 +144,7 @@ SELECT
     g.match_id,
     -- 가져온 판인가. 값이 아니라 있는가만 밖으로 나간다(020_imported_games.sql).
     g.imported_from,
-    -- 手合割을 되짚는 유일한 칸이다(internal/handicap 의 Of). 칸을 새로 만들지 않은
+    -- 手合割을 되짚는 하나뿐인 칸이다(internal/handicap 의 Of). 칸을 새로 만들지 않은
     -- 이유가 이것이다 — 시작 국면이 곧 手合이라, 이름을 따로 적으면 둘이 갈릴 수 있다.
     g.start_sfen
 FROM games g

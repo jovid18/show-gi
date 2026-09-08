@@ -46,7 +46,7 @@ func TestLostMateCountsAsFullLossThoughWinRateBarelyMoves(t *testing.T) {
 // 통과한 수도 값을 갖는다 — 임계치의 4분의 3을 잃었으면 0.75다.
 //
 // 임계치를 beginner(0.25)로 두지 않는다. 그 값으로 절반을 잃으면 정규화 결과가 딱
-// PriorLoss 가 되어 EWMA가 제자리에 있고, 그러면 m.DeltaWin / 0.25 로 못 박은 구현도
+// PriorLoss 가 되어 EWMA가 제자리에 있고, 그러면 m.DeltaWin / 0.25 로 확인한 구현도
 // 이 테스트를 통과한다 — Move.Threshold 주석이 경계하는 바로 그 결합이다.
 func TestPassedMoveIsScaledByTheThresholdThatJudgedIt(t *testing.T) {
 	const intermediateThreshold = 0.12 // intervene.Intermediate.Threshold()
@@ -209,7 +209,7 @@ func TestWorkerStaysQuietWhenUnknown(t *testing.T) {
 }
 
 // onChange 는 판정마다 불린다. 끝에 한 번이 아니다 — 새로고침하면 판이 끝나므로
-// 몰아 쓰면 끊긴 판의 추정이 통째로 사라진다(query/skill.sql).
+// 몰아 쓰면 끊긴 판의 추정 전체가 사라진다(query/skill.sql).
 func TestWorkerReportsEveryObservation(t *testing.T) {
 	seen := make(chan Estimate, 4)
 	w := NewWorkerFrom(t.Context(), Unknown, func(e Estimate) { seen <- e })
@@ -249,7 +249,7 @@ func TestAbsLossIsTheMeanOfRawDrops(t *testing.T) {
 	}
 }
 
-// 절대 낙폭에는 분모가 없다. 임계치가 갈려도 같은 값이어야 실측 앵커가 안 낡는다
+// 절대 낙폭에는 분모가 없다. 임계치가 갈려도 같은 값이어야 실측 앵커가 안 어긋난다
 // (journal §92).
 func TestAbsLossIgnoresTheThreshold(t *testing.T) {
 	abs := func(threshold float64) float64 {

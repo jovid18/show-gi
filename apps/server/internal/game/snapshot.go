@@ -3,8 +3,8 @@ package game
 // 클라이언트가 보는 타입들이다. json 태그가 곧 웹과의 계약이다 — 여기서 태그 하나를
 // 바꾸면 apps/web 이 그 자리에서 깨진다.
 //
-// 스냅샷은 언제나 통째로 나간다. 롤백이 있는 이상 부분 갱신을 보내면, 물러진 뒤 화면과
-// 서버가 어긋나도 아무도 모른다.
+// 스냅샷은 언제나 전부 나간다. 롤백이 있는 이상 부분 갱신을 보내면, 물러진 뒤 화면과
+// 서버가 어긋나도 누구도 모른다.
 
 import (
 	"github.com/jovid18/show-gi/apps/server/internal/eval"
@@ -51,7 +51,7 @@ type Move struct {
 // Snapshot 은 클라이언트가 보는 대국 상태 전부다.
 //
 // 부분 갱신을 보내지 않는다. 롤백이 있는 이상 "무엇이 바뀌었는지"를 클라이언트가
-// 재구성하게 두면, 물러진 뒤 화면과 서버가 어긋나도 아무도 모른다.
+// 재구성하게 두면, 물러진 뒤 화면과 서버가 어긋나도 누구도 모른다.
 type Snapshot struct {
 	SFEN     string `json:"sfen"`
 	Ply      int    `json:"ply"`
@@ -90,7 +90,7 @@ type Snapshot struct {
 	//
 	// 이름에 Ja 가 붙는 것이 규약이다. handicap 이라는 칸은 어느 페이로드에서든
 	// id이고(resumableGame · ?handicap=), 그것과 이름을 같은 이름으로 부르면 한쪽을
-	// 다른 쪽 자리에 넣어도 컴파일이 되고 조용히 平手가 열린다.
+	// 다른 쪽 자리에 넣어도 컴파일이 되고 경고 없이 平手가 열린다.
 	HandicapJa string `json:"handicapJa,omitempty"`
 
 	// LegalMoves 는 사람 차례일 때만 채운다.
@@ -294,7 +294,7 @@ type Notice struct {
 	Message string `json:"message"`
 }
 
-// 알림 문구. 여기가 유일한 목록이다 — 화면은 Message 를 그대로 그린다.
+// 알림 문구. 여기가 하나뿐인 목록이다 — 화면은 Message 를 그대로 그린다.
 const (
 	// NoticeJudgeSkipped 는 방금 둔 수를 판정하지 못했다는 것이다. 수는 그대로 두어진다.
 	NoticeJudgeSkipped = "judge_skipped"
@@ -331,7 +331,7 @@ const (
 
 // Hint 는 갇혔을 때 열리는 계단식 안내다.
 //
-// 자르는 일은 서버가 한다. 최선수를 통째로 내려보내고 화면이 출발 칸만 그리면
+// 자르는 일은 서버가 한다. 최선수 전체를 내려보내고 화면이 출발 칸만 그리면
 // 계단이 화면에만 있고 답은 devtools에 그대로 남는다.
 //
 // 「최선수를 보여주지 않는다」(01-core.md §1)와 어긋나지 않는 근거는 journal §23.

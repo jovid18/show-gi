@@ -50,7 +50,7 @@ func TestMeasureCardBestDivergence(t *testing.T) {
 		k1, err := pool.SearchMultiPV(t.Context(), shogi.StartSFEN, line, JudgeDepth, 1)
 		if err != nil {
 			// 여기서 죽지 않는다. 이 판의 종반은 엔진이 실제로 죽는 자리이고(§56이
-			// 5분을 못 설명한 그 구간이다), 재던 것을 통째로 버리면 그 사실만 남고 숫자가
+			// 5분을 못 설명한 그 구간이다), 재던 것 전체를 버리면 그 사실만 남고 숫자가
 			// 사라진다. 잰 데까지 요약하고 멈춘다.
 			t.Logf("%d手 k=1 에서 멈췄다: %v", i+1, err)
 			break

@@ -191,7 +191,7 @@ func TestAdaptivePropagatesSearchFailure(t *testing.T) {
 	if _, err := o.Choose(t.Context(), shogi.StartSFEN, nil, skill.Unknown); err == nil {
 		t.Fatal("탐색 실패가 전달되지 않음")
 	}
-	// 수가 하나도 없으면 조용히 빈 문자열을 돌려주지 않는다 — 세션이 그걸 두려 한다
+	// 수가 하나도 없으면 경고 없이 빈 문자열을 돌려주지 않는다 — 세션이 그걸 두려 한다
 	o2 := NewAdaptiveOpponent(&stubMulti{res: usi.SearchResult{}}, 12, DefaultBand)
 	if _, err := o2.Choose(t.Context(), shogi.StartSFEN, nil, skill.Unknown); err == nil {
 		t.Fatal("빈 결과가 에러가 아니다")
@@ -296,7 +296,7 @@ func TestBandHoldsUntilEnoughMoves(t *testing.T) {
 }
 
 // 양보는 밴드까지다. 아무리 헤매도 駒를 그냥 주는 수는 안 고른다 — 화면이
-// 「取り返せない場所」라고 가르친 수를 상대가 두면 방금 배운 것이 무너진다(§16).
+// 「取り返せない場所」라고 가르친 수를 상대가 두면 방금 배운 것이 깨진다(§16).
 func TestEasingOffNeverThrowsAPiece(t *testing.T) {
 	// ▲7六歩 뒤 後手 차례. △8八角成은 角을 그냥 준다 — 밴드가 어디로 가든 후보가 아니다.
 	s := &stubMulti{res: usi.SearchResult{

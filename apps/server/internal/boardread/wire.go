@@ -3,7 +3,7 @@ package boardread
 import "strings"
 
 // 이 파일은 OpenAI Responses API 의 요청·응답 모양과 프롬프트다. 필요한 칸만 든다 —
-// 남의 스키마를 통째로 옮겨 적으면 그쪽이 칸을 늘릴 때마다 이 파일이 낡는다.
+// 남의 스키마 전체를 옮겨 적으면 그쪽이 칸을 늘릴 때마다 이 파일이 어긋난다.
 
 // emptyCell 은 빈 칸의 토큰이다. 스키마의 enum 에도 이 글자가 들어간다.
 const emptyCell = "."
@@ -122,7 +122,7 @@ type format struct {
 //
 // enum 으로 묶는 것이 이 스키마에서 가장 값진 자리다. 글자를 자유롭게 쓰게 두면
 // 「龍」과 「竜」·「成銀」과 「全」이 섞여 오고, 그 변형을 옮기는 표가 여기 대신
-// 코드에 생긴다 — 표가 있으면 새 변형이 나올 때마다 조용히 빠진다.
+// 코드에 생긴다 — 표가 있으면 새 변형이 나올 때마다 경고 없이 빠진다.
 func cellTokens() []string {
 	out := []string{emptyCell}
 	for _, base := range []string{"P", "L", "N", "S", "G", "B", "R", "K"} {

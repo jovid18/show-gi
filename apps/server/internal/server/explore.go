@@ -38,13 +38,13 @@ import (
 const (
 	// exploreMaxLine 은 검토 한 줄의 상한이다. 되짚기(whatifMaxLine=60)보다 긴 것이
 	// 뿌리가 다르기 때문이다 — 저쪽은 그 手数까지가 이미 기록이고 그 뒤로만 뻗는데,
-	// 여기는 0手目부터라 한 판을 통째로 걸어 볼 수 있어야 한다.
+	// 여기는 0手目부터라 한 판 전체를 걸어 볼 수 있어야 한다.
 	exploreMaxLine = 200
 
 	// exploreBodyLimit 은 본문 상한이다. 手合割 id 하나와 수순 한 줄만 온다.
 	exploreBodyLimit = 16 << 10
 
-	// exploreSlots 는 이 표면이 동시에 잡을 수 있는 엔진 수다. 이것이 유일한 제한이다.
+	// exploreSlots 는 이 표면이 동시에 잡을 수 있는 엔진 수다. 이것이 하나뿐인 제한이다.
 	//
 	// 풀은 대국이 쓰는 것과 같은 3개다(main.go 의 defaultEnginePoolSize). 안 묶으면
 	// 검토 세 건이 엔진을 다 잡고 대국의 착수가 그 뒤에 큐에 서므로, 개입 카드가 늦게 뜬다.
@@ -70,7 +70,7 @@ type exploreHandler struct {
 	// store 는 캐시로만 쓴다. nil이면 답은 같고 같은 국면을 매번 다시 잰다.
 	store  *store.Store
 	search Searcher
-	// slots 는 이 표면의 유일한 제한이다. 빈자리가 없으면 exploreWait 만큼만 기다린다.
+	// slots 는 이 표면의 하나뿐인 제한이다. 빈자리가 없으면 exploreWait 만큼만 기다린다.
 	slots chan struct{}
 }
 
@@ -107,7 +107,7 @@ type exploreRequest struct {
 // 것과 같은 자리다(game.Snapshot.BaselineCp · GameDetail.BaselineCp).
 //
 // 부호를 뒤집지 않는다. 되짚기는 사람이 上手일 수 있어 기준점을 플레이어 관점으로
-// 뒤집는데(detailOf), 검토의 관점은 언제나 下手로 못박혀 있다(exploreRoot).
+// 뒤집는데(detailOf), 검토의 관점은 언제나 下手로 고정돼 있다(exploreRoot).
 type exploreNode struct {
 	whatifNode
 	// HandicapJa 는 그 手合割의 이름이다. 平手면 안 온다 — 목록의 HandicapJa 와 같은
@@ -202,7 +202,7 @@ func (h *exploreHandler) play(w http.ResponseWriter, r *http.Request) {
 // exploreRoot 는 手合割 하나를 검토의 뿌리로 옮긴다. 두 번째 값은 그 手合 자체다 —
 // 이름과 기준점이 응답에 실린다(exploreNode).
 //
-// 관점을 下手로 못박는다. 되짚기의 뿌리는 사람이 어느 쪽으로 뒀는가를 들고 있어서
+// 관점을 下手로 고정한다. 되짚기의 뿌리는 사람이 어느 쪽으로 뒀는가를 들고 있어서
 // (whatifRoot.Human) 노드의 cp가 그 사람 관점인데, 검토에는 플레이어가 없다. 先手인 것은
 // 手合割이 정한다 — 駒落ち는 上手의 駒를 빼고 그 上手부터 두므로(journal §88) 0手目는
 // 「내 차례」가 아니지만, 기준점 표가 下手 관점 cp라(internal/handicap) 관점을 여기로 맞추면

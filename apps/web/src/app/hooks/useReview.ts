@@ -96,7 +96,7 @@ export function useGameSummary(id: number): Source<PostGameSummary> {
  * 503만 돌아오는 버튼은 「고장 났다」로 읽히므로, 그 자리를 미리 닫고 이유를 적는다.
  *
  * `null`은 아직 모른다이다. 못 물어봤다고 없는 것으로 치면, /healthz 만 실패한
- * 상황에서 멀쩡한 기능이 통째로 사라진다 — 그때는 열어 두고 서버가 답하게 둔다.
+ * 상황에서 멀쩡한 기능 전체가 사라진다 — 그때는 열어 두고 서버가 답하게 둔다.
  */
 export function useEngineReady(): boolean | null {
   const { loaded } = useFetch<{ engine?: boolean }>('/healthz');

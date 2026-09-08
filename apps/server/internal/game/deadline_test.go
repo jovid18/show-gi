@@ -17,7 +17,7 @@ import (
 // 「포기한 뒤 판이 어떻게 되는가」 둘이다.
 
 // 부가 기능이 대국보다 오래 풀을 붙들면 안 된다. 두 값이 뒤집혀도 이 파일의 나머지
-// 테스트는 전부 통과하므로, 그 관계를 여기서 따로 못 박는다.
+// 테스트는 전부 통과하므로, 그 관계를 여기서 따로 확인한다.
 func TestExtraDeadlineIsShorterThanTheMoveDeadline(t *testing.T) {
 	if DefaultExtraDeadline >= DefaultMoveDeadline {
 		t.Fatalf("부가 경로(%v)가 대국 경로(%v)보다 오래 붙든다", DefaultExtraDeadline, DefaultMoveDeadline)
@@ -88,7 +88,7 @@ func TestJudgeDeadlineLetsTheMoveStandWithANotice(t *testing.T) {
 	}
 }
 
-// 게이지는 조용히 없어진다. 테두리가 어두운 채로 남고 대국은 그대로 간다.
+// 게이지는 경고 없이 없어진다. 테두리가 어두운 채로 남고 대국은 그대로 간다.
 func TestGaugeDeadlineLeavesTheBorderDark(t *testing.T) {
 	mate := &scriptedMate{plies: 3, delay: 5 * time.Second}
 	s := newSession(t, Config{
@@ -125,7 +125,7 @@ func (expiringSearch) SearchMultiPV(ctx context.Context, _ string, _ []string, _
 	return usi.SearchResult{}, nil
 }
 
-// 시한이 끝나면 못 물어본 후보를 세어서 돌려준다. 조용히 넘기면 「手筋이 없었다」와
+// 시한이 끝나면 못 물어본 후보를 세어서 돌려준다. 경고 없이 넘기면 「手筋이 없었다」와
 // 「못 물어봤다」가 같은 결과가 된다.
 func TestGateCountsCandidatesItCouldNotAskAboutAfterTheDeadline(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())

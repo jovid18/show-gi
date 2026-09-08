@@ -161,8 +161,8 @@ func TestBestItemsAreSortedByGapAndCapped(t *testing.T) {
 
 // 詰み 문항이 쓰는 국면 하나만 뺀다.
 //
-// 그 手数부터 뒤를 통째로 자르면 안 된다. 詰み 문항은 판에서 가장 이른 詰み이라(§53)
-// 이른 자리에서 하나 나오면 中盤과 終盤이 통째로 후보에서 사라진다 — 진짜 블런더가
+// 그 手数부터 뒤 전체를 자르면 안 된다. 詰み 문항은 판에서 가장 이른 詰み이라(§53)
+// 이른 자리에서 하나 나오면 中盤과 終盤이 전부 후보에서 사라진다 — 진짜 블런더가
 // 있는 구간이 그쪽이다.
 func TestBestItemsSkipOnlyTheMatePosition(t *testing.T) {
 	in := gameInput()
@@ -270,7 +270,7 @@ func (f *flakySearch) SearchMultiPV(
 
 // 못 잰 후보가 있어도 잰 것은 그대로 참이다.
 //
-// 두 사실을 한 깃발로 묶어 통째로 버리면, 후보 하나를 못 잰 것이 멀쩡한 문항을 지운다 —
+// 두 사실을 한 깃발로 묶어 전부 버리면, 후보 하나를 못 잰 것이 멀쩡한 문항을 지운다 —
 // 생성이 판이 끝날 때 한 번뿐이라 그 판은 영영 문항을 못 갖는다(server/ws.go generateQuiz).
 func TestBestItemsSurviveAFailureElsewhere(t *testing.T) {
 	in := gameInput()

@@ -99,7 +99,7 @@ curl -s localhost:8080/metrics | grep engine_
 
 **지표는 세 자리에서 나온다** — `usi.Pool.Acquire`(대기·점유), `archive.SearchMultiPV`(탐색 시간·캐시 히트), HTTP 미들웨어(요청). 엔진을 부르는 여섯 자리가 다 `archive` 를 지나므로 계측이 한 곳이면 된다.
 
-> `/metrics` 와 EMF 가 같은 숫자를 다르게 낸다. 텍스트 표면은 라벨(route·pool·result)을 다 들고, EMF 는 차원이 `Service`·`Environment` 둘뿐인 열 개다 — EMF 는 차원 조합 하나가 곧 과금 대상 지표 하나라서 route·pool 은 안 올린다. 콘솔이나 알람에서 이 지표를 찾을 때 차원 둘을 다 적어야 한다 — 하나만 적으면 그런 계열이 없어서 조용히 빈 그래프가 나온다. 그리고 지연은 표본 100개까지의 배열로 나가므로(스펙 상한) CloudWatch 에서 `Sum`·`SampleCount` 를 쓰지 않는다. 개수는 카운터가 정확하게 든다.
+> `/metrics` 와 EMF 가 같은 숫자를 다르게 낸다. 텍스트 표면은 라벨(route·pool·result)을 다 들고, EMF 는 차원이 `Service`·`Environment` 둘뿐인 열 개다 — EMF 는 차원 조합 하나가 곧 과금 대상 지표 하나라서 route·pool 은 안 올린다. 콘솔이나 알람에서 이 지표를 찾을 때 차원 둘을 다 적어야 한다 — 하나만 적으면 그런 계열이 없어서 경고 없이 빈 그래프가 나온다. 그리고 지연은 표본 100개까지의 배열로 나가므로(스펙 상한) CloudWatch 에서 `Sum`·`SampleCount` 를 쓰지 않는다. 개수는 카운터가 정확하게 든다.
 
 ## 테스트
 
@@ -157,7 +157,7 @@ GOMAXPROCS=2 go test -race -count=300 -run '<그 테스트>' ./internal/game/
 | `SHOWGI_USI_CMD` + `SHOWGI_MEASURE`   | 밴드 측정 skip                              | `TestMeasureSkill*` — 실력 추정이 밴드를 옮기는 폭을 잰다(journal §47). DB는 안 쓴다                                                                                                                                                                              |
 | `SHOWGI_MEASURE`                      | 측정 전부 skip                              | `TestMeasure*` — 몇 분 걸린다                                                                                                                                                                                                                                     |
 | `SHOWGI_MEASURE` 만                   | 부하 측정 skip                              | `TestMeasureTagHintLoad` — 手筋 게이트가 한 판에 쓰는 비용(journal §56). 엔진도 DB도 안 쓴다                                                                                                                                                                      |
-| `SHOWGI_USI_CMD` + `SHOWGI_MEASURE`   | 기준점 측정 skip                            | `TestMeasureBaseline` — 手合割별 「형세 0」을 표와 나란히 찍는다(journal §84). DB는 안 쓴다                                                                                                                                                                       |
+| `SHOWGI_USI_CMD` + `SHOWGI_MEASURE`   | 기준점 측정 skip                            | `TestMeasureBaseline` — 手合割별 「형세 0」을 표와 함께 찍는다(journal §84). DB는 안 쓴다                                                                                                                                                                         |
 | `SHOWGI_BOARD_IMAGES`                 | 기본은 `internal/boardread/testdata/images` | 판독을 재는 그림이 있는 폴더. 위의 「판독을 재는 그림」                                                                                                                                                                                                           |
 | `SHOWGI_BOARDREAD_MODEL`              | `boardread.DefaultModel`                    | 그 측정이 쓸 모델. 견주려면 여기를 갈아 끼운다                                                                                                                                                                                                                    |
 | `SHOWGI_OPENAI_KEY`                   | 실 OpenAI 호출 skip                         | `internal/kifunorm` 의 `TestLiveNormalizeReachesTheRuleEngine` — 결정적 파서가 전부 실패하는 텍스트가 정규화를 지나 룰 엔진까지 통과하는지를 본다. 모델은 `SHOWGI_OPENAI_MODEL` 로 갈아 끼운다. CI 에서 안 돈다                                                   |
@@ -166,7 +166,7 @@ GOMAXPROCS=2 go test -race -count=300 -run '<그 테스트>' ./internal/game/
 | `SHOWGI_TEST_ENGINE_PATH`             | 기보 임포트 skip                            | `internal/kifu` 의 `TestImportGame`. 여기만 `SHOWGI_USI_CMD` 를 안 쓴다                                                                                                                                                                                           |
 | `SHOWGI_RANK_KIFU` + `SHOWGI_MEASURE` | 段級 앵커 측정 skip                         | `TestMeasureRankAnchors` — 급수가 붙은 기보로 段級 척도를 잰다([journal §94](../../docs/journal/82-100.md)). 엔진 경로는 `SHOWGI_USI_CMD`·`SHOWGI_TEST_ENGINE_PATH` 둘 다 받는다. DB도 있어야 돈다 — 없으면 skip이다(캐시가 없으면 판마다 탐색을 200번 다시 한다) |
 
-> `SHOWGI_MEASURE` 는 혼자서는 아무것도 안 연다. `TestMeasure*` 는 전부 `*_CMD` 와 둘 다 있어야 돈다. 한쪽만 주면 실엔진 테스트는 돌고 측정만 조용히 건너뛴다 — 초록이 「쟀다」는 뜻이 아닌 자리가 여기 한 겹 더 있다.
+> `SHOWGI_MEASURE` 는 혼자서는 아무것도 안 연다. `TestMeasure*` 는 전부 `*_CMD` 와 둘 다 있어야 돈다. 한쪽만 주면 실엔진 테스트는 돌고 측정만 경고 없이 건너뛴다 — 초록이 「쟀다」는 뜻이 아닌 자리가 여기 한 겹 더 있다.
 
 > 재채점 측정만 `SHOWGI_MEASURE` 를 안 본다. `TestMeasureCalibrationFromRecords` 는 엔진을 안 돌리고 DB만 읽어 초 단위로 끝난다. 대신 기록이 쌓인 DB를 가리켜야 값이 나온다 — 로컬 DB에는 짧은 테스트 대국밖에 없다 ([journal §39](../../docs/journal/21-40.md)).
 
@@ -223,7 +223,7 @@ docker compose up -d api
 
 그러면 `/position` 에서 그림을 올릴 때마다 `board-01.png` 로 남고, 확인 화면에서 판을 고쳐 「この局面を解析する」를 누르면 그 자리에 `board-01.sfen` 이 붙는다. 번호는 이어서 매겨진다 — 폴더에 있는 것 중 가장 큰 번호 + 1이라, 중간을 지워도 남의 그림을 안 덮는다.
 
-**값이 비어 있으면 이 기능이 통째로 꺼진다** — 그림도 안 남고 라벨 경로(`POST /api/position/label`)도 라우팅되지 않는다. 프로덕션은 그 값을 안 준다.
+**값이 비어 있으면 이 기능 전체가 꺼진다** — 그림도 안 남고 라벨 경로(`POST /api/position/label`)도 라우팅되지 않는다. 프로덕션은 그 값을 안 준다.
 
 - 이름은 서버가 짓는다. 화면이 준 글자는 경로에 한 자도 안 들어가고, 확장자도 앞머리로 정한 형식에서 온다
 - **성립하지 않는 판은 라벨이 안 된다.** 확인 화면이 사유가 0일 때만 그 버튼을 열고, 서버가 한 번 더 본다
@@ -236,7 +236,7 @@ cd apps/server/internal/boardread/testdata
 ./fixture.sh ~/Desktop/shot.png 'http://localhost:5173/explore?s=…' 81dojo
 ```
 
-주소에서 `s=` 를 꺼내는 것이 그 스크립트가 하는 일의 절반이다 — 손으로 풀면 `+`(成)가 공백이 되어 조용히 틀린다. 라벨을 룰 엔진에 물어보고 성립하지 않으면 라벨을 안 붙인다: 틀린 라벨은 없는 라벨보다 나쁘다(측정이 조용히 나빠 보인다).
+주소에서 `s=` 를 꺼내는 것이 그 스크립트가 하는 일의 절반이다 — 손으로 풀면 `+`(成)가 공백이 되어 경고 없이 틀린다. 라벨을 룰 엔진에 물어보고 성립하지 않으면 라벨을 안 붙인다: 틀린 라벨은 없는 라벨보다 나쁘다(측정이 이유 없이 나빠 보인다).
 
 ### 재기
 
@@ -256,7 +256,7 @@ SHOWGI_MEASURE=1 SHOWGI_OPENAI_KEY=… SHOWGI_BOARD_IMAGES=~/board-shots \
 
 **手番은 안 본다.** 사진이 말해 주지 않는 값이라 이 계층은 언제나 `b` 를 적고, 고르는 것은 사람이다 — 라벨의 手番이 무엇이든 채점에 안 들어간다.
 
-**통과선을 안 건다.** 어긋나면 문장으로 말하고 사람이 저널의 표를 옮긴다(`TestMeasureBaseline` 과 같은 판단) — 자동으로 선을 두면 모델이나 프롬프트가 흔들릴 때 그 선이 조용히 따라 움직인다.
+**통과선을 안 건다.** 어긋나면 문장으로 말하고 사람이 저널의 표를 옮긴다(`TestMeasureBaseline` 과 같은 판단) — 자동으로 선을 두면 모델이나 프롬프트가 흔들릴 때 그 선이 경고 없이 따라 움직인다.
 
 ## 스키마를 바꿀 때
 
@@ -341,7 +341,7 @@ sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다
 
 ### ④ 카테고리를 하나 더하면 네 곳이다
 
-어느 하나를 빠뜨려도 컴파일도 테스트도 안 깨지고, 화면이 조용히 미분류로 떨어진다.
+어느 하나를 빠뜨려도 컴파일도 테스트도 안 깨지고, 화면이 경고 없이 미분류로 떨어진다.
 
 `intervene/category.go`(상수 + `classify` 의 순서 있는 switch) → `explain/render.go` → `explain/label.go` → `explain/facts.go` 의 `used()` → 테스트의 `allCategories`.
 
@@ -370,7 +370,7 @@ sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다
 ## 알아두면 좋은 것
 
 - **탐색은 깊이로만 건다.** 시간(`go movetime`)을 쓰지 않아서 `usi` 패키지에 그 API가 아예 없다. 이유는 [CLAUDE.md](../../CLAUDE.md)에 있다
-- **엔진 실행 경로(`ENGINE_CMD`)를 태스크 정의에 두지 않는다.** 이미지 내부 구조라 두 곳에 적으면 조용히 어긋난다 — 실제로 한 번 물렸다(journal §11)
+- **엔진 실행 경로(`ENGINE_CMD`)를 태스크 정의에 두지 않는다.** 이미지 내부 구조라 두 곳에 적으면 경고 없이 어긋난다 — 실제로 한 번 물렸다(journal §11)
 - **엔진 풀이 둘이고 크기 손잡이도 둘이다.** 탐색부는 `ENGINE_POOL_SIZE`(기본 3), 詰将棋 solver 는 `ENGINE_MATE_POOL_SIZE`(기본 2). 다른 바이너리이고 잡히는 이유도 달라서 따로 뒀다 — solver 쪽은 종반 판정·詰み 게이지에 되짚기 퀴즈 생성이 얹혀 있고, 그것이 판이 끝나는 자리에서 수십 초를 잡는다(journal §53)
 - **사후 분석의 워커 수 손잡이는 `ANALYSIS_WORKERS` 다.** 기본이 탐색부 풀 크기와 같다 — 다 가져가도 되는 이유는 풀이 우선순위로 빌려주기 때문이다(사람이 기다리는 요청이 분석보다 먼저 받는다). 그래서 풀이 커지면 이 값도 같이 커진다: 워커가 하나였을 때는 vCPU 를 올려도 이 층이 안 빨라졌다([journal §106](../../docs/journal/101-120.md))
 - **`SERVER_ROLE` 이 이 프로세스가 큐를 집는가를 정한다.** `both`(기본) · `analysis` 는 집고, `interactive` 는 手를 세우기만 한다. 기본이 `both` 라 태스크 하나인 배포는 지금까지와 같고, 프로덕션은 티어를 나눠 띄운다([journal §120](../../docs/journal/101-120.md)). `analysis` 는 사람이 쓰는 표면을 하나도 안 세운다 — `/healthz` 와 `/metrics` 만 남고 나머지가 503이다(404가 아닌 이유는 「배포가 낡았다」와 구별하기 위해서다). 막는 이유가 둘이다: 방이 짝지은 프로세스의 메모리에 있으므로([journal §98](../../docs/journal/82-100.md)) 이 티어가 짝을 지으면 두 사람이 방을 못 열고 로그에 아무것도 안 남고, 대국·검토·가정 수순은 깨지지는 않지만 이 박스의 엔진을 분석보다 높은 우선순위로 가져간다(`usi.priorityOf`). 상호작용 티어를 여러 대로 올리는 손잡이가 아니다: 방이 메모리에 있으므로([journal §98](../../docs/journal/82-100.md)) 그쪽은 방을 프로세스 밖으로 내린 뒤다

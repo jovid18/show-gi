@@ -132,7 +132,7 @@ func scanOne(path string) gameScan {
 	}
 
 	// 手番이 번갈아 간다는 것에 기대지 않고 적용한 색으로 가른다. 中断된 기보나
-	// 平手가 아닌 시작 국면에서 짝수/홀수 가정이 조용히 뒤집힌다.
+	// 平手가 아닌 시작 국면에서 짝수/홀수 가정이 경고 없이 뒤집힌다.
 	moves := map[shogi.Color][]string{}
 	seen := map[shogi.Color]map[string]bool{shogi.Black: {}, shogi.White: {}}
 
@@ -190,7 +190,7 @@ func TestScanTagsOverFloodgateGames(t *testing.T) {
 
 	for _, r := range results {
 		if r.err != nil {
-			// 버린 판을 센다. 조용히 줄어들면 표본 수가 거짓이 된다.
+			// 버린 판을 센다. 경고 없이 줄어들면 표본 수가 거짓이 된다.
 			failed++
 			t.Logf("✗ %s — %v", r.name, r.err)
 			continue

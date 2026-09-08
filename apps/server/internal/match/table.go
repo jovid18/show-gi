@@ -28,7 +28,7 @@ type Recorder interface {
 }
 
 // Result 는 한 사람 관점의 결과다. store.GameResult 와 같은 어휘를 쓴다 —
-// 옮기는 자리를 하나 더 두면 그 자리가 조용히 어긋난다.
+// 옮기는 자리를 하나 더 두면 그 자리가 경고 없이 어긋난다.
 type Result string
 
 const (
@@ -188,7 +188,7 @@ func NewTable(ctx context.Context, cfg Config) (*Table, error) {
 
 // finishedGrace 는 판이 끝난 뒤에도 테이블이 답하는 시간이다.
 //
-// 끝나는 그 순간에 문을 닫으면, 하필 그때 끊겼다 다시 붙은 사람이 결과 대신 오류를
+// 끝나는 그때에 문을 닫으면, 하필 그때 끊겼다 다시 붙은 사람이 결과 대신 오류를
 // 본다 — 投了를 받은 쪽이 새로고침하는 것은 드문 일이 아니다.
 //
 // 방보다 길어야 한다(FinishedTTL). 같게 두면 둘이 닫히는 순서가 정해지지 않아
@@ -385,7 +385,7 @@ func (st *state) resign(by shogi.Color) (Snapshot, error) {
 
 // timeout 은 수번 쪽의 시간이 다 됐을 때다. 대개 승패가 난다 — 중단과 따로 두는 자리다.
 //
-// 한 수도 안 뒀으면 예외다. 아무도 안 뒀으면 판이 없었던 것이다(journal §83).
+// 한 수도 안 뒀으면 예외다. 누구도 안 뒀으면 판이 없었던 것이다(journal §83).
 func (st *state) timeout() {
 	if len(st.moves) == 0 {
 		st.finish(StatusExpired, shogi.Black, false)
@@ -504,7 +504,7 @@ func (t *Table) Subscribe(ctx context.Context, by shogi.Color) (<-chan Snapshot,
 		return nil, nil, err
 	}
 	if _, err := t.send(ctx, command{kind: cmdPresence, color: by, on: true}); err != nil {
-		// 구독을 되돌린다. 여기서 그냥 나가면 raw 가 구독 목록에 남은 채 아무도
+		// 구독을 되돌린다. 여기서 그냥 나가면 raw 가 구독 목록에 남은 채 누구도
 		// 안 읽고, 돌려줄 정리 함수도 없다 — 테이블이 사는 내내(긴 판이면 몇 시간)
 		// 착수마다 그 채널에 헛되이 보내게 된다.
 		off, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
@@ -554,6 +554,6 @@ func (t *Table) Finished() <-chan struct{} { return t.finished }
 // Done 은 테이블이 완전히 닫히면 닫힌다. 그 뒤로는 모든 명령이 ErrClosed 다.
 func (t *Table) Done() <-chan struct{} { return t.done }
 
-// errorsIsClosed 는 「테이블이 이미 닫혔다」를 조용히 넘기는 자리다 — 판이 끝나는 순간과
+// errorsIsClosed 는 「테이블이 이미 닫혔다」를 경고 없이 넘기는 자리다 — 판이 끝나는 순간과
 // 연결이 떨어지는 순간이 겹치는 것은 흔한 일이고, 그때 로그를 남기면 정상 종료마다 줄이 쌓인다.
 func errorsIsClosed(err error) bool { return err == ErrClosed }

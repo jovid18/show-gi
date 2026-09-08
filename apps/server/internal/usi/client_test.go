@@ -330,7 +330,7 @@ func TestSearchCancelSwallowsBestmove(t *testing.T) {
 // TestRealEngine 은 진짜 USI 엔진에 붙여 파서를 확인한다.
 //
 // 가짜 엔진은 우리가 적은 것만 돌려주므로, 실제 출력을 읽는다는 증거가 되지 못한다.
-// 엔진마다 info 라인의 필드 순서와 잡토큰이 다르고, 거기서 깨지면 조용히 깨진다.
+// 엔진마다 info 라인의 필드 순서와 잡토큰이 다르고, 거기서 깨지면 경고 없이 깨진다.
 //
 // SHOWGI_USI_CMD 가 없으면 건너뛴다 — CI 러너에는 엔진이 없다.
 // 엔진을 갈아끼울 때(YaneuraOu) 이 테스트가 첫 관문이다:
