@@ -1,0 +1,99 @@
+<mxfile host="show-gi">
+  <diagram id="user-flow" name="유저 워크플로우">
+    <mxGraphModel grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="home" value="&lt;b&gt;홈&lt;/b&gt;&lt;br&gt;対局 · 振り返り&lt;br&gt;検討 · あそびかた&lt;br&gt;マイページ" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.6;fillColor=light-dark(#f6f1e6,#221f19);strokeColor=light-dark(#b8a480,#584f42);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="16" y="145" width="150" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="d3" value="&lt;b&gt;기보 가져오기&lt;/b&gt;&lt;br&gt;KIF · KI2 · CSA · USI" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="216" y="20" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="d1" value="&lt;b&gt;엔진과 대국&lt;/b&gt;&lt;br&gt;手合割 여덟 종" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="216" y="110" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="d2" value="&lt;b&gt;사람과 대국&lt;/b&gt;&lt;br&gt;초대 링크 · 자동 매칭" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="216" y="190" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="d4" value="&lt;b&gt;판 사진 올리기&lt;/b&gt;&lt;br&gt;이미지 한 장" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="216" y="280" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="d5" value="&lt;b&gt;검토&lt;/b&gt;&lt;br&gt;手合割을 골라 直接 놓는다" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="216" y="360" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="game" value="&lt;b&gt;한 판&lt;/b&gt;&lt;br&gt;착수마다 개입 판정&lt;br&gt;힌트 · 待った" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.8;fillColor=light-dark(#e4ede7,#1e2c25);strokeColor=light-dark(#2f5d45,#6f9b84);fontColor=light-dark(#1f4433,#cfe3d8);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="470" y="136" width="210" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="pos" value="&lt;b&gt;국면 확인&lt;/b&gt;&lt;br&gt;읽어 낸 판을 사람이 고친다" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="470" y="280" width="210" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="end" value="&lt;b&gt;종국&lt;/b&gt;&lt;br&gt;총평 · 段級 before→after" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="736" y="142" width="210" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="exp" value="&lt;b&gt;검토 화면&lt;/b&gt;&lt;br&gt;형세 한 줄 · 최선수 3手" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.8;fillColor=light-dark(#e4ede7,#1e2c25);strokeColor=light-dark(#2f5d45,#6f9b84);fontColor=light-dark(#1f4433,#cfe3d8);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="736" y="354" width="210" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="rev" value="&lt;b&gt;되짚기&lt;/b&gt;&lt;br&gt;평가치 그래프에서 국면을 옮기고&lt;br&gt;다른 수를 그 판에서 둬 본다" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1002" y="136" width="240" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="quiz" value="&lt;b&gt;퀴즈&lt;/b&gt;&lt;br&gt;그 판에서 만든 詰み 1문 · 최선수 3문" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1002" y="256" width="240" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="me" value="&lt;b&gt;マイページ&lt;/b&gt;&lt;br&gt;段級의 변화 · 전적&lt;br&gt;무너지기 쉬운 곳" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1002" y="366" width="240" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="e0" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="home" target="d3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="home" target="d1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="home" target="d2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="home" target="d4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="home" target="d5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.8;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#2f5d45,#7fae95);fontColor=light-dark(#1f4433,#a9cebb);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="d1" target="game">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="개입은 나오지 않는다" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="d2" target="game">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.8;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#2f5d45,#7fae95);fontColor=light-dark(#1f4433,#a9cebb);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="game" target="end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.8;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#2f5d45,#7fae95);fontColor=light-dark(#1f4433,#a9cebb);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="end" target="rev">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" value="같은 판에서" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);" edge="1" parent="1" source="rev" target="quiz">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" value="판을 가로질러 쌓인다" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=openThin;endFill=0;endSize=8;strokeWidth=1.4;dashed=1;dashPattern=4 4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#b3a894,#6b6459);fontColor=light-dark(#8b8175,#a0968a);" edge="1" parent="1" source="quiz" target="me">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" value="여기서 둔 판과 같은 경로" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="d3" target="rev">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="316" y="-20" />
+              <mxPoint x="1122" y="-20" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="d4" target="pos">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.8;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#2f5d45,#7fae95);fontColor=light-dark(#1f4433,#a9cebb);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="pos" target="exp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.8;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#ffffff,#141311);strokeColor=light-dark(#2f5d45,#7fae95);fontColor=light-dark(#1f4433,#a9cebb);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="d5" target="exp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
