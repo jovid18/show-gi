@@ -1,0 +1,76 @@
+<mxfile host="show-gi">
+  <diagram id="llm-pipeline" name="LLM 계층">
+    <mxGraphModel grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="laneA" value="기보 가져오기 — 글자를 옮겨 적는다" style="rounded=1;arcSize=6;html=1;whiteSpace=wrap;strokeWidth=1.8;dashed=1;dashPattern=6 4;fillColor=light-dark(#faf7f1,#171614);strokeColor=light-dark(#2f5d45,#6f9b84);fontColor=light-dark(#1f4433,#a9cebb);fontFamily=Helvetica;fontSize=13;fontStyle=1;verticalAlign=top;align=left;spacingLeft=14;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="16" y="16" width="1276" height="196" as="geometry" />
+        </mxCell>
+        <mxCell id="laneB" value="판 사진 읽기 — 격자를 그려진 대로 적는다" style="rounded=1;arcSize=6;html=1;whiteSpace=wrap;strokeWidth=1.8;dashed=1;dashPattern=6 4;fillColor=light-dark(#faf7f1,#171614);strokeColor=light-dark(#2f5d45,#6f9b84);fontColor=light-dark(#1f4433,#a9cebb);fontFamily=Helvetica;fontSize=13;fontStyle=1;verticalAlign=top;align=left;spacingLeft=14;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="16" y="246" width="1276" height="196" as="geometry" />
+        </mxCell>
+        <mxCell id="a1" value="붙여 넣은 기보 텍스트&lt;br&gt;KIF · KI2 · CSA · USI" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="180" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="a2" value="&lt;b&gt;결정적 파서로 읽히나&lt;/b&gt;" style="rhombus;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#f8f4ec,#232019);strokeColor=light-dark(#bfb094,#5a5248);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="256" y="86" width="200" height="96" as="geometry" />
+        </mxCell>
+        <mxCell id="a3" value="&lt;b&gt;kifunorm&lt;/b&gt; — LLM&lt;br&gt;서식만 옮겨 적는다&lt;br&gt;목적지도 성/불성도 정하지 않는다" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.8;fillColor=light-dark(#efe9f6,#241f2e);strokeColor=light-dark(#6b53a3,#9584c4);fontColor=light-dark(#3d2d63,#d5cbe8);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="500" y="30" width="280" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="a4" value="&lt;b&gt;룰 엔진이 한 手씩 검증&lt;/b&gt;&lt;br&gt;shogi.ValidateMove&lt;br&gt;출력에 믿는 부분이 없다" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.8;fillColor=light-dark(#e4ede7,#1e2c25);strokeColor=light-dark(#2f5d45,#6f9b84);fontColor=light-dark(#1f4433,#cfe3d8);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="830" y="94" width="250" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="a5" value="되짚기 · 퀴즈 · 段級" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="104" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="b1" value="이미지 한 장" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="326" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="b2" value="&lt;b&gt;boardread&lt;/b&gt; — LLM&lt;br&gt;「위 줄부터, 왼쪽부터, 그려진 대로」&lt;br&gt;그 순서가 SFEN 칸 순서와 같다" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.8;fillColor=light-dark(#efe9f6,#241f2e);strokeColor=light-dark(#6b53a3,#9584c4);fontColor=light-dark(#3d2d63,#d5cbe8);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="256" y="316" width="280" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="b3" value="&lt;b&gt;룰 엔진이 국면을 검사&lt;/b&gt;&lt;br&gt;shogi.Faults — 二歩 · 玉의 수&lt;br&gt;行き所のない駒 · 王手放置" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.8;fillColor=light-dark(#e4ede7,#1e2c25);strokeColor=light-dark(#2f5d45,#6f9b84);fontColor=light-dark(#1f4433,#cfe3d8);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="646" y="316" width="250" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="b4" value="&lt;b&gt;확인 화면&lt;/b&gt;&lt;br&gt;사람이 판을 고치고&lt;br&gt;手番을 답한다" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.8;fillColor=light-dark(#e4ede7,#1e2c25);strokeColor=light-dark(#2f5d45,#6f9b84);fontColor=light-dark(#1f4433,#cfe3d8);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="926" y="316" width="190" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="b5" value="검토 화면" style="rounded=1;arcSize=10;html=1;whiteSpace=wrap;strokeWidth=1.4;fillColor=light-dark(#ffffff,#1b1917);strokeColor=light-dark(#cdc1ab,#4a443c);fontColor=light-dark(#26211b,#e6dfd3);fontFamily=Helvetica;fontSize=13;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1146" y="326" width="124" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="note" value="&lt;b&gt;프롬프트가 좌표를 한 번도 쓰지 않는다&lt;/b&gt; — 筋 · 段 · 「5五」 · 先手 · 後手 모두. 판단과 표현은 이 두 자리 어디에도 없다." style="rounded=1;arcSize=12;html=1;whiteSpace=wrap;strokeWidth=1.2;fillColor=light-dark(#ffffff,#201e1a);strokeColor=light-dark(#d6cbb6,#463f38);fontColor=light-dark(#26211b,#ddd5c8);fontFamily=Helvetica;fontSize=12;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="16" y="472" width="1276" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="e0" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.4;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#faf7f1,#171614);strokeColor=light-dark(#8b8175,#8a8073);fontColor=light-dark(#574f45,#b0a698);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="a1" target="a2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" value="전부 실패한 자리에서만" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.8;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#faf7f1,#171614);strokeColor=light-dark(#6b53a3,#9584c4);fontColor=light-dark(#3d2d63,#c5b9de);exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="a2" target="a3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="하나라도 읽히면 그대로" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.8;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#faf7f1,#171614);strokeColor=light-dark(#2f5d45,#7fae95);fontColor=light-dark(#1f4433,#a9cebb);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="a2" target="a4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="다시 결정적 파서로" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.8;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#faf7f1,#171614);strokeColor=light-dark(#6b53a3,#9584c4);fontColor=light-dark(#3d2d63,#c5b9de);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="a3" target="a4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.8;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#faf7f1,#171614);strokeColor=light-dark(#2f5d45,#7fae95);fontColor=light-dark(#1f4433,#a9cebb);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="a4" target="a5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.8;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#faf7f1,#171614);strokeColor=light-dark(#6b53a3,#9584c4);fontColor=light-dark(#3d2d63,#c5b9de);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="b1" target="b2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="81칸 + 持ち駒" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.8;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#faf7f1,#171614);strokeColor=light-dark(#2f5d45,#7fae95);fontColor=light-dark(#1f4433,#a9cebb);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="b2" target="b3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.8;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#faf7f1,#171614);strokeColor=light-dark(#2f5d45,#7fae95);fontColor=light-dark(#1f4433,#a9cebb);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="b3" target="b4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;arcSize=8;html=1;endArrow=blockThin;endFill=1;endSize=6;strokeWidth=1.8;fontFamily=Helvetica;fontSize=11;labelBackgroundColor=light-dark(#faf7f1,#171614);strokeColor=light-dark(#2f5d45,#7fae95);fontColor=light-dark(#1f4433,#a9cebb);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="b4" target="b5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
