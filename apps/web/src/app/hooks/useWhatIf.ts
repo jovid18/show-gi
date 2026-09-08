@@ -3,11 +3,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WhatIfNode, WhatIfRequest } from '@/protocol/whatif';
 
 /**
- * 「そのとき、こう指していたら」 — 가정 수순 한 줄을 들고 있는다.
+ * 「そのとき、こう指していたら」 — 가정 수순 한 줄을 맡는다.
  *
  * 분기는 화면이 소유한다. 서버는 매번 전부 받아 그 국면 하나를 답해 줄 뿐이고,
  * 한 수도 대신 두지 않는다. 되돌릴 상태가 없어서 그럴 수 있다 — 끝난 판의 가정이든
- * 물러진 수 뒤의 가정이든 누구도 안 잃는다.
+ * 물러진 수 뒤의 가정이든 누구도 잃지 않는다.
  *
  * 오가는 길은 세 가지다. 되짚는 판은 HTTP, 대국 중의 블런더 화면은 그 대국의
  * WebSocket, 검토는 또 다른 HTTP다(`/api/explore`). 그 차이를 `send` 하나로 밀어내서
@@ -15,10 +15,10 @@ import type { WhatIfNode, WhatIfRequest } from '@/protocol/whatif';
  *
  * 노드 타입이 표면마다 늘어날 수 있다. 검토는 `WhatIfNode` 에 그 手合의 「형세 0」을
  * 얹어서 받는데(`ExploreNode`), 그 칸을 여기 공용 타입에 넣으면 되짚기·대국이 절대
- * 오지 않는 필드를 들고 다니게 된다 — 늘어난 쪽만 자기 타입을 준다.
+ * 오지 않는 필드를 달고 다니게 된다 — 늘어난 쪽만 자기 타입을 준다.
  */
 export interface WhatIf<T extends WhatIfNode = WhatIfNode> {
-  /** 지금 서 있는 자리. null이면 아직 아무것도 못 받았다. */
+  /** 지금 서 있는 자리. null이면 아직 아무것도 받지 못했다. */
   node: T | null;
   pending: boolean;
   error: string | null;
@@ -33,13 +33,13 @@ export interface WhatIf<T extends WhatIfNode = WhatIfNode> {
   /**
    * 줄이 그 길이였을 때의 값 — 수마다의 cp가 여기서 나온다.
    *
-   * 다시 묻지 않는다. 지나온 자리는 이미 받아 뒀으므로 꺼내 오면 되고, 아직 안 가 본
+   * 다시 묻지 않는다. 지나온 자리는 이미 받아 뒀으므로 꺼내 오면 되고, 아직 가 보지 않은
    * 자리는 `null` 이다 — 없는 값을 지어내지 않는다.
    */
   evalOf: (lineLength: number) => { cp: number | undefined; mateIn: number | undefined } | null;
   /** 분기에 들어가 있는가. 바닥 위로 한 수라도 뒀으면 그렇다. */
   branching: boolean;
-  /** 들고 있는 것을 버린다. 화면을 닫을 때 쓴다. */
+  /** 갖고 있던 것을 버린다. 화면을 닫을 때 쓴다. */
   clear: () => void;
 }
 
@@ -60,19 +60,19 @@ function keyOf(req: WhatIfRequest): string {
   return `${req.ply}:${req.moves.join(' ')}`;
 }
 
-/** 바닥이 없는 분기. 되짚기가 이쪽이다 — 어느 手数에서든 아무것도 안 깔고 시작한다. */
+/** 바닥이 없는 분기. 되짚기가 이쪽이다 — 어느 手数에서든 아무것도 깔지 않고 시작한다. */
 const NO_FLOOR: readonly string[] = [];
 
 /**
  * `send` 는 매 렌더마다 새로 만들어져도 된다 — ref로 잡으므로 아래 콜백이 흔들리지 않는다.
- * `resetKey` 가 바뀌면 들고 있던 것을 버린다(다른 판·다른 연결의 분기다).
+ * `resetKey` 가 바뀌면 갖고 있던 것을 버린다(다른 판·다른 연결의 분기다).
  *
  * `floor` 는 줄에서 뺄 수 없는 앞머리다. 대국 중에는 물러진 수 하나가 여기 들어간다 —
  * 그 앞은 지금 다시 둘 국면이라, 거기까지 물러나면 이 장치가 최선수 셋으로 「지금 어떻게
  * 두라」를 답하게 된다(01-core.md §7).
  *
  * 서버도 같은 제한을 갖고 있고(ws.go 의 `branchRoot`), 두 벌인 것이 맞다 — 화면은 버튼을
- * 안 그리고 서버는 요청을 거절하므로, 하나가 뚫려도 다른 하나가 남는다.
+ * 그리지 않고 서버는 요청을 거절하므로, 하나가 뚫려도 다른 하나가 남는다.
  */
 export function useWhatIf<T extends WhatIfNode = WhatIfNode>(
   send: Send<T>,
@@ -86,7 +86,7 @@ export function useWhatIf<T extends WhatIfNode = WhatIfNode>(
   const sendRef = useRef(send);
   sendRef.current = send;
 
-  // 아래 콜백들이 매 렌더마다 새로 만들어지지 않게 ref로 잡는다. `send` 와 같은 이유다 —
+  // 아래 콜백들이 매 렌더마다 새로 만들어지지 않게 ref로 잡는다. `send` 와 같은 판단이다 —
   // 이 값이 의존성에 들어가면 배열 identity 하나로 「같은 자리를 두 번 묻는」 고리가 산다.
   const floorRef = useRef(floor);
   floorRef.current = floor;
@@ -191,13 +191,13 @@ export function useWhatIf<T extends WhatIfNode = WhatIfNode>(
    * 지나온 자리의 값.
    *
    * 렌더 중에 ref를 읽는다. 캐시는 늘기만 하고 새 값이 들어올 때마다 `setNode` 가
-   * 따라오므로(위) 화면이 뒤처지지 않는다 — 같은 것을 상태로 한 벌 더 들고 있으면
+   * 따라오므로(위) 화면이 뒤처지지 않는다 — 같은 것을 상태로 한 벌 더 갖고 있으면
    * 둘이 어긋날 자리만 생긴다.
    */
   const evalOf = useCallback(
     (lineLength: number) => {
       // 지금 줄보다 긴 자리는 모른다. `slice` 는 넘치면 경고 없이 짧게 잘라 주므로,
-      // 막지 않으면 아직 안 가 본 장면에 직전 장면의 값이 붙는다 — 개입 카드에서
+      // 막지 않으면 아직 가 보지 않은 장면에 직전 장면의 값이 붙는다 — 개입 카드에서
       // 물러진 수와 그 다음 수가 같은 숫자로 나왔다(브라우저에서 그 그림을 봤다).
       if (!node || lineLength > node.line.length) return null;
       const line = node.line.slice(0, lineLength).map((m) => m.usi);

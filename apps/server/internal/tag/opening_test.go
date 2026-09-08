@@ -15,13 +15,13 @@ func tradedBishops(ss ...square) shogi.Position {
 	return pos
 }
 
-// 빈 판에는 角換わり가 안 붙는다. 「판에 角이 없다」만 보면 駒를 몇 개 놓은 국면이 전부
+// 빈 판에는 角換わり가 붙지 않는다. 「판에 角이 없다」만 보면 駒를 몇 개 놓은 국면이 전부
 // 角換わり가 된다 — 없는 것과 交換된 것을 구별하지 못한다. 실제로 그렇게 떴다.
 func TestAnEmptyBoardIsNotABishopTrade(t *testing.T) {
 	if bishopsTraded(place(shogi.Black)) {
 		t.Error("빈 판이 角換わり로 읽혔다")
 	}
-	// 한쪽만 持ち駒에 들고 있으면 交換으로 안 센다.
+	// 한쪽만 持ち駒에 들고 있으면 交換으로 세지 않는다.
 	half := place(shogi.Black)
 	half.Hands[shogi.Black][shogi.Bishop] = 1
 	if bishopsTraded(half) {
@@ -32,7 +32,7 @@ func TestAnEmptyBoardIsNotABishopTrade(t *testing.T) {
 	}
 }
 
-// 판에 角이 남아 있으면 交換이 아직 안 끝났다. 馬(성한 角)도 센다.
+// 판에 角이 남아 있으면 交換이 아직 끝나지 않았다. 馬(성한 角)도 센다.
 func TestABishopOnTheBoardMeansNoTrade(t *testing.T) {
 	for _, pt := range []shogi.PieceType{shogi.Bishop, shogi.PromBishop} {
 		pos := tradedBishops(square{5, 5, pt})
@@ -43,7 +43,7 @@ func TestABishopOnTheBoardMeansNoTrade(t *testing.T) {
 }
 
 // 좁은 것이 먼저다. 角交換振り飛車는 角換わり이면서 振り飛車라, 순서가 뒤집히면
-// 언제나 角換わり로 먼저 걸려 영원히 안 나온다.
+// 언제나 角換わり로 먼저 걸려 영원히 나오지 않는다.
 func TestOpeningPrefersTheNarrowerName(t *testing.T) {
 	for _, tc := range []struct {
 		name     string

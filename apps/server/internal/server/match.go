@@ -70,7 +70,7 @@ func (h *matchHandler) create(w http.ResponseWriter, r *http.Request) {
 	// 목록을 서버가 아는 값이라 이상한 값이 오는 것은 클라이언트가 틀린 경우이고,
 	// 그때 방을 거절하는 것보다 先手로 여는 쪽이 낫다.
 	//
-	// 振り駒(r)는 서버가 뽑는다. 클라이언트가 뽑아 b·w 로 보내면 마음에 안 드는
+	// 振り駒(r)는 서버가 뽑는다. 클라이언트가 뽑아 b·w 로 보내면 마음에 들지 않는
 	// 결과를 다시 뽑을 수 있고, 그러면 振り駒 대신 그냥 고르는 것이 된다.
 	color := shogi.Black
 	switch r.URL.Query().Get("color") {

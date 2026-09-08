@@ -13,7 +13,7 @@ import (
 // 「수순·국면은 자체 엔진으로 재검증」이다.
 //
 // 이 테스트가 平手에서 합법수만으로 穴熊에 도달한다. 좌표가 틀렸으면 도중에 반칙이
-// 나거나 마지막에 태그가 안 뜨므로, 사람이 옮겨 적은 문장보다 강한 근거가 된다.
+// 나거나 마지막에 태그가 뜨지 않으므로, 사람이 옮겨 적은 문장보다 강한 근거가 된다.
 func TestAnagumaIsReachableFromTheStart(t *testing.T) {
 	// 先手가 居飛車穴熊를 짜고, 後手는 방해하지 않고 다른 쪽에서 手를 쓴다.
 	//
@@ -77,7 +77,7 @@ func blackMoves(all []string) []string {
 
 // 振り飛車穴熊도 같은 방법으로 확인한다 — 玉이 반대쪽 隅(1九)에 들어간다.
 //
-// 좌우를 뒤집은 자리라 squareFor 의 거울(後手용 180° 회전)로는 안 나온다. 그래서
+// 좌우를 뒤집은 자리라 squareFor 의 거울(後手용 180° 회전)로는 나오지 않는다. 그래서
 // 정의를 따로 적었고, 그 좌표를 여기서 룰 엔진에 다시 물어 확인한다.
 func TestFuribishaAnagumaIsReachableFromTheStart(t *testing.T) {
 	moves := []string{

@@ -10,7 +10,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/kifu"
 )
 
-// 실제로 OpenAI 를 부른다. 키가 없으면 skip 이다 — CI 에서 안 돈다.
+// 실제로 OpenAI 를 부른다. 키가 없으면 skip 이다 — CI 에서 돌지 않는다.
 //
 // 재는 것은 「모델이 잘 옮기는가」 대신 배선이 성립하는가다: 결정적 파서가 전부
 // 실패하는 텍스트가 정규화를 지나 룰 엔진까지 통과하는가. 모델이 지어내면 kifu.ParseMoves
@@ -21,7 +21,7 @@ func TestLiveNormalizeReachesTheRuleEngine(t *testing.T) {
 		t.Skip("no SHOWGI_OPENAI_KEY")
 	}
 
-	// 어느 결정적 파서로도 안 읽힌다. 표기는 일본어인데 줄의 모양이 KIF 도 KI2 도 아니고
+	// 어느 결정적 파서로도 읽히지 않는다. 표기는 일본어인데 줄의 모양이 KIF 도 KI2 도 아니고
 	// (手数가 셀에 들어 있고 표식이 없다) 낱말로 끊어도 태그가 붙어 있다 — 웹 페이지에서
 	// 복사해 오면 실제로 이렇게 온다.
 	const messy = `<h2>対局結果 2026-08-30</h2>

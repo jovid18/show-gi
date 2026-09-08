@@ -55,7 +55,7 @@ type rankAnchor struct {
 //
 // 그래서 이름 사이는 실측 없이 이은 것이다. 이 자가 가르는 것은 세 덩어리다 —
 // {15級 0.1287 · 10級 0.1064} · {5級~三段} · {5段 0.0332}. 인접한 이름의 차이는 아직
-// 확인되지 않았고, 화면이 「目安」로 적는 이유가 그것이다(journal §94).
+// 확인되지 않았고, 그래서 화면이 「目安」로 적는다(journal §94).
 var rankAnchors = [...]rankAnchor{
 	{Step: 0, Loss: 0.1287},       // 15級 — 판 5개
 	{Step: RankMax, Loss: 0.0662}, // 初段 이상 — 初段 2판 0.0659 · 三段 3판 0.0651
@@ -65,7 +65,7 @@ var rankAnchors = [...]rankAnchor{
 // 표본이 모자라면 이름을 붙이지 않는다(MinSamples). 0을 돌려주면 화면이 그것을 「15級」으로
 // 그리고, 그건 아무 근거 없이 사람에게 가장 낮은 이름을 붙이는 것이다.
 //
-// 보는 값은 Estimate.AbsLoss 다. 밴드가 쓰는 Loss 를 안 보는 이유가 둘이고 둘 다 표시에만
+// 보는 값은 Estimate.AbsLoss 다. 밴드가 쓰는 Loss 를 보지 않는 것은 둘 때문이고 둘 다 표시에만
 // 걸린다 — 분모가 레벨이라 임계치가 좁아지는 날 같은 실력이 네 계급 움직이고(journal §92),
 // 비대칭 EMA 라 끝이 무너진 판이 판 전체보다 훨씬 나쁘게 남는다.
 //
@@ -102,7 +102,7 @@ func rankStepOf(absLoss float64) float64 {
 	case absLoss >= first.Loss:
 		return float64(first.Step)
 	case absLoss < last.Loss:
-		// 앵커 아래는 안 늘린다. 段 사이를 이 자로 못 가르므로(rankNames) 마지막 앵커
+		// 앵커 아래는 늘리지 않는다. 段 사이를 이 자로 가를 수 없으므로(rankNames) 마지막 앵커
 		// 다음 칸 하나가 「初段 이상」을 다 받는다.
 		return float64(RankMax)
 	}

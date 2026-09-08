@@ -6,7 +6,7 @@
 
 import type { GameResult } from '@/protocol/review';
 
-/** 사람 기준 결과. 끝나지 않은 판에는 값이 안 오므로 `ONGOING`을 쓴다. */
+/** 사람 기준 결과. 끝나지 않은 판에는 값이 오지 않으므로 `ONGOING`을 쓴다. */
 export const RESULT_JA: Record<GameResult, string> = {
   win: '勝ち',
   loss: '負け',
@@ -34,6 +34,6 @@ const DATE_JA = new Intl.DateTimeFormat('ja-JP', {
 
 export function dateJa(iso: string): string {
   const at = new Date(iso);
-  // 못 읽는 값으로 「Invalid Date」를 화면에 내보내지 않는다.
+  // 읽을 수 없는 값으로 「Invalid Date」를 화면에 내보내지 않는다.
   return Number.isNaN(at.getTime()) ? '' : DATE_JA.format(at);
 }

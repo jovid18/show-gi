@@ -2,18 +2,18 @@
 
 ## 1. 기술 결정 (확정)
 
-| 항목     | 결정                                                                                              | 근거                                                                                                                                                                          |
-| -------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 서버     | **Go 단일 서비스**                                                                                | §2                                                                                                                                                                            |
-| 프론트   | React + TS + Vite                                                                                 | 확정 사항. 판 렌더는 새로 쓴다 (§8)                                                                                                                                           |
-| 3D       | three.js, 정사영 + 1.5컷(§41)                                                                     | [프론트엔드](03-frontend.md)                                                                                                                                                  |
-| DB       | **PostgreSQL 단일. 그래프 DB 쓰지 않는다**                                                        | §4                                                                                                                                                                            |
-| 엔진     | **やねうら王 + 水匠5**. `ENGINE_CMD`로 교체 가능                                                  | §3                                                                                                                                                                            |
-| 문구     | **LLM을 안 쓴다.** 개입 문구·총평은 결정적 템플릿                                                 | §2 아래 · [`internal/explain`](../apps/server/internal/explain)                                                                                                               |
-| LLM      | **두 자리 — 가져온 기보의 서식 정규화와 판 사진의 판독.** 둘 다 받아 적기만 하고 좌표를 안 만진다 | [§126](journal/121-140.md) · [§129](journal/121-140.md) · [`internal/kifunorm`](../apps/server/internal/kifunorm) · [`internal/boardread`](../apps/server/internal/boardread) |
-| 인증     | **Google OAuth만**                                                                                | LINE은 채널 개설에 시간이 든다                                                                                                                                                |
-| 배포     | AWS ECS on EC2 스팟 1대 + ALB, Terraform, Route53                                                 | §6                                                                                                                                                                            |
-| 모노레포 | pnpm 워크스페이스 + `apps/server`(Go 별도 go.mod)                                                 | `../more-more`와 동일 구조. oxfmt/oxlint, `.githooks`, CI까지 그대로                                                                                                          |
+| 항목     | 결정                                                                                                  | 근거                                                                                                                                                                          |
+| -------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 서버     | **Go 단일 서비스**                                                                                    | §2                                                                                                                                                                            |
+| 프론트   | React + TS + Vite                                                                                     | 확정 사항. 판 렌더는 새로 쓴다 (§8)                                                                                                                                           |
+| 3D       | three.js, 정사영 + 1.5컷(§41)                                                                         | [프론트엔드](03-frontend.md)                                                                                                                                                  |
+| DB       | **PostgreSQL 단일. 그래프 DB 쓰지 않는다**                                                            | §4                                                                                                                                                                            |
+| 엔진     | **やねうら王 + 水匠5**. `ENGINE_CMD`로 교체 가능                                                      | §3                                                                                                                                                                            |
+| 문구     | **LLM을 쓰지 않는다.** 개입 문구·총평은 결정적 템플릿                                                 | §2 아래 · [`internal/explain`](../apps/server/internal/explain)                                                                                                               |
+| LLM      | **두 자리 — 가져온 기보의 서식 정규화와 판 사진의 판독.** 둘 다 받아 적기만 하고 좌표를 만지지 않는다 | [§126](journal/121-140.md) · [§129](journal/121-140.md) · [`internal/kifunorm`](../apps/server/internal/kifunorm) · [`internal/boardread`](../apps/server/internal/boardread) |
+| 인증     | **Google OAuth만**                                                                                    | LINE은 채널 개설에 시간이 든다                                                                                                                                                |
+| 배포     | AWS ECS on EC2 스팟 1대 + ALB, Terraform, Route53                                                     | §6                                                                                                                                                                            |
+| 모노레포 | pnpm 워크스페이스 + `apps/server`(Go 별도 go.mod)                                                     | `../more-more`와 동일 구조. oxfmt/oxlint, `.githooks`, CI까지 그대로                                                                                                          |
 
 ---
 
@@ -33,7 +33,7 @@ Node도 후보였다. Node의 이점은 라이브러리 생태계인데, 이 제
 
 **やねうら王(v9.40) + 水匠5.** 이미지 안에서 소스로 빌드한다(arm64, 약 50초).
 
-fairy-stockfish로 시작했다가 갈아탔다. 이유는 `go mate`가 없어서다 — 그쪽은 `go mate`를 경고 없이 무시하고 일반 탐색으로 떨어져서, 詰み 게이지가 그럴듯한 쓰레기를 표시하게 된다. 원래 판단 기준이 절대 강함보다 MultiPV 후보 배열과 mate 탐색이었는데, 그 둘 중 하나가 없다는 것을 실측으로 확인한 시점에 근거가 사라졌다.
+fairy-stockfish로 시작했다가 갈아탔다. `go mate` 가 없어서다 — 그쪽은 `go mate`를 경고 없이 무시하고 일반 탐색으로 떨어져서, 詰み 게이지가 그럴듯한 쓰레기를 표시하게 된다. 원래 판단 기준이 절대 강함보다 MultiPV 후보 배열과 mate 탐색이었는데, 그 둘 중 하나가 없다는 것을 실측으로 확인한 시점에 근거가 사라졌다.
 
 |               |                                               |
 | ------------- | --------------------------------------------- |
@@ -51,7 +51,7 @@ fairy-stockfish로 시작했다가 갈아탔다. 이유는 `go mate`가 없어�
 
 ## 4. 데이터 모델 — 그래프 DB를 쓰지 않는 이유
 
-> 표 12개를 한 장으로 본 ERD와 마이그레이션 15개의 이력은 [spec/data-model.md](spec/data-model.md)에 있다. 이 절은 「왜 이 모양인가」만 든다.
+> 표 12개를 한 장으로 본 ERD와 마이그레이션 15개의 이력은 [spec/data-model.md](spec/data-model.md)에 있다. 이 절은 「왜 이 모양인가」만 담는다.
 
 원래 요구는 이랬다.
 
@@ -85,7 +85,7 @@ create index on edges using gin (tags);
 
 > 두 테이블은 오래 비어 있었다. `001_init.sql` 에 소비자보다 먼저 들어가서 [journal §12](journal/06-20.md)·[06-status.md §5](06-status.md)가 「쓰는 쪽이 없다」로 적어 둔 그대로였고, 실제 행수가 `positions` 2 · `edges` 0이었다. 채우는 쪽이 붙었다([journal §37](journal/21-40.md)) — 엔진을 부르는 자리를 전부 한 겹 감싸서(`internal/archive`) 모든 탐색이 여기로 떨어진다.
 >
-> 둘 다 읽는 쪽이 생겼다. `internal/archive` 의 `lookup` 이 `positions` 에서 후보를, `edges` 에서 깊이별 값을 꺼내 엔진 호출을 대신한다 — 여섯 자리(상대 수·개입 판정·가정 수순·검토·부르는 힌트·되짚기 퀴즈)가 전부 그 한 겹을 지난다 — `cmd/api/main.go` 가 `archive.Wrap` 한 개를 그 여섯에 나눠 준다. 검토가 마지막으로 붙은 자리이고([journal §85](journal/82-100.md)), 거기서 되짚기가 쌓아 둔 행을 그대로 꺼내 쓰는 것이 실측으로 확인됐다. `edges.tags` 만 아직 누구도 안 채운다 — 「정석 이탈」 카테고리가 기다리는 칸이고([01-core.md §3](01-core.md)), 소비자 없이 스키마를 먼저 만든 값이 마이너스였다는 것이 이 줄이 남은 이유다.
+> 둘 다 읽는 쪽이 생겼다. `internal/archive` 의 `lookup` 이 `positions` 에서 후보를, `edges` 에서 깊이별 값을 꺼내 엔진 호출을 대신한다 — 여섯 자리(상대 수·개입 판정·가정 수순·검토·부르는 힌트·되짚기 퀴즈)가 전부 그 한 겹을 지난다 — `cmd/api/main.go` 가 `archive.Wrap` 한 개를 그 여섯에 나눠 준다. 검토가 마지막으로 붙은 자리이고([journal §85](journal/82-100.md)), 거기서 되짚기가 쌓아 둔 행을 그대로 꺼내 쓰는 것이 실측으로 확인됐다. `edges.tags` 만 아직 아무도 채우지 않는다 — 「정석 이탈」 카테고리가 기다리는 칸이고([01-core.md §3](01-core.md)), 소비자 없이 스키마를 먼저 만든 것이 손해였고, 그래서 이 줄이 남아 있다.
 >
 > 플레이어에 매인 값이 없다. cp는 수번 관점, `tags` 는 둔 쪽 기준이라 A가 잰 국면이 B에게 그대로 유효하다 — `user_id`도 `game_id`도 없어서 로그인이 붙어도 여기는 위협 밖이다(§7 위협 2가 말하는 것은 `games`·`game_moves` 쪽이다).
 >
@@ -93,7 +93,7 @@ create index on edges using gin (tags);
 
 ### `eval_by_depth`는 공짜로 얻는다
 
-지금 프로덕션에서 도는 것은 판정·상대 수·가정 수순이 전부 14다(`game.JudgeDepth` · `game.DefaultDepth` 가 한 값을 함께 쓴다, [journal §130](journal/121-140.md)) — 手合割 기준점 표가 처음부터 depth 14라 화면 값과 자를 맞춘 것이다. 선행 계산은 그것과 별개로 14에 안 붙인다: 한때 붙여 봤는데 8.4초가 나와 못 썼고([journal §10](journal/06-20.md)), 초반 캐시 히트율 65.7%를 재고 닫았다([journal §91](journal/82-100.md)).
+지금 프로덕션에서 도는 것은 판정·상대 수·가정 수순이 전부 14다(`game.JudgeDepth` · `game.DefaultDepth` 가 한 값을 함께 쓴다, [journal §130](journal/121-140.md)) — 手合割 기준점 표가 처음부터 depth 14라 화면 값과 자를 맞춘 것이다. 선행 계산은 그것과 별개로 14에 붙이지 않는다: 한때 붙여 봤는데 8.4초가 나와 쓰지 못했고([journal §10](journal/06-20.md)), 초반 캐시 히트율 65.7%를 재고 닫았다([journal §91](journal/82-100.md)).
 
 USI 엔진은 iterative deepening 중 `info depth 1 score cp … / info depth 2 …`를 계속 뱉는다. `go` 한 번의 info 라인을 깊이별로 주워담으면 그게 곧 이 배열이다. 별도 탐색을 깊이마다 다시 돌릴 필요가 없다.
 
@@ -106,9 +106,9 @@ USI 엔진은 iterative deepening 중 `info depth 1 score cp … / info depth 2 
 
 하나의 배열이 개입의 두 방향을 동시에 정의한다. 조건 판정도 설명 문장도(「여기까지만 보면 이득입니다」) 이 배열 하나에서 나온다. 자세한 조건은 [개입 엔진 §7.1](01-core.md#71-어떤-手筋을-알릴-것인가--여기가-제품의-감각이다).
 
-> 리뷰 화면은 이 배열을 안 쓴다. 한때 스파크라인의 원본으로 적혀 있었는데, 그 자리는 [평가치 궤적 그래프](03-frontend.md#3-리뷰-화면)가 대신 닫았고 그쪽이 읽는 것은 `game_moves.eval_cp` 다([journal §41](journal/41-60.md)). 이 배열의 소비자는 판정 하나이고, 나머지는 `archive` 가 캐시로 다시 꺼내 쓰는 쪽이다.
+> 리뷰 화면은 이 배열을 쓰지 않는다. 한때 스파크라인의 원본으로 적혀 있었는데, 그 자리는 [평가치 궤적 그래프](03-frontend.md#3-리뷰-화면)가 대신 닫았고 그쪽이 읽는 것은 `game_moves.eval_cp` 다([journal §41](journal/41-60.md)). 이 배열의 소비자는 판정 하나이고, 나머지는 `archive` 가 캐시로 다시 꺼내 쓰는 쪽이다.
 
-> 단 얕은 값은 MultiPV info 라인에서 못 줍는다. 捨て駒는 얕은 깊이에서 상위 k에 들지 못해 애초에 라인에 안 나온다 — 손해로 보이는 것이 그 수의 정의다. shallow는 그 수를 둔 국면을 따로 depth 2로 평가해서 얻는다.
+> 단 얕은 값은 MultiPV info 라인에서 주울 수 없다. 捨て駒는 얕은 깊이에서 상위 k에 들지 못해 애초에 라인에 나오지 않는다 — 손해로 보이는 것이 그 수의 정의다. shallow는 그 수를 둔 국면을 따로 depth 2로 평가해서 얻는다.
 
 > 단 엔진이 깊이별로 찍어주게 만들어야 한다. YaneuraOu의 `PvInterval` 기본값은 300(ms)이고, 그 간격으로만 PV를 찍는다. 우리 탐색은 그보다 빨리 끝나므로 마지막 깊이 하나만 남는다 — 이 배열 전체가 사라진다. `PvInterval=0`으로 껐고, 이건 파서가 동작하기 위한 조건이라 핸드셰이크에 넣었다. 엔진을 또 바꾸면 같은 종류의 옵션이 있는지 먼저 본다.
 
@@ -122,8 +122,8 @@ games        (id, user_id, my_color, started_at, finished_at, result, opening_ta
               root_key, start_sfen, style_tags, match_id)
              -- user_id는 nullable. 로그인 전에도 남긴다 (002_anonymous_games.sql)
              -- opening_tag 은 **상대**가 고른 진형이고, style_tags 는 **사람이 짠** 囲い·
-             -- 전법·戦型이다 (009_game_style_tags.sql, §77). 手筋은 안 담는다
-             -- start_sfen 이 手合割의 정본이다 (§84) — 이름을 적는 칸을 안 만들었다.
+             -- 전법·戦型이다 (009_game_style_tags.sql, §77). 手筋은 담지 않는다
+             -- start_sfen 이 手合割의 정본이다 (§84) — 이름을 적는 칸을 만들지 않았다.
              -- 적어 두면 그 칸과 판이 갈릴 수 있고, 갈리면 화면이 없는 駒를 말한다
              -- match_id 가 있으면 대인전이고, 그 한 판이 games 행 **둘**로 남는다
              -- (012_match_games.sql, §83). NULL 이 AI 연습 대국이다 — 마이페이지의
@@ -135,7 +135,7 @@ game_hints   (id, game_id, ply, sfen_key, stage, best_usi, taken, created_at)
              -- 'declined'(§51)가 DDL 없이 늘었다. 中断은 'abandoned' 로 적힌다 —
              -- 'aborted' 는 세션·프로토콜 쪽 Status 이지 이 칸의 값이 아니다
 game_moves   (game_id, ply, usi, sfen_key, eval_cp, eval_mate)   -- 둘은 배타적이다 (CHECK, 021)
-             -- **지금 판에 남아 있는 수순만.** 물러진 수도 스스로 무른 수도 여기 안 들어온다
+             -- **지금 판에 남아 있는 수순만.** 물러진 수도 스스로 무른 수도 여기 들어오지 않는다
 interventions(id, game_id, ply, kind, category, delta_win, level_bucket,
               retracted_usi, hinted_tag, taken bool, created_at,
               best_cp, after_cp, best_mate, after_mate)
@@ -144,31 +144,31 @@ interventions(id, game_id, ply, kind, category, delta_win, level_bucket,
              -- retracted_usi는 blunder만, hinted_tag/taken은 tesuji만 (CHECK 제약이 막는다)
              -- (game_id, ply)는 유니크가 아니다 — 한 국면에서 여러 번 물러지는 일이 있다
              -- best_cp/after_cp 는 물러진 수의 원본 점수다 (005, §41). 그 전 행은 영원히 NULL
-             -- 詰み은 best_mate/after_mate 가 든다. cp 와 배타적이다 (CHECK, 021)
+             -- 詰み은 best_mate/after_mate 에 담긴다. cp 와 배타적이다 (CHECK, 021)
 game_quizzes (game_id primary key, version, payload jsonb, generated_at)
              -- 되짚기 퀴즈 (007, §53). 한 판에 한 행이고 **문항 전체가 jsonb 하나**다 —
              -- 詰み 문항이 트리라 행으로 쪼개면 채점 질의가 그 모양을 SQL에서 다시 만든다
-             -- **정답이 payload 안에 있고 응답에 안 실린다** — 채점이 서버에 있다
+             -- **정답이 payload 안에 있고 응답에 실리지 않는다** — 채점이 서버에 있다
 game_undos   (id, game_id, ply, usi, eval_cp, eval_mate, created_at)
-             -- 사람이 스스로 무른 수 (008, §72). `interventions` 와 따로 둔 이유는 예산도
-             -- 뜻도 다르기 때문이다 — 이쪽은 판정을 **통과한** 수라 레이팅에서 안 빠진다
+             -- 사람이 스스로 무른 수 (008, §72). `interventions` 와 따로 둔 것은 예산도
+             -- 뜻도 다르기 때문이다 — 이쪽은 판정을 **통과한** 수라 레이팅에서 빠지지 않는다
 skill_profile(user_id, rating_est, rating_sd, weakness jsonb, updated_at,
               skill_loss, skill_samples, rating_games, rating_updated_at,
               skill_abs_loss, skill_abs_samples)
-             -- **한 표에 척도가 셋이다.** 따로 둔 이유는 비교 가능성이다 (013, §92 · 014, §94)
+             -- **한 표에 척도가 셋이다.** 따로 둔 것은 비교 가능성 때문이다 (013, §92 · 014, §94)
              -- skill_loss/samples — 엔진 대국의 적응용 (006, §48). 임계치에 대한 비율이라
              --   임계치가 사람마다 갈리는 순간 사람 사이에 비교할 수 없다.
-             --   대인전도 판이 끝난 뒤 두 축을 다 먹인다 (§95)
-             -- skill_abs_loss/abs_samples — 화면의 段級 (014, §94). 임계치로 안 나눈 낙폭의
+             --   대인전도 판이 끝난 뒤 두 척도를 다 먹인다 (§95)
+             -- skill_abs_loss/abs_samples — 화면의 段級 (014, §94). 임계치로 나누지 않은 낙폭의
              --   평균이라 레벨이 갈려도 같은 값이다. 21~60手의 갈리지 않은 국면만 센다 **NULL이 「아직 모른다」다** —
              --   개수를 따로 세는 것은 014 이전 행이 skill_samples 만 차 있기 때문이다
              -- rating_est/sd/games/updated_at — 매칭용 Glicko (013, §92). 승패로만 움직여서
              --   정의상 사람 사이의 값이다. **rating_games = 0 이 「레이팅 없음」이다** —
-             --   rating_est 가 NOT NULL DEFAULT 0 이라 0으로는 그것을 못 말한다
-             --   **어느 API 도 이 값을 안 돌려준다** — 매칭이 쓰는 내부 값이다
+             --   rating_est 가 NOT NULL DEFAULT 0 이라 0으로는 그것을 말할 수 없다
+             --   **어느 API 도 이 값을 돌려주지 않는다** — 매칭이 쓰는 내부 값이다
 match_queue(user_id PK, rating, deviation, joined_at, seen_at, room_id, color, matched_at)
              -- 대인전 대기열 (016, §98). **한 사람이 한 행이라 대기열에 서는 것이 멱등이다.**
-             -- 방과 반대로 표인 이유는 모든 인스턴스가 같은 대기열을 봐야 하기 때문이다 —
+             -- 방과 반대로 표에 둔 것은 모든 인스턴스가 같은 대기열을 봐야 하기 때문이다 —
              -- 방은 초당 수십 번 바뀌는 상태머신이라 goroutine 소유가 맞다
              -- rating/deviation — 대기열에 설 때 읽은 값. 시드와 불확실성 복원이 얹혀 있다
              -- room_id = NULL 이 「아직 기다린다」다. 채워지면 주인이 한 번 읽고 지운다
@@ -183,7 +183,7 @@ explore_snapshots(id, user_id, name, handicap, moves text[], created_at)
              -- 지울 수 없는 행이 생기고, 같은 이름 둘은 手数·저장 시각이 가른다
 ```
 
-> `explain_cache` 와 `kb_chunks` 는 지웠다(011). 개입 문구가 LLM을 안 거치고 카테고리에서
+> `explain_cache` 와 `kb_chunks` 는 지웠다(011). 개입 문구가 LLM을 거치지 않고 카테고리에서
 > 결정적으로 나오게 되면서(`explain.Render`) 캐시할 것도 프롬프트에 붙일 것도 없어졌다.
 > `interventions` 의 `explain_tier`·`cost_yen` 도 같은 마이그레이션에서 빠졌다.
 
@@ -238,7 +238,7 @@ explore_snapshots(id, user_id, name, handicap, moves text[], created_at)
 
 **엔진은 풀로 띄운다.** 최소 3개 — ① 상대 수 결정 ② 플레이어 후보 선행 계산 ③ mate 탐색(詰み 게이지). 손잡이는 둘이다 — 탐색부가 `ENGINE_POOL_SIZE`(기본 3), 詰将棋 solver가 `ENGINE_MATE_POOL_SIZE`(기본 2).
 
-> ③은 다른 바이너리다(§3). 詰将棋 solver 에디션을 따로 빌드해 띄운다. 스레드는 엔진당 1로 고정한다 — 동시성은 풀에서 얻고, 멀티스레드는 고정 깊이에서도 결과가 흔들려 `positions` 캐시를 못 쓰게 만든다.
+> ③은 다른 바이너리다(§3). 詰将棋 solver 에디션을 따로 빌드해 띄운다. 스레드는 엔진당 1로 고정한다 — 동시성은 풀에서 얻고, 멀티스레드는 고정 깊이에서도 결과가 흔들려 `positions` 캐시를 쓸 수 없게 만든다.
 
 **세션당 goroutine 하나가 상태를 소유한다.** 입력은 채널 fan-in, 출력은 스냅샷 broadcast. 롤백이 있는 이상 상태 변경 순서가 곧 제품 정합성이라 mutex로 얼버무리지 않는다.
 
@@ -246,10 +246,10 @@ explore_snapshots(id, user_id, name, handicap, moves text[], created_at)
 
 ## 6. 인프라
 
-- **ECS on EC2**(스팟, ARM64). 티어는 둘인데 지금은 대가 하나다([§120](journal/101-120.md) · [§125](journal/121-140.md)) — 절약 모드라 `t4g.small` 한 대가 `SERVER_ROLE=both` 로 겸하고, 회차용은 `c6g.large` 둘이다 — 사람을 받는 태스크는 web(Caddy) + api 이고 앞에 ALB가 ACM 인증서로 TLS를 끝내며, 밀린 手를 재는 태스크는 api 하나이고 대상 그룹에 안 붙는다. 가르는 손잡이는 `SERVER_ROLE` 이고, 늘리는 손잡이는 분석 쪽 대수 하나다 — 그 대수를 알람이 돌린다([§124](journal/121-140.md)): 밀린 手가 임계를 넘기면 서비스의 `desired_count` 가 오르고 용량 공급자가 EC2 를 따라 올린다
+- **ECS on EC2**(스팟, ARM64). 티어는 둘인데 지금은 대가 하나다([§120](journal/101-120.md) · [§125](journal/121-140.md)) — 절약 모드라 `t4g.small` 한 대가 `SERVER_ROLE=both` 로 겸하고, 부하 시험용은 `c6g.large` 둘이다 — 사람을 받는 태스크는 web(Caddy) + api 이고 앞에 ALB가 ACM 인증서로 TLS를 끝내며, 밀린 手를 재는 태스크는 api 하나이고 대상 그룹에 붙지 않는다. 가르는 손잡이는 `SERVER_ROLE` 이고, 늘리는 손잡이는 분석 쪽 대수 하나다 — 그 대수를 알람이 돌린다([§124](journal/121-140.md)): 밀린 手가 임계를 넘기면 서비스의 `desired_count` 가 오르고 용량 공급자가 EC2 를 따라 올린다
 - **RDS postgres 17.** 앱 태스크의 보안그룹에서만 접근 가능하고, 7일 자동 백업이 붙는다
 - 비밀은 SSM Parameter Store → 태스크 정의의 `secrets`로 주입. 디스크에 남지 않는다
-- **관측은 로그 한 줄기에 얹는다**([§90](journal/82-100.md)) — api 가 stderr 로 JSON 로그를, stdout 으로 CloudWatch EMF 한 줄을 내고 둘 다 같은 로그 그룹에 들어간다. 지표 수집기를 따로 띄우지 않는다: 태스크가 몇 대뿐이라 Prometheus 를 세우는 값이 안 나오고, EMF 는 `awslogs` 드라이버 그대로 돌아 인프라가 늘지 않는다. 티어 둘이 같은 계열에 올린다 — `dimensions` 를 안 늘린 이유와 그 대가는 [§120](journal/101-120.md)에 있다
+- **관측은 로그 한 줄기에 얹는다**([§90](journal/82-100.md)) — api 가 stderr 로 JSON 로그를, stdout 으로 CloudWatch EMF 한 줄을 내보내고 둘 다 같은 로그 그룹에 들어간다. 지표 수집기를 따로 띄우지 않는다: 태스크가 몇 대뿐이라 Prometheus 를 세우는 값이 나오지 않고, EMF 는 `awslogs` 드라이버 그대로 돌아 인프라가 늘지 않는다. 티어 둘이 같은 계열에 올린다 — `dimensions` 를 늘리지 않은 이유와 그 대가는 [§120](journal/101-120.md)에 있다
 - Terraform으로 전부 코드화. state는 S3 + DynamoDB 잠금
 - 레포는 퍼블릭
 
@@ -257,7 +257,7 @@ EC2 + docker compose로 시작했다가 갈아탔다. 비용은 거의 같은데
 
 **관리할 서버가 없다.** SSH 포트도, 패치할 OS도, 접속 키도 없다. 디버깅이 필요하면 ECS Exec으로 컨테이너에 들어간다.
 
-state는 S3 + DynamoDB 잠금에 둔다. 로컬 state는 날리면 복구가 안 되고, 퍼블릭 레포에서는 실수로 커밋될 위험도 있다.
+state는 S3 + DynamoDB 잠금에 둔다. 로컬 state는 날리면 되돌릴 수 없고, 퍼블릭 레포에서는 실수로 커밋될 위험도 있다.
 
 절차와 부트스트랩은 [deploy/README.md](../deploy/README.md).
 
@@ -271,7 +271,7 @@ state는 S3 + DynamoDB 잠금에 둔다. 로컬 state는 날리면 복구가 안
 온라인 쇼기 플랫폼은 전부 대국 중 소프트 참조를 금지한다(lishogi 명시).
 → 개입은 AI 연습 대국 한정. 외부 대국 화면 오버레이가 불가능한 구조. 개입이 켜진 대국은 레이팅 비활성.
 
-**이 규칙이 실제로 걸린 자리가 `internal/match` 다**([§83](journal/82-100.md)). 사람끼리 두는 판에는 개입도 힌트도 待った도 없고, 상대 차례에는 합법수 목록조차 안 보낸다 — 그것을 주면 상대의 수를 화면에서 훑어볼 수 있고, 그건 그냥 부정행위 보조다. 그 갈래에 실력 추정(`internal/skill`)도 안 돌린다 — 추정치가 판이 끝날 때 쌓인다([§95](journal/82-100.md)). 재는 것은 두는 동안 手마다 미리 한다([§105](journal/101-120.md)) — 판이 끝나는 순간에 手数만큼이 한꺼번에 몰리는 것을 막는 자리다. 착수 경로는 그래도 엔진을 모른다: 미리 재는 것이 기록기를 지나 `internal/server` 에서 일어나고 논블로킹이라 착수를 안 막는다.
+**이 규칙이 실제로 걸린 자리가 `internal/match` 다**([§83](journal/82-100.md)). 사람끼리 두는 판에는 개입도 힌트도 待った도 없고, 상대 차례에는 합법수 목록조차 보내지 않는다 — 그것을 주면 상대의 수를 화면에서 훑어볼 수 있고, 그건 그냥 부정행위 보조다. 그 갈래에 실력 추정(`internal/skill`)도 돌리지 않는다 — 추정치가 판이 끝날 때 쌓인다([§95](journal/82-100.md)). 재는 것은 두는 동안 手마다 미리 한다([§105](journal/101-120.md)) — 판이 끝나는 순간에 手数만큼이 한꺼번에 몰리는 것을 막는 자리다. 착수 경로는 그래도 엔진을 모른다: 미리 재는 것이 기록기를 지나 `internal/server` 에서 일어나고 논블로킹이라 착수를 막지 않는다.
 
 **위협 2: 실력 프로필은 민감 정보다.**
 "이 사람은 종반에 약하다"는 데이터가 대인전 상대에게 넘어가면 안 된다.
@@ -283,7 +283,7 @@ state는 S3 + DynamoDB 잠금에 둔다. 로컬 state는 날리면 복구가 안
 
 ## 8. `../shogi`에서 이식할 목록
 
-실제로 코드를 열어보고 정한 판정이다. 전부 가져올 것은 셋뿐이고, 나머지는 참고이거나 안 가져온다.
+실제로 코드를 열어보고 정한 판정이다. 전부 가져올 것은 셋뿐이고, 나머지는 참고이거나 가져오지 않는다.
 
 ### 통째로 가져온다
 
@@ -298,20 +298,20 @@ state는 S3 + DynamoDB 잠금에 둔다. 로컬 state는 날리면 복구가 안
 | 무엇                        | 무엇을 고치나                                                                                                                                                                |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `usi.Engine`의 동시성       | `Engine`이 mutex로 탐색을 직렬화한다. 프로세스 1개 = 동시 탐색 1개. `Engine` N개를 감싸는 풀을 새로 쓴다 — `Engine` 자체는 그대로                                            |
-| `usi.parseScore`            | `depth`를 안 읽고 순위별로 덮어쓴다 → `eval_by_depth`가 안 나온다 (§4)                                                                                                       |
+| `usi.parseScore`            | `depth`를 읽지 않고 순위별로 덮어쓴다 → `eval_by_depth`가 나오지 않는다 (§4)                                                                                                 |
 | mate 탐색                   | `Search`/`SearchDepth`뿐이라 `go mate`가 없다. 詰み 게이지용으로 추가                                                                                                        |
 | `analysis`의 부호·병렬 구조 | `sentePov`/`moverPov`(선수 관점 부호 고정)와 워커 병렬화는 가져온다. 판정 로직은 버린다 — 저쪽은 cp 낙폭 300/800 고정, 우리는 승률 낙폭 × 레벨별 임계치라 계산 자체가 다르다 |
 | `src/data/*`                | 수순·좌표·태그만. 설명문은 한국어라 전부 버리고 일본어로 새로 쓴다 (§ 아래)                                                                                                  |
 
-### 안 가져온다
+### 가져오지 않는다
 
-| 무엇                                           | 왜                                                                                                                                                             |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib/moves.ts`, `src/components/Board.tsx` | 좌표계가 다르고(row/col + 자체 `BoardState`), Board는 학습용 샌드박스라 대국에 못 쓴다. 코드에도 "대국용과 다른 자체 타입"이라 적혀 있다. 합법수는 서버가 준다 |
-| `server/internal/swars/`                       | 将棋ウォーズ 스크래핑. 이 제품에 필요 없고, 외부 대국 연동은 보안 §7 위협 1과 정면으로 어긋난다                                                                |
-| `src/pages/Ch0~16`                             | 한국어 강의 콘텐츠. 이 제품은 강의를 하지 않는다                                                                                                               |
-| `deploy/terraform/` (EC2·EIP 구성)             | 우리도 EC2를 쓰지만 ECS가 그 위에 있어 자원 구성이 겹치지 않는다 — EIP도 개별 인스턴스 관리도 없다                                                             |
-| **`src/data/*` 전부**                          | 囲い·전법·手筋 데이터. 한 줄도 쓰지 않는다 — 원전이 개인 블로그이고, 手筋 208문은 시판 서적 디지털화다. 퍼블릭 레포에서는 신뢰성 이전에 저작권 문제다          |
+| 무엇                                           | 왜                                                                                                                                                                |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/moves.ts`, `src/components/Board.tsx` | 좌표계가 다르고(row/col + 자체 `BoardState`), Board는 학습용 샌드박스라 대국에 쓸 수 없다. 코드에도 "대국용과 다른 자체 타입"이라 적혀 있다. 합법수는 서버가 준다 |
+| `server/internal/swars/`                       | 将棋ウォーズ 스크래핑. 이 제품에 필요 없고, 외부 대국 연동은 보안 §7 위협 1과 정면으로 어긋난다                                                                   |
+| `src/pages/Ch0~16`                             | 한국어 강의 콘텐츠. 이 제품은 강의를 하지 않는다                                                                                                                  |
+| `deploy/terraform/` (EC2·EIP 구성)             | 우리도 EC2를 쓰지만 ECS가 그 위에 있어 자원 구성이 겹치지 않는다 — EIP도 개별 인스턴스 관리도 없다                                                                |
+| **`src/data/*` 전부**                          | 囲い·전법·手筋 데이터. 한 줄도 쓰지 않는다 — 원전이 개인 블로그이고, 手筋 208문은 시판 서적 디지털화다. 퍼블릭 레포에서는 신뢰성 이전에 저작권 문제다             |
 
 참고만 할 것: `src/components/Koma.tsx`(기물 한 글자 렌더), 판 그리드 CSS.
 

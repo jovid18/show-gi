@@ -4,7 +4,7 @@ import { ROUTE_HOME, ROUTE_REVIEWS, routeExplore, routeQuiz, routeReview, routeR
 import { hrefOf, parseRoute } from './router';
 
 // 주소를 읽는 쪽은 새로고침과 뒤로 가기가 지나가는 하나뿐인 문이다. 경고 없이 틀리면
-// 「그 판을 열었는데 목록이 뜬다」로 나타나고, 화면에서는 버그로 안 보인다.
+// 「그 판을 열었는데 목록이 뜬다」로 나타나고, 화면에서는 버그로 보이지 않는다.
 describe('parseRoute', () => {
   it('빈 경로와 루트는 홈이다', () => {
     expect(parseRoute('/')).toEqual({ name: 'home' });
@@ -15,7 +15,7 @@ describe('parseRoute', () => {
   it('대국은 /play 다', () => {
     expect(parseRoute('/play')).toEqual({ name: 'game' });
     expect(parseRoute('/play/')).toEqual({ name: 'game' });
-    // 꼬리가 붙어도 대국이다 — 이 화면은 주소에 아무것도 안 싣는다.
+    // 꼬리가 붙어도 대국이다 — 이 화면은 주소에 아무것도 싣지 않는다.
     expect(parseRoute('/play/nope')).toEqual({ name: 'game' });
   });
 
@@ -59,7 +59,7 @@ describe('parseRoute', () => {
     expect(parseRoute('/reviews/12/nope')).toEqual({ name: 'review', id: 12 });
   });
 
-  // id 검사가 꼬리보다 먼저다 — 안 그러면 못 읽는 id로 퀴즈 요청이 나간다.
+  // id 검사가 꼬리보다 먼저다 — 그러지 않으면 읽을 수 없는 id로 퀴즈 요청이 나간다.
   it('id가 정수가 아니면 꼬리가 있어도 목록이다', () => {
     expect(parseRoute('/reviews/abc/quiz')).toEqual({ name: 'reviews' });
   });
@@ -76,7 +76,7 @@ describe('parseRoute', () => {
     expect(parseRoute('/me/')).toEqual({ name: 'me' });
   });
 
-  // 마이페이지에는 판이 없으므로 꼬리도 없다. 못 읽는 주소가 대국인 것과 같은 판단으로,
+  // 마이페이지에는 판이 없으므로 꼬리도 없다. 읽을 수 없는 주소가 대국인 것과 같은 판단으로,
   // 여기서는 마이페이지 자신이다 — 404 화면은 이 앱에 없다.
   it('마이페이지의 꼬리는 그대로 마이페이지다', () => {
     expect(parseRoute('/me/anything')).toEqual({ name: 'me' });
@@ -89,14 +89,14 @@ describe('parseRoute', () => {
     expect(parseRoute('/guide/anything')).toEqual({ name: 'guide' });
   });
 
-  // 가져오기도 꼬리를 안 본다. 주소가 아무것도 안 든다 — 붙여 넣은 글은 화면 안에만 있다.
+  // 가져오기도 꼬리를 보지 않는다. 주소가 아무것도 담지 않는다 — 붙여 넣은 글은 화면 안에만 있다.
   it('가져오기', () => {
     expect(parseRoute('/import')).toEqual({ name: 'import' });
     expect(parseRoute('/import/')).toEqual({ name: 'import' });
     expect(parseRoute('/import/anything')).toEqual({ name: 'import' });
   });
 
-  // 검토는 쿼리를 보는 하나뿐인 화면이다. 여기가 틀리면 링크로 받은 국면이 안 열린다.
+  // 검토는 쿼리를 보는 하나뿐인 화면이다. 여기가 틀리면 링크로 받은 국면이 열리지 않는다.
   it('검토 — 手合割과 수순이 쿼리에 있다', () => {
     expect(parseRoute('/explore')).toEqual({ name: 'explore', handicap: '', moves: [] });
     expect(parseRoute('/explore/')).toEqual({ name: 'explore', handicap: '', moves: [] });
@@ -115,7 +115,7 @@ describe('parseRoute', () => {
   });
 
   // 한 토큰이 깨지면 줄 전체를 버린다. 절반만 두면 링크를 받은 사람이 보는 판과
-  // 준 사람이 본 판이 다르고, 그건 화면에서 버그로 안 보인다.
+  // 준 사람이 본 판이 다르고, 그건 화면에서 버그로 보이지 않는다.
   it('모양이 아닌 수순은 통째로 버린다', () => {
     for (const bad of [
       '/explore?m=7g7f,zzz',
@@ -129,7 +129,7 @@ describe('parseRoute', () => {
   });
 
   // 없는 手合割을 여기서 자르지 않는다. 목록에 있는지는 서버가 정하고(`bad_handicap`),
-  // 화면이 어휘를 한 벌 더 들면 새 手合이 붙는 날 그 공유 링크가 경고 없이 平手로 열린다.
+  // 화면이 어휘를 한 벌 더 가지면 새 手合이 붙는 날 그 공유 링크가 경고 없이 平手로 열린다.
   it('모르는 手合割 id 는 서버에 넘긴다', () => {
     expect(parseRoute('/explore?h=hachimaiochi2&m=7g7f')).toEqual({
       name: 'explore',
@@ -179,14 +179,14 @@ describe('hrefOf', () => {
     }
   });
 
-  // 검토는 쿼리까지 왕복해야 한다 — 주소가 판을 들고 있는 하나뿐인 화면이다.
+  // 검토는 쿼리까지 왕복해야 한다 — 주소가 판을 싣는 하나뿐인 화면이다.
   it('검토도 왕복한다', () => {
     for (const path of ['/explore', '/explore?h=nimaiochi', '/explore?h=nimaiochi&m=7g7f,3c3d', '/explore?m=P*5e']) {
       expect(hrefOf(parseRoute(path))).toBe(path);
     }
   });
 
-  // 사진에서 읽어 온 국면도 주소가 든다(journal §129). 왕복이 안 맞으면 새로고침 한 번에
+  // 사진에서 읽어 온 국면도 주소가 담는다(journal §129). 왕복이 맞지 않으면 새로고침 한 번에
   // 확인까지 끝낸 판이 사라진다.
   it('뿌리 국면도 왕복한다', () => {
     for (const path of [
@@ -199,7 +199,7 @@ describe('hrefOf', () => {
 });
 
 /**
- * 뿌리 국면. 「성립하는 판인가」는 안 본다 — 그 판단의 정본은 서버의 룰 엔진 하나뿐이고,
+ * 뿌리 국면. 「성립하는 판인가」는 보지 않는다 — 그 판단의 정본은 서버의 룰 엔진 하나뿐이고,
  * 여기서 한 벌 더 적으면 어긋났을 때 어느 쪽이 맞는지 누구도 모른다.
  */
 describe('뿌리 국면', () => {
@@ -242,7 +242,7 @@ describe('뿌리 국면', () => {
 
   // 뿌리는 하나여야 한다. 서버가 둘을 같이 받으면 거절하므로(`bad_root`) 주소를 만드는
   // 쪽도 만드는 쪽도 하나만 적는다.
-  it('판이 있으면 手合割은 안 실린다', () => {
+  it('판이 있으면 手合割은 실리지 않는다', () => {
     expect(routeExplore('nimaiochi', ['7g7f'], START_SFEN)).toBe(`/explore?s=${encodeURIComponent(START_SFEN)}&m=7g7f`);
     expect(parseRoute(`/explore?h=nimaiochi&s=${encodeURIComponent(START_SFEN)}`)).toEqual({
       name: 'explore',
@@ -252,7 +252,7 @@ describe('뿌리 국면', () => {
     });
   });
 
-  it('사진에서 국면을 가져오는 화면은 주소가 아무것도 안 든다', () => {
+  it('사진에서 국면을 가져오는 화면은 주소가 아무것도 담지 않는다', () => {
     expect(parseRoute('/position')).toEqual({ name: 'position' });
     expect(hrefOf({ name: 'position' })).toBe('/position');
   });
@@ -261,9 +261,9 @@ describe('뿌리 국면', () => {
 const START_SFEN = 'lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1';
 
 // 주소 조각은 서버가 준 값이다. 타입이 number 라도 JSON 은 그것을 보장하지 않으므로,
-// 주소를 만드는 쪽이 막아야 한다 — 안 막으면 프로토콜 상대 주소가 만들어져 링크가
+// 주소를 만드는 쪽이 막아야 한다 — 막지 않으면 프로토콜 상대 주소가 만들어져 링크가
 // 밖으로 나간다(CodeQL 의 js/client-side-unvalidated-url-redirection).
-describe('주소 조각을 못 믿는다', () => {
+describe('주소 조각을 믿지 못한다', () => {
   it('판 번호가 숫자가 아니면 목록으로 떨어진다', () => {
     for (const bad of ['//example.com', '1/../..', 'abc', '', '-1', '1.5', Number.NaN, Number.POSITIVE_INFINITY]) {
       expect(routeReview(bad as unknown as number)).toBe(ROUTE_REVIEWS);
@@ -271,7 +271,7 @@ describe('주소 조각을 못 믿는다', () => {
     }
   });
 
-  it('手数가 못 믿을 값이면 판만 연다', () => {
+  it('手数를 믿을 수 없으면 판만 연다', () => {
     expect(routeReview(12, '//example.com' as unknown as number)).toBe('/reviews/12');
     // 0手目는 멀쩡한 값이다. 총평의 링크가 실제로 그 자리를 가리킨다.
     expect(routeReview(12, 0)).toBe('/reviews/12/0');

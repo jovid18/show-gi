@@ -7,7 +7,7 @@ import (
 )
 
 // 티어 이름을 잘못 적으면 both 로 떨어진다. 경고 없이 떨어지면 안 되는 자리다 — 분석
-// 티어를 띄웠다고 믿는데 상호작용 티어도 같이 집으면 회차가 아무것도 안 가른다.
+// 티어를 띄웠다고 믿는데 상호작용 티어도 같이 집으면 측정이 아무것도 가르지 못한다.
 func TestTheRoleFallsBackToBoth(t *testing.T) {
 	for _, tc := range []struct{ set, want string }{
 		{"", server.RoleBoth},
@@ -24,7 +24,7 @@ func TestTheRoleFallsBackToBoth(t *testing.T) {
 	}
 }
 
-// 상호작용 티어는 집는 쪽을 안 띄운다. ANALYSIS_WORKERS 가 있어도 그렇다 — 손잡이가
+// 상호작용 티어는 집는 쪽을 띄우지 않는다. ANALYSIS_WORKERS 가 있어도 그렇다 — 손잡이가
 // 둘이면 어느 쪽이 이기는지가 배포 로그에서만 갈린다.
 func TestTheInteractiveTierTakesNoWorkers(t *testing.T) {
 	t.Setenv("ANALYSIS_WORKERS", "4")

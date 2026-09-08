@@ -1,4 +1,4 @@
-# 정적 파일 서빙 + API/WS 프록시. **TLS는 여기서 안 한다.**
+# 정적 파일 서빙 + API/WS 프록시. **TLS는 여기서 하지 않는다.**
 #
 # 앞단 ALB가 ACM 인증서로 TLS를 끝낸다. Fargate는 로컬 디스크가 휘발성이라
 # Caddy가 받아둔 인증서가 배포마다 사라지고, 재발급을 반복하면 Let's Encrypt의
@@ -43,7 +43,7 @@
 		@hashed path /assets/*
 		header @hashed Cache-Control "public, max-age=31536000, immutable"
 
-		# 아이콘은 이름이 고정이라 영원히는 못 건다. 일주일이면 로고를 갈아 끼운 날
+		# 아이콘은 이름이 고정이라 영원히 걸 수는 없다. 일주일이면 로고를 갈아 끼운 날
 		# 다음 배포까지 기다리지 않아도 된다.
 		@brand path /favicon.ico /apple-touch-icon.png /icon-*.png /logo-*.png /og.png
 		header @brand Cache-Control "public, max-age=604800"
@@ -57,7 +57,7 @@
 		}
 
 		# **index.html 은 캐시하지 않는다.** 여기에 해시 파일명이 적혀 있어서, 이 문서가
-		# 캐시에 남으면 다음 배포에서 지워진 파일을 가리키고 화면이 통째로 안 뜬다.
+		# 캐시에 남으면 다음 배포에서 지워진 파일을 가리키고 화면이 통째로 뜨지 않는다.
 		# 깊은 주소도 전부 이 문서로 떨어지므로 조건이 「해시도 아이콘도 아닌 것」이다.
 		@page not path /assets/* /favicon.ico /apple-touch-icon.png /icon-*.png /logo-*.png /og.png /site.webmanifest
 		header @page Cache-Control "no-cache"

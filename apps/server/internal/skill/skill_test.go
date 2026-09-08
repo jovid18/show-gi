@@ -27,7 +27,7 @@ func TestOneBlunderMovesMoreThanOneGoodMove(t *testing.T) {
 	}
 }
 
-// 詰み을 놓친 수는 승률이 거의 안 움직인다. 낙폭만 보면 잘 둔 수로 들어온다.
+// 詰み을 놓친 수는 승률이 거의 움직이지 않는다. 낙폭만 보면 잘 둔 수로 들어온다.
 func TestLostMateCountsAsFullLossThoughWinRateBarelyMoves(t *testing.T) {
 	mate := Move{Blunder: true, DeltaWin: 0.01, Threshold: beginnerThreshold}
 
@@ -118,7 +118,7 @@ func TestWorkerEstimatesWhatItWasGiven(t *testing.T) {
 		select {
 		case e := <-w.Estimates():
 			if e.Samples < 4 {
-				continue // 최신 값만 남기므로 중간 값은 안 올 수 있다
+				continue // 최신 값만 남기므로 중간 값은 오지 않을 수 있다
 			}
 			if e.Loss <= PriorLoss {
 				t.Fatalf("블런더 4수인데 낙폭이 안 올랐다: %.3f", e.Loss)
@@ -130,8 +130,8 @@ func TestWorkerEstimatesWhatItWasGiven(t *testing.T) {
 	}
 }
 
-// 세션 goroutine 이 여기서 막히면 그동안 착수도 투료도 못 받는다. 소비자가 죽어 있어도
-// 돌아와야 한다 — 그것이 「큐가 차면 버린다」의 뜻이다.
+// 세션 goroutine 이 여기서 막히면 그동안 착수도 투료도 받을 수 없다. 소비자가 죽어 있어도
+// 돌아와야 한다 — 그래서 「큐가 차면 버린다」로 뒀다.
 func TestObserveNeverBlocksWhenNobodyConsumes(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // 소비자가 시작하자마자 끝난다
@@ -152,8 +152,8 @@ func TestObserveNeverBlocksWhenNobodyConsumes(t *testing.T) {
 	}
 }
 
-// 이어 시작하는 판. 표본이 차 있으면 첫 판정 전부터 밴드가 움직인다 — 그것이
-// skill_profile 을 채운 이유이고(journal §47), 안 되면 매 판 기준선에서 다시 시작한다.
+// 이어 시작하는 판. 표본이 차 있으면 첫 판정 전부터 밴드가 움직인다 — 그래서
+// skill_profile 을 채웠고(journal §47), 되지 않으면 매 판 기준선에서 다시 시작한다.
 func TestNewTrackFromResumes(t *testing.T) {
 	got := NewTrackFrom(Estimate{Loss: 0.8, Samples: 12}).Estimate()
 	if got.Loss != 0.8 || got.Samples != 12 {
@@ -164,7 +164,7 @@ func TestNewTrackFromResumes(t *testing.T) {
 	}
 }
 
-// 표본이 없으면 저장된 낙폭을 안 믿는다. 0건에서 온 값은 아무것도 안 본 값이라
+// 표본이 없으면 저장된 낙폭을 믿지 않는다. 0건에서 온 값은 아무것도 보지 않은 값이라
 // 그것으로 상대를 옮기면 근거 없이 세거나 약해진다.
 func TestNewTrackFromIgnoresEmpty(t *testing.T) {
 	for _, e := range []Estimate{{}, {Loss: 0.9}, {Loss: 0.9, Samples: -1}} {
@@ -183,8 +183,8 @@ func TestNewTrackFromClamps(t *testing.T) {
 	}
 }
 
-// 이어 시작한 판은 첫 수 전에 한 번 올려보낸다. 안 올리면 지난 값이 있는데도 첫 판정까지
-// 상대가 기준선으로 두고, 그 한 수가 이 기능이 있는 이유다.
+// 이어 시작한 판은 첫 수 전에 한 번 올려보낸다. 올리지 않으면 지난 값이 있는데도 첫 판정까지
+// 상대가 기준선으로 두고, 그 한 수 때문에 이 기능이 있다.
 func TestWorkerPushesResumedEstimateBeforeAnyMove(t *testing.T) {
 	w := NewWorkerFrom(t.Context(), Estimate{Loss: 0.9, Samples: 5}, nil)
 	select {
@@ -197,7 +197,7 @@ func TestWorkerPushesResumedEstimateBeforeAnyMove(t *testing.T) {
 	}
 }
 
-// 아무것도 모르는 판에서는 아무것도 안 올린다. 기준선 밴드가 곧 「모름」이라, 여기서
+// 아무것도 모르는 판에서는 아무것도 올리지 않는다. 기준선 밴드가 곧 「모름」이라, 여기서
 // 값을 올리면 화면이 조절 중이라고 말하기 시작한다(Snapshot.OpponentStrength).
 func TestWorkerStaysQuietWhenUnknown(t *testing.T) {
 	w := NewWorkerFrom(t.Context(), Unknown, nil)
@@ -229,7 +229,7 @@ func TestWorkerReportsEveryObservation(t *testing.T) {
 }
 
 // 절대 낙폭은 평균이다. 段級이 이 값에서 나오므로(rank.go) 「최근 몇 수」 대신
-// 「이 판 전체」여야 하고, 그것이 비대칭 EMA와 따로 둔 이유다.
+// 「이 판 전체」여야 하고, 그래서 비대칭 EMA와 따로 뒀다.
 func TestAbsLossIsTheMeanOfRawDrops(t *testing.T) {
 	tr := NewTrack()
 	for _, d := range []float64{0.1, 0, 0.2} {
@@ -249,7 +249,7 @@ func TestAbsLossIsTheMeanOfRawDrops(t *testing.T) {
 	}
 }
 
-// 절대 낙폭에는 분모가 없다. 임계치가 갈려도 같은 값이어야 실측 앵커가 안 어긋난다
+// 절대 낙폭에는 분모가 없다. 임계치가 갈려도 같은 값이어야 실측 앵커가 어긋나지 않는다
 // (journal §92).
 func TestAbsLossIgnoresTheThreshold(t *testing.T) {
 	abs := func(threshold float64) float64 {
@@ -261,14 +261,14 @@ func TestAbsLossIgnoresTheThreshold(t *testing.T) {
 	}
 }
 
-// 詰み을 놓친 수는 승률이 거의 안 움직인다(Move.Blunder). 절대 축에서도 잘 둔 수로
+// 詰み을 놓친 수는 승률이 거의 움직이지 않는다(Move.Blunder). 절대 축에서도 잘 둔 수로
 // 들어가면 안 되므로 임계치를 바닥으로 놓는다.
 func TestLostMateIsNotFreeInTheAbsoluteAxis(t *testing.T) {
 	mate := Move{Blunder: true, DeltaWin: 0.01, Threshold: beginnerThreshold}
 	if got := NewTrack().Observe(mate).AbsLoss; got != beginnerThreshold {
 		t.Errorf("AbsLoss = %.4f, want %v", got, beginnerThreshold)
 	}
-	// 낙폭으로 걸린 블런더는 그 자리가 안 걸린다 — 이미 임계치 이상이라 값이 그대로다.
+	// 낙폭으로 걸린 블런더는 그 자리가 걸리지 않는다 — 이미 임계치 이상이라 값이 그대로다.
 	if got := NewTrack().Observe(blunder()).AbsLoss; got != 0.42 {
 		t.Errorf("낙폭 블런더의 AbsLoss = %.4f, want 0.42", got)
 	}

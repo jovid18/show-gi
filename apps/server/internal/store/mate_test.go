@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
-// 여기서 확인하는 규칙(얕은 한계의 답이 깊은 것을 못 덮는다)은 SQL의 WHERE 절에만
+// 여기서 확인하는 규칙(얕은 한계의 답이 깊은 것을 덮을 수 없다)은 SQL의 WHERE 절에만
 // 있다. Go 쪽에 옮겨 적지 않았으므로 가짜로는 검증할 수 없다 — store_test.go 의 open 참조.
 
-// mateKey 는 테스트마다 다른 키를 주고 시작할 때 지운다. positions 쪽 key 와 같은 이유다.
+// mateKey 는 테스트마다 다른 키를 주고 시작할 때 지운다. positions 쪽 key 와 같다.
 func mateKey(t *testing.T, s *Store) string {
 	t.Helper()
 	k := "test/" + t.Name()

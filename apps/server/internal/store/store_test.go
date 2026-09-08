@@ -12,7 +12,7 @@ import (
 
 // 진짜 postgres에 붙는다. 없으면 건너뛴다 — CI 러너에는 DB가 없다.
 //
-// 여기서 확인하는 규칙(더 얕은 결과가 깊은 결과를 못 덮는다)은 SQL의 WHERE 절에만
+// 여기서 확인하는 규칙(더 얕은 결과가 깊은 결과를 덮을 수 없다)은 SQL의 WHERE 절에만
 // 있다. Go 쪽에 옮겨 적지 않았으므로 가짜로는 검증할 수 없다.
 //
 //	docker compose up -d db
@@ -116,7 +116,7 @@ func TestAnOldRowsMateComesBackFirst(t *testing.T) {
 }
 
 // 021 앞에 쌓인 간선은 詰み 배열 전체가 비어 있다. 그 행을 「길이가 다르다」로 버리면
-// 얕은 평가가 사라지고, 「얕게 보면 이득」이 캐시 히트에서 영영 안 걸린다.
+// 얕은 평가가 사라지고, 「얕게 보면 이득」이 캐시 히트에서 영영 걸리지 않는다.
 func TestAnEdgeWrittenBeforeTheMateColumnStillReadsBack(t *testing.T) {
 	s := open(t)
 	k := key(t, s)
@@ -229,7 +229,7 @@ func newGame(t *testing.T, s *Store) int64 {
 	return id
 }
 
-// 로그인 전에도 남아야 한다. user_id 가 NOT NULL이던 동안에는 한 판도 못 남겼고,
+// 로그인 전에도 남아야 한다. user_id 가 NOT NULL이던 동안에는 한 판도 남기지 못했고,
 // 그 사이에 둔 판은 되살릴 수 없다 (002_anonymous_games.sql).
 func TestGameWithoutUser(t *testing.T) {
 	s := open(t)
@@ -409,7 +409,7 @@ func TestGameRecordRoundTrip(t *testing.T) {
 		t.Fatalf("GameRecord: %v", err)
 	}
 
-	// 手数 순서다. 넣은 순서를 안 따른다 — 위에서 map으로 넣은 것이 그 확인이다.
+	// 手数 순서다. 넣은 순서를 따르지 않는다 — 위에서 map으로 넣은 것이 그 확인이다.
 	want := []string{"7g7f", "3c3d", "8h2b+"}
 	if len(got.Moves) != len(want) {
 		t.Fatalf("moves = %d, want %d", len(got.Moves), len(want))
@@ -420,7 +420,7 @@ func TestGameRecordRoundTrip(t *testing.T) {
 		}
 	}
 
-	// 평가치는 붙은 手数에만 있다. 안 붙은 자리가 0이 되면 호각과 구별이 안 된다.
+	// 평가치는 붙은 手数에만 있다. 붙지 않은 자리가 0이 되면 호각과 구별되지 않는다.
 	if got.Moves[0].Score != nil {
 		t.Errorf("moves[0].Score = %+v, want nil", *got.Moves[0].Score)
 	}
@@ -453,13 +453,13 @@ func TestGameRecordRoundTrip(t *testing.T) {
 
 func TestGameRecordMissing(t *testing.T) {
 	s := open(t)
-	// 음수 id는 시퀀스가 절대 안 만든다.
+	// 음수 id는 시퀀스가 절대 만들지 않는다.
 	if _, err := s.GameRecord(t.Context(), -1, nil); !errors.Is(err, ErrNoGame) {
 		t.Fatalf("ErrNoGame 기대, got %v", err)
 	}
 }
 
-// 한 수도 안 둔 판은 목록에 안 온다. 연결만 열렸다 끊긴 판이 실제로 그렇게 남고,
+// 한 수도 두지 않은 판은 목록에 오지 않는다. 연결만 열렸다 끊긴 판이 실제로 그렇게 남고,
 // 되짚을 것이 없는 줄이 맨 위를 차지하면 진짜 대국이 아래로 밀린다.
 func TestListGamesSkipsEmptyGames(t *testing.T) {
 	s := open(t)
@@ -468,7 +468,7 @@ func TestListGamesSkipsEmptyGames(t *testing.T) {
 	if err := s.InsertMove(t.Context(), played, 1, "7g7f"); err != nil {
 		t.Fatalf("InsertMove: %v", err)
 	}
-	// 둘 다 끝내 둔다. 목록은 결과가 나온 판만 주므로(§51), 안 끝내면 empty 가
+	// 둘 다 끝내 둔다. 목록은 결과가 나온 판만 주므로(§51), 끝내지 않으면 empty 가
 	// EXISTS 대신 그 조건에 걸려 빠진다 — 그건 여기서 보려는 것과 다르다.
 	for _, id := range []int64{empty, played} {
 		if err := s.FinishGame(t.Context(), id, ResultWin); err != nil {
@@ -506,9 +506,9 @@ func TestListGamesSkipsEmptyGames(t *testing.T) {
 //
 // 낙폭만으로는 되돌릴 수 없다 — WinRate(best) - WinRate(after) 라서 미지수가 둘인데 식이
 // 하나이고, 같은 cp 차이가 위치에 따라 다른 낙폭이 된다(journal §39 ⑥). 그래서 이 두
-// 칸이 없으면 K를 바꿔 다시 채점할 수도, 물러진 수를 최선수와 한 축에 놓을 수도 없다.
+// 칸이 없으면 K를 바꿔 다시 채점할 수도, 물러진 수를 최선수와 한 기준에 놓을 수도 없다.
 //
-// 0과 없음을 따로 둔다. 개입이 안 걸린 행과 「정말로 0cp였다」가 섞이면 화면이 없는 값을
+// 0과 없음을 따로 둔다. 개입이 걸리지 않은 행과 「정말로 0cp였다」가 섞이면 화면이 없는 값을
 // 호각으로 그린다.
 func TestInterventionKeepsBothCp(t *testing.T) {
 	s := open(t)
@@ -520,7 +520,7 @@ func TestInterventionKeepsBothCp(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("InsertIntervention: %v", err)
 	}
-	// 판정을 안 거친 행 — 두 칸이 NULL 로 남아야 한다.
+	// 판정을 거치지 않은 행 — 두 칸이 NULL 로 남아야 한다.
 	if err := s.InsertIntervention(t.Context(), id, Intervention{
 		Ply: 43, Kind: "tesuji", Category: "両取り",
 	}); err != nil {

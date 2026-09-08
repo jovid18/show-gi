@@ -14,7 +14,7 @@ var ErrPoolClosed = errors.New("usi: pool closed")
 // 선행 계산 때문에 대국 한 판에도 동시 탐색이 필요하다.
 // 빌린 동안 단독 소유다. 옵션은 Engine에 남으므로 값에 기대는 쪽은 매번 직접 건다(journal §6 ②).
 type Pool struct {
-	// mu 아래가 한 벌이다. free 채널 대신 손으로 큐를 세우는 이유는 우선순위다 —
+	// mu 아래가 한 벌이다. free 채널 대신 손으로 큐를 세우는 것은 우선순위 때문이다 —
 	// 채널은 먼저 기다린 쪽에 주고, 우리는 사람이 기다리는 쪽에 먼저 줘야 한다.
 	mu   sync.Mutex
 	idle []*Engine
@@ -30,14 +30,14 @@ type Pool struct {
 	metrics Metrics
 }
 
-// Metrics 는 풀이 밖으로 내는 숫자를 받는 자리다.
+// Metrics 는 풀이 밖으로 내보내는 숫자를 받는 자리다.
 //
 // 이 패키지가 지표 표면을 모르게 두려고 인터페이스로 받는다 — 풀의 일은 엔진을
 // 빌려주는 것이고, 그 숫자를 어디에 어떤 이름으로 쌓는지는 밖의 판단이다.
 type Metrics interface {
-	// SetSize 는 풀 크기다. 점유 수만으로는 포화를 못 읽는다.
+	// SetSize 는 풀 크기다. 점유 수만으로는 포화를 읽을 수 없다.
 	SetSize(n int)
-	// ObserveWait 는 빌리기까지 기다린 시간이다. 안 기다렸으면 0이 들어간다.
+	// ObserveWait 는 빌리기까지 기다린 시간이다. 기다리지 않았으면 0이 들어간다.
 	// borrower 는 누가 빌렸나다(WithBorrower).
 	ObserveWait(d time.Duration, borrower string)
 	// ObserveInUse 는 빌려 나간 엔진 수의 변화다. +1 과 -1 만 들어간다.
@@ -83,7 +83,7 @@ func (p *Pool) Observe(m Metrics) {
 // 빌린 쪽은 반드시 Release 해야 한다.
 //
 // 기다리는 큐가 우선순위별로 갈린다(priorityOf). 사람이 화면 앞에서 기다리는 요청이
-// 사후 분석보다 먼저 받는다 — 그래야 분석이 풀을 다 쓰고 있어도 착수가 안 밀린다.
+// 사후 분석보다 먼저 받는다 — 그래야 분석이 풀을 다 쓰고 있어도 착수가 밀리지 않는다.
 func (p *Pool) Acquire(ctx context.Context) (*Engine, error) {
 	select {
 	case <-p.done:
@@ -92,7 +92,7 @@ func (p *Pool) Acquire(ctx context.Context) (*Engine, error) {
 	}
 
 	// 빈 게 있어 바로 받은 경우도 0으로 재 둔다. 기다린 것만 재면 백분위가 늘 나쁘게
-	// 보이고(대기가 있었던 회차만 표본이 된다) 「대개 안 기다린다」를 말할 수 없다.
+	// 보이고(대기가 있었던 때만 표본이 된다) 「대개 기다리지 않는다」를 말할 수 없다.
 	start := time.Now()
 	prio := priorityOf(BorrowerFrom(ctx))
 
@@ -104,7 +104,7 @@ func (p *Pool) Acquire(ctx context.Context) (*Engine, error) {
 		p.borrowed(ctx, start)
 		return e, nil
 	}
-	// 버퍼가 1이라 넘겨주는 쪽이 절대 안 막힌다. 막히면 Release 가 잠금을 들고 서고,
+	// 버퍼가 1이라 넘겨주는 쪽이 절대 막히지 않는다. 막히면 Release 가 잠금을 들고 서고,
 	// 그러면 풀 전체가 멈춘다.
 	ch := make(chan *Engine, 1)
 	p.waiting[prio] = append(p.waiting[prio], ch)
@@ -124,7 +124,7 @@ func (p *Pool) Acquire(ctx context.Context) (*Engine, error) {
 }
 
 // giveUpWaiting 은 큐에서 빠진다. 빠지기 전에 이미 받았으면 그 엔진을 돌려준다 —
-// 안 돌려주면 그 엔진이 아무 데도 없는 채로 사라진다.
+// 돌려주지 않으면 그 엔진이 아무 데도 없는 채로 사라진다.
 func (p *Pool) giveUpWaiting(prio int, ch chan *Engine) {
 	p.mu.Lock()
 	for i, w := range p.waiting[prio] {
@@ -147,7 +147,7 @@ const prioCount = 2
 // priorityOf 는 빌리는 쪽을 대기 큐로 나눈다. 0이 먼저 받는다.
 //
 // 가르는 기준은 「사람이 지금 그 응답을 기다리는가」 하나다. 대국·검토·가정 수순은
-// 화면이 멈춰 서 있고, 사후 분석과 퀴즈 생성은 누구도 안 기다린다 — 되짚기가 나중에
+// 화면이 멈춰 서 있고, 사후 분석과 퀴즈 생성은 누구도 기다리지 않는다 — 되짚기가 나중에
 // 폴링해서 받는다.
 //
 // 대국 안에서 판정과 상대 수를 더 가르지 않는다. 둘이 같은 사람의 대기 안에서 차례로
@@ -187,7 +187,7 @@ const (
 
 // WithBorrower 는 이 컨텍스트로 빌리는 쪽의 이름을 정한다.
 //
-// 인자로 안 받고 컨텍스트로 나르는 이유는 부르는 자리와 빌리는 자리 사이에 탐색부가
+// 인자로 받지 않고 컨텍스트로 나르는 것은 부르는 자리와 빌리는 자리 사이에 탐색부가
 // 끼어 있기 때문이다. 이름은 맨 위(핸들러·분석기)에서만 알고, 그 사이의 함수들은
 // 누가 왜 부르는지 알 필요가 없다.
 func WithBorrower(ctx context.Context, name string) context.Context {
@@ -197,7 +197,7 @@ func WithBorrower(ctx context.Context, name string) context.Context {
 	return context.WithValue(ctx, borrowerKey{}, name)
 }
 
-// BorrowerFrom 은 그 이름을 되읽는다. 안 붙였으면 BorrowerGame 이다.
+// BorrowerFrom 은 그 이름을 되읽는다. 붙이지 않았으면 BorrowerGame 이다.
 func BorrowerFrom(ctx context.Context) string {
 	if ctx == nil {
 		return BorrowerGame
@@ -225,7 +225,7 @@ func (p *Pool) Release(e *Engine) {
 			ch := q[0]
 			p.waiting[prio] = q[1:]
 			p.mu.Unlock()
-			// 버퍼가 1이라 안 막힌다. 받는 쪽이 그 사이에 포기했으면 giveUpWaiting 이
+			// 버퍼가 1이라 막히지 않는다. 받는 쪽이 그 사이에 포기했으면 giveUpWaiting 이
 			// 이 값을 꺼내 다시 돌려준다.
 			ch <- e
 			if p.metrics != nil {

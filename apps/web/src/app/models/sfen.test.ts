@@ -39,7 +39,7 @@ describe('parseSfen', () => {
   });
 
   it('망가진 SFEN은 던진다', () => {
-    // 판을 못 읽으면 그리지 않는다. 틀린 판을 그리는 것이 더 나쁘다.
+    // 판을 읽지 못하면 그리지 않는다. 틀린 판을 그리는 것이 더 나쁘다.
     expect(() => parseSfen('lnsgkgsnl/9 b - 1')).toThrow(SfenError);
     expect(() => parseSfen('9/9/9/9/9/9/9/9/8 b - 1')).toThrow(SfenError);
     expect(() => parseSfen('too short')).toThrow(SfenError);
@@ -67,9 +67,9 @@ describe('toSfen', () => {
     });
   }
 
-  // 1장은 개수를 안 적는다. 적으면 서버가 내는 SFEN 과 글자가 달라지고, 같은 국면에
+  // 1장은 개수를 적지 않는다. 적으면 서버가 내보내는 SFEN 과 글자가 달라지고, 같은 국면에
   // 주소가 두 벌 생긴다.
-  it('持ち駒 한 장에는 개수를 안 적는다', () => {
+  it('持ち駒 한 장에는 개수를 적지 않는다', () => {
     const board = parseSfen('4k4/9/9/9/9/9/9/9/4K4 b - 1');
     board.hands.black.P = 1;
     board.hands.white.R = 2;
@@ -83,8 +83,8 @@ describe('toSfen', () => {
     expect(toSfen(board)).toBe('4k4/9/9/9/9/9/9/9/4K4 b RBGSNLP 1');
   });
 
-  // 0장은 안 적는다. 사람이 개수를 내리다 0으로 만든 자리라 반드시 지난다.
-  it('0장은 안 적는다', () => {
+  // 0장은 적지 않는다. 사람이 개수를 내리다 0으로 만든 자리라 반드시 지난다.
+  it('0장은 적지 않는다', () => {
     const board = parseSfen('4k4/9/9/9/9/9/9/9/4K4 b P 1');
     board.hands.black.P = 0;
     expect(toSfen(board)).toBe('4k4/9/9/9/9/9/9/9/4K4 b - 1');

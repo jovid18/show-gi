@@ -19,7 +19,7 @@ func castleCode(in Input) string {
 	return ""
 }
 
-// 打って 채운 囲い에는 이름을 안 붙인다.
+// 打って 채운 囲い에는 이름을 붙이지 않는다.
 //
 // 같은 국면에 수순만 둘로 나눠 넣는다 — 이 규칙은 그것만으로 이름을 가른다.
 func TestCastleCompletedByADropIsNotNamed(t *testing.T) {
@@ -40,7 +40,7 @@ func TestCastleCompletedByADropIsNotNamed(t *testing.T) {
 // 打った 칸에 나중에 駒가 옮겨 오면 그 칸은 다시 「지은 것」이 된다.
 //
 // 이 확인이 없으면 표식이 그 판 내내 남아, 한 번 打았던 칸을 지나는 囲い가 영원히
-// 이름을 못 받는다.
+// 이름을 받을 수 없다.
 func TestDropMarkIsClearedWhenAPieceMovesOnto(t *testing.T) {
 	pos, err := shogi.ParseSFEN(hidariMinoByDropSFEN)
 	if err != nil {

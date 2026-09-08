@@ -1,7 +1,7 @@
-// Package metrics 는 서버가 자기 상태를 숫자로 낸다.
+// Package metrics 는 서버가 자기 상태를 숫자로 내보낸다.
 //
-// 표면이 둘이고 대상이 다르다. /metrics 는 Prometheus 텍스트로 라벨을 다 들고(태스크
-// 안에서만 닿는다), CloudWatch EMF 는 dimensions 를 뺀 집계만 stdout 으로 낸다 — EMF 는
+// 표면이 둘이고 대상이 다르다. /metrics 는 Prometheus 텍스트로 라벨을 다 갖고(태스크
+// 안에서만 닿는다), CloudWatch EMF 는 dimensions 를 뺀 집계만 stdout 으로 내보낸다 — EMF 는
 // dimensions 조합 하나가 곧 과금 대상 지표 하나라서 route 를 올리면 지표 수가 경로 수만큼
 // 늘어난다(journal §90).
 //
@@ -63,12 +63,12 @@ type series struct {
 	count  uint64
 
 	// samples 는 EMF 가 백분위를 내려면 필요한 원값이다. 상한을 넘으면 교체한다 —
-	// 버킷만으로는 배열을 못 만들고(개수가 100을 넘는다) 배열만으로는 정확한 개수를
-	// 못 낸다. 그래서 둘을 같이 든다.
+	// 버킷만으로는 배열을 만들지 못하고(개수가 100을 넘는다) 배열만으로는 정확한 개수를
+	// 내보낼 수 없다. 그래서 둘을 같이 담는다.
 	samples []float64
 	// sampled 는 표본통을 비운 뒤로 들어온 관측 수다. count 와 따로 두는 것이
-	// 필수다 — 교체 확률의 분모가 누적이면 회차가 지날수록 확률이 0으로 내려가고,
-	// 배열이 「그 회차 앞머리 100건」으로 굳는다.
+	// 필수다 — 교체 확률의 분모가 누적이면 주기가 지날수록 확률이 0으로 내려가고,
+	// 배열이 「그 주기 앞머리 100건」으로 굳는다.
 	sampled uint64
 }
 
@@ -89,7 +89,7 @@ func (r *Registry) register(f *family) {
 func (f *family) get(labelValues []string) *series {
 	if len(labelValues) != len(f.labels) {
 		// 호출 자리가 전부 리터럴이라 이건 코딩 오류다. 경고 없이 다른 계열에 더하면
-		// 지표가 틀린 채로 도는데, 지표는 틀렸다는 것 자체가 안 드러난다.
+		// 지표가 틀린 채로 도는데, 지표는 틀렸다는 것 자체가 드러나지 않는다.
 		panic(fmt.Sprintf("metrics: %s wants %d label values, got %d", f.name, len(f.labels), len(labelValues)))
 	}
 	key := strings.Join(labelValues, "\x00")
@@ -128,9 +128,9 @@ func (f *family) sumFunc(pick func(map[string]string) bool, of func(*series) flo
 	return total
 }
 
-// Registry 는 이 프로세스가 내는 지표를 다 들고 있다. 무엇을 재는지는 New 에 한 자리로 있다.
+// Registry 는 이 프로세스가 내보내는 지표를 다 갖고 있다. 무엇을 재는지는 New 에 한 자리로 있다.
 type Registry struct {
-	// service·environment 는 EMF 의 dimensions 이자 엔티티 정보다. 텍스트 표면에는 안 나간다.
+	// service·environment 는 EMF 의 dimensions 이자 엔티티 정보다. 텍스트 표면에는 나가지 않는다.
 	service     string
 	environment string
 
@@ -169,7 +169,7 @@ type Registry struct {
 
 // AnalysisBuckets 는 판 하나를 다 재는 데 걸리는 시간의 버킷이다. 30초부터 한 시간까지.
 //
-// DefaultBuckets 를 못 쓴다. 저쪽 상한이 30초인데 여기는 한 판이 手마다 판정 한 번이라
+// DefaultBuckets 를 쓸 수 없다. 저쪽 상한이 30초인데 여기는 한 판이 手마다 판정 한 번이라
 // (match_analysis.go 의 analyze) 100手면 분 단위가 정상이다.
 var AnalysisBuckets = []float64{30, 60, 120, 300, 600, 1800, 3600}
 
@@ -190,7 +190,7 @@ func New(service, environment string) *Registry {
 		"HTTP 요청 수", "route", "status")
 	r.HTTPDuration = r.NewHistogram("http_request_duration_seconds",
 		"HTTP 요청 처리 시간(초)", DefaultBuckets, "route")
-	// panic 은 상태 코드로 다 안 잡힌다 — 업그레이드된 연결에서 나면 그 요청의 상태가
+	// panic 은 상태 코드로 다 잡히지 않는다 — 업그레이드된 연결에서 나면 그 요청의 상태가
 	// 이미 101이라 5xx 로 셀 수가 없다. 그래서 따로 센다.
 	r.HTTPPanics = r.NewCounter("http_panics_total",
 		"핸들러가 panic 한 횟수", "route")
@@ -217,11 +217,11 @@ func New(service, environment string) *Registry {
 
 	// 詰み 탐색을 탐색부와 따로 센다. 섞으면 위의 두 지표가 뜻을 잃는다 — 詰み 쪽은
 	// 한계까지 다 뒤진 nomate 가 가장 비싸서 분포의 모양이 아예 다르고, 그 두 지표가
-	// 부하 회차의 신호다(journal §106).
+	// 부하 시험의 신호다(journal §106).
 	//
 	// result 는 cached·computed·unproven 이다. unproven 은 checkmate timeout —
-	// solver 를 부르고도 답을 못 얻어 캐시에 안 쌓인 것이라, 이 값이 크면 캐시가
-	// 영원히 안 채워지는 구간이 있다.
+	// solver 를 부르고도 답을 얻지 못해 캐시에 쌓이지 않은 것이라, 이 값이 크면 캐시가
+	// 영원히 채워지지 않는 구간이 있다.
 	r.MateSearches = r.NewCounter("engine_mate_searches_total",
 		"詰み 탐색 요청 수", "result")
 	r.MateSearchDuration = r.NewHistogram("engine_mate_search_duration_seconds",
@@ -233,12 +233,12 @@ func New(service, environment string) *Registry {
 	r.WSSessionsOpened = r.NewCounter("ws_sessions_opened_total",
 		"열린 WebSocket 대국 세션 수", "kind")
 
-	// 대기열의 셋은 EMF 에 안 올린다. 저쪽이 열 개로 묶여 있어(emf.go 의 collect) 선을
-	// 넘고, 그 결정은 밴드 상수를 재는 회차에 같이 온다(journal §92). 그때까지는
+	// 대기열의 셋은 EMF 에 올리지 않는다. 저쪽이 열 개로 묶여 있어(emf.go 의 collect) 선을
+	// 넘고, 그 결정은 밴드 상수를 잴 때 같이 온다(journal §92). 그때까지는
 	// /metrics 와 컨테이너 안에서 읽는다.
 	//
-	// 대기 중인 사람을 게이지로 안 센다. 대기열은 표에 있고(match_queue) 프로세스가 그것을
-	// 소유하지 않아서, 인스턴스마다 올렸다 내리면 탭을 닫은 사람이 영영 안 내려간다 —
+	// 대기 중인 사람을 게이지로 세지 않는다. 대기열은 표에 있고(match_queue) 프로세스가 그것을
+	// 소유하지 않아서, 인스턴스마다 올렸다 내리면 탭을 닫은 사람이 영영 내려가지 않는다 —
 	// 「지금 몇 명이 기다리나」는 표를 세는 쪽이 답한다(store.QueueWaiting).
 	r.MatchPairings = r.NewCounter("match_pairings_total",
 		"대기열이 지은 짝 수")
@@ -251,7 +251,7 @@ func New(service, environment string) *Registry {
 
 	// 사후 분석의 넷. 지금까지 이 층은 로그 문자열로만 보였다(match_analysis.go).
 	//
-	// 밀린 것을 판과 手 둘로 센다. 판 수만으로는 밀린 일의 크기를 못 말한다 — 회차 4의
+	// 밀린 것을 판과 手 둘로 센다. 판 수만으로는 밀린 일의 크기를 말할 수 없다 — 회차 4의
 	// 세 판이 27·34·123手였다(journal §91). 手 쪽이 나중에 스케일 기준이 될 값이다.
 	r.AnalysisBacklogGames = r.NewGauge("analysis_backlog_games",
 		"분석을 기다리는 판 수")
@@ -264,8 +264,8 @@ func New(service, environment string) *Registry {
 	r.AnalysisDuration = r.NewHistogram("analysis_game_duration_seconds",
 		"판 하나를 처음부터 끝까지 재는 데 걸린 시간(초)", AnalysisBuckets)
 
-	// status 는 game.Status 의 값 그대로다. aborted 를 세는 것이 이 지표의 이유다 —
-	// 상대의 수를 시한 안에 못 얻어 접은 판이고, games.result 에서는 사람이 창을 닫은
+	// status 는 game.Status 의 값 그대로다. 이 지표는 aborted 를 세려고 있다 —
+	// 상대의 수를 시한 안에 얻지 못해 접은 판이고, games.result 에서는 사람이 창을 닫은
 	// 판과 같은 값이 되어 구별되지 않는다(recorder.go 의 resultOf).
 	r.GamesFinished = r.NewCounter("game_finished_total",
 		"끝난 대국 수", "status")
@@ -370,9 +370,9 @@ func (h *Histogram) Observe(v float64, labelValues ...string) {
 // observe 는 표본통에 값을 담는다. 호출 측이 mu 를 잡고 있어야 한다.
 //
 // 상한까지는 그대로 담고 그 뒤로는 확률 maxSamples/sampled 로 자리를 바꾼다(알고리즘 R).
-// 앞의 100개만 남기면 회차 앞머리의 요청만 백분위에 반영된다.
+// 앞의 100개만 남기면 주기 앞머리의 요청만 백분위에 반영된다.
 //
-// 분모는 sampled 를 쓴다. 누적(count)을 쓰면 회차가 지날수록 확률이 0으로
+// 분모는 sampled 를 쓴다. 누적(count)을 쓰면 주기가 지날수록 확률이 0으로
 // 내려가 바로 그 굳은 상태가 되고, 하필 바쁜 분에 틀린다.
 func (s *series) observe(v float64) {
 	s.sampled++
@@ -392,11 +392,11 @@ func (h *Histogram) Count(pick func(labels map[string]string) bool) uint64 {
 
 // DrainSamples 는 표본통을 비우고 pick 이 고른 계열의 값만 준다.
 //
-// 비우는 것은 EMF 가 회차마다 그 회차의 분포를 내야 하기 때문이다. 버킷은 안 건드린다 —
+// 비우는 것은 EMF 가 주기마다 그 주기의 분포를 내보내야 하기 때문이다. 버킷은 건드리지 않는다 —
 // 텍스트 표면은 누적이어야 한다.
 //
-// 안 고른 계열도 비운다. 남겨 두면 그 계열은 누구도 안 비워서 100개가 찬 뒤로 교체
-// 확률이 0에 붙고, 나중에 그것을 내기 시작하는 날 첫 회차가 기동 무렵의 값을 낸다 —
+// 고르지 않은 계열도 비운다. 남겨 두면 그 계열은 누구도 비우지 않아서 100개가 찬 뒤로 교체
+// 확률이 0에 붙고, 나중에 그것을 내보내기 시작하는 날 첫 주기가 기동 무렵의 값을 내보낸다 —
 // pool=mate 와 result=cached 가 지금 그 자리다.
 func (h *Histogram) DrainSamples(pick func(labels map[string]string) bool) []float64 {
 	h.f.mu.Lock()
@@ -426,9 +426,9 @@ type LabeledSamples struct {
 // DrainSamplesAll 은 표본통을 한 번에 비우고 계열마다 나눠 준다.
 //
 // DrainSamples 를 두 번 부를 수 없어서 있다 — 그쪽은 pick 과 무관하게 표본통 전체를
-// 비우므로 두 번째 호출이 늘 빈 배열이다. 같은 지표를 여러 벌로 낼 때 이쪽을 쓴다.
+// 비우므로 두 번째 호출이 늘 빈 배열이다. 같은 지표를 여러 벌로 내보낼 때 이쪽을 쓴다.
 //
-// 라벨을 그대로 준다. 축 하나로 나누면 두 축이 필요해지는 날 이 함수를 다시 고쳐야
+// 라벨을 그대로 준다. 라벨 하나로 나누면 둘이 필요해지는 날 이 함수를 다시 고쳐야
 // 하는데, 풀 대기가 이미 pool·borrower 둘이다.
 //
 // 솎지 않고 준다. 부르는 쪽이 무엇끼리 합칠지 정한 뒤에 솎아야 한다.

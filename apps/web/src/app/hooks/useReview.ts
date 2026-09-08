@@ -6,7 +6,7 @@ import type { ApiError, GameDetail, GameListResponse, GameSummary } from '@/prot
 /**
  * 불러오는 것 하나의 상태.
  *
- * 실패를 `null`로 뭉개지 않는다. 「아직 안 왔다」와 「못 읽었다」와 「하나도 없다」는
+ * 실패를 `null`로 뭉개지 않는다. 「아직 오지 않았다」와 「읽지 못했다」와 「하나도 없다」는
  * 화면에서 전부 다른 말을 해야 하는데, 하나로 합치면 빈 목록이 오류처럼 보이거나
  * 오류가 빈 목록처럼 보인다.
  */
@@ -24,7 +24,7 @@ const FALLBACK_ERROR = '対局の記録を読み込めませんでした。';
 async function getJSON<T>(path: string, signal: AbortSignal): Promise<T> {
   const res = await fetch(path, { signal });
   if (!res.ok) {
-    // 서버가 이유를 일본어로 준다(review.go). 못 읽을 때만 우리 문구를 쓴다.
+    // 서버가 이유를 일본어로 준다(review.go). 읽지 못할 때만 우리 문구를 쓴다.
     const body = (await res.json().catch(() => null)) as ApiError | null;
     throw new Error(body?.message || FALLBACK_ERROR);
   }
@@ -37,7 +37,7 @@ async function getJSON<T>(path: string, signal: AbortSignal): Promise<T> {
  * 떠난 요청은 버린다. 목록에서 판을 빠르게 옮겨 다니면 응답이 순서대로 오지 않고,
  * 그때 늦게 온 것이 화면을 덮으면 다른 판의 기보를 지금 판이라고 그린다.
  *
- * 퀴즈도 이걸 쓴다(useQuiz) — 「아직 안 왔다 / 못 읽었다 / 하나도 없다」를 따로 두는 규약이
+ * 퀴즈도 이걸 쓴다(useQuiz) — 「아직 오지 않았다 / 읽지 못했다 / 하나도 없다」를 따로 두는 규약이
  * 두 벌이 되면 한쪽에서만 빈 목록이 오류처럼 보인다.
  */
 export function useFetch<T>(path: string): Source<T> {
@@ -82,7 +82,7 @@ export function useGameDetail(id: number): Source<GameDetail> {
  * 스냅샷과 총평이 갈라져 오는 것과 같은 자리다(§49).
  *
  * 돌아오는 것은 `protocol/game.ts` 의 `GameSummary` — `protocol/review.ts` 의 같은 이름
- * (목록 한 줄)과 다른 타입이다. 여기서 이름을 바꿔 받는 이유가 그것이다.
+ * (목록 한 줄)과 다른 타입이다. 그래서 여기서 이름을 바꿔 받는다.
  */
 export function useGameSummary(id: number): Source<PostGameSummary> {
   return useFetch<PostGameSummary>(`/api/games/${id}/summary`);
@@ -91,11 +91,11 @@ export function useGameSummary(id: number): Source<PostGameSummary> {
 /**
  * 엔진이 살아 있는가.
  *
- * 되짚기는 이 값을 안 본다. 기록만 있으면 도는 화면이고, 그것이 리뷰와 대국의 조건이
+ * 되짚기는 이 값을 보지 않는다. 기록만 있으면 도는 화면이고, 그것이 리뷰와 대국의 조건이
  * 갈리는 자리다(server.go). 이 값을 묻는 것은 가정 수순 하나 때문이다 — 눌러도
  * 503만 돌아오는 버튼은 「고장 났다」로 읽히므로, 그 자리를 미리 닫고 이유를 적는다.
  *
- * `null`은 아직 모른다이다. 못 물어봤다고 없는 것으로 치면, /healthz 만 실패한
+ * `null`은 아직 모른다이다. 물어보지 못했다고 없는 것으로 치면, /healthz 만 실패한
  * 상황에서 멀쩡한 기능 전체가 사라진다 — 그때는 열어 두고 서버가 답하게 둔다.
  */
 export function useEngineReady(): boolean | null {

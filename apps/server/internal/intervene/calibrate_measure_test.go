@@ -13,12 +13,12 @@ import (
 
 // 기록된 대국을 상수를 바꿔 가며 다시 채점한다.
 //
-// 엔진을 안 부른다. game_moves.eval_cp 에 남은 원본 cp와 interventions.delta_win 만
+// 엔진을 부르지 않는다. game_moves.eval_cp 에 남은 원본 cp와 interventions.delta_win 만
 // 읽으므로, 이 패키지가 엔진을 모른다는 성질이 측정에도 그대로 남는다(CLAUDE.md).
 // 엔진을 부르기 시작하면 상수를 흔들어 보는 데 엔진이 필요해진다 — 그러면 이
 // 패키지가 그렇게 생긴 이유가 사라진다.
 //
-// SHOWGI_MEASURE 를 안 본다. 다른 TestMeasure* 는 엔진을 돌려 몇 분이 걸리지만
+// SHOWGI_MEASURE 를 보지 않는다. 다른 TestMeasure* 는 엔진을 돌려 몇 분이 걸리지만
 // 이것은 질의 몇 개라 초 단위다.
 //
 //	SHOWGI_TEST_DATABASE_URL='postgres://showgi:showgi@localhost:5432/showgi' \
@@ -59,7 +59,7 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 		//
 		// 여기가 재구성하는 것은 「개입 루프가 돈 판」이다 — 임계치를 넘은 수는 물러져서
 		// 기보에 없고, 그래서 아래 검증이 「통과한 수는 임계치 아래」를 참으로 쓴다.
-		// 가져온 판에서는 누구도 안 막았으므로 그 수가 기보에 그대로 남아 있고, 섞으면
+		// 가져온 판에서는 누구도 막지 않았으므로 그 수가 기보에 그대로 남아 있고, 섞으면
 		// 그 검증이 ply 연결이 틀렸다고 말한다. 실제로 그렇게 빨개졌다.
 		if g.Imported {
 			imported++
@@ -80,7 +80,7 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 
 		ss, band, ok := rescore(rec)
 		if !ok {
-			continue // 평가치가 안 남은 판. 개입률의 분모를 못 채운다
+			continue // 평가치가 남지 않은 판. 개입률의 분모를 채울 수 없다
 		}
 		all = append(all, ss...)
 		bands = append(bands, band)
@@ -108,7 +108,7 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 	// ─── 검증 — 재구성이 맞는가 ──────────────────────────────────────
 	//
 	// 통과한 수는 그때 살아 있던 임계치 아래여야 한다. 하나라도 위에 있으면 ply를
-	// 잘못 이었거나 부호를 뒤집었다는 뜻이라, 아래 표 전부가 못 믿을 값이 된다.
+	// 잘못 이었거나 부호를 뒤집었다는 뜻이라, 아래 표 전부가 믿을 수 없을 값이 된다.
 	//
 	// 예외가 하나 있다: 詰み을 쥔 채 詰み을 유지한 수는 낙폭과 무관하게 통과한다
 	// (Judge 의 종반 분기). 그래서 위반이 나오면 그 수부터 본다.
@@ -182,8 +182,8 @@ func TestMeasureCalibrationFromRecords(t *testing.T) {
 
 	// ─── ③ K ────────────────────────────────────────────────────────
 	//
-	// 물러진 수는 여기 못 들어온다. 기록에 남은 것은 그 수의 delta 뿐이고 원본 cp
-	// 둘은 없어서, K를 바꾸면 다시 못 구한다(§39). 그래서 이 표는 통과한 수만
+	// 물러진 수는 여기 들어올 수 없다. 기록에 남은 것은 그 수의 delta 뿐이고 원본 cp
+	// 둘은 없어서, K를 바꾸면 다시 구할 수 없다(§39). 그래서 이 표는 통과한 수만
 	// 세는 하한이다 — K를 바꿔 새로 걸리는 수가 몇인가.
 	b.Reset()
 	b.WriteString("\n③ K — 통과한 수 중 몇 개가 새로 걸리나 (임계치 0.25 고정)\n")
@@ -293,7 +293,7 @@ type sample struct {
 	fired    bool
 	category string
 
-	// bestCp·afterCp 는 통과한 수에만 있다. 물러진 수는 원본 cp가 안 남는다(§39).
+	// bestCp·afterCp 는 통과한 수에만 있다. 물러진 수는 원본 cp가 남지 않는다(§39).
 	bestCp, afterCp int
 	hasPair         bool
 }
@@ -306,7 +306,7 @@ type scoredGame struct {
 // retriesPerPly 는 手数마다 몇 번 물러졌는지다. 그 수가 곧 그 국면에서 갇힘 계수가
 // 올라간 높이이고, game.HintPieceAfter·HintMoveAfter 가 열렸는지를 정한다.
 //
-// 평가치를 안 본다. 개입 행만 있으면 되므로 재채점이 안 되는 판에서도 나온다.
+// 평가치를 보지 않는다. 개입 행만 있으면 되므로 재채점이 되지 않는 판에서도 나온다.
 func retriesPerPly(rec store.GameRecord) map[int]int {
 	if len(rec.Interventions) == 0 {
 		return nil
@@ -333,20 +333,20 @@ const mateCp = 30000
 
 // rescore 는 한 판의 기록에서 사람의 착수 시도를 전부 되살린다.
 //
-// 엔진을 다시 안 돌린다. eval_cp 에 남은 것이 판정이 그때 손에 들고 있던 값
-// 그대로이기 때문이고(§26), 그것이 이 재채점이 성립하는 하나뿐인 이유다.
+// 엔진을 다시 돌리지 않는다. eval_cp 에 남은 것이 판정이 그때 손에 들고 있던 값
+// 그대로이기 때문이고(§26), 이 재채점은 그 하나로만 성립한다.
 //
 //	사람의 N수     BestCp  = eval_cp[N-1]   (착수 전 국면 = 직전 상대 수 뒤)
 //	               AfterCp = eval_cp[N]
 //
 // 둘 다 先手 관점으로 저장되므로 사람이 後手면 부호를 뒤집는다.
 //
-// ok 가 false면 평가치가 안 남은 판이다.
+// ok 가 false면 평가치가 남지 않은 판이다.
 func rescore(rec store.GameRecord) (samples []sample, band bandRow, ok bool) {
 	ev := make(map[int]int, len(rec.Moves))
 	for _, m := range rec.Moves {
 		// 판정과 같은 자로 읽는다 — 이 재채점이 K와 임계치를 흔들어 보는 자리다.
-		// 詰み은 cp 로 못 읽고 그 자리에서 승률이 양 끝이므로 표본에서 뺀다.
+		// 詰み은 cp 로 읽지 못하고 그 자리에서 승률이 양 끝이므로 표본에서 뺀다.
 		if m.Score != nil {
 			if cp, ok := m.Score.Centipawns(); ok {
 				ev[m.Ply] = cp

@@ -26,7 +26,7 @@ import (
 const (
 	handshakeTimeout = 15 * time.Second
 
-	// stopGrace 는 취소로 "stop"을 보낸 뒤 bestmove를 기다려주는 시간. 안 오면 엔진을 버리고 재기동한다 —
+	// stopGrace 는 취소로 "stop"을 보낸 뒤 bestmove를 기다려주는 시간. 오지 않으면 엔진을 버리고 재기동한다 —
 	// 삼키지 못한 bestmove는 다음 탐색의 결과로 읽힌다(journal §6 ②).
 	stopGrace = 2 * time.Second
 )
@@ -61,11 +61,11 @@ type SearchResult struct {
 // 개입 문장이 말하는 상대의 최선수(game.engineAnalyst.cardPV)가 둘 다 이것을 보고, 갈리면
 // 한 국면의 최선수가 화면에서 둘이 된다(journal §58).
 //
-// Lines[0] 이 1위가 아닐 수 있다. 순위별 자리를 미리 채워 두므로(parseScore) 아직 안
-// 온 순위는 빈 줄로 남고, 그것을 그대로 1위로 읽으면 수가 없는 후보를 최선수라고 부른다.
+// Lines[0] 이 1위가 아닐 수 있다. 순위별 자리를 미리 채워 두므로(parseScore) 아직
+// 오지 않은 순위는 빈 줄로 남고, 그것을 그대로 1위로 읽으면 수가 없는 후보를 최선수라고 부른다.
 //
 // 한 수가 두 순위를 차지할 수 있다. 순위 칸은 깊이마다 덮어써지는데(parseScore), 마지막
-// iteration에서 안 온 순위는 얕은 깊이의 줄을 그대로 들고 남는다 — 그 수가 다른 순위의
+// iteration에서 오지 않은 순위는 얕은 깊이의 줄을 그대로 지닌 채 남는다 — 그 수가 다른 순위의
 // 수와 같으면 후보가 둘로 늘어난다. 깊은 쪽만 남긴다(journal §87).
 func (r SearchResult) Ranked() []SearchLine {
 	out := make([]SearchLine, 0, len(r.Lines))
@@ -173,7 +173,7 @@ func (e *Engine) start() error {
 			lines <- sc.Text()
 		}
 		// 읽기가 에러로 끝났으면 남긴다. 채널이 닫히는 것은 프로세스가 죽었을 때와
-		// 같아서, 안 남기면 "엔진이 죽었다"로만 보이고 원인(예: 한 줄이 너무 길다)이 묻힌다.
+		// 같아서, 남기지 않으면 "엔진이 죽었다"로만 보이고 원인(예: 한 줄이 너무 길다)이 묻힌다.
 		if err := sc.Err(); err != nil {
 			log.Printf("usi: reading engine output failed (%s): %v", e.path, err)
 		}
@@ -335,14 +335,14 @@ func (e *Engine) Name() string {
 
 // SearchDepth 는 고정 깊이까지 탐색시킨다. 시간 기반(go movetime)은 이 패키지에 일부러 없다 —
 // 재현되지 않으면 캐시도 밴드 제어도 성립하지 않는다(01-core.md §4). 자체 시한도 없다.
-// ctx로 끊을 수는 있고, 끊으면 중간 결과는 버린다 — depth N 결과로 못 쓴다.
+// ctx로 끊을 수는 있고, 끊으면 중간 결과는 버린다 — depth N 결과로 쓸 수 없다.
 func (e *Engine) SearchDepth(ctx context.Context, startSFEN string, moves []string, depth int) (SearchResult, error) {
 	return e.search(ctx, startSFEN, moves, "go depth "+strconv.Itoa(depth), 0)
 }
 
 // MateResult 는 詰み 탐색 한 번의 결과다.
 type MateResult struct {
-	// Moves 는 찾은 詰み 수순. 비어 있으면 못 찾았다.
+	// Moves 는 찾은 詰み 수순. 비어 있으면 찾지 못했다.
 	Moves []string
 
 	// Proven 은 탐색이 한계 안에서 결론을 냈다는 뜻이고, 이 구분이 캐시의 전부다.
@@ -427,7 +427,7 @@ func (e *Engine) search(ctx context.Context, startSFEN string, moves []string, g
 	if err == nil {
 		return res, nil
 	}
-	// 취소는 고장으로 안 본다. 재시도하면 부른 쪽이 그만두라고 한 일을 한 번 더 하게 된다.
+	// 취소는 고장으로 보지 않는다. 재시도하면 부른 쪽이 그만두라고 한 일을 한 번 더 하게 된다.
 	if ctx.Err() != nil {
 		return SearchResult{}, err
 	}
@@ -478,7 +478,7 @@ func (e *Engine) searchLocked(ctx context.Context, startSFEN string, moves []str
 			return SearchResult{}, errors.New("bestmove timeout")
 
 		case <-ctx.Done():
-			// stop을 보내고 bestmove를 반드시 삼킨다. 안 삼키면 다음 탐색이 그걸 읽는다.
+			// stop을 보내고 bestmove를 반드시 삼킨다. 삼키지 않으면 다음 탐색이 그걸 읽는다.
 			if err := e.stopLocked(); err != nil {
 				log.Printf("usi: engine did not answer stop (%v), restarting", err)
 				if rerr := e.restart(); rerr != nil {
@@ -544,8 +544,8 @@ func parseScore(line string, res *SearchResult) {
 			case "cp":
 				sl.Score = eval.Cp(v)
 			case "mate":
-				// mate 0 은 어느 쪽이 詰んでいる인지를 안 말한다(eval.Mate). 이 엔진은
-				// 안 내므로(mated 국면에 mate -1 을 낸다) 여기 오면 우리가 모르는
+				// mate 0 은 어느 쪽이 詰んでいる인지를 말하지 않는다(eval.Mate). 이 엔진은
+				// 내보내지 않으므로(mated 국면에 mate -1 을 준다) 여기 오면 우리가 모르는
 				// 출력이고, 모르는 것을 뜻이 있는 값으로 옮기지 않는다.
 				//
 				// 줄 전체를 버린다. 점수만 빼고 나머지를 쓰면 그 줄의 PV 가 앞 깊이의

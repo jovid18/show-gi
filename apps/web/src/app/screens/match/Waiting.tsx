@@ -8,7 +8,7 @@ import { Unavailable } from './Unavailable';
  * 상대가 들어오기 전의 화면.
  *
  * 여기서 할 일이 하나뿐이다 — 링크를 건네는 것. 그래서 링크가 화면의 주인공이고,
- * 판은 아직 안 그린다(그릴 판이 없다: 대국은 둘이 다 붙어야 시작된다).
+ * 판은 아직 그리지 않는다(그릴 판이 없다: 대국은 둘이 다 붙어야 시작된다).
  */
 export function Waiting({
   connection,
@@ -22,7 +22,7 @@ export function Waiting({
   /** 서버가 말한 거절. 방이 걷혔을 때 그 이유가 여기로 온다. */
   rejection: string | null;
 }) {
-  // 방 하나 못 받고 끊겼으면 앉지 못한 것이다. 앞의 확인(`fetchRoom`)을
+  // 방 하나 받지 못하고 끊겼으면 앉지 못한 것이다. 앞의 확인(`fetchRoom`)을
   // 통과했는데도 그렇다면 그 사이에 남이 자리를 채운 것이고, 그 답은 「열 수 없다」 하나다.
   if (connection === 'closed' && !room) return <Unavailable />;
 
@@ -42,7 +42,7 @@ export function Waiting({
       {dropped && (
         <div className="match-lost" role="alert">
           {/* 서버가 이유를 말했으면 그것을 그대로 쓴다 — 방이 걷힌 것과 그냥 끊긴 것은
-              사람에게 다른 일이고, 앞은 다시 눌러도 안 된다. */}
+              사람에게 다른 일이고, 앞은 다시 눌러도 열리지 않는다. */}
           <p>{rejection ?? '接続が切れました。このリンクは今つながっていません。'}</p>
           <button type="button" className="btn btn--primary" onClick={() => window.location.reload()}>
             つなぎ直す
@@ -50,7 +50,7 @@ export function Waiting({
         </div>
       )}
 
-      {/* 끊긴 동안에는 링크를 안 그린다. 배너가 「이 방은 끝났다」고 말하는 옆에
+      {/* 끊긴 동안에는 링크를 그리지 않는다. 배너가 「이 방은 끝났다」고 말하는 옆에
           복사 버튼이 떠 있으면 그 링크를 보내는 사람이 생긴다 — 화면이 두 말을 하면
           사람은 하고 싶은 쪽을 믿는다. */}
       {dropped ? null : room.waiting ? (
@@ -65,7 +65,7 @@ export function Waiting({
           </p>
         </>
       ) : (
-        // 방 주인에게 자기 이름을 말하지 않는다. 손님이 자리만 잡고 안 붙어 있는 동안
+        // 방 주인에게 자기 이름을 말하지 않는다. 손님이 자리만 잡고 붙어 있지 않은 동안
         // 방 주인이 돌아오면 여기로 오는데, 그때 `hostName` 은 보고 있는 사람 자신이다.
         <p className="setup__caveat">
           {room.isHost

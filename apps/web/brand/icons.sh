@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 로고 한 장에서 배포에 나가는 아이콘을 전부 만든다. **결과물은 커밋한다.**
 #
-# 빌드에 끼우지 않는 이유가 둘이다 — ImageMagick이 CI 이미지에 없고(웹 Dockerfile은
+# 빌드에 끼우지 않는 것은 둘 때문이다 — ImageMagick이 CI 이미지에 없고(웹 Dockerfile은
 # node:22-alpine + caddy 둘뿐이다), 로고는 바뀌는 것이 아니라 정해지는 것이라 매 빌드마다
 # 같은 입력으로 같은 출력을 다시 만들 이유가 없다. 로고를 갈아 끼울 때 사람이 한 번 돌린다.
 #
@@ -48,7 +48,7 @@ png 512 icon-512.png
 
 # maskable 은 안드로이드가 **원·둥근네모 등으로 잘라 낸다.** 안전 영역이 가운데 80%라
 # 로고를 그만큼 줄이고 남는 자리를 고리와 같은 초록으로 채운다 — 로고 자신이 초록 원이라
-# 이음매가 안 보인다.
+# 이음매가 보이지 않는다.
 magick "$square" -resize 410x410 -background "$ring" -gravity center -extent 512x512 \
 	-alpha remove -alpha off "$out/icon-maskable-512.png"
 shrink "$out/icon-maskable-512.png"

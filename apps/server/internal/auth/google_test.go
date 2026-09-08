@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// SSM이 빈 문자열을 거부해서 아직 발급 안 된 키가 unset 으로 들어가 있다
+// SSM이 빈 문자열을 거부해서 아직 발급되지 않은 키가 unset 으로 들어가 있다
 // (06-status.md §3). 그것을 값으로 보면 로그인 버튼이 뜬 뒤 Google이 400을 준다.
 func TestNewGoogleTreatsUnsetAsMissing(t *testing.T) {
 	for _, c := range [][2]string{
@@ -97,7 +97,7 @@ func TestIdentityFromRejectsNonJWT(t *testing.T) {
 	}
 }
 
-// idToken 은 본문만 진짜인 JWT를 만든다. 서명을 안 보므로 그것으로 충분하다.
+// idToken 은 본문만 진짜인 JWT를 만든다. 서명을 보지 않으므로 그것으로 충분하다.
 func idToken(t *testing.T, claims string) string {
 	t.Helper()
 	return "header." + base64url(claims) + ".signature"

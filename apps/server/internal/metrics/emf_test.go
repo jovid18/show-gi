@@ -64,18 +64,18 @@ func TestEMFCountersAreDeltas(t *testing.T) {
 
 	r.HTTPRequests.Add(5, "GET /healthz", "200")
 	if got := emit(t, e, at)["HttpRequests"]; got != 5.0 {
-		t.Fatalf("첫 회차 HttpRequests=%v", got)
+		t.Fatalf("첫 주기 HttpRequests=%v", got)
 	}
 
-	// 다음 회차에서 두 건이 더 왔다. 누적(7) 대신 증분(2)이어야 한다.
+	// 다음 주기에서 두 건이 더 왔다. 누적(7) 대신 증분(2)이어야 한다.
 	r.HTTPRequests.Add(2, "GET /healthz", "200")
 	if got := emit(t, e, at)["HttpRequests"]; got != 2.0 {
-		t.Fatalf("두 번째 회차 HttpRequests=%v — 누적을 올리면 Sum 이 매번 전부를 더한다", got)
+		t.Fatalf("두 번째 주기 HttpRequests=%v — 누적을 올리면 Sum 이 매번 전부를 더한다", got)
 	}
 
-	// 아무 일도 없던 회차는 0이다. 지표가 아예 빠지면 알람이 결측으로 읽는다.
+	// 아무 일도 없던 주기는 0이다. 지표가 아예 빠지면 알람이 결측으로 읽는다.
 	if got := emit(t, e, at)["HttpRequests"]; got != 0.0 {
-		t.Fatalf("조용한 회차 HttpRequests=%v", got)
+		t.Fatalf("조용한 주기 HttpRequests=%v", got)
 	}
 }
 
@@ -101,7 +101,7 @@ func TestEMFArraysStayUnderSpecLimit(t *testing.T) {
 	if len(vs) > 100 {
 		t.Fatalf("배열이 %d개 — 스펙 상한은 100이다", len(vs))
 	}
-	// 개수는 카운터로 낸다. 표본을 잘라도 개수는 정확해야 한다.
+	// 개수는 카운터로 내보낸다. 표본을 잘라도 개수는 정확해야 한다.
 	if n := r.HTTPDuration.Count(nil); n != 1000 {
 		t.Fatalf("관측 수=%d", n)
 	}
@@ -165,21 +165,21 @@ func emit(t *testing.T, e *Emitter, now time.Time) map[string]any {
 	return doc
 }
 
-// 안 고른 계열의 표본통도 비워야 한다. 남겨 두면 그 계열은 100개가 찬 뒤로 교체
-// 확률이 0에 붙어, 나중에 그것을 내기 시작하는 날 첫 회차가 기동 무렵 값을 낸다.
+// 고르지 않은 계열의 표본통도 비워야 한다. 남겨 두면 그 계열은 100개가 찬 뒤로 교체
+// 확률이 0에 붙어, 나중에 그것을 내보내기 시작하는 날 첫 주기가 기동 무렵 값을 내보낸다.
 //
 // 예로 쓰는 것이 캐시가 답한 탐색이다. collect 가 computed 만 내므로(분포가 0 근처로
-// 몰리는 것을 막는다) 이쪽이 실제로 안 고르는 계열이다 — 詰み 풀 대기는 [journal §111]
-// 에서 나가기 시작해 더 이상 예로 못 쓴다.
+// 몰리는 것을 막는다) 이쪽이 실제로 고르지 않는 계열이다 — 詰み 풀 대기는 [journal §111]
+// 에서 나가기 시작해 더 이상 예로 쓸 수 없다.
 func TestDrainEmptiesUnpickedSeriesToo(t *testing.T) {
 	r := New("api", "prod")
 	for range maxSamples + 50 {
 		r.Search().ObserveSearch(9*time.Second, true)
 	}
-	// 회차 하나가 지난다. 낸 것은 엔진을 부른 탐색뿐이다.
+	// 주기 하나가 지난다. 낸 것은 엔진을 부른 탐색뿐이다.
 	emit(t, NewEmitter(r, nil), at)
 
-	// 그 뒤에 캐시가 답한 탐색의 값이 바뀌면, 다음에 그것을 낼 때 새 값이 보여야 한다.
+	// 그 뒤에 캐시가 답한 탐색의 값이 바뀌면, 다음에 그것을 내보낼 때 새 값이 보여야 한다.
 	r.Search().ObserveSearch(time.Millisecond, true)
 	got := r.SearchDuration.DrainSamples(cached)
 	if len(got) != 1 || got[0] != 0.001 {
@@ -190,7 +190,7 @@ func TestDrainEmptiesUnpickedSeriesToo(t *testing.T) {
 // 詰み 풀 대기가 EMF 로 나간다. 이것이 없으면 詰み 풀이 큐에 섰는지를 프로덕션 데이터로
 // 알 수 없다 — [journal §110]이 그 자리를 부채로 잡아 뒀다.
 //
-// borrower 로 안 가른다. 풀 크기가 2라 대기가 0보다 큰 것 자체가 포화다.
+// borrower 로 가르지 않는다. 풀 크기가 2라 대기가 0보다 큰 것 자체가 포화다.
 func TestEMFEmitsMatePoolWait(t *testing.T) {
 	r := New("api", "prod")
 	mate := r.Pool(PoolMate)
@@ -215,7 +215,7 @@ func TestEMFEmitsMatePoolWait(t *testing.T) {
 	}
 }
 
-// 풀 대기를 한 번 비워 셋으로 낸다. 합친 것에는 분석·검토가 섞여 있어서, 대국이 실제로
+// 풀 대기를 한 번 비워 셋으로 내보낸다. 합친 것에는 분석·검토가 섞여 있어서, 대국이 실제로
 // 굶었는지는 borrower=game 쪽으로만 읽힌다. 세 번째는 詰み 풀이다(아래).
 func TestEMFSplitsPoolWaitByBorrower(t *testing.T) {
 	r := New("api", "prod")
@@ -249,8 +249,8 @@ func TestEMFCountsDroppedAnalyses(t *testing.T) {
 	if doc["AnalysisBacklogPlies"] != 210.0 {
 		t.Fatalf("AnalysisBacklogPlies=%v, want 210", doc["AnalysisBacklogPlies"])
 	}
-	// 두 번째 회차는 증분이 0이다. 누적을 그대로 올리면 알람이 영영 울린 채로 있다.
+	// 두 번째 주기는 증분이 0이다. 누적을 그대로 올리면 알람이 영영 울린 채로 있다.
 	if doc := emit(t, e, at); doc["AnalysisGamesDropped"] != 0.0 {
-		t.Fatalf("두 번째 회차 AnalysisGamesDropped=%v, want 0", doc["AnalysisGamesDropped"])
+		t.Fatalf("두 번째 주기 AnalysisGamesDropped=%v, want 0", doc["AnalysisGamesDropped"])
 	}
 }

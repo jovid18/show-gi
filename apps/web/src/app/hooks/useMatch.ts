@@ -27,9 +27,9 @@ export interface MatchState {
  *
  * `useGame` 과 갈리는 것이 둘이다.
  *
- *  1. 어느 쪽인지를 안 보낸다. 자리에서 이미 정해졌고(서버의 `Hub.Enter`), 요청으로
+ *  1. 어느 쪽인지를 보내지 않는다. 자리에서 이미 정해졌고(서버의 `Hub.Enter`), 요청으로
  *     보내면 두 사람이 같은 쪽을 주장할 수 있다.
- *  2. 끊겨도 판이 안 끝난다. 상대가 남아 있어서다 — 같은 주소로 다시 붙으면 그 자리로
+ *  2. 끊겨도 판이 끝나지 않는다. 상대가 남아 있어서다 — 같은 주소로 다시 붙으면 그 자리로
  *     돌아간다. 그동안 시계는 흐른다.
  *
  * 스냅샷은 언제나 전체 상태라 이전 것과 합치지 않는다(`useGame` 과 같은 규약).
@@ -68,7 +68,7 @@ export function useMatch(roomId: string): MatchState {
       try {
         msg = JSON.parse(String(event.data)) as MatchServerMessage;
       } catch {
-        return; // 우리가 못 읽는 것은 무시한다. 판을 지우는 것보다 낫다
+        return; // 우리가 읽을 수 없는 것은 무시한다. 판을 지우는 것보다 낫다
       }
       if (msg.type === 'snapshot') {
         setSnapshot(msg.snapshot);
@@ -106,14 +106,14 @@ export function useMatch(roomId: string): MatchState {
 /**
  * 지금 수번에 남은 밀리초. 서버가 준 값에서 화면이 세어 내려간다.
  *
- * 서버가 매 초 보내지 않는 이유는 그것이 두 사람 몫의 프레임을 초당 두 개씩 만들기
- * 때문이고, 화면이 혼자 세지 않는 이유는 탭을 멈춰 둔 브라우저에서 시간이 안 가기
+ * 서버가 매 초 보내지 않는 것은 그것이 두 사람 몫의 프레임을 초당 두 개씩 만들기
+ * 때문이고, 화면이 혼자 세지 않는 것은 탭을 멈춰 둔 브라우저에서 시간이 가지 않기
  * 때문이다. 그래서 정본은 서버이고 화면은 마지막으로 받은 값에서 이어 센다 —
  * 스냅샷이 올 때마다 다시 맞춰진다.
  */
 export function useTurnClock(snapshot: MatchSnapshot | null): number {
   const [left, setLeft] = useState(0);
-  // 마지막 스냅샷을 받은 시각. `performance.now` 다 — 시스템 시계가 바뀌어도 안 튄다.
+  // 마지막 스냅샷을 받은 시각. `performance.now` 다 — 시스템 시계가 바뀌어도 튀지 않는다.
   const at = useRef(0);
   const from = useRef(0);
 

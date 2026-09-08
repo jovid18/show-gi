@@ -26,7 +26,7 @@ func TestPlayerTallyCountsTheSamePopulationAsTheList(t *testing.T) {
 		}
 	}
 
-	// 한 수도 안 둔 판. 목록에서 빠지므로 여기서도 빠져야 한다.
+	// 한 수도 두지 않은 판. 목록에서 빠지므로 여기서도 빠져야 한다.
 	empty := ownedGame(t, s, &uid)
 	if err := s.FinishGame(t.Context(), empty, ResultWin); err != nil {
 		t.Fatalf("FinishGame(빈 판): %v", err)
@@ -46,7 +46,7 @@ func TestPlayerTallyCountsTheSamePopulationAsTheList(t *testing.T) {
 	if n := got.Results[ResultDraw]; n != 1 {
 		t.Errorf("draw = %d, want 1", n)
 	}
-	// abandoned 는 되짚기 목록에 안 나가므로 전적에도 없어야 한다(journal §51).
+	// abandoned 는 되짚기 목록에 나가지 않으므로 전적에도 없어야 한다(journal §51).
 	if n := got.Results[ResultAbandoned]; n != 0 {
 		t.Errorf("abandoned = %d, want 0", n)
 	}

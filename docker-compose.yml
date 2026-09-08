@@ -21,7 +21,7 @@
 #
 # **`--no-deps`를 빼면 컨테이너명 충돌로 실패한다.** db가 `container_name`으로
 # 고정돼 있어서다. 고정해 두는 쪽이 의도적이다 — 이름을 워크트리마다 갈랐다면
-# 두 번째 postgres가 자기 볼륨을 들고 조용히 떠서, 같은 스키마를 본다고 믿는
+# 두 번째 postgres가 자기 볼륨을 갖고 조용히 떠서, 같은 스키마를 본다고 믿는
 # 두 서버가 서로 다른 데이터를 보게 된다. 시끄럽게 실패하는 편이 낫다.
 
 services:
@@ -33,7 +33,7 @@ services:
     environment:
       # 호스트명이 서비스명 `db`가 아니라 **컨테이너명**이다. 서비스명은 같은
       # compose 프로젝트 안에서만 풀리므로, 워크트리(다른 프로젝트)의 api가
-      # 메인이 띄운 db를 못 찾는다. 컨테이너명은 네트워크 전체에서 풀린다
+      # 메인이 띄운 db를 찾을 수 없다. 컨테이너명은 네트워크 전체에서 풀린다
       DATABASE_URL: postgres://showgi:showgi@show-gi-db:5432/showgi?sslmode=disable
       # ENGINE_CMD 를 여기 적지 않는다. 엔진 실행 경로는 **이미지 내부 구조**라
       # 밖에서 적어두면 이미지를 바꿀 때 조용히 어긋난다 — 프로덕션에서 실제로 물렸고
@@ -43,16 +43,16 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       SESSION_SECRET: ${SESSION_SECRET:-}
       # 사후 분석 워커 수. 비우면 코드가 엔진 풀 크기를 쓴다(cmd/api 의 analysisWorkers).
-      # 부하 회차에서 이 값만 바꿔 가며 재려고 뚫어 둔다
+      # 부하 시험에서 이 값만 바꿔 가며 재려고 뚫어 둔다
       ANALYSIS_WORKERS: ${ANALYSIS_WORKERS:-}
       # 티어. 비우면 both 다. 로컬에서 갈라 보려면 SERVER_ROLE=interactive 로 띄운다 —
-      # 안 뚫어 두면 그 확인이 조용히 both 로 돌아 「갈렸다」로 잘못 읽힌다
+      # 뚫어 두지 않으면 그 확인이 조용히 both 로 돌아 「갈렸다」로 잘못 읽힌다
       SERVER_ROLE: ${SERVER_ROLE:-}
       # 취해 온 기보의 정규화. 없으면 그 폴백만 꺼지고, 결정적 파서로 읽히는 기보는
-      # 그대로 들어온다(internal/kifunorm). 모델은 안 적으면 코드의 기본값이다
+      # 그대로 들어온다(internal/kifunorm). 모델은 적지 않으면 코드의 기본값이다
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
-      # 비우는 것이 기본이다. Vite는 Host를 안 고쳐 넘기므로 서버가 요청에서
+      # 비우는 것이 기본이다. Vite는 Host를 고치지 않고 넘기므로 서버가 요청에서
       # `http://localhost:5173` 을 그대로 되짚는다 — 등록한 redirect URI와 같다
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
       # 판독을 재는 그림과 라벨을 모을 폴더. **비우는 것이 기본이다** — 값이 있으면
@@ -60,8 +60,8 @@ services:
       # (apps/server/README.md). 컨테이너 안의 경로이고, 아래 볼륨이 그 자리를 만든다.
       SHOWGI_BOARD_IMAGE_DIR: ${SHOWGI_BOARD_IMAGE_DIR:-}
     volumes:
-      # 그림을 모을 자리. 위 환경변수를 비워 두면 서버가 여기에 아무것도 안 쓴다 —
-      # 붙여 두는 것은 켤 때 compose 를 안 고치기 위한 것이고, 폴더는 `.gitignore` 다
+      # 그림을 모을 자리. 위 환경변수를 비워 두면 서버가 여기에 아무것도 쓰지 않는다 —
+      # 붙여 두는 것은 켤 때 compose 를 고치지 않기 위한 것이고, 폴더는 `.gitignore` 다
       - ./apps/server/internal/boardread/testdata/images:/board-images
     depends_on:
       db:
@@ -95,6 +95,6 @@ volumes:
 
 networks:
   # 이름을 고정한다. 기본값은 `<디렉터리명>_default`라 워크트리마다 갈리고,
-  # 그러면 워크트리의 api가 메인의 db와 다른 네트워크에 떨어져 이름이 안 풀린다
+  # 그러면 워크트리의 api가 메인의 db와 다른 네트워크에 떨어져 이름이 풀리지 않는다
   default:
     name: show-gi-net

@@ -39,7 +39,7 @@ func CategoryJa(c intervene.Category) string {
 // BaseMessage 는 카테고리만으로 나오는 결정적 문구다. 기록에는 카테고리만 남으므로
 // 리뷰가 문장을 다시 만들어야 하고, 국면 사실은 남지 않아 여기 없다(지어내지 않는다).
 //
-// 새 문장을 짓지 않고 Render 가 사실 없이 내는 것과 같은 문장을 준다 — 두 벌이 되면
+// 새 문장을 짓지 않고 Render 가 사실 없이 내보내는 것과 같은 문장을 준다 — 두 벌이 되면
 // 같은 수가 대국 중과 리뷰에서 다른 이유로 나쁜 것이 된다(journal §33).
 func BaseMessage(c intervene.Category) string {
 	if c == intervene.CategoryNone {

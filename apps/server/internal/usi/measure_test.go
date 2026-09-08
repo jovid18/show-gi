@@ -13,7 +13,7 @@ import (
 // 측정에 쓰는 대국. 将棋ウォーズ 8급 vs 6~7급 — 실제 사람의 대국이다.
 //
 // 손으로 쓴 SFEN을 쓰지 않는다. 그렇게 했다가 歩가 19장인 판을 만들었고 룰 엔진이 잡았다.
-// 프로 대국도 안 쓴다 — 잘 둔 판일수록 상위 수들이 좁게 몰려서, 우리 사용자가 실제로
+// 프로 대국도 쓰지 않는다 — 잘 둔 판일수록 상위 수들이 좁게 몰려서, 우리 사용자가 실제로
 // 도달하는 국면과 후보의 흩어짐이 다르다. 밴드 적중률은 국면에 크게 좌우된다.
 //
 // KIF에서 옮긴 뒤 전 수를 룰 엔진으로 검증했다(TestMeasureKifuIsLegal).
@@ -126,7 +126,7 @@ func TestMeasureDepthMultiPV(t *testing.T) {
 
 	positions := measurePositions(t)
 
-	// t.Logf 는 테스트가 끝나야 나온다. 오래 도는 측정에서는 진행이 안 보이므로 직접 찍는다.
+	// t.Logf 는 테스트가 끝나야 나온다. 오래 도는 측정에서는 진행이 보이지 않으므로 직접 찍는다.
 	fmt.Printf("engine=%s\n국면 %d개: ", e.Name(), len(positions))
 	for _, p := range positions {
 		fmt.Printf("%s ", p.name)
@@ -198,7 +198,7 @@ func TestMeasureDepthMultiPV(t *testing.T) {
 //
 // 매 수 돌아야 하는 탐색이다 — 종반 판정(01-core.md §2)과 詰み 게이지(01-core.md §7)가 둘 다 쓴다.
 // 그래서 여기 드는 시간이 그대로 모든 수에 얹힌다. 탐색부와 별도 바이너리라
-// TestMeasureDepthMultiPV 의 표에 안 들어 있고, D3 상수를 잡기 전에 알아야 한다.
+// TestMeasureDepthMultiPV 의 표에 들어 있지 않고, D3 상수를 잡기 전에 알아야 한다.
 //
 // 한계는 DepthLimit(詰み手数)으로 준다 — 시간 대신 수로 잘라야 같은 국면이 같은 답을 준다.
 //

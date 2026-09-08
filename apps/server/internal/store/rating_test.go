@@ -64,7 +64,7 @@ func TestMatchRatingRoundTrips(t *testing.T) {
 		}
 	}
 
-	// 엔진 대국의 추정치가 안 지워졌다. 같은 행의 다른 칸이라, 한쪽 저장이 다른 쪽을
+	// 엔진 대국의 추정치가 지워지지 않았다. 같은 행의 다른 칸이라, 한쪽 저장이 다른 쪽을
 	// 덮으면 대인전 한 판이 그 사람의 개입 임계치를 기준선으로 되돌린다.
 	got, err = s.MatchRating(t.Context(), a)
 	if err != nil {

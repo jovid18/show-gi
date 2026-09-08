@@ -60,7 +60,7 @@ func (h *gameHandler) saveSkill(ctx context.Context, userID *int64) func(skill.E
 		switch {
 		case err == nil:
 		case errors.Is(err, context.Canceled):
-			// 연결이 끊긴 것이다. 에러로 적지 않는다 — 위 이유로 잃은 것이 없는데
+			// 연결이 끊긴 것이다. 에러로 적지 않는다 — 위에 적은 대로 잃은 것이 없는데
 			// 「저장 실패」가 판마다 한 줄씩 쌓이면 진짜 실패를 그 안에서 찾지 못한다.
 		default:
 			// 추정이 쌓이지 않는 것은 다음 판의 첫 몇 수가 기준선이라는 뜻이고, 그 판은 그대로 된다.

@@ -31,7 +31,7 @@ func TestRenderSummaryCoversEveryCombination(t *testing.T) {
 				for _, w := range weights {
 					for _, top := range tops {
 						// 개입이 돈 판과 가져온 판 둘 다 돈다. 문구가 그 값으로 갈리므로
-						// (phraseTop) 한쪽만 돌면 다른 쪽의 조합이 시험을 안 지난다.
+						// (phraseTop) 한쪽만 돌면 다른 쪽의 조합이 시험을 지나지 않는다.
 						for _, iv := range []bool{true, false} {
 							f := GameFacts{
 								Outcome: o, Top: top, Weight: w, Phase: p, Trend: tr,

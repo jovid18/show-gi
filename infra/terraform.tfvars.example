@@ -5,5 +5,5 @@
 #
 #   curl -s https://checkip.amazonaws.com     # 지금 공인 IP
 #
-# 비워 두면 노트북에서 RDS로 들어오는 통로가 안 열린다.
+# 비워 두면 노트북에서 RDS로 들어오는 통로가 열리지 않는다.
 admin_cidr = "203.0.113.9/32"

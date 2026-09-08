@@ -10,7 +10,7 @@
  * `label_guide_test.go` 가 이 파일을 읽어 열 개가 이름까지 서버와 같은지 본다 —
  * 카테고리를 늘리거나 이름을 고치면 Go 테스트가 여기서 깨진다.
  *
- * `note` 는 화면이 직접 든다. 서버 문구는 그 판의 그 수에 하는 말이고(`baseMessages`),
+ * `note` 는 화면이 직접 적는다. 서버 문구는 그 판의 그 수에 하는 말이고(`baseMessages`),
  * 이쪽은 두기 전에 읽는 설명이라 시제도 주어도 다르다.
  */
 export interface GuideCategory {

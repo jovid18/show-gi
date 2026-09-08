@@ -75,7 +75,7 @@ func TestMeasureBaseline(t *testing.T) {
 		}
 		// 두 칸 다 실측값에서 센다. 「지금」 칸은 기준점을 뺀 자리에서 세므로
 		// (got - want) 平手 줄은 두 칸이 같아진다 — 기준점이 0이라 그 판의 판정이
-		// 한 비트도 안 바뀐다는 사실이 표에서 그대로 보여야 한다.
+		// 한 비트도 바뀌지 않는다는 사실이 표에서 그대로 보여야 한다.
 		fmt.Printf("%-10s %8d %8d %8d %10d %10d\n",
 			r.name, got, r.want, got-r.want, triggerCp(got), triggerCp(got-r.want))
 	}
@@ -84,10 +84,10 @@ func TestMeasureBaseline(t *testing.T) {
 }
 
 // hirateSFEN 은 平手 초기 국면이다. shogi.StartSFEN 을 쓰지 않는다 — 이 파일이
-// handicap_test 패키지라 표 밖의 값을 직접 들고 있는 편이 의존을 안 늘린다.
+// handicap_test 패키지라 표 밖의 값을 직접 갖고 있는 편이 의존을 늘리지 않는다.
 const hirateSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1"
 
-// turnOf 는 SFEN의 手番 칸이다. 못 읽으면 平手의 手番인 "b" 로 답한다 — 표의 값이
+// turnOf 는 SFEN의 手番 칸이다. 읽지 못하면 平手의 手番인 "b" 로 답한다 — 표의 값이
 // 부호를 잘못 쓴 채 초록으로 지나가는 것보다, 여기서 平手처럼 취급해 차이 칸이 크게
 // 벌어지는 편이 눈에 띈다.
 func turnOf(sfen string) string {
@@ -98,8 +98,8 @@ func turnOf(sfen string) string {
 	return f[1]
 }
 
-// triggerCp 는 from 에서 입문 임계치를 넘기는 최소 낙폭이다. 이 숫자가 이 패키지가
-// 있는 이유다 — 기준점을 안 쓴 값과 쓴 값의 차이는 journal §88.
+// triggerCp 는 from 에서 입문 임계치를 넘기는 최소 낙폭이다. 이 숫자 때문에 이 패키지가
+// 있다 — 기준점을 쓰지 않은 값과 쓴 값의 차이는 journal §88.
 //
 // 무엇을 넣느냐가 옛 식과 지금 식을 가른다(위 Printf) — 옛 식은 실측 그대로, 지금 식은
 // 기준점을 뺀 값이다.

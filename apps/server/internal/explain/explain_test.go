@@ -47,7 +47,7 @@ func TestRenderCarriesTheFacts(t *testing.T) {
 		},
 		want: []string{"飛は取れますが"},
 	}, {
-		// journal §25: 이유를 못 대는 3분의 2에 「무엇을 잡히는가」를 준다.
+		// journal §25: 이유를 대지 못하는 3분의 2에 「무엇을 잡히는가」를 준다.
 		name: "理由がわからないときは失うものを言う",
 		facts: Facts{
 			Category: intervene.CategoryOther, Known: true, Threatened: "桂",
@@ -86,7 +86,7 @@ func TestRenderInventsNothingWithoutFacts(t *testing.T) {
 // 결정적 문구는 수를 짚지 않는다(01-core.md §1). 짚어주는 순간 플레이어가 생각을 멈춘다.
 //
 // 칸은 「숫자 + 段」의 모양이다(8四). 段의 한자만 찾으면 「一手」의 一에 걸리므로
-// 붙어 있는 것만 본다 — 「2枚」에는 段이 없어서 안 걸린다.
+// 붙어 있는 것만 본다 — 「2枚」에는 段이 없어서 걸리지 않는다.
 //
 // Facts 에 칸이 아예 없으므로 지금은 나올 수 없고, 이 테스트는 누가 칸을 Facts 에
 // 더하는 날 그것을 잡는다.

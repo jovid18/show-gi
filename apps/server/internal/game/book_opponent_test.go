@@ -10,7 +10,7 @@ import (
 )
 
 // stubOpponent 는 불렸는지만 기억한다. 북이 손을 놓았는가가 이 파일의 관심사라,
-// 안쪽이 무엇을 고르는지는 여기서 안 본다.
+// 안쪽이 무엇을 고르는지는 여기서 보지 않는다.
 type stubOpponent struct {
 	called int
 	adapts bool
@@ -62,8 +62,8 @@ func TestBookPlaysInOrder(t *testing.T) {
 	}
 }
 
-// TestBookYieldsAfterCapture 는 駒를 잡은 뒤로는 진형을 안 쌓는지다. 초심자가 초반에
-// 교환을 시작했을 때 상대가 그것을 안 보고 囲い를 계속 쌓는 것이 이 층의 가장 나쁜 실패다.
+// TestBookYieldsAfterCapture 는 駒를 잡은 뒤로는 진형을 쌓지 않는지다. 초심자가 초반에
+// 교환을 시작했을 때 상대가 그것을 보지 않고 囲い를 계속 쌓는 것이 이 층의 가장 나쁜 실패다.
 func TestBookYieldsAfterCapture(t *testing.T) {
 	inner := &stubOpponent{move: "1c1d"}
 	opp := NewBookOpponent(inner, mustFind(t, "shikenbisha"), shogi.White)
@@ -84,8 +84,8 @@ func TestBookYieldsAfterCapture(t *testing.T) {
 
 // TestBookIsDerivedFromMoves 는 되무르기와 맞는지다.
 //
-// 개입이 수를 물리면 moves 가 줄어든다. 카운터를 들고 있었다면 그 수를 센 채로 남아 진형이
-// 한 칸 건너뛴다 — 상태를 안 들고 있어서 그 버그가 아예 없다.
+// 개입이 수를 물리면 moves 가 줄어든다. 카운터를 갖고 있었다면 그 수를 센 채로 남아 진형이
+// 한 칸 건너뛴다 — 상태를 갖고 있지 않아서 그 버그가 아예 없다.
 func TestBookIsDerivedFromMoves(t *testing.T) {
 	inner := &stubOpponent{}
 	opp := NewBookOpponent(inner, mustFind(t, "shikenbisha"), shogi.White)
@@ -110,7 +110,7 @@ func TestBookIsDerivedFromMoves(t *testing.T) {
 }
 
 // TestBookYieldsWhenPositionRejectsIt 는 정석수를 둘 수 없는 국면이면 넘기는지다.
-// 수순을 한 수만 빼고 이어 두지 않는 이유는 book_opponent.go 의 그 자리 주석.
+// 수순을 한 수만 빼고 이어 두지 않는 근거는 book_opponent.go 의 그 자리 주석.
 func TestBookYieldsWhenPositionRejectsIt(t *testing.T) {
 	inner := &stubOpponent{move: "5a4a"}
 	opp := NewBookOpponent(inner, mustFind(t, "shikenbisha"), shogi.White)

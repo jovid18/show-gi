@@ -7,19 +7,19 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// mateSolver 는 트리 하나를 짓는 동안의 상태다 — memo와 예산을 들고 있다.
+// mateSolver 는 트리 하나를 짓는 동안의 상태다 — memo와 예산을 갖고 있다.
 //
 // memo 의 키는 RepetitionKey(手数를 뗀 SFEN)다. 詰みまでの手数는 국면의 성질이라
 // 거기까지 온 순서와 무관하고, 그래서 전치가 같은 행으로 합쳐져도 값이 맞는다.
 type mateSolver struct {
 	mate MateSearcher
 	memo map[string]int
-	// unknown 은 solver 가 결론을 못 낸 국면이다. memo 와 따로 둔다 — 저쪽의 0은
+	// unknown 은 solver 가 결론을 내지 못한 국면이다. memo 와 따로 둔다 — 저쪽의 0은
 	// 「詰み이 없다」는 결론이고 이쪽은 결론 없음이다.
 	unknown map[string]struct{}
 	budget  int
 	// answered 는 solver 가 결론을 준 횟수다. 0이면 엔진 전체가 답하지 않았다는 뜻이고,
-	// 그 하나가 「이 판에 문항이 없다」와 「못 봤다」를 가른다(Build).
+	// 그 하나가 「이 판에 문항이 없다」와 「보지 못했다」를 가른다(Build).
 	answered int
 }
 
@@ -34,7 +34,7 @@ func newMateSolver(m MateSearcher) *mateSolver {
 
 // distance 는 그 국면에서 수번 측이 詰ます 手数를 준다. 0이면 詰み이 없다.
 //
-// ok=false 는 「모른다」다 — 예산이 끝났거나, solver 가 한계 안에서 결론을 못 냈거나
+// ok=false 는 「모른다」다 — 예산이 끝났거나, solver 가 한계 안에서 결론을 내지 못했거나
 // (checkmate timeout), 엔진이 실패했다. 「모른다」를 「없다」로 쓰면 있는 詰み을 놓치고,
 // 그 위에서 채점하면 정답을 오답이라고 말한다(01-core.md §2).
 func (s *mateSolver) distance(ctx context.Context, pos shogi.Position) (int, bool) {
@@ -56,7 +56,7 @@ func (s *mateSolver) distance(ctx context.Context, pos shogi.Position) (int, boo
 	if err != nil || !r.Proven {
 		// 「모른다」도 기억한다. solver 는 같은 DepthLimit 에서 결정적이라 두 번째도
 		// 같은 답이고, 그 답은 가장 오래 걸리는 종류다(한계까지 다 찾아본 뒤의 timeout).
-		// 전치로 같은 국면에 다시 오는 것이 詰み 트리에서는 흔해서, 안 적어 두면 그때마다
+		// 전치로 같은 국면에 다시 오는 것이 詰み 트리에서는 흔해서, 적어 두지 않으면 그때마다
 		// 예산이 한 칸씩 빠진다.
 		s.unknown[key] = struct{}{}
 		return 0, false
@@ -109,7 +109,7 @@ func (s *mateSolver) expand(ctx context.Context, nodes map[string]MateNode, pos 
 		// 정답의 조건이 2+rest <= plies 이고 rest >= 1 이므로 plies == 1 에서는
 		// 2+rest >= 3 > 1 — 詰み이 아닌 王手는 절대 정답이 될 수 없다. 그런데 그 노드가
 		// 트리에서 가장 많고(정답 하나마다 하나씩 달린다) 노드마다 王手 × 응수만큼 solver 를
-		// 부르므로, 여기가 예산의 대부분을 쓰고 있었다. 물어봐도 답이 안 바뀌는 자리다.
+		// 부르므로, 여기가 예산의 대부분을 쓰고 있었다. 물어봐도 답이 바뀌지 않는 자리다.
 		if plies == 1 {
 			node.Moves[usiMove] = MateVerdict{}
 			continue
@@ -181,7 +181,7 @@ func (s *mateSolver) defend(
 			return 0, "", shogi.Position{}, true
 		}
 		// 동률이면 USI 순서로 정한다. 같은 문제가 언제나 같게 흘러가야 하고(journal §53)
-		// 手数가 같으니 문제의 성질은 안 변한다.
+		// 手数가 같으니 문제의 성질은 변하지 않는다.
 		u := r.USI()
 		if d > best || (d == best && u < defense) {
 			best, defense, next = d, u, rp
@@ -223,15 +223,15 @@ func preferMate(usiMove string, mated bool, cur string, curMated bool) bool {
 // mateItem 은 詰み 문항을 고른다.
 //
 // 사람 차례 국면을 手数 순으로 훑어 처음으로 MateMaxPlies 안에 들어온 것이 문제다.
-// 뒤에 더 짧은 詰み이 있어도 그쪽을 안 고른다 — 최초가 판에서 詰み이 처음 성립한 자리이고,
+// 뒤에 더 짧은 詰み이 있어도 그쪽을 고르지 않는다 — 최초가 판에서 詰み이 처음 성립한 자리이고,
 // 늦은 국면일수록 승부가 이미 갈려 배울 것이 적다(§53).
 // 두 번째 값은 solver 가 결론을 준 횟수다. 0이면 엔진 전체가 답하지 않았다는 뜻이고,
-// 부르는 쪽이 그것으로 「문항이 없다」와 「못 봤다」를 가른다(Build).
+// 부르는 쪽이 그것으로 「문항이 없다」와 「보지 못했다」를 가른다(Build).
 func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position) (*MateItem, int) {
 	sol := newMateSolver(b.mate)
 
-	// 「詰み이 없었다」와 「solver 가 답을 못 했다」를 따로 센다. 둘을 뭉쳐 로그에 「문항
-	// 0개」로만 남기면, 엔진 전체가 답하지 않는 배포에서도 그림이 똑같아서 기능이
+	// 「詰み이 없었다」와 「solver 가 답을 하지 못했다」를 따로 센다. 둘을 뭉쳐 로그에 「문항
+	// 0개」로만 남기면, 엔진 전체가 답하지 않는 배포에서도 로그가 똑같아서 기능이
 	// 경고 없이 사라진 것을 알 수 없다.
 	scanned, unanswered := 0, 0
 	defer func() {
@@ -255,7 +255,7 @@ func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position
 		d, known := sol.distance(ctx, pos)
 		if !known {
 			unanswered++
-			// 예산이 끝났거나 ctx가 죽었으면 뒤도 마찬가지다. 한 국면을 못 잰 것이면
+			// 예산이 끝났거나 ctx가 죽었으면 뒤도 마찬가지다. 한 국면을 재지 못한 것이면
 			// 그 국면만 건너뛴다 — 「모른다」를 「없다」로 적지 않고 훑기는 이어진다.
 			if sol.budget <= 0 || ctx.Err() != nil {
 				return nil, sol.answered
@@ -274,9 +274,9 @@ func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position
 		nodes, ok := sol.buildTree(ctx, pos, d)
 		if !ok {
 			// 버린 이유를 따로 적는다. 예산이 남았는데 버렸다면 어딘가에서 solver 가
-			// 결론을 못 냈다는 뜻이고, 그것은 DepthLimit(기본 11) 밖으로 늘어난 갈래일 수
+			// 결론을 내지 못했다는 뜻이고, 그것은 DepthLimit(기본 11) 밖으로 늘어난 갈래일 수
 			// 있다 — 7手 뿌리에서 한 手 낭비하면 13手가 된다. 뭉쳐 적으면 프로덕션에서
-			// 詰み 문항이 늘 사라지는 이유를 첫 판에서 못 읽는다(§53).
+			// 詰み 문항이 늘 사라지는 이유를 첫 판에서 읽을 수 없다(§53).
 			why := "the solver did not conclude somewhere in the tree"
 			if sol.budget <= 0 {
 				why = "the search budget ran out"
@@ -295,7 +295,7 @@ func (b *Builder) mateItem(ctx context.Context, in Input, posAt []shogi.Position
 // 手数의 다른 詰み筋)을 놓친 것으로 세는데 실전 국면에서는 흔하다. 어느 筋으로 詰ましても
 // 판은 그 手数 안에 끝나므로, 그 뒤로 더 길게 이어졌다면 그것이 곧 놓친 것이다.
 //
-// 이긴 것만으로는 모자라다. 엔진은 詰み 전에 投了하기도 하고, 못 두는 수를 내놓아도
+// 이긴 것만으로는 모자라다. 엔진은 詰み 전에 投了하기도 하고, 둘 수 없는 수를 내놓아도
 // 사람의 승리로 닫힌다(game/session.go 의 applyEngineMove).
 //
 // 그때 手数만 보면 「あなたが決めた詰みです」가 두어진 적 없는 詰み을 두고 나간다.
@@ -309,7 +309,7 @@ func (b *Builder) converted(in Input, posAt []shogi.Position, i, plies int) bool
 	// 手数가 정확히 맞아야 한다. 짧으면 상대가 잘못 받아 빨리 끝난 것이고, 그때 사람이
 	// 둔 것은 이 문항의 수순과 다르다.
 	//
-	// 길 수는 없다 — solver 가 無駄合い까지 세므로 제대로 決めた 詰み은 plies 를 안 넘는다.
+	// 길 수는 없다 — solver 가 無駄合い까지 세므로 제대로 決めた 詰み은 plies 를 넘지 않는다.
 	// 그래서 이 조건이 좁아지는 방향은 「놓쳤다」쪽이고, 그쪽은 참이다.
 	if rest := len(posAt) - 1 - i; !in.Won || rest != plies {
 		return false

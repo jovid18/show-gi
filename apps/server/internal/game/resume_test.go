@@ -76,7 +76,7 @@ func TestResumedGameKeepsCountingPlies(t *testing.T) {
 	}
 }
 
-// 한 수라도 안 맞으면 세션이 아예 안 열린다. 기록은 큐가 넘치면 이벤트를 버리므로
+// 한 수라도 맞지 않으면 세션이 아예 열리지 않는다. 기록은 큐가 넘치면 이벤트를 버리므로
 // (server/recorder.go) 이런 기보가 실제로 나올 수 있고, 눈감고 이어 두면 그 뒤 전체가
 // 밀린 없던 판이 「그때 두던 판」의 얼굴로 열린다.
 func TestStartMovesRejectsABrokenRecord(t *testing.T) {
@@ -102,7 +102,7 @@ func TestStartMovesRejectsABrokenRecord(t *testing.T) {
 }
 
 // 되만든 뒤 상대 차례면 그 자리에서 생각한다. 사람이 끊고 나갔을 때 상대의 수를
-// 기다리던 판이 흔하고, 이어했는데 누구도 안 두면 그 판은 멈춘 것으로 보인다.
+// 기다리던 판이 흔하고, 이어했는데 누구도 두지 않으면 그 판은 멈춘 것으로 보인다.
 func TestResumedGameLetsTheOpponentMoveFirst(t *testing.T) {
 	sess := newSession(t, Config{
 		Opponent:   &scriptedOpponent{moves: []string{"3c3d"}},

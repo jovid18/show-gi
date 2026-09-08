@@ -170,7 +170,7 @@ func TestCreateRoomReturnsAnUnguessableID(t *testing.T) {
 	}
 }
 
-// 振り駒는 서버가 뽑는다. 클라이언트가 뽑아 b·w 로 보내면 마음에 안 드는 결과를
+// 振り駒는 서버가 뽑는다. 클라이언트가 뽑아 b·w 로 보내면 마음에 들지 않는 결과를
 // 다시 뽑을 수 있고, 그러면 振り駒 대신 그냥 고르는 것이 된다.
 func TestFurigomaGivesEitherSeat(t *testing.T) {
 	h, _, signIn := matchTestServer(t)

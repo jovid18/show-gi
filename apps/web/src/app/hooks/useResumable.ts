@@ -33,7 +33,7 @@ export function useResumable(): Resumable {
 
   const decline = useCallback(() => {
     setGame((prev) => {
-      // 답을 안 기다리고 카드를 접는다. 실패의 결과는 「다음에 한 번 더 물어본다」
+      // 답을 기다리지 않고 카드를 접는다. 실패의 결과는 「다음에 한 번 더 물어본다」
       // 뿐이라(protocol/resume.ts), 그것 때문에 시작 화면을 붙들지 않는다.
       if (prev) declineResume(prev.id);
       return null;

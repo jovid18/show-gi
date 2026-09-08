@@ -13,10 +13,10 @@ import (
 func pieceValue(t shogi.PieceType) int { return shogi.PieceValue(t) }
 
 // UnpromotedOnly 는 둔 수가 최선수와 같은 이동인데 成하지 않은 것인지 본다. 이게 없어서
-// 화면이 「잡지 말라」로 읽히는 설명을 냈다(08-playtest.md §8).
+// 화면이 「잡지 말라」로 읽히는 설명을 내보냈다(08-playtest.md §8).
 //
 // 판정은 여기서 하고 intervene 에는 참거짓만 간다(journal §15).
-// 거울상(成らずの妙手)은 안 본다 — 초심자에게는 안 나오는 모양이다. [미확정]
+// 거울상(成らずの妙手)은 보지 않는다 — 초심자에게는 나오지 않는 모양이다. [미확정]
 func UnpromotedOnly(played shogi.Move, bestUSI string) bool {
 	if played.IsDrop() || played.Promote || bestUSI == "" {
 		return false
@@ -66,10 +66,10 @@ func moveFacts(before shogi.Position, m shogi.Move) (intervene.Features, explain
 	// 성했으면 성한 이름이다. 판이 그렇게 그리고 棋譜도 그렇게 적는다.
 	d.MovedPiece = shogi.PieceJa(after.Board[to].Type())
 
-	// 利き 대신 합법수로 묻는다. IsAttacked 는 핀을 안 본다 — 玉 앞에 묶여
+	// 利き 대신 합법수로 묻는다. IsAttacked 는 핀을 보지 않는다 — 玉 앞에 묶여
 	// 움직일 수 없는 駒도 「노리고 있다」로 센다. 玉 주변의 압력을 재는 데는 그걸로
 	// 충분하지만(AttackCount), 여기서 나온 값은 「その駒は取り返せない場所に
-	// 置かれています」라는 화면에 그대로 나가는 단언이 된다. 못 잡는 駒를 두고
+	// 置かれています」라는 화면에 그대로 나가는 단언이 된다. 잡을 수 없는 駒를 두고
 	// 잡힌다고 말하면 초심자는 그것을 검증할 수단이 없다.
 	capturers := legalCapturesOn(after, to)
 	f.LandsAttacked = len(capturers) > 0

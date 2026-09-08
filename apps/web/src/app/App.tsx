@@ -21,7 +21,7 @@ const ReviewScreen = lazy(async () => ({ default: (await import('@/screens/revie
  */
 const QuizScreen = lazy(async () => ({ default: (await import('@/screens/quiz/QuizScreen')).QuizScreen }));
 
-/** 마이페이지도 나중에 받는다. 첫 화면은 메뉴이고 여기는 판 하나도 안 그린다. */
+/** 마이페이지도 나중에 받는다. 첫 화면은 메뉴이고 여기는 판 하나도 그리지 않는다. */
 const ProfileScreen = lazy(async () => ({
   default: (await import('@/screens/me/ProfileScreen')).ProfileScreen,
 }));
@@ -36,7 +36,7 @@ const GuideScreen = lazy(async () => ({
 
 /**
  * 검토도 나중에 받는다. 대국 화면과 코드를 많이 나눠 쓰는데도 그렇다 — 판·駒台는
- * 첫 화면에 이미 실려 있고(`components/`), 이 조각이 더 들고 오는 것은 이 화면 자신뿐이다.
+ * 첫 화면에 이미 실려 있고(`components/`), 이 조각이 더 가져오는 것은 이 화면 자신뿐이다.
  */
 const ExploreScreen = lazy(async () => ({
   default: (await import('@/screens/explore/ExploreScreen')).ExploreScreen,
@@ -55,7 +55,7 @@ const PositionScreen = lazy(async () => ({
 }));
 
 /**
- * 대인전도 나중에 받는다. 엔진 대국과 코드를 안 나눠 쓴다 — 개입도 힌트도 없는
+ * 대인전도 나중에 받는다. 엔진 대국과 코드를 나눠 쓰지 않는다 — 개입도 힌트도 없는
  * 화면이라(docs/journal §83) 첫 화면에 실릴 이유가 없고, 라우트가 이미 갈라져 있다.
  */
 const MatchScreen = lazy(async () => ({
@@ -124,7 +124,7 @@ export function App() {
       <header className="app-head">
         <div className="app-head__inner">
           {/* 홈이 아닌 화면에만, 두는 중이 아닐 때만 뜬다(journal §86). 로고와 같은
-              곳으로 가는데 하나로 안 합치는 것은, 화살표가 「뒤로」를 글자 없이 말하는
+              곳으로 가는데 하나로 합치지 않는 것은, 화살표가 「뒤로」를 글자 없이 말하는
               유일한 표식이라서다 — 로고는 그 자리에서 제품 이름이다. */}
           {!onHome && !playing && (
             <a
@@ -152,13 +152,13 @@ export function App() {
 
           두는 중에 이 자리가 감춰지는 일은 이제 없지만(위 `useEffect`) 되돌리는 것은
           그리고 난 뒤라 한 틱 동안 감춰진다 — 조건을 `{onGame && …}` 로 바꾸면 그 한
-          틱에 판이 닫힌다. 끝난 판의 총평이 여기 있는 것도 이유다(journal §86).
+          틱에 판이 닫힌다. 끝난 판의 총평이 여기 있는 것도 그래서다(journal §86).
         */}
         <div hidden={!onGame}>
           <GameScreen />
         </div>
 
-        {/* 홈은 나중에 받지 않는다. 첫 화면이고, 메뉴 한 벌이라 들고 오는 것이
+        {/* 홈은 나중에 받지 않는다. 첫 화면이고, 메뉴 한 벌이라 가져오는 것이
             자기 자신뿐이다 — 여기에 `Suspense` 를 씌우면 첫 방문자가 메뉴를 보기까지
             조각 하나를 더 기다린다. */}
         {onHome && <HomeScreen me={me} playing={playing} />}
@@ -178,7 +178,7 @@ export function App() {
               // 앞 방의 스냅샷과 시계를 한 틱 동안 그린다(퀴즈 화면과 같은 자리).
               <MatchScreen key={route.id} roomId={route.id} />
             ) : route.name === 'import' ? (
-              /* 로그인 여부를 App 이 이미 들고 있다. 화면에서 `useViewer` 를 한 번 더
+              /* 로그인 여부를 App 이 이미 갖고 있다. 화면에서 `useViewer` 를 한 번 더
                  부르면 `/api/me` 요청이 하나 더 나간다(홈 메뉴와 같은 규약). */
               <ImportScreen me={me} />
             ) : route.name === 'position' ? (
@@ -210,10 +210,10 @@ export function App() {
 
 /**
  * 로고와 제품 이름. 두는 중에는 링크를 끈다(journal §86) — 눌러도 판으로 되돌아오므로
- * (App의 `useEffect`) 링크로 두면 「눌렀는데 아무 일도 안 일어난다」가 되고, 그건 고장으로 읽힌다.
+ * (App의 `useEffect`) 링크로 두면 「눌렀는데 아무 일도 일어나지 않는다」가 되고, 그건 고장으로 읽힌다.
  *
  * 링크일 때는 `navigate` 를 탄다. `<a href>` 로 두면 브라우저가 문서 전체를 새로 받아
- * 상시 마운트된 대국 화면이 들고 있던 총평이 사라진다.
+ * 상시 마운트된 대국 화면이 갖고 있던 총평이 사라진다.
  *
  * 안쪽이 같고 겉이 갈리는 것뿐이라 한 자리에 둔다 — 따로 두면 마크의 크기·`alt`·
  * 우선순위가 두 벌이 되고, 한쪽만 고치는 날이 온다.

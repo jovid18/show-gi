@@ -41,11 +41,11 @@ gh pr list --state open --json number,title,headRefName --jq '.[] | "#\(.number)
 cd <worktree>
 cat WORKTREE.md 2>/dev/null           # 맡은 범위. 이게 있으면 제일 빠르다
 git branch --show-current
-git status --porcelain                # 커밋 안 된 작업 — diff에는 안 잡힌다
+git status --porcelain                # 커밋되지 않은 작업 — diff에는 잡히지 않는다
 git diff origin/main...HEAD --name-only
 ```
 
-**커밋 전 변경(`git status`)을 반드시 같이 본다.** 작업 중인 세션은 대개 아직 커밋을 안 했고, `diff origin/main...HEAD`만 보면 그 파일들이 비어 있는 것처럼 보인다.
+**커밋 전 변경(`git status`)을 반드시 같이 본다.** 작업 중인 세션은 대개 아직 커밋을 하지 않았고, `diff origin/main...HEAD`만 보면 그 파일들이 비어 있는 것처럼 보인다.
 
 열려 있는 PR도 같은 취급이다 — 머지되기 전까지 그 파일은 점유 상태다:
 
@@ -63,18 +63,18 @@ gh pr view <번호> --json files --jq '.files[].path'
 
 각 갈래마다 이만큼 적어 사람에게 확인받는다:
 
-| slug | 브랜치 | 한 줄 목표 | 건드릴 파일 | 왜 안 겹치나 |
-| ---- | ------ | ---------- | ----------- | ------------ |
+| slug | 브랜치 | 한 줄 목표 | 건드릴 파일 | 왜 겹치지 않나 |
+| ---- | ------ | ---------- | ----------- | -------------- |
 
-**나누는 기준은 「파일이 안 겹치는가」 하나다.** 주제가 달라도 같은 파일을 고치면 나눠지지 않는다. 이 레포에서 특히 잘 겹치는 자리:
+**나누는 기준은 「파일이 겹치지 않는가」 하나다.** 주제가 달라도 같은 파일을 고치면 나눠지지 않는다. 이 레포에서 특히 잘 겹치는 자리:
 
 - `internal/game/session.go` — 세션이 상태를 소유해서 거의 모든 기능이 여기를 지난다. 두 갈래에 동시에 주지 않는다
 - `docs/06-status.md` — 어느 갈래든 마지막에 절을 붙인다. 충돌은 나지만 문서라 풀기 쉽다. 대신 같은 절 번호를 두 갈래가 쓰지 않도록 미리 번호를 배정해 준다
 - `apps/web/src/components/GameScreen.tsx` — 화면 붙는 일이 다 여기로 모인다
 
-**요약표는 갈래에 나눠 주지 않는다.** `docs/06-status.md` §1의 「지금 실제로 도는 것」과 [docs/05-roadmap.md](../../../docs/05-roadmap.md)의 진도 표는 셋 다 참조하지만 누구도 소유하지 않는 자리다. 각자 고치면 세 번 어긋난다 — 첫 회차에서 실제로 手筋 숫자가 갈렸다([§36](../../../docs/journal/21-40.md)).
+**요약표는 갈래에 나눠 주지 않는다.** `docs/06-status.md` §1의 「지금 실제로 도는 것」과 [docs/05-roadmap.md](../../../docs/05-roadmap.md)의 진도 표는 셋 다 참조하지만 누구도 소유하지 않는 자리다. 각자 고치면 세 번 어긋난다 — 처음 나눠 일할 때 실제로 手筋 숫자가 갈렸다([§36](../../../docs/journal/21-40.md)).
 
-**마지막에 머지되는 갈래가 요약표를 통합해 고친다**고 배정하고, 그 줄을 그 갈래의 `WORKTREE.md`에 적는다. 절 번호 배정은 의미 충돌만 막지 이것을 못 막는다.
+**마지막에 머지되는 갈래가 요약표를 통합해 고친다**고 배정하고, 그 줄을 그 갈래의 `WORKTREE.md`에 적는다. 절 번호 배정은 의미 충돌만 막지 이것을 막지 못한다.
 
 되돌릴 수 없는 마이그레이션(`DROP`·`RENAME`·`NOT NULL` 추가)이 필요한 일은 분담안에 넣지 않는다. db가 공유라 그때 다른 워크트리의 서버가 깨진다 — 혼자 돌려야 하는 일이라고 말한다.
 
@@ -119,19 +119,19 @@ curl -s localhost:$PORT/healthz       # {"db":true,"engine":true,"ok":true}
 
 `healthz`가 셋 다 `true`가 아니면 거기서 멈추고 보고한다:
 
-|                |                                                                                |
-| -------------- | ------------------------------------------------------------------------------ |
-| `engine:false` | 이미지 빌드가 덜 됐다. `docker compose build api` 출력을 본다                  |
-| `db:false`     | 공유 db가 내려갔다. 메인에서 `docker compose up -d db`                         |
-| 포트 안 잡힘   | `../shogi` 컨테이너가 물고 있을 수 있다 — `cd ../shogi && docker compose down` |
+|                  |                                                                                |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `engine:false`   | 이미지 빌드가 덜 됐다. `docker compose build api` 출력을 본다                  |
+| `db:false`       | 공유 db가 내려갔다. 메인에서 `docker compose up -d db`                         |
+| 포트 잡히지 않음 | `../shogi` 컨테이너가 물고 있을 수 있다 — `cd ../shogi && docker compose down` |
 
-마지막으로 브리핑을 남긴다(§5). `git config core.hooksPath .githooks`는 다시 안 해도 된다 — 워크트리는 메인의 `.git/config`를 같이 쓴다.
+마지막으로 브리핑을 남긴다(§5). `git config core.hooksPath .githooks`는 다시 하지 않아도 된다 — 워크트리는 메인의 `.git/config`를 같이 쓴다.
 
 ## 5. `WORKTREE.md`를 남긴다
 
 워크트리 루트에 쓴다. gitignore 대상이라 커밋되지 않는다. 여기서 세션을 여는 사람(또는 Claude)이 제일 먼저 읽는 파일이므로, 세션 하나가 이것만 보고 일을 시작할 수 있어야 한다.
 
-아래 그대로 쓴다. 바깥의 네 겹 울타리는 쓰는 파일에 안 들어간다 — 안쪽 코드블록을 escape하지 않으려고 두른 것뿐이다.
+아래 그대로 쓴다. 바깥의 네 겹 울타리는 쓰는 파일에 들어가지 않는다 — 안쪽 코드블록을 escape하지 않으려고 두른 것뿐이다.
 
 ````markdown
 # <slug>
@@ -179,7 +179,7 @@ PR이 머지된 뒤에. 순서를 지킨다 — 컨테이너를 먼저 내리지
 ```bash
 cd ~/personal/show-gi-<slug>
 docker compose down --remove-orphans
-docker volume rm show-gi-<slug>_show-gi-dbdata   # 안 쓰이지만 선언 때문에 생긴다
+docker volume rm show-gi-<slug>_show-gi-dbdata   # 쓰이지 않지만 선언 때문에 생긴다
 
 cd ~/personal/show-gi
 git worktree remove ~/personal/show-gi-<slug>

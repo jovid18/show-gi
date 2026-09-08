@@ -4,7 +4,7 @@ import type { ApiError } from '@/protocol/review';
 /**
  * 저장한 국면 넷 — 목록·저장·이름 고치기·삭제. 서버는 `explore_snapshots.go` 다.
  *
- * 검토 한 걸음(`exploreSend`)과 따로 둔다. 이쪽은 엔진을 안 타므로 저쪽의 429·503이 없다.
+ * 검토 한 걸음(`exploreSend`)과 따로 둔다. 이쪽은 엔진을 타지 않으므로 저쪽의 429·503이 없다.
  */
 
 /**
@@ -14,7 +14,7 @@ import type { ApiError } from '@/protocol/review';
 export class SignedOutError extends Error {}
 
 /**
- * 기록이 없는 배포다. 저장은 DB에 매여 있어서 검토가 열려 있어도 이 넷만 안 열린다
+ * 기록이 없는 배포다. 저장은 DB에 매여 있어서 검토가 열려 있어도 이 넷만 열리지 않는다
  * (`server.go` 의 `snapshotsUnavailable`).
  *
  * 실패와 따로 둔다. **이 배포에 없는 기능**이라, 붉은 알림과 「もう一度読み込む」를
@@ -24,7 +24,7 @@ export class UnavailableError extends Error {}
 
 const FALLBACK_ERROR = '保存した局面を読み込めませんでした。';
 
-/** 서버가 준 일본어를 그대로 올린다. 못 읽을 때만 우리 문구다 — 문구의 주인은 서버다. */
+/** 서버가 준 일본어를 그대로 올린다. 읽지 못할 때만 우리 문구다 — 문구의 주인은 서버다. */
 async function reject(res: Response, fallback: string): Promise<never> {
   if (res.status === 401) throw new SignedOutError();
   const err = (await res.json().catch(() => null)) as ApiError | null;
@@ -41,7 +41,7 @@ export async function fetchSnapshots(signal: AbortSignal): Promise<ExploreSnapsh
 /**
  * 지금 보고 있는 국면을 남긴다. 이름이 비면 서버가 하나 짓는다.
  *
- * 판을 안 보낸다. 手合割 id 와 수순이고, 합법성은 서버가 되짚어 확인한다 — 화면이
+ * 판을 보내지 않는다. 手合割 id 와 수순이고, 합법성은 서버가 되짚어 확인한다 — 화면이
  * 규칙을 모르는 것은 여기서도 같다.
  */
 export async function saveSnapshot(name: string, handicap: string, moves: readonly string[]): Promise<ExploreSnapshot> {

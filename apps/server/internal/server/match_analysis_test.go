@@ -146,7 +146,7 @@ func TestSkillFromAMatchGoesToWhoPlayedTheMove(t *testing.T) {
 		got[seat.color] = skillEstimateOf(e)
 	}
 
-	// 밴드 축도 갈린다. 段級과 다른 자이지만 같은 手에서 나오므로 방향은 같아야 한다.
+	// 밴드 쪽도 갈린다. 段級과 다른 자이지만 같은 手에서 나오므로 방향은 같아야 한다.
 	if got[shogi.Black].Loss >= got[shogi.White].Loss {
 		t.Errorf("Loss 가 안 갈렸다: 先手 %v · 後手 %v", got[shogi.Black].Loss, got[shogi.White].Loss)
 	}

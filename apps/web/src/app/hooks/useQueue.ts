@@ -21,14 +21,14 @@ export interface QueueState {
 /**
  * 대기열에 서서 짝이 잡히기를 기다린다.
  *
- * 폴링이다. WebSocket 이 아닌 이유는 기다리는 동안 서버가 할 말이 없기 때문이다 —
+ * 폴링이다. WebSocket 이 아닌 것은 기다리는 동안 서버가 할 말이 없기 때문이다 —
  * 짝은 상대가 대기열에 서는 순간 생기고, 그것을 아는 것은 그 사람의 요청이다.
  *
  * 같은 호출 하나가 대기열에 서기·heartbeat·짝짓기를 다 한다(`pollQueue`). 그래서 이 훅이
  * 하는 일은 그것을 주기적으로 부르고, 짝이 잡히면 `onMatched` 를 부르는 것뿐이다.
  *
- * 멈추는 것을 서버에 알린다. 안 알려도 만료가 걷어가지만, 그동안 상대에게는 내가 대기열에
- * 있는 것으로 보이고 그 사이 잡힌 짝은 누구도 안 오는 방이 된다.
+ * 멈추는 것을 서버에 알린다. 알리지 않아도 만료가 걷어가지만, 그동안 상대에게는 내가 대기열에
+ * 있는 것으로 보이고 그 사이 잡힌 짝은 누구도 오지 않는 방이 된다.
  */
 export function useQueue(onMatched: (roomId: string) => void): QueueState {
   const [searching, setSearching] = useState(false);
@@ -37,7 +37,7 @@ export function useQueue(onMatched: (roomId: string) => void): QueueState {
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * 지금 화면이 짝을 받을 자리인가. 콜백을 ref 로 들고 있는 이유는 폴링을 그것 때문에
+   * 지금 화면이 짝을 받을 자리인가. 콜백을 ref 에 담아 두는 것은 폴링을 그것 때문에
    * 다시 걸지 않기 위해서다 — 부모가 매번 새 함수를 넘기면 대기열에서 나갔다 다시 서게 된다.
    */
   const matched = useRef(onMatched);
@@ -83,8 +83,8 @@ export function useQueue(onMatched: (roomId: string) => void): QueueState {
     };
   }, [searching]);
 
-  // 탭을 닫는 것도 대기열에서 나가는 것이다. 언마운트 정리로는 안 잡힌다 — 창을 닫으면
-  // React 가 정리를 안 부른다.
+  // 탭을 닫는 것도 대기열에서 나가는 것이다. 언마운트 정리로는 잡히지 않는다 — 창을 닫으면
+  // React 가 정리를 부르지 않는다.
   useEffect(() => {
     if (!searching) return;
     const bye = (): void => void leaveQueue();
@@ -95,7 +95,7 @@ export function useQueue(onMatched: (roomId: string) => void): QueueState {
   /**
    * 화면이 사라지는 것도 대기열에서 나가는 것이다. 대국이 시작되면 이 화면이 내려가는데
    * (`GameScreen`), 그때 대기열에 남아 있으면 만료까지의 몇 초 사이에 짝이 잡힐 수 있다 —
-   * 그 방은 누구도 안 들어가고 상대는 60초를 기다린다.
+   * 그 방은 누구도 들어가지 않고 상대는 60초를 기다린다.
    *
    * 값을 ref 로 본다. 의존성에 `searching` 을 넣으면 이 정리가 대기열에 설 때마다 돌아서
    * 방금 대기열에 선 것을 그 자리에서 취소한다.

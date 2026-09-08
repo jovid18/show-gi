@@ -26,15 +26,15 @@ import (
 // 한정되므로 감당할 만큼 짧다.
 const SessionTTL = 30 * 24 * time.Hour
 
-// ErrNoSession 은 쿠키가 없거나, 서명이 안 맞거나, 만료됐을 때다.
+// ErrNoSession 은 쿠키가 없거나, 서명이 맞지 않거나, 만료됐을 때다.
 //
-// 셋을 구별해서 돌려주지 않는다. 부르는 쪽이 할 일이 어느 경우든 「로그인 안 한
+// 셋을 구별해서 돌려주지 않는다. 부르는 쪽이 할 일이 어느 경우든 「로그인하지 않은
 // 사람」으로 같고, 구별해서 화면에 말하면 서명 위조를 시도하는 쪽에 힌트가 된다.
 var ErrNoSession = errors.New("auth: no valid session")
 
 // Session 은 쿠키에 담기는 내용이다.
 //
-// 이름을 같이 담는 이유는 화면 한 줄 때문에 매 요청이 users 를 읽지 않게 하려는
+// 이름을 같이 담는 것은 화면 한 줄 때문에 매 요청이 users 를 읽지 않게 하려는
 // 것이다. 서명돼 있으므로 위조되지 않고, 낡을 수 있는 것은 사용자가 Google 쪽에서
 // 이름을 바꿨을 때뿐인데 그때는 다음 로그인에 따라온다.
 type Session struct {
@@ -70,7 +70,7 @@ func (c *Codec) Encode(userID int64, name string, now time.Time) (string, error)
 	return payload + "." + c.sign(payload), nil
 }
 
-// Decode 는 쿠키 값을 되읽는다. 서명이 안 맞거나 만료됐으면 ErrNoSession 이다.
+// Decode 는 쿠키 값을 되읽는다. 서명이 맞지 않거나 만료됐으면 ErrNoSession 이다.
 func (c *Codec) Decode(value string, now time.Time) (Session, error) {
 	payload, sig, ok := cut(value)
 	if !ok {

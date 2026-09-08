@@ -61,7 +61,7 @@ func newTestTable(t *testing.T, limit time.Duration) (*Table, *fakeRecorder, *fa
 	return table, black, white
 }
 
-// 수번이 아닌 쪽은 못 둔다. 어느 쪽인지를 클라이언트가 안 보내므로 이건 서버가 자리에서
+// 수번이 아닌 쪽은 둘 수 없다. 어느 쪽인지를 클라이언트가 보내지 않으므로 이건 서버가 자리에서
 // 정한 쪽 하나로 갈린다(Hub.Enter).
 func TestOnlyTheSideToMoveCanPlay(t *testing.T) {
 	table, _, _ := newTestTable(t, time.Minute)
@@ -78,7 +78,7 @@ func TestOnlyTheSideToMoveCanPlay(t *testing.T) {
 	}
 }
 
-// 상대 차례에는 합법수 목록을 안 준다. 주면 그 사람이 상대의 수를 화면에서 훑어볼 수
+// 상대 차례에는 합법수 목록을 주지 않는다. 주면 그 사람이 상대의 수를 화면에서 훑어볼 수
 // 있고, 대인전에서 그건 그냥 부정행위 보조다.
 func TestLegalMovesGoOnlyToTheSideToMove(t *testing.T) {
 	table, _, _ := newTestTable(t, time.Minute)
@@ -192,7 +192,7 @@ func TestBothRecordsGetEveryMove(t *testing.T) {
 func TestRunningOutOfTimeLosesTheGame(t *testing.T) {
 	table, black, white := newTestTable(t, 250*time.Millisecond)
 
-	// 한 수는 둬야 판이 있었던 것이다. 0手 판은 승패를 안 만든다(아래 테스트).
+	// 한 수는 둬야 판이 있었던 것이다. 0手 판은 승패를 만들지 않는다(아래 테스트).
 	if _, err := table.Play(context.Background(), shogi.Black, "7g7f"); err != nil {
 		t.Fatalf("play: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestRunningOutOfTimeLosesTheGame(t *testing.T) {
 		t.Fatal("the table never finished after the turn limit")
 	}
 
-	// 後手가 응수를 안 했으므로 後手의 시간패다.
+	// 後手가 응수를 하지 않았으므로 後手의 시간패다.
 	_, bResult := black.snapshot()
 	_, wResult := white.snapshot()
 	if bResult != ResultWin || wResult != ResultLoss {
@@ -213,7 +213,7 @@ func TestRunningOutOfTimeLosesTheGame(t *testing.T) {
 	}
 }
 
-// 한 수도 안 둔 채 시간이 다 되면 승패가 없다(journal §83).
+// 한 수도 두지 않은 채 시간이 다 되면 승패가 없다(journal §83).
 func TestATimeoutWithNoMovesIsNotALoss(t *testing.T) {
 	table, black, white := newTestTable(t, 60*time.Millisecond)
 
@@ -234,7 +234,7 @@ func TestATimeoutWithNoMovesIsNotALoss(t *testing.T) {
 		t.Fatalf("snapshot: %v", err)
 	}
 	// aborted 대신 expired 다. 화면이 할 말이 정반대라 따로 뒀다 —
-	// 저쪽은 「서버 사정」이고 이쪽은 「누구도 안 뒀다」다.
+	// 저쪽은 「서버 사정」이고 이쪽은 「누구도 두지 않았다」다.
 	if snap.Status != StatusExpired || snap.Winner != "" {
 		t.Fatalf("the screen sees %s/%q, want expired with no winner", snap.Status, snap.Winner)
 	}

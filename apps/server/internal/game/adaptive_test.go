@@ -59,7 +59,7 @@ func TestAdaptivePicksTheBandNotTheBest(t *testing.T) {
 //
 // 후보가 전부 밴드 위(플레이어가 이미 크게 유리)라 절대 좌표가 뜻을 잃는 자리다. 여기서
 // 거리를 최소화하면 「+300으로 되돌려라」가 되어 최선수가 뽑히고, 조절이 가장 필요한
-// 자리에서 조절이 꺼진다. 한 판이 298手가 되고 사람이 못 끝낸다(journal §55).
+// 자리에서 조절이 꺼진다. 한 판이 298手가 되고 사람이 끝내지 못한다(journal §55).
 func TestAdaptiveKeepsConcedingWhenAlreadyLost(t *testing.T) {
 	got := chooseFrom(t, "7g7f",
 		line("7g7f", -1500), // 플레이어 +1500 — 상대의 최선수
@@ -140,7 +140,7 @@ func TestAdaptiveEasesOffWhenWinning(t *testing.T) {
 	}
 }
 
-// 「던지지 않는다」 — 밴드에 아무리 잘 맞아도 駒를 그냥 주는 수는 안 고른다.
+// 「던지지 않는다」 — 밴드에 아무리 잘 맞아도 駒를 그냥 주는 수는 고르지 않는다.
 //
 // 이 필터는 엔진이 필요 없다. 룰 엔진만으로 된다.
 func TestAdaptiveNeverThrowsAPiece(t *testing.T) {
@@ -178,7 +178,7 @@ func TestAdaptiveFallsBackToBest(t *testing.T) {
 		t.Errorf("후보가 없으면 최선수다: %q", got)
 	}
 
-	// 판을 못 읽어도 마찬가지다
+	// 판을 읽지 못해도 마찬가지다
 	s := &stubMulti{res: usi.SearchResult{Best: "7g7f", Lines: []usi.SearchLine{line("2g2f", -200)}}}
 	o := NewAdaptiveOpponent(s, 12, DefaultBand)
 	if got, err := o.Choose(t.Context(), "not a sfen", nil, skill.Unknown); err != nil || got != "7g7f" {
@@ -286,7 +286,7 @@ func TestBandFollowsHowMuchThePlayerIsStruggling(t *testing.T) {
 	}
 }
 
-// 표본이 모자라면 안 움직인다. 첫 수 몇 개로 강함이 흔들리면 사람이 알아차리기 전에
+// 표본이 모자라면 움직이지 않는다. 첫 수 몇 개로 강함이 흔들리면 사람이 알아차리기 전에
 // 상대가 딴사람이 된다.
 func TestBandHoldsUntilEnoughMoves(t *testing.T) {
 	early := skill.Estimate{Loss: 1, Samples: skill.MinSamples - 1}
@@ -295,10 +295,10 @@ func TestBandHoldsUntilEnoughMoves(t *testing.T) {
 	}
 }
 
-// 양보는 밴드까지다. 아무리 헤매도 駒를 그냥 주는 수는 안 고른다 — 화면이
+// 양보는 밴드까지다. 아무리 헤매도 駒를 그냥 주는 수는 고르지 않는다 — 화면이
 // 「取り返せない場所」라고 가르친 수를 상대가 두면 방금 배운 것이 깨진다(§16).
 func TestEasingOffNeverThrowsAPiece(t *testing.T) {
-	// ▲7六歩 뒤 後手 차례. △8八角成은 角을 그냥 준다 — 밴드가 어디로 가든 후보에 안 든다.
+	// ▲7六歩 뒤 後手 차례. △8八角成은 角을 그냥 준다 — 밴드가 어디로 가든 후보에 들지 않는다.
 	s := &stubMulti{res: usi.SearchResult{
 		Best: "3c3d",
 		Lines: []usi.SearchLine{
@@ -338,7 +338,7 @@ func TestStrengthStepTracksTheShift(t *testing.T) {
 
 // TestBandFollowsTheHandicapOrigin 은 핸디캡을 흘린 사람에게 상대가 되돌려 주는지를 본다.
 //
-// 二枚落ち(+1386)에서 사람이 +500까지 흘린 자리다. 기준점을 안 옮기면 이 국면이 「구간 위」로
+// 二枚落ち(+1386)에서 사람이 +500까지 흘린 자리다. 기준점을 옮기지 않으면 이 국면이 「구간 위」로
 // 읽혀서(500 > 300) 상대가 「지금 형세에서 100~300 더」만 겨냥하고, 그 좌표에서는 상대의
 // 최선수가 그대로 뽑힌다 — 조절이 가장 필요한 자리에서 꺼지는 것이다(Choose).
 func TestBandFollowsTheHandicapOrigin(t *testing.T) {

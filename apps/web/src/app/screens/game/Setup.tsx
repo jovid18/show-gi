@@ -20,7 +20,7 @@ import { Search } from '@/screens/match/Search';
  * 무엇을 하나다. 난이도 눈금은 여기 없다. 그건 두는 동안 상대가 스스로 맞춘다(journal §47).
  *
  * 手合割이 맨 위이고, 고르면 아래 둘이 사라진다. 駒落ち는 사람이 下手로 정해져 있고
- * (그래서 먼저 두는 쪽은 접어 준 上手다, journal §88) 진형은 平手 수순이라 같이 못 쓴다 —
+ * (그래서 먼저 두는 쪽은 접어 준 上手다, journal §88) 진형은 平手 수순이라 같이 쓸 수 없다 —
  * 서버도 같은 순서로 덮으므로(`newSetup`) 화면은 그 규칙을 되비추기만 한다.
  */
 
@@ -49,7 +49,7 @@ export function Setup({ initial, onStart }: SetupProps) {
   const [handicap, setHandicap] = useState<string | null>(initial?.handicap ?? null);
   const [handicaps, setHandicaps] = useState<Handicap[]>([]);
 
-  // 목록을 못 받아도 화면은 뜬다 — 「おまかせ」와 「平手」 하나로 대국은 시작할 수 있다
+  // 목록을 받지 못해도 화면은 뜬다 — 「おまかせ」와 「平手」 하나로 대국은 시작할 수 있다
   // (fetchOpenings · fetchHandicaps).
   useEffect(() => {
     const ac = new AbortController();
@@ -97,7 +97,7 @@ export function Setup({ initial, onStart }: SetupProps) {
         </div>
 
         {handicap !== null && (
-          /* 아래 둘이 사라지는 이유를 화면이 먼저 말한다. 안 적어 두면 방금 고른
+          /* 아래 둘이 사라지는 이유를 화면이 먼저 말한다. 적어 두지 않으면 방금 고른
              手番이 없어진 것이 고장으로 읽힌다. */
           <p className="setup__caveat">
             駒落ちでは、あなたが下手です。駒を落とした上手（相手）から先に指すので、最初の一手は相手が指します。戦型は選べません。
@@ -127,7 +127,7 @@ export function Setup({ initial, onStart }: SetupProps) {
         対局をはじめる
       </button>
 
-      {/* 상대가 사람인 갈래는 여기서 갈린다. 위에서 고른 것을 하나도 안 쓴다 —
+      {/* 상대가 사람인 갈래는 여기서 갈린다. 위에서 고른 것을 하나도 쓰지 않는다 —
           手番은 振り駒가 붙어 저쪽이 따로 고르고(FriendMatch), 手合割과 戦型은 컴퓨터에게
           시키는 것이라 사람 상대에게는 뜻이 없다. */}
       <FriendMatch />
@@ -137,8 +137,8 @@ export function Setup({ initial, onStart }: SetupProps) {
           상대가 있는 사람에게는 그것이 확실하기 때문이다. */}
       <Search />
 
-      {/* 홈 메뉴에서 안 누른 사람이 다시 만나는 자리는 여기 하나다. 시작 버튼
-          아래에 두는 것이 요점 — 위에 두면 두러 온 사람을 먼저 붙잡는다.
+      {/* 홈 메뉴에서 누르지 않은 사람이 다시 만나는 자리는 여기 하나다. 시작 버튼
+          아래에 둔다 — 위에 두면 두러 온 사람을 먼저 붙잡는다.
 
           같은 탭에서 연다(journal §86). 여기서 고르던 手番·戦型은 되돌아오면 초기값으로
           돌아가는데, 아직 판이 열리기 전이라 잃는 것이 그것뿐이다. */}
@@ -160,7 +160,7 @@ export function Setup({ initial, onStart }: SetupProps) {
 /**
  * 平手에서만 고르는 둘 — 手番과 상대의 진형.
  *
- * 한 덩이로 따로 둔다. 駒落ち에서 둘이 같이 사라지고 이유도 하나라서, 조건을 두 군데
+ * 한 덩이로 따로 둔다. 駒落ち에서 둘이 같이 사라지고 조건도 하나라서, 조건을 두 군데
  * 두면 나중에 한쪽만 남는다(Setup 의 doc).
  */
 function HirateChoices({
@@ -233,7 +233,7 @@ function HirateChoices({
       </fieldset>
 
       <p className="setup__caveat">
-        {/* 진형은 초반뿐이라고 화면이 먼저 말한다. 안 적어 두면 상대가 진형을 벗어나는
+        {/* 진형은 초반뿐이라고 화면이 먼저 말한다. 적어 두지 않으면 상대가 진형을 벗어나는
             순간이 고장으로 읽힌다 — 손을 놓는 조건은 book_opponent.go 에 있다. */}
         戦型を選ぶと、相手は序盤だけその形に組みます。駒がぶつかってからは自分で考えます。
       </p>
@@ -247,8 +247,8 @@ function HirateChoices({
  * 로그인해야 열린다. 익명은 서로 구별할 수단이 없어서 「이 방의 상대가 아까 그
  * 사람인가」에 답할 수 없고, 그러면 정원 2명이라는 규칙이 성립하지 않는다.
  *
- * 눌러도 안 되는 버튼을 안 띄운다 — 로그인 안 한 사람에게는 이유를 적은 줄이 뜬다
- * (홈 메뉴가 マイページ·検討 을 감추는 것과 같은 규칙, journal §76).
+ * 눌러도 아무 일도 일어나지 않는 버튼을 띄우지 않는다 — 로그인하지 않은 사람에게는
+ * 이유를 적은 줄이 뜬다(홈 메뉴가 マイページ·検討 을 감추는 것과 같은 규칙, journal §76).
  *
  * 手番을 위 화면과 따로 고른다. 저쪽은 엔진 상대의 설정이고 여기는 사람 상대라
  * 振り駒가 붙는다 — 같은 값을 쓰면 그 선택지가 엔진 대국으로도 새어 나간다.
@@ -259,7 +259,7 @@ function FriendMatch() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 로그인이라는 것이 이 배포에 없으면 자리를 아예 안 그린다 — 있는데 못 쓰는 것과
+  // 로그인이라는 것이 이 배포에 없으면 자리를 아예 그리지 않는다 — 있는데 쓸 수 없는 것과
   // 없는 것은 다르고, 후자에 안내문을 띄우면 없는 기능을 말하게 된다.
   if (!me.enabled) return null;
 
@@ -304,7 +304,7 @@ function FriendMatch() {
               const ac = new AbortController();
               // 성공해도 되돌린다. 이 화면은 방으로 옮겨 가도 언마운트되지 않는다 —
               // `App` 이 `hidden` 으로만 감추므로(대국을 두는 중에 탭을 옮겨도 판이 살아
-              // 있어야 한다), 여기서 안 되돌리면 돌아왔을 때 버튼이 영영 눌리지 않는다.
+              // 있어야 한다), 여기서 되돌리지 않으면 돌아왔을 때 버튼이 영영 눌리지 않는다.
               void createRoom(seat, ac.signal)
                 .then((room) => navigate({ name: 'room', id: room.id }))
                 .catch((e: Error) => setError(e.message))

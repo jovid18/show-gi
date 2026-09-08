@@ -1,10 +1,10 @@
 // Package kifunorm 은 읽을 수 없는 형식의 기보 텍스트를 결정적 파서가 읽는 표기로 옮긴다.
 //
-// 여기는 글자만 만진다. 목적지도 출발칸도 성/불성도 정하지 않고, 합법수인지도 안 본다 —
+// 여기는 글자만 만진다. 목적지도 출발칸도 성/불성도 정하지 않고, 합법수인지도 보지 않는다 —
 // 그 전부를 룰 엔진이 뒤에서 다시 하므로(shogi.ValidateMove) 이 출력에 믿는 부분이 없다.
 //
-// 경계와 그 근거는 CLAUDE.md 와 journal §126 에 있다: 좌표를 안 시키고, 판을 프롬프트에
-// 안 넣고, 결정적 파서가 전부 실패한 자리에서만 돈다(kifu.Read).
+// 경계와 그 근거는 CLAUDE.md 와 journal §126 에 있다: 좌표를 시키지 않고, 판을 프롬프트에
+// 넣지 않고, 결정적 파서가 전부 실패한 자리에서만 돈다(kifu.Read).
 //
 // 키가 없으면 이 계층만 꺼진다. 결정적 파서로 읽히는 기보는 그대로 들어온다.
 package kifunorm
@@ -27,11 +27,11 @@ const MaxInput = 64 << 10
 // MaxMoves 는 받아들이는 手数의 상한이다. 넘으면 거절한다 — 사람이 둔 한 판을 벗어난 手数다.
 const MaxMoves = 512
 
-// DefaultModel 은 값이 안 주어졌을 때의 모델이다. 하는 일이 글자 옮기기라 mini 로 충분하다.
+// DefaultModel 은 값이 주어지지 않았을 때의 모델이다. 하는 일이 글자 옮기기라 mini 로 충분하다.
 const DefaultModel = "gpt-5.4-mini"
 
 // defaultTimeout 은 한 번의 호출에 주는 시한이다. 넘으면 그 임포트는 거절이다 —
-// 사람이 미리보기 화면 앞에서 기다리는 자리라 길게 못 잡는다.
+// 사람이 미리보기 화면 앞에서 기다리는 자리라 길게 잡을 수 없다.
 const defaultTimeout = 30 * time.Second
 
 const endpoint = "https://api.openai.com/v1/responses"
@@ -43,7 +43,7 @@ var ErrDisabled = errors.New("kifunorm: no api key")
 var ErrTooLarge = errors.New("kifunorm: input too large")
 
 // Client 는 정규화 창구다. 키가 없으면 New 가 nil 을 주고, nil 에 Normalize 를 불러도
-// 안전하게 ErrDisabled 다 — 부르는 쪽이 nil 검사를 안 흘리게 하는 자리다.
+// 안전하게 ErrDisabled 다 — 부르는 쪽이 nil 검사를 흘리지 않게 하는 자리다.
 type Client struct {
 	key   string
 	model string

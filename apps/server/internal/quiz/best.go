@@ -59,7 +59,7 @@ func (b *Builder) bestItems(
 	}
 
 	// gap이 큰 순이다(문항이 뽑힌 기준이 그것이다). 동률이면 手数가 이른 쪽 —
-	// map도 엔진 순서도 안 섞이게 두 축으로 완전히 정한다.
+	// map도 엔진 순서도 섞이지 않게 두 기준으로 완전히 정한다.
 	sort.SliceStable(items, func(i, j int) bool {
 		if gi, gj := items[i].Gap(), items[j].Gap(); gi != gj {
 			return gi > gj
@@ -72,12 +72,12 @@ func (b *Builder) bestItems(
 	return items, answered
 }
 
-// candidates 는 사람이 둔 수마다의 낙폭을 기록에서 세어 큰 순으로 준다. 엔진을 안 부른다.
+// candidates 는 사람이 둔 수마다의 낙폭을 기록에서 세어 큰 순으로 준다. 엔진을 부르지 않는다.
 //
 // skip 은 詰み 문항이 쓰는 手数다(없으면 -1). 그 하나만 뺀다.
 func (b *Builder) candidates(in Input, posAt []shogi.Position, skip int) []candidate {
 	var out []candidate
-	// i=0(첫 수)은 앞의 평가치가 없어서 낙폭을 못 센다. 그 자리는 정석 구간이기도 하다.
+	// i=0(첫 수)은 앞의 평가치가 없어서 낙폭을 셀 수 없다. 그 자리는 정석 구간이기도 하다.
 	start := max(in.OpeningPlies, 1)
 
 	// len(posAt)-1 이다. replay 가 읽을 수 없는 수에서 멈추므로(build.go) 마지막
@@ -96,10 +96,10 @@ func (b *Builder) candidates(in Input, posAt []shogi.Position, skip int) []candi
 		if !ok {
 			continue
 		}
-		// 낙폭을 승률로 잰다. 개입 판정과 같은 축이다 — cp 뺄셈으로 두면 詰み이 섞인
-		// 자리에서 자가 없어지고, 축을 하나 더 만들면 「크게 흘린 자리」의 뜻이 두 벌이 된다.
+		// 낙폭을 승률로 잰다. 개입 판정과 같은 기준이다 — cp 뺄셈으로 두면 詰み이 섞인
+		// 자리에서 자가 없어지고, 기준을 하나 더 만들면 「크게 흘린 자리」의 뜻이 두 벌이 된다.
 		//
-		// 기준점을 뺀다. 승률은 포화하므로 뺄셈과 달리 기준점이 두 항에서 안 지워진다
+		// 기준점을 뺀다. 승률은 포화하므로 뺄셈과 달리 기준점이 두 항에서 지워지지 않는다
 		// (Input.BaselineCp).
 		base := in.PlayerBaselineCp()
 		out = append(out, candidate{
@@ -119,12 +119,12 @@ func (b *Builder) candidates(in Input, posAt []shogi.Position, skip int) []candi
 
 // score 는 한 국면의 1위·2위를 재서 문항을 만든다.
 //
-// ok=false 는 「문항이 안 된다」이고, failed=true 는 못 쟀다이다. 따로 두는 이유는
-// 조건에 안 맞는 것은 흔한 결과이고 못 잰 것은 회차가 온전하지 않다는 뜻이라서다(Build).
+// ok=false 는 「문항이 안 된다」이고, failed=true 는 「재지 못했다」다. 따로 두는 것은
+// 조건에 맞지 않는 것이 흔한 결과이고 재지 못한 것은 그 생성이 온전하지 않다는 뜻이라서다(Build).
 func (b *Builder) score(ctx context.Context, in Input, pos shogi.Position, i int) (item BestItem, ok, failed bool) {
 	res, err := b.search.SearchMultiPV(ctx, pos.SFEN(), nil, b.depth, BestMultiPV)
 	if err != nil {
-		// 한 국면을 못 쟀다고 나머지를 버리지 않는다. 문항이 하나 줄어들 뿐이다.
+		// 한 국면을 재지 못했다고 나머지를 버리지 않는다. 문항이 하나 줄어들 뿐이다.
 		log.Printf("quiz: best item at ply %d: %v", i, err)
 		return BestItem{}, false, true
 	}
@@ -154,7 +154,7 @@ func (b *Builder) score(ctx context.Context, in Input, pos shogi.Position, i int
 	// 정답을 정본 표기로 적어 둔다. top.Move 는 엔진이 낸 문자열이고 채점 때 오는 수는
 	// 룰 엔진이 만든 것이라(LegalMovesAt) 두 쪽이 서로 맞춰진 적이 없다 — 지금은 파서가
 	// 정본만 받아 같지만(shogi.ParseUSIMove) 그 성질에 정답 판정을 매어 두지 않는다.
-	// 못 읽는 수라면 표기도 채점도 성립하지 않으므로 문항으로 안 만든다.
+	// 읽을 수 없는 수라면 표기도 채점도 성립하지 않으므로 문항으로 만들지 않는다.
 	answer, err2 := shogi.ParseUSIMove(top.Move)
 	if err2 != nil {
 		log.Printf("quiz: best item at ply %d: engine gave an unreadable move %q", i, top.Move)
@@ -173,14 +173,14 @@ func (b *Builder) score(ctx context.Context, in Input, pos shogi.Position, i int
 	}, true, false
 }
 
-// lineAfter 는 1위 수순에서 정답 뒤만 잘라 돌려준다. 추가 탐색이 0인 이유가 여기다 —
+// lineAfter 는 1위 수순에서 정답 뒤만 잘라 돌려준다. 추가 탐색이 0인 자리가 여기다 —
 // gap을 재면서 이미 받아 둔 PV다.
 //
 // 두어 보면서 자른다. 엔진 PV의 꼬리는 치환표에서 온 것이라 이 국면에서 성립하지 않는
-// 수가 섞여 들어올 수 있고, 그대로 저장하면 채점 뒤에 못 두는 수순이 화면에 나간다.
+// 수가 섞여 들어올 수 있고, 그대로 저장하면 채점 뒤에 둘 수 없는 수순이 화면에 나간다.
 // 처음 막히는 자리에서 끊고 거기까지만 남긴다 — 짧아지는 것은 괜찮고 틀린 것은 안 된다.
 //
-// 정본 표기로 다시 적는 것은 Answer 와 같은 이유다(위) — 화면이 이 값으로 판을 그린다.
+// 정본 표기로 다시 적는 것은 Answer 와 같다(위) — 화면이 이 값으로 판을 그린다.
 func lineAfter(pos shogi.Position, pv []string) []string {
 	if len(pv) < 2 {
 		return nil

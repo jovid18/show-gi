@@ -50,7 +50,7 @@ func TestUnknownStandingKeepsTheOldSentence(t *testing.T) {
 	}
 }
 
-// 이기고 이긴 판은 안 건드린다. 규칙이 결과와 형세의 조합에 걸린다는 것을 확인한다.
+// 이기고 이긴 판은 건드리지 않는다. 규칙이 결과와 형세의 조합에 걸린다는 것을 확인한다.
 func TestWinningWhileAheadIsUntouched(t *testing.T) {
 	f := GameFacts{Outcome: OutcomeWon, Standing: StandingAhead}
 	if got := RenderSummary(f); !strings.HasPrefix(got, "勝ちました。") {

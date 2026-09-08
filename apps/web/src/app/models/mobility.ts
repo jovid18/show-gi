@@ -18,7 +18,7 @@ export type Direction = GridDirection | JumpDirection;
 
 /**
  * 표식 하나. 뜀을 따로 가르는 것은 뜻이 다르기 때문이다 — 점은 「그 칸」이라 두 칸 앞을
- * 못 가리키고, 화살표는 「지나간다」라서 桂가 하지 않는 일을 가르친다. 표식의 종류가 곧
+ * 가리킬 수 없고, 화살표는 「지나간다」라서 桂가 하지 않는 일을 가르친다. 표식의 종류가 곧
  * 규칙이라 세 번째가 필요하다.
  */
 export type Mark = { reach: 'step' | 'slide'; direction: GridDirection } | { reach: 'jump'; direction: JumpDirection };

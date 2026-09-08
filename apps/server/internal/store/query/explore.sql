@@ -2,14 +2,14 @@
 
 -- name: CreateExploreSnapshot :one
 --
--- 개수를 안 막는다. 근거는 journal §96.
+-- 개수를 막지 않는다. 근거는 journal §96.
 INSERT INTO explore_snapshots (user_id, name, handicap, moves)
 VALUES ($1, $2, $3, $4)
 RETURNING id, created_at;
 
 -- name: ListExploreSnapshots :many
 --
--- 주인을 = 로 받는다. 익명(user_id NULL)이 애초에 안 걸린다.
+-- 주인을 = 로 받는다. 익명(user_id NULL)이 애초에 걸리지 않는다.
 --
 -- LIMIT 이 없다. 개수 상한이 없으므로 여기서 자르면 지울 수 없는 행이 생긴다(journal §96).
 SELECT id, name, handicap, moves, created_at

@@ -234,7 +234,7 @@ func TestGradeBest(t *testing.T) {
 		t.Errorf("a legal wrong move graded as (%v, %v), want (false, nil)", ok, err)
 	}
 
-	// 불법수는 오답 대신 요청 오류로 답한다. 뭉치면 프론트 버그가 오답으로 위장해 안 보인다.
+	// 불법수는 오답 대신 요청 오류로 답한다. 뭉치면 프론트 버그가 오답으로 위장해 보이지 않는다.
 	// 1a1b 는 後手의 香을 움직이는 수라 先手 차례에 불법이다.
 	if _, err := GradeBest(item, "1a1b"); err == nil {
 		t.Error("an illegal move graded as an answer")
@@ -268,10 +268,10 @@ func (f *flakySearch) SearchMultiPV(
 	return f.fakeSearch.SearchMultiPV(ctx, startSFEN, moves, depth, k)
 }
 
-// 못 잰 후보가 있어도 잰 것은 그대로 참이다.
+// 재지 못한 후보가 있어도 잰 것은 그대로 참이다.
 //
-// 두 사실을 한 깃발로 묶어 전부 버리면, 후보 하나를 못 잰 것이 멀쩡한 문항을 지운다 —
-// 생성이 판이 끝날 때 한 번뿐이라 그 판은 영영 문항을 못 갖는다(server/ws.go generateQuiz).
+// 두 사실을 한 깃발로 묶어 전부 버리면, 후보 하나를 재지 못한 것이 멀쩡한 문항을 지운다 —
+// 생성이 판이 끝날 때 한 번뿐이라 그 판은 영영 문항을 갖지 못한다(server/ws.go generateQuiz).
 func TestBestItemsSurviveAFailureElsewhere(t *testing.T) {
 	in := gameInput()
 	posAt := positions(t, in)
@@ -284,7 +284,7 @@ func TestBestItemsSurviveAFailureElsewhere(t *testing.T) {
 	}
 	items, measured := build(fs, in)
 
-	// 한 자리를 못 본 것과 「아무것도 못 봤다」는 다르다. 나머지를 봤으므로 「문항이
+	// 한 자리를 보지 못한 것과 「아무것도 보지 못했다」는 다르다. 나머지를 봤으므로 「문항이
 	// 없다」도 결론으로 성립하고, 부르는 쪽은 그 결론을 남길 수 있어야 한다.
 	if !measured {
 		t.Error("measured = false, but the other candidates were answered")
@@ -365,8 +365,8 @@ func TestLineIsCapped(t *testing.T) {
 	}
 }
 
-// 두어 보면서 자른다. 엔진 PV의 꼬리에 이 국면에서 못 두는 수가 섞여 오는 일이 있고,
-// 그대로 저장하면 채점 뒤에 못 두는 수순이 화면에 나간다.
+// 두어 보면서 자른다. 엔진 PV의 꼬리에 이 국면에서 둘 수 없는 수가 섞여 오는 일이 있고,
+// 그대로 저장하면 채점 뒤에 둘 수 없는 수순이 화면에 나간다.
 func TestLineStopsAtTheFirstIllegalMove(t *testing.T) {
 	pos := shogi.StartPosition()
 	got := lineAfter(pos, []string{"7g7f", "3c3d", "9i9b", "1a1b"})
@@ -387,7 +387,7 @@ func TestNoLineWhenThePvIsJustTheAnswer(t *testing.T) {
 	}
 }
 
-// 정답 자신을 못 두면 뒤도 없다 — 그 PV는 다른 국면에서 온 것이다.
+// 정답 자신을 두지 못하면 뒤도 없다 — 그 PV는 다른 국면에서 온 것이다.
 func TestNoLineWhenTheAnswerItselfIsIllegal(t *testing.T) {
 	pos := shogi.StartPosition()
 	if got := lineAfter(pos, []string{"9i9b", "3c3d"}); got != nil {

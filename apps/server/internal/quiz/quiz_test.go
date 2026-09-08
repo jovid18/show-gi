@@ -10,7 +10,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// mate1SFEN 은 先手의 1手詰め이다. G*5b 로 詰む — 玉은 4a·6a로 못 가고(5b의 金이 짚는다)
+// mate1SFEN 은 先手의 1手詰め이다. G*5b 로 詰む — 玉은 4a·6a로 가지 못하고(5b의 金이 짚는다)
 // 5b의 金은 4c·6c의 金이 받친다.
 //
 // 玉이 아직 王手를 받고 있지 않은 국면이라야 한다. 4c·6c에 둔 것이 그래서다 —
@@ -111,7 +111,7 @@ func TestMateItemFindsMateInOne(t *testing.T) {
 	fm := &fakeMate{limit: 7}
 	b := NewBuilder(fm, nil, 12)
 
-	// 판이 그 국면에서 시작해 아직 한 수도 안 두어진 모양으로 넣는다.
+	// 판이 그 국면에서 시작해 아직 한 수도 두어지지 않은 모양으로 넣는다.
 	in := Input{StartSFEN: mate1SFEN, Human: shogi.Black}
 	q, measured := b.Build(context.Background(), in)
 	if !measured {
@@ -288,13 +288,13 @@ func TestGradeMateRejectsAnIllegalMove(t *testing.T) {
 
 // mate3SFEN 은 先手의 3手詰め이다 — G*5b △同金 ▲同金.
 //
-// 1手로는 안 되는 이유가 後手 金 하나다(6b). 5b에 놓은 金을 그 金이 딸 수 있어서 한 번에
+// 1手로는 되지 않는 것이 後手 金 하나 때문이다(6b). 5b에 놓은 金을 그 金이 딸 수 있어서 한 번에
 // 끝나지 않고, 되따면 다시 王手가 되어 그때 詰む. mate1SFEN 에 방어 駒를 4a·6a에 두었더니
 // 그 駒가 玉의 도주로를 막아 오히려 1手詰め이 됐다 — 6b는 5b를 지키면서 도주로는 막지 않는다.
 const mate3SFEN = "4k4/3g5/3G1G3/9/9/9/9/9/4K4 b G 1"
 
 // TestMateTreeWalksThreePlies 는 트리의 재귀를 본다 — 1手詰め에는 노드가 하나뿐이라
-// expand 가 다음 층으로 내려가는 자리가 전혀 안 돌았다.
+// expand 가 다음 층으로 내려가는 자리가 전혀 돌지 않았다.
 func TestMateTreeWalksThreePlies(t *testing.T) {
 	fm := &fakeMate{limit: 9}
 	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate3SFEN, Human: shogi.Black})
@@ -321,7 +321,7 @@ func TestMateTreeWalksThreePlies(t *testing.T) {
 		if want := mateIn(pos, 9); node.Plies != want {
 			t.Errorf("node %s: plies = %d, want %d", key, node.Plies, want)
 		}
-		// 판정도 다시 센다 — 정답이면 手数가 2 이상 줄고, 아니면 안 줄어든다.
+		// 판정도 다시 센다 — 정답이면 手数가 2 이상 줄고, 아니면 줄어들지 않는다.
 		for u, v := range node.Moves {
 			m, err := shogi.ParseUSIMove(u)
 			if err != nil {
@@ -427,8 +427,8 @@ func mustKey(t *testing.T, sfen string) string {
 
 // 王手가 아닌 수를 낸 뒤에도 진행이 남아 있어야 한다.
 //
-// 판은 안 움직여도 그 자리는 문제 국면으로 돌아가지 않고 진행된 국면에 머문다. 둘 수 있는
-// 수를 안 채워 보내면 화면이 문항 쪽으로 되돌아가서 맞힌 수가 사라진 것처럼 보인다.
+// 판은 움직이지 않아도 그 자리는 문제 국면으로 돌아가지 않고 진행된 국면에 머문다. 둘 수 있는
+// 수를 채워 보내지 않으면 화면이 문항 쪽으로 되돌아가서 맞힌 수가 사라진 것처럼 보인다.
 func TestGradeMateKeepsProgressAfterANonCheck(t *testing.T) {
 	fm := &fakeMate{limit: 9}
 	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate3SFEN, Human: shogi.Black})
@@ -533,7 +533,7 @@ func TestGradeMateGivesTheAnswerWithItsOwnPosition(t *testing.T) {
 		t.Errorf("the answer %s is not legal in the position it came with: %v", got.Best, err)
 	}
 
-	// 나아간 국면에서는 대개 불법이다 — 그것이 이 필드가 있는 이유다.
+	// 나아간 국면에서는 대개 불법이다 — 그래서 이 필드가 있다.
 	after, err := shogi.ParseSFEN(got.SFEN)
 	if err != nil {
 		t.Fatalf("sfen %q: %v", got.SFEN, err)
@@ -543,7 +543,7 @@ func TestGradeMateGivesTheAnswerWithItsOwnPosition(t *testing.T) {
 	}
 }
 
-// 王手가 아닌 수에는 정답을 안 준다.
+// 王手가 아닌 수에는 정답을 주지 않는다.
 //
 // 그쪽은 오답 대신 다시 두라는 안내라 시도가 소진되지 않는다. 답을 실어 보내면 아무
 // 조용한 수나 한 번 눌러서 답을 꺼낼 수 있고, 그러면 채점을 서버에 둔 이유가 사라진다.
@@ -565,7 +565,7 @@ func TestGradeMateDoesNotLeakTheAnswerOnANonCheck(t *testing.T) {
 
 // 이긴 판이라고 詰ました 것으로 세지 않는다.
 //
-// 엔진은 投了하기도 하고 못 두는 수를 내놓기도 하는데, 둘 다 사람의 승리로 닫힌다. 手数만
+// 엔진은 投了하기도 하고 둘 수 없는 수를 내놓기도 하는데, 둘 다 사람의 승리로 닫힌다. 手数만
 // 보면 「あなたが決めた詰みです」가 두어진 적 없는 詰み을 두고 나간다.
 func TestConvertedNeedsAnActualCheckmate(t *testing.T) {
 	// 詰ましたら 마지막 국면이 詰み이다.
@@ -581,7 +581,7 @@ func TestConvertedNeedsAnActualCheckmate(t *testing.T) {
 		t.Error("converted = false, but the game ended in checkmate")
 	}
 
-	// 같은 手数 안에 끝났지만 詰み은 없다 — 상대가 던졌거나 못 두는 수를 냈다.
+	// 같은 手数 안에 끝났지만 詰み은 없다 — 상대가 던졌거나 둘 수 없는 수를 냈다.
 	resigned := mated
 	resigned.Moves = []string{"G*5b", "6b5b"}
 	q, _ = NewBuilder(&fakeMate{limit: 9}, nil, 12).Build(context.Background(), resigned)
@@ -593,7 +593,7 @@ func TestConvertedNeedsAnActualCheckmate(t *testing.T) {
 	}
 }
 
-// 엔진이 아무것도 못 답한 판에 「문항이 없다」를 적지 않는다.
+// 엔진이 아무것도 답하지 못한 판에 「문항이 없다」를 적지 않는다.
 //
 // 배포가 생성 도중에 끼면 풀이 닫혀 모든 탐색이 즉시 실패하는데, 그때 나온 빈 결과를
 // 저장하면 화면이 「이 판엔 문항이 없다」로 단정한다 — 생성이 판이 끝날 때 한 번뿐이라
@@ -609,7 +609,7 @@ func TestBuildReportsADegradedRun(t *testing.T) {
 		t.Error("measured = true, but the solver answered nothing")
 	}
 
-	// 엔진이 아예 없는 배포는 못 본 것과 다르다. 그 배포에 문항이 없는 것은 사실이라
+	// 엔진이 아예 없는 배포는 보지 못한 것과 다르다. 그 배포에 문항이 없는 것은 사실이라
 	// 그대로 적어도 된다.
 	q, measured = NewBuilder(nil, nil, 12).Build(context.Background(), in)
 	if q.Mate != nil || len(q.Best) != 0 {
@@ -620,13 +620,13 @@ func TestBuildReportsADegradedRun(t *testing.T) {
 	}
 }
 
-// 「최선수는?」 쪽도 같다 — 못 잰 것과 조건에 안 맞는 것은 다른 말이다.
+// 「최선수는?」 쪽도 같다 — 재지 못한 것과 조건에 맞지 않는 것은 다르다.
 func TestBuildReportsAFailedCandidateSearch(t *testing.T) {
 	in := gameInput()
 	if _, measured := build(&failingSearch{}, in); measured {
 		t.Error("measured = true, but every candidate search failed")
 	}
-	// 조건에 안 맞아 빠지는 것은 다 본 회차다.
+	// 조건에 맞지 않아 빠진 것도 다 재 본 것이다.
 	if _, measured := build(&fakeSearch{}, in); !measured {
 		t.Error("measured = false, but every candidate was answered — they just did not qualify")
 	}
@@ -687,7 +687,7 @@ func TestConvertedCountsFromTheSameReplay(t *testing.T) {
 	}
 }
 
-// 1手 노드는 solver 를 안 쓴다.
+// 1手 노드는 solver 를 쓰지 않는다.
 //
 // 정답의 조건이 2+rest <= plies 이고 rest >= 1 이므로 plies == 1 에서 詰み이 아닌 王手는
 // 절대 정답이 될 수 없다. 그 노드가 예산의 대부분을 쓰고 있었다(journal §53).

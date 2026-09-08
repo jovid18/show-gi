@@ -4,7 +4,7 @@
 // 헤드리스에서 그대로 돈다.
 //
 // VU 하나가 사람 하나다. 그래서 LT_UIDS 가 VU 수보다 적으면 두 VU 가 같은 사람으로
-// 대기열에 서고, 대기열이 사람마다 한 행이라(match_queue 의 PK) 둘이 서로를 못 만난다.
+// 대기열에 서고, 대기열이 사람마다 한 행이라(match_queue 의 PK) 둘이 서로를 만나지 못한다.
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { WebSocket } from 'k6/experimental/websockets';
@@ -43,7 +43,7 @@ export default function humanMatch() {
       rejects.add(1, { reason: `queue_${res.status}` });
       // 물러나기 전에 한 박자 쉰다. 즉시 돌아가면 k6 가 곧바로 다음 이터레이션을 시작해서
       // 같은 요청을 다시 보내고, 서버가 내려가 있는 동안 VU 수만큼 초당 수십 번이 된다 —
-      // 한 번 그렇게 재서 1분짜리 장애가 회차의 96.9% 실패로 읽혔다(journal §107).
+      // 한 번 그렇게 재서 1분짜리 장애가 시험 전체의 96.9% 실패로 읽혔다(journal §107).
       sleep(QUEUE_INTERVAL);
       return;
     }
@@ -55,7 +55,7 @@ export default function humanMatch() {
     sleep(QUEUE_INTERVAL);
   }
   if (room === '') {
-    // 짝이 안 잡힌 것도 결과다. 대기열에서 스스로 빠진다 — 안 빠지면 다음 회차의
+    // 짝이 잡히지 않은 것도 결과다. 대기열에서 스스로 빠진다 — 빠지지 않으면 다음 시험의
     // 첫 짝이 이 유령과 잡힌다(seen_at 이 낡기까지 12초가 걸린다).
     queueTimeouts.add(1);
     http.del(`${BASE}/api/queue`, null, { headers });
@@ -92,8 +92,8 @@ function play(room, headers, uid) {
     ws.close();
   };
 
-  // 대인전에는 시계가 있다(1手 60초). 그래도 우리 쪽 시한을 두는 이유는 상대가 우리
-  // 자신이기 때문이다 — 한쪽 VU 가 멈추면 다른 쪽은 시간패를 기다리며 자리를 잡고 있다.
+  // 대인전에는 시계가 있다(1手 60초). 그래도 우리 쪽 시한을 둔다. 상대가 우리
+  // 자신이라서다 — 한쪽 VU 가 멈추면 다른 쪽은 시간패를 기다리며 자리를 잡고 있다.
   const bump = () => {
     clearTimeout(stallTimer);
     stallTimer = setTimeout(() => finish('stall'), STALL_TIMEOUT_MS);

@@ -7,9 +7,9 @@ import { type Source, useFetch } from './useReview';
 /** 문항 하나의 출처. 기다리기를 그만뒀는지가 더 붙는다 — 아래. */
 export interface QuizSource extends Source<QuizPayload> {
   /**
-   * 「아직 만드는 중」을 더는 안 기다린다.
+   * 「아직 만드는 중」을 더는 기다리지 않는다.
    *
-   * 「문항이 없다」와 다르다. 우리가 아는 것은 「정해진 동안 안 왔다」뿐이라, 화면도
+   * 「문항이 없다」와 다르다. 우리가 아는 것은 「정해진 동안 오지 않았다」뿐이라, 화면도
    * 딱 그만큼만 말해야 한다.
    */
   gaveUp: boolean;
@@ -18,7 +18,7 @@ export interface QuizSource extends Source<QuizPayload> {
 /**
  * 그 판의 문항.
  *
- * 생성이 안 끝났으면 다시 묻는다. 문항은 판이 끝나는 자리에서 수십 초 동안 만들어지므로
+ * 생성이 끝나지 않았으면 다시 묻는다. 문항은 판이 끝나는 자리에서 수십 초 동안 만들어지므로
  * (server/ws.go generateQuiz), 판이 끝난 직후에 되짚기를 열면 `ready: false` 가 온다 —
  * 한 번 묻고 「問題はありません」을 그리면 그것이 거짓이 된다.
  */
@@ -31,17 +31,17 @@ export function useQuiz(id: number): QuizSource {
 
   // 판이 바뀌면 이 훅 전체가 새로 만들어진다 — App 이 `key` 로 판마다 새로 세운다. 여기서
   // 손으로 되돌리려 하면 안 된다: `id` 가 바뀐 그 렌더에는 `useFetch` 가 아직 앞 판의 답을
-  // 들고 있어서, 지운 자리가 같은 렌더에서 그 값으로 다시 채워진다.
+  // 갖고 있어서, 지운 자리가 같은 렌더에서 그 값으로 다시 채워진다.
 
   // 아직 기다리는 중인가.
   //
   // 한 번 실패한 것으로 끝내지 않는다. 요청 하나가 500을 받거나 네트워크가 한 번 끊긴
-  // 것으로는 「문항이 안 온다」를 못 정한다 — 그래서 부르는 중이든 실패했든 직전 답을 본다
-  // (아래에서 그 답을 화면에 그대로 내보내는 것과 같은 이유다).
+  // 것으로는 「문항이 오지 않는다」를 정할 수 없다 — 그래서 부르는 중이든 실패했든 직전 답을 본다
+  // (아래에서 그 답을 화면에 그대로 내보내는 것과 같은 판단이다).
   const stillWaiting = last.current != null && !last.current.ready;
   const waiting = loaded.state === 'ready' ? !loaded.data.ready : stillWaiting;
 
-  // 다 만들어지면 멈추고, 안 오면 그것도 멈춘다. 「아직 만드는 중」은 영영 참일 수 있다 —
+  // 다 만들어지면 멈추고, 오지 않으면 그것도 멈춘다. 「아직 만드는 중」은 영영 참일 수 있다 —
   // 이 코드 전에 끝난 판, 생성기가 없는 배포, 문항 판이 올라가 옛 행이 죽은 뒤가 전부 그렇다.
   // 계속 물으면 화면이 오지 않을 것을 기다리라고 말하게 된다.
   //
@@ -57,9 +57,9 @@ export function useQuiz(id: number): QuizSource {
   }
   const gaveUp = waiting && since.current !== null && Date.now() - since.current >= QUIZ_WAIT_MS;
 
-  // `attempts` 가 다시 걸어 주는 값이다. 나머지 셋은 폴링 도중에 안 바뀐다 — `waiting` 은
+  // `attempts` 가 다시 걸어 주는 값이다. 나머지 셋은 폴링 도중에 바뀌지 않는다 — `waiting` 은
   // 계속 참이고(위에서 부르는 중에도 참으로 두었다) `gaveUp` 은 거짓이고 `reload` 는 고정이다.
-  // 그래서 이것을 빼면 효과가 다시 안 돌아 타이머가 한 번만 걸린다.
+  // 그래서 이것을 빼면 효과가 다시 돌지 않아 타이머가 한 번만 걸린다.
   //
   // 다시 걸어 주는 값은 의도한 것 하나로 고정한다. `waiting` 이 부르는 중에 흔들리는
   // 것에 폴링을 얹으면, 그 흔들림을 없애는 순간 폴링이 같이 멈춘다.
@@ -72,8 +72,8 @@ export function useQuiz(id: number): QuizSource {
     return () => clearTimeout(timer);
   }, [waiting, gaveUp, attempts, reload]);
 
-  // 「もう一度」는 세던 것도 되돌린다. 안 되돌리면 눌러도 요청 하나가 나가고 화면은
-  // 그만둔 자리에 그대로 멈춰서, 버튼이 아무 일도 안 하는 것처럼 보인다.
+  // 「もう一度」는 세던 것도 되돌린다. 되돌리지 않으면 눌러도 요청 하나가 나가고 화면은
+  // 그만둔 자리에 그대로 멈춰서, 버튼이 아무 일도 하지 않는 것처럼 보인다.
   const retry = useCallback(() => {
     since.current = null;
     setAttempts(0);
@@ -86,7 +86,7 @@ export function useQuiz(id: number): QuizSource {
   if (loaded.state === 'ready') {
     last.current = loaded.data;
   }
-  // 부르는 중이든 한 번 실패했든, 직전 답이 있으면 그것을 그대로 들고 있는다.
+  // 부르는 중이든 한 번 실패했든, 직전 답이 있으면 그것을 그대로 쓴다.
   if (loaded.state !== 'ready' && last.current && !gaveUp) {
     return { loaded: { state: 'ready', data: last.current }, reload: retry, gaveUp };
   }
@@ -106,7 +106,7 @@ const QUIZ_POLL_MS = 5000;
  * 얼마나 기다리나. 5분이다.
  *
  * 서버가 스스로 자르는 시한과 같은 값이다(`quizTimeout`). 그보다 짧게 잡으면 아직
- * 정직하게 만들고 있는 판에 「안 왔다」고 말하게 되고, 길게 잡으면 서버가 이미 포기한
+ * 정직하게 만들고 있는 판에 「오지 않았다」고 말하게 되고, 길게 잡으면 서버가 이미 포기한
  * 뒤에도 기다린다 — 어느 쪽도 사실과 어긋난다.
  */
 const QUIZ_WAIT_MS = 5 * 60 * 1000;
@@ -128,7 +128,7 @@ async function postJSON<Req, Res>(path: string, body: Req, signal: AbortSignal):
     signal,
   });
   if (!res.ok) {
-    // 서버가 이유를 일본어로 준다(quiz.go). 못 읽을 때만 우리 문구를 쓴다.
+    // 서버가 이유를 일본어로 준다(quiz.go). 읽지 못할 때만 우리 문구를 쓴다.
     const err = (await res.json().catch(() => null)) as ApiError | null;
     throw new Error(err?.message || FALLBACK_ERROR);
   }
@@ -161,7 +161,7 @@ function useGrader<Req, Res>(path: string): [Grading<Res>, (body: Req) => Promis
       } catch (err: unknown) {
         if (controller.signal.aborted) return null;
         // 직전 결과를 지우지 않는다. 지우면 판이 문제 국면으로 되돌아가는데 화면은
-        // 이미 낸 수를 그대로 들고 있어서, 다음 한 수가 그 국면에서만 합법인 수로 조합되어
+        // 이미 낸 수를 그대로 갖고 있어서, 다음 한 수가 그 국면에서만 합법인 수로 조합되어
         // 서버에 계속 거절된다 — 「最初から」를 누르기 전까지 문항이 잠긴다.
         setState((prev) => ({
           ...prev,

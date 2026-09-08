@@ -7,7 +7,7 @@ import "fmt"
 // 엔진이 돌려주는 수순은 USI 뿐인데(7g7f), 그대로는 사람이 읽을 수 없다.
 // 개입 화면과 리뷰 화면에서 "왜 그 수가 나쁜가"를 말하려면 수를 부를 이름이 있어야 한다.
 //
-// 출력이 처음부터 일본어라 UI에 그대로 나간다 — 여기서 만든 문자열은 번역을 안 거친다.
+// 출력이 처음부터 일본어라 UI에 그대로 나간다 — 여기서 만든 문자열은 번역을 거치지 않는다.
 
 var kanjiPiece = map[PieceType]string{
 	Pawn: "歩", Lance: "香", Knight: "桂", Silver: "銀", Gold: "金",
@@ -74,7 +74,7 @@ func vertJa(from, to int, c Color) string {
 // 先手는 1筋이 오른쪽이므로 筋 번호가 작을수록 오른쪽이다.
 //
 // 같은 筋(d==0)은 좌우가 없어서 빈 문자열이다. 그 자리를 「左」로 메우면 진짜 왼쪽에서
-// 온 駒와 라벨이 같아져 disambiguate 가 둘을 못 가르고, 그러면 같은 표기가 두 수를 가리킨다 —
+// 온 駒와 라벨이 같아져 disambiguate 가 둘을 가르지 못하고, 그러면 같은 표기가 두 수를 가리킨다 —
 // 실 코퍼스 296판 중 16판에서 실제로 나왔다(journal §126). 그 자리는 直이나 상하가 맡는다.
 func horizJa(from, to int, c Color) string {
 	d := FileOf(from) - FileOf(to)
@@ -168,7 +168,7 @@ func disambiguate(from, to int, cands []int, c Color) string {
 // IsOriginModifier 는 그 글자가 원위치 수식어인가 — 右左上引寄直.
 //
 // disambiguate 가 붙이는 어휘와 같은 표를 본다. 읽는 쪽과 쓰는 쪽이 다른 표를 보면
-// 이쪽이 만든 표기를 저쪽이 못 읽는 자리가 생긴다.
+// 이쪽이 만든 표기를 저쪽이 읽을 수 없는 자리가 생긴다.
 func IsOriginModifier(r rune) bool {
 	switch r {
 	case '右', '左', '上', '引', '寄', '直':
@@ -177,13 +177,13 @@ func IsOriginModifier(r rune) bool {
 	return false
 }
 
-// ResolveOrigin 은 원위치가 안 적힌 표기에서 출발칸을 되찾는다. disambiguate 의 반대 방향이다.
+// ResolveOrigin 은 원위치가 적히지 않은 표기에서 출발칸을 되찾는다. disambiguate 의 반대 방향이다.
 //
-// KIF 는 「７六歩(77)」처럼 출발칸을 적지만 KI2 와 사람이 쓴 평문은 안 적는다. 후보는 룰
+// KIF 는 「７六歩(77)」처럼 출발칸을 적지만 KI2 와 사람이 쓴 평문은 적지 않는다. 후보는 룰
 // 엔진이 뽑고(movers) mods 가 거른다.
 //
-// 하나로 안 좁혀지면 실패한다. 골라 버리면 그 뒤의 수순 전체가 다른 판이 되고, 결과가
-// 합법수라 ValidateMove 도 안 잡는다.
+// 하나로 좁혀지지 않으면 실패한다. 골라 버리면 그 뒤의 수순 전체가 다른 판이 되고, 결과가
+// 합법수라 ValidateMove 도 잡지 않는다.
 //
 // mods 는 표기에 붙은 수식어를 순서 그대로 이어 붙인 것이다 — 「右上」이면 둘 다 건다.
 func (pos Position) ResolveOrigin(t PieceType, to int, mods string) (int, error) {

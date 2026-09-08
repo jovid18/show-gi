@@ -77,7 +77,7 @@ func main() {
 	defer pool.Close()
 
 	searcher := archive.Wrap(pool, st)
-	// 詰み solver 를 안 붙인다(nil) — 종반 판정만 빠지고 승률 낙폭 판정은 그대로 돈다.
+	// 詰み solver 를 붙이지 않는다(nil) — 종반 판정만 빠지고 승률 낙폭 판정은 그대로 돈다.
 	// 임계치는 Beginner 인데 import.go 가 기록에 남기는 LevelBucket 은 "pro" 라 갈려 있다 — 그쪽 TODO.
 	analyst := game.NewEngineAnalyst(searcher, nil, intervene.Beginner)
 	imp := kifu.NewImporter(st, searcher, analyst, *depth, *multiPV)

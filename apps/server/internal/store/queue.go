@@ -16,13 +16,13 @@ import (
 // (internal/queue). 여기가 상수를 들면 그것을 흔들어 보는 데 DB가 필요해진다.
 
 // QueueWaiter 는 대기열에 서 있는 한 사람이다. internal/queue.Waiter 와 같은 칸이고,
-// 그 타입을 안 쓰는 이유는 store 가 그 패키지를 모르는 채로 있어야 하기 때문이다.
+// 그 타입을 쓰지 않는 것은 store 가 그 패키지를 모르는 채로 있어야 하기 때문이다.
 type QueueWaiter struct {
 	UserID            int64
 	Rating, Deviation float64
 	JoinedAt          time.Time
 	// Name 은 표시 이름이다. 후보로 올라온 사람에게만 채워진다 — 짝이 되면 그 자리에서
-	// 방을 만들고(match.Hub.CreatePaired) 방이 그 값을 들기 때문이다. 고르는 데는 안 쓴다.
+	// 방을 만들고(match.Hub.CreatePaired) 방이 그 값을 들기 때문이다. 고르는 데는 쓰지 않는다.
 	Name string
 }
 
@@ -45,10 +45,10 @@ type QueuePairing struct {
 	MyColor, OppColor string
 }
 
-// ErrNoQueueSeat 은 아직 짝이 안 잡혔다는 것 하나다.
+// ErrNoQueueSeat 은 아직 짝이 잡히지 않았다는 것 하나다.
 var ErrNoQueueSeat = errors.New("store: no queue seat")
 
-// SweepQueue 는 오래된 행을 걷는다. 다시 안 물어보는 대기자와 안 찾아간 자리 둘이다.
+// SweepQueue 는 오래된 행을 걷는다. 다시 물어보지 않는 대기자와 찾아가지 않은 자리 둘이다.
 //
 // 대기열에 서는 그 요청이 부른다 — 리더도 sweeper 도 두지 않는 것이 이 대기열의
 // 설계다(journal §92).
@@ -103,7 +103,7 @@ func (s *Store) TakeQueueSeat(ctx context.Context, userID int64) (QueueSeat, err
 	return QueueSeat{RoomID: *row.RoomID, Color: *row.Color}, nil
 }
 
-// LeaveQueue 는 대기열에서 빠진다. 없는 사람을 지워도 에러를 안 낸다 — 「이미 없다」와
+// LeaveQueue 는 대기열에서 빠진다. 없는 사람을 지워도 에러를 내지 않는다 — 「이미 없다」와
 // 「방금 지웠다」가 부르는 쪽에 같은 뜻이다.
 func (s *Store) LeaveQueue(ctx context.Context, userID int64) error {
 	if err := s.q.LeaveQueue(ctx, userID); err != nil {
@@ -112,7 +112,7 @@ func (s *Store) LeaveQueue(ctx context.Context, userID int64) error {
 	return nil
 }
 
-// QueueWaiting 은 지금 대기열에 서 있는 사람 수다. 화면에 안 나간다 — 확인용이다.
+// QueueWaiting 은 지금 대기열에 서 있는 사람 수다. 화면에 나가지 않는다 — 확인용이다.
 func (s *Store) QueueWaiting(ctx context.Context, freshAfter time.Time) (int, error) {
 	n, err := s.q.CountQueueWaiting(ctx, stamp(freshAfter))
 	if err != nil {
@@ -133,13 +133,13 @@ type QueuePairOptions struct {
 	Limit int
 }
 
-// PairInQueue 는 짝을 하나 짓는다. 못 지으면 ErrNoQueueSeat.
+// PairInQueue 는 짝을 하나 짓는다. 짓지 못하면 ErrNoQueueSeat.
 //
 // 트랜잭션 하나 안에서 세 가지를 한다: 내 행과 후보들을 잠그고(FOR UPDATE SKIP LOCKED),
 // choose 가 고르고, 그 결과를 짝의 행에 적고 내 행을 지운다.
 //
 // 잠금이 전부 SKIP LOCKED 라 누구도 기다리지 않는다. 그래서 A가 B를, B가 A를 동시에
-// 집어도 교착이 없고 — 한쪽만 성공한다. 다른 쪽은 자기 행을 못 잠가서 이번 회차를
+// 집어도 교착이 없고 — 한쪽만 성공한다. 다른 쪽은 자기 행을 잠그지 못해서 이번 시도를
 // 포기하고, 다음 재시도에서 방 쪽지를 읽는다.
 //
 // choose 는 판단만 한다. DB를 만지지 않고 즉시 돌아와야 한다 — 트랜잭션이 열려 있고
@@ -154,13 +154,13 @@ func (s *Store) PairInQueue(
 	if err != nil {
 		return QueuePairing{}, fmt.Errorf("pair in queue: begin: %w", err)
 	}
-	// 성공 경로에서는 Commit 이 먼저 끝나 있고, 그때 이 Rollback 은 아무것도 안 한다.
+	// 성공 경로에서는 Commit 이 먼저 끝나 있고, 그때 이 Rollback 은 아무것도 하지 않는다.
 	defer func() { _ = tx.Rollback(ctx) }()
 	q := s.q.WithTx(tx)
 
 	me, err := q.LockQueueWaiter(ctx, userID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		// 내 행이 없거나 남이 잠그고 있다. 둘 다 「이번에는 못 짓는다」로 같다 —
+		// 내 행이 없거나 남이 잠그고 있다. 둘 다 「이번에는 지을 수 없다」로 같다 —
 		// 구분해도 부르는 쪽이 할 일이 하나다(다음 재시도).
 		return QueuePairing{}, ErrNoQueueSeat
 	}
@@ -170,7 +170,7 @@ func (s *Store) PairInQueue(
 
 	// 잠그는 폭이 내 레이팅 주변이다. 전부 잠그면 붙을 수 없는 사람까지 잠기고, 그동안
 	// 그 행을 노리던 다른 짝짓기가 헛돈다 — 누구도 기다리지 않는 대신(SKIP LOCKED)
-	// 그 회차를 포기하기 때문이다.
+	// 그 시도를 포기하기 때문이다.
 	rows, err := q.LockQueueCandidates(ctx, db.LockQueueCandidatesParams{
 		UserID:   userID,
 		SeenAt:   stamp(opts.FreshAfter),
@@ -210,7 +210,7 @@ func (s *Store) PairInQueue(
 	}
 	if n == 0 {
 		// 잠가 둔 행이라 여기 올 수 없다. 오면 우리 버그이고, 그대로 커밋하면 내 행만
-		// 사라져서 두 사람 다 아무 방에도 못 간다.
+		// 사라져서 두 사람 다 아무 방에도 갈 수 없다.
 		return QueuePairing{}, fmt.Errorf("seat queue waiter %d: already taken", pairing.Opponent.UserID)
 	}
 	if err := q.LeaveQueue(ctx, userID); err != nil {

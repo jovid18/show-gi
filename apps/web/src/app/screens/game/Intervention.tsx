@@ -7,8 +7,8 @@ import type { WhatIfNode } from '@/protocol/whatif';
 interface InterventionProps {
   intervention: InterventionData;
   /**
-   * 분기의 지금 자리. `null` 이면 아직 못 받았다 — 그동안에도 카드는 그대로 떠 있고
-   * 목록 자리만 비어 있다(카드 전체가 바뀌지 않는다는 규칙이 이 컴포넌트의 전부다).
+   * 분기의 지금 자리. `null` 이면 아직 받지 못했다 — 그동안에도 카드는 그대로 떠 있고
+   * 목록 자리만 비어 있다(카드 전체가 바뀌지 않는다는 규칙을 이 컴포넌트가 지킨다).
    */
   node: WhatIfNode | null;
   pending: boolean;
@@ -59,7 +59,7 @@ interface Row {
  *
  * 1위 줄의 「最善」이 이 칸의 이름표다. 맨 위에 그 한 단어가 있어서 아래의 「−320」이
  * 무엇에 대한 값인지가 그 자리에서 읽힌다 — 열 제목을 얹지 않고 그 일을 한다. 1위를 색으로만
- * 표시하던 자리이기도 해서, 색을 못 보는 사람에게도 1위가 남는다.
+ * 표시하던 자리이기도 해서, 색을 구별하지 못하는 사람에게도 1위가 남는다.
  *
  * 낙폭이 없는 줄은 비운다. 사람이 직접 둬 본 수(기준이 될 후보 탐색이 없다)와 詰み이
  * 섞인 줄(뺄 cp 자체가 없다)이 그렇다 — 0으로 채우면 「최선수와 같다」는
@@ -75,10 +75,10 @@ function lossJa(row: Row): string {
  * 정한 것을 말로 옮길 뿐이다.
  *
  * 되짚기의 `branchStatusJa` 와 시제가 다르다. 저쪽은 끝난 판을 보는 자리라 「負けでした」
- * 이고, 여기는 아직 안 벌어진 일이라 「負けになります」다.
+ * 이고, 여기는 아직 벌어지지 않은 일이라 「負けになります」다.
  */
 function noteJa(node: WhatIfNode | null, pending: boolean, failed: boolean): string {
-  // 못 받았으면 「조사 중」이라고 말하지 않는다. 기다리면 온다는 거짓말이 되고,
+  // 받지 못했으면 「조사 중」이라고 말하지 않는다. 기다리면 온다는 거짓말이 되고,
   // 그 옆에 이미 실패 문구가 떠 있다.
   if (failed) return 'もう一度読み込むと、この手のあとを試せます。';
   if (!node) return pending ? '読んでいます…' : 'この手のあとを調べています。';
@@ -170,7 +170,7 @@ export function Intervention({
 
   /** 이 자리의 수를 두는 것이 상대인가. 값의 주인이 누구인지가 여기서 갈린다. */
   const byOpponent = !!node && !node.yourTurn;
-  /** 한 자리도 못 받은 채 튕겼다. 이 상태는 저절로 안 풀린다 — 사람이 다시 눌러야 한다. */
+  /** 한 자리도 받지 못한 채 튕겼다. 이 상태는 저절로 풀리지 않는다 — 사람이 다시 눌러야 한다. */
   const stuck = !node && !pending && error !== null;
 
   return (
@@ -207,7 +207,7 @@ export function Intervention({
           {node && <span className="intervention-branch-turn">{node.yourTurn ? 'あなたの番' : '相手の番'}</span>}
         </p>
 
-        {/* 지금까지 둬 본 줄. 뿌리에서는 아예 안 그린다 — 빈 자리를 만들어 두면
+        {/* 지금까지 둬 본 줄. 뿌리에서는 아예 그리지 않는다 — 빈 자리를 만들어 두면
             목록이 그만큼 아래로 밀려 매번 높이가 흔들린다. */}
         {branching && (
           <ol className="intervention-branch-line">
@@ -257,7 +257,7 @@ export function Intervention({
         )}
 
         {/* 여기가 막히면 카드에 남는 것이 문구뿐이다. 노드가 없으면 목록도 무르기도
-            안 뜨고, 요청은 회차가 끝날 때까지 저절로 다시 나가지 않는다. */}
+            뜨지 않고, 요청은 회차가 끝날 때까지 저절로 다시 나가지 않는다. */}
         {stuck && (
           <div className="intervention-branch-actions">
             <button type="button" className="btn btn--step" disabled={pending} onClick={onRetry}>
@@ -268,7 +268,7 @@ export function Intervention({
 
         {/* 되돌아가는 길이 둘이다. 한 수씩 물리는 것과 분기를 접는 것은 다른 일이다 —
             몇 수를 들어간 뒤에 처음으로 돌아가려고 「一手戻る」를 다섯 번 누르게 두지 않는다.
-            바닥은 물러진 수다: 그 앞으로는 어느 버튼으로도 못 간다(useWhatIf 의 floor). */}
+            바닥은 물러진 수다: 그 앞으로는 어느 버튼으로도 갈 수 없다(useWhatIf 의 floor). */}
         {branching && (
           <div className="intervention-branch-actions">
             <button type="button" className="btn btn--step" disabled={pending} onClick={onBack}>

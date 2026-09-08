@@ -11,11 +11,11 @@ import (
 
 // Recorder 는 한 사람의 몫을 기록한다. 판 하나에 둘이 붙는다 — 대인전 한 판이
 // games 행 두 개로 남고, 그래서 되짚기·마이페이지·전적 질의가 소유자 조건을 한 줄도
-// 안 고치고 그대로 돈다(journal §83).
+// 고치지 않고 그대로 돈다(journal §83).
 //
-// game.Recorder 와 따로 둔 이유는 말할 것이 다르기 때문이다. 저쪽은 평가치·개입·
+// game.Recorder 와 따로 둔 것은 말할 것이 다르기 때문이다. 저쪽은 평가치·개입·
 // 무르기·힌트까지 아홉을 받는데 여기서 벌어지는 일은 셋뿐이고, 같은 인터페이스를 쓰면
-// 이 패키지가 「안 부르는 메서드 여섯」을 들고 있게 된다.
+// 이 패키지가 「부르지 않는 메서드 여섯」을 갖고 있게 된다.
 //
 // 세 메서드 다 즉시 돌아와야 한다 — 테이블 goroutine 이 부른다.
 type Recorder interface {
@@ -35,8 +35,8 @@ const (
 	ResultWin  Result = "win"
 	ResultLoss Result = "loss"
 	ResultDraw Result = "draw"
-	// ResultAbandoned 는 승부가 안 난 채로 끝난 판이다. 두 자리에서 온다:
-	// 서버가 내려갔을 때(StatusAborted)와, 한 수도 안 둔 채 시간이 다 됐을 때(StatusExpired).
+	// ResultAbandoned 는 승부가 나지 않은 채로 끝난 판이다. 두 자리에서 온다:
+	// 서버가 내려갔을 때(StatusAborted)와, 한 수도 두지 않은 채 시간이 다 됐을 때(StatusExpired).
 	//
 	// 수를 두고 나서의 시간패는 win/loss 로 간다 — 승부가 났기 때문이다.
 	ResultAbandoned Result = "abandoned"
@@ -45,7 +45,7 @@ const (
 // Config 는 테이블 하나의 설정이다.
 type Config struct {
 	// Black·White 는 두 대국자다. 先手·後手가 여기서 확정된다 — 방을 만든 사람이 고른 것이
-	// 그대로 들어오고, 대국이 이어지는 동안 안 바뀐다.
+	// 그대로 들어오고, 대국이 이어지는 동안 바뀌지 않는다.
 	Black, White Player
 	// Recorders 는 先手·後手마다 하나씩이다. nil 이면 그쪽을 기록하지 않는다 — DB 가 없는
 	// 배포를 위한 자리이고, 익명 대국을 뜻하지 않는다(엔진 대국과 같은 판단).
@@ -83,9 +83,9 @@ type result struct {
 	err  error
 }
 
-// viewSnapshot 은 관점이 아직 안 붙은 스냅샷이다. 구독자가 자기 쪽으로 편다.
+// viewSnapshot 은 관점이 아직 붙지 않은 스냅샷이다. 구독자가 자기 쪽으로 편다.
 //
-// 先手·後手마다 한 벌씩 만들어 뿌리지 않는 이유는 뿌리는 자리가 하나여야 하기 때문이다 —
+// 先手·後手마다 한 벌씩 만들어 뿌리지 않는 것은 뿌리는 자리가 하나여야 하기 때문이다 —
 // 둘로 갈면 한쪽에만 보내고 끝나는 경로가 생긴다.
 type viewSnapshot struct{ st *snapshotData }
 
@@ -93,7 +93,7 @@ type viewSnapshot struct{ st *snapshotData }
 // goroutine 에 명령을 보내고 답을 기다리는 것뿐이라는 점이 game.Session 과 같다.
 type Table struct {
 	cmds chan command
-	// finished 는 승패가 정해진 순간 닫힌다. done 과 따로 둔 이유는 그 둘의 시각이
+	// finished 는 승패가 정해진 순간 닫힌다. done 과 따로 둔 것은 그 둘의 시각이
 	// 다르기 때문이다 — 끝난 판도 한동안 답하므로(finishedGrace) done 은 그만큼 늦게
 	// 닫히고, 「振り返り」 링크를 그 뒤에 보내면 사람은 이미 화면을 떠나 있다.
 	finished  chan struct{}
@@ -113,14 +113,14 @@ type state struct {
 	moves   []recordedMove
 	repeats map[string]int
 	status  Status
-	// winner 는 이긴 쪽이다. 무승부·중단이면 안 채운다.
+	// winner 는 이긴 쪽이다. 무승부·중단이면 채우지 않는다.
 	winner   shogi.Color
 	hasWin   bool
 	limit    time.Duration
 	turnFrom time.Time
 	// online 은 先手·後手마다 붙어 있는 연결 수다. 0이면 그쪽이 나가 있다.
 	//
-	// 0이어도 판을 안 멈춘다 — 멈추면 지고 있는 쪽이 탭을 닫아 얼릴 수 있다(journal §83).
+	// 0이어도 판을 멈추지 않는다 — 멈추면 지고 있는 쪽이 탭을 닫아 얼릴 수 있다(journal §83).
 	online map[shogi.Color]int
 	subs   map[chan viewSnapshot]struct{}
 	now    func() time.Time
@@ -133,7 +133,7 @@ type recordedMove struct {
 }
 
 // NewTable 은 대국을 시작하고 시계를 건다. ctx 가 끝나면 대국도 끝난다 — 연결 대신
-// 서버의 수명이다(방을 들고 있는 Hub 가 준다).
+// 서버의 수명이다(방을 갖고 있는 Hub 가 준다).
 func NewTable(ctx context.Context, cfg Config) (*Table, error) {
 	sfen := cfg.StartSFEN
 	if sfen == "" {
@@ -165,11 +165,11 @@ func NewTable(ctx context.Context, cfg Config) (*Table, error) {
 	}
 	st.repeats[pos.RepetitionKey()]++
 
-	// 기록 행은 대국이 시작되는 자리에서 만든다. 첫 수를 기다리지 않는 이유는 행이 첫
+	// 기록 행은 대국이 시작되는 자리에서 만든다. 첫 수를 기다리지 않는 것은 행이 첫
 	// Moved 보다 먼저 있어야 하기 때문이다 — 기록기가 행 없이 온 수를 그냥 버린다
 	// (server/recorder.go 의 gameID == 0).
 	//
-	// 값은 한 수도 안 둔 판에도 행 둘이 남는다는 것이다. 어느 목록에도 안 뜬다 —
+	// 값은 한 수도 두지 않은 판에도 행 둘이 남는다는 것이다. 어느 목록에도 뜨지 않는다 —
 	// 세는 질의가 전부 EXISTS (game_moves) 로 거른다.
 	for c, rec := range cfg.Recorders {
 		if rec != nil {
@@ -204,8 +204,8 @@ func (t *Table) run(ctx context.Context, st *state) {
 	timer := time.NewTimer(st.limit)
 	defer timer.Stop()
 
-	// grace 는 판이 끝난 뒤에만 걸린다. 그 전에는 nil 채널이라 select 가 그 갈래를 안 고른다 —
-	// Go 에서 nil 채널의 수신은 영원히 안 준비되고, 그것이 「아직 그 갈래가 없다」를
+	// grace 는 판이 끝난 뒤에만 걸린다. 그 전에는 nil 채널이라 select 가 그 갈래를 고르지 않는다 —
+	// Go 에서 nil 채널의 수신은 영원히 준비되지 않고, 그것이 「아직 그 갈래가 없다」를
 	// 표현하는 가장 싼 방법이다.
 	var graceC <-chan time.Time
 	grace := time.NewTimer(finishedGrace)
@@ -250,7 +250,7 @@ func (t *Table) run(ctx context.Context, st *state) {
 			return
 
 		case <-ctx.Done():
-			// 서버가 내려간다. 이미 끝난 판에는 아무것도 안 한다 — 승패를 두 번 적으면
+			// 서버가 내려간다. 이미 끝난 판에는 아무것도 하지 않는다 — 승패를 두 번 적으면
 			// 기록에서 결과가 뒤집힌다.
 			if st.status == StatusPlaying {
 				// 승패를 만들지 않는다. 두 사람 다 잘못한 것이 없다.
@@ -319,7 +319,7 @@ func (st *state) handle(c command) {
 		} else if st.online[c.color] > 0 {
 			st.online[c.color]--
 		}
-		// 상대에게 「들어왔다/나갔다」가 보여야 한다. 판은 안 움직인다.
+		// 상대에게 「들어왔다/나갔다」가 보여야 한다. 판은 움직이지 않는다.
 		st.broadcast()
 		c.reply <- result{}
 	}
@@ -385,7 +385,7 @@ func (st *state) resign(by shogi.Color) (Snapshot, error) {
 
 // timeout 은 수번 쪽의 시간이 다 됐을 때다. 대개 승패가 난다 — 중단과 따로 두는 자리다.
 //
-// 한 수도 안 뒀으면 예외다. 누구도 안 뒀으면 판이 없었던 것이다(journal §83).
+// 한 수도 두지 않았으면 예외다. 누구도 두지 않았으면 판이 없었던 것이다(journal §83).
 func (st *state) timeout() {
 	if len(st.moves) == 0 {
 		st.finish(StatusExpired, shogi.Black, false)
@@ -418,8 +418,8 @@ func (st *state) resultFor(c shogi.Color) Result {
 	case st.status == StatusRepetition:
 		return ResultDraw
 	case !st.hasWin:
-		// 승부가 안 났다 — 서버가 내려갔거나 한 수도 안 둔 채 시간이 다 됐다.
-		// 되짚기가 결과 있는 판만 열기 때문에(§51) 어느 쪽이든 목록에 안 뜬다.
+		// 승부가 나지 않았다 — 서버가 내려갔거나 한 수도 두지 않은 채 시간이 다 됐다.
+		// 되짚기가 결과 있는 판만 열기 때문에(§51) 어느 쪽이든 목록에 뜨지 않는다.
 		return ResultAbandoned
 	case st.winner == c:
 		return ResultWin
@@ -505,7 +505,7 @@ func (t *Table) Subscribe(ctx context.Context, by shogi.Color) (<-chan Snapshot,
 	}
 	if _, err := t.send(ctx, command{kind: cmdPresence, color: by, on: true}); err != nil {
 		// 구독을 되돌린다. 여기서 그냥 나가면 raw 가 구독 목록에 남은 채 누구도
-		// 안 읽고, 돌려줄 정리 함수도 없다 — 테이블이 사는 내내(긴 판이면 몇 시간)
+		// 읽지 않고, 돌려줄 정리 함수도 없다 — 테이블이 사는 내내(긴 판이면 몇 시간)
 		// 착수마다 그 채널에 헛되이 보내게 된다.
 		off, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cancel()
@@ -532,7 +532,7 @@ func (t *Table) Subscribe(ctx context.Context, by shogi.Color) (<-chan Snapshot,
 	var once sync.Once
 	return out, func() {
 		once.Do(func() {
-			// 정리에 ctx 를 안 쓴다. 떨어지는 이유가 대개 그 ctx 의 종료라, 그것을
+			// 정리에 ctx 를 쓰지 않는다. 떨어지는 이유가 대개 그 ctx 의 종료라, 그것을
 			// 그대로 넘기면 구독이 남고 그 사람은 영영 접속 중으로 보인다.
 			off, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 			defer cancel()

@@ -81,7 +81,7 @@ func (g *Google) AuthURL(redirectURI, state string) string {
 // Identity 는 Google이 말해 주는 그 사람이다.
 type Identity struct {
 	// Sub 는 Google 안에서 이 계정을 가리키는 불변 식별자다. users.provider_uid 가
-	// 이것이다 — 이메일은 바뀌고 재사용되므로 그 자리에 못 쓴다.
+	// 이것이다 — 이메일은 바뀌고 재사용되므로 그 자리에 쓸 수 없다.
 	Sub   string
 	Name  string
 	Email string
@@ -125,7 +125,7 @@ func (g *Google) Exchange(ctx context.Context, code, redirectURI string) (Identi
 		return Identity{}, fmt.Errorf("auth: read token response: %w", err)
 	}
 	if res.StatusCode != http.StatusOK {
-		// 본문에 client_secret 은 안 들어간다. 대신 error·error_description 이 있어
+		// 본문에 client_secret 은 들어가지 않는다. 대신 error·error_description 이 있어
 		// 「redirect_uri 가 등록된 것과 다르다」 같은 설정 실수를 그대로 말해 준다.
 		return Identity{}, fmt.Errorf("auth: token endpoint %d: %s", res.StatusCode, body)
 	}

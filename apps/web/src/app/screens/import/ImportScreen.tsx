@@ -29,7 +29,7 @@ const ACCEPT = '.kif,.kifu,.ki2,.csa,.txt,text/plain';
 const MAX_BYTES = 64 * 1024;
 
 export function ImportScreen({ me }: { me: MeResponse }) {
-  // 로그인 안 한 것을 오류로 다루지 않는다. 메뉴에서는 이 줄이 로그인한 사람에게만
+  // 로그인하지 않은 것을 오류로 다루지 않는다. 메뉴에서는 이 줄이 로그인한 사람에게만
   // 보이지만(HomeScreen) 주소를 직접 열면 익명으로 여기 들어온다 — 그때 상자를 그려 주면
   // 사람이 기보를 다 붙여 넣고 누른 뒤에야 로그인이 필요하다는 것을 알게 된다.
   if (me.user === null) return <SignInFirst enabled={me.enabled} />;
@@ -92,7 +92,7 @@ function ImportForm() {
     [changeText, fail],
   );
 
-  /** 기보가 결과를 말하면 안 묻는다. 기록이 사람의 기억보다 맞다. */
+  /** 기보가 결과를 말하면 묻지 않는다. 기록이 사람의 기억보다 맞다. */
   const asksResult = preview !== null && preview.result === undefined;
   const ready = preview !== null && color !== null && (!asksResult || chosen !== null);
 
@@ -234,7 +234,7 @@ function ImportForm() {
             {phase === 'importing' ? '取り込んでいます…' : 'この内容で取り込む'}
           </button>
 
-          {/* 몇 분 걸린다는 것을 미리 말한다. 안 말하면 되짚기 화면의 「解析しています」를
+          {/* 몇 분 걸린다는 것을 미리 말한다. 말하지 않으면 되짚기 화면의 「解析しています」를
               고장으로 읽는다. */}
           <p className="import__note">解析には数分かかります。振り返りの画面で待てます。</p>
         </div>

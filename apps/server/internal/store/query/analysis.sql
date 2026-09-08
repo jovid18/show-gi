@@ -11,8 +11,8 @@
 -- 두 번 세워도 한 행이다(ON CONFLICT). 착수 경로가 같은 手를 두 번 부를 수 있고
 -- (matchRecords.counting 의 뒤따라온 자리) 같은 국면을 두 번 재는 것은 그대로 낭비다.
 --
--- 그만둔 판에는 안 쌓는다(NOT EXISTS). 안 걸면 그 판의 남은 手가 전부 행이 되어
--- 밀린 양으로 세어지는데, 누구도 그것을 재지 않으므로 백로그가 안 내려온다.
+-- 그만둔 판에는 쌓지 않는다(NOT EXISTS). 걸지 않으면 그 판의 남은 手가 전부 행이 되어
+-- 밀린 양으로 세어지는데, 누구도 그것을 재지 않으므로 백로그가 내려오지 않는다.
 INSERT INTO analysis_plies (match_id, ply, start_sfen, moves)
 SELECT sqlc.arg(match_id)::text,
        sqlc.arg(ply)::int,
@@ -26,10 +26,10 @@ ON CONFLICT (match_id, ply) DO NOTHING;
 
 -- name: ClaimAnalysisPly :one
 --
--- 안 잰 手 하나를 집는다. 없으면 0행이다.
+-- 재지 않은 手 하나를 집는다. 없으면 0행이다.
 --
--- 리스를 시각으로 받는다($1 = 지금 - 리스). 상수를 SQL 에 안 적는 것은 대기열이
--- 밴드를 안 적은 것과 같은 이유다 — 같은 값이 Go 와 SQL 에 두 벌 있으면 한쪽이 경고 없이 어긋난다.
+-- 리스를 시각으로 받는다($1 = 지금 - 리스). 상수를 SQL 에 적지 않는 것은 대기열이
+-- 밴드를 적지 않은 것과 같다 — 같은 값이 Go 와 SQL 에 두 벌 있으면 한쪽이 경고 없이 어긋난다.
 --
 -- 오래된 리스를 도로 집는 것이 이 문장의 두 번째 일이다. 워커가 배포나 스팟 회수로
 -- 사라지면 그 手는 claimed_at 만 찍힌 채 남고, 그 시각이 낡으면 여기가 되찾는다.
@@ -58,15 +58,15 @@ RETURNING t.match_id, t.ply, t.start_sfen, t.moves;
 -- 手들이 병렬로 재어진다.
 --
 -- ON CONFLICT 가 없다. 방금 만든 판의 번호라 (match_id, ply) 가 부딪힐 수가 없고,
--- COPY 는 애초에 그 절을 못 든다.
+-- COPY 는 애초에 그 절을 담을 수 없다.
 INSERT INTO analysis_plies (match_id, ply, start_sfen, moves) VALUES ($1, $2, $3, $4);
 
 -- name: FinishAnalysisPly :exec
 --
 -- 잰 값을 그 행에 적는다.
 --
--- 행이 없으면 아무 일도 안 일어난다. 그것이 규약이다 — 판이 끝나 자리가 걷힌 뒤에
--- 도착한 늦은 측정이 판을 되살리면 그 항목을 누구도 안 지운다(journal §106).
+-- 행이 없으면 아무 일도 일어나지 않는다. 그것이 규약이다 — 판이 끝나 자리가 걷힌 뒤에
+-- 도착한 늦은 측정이 판을 되살리면 그 항목을 누구도 지우지 않는다(journal §106).
 UPDATE analysis_plies
 SET done_at     = now(),
     before_cp   = $2,
@@ -87,10 +87,10 @@ WHERE match_id = $1 AND ply = $13 AND done_at IS NULL;
 -- 그 판을 미리 재는 것을 그만둔다. 부르는 자리가 둘이고 이유가 다르다 — 한 手가 실패했거나
 -- (뒤도 전부 같은 자리에서 실패한다), 판이 끝나 남은 手를 analyze 가 맡거나다.
 --
--- 아직 안 잰 행만 표시한다. 이미 잰 값은 판이 끝날 때 그대로 쓰이고, 여기서 같이 덮으면
+-- 아직 재지 않은 행만 표시한다. 이미 잰 값은 판이 끝날 때 그대로 쓰이고, 여기서 같이 덮으면
 -- 그만큼을 다시 재게 된다.
 --
--- 이 표시가 밀린 양의 정본을 하나로 만든다. 안 하면 판이 끝난 뒤 남은 手가 표에도 남고
+-- 이 표시가 밀린 양의 정본을 하나로 만든다. 하지 않으면 판이 끝난 뒤 남은 手가 표에도 남고
 -- queuedPlies 에도 더해져 같은 手가 두 번 세어진다(journal §116).
 UPDATE analysis_plies SET dead = true
 WHERE match_id = $1 AND done_at IS NULL;
@@ -115,9 +115,9 @@ WHERE match_id = $1 AND done_at IS NOT NULL;
 
 -- name: CountAnalysisBacklog :one
 --
--- 아직 안 잰 手数다. AnalysisBacklogPlies 가 이 값이고, 오토스케일의 신호가 된다.
+-- 아직 재지 않은 手数다. AnalysisBacklogPlies 가 이 값이고, 오토스케일의 신호가 된다.
 --
--- 그만둔 판은 안 센다. 누구도 재지 않을 것을 세면 백로그가 안 내려오고, 그 위에서
+-- 그만둔 판은 세지 않는다. 누구도 재지 않을 것을 세면 백로그가 내려오지 않고, 그 위에서
 -- 스케일 판단이 돈다.
 SELECT count(*) FROM analysis_plies
 WHERE done_at IS NULL AND NOT dead;
@@ -129,11 +129,11 @@ DELETE FROM analysis_plies WHERE match_id = $1;
 
 -- name: SweepAnalysisPlies :exec
 --
--- 오래된 행을 걷는다. 판이 비정상으로 끝나면 DiscardAnalysisMatch 가 안 돌고, 그때
+-- 오래된 행을 걷는다. 판이 비정상으로 끝나면 DiscardAnalysisMatch 가 돌지 않고, 그때
 -- 남는 행이 이 표의 하나뿐인 누수다.
 DELETE FROM analysis_plies WHERE created_at < $1;
 
--- 끝난 판의 큐(019). 자리는 games 가 들고 여기는 「무엇이 남았나」만 든다.
+-- 끝난 판의 큐(019). 자리는 games 가 맡고 여기는 「무엇이 남았나」만 담는다.
 
 -- name: HoldAnalysisJob :exec
 --
@@ -149,8 +149,8 @@ ON CONFLICT (match_id) DO NOTHING;
 -- 자리가 다 찼다. 手数를 적으면 그때부터 집힌다.
 --
 -- HoldAnalysisJob 이 세운 행을 채우는 것이 보통인데, 없으면 여기서 만든다. UPDATE 로만
--- 두면 그 앞이 한 번 실패했을 때 이 문장이 경고 없이 아무 일도 안 하고 그 판이 큐에
--- 안 만들어진다 — 되짚기는 그것을 「남지 않았다」로만 보여 주므로 누구도 못 알아챈다.
+-- 두면 그 앞이 한 번 실패했을 때 이 문장이 경고 없이 아무 일도 하지 않고 그 판이 큐에
+-- 만들어지지 않는다 — 되짚기는 그것을 「남지 않았다」로만 보여 주므로 누구도 알아챌 수 없다.
 INSERT INTO analysis_jobs (match_id, plies) VALUES ($1, $2)
 ON CONFLICT (match_id) DO UPDATE SET plies = EXCLUDED.plies;
 
@@ -176,9 +176,9 @@ DELETE FROM analysis_jobs WHERE match_id = $1;
 
 -- name: AnalysisJobBacklog :one
 --
--- 아직 안 집힌 판의 수와 그 판들이 안 잰 手数다. 밀린 양의 판 몫과 手 몫이 이 한 행이다.
+-- 아직 집히지 않은 판의 수와 그 판들이 재지 않은 手数다. 밀린 양의 판 몫과 手 몫이 이 한 행이다.
 --
--- 집힌 판은 안 센다. 그것은 지금 도는 일이다 — 리스가 낡으면 다시 센다.
+-- 집힌 판은 세지 않는다. 그것은 지금 도는 일이다 — 리스가 낡으면 다시 센다.
 SELECT count(*) AS games, coalesce(sum(plies), 0)::bigint AS plies
 FROM analysis_jobs
 WHERE plies IS NOT NULL
@@ -196,7 +196,7 @@ SELECT (
         JOIN games g ON g.match_id = j.match_id
         WHERE g.id = sqlc.arg(game_id)::bigint
     )
-    -- 가져온 판은 games.match_id 가 NULL 이라 위 조인에 안 걸린다. 줄에 세울 때 쓴 키를
+    -- 가져온 판은 games.match_id 가 NULL 이라 위 조인에 걸리지 않는다. 줄에 세울 때 쓴 키를
     -- 부르는 쪽이 그대로 넘긴다 — 키의 모양을 Go 한 곳에만 두기 위해서다.
     OR EXISTS (
         SELECT 1 FROM analysis_jobs j WHERE j.match_id = sqlc.arg(import_key)::text
@@ -208,7 +208,7 @@ SELECT (
 -- 가져온 판의 자리다. 한 판이 games 행 하나이고 그 행이 곧 자리다 — 대인전이 행 둘인
 -- 것과 다른 자리이고(MatchSeats), 그래서 분석기가 키를 보고 둘을 가른다.
 --
--- 주인이 없는 행은 안 준다. 가져오기가 로그인한 사람만이라 그런 행이 생길 수 없지만,
+-- 주인이 없는 행은 주지 않는다. 가져오기가 로그인한 사람만이라 그런 행이 생길 수 없지만,
 -- 자리에 사람이 없으면 실력을 쌓을 곳이 없어 판을 재도 반쪽이 된다.
 SELECT id, user_id, my_color FROM games
 WHERE id = $1 AND user_id IS NOT NULL AND imported_from IS NOT NULL;
@@ -225,5 +225,5 @@ ORDER BY my_color;
 
 -- name: SweepAnalysisJobs :exec
 --
--- 오래된 행을 걷는다. 자리가 영영 안 차는 반쪽 판이 이 표의 누수다.
+-- 오래된 행을 걷는다. 자리가 영영 차지 않는 반쪽 판이 이 표의 누수다.
 DELETE FROM analysis_jobs WHERE created_at < $1;

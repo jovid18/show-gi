@@ -7,10 +7,10 @@ import (
 )
 
 // 클라이언트가 보는 타입들이다. json 태그가 곧 웹과의 계약이다 — game.Snapshot 과
-// 같은 규약이고, 따로 둔 이유는 여기 없는 것들 때문이다: 개입·힌트·무르기·게이지·
+// 같은 규약이고, 따로 둔 것은 여기 없는 것들 때문이다: 개입·힌트·무르기·게이지·
 // 태그·상대의 강함이 전부 없고, 대신 시계와 상대의 접속이 있다.
 //
-// 스냅샷은 언제나 전부 나간다 — 저쪽과 같은 이유이고, 여기는 하나가 더 있다:
+// 스냅샷은 언제나 전부 나간다 — 저쪽과 같고, 여기는 하나가 더 있다:
 // 화면이 둘이라 부분 갱신을 재구성하게 두면 두 화면이 서로 다르게 어긋난다.
 
 // Status 는 판이 끝났는지, 끝났다면 왜인지다.
@@ -23,19 +23,19 @@ const (
 	StatusResigned   Status = "resigned"
 	StatusRepetition Status = "repetition"
 	// StatusTimeout 은 수번 쪽이 1手 제한시간을 넘긴 것이다. 승패가 난다 —
-	// 엔진 대국의 aborted(상대의 수를 못 얻어 접은 것)와 따로 두는 자리다.
+	// 엔진 대국의 aborted(상대의 수를 얻지 못해 접은 것)와 따로 두는 자리다.
 	StatusTimeout Status = "timeout"
 	// StatusAborted 는 승패 없이 접힌 것이다. 서버가 내려갈 때뿐이다.
 	StatusAborted Status = "aborted"
-	// StatusExpired 는 한 수도 안 둔 채 시간이 다 된 것이다. 승패가 없다.
+	// StatusExpired 는 한 수도 두지 않은 채 시간이 다 된 것이다. 승패가 없다.
 	//
 	// aborted 와 따로 둔다. 둘 다 승패가 없지만 화면이 할 말이 정반대다 — 저쪽은
-	// 「서버 사정」이고 이쪽은 「누구도 안 뒀다」인데, 하나로 뭉치면 그냥 자리를 비운 판에서
+	// 「서버 사정」이고 이쪽은 「누구도 두지 않았다」인데, 하나로 뭉치면 그냥 자리를 비운 판에서
 	// 두 사람 다 서버를 탓하게 된다.
 	StatusExpired Status = "expired"
 )
 
-// Side 는 보는 사람 기준이다. game.Side(human/engine)를 못 쓰는 이유가 그것이다
+// Side 는 보는 사람 기준이다. 그래서 game.Side(human/engine)를 쓸 수 없다
 // (journal §83).
 type Side string
 
@@ -57,13 +57,13 @@ type Snapshot struct {
 	Ply      int    `json:"ply"`
 	Turn     string `json:"turn"` // "b" | "w"
 	YourTurn bool   `json:"yourTurn"`
-	// InCheck 는 수번 쪽이 王手를 받고 있는가다. 보는 사람 기준을 안 쓴다 — 王手를
+	// InCheck 는 수번 쪽이 王手를 받고 있는가다. 보는 사람 기준을 쓰지 않는다 — 王手를
 	// 건 쪽도 상대 玉에 표시가 떠야 하고(엔진 대국과 같다), 어느 玉인지는 화면이
 	// turn 으로 짚는다.
 	InCheck bool `json:"inCheck"`
 
 	// YourColor 는 이 사람이 잡은 쪽이다. 판을 어느 쪽에서 그릴지가 여기 걸려 있고,
-	// 한 판에서 안 바뀐다(game.Snapshot.YourColor 와 같은 규약).
+	// 한 판에서 바뀌지 않는다(game.Snapshot.YourColor 와 같은 규약).
 	YourColor string `json:"yourColor"`
 
 	// LegalMoves 는 자기 차례일 때만 채운다. 상대 차례에 주면 그 사람이 상대의 수를
@@ -76,7 +76,7 @@ type Snapshot struct {
 
 	// OpponentName 은 상대의 표시 이름이다(users.display_name).
 	//
-	// 여기서 나가는 상대 정보는 이 하나뿐이다. 段級도 전적도 안 보낸다 —
+	// 여기서 나가는 상대 정보는 이 하나뿐이다. 段級도 전적도 보내지 않는다 —
 	// 실력 프로파일은 본인만 보는 값이다(02-architecture.md §7 위협 2).
 	OpponentName string `json:"opponentName"`
 	// OpponentOnline 은 상대가 지금 화면을 보고 있는가다.
@@ -86,12 +86,12 @@ type Snapshot struct {
 	OpponentOnline bool `json:"opponentOnline"`
 
 	// TurnLimitMs·TurnLeftMs 는 시계다. 서버가 정본이고 화면은 세기만 한다 —
-	// 남은 시간을 화면이 계산하면 탭을 멈춰 둔 브라우저에서 시간이 안 간다.
+	// 남은 시간을 화면이 계산하면 탭을 멈춰 둔 브라우저에서 시간이 가지 않는다.
 	TurnLimitMs int `json:"turnLimitMs"`
 	TurnLeftMs  int `json:"turnLeftMs"`
 }
 
-// snapshotData 는 관점이 아직 안 붙은 한 벌이다. 先手·後手마다 한 벌씩 만들지 않는 이유는
+// snapshotData 는 관점이 아직 붙지 않은 한 벌이다. 先手·後手마다 한 벌씩 만들지 않는 것은
 // table.go 의 viewSnapshot.
 type snapshotData struct {
 	sfen    string

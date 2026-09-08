@@ -10,11 +10,11 @@ const StartSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b -
 
 // Position 은 국면 전체: 판, 양측 持ち駒, 수번(手番), 수 번호.
 //
-// 값 타입이다. Apply가 복사본을 돌려주므로 롤백은 이전 값을 들고 있기만 하면 된다 —
+// 값 타입이다. Apply가 복사본을 돌려주므로 롤백은 이전 값을 갖고 있기만 하면 된다 —
 // 되돌리기가 제품 기능인 이상 이 성질이 설계의 핵심이다.
 type Position struct {
 	Board [81]Piece
-	// Hands 는 PieceType 값 그대로 색인한다 — 0-based 오프셋을 안 쓴다. 크기 8은 Rook=7 때문이고
+	// Hands 는 PieceType 값 그대로 색인한다 — 0-based 오프셋을 쓰지 않는다. 크기 8은 Rook=7 때문이고
 	// index 0(NoPieceType)은 영구 미사용. 王은 잡혀도 持ち駒가 되지 않아 index 8이 없다.
 	Hands   [2][8]int8 // [Color][PieceType Pawn..Rook]
 	Turn    Color
@@ -33,7 +33,7 @@ func StartPosition() Position {
 //
 // 종류마다의 한 벌 수(歩 18·香 4…)로 자르지 않는다. 넘치는 것은 국면에 실려 나가
 // InventoryExcess 가 「歩가 몇 장 많다」로 짚어 주는 편이, 파싱에서 거절해 「왜 안 되는지」를
-// 안 말하는 것보다 낫다 — 여기서 막는 것은 Hands 의 int8 이 넘치는 값뿐이다.
+// 말하지 않는 것보다 낫다 — 여기서 막는 것은 Hands 의 int8 이 넘치는 값뿐이다.
 const handComplement = 40
 
 func ParseSFEN(s string) (Position, error) {
@@ -48,7 +48,7 @@ func ParseSFEN(s string) (Position, error) {
 		return pos, fmt.Errorf("sfen: board must have 9 ranks, got %q", fields[0])
 	}
 	// SFEN 보드는 段一부터, 각 단 안에서 筋9→筋1 순이다 — 내부 인덱스(row*9+col)와 순서가 그대로
-	// 맞아서 좌표 변환이 없다. 뒤집으면 파싱·출력이 함께 틀려 왕복 테스트로는 안 잡힌다.
+	// 맞아서 좌표 변환이 없다. 뒤집으면 파싱·출력이 함께 틀려 왕복 테스트로는 잡히지 않는다.
 	for row, rs := range ranks {
 		col := 0
 		promoted := false
@@ -115,7 +115,7 @@ func ParseSFEN(s string) (Position, error) {
 			if !ok || t == King {
 				return pos, fmt.Errorf("sfen: invalid piece in hand %q", string(ch))
 			}
-			// 한 벌보다 많은 수는 개수를 벗어난다. Hands 가 int8 이라 여기서 안 막으면
+			// 한 벌보다 많은 수는 개수를 벗어난다. Hands 가 int8 이라 여기서 막지 않으면
 			// 경고 없이 음수가 된다 — 200 이 −56 이 되고, 그 판은 Faults 를 통과하면서
 			// 룰 엔진이 打 70개를 내주는데 엔진에는 「1장」이 나간다(journal §97).
 			if count > handComplement {
@@ -233,7 +233,7 @@ func (pos Position) RepetitionKey() string {
 //
 // 부르는 쪽이 이걸 다시 만들지 않는다. 키를 각자 만들면 한 글자만 갈려도 히트율이
 // 0이 되고, 그건 에러 없이 경고 없이 느려지는 종류다. internal/archive 가 이것을 쓰고,
-// internal/game 도 같은 자를 쓴다 — 저 둘은 서로를 못 들여오므로 여기가 하나뿐인 자리다.
+// internal/game 도 같은 자를 쓴다 — 저 둘은 서로를 들여올 수 없으므로 여기가 하나뿐인 자리다.
 func PositionKey(pos Position) string {
 	sfen := pos.SFEN()
 	if i := strings.LastIndexByte(sfen, ' '); i > 0 {

@@ -41,7 +41,7 @@ func TestInterventionMessageComesFromRender(t *testing.T) {
 	}
 	snap := waitFor(t, ch, func(s Snapshot) bool { return s.Intervention != nil }, "개입")
 
-	// 판정이 구한 사실이 그대로 문장이 된다. 여기서 비면 문장이 국면을 못 짚는다.
+	// 판정이 구한 사실이 그대로 문장이 된다. 여기서 비면 문장이 국면을 짚지 못한다.
 	if got, want := snap.Intervention.Message, explain.Render(facts); got != want {
 		t.Errorf("문장이 %q, want %q", got, want)
 	}
@@ -50,7 +50,7 @@ func TestInterventionMessageComesFromRender(t *testing.T) {
 	}
 }
 
-// 통과한 수에는 카드가 안 뜬다. 개입은 큰 실수에서만 멈춘다.
+// 통과한 수에는 카드가 뜨지 않는다. 개입은 큰 실수에서만 멈춘다.
 func TestNoCardForMovesThatStand(t *testing.T) {
 	s := newSession(t, Config{
 		Opponent: &scriptedOpponent{moves: []string{"3c3d"}}, Analyst: &fixedAnalyst{},
@@ -72,7 +72,7 @@ func TestNoCardForMovesThatStand(t *testing.T) {
 	}
 }
 
-// 판정이 실패해도 카드를 만들지 않는다. 이유를 모르는데 문장을 낼 수는 없고,
+// 판정이 실패해도 카드를 만들지 않는다. 이유를 모르는데 문장을 내보낼 수는 없고,
 // 무엇보다 대국이 그대로 이어져야 한다 — 개입은 부가 기능이다.
 func TestNoCardWhenJudgingFails(t *testing.T) {
 	an := &fixedAnalyst{err: errors.New("engine down")}

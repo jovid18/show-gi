@@ -10,7 +10,7 @@ import (
 
 // place 는 빈 판에 先手 좌표로 駒를 놓는다. 色을 넘기면 그 색의 진영으로 옮겨 놓는다.
 //
-// 판을 비운 채로 재는 이유는 주변 駒가 판정에 끼어들지 않아야 하기 때문이다.
+// 판을 비운 채로 재는 것은 주변 駒가 판정에 끼어들지 않아야 하기 때문이다.
 // 실전 국면으로만 재면 어느 칸이 실제 조건인지 테스트가 말해주지 않는다.
 func place(c shogi.Color, ss ...square) shogi.Position {
 	var pos shogi.Position
@@ -49,7 +49,7 @@ func TestEveryShapeMatchesItsOwnSquares(t *testing.T) {
 	}
 }
 
-// 後手 미러. 이 테스트가 없으면 後手 국면에서 태그가 경고 없이 안 뜬다 — 에러가
+// 後手 미러. 이 테스트가 없으면 後手 국면에서 태그가 경고 없이 뜨지 않는다 — 에러가
 // 나지 않는 종류의 버그라 기계로만 잡힌다.
 //
 // 미러가 맞는지를 값으로도 확인한다: 先手 玉2八의 거울은 後手 玉8二다.
@@ -70,7 +70,7 @@ func TestShapesMirrorForGote(t *testing.T) {
 	}
 }
 
-// 음성 테스트. 필수 칸 하나를 비우면 안 떠야 한다. 판정이 느슨해지는 것을
+// 음성 테스트. 필수 칸 하나를 비우면 뜨지 않아야 한다. 판정이 느슨해지는 것을
 // 이것만이 잡는다 — 느슨한 판정은 화면에 틀린 이름을 내보낸다.
 func TestOneMissingSquareIsNotTheCastle(t *testing.T) {
 	for _, sh := range castles {
@@ -83,7 +83,7 @@ func TestOneMissingSquareIsNotTheCastle(t *testing.T) {
 	}
 }
 
-// 같은 칸에 상대 駒가 있으면 내 囲い로 안 뜬다.
+// 같은 칸에 상대 駒가 있으면 내 囲い로 뜨지 않는다.
 func TestOpponentPiecesDoNotFormMyCastle(t *testing.T) {
 	sh := shapeByCode(t, "hon_mino")
 	var pos shogi.Position
@@ -175,8 +175,8 @@ func TestMovingTheRookWithinItsFileIsNotASwing(t *testing.T) {
 	}
 }
 
-// ▲3四飛(横歩取り)에는 袖飛車가 안 붙는다. 筋만 보면 3筋으로 같지만, 袖飛車는 飛를 자기
-// 2段(3八)에 振り, 横歩取り은 敵陣 3四로 뛰어들어 横歩를 딴다. 段을 안 보면 둘이 같은
+// ▲3四飛(横歩取り)에는 袖飛車가 붙지 않는다. 筋만 보면 3筋으로 같지만, 袖飛車는 飛를 자기
+// 2段(3八)에 振り, 横歩取り은 敵陣 3四로 뛰어들어 横歩를 딴다. 段을 보지 않으면 둘이 같은
 // 이름이 된다 — floodgate 1국에서 실제로 ▲3四飛에 袖飛車가 떴다.
 func TestYokofudoriIsNotSodeBisha(t *testing.T) {
 	// 2八→2四(筋 안)→3四(敵陣으로 筋 변경). 도착이 자기 2段 3八에서 벗어난다.
@@ -199,14 +199,14 @@ func TestFormationMirrorsForGote(t *testing.T) {
 	if !ok || got.Code != "shiken_bisha" {
 		t.Errorf("後手 8二→4二 는 四間飛車인데 %v (ok=%v)", got.Code, ok)
 	}
-	// 先手의 수를 後手로 재면 안 맞아야 한다 — 좇는 시작 칸이 다르다.
+	// 先手의 수를 後手로 재면 맞지 않아야 한다 — 좇는 시작 칸이 다르다.
 	if _, ok := DetectFormation([]string{"2h6h"}, shogi.White); ok {
 		t.Error("先手의 수순을 後手 것으로 읽었다")
 	}
 }
 
 // 居飛車는 囲った 뒤에만 뜬다. 振っていない은 初期配置에서도 참이라 그것만으로는
-// 아직 아무 선택도 안 드러났다.
+// 아직 아무 선택도 드러나지 않았다.
 //
 // 矢倉로 재는 이유가 있다 — 本美濃는 玉이 2八에 서므로 飛가 그 筋에 함께 있을 수 없고,
 // 애초에 振り飛車의 囲い다. 「居飛車 + 矢倉」가 실제로 함께 나오는 짝이다.
@@ -229,7 +229,7 @@ func TestIbishaNeedsACastleFirst(t *testing.T) {
 // 수순이 없으면 居飛車라고 말하지 않는다. StartSFEN 으로 중간부터 시작한 세션이
 // 그렇다 — 기록이 비어 있는 것과 振っていない은 다르다.
 //
-// 판을 함께 보는 것이 그것을 막는다. 飛가 6筋에 있으면 수순이 비어 있어도 居飛車를 안 붙인다.
+// 판을 함께 보는 것이 그것을 막는다. 飛가 6筋에 있으면 수순이 비어 있어도 居飛車를 붙이지 않는다.
 func TestIbishaIsNotClaimedWhenTheHistoryIsMissing(t *testing.T) {
 	ss := append(append([]square{}, shapeByCode(t, "kin_yagura").squares...),
 		square{6, 8, shogi.Rook}) // 이미 振ってある 국면
@@ -239,7 +239,7 @@ func TestIbishaIsNotClaimedWhenTheHistoryIsMissing(t *testing.T) {
 	}
 }
 
-// 打는 좇던 칸과 안 맞는다. 飛가 잡혔다가 6筋에 打たれても 四間飛車는 안 붙는다.
+// 打는 좇던 칸과 맞지 않는다. 飛가 잡혔다가 6筋에 打たれても 四間飛車는 붙지 않는다.
 func TestADroppedRookIsNotASwing(t *testing.T) {
 	if got, ok := DetectFormation([]string{"R*6h"}, shogi.Black); ok {
 		t.Errorf("打으로 전법이 붙었다: %v", got.Code)
@@ -324,7 +324,7 @@ func TestCastlesCarryTheirSource(t *testing.T) {
 }
 
 // 정의된 이름은 전부 코드로 되찾을 수 있어야 한다. 기록에 남는 것은 코드뿐이고
-// (games.style_tags), 못 찾으면 마이페이지가 그 줄 전체를 버린다(server.stylesOf).
+// (games.style_tags), 찾지 못하면 마이페이지가 그 줄 전체를 버린다(server.stylesOf).
 func TestByCodeFindsEveryDefinedTag(t *testing.T) {
 	for _, want := range All() {
 		got, ok := ByCode(want.Code)

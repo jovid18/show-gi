@@ -9,7 +9,7 @@ import { useEffect } from 'react';
  * 문구를 정할 수 없다. 브라우저가 자기 문장을 쓴다 — 여기서 할 수 있는 것은 물어보게
  * 하는 것뿐이고, `returnValue` 는 그 규약을 켜는 스위치다.
  *
- * 화면 안의 이동에는 안 걸린다. 두는 중에는 다른 주소가 판으로 되돌아와(`App.tsx`)
+ * 화면 안의 이동에는 걸리지 않는다. 두는 중에는 다른 주소가 판으로 되돌아와(`App.tsx`)
  * 나갈 수 있는 자리가 없고, 문서를 떠나는 이 길이 판을 잃는 하나뿐인 길이다.
  */
 export function useUnloadGuard(active: boolean): void {
@@ -18,8 +18,8 @@ export function useUnloadGuard(active: boolean): void {
 
     const onBeforeUnload = (e: BeforeUnloadEvent): void => {
       e.preventDefault();
-      // 오래된 브라우저는 `preventDefault` 만으로는 안 묻는다. 빈 문자열이면 충분하고,
-      // 넣은 문장은 어차피 안 보인다.
+      // 오래된 브라우저는 `preventDefault` 만으로는 묻지 않는다. 빈 문자열이면 충분하고,
+      // 넣은 문장은 어차피 보이지 않는다.
       e.returnValue = '';
     };
 

@@ -10,7 +10,7 @@ import type { StyleTag } from '@/protocol/game';
  * 한 자리에 둔다. 대국 화면의 이름 알림과 마이페이지의 「組んだ形」이 같은 말을 써야
  * 한다 — 따로 두면 한쪽에서 「戦法」이고 다른 쪽에서 「戦型」이 된다.
  *
- * `kind` 가 늘면 타입이 여기서 컴파일을 막는다 — 서버에 축을 추가하고 화면을 안 고치는
+ * `kind` 가 늘면 타입이 여기서 컴파일을 막는다 — 서버에 축을 추가하고 화면을 고치지 않는
  * 자리를 이것이 잡는다.
  */
 export const TAG_KIND_JA: Record<StyleTag['kind'], string> = {

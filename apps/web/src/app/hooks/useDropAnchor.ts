@@ -11,7 +11,7 @@ export interface DropPiece {
 }
 
 export interface DropAnchor {
-  /** `Board` 의 `dropFrom`. 아직 못 쟀으면 null이고, 그때 打 화살표는 안 그려진다. */
+  /** `Board` 의 `dropFrom`. 아직 재지 못했으면 null이고, 그때 打 화살표는 그려지지 않는다. */
   dropFrom: DropFrom | null;
   /** 판 격자. `Board` 의 `boardRef` 에 그대로 넘긴다. */
   boardRef: RefObject<HTMLDivElement | null>;
@@ -22,13 +22,13 @@ export interface DropAnchor {
 /**
  * 打 화살표의 출발점을 재는 훅. 대국·되짚기·검토가 같이 쓴다.
  *
- * 칸 산수로는 안 나온다. 駒台는 판 밖의 형제 요소이고 그 안에서 持ち駒가 몇 종류인지·
+ * 칸 산수로는 나오지 않는다. 駒台는 판 밖의 형제 요소이고 그 안에서 持ち駒가 몇 종류인지·
  * 라벨이 얼마나 넓은지에 따라 자리가 달라진다 — 그래서 재야 하고, 재면 된다.
  *
- * 세 화면이 같은 계산을 두 벌로 들고 있었고, 그래서 검토에는 아예 안 붙어 있었다
+ * 세 화면이 같은 계산을 두 벌로 갖고 있었고, 그래서 검토에는 아예 붙어 있지 않았다
  * (journal §99). 재는 자리를 하나로 모으는 것이 세 번째를 붙이는 값이다.
  *
- * 인자의 identity 는 안 본다. 부르는 쪽이 매 렌더마다 새 객체를 줘도 된다 — 그것을
+ * 인자의 identity 는 보지 않는다. 부르는 쪽이 매 렌더마다 새 객체를 줘도 된다 — 그것을
  * 의존성으로 걸었을 때 효과가 다시 돌고 `setDropFrom` 이 또 새 객체를 넣어 화면이
  * 하얘진 적이 있고, 그래서 여기는 `side`·`kind` 와 값 비교만으로 돈다.
  */
@@ -36,7 +36,7 @@ export function useDropAnchor(dropping: DropPiece | null): DropAnchor {
   const [dropFrom, setDropFrom] = useState<DropFrom | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const piece = useRef<HTMLButtonElement | null>(null);
-  // 폭이 바뀌는 것을 지켜보는 쪽. 판이 늦게 그려지는 화면이 있어서 「누구를 보고 있나」를 들고 있는다.
+  // 폭이 바뀌는 것을 지켜보는 쪽. 판이 늦게 그려지는 화면이 있어서 「누구를 보고 있나」를 기억해 둔다.
   const observer = useRef<ResizeObserver | null>(null);
   const watched = useRef<HTMLElement | null>(null);
 
@@ -69,7 +69,7 @@ export function useDropAnchor(dropping: DropPiece | null): DropAnchor {
       y: pieceAt.y + from.offsetHeight / 2 - (gridAt.y + grid.clientTop),
       sq: square.offsetWidth,
     };
-    // 같은 값이면 상태를 안 건드린다 — 재는 일이 리렌더를 부르고 리렌더가 다시 재는 고리를 끊는다.
+    // 같은 값이면 상태를 건드리지 않는다 — 재는 일이 리렌더를 부르고 리렌더가 다시 재는 고리를 끊는다.
     setDropFrom((prev) => (prev && prev.x === next.x && prev.y === next.y && prev.sq === next.sq ? prev : next));
   }, []);
 
@@ -81,7 +81,7 @@ export function useDropAnchor(dropping: DropPiece | null): DropAnchor {
   // 어느 것도 `side`·`kind` 를 바꾸지 않는다. 판을 뒤집었을 때 화살표가 반대쪽 駒台에서
   // 뻗어 있던 것이 그 자리다.
   //
-  // 값이 같으면 상태를 안 건드리므로 고리가 안 생긴다(`measure`).
+  // 값이 같으면 상태를 건드리지 않으므로 고리가 생기지 않는다(`measure`).
   useLayoutEffect(() => {
     if (!side || !kind) {
       setDropFrom(null);
@@ -90,8 +90,8 @@ export function useDropAnchor(dropping: DropPiece | null): DropAnchor {
     measure();
 
     // 화면 폭이 바뀌면 `--sq` 가 따라 변하는데 그때는 렌더가 없다. 붙이는 것도 렌더마다
-    // 다시 본다 — 판은 국면을 못 읽으면 안 그려지므로(되짚기·검토) 화살표가 살아 있는
-    // 동안에 늦게 그려질 수 있고, 한 번만 시도하면 그 판에는 관찰자가 영원히 안 붙는다.
+    // 다시 본다 — 판은 국면을 읽지 못하면 그려지지 않으므로(되짚기·검토) 화살표가 살아 있는
+    // 동안에 늦게 그려질 수 있고, 한 번만 시도하면 그 판에는 관찰자가 영원히 붙지 않는다.
     const stage = boardRef.current?.closest('.game-board');
     if (!(stage instanceof HTMLElement) || stage === watched.current) return;
     observer.current?.disconnect();

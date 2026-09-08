@@ -52,7 +52,7 @@ interface MoveOptionsProps {
 interface Option {
   usi: string;
   ja: string;
-  /** 지금 잰 평가치, 둔 쪽 관점. 못 잰 줄은 undefined — 자리는 지키고 값만 비운다. */
+  /** 지금 잰 평가치, 둔 쪽 관점. 재지 못한 줄은 undefined — 자리는 지키고 값만 비운다. */
   cp: number | undefined;
   /** 詰み까지의 手数, 둔 쪽 관점. 있으면 cp 대신 이것으로 말한다(`scoreJa`). */
   mateIn: number | undefined;
@@ -82,7 +82,7 @@ interface Option {
 export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveOptionsProps) {
   /** 뿌리에 서 있는가. 여기서만 「실제로 둔 수」와 「물러진 수」가 사실이다. */
   const atRoot = (node?.line.length ?? 0) === 0;
-  /** 지금 국면의 다음 手数. 제목이 이걸 든다 — 분기로 들어가면 따라 움직인다. */
+  /** 지금 국면의 다음 手数. 제목이 이 값을 쓴다 — 분기로 들어가면 따라 움직인다. */
   const here = node ? node.basePly + node.line.length : ply;
   /**
    * 이 자리의 수를 두는 것이 상대인가. 값의 주인이 누구인지가 여기서 갈린다 —
@@ -114,7 +114,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
     /**
      * 다시 잰 값을 이 열의 자로 옮긴다. `measured` 는 플레이어 관점이고 열은 둔 쪽 관점이다.
      *
-     * 手数는 뒤집지 않는다 — 세는 값이라 관점을 바꿔도 자가 안 갈리고, 「누가 詰ますのか」는
+     * 手数는 뒤집지 않는다 — 세는 값이라 관점을 바꿔도 자가 갈리지 않고, 「누가 詰ますのか」는
      * 그리는 쪽이 정한다(`rowScoreJa`).
      */
     const moverScore = (at: MoveEval | undefined): Partial<Option> =>
@@ -127,15 +127,15 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
     // 이 국면에서 실제로 둔 수 — 다음 手数의 것이다. 누가 뒀는지까지 적는다.
     // 뿌리에서만이다: 가정으로 들어간 국면에는 「실제로 둔 수」가 없다.
     //
-    // 값은 후보 셋 안에 있을 때만 이미 와 있다. 밖이면 다시 잰 것으로 채운다 — 안 채우면
+    // 값은 후보 셋 안에 있을 때만 이미 와 있다. 밖이면 다시 잰 것으로 채운다 — 채우지 않으면
     // 그 줄만 빈칸이고, 정렬도 맨 아래로 보낸다(§6 #7). 물러진 수는 아래에서 같은 처리를
     // 받고 있었는데 둔 수만 빠져 있었다.
     const next: ReviewMove | undefined = atRoot ? game.moves[ply] : undefined;
     if (next) put(next.usi, next.ja || next.usi, { played: next.by, ...moverScore(measured.get(next.usi)) });
 
-    // 가져온 판의 悪手는 실제로 둔 수 그 자체다. 누구도 안 막았으므로 아래 「물러진 수」
+    // 가져온 판의 悪手는 실제로 둔 수 그 자체다. 누구도 막지 않았으므로 아래 「물러진 수」
     // 목록에는 줄이 없고(`retractedUsi` 가 비어 있다), 여기서 그 줄에 이름을 붙이지 않으면
-    // 판정한 것이 화면 어디에도 안 나온다.
+    // 판정한 것이 화면 어디에도 나오지 않는다.
     if (next && game.imported === true) {
       const iv = game.interventions.find((v) => v.ply === ply + 1);
       if (iv) {
@@ -202,7 +202,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
 
   return (
     <section className="review-panel review-options" aria-label="この局面で指せた手">
-      {/* 어느 쪽 수인지를 양쪽 다 적는다. 「相手の番」만 적고 내 차례에는 아무 말도 안 하면,
+      {/* 어느 쪽 수인지를 양쪽 다 적는다. 「相手の番」만 적고 내 차례에는 아무 말도 하지 않으면,
           말이 없는 것이 「내 차례」라는 뜻인지 「아직 모른다」는 뜻인지 갈리지 않는다 — 분기로
           몇 수 들어가면 차례가 한 수씩 바뀌므로 그 자리에서 특히 그렇다. */}
       <h2 className="panel-title">
@@ -238,8 +238,8 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
                     카테고리 이름으로 말하고, 한 판이 둘을 겸할 수 없어서(가져온 판에는
                     개입이 없다) 같은 목록에 나란히 설 일이 없다. */}
                 {o.blunder && <span data-role="blunder">{o.blunder.categoryJa || '悪手'}</span>}
-                {/* AI가 막은 것과 다른 표식이다. 저 줄은 카테고리 이름(タダ捨て)을 들고
-                    이 줄은 「待った」를 든다 — 같은 목록에 나란히 서므로 표식이 갈려야
+                {/* AI가 막은 것과 다른 표식이다. 저 줄은 카테고리 이름(タダ捨て)을 쓰고
+                    이 줄은 「待った」를 쓴다 — 같은 목록에 나란히 서므로 표식이 갈려야
                     「막힌 수」와 「내가 되돌린 수」를 구별할 수 있다. */}
                 {o.undone && (
                   <span data-role="undone">
@@ -257,7 +257,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
 
             {/* 가져온 판의 悪手는 고르는 것과 무관하게 편다.
 
-                그 줄은 실제로 둔 수라 눌러도 분기가 안 열리고(`onPick` 의 played),
+                그 줄은 실제로 둔 수라 눌러도 분기가 열리지 않고(`onPick` 의 played),
                 그래서 위 조건으로는 문구에 닿는 길이 아예 없다. 목록이 글이 되지도
                 않는다 — 한 국면에 悪手 줄은 하나뿐이다. */}
             {o.blunder?.message && <p className="review-iv-note">{o.blunder.message}</p>}

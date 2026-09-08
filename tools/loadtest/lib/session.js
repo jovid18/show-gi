@@ -2,7 +2,7 @@
 //
 // 세션은 서버에 짝이 없는 서명 쿠키 하나다(internal/auth 의 Codec) — 서버가 하는 일이
 // HMAC 검증뿐이라, 비밀을 아는 쪽은 Google 왕복 없이 같은 값을 만들 수 있다.
-// 부하 도구에 로컬 로그인이 필요 없는 이유가 이것이다(journal §103).
+// 그래서 부하 도구에 로컬 로그인이 필요 없다(journal §103).
 import crypto from 'k6/crypto';
 import encoding from 'k6/encoding';
 

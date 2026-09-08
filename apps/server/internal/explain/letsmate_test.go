@@ -15,7 +15,7 @@ func letsMateFacts(plies int) Facts {
 		Known:     true,
 		MatePlies: plies,
 		// 아래는 이 카테고리가 말하지 않기로 한 사실들이다. 채워 넣어도 문장과 키에
-		// 안 새는지를 같이 본다.
+		// 새지 않는지를 같이 본다.
 		MovedPiece: "銀",
 		Captured:   "歩",
 		Attackers:  2,

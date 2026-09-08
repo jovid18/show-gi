@@ -128,7 +128,7 @@ export function toSfen(board: Board): string {
     for (const kind of HAND_SFEN_ORDER) {
       const n = board.hands[side][kind] ?? 0;
       if (n <= 0) continue;
-      // 1장은 개수를 안 적는다. 적으면 왕복이 안 맞고, 서버의 출력도 그 규약이다.
+      // 1장은 개수를 적지 않는다. 적으면 왕복이 맞지 않고, 서버의 출력도 그 규약이다.
       if (n >= 2) hands += String(n);
       hands += side === 'black' ? kind : kind.toLowerCase();
     }

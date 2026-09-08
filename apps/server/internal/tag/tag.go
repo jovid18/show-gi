@@ -39,8 +39,8 @@ const (
 
 // Tag 는 붙은 이름 하나다.
 //
-// Code 와 NameJa 를 가르는 이유는 가는 곳이 다르기 때문이다. Code 는 검색 키라서
-// (games.style_tags · edges.tags) 영어이고 안 바뀌어야 한다. NameJa 는 화면에 그대로
+// Code 와 NameJa 를 가르는 것은 가는 곳이 다르기 때문이다. Code 는 검색 키라서
+// (games.style_tags · edges.tags) 영어이고 바뀌지 않아야 한다. NameJa 는 화면에 그대로
 // 나가는 문자열이라 일본어여야 한다(CLAUDE.md 언어 규칙).
 type Tag struct {
 	Code   string `json:"code"`
@@ -56,7 +56,7 @@ type square struct {
 
 // shape 는 이름 하나의 정의다.
 //
-// squares 가 전부 맞아야 성립한다. 부분 일치를 허용하지 않는 이유는 이름이 화면에
+// squares 가 전부 맞아야 성립한다. 부분 일치를 허용하지 않는 것은 이름이 화면에
 // 나가는 단언이기 때문이다 — 절반만 맞은 형태를 「本美濃囲い」라고 부르면 초심자는
 // 그것을 本美濃라고 배우고, 검증할 수단이 없다. 대신 더 느슨한 형태를 따로 정의한다
 // (片美濃가 그 자체로 이름이 있는 형태인 것처럼).
@@ -165,8 +165,8 @@ var castles = []shape{
 		// 「玉を3八に、左金を5八に、右金を4八に動かして作られる」
 		//
 		// 銀은 넣지 않았다. 원문이 右銀2八을 「ただし…壁銀となり玉の逃げ道がなくなって
-		// しまう」로 적어 선택임을 밝히고 있다. 필수 칸에 넣으면 銀을 안 올린
-		// 정상적인 金無双에서 이름이 안 뜬다.
+		// しまう」로 적어 선택임을 밝히고 있다. 필수 칸에 넣으면 銀을 올리지 않은
+		// 정상적인 金無双에서 이름이 뜨지 않는다.
 		tag:     Tag{Code: "kin_musou", NameJa: "金無双", Kind: KindCastle},
 		squares: []square{{3, 8, shogi.King}, {5, 8, shogi.Gold}, {4, 8, shogi.Gold}},
 		source:  wikiMusou,
@@ -184,7 +184,7 @@ var castles = []shape{
 	{
 		// 左美濃(8八玉型) — 玉8八·金7八·金6八·銀7七.
 		//
-		// 金矢倉와 필수 칸 수가 같아서(넷) pick 의 「구체적인 쪽」으로는 안 갈리는데,
+		// 金矢倉와 필수 칸 수가 같아서(넷) pick 의 「구체적인 쪽」으로는 갈리지 않는데,
 		// 동시에 성립할 수 없어서 문제가 되지 않는다 — 둘 다 金7八을 요구하고 나머지
 		// 金의 자리가 6八 대 6七로 갈리므로, 걸리려면 金이 세 장이어야 한다.
 		//
@@ -272,7 +272,7 @@ var castles = []shape{
 	},
 }
 
-// formationByFile 는 飛를 振った 筋(先手 기준)으로 전법을 정한다. 段을 안 보고 수순에서
+// formationByFile 는 飛를 振った 筋(先手 기준)으로 전법을 정한다. 段을 보지 않고 수순에서
 // 읽는다 — 段을 고정하면 飛를 올린 순간 이름이 꺼지고, 국면으로 물으면 종반에 그 筋을
 // 지나가는 飛까지 걸린다(journal §30, 09-tags.md §2).
 var formationByFile = map[int]Tag{
@@ -333,7 +333,7 @@ const OpeningPlies = 24
 // 나온 것이 이긴다 — 振り直し(예: 四間에서 三間으로)는 그 판의 전법을 바꾸지 않는다.
 //
 // 飛가 잡혔다가 다시 打たれる 경우는 걸리지 않는다. 打은 From < 0 이라 좇던 칸과
-// 절대 안 맞고, 그 뒤로는 아무것도 반환하지 않는다 — 거짓으로 붙이는 것보다 안 붙는
+// 절대 맞지 않고, 그 뒤로는 아무것도 반환하지 않는다 — 거짓으로 붙이는 것보다 붙지 않는
 // 쪽이 낫다.
 //
 // 振った 手数가 序盤 안이어야 한다(OpeningPlies). 창을 「振った 것이 몇 수째였나」에
@@ -356,14 +356,14 @@ func DetectFormation(playerMoves []string, c shogi.Color) (Tag, bool) {
 				ply++
 			}
 			if ply > OpeningPlies {
-				return Tag{}, false // 종반의 転換에는 전법 이름을 안 붙인다
+				return Tag{}, false // 종반의 転換에는 전법 이름을 붙이지 않는다
 			}
 			// 振り飛車는 飛를 자기 2段에 振る게 선언이다 — 先手 ▲3八飛·▲6八飛(八),
 			// 後手 △3二飛·△5二飛(二). ▲3四飛(横歩取り)은 筋만 보면 袖飛車와 같지만
 			// 敵陣으로 뛰어드는 것이라 여기서 걸러진다.
 			//
 			// 段을 여기서만 보는 것은, 振った 뒤 ▲3五飛로 올라가도 이름이 이미 정해져
-			// 다시 안 묻기 때문이다.
+			// 다시 묻지 않기 때문이다.
 			if senteRank(shogi.RankOf(int(m.To)), c) != 8 {
 				return Tag{}, false
 			}
@@ -384,7 +384,7 @@ func rookStartRank(c shogi.Color) int {
 }
 
 // squareFor 는 先手 좌표를 그 색의 좌표로 옮긴다 — 後手 진영은 180° 회전이라 筋·段을
-// 함께 뒤집는다. 後手 정의를 손으로 두 벌 적지 않는 이유는 journal §30.
+// 함께 뒤집는다. 後手 정의를 손으로 두 벌 적지 않는 근거는 journal §30.
 func squareFor(s square, c shogi.Color) int {
 	if c == shogi.Black {
 		return shogi.SquareOf(s.file, s.rank)
@@ -399,16 +399,16 @@ func (sh shape) matches(pos shogi.Position, c shogi.Color, dropped map[int]bool)
 			return false
 		}
 		if dropped[sq] {
-			return false // 打って 채운 칸은 「짰다」에 안 든다 — droppedSquares
+			return false // 打って 채운 칸은 「짰다」에 들지 않는다 — droppedSquares
 		}
 	}
 	return true
 }
 
-// droppedSquares 는 打으로 놓인 뒤 한 번도 안 움직인 자기 駒의 칸이다.
+// droppedSquares 는 打으로 놓인 뒤 한 번도 움직이지 않은 자기 駒의 칸이다.
 //
 // 囲い는 「玉을 감싸도록 駒를 옮겨 짓는 것」이라, 종반에 수비용으로 打은 金 하나가 우연히
-// 필수 칸을 채운 것은 그 囲い를 지은 것으로 안 센다. 실제로 사람이 둔 판에서 59手에
+// 필수 칸을 채운 것은 그 囲い를 지은 것으로 세지 않는다. 실제로 사람이 둔 판에서 59手에
 // 金矢倉이 깨진 뒤 63手의 G*6h 하나로 左美濃가 한 手 동안 떴다(회차 1 #5).
 //
 // 戦法의 OpeningPlies 와 같은 문제의 다른 축이다 — 그쪽은 종반에 떠돌던 飛가 中飛車가
@@ -416,7 +416,7 @@ func (sh shape) matches(pos shogi.Position, c shogi.Color, dropped map[int]bool)
 // 걸지 않는다: §44가 「美濃는 70수째에 서도 美濃다」로 정한 것은 그대로 맞고, 갈라야 할
 // 것은 옮겨 짓지 않은 것이다.
 //
-// 상대 수는 안 봐도 된다. 打은 駒를 상대가 따 가면 그 칸이 적 駒가 되어 matches 가 먼저
+// 상대 수는 보지 않아도 된다. 打은 駒를 상대가 따 가면 그 칸이 적 駒가 되어 matches 가 먼저
 // 걸러 내고, 그 뒤 자기 駒가 그 칸으로 옮겨 오면 아래에서 false 로 지워진다.
 func droppedSquares(playerMoves []string) map[int]bool {
 	var out map[int]bool
@@ -458,7 +458,7 @@ func pick(shapes []shape, pos shogi.Position, c shogi.Color, dropped map[int]boo
 
 // Input 은 태그 판정에 필요한 것 전부다.
 //
-// 인자를 늘리는 대신 구조체로 둔 이유는 축마다 보는 것이 다르기 때문이다. 戦型은
+// 인자를 늘리는 대신 구조체로 둔 것은 축마다 보는 것이 다르기 때문이다. 戦型은
 // 상대의 수순까지 봐야 하고(相振り飛車), 앞으로 붙을 手筋은 또 다른 것을 본다.
 // 인자로 늘리면 호출부가 Detect(pos, mine, theirs, c) 처럼 순서로만 구별되는 슬라이스
 // 둘을 넘기게 되고, 바꿔 넘겨도 컴파일된다.
@@ -473,14 +473,14 @@ type Input struct {
 
 // Detect 는 이 색이 지금 짜고 있는 이름들을 돌려준다. 없으면 빈 슬라이스다.
 //
-// 이름과 달리 手筋은 안 낸다. 축이 囲い·戦法·戦型 셋뿐이라, 手筋이 필요한 쪽은
+// 이름과 달리 手筋은 짚지 않는다. 축이 囲い·戦法·戦型 셋뿐이라, 手筋이 필요한 쪽은
 // FindTesuji·DropTesuji 를 따로 불러야 한다(game/tesuji.go 가 그렇게 한다).
 //
 // 축마다 최대 하나이고 囲い가 먼저 온다 — 화면이 순서를 다시 정하지 않아도 되게.
 //
 // 호출하는 쪽이 플레이어 색만 넘긴다. 컴퓨터 쪽 태그는 화면에 그리지 않는다
-// (01-core.md §7 — 상대의 계획을 알려주지 않는다). 그 규칙을 이 함수가 강제하지 않는
-// 이유는, 리뷰 화면이 끝난 판을 양쪽 다 보여주는 자리에서는 반대가 맞기 때문이다.
+// (01-core.md §7 — 상대의 계획을 알려주지 않는다). 그 규칙을 이 함수가 강제하지는
+// 않는다 — 리뷰 화면이 끝난 판을 양쪽 다 보여주는 자리에서는 반대가 맞기 때문이다.
 func Detect(in Input) []Tag {
 	var out []Tag
 
@@ -494,7 +494,7 @@ func Detect(in Input) []Tag {
 	case swung:
 		out = append(out, mine)
 	case castled && rookOnStartFile(in.Pos, in.Color):
-		// 振っていない + 囲った = 居飛車. 囲い가 없으면 아직 아무 선택도 안 드러났다.
+		// 振っていない + 囲った = 居飛車. 囲い가 없으면 아직 아무 선택도 드러나지 않았다.
 		out = append(out, ibisha)
 	}
 
@@ -513,7 +513,7 @@ var (
 // detectOpening 은 판 전체의 상태로 戦型을 정한다.
 //
 // 순서가 규칙의 일부다 — 좁은 것이 먼저다. 角交換振り飛車는 角換わり이면서 振り飛車라,
-// 뒤에 두면 언제나 角換わり로 먼저 걸려서 영원히 안 나온다. 블런더 카테고리에서
+// 뒤에 두면 언제나 角換わり로 먼저 걸려서 영원히 나오지 않는다. 블런더 카테고리에서
 // 판정 순서가 규칙인 것과 같은 자리다([01-core.md §3](01-core.md)).
 func detectOpening(in Input, mine Tag, swung bool) (Tag, bool) {
 	theirs, theySwung := DetectFormation(in.OpponentMoves, in.Color.Other())
@@ -537,7 +537,7 @@ func detectOpening(in Input, mine Tag, swung bool) (Tag, bool) {
 }
 
 // isFuribisha 는 그 전법이 飛를 왼쪽으로 振った 쪽인지. 袖飛車(3筋)·右四間飛車(4筋)는
-// 飛를 옮기지만 居飛車系라 여기 안 든다 — 相振り飛車를 셀 때 그 둘을 세면 틀린다.
+// 飛를 옮기지만 居飛車系라 여기 들지 않는다 — 相振り飛車를 셀 때 그 둘을 세면 틀린다.
 func isFuribisha(t Tag) bool {
 	switch t.Code {
 	case "naka_bisha", "shiken_bisha", "sanken_bisha", "mukai_bisha":
@@ -565,7 +565,7 @@ func bishopsTraded(pos shogi.Position) bool {
 // 居飛車에만 필요한 확인이다. 「振っていない」를 수순으로만 물으면 수순이 없을 때
 // 참이 되어 버린다 — StartSFEN 으로 중간 국면부터 시작한 세션이 그렇고, 거기서는
 // 飛가 6筋에 있는데도 居飛車라고 말한다. 振り飛車 쪽은 이 문제가 없다: 振った 수가
-// 수순에 실제로 있어야 하므로, 수순이 없으면 아무 이름도 안 붙는다.
+// 수순에 실제로 있어야 하므로, 수순이 없으면 아무 이름도 붙지 않는다.
 //
 // 飛가 잡혀서 판에 없으면 false다. 모르는 것을 居飛車로 세지 않는다.
 func rookOnStartFile(pos shogi.Position, c shogi.Color) bool {
@@ -587,7 +587,7 @@ func All() []Tag {
 	for _, sh := range castles {
 		out = append(out, sh.tag)
 	}
-	// 筋 순서로 낸다. map 순회는 순서가 없어서 그대로 쓰면 테스트 출력이 매번 달라진다.
+	// 筋 순서로 내보낸다. map 순회는 순서가 없어서 그대로 쓰면 테스트 출력이 매번 달라진다.
 	for file := 1; file <= 9; file++ {
 		if t, ok := formationByFile[file]; ok {
 			out = append(out, t)
@@ -608,7 +608,7 @@ func All() []Tag {
 // 나갈 이름과 축은 여기서만 온다 — 부르는 쪽이 자기 표를 만들면 판에 뜨는 이름과
 // 마이페이지의 이름이 갈린다.
 //
-// 모르는 코드는 이름을 안 지어낸다. 정의를 지우거나 이름을 바꾼 뒤에도 옛 기록에는
+// 모르는 코드는 이름을 지어내지 않는다. 정의를 지우거나 이름을 바꾼 뒤에도 옛 기록에는
 // 그 코드가 남아 있고, 그때 코드를 그대로 화면에 내보내면 일본어 화면에 영어가 뜬다.
 func ByCode(code string) (Tag, bool) {
 	for _, t := range All() {

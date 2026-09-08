@@ -4,7 +4,7 @@ import type { WhatIfNode } from '@/protocol/whatif';
 /**
  * 「そのとき、こう指していたら」 — 분기 하나를 옆에서 읽는 패널.
  *
- * 여기는 판을 안 그린다. 판은 되짚기와 같은 `Board` 하나가 그리고, 이 패널은 그 판이
+ * 여기는 판을 그리지 않는다. 판은 되짚기와 같은 `Board` 하나가 그리고, 이 패널은 그 판이
  * 무엇인지(어디서 갈라졌나 · 지금 값이 얼마인가 · 무엇을 둬 볼 수 있나)를 말한다.
  *
  * 되짚는 화면 전용이다. 대국 중에도 둬 보는 길이 있지만(journal §54) 그쪽은 개입 카드
@@ -14,12 +14,12 @@ import type { WhatIfNode } from '@/protocol/whatif';
  * 뿌리가 물러진 수 하나로 고정돼 있고, 그 제한이 「지금 어떻게 둬야 하나」의 답을 막는다
  * (01-core.md §7 · `useWhatIf` 의 `floor` · 서버의 `branchRoot`).
  *
- * 국면을 기다리는 동안에도 이 패널은 그대로 있는다. `node` 가 `null` 이면 아직 못 받은 것이고,
+ * 국면을 기다리는 동안에도 이 패널은 그대로 있는다. `node` 가 `null` 이면 아직 받지 못한 것이고,
  * 그때 전부 다른 컴포넌트로 바꾸면 手数를 넘길 때마다 옆 열이 무너지고 다시 그려진다 — 그것이
  * 「3개 보였다가 0개 보였다가」로 보였다. 자리는 지키고 내용만 기다린다.
  */
 interface WhatIfPanelProps {
-  /** 지금 보고 있는 手数. `node` 대신 이쪽이 제목을 든다 — 기다리는 동안에도 맞아야 한다. */
+  /** 지금 보고 있는 手数. `node` 대신 이쪽이 제목을 맡는다 — 기다리는 동안에도 맞아야 한다. */
   basePly: number;
   /**
    * 그릴 국면. 아직 이 手数의 것이 아닐 수 있다 — 기다리는 동안 직전 것을 그대로 두고,
@@ -63,7 +63,7 @@ export function WhatIfPanel({
     <section className="review-panel review-whatif" aria-label="もしもの手順">
       <div className="review-whatif-head">
         <h2 className="panel-title">もしも — {basePly}手目から</h2>
-        {/* 값은 끝난 국면에는 없다. 0으로 채우면 호각과 구별이 안 된다(리뷰 전체가 그렇다). */}
+        {/* 값은 끝난 국면에는 없다. 0으로 채우면 호각과 구별되지 않는다(리뷰 전체가 그렇다). */}
         {score && (
           <span className="review-whatif-score" data-stale={stale || undefined}>
             {score}
@@ -72,7 +72,7 @@ export function WhatIfPanel({
       </div>
 
       {/* 기다리는 동안 글자를 바꾸지 않는다. `読んでいます…` 로 바꾸면 手数를 넘길 때마다
-          500ms씩 문구가 번쩍인다. 값이 아직 안 왔다는 것은 흐림이 이미 말한다
+          500ms씩 문구가 번쩍인다. 값이 아직 오지 않았다는 것은 흐림이 이미 말한다
           (`data-stale`) — 채널을 둘로 두지 않는다. */}
       <p
         className="review-whatif-status"

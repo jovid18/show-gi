@@ -8,10 +8,10 @@ import type { Send } from '@/hooks/useWhatIf';
 export type Connection = 'idle' | 'connecting' | 'open' | 'closed';
 
 /**
- * 시작 화면이 고른 것. 대국이 열리기 전에 정해지고 그 판 동안 안 바뀐다.
+ * 시작 화면이 고른 것. 대국이 열리기 전에 정해지고 그 판 동안 바뀌지 않는다.
  *
  * 서버는 이걸 WS 주소의 쿼리로 받는다(`internal/server/ws.go` 의 `newSetup`) — `start`
- * 메시지로 보내지 않는 이유는 그쪽 주석에 있다.
+ * 메시지로 왜 보내지 않는지는 그쪽 주석에 있다.
  */
 export interface GameSetup {
   /** 사람이 잡을 쪽. 手合割을 고르면 이 값이 무시된다 — 駒落ち는 사람이 下手다. */
@@ -31,7 +31,7 @@ export interface GameState {
   connection: Connection;
   /**
    * 마지막으로 고른 설정. 대국이 끝나도 남는다 — 시작 화면이 이 값에서 시작하므로
-   * 같은 조건으로 또 두는 것이 버튼 한 번이다. 아직 한 판도 안 열었으면 null.
+   * 같은 조건으로 또 두는 것이 버튼 한 번이다. 아직 한 판도 열지 않았으면 null.
    */
   setup: GameSetup | null;
   snapshot: Snapshot | null;
@@ -40,16 +40,16 @@ export interface GameState {
   /**
    * 대국이 끝난 뒤의 총평. 결과 문구보다 늦게 온다 — 기록이 다 쓰이기를 기다린다.
    *
-   * `null` 인 동안이 「아직 만들고 있다」이고, 화면은 그때 자리만 잡아 둔다. 안 오는
+   * `null` 인 동안이 「아직 만들고 있다」이고, 화면은 그때 자리만 잡아 둔다. 오지 않는
    * 경우도 있다(기록이 없는 배포) — 그때도 결과와 기보는 이미 화면에 있다.
    */
   summary: GameSummary | null;
   /**
-   * 개입 회차. 개입이 실려 온 스냅샷마다 하나씩 오른다.
+   * 개입 번호. 개입이 실려 온 스냅샷마다 하나씩 오른다.
    *
    * `snapshot.intervention` 이 있는지만 보면 안 된다 — 서버는 다음 착수까지 그걸 들고
    * 있으므로, 같은 자리에서 같은 수로 또 걸렸을 때 화면이 "아까 그거"로 착각한다.
-   * 회차로 세면 연출을 다시 돌릴지가 명확해진다.
+   * 번호로 세면 연출을 다시 돌릴지가 명확해진다.
    */
   interventionEpisode: number;
   play: (usi: string) => void;
@@ -57,7 +57,7 @@ export interface GameState {
   /**
    * 직전 자기 수를 무른다(待った).
    *
-   * 무엇을 되돌릴지 안 보낸다. 누를 수 있는지는 `snapshot.canUndo` 가 이미 답했고,
+   * 무엇을 되돌릴지 보내지 않는다. 누를 수 있는지는 `snapshot.canUndo` 가 이미 답했고,
    * 거절되면 다른 거절과 같은 자리에 문구가 뜬다(`rejection`).
    */
   undo: () => void;
@@ -86,7 +86,7 @@ export interface GameState {
   /**
    * 가정 수순 한 자리를 이 대국의 연결로 묻는다(`useWhatIf` 의 `Send`).
    *
-   * 되짚기와 길이 갈리는 이유는 뿌리다. 저쪽은 DB 기록에서 만들지만, 두는 중인 판은
+   * 되짚기와 길이 갈리는 것은 뿌리 때문이다. 저쪽은 DB 기록에서 만들지만, 두는 중인 판은
    * 기록이 비동기로 쌓여서 개입 직후에는 마지막 수가 아직 없을 수 있다 — 하필 제일
    * 누르고 싶은 순간에 흔들린다. 세션이 방금 보낸 스냅샷이 그 자리의 정본이다.
    */
@@ -96,7 +96,7 @@ export interface GameState {
 /**
  * 이 연결이 여는 주소.
  *
- * 이어할 때는 색도 진형도 안 보낸다. 서버가 그 판의 행에서 읽는다(`ws.go`) — 클라이언트가
+ * 이어할 때는 색도 진형도 보내지 않는다. 서버가 그 판의 행에서 읽는다(`ws.go`) — 클라이언트가
  * 되보내면 「기록에 남은 판」과 「화면이 기억하는 판」이 갈리는 자리가 하나 생기고, 어긋나면
  * 이어한 판이 그때 두던 판이 아니게 된다.
  */
@@ -105,8 +105,8 @@ function socketUrl(setup: GameSetup, resumeId: number | null): string {
   const query =
     resumeId !== null ? new URLSearchParams({ resume: String(resumeId) }) : new URLSearchParams({ color: setup.color });
   if (resumeId === null && setup.opening) query.set('opening', setup.opening);
-  // 手合割도 이어할 때는 안 보낸다. 그 판의 시작 국면은 `games.start_sfen` 에 있고,
-  // 서버가 거기서 읽는다 — 위 진형과 같은 이유다(이 함수의 doc).
+  // 手合割도 이어할 때는 보내지 않는다. 그 판의 시작 국면은 `games.start_sfen` 에 있고,
+  // 서버가 거기서 읽는다 — 위 진형과 같은 판단이다(이 함수의 doc).
   if (resumeId === null && setup.handicap) query.set('handicap', setup.handicap);
   return `${scheme}://${window.location.host}/ws/game?${query}`;
 }
@@ -133,7 +133,7 @@ export function useGame(): GameState {
   // 새 대국은 새 연결이다. 서버가 연결 하나에 대국 하나를 여니, 다시 붙는 것이 곧 새 판이다.
   const [generation, setGeneration] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
-  // 직전 스냅샷에 개입이 실려 있었는가. 회차를 세는 데만 쓴다.
+  // 직전 스냅샷에 개입이 실려 있었는가. 번호를 세는 데만 쓴다.
   const hadIntervention = useRef(false);
 
   /**
@@ -182,10 +182,10 @@ export function useGame(): GameState {
       try {
         msg = JSON.parse(String(event.data)) as ServerMessage;
       } catch {
-        return; // 우리가 못 읽는 것은 무시한다. 판을 지우는 것보다 낫다
+        return; // 우리가 읽을 수 없는 것은 무시한다. 판을 지우는 것보다 낫다
       }
       if (msg.type === 'snapshot') {
-        // 서버는 착수 하나에 개입 하나를 싣고 다음 착수까지 들고 있는다. 그래서 새 개입은
+        // 서버는 착수 하나에 개입 하나를 싣고 다음 착수까지 갖고 있는다. 그래서 새 개입은
         // "없다"에서 "있다"로 바뀐 순간이다 — "있다"만 보면 착수마다 같은 것을 다시 센다.
         const has = Boolean(msg.snapshot.intervention);
         if (has && !hadIntervention.current) setInterventionEpisode((n) => n + 1);
@@ -209,7 +209,7 @@ export function useGame(): GameState {
     return () => {
       current = false;
       socketRef.current = null;
-      // 끊긴 연결에는 답이 안 온다. 기다리는 쪽을 영원히 매달아 두지 않는다.
+      // 끊긴 연결에는 답이 오지 않는다. 기다리는 쪽을 영원히 매달아 두지 않는다.
       settle((p) => p.reject(new Error('接続が切れました。')));
       socket.close();
     };

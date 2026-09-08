@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { baselineNoteJa, exploreStatusJa, sideJa } from './text';
 import type { ExploreNode } from '@/protocol/explore';
 
-/** 문구가 보는 칸만 채운 노드. 나머지는 이 파일이 안 읽는다. */
+/** 문구가 보는 칸만 채운 노드. 나머지는 이 파일이 읽지 않는다. */
 function nodeOf(patch: Partial<ExploreNode>): ExploreNode {
   return {
     basePly: 0,
@@ -48,7 +48,7 @@ describe('exploreStatusJa', () => {
     expect(exploreStatusJa(nodeOf({ turn: 'w', status: 'stalemate' }), false)).toBe('手詰まりです。後手の負けです。');
   });
 
-  it('아직 아무것도 못 받았으면 무엇을 하면 되는지를 말한다', () => {
+  it('아직 아무것도 받지 못했으면 무엇을 하면 되는지를 말한다', () => {
     expect(exploreStatusJa(null, false)).toContain('盤の上で');
     expect(exploreStatusJa(null, true)).toBe('読んでいます…');
   });
@@ -67,7 +67,7 @@ describe('baselineNoteJa', () => {
     );
   });
 
-  // 平手는 기준점이 0이라 서버가 두 칸을 안 보낸다. 그 자리에 줄을 만들면 「互角は +0」이라는
+  // 平手는 기준점이 0이라 서버가 두 칸을 보내지 않는다. 그 자리에 줄을 만들면 「互角は +0」이라는
   // 아무 말도 아닌 문장이 뜬다.
   it('平手는 아무 말도 하지 않는다', () => {
     expect(baselineNoteJa(nodeOf({}))).toBe('');

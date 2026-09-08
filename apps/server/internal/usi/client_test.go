@@ -107,7 +107,7 @@ func TestParseScoreMate(t *testing.T) {
 	}
 }
 
-// mate 0 은 어느 쪽이 詰んでいる인지를 안 말한다. 이 엔진은 안 내므로(실측: mated
+// mate 0 은 어느 쪽이 詰んでいる인지를 말하지 않는다. 이 엔진은 내보내지 않으므로(실측: mated
 // 국면에 mate -1) 오면 우리가 모르는 출력이고, 모르는 것에 뜻을 주지 않는다.
 func TestParseScoreDropsMateZero(t *testing.T) {
 	var res SearchResult
@@ -188,8 +188,8 @@ func TestRankedPutsTheHighestScoreFirst(t *testing.T) {
 	}
 }
 
-// 같은 수가 두 순위를 차지한다 — 순위 칸은 깊이마다 덮어써지는데, 마지막 iteration에서 안 온
-// 순위는 얕은 깊이의 줄을 그대로 들고 남기 때문이다. 그대로 내보내면 검토 화면의 후보
+// 같은 수가 두 순위를 차지한다 — 순위 칸은 깊이마다 덮어써지는데, 마지막 iteration에서 오지 않은
+// 순위는 얕은 깊이의 줄을 그대로 지닌 채 남기 때문이다. 그대로 내보내면 검토 화면의 후보
 // 셋에 같은 수가 두 번 들어가고, 그 목록은 화면에서 지워지지 않는 줄을 하나 남긴다(§87).
 func TestRankedDropsTheSameMoveTwice(t *testing.T) {
 	var res SearchResult
@@ -221,7 +221,7 @@ func TestRankedDropsTheSameMoveTwice(t *testing.T) {
 
 // 후보 순서가 점수를 태그째로 본다. 엔진의 생 cp 는 詰み을 눌러 담던 값을 넘어오므로
 // (±35281 = 「이기는데 手数를 모름」) 숫자 하나로 줄을 세우면 1手詰み이 그 뒤로 밀리고,
-// 그 순서가 그대로 저장돼 판 위의 초록 화살표가 詰み을 안 가리켰다(journal §131).
+// 그 순서가 그대로 저장돼 판 위의 초록 화살표가 詰み을 가리키지 않았다(journal §131).
 func TestRankedPutsMateAboveTheEnginesRawCeiling(t *testing.T) {
 	var res SearchResult
 	parseScore("info depth 14 multipv 1 score cp 35281 pv 4f5g 5a4b", &res)
@@ -253,7 +253,7 @@ func TestParseScoreTruncatedFinalIterationKeepsFullPv(t *testing.T) {
 }
 
 // 원본 파서는 같은 순위를 계속 덮어써서 마지막 깊이만 남겼다.
-// 깊이별로 남지 않으면 "얕게는 좋아 보이는데 깊게는 나쁜 수"를 못 찾는다.
+// 깊이별로 남지 않으면 "얕게는 좋아 보이는데 깊게는 나쁜 수"를 찾을 수 없다.
 func TestEvalByDepth(t *testing.T) {
 	e := newFake(t)
 	res, err := e.SearchDepth(t.Context(), testSFEN, nil, 6)

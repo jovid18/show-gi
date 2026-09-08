@@ -12,10 +12,10 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// 게이트가 왜 한 번도 안 열렸는지를 단계로 가른다. 그리고 k를 고른다.
+// 게이트가 왜 한 번도 열리지 않았는지를 단계로 가른다. 그리고 k를 고른다.
 //
 // 사람이 끝까지 둔 두 판에서 제안형 手筋(kind='tesuji')이 0건이었고, 그것이 「후보가
-// 없어서」인지 「엔진이 다 떨어뜨려서」인지 「시한을 넘겨서」인지가 안 갈려 있었다
+// 없어서」인지 「엔진이 다 떨어뜨려서」인지 「시한을 넘겨서」인지가 갈려 있지 않았다
 // (journal §45 · §56). §56은 비용만 쟀다 — 이 테스트가 재는 것은 결과다.
 //
 //	SHOWGI_MEASURE=1 SHOWGI_USI_CMD=/opt/yaneuraou/run \
@@ -43,10 +43,10 @@ func TestMeasureTesujiHintGate(t *testing.T) {
 
 // §74 뒤에 사람이 처음 둔 판이다. 그 판에서 후보가 전부 「모르는 채」로 침묵했고
 // (journal §76 ④), 갈라야 할 것이 하나 남아 있다 — 통과할 手筋이 애초에 없었는가,
-// 아니면 k 줄 밖이라 못 물었는가.
+// 아니면 k 줄 밖이라 묻지 못했는가.
 //
 // k 를 올리면 그것들이 판정을 받기는 한다. 받는 것과 통과하는 것은 다르고, 앞 판에서는
-// 그 차이가 0이었다(§74). 이 판은 안 재봤다.
+// 그 차이가 0이었다(§74). 이 판은 재보지 않았다.
 //
 // 사람이 後手다 — 위 판과 갈리는 하나뿐인 인자이고, 넘기지 않으면 상대의 차례를 재게 된다.
 func TestMeasureTesujiHintGateHuman3(t *testing.T) {
@@ -102,7 +102,7 @@ func measureTesujiGate(t *testing.T, cmd string, moves []string, k int, human sh
 			turns++
 
 			// maybeTesujiHint 의 순서 그대로다. 상한 → 쿨다운 → 룰 필터 → 엔진.
-			// 쿨다운은 「물어본 자리」에서 재므로 후보가 없던 회차도 자리를 쓴다(§56).
+			// 쿨다운은 「물어본 자리」에서 재므로 후보가 없던 물음도 자리를 쓴다(§56).
 			switch {
 			case hintCount >= TagHintMaxPerGame:
 			case everAsked && ply-lastAsk < TagHintCooldown:
@@ -115,7 +115,7 @@ func measureTesujiGate(t *testing.T, cmd string, moves []string, k int, human sh
 					withCands++
 					cands += len(opts)
 
-					// 프로덕션과 같은 시한 안에서 잰다 — 넘긴 회차가 몇인지가 답의 일부다.
+					// 프로덕션과 같은 시한 안에서 잰다 — 몇 번 넘겼는지가 답의 일부다.
 					hctx, cancel := context.WithTimeout(t.Context(), DefaultExtraDeadline)
 					start := time.Now()
 					got, d, err := gateTesujiOptions(hctx, pool, JudgeDepth, k, shogi.StartSFEN, moves[:i], opts, human)

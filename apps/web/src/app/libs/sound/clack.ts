@@ -1,5 +1,5 @@
 /**
- * 착수음. 파일을 안 쓰고 그 자리에서 만든다.
+ * 착수음. 파일을 쓰지 않고 그 자리에서 만든다.
  *
  * 레포가 퍼블릭이라 음원을 하나 넣으면 그 파일의 라이선스가 레포의 문제가 된다. 駒가 판에
  * 닿는 소리는 「짧은 충격 + 나무의 울림」이라 합성으로 충분히 가깝고, 그러면 출처를 적을
@@ -28,8 +28,8 @@ let ctx: AudioContext | null = null;
 let noise: AudioBuffer | null = null;
 
 /**
- * 이 브라우저가 소리를 낼 수 있는가. 없으면 경고 없이 아무것도 안 한다 — 착수음은
- * 감촉이라, 없다고 판을 못 두게 할 이유가 없다.
+ * 이 브라우저가 소리를 낼 수 있는가. 없으면 경고 없이 아무것도 하지 않는다 — 착수음은
+ * 감촉이라, 없다고 판을 두지 못하게 할 이유가 없다.
  */
 function audio(): AudioContext | null {
   if (ctx) return ctx;
@@ -89,7 +89,7 @@ export function clack(): void {
       osc.type = 'triangle';
       osc.frequency.value = p.hz;
       const g = c.createGain();
-      // setValueAtTime 으로 시작을 고정한다. 안 그러면 앞의 수에서 걸어 둔 램프가
+      // setValueAtTime 으로 시작을 고정한다. 그러지 않으면 앞의 수에서 걸어 둔 램프가
       // 이어져, 빨리 두면 소리가 점점 작아진다.
       g.gain.setValueAtTime(p.gain, t);
       g.gain.exponentialRampToValueAtTime(0.0001, t + p.decay);
@@ -98,6 +98,6 @@ export function clack(): void {
       osc.stop(t + p.decay);
     }
   } catch {
-    // 소리는 감촉이다. 못 내면 경고 없이 넘어간다.
+    // 소리는 감촉이다. 내지 못하면 경고 없이 넘어간다.
   }
 }

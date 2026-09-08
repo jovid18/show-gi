@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
-// 이미 詰んでいる 국면에 엔진이 무엇을 찍는가. score mate 0 을 안 낸다는 것이 답이고,
+// 이미 詰んでいる 국면에 엔진이 무엇을 찍는가. score mate 0 을 내보내지 않는다는 것이 답이고,
 // eval.Mate 의 「0 은 만들지 않는 값이다」가 그 사실 위에 서 있다(journal §131).
 //
-// 부호가 없는 手数는 관점을 못 옮긴다(-0 = 0). 엔진이 그 값을 내기 시작하면 여기가
+// 부호가 없는 手数는 관점을 옮길 수 없다(-0 = 0). 엔진이 그 값을 내기 시작하면 여기가
 // 먼저 빨개져야 한다 — 그때는 부르는 쪽에서 막지 말고 표현을 고쳐야 한다.
 func TestRealEngineNeverScoresAMatedPositionAsMateZero(t *testing.T) {
 	cmd := os.Getenv("SHOWGI_USI_CMD")

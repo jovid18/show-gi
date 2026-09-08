@@ -66,7 +66,7 @@ func TestResumableGameIsTheLatestAbandonedOne(t *testing.T) {
 	s := open(t)
 	me, other := owner(t, s, "me"), owner(t, s, "other")
 
-	// 한 수도 안 둔 판은 후보에서 빠진다 — 이어하는 것이 새 판을 여는 것과 같다.
+	// 한 수도 두지 않은 판은 후보에서 빠진다 — 이어하는 것이 새 판을 여는 것과 같다.
 	empty := ownedGame(t, s, &me)
 	if err := s.FinishGame(t.Context(), empty, ResultAbandoned); err != nil {
 		t.Fatalf("FinishGame: %v", err)
@@ -87,8 +87,8 @@ func TestResumableGameIsTheLatestAbandonedOne(t *testing.T) {
 		t.Errorf("moveCount = %d, want 1", got.MoveCount)
 	}
 
-	// 「いいえ」라고 답하면 그 자리에서 후보에서 빠진다. 다시 물어보지 않는 것이 이
-	// 상태를 따로 둔 하나뿐인 이유다.
+	// 「いいえ」라고 답하면 그 자리에서 후보에서 빠진다. 이 상태를 따로 둔 것은
+	// 다시 물어보지 않기 위해서다.
 	if err := s.DeclineResume(t.Context(), newest, me); err != nil {
 		t.Fatalf("DeclineResume: %v", err)
 	}
@@ -128,12 +128,12 @@ func TestClaimGameForResumeIsExclusive(t *testing.T) {
 	if _, err := s.ClaimGameForResume(t.Context(), id, me); !errors.Is(err, ErrNoGame) {
 		t.Errorf("두 번째 점유가 성공했다: err = %v, want %v", err, ErrNoGame)
 	}
-	// 남도 못 잡는다. 애초에 후보로도 안 나온다.
+	// 남도 잡을 수 없다. 애초에 후보로도 나오지 않는다.
 	if _, err := s.ClaimGameForResume(t.Context(), id, other); !errors.Is(err, ErrNoGame) {
 		t.Errorf("남이 점유했다: err = %v, want %v", err, ErrNoGame)
 	}
 
-	// 점유가 곧 되열기다 — 그 판은 이제 「두는 중」이라 되짚기에도 안 나온다(§51).
+	// 점유가 곧 되열기다 — 그 판은 이제 「두는 중」이라 되짚기에도 나오지 않는다(§51).
 	if _, err := s.GameRecord(t.Context(), id, &me); !errors.Is(err, ErrNoGame) {
 		t.Errorf("되열린 판이 되짚기에 나온다: err = %v", err)
 	}

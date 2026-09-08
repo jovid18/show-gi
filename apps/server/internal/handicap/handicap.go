@@ -2,17 +2,17 @@
 //
 // 엔진도 판정도 모른다. 여기 있는 것은 SFEN 문자열과 cp 상수뿐이고, 그것으로 무엇을
 // 하는지는 부르는 쪽이 정한다(intervene.Input.BaselineCp · game.adaptiveOpponent) —
-// book 이 수순만 들고 있는 것과 같은 성질이라 표를 고치는 데 엔진도 DB도 필요 없다.
+// book 이 수순만 갖고 있는 것과 같은 성질이라 표를 고치는 데 엔진도 DB도 필요 없다.
 //
 // 두 값을 한 표에 둔다. 국면만 주면 판정식이 포화 구간에 갇힌다 — 승률 낙폭이 우세
-// 구간에서 압축되어(01-core.md §2) 駒落ち에서는 銀 헌납도 임계치에 안 닿는다. 기준점이
-// 곧 그 국면의 「아직 아무것도 안 흘렸다」이고, 빼고 나면 발화선이 平手의 감도로 돌아온다.
+// 구간에서 압축되어(01-core.md §2) 駒落ち에서는 銀 헌납도 임계치에 닿지 않는다. 기준점이
+// 곧 그 국면의 「아직 아무것도 흘리지 않았다」이고, 빼고 나면 발화선이 平手의 감도로 돌아온다.
 // 실측 표와 그 결과는 journal §84 · §88.
 //
 // 平手는 이 표에 없다. 빈 startSFEN 이 平手라는 규약이 이미 있고(game.Config.StartSFEN),
 // 화면의 「平手」도 클라이언트의 기본값이다 — book 의 「おまかせ」와
 // 같은 자리다. 그래서 Find("") 도 Of("") 도 없는 것으로 답하고, 기준점이 0이라 판정이
-// 한 비트도 안 바뀐다. 실측 +91을 기준점으로 안 쓰는 이유는 journal §84.
+// 한 비트도 바뀌지 않는다. 실측 +91을 기준점으로 쓰지 않는 근거는 journal §84.
 package handicap
 
 import (
@@ -41,7 +41,7 @@ type Handicap struct {
 	// 재는 쪽이 뒤집는다(baseline_measure_test.go).
 	//
 	// 水匠5 · depth 14 · FV_SCALE=24 실측이다. 마지막 값이 조건이다 —
-	// 그것을 안 걸고 재면 같은 국면이 1.5배로 나오고(첫 측정이 그랬다, journal §84) 표가
+	// 그것을 걸지 않고 재면 같은 국면이 1.5배로 나오고(첫 측정이 그랬다, journal §84) 표가
 	// 전부 다른 척도가 된다. 그 숫자가 무엇을 정하는지는 패키지 주석에 있다.
 	//
 	// [미확정] K=600이 초기값인 것과 같은 처지다 — 재측정은 baseline_measure_test.go.
@@ -142,7 +142,7 @@ func FindByName(name string) (Handicap, bool) {
 // Of 는 시작 국면으로 手合割을 되짚는다. 이어하는 판과 되짚기가 기록의 start_sfen
 // 하나에서 手合을 다시 얻는 자리다 — 그래서 칸을 새로 만들지 않았다.
 //
-// 手数도 手番도 안 본다. 판과 持ち駒로만 맞춘다 — 왕복하며 Position.SFEN() 을 거친
+// 手数도 手番도 보지 않는다. 판과 持ち駒로만 맞춘다 — 왕복하며 Position.SFEN() 을 거친
 // 문자열도 같은 표에 붙어야 하고(positions 캐시 키가 手数를 뺀 것과 같은 이유,
 // 001_init.sql), 어느 駒를 뺐나가 이미 手合을 정한다.
 //
@@ -164,7 +164,7 @@ func Of(startSFEN string) (Handicap, bool) {
 }
 
 // NameOf 는 화면에 나갈 이름이다. 平手나 모르는 국면은 빈 문자열이다 —
-// 스냅샷이 그때 그 칸을 아예 안 보낸다(game.Snapshot.HandicapJa).
+// 스냅샷이 그때 그 칸을 아예 보내지 않는다(game.Snapshot.HandicapJa).
 func NameOf(startSFEN string) string {
 	h, ok := Of(startSFEN)
 	if !ok {
@@ -196,7 +196,7 @@ func BaselineCpFor(startSFEN string, c shogi.Color) int {
 }
 
 // key 는 판과 持ち駒만 남긴 SFEN 이다. 칸이 셋보다 적으면 持ち駒를 알 수 없어 手合을
-// 말할 수 없으므로 빈 값이다 — 手番을 빼는 이유는 Of 에 있다.
+// 말할 수 없으므로 빈 값이다 — 手番을 빼는 근거는 Of 에 있다.
 func key(sfen string) string {
 	f := strings.Fields(sfen)
 	if len(f) < 3 {

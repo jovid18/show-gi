@@ -45,7 +45,7 @@ export const EXPLORE_PARAM_MOVES = 'm';
 /**
  * 뿌리 국면을 싣는 쿼리 이름. 사진에서 읽어 온 판이 여기로 온다.
  *
- * 手合割(`h`)과 같이 못 실린다. 둘 다 뿌리를 정하는 값이라 같이 오면 서버가 거절하고
+ * 手合割(`h`)과 같이 실릴 수 없다. 둘 다 뿌리를 정하는 값이라 같이 오면 서버가 거절하고
  * (`bad_root`), 그래서 주소를 만드는 쪽도 하나만 적는다(`routeExplore`).
  */
 export const EXPLORE_PARAM_SFEN = 's';
@@ -58,8 +58,8 @@ export const EXPLORE_PARAM_SFEN = 's';
  */
 export const routeExplore = (handicap: string, moves: readonly string[], sfen = ''): string => {
   const q: string[] = [];
-  // 판이 있으면 手合割은 안 적는다. 뿌리는 하나여야 하고, 서버가 둘을 같이 받으면
-  // 거절한다 — 주소가 그 거절을 만들 수 있으면 링크 하나 전체가 안 열린다.
+  // 판이 있으면 手合割은 적지 않는다. 뿌리는 하나여야 하고, 서버가 둘을 같이 받으면
+  // 거절한다 — 주소가 그 거절을 만들 수 있으면 링크 하나 전체가 열리지 않는다.
   if (sfen) q.push(`${EXPLORE_PARAM_SFEN}=${encodeURIComponent(sfen)}`);
   else if (handicap) q.push(`${EXPLORE_PARAM_HANDICAP}=${handicap}`);
   if (moves.length > 0) q.push(`${EXPLORE_PARAM_MOVES}=${moves.join(',')}`);
@@ -67,15 +67,15 @@ export const routeExplore = (handicap: string, moves: readonly string[], sfen = 
 };
 
 /**
- * 안내. 판도 사람도 안 부르는 하나뿐인 화면이다 — 서버에 아무것도 안 묻고, 로그인도 안
- * 본다. 주소가 있어야 하는 이유가 그래서 하나 더 있다: 검색 결과와 공유 링크가 여기로 온다.
+ * 안내. 판도 사람도 부르지 않는 하나뿐인 화면이다 — 서버에 아무것도 묻지 않고,
+ * 로그인도 보지 않는다. 그래도 주소는 있어야 한다 — 검색 결과와 공유 링크가 여기로 온다.
  */
 export const ROUTE_GUIDE = '/guide';
 
 /**
  * 가져오기. 밖에서 둔 자기 기보를 붙여 넣는 화면이다(journal §126).
  *
- * 판도 사람도 주소에 안 싣는다 — 여기서 만들어지는 판은 가져온 뒤에야 번호를 갖고,
+ * 판도 사람도 주소에 싣지 않는다 — 여기서 만들어지는 판은 가져온 뒤에야 번호를 갖고,
  * 그때 화면이 되짚기로 옮겨 간다.
  */
 export const ROUTE_IMPORT = '/import';
@@ -83,7 +83,7 @@ export const ROUTE_IMPORT = '/import';
 /**
  * 국면을 사진에서 가져오는 화면(journal §129).
  *
- * 주소가 아무것도 안 든다. 올린 그림과 읽어 낸 판은 화면 안에만 있고, 사람이 확인을
+ * 주소가 아무것도 담지 않는다. 올린 그림과 읽어 낸 판은 화면 안에만 있고, 사람이 확인을
  * 끝내면 그 국면이 검토의 주소가 되어(`routeExplore` 의 `s`) 이 화면을 떠난다 —
  * 남는 것이 주소 한 줄이라 새로고침에도 링크 공유에도 판이 살아 있다.
  */
@@ -126,7 +126,7 @@ const pathNumber = (value: number, min: number): string | null => {
  */
 export const routeQuiz = (id: number): string => {
   const base = routeReview(id);
-  // 번호가 안 붙었으면 그 판의 퀴즈라는 말이 성립하지 않는다. 목록으로 떨어뜨린다.
+  // 번호가 붙지 않았으면 그 판의 퀴즈라는 말이 성립하지 않는다. 목록으로 떨어뜨린다.
   return base === ROUTE_REVIEWS ? ROUTE_REVIEWS : `${base}/${QUIZ_SEGMENT}`;
 };
 
@@ -143,7 +143,7 @@ export const routeRoom = (id: string): string => (ROOM_ID.test(id) ? `${ROOMS_SE
  * 방 id 의 모양. 서버가 뽑는 글자와 같다(`internal/match` 의 roomIDAlphabet) —
  * 영문 대소문자와 숫자뿐이고 `-`·`_` 가 없다.
  *
- * 길이를 안 박는다. 8자인 것은 서버의 선택이고, 그 값이 바뀌는 날 링크가 경고 없이
+ * 길이를 박지 않는다. 8자인 것은 서버의 선택이고, 그 값이 바뀌는 날 링크가 경고 없이
  * 홈으로 떨어지는 것이 더 나쁘다.
  */
 const ROOM_ID = /^[A-Za-z0-9]+$/;

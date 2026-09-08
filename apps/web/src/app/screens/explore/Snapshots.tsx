@@ -19,7 +19,7 @@ interface SnapshotsProps {
   /** 지금까지 둔 수순. 저장은 이 두 칸을 그대로 보낸다. */
   moves: readonly string[];
   /**
-   * 저장할 수 있는 자리인가. 판이 아직 안 섰으면 false다 — 거절된 줄은 서버가 어차피
+   * 저장할 수 있는 자리인가. 판이 아직 서지 않았으면 false다 — 거절된 줄은 서버가 어차피
    * 막지만 그 실패를 사람에게 보일 이유가 없다.
    */
   savable: boolean;
@@ -38,12 +38,12 @@ export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) 
   /** 지우기를 한 번 누른 줄. 두 번 눌러야 지워진다. */
   const [confirming, setConfirming] = useState<number | null>(null);
 
-  // 기록이 없는 배포에는 이 표면이 아예 없다. 그때는 자리를 안 만든다 — 열 방법이 없는
+  // 기록이 없는 배포에는 이 표면이 아예 없다. 그때는 자리를 만들지 않는다 — 열 방법이 없는
   // 기능을 한 줄로 알려 줘도 읽는 사람이 할 일이 없다(아래 로그인 검사와 갈리는 자리).
   if (unavailable) return null;
 
-  // 로그인 안 한 사람에게는 한 줄만 남긴다. 검토 자체는 로그인 없이 돌므로(journal §100)
-  // 이 패널 전체를 지우면 저장이 「없는 기능」으로 보인다 — 목록도 저장 칸도 안 그린다.
+  // 로그인하지 않은 사람에게는 한 줄만 남긴다. 검토 자체는 로그인 없이 돌므로(journal §100)
+  // 이 패널 전체를 지우면 저장이 「없는 기능」으로 보인다 — 목록도 저장 칸도 그리지 않는다.
   if (signedOut) {
     return (
       <section className="review-panel explore-snapshots" aria-label="保存した局面">
@@ -97,7 +97,7 @@ export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) 
       </form>
 
       {/* 저장·이름·삭제가 실패를 같은 자리에 남긴다. 자리를 셋으로 가르면 어느 것이
-          실패했는지가 오히려 안 보인다. */}
+          실패했는지가 오히려 보이지 않는다. */}
       {error && (
         <p className="rejection" role="alert">
           {error}
@@ -206,7 +206,7 @@ export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) 
 function SnapshotMeta({ snapshot }: { snapshot: ExploreSnapshot }) {
   return (
     <span className="explore-snapshot-meta">
-      {/* 平手면 안 온다. 접지 않는 것이 기본값이라 적을 것이 없다(protocol/handicaps.ts). */}
+      {/* 平手면 오지 않는다. 접지 않는 것이 기본값이라 적을 것이 없다(protocol/handicaps.ts). */}
       {snapshot.handicapJa !== undefined && <span className="explore-snapshot-handicap">{snapshot.handicapJa}</span>}
       <span>{snapshot.moves.length}手</span>
       <time dateTime={snapshot.savedAt}>{dateJa(snapshot.savedAt)}</time>

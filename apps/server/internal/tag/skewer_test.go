@@ -21,7 +21,7 @@ func TestLanceSkewerIsDengakuZashi(t *testing.T) {
 	}
 }
 
-// 한 줄에 하나만 있는 것은 그냥 노리는 것이고, 串刺し로 안 센다.
+// 한 줄에 하나만 있는 것은 그냥 노리는 것이고, 串刺し로 세지 않는다.
 func TestOnePieceOnTheFileIsNotASkewer(t *testing.T) {
 	pos := forkBoard(t, "8k/9/9/9/4r4/9/9/9/4L3K b - 1")
 
@@ -30,7 +30,7 @@ func TestOnePieceOnTheFileIsNotASkewer(t *testing.T) {
 	}
 }
 
-// 뒤가 歩면 꿰는 형태에 이름이 안 붙는다. 香를 던져 얻는 것이 뒤의 駒다.
+// 뒤가 歩면 꿰는 형태에 이름이 붙지 않는다. 香를 던져 얻는 것이 뒤의 駒다.
 //
 // 여기까지가 이름의 관례이고, 香와의 값 비교는 하지 않는다 — 뒤가 桂여도 형태는
 // 田楽刺し이고 「그래서 得인가」는 엔진이 답한다(game/tesuji.go).
@@ -48,9 +48,9 @@ func TestASkewerNeedsSomethingWorthTakingBehind(t *testing.T) {
 	}
 }
 
-// 자기 駒에 막히면 그 뒤는 안 보인다. 이것이 없으면 판을 뚫고 세어 거짓이 된다.
+// 자기 駒에 막히면 그 뒤는 보이지 않는다. 이것이 없으면 판을 뚫고 세어 거짓이 된다.
 func TestMyOwnPieceBlocksTheSkewer(t *testing.T) {
-	// 5八에 先手 歩. 그 위의 金·飛는 香에게 안 보인다
+	// 5八에 先手 歩. 그 위의 金·飛는 香에게 보이지 않는다
 	pos := forkBoard(t, "8k/9/4r4/9/4g4/9/9/4P4/4L3K b - 1")
 
 	if got, ok := Skewer(pos, shogi.SquareOf(5, 9), shogi.Black); ok {
@@ -58,7 +58,7 @@ func TestMyOwnPieceBlocksTheSkewer(t *testing.T) {
 	}
 }
 
-// 香가 아닌 駒에는 이 이름을 안 붙인다 — 飛도 縦으로 꿰지만 田楽刺し는 香의 이름이다.
+// 香가 아닌 駒에는 이 이름을 붙이지 않는다 — 飛도 縦으로 꿰지만 田楽刺し는 香의 이름이다.
 func TestOnlyALanceCanBeDengakuZashi(t *testing.T) {
 	pos := forkBoard(t, "8k/9/4r4/9/4g4/9/9/9/4R3K b - 1")
 

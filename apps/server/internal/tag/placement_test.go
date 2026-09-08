@@ -19,7 +19,7 @@ func TestSilverBesideTheKingIsHaraGin(t *testing.T) {
 	}
 }
 
-// 위나 아래에는 腹銀이 안 붙는다. 「腹」이 옆이라는 것이 이 이름의 내용이고, 玉頭에
+// 위나 아래에는 腹銀이 붙지 않는다. 「腹」이 옆이라는 것이 이 이름의 내용이고, 玉頭에
 // 두는 것은 다른 手筋이다. 이 음성 테스트가 없으면 술어가 그냥 「玉 옆에 있다」가 된다.
 func TestSilverAboveTheKingIsNotHaraGin(t *testing.T) {
 	// 5五玉 · 5四銀 — 같은 筋, 한 段 위
@@ -30,7 +30,7 @@ func TestSilverAboveTheKingIsNotHaraGin(t *testing.T) {
 	}
 }
 
-// 두 筋 떨어진 것은 붙었다고 안 한다.
+// 두 筋 떨어진 것은 붙었다고 하지 않는다.
 func TestSilverTwoFilesAwayIsNotHaraGin(t *testing.T) {
 	pos := forkBoard(t, "9/9/9/9/3k1S3/9/9/9/8K b - 1") // 6五玉 · 4五銀
 
@@ -53,7 +53,7 @@ func TestSilverOnTheKnightHeadIsKeitouNoGin(t *testing.T) {
 	}
 }
 
-// 방향이 뒤집히면 안 된다. 桂의 뒤에 놓인 銀에는 이 이름이 안 붙는다 — 桂는 앞으로만 뛰므로
+// 방향이 뒤집히면 안 된다. 桂의 뒤에 놓인 銀에는 이 이름이 붙지 않는다 — 桂는 앞으로만 뛰므로
 // 뒤의 駒에 대해서는 아무 성질도 없다. 방향을 반대로 적으면 이 테스트만 실패한다.
 func TestSilverBehindTheKnightIsNotKeitouNoGin(t *testing.T) {
 	pos := forkBoard(t, "4k4/9/9/4S4/4n4/9/9/9/8K b - 1") // 5四銀 · 5五桂 — 銀이 桂의 뒤
@@ -63,7 +63,7 @@ func TestSilverBehindTheKnightIsNotKeitouNoGin(t *testing.T) {
 	}
 }
 
-// 이 이름은 銀에만 붙는다. 金을 桂頭에 둬도 桂頭の銀으로 안 뜬다.
+// 이 이름은 銀에만 붙는다. 金을 桂頭에 둬도 桂頭の銀으로 뜨지 않는다.
 func TestOnlyASilverGetsTheKnightHeadName(t *testing.T) {
 	pos := forkBoard(t, "4k4/9/9/9/4n4/4G4/9/9/8K b - 1")
 
@@ -135,7 +135,7 @@ func TestFindTesujiCoversThePlacementTesuji(t *testing.T) {
 	}
 }
 
-// 成銀에는 이 이름들을 안 붙인다. 실전 국면의 ▲6二成銀 에 「腹銀」이 떴던 자리다
+// 成銀에는 이 이름들을 붙이지 않는다. 실전 국면의 ▲6二成銀 에 「腹銀」이 떴던 자리다
 // (journal §34). 이름이 銀이라고 말하는데 成銀은 金의 움직임이라, 手筋의 이유가
 // 전부 다르다 — 붙일 이름이 있다면 腹金 쪽이다.
 func TestPromotedSilverDoesNotGetTheSilverNames(t *testing.T) {

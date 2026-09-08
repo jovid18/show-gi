@@ -10,7 +10,7 @@ import type { Turn } from '@/protocol/whatif';
  *
  * 駒落ち에서는 下手/上手다. 그것이 手合割의 말이고(internal/handicap · journal §84),
  * 平手에서 「下手」라고 쓰면 접지도 않은 판에 없는 상하가 생긴다. 반대로 駒落ち를
- * 先手/後手로만 부르면 정석서와 대조가 안 된다.
+ * 先手/後手로만 부르면 정석서와 대조가 되지 않는다.
  */
 export function sideJa(turn: Turn, handicap: boolean): string {
   if (handicap) return turn === 'b' ? '下手' : '上手';
@@ -20,7 +20,7 @@ export function sideJa(turn: Turn, handicap: boolean): string {
 /**
  * 지금 판이 어떤 상태인지 한 줄로.
  *
- * 「あなた」라고 안 부른다. 검토에는 플레이어가 없다 — 양쪽 다 사람이 두고, 그래서
+ * 「あなた」라고 부르지 않는다. 검토에는 플레이어가 없다 — 양쪽 다 사람이 두고, 그래서
  * 되짚기의 `branchStatusJa`(「あなたの番」)를 여기 그대로 쓸 수 없다.
  */
 export function exploreStatusJa(node: ExploreNode | null, pending: boolean): string {
@@ -46,7 +46,7 @@ export function exploreStatusJa(node: ExploreNode | null, pending: boolean): str
  * 그 手合의 「형세 0」을 말하는 한 줄. 平手면 빈 문자열이다.
  *
  * 이 줄이 없으면 二枚落ち의 0手目에 뜨는 `+1383` 이 「압승 중」으로 읽힌다 — 판정식이
- * 그 값을 빼고 도는 것과 같은 이유이고(journal §84), 화면에서는 빼는 대신 기준선을
+ * 그 값을 빼고 도는 것과 같은 판단이고(journal §84), 화면에서는 빼는 대신 기준선을
  * 말한다: 숫자의 자를 되짚기 그래프와 같게 두려면 값을 옮길 수가 없다.
  */
 export function baselineNoteJa(node: ExploreNode | null): string {

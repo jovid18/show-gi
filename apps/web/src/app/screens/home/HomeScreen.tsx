@@ -2,9 +2,9 @@ import { SIGN_IN_PATH, type MeResponse } from '@/protocol/auth';
 import { hrefOf, navigate, type Route } from '@/routes/router';
 
 /**
- * 홈. 갈 수 있는 곳을 세로로 한 줄씩 늘어놓은 메뉴가 전부다(journal §86).
+ * 홈. 갈 수 있는 곳을 세로로 한 줄씩 늘어놓은 메뉴 하나다(journal §86).
  *
- * 서버에 아무것도 안 묻는다. 로그인 여부는 이미 App이 들고 있는 것을 받아 쓴다 —
+ * 서버에 아무것도 묻지 않는다. 로그인 여부는 이미 App이 갖고 있는 것을 받아 쓴다 —
  * 여기서 한 번 더 물으면 첫 화면에 요청이 하나 늘고, 늘어난 만큼 메뉴가 늦게 뜬다.
  */
 
@@ -17,7 +17,7 @@ interface MenuItem {
   /** 로그인한 사람에게만 그린다. 눌러도 401인 줄을 그리면 고장으로 읽힌다(journal §76). */
   needsAuth?: boolean;
   /**
-   * 두는 중에는 안 그린다. 지금은 검토 하나다 — 이유는 아래 `MENU`.
+   * 두는 중에는 그리지 않는다. 지금은 검토 하나다 — 왜 막는지는 아래 `MENU`.
    *
    * 두는 중에 이 화면이 보이는 일은 사실 없다(App.tsx가 판으로 되돌린다). 그래도
    * 남는 것은 되돌리기가 그리고 난 뒤라, 라우트가 갈리는 한 틱 동안 이 목록이 실제로
@@ -37,11 +37,9 @@ const MENU: MenuItem[] = [
     note: '好きな局面を並べて調べる',
     hideWhilePlaying: true,
   },
-  // 여기가 안내의 하나뿐인 입구다(journal §86). 새 탭으로 안 연다 — 메뉴의 다른
+  // 여기가 안내의 하나뿐인 입구다(journal §86). 새 탭으로 열지 않는다 — 메뉴의 다른
   // 줄과 같은 탭으로 간다.
   { route: { name: 'guide' }, name: 'あそびかた', note: 'このアプリの遊びかた' },
-  // 로그인해야 뜬다. 익명에게는 401인 화면이라(profile.go) 줄만 떠 있으면 눌러서
-  // 빈 화면을 보게 된다 — 그 자리는 아래 ログイン 줄이 맡는다(journal §76).
   // 로그인해야 뜬다. 익명은 401이고(kifu_import.go), 가져온 판은 그 사람의 것으로
   // 남아야 되짚기에서 다시 열린다 — マイページ와 같은 자리다.
   {
@@ -51,13 +49,15 @@ const MENU: MenuItem[] = [
     needsAuth: true,
   },
   // 그림을 읽는 것이 돈을 쓰는 일이라 사람마다 세야 하고, 익명끼리는 구별할 수단이
-  // 없다(position.go) — 위 줄과 같은 이유로 막는다.
+  // 없다(position.go) — 위 줄과 같은 판단으로 막는다.
   {
     route: { name: 'position' },
     name: '局面を読み取る',
     note: '盤の画像から形勢を調べる',
     needsAuth: true,
   },
+  // 로그인해야 뜬다. 익명에게는 401인 화면이라(profile.go) 줄만 떠 있으면 눌러서
+  // 빈 화면을 보게 된다 — 그 자리는 아래 ログイン 줄이 맡는다(journal §76).
   { route: { name: 'me' }, name: 'マイページ', note: '成績と棋力の目安', needsAuth: true },
 ];
 
@@ -112,9 +112,9 @@ export function HomeScreen({ me, playing }: { me: MeResponse; playing: boolean }
 
         {/* 로그인. 로그인한 사람에게는 이 줄이 없다 — 그 자리는 マイページ가 대신한다.
 
-            다른 줄과 달리 `navigate` 를 안 탄다. 브라우저를 통째로 Google로 보내는
-            이동이라 화면 안의 라우팅으로는 못 간다. 로그인이 없는 배포에서는 줄 자체가
-            없다(`me.enabled`) — 눌러도 안 되는 것을 띄우면 고장으로 읽힌다. */}
+            다른 줄과 달리 `navigate` 를 타지 않는다. 브라우저를 통째로 Google로 보내는
+            이동이라 화면 안의 라우팅으로는 갈 수 없다. 로그인이 없는 배포에서는 줄 자체가
+            없다(`me.enabled`) — 눌러도 아무 일도 일어나지 않는 것을 띄우면 고장으로 읽힌다. */}
         {me.enabled && me.user === null && (
           <a className="home__item" href={SIGN_IN_PATH}>
             <span className="home__item-body">

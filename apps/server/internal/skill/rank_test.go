@@ -19,7 +19,7 @@ func TestAnchorsLandOnTheirOwnNames(t *testing.T) {
 	}
 }
 
-// 앵커로 안 쓴 실측 라벨이 그 선 근처에 있어야 한다. 벗어나면 척도가 실측을 설명하지
+// 앵커로 쓰지 않은 실측 라벨이 그 선 근처에 있어야 한다. 벗어나면 척도가 실측을 설명하지
 // 못하는 것이고, 그때는 앵커를 늘려야 한다(rankAnchors).
 //
 // 세 계급까지 봐준다. 그 라벨들의 표준오차가 낙폭의 12~15%인데 계급당 차이가 5%라,
@@ -43,7 +43,7 @@ func TestMeasuredLabelsSitNearTheLine(t *testing.T) {
 	}
 }
 
-// 표본이 모자라면 이름을 안 붙인다. 0을 돌려주면 화면이 그것을 가장 낮은 이름으로 그린다.
+// 표본이 모자라면 이름을 붙이지 않는다. 0을 돌려주면 화면이 그것을 가장 낮은 이름으로 그린다.
 func TestNoNameBeforeEnoughSamples(t *testing.T) {
 	if _, ok := RankOf(Estimate{AbsLoss: 0.05, AbsSamples: MinSamples - 1}); ok {
 		t.Error("표본이 모자란데 이름이 붙었다")
@@ -53,9 +53,9 @@ func TestNoNameBeforeEnoughSamples(t *testing.T) {
 	}
 }
 
-// 절대 낙폭이 없는 프로파일에는 이름을 안 붙인다. 014_skill_absolute_loss.sql 전에 쌓인
-// 행은 Samples 가 차 있는데 그 칸이 비어 있고, 그것을 「낙폭 0」으로 읽으면 아무것도 안
-// 재고 가장 센 이름을 붙이게 된다.
+// 절대 낙폭이 없는 프로파일에는 이름을 붙이지 않는다. 014_skill_absolute_loss.sql 전에 쌓인
+// 행은 Samples 가 차 있는데 그 칸이 비어 있고, 그것을 「낙폭 0」으로 읽으면 아무것도
+// 재지 않고 가장 센 이름을 붙이게 된다.
 func TestNoNameWhenOnlyTheNormalizedLossIsKnown(t *testing.T) {
 	if got, ok := RankOf(Estimate{Loss: 0.4, Samples: 40}); ok {
 		t.Errorf("절대 낙폭이 없는데 %q 가 붙었다", got.NameJa)
@@ -97,13 +97,13 @@ func TestOutOfRangeLossStaysOnTheScale(t *testing.T) {
 }
 
 // 양 끝이 척도의 양 끝이어야 한다. 아래 끝은 15級 앵커이고, 위 끝은 그 위 전부다 —
-// 段 사이를 이 자로 못 가른다(rankNames).
+// 段 사이를 이 자로 가를 수 없다(rankNames).
 func TestEndsOfTheScale(t *testing.T) {
 	worst, _ := RankOf(named(0.5))
 	if worst.NameJa != "15級" || worst.Step != 0 {
 		t.Errorf("큰 낙폭의 이름 = %q(%d), want 15級(0)", worst.NameJa, worst.Step)
 	}
-	// 위 앵커보다 작은 낙폭은 전부 그 한 칸이다. 段 사이를 이 자로 못 가르므로
+	// 위 앵커보다 작은 낙폭은 전부 그 한 칸이다. 段 사이를 이 자로 가를 수 없으므로
 	// (§94의 평평한 구간) 三段도 5段도 같은 이름으로 나간다.
 	for _, abs := range []float64{0.0651, 0.0332, 0.001} {
 		got, _ := RankOf(named(abs))
@@ -149,7 +149,7 @@ func TestBetweenAnchorsIsLogarithmic(t *testing.T) {
 }
 
 // named 는 이름이 붙을 만큼의 표본을 가진 추정치다. 段級은 절대 낙폭만 보므로 Loss 는
-// 안 채운다 — 채우면 어느 값이 이름을 만들었는지가 테스트에서 안 보인다.
+// 채우지 않는다 — 채우면 어느 값이 이름을 만들었는지가 테스트에서 보이지 않는다.
 func named(absLoss float64) Estimate {
 	return Estimate{AbsLoss: absLoss, AbsSamples: MinSamples}
 }

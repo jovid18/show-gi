@@ -1,6 +1,6 @@
 # 변경된 경로를 보고 PR에 라벨을 붙인다. 매핑은 .github/labeler.yml.
 #
-# pull_request_target을 쓰는 이유는 base 브랜치의 설정을 읽어야 라벨을 쓸 권한이
+# pull_request_target을 쓴다. base 브랜치의 설정을 읽어야 라벨을 쓸 권한이
 # 나오기 때문이다. 대신 이 워크플로가 main에 들어간 뒤의 PR부터 동작한다.
 #
 # 여기에 actions/checkout을 추가하지 말 것. pull_request_target은 권한이 높은

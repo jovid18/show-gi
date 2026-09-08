@@ -69,7 +69,7 @@ export function GameScreen() {
    *
    * 연결이 끊기면 거짓이다(journal §86) — 참으로 두면 그 값이 앱을 이 화면에 묶어
    * (App.tsx) 사람이 「接続が切れました」 화면에 갇힌다. 마지막 스냅샷은 `playing` 인
-   * 채로 남으므로 그것만으로는 안 갈라진다.
+   * 채로 남으므로 그것만으로는 갈라지지 않는다.
    */
   useEffect(() => {
     setPlaying(playing && connection !== 'closed');
@@ -103,13 +103,13 @@ export function GameScreen() {
     restart();
   };
 
-  // 지금 대국의 판. 회상 중에는 화면에 안 나오지만 착수 후보와 유령 駒는 여기서 나온다.
+  // 지금 대국의 판. 회상 중에는 화면에 나오지 않지만 착수 후보와 유령 駒는 여기서 나온다.
   const live = useMemo(() => {
     if (!snapshot) return null;
     try {
       return parseSfen(snapshot.sfen);
     } catch {
-      return null; // 판을 못 읽으면 그리지 않는다. 틀린 판을 그리는 것보다 낫다
+      return null; // 판을 읽을 수 없으면 그리지 않는다. 틀린 판을 그리는 것보다 낫다
     }
   }, [snapshot]);
 
@@ -137,14 +137,14 @@ export function GameScreen() {
   const [announced, clearAnnounced] = useTagAnnounce(snapshot?.styleTags, snapshot?.ply ?? 0);
 
   // 駒가 판에 닿는 소리. 手数를 세지 수를 보지 않는다 — 되물러진 수는 手数를 뒤로
-  // 돌리므로 그 자리에서는 안 운다(useMoveSound).
+  // 돌리므로 그 자리에서는 울지 않는다(useMoveSound).
   const [soundOn, toggleSound] = useMoveSound(snapshot?.ply ?? 0);
 
   const intervention = snapshot?.intervention ?? null;
   const intervening = intervention !== null && interventionEpisode > seenEpisode;
 
   /**
-   * 물러진 수 하나가 분기의 바닥이다. 그 앞으로는 어느 버튼으로도 못 간다.
+   * 물러진 수 하나가 분기의 바닥이다. 그 앞으로는 어느 버튼으로도 갈 수 없다.
    *
    * 바닥 앞은 곧 지금 다시 둘 국면이라, 거기서 후보 셋을 그리면 대국 중에 답을
    * 알려주는 것이 된다(01-core.md §7). 서버도 같은 제한을 갖고 있다(ws.go 의 `branchRoot`).
@@ -170,7 +170,7 @@ export function GameScreen() {
    * 분기의 첫 자리를 연다. 물러진 수부터 깔고 시작한다.
    *
    * 다시 부를 수 있어야 한다. 첫 요청이 엔진 고장이나 `busy` 로 튕기면 노드가 영영
-   * 안 오고(의존성이 한 회차 내내 그대로다) 카드에는 목록도 무르기도 없이 문구만 남는다 —
+   * 오지 않고(의존성이 한 회차 내내 그대로다) 카드에는 목록도 무르기도 없이 문구만 남는다 —
    * 그때 사람이 누를 자리가 이것이다.
    */
   const openBranch = useCallback(() => {
@@ -179,8 +179,8 @@ export function GameScreen() {
   }, [retractedUsi, confirmedPly, branch.at]);
 
   /**
-   * `interventionEpisode` 가 의존성에 있어야 한다 — 같은 수로 또 걸리면 훅이 들고 있던
-   * 것을 버리는데, 그때 `retractedUsi` 는 글자 하나 안 바뀌어서 이 효과가 안 돈다.
+   * `interventionEpisode` 가 의존성에 있어야 한다 — 같은 수로 또 걸리면 훅이 갖고 있던
+   * 것을 버리는데, 그때 `retractedUsi` 는 글자 하나 바뀌지 않아서 이 효과가 돌지 않는다.
    */
   useEffect(() => {
     if (!intervening) return;
@@ -207,13 +207,13 @@ export function GameScreen() {
       .join(' ');
     /**
      * 판을 끝낸 수에는 평가치가 없다. 서버가 끝난 국면에서 탐색 전에 돌아서므로
-     * `evalCp` 도 `mateIn` 도 안 온다 — 그대로 적으면 그 줄은 값이 비어 목록 맨 아래로
+     * `evalCp` 도 `mateIn` 도 오지 않는다 — 그대로 적으면 그 줄은 값이 비어 목록 맨 아래로
      * 가는데, `lets_mate` 분기에서는 그 수가 바로 詰ます 수다. 값이 빈 줄은 `rankOf` 가
      * 맨 아래로 보내므로 목록이 정반대를 말한다.
      *
      * 그 수 자체가 詰み이므로 이 자리에서는 1手詰め다 — 후보 목록의 詰み 수가 엔진에서
-     * 같은 값으로 오는 것과 맞는다. 手詰まり는 詰み과 달라 그 말을 못 쓰고, 실전에서
-     * 거의 안 나와 값 없이 둔다.
+     * 같은 값으로 오는 것과 맞는다. 手詰まり는 詰み과 달라 그 말을 쓸 수 없고, 실전에서
+     * 거의 나오지 않아 값 없이 둔다.
      */
     const ended = node.status === 'checkmate' ? 1 : undefined;
     const flip = tried.by === 'engine';
@@ -242,8 +242,8 @@ export function GameScreen() {
   /**
    * 물러진 수 자체의 값. 분기의 첫 자리가 그것이다.
    *
-   * 상태로 한 벌 더 들고 있지 않는다. 그 자리는 훅의 캐시에 이미 있으므로 꺼내면 되고,
-   * 아직 못 받았으면 빈칸으로 남는다 — 없는 값을 지어내지 않는다.
+   * 상태로 한 벌 더 갖고 있지 않는다. 그 자리는 훅의 캐시에 이미 있으므로 꺼내면 되고,
+   * 아직 받지 못했으면 빈칸으로 남는다 — 없는 값을 지어내지 않는다.
    */
   const retractedEval = useMemo(() => {
     const at = branch.evalOf(1);
@@ -266,7 +266,7 @@ export function GameScreen() {
   /**
    * 개입 중에 그리는 판 — 분기의 국면이다.
    *
-   * 노드를 못 받은 동안은 물러진 수를 둔 직후의 국면(`retractedSfen`)이고, 그 둘은
+   * 노드를 받지 못한 동안은 물러진 수를 둔 직후의 국면(`retractedSfen`)이고, 그 둘은
    * 같은 자리라 값이 와도 판이 깜빡이지 않는다. 국면은 언제나 서버가 준 것을 그대로
    * 그린다 — 화면이 수를 두게 하면 규칙 엔진을 한 벌 더 갖는 것이고, 그건 D2에서
    * 「클라이언트는 규칙을 모른다」로 정해둔 자리다.
@@ -276,7 +276,7 @@ export function GameScreen() {
     try {
       return parseSfen(branch.node?.sfen ?? intervention.retractedSfen);
     } catch {
-      return null; // 못 읽는 국면으로 판을 그리느니 대국의 판을 그대로 둔다
+      return null; // 읽을 수 없는 국면으로 판을 그리느니 대국의 판을 그대로 둔다
     }
   }, [intervening, intervention, branch.node]);
 
@@ -297,7 +297,7 @@ export function GameScreen() {
    * 판 위의 초록 화살표 — 수번 쪽의 최선수다.
    *
    * 되짚기와 같은 채널이고(ReviewDetail), 여기서도 「다음에 벌어질 것」이다. 지금 대국의
-   * 최선수는 여기 절대 안 뜬다 — 이 화살표가 사는 국면은 되물러서 사라진 자리다.
+   * 최선수는 여기 절대 뜨지 않는다 — 이 화살표가 사는 국면은 되물러서 사라진 자리다.
    */
   const branchRay = useMemo(() => {
     const node = branch.node;
@@ -316,7 +316,7 @@ export function GameScreen() {
   );
 
   /**
-   * 갇힘 힌트. 개입 중에는 안 띄운다 — 그때 판은 물러진 수 뒤의 국면이라, 지금 판에
+   * 갇힘 힌트. 개입 중에는 띄우지 않는다 — 그때 판은 물러진 수 뒤의 국면이라, 지금 판에
    * 대한 안내를 그 위에 얹으면 판이 거짓을 말한다.
    */
   const hint = intervening ? undefined : snapshot?.hint;
@@ -387,7 +387,7 @@ export function GameScreen() {
       }
       const from = toIndex(fromUsi(move.from));
       const piece = live.squares[from];
-      // 비어 있으면 판과 개입이 어긋난 것이다. 틀린 것을 그리느니 안 그린다.
+      // 비어 있으면 판과 개입이 어긋난 것이다. 틀린 것을 그리느니 그리지 않는다.
       if (!piece) return null;
       return { from, to, kind: piece.kind, side: piece.side };
     } catch {
@@ -467,7 +467,7 @@ export function GameScreen() {
     (snapshot.judging ? '今の手を確かめています。' : snapshot.thinking ? '相手が考えています。' : 'あなたの番です。');
   const statusTone = result ? 'result' : snapshot.judging || snapshot.thinking ? 'wait' : 'turn';
 
-  // 서버가 안 보내면 조절이 꺼져 있다. 기본값으로 메우지 않는다(protocol/game.ts).
+  // 서버가 보내지 않으면 조절이 꺼져 있다. 기본값으로 메우지 않는다(protocol/game.ts).
   const strength = snapshot.opponentStrength;
 
   const pick = (next: string): void => {
@@ -480,7 +480,7 @@ export function GameScreen() {
     const dest = destinations.find((d) => d.to === to);
     if (!dest) return;
 
-    // 성/불성이 둘 다 가능할 때만 묻는다. 강제 승격은 목록에 성만 들어 있으므로 안 묻는다.
+    // 성/불성이 둘 다 가능할 때만 묻는다. 강제 승격은 목록에 성만 들어 있으므로 묻지 않는다.
     if (dest.plain && dest.promote) {
       setPending({ origin, to });
       return;
@@ -533,7 +533,7 @@ export function GameScreen() {
     // 뒤집혀 있고(Board 의 `seat`), 여기서 도는 것은 글자가 누구를 향하는가뿐이다.
     <div className="game" data-intervening={intervening || undefined} data-flipped={flipped || undefined}>
       {/* 판만 남기고 어두워진다. 클릭은 막지 않는다 — 잠글 것은 이미 판 쪽에서 잠겼고,
-          투료까지 못 하게 만들 이유가 없다. */}
+          투료까지 하지 못하게 만들 이유가 없다. */}
       {intervening && <div className="veil" aria-hidden="true" />}
 
       <div className="game-board">
@@ -575,7 +575,7 @@ export function GameScreen() {
           played={branchPlayed}
           replay={replay}
           // 개입 중에는 수번 쪽의 최선수다. 그 국면은 되물러서 사라진 자리라 「그때
-          // 이렇게 뒀어야 했다」다 — 지금 판의 최선수는 여기 절대 안 뜬다(01-core.md §7).
+          // 이렇게 뒀어야 했다」다 — 지금 판의 최선수는 여기 절대 뜨지 않는다(01-core.md §7).
           ray={branchRay}
           // 대국 화면은 미끄러뜨리지 않는다. 판이 움직이는 자리가 유령 駒이고,
           // 둘을 같이 켜면 같은 수를 두 방식으로 두 번 그린다.
@@ -660,7 +660,7 @@ export function GameScreen() {
               {statusText}
             </p>
 
-            {/* 상대의 강함. 눈금이 조용히 바뀌는 것이 이 기능의 요점이라 숫자도 % 도 쓰지 않는다. */}
+            {/* 상대의 강함. 눈금이 조용히 바뀌는 것만으로 충분해서 숫자도 % 도 쓰지 않는다. */}
             {strength !== undefined && (
               <p className="strength" role="status">
                 <span className="strength__head">相手の強さ</span>
@@ -673,7 +673,7 @@ export function GameScreen() {
               </p>
             )}
 
-            {/* 手合割을 되비춘다. 平手면 아무것도 안 쓴다 — 위 진형과 같은 규칙이고,
+            {/* 手合割을 되비춘다. 平手면 아무것도 쓰지 않는다 — 위 진형과 같은 규칙이고,
                 이 자리가 없으면 駒落ち 판에서 「왜 상대 駒가 적은가」에 화면이 답하지 않는다. */}
             {snapshot.handicapJa && (
               <p className="opening" role="note">
@@ -682,7 +682,7 @@ export function GameScreen() {
               </p>
             )}
 
-            {/* 고른 진형을 되비춘다. 고르지 않았으면 아무것도 안 쓴다 — 「おまかせ」라고
+            {/* 고른 진형을 되비춘다. 고르지 않았으면 아무것도 쓰지 않는다 — 「おまかせ」라고
                 적어 두면 없는 설정이 있는 것처럼 자리를 차지한다. 상대의 형태를 알려주는 것이
                 아닌 근거는 서버의 `Snapshot.OpponentOpening` 주석. */}
             {snapshot.opponentOpening && (
@@ -714,9 +714,9 @@ export function GameScreen() {
           </p>
         )}
 
-        {/* 서버가 못 해준 것. 개입 카드와 자리를 나눈다 — 저쪽은 판에 대한 판단이고 이쪽은
-            서버 사정이라, 한 자리에 뭉치면 「시한을 넘겨 확인 못 했다」가 판정으로 읽힌다.
-            개입 중에는 안 그린다: 그때는 물러졌다는 사실이 이미 화면을 다 쓰고 있고,
+        {/* 서버가 해 주지 못한 것. 개입 카드와 자리를 나눈다 — 저쪽은 판에 대한 판단이고
+            이쪽은 서버 사정이라, 한 자리에 뭉치면 「시한을 넘겨 확인하지 못했다」가 판정으로
+            읽힌다. 개입 중에는 그리지 않는다: 그때는 물러졌다는 사실이 이미 화면을 다 쓰고 있고,
             애초에 판정이 성공해야 개입이 뜨므로 둘이 같이 올 일이 없다. */}
         {!intervening && snapshot.notice && (
           <p className="notice" role="status">
@@ -724,7 +724,7 @@ export function GameScreen() {
           </p>
         )}
 
-        {/* 판이 끝나면 안 그린다. 취소가 없는 모달이라, 남아 있으면 총평도 「もう一局」도
+        {/* 판이 끝나면 그리지 않는다. 취소가 없는 모달이라, 남아 있으면 총평도 「もう一局」도
             뒤에 깔린 채 답할 수 없는 수만 남는다(대인전과 같은 자리). */}
         {pending && snapshot.status === 'playing' && <Promotion onChoose={finishPromotion} />}
 
@@ -733,7 +733,7 @@ export function GameScreen() {
         {/* 총평은 기보 아래·「もう一局」 위다. 판이 끝난 뒤 읽는 순서가 결과 → 기보 →
             무엇을 배웠나 → 다음 판이고, 버튼을 위에 두면 읽기 전에 눌러 버린다.
 
-            개입 중에는 안 그린다 — 이 자리는 카드 하나가 쓴다(위 주석). 다만 판이 끝난
+            개입 중에는 그리지 않는다 — 이 자리는 카드 하나가 쓴다(위 주석). 다만 판이 끝난
             뒤에는 개입이 뜰 일이 없어서 실제로는 겹치지 않는다. */}
         {!intervening && snapshot.status !== 'playing' && <Summary summary={summary} />}
 
@@ -745,7 +745,7 @@ export function GameScreen() {
 
             {/* 회차 2 #5. 총평이 와야 뜬다 — 판 번호가 거기 실려 오고(§64), 대국
                 화면은 그때까지 자기 판의 번호를 모른다. 총평보다 먼저 그릴 방법이
-                없으므로 자리를 비워 두지 않고 아예 안 그린다. */}
+                없으므로 자리를 비워 두지 않고 아예 그리지 않는다. */}
             {reviewRoute && (
               <a
                 className="btn"
@@ -782,7 +782,7 @@ export function GameScreen() {
             </div>
           ) : (
             <div className="play-actions">
-              {/* 회차 1 #4. 예산이 0이어도 안 감춘다 — 사라지면 「왜 없지」가 되고,
+              {/* 회차 1 #4. 예산이 0이어도 감추지 않는다 — 사라지면 「왜 없지」가 되고,
                   남은 횟수가 붙어 있으면 「다 썼구나」가 된다. 누를 수 있는지는 서버가
                   이미 답했다(`canUndo`) — 사람 차례·예산·되돌릴 수 셋을 화면이 다시
                   짓지 않는다. */}

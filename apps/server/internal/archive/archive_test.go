@@ -37,7 +37,7 @@ func (f *fakeEngine) SearchMultiPV(
 	return f.res, f.err
 }
 
-// fakeStore 는 쌓인 것을 그대로 들고 있는다. 기록이 goroutine에서 도므로 잠근다.
+// fakeStore 는 쌓인 것을 그대로 갖고 있다. 기록이 goroutine에서 도므로 잠근다.
 type fakeStore struct {
 	mu        sync.Mutex
 	positions map[string]store.Position
@@ -167,7 +167,7 @@ func TestRecordsThePositionAndItsCandidates(t *testing.T) {
 }
 
 // eval_by_depth 는 先手 관점이다(001_init.sql). 後手 차례의 국면에서 뒤집지 않으면
-// 색이 다른 두 판을 함께 못 놓는다 — 이 컬럼이 있는 이유가 그것이다.
+// 색이 다른 두 판을 함께 놓을 수 없다 — 그래서 이 컬럼이 있다.
 func TestFlipsEvalToSentePointOfView(t *testing.T) {
 	st := newStore()
 	// 1手 뒤는 後手 차례다. 엔진은 後手에게 +100이라고 답한다.
@@ -220,7 +220,7 @@ func TestLinksThePlayedMove(t *testing.T) {
 	if st.rows() != 2 {
 		t.Errorf("국면 %d개, want 2 (부모와 자식)", st.rows())
 	}
-	// 부모는 아직 안 재 본 자리다. 후보를 아는 척하지 않는다.
+	// 부모는 아직 재 보지 않은 자리다. 후보를 아는 척하지 않는다.
 	p, err := st.GetPosition(t.Context(), Key(start))
 	if err != nil {
 		t.Fatalf("부모 국면: %v", err)
@@ -251,7 +251,7 @@ func TestNoNamesWithoutTheParentEval(t *testing.T) {
 	}
 }
 
-// DB가 없으면 아무것도 안 쌓고 그대로 넘긴다. 엔진 결과는 그대로 와야 한다.
+// DB가 없으면 아무것도 쌓지 않고 그대로 넘긴다. 엔진 결과는 그대로 와야 한다.
 func TestPassesThroughWithoutStore(t *testing.T) {
 	eng := &fakeEngine{res: result(6, "7g7f")}
 	a := Wrap(eng, nil)
@@ -284,7 +284,7 @@ func TestRecordsNothingOnSearchFailure(t *testing.T) {
 	}
 }
 
-// 기록이 실패해도 탐색은 성공이다. 분석을 못 남긴 것과 대국이 깨지는 것의 값이 다르다.
+// 기록이 실패해도 탐색은 성공이다. 분석을 남기지 못한 것과 대국이 깨지는 것의 값이 다르다.
 func TestSearchSucceedsWhenWritingFails(t *testing.T) {
 	st := newStore()
 	st.putErr = errors.New("database is down")
@@ -328,7 +328,7 @@ func play(t *testing.T, pos shogi.Position, usis ...string) shogi.Position {
 	return pos
 }
 
-// 이미 잰 국면은 엔진을 안 부른다. 여기가 §12의 캐시를 실제로 쓰는 자리다.
+// 이미 잰 국면은 엔진을 부르지 않는다. 여기가 §12의 캐시를 실제로 쓰는 자리다.
 //
 // 그리고 깊이별 값이 함께 살아나야 한다 — 개입 판정이 보는 얕은 값이 그것이고, 캐시가
 // 그걸 빠뜨리면 「얕은 이득에 낚임」 카테고리가 경고 없이 사라진다(01-core.md §3).
@@ -358,7 +358,7 @@ func TestServesFromTheCache(t *testing.T) {
 		t.Fatalf("lines = %d, want 3", len(second.Lines))
 	}
 
-	// 얕은 값이 살아 있어야 한다. 없으면 판정이 그 축을 잃는다.
+	// 얕은 값이 살아 있어야 한다. 없으면 판정이 그 입력을 잃는다.
 	want, ok := first.ScoreAtDepth(2)
 	if !ok {
 		t.Fatal("첫 결과에 depth 2 가 없다 — 테스트가 틀렸다")
@@ -373,7 +373,7 @@ func TestServesFromTheCache(t *testing.T) {
 }
 
 // 캐시가 수번 관점으로 돌아와야 한다. 저장은 先手 관점이라, 되돌리는 것을 빠뜨리면
-// 後手로 잡은 판에서만 부호가 뒤집히고 에러는 안 난다.
+// 後手로 잡은 판에서만 부호가 뒤집히고 에러는 나지 않는다.
 func TestCacheKeepsTheMoverPointOfView(t *testing.T) {
 	st := newStore()
 	// 1手 뒤는 後手 차례다. 엔진은 後手에게 +100이라고 답한다.
@@ -402,7 +402,7 @@ func TestCacheKeepsTheMoverPointOfView(t *testing.T) {
 	}
 }
 
-// 모자란 캐시는 안 쓴다. 얕게 잰 행과 후보가 적은 행이 그렇다 — 뒤엣것을 안 막으면
+// 모자란 캐시는 쓰지 않는다. 얕게 잰 행과 후보가 적은 행이 그렇다 — 뒤엣것을 막지 않으면
 // k=1로 쓰인 행이 k=10을 원하는 적응형 상대에게 후보 하나만 주고, 그건 강함 조절이 꺼진 것이다.
 func TestIgnoresInsufficientCache(t *testing.T) {
 	for name, ask := range map[string][2]int{
@@ -428,7 +428,7 @@ func TestIgnoresInsufficientCache(t *testing.T) {
 }
 
 // 합법수가 k보다 적은 국면은 그것으로 다 찬 것이다. 「모자란다」로 보면 그 자리는
-// 영원히 캐시를 못 쓰고, 종반에 k=10을 묻는 상대(§16)가 정확히 거기서 매번 다시 잰다.
+// 영원히 캐시를 쓰지 못하고, 종반에 k=10을 묻는 상대(§16)가 정확히 거기서 매번 다시 잰다.
 func TestServesWhenThereAreFewerLegalMovesThanK(t *testing.T) {
 	st := newStore()
 	// 玉 둘만 있는 국면. 先手 玉이 1九에 몰려 합법수가 셋이다(9八·8八·8九 방향).
@@ -459,7 +459,7 @@ func TestServesWhenThereAreFewerLegalMovesThanK(t *testing.T) {
 	}
 }
 
-// 飛を振った 수가 전법 태그를 만든다. 수순 없이는 전법이 안 보였던 자리다.
+// 飛を振った 수가 전법 태그를 만든다. 수순 없이는 전법이 보이지 않던 자리다.
 func TestTagsFormationOnTheEdge(t *testing.T) {
 	st := newStore()
 	const openBoard = "4k4/9/9/9/9/9/9/7R1/4K4 b - 1"
@@ -485,7 +485,7 @@ func TestTagsFormationOnTheEdge(t *testing.T) {
 }
 
 // 히트에도 오는 길은 남는다. 같은 국면에 다른 수로 도달하면(전치) 그 간선은 새것이다 —
-// 안 남기면 그 자리가 영원히 비어 있고, 「A→B를 쌓는다」가 반만 사실이 된다.
+// 남기지 않으면 그 자리가 영원히 비어 있고, 「A→B를 쌓는다」가 반만 사실이 된다.
 func TestLinksThePathEvenOnACacheHit(t *testing.T) {
 	st := newStore()
 	eng := &fakeEngine{res: result(8, "3c3d")}
@@ -571,7 +571,7 @@ func TestObservesCacheHitsSeparately(t *testing.T) {
 	}
 }
 
-// 실패한 탐색은 안 센다. 세션이 끝나 ctx가 닫히는 것이 흔해서, 그걸 세면
+// 실패한 탐색은 세지 않는다. 세션이 끝나 ctx가 닫히는 것이 흔해서, 그걸 세면
 // 「탐색 수」가 사람이 판을 떠난 횟수까지 담는다.
 func TestDoesNotObserveFailedSearches(t *testing.T) {
 	a := Wrap(&fakeEngine{err: errors.New("boom")}, newStore())

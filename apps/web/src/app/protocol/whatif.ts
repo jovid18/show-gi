@@ -44,8 +44,8 @@ export interface WhatIfCandidate {
   /**
    * 그 수를 둔 쪽 관점 cp. 주인은 노드의 `turn` 이다.
    *
-   * 詰み이면 안 온다. `mateIn` 과 배타적이고, 저장 쪽도 같은 규약이다 —
-   * 한 숫자에 둘을 담았더니 화살표가 1手詰み을 안 가리켰다(docs/journal §131).
+   * 詰み이면 오지 않는다. `mateIn` 과 배타적이고, 저장 쪽도 같은 규약이다 —
+   * 한 숫자에 둘을 담았더니 화살표가 1手詰み을 가리키지 않았다(docs/journal §131).
    */
   evalCp?: number;
   /**
@@ -55,7 +55,7 @@ export interface WhatIfCandidate {
    * 없다 — 자가 다른 두 값의 차가 낙폭일 수 없다(서버의 `candidatesOf`).
    */
   lossCp?: number;
-  /** 詰み까지의 手数. 이 칸이 비면 詰み이 없고, 차면 `evalCp` 는 안 온다. */
+  /** 詰み까지의 手数. 이 칸이 비면 詰み이 없고, 차면 `evalCp` 는 오지 않는다. */
   mateIn?: number;
 }
 

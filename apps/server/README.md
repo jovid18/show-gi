@@ -17,42 +17,42 @@ go vet ./... && gofmt -l .      # gofmt 는 출력이 있으면 어긋난 파일
 curl localhost:8080/healthz     # {"ok":true,"engine":true,"db":true}
 ```
 
-**되짚기(`GET /api/games`)는 DB에만 매여 있다** — 엔진이 죽어 대국을 못 해도 지난 판은 볼 수 있어야 한다. 가정 수순과 검토만 그 조건이 다르다(아래 마지막 줄): 「그래서 상대가 어떻게 하나」가 내용이라 엔진 없이는 성립하지 않고, 없으면 그 한 경로만 503이 된다.
+**되짚기(`GET /api/games`)는 DB에만 매여 있다** — 엔진이 죽어 대국을 할 수 없어도 지난 판은 볼 수 있어야 한다. 가정 수순과 검토만 그 조건이 다르다(아래 마지막 줄): 「그래서 상대가 어떻게 하나」가 내용이라 엔진 없이는 성립하지 않고, 없으면 그 한 경로만 503이 된다.
 
-요청·응답 스키마와 상태코드는 [docs/spec/api.md](../../docs/spec/api.md) 와 [openapi.yaml](../../docs/spec/openapi.yaml) 에 있다. 이 표는 각 경로가 무엇 없이 못 서는지만 든다.
+요청·응답 스키마와 상태코드는 [docs/spec/api.md](../../docs/spec/api.md) 와 [openapi.yaml](../../docs/spec/openapi.yaml) 에 있다. 이 표는 각 경로가 무엇 없이는 설 수 없는지만 적는다.
 
 | 라우트                               |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET /healthz`                       | 엔진·DB 상태를 값으로 말한다. 없어도 200                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `GET /metrics`                       | Prometheus 텍스트. 밖에서 안 닿는다 — Caddy 가 `/ws`·`/api`·`/healthz` 만 프록시하므로 태스크 안에서만 열린다. 프로덕션에서 보는 것은 stdout 으로 나가는 EMF 쪽이다 ([§90](../../docs/journal/82-100.md))                                                                                                                                                                                                                                                                                           |
-| `GET /ws/game`                       | 연결 하나가 대국 하나. 엔진이 없으면 503. `?color=b`·`w` 와 `opening=<id>` 로 고른다 ([§48](../../docs/journal/41-60.md)). `?handicap=<id>` 면 駒落ち이고 그것이 앞의 둘을 덮는다 — 사람은 언제나 下手이고 진형은 안 붙는다. 첫 수는 上手(엔진)가 둔다 ([§84](../../docs/journal/82-100.md) · [§88](../../docs/journal/82-100.md)). `?resume=<id>` 면 중단된 판을 이어 둔다 ([§51](../../docs/journal/41-60.md))                                                                                    |
+| `GET /metrics`                       | Prometheus 텍스트. 밖에서 닿지 않는다 — Caddy 가 `/ws`·`/api`·`/healthz` 만 프록시하므로 태스크 안에서만 열린다. 프로덕션에서 보는 것은 stdout 으로 나가는 EMF 쪽이다 ([§90](../../docs/journal/82-100.md))                                                                                                                                                                                                                                                                                         |
+| `GET /ws/game`                       | 연결 하나가 대국 하나. 엔진이 없으면 503. `?color=b`·`w` 와 `opening=<id>` 로 고른다 ([§48](../../docs/journal/41-60.md)). `?handicap=<id>` 면 駒落ち이고 그것이 앞의 둘을 덮는다 — 사람은 언제나 下手이고 진형은 붙지 않는다. 첫 수는 上手(엔진)가 둔다 ([§84](../../docs/journal/82-100.md) · [§88](../../docs/journal/82-100.md)). `?resume=<id>` 면 중단된 판을 이어 둔다 ([§51](../../docs/journal/41-60.md))                                                                                  |
 | `GET /api/openings`                  | 고를 수 있는 상대의 진형. DB도 엔진도 로그인도 필요 없다 — 상수 목록이다                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `GET /api/handicaps`                 | 고를 수 있는 手合割. 위와 같은 이유로 아무것에도 안 매여 있다. 平手는 목록에 없다 — 접지 않는 것은 화면의 기본값이다 ([§84](../../docs/journal/82-100.md))                                                                                                                                                                                                                                                                                                                                          |
-| `POST /api/rooms`                    | 사람끼리 두는 방 하나. 로그인 안 했으면 401 — 아직 방이 없으므로 새어 나갈 것이 없다. `?color=b`·`w`·`r`(振り駒) 로 만든 사람이 手番을 고른다 — 振り駒는 서버가 뽑는다 ([§83](../../docs/journal/82-100.md))                                                                                                                                                                                                                                                                                        |
-| `GET /api/rooms/{id}`                | 그 방을 들어가기 전에 확인한다. 자리를 안 잡는다 — 앉는 것은 아래 WebSocket 이 붙을 때다. 볼 수 없으면 404 하나(아래)                                                                                                                                                                                                                                                                                                                                                                               |
+| `GET /api/handicaps`                 | 고를 수 있는 手合割. 위와 같아서 아무것에도 매여 있지 않다. 平手는 목록에 없다 — 접지 않는 것은 화면의 기본값이다 ([§84](../../docs/journal/82-100.md))                                                                                                                                                                                                                                                                                                                                             |
+| `POST /api/rooms`                    | 사람끼리 두는 방 하나. 로그인하지 않았으면 401 — 아직 방이 없으므로 새어 나갈 것이 없다. `?color=b`·`w`·`r`(振り駒) 로 만든 사람이 手番을 고른다 — 振り駒는 서버가 뽑는다 ([§83](../../docs/journal/82-100.md))                                                                                                                                                                                                                                                                                     |
+| `GET /api/rooms/{id}`                | 그 방을 들어가기 전에 확인한다. 자리를 잡지 않는다 — 앉는 것은 아래 WebSocket 이 붙을 때다. 볼 수 없으면 404 하나(아래)                                                                                                                                                                                                                                                                                                                                                                             |
 | `GET /ws/match`                      | 방의 자리에 앉아 사람과 둔다. `?room=<id>`. 엔진이 없어도 된다 — 룰 엔진과 시계뿐이다. 개입도 힌트도 待った도 없다 ([§83](../../docs/journal/82-100.md))                                                                                                                                                                                                                                                                                                                                            |
 | `POST /api/queue`                    | 대기열에 서고 그 자리에서 짝짓기까지 한다. DB가 필요하다 — 대기열이 표에 있어야 모든 인스턴스가 같은 대기열을 본다. 없으면 503이고 방을 링크로 만드는 쪽은 그대로 돈다. 멱등이라 화면이 2초마다 이것만 부른다 ([§98](../../docs/journal/82-100.md))                                                                                                                                                                                                                                                 |
 | `DELETE /api/queue`                  | 대기열에서 빠진다. 없는 사람이 불러도 204 — 탭을 닫는 자리에서 부르는 경로다 ([§98](../../docs/journal/82-100.md))                                                                                                                                                                                                                                                                                                                                                                                  |
-| `GET /api/games`                     | 최근 대국 목록. 결과가 나온 판만 — 두는 중도 중단도 안 온다 ([§51](../../docs/journal/41-60.md))                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `GET /api/games`                     | 최근 대국 목록. 결과가 나온 판만 — 두는 중도 중단도 오지 않는다 ([§51](../../docs/journal/41-60.md))                                                                                                                                                                                                                                                                                                                                                                                                |
 | `GET /api/games/{id}`                | 한 판 전체 — 手数마다의 국면·棋譜 표기와 물러진 수 ([§33](../../docs/journal/21-40.md)). 목록과 같은 조건이라 끝나지 않은 판은 404                                                                                                                                                                                                                                                                                                                                                                  |
 | `GET /api/games/{id}/summary`        | 그 판의 총평. 기보와 따로 간다 — 화면이 판을 먼저 그린다 ([§52](../../docs/journal/41-60.md)). 조건은 위 줄과 같다                                                                                                                                                                                                                                                                                                                                                                                  |
-| `GET /api/games/{id}/quiz`           | 그 판에서 뽑은 문항. 정답이 안 실려 온다 — 채점이 서버에 있다 ([§53](../../docs/journal/41-60.md)). `ready:false` 는 아직 만드는 중이고 「문항 없음」과 다르다                                                                                                                                                                                                                                                                                                                                      |
-| `POST /api/games/{id}/quiz/mate`     | 詰み 문항 채점. 내가 낸 수만 보낸다 — 玉方의 응수는 저장된 트리에서 서버가 꺼내 둔다. 엔진을 안 쓴다                                                                                                                                                                                                                                                                                                                                                                                                |
-| `POST /api/games/{id}/quiz/best`     | 「최선수는?」 채점. 첫 수만 받는다. 엔진을 안 쓴다                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `GET /api/games/{id}/quiz`           | 그 판에서 뽑은 문항. 정답이 실려 오지 않는다 — 채점이 서버에 있다 ([§53](../../docs/journal/41-60.md)). `ready:false` 는 아직 만드는 중이고 「문항 없음」과 다르다                                                                                                                                                                                                                                                                                                                                  |
+| `POST /api/games/{id}/quiz/mate`     | 詰み 문항 채점. 내가 둔 수만 보낸다 — 玉方의 응수는 저장된 트리에서 서버가 꺼내 둔다. 엔진을 쓰지 않는다                                                                                                                                                                                                                                                                                                                                                                                            |
+| `POST /api/games/{id}/quiz/best`     | 「최선수는?」 채점. 첫 수만 받는다. 엔진을 쓰지 않는다                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `POST /api/games/{id}/whatif`        | 가정 수순 한 걸음. DB와 엔진 둘 다 필요하다 — 없으면 503 ([§37](../../docs/journal/21-40.md))                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `POST /api/explore`                  | 검토 한 걸음. 뿌리가 둘이다 — `handicap`(그 手合割의 0手目) 또는 `sfen`(사진에서 읽어 온 국면, [§129](../../docs/journal/121-140.md)). 둘을 같이 주면 400 `bad_root`, 판이 성립하지 않으면 400 `bad_position`(`shogi.Faults` — 엔진에 닿기 전이다). 엔진만 필요하고 DB는 캐시로만 쓴다. 로그인은 필요 없다 ([§100](../../docs/journal/82-100.md)) — 엔진을 지키는 것은 슬롯 하나이고, 검토가 이미 하나 돌고 있으면 429(3초 기다린 뒤). 풀은 대국과 같은 3개다 ([§85](../../docs/journal/82-100.md)) |
-| `GET /api/explore/snapshots`         | 검토에서 저장한 국면 목록. 최근에 저장한 것이 앞이고 개수 상한이 없다. 로그인 안 했으면 401, DB가 없으면 503 — 검토 자체는 기록 없이도 서지만 저장은 그럴 수가 없다 ([§96](../../docs/journal/82-100.md))                                                                                                                                                                                                                                                                                           |
-| `POST /api/explore/snapshots`        | 지금 보고 있는 자리를 남긴다. 판(SFEN)을 안 받는다 — 手合割 id 와 수순뿐이고, 저장 전에 룰 엔진으로 한 수씩 되짚어 본다(엔진 탐색 없이 합법성 검사뿐이라 슬롯을 안 잡는다). 이름이 비면 서버가 하나 짓는다                                                                                                                                                                                                                                                                                          |
-| `PATCH /api/explore/snapshots/{id}`  | 이름만 고친다. 국면은 안 바뀐다. 없는 것과 남의 것이 같은 404                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `GET /api/explore/snapshots`         | 검토에서 저장한 국면 목록. 최근에 저장한 것이 앞이고 개수 상한이 없다. 로그인하지 않았으면 401, DB가 없으면 503 — 검토 자체는 기록 없이도 서지만 저장은 그럴 수가 없다 ([§96](../../docs/journal/82-100.md))                                                                                                                                                                                                                                                                                        |
+| `POST /api/explore/snapshots`        | 지금 보고 있는 자리를 남긴다. 판(SFEN)을 받지 않는다 — 手合割 id 와 수순뿐이고, 저장 전에 룰 엔진으로 한 수씩 되짚어 본다(엔진 탐색 없이 합법성 검사뿐이라 슬롯을 잡지 않는다). 이름이 비면 서버가 하나 짓는다                                                                                                                                                                                                                                                                                      |
+| `PATCH /api/explore/snapshots/{id}`  | 이름만 고친다. 국면은 바뀌지 않는다. 없는 것과 남의 것이 같은 404                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `DELETE /api/explore/snapshots/{id}` | 저장된 국면 하나를 지운다. 위와 같은 404                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `GET /api/resumable`                 | 이어할 수 있는 중단된 판 하나. 로그인 안 했으면 늘 `null` — 기록이 없는 배포에서도 200이다                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `POST /api/resumable/{id}/decline`   | 「いいえ」. 그 판은 중단된 채로 끝나고 다시 안 물어본다                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `POST /api/position/read`            | 판이 찍힌 그림에서 국면을 읽는다 ([§129](../../docs/journal/121-140.md)). 로그인 안 했으면 401 — 그림 읽기가 돈을 쓰는 일이라 사람마다 세야 하고, 상한이 6MB · 10회/시간이다(넘으면 429 `quota`). 형식은 앞머리로 정한다(PNG·JPEG·WebP, 아니면 400 `not_image`). 판이 안 보이면 422 `no_board`, 키가 없으면 503. 그림을 안 남긴다 — 요청 하나에 실려 나가고 응답을 만든 뒤 버린다. `OPENAI_API_KEY` 가 없으면 이 경로만 안 열린다                                                                   |
-| `POST /api/position/check`           | 이 국면이 성립하는가. 엔진도 DB도 로그인도 안 쓴다 — 순수 룰 계산이라 확인 화면이 한 칸을 고칠 때마다 불러도 대국이 쓰는 풀에 안 닿는다. 사유(`faults`)를 하나에서 안 멈추고 전부 주고, 말이 모자란 것은 거절 대신 `warnings` 로 말한다                                                                                                                                                                                                                                                             |
-| `POST /api/kifu/parse`               | 밖에서 둔 기보를 읽기만 한다 — 판도 안 만들고 엔진도 안 쓴다 ([§126](../../docs/journal/121-140.md)). 로그인 안 했으면 401. 결정적 파서(KIF·KI2·CSA·USI·평문)가 전부 실패하면 그때만 OpenAI 를 지난다 — 그쪽이 낸 표기도 룰 엔진의 전수 검증을 지나야 수가 된다                                                                                                                                                                                                                                     |
+| `GET /api/resumable`                 | 이어할 수 있는 중단된 판 하나. 로그인하지 않았으면 늘 `null` — 기록이 없는 배포에서도 200이다                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `POST /api/resumable/{id}/decline`   | 「いいえ」. 그 판은 중단된 채로 끝나고 다시 묻지 않는다                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `POST /api/position/read`            | 판이 찍힌 그림에서 국면을 읽는다 ([§129](../../docs/journal/121-140.md)). 로그인하지 않았으면 401 — 그림 읽기가 돈을 쓰는 일이라 사람마다 세야 하고, 상한이 6MB · 10회/시간이다(넘으면 429 `quota`). 형식은 앞머리로 정한다(PNG·JPEG·WebP, 아니면 400 `not_image`). 판이 보이지 않으면 422 `no_board`, 키가 없으면 503. 그림을 남기지 않는다 — 요청 하나에 실려 나가고 응답을 만든 뒤 버린다. `OPENAI_API_KEY` 가 없으면 이 경로만 열리지 않는다                                                    |
+| `POST /api/position/check`           | 이 국면이 성립하는가. 엔진도 DB도 로그인도 쓰지 않는다 — 순수 룰 계산이라 확인 화면이 한 칸을 고칠 때마다 불러도 대국이 쓰는 풀에 닿지 않는다. 사유(`faults`)를 하나에서 멈추지 않고 전부 주고, 말이 모자란 것은 거절 대신 `warnings` 로 말한다                                                                                                                                                                                                                                                     |
+| `POST /api/kifu/parse`               | 밖에서 둔 기보를 읽기만 한다 — 판도 만들지 않고 엔진도 쓰지 않는다 ([§126](../../docs/journal/121-140.md)). 로그인하지 않았으면 401. 결정적 파서(KIF·KI2·CSA·USI·평문)가 전부 실패하면 그때만 OpenAI 를 지난다 — 그쪽이 옮긴 표기도 룰 엔진의 전수 검증을 지나야 수가 된다                                                                                                                                                                                                                          |
 | `POST /api/kifu/import`              | 그 기보를 판으로 남기고 분석 줄에 세운다. 원문을 다시 보낸다 — 서버에 중간 상태가 없다. 상한이 다섯이다: 64KB · 512手 · 하루 10판 · 정규화 20회/시간 · 분석기가 없으면 503                                                                                                                                                                                                                                                                                                                          |
 | `GET /api/me`                        | 지금 로그인한 사람. 로그인이 꺼진 배포에도 있다 — 아래                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `GET /api/me/profile`                | 마이페이지 — 段級·전적·崩れやすいところ ([§63](../../docs/journal/61-81.md)). 로그인 안 했으면 401 — 익명 판은 서로 구별할 수단이 없어 「이 사람의 전적」에 답할 수가 없다                                                                                                                                                                                                                                                                                                                          |
+| `GET /api/me/profile`                | 마이페이지 — 段級·전적·崩れやすいところ ([§63](../../docs/journal/61-81.md)). 로그인하지 않았으면 401 — 익명 판은 서로 구별할 수단이 없어 「이 사람의 전적」에 답할 수가 없다                                                                                                                                                                                                                                                                                                                       |
 | `GET /api/auth/google/start`         | Google로 보낸다. 로그인이 꺼져 있으면 경로 자체가 없다(404)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `GET /api/auth/google/callback`      | Google이 돌려보내는 자리. 성공·실패 어느 쪽이든 `/` 로 되돌린다                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `POST /api/auth/logout`              | 쿠키를 지운다. 서버에는 지울 것이 없다                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -65,7 +65,7 @@ curl localhost:8080/healthz     # {"ok":true,"engine":true,"db":true}
 
 **로그인 없이도 대국이 된다.** `GOOGLE_CLIENT_ID`·`GOOGLE_CLIENT_SECRET`·`SESSION_SECRET` 셋과 DB가 다 있어야 켜지고, 하나라도 없으면 표면이 닫힌 채 지금까지처럼 익명으로 둔다 — 바뀌는 것은 그 판이 `games.user_id` 로 누구에게 붙느냐 하나다. `/api/me` 만은 꺼져 있어도 200을 준다: 화면이 「로그인이 없는 배포」와 「서버 고장」을 구분해 그려야 하는데, 404면 그 둘이 같아진다.
 
-> 세션을 표에 안 남긴다. 쿠키 자체를 `SESSION_SECRET` 으로 HMAC 서명한다(`internal/auth`). 그래서 마이그레이션도, 로그인마다의 쓰기도 없는 대신 발급한 세션을 서버가 끊을 수 없다 — 키를 바꾸는 것이 곧 전원 로그아웃이다.
+> 세션을 표에 남기지 않는다. 쿠키 자체를 `SESSION_SECRET` 으로 HMAC 서명한다(`internal/auth`). 그래서 마이그레이션도, 로그인마다의 쓰기도 없는 대신 발급한 세션을 서버가 끊을 수 없다 — 키를 바꾸는 것이 곧 전원 로그아웃이다.
 
 **대국 중에도 같은 것을 묻는다.** `/ws/game` 에 `{"type":"whatif","ply":N,"moves":[…]}` 를 보내면 `whatif` 메시지로 같은 자리가 온다 — 판정 코드는 한 벌이고 뿌리를 어디서 얻느냐만 갈린다(끝난 판은 DB 기록, 두는 중인 판은 세션이 방금 보낸 스냅샷). 기록은 비동기로 쌓이므로 개입 직후에 DB로 물으면 마지막 수가 아직 없을 수 있다.
 
@@ -82,34 +82,34 @@ LOG_FORMAT=text go run ./cmd/api          # 로컬에서 읽을 때
 curl -s localhost:8080/metrics | grep engine_
 ```
 
-| 환경변수          | 없으면                       | 무엇                                                                                                                                                                                                                                                                                                 |
-| ----------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `LOG_LEVEL`       | `info`                       | `debug` 로 내리면 `/healthz` 요청까지 남는다 — ALB 헬스체크가 몇 초마다 오므로 로그의 대부분이 그것이 된다. `info` 위로 올리지 않는다 — 아래                                                                                                                                                         |
-| `LOG_FORMAT`      | JSON                         | `text` 면 사람이 읽는 형식이다. 로컬 전용 손잡이다                                                                                                                                                                                                                                                   |
-| `OPENAI_API_KEY`  | **가져오기의 폴백만 꺼진다** | 읽을 수 없는 서식의 기보를 결정적 파서가 읽는 표기로 옮긴다(`internal/kifunorm`). 결정적 파서로 읽히는 기보는 이 값과 무관하다. 판을 프롬프트에 안 싣는다 ([§126](../../docs/journal/121-140.md))                                                                                                    |
-| `OPENAI_MODEL`    | `kifunorm.DefaultModel`      | 위 계층의 모델. 하는 일이 글자 옮기기라 mini 로 충분하다                                                                                                                                                                                                                                             |
-| `BOARDREAD_MODEL` | `boardread.DefaultModel`     | 판이 찍힌 그림을 읽는 계층의 모델(`internal/boardread`). 키는 `OPENAI_API_KEY` 를 같이 쓰고 모델만 따로 둔다 — 81칸의 작은 글자와 그 방향을 읽는 일이라 mini 를 안 쓴다. 실측으로 골랐다([§129](../../docs/journal/121-140.md)): 라벨 8장에서 gpt-5.4 가 92.9%·성립 0/8 인데 기본값이 98.1%·8/8 이다 |
-| `ENVIRONMENT`     | **EMF 를 안 낸다**           | 값이 있으면 60초마다 CloudWatch EMF 한 줄을 stdout 에 쓴다. 그 값이 `Environment` `dimensions` 라 두 배포가 한 계열에 섞이지 않는다 — 알람도 그것을 적는다                                                                                                                                           |
+| 환경변수          | 없으면                       | 무엇                                                                                                                                                                                                                                                                                                     |
+| ----------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LOG_LEVEL`       | `info`                       | `debug` 로 내리면 `/healthz` 요청까지 남는다 — ALB 헬스체크가 몇 초마다 오므로 로그의 대부분이 그것이 된다. `info` 위로 올리지 않는다 — 아래                                                                                                                                                             |
+| `LOG_FORMAT`      | JSON                         | `text` 면 사람이 읽는 형식이다. 로컬 전용 손잡이다                                                                                                                                                                                                                                                       |
+| `OPENAI_API_KEY`  | **가져오기의 폴백만 꺼진다** | 읽을 수 없는 서식의 기보를 결정적 파서가 읽는 표기로 옮긴다(`internal/kifunorm`). 결정적 파서로 읽히는 기보는 이 값과 무관하다. 판을 프롬프트에 싣지 않는다 ([§126](../../docs/journal/121-140.md))                                                                                                      |
+| `OPENAI_MODEL`    | `kifunorm.DefaultModel`      | 위 계층의 모델. 하는 일이 글자 옮기기라 mini 로 충분하다                                                                                                                                                                                                                                                 |
+| `BOARDREAD_MODEL` | `boardread.DefaultModel`     | 판이 찍힌 그림을 읽는 계층의 모델(`internal/boardread`). 키는 `OPENAI_API_KEY` 를 같이 쓰고 모델만 따로 둔다 — 81칸의 작은 글자와 그 방향을 읽는 일이라 mini 를 쓰지 않는다. 실측으로 골랐다([§129](../../docs/journal/121-140.md)): 라벨 8장에서 gpt-5.4 가 92.9%·성립 0/8 인데 기본값이 98.1%·8/8 이다 |
+| `ENVIRONMENT`     | **EMF 를 내보내지 않는다**   | 값이 있으면 60초마다 CloudWatch EMF 한 줄을 stdout 에 쓴다. 그 값이 `Environment` `dimensions` 라 두 배포가 한 계열에 섞이지 않는다 — 알람도 그것을 적는다                                                                                                                                               |
 
 > `LOG_LEVEL=warn` 은 서버 로그의 대부분을 지운다. 아직 `slog` 로 옮기지 않은 `log.Print*` 들이 `slog.SetDefault` 를 거쳐 나가는데 그 급이 전부 `info` 다([§90](../../docs/journal/82-100.md)에 개수) — `archive: read position` 같은 에러 줄까지 그렇다. 급으로 걸러 볼 수 있는 것은 `cmd/api` 의 기동 로그와 미들웨어의 panic 줄뿐이고, panic 은 `slog.Error` 라 `warn` 에서도 남는다.
 
 **요청마다 `request_id` 가 붙고 응답 헤더(`X-Request-Id`)에도 실린다.** 밖에서 준 값이 영숫자·`-_.` 64자 안이면 그대로 쓴다 — 앞단이 붙는 날 그쪽 ID 와 이어진다. 로그 줄에는 `ctx` 에서 꺼내 붙으므로 핸들러가 직접 넘기지 않아도 된다(`server.LogHandler`).
 
-핸들러가 panic 하면 500으로 답하고 스택까지 한 줄에 남는다. 미들웨어가 잡지 않으면 `net/http` 가 연결만 끊어서 상태 코드도 요청 로그도 지표도 안 남는다 — 가장 흔한 장애가 지표에서 안 보인다. `http.ErrAbortHandler` 만은 그대로 올려보낸다(`net/http` 의 규약이다).
+핸들러가 panic 하면 500으로 답하고 스택까지 한 줄에 남는다. 미들웨어가 잡지 않으면 `net/http` 가 연결만 끊어서 상태 코드도 요청 로그도 지표도 남지 않는다 — 가장 흔한 장애가 지표에서 보이지 않는다. `http.ErrAbortHandler` 만은 그대로 올려보낸다(`net/http` 의 규약이다).
 
 **지표는 세 자리에서 나온다** — `usi.Pool.Acquire`(대기·점유), `archive.SearchMultiPV`(탐색 시간·캐시 히트), HTTP 미들웨어(요청). 엔진을 부르는 여섯 자리가 다 `archive` 를 지나므로 계측이 한 곳이면 된다.
 
-> `/metrics` 와 EMF 가 같은 숫자를 다르게 낸다. 텍스트 표면은 라벨(route·pool·result)을 다 들고, EMF 는 `dimensions` 가 `Service`·`Environment` 둘뿐인 열 개다 — `dimensions` 조합 하나가 곧 과금 대상 지표 하나라서 route·pool 은 안 올린다. 콘솔이나 알람에서 이 지표를 찾을 때 `dimensions` 둘을 다 적어야 한다 — 하나만 적으면 그런 계열이 없어서 경고 없이 빈 그래프가 나온다. 그리고 지연은 표본 100개까지의 배열로 나가므로(스펙 상한) CloudWatch 에서 `Sum`·`SampleCount` 를 쓰지 않는다. 개수는 카운터가 정확하게 든다.
+> `/metrics` 와 EMF 가 같은 숫자를 다르게 적는다. 텍스트 표면은 라벨(route·pool·result)을 다 갖고, EMF 는 `dimensions` 가 `Service`·`Environment` 둘뿐인 열 개다 — `dimensions` 조합 하나가 곧 과금 대상 지표 하나라서 route·pool 은 올리지 않는다. 콘솔이나 알람에서 이 지표를 찾을 때 `dimensions` 둘을 다 적어야 한다 — 하나만 적으면 그런 계열이 없어서 경고 없이 빈 그래프가 나온다. 그리고 지연은 표본 100개까지의 배열로 나가므로(스펙 상한) CloudWatch 에서 `Sum`·`SampleCount` 를 쓰지 않는다. 개수는 카운터가 정확하게 센다.
 
 ## 테스트
 
-세 층이고, 아래로 갈수록 CI에서 안 돈다.
+세 층이고, 아래로 갈수록 CI에서 돌지 않는다.
 
 ```sh
 # ① 항상 — 엔진도 DB도 없이 돈다. DB 테스트는 조용히 skip 된다
 go test -race ./...
 
-# ② DB — 규칙이 SQL의 WHERE 절에만 있어 가짜로는 검증이 안 된다
+# ② DB — 규칙이 SQL의 WHERE 절에만 있어 가짜로는 검증할 수 없다
 #
 # **api 컨테이너를 같이 띄워 두지 않는다.** 분석 워커 3개가 같은 DB 큐를 폴링해서
 # 테스트가 넣은 판을 집어 가고, `TestTheWorkerCountIsHonoured` 가 그 자리에서 굶는다
@@ -131,7 +131,7 @@ docker run --rm --platform linux/arm64 --cpus 4 -v "$PWD:/src:ro" show-gi-engine
 # ④ 엔진 + DB — 기록을 국면으로 되돌려 엔진에 다시 묻는 측정(journal §40)
 #
 # **`--network show-gi-net` 이 ③과 다른 점이다.** db가 컨테이너라 호스트의
-# localhost 로는 안 보인다 — 컨테이너명으로 붙는다
+# localhost 로는 보이지 않는다 — 컨테이너명으로 붙는다
 docker run --rm --platform linux/arm64 --cpus 4 --network show-gi-net \
   -v "$PWD:/src:ro" show-gi-enginetest sh -c '
   cp -r /src /work && cd /work &&
@@ -154,23 +154,23 @@ GOMAXPROCS=2 go test -race -count=300 -run '<그 테스트>' ./internal/game/
 | `SHOWGI_TEST_DATABASE_URL`            | DB 테스트 skip                              | `internal/store`, `internal/intervene` 의 재채점 측정, `internal/game` 의 블런더 재분류 측정, `internal/kifu` 의 段級 앵커 측정                                                                                                                                   |
 | `SHOWGI_USI_CMD`                      | 실엔진 테스트 skip                          | `TestRealEngine`, `TestWSAgainstRealEngine`                                                                                                                                                                                                                       |
 | `SHOWGI_MATE_CMD`                     | 詰み 측정 skip                              | `TestMeasureMateSearch`, `TestMeasureBlunderMate`, `TestMeasureBlunderTsumero`                                                                                                                                                                                    |
-| `SHOWGI_USI_CMD` + `SHOWGI_MEASURE`   | 밴드 측정 skip                              | `TestMeasureSkill*` — 실력 추정이 밴드를 옮기는 폭을 잰다(journal §47). DB는 안 쓴다                                                                                                                                                                              |
+| `SHOWGI_USI_CMD` + `SHOWGI_MEASURE`   | 밴드 측정 skip                              | `TestMeasureSkill*` — 실력 추정이 밴드를 옮기는 폭을 잰다(journal §47). DB는 쓰지 않는다                                                                                                                                                                          |
 | `SHOWGI_MEASURE`                      | 측정 전부 skip                              | `TestMeasure*` — 몇 분 걸린다                                                                                                                                                                                                                                     |
-| `SHOWGI_MEASURE` 만                   | 부하 측정 skip                              | `TestMeasureTagHintLoad` — 手筋 게이트가 한 판에 쓰는 비용(journal §56). 엔진도 DB도 안 쓴다                                                                                                                                                                      |
-| `SHOWGI_USI_CMD` + `SHOWGI_MEASURE`   | 기준점 측정 skip                            | `TestMeasureBaseline` — 手合割별 「형세 0」을 표와 함께 찍는다(journal §84). DB는 안 쓴다                                                                                                                                                                         |
+| `SHOWGI_MEASURE` 만                   | 부하 측정 skip                              | `TestMeasureTagHintLoad` — 手筋 게이트가 한 판에 쓰는 비용(journal §56). 엔진도 DB도 쓰지 않는다                                                                                                                                                                  |
+| `SHOWGI_USI_CMD` + `SHOWGI_MEASURE`   | 기준점 측정 skip                            | `TestMeasureBaseline` — 手合割별 「형세 0」을 표와 함께 찍는다(journal §84). DB는 쓰지 않는다                                                                                                                                                                     |
 | `SHOWGI_BOARD_IMAGES`                 | 기본은 `internal/boardread/testdata/images` | 판독을 재는 그림이 있는 폴더. 위의 「판독을 재는 그림」                                                                                                                                                                                                           |
 | `SHOWGI_BOARDREAD_MODEL`              | `boardread.DefaultModel`                    | 그 측정이 쓸 모델. 견주려면 여기를 갈아 끼운다                                                                                                                                                                                                                    |
-| `SHOWGI_OPENAI_KEY`                   | 실 OpenAI 호출 skip                         | `internal/kifunorm` 의 `TestLiveNormalizeReachesTheRuleEngine` — 결정적 파서가 전부 실패하는 텍스트가 정규화를 지나 룰 엔진까지 통과하는지를 본다. 모델은 `SHOWGI_OPENAI_MODEL` 로 갈아 끼운다. CI 에서 안 돈다                                                   |
-| `SHOWGI_KIFU_SCAN`                    | 기보 스캔 skip                              | `internal/kifu` 의 `TestScan*` 다섯. 엔진도 DB도 안 쓴다                                                                                                                                                                                                          |
+| `SHOWGI_OPENAI_KEY`                   | 실 OpenAI 호출 skip                         | `internal/kifunorm` 의 `TestLiveNormalizeReachesTheRuleEngine` — 결정적 파서가 전부 실패하는 텍스트가 정규화를 지나 룰 엔진까지 통과하는지를 본다. 모델은 `SHOWGI_OPENAI_MODEL` 로 갈아 끼운다. CI 에서 돌지 않는다                                               |
+| `SHOWGI_KIFU_SCAN`                    | 기보 스캔 skip                              | `internal/kifu` 의 `TestScan*` 다섯. 엔진도 DB도 쓰지 않는다                                                                                                                                                                                                      |
 | `SHOWGI_KIFU_DUMP`                    | 덤프 skip                                   | `TestDumpFormationCases` — 사례마다 마크다운 한 장을 그 경로에 떨군다                                                                                                                                                                                             |
-| `SHOWGI_TEST_ENGINE_PATH`             | 기보 임포트 skip                            | `internal/kifu` 의 `TestImportGame`. 여기만 `SHOWGI_USI_CMD` 를 안 쓴다                                                                                                                                                                                           |
+| `SHOWGI_TEST_ENGINE_PATH`             | 기보 임포트 skip                            | `internal/kifu` 의 `TestImportGame`. 여기만 `SHOWGI_USI_CMD` 를 쓰지 않는다                                                                                                                                                                                       |
 | `SHOWGI_RANK_KIFU` + `SHOWGI_MEASURE` | 段級 앵커 측정 skip                         | `TestMeasureRankAnchors` — 급수가 붙은 기보로 段級 척도를 잰다([journal §94](../../docs/journal/82-100.md)). 엔진 경로는 `SHOWGI_USI_CMD`·`SHOWGI_TEST_ENGINE_PATH` 둘 다 받는다. DB도 있어야 돈다 — 없으면 skip이다(캐시가 없으면 판마다 탐색을 200번 다시 한다) |
 
-> `SHOWGI_MEASURE` 는 혼자서는 아무것도 안 연다. `TestMeasure*` 는 전부 `*_CMD` 와 둘 다 있어야 돈다. 한쪽만 주면 실엔진 테스트는 돌고 측정만 경고 없이 건너뛴다 — 초록이 「쟀다」는 뜻이 아닌 자리가 여기 한 겹 더 있다.
+> `SHOWGI_MEASURE` 는 혼자서는 아무것도 열지 않는다. `TestMeasure*` 는 전부 `*_CMD` 와 둘 다 있어야 돈다. 한쪽만 주면 실엔진 테스트는 돌고 측정만 경고 없이 건너뛴다 — 초록이 「쟀다」는 뜻이 아닌 자리가 여기 한 겹 더 있다.
 
-> 재채점 측정만 `SHOWGI_MEASURE` 를 안 본다. `TestMeasureCalibrationFromRecords` 는 엔진을 안 돌리고 DB만 읽어 초 단위로 끝난다. 대신 기록이 쌓인 DB를 가리켜야 값이 나온다 — 로컬 DB에는 짧은 테스트 대국밖에 없다 ([journal §39](../../docs/journal/21-40.md)).
+> 재채점 측정만 `SHOWGI_MEASURE` 를 보지 않는다. `TestMeasureCalibrationFromRecords` 는 엔진을 돌리지 않고 DB만 읽어 초 단위로 끝난다. 대신 기록이 쌓인 DB를 가리켜야 값이 나온다 — 로컬 DB에는 짧은 테스트 대국밖에 없다 ([journal §39](../../docs/journal/21-40.md)).
 
-> 엔진이나 평가함수를 바꾸면 ③이 첫 관문이다. 실제로 `PvInterval` 문제를 거기서 잡았다 — 안 돌렸으면 D3에서 "개입이 왜 안 걸리지"로 나타났을 것이다 ([journal](../../docs/journal/06-20.md) §10).
+> 엔진이나 평가함수를 바꾸면 ③이 첫 관문이다. 실제로 `PvInterval` 문제를 거기서 잡았다 — 돌리지 않았으면 D3에서 "개입이 왜 안 걸리지"로 나타났을 것이다 ([journal](../../docs/journal/06-20.md) §10).
 
 ## 실 기보 — floodgate
 
@@ -206,7 +206,7 @@ SHOWGI_TEST_DATABASE_URL='postgres://showgi:showgi@localhost:5432/showgi' \
 go test ./internal/kifu/ -run MeasureRankAnchors -v -timeout 6h
 ```
 
-> seed 를 안 고정하면 이 루프가 성립하지 않는다. 매번 다른 10판을 뽑으면 「고쳐서 나아진 것」과 「표본이 쉬워진 것」을 못 가른다.
+> seed 를 고정하지 않으면 이 루프가 성립하지 않는다. 매번 다른 10판을 뽑으면 「고쳐서 나아진 것」과 「표본이 쉬워진 것」을 가를 수 없다.
 
 ## 판독을 재는 그림
 
@@ -221,12 +221,12 @@ echo 'SHOWGI_BOARD_IMAGE_DIR=/board-images' >> .env   # 컨테이너 안 경로.
 docker compose up -d api
 ```
 
-그러면 `/position` 에서 그림을 올릴 때마다 `board-01.png` 로 남고, 확인 화면에서 판을 고쳐 「この局面を解析する」를 누르면 그 자리에 `board-01.sfen` 이 붙는다. 번호는 이어서 매겨진다 — 폴더에 있는 것 중 가장 큰 번호 + 1이라, 중간을 지워도 남의 그림을 안 덮는다.
+그러면 `/position` 에서 그림을 올릴 때마다 `board-01.png` 로 남고, 확인 화면에서 판을 고쳐 「この局面を解析する」를 누르면 그 자리에 `board-01.sfen` 이 붙는다. 번호는 이어서 매겨진다 — 폴더에 있는 것 중 가장 큰 번호 + 1이라, 중간을 지워도 남의 그림을 덮지 않는다.
 
-**값이 비어 있으면 이 기능 전체가 꺼진다** — 그림도 안 남고 라벨 경로(`POST /api/position/label`)도 라우팅되지 않는다. 프로덕션은 그 값을 안 준다.
+**값이 비어 있으면 이 기능 전체가 꺼진다** — 그림도 남지 않고 라벨 경로(`POST /api/position/label`)도 라우팅되지 않는다. 프로덕션은 그 값을 주지 않는다.
 
-- 이름은 서버가 짓는다. 화면이 준 글자는 경로에 한 자도 안 들어가고, 확장자도 앞머리로 정한 형식에서 온다
-- **성립하지 않는 판은 라벨이 안 된다.** 확인 화면이 사유가 0일 때만 그 버튼을 열고, 서버가 한 번 더 본다
+- 이름은 서버가 짓는다. 화면이 준 글자는 경로에 한 자도 들어가지 않고, 확장자도 앞머리로 정한 형식에서 온다
+- **성립하지 않는 판은 라벨을 붙일 수 없다.** 확인 화면이 사유가 0일 때만 그 버튼을 열고, 서버가 한 번 더 본다
 - 같은 그림을 두 번 올리면 덮이지 않고 번호가 둘 생긴다. 내용 해시로 찾아 지우면 된다
 
 **② 손에 있는 그림과 주소로 라벨을 붙인다.** 이미 파일이 있고 라벨만 붙이면 될 때다.
@@ -236,7 +236,7 @@ cd apps/server/internal/boardread/testdata
 ./fixture.sh ~/Desktop/shot.png 'http://localhost:5173/explore?s=…' 81dojo
 ```
 
-주소에서 `s=` 를 꺼내는 것이 그 스크립트가 하는 일의 절반이다 — 손으로 풀면 `+`(成)가 공백이 되어 경고 없이 틀린다. 라벨을 룰 엔진에 물어보고 성립하지 않으면 라벨을 안 붙인다: 틀린 라벨은 없는 라벨보다 나쁘다(측정이 이유 없이 나빠 보인다).
+주소에서 `s=` 를 꺼내는 것이 그 스크립트가 하는 일의 절반이다 — 손으로 풀면 `+`(成)가 공백이 되어 경고 없이 틀린다. 라벨을 룰 엔진에 물어보고 성립하지 않으면 라벨을 붙이지 않는다: 틀린 라벨은 없는 라벨보다 나쁘다(측정이 이유 없이 나빠 보인다).
 
 ### 재기
 
@@ -252,11 +252,11 @@ SHOWGI_MEASURE=1 SHOWGI_OPENAI_KEY=… SHOWGI_BOARD_IMAGES=~/board-shots \
   go test ./internal/boardread/ -run MeasureBoardRead -v -timeout 20m
 ```
 
-**라벨이 없어도 재진다.** 실물 한 판은 언제나 40장이고 성립하는 국면이라, 룰 검산의 사유가 하나라도 있으면 그 판독은 틀렸다 — 그 수만으로도 회차를 견줄 수 있다. 라벨이 있으면 81칸과 駒台까지 맞춰 본다.
+**라벨이 없어도 재진다.** 실물 한 판은 언제나 40장이고 성립하는 국면이라, 룰 검산의 사유가 하나라도 있으면 그 판독은 틀렸다 — 그 수만으로도 측정끼리 견줄 수 있다. 라벨이 있으면 81칸과 駒台까지 맞춰 본다.
 
-**手番은 안 본다.** 사진이 말해 주지 않는 값이라 이 계층은 언제나 `b` 를 적고, 고르는 것은 사람이다 — 라벨의 手番이 무엇이든 채점에 안 들어간다.
+**手番은 보지 않는다.** 사진이 말해 주지 않는 값이라 이 계층은 언제나 `b` 를 적고, 고르는 것은 사람이다 — 라벨의 手番이 무엇이든 채점에 들어가지 않는다.
 
-**통과선을 안 건다.** 어긋나면 문장으로 말하고 사람이 저널의 표를 옮긴다(`TestMeasureBaseline` 과 같은 판단) — 자동으로 선을 두면 모델이나 프롬프트가 흔들릴 때 그 선이 경고 없이 따라 움직인다.
+**통과선을 걸지 않는다.** 어긋나면 문장으로 말하고 사람이 저널의 표를 옮긴다(`TestMeasureBaseline` 과 같은 판단) — 자동으로 선을 두면 모델이나 프롬프트가 흔들릴 때 그 선이 경고 없이 따라 움직인다.
 
 ## 스키마를 바꿀 때
 
@@ -270,31 +270,31 @@ sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다
 
 ## 배치
 
-|                      |                                                                                                                                |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `cmd/api`            | 플래그·시그널·배선. 로직은 두지 않는다                                                                                         |
-| `internal/server`    | HTTP 표면, WebSocket 대국 프로토콜, 프로세스 수명                                                                              |
-| `internal/game`      | 대국 세션 상태머신 — goroutine 1개가 상태를 소유한다                                                                           |
-| `internal/intervene` | 개입 판정. 엔진을 모른다 — 입력이 평가치와 詰み 거리뿐이다                                                                     |
-| `internal/explain`   | 설명 문구. 판단하지 않는다 — 정해진 사실을 문장으로만 바꾼다                                                                   |
-| `internal/skill`     | 실력 추정. 엔진도 DB도 판도 모른다 — 입력이 낙폭과 「걸렸나」뿐이다                                                            |
-| `internal/rating`    | 대인전 Glicko. 같은 성질이고 입력이 레이팅과 승패뿐이다 ([§92](../../docs/journal/82-100.md)). 어느 API 도 이 값을 안 돌려준다 |
-| `internal/shogi`     | 룰 엔진 — SFEN, 합법수, 반칙 검증, 棋譜 표기                                                                                   |
-| `internal/usi`       | 엔진 프로세스 풀. MultiPV·깊이별 평가치·詰み 탐색                                                                              |
-| `internal/archive`   | **모든 탐색을 데이터로 만든다** — `positions`·`edges` (§37)                                                                    |
-| `internal/metrics`   | 카운터·게이지·히스토그램. 의존성이 없다 — Prometheus 텍스트와 EMF 둘                                                           |
-| `internal/store`     | postgres (pgx + sqlc). `db/` 는 생성물이라 손대지 않는다                                                                       |
-| `internal/tag`       | 囲い·전법·戦型·手筋의 이름. 엔진도 DB도 모른다 — 국면과 수순만 받는다                                                          |
-| `internal/auth`      | Google OAuth와 서명 쿠키. 세션을 표에 안 남긴다 — 마이그레이션이 없다                                                          |
-| `internal/book`      | 상대의 진형 4종 수순. 후보를 만들지 않고 고르기만 한다                                                                         |
-| `internal/handicap`  | 手合割 7종 — 시작 국면과 「형세 0」 ([§84](../../docs/journal/82-100.md)). 엔진도 DB도 모른다                                  |
-| `internal/match`     | 사람끼리 두는 방과 시계 ([§83](../../docs/journal/82-100.md)). 엔진을 안 부른다 — 개입도 힌트도 待った도 없다                  |
-| `internal/quiz`      | 되짚기 퀴즈의 생성과 채점. 채점은 저장된 트리라 엔진 0회                                                                       |
-| `internal/kifunorm`  | 읽을 수 없는 서식의 기보를 결정적 파서가 읽는 표기로 옮긴다. 글자만 만진다 ([§126](../../docs/journal/121-140.md))             |
-| `internal/boardread` | 판이 찍힌 그림에서 격자를 읽는다. 좌표를 안 시킨다 — 그 순서가 SFEN 판 칸 순서와 같다 ([§129](../../docs/journal/121-140.md))  |
-| `internal/queue`     | 대인전 대기열의 짝짓기. DB도 방도 엔진도 모른다 — 입력이 레이팅·불확실성·선 시각뿐이다 ([§98](../../docs/journal/82-100.md))   |
-| `internal/kifu`      | KIF·CSA 파서와 실 기보 임포트. 서버는 안 쓴다 — `cmd/importkifu` 만                                                            |
-| `cmd/importkifu`     | 실 기보를 같은 판정 경로로 다시 둬 DB에 넣는다. 플래그·배선뿐                                                                  |
+|                      |                                                                                                                                    |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `cmd/api`            | 플래그·시그널·배선. 로직은 두지 않는다                                                                                             |
+| `internal/server`    | HTTP 표면, WebSocket 대국 프로토콜, 프로세스 수명                                                                                  |
+| `internal/game`      | 대국 세션 상태머신 — goroutine 1개가 상태를 소유한다                                                                               |
+| `internal/intervene` | 개입 판정. 엔진을 모른다 — 입력이 평가치와 詰み 거리뿐이다                                                                         |
+| `internal/explain`   | 설명 문구. 판단하지 않는다 — 정해진 사실을 문장으로만 바꾼다                                                                       |
+| `internal/skill`     | 실력 추정. 엔진도 DB도 판도 모른다 — 입력이 낙폭과 「걸렸나」뿐이다                                                                |
+| `internal/rating`    | 대인전 Glicko. 같은 성질이고 입력이 레이팅과 승패뿐이다 ([§92](../../docs/journal/82-100.md)). 어느 API 도 이 값을 돌려주지 않는다 |
+| `internal/shogi`     | 룰 엔진 — SFEN, 합법수, 반칙 검증, 棋譜 표기                                                                                       |
+| `internal/usi`       | 엔진 프로세스 풀. MultiPV·깊이별 평가치·詰み 탐색                                                                                  |
+| `internal/archive`   | **모든 탐색을 데이터로 만든다** — `positions`·`edges` (§37)                                                                        |
+| `internal/metrics`   | 카운터·게이지·히스토그램. 의존성이 없다 — Prometheus 텍스트와 EMF 둘                                                               |
+| `internal/store`     | postgres (pgx + sqlc). `db/` 는 생성물이라 손대지 않는다                                                                           |
+| `internal/tag`       | 囲い·전법·戦型·手筋의 이름. 엔진도 DB도 모른다 — 국면과 수순만 받는다                                                              |
+| `internal/auth`      | Google OAuth와 서명 쿠키. 세션을 표에 남기지 않는다 — 마이그레이션이 없다                                                          |
+| `internal/book`      | 상대의 진형 4종 수순. 후보를 만들지 않고 고르기만 한다                                                                             |
+| `internal/handicap`  | 手合割 7종 — 시작 국면과 「형세 0」 ([§84](../../docs/journal/82-100.md)). 엔진도 DB도 모른다                                      |
+| `internal/match`     | 사람끼리 두는 방과 시계 ([§83](../../docs/journal/82-100.md)). 엔진을 부르지 않는다 — 개입도 힌트도 待った도 없다                  |
+| `internal/quiz`      | 되짚기 퀴즈의 생성과 채점. 채점은 저장된 트리라 엔진 0회                                                                           |
+| `internal/kifunorm`  | 읽을 수 없는 서식의 기보를 결정적 파서가 읽는 표기로 옮긴다. 글자만 만진다 ([§126](../../docs/journal/121-140.md))                 |
+| `internal/boardread` | 판이 찍힌 그림에서 격자를 읽는다. 좌표를 시키지 않는다 — 그 순서가 SFEN 판 칸 순서와 같다 ([§129](../../docs/journal/121-140.md))  |
+| `internal/queue`     | 대인전 대기열의 짝짓기. DB도 방도 엔진도 모른다 — 입력이 레이팅·불확실성·선 시각뿐이다 ([§98](../../docs/journal/82-100.md))       |
+| `internal/kifu`      | KIF·CSA 파서와 실 기보 임포트. 서버는 쓰지 않는다 — `cmd/importkifu` 만                                                            |
+| `cmd/importkifu`     | 실 기보를 같은 판정 경로로 다시 둬 DB에 넣는다. 플래그·배선뿐                                                                      |
 
 패키지가 스물셋이고, 그림으로 본 의존 방향은 [docs/spec/architecture.md](../../docs/spec/architecture.md) §2 다 — 거기서는 없는 화살표가 내용이다.
 
@@ -302,13 +302,13 @@ sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다
 
 ## 코드를 고치기 전에 — 헤매는 자리는 정해져 있다
 
-문서를 안 보고 코드만으로 이 서버를 읽혀 봤고, 그때 틀리게 믿은 것들이 아래다. 넷 다 사실이 적힌 파일과 사람이 먼저 여는 파일이 다르다는 하나의 모양이다.
+문서를 보지 않고 코드만으로 이 서버를 읽혀 봤고, 그때 틀리게 믿은 것들이 아래다. 넷 다 사실이 적힌 파일과 사람이 먼저 여는 파일이 다르다는 하나의 모양이다.
 
 ### ① 프로덕션 상대는 `adaptive.go` 하나뿐이다
 
 `opponent.go` 의 `NewEngineOpponent` 은 테스트만 쓴다. 이름과 주석 길이 때문에 그쪽을 먼저 열게 되지만, `cmd/api` 가 배선하는 것은 `NewAdaptiveOpponent` 뿐이다.
 
-**상대를 약하게 하려면 밴드를 올린다**(`adaptive.go` 의 `DefaultBand`, 또는 `OPPONENT_BAND_LO/HI`). 깊이는 지연 손잡이이고 `intervene.Level.Threshold` 는 개입 빈도다 — 둘 다 상대의 강함에는 안 닿는다.
+**상대를 약하게 하려면 밴드를 올린다**(`adaptive.go` 의 `DefaultBand`, 또는 `OPPONENT_BAND_LO/HI`). 깊이는 지연 손잡이이고 `intervene.Level.Threshold` 는 개입 빈도다 — 둘 다 상대의 강함에는 닿지 않는다.
 
 **`LoCp` 가 실제 손잡이다.** 그것이 「한 수에 최소 얼마를 양보하나」의 바닥이 되고, `HiCp` 는 그 바닥을 절대 좌표로 읽을지 지금 형세에 얹을지를 가르는 경계다(journal §55).
 
@@ -323,7 +323,7 @@ sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다
 | `maybeGauge`               | 詰み 게이지           |
 | `maybeTesujiHint`          | 手筋 제안 후보        |
 
-나머지는 전부 goroutine 안이다 — `computeTagHints` 도 여기 있다(엔진을 안 부르므로).
+나머지는 전부 goroutine 안이다 — `computeTagHints` 도 여기 있다(엔진을 부르지 않으므로).
 
 > 개입 문장은 `applyVerdict` 밖에서, 판정 goroutine 안에서 만들어진다. 카드가 뜨기 전이고, 그래서 `explain.Deadline` 이 카드 지연에 그대로 더해진다.
 
@@ -341,7 +341,7 @@ sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다
 
 ### ④ 카테고리를 하나 더하면 네 곳이다
 
-어느 하나를 빠뜨려도 컴파일도 테스트도 안 깨지고, 화면이 경고 없이 미분류로 떨어진다.
+어느 하나를 빠뜨려도 컴파일도 테스트도 깨지지 않고, 화면이 경고 없이 미분류로 떨어진다.
 
 `intervene/category.go`(상수 + `classify` 의 순서 있는 switch) → `explain/render.go` → `explain/label.go` → `explain/facts.go` 의 `used()` → 테스트의 `allCategories`.
 
@@ -351,29 +351,29 @@ sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다
 
 프레임 전체의 명세는 [docs/spec/api.md](../../docs/spec/api.md) §5·§6 이다. 여기 있는 것은 그 다섯이 어느 자리로 떨어지는가다.
 
-| 받는 것                 | 보내는 것                                                                                                                                                                                       |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `move` `{usi}`          | `snapshot` — 언제나 전체 상태(부분 갱신 없음)                                                                                                                                                   |
-| `undo`                  | `snapshot`. 待った — 판당 `game.UndoMaxPerGame`(3)회, 자기 수와 상대의 응수까지 2手를 되감는다 ([§72](../../docs/journal/61-81.md))                                                             |
-| `hint`                  | `snapshot`. 성공해도 그 자리에서는 안 뜬다 — 탐색이 끝나야 단계가 정해진다(`applyHintResult`). 판당 `HintMaxPerGame`(6)회, 한 국면은 `HintStageMax`(2)까지 ([§78](../../docs/journal/61-81.md)) |
-| `resign`                | `snapshot`(`status: resigned`) → 그 뒤에 `summary`                                                                                                                                              |
-| `whatif` `{ply, moves}` | `whatif` / `whatif_error`                                                                                                                                                                       |
+| 받는 것                 | 보내는 것                                                                                                                                                                                           |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `move` `{usi}`          | `snapshot` — 언제나 전체 상태(부분 갱신 없음)                                                                                                                                                       |
+| `undo`                  | `snapshot`. 待った — 판당 `game.UndoMaxPerGame`(3)회, 자기 수와 상대의 응수까지 2手를 되감는다 ([§72](../../docs/journal/61-81.md))                                                                 |
+| `hint`                  | `snapshot`. 성공해도 그 자리에서는 뜨지 않는다 — 탐색이 끝나야 단계가 정해진다(`applyHintResult`). 판당 `HintMaxPerGame`(6)회, 한 국면은 `HintStageMax`(2)까지 ([§78](../../docs/journal/61-81.md)) |
+| `resign`                | `snapshot`(`status: resigned`) → 그 뒤에 `summary`                                                                                                                                                  |
+| `whatif` `{ply, moves}` | `whatif` / `whatif_error`                                                                                                                                                                           |
 
 그 외 타입은 `bad_move` 로 거절된다. `reason` 은 기계용 영어 코드이고 `message` 가 화면에 나가는 일본어다.
 
-**거절만 `error` 로 나간다.** 넷 다 성공하면 구독 채널로 스냅샷이 오므로 핸들러가 따로 안 보낸다 — 반칙의 `reason` 은 `internal/shogi` 가 내고 공백을 포함한 영어 구절이다(`leaves king in check`).
+**거절만 `error` 로 나간다.** 넷 다 성공하면 구독 채널로 스냅샷이 오므로 핸들러가 따로 보내지 않는다 — 반칙의 `reason` 은 `internal/shogi` 가 만들고 공백을 포함한 영어 구절이다(`leaves king in check`).
 
 **`summary` 는 판이 끝난 뒤 한 번이다.** 결과 문구보다 늦게 도착한다 — 기록이 다 쓰이기를 기다린다(`sendSummary`).
 
-> 「무를 수 있나」를 화면이 다시 짓지 않는다. 스냅샷이 `undoLeft` 와 `canUndo` 를 둘 다 싣는다 — `yourTurn && undoLeft > 0` 으로는 「되돌릴 자기 수가 아직 없는 첫 手」가 안 걸러진다.
+> 「무를 수 있나」를 화면이 다시 짓지 않는다. 스냅샷이 `undoLeft` 와 `canUndo` 를 둘 다 싣는다 — `yourTurn && undoLeft > 0` 으로는 「되돌릴 자기 수가 아직 없는 첫 手」가 걸러지지 않는다.
 
 ## 알아두면 좋은 것
 
 - **탐색은 깊이로만 건다.** 시간(`go movetime`)을 쓰지 않아서 `usi` 패키지에 그 API가 아예 없다. 이유는 [CLAUDE.md](../../CLAUDE.md)에 있다
 - **엔진 실행 경로(`ENGINE_CMD`)를 태스크 정의에 두지 않는다.** 이미지 내부 구조라 두 곳에 적으면 경고 없이 어긋난다 — 실제로 한 번 물렸다(journal §11)
 - **엔진 풀이 둘이고 크기 손잡이도 둘이다.** 탐색부는 `ENGINE_POOL_SIZE`(기본 3), 詰将棋 solver 는 `ENGINE_MATE_POOL_SIZE`(기본 2). 다른 바이너리이고 잡히는 이유도 달라서 따로 뒀다 — solver 쪽은 종반 판정·詰み 게이지에 되짚기 퀴즈 생성이 얹혀 있고, 그것이 판이 끝나는 자리에서 수십 초를 잡는다(journal §53)
-- **사후 분석의 워커 수 손잡이는 `ANALYSIS_WORKERS` 다.** 기본이 탐색부 풀 크기와 같다 — 다 가져가도 되는 이유는 풀이 우선순위로 빌려주기 때문이다(사람이 기다리는 요청이 분석보다 먼저 받는다). 그래서 풀이 커지면 이 값도 같이 커진다: 워커가 하나였을 때는 vCPU 를 올려도 이 층이 안 빨라졌다([journal §106](../../docs/journal/101-120.md))
-- **`SERVER_ROLE` 이 이 프로세스가 큐를 집는가를 정한다.** `both`(기본) · `analysis` 는 집고, `interactive` 는 手를 세우기만 한다. 기본이 `both` 라 태스크 하나인 배포는 지금까지와 같고, 프로덕션은 티어를 나눠 띄운다([journal §120](../../docs/journal/101-120.md)). `analysis` 는 사람이 쓰는 표면을 하나도 안 세운다 — `/healthz` 와 `/metrics` 만 남고 나머지가 503이다(404가 아닌 이유는 「배포가 낡았다」와 구별하기 위해서다). 막는 이유가 둘이다: 방이 짝지은 프로세스의 메모리에 있으므로([journal §98](../../docs/journal/82-100.md)) 이 티어가 짝을 지으면 두 사람이 방을 못 열고 로그에 아무것도 안 남고, 대국·검토·가정 수순은 깨지지는 않지만 이 박스의 엔진을 분석보다 높은 우선순위로 가져간다(`usi.priorityOf`). 상호작용 티어를 여러 대로 올리는 데는 쓸 수 없다: 방이 메모리에 있으므로([journal §98](../../docs/journal/82-100.md)) 그쪽은 방을 프로세스 밖으로 내린 뒤다
+- **사후 분석의 워커 수 손잡이는 `ANALYSIS_WORKERS` 다.** 기본이 탐색부 풀 크기와 같다 — 다 가져가도 되는 것은 풀이 우선순위로 빌려주기 때문이다(사람이 기다리는 요청이 분석보다 먼저 받는다). 그래서 풀이 커지면 이 값도 같이 커진다: 워커가 하나였을 때는 vCPU 를 올려도 이 층이 빨라지지 않았다([journal §106](../../docs/journal/101-120.md))
+- **`SERVER_ROLE` 이 이 프로세스가 큐를 집는가를 정한다.** `both`(기본) · `analysis` 는 집고, `interactive` 는 手를 세우기만 한다. 기본이 `both` 라 태스크 하나인 배포는 지금까지와 같고, 프로덕션은 티어를 나눠 띄운다([journal §120](../../docs/journal/101-120.md)). `analysis` 는 사람이 쓰는 표면을 하나도 세우지 않는다 — `/healthz` 와 `/metrics` 만 남고 나머지가 503이다(404로 답하지 않는 것은 「배포가 낡았다」와 구별하려는 것이다). 막는 이유가 둘이다: 방이 짝지은 프로세스의 메모리에 있으므로([journal §98](../../docs/journal/82-100.md)) 이 티어가 짝을 지으면 두 사람이 방을 열 수 없고 로그에 아무것도 남지 않고, 대국·검토·가정 수순은 깨지지는 않지만 이 박스의 엔진을 분석보다 높은 우선순위로 가져간다(`usi.priorityOf`). 상호작용 티어를 여러 대로 올리는 데는 쓸 수 없다: 방이 메모리에 있으므로([journal §98](../../docs/journal/82-100.md)) 그쪽은 방을 프로세스 밖으로 내린 뒤다
 - **미리 재는 手의 큐는 표다**(`analysis_plies` · `018`). 프로세스 밖이라 배포를 이겨내고, 리스가 낡으면 다른 워커가 도로 집는다. 착수 경로는 작은 배수구에만 넣고 표에 적는 것은 별도 goroutine 이 한다 — 테이블 goroutine 이 DB 를 기다리면 그만큼 착수가 늦는다(journal §115). 로컬에서 워커 수를 바꿔 보려면 `ANALYSIS_WORKERS=1 docker compose up -d --no-deps api`
 - **엔진 풀은 우선순위로 빌려준다.** 큐가 둘이고 가르는 기준은 「사람이 지금 그 응답을 기다리는가」다 — 대국·검토·가정 수순이 먼저, 사후 분석과 퀴즈 생성이 나중이다(`usi.priorityOf`). 대국 안에서 판정과 상대 수를 더 가르지 않는다: 둘이 같은 사람의 대기 안에서 차례로 일어나므로 순서를 바꿔도 총 시간이 같다
 - 대국 세션은 서버 메모리에 있고 연결에 매여 있다. 배포하면 진행 중인 대국이 끊긴다

@@ -50,7 +50,7 @@ export function Candidates({ node, stale, onPick }: CandidatesProps) {
             return (
               // 열쇠는 순위다. 수(`usi`)로 걸면 서버가 같은 수를 두 번 보낸 순간 열쇠가
               // 겹치고, React는 그때 그 줄을 지우지 못한다 — 국면을 옮겨도 옛 수가 1위
-              // 자리에 남아 「1위가 둘인 목록」이 새로고침 전까지 안 없어졌다(journal §87).
+              // 자리에 남아 「1위가 둘인 목록」이 새로고침 전까지 없어지지 않았다(journal §87).
               // 이 목록의 정체는 애초에 순위 1·2·3이라 자리가 곧 그 줄이다.
               <li key={i}>
                 <button

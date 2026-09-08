@@ -106,7 +106,7 @@ type gameDetail struct {
 	// 목록에는 없고 여기만 있다. 쓰는 곳이 판 하나를 펼친 화면뿐이라서다 — 형세
 	// 그래프(EvalGraph)와 후보 줄의 색(evalTone) 둘이다. 빼지 않으면 駒落ち 판의 곡선이
 	// 천장에 붙어 어디서 흘렸는지가 보이지 않고 「호각」 선이 핸디캡을 다 잃은 자리에
-	// 그려지며, 후보 줄은 전부 최대 파랑이 된다. 판정이 같은 값을 빼는 것과 같은 이유이고
+	// 그려지며, 후보 줄은 전부 최대 파랑이 된다. 판정이 같은 값을 빼는 것과 같은 판단이고
 	// (intervene.Input.BaselineCp), 그래서 화면이 이 숫자를 다시 만들지 않는다.
 	BaselineCp    int                  `json:"baselineCp,omitempty"`
 	Moves         []reviewMove         `json:"moves"`

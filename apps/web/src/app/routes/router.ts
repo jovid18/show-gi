@@ -1,9 +1,9 @@
-// 주소 하나가 화면 하나. 라이브러리를 안 쓴다.
+// 주소 하나가 화면 하나. 라이브러리를 쓰지 않는다.
 //
 // 대국 화면은 언마운트하면 안 된다. WebSocket 하나에 매여 있어서 내리면 연결이 끊기고
 // 그 판이 `abandoned` 로 닫힌다(App.tsx).
 //
-// 그래서 라우트가 element 를 갈아 끼우는 방식을 못 쓰고, 대국은 라우트 밖에 상시
+// 그래서 라우트가 element 를 갈아 끼우는 방식을 쓸 수 없고, 대국은 라우트 밖에 상시
 // 마운트로 두고 감추기만 한다. 라이브러리를 얹어도 그 예외는 남으므로, 얹으면 규칙이
 // 둘(라우터의 것 + 이 예외)이 된다.
 //
@@ -41,11 +41,11 @@ import {
 /**
  * 지금 어느 화면인가.
  *
- * `review` 는 id 를 들고 있어야 한다 — 어느 판을 보고 있는지가 주소에 있어야 새로고침과
+ * `review` 는 id 를 갖고 있어야 한다 — 어느 판을 보고 있는지가 주소에 있어야 새로고침과
  * 뒤로 가기가 맞는다. 화면 안의 상태로 두면 둘 다 목록으로 튕긴다.
  */
 export type Route =
-  // 홈. 아무것도 안 부르는 메뉴 하나다(journal §86).
+  // 홈. 아무것도 부르지 않는 메뉴 하나다(journal §86).
   | { name: 'home' }
   | { name: 'game' }
   | { name: 'reviews' }
@@ -54,12 +54,12 @@ export type Route =
   | { name: 'quiz'; id: number }
   | { name: 'me' }
   | { name: 'guide' }
-  // 가져오기. 주소가 아무것도 안 든다 — 붙여 넣은 글은 화면 안에만 있다.
+  // 가져오기. 주소가 아무것도 담지 않는다 — 붙여 넣은 글은 화면 안에만 있다.
   | { name: 'import' }
-  // 국면을 사진에서 가져오기. 여기도 주소가 아무것도 안 든다 — 올린 그림과 읽어 낸
+  // 국면을 사진에서 가져오기. 여기도 주소가 아무것도 담지 않는다 — 올린 그림과 읽어 낸
   // 판이 화면 안에만 있고, 확인이 끝나면 그 국면이 검토의 주소가 된다.
   | { name: 'position' }
-  // 검토. 주소가 판을 든다 — 手合割과 지금까지의 수순이 쿼리에 있고, 그래서 이 화면만
+  // 검토. 주소가 판을 담는다 — 手合割과 지금까지의 수순이 쿼리에 있고, 그래서 이 화면만
   // 라우트가 `?` 뒤를 본다(routes/const.ts 의 routeExplore).
   //
   // `sfen` 이 있으면 그것이 뿌리다(journal §129). 手合割과 동시에 올 수 없으므로 값이
@@ -73,8 +73,8 @@ export type Route =
  * USI 수 하나의 모양. 판 위의 이동(`7g7f`·`2b3c+`)이거나 持ち駒를 놓는 수(`P*5e`)다.
  *
  * 주소에서 온 값을 검사하는 자리다. 남이 준 링크의 쿼리가 그대로 요청 본문이 되므로,
- * 모양이 아닌 토큰이 하나라도 있으면 그 줄을 안 쓴다 — 서버가 어차피 거절하지만
- * (explore.go) 그때는 판이 안 그려지고 에러만 남는다.
+ * 모양이 아닌 토큰이 하나라도 있으면 그 줄을 쓰지 않는다 — 서버가 어차피 거절하지만
+ * (explore.go) 그때는 판이 그려지지 않고 에러만 남는다.
  */
 const USI_MOVE = /^(?:[1-9][a-i][1-9][a-i]\+?|[PLNSGBR]\*[1-9][a-i])$/;
 
@@ -85,7 +85,7 @@ const USI_MOVE = /^(?:[1-9][a-i][1-9][a-i]\+?|[PLNSGBR]\*[1-9][a-i])$/;
  * 123자가 되므로 90은 **성립하는 판을 자른다** — 넘으면 아래에서 국면이 경고 없이 버려지고
  * 平手가 열려서, 링크를 받은 사람이 남이 본 것과 다른 판을 본다.
  *
- * 「성립하는 판인가」는 안 본다 — 그 판단의 정본은 서버의 룰 엔진 하나뿐이다. 여기서
+ * 「성립하는 판인가」는 보지 않는다 — 그 판단의 정본은 서버의 룰 엔진 하나뿐이다. 여기서
  * 보는 것은 「주소에 실린 이 값이 SFEN 을 자칭하는가」이고, 그것으로 남의 링크에 든
  * 아무 문자열이 그대로 요청 본문이 되는 것만 막는다.
  */
@@ -94,7 +94,7 @@ const SFEN_SHAPE = /^[1-9a-zA-Z+/]{17,140} [bw] (?:-|[0-9a-zA-Z]{1,29})(?: \d{1,
 /**
  * 쿼리에서 값 하나를 꺼낸다.
  *
- * `URLSearchParams` 를 안 쓴다. 그쪽은 폼 인코딩이라 `+` 를 공백으로 읽고, 그러면
+ * `URLSearchParams` 를 쓰지 않는다. 그쪽은 폼 인코딩이라 `+` 를 공백으로 읽고, 그러면
  * 成을 표시하는 `2b3c+` 가 `2b3c `가 되어 수 하나가 모양 검사에서 떨어진다 — 그 하나 때문에
  * 줄 전체가 버려진다(아래). 손으로 가르고 `decodeURIComponent` 로 풀면 `+` 는 그대로
  * 남고 `%2B` 도 풀려서, 주소를 사람이 읽을 수 있는 모양으로 쓸 수 있다(routeExplore).
@@ -106,7 +106,7 @@ function queryValue(search: string, name: string): string {
     try {
       return decodeURIComponent(pair.slice(eq + 1));
     } catch {
-      // 깨진 `%` 이스케이프. 못 읽는 값은 없는 것으로 둔다 — 아래 모양 검사가 어차피 자른다.
+      // 깨진 `%` 이스케이프. 읽을 수 없는 값은 없는 것으로 둔다 — 아래 모양 검사가 어차피 자른다.
       return '';
     }
   }
@@ -131,13 +131,13 @@ function exploreRouteOf(search: string): Route {
   if (!ok) return { name: 'explore', handicap: '', moves: [] };
   // 국면도 모양까지만 본다. 성립하는 판인지는 룰 엔진이 정하고(`bad_position`), 여기서
   // 그 판단을 한 벌 더 적으면 서버와 두 벌이 되어 어긋났을 때 어느 쪽이 맞는지 누구도
-  // 모른다(models/sfen.ts 의 첫 주석과 같은 이유).
+  // 모른다(models/sfen.ts 의 첫 주석과 같은 판단이다).
   if (sfen !== '' && SFEN_SHAPE.test(sfen)) return { name: 'explore', handicap: '', moves, sfen };
   return { name: 'explore', handicap, moves };
 }
 
 /**
- * 주소 → 화면. 못 읽는 주소는 홈이다 — 404 화면을 만들 만큼 경로가 많지 않고,
+ * 주소 → 화면. 읽을 수 없는 주소는 홈이다 — 404 화면을 만들 만큼 경로가 많지 않고,
  * 홈은 갈 곳을 전부 모아 놓은 자리라 길을 잃은 사람이 떨어질 곳으로 맞다.
  *
  * 받는 것은 `pathname` + `search` 다. 쿼리를 보는 화면이 검토 하나뿐이라 그쪽만
@@ -156,7 +156,7 @@ export function parseRoute(url: string): Route {
   if (parts[0] === POSITION_SEGMENT) return { name: 'position' };
   if (parts[0] === ME_SEGMENT) return { name: 'me' };
   // 글자를 확인하고 넘긴다. 서버가 어차피 404로 답하지만, 아무 문자열이나 그대로
-  // 주소에 실으면 그 값이 `fetch` 의 경로가 되고 화면이 못 읽는 답을 받는다.
+  // 주소에 실으면 그 값이 `fetch` 의 경로가 되고 화면이 읽을 수 없는 답을 받는다.
   // 영숫자 8자가 방 id 의 모양이다(서버의 NewRoomID).
   if (parts[0] === ROOMS_SEGMENT) {
     const id = parts[1] ?? '';
@@ -170,7 +170,7 @@ export function parseRoute(url: string): Route {
   // 같은 판에 주소가 두 벌 생긴다.
   const id = parts[1] ?? '';
   if (!/^[1-9]\d*$/.test(id)) return { name: 'reviews' };
-  // 못 읽는 세 번째 조각은 그 판이다. 퀴즈가 아닌 무엇이 붙어 있어도 판은 열 수 있고,
+  // 읽을 수 없는 세 번째 조각은 그 판이다. 퀴즈가 아닌 무엇이 붙어 있어도 판은 열 수 있고,
   // 그것이 404 화면을 만들지 않기로 한 것과 같은 판단이다.
   //
   // 숫자면 열 手数다. `0` 을 허용하는 것이 id 와 갈리는 자리다 — 시작 국면이
@@ -212,7 +212,7 @@ export function hrefOf(route: Route): string {
   }
 }
 
-/** 지금 주소. 쿼리까지다 — 검토 화면이 판을 그 뒤에 들고 있다. */
+/** 지금 주소. 쿼리까지다 — 검토 화면이 판을 그 뒤에 싣는다. */
 function currentURL(): string {
   return window.location.pathname + window.location.search;
 }
@@ -230,7 +230,7 @@ export function navigate(route: Route, options?: { replace?: boolean }): void {
   if (href === currentURL()) return;
   if (options?.replace) window.history.replaceState(null, '', href);
   else window.history.pushState(null, '', href);
-  // `pushState`·`replaceState` 는 이벤트를 안 낸다. 구독한 쪽이 알 길이 없어서 우리가 하나 낸다.
+  // `pushState`·`replaceState` 는 이벤트를 내보내지 않는다. 구독한 쪽이 알 길이 없어서 우리가 하나 내보낸다.
   window.dispatchEvent(new PopStateEvent('popstate'));
 }
 

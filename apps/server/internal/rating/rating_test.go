@@ -18,7 +18,7 @@ func TestUpdateMovesBothWays(t *testing.T) {
 	}
 }
 
-// 무승부는 같은 실력끼리라면 누구도 안 움직인다. 기대값이 정확히 0.5라 갱신항이 0이다.
+// 무승부는 같은 실력끼리라면 누구도 움직이지 않는다. 기대값이 정확히 0.5라 갱신항이 0이다.
 func TestDrawBetweenEqualsHoldsStill(t *testing.T) {
 	a, b := Update(Unrated, Unrated, Draw)
 	if math.Abs(a.Value-Default) > 1e-9 || math.Abs(b.Value-Default) > 1e-9 {
@@ -48,7 +48,7 @@ func TestUpdateIsOrderIndependent(t *testing.T) {
 	}
 }
 
-// 약한 사람을 이겨도 거의 안 오르고, 강한 사람을 이기면 많이 오른다.
+// 약한 사람을 이겨도 거의 오르지 않고, 강한 사람을 이기면 많이 오른다.
 func TestUpsetMovesMore(t *testing.T) {
 	me := Rating{Value: 1500, Deviation: 100}
 	weak := Rating{Value: 1100, Deviation: 100}
@@ -63,7 +63,7 @@ func TestUpsetMovesMore(t *testing.T) {
 	}
 }
 
-// RD 가 하한 밑으로 안 내려간다. 굳으면 실제로 세진 뒤에도 밴드가 옛 자리에 남는다.
+// RD 가 하한 밑으로 내려가지 않는다. 굳으면 실제로 세진 뒤에도 밴드가 옛 자리에 남는다.
 func TestDeviationHasAFloor(t *testing.T) {
 	r := Rating{Value: 1500, Deviation: MinDeviation}
 	for range 200 {
@@ -74,7 +74,7 @@ func TestDeviationHasAFloor(t *testing.T) {
 	}
 }
 
-// 결과가 뻔한 판은 아무것도 안 바꾼다. 기대값이 포화해 0으로 나누는 자리라, 여기서
+// 결과가 뻔한 판은 아무것도 바꾸지 않는다. 기대값이 포화해 0으로 나누는 자리라, 여기서
 // NaN 이 새면 그 뒤의 모든 판이 NaN 이다.
 func TestSaturatedGameIsIgnoredNotNaN(t *testing.T) {
 	me := Rating{Value: 1500, Deviation: 100}
@@ -89,7 +89,7 @@ func TestSaturatedGameIsIgnoredNotNaN(t *testing.T) {
 	}
 }
 
-// 안 두면 RD 가 되돌아간다. 두 달 쉬고 온 사람이 옛 밴드로 매칭되지 않게 하는 자리다.
+// 두지 않으면 RD 가 되돌아간다. 두 달 쉬고 온 사람이 옛 밴드로 매칭되지 않게 하는 자리다.
 func TestInflateWidensWithIdleTime(t *testing.T) {
 	settled := Rating{Value: 1500, Deviation: MinDeviation}
 
@@ -111,7 +111,7 @@ func TestInflateWidensWithIdleTime(t *testing.T) {
 	}
 }
 
-// 오래 쉬어도 상한을 안 넘는다. 넘으면 밴드가 척도 전체보다 넓어져 뜻을 잃는다.
+// 오래 쉬어도 상한을 넘지 않는다. 넘으면 밴드가 척도 전체보다 넓어져 뜻을 잃는다.
 func TestInflateStopsAtMax(t *testing.T) {
 	got := Inflate(Rating{Value: 1500, Deviation: MinDeviation}, 10*InactivityToUnrated)
 	if got.Deviation != MaxDeviation {
@@ -137,7 +137,7 @@ func TestSeedFromLossIsMonotonic(t *testing.T) {
 	}
 }
 
-// 척도 밖의 낙폭이 와도 시드가 척도 안에 있다. 저장된 값이므로 범위를 못 믿는다.
+// 척도 밖의 낙폭이 와도 시드가 척도 안에 있다. 저장된 값이므로 범위를 믿을 수 없다.
 func TestSeedClampsOutOfRangeLoss(t *testing.T) {
 	if got := SeedFromLoss(-5); got.Value != SeedFromLoss(0).Value {
 		t.Errorf("a negative loss seeded %.1f", got.Value)

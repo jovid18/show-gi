@@ -1,15 +1,15 @@
 // Package boardread 는 판이 찍힌 그림에서 국면 한 벌을 읽는다.
 //
-// 여기는 그려진 것만 만진다. 手番도 정하지 않고, 합법인지도 안 보고, 무엇이 좋은
+// 여기는 그려진 것만 만진다. 手番도 정하지 않고, 합법인지도 보지 않고, 무엇이 좋은
 // 수인지는 묻지도 않는다 — 나온 국면은 룰 엔진의 검사를 지나야 쓰이고(shogi.Faults),
-// 그 검사가 못 잡는 오독은 사람이 확인 화면에서 고친다(journal §129).
+// 그 검사가 잡을 수 없는 오독은 사람이 확인 화면에서 고친다(journal §129).
 //
 // 좌표를 시키지 않는다. kifunorm 이 그은 경계와 같은 자리이고, 여기서는 그것이
 // 「프롬프트가 筋도 段도 말하지 않는다」로 나온다 — 시키는 일이 「위 줄부터, 왼쪽부터
 // 그려진 대로 적어라」 하나다. 그 순서가 SFEN 판 칸의 순서와 그대로 같아서(internal/shogi
 // 패키지 doc) 옮기는 코드에 좌표 계산이 없다.
 //
-// 先手·後手도 안 시킨다. 사진은 찍은 사람의 시점이라 아래쪽이 언제나 자기 편이고,
+// 先手·後手도 시키지 않는다. 사진은 찍은 사람의 시점이라 아래쪽이 언제나 자기 편이고,
 // 그림에서 알 수 있는 것은 「위쪽 편인가 아래쪽 편인가」뿐이다 — 그래서 이 계층은
 // 그것만 말하고, 아래쪽을 先手로 두는 것은 코드가 정한다. 쇼기에 선후 비대칭 규칙이
 // 없어서 그 정규화에 잃는 것이 없고, 그 덕에 사람에게 물을 것이 「あなたの手番ですか」
@@ -18,7 +18,7 @@
 // 그림은 신뢰할 수 없는 입력이다. 스키마가 출력 모양을 묶으므로 그림에 무엇이 적혀
 // 있든 최악이 「거절되는 읽기」다 — 실제로 방송 화면에는 그런 글이 찍혀 온다.
 //
-// 키가 없으면 이 계층만 꺼진다. 다른 표면은 한 줄도 안 바뀐다.
+// 키가 없으면 이 계층만 꺼진다. 다른 표면은 한 줄도 바뀌지 않는다.
 package boardread
 
 import (
@@ -40,9 +40,9 @@ import (
 // 그 위는 사진과 다른 것이다.
 const MaxImage = 6 << 20
 
-// DefaultModel 은 값이 안 주어졌을 때의 모델이다. 실측으로 골랐다(journal §129).
+// DefaultModel 은 값이 주어지지 않았을 때의 모델이다. 실측으로 골랐다(journal §129).
 //
-// 여기는 mini 를 안 쓴다. kifunorm 쪽은 글자를 옮겨 적는 일이고, 여기는 81칸의 작은
+// 여기는 mini 를 쓰지 않는다. kifunorm 쪽은 글자를 옮겨 적는 일이고, 여기는 81칸의 작은
 // 글자와 그 방향을 읽는 일이다.
 //
 // 라벨 붙인 그림 8장에서 gpt-5.4 가 92.9%·성립하는 판 0/8 인데 이 모델이 98.1%·8/8 이다.
@@ -77,7 +77,7 @@ var ErrNotImage = errors.New("boardread: not a png, jpeg or webp image")
 var ErrNoBoard = errors.New("boardread: no board in the image")
 
 // Client 는 읽기 창구다. 키가 없으면 New 가 nil 을 주고, nil 에 Read 를 불러도 안전하게
-// ErrDisabled 다 — 부르는 쪽이 nil 검사를 안 흘리게 하는 자리다(kifunorm.Client 와 같다).
+// ErrDisabled 다 — 부르는 쪽이 nil 검사를 흘리지 않게 하는 자리다(kifunorm.Client 와 같다).
 type Client struct {
 	key   string
 	model string
@@ -134,7 +134,7 @@ func (c *Client) Read(ctx context.Context, image []byte) (Result, error) {
 	if len(image) > MaxImage {
 		return Result{}, ErrTooLarge
 	}
-	// 클라이언트가 말한 형식을 안 믿는다. 앞머리를 직접 본다 — 남이 붙인 이름으로
+	// 클라이언트가 말한 형식을 믿지 않는다. 앞머리를 직접 본다 — 남이 붙인 이름으로
 	// 형식을 정하면 png 라고 적힌 무엇이든 저쪽 API 로 그대로 나간다.
 	mime, ok := imageMIME(image)
 	if !ok {
@@ -223,7 +223,7 @@ func (c *Client) once(ctx context.Context, dataURL string) (Result, bool, error)
 
 // imageMIME 은 앞머리로 형식을 정한다. 아는 셋이 아니면 거짓이다.
 //
-// gif 를 안 받는다. 애니메이션이면 어느 프레임을 읽었는지가 답에 안 적히고, 그러면
+// gif 를 받지 않는다. 애니메이션이면 어느 프레임을 읽었는지가 답에 적히지 않고, 그러면
 // 사람이 확인 화면에서 보는 판이 어느 순간의 것인지 알 수 없다.
 func imageMIME(b []byte) (string, bool) {
 	switch {
@@ -305,7 +305,7 @@ func sfenOf(got read) (string, error) {
 
 // handField 는 두 駒台를 SFEN 의 持ち駒 칸으로 옮긴다.
 //
-// 아래쪽이 대문자다. 순서는 관례대로 飛角金銀桂香歩이고, 1장은 개수를 안 적는다 —
+// 아래쪽이 대문자다. 순서는 관례대로 飛角金銀桂香歩이고, 1장은 개수를 적지 않는다 —
 // 값을 왕복시키는 시험이 그 규약에 걸린다(shogi.Position.SFEN).
 func handField(near, far hand) string {
 	var b strings.Builder

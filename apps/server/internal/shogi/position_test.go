@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-// 성립하는 국면에서는 사유가 하나도 안 나와야 한다. 여기가 새면 확인 화면이 정상인
-// 판을 거절하고, 그건 기능 전체가 안 되는 것과 같다.
+// 성립하는 국면에서는 사유가 하나도 나오지 않아야 한다. 여기가 새면 확인 화면이 정상인
+// 판을 거절하고, 그건 기능 전체가 동작하지 않는 것과 같다.
 func TestFaultsAcceptsRealPositions(t *testing.T) {
 	cases := map[string]string{
 		"平手 초기 국면": "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1",
@@ -227,7 +227,7 @@ func TestParseSFENRefusesAHandThatCannotFit(t *testing.T) {
 	}
 }
 
-// 음수 持ち駒는 InventoryExcess 를 통과한다 — 합이 줄어들 뿐이라 「많다」로 안 걸린다.
+// 음수 持ち駒는 InventoryExcess 를 통과한다 — 합이 줄어들 뿐이라 「많다」로 걸리지 않는다.
 // Apply 가 미검증 투입으로 음수를 만들 수 있으므로(그 함수 주석) 여기서 짚어야 한다.
 func TestFaultsCatchesANegativeHand(t *testing.T) {
 	pos, err := ParseSFEN("9/9/9/9/4k4/9/9/9/4K4 b - 1")

@@ -10,7 +10,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// Room 은 초대 링크 하나다. 정원이 둘이고, 둘이 정해지면 안 바뀐다.
+// Room 은 초대 링크 하나다. 정원이 둘이고, 둘이 정해지면 바뀌지 않는다.
 //
 // 들어오는 규칙은 셋이고 셋이 다 필요하다(journal §83): 로그인한 사람만
 // (server/match.go 가 막는다), 유추할 수 없는 id(NewRoomID), 정원 2명.
@@ -32,7 +32,7 @@ type Room struct {
 	ready     chan struct{}
 	// closed 는 방이 걷혔을 때 닫힌다. ready 와 짝이고 둘 중 하나만 닫힌다.
 	closed chan struct{}
-	// finishedAt 은 판이 끝난 시각이다. 0이면 아직 안 끝났다.
+	// finishedAt 은 판이 끝난 시각이다. 0이면 아직 끝나지 않았다.
 	finishedAt time.Time
 }
 
@@ -46,13 +46,13 @@ func (r *Room) Closed() <-chan struct{} { return r.closed }
 func (r *Room) HostName() string { return r.host.Name }
 
 // IsHost 는 그 사람이 이 방을 만들었는가다. 잠금이 필요 없다 — host 는 생성 뒤로
-// 안 바뀌는 하나뿐인 자리다(guest 는 Hub.mu 가 지킨다).
+// 바뀌지 않는 하나뿐인 자리다(guest 는 Hub.mu 가 지킨다).
 func (r *Room) IsHost(userID int64) bool { return userID == r.host.UserID }
 
 // Table 은 시작된 대국이다. 아직 시작 전이면 nil — Ready 를 기다린 뒤에 부른다.
 func (r *Room) Table() *Table { return r.table }
 
-// Hub 는 방들을 들고 있다. 프로세스 메모리다 — 방은 DB에 안 남고, 배포하면 열려
+// Hub 는 방들을 갖고 있다. 프로세스 메모리다 — 방은 DB에 남지 않고, 배포하면 열려
 // 있던 방이 사라진다(journal §83).
 type Hub struct {
 	mu    sync.Mutex
@@ -67,7 +67,7 @@ type Hub struct {
 
 // HubConfig 는 방을 만드는 데 필요한 것들이다.
 type HubConfig struct {
-	// NewRecorders 는 대국이 시작될 때 先手·後手마다 기록기를 하나씩 만든다. nil 이면 안 남는다.
+	// NewRecorders 는 대국이 시작될 때 先手·後手마다 기록기를 하나씩 만든다. nil 이면 남지 않는다.
 	//
 	// 매치 id 를 넘긴다 — 한 판이 games 행 두 개로 남으므로 그 둘을 나중에 다시
 	// 묶을 열쇠가 필요하다(journal §83).
@@ -97,10 +97,10 @@ func NewHub(ctx context.Context, cfg HubConfig) *Hub {
 // 걷히는 조건(OpenTTL·FinishedTTL)은 분 단위다.
 const sweepInterval = time.Minute
 
-// sweepLoop 은 누구도 Hub 를 안 건드려도 만료를 훑는다.
+// sweepLoop 은 누구도 Hub 를 건드리지 않아도 만료를 훑는다.
 //
-// 손이 닿을 때만 훑으면 혼자 기다리는 방이 안 걷힌다. 방을 만들고 링크를 보낸 사람은
-// Ready·Closed 에 머물러 있을 뿐 Hub 를 부르지 않는데, 그동안 다른 사람이 누구도 안 오면
+// 손이 닿을 때만 훑으면 혼자 기다리는 방이 걷히지 않는다. 방을 만들고 링크를 보낸 사람은
+// Ready·Closed 에 머물러 있을 뿐 Hub 를 부르지 않는데, 그동안 다른 사람이 누구도 오지 않으면
 // sweepLocked 가 돌 일이 없다 — 그 화면은 만료가 지나도 이미 죽은 링크를 계속
 // 광고한다(journal §83). 알려 주는 채널은 이미 있고(closed), 없던 것은 그것을 닫을
 // 계기뿐이었다.
@@ -150,11 +150,11 @@ func (h *Hub) Create(host Player, hostColor shogi.Color) *Room {
 //  2. 손님이 채워져 있다. Hub.Enter 에 화이트리스트가 없어 방 id 만 있으면 아무나
 //     앉는데, 대기열 방식은 상대가 정해져 있다 — 자리가 둘 다 찬 방이라
 //     seatOfLocked 가 그 둘만 통과시킨다.
-//  3. 상한을 안 건다(dropSurplusLocked). 이 방은 손님이 있어서 애초에 그 필터에
-//     안 걸리고, 부르면 이 사람이 따로 열어 둔 초대 링크가 경고 없이 죽는다.
+//  3. 상한을 걸지 않는다(dropSurplusLocked). 이 방은 손님이 있어서 애초에 그 필터에
+//     걸리지 않고, 부르면 이 사람이 따로 열어 둔 초대 링크가 경고 없이 죽는다.
 //
 // 확인 화면도 여기서 같이 없어진다. 손님이 앉아 있으면 방 상태가 waiting 에서
-// 벗어나고(Hub.SeatOf) 화면은 그때 확인을 안 그린다(journal §92).
+// 벗어나고(Hub.SeatOf) 화면은 그때 확인을 그리지 않는다(journal §92).
 func (h *Hub) CreatePaired(id string, host Player, hostColor shogi.Color, guest Player) *Room {
 	now := h.cfg.now()
 	seated := guest
@@ -176,7 +176,7 @@ func (h *Hub) CreatePaired(id string, host Player, hostColor shogi.Color, guest 
 	return room
 }
 
-// openRoomsPerHost 는 한 사람이 아직 안 시작한 방을 몇 개까지 들고 있을 수 있나다.
+// openRoomsPerHost 는 한 사람이 아직 시작하지 않은 방을 몇 개까지 가질 수 있나다.
 // 넘으면 거절 대신 오래된 것을 버린다(journal §83).
 //
 // 1이라 「방을 만든다」가 사람마다 멱등이다. 열린 링크가 언제나 최신 하나뿐이고, 새로
@@ -184,9 +184,9 @@ func (h *Hub) CreatePaired(id string, host Player, hostColor shogi.Color, guest 
 // 두면 호스트가 모르는 살아 있는 링크가 OpenTTL 동안 남는다.
 const openRoomsPerHost = 1
 
-// dropSurplusLocked 는 그 사람의 안 시작한 방이 상한을 넘으면 오래된 것부터 버린다.
+// dropSurplusLocked 는 그 사람의 시작하지 않은 방이 상한을 넘으면 오래된 것부터 버린다.
 //
-// 사람이 걸려 있는 방은 절대 안 버린다 — 시작한 판(table != nil)뿐 아니라
+// 사람이 걸려 있는 방은 절대 버리지 않는다 — 시작한 판(table != nil)뿐 아니라
 // 손님이 앉기만 한 방(guest != nil)도 그렇다(journal §83).
 func (h *Hub) dropSurplusLocked(hostID int64) {
 	var open []*Room
@@ -207,7 +207,7 @@ func (h *Hub) dropSurplusLocked(hostID int64) {
 
 // dropLocked 는 방을 걷어가고 기다리던 연결에 알린다(journal §83).
 //
-// ready 가 이미 닫혔으면(대국이 시작됐으면) closed 는 누구도 안 본다. 그래도 닫는 것은
+// ready 가 이미 닫혔으면(대국이 시작됐으면) closed 는 누구도 보지 않는다. 그래도 닫는 것은
 // 「걷혔다」가 방의 사실이기 때문이고, 두 번 닫힐 일은 없다 — 삭제가 한 번뿐이다.
 func (h *Hub) dropLocked(room *Room) {
 	delete(h.rooms, room.ID)
@@ -216,7 +216,7 @@ func (h *Hub) dropLocked(room *Room) {
 
 // Peek 는 들어가기 전에 그 방을 볼 수 있는가다. 자격이 없으면 ErrNoRoom 하나다.
 //
-// 자리를 안 잡는다 — 실제로 앉는 것은 WebSocket 이 붙을 때다(Enter, journal §83).
+// 자리를 잡지 않는다 — 실제로 앉는 것은 WebSocket 이 붙을 때다(Enter, journal §83).
 func (h *Hub) Peek(id string, userID int64) (*Room, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -233,9 +233,9 @@ func (h *Hub) Peek(id string, userID int64) (*Room, error) {
 	return nil, ErrNoRoom
 }
 
-// Enter 는 자리에 앉는다. 손님 자리가 비어 있으면 여기서 확정되고 그 뒤로 안 바뀐다.
+// Enter 는 자리에 앉는다. 손님 자리가 비어 있으면 여기서 확정되고 그 뒤로 바뀌지 않는다.
 //
-// 돌려주는 값은 그 사람이 잡는 쪽이다. 그것을 클라이언트가 보내지 않는 것이 요점 —
+// 돌려주는 값은 그 사람이 잡는 쪽이다. 그것을 클라이언트가 보내지 않는다 —
 // 요청으로 받으면 두 사람이 같은 쪽을 주장할 수 있다.
 func (h *Hub) Enter(id string, p Player) (*Room, shogi.Color, error) {
 	h.mu.Lock()
@@ -252,7 +252,7 @@ func (h *Hub) Enter(id string, p Player) (*Room, shogi.Color, error) {
 	if room.guest != nil {
 		return nil, shogi.Black, ErrNoRoom // 자리가 없다. 없는 방과 같은 답
 	}
-	// 자기 방에 손님으로 못 앉는다 — seatOfLocked 가 이미 host 로 답했으므로 여기
+	// 자기 방에 손님으로 앉을 수 없다 — seatOfLocked 가 이미 host 로 답했으므로 여기
 	// 오는 것은 다른 사람뿐이다. 그래도 한 번 더 보는 것은 나중에 위 분기가 바뀌었을 때
 	// 혼자 두는 판이 경고 없이 생기는 것을 막기 위해서다.
 	if p.UserID == room.host.UserID {
@@ -266,7 +266,7 @@ func (h *Hub) Enter(id string, p Player) (*Room, shogi.Color, error) {
 // Connect 는 그쪽(先手·後手)의 연결 하나를 단다. 둘이 다 붙어 있으면 그 자리에서 대국이 시작된다.
 //
 // 떼는 것은 돌려주는 함수다(defer detach()). 대국이 시작된 뒤로는 이 카운트가
-// 아무것도 안 정한다 — 화면에 나가는 접속 표시는 테이블이 따로 센다(table.state.online).
+// 아무것도 정하지 않는다 — 화면에 나가는 접속 표시는 테이블이 따로 센다(table.state.online).
 func (h *Hub) Connect(room *Room, c shogi.Color) func() {
 	h.mu.Lock()
 	room.connected[c]++
@@ -291,7 +291,7 @@ func (h *Hub) startLocked(room *Room) {
 	// 사이에 이 방이 걷힐 수 있고(만료·상한), 그때 대국을 시작하면 ready 와 closed 가
 	// 둘 다 닫힌다 — 두 handler 의 select 가 무작위로 갈려서 한 사람은 판에 앉고
 	// 다른 사람은 「期限が切れました」를 보게 된다. 그 판은 60초 뒤 시간패로 끝나고,
-	// 누구도 못 본 대국의 행 둘이 남는다.
+	// 누구도 보지 못한 대국의 행 둘이 남는다.
 	if h.rooms[room.ID] != room {
 		return
 	}
@@ -320,7 +320,7 @@ func (h *Hub) startLocked(room *Room) {
 		now:       h.cfg.now,
 	})
 	if err != nil {
-		// 平手 초기 국면을 못 만드는 경우다 — 실질적으로 없다. 방을 그대로 두면 두 화면이
+		// 平手 초기 국면을 만들 수 없는 경우다 — 실질적으로 없다. 방을 그대로 두면 두 화면이
 		// 영영 기다리므로 남기고, 링크는 만료가 걷어간다.
 		log.Printf("match: cannot start the table in room %s: %v", room.ID, err)
 		return
@@ -366,7 +366,7 @@ func (h *Hub) sweepLocked(now time.Time) {
 	}
 }
 
-// Rooms 는 지금 들고 있는 방 수다. 테스트와 운영 확인용이다.
+// Rooms 는 지금 갖고 있는 방 수다. 테스트와 운영 확인용이다.
 func (h *Hub) Rooms() int {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -375,7 +375,7 @@ func (h *Hub) Rooms() int {
 
 // SeatOf 는 그 사람이 이 방에서 잡을 쪽과, 아직 상대를 기다리는가다.
 //
-// 자격 검사를 안 한다 — Peek 를 통과한 사람에게만 뜻이 있다. 아직 안 앉은 사람에게는
+// 자격 검사를 하지 않는다 — Peek 를 통과한 사람에게만 뜻이 있다. 아직 앉지 않은 사람에게는
 // 「앉는다면 어느 쪽인가」를 답한다: 방을 만든 사람이 먼저 골랐으므로 손님 몫은 하나다.
 func (h *Hub) SeatOf(room *Room, userID int64) (seat shogi.Color, waiting bool) {
 	h.mu.Lock()

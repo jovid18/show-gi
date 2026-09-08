@@ -337,7 +337,7 @@ func decodeImport(w http.ResponseWriter, r *http.Request) (importRequest, bool) 
 
 // writeImportError 는 읽지 못한 이유를 일본어 한 줄로 만든다.
 //
-// 手数를 말하는 것이 이 함수의 값이다. 「読み取れませんでした」만으로는 사람이 자기
+// 手数를 같이 말한다. 「読み取れませんでした」만으로는 사람이 자기
 // 기보의 어디를 고쳐야 하는지 모른다(kifu.MoveError).
 func writeImportError(w http.ResponseWriter, err error) {
 	var me *kifu.MoveError

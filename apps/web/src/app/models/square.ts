@@ -20,10 +20,10 @@ export interface Square {
 /**
  * 한 수가 지나간 두 자리(화면 배열 인덱스).
  *
- * 판 전체가 바뀌면 초심자는 무엇이 변했는지 못 본다(docs/03-frontend.md §3).
+ * 판 전체가 바뀌면 초심자는 무엇이 변했는지 보지 못한다(docs/03-frontend.md §3).
  * 도착 칸의 駒를 출발 칸에서 끌어오는 데 쓰는 값이라 되짚기의 내용 자체다.
  *
- * `components/Board` 대신 여기 있는 이유는 칸 인덱스 두 개가 전부이기 때문이다.
+ * `components/Board` 대신 여기 있는 것은 칸 인덱스 두 개가 전부이기 때문이다.
  * 판에 있으면 `libs` 가 화면 부품을 참조하게 되고, 그러면 층의 방향이 거꾸로 선다.
  */
 export interface Motion {
@@ -67,7 +67,7 @@ export function fromUsi(usi: string): Square {
   const file = Number(usi.charAt(0));
   const rank = RANK_LETTERS.indexOf(usi.charAt(1)) + 1;
 
-  // indexOf가 못 찾으면 0이 되어 아래 검사에 걸린다.
+  // indexOf가 찾지 못하면 0이 되어 아래 검사에 걸린다.
   assertInRange(file, 'file');
   assertInRange(rank, 'rank');
 
