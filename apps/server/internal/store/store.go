@@ -1397,6 +1397,18 @@ func (s *Store) DeleteExploreSnapshot(ctx context.Context, id, userID int64) err
 	return nil
 }
 
+// timingCol 은 int 를 int32 칸에 맞춘다. 깊이와 후보 수는 CLI 플래그에서 오고
+// (cmd/importkifu) 그 값에 상한이 없어서, 그대로 자르면 음수가 표에 남는다.
+func timingCol(n int) int32 {
+	if n > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if n < 0 {
+		return 0
+	}
+	return int32(n)
+}
+
 // SearchTiming 은 탐색 한 번의 소요 시간이다.
 type SearchTiming struct {
 	SFENKey string
@@ -1411,9 +1423,9 @@ type SearchTiming struct {
 func (s *Store) PutSearchTiming(ctx context.Context, t SearchTiming) error {
 	err := s.q.InsertSearchTiming(ctx, db.InsertSearchTimingParams{
 		SFENKey: t.SFENKey,
-		Depth:   int32(t.Depth),
-		K:       int32(t.K),
-		Ms:      int32(t.Ms),
+		Depth:   timingCol(t.Depth),
+		K:       timingCol(t.K),
+		Ms:      timingCol(t.Ms),
 		Cached:  t.Cached,
 	})
 	if err != nil {
