@@ -48,9 +48,13 @@ func (a *matchAnalyzer) queueQuiz(ctx context.Context, gameID int64) bool {
 	if a == nil || a.store == nil {
 		return false
 	}
-	// 시한을 준다. 부르는 자리 하나가 대국이 끝나는 자리이고(ws.go 의 sendSummary),
-	// 거기서는 이 INSERT 뒤에 총평이 나간다 — 커넥션이 마르면 사람이 총평을 못 받는다.
-	write, cancel := context.WithTimeout(ctx, quizSaveTimeout)
+	// 취소를 벗기고 시한만 준다. 걷는 문장과 같은 이유다(dropQuiz) — 분석 워커가 부르는
+	// 자리에서는 종료 중에 이 ctx 가 이미 죽어 있고, 그대로 쓰면 세우기가 실패해 그 판이
+	// 줄에도 남지 않는다. 배포를 이겨내려고 표로 내린 것이 그 자리에서 무너진다.
+	//
+	// 시한이 필요한 것은 대국이 끝나는 자리다(ws.go 의 sendSummary). 거기서는 이 INSERT
+	// 뒤에 총평이 나가므로, 커넥션이 마르면 사람이 총평을 못 받는다.
+	write, cancel := context.WithTimeout(context.WithoutCancel(ctx), quizSaveTimeout)
 	defer cancel()
 	if err := a.store.EnqueueQuizJob(write, gameID); err != nil {
 		if ctx.Err() == nil {
@@ -77,7 +81,11 @@ func (a *matchAnalyzer) buildQuizNow(ctx context.Context, gameID int64) {
 	}
 	defer release()
 
-	rec, err := a.store.GameRecordAnyOwner(ctx, gameID)
+	// 읽는 데 시한을 준다. 이 ctx 는 취소되지 않으므로(부르는 쪽이 WithoutCancel 이다)
+	// 걸리면 자리를 잡은 채로 영영 서 있고, 그동안 이 프로세스의 문항이 하나도 만들어지지 않는다.
+	read, cancel := context.WithTimeout(ctx, quizSaveTimeout)
+	defer cancel()
+	rec, err := a.store.GameRecordAnyOwner(read, gameID)
 	if err != nil {
 		if ctx.Err() == nil {
 			log.Printf("quiz: could not read game %d to build its quiz: %v", gameID, err)

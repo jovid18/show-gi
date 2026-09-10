@@ -281,8 +281,24 @@ func TestQuizzesDoNotTakeEveryWorker(t *testing.T) {
 	}
 }
 
-// 자리를 세지 않는 분석기는 언제나 자리가 있다. 워커가 하나인 배포와, 구조체 리터럴로
-// 만드는 테스트가 그 모양이다 — 하나짜리에서는 남길 자리가 없어서 세지 않는다.
+// 집지 않는 티어에도 자리가 있다. 거기서 도는 것은 대체 경로뿐인데 그것도 5분짜리
+// 탐색이라, 세지 않으면 끝나는 판마다 하나씩 뜬다.
+func TestATierThatClaimsNothingStillCountsQuizzes(t *testing.T) {
+	st := testStore(t)
+	a := newMatchAnalyzer(t.Context(), AnalysisDeps{
+		Store:      st,
+		NewAnalyst: func() game.Analyst { return stubAnalyst{} },
+		Workers:    0,
+	})
+	if a == nil {
+		t.Fatal("no analyzer")
+	}
+	if got := cap(a.quizSlots); got != 1 {
+		t.Errorf("quiz slots = %d, want 1 on a tier that claims nothing", got)
+	}
+}
+
+// 자리를 세지 않는 분석기는 언제나 자리가 있다. 구조체 리터럴로 만드는 테스트가 그 모양이다.
 func TestAnUncountedAnalyzerAlwaysHasASlot(t *testing.T) {
 	a := &matchAnalyzer{}
 	for range 3 {

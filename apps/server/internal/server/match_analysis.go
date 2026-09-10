@@ -78,9 +78,14 @@ type matchAnalyzer struct {
 	// 서면 밀린 手가 곧바로 100을 넘고, 5분을 채우면 알람이 사람을 부르고 대를 붙인다
 	// (infra/alarms.tf) — 실제로 밀린 것이 아니라 워커가 다른 일을 하고 있는 것이다.
 	//
-	// nil 이면 세지 않는다. 워커가 하나인 배포와, 구조체 리터럴로 만드는 테스트가 그
-	// 모양이다. 하나짜리에서는 남길 자리가 없어서 문항이 그 하나를 5분 잡을 수 있고,
-	// 0으로 두면 문항이 아예 만들어지지 않는다 — 둘 중 앞엣것을 고른 것이다.
+	// 워커가 없는 티어에도 있다. 거기서 도는 것은 줄에 세우지 못한 판의 대체 경로뿐인데
+	// (buildQuizNow) 그것도 5분짜리 탐색이라, 세지 않으면 끝나는 판마다 하나씩 떠서 풀을
+	// 다 가져간다.
+	//
+	// 워커가 하나면 남길 자리가 없다. 문항이 그 하나를 5분 잡을 수 있고, 0으로 두면 문항이
+	// 아예 만들어지지 않는다 — 둘 중 앞엣것을 고른 것이다.
+	//
+	// nil 은 구조체 리터럴로 만드는 테스트뿐이다.
 	quizSlots chan struct{}
 
 	// quiz 는 문항 큐를 집었을 때 쓴다(023). 세우는 쪽이 둘이고 그 둘이 엔진 대국과
@@ -229,10 +234,9 @@ func newMatchAnalyzer(ctx context.Context, deps AnalysisDeps) *matchAnalyzer {
 	}
 	// 문항이 워커를 다 가져가지 못하게 한다. 하나는 판과 手 쪽에 남는다.
 	//
-	// 워커가 하나면 세지 않는다. 남길 자리가 없다.
-	if workers > 1 {
-		a.quizSlots = make(chan struct{}, workers-1)
-	}
+	// 집지 않는 티어에도 하나를 준다. 거기서도 대체 경로가 돌고(buildQuizNow) 그것이
+	// 세어지지 않으면 끝나는 판마다 5분짜리 탐색이 하나씩 뜬다.
+	a.quizSlots = make(chan struct{}, max(workers-1, 1))
 	for range workers {
 		go a.run(ctx)
 	}
