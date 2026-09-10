@@ -495,10 +495,11 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 		return // 기록이 없으면 셀 것이 없다. 총평도 없다
 	}
 
-	// 여기까지는 연결이 끊겨도 간다. 뒤에 퀴즈를 줄에 세우는 자리가 있고, 엔진 대국을
-	// 세우는 곳이 여기뿐이다 — 총평은 되짚기가 다시 청하지만(review.go summary) 퀴즈에는 그런 자리가
-	// 없다. 기다리는 것은 큐를 비우는 일이고 읽는 것은 질의 하나라, 끊긴 연결에
-	// 매달리는 값이 싸다.
+	// 여기부터는 연결이 끊겨도 계속한다. 뒤에 퀴즈를 큐에 세우는 자리가 있고, 엔진 대국을
+	// 세우는 곳이 여기뿐이다. 총평은 되짚기가 다시 청하지만(review.go summary) 퀴즈에는
+	// 그런 자리가 없다.
+	//
+	// 남은 일이 적어서 그래도 된다. 기다리는 것은 큐를 비우는 일이고 읽는 것은 질의 하나다.
 	base := context.WithoutCancel(ctx)
 
 	var gameID int64

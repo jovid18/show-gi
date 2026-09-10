@@ -196,7 +196,7 @@ SELECT (
         JOIN games g ON g.match_id = j.match_id
         WHERE g.id = sqlc.arg(game_id)::bigint
     )
-    -- 가져온 판은 games.match_id 가 NULL 이라 위 조인에 걸리지 않는다. 줄에 세울 때 쓴 키를
+    -- 가져온 판은 games.match_id 가 NULL 이라 위 조인에 걸리지 않는다. 큐에 세울 때 쓴 키를
     -- 부르는 쪽이 그대로 넘긴다 — 키의 모양을 Go 한 곳에만 두기 위해서다.
     OR EXISTS (
         SELECT 1 FROM analysis_jobs j WHERE j.match_id = sqlc.arg(import_key)::text
@@ -232,7 +232,7 @@ DELETE FROM analysis_jobs WHERE created_at < $1;
 
 -- name: EnqueueQuizJob :exec
 --
--- 그 판의 문항을 줄에 세운다. 두 번 세워도 한 행이다.
+-- 그 판의 문항을 큐에 세운다. 두 번 세워도 한 행이다.
 --
 -- 부르는 자리가 둘이다. 엔진 대국이 끝나는 자리와, 가져온 판을 다 잰 자리다. 대인전은
 -- 세우지 않는다. 그 판에는 아직 문항이 없다.

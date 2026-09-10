@@ -271,7 +271,7 @@ func (s *Store) AnalysisJobBacklog(ctx context.Context, leaseBefore time.Time) (
 // IsGameAnalyzing 은 그 판이 아직 큐에 있거나 도는 중인가다.
 //
 // 키를 받는다. 대인전은 games.match_id 로 조인해 찾지만 가져온 판은 그 칸이 NULL 이라
-// 줄에 세울 때 쓴 키가 있어야 찾는다 — 키의 모양은 부르는 쪽에만 있다(server 의 importKey).
+// 큐에 세울 때 쓴 키가 있어야 찾는다 — 키의 모양은 부르는 쪽에만 있다(server 의 importKey).
 func (s *Store) IsGameAnalyzing(ctx context.Context, gameID int64, importKey string) (bool, error) {
 	ok, err := s.q.IsGameAnalyzing(ctx, db.IsGameAnalyzingParams{GameID: gameID, ImportKey: importKey})
 	if err != nil {
@@ -352,7 +352,7 @@ func (s *Store) SweepAnalysisJobs(ctx context.Context, before time.Time) error {
 // ErrNoQuizJob 은 지금 만들 문항이 없다는 것 하나다.
 var ErrNoQuizJob = errors.New("store: no quiz to build")
 
-// EnqueueQuizJob 은 그 판의 문항을 줄에 세운다. 두 번 불려도 한 행이다.
+// EnqueueQuizJob 은 그 판의 문항을 큐에 세운다. 두 번 불려도 한 행이다.
 func (s *Store) EnqueueQuizJob(ctx context.Context, gameID int64) error {
 	if err := s.q.EnqueueQuizJob(ctx, gameID); err != nil {
 		return fmt.Errorf("enqueue quiz job: %w", err)

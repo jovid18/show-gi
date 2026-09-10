@@ -46,7 +46,7 @@ func importedGameID(key string) (int64, bool) {
 	return id, true
 }
 
-// enqueueImport 는 가져온 판의 手를 전부 줄에 세우고 그 판을 「분석 중」으로 만든다.
+// enqueueImport 는 가져온 판의 手를 전부 큐에 세우고 그 판을 「분석 중」으로 만든다.
 //
 // 이 갈래는 手를 한 번에 다 세운다. 수순 전부를 이미 알기 때문이고, 그래서
 // 워커가 몇이든 手들이 병렬로 재어진다 — 판이 집힐 때는 대개 다 재어져 있어서

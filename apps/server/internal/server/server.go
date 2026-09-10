@@ -188,7 +188,7 @@ func (m *Match) AnalyzeWith(ctx context.Context, deps AnalysisDeps) {
 	m.records.analyzer = newMatchAnalyzer(ctx, deps)
 }
 
-// Analyzer 는 가져온 기보를 줄에 세울 상대다. 대인전이 꺼진 배포에서는 nil 이고,
+// Analyzer 는 가져온 기보를 큐에 세울 상대다. 대인전이 꺼진 배포에서는 nil 이고,
 // 그때 가져오기 표면도 같이 닫힌다(kifu_import.go).
 func (m *Match) Analyzer() *matchAnalyzer { return m.analyzerOrNil() }
 

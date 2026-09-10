@@ -35,7 +35,7 @@ const quizLease = 30 * time.Minute
 // 횟수로 묶는다 — 한 번이 최대 5분이라 상한이 곧 그 판에 쓸 엔진 시간이다.
 const quizAttempts = 3
 
-// queueQuiz 는 그 판의 문항을 줄에 세운다. 세웠으면 참이다.
+// queueQuiz 는 그 판의 문항을 큐에 세운다. 세웠으면 참이다.
 //
 // 거짓이면 부르는 쪽이 그 자리에서 만든다. 배포가 마이그레이션보다 먼저 나가는 창이 늘
 // 있고(deploy/README.md §4), 그동안 표가 없어 이 문장이 실패한다 — 세우지도 만들지도
@@ -65,7 +65,7 @@ func (a *matchAnalyzer) queueQuiz(ctx context.Context, gameID int64) bool {
 	return true
 }
 
-// buildQuizNow 는 줄을 지나지 않고 만든다. 줄에 세우지 못한 자리에서만, 떨어져 나온
+// buildQuizNow 는 큐를 지나지 않고 만든다. 큐에 세우지 못한 자리에서만, 떨어져 나온
 // goroutine 으로 부른다.
 //
 // 자리를 기다린다. 워커가 아니라 기다려도 막는 것이 없고, 기다리지 않으면 표가 없는
@@ -243,7 +243,7 @@ const quizSaveTimeout = 10 * time.Second
 
 // generateQuiz 는 끝난 판에서 문항을 만들어 저장한다. 남겼으면 참이다.
 //
-// 부르는 자리가 셋이다. 큐를 집은 워커(runOneQuiz)와, 줄에 세우지 못한 두 자리
+// 부르는 자리가 셋이다. 큐를 집은 워커(runOneQuiz)와, 큐에 세우지 못한 두 자리
 // (buildQuizNow · ws.go 의 sendSummary)다. 어느 쪽이든 기록 하나만 있으면 된다.
 //
 // 거짓은 「이번에는 남기지 못했다」이지 「문항이 없다」가 아니다. 부르는 쪽이 그 판을
