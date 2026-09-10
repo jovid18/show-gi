@@ -336,8 +336,8 @@ func Handler(opts Options) http.Handler {
 		// 총평은 기보와 따로 간다 — 화면이 판을 먼저 그린다(review.go summary).
 		mux.HandleFunc("GET /api/games/{id}/summary", rev.summary)
 
-		// 퀴즈(quiz.go). 엔진과 무관하다 — 문항은 판이 끝나는 자리에서 이미 만들어져
-		// 있고 채점은 저장된 트리를 읽는 일뿐이다. 되짚기와 같은 문으로 기록을 읽는다.
+		// 퀴즈(quiz.go). 엔진과 무관하다 — 문항은 분석 워커가 미리 만들어 두고
+		// (quiz_jobs.go) 채점은 저장된 트리를 읽는 일뿐이다. 되짚기와 같은 문으로 기록을 읽는다.
 		qz := &quizHandler{review: rev}
 		mux.HandleFunc("GET /api/games/{id}/quiz", qz.get)
 		mux.HandleFunc("POST /api/games/{id}/quiz/mate", qz.mate)

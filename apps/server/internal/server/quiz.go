@@ -12,7 +12,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 되짚기 퀴즈의 표면. 엔진이 없다 — 문항은 판이 끝나는 자리에서 이미 만들어져 있고
+// 되짚기 퀴즈의 표면. 엔진이 없다 — 문항은 분석 워커가 미리 만들어 두고
 // (quiz_jobs.go generateQuiz) 여기는 그것을 읽어 채점만 한다(journal §53).
 //
 // 그래서 이 표면은 /api/games/{id} 와 같은 성질이다: DB에 매여 있고 엔진과 무관하다.
@@ -38,9 +38,11 @@ type quizHandler struct {
 // 읽지 못하면 참으로 둔다. 「오지 않는다」로 답하면 화면이 그 자리에서 그만두는데, 그
 // 말은 되돌릴 자리가 없다.
 //
-// 덮지 못하는 창이 하나 있다. 표가 아직 없는 배포에서는 줄에 세우지 못하고 그 자리에서
-// 만드는데(queueQuiz), 그때는 둘 다 거짓이라 화면이 기다리기를 그만둔다 — 만들어진 뒤
-// 「もう一度」로 온다.
+// 덮지 못하는 창이 하나 있다. 표는 있는데 세우기가 실패한 자리다 — 그때는 그 자리에서
+// 만드는데(queueQuiz) 줄에도 없고 재는 중도 아니라 거짓이 나간다. 표가 아예 없는 배포는
+// 반대다: 이 질의가 실패해서 참으로 답하고, 화면이 기다린다.
+//
+// 그 창은 화면이 받는다. 한 번의 거짓으로는 그만두지 않는다(useQuiz 의 QUIZ_MIN_WAIT_MS).
 func (h *quizHandler) queued(r *http.Request, gameID int64) bool {
 	ok, err := h.review.store.IsQuizQueued(r.Context(), gameID)
 	if err != nil {
@@ -112,7 +114,10 @@ func (h *quizHandler) get(w http.ResponseWriter, r *http.Request) {
 	}
 	// 줄을 먼저 본다. 워커가 쓰는 순서와 반대다(문항을 남기고 나서 줄에서 걷는다) —
 	// 같은 순서로 읽으면 그 사이에 끼었을 때 「다 됐는데 오지 않는다」가 나간다.
-	queued := h.queued(r, rec.ID)
+	//
+	// 대인전 판에는 묻지 않는다. 그쪽은 아래에서 Ready 를 참으로 두므로 이 값이 쓰이지
+	// 않고, 되짚기를 여는 사람마다 질의 하나가 더 나가는 자리다.
+	queued := rec.MatchID == "" && h.queued(r, rec.ID)
 
 	q, ready, ok := h.load(w, r, rec.ID)
 	if !ok {

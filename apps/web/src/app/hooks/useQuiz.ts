@@ -41,27 +41,29 @@ export function useQuiz(id: number): QuizSource {
   // 것으로는 「문항이 오지 않는다」를 정할 수 없다. 다시 묻는 동안 직전 답이 그대로 있으므로
   // (useFetch 의 afterFailure) 이 값은 그 사이에 흔들리지 않는다.
   // 다 만들어지면 멈추고, 오지 않으면 그것도 멈춘다. 「아직 만드는 중」은 영영 참일 수
-  // 있다 — 이 코드 전에 끝난 판, 세우지 못한 판, 문항 판이 올라가 옛 행이 죽은 뒤가 전부
-  // 그렇다. 계속 물으면 화면이 오지 않을 것을 기다리라고 말하게 된다.
+  // 있다 — 이 코드 전에 끝난 판과, 문항 판이 올라가 옛 행이 죽은 뒤가 그렇다. 계속
+  // 물으면 화면이 오지 않을 것을 기다리라고 말하게 된다.
   //
-  // 그것을 서버가 말한다(`queued`). 줄에 없으면서 아직 아니라면 오지 않는다.
+  // 그것을 서버가 말한다(`queued`).
   const pending = loaded.state === 'ready' && !loaded.data.ready;
-  const waiting = pending && loaded.data.queued === true;
+  const queued = pending && loaded.data.queued === true;
 
-  // 시간은 마지막 자물쇠다. 줄에 있는 채로 오래 머무는 판이 있어서(만들지 못하면 행이
-  // 남는다) 그것까지 열어 두면 화면이 몇 시간을 묻는다.
-  //
   // 끊는 기준은 물은 횟수 대신 기다린 시간이다. 세는 쪽은 「효과가 몇 번 다시
   // 도는가」에 매이는데 그것은 재려던 것과 다르고 실제로 어긋났다 — 개발 모드에서 5초
   // 간격이 22초에 9회로 돌았다.
-  if (waiting && since.current === null) {
+  if (pending && since.current === null) {
     since.current = Date.now();
   }
-  if (!waiting) {
+  if (!pending) {
     since.current = null;
   }
-  const tooLong = waiting && since.current !== null && Date.now() - since.current >= QUIZ_WAIT_MS;
-  const gaveUp = pending && (!waiting || tooLong);
+  const waited = since.current === null ? 0 : Date.now() - since.current;
+
+  // 한 번의 「줄에 없다」로 그만두지 않는다. 그 값이 잠깐 거짓일 수 있는 자리가 있다 —
+  // 대국이 끝나고 총평이 먼저 가고 세우는 것이 그 뒤이고(server/ws.go), 세우기가 실패한
+  // 판은 줄 없이 그 자리에서 만들어진다. 둘 다 화면에서는 「아직 안 왔다」로 보인다.
+  const waiting = pending && waited < (queued ? QUIZ_WAIT_MS : QUIZ_MIN_WAIT_MS);
+  const gaveUp = pending && !waiting;
 
   // `attempts` 가 다시 걸어 주는 값이다. 나머지 셋은 폴링 도중에 바뀌지 않는다: `waiting` 은
   // 계속 참이고(다시 묻는 동안 직전 답이 그대로 있다) `gaveUp` 은 거짓이고 `reload` 는 고정이다.
@@ -107,6 +109,18 @@ const QUIZ_POLL_MS = 5000;
  * 만드는 시한(5분)의 두 배로 잡은 것이지 잰 값이 아니다 `[미확정]`.
  */
 const QUIZ_WAIT_MS = 10 * 60 * 1000;
+
+/**
+ * 줄에 없다고 할 때 그래도 기다리는 시간. 1분이다.
+ *
+ * `queued` 가 잠깐 거짓일 수 있다. 대국이 끝나면 총평이 먼저 가고 줄에 세우는 것이 그
+ * 뒤이고(server/ws.go), 세우기가 실패한 판은 줄 없이 그 자리에서 만들어진다. 한 번의
+ * 거짓으로 그만두면 그 두 자리에서 화면이 오는 것을 안 왔다고 말한다.
+ *
+ * 폴링 간격의 열두 배다. 잰 값이 아니라 「사람이 새로고침하기 전」과 「없는 것을
+ * 기다리게 하지 않는다」 사이에서 고른 것이다 `[미확정]`.
+ */
+const QUIZ_MIN_WAIT_MS = 60 * 1000;
 
 /** 채점 한 번의 상태. 누른 뒤 답이 오기까지의 자리가 화면에 있어야 한다. */
 export interface Grading<T> {
