@@ -541,7 +541,14 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 	// 일로 끝난다.
 	switch a := h.opts.Match.Analyzer(); {
 	case a == nil:
-		// 엔진이 없는 배포다. 생성기도 없으므로 빈 행 하나를 남기는 일로 끝난다.
+		// 엔진이 없는 배포다. 생성기도 없으므로 빈 행 하나를 남기는 일로 끝난다 — 둘이
+		// cmd/api 의 같은 자리에서 생겨 함께 없다.
+		//
+		// 그 배선이 갈리면 여기가 세어지지 않는 5분짜리 탐색이 된다(quizSlots 를 지나지
+		// 않는 하나뿐인 자리다). 조건이 아니라 신호로 둔다 — 막으면 그 판이 문항을 잃는다.
+		if h.opts.Quiz != nil {
+			log.Printf("ws: quiz: game %d: a builder with no analyzer — building it here, uncounted", gameID)
+		}
 		go generateQuiz(base, h.opts.Store, h.opts.Quiz, rec)
 	case !a.queueQuiz(base, gameID):
 		// 표가 아직 없거나 쓰기가 실패했다. 분석기를 지나 만든다 — 그래야 동시에 만드는

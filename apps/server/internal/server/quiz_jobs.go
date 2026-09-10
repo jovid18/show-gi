@@ -190,15 +190,25 @@ func (a *matchAnalyzer) failQuiz(parent context.Context, gameID int64) {
 	}
 }
 
-// awaitQuizSlot 은 자리가 날 때까지 기다린다. ctx 가 끝나면 ok=false 다.
-func (a *matchAnalyzer) awaitQuizSlot(ctx context.Context) (func(), bool) {
+// awaitQuizSlot 은 자리가 날 때까지 기다린다. 못 잡으면 ok=false 다.
+//
+// 시한을 여기서 건다. 부르는 쪽 둘이 다 취소를 벗긴 ctx 를 주므로(대국이 끝나는 자리와
+// 판을 다 잰 자리) 기다리는 쪽은 아무것도 끊지 못한다 — 표가 없는 배포에서 판이 5분에
+// 하나보다 빨리 끝나면 기다리는 goroutine 이 계속 는다.
+//
+// 못 잡은 판은 문항 없이 남는다. 걷힌 판과 같은 칸에 센다.
+func (a *matchAnalyzer) awaitQuizSlot(parent context.Context) (func(), bool) {
 	if a.quizSlots == nil {
 		return func() {}, true
 	}
+	ctx, cancel := context.WithTimeout(parent, quizTimeout)
+	defer cancel()
 	select {
 	case a.quizSlots <- struct{}{}:
 		return func() { <-a.quizSlots }, true
 	case <-ctx.Done():
+		a.analysis.LostQuizzes(1)
+		log.Print("quiz: waited for a slot too long — that game has no quiz")
 		return nil, false
 	}
 }
