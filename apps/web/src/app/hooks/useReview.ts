@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { GameSummary as PostGameSummary } from '@/protocol/game';
 import type { ApiError, GameDetail, GameListResponse, GameSummary } from '@/protocol/review';
@@ -39,28 +39,65 @@ async function getJSON<T>(path: string, signal: AbortSignal): Promise<T> {
  *
  * 퀴즈도 이걸 쓴다(useQuiz) — 「아직 오지 않았다 / 읽지 못했다 / 하나도 없다」를 따로 두는 규약이
  * 두 벌이 되면 한쪽에서만 빈 목록이 오류처럼 보인다.
+ *
+ * `reload` 로 다시 물을 때는 직전 답을 그대로 들고 있는다. 폴링하는 화면이 둘이라
+ * (되짚기의 분석 중, 퀴즈의 생성 중) 부르는 쪽마다 그 규약을 다시 짜면 어긋난다.
+ * 무엇을 남기고 무엇을 비우는지는 `startingLoad`·`afterFailure` 가 정한다.
  */
 export function useFetch<T>(path: string): Source<T> {
   const [loaded, setLoaded] = useState<Loaded<T>>({ state: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
+  // 지금 화면에 그려진 것이 어느 주소의 답인가. 같은 주소를 다시 묻는 것과 다른 판으로
+  // 옮겨 가는 것을 이 값 하나가 가른다.
+  const shown = useRef<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoaded({ state: 'loading' });
+    const samePath = shown.current === path;
+    shown.current = path;
+    setLoaded((prev) => startingLoad(prev, samePath));
 
     getJSON<T>(path, controller.signal)
       .then((data) => setLoaded({ state: 'ready', data }))
       .catch((err: unknown) => {
         // 우리가 취소한 것이다. 화면에 오류를 띄우면 사실과 어긋난다.
         if (controller.signal.aborted) return;
-        setLoaded({ state: 'error', message: err instanceof Error ? err.message : FALLBACK_ERROR });
+        setLoaded((prev) => afterFailure(prev, err instanceof Error ? err.message : FALLBACK_ERROR));
       });
 
     return () => controller.abort();
   }, [path, attempt]);
 
   return { loaded, reload };
+}
+
+/**
+ * 요청을 새로 걸 때 화면에 남길 것.
+ *
+ * 같은 주소를 다시 묻는 동안에는 직전 답을 그대로 둔다. `loading` 으로 되돌리면 그 자리를
+ * 그리던 컴포넌트가 언마운트되고, 되짚기에서는 고른 手数와 가정 수순이 거기서 사라진다
+ * (journal §136).
+ *
+ * 주소가 바뀌면 비운다. 새 판을 받는 동안 앞 판의 기보가 남아 있으면, 화면이 남의 판을
+ * 지금 판이라고 말하게 된다.
+ */
+export function startingLoad<T>(prev: Loaded<T>, samePath: boolean): Loaded<T> {
+  if (samePath && prev.state === 'ready') return prev;
+  return { state: 'loading' };
+}
+
+/**
+ * 실패했을 때 화면에 남길 것.
+ *
+ * 그리던 것이 있으면 남긴다. 폴링 한 번이 끊긴 것으로 판을 지우면, 사람은 자기가 무엇을
+ * 잘못 눌렀는지 모른 채 되짚기를 처음부터 다시 연다.
+ *
+ * 처음부터 아무것도 없었으면 오류다. 그때만 빈 화면보다 이유가 낫다.
+ */
+export function afterFailure<T>(prev: Loaded<T>, message: string): Loaded<T> {
+  if (prev.state === 'ready') return prev;
+  return { state: 'error', message };
 }
 
 /** 최근 대국 목록. */

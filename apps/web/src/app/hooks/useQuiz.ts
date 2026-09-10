@@ -25,7 +25,6 @@ export interface QuizSource extends Source<QuizPayload> {
 export function useQuiz(id: number): QuizSource {
   const { loaded, reload } = useFetch<QuizPayload>(`/api/games/${id}/quiz`);
   const [attempts, setAttempts] = useState(0);
-  const last = useRef<QuizPayload | null>(null);
   // 기다리기 시작한 시각. 횟수 대신 시간을 잰다 — 아래.
   const since = useRef<number | null>(null);
 
@@ -36,10 +35,9 @@ export function useQuiz(id: number): QuizSource {
   // 아직 기다리는 중인가.
   //
   // 한 번 실패한 것으로 끝내지 않는다. 요청 하나가 500을 받거나 네트워크가 한 번 끊긴
-  // 것으로는 「문항이 오지 않는다」를 정할 수 없다 — 그래서 부르는 중이든 실패했든 직전 답을 본다
-  // (아래에서 그 답을 화면에 그대로 내보내는 것과 같은 판단이다).
-  const stillWaiting = last.current != null && !last.current.ready;
-  const waiting = loaded.state === 'ready' ? !loaded.data.ready : stillWaiting;
+  // 것으로는 「문항이 오지 않는다」를 정할 수 없다. 다시 묻는 동안 직전 답이 그대로 있으므로
+  // (useFetch 의 afterFailure) 이 값은 그 사이에 흔들리지 않는다.
+  const waiting = loaded.state === 'ready' && !loaded.data.ready;
 
   // 다 만들어지면 멈추고, 오지 않으면 그것도 멈춘다. 「아직 만드는 중」은 영영 참일 수 있다 —
   // 이 코드 전에 끝난 판, 생성기가 없는 배포, 문항 판이 올라가 옛 행이 죽은 뒤가 전부 그렇다.
@@ -57,8 +55,8 @@ export function useQuiz(id: number): QuizSource {
   }
   const gaveUp = waiting && since.current !== null && Date.now() - since.current >= QUIZ_WAIT_MS;
 
-  // `attempts` 가 다시 걸어 주는 값이다. 나머지 셋은 폴링 도중에 바뀌지 않는다 — `waiting` 은
-  // 계속 참이고(위에서 부르는 중에도 참으로 두었다) `gaveUp` 은 거짓이고 `reload` 는 고정이다.
+  // `attempts` 가 다시 걸어 주는 값이다. 나머지 셋은 폴링 도중에 바뀌지 않는다: `waiting` 은
+  // 계속 참이고(다시 묻는 동안 직전 답이 그대로 있다) `gaveUp` 은 거짓이고 `reload` 는 고정이다.
   // 그래서 이것을 빼면 효과가 다시 돌지 않아 타이머가 한 번만 걸린다.
   //
   // 다시 걸어 주는 값은 의도한 것 하나로 고정한다. `waiting` 이 부르는 중에 흔들리는
@@ -79,17 +77,6 @@ export function useQuiz(id: number): QuizSource {
     setAttempts(0);
     reload();
   }, [reload]);
-
-  // 다시 물을 때 직전 답을 그대로 둔다. `useFetch` 는 부를 때마다 `loading` 으로
-  // 돌아가는데, 그러면 「問題を作っています」가 5초마다 「読み込み中…」으로 번쩍인다 —
-  // 화면이 그 두 상태 전체를 다른 것으로 그리기 때문이다(QuizScreen).
-  if (loaded.state === 'ready') {
-    last.current = loaded.data;
-  }
-  // 부르는 중이든 한 번 실패했든, 직전 답이 있으면 그것을 그대로 쓴다.
-  if (loaded.state !== 'ready' && last.current && !gaveUp) {
-    return { loaded: { state: 'ready', data: last.current }, reload: retry, gaveUp };
-  }
 
   return { loaded, reload: retry, gaveUp };
 }

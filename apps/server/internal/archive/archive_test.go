@@ -3,6 +3,7 @@ package archive
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -42,6 +43,7 @@ type fakeStore struct {
 	mu        sync.Mutex
 	positions map[string]store.Position
 	edges     []store.Edge
+	timings   []store.SearchTiming
 	putErr    error
 }
 
@@ -86,6 +88,19 @@ func (s *fakeStore) PutPosition(_ context.Context, p store.Position) (bool, erro
 	}
 	s.positions[p.SFENKey] = p
 	return true, nil
+}
+
+func (s *fakeStore) PutSearchTiming(_ context.Context, t store.SearchTiming) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.timings = append(s.timings, t)
+	return nil
+}
+
+func (s *fakeStore) putTimings() []store.SearchTiming {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.timings)
 }
 
 func (s *fakeStore) PutEdge(_ context.Context, e store.Edge) error {
@@ -585,5 +600,57 @@ func TestDoesNotObserveFailedSearches(t *testing.T) {
 	defer m.mu.Unlock()
 	if m.engine != 0 || m.cached != 0 {
 		t.Fatalf("실패를 셌다: 엔진 %d · 캐시 %d", m.engine, m.cached)
+	}
+}
+
+// 탐색 하나가 소요 시간도 남긴다. 캐시 히트와 실제 탐색이 같은 표에 다른 cached 로 들어가야
+// 「엔진을 부른 비용」과 「캐시가 답한 비용」을 나중에 갈라 볼 수 있다.
+func TestRecordsHowLongEachSearchTook(t *testing.T) {
+	st := newStore()
+	eng := &fakeEngine{res: result(14, "7g7f", "2g2f", "2六歩")}
+	a := Wrap(eng, st)
+
+	if _, err := a.SearchMultiPV(t.Context(), shogi.StartSFEN, nil, 14, 3); err != nil {
+		t.Fatalf("첫 탐색: %v", err)
+	}
+	a.Wait()
+
+	// 같은 국면·같은 깊이·같은 k다. 이번에는 캐시가 답한다.
+	if _, err := a.SearchMultiPV(t.Context(), shogi.StartSFEN, nil, 14, 3); err != nil {
+		t.Fatalf("두 번째 탐색: %v", err)
+	}
+	a.Wait()
+
+	got := st.putTimings()
+	if len(got) != 2 {
+		t.Fatalf("행이 %d개다. 탐색마다 하나여야 한다: %+v", len(got), got)
+	}
+
+	start, err := shogi.ParseSFEN(shogi.StartSFEN)
+	if err != nil {
+		t.Fatalf("ParseSFEN: %v", err)
+	}
+	key := Key(start)
+
+	var cached, computed int
+	for _, tm := range got {
+		if tm.SFENKey != key {
+			t.Errorf("키가 다르다: %q", tm.SFENKey)
+		}
+		// k는 부른 쪽이 요구한 값이다. 돌아온 후보 수(2)가 아니다.
+		if tm.Depth != 14 || tm.K != 3 {
+			t.Errorf("depth·k = %d·%d, 부른 값은 14·3", tm.Depth, tm.K)
+		}
+		if tm.Ms < 0 {
+			t.Errorf("ms = %d", tm.Ms)
+		}
+		if tm.Cached {
+			cached++
+		} else {
+			computed++
+		}
+	}
+	if cached != 1 || computed != 1 {
+		t.Errorf("cached %d · computed %d — 한 번씩이어야 한다", cached, computed)
 	}
 }

@@ -48,6 +48,7 @@ type Store interface {
 	Edges(ctx context.Context, parentKey string) ([]store.Edge, error)
 	PutPosition(ctx context.Context, p store.Position) (bool, error)
 	PutEdge(ctx context.Context, e store.Edge) error
+	PutSearchTiming(ctx context.Context, t store.SearchTiming) error
 }
 
 // Metrics 는 탐색 하나를 받는 자리다.
@@ -78,6 +79,9 @@ type Searcher struct {
 
 	// wg 는 떠 있는 기록들이다. 종료할 때 이것만 기다리면 방금 잰 분석이 버려지지 않는다.
 	wg sync.WaitGroup
+
+	// timingLog 는 시간 기록이 실패했다는 말을 한 번만 하게 한다(recordTiming).
+	timingLog sync.Once
 }
 
 // Wrap 은 탐색에 기록을 붙인다. st 가 nil이면 아무것도 쌓지 않고 그대로 넘긴다 —
@@ -111,20 +115,27 @@ func (a *Searcher) SearchMultiPV(
 ) (usi.SearchResult, error) {
 	start := time.Now()
 
+	// 이 국면의 키. 캐시 조회와 시간 기록이 같은 값을 쓴다. 되짚기가 수마다
+	// ValidateMove 를 도므로 한 탐색에 두 번 이상 하지 않는다.
+	var key string
+
 	// 이미 잰 국면이면 엔진을 부르지 않는다. 여기가 §12의 캐시를 실제로 쓰는 자리다 —
 	// 상대의 수는 k=10으로 2초쯤 걸리고, 사람의 수를 판정하는 「착수 전」 탐색은 방금
 	// 그 상대가 이미 잰 그 국면이다.
 	if a.store != nil {
 		if pos, err := positionAfter(startSFEN, moves); err == nil {
+			key = Key(pos)
 			if hit, ok := a.lookup(ctx, pos, depth, multiPV); ok {
 				// 히트에도 「이 국면에 오게 한 수」는 남긴다. 국면은 이미 있어도 그
 				// 국면으로 오는 길은 새것일 수 있다(전치가 그것이다) — 남기지 않으면 그
 				// 간선이 영원히 비어 있고, A→B를 쌓는다는 말이 반만 사실이 된다.
 				line := slices.Clone(moves)
+				took := time.Since(start)
 				a.wg.Add(1)
 				go func() {
 					defer a.wg.Done()
 					a.recordPath(startSFEN, line, hit)
+					a.recordTiming(key, depth, multiPV, took, true)
 				}()
 				a.observe(start, true)
 				return hit, nil
@@ -143,12 +154,43 @@ func (a *Searcher) SearchMultiPV(
 	// 부르는 쪽이 준 슬라이스를 들고 가지 않는다. 대국 루프는 수를 계속 덧붙이므로
 	// 그 배열이 기록 도중에 바뀐다 — 롤백이 있으면 줄어들기까지 한다.
 	line := slices.Clone(moves)
+	took := time.Since(start)
 	a.wg.Add(1)
 	go func() {
 		defer a.wg.Done()
 		a.record(startSFEN, line, res)
+		if key != "" {
+			a.recordTiming(key, depth, multiPV, took, false)
+		}
 	}()
 	return res, nil
+}
+
+// recordTiming 은 탐색 하나의 소요 시간을 남긴다. depth·k 별 비용을 나중에 질의로 보는
+// 자리이고(search_timings), 읽는 쪽은 사람이다.
+//
+// 실패해도 로그만 남긴다. 이 기록이 없다고 탐색이 실패한 것은 아니고, 표가 아직 없는
+// 이미지에서도 대국은 돌아야 한다.
+//
+// 로그는 한 번만 찍는다. 배포가 마이그레이션을 돌리지 않으므로(deploy/README.md §4) 이미지가
+// 표보다 먼저 나가는 창이 늘 있고, 그 사이 모든 탐색이 같은 줄을 한 줄씩 남긴다.
+// 쓰기는 계속 시도한다. 사람이 표를 넣는 순간 재기동 없이 쌓이기 시작한다.
+func (a *Searcher) recordTiming(key string, depth, multiPV int, d time.Duration, cached bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), writeTimeout)
+	defer cancel()
+
+	err := a.store.PutSearchTiming(ctx, store.SearchTiming{
+		SFENKey: key,
+		Depth:   depth,
+		K:       multiPV,
+		Ms:      int(d.Milliseconds()),
+		Cached:  cached,
+	})
+	if err != nil {
+		a.timingLog.Do(func() {
+			log.Printf("archive: record search timing (logged once): %v", err)
+		})
+	}
 }
 
 // lookup 은 이미 잰 국면을 탐색 결과의 모양으로 되돌린다. 쓰지 못하면 ok=false.

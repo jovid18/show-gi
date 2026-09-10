@@ -154,6 +154,16 @@ type Position struct {
 	CreatedAt     pgtype.Timestamptz
 }
 
+type SearchTiming struct {
+	ID        int64
+	SFENKey   string
+	Depth     int32
+	K         int32
+	Ms        int32
+	Cached    bool
+	CreatedAt pgtype.Timestamptz
+}
+
 type SkillProfile struct {
 	UserID          int64
 	RatingEst       float64
