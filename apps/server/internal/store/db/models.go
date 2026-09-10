@@ -154,6 +154,12 @@ type Position struct {
 	CreatedAt     pgtype.Timestamptz
 }
 
+type QuizJob struct {
+	GameID    int64
+	ClaimedAt pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
+}
+
 type SearchTiming struct {
 	ID        int64
 	SFENKey   string

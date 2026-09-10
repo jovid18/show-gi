@@ -113,6 +113,27 @@ func (q *Queries) ClaimAnalysisPly(ctx context.Context, leaseBefore pgtype.Times
 	return i, err
 }
 
+const claimQuizJob = `-- name: ClaimQuizJob :one
+WITH next AS MATERIALIZED (
+    SELECT j.game_id FROM quiz_jobs j
+    WHERE j.claimed_at IS NULL OR j.claimed_at < $1::timestamptz
+    ORDER BY j.created_at
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+)
+UPDATE quiz_jobs t SET claimed_at = now()
+FROM next n WHERE t.game_id = n.game_id
+RETURNING t.game_id
+`
+
+// 만들 판 하나를 집는다. 없으면 0행이다. ClaimAnalysisJob 과 같은 모양이다.
+func (q *Queries) ClaimQuizJob(ctx context.Context, leaseBefore pgtype.Timestamptz) (int64, error) {
+	row := q.db.QueryRow(ctx, claimQuizJob, leaseBefore)
+	var game_id int64
+	err := row.Scan(&game_id)
+	return game_id, err
+}
+
 const countAnalysisBacklog = `-- name: CountAnalysisBacklog :one
 SELECT count(*) FROM analysis_plies
 WHERE done_at IS NULL AND NOT dead
@@ -142,6 +163,20 @@ func (q *Queries) CountMeasuredAnalysisPlies(ctx context.Context, matchID string
 	return count, err
 }
 
+const countQuizBacklog = `-- name: CountQuizBacklog :one
+SELECT count(*) FROM quiz_jobs
+WHERE claimed_at IS NULL OR claimed_at < $1::timestamptz
+`
+
+// 아직 집히지 않은 판의 수다. 대수를 정하는 신호는 아니고(그쪽은 手 몫이다) 문항이
+// 밀렸는지를 보는 자리다.
+func (q *Queries) CountQuizBacklog(ctx context.Context, leaseBefore pgtype.Timestamptz) (int64, error) {
+	row := q.db.QueryRow(ctx, countQuizBacklog, leaseBefore)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const discardAnalysisMatch = `-- name: DiscardAnalysisMatch :exec
 DELETE FROM analysis_plies WHERE match_id = $1
 `
@@ -159,6 +194,16 @@ DELETE FROM analysis_jobs WHERE match_id = $1
 // 그 판을 큐에서 걷는다. 다 재고 나서와, 반쪽이라 분석하지 않는 자리에서 부른다.
 func (q *Queries) DropAnalysisJob(ctx context.Context, matchID string) error {
 	_, err := q.db.Exec(ctx, dropAnalysisJob, matchID)
+	return err
+}
+
+const dropQuizJob = `-- name: DropQuizJob :exec
+DELETE FROM quiz_jobs WHERE game_id = $1
+`
+
+// 그 판을 큐에서 걷는다. 문항을 남긴 뒤와, 기록을 읽지 못해 만들 수 없는 자리에서 부른다.
+func (q *Queries) DropQuizJob(ctx context.Context, gameID int64) error {
+	_, err := q.db.Exec(ctx, dropQuizJob, gameID)
 	return err
 }
 
@@ -203,6 +248,23 @@ func (q *Queries) EnqueueAnalysisPly(ctx context.Context, arg EnqueueAnalysisPly
 		arg.StartSfen,
 		arg.Moves,
 	)
+	return err
+}
+
+const enqueueQuizJob = `-- name: EnqueueQuizJob :exec
+
+INSERT INTO quiz_jobs (game_id) VALUES ($1)
+ON CONFLICT (game_id) DO NOTHING
+`
+
+// 문항을 만드는 큐(023). 판을 재는 큐에 얹혀 있던 것을 떼어낸 자리이고, 근거는 journal §138.
+//
+// 그 판의 문항을 줄에 세운다. 두 번 세워도 한 행이다.
+//
+// 부르는 자리가 둘이다. 엔진 대국이 끝나는 자리와, 가져온 판을 다 잰 자리다. 대인전은
+// 세우지 않는다. 그 판에는 아직 문항이 없다.
+func (q *Queries) EnqueueQuizJob(ctx context.Context, gameID int64) error {
+	_, err := q.db.Exec(ctx, enqueueQuizJob, gameID)
 	return err
 }
 
@@ -485,5 +547,15 @@ DELETE FROM analysis_plies WHERE created_at < $1
 // 남는 행이 이 표의 하나뿐인 누수다.
 func (q *Queries) SweepAnalysisPlies(ctx context.Context, createdAt pgtype.Timestamptz) error {
 	_, err := q.db.Exec(ctx, sweepAnalysisPlies, createdAt)
+	return err
+}
+
+const sweepQuizJobs = `-- name: SweepQuizJobs :exec
+DELETE FROM quiz_jobs WHERE created_at < $1
+`
+
+// 오래된 행을 걷는다. 만들다 실패한 판이 이 표의 누수이고, 그 판은 문항 없이 남는다.
+func (q *Queries) SweepQuizJobs(ctx context.Context, createdAt pgtype.Timestamptz) error {
+	_, err := q.db.Exec(ctx, sweepQuizJobs, createdAt)
 	return err
 }

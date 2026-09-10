@@ -1290,6 +1290,9 @@ components:
             「남지 않았다」를 따로 두지 않으면 판이 끝나자마자 들어온 사람이 영영
             없는 줄 안다
 
+            문항 만들기는 여기 들지 않는다. 그쪽은 자기 큐를 갖고 화면도 자기
+            값으로 기다린다 — `GET /api/games/{id}/quiz` 의 `ready`
+
     GameDetail:
       allOf:
         - $ref: '#/components/schemas/GameSummary'

@@ -821,6 +821,9 @@ func clearQueues(t *testing.T, st *store.Store) {
 	if err := st.SweepAnalysisJobs(t.Context(), time.Now()); err != nil {
 		t.Fatalf("clear the job queue: %v", err)
 	}
+	if err := st.SweepQuizJobs(t.Context(), time.Now()); err != nil {
+		t.Fatalf("clear the quiz queue: %v", err)
+	}
 }
 
 // plyAnalyzer 는 미리 재는 큐만 쓰는 분석기와 그 판의 id 를 준다.

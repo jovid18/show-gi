@@ -346,3 +346,53 @@ func (s *Store) SweepAnalysisJobs(ctx context.Context, before time.Time) error {
 	}
 	return nil
 }
+
+// 문항의 큐(023)의 표 접근. 위 두 큐와 같은 규약이고, 담는 것이 판 번호 하나다.
+
+// ErrNoQuizJob 은 지금 만들 문항이 없다는 것 하나다.
+var ErrNoQuizJob = errors.New("store: no quiz to build")
+
+// EnqueueQuizJob 은 그 판의 문항을 줄에 세운다. 두 번 불려도 한 행이다.
+func (s *Store) EnqueueQuizJob(ctx context.Context, gameID int64) error {
+	if err := s.q.EnqueueQuizJob(ctx, gameID); err != nil {
+		return fmt.Errorf("enqueue quiz job: %w", err)
+	}
+	return nil
+}
+
+// ClaimQuizJob 은 만들 판 하나를 집는다. 없으면 ErrNoQuizJob.
+func (s *Store) ClaimQuizJob(ctx context.Context, leaseBefore time.Time) (int64, error) {
+	id, err := s.q.ClaimQuizJob(ctx, stamp(leaseBefore))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, ErrNoQuizJob
+	}
+	if err != nil {
+		return 0, fmt.Errorf("claim quiz job: %w", err)
+	}
+	return id, nil
+}
+
+// DropQuizJob 은 그 판을 큐에서 걷는다.
+func (s *Store) DropQuizJob(ctx context.Context, gameID int64) error {
+	if err := s.q.DropQuizJob(ctx, gameID); err != nil {
+		return fmt.Errorf("drop quiz job: %w", err)
+	}
+	return nil
+}
+
+// QuizBacklog 은 아직 집히지 않은 판의 수다.
+func (s *Store) QuizBacklog(ctx context.Context, leaseBefore time.Time) (int, error) {
+	n, err := s.q.CountQuizBacklog(ctx, stamp(leaseBefore))
+	if err != nil {
+		return 0, fmt.Errorf("quiz backlog: %w", err)
+	}
+	return int(n), nil
+}
+
+// SweepQuizJobs 는 그 시각보다 오래된 행을 걷는다. 만들다 실패한 판이 이 표의 누수다.
+func (s *Store) SweepQuizJobs(ctx context.Context, before time.Time) error {
+	if err := s.q.SweepQuizJobs(ctx, stamp(before)); err != nil {
+		return fmt.Errorf("sweep quiz jobs: %w", err)
+	}
+	return nil
+}

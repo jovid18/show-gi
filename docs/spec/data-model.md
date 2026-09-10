@@ -2,7 +2,7 @@
 
 **이 문서는 「무엇이 어떻게 생겼나」다.** 왜 그 모양인가는 [02-architecture §4](../02-architecture.md#4-데이터-모델--그래프-db를-쓰지-않는-이유)에 있고, 여기서 다시 쓰지 않는다 — 두 벌이면 한쪽이 경고 없이 어긋난다.
 
-정본은 `apps/server/internal/store/migrations/*.sql` 이고, 이 문서는 그 19개 파일을 한 장으로 본 것이다. 레포에 파일이 있는 것과 프로덕션에 적용된 것은 다르다 — 어디까지 적용됐는지는 [06-status §3](../06-status.md).
+정본은 `apps/server/internal/store/migrations/*.sql` 이고, 이 문서는 그 23개 파일을 한 장으로 본 것이다. 레포에 파일이 있는 것과 프로덕션에 적용된 것은 다르다 — 어디까지 적용됐는지는 [06-status §3](../06-status.md).
 
 ---
 
@@ -20,6 +20,7 @@ erDiagram
     games ||--o{ game_undos : "사람이 스스로 무른 수"
     games ||--o{ game_hints : "사람이 불러서 받은 힌트"
     games ||--o| game_quizzes : "판당 한 행"
+    games ||--o| quiz_jobs : "만들기를 기다리는 동안만"
 
     positions ||--o{ edges : "parent_key"
     positions |o--o{ edges : "child_key (nullable)"
@@ -182,22 +183,39 @@ erDiagram
         timestamptz claimed_at "리스"
         timestamptz created_at
     }
+
+    quiz_jobs {
+        bigint game_id PK "games FK · 판 번호가 곧 일감이다"
+        timestamptz claimed_at "리스"
+        timestamptz created_at
+    }
+
+    search_timings {
+        bigserial id PK
+        text sfen_key "positions 와 같은 형태 · FK 는 안 건다"
+        int depth
+        int k "부른 쪽이 요구한 MultiPV"
+        int ms
+        boolean cached "참이면 엔진을 안 불렀다"
+        timestamptz created_at
+    }
 ```
 
 ---
 
-## 2. 세 덩어리로 갈린다
+## 2. 다섯 덩어리로 갈린다
 
-표가 15개인데 서로 닿지 않는 네 덩어리다. 이 경계가 이 스키마의 전부다.
+표가 17개인데 서로 닿지 않는 다섯 덩어리다. 이 경계가 이 스키마의 전부다.
 
-| 덩어리                  | 표                                                                                      | 키가 무엇인가 | 사람에 매여 있나     |
-| ----------------------- | --------------------------------------------------------------------------------------- | ------------- | -------------------- |
-| **사람** (4)            | `users` · `skill_profile` · `explore_snapshots` · `match_queue`                         | `user_id`     | 그렇다               |
-| **판** (6)              | `games` · `game_moves` · `interventions` · `game_undos` · `game_hints` · `game_quizzes` | `game_id`     | `games.user_id` 로만 |
-| **국면** (3, 엔진 캐시) | `positions` · `edges` · `mate_positions`                                                | `sfen_key`    | **아니다**           |
-| **작업 큐** (2)         | `analysis_plies` · `analysis_jobs`                                                      | 분석 키       | **아니다**           |
+| 덩어리                  | 표                                                                                      | 키가 무엇인가     | 사람에 매여 있나     |
+| ----------------------- | --------------------------------------------------------------------------------------- | ----------------- | -------------------- |
+| **사람** (4)            | `users` · `skill_profile` · `explore_snapshots` · `match_queue`                         | `user_id`         | 그렇다               |
+| **판** (6)              | `games` · `game_moves` · `interventions` · `game_undos` · `game_hints` · `game_quizzes` | `game_id`         | `games.user_id` 로만 |
+| **국면** (3, 엔진 캐시) | `positions` · `edges` · `mate_positions`                                                | `sfen_key`        | **아니다**           |
+| **작업 큐** (3)         | `analysis_plies` · `analysis_jobs` · `quiz_jobs`                                        | 분석 키 · 판 번호 | **아니다**           |
+| **계측** (1)            | `search_timings`                                                                        | 없다              | **아니다**           |
 
-**작업 큐는 넷째 덩어리다.** 둘 다 분석 키로 묶이고 사람에도 판 번호에도 매이지 않는다. 수명이 다른 셋과 다르다: 판이 끝나면 걷힌다(`DiscardAnalysisMatch`·`DropAnalysisJob`). 아직 하지 않은 일이라서다.
+**작업 큐는 넷째 덩어리다.** 수명이 다른 셋과 다르다. 일이 끝나면 걷힌다(`DiscardAnalysisMatch`·`DropAnalysisJob`·`DropQuizJob`) — 아직 하지 않은 일이라서다. 앞의 둘은 분석 키로 묶여 사람에도 판 번호에도 매이지 않고, `quiz_jobs` 만 판 번호를 키로 쓴다([journal §138](../journal/121-140.md)) — 문항이 판마다 하나라 `game_quizzes` 와 같은 키다.
 
 **`match_id` 컬럼에는 분석 키가 들어간다**([journal §126](../journal/121-140.md)). 이름이 「방 id」로 읽히지만 갈래가 둘이다 — 대인전은 방 id(영숫자 8자), 가져온 기보는 `import:<games.id>`. 콜론이 그 둘을 가른다. 컬럼 이름을 바꾸지 않았다: 공유 DB에서 `RENAME` 은 남의 서버를 그 자리에서 깨뜨린다.
 
@@ -346,6 +364,9 @@ USI 엔진이 iterative deepening 중 `info depth 1 … / info depth 2 …` 를 
 | `018` | `analysis_plies` + 부분 인덱스                                            | 표 추가            |
 | `019` | `analysis_jobs` + 부분 인덱스                                             | 표 추가            |
 | `020` | `games.imported_from` + 부분 인덱스 · `analysis_plies.category`·`best_cp` | 칸 추가            |
+| `021` | 詰み 칸 일곱 + CHECK 넷 (cp 와 詰み 을 배타로)                            | 칸 추가            |
+| `022` | `search_timings` + 인덱스 둘                                              | 표 추가            |
+| `023` | `quiz_jobs` + 인덱스                                                      | 표 추가            |
 
 **`011` 을 뺀 전부가 추가만 한다.** 그래서 워크트리를 병렬로 돌려도 다른 세션의 서버가 모른 채 그냥 돈다 — `DROP`·`RENAME`·`NOT NULL` 추가는 남의 서버를 그 자리에서 깨뜨리므로 혼자 돌린다.
 

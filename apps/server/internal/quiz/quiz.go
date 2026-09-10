@@ -54,7 +54,7 @@ const (
 	//
 	// 넘으면 詰み 문항을 버린다. 잘린 트리는 완전하지 않고, 완전하지 않은 트리로 채점하면
 	// 「정답을 오답이라고 말하는」 경우가 생긴다. 다만 「최선수는?」 쪽까지 버리지는 않는다 —
-	// 그쪽은 따로 잰 값이라 트리가 서지 못해도 그대로 참이다(server/ws.go generateQuiz).
+	// 그쪽은 따로 잰 값이라 트리가 서지 못해도 그대로 참이다(server/quiz_jobs.go generateQuiz).
 	MateSearchBudget = 2400
 
 	// BestCandidates 는 gap을 재 볼 국면의 수다. 낙폭이 큰 순으로 이만큼만 고른다.
@@ -119,7 +119,7 @@ type Quiz struct {
 //
 // 「끝까지 보지 못했다」와 짝으로 쓴다(Build 의 두 번째 값). 보지 못했는데 비었으면 그것은
 // 결론이 아니므로 부르는 쪽이 아무것도 적지 않는다 — 하나라도 나왔으면 나온 것은 사실이라
-// 그대로 적는다(server/ws.go generateQuiz).
+// 그대로 적는다(server/quiz_jobs.go generateQuiz).
 func (q Quiz) Empty() bool { return q.Mate == nil && len(q.Best) == 0 }
 
 // MateItem 은 詰み 문항 하나다.

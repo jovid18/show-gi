@@ -190,3 +190,25 @@ func (a *Analysis) ObserveGame(result string, d time.Duration) {
 		a.reg.AnalysisDuration.Observe(d.Seconds())
 	}
 }
+
+// SetQuizBacklog 은 문항 만들기를 기다리는 판 수를 놓는다.
+//
+// SetBacklog 과 갈라 둔다. 저쪽 둘은 대수를 정하는 신호이고(journal §124) 이 값은 그
+// 신호가 아니다 — 섞으면 문항 하나가 5분을 잡는 것이 대를 붙이는 이유가 된다.
+func (a *Analysis) SetQuizBacklog(games int) {
+	if a == nil || a.reg == nil {
+		return
+	}
+	a.reg.AnalysisBacklogQuizzes.Set(float64(games))
+}
+
+// ObserveQuiz 는 판 하나의 문항 만들기가 끝난 것을 남긴다. ObserveGame 과 같은 규약이다.
+func (a *Analysis) ObserveQuiz(result string, d time.Duration) {
+	if a == nil || a.reg == nil {
+		return
+	}
+	a.reg.AnalysisQuizzes.Inc(result)
+	if result != AnalysisDropped {
+		a.reg.AnalysisQuizDuration.Observe(d.Seconds())
+	}
+}

@@ -18,9 +18,12 @@ export interface QuizSource extends Source<QuizPayload> {
 /**
  * 그 판의 문항.
  *
- * 생성이 끝나지 않았으면 다시 묻는다. 문항은 판이 끝나는 자리에서 수십 초 동안 만들어지므로
- * (server/ws.go generateQuiz), 판이 끝난 직후에 되짚기를 열면 `ready: false` 가 온다 —
+ * 생성이 끝나지 않았으면 다시 묻는다. 문항은 판이 끝나면 줄에 서고 분석 워커가 수십 초 동안
+ * 만들므로 (server/quiz_jobs.go), 판이 끝난 직후에 되짚기를 열면 `ready: false` 가 온다 —
  * 한 번 묻고 「問題はありません」을 그리면 그것이 거짓이 된다.
+ *
+ * 이 값과 판의 `analyzing` 은 다른 것을 기다린다. 저쪽은 평가치이고 이쪽은 문항이라,
+ * 그래프가 다 차고 「解析しています」가 꺼진 뒤에도 여기는 아직 기다릴 수 있다.
  */
 export function useQuiz(id: number): QuizSource {
   const { loaded, reload } = useFetch<QuizPayload>(`/api/games/${id}/quiz`);

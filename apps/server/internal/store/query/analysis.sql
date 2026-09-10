@@ -227,3 +227,45 @@ ORDER BY my_color;
 --
 -- 오래된 행을 걷는다. 자리가 영영 차지 않는 반쪽 판이 이 표의 누수다.
 DELETE FROM analysis_jobs WHERE created_at < $1;
+
+-- 문항을 만드는 큐(023). 판을 재는 큐에 얹혀 있던 것을 떼어낸 자리이고, 근거는 journal §138.
+
+-- name: EnqueueQuizJob :exec
+--
+-- 그 판의 문항을 줄에 세운다. 두 번 세워도 한 행이다.
+--
+-- 부르는 자리가 둘이다. 엔진 대국이 끝나는 자리와, 가져온 판을 다 잰 자리다. 대인전은
+-- 세우지 않는다. 그 판에는 아직 문항이 없다.
+INSERT INTO quiz_jobs (game_id) VALUES ($1)
+ON CONFLICT (game_id) DO NOTHING;
+
+-- name: ClaimQuizJob :one
+--
+-- 만들 판 하나를 집는다. 없으면 0행이다. ClaimAnalysisJob 과 같은 모양이다.
+WITH next AS MATERIALIZED (
+    SELECT j.game_id FROM quiz_jobs j
+    WHERE j.claimed_at IS NULL OR j.claimed_at < sqlc.arg(lease_before)::timestamptz
+    ORDER BY j.created_at
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+)
+UPDATE quiz_jobs t SET claimed_at = now()
+FROM next n WHERE t.game_id = n.game_id
+RETURNING t.game_id;
+
+-- name: DropQuizJob :exec
+--
+-- 그 판을 큐에서 걷는다. 문항을 남긴 뒤와, 기록을 읽지 못해 만들 수 없는 자리에서 부른다.
+DELETE FROM quiz_jobs WHERE game_id = $1;
+
+-- name: CountQuizBacklog :one
+--
+-- 아직 집히지 않은 판의 수다. 대수를 정하는 신호는 아니고(그쪽은 手 몫이다) 문항이
+-- 밀렸는지를 보는 자리다.
+SELECT count(*) FROM quiz_jobs
+WHERE claimed_at IS NULL OR claimed_at < sqlc.arg(lease_before)::timestamptz;
+
+-- name: SweepQuizJobs :exec
+--
+-- 오래된 행을 걷는다. 만들다 실패한 판이 이 표의 누수이고, 그 판은 문항 없이 남는다.
+DELETE FROM quiz_jobs WHERE created_at < $1;

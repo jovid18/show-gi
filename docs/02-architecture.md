@@ -51,7 +51,7 @@ fairy-stockfish로 시작했다가 갈아탔다. `go mate` 가 없어서다 — 
 
 ## 4. 데이터 모델 — 그래프 DB를 쓰지 않는 이유
 
-> 표 12개를 한 장으로 본 ERD와 마이그레이션 15개의 이력은 [spec/data-model.md](spec/data-model.md)에 있다. 이 절은 「왜 이 모양인가」만 담는다.
+> 표 17개를 한 장으로 본 ERD와 마이그레이션 23개의 이력은 [spec/data-model.md](spec/data-model.md)에 있다. 이 절은 「왜 이 모양인가」만 담는다.
 
 원래 요구는 이랬다.
 

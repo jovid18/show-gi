@@ -119,17 +119,3 @@ func (a *matchAnalyzer) recordBlunder(ctx context.Context, gameID int64, ply int
 		log.Printf("kifu: could not record the blunder at ply %d of game %d: %v", ply, gameID, err)
 	}
 }
-
-// buildQuiz 는 다 잰 판에서 되짚기 문항을 만든다.
-//
-// 엔진 대국이 판이 끝나는 자리에서 부르는 것과 같은 함수다(ws.go 의 generateQuiz).
-// 만드는 자리가 여기 하나인 것도 같다 — 되짚기에서 만들면 그 탐색이 진행 중인 다른
-// 대국의 착수를 기다리게 한다(journal §53).
-func (a *matchAnalyzer) buildQuiz(ctx context.Context, gameID int64) {
-	rec, err := a.store.GameRecordAnyOwner(ctx, gameID)
-	if err != nil {
-		log.Printf("kifu: could not read game %d to build its quiz: %v", gameID, err)
-		return
-	}
-	generateQuiz(ctx, a.store, a.quiz, rec)
-}

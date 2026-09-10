@@ -271,7 +271,7 @@ func (f *flakySearch) SearchMultiPV(
 // 재지 못한 후보가 있어도 잰 것은 그대로 참이다.
 //
 // 두 사실을 한 깃발로 묶어 전부 버리면, 후보 하나를 재지 못한 것이 멀쩡한 문항을 지운다 —
-// 생성이 판이 끝날 때 한 번뿐이라 그 판은 영영 문항을 갖지 못한다(server/ws.go generateQuiz).
+// 생성이 판이 끝날 때 한 번뿐이라 그 판은 영영 문항을 갖지 못한다(server/quiz_jobs.go generateQuiz).
 func TestBestItemsSurviveAFailureElsewhere(t *testing.T) {
 	in := gameInput()
 	posAt := positions(t, in)
