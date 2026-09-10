@@ -40,11 +40,16 @@ export function useQuiz(id: number): QuizSource {
   // 한 번 실패한 것으로 끝내지 않는다. 요청 하나가 500을 받거나 네트워크가 한 번 끊긴
   // 것으로는 「문항이 오지 않는다」를 정할 수 없다. 다시 묻는 동안 직전 답이 그대로 있으므로
   // (useFetch 의 afterFailure) 이 값은 그 사이에 흔들리지 않는다.
-  const waiting = loaded.state === 'ready' && !loaded.data.ready;
+  // 다 만들어지면 멈추고, 오지 않으면 그것도 멈춘다. 「아직 만드는 중」은 영영 참일 수
+  // 있다 — 이 코드 전에 끝난 판, 세우지 못한 판, 문항 판이 올라가 옛 행이 죽은 뒤가 전부
+  // 그렇다. 계속 물으면 화면이 오지 않을 것을 기다리라고 말하게 된다.
+  //
+  // 그것을 서버가 말한다(`queued`). 줄에 없으면서 아직 아니라면 오지 않는다.
+  const pending = loaded.state === 'ready' && !loaded.data.ready;
+  const waiting = pending && loaded.data.queued === true;
 
-  // 다 만들어지면 멈추고, 오지 않으면 그것도 멈춘다. 「아직 만드는 중」은 영영 참일 수 있다 —
-  // 이 코드 전에 끝난 판, 생성기가 없는 배포, 문항 판이 올라가 옛 행이 죽은 뒤가 전부 그렇다.
-  // 계속 물으면 화면이 오지 않을 것을 기다리라고 말하게 된다.
+  // 시간은 마지막 자물쇠다. 줄에 있는 채로 오래 머무는 판이 있어서(만들지 못하면 행이
+  // 남는다) 그것까지 열어 두면 화면이 몇 시간을 묻는다.
   //
   // 끊는 기준은 물은 횟수 대신 기다린 시간이다. 세는 쪽은 「효과가 몇 번 다시
   // 도는가」에 매이는데 그것은 재려던 것과 다르고 실제로 어긋났다 — 개발 모드에서 5초
@@ -55,7 +60,8 @@ export function useQuiz(id: number): QuizSource {
   if (!waiting) {
     since.current = null;
   }
-  const gaveUp = waiting && since.current !== null && Date.now() - since.current >= QUIZ_WAIT_MS;
+  const tooLong = waiting && since.current !== null && Date.now() - since.current >= QUIZ_WAIT_MS;
+  const gaveUp = pending && (!waiting || tooLong);
 
   // `attempts` 가 다시 걸어 주는 값이다. 나머지 셋은 폴링 도중에 바뀌지 않는다: `waiting` 은
   // 계속 참이고(다시 묻는 동안 직전 답이 그대로 있다) `gaveUp` 은 거짓이고 `reload` 는 고정이다.
@@ -92,16 +98,13 @@ export function useQuiz(id: number): QuizSource {
 const QUIZ_POLL_MS = 5000;
 
 /**
- * 얼마나 기다리나. 10분이다.
+ * 줄에 선 채로 이만큼 지나면 그만 묻는다. 10분이다.
  *
- * 서버가 한 판을 자르는 시한이 5분이고(`quizTimeout`), 문항이 줄에 서므로
- * (server/quiz_jobs.go) 그 앞에 기다린 시간이 더 붙는다 — 앞 판 하나를 기다리면 그것만으로
- * 두 배다. 만드는 시한 하나로 잡으면 아직 정직하게 만들고 있는 판에 「오지 않았다」고
- * 말하게 된다.
+ * 끊는 것은 `queued` 가 먼저 한다. 이 값은 그 뒤에 남는 마지막 자물쇠다 — 만들지 못한
+ * 판은 행이 남아 30분마다 다시 집히므로(server/quiz_jobs.go), 줄에 있다는 것만 보고
+ * 기다리면 청소가 걷는 여섯 시간까지 계속 묻는다.
  *
- * 두 배로 잡은 것이지 잰 값이 아니다 `[미확정]`. 늦게 끊는 쪽으로 기울여 둔 것은 여기
- * 「もう一度」가 있어서다 — 일찍 끊으면 사람이 그 버튼을 눌러야 하고, 늦게 끊으면
- * 기다리기만 하면 된다.
+ * 만드는 시한(5분)의 두 배로 잡은 것이지 잰 값이 아니다 `[미확정]`.
  */
 const QUIZ_WAIT_MS = 10 * 60 * 1000;
 

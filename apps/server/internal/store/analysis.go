@@ -389,10 +389,23 @@ func (s *Store) QuizBacklog(ctx context.Context, leaseBefore time.Time) (int, er
 	return int(n), nil
 }
 
-// SweepQuizJobs 는 그 시각보다 오래된 행을 걷는다. 만들다 실패한 판이 이 표의 누수다.
-func (s *Store) SweepQuizJobs(ctx context.Context, before time.Time) error {
-	if err := s.q.SweepQuizJobs(ctx, stamp(before)); err != nil {
-		return fmt.Errorf("sweep quiz jobs: %w", err)
+// IsQuizQueued 는 그 판의 문항이 아직 줄에 있는가다.
+func (s *Store) IsQuizQueued(ctx context.Context, gameID int64) (bool, error) {
+	ok, err := s.q.IsQuizQueued(ctx, gameID)
+	if err != nil {
+		return false, fmt.Errorf("is quiz queued: %w", err)
 	}
-	return nil
+	return ok, nil
+}
+
+// SweepQuizJobs 는 그 시각보다 오래된 행을 걷고 몇 개를 걷었는지 준다.
+//
+// 0이 아닌 것은 그 자체로 사고다. 만들다 계속 실패했거나 여섯 시간 동안 한 번도 집히지
+// 않았다는 뜻이고, 어느 쪽이든 그 판은 문항 없이 남는다.
+func (s *Store) SweepQuizJobs(ctx context.Context, before time.Time) (int, error) {
+	n, err := s.q.SweepQuizJobs(ctx, stamp(before))
+	if err != nil {
+		return 0, fmt.Errorf("sweep quiz jobs: %w", err)
+	}
+	return int(n), nil
 }

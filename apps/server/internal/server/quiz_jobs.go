@@ -78,6 +78,13 @@ func (a *matchAnalyzer) runOneQuiz(ctx context.Context) bool {
 	if a.store == nil {
 		return false
 	}
+	// 자리가 없으면 집지 않는다. 워커를 다 가져가면 판도 手도 그동안 서 있다(quizSlots).
+	release, ok := a.takeQuizSlot()
+	if !ok {
+		return false
+	}
+	defer release()
+
 	gameID, err := a.store.ClaimQuizJob(ctx, time.Now().Add(-quizLease))
 	if errors.Is(err, store.ErrNoQuizJob) {
 		return false
@@ -112,6 +119,14 @@ func (a *matchAnalyzer) runOneQuiz(ctx context.Context) bool {
 		return true
 	}
 
+	// 이미 있으면 다시 만들지 않는다. 세우기가 시한에 걸린 뒤 커밋된 자리에서 그 판이
+	// 줄에도 서고 대체 경로로도 만들어질 수 있다(queueQuiz 의 시한) — 그때 두 번 만들면
+	// 값은 같고 5분짜리 탐색만 두 벌이다.
+	if _, err := a.store.GameQuiz(ctx, gameID, quiz.Version); err == nil {
+		a.dropQuiz(ctx, gameID)
+		return true
+	}
+
 	started := time.Now()
 	if !generateQuiz(ctx, a.store, a.quiz, rec) {
 		// 큐에 남겨 둔다. 로그만 남기면 영영 실패하는 판이 지표에서 보이지 않는다.
@@ -121,6 +136,22 @@ func (a *matchAnalyzer) runOneQuiz(ctx context.Context) bool {
 	a.analysis.ObserveQuiz(metrics.AnalysisDone, time.Since(started))
 	a.dropQuiz(ctx, gameID)
 	return true
+}
+
+// takeQuizSlot 은 문항 하나를 만들 자리를 잡는다. 없으면 ok=false 이고, 그때는 집지 않는다.
+//
+// 기다리지 않는다. 기다리면 그 워커가 자리를 기다리는 동안 판도 手도 집지 않아서,
+// 세어 둔 것이 아무것도 아니게 된다.
+func (a *matchAnalyzer) takeQuizSlot() (func(), bool) {
+	if a.quizSlots == nil {
+		return func() {}, true
+	}
+	select {
+	case a.quizSlots <- struct{}{}:
+		return func() { <-a.quizSlots }, true
+	default:
+		return nil, false
+	}
 }
 
 // dropQuiz 는 그 판을 문항 큐에서 걷는다.

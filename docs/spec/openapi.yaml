@@ -400,8 +400,11 @@ paths:
         **정답이 실려 오지 않는다** — 채점이 서버에 있다.
 
         `ready: false` 는 **아직 만드는 중**이고 「문항 없음」과 다르다. 생성이 수십 초
-        걸려서, 그 사이에 화면이 「問題はありません」을 그리면 거짓이 된다 — 판이 끝나는
-        자리에서 문항이 0개여도 행을 남기는 것이 이 값을 위해서다.
+        걸려서, 그 사이에 화면이 「問題はありません」을 그리면 거짓이 된다 — 문항이
+        0개여도 행을 남기는 것이 이 값을 위해서다.
+
+        `queued` 가 그 뒤를 말한다. `ready: false, queued: true` 는 기다리면 오고,
+        둘 다 거짓이면 오지 않는다.
       security: []
       parameters: [{ $ref: '#/components/parameters/GameID' }]
       responses:
@@ -1692,6 +1695,13 @@ components:
           description: |
             **`false` 는 「아직 만드는 중」이고 「문항이 없다」와 다르다.** 만드는 데
             수십 초가 걸려서, 그 사이에 화면이 「問題はありません」을 그리면 거짓이 된다
+        queued:
+          type: boolean
+          description: |
+            **아직 줄에 있는가.** `ready` 가 거짓일 때만 뜻이 있고, 참일 때는 오지 않는다.
+
+            시간으로 재던 것을 대신한다. 문항이 줄에 서면서 벽시계가 「줄 서는 시간 +
+            만드는 시간」이 됐고, 만드는 시한 하나로는 그것을 말할 수 없다
         mate:
           type: object
           required: [ply, sfen, plies, converted, legalMoves]

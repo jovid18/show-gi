@@ -273,7 +273,17 @@ DELETE FROM quiz_jobs WHERE game_id = $1;
 SELECT count(*) FROM quiz_jobs
 WHERE claimed_at IS NULL OR claimed_at < sqlc.arg(lease_before)::timestamptz;
 
--- name: SweepQuizJobs :exec
+-- name: IsQuizQueued :one
 --
--- 오래된 행을 걷는다. 만들다 실패한 판이 이 표의 누수이고, 그 판은 문항 없이 남는다.
+-- 그 판의 문항이 아직 줄에 있는가. 화면이 이 값으로 「아직 온다」와 「오지 않는다」를
+-- 가른다(server/quiz.go) — 판을 재는 큐에서 IsGameAnalyzing 이 하는 일과 같다.
+SELECT EXISTS (SELECT 1 FROM quiz_jobs WHERE game_id = $1) AS queued;
+
+-- name: SweepQuizJobs :execrows
+--
+-- 오래된 행을 걷는다. 만들다 계속 실패하는 판이 이 표의 누수이고, 그 판은 문항 없이 남는다.
+--
+-- 걷은 수를 돌려준다. 018·019 와 갈리는 자리다. 나이만 보므로 「계속 실패했다」와
+-- 「여섯 시간 내내 밀려서 한 번도 집히지 않았다」가 같은 값이 되는데, 뒤엣것은 사고이고
+-- 조용히 지나가면 안 된다 — 세어 두면 부르는 쪽이 로그 한 줄을 남긴다.
 DELETE FROM quiz_jobs WHERE created_at < $1;

@@ -526,14 +526,6 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 	// 문항은 줄에 세우기만 한다. 만드는 데 최대 5분이 걸리고 그동안 詰み 풀을 잡는데,
 	// 여기는 사람이 두고 있는 박스다(journal §138).
 	//
-	// 세우지 못하면 그 자리에서 만든다. 집을 워커가 없는 배포와, 표가 아직 없는
-	// 배포 둘이다 — 세워 두기만 하면 누구도 집지 않아 되짚기가 「準備中」에서 벗어나지
-	// 못한다. 앞쪽에서는 생성기도 없어서(둘이 같은 자리에서 생긴다, cmd/api) 빈 행 하나를
-	// 남기는 일로 끝난다.
-	if a := h.opts.Match.Analyzer(); a == nil || !a.queueQuiz(base, gameID) {
-		go generateQuiz(base, h.opts.Store, h.opts.Quiz, rec)
-	}
-
 	payload := summarize(rec, h.opts.Level)
 	// 段級은 기록 대신 추정기에서 온다. 기록으로 다시 세면 왜 틀리는지는
 	// journal §62, 상대의 강함과 갈리는 이유는 §31.
@@ -542,6 +534,17 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 	// 비동기로 쓰인다), 총평이 되짚기로 건너가는 링크를 그리려면 그것이 필요하다.
 	payload.GameID = gameID
 	emit(ctx, out, serverMsg{Type: "summary", Summary: &payload})
+
+	// 총평을 보낸 뒤에 세운다. 세우는 것은 INSERT 하나라 일찍 시작해서 버는 것이 없고,
+	// 앞에 두면 DB 가 흔들릴 때 그 시한만큼 총평이 늦는다 — 늦으면 사람이 이미 창을 닫은
+	// 뒤일 수 있고, 총평은 연결이 살아 있어야 간다(emit 은 base 가 아니라 연결 ctx 다).
+	//
+	// 세우지 못하면 그 자리에서 만든다. 엔진이 없는 배포와, 표가 아직 없는 배포 둘이다.
+	// 앞쪽에서는 생성기도 없어서(둘이 같은 자리에서 생긴다, cmd/api) 빈 행 하나를 남기는
+	// 일로 끝난다.
+	if a := h.opts.Match.Analyzer(); a == nil || !a.queueQuiz(base, gameID) {
+		go generateQuiz(base, h.opts.Store, h.opts.Quiz, rec)
+	}
 }
 
 func (h *gameHandler) readLoop(

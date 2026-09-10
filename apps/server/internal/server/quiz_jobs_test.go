@@ -38,8 +38,8 @@ func TestAMeasuredGameStopsSayingItIsBeingAnalyzed(t *testing.T) {
 	if _, err := st.GameQuiz(t.Context(), gameID, quiz.Version); !errors.Is(err, store.ErrNoQuiz) {
 		t.Errorf("GameQuiz = %v, want ErrNoQuiz while the quiz is still queued", err)
 	}
-	if got := claimedQuiz(t, st); got != gameID {
-		t.Errorf("queued quiz = %d, want game %d", got, gameID)
+	if !quizQueued(t, st, gameID) {
+		t.Errorf("game %d has no quiz queued", gameID)
 	}
 }
 
@@ -60,12 +60,12 @@ func TestAQueuedQuizIsBuiltByAWorker(t *testing.T) {
 	if _, err := st.GameQuiz(t.Context(), gameID, quiz.Version); err != nil {
 		t.Errorf("GameQuiz after the worker ran: %v", err)
 	}
-	if got := claimedQuiz(t, st); got != 0 {
-		t.Errorf("game %d is still queued after its quiz was saved", got)
+	if quizQueued(t, st, gameID) {
+		t.Errorf("game %d is still queued after its quiz was saved", gameID)
 	}
 }
 
-// 집어 간 판은 리스가 낡아야 다시 잡힌다. 판·手 큐와 같은 규약이고, 여기서 그 규약이
+// 집어 간 판은 리스가 낡아야 다시 잡힌다. 위와 같은 이유로 이 자리도 컨테이너와 다툰다. 판·手 큐와 같은 규약이고, 여기서 그 규약이
 // 재시도를 판다 — 배포가 생성 도중에 끼면 그 판을 다음 워커가 도로 집는다.
 func TestAStaleQuizClaimIsTakenBack(t *testing.T) {
 	st := testStore(t)
@@ -102,13 +102,15 @@ func TestAQuizThatCouldNotBeBuiltStaysInTheQueue(t *testing.T) {
 	if _, err := st.GameQuiz(t.Context(), gameID, quiz.Version); !errors.Is(err, store.ErrNoQuiz) {
 		t.Errorf("GameQuiz = %v, want ErrNoQuiz — an empty row would freeze the screen on 「問題はありません」", err)
 	}
-	// 리스가 낡으면 다음 워커가 도로 집는다.
-	if got, err := st.ClaimQuizJob(t.Context(), time.Now().Add(time.Minute)); err != nil || got != gameID {
-		t.Errorf("claim after the lease went stale = %d, %v; want game %d", got, err, gameID)
+	if !quizQueued(t, st, gameID) {
+		t.Error("the game left the queue even though its quiz was never saved")
 	}
 }
 
-// 한 번도 집히지 않은 판이 먼저다. 만들지 못해 남은 판이 30분마다 새 판을 제치면,
+// 한 번도 집히지 않은 판이 먼저다.
+//
+// 집어서 잰다. 띄워 둔 api 컨테이너의 워커가 먼저 가져가면 갈릴 수 있고(06-status §7 의
+// 「DB 테스트 셋」과 같은 자리다), 세우고 집는 사이가 마이크로초라 실제로는 드물다. 만들지 못해 남은 판이 30분마다 새 판을 제치면,
 // 워커가 둘인 배포에서 만들 수 있는 판이 그만큼 늦어진다.
 func TestANeverClaimedQuizGoesFirst(t *testing.T) {
 	st := testStore(t)
@@ -190,15 +192,43 @@ func importedGameInTheQueue(t *testing.T, st *store.Store) (*matchAnalyzer, int6
 	return a, gameID
 }
 
-// claimedQuiz 는 지금 줄에 선 판 하나를 집어 그 번호를 준다. 없으면 0이다.
-func claimedQuiz(t *testing.T, st *store.Store) int64 {
+// quizQueued 는 그 판이 아직 줄에 있는가다.
+//
+// 집어 보지 않는다. 집는 질의는 판을 가리지 않아서(query/analysis.sql) 띄워 둔 api
+// 컨테이너의 워커가 먼저 가져가면 답이 달라진다 — 이 질의는 판 하나만 본다.
+func quizQueued(t *testing.T, st *store.Store, gameID int64) bool {
 	t.Helper()
-	id, err := st.ClaimQuizJob(t.Context(), time.Now().Add(-quizLease))
-	if errors.Is(err, store.ErrNoQuizJob) {
-		return 0
-	}
+	ok, err := st.IsQuizQueued(t.Context(), gameID)
 	if err != nil {
-		t.Fatalf("claim a quiz job: %v", err)
+		t.Fatalf("is quiz queued: %v", err)
 	}
-	return id
+	return ok
+}
+
+// 문항이 워커를 다 가져가지 못한다. 자리가 없으면 집지 않고 판과 手 쪽으로 넘어간다.
+//
+// 여기에 DB 가 필요 없다. 재는 것이 세는 자리 하나다.
+func TestQuizzesDoNotTakeEveryWorker(t *testing.T) {
+	a := &matchAnalyzer{quizSlots: make(chan struct{}, 1)}
+	release, ok := a.takeQuizSlot()
+	if !ok {
+		t.Fatal("the first quiz could not take a slot")
+	}
+	if _, ok := a.takeQuizSlot(); ok {
+		t.Error("a second quiz took a slot; one worker must stay on the other queues")
+	}
+	release()
+	if _, ok := a.takeQuizSlot(); !ok {
+		t.Error("the slot was not given back")
+	}
+}
+
+// 세는 자리가 없는 분석기는 세지 않는다. 구조체 리터럴로 만드는 테스트가 그 모양이다.
+func TestAnUncountedAnalyzerAlwaysHasASlot(t *testing.T) {
+	a := &matchAnalyzer{}
+	for range 3 {
+		if _, ok := a.takeQuizSlot(); !ok {
+			t.Fatal("an analyzer with no slot count refused a quiz")
+		}
+	}
 }

@@ -71,6 +71,16 @@ type matchAnalyzer struct {
 	quizClaimLog   sync.Once
 	quizBacklogLog sync.Once
 
+	// quizSlots 는 문항을 동시에 몇 개까지 만들 것인가다. 워커 수보다 하나 적다.
+	//
+	// 문항 하나가 워커를 최대 5분 잡으므로(quizTimeout), 워커가 둘인 배포에서 판 둘이
+	// 가까이 끝나면 그 5분 동안 판도 手도 한 건 안 집힌다. 그 사이에 가져온 판 하나가
+	// 서면 밀린 手가 곧바로 100을 넘고, 5분을 채우면 알람이 사람을 부르고 대를 붙인다
+	// (infra/alarms.tf) — 실제로 밀린 것이 아니라 워커가 다른 일을 하고 있는 것이다.
+	//
+	// nil 이면 세지 않는다. 구조체 리터럴로 만드는 테스트가 그 모양이다.
+	quizSlots chan struct{}
+
 	// quiz 는 문항 큐를 집었을 때 쓴다(023). 세우는 쪽이 둘이고 그 둘이 엔진 대국과
 	// 가져온 기보다. 대인전은 아직 문항을 만들지 않는다.
 	//
@@ -215,6 +225,10 @@ func newMatchAnalyzer(ctx context.Context, deps AnalysisDeps) *matchAnalyzer {
 		quiz:       deps.Quiz,
 		level:      deps.Level,
 	}
+	// 문항이 워커를 다 가져가지 못하게 한다. 하나는 판과 手 쪽에 남는다.
+	if workers > 1 {
+		a.quizSlots = make(chan struct{}, workers-1)
+	}
 	for range workers {
 		go a.run(ctx)
 	}
@@ -336,9 +350,13 @@ func (a *matchAnalyzer) sweepPlies(ctx context.Context) {
 			if err := a.store.SweepAnalysisJobs(ctx, cutoff); err != nil && ctx.Err() == nil {
 				log.Printf("match: could not sweep old jobs: %v", err)
 			}
-			// 만들다 실패해 리스가 계속 낡는 판이 문항 큐의 누수다. 그 판은 문항 없이 남는다.
-			if err := a.store.SweepQuizJobs(ctx, cutoff); err != nil && ctx.Err() == nil {
+			// 걷힌 문항 잡은 문항 없이 남은 판이다. 0이 아니면 그 자체로 사고이므로 적는다 —
+			// 나이만 보고 걷어서 「계속 실패했다」와 「여섯 시간 내내 밀렸다」가 같은 값이다.
+			switch n, err := a.store.SweepQuizJobs(ctx, cutoff); {
+			case err != nil && ctx.Err() == nil:
 				log.Printf("match: could not sweep old quiz jobs: %v", err)
+			case n > 0:
+				log.Printf("match: swept %d quiz jobs older than %s — those games have no quiz", n, plyTTL)
 			}
 		}
 	}
