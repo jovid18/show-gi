@@ -526,12 +526,11 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 	// 문항은 줄에 세우기만 한다. 만드는 데 최대 5분이 걸리고 그동안 詰み 풀을 잡는데,
 	// 여기는 사람이 두고 있는 박스다(journal §138).
 	//
-	// 집을 워커가 없는 배포에서는 그 자리에서 만든다. 세워 두기만 하면 누구도 집지 않아
-	// 되짚기가 「準備中」에서 벗어나지 못한다. 그때는 생성기도 없어서(둘이 같은 자리에서
-	// 생긴다, cmd/api) 빈 행 하나를 남기는 일로 끝난다.
-	if a := h.opts.Match.Analyzer(); a != nil {
-		a.queueQuiz(base, gameID)
-	} else {
+	// 세우지 못하면 그 자리에서 만든다. 집을 워커가 없는 배포와, 표가 아직 없는
+	// 배포 둘이다 — 세워 두기만 하면 누구도 집지 않아 되짚기가 「準備中」에서 벗어나지
+	// 못한다. 앞쪽에서는 생성기도 없어서(둘이 같은 자리에서 생긴다, cmd/api) 빈 행 하나를
+	// 남기는 일로 끝난다.
+	if a := h.opts.Match.Analyzer(); a == nil || !a.queueQuiz(base, gameID) {
 		go generateQuiz(base, h.opts.Store, h.opts.Quiz, rec)
 	}
 

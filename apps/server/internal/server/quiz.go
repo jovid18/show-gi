@@ -34,7 +34,7 @@ type quizPayload struct {
 	// Ready 는 생성이 끝났는가다. 거짓은 「아직 만드는 중」이고 「문항이 없다」와 다르다 —
 	// 만드는 데 수십 초가 걸려서, 그 사이에 화면이 「問題はありません」을 그리면 거짓이 된다.
 	//
-	// 판이 끝나는 자리에서 문항이 하나도 나오지 않아도 행을 남기는 것이 이 값을 위해서다(ws.go).
+	// 문항이 하나도 나오지 않아도 행을 남기는 것이 이 값을 위해서다(quiz_jobs.go).
 	Ready bool          `json:"ready"`
 	Mate  *matePayload  `json:"mate,omitempty"`
 	Best  []bestPayload `json:"best,omitempty"`

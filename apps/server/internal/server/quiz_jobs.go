@@ -28,16 +28,34 @@ import (
 // 국면을 두 번 재고, 그 낭비가 엔진 풀에서 곧바로 보인다.
 const quizLease = 30 * time.Minute
 
-// queueQuiz 는 그 판의 문항을 줄에 세운다.
+// queueQuiz 는 그 판의 문항을 줄에 세운다. 세웠으면 참이다.
 //
-// 실패해도 판은 그대로다. 잃는 것은 그 판의 문항 하나이고, 되짚기의 나머지는 다 있다.
-func (a *matchAnalyzer) queueQuiz(ctx context.Context, gameID int64) {
+// 거짓이면 부르는 쪽이 그 자리에서 만든다. 배포가 마이그레이션보다 먼저 나가는 창이 늘
+// 있고(deploy/README.md §4), 그동안 표가 없어 이 문장이 실패한다 — 세우지도 만들지도
+// 않으면 그 창에서 끝난 판이 영영 문항을 갖지 못한다.
+func (a *matchAnalyzer) queueQuiz(ctx context.Context, gameID int64) bool {
 	if a == nil || a.store == nil {
+		return false
+	}
+	if err := a.store.EnqueueQuizJob(ctx, gameID); err != nil {
+		if ctx.Err() == nil {
+			log.Printf("quiz: could not queue game %d: %v", gameID, err)
+		}
+		return false
+	}
+	return true
+}
+
+// buildQuizNow 는 줄을 지나지 않고 그 자리에서 만든다. 줄에 세우지 못한 자리에서만 부른다.
+func (a *matchAnalyzer) buildQuizNow(ctx context.Context, gameID int64) {
+	rec, err := a.store.GameRecordAnyOwner(ctx, gameID)
+	if err != nil {
+		if ctx.Err() == nil {
+			log.Printf("quiz: could not read game %d to build its quiz: %v", gameID, err)
+		}
 		return
 	}
-	if err := a.store.EnqueueQuizJob(ctx, gameID); err != nil && ctx.Err() == nil {
-		log.Printf("quiz: could not queue game %d: %v", gameID, err)
-	}
+	generateQuiz(ctx, a.store, a.quiz, rec)
 }
 
 // runOneQuiz 는 문항을 만들 판 하나를 집어 만들고 큐에서 걷는다. 집을 것이 없으면 false 다.
@@ -93,8 +111,14 @@ func (a *matchAnalyzer) runOneQuiz(ctx context.Context) bool {
 }
 
 // dropQuiz 는 그 판을 문항 큐에서 걷는다.
-func (a *matchAnalyzer) dropQuiz(ctx context.Context, gameID int64) {
-	if err := a.store.DropQuizJob(ctx, gameID); err != nil && ctx.Err() == nil {
+//
+// 취소를 벗긴다. 남기는 문장이 그러는 것과 같은 이유다(generateQuiz) — 배포 중에 만들기가
+// 끝나면 문항은 저장되는데 이 DELETE 만 실패하고, 그 행은 30분 뒤 다시 집혀 이미 있는
+// 문항을 5분 들여 다시 만든다.
+func (a *matchAnalyzer) dropQuiz(parent context.Context, gameID int64) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), quizSaveTimeout)
+	defer cancel()
+	if err := a.store.DropQuizJob(ctx, gameID); err != nil {
 		log.Printf("quiz: could not drop game %d from the queue: %v", gameID, err)
 	}
 }

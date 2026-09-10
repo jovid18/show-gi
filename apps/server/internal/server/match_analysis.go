@@ -844,8 +844,8 @@ func (a *matchAnalyzer) analyze(ctx context.Context, key string, seats []analysi
 	// 여기서 만들지 않고 줄에 세운다. 이 잡이 걷혀야 「분석 중」이 꺼지는데 문항 쪽
 	// 예산이 5분이라(quizTimeout), 한 잡에 두면 그래프가 다 찬 뒤에도 그만큼
 	// 폴링이 이어진다(journal §138).
-	if imported {
-		a.queueQuiz(ctx, seats[0].gameID)
+	if imported && !a.queueQuiz(ctx, seats[0].gameID) {
+		a.buildQuizNow(ctx, seats[0].gameID)
 	}
 	return metrics.AnalysisDone
 }

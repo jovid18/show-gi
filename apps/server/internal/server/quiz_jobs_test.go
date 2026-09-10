@@ -71,7 +71,9 @@ func TestAStaleQuizClaimIsTakenBack(t *testing.T) {
 	st := testStore(t)
 	clearQueues(t, st)
 	a, gameID := importedGameInTheQueue(t, st)
-	a.queueQuiz(t.Context(), gameID)
+	if !a.queueQuiz(t.Context(), gameID) {
+		t.Fatal("could not queue the quiz")
+	}
 
 	if got, err := st.ClaimQuizJob(t.Context(), time.Now().Add(-quizLease)); err != nil || got != gameID {
 		t.Fatalf("claim = %d, %v; want game %d", got, err, gameID)
@@ -125,11 +127,13 @@ func TestQueuedQuizzesAreCountedOnTheirOwn(t *testing.T) {
 	}
 }
 
-// 세울 자리가 없어도 부르는 쪽이 죽지 않는다. 분석기가 없는 배포에서 대국이 끝나는
-// 자리가 이 수신자를 그대로 부른다(ws.go 의 sendSummary).
-func TestQueueingAQuizWithoutAnAnalyzerIsSafe(t *testing.T) {
+// 세울 자리가 없으면 거짓을 준다. 부르는 쪽이 그것으로 「그 자리에서 만든다」로 갈린다 —
+// 세우지도 만들지도 않으면 그 판이 영영 문항을 갖지 못한다.
+func TestQueueingAQuizWithoutAnAnalyzerSaysSo(t *testing.T) {
 	var a *matchAnalyzer
-	a.queueQuiz(t.Context(), 1)
+	if a.queueQuiz(t.Context(), 1) {
+		t.Error("a nil analyzer said it queued the quiz")
+	}
 }
 
 // importedGameInTheQueue 는 手가 전부 줄에 선 가져온 판 하나와 그 판을 잴 분석기를 준다.
