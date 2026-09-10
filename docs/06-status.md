@@ -192,7 +192,7 @@ https://show-gi.com   →  HTTP/2 200 + HSTS, /healthz {"db":true,"engine":true,
 
 EC2                    t4g.small 스팟 1대 (상호작용). 분석 티어 0대
 ECS                    서비스 둘. show-gi 1/1 · show-gi-analysis 는 큐가 비어 0
-RDS                    available, 마이그레이션 001~021 적용. 데이터는 비어 있다
+RDS                    available, 마이그레이션 001~022 적용. 데이터는 비어 있다
 알람                   다섯 중 show-gi-analysis-idle 만 ALARM — 정상 (대를 0으로 내린 신호)
 SNS                    구독 둘 다 confirmed
 terraform state        관리 자원 69개, plan 이 No changes
@@ -208,7 +208,7 @@ terraform state        관리 자원 69개, plan 이 No changes
 >
 > 정책이 상한에 닿아서 둘로 갈랐다(2026-08-26, [§124](journal/121-140.md)). 관리형 정책은 공백을 뺀 6,144자까지인데 `show-gi-operator` 가 6,141자다 — 남은 것이 3자라 액션 하나도 들어가지 못한다. 그래서 `show-gi-operator-autoscale` 을 새로 만들어 같이 붙였고(사용자당 관리형 정책 10개까지) `application-autoscaling:*` 과 그 서비스 링크 역할이 그쪽에 있다. 다음 권한도 두 번째 정책에 넣는다.
 
-> 마이그레이션 `001`\~`019` 가 프로덕션에 전부 들어가 있다.
+> 마이그레이션 `001`\~`022` 가 프로덕션에 전부 들어가 있다.
 >
 > 이 블록이 그 기록의 정본이다 — 여기 말고 다른 데 적지 않는다. 배포가 DDL을 돌리지 않으므로
 > ([deploy/README.md](../deploy/README.md) §4) 「레포에 파일이 있다」와 「적용됐다」가 언제나
@@ -228,6 +228,8 @@ terraform state        관리 자원 69개, plan 이 No changes
 > `014` 도 들어갔다(2026-08-22, 사람이 넣었다). `skill_profile.skill_abs_loss`·`skill_abs_samples` 둘을 더한다([§94](journal/82-100.md)) — 칸 추가라 표는 10개 그대로다. 배포보다 먼저 들어가야 하는 파일이었다: 머지가 곧 배포이고(`images.yml`) 새 이미지가 그 칸을 읽으므로, 없는 채로 떴으면 프로파일 조회가 매번 실패해 판 사이의 추정이 끊기고([§48](journal/41-60.md)) 저장도 판정마다 실패했을 것이다.
 >
 > `015` 도 들어갔다(2026-08-23, 사람이 넣었다). 검토에서 저장한 국면 표 하나다([§96](journal/82-100.md)) — `explore_snapshots`(+ `explore_snapshots_user_idx`)이고 표가 10개에서 11개가 됐다. 컬럼 여섯과 인덱스 둘, `users` 로의 `ON DELETE CASCADE` 를 직접 조회해 확인했고 0행이다. 배포보다 먼저 들어가도 되는 파일이었다 — `014` 와 갈리는 자리다: 지금 떠 있는 이미지는 이 표를 읽지 않으므로 코드가 오기 전까지 그냥 비어 있고, 그동안 아무것도 깨지지 않는다. 그래서 저장 기능은 아직 프로덕션에서 돌지 않는다 — 표만 서 있고 경로가 없다
+>
+> `022` 도 들어갔다(2026-09-11, 사람이 확인). 탐색 하나의 소요 시간을 받는 `search_timings` 하나이고([§137](journal/121-140.md)), 더하는 것이 새 표뿐이라 앞뒤 어느 이미지도 깨뜨리지 않는다 — 표가 없으면 기록만 건너뛴다(`archive.Searcher.recordTiming`).
 
 > `016` 도 들어갔다(2026-08-23, 사람이 넣었다). 대기열 표 하나다([§98](journal/82-100.md)) — `match_queue`(+ `match_queue_waiting_idx`)이고 표가 11개에서 12개가 됐다. 컬럼 여덟·인덱스 둘(PK + 부분 인덱스)·`color` 의 CHECK·`users` 로의 `ON DELETE CASCADE` 를 직접 조회해 확인했고 0행이다. `015` 와 같은 성질이라 배포 순서를 어느 쪽으로 잡아도 깨지지 않았다: 지금 떠 있는 이미지는 이 표를 읽지 않는다. 그래서 대기열은 아직 프로덕션에서 돌지 않는다 — 표만 서 있고 경로가 없다
 >
