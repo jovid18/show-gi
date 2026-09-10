@@ -46,7 +46,7 @@ func importedGameID(key string) (int64, bool) {
 	return id, true
 }
 
-// enqueueImport 는 가져온 판의 手를 전부 줄에 세우고 그 판을 「분석 중」으로 만든다.
+// enqueueImport 는 가져온 판의 手를 전부 큐에 세우고 그 판을 「분석 중」으로 만든다.
 //
 // 이 갈래는 手를 한 번에 다 세운다. 수순 전부를 이미 알기 때문이고, 그래서
 // 워커가 몇이든 手들이 병렬로 재어진다 — 판이 집힐 때는 대개 다 재어져 있어서
@@ -118,18 +118,4 @@ func (a *matchAnalyzer) recordBlunder(ctx context.Context, gameID int64, ply int
 	if err := a.store.InsertIntervention(ctx, gameID, iv); err != nil && ctx.Err() == nil {
 		log.Printf("kifu: could not record the blunder at ply %d of game %d: %v", ply, gameID, err)
 	}
-}
-
-// buildQuiz 는 다 잰 판에서 되짚기 문항을 만든다.
-//
-// 엔진 대국이 판이 끝나는 자리에서 부르는 것과 같은 함수다(ws.go 의 generateQuiz).
-// 만드는 자리가 여기 하나인 것도 같다 — 되짚기에서 만들면 그 탐색이 진행 중인 다른
-// 대국의 착수를 기다리게 한다(journal §53).
-func (a *matchAnalyzer) buildQuiz(ctx context.Context, gameID int64) {
-	rec, err := a.store.GameRecordAnyOwner(ctx, gameID)
-	if err != nil {
-		log.Printf("kifu: could not read game %d to build its quiz: %v", gameID, err)
-		return
-	}
-	generateQuiz(ctx, a.store, a.quiz, rec)
 }

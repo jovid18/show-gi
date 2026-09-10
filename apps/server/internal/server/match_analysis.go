@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/eval"
@@ -41,6 +42,9 @@ import (
 //
 // 판 단위 큐도 표다(analysis_jobs · 019). 자리는 옮겨 적지 않는다 — games 행 둘이 곧 두
 // 자리라(012_match_games.sql) 여기 실으면 같은 사실이 두 벌이 된다(journal §118).
+//
+// 문항 큐는 셋째 표다(quiz_jobs · 023). 같은 워커가 집지만 예산이 달라서 갈랐고,
+// 그 자리는 quiz_jobs.go 다(journal §138).
 type matchAnalyzer struct {
 	store      *store.Store
 	newAnalyst func() game.Analyst
@@ -55,7 +59,39 @@ type matchAnalyzer struct {
 	// analysis 는 계측 창구다. 늘 non-nil 이다(metrics.Registry.Analysis).
 	analysis *metrics.Analysis
 
-	// quiz·level 은 가져온 기보에만 쓴다. 대인전은 문항을 만들지 않고 개입도 없다.
+	// 문항 큐를 읽지 못했다는 말을 자리마다 한 번씩만 하게 한다.
+	//
+	// 이유가 거의 언제나 하나다. 배포가 마이그레이션보다 먼저 나가는 창에서 표가 없고
+	// (023), 그 창이 몇 시간 갈 수 있다 — 집는 쪽은 手마다, 게이지는 5초마다 실패하므로
+	// 매번 적으면 그 로그가 곧 요금이다. 시간 기록이 같은 자리에서 같은 판단을 한다
+	// (archive.Searcher.timingLog).
+	//
+	// 하나로 묶지 않는다. 5초마다 도는 게이지가 언제나 먼저 태워서, 몇 시간 뒤 집는
+	// 쪽에서 난 다른 실패가 영영 로그에 남지 않는다.
+	quizClaimLog   sync.Once
+	quizBacklogLog sync.Once
+
+	// quizSlots 는 문항을 동시에 몇 개까지 만들 것인가다. 워커 수보다 하나 적다.
+	//
+	// 문항 하나가 워커를 최대 5분 잡으므로(quizTimeout), 워커가 둘인 배포에서 판 둘이
+	// 가까이 끝나면 그 5분 동안 판도 手도 한 건 집히지 않는다. 그 사이에 가져온 판 하나가
+	// 서면 밀린 手가 곧바로 100을 넘고, 5분을 채우면 알람이 사람을 부르고 대를 붙인다
+	// (infra/alarms.tf) — 실제로 밀린 것이 아니라 워커가 다른 일을 하고 있는 것이다.
+	//
+	// 워커가 없는 티어에도 있다. 거기서 도는 것은 큐에 세우지 못한 판의 대체 경로뿐인데
+	// (buildQuizNow) 그것도 5분짜리 탐색이라, 세지 않으면 끝나는 판마다 하나씩 떠서 풀을
+	// 다 가져간다.
+	//
+	// 워커가 하나면 남길 자리가 없다. 문항이 그 하나를 5분 잡을 수 있고, 0으로 두면 문항이
+	// 아예 만들어지지 않는다 — 둘 중 앞엣것을 고른 것이다.
+	//
+	// nil 은 구조체 리터럴로 만드는 테스트뿐이다.
+	quizSlots chan struct{}
+
+	// quiz 는 문항 큐를 집었을 때 쓴다(023). 세우는 쪽이 둘이고 그 둘이 엔진 대국과
+	// 가져온 기보다. 대인전은 아직 문항을 만들지 않는다.
+	//
+	// level 은 가져온 기보에만 쓴다. 대인전에는 개입이 없다.
 	quiz  *quiz.Builder
 	level intervene.Level
 
@@ -196,6 +232,11 @@ func newMatchAnalyzer(ctx context.Context, deps AnalysisDeps) *matchAnalyzer {
 		quiz:       deps.Quiz,
 		level:      deps.Level,
 	}
+	// 문항이 워커를 다 가져가지 못하게 한다. 하나는 판과 手 쪽에 남는다.
+	//
+	// 집지 않는 티어에도 하나를 준다. 거기서도 대체 경로가 돌고(buildQuizNow) 그것이
+	// 세어지지 않으면 끝나는 판마다 5분짜리 탐색이 하나씩 뜬다.
+	a.quizSlots = make(chan struct{}, max(workers-1, 1))
 	for range workers {
 		go a.run(ctx)
 	}
@@ -285,6 +326,19 @@ func (a *matchAnalyzer) sampleBacklog(ctx context.Context) {
 		return
 	}
 	a.analysis.SetBacklog(games, waiting+queued)
+
+	// 문항은 따로 놓는다. 위 둘이 대수를 정하는 신호인데(journal §124) 문항 하나가
+	// 5분을 잡는 것은 대를 붙일 이유가 아니다.
+	quizzes, err := a.store.QuizBacklog(ctx, time.Now().Add(-quizLease), quizAttempts)
+	if err != nil {
+		if ctx.Err() == nil {
+			a.quizBacklogLog.Do(func() {
+				log.Printf("match: could not read the quiz queue (logged once): %v", err)
+			})
+		}
+		return
+	}
+	a.analysis.SetQuizBacklog(quizzes)
 }
 
 // sweepPlies 는 오래된 행을 걷는다. 집는 티어에서만 돈다(newMatchAnalyzer).
@@ -303,6 +357,17 @@ func (a *matchAnalyzer) sweepPlies(ctx context.Context) {
 			// 자리가 영영 차지 않는 반쪽 판이 판 큐의 누수다.
 			if err := a.store.SweepAnalysisJobs(ctx, cutoff); err != nil && ctx.Err() == nil {
 				log.Printf("match: could not sweep old jobs: %v", err)
+			}
+			// 여기서 걷힌 판은 문항 없이 남는다. 0이 아니면 그 자체로 사고이므로 적는다 —
+			// 나이만 보므로 「계속 실패했다」와 「내내 밀려서 한 번도 집히지 않았다」가 같은 값이다.
+			switch n, err := a.store.SweepQuizJobs(ctx, cutoff, time.Now().Add(-quizLease)); {
+			case err != nil && ctx.Err() == nil:
+				log.Printf("match: could not sweep old quiz jobs: %v", err)
+			case n > 0:
+				// 나이만 보므로 「상한까지 실패했다」와 「내내 밀려서 한 번도 집히지 않았다」가
+				// 같은 값이다. 어느 쪽이든 그 판은 문항 없이 남는다.
+				a.analysis.LostQuizzes(n)
+				log.Printf("match: swept %d quiz jobs older than %s — those games have no quiz", n, plyTTL)
 			}
 		}
 	}
@@ -323,9 +388,14 @@ func (a *matchAnalyzer) run(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		// 판 단위가 먼저다. 그쪽은 사람이 되짚기 화면에서 기다리는 큐고(analyzing)
-		// 미리 재는 것은 누구도 기다리지 않는다.
-		if a.runOneJob(ctx) || a.measureOnePly(ctx, ahead) {
+		// 집는 순서가 기다리는 사람 순이다. 판을 재는 것은 되짚기의 그래프가 기다리고
+		// (analyzing), 문항은 그 화면의 한 자리가 기다리며, 미리 재는 것은 누구도
+		// 기다리지 않는다.
+		//
+		// 집을 때만 정해지고 뺏지는 않는다. 문항 하나가 워커를 최대 5분 잡으므로
+		// (quizTimeout) 워커가 둘인 배포에서는 판 둘이 가까이 끝나면 그동안 판을 재는
+		// 쪽이 한 건도 집히지 않는다 — 재지 않은 자리다(journal §138).
+		if a.runOneJob(ctx) || a.runOneQuiz(ctx) || a.measureOnePly(ctx, ahead) {
 			continue
 		}
 		// 둘 다 없다. 다음 폴링까지 잔다.
@@ -816,10 +886,17 @@ func (a *matchAnalyzer) analyze(ctx context.Context, key string, seats []analysi
 	if stopped {
 		return metrics.AnalysisFailed
 	}
-	// 문항은 다 잰 판에서만 만든다. 중간에 끊긴 판은 뒤쪽 평가치가 비어 있어서, 문항이
+	// 문항은 다 잰 판에서만 세운다. 중간에 끊긴 판은 뒤쪽 평가치가 비어 있어서, 문항이
 	// 「아직 재지 않은 자리」를 가리키게 된다.
-	if imported {
-		a.buildQuiz(ctx, seats[0].gameID)
+	//
+	// 여기서 만들지 않고 큐에 세운다. 이 잡이 걷혀야 「분석 중」이 꺼지는데 문항 쪽
+	// 예산이 5분이라(quizTimeout), 한 잡에 두면 그래프가 다 찬 뒤에도 그만큼
+	// 폴링이 이어진다(journal §138).
+	if imported && !a.queueQuiz(ctx, seats[0].gameID) {
+		// 워커를 잡지 않는다. 여기서 만들면 최대 5분 동안 이 워커가 판도 手도 집지
+		// 않는데, 자리를 세어 둔 것이 바로 그것을 막으려는 것이다(quizSlots).
+		// 엔진 대국이 같은 자리에서 하는 것과 같은 모양이다(ws.go).
+		go a.buildQuizNow(context.WithoutCancel(ctx), seats[0].gameID)
 	}
 	return metrics.AnalysisDone
 }

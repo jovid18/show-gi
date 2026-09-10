@@ -167,9 +167,10 @@ type AnalysisDeps struct {
 	Metrics    *metrics.Registry
 	Workers    int
 
-	// Quiz 는 가져온 판의 문항 생성기다. nil이면 그 판에 문항이 생기지 않는다 —
-	// 엔진 대국이 판이 끝나는 자리에서 만드는 것과 같은 규약이고, 대인전은 애초에
-	// 문항을 만들지 않는다.
+	// Quiz 는 문항 생성기다. 큐를 집은 워커가 이것으로 만든다(quiz_jobs.go) — 엔진
+	// 대국과 가져온 판 둘 다이고, 대인전은 애초에 문항을 만들지 않는다.
+	//
+	// nil이면 빈 행만 남는다. 그래야 화면이 「아직 만드는 중」에서 벗어난다.
 	Quiz *quiz.Builder
 
 	// Level 은 가져온 판의 悪手 줄에 적히는 실력 구간이다. 판정이 쓴 임계치와 같은
@@ -187,7 +188,7 @@ func (m *Match) AnalyzeWith(ctx context.Context, deps AnalysisDeps) {
 	m.records.analyzer = newMatchAnalyzer(ctx, deps)
 }
 
-// Analyzer 는 가져온 기보를 줄에 세울 상대다. 대인전이 꺼진 배포에서는 nil 이고,
+// Analyzer 는 가져온 기보를 큐에 세울 상대다. 대인전이 꺼진 배포에서는 nil 이고,
 // 그때 가져오기 표면도 같이 닫힌다(kifu_import.go).
 func (m *Match) Analyzer() *matchAnalyzer { return m.analyzerOrNil() }
 
@@ -336,8 +337,8 @@ func Handler(opts Options) http.Handler {
 		// 총평은 기보와 따로 간다 — 화면이 판을 먼저 그린다(review.go summary).
 		mux.HandleFunc("GET /api/games/{id}/summary", rev.summary)
 
-		// 퀴즈(quiz.go). 엔진과 무관하다 — 문항은 판이 끝나는 자리에서 이미 만들어져
-		// 있고 채점은 저장된 트리를 읽는 일뿐이다. 되짚기와 같은 문으로 기록을 읽는다.
+		// 퀴즈(quiz.go). 엔진과 무관하다 — 문항은 분석 워커가 미리 만들어 두고
+		// (quiz_jobs.go) 채점은 저장된 트리를 읽는 일뿐이다. 되짚기와 같은 문으로 기록을 읽는다.
 		qz := &quizHandler{review: rev}
 		mux.HandleFunc("GET /api/games/{id}/quiz", qz.get)
 		mux.HandleFunc("POST /api/games/{id}/quiz/mate", qz.mate)

@@ -196,7 +196,7 @@ SELECT (
         JOIN games g ON g.match_id = j.match_id
         WHERE g.id = sqlc.arg(game_id)::bigint
     )
-    -- 가져온 판은 games.match_id 가 NULL 이라 위 조인에 걸리지 않는다. 줄에 세울 때 쓴 키를
+    -- 가져온 판은 games.match_id 가 NULL 이라 위 조인에 걸리지 않는다. 큐에 세울 때 쓴 키를
     -- 부르는 쪽이 그대로 넘긴다 — 키의 모양을 Go 한 곳에만 두기 위해서다.
     OR EXISTS (
         SELECT 1 FROM analysis_jobs j WHERE j.match_id = sqlc.arg(import_key)::text
@@ -227,3 +227,88 @@ ORDER BY my_color;
 --
 -- 오래된 행을 걷는다. 자리가 영영 차지 않는 반쪽 판이 이 표의 누수다.
 DELETE FROM analysis_jobs WHERE created_at < $1;
+
+-- 문항을 만드는 큐(023). 판을 재는 큐에 얹혀 있던 것을 떼어낸 자리이고, 근거는 journal §138.
+
+-- name: EnqueueQuizJob :exec
+--
+-- 그 판의 문항을 큐에 세운다. 두 번 세워도 한 행이다.
+--
+-- 부르는 자리가 둘이다. 엔진 대국이 끝나는 자리와, 가져온 판을 다 잰 자리다. 대인전은
+-- 세우지 않는다. 그 판에는 아직 문항이 없다.
+INSERT INTO quiz_jobs (game_id) VALUES ($1)
+ON CONFLICT (game_id) DO NOTHING;
+
+-- name: ClaimQuizJob :one
+--
+-- 만들 판 하나를 집는다. 없으면 0행이다. ClaimAnalysisJob 과 같은 모양이고, 고르는 차례만
+-- 다르다.
+--
+-- 한 번도 집히지 않은 판이 먼저다(claimed_at NULLS FIRST). 만들지 못한 판은 행이 남아
+-- 리스가 낡으면 다시 집히는데(server 의 runOneQuiz), created_at 순으로만 고르면 그 판이
+-- 30분마다 새 판을 제치고 앞에 선다. 워커가 둘인 배포에서 그것이 곧 만들 수 있는 판의 지연이다.
+--
+-- created_at 을 옮겨 뒤로 보내지 않는 것은 청소가 그 값을 보기 때문이다. 옮기면 영영
+-- 실패하는 판의 TTL 이 같이 밀려 끝나지 않는다(SweepQuizJobs).
+--
+-- 되풀이는 나이가 아니라 attempts 가 묶는다. 상한을 넘긴 행은 여기 걸리지 않고, 청소가
+-- 지울 때까지 남는다. 밀린 양에도 세지 않는다 — 누구도 집지 않을 것을 세면 그 값이
+-- 「따라잡지 못하고 있다」를 말하지 못한다(CountQuizBacklog).
+WITH next AS MATERIALIZED (
+    SELECT j.game_id FROM quiz_jobs j
+    WHERE j.attempts < sqlc.arg(max_attempts)::int
+      AND (j.claimed_at IS NULL OR j.claimed_at < sqlc.arg(lease_before)::timestamptz)
+    ORDER BY j.claimed_at NULLS FIRST, j.created_at
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+)
+UPDATE quiz_jobs t SET claimed_at = now()
+FROM next n WHERE t.game_id = n.game_id
+RETURNING t.game_id;
+
+-- name: FailQuizJob :exec
+--
+-- 만들어 봤는데 남기지 못했다. 횟수를 하나 올린다.
+--
+-- 행을 두는 것이 이 큐의 재시도다. 리스가 낡으면 다시 집히고, 상한을 넘으면 그때부터
+-- 집히지 않는다(ClaimQuizJob).
+UPDATE quiz_jobs SET attempts = attempts + 1 WHERE game_id = $1;
+
+-- name: DropQuizJob :exec
+--
+-- 그 판을 큐에서 걷는다. 문항을 남긴 뒤와, 기록을 읽지 못해 만들 수 없는 자리에서 부른다.
+DELETE FROM quiz_jobs WHERE game_id = $1;
+
+-- name: CountQuizBacklog :one
+--
+-- 아직 집히지 않은 판의 수다. 대수를 정하는 신호는 아니고(그쪽은 手 몫이다) 문항이
+-- 밀렸는지를 보는 자리다.
+SELECT count(*) FROM quiz_jobs
+WHERE attempts < sqlc.arg(max_attempts)::int
+  AND (claimed_at IS NULL OR claimed_at < sqlc.arg(lease_before)::timestamptz);
+
+-- name: IsQuizQueued :one
+--
+-- 그 판의 문항이 아직 큐에 있는가. 화면이 이 값으로 「아직 온다」와 「오지 않는다」를
+-- 가른다(server/quiz.go) — 판을 재는 큐에서 IsGameAnalyzing 이 하는 일과 같다.
+--
+-- 상한까지 실패한 행은 세지 않는다. 그 행은 청소가 지울 때까지 남지만 누구도 집지 않으므로
+-- (ClaimQuizJob) 「온다」로 답하면 화면이 오지 않을 것을 기다린다.
+SELECT EXISTS (
+    SELECT 1 FROM quiz_jobs
+    WHERE game_id = sqlc.arg(game_id)::bigint
+      AND attempts < sqlc.arg(max_attempts)::int
+) AS queued;
+
+-- name: SweepQuizJobs :execrows
+--
+-- 오래된 행을 걷는다. 만들다 계속 실패하는 판이 이 표의 누수이고, 그 판은 문항 없이 남는다.
+--
+-- 걷은 수를 돌려준다. 018·019 와 갈리는 자리다. 여기서 걷히는 판은 문항 없이 남으므로
+-- 0이 아닌 것 자체가 사고이고, 세어 두면 부르는 쪽이 로그와 지표를 남긴다.
+--
+-- 지금 만드는 중인 행은 두고 간다. 리스가 살아 있는 행이 그것이고, 걷으면 다 만든 뒤에
+-- 지울 것이 없어질 뿐 아니라 「이 판은 문항이 없다」가 거짓으로 세어진다.
+DELETE FROM quiz_jobs
+WHERE created_at < sqlc.arg(older_than)::timestamptz
+  AND (claimed_at IS NULL OR claimed_at < sqlc.arg(lease_before)::timestamptz);

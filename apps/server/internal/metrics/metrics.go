@@ -160,11 +160,14 @@ type Registry struct {
 	MatchPairingWait *Histogram
 	MatchPairingGap  *Histogram
 
-	AnalysisBacklogGames *Gauge
-	AnalysisBacklogPlies *Gauge
-	AnalysisGames        *Counter
-	AnalysisDuration     *Histogram
-	GamesFinished        *Counter
+	AnalysisBacklogGames   *Gauge
+	AnalysisBacklogPlies   *Gauge
+	AnalysisBacklogQuizzes *Gauge
+	AnalysisGames          *Counter
+	AnalysisDuration       *Histogram
+	AnalysisQuizzes        *Counter
+	AnalysisQuizDuration   *Histogram
+	GamesFinished          *Counter
 }
 
 // AnalysisBuckets 는 판 하나를 다 재는 데 걸리는 시간의 버킷이다. 30초부터 한 시간까지.
@@ -172,6 +175,13 @@ type Registry struct {
 // DefaultBuckets 를 쓸 수 없다. 저쪽 상한이 30초인데 여기는 한 판이 手마다 판정 한 번이라
 // (match_analysis.go 의 analyze) 100手면 분 단위가 정상이다.
 var AnalysisBuckets = []float64{30, 60, 120, 300, 600, 1800, 3600}
+
+// QuizBuckets 는 판 하나의 문항을 만드는 데 걸리는 시간의 버킷이다. 1초부터 5분까지.
+//
+// AnalysisBuckets 를 쓸 수 없다. 저쪽은 30초에서 시작하는데 여기는 상한이 5분이라
+// (server 의 quizTimeout) 그 아래가 한 칸으로 뭉친다 — 엔진이 죽어 곧바로 실패한 판과
+// 20초 걸린 판이 같은 칸에 들어간다.
+var QuizBuckets = []float64{1, 5, 15, 30, 60, 120, 300}
 
 // New 는 이 앱의 지표를 다 만든 레지스트리다.
 //
@@ -263,6 +273,23 @@ func New(service, environment string) *Registry {
 		"분석이 끝난 판 수", "result")
 	r.AnalysisDuration = r.NewHistogram("analysis_game_duration_seconds",
 		"판 하나를 처음부터 끝까지 재는 데 걸린 시간(초)", AnalysisBuckets)
+
+	// 문항은 따로 센다(023). 같은 워커가 집지만 예산이 다르다 — 평가치는 手마다
+	// 밀리초이고 문항 하나는 최대 5분이다(server 의 quizTimeout).
+	//
+	// 판 몫과 섞으면 그 5분이 판을 재는 시간으로 읽힌다. 두 큐를 가른 이유가 그 차이라
+	// 지표에서도 가른다(journal §138).
+	r.AnalysisBacklogQuizzes = r.NewGauge("analysis_backlog_quizzes",
+		"문항 만들기를 기다리는 판 수")
+	// result 는 여섯이다 — done · already(이미 있어 만들지 않았다) · failed(못 만들어 줄에
+	// 남겼다) · dropped(판이 없어졌다) · swept(청소가 지웠다) · starved(자리를 못 잡았다).
+	//
+	// 알람으로 쓰는 것은 뒤의 셋이다(emf.go 의 lostQuiz). 그 판들은 문항 없이 남는다 —
+	// failed 는 다시 집히므로 배포가 생성 도중에 낄 때마다 올라 알람이 될 수 없다.
+	r.AnalysisQuizzes = r.NewCounter("analysis_quizzes_total",
+		"문항 만들기가 끝난 판 수", "result")
+	r.AnalysisQuizDuration = r.NewHistogram("analysis_quiz_duration_seconds",
+		"판 하나의 문항을 만드는 데 걸린 시간(초)", QuizBuckets)
 
 	// status 는 game.Status 의 값 그대로다. 이 지표는 aborted 를 세려고 있다 —
 	// 상대의 수를 시한 안에 얻지 못해 접은 판이고, games.result 에서는 사람이 창을 닫은

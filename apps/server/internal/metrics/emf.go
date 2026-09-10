@@ -119,7 +119,7 @@ type metric struct {
 // 여기 있는 것만 CloudWatch 에 올라간다. 텍스트 표면(/metrics)이 라벨을 다 갖고 있는
 // 것과 갈리는 자리이고, 따로 둔 것은 요금 때문이다.
 //
-// 지금 열두 개 + 분포 다섯이다. 열 개로 묶어 두던 선을 詰み 층의 셋이 넘었다(journal §111) —
+// 지금 열네 개 + 분포 여섯이다. 열 개로 묶어 두던 선을 詰み 층의 셋이 넘었다(journal §111) —
 // dimensions 가 Service·Environment 둘뿐이라 이름 하나가 과금 지표 하나이고, 개당 월 $0.30 이다.
 // 늘릴 때마다 이 숫자를 고친다.
 func (e *Emitter) collect() []metric {
@@ -146,6 +146,18 @@ func (e *Emitter) collect() []metric {
 		// 버려진 판은 평가치도 실력도 없이 남는다. 0이 아니면 그 자체로 사고다.
 		{"AnalysisGamesDropped", "Count",
 			e.delta("AnalysisGamesDropped", r.AnalysisGames.SumFunc(dropped))},
+		// 문항 큐의 둘. 판 몫과 갈라 두는 자리이므로(journal §138) 여기서도 따로 올린다.
+		//
+		// 밀린 문항은 대수를 정하지 않는다. AnalysisBacklogPlies 와 달리 알람에 걸려 있지
+		// 않고, 「두 큐가 서로를 굶히는가」를 나중에 보려고 올린다.
+		{"AnalysisBacklogQuizzes", "Count", r.AnalysisBacklogQuizzes.Total()},
+		// 문항 없이 끝난 판. 0이 아니면 그 자체로 사고다 — 버려진 판을 따로 올리는 것과
+		// 같은 판단이다.
+		//
+		// 실패는 여기 세지 않는다. 그쪽은 행이 남아 다시 집히므로 배포가 생성 도중에 낄
+		// 때마다 오르고, 그 판은 30분 뒤에 만들어진다 — 알람으로 쓰면 배포마다 울린다.
+		{"AnalysisQuizzesLost", "Count",
+			e.delta("AnalysisQuizzesLost", r.AnalysisQuizzes.SumFunc(lostQuiz))},
 		// 상대의 수를 시한 안에 얻지 못해 접은 판. games.result 로는 셀 수 없어서
 		// (사람이 창을 닫은 판과 같은 값이 된다) 부하 시험의 깨짐 신호가 이것이다.
 		{"GamesAborted", "Count",
@@ -162,6 +174,11 @@ func (e *Emitter) collect() []metric {
 	// 가르려면 EnginePoolWaitSeconds 를 뺀다.
 	if s := r.SearchDuration.DrainSamples(computed); len(s) > 0 {
 		out = append(out, metric{"EngineSearchSeconds", "Seconds", s})
+	}
+	// 문항 하나를 만드는 데 걸린 시간. 갈라 둔 값이 여기서 보인다 — 워커를 얼마나 오래
+	// 잡는가가 곧 판·手 쪽이 얼마나 서 있는가다(journal §138).
+	if s := r.AnalysisQuizDuration.DrainSamples(nil); len(s) > 0 {
+		out = append(out, metric{"AnalysisQuizSeconds", "Seconds", s})
 	}
 	// 한 번 비우고 셋으로 내보낸다. 두 번 부르면 두 번째가 빈 배열이다(DrainSamplesAll).
 	//
@@ -219,5 +236,15 @@ func computed(labels map[string]string) bool { return labels["result"] == result
 func searchPool(labels map[string]string) bool { return labels["pool"] == PoolSearch }
 
 func dropped(labels map[string]string) bool { return labels["result"] == AnalysisDropped }
+
+// lostQuiz 는 문항 없이 끝난 판이다. 다시 집히는 실패(failed)와, 이미 있어서 만들지 않은
+// 판(already)은 여기 들지 않는다.
+func lostQuiz(labels map[string]string) bool {
+	switch labels["result"] {
+	case AnalysisSwept, AnalysisDropped, AnalysisStarved:
+		return true
+	}
+	return false
+}
 
 func aborted(labels map[string]string) bool { return labels["status"] == "aborted" }

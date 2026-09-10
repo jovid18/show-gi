@@ -18,15 +18,20 @@ export interface QuizSource extends Source<QuizPayload> {
 /**
  * 그 판의 문항.
  *
- * 생성이 끝나지 않았으면 다시 묻는다. 문항은 판이 끝나는 자리에서 수십 초 동안 만들어지므로
- * (server/ws.go generateQuiz), 판이 끝난 직후에 되짚기를 열면 `ready: false` 가 온다 —
+ * 생성이 끝나지 않았으면 다시 묻는다. 문항은 판이 끝나면 큐에 들어가고 분석 워커가 수십 초
+ * 동안 만들므로 (server/quiz_jobs.go), 판이 끝난 직후에 되짚기를 열면 `ready: false` 가 온다 —
  * 한 번 묻고 「問題はありません」을 그리면 그것이 거짓이 된다.
+ *
+ * 이 값과 판의 `analyzing` 은 다른 것을 기다린다. 저쪽은 평가치이고 이쪽은 문항이라,
+ * 그래프가 다 차고 「解析しています」가 꺼진 뒤에도 여기는 아직 기다릴 수 있다.
  */
 export function useQuiz(id: number): QuizSource {
   const { loaded, reload } = useFetch<QuizPayload>(`/api/games/${id}/quiz`);
   const [attempts, setAttempts] = useState(0);
   // 기다리기 시작한 시각. 횟수 대신 시간을 잰다 — 아래.
   const since = useRef<number | null>(null);
+  // 「줄에 없다」를 처음 들은 시각. 위와 따로 잰다 — 아래.
+  const denied = useRef<number | null>(null);
 
   // 판이 바뀌면 이 훅 전체가 새로 만들어진다 — App 이 `key` 로 판마다 새로 세운다. 여기서
   // 손으로 되돌리려 하면 안 된다: `id` 가 바뀐 그 렌더에는 `useFetch` 가 아직 앞 판의 답을
@@ -37,23 +42,43 @@ export function useQuiz(id: number): QuizSource {
   // 한 번 실패한 것으로 끝내지 않는다. 요청 하나가 500을 받거나 네트워크가 한 번 끊긴
   // 것으로는 「문항이 오지 않는다」를 정할 수 없다. 다시 묻는 동안 직전 답이 그대로 있으므로
   // (useFetch 의 afterFailure) 이 값은 그 사이에 흔들리지 않는다.
-  const waiting = loaded.state === 'ready' && !loaded.data.ready;
-
-  // 다 만들어지면 멈추고, 오지 않으면 그것도 멈춘다. 「아직 만드는 중」은 영영 참일 수 있다 —
-  // 이 코드 전에 끝난 판, 생성기가 없는 배포, 문항 판이 올라가 옛 행이 죽은 뒤가 전부 그렇다.
-  // 계속 물으면 화면이 오지 않을 것을 기다리라고 말하게 된다.
+  // 다 만들어지면 멈추고, 오지 않으면 그것도 멈춘다. 「아직 만드는 중」은 영영 참일 수
+  // 있다 — 이 코드 전에 끝난 판과, 문항 판이 올라가 옛 행이 죽은 뒤가 그렇다. 계속
+  // 물으면 화면이 오지 않을 것을 기다리라고 말하게 된다.
   //
+  // 그것을 서버가 말한다(`queued`).
+  const pending = loaded.state === 'ready' && !loaded.data.ready;
+  // 없는 것은 거짓이 아니다. 배포가 도는 동안 옛 태스크가 이 칸 없이 답하고, 그때는
+  // 물어볼 것이 없으므로 시간으로만 끊는다.
+  const said = pending ? loaded.data.queued : undefined;
+
   // 끊는 기준은 물은 횟수 대신 기다린 시간이다. 세는 쪽은 「효과가 몇 번 다시
   // 도는가」에 매이는데 그것은 재려던 것과 다르고 실제로 어긋났다 — 개발 모드에서 5초
-  // 간격이 22초에 9회로 돌았다. 재는 쪽은 그 횟수가 무엇이든 서버가 스스로 자르는 시각과
-  // 같은 자리에서 끊긴다.
-  if (waiting && since.current === null) {
+  // 간격이 22초에 9회로 돌았다.
+  if (pending && since.current === null) {
     since.current = Date.now();
   }
-  if (!waiting) {
+  if (!pending) {
     since.current = null;
   }
-  const gaveUp = waiting && since.current !== null && Date.now() - since.current >= QUIZ_WAIT_MS;
+  const waited = since.current === null ? 0 : Date.now() - since.current;
+
+  // 한 번의 「줄에 없다」로 그만두지 않는다. 그 값이 잠깐 거짓일 수 있는 자리가 있다 —
+  // 대국이 끝나고 총평이 먼저 가고 세우는 것이 그 뒤이고(server/ws.go), 세우기가 실패한
+  // 판은 줄 없이 그 자리에서 만들어진다. 둘 다 화면에서는 「아직 오지 않았다」로 보인다.
+  //
+  // 그 시각을 따로 잰다. 전체 기다린 시간으로 재면 몇 분 기다린 뒤의 첫 거짓이 곧바로
+  // 끊는데, 재는 동안 참을 주다가 한 번 흔들리는 자리가 바로 그 모양이다.
+  if (said === false && denied.current === null) {
+    denied.current = Date.now();
+  }
+  if (said !== false) {
+    denied.current = null;
+  }
+  const deniedFor = denied.current === null ? 0 : Date.now() - denied.current;
+
+  const waiting = pending && waited < QUIZ_WAIT_MS && !(said === false && deniedFor >= QUIZ_MIN_WAIT_MS);
+  const gaveUp = pending && !waiting;
 
   // `attempts` 가 다시 걸어 주는 값이다. 나머지 셋은 폴링 도중에 바뀌지 않는다: `waiting` 은
   // 계속 참이고(다시 묻는 동안 직전 답이 그대로 있다) `gaveUp` 은 거짓이고 `reload` 는 고정이다.
@@ -66,14 +91,18 @@ export function useQuiz(id: number): QuizSource {
     const timer = setTimeout(() => {
       setAttempts((n) => n + 1);
       reload();
-    }, QUIZ_POLL_MS);
+    }, pollDelay(waited));
     return () => clearTimeout(timer);
+    // waited 는 다시 걸어 주는 값에 넣지 않는다. 매 렌더에 바뀌는 값이라 넣으면 타이머가
+    // 계속 다시 걸려 아무것도 끝나지 않는다 — 다음 간격은 다음 폴링이 도착할 때
+    // `attempts` 가 바뀌면서 그 렌더의 값으로 다시 정해진다.
   }, [waiting, gaveUp, attempts, reload]);
 
   // 「もう一度」는 세던 것도 되돌린다. 되돌리지 않으면 눌러도 요청 하나가 나가고 화면은
   // 그만둔 자리에 그대로 멈춰서, 버튼이 아무 일도 하지 않는 것처럼 보인다.
   const retry = useCallback(() => {
     since.current = null;
+    denied.current = null;
     setAttempts(0);
     reload();
   }, [reload]);
@@ -90,13 +119,45 @@ export function useQuiz(id: number): QuizSource {
 const QUIZ_POLL_MS = 5000;
 
 /**
- * 얼마나 기다리나. 5분이다.
+ * 다음에 물어보기까지 얼마나 둘 것인가.
  *
- * 서버가 스스로 자르는 시한과 같은 값이다(`quizTimeout`). 그보다 짧게 잡으면 아직
- * 정직하게 만들고 있는 판에 「오지 않았다」고 말하게 되고, 길게 잡으면 서버가 이미 포기한
- * 뒤에도 기다린다 — 어느 쪽도 사실과 어긋난다.
+ * 오래 기다릴수록 뜸해진다. 상한이 30분인데(QUIZ_WAIT_MS) 5초로만 물으면 한 사람이 판
+ * 하나에 360번을 묻고, 그 요청 하나가 기보 전체를 읽는다(reviewHandler.record).
+ *
+ * 앞은 촘촘하다. 문항은 대개 수십 초 안에 오고, 그때 사람이 화면 앞에 있다.
  */
-const QUIZ_WAIT_MS = 5 * 60 * 1000;
+function pollDelay(waited: number): number {
+  if (waited < 60 * 1000) return QUIZ_POLL_MS;
+  if (waited < 5 * 60 * 1000) return 3 * QUIZ_POLL_MS;
+  return 6 * QUIZ_POLL_MS;
+}
+
+/**
+ * 「온다」를 들으면서 이만큼 지나면 그만 묻는다. 30분이다.
+ *
+ * 끊는 것은 `queued` 가 먼저 한다. 이 값은 그 뒤에 남는 마지막 자물쇠다 — 상한까지
+ * 실패한 판도 청소가 지울 때까지 큐에 남으므로(server/quiz_jobs.go), 그 말만 믿고
+ * 기다리면 몇 시간을 묻는다.
+ *
+ * 만드는 시한(5분)만으로 잡을 수 없다. `queued` 는 가져온 판을 재는 동안에도 참이고
+ * (server/quiz.go), 판이 길면 그 재기가 분 단위로 간다 — 짧게 잡으면 오는 중인 문항에
+ * 「오지 않았다」고 말하게 되고, 그 말을 없애려고 이 값을 둔 것이다.
+ *
+ * 잰 값이 아니다 `[미확정]`. 늦게 끊는 쪽으로 기울여 둔 것은 여기 「もう一度」가 있어서다.
+ */
+const QUIZ_WAIT_MS = 30 * 60 * 1000;
+
+/**
+ * 줄에 없다고 할 때 그래도 기다리는 시간. 1분이다.
+ *
+ * `queued` 가 잠깐 거짓일 수 있다. 대국이 끝나면 총평이 먼저 가고 큐에 세우는 것이 그
+ * 뒤이고(server/ws.go), 세우기가 실패한 판은 줄 없이 그 자리에서 만들어진다. 한 번의
+ * 거짓으로 그만두면 그 두 자리에서 화면이 오는 것을 오지 않았다고 말한다.
+ *
+ * 폴링 간격의 열두 배다. 잰 값이 아니라 「사람이 새로고침하기 전」과 「없는 것을
+ * 기다리게 하지 않는다」 사이에서 고른 것이다 `[미확정]`.
+ */
+const QUIZ_MIN_WAIT_MS = 60 * 1000;
 
 /** 채점 한 번의 상태. 누른 뒤 답이 오기까지의 자리가 화면에 있어야 한다. */
 export interface Grading<T> {

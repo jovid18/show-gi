@@ -6,14 +6,15 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/jovid18/show-gi/apps/server/internal/quiz"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 되짚기 퀴즈의 표면. 엔진이 없다 — 문항은 판이 끝나는 자리에서 이미 만들어져 있고
-// (ws.go generateQuiz) 여기는 그것을 읽어 채점만 한다(journal §53).
+// 되짚기 퀴즈의 표면. 엔진이 없다 — 문항은 분석 워커가 미리 만들어 두고
+// (quiz_jobs.go generateQuiz) 여기는 그것을 읽어 채점만 한다(journal §53).
 //
 // 그래서 이 표면은 /api/games/{id} 와 같은 성질이다: DB에 매여 있고 엔진과 무관하다.
 // 가정 수순처럼 503이 되는 자리가 없다.
@@ -27,6 +28,45 @@ type quizHandler struct {
 	// 한 자리에 남는다(review.go record) — 거르는 규칙이 두 벌이 되면 한쪽만 고쳐진 채로
 	// 남고, 그 한쪽이 곧 구멍이다.
 	review *reviewHandler
+
+	// queueLog 는 줄을 읽지 못했다는 말을 한 번만 하게 한다.
+	//
+	// 여기는 사람 수만큼 도는 자리다. 표가 아직 없는 배포에서는 이 질의가 실패하고, 그때
+	// 참으로 답하므로 화면이 계속 묻는다 — 5초마다, 보는 사람마다다. 분석기가 같은
+	// 자리에서 같은 판단을 한다(matchAnalyzer 의 quizClaimLog).
+	queueLog sync.Once
+}
+
+// queued 는 그 판의 문항이 아직 오는 중인가다.
+//
+// 자리가 둘이다. 문항이 큐에 있거나, 그 판을 아직 재는 중이거나다.
+//
+// 재는 중까지 보는 이유는 순서다. 가져온 판은 手를 다 재고 나서야 문항을 큐에 세우므로
+// (match_analysis.go 의 analyze), 큐만 보면 재는 몇 분 동안 「오지 않는다」가 나간다 —
+// 사람이 가져오기 직후에 여는 것이 바로 그 자리다.
+//
+// 재는 중인가를 먼저 본다. 쓰는 차례가 그 반대라 — 문항을 큐에 세우고 나서 재는 표시를
+// 걷는다(runOneJob) — 같은 차례로 읽으면 그 사이에 끼었을 때 둘 다 거짓이 나간다.
+//
+// 읽지 못하면 참으로 둔다. 「오지 않는다」로 답하면 화면이 그 자리에서 그만두는데, 그
+// 말은 되돌릴 자리가 없다.
+//
+// 덮지 못하는 창이 하나 있다. 표는 있는데 세우기가 실패한 자리다 — 그때는 그 자리에서
+// 만드는데(queueQuiz) 줄에도 없고 재는 중도 아니라 거짓이 나간다. 만드는 데 최대 5분이고
+// 화면이 기다리는 바닥은 1분이라, 그동안 「まだ届きません」이 보이고 되찾는 것은
+// 「もう一度」다. 표가 아예 없는 배포는 반대다: 이 질의가 실패해서 참으로 답한다.
+func (h *quizHandler) queued(r *http.Request, gameID int64) bool {
+	if h.review.analyzer.analyzing(r.Context(), gameID) {
+		return true
+	}
+	ok, err := h.review.store.IsQuizQueued(r.Context(), gameID, quizAttempts)
+	if err != nil {
+		h.queueLog.Do(func() {
+			log.Printf("quiz: could not read the queue of game %d (logged once): %v", gameID, err)
+		})
+		return true
+	}
+	return ok
 }
 
 // quizPayload 는 화면이 받는 문항 전부다. 정답이 없다 — 채점은 서버에 있다.
@@ -34,10 +74,22 @@ type quizPayload struct {
 	// Ready 는 생성이 끝났는가다. 거짓은 「아직 만드는 중」이고 「문항이 없다」와 다르다 —
 	// 만드는 데 수십 초가 걸려서, 그 사이에 화면이 「問題はありません」을 그리면 거짓이 된다.
 	//
-	// 판이 끝나는 자리에서 문항이 하나도 나오지 않아도 행을 남기는 것이 이 값을 위해서다(ws.go).
-	Ready bool          `json:"ready"`
-	Mate  *matePayload  `json:"mate,omitempty"`
-	Best  []bestPayload `json:"best,omitempty"`
+	// 문항이 하나도 나오지 않아도 행을 남기는 것이 이 값을 위해서다(quiz_jobs.go).
+	Ready bool `json:"ready"`
+	// Queued 는 문항이 아직 오는 중인가다. Ready 가 거짓일 때만 뜻이 있다.
+	//
+	// 거짓이어도 실어 보낸다(omitempty 를 쓰지 않는다). 배포가 도는 동안 옛 태스크가 이 칸
+	// 없이 답하는데, 빼 두면 화면에서 「없다」와 「거짓」이 같은 값이 되어 옛 태스크의
+	// 답을 「오지 않는다」로 읽는다.
+	//
+	// 거짓이면서 Ready 도 거짓이면 오지 않는다 — 이 코드 전에 끝난 판과, 문항 판이
+	// 올라가 옛 행이 죽은 판이다. 화면이 그 자리에서 기다리기를 그만둔다.
+	//
+	// 시간으로 재던 것을 대신한다. 큐에서 기다리는 시간이 붙은 뒤로 「만드는 시한만큼
+	// 기다린다」가 성립하지 않는다(journal §138). 무엇을 보는지는 quizHandler.queued 에 있다.
+	Queued bool          `json:"queued"`
+	Mate   *matePayload  `json:"mate,omitempty"`
+	Best   []bestPayload `json:"best,omitempty"`
 }
 
 // matePayload 는 詰み 문항의 첫 장면이다.
@@ -86,6 +138,23 @@ func (h *quizHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 아직 아닐 때만 줄을 묻는다. 다 된 판이 이 표면의 흔한 쪽이고, 거기서는 이 값이
+	// 쓰이지 않는다 — 대인전 판도 아래에서 Ready 를 참으로 두므로 같이 빠진다.
+	//
+	// 묻고 나서 문항을 한 번 더 본다. 워커가 쓰는 순서가 반대라(문항을 남기고 나서 큐에서
+	// 걷는다) 그 사이에 끼면 「다 됐는데 오지 않는다」가 나가는데, 줄을 본 뒤에 다시
+	// 보면 그 창이 닫힌다.
+	queued := false
+	if !ready && rec.MatchID == "" {
+		queued = h.queued(r, rec.ID)
+		if !queued {
+			q, ready, ok = h.load(w, r, rec.ID)
+			if !ok {
+				return
+			}
+		}
+	}
+
 	// 대인전 판은 「다 됐고 문항이 없다」다. 행이 없는 것은 같지만 뜻이 반대다 —
 	// 저쪽은 아직 만드는 중이고 이쪽은 영영 만들지 않는다(문항을 짓는 층이 대인전 경로에 없다).
 	// ready=false 로 두면 그 화면이 오지 않을 것을 계속 기다린다(journal §83).
@@ -93,6 +162,9 @@ func (h *quizHandler) get(w http.ResponseWriter, r *http.Request) {
 	// 판정은 돈다. 手마다 재서 평가치와 실력 추정을 남기므로(journal §105) 되짚기에
 	// 평가치가 있다 — 없는 것은 퀴즈뿐이다.
 	out := quizPayload{Ready: ready || rec.MatchID != ""}
+	if !out.Ready {
+		out.Queued = queued
+	}
 	if q.Mate != nil {
 		// 트리의 키가 곧 王手 목록이다. 여기서 룰 엔진으로 다시 걸러 만들면 화면이
 		// 빛내는 수와 트리가 아는 수가 갈릴 수 있고, 갈리면 화면에서 둘 수 있는 수가

@@ -42,7 +42,7 @@ type Input struct {
 // DB의 先手 관점을 여기서 뒤집는다 — 뒤집지 않으면 後手로 둔 판의 낙폭 부호 전체가
 // 반대가 되고, 그러면 문항이 잘 둔 자리에서 뽑힌다.
 //
-// 공개해 둔 것은 옮겨 담는 쪽이(server/ws.go quizInput) 부호 규약을 시험으로 고정할 수
+// 공개해 둔 것은 옮겨 담는 쪽이(server/quiz_jobs.go quizInput) 부호 규약을 시험으로 고정할 수
 // 있어야 하기 때문이다.
 // PlayerBaselineCp 는 「형세 0」을 사람 관점으로 옮긴 것이다. PlayerEval 과 같은 자다.
 func (in Input) PlayerBaselineCp() int {
@@ -86,7 +86,7 @@ func NewBuilder(mate MateSearcher, search MultiSearcher, depth int) *Builder {
 //
 // 대신 엔진이 한 번이라도 답했는가를 함께 준다. 거짓이면 빈 결과가 「이 판에 문항이
 // 없다」 대신 「아무것도 보지 못했다」이고, 그 둘은 화면에서 전혀 다른 말이 되어야 한다 —
-// 부르는 쪽은 거짓이면서 비었을 때만 아무것도 적지 않는다(server/ws.go generateQuiz).
+// 부르는 쪽은 거짓이면서 비었을 때만 아무것도 적지 않는다(server/quiz_jobs.go generateQuiz).
 //
 // 한 자리를 보지 못한 것과 전부 보지 못한 것을 가른다. 중반의 무관한 국면 하나에서 solver 가
 // 결론을 내지 못한 것은 흔한 일이고(df-pn이 timeout 하는 자리다) 그때 나머지는 다 봤으므로

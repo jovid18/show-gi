@@ -168,6 +168,14 @@ const (
 	AnalysisDone    = "done"
 	AnalysisDropped = "dropped"
 	AnalysisFailed  = "failed"
+	// AnalysisSwept 는 문항 큐에만 있다. 만들지 못한 채 청소가 지운 판이고, failed 와
+	// 달리 다시 집히지 않는다.
+	AnalysisSwept = "swept"
+	// AnalysisStarved 는 자리를 기다리다 그만둔 판이다. 큐에 들어간 적이 없으므로 swept 와
+	// 갈라 둔다 — 알람이 「청소가 진짜 일을 지운다」와 「대체 경로가 굶는다」를 가려야 한다.
+	AnalysisStarved = "starved"
+	// AnalysisAlready 는 집었더니 이미 문항이 있던 판이다. 만들지 않고 걷는다.
+	AnalysisAlready = "already"
 )
 
 // SetBacklog 은 지금 큐에 남아 있는 양을 놓는다. 판과 手를 같이 받는다.
@@ -188,5 +196,52 @@ func (a *Analysis) ObserveGame(result string, d time.Duration) {
 	a.reg.AnalysisGames.Inc(result)
 	if result != AnalysisDropped {
 		a.reg.AnalysisDuration.Observe(d.Seconds())
+	}
+}
+
+// SetQuizBacklog 은 문항 만들기를 기다리는 판 수를 놓는다.
+//
+// SetBacklog 과 갈라 둔다. 저쪽 둘은 대수를 정하는 신호이고(journal §124) 이 값은 그
+// 신호가 아니다 — 섞으면 문항 하나가 5분을 잡는 것이 대를 붙이는 이유가 된다.
+func (a *Analysis) SetQuizBacklog(games int) {
+	if a == nil || a.reg == nil {
+		return
+	}
+	a.reg.AnalysisBacklogQuizzes.Set(float64(games))
+}
+
+// LostQuizzes 는 문항 없이 큐에서 걷힌 판을 센다.
+//
+// ObserveQuiz 의 failed 와 다르다. 저쪽은 다시 집히는 실패이고 배포마다 나오는데, 이것은
+// 그 판이 문항을 갖지 못한 것이 정해진 자리다 — 알람으로 쓸 수 있는 쪽이 이것이다.
+func (a *Analysis) LostQuizzes(n int) {
+	if a == nil || a.reg == nil {
+		return
+	}
+	a.reg.AnalysisQuizzes.Add(float64(n), AnalysisSwept)
+}
+
+// StarvedQuiz 는 자리를 기다리다 그만둔 판 하나다. 그 판도 문항 없이 남는다.
+func (a *Analysis) StarvedQuiz() {
+	if a == nil || a.reg == nil {
+		return
+	}
+	a.reg.AnalysisQuizzes.Inc(AnalysisStarved)
+}
+
+// ObserveQuiz 는 판 하나의 문항 만들기가 끝난 것을 남긴다. ObserveGame 과 같은 규약이다.
+//
+// 일하지 않은 자리는 분포에 넣지 않는다. 분포가 재는 것은 「워커를 얼마나 오래 잡는가」라
+// (journal §138) 0초 표본이 섞이면 백분위가 아래로 끌린다 — 이미 있어서 만들지 않은 판이
+// 몰릴 수 있는 자리가 있다(queueQuiz 의 시한 뒤 커밋).
+func (a *Analysis) ObserveQuiz(result string, d time.Duration) {
+	if a == nil || a.reg == nil {
+		return
+	}
+	a.reg.AnalysisQuizzes.Inc(result)
+	switch result {
+	case AnalysisDropped, AnalysisAlready:
+	default:
+		a.reg.AnalysisQuizDuration.Observe(d.Seconds())
 	}
 }

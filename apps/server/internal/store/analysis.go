@@ -271,7 +271,7 @@ func (s *Store) AnalysisJobBacklog(ctx context.Context, leaseBefore time.Time) (
 // IsGameAnalyzing 은 그 판이 아직 큐에 있거나 도는 중인가다.
 //
 // 키를 받는다. 대인전은 games.match_id 로 조인해 찾지만 가져온 판은 그 칸이 NULL 이라
-// 줄에 세울 때 쓴 키가 있어야 찾는다 — 키의 모양은 부르는 쪽에만 있다(server 의 importKey).
+// 큐에 세울 때 쓴 키가 있어야 찾는다 — 키의 모양은 부르는 쪽에만 있다(server 의 importKey).
 func (s *Store) IsGameAnalyzing(ctx context.Context, gameID int64, importKey string) (bool, error) {
 	ok, err := s.q.IsGameAnalyzing(ctx, db.IsGameAnalyzingParams{GameID: gameID, ImportKey: importKey})
 	if err != nil {
@@ -345,4 +345,92 @@ func (s *Store) SweepAnalysisJobs(ctx context.Context, before time.Time) error {
 		return fmt.Errorf("sweep analysis jobs: %w", err)
 	}
 	return nil
+}
+
+// 문항의 큐(023)의 표 접근. 위 두 큐와 같은 규약이고, 담는 것이 판 번호 하나다.
+
+// ErrNoQuizJob 은 지금 만들 문항이 없다는 것 하나다.
+var ErrNoQuizJob = errors.New("store: no quiz to build")
+
+// EnqueueQuizJob 은 그 판의 문항을 큐에 세운다. 두 번 불려도 한 행이다.
+func (s *Store) EnqueueQuizJob(ctx context.Context, gameID int64) error {
+	if err := s.q.EnqueueQuizJob(ctx, gameID); err != nil {
+		return fmt.Errorf("enqueue quiz job: %w", err)
+	}
+	return nil
+}
+
+// ClaimQuizJob 은 만들 판 하나를 집는다. 없으면 ErrNoQuizJob.
+//
+// maxAttempts 번 실패한 판은 주지 않는다. 되풀이를 나이가 아니라 횟수로 묶는 자리다.
+func (s *Store) ClaimQuizJob(ctx context.Context, leaseBefore time.Time, maxAttempts int) (int64, error) {
+	id, err := s.q.ClaimQuizJob(ctx, db.ClaimQuizJobParams{
+		MaxAttempts: int32(maxAttempts),
+		LeaseBefore: stamp(leaseBefore),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, ErrNoQuizJob
+	}
+	if err != nil {
+		return 0, fmt.Errorf("claim quiz job: %w", err)
+	}
+	return id, nil
+}
+
+// FailQuizJob 은 만들어 봤는데 남기지 못했다고 적는다. 그 행은 줄에 남는다.
+func (s *Store) FailQuizJob(ctx context.Context, gameID int64) error {
+	if err := s.q.FailQuizJob(ctx, gameID); err != nil {
+		return fmt.Errorf("fail quiz job: %w", err)
+	}
+	return nil
+}
+
+// DropQuizJob 은 그 판을 큐에서 걷는다.
+func (s *Store) DropQuizJob(ctx context.Context, gameID int64) error {
+	if err := s.q.DropQuizJob(ctx, gameID); err != nil {
+		return fmt.Errorf("drop quiz job: %w", err)
+	}
+	return nil
+}
+
+// QuizBacklog 은 아직 집히지 않은 판의 수다. 상한까지 실패한 행은 세지 않는다.
+func (s *Store) QuizBacklog(ctx context.Context, leaseBefore time.Time, maxAttempts int) (int, error) {
+	n, err := s.q.CountQuizBacklog(ctx, db.CountQuizBacklogParams{
+		MaxAttempts: int32(maxAttempts),
+		LeaseBefore: stamp(leaseBefore),
+	})
+	if err != nil {
+		return 0, fmt.Errorf("quiz backlog: %w", err)
+	}
+	return int(n), nil
+}
+
+// IsQuizQueued 는 그 판의 문항이 아직 큐에 있는가다. 상한까지 실패한 행은 세지 않는다 —
+// 누구도 집지 않으므로 「온다」가 아니다.
+func (s *Store) IsQuizQueued(ctx context.Context, gameID int64, maxAttempts int) (bool, error) {
+	ok, err := s.q.IsQuizQueued(ctx, db.IsQuizQueuedParams{
+		GameID:      gameID,
+		MaxAttempts: int32(maxAttempts),
+	})
+	if err != nil {
+		return false, fmt.Errorf("is quiz queued: %w", err)
+	}
+	return ok, nil
+}
+
+// SweepQuizJobs 는 그 시각보다 오래된 행을 걷고 몇 개를 걷었는지 준다.
+//
+// 0이 아닌 것은 그 자체로 사고다. 여기서 걷히는 판은 문항 없이 남는다.
+//
+// 지금 만드는 중인 행은 두고 간다(leaseBefore). 걷으면 다 만든 뒤에 지울 것이 없어질 뿐
+// 아니라 「이 판은 문항이 없다」가 거짓으로 세어진다.
+func (s *Store) SweepQuizJobs(ctx context.Context, before, leaseBefore time.Time) (int, error) {
+	n, err := s.q.SweepQuizJobs(ctx, db.SweepQuizJobsParams{
+		OlderThan:   stamp(before),
+		LeaseBefore: stamp(leaseBefore),
+	})
+	if err != nil {
+		return 0, fmt.Errorf("sweep quiz jobs: %w", err)
+	}
+	return int(n), nil
 }
