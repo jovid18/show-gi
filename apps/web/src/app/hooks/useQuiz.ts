@@ -46,7 +46,9 @@ export function useQuiz(id: number): QuizSource {
   //
   // 그것을 서버가 말한다(`queued`).
   const pending = loaded.state === 'ready' && !loaded.data.ready;
-  const queued = pending && loaded.data.queued === true;
+  // 없는 것은 거짓이 아니다. 배포가 도는 동안 옛 태스크가 이 칸 없이 답하고, 그때는
+  // 물어볼 것이 없으므로 시간으로만 끊는다.
+  const said = pending ? loaded.data.queued : undefined;
 
   // 끊는 기준은 물은 횟수 대신 기다린 시간이다. 세는 쪽은 「효과가 몇 번 다시
   // 도는가」에 매이는데 그것은 재려던 것과 다르고 실제로 어긋났다 — 개발 모드에서 5초
@@ -62,7 +64,7 @@ export function useQuiz(id: number): QuizSource {
   // 한 번의 「줄에 없다」로 그만두지 않는다. 그 값이 잠깐 거짓일 수 있는 자리가 있다 —
   // 대국이 끝나고 총평이 먼저 가고 세우는 것이 그 뒤이고(server/ws.go), 세우기가 실패한
   // 판은 줄 없이 그 자리에서 만들어진다. 둘 다 화면에서는 「아직 안 왔다」로 보인다.
-  const waiting = pending && waited < (queued ? QUIZ_WAIT_MS : QUIZ_MIN_WAIT_MS);
+  const waiting = pending && waited < (said === false ? QUIZ_MIN_WAIT_MS : QUIZ_WAIT_MS);
   const gaveUp = pending && !waiting;
 
   // `attempts` 가 다시 걸어 주는 값이다. 나머지 셋은 폴링 도중에 바뀌지 않는다: `waiting` 은

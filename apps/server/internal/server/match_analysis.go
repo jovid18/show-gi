@@ -185,16 +185,6 @@ const backlogSampleInterval = 5 * time.Second
 // 끝날 때 다시 잰다.
 const plyTTL = 6 * time.Hour
 
-// quizTTL 은 문항 잡을 얼마 뒤에 버릴 것인가다.
-//
-// 手 쪽(plyTTL)보다 짧다. 만들지 못한 판은 행이 남아 리스마다 다시 집히는데(runOneQuiz),
-// 한 번이 최대 5분이라 여섯 시간이면 열두 번이다. 언제나 실패하는 판과 배포에 끼어 한 번
-// 실패한 판을 가릴 길이 없으므로, 되풀이를 나이로 묶는다 — 두 시간이면 네댓 번이다.
-//
-// 줄에 선 채로 두 시간을 넘기는 것은 밀린 것이 아니라 고장이다. 그때는 밀린 양이 이미
-// 알람을 울리고 있다(infra/alarms.tf).
-const quizTTL = 2 * time.Hour
-
 // sweepInterval 은 오래된 행을 걷는 주기다.
 const sweepInterval = 30 * time.Minute
 
@@ -366,11 +356,14 @@ func (a *matchAnalyzer) sweepPlies(ctx context.Context) {
 			}
 			// 여기서 걷힌 판은 문항 없이 남는다. 0이 아니면 그 자체로 사고이므로 적는다 —
 			// 나이만 보고 걷어서 「계속 실패했다」와 「내내 밀려서 한 번도 안 집혔다」가 같은 값이다.
-			switch n, err := a.store.SweepQuizJobs(ctx, time.Now().Add(-quizTTL)); {
+			switch n, err := a.store.SweepQuizJobs(ctx, cutoff); {
 			case err != nil && ctx.Err() == nil:
 				log.Printf("match: could not sweep old quiz jobs: %v", err)
 			case n > 0:
-				log.Printf("match: swept %d quiz jobs older than %s — those games have no quiz", n, quizTTL)
+				// 나이만 보고 걷으므로 「상한까지 실패했다」와 「내내 밀려서 한 번도 안
+				// 집혔다」가 같은 값이다. 어느 쪽이든 그 판은 문항 없이 남는다.
+				a.analysis.LostQuizzes(n)
+				log.Printf("match: swept %d quiz jobs older than %s — those games have no quiz", n, plyTTL)
 			}
 		}
 	}

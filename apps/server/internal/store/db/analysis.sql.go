@@ -116,7 +116,8 @@ func (q *Queries) ClaimAnalysisPly(ctx context.Context, leaseBefore pgtype.Times
 const claimQuizJob = `-- name: ClaimQuizJob :one
 WITH next AS MATERIALIZED (
     SELECT j.game_id FROM quiz_jobs j
-    WHERE j.claimed_at IS NULL OR j.claimed_at < $1::timestamptz
+    WHERE j.attempts < $1::int
+      AND (j.claimed_at IS NULL OR j.claimed_at < $2::timestamptz)
     ORDER BY j.claimed_at NULLS FIRST, j.created_at
     LIMIT 1
     FOR UPDATE SKIP LOCKED
@@ -125,6 +126,11 @@ UPDATE quiz_jobs t SET claimed_at = now()
 FROM next n WHERE t.game_id = n.game_id
 RETURNING t.game_id
 `
+
+type ClaimQuizJobParams struct {
+	MaxAttempts int32
+	LeaseBefore pgtype.Timestamptz
+}
 
 // 만들 판 하나를 집는다. 없으면 0행이다. ClaimAnalysisJob 과 같은 모양이고, 고르는 차례만
 // 다르다.
@@ -135,8 +141,11 @@ RETURNING t.game_id
 //
 // created_at 을 옮겨 뒤로 보내지 않는 것은 청소가 그 값을 보기 때문이다. 옮기면 영영
 // 실패하는 판의 TTL 이 같이 밀려 끝나지 않는다(SweepQuizJobs).
-func (q *Queries) ClaimQuizJob(ctx context.Context, leaseBefore pgtype.Timestamptz) (int64, error) {
-	row := q.db.QueryRow(ctx, claimQuizJob, leaseBefore)
+//
+// 되풀이는 나이가 아니라 attempts 가 묶는다. 상한을 넘긴 행은 여기 걸리지 않고, 청소가
+// 나이로 걷을 때까지 남아 밀린 양에 그대로 보인다.
+func (q *Queries) ClaimQuizJob(ctx context.Context, arg ClaimQuizJobParams) (int64, error) {
+	row := q.db.QueryRow(ctx, claimQuizJob, arg.MaxAttempts, arg.LeaseBefore)
 	var game_id int64
 	err := row.Scan(&game_id)
 	return game_id, err
@@ -273,6 +282,19 @@ ON CONFLICT (game_id) DO NOTHING
 // 세우지 않는다. 그 판에는 아직 문항이 없다.
 func (q *Queries) EnqueueQuizJob(ctx context.Context, gameID int64) error {
 	_, err := q.db.Exec(ctx, enqueueQuizJob, gameID)
+	return err
+}
+
+const failQuizJob = `-- name: FailQuizJob :exec
+UPDATE quiz_jobs SET attempts = attempts + 1 WHERE game_id = $1
+`
+
+// 만들어 봤는데 남기지 못했다. 횟수를 하나 올린다.
+//
+// 행을 두는 것이 이 큐의 재시도다. 리스가 낡으면 다시 집히고, 상한을 넘으면 그때부터
+// 집히지 않는다(ClaimQuizJob).
+func (q *Queries) FailQuizJob(ctx context.Context, gameID int64) error {
+	_, err := q.db.Exec(ctx, failQuizJob, gameID)
 	return err
 }
 
@@ -577,9 +599,8 @@ DELETE FROM quiz_jobs WHERE created_at < $1
 
 // 오래된 행을 걷는다. 만들다 계속 실패하는 판이 이 표의 누수이고, 그 판은 문항 없이 남는다.
 //
-// 걷은 수를 돌려준다. 018·019 와 갈리는 자리다. 나이만 보므로 「계속 실패했다」와
-// 「TTL 내내 밀려서 한 번도 집히지 않았다」가 같은 값이 되는데, 뒤엣것은 사고이고
-// 조용히 지나가면 안 된다 — 세어 두면 부르는 쪽이 로그 한 줄을 남긴다.
+// 걷은 수를 돌려준다. 018·019 와 갈리는 자리다. 여기서 걷히는 판은 문항 없이 남으므로
+// 0이 아닌 것 자체가 사고이고, 세어 두면 부르는 쪽이 로그와 지표를 남긴다.
 func (q *Queries) SweepQuizJobs(ctx context.Context, createdAt pgtype.Timestamptz) (int64, error) {
 	result, err := q.db.Exec(ctx, sweepQuizJobs, createdAt)
 	if err != nil {

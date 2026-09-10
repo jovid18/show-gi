@@ -151,10 +151,13 @@ func (e *Emitter) collect() []metric {
 		// 밀린 문항은 대수를 정하지 않는다. AnalysisBacklogPlies 와 달리 알람에 걸려 있지
 		// 않고, 「두 큐가 서로를 굶히는가」를 나중에 보려고 올린다.
 		{"AnalysisBacklogQuizzes", "Count", r.AnalysisBacklogQuizzes.Total()},
-		// 만들지 못한 판은 문항 없이 남는다. 0이 아니면 그 자체로 사고다 — 버려진 판을
-		// 따로 올리는 것과 같은 판단이다.
-		{"AnalysisQuizzesFailed", "Count",
-			e.delta("AnalysisQuizzesFailed", r.AnalysisQuizzes.SumFunc(failed))},
+		// 문항 없이 끝난 판. 0이 아니면 그 자체로 사고다 — 버려진 판을 따로 올리는 것과
+		// 같은 판단이다.
+		//
+		// 실패는 여기 세지 않는다. 그쪽은 행이 남아 다시 집히므로 배포가 생성 도중에 낄
+		// 때마다 오르고, 그 판은 30분 뒤에 만들어진다 — 알람으로 쓰면 배포마다 울린다.
+		{"AnalysisQuizzesLost", "Count",
+			e.delta("AnalysisQuizzesLost", r.AnalysisQuizzes.SumFunc(lostQuiz))},
 		// 상대의 수를 시한 안에 얻지 못해 접은 판. games.result 로는 셀 수 없어서
 		// (사람이 창을 닫은 판과 같은 값이 된다) 부하 시험의 깨짐 신호가 이것이다.
 		{"GamesAborted", "Count",
@@ -234,7 +237,10 @@ func searchPool(labels map[string]string) bool { return labels["pool"] == PoolSe
 
 func dropped(labels map[string]string) bool { return labels["result"] == AnalysisDropped }
 
-// failed 는 만들지 못한 문항이다. 그 판은 문항 없이 남는다.
-func failed(labels map[string]string) bool { return labels["result"] == AnalysisFailed }
+// lostQuiz 는 문항 없이 끝난 판이다. 다시 집히는 실패(failed)는 여기 들지 않는다.
+func lostQuiz(labels map[string]string) bool {
+	r := labels["result"]
+	return r == AnalysisSwept || r == AnalysisDropped
+}
 
 func aborted(labels map[string]string) bool { return labels["status"] == "aborted" }

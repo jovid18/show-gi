@@ -250,9 +250,13 @@ ON CONFLICT (game_id) DO NOTHING;
 --
 -- created_at 을 옮겨 뒤로 보내지 않는 것은 청소가 그 값을 보기 때문이다. 옮기면 영영
 -- 실패하는 판의 TTL 이 같이 밀려 끝나지 않는다(SweepQuizJobs).
+--
+-- 되풀이는 나이가 아니라 attempts 가 묶는다. 상한을 넘긴 행은 여기 걸리지 않고, 청소가
+-- 나이로 걷을 때까지 남아 밀린 양에 그대로 보인다.
 WITH next AS MATERIALIZED (
     SELECT j.game_id FROM quiz_jobs j
-    WHERE j.claimed_at IS NULL OR j.claimed_at < sqlc.arg(lease_before)::timestamptz
+    WHERE j.attempts < sqlc.arg(max_attempts)::int
+      AND (j.claimed_at IS NULL OR j.claimed_at < sqlc.arg(lease_before)::timestamptz)
     ORDER BY j.claimed_at NULLS FIRST, j.created_at
     LIMIT 1
     FOR UPDATE SKIP LOCKED
@@ -260,6 +264,14 @@ WITH next AS MATERIALIZED (
 UPDATE quiz_jobs t SET claimed_at = now()
 FROM next n WHERE t.game_id = n.game_id
 RETURNING t.game_id;
+
+-- name: FailQuizJob :exec
+--
+-- 만들어 봤는데 남기지 못했다. 횟수를 하나 올린다.
+--
+-- 행을 두는 것이 이 큐의 재시도다. 리스가 낡으면 다시 집히고, 상한을 넘으면 그때부터
+-- 집히지 않는다(ClaimQuizJob).
+UPDATE quiz_jobs SET attempts = attempts + 1 WHERE game_id = $1;
 
 -- name: DropQuizJob :exec
 --
@@ -283,7 +295,6 @@ SELECT EXISTS (SELECT 1 FROM quiz_jobs WHERE game_id = $1) AS queued;
 --
 -- 오래된 행을 걷는다. 만들다 계속 실패하는 판이 이 표의 누수이고, 그 판은 문항 없이 남는다.
 --
--- 걷은 수를 돌려준다. 018·019 와 갈리는 자리다. 나이만 보므로 「계속 실패했다」와
--- 「TTL 내내 밀려서 한 번도 집히지 않았다」가 같은 값이 되는데, 뒤엣것은 사고이고
--- 조용히 지나가면 안 된다 — 세어 두면 부르는 쪽이 로그 한 줄을 남긴다.
+-- 걷은 수를 돌려준다. 018·019 와 갈리는 자리다. 여기서 걷히는 판은 문항 없이 남으므로
+-- 0이 아닌 것 자체가 사고이고, 세어 두면 부르는 쪽이 로그와 지표를 남긴다.
 DELETE FROM quiz_jobs WHERE created_at < $1;

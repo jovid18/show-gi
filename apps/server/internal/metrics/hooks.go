@@ -168,6 +168,9 @@ const (
 	AnalysisDone    = "done"
 	AnalysisDropped = "dropped"
 	AnalysisFailed  = "failed"
+	// AnalysisSwept 는 문항 큐에만 있다. 만들지 못한 채 나이로 걷힌 판이고, failed 와
+	// 달리 다시 집히지 않는다.
+	AnalysisSwept = "swept"
 )
 
 // SetBacklog 은 지금 큐에 남아 있는 양을 놓는다. 판과 手를 같이 받는다.
@@ -200,6 +203,17 @@ func (a *Analysis) SetQuizBacklog(games int) {
 		return
 	}
 	a.reg.AnalysisBacklogQuizzes.Set(float64(games))
+}
+
+// LostQuizzes 는 문항 없이 큐에서 걷힌 판을 센다.
+//
+// ObserveQuiz 의 failed 와 다르다. 저쪽은 다시 집히는 실패이고 배포마다 나오는데, 이것은
+// 그 판이 문항을 갖지 못한 것이 정해진 자리다 — 알람으로 쓸 수 있는 쪽이 이것이다.
+func (a *Analysis) LostQuizzes(n int) {
+	if a == nil || a.reg == nil {
+		return
+	}
+	a.reg.AnalysisQuizzes.Add(float64(n), AnalysisSwept)
 }
 
 // ObserveQuiz 는 판 하나의 문항 만들기가 끝난 것을 남긴다. ObserveGame 과 같은 규약이다.

@@ -77,13 +77,13 @@ func TestAStaleQuizClaimIsTakenBack(t *testing.T) {
 		t.Fatal("could not queue the quiz")
 	}
 
-	if got, err := st.ClaimQuizJob(t.Context(), time.Now().Add(-quizLease)); err != nil || got != gameID {
+	if got, err := st.ClaimQuizJob(t.Context(), time.Now().Add(-quizLease), quizAttempts); err != nil || got != gameID {
 		t.Fatalf("claim = %d, %v; want game %d", got, err, gameID)
 	}
-	if _, err := st.ClaimQuizJob(t.Context(), time.Now().Add(-quizLease)); !errors.Is(err, store.ErrNoQuizJob) {
+	if _, err := st.ClaimQuizJob(t.Context(), time.Now().Add(-quizLease), quizAttempts); !errors.Is(err, store.ErrNoQuizJob) {
 		t.Errorf("a fresh claim was taken again: %v", err)
 	}
-	if got, err := st.ClaimQuizJob(t.Context(), time.Now().Add(time.Minute)); err != nil || got != gameID {
+	if got, err := st.ClaimQuizJob(t.Context(), time.Now().Add(time.Minute), quizAttempts); err != nil || got != gameID {
 		t.Errorf("a stale claim was not taken back: %d, %v", got, err)
 	}
 }
@@ -109,6 +109,33 @@ func TestAQuizThatCouldNotBeBuiltStaysInTheQueue(t *testing.T) {
 	}
 }
 
+// 되풀이는 횟수가 묶는다. 상한까지 실패한 판은 그때부터 집히지 않는다 — 한 번이 최대
+// 5분이라 상한이 곧 그 판에 쓸 엔진 시간이다.
+func TestAQuizStopsBeingClaimedAfterTooManyTries(t *testing.T) {
+	st := testStore(t)
+	clearQueues(t, st)
+	a, gameID := importedGameInTheQueue(t, st)
+	a.queueQuiz(t.Context(), gameID)
+
+	stale := func() time.Time { return time.Now().Add(time.Minute) }
+	for i := range quizAttempts {
+		got, err := st.ClaimQuizJob(t.Context(), stale(), quizAttempts)
+		if err != nil || got != gameID {
+			t.Fatalf("claim %d = %d, %v; want game %d", i+1, got, err, gameID)
+		}
+		if err := st.FailQuizJob(t.Context(), gameID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := st.ClaimQuizJob(t.Context(), stale(), quizAttempts); !errors.Is(err, store.ErrNoQuizJob) {
+		t.Errorf("claim after %d failures: %v; want the game to be left alone", quizAttempts, err)
+	}
+	// 행은 남는다. 밀린 양이 그것을 계속 말하고, 청소가 나이로 걷는다.
+	if !quizQueued(t, st, gameID) {
+		t.Error("the row was removed instead of being left for the sweep")
+	}
+}
+
 // 한 번도 집히지 않은 판이 먼저다.
 //
 // 집어서 잰다. 띄워 둔 api 컨테이너의 워커가 먼저 가져가면 갈릴 수 있고(06-status §7 의
@@ -120,7 +147,7 @@ func TestANeverClaimedQuizGoesFirst(t *testing.T) {
 	a, older := importedGameInTheQueue(t, st)
 	a.queueQuiz(t.Context(), older)
 	// 집혔다가 만들어지지 못한 판이다. 행이 그대로 남는다.
-	if got, err := st.ClaimQuizJob(t.Context(), time.Now().Add(-quizLease)); err != nil || got != older {
+	if got, err := st.ClaimQuizJob(t.Context(), time.Now().Add(-quizLease), quizAttempts); err != nil || got != older {
 		t.Fatalf("claim = %d, %v; want game %d", got, err, older)
 	}
 
@@ -128,7 +155,7 @@ func TestANeverClaimedQuizGoesFirst(t *testing.T) {
 	a.queueQuiz(t.Context(), newer)
 
 	// 리스가 낡아 둘 다 집힐 수 있다. 그때 먼저 오는 것은 한 번도 안 집힌 쪽이다.
-	if got, err := st.ClaimQuizJob(t.Context(), time.Now().Add(time.Minute)); err != nil || got != newer {
+	if got, err := st.ClaimQuizJob(t.Context(), time.Now().Add(time.Minute), quizAttempts); err != nil || got != newer {
 		t.Errorf("claim = %d, %v; want the never-claimed game %d", got, err, newer)
 	}
 }

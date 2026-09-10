@@ -69,17 +69,17 @@
 
 ### 기록 (DB 필요 · 엔진 무관)
 
-| 메서드 · 경로                      | 인증       | 성공                                 | 실패                                       |
-| ---------------------------------- | ---------- | ------------------------------------ | ------------------------------------------ |
-| `GET /api/games`                   | 익명 가능  | `200 {games: [GameSummary]}`         | `400 bad_limit` · `500 internal`           |
-| `GET /api/games/{id}`              | 익명 가능  | `200 GameDetail`                     | `400 bad_id` · `404 not_found` · `500`     |
-| `GET /api/games/{id}/summary`      | 익명 가능  | `200 GameSummaryPayload`             | `404 no_summary`(대인전) · 위와 같음       |
-| `GET /api/games/{id}/quiz`         | 익명 가능  | `200 {ready, queued?, mate?, best?}` | `404 not_found` · `500`                    |
-| `POST /api/games/{id}/quiz/mate`   | 익명 가능  | `200 MateResponse`                   | `400 bad_move` · `404 not_ready`/`no_item` |
-| `POST /api/games/{id}/quiz/best`   | 익명 가능  | `200 BestResponse`                   | 위와 같음                                  |
-| `GET /api/resumable`               | 익명 가능  | `200 {game: Resumable \| null}`      | `500 internal`                             |
-| `POST /api/resumable/{id}/decline` | 로그인     | `204`                                | `400 bad_id` · `404 not_found`             |
-| `GET /api/me/profile`              | **로그인** | `200 ProfilePayload`                 | `401 unauthorized` · `500`                 |
+| 메서드 · 경로                      | 인증       | 성공                                | 실패                                       |
+| ---------------------------------- | ---------- | ----------------------------------- | ------------------------------------------ |
+| `GET /api/games`                   | 익명 가능  | `200 {games: [GameSummary]}`        | `400 bad_limit` · `500 internal`           |
+| `GET /api/games/{id}`              | 익명 가능  | `200 GameDetail`                    | `400 bad_id` · `404 not_found` · `500`     |
+| `GET /api/games/{id}/summary`      | 익명 가능  | `200 GameSummaryPayload`            | `404 no_summary`(대인전) · 위와 같음       |
+| `GET /api/games/{id}/quiz`         | 익명 가능  | `200 {ready, queued, mate?, best?}` | `404 not_found` · `500`                    |
+| `POST /api/games/{id}/quiz/mate`   | 익명 가능  | `200 MateResponse`                  | `400 bad_move` · `404 not_ready`/`no_item` |
+| `POST /api/games/{id}/quiz/best`   | 익명 가능  | `200 BestResponse`                  | 위와 같음                                  |
+| `GET /api/resumable`               | 익명 가능  | `200 {game: Resumable \| null}`     | `500 internal`                             |
+| `POST /api/resumable/{id}/decline` | 로그인     | `204`                               | `400 bad_id` · `404 not_found`             |
+| `GET /api/me/profile`              | **로그인** | `200 ProfilePayload`                | `401 unauthorized` · `500`                 |
 
 - `?limit=` 기본 20, 최대 100. `0` 이하·정수 아님·`int32` 초과는 `400`
 - 목록·상세·총평·퀴즈가 같은 조건을 지난다: 결과가 나온 자기 판만. 두는 중인 판도 `abandoned` 도 `404` 다

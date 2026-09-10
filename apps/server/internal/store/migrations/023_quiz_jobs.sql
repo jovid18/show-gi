@@ -26,6 +26,13 @@ CREATE TABLE quiz_jobs (
     -- 그 안에 끝나거나 끊긴다.
     claimed_at timestamptz,
 
+    -- 만들어 보고 남기지 못한 횟수. 상한을 넘으면 집히지 않는다.
+    --
+    -- 나이로 묶지 않는다. 018·019 는 청소가 나이만 보는데, 문항은 한 번이 최대 5분이라
+    -- 언제나 실패하는 판이 TTL 내내 그 탐색을 되풀이한다. 나이를 줄여 묶으면 이번에는
+    -- 밀려서 아직 집히지 못한 판까지 같이 버려진다 — 그 둘을 가르는 것이 이 칸이다.
+    attempts int NOT NULL DEFAULT 0,
+
     created_at timestamptz NOT NULL DEFAULT now()
 );
 

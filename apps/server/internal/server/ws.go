@@ -539,8 +539,14 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 	// 세우지 못하면 그 자리에서 만든다. 엔진이 없는 배포와, 표가 아직 없는 배포 둘이다.
 	// 앞쪽에서는 생성기도 없어서(둘이 같은 자리에서 생긴다, cmd/api) 빈 행 하나를 남기는
 	// 일로 끝난다.
-	if a := h.opts.Match.Analyzer(); a == nil || !a.queueQuiz(base, gameID) {
+	switch a := h.opts.Match.Analyzer(); {
+	case a == nil:
+		// 엔진이 없는 배포다. 생성기도 없으므로 빈 행 하나를 남기는 일로 끝난다.
 		go generateQuiz(base, h.opts.Store, h.opts.Quiz, rec)
+	case !a.queueQuiz(base, gameID):
+		// 표가 아직 없거나 쓰기가 실패했다. 분석기를 지나 만든다 — 그래야 동시에 만드는
+		// 수가 세어진다(quizSlots).
+		go a.buildQuizNow(base, gameID)
 	}
 }
 

@@ -596,8 +596,8 @@ func TestConvertedNeedsAnActualCheckmate(t *testing.T) {
 // 엔진이 아무것도 답하지 못한 판에 「문항이 없다」를 적지 않는다.
 //
 // 배포가 생성 도중에 끼면 풀이 닫혀 모든 탐색이 즉시 실패하는데, 그때 나온 빈 결과를
-// 저장하면 화면이 「이 판엔 문항이 없다」로 단정한다 — 생성이 판이 끝날 때 한 번뿐이라
-// 그 거짓이 영구히 남는다.
+// 저장하면 화면이 「이 판엔 문항이 없다」로 단정한다. 적지 않으면 그 판은 줄에 남아
+// 다시 집힌다(server/quiz_jobs.go).
 func TestBuildReportsADegradedRun(t *testing.T) {
 	in := Input{StartSFEN: mate1SFEN, Human: shogi.Black}
 

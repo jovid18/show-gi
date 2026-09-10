@@ -28,6 +28,13 @@ import (
 // 국면을 두 번 재고, 그 낭비가 엔진 풀에서 곧바로 보인다.
 const quizLease = 30 * time.Minute
 
+// quizAttempts 는 한 판의 문항을 몇 번까지 만들어 볼 것인가다.
+//
+// 되풀이가 값이 있는 자리는 하나다. 배포가 생성 도중에 끼면 풀이 먼저 닫혀 그 판만
+// 실패하고, 다음 워커가 그대로 만든다. 언제나 실패하는 판은 그것과 구별되지 않으므로
+// 횟수로 묶는다 — 한 번이 최대 5분이라 상한이 곧 그 판에 쓸 엔진 시간이다.
+const quizAttempts = 3
+
 // queueQuiz 는 그 판의 문항을 줄에 세운다. 세웠으면 참이다.
 //
 // 거짓이면 부르는 쪽이 그 자리에서 만든다. 배포가 마이그레이션보다 먼저 나가는 창이 늘
@@ -54,11 +61,22 @@ func (a *matchAnalyzer) queueQuiz(ctx context.Context, gameID int64) bool {
 	return true
 }
 
-// buildQuizNow 는 줄을 지나지 않고 그 자리에서 만든다. 줄에 세우지 못한 자리에서만 부른다.
+// buildQuizNow 는 줄을 지나지 않고 만든다. 줄에 세우지 못한 자리에서만, 떨어져 나온
+// goroutine 으로 부른다.
+//
+// 자리를 기다린다. 워커가 아니라 기다려도 막는 것이 없고, 기다리지 않으면 표가 없는
+// 배포에서 끝나는 판마다 5분짜리 탐색이 하나씩 떠서 풀을 다 가져간다 — 자리를 세어 둔
+// 것이 바로 그것을 막으려는 것이다.
 func (a *matchAnalyzer) buildQuizNow(ctx context.Context, gameID int64) {
 	if a == nil || a.store == nil {
 		return
 	}
+	release, ok := a.awaitQuizSlot(ctx)
+	if !ok {
+		return
+	}
+	defer release()
+
 	rec, err := a.store.GameRecordAnyOwner(ctx, gameID)
 	if err != nil {
 		if ctx.Err() == nil {
@@ -85,7 +103,7 @@ func (a *matchAnalyzer) runOneQuiz(ctx context.Context) bool {
 	}
 	defer release()
 
-	gameID, err := a.store.ClaimQuizJob(ctx, time.Now().Add(-quizLease))
+	gameID, err := a.store.ClaimQuizJob(ctx, time.Now().Add(-quizLease), quizAttempts)
 	if errors.Is(err, store.ErrNoQuizJob) {
 		return false
 	}
@@ -129,7 +147,8 @@ func (a *matchAnalyzer) runOneQuiz(ctx context.Context) bool {
 
 	started := time.Now()
 	if !generateQuiz(ctx, a.store, a.quiz, rec) {
-		// 큐에 남겨 둔다. 로그만 남기면 영영 실패하는 판이 지표에서 보이지 않는다.
+		// 큐에 남겨 두고 횟수만 올린다. 상한을 넘으면 그때부터 집히지 않는다.
+		a.failQuiz(ctx, gameID)
 		a.analysis.ObserveQuiz(metrics.AnalysisFailed, time.Since(started))
 		return true
 	}
@@ -150,6 +169,28 @@ func (a *matchAnalyzer) takeQuizSlot() (func(), bool) {
 	case a.quizSlots <- struct{}{}:
 		return func() { <-a.quizSlots }, true
 	default:
+		return nil, false
+	}
+}
+
+// failQuiz 는 만들어 봤는데 남기지 못했다고 적는다. dropQuiz 와 같은 이유로 취소를 벗긴다.
+func (a *matchAnalyzer) failQuiz(parent context.Context, gameID int64) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), quizSaveTimeout)
+	defer cancel()
+	if err := a.store.FailQuizJob(ctx, gameID); err != nil {
+		log.Printf("quiz: could not count the failed attempt on game %d: %v", gameID, err)
+	}
+}
+
+// awaitQuizSlot 은 자리가 날 때까지 기다린다. ctx 가 끝나면 ok=false 다.
+func (a *matchAnalyzer) awaitQuizSlot(ctx context.Context) (func(), bool) {
+	if a.quizSlots == nil {
+		return func() {}, true
+	}
+	select {
+	case a.quizSlots <- struct{}{}:
+		return func() { <-a.quizSlots }, true
+	case <-ctx.Done():
 		return nil, false
 	}
 }

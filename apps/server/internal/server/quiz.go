@@ -70,12 +70,16 @@ type quizPayload struct {
 	Ready bool `json:"ready"`
 	// Queued 는 문항이 아직 오는 중인가다. Ready 가 거짓일 때만 뜻이 있다.
 	//
+	// 거짓이어도 실어 보낸다(omitempty 를 안 쓴다). 배포가 도는 동안 옛 태스크가 이 칸
+	// 없이 답하는데, 빼 두면 화면에서 「없다」와 「거짓」이 같은 값이 되어 옛 태스크의
+	// 답을 「오지 않는다」로 읽는다.
+	//
 	// 거짓이면서 Ready 도 거짓이면 오지 않는다 — 이 코드 전에 끝난 판과, 문항 판이
 	// 올라가 옛 행이 죽은 판이다. 화면이 그 자리에서 기다리기를 그만둔다.
 	//
 	// 시간으로 재던 것을 대신한다. 줄에 서는 시간이 붙은 뒤로 「만드는 시한만큼 기다린다」가
 	// 성립하지 않는다(journal §138). 무엇을 보는지는 quizHandler.queued 에 있다.
-	Queued bool          `json:"queued,omitempty"`
+	Queued bool          `json:"queued"`
 	Mate   *matePayload  `json:"mate,omitempty"`
 	Best   []bestPayload `json:"best,omitempty"`
 }

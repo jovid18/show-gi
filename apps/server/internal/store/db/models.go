@@ -157,6 +157,7 @@ type Position struct {
 type QuizJob struct {
 	GameID    int64
 	ClaimedAt pgtype.Timestamptz
+	Attempts  int32
 	CreatedAt pgtype.Timestamptz
 }
 

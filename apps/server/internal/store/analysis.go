@@ -361,8 +361,13 @@ func (s *Store) EnqueueQuizJob(ctx context.Context, gameID int64) error {
 }
 
 // ClaimQuizJob 은 만들 판 하나를 집는다. 없으면 ErrNoQuizJob.
-func (s *Store) ClaimQuizJob(ctx context.Context, leaseBefore time.Time) (int64, error) {
-	id, err := s.q.ClaimQuizJob(ctx, stamp(leaseBefore))
+//
+// maxAttempts 번 실패한 판은 주지 않는다. 되풀이를 나이가 아니라 횟수로 묶는 자리다.
+func (s *Store) ClaimQuizJob(ctx context.Context, leaseBefore time.Time, maxAttempts int) (int64, error) {
+	id, err := s.q.ClaimQuizJob(ctx, db.ClaimQuizJobParams{
+		MaxAttempts: int32(maxAttempts),
+		LeaseBefore: stamp(leaseBefore),
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, ErrNoQuizJob
 	}
@@ -370,6 +375,14 @@ func (s *Store) ClaimQuizJob(ctx context.Context, leaseBefore time.Time) (int64,
 		return 0, fmt.Errorf("claim quiz job: %w", err)
 	}
 	return id, nil
+}
+
+// FailQuizJob 은 만들어 봤는데 남기지 못했다고 적는다. 그 행은 줄에 남는다.
+func (s *Store) FailQuizJob(ctx context.Context, gameID int64) error {
+	if err := s.q.FailQuizJob(ctx, gameID); err != nil {
+		return fmt.Errorf("fail quiz job: %w", err)
+	}
+	return nil
 }
 
 // DropQuizJob 은 그 판을 큐에서 걷는다.
@@ -400,8 +413,7 @@ func (s *Store) IsQuizQueued(ctx context.Context, gameID int64) (bool, error) {
 
 // SweepQuizJobs 는 그 시각보다 오래된 행을 걷고 몇 개를 걷었는지 준다.
 //
-// 0이 아닌 것은 그 자체로 사고다. 만들다 계속 실패했거나 TTL 내내 한 번도 집히지
-// 않았다는 뜻이고, 어느 쪽이든 그 판은 문항 없이 남는다.
+// 0이 아닌 것은 그 자체로 사고다. 여기서 걷히는 판은 문항 없이 남는다.
 func (s *Store) SweepQuizJobs(ctx context.Context, before time.Time) (int, error) {
 	n, err := s.q.SweepQuizJobs(ctx, stamp(before))
 	if err != nil {
