@@ -523,9 +523,6 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 		return
 	}
 
-	// 문항은 줄에 세우기만 한다. 만드는 데 최대 5분이 걸리고 그동안 詰み 풀을 잡는데,
-	// 여기는 사람이 두고 있는 박스다(journal §138).
-	//
 	payload := summarize(rec, h.opts.Level)
 	// 段級은 기록 대신 추정기에서 온다. 기록으로 다시 세면 왜 틀리는지는
 	// journal §62, 상대의 강함과 갈리는 이유는 §31.

@@ -29,6 +29,27 @@ type quizHandler struct {
 	review *reviewHandler
 }
 
+// queued 는 그 판의 문항이 아직 오는 중인가다.
+//
+// 자리가 둘이다. 줄에 서 있거나, 아직 재는 중이거나다 — 가져온 판은 手를 다 재고 나서야
+// 문항이 줄에 서므로(match_analysis.go 의 analyze), 재는 동안 줄만 보면 「오지 않는다」가
+// 된다. 사람이 가져오기 직후에 여는 것이 바로 그 자리다.
+//
+// 읽지 못하면 참으로 둔다. 「오지 않는다」로 답하면 화면이 그 자리에서 그만두는데, 그
+// 말은 되돌릴 자리가 없다.
+//
+// 덮지 못하는 창이 하나 있다. 표가 아직 없는 배포에서는 줄에 세우지 못하고 그 자리에서
+// 만드는데(queueQuiz), 그때는 둘 다 거짓이라 화면이 기다리기를 그만둔다 — 만들어진 뒤
+// 「もう一度」로 온다.
+func (h *quizHandler) queued(r *http.Request, gameID int64) bool {
+	ok, err := h.review.store.IsQuizQueued(r.Context(), gameID)
+	if err != nil {
+		log.Printf("quiz: could not read the queue of game %d: %v", gameID, err)
+		return true
+	}
+	return ok || h.review.analyzer.analyzing(r.Context(), gameID)
+}
+
 // quizPayload 는 화면이 받는 문항 전부다. 정답이 없다 — 채점은 서버에 있다.
 type quizPayload struct {
 	// Ready 는 생성이 끝났는가다. 거짓은 「아직 만드는 중」이고 「문항이 없다」와 다르다 —
@@ -36,13 +57,13 @@ type quizPayload struct {
 	//
 	// 문항이 하나도 나오지 않아도 행을 남기는 것이 이 값을 위해서다(quiz_jobs.go).
 	Ready bool `json:"ready"`
-	// Queued 는 아직 줄에 있는가다. Ready 가 거짓일 때만 뜻이 있다.
+	// Queued 는 문항이 아직 오는 중인가다. Ready 가 거짓일 때만 뜻이 있다.
 	//
-	// 거짓이면서 Ready 도 거짓이면 오지 않는다 — 이 코드 전에 끝난 판, 세우지 못한 판,
-	// 문항 판이 올라가 옛 행이 죽은 판이다. 화면이 그 자리에서 기다리기를 그만둔다.
+	// 거짓이면서 Ready 도 거짓이면 오지 않는다 — 이 코드 전에 끝난 판과, 문항 판이
+	// 올라가 옛 행이 죽은 판이다. 화면이 그 자리에서 기다리기를 그만둔다.
 	//
 	// 시간으로 재던 것을 대신한다. 줄에 서는 시간이 붙은 뒤로 「만드는 시한만큼 기다린다」가
-	// 성립하지 않는다(journal §138).
+	// 성립하지 않는다(journal §138). 무엇을 보는지는 quizHandler.queued 에 있다.
 	Queued bool          `json:"queued,omitempty"`
 	Mate   *matePayload  `json:"mate,omitempty"`
 	Best   []bestPayload `json:"best,omitempty"`
@@ -89,6 +110,10 @@ func (h *quizHandler) get(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// 줄을 먼저 본다. 워커가 쓰는 순서와 반대다(문항을 남기고 나서 줄에서 걷는다) —
+	// 같은 순서로 읽으면 그 사이에 끼었을 때 「다 됐는데 오지 않는다」가 나간다.
+	queued := h.queued(r, rec.ID)
+
 	q, ready, ok := h.load(w, r, rec.ID)
 	if !ok {
 		return
@@ -101,16 +126,7 @@ func (h *quizHandler) get(w http.ResponseWriter, r *http.Request) {
 	// 판정은 돈다. 手마다 재서 평가치와 실력 추정을 남기므로(journal §105) 되짚기에
 	// 평가치가 있다 — 없는 것은 퀴즈뿐이다.
 	out := quizPayload{Ready: ready || rec.MatchID != ""}
-	// 아직 아니라면 줄에 있는지까지 말한다. 화면이 그것으로 「기다리면 온다」와 「오지
-	// 않는다」를 가른다 — 다 됐으면 물을 것이 없으므로 그때는 질의도 하지 않는다.
 	if !out.Ready {
-		queued, err := h.review.store.IsQuizQueued(r.Context(), rec.ID)
-		if err != nil {
-			// 읽지 못하면 기다리는 쪽으로 둔다. 「오지 않는다」로 답하면 화면이 그
-			// 자리에서 그만두는데, 그 말은 되돌릴 자리가 없다.
-			log.Printf("quiz: could not read the queue of game %d: %v", rec.ID, err)
-			queued = true
-		}
 		out.Queued = queued
 	}
 	if q.Mate != nil {

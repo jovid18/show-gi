@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -131,6 +133,31 @@ func TestANeverClaimedQuizGoesFirst(t *testing.T) {
 	}
 }
 
+// 아직 재는 중인 판도 「온다」다. 가져온 판은 手를 다 재고 나서야 문항이 줄에 서므로,
+// 줄만 보면 가져오기 직후에 연 화면이 그 자리에서 기다리기를 그만둔다.
+func TestAGameStillBeingAnalyzedCountsAsComing(t *testing.T) {
+	st := testStore(t)
+	clearQueues(t, st)
+	a, gameID := importedGameInTheQueue(t, st)
+	h := &quizHandler{review: &reviewHandler{store: st, analyzer: a}}
+	r := httptest.NewRequest(http.MethodGet, "/api/games/1/quiz", nil)
+
+	// 아직 재는 중이다. 문항은 줄에 서 있지 않다.
+	if quizQueued(t, st, gameID) {
+		t.Fatal("the quiz is queued before the game was measured")
+	}
+	if !h.queued(r, gameID) {
+		t.Error("said the quiz is not coming while the game is still being analyzed")
+	}
+
+	if !a.runOneJob(t.Context()) {
+		t.Fatal("the worker did not pick up the queued game")
+	}
+	if !h.queued(r, gameID) {
+		t.Error("said the quiz is not coming right after it was queued")
+	}
+}
+
 // 문항 큐는 따로 센다. 대수를 정하는 신호에 섞으면 문항 하나가 잡는 5분이 대를 붙이는
 // 이유가 된다(journal §138).
 func TestQueuedQuizzesAreCountedOnTheirOwn(t *testing.T) {
@@ -223,7 +250,8 @@ func TestQuizzesDoNotTakeEveryWorker(t *testing.T) {
 	}
 }
 
-// 세는 자리가 없는 분석기는 세지 않는다. 구조체 리터럴로 만드는 테스트가 그 모양이다.
+// 자리를 세지 않는 분석기는 언제나 자리가 있다. 워커가 하나인 배포와, 구조체 리터럴로
+// 만드는 테스트가 그 모양이다 — 하나짜리에서는 남길 자리가 없어서 세지 않는다.
 func TestAnUncountedAnalyzerAlwaysHasASlot(t *testing.T) {
 	a := &matchAnalyzer{}
 	for range 3 {

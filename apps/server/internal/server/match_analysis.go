@@ -78,7 +78,9 @@ type matchAnalyzer struct {
 	// 서면 밀린 手가 곧바로 100을 넘고, 5분을 채우면 알람이 사람을 부르고 대를 붙인다
 	// (infra/alarms.tf) — 실제로 밀린 것이 아니라 워커가 다른 일을 하고 있는 것이다.
 	//
-	// nil 이면 세지 않는다. 구조체 리터럴로 만드는 테스트가 그 모양이다.
+	// nil 이면 세지 않는다. 워커가 하나인 배포와, 구조체 리터럴로 만드는 테스트가 그
+	// 모양이다. 하나짜리에서는 남길 자리가 없어서 문항이 그 하나를 5분 잡을 수 있고,
+	// 0으로 두면 문항이 아예 만들어지지 않는다 — 둘 중 앞엣것을 고른 것이다.
 	quizSlots chan struct{}
 
 	// quiz 는 문항 큐를 집었을 때 쓴다(023). 세우는 쪽이 둘이고 그 둘이 엔진 대국과
@@ -226,6 +228,8 @@ func newMatchAnalyzer(ctx context.Context, deps AnalysisDeps) *matchAnalyzer {
 		level:      deps.Level,
 	}
 	// 문항이 워커를 다 가져가지 못하게 한다. 하나는 판과 手 쪽에 남는다.
+	//
+	// 워커가 하나면 세지 않는다. 남길 자리가 없다.
 	if workers > 1 {
 		a.quizSlots = make(chan struct{}, workers-1)
 	}
