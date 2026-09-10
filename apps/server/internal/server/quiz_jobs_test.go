@@ -54,13 +54,21 @@ func TestAQueuedQuizIsBuiltByAWorker(t *testing.T) {
 		t.Fatal("the worker did not pick up the queued game")
 	}
 
-	if !a.runOneQuiz(t.Context()) {
-		t.Fatal("the worker did not pick up the queued quiz")
-	}
-	// 생성기가 없는 분석기다. 문항은 비어 있고 행은 남는다 — 그러지 않으면 화면이
-	// 「아직 만드는 중」에서 벗어나지 못한다(generateQuiz).
-	if _, err := st.GameQuiz(t.Context(), gameID, quiz.Version); err != nil {
-		t.Errorf("GameQuiz after the worker ran: %v", err)
+	// 목표치로 돈다. 집는 질의가 판을 가리지 않아서 띄워 둔 api 컨테이너의 워커가 먼저
+	// 가져갈 수 있는데, 그쪽도 같은 코드로 만들어 남긴다 — 재려는 것은 「누가 집었나」가
+	// 아니라 「집으면 만들어져 남고 큐에서 걷히나」다(measureAhead 와 같은 규약).
+	deadline := time.Now().Add(20 * time.Second)
+	for {
+		a.runOneQuiz(t.Context())
+		// 생성기가 없는 분석기다. 문항은 비어 있고 행은 남는다 — 그러지 않으면 화면이
+		// 「아직 만드는 중」에서 벗어나지 못한다(generateQuiz).
+		if _, err := st.GameQuiz(t.Context(), gameID, quiz.Version); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("no quiz was saved for the queued game")
+		}
+		time.Sleep(200 * time.Millisecond)
 	}
 	if quizQueued(t, st, gameID) {
 		t.Errorf("game %d is still queued after its quiz was saved", gameID)
@@ -146,8 +154,8 @@ func TestAQuizStopsBeingClaimedAfterTooManyTries(t *testing.T) {
 
 // 한 번도 집히지 않은 판이 먼저다.
 //
-// 집어서 잰다. 띄워 둔 api 컨테이너의 워커가 먼저 가져가면 갈릴 수 있고(06-status §7 의
-// 「DB 테스트 셋」과 같은 자리다), 세우고 집는 사이가 마이크로초라 실제로는 드물다. 만들지 못해 남은 판이 30분마다 새 판을 제치면,
+// 집어서 잰다. 띄워 둔 api 컨테이너의 워커가 먼저 가져가면 갈린다 — 06-status §7 의
+// 「DB 테스트 셋」과 같은 자리이고, 실제로 갈리는 것을 봤다. 컨테이너를 내리면 통과한다. 만들지 못해 남은 판이 30분마다 새 판을 제치면,
 // 워커가 둘인 배포에서 만들 수 있는 판이 그만큼 늦어진다.
 func TestANeverClaimedQuizGoesFirst(t *testing.T) {
 	st := testStore(t)

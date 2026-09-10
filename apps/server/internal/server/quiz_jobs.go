@@ -124,7 +124,11 @@ func (a *matchAnalyzer) runOneQuiz(ctx context.Context) bool {
 		return false
 	}
 
-	rec, err := a.store.GameRecordAnyOwner(ctx, gameID)
+	// 읽는 데 시한을 준다. 자리를 이미 잡았으므로(위) 여기서 걸리면 이 프로세스의 문항이
+	// 하나도 만들어지지 않는다 — 워커가 둘인 배포에서 자리가 하나뿐이다.
+	read, cancel := context.WithTimeout(ctx, quizSaveTimeout)
+	rec, err := a.store.GameRecordAnyOwner(read, gameID)
+	cancel()
 	if errors.Is(err, store.ErrNoGame) {
 		// 그런 판이 없다. 다시 집어도 같은 답이므로 걷는다.
 		//

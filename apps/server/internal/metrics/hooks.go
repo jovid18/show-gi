@@ -230,12 +230,18 @@ func (a *Analysis) StarvedQuiz() {
 }
 
 // ObserveQuiz 는 판 하나의 문항 만들기가 끝난 것을 남긴다. ObserveGame 과 같은 규약이다.
+//
+// 일하지 않은 자리는 분포에 넣지 않는다. 분포가 재는 것은 「워커를 얼마나 오래 잡는가」라
+// (journal §138) 0초 표본이 섞이면 백분위가 아래로 끌린다 — 이미 있어서 만들지 않은 판이
+// 몰릴 수 있는 자리가 있다(queueQuiz 의 시한 뒤 커밋).
 func (a *Analysis) ObserveQuiz(result string, d time.Duration) {
 	if a == nil || a.reg == nil {
 		return
 	}
 	a.reg.AnalysisQuizzes.Inc(result)
-	if result != AnalysisDropped {
+	switch result {
+	case AnalysisDropped, AnalysisAlready:
+	default:
 		a.reg.AnalysisQuizDuration.Observe(d.Seconds())
 	}
 }
