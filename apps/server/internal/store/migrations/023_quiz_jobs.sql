@@ -29,8 +29,11 @@ CREATE TABLE quiz_jobs (
     created_at timestamptz NOT NULL DEFAULT now()
 );
 
--- 집는 질의가 오래된 것부터 본다. 부분 인덱스가 아닌 것은 019 와 갈리는 자리다 —
--- 저쪽은 자리가 차기를 기다리는 행이 있지만, 여기 선 행은 전부 곧바로 집힌다.
-CREATE INDEX quiz_jobs_ready_idx ON quiz_jobs (created_at);
+-- 집는 질의의 차례 그대로다. 한 번도 집히지 않은 행이 먼저이고 그다음이 오래된 것이다.
+--
+-- 만들지 못한 판은 행이 남아 리스가 낡으면 다시 집히는데, 나이만 보면 그 판이 30분마다
+-- 새 판을 제치고 앞에 선다. 부분 인덱스가 아닌 것은 019 와 갈리는 자리다 — 저쪽은 자리가
+-- 차기를 기다리는 행이 있지만, 여기 선 행은 전부 집힐 수 있다.
+CREATE INDEX quiz_jobs_ready_idx ON quiz_jobs (claimed_at NULLS FIRST, created_at);
 
 COMMIT;

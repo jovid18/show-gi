@@ -33,6 +33,10 @@ const quizLease = 30 * time.Minute
 // 거짓이면 부르는 쪽이 그 자리에서 만든다. 배포가 마이그레이션보다 먼저 나가는 창이 늘
 // 있고(deploy/README.md §4), 그동안 표가 없어 이 문장이 실패한다 — 세우지도 만들지도
 // 않으면 그 창에서 끝난 판이 영영 문항을 갖지 못한다.
+//
+// 「아무도 집지 않는 배포」는 덮지 않는다. 세우는 것은 성공하고 집을 프로세스만 없는
+// 모양인데, 앞의 두 큐가 이미 같은 것을 전제한다 — 그래서 상호작용 대가 SERVER_ROLE=both
+// 로 겸한다(infra/ecs.tf).
 func (a *matchAnalyzer) queueQuiz(ctx context.Context, gameID int64) bool {
 	if a == nil || a.store == nil {
 		return false
@@ -80,7 +84,7 @@ func (a *matchAnalyzer) runOneQuiz(ctx context.Context) bool {
 	}
 	if err != nil {
 		if ctx.Err() == nil {
-			a.quizQueueLog.Do(func() {
+			a.quizClaimLog.Do(func() {
 				log.Printf("quiz: could not claim a game (logged once): %v", err)
 			})
 		}

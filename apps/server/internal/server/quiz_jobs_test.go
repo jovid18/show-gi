@@ -108,6 +108,27 @@ func TestAQuizThatCouldNotBeBuiltStaysInTheQueue(t *testing.T) {
 	}
 }
 
+// 한 번도 집히지 않은 판이 먼저다. 만들지 못해 남은 판이 30분마다 새 판을 제치면,
+// 워커가 둘인 배포에서 만들 수 있는 판이 그만큼 늦어진다.
+func TestANeverClaimedQuizGoesFirst(t *testing.T) {
+	st := testStore(t)
+	clearQueues(t, st)
+	a, older := importedGameInTheQueue(t, st)
+	a.queueQuiz(t.Context(), older)
+	// 집혔다가 만들어지지 못한 판이다. 행이 그대로 남는다.
+	if got, err := st.ClaimQuizJob(t.Context(), time.Now().Add(-quizLease)); err != nil || got != older {
+		t.Fatalf("claim = %d, %v; want game %d", got, err, older)
+	}
+
+	_, newer := importedGameInTheQueue(t, st)
+	a.queueQuiz(t.Context(), newer)
+
+	// 리스가 낡아 둘 다 집힐 수 있다. 그때 먼저 오는 것은 한 번도 안 집힌 쪽이다.
+	if got, err := st.ClaimQuizJob(t.Context(), time.Now().Add(time.Minute)); err != nil || got != newer {
+		t.Errorf("claim = %d, %v; want the never-claimed game %d", got, err, newer)
+	}
+}
+
 // 문항 큐는 따로 센다. 대수를 정하는 신호에 섞으면 문항 하나가 잡는 5분이 대를 붙이는
 // 이유가 된다(journal §138).
 func TestQueuedQuizzesAreCountedOnTheirOwn(t *testing.T) {

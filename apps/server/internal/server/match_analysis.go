@@ -59,13 +59,17 @@ type matchAnalyzer struct {
 	// analysis 는 계측 창구다. 늘 non-nil 이다(metrics.Registry.Analysis).
 	analysis *metrics.Analysis
 
-	// quizQueueLog 는 문항 큐를 읽지 못했다는 말을 한 번만 하게 한다.
+	// 문항 큐를 읽지 못했다는 말을 자리마다 한 번씩만 하게 한다.
 	//
 	// 이유가 거의 언제나 하나다. 배포가 마이그레이션보다 먼저 나가는 창에서 표가 없고
 	// (023), 그 창이 몇 시간 갈 수 있다 — 집는 쪽은 手마다, 게이지는 5초마다 실패하므로
 	// 매번 적으면 그 로그가 곧 요금이다. 시간 기록이 같은 자리에서 같은 판단을 한다
 	// (archive.Searcher.timingLog).
-	quizQueueLog sync.Once
+	//
+	// 하나로 묶지 않는다. 5초마다 도는 게이지가 언제나 먼저 태워서, 몇 시간 뒤 집는
+	// 쪽에서 난 다른 실패가 영영 로그에 남지 않는다.
+	quizClaimLog   sync.Once
+	quizBacklogLog sync.Once
 
 	// quiz 는 문항 큐를 집었을 때 쓴다(023). 세우는 쪽이 둘이고 그 둘이 엔진 대국과
 	// 가져온 기보다. 대인전은 아직 문항을 만들지 않는다.
@@ -306,7 +310,7 @@ func (a *matchAnalyzer) sampleBacklog(ctx context.Context) {
 	quizzes, err := a.store.QuizBacklog(ctx, time.Now().Add(-quizLease))
 	if err != nil {
 		if ctx.Err() == nil {
-			a.quizQueueLog.Do(func() {
+			a.quizBacklogLog.Do(func() {
 				log.Printf("match: could not read the quiz queue (logged once): %v", err)
 			})
 		}

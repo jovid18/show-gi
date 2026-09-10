@@ -117,7 +117,7 @@ const claimQuizJob = `-- name: ClaimQuizJob :one
 WITH next AS MATERIALIZED (
     SELECT j.game_id FROM quiz_jobs j
     WHERE j.claimed_at IS NULL OR j.claimed_at < $1::timestamptz
-    ORDER BY j.created_at
+    ORDER BY j.claimed_at NULLS FIRST, j.created_at
     LIMIT 1
     FOR UPDATE SKIP LOCKED
 )
@@ -126,7 +126,15 @@ FROM next n WHERE t.game_id = n.game_id
 RETURNING t.game_id
 `
 
-// 만들 판 하나를 집는다. 없으면 0행이다. ClaimAnalysisJob 과 같은 모양이다.
+// 만들 판 하나를 집는다. 없으면 0행이다. ClaimAnalysisJob 과 같은 모양이고, 고르는 차례만
+// 다르다.
+//
+// 한 번도 집히지 않은 판이 먼저다(claimed_at NULLS FIRST). 만들지 못한 판은 행이 남아
+// 리스가 낡으면 다시 집히는데(server 의 runOneQuiz), created_at 순으로만 고르면 그 판이
+// 30분마다 새 판을 제치고 앞에 선다. 워커가 둘인 배포에서 그것이 곧 만들 수 있는 판의 지연이다.
+//
+// created_at 을 옮겨 뒤로 보내지 않는 것은 청소가 그 값을 보기 때문이다. 옮기면 영영
+// 실패하는 판의 TTL 이 같이 밀려 여섯 시간에 끝나지 않는다(SweepQuizJobs).
 func (q *Queries) ClaimQuizJob(ctx context.Context, leaseBefore pgtype.Timestamptz) (int64, error) {
 	row := q.db.QueryRow(ctx, claimQuizJob, leaseBefore)
 	var game_id int64
