@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/eval"
@@ -57,6 +58,14 @@ type matchAnalyzer struct {
 
 	// analysis 는 계측 창구다. 늘 non-nil 이다(metrics.Registry.Analysis).
 	analysis *metrics.Analysis
+
+	// quizQueueLog 는 문항 큐를 읽지 못했다는 말을 한 번만 하게 한다.
+	//
+	// 이유가 거의 언제나 하나다. 배포가 마이그레이션보다 먼저 나가는 창에서 표가 없고
+	// (023), 그 창이 몇 시간 갈 수 있다 — 집는 쪽은 手마다, 게이지는 5초마다 실패하므로
+	// 매번 적으면 그 로그가 곧 요금이다. 시간 기록이 같은 자리에서 같은 판단을 한다
+	// (archive.Searcher.timingLog).
+	quizQueueLog sync.Once
 
 	// quiz 는 문항 큐를 집었을 때 쓴다(023). 세우는 쪽이 둘이고 그 둘이 엔진 대국과
 	// 가져온 기보다. 대인전은 아직 문항을 만들지 않는다.
@@ -297,7 +306,9 @@ func (a *matchAnalyzer) sampleBacklog(ctx context.Context) {
 	quizzes, err := a.store.QuizBacklog(ctx, time.Now().Add(-quizLease))
 	if err != nil {
 		if ctx.Err() == nil {
-			log.Printf("match: could not count the queued quizzes: %v", err)
+			a.quizQueueLog.Do(func() {
+				log.Printf("match: could not read the quiz queue (logged once): %v", err)
+			})
 		}
 		return
 	}
@@ -344,9 +355,13 @@ func (a *matchAnalyzer) run(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		// 순서가 기다리는 사람 순이다. 판을 재는 것은 되짚기의 그래프가 기다리고
+		// 집는 순서가 기다리는 사람 순이다. 판을 재는 것은 되짚기의 그래프가 기다리고
 		// (analyzing), 문항은 그 화면의 한 자리가 기다리며, 미리 재는 것은 누구도
 		// 기다리지 않는다.
+		//
+		// 집을 때만 정해지고 뺏지는 않는다. 문항 하나가 워커를 최대 5분 잡으므로
+		// (quizTimeout) 워커가 둘인 배포에서는 판 둘이 가까이 끝나면 그동안 판을 재는
+		// 쪽이 한 건도 집히지 않는다 — 재지 않은 자리다(journal §138).
 		if a.runOneJob(ctx) || a.runOneQuiz(ctx) || a.measureOnePly(ctx, ahead) {
 			continue
 		}

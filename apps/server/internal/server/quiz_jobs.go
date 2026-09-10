@@ -37,7 +37,11 @@ func (a *matchAnalyzer) queueQuiz(ctx context.Context, gameID int64) bool {
 	if a == nil || a.store == nil {
 		return false
 	}
-	if err := a.store.EnqueueQuizJob(ctx, gameID); err != nil {
+	// 시한을 준다. 부르는 자리 하나가 대국이 끝나는 자리이고(ws.go 의 sendSummary),
+	// 거기서는 이 INSERT 뒤에 총평이 나간다 — 커넥션이 마르면 사람이 총평을 못 받는다.
+	write, cancel := context.WithTimeout(ctx, quizSaveTimeout)
+	defer cancel()
+	if err := a.store.EnqueueQuizJob(write, gameID); err != nil {
 		if ctx.Err() == nil {
 			log.Printf("quiz: could not queue game %d: %v", gameID, err)
 		}
@@ -48,6 +52,9 @@ func (a *matchAnalyzer) queueQuiz(ctx context.Context, gameID int64) bool {
 
 // buildQuizNow 는 줄을 지나지 않고 그 자리에서 만든다. 줄에 세우지 못한 자리에서만 부른다.
 func (a *matchAnalyzer) buildQuizNow(ctx context.Context, gameID int64) {
+	if a == nil || a.store == nil {
+		return
+	}
 	rec, err := a.store.GameRecordAnyOwner(ctx, gameID)
 	if err != nil {
 		if ctx.Err() == nil {
@@ -73,7 +80,9 @@ func (a *matchAnalyzer) runOneQuiz(ctx context.Context) bool {
 	}
 	if err != nil {
 		if ctx.Err() == nil {
-			log.Printf("quiz: could not claim a game: %v", err)
+			a.quizQueueLog.Do(func() {
+				log.Printf("quiz: could not claim a game (logged once): %v", err)
+			})
 		}
 		return false
 	}
@@ -135,8 +144,8 @@ const quizSaveTimeout = 10 * time.Second
 
 // generateQuiz 는 끝난 판에서 문항을 만들어 저장한다. 남겼으면 참이다.
 //
-// 부르는 자리가 둘이다. 큐를 집은 워커(runOneQuiz)와, 집을 워커가 없는 배포의 대국
-// 끝(ws.go 의 sendSummary)이다. 어느 쪽이든 기록 하나만 있으면 된다.
+// 부르는 자리가 셋이다. 큐를 집은 워커(runOneQuiz)와, 줄에 세우지 못한 두 자리
+// (buildQuizNow · ws.go 의 sendSummary)다. 어느 쪽이든 기록 하나만 있으면 된다.
 //
 // 거짓은 「이번에는 남기지 못했다」이지 「문항이 없다」가 아니다. 부르는 쪽이 그 판을
 // 큐에 남겨 두고, 리스가 낡으면 다시 집힌다.
