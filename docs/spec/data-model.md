@@ -187,7 +187,7 @@ erDiagram
     quiz_jobs {
         bigint game_id PK "games FK · 판 번호가 곧 일감이다"
         timestamptz claimed_at "리스"
-        int attempts "만들어 보고 남기지 못한 횟수 · 상한을 넘으면 안 집힌다"
+        int attempts "만들어 보고 남기지 못한 횟수 · 상한을 넘으면 집히지 않는다"
         timestamptz created_at
     }
 

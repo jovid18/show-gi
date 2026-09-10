@@ -162,7 +162,7 @@ func TestANeverClaimedQuizGoesFirst(t *testing.T) {
 	clearQueues(t, st)
 	a, older := importedGameInTheQueue(t, st)
 	a.queueQuiz(t.Context(), older)
-	// 집혔다가 만들어지지 못한 판이다. 행이 그대로 남는다.
+	// 집혔는데 만들지 못한 판이다. 행이 그대로 남고 claimed_at 이 찍혀 있다.
 	if got, err := st.ClaimQuizJob(t.Context(), time.Now().Add(-quizLease), quizAttempts); err != nil || got != older {
 		t.Fatalf("claim = %d, %v; want game %d", got, err, older)
 	}
@@ -170,7 +170,8 @@ func TestANeverClaimedQuizGoesFirst(t *testing.T) {
 	_, newer := importedGameInTheQueue(t, st)
 	a.queueQuiz(t.Context(), newer)
 
-	// 리스가 낡아 둘 다 집힐 수 있다. 그때 먼저 오는 것은 한 번도 안 집힌 쪽이다.
+	// 리스를 미래로 줘서 둘 다 집을 수 있게 해 놓는다. 그때 앞에 오는 것은 한 번도
+	// 집히지 않은 쪽이다 — 나이만 보면 실패한 older 가 30분마다 새 판을 제친다.
 	if got, err := st.ClaimQuizJob(t.Context(), time.Now().Add(time.Minute), quizAttempts); err != nil || got != newer {
 		t.Errorf("claim = %d, %v; want the never-claimed game %d", got, err, newer)
 	}
