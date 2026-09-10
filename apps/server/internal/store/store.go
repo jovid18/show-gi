@@ -1396,3 +1396,28 @@ func (s *Store) DeleteExploreSnapshot(ctx context.Context, id, userID int64) err
 	}
 	return nil
 }
+
+// SearchTiming 은 탐색 한 번의 소요 시간이다.
+type SearchTiming struct {
+	SFENKey string
+	Depth   int
+	// K 는 부른 쪽이 요구한 MultiPV 다. 돌아온 후보 수가 아니다.
+	K      int
+	Ms     int
+	Cached bool
+}
+
+// PutSearchTiming 은 탐색 하나의 소요 시간을 남긴다.
+func (s *Store) PutSearchTiming(ctx context.Context, t SearchTiming) error {
+	err := s.q.InsertSearchTiming(ctx, db.InsertSearchTimingParams{
+		SFENKey: t.SFENKey,
+		Depth:   int32(t.Depth),
+		K:       int32(t.K),
+		Ms:      int32(t.Ms),
+		Cached:  t.Cached,
+	})
+	if err != nil {
+		return fmt.Errorf("insert search timing: %w", err)
+	}
+	return nil
+}

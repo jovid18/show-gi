@@ -6,7 +6,6 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
@@ -53,13 +52,13 @@ const (
 	// 가져갈 수 있는 전부」다.
 	exploreSlots = 1
 
-	// exploreWait 은 슬롯을 기다리는 시간이다. 앞사람 하나가 끝나기를 기다릴 만큼이고,
-	// 그보다 밀리면 기다리게 두지 않고 「まだ読んでいます」로 답한다 — 화면이 다시 누를 수
-	// 있는 실패다.
+	// exploreWait 은 슬롯을 기다리는 시간이다. 앞사람이 끝나기를 기다리게 두고, 그보다
+	// 밀리면 「まだ読んでいます」로 답한다 — 화면이 다시 누를 수 있는 실패다.
 	//
-	// 앞사람 하나의 p95 로 잡는다(journal §132). 중앙값으로 잡으면 절반이 429 가 되고,
-	// 꼬리(p99 17.5초)로 잡으면 기다리게 두지 않겠다는 위 판단이 없어진다.
-	exploreWait = 8 * time.Second
+	// 탐색 하나에 주는 시한과 같은 값이다. 앞사람은 그 시한까지 슬롯을 쥘 수 있으므로,
+	// 짧게 잡으면 곧 끝났을 앞사람을 기다리다 포기한다. 꼬리는 길다 — 캐시에 없는 국면의
+	// p99 가 17.5초다(journal §132).
+	exploreWait = whatifTimeout
 )
 
 // exploreHandler 는 검토 판의 한 걸음을 답한다. 되짚기와 달리 DB에도 로그인에도 매여

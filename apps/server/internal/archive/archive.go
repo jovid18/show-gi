@@ -48,6 +48,7 @@ type Store interface {
 	Edges(ctx context.Context, parentKey string) ([]store.Edge, error)
 	PutPosition(ctx context.Context, p store.Position) (bool, error)
 	PutEdge(ctx context.Context, e store.Edge) error
+	PutSearchTiming(ctx context.Context, t store.SearchTiming) error
 }
 
 // Metrics 는 탐색 하나를 받는 자리다.
@@ -121,10 +122,12 @@ func (a *Searcher) SearchMultiPV(
 				// 국면으로 오는 길은 새것일 수 있다(전치가 그것이다) — 남기지 않으면 그
 				// 간선이 영원히 비어 있고, A→B를 쌓는다는 말이 반만 사실이 된다.
 				line := slices.Clone(moves)
+				key, took := Key(pos), time.Since(start)
 				a.wg.Add(1)
 				go func() {
 					defer a.wg.Done()
 					a.recordPath(startSFEN, line, hit)
+					a.recordTiming(key, depth, multiPV, took, true)
 				}()
 				a.observe(start, true)
 				return hit, nil
@@ -143,12 +146,37 @@ func (a *Searcher) SearchMultiPV(
 	// 부르는 쪽이 준 슬라이스를 들고 가지 않는다. 대국 루프는 수를 계속 덧붙이므로
 	// 그 배열이 기록 도중에 바뀐다 — 롤백이 있으면 줄어들기까지 한다.
 	line := slices.Clone(moves)
+	took := time.Since(start)
 	a.wg.Add(1)
 	go func() {
 		defer a.wg.Done()
 		a.record(startSFEN, line, res)
+		if pos, err := positionAfter(startSFEN, line); err == nil {
+			a.recordTiming(Key(pos), depth, multiPV, took, false)
+		}
 	}()
 	return res, nil
+}
+
+// recordTiming 은 탐색 하나의 소요 시간을 남긴다. depth·k 별 비용을 나중에 질의로 보는
+// 자리이고(search_timings), 읽는 쪽은 사람이다.
+//
+// 실패해도 로그만 남긴다. 이 기록이 없다고 탐색이 실패한 것은 아니고, 표가 아직 없는
+// 이미지에서도 대국은 돌아야 한다.
+func (a *Searcher) recordTiming(key string, depth, multiPV int, d time.Duration, cached bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), writeTimeout)
+	defer cancel()
+
+	err := a.store.PutSearchTiming(ctx, store.SearchTiming{
+		SFENKey: key,
+		Depth:   depth,
+		K:       multiPV,
+		Ms:      int(d.Milliseconds()),
+		Cached:  cached,
+	})
+	if err != nil {
+		log.Printf("archive: record search timing: %v", err)
+	}
 }
 
 // lookup 은 이미 잰 국면을 탐색 결과의 모양으로 되돌린다. 쓰지 못하면 ok=false.
