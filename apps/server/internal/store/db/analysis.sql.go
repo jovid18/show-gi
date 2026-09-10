@@ -134,7 +134,7 @@ RETURNING t.game_id
 // 30분마다 새 판을 제치고 앞에 선다. 워커가 둘인 배포에서 그것이 곧 만들 수 있는 판의 지연이다.
 //
 // created_at 을 옮겨 뒤로 보내지 않는 것은 청소가 그 값을 보기 때문이다. 옮기면 영영
-// 실패하는 판의 TTL 이 같이 밀려 여섯 시간에 끝나지 않는다(SweepQuizJobs).
+// 실패하는 판의 TTL 이 같이 밀려 끝나지 않는다(SweepQuizJobs).
 func (q *Queries) ClaimQuizJob(ctx context.Context, leaseBefore pgtype.Timestamptz) (int64, error) {
 	row := q.db.QueryRow(ctx, claimQuizJob, leaseBefore)
 	var game_id int64
@@ -578,7 +578,7 @@ DELETE FROM quiz_jobs WHERE created_at < $1
 // 오래된 행을 걷는다. 만들다 계속 실패하는 판이 이 표의 누수이고, 그 판은 문항 없이 남는다.
 //
 // 걷은 수를 돌려준다. 018·019 와 갈리는 자리다. 나이만 보므로 「계속 실패했다」와
-// 「여섯 시간 내내 밀려서 한 번도 집히지 않았다」가 같은 값이 되는데, 뒤엣것은 사고이고
+// 「TTL 내내 밀려서 한 번도 집히지 않았다」가 같은 값이 되는데, 뒤엣것은 사고이고
 // 조용히 지나가면 안 된다 — 세어 두면 부르는 쪽이 로그 한 줄을 남긴다.
 func (q *Queries) SweepQuizJobs(ctx context.Context, createdAt pgtype.Timestamptz) (int64, error) {
 	result, err := q.db.Exec(ctx, sweepQuizJobs, createdAt)

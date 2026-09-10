@@ -39,10 +39,9 @@ type quizHandler struct {
 // 말은 되돌릴 자리가 없다.
 //
 // 덮지 못하는 창이 하나 있다. 표는 있는데 세우기가 실패한 자리다 — 그때는 그 자리에서
-// 만드는데(queueQuiz) 줄에도 없고 재는 중도 아니라 거짓이 나간다. 표가 아예 없는 배포는
-// 반대다: 이 질의가 실패해서 참으로 답하고, 화면이 기다린다.
-//
-// 그 창은 화면이 받는다. 한 번의 거짓으로는 그만두지 않는다(useQuiz 의 QUIZ_MIN_WAIT_MS).
+// 만드는데(queueQuiz) 줄에도 없고 재는 중도 아니라 거짓이 나간다. 만드는 데 최대 5분이고
+// 화면이 기다리는 바닥은 1분이라, 그동안 「まだ届きません」이 보이고 되찾는 것은
+// 「もう一度」다. 표가 아예 없는 배포는 반대다: 이 질의가 실패해서 참으로 답한다.
 func (h *quizHandler) queued(r *http.Request, gameID int64) bool {
 	ok, err := h.review.store.IsQuizQueued(r.Context(), gameID)
 	if err != nil {

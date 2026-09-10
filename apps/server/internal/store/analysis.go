@@ -400,7 +400,7 @@ func (s *Store) IsQuizQueued(ctx context.Context, gameID int64) (bool, error) {
 
 // SweepQuizJobs 는 그 시각보다 오래된 행을 걷고 몇 개를 걷었는지 준다.
 //
-// 0이 아닌 것은 그 자체로 사고다. 만들다 계속 실패했거나 여섯 시간 동안 한 번도 집히지
+// 0이 아닌 것은 그 자체로 사고다. 만들다 계속 실패했거나 TTL 내내 한 번도 집히지
 // 않았다는 뜻이고, 어느 쪽이든 그 판은 문항 없이 남는다.
 func (s *Store) SweepQuizJobs(ctx context.Context, before time.Time) (int, error) {
 	n, err := s.q.SweepQuizJobs(ctx, stamp(before))
