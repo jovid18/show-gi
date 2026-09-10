@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/jovid18/show-gi/apps/server/internal/quiz"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
@@ -27,6 +28,13 @@ type quizHandler struct {
 	// 한 자리에 남는다(review.go record) — 거르는 규칙이 두 벌이 되면 한쪽만 고쳐진 채로
 	// 남고, 그 한쪽이 곧 구멍이다.
 	review *reviewHandler
+
+	// queueLog 는 줄을 읽지 못했다는 말을 한 번만 하게 한다.
+	//
+	// 여기는 사람 수만큼 도는 자리다. 표가 아직 없는 배포에서는 이 질의가 실패하고, 그때
+	// 참으로 답하므로 화면이 계속 묻는다 — 5초마다, 보는 사람마다다. 분석기가 같은
+	// 자리에서 같은 판단을 한다(matchAnalyzer 의 quizClaimLog).
+	queueLog sync.Once
 }
 
 // queued 는 그 판의 문항이 아직 오는 중인가다.
@@ -45,7 +53,9 @@ type quizHandler struct {
 func (h *quizHandler) queued(r *http.Request, gameID int64) bool {
 	ok, err := h.review.store.IsQuizQueued(r.Context(), gameID)
 	if err != nil {
-		log.Printf("quiz: could not read the queue of game %d: %v", gameID, err)
+		h.queueLog.Do(func() {
+			log.Printf("quiz: could not read the queue of game %d (logged once): %v", gameID, err)
+		})
 		return true
 	}
 	return ok || h.review.analyzer.analyzing(r.Context(), gameID)
@@ -111,16 +121,26 @@ func (h *quizHandler) get(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// 줄을 먼저 본다. 워커가 쓰는 순서와 반대다(문항을 남기고 나서 줄에서 걷는다) —
-	// 같은 순서로 읽으면 그 사이에 끼었을 때 「다 됐는데 오지 않는다」가 나간다.
-	//
-	// 대인전 판에는 묻지 않는다. 그쪽은 아래에서 Ready 를 참으로 두므로 이 값이 쓰이지
-	// 않고, 되짚기를 여는 사람마다 질의 하나가 더 나가는 자리다.
-	queued := rec.MatchID == "" && h.queued(r, rec.ID)
-
 	q, ready, ok := h.load(w, r, rec.ID)
 	if !ok {
 		return
+	}
+
+	// 아직 아닐 때만 줄을 묻는다. 다 된 판이 이 표면의 흔한 쪽이고, 거기서는 이 값이
+	// 쓰이지 않는다 — 대인전 판도 아래에서 Ready 를 참으로 두므로 같이 빠진다.
+	//
+	// 묻고 나서 문항을 한 번 더 본다. 워커가 쓰는 순서가 반대라(문항을 남기고 나서 줄에서
+	// 걷는다) 그 사이에 끼면 「다 됐는데 오지 않는다」가 나가는데, 줄을 본 뒤에 다시
+	// 보면 그 창이 닫힌다.
+	queued := false
+	if !ready && rec.MatchID == "" {
+		queued = h.queued(r, rec.ID)
+		if !queued {
+			q, ready, ok = h.load(w, r, rec.ID)
+			if !ok {
+				return
+			}
+		}
 	}
 
 	// 대인전 판은 「다 됐고 문항이 없다」다. 행이 없는 것은 같지만 뜻이 반대다 —
