@@ -30,6 +30,8 @@ export function useQuiz(id: number): QuizSource {
   const [attempts, setAttempts] = useState(0);
   // 기다리기 시작한 시각. 횟수 대신 시간을 잰다 — 아래.
   const since = useRef<number | null>(null);
+  // 「줄에 없다」를 처음 들은 시각. 위와 따로 잰다 — 아래.
+  const denied = useRef<number | null>(null);
 
   // 판이 바뀌면 이 훅 전체가 새로 만들어진다 — App 이 `key` 로 판마다 새로 세운다. 여기서
   // 손으로 되돌리려 하면 안 된다: `id` 가 바뀐 그 렌더에는 `useFetch` 가 아직 앞 판의 답을
@@ -64,7 +66,18 @@ export function useQuiz(id: number): QuizSource {
   // 한 번의 「줄에 없다」로 그만두지 않는다. 그 값이 잠깐 거짓일 수 있는 자리가 있다 —
   // 대국이 끝나고 총평이 먼저 가고 세우는 것이 그 뒤이고(server/ws.go), 세우기가 실패한
   // 판은 줄 없이 그 자리에서 만들어진다. 둘 다 화면에서는 「아직 안 왔다」로 보인다.
-  const waiting = pending && waited < (said === false ? QUIZ_MIN_WAIT_MS : QUIZ_WAIT_MS);
+  //
+  // 그 시각을 따로 잰다. 전체 기다린 시간으로 재면 몇 분 기다린 뒤의 첫 거짓이 곧바로
+  // 끊는데, 재는 동안 참을 주다가 한 번 흔들리는 자리가 바로 그 모양이다.
+  if (said === false && denied.current === null) {
+    denied.current = Date.now();
+  }
+  if (said !== false) {
+    denied.current = null;
+  }
+  const deniedFor = denied.current === null ? 0 : Date.now() - denied.current;
+
+  const waiting = pending && waited < QUIZ_WAIT_MS && !(said === false && deniedFor >= QUIZ_MIN_WAIT_MS);
   const gaveUp = pending && !waiting;
 
   // `attempts` 가 다시 걸어 주는 값이다. 나머지 셋은 폴링 도중에 바뀌지 않는다: `waiting` 은
@@ -78,14 +91,18 @@ export function useQuiz(id: number): QuizSource {
     const timer = setTimeout(() => {
       setAttempts((n) => n + 1);
       reload();
-    }, QUIZ_POLL_MS);
+    }, pollDelay(waited));
     return () => clearTimeout(timer);
+    // waited 는 다시 걸어 주는 값에 넣지 않는다. 매 렌더에 바뀌는 값이라 넣으면 타이머가
+    // 계속 다시 걸려 아무것도 끝나지 않는다 — 다음 간격은 다음 폴링이 도착할 때
+    // `attempts` 가 바뀌면서 그 렌더의 값으로 다시 정해진다.
   }, [waiting, gaveUp, attempts, reload]);
 
   // 「もう一度」는 세던 것도 되돌린다. 되돌리지 않으면 눌러도 요청 하나가 나가고 화면은
   // 그만둔 자리에 그대로 멈춰서, 버튼이 아무 일도 하지 않는 것처럼 보인다.
   const retry = useCallback(() => {
     since.current = null;
+    denied.current = null;
     setAttempts(0);
     reload();
   }, [reload]);
@@ -100,6 +117,20 @@ export function useQuiz(id: number): QuizSource {
  * 하고 새로고침하기 전에 도착한다.
  */
 const QUIZ_POLL_MS = 5000;
+
+/**
+ * 다음에 물어보기까지 얼마나 둘 것인가.
+ *
+ * 오래 기다릴수록 뜸해진다. 상한이 30분인데(QUIZ_WAIT_MS) 5초로만 물으면 한 사람이 판
+ * 하나에 360번을 묻고, 그 요청 하나가 기보 전체를 읽는다(reviewHandler.record).
+ *
+ * 앞은 촘촘하다. 문항은 대개 수십 초 안에 오고, 그때 사람이 화면 앞에 있다.
+ */
+function pollDelay(waited: number): number {
+  if (waited < 60 * 1000) return QUIZ_POLL_MS;
+  if (waited < 5 * 60 * 1000) return 3 * QUIZ_POLL_MS;
+  return 6 * QUIZ_POLL_MS;
+}
 
 /**
  * 줄에 선 채로 이만큼 지나면 그만 묻는다. 30분이다.

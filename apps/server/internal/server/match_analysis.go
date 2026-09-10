@@ -329,7 +329,7 @@ func (a *matchAnalyzer) sampleBacklog(ctx context.Context) {
 
 	// 문항은 따로 놓는다. 위 둘이 대수를 정하는 신호인데(journal §124) 문항 하나가
 	// 5분을 잡는 것은 대를 붙일 이유가 아니다.
-	quizzes, err := a.store.QuizBacklog(ctx, time.Now().Add(-quizLease))
+	quizzes, err := a.store.QuizBacklog(ctx, time.Now().Add(-quizLease), quizAttempts)
 	if err != nil {
 		if ctx.Err() == nil {
 			a.quizBacklogLog.Do(func() {
@@ -360,7 +360,7 @@ func (a *matchAnalyzer) sweepPlies(ctx context.Context) {
 			}
 			// 여기서 걷힌 판은 문항 없이 남는다. 0이 아니면 그 자체로 사고이므로 적는다 —
 			// 나이만 보고 걷어서 「계속 실패했다」와 「내내 밀려서 한 번도 안 집혔다」가 같은 값이다.
-			switch n, err := a.store.SweepQuizJobs(ctx, cutoff); {
+			switch n, err := a.store.SweepQuizJobs(ctx, cutoff, time.Now().Add(-quizLease)); {
 			case err != nil && ctx.Err() == nil:
 				log.Printf("match: could not sweep old quiz jobs: %v", err)
 			case n > 0:

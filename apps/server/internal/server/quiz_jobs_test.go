@@ -130,9 +130,17 @@ func TestAQuizStopsBeingClaimedAfterTooManyTries(t *testing.T) {
 	if _, err := st.ClaimQuizJob(t.Context(), stale(), quizAttempts); !errors.Is(err, store.ErrNoQuizJob) {
 		t.Errorf("claim after %d failures: %v; want the game to be left alone", quizAttempts, err)
 	}
-	// 행은 남는다. 밀린 양이 그것을 계속 말하고, 청소가 나이로 걷는다.
-	if !quizQueued(t, st, gameID) {
-		t.Error("the row was removed instead of being left for the sweep")
+	// 행은 남는다. 청소가 나이로 걷을 때까지다.
+	//
+	// 그래도 「온다」는 아니다. 누구도 집지 않으므로, 참으로 답하면 화면이 오지 않을 것을
+	// 기다린다(server/quiz.go 의 queued).
+	if quizQueued(t, st, gameID) {
+		t.Error("a game nobody will pick up still says its quiz is coming")
+	}
+	if n, err := st.QuizBacklog(t.Context(), time.Now().Add(time.Minute), quizAttempts); err != nil {
+		t.Fatal(err)
+	} else if n != 0 {
+		t.Errorf("backlog = %d; a game nobody will pick up is not backlog", n)
 	}
 }
 
@@ -256,7 +264,7 @@ func importedGameInTheQueue(t *testing.T, st *store.Store) (*matchAnalyzer, int6
 // 컨테이너의 워커가 먼저 가져가면 답이 달라진다 — 이 질의는 판 하나만 본다.
 func quizQueued(t *testing.T, st *store.Store, gameID int64) bool {
 	t.Helper()
-	ok, err := st.IsQuizQueued(t.Context(), gameID)
+	ok, err := st.IsQuizQueued(t.Context(), gameID, quizAttempts)
 	if err != nil {
 		t.Fatalf("is quiz queued: %v", err)
 	}

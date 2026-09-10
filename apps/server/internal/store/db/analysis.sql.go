@@ -182,13 +182,19 @@ func (q *Queries) CountMeasuredAnalysisPlies(ctx context.Context, matchID string
 
 const countQuizBacklog = `-- name: CountQuizBacklog :one
 SELECT count(*) FROM quiz_jobs
-WHERE claimed_at IS NULL OR claimed_at < $1::timestamptz
+WHERE attempts < $1::int
+  AND (claimed_at IS NULL OR claimed_at < $2::timestamptz)
 `
+
+type CountQuizBacklogParams struct {
+	MaxAttempts int32
+	LeaseBefore pgtype.Timestamptz
+}
 
 // 아직 집히지 않은 판의 수다. 대수를 정하는 신호는 아니고(그쪽은 手 몫이다) 문항이
 // 밀렸는지를 보는 자리다.
-func (q *Queries) CountQuizBacklog(ctx context.Context, leaseBefore pgtype.Timestamptz) (int64, error) {
-	row := q.db.QueryRow(ctx, countQuizBacklog, leaseBefore)
+func (q *Queries) CountQuizBacklog(ctx context.Context, arg CountQuizBacklogParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countQuizBacklog, arg.MaxAttempts, arg.LeaseBefore)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -426,13 +432,25 @@ func (q *Queries) IsGameAnalyzing(ctx context.Context, arg IsGameAnalyzingParams
 }
 
 const isQuizQueued = `-- name: IsQuizQueued :one
-SELECT EXISTS (SELECT 1 FROM quiz_jobs WHERE game_id = $1) AS queued
+SELECT EXISTS (
+    SELECT 1 FROM quiz_jobs
+    WHERE game_id = $1::bigint
+      AND attempts < $2::int
+) AS queued
 `
+
+type IsQuizQueuedParams struct {
+	GameID      int64
+	MaxAttempts int32
+}
 
 // 그 판의 문항이 아직 줄에 있는가. 화면이 이 값으로 「아직 온다」와 「오지 않는다」를
 // 가른다(server/quiz.go) — 판을 재는 큐에서 IsGameAnalyzing 이 하는 일과 같다.
-func (q *Queries) IsQuizQueued(ctx context.Context, gameID int64) (bool, error) {
-	row := q.db.QueryRow(ctx, isQuizQueued, gameID)
+//
+// 상한까지 실패한 행은 세지 않는다. 그 행은 청소가 걷을 때까지 남지만 누구도 집지 않으므로
+// (ClaimQuizJob) 「온다」로 답하면 화면이 오지 않을 것을 기다린다.
+func (q *Queries) IsQuizQueued(ctx context.Context, arg IsQuizQueuedParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isQuizQueued, arg.GameID, arg.MaxAttempts)
 	var queued bool
 	err := row.Scan(&queued)
 	return queued, err
@@ -594,15 +612,25 @@ func (q *Queries) SweepAnalysisPlies(ctx context.Context, createdAt pgtype.Times
 }
 
 const sweepQuizJobs = `-- name: SweepQuizJobs :execrows
-DELETE FROM quiz_jobs WHERE created_at < $1
+DELETE FROM quiz_jobs
+WHERE created_at < $1::timestamptz
+  AND (claimed_at IS NULL OR claimed_at < $2::timestamptz)
 `
+
+type SweepQuizJobsParams struct {
+	OlderThan   pgtype.Timestamptz
+	LeaseBefore pgtype.Timestamptz
+}
 
 // 오래된 행을 걷는다. 만들다 계속 실패하는 판이 이 표의 누수이고, 그 판은 문항 없이 남는다.
 //
 // 걷은 수를 돌려준다. 018·019 와 갈리는 자리다. 여기서 걷히는 판은 문항 없이 남으므로
 // 0이 아닌 것 자체가 사고이고, 세어 두면 부르는 쪽이 로그와 지표를 남긴다.
-func (q *Queries) SweepQuizJobs(ctx context.Context, createdAt pgtype.Timestamptz) (int64, error) {
-	result, err := q.db.Exec(ctx, sweepQuizJobs, createdAt)
+//
+// 지금 만드는 중인 행은 두고 간다. 리스가 살아 있는 행이 그것이고, 걷으면 다 만든 뒤에
+// 지울 것이 없어질 뿐 아니라 「이 판은 문항이 없다」가 거짓으로 세어진다.
+func (q *Queries) SweepQuizJobs(ctx context.Context, arg SweepQuizJobsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, sweepQuizJobs, arg.OlderThan, arg.LeaseBefore)
 	if err != nil {
 		return 0, err
 	}

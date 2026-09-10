@@ -150,6 +150,7 @@ func (a *matchAnalyzer) runOneQuiz(ctx context.Context) bool {
 	// 값은 같고 5분짜리 탐색만 두 벌이다.
 	if _, err := a.store.GameQuiz(ctx, gameID, quiz.Version); err == nil {
 		a.dropQuiz(ctx, gameID)
+		a.analysis.ObserveQuiz(metrics.AnalysisAlready, 0)
 		return true
 	}
 
@@ -207,7 +208,7 @@ func (a *matchAnalyzer) awaitQuizSlot(parent context.Context) (func(), bool) {
 	case a.quizSlots <- struct{}{}:
 		return func() { <-a.quizSlots }, true
 	case <-ctx.Done():
-		a.analysis.LostQuizzes(1)
+		a.analysis.StarvedQuiz()
 		log.Print("quiz: waited for a slot too long — that game has no quiz")
 		return nil, false
 	}

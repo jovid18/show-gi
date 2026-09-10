@@ -283,13 +283,21 @@ DELETE FROM quiz_jobs WHERE game_id = $1;
 -- 아직 집히지 않은 판의 수다. 대수를 정하는 신호는 아니고(그쪽은 手 몫이다) 문항이
 -- 밀렸는지를 보는 자리다.
 SELECT count(*) FROM quiz_jobs
-WHERE claimed_at IS NULL OR claimed_at < sqlc.arg(lease_before)::timestamptz;
+WHERE attempts < sqlc.arg(max_attempts)::int
+  AND (claimed_at IS NULL OR claimed_at < sqlc.arg(lease_before)::timestamptz);
 
 -- name: IsQuizQueued :one
 --
 -- 그 판의 문항이 아직 줄에 있는가. 화면이 이 값으로 「아직 온다」와 「오지 않는다」를
 -- 가른다(server/quiz.go) — 판을 재는 큐에서 IsGameAnalyzing 이 하는 일과 같다.
-SELECT EXISTS (SELECT 1 FROM quiz_jobs WHERE game_id = $1) AS queued;
+--
+-- 상한까지 실패한 행은 세지 않는다. 그 행은 청소가 걷을 때까지 남지만 누구도 집지 않으므로
+-- (ClaimQuizJob) 「온다」로 답하면 화면이 오지 않을 것을 기다린다.
+SELECT EXISTS (
+    SELECT 1 FROM quiz_jobs
+    WHERE game_id = sqlc.arg(game_id)::bigint
+      AND attempts < sqlc.arg(max_attempts)::int
+) AS queued;
 
 -- name: SweepQuizJobs :execrows
 --
@@ -297,4 +305,9 @@ SELECT EXISTS (SELECT 1 FROM quiz_jobs WHERE game_id = $1) AS queued;
 --
 -- 걷은 수를 돌려준다. 018·019 와 갈리는 자리다. 여기서 걷히는 판은 문항 없이 남으므로
 -- 0이 아닌 것 자체가 사고이고, 세어 두면 부르는 쪽이 로그와 지표를 남긴다.
-DELETE FROM quiz_jobs WHERE created_at < $1;
+--
+-- 지금 만드는 중인 행은 두고 간다. 리스가 살아 있는 행이 그것이고, 걷으면 다 만든 뒤에
+-- 지울 것이 없어질 뿐 아니라 「이 판은 문항이 없다」가 거짓으로 세어진다.
+DELETE FROM quiz_jobs
+WHERE created_at < sqlc.arg(older_than)::timestamptz
+  AND (claimed_at IS NULL OR claimed_at < sqlc.arg(lease_before)::timestamptz);

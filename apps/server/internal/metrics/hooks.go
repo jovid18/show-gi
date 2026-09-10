@@ -171,6 +171,11 @@ const (
 	// AnalysisSwept 는 문항 큐에만 있다. 만들지 못한 채 나이로 걷힌 판이고, failed 와
 	// 달리 다시 집히지 않는다.
 	AnalysisSwept = "swept"
+	// AnalysisStarved 는 자리를 기다리다 그만둔 판이다. 줄에 선 적이 없으므로 swept 와
+	// 갈라 둔다 — 알람이 「청소가 진짜 일을 지운다」와 「대체 경로가 굶는다」를 가려야 한다.
+	AnalysisStarved = "starved"
+	// AnalysisAlready 는 집었더니 이미 문항이 있던 판이다. 만들지 않고 걷는다.
+	AnalysisAlready = "already"
 )
 
 // SetBacklog 은 지금 큐에 남아 있는 양을 놓는다. 판과 手를 같이 받는다.
@@ -214,6 +219,14 @@ func (a *Analysis) LostQuizzes(n int) {
 		return
 	}
 	a.reg.AnalysisQuizzes.Add(float64(n), AnalysisSwept)
+}
+
+// StarvedQuiz 는 자리를 기다리다 그만둔 판 하나다. 그 판도 문항 없이 남는다.
+func (a *Analysis) StarvedQuiz() {
+	if a == nil || a.reg == nil {
+		return
+	}
+	a.reg.AnalysisQuizzes.Inc(AnalysisStarved)
 }
 
 // ObserveQuiz 는 판 하나의 문항 만들기가 끝난 것을 남긴다. ObserveGame 과 같은 규약이다.

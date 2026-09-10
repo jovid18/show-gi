@@ -43,6 +43,9 @@ type quizHandler struct {
 // 문항이 줄에 서므로(match_analysis.go 의 analyze), 재는 동안 줄만 보면 「오지 않는다」가
 // 된다. 사람이 가져오기 직후에 여는 것이 바로 그 자리다.
 //
+// 재는 중인가를 먼저 본다. 쓰는 차례가 그 반대라 — 문항을 줄에 세우고 나서 재는 표시를
+// 걷는다(runOneJob) — 같은 차례로 읽으면 그 사이에 끼었을 때 둘 다 거짓이 나간다.
+//
 // 읽지 못하면 참으로 둔다. 「오지 않는다」로 답하면 화면이 그 자리에서 그만두는데, 그
 // 말은 되돌릴 자리가 없다.
 //
@@ -51,14 +54,17 @@ type quizHandler struct {
 // 화면이 기다리는 바닥은 1분이라, 그동안 「まだ届きません」이 보이고 되찾는 것은
 // 「もう一度」다. 표가 아예 없는 배포는 반대다: 이 질의가 실패해서 참으로 답한다.
 func (h *quizHandler) queued(r *http.Request, gameID int64) bool {
-	ok, err := h.review.store.IsQuizQueued(r.Context(), gameID)
+	if h.review.analyzer.analyzing(r.Context(), gameID) {
+		return true
+	}
+	ok, err := h.review.store.IsQuizQueued(r.Context(), gameID, quizAttempts)
 	if err != nil {
 		h.queueLog.Do(func() {
 			log.Printf("quiz: could not read the queue of game %d (logged once): %v", gameID, err)
 		})
 		return true
 	}
-	return ok || h.review.analyzer.analyzing(r.Context(), gameID)
+	return ok
 }
 
 // quizPayload 는 화면이 받는 문항 전부다. 정답이 없다 — 채점은 서버에 있다.

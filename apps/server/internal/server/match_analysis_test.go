@@ -821,7 +821,7 @@ func clearQueues(t *testing.T, st *store.Store) {
 	if err := st.SweepAnalysisJobs(t.Context(), time.Now()); err != nil {
 		t.Fatalf("clear the job queue: %v", err)
 	}
-	if _, err := st.SweepQuizJobs(t.Context(), time.Now()); err != nil {
+	if _, err := st.SweepQuizJobs(t.Context(), time.Now(), time.Now()); err != nil {
 		t.Fatalf("clear the quiz queue: %v", err)
 	}
 }

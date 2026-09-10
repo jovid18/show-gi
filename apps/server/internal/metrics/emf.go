@@ -237,10 +237,14 @@ func searchPool(labels map[string]string) bool { return labels["pool"] == PoolSe
 
 func dropped(labels map[string]string) bool { return labels["result"] == AnalysisDropped }
 
-// lostQuiz 는 문항 없이 끝난 판이다. 다시 집히는 실패(failed)는 여기 들지 않는다.
+// lostQuiz 는 문항 없이 끝난 판이다. 다시 집히는 실패(failed)와, 이미 있어서 만들지 않은
+// 판(already)은 여기 들지 않는다.
 func lostQuiz(labels map[string]string) bool {
-	r := labels["result"]
-	return r == AnalysisSwept || r == AnalysisDropped
+	switch labels["result"] {
+	case AnalysisSwept, AnalysisDropped, AnalysisStarved:
+		return true
+	}
+	return false
 }
 
 func aborted(labels map[string]string) bool { return labels["status"] == "aborted" }
