@@ -252,7 +252,8 @@ ON CONFLICT (game_id) DO NOTHING;
 -- 실패하는 판의 TTL 이 같이 밀려 끝나지 않는다(SweepQuizJobs).
 --
 -- 되풀이는 나이가 아니라 attempts 가 묶는다. 상한을 넘긴 행은 여기 걸리지 않고, 청소가
--- 나이로 걷을 때까지 남아 밀린 양에 그대로 보인다.
+-- 지울 때까지 남는다. 밀린 양에도 세지 않는다 — 누구도 집지 않을 것을 세면 그 값이
+-- 「따라잡지 못하고 있다」를 말하지 못한다(CountQuizBacklog).
 WITH next AS MATERIALIZED (
     SELECT j.game_id FROM quiz_jobs j
     WHERE j.attempts < sqlc.arg(max_attempts)::int
@@ -288,10 +289,10 @@ WHERE attempts < sqlc.arg(max_attempts)::int
 
 -- name: IsQuizQueued :one
 --
--- 그 판의 문항이 아직 줄에 있는가. 화면이 이 값으로 「아직 온다」와 「오지 않는다」를
+-- 그 판의 문항이 아직 큐에 있는가. 화면이 이 값으로 「아직 온다」와 「오지 않는다」를
 -- 가른다(server/quiz.go) — 판을 재는 큐에서 IsGameAnalyzing 이 하는 일과 같다.
 --
--- 상한까지 실패한 행은 세지 않는다. 그 행은 청소가 걷을 때까지 남지만 누구도 집지 않으므로
+-- 상한까지 실패한 행은 세지 않는다. 그 행은 청소가 지울 때까지 남지만 누구도 집지 않으므로
 -- (ClaimQuizJob) 「온다」로 답하면 화면이 오지 않을 것을 기다린다.
 SELECT EXISTS (
     SELECT 1 FROM quiz_jobs

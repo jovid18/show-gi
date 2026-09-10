@@ -405,7 +405,7 @@ func (s *Store) QuizBacklog(ctx context.Context, leaseBefore time.Time, maxAttem
 	return int(n), nil
 }
 
-// IsQuizQueued 는 그 판의 문항이 아직 줄에 있는가다. 상한까지 실패한 행은 세지 않는다 —
+// IsQuizQueued 는 그 판의 문항이 아직 큐에 있는가다. 상한까지 실패한 행은 세지 않는다 —
 // 누구도 집지 않으므로 「온다」가 아니다.
 func (s *Store) IsQuizQueued(ctx context.Context, gameID int64, maxAttempts int) (bool, error) {
 	ok, err := s.q.IsQuizQueued(ctx, db.IsQuizQueuedParams{

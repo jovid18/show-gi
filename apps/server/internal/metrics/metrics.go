@@ -282,7 +282,7 @@ func New(service, environment string) *Registry {
 	r.AnalysisBacklogQuizzes = r.NewGauge("analysis_backlog_quizzes",
 		"문항 만들기를 기다리는 판 수")
 	// result 는 여섯이다 — done · already(이미 있어 만들지 않았다) · failed(못 만들어 줄에
-	// 남겼다) · dropped(판이 없어졌다) · swept(나이로 걷혔다) · starved(자리를 못 잡았다).
+	// 남겼다) · dropped(판이 없어졌다) · swept(청소가 지웠다) · starved(자리를 못 잡았다).
 	//
 	// 알람으로 쓰는 것은 뒤의 셋이다(emf.go 의 lostQuiz). 그 판들은 문항 없이 남는다 —
 	// failed 는 다시 집히므로 배포가 생성 도중에 낄 때마다 올라 알람이 될 수 없다.

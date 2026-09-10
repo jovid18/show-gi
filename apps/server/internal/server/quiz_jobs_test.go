@@ -138,7 +138,7 @@ func TestAQuizStopsBeingClaimedAfterTooManyTries(t *testing.T) {
 	if _, err := st.ClaimQuizJob(t.Context(), stale(), quizAttempts); !errors.Is(err, store.ErrNoQuizJob) {
 		t.Errorf("claim after %d failures: %v; want the game to be left alone", quizAttempts, err)
 	}
-	// 행은 남는다. 청소가 나이로 걷을 때까지다.
+	// 행은 남는다. 여섯 시간 뒤 청소가 지운다.
 	//
 	// 그래도 「온다」는 아니다. 누구도 집지 않으므로, 참으로 답하면 화면이 오지 않을 것을
 	// 기다린다(server/quiz.go 의 queued).
@@ -176,8 +176,8 @@ func TestANeverClaimedQuizGoesFirst(t *testing.T) {
 	}
 }
 
-// 아직 재는 중인 판도 「온다」다. 가져온 판은 手를 다 재고 나서야 문항이 줄에 서므로,
-// 줄만 보면 가져오기 직후에 연 화면이 그 자리에서 기다리기를 그만둔다.
+// 아직 재는 중인 판도 「온다」다. 가져온 판은 手를 다 재고 나서야 문항을 큐에 세우므로,
+// 큐만 보면 가져오기 직후에 연 화면이 그 자리에서 기다리기를 그만둔다.
 func TestAGameStillBeingAnalyzedCountsAsComing(t *testing.T) {
 	st := testStore(t)
 	clearQueues(t, st)
@@ -185,7 +185,7 @@ func TestAGameStillBeingAnalyzedCountsAsComing(t *testing.T) {
 	h := &quizHandler{review: &reviewHandler{store: st, analyzer: a}}
 	r := httptest.NewRequest(http.MethodGet, "/api/games/1/quiz", nil)
 
-	// 아직 재는 중이다. 문항은 줄에 서 있지 않다.
+	// 아직 재는 중이다. 문항은 아직 큐에 없다.
 	if quizQueued(t, st, gameID) {
 		t.Fatal("the quiz is queued before the game was measured")
 	}
@@ -233,7 +233,7 @@ func TestQueueingAQuizWithoutAnAnalyzerSaysSo(t *testing.T) {
 	}
 }
 
-// importedGameInTheQueue 는 手가 전부 줄에 선 가져온 판 하나와 그 판을 잴 분석기를 준다.
+// importedGameInTheQueue 는 手가 전부 큐에 들어간 가져온 판 하나와 그 판을 잴 분석기를 준다.
 //
 // 판정기는 낙폭 0을 준다. 여기서 재려는 것이 문항이 언제 만들어지는가라, 판정의 값은
 // 아무것이나 된다.
@@ -266,7 +266,7 @@ func importedGameInTheQueue(t *testing.T, st *store.Store) (*matchAnalyzer, int6
 	return a, gameID
 }
 
-// quizQueued 는 그 판이 아직 줄에 있는가다.
+// quizQueued 는 그 판의 문항이 아직 큐에 있는가다.
 //
 // 집어 보지 않는다. 집는 질의는 판을 가리지 않아서(query/analysis.sql) 띄워 둔 api
 // 컨테이너의 워커가 먼저 가져가면 답이 달라진다 — 이 질의는 판 하나만 본다.
