@@ -19,21 +19,21 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// stubAnalyst 는 엔진 없이 평가치와 낙폭을 돌려준다. 개입은 걸지 않는다 — 대인전에 개입이
-// 없다는 것을 이 테스트가 같이 지킨다. 실력 추정은 낙폭만 보므로 그것과 무관하다.
+// stubAnalyst 는 엔진 없이 평가치와 낙폭을 돌려준다. 개입은 걸지 않는다. 대인전에 개입이
+// 없다는 것을 이 테스트가 같이 지킨다.
 type stubAnalyst struct {
 	fail bool
 	// failFrom 이 0이 아니면 그 手数부터 실패한다. 반쪽으로 끝나는 판을 만든다.
 	failFrom int
-	// blindFrom 이 0이 아니면 그 手数부터 국면을 되만들지 못한 것으로 답한다. 엔진은 답했는데
-	// 판정이 부호를 정하지 못한 자리이고, 실엔진에서는 그 뒤가 전부 같이 실패한다.
+	// blindFrom 이 0이 아니면 그 手数부터 국면을 되만들지 못한 것으로 답한다. 엔진은
+	// 답했는데 판정이 부호를 정하지 못한 자리이고, 실엔진에서는 그 뒤가 전부 같이 실패한다.
 	blindFrom int
 	// lossOdd·lossEven 은 홀수·짝수 手의 승률 낙폭이다. 둘을 따로 두면 누구의 프로파일에
 	// 무엇이 쌓였는지를 값으로 셀 수 있다.
 	lossOdd, lossEven float64
-	// blunder 가 참이면 낙폭이 있는 手를 개입 판정으로 답한다. 가져온 판의 悪手 줄이
-	// 그 값에서 나오고(kifu_analysis.go), 대인전 쪽 테스트는 이 칸을 켜지 않는다 — 켜면
-	// skill.Move.Blunder 가 바뀌어 그쪽 테스트의 셈이 같이 움직인다.
+	// blunder 가 참이면 낙폭이 있는 手를 개입 판정으로 답한다. 가져온 판의 悪手 줄이 그
+	// 값에서 나온다(kifu_analysis.go). 대인전 쪽 테스트는 켜지 않는다. 켜면
+	// skill.Move.Blunder 가 바뀌어 그쪽 셈이 같이 움직인다.
 	blunder bool
 }
 
@@ -51,7 +51,7 @@ func (s stubAnalyst) Judge(_ context.Context, _ string, _ []string, ply int) (ga
 		v.Category = intervene.CategoryHangsPiece
 		v.Best, v.After = eval.Cp(ply*10), eval.Cp(ply*10-100)
 	}
-	// 手数를 그대로 값으로 쓴다 — 어느 칸에 무엇이 들어갔는지 눈으로 셀 수 있다.
+	// 手数를 그대로 값으로 쓴다. 어느 칸에 무엇이 들어갔는지 눈으로 셀 수 있다.
 	return game.Judgement{
 		HasEvals:    s.blindFrom == 0 || ply < s.blindFrom,
 		SenteBefore: eval.Cp(ply * 10), SenteAfter: eval.Cp(ply*10 + 1),
@@ -115,8 +115,8 @@ func TestAnalysisStopsWhenTheEngineFails(t *testing.T) {
 	}
 }
 
-// 한 판의 手가 둔 사람에게 간다. 판 번호 하나에만 쓰면 두 사람의 手가 한쪽에 쌓이고,
-// 그 값은 아무 테스트도 잡지 않는다 — 두 프로파일 다 멀쩡한 범위에 있다.
+// 한 판의 手가 둔 사람에게 간다. 판 번호 하나에만 쓰면 두 사람의 手가 한쪽에 쌓이고, 두
+// 프로파일 다 멀쩡한 범위에 있어서 아무 테스트도 잡지 않는다.
 func TestSkillFromAMatchGoesToWhoPlayedTheMove(t *testing.T) {
 	// 창(21~60手)을 다 덮는 길이다. 그 밖은 세지 않는다(skill.AnchorFromPly).
 	st, _, seats := matchSeatsForAnalysis(t, "", plyList(skill.AnchorToPly))
@@ -152,8 +152,7 @@ func TestSkillFromAMatchGoesToWhoPlayedTheMove(t *testing.T) {
 	}
 }
 
-// 창을 다 지난 뒤에 엔진이 죽으면 그 표본은 남긴다. 창 뒤는 애초에 세지 않는 구간이라
-// 온전한 표본이고, 버리면 긴 판일수록 기여가 사라진다.
+// 창을 다 지난 뒤에 엔진이 죽으면 그 표본은 남긴다. 버리면 긴 판일수록 기여가 사라진다.
 func TestAFailureAfterTheWindowKeepsTheSamples(t *testing.T) {
 	st, _, seats := matchSeatsForAnalysis(t, "", plyList(skill.AnchorToPly+40))
 
@@ -174,14 +173,14 @@ func TestAFailureAfterTheWindowKeepsTheSamples(t *testing.T) {
 	}
 }
 
-// 手番이 시작 SFEN 에서 나온다. 駒落ち는 上手(後手)가 1手目를 두므로, ply 홀짝으로
-// 가르면 두 사람의 값 전체가 바뀐 채 멀쩡해 보인다(journal §88).
+// 手番이 시작 SFEN 에서 나온다. 駒落ち는 上手(後手)가 1手目를 두므로, ply 홀짝으로 가르면
+// 두 사람의 값 전체가 바뀐 채 멀쩡해 보인다(journal §88).
 //
-// 대인전은 지금 平手 확정이라 이 국면은 실제로 나오지 않는다. 그래도 재는 것은, 홀짝으로
-// 되돌리는 회귀를 잡는 것이 여기 하나뿐이기 때문이다.
+// 대인전은 지금 平手 확정이라 이 국면이 실제로 나오지는 않는다. 홀짝으로 되돌리는 회귀를
+// 잡는 자리가 여기 하나뿐이다.
 //
-// 재는 것은 手番 하나다. 駒落ち에서 「이미 갈렸다」가 기준점을 빼지 않는 것은 다른 자리의
-// 문제이고 아직 고치지 않았다(journal §95의 남은 것).
+// 재는 것은 手番 하나다. 駒落ち에서 「이미 갈렸다」가 기준점을 빼지 않는 것은 아직 고치지
+// 않았다(journal §95의 남은 것).
 func TestTheFirstMoverComesFromTheStartingPosition(t *testing.T) {
 	kyoochi, ok := handicap.Find("kyoochi")
 	if !ok {
@@ -194,7 +193,7 @@ func TestTheFirstMoverComesFromTheStartingPosition(t *testing.T) {
 	})
 	a.analyze(t.Context(), "", seats)
 
-	// 1手目가 上手(後手)이므로 홀수 手의 낙폭이 後手에게 간다 — 平手의 반대다.
+	// 1手目가 上手(後手)이므로 홀수 手의 낙폭이 後手에게 간다. 平手의 반대다.
 	want := map[shogi.Color]float64{shogi.White: 0.02, shogi.Black: 0.20}
 	for _, seat := range seats {
 		e, ok, err := st.SkillProfile(t.Context(), seat.userID)
@@ -208,11 +207,11 @@ func TestTheFirstMoverComesFromTheStartingPosition(t *testing.T) {
 	}
 }
 
-// 시작 국면을 읽지 못하면 아무에게도 쌓지 않는다. 누가 뒀는지를 모르는 채로 쌓으면 그 값이
-// 반은 남의 것이다.
+// 시작 국면을 읽지 못하면 아무에게도 쌓지 않는다. 누가 뒀는지를 모르는 채로 쌓으면 그
+// 값이 반은 남의 것이다.
 //
-// 평가치까지 같이 빠지는지는 여기서 재지 않는다 — 실엔진은 판정 안에서 같은 문자열을
-// 되만들다 같이 실패하지만(HasEvals), 이 stub 은 그 자리를 흉내 내지 않는다.
+// 평가치까지 같이 빠지는지는 여기서 재지 않는다. 실엔진은 판정 안에서 같은 문자열을
+// 되만들다 같이 실패하지만(HasEvals) 이 stub 은 그 자리를 흉내 내지 않는다.
 func TestAnUnreadableStartPositionFeedsNobody(t *testing.T) {
 	st, _, seats := matchSeatsForAnalysis(t, "not a sfen", plyList(skill.AnchorToPly))
 
@@ -228,8 +227,8 @@ func TestAnUnreadableStartPositionFeedsNobody(t *testing.T) {
 	}
 }
 
-// 짧게 끝난 판은 창에 걸친 만큼만 들어간다. 버리는 것은 분석이 끊긴 판까지고 짧은 판은
-// 남긴다 — 앵커도 그렇게 쟀다(journal §94).
+// 짧게 끝난 판은 창에 걸친 만큼만 들어간다. 버리는 것은 분석이 끊긴 판까지이고, 앵커도
+// 그렇게 쟀다(journal §94).
 func TestAGameThatEndsInsideTheWindowStillFeeds(t *testing.T) {
 	const total = skill.AnchorFromPly + 9 // 21~30手가 창에 걸친다
 	st, _, seats := matchSeatsForAnalysis(t, "", plyList(total))
@@ -255,7 +254,7 @@ func TestAGameThatEndsInsideTheWindowStillFeeds(t *testing.T) {
 }
 
 // 기보에 구멍이 있으면 아무것도 하지 않는다. 색인을 手数로 쓰므로 한 칸이 비면 그 뒤가
-// 전부 밀리고, 수순이 불법이 되는 것보다 手番이 뒤집히는 쪽이 조용해서 더 나쁘다.
+// 전부 밀려 手番이 경고 없이 뒤집힌다.
 //
 // 기록기가 큐가 차면 이벤트를 버리고 계속하는 자리가 그것이다(dbRecorder.send).
 func TestAGapInTheRecordStopsTheAnalysis(t *testing.T) {
@@ -298,13 +297,13 @@ func TestAReplayFailureInsideTheWindowFeedsNobody(t *testing.T) {
 	}
 }
 
-// 한쪽 행에만 구멍이 나면 다른 행으로 잰다. 두 행을 기록기가 각자 쓰므로 한쪽만 비는
-// 것이 실제 모양이고, 그때 멀쩡한 행이 있는데 판 전체를 버리면 두 사람 다 잃는다.
+// 한쪽 행에만 구멍이 나면 다른 행으로 잰다. 두 행을 기록기가 각자 쓰므로 한쪽만 비는 것이
+// 실제 모양이다.
 func TestAGapInOneRowFallsBackToTheOther(t *testing.T) {
 	const missing = 10
 	gapped := append(plyList(missing-1), plyList(skill.AnchorToPly)[missing:]...)
 	st, _, seats := matchSeatsForAnalysis(t, "", gapped)
-	// 두 번째 자리의 행만 메운다 — 첫 행이 구멍 난 채로 남는다.
+	// 두 번째 자리의 행만 메운다. 첫 행이 구멍 난 채로 남는다.
 	if err := st.InsertMove(t.Context(), seats[1].gameID, missing, "7g7f"); err != nil {
 		t.Fatalf("insert move: %v", err)
 	}
@@ -326,8 +325,8 @@ func TestAGapInOneRowFallsBackToTheOther(t *testing.T) {
 	}
 }
 
-// 마지막 手에서 끊긴 것은 짧게 끝난 판과 같은 표본이다. 잃은 것이 그 한 手뿐인데
-// 버리면 「끊겼나」 대신 「어느 手에서 끊겼나」로 결과가 갈린다.
+// 마지막 手에서 끊긴 것은 짧게 끝난 판과 같은 표본이다. 버리면 「끊겼나」 대신 「어느
+// 手에서 끊겼나」로 결과가 갈린다.
 func TestAFailureOnTheLastPlyKeepsTheSamples(t *testing.T) {
 	const total = skill.AnchorToPly - 15 // 창 안에서 끝나는 판
 	st, _, seats := matchSeatsForAnalysis(t, "", plyList(total))
@@ -344,9 +343,8 @@ func TestAFailureOnTheLastPlyKeepsTheSamples(t *testing.T) {
 	}
 }
 
-// 한 手가 워커를 영영 붙잡지 못한다. 판정이 매 手 詰み solver 를 부르는데 그것이
-// 스스로 끝나지 않고 취소로만 풀리며(usi.Engine.SearchMate), 그 풀은 대국 중인 사람들과
-// 공유다.
+// 한 手가 워커를 영영 붙잡지 못한다. 판정이 매 手 詰み solver 를 부르는데 그것이 취소로만
+// 풀리고(usi.Engine.SearchMate) 그 풀은 대국 중인 사람들과 공유다.
 func TestAJudgementCannotHangTheAnalyzer(t *testing.T) {
 	// 시한만 줄여서 잰다. 기본값(60초)으로 재면 이 테스트가 그만큼 걸린다.
 	const deadline = 50 * time.Millisecond
@@ -365,7 +363,7 @@ func TestAJudgementCannotHangTheAnalyzer(t *testing.T) {
 	}
 }
 
-// hangingAnalyst 는 취소될 때까지 돌아오지 않는다 — go mate infinite 이 걸린 자리와 같다.
+// hangingAnalyst 는 취소될 때까지 돌아오지 않는다. go mate infinite 이 걸린 자리와 같다.
 type hangingAnalyst struct{}
 
 func (hangingAnalyst) Judge(ctx context.Context, _ string, _ []string, _ int) (game.Judgement, error) {
@@ -374,10 +372,10 @@ func (hangingAnalyst) Judge(ctx context.Context, _ string, _ []string, _ int) (g
 }
 
 // 읽지 못한 행이 있으면 실력을 쌓지 않는다. 「판 끝까지인가」는 두 행을 견줘 아는 값이라
-// 한쪽이 없으면 뜻이 없고, 그때 넣으면 긴 판이 짧게 끝난 판으로 들어간다.
+// 한쪽이 없으면 긴 판이 짧게 끝난 판으로 들어간다.
 func TestAnUnreadableRowBlocksTheSkillUpdate(t *testing.T) {
 	st, _, seats := matchSeatsForAnalysis(t, "", plyList(skill.AnchorToPly))
-	// 첫 자리를 없는 번호로 바꾼다 — 읽기가 실패하는 자리와 같은 모양이다.
+	// 첫 자리를 없는 번호로 바꾼다. 읽기가 실패하는 자리와 같은 모양이다.
 	seats[0].gameID = -1
 
 	a := analyzerFor(st, func() game.Analyst {
@@ -392,7 +390,7 @@ func TestAnUnreadableRowBlocksTheSkillUpdate(t *testing.T) {
 	}
 }
 
-// 구멍 때문에 버린 행이 더 길면 고른 행은 뒤가 잘린 것이다. 그때 실력은 쌓지 않는다 —
+// 구멍 때문에 버린 행이 더 길면 고른 행은 뒤가 잘린 것이다. 그때 실력은 쌓지 않는다.
 // 「구멍이 없다」만 보면 짧은 쪽이 이기고, 긴 판이 짧게 끝난 판으로 둔갑한다.
 func TestAGappedButLongerRowBlocksTheSkillUpdate(t *testing.T) {
 	const short = 30
@@ -417,7 +415,7 @@ func TestAGappedButLongerRowBlocksTheSkillUpdate(t *testing.T) {
 			t.Errorf("%s 에 잘린 행이 쌓였다: ok=%v err=%v", seat.color, ok, err)
 		}
 	}
-	// 평가치는 있는 만큼 채운다 — 그쪽은 手마다 독립이다.
+	// 평가치는 있는 만큼 채운다. 그쪽은 手마다 독립이다.
 	rec, err := st.GameRecordAnyOwner(t.Context(), seats[1].gameID)
 	if err != nil {
 		t.Fatalf("read game: %v", err)
@@ -427,7 +425,7 @@ func TestAGappedButLongerRowBlocksTheSkillUpdate(t *testing.T) {
 	}
 }
 
-// 뒤가 잘린 행은 「구멍이 없다」로 걸러지지 않는다 — 그 행도 빈틈없이 이어진다. 그대로
+// 뒤가 잘린 행은 「구멍이 없다」로 걸러지지 않는다. 그 행도 빈틈없이 이어지므로, 그대로
 // 쓰면 그 판이 짧게 끝난 판으로 둔갑해 앞부분만 실력에 들어간다.
 func TestATruncatedRowLosesToTheLongerOne(t *testing.T) {
 	const short = 30
@@ -457,8 +455,8 @@ func TestATruncatedRowLosesToTheLongerOne(t *testing.T) {
 	}
 }
 
-// 한 행 전체가 비면 평가치는 다른 행으로 채우고 실력은 쌓지 않는다. 빈 행은 판 길이에
-// 대해 아무 말도 하지 않으므로, 남은 행이 끝까지인지 잘렸는지를 가릴 수가 없다.
+// 한 행 전체가 비면 평가치는 다른 행으로 채우고 실력은 쌓지 않는다. 빈 행으로는 남은
+// 행이 끝까지인지 잘렸는지를 가릴 수 없다.
 func TestAnEmptyRowFillsEvalsButNotSkill(t *testing.T) {
 	st, _, seats := matchSeatsForAnalysis(t, "", nil)
 	for _, ply := range plyList(skill.AnchorToPly) {
@@ -477,7 +475,7 @@ func TestAnEmptyRowFillsEvalsButNotSkill(t *testing.T) {
 			t.Errorf("%s 에 견줄 것 없는 판이 쌓였다: ok=%v err=%v", seat.color, ok, err)
 		}
 	}
-	// 성한 행의 평가치는 채운다 — 그쪽은 手마다 독립이다.
+	// 성한 행의 평가치는 채운다. 그쪽은 手마다 독립이다.
 	rec, err := st.GameRecordAnyOwner(t.Context(), seats[1].gameID)
 	if err != nil {
 		t.Fatalf("read game: %v", err)
@@ -487,8 +485,8 @@ func TestAnEmptyRowFillsEvalsButNotSkill(t *testing.T) {
 	}
 }
 
-// 창(21手) 앞에서 끝난 판은 아무에게도 쌓이지 않는다. 46手에 끝난 판이 실제로 그랬다
-// (journal §94 — 그 판은 창에 남은 手가 0개였다).
+// 창(21手) 앞에서 끝난 판은 아무에게도 쌓이지 않는다. 46手에 끝난 판이 실제로 그랬고,
+// 그 판은 창에 남은 手가 0개였다(journal §94).
 func TestAShortMatchFeedsNobody(t *testing.T) {
 	st, _, seats := matchSeatsForAnalysis(t, "", plyList(skill.AnchorFromPly-1))
 
@@ -504,8 +502,8 @@ func TestAShortMatchFeedsNobody(t *testing.T) {
 	}
 }
 
-// 반쪽으로 끝난 판은 추정에 들어가지 않는다. 남는 것이 초반·중반뿐인데 그 구간이 체계적으로
-// 쉬워서 낙폭이 낮게 나온다 — 평가치는 앞쪽까지 채우고 추정만 버린다.
+// 반쪽으로 끝난 판은 추정에 들어가지 않는다. 남는 것이 초반·중반뿐인데 그 구간이
+// 체계적으로 쉬워서 낙폭이 낮게 나온다. 평가치는 앞쪽까지 채우고 추정만 버린다.
 func TestAHalfAnalyzedMatchFeedsNobody(t *testing.T) {
 	st, _, seats := matchSeatsForAnalysis(t, "", plyList(skill.AnchorToPly))
 
@@ -529,8 +527,8 @@ func TestAHalfAnalyzedMatchFeedsNobody(t *testing.T) {
 	}
 }
 
-// 手番은 1手目를 둔 색에서 나온다. 駒落ち는 上手(後手)가 먼저 두므로
-// 홀짝으로 가르면 그날 실력이 반대 사람에게 쌓인다(journal §88).
+// 手番은 1手目를 둔 색에서 나온다. 駒落ち는 上手(後手)가 먼저 두므로 홀짝으로 가르면
+// 그날 실력이 반대 사람에게 쌓인다(journal §88).
 func TestMoverFollowsTheSideThatMovedFirst(t *testing.T) {
 	for _, first := range []shogi.Color{shogi.Black, shogi.White} {
 		if got := moverAt(first, 1); got != first {
@@ -545,8 +543,7 @@ func TestMoverFollowsTheSideThatMovedFirst(t *testing.T) {
 	}
 }
 
-// 큐에 서는 순간부터 「분석 중」이다. 워커가 그 판에 닿기 전이라도 화면이 기다릴 것을
-// 알아야 한다.
+// 큐에 서는 순간부터 「분석 중」이다. 워커가 그 판에 닿기 전이라도 화면이 기다릴 것을 안다.
 func TestQueuedGamesReadAsAnalyzing(t *testing.T) {
 	st, matchID, seats := matchSeatsForAnalysis(t, "", plyList(2))
 	a := &matchAnalyzer{store: st}
@@ -556,8 +553,8 @@ func TestQueuedGamesReadAsAnalyzing(t *testing.T) {
 		t.Error("아무것도 안 세운 판이 분석 중이다")
 	}
 
-	// 자리 하나만 왔을 때부터 표시된다. 화면이 자기 번호만 알면 되짚기를 여는데,
-	// 그때 「남지 않았다」로 보이면 그래프가 거기 굳는다.
+	// 자리 하나만 왔을 때부터 표시된다. 화면이 자기 번호만 알면 되짚기를 열고, 그때
+	// 「남지 않았다」로 보이면 그래프가 거기 굳는다.
 	a.hold(t.Context(), matchID)
 	if !a.analyzing(t.Context(), one) || !a.analyzing(t.Context(), two) {
 		t.Error("세운 판이 분석 중이 아니다")
@@ -574,8 +571,8 @@ func TestQueuedGamesReadAsAnalyzing(t *testing.T) {
 	}
 }
 
-// 분석기가 없어도 부르는 쪽이 죽지 않는다. 엔진 없는 배포에서 대인전이 그대로 도는
-// 규약이라, 그 배포에서는 이 값이 nil 인 채로 같은 자리를 지난다.
+// 분석기가 없어도 부르는 쪽이 죽지 않는다. 엔진 없는 배포에서 이 값이 nil 인 채로 같은
+// 자리를 지난다.
 func TestANilAnalyzerIsSafeToUse(t *testing.T) {
 	var a *matchAnalyzer
 	a.hold(t.Context(), "nil-1")
@@ -603,8 +600,8 @@ func plyList(n int) []int {
 
 // matchSeatsForAnalysis 는 대인전 한 판(행 둘)을 만들고 그 手数들을 넣어 둔다.
 //
-// 수는 전부 같은 문자열이다. 분석기가 수를 두어 보지 않으므로(엔진이 판정한다) 합법일
-// 필요가 없고, 여기서 재는 것은 手数와 자리다.
+// 수는 전부 같은 문자열이다. 분석기가 수를 두어 보지 않으므로 합법일 필요가 없고, 여기서
+// 재는 것은 手数와 자리다.
 func matchSeatsForAnalysis(t *testing.T, startSFEN string, plies []int) (*store.Store, string, []analysisSeat) {
 	t.Helper()
 	url := os.Getenv("SHOWGI_TEST_DATABASE_URL")
@@ -641,8 +638,8 @@ func matchSeatsForAnalysis(t *testing.T, startSFEN string, plies []int) (*store.
 	return st, matchID, seats
 }
 
-// 밀린 양이 판과 手 둘로 세어진다. 판 수만으로는 밀린 일의 크기를 말할 수 없다 —
-// 회차 4의 세 판이 27·34·123手였다(journal §91).
+// 밀린 양이 판과 手 둘로 세어진다. 판 수만으로는 밀린 일의 크기를 말할 수 없다. 회차 4의
+// 세 판이 27·34·123手였다(journal §91).
 func TestBacklogCountsGamesAndPlies(t *testing.T) {
 	stA, matchA, _ := matchSeatsForAnalysis(t, "", plyList(1))
 	_, matchB, _ := matchSeatsForAnalysis(t, "", plyList(1))
@@ -664,7 +661,7 @@ func TestBacklogCountsGamesAndPlies(t *testing.T) {
 		t.Errorf("밀린 手 = %v, want 150", got)
 	}
 
-	// 집어 간 판은 밀린 것에서 빠진다 — 지금 도는 일이다.
+	// 집어 간 판은 밀린 것에서 빠진다. 지금 도는 일이다.
 	if _, err := stA.ClaimAnalysisJob(t.Context(), time.Now().Add(-jobLease)); err != nil {
 		t.Fatalf("claim: %v", err)
 	}
@@ -680,14 +677,14 @@ func TestBacklogCountsGamesAndPlies(t *testing.T) {
 // 자리가 반쪽인 판은 큐에서 걷히고 버린 것으로 세어진다.
 //
 // 걷지 않으면 되짚기가 영영 「分析しています」로 남는다. 자리를 표에 옮겨 적지 않으므로
-// 반쪽인지는 games 를 읽어야 알고, 그 판정이 워커 쪽으로 옮겨 왔다(seatsOf).
+// 반쪽인지는 games 를 읽어야 안다(seatsOf).
 func TestAHalfMatchLeavesTheQueue(t *testing.T) {
 	st := testStore(t)
 	clearQueues(t, st)
 	reg := metrics.New("api", "test")
 	a := &matchAnalyzer{store: st, analysis: reg.Analysis()}
 
-	// 그 방의 games 행이 없다 — 자리가 0개인 판이다.
+	// 그 방의 games 행이 없다. 자리가 0개인 판이다.
 	const matchID = "half-1"
 	t.Cleanup(func() { a.dropJob(context.Background(), matchID) })
 	a.hold(t.Context(), matchID)
@@ -709,9 +706,8 @@ func TestAHalfMatchLeavesTheQueue(t *testing.T) {
 
 // 프로세스가 사라져도 큐에 선 판은 없어지지 않는다.
 //
-// 메모리 채널이던 동안은 재배포 한 번이 46판을 평가치 없이 남겼다(journal §105).
-// 이제 판이 표에 있으므로 다음 워커가 그대로 집는다 — 리스가 낡기를 기다릴 것도 없이,
-// 그 판을 집었던 프로세스가 아예 없었던 것과 같다.
+// 메모리 채널이던 동안은 재배포 한 번이 46판을 평가치 없이 남겼다(journal §105). 이제
+// 판이 표에 있으므로 다음 워커가 그대로 집는다.
 func TestAQueuedGameSurvivesTheProcess(t *testing.T) {
 	st := testStore(t)
 	clearQueues(t, st)
@@ -756,8 +752,8 @@ func repeatMove(n int) []string {
 
 // measureAhead 는 그 판의 手가 want 개 재어질 때까지 워커가 하는 일을 손으로 한다.
 //
-// 횟수로 세지 않는다. 집는 질의가 판을 가리지 않으므로(query/analysis.sql) 남의 자리가 남긴 행을
-// 먼저 집을 수 있고, 그러면 「세 번 불렀으니 셋이 재어졌다」가 성립하지 않는다.
+// 횟수로 세지 않는다. 집는 질의가 판을 가리지 않으므로(query/analysis.sql) 남의 자리가
+// 남긴 행을 먼저 집을 수 있다.
 func measureAhead(t *testing.T, a *matchAnalyzer, matchID string, want int) {
 	t.Helper()
 	for range want * 4 {
@@ -775,9 +771,9 @@ func measureAhead(t *testing.T, a *matchAnalyzer, matchID string, want int) {
 
 // analyzerFor 는 판이 끝난 뒤의 분석만 보는 분석기다. 워커를 띄우지 않는다.
 //
-// 띄우면 그 워커가 다음 테스트의 手를 집어 간다 — 큐가 표가 된 뒤로 집는 질의가 판을
-// 가리지 않기 때문이다(query/analysis.sql). 워커가 실제로 도는 것을 재는 자리는
-// TestTheWorkerCountIsHonoured 하나다.
+// 띄우면 그 워커가 다음 테스트의 手를 집어 간다. 집는 질의가 판을 가리지 않기 때문이다
+// (query/analysis.sql). 워커가 실제로 도는 것을 재는 자리는 TestTheWorkerCountIsHonoured
+// 하나다.
 func analyzerFor(st *store.Store, newAnalyst func() game.Analyst) *matchAnalyzer {
 	return &matchAnalyzer{
 		store:      st,
@@ -804,8 +800,8 @@ func testStore(t *testing.T) *store.Store {
 
 // clearPlies 는 미리 재는 큐를 비운다.
 //
-// 집는 질의가 판을 가리지 않으므로(ClaimAnalysisPly) 다른 테스트가 남긴 행이 있으면
-// 이 테스트의 워커가 그것을 집는다. 비워도 잃는 사실이 없다 — 그 手는 판이 끝날 때 재어진다.
+// 집는 질의가 판을 가리지 않으므로(ClaimAnalysisPly) 다른 테스트가 남긴 행이 있으면 이
+// 테스트의 워커가 그것을 집는다. 비워도 그 手는 판이 끝날 때 재어진다.
 func clearPlies(t *testing.T, st *store.Store) {
 	t.Helper()
 	if err := st.SweepAnalysisPlies(t.Context(), time.Now()); err != nil {
@@ -828,8 +824,8 @@ func clearQueues(t *testing.T, st *store.Store) {
 
 // plyAnalyzer 는 미리 재는 큐만 쓰는 분석기와 그 판의 id 를 준다.
 //
-// 워커는 띄우지 않는다. 여기서 재는 것이 큐의 셈이고, 워커가 돌면 같은 手를 그쪽이 가져갈
-// 수 있어서 답이 실행마다 달라진다 — 워커가 하는 일은 손으로 한다(measureOnePly).
+// 워커는 띄우지 않는다. 여기서 재는 것이 큐의 셈이고, 워커가 돌면 같은 手를 그쪽이
+// 가져가 답이 실행마다 달라진다. 워커가 하는 일은 손으로 한다(measureOnePly).
 func plyAnalyzer(t *testing.T, st *store.Store) (*matchAnalyzer, string) {
 	t.Helper()
 	if st == nil {
@@ -857,8 +853,8 @@ func drainOne(t *testing.T, a *matchAnalyzer) {
 	}
 }
 
-// 두는 동안 잰 手는 판이 끝날 때 다시 재지 않는다. 그러지 않으면 미리 재는 것이 일을 두 번
-// 하는 것으로 끝나고, 판이 끝나는 순간의 봉우리도 그대로 남는다(journal §105).
+// 두는 동안 잰 手는 판이 끝날 때 다시 재지 않는다. 그러지 않으면 미리 재는 것이 일을 두
+// 번 하고, 판이 끝나는 순간의 봉우리도 그대로 남는다(journal §105).
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
 func TestAMoveMeasuredWhilePlayingIsNotMeasuredAgain(t *testing.T) {
@@ -927,7 +923,7 @@ func TestALookAheadFailureStopsMeasuringThatGame(t *testing.T) {
 }
 
 // 판이 큐를 떠난 뒤에 도착한 미리 재기는 자리를 다시 만들지 않는다. 만들면 그 항목을
-// 누구도 지우지 않아서 판마다 하나씩 샌다 — 워커가 둘 이상일 때 생기는 자리다(journal §106).
+// 누구도 지우지 않아서 판마다 하나씩 샌다(journal §106).
 func TestALateMeasurementDoesNotResurrectTheMatch(t *testing.T) {
 	a, matchID := plyAnalyzer(t, nil)
 	a.prefetch(matchID, startSFENOf(""), repeatMove(1), 1)
@@ -942,8 +938,8 @@ func TestALateMeasurementDoesNotResurrectTheMatch(t *testing.T) {
 	}
 }
 
-// 워커가 사라진 手는 리스가 낡으면 도로 집힌다. 배포와 스팟 회수가 그 자리이고,
-// 되찾지 않으면 그 手를 판이 끝날 때까지 누구도 재지 않는다.
+// 워커가 사라진 手는 리스가 낡으면 도로 집힌다. 배포와 스팟 회수가 그 자리이고, 되찾지
+// 않으면 그 手를 판이 끝날 때까지 누구도 재지 않는다.
 func TestAStaleClaimIsTakenBack(t *testing.T) {
 	a, matchID := plyAnalyzer(t, nil)
 	a.prefetch(matchID, startSFENOf(""), repeatMove(1), 1)
@@ -970,8 +966,7 @@ func TestAStaleClaimIsTakenBack(t *testing.T) {
 
 // 배수구가 차도 착수가 막히지 않는다. 넘친 手는 판이 끝날 때 그 자리에서 잰다.
 //
-// 여기에 DB 가 필요 없다. 배수구는 표에 적기 전의 자리라, 이 자리는 착수 경로가 DB 를
-// 기다리지 않는 것만 잰다.
+// 여기에 DB 가 필요 없다. 배수구는 표에 적기 전의 자리다.
 func TestAFullDrainDoesNotBlockTheMove(t *testing.T) {
 	a := &matchAnalyzer{
 		drain:    make(chan plyJob, 1),
@@ -988,8 +983,7 @@ func TestAFullDrainDoesNotBlockTheMove(t *testing.T) {
 // 판이 끝나면 그 판의 남은 手가 밀린 양에 한 번만 남는다.
 //
 // 끊지 않으면 그 手가 표에도 남고 queuedPlies 에도 더해져 두 번 세어진다. 프로덕션에서
-// 실제로 그렇게 부풀었고(journal §116), 이 값이 오토스케일의 신호라 두 번 세면
-// 스케일러가 과잉 대응한다.
+// 실제로 그렇게 부풀었고(journal §116), 이 값이 오토스케일의 신호다.
 func TestTheBacklogCountsAnUnmeasuredMoveOnce(t *testing.T) {
 	a, matchID := plyAnalyzer(t, nil)
 	reg := metrics.New("api", "test")
@@ -1016,13 +1010,11 @@ func TestTheBacklogCountsAnUnmeasuredMoveOnce(t *testing.T) {
 	}
 }
 
-// 미리 다 잰 판이 큐에 서면 그 판에 남은 일이 0이다.
+// 미리 다 잰 판이 큐에 서면 그 판에 남은 일이 0이다. 어긋나면 차액이 영구히 남아, 큐가
+// 빈 채로 「밀려 있다」가 나온다.
 //
-// 세는 값과 실제가 어긋나면 차액이 영구히 남는다. 지표만 보면 「밀려 있다」로 읽히는데
-// 큐는 비어 있어서, 그 상태로는 밀린 것인지 세지 못한 것인지 가릴 수 없다.
-//
-// 게이지 대신 표를 본다. 게이지는 프로세스가 보는 전역 합이라 남의 자리가 남긴 행이
-// 섞이고, 여기서 지키려는 것은 「이 판이 얼마를 남기나」다.
+// 게이지 대신 표를 본다. 게이지는 전역 합이라 남의 자리가 남긴 행이 섞이고, 여기서
+// 지키려는 것은 「이 판이 얼마를 남기나」다.
 func TestAFullyMeasuredGameQueuesNoWork(t *testing.T) {
 	a, matchID := plyAnalyzer(t, nil)
 	const plies = 30
@@ -1047,7 +1039,7 @@ func TestAFullyMeasuredGameQueuesNoWork(t *testing.T) {
 		t.Errorf("안 잰 手数 = %d, want 0", job.Plies)
 	}
 
-	// 그 판의 手도 남지 않는다 — 미리 잰 것은 done 이고, 재지 않은 것은 enqueue 가 끊는다.
+	// 그 판의 手도 남지 않는다. 미리 잰 것은 done 이고, 재지 않은 것은 enqueue 가 끊는다.
 	rows, err := a.store.MeasuredAnalysisPlies(t.Context(), matchID)
 	if err != nil {
 		t.Fatalf("read measured: %v", err)
@@ -1069,8 +1061,8 @@ func (b blockingAnalyst) Judge(context.Context, string, []string, int) (game.Jud
 	return game.Judgement{HasEvals: true}, nil
 }
 
-// 워커 수가 지켜진다. 하나면 vCPU 를 올려도 사후 분석 층이 빨라지지 않는다(journal §106) —
-// 포화에서도 엔진 둘 중 하나만 썼다.
+// 워커 수가 지켜진다. 하나면 vCPU 를 올려도 사후 분석 층이 빨라지지 않는다. 포화에서도
+// 엔진 둘 중 하나만 썼다(journal §106).
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
 func TestTheWorkerCountIsHonoured(t *testing.T) {
@@ -1092,13 +1084,13 @@ func TestTheWorkerCountIsHonoured(t *testing.T) {
 		a.dropJob(context.Background(), matchB)
 	})
 
-	// 판 단위 큐로 잰다. 판 하나가 워커 하나 전체를 잡으므로 「둘이 동시에 도는가」가
-	// 그 자리에서 바로 보인다 — 手 쪽은 무엇이 언제 집히는지가 더 잘게 갈린다.
+	// 판 단위 큐로 잰다. 판 하나가 워커 하나 전체를 잡으므로 「둘이 동시에 도는가」가 그
+	// 자리에서 바로 보인다.
 	a.enqueue(t.Context(), matchA, 2)
 	a.enqueue(t.Context(), matchB, 2)
 
-	// 둘이 같이 판정 안에 있어야 한다. 워커가 하나면 두 번째가 오지 않는다 — 첫 번째가
-	// release 를 기다리며 서 있기 때문이다.
+	// 둘이 같이 판정 안에 있어야 한다. 워커가 하나면 첫 번째가 release 를 기다리며 서
+	// 있어서 두 번째가 오지 않는다.
 	for i := range 2 {
 		select {
 		case <-entered:
@@ -1108,8 +1100,8 @@ func TestTheWorkerCountIsHonoured(t *testing.T) {
 	}
 }
 
-// 워커가 0이면 집지 않는다. 상호작용 티어가 그 모양이고(SERVER_ROLE=interactive), 그 티어가
-// 판을 집으면 티어를 가른 이유가 없어진다 — 분석이 사람의 박스에서 돈다.
+// 워커가 0이면 집지 않는다. 상호작용 티어가 그 모양이고(SERVER_ROLE=interactive), 그
+// 티어가 판을 집으면 분석이 사람의 박스에서 돈다.
 //
 // 세우는 쪽은 그대로 돈다. 그것까지 멈추면 분석 티어가 집을 것이 없다.
 //
@@ -1133,6 +1125,7 @@ func TestNoWorkersQueuesButNeverClaims(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// 판정기 수로 잰다. run 이 맨 위에서 한 벌 만들므로 0이면 집는 쪽이 아예 없다.
+	//
 	// 「큐에 남았는가」로 재면 앞 테스트의 워커가 취소를 알아채기 전에 집어 가서 답이
 	// 실행마다 달라진다.
 	if n := built.Load(); n != 0 {
@@ -1172,8 +1165,7 @@ func TestSeatsComeFromTheGameRows(t *testing.T) {
 	if len(seats) != 2 {
 		t.Fatalf("자리 %d개, want 2", len(seats))
 	}
-	// 순서가 색으로 정해진다. 기보를 첫 자리에서만 읽으므로(analyze) 여기가 흔들리면
-	// 「이 판을 잴 수 있나」가 실행마다 달라진다.
+	// 순서가 색으로 정해진다. 맵 순회에 맡기면 자리 순서가 실행마다 달라진다.
 	if seats[0].color != shogi.Black {
 		t.Errorf("첫 자리 = %s, want 先手", seats[0].color)
 	}
@@ -1184,7 +1176,8 @@ func TestSeatsComeFromTheGameRows(t *testing.T) {
 		}
 	}
 
-	// 그 방이 없으면 아무것도 주지 않는다. 반쪽 판을 분석하면 채운 평가치가 한 사람에게만 보인다.
+	// 그 방이 없으면 아무것도 주지 않는다. 반쪽 판을 분석하면 채운 평가치가 한 사람에게만
+	// 보인다.
 	if got := a.seatsOf(t.Context(), "no-such-room"); got != nil {
 		t.Errorf("없는 방의 자리 = %+v, want nil", got)
 	}

@@ -22,28 +22,19 @@ type Input struct {
 	Evals []*eval.Score
 	// BaselineCp 는 이 판의 「형세 0」이다(先手 관점, 平手는 0).
 	//
-	// 낙폭을 승률로 재기 때문에 필요하다. cp 뺄셈이던 시절에는 기준점이 두 항에서
-	// 저절로 지워졌지만(로그 함수를 거치지 않은 뺄셈이었다) 승률은 그 구간에서 포화한다 —
-	// 빼지 않으면 二枚落ち(+1386)에서 모든 낙폭이 0에 눌려 문항이 手数 순으로 뽑힌다.
-	// 개입 판정도 같은 값을 뺀다(intervene.Input.BaselineCp).
+	// 낙폭을 승률로 재기 때문에 필요하다. 승률은 포화하므로 뺄셈과 달리 기준점이 두
+	// 항에서 지워지지 않고, 빼지 않으면 二枚落ち(+1386)에서 모든 낙폭이 0에 눌려 문항이
+	// 手数 순으로 뽑힌다. 개입 판정도 같은 값을 뺀다(intervene.Input.BaselineCp).
 	BaselineCp int
 	// OpeningPlies 는 컴퓨터가 고른 진형의 수순 길이다. 그 안의 국면은 문항 후보에서 뺀다.
 	//
-	// 10수 만에 投了한 판에서 「최선수는?」 셋이 전부 오프닝이 되는 것을 막는다. 정석
-	// 수순에는 애초에 둘 만한 수가 여럿이라 gap 하한도 대개 걸러 내지만, 그쪽은 엔진을
-	// 쓴 뒤에 거르는 것이고 이쪽은 쓰기 전에 거른다.
+	// 10수 만에 投了한 판에서 「최선수는?」 셋이 전부 오프닝이 되는 것을 막는다. gap 하한도
+	// 대개 걸러 내지만 그쪽은 엔진을 쓴 뒤에 거른다.
 	OpeningPlies int
 	// Won 은 사람이 이긴 판인가. MateItem.Converted 가 이걸 본다.
 	Won bool
 }
 
-// PlayerEval 은 i+1 手目를 둔 뒤의 사람 관점 점수다. 없으면 ok=false.
-//
-// DB의 先手 관점을 여기서 뒤집는다 — 뒤집지 않으면 後手로 둔 판의 낙폭 부호 전체가
-// 반대가 되고, 그러면 문항이 잘 둔 자리에서 뽑힌다.
-//
-// 공개해 둔 것은 옮겨 담는 쪽이(server/quiz_jobs.go quizInput) 부호 규약을 시험으로 고정할 수
-// 있어야 하기 때문이다.
 // PlayerBaselineCp 는 「형세 0」을 사람 관점으로 옮긴 것이다. PlayerEval 과 같은 자다.
 func (in Input) PlayerBaselineCp() int {
 	if in.Human == shogi.White {
@@ -52,6 +43,13 @@ func (in Input) PlayerBaselineCp() int {
 	return in.BaselineCp
 }
 
+// PlayerEval 은 i+1 手目를 둔 뒤의 사람 관점 점수다. 없으면 ok=false.
+//
+// DB의 先手 관점을 여기서 뒤집는다. 뒤집지 않으면 後手로 둔 판의 낙폭 부호 전체가
+// 반대가 되고, 그러면 문항이 잘 둔 자리에서 뽑힌다.
+//
+// 공개해 둔 것은 옮겨 담는 쪽이(server/quiz_jobs.go quizInput) 부호 규약을 시험으로
+// 고정할 수 있어야 하기 때문이다.
 func (in Input) PlayerEval(i int) (eval.Score, bool) {
 	if i < 0 || i >= len(in.Evals) || in.Evals[i] == nil {
 		return eval.Score{}, false
@@ -63,10 +61,8 @@ func (in Input) PlayerEval(i int) (eval.Score, bool) {
 	return s, true
 }
 
-// Builder 는 문항을 만든다. 엔진 둘을 쓴다 — 詰み solver 와 탐색부는 다른 바이너리다
-// (02-architecture.md §3).
-//
-// 어느 쪽이 nil이면 그쪽 문항만 나오지 않는다. 대국이 엔진 없이도 도는 것과 같은 규약이다.
+// Builder 는 문항을 만든다. 詰み solver 와 탐색부는 다른 바이너리라 엔진이 둘이다
+// (02-architecture.md §3). 어느 쪽이 nil이면 그쪽 문항만 나오지 않는다.
 type Builder struct {
 	mate   MateSearcher
 	search MultiSearcher
@@ -79,22 +75,17 @@ func NewBuilder(mate MateSearcher, search MultiSearcher, depth int) *Builder {
 	return &Builder{mate: mate, search: search, depth: depth}
 }
 
-// Build 는 한 판에서 문항을 뽑는다.
+// Build 는 한 판에서 문항을 뽑는다. measured 는 엔진이 한 번이라도 답했는가다.
 //
-// 에러를 돌려주지 않는다. 문항이 없는 것은 고장 없이도 흔히 나오는 결과이고(10수 만에 投了한
-// 판이 실제로 그렇다), 하나를 만들지 못한 것이 나머지를 버릴 이유도 아니다.
+// 에러를 돌려주지 않는다. 문항이 없는 것은 고장 없이도 흔히 나오는 결과이고, 하나를
+// 만들지 못한 것이 나머지를 버릴 이유도 아니다.
 //
-// 대신 엔진이 한 번이라도 답했는가를 함께 준다. 거짓이면 빈 결과가 「이 판에 문항이
-// 없다」 대신 「아무것도 보지 못했다」이고, 그 둘은 화면에서 전혀 다른 말이 되어야 한다 —
-// 부르는 쪽은 거짓이면서 비었을 때만 아무것도 적지 않는다(server/quiz_jobs.go generateQuiz).
+// measured 가 거짓이면 빈 결과는 「이 판에 문항이 없다」 대신 「아무것도 보지 못했다」이고,
+// 그 둘은 화면에서 전혀 다른 말이 되어야 한다. 한 자리를 보지 못한 것은 여기 들지
+// 않는다(§53). 부르는 쪽은 거짓이면서 비었을 때만 아무것도 적지 않는다
+// (server/quiz_jobs.go generateQuiz).
 //
-// 한 자리를 보지 못한 것과 전부 보지 못한 것을 가른다. 중반의 무관한 국면 하나에서 solver 가
-// 결론을 내지 못한 것은 흔한 일이고(df-pn이 timeout 하는 자리다) 그때 나머지는 다 봤으므로
-// 「문항이 없다」는 결론이 성립한다. 아무것도 보지 못한 쪽은 배포가 생성 도중에 껴서 엔진 풀이
-// 먼저 닫힌 경우다 — 그때만 결론을 낼 수 없다.
-//
-// 엔진이 아예 없는 것은 「보지 못한」 것과 다르다. 그 배포에는 문항이라는 것이 없고, 그건
-// 사실이라 그대로 적어도 된다.
+// 엔진이 아예 없는 배포에는 문항이라는 것이 없고, 그건 사실이라 참을 준다.
 func (b *Builder) Build(ctx context.Context, in Input) (q Quiz, measured bool) {
 	posAt := replay(in)
 	if len(posAt) == 0 {
@@ -115,8 +106,8 @@ func (b *Builder) Build(ctx context.Context, in Input) (q Quiz, measured bool) {
 
 // replay 는 手数마다의 국면을 만든다. posAt[i] 는 i手目까지 둔 뒤의 국면이다.
 //
-// 구멍에서 멈춘다. 읽을 수 없는 수가 있으면 그 뒤를 만들지 않는다 — 없던 국면을 그럴듯하게
-// 만들면 한 번도 벌어지지 않은 국면을 문항으로 내게 된다(review.go detailOf 와 같은 판단).
+// 읽을 수 없는 수에서 멈춘다. 없던 국면을 그럴듯하게 만들면 한 번도 벌어지지 않은
+// 국면을 문항으로 내게 된다(review.go detailOf 와 같은 판단).
 func replay(in Input) []shogi.Position {
 	start := in.StartSFEN
 	if start == "" {

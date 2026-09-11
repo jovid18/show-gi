@@ -15,7 +15,7 @@ func TestStartMovesRebuildsThePosition(t *testing.T) {
 	// ▲7六歩 △3四歩 ▲2六歩 까지 두다 끊긴 판. 다음은 後手 차례다.
 	played := []string{"7g7f", "3c3d", "2g2f"}
 	// 여기서 보는 것은 되만든 판까지다. 답하는 상대를 주면 그 수가 스냅샷보다 먼저
-	// 도착할 수 있고, 이 테스트는 그것으로 오래 흔들렸다(§73). 이어서 상대가 두는 쪽은
+	// 도착할 수 있다(journal §73). 이어서 상대가 두는 쪽은
 	// TestResumedGameLetsTheOpponentMoveFirst 가 본다.
 	sess := newSession(t, Config{
 		Opponent:   silentOpponent{},
@@ -76,9 +76,8 @@ func TestResumedGameKeepsCountingPlies(t *testing.T) {
 	}
 }
 
-// 한 수라도 맞지 않으면 세션이 아예 열리지 않는다. 기록은 큐가 넘치면 이벤트를 버리므로
-// (server/recorder.go) 이런 기보가 실제로 나올 수 있고, 눈감고 이어 두면 그 뒤 전체가
-// 밀린 없던 판이 「그때 두던 판」의 얼굴로 열린다.
+// 한 수라도 맞지 않으면 세션이 아예 열리지 않는다. 기록은 큐가 넘치면 이벤트를
+// 버리므로(server/recorder.go) 이런 기보가 실제로 나올 수 있다.
 func TestStartMovesRejectsABrokenRecord(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

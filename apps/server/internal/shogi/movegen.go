@@ -14,8 +14,8 @@ var (
 	lanceDirs   = []delta{{0, -1}}
 )
 
-// stepsOf(한 칸)와 slidesOf(끝까지)는 attackTargets 에서 합집합으로 쓰인다 — 馬·龍이 양쪽에
-// 다 나오는 것은 그 때문이고, 한쪽을 지우면 이동이 반쪽이 된다.
+// stepsOf(한 칸)와 slidesOf(끝까지)는 attackTargets 에서 합집합으로 쓰인다. 馬·龍이 양쪽에
+// 다 나오고, 한쪽을 지우면 그 말들의 이동이 반쪽이 된다.
 func stepsOf(t PieceType) []delta {
 	switch t {
 	case Pawn:
@@ -63,7 +63,7 @@ func (pos *Position) attackTargets(sq int, fn func(to int) bool) {
 	row, col := int8(sq/9), int8(sq%9)
 
 	// 후수 변환은 dr 부호 반전뿐이다. 모든 델타 집합이 dc 에 대칭이라 좌우 반전은 필요 없고,
-	// dr 반전은 歩·香·桂·銀·金(계)에서 반드시 필요하다 — 걷어내면 그 말들의 후수 이동이 뒤집힌다.
+	// dr 반전은 歩·香·桂·銀·金(계)에서 걷어내면 그 말들의 후수 이동이 뒤집힌다.
 	sign := int8(1)
 	if c == White {
 		sign = -1
@@ -118,8 +118,8 @@ func (pos *Position) IsAttacked(sq int, by Color) bool {
 
 // AttackCount: sq를 노리는 by 색 말의 개수. 세는 규칙은 attackTargets 와 같다.
 //
-// 玉 주변의 攻め와 守り를 견줄 때 bool로는 「지키던 말이 하나 줄었다」가 보이지 않는다 —
-// 0이 되기 전까지 아무 일도 없는 것이 되어버린다.
+// 玉 주변의 攻め와 守り를 견줄 때 bool로는 「지키던 말이 하나 줄었다」가 0이 되기 전까지
+// 보이지 않는다.
 func (pos *Position) AttackCount(sq int, by Color) int {
 	n := 0
 	for s := 0; s < 81; s++ {
@@ -140,8 +140,8 @@ func (pos *Position) AttackCount(sq int, by Color) int {
 
 // Attackers 는 sq 를 노리는 by 색 말이 어느 칸에 있는지다. 세는 규칙은 attackTargets 와 같다.
 //
-// 「王手다」까지는 InCheck 가 말하지만, 어느 말이 걸고 있는지를 모르면 초심자는 판에서
-// 그것을 찾아야 하고, 両王手인지 아닌지도 알 수 없다.
+// 「王手다」까지는 InCheck 가 말한다. 어느 말이 걸고 있는지를 모르면 초심자가 판에서
+// 그것을 찾아야 하고, 両王手인지도 알 수 없다.
 func (pos *Position) Attackers(sq int, by Color) []int {
 	var out []int
 	for s := 0; s < 81; s++ {
@@ -163,7 +163,7 @@ func (pos *Position) Attackers(sq int, by Color) []int {
 // SquareUSI 는 칸 번호를 USI 좌표(7g)로 적는다. 화면이 칸을 짚을 때 쓰는 표기다.
 func SquareUSI(sq int) string { return sqUSI(int8(sq)) }
 
-// Neighbors8 은 sq 를 둘러싼 8칸이다. 판 밖은 빠지므로 모서리에서는 3칸이다 —
+// Neighbors8 은 sq 를 둘러싼 8칸이다. 판 밖은 빠지므로 모서리에서는 3칸이다.
 // 「玉 주변」의 넓이를 여기서 한 번만 정한다.
 func Neighbors8(sq int) []int {
 	row, col := sq/9, sq%9
@@ -202,10 +202,10 @@ func (pos *Position) InCheck(c Color) bool {
 	return pos.IsAttacked(k, c.Other())
 }
 
-// Apply 는 수를 적용한 새 국면을 돌려준다 (합법성 검증 없음 — 호출 측 책임).
+// Apply 는 수를 적용한 새 국면을 돌려준다. 합법성은 호출 측 책임이다.
 //
-// 미검증 투입을 넣으면 持ち駒가 음수가 되는데, SFEN 출력은 「0이 아니면 적는다 · 2 이상만 개수」라
-// 음수를 1장으로 적어버린다. 이후 어디서도 에러가 나지 않으므로 반드시 검증한 수만 넣는다.
+// 미검증 투입을 넣으면 持ち駒가 음수가 되는데, SFEN 출력은 「0이 아니면 적는다 · 2 이상만
+// 개수」라 음수를 1장으로 적는다. 이후 어디서도 에러가 나지 않는다.
 func (pos Position) Apply(m Move) Position {
 	np := pos
 	me := pos.Turn
@@ -279,8 +279,8 @@ func (pos *Position) pseudoBoardMoves(from int, emit func(Move)) {
 			return true // 자기 말 위로는 갈 수 없다
 		}
 		m := Move{From: int8(from), To: int8(to)}
-		// 승격 변형을 먼저 내보낸다 — 순서 자체가 조건이다. 강제 승격이면 그 자리에서 끊어
-		// 미승격 변형을 만들지 않는다. (승격은 출발칸·도착칸 어느 한쪽만 존 안이면 성립한다.)
+		// 승격 변형을 먼저 내보낸다. 순서 자체가 조건이라, 강제 승격이면 그 자리에서 끊어
+		// 미승격 변형을 만들지 않는다(승격은 출발칸·도착칸 어느 한쪽만 존 안이면 성립한다).
 		if t.CanPromote() && (inPromoZone(from, me) || inPromoZone(to, me)) {
 			emit(Move{From: int8(from), To: int8(to), Promote: true})
 			if mustPromoteAt(t, to, me) {
@@ -345,7 +345,7 @@ func (pos *Position) legalMoves(checkUchifuzume bool) []Move {
 // LegalMoves 는 현재 수번의 모든 합법수를 돌려준다.
 func (pos Position) LegalMoves() []Move { return pos.legalMoves(true) }
 
-// NoLegalMoves: 합법수가 하나도 없는가 (쇼기에서는 곧 패배 — 대부분 詰み).
+// NoLegalMoves: 합법수가 하나도 없는가 (쇼기에서는 곧 패배. 대부분 詰み).
 func (pos Position) NoLegalMoves() bool { return len(pos.legalMoves(true)) == 0 }
 
 // IsCheckmate: 수번 측이 王手를 받고 있고 벗어날 수 없는가.

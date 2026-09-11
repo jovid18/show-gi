@@ -46,7 +46,7 @@ func TestRealEngineRefutationDiag(t *testing.T) {
 	}
 	t.Logf("PV(%d수): %s", len(after.PV), strings.Join(after.PV, " "))
 
-	// 각 수의 사실을 그대로 찍는다 — settles·captureSq·gaveCheck 가 trim 의 입력이다.
+	// 각 수의 사실을 그대로 찍는다. settles·captureSq·gaveCheck 가 trim 의 입력이다.
 	pos, err := positionAfter(shogi.StartSFEN, moves)
 	if err != nil {
 		t.Fatalf("국면: %v", err)
@@ -79,7 +79,7 @@ func TestRealEngineRefutationDiag(t *testing.T) {
 	}
 
 	// △8九香成 뒤에 되잡는 수가 실제로 나쁜가. 사람은 「金 하나가 지킨다」고 셌고
-	// 엔진은 되잡지 않았다 — 그 차이를 숫자로 본다.
+	// 엔진은 되잡지 않았다. 그 차이를 숫자로 본다.
 	afterLance := append(append([]string{}, moves...), after.PV[0])
 	lp, err := positionAfter(shogi.StartSFEN, afterLance)
 	if err != nil {

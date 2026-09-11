@@ -37,10 +37,8 @@ func TestCastleCompletedByADropIsNotNamed(t *testing.T) {
 	}
 }
 
-// 打った 칸에 나중에 駒가 옮겨 오면 그 칸은 다시 「지은 것」이 된다.
-//
-// 이 확인이 없으면 표식이 그 판 내내 남아, 한 번 打았던 칸을 지나는 囲い가 영원히
-// 이름을 받을 수 없다.
+// 打った 칸에 나중에 駒가 옮겨 오면 그 칸은 다시 「지은 것」이 된다. 이 확인이 없으면
+// 한 번 打았던 칸을 지나는 囲い가 그 판 내내 이름을 받을 수 없다.
 func TestDropMarkIsClearedWhenAPieceMovesOnto(t *testing.T) {
 	pos, err := shogi.ParseSFEN(hidariMinoByDropSFEN)
 	if err != nil {

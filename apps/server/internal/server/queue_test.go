@@ -25,8 +25,8 @@ import (
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
 //
-// 격리는 레이팅으로 한다(queueBase). 표를 비우지 않는 이유는 CI 가 패키지들을 같은 DB 에
-// 동시에 걸기 때문이다 — 비우면 그때 대기열에 서 있던 남의 테스트가 깨진다.
+// 격리는 레이팅으로 한다(queueBase). CI 가 패키지들을 같은 DB 에 동시에 걸어서, 표를 비우면
+// 그때 대기열에 서 있던 남의 테스트가 깨진다.
 //
 // 그래서 「대기열에 몇 명인가」를 정확한 수로 단정하지 않는다. 그 값은 표 전체를 세는 제품
 // 질의라(store.QueueWaiting) 남의 테스트가 섞인다. 내 행이 몇 개인가는 rows 가 따로 센다.
@@ -48,9 +48,8 @@ type queueUser struct {
 
 // queueBase 는 이 테스트의 사람들이 서는 레이팅 자리다.
 //
-// 테스트마다 만 점씩 떨어뜨린다. 밴드는 아무리 넓어도 BaseMax 에 RD 둘을 더한 값이라
-// 900을 넘지 못하므로(queue.Band), 그 간격이면 남의 테스트 대기자와 절대 붙지 않는다 —
-// 제품의 장치로 격리하는 것이고, 표를 비우는 것보다 안전하다.
+// 테스트마다 만 점씩 떨어뜨린다. 밴드는 아무리 넓어도 BaseMax 에 RD 둘을 더한 값이라 900을
+// 넘지 못하므로(queue.Band), 그 간격이면 남의 테스트 대기자와 붙지 않는다.
 func queueBase(t *testing.T) float64 {
 	t.Helper()
 	h := fnv.New64a()
@@ -85,7 +84,7 @@ func queueServer(t *testing.T, people int) queueFixture {
 	codec := auth.NewCodec(opts.SessionSecret)
 
 	// 실행마다 다른 사람이어야 한다. 남은 대기열 행을 물려받으면 두 번째 실행에서 짝이
-	// 엉뚱하게 잡힌다 — 대기열은 「지금 서 있는 사람」이 전부인 표라 그 사고가 조용하다.
+	// 엉뚱하게 잡히고, 대기열은 「지금 서 있는 사람」이 전부인 표라 그 사고가 조용하다.
 	stamp := t.Name() + "-" + time.Now().Format("150405.000000000")
 	users := make([]queueUser, 0, people)
 	for i := range people {
@@ -117,8 +116,8 @@ func queueServer(t *testing.T, people int) queueFixture {
 // 좁고, 그래서 이 테스트의 사람들끼리만 붙는다.
 //
 // 제품의 쓰기 문(SaveMatchRatings)을 쓰지 않는다. 저쪽은 한 문장이 두 사람을 같이 옮기므로
-// 서로 다른 두 사람이 있어야 하는데, 여기는 혼자 서는 테스트에도 자리를 줘야 한다 —
-// 주지 않으면 그 사람이 기본 1500에 남아 다른 「혼자 서는 테스트」와 붙는다.
+// 서로 다른 두 사람이 있어야 하는데, 여기는 혼자 서는 테스트에도 자리를 줘야 한다. 주지
+// 않으면 그 사람이 기본 1500에 남아 다른 「혼자 서는 테스트」와 붙는다.
 func (f queueFixture) rate(t *testing.T, of func(i int) float64) {
 	t.Helper()
 	for i, u := range f.users {
@@ -135,8 +134,8 @@ func (f queueFixture) rate(t *testing.T, of func(i int) float64) {
 	}
 }
 
-// rows 는 그 사람이 대기열에 남겨 둔 행 수다. 0이나 1이어야 한다 — 표의 PK 가 그것을
-// 보장하지만, 「대기열에 두 번 섰나」를 재는 자리에서 남의 테스트를 세지 않으려면 이쪽이 필요하다.
+// rows 는 그 사람이 대기열에 남겨 둔 행 수다. 0이나 1이어야 한다. 표의 PK 가 그것을
+// 보장하지만, 「대기열에 두 번 섰나」를 재는 자리에서 남의 테스트를 세지 않으려면 필요하다.
 func (f queueFixture) rows(t *testing.T, u queueUser) int {
 	t.Helper()
 	var n int
@@ -165,8 +164,8 @@ func (f queueFixture) poll(t *testing.T, u queueUser) queuePayload {
 // pollUntilMatched 는 짝이 잡힐 때까지 다시 물어본다.
 //
 // 한 번에 잡혀야 한다고 재면 안 된다. 잠금이 SKIP LOCKED 라, 같은 DB 에서 도는 남의
-// 짝짓기가 내 행을 잠근 순간에는 정당하게 「기다리는 중」이 나온다 — 화면도 2초 뒤에
-// 다시 묻는다(useQueue).
+// 짝짓기가 내 행을 잠근 순간에는 정당하게 「기다리는 중」이 나온다(화면도 2초 뒤에 다시
+// 묻는다, useQueue).
 //
 // 반대 방향(「잡히지 않아야 한다」)에는 재시도가 없다. 잠금은 짝을 없앨 뿐 만들지 못하므로
 // 그쪽은 한 번으로 충분하다.
@@ -219,7 +218,7 @@ func TestOneWaiterIsNotPaired(t *testing.T) {
 	}
 }
 
-// 다시 물어보는 것이 멱등이다. 대기열이 늘지 않고 선 시각도 밀리지 않는다 — 밀리면 밴드가
+// 다시 물어보는 것이 멱등이다. 대기열이 늘지 않고 선 시각도 밀리지 않는다. 밀리면 밴드가
 // 매 재시도마다 처음으로 돌아가서 영영 넓어지지 않는다.
 func TestPollingDoesNotResetTheWait(t *testing.T) {
 	f := queueServer(t, 1)
@@ -252,7 +251,7 @@ func TestTwoWaitersMeetInOneRoom(t *testing.T) {
 		t.Fatalf("나중에 선 사람: %+v, 방이 비었다", paired)
 	}
 
-	// 먼저 선 쪽은 쪽지를 읽기만 한다 — 이쪽은 잠금과 무관하므로 한 번에 와야 한다.
+	// 먼저 선 쪽은 쪽지를 읽기만 한다. 잠금과 무관하므로 한 번에 와야 한다.
 	told := f.poll(t, first)
 	if told.Status != queueStatusMatched {
 		t.Fatalf("먼저 선 사람: status = %q, want %q", told.Status, queueStatusMatched)
@@ -352,8 +351,8 @@ func TestLeavingTheQueueRemovesTheWaiter(t *testing.T) {
 	}
 }
 
-// 짝짓기가 두 사람만 짓는다. 셋이 서면 하나는 남는다 — 남는 사람이 없으면 어딘가에서
-// 한 사람이 두 방에 앉아 있는 것이다.
+// 짝짓기가 두 사람만 짓는다. 셋이 서면 하나는 남는다. 남는 사람이 없으면 어딘가에서 한
+// 사람이 두 방에 앉아 있는 것이다.
 func TestThreeWaitersLeaveOneBehind(t *testing.T) {
 	f := queueServer(t, 3)
 	first, second, third := f.users[0], f.users[1], f.users[2]

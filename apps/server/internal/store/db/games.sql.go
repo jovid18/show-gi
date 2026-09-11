@@ -26,9 +26,9 @@ type AddGameStyleTagParams struct {
 // ─── 전법·囲い ───────────────────────────────────────────────
 // 사람이 그 판에서 실제로 짠 이름. 근거는 009_game_style_tags.sql.
 //
-// 같은 이름을 두 번 담지 않는다. 囲い는 판에서 매번 다시 세어지므로(game.styleTags) 한 판에
-// 같은 코드가 수십 번 온다 — 세션이 본 것을 기억해 거르지만, 이어하는 판은 그 기억을 잃는다
-// (세션이 연결에 매여 있다, §51). 그래서 거르는 자리를 여기에도 둔다.
+// 같은 이름을 두 번 담지 않는다. 囲い는 판에서 매번 다시 세어지므로(game.styleTags) 한
+// 판에 같은 코드가 수십 번 온다. 세션이 본 것을 기억해 거르지만 이어하는 판은 그 기억을
+// 잃는다(§51). 그래서 거르는 자리를 여기에도 둔다.
 func (q *Queries) AddGameStyleTag(ctx context.Context, arg AddGameStyleTagParams) error {
 	_, err := q.db.Exec(ctx, addGameStyleTag, arg.Code, arg.GameID)
 	return err
@@ -140,8 +140,8 @@ type CountGameResultsForOwnerRow struct {
 	Games  int64
 }
 
-// 마이페이지의 전적. 결과가 나온 판만 세는 것은 ListGamesForOwner 와 같은 규칙이다 —
-// 목록에 보이지 않는 판이 전적에는 들어가면 두 화면이 같은 사람에 대해 다른 수를 말한다.
+// 마이페이지의 전적. 결과가 나온 판만 세는 것은 ListGamesForOwner 와 같은 규칙이다.
+// 목록에 보이지 않는 판이 전적에 들어가면 두 화면이 같은 사람에 대해 다른 수를 말한다.
 //
 // 한 수도 두지 않은 판을 빼는 것도 같다(그쪽의 EXISTS).
 func (q *Queries) CountGameResultsForOwner(ctx context.Context, ownerID *int64) ([]CountGameResultsForOwnerRow, error) {
@@ -171,8 +171,7 @@ CROSS JOIN LATERAL unnest(g.style_tags) AS t(code)
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
   AND g.result IN ('win', 'loss', 'draw')
   AND g.user_id IS NOT DISTINCT FROM $1::bigint
-  -- 대인전 판은 세지 않는다(match_id IS NULL). 개입이 없는 판이라 분모에만 들어가고,
-  -- 그러면 「崩れやすいところ」의 비율이 그만큼 희석된다(journal §83).
+  -- 대인전 판은 세지 않는다. CountGameResultsForOwner 와 같은 이유다(journal §83).
   AND g.match_id IS NULL
 GROUP BY t.code
 `
@@ -182,8 +181,8 @@ type CountGameStyleTagsForOwnerRow struct {
 	Games int64
 }
 
-// 마이페이지의 「짠 진형」. 판 수를 센다 — 한 판에서 같은 이름이 여러 번 나오는 일은
-// 위 질의가 이미 막았으므로, 이 숫자는 언제나 「그 이름으로 둔 판이 몇 판인가」다.
+// 마이페이지의 「짠 진형」. 판 수를 센다. 한 판에서 같은 이름이 여러 번 나오는 일은
+// 위 질의가 이미 막았다.
 //
 // 거르는 조건이 전적·약점과 같아야 한다: 셋이 한 화면에 나오는데 모집단이 갈리면
 // 「12판 뒀는데 진형은 30판에서 나온 것」이 된다.
@@ -260,8 +259,7 @@ JOIN games g ON g.id = i.game_id
 WHERE EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
   AND g.result IN ('win', 'loss', 'draw')
   AND g.user_id IS NOT DISTINCT FROM $1::bigint
-  -- 대인전 판은 세지 않는다(match_id IS NULL). 개입이 없는 판이라 분모에만 들어가고,
-  -- 그러면 「崩れやすいところ」의 비율이 그만큼 희석된다(journal §83).
+  -- 대인전 판은 세지 않는다. CountGameResultsForOwner 와 같은 이유다(journal §83).
   AND g.match_id IS NULL
 GROUP BY i.category
 `
@@ -271,7 +269,7 @@ type CountInterventionCategoriesForOwnerRow struct {
 	Hits     int64
 }
 
-// 마이페이지의 약점. 판을 가로질러 센다 — 총평은 한 판 안에서 세지만(server/summary.go)
+// 마이페이지의 약점. 판을 가로질러 센다. 총평은 한 판 안에서 세지만(server/summary.go)
 // 「무엇이 약한가」는 한 판으로 답할 수 없다.
 //
 // 거르는 조건이 위와 같아야 한다: 전적에 들어가지 않은 판의 개입이 약점에는 들어가면
@@ -388,7 +386,7 @@ type CreateMatchGameParams struct {
 	MatchID   *string
 }
 
-// 대인전 한 판의 한쪽 몫이다. 같은 대국이 이 질의로 두 번 불려 행 두 개가 된다 —
+// 대인전 한 판의 한쪽 몫이다. 같은 대국이 이 질의로 두 번 불려 행 두 개가 된다.
 // 그래야 소유 검사를 타는 다섯 질의가 한 줄도 바뀌지 않는다(012_match_games.sql).
 //
 // opening_tag 가 없다. 그 칸은 「사람이 고른 컴퓨터의 진형」이라 상대가 사람이면
@@ -414,9 +412,8 @@ SET result = 'declined'
 WHERE id = $1
   AND user_id = $2
   AND result = 'abandoned'
-  -- 이어하기 세 질의가 같은 조건을 갖는다. 대인전 행은 이 장치가 닿지 않는 자리다 —
-  -- 지금은 두 상태 다 어느 목록에도 뜨지 않으므로 눈에 보이는 차이가 없지만, 셋 중 하나만
-  -- 빠져 있으면 나중에 상태의 뜻이 바뀌는 날 그 하나가 구멍이 된다.
+  -- 이어하기 세 질의가 같은 조건을 갖는다. 셋 중 하나만 빠져 있으면 나중에 상태의
+  -- 뜻이 바뀌는 날 그 하나가 구멍이 된다.
   AND match_id IS NULL
 `
 
@@ -447,7 +444,7 @@ type DeleteMovesFromParams struct {
 	Ply    int32
 }
 
-// 무르기가 지우는 것은 사람의 수와 그 뒤 상대의 응수까지다. 手数로 자른다 — 개수로
+// 무르기가 지우는 것은 사람의 수와 그 뒤 상대의 응수까지다. 手数로 자른다. 개수로
 // 세면 기보에 구멍이 있을 때 엉뚱한 수가 남는다(review.detailOf 의 같은 판단).
 func (q *Queries) DeleteMovesFrom(ctx context.Context, arg DeleteMovesFromParams) error {
 	_, err := q.db.Exec(ctx, deleteMovesFrom, arg.GameID, arg.Ply)
@@ -531,11 +528,10 @@ type GetGameForOwnerRow struct {
 	ImportedFrom *string
 }
 
-// 주인이 아니면 0행이다. 부르는 쪽에서 그것이 404가 된다 — 403이면 「그 번호의
-// 판이 있다」를 알려주는 셈이라, 남의 판 개수를 세어 볼 수 있다.
+// 주인이 아니면 0행이다. 부르는 쪽에서 그것이 404가 된다. 403이면 「그 번호의 판이
+// 있다」를 알려주는 셈이라, 남의 판 개수를 세어 볼 수 있다.
 //
-// 끝나지 않은 판도 0행이다 — ListGamesForOwner 와 같은 조건이고, 같은 이유로 404다.
-// 「있지만 볼 수 없다」를 알려주는 순간 중단된 판의 존재가 새어 나간다.
+// 끝나지 않은 판도 0행이다. ListGamesForOwner 와 같은 조건이고 같은 이유로 404다.
 func (q *Queries) GetGameForOwner(ctx context.Context, arg GetGameForOwnerParams) (GetGameForOwnerRow, error) {
 	row := q.db.QueryRow(ctx, getGameForOwner, arg.ID, arg.OwnerID)
 	var i GetGameForOwnerRow
@@ -639,8 +635,8 @@ type InsertMoveParams struct {
 
 // 확정된 수만 들어온다. 물러진 수가 여기 들어가면 기보가 롤백을 반영하지 못한다.
 //
-// 같은 ply를 다시 쓰는 것은 롤백 뒤 다시 둔 경우다. 덮어쓴다 — 기보는 「지금 판에
-// 남아 있는 수순」이다. 시도는 interventions 가 센다.
+// 같은 ply를 다시 쓰는 것은 롤백 뒤 다시 둔 경우다. 덮어쓴다. 기보는 「지금 판에
+// 남아 있는 수순」이고 시도는 interventions 가 센다.
 func (q *Queries) InsertMove(ctx context.Context, arg InsertMoveParams) error {
 	_, err := q.db.Exec(ctx, insertMove,
 		arg.GameID,
@@ -853,7 +849,7 @@ type ListGamesRow struct {
 // 진짜 대국이 아래로 밀린다. 세는 쪽과 거르는 쪽이 같은 EXISTS 라 둘이 어긋나지 않는다.
 //
 // 정렬은 id 하나로 한다. started_at 은 now() 라 같은 초에 여러 판이 들어가면 순서가
-// 흔들리는데, id 는 시퀀스라 그 자리에서 갈린다.
+// 흔들린다.
 func (q *Queries) ListGames(ctx context.Context, limit int32) ([]ListGamesRow, error) {
 	rows, err := q.db.Query(ctx, listGames, limit)
 	if err != nil {
@@ -981,7 +977,7 @@ type MarkHintTakenParams struct {
 	SFENKey string
 }
 
-// 알려준 수를 실제로 뒀는가. 그 국면의 줄 전부에 적는다 — 단계가 둘이면 행이 둘인데,
+// 알려준 수를 실제로 뒀는가. 그 국면의 줄 전부에 적는다. 단계가 둘이면 행이 둘인데,
 // 사람이 답을 본 것은 한 번이라 둘이 같은 답을 가져야 한다.
 func (q *Queries) MarkHintTaken(ctx context.Context, arg MarkHintTakenParams) error {
 	_, err := q.db.Exec(ctx, markHintTaken, arg.Taken, arg.GameID, arg.SFENKey)
@@ -1003,9 +999,8 @@ FROM games g
 WHERE g.user_id = $1
   AND g.result = 'abandoned'
   AND EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)
-  -- 대인전 판은 이어할 수 없다(journal §83). 이어하기는 엔진 대국의 장치라, 여기에
-  -- 대인전 판이 걸리면 사람과 두던 수순이 엔진 세션으로 이어진다 — 그 판의 두 행이
-  -- 그 자리에서 갈라져(한쪽만 자라고 다른 쪽은 abandoned 로 남는다) 같은 대국이 아니게 된다.
+  -- 대인전 판은 이어할 수 없다(journal §83). 걸리면 사람과 두던 수순이 엔진 세션으로
+  -- 이어지고, 그 판의 두 행이 그 자리에서 갈라진다(한쪽만 자라고 다른 쪽은 abandoned).
   --
   -- 배포가 대국 중에 끼면 실제로 그 상태가 만들어진다: 테이블이 접히면서(abort) 수가
   -- 있는 행이 abandoned 로 닫히고, 그것이 정확히 이 질의의 조건이다.
@@ -1035,7 +1030,7 @@ type ResumableGameForOwnerRow struct {
 // 걸리지 않는다 — 익명끼리는 구별할 수단이 없어서(002_anonymous_games.sql) 「누구의 중단된
 // 판인가」에 답할 수가 없다.
 //
-// 이어할 수 있는 판 하나. 가장 최근 것 하나만 준다 — 목록을 주면 사람이 「어느 판을
+// 이어할 수 있는 판 하나. 가장 최근 것 하나만 준다. 목록을 주면 사람이 「어느 판을
 // 이어할까」를 고르는 화면이 되는데, 물음은 「두던 판을 이어할까」 하나다.
 //
 // 한 수도 두지 않은 판은 뺀다(ListGames 와 같은 EXISTS). 연결만 열렸다 끊긴 판이 그렇게
@@ -1065,7 +1060,7 @@ type SetMoveEvalParams struct {
 	EvalMate *int32
 }
 
-// 평가치만 채운다. 수를 덮지 않는다 — upsert로 두면 물러진 수로 기보를 덮는 길이 생긴다.
+// 평가치만 채운다. 수를 덮지 않는다. upsert로 두면 물러진 수로 기보를 덮는 길이 생긴다.
 // 없는 ply면 아무 일도 하지 않는다(평가치가 수보다 먼저 오는 경로가 없다).
 func (q *Queries) SetMoveEval(ctx context.Context, arg SetMoveEvalParams) error {
 	_, err := q.db.Exec(ctx, setMoveEval,

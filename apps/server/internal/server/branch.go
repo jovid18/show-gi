@@ -1,7 +1,7 @@
 package server
 
-// 「가정 수순 한 걸음」의 계산부. 핸들러 한 곳에 매이지 않는다 — 대국 화면(ws.go)과
-// 되짚기 화면(whatif.go)이 같은 whatifNodeOf 를 부르고 뿌리를 얻는 곳만 다르다.
+// 「가정 수순 한 걸음」의 계산부. 대국 화면(ws.go)과 되짚기 화면(whatif.go)이 같은
+// whatifNodeOf 를 부르고, 뿌리를 얻는 곳만 다르다.
 
 import (
 	"context"
@@ -16,8 +16,8 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// whatifNodeOf 는 분기를 한 걸음 진행시킨다. 세션을 타지 않는다 — 뿌리를 손에 들고 있는
-// 채로 도는 함수라, 엔진 하나만 손으로 만들어 넣으면 전부 확인할 수 있다(cache는 nil로 둔다).
+// whatifNodeOf 는 분기를 한 걸음 진행시킨다. 세션을 타지 않는다. 뿌리를 손에 들고 도는
+// 함수라 엔진 하나만 손으로 만들어 넣으면 전부 확인할 수 있다(cache 는 nil 로 둔다).
 func whatifNodeOf(
 	ctx context.Context,
 	root whatifRoot,
@@ -27,8 +27,8 @@ func whatifNodeOf(
 ) (whatifNode, error) {
 	start, err := shogi.ParseSFEN(startSFENOf(root.StartSFEN))
 	if err != nil {
-		// 시작 국면을 읽지 못하면 한 수도 두지 않는다. 平手 초기 국면으로 대신 두면
-		// 한 번도 없었던 국면 위에서 가정을 세우게 된다(detailOf 와 같은 판단이다).
+		// 시작 국면을 읽지 못하면 한 수도 두지 않는다. 平手 초기 국면으로 대신 두면 한 번도
+		// 없었던 국면 위에서 가정을 세우게 된다(detailOf 와 같은 판단).
 		return whatifNode{}, fmt.Errorf("%w: start sfen %q: %v", errWhatifPly, root.StartSFEN, err)
 	}
 
@@ -39,8 +39,8 @@ func whatifNodeOf(
 		return whatifNode{}, err
 	}
 
-	// 엔진에 보낼 수순. 뿌리까지의 실제 수순을 그대로 앞에 둔다 — 국면만 넘기면
-	// 千日手를 세는 근거가 사라진다.
+	// 엔진에 보낼 수순. 뿌리까지의 실제 수순을 그대로 앞에 둔다. 국면만 넘기면 千日手를
+	// 세는 근거가 사라진다.
 	line := make([]string, 0, req.Ply+len(req.Moves)+1)
 	line = append(line, root.Moves[:req.Ply]...)
 
@@ -74,9 +74,8 @@ func whatifNodeOf(
 
 	legal := pos.LegalMoves()
 	if len(legal) == 0 {
-		// 千日手는 여기서 보지 않는다. 그건 같은 국면이 네 번 나왔는가라서 수순 전체를
-		// 세야 하는데, 분기는 「둬 보는 것」이라 거기까지 가는 일이 거의 없다.
-		// 없는 것을 절반만 세느니 세지 않는다.
+		// 千日手는 여기서 보지 않는다. 같은 국면이 네 번 나왔는가라서 수순 전체를 세야
+		// 하는데, 분기는 「둬 보는 것」이라 거기까지 가는 일이 거의 없다.
 		node.Status = game.StatusCheckmate
 		if !pos.InCheck(pos.Turn) {
 			node.Status = game.StatusStalemate
@@ -89,22 +88,22 @@ func whatifNodeOf(
 		node.LegalMoves = append(node.LegalMoves, m.USI())
 	}
 
-	// 탐색은 한 번이고, 이미 잰 국면이면 0번이다. 이 하나가 세 가지를 준다 —
-	// 이 국면의 값, 수번 쪽의 최선수(화면의 초록 화살표), 그리고 그 다음 후보들.
+	// 탐색은 한 번이고, 이미 잰 국면이면 0번이다. 이 하나가 이 국면의 값과 수번 쪽의
+	// 최선수(화면의 초록 화살표), 그 다음 후보들을 같이 준다.
 	cands, err := evalOf(ctx, search, cache, pos, start.SFEN(), line, min(whatifCandidates, len(legal)))
 	if err != nil {
 		return whatifNode{}, fmt.Errorf("%w: %w", errWhatifEngine, err)
 	}
 	if len(cands) == 0 {
-		// 합법수가 있는데 후보가 하나도 없다. 엔진이 답을 준 적이 없다는 뜻이라,
-		// 값을 지어내지 않고 「모른다」로 내보낸다.
+		// 합법수가 있는데 후보가 하나도 없다. 엔진이 답을 준 적이 없다는 뜻이라 값을
+		// 지어내지 않고 「모른다」로 내보낸다.
 		return node, nil
 	}
 
-	// 캐시의 점수는 수번 측 관점이다(store.Candidate). 여기서 뒤집는다 — 패키지 doc 참조.
+	// 캐시의 점수는 수번 측 관점이다(store.Candidate). 여기서 플레이어 관점으로 뒤집는다.
 	//
-	// 詰み이면 cp 칸을 비운다. 되짚기의 기보 줄과 같은 규약이다(reviewMove.EvalCp) —
-	// 환산값과 평가치는 자가 다르고, 화면은 手数가 있으면 그것으로 말한다(scoreJa).
+	// 詰み이면 cp 칸을 비운다. 되짚기의 기보 줄과 같은 규약이고(reviewMove.EvalCp), 화면은
+	// 手数가 있으면 그것으로 말한다(scoreJa).
 	top := playerScore(cands[0].Score, pos.Turn, human)
 	if n, ok := top.MateIn(); ok {
 		node.MateIn = n
@@ -116,9 +115,9 @@ func whatifNodeOf(
 	return node, nil
 }
 
-// evalOf 는 이 국면의 상위 후보들이다. 캐시가 먼저다 — 조건이 둘이라 깊이와 후보 수를
-// 함께 본다(journal §37). 감싼 층(internal/archive)도 캐시를 읽지만, 이 표면은 후보 셋을
-// 약속하고 히트면 되짚어 만드는 일까지 건너뛴다 — 手数를 옮길 때마다 이 자리를 지난다.
+// evalOf 는 이 국면의 상위 후보들이다. 캐시가 먼저이고, 조건이 둘이라 깊이와 후보 수를
+// 함께 본다(journal §37). 감싼 층(internal/archive)도 캐시를 읽지만 이 표면은 후보 셋을
+// 약속하고, 히트면 되짚어 만드는 일까지 건너뛴다.
 func evalOf(
 	ctx context.Context,
 	search Searcher,
@@ -143,8 +142,7 @@ func evalOf(
 	if err != nil {
 		return nil, err
 	}
-	// 여기서 쓰지 않는다. 탐색을 감싼 쪽이 이미 남겼다(internal/archive) — 두 자리에서
-	// 쓰면 한 자리가 빠지거나 두 벌이 어긋난다.
+	// 여기서 쓰지 않는다. 탐색을 감싼 쪽이 이미 남겼다(internal/archive).
 	return archive.Candidates(res), nil
 }
 
@@ -159,8 +157,8 @@ func playerScore(s eval.Score, turn, human shogi.Color) eval.Score {
 
 // candidatesOf 는 탐색의 후보들을 화면이 그릴 수 있는 모양으로 옮긴다.
 //
-// 여기서도 엔진 출력을 검증한다. 둘 수 없는 수가 하나 섞이면 그 줄만 버린다 —
-// 화면에서 「이렇게 뒀어야 한다」는 단언이라 틀린 것을 그리느니 적게 그린다.
+// 여기서도 엔진 출력을 검증한다. 둘 수 없는 수가 하나 섞이면 그 줄만 버린다. 화면에서
+// 「이렇게 뒀어야 한다」는 단언이라 틀린 것을 그리느니 적게 그린다.
 //
 // 같은 수도 그 자리에서 버린다. usi.Ranked 가 막지만 이 표면은 캐시를 직접 읽어
 // 그쪽을 지나지 않고(evalOf), 이미 쌓인 목록에는 중복이 들어 있다(journal §87).
@@ -183,11 +181,10 @@ func candidatesOf(pos shogi.Position, prevTo int, cands []store.Candidate) []wha
 		if !isMate {
 			c.EvalCp = &cp
 		}
-		// 낙폭은 최선수 대비다. 화면이 뺄셈을 하지 않는다 — 두 값을 함께 두면
-		// 어느 쪽이 기준인지가 흐려진다.
+		// 낙폭은 최선수 대비다. 화면이 뺄셈을 하지 않는다.
 		//
-		// 詰み이 한쪽에라도 있으면 적지 않는다. 뺄 cp 자체가 없고, 억지로 환산하면 뺄셈이
-		// 29000 같은 수를 내놓는데, 그것은 낙폭 대신 자가 다른 두 값의 차다.
+		// 詰み이 한쪽에라도 있으면 적지 않는다. 뺄 cp 자체가 없고, 억지로 환산하면 낙폭
+		// 대신 자가 다른 두 값의 차가 나온다.
 		if len(out) > 0 && out[0].EvalCp != nil && c.EvalCp != nil {
 			c.LossCp = *out[0].EvalCp - *c.EvalCp
 		}
@@ -216,7 +213,7 @@ func replayTo(start shogi.Position, moves []string, ply int) (shogi.Position, in
 	return pos, prevTo, nil
 }
 
-// step 은 한 수를 두어 본다. 둘 수 없는 수면 ok=false — 사람의 수도 엔진의 수도 여기를 지난다.
+// step 은 한 수를 두어 본다. 사람의 수도 엔진의 수도 여기를 지난다.
 func step(pos shogi.Position, prevTo, ply int, u string, human shogi.Color) (whatifMove, shogi.Position, bool) {
 	m, err := shogi.ParseUSIMove(u)
 	if err != nil {

@@ -1,6 +1,6 @@
 // Package usi 는 USI(Universal Shogi Interface) 엔진 하위 프로세스를 관리한다.
 //
-// 값어치는 방어에 있다 — 전부 한 번씩 물려본 것들이고 목록은 02-architecture.md §8에 있다.
+// 값어치는 방어에 있다. 전부 한 번씩 물려본 것들이고 목록은 02-architecture.md §8에 있다.
 // Engine 하나는 탐색을 직렬화한다. 동시 탐색이 필요하면 Pool을 쓴다.
 package usi
 
@@ -26,8 +26,8 @@ import (
 const (
 	handshakeTimeout = 15 * time.Second
 
-	// stopGrace 는 취소로 "stop"을 보낸 뒤 bestmove를 기다려주는 시간. 오지 않으면 엔진을 버리고 재기동한다 —
-	// 삼키지 못한 bestmove는 다음 탐색의 결과로 읽힌다(journal §6 ②).
+	// stopGrace 는 취소로 "stop"을 보낸 뒤 bestmove를 기다려주는 시간. 오지 않으면 엔진을
+	// 버리고 재기동한다. 삼키지 못한 bestmove는 다음 탐색의 결과로 읽힌다(journal §6 ②).
 	stopGrace = 2 * time.Second
 )
 
@@ -48,25 +48,21 @@ type SearchResult struct {
 	PV    []string     // 최선 수순
 	Lines []SearchLine // 순위별 최종 후보 (가장 깊은 것)
 
-	// History 는 받은 info 라인 전부를 (깊이, 순위)별로 남긴 것이다.
-	// 얕은 평가와 깊은 평가의 격차가 개입 판정의 입력이라 마지막 깊이만 남기면 안 된다(journal §6 ②).
+	// History 는 받은 info 라인 전부를 (깊이, 순위)별로 남긴 것이다. 얕은 평가와 깊은 평가의
+	// 격차가 개입 판정의 입력이라 마지막 깊이만 남기면 안 된다(journal §6 ②).
 	// 속보(lowerbound/upperbound)는 점수가 미확정이라 넣지 않는다.
 	History []SearchLine
 }
 
-// Ranked 는 후보 줄을 정본 순서로 준다 — 점수 내림차순이고, 빈 순위·중복 순위·같은
-// 수가 차지한 순위는 빠진다.
+// Ranked 는 후보 줄을 점수 내림차순으로 준다. 빈 순위·중복 순위·같은 수가 차지한 순위는
+// 빠진다.
 //
-// 이 순서가 한 자리에만 있어야 한다. 캐시에 쌓이는 후보 목록(archive.Candidates)과
-// 개입 문장이 말하는 상대의 최선수(game.engineAnalyst.cardPV)가 둘 다 이것을 보고, 갈리면
-// 한 국면의 최선수가 화면에서 둘이 된다(journal §58).
+// 이 순서가 한 자리에만 있어야 한다. 캐시에 쌓이는 후보 목록(archive.Candidates)과 개입
+// 문장의 최선수(game.engineAnalyst.cardPV)가 둘 다 이것을 보고, 갈리면 한 국면의 최선수가
+// 화면에서 둘이 된다(journal §58).
 //
-// Lines[0] 이 1위가 아닐 수 있다. 순위별 자리를 미리 채워 두므로(parseScore) 아직
-// 오지 않은 순위는 빈 줄로 남고, 그것을 그대로 1위로 읽으면 수가 없는 후보를 최선수라고 부른다.
-//
-// 한 수가 두 순위를 차지할 수 있다. 순위 칸은 깊이마다 덮어써지는데(parseScore), 마지막
-// iteration에서 오지 않은 순위는 얕은 깊이의 줄을 그대로 지닌 채 남는다 — 그 수가 다른 순위의
-// 수와 같으면 후보가 둘로 늘어난다. 깊은 쪽만 남긴다(journal §87).
+// 순위 칸을 미리 채워 두고 깊이마다 덮어쓰므로(parseScore) 마지막 iteration 에 오지 않은
+// 순위는 빈 줄이거나 얕은 깊이의 줄로 남는다. 후자는 깊은 쪽만 남긴다(journal §87).
 func (r SearchResult) Ranked() []SearchLine {
 	out := make([]SearchLine, 0, len(r.Lines))
 	seen := map[int]bool{}
@@ -95,8 +91,8 @@ type DepthEval struct {
 	Score eval.Score
 }
 
-// EvalByDepth 는 그 수의 깊이별 평가치를 오름차순으로 준다. edges.eval_by_depth 에 그대로 들어간다.
-// 빠진 깊이를 메우지 않는다 — 상위 k에 없던 깊이는 데이터가 없는 것이다(journal §6 ②).
+// EvalByDepth 는 그 수의 깊이별 평가치를 오름차순으로 준다. edges.eval_by_depth 에 그대로
+// 들어간다. 빠진 깊이를 메우지 않는다. 상위 k에 없던 깊이는 데이터가 없다(journal §6 ②).
 func (r SearchResult) EvalByDepth(move string) []DepthEval {
 	var out []DepthEval
 	for _, l := range r.History {
@@ -108,8 +104,8 @@ func (r SearchResult) EvalByDepth(move string) []DepthEval {
 	return out
 }
 
-// ScoreAtDepth 는 그 깊이에서 1위였던 줄의 점수다 — 「이 국면을 여기까지만 읽으면 얼마로 보이나」.
-// 초보자의 시야를 모사하는 쪽이 이것이다(journal §15). 없는 깊이를 메우지 않는다.
+// ScoreAtDepth 는 그 깊이에서 1위였던 줄의 점수다. 초보자의 시야를 모사하는 쪽이
+// 이것이다(journal §15). 없는 깊이를 메우지 않는다.
 func (r SearchResult) ScoreAtDepth(depth int) (eval.Score, bool) {
 	for _, l := range r.History {
 		if l.Depth == depth && l.MultiPV == 1 {
@@ -120,7 +116,7 @@ func (r SearchResult) ScoreAtDepth(depth int) (eval.Score, bool) {
 }
 
 // Engine 은 USI 엔진 1개. 프로세스가 죽으면 다음 호출에서 재기동한다.
-// 모든 공개 메서드는 mu로 직렬화된다 — 즉 프로세스 1개 = 동시 탐색 1개.
+// 모든 공개 메서드는 mu로 직렬화된다(프로세스 1개 = 동시 탐색 1개).
 type Engine struct {
 	mu   sync.Mutex
 	path string
@@ -136,7 +132,8 @@ type Engine struct {
 }
 
 // New 는 엔진 프로세스를 시작하고 usi/isready 핸드셰이크를 마친다.
-// opts 는 usiok 뒤, isready 앞에 걸린다 — USI_Hash 처럼 isready 시점에 반영되는 옵션은 나중에 걸면 늦는다.
+// opts 는 usiok 뒤, isready 앞에 건다. USI_Hash 처럼 isready 에서 반영되는 옵션은 나중에
+// 걸면 늦는다.
 func New(path string, opts map[string]string, args ...string) (*Engine, error) {
 	saved := make(map[string]string, len(opts))
 	maps.Copy(saved, opts)
@@ -172,8 +169,8 @@ func (e *Engine) start() error {
 		for sc.Scan() {
 			lines <- sc.Text()
 		}
-		// 읽기가 에러로 끝났으면 남긴다. 채널이 닫히는 것은 프로세스가 죽었을 때와
-		// 같아서, 남기지 않으면 "엔진이 죽었다"로만 보이고 원인(예: 한 줄이 너무 길다)이 묻힌다.
+		// 읽기가 에러로 끝났으면 남긴다. 채널이 닫히는 것은 프로세스가 죽었을 때와 같아서,
+		// 남기지 않으면 원인(예: 한 줄이 너무 길다)이 묻힌다.
 		if err := sc.Err(); err != nil {
 			log.Printf("usi: reading engine output failed (%s): %v", e.path, err)
 		}
@@ -220,8 +217,8 @@ func (e *Engine) handshake() error {
 		}
 	}
 ready:
-	// 변형이 shogi가 아닐 가능성을 막는다.
-	// 이름이 엔진마다 다르다 — fairy-stockfish는 UCI_Variant만 광고한다.
+	// 변형이 shogi가 아닐 가능성을 막는다. 옵션 이름이 엔진마다 다르다
+	// (fairy-stockfish는 UCI_Variant만 광고한다).
 	for _, opt := range []string{"USI_Variant", "UCI_Variant"} {
 		if e.opts[opt] {
 			if err := e.send("setoption name " + opt + " value shogi"); err != nil {
@@ -234,15 +231,14 @@ ready:
 		_ = e.send("setoption name USI_Ponder value false")
 	}
 
-	// PvInterval=0. 이 파서가 동작하기 위한 조건이다 — 기본 간격이면 우리 탐색이 더 빨라
-	// 깊이별 평가치가 마지막 하나만 남는다(journal §10).
+	// PvInterval=0. 기본 간격이면 우리 탐색이 더 빨라 깊이별 평가치가 마지막 하나만
+	// 남는다(journal §10).
 	if e.opts["PvInterval"] {
 		_ = e.send("setoption name PvInterval value 0")
 	}
 
-	// 저장된 옵션은 isready 앞에서 건다. 재기동 때 복원되는 경로도 여기다 —
-	// USI_Hash 처럼 isready 에서 반영되는 옵션이 재기동 후에 빠지면, 살아난 엔진만
-	// 경고 없이 다른 설정으로 돌게 된다.
+	// 저장된 옵션은 isready 앞에서 건다. 재기동 때 복원되는 경로도 여기다. 빠지면 살아난
+	// 엔진만 경고 없이 다른 설정으로 돌게 된다.
 	for name, val := range e.saved {
 		if !e.opts[name] {
 			continue // 엔진이 모르는 옵션은 보내지 않는다
@@ -333,9 +329,8 @@ func (e *Engine) Name() string {
 	return e.name
 }
 
-// SearchDepth 는 고정 깊이까지 탐색시킨다. 시간 기반(go movetime)은 이 패키지에 일부러 없다 —
-// 재현되지 않으면 캐시도 밴드 제어도 성립하지 않는다(01-core.md §4). 자체 시한도 없다.
-// ctx로 끊을 수는 있고, 끊으면 중간 결과는 버린다 — depth N 결과로 쓸 수 없다.
+// SearchDepth 는 고정 깊이까지 탐색시킨다. 자체 시한은 없고 ctx 로만 끊는다. 끊으면 중간
+// 결과를 버린다. depth N 결과가 아니라 그 깊이로 캐시에 적을 수 없다(01-core.md §4).
 func (e *Engine) SearchDepth(ctx context.Context, startSFEN string, moves []string, depth int) (SearchResult, error) {
 	return e.search(ctx, startSFEN, moves, "go depth "+strconv.Itoa(depth), 0)
 }
@@ -345,16 +340,17 @@ type MateResult struct {
 	// Moves 는 찾은 詰み 수순. 비어 있으면 찾지 못했다.
 	Moves []string
 
-	// Proven 은 탐색이 한계 안에서 결론을 냈다는 뜻이고, 이 구분이 캐시의 전부다.
-	// checkmate timeout은 "모른다"다 — "없다"로 저장하면 있는 詰み을 놓친다(01-core.md §2).
+	// Proven 은 탐색이 한계 안에서 결론을 냈는가다. checkmate timeout 은 "모른다"이고,
+	// "없다"로 저장하면 있는 詰み을 놓친다(01-core.md §2).
 	Proven bool
 }
 
 // Found 는 詰み을 찾았는지.
 func (r MateResult) Found() bool { return len(r.Moves) > 0 }
 
-// SearchMate 는 詰み을 찾는다. 詰将棋 solver 에디션에만 있다 — 탐색부는 bestmove로 답한다(02-architecture.md §3).
-// 한계는 풀을 만들 때 DepthLimit(手数)로 준다. 없이 부르면 詰み이 없는 국면에서 돌아오지 않는다.
+// SearchMate 는 詰み을 찾는다. 詰将棋 solver 에디션에만 있다(02-architecture.md §3).
+// 한계는 풀을 만들 때 DepthLimit(手数)로 준다. 없이 부르면 詰み이 없는 국면에서
+// 돌아오지 않는다.
 func (e *Engine) SearchMate(ctx context.Context, startSFEN string, moves []string) (MateResult, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -427,7 +423,7 @@ func (e *Engine) search(ctx context.Context, startSFEN string, moves []string, g
 	if err == nil {
 		return res, nil
 	}
-	// 취소는 고장으로 보지 않는다. 재시도하면 부른 쪽이 그만두라고 한 일을 한 번 더 하게 된다.
+	// 취소는 고장으로 보지 않는다. 재시도하면 그만두라고 한 일을 한 번 더 하게 된다.
 	if ctx.Err() != nil {
 		return SearchResult{}, err
 	}
@@ -491,7 +487,8 @@ func (e *Engine) searchLocked(ctx context.Context, startSFEN string, moves []str
 }
 
 // stopLocked 는 탐색을 중단시키고 그 응답까지 읽어 버린다. mu를 잡은 상태에서 호출.
-// 끝맺는 말이 다르다 — 일반 탐색은 bestmove, 詰み 탐색은 checkmate. 하나만 기다리면 매번 엔진을 버린다.
+// 끝맺는 말이 둘이다(일반 탐색은 bestmove, 詰み 탐색은 checkmate). 하나만 기다리면
+// 매번 엔진을 버린다.
 func (e *Engine) stopLocked() error {
 	if err := e.send("stop"); err != nil {
 		return err
@@ -545,12 +542,10 @@ func parseScore(line string, res *SearchResult) {
 				sl.Score = eval.Cp(v)
 			case "mate":
 				// mate 0 은 어느 쪽이 詰んでいる인지를 말하지 않는다(eval.Mate). 이 엔진은
-				// 내보내지 않으므로(mated 국면에 mate -1 을 준다) 여기 오면 우리가 모르는
-				// 출력이고, 모르는 것을 뜻이 있는 값으로 옮기지 않는다.
+				// 내보내지 않으므로(mated 국면에 mate -1 을 준다) 여기 오면 모르는 출력이다.
 				//
-				// 줄 전체를 버린다. 점수만 빼고 나머지를 쓰면 그 줄의 PV 가 앞 깊이의
-				// 점수 옆에 앉는다. "-0" 도 여기로 온다 — Atoi 가 부호를 지우므로 그쪽만
-				// 살려 낼 방법도 없다.
+				// 줄 전체를 버린다. 점수만 빼고 나머지를 쓰면 그 줄의 PV 가 앞 깊이의 점수
+				// 옆에 앉는다. "-0" 도 여기로 오고, Atoi 가 부호를 지워 가려낼 수 없다.
 				if v == 0 {
 					return
 				}
@@ -579,8 +574,8 @@ apply:
 	}
 
 	idx := sl.MultiPV
-	// 짧은 pv가 이미 받아둔 긴 수순을 덮어쓰지 않게 방어한다 — 속보(bound) 라인과,
-	// 엔진이 마지막 iteration을 중간에 접었을 때가 그렇다. 빈 순위라면 짧은 라인이라도 채워 둔다.
+	// 짧은 pv가 이미 받아둔 긴 수순을 덮어쓰지 않게 방어한다(속보 라인과, 엔진이 마지막
+	// iteration을 중간에 접었을 때). 빈 순위라면 짧은 라인이라도 채워 둔다.
 	const minUsefulPv = 3
 	if idx-1 < len(res.Lines) {
 		prev := res.Lines[idx-1].PV

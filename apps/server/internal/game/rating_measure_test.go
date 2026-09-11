@@ -14,8 +14,7 @@ import (
 // 이 파일은 손잡이가 실제로 듣는지를 잰다. 밴드를 옮기는 코드가 도는 것은 단위
 // 테스트가 보고, 여기서 보는 것은 그 옮김이 실제 후보 안에서 다른 수로 나오는가다.
 //
-// 후보가 좁게 몰린 국면에서는 밴드를 옮겨도 갈 곳이 없다는 것을 journal §21 ①이 미리
-// 적어 뒀다. 그 국면에서 이 기능이 실제로 도는지를 여기서 본다.
+// 후보가 좁게 몰린 국면에서는 밴드를 옮겨도 갈 곳이 없다(journal §21 ①).
 //
 //	docker run --rm --platform linux/arm64 --cpus 4 -v "$PWD:/src:ro" show-gi-enginetest sh -c '
 //	  cp -r /src /work && cd /work &&
@@ -54,8 +53,8 @@ var measureLevels = []struct {
 
 // TestMeasureSkillBandReach 는 같은 후보에서 다른 수가 나오는 국면이 몇 %인가를 잰다.
 //
-// 국면마다 탐색은 한 번뿐이다 — 결과를 stubMulti 에 담아 고르는 코드만 세 번 돌린다.
-// 강함이 갈리는 자리는 선택이지 탐색이 아니므로 이것이 같은 측정이고, 엔진 시간이 3분의 1이다.
+// 국면마다 탐색은 한 번뿐이다. 결과를 stubMulti 에 담아 고르는 코드만 세 번 돌린다.
+// 강함이 갈리는 자리는 선택이지 탐색이 아니므로 이것이 같은 측정이다.
 func TestMeasureSkillBandReach(t *testing.T) {
 	pool := measureEnginePool(t, 2)
 
@@ -100,8 +99,8 @@ func TestMeasureSkillBandReach(t *testing.T) {
 	}
 }
 
-// TestMeasureSkillKeepsWeakPlayerAlive 는 §16 표에 한 줄을 더한다 —
-// 헤매는 사람에게 실제로 형세가 남는가.
+// TestMeasureSkillKeepsWeakPlayerAlive 는 journal §16 표에 한 줄을 더한다. 헤매는
+// 사람에게 실제로 형세가 남는가.
 func TestMeasureSkillKeepsWeakPlayerAlive(t *testing.T) {
 	pool := measureEnginePool(t, 2)
 

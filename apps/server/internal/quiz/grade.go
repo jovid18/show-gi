@@ -8,11 +8,10 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// ErrBadMove 는 낼 수 없는 수가 왔을 때다 — 불법이거나, 이미 끝난 문항에 수를 더 낸 것이다.
+// ErrBadMove 는 낼 수 없는 수가 왔을 때다(불법이거나, 이미 끝난 문항에 수를 더 낸 것).
 //
-// 오답과 다르다. 오답은 채점의 결과이고 이쪽은 요청이 틀린 것이다. 화면이 王手만
-// 빛내므로 여기 오는 것은 프론트 버그이거나 조작된 요청이고, 둘을 같은 응답으로 뭉치면
-// 버그가 오답으로 위장해 보이지 않는다(§53).
+// 오답과 다르다. 오답은 채점의 결과이고 이쪽은 요청이 틀린 것이다. 둘을 같은 응답으로
+// 뭉치면 프론트 버그가 오답으로 위장해 보이지 않는다(§53).
 var ErrBadMove = errors.New("quiz: the move cannot be played here")
 
 // MateOutcome 는 詰み 문항에서 마지막 수가 어떻게 되었나다.
@@ -25,8 +24,7 @@ const (
 	MateSolved MateOutcome = "solved"
 	// MateWrong 은 오답이다. 문항이 끝나고 정답 수를 보여준다.
 	MateWrong MateOutcome = "wrong"
-	// MateNotCheck 는 王手가 아닌 수다. 오답으로 세지 않고 되돌린다 — 초심자의 첫
-	// 본능이 대개 그것이고, 규약을 모른 채 오답 처리되는 것이 배움을 막는다.
+	// MateNotCheck 는 王手가 아닌 수다. 오답으로 세지 않고 되돌린다(§53).
 	//
 	// 화면이 王手만 빛내므로 정상 경로에서는 오지 않는다. 그래도 남겨 두는 것은 서버가
 	// 스스로 판정할 수 있어야 하기 때문이다.
@@ -48,29 +46,25 @@ type MateProgress struct {
 	Plies int
 	// Outcome 은 마지막 수의 결과다. 수를 하나도 내지 않았으면 MateOngoing 이다.
 	Outcome MateOutcome
-	// Rest·Best 는 오답일 때만 채워진다. 「王手가 아닌 수」에는 채우지 않는다 — 그쪽은
-	// 시도가 소진되지 않는 안내라, 답을 실어 보내면 조용한 수 한 번으로 답을 꺼낼 수 있다.
+	// Rest·Best 는 오답일 때만 채워진다. 「王手가 아닌 수」에는 채우지 않는다(GradeMate).
 	//
-	// Rest 는 그 수 뒤에 남는 詰みまでの手数다. 0이면 詰み을 놓치는 수이고, 아니면 詰み이
-	// 늘어지는 수다 — 문구가 여기서 갈린다.
+	// Rest 는 그 수 뒤에 남는 詰みまでの手数다(MateVerdict.Rest).
 	Rest int
 	// Best 는 그 국면의 정답 수다.
 	Best string
-	// BestFrom 은 Best 가 성립하는 국면이고 SFEN 과 다를 수 있다.
+	// BestFrom 은 Best 가 성립하는 국면이고 SFEN 과 다를 수 있다. 오답이면 판이 그
+	// 수만큼 나아가 있어서 거기서는 Best 가 불법이다.
 	//
-	// 오답이면 판이 그 수만큼 나아가 있어서, 거기서 Best 를 두어 보면 불법이다 — 그 수를
-	// 이름으로 부를 수 있는 국면이 이쪽이다. 정답 표기를 만드는 자리와는 다르다:
-	// 오답 응답에는 정답이 실리지 않고, 여기서 나오는 것은 세 번째 오답의 「무엇을 움직이나」
-	// 하나다(§61의 originJa).
+	// 오답 응답에 정답이 실리지는 않는다. 여기서 나오는 것은 세 번째 오답의 「무엇을
+	// 움직이나」 하나다(§61의 originJa).
 	BestFrom string
 }
 
 // GradeMate 는 사용자가 낸 수들을 처음부터 되짚어 지금 상태를 만든다.
 //
-// 사용자의 수만 받는다. 玉方의 응수는 트리에 있으므로 서버가 다시 만든다 — 그래서
-// 화면과 서버가 어긋날 수 없고, 화면이 상태를 갖고 있지 않아도 된다. 가정 수순이 상대의
-// 수까지 함께 받는 것과 갈리는 자리이고(whatif.go), 갈리는 것은 저쪽 응수가 엔진 탐색이라
-// 같은 국면에서 같은 답을 준다는 보장이 없기 때문이다.
+// 사용자의 수만 받는다. 玉方의 응수는 트리에 있으므로 서버가 다시 만들고, 그래서 화면이
+// 상태를 갖고 있지 않아도 된다. 가정 수순은 상대의 수까지 함께 받는데(whatif.go) 저쪽
+// 응수는 엔진 탐색이라 같은 국면에서 같은 답을 준다는 보장이 없다.
 func GradeMate(item MateItem, moves []string) (MateProgress, error) {
 	pos, err := shogi.ParseSFEN(item.SFEN)
 	if err != nil {
@@ -79,7 +73,6 @@ func GradeMate(item MateItem, moves []string) (MateProgress, error) {
 
 	out := MateProgress{Outcome: MateOngoing}
 	for _, u := range moves {
-		// 이미 끝난 문항에 수를 더 내는 것은 요청이 틀린 것이다.
 		if out.Outcome != MateOngoing {
 			return MateProgress{}, ErrBadMove
 		}
@@ -102,20 +95,18 @@ func GradeMate(item MateItem, moves []string) (MateProgress, error) {
 		// 한 수 앞의 응수를 들고 나가고, 화면은 그것을 「방금 상대가 이렇게 받았다」로 그린다.
 		out.Defense = ""
 
-		// 이 노드의 국면. 수를 두기 전에 잡아 둔다 — 오답이면 아래에서 판이 한 수
+		// 이 노드의 국면. 수를 두기 전에 잡아 둔다. 오답이면 아래에서 판이 한 수
 		// 나아가고, 거기서는 정답이 불법이라 그 수를 이름으로 부를 수가 없다.
 		nodeSFEN := pos.SFEN()
 
-		// 정본 표기로 찾는다. 트리의 키는 Move.USI() 가 만든 것이라, 요청 문자열을
-		// 그대로 쓰면 이 조회가 파서가 얼마나 엄격한가에 매인다 — 지금은 정본만 통과하지만
-		// (shogi.ParseUSIMove) 그 성질이 흔들리면 「王手가 아닌 수」가 요청 오류를 뒤집어쓴다.
+		// 정본 표기로 찾는다. 트리의 키는 Move.USI() 가 만든 것이라, 요청 문자열을 그대로
+		// 쓰면 파서가 느슨해지는 날 「王手가 아닌 수」가 요청 오류를 뒤집어쓴다.
 		v, known := node.Moves[m.USI()]
 		if !known {
 			// 합법이지만 트리에 없다 = 王手가 아닌 수다. 판을 움직이지 않고 되돌린다.
 			//
-			// 정답을 주지 않는다. 이쪽은 오답 대신 다시 두라는 안내라 시도가 소진되지
-			// 않는데, 여기서 Best 를 실어 보내면 아무 조용한 수나 한 번 눌러서 답을
-			// 꺼낼 수 있다 — 그래서 채점을 서버에 뒀다.
+			// 정답을 주지 않는다. 이쪽은 시도가 소진되지 않는 안내라, Best 를 실어
+			// 보내면 아무 조용한 수나 한 번 눌러서 답을 꺼낼 수 있다.
 			out.Outcome = MateNotCheck
 			break
 		}
@@ -143,9 +134,9 @@ func GradeMate(item MateItem, moves []string) (MateProgress, error) {
 
 	out.SFEN = pos.SFEN()
 
-	// 문항이 아직 끝나지 않았으면 둘 수 있는 수를 준다. 「王手가 아닌 수」도 여기 들어간다 —
-	// 그때 판은 그대로이고 사람은 다시 둬야 하는데, 이 둘을 채워 보내지 않으면 화면이 문제
-	// 국면으로 되돌아가서 그때까지 맞힌 수가 사라진 것처럼 보인다.
+	// 문항이 아직 끝나지 않았으면 둘 수 있는 수를 준다. 「王手가 아닌 수」도 여기 든다.
+	// 채워 보내지 않으면 화면이 문제 국면으로 되돌아가서 그때까지 맞힌 수가 사라진 것처럼
+	// 보인다.
 	if out.Outcome == MateOngoing || out.Outcome == MateNotCheck {
 		node, ok := item.Nodes[pos.RepetitionKey()]
 		if !ok {
@@ -171,8 +162,8 @@ func GradeBest(item BestItem, move string) (bool, error) {
 	if err := pos.ValidateMove(m); err != nil {
 		return false, ErrBadMove
 	}
-	// 정본끼리 견준다. 저장할 때 정본으로 고정해 둔 것이(best.go) 여기서 요청
-	// 문자열을 그대로 쓰면 헛일이 된다 — 파서가 느슨해지는 날 맞은 답이 「不正解」가 된다.
+	// 정본끼리 견준다. 요청 문자열을 그대로 쓰면 저장할 때 정본으로 고정해 둔 것이
+	// (best.go) 헛일이 되고, 파서가 느슨해지는 날 맞은 답이 「不正解」가 된다.
 	return m.USI() == item.Answer, nil
 }
 

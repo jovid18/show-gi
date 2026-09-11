@@ -18,20 +18,17 @@ const (
 	NotationKI2 Notation = "ki2"
 	NotationCSA Notation = "csa"
 	NotationUSI Notation = "usi"
-	// NotationPlain 은 표식도 手数도 없이 표기만 늘어놓은 것이다 — 블로그나 채팅에서
-	// 복사해 온 모양이고, 사람이 붙여 넣는 것 중 가장 흔한 「형식이 아닌 형식」이다.
+	// NotationPlain 은 표식도 手数도 없이 표기만 늘어놓은 것이다. 채팅에서 복사한 모양.
 	NotationPlain Notation = "plain"
-	// NotationLLM 은 결정적 파서가 전부 실패해 정규화 계층을 지난 판이다
-	// (internal/kifunorm). Read 는 이 값을 주지 않는다 — 옮겨 적힌 뒤 다시 이 패키지를
-	// 지나므로(ParseMoves) 그 판도 수는 룰 엔진이 만든 것이지만, 표기를 누가 손댔는지는
-	// 기록에 남아야 한다.
+	// NotationLLM 은 결정적 파서가 전부 실패해 정규화 계층을 지난 판이다(internal/kifunorm).
+	// Read 는 이 값을 주지 않는다. 옮겨 적힌 뒤 ParseMoves 를 다시 지나므로 수는 룰 엔진이
+	// 만든 것이지만, 표기를 누가 손댔는지는 기록에 남아야 한다.
 	NotationLLM Notation = "llm"
 )
 
 // MoveError 는 몇 手目에서 읽지 못했는가다.
 //
-// 번호를 들고 다니는 것은 화면 때문이다. 「読み取れませんでした」만으로는 사람이 자기
-// 기보의 어디를 고쳐야 하는지 모르고, 문자열에서 번호를 다시 뽑는 코드는 오류 문구를
+// 번호를 들고 다니는 것은 화면 때문이다. 문자열에서 번호를 다시 뽑는 코드는 오류 문구를
 // 고치는 날 경고 없이 어긋난다.
 type MoveError struct {
 	Ply  int
@@ -51,9 +48,8 @@ func (e *MoveError) Unwrap() error { return e.Err }
 // ErrNoMoves 는 형식은 알아봤는데 수가 하나도 없는 자리다.
 var ErrNoMoves = errors.New("no moves")
 
-// readers 의 순서가 곧 시도 순서다. 좁은 형식이 먼저다 — USI 는 나머지가 흉내 낼 수
-// 없는 모양이고, 평문은 가장 느슨해서(공백으로 끊은 표기면 다 본다) 마지막이라야 남의
-// 형식을 가로채지 않는다.
+// readers 의 순서가 곧 시도 순서다. 좁은 형식이 먼저다. 평문은 공백으로 끊은 표기면
+// 다 보므로 마지막이라야 남의 형식을 가로채지 않는다.
 var readers = []struct {
 	name Notation
 	read func(string) (ParsedGame, error)
@@ -67,11 +63,10 @@ var readers = []struct {
 
 // Read 는 결정적 파서들을 차례로 대 보고 처음 읽히는 것을 준다.
 //
-// 여기가 성공하면 LLM 은 부르지 않는다. 같은 기보가 언제나 같은 결과를 주는 것이
-// 기본값이고, 정규화 계층은 그 기본값이 성립하지 않는 자리에서만 돈다(internal/kifunorm).
+// 여기가 성공하면 LLM 은 부르지 않는다(internal/kifunorm).
 //
 // 수를 하나라도 읽은 뒤에 깨진 형식은 그 자리에서 답이 된다. 그 오류가 「이 기보는
-// 98手目가 이상하다」라서, 뒤의 파서가 0手로 실패한 오류보다 사람에게 값이 크다.
+// 98手目가 이상하다」이고, 뒤의 파서가 0手로 실패한 오류는 그것을 말하지 못한다.
 func Read(text string) (ParsedGame, Notation, error) {
 	for _, r := range readers {
 		g, err := r.read(text)
@@ -88,13 +83,13 @@ func Read(text string) (ParsedGame, Notation, error) {
 // usiMoveRe 는 USI 수 하나다. 반상 이동(7g7f·2b3c+)과 投入(P*5e) 둘.
 var usiMoveRe = regexp.MustCompile(`^(?:[1-9][a-i][1-9][a-i]\+?|[PLNSGBR]\*[1-9][a-i])$`)
 
-// ParseUSI 는 USI 수순을 읽는다. 엔진과 도구가 내보내는 가장 흔한 기계 출력이다.
+// ParseUSI 는 USI 수순을 읽는다.
 //
-// 받는 모양이 셋이다 — "position startpos moves ...", "position sfen <4칸> moves ...",
+// 받는 모양이 셋이다. "position startpos moves ...", "position sfen <4칸> moves ...",
 // 그리고 수만 공백으로 이어진 것. 앞의 둘은 접두어를 떼고 같은 자리로 흘려보낸다.
 //
-// 수가 아닌 낱말은 건너뛰지 않고 실패한다. USI 는 기계가 내는 표기라 「모르는
-// 낱말」이 곧 「이 텍스트는 USI 가 아니다」이고, 건너뛰면 남의 기보를 반쯤 읽는다.
+// 수가 아닌 낱말은 건너뛰지 않고 실패한다. 기계가 내는 표기라 「모르는 낱말」이 곧
+// 「이 텍스트는 USI 가 아니다」다.
 func ParseUSI(input string) (ParsedGame, error) {
 	g := ParsedGame{StartSFEN: shogi.StartSFEN}
 	fields := strings.Fields(input)
@@ -145,17 +140,17 @@ func ParseUSI(input string) (ParsedGame, error) {
 
 // ── KI2 ─────────────────────────────────────────────────────
 
-// ki2MoveRe 는 표식으로 시작하는 낱말 하나다. 전각 공백(U+3000)이 \s 에 들어가지 않아서
-// 「▲同　銀」이 한 낱말로 잡힌다 — KIF 가 그 자리에 넣는 공백이고 parseKIFMove 가 읽는다.
+// ki2MoveRe 는 표식으로 시작하는 낱말 하나다. 전각 공백(U+3000)이 \s 에 들어가지 않아
+// 「▲同　銀」이 한 낱말로 잡히고, 그 공백은 parseKIFMove 가 읽는다.
 var ki2MoveRe = regexp.MustCompile(`[▲△▼▽]([^▲△▼▽\s]+)`)
 
-// ParseKI2 는 원위치를 적지 않는 표기를 읽는다 — 「▲７六歩 △３四歩」.
+// ParseKI2 는 원위치를 적지 않는 표기를 읽는다(「▲７六歩 △３四歩」).
 //
 // 手数도 원위치도 없다. 순서는 낱말 순서가, 출발칸은 룰 엔진이 정한다
-// (shogi.Position.ResolveOrigin) — 수식어로도 좁혀지지 않으면 실패하고 고르지 않는다.
+// (shogi.Position.ResolveOrigin). 수식어로도 좁혀지지 않으면 고르지 않고 실패한다.
 //
-// 표식이 手番과 어긋나면 실패한다. 수가 빠졌거나 分岐가 섞인 자리이고, 그대로 읽으면
-// 남은 수순 전체가 다른 판이 되는데 합법수라 ValidateMove 는 잡지 않는다.
+// 표식이 手番과 어긋나면 실패한다. 그대로 읽으면 남은 수순 전체가 다른 판이 되는데
+// 합법수라 ValidateMove 는 잡지 않는다.
 func ParseKI2(input string) (ParsedGame, error) {
 	g := ParsedGame{StartSFEN: shogi.StartSFEN}
 	pos := shogi.StartPosition()
@@ -196,7 +191,7 @@ func ParseKI2(input string) (ParsedGame, error) {
 				g.Result = end(pos.Turn)
 				continue
 			}
-			// ▲가 先手다. 駒落ち도 같다 — 판 위의 색이 手合割에 흔들리지 않는다.
+			// ▲가 先手다. 駒落ち도 같다. 판 위의 색은 手合割에 흔들리지 않는다.
 			want := shogi.Black
 			if mark == '△' || mark == '▽' {
 				want = shogi.White
@@ -221,8 +216,7 @@ func ParseKI2(input string) (ParsedGame, error) {
 
 // endOf 는 판이 끝난 사유인 낱말을 가른다.
 //
-// 답을 手番의 함수로 준다. 投了는 던지는 쪽의 手番에 적히므로 그 자리에서 진 사람이
-// 누구인지가 手番으로 정해진다(ParseKIF 의 같은 판단).
+// 답을 手番의 함수로 준다. 投了는 던지는 쪽의 手番에 적히므로 진 사람이 手番으로 정해진다.
 func endOf(text string) (func(shogi.Color) GameResult, bool) {
 	switch {
 	case strings.HasPrefix(text, "投了"), strings.HasPrefix(text, "詰み"), strings.HasPrefix(text, "切れ負け"):
@@ -240,12 +234,10 @@ func endOf(text string) (func(shogi.Color) GameResult, bool) {
 	return nil, false
 }
 
-// ParsePlain 은 공백으로 떨어진 표기만 있는 텍스트를 읽는다 — 「７六歩 ３四歩 ２六歩」.
+// ParsePlain 은 공백으로 떨어진 표기만 있는 텍스트를 읽는다(「７六歩 ３四歩 ２六歩」).
 //
-// 낱말 하나라도 읽지 못하면 실패한다. 건너뛰면 아무 산문에서나 수처럼 생긴 조각을 주워
-// 반쯤 읽은 기보를 만든다.
-//
-// 마지막에 대 보는 파서다. 가장 느슨해서 먼저 두면 남의 형식을 가로챈다.
+// 낱말 하나라도 읽지 못하면 실패한다. 건너뛰면 아무 산문에서나 수처럼 생긴 조각을 줍는다.
+// 가장 느슨해서 마지막에 대 본다(readers).
 func ParsePlain(input string) (ParsedGame, error) {
 	return ParseMoves("", strings.Fields(input))
 }
@@ -256,10 +248,9 @@ func ParsePlain(input string) (ParsedGame, error) {
 // (internal/kifunorm).
 //
 // 여기가 정규화 계층의 출력이 수가 되는 하나뿐인 문이다. 낱말 하나하나가 룰 엔진을
-// 지나므로, 옮겨 적는 쪽이 지어낸 것은 여기서 걸린다.
+// 지나므로 옮겨 적는 쪽이 지어낸 것은 여기서 걸린다.
 //
-// 手番은 국면이 맡는다 — 표식(▲△)이 없어도 되고, 붙어 있으면 떼고 읽는다. 手가 하나 빠지면
-// 다음 낱말이 상대의 駒를 움직이는 것이 되어 대개 ValidateMove 가 잡는다.
+// 手番은 국면이 맡는다. 표식(▲△)은 붙어 있으면 떼고 읽는다.
 func ParseMoves(handicapName string, moves []string) (ParsedGame, error) {
 	pos, sfen, err := startOf(handicapName)
 	if err != nil {
@@ -293,8 +284,8 @@ func ParseMoves(handicapName string, moves []string) (ParsedGame, error) {
 	return g, nil
 }
 
-// oneMove 는 낱말 하나를 수로 만든다. USI 와 일본어 표기가 섞여 올 수 있다 —
-// 옮겨 적는 쪽이 원문의 표기를 그대로 두기 때문이다.
+// oneMove 는 낱말 하나를 수로 만든다. 옮겨 적는 쪽이 원문 표기를 그대로 두므로 USI 와
+// 일본어 표기가 섞여 올 수 있다.
 func oneMove(text string, pos shogi.Position, prevTo int) (shogi.Move, error) {
 	if usiMoveRe.MatchString(text) {
 		return shogi.ParseUSIMove(text)

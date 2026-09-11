@@ -8,15 +8,15 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// pieceValue 는 shogi.PieceValue 를 가리킨다. 표는 저쪽에 한 벌만 둔다 — tag 도
-// 같은 값을 쓰는데 그쪽에서 이 패키지를 import하면 순환이 된다.
+// pieceValue 는 shogi.PieceValue 를 가리킨다. 표는 저쪽에 한 벌만 둔다. tag 도 같은
+// 값을 쓰는데 그쪽에서 이 패키지를 import하면 순환이 된다.
 func pieceValue(t shogi.PieceType) int { return shogi.PieceValue(t) }
 
 // UnpromotedOnly 는 둔 수가 최선수와 같은 이동인데 成하지 않은 것인지 본다. 이게 없어서
 // 화면이 「잡지 말라」로 읽히는 설명을 내보냈다(08-playtest.md §8).
 //
 // 판정은 여기서 하고 intervene 에는 참거짓만 간다(journal §15).
-// 거울상(成らずの妙手)은 보지 않는다 — 초심자에게는 나오지 않는 모양이다. [미확정]
+// 거울상(成らずの妙手)은 보지 않는다. 초심자에게는 나오지 않는 모양이다. [미확정]
 func UnpromotedOnly(played shogi.Move, bestUSI string) bool {
 	if played.IsDrop() || played.Promote || bestUSI == "" {
 		return false
@@ -30,8 +30,8 @@ func UnpromotedOnly(played shogi.Move, bestUSI string) bool {
 
 // MoveFeatures 는 착수 전 국면과 그 한 수에서 카테고리 판정에 쓸 사실을 뽑는다.
 //
-// 여기가 판을 읽는 하나뿐인 자리다. intervene 은 여기서 나온 숫자만 받는다 —
-// 그 패키지가 엔진도 판도 모른다는 성질이 카테고리에도 남아야 하기 때문이다.
+// 여기가 판을 읽는 하나뿐인 자리다. intervene 은 여기서 나온 숫자만 받는다. 그
+// 패키지가 엔진도 판도 모른다는 성질이 카테고리에도 남아야 한다.
 //
 // 엔진에서 오는 두 값(얕은 평가)은 부르는 쪽이 채운다. 이 함수는 룰 엔진만 쓴다.
 func MoveFeatures(before shogi.Position, m shogi.Move) intervene.Features {
@@ -41,9 +41,8 @@ func MoveFeatures(before shogi.Position, m shogi.Move) intervene.Features {
 
 // moveFacts 는 판정에 쓸 사실과 설명에 쓸 사실을 한 번에 뽑는다.
 //
-// 나눠서 두 번 세면 경고 없이 어긋난다 — 카테고리는 タダ捨て를 부정했는데 문장은
-// 「取れる相手の駒が2枚あります」라고 말하는 식이다. 같은 것을 두 곳에서 세는 것이 그
-// 어긋남의 원인이므로 세는 자리를 하나로 둔다.
+// 나눠서 두 번 세면 경고 없이 어긋난다. 카테고리는 タダ捨て를 부정했는데 문장은
+// 「取れる相手の駒が2枚あります」라고 말하는 식이다.
 //
 // 둘의 성격은 다르다. 판정용은 임계치와 견줄 값이고(歩 1, 飛 10), 설명용은 화면에 그대로
 // 나갈 이름과 매수다. 그래서 타입이 갈려 있고, 여기서만 만난다.
@@ -66,11 +65,9 @@ func moveFacts(before shogi.Position, m shogi.Move) (intervene.Features, explain
 	// 성했으면 성한 이름이다. 판이 그렇게 그리고 棋譜도 그렇게 적는다.
 	d.MovedPiece = shogi.PieceJa(after.Board[to].Type())
 
-	// 利き 대신 합법수로 묻는다. IsAttacked 는 핀을 보지 않는다 — 玉 앞에 묶여
-	// 움직일 수 없는 駒도 「노리고 있다」로 센다. 玉 주변의 압력을 재는 데는 그걸로
-	// 충분하지만(AttackCount), 여기서 나온 값은 「その駒は取り返せない場所に
-	// 置かれています」라는 화면에 그대로 나가는 단언이 된다. 잡을 수 없는 駒를 두고
-	// 잡힌다고 말하면 초심자는 그것을 검증할 수단이 없다.
+	// 利き 대신 합법수로 묻는다. IsAttacked 는 핀을 보지 않아 玉 앞에 묶여 움직일 수
+	// 없는 駒도 「노리고 있다」로 센다. 여기서 나온 값은 「その駒は取り返せない場所に
+	// 置かれています」라는 단언이 되어 화면에 그대로 나간다.
 	capturers := legalCapturesOn(after, to)
 	f.LandsAttacked = len(capturers) > 0
 
@@ -101,9 +98,8 @@ func moveFacts(before shogi.Position, m shogi.Move) (intervene.Features, explain
 
 // distinctSources 는 수 목록에 등장하는 駒의 매수를 센다.
 //
-// 같은 출발 칸에서 나온 수는 한 장이다 — 成·不成이 두 수로 오는 것이 흔하다. 打는 그
-// 자리에 駒가 있으면 애초에 둘 수 없으므로 따는 수에는 들어오지 않지만, 들어와도 한 장으로
-// 세도록 -1을 하나의 출처로 취급한다.
+// 같은 출발 칸에서 나온 수는 한 장이다. 成·不成이 두 수로 오는 것이 흔하다. 打는 따는
+// 수에 들어오지 않지만, 들어와도 한 장으로 세도록 -1을 하나의 출처로 취급한다.
 func distinctSources(moves []shogi.Move) int {
 	seen := make(map[int]struct{}, len(moves))
 	for _, m := range moves {
@@ -118,7 +114,7 @@ func distinctSources(moves []shogi.Move) int {
 
 // legalCapturesOn 은 sq 위의 駒를 실제로 딸 수 있는 합법수를 모은다.
 //
-// 매 수 한 번 도는 비용이고, 그 옆에서 엔진 탐색이 수백 ms를 쓴다. 정확도를 살 값으로 싸다.
+// 매 수 한 번 도는 비용이고, 그 옆에서 엔진 탐색이 수백 ms를 쓴다.
 func legalCapturesOn(pos shogi.Position, sq int) []shogi.Move {
 	var out []shogi.Move
 	for _, m := range pos.LegalMoves() {
@@ -147,13 +143,12 @@ func kingPressure(pos *shogi.Position, c shogi.Color) (defend, threat int) {
 
 // replay 는 startSFEN 에 수순을 놓아 착수 전 국면과 마지막 한 수를 돌려준다.
 //
-// 판정은 세션 goroutine 밖에서 도는데, 세션의 국면을 빌려다 읽으면 그때
-// 「상태를 소유하는 goroutine 하나」가 깨진다. 다시 놓는 편이 싸다 — 수십 번의
-// Apply 이고, 그 옆에서 엔진 탐색이 수백 ms를 쓴다.
+// 판정은 세션 goroutine 밖에서 도는데, 세션의 국면을 빌려다 읽으면 상태 소유 규약이
+// 깨진다. 다시 놓는 편이 싸다.
 func replay(startSFEN string, moves []string) (shogi.Position, shogi.Move, error) {
 	// 부르는 쪽이 이미 막고 있지만 여기서도 막는다. 판정은 세션 goroutine 밖의
 	// 맨 go func() 에서 도는데 recover 가 없어서, 여기서 panic 하면 서버 프로세스가
-	// 죽는다. 전제를 30줄 떨어진 다른 파일에 맡기지 않는다.
+	// 죽는다.
 	if len(moves) == 0 {
 		return shogi.Position{}, shogi.Move{}, errors.New("replay: no moves")
 	}

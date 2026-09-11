@@ -7,8 +7,8 @@ import { Unavailable } from './Unavailable';
 /**
  * 상대가 들어오기 전의 화면.
  *
- * 여기서 할 일이 하나뿐이다 — 링크를 건네는 것. 그래서 링크가 화면의 주인공이고,
- * 판은 아직 그리지 않는다(그릴 판이 없다: 대국은 둘이 다 붙어야 시작된다).
+ * 여기서 할 일이 링크를 건네는 것 하나라 링크가 화면의 주인공이다. 대국은 둘이 다 붙어야
+ * 시작되므로 판은 아직 그리지 않는다.
  */
 export function Waiting({
   connection,
@@ -22,8 +22,8 @@ export function Waiting({
   /** 서버가 말한 거절. 방이 걷혔을 때 그 이유가 여기로 온다. */
   rejection: string | null;
 }) {
-  // 방 하나 받지 못하고 끊겼으면 앉지 못한 것이다. 앞의 확인(`fetchRoom`)을
-  // 통과했는데도 그렇다면 그 사이에 남이 자리를 채운 것이고, 그 답은 「열 수 없다」 하나다.
+  // 방 하나 받지 못하고 끊겼으면 앉지 못한 것이다. 앞의 확인(`fetchRoom`)을 통과했는데도
+  // 그렇다면 그 사이에 남이 자리를 채운 것이고, 그 답은 「열 수 없다」 하나다.
   if (connection === 'closed' && !room) return <Unavailable />;
 
   if (!room) {
@@ -41,7 +41,7 @@ export function Waiting({
 
       {dropped && (
         <div className="match-lost" role="alert">
-          {/* 서버가 이유를 말했으면 그것을 그대로 쓴다 — 방이 걷힌 것과 그냥 끊긴 것은
+          {/* 서버가 이유를 말했으면 그것을 그대로 쓴다. 방이 걷힌 것과 그냥 끊긴 것은
               사람에게 다른 일이고, 앞은 다시 눌러도 열리지 않는다. */}
           <p>{rejection ?? '接続が切れました。このリンクは今つながっていません。'}</p>
           <button type="button" className="btn btn--primary" onClick={() => window.location.reload()}>
@@ -50,16 +50,15 @@ export function Waiting({
         </div>
       )}
 
-      {/* 끊긴 동안에는 링크를 그리지 않는다. 배너가 「이 방은 끝났다」고 말하는 옆에
-          복사 버튼이 떠 있으면 그 링크를 보내는 사람이 생긴다 — 화면이 두 말을 하면
-          사람은 하고 싶은 쪽을 믿는다. */}
+      {/* 끊긴 동안에는 링크를 그리지 않는다. 배너가 「이 방은 끝났다」고 말하는 옆에 복사
+          버튼이 떠 있으면 그 링크를 보내는 사람이 생긴다. */}
       {dropped ? null : room.waiting ? (
         <>
           <p className="setup__caveat">下のリンクを相手に送ってください。相手が開くと、その場で対局がはじまります。</p>
           <InviteLink url={url} />
           <p className="setup__caveat">
-            {/* 정원과 만료를 먼저 말한다. 링크를 어디에 붙일지가 그 두 사실로 갈린다 —
-                「누구나 볼 수 있는 곳」에 붙여도 되는지가 여기서 답이 난다. */}
+            {/* 정원과 만료를 먼저 말한다. 「누구나 볼 수 있는 곳」에 붙여도 되는지가 그 두
+                사실로 갈린다. */}
             このリンクで入れるのは<strong>一人だけ</strong>
             です。二人そろうと、それ以外の人は開けなくなります。誰も入らないまま30分たつと、このリンクは使えなくなります。
           </p>
@@ -79,8 +78,8 @@ export function Waiting({
         で、切れるとその場で負けになります。
       </p>
 
-      {/* 대인전에는 개입이 없다고 미리 말한다. 이 앱을 개입으로 알고 온 사람에게는
-          그것이 「고장」으로 읽힌다 — 개입이 없는 판이라 뜰 것이 없다. */}
+      {/* 대인전에는 개입이 없다고 미리 말한다. 이 앱을 개입으로 알고 온 사람에게는 뜨지
+          않는 것이 「고장」으로 읽힌다. */}
       <p className="setup__caveat">
         対人戦では、口出し（待ったの巻き戻し）もヒントも出ません。終わったあとに棋譜を振り返れます。
       </p>
@@ -88,7 +87,7 @@ export function Waiting({
   );
 }
 
-/** 링크 한 줄과 복사 버튼. 주소를 글자로도 보여준다 — 복사가 막힌 환경이 있다. */
+/** 링크 한 줄과 복사 버튼. 복사가 막힌 환경이 있어 주소를 글자로도 보여준다. */
 function InviteLink({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -105,7 +104,7 @@ function InviteLink({ url }: { url: string }) {
               setCopied(true);
               window.setTimeout(() => setCopied(false), 2000);
             })
-            // 복사가 막혀 있어도 화면은 그대로 뜬다 — 위 입력칸에 주소가 있다.
+            // 복사가 막혀 있어도 위 입력칸에 주소가 있다.
             .catch(() => setCopied(false));
         }}
       >

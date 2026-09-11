@@ -23,8 +23,8 @@ func ki2Of(t *testing.T, g ParsedGame) string {
 	return strings.Join(ja, "\n")
 }
 
-// 이 왕복이 성립해야 KI2 가 LLM 없이 읽힌다. 렌더러(MoveJa)는 원위치를 적지 않고 수식어만
-// 붙이므로, 되읽으려면 룰 엔진이 출발칸을 되찾아야 한다(shogi.ResolveOrigin).
+// 이 왕복이 성립해야 KI2 가 LLM 없이 읽힌다. 렌더러(MoveJa)가 원위치를 적지 않으므로
+// 되읽으려면 룰 엔진이 출발칸을 되찾아야 한다(shogi.ResolveOrigin).
 func TestRenderedNotationReadsBack(t *testing.T) {
 	data, err := os.ReadFile("testdata/sample.kif")
 	if err != nil {
@@ -91,7 +91,7 @@ func TestRenderedNotationReadsBack_Floodgate(t *testing.T) {
 }
 
 // 수식어가 좁히지 않으면 고르지 않는다. 골라 버리면 그 뒤 전체가 다른 판이 되는데
-// 합법수라 ValidateMove 도 잡지 않는다.
+// 합법수라 ValidateMove 가 잡지 않는다.
 func TestAmbiguousNotationIsRefused(t *testing.T) {
 	// 6八金과 4八金이 둘 다 5八로 갈 수 있다. 「5八金」만으로는 어느 쪽인지 정해지지 않는다.
 	pos, err := shogi.ParseSFEN("8k/9/9/9/9/9/9/3G1G3/K8 b - 1")
@@ -111,8 +111,8 @@ func TestAmbiguousNotationIsRefused(t *testing.T) {
 	}
 }
 
-// 수식어가 成 앞에 오는 표기. 이걸 읽지 못하면 승격이 경고 없이 빠지고, 남는 수가 합법수라
-// ValidateMove 도 잡지 않는다.
+// 수식어가 成 앞에 오는 표기. 읽지 못하면 승격이 경고 없이 빠지고, 남는 수가 합법수라
+// ValidateMove 가 잡지 않는다.
 func TestModifierBeforePromotion(t *testing.T) {
 	// 7三銀과 5三銀이 둘 다 6二로 갈 수 있고, 6二는 成れる 자리다.
 	pos, err := shogi.ParseSFEN("8k/9/2S1S4/9/9/9/9/9/K8 b - 1")
@@ -234,8 +234,8 @@ func TestReadRefusesJunk(t *testing.T) {
 	}
 }
 
-// 몇 手目에서 깨졌는지가 화면에 나간다. 문구에서 번호를 다시 뽑는 코드는 오류 문구를
-// 고치는 날 경고 없이 어긋난다.
+// 몇 手目에서 깨졌는지가 화면에 나간다. 문구에서 번호를 다시 뽑으면 오류 문구를 고치는
+// 날 경고 없이 어긋난다.
 func TestReadSaysWhichMoveBroke(t *testing.T) {
 	_, _, err := Read("▲7六歩 △3四歩 ▲9九玉")
 	var me *MoveError

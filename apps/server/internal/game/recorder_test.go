@@ -89,8 +89,8 @@ func TestRecorderKeepsRetractedMovesOutOfTheKifu(t *testing.T) {
 			t.Fatalf("물러진 수가 기보로 갔다: %v", rec.all())
 		}
 	}
-	// 물러진 수는 카테고리와 함께 남는다. 문장은 남기지 않는다 — 카테고리에서 결정적으로
-	// 다시 만들어지므로(explain.BaseMessage) 적어 두면 두 벌이 된다.
+	// 물러진 수는 카테고리와 함께 남는다. 문장은 카테고리에서 결정적으로 다시
+	// 만들어지므로(explain.BaseMessage) 남기지 않는다.
 	want := "retracted 1 7g7f hangs_piece"
 	if !contains(rec.all(), want) {
 		t.Fatalf("%q 가 없다: %v", want, rec.all())
@@ -145,7 +145,7 @@ func TestRecorderLogsTheEnding(t *testing.T) {
 	}
 }
 
-// Recorder 가 nil이어도 대국은 그대로 돈다. 기록은 부가 기능이고 대국이 본체다.
+// Recorder 가 nil이어도 대국은 그대로 돈다.
 func TestSessionRunsWithoutRecorder(t *testing.T) {
 	s := newSession(t, Config{
 		Opponent: &scriptedOpponent{moves: []string{"3c3d"}}, HumanColor: shogi.Black,

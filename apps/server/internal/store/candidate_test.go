@@ -29,7 +29,7 @@ func TestACandidateWritesEitherCpOrMateNeverBoth(t *testing.T) {
 }
 
 // 옛 행은 詰み 줄에 cp 와 mate 를 함께 적었고 그 cp 는 환산값이다. mate 가 있으면
-// 그쪽이 이긴다 — 그래서 마이그레이션이 없다(journal §131).
+// 그쪽이 이긴다(journal §131).
 func TestAnOldRowKeepsItsMateAndDropsTheSynthesisedCp(t *testing.T) {
 	var c Candidate
 	if err := json.Unmarshal([]byte(`{"usi":"2b3c","cp":29990,"mate":1,"pv":["2b3c"]}`), &c); err != nil {

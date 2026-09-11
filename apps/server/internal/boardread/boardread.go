@@ -1,22 +1,14 @@
 // Package boardread 는 판이 찍힌 그림에서 국면 한 벌을 읽는다.
 //
-// 여기는 그려진 것만 만진다. 手番도 정하지 않고, 합법인지도 보지 않고, 무엇이 좋은
-// 수인지는 묻지도 않는다 — 나온 국면은 룰 엔진의 검사를 지나야 쓰이고(shogi.Faults),
-// 그 검사가 잡을 수 없는 오독은 사람이 확인 화면에서 고친다(journal §129).
+// 여기는 그려진 것만 만진다. 手番도 정하지 않고 합법인지도 보지 않는다. 나온 국면은
+// shogi.Faults 를 지나야 쓰이고, 그 검사가 못 잡는 오독은 사람이 확인 화면에서 고친다
+// (journal §129).
 //
-// 좌표를 시키지 않는다. kifunorm 이 그은 경계와 같은 자리이고, 여기서는 그것이
-// 「프롬프트가 筋도 段도 말하지 않는다」로 나온다 — 시키는 일이 「위 줄부터, 왼쪽부터
-// 그려진 대로 적어라」 하나다. 그 순서가 SFEN 판 칸의 순서와 그대로 같아서(internal/shogi
-// 패키지 doc) 옮기는 코드에 좌표 계산이 없다.
-//
-// 先手·後手도 시키지 않는다. 사진은 찍은 사람의 시점이라 아래쪽이 언제나 자기 편이고,
-// 그림에서 알 수 있는 것은 「위쪽 편인가 아래쪽 편인가」뿐이다 — 그래서 이 계층은
-// 그것만 말하고, 아래쪽을 先手로 두는 것은 코드가 정한다. 쇼기에 선후 비대칭 규칙이
-// 없어서 그 정규화에 잃는 것이 없고, 그 덕에 사람에게 물을 것이 「あなたの手番ですか」
-// 하나로 줄어든다.
+// 좌표도 先手·後手도 시키지 않는다(journal §129). 프롬프트가 시키는 말이 「위 줄부터,
+// 왼쪽부터, 그려진 대로」 하나이고, 아래쪽을 先手로 두는 것은 코드가 정한다.
 //
 // 그림은 신뢰할 수 없는 입력이다. 스키마가 출력 모양을 묶으므로 그림에 무엇이 적혀
-// 있든 최악이 「거절되는 읽기」다 — 실제로 방송 화면에는 그런 글이 찍혀 온다.
+// 있든 최악이 「거절되는 읽기」다. 실제로 방송 화면에는 그런 글이 찍혀 온다.
 //
 // 키가 없으면 이 계층만 꺼진다. 다른 표면은 한 줄도 바뀌지 않는다.
 package boardread
@@ -36,29 +28,20 @@ import (
 
 // MaxImage 는 받는 그림의 크기 상한이다.
 //
-// 화면 캡처 한 장이 보통 2MB 아래다. 그 세 배로 두면 사람이 올리는 것은 다 들어오고,
-// 그 위는 사진과 다른 것이다.
+// 화면 캡처 한 장이 보통 2MB 아래다. 그 세 배로 두면 사람이 올리는 것이 다 들어온다.
 const MaxImage = 6 << 20
 
-// DefaultModel 은 값이 주어지지 않았을 때의 모델이다. 실측으로 골랐다(journal §129).
+// DefaultModel 은 값이 주어지지 않았을 때의 모델이다.
 //
 // 여기는 mini 를 쓰지 않는다. kifunorm 쪽은 글자를 옮겨 적는 일이고, 여기는 81칸의 작은
-// 글자와 그 방향을 읽는 일이다.
-//
-// 라벨 붙인 그림 8장에서 gpt-5.4 가 92.9%·성립하는 판 0/8 인데 이 모델이 98.1%·8/8 이다.
-// 프롬프트를 네 번 고쳐 얻은 것이 2.8%p 인데 모델 하나가 5.2%p 를 냈다 — 이 계층에서는
-// 모델이 프롬프트보다 큰 손잡이다. 토큰은 두 배쯤 쓴다.
-//
-// 갈아 끼울 자리를 남긴다(BOARDREAD_MODEL). 재는 법은 apps/server/README.md.
+// 글자와 그 방향을 읽는 일이다. 실측으로 골랐고 이 계층에서는 모델이 프롬프트보다 큰
+// 손잡이였다(journal §129). 갈아 끼울 자리를 남긴다(BOARDREAD_MODEL).
 const DefaultModel = "gpt-5.5"
 
 // defaultTimeout 은 한 번의 호출에 주는 시한이다.
 //
-// kifunorm(30s)보다 한참 길다. 81칸을 큰 해상도로 보는 호출이라 더 걸리고, 사람이 그림을
-// 올려 둔 채 기다리는 자리라 한 번에 끝나는 편이 다시 올리는 것보다 낫다.
-//
-// 60초에서 올렸다. 그 값에서 실측 8장 중 한 장이 걸렸고(journal §129), 걸린 호출은
-// 사람에게 「読み取れませんでした」로 보인다 — 다시 올리면 토큰을 한 번 더 쓴다.
+// kifunorm(30s)보다 한참 길다. 81칸을 큰 해상도로 보는 호출이라 더 걸리고, 걸린 호출은
+// 사람에게 「読み取れませんでした」로 보인다. 60초에서 올렸다(journal §129).
 const defaultTimeout = 2 * time.Minute
 
 const endpoint = "https://api.openai.com/v1/responses"
@@ -73,11 +56,11 @@ var ErrTooLarge = errors.New("boardread: image too large")
 var ErrNotImage = errors.New("boardread: not a png, jpeg or webp image")
 
 // ErrNoBoard 는 그림에 판이 없다고 답이 온 자리다. 고장 없이도 나오는 답이라 사유를
-// 가른다 — 화면이 「다시 눌러 보라」 대신 「판이 보이는 그림을 올려라」를 말해야 한다.
+// 가르고, 화면이 「판이 보이는 그림을 올려라」를 말한다.
 var ErrNoBoard = errors.New("boardread: no board in the image")
 
 // Client 는 읽기 창구다. 키가 없으면 New 가 nil 을 주고, nil 에 Read 를 불러도 안전하게
-// ErrDisabled 다 — 부르는 쪽이 nil 검사를 흘리지 않게 하는 자리다(kifunorm.Client 와 같다).
+// ErrDisabled 다(kifunorm.Client 와 같다).
 type Client struct {
 	key   string
 	model string
@@ -105,8 +88,7 @@ func New(key, model string) *Client {
 type Result struct {
 	// SFEN 은 아래쪽 편을 先手로 둔 국면이다.
 	//
-	// 手番이 언제나 "b" 로 적혀 있고, 그 한 글자는 아직 미정이다 — 사진은 手番을
-	// 말해 주지 않으므로 사람이 고르고, 고른 값이 이 자리를 덮는다.
+	// 手番이 언제나 "b" 이고 그 한 글자는 아직 미정이다. 사람이 고른 값이 덮는다.
 	SFEN string
 	// Tokens 는 이 호출이 쓴 토큰 수다. 로그에만 나간다.
 	Tokens int
@@ -120,13 +102,10 @@ func (c *Client) Model() string {
 	return c.model
 }
 
-// Read 는 그림 한 장에서 국면을 읽는다.
-//
-// 실패·시한·스키마 위반이 전부 같은 결과다 — 거절. 반쯤 읽은 판을 쓰면 없는 국면 위에서
-// 형세와 최선수가 돌고, 그것은 초심자가 검증할 수 없는 거짓이다.
+// Read 는 그림 한 장에서 국면을 읽는다. 실패·시한·스키마 위반이 전부 거절이다.
 //
 // 한 번만 다시 해 본다. 5xx 와 끊긴 연결은 다음 번에 붙지만, 스키마를 어긴 응답은 다시
-// 물어도 같은 자리에서 같은 답이다(kifunorm.Normalize 와 같은 판단).
+// 물어도 같은 답이다(kifunorm.Normalize 와 같은 판단).
 func (c *Client) Read(ctx context.Context, image []byte) (Result, error) {
 	if c == nil {
 		return Result{}, ErrDisabled
@@ -134,8 +113,7 @@ func (c *Client) Read(ctx context.Context, image []byte) (Result, error) {
 	if len(image) > MaxImage {
 		return Result{}, ErrTooLarge
 	}
-	// 클라이언트가 말한 형식을 믿지 않는다. 앞머리를 직접 본다 — 남이 붙인 이름으로
-	// 형식을 정하면 png 라고 적힌 무엇이든 저쪽 API 로 그대로 나간다.
+	// 클라이언트가 말한 형식을 믿지 않는다. png 라고 적힌 무엇이든 저쪽으로 나간다.
 	mime, ok := imageMIME(image)
 	if !ok {
 		return Result{}, ErrNotImage
@@ -182,8 +160,7 @@ func (c *Client) once(ctx context.Context, dataURL string) (Result, bool, error)
 	}
 	defer res.Body.Close()
 
-	// 응답 전체를 읽되 상한을 건다. 여기서 무한정 읽으면 남의 서버가 이 프로세스의
-	// 메모리를 정하게 된다.
+	// 응답에 상한을 건다. 무한정 읽으면 남의 서버가 이 프로세스의 메모리를 정한다.
 	raw, err := io.ReadAll(io.LimitReader(res.Body, 4<<20))
 	if err != nil {
 		return Result{}, true, fmt.Errorf("boardread: read: %w", err)
@@ -223,8 +200,7 @@ func (c *Client) once(ctx context.Context, dataURL string) (Result, bool, error)
 
 // imageMIME 은 앞머리로 형식을 정한다. 아는 셋이 아니면 거짓이다.
 //
-// gif 를 받지 않는다. 애니메이션이면 어느 프레임을 읽었는지가 답에 적히지 않고, 그러면
-// 사람이 확인 화면에서 보는 판이 어느 순간의 것인지 알 수 없다.
+// gif 를 받지 않는다. 애니메이션이면 어느 프레임을 읽었는지가 답에 적히지 않는다.
 func imageMIME(b []byte) (string, bool) {
 	switch {
 	case bytes.HasPrefix(b, []byte("\x89PNG\r\n\x1a\n")):
@@ -239,8 +215,7 @@ func imageMIME(b []byte) (string, bool) {
 
 // Ext 는 이 그림의 확장자다(.png). 아는 형식이 아니면 빈 값이다.
 //
-// 앞머리로 정한다. 그림을 파일로 떨어뜨리는 자리가 이름을 지을 때 쓰는데(server 의
-// 픽스처 수집), 클라이언트가 말한 형식을 쓰면 남이 준 글자가 파일 이름에 들어간다.
+// 앞머리로 정한다. 클라이언트가 말한 형식을 쓰면 남이 준 글자가 파일 이름에 들어간다.
 func Ext(image []byte) string {
 	mime, ok := imageMIME(image)
 	if !ok {
@@ -267,9 +242,8 @@ func SetURLForTest(c *Client, url string) {
 
 // sfenOf 는 읽어 낸 격자를 SFEN 한 줄로 옮긴다.
 //
-// 좌표 계산이 없다. 그림의 위 줄부터·왼쪽부터가 곧 SFEN 판 칸의 순서이고
-// (段一부터, 각 단에서 筋9→筋1), 대문자가 아래쪽 편인 것이 곧 SFEN 의 대문자=先手다.
-// 아래쪽을 先手로 두기로 정했으므로 글자를 그대로 옮기면 된다.
+// 좌표 계산이 없다. 그림의 위 줄부터·왼쪽부터가 곧 SFEN 판 칸의 순서이고(段一부터, 각
+// 단에서 筋9→筋1), 대문자가 아래쪽 편인 것이 곧 SFEN 의 대문자=先手다.
 func sfenOf(got read) (string, error) {
 	if len(got.Rows) != 9 {
 		return "", fmt.Errorf("boardread: %d rows, want 9", len(got.Rows))
@@ -299,14 +273,14 @@ func sfenOf(got read) (string, error) {
 		}
 	}
 
-	// 手番은 아직 미정이다. 사람이 고른 값이 이 자리를 덮는다(Result.SFEN).
+	// 手番은 아직 미정이다(Result.SFEN).
 	return board.String() + " b " + handField(got.NearHand, got.FarHand) + " 1", nil
 }
 
 // handField 는 두 駒台를 SFEN 의 持ち駒 칸으로 옮긴다.
 //
-// 아래쪽이 대문자다. 순서는 관례대로 飛角金銀桂香歩이고, 1장은 개수를 적지 않는다 —
-// 값을 왕복시키는 시험이 그 규약에 걸린다(shogi.Position.SFEN).
+// 아래쪽이 대문자다. 순서는 관례대로 飛角金銀桂香歩이고, 1장은 개수를 적지 않는다
+// (shogi.Position.SFEN 을 왕복시키는 시험이 그 규약에 걸린다).
 func handField(near, far hand) string {
 	var b strings.Builder
 	writeSide(&b, near, true)
@@ -334,9 +308,8 @@ var handOrder = []struct {
 // maxInHand 는 한 종류의 持ち駒로 적을 수 있는 최대 수다. 한 판의 말 수다.
 //
 // 종류마다 한 벌의 수(歩 18·香 4…)로 자르지 않는다. 넘치는 것은 그대로 국면에 실어
-// 보내고 룰 엔진이 「歩가 몇 장 많다」로 짚어 주는 편이, 경고 없이 깎아서 사람이 駒台를
-// 다시 세게 만드는 것보다 낫다 — 어느 종류든 이 값을 넘으면 그것은 이미 개수를 벗어난
-// 값이고, 여기서 막는 것은 shogi.Position.Hands 의 int8 이 넘치는 값뿐이다.
+// 보내고 룰 엔진이 「歩가 몇 장 많다」로 짚어 준다. 여기서 막는 것은
+// shogi.Position.Hands 의 int8 이 넘치는 값뿐이다.
 const maxInHand = 40
 
 func writeSide(b *strings.Builder, h hand, near bool) {
@@ -356,7 +329,7 @@ func writeSide(b *strings.Builder, h hand, near bool) {
 	}
 }
 
-// itoa 는 작은 수 하나를 적는다. strconv 를 부르지 않는 것은 값이 두 자리를 넘지 않아서다(빈 칸 1~9 · 持ち駒 1~maxInHand).
+// itoa 는 작은 수 하나를 적는다. 값이 두 자리를 넘지 않아 strconv 를 부르지 않는다.
 func itoa(n int) string {
 	if n < 10 {
 		return string(rune('0' + n))

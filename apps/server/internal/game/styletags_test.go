@@ -28,7 +28,7 @@ func styleCodes(snap Snapshot) []string {
 // 스냅샷이 플레이어 쪽 태그를 나른다. 색을 바꿔도 플레이어 쪽이 나와야 한다.
 //
 // 두 색으로 각각 잰다. 한 색으로만 재면 tag.Detect 에 늘 先手를 넘기는 버그가
-// 통과한다 — 그러면 後手를 잡은 플레이어에게 상대의 囲い 이름이 뜬다.
+// 통과하고, 後手를 잡은 플레이어에게 상대의 囲い 이름이 뜬다.
 func TestSnapshotCarriesPlayersOwnStyleTags(t *testing.T) {
 	for _, tc := range []struct {
 		name     string

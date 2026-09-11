@@ -11,7 +11,7 @@ import (
 
 // chaseOpponent 는 어느 문으로 불렸는지를 남기는 상대다.
 //
-// 고른 수로는 가를 수 없다 — 조절된 수와 최선수가 같은 국면이 흔하고, 그러면 조절이
+// 고른 수로는 가를 수 없다. 조절된 수와 최선수가 같은 국면이 흔하고, 그러면 조절이
 // 꺼지지 않아도 테스트가 초록으로 남는다.
 type chaseOpponent struct {
 	mu    sync.Mutex
@@ -46,13 +46,13 @@ func (o *chaseOpponent) ChooseBest(_ context.Context, _ string, _ []string) (str
 	return o.next("best")
 }
 
-// AdaptsToSkill 이 true 라야 조절하는 상대다 — false 면 애초에 끌 것이 없다.
+// AdaptsToSkill 이 true 라야 조절하는 상대다. false 면 애초에 끌 것이 없다.
 func (o *chaseOpponent) AdaptsToSkill() bool { return true }
 
 // 사람이 詰み을 걸고 있으면 상대가 밴드를 보지 않는다. 연습이 성립하려면 저항이 정직해야
 // 한다는 것이 근거다(MateChasePlies).
 func TestOpponentPlaysBestWhileThePlayerHasAMate(t *testing.T) {
-	// 3手詰 — MateChasePlies(7) 안이다.
+	// 3手詰. MateChasePlies(7) 안이다.
 	mate := &scriptedMate{plies: 3}
 	opp := &chaseOpponent{moves: []string{"3c3d"}}
 	s := newSession(t, Config{Opponent: opp, HumanColor: shogi.Black, Mate: mate})
@@ -77,9 +77,9 @@ func TestOpponentPlaysBestWhileThePlayerHasAMate(t *testing.T) {
 	}
 }
 
-// 詰み이 멀면 평소대로 조절한다 — 이 규칙이 종반 밖으로 새면 상대가 판 내내 최선수다.
+// 詰み이 멀면 평소대로 조절한다. 이 규칙이 종반 밖으로 새면 상대가 판 내내 최선수다.
 func TestOpponentKeepsAdaptingWhenTheMateIsFar(t *testing.T) {
-	// 9手詰 — MateChasePlies(7) 밖이다. 게이지에는 불이 붙는다(세기 1).
+	// 9手詰. MateChasePlies(7) 밖이다. 게이지에는 불이 붙는다(세기 1).
 	mate := &scriptedMate{plies: 9}
 	opp := &chaseOpponent{moves: []string{"3c3d"}}
 	s := newSession(t, Config{Opponent: opp, HumanColor: shogi.Black, Mate: mate})
@@ -123,8 +123,7 @@ func TestOpponentKeepsAdaptingWithoutAGauge(t *testing.T) {
 	}
 }
 
-// 인터페이스를 만족하지 않는 상대에게도 대국은 그대로 돈다. 詰み 연습이 되지 않는 것과
-// 대국이 멈추는 것 중에서는 앞이 낫다(chooseBest).
+// 인터페이스를 만족하지 않는 상대에게도 대국은 그대로 돈다(chooseBest).
 func TestChooseBestFallsBackToTheOrdinaryDoor(t *testing.T) {
 	plain := &scriptedOpponent{moves: []string{"3c3d"}}
 	got, err := chooseBest(t.Context(), plain, "", nil, skill.Unknown)

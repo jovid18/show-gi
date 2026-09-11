@@ -18,7 +18,7 @@ func TestEMFDocumentShape(t *testing.T) {
 
 	doc := emit(t, NewEmitter(r, nil), at)
 
-	// 스펙이 요구하는 것 — _aws 는 루트에 있고 Timestamp 는 밀리초다.
+	// 스펙이 요구하는 것. _aws 는 루트에 있고 Timestamp 는 밀리초다.
 	meta, ok := doc["_aws"].(map[string]any)
 	if !ok {
 		t.Fatalf("_aws 가 없다: %v", doc)
@@ -35,8 +35,8 @@ func TestEMFDocumentShape(t *testing.T) {
 		t.Errorf("Namespace=%v", d["Namespace"])
 	}
 
-	// dimensions 는 Service·Environment 둘이다. 더 늘어나면 지표 수가 그만큼 곱해지고
-	// 그게 요금이다. Environment 가 빠지면 두 환경이 한 계열에 섞인다.
+	// dimensions 는 Service·Environment 둘이다. 더 늘리면 지표 수가 그만큼 곱해지고,
+	// Environment 가 빠지면 두 환경이 한 계열에 섞인다.
 	dims := d["Dimensions"].([]any)
 	if len(dims) != 1 {
 		t.Fatalf("dimensions 집합이 하나가 아니다: %v", dims)
@@ -168,9 +168,8 @@ func emit(t *testing.T, e *Emitter, now time.Time) map[string]any {
 // 고르지 않은 계열의 표본통도 비워야 한다. 남겨 두면 그 계열은 100개가 찬 뒤로 교체
 // 확률이 0에 붙어, 나중에 그것을 내보내기 시작하는 날 첫 주기가 기동 무렵 값을 내보낸다.
 //
-// 예로 쓰는 것이 캐시가 답한 탐색이다. collect 가 computed 만 내므로(분포가 0 근처로
-// 몰리는 것을 막는다) 이쪽이 실제로 고르지 않는 계열이다 — 詰み 풀 대기는 [journal §111]
-// 에서 나가기 시작해 더 이상 예로 쓸 수 없다.
+// 예로 쓰는 것이 캐시가 답한 탐색이다. collect 가 computed 만 내므로 이쪽이 실제로 고르지
+// 않는 계열이다.
 func TestDrainEmptiesUnpickedSeriesToo(t *testing.T) {
 	r := New("api", "prod")
 	for range maxSamples + 50 {
@@ -188,9 +187,8 @@ func TestDrainEmptiesUnpickedSeriesToo(t *testing.T) {
 }
 
 // 詰み 풀 대기가 EMF 로 나간다. 이것이 없으면 詰み 풀이 큐에 섰는지를 프로덕션 데이터로
-// 알 수 없다 — [journal §110]이 그 자리를 부채로 잡아 뒀다.
-//
-// borrower 로 가르지 않는다. 풀 크기가 2라 대기가 0보다 큰 것 자체가 포화다.
+// 알 수 없다(journal §110). borrower 로 가르지 않는 것은 풀 크기가 2라 대기가 0보다 큰
+// 것 자체가 포화이기 때문이다.
 func TestEMFEmitsMatePoolWait(t *testing.T) {
 	r := New("api", "prod")
 	mate := r.Pool(PoolMate)
@@ -215,8 +213,8 @@ func TestEMFEmitsMatePoolWait(t *testing.T) {
 	}
 }
 
-// 풀 대기를 한 번 비워 셋으로 내보낸다. 합친 것에는 분석·검토가 섞여 있어서, 대국이 실제로
-// 굶었는지는 borrower=game 쪽으로만 읽힌다. 세 번째는 詰み 풀이다(아래).
+// 풀 대기를 한 번 비워 셋으로 내보낸다. 합친 것에는 분석·검토가 섞여 있어 대국이 실제로
+// 굶었는지는 borrower=game 쪽으로만 읽힌다.
 func TestEMFSplitsPoolWaitByBorrower(t *testing.T) {
 	r := New("api", "prod")
 	search := r.Pool(PoolSearch)

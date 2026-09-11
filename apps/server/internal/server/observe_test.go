@@ -27,7 +27,7 @@ func TestRequestIDIsGeneratedAndEchoed(t *testing.T) {
 }
 
 // 밖에서 온 ID 를 채택하지 않는다. 채택하면 누구나 같은 값을 계속 보내 request_id 가
-// 요청 하나를 가리키지 못하게 만들 수 있다 — 장애를 되짚어야 하는 바로 그때.
+// 요청 하나를 가리키지 못하게 만들 수 있다.
 func TestRequestIDFromCallerIsNotAdopted(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	req.Header.Set(requestIDHeader, "abc-123_x.y")
@@ -128,8 +128,8 @@ func TestUpgradeIsCountedButNotTimed(t *testing.T) {
 	conn, _ := dialWith(t, opts)
 	conn.CloseNow()
 
-	// 요청 한 줄은 핸들러가 돌아온 뒤에 남는다. 업그레이드된 요청은 그 시점이
-	// 연결이 끊긴 뒤라서, 닫자마자 세면 아직 0이다.
+	// 요청 한 줄은 핸들러가 돌아온 뒤에 남는다. 업그레이드된 요청은 그 시점이 연결이
+	// 끊긴 뒤라서, 닫자마자 세면 아직 0이다.
 	upgrades := func() float64 {
 		return reg.HTTPRequests.SumFunc(func(l map[string]string) bool {
 			return l["route"] == "GET /ws/game" && l["status"] == "101"
@@ -204,7 +204,7 @@ func TestHandlerWorksWithoutMetrics(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status=%d", rec.Code)
 	}
-	// 그때는 /metrics 자체가 없다 — 있는 척하고 빈 답을 주면 스크레이퍼가 0을 진짜로 읽는다.
+	// 그때는 /metrics 자체가 없다. 있는 척하고 빈 답을 주면 스크레이퍼가 0을 진짜로 읽는다.
 	rec = httptest.NewRecorder()
 	Handler(Options{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
 	if rec.Code != http.StatusNotFound {
@@ -238,8 +238,8 @@ func metricsText(t *testing.T, h http.Handler) string {
 
 // 핸들러가 panic 하면 500으로 답하고, 지표와 로그에 남아야 한다.
 //
-// 잡지 않으면 net/http 가 연결만 끊는다 — 상태 코드도 요청 로그도 지표도 없이. 그러면
-// 가장 흔한 장애에 5xx 알람이 영원히 조용하다.
+// 잡지 않으면 net/http 가 상태 코드도 요청 로그도 지표도 없이 연결만 끊고, 가장 흔한
+// 장애에 5xx 알람이 영원히 조용하다.
 func TestPanicBecomesFiveHundred(t *testing.T) {
 	reg := metrics.New("api", "test")
 	var buf syncBuffer
@@ -303,10 +303,9 @@ func TestAbortHandlerStaysAbort(t *testing.T) {
 
 // syncBuffer 는 잠금을 두른 로그 통이다.
 //
-// 통 자체가 잠금을 가져야 한다. swapLogger 가 바꾸는 것은 전역 로거라, 앞 테스트에서
-// 늦게 끝나는 핸들러가 지금 테스트의 통에 쓴다 — WebSocket 은 하이재킹된 연결이라
+// 통 자체가 잠금을 가져야 한다. swapLogger 가 바꾸는 것은 전역 로거라 앞 테스트에서 늦게
+// 끝나는 핸들러가 지금 테스트의 통에 쓴다. WebSocket 은 하이재킹된 연결이라
 // httptest.Server.Close 가 그 핸들러를 기다리지 않는다(requestLine 이 경로로 고르는 이유).
-// 경로로 고르는 것은 남의 줄을 읽지 않게 하는 장치이고, 쓰기와 읽기가 겹치는 것은 남는다.
 type syncBuffer struct {
 	mu  sync.Mutex
 	buf bytes.Buffer
@@ -329,9 +328,8 @@ func (b *syncBuffer) String() string { return string(b.Bytes()) }
 
 // requestLine 은 buf 에서 그 경로의 요청 줄을 꺼낸다.
 //
-// 버퍼에 줄이 하나뿐이라고 보면 안 된다. swapLogger 가 바꾸는 것은 전역 로거이고,
-// WebSocket 은 하이재킹된 연결이라 httptest.Server.Close 가 그 핸들러를 기다리지 않는다 —
-// 앞 테스트의 /ws/match 핸들러가 늦게 끝나며 이 버퍼에 쓴다. 경로로 고르면 무관해진다.
+// 버퍼에 줄이 하나뿐이라고 보면 안 된다. 앞 테스트의 /ws/match 핸들러가 늦게 끝나며 이
+// 버퍼에 쓰고(syncBuffer), 경로로 고르면 무관해진다.
 func requestLine(t *testing.T, buf *syncBuffer, path string) map[string]any {
 	t.Helper()
 	for _, raw := range bytes.Split(bytes.TrimSpace(buf.Bytes()), []byte("\n")) {
@@ -364,7 +362,7 @@ func TestClientGoneIsNotFiveHundred(t *testing.T) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /slow", func(w http.ResponseWriter, r *http.Request) {
-		// 검토·가정 수순의 default 갈래가 하는 그대로다 — ctx 가 죽으면 503.
+		// 검토·가정 수순의 default 갈래가 하는 그대로다. ctx 가 죽으면 503.
 		<-r.Context().Done()
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "engine_unavailable"})
 	})

@@ -7,8 +7,7 @@ import (
 
 // Reason 은 수가 불법인 사유다.
 //
-// 문구를 에러에 담지 않는다 — 룰 엔진이 표현까지 갖고 있으면 판정과 문구가 한 덩어리가 되어
-// 화면 언어(일본어)를 바꿀 수 없다. 판정은 코드로 돌려주고, 문구는 Message() 한 곳에서만 만든다.
+// 문구를 에러에 담지 않는다. 판정은 코드로 돌려주고 문구는 Message() 한 곳에서만 만든다.
 type Reason int
 
 const (
@@ -54,9 +53,8 @@ var reasonNames = map[Reason]string{
 
 // reasonMessages 는 화면에 나갈 수 있는 문구라 일본어다.
 //
-// 정상 경로에서는 쓰이지 않는다 — 클라이언트가 서버에서 받은 합법수만 고르므로, 여기까지 오는 것은
-// 국면이 어긋났다는 뜻(우리 버그)이다. 그래도 반칙 이름만 던지면 "二歩ってなに" 에서 막히므로
-// 무엇이 문제인지까지 적는다.
+// 정상 경로에서는 쓰이지 않는다. 클라이언트가 서버에서 받은 합법수만 고르므로 여기까지 오면
+// 국면이 어긋난 것이다. 그래도 반칙 이름만 던지면 "二歩ってなに" 에서 막힌다.
 var reasonMessages = map[Reason]string{
 	ReasonUnknown:           "指すことのできない手です。",
 	ReasonOffBoard:          "盤の外のマスです。",
@@ -77,8 +75,7 @@ var reasonMessages = map[Reason]string{
 	ReasonLeavesKingInCheck: "その手を指すと自分の玉が取られてしまいます。",
 }
 
-// String 은 사유의 영어 이름이다. 로그와 API 응답의 코드로 쓴다.
-// 화면에 보일 문구는 IllegalMoveError.Message() 쪽이다.
+// String 은 사유의 영어 이름이다. 로그와 API 응답의 코드로 쓴다(화면 문구는 Message).
 func (r Reason) String() string {
 	if name, ok := reasonNames[r]; ok {
 		return name
@@ -92,7 +89,7 @@ type IllegalMoveError struct {
 	Move   Move
 }
 
-// Error 는 로그용이다 — 영어. 이 문자열을 화면에 그대로 내보내지 않는다.
+// Error 는 로그용 영어다. 화면에 그대로 내보내지 않는다.
 func (e *IllegalMoveError) Error() string {
 	name, ok := reasonNames[e.Reason]
 	if !ok {
@@ -120,9 +117,8 @@ var pieceComplement = map[PieceType]int{
 
 // InventoryExcess 는 한 벌을 넘어선 말 종류와 그 초과분을 돌려준다(비면 정상).
 //
-// 밖에서 들어온 SFEN을 그대로 엔진에 넘기지 않기 위한 검사다 — 말이 넘치는 판에 엔진이
-// 무엇을 돌려줄지는 정의되어 있지 않다.
-// "부족"은 검사하지 않는다 — 詰将棋처럼 말이 빠진 국면이 정상인 경우가 있다.
+// 말이 넘치는 판에 엔진이 무엇을 돌려줄지는 정의되어 있지 않다.
+// "부족"은 검사하지 않는다. 詰将棋처럼 말이 빠진 국면이 정상인 경우가 있다.
 func (pos Position) InventoryExcess() map[PieceType]int {
 	count := map[PieceType]int{}
 	for _, p := range pos.Board {
@@ -147,8 +143,8 @@ func (pos Position) InventoryExcess() map[PieceType]int {
 
 // ValidateMove 는 수의 합법성을 검사하고, 불법이면 사유를 담은 *IllegalMoveError 를 돌려준다.
 //
-// 합법 여부의 진실은 LegalMoves 하나뿐이다. 아래의 긴 분기는 판정 대신 진단 —
-// "왜 안 되는지"를 초심자에게 말해주기 위한 것이고, 판정 결과를 바꾸지 않는다.
+// 합법 여부의 진실은 LegalMoves 하나뿐이다. 아래의 긴 분기는 "왜 안 되는지"를 말하기
+// 위한 진단이고 판정 결과를 바꾸지 않는다.
 func (pos Position) ValidateMove(m Move) error {
 	me := pos.Turn
 

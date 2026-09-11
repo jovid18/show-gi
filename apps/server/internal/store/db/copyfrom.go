@@ -40,9 +40,9 @@ func (r iteratorForBulkEnqueueAnalysisPlies) Err() error {
 	return nil
 }
 
-// 판 하나의 手를 한 번에 세운다. 가져온 기보만 이 문장을 쓴다 — 대인전은 두는 동안 한
-// 手씩 쌓지만(EnqueueAnalysisPly) 가져온 판은 수순 전부를 이미 알고, 그래서 워커가 몇이든
-// 手들이 병렬로 재어진다.
+// 판 하나의 手를 한 번에 세운다. 가져온 기보만 이 문장을 쓴다. 대인전은 두는 동안 한
+// 手씩 쌓지만(EnqueueAnalysisPly) 가져온 판은 수순 전부를 이미 알고, 그래서 워커가
+// 몇이든 手들이 병렬로 재어진다.
 //
 // ON CONFLICT 가 없다. 방금 만든 판의 번호라 (match_id, ply) 가 부딪힐 수가 없고,
 // COPY 는 애초에 그 절을 담을 수 없다.

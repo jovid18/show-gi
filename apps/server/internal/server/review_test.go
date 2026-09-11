@@ -20,7 +20,7 @@ import (
 )
 
 // detailOf 는 DB를 타지 않는다. 재현이 이 패키지의 순수 함수라서, 기록을 손으로 만들어
-// 엔진도 DB도 없이 확인할 수 있다 — 여기가 리뷰 화면의 정합성이 걸린 자리다.
+// 엔진도 DB도 없이 확인할 수 있다.
 
 func recordOf(myColor string, usis ...string) store.GameRecord {
 	rec := store.GameRecord{GameSummary: store.GameSummary{ID: 7, MyColor: myColor}}
@@ -163,8 +163,8 @@ func TestDetailSurvivesBrokenMove(t *testing.T) {
 	}
 }
 
-// 물러진 수는 기보에 없다. Ply-1 手目의 국면에서 두어졌고, 리뷰는 거기서
-// 표기를 만들어야 한다 — 이것이 개입에 오염되지 않은 하나뿐인 신호다(01-core.md §5).
+// 물러진 수는 기보에 없다. Ply-1 手目의 국면에서 두어졌고, 리뷰는 거기서 표기를 만들어야
+// 한다(01-core.md §5).
 func TestDetailNamesRetractedMove(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d", "6g6f")
 	rec.Interventions = []store.RecordedIntervention{{
@@ -214,7 +214,7 @@ func TestDetailUsesStartPositionForTurnOrder(t *testing.T) {
 	rec.StartSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/2P6/PP1PPPPPP/1B5R1/LNSGKGSNL w - 2"
 
 	got := detailOf(rec)
-	// 사람이 先手(b)인데 1手目는 後手 차례다 — 그러니 엔진의 수다.
+	// 사람이 先手(b)인데 1手目는 後手 차례이므로 엔진의 수다.
 	if got.Moves[0].By != game.SideEngine {
 		t.Errorf("moves[0].by = %q, want engine", got.Moves[0].By)
 	}
@@ -223,8 +223,8 @@ func TestDetailUsesStartPositionForTurnOrder(t *testing.T) {
 	}
 }
 
-// DB가 없으면 503이다. 엔진과 조건이 갈린다 — 엔진이 죽어도 지난 판은 볼 수 있어야 하고,
-// 여기가 404면 "기록이 없다"와 "기록을 읽지 못한다"가 섞인다.
+// DB가 없으면 503이다. 엔진이 죽어도 지난 판은 볼 수 있어야 하고, 여기가 404면 "기록이
+// 없다"와 "기록을 읽지 못한다"가 섞인다.
 func TestReviewWithoutStore(t *testing.T) {
 	h := Handler(Options{})
 	for _, path := range []string{"/api/games", "/api/games/1", "/api/games/1/summary"} {
@@ -250,12 +250,12 @@ func TestReviewWithoutStore(t *testing.T) {
 	}
 }
 
-// 되짚기의 총평은 끝난 판을 한 번 더 읽는 것이고, 판이 끝나는 자리에서 WS가 보내는
-// 것과 같은 함수가 만든다(§52). 여기가 보는 것은 그 라우트가 실제로 붙어 있는가다 —
+// 되짚기의 총평은 끝난 판을 한 번 더 읽는 것이고, 판이 끝나는 자리에서 WS가 보내는 것과
+// 같은 함수가 만든다(journal §52). 여기가 보는 것은 그 라우트가 실제로 붙어 있는가다.
 // GET /api/games/{id} 와 한 세그먼트 차이라, 어긋나면 화면이 총평 대신 기보를 받는다.
 //
 // 엔진을 넣지 않는다. 총평은 기록만 읽어 만들어지므로(summarize) 이 표면은 엔진이 없어도
-// 답해야 하고, 그것이 지켜지는지가 여기서 갈린다.
+// 답해야 한다.
 func TestSummaryRouteReadsFinishedGame(t *testing.T) {
 	st := openStoreForTest(t)
 
@@ -328,7 +328,7 @@ func TestDetailMarksCheck(t *testing.T) {
 			t.Errorf("moves[%d].checked = %q, want empty", i, m.Checked)
 		}
 	}
-	// 角을 4二에 打하면 5一의 玉에 닿는다 — 王手다.
+	// 角을 4二에 打하면 5一의 玉에 닿는다(王手).
 	if got.Moves[4].Checked != "5a" {
 		t.Errorf("moves[4].checked = %q, want 5a", got.Moves[4].Checked)
 	}
@@ -358,7 +358,7 @@ func TestDetailAttributesByPlyNotIndex(t *testing.T) {
 // 시작 국면을 읽지 못하면 한 수도 두지 않는다.
 //
 // 平手 초기 국면으로 대신 두면 그 수들이 거기서도 합법일 수 있고, 그러면 한 번도 없었던
-// 국면을 그럴듯하게 그린다 — 리뷰에서 그건 판을 그리지 못하는 것보다 나쁘다.
+// 국면을 그럴듯하게 그린다.
 func TestDetailRefusesToReplayFromBrokenStart(t *testing.T) {
 	rec := recordOf("b", "7g7f", "3c3d")
 	rec.StartSFEN = "not-a-sfen"
@@ -378,8 +378,8 @@ func TestDetailRefusesToReplayFromBrokenStart(t *testing.T) {
 	}
 }
 
-// limit 은 32비트로 파싱한다. int32 범위를 넘는 수가 통과하면 그 값이 LIMIT의
-// int32로 바뀌면서 경고 없이 음수가 된다 — 거절로 끝나야 한다.
+// limit 은 32비트로 파싱한다. int32 범위를 넘는 수가 통과하면 그 값이 LIMIT의 int32로
+// 바뀌면서 경고 없이 음수가 된다. 거절로 끝나야 한다.
 func TestListRejectsOutOfRangeLimit(t *testing.T) {
 	h := &reviewHandler{}
 	for _, raw := range []string{"0", "-1", "2147483648", "abc"} {
@@ -392,8 +392,8 @@ func TestListRejectsOutOfRangeLimit(t *testing.T) {
 	}
 }
 
-// 무른 수는 기보에 없다 — 되짚기가 그 수를 이름으로 부르려면 Ply-1 手目의 국면을
-// 다시 만들어야 한다(개입과 같은 규약).
+// 무른 수는 기보에 없다. 되짚기가 그 수를 이름으로 부르려면 Ply-1 手目의 국면을 다시
+// 만들어야 한다(개입과 같은 규약).
 func TestDetailNamesUndoneMove(t *testing.T) {
 	sc := eval.Cp(123)
 	rec := recordOf("b", "7g7f", "3c3d")
@@ -417,8 +417,8 @@ func TestDetailNamesUndoneMove(t *testing.T) {
 	}
 }
 
-// 後手로 둔 판에서는 무른 수의 평가치도 플레이어 관점으로 뒤집힌다.
-// 기보의 moves[].evalCp 와 같은 변환이라야 한 화면에서 두 줄이 같은 자를 쓴다(§60).
+// 後手로 둔 판에서는 무른 수의 평가치도 플레이어 관점으로 뒤집힌다. 기보의 moves[].evalCp
+// 와 같은 변환이라야 한 화면에서 두 줄이 같은 자를 쓴다(journal §60).
 func TestDetailFlipsUndoEvalForWhite(t *testing.T) {
 	sc := eval.Cp(200)
 	rec := recordOf("w", "7g7f")

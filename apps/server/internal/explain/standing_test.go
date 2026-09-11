@@ -30,8 +30,7 @@ func TestLosingFromAheadIsNotCalledACollapse(t *testing.T) {
 	}
 }
 
-// 형세를 모르면 지금까지와 같은 문장이다. 옛 판에는 평가치가 없을 수 있고, 그때
-// 없는 사실을 지어내면 안 된다.
+// 형세를 모르면 지금까지와 같은 문장이다. 옛 판에는 평가치가 없을 수 있다.
 func TestUnknownStandingKeepsTheOldSentence(t *testing.T) {
 	f := GameFacts{
 		Outcome:  OutcomeLost,

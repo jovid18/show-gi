@@ -23,7 +23,7 @@ func matchTestServer(t *testing.T) (http.Handler, *match.Hub, func(userID int64,
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	// store 는 nil이다 — 대인전은 DB 없이도 돈다(기록만 남지 않는다).
+	// store 는 nil이다. 대인전은 DB 없이도 돈다(기록만 남지 않는다).
 	m := NewMatch(ctx, nil, intervene.Beginner)
 	opts := Options{
 		Google:        auth.NewGoogle("client-id", "client-secret"),
@@ -64,8 +64,7 @@ func TestCreatingARoomNeedsSignIn(t *testing.T) {
 }
 
 // 분석 티어는 사람이 쓰는 표면을 하나도 열지 않는다. 방이 짝지은 프로세스의 메모리에
-// 서므로(journal §98) 여기서 방이 열리면 그 방을 누구도 열 수 없고, 대국·검토는 깨지지는
-// 않지만 이 박스의 엔진을 분석보다 먼저 가져간다.
+// 서므로(journal §98) 여기서 방이 열리면 그 방을 누구도 열 수 없다.
 //
 // 404 대신 503 으로 답한다. 404 면 「배포가 낡았다」와 구별되지 않는다.
 func TestTheAnalysisTierServesNoMatchSurface(t *testing.T) {
@@ -85,8 +84,8 @@ func TestTheAnalysisTierServesNoMatchSurface(t *testing.T) {
 		{http.MethodGet, "/ws/match"},
 		{http.MethodPost, "/api/queue"},
 		{http.MethodDelete, "/api/queue"},
-		// 엔진을 빌리는 표면도 막힌다. 이쪽은 깨지지 않고 도는 대신 분석보다 높은
-		// 우선순위로 이 박스의 엔진을 가져간다(usi.priorityOf).
+		// 엔진을 빌리는 표면도 막힌다. 열어 두면 분석보다 높은 우선순위로 이 박스의
+		// 엔진을 가져간다(usi.priorityOf).
 		{http.MethodGet, "/ws/game"},
 		{http.MethodGet, "/api/me"},
 		{http.MethodGet, "/api/openings"},
@@ -97,7 +96,7 @@ func TestTheAnalysisTierServesNoMatchSurface(t *testing.T) {
 		}
 	}
 
-	// 대기열이 꺼진 것과 갈려야 한다. 둘 다 503이라 코드로만 구별된다 — 「DB가 없다」로
+	// 대기열이 꺼진 것과 갈려야 한다. 둘 다 503이라 코드로만 구별되고, 「DB가 없다」로
 	// 읽으면 티어 설정이 틀린 것을 DB 문제로 쫓게 된다.
 	rec := do(h, http.MethodPost, "/api/queue", nil)
 	var body struct {
@@ -247,8 +246,8 @@ func TestAThirdPersonSeesNothing(t *testing.T) {
 	}
 }
 
-// 손님이 보는 것은 방 주인의 이름과 자기가 잡을 쪽뿐이다. 段級도 전적도 나가지 않는다 —
-// 실력 프로파일은 본인만 보는 값이다(02-architecture.md §7 위협 2).
+// 손님이 보는 것은 방 주인의 이름과 자기가 잡을 쪽뿐이다. 段級도 전적도 나가지 않는다
+// (02-architecture.md §7 위협 2).
 func TestPeekTellsTheGuestTheirSide(t *testing.T) {
 	h, _, signIn := matchTestServer(t)
 
@@ -277,8 +276,8 @@ func TestPeekTellsTheGuestTheirSide(t *testing.T) {
 	}
 }
 
-// 대인전 표면 전체는 켜고 끈다. 없으면 세 경로가 다 404여야 한다 — 반쯤 열려
-// 있으면 화면이 「있는데 고장난 것」으로 읽는다.
+// 대인전 표면 전체는 켜고 끈다. 없으면 세 경로가 다 404여야 한다. 반쯤 열려 있으면
+// 화면이 「있는데 고장난 것」으로 읽는다.
 func TestMatchRoutesAreAbsentWithoutAHub(t *testing.T) {
 	h := Handler(Options{
 		Google:        auth.NewGoogle("client-id", "client-secret"),
@@ -344,16 +343,15 @@ func TestHostCannotFillTheGuestSeatOverHTTP(t *testing.T) {
 // 판 번호는 몇 번을 물어도 나온다.
 //
 // 기록기의 done 은 값 하나짜리 채널이라, 연결마다 그것을 직접 읽으면 먼저 읽은 쪽이
-// 가져간다 — 같은 쪽으로 탭을 둘 열어 두거나 판이 끝나는 순간에 새로고침하면 두 번째는
-// 5초를 기다린 끝에 「振り返り」 링크를 그리지 못하고, 로그에는 거짓말이 남는다
-// (「기록이 끝나지 않았다」). 받는 쪽을 하나로 모아 곁장부에 옮겨 두는 것이 그 답이다.
+// 가져간다. 받는 쪽을 하나로 모아 곁장부에 옮겨 두는 것이 그 답이다
+// (matchRecords.collect).
 func TestTheGameIDCanBeAskedForTwice(t *testing.T) {
 	records := newMatchRecords(&storePlaceholder, intervene.Beginner)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	// 기록기를 직접 만들지 않는다 — 진짜 DB가 필요하다. 대신 곁장부를 손으로 채워
-	// 「번호가 정해진 방」을 만든다. 여기서 재는 것은 그 뒤의 답하기다.
+	// 기록기를 직접 만들지 않는다(진짜 DB가 필요하다). 대신 곁장부를 손으로 채워
+	// 「번호가 정해진 방」을 만든다.
 	entry := &roomRecord{
 		at:    time.Now(),
 		rec:   map[shogi.Color]*dbRecorder{},
@@ -370,7 +368,7 @@ func TestTheGameIDCanBeAskedForTwice(t *testing.T) {
 		}
 	}
 
-	// 다른 쪽은 그 방에 없다 — 없는 것을 기다리다 멈추면 안 된다.
+	// 다른 쪽은 그 방에 없다. 없는 것을 기다리다 멈추면 안 된다.
 	if _, ok := records.gameIDOf(ctx, "room", shogi.White, time.Second); ok {
 		t.Fatal("a colour with no recorder answered")
 	}

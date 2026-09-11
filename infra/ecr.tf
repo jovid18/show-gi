@@ -1,11 +1,8 @@
-# 이미지는 GitHub Actions에서 굽고 ECR에 올린다. 인스턴스는 받아서 띄우기만 한다.
+# 이미지는 GitHub Actions 에서 굽고 ECR 에 올린다. 인스턴스는 받아서 띄우기만 한다.
 #
-# 인스턴스에서 직접 빌드해도 되지만, 8GiB짜리 박스에서 node 번들과 Go를 굽는 동안
-# postgres와 엔진이 같은 메모리를 두고 다툰다. 빌드를 밖으로 빼면 배포가
-# pull && up으로 줄어든다 — 마감 주에 하루 몇 번씩 하는 일이라 차이가 크다.
-#
-# 레포가 퍼블릭이라 GitHub의 arm64 러너를 공짜로 쓴다. QEMU 에뮬레이션 없이
-# 네이티브로 구우므로 Graviton 인스턴스와 아키텍처가 그대로 맞는다.
+# 인스턴스에서 직접 빌드하면 node 번들과 Go 를 굽는 동안 postgres 와 엔진이 같은 메모리를
+# 두고 다툰다. 레포가 퍼블릭이라 GitHub 의 arm64 러너를 공짜로 쓰고, QEMU 없이 네이티브로
+# 구우므로 Graviton 인스턴스와 아키텍처가 그대로 맞는다.
 
 locals {
   ecr_repos = ["api", "web"]
@@ -18,27 +15,22 @@ resource "aws_ecr_repository" "app" {
   image_tag_mutability = "MUTABLE" # latest 태그를 옮겨 쓴다
 
   # 이미지가 남아 있는 리포지토리는 그냥 지워지지 않는다. 이 값이 없으면 destroy 가
-  # RepositoryNotEmptyException 으로 막히고, 그 자리가 정리의 마지막 두 개다
-  # (journal §128). 잃는 것이 없다 — 이미지는 커밋에서 CI 가 다시 굽는다.
+  # RepositoryNotEmptyException 으로 막힌다(journal §128). 이미지는 CI 가 다시 굽는다.
   force_delete = true
 
   # 이 플래그 혼자서는 아무 일도 하지 않는다. 레지스트리 쪽 설정이 규칙 없이 비어 있으면
   # 그쪽이 이기고, 실제로 두 이미지 다 ScanNotFoundException 이었다(journal §134).
-  # 규칙은 아래 aws_ecr_registry_scanning_configuration 이 넣는다.
   image_scanning_configuration {
     scan_on_push = true
   }
 }
 
-# 스캔을 실제로 돌리는 자리.
+# 스캔을 실제로 돌리는 자리. 계정 단위 자원이라 레지스트리 하나에 설정이 하나뿐이고,
+# 여기 적은 규칙 목록이 그 계정의 전부를 대체한다. 다른 프로젝트가 나중에 자기 규칙을
+# 넣으면 이 블록이 그것을 지우므로, 그때는 목록에 더하는 쪽으로 고친다.
 #
-# 이것이 계정 단위 자원이다. 위의 리포지토리 플래그와 달리 레지스트리 하나에 설정이
-# 하나뿐이고, 여기 적은 규칙 목록이 그 계정의 전부를 대체한다 — 그래서 필터로 우리
-# 리포지토리만 좁힌다. 다른 프로젝트가 나중에 자기 규칙을 넣으면 이 블록이 그것을
-# 지우므로, 그때는 목록에 더하는 쪽으로 고친다(OIDC 공급자와 같은 종류의 자리다).
-#
-# BASIC 을 쓴다. ENHANCED 는 Inspector 로 넘어가며 스캔한 이미지 수만큼 과금되는데,
-# 이 레포는 한 커밋에 두 이미지이고 CVE 를 볼 사람이 하나다.
+# BASIC 을 쓴다. ENHANCED 는 Inspector 로 넘어가며 스캔한 이미지 수만큼 과금되는데, 이
+# 레포는 한 커밋에 두 이미지이고 CVE 를 볼 사람이 하나다.
 resource "aws_ecr_registry_scanning_configuration" "basic" {
   scan_type = "BASIC"
 
@@ -86,12 +78,11 @@ resource "aws_ecr_lifecycle_policy" "app" {
 
 # ─── GitHub Actions ─────────────────────────────────────────
 #
-# 장기 액세스 키를 CI에 두지 않는다. OIDC로 워크플로 실행마다 단기 자격증명을 받는다 —
-# 유출될 키가 애초에 존재하지 않는 것이 시크릿을 잘 숨기는 것보다 낫다.
+# 장기 액세스 키를 CI 에 두지 않는다. OIDC 로 워크플로 실행마다 단기 자격증명을 받는다.
 
-# 이건 계정 단위 자원이다. 이 계정에는 아직 없어서 여기서 만들지만, 다른
-# 프로젝트가 나중에 같은 프로바이더를 쓰기 시작하면 terraform destroy가 그쪽까지
-# 끊는다. 그때는 이 블록을 지우고 data 소스로 바꿔 참조만 한다.
+# 계정 단위 자원이다. 이 계정에는 아직 없어서 여기서 만들지만, 다른 프로젝트가 나중에 같은
+# 프로바이더를 쓰기 시작하면 terraform destroy 가 그쪽까지 끊는다. 그때는 이 블록을 지우고
+# data 소스로 바꿔 참조만 한다.
 resource "aws_iam_openid_connect_provider" "github" {
   url             = "https://token.actions.githubusercontent.com"
   client_id_list  = ["sts.amazonaws.com"]
@@ -110,20 +101,15 @@ resource "aws_iam_role" "github_actions" {
       Condition = {
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          # main 브랜치로 한정한다. 퍼블릭 레포라 아무나 PR을 열 수 있고,
-          # 조건을 repo:jovid18/show-gi:*로 열어두면 남의 브랜치에서 이미지를
-          # 밀어 넣을 수 있다. 배포되는 이미지는 main에서만 나온다.
+          # main 브랜치로 한정한다. 퍼블릭 레포라 아무나 PR 을 열 수 있고, 조건을
+          # repo:jovid18/show-gi:* 로 열어두면 남의 브랜치에서 이미지를 밀어 넣을 수 있다.
           #
-          # 값을 둘 적는다. GitHub이 subject claim에 불변 ID를 넣기 시작했다.
-          # 실제로 오는 sub는 repo:jovid18@143411145/show-gi@1327659382:ref:... 형태이고,
-          # 문서에 흔히 적힌 repo:소유자/레포:ref:... 형태와 다르다. 소유자나 레포 이름을
-          # 바꿔도 신뢰가 끊기지 않게 하려는 변경이라 ID 쪽이 오히려 더 안전하다.
+          # 값을 둘 적는다. GitHub 이 subject claim 에 불변 ID 를 넣기 시작해서 실제로 오는
+          # sub 가 문서에 흔히 적힌 형태와 다르다. 목록은 OR 로 평가되므로 어느 쪽이 와도
+          # 통과한다.
           #
           # 현재 형식을 확인하는 법:
           #   gh api /repos/jovid18/show-gi/actions/oidc/customization/sub
-          #
-          # 목록으로 두면 OR로 평가되므로, GitHub이 어느 쪽을 보내도 통과한다.
-          # 와일드카드를 쓰지 않는 것은 두 값 다 정확히 아는 이상 느슨하게 둘 이유가 없어서다.
           "token.actions.githubusercontent.com:sub" = [
             "repo:jovid18/show-gi:ref:refs/heads/main",
             "repo:jovid18@143411145/show-gi@1327659382:ref:refs/heads/main",
@@ -165,8 +151,7 @@ resource "aws_iam_role_policy" "github_actions_push" {
   })
 }
 
-# 배포까지 CI가 한다. 사람이 서버에 들어가 명령을 치는 것은 재현되지 않고,
-# 기억에 의존하는 절차는 마감 주 새벽에 틀린다.
+# 배포까지 CI 가 한다. 사람이 서버에 들어가 명령을 치는 것은 재현되지 않는다.
 resource "aws_iam_role_policy" "github_actions_deploy" {
   name = "ecs-deploy"
   role = aws_iam_role.github_actions.id
@@ -187,8 +172,8 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
         Resource = [aws_ecs_service.app.id, aws_ecs_service.analysis.id]
       },
       {
-        # 새 리비전에 역할을 붙이려면 넘길 권한이 필요하다.
-        # ECS로만 넘길 수 있게 제한한다 — 아니면 임의 역할을 태워 권한을 올릴 수 있다
+        # 새 리비전에 역할을 붙이려면 넘길 권한이 필요하다. ECS 로만 넘길 수 있게
+        # 제한한다. 아니면 임의 역할을 태워 권한을 올릴 수 있다
         Effect   = "Allow"
         Action   = "iam:PassRole"
         Resource = [aws_iam_role.task.arn, aws_iam_role.task_execution.arn]

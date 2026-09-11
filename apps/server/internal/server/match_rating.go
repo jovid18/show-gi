@@ -14,13 +14,13 @@ import (
 
 // 대인전이 끝나면 두 사람의 레이팅을 옮기는 자리다. 근거는 journal §92.
 //
-// 이 파일이 세 패키지를 한자리에서 아는 하나뿐인 곳이다 — rating 은 갱신식만, store 는
-// 칸만, skill 은 표본 하한만 안다. 셋 중 누구도 나머지를 모른다.
+// 이 파일이 세 패키지를 한자리에서 아는 하나뿐인 곳이다. rating 은 갱신식만, store 는
+// 칸만, skill 은 표본 하한만 안다.
 
 // updateRatings 는 끝난 판 하나를 두 사람의 레이팅에 반영한다.
 //
-// 판을 막지 않는다. collect 의 goroutine 에서 불리므로 이미 대국 밖이고, 실패하면
-// 그 판이 레이팅에 들어가지 않는 것으로 끝난다 — 기록·캐시와 같은 판단이다(Options.Store).
+// 판을 막지 않는다. collect 의 goroutine 에서 불리므로 이미 대국 밖이고, 실패하면 그 판이
+// 레이팅에 들어가지 않는 것으로 끝난다(Options.Store 와 같은 판단).
 func (m *matchRecords) updateRatings(ctx context.Context, entry *roomRecord) {
 	if m == nil || m.store == nil {
 		return
@@ -37,7 +37,8 @@ func (m *matchRecords) updateRatings(ctx context.Context, entry *roomRecord) {
 		return
 	}
 
-	// 승부가 나지 않은 판은 세지 않는다(match.ResultAbandoned) — 세면 탭을 닫는 것이 수단이 된다.
+	// 승부가 나지 않은 판은 세지 않는다(match.ResultAbandoned). 세면 탭을 닫는 것이
+	// 수단이 된다.
 	//
 	// 先手 관점 하나만 본다. 갱신식이 두 사람을 같이 내므로 나머지는 그것의 뒤집기다.
 	outcome, ok := ratingOutcomeOf(blackResult)
@@ -71,15 +72,14 @@ func (m *matchRecords) ratingOf(ctx context.Context, userID int64) rating.Rating
 	return currentRating(ctx, m.store, userID)
 }
 
-// currentRating 은 그 사람의 지금 레이팅이다. 읽지 못하면 rating.Unrated 다 — 부르는 쪽을
-// 막지 않는다.
+// currentRating 은 그 사람의 지금 레이팅이다. 읽지 못하면 rating.Unrated 다.
 //
-// 두 가지를 여기서 얹는다. 레이팅이 없으면 지금까지의 낙폭 추정치로 시드를 만들고,
-// 있으면 두지 않은 시간만큼 불확실성을 되돌린다.
+// 두 가지를 여기서 얹는다. 레이팅이 없으면 지금까지의 낙폭 추정치로 시드를 만들고, 있으면
+// 두지 않은 시간만큼 불확실성을 되돌린다.
 //
-// 그 둘은 쓰는 쪽마다 달라지면 안 되므로 자리를 하나로 뒀다. 판이 끝나고
-// 갱신할 때와(updateRatings) 대기열이 밴드를 세울 때(queue.go)가 같은 값을 봐야 한다 —
-// 따로 두면 대기열이 시드 없는 1500으로 짝을 짓고 그 판이 시드 위에서 채점된다.
+// 자리를 하나로 뒀다. 판이 끝나고 갱신할 때와(updateRatings) 대기열이 밴드를 세울 때
+// (queue.go)가 같은 값을 봐야 하고, 따로 두면 대기열이 시드 없는 1500으로 짝을 짓고
+// 그 판이 시드 위에서 채점된다.
 func currentRating(ctx context.Context, st *store.Store, userID int64) rating.Rating {
 	got, err := st.MatchRating(ctx, userID)
 	if err != nil {
@@ -90,10 +90,10 @@ func currentRating(ctx context.Context, st *store.Store, userID int64) rating.Ra
 	if got.Games == 0 {
 		// 레이팅을 움직인 판이 아직 없다. 낙폭 추정치가 있으면 그것에서 시작한다.
 		//
-		// 대개 엔진 대국의 값이고, 거기서만 오지는 않는다 — 승부가 나지 않은 대인전은 레이팅을
-		// 움직이지 않는데 실력 추정은 그 판도 먹는다(matchAnalyzer, journal §95).
+		// 대개 엔진 대국의 값이고, 거기서만 오지는 않는다. 승부가 나지 않은 대인전은
+		// 레이팅을 움직이지 않는데 실력 추정은 그 판도 먹는다(matchAnalyzer, journal §95).
 		//
-		// 표본 하한은 skill 이 정한다 — 여기서 따로 정하면 이름만 다른 하한이 둘이 된다.
+		// 표본 하한은 skill 이 정한다. 여기서 따로 정하면 이름만 다른 하한이 둘이 된다.
 		est := skill.Estimate{Loss: got.Skill.Loss, Samples: got.Skill.Samples}
 		if got.SkillKnown && est.Ready() {
 			return rating.SeedFromLoss(est.Loss)
@@ -111,7 +111,7 @@ func currentRating(ctx context.Context, st *store.Store, userID int64) rating.Ra
 // 승부가 나지 않은 판이다.
 //
 // summary.go 의 outcomeOf 와 이름을 따로 둔다. 저쪽은 총평의 어휘로 옮기고 받는 타입도
-// store.GameResult 라, 같은 이름이면 어느 척도로 가는지가 보이지 않는다.
+// store.GameResult 라, 같은 이름이면 어느 척도로 가는지 보이지 않는다.
 func ratingOutcomeOf(r match.Result) (rating.Outcome, bool) {
 	switch r {
 	case match.ResultWin:
@@ -124,7 +124,7 @@ func ratingOutcomeOf(r match.Result) (rating.Outcome, bool) {
 	return 0, false
 }
 
-// storeRating 은 갱신된 값을 저장할 모양으로 옮긴다. Games 와 시각은 질의가 정하므로 채우지 않는다.
+// storeRating 은 갱신된 값을 저장할 모양으로 옮긴다. Games 와 시각은 질의가 정한다.
 func storeRating(r rating.Rating) store.MatchRating {
 	return store.MatchRating{Value: r.Value, Deviation: r.Deviation}
 }

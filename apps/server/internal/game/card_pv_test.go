@@ -13,9 +13,9 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// 문장과 개입 카드가 같은 탐색 결과를 보는지. 사람이 남긴 그림이 여기서 나왔다 —
-// 카드 후보 1위는 △2五玉 인데 문장은 「相手の最善手は△7七歩」였다(docs/playtests/
-// 2026-08-13-human-1.md §6 #8). 어느 쪽도 버그가 아니었고 묻는 k가 달랐다(journal §58).
+// 문장과 개입 카드가 같은 탐색 결과를 보는지. 카드 후보 1위는 △2五玉 인데 문장은
+// 「相手の最善手は△7七歩」였다(회차 1 #8). 어느 쪽도 버그가 아니었고 묻는 k가
+// 달랐다(journal §58).
 
 // pvStub 은 k에 따라 다른 답을 준다. 실엔진에서 MultiPV가 1위를 바꾸는 것이 이 항목의
 // 전제이므로, 그 성질을 스텁이 그대로 갖고 있어야 테스트가 뜻을 갖는다.
@@ -45,9 +45,9 @@ func (s *pvStub) SearchMultiPV(_ context.Context, _ string, moves []string, _, _
 // 그냥 잡히지도 않아서, classify 의 이름 붙은 분기 어디에도 걸리지 않는다.
 var quietBlunder = []string{"1g1f"}
 
-// openedDiagonal 도 other 다. 다른 것은 상대가 딸 것이 생긴다는 점뿐이다 — 角道가
-// 서로 열려 있어서 8八의 角을 그냥 따인다. 판정 대상은 마지막의 端歩이고, 딴 것도
-// 王手도 없어서 이름 붙은 어느 분기에도 걸리지 않는다.
+// openedDiagonal 도 other 다. 다른 것은 상대가 딸 것이 생긴다는 점뿐이다. 角道가 서로
+// 열려 있어서 8八의 角을 그냥 따인다. 판정 대상은 마지막의 端歩이고, 딴 것도 王手도
+// 없어서 이름 붙은 어느 분기에도 걸리지 않는다.
 var openedDiagonal = []string{"7g7f", "3c3d", "1g1f"}
 
 // judgeOtherBlunder 는 그 수순의 마지막 수를 판정한다. 착수 전 0 → 착수 후 −1600이라
@@ -67,8 +67,8 @@ func judgeOtherBlunder(t *testing.T, stub *pvStub, moves []string) Judgement {
 	return j
 }
 
-// afterK1 은 착수 후 국면을 k=1로 읽은 것이다. 이 PV의 첫 수가 문장에 나가서는 안 되는
-// 그 수다 — 카드는 같은 국면을 k=3으로 묻고 1위가 갈린다.
+// afterK1 은 착수 후 국면을 k=1로 읽은 것이다. 이 PV의 첫 수가 문장에 나가서는 안
+// 되는 그 수다. 카드는 같은 국면을 k=3으로 묻고 1위가 갈린다.
 func afterK1() usi.SearchResult {
 	return usi.SearchResult{
 		Depth: JudgeDepth, Best: "3c3d", Score: eval.Cp(1600),
@@ -104,7 +104,7 @@ func TestSentenceNamesTheMoveTheCardPoints(t *testing.T) {
 	if len(j.Facts.Branches) != 1 || j.Facts.Branches[0].PlayerJa != "▲2六歩" {
 		t.Errorf("갈래 = %+v", j.Facts.Branches)
 	}
-	// 물은 국면이 둘이고 순서가 정해져 있다 — 카드 국면 먼저, 그 뒤가 갈래 국면이다.
+	// 물은 국면이 둘이고 순서가 정해져 있다. 카드 국면 먼저, 그 뒤가 갈래 국면이다.
 	want := [][]string{{"1g1f"}, {"1g1f", "8c8d"}}
 	if len(stub.asked) != len(want) {
 		t.Fatalf("MultiPV로 물은 국면 = %v", stub.asked)
@@ -117,8 +117,8 @@ func TestSentenceNamesTheMoveTheCardPoints(t *testing.T) {
 }
 
 // 「무엇을 취할 수 있는가」도 같은 수의 것이어야 한다. 문장은 상대의 최선수와 그 수로
-// 따이는 駒를 한 문장에 적는다(explain.renderBranches) — 출처가 갈리면 그 한 문장 안에서
-// 어긋난다.
+// 따이는 駒를 한 문장에 적으므로(explain.renderBranches), 출처가 갈리면 그 한 문장
+// 안에서 어긋난다.
 func TestThreatenedPieceComesFromTheSameMove(t *testing.T) {
 	stub := &pvStub{
 		single: afterK1(),
@@ -150,7 +150,7 @@ func TestSentenceFallsBackWhenTheCardSearchFails(t *testing.T) {
 	stub := &pvStub{
 		single: afterK1(),
 		multi: map[string]usi.SearchResult{
-			// 카드 국면은 없다 — 스텁이 에러를 준다. 갈래 국면만 답한다.
+			// 카드 국면은 없다. 스텁이 에러를 주고, 갈래 국면만 답한다.
 			"1g1f 3c3d": {Depth: JudgeDepth, Lines: []usi.SearchLine{
 				pvLine(1, -1600, "2g2f", "3d3e"),
 			}},
@@ -170,7 +170,7 @@ func TestNamedCategorySkipsTheCardSearch(t *testing.T) {
 	stub := &pvStub{single: afterK1(), multi: map[string]usi.SearchResult{}}
 	a := &engineAnalyst{search: stub, depth: JudgeDepth, level: intervene.Beginner}
 
-	// 角을 3三에 던진다 — 그냥 잡히므로 hangs_piece 다.
+	// 角을 3三에 던진다. 그냥 잡히므로 hangs_piece 다.
 	j, err := a.Judge(t.Context(), shogi.StartSFEN, thrownBishopMoves, len(thrownBishopMoves))
 	if err != nil {
 		t.Fatalf("판정: %v", err)

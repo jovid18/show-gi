@@ -10,9 +10,9 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 문항 만들기는 DB도 엔진도 타지 않는 함수 둘에 걸려 있다 — 기록을 입력으로 옮기는 자리와
-// 문장을 만드는 자리다. 여기가 틀리면 한 번도 벌어지지 않은 국면이 문항이 되거나,
-// 화면이 사실과 다른 문장을 말한다.
+// 문항 만들기는 DB도 엔진도 타지 않는 함수 둘에 걸려 있다. 기록을 입력으로 옮기는 자리와
+// 문장을 만드는 자리이고, 여기가 틀리면 한 번도 벌어지지 않은 국면이 문항이 되거나 화면이
+// 사실과 다른 문장을 말한다.
 
 func quizRecord(myColor string, result store.GameResult, moves ...store.RecordedMove) store.GameRecord {
 	rec := store.GameRecord{GameSummary: store.GameSummary{ID: 3, MyColor: myColor, Result: result}}
@@ -117,7 +117,8 @@ func TestOpeningPliesFromTheBook(t *testing.T) {
 // 거짓이고, 초심자는 그것이 거짓인지 확인할 수단이 없다.
 func TestMateMessageSplitsTheTwoWrongAnswers(t *testing.T) {
 	// Rest == 0 은 「한계 안에서 찾지 못했다」거나 「물어보지 않았다」다(1手 노드). 그래서
-	// 詰み이 사라졌다고도, 아예 없다고도 말할 수 없다 — 「이 수로는 詰み이 되지 않는다」만 참이다.
+	// 詰み이 사라졌다고도 아예 없다고도 말할 수 없고, 「이 수로는 詰み이 되지 않는다」만
+	// 참이다.
 	lost := mateMessage(quiz.MateProgress{Outcome: quiz.MateWrong, Rest: 0}, "▲5二金")
 	if strings.Contains(lost, "詰みません") || strings.Contains(lost, "消え") {
 		t.Errorf("message = %q, must not claim the mate is gone or never existed", lost)
@@ -135,8 +136,8 @@ func TestMateMessageSplitsTheTwoWrongAnswers(t *testing.T) {
 	}
 }
 
-// 첫 오답부터 정답을 싣던 자리다(2026-08-14-human-2.md §6 #10 · #11). 세 번째까지는
-// 다시 풀라고만 하고, 그 뒤로도 나가는 것은 「무엇을 움직이나」 한 마디뿐이다.
+// 첫 오답부터 정답을 싣던 자리다(회차 2 #10 · #11). 세 번째까지는 다시 풀라고만 하고,
+// 그 뒤로도 나가는 것은 「무엇을 움직이나」 한 마디뿐이다.
 func TestMateMessageWithholdsTheAnswer(t *testing.T) {
 	wrong := quiz.MateProgress{Outcome: quiz.MateWrong}
 	early := mateMessage(wrong, "")
@@ -158,7 +159,7 @@ func TestMateMessageWithholdsTheAnswer(t *testing.T) {
 }
 
 func TestMateMessageOnANonCheck(t *testing.T) {
-	// 오답 대신 안내로 답한다 — 규약을 모른 채 오답 처리되는 것이 배움을 막는다.
+	// 오답 대신 안내로 답한다. 규약을 모른 채 오답 처리되는 것이 배움을 막는다.
 	got := mateMessage(quiz.MateProgress{Outcome: quiz.MateNotCheck}, "")
 	if !strings.Contains(got, "王手") {
 		t.Errorf("message = %q, want it to name the rule it is teaching", got)
@@ -208,8 +209,8 @@ func TestBestMessageNamesWhatWasPlayedInTheGame(t *testing.T) {
 	}
 }
 
-// 오답에는 정답이 없다(§6 #10 · #11). 세 번째부터 나가는 것은 「무엇을 움직이나」뿐이고,
-// 그것도 도착 칸을 말하지 않는다 — 말하면 그 한 줄이 정답 전체가 된다.
+// 오답에는 정답이 없다(회차 2 #10 · #11). 세 번째부터 나가는 것은 「무엇을 움직이나」뿐이고,
+// 그것도 도착 칸을 말하지 않는다. 말하면 그 한 줄이 정답 전체가 된다.
 func TestBestMessageWithholdsTheAnswer(t *testing.T) {
 	item := quiz.BestItem{SFEN: quizCollisionSFEN, Answer: "4f3e", Played: "G*3h"}
 	early := bestMessage(bestResponse{Correct: false, Move: "P*3e", MoveJa: "▲3五歩"}, item)
@@ -231,8 +232,8 @@ func TestBestMessageWithholdsTheAnswer(t *testing.T) {
 	}
 }
 
-// 낸 수부터 말한다. 회차 1의 #17이 이 문장 하나다. 정답을 문장에서 뺀 뒤에는 그 상처가
-// 낸 수와 그 판의 수 사이로 옮겨 온다 — 그 둘도 打 한 글자로만 갈릴 수 있다.
+// 낸 수부터 말한다. 회차 1 #17이 이 문장 하나다. 정답을 문장에서 뺀 뒤에는 그 상처가 낸
+// 수와 그 판의 수 사이로 옮겨 오고, 그 둘도 打 한 글자로만 갈릴 수 있다.
 func TestBestMessageNamesTheMoveJustPlayed(t *testing.T) {
 	item := quiz.BestItem{SFEN: quizCollisionSFEN, Answer: "4f3e", Played: "G*3e", AnswerCp: 910, SecondCp: 548}
 	got := bestMessage(bestResponse{
@@ -257,7 +258,7 @@ func TestBestMessageNamesTheMoveJustPlayed(t *testing.T) {
 		t.Errorf("message = %q, must not repeat the same move as a second fact", same)
 	}
 
-	// 표기가 없어도 채점은 사실이다 — 문장이 비지 않아야 한다.
+	// 표기가 없어도 채점은 사실이다. 문장이 비지 않아야 한다.
 	bare := bestMessage(bestResponse{Correct: false}, quiz.BestItem{})
 	if !strings.HasPrefix(bare, "不正解です。") {
 		t.Errorf("message = %q, want the verdict first when nothing can be named", bare)
@@ -265,7 +266,7 @@ func TestBestMessageNamesTheMoveJustPlayed(t *testing.T) {
 }
 
 // 회차 1의 110手 국면. 여기서 3五로 가는 수가 셋이고(4f3e · G*3e · P*3e) 두 金이 打 한
-// 글자로만 갈린다 — #17의 원인으로 적혀 있던 「표기 구분이 없다」는 틀린 진단이었다.
+// 글자로만 갈린다.
 const quizCollisionSFEN = "8l/1r5k1/4ppp2/pn5N1/1S1L1N2P/P2PPG3/1P3P+b1p/1KGGR4/LN4+b2 b G3P3sl4p 111"
 
 func TestAfterMoveOpensThePositionThatWasPlayed(t *testing.T) {
@@ -279,7 +280,7 @@ func TestAfterMoveOpensThePositionThatWasPlayed(t *testing.T) {
 	if next == "" || next == quizCollisionSFEN {
 		t.Errorf("sfen = %q, want the position after the move", next)
 	}
-	// 打과 반상 이동이 갈리는 것이 판에 그려져야 한다 — 반상의 金은 4六에 남는다.
+	// 打과 반상 이동이 갈리는 것이 판에 그려져야 한다. 반상의 金은 4六에 남는다.
 	if !strings.Contains(next, "G") {
 		t.Errorf("sfen = %q, want the gold still on the board", next)
 	}
@@ -302,15 +303,15 @@ func TestAfterMoveOpensThePositionThatWasPlayed(t *testing.T) {
 }
 
 func TestMoveOriginJaOnlyWhenTheNotationsCollide(t *testing.T) {
-	// 같은 칸으로 가는 다른 수 — 이때만 붙인다.
+	// 같은 칸으로 가는 다른 수. 이때만 붙인다.
 	if got := moveOriginJa(quizCollisionSFEN, "4f3e", "G*3e"); got != "4六の金" {
 		t.Errorf("origin = %q, want 4六の金", got)
 	}
-	// 뒤집어도 같다. 정답이 打이면 「持ち駒の」다 — 반상에 그 칸을 가리킬 자리가 없다.
+	// 뒤집어도 같다. 정답이 打이면 「持ち駒の」다. 반상에 그 칸을 가리킬 자리가 없다.
 	if got := moveOriginJa(quizCollisionSFEN, "G*3e", "4f3e"); got != "持ち駒の金" {
 		t.Errorf("origin = %q, want 持ち駒の金", got)
 	}
-	// 같은 수면 붙일 이유가 없다 — 맞힌 사람에게 어디서 왔는지 설명할 일이 없다.
+	// 같은 수면 붙일 이유가 없다. 맞힌 사람에게 어디서 왔는지 설명할 일이 없다.
 	if got := moveOriginJa(quizCollisionSFEN, "4f3e", "4f3e"); got != "" {
 		t.Errorf("origin = %q, want empty when the two moves are the same", got)
 	}
@@ -366,8 +367,8 @@ func TestJaOfLineKeepsTheSameSquareNotation(t *testing.T) {
 	}
 }
 
-// 수순은 정답과 같은 취급이다 — 첫 수가 곧 정답이라, 오답에 실어 보내면 문항이 그
-// 자리에서 끝난다(§61이 정답에 대해 닫은 것과 같은 자리).
+// 수순은 정답과 같은 취급이다. 첫 수가 곧 정답이라, 오답에 실어 보내면 문항이 그 자리에서
+// 끝난다(journal §61과 같은 자리).
 func TestLineIsRenderedFromTheAnswerPosition(t *testing.T) {
 	pos := shogi.StartPosition()
 	got := lineFrom(pos.SFEN(), "7g7f", []string{"3c3d", "8h2b+"})
@@ -388,7 +389,8 @@ func TestLineIsRenderedFromTheAnswerPosition(t *testing.T) {
 	}
 }
 
-// 저장된 수순이 그 국면에서 둘 수 없는 수면 거기까지만 준다. 500으로 답하면 맞은 답이 오류가 된다.
+// 저장된 수순이 그 국면에서 둘 수 없는 수면 거기까지만 준다. 500으로 답하면 맞은 답이
+// 오류가 된다.
 func TestLineStopsInsteadOfFailing(t *testing.T) {
 	pos := shogi.StartPosition()
 	got := lineFrom(pos.SFEN(), "7g7f", []string{"3c3d", "9i9b"})
@@ -405,7 +407,7 @@ func TestNoLineForOlderQuizzes(t *testing.T) {
 	}
 }
 
-// 정답이 그 국면에서 둘 수 없는 수면 수순도 없다 — 문항이 깨진 것이고, 반쪽을 그리지 않는다.
+// 정답이 그 국면에서 둘 수 없는 수면 수순도 없다. 문항이 깨진 것이고 반쪽을 그리지 않는다.
 func TestNoLineWhenTheStoredAnswerDoesNotStand(t *testing.T) {
 	pos := shogi.StartPosition()
 	if got := lineFrom(pos.SFEN(), "9i9b", []string{"3c3d"}); got != nil {

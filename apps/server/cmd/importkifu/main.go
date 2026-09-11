@@ -1,5 +1,8 @@
-// Command importkifu 는 실 기보(KIF·CSA)를 제품과 같은 경로(엔진 → archive → store)로 다시 둬 DB에 남기는 오프라인 배치다.
-// 산출물은 태그 스캔과 K 실측(internal/kifu/calibrate_test.go)이 먹는 표본이라, 서버(cmd/api)는 이 프로그램을 부르지 않는다.
+// Command importkifu 는 실 기보(KIF·CSA)를 제품과 같은 경로(엔진 → archive → store)로
+// 다시 둬 DB에 남기는 오프라인 배치다.
+//
+// 산출물은 태그 스캔과 K 실측(internal/kifu/calibrate_test.go)이 먹는 표본이다. 서버
+// (cmd/api)는 이 프로그램을 부르지 않는다.
 package main
 
 import (
@@ -27,15 +30,15 @@ func main() {
 	enginePath := flag.String("engine", "/opt/yaneuraou/run", "engine command")
 	poolSize := flag.Int("pool", 1, "engine pool size")
 	// 깊이가 실행 경로보다 얕으면 여기서 쌓은 positions 를 아무도 쓰지 못한다. 캐시 히트가
-	// computed_depth 를 먼저 보고(server.evalOf · internal/archive), 얕은 행은 그 자리에서
-	// 다시 재어진다 — 임포트한 판의 手数를 옮길 때마다 탐색이 새로 돌던 원인이다.
-	// 숫자로 적지 않는 것은 journal §130 이 상수만 옮기고 이 플래그를 놓쳤기 때문이다.
+	// computed_depth 를 먼저 보고(server.evalOf · internal/archive) 얕은 행은 그 자리에서
+	// 다시 재어진다. 숫자로 적지 않는 것은 journal §130 이 이 플래그를 놓쳤기 때문이다.
 	depth := flag.Int("depth", game.DefaultDepth, "search depth")
-	// k 는 후보를 몇 개까지 남길지다. 읽는 쪽에서 제일 큰 것이 대국 상대의 10 이고
-	// (game.CandidateK), 퀴즈가 5, 되짚기·검토가 3 이다 — 제일 큰 쪽에 맞춰 둔다.
+	// k 는 후보를 몇 개까지 남길지다. 읽는 쪽에서 제일 큰 것이 대국 상대의 10 이라
+	// (game.CandidateK) 거기에 맞춰 둔다.
 	multiPV := flag.Int("k", 10, "multi-PV count")
-	// 워커를 늘려도 아래 archive.Searcher 는 하나다 — 한 워커의 Wait() 가 다른 워커의 기록까지 기다리고, WaitGroup 이
-	// 「카운터가 0일 때의 Add 는 Wait 보다 먼저」를 요구해 패닉 여지도 생긴다. 올릴 거면 워커마다 Searcher 를 따로 만든다.
+	// 워커를 늘려도 아래 archive.Searcher 는 하나다. 한 워커의 Wait() 가 다른 워커의 기록
+	// 까지 기다리고, WaitGroup 이 「카운터가 0일 때의 Add 는 Wait 보다 먼저」를 요구해
+	// 패닉 여지도 생긴다. 올릴 거면 워커마다 Searcher 를 따로 만든다.
 	workers := flag.Int("workers", 1, "concurrent game imports")
 	flag.Parse()
 
@@ -83,8 +86,8 @@ func main() {
 	defer pool.Close()
 
 	searcher := archive.Wrap(pool, st)
-	// 詰み solver 를 붙이지 않는다(nil) — 종반 판정만 빠지고 승률 낙폭 판정은 그대로 돈다.
-	// 임계치는 Beginner 인데 import.go 가 기록에 남기는 LevelBucket 은 "pro" 라 갈려 있다 — 그쪽 TODO.
+	// 詰み solver 를 붙이지 않는다(nil). 종반 판정만 빠지고 승률 낙폭 판정은 그대로 돈다.
+	// 임계치는 Beginner 인데 import.go 가 기록에 남기는 LevelBucket 은 "pro" 라 갈려 있다.
 	analyst := game.NewEngineAnalyst(searcher, nil, intervene.Beginner)
 	imp := kifu.NewImporter(st, searcher, analyst, *depth, *multiPV)
 

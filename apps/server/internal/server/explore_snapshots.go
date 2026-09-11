@@ -16,19 +16,19 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 검토 화면에서 이름을 붙여 남긴 국면. 저장·목록·이름 고치기·삭제 넷이고, 정한 것은 journal §96.
+// 검토 화면에서 이름을 붙여 남긴 국면. 저장·목록·이름 고치기·삭제 넷이다(journal §96).
 //
-// 엔진을 타지 않는다. 手合割 id 와 수순 한 줄을 기록에 넣고 꺼내는 일뿐이고, 불러오기는 화면이
-// 주소를 고쳐 /api/explore 로 다시 묻는다(explore.go).
+// 엔진을 타지 않는다. 手合割 id 와 수순 한 줄을 기록에 넣고 꺼내는 일뿐이고, 불러오기는
+// 화면이 주소를 고쳐 /api/explore 로 다시 묻는다(explore.go).
 //
-// SFEN 칸을 만들지 않는다. 저장된 값이 곧 다음 요청의 본문이라, 만드는 순간 journal §37 이
-// 닫아 둔 문이 이쪽으로 열린다.
+// SFEN 칸을 만들지 않는다. 저장된 값이 곧 다음 요청의 본문이라, 만드는 순간 기록 쪽으로
+// 문이 한 번 더 열린다.
 //
 // 로그인이 필요하다. 검토 자체에는 그 검사가 없지만(journal §100) 익명끼리는 구별할 수단이
 // 없어서(002_anonymous_games.sql) 「내가 저장한 국면」이 성립하지 않는다.
 
 const (
-	// exploreSnapshotNameMax 는 이름의 상한이다. rune 으로 센다 — 바이트로 세면 일본어가
+	// exploreSnapshotNameMax 는 이름의 상한이다. rune 으로 센다. 바이트로 세면 일본어가
 	// 한 자 3바이트라 13자에서 걸린다.
 	exploreSnapshotNameMax = 40
 
@@ -49,7 +49,7 @@ type exploreSnapshotHandler struct {
 type exploreSnapshotView struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
-	// Handicap 은 手合割 id다. 平手면 오지 않는다 — 빈 값이 平手라는 규약을 그대로 쓴다.
+	// Handicap 은 手合割 id다. 平手면 오지 않는다(빈 값이 平手라는 규약).
 	Handicap string `json:"handicap,omitempty"`
 	// HandicapJa 는 그 手合割의 일본어 이름이다. 平手면 오지 않는다.
 	//
@@ -103,7 +103,7 @@ func (h *exploreSnapshotHandler) list(w http.ResponseWriter, r *http.Request) {
 
 // save 는 지금 보고 있는 국면을 남긴다.
 //
-// 수순을 룰 엔진에 되짚어 본다. 합법성 검사뿐이라 엔진 슬롯을 잡지 않는다(journal §96) —
+// 수순을 룰 엔진에 되짚어 본다. 합법성 검사뿐이라 엔진 슬롯을 잡지 않는다(journal §96).
 // 하지 않으면 불러올 때마다 거절되는 행이 기록에 남는다.
 func (h *exploreSnapshotHandler) save(w http.ResponseWriter, r *http.Request) {
 	s, ok := h.auth.viewer(r)
@@ -139,8 +139,7 @@ func (h *exploreSnapshotHandler) save(w http.ResponseWriter, r *http.Request) {
 	// 저장만 경고 없이 거절한다.
 	//
 	// SFEN 뿌리를 넘기지 않는다. 저장하는 것이 手合割 id와 수순뿐이라 이 표면에는 그 값이
-	// 아예 없고, 그것이 §96이 닫아 둔 문이다 — 저장된 값이 곧 다음 요청의 본문이므로
-	// 여기 SFEN 칸이 생기는 순간 기록 쪽으로 문이 한 번 더 열린다.
+	// 아예 없다(위 패키지 주석).
 	root, _, ok := exploreRoot(req.Handicap, "")
 	if !ok {
 		writeJSON(w, http.StatusBadRequest, map[string]any{
@@ -292,8 +291,7 @@ func exploreSnapshotName(raw string) (string, bool) {
 	return name, true
 }
 
-// exploreSnapshotDefaultName 은 이름 없이 저장했을 때의 이름이다. 화면 대신 서버가
-// 짓는 이유와 手合割을 넣지 않는 이유는 journal §96.
+// exploreSnapshotDefaultName 은 이름 없이 저장했을 때의 이름이다(journal §96).
 func exploreSnapshotDefaultName(ply int) string {
 	return fmt.Sprintf("%d手目の局面", ply)
 }

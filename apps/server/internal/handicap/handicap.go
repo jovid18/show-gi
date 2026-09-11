@@ -1,18 +1,15 @@
-// Package handicap 은 駒落ち — 手合割 하나가 시작 국면과 「형세 0」을 같이 정한다.
+// Package handicap 은 駒落ち다. 手合割 하나가 시작 국면과 「형세 0」을 같이 정한다.
 //
 // 엔진도 판정도 모른다. 여기 있는 것은 SFEN 문자열과 cp 상수뿐이고, 그것으로 무엇을
-// 하는지는 부르는 쪽이 정한다(intervene.Input.BaselineCp · game.adaptiveOpponent) —
-// book 이 수순만 갖고 있는 것과 같은 성질이라 표를 고치는 데 엔진도 DB도 필요 없다.
+// 하는지는 부르는 쪽이 정한다(intervene.Input.BaselineCp · game.adaptiveOpponent).
+// 표를 고치는 데 엔진도 DB도 필요 없다.
 //
-// 두 값을 한 표에 둔다. 국면만 주면 판정식이 포화 구간에 갇힌다 — 승률 낙폭이 우세
-// 구간에서 압축되어(01-core.md §2) 駒落ち에서는 銀 헌납도 임계치에 닿지 않는다. 기준점이
-// 곧 그 국면의 「아직 아무것도 흘리지 않았다」이고, 빼고 나면 발화선이 平手의 감도로 돌아온다.
-// 실측 표와 그 결과는 journal §84 · §88.
+// 두 값을 한 표에 둔다. 기준점이 곧 그 국면의 「아직 아무것도 흘리지 않았다」이고, 빼지
+// 않으면 판정식이 포화 구간에 갇힌다. 실측 표와 그 결과는 journal §84 · §88.
 //
-// 平手는 이 표에 없다. 빈 startSFEN 이 平手라는 규약이 이미 있고(game.Config.StartSFEN),
-// 화면의 「平手」도 클라이언트의 기본값이다 — book 의 「おまかせ」와
-// 같은 자리다. 그래서 Find("") 도 Of("") 도 없는 것으로 답하고, 기준점이 0이라 판정이
-// 한 비트도 바뀌지 않는다. 실측 +91을 기준점으로 쓰지 않는 근거는 journal §84.
+// 平手는 이 표에 없다. 빈 startSFEN 이 平手라는 규약이 이미 있어(game.Config.StartSFEN)
+// Find("") 도 Of("") 도 없는 것으로 답하고, 기준점이 0이라 판정이 한 비트도 바뀌지 않는다.
+// 실측 +91을 기준점으로 쓰지 않는 근거는 journal §84.
 package handicap
 
 import (
@@ -28,31 +25,28 @@ type Handicap struct {
 	ID   string
 	Name string
 	Note string
-	// SFEN 은 그 手合의 0手目다. 駒를 뺀 上手가 먼저 둔다 — 駒落ち에 先手/後手가 없고,
-	// 접어 준 쪽부터 두는 것이 手合割의 관례다(journal §88). 그래서 手番 칸이 언제나 w 이고,
-	// 판 위의 배치는 上手가 위(소문자)에 앉는 平手 그대로다.
+	// SFEN 은 그 手合의 0手目다. 駒를 뺀 上手가 먼저 두므로 手番 칸이 언제나 w 이고, 판
+	// 위의 배치는 上手가 위(소문자)에 앉는 平手 그대로다.
 	//
-	// 手番 한 글자가 기준점 한 줄과 같이 움직인다. 一手의 값이 香車 한 장에 가까워서
-	// b 로 적으면 판정이 一手만큼 다른 국면의 기준점 위에서 돈다(journal §88).
+	// 手番 한 글자가 기준점 한 줄과 같이 움직인다. b 로 적으면 판정이 一手만큼 다른
+	// 국면의 기준점 위에서 돈다(journal §88).
 	SFEN string
-	// BaselineCp 는 그 국면의 「형세 0」이다. 下手 관점 cp — 언제나 양수다.
+	// BaselineCp 는 그 국면의 「형세 0」이다. 下手 관점 cp 이고 언제나 양수다.
 	//
-	// 엔진이 그 국면에서 돌려주는 부호와 반대다. 0手目가 上手 차례라서다 —
-	// 재는 쪽이 뒤집는다(baseline_measure_test.go).
+	// 엔진이 그 국면에서 돌려주는 부호와 반대다. 0手目가 上手 차례라서 재는 쪽이
+	// 뒤집는다(baseline_measure_test.go).
 	//
-	// 水匠5 · depth 14 · FV_SCALE=24 실측이다. 마지막 값이 조건이다 —
-	// 그것을 걸지 않고 재면 같은 국면이 1.5배로 나오고(첫 측정이 그랬다, journal §84) 표가
-	// 전부 다른 척도가 된다. 그 숫자가 무엇을 정하는지는 패키지 주석에 있다.
+	// 水匠5 · depth 14 · FV_SCALE=24 실측이다. FV_SCALE 을 걸지 않고 재면 같은 국면이
+	// 1.5배로 나와서 표가 전부 다른 척도가 된다(journal §84).
 	//
-	// [미확정] K=600이 초기값인 것과 같은 처지다 — 재측정은 baseline_measure_test.go.
+	// [미확정] K=600이 초기값인 것과 같은 처지다. 재측정은 baseline_measure_test.go.
 	BaselineCp int
 }
 
-// list 의 순서가 곧 화면에 뜨는 순서다. 落とす 駒가 늘어나는 쪽으로 간다 — 手合割의
-// 관례 순서이고, 첫 항목이 平手에 가장 가까운 것이라 「조금만 접어 본다」가 위에 온다.
+// list 의 순서가 곧 화면에 뜨는 순서다. 落とす 駒가 늘어나는 쪽으로 가는 手合割의 관례
+// 순서이고, 첫 항목이 平手에 가장 가까운 것이라 「조금만 접어 본다」가 위에 온다.
 //
-// 八枚落ち·十枚落ち는 아직 없다. 기준점으로는 그 둘을 고칠 수 없어서이고,
-// 넣을지는 플레이테스트가 답한다(journal §88).
+// 八枚落ち·十枚落ち는 아직 없다. 기준점으로는 그 둘을 고칠 수 없다(journal §88).
 var list = []Handicap{
 	{
 		ID:         "kyoochi",
@@ -108,8 +102,8 @@ var list = []Handicap{
 // All 은 고를 수 있는 手合割 전부다. 화면이 목록을 그리는 데 쓴다.
 func All() []Handicap { return list }
 
-// Find 는 id 로 手合割을 찾는다. 빈 id 는 平手라 없는 것으로 답한다 — 부르는 쪽이
-// 그때 지금까지처럼 平手 초기 국면으로 판을 연다(패키지 주석).
+// Find 는 id 로 手合割을 찾는다. 빈 id 는 平手라 없는 것으로 답하고, 부르는 쪽이 그때
+// 平手 초기 국면으로 판을 연다(패키지 주석).
 func Find(id string) (Handicap, bool) {
 	if id == "" {
 		return Handicap{}, false
@@ -140,16 +134,13 @@ func FindByName(name string) (Handicap, bool) {
 }
 
 // Of 는 시작 국면으로 手合割을 되짚는다. 이어하는 판과 되짚기가 기록의 start_sfen
-// 하나에서 手合을 다시 얻는 자리다 — 그래서 칸을 새로 만들지 않았다.
+// 하나에서 手合을 다시 얻으므로 칸을 새로 만들지 않았다.
 //
-// 手数도 手番도 보지 않는다. 판과 持ち駒로만 맞춘다 — 왕복하며 Position.SFEN() 을 거친
-// 문자열도 같은 표에 붙어야 하고(positions 캐시 키가 手数를 뺀 것과 같은 이유,
-// 001_init.sql), 어느 駒를 뺐나가 이미 手合을 정한다.
+// 手数도 手番도 보지 않는다. 판과 持ち駒로만 맞추면 왕복하며 Position.SFEN() 을 거친
+// 문자열도 같은 표에 붙고(positions 캐시 키가 手数를 뺀 것과 같은 이유, 001_init.sql),
+// 어느 駒를 뺐나가 이미 手合을 정한다.
 //
-// 手番을 뺀 것이 옛 기록을 살린다. 手番 규약이 뒤집히기 전에(journal §88) 시작한 판은
-// games.start_sfen 에 b 로 남아 있고, 그 칸까지 맞추면 그 판들이 手合割을 잃어 되짚기의
-// 형세 그래프가 기준점 0으로 그려진다 — 二枚落ち면 1386cp 어긋난 자리에 「호각」 선이 간다.
-// 그 판들의 기준점은 一手만큼(83~273cp) 어긋난 값이 되지만, 그쪽이 훨씬 작다.
+// 手番을 뺀 것이 手番 규약을 뒤집기 전에 시작한 판을 살린다(journal §88).
 func Of(startSFEN string) (Handicap, bool) {
 	k := key(startSFEN)
 	if k == "" {
@@ -163,8 +154,8 @@ func Of(startSFEN string) (Handicap, bool) {
 	return Handicap{}, false
 }
 
-// NameOf 는 화면에 나갈 이름이다. 平手나 모르는 국면은 빈 문자열이다 —
-// 스냅샷이 그때 그 칸을 아예 보내지 않는다(game.Snapshot.HandicapJa).
+// NameOf 는 화면에 나갈 이름이다. 平手나 모르는 국면은 빈 문자열이고, 스냅샷이 그때
+// 그 칸을 아예 보내지 않는다(game.Snapshot.HandicapJa).
 func NameOf(startSFEN string) string {
 	h, ok := Of(startSFEN)
 	if !ok {
@@ -184,7 +175,7 @@ func BaselineCp(startSFEN string) int {
 
 // BaselineCpFor 는 같은 값을 c 관점으로 돌려준다.
 //
-// 부호를 뒤집는 자리를 여기 하나로 모아 둔다 — 판정(사람 관점)과 밴드(플레이어 관점)가
+// 부호를 뒤집는 자리를 여기 하나로 모아 둔다. 판정(사람 관점)과 밴드(플레이어 관점)가
 // 같은 표를 서로 다른 관점으로 쓰므로, 부르는 쪽마다 뒤집으면 한쪽만 고쳐지는 날이 온다.
 // 표의 값이 언제나 下手 관점인 것이 이 함수가 성립하는 조건이다(Handicap.BaselineCp).
 func BaselineCpFor(startSFEN string, c shogi.Color) int {
@@ -195,8 +186,8 @@ func BaselineCpFor(startSFEN string, c shogi.Color) int {
 	return cp
 }
 
-// key 는 판과 持ち駒만 남긴 SFEN 이다. 칸이 셋보다 적으면 持ち駒를 알 수 없어 手合을
-// 말할 수 없으므로 빈 값이다 — 手番을 빼는 근거는 Of 에 있다.
+// key 는 판과 持ち駒만 남긴 SFEN 이다. 칸이 셋보다 적으면 持ち駒를 알 수 없어 빈 값이다.
+// 手番을 빼는 근거는 Of 에 있다.
 func key(sfen string) string {
 	f := strings.Fields(sfen)
 	if len(f) < 3 {

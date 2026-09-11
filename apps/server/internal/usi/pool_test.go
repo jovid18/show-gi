@@ -205,7 +205,7 @@ func TestDoubleReleaseKeepsGaugeAtZero(t *testing.T) {
 }
 
 // 이름을 붙이지 않으면 대국이다. 대국 중의 경로가 컨텍스트를 그대로 흘려보내므로
-// (세션 goroutine) 기본값이 그 자리를 가리켜야 라벨이 뜻을 갖는다.
+// 기본값이 그 자리를 가리켜야 라벨이 뜻을 갖는다.
 func TestBorrowerDefaultsToGame(t *testing.T) {
 	if got := BorrowerFrom(context.Background()); got != BorrowerGame {
 		t.Errorf("이름 없는 컨텍스트 = %q, want %q", got, BorrowerGame)
@@ -244,7 +244,7 @@ func TestPoolReportsBorrower(t *testing.T) {
 }
 
 // 사람이 기다리는 쪽이 먼저 받는다. 사후 분석이 풀을 다 쓰고 있어도 착수가 그 뒤로
-// 밀리지 않아야 해서 이 큐를 뒀다(journal §106).
+// 밀리면 안 된다(journal §106).
 func TestAPersonWaitingGetsTheEngineFirst(t *testing.T) {
 	p := newFakePool(t, 1)
 

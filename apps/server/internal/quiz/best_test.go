@@ -39,8 +39,8 @@ func mateLine(move string, in int) usi.SearchLine {
 	return usi.SearchLine{Move: move, Score: eval.Mate(in), PV: []string{move}}
 }
 
-// gameInput 은 위 수순으로 만든 Input 이다. 평가치는 전 手数에 있고 낙폭은 手数가 늦을수록 크다 —
-// 후보를 고르는 순서를 시험이 알고 있어야 한다.
+// gameInput 은 위 수순으로 만든 Input 이다. 평가치는 전 手数에 있고 낙폭은 手数가
+// 늦을수록 크다. 후보를 고르는 순서를 시험이 알고 있어야 한다.
 func gameInput() Input {
 	evals := make([]*eval.Score, len(gameMoves))
 	for i := range evals {
@@ -98,7 +98,8 @@ func TestBestItemTakesTheGapPosition(t *testing.T) {
 }
 
 func TestBestItemSkipsASmallGap(t *testing.T) {
-	// 차가 작으면 정답이 사실상 여럿이다. 그런 국면을 내면 좋은 수를 둔 사람이 「不正解」를 받는다.
+	// 차가 작으면 정답이 사실상 여럿이다. 그런 국면을 내면 좋은 수를 둔 사람이
+	// 「不正解」를 받는다.
 	in := gameInput()
 	posAt := positions(t, in)
 
@@ -159,11 +160,8 @@ func TestBestItemsAreSortedByGapAndCapped(t *testing.T) {
 	}
 }
 
-// 詰み 문항이 쓰는 국면 하나만 뺀다.
-//
-// 그 手数부터 뒤 전체를 자르면 안 된다. 詰み 문항은 판에서 가장 이른 詰み이라(§53)
-// 이른 자리에서 하나 나오면 中盤과 終盤이 전부 후보에서 사라진다 — 진짜 블런더가
-// 있는 구간이 그쪽이다.
+// 詰み 문항이 쓰는 국면 하나만 뺀다. 그 手数부터 뒤 전체를 자르면 안 되는 이유는
+// bestItems.
 func TestBestItemsSkipOnlyTheMatePosition(t *testing.T) {
 	in := gameInput()
 	posAt := positions(t, in)
@@ -234,7 +232,7 @@ func TestGradeBest(t *testing.T) {
 		t.Errorf("a legal wrong move graded as (%v, %v), want (false, nil)", ok, err)
 	}
 
-	// 불법수는 오답 대신 요청 오류로 답한다. 뭉치면 프론트 버그가 오답으로 위장해 보이지 않는다.
+	// 불법수는 오답 대신 요청 오류로 답한다. 뭉치면 프론트 버그가 오답으로 위장한다.
 	// 1a1b 는 後手의 香을 움직이는 수라 先手 차례에 불법이다.
 	if _, err := GradeBest(item, "1a1b"); err == nil {
 		t.Error("an illegal move graded as an answer")
@@ -268,11 +266,8 @@ func (f *flakySearch) SearchMultiPV(
 	return f.fakeSearch.SearchMultiPV(ctx, startSFEN, moves, depth, k)
 }
 
-// 재지 못한 후보가 있어도 잰 것은 그대로 참이다.
-//
-// 두 사실을 한 깃발로 묶어 전부 버리면, 후보 하나를 재지 못한 것이 멀쩡한 문항을 지운다 —
-// 남기지 못한 판은 줄에 남아 다시 집히고, 상한까지 실패하면 문항 없이 남는다
-// (server/quiz_jobs.go generateQuiz).
+// 재지 못한 후보가 있어도 잰 것은 그대로 참이다. 두 사실을 한 깃발로 묶으면 후보
+// 하나를 재지 못한 것이 멀쩡한 문항을 지운다(server/quiz_jobs.go generateQuiz).
 func TestBestItemsSurviveAFailureElsewhere(t *testing.T) {
 	in := gameInput()
 	posAt := positions(t, in)
@@ -307,11 +302,7 @@ func TestQuizEmpty(t *testing.T) {
 	}
 }
 
-// 두어지지 않은 수는 문항이 안 된다.
-//
-// replay 는 읽을 수 없는 수에서 멈추므로 마지막 국면은 있어도 그 자리의 수는 판에 없다.
-// 거기까지 후보로 삼으면 Played 가 없던 수가 되고, 「사람이 이미 최선수를 뒀다」를 그 수와
-// 견주게 되어 실제로 최선수를 둔 국면이 문항으로 나간다.
+// 두어지지 않은 수는 문항이 안 된다. 마지막 국면을 빼는 이유는 Builder.candidates.
 func TestBestItemsStopAtTheEndOfTheReplay(t *testing.T) {
 	in := gameInput()
 	// 마지막 자리를 읽을 수 없는 수로 바꾼다 — 그 앞까지만 재현된다.
@@ -366,8 +357,7 @@ func TestLineIsCapped(t *testing.T) {
 	}
 }
 
-// 두어 보면서 자른다. 엔진 PV의 꼬리에 이 국면에서 둘 수 없는 수가 섞여 오는 일이 있고,
-// 그대로 저장하면 채점 뒤에 둘 수 없는 수순이 화면에 나간다.
+// 두어 보면서 자른다(lineAfter).
 func TestLineStopsAtTheFirstIllegalMove(t *testing.T) {
 	pos := shogi.StartPosition()
 	got := lineAfter(pos, []string{"7g7f", "3c3d", "9i9b", "1a1b"})

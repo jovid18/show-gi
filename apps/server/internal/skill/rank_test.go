@@ -23,8 +23,7 @@ func TestAnchorsLandOnTheirOwnNames(t *testing.T) {
 // 못하는 것이고, 그때는 앵커를 늘려야 한다(rankAnchors).
 //
 // 세 계급까지 봐준다. 그 라벨들의 표준오차가 낙폭의 12~15%인데 계급당 차이가 5%라,
-// 지금 표본에서 라벨 하나의 위치 자체가 ±3계급이다 — 그보다 좁게 걸면 판 하나가
-// 들어올 때마다 이 테스트가 깨진다.
+// 지금 표본에서 라벨 하나의 위치 자체가 ±3계급이다.
 func TestMeasuredLabelsSitNearTheLine(t *testing.T) {
 	for _, c := range []struct {
 		name    string
@@ -79,8 +78,7 @@ func TestWorseLossNeverGivesAStrongerName(t *testing.T) {
 	}
 }
 
-// 밖에서 온 값이 척도를 벗어나게 하면 안 된다 — 저장해 둔 값이 DB에서 오고(store),
-// NewTrackFrom 과 같은 이유로 여기서도 자른다.
+// 밖에서 온 값이 척도를 벗어나게 하면 안 된다. 저장해 둔 값이 DB에서 온다(NewTrackFrom).
 func TestOutOfRangeLossStaysOnTheScale(t *testing.T) {
 	for _, abs := range []float64{-3, -0.001, 0, 1.001, 42} {
 		got, ok := RankOf(named(abs))
@@ -96,15 +94,14 @@ func TestOutOfRangeLossStaysOnTheScale(t *testing.T) {
 	}
 }
 
-// 양 끝이 척도의 양 끝이어야 한다. 아래 끝은 15級 앵커이고, 위 끝은 그 위 전부다 —
-// 段 사이를 이 자로 가를 수 없다(rankNames).
+// 양 끝이 척도의 양 끝이어야 한다. 아래 끝은 15級 앵커이고, 위 끝은 그 위 전부다
+// (rankNames).
 func TestEndsOfTheScale(t *testing.T) {
 	worst, _ := RankOf(named(0.5))
 	if worst.NameJa != "15級" || worst.Step != 0 {
 		t.Errorf("큰 낙폭의 이름 = %q(%d), want 15級(0)", worst.NameJa, worst.Step)
 	}
-	// 위 앵커보다 작은 낙폭은 전부 그 한 칸이다. 段 사이를 이 자로 가를 수 없으므로
-	// (§94의 평평한 구간) 三段도 5段도 같은 이름으로 나간다.
+	// 위 앵커보다 작은 낙폭은 전부 그 한 칸이라 三段도 5段도 같은 이름으로 나간다.
 	for _, abs := range []float64{0.0651, 0.0332, 0.001} {
 		got, _ := RankOf(named(abs))
 		if got.NameJa != "初段" {
@@ -136,7 +133,7 @@ func TestNameDoesNotDependOnTheThresholdThatJudged(t *testing.T) {
 	}
 }
 
-// 앵커 사이는 로그 보간이다. 두 앵커의 기하 중앙이 그 두 칸의 가운데로 와야 한다 —
+// 앵커 사이는 로그 보간이다. 두 앵커의 기하 중앙이 그 두 칸의 가운데로 와야 한다.
 // 낙폭이 곱셈적이라(SD가 평균에 비례한다) 산술로 이으면 아래쪽 계급이 뭉친다.
 func TestBetweenAnchorsIsLogarithmic(t *testing.T) {
 	lo, hi := rankAnchors[0], rankAnchors[len(rankAnchors)-1]
@@ -148,8 +145,8 @@ func TestBetweenAnchorsIsLogarithmic(t *testing.T) {
 	}
 }
 
-// named 는 이름이 붙을 만큼의 표본을 가진 추정치다. 段級은 절대 낙폭만 보므로 Loss 는
-// 채우지 않는다 — 채우면 어느 값이 이름을 만들었는지가 테스트에서 보이지 않는다.
+// named 는 이름이 붙을 만큼의 표본을 가진 추정치다. Loss 를 비워 두어야 어느 값이 이름을
+// 만들었는지가 테스트에서 보인다.
 func named(absLoss float64) Estimate {
 	return Estimate{AbsLoss: absLoss, AbsSamples: MinSamples}
 }

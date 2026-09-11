@@ -20,16 +20,16 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 대인전 한 판을 끝까지 돌린다 — 방을 만들고, 둘이 붙고, 두고, 投了하고, 기록이
-// 양쪽에 남는 것까지.
+// 대인전 한 판을 끝까지 돌린다. 방을 만들고, 둘이 붙고, 두고, 投了하고, 기록이 양쪽에
+// 남는 것까지.
 //
 // 진짜 DB가 필요하다. 한 판이 games 행 두 개로 남는다는 것이 이 기능의 기록 설계
 // 전부인데(012_match_games.sql), 그건 가짜 store 로는 확인할 수 없다.
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
 //
-// 엔진이 필요 없다. 대인전은 룰 엔진과 시계뿐이라(internal/match) 이 테스트가
-// 엔진 없이 도는 것 자체가 그 사실의 증거다.
+// 엔진이 필요 없다. 대인전은 룰 엔진과 시계뿐이라(internal/match) 이 테스트가 엔진 없이
+// 도는 것 자체가 그 사실의 증거다.
 func TestTwoPeoplePlayAMatch(t *testing.T) {
 	url := os.Getenv("SHOWGI_TEST_DATABASE_URL")
 	if url == "" {
@@ -41,7 +41,7 @@ func TestTwoPeoplePlayAMatch(t *testing.T) {
 	}
 	t.Cleanup(st.Close)
 
-	// 두 사람. 진짜 행이어야 한다 — games.user_id 가 users 를 참조한다.
+	// 두 사람. 진짜 행이어야 한다. games.user_id 가 users 를 참조한다.
 	alice, err := st.UpsertUser(t.Context(), "test", "match-alice", "アリス")
 	if err != nil {
 		t.Fatalf("upsert alice: %v", err)
@@ -96,8 +96,8 @@ func TestTwoPeoplePlayAMatch(t *testing.T) {
 	aliceWS := dialMatch(t, wsURL, aliceCookie)
 	bobWS := dialMatch(t, wsURL, bobCookie)
 
-	// 방을 만든 사람은 붙자마자 「기다리는 중」을 받는다. 판보다 먼저 온다 —
-	// 초대 링크를 그릴 것이 그것뿐이다.
+	// 방을 만든 사람은 붙자마자 「기다리는 중」을 받는다. 초대 링크를 그릴 것이
+	// 그것뿐이라 판보다 먼저 온다.
 	if got := readMatch(t, aliceWS); got.Type != "waiting" {
 		t.Fatalf("alice's first frame is %q, want waiting", got.Type)
 	}
@@ -185,8 +185,8 @@ func TestTwoPeoplePlayAMatch(t *testing.T) {
 		if len(rec.Moves) != 2 || rec.Moves[0].USI != "7g7f" || rec.Moves[1].USI != "3c3d" {
 			t.Fatalf("game %d has %+v, want 7g7f then 3c3d", rec.ID, rec.Moves)
 		}
-		// 개입도 평가치도 없다. 엔진을 부르지 않는 판이라서다 — 그 사실이 총평과 퀴즈를
-		// 닫는 근거다(review.go · quiz.go).
+		// 개입도 평가치도 없다. 엔진을 부르지 않는 판이고, 그 사실이 총평과 퀴즈를 닫는
+		// 근거다(review.go · quiz.go).
 		if len(rec.Interventions) != 0 {
 			t.Fatalf("game %d has %d interventions, want none", rec.ID, len(rec.Interventions))
 		}
@@ -222,8 +222,8 @@ func dialMatch(t *testing.T, url, cookie string) *websocket.Conn {
 	return conn
 }
 
-// matchFrame 은 받은 프레임 하나다. matchServerMsg 를 그대로 쓰지 않는 것은 화면이
-// 보는 모양으로 읽기 위해서다 — json 태그가 곧 계약이라, 필드 이름이 바뀌면 여기가 깨져야 한다.
+// matchFrame 은 받은 프레임 하나다. matchServerMsg 를 그대로 쓰지 않고 화면이 보는 모양으로
+// 읽는다. json 태그가 곧 계약이라 필드 이름이 바뀌면 여기가 깨져야 한다.
 type matchFrame struct {
 	Type     string `json:"type"`
 	GameID   int64  `json:"gameId"`
@@ -257,8 +257,8 @@ func readMatch(t *testing.T, conn *websocket.Conn) matchFrame {
 	return got
 }
 
-// readUntil 은 조건에 맞는 스냅샷이 올 때까지 읽는다. 접속 표시 때문에 같은 국면의
-// 스냅샷이 여러 번 온다 — 상대가 붙고 떨어지는 것도 방송되기 때문이다.
+// readUntil 은 조건에 맞는 스냅샷이 올 때까지 읽는다. 상대가 붙고 떨어지는 것도 방송되므로
+// 같은 국면의 스냅샷이 여러 번 온다.
 func matchUntil(t *testing.T, conn *websocket.Conn, ok func(snap) bool) snap {
 	t.Helper()
 	for range 20 {

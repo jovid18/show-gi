@@ -6,8 +6,7 @@ import (
 	"time"
 )
 
-// 이긴 쪽이 오르고 진 쪽이 내린다. 합이 보존되지는 않는다 — RD 가 다르면 움직이는
-// 폭도 다르다.
+// 이긴 쪽이 오르고 진 쪽이 내린다. 합은 보존되지 않는다. RD 가 다르면 움직이는 폭도 다르다.
 func TestUpdateMovesBothWays(t *testing.T) {
 	a, b := Update(Unrated, Unrated, Win)
 	if a.Value <= Default {
@@ -34,7 +33,7 @@ func TestPlayingNarrowsDeviation(t *testing.T) {
 	}
 }
 
-// 두 사람을 갱신 전 값으로 계산한다. 순서를 뒤집어도 같은 값이 나오는 것이 그 증거다 —
+// 두 사람을 갱신 전 값으로 계산한다. 순서를 뒤집어도 같은 값이 나오는 것이 그 증거다.
 // 갱신된 값으로 상대를 보면 먼저 계산한 쪽이 이득을 본다.
 func TestUpdateIsOrderIndependent(t *testing.T) {
 	strong := Rating{Value: 1700, Deviation: 80}

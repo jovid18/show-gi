@@ -46,8 +46,8 @@ func TestPlayerMovesCountByColor(t *testing.T) {
 	}
 }
 
-// 카테고리는 많은 순, 같으면 코드 순이다. 결정적이어야 한다 — 흔들리면 같은 판이
-// 두 문장을 갖고 캐시 키도 같이 흔들린다.
+// 카테고리는 많은 순, 같으면 코드 순이다. 흔들리면 같은 판이 두 문장을 갖고 캐시 키도 같이
+// 흔들린다.
 func TestCategoriesRankDeterministically(t *testing.T) {
 	rec := recordFor("b", 20,
 		iv(3, "other"), iv(5, "hangs_piece"), iv(7, "hangs_piece"), iv(9, "greedy_capture"))
@@ -87,8 +87,8 @@ func TestNoInterventionsSaysNothingInvented(t *testing.T) {
 // 과반이 아니면 구간을 말하지 않는다. 최다 구간을 그냥 말하면 4·3·3에서도
 // 「주로 서반」이 된다.
 //
-// 그리고 짧은 판에는 종반이 없다. 판을 삼등분하던 때 3手째 개입이 「終盤」으로 나가
-// 화면이 거짓을 말했다(§49) — 지금은 手数의 절대값으로 가른다.
+// 그리고 짧은 판에는 종반이 없다. 판을 삼등분하던 때 3手째 개입이 「終盤」으로 나가 화면이
+// 거짓을 말했고(journal §49), 지금은 手数의 절대값으로 가른다.
 func TestPhaseUsesAbsolutePly(t *testing.T) {
 	for _, c := range []struct {
 		name string
@@ -114,8 +114,8 @@ func TestPhaseUsesAbsolutePly(t *testing.T) {
 	}
 }
 
-// 짧은 판 전체를 한 번 통과시킨다. 이것이 §49에서 물린 그 판이다 — 2手 확정 + 3手째
-// 개입 하나이고, 그때 화면에 「終盤で」가 나갔다.
+// 짧은 판 전체를 한 번 통과시킨다. journal §49에서 물린 그 판이고, 2手 확정 + 3手째 개입
+// 하나에 「終盤で」가 나갔다.
 func TestShortGameSaysEarlyNotLate(t *testing.T) {
 	rec := recordFor("b", 2, iv(3, "hangs_piece"))
 	rec.Result = store.ResultLoss
@@ -153,7 +153,7 @@ func TestTrendNeedsSamplesAndAMargin(t *testing.T) {
 	}
 }
 
-// 끝나지 않은 판도 총평이 나와야 한다 — 새로고침하면 판이 끝나므로(§46) 실제로 흔하다.
+// 끝나지 않은 판도 총평이 나와야 한다. 새로고침하면 판이 끝나므로(journal §46) 흔하다.
 func TestUnfinishedGameStillSummarizes(t *testing.T) {
 	rec := recordFor("b", 12, iv(3, "other"))
 	rec.Result = store.ResultAbandoned
@@ -225,11 +225,11 @@ func TestFocusDoesNotReachTheSentence(t *testing.T) {
 		t.Fatalf("숫자 쪽에 짚는 자리가 없다: %+v", stats.Focus)
 	}
 
-	// 그런데 문장 쪽 사실은 手数를 모른다. 짚는 자리는 화면의 표가 그리고, 총평은 판
-	// 전체의 모양을 말하는 자리다 — 문장이 手数를 옮겨 적으면 두 벌이 된다.
+	// 그런데 문장 쪽 사실은 手数를 모른다. 짚는 자리는 화면의 표가 그리고, 총평은 판 전체의
+	// 모양을 말하는 자리라, 문장이 手数를 옮겨 적으면 두 벌이 된다.
 	//
-	// 手数를 같은 구간 안에서 옮긴다(둘 다 序盤) — 구간이 갈리면 Phase 가 달라지는 것이
-	// 맞고, 이 테스트가 잡으려는 자리는 따로 있다.
+	// 手数를 같은 구간 안에서 옮긴다(둘 다 序盤). 구간이 갈리면 Phase 가 달라지는 것이
+	// 맞다.
 	other := rec
 	other.Interventions = []store.RecordedIntervention{{Ply: 12, Category: "hangs_piece", DeltaWin: 0.7}}
 	otherFacts, _ := factsOf(other, intervene.Beginner)

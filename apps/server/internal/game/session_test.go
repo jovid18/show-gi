@@ -44,13 +44,11 @@ func (o *scriptedOpponent) Choose(ctx context.Context, _ string, _ []string, _ s
 	return m, nil
 }
 
-// silentOpponent 는 한 수도 답하지 않는다. 상대가 두기 전의 판을 봐야 하는
-// 테스트에 쓴다.
+// silentOpponent 는 한 수도 답하지 않는다. 상대가 두기 전의 판을 봐야 하는 테스트에 쓴다.
 //
-// scriptedOpponent{delay: 0} 으로는 그 자리를 잡을 수 없다. 되만든 판이 상대 차례면
-// run 이 시작하자마자 maybeThink 을 걸고, 그 goroutine 의 답과 테스트의 Snapshot
-// 이 같은 select 에 함께 준비된다 — 어느 쪽이 뽑히는지가 Go 의 무작위 선택과 그때의
-// 부하에 달린다(journal §73).
+// scriptedOpponent{delay: 0} 으로는 그 자리를 잡을 수 없다. 그 goroutine 의 답과
+// 테스트의 Snapshot 이 같은 select 에 함께 준비되고, 어느 쪽이 뽑히는지가 Go 의
+// 무작위 선택에 달린다(journal §73).
 type silentOpponent struct{}
 
 func (silentOpponent) Choose(ctx context.Context, _ string, _ []string, _ skill.Estimate) (string, error) {
@@ -90,12 +88,11 @@ func newSession(t *testing.T, cfg Config) *Session {
 	return s
 }
 
-// waitFor 는 조건을 만족하는 스냅샷이 올 때까지 구독 채널을 읽는다.
-// waitDeadline 은 한 스냅샷을 기다리는 시한이다.
+// waitDeadline 은 waitFor 가 한 스냅샷을 기다리는 시한이다.
 //
-// 넉넉해도 통과하는 테스트는 느려지지 않는다 — 조건이 맞는 순간 돌아오므로 이 값은 실패할
-// 때만 쓰인다. 3초였는데 CI 러너가 굶으면 넘어갔다: 게이지를 기다리는 자리가 착수 →
-// 판정 goroutine → 롤백 → 게이지 goroutine → broadcast 네 홉이라 가장 먼저 걸린다.
+// 넉넉해도 통과하는 테스트는 느려지지 않는다. 조건이 맞는 순간 돌아오므로 이 값은
+// 실패할 때만 쓰인다. 게이지를 기다리는 자리가 착수 → 판정 goroutine → 롤백 →
+// 게이지 goroutine → broadcast 네 홉이라 CI 러너가 굶으면 가장 먼저 걸린다.
 const waitDeadline = 10 * time.Second
 
 func waitFor(t *testing.T, ch <-chan Snapshot, cond func(Snapshot) bool, what string) Snapshot {
@@ -313,8 +310,7 @@ func TestUnplayableEngineMoveEndsGame(t *testing.T) {
 	}
 }
 
-// 상대의 수를 얻지 못하면 승패를 지어내지 않는다. 投了로 적으면 지고 있던 판이
-// 기록에서 이긴 판이 된다(StatusAborted).
+// 상대의 수를 얻지 못하면 승패를 지어내지 않는다(StatusAborted).
 func TestEngineFailureAbortsGameWithoutAWinner(t *testing.T) {
 	opp := &scriptedOpponent{err: errors.New("boom")}
 	s := newSession(t, Config{Opponent: opp, HumanColor: shogi.Black})
@@ -358,7 +354,7 @@ func TestEngineResignGivesTheWinToTheHuman(t *testing.T) {
 }
 
 // 판정이 실패하면 수는 그대로 두어지지만 경고 없이 넘기지 않는다. 개입이 없는 화면은
-// 「이 수는 괜찮았다」와 똑같이 생겼는데, 여기서는 확인 자체를 하지 못한 것이다.
+// 「이 수는 괜찮았다」와 똑같이 생겼다(Notice).
 func TestJudgeFailureLeavesANotice(t *testing.T) {
 	opp := &scriptedOpponent{moves: []string{"3c3d"}}
 	an := &fixedAnalyst{err: errors.New("engine down")}
@@ -716,10 +712,8 @@ func hasHangulInGame(s string) bool {
 	return false
 }
 
-// 관측 구간은 기본값이 없다 — 첫 수부터 판정한다. 명시적으로 준 경우에만 건너뛴다.
-//
-// 원래 20수를 비워뒀는데 그건 「오프닝의 다양성을 인정한다」를 수 번호로 잘못 옮긴
-// 것이었다. 다양성은 임계치가 지킨다(intervene 쪽 테스트).
+// 관측 구간은 기본값이 없다. 첫 수부터 판정하고, 명시적으로 준 경우에만 건너뛴다.
+// 오프닝의 다양성은 임계치가 지킨다(01-core.md §2).
 func TestObservePliesIsOptInAndSkipsJudging(t *testing.T) {
 	an := &fixedAnalyst{verdict: blunder()}
 	s := newSession(t, Config{
@@ -776,7 +770,7 @@ func TestBuildHintStaysBehindItsStage(t *testing.T) {
 		{"윗칸 — 수까지", HintMoveAfter, "5d5f", &Hint{Square: "5d", USI: "5d5f"}},
 		{"打는 駒台를 짚는다", HintPieceAfter, "B*4a", &Hint{Drop: "B"}},
 		{"打도 윗칸에 수까지", HintMoveAfter, "B*4a", &Hint{Drop: "B", USI: "B*4a"}},
-		// 최선수를 구하지 못했으면 힌트도 없다. 판정이 고장 나도 대국은 계속된다는 것과 같은 판단이다.
+		// 최선수를 구하지 못했으면 힌트도 없다.
 		{"최선수가 없으면 없다", 9, "", nil},
 		{"읽을 수 없으면 없다", 9, "zzzz", nil},
 	} {
@@ -796,10 +790,9 @@ func TestBuildHintStaysBehindItsStage(t *testing.T) {
 	}
 }
 
-// 갇힘 힌트는 같은 국면에서 연속으로 물러진 횟수로 열린다.
+// 갇힘 힌트는 같은 국면에서 연속으로 물러진 횟수로 열린다(journal §23).
 //
-// 한 판 누적으로 세면 서로 다른 이유로 실수한 사람에게 엉뚱한 힌트가 열린다. 그래서
-// 이 테스트가 지키는 것은 계단이 열리는 것과, 통과하는 수 하나로 닫히는 것 둘이다.
+// 지키는 것은 둘이다. 계단이 열리는 것과, 통과하는 수 하나로 닫히는 것.
 func TestStuckHintOpensAndResets(t *testing.T) {
 	an := &fixedAnalyst{verdict: blunder(), bestUSI: "2g2f"}
 	s := newSession(t, Config{
@@ -855,10 +848,9 @@ func TestStuckHintOpensAndResets(t *testing.T) {
 	// 상대 응수까지 기다린다 — 그 전에는 내 차례가 오지 않는다.
 	waitFor(t, ch, func(s Snapshot) bool { return s.YourTurn && s.Ply >= 2 }, "상대 응수 뒤 내 차례")
 
-	// 여기서 「힌트가 없다」만 보면 아무것도 지키지 않는다 — playHuman 이 착수마다
-	// 힌트를 지우므로 계수가 6이어도 그 스냅샷은 비어 있다. 계수가 실제로 0으로
-	// 돌아갔는지는 한 번 더 물러져 봐야 갈린다. 돌아가지 않았으면 그 한 번이 윗칸을 넘겨
-	// 곧바로 수까지 실린 힌트가 온다.
+	// 「힌트가 없다」만 보면 아무것도 지키지 않는다. playHuman 이 착수마다 힌트를
+	// 지우므로 계수가 6이어도 그 스냅샷은 비어 있다. 계수가 0으로 돌아갔는지는 한 번
+	// 더 물러져 봐야 갈린다.
 	an.verdict = blunder()
 	if _, err := s.Play(t.Context(), "2g2f"); err != nil {
 		t.Fatalf("새 국면에서 Play: %v", err)
@@ -871,8 +863,8 @@ func TestStuckHintOpensAndResets(t *testing.T) {
 
 // 평가치는 先手 관점으로 기보에 들어간다.
 //
-// 부호를 틀리면 아무 데서도 터지지 않는다 — 궤적이 상하로 뒤집힌 채 그려지고, 밴드가
-// 지켜졌는지 물었을 때 정확히 반대 답이 나온다. 그래서 사람이 後手인 판까지 본다.
+// 부호를 틀리면 아무 데서도 터지지 않는다. 궤적이 상하로 뒤집힌 채 그려질 뿐이라
+// 사람이 後手인 판까지 본다(journal §34).
 func TestEvalsAreRecordedFromSentesSide(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

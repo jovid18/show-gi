@@ -17,22 +17,20 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
 )
 
-// 실 기보로 태그가 맞게 붙는지를 넓게 본다. 지금까지 囲い·전법 태그는 손으로 만든
-// 국면에서만 재봤고(09-tags.md §4), 「실제 대국에서 얼마나·어디서 뜨는가」는 재지 않았다.
+// 실 기보로 태그가 맞게 붙는지를 넓게 본다. 손으로 만든 국면에서만 재봤다(09-tags.md §4).
 //
-// 엔진을 쓰지 않는다. 囲い·전법·戦型은 판과 수순만으로 정해지므로 이 측정이 초 단위로
-// 끝나고, 그래서 고치고 다시 돌리는 것을 반복할 수 있다.
+// 엔진을 쓰지 않는다. 囲い·전법·戦型은 판과 수순만으로 정해져 이 측정이 초 단위다.
 //
 //	SHOWGI_KIFU_SCAN=1 go test ./internal/kifu/ -run ScanTags -v
 //	SHOWGI_KIFU_SEED=2 SHOWGI_KIFU_SCAN=1 go test ./internal/kifu/ -run ScanTags -v
 //
-// seed를 고정하고 찍는다. 매번 다른 10판을 뽑으면 「고쳐서 나아진 것」과 「표본이
-// 쉬워진 것」을 가를 수 없다 — 고치고 다시 도는 루프가 그 자리에서 성립하지 않는다.
+// seed 를 고정한다. 매번 다른 10판이면 「고쳐서 나아진 것」과 「표본이 쉬워진 것」이
+// 갈리지 않는다.
 
 const scanGames = 10
 
-// scanCount 는 몇 판을 볼지다. 기본은 10판이고, 분포를 볼 때만 전부로 넓힌다 —
-// 고치고 다시 도는 루프는 10판이라야 눈으로 훑을 수 있다.
+// scanCount 는 몇 판을 볼지다. 기본 10판은 눈으로 훑을 수 있는 크기이고, 분포를 볼
+// 때만 전부로 넓힌다.
 func scanCount(t *testing.T) int {
 	t.Helper()
 	v := os.Getenv("SHOWGI_KIFU_GAMES")
@@ -46,8 +44,8 @@ func scanCount(t *testing.T) int {
 	return n
 }
 
-// floodgateFiles 는 seed 로 정해진 표본이다. 파일 이름을 먼저 정렬해야 한다 —
-// 디렉터리 순서는 파일시스템이 정하므로 그것 위에서 섞으면 seed 가 있어도 재현되지 않는다.
+// floodgateFiles 는 seed 로 정해진 표본이다. 파일 이름을 먼저 정렬해야 한다. 디렉터리
+// 순서는 파일시스템이 정하므로 그 위에서 섞으면 seed 가 있어도 재현되지 않는다.
 func floodgateFiles(t *testing.T, seed uint64, n int) []string {
 	t.Helper()
 
@@ -93,8 +91,7 @@ func scanSeed(t *testing.T) uint64 {
 
 // firstAppearance 는 태그 코드마다 처음 붙은 手数다.
 //
-// 전이만 본다. 10판 × 120수 × 두 색을 전부 눈으로 볼 수 없고, 태그는 한 번
-// 붙으면 대개 끝까지 남아서 매 수 찍으면 같은 줄이 수십 번 나온다.
+// 전이만 본다. 태그는 한 번 붙으면 대개 끝까지 남는다.
 type firstAppearance struct {
 	code string
 	ply  int
@@ -109,8 +106,8 @@ type gameScan struct {
 
 // scanOne 은 기보 하나를 수마다 재생하며 프로덕션과 같은 조건으로 태그를 뽑는다.
 //
-// session.go 의 styleTags() 가 부르는 그 형태 그대로여야 한다 — 여기서 입력을 다르게
-// 만들면 측정이 제품과 다른 것을 재게 되고, 그 어긋남은 아무 데서도 터지지 않는다.
+// session.go 의 styleTags() 가 부르는 형태 그대로여야 한다. 입력을 다르게 만들면
+// 측정이 제품과 다른 것을 재고, 그 어긋남은 아무 데서도 터지지 않는다.
 func scanOne(path string) gameScan {
 	out := gameScan{name: filepath.Base(path), byColor: map[shogi.Color][]firstAppearance{}}
 
@@ -131,8 +128,8 @@ func scanOne(path string) gameScan {
 		return out
 	}
 
-	// 手番이 번갈아 간다는 것에 기대지 않고 적용한 색으로 가른다. 中断된 기보나
-	// 平手가 아닌 시작 국면에서 짝수/홀수 가정이 경고 없이 뒤집힌다.
+	// 手番이 번갈아 간다는 것에 기대지 않고 적용한 색으로 가른다. 中断된 기보나 平手가
+	// 아닌 시작 국면에서 짝수/홀수 가정이 경고 없이 뒤집힌다.
 	moves := map[shogi.Color][]string{}
 	seen := map[shogi.Color]map[string]bool{shogi.Black: {}, shogi.White: {}}
 
@@ -225,12 +222,10 @@ func TestScanTagsOverFloodgateGames(t *testing.T) {
 	t.Logf("")
 	t.Logf("판 %d개(파싱 실패 %d) · 붙은 이름 %d개 · 서로 다른 코드 %d개", parsed, failed, totalTags, len(perCode))
 
-	// precision 만 잰다. floodgate 기보에 「이 국면은 美濃다」라는 라벨이 없어서,
-	// 붙은 태그가 맞는지는 눈으로 볼 수 있어도 붙어야 했는데 붙지 않은 것은 보이지 않는다.
-	// 囲い가 21/42라 미구현 21종이 오탐과 구별되지 않는다.
+	// precision 만 잰다. floodgate 기보에 라벨이 없고 囲い가 21/42라, 미구현 21종이
+	// 오탐과 구별되지 않는다.
 	//
-	// 그래서 대리 지표를 하나 둔다: 끝까지 양쪽 다 囲い가 하나도 붙지 않은 판의 비율.
-	// 프로 수준 엔진끼리의 대국이라 이 값이 크면 그만큼 보지 못하고 있다.
+	// 대리 지표를 하나 둔다: 끝까지 양쪽 다 囲い가 하나도 붙지 않은 판의 비율.
 	t.Logf("양쪽 다 囲い가 안 붙은 판: %d / %d", noCastle, parsed)
 
 	type kv struct {
@@ -256,9 +251,8 @@ func TestScanTagsOverFloodgateGames(t *testing.T) {
 
 // reportLatePlies 는 축마다 이름이 처음 붙는 手数의 분포다.
 //
-// 戦法(飛의 筋)과 戦型(角換わり 등)은 序盤 분류인데 술어에 시간 경계가 없다. 그래서
-// 종반에 飛가 떠돌다 5筋에 한 번 서면 中飛車가 되고, 角이 어쩌다 교환되어 있으면
-// 角換わり가 된다. 같은 판에서 한쪽이 15수에 居飛車, 131수에 中飛車가 된 것이 그 증거다.
+// 戦法(飛의 筋)과 戦型(角換わり 등)은 序盤 분류인데 술어에 시간 경계가 없다. 같은
+// 판에서 한쪽이 15수에 居飛車, 131수에 中飛車가 됐다.
 //
 // 경계를 몇 수로 둘지는 이 표로 정한다.
 func reportLatePlies(t *testing.T, results []gameScan) {
@@ -318,9 +312,8 @@ func reportLatePlies(t *testing.T, results []gameScan) {
 		row(string(k), byKind[k])
 	}
 
-	// ibisha 를 따로 본다. 저것만 성질이 다르다 — 「振っていない」는 상태이고 囲い가
-	// 서야 뜨므로 저절로 늦다. 나머지 여섯은 「振った 수」라 序盤의 사실이다. 섞으면
-	// 중앙값이 끌려 올라가서 경계를 잘못 고르게 된다.
+	// ibisha 를 따로 본다. 「振っていない」는 상태이고 囲い가 서야 뜨므로 저절로 늦다.
+	// 나머지 여섯은 「振った 수」라 序盤의 사실이고, 섞으면 중앙값이 끌려 올라간다.
 	header("戦法·戦型을 코드별로 — 경계는 여기서 고른다")
 	for _, code := range []string{
 		"naka_bisha", "shiken_bisha", "sanken_bisha", "mukai_bisha", "sode_bisha", "migi_shiken_bisha",
@@ -331,11 +324,10 @@ func reportLatePlies(t *testing.T, results []gameScan) {
 	}
 }
 
-// 囲い가 붙지 않는 판이 왜 그런가 — 짓지 않은 것인지 보지 못한 것인지 가른다.
+// 囲い가 붙지 않는 판이 왜 그런가. 짓지 않은 것인지 보지 못한 것인지 가른다.
 //
-// 이름이 없는 판이 대부분인데(실측은 journal §44) 두 가지가 겹쳐 있을 수 있고 대응이
-// 정반대다 — 강한 엔진이 고전 囲い를 짓지 않는 것이면 고칠 것이 없고, 짓는데 우리가
-// 보지 못하는 것이면 정의를 넓혀야 한다.
+// 이름이 없는 판이 대부분이다(journal §44). 강한 엔진이 고전 囲い를 짓지 않는 것이면
+// 고칠 것이 없고, 보지 못하는 것이면 정의를 넓힌다.
 //
 // 玉의 자리가 그 둘을 가른다. 囲い는 玉을 구석으로 옮기는 일이므로, 이름이 없는데
 // 玉이 2八·8八·9九 쪽에 있으면 우리가 보지 못한 것이고, 5九·4八 같은 가운데나 初期配置
@@ -374,8 +366,8 @@ func TestScanKingsInGamesWithoutACastle(t *testing.T) {
 				return
 			}
 
-			// 玉이 자리를 잡은 뒤에 본다. 囲い는 보통 40수 안에 완성되고, 그보다 뒤는
-			// 崩れている 중일 수 있다. 짧은 판은 마지막 국면을 쓴다.
+			// 玉이 자리를 잡은 뒤에 본다. 囲い는 보통 40수 안에 완성되고 그 뒤는 崩れている
+			// 중일 수 있다. 짧은 판은 마지막 국면을 쓴다.
 			settle := min(40, len(g.Moves))
 			for i := range settle {
 				m, err := shogi.ParseUSIMove(g.Moves[i])
@@ -472,11 +464,10 @@ func startKing(c shogi.Color) struct{ file, rank int } {
 	return struct{ file, rank int }{5, 1}
 }
 
-// 보지 못한 囲い가 어느 형태인가 — 위키 목록에서 고르지 말고 판에서 읽는다.
+// 보지 못한 囲い가 어느 형태인가. 위키 목록에서 고르지 말고 판에서 읽는다.
 //
-// 위 테스트가 「玉은 囲い 자리에 있는데 이름이 없는」 쪽을 찾아냈고, 그 칸의 분포는
-// journal §44 표에 있다. 어느 변형을 넣을지는 그 국면에서 玉 주변에 실제로 무엇이 서
-// 있는가로 정한다 — 목록에서 고르면 실전에 나오지 않는 이름부터 넣게 된다(09-tags.md).
+// 위 테스트가 「玉은 囲い 자리에 있는데 이름이 없는」 쪽을 찾아냈다(journal §44). 어느
+// 변형을 넣을지는 玉 주변에 무엇이 서 있는가로 정한다(09-tags.md).
 //
 // 좌표는 전부 先手 기준으로 뒤집어 센다. 그래야 양쪽 표본이 한 줄에 모인다.
 func TestScanWhatStandsAroundAnUnnamedKing(t *testing.T) {
@@ -577,16 +568,13 @@ func TestScanWhatStandsAroundAnUnnamedKing(t *testing.T) {
 
 // 手筋의 형태가 실 기보에서 얼마나·어디서 서는가.
 //
-// 지금까지 手筋은 한 판(playtestUpTo103)에서만 쟀다(journal §34).
-// 형태 6개 · 이름 2개가 그 판의 전부였고, 그 숫자로 빈도를 말할 수는 없다.
+// 지금까지 手筋은 한 판(playtestUpTo103)에서만 쟀다(journal §34). 형태 6개 · 이름 2개로
+// 빈도를 말할 수는 없다.
 //
-// 엔진을 쓰지 않고 룰 층만 본다. game.NamedTesuji 에 두 cp를 같게 넣으면 낙폭 0이라
-// 게이트가 언제나 통과하고, 남는 것이 정확히 freshTesuji — 프로덕션이 쓰는 그 함수다.
-// 측정이 자기 규칙을 새로 쓰지 않게 하는 방법이고, §34 ⑦이 잡은 「측정과 제품이 다른
-// 것을 세고 있었다」를 피하는 자리다.
+// 엔진을 쓰지 않고 룰 층만 본다. game.NamedTesuji 에 두 cp 를 같게 넣으면 낙폭 0이라
+// 게이트가 언제나 통과하고, 남는 것이 프로덕션이 쓰는 freshTesuji 다(journal §34 ⑦).
 //
-// 그래서 이 표는 게이트 앞의 수다. 엔진이 얼마를 끄는지는 §42의 실 기보 측정이 답한다
-// (형태 6개 중 4개를 껐다).
+// 그래서 이 표는 게이트 앞의 수다. 엔진이 얼마를 끄는지는 journal §42 가 답한다.
 func TestScanTesujiShapesOverFloodgateGames(t *testing.T) {
 	if os.Getenv("SHOWGI_KIFU_SCAN") == "" {
 		t.Skip("SHOWGI_KIFU_SCAN 미설정")
@@ -635,7 +623,7 @@ func TestScanTesujiShapesOverFloodgateGames(t *testing.T) {
 				mover := pos.Turn
 				pos = pos.Apply(m)
 
-				// 두 값이 같으면 낙폭 0 — 게이트를 중립화한 룰 층이다.
+				// 두 값이 같으면 낙폭 0이다. 게이트를 중립화한 룰 층이다.
 				for _, tg := range game.NamedTesuji(before, pos, mover, u, eval.Cp(0), eval.Cp(0)) {
 					local[tg.Code]++
 					localPly[tg.Code] = append(localPly[tg.Code], i+1)
@@ -683,12 +671,11 @@ func TestScanTesujiShapesOverFloodgateGames(t *testing.T) {
 
 // 両取り를 건 駒가 成っているか로 가른다.
 //
-// forkNames 는 龍·馬를 담는다 — 「飛의 縦横·角의 斜め를 그대로 갖는다」로 넣은 것이다. 그런데
-// 종반에 적진에 들어간 龍은 거의 언제나 두 개를 동시에 노린다. 그러면 十字飛車라는
-// 이름이 「飛로 두 방향을 찌른 手筋」 대신 「龍이 龍답게 서 있다」가 된다.
+// forkNames 는 龍·馬를 담는다. 그런데 종반의 龍은 거의 언제나 두 개를 동시에 노려서,
+// 十字飛車가 「飛로 두 방향을 찌른 手筋」 대신 「龍이 龍답게 서 있다」가 된다.
 //
-// 프로덕션 경로를 지나지 않는다. Fork 를 판 위에서 직접 훑어 駒 종류까지 본다 — 여기서
-// 필요한 것이 「어느 駒였나」인데 NamedTesuji 는 이름만 돌려주기 때문이다.
+// 프로덕션 경로를 지나지 않는다. NamedTesuji 는 이름만 돌려주는데 여기서 필요한 것이
+// 「어느 駒였나」라, Fork 를 판 위에서 직접 훑는다.
 func TestScanForksByPromotion(t *testing.T) {
 	if os.Getenv("SHOWGI_KIFU_SCAN") == "" {
 		t.Skip("SHOWGI_KIFU_SCAN 미설정")
@@ -733,8 +720,8 @@ func TestScanForksByPromotion(t *testing.T) {
 				mover := pos.Turn
 				pos = pos.Apply(m)
 
-				// 그 수가 새로 만든 형태만 — 이미 서 있던 것을 매 수 다시 세면
-				// 종반의 한 형태가 수십 번으로 부풀어 비교가 무의미해진다.
+				// 그 수가 새로 만든 형태만 센다. 이미 서 있던 것을 다시 세면 종반의 한
+				// 형태가 수십 번으로 부풀어 오른다.
 				had := map[string]bool{}
 				for _, tg := range tag.FindTesuji(before, mover) {
 					had[tg.Code] = true
@@ -798,7 +785,7 @@ func senteView(file, rank int, c shogi.Color) (int, int) {
 }
 
 // neighbourhood 는 玉 주변 칸에 선 자기 駒를 「칸:駒」로 늘어놓는다. 빈 칸과 상대 駒는
-// 적지 않는다 — 囲い는 자기 駒의 배치이고, 나머지를 적으면 같은 형태가 수십 갈래로 흩어진다.
+// 적지 않는다. 囲い는 자기 駒의 배치라, 나머지를 적으면 같은 형태가 수십 갈래로 흩어진다.
 func neighbourhood(pos shogi.Position, c shogi.Color, kf, kr int, around [][2]int) string {
 	var parts []string
 	for _, d := range around {

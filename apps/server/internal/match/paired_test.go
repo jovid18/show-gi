@@ -38,8 +38,9 @@ func TestPairedRoomAdmitsOnlyTheTwo(t *testing.T) {
 	}
 }
 
-// 확인 화면이 뜨지 않는 근거가 이 값이다. 손님이 이미 앉아 있으면 방 상태가 waiting 에서 벗어나고,
-// 화면은 그때 「참가하시겠습니까」를 그리지 않는다(screens/match/MatchScreen.tsx).
+// 확인 화면이 뜨지 않는 근거가 이 값이다. 손님이 이미 앉아 있으면 방 상태가 waiting
+// 에서 벗어나고, 화면은 그때 「참가하시겠습니까」를 그리지 않는다
+// (screens/match/MatchScreen.tsx).
 func TestPairedRoomIsNotWaiting(t *testing.T) {
 	h := newTestHub(t)
 
@@ -59,8 +60,8 @@ func TestPairedRoomIsNotWaiting(t *testing.T) {
 	}
 }
 
-// 대기열 방은 상한을 건드리지 않는다. 대기열에 선 사람이 따로 열어 둔 초대 링크가 경고 없이 죽으면
-// 안 되고, 반대로 초대 링크를 여는 것이 대기열 방을 걷어가서도 안 된다.
+// 대기열 방은 상한을 건드리지 않는다. 대기열에 선 사람이 따로 열어 둔 초대 링크가
+// 경고 없이 죽으면 안 되고, 반대로 초대 링크를 여는 것이 대기열 방을 걷어가서도 안 된다.
 func TestPairedRoomAndTheInviteLinkCoexist(t *testing.T) {
 	h := newTestHub(t)
 

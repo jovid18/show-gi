@@ -4,7 +4,7 @@ import { Board, type Ray } from '@/components/Board';
 import { Hand } from '@/components/Hand';
 import { Promotion } from '@/components/Promotion';
 // 대국 화면의 카드를 그대로 쓴다. 같은 판을 두 모양으로 그리면 「끝난 그 자리에서 본 것」과
-// 「나중에 되짚어 본 것」이 다른 말로 읽힌다 — 서버도 같은 payload 를 준다(§52).
+// 「나중에 되짚어 본 것」이 다른 말로 읽힌다. 서버도 같은 payload 를 준다(journal §52).
 import { Summary } from '@/screens/game/Summary';
 import { EvalGraph } from './EvalGraph';
 import { MoveOptions } from './MoveOptions';
@@ -27,21 +27,20 @@ import { useMoveEvals } from '@/hooks/useMoveEvals';
 /**
  * 한 판을 되짚는다.
  *
- * 판은 언제나 「지금 고른 手数까지 둔 뒤」다. 그 국면은 서버가 준 SFEN 그대로이고
- * 화면은 수를 두지 않는다 — 대국에서 정한 것과 같은 자리다(화면은 규칙을 모른다).
+ * 판은 언제나 「지금 고른 手数까지 둔 뒤」다. 그 국면은 서버가 준 SFEN 그대로이고 화면은 수를
+ * 두지 않는다(대국에서 정한 것과 같은 자리).
  *
- * 어느 국면에서든 그 자리에서 둬 볼 수 있다. 手数에 멈추면 서버가 그 국면을 한 번 재고,
- * 그때부터 판이 살아 있다 — 사람 차례든 상대 차례든 그 쪽 駒를 집을 수 있고, 두면 그 수의
- * cp가 붙고 상대의 최선수가 초록 화살표로 그려진다(useWhatIf).
+ * 어느 국면에서든 그 자리에서 둬 볼 수 있다. 手数에 멈추면 서버가 그 국면을 한 번 재고, 그때부터
+ * 사람 차례든 상대 차례든 그 쪽 駒를 집을 수 있다(useWhatIf).
  */
 interface ReviewDetailProps {
   game: GameDetail;
   onBack: () => void;
   /**
-   * 열 때의 手数. 주소에서 온다 — 총평이 짚은 국면으로 곧장 들어오는 길이다.
+   * 열 때의 手数. 총평이 짚은 국면으로 곧장 들어오는 길이라 주소에서 온다.
    *
-   * 처음 한 번만 본다. 그 뒤로 手数는 이 화면이 소유하고, 여기를 계속 보면
-   * 사람이 넘긴 자리가 주소의 값으로 되돌아간다.
+   * 처음 한 번만 본다. 그 뒤로 手数는 이 화면이 소유하고, 여기를 계속 보면 사람이 넘긴 자리가
+   * 주소의 값으로 되돌아간다.
    */
   initialPly?: number | undefined;
 }
@@ -49,20 +48,20 @@ interface ReviewDetailProps {
 /**
  * 手数에 멈춘 뒤 국면을 물어보기까지 기다리는 시간.
  *
- * 넘기는 중에는 묻지 않는다. ▶ 를 연달아 누르거나 → 를 누른 채로 두면 지나가는 手数마다
- * 깊이 12 탐색이 걸리고, 그건 엔진 풀을 대국과 나눠 쓰는 구조에서 남의 대국을 하나 더 여는 일이다.
+ * 넘기는 중에는 묻지 않는다. ▶ 를 연달아 누르면 지나가는 手数마다 탐색이 걸리고, 엔진 풀을
+ * 대국과 나눠 쓰는 구조에서 그것은 남의 대국을 하나 더 여는 일이다.
  */
 const SETTLE_MS = 350;
 
 /**
- * 棋譜를 2단으로 놓는다 — ▲과 △이 한 줄에 놓인다.
+ * 棋譜를 2단으로 놓는다. ▲과 △이 한 줄에 선다.
  *
- * 실제 기보가 그렇게 적히고, 세로 길이가 절반이 되어 판을 밀어내지 않는다. 手数의 홀짝으로
- * 자리를 정한다 — 中盤에서 시작하는 판(games.start_sfen)에서는 1手目가 後手일 수 있지만,
+ * 실제 기보가 그렇게 적히고, 세로 길이가 절반이 되어 판을 밀어내지 않는다. 자리는 手数의
+ * 홀짝으로 정한다. 中盤에서 시작하는 판(games.start_sfen)에서는 1手目가 後手일 수 있지만,
  * 그때도 「같은 手数가 같은 열에 놓인다」가 유지되는 쪽이 읽기 쉽다.
  *
- * 구멍이 난 기보(큐가 넘쳐 한 수가 빠졌다)에서도 자리가 밀리지 않는다 — 홀짝이 자리를
- * 정하므로 빠진 칸이 빈 칸으로 남는다.
+ * 홀짝이 자리를 정하므로 구멍이 난 기보(큐가 넘쳐 한 수가 빠졌다)에서도 빠진 칸이 빈 칸으로
+ * 남고 열이 밀리지 않는다.
  */
 function pairRows(moves: readonly ReviewMove[]): (ReviewMove | null)[][] {
   const rows: (ReviewMove | null)[][] = [];
@@ -79,22 +78,21 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   /**
    * 지금 보고 있는 手数. 0이면 시작 국면이다.
    *
-   * 주소가 준 값을 기보 길이로 자른다. 링크는 오래 살고 기보는 구멍이 날 수 있어서
-   * (큐가 넘치면 한 수가 빠진다), 자르지 않으면 없는 手数에서 빈 판이 열린다.
+   * 주소가 준 값을 기보 길이로 자른다. 링크는 오래 살고 기보는 구멍이 날 수 있어(큐가 넘치면
+   * 한 수가 빠진다) 자르지 않으면 없는 手数에서 빈 판이 열린다.
    */
   const [ply, setPly] = useState(() => Math.min(Math.max(initialPly ?? 0, 0), game.moves.length));
-  /** 지금 나는 움직임. `id`가 바뀔 때마다 그 칸에서 다시 난다. */
+  /** 지금 나는 움직임. `id` 가 바뀔 때마다 그 칸에서 다시 난다. */
   const [motion, setMotion] = useState<Motion | null>(null);
   const motionId = useRef(0);
-  /** 분기에서 고른 駒. */
   const [origin, setOrigin] = useState<string | null>(null);
   /** 成/不成 둘 다 되는 수. 물어보는 동안 다른 수를 두지 못하게 잡아 둔다. */
   const [promoting, setPromoting] = useState<{ origin: string; to: string } | null>(null);
   /**
    * 기보가 펼쳐져 있는가. 닫힌 것이 기본이다.
    *
-   * 이 목록은 「어디로 갈까」를 고르는 자리이고, 골랐으면 닫힌다 — 판을 보러 온 화면에서
-   * 목록이 계속 자리를 잡고 있으면 판이 그만큼 작아진다.
+   * 「어디로 갈까」를 고르는 자리라 골랐으면 닫힌다. 판을 보러 온 화면에서 목록이 계속 자리를
+   * 잡고 있으면 판이 그만큼 작아진다.
    */
   const [kifuOpen, setKifuOpen] = useState(false);
 
@@ -102,8 +100,8 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   /**
    * 이 판의 총평. 판 전체를 말하는 하나뿐인 자리라 手数를 옮겨도 바뀌지 않는다.
    *
-   * 읽지 못했을 때는 카드를 아예 그리지 않는다 — `null` 로 넘기면 「まとめています…」가 영원히
-   * 떠 있고, 그건 기다리면 온다는 거짓말이다. 이 화면의 본론은 기보이고 그쪽은 이미 왔다.
+   * 읽지 못했을 때는 카드를 아예 그리지 않는다. `null` 로 넘기면 「まとめています…」가 영원히
+   * 떠 있고, 그건 기다리면 온다는 거짓이다.
    */
   const summary = useGameSummary(game.id).loaded;
   const whatif = useWhatIf(httpSend(game.id), game.id);
@@ -120,28 +118,28 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   /**
    * 옆 패널이 그리고 있는 노드. 기다리는 동안 직전 것을 그대로 둔다.
    *
-   * 판에 두는 것은 `active` 뿐이다(위) — 이쪽은 그리기 전용이라 다른 手数의 것이어도
-   * 규칙이 어긋날 자리가 없다. 그래서 「값이 오면 갈아 끼운다」가 성립한다.
+   * 판에 두는 것은 `active` 뿐이고(위) 이쪽은 그리기 전용이라, 다른 手数의 것이어도 규칙이
+   * 어긋날 자리가 없다.
    */
   const shownRef = useRef<WhatIfNode | null>(null);
   if (active) shownRef.current = active;
   const shown = shownRef.current;
 
   /**
-   * 뿌리에 서 있는 노드. 후보 셋이 왔는가를 아래에서 이것으로 본다 — 분기로 들어간
-   * 노드의 후보는 다른 국면의 것이라 확정된 기보의 수와 자가 다르다.
+   * 뿌리에 서 있는 노드. 후보 셋이 왔는가를 아래에서 이것으로 본다. 분기로 들어간 노드의 후보는
+   * 다른 국면의 것이라 확정된 기보의 수와 자가 다르다.
    */
   const rootNode = active && active.line.length === 0 ? active : null;
 
   /**
    * 이 자리에서 값이 없는 채로 목록에 오를 수 있는 수들. 그 자리를 다시 재서 채운다.
    *
-   * 둘이다 — 값이 저장돼 있지 않은 물러진 수와, 후보 셋 밖의 실제로 둔 수다. 뒤엣것이
-   * 빠져 있어서 「내가 둔 수에만 값이 안 뜬다」가 됐다(2026-08-14-human-2.md §6 #7).
+   * 둘이다: 값이 저장돼 있지 않은 물러진 수와, 후보 셋 밖의 실제로 둔 수. 뒤엣것이 빠져 있어서
+   * 「내가 둔 수에만 값이 안 뜬다」가 됐다(회차 2 #7).
    *
-   * 후보 안에 있으면 묻지 않는다. 그 값은 이 국면의 탐색에서 이미 왔고, 다시 묻는 것은
-   * 手数를 옮길 때마다 깊이 12 탐색을 하나 더 거는 일이다 — 엔진 풀은 대국과 공유다.
-   * 후보가 오기 전에도 묻지 않는다: 그때는 물어야 하는지를 아직 모른다.
+   * 후보 안에 있으면 묻지 않는다. 그 값은 이 국면의 탐색에서 이미 왔고, 다시 묻는 것은 手数를
+   * 옮길 때마다 탐색을 하나 더 거는 일이다(엔진 풀은 대국과 공유다). 후보가 오기 전에도 묻지
+   * 않는다: 그때는 물어야 하는지를 아직 모른다.
    */
   const unmeasured = useMemo(() => {
     const out = game.interventions
@@ -152,7 +150,6 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
     return out;
   }, [game.interventions, game.moves, ply, rootNode]);
   const measured = useMoveEvals(game.id, ply, unmeasured);
-  /** 지금 분기가 시작된 수. 그 줄이 목록에서 열린다. */
   const chosen = shown?.line[0]?.usi ?? null;
 
   const last = game.moves.length;
@@ -168,7 +165,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
       setPromoting(null);
       clear();
       // 분기에서 나오는 길에는 움직임을 그리지 않는다. 판이 다른 줄에서 전부 갈아치워지는
-      // 것이라, 그 위에서 駒 하나가 미끄러지면 「이 한 수로 이렇게 됐다」는 거짓말이 된다.
+      // 것이라, 그 위에서 駒 하나가 미끄러지면 「이 한 수로 이렇게 됐다」가 거짓이 된다.
       setMotion(branching ? null : stepMotion(game.moves, ply, target, nextMotionId()));
       setPly(target);
     },
@@ -178,8 +175,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   /**
    * 목록에서 골라 그 手数로 간다. 고르면 닫힌다.
    *
-   * 목록은 「어디로 갈까」를 묻는 자리이고 답을 받으면 할 일이 끝난다 — 열어 둔 채로 두면
-   * 방금 고른 국면을 그 목록이 가린다.
+   * 열어 둔 채로 두면 방금 고른 국면을 그 목록이 가린다.
    */
   const jumpTo = useCallback(
     (next: number) => {
@@ -192,8 +188,8 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   /**
    * 그래프를 누르면 그 手数로 간다.
    *
-   * 「빨간 점이면 개입 목록을 꺼낸다」는 없다. 목록이 그 국면에서 둘 수 있었던 수
-   * 전부라 언제나 떠 있고, 꺼낼 것이 없다.
+   * 「빨간 점이면 개입 목록을 꺼낸다」는 없다. 목록이 그 국면에서 둘 수 있었던 수 전부라 언제나
+   * 떠 있고, 꺼낼 것이 없다.
    */
   const onGraphPick = goto;
 
@@ -209,8 +205,8 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   /**
    * 手数에 멈추면 그 국면을 한 번 잰다.
    *
-   * 이 한 번이 셋을 준다 — 지금 국면의 값, 그 자리에서 둘 수 있는 수(자유 착수가 이것을
-   * 기다린다), 그리고 최선수 셋. 서버가 이미 잰 국면이면 왕복도 탐색도 없다(positions).
+   * 이 한 번이 셋을 준다: 지금 국면의 값 · 그 자리에서 둘 수 있는 수(자유 착수가 이것을
+   * 기다린다) · 최선수 셋. 서버가 이미 잰 국면이면 왕복도 탐색도 없다(positions).
    */
   useEffect(() => {
     if (branching || engineReady === false) return;
@@ -218,13 +214,11 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
     return () => clearTimeout(timer);
   }, [ply, branching, engineReady, at]);
 
-  // 분기가 한 걸음 나아가면 그 수가 판 위에서 움직인다. 판 전체가 바뀌면 초심자는
-  // 무엇이 변했는지 보지 못한다(03-frontend.md §3) — 여기가 그 문장이 걸린 자리다.
+  // 분기가 한 걸음 나아가면 그 수가 판 위에서 움직인다. 판 전체가 바뀌면 초심자는 무엇이
+  // 변했는지 보지 못한다(03-frontend.md §3).
   //
-  // `useLayoutEffect` 여야 한다. `useEffect` 는 페인트 뒤에 도는데, 그러면 순서가
-  // 이렇게 된다: 새 판이 그려져 駒가 도착 칸에 한 번 뜨고 → 그 다음 프레임에 미끄러짐이
-  // 붙어 駒가 출발 칸으로 되돌아가 다시 온다. 한 수에 駒가 두 번 움직인다.
-  // 페인트 전에 붙이면 첫 그림부터 駒가 출발 칸에 있고, 움직임은 한 번이다.
+  // `useLayoutEffect` 여야 한다. 페인트 뒤에 붙이면 駒가 도착 칸에 한 번 뜬 다음 출발 칸으로
+  // 되돌아가 다시 와서, 한 수에 駒가 두 번 움직인다.
   useLayoutEffect(() => {
     if (!node?.line.length) return;
     setMotion(branchMotion(node, nextMotionId()));
@@ -268,17 +262,17 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
     try {
       return parseSfen(sfen);
     } catch {
-      return null; // 읽을 수 없는 국면으로 판을 그리느니 그 자리를 비운다
+      return null; // 읽을 수 없는 국면 대신 그 자리를 비운다
     }
   }, [sfen]);
 
   const current = ply === 0 ? null : (game.moves[ply - 1] ?? null);
 
   /**
-   * 이 판을 만든 수. 회상 중에는 짚지 않는다 — 그때 주인공은 물러진 수다.
+   * 이 판을 만든 수. 분기에서는 그 줄의 마지막 수다.
    *
-   * 분기에서는 그 줄의 마지막 수다. 실제로 둔 수와 같은 채널로 그린다 — 판 위에서는
-   * 어느 쪽이든 「방금 벌어진 것」이고, 이 판이 가정이라는 것은 옆에서 말한다.
+   * 실제로 둔 수와 같은 채널로 그린다. 판 위에서는 어느 쪽이든 「방금 벌어진 것」이고, 이 판이
+   * 가정이라는 것은 옆에서 말한다.
    */
   const lastMove = useMemo(() => {
     if (branching && active) {
@@ -294,9 +288,9 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
    * 확정된 판 위에는 긋지 않는다. 手数에 멈추기만 해도 그어지면 「둬 보면 최선수가 나온다」와
    * 어긋나고(03-frontend.md §3), 넘겨 보는 것만으로 답이 판에 그려진다.
    *
-   * 두 뜻이 같은 초록 화살표를 쓴다. 회상의 것은 「네가 두려던 나쁜 수」이고 분기의 것은
-   * 「지금 최선은 무엇인가」라 정반대인데, 모양이 같으니 어느 쪽인지는 옆 패널이 말한다 —
-   * 그래서 「지금 무엇을 보고 있나」가 분명한 때만 긋는다.
+   * 두 뜻이 같은 초록 화살표를 쓴다. 회상의 것은 「네가 두려던 나쁜 수」이고 분기의 것은 「지금
+   * 최선은 무엇인가」라 정반대인데, 모양이 같아 어느 쪽인지는 옆 패널이 말한다. 그래서 「지금
+   * 무엇을 보고 있나」가 분명한 때만 긋는다.
    */
   const ray = useMemo<Ray | null>(() => {
     if (!branching) return null;
@@ -304,43 +298,38 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
     if (!best) return null;
     const squares = squaresOf(best.usi);
     if (!squares) return null;
-    // 打도 긋는다. 판 위에 출발 칸이 없어서 駒台에서 자리를 재야 하고, 그것은
-    // `useDropAnchor` 가 한다. 그리지 않으면 최선수가 打인 국면에서만 화살표 전체가 사라진다.
+    // 打도 긋는다. 판 위에 출발 칸이 없어 駒台에서 자리를 재야 하고, 그것은 `useDropAnchor`
+    // 가 한다. 그리지 않으면 최선수가 打인 국면에서만 화살표 전체가 사라진다.
     return { from: squares.from, to: squares.to, by: active.yourTurn ? 'human' : 'engine' };
   }, [branching, active]);
 
   /**
    * 한 번이라도 막힌 手数. 기보 줄에 표식을 붙이는 데 쓴다.
    *
-   * 몇 번인지는 세지 않는다. 같은 국면에서 여러 번 물러지는 일이 실제로 있지만, 그 횟수는
-   * 아래 개입 목록이 줄로 보여준다.
+   * 몇 번인지는 세지 않는다. 같은 국면에서 여러 번 물러지는 일이 있지만 그 횟수는 아래 개입
+   * 목록이 줄로 보여준다.
    */
   const stopped = useMemo(() => new Set(game.interventions.map((iv) => iv.ply)), [game.interventions]);
 
-  /**
-   * 되짚는 사람이 잡았던 쪽. 그늘(`相手の利き`)이 누구 기준인지가 여기서 정해진다.
-   */
+  /** 되짚는 사람이 잡았던 쪽. 그늘(`相手の利き`)이 누구 기준인지가 여기서 정해진다. */
   const me: Side = game.myColor === 'w' ? 'white' : 'black';
 
   /**
-   * 기본값은 자기 쪽이 아래다. 여기 원래 「기보를 되짚는 자리라 先手가 아래인 것이
-   * 관례이고, 누가 누구인지는 駒台 라벨이 말한다」고 적고 고정해 뒀는데, 後手로 둔 사람이
-   * 방금 둔 판을 열면 대국 화면과 위아래가 뒤집혀 보였다(journal §76).
+   * 기본값은 자기 쪽이 아래다. 先手를 아래에 고정하면 後手로 둔 사람이 방금 둔 판을 열었을 때
+   * 대국 화면과 위아래가 뒤집혀 보인다(journal §76).
    *
-   * 그 관례는 버리지 않고 버튼으로 옮겼다 — 기본값이 연속성을 잡고, 棋譜를 관례대로
-   * 보고 싶은 사람은 한 번 누른다. 어느 쪽도 잃지 않는다.
+   * 「棋譜는 先手가 아래」라는 관례는 버튼으로 옮겼다.
    *
-   * 저장하지 않는다. 판마다 자기 쪽이 아래로 열리는 것이 기본이라, 마지막 선택을
-   * 기억하면 다음 판에서 또 어긋난다.
+   * 저장하지 않는다. 판마다 자기 쪽이 아래로 열리는 것이 기본이라, 마지막 선택을 기억하면 다음
+   * 판에서 또 어긋난다.
    */
   const [flipped, setFlipped] = useState(me === 'white');
 
   /**
    * 지금 그 자리에서 둘 수 있는 수.
    *
-   * 목록에 있으면 둘 수 있고 없으면 둘 수 없다. 二歩도 打ち歩詰め도 여기서 보지 않는다 —
-   * 애초에 서버가 보내지 않는다(game/moves.ts). 회상 중에는 잠근다: 그때 판은 물러진 수의
-   * 국면이고 노드는 그 한 수 앞의 것이라, 둘이 어긋난 채로 두게 된다.
+   * 목록에 있으면 둘 수 있고 없으면 둘 수 없다. 二歩도 打ち歩詰め도 애초에 서버가 보내지
+   * 않는다(game/moves.ts).
    */
   const legal = active?.legalMoves ?? [];
   const grouped = useMemo(() => groupByOrigin(legal), [legal]);
@@ -378,9 +367,9 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   /**
    * 고른 줄을 목록 안에서 보이게 한다.
    *
-   * `scrollIntoView` 를 쓰지 않는다. 그쪽은 목록이 아직 넘치지 않으면 페이지를 스크롤하고,
-   * 좁은 화면에서는 그때 판이 시야 밖으로 밀린다. 목록의 scrollTop 만 움직이면 페이지는
-   * 가만히 있다. 이미 보이는 줄은 건드리지 않는다 — 넘길 때마다 목록이 뛰면 읽을 수 없다.
+   * `scrollIntoView` 를 쓰지 않는다. 그쪽은 목록이 아직 넘치지 않으면 페이지를 스크롤하고, 좁은
+   * 화면에서는 그때 판이 시야 밖으로 밀린다. 이미 보이는 줄은 건드리지 않는다: 넘길 때마다
+   * 목록이 뛰면 읽을 수 없다.
    */
   const kifuRef = useRef<HTMLOListElement>(null);
   useEffect(() => {
@@ -392,8 +381,8 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
     const bottom = top + row.offsetHeight;
     if (top < list.scrollTop) list.scrollTop = top;
     else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight;
-    // 여는 것도 신호다. 목록은 접혀 있다가 열리므로, `ply` 만 보면 109수 판을 열었을 때
-    // 맨 위가 보이고 지금 자리는 한참 아래에 있다.
+    // 여는 것도 신호다. `ply` 만 보면 109수 판을 열었을 때 맨 위가 보이고 지금 자리는 한참
+    // 아래에 있다.
   }, [ply, kifuOpen]);
 
   /** 지금 화살표가 駒台에서 출발하는가. 그렇다면 어느 쪽의 무슨 駒인가. */
@@ -412,11 +401,10 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   /**
    * 이동 바 가운데 칸에 적히는 말. 手数 대신 수의 이름이다.
    *
-   * 「15 / 109」는 어디쯤인지만 말하고 거기가 무슨 수였나를 말하지 않는다. 되짚는 사람이
-   * 찾는 것은 후자다. 총 手数는 이 옆 제목이 적는다(`棋譜 109手`).
+   * 「15 / 109」는 어디쯤인지만 말하고 거기가 무슨 수였나를 말하지 않는다.
    *
-   * 분기에 들어가 있으면 판이 그 手数의 국면이 아니므로 그렇다고 적는다 — 적지 않으면
-   * 확정된 수의 이름이 남의 판 위에 떠 있게 된다.
+   * 분기에 들어가 있으면 판이 그 手数의 국면이 아니므로 그렇다고 적는다. 적지 않으면 확정된
+   * 수의 이름이 남의 판 위에 떠 있게 된다.
    */
   const jumpLabel = useMemo(() => {
     const here = ply === 0 ? '開始局面' : `${ply} ${game.moves[ply - 1]?.ja ?? ''}`.trim();
@@ -424,8 +412,8 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   }, [ply, game.moves, branching]);
 
   /**
-   * 駒台 하나를 그린다. 부르는 쪽이 자리를 보고 색을 정한다 — 아래 판이 뒤집히면
-   * 持ち駒도 같이 따라와야 하는데, 색으로 박아 두면 판만 돌고 자기 駒台가 위에 남는다.
+   * 駒台 하나를 그린다. 부르는 쪽이 자리를 보고 색을 정한다. 색으로 박아 두면 판이 뒤집혀도
+   * 자기 駒台가 위에 남는다.
    */
   const hand = (side: Side): ReactElement => (
     <Hand
@@ -441,26 +429,25 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   );
 
   return (
-    /* `data-flipped` 는 駒의 방향이다. 자리는 CSS 대신 칸 번호가 뒤집고(Board 의
-       `seat`), 여기서 정하는 것은 「누가 나를 향해 서 있는가」뿐이다 — 대국 화면과 같다. */
+    /* `data-flipped` 는 駒의 방향이다. 자리는 CSS 대신 칸 번호가 뒤집고(Board 의 `seat`),
+       여기서 정하는 것은 「누가 나를 향해 서 있는가」뿐이다(대국 화면과 같다). */
     <div className="game review" data-flipped={flipped || undefined}>
       <div className="game-board">
-        {/* 평가치 궤적이 곧 이동 장치다. 「어디서 무너졌나」를 목록으로 읽게 하는 대신
-            한 장으로 보여주고 거기를 눌러 돌아가게 한다 — 빨간 점이 물러진 수가 있던 자리다. */}
+        {/* 평가치 궤적이 곧 이동 장치다. 빨간 점이 물러진 수가 있던 자리다(EvalGraph). */}
         <section className="review-panel review-graph-panel" aria-label="評価値">
           <EvalGraph game={game} ply={ply} whatif={whatif} onPick={onGraphPick} />
         </section>
 
-        {/* 이 판은 가정이다. 옆 패널의 제목만으로는 판을 보는 동안
-            그 사실이 남지 않는다 — 되짚기와 같은 판·같은 駒台라 더 그렇다. */}
+        {/* 이 판은 가정이다. 되짚기와 같은 판·같은 駒台라, 옆 패널의 제목만으로는 판을 보는
+            동안 그 사실이 남지 않는다. */}
         {branching && (
           <p className="review-branch-badge" role="status">
             もしもの局面
           </p>
         )}
 
-        {/* 이동 컨트롤과는 갈래가 다르다 — 저쪽은 「언제를 보나」이고 이쪽은 「어느 쪽에서
-            보나」다. 그래서 아래 바에 넣지 않고 판에 붙여 둔다. */}
+        {/* 이동 컨트롤과는 갈래가 다르다. 저쪽은 「언제를 보나」이고 이쪽은 「어느 쪽에서
+            보나」라, 아래 바에 넣지 않고 판에 붙여 둔다. */}
         <div className="review-board-controls">
           <button type="button" className="review-flip" aria-pressed={flipped} onClick={() => setFlipped((f) => !f)}>
             盤を反転
@@ -484,9 +471,9 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
             flipped={flipped}
             checks={[]}
             // 되짚기에서는 판을 탈색하지 않는다. 탈색은 「지금이 아니다」를 말하는 장치인데
-            // (index.css `.board-tint`), 이 화면은 전부가 과거다 — 그 안에서 한 국면만
-            // 낮추면 무엇과 구별되는지가 없다. 대국 화면에는 남는다: 거기서는 살아 있는 판과
-            // 회상이 같은 자리를 쓴다.
+            // (index.css `.board-tint`) 이 화면은 전부가 과거라, 한 국면만 낮추면 무엇과
+            // 구별되는지가 없다. 대국 화면에는 남는다: 거기서는 살아 있는 판과 회상이 같은
+            // 자리를 쓴다.
             dimmed={false}
             dropFrom={dropFrom}
             boardRef={boardRef}
@@ -501,10 +488,11 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
         )}
 
         {hand(flipped ? 'white' : 'black')}
-        {/* 이동과 기보가 한 컨트롤이다(将棋ウォーズ). 슬라이더는 뺐다 — 「지금 어디인가」를
-            말하는 자리가 셋이었고, 그중 하나만 남긴 것이 아래 가운데 칸이다. */}
-        {/* 제목 줄을 두지 않는다 — `棋譜 167手` 는 숫자 하나로 한 줄을 쓰고, 그 숫자는
-            아래 칸의 빈 자리에 들어갈 수 있다. 화면 낭독기는 `aria-label` 을 읽는다. */}
+        {/* 이동과 기보가 한 컨트롤이다(将棋ウォーズ). 「지금 어디인가」를 말하는 자리는 아래
+            가운데 칸 하나로 둔다.
+
+            제목 줄을 두지 않는다. `棋譜 167手` 는 숫자 하나로 한 줄을 쓰고, 그 숫자는 아래
+            칸의 빈 자리에 들어간다. 화면 낭독기는 `aria-label` 을 읽는다. */}
         <section className="review-panel review-transport" aria-label="棋譜">
           <div className="review-transport-row">
             <div className="review-buttons">
@@ -537,9 +525,8 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
               </button>
             </div>
 
-            {/* 이 칸이 「지금 어디인가」이고, 그 칸이 곧 기보를 여는 버튼이다
-                (将棋ウォーズ의 그 바). 「지금 어디」를 말하는 자리는 여기 하나로 둔다.
-                숫자만으로는 거기가 무슨 수였나를 모르므로 수의 이름을 쓴다. */}
+            {/* 이 칸이 「지금 어디인가」이고, 그 칸이 곧 기보를 여는 버튼이다. 숫자만으로는
+                거기가 무슨 수였나를 모르므로 수의 이름을 쓴다. */}
             <button
               type="button"
               className="review-jump"
@@ -548,7 +535,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
               onClick={() => setKifuOpen((open) => !open)}
             >
               <span className="review-jump-label">{jumpLabel}</span>
-              {/* 어디쯤인가. 이름(`101 ▲8五馬`)이 「무슨 수였나」를 말하고 이쪽이 「몇 번째인가」다 */}
+              {/* 이름(`101 ▲8五馬`)이 「무슨 수였나」이고 이쪽이 「몇 번째인가」다. */}
               <span className="review-jump-count">
                 {ply} / {last}
               </span>
@@ -588,16 +575,15 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
                         {/* 이 手数에 물러진 수가 있었다. 확정된 수 옆에 서야 「이 수를 두기
                         전에 한 번 막혔다」로 읽힌다.
 
-                        가져온 판에서는 「悪手」다. 아무도 그 수를 막지 않았고 그 수가
-                        기보에 그대로 남아 있어서, 「介入」이라고 적으면 없던 일을 있었다고
-                        말하는 것이 된다(docs/journal §126). */}
+                        가져온 판에서는 「悪手」다. 그 수가 기보에 그대로 남아 있어서 「介入」
+                        이라고 적으면 없던 일을 있었다고 말하게 된다(journal §126). */}
                         {stopped.has(move.ply) && (
                           <span className="review-kifu-mark" aria-label={game.imported === true ? '悪手' : '介入あり'}>
                             {game.imported === true ? '悪手' : '介入'}
                           </span>
                         )}
-                        {/* 詰み은 cp로 말하지 않는다. 그 자리에서 뜻이 있는 말은 手数 하나뿐이고,
-                        서버가 그때 `evalCp` 를 아예 보내지 않는다(`ReviewMove.evalCp`). */}
+                        {/* 詰み은 cp 로 말하지 않는다. 뜻이 있는 말이 手数 하나뿐이고, 서버가
+                        그때 `evalCp` 를 아예 보내지 않는다(`ReviewMove.evalCp`). */}
                         {(move.mateIn !== undefined || move.evalCp !== undefined) && (
                           <span
                             className="review-kifu-eval"
@@ -635,19 +621,18 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
           </p>
         </div>
 
-        {/* 날짜·결과 바로 아래다. 셋 다 「이 판이 어떤 판이었나」이고, 아래의 패널들은
-            「지금 보고 있는 手数」다 — 성격이 갈리는 자리에 선이 그어져야 한다. */}
+        {/* 날짜·결과 바로 아래다. 셋 다 「이 판이 어떤 판이었나」이고 아래의 패널들은 「지금
+            보고 있는 手数」라, 성격이 갈리는 자리에 선이 그어져야 한다. */}
         {summary.state !== 'error' && (
           <Summary summary={summary.state === 'ready' ? summary.data : null} imported={game.imported === true} />
         )}
 
-        {/* 퀴즈로 가는 문. 링크다 — 주소 하나가 화면 하나라 새 탭과 링크 복사가 살아 있어야
-            한다(App.tsx). 문항이 없는 판에서도 열린다: 있는지 없는지는 그 화면이 말한다.
-            여기서 미리 물어보면 판을 열 때마다 요청이 하나 늘고, 그 답은 대개 「없다」다.
+        {/* 퀴즈로 가는 문. 주소 하나가 화면 하나라 링크로 그린다(App.tsx). 문항이 없는
+            판에서도 열린다: 여기서 미리 물어보면 판을 열 때마다 요청이 하나 늘고, 그 답은 대개
+            「없다」다.
 
-            대인전은 예외다. 그 판에는 문항이 영영 없고(엔진 판정도 탐색도 돌지 않았다),
-            그 사실을 이 응답이 이미 들고 있어서 물어볼 것이 없다 — 위 규칙이 막던 「요청이
-            하나 는다」가 여기서는 성립하지 않는다(docs/journal §83). */}
+            대인전은 예외다. 그 판에는 문항이 영영 없고(엔진 판정도 탐색도 돌지 않았다) 그 사실을
+            이 응답이 이미 들고 있어서 물어볼 것이 없다(journal §83). */}
         {game.isMatch !== true && (
           <a
             className="review-quiz-link"
@@ -679,15 +664,14 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
         />
 
         {/* 한 목록이다. 최선수·실제로 둔 수·물러진 수가 같은 국면의 같은 종류의 사실이라
-            평가치 하나로 줄 세운다 — 「내가 둔 것이 몇 번째쯤이었나」가 그 사이의 한 줄이 된다. */}
+            평가치 하나로 줄 세운다(MoveOptions). */}
         <MoveOptions
           game={game}
           ply={ply}
           node={shown}
           measured={measured}
           chosen={chosen}
-          // 실제로 둔 수를 누르는 것은 한 수 진행이다 — 같은 국면에 서면서
-          // 화면만 「もしも」가 되는 것을 막는다(MoveOptions 의 `onPick`).
+          // 실제로 둔 수를 누르는 것은 한 수 진행이다(MoveOptions 의 `onPick`).
           onPick={(usi, played) => (played ? goto(ply + 1) : playBranch(usi))}
         />
       </aside>

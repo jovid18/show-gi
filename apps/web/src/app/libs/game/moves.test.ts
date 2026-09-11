@@ -5,7 +5,7 @@ import { groupByOrigin, parseUsi, squaresOf, toUsiMove } from './moves';
 describe('parseUsi', () => {
   it('반상의 수는 출발·도착·승격으로 갈린다', () => {
     expect(parseUsi('7g7f')).toEqual({ kind: 'board', from: '7g', to: '7f', promote: false });
-    // 개입 연출이 되짚는 것이 이 모양이다 — ▲3三角成
+    // 개입 연출이 되짚는 것이 이 모양이다(▲3三角成)
     expect(parseUsi('8h3c+')).toEqual({ kind: 'board', from: '8h', to: '3c', promote: true });
   });
 
@@ -91,7 +91,7 @@ describe('squaresOf', () => {
   });
 
   it('읽을 수 없으면 짚지 않는다', () => {
-    // 엉뚱한 칸을 칠하느니 비운다 — 판 전체가 그려지지 않는 것보다 낫다
+    // 엉뚱한 칸을 칠하느니 비운다. 판 전체가 그려지지 않는 것보다 낫다
     expect(squaresOf('')).toBeNull();
     expect(squaresOf('nonsense')).toBeNull();
     expect(squaresOf('0a0b')).toBeNull();

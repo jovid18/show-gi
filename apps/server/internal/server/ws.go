@@ -24,7 +24,7 @@ import (
 )
 
 // 대국은 WebSocket 이다. 상대의 수도 개입도 서버가 먼저 말을 거는 것이라 요청/응답으로는
-// 안 된다. 세션은 연결에 매여 있다 — 끊기면 대국도 끝난다(README).
+// 되지 않는다. 세션은 연결에 매여 있어 끊기면 대국도 끝난다(README).
 
 const (
 	// writeTimeout 은 프레임 하나를 밀어 넣는 데 주는 시간이다.
@@ -53,30 +53,27 @@ type serverMsg struct {
 	Reason   string         `json:"reason,omitempty"`  // 기계용 코드(영어)
 	Message  string         `json:"message,omitempty"` // 화면용 문구(일본어)
 
-	// WhatIf 는 가정 수순의 지금 자리다. 스냅샷과 따로 둔다 — 이건 대국의 상태 대신
-	// 「벌어지지 않은 일」을 담고, 하나로 합치면 화면이 두 판을 같은 것으로 그린다.
+	// WhatIf 는 가정 수순의 지금 자리다. 스냅샷과 따로 둔다. 하나로 합치면 화면이 두 판을
+	// 같은 것으로 그린다.
 	WhatIf *whatifNode `json:"whatif,omitempty"`
 
-	// Summary 는 대국이 끝난 뒤 한 번 오는 총평이다. 따로 둔 이유는 WhatIf 와 같다 —
-	// 국면 하나 대신 판 전체를 말하는 값이고, 기록이 다 쓰이기를 기다리므로
-	// 결과 문구보다 늦게 도착한다(sendSummary).
+	// Summary 는 대국이 끝난 뒤 한 번 오는 총평이다. 기록이 다 쓰이기를 기다리므로 결과
+	// 문구보다 늦게 도착한다(sendSummary).
 	Summary *gameSummaryPayload `json:"summary,omitempty"`
 }
 
-// rejectMessages 는 착수가 거절된 이유 중 룰 엔진 밖의 것들이다.
-//
-// 룰 위반 문구는 shogi 패키지에 있다. 여기 있는 것은 프로토콜 수준의 거절이라
-// 그쪽에 둘 수 없다. 어느 쪽이든 화면에 나가므로 일본어다.
+// rejectMessages 는 착수가 거절된 이유 중 룰 엔진 밖의 것들이다. 룰 위반 문구는 shogi
+// 패키지에 있다. 화면에 나가므로 일본어다.
 var rejectMessages = map[string]string{
 	"not_your_turn": "相手の手番です。",
 	"finished":      "対局はすでに終わっています。",
 	"bad_move":      "指し手の形式が正しくありません。",
 	"internal":      "サーバーで問題が発生しました。",
 	// 무르기의 거절 둘. 화면이 버튼을 그리지 않으면 여기 오지 않으므로(Snapshot.CanUndo)
-	// 남는 것은 연타와 API 직접 호출이다 — 문구는 「왜 안 되나」만 말하면 된다.
+	// 남는 것은 연타와 API 직접 호출이다.
 	"no_undo_left":    "待ったはこれ以上できません。",
 	"nothing_to_undo": "戻せる手がまだありません。",
-	// 힌트의 거절 셋. 무르기와 같은 규약이다 — 화면이 버튼을 그리지 않으면 여기 오지 않는다.
+	// 힌트의 거절 셋. 무르기와 같은 규약이다.
 	"no_hint_left": "ヒントはこれ以上使えません。",
 	"hint_seen":    "この局面のヒントはもう出しました。",
 	"no_hint":      "ヒントを用意できませんでした。",
@@ -123,13 +120,13 @@ type gameHandler struct {
 // Options 의 기본값이 그대로 산다.
 //
 // start 메시지로 받지 않는다. 그러면 세션이 첫 명령까지 기다려야 하고 「연결 하나 =
-// 대국 하나」(gameHandler)가 깨진다 — 쿼리는 업그레이드 전에 읽히므로 그 규약을 건드리지 않는다.
+// 대국 하나」(gameHandler)가 깨진다.
 type gameSetup struct {
 	human   shogi.Color
 	opening book.Opening
 	hasBook bool
-	// startSFEN 은 이 판의 0手目다. 이어하는 판은 그 행에 적힌 것이고, 새 판은 Options 의 것이다.
-	// 가정 수순의 뿌리도 이 값이어야 한다(whatifRoot) — Options 의 것을 그대로 쓰면
+	// startSFEN 은 이 판의 0手目다. 이어하는 판은 그 행에 적힌 것이고, 새 판은 Options 의
+	// 것이다. 가정 수순의 뿌리도 이 값이어야 한다(whatifRoot). Options 의 것을 그대로 쓰면
 	// 이어하는 판에서 뿌리와 수순이 서로 다른 국면의 것이 된다.
 	startSFEN string
 	// resumeID 가 0이 아니면 이어하는 판이다. 기록 쪽이 새 행을 만들지 않는다(recordTarget).
@@ -138,10 +135,9 @@ type gameSetup struct {
 	startMoves []string
 }
 
-// newSetup 은 쿼리에서 새 판의 설정을 읽는다. 읽지 못하는 값은 경고 없이 기본값이다 — 목록을
-// 서버가 주므로(GET /api/openings) 이상한 값이 오는 것은 클라이언트가 틀린 경우이고,
-// 그때 대국을 거절하는 것보다 平手로 시작하는 것이 낫다. 고른 것이 실제로 걸렸는지는
-// 스냅샷의 opponentOpening · handicap 으로 화면에서 보인다.
+// newSetup 은 쿼리에서 새 판의 설정을 읽는다. 읽지 못하는 값은 경고 없이 기본값이다.
+// 목록을 서버가 주므로(GET /api/openings) 이상한 값이 오는 것은 클라이언트가 틀린 경우이고,
+// 그때 대국을 거절하는 것보다 平手로 시작하는 것이 낫다.
 func newSetup(r *http.Request, opts Options) gameSetup {
 	s := gameSetup{human: opts.HumanColor, startSFEN: opts.StartSFEN}
 	switch r.URL.Query().Get("color") {
@@ -161,29 +157,27 @@ func newSetup(r *http.Request, opts Options) gameSetup {
 		// (handicap.Handicap.SFEN) 사람이 上手를 잡으면 접어 준 쪽이 사람이 된다.
 		// 밴드와 판정도 이 규약 위에 서 있다(game.adaptiveOpponent.Choose).
 		//
-		// 첫 수는 엔진이 둔다 — 그 SFEN 의 手番이 上手이고(journal §88), 세션은 手番만
-		// 보고 시작하자마자 생각한다(game.Session.run).
+		// 첫 수는 엔진이 둔다. 그 SFEN 의 手番이 上手이고(journal §88), 세션은 手番만 보고
+		// 시작하자마자 생각한다(game.Session.run).
 		s.human = shogi.Black
-		// 진형은 같이 쓸 수 없다. 북은 平手 수순이라 없는 駒를 움직이려 들고, 그러면 첫 수에서
-		// 손을 놓는다(game.bookOpponent.next 의 ValidateMove). 깨지지는 않지만 화면이
-		// 「고른 진형으로 둔다」고 말한 것이 그 판에서만 거짓이 된다.
+		// 진형은 같이 쓸 수 없다. 북은 平手 수순이라 없는 駒를 움직이려 들고, 그러면 첫
+		// 수에서 손을 놓는다(game.bookOpponent.next 의 ValidateMove).
 		s.opening, s.hasBook = book.Opening{}, false
 	}
 	return s
 }
 
-// errNoResume 는 이어할 수 없다는 것 하나다. 왜인지는 알려주지 않는다 — 없는 판·남의 판·
-// 이미 다른 탭이 점유한 판이 같은 답을 받아야 남의 판 번호를 훑어볼 수 없다(§46).
+// errNoResume 는 이어할 수 없다는 것 하나다. 없는 판·남의 판·이미 다른 탭이 점유한 판이
+// 같은 답을 받아야 남의 판 번호를 훑어볼 수 없다(journal §46).
 var errNoResume = errors.New("ws: cannot resume")
 
 // resumeSetup 은 이어할 판을 점유하고 그 설정을 읽는다.
 //
 // 업그레이드 전에 부른다. 여기서 거절하면 아직 평범한 HTTP 요청이라 404로 끝나는데,
-// 업그레이드 뒤에는 그 답을 프레임으로 말해야 하고 화면이 그것을 「대국 중 오류」와
-// 구별해야 한다.
+// 업그레이드 뒤에는 그 답을 프레임으로 말해야 한다.
 //
 // 점유가 곧 되열기라(store.ClaimGameForResume) 이 함수가 성공한 뒤로 그 행은 「두는 중」
-// 이다. 되돌리는 것은 기록 쪽 하나뿐이다 — ctx 가 끝나면 다시 abandoned 로 닫는다.
+// 이다. 되돌리는 것은 기록 쪽 하나뿐이고, ctx 가 끝나면 다시 abandoned 로 닫는다.
 func (h *gameHandler) resumeSetup(ctx context.Context, raw string, userID *int64) (gameSetup, error) {
 	// 로그인한 사람만이다. 익명 판은 서로 구별할 수단이 없어(002_anonymous_games.sql)
 	// 「누구의 중단된 판인가」에 답할 수가 없다.
@@ -222,9 +216,8 @@ func (h *gameHandler) resumeSetup(ctx context.Context, raw string, userID *int64
 		setup.startMoves, err = resumeMoves(rec)
 	}
 	if err != nil {
-		// 점유를 되돌린다. 여기서 그냥 나가면 그 판은 result 가 NULL 인 채로 남아
-		// 되짚기에도 이어하기에도 걸리지 않는다 — 기록 쪽의 ctx 취소 경로는 세션이 서야
-		// 도는 것이고, 이 자리는 아직 그 앞이다.
+		// 점유를 되돌린다. 기록 쪽의 ctx 취소 경로는 세션이 서야 도는 것이고 이 자리는
+		// 아직 그 앞이라, 그냥 나가면 그 판이 result 가 NULL 인 채로 남는다.
 		log.Printf("ws: resume game %d: %v", claimed.ID, err)
 		if ferr := h.opts.Store.FinishGame(ctx, claimed.ID, store.ResultAbandoned); ferr != nil {
 			log.Printf("ws: resume game %d: cannot release the claim: %v", claimed.ID, ferr)
@@ -236,8 +229,8 @@ func (h *gameHandler) resumeSetup(ctx context.Context, raw string, userID *int64
 
 // releaseResume 는 점유를 되돌린다. 이어하는 판이 아니면 아무 일도 하지 않는다.
 //
-// 기록 쪽이 서기 전에만 부른다. 그 뒤로는 세션 ctx 가 끝날 때 recorder 가 같은 일을
-// 하고(recorder.go 의 ctx 취소 경로), 둘 다 부르면 abandoned 를 두 번 쓴다.
+// 기록 쪽이 서기 전에만 부른다. 그 뒤로는 세션 ctx 가 끝날 때 recorder 가 같은 일을 하고,
+// 둘 다 부르면 abandoned 를 두 번 쓴다(recorder.go 의 ctx 취소 경로).
 func (h *gameHandler) releaseResume(ctx context.Context, setup gameSetup) {
 	if setup.resumeID == 0 || h.opts.Store == nil {
 		return
@@ -249,9 +242,9 @@ func (h *gameHandler) releaseResume(ctx context.Context, setup gameSetup) {
 
 // resumeMoves 는 기록의 기보를 수순 하나로 편다.
 //
-// 手数에 구멍이 있으면 거절한다. 기록은 큐가 넘치면 이벤트를 버리므로(recorder.go)
-// 한 수가 빠질 수 있고, 그것을 무시하고 이어 두면 그 뒤 전체가 밀린 없던 판이 된다 —
-// 되짚기가 같은 자리에서 재현을 멈추는 것과 같은 판단이다(review.go 의 detailOf).
+// 手数에 구멍이 있으면 거절한다. 기록은 큐가 넘치면 이벤트를 버리므로(recorder.go) 한
+// 수가 빠질 수 있고, 그대로 이어 두면 그 뒤 전체가 밀린 없던 판이 된다(review.go
+// detailOf 와 같은 판단).
 func resumeMoves(rec store.GameRecord) ([]string, error) {
 	out := make([]string, 0, len(rec.Moves))
 	for i, m := range rec.Moves {
@@ -263,17 +256,15 @@ func resumeMoves(rec store.GameRecord) ([]string, error) {
 	return out, nil
 }
 
-// confirmed 는 세션이 방금 보낸 확정 수들이다. 세션에 물어보는 길을 새로 파면 그것이
-// 곧 핸들러가 상태를 직접 읽는 지름길이 된다 — 어차피 구독해서 받는 스냅샷을 한 벌
-// 갖고 있는 것이다(journal §37).
+// confirmed 는 세션이 방금 보낸 확정 수들이다. 세션에 물어보는 길을 새로 파면 그것이 곧
+// 핸들러가 상태를 직접 읽는 지름길이 된다(journal §37).
 type confirmed struct {
 	mu    sync.Mutex
 	moves []string
 	// retracted 는 지금 되물러져 있는 수의 USI 다. 개입이 없으면 빈 값.
 	//
-	// 가정 수순이 설 수 있는 자리를 이 값이 정한다. 대국 중에 물어볼 수 있는 것은
-	// 「물러진 그 수를 그대로 뒀다면」뿐이라, 비어 있는 동안은 물어볼 것이 없다 — 열어
-	// 두면 그 표면이 살아 있는 국면의 최선수를 답해 준다(01-core.md §7).
+	// 가정 수순이 설 수 있는 자리를 이 값이 정한다. 열어 두면 그 표면이 살아 있는 국면의
+	// 최선수를 답해 준다(01-core.md §7).
 	retracted string
 }
 
@@ -297,8 +288,8 @@ func (c *confirmed) get() []string {
 	return slices.Clone(c.moves)
 }
 
-// branchRoot 는 지금 분기가 설 수 있는 자리다 — 확정된 手数와, 그 위에 반드시 먼저
-// 와야 하는 한 수. 두 번째 값이 false 면 지금은 분기를 열 수 없다.
+// branchRoot 는 지금 분기가 설 수 있는 자리다. 확정된 手数와, 그 위에 반드시 먼저 와야
+// 하는 한 수를 준다. 두 번째 값이 false 면 지금은 분기를 열 수 없다.
 func (c *confirmed) branchRoot() (ply int, retracted string, ok bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -314,7 +305,7 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		userID = &id
 	}
 
-	// 쿼리도 업그레이드 전에 읽는다 — 위와 같은 판단이다.
+	// 쿼리도 업그레이드 전에 읽는다. 위와 같은 판단이다.
 	setup := newSetup(r, h.opts)
 	if raw := r.URL.Query().Get("resume"); raw != "" {
 		resumed, err := h.resumeSetup(r.Context(), raw, userID)
@@ -328,7 +319,8 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		setup = resumed
 	}
 
-	// Origin 기본 검사를 그대로 쓴다. 개발에서는 Vite가 /ws/game 을 프록시하므로 같은 오리진이다.
+	// Origin 기본 검사를 그대로 쓴다. 개발에서는 Vite가 /ws/game 을 프록시하므로 같은
+	// 오리진이다.
 	conn, err := websocket.Accept(w, r, nil)
 	if err != nil {
 		// 점유를 되돌린다. 세션이 서지 않으면 기록 쪽도 돌지 않아 그 판이 되열린 채 남는다.
@@ -361,11 +353,8 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		StartMoves:      setup.startMoves,
 		ObservePlies:    h.opts.ObservePlies,
 		Mate:            h.opts.Mate,
-		// 手筋 제안형 힌트는 꺼 뒀다(nil). 근거와 그 자리를 무엇이 대신하는지는 journal §78.
-		//
-		// 켜려면 h.opts.Search 를 그대로 주면 된다. 다시 여는 조건은 TesujiLossCp 하나다.
-		// 착수 前에 남는 제안은 戦型뿐이고(game.hintable), 착수 뒤에 붙는 이름은 囲い·전법·
-		// 戦型 셋 다 이것과 무관하게 뜬다(game.styleTags).
+		// 手筋 제안형 힌트는 꺼 뒀다(nil). 근거는 journal §78. 켜려면 h.opts.Search 를
+		// 그대로 주면 되고, 다시 여는 조건은 TesujiLossCp 하나다.
 		TesujiHint: nil,
 		// 부르는 힌트는 상대와 같은 풀이다. 묻는 국면이 같아서인데, 관점이 반대라
 		// (상대가 둘 수 vs 사람이 둘 최선수) 결과를 돌려쓰지는 못한다(Config.HintSearch).
@@ -380,13 +369,12 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// 판정이 없으면 영원히 아무것도 보지 않는 goroutine 이 된다.
 		//
 		// 로그인한 사람은 지난 판의 값에서 이어 시작하고 매 판정마다 저장된다(skill.go).
-		// 익명 대국은 판마다 초기화된다 — 쌓을 자리가 없다(002_anonymous_games.sql).
+		// 익명 대국은 쌓을 자리가 없어 판마다 초기화된다(002_anonymous_games.sql).
 		skills = newSkillRun(h.priorSkill(ctx, userID))
 		cfg.Rater = skill.NewWorkerFrom(ctx, skills.before, skills.observing(h.saveSkill(ctx, userID)))
 	}
 	// 이어하는 판은 무르기 예산을 이어받는다. 읽지 않으면 새로고침 한 번에 3회가 다시 찬다
-	// (game.Config.UndoUsed). 읽지 못해도 판은 그대로 연다 — 최악이 「무르기를 몇 번 더
-	// 준다」이고, 그것 때문에 이어하기를 막는 쪽이 비싸다.
+	// (game.Config.UndoUsed). 읽지 못해도 판은 그대로 연다.
 	if h.opts.Store != nil && setup.resumeID != 0 {
 		if n, err := h.opts.Store.CountUndos(ctx, setup.resumeID); err != nil {
 			log.Printf("ws: cannot read undo count of game %d: %v", setup.resumeID, err)
@@ -401,7 +389,7 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			cfg.HintsUsed, cfg.HintStages = use.Used, use.Stages
 		}
 	}
-	// DB가 없으면 기록하지 않고 대국은 그대로 된다 — 엔진·캐시와 같은 판단이다.
+	// DB가 없으면 기록하지 않고 대국은 그대로 된다. 엔진·캐시와 같은 판단이다.
 	var recorder *dbRecorder
 	if h.opts.Store != nil {
 		recorder = newDBRecorder(ctx, h.opts.Store, h.opts.Metrics, h.opts.Level, recordTarget{
@@ -448,7 +436,7 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				// 스냅샷을 먼저 보내고 그 뒤에 총평을 만든다. 결과 문구는 그 자리에서
 				// 떠야 하고, 총평은 기록이 다 쓰이기를 기다린다(sendSummary).
 				//
-				// 한 번만 만든다 — 끝난 뒤에도 스냅샷이 또 올 수 있다(投了 확인 등).
+				// 한 번만 만든다. 끝난 뒤에도 스냅샷이 또 올 수 있다(投了 확인 등).
 				if !summarized && snap.Status != game.StatusPlaying {
 					summarized = true
 					go h.sendSummary(ctx, out, recorder, skills)
@@ -456,9 +444,8 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			case <-ctx.Done():
 				// 끝난 스냅샷이 이미 와 있는지 한 번 더 본다.
 				//
-				// 사람이 投了하고 그때 탭을 닫으면 두 case 가 동시에 준비되고, Go 는
-				// 둘 중 하나를 무작위로 고른다. 여기가 이기면 총평도 퀴즈도 만들어지지 않는데,
-				// 총평은 되짚기가 다시 청할 수 있어도 퀴즈에는 그런 자리가 없다(review.go).
+				// 사람이 投了하고 그때 탭을 닫으면 두 case 가 동시에 준비되고, Go 는 둘 중
+				// 하나를 무작위로 고른다. 여기가 이기면 총평도 퀴즈도 만들어지지 않는다.
 				if !summarized {
 					select {
 					case snap, ok := <-snaps:
@@ -478,28 +465,20 @@ func (h *gameHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // summaryWait 는 기록이 다 쓰이기를 기다리는 시간이다. 큐를 비우는 일이라 밀리초 단위이고,
-// 넘으면 총평을 포기한다 — 반쪽 기록으로 만든 총평은 틀린 총평이고, 화면은 그것이 없어도
-// 결과와 기보를 이미 말한다.
+// 넘으면 총평을 포기한다. 반쪽 기록으로 만든 총평은 틀린 총평이다.
 const summaryWait = 5 * time.Second
 
-// sendSummary 는 대국이 끝난 뒤 총평 하나를 보낸다.
+// sendSummary 는 대국이 끝난 뒤 총평 하나를 보낸다. 세션을 건드리지 않고 DB만 읽는다.
 //
-// 기록이 다 쓰이기를 기다린다(dbRecorder.done). 기록은 비동기라 끝난 스냅샷을 보고
-// 곧바로 DB를 읽으면 마지막 수와 그 수의 개입이 없는데, 하필 그 수가 총평이 가장
-// 말하고 싶은 것이다.
-//
-// 세션을 건드리지 않는다. 읽는 것은 DB뿐이라 review.go 와 같은 성질이다 — 이미 끝난 판을
-// 읽는 일이다.
+// 기록이 다 쓰이기를 기다린다(dbRecorder.done). 기록은 비동기라 끝난 스냅샷을 보고 곧바로
+// 읽으면 마지막 수와 그 수의 개입이 없는데, 하필 그 수가 총평이 가장 말하고 싶은 것이다.
 func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recorder *dbRecorder, skills *skillRun) {
 	if recorder == nil || h.opts.Store == nil {
 		return // 기록이 없으면 셀 것이 없다. 총평도 없다
 	}
 
-	// 여기부터는 연결이 끊겨도 계속한다. 뒤에 퀴즈를 큐에 세우는 자리가 있고, 엔진 대국을
-	// 세우는 곳이 여기뿐이다. 총평은 되짚기가 다시 청하지만(review.go summary) 퀴즈에는
-	// 그런 자리가 없다.
-	//
-	// 남은 일이 적어서 그래도 된다. 기다리는 것은 큐를 비우는 일이고 읽는 것은 질의 하나다.
+	// 여기부터는 연결이 끊겨도 계속한다. 엔진 대국의 퀴즈를 세우는 곳이 여기뿐이고, 총평과
+	// 달리 되짚기가 다시 청할 자리가 없다(review.go summary).
 	base := context.WithoutCancel(ctx)
 
 	var gameID int64
@@ -510,7 +489,7 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 		return
 	}
 	// 0은 「행이 없다」다(dbRecorder 의 evFinished). 그대로 읽으러 가면 없는 번호로
-	// 질의하고 그 실패를 로그에 남긴다 — 고장 없이 셀 것만 없는 자리다.
+	// 질의하고 그 실패를 로그에 남긴다.
 	if gameID == 0 {
 		log.Print("ws: summary: this game has no row — nothing to summarise")
 		return
@@ -533,27 +512,22 @@ func (h *gameHandler) sendSummary(ctx context.Context, out chan serverMsg, recor
 	payload.GameID = gameID
 	emit(ctx, out, serverMsg{Type: "summary", Summary: &payload})
 
-	// 총평을 보낸 뒤에 세운다. 세우는 것은 INSERT 하나라 일찍 시작해서 버는 것이 없고,
-	// 앞에 두면 DB 가 흔들릴 때 그 시한만큼 총평이 늦는다 — 늦으면 사람이 이미 창을 닫은
-	// 뒤일 수 있고, 총평은 연결이 살아 있어야 간다(emit 은 base 가 아니라 연결 ctx 다).
-	//
-	// 세우지 못하면 그 자리에서 만든다. 엔진이 없는 배포와, 표가 아직 없는 배포 둘이다.
-	// 앞쪽에서는 생성기도 없어서(둘이 같은 자리에서 생긴다, cmd/api) 빈 행 하나를 남기는
-	// 일로 끝난다.
+	// 총평을 보낸 뒤에 세운다. 앞에 두면 DB 가 흔들릴 때 그 시한만큼 총평이 늦고, 총평은
+	// 연결이 살아 있어야 간다(emit 은 base 가 아니라 연결 ctx 다).
 	switch a := h.opts.Match.Analyzer(); {
 	case a == nil:
-		// 엔진이 없는 배포다. 생성기도 없으므로 빈 행 하나를 남기는 일로 끝난다 — 둘이
-		// cmd/api 의 같은 자리에서 생겨 함께 없다.
+		// 엔진이 없는 배포다. 생성기도 cmd/api 의 같은 자리에서 생겨 함께 없으므로 빈 행
+		// 하나를 남기는 일로 끝난다.
 		//
 		// 그 배선이 갈리면 여기가 세어지지 않는 5분짜리 탐색이 된다(quizSlots 를 지나지
-		// 않는 하나뿐인 자리다). 조건이 아니라 신호로 둔다 — 막으면 그 판이 문항을 잃는다.
+		// 않는 하나뿐인 자리다). 조건이 아니라 신호로 둔다.
 		if h.opts.Quiz != nil {
 			log.Printf("ws: quiz: game %d: a builder with no analyzer — building it here, uncounted", gameID)
 		}
 		go generateQuiz(base, h.opts.Store, h.opts.Quiz, rec)
 	case !a.queueQuiz(base, gameID):
-		// 표가 아직 없거나 쓰기가 실패했다. 분석기를 지나 만든다 — 그래야 동시에 만드는
-		// 수가 세어진다(quizSlots).
+		// 표가 아직 없거나 쓰기가 실패했다. 분석기를 지나야 동시에 만드는 수가
+		// 세어진다(quizSlots).
 		go a.buildQuizNow(base, gameID)
 	}
 }
@@ -597,7 +571,7 @@ func (h *gameHandler) readLoop(
 				}
 				emit(ctx, out, rejection(err))
 			}
-			// 성공하면 구독 채널로 스냅샷이 온다 — 착수와 같은 규약이다.
+			// 성공하면 구독 채널로 스냅샷이 온다. 착수와 같은 규약이다.
 
 		case "hint":
 			if _, err := sess.Hint(ctx); err != nil {
@@ -606,7 +580,7 @@ func (h *gameHandler) readLoop(
 				}
 				emit(ctx, out, rejection(err))
 			}
-			// 성공해도 여기서는 아직 뜨지 않는다 — 탐색이 끝나면 구독 채널로 온다(Session.Hint).
+			// 성공해도 여기서는 아직 뜨지 않는다. 탐색이 끝나면 구독 채널로 온다(Session.Hint).
 
 		case "resign":
 			if _, err := sess.Resign(ctx); err != nil && !errors.Is(err, game.ErrFinished) {
@@ -620,8 +594,8 @@ func (h *gameHandler) readLoop(
 }
 
 // whatif 는 「そのとき、こう指していたら」를 대국 화면에서 답한다. 리뷰와 같은 장치이고
-// (whatif.go) 갈리는 것은 뿌리뿐이다 — 여기는 방금 받은 스냅샷을 쓴다(DB 는 개입 직후
-// 한 수가 비어 있을 수 있다, §37). 세션은 하나도 건드리지 않는다.
+// (whatif.go) 갈리는 것은 뿌리뿐이다. 여기는 방금 받은 스냅샷을 쓴다(DB 는 개입 직후 한
+// 수가 비어 있을 수 있다, journal §37).
 func (h *gameHandler) whatif(
 	ctx context.Context,
 	out chan serverMsg,
@@ -640,8 +614,8 @@ func (h *gameHandler) whatif(
 	}
 
 	// 분기는 물러진 수 위에서만 자란다. 뿌리가 확정된 手数여야 하고, 첫 수가 방금 물러진
-	// 그 수여야 한다 — 둘 중 하나라도 어긋나면 그 요청은 「지금 어떻게 둬야 하나」를 묻는
-	// 것이 되고, 이 표면은 그 답을 최선수 셋으로 갖고 있다(confirmed.retracted).
+	// 그 수여야 한다(confirmed.retracted). 어긋나면 그 요청은 살아 있는 국면의 최선수를
+	// 묻는 것이 된다.
 	ply, retracted, open := played.branchRoot()
 	if !open || msg.Ply != ply || len(msg.Moves) == 0 || msg.Moves[0] != retracted {
 		emit(ctx, out, whatifError("locked"))
@@ -651,7 +625,7 @@ func (h *gameHandler) whatif(
 	select {
 	case <-slot:
 	default:
-		// 앞의 것이 아직 돈다. 막고 기다리지 않는다 — readLoop 이 멈추면 그동안 投了도 할 수 없다.
+		// 앞의 것이 아직 돈다. 막고 기다리면 그동안 投了도 할 수 없다(readLoop).
 		emit(ctx, out, whatifError("busy"))
 		return
 	}

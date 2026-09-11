@@ -10,7 +10,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// 대국 중 엔진 탐색의 시한 — 탐색 하나가 판 전체를 붙들지 못하게 한다.
+// 대국 중 엔진 탐색의 시한. 탐색 하나가 판 전체를 붙들지 못하게 한다.
 //
 // 사람이 둔 첫 판이 정확히 그것으로 멈췄다(playtests/2026-08-13-human-1.md #2 · #9).
 // 시한은 결과를 자르지 않고 버린다. 그래서 확인할 것은 「제때 포기하는가」와
@@ -55,8 +55,8 @@ func TestOpponentSearchDeadlineAbortsTheGame(t *testing.T) {
 	}
 }
 
-// 판정이 돌아오지 않으면 수는 그대로 두어지고 대국이 이어진다. 개입은 부가이고 대국이 본체다.
-// 그래도 알림 없이 넘기지는 않는다 — 개입이 없는 화면은 「괜찮은 수」와 똑같이 생겼다.
+// 판정이 돌아오지 않으면 수는 그대로 두어지고 대국이 이어진다. 그래도 알림 없이
+// 넘기지는 않는다. 개입이 없는 화면은 「괜찮은 수」와 똑같이 생겼다.
 func TestJudgeDeadlineLetsTheMoveStandWithANotice(t *testing.T) {
 	an := &fixedAnalyst{verdict: blunder(), delay: 5 * time.Second}
 	s := newSession(t, Config{
@@ -74,8 +74,8 @@ func TestJudgeDeadlineLetsTheMoveStandWithANotice(t *testing.T) {
 		t.Fatalf("Play: %v", err)
 	}
 
-	// 시한을 넘긴 판정은 블런더라고 답할 예정이었다. 그래도 물러지지 않는다 —
-	// 돌아오지 않은 답으로 기보를 고치는 것이 시한을 거는 것보다 나쁘다.
+	// 시한을 넘긴 판정은 블런더라고 답할 예정이었다. 그래도 물러지지 않는다. 돌아오지
+	// 않은 답으로 기보를 고치지 않는다.
 	got := waitFor(t, ch, func(s Snapshot) bool { return s.Ply == 2 }, "상대 응수")
 	if got.Intervention != nil {
 		t.Fatalf("답을 못 받은 판정으로 되물렀다: %+v", got.Intervention)

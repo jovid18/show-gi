@@ -48,9 +48,8 @@ describe('parseSfen', () => {
 });
 
 /**
- * 왕복이 맞아야 편집기가 쓸 수 있다. `parseSfen` 은 이미 판을 그리는 데 쓰이고 있었고
- * (`ExploreScreen` 외 셋) `toSfen` 은 사람이 고친 판을 주소에 싣기 위해 생겼다
- * (journal §129) — 한쪽만 틀리면 고친 판과 분석되는 판이 갈린다.
+ * 왕복이 맞아야 편집기가 쓸 수 있다. `toSfen` 은 사람이 고친 판을 주소에 싣는 자리라
+ * (journal §129) 한쪽만 틀리면 고친 판과 분석되는 판이 갈린다.
  */
 describe('toSfen', () => {
   const cases: Record<string, string> = {
@@ -90,10 +89,7 @@ describe('toSfen', () => {
     expect(toSfen(board)).toBe('4k4/9/9/9/9/9/9/9/4K4 b - 1');
   });
 
-  /**
-   * 여기서 규칙을 판단하지 않는다. 二歩든 玉이 둘이든 그대로 적는다 — 성립하는 판인가는
-   * 서버의 룰 엔진이 답하고, 여기서 걸러 버리면 사람이 고쳐 가는 중간 상태를 그릴 수 없다.
-   */
+  /** 여기서 규칙을 판단하지 않는다. 二歩든 玉이 둘이든 그대로 적는다. */
   it('성립하지 않는 판도 그대로 적는다', () => {
     const nifu = '4k4/9/9/9/4P4/9/4P4/9/4K4 b - 1';
     expect(toSfen(parseSfen(nifu))).toBe(nifu);

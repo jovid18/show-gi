@@ -68,7 +68,7 @@ func TestBookYieldsAfterCapture(t *testing.T) {
 	inner := &stubOpponent{move: "1c1d"}
 	opp := NewBookOpponent(inner, mustFind(t, "shikenbisha"), shogi.White)
 
-	// ▲7六歩 △3四歩 ▲2二角成 — 角을 잡았다. 다음은 後手(상대) 차례다.
+	// ▲7六歩 △3四歩 ▲2二角成. 角을 잡았다. 다음은 後手(상대) 차례다.
 	moves := []string{"7g7f", "3c3d", "8h2b+"}
 	got, err := opp.Choose(context.Background(), "", moves, skill.Estimate{})
 	if err != nil {
@@ -82,10 +82,8 @@ func TestBookYieldsAfterCapture(t *testing.T) {
 	}
 }
 
-// TestBookIsDerivedFromMoves 는 되무르기와 맞는지다.
-//
-// 개입이 수를 물리면 moves 가 줄어든다. 카운터를 갖고 있었다면 그 수를 센 채로 남아 진형이
-// 한 칸 건너뛴다 — 상태를 갖고 있지 않아서 그 버그가 아예 없다.
+// TestBookIsDerivedFromMoves 는 되무르기와 맞는지다. 개입이 수를 물리면 moves 가
+// 줄어들고, 카운터를 갖고 있었다면 진형이 한 칸 건너뛴다(bookOpponent).
 func TestBookIsDerivedFromMoves(t *testing.T) {
 	inner := &stubOpponent{}
 	opp := NewBookOpponent(inner, mustFind(t, "shikenbisha"), shogi.White)
@@ -125,8 +123,8 @@ func TestBookYieldsWhenPositionRejectsIt(t *testing.T) {
 	}
 }
 
-// TestBookHandsOverWhenExhausted 는 수순을 다 두면 안쪽 상대가 이어받는지다.
-// 진형을 다 짜고 나서가 이 기능의 목적지다 — 그 뒤로는 밴드 제어가 대국을 끌고 간다.
+// TestBookHandsOverWhenExhausted 는 수순을 다 두면 안쪽 상대가 이어받는지다. 그
+// 뒤로는 밴드 제어가 대국을 끌고 간다.
 func TestBookHandsOverWhenExhausted(t *testing.T) {
 	opening := mustFind(t, "nakabisha")
 	inner := &stubOpponent{move: "1c1d"}
@@ -139,8 +137,8 @@ func TestBookHandsOverWhenExhausted(t *testing.T) {
 	var moves []string
 	want := opening.Moves(shogi.White)
 
-	// 상대가 後手이므로 사람이 먼저 둔다. 사람 쪽은 판을 흔들지 않는 수만 고른다 —
-	// 잡으면 북이 그 자리에서 손을 놓아(TestBookYieldsAfterCapture) 이 테스트가 뜻을 잃는다.
+	// 상대가 後手이므로 사람이 먼저 둔다. 사람 쪽은 판을 흔들지 않는 수만 고른다. 잡으면
+	// 북이 그 자리에서 손을 놓아(TestBookYieldsAfterCapture) 이 테스트가 뜻을 잃는다.
 	for i := 0; i < len(want); i++ {
 		m, ok := quietPawnMove(pos)
 		if !ok {
@@ -183,8 +181,8 @@ func TestBookHandsOverWhenExhausted(t *testing.T) {
 	}
 }
 
-// TestBookForwardsAdaptsToSkill 은 강함 눈금이 살아 있는지다. 진형을 고른 판에서 눈금이
-// 사라지는 것이 여기서 갈린다 — 화면이 보는 것은 이 성질이다(§47).
+// TestBookForwardsAdaptsToSkill 은 강함 눈금이 살아 있는지다. 진형을 고른 판에서
+// 눈금이 사라지는 것이 여기서 갈린다(journal §47).
 func TestBookForwardsAdaptsToSkill(t *testing.T) {
 	o := mustFind(t, "shikenbisha")
 	for _, adapts := range []bool{true, false} {

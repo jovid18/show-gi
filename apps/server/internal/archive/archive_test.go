@@ -15,7 +15,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// 이 패키지는 DB도 엔진도 없이 전부 확인된다 — 감싸는 층이라 양쪽이 인터페이스다.
+// 이 패키지는 감싸는 층이라 양쪽이 인터페이스이고, DB도 엔진도 없이 전부 확인된다.
 // 실제 DB에 들어가는지는 internal/store 의 테스트가 본다.
 
 type fakeEngine struct {
@@ -79,7 +79,7 @@ func (s *fakeStore) PutPosition(_ context.Context, p store.Position) (bool, erro
 	if s.putErr != nil {
 		return false, s.putErr
 	}
-	// 얕은 것이 깊은 것을 덮지 않는다 — 질의가 하는 일을 여기서도 흉내낸다.
+	// 얕은 것이 깊은 것을 덮지 않는다. 질의가 하는 일을 여기서도 흉내낸다.
 	if old, ok := s.positions[p.SFENKey]; ok {
 		if p.ComputedDepth < old.ComputedDepth ||
 			(p.ComputedDepth == old.ComputedDepth && len(p.Candidates) <= len(old.Candidates)) {
@@ -167,8 +167,7 @@ func TestRecordsThePositionAndItsCandidates(t *testing.T) {
 		t.Fatalf("candidates = %+v", p.Candidates)
 	}
 
-	// 후보마다 깊이별 평가치가 붙는다. 추가 탐색이 없다 — 한 번의 depth 12 탐색이
-	// 1..12를 전부 돌려준다.
+	// 후보마다 깊이별 평가치가 붙는다. 한 번의 depth 12 탐색이 1..12를 전부 돌려준다.
 	e, ok := st.edgeFor("2g2f")
 	if !ok {
 		t.Fatal("후보의 간선이 안 쌓였다")
@@ -182,7 +181,7 @@ func TestRecordsThePositionAndItsCandidates(t *testing.T) {
 }
 
 // eval_by_depth 는 先手 관점이다(001_init.sql). 後手 차례의 국면에서 뒤집지 않으면
-// 색이 다른 두 판을 함께 놓을 수 없다 — 그래서 이 컬럼이 있다.
+// 색이 다른 두 판을 함께 놓을 수 없다.
 func TestFlipsEvalToSentePointOfView(t *testing.T) {
 	st := newStore()
 	// 1手 뒤는 後手 차례다. 엔진은 後手에게 +100이라고 답한다.
@@ -231,7 +230,7 @@ func TestLinksThePlayedMove(t *testing.T) {
 	if e.ParentKey != Key(start) || e.ChildKey != Key(after) {
 		t.Errorf("edge = %+v", e)
 	}
-	// 부모 국면도 자리가 만들어진다 — 없으면 FK가 간선을 거절한다.
+	// 부모 국면도 자리가 만들어진다. 없으면 FK가 간선을 거절한다.
 	if st.rows() != 2 {
 		t.Errorf("국면 %d개, want 2 (부모와 자식)", st.rows())
 	}
@@ -245,8 +244,8 @@ func TestLinksThePlayedMove(t *testing.T) {
 	}
 }
 
-// 모르면 이름을 붙이지 않는다. 手筋의 절반은 엔진이 정하는데(§34) 부모의 평가치를
-// 아직 모르면 그 판단을 할 수 없다 — 룰만으로 통과시키면 지운 오판이 돌아온다.
+// 모르면 이름을 붙이지 않는다. 手筋의 절반은 엔진이 정하는데(journal §34) 부모의 평가치를
+// 아직 모르면 그 판단을 할 수 없다. 룰만으로 통과시키면 지운 오판이 돌아온다.
 func TestNoNamesWithoutTheParentEval(t *testing.T) {
 	st := newStore()
 	eng := &fakeEngine{res: result(8, "3c3d")}
@@ -343,10 +342,10 @@ func play(t *testing.T, pos shogi.Position, usis ...string) shogi.Position {
 	return pos
 }
 
-// 이미 잰 국면은 엔진을 부르지 않는다. 여기가 §12의 캐시를 실제로 쓰는 자리다.
+// 이미 잰 국면은 엔진을 부르지 않는다. 여기가 journal §12의 캐시를 실제로 쓰는 자리다.
 //
-// 그리고 깊이별 값이 함께 살아나야 한다 — 개입 판정이 보는 얕은 값이 그것이고, 캐시가
-// 그걸 빠뜨리면 「얕은 이득에 낚임」 카테고리가 경고 없이 사라진다(01-core.md §3).
+// 깊이별 값도 함께 살아나야 한다. 개입 판정이 보는 얕은 값이 그것이고, 캐시가 빠뜨리면
+// 「얕은 이득에 낚임」 카테고리가 경고 없이 사라진다(01-core.md §3).
 func TestServesFromTheCache(t *testing.T) {
 	st := newStore()
 	eng := &fakeEngine{res: result(12, "7g7f", "2g2f", "6g6f")}
@@ -417,8 +416,8 @@ func TestCacheKeepsTheMoverPointOfView(t *testing.T) {
 	}
 }
 
-// 모자란 캐시는 쓰지 않는다. 얕게 잰 행과 후보가 적은 행이 그렇다 — 뒤엣것을 막지 않으면
-// k=1로 쓰인 행이 k=10을 원하는 적응형 상대에게 후보 하나만 주고, 그건 강함 조절이 꺼진 것이다.
+// 모자란 캐시는 쓰지 않는다. 얕게 잰 행과 후보가 적은 행이 그렇다. 뒤엣것을 막지 않으면
+// k=1로 쓰인 행이 k=10을 원하는 적응형 상대에게 후보 하나만 주고, 강함 조절이 꺼진다.
 func TestIgnoresInsufficientCache(t *testing.T) {
 	for name, ask := range map[string][2]int{
 		"더 깊이 원한다":  {14, 1},
@@ -442,8 +441,8 @@ func TestIgnoresInsufficientCache(t *testing.T) {
 	}
 }
 
-// 합법수가 k보다 적은 국면은 그것으로 다 찬 것이다. 「모자란다」로 보면 그 자리는
-// 영원히 캐시를 쓰지 못하고, 종반에 k=10을 묻는 상대(§16)가 정확히 거기서 매번 다시 잰다.
+// 합법수가 k보다 적은 국면은 그것으로 다 찬 것이다. 「모자란다」로 보면 그 자리는 영원히
+// 캐시를 쓰지 못하고, 종반에 k=10을 묻는 상대(journal §16)가 거기서 매번 다시 잰다.
 func TestServesWhenThereAreFewerLegalMovesThanK(t *testing.T) {
 	st := newStore()
 	// 玉 둘만 있는 국면. 先手 玉이 1九에 몰려 합법수가 셋이다(9八·8八·8九 방향).
@@ -457,7 +456,7 @@ func TestServesWhenThereAreFewerLegalMovesThanK(t *testing.T) {
 		t.Fatalf("합법수가 %d개다 — 이 테스트가 노리는 국면이 아니다", legal)
 	}
 
-	// 엔진은 있는 만큼만 준다 — k=10을 물어도 합법수가 셋이면 세 줄이다.
+	// 엔진은 있는 만큼만 준다. k=10을 물어도 합법수가 셋이면 세 줄이다.
 	eng := &fakeEngine{res: result(8, "1i1h", "1i2h", "1i2i")}
 	a := Wrap(eng, st)
 
@@ -499,14 +498,14 @@ func TestTagsFormationOnTheEdge(t *testing.T) {
 	t.Errorf("tags = %v, want %q", e.Tags, want)
 }
 
-// 히트에도 오는 길은 남는다. 같은 국면에 다른 수로 도달하면(전치) 그 간선은 새것이다 —
-// 남기지 않으면 그 자리가 영원히 비어 있고, 「A→B를 쌓는다」가 반만 사실이 된다.
+// 히트에도 오는 길은 남는다. 같은 국면에 다른 수로 도달하면(전치) 그 간선은 새것이고,
+// 남기지 않으면 그 자리가 영원히 비어 있다.
 func TestLinksThePathEvenOnACacheHit(t *testing.T) {
 	st := newStore()
 	eng := &fakeEngine{res: result(8, "3c3d")}
 	a := Wrap(eng, st)
 
-	// ① 국면을 한 번 잰다(수순 없이) — 이러면 「오게 한 수」가 없다.
+	// ① 국면을 한 번 잰다(수순 없이). 이러면 「오게 한 수」가 없다.
 	start, err := shogi.ParseSFEN(shogi.StartSFEN)
 	if err != nil {
 		t.Fatalf("ParseSFEN: %v", err)

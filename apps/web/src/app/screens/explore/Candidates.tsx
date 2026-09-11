@@ -7,13 +7,12 @@ import type { ExploreNode } from '@/protocol/explore';
 /**
  * 지금 국면의 최선수 Top 3. 누르면 그 수를 둔다.
  *
- * 되짚기의 `MoveOptions` 와 따로 둔다. 저쪽은 후보에 「실제로 둔 수」와 「물러진 수」를
- * 한 줄로 늘어놓는 목록이고(그것이 그 화면의 내용이다), 검토에는 그 둘이 아예 없다 —
- * 확정된 기보가 없기 때문이다. 같은 컴포넌트에 넣으면 절반이 언제나 빈 채로 도는
- * 분기가 되고, 그 분기가 두 화면을 동시에 잡는다.
+ * 되짚기의 `MoveOptions` 와 따로 둔다. 저쪽은 「실제로 둔 수」와 「물러진 수」를 한 줄로
+ * 늘어놓는 목록인데, 확정된 기보가 없는 검토에는 그 둘이 아예 없다. 같은 컴포넌트에 넣으면
+ * 절반이 언제나 빈 채로 도는 분기가 두 화면을 동시에 잡는다.
  *
- * 판 위의 초록 화살표가 첫 줄과 같은 수다(03-frontend.md §2). 여기서 색을 새로 꺼내지
- * 않고 판이 이미 쓰는 토큰을 그대로 쓴다(`evalTone`).
+ * 판 위의 초록 화살표가 첫 줄과 같은 수다(03-frontend.md §2). 여기서 색을 새로 꺼내지 않고
+ * 판이 이미 쓰는 토큰을 그대로 쓴다(`evalTone`).
  */
 interface CandidatesProps {
   node: ExploreNode | null;
@@ -25,9 +24,9 @@ interface CandidatesProps {
 export function Candidates({ node, stale, onPick }: CandidatesProps) {
   const handicap = !!node?.handicapJa;
   /**
-   * 색은 下手 관점이다. 파랑·빨강이 이 앱 어디서나 「나에게 좋은가」인데
-   * (`evalTone`) 검토의 「나」는 下手(SFEN의 `b` 쪽)로 고정돼 있다(서버의 `exploreRoot`) —
-   * 목록의 숫자는 둔 쪽 관점이라 여기서 뒤집어서 넘긴다.
+   * 색은 下手 관점이다. 파랑·빨강이 이 앱 어디서나 「나에게 좋은가」이고(`evalTone`) 검토의
+   * 「나」는 下手(SFEN 의 `b` 쪽)로 고정돼 있다(서버의 `exploreRoot`). 목록의 숫자는 둔 쪽
+   * 관점이라 여기서 뒤집어서 넘긴다.
    */
   const byOpponent = node?.turn === 'w';
 
@@ -45,19 +44,18 @@ export function Candidates({ node, stale, onPick }: CandidatesProps) {
         <ol className="explore-option-list" data-stale={stale || undefined}>
           {node.candidates.map((c, i) => {
             // 후보의 값을 목록 한 줄의 자로 옮긴다. `evalCp` 는 둔 쪽 관점이고, 그것이
-            // 후보끼리 견주는 자다(`MoverScore` — 되짚기의 목록과 같은 규약).
+            // 후보끼리 견주는 자다(`MoverScore`, 되짚기의 목록과 같은 규약).
             const score = { cp: c.evalCp, mateIn: c.mateIn };
             return (
               // 열쇠는 순위다. 수(`usi`)로 걸면 서버가 같은 수를 두 번 보낸 순간 열쇠가
-              // 겹치고, React는 그때 그 줄을 지우지 못한다 — 국면을 옮겨도 옛 수가 1위
-              // 자리에 남아 「1위가 둘인 목록」이 새로고침 전까지 없어지지 않았다(journal §87).
-              // 이 목록의 정체는 애초에 순위 1·2·3이라 자리가 곧 그 줄이다.
+              // 겹치고 React 가 그 줄을 지우지 못한다(journal §87). 이 목록의 정체는 애초에
+              // 순위 1·2·3이라 자리가 곧 그 줄이다.
               <li key={i}>
                 <button
                   type="button"
                   className="explore-option"
-                  // 첫 줄이 판 위의 초록 화살표다. 그 사실을 한 번 더 색으로 말하지 않고
-                  // 순위 숫자로만 짚는다 — 판과 목록이 같은 것을 두 채널로 말하지 않는다.
+                  // 첫 줄이 판 위의 초록 화살표다. 판과 목록이 같은 것을 두 채널로 말하지
+                  // 않도록 순위 숫자로만 짚는다.
                   data-best={i === 0 || undefined}
                   disabled={stale}
                   onClick={() => onPick(c.usi)}
@@ -66,7 +64,7 @@ export function Candidates({ node, stale, onPick }: CandidatesProps) {
                   <span className="explore-option-rank">{i + 1}</span>
                   <span className="explore-option-move">{c.ja || c.usi}</span>
                   <span className="explore-option-score">{rowScoreJa(score, byOpponent)}</span>
-                  {/* 낙폭은 최선수 대비다. 첫 줄에는 없다(기준이라 0) — 서버가 그 자리를
+                  {/* 낙폭은 최선수 대비다. 첫 줄에는 없다(기준이라 0). 서버가 그 자리를
                       비워서 보내므로 화면이 뺄셈을 하지 않는다(whatifCandidate 의 LossCp). */}
                   <span className="explore-option-loss">{c.lossCp ? `−${c.lossCp}` : ''}</span>
                 </button>

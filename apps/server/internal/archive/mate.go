@@ -24,43 +24,40 @@ type MateEngine interface {
 	SearchMate(ctx context.Context, startSFEN string, moves []string) (usi.MateResult, error)
 }
 
-// MateMetrics 는 詰み 탐색 하나를 받는 자리다. 탐색부와 따로 둔다 —
-// 섞으면 engine_search_duration_seconds 가 부하 신호로서의 뜻을 잃는다(journal §106).
+// MateMetrics 는 詰み 탐색 하나를 받는 자리다. 탐색부와 섞으면
+// engine_search_duration_seconds 가 부하 신호로서의 뜻을 잃는다(journal §106).
 type MateMetrics interface {
-	// ObserveMateSearch 는 詰み 탐색 하나가 답을 받기까지 걸린 시간이다. 풀 대기가
-	// 들어 있다. cached 면 solver 를 부르지 않은 것이고, proven 이 false 면 그 답을 쌓지 않았다.
+	// ObserveMateSearch 는 詰み 탐색 하나가 답을 받기까지 걸린 시간이다. 풀 대기가 들어
+	// 있다. proven 이 false 면 그 답을 쌓지 않았다.
 	ObserveMateSearch(d time.Duration, cached, proven bool)
 }
 
 // Mate 는 詰み 탐색에 캐시와 기록을 붙인다.
 //
-// game.MateSearcher · quiz.MateSearcher 를 한꺼번에 만족한다 — 빌리는 자리가 넷이고
-// (종반 판정 · 詰み 게이지 · 되짚기 퀴즈 · 대인전 사후 분석) 그 넷이 같은 하나를 받아야
-// 한 자리가 감싸지지 않는 일이 생기지 않는다. Searcher 와 같은 판단이다.
+// game.MateSearcher · quiz.MateSearcher 를 한꺼번에 만족한다. 빌리는 넷이 같은 하나를
+// 받아야 한 자리가 감싸지지 않는 일이 생기지 않는다. Searcher 와 같은 판단이다.
 //
-// 값이 큰 것은 詰み 없는 국면이 가장 비싼 답이기 때문이다 — 한계까지 다 뒤진 뒤에야
-// nomate 로 답하므로, 훑기 구간의 거의 모든 국면이 최악 비용이다(journal §110).
+// 값이 큰 것은 詰み 없는 국면이 가장 비싼 답이기 때문이다. 한계까지 다 뒤진 뒤에야
+// nomate 로 답하므로 훑기 구간의 거의 모든 국면이 최악 비용이다(journal §110).
 type Mate struct {
 	inner MateEngine
 	store MateStore
 
 	// plies 는 solver 의 手数 한계다(ENGINE_MATE_PLIES). 캐시를 읽는 조건이자 쓰는 값이라
-	// 풀에 준 것과 같아야 한다 — 갈리면 캐시가 자기 답을 쓰지 못하거나, 더 나쁘게는 얕은
-	// 한계의 「없다」를 깊은 한계의 「없다」로 읽는다.
+	// 풀에 준 것과 같아야 한다. 갈리면 얕은 한계의 「없다」를 깊은 한계의 「없다」로 읽는다.
 	plies int
 
 	// metrics 는 기동 중에 한 번 달리고 그 뒤로는 읽기만 한다. nil 이면 계측이 꺼진다.
 	metrics MateMetrics
 
-	// wg 는 떠 있는 기록들이다. Searcher.wg 와 따로 둔다 — 종료할 때 둘 다 기다린다.
+	// wg 는 떠 있는 기록들이다. Searcher.wg 와 따로 두고, 종료할 때 둘 다 기다린다.
 	wg sync.WaitGroup
 }
 
-// WrapMate 는 詰み 탐색에 캐시를 붙인다. st 가 nil이면 그대로 넘긴다 —
-// DB가 없어도 대국은 된다는 이 레포의 판단과 같은 자리다(Wrap).
+// WrapMate 는 詰み 탐색에 캐시를 붙인다. st 가 nil이면 그대로 넘긴다(Wrap).
 //
-// plies 는 풀에 준 DepthLimit 이다. 0 이하면 캐시가 꺼진다 — 한계를 모르면 쌓인 답을
-// 쓸 수 있는지 판단할 수 없고, 모를 때는 쓰지 않는 쪽이 이 레포의 규칙이다.
+// plies 는 풀에 준 DepthLimit 이다. 0 이하면 캐시가 꺼진다. 한계를 모르면 쌓인 답을 쓸
+// 수 있는지 판단할 수 없다.
 func WrapMate(inner MateEngine, st MateStore, plies int) *Mate {
 	if plies <= 0 {
 		st = nil
@@ -68,7 +65,7 @@ func WrapMate(inner MateEngine, st MateStore, plies int) *Mate {
 	return &Mate{inner: inner, store: st, plies: plies}
 }
 
-// Observe 는 계측을 붙인다. 기동 중에 한 번만 부른다 — Searcher.Observe 도 그렇다.
+// Observe 는 계측을 붙인다. 기동 중에 한 번만 부른다(Searcher.Observe).
 func (a *Mate) Observe(m MateMetrics) { a.metrics = m }
 
 func (a *Mate) observe(start time.Time, cached, proven bool) {
@@ -83,17 +80,16 @@ func (a *Mate) Wait() { a.wg.Wait() }
 
 // SearchMate 는 이미 증명된 국면이면 solver 를 부르지 않는다.
 //
-// 게이지와 판정이 같은 질문을 한 手 간격으로 두 번 하는 자리가 여기서 한 번이 된다 —
-// 게이지는 사람 차례 국면을 묻고(game 의 maybeGauge), 판정은 그 사람이 둔 뒤 착수 전
-// 국면을 묻는데 그 둘이 같은 국면이다. 퀴즈는 판이 끝난 뒤 그 전부를 다시 묻는다.
+// 게이지와 판정이 같은 질문을 한 手 간격으로 두 번 하는 자리가 여기서 한 번이 된다.
+// 게이지는 사람 차례 국면을 묻고(game 의 maybeGauge) 판정은 그 사람이 둔 뒤 착수 전
+// 국면을 묻는데, 그 둘이 같은 국면이다.
 func (a *Mate) SearchMate(ctx context.Context, startSFEN string, moves []string) (usi.MateResult, error) {
 	start := time.Now()
 
-	// 국면을 되만들 수 없으면 캐시를 아예 쓰지 않는다. 그 위에 답을 쌓거나 꺼내면 없던 국면을
-	// 다루게 된다 — Searcher 가 positionAfter 를 같은 이유로 지나간다.
+	// 국면을 되만들 수 없으면 캐시를 아예 쓰지 않는다(positionAfter).
 	//
 	// 캐시가 꺼져 있으면 되만들지도 않는다. 100手째의 판정이 그 수순을 전부 다시 두는
-	// 것이고, 쓸 데가 없으면 그것이 그대로 낭비다 — CPU 가 병목인 박스다(journal §110).
+	// 것이라, 쓸 데가 없으면 그대로 낭비다(journal §110).
 	var pos shogi.Position
 	usable := false
 	if a.store != nil {
@@ -113,8 +109,8 @@ func (a *Mate) SearchMate(ctx context.Context, startSFEN string, moves []string)
 	}
 	a.observe(start, false, res.Proven)
 
-	// 증명된 것만 쌓는다. timeout 은 「이 한계 안에서는 모른다」다 — 없다고 저장하면
-	// 있는 詰み을 놓친 채 종반 판정이 돈다(01-core.md §2).
+	// 증명된 것만 쌓는다. timeout 은 「이 한계 안에서는 모른다」다. 없다고 저장하면 있는
+	// 詰み을 놓친 채 종반 판정이 돈다(01-core.md §2).
 	if !usable || !res.Proven {
 		return res, nil
 	}
@@ -148,15 +144,14 @@ func (a *Mate) lookup(ctx context.Context, pos shogi.Position) (usi.MateResult, 
 	if len(m.Moves) > a.plies {
 		return usi.MateResult{}, false
 	}
-	// 쌓인 것은 증명된 것뿐이다. 비어 있으면 증명된 「詰み이 없다」이고, 그 구별 때문에
-	// Proven 을 둔다 — 부르는 쪽이 「모른다」와 가른다(quiz 의 distance).
+	// 쌓인 것은 증명된 것뿐이다. 비어 있으면 증명된 「詰み이 없다」이고, 부르는 쪽이
+	// Proven 으로 「모른다」와 가른다(quiz 의 distance).
 	return usi.MateResult{Moves: m.Moves, Proven: true}, true
 }
 
 // record 는 증명된 답 하나를 남긴다.
 //
-// 실패해도 대국에 영향이 없다. 여기서 나는 에러는 전부 로그로 끝난다 —
-// Searcher.record 와 같은 자리다.
+// 실패해도 대국에 영향이 없다. 여기서 나는 에러는 전부 로그로 끝난다(Searcher.record).
 func (a *Mate) record(key string, moves []string) {
 	ctx, cancel := context.WithTimeout(context.Background(), writeTimeout)
 	defer cancel()

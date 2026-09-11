@@ -35,11 +35,10 @@ func TestWinRateSaturatesWhenWinning(t *testing.T) {
 	}
 }
 
-// 오프닝의 다양성은 수 번호 대신 임계치가 지킨다.
+// 오프닝의 다양성은 수 번호 대신 임계치가 지킨다(01-core.md §2).
 //
 // 전법 선택은 보통 50~200cp 손해라 어느 레벨도 걸리지 않고, 銀 이상을 공짜로 주면
-// 입문에서도 걸린다. 그래서 "초반 N수는 보지 않는다" 같은 구간이 필요 없다 —
-// 그런 구간은 5수째의 飛 헌납을 놓치면서 25수째의 정당한 선택은 봐주지 못한다.
+// 입문에서도 걸린다.
 func TestOpeningVarietyIsProtectedByThresholds(t *testing.T) {
 	for _, cp := range []int{50, 100, 200} {
 		in := Input{Best: eval.Cp(0), After: eval.Cp(-cp), Level: Intermediate}
@@ -161,11 +160,10 @@ func TestBeingMatedIsCaughtByWinRate(t *testing.T) {
 
 // TestBaselineRestoresTheJudgementInKomaochi 는 駒落ち에서 판정이 살아 있는지를 본다.
 //
-// 기준점이 없으면 四枚落ち에서 銀 헌납이 걸리지 않는다 — 승률이 이미 포화해서다. 위
-// TestWinRateSaturatesWhenWinning 이 종반에서 재는 것과 같은 현상이고, 駒落ち는 판
-// 전체가 그 구간이라 詰み 거리로도 막을 수 없다(journal §84).
+// 기준점이 없으면 四枚落ち에서 銀 헌납이 걸리지 않는다. 위 TestWinRateSaturatesWhenWinning
+// 이 종반에서 재는 포화가 판 전체에 걸린 것이라 詰み 거리로도 막을 수 없다(journal §84).
 //
-// 二枚落ち를 예시로 쓸 수 없다 — 그쪽은 銀 헌납이 간신히 걸려서 아래 첫 줄의 전제가
+// 二枚落ち는 예시로 쓸 수 없다. 그쪽은 銀 헌납이 간신히 걸려서 아래 첫 줄의 전제가
 // 깨진다(journal §88).
 func TestBaselineRestoresTheJudgementInKomaochi(t *testing.T) {
 	const yonmai = 1561 // internal/handicap 의 실측값
@@ -199,12 +197,10 @@ func TestBaselineRestoresTheJudgementInKomaochi(t *testing.T) {
 }
 
 // TestBaselineIsANoOpAtHirate 는 平手(기준점 0)의 낙폭이 옛 식과 한 비트도 다르지 않은지를
-// 본다. 265시도 재채점(journal §39)이 그 좌표에서 나왔으므로, 여기가 흔들리면 그 측정이
-// 전부 다른 기준의 것이 된다.
+// 본다. 265시도 재채점(journal §39)이 그 좌표에서 나왔다.
 //
 // 옛 식을 여기 적어 두는 것이 이 테스트다. 「기준점 0을 넣은 것과 넣지 않은 것이 같다」로
-// 쓰면 둘 다 0이라 아무것도 확인하지 않는다 — 두 항 중 한쪽에만 기준점을 빼는 버그가
-// 그 모양으로는 잡히지 않는다.
+// 쓰면 둘 다 0이라 두 항 중 한쪽에만 기준점을 빼는 버그가 잡히지 않는다.
 func TestBaselineIsANoOpAtHirate(t *testing.T) {
 	for cp := -2000; cp <= 2000; cp += 250 {
 		for _, after := range []int{cp, cp - 300, cp - 900} {
@@ -219,8 +215,8 @@ func TestBaselineIsANoOpAtHirate(t *testing.T) {
 
 // TestBaselineSubtractsFromBothTerms 는 두 항에서 같이 빼는지를 본다.
 //
-// 한쪽에만 빼면 기준점이 낙폭을 임의로 밀고, 그 버그는 「駒落ち에서 개입이 너무 잦다/드물다」
-// 로만 드러난다 — 어느 쪽인지도 手合마다 갈린다.
+// 한쪽에만 빼면 기준점이 낙폭을 임의로 민다. 그 버그는 「駒落ち에서 개입이 너무
+// 잦다/드물다」로만 드러나고, 어느 쪽인지도 手合마다 갈린다.
 func TestBaselineSubtractsFromBothTerms(t *testing.T) {
 	// 같은 상대 손해는 기준점을 어디로 옮겨도 같은 낙폭이어야 한다.
 	const best, after = 400, -200

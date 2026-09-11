@@ -77,10 +77,8 @@ func TestCategoryPicksTheMostConcreteReason(t *testing.T) {
 	}
 }
 
-// 공짜로 딴 것을 이유로 대지 않는다.
-//
-// 반대쪽에서 벌어진 일 때문에 나쁜 수인데 마침 歩를 하나 공짜로 땄다면, 딴 것을
-// 이유라고 말하는 순간 설명이 틀린다. 짚을 것이 없으면 미분류로 두는 편이 낫다.
+// 공짜로 딴 것을 이유로 대지 않는다. 짚을 것이 없으면 미분류로 두는 편이
+// 낫다(01-core.md §3).
 func TestACleanCaptureIsNotTheReason(t *testing.T) {
 	f := Features{Known: true, CapturedValue: 1, MovedValue: 6} // 되따이지도, 玉이 밀리지도 않았다
 	if got := Judge(blunderInput(f)).Category; got == CategoryGreedyCapture {
@@ -155,9 +153,9 @@ func TestNoCategoryWhenNotIntervening(t *testing.T) {
 
 // 成 여부만 다른 수는 다른 무엇으로도 분류되지 않아야 한다.
 //
-// 실측에서 이 수가 greedy_capture 로 떨어져 「잡는 것이 문제」라고 가르쳤고, 플레이어가
-// 그 문장을 믿고 세 수를 더 헤맸다(08-playtest.md §8). 그래서 이 테스트가 지키는 것은
-// 「unpromoted 로 간다」 대신 「다른 이유를 대지 않는다」다.
+// 실측에서 greedy_capture 로 떨어져 「잡는 것이 문제」라고 가르쳤고, 플레이어가 그
+// 문장을 믿고 세 수를 더 헤맸다(08-playtest.md §8). 그래서 지키는 것은 「unpromoted 로
+// 간다」 대신 「다른 이유를 대지 않는다」다.
 func TestUnpromotedBeatsEveryOtherReason(t *testing.T) {
 	// 딴 것도 있고(greedy_capture), 그냥 잡히기도 하고(hangs_piece), 王手까지 거는
 	// 수를 만든다. 이 셋이 전부 켜져 있어도 成 여부가 이유여야 한다.
@@ -181,9 +179,8 @@ func TestUnpromotedBeatsEveryOtherReason(t *testing.T) {
 		t.Fatalf("%s — 成 여부가 이유여야 한다", got)
 	}
 
-	// 칸을 내리면 실측에서 나갔던 그 오분류가 그대로 돌아온다. 이 줄이 있어야
-	// 위의 단정이 무엇을 막고 있는지가 코드에 남는다 — greedy_capture 는 「잡는 것이
-	// 문제」라고 말하는데 그 국면에서 잡는 것은 정답이었다.
+	// 칸을 내리면 실측에서 나갔던 그 오분류가 그대로 돌아온다. 이 줄이 있어야 위의
+	// 단정이 무엇을 막는지가 코드에 남는다.
 	in.Features.UnpromotedOnly = false
 	if got := Judge(in).Category; got != CategoryGreedyCapture {
 		t.Fatalf("%s — 끄면 옛 분류(greedy_capture)로 돌아가야 한다", got)
@@ -192,9 +189,8 @@ func TestUnpromotedBeatsEveryOtherReason(t *testing.T) {
 
 // TestShallowTrapReadsTheBaseline 은 駒落ち에서도 그 카테고리가 나오는지를 본다.
 //
-// 이 규칙만 절대 부호를 읽는다(Shallow > Baseline · After < Baseline). 기준점을
-// 보지 않으면 二枚落ち에서 앞 조건이 언제나 참이고 뒤 조건이 거의 언제나 거짓이라, 판정은
-// 걸리는데 이름이 other 로 떨어진다 — 개입은 살아 있고 설명만 경고 없이 나빠지는 모양이라
+// 이 규칙만 절대 부호를 읽는다(Shallow > Baseline · After < Baseline). 기준점을 보지
+// 않으면 개입은 걸리는데 이름이 other 로 떨어진다. 설명만 경고 없이 나빠지는 모양이라
 // 눈으로는 잡히지 않는다(journal §84).
 func TestShallowTrapReadsTheBaseline(t *testing.T) {
 	const nimai = 1490 // internal/handicap 의 실측값

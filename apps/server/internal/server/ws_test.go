@@ -83,7 +83,7 @@ func readUntil(t *testing.T, ctx context.Context, conn *websocket.Conn, cond fun
 func TestWSPlaysAGame(t *testing.T) {
 	conn, ctx := dialGame(t, "3c3d")
 
-	// 붙자마자 초기 스냅샷이 온다 — 클라이언트가 따로 물어보지 않아도 판을 그릴 수 있어야 한다.
+	// 붙자마자 초기 스냅샷이 온다. 클라이언트가 따로 물어보지 않아도 판을 그릴 수 있어야 한다.
 	first := read(t, ctx, conn)
 	if first.Type != "snapshot" || first.Snapshot == nil {
 		t.Fatalf("첫 메시지 = %+v", first)
@@ -187,10 +187,8 @@ func TestWSUnavailableWithoutEngine(t *testing.T) {
 	}
 }
 
-// TestWSAgainstRealEngine 은 진짜 USI 엔진을 붙여 대국을 끝까지 굴린다.
-//
-// 여기까지 와야 D2의 완료 기준("사람 vs 엔진 한 판")이 증명된다 — 가짜 상대로는
-// 우리가 적은 수가 돌아오는 것뿐이라, 엔진이 실제로 국면을 받아 두는지를 알 수 없다.
+// TestWSAgainstRealEngine 은 진짜 USI 엔진을 붙여 대국을 끝까지 굴린다. 가짜 상대로는
+// 우리가 적은 수가 돌아오는 것뿐이라 엔진이 국면을 받아 두는지를 알 수 없다.
 //
 // SHOWGI_USI_CMD 가 없으면 건너뛴다. CI 러너에는 엔진이 없다.
 //
@@ -228,7 +226,7 @@ func TestWSAgainstRealEngine(t *testing.T) {
 		t.Fatal("초기 스냅샷이 없다")
 	}
 
-	// 사람은 항상 스냅샷이 준 합법수 중 하나를 둔다 — 클라이언트가 할 일과 같다.
+	// 사람은 항상 스냅샷이 준 합법수 중 하나를 둔다. 클라이언트가 할 일과 같다.
 	for ply := 0; ply < 12; ply++ {
 		if snap.Status != game.StatusPlaying {
 			break
@@ -259,7 +257,7 @@ func TestWSAgainstRealEngine(t *testing.T) {
 			t.Fatalf("%d수째 棋譜 표기가 비었다: %+v", i+1, m)
 		}
 	}
-	// 국면이 실제로 진행됐는지 — 초기 국면과 달라야 한다
+	// 국면이 실제로 진행됐는지. 초기 국면과 달라야 한다
 	if snap.SFEN == shogi.StartSFEN {
 		t.Fatal("판이 그대로다")
 	}
@@ -271,9 +269,9 @@ func TestWSAgainstRealEngine(t *testing.T) {
 
 // TestWSKomaochiAgainstRealEngine 은 駒落ち 판이 실엔진에서 끝까지 도는지다.
 //
-// 위 테스트와 따로 두는 것은 확인할 것이 다르기 때문이다: 저쪽은 「대국이 도는가」이고
-// 여기는 「접어 준 판이 그 手合의 판인가」다 — 시작 국면 · 手番 · 手合割 이름 셋이 한
-// 자리에서 정해지므로(newSetup) 하나만 어긋나도 사람이 上手를 잡거나 판이 平手로 열린다.
+// 위 테스트는 「대국이 도는가」이고 여기는 「접어 준 판이 그 手合의 판인가」다. 시작 국면 ·
+// 手番 · 手合割 이름 셋이 한 자리에서 정해지므로(newSetup) 하나만 어긋나도 사람이 上手를
+// 잡거나 판이 平手로 열린다.
 //
 // 적응형 상대로 띄운다. 밴드의 원점이 手合割에서 오므로(game.adaptiveOpponent.Choose)
 // 실엔진 후보로 그 길을 한 번 밟아 두는 자리가 여기밖에 없다.
@@ -317,8 +315,8 @@ func TestWSKomaochiAgainstRealEngine(t *testing.T) {
 	if snap.SFEN != nimai.SFEN {
 		t.Fatalf("시작 국면이 %q다. 二枚落ち는 %q", snap.SFEN, nimai.SFEN)
 	}
-	// color=w 를 보냈는데도 下手다(newSetup). 그리고 접어 준 上手가 먼저 둔다
-	// (journal §88) — 판이 열린 자리가 사람 차례가 아닌 것이 駒落ち의 정상이다.
+	// color=w 를 보냈는데도 下手다(newSetup). 그리고 접어 준 上手가 먼저 두므로
+	// (journal §88) 판이 열린 자리가 사람 차례가 아닌 것이 駒落ち의 정상이다.
 	if snap.YourColor != "b" || snap.YourTurn {
 		t.Fatalf("사람이 下手로 뒤에 둬야 한다: yourColor=%q yourTurn=%v", snap.YourColor, snap.YourTurn)
 	}
@@ -335,7 +333,7 @@ func TestWSKomaochiAgainstRealEngine(t *testing.T) {
 		t.Fatalf("上手가 한 수 둔 자리여야 한다: ply=%d", snap.Ply)
 	}
 
-	// 上手가 없는 駒를 움직이려 들지 않는지 — 엔진이 실제로 응수를 내는 것으로 확인된다.
+	// 上手가 없는 駒를 움직이려 들지 않는지. 엔진이 응수를 내는 것으로 확인된다.
 	for ply := 0; ply < 6; ply++ {
 		if snap.Status != game.StatusPlaying {
 			break
@@ -401,13 +399,12 @@ func hasHangul(s string) bool {
 	return false
 }
 
-// TestRealEngineIntervention 은 진짜 엔진으로 블런더를 두면 물러지는지 본다.
-// D3의 완료 기준이고, 가짜 판정으로는 증명되지 않는다 — 우리가 적어둔 답이 돌아올 뿐이다.
+// TestRealEngineIntervention 은 진짜 엔진으로 블런더를 두면 물러지는지 본다. 가짜 판정으로는
+// 우리가 적어둔 답이 돌아올 뿐이라 증명되지 않는다.
 //
-// 실제 8급 대국의 중반 국면에서 시작한다. 초기 국면부터 아무 수나 두면 20수 만에
-// 절망적인 형세가 되는데, 지고 있을 때도 승률이 포화해 개입이 걸리지 않는다 —
-// 이기고 있을 때와 같다(01-core.md §2). 판정이 의미를 갖는 것은 형세가
-// 팽팽한 구간이고, 그게 실제 사용자가 있는 곳이다.
+// 실제 8급 대국의 중반 국면에서 시작한다. 초기 국면부터 아무 수나 두면 20수 만에 절망적인
+// 형세가 되는데, 지고 있을 때도 승률이 포화해 개입이 걸리지 않는다(01-core.md §2). 판정이
+// 의미를 갖는 것은 형세가 팽팽한 구간이다.
 //
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/server/ -run RealEngineIntervention -v
 func TestRealEngineIntervention(t *testing.T) {
@@ -424,7 +421,7 @@ func TestRealEngineIntervention(t *testing.T) {
 	}
 	defer pool.Close()
 
-	// 대국 B의 30수째 — 서로 진영을 짜고 형세가 팽팽한 지점이다.
+	// 대국 B의 30수째. 서로 진영을 짜고 형세가 팽팽한 지점이다.
 	pos := shogi.StartPosition()
 	for _, u := range strings.Fields(kifuBOpening) {
 		m, err := shogi.ParseUSIMove(u)
@@ -483,12 +480,11 @@ func TestRealEngineIntervention(t *testing.T) {
 	t.Logf("카테고리: %s", iv.Category)
 	t.Logf("문구: %s", iv.Message)
 
-	// 여기서 나오는 것은 실제로 other 다. 엔진이 제일 싫어하는 수가 ▲1七香 —
-	// 駒를 던지지도, 王手를 걸지도, 玉을 열지도 않고 그냥 손해인 수다. 짚을 이유가
-	// 없으므로 짚지 않는 것이 맞다(01-core.md §3). 억지로 끼워 맞추면 설명이 틀리고,
-	// 그게 이 제품에서 가장 큰 실패다. 그래서 값을 확인하지 않는다.
+	// 여기서 나오는 것은 실제로 other 다. 엔진이 제일 싫어하는 수가 ▲1七香이고, 駒를
+	// 던지지도 王手를 걸지도 玉을 열지도 않고 그냥 손해인 수라 짚지 않는 것이 맞다
+	// (01-core.md §3). 그래서 값을 확인하지 않는다.
 	//
-	// 짚을 이유가 있는 쪽은 TestRealEngineHangingPiece 가 본다 — 결과가 정해진 수로 묻는다.
+	// 짚을 이유가 있는 쪽은 TestRealEngineHangingPiece 가 본다.
 	if iv.Category == "" {
 		t.Error("개입했는데 카테고리가 비어 있다")
 	}
@@ -506,17 +502,15 @@ func TestRealEngineIntervention(t *testing.T) {
 
 // TestRealEngineHangingPiece 는 이유가 화면까지 가는지를 본다.
 //
-// 앞 테스트는 「개입이 걸리는가」이고 여기는 「왜 나쁜지를 말하는가」다. 따로 두는
-// 이유는 최악수가 늘 짚을 만한 수는 아니기 때문이다 — 저쪽에서 나오는 ▲1七香은
-// 정당하게 미분류다.
+// 앞 테스트는 「개입이 걸리는가」이고 여기는 「왜 나쁜지를 말하는가」다. 따로 두는 이유는
+// 최악수가 늘 짚을 만한 수는 아니기 때문이다.
 //
 // 수는 프로덕션에서 실제로 걸린 것을 그대로 쓴다(journal §13). 角을 누구도
 // 지켜주지 않는 3三에 던지는 수다.
 //
-// 국면을 ▲7六歩 △3四歩 뒤로 고정해서 시작한다. 상대에게 한 수를 맡기면
-// △4四歩로 8八–3三 대각선이 막혀 8h3c+ 가 아예 불법이 되고, 그때 나오는 것은
-// 「거절됨」이라 서버 버그처럼 보인다. 엔진이 그 수를 고를 일은 거의 없지만
-// 거의 없는 것을 테스트의 전제로 삼지 않는다.
+// 국면을 ▲7六歩 △3四歩 뒤로 고정해서 시작한다. 상대에게 한 수를 맡기면 △4四歩로
+// 8八–3三 대각선이 막혀 8h3c+ 가 아예 불법이 되고, 그때 나오는 「거절됨」은 서버 버그처럼
+// 보인다.
 //
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/server/ -run RealEngineHangingPiece -v
 func TestRealEngineHangingPiece(t *testing.T) {
@@ -570,7 +564,7 @@ func TestRealEngineHangingPiece(t *testing.T) {
 		t.Fatalf("8h3c+ 가 합법수 목록에 없다 — 시작 국면이 의도와 다르다: %s", pos.SFEN())
 	}
 
-	// ▲3三角成 — 角을 던진다.
+	// ▲3三角成. 角을 던진다.
 	if err := wsjson.Write(ctx, conn, clientMsg{Type: "move", USI: "8h3c+"}); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
@@ -594,15 +588,14 @@ func TestRealEngineHangingPiece(t *testing.T) {
 	// 문구가 카테고리를 따라가야 한다. 여기가 갈리면 화면에는 미분류 문구가 그대로 나간다.
 	//
 	// 낱말 하나로 고정하지 않는다. タダ捨て는 사실이 실리면 「取れる相手の駒が2枚」처럼
-	// 숫자로 말하고, 없으면 「相手の利きを確かめて」로 간다(explain.Render). 둘 다 「상대가
-	// 그 駒를 잡는다」는 같은 이야기인데, 낱말을 박아 두면 사실이 실리는 날 깨진다 —
-	// 실제로 깨져 있었고 CI에 엔진이 없어 누구도 몰랐다(journal §47).
+	// 숫자로 말하고, 없으면 「相手の利きを確かめて」로 간다(explain.Render). 낱말을 박아
+	// 두면 사실이 실리는 날 깨진다(journal §47).
 	if !strings.Contains(iv.Message, "利き") && !strings.Contains(iv.Message, "取れる相手の駒") {
 		t.Errorf("タダ捨て 문구가 아니다: %q", iv.Message)
 	}
 
-	// 카드가 그 국면을 연다 — 수순을 읊는 대신 판을 보여 준다(journal §54). 여기가 비면
-	// 화면은 「そのとき、こう指していたら」를 띄울 판이 없다.
+	// 카드가 그 국면을 연다(journal §54). 여기가 비면 화면은 「そのとき、こう指していたら」를
+	// 띄울 판이 없다.
 	if iv.RetractedSFEN == "" {
 		t.Fatal("물러진 수 직후의 국면이 안 왔다 — 카드가 열 판이 없다")
 	}
@@ -610,9 +603,8 @@ func TestRealEngineHangingPiece(t *testing.T) {
 		t.Fatalf("되돌아온 판을 그대로 보냈다: %q", iv.RetractedSFEN)
 	}
 
-	// 반박 수순은 증명된 詰み일 때만 온다. PV를 잘라 보내던 자리인데 어디서 자를지가
-	// 국면마다 달랐다(§20 · §25 · §54). 이 국면은 詰み이 아니므로 비어 있는 것이 맞고,
-	// 차 있으면 그 수순이 다시 새고 있다.
+	// 반박 수순은 증명된 詰み일 때만 온다(journal §20 · §25 · §54). 이 국면은 詰み이
+	// 아니므로 비어 있는 것이 맞고, 차 있으면 그 수순이 다시 새고 있다.
 	t.Logf("반박 수순: %+v", iv.Refutation)
 	if len(iv.Refutation) > 0 {
 		t.Errorf("詰み이 아닌 국면에 수순이 실렸다: %+v", iv.Refutation)
@@ -644,9 +636,8 @@ const kifuBOpening = `7g7f 8b4b 2h6h 4c4d 5i4h 3c3d 4h3h 2b3c 6i5h 3a3b
 
 // TestRealEngineStrengthReachesTheClient 는 실력 추정이 화면까지 오는가를 본다.
 //
-// 배선이 길다 — 판정 → 추정기 goroutine → 세션 → 스냅샷 → WS. 가짜 판정으로는 첫 칸을
-// 채우지 못하고(낙폭이 우리가 적은 값이다), 단위 테스트로는 마지막 칸을 볼 수 없다.
-// 프로덕션과 같은 조립이다: NewAdaptiveOpponent + NewEngineAnalyst(journal §47).
+// 배선이 길다. 판정 → 추정기 goroutine → 세션 → 스냅샷 → WS 이고, 프로덕션과 같은
+// 조립이다(NewAdaptiveOpponent + NewEngineAnalyst, journal §47).
 //
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/server/ -run RealEngineStrength -v
 func TestRealEngineStrengthReachesTheClient(t *testing.T) {
@@ -730,9 +721,8 @@ func TestRealEngineStrengthReachesTheClient(t *testing.T) {
 		t.Logf("%d수째 판정 뒤: 강함=%d 개입=%v", i+1, got.OpponentStrength, got.Intervention != nil)
 	}
 
-	// 마지막 판정의 추정치는 스냅샷보다 늦게 올 수 있다 — 추정기가 세션 밖에서 돌기
-	// 때문이고, 그래서 「기다리지 않는다」가 설계다(game.Opponent). 눈금이 내려간
-	// 스냅샷을 기다린다.
+	// 마지막 판정의 추정치는 스냅샷보다 늦게 올 수 있다. 추정기가 세션 밖에서 돌고, 그래서
+	// 「기다리지 않는다」가 설계다(game.Opponent). 눈금이 내려간 스냅샷을 기다린다.
 	if got.OpponentStrength >= 3 {
 		got = readUntil(t, ctx, conn, func(m serverMsg) bool {
 			return m.Snapshot != nil && m.Snapshot.OpponentStrength > 0 && m.Snapshot.OpponentStrength < 3

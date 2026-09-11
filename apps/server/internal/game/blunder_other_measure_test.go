@@ -13,20 +13,19 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// journal §40의 숫자를 만든 자리다. other 가 개입의 절반을 넘는데,
-// 거기로 가는 길이 둘인 것을 DB가 가를 수 없다 — !Known(사실을 구하지 못했다)과
-// default:(구했는데 맞지 않았다)가 똑같이 'other' 로 저장된다. 둘은 완전히 다른
-// 문제라 처방이 갈리므로, 먼저 가르지 않으면 어떤 처방도 근거가 없다.
+// journal §40의 숫자를 만든 자리다. other 가 개입의 절반을 넘는데, 거기로 가는 길이
+// 둘인 것을 DB가 가를 수 없다. !Known(사실을 구하지 못했다)과 default:(구했는데 맞지
+// 않았다)가 똑같이 'other' 로 저장되고, 둘은 처방이 갈린다.
 //
-// 국면은 남아 있다 — games.start_sfen + game_moves + interventions.retracted_usi 로
+// 국면은 남아 있다. games.start_sfen + game_moves + interventions.retracted_usi 로
 // 물러진 수의 국면이 그대로 복원된다. 되무른 수는 game_moves 에 남지 않으므로
 // ply 미만의 수를 놓은 자리가 곧 착수 전 국면이다.
 //
 //	SHOWGI_TEST_DATABASE_URL='postgres://showgi:showgi@localhost:5432/showgi' \
 //	  SHOWGI_MEASURE=1 go test ./internal/game/ -run MeasureBlunderOther -v
 //
-// 판정하지 않는다 — 값을 찍고 지나간다. 프로덕션 데이터를 읽는 측정이라 판을 만들면
-// 대국이 쌓일 때마다 CI가 빨개진다.
+// 판정하지 않는다. 프로덕션 데이터를 읽는 측정이라 판을 만들면 대국이 쌓일 때마다
+// CI가 빨개진다.
 
 // blunderRow 는 개입 한 건과 그것을 복원하는 데 필요한 전부다.
 type blunderRow struct {
@@ -130,8 +129,8 @@ func replayBlunder(b blunderRow, moves []string) (shogi.Position, shogi.Move, er
 //
 // classify 가 비공개라 Judge 를 지나간다. 낙폭을 확실히 임계치 위로 두면 분류만
 // 남고, 여기서 갈릴 수 있는 하나뿐인 분기인 shallow_trap 은 HasShallow=false 라
-// 애초에 걸리지 않는다. 규칙을 베껴 오지 않는다 — 베끼면 calibrate 가
-// 조건을 고치는 순간 측정만 경고 없이 옛 규칙을 잰다.
+// 애초에 걸리지 않는다. 규칙을 베껴 오면 calibrate 가 조건을 고치는 순간 측정만
+// 경고 없이 옛 규칙을 잰다.
 func offlineCategory(f intervene.Features) intervene.Category {
 	return intervene.Judge(intervene.Input{
 		Best:     eval.Mate(1),
@@ -185,8 +184,8 @@ func TestMeasureBlunderOther(t *testing.T) {
 			continue
 		}
 		f, _ := moveFacts(pos, m)
-		// UnpromotedOnly · ShallowCp 는 엔진이 있어야 나온다. 여기서는 만들지 않는다 —
-		// 저장된 카테고리가 그 둘과 다르다는 것이 이미 「그때 걸리지 않았다」는 뜻이다.
+		// UnpromotedOnly · ShallowCp 는 엔진이 있어야 나온다. 저장된 카테고리가 그 둘과
+		// 다르다는 것이 이미 「그때 걸리지 않았다」는 뜻이다.
 		got := offlineCategory(f)
 
 		if b.category == "other" {
@@ -218,17 +217,16 @@ func TestMeasureBlunderOther(t *testing.T) {
 		t.Logf("  %-42s %3d", k, len(buckets[k].rows))
 	}
 
-	// 대조군이다. other 가 아닌 것이 오프라인에서 그대로 재현되면 복원 자체를
-	// 믿어도 된다는 뜻이고, 위의 갈래도 같은 만큼 믿을 수 있다. shallow_trap 은
-	// ShallowCp 가 엔진에서만 나오므로 어긋나는 것이 맞다 — 어긋나지 않으면
-	// 오히려 그쪽을 의심해야 한다.
+	// 대조군이다. other 가 아닌 것이 오프라인에서 그대로 재현되면 복원 자체를 믿어도
+	// 된다는 뜻이고, 위의 갈래도 같은 만큼 믿을 수 있다. shallow_trap 은 ShallowCp 가
+	// 엔진에서만 나오므로 어긋나는 것이 맞다.
 	t.Logf("\n== 대조: `other` 가 아닌 것이 그대로 재현되나 ==")
 	for _, k := range sortedBucketKeys(control) {
 		t.Logf("  %-42s %3d", k, len(control[k].rows))
 	}
 
-	// ② 로 떨어진 것들의 사실을 그대로 찍는다. 새 카테고리는 여기서 나온다 —
-	// 어느 조건에 얼마나 미치지 못했는지가 보여야 「조건이 좁다」와 「분기가 없다」가 갈린다.
+	// ② 로 떨어진 것들의 사실을 그대로 찍는다. 어느 조건에 얼마나 미치지 못했는지가
+	// 보여야 「조건이 좁다」와 「분기가 없다」가 갈린다.
 	if x := buckets["② default — 구했는데 안 맞았다"]; x != nil {
 		t.Logf("\n== ② default %d건의 사실 ==", len(x.rows))
 		t.Logf("  %-6s %-5s %-6s %-9s %-6s %-5s %-5s %-6s %-6s %-6s",
@@ -245,7 +243,7 @@ func TestMeasureBlunderOther(t *testing.T) {
 
 	// 종반 가설. other 가 대국의 뒤쪽에 몰려 있으면 분류기의 적용 범위 밖이라는 뜻이 된다.
 	//
-	// 「대국의 몇 % 지점인가」로 재지 않는다 — ply 가 기록된 手数를 넘어 비율이 뜻을
+	// 「대국의 몇 % 지점인가」로 재지 않는다. ply 가 기록된 手数를 넘어 비율이 뜻을
 	// 잃는다(journal §40). 대신 ply 와 총 手数를 따로 찍고 넘어간 건수를 함께 센다.
 	t.Logf("\n== 대국 안에서의 위치 ==")
 	t.Logf("  %-16s %-6s %-10s %-12s %-10s", "카테고리", "건수", "중앙 ply", "중앙 총 手数", "끝에서 끝남")
@@ -282,7 +280,7 @@ func summarizeOther(t *testing.T, fs []intervene.Features) {
 			// 玉 주변이 한쪽만 움직였다. king_exposed 는 둘 다를 요구한다.
 			kingOneSide++
 		case f.CapturedValue == 0 && !f.GivesCheck && f.ShieldLoss <= 0 && f.ThreatGain <= 0:
-			// 아무것도 따지 않았고 王手도 아니고 玉 주변도 나빠지지 않았다 — 조용한 악수다.
+			// 아무것도 따지 않았고 王手도 아니고 玉 주변도 나빠지지 않았다. 조용한 악수다.
 			quiet++
 		default:
 			nothing++

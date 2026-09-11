@@ -9,8 +9,7 @@ import (
 )
 
 // 사람의 수 하나를 무르면 상대의 응수까지 사라지고 판이 사람 차례로 돌아온다.
-//
-// 되돌리는 폭이 두 手다 — 한 手만 되돌리면 상대 차례가 되어 사람이 다시 둘 수 없다.
+// 되돌리는 폭이 두 手다. 한 手만 되돌리면 상대 차례가 되어 사람이 다시 둘 수 없다.
 func TestUndoTakesBackTheHumanMoveAndTheReply(t *testing.T) {
 	opp := &scriptedOpponent{moves: []string{"3c3d"}}
 	s := newSession(t, Config{Opponent: opp, HumanColor: shogi.Black})
@@ -208,10 +207,10 @@ func TestUndoIsRefusedAfterTheGameEnds(t *testing.T) {
 	}
 }
 
-// 무른 수도 실력 추정에 남는다 — 회차 1 #4 의 두 번째 요구다.
+// 무른 수도 실력 추정에 남는다(회차 1 #4).
 //
-// 판정을 통과한 수는 그때 추정기가 이미 먹었고(applyVerdict), 무르기는 그것을 안
-// 되돌린다 — 되돌렸을 때 무엇이 깨지는지는 journal §72.
+// 판정을 통과한 수는 그때 추정기가 이미 먹었고(applyVerdict), 무르기는 그것을 되돌리지
+// 않는다. 되돌렸을 때 무엇이 깨지는지는 journal §72.
 func TestUndoKeepsTheMoveInTheSkillEstimate(t *testing.T) {
 	rater := newFakeRater()
 	analyst := &fixedAnalyst{

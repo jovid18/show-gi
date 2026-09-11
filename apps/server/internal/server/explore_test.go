@@ -17,13 +17,12 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// 검토는 뿌리만 새롭다. 계산부(branch.go)는 되짚기가 이미 확인하고 있으므로, 여기서
-// 보는 것은 그 경계 넷이다 — 뿌리가 手合割에서 오는가 · 관점이 先手인가 · 슬롯 제한 ·
-// 깊이가 대국과 같은가(캐시가 한 무리여야 한다).
+// 검토는 뿌리만 새롭다. 계산부(branch.go)는 되짚기가 이미 확인하고 있어서, 여기서 보는
+// 것은 그 경계 넷이다. 뿌리가 手合割에서 오는가 · 관점이 先手인가 · 슬롯 제한 · 깊이가
+// 대국과 같은가(캐시가 한 무리여야 한다).
 
-// exploreTest 는 검토 핸들러 하나다. store 는 nil이다 — 캐시가 없어도 답이 같은 것이
-// 이 표면의 성질이고(exploreHandler.store), 여기서 확인하는 것은 뿌리와 제한이라 DB에
-// 닿을 이유가 없다. 쿠키도 없다: 이 표면에 자격이 없다(journal §100).
+// exploreTest 는 검토 핸들러 하나다. store 도 쿠키도 없다. 캐시가 없어도 답이 같은 것이
+// 이 표면의 성질이고(exploreHandler.store) 자격도 묻지 않는다(journal §100).
 func exploreTest(t *testing.T, search Searcher) *exploreHandler {
 	t.Helper()
 	return newExploreHandler(nil, search)
@@ -65,8 +64,8 @@ func TestExploreStartsFromTheHandicapPosition(t *testing.T) {
 	if !ok {
 		t.Fatal("二枚落ち가 표에 없다")
 	}
-	// 上手의 수를 준다. 二枚落ち의 0手目가 上手 차례라(journal §88) 下手의 수를 주면
-	// 후보가 전부 걸러지고, 그 실패는 「엔진이 이상한 답을 줬다」와 구별되지 않는다.
+	// 上手의 수를 준다. 二枚落ち의 0手目가 上手 차례라(journal §88) 下手의 수를 주면 후보가
+	// 전부 걸러지고, 그 실패는 「엔진이 이상한 답을 줬다」와 구별되지 않는다.
 	search := &fakeSearcher{results: []usi.SearchResult{found("3c3d", "8c8d", "4a3b")}}
 	h := exploreTest(t, search)
 
@@ -82,8 +81,8 @@ func TestExploreStartsFromTheHandicapPosition(t *testing.T) {
 	if node.Ply != 0 || node.BasePly != 0 {
 		t.Errorf("ply = %d / basePly = %d, want 0 0 — 검토의 뿌리는 언제나 0手目다", node.Ply, node.BasePly)
 	}
-	// 駒落ち는 上手의 駒를 빼고 그 上手부터 둔다(journal §88). 관점은 下手로 확인돼
-	// 있으므로(exploreRoot) 0手目의 手番은 상대 쪽이다 — 검토는 양쪽을 다 움직인다.
+	// 駒落ち는 上手의 駒를 빼고 그 上手부터 둔다(journal §88). 관점이 下手라(exploreRoot)
+	// 0手目의 手番은 상대 쪽이다.
 	if node.Turn != "w" || node.YourTurn {
 		t.Errorf("turn=%q yourTurn=%v, want w false", node.Turn, node.YourTurn)
 	}
@@ -97,8 +96,8 @@ func TestExploreStartsFromTheHandicapPosition(t *testing.T) {
 		t.Errorf("candidates = %d, want 3 — 최선수 Top 3가 이 화면의 내용이다", len(node.Candidates))
 	}
 
-	// 대국과 같은 깊이·같은 후보 수로 묻는다. 다르면 positions 가 서로 쓸 수 없는
-	// 무리로 갈리고, 「탐색할수록 빨라진다」가 검토 안에서만 성립한다.
+	// 대국과 같은 깊이·같은 후보 수로 묻는다. 다르면 positions 가 서로 쓸 수 없는 무리로
+	// 갈린다.
 	calls := search.searches()
 	if len(calls) != 1 {
 		t.Fatalf("searches = %d, want 1", len(calls))
@@ -128,8 +127,7 @@ func TestExplorePlainIsTheEmptyID(t *testing.T) {
 	if node.SFEN != start.SFEN() {
 		t.Errorf("sfen = %q, want %q", node.SFEN, start.SFEN())
 	}
-	// 기준점 0은 나가지 않는다. 平手는 빼는 것이 없고, 0을 보내면 화면이 「互角ライン」을
-	// 그릴 자리가 아닌 곳에 그린다.
+	// 기준점 0은 나가지 않는다. 보내면 화면이 「互角ライン」을 그릴 자리가 아닌 곳에 그린다.
 	if body := rec.Body.String(); strings.Contains(body, "baselineCp") || strings.Contains(body, "handicapJa") {
 		t.Errorf("平手 응답에 手合 칸이 들어 있다: %s", body)
 	}
@@ -151,7 +149,7 @@ func TestExploreKeepsTheSentePointOfView(t *testing.T) {
 	if c := node.Candidates[0].EvalCp; c == nil || *c != 100 {
 		t.Errorf("candidates[0].evalCp = %v, want 100 (수번 관점)", node.Candidates[0].EvalCp)
 	}
-	// 한 수도 대신 두지 않는다 — 줄에 있는 것은 받은 수뿐이다.
+	// 한 수도 대신 두지 않는다. 줄에 있는 것은 받은 수뿐이다.
 	if len(node.Line) != 1 || node.Line[0].USI != "7g7f" || node.Line[0].Ja != "▲7六歩" {
 		t.Fatalf("line = %+v", node.Line)
 	}
@@ -160,7 +158,7 @@ func TestExploreKeepsTheSentePointOfView(t *testing.T) {
 	}
 }
 
-// 로그인 없이 된다(journal §100). 쿠키 없는 요청이 국면을 받고, 엔진도 실제로 돈다 —
+// 로그인 없이 된다(journal §100). 쿠키 없는 요청이 국면을 받고 엔진도 실제로 돈다.
 // 이 표면의 제한은 동시에 잡는 수를 묶는 데 있다(exploreSlots).
 func TestExploreAllowsAnonymous(t *testing.T) {
 	search := &fakeSearcher{results: []usi.SearchResult{found("7g7f")}}
@@ -226,11 +224,11 @@ func TestExploreCapsTheLine(t *testing.T) {
 	}
 }
 
-// 슬롯이 이 표면의 하나뿐인 제한이다. 빈자리가 없으면 기다리게 두지 않고 「まだ読んでいます」로
-// 답한다 — 대국에 엔진 둘이 언제나 남아 있어야 한다(exploreSlots).
+// 슬롯이 이 표면의 하나뿐인 제한이다. 빈자리가 없으면 「まだ読んでいます」로 답한다.
+// 대국에 엔진이 언제나 남아 있어야 한다(exploreSlots).
 //
-// 실제 대기는 exploreWait 인데, 테스트는 그만큼 멈춰 있을 이유가 없어서 요청 ctx의
-// 시한을 짧게 준다. 보는 것은 꽉 찬 슬롯에서 거절되고 엔진을 잡지 않는다는 것 하나다.
+// 실제 대기는 exploreWait 인데 테스트가 그만큼 멈춰 있을 이유가 없어서 요청 ctx 의 시한을
+// 짧게 준다. 보는 것은 꽉 찬 슬롯에서 거절되고 엔진을 잡지 않는다는 것 하나다.
 func TestExploreRejectsWhenAllSlotsAreBusy(t *testing.T) {
 	search := &fakeSearcher{results: []usi.SearchResult{found("7g7f")}}
 	h := exploreTest(t, search)
@@ -252,8 +250,8 @@ func TestExploreRejectsWhenAllSlotsAreBusy(t *testing.T) {
 	if len(search.searches()) != 0 {
 		t.Error("슬롯이 꽉 찼는데 탐색이 돌았다")
 	}
-	// 슬롯을 되돌려 놓지 않으면 다음 요청 전체가 막힌다 — 거절 경로가 빌린 것을
-	// 반납하지 않는가를 여기서 본다.
+	// 슬롯을 되돌려 놓지 않으면 다음 요청 전체가 막힌다. 거절 경로가 빌린 것을 반납하는지를
+	// 여기서 본다.
 	if len(h.slots) != exploreSlots {
 		t.Errorf("슬롯 %d개가 남아 있다, want %d", len(h.slots), exploreSlots)
 	}
@@ -291,7 +289,7 @@ func TestExploreOpensEveryHandicap(t *testing.T) {
 			if node.BaselineCp != hc.BaselineCp {
 				t.Errorf("baselineCp = %d, want %d", node.BaselineCp, hc.BaselineCp)
 			}
-			// △3四歩는 일곱 종 어디에서나 둘 수 있다 — 落とす 것에 歩가 없다.
+			// △3四歩는 일곱 종 어디에서나 둘 수 있다. 落とす 것에 歩가 없다.
 			if !slices.Contains(node.LegalMoves, "3c3d") {
 				t.Errorf("legalMoves 에 △3四歩가 없다 — 판이 안 만들어졌다")
 			}
@@ -299,8 +297,8 @@ func TestExploreOpensEveryHandicap(t *testing.T) {
 	}
 }
 
-// 뿌리가 판(SFEN)으로도 온다. 사진에서 읽어 와 사람이 확인한 국면이 手合割+수순으로는
-// 표현할 수 없으므로 §37이 닫아 둔 문을 여기서 연다(journal §129).
+// 뿌리가 판(SFEN)으로도 온다. 사진에서 읽어 와 사람이 확인한 국면은 手合割+수순으로
+// 표현할 수 없다(journal §129).
 func TestExploreStartsFromAGivenPosition(t *testing.T) {
 	// 平手 초기 국면에서 ▲7六歩만 둔 판. 뿌리가 그대로 만들어지는지를 보는 자리라 내용은
 	// 아무 국면이어도 되지만, 아는 국면이면 틀렸을 때 무엇이 틀렸는지가 보인다.
@@ -321,8 +319,8 @@ func TestExploreStartsFromAGivenPosition(t *testing.T) {
 	if node.BaselineCp != 0 || node.HandicapJa != "" {
 		t.Errorf("baselineCp=%d handicapJa=%q, want 0 and empty", node.BaselineCp, node.HandicapJa)
 	}
-	// 아래쪽을 先手로 둔 판이라(internal/boardread) 관점이 Black 이다 — 이 국면은
-	// 後手 차례라 「내 차례」가 꺼진다.
+	// 아래쪽을 先手로 둔 판이라(internal/boardread) 관점이 Black 이다. 이 국면은 後手
+	// 차례라 「내 차례」가 꺼진다.
 	if node.Turn != "w" || node.YourTurn {
 		t.Errorf("turn=%q yourTurn=%v, want w false", node.Turn, node.YourTurn)
 	}
@@ -357,7 +355,7 @@ func TestExploreRefusesAPositionThatCannotStand(t *testing.T) {
 		"二歩":        "4k4/9/9/9/4P4/9/4P4/9/4K4 b - 1",
 		"玉이 없다":     "4k4/9/9/9/9/9/9/9/9 b - 1",
 		"말이 한 벌을 넘": "lnsgkgsnl/1r5b1/ppppppppp/9/4P4/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1",
-		// 手番이 아닌 쪽이 王手를 받고 있다 — 사람이 手番을 잘못 고른 자리다.
+		// 手番이 아닌 쪽이 王手를 받고 있다. 사람이 手番을 잘못 고른 자리다.
 		"왕수 방치":    "4k4/9/9/9/4R4/9/9/9/3K5 b - 1",
 		"SFEN이 아님": "not a position",
 	}
@@ -370,8 +368,8 @@ func TestExploreRefusesAPositionThatCannotStand(t *testing.T) {
 			if rec.Code != http.StatusBadRequest {
 				t.Fatalf("status = %d, want 400 — body = %s", rec.Code, rec.Body.String())
 			}
-			// 엔진을 한 번도 부르지 않았어야 한다. 성립하지 않는 판에 슬롯을 쓰면 그 자리가
-			// 곧 「아무 국면이나 재 주는」 문이 된다.
+			// 엔진을 한 번도 부르지 않았어야 한다. 성립하지 않는 판에 슬롯을 쓰면 그
+			// 자리가 곧 「아무 국면이나 재 주는」 문이 된다.
 			if got := search.searches(); len(got) != 0 {
 				t.Errorf("searches = %d, want 0 — an impossible position must not reach the engine", len(got))
 			}

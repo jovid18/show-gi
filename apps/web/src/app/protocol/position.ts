@@ -1,8 +1,7 @@
 // 사진에서 국면을 가져오는 표면의 계약. 서버의 `internal/server/position.go` 와 짝이다.
 //
-// 두 경로가 같은 모양을 준다 — 읽기가 국면 하나를 만들고, 검사가 「이 국면이 성립하는가」에
-// 답한다. 확인 화면이 「방금 읽은 판」과 「내가 고친 판」을 같은 코드로 그리는 자리라
-// 따로 두지 않는다(journal §129).
+// 두 경로가 같은 모양을 준다. 읽기가 국면 하나를 만들고, 검사가 「이 국면이 성립하는가」에
+// 답한다. 확인 화면이 「방금 읽은 판」과 「내가 고친 판」을 같은 코드로 그린다(journal §129).
 
 import type { ApiError } from '@/protocol/review';
 
@@ -22,8 +21,8 @@ export interface PositionFault {
   /**
    * 화면 배열 인덱스(0~80). 칸으로 짚을 수 없는 사유(말 수·玉 수)면 오지 않는다.
    *
-   * 서버와 같은 좌표 규약이다 — `parseSfen` 이 만드는 `squares` 의 색인이 그대로
-   * 서버의 칸 번호다(`internal/shogi` 패키지 doc).
+   * 서버와 같은 좌표 규약이다. `parseSfen` 이 만드는 `squares` 의 색인이 그대로 서버의
+   * 칸 번호다(`internal/shogi` 패키지 doc).
    */
   square?: number;
   /** 화면에 그대로 나가는 일본어. 화면이 문장을 만들지 않는다. */
@@ -33,8 +32,8 @@ export interface PositionFault {
 /**
  * 국면 하나와, 그것에 대해 룰 엔진이 말할 수 있는 전부.
  *
- * `faults` 가 비어 있어야 분석으로 넘어갈 수 있다. `warnings` 는 막지 않는다 —
- * 말이 몇 장 모자라거나 이미 詰んでいる 국면이고, 둘 다 그대로 분석할 수 있다.
+ * `faults` 가 비어 있어야 분석으로 넘어갈 수 있다. `warnings` 는 막지 않는다. 말이 몇 장
+ * 모자라거나 이미 詰んでいる 국면이고, 둘 다 그대로 분석할 수 있다.
  */
 export interface PositionResponse {
   sfen: string;
@@ -43,8 +42,8 @@ export interface PositionResponse {
   /**
    * 남겨 둔 그림의 이름(`board-01`). 그림을 모으는 폴더가 켜져 있을 때만 온다.
    *
-   * 화면이 이 값을 갖고 있다가 「解析する」를 누를 때 되돌려준다 — 그때 사람이 고친 판이
-   * 이 그림의 라벨이 된다(`saveLabel`). 오지 않으면 그 걸음이 없다.
+   * 화면이 이 값을 갖고 있다가 「解析する」를 누를 때 되돌려준다. 그때 사람이 고친 판이 이
+   * 그림의 라벨이 된다(`saveLabel`). 오지 않으면 그 걸음이 없다.
    */
   imageId?: string;
 }
@@ -101,11 +100,8 @@ export async function checkPosition(sfen: string, signal: AbortSignal | null = n
 /**
  * 사람이 확인한 국면을 그 그림의 라벨로 저장한다(journal §129).
  *
- * 판독을 재는 그림을 모을 때만 도는 자리다 — 서버의 폴더가 꺼져 있으면 `imageId` 가
- * 오지 않으므로 부르는 쪽이 아예 부르지 않는다.
- *
- * 실패해도 삼키고 넘어간다. 사람이 누른 것은 「이 국면을 분석해라」이고, 라벨을 남기는
- * 것은 곁다리다 — 여기서 막으면 분석이 되지 않는 것으로 보인다.
+ * 판독을 재는 그림을 모을 때만 돈다. 서버의 폴더가 꺼져 있으면 `imageId` 가 오지 않으므로
+ * 부르는 쪽이 아예 부르지 않는다.
  */
 export async function saveLabel(imageId: string, sfen: string): Promise<void> {
   try {
@@ -115,7 +111,7 @@ export async function saveLabel(imageId: string, sfen: string): Promise<void> {
       body: JSON.stringify({ imageId, sfen }),
     });
   } catch {
-    // 곁다리다. 위 주석 참조.
+    // 사람이 누른 것은 「이 국면을 분석해라」다. 여기서 막으면 분석이 되지 않는 것으로 보인다.
   }
 }
 
@@ -132,8 +128,8 @@ async function unwrap(res: Response): Promise<PositionResponse> {
 /**
  * 파일 하나를 base64 data URL 로 읽는다. 그 한 값이 `<img src>` 이면서 요청 본문이다.
  *
- * 크기를 읽기 전에 본다. 읽고 나서 막으면 브라우저가 그 파일 전체를 메모리에 올린
- * 뒤이고, 큰 파일에서는 그 사이에 탭이 멈춘다(`ImportScreen` 과 같은 판단).
+ * 크기를 읽기 전에 본다. 읽고 나서 막으면 브라우저가 그 파일 전체를 메모리에 올린 뒤이고,
+ * 큰 파일에서는 그 사이에 탭이 멈춘다(`ImportScreen` 과 같은 판단).
  */
 export async function readImageFile(file: File): Promise<string> {
   if (file.size > MAX_IMAGE_BYTES) {
@@ -141,9 +137,8 @@ export async function readImageFile(file: File): Promise<string> {
   }
   const bytes = new Uint8Array(await file.arrayBuffer());
 
-  // 조각내어 옮긴다. `String.fromCharCode(...bytes)` 는 인자를 바이트 수만큼 펼치므로
-  // 몇 MB짜리 그림에서 호출 스택이 넘친다 — 큰 스크린샷에서만 터지는 고장이라 손으로
-  // 시험하면 만나지 않는다.
+  // 조각내어 옮긴다. `String.fromCharCode(...bytes)` 는 인자를 바이트 수만큼 펼치므로 몇
+  // MB짜리 그림에서 호출 스택이 넘친다. 큰 스크린샷에서만 터지는 고장이다.
   let binary = '';
   for (let i = 0; i < bytes.length; i += CHUNK) {
     binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));

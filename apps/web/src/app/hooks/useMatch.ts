@@ -7,8 +7,8 @@ export type MatchConnection = 'connecting' | 'open' | 'closed';
 export interface MatchState {
   connection: MatchConnection;
   /**
-   * 방. 스냅샷보다 먼저 온다 — 상대를 기다리는 동안 화면이 그릴 것이 이것뿐이다
-   * (초대 링크와 「◯◯さんを待っています」).
+   * 방. 스냅샷보다 먼저 온다. 상대를 기다리는 동안 화면이 그릴 것이 이것뿐이다(초대 링크와
+   * 「◯◯さんを待っています」).
    */
   room: Room | null;
   /** 판. 상대가 들어오기 전에는 null이다. */
@@ -29,7 +29,7 @@ export interface MatchState {
  *
  *  1. 어느 쪽인지를 보내지 않는다. 자리에서 이미 정해졌고(서버의 `Hub.Enter`), 요청으로
  *     보내면 두 사람이 같은 쪽을 주장할 수 있다.
- *  2. 끊겨도 판이 끝나지 않는다. 상대가 남아 있어서다 — 같은 주소로 다시 붙으면 그 자리로
+ *  2. 끊겨도 판이 끝나지 않는다. 상대가 남아 있어서 같은 주소로 다시 붙으면 그 자리로
  *     돌아간다. 그동안 시계는 흐른다.
  *
  * 스냅샷은 언제나 전체 상태라 이전 것과 합치지 않는다(`useGame` 과 같은 규약).
@@ -76,8 +76,8 @@ export function useMatch(roomId: string): MatchState {
       } else if (msg.type === 'waiting') {
         setRoom(msg.room);
       } else if (msg.type === 'record') {
-        // 번호인지 보고 받는다. 이 값이 「振り返り」 링크의 주소가 되므로, 숫자가
-        // 아닌 것이 오면 그대로 경로가 된다 — 여기가 그 하나뿐인 문이다.
+        // 번호인지 보고 받는다. 이 값이 「振り返り」 링크의 주소가 되므로, 숫자가 아닌 것이
+        // 오면 그대로 경로가 된다. 여기가 그 하나뿐인 문이다.
         if (Number.isInteger(msg.gameId) && msg.gameId > 0) setGameId(msg.gameId);
       } else if (msg.type === 'error') {
         setRejection(msg.message);
@@ -106,14 +106,12 @@ export function useMatch(roomId: string): MatchState {
 /**
  * 지금 수번에 남은 밀리초. 서버가 준 값에서 화면이 세어 내려간다.
  *
- * 서버가 매 초 보내지 않는 것은 그것이 두 사람 몫의 프레임을 초당 두 개씩 만들기
- * 때문이고, 화면이 혼자 세지 않는 것은 탭을 멈춰 둔 브라우저에서 시간이 가지 않기
- * 때문이다. 그래서 정본은 서버이고 화면은 마지막으로 받은 값에서 이어 센다 —
- * 스냅샷이 올 때마다 다시 맞춰진다.
+ * 서버가 매 초 보내면 두 사람 몫의 프레임이 초당 두 개씩 생기고, 화면이 혼자 세면 탭을 멈춰
+ * 둔 브라우저에서 시간이 가지 않는다. 정본은 서버이고 스냅샷이 올 때마다 다시 맞춰진다.
  */
 export function useTurnClock(snapshot: MatchSnapshot | null): number {
   const [left, setLeft] = useState(0);
-  // 마지막 스냅샷을 받은 시각. `performance.now` 다 — 시스템 시계가 바뀌어도 튀지 않는다.
+  // 마지막 스냅샷을 받은 시각. `performance.now` 라 시스템 시계가 바뀌어도 튀지 않는다.
   const at = useRef(0);
   const from = useRef(0);
 

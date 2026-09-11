@@ -425,10 +425,8 @@ func mustKey(t *testing.T, sfen string) string {
 	return pos.RepetitionKey()
 }
 
-// 王手가 아닌 수를 낸 뒤에도 진행이 남아 있어야 한다.
-//
-// 판은 움직이지 않아도 그 자리는 문제 국면으로 돌아가지 않고 진행된 국면에 머문다. 둘 수 있는
-// 수를 채워 보내지 않으면 화면이 문항 쪽으로 되돌아가서 맞힌 수가 사라진 것처럼 보인다.
+// 王手가 아닌 수를 낸 뒤에도 진행이 남아 있어야 한다. 판은 움직이지 않아도 그 자리는
+// 진행된 국면에 머문다(GradeMate).
 func TestGradeMateKeepsProgressAfterANonCheck(t *testing.T) {
 	fm := &fakeMate{limit: 9}
 	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate3SFEN, Human: shogi.Black})
@@ -483,16 +481,14 @@ func TestGradeMateKeepsProgressAfterANonCheck(t *testing.T) {
 	if len(got.Line) != len(mid.Line) {
 		t.Errorf("line = %v, want %v", got.Line, mid.Line)
 	}
-	// 직전 응수를 물려받지 않는다. 물려받으면 화면이 「방금 상대가 이렇게 받았다」를 두 번 말한다.
+	// 직전 응수를 물려받지 않는다. 물려받으면 화면이 「방금 상대가 이렇게 받았다」를
+	// 두 번 말한다.
 	if got.Defense != "" {
 		t.Errorf("defense = %q, want empty — nothing was answered this time", got.Defense)
 	}
 }
 
-// 오답의 정답 수는 그 수가 성립하는 국면과 함께 와야 한다.
-//
-// 오답이면 판이 그 수만큼 나아간다. 그 수를 나아간 국면에서 이름으로 부르려 하면 불법이라
-// 표기가 비고, 그러면 세 번째 오답의 「무엇을 움직이나」가 빈다(server/quiz.go 의 originJa).
+// 오답의 정답 수는 그 수가 성립하는 국면과 함께 와야 한다(MateProgress.BestFrom).
 func TestGradeMateGivesTheAnswerWithItsOwnPosition(t *testing.T) {
 	fm := &fakeMate{limit: 7}
 	q, _ := NewBuilder(fm, nil, 12).Build(context.Background(), Input{StartSFEN: mate1SFEN, Human: shogi.Black})
