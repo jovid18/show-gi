@@ -12,8 +12,8 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// TestHandicapsListNeedsNothing 은 DB도 엔진도 없이 목록이 나오는지다 —
-// /api/openings 와 같은 자리에서 같은 판단을 한다(TestOpeningsListNeedsNothing).
+// TestHandicapsListNeedsNothing 은 DB도 엔진도 없이 목록이 나오는지다.
+// /api/openings 도 같은 판단을 한다(TestOpeningsListNeedsNothing).
 func TestHandicapsListNeedsNothing(t *testing.T) {
 	rec := httptest.NewRecorder()
 	Handler(Options{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/handicaps", nil))
@@ -35,8 +35,10 @@ func TestHandicapsListNeedsNothing(t *testing.T) {
 			t.Errorf("빈 칸이 있다: %+v", h)
 		}
 	}
-	// 판도 기준점도 새지 않는다(handicapItem 주석). 화면이 판을 만드는 길을 열지 않는다.
-	// 기준점은 표에서 뽑아 본다 — 숫자를 여기 적어 두면 값을 옮기는 날 이 확인이 경고 없이 죽는다.
+	// 판도 기준점도 새지 않는다(handicapItem 주석).
+	//
+	// 기준점은 표에서 뽑아 본다. 숫자를 여기 적어 두면 값을 옮기는 날 이 확인이 경고
+	// 없이 죽는다.
 	body2 := rec.Body.String()
 	if strings.Contains(body2, "ppppppppp") {
 		t.Error("응답에 SFEN이 들어 있다")
@@ -47,7 +49,8 @@ func TestHandicapsListNeedsNothing(t *testing.T) {
 		}
 	}
 	// 平手는 목록에 없다. 「접지 않는다」는 서버에 묻지 않는 기본값이다.
-	// 이름만 본다 — 香落ち의 설명 문구는 平手를 말한다(「平手にいちばん近い」).
+	//
+	// 이름만 본다. 香落ち의 설명 문구는 平手를 말한다(「平手にいちばん近い」).
 	for _, h := range body.Handicaps {
 		if h.Name == "平手" || h.ID == "hirate" {
 			t.Error("平手가 목록에 있다")
@@ -57,8 +60,8 @@ func TestHandicapsListNeedsNothing(t *testing.T) {
 
 // TestHandicapSetupForcesShitate 는 手合割을 고른 판의 手番과 진형이 어떻게 되는지다.
 //
-// 셋이 한 자리에서 정해진다(newSetup): 시작 국면 · 사람은 下手 · 진형 없음. 하나라도
-// 어긋나면 접어 준 쪽이 사람이 되거나, 상대가 없는 駒를 움직이려 든다.
+// 셋이 한 자리에서 정해진다(newSetup). 시작 국면 · 사람은 下手 · 진형 없음이고, 하나라도
+// 어긋나면 접어 준 쪽이 사람이 되거나 상대가 없는 駒를 움직이려 든다.
 func TestHandicapSetupForcesShitate(t *testing.T) {
 	nimai, ok := handicap.Find("nimaiochi")
 	if !ok {
@@ -80,8 +83,8 @@ func TestHandicapSetupForcesShitate(t *testing.T) {
 		t.Errorf("진형이 붙었다: %s", got.opening.Name)
 	}
 
-	// 모르는 id는 경고 없이 平手다 — 목록을 서버가 주므로(newSetup) 여기 오는 이상한 값은
-	// 클라이언트가 틀린 경우이고, 그때 대국을 거절하는 것보다 平手로 두는 것이 낫다.
+	// 모르는 id는 경고 없이 平手다. 목록을 서버가 주므로(newSetup) 여기 오는 이상한 값은
+	// 클라이언트가 틀린 경우이고, 그때 대국을 거절하는 것보다 平手로 둔다.
 	r = httptest.NewRequest(http.MethodGet, "/ws/game?handicap=nope", nil)
 	if got := newSetup(r, Options{}); got.startSFEN != "" {
 		t.Errorf("모르는 手合에 국면이 붙었다: %q", got.startSFEN)

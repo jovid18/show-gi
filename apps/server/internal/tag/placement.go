@@ -3,8 +3,7 @@ package tag
 import "github.com/jovid18/show-gi/apps/server/internal/shogi"
 
 // 자리로 정해지는 手筋 — 조건이 「자기가 안전한가」 대신 「그 자리가 그 자리인가」다
-// (寄せ라 駒損이 전제). 成駒를 뺀 기준은 「이름이 말하는 성질이 남아 있는가」
-// (journal §34 ⑤).
+// (寄せ라 駒損이 전제). 成駒를 뺀 기준은 journal §34 ⑤.
 
 var (
 	haraGin    = Tag{Code: "hara_gin", NameJa: "腹銀", Kind: KindTesuji}
@@ -33,10 +32,8 @@ func onBoard(file, rank int) bool {
 	return file >= 1 && file <= 9 && rank >= 1 && rank <= 9
 }
 
-// BellySilver 는 腹銀을 본다 — 銀이 상대 玉의 옆(같은 段, 한 筋 차이)에 붙어 있다.
-//
-// 玉의 「배」에 붙는다는 이름 그대로다. 옆이라야 玉의 도망갈 筋을 막고,
-// 玉頭(위)에 두는 것은 다른 手筋이다.
+// BellySilver 는 腹銀을 본다. 銀이 상대 玉의 옆(같은 段, 한 筋 차이)에 붙어 있는
+// 형태다. 옆이라야 玉의 도망갈 筋을 막고, 玉頭에 두는 것은 다른 手筋이다.
 func BellySilver(pos shogi.Position, sq int, c shogi.Color) (Tag, bool) {
 	p := pos.Board[sq]
 	if p.Empty() || p.Color() != c || p.Type() != shogi.Silver {
@@ -56,11 +53,11 @@ func BellySilver(pos shogi.Position, sq int, c shogi.Color) (Tag, bool) {
 	return Tag{}, false
 }
 
-// KnightHeadSilver 는 桂頭の銀을 본다 — 銀이 상대 桂의 바로 앞 칸에 있다.
-//
-// 手筋인 이유가 桂의 움직임에 있다. 桂는 뛰기만 해서 자기 머리의 駒를 딸 수 없다 —
-// 그래서 그 자리에 놓인 銀은 桂에게 안전하고, 桂는 도망가거나 잡히거나를 고른다.
+// KnightHeadSilver 는 桂頭の銀을 본다. 銀이 상대 桂의 바로 앞 칸에 있는 형태이고,
 // 「머리」는 桂 주인의 전진 방향 한 칸이다.
+//
+// 桂는 뛰기만 해서 자기 머리의 駒를 딸 수 없다. 그 자리에 놓인 銀은 桂에게 안전하고,
+// 桂는 도망가거나 잡히거나를 고른다.
 func KnightHeadSilver(pos shogi.Position, sq int, c shogi.Color) (Tag, bool) {
 	p := pos.Board[sq]
 	if p.Empty() || p.Color() != c || p.Type() != shogi.Silver {
@@ -81,13 +78,11 @@ func KnightHeadSilver(pos shogi.Position, sq int, c shogi.Color) (Tag, bool) {
 	return keitouGin, true
 }
 
-// BottomPawn 은 底歩(金底の歩)를 본다 — 자기 진영 맨 아래 段의 歩가 그 위의 金을
-// 받치고 있다.
+// BottomPawn 은 底歩(金底の歩)를 본다. 자기 진영 맨 아래 段의 歩가 그 위의 金을
+// 받치고 있는 형태다.
 //
-// 「金底の歩、岩より堅し」라는 말이 있는 자리다. 金 아래에 歩가 있으면 飛로 그 段을
-// 찔러도 金이 밀려나지 않는다 — 歩가 받치고 있어 打ち込み이 통하지 않는다.
-//
-// 金만 본다. 銀 아래의 歩는 같은 말을 하지 않고, 이름도 「金底の歩」다.
+// 「金底の歩、岩より堅し」. 金 아래에 歩가 있으면 飛로 그 段을 찔러도 金이 밀려나지
+// 않는다. 金만 보는 것은 이름이 「金底の歩」이기 때문이다.
 func BottomPawn(pos shogi.Position, sq int, c shogi.Color) (Tag, bool) {
 	p := pos.Board[sq]
 	if p.Empty() || p.Color() != c || p.Type() != shogi.Pawn {

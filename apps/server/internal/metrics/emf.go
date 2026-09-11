@@ -16,27 +16,24 @@ const Namespace = "show-gi"
 
 // DefaultInterval 은 EMF 한 줄을 출력하는 주기다.
 //
-// CloudWatch 의 기본 해상도가 1분이라 그보다 자주 내도 그래프가 나아지지 않는다.
-// 요청마다 한 줄을 출력하는 쪽이 백분위는 더 정확하지만, 로그량이 트래픽에 비례해 늘고
-// 그 로그가 곧 요금이다 — 여기는 주기 집계라 트래픽과 무관하게 하루 1,440줄이다.
+// CloudWatch 의 기본 해상도가 1분이라 그보다 자주 내도 그래프가 나아지지 않는다. 주기
+// 집계라 로그가 트래픽과 무관하게 하루 1,440줄이고, 그 로그가 곧 요금이다.
 const DefaultInterval = time.Minute
 
 // Emitter 는 주기마다 EMF 한 줄을 stdout 에 쓴다.
 //
 // 카운터는 주기 사이의 증분을 내보낸다. 누적값을 그대로 올리면 CloudWatch 의 Sum 이 매
-// 주기마다 지금까지의 전부를 다시 더한다 — 그래프가 단조증가하는 계단이 되고 알람이
-// 걸리지 않는다. 그래서 지난 주기의 값을 갖고 있다.
+// 주기마다 지금까지의 전부를 다시 더해 알람이 걸리지 않는다. 그래서 지난 주기의 값을 쥔다.
 type Emitter struct {
 	reg *Registry
 	w   io.Writer
-	// prev 는 Run 의 goroutine 하나만 만진다. 잠금이 없으므로 EmitTo 를 밖에서
-	// 동시에 부르지 않는다 — 지금 그 자리는 테스트뿐이다.
+	// prev 는 Run 의 goroutine 하나만 만진다. 잠금이 없으므로 EmitTo 를 밖에서 동시에
+	// 부르지 않는다.
 	prev map[string]float64
 }
 
-// NewEmitter 는 EMF 를 출력할 준비를 한다. w 는 보통 os.Stdout 이다 —
-// awslogs 드라이버가 stdout·stderr 를 다 같은 로그 그룹으로 보내고, CloudWatch 는
-// 그중 _aws 를 가진 줄만 지표로 뽑는다.
+// NewEmitter 는 EMF 를 출력할 준비를 한다. w 는 보통 os.Stdout 이다. awslogs 드라이버가
+// stdout·stderr 를 같은 로그 그룹으로 보내고, CloudWatch 는 _aws 를 가진 줄만 지표로 뽑는다.
 func NewEmitter(reg *Registry, w io.Writer) *Emitter {
 	return &Emitter{reg: reg, w: w, prev: map[string]float64{}}
 }
@@ -86,14 +83,12 @@ func (e *Emitter) EmitTo(w io.Writer, now time.Time) error {
 		"Timestamp": now.UnixMilli(),
 		"CloudWatchMetrics": []map[string]any{{
 			"Namespace": Namespace,
-			// dimensions 는 Service·Environment 둘이다. dimensions 조합 하나가 곧 과금 대상 지표
-			// 하나라서 route 나 pool 은 여기 올리지 않는다 — 지표 수가 그 값의 개수만큼
-			// 곱해진다. Environment 는 개수가 배포 환경 수만큼이고(지금 하나), 그것이
-			// 없으면 두 번째 환경이 프로덕션과 같은 계열에 값을 섞어 알람을 흔든다.
+			// dimensions 는 Service·Environment 둘이다. 조합 하나가 곧 과금 대상 지표 하나라서
+			// route 나 pool 은 올리지 않는다. Environment 가 없으면 두 번째 환경이 프로덕션과
+			// 같은 계열에 값을 섞어 알람을 흔든다.
 			//
 			// 티어(SERVER_ROLE)도 올리지 않는다. 티어 둘이 같은 계열에 올리고 CloudWatch 의
-			// 통계가 합친다 — 카운터는 Sum, 게이지는 Maximum 이다(journal §120).
-			// 엔진이 실제로 한 일은 EngineSearches 에서 EngineSearchesCached 를 뺀다(journal §121).
+			// 통계가 합친다(카운터는 Sum, 게이지는 Maximum, journal §120).
 			"Dimensions": [][]string{{"Service", "Environment"}},
 			"Metrics":    defs,
 		}},
@@ -116,12 +111,10 @@ type metric struct {
 
 // collect 는 이번 주기에 내보낼 지표를 고른다.
 //
-// 여기 있는 것만 CloudWatch 에 올라간다. 텍스트 표면(/metrics)이 라벨을 다 갖고 있는
-// 것과 갈리는 자리이고, 따로 둔 것은 요금 때문이다.
+// 여기 있는 것만 CloudWatch 에 올라간다. 텍스트 표면(/metrics)과 갈라 둔 것은 요금 때문이고,
+// 이름 하나가 과금 지표 하나로 개당 월 $0.30 이다(journal §111).
 //
-// 지금 열네 개 + 분포 여섯이다. 열 개로 묶어 두던 선을 詰み 층의 셋이 넘었다(journal §111) —
-// dimensions 가 Service·Environment 둘뿐이라 이름 하나가 과금 지표 하나이고, 개당 월 $0.30 이다.
-// 늘릴 때마다 이 숫자를 고친다.
+// 지금 열네 개 + 분포 여섯이다. 늘릴 때마다 이 숫자를 고친다.
 func (e *Emitter) collect() []metric {
 	r := e.reg
 	out := []metric{
@@ -130,36 +123,31 @@ func (e *Emitter) collect() []metric {
 		{"HttpPanics", "Count", e.delta("HttpPanics", r.HTTPPanics.Total())},
 		{"EngineSearches", "Count", e.delta("EngineSearches", r.Searches.Total())},
 		{"EngineSearchesCached", "Count", e.delta("EngineSearchesCached", r.Searches.SumFunc(cached))},
-		// 詰み 층은 이 둘로만 보인다. 풀 지표는 여전히 searchPool 필터를 지나서
-		// (아래 EnginePoolInUse) 詰み 풀이 큐에 섰는지는 프로덕션 데이터로 알 수 없다.
+		// 詰み 층은 이 둘로만 보인다. 풀 지표는 searchPool 필터를 지나므로(아래
+		// EnginePoolInUse) 詰み 풀이 큐에 섰는지는 프로덕션 데이터로 알 수 없다.
 		//
-		// 두 값이 필요하다. 캐시가 일하는지는 비율이라, 부른 총수 없이 히트 수만 올리면
+		// 두 값이 다 필요하다. 캐시가 일하는지는 비율이라, 부른 총수 없이 히트 수만 올리면
 		// 조용해진 것과 쓰이지 않는 것을 구별할 수 없다.
 		{"MateSearches", "Count", e.delta("MateSearches", r.MateSearches.Total())},
 		{"MateSearchesCached", "Count",
 			e.delta("MateSearchesCached", r.MateSearches.SumFunc(cached))},
 		{"EnginePoolInUse", "Count", r.PoolInUse.SumFunc(searchPool)},
 		{"WsSessionsActive", "Count", r.WSSessions.Total()},
-		// 밀린 手가 이 층의 부하 지표다. 판 수는 같이 올리지 않는다 — 두 값이 늘 같은
-		// 방향으로 움직이고, 나눠 보고 싶으면 /metrics 에 둘 다 있다.
+		// 밀린 手가 이 층의 부하 지표다. 판 수는 늘 같은 방향으로 움직이므로 올리지 않는다.
 		{"AnalysisBacklogPlies", "Count", r.AnalysisBacklogPlies.Total()},
-		// 버려진 판은 평가치도 실력도 없이 남는다. 0이 아니면 그 자체로 사고다.
+		// 버려진 판은 평가치도 실력도 없이 남는다. 0이 아니면 사고다.
 		{"AnalysisGamesDropped", "Count",
 			e.delta("AnalysisGamesDropped", r.AnalysisGames.SumFunc(dropped))},
-		// 문항 큐의 둘. 판 몫과 갈라 두는 자리이므로(journal §138) 여기서도 따로 올린다.
+		// 문항 큐의 둘. 판 몫과 갈라 둔 자리다(journal §138).
 		//
 		// 밀린 문항은 대수를 정하지 않는다. AnalysisBacklogPlies 와 달리 알람에 걸려 있지
 		// 않고, 「두 큐가 서로를 굶히는가」를 나중에 보려고 올린다.
 		{"AnalysisBacklogQuizzes", "Count", r.AnalysisBacklogQuizzes.Total()},
-		// 문항 없이 끝난 판. 0이 아니면 그 자체로 사고다 — 버려진 판을 따로 올리는 것과
-		// 같은 판단이다.
-		//
-		// 실패는 여기 세지 않는다. 그쪽은 행이 남아 다시 집히므로 배포가 생성 도중에 낄
-		// 때마다 오르고, 그 판은 30분 뒤에 만들어진다 — 알람으로 쓰면 배포마다 울린다.
+		// 문항 없이 끝난 판. 0이 아니면 그 자체로 사고다(lostQuiz).
 		{"AnalysisQuizzesLost", "Count",
 			e.delta("AnalysisQuizzesLost", r.AnalysisQuizzes.SumFunc(lostQuiz))},
 		// 상대의 수를 시한 안에 얻지 못해 접은 판. games.result 로는 셀 수 없어서
-		// (사람이 창을 닫은 판과 같은 값이 된다) 부하 시험의 깨짐 신호가 이것이다.
+		// 부하 시험의 깨짐 신호가 이것이다.
 		{"GamesAborted", "Count",
 			e.delta("GamesAborted", r.GamesFinished.SumFunc(aborted))},
 	}
@@ -169,23 +157,21 @@ func (e *Emitter) collect() []metric {
 	if s := r.HTTPDuration.DrainSamples(nil); len(s) > 0 {
 		out = append(out, metric{"HttpDurationSeconds", "Seconds", s})
 	}
-	// 엔진을 실제로 부른 것만 내보낸다. 캐시가 답한 것을 섞으면 분포가 0 근처로 몰려
-	// 「엔진을 부르면 얼마나 걸리나」를 읽을 수 없다. 이 값에는 풀 대기가 들어 있고,
-	// 가르려면 EnginePoolWaitSeconds 를 뺀다.
+	// 엔진을 실제로 부른 것만 내보낸다. 캐시가 답한 것을 섞으면 분포가 0 근처로 몰린다.
+	// 이 값에는 풀 대기가 들어 있고, 가르려면 EnginePoolWaitSeconds 를 뺀다.
 	if s := r.SearchDuration.DrainSamples(computed); len(s) > 0 {
 		out = append(out, metric{"EngineSearchSeconds", "Seconds", s})
 	}
-	// 문항 하나를 만드는 데 걸린 시간. 갈라 둔 값이 여기서 보인다 — 워커를 얼마나 오래
-	// 잡는가가 곧 판·手 쪽이 얼마나 서 있는가다(journal §138).
+	// 문항 하나를 만드는 데 걸린 시간. 워커를 얼마나 오래 잡는가가 곧 판·手 쪽이 얼마나
+	// 서 있는가다(journal §138).
 	if s := r.AnalysisQuizDuration.DrainSamples(nil); len(s) > 0 {
 		out = append(out, metric{"AnalysisQuizSeconds", "Seconds", s})
 	}
 	// 한 번 비우고 셋으로 내보낸다. 두 번 부르면 두 번째가 빈 배열이다(DrainSamplesAll).
 	//
-	// 따로 내보내는 것 둘이다. borrower=game 은 「대국이 실제로 굶었나」다 — 합친 값에는
-	// 사후 분석과 검토가 섞여 있어서 그쪽으로만 읽힌다. pool=mate 는 詰み 풀이 큐에
-	// 섰나이고, 크기가 2라 대기가 0보다 큰 것 자체가 포화이므로 borrower 로 더
-	// 가르지 않는다(journal §111).
+	// borrower=game 은 「대국이 실제로 굶었나」다. 합친 값에는 사후 분석과 검토가 섞여 있다.
+	// pool=mate 는 크기가 2라 대기가 0보다 큰 것 자체가 포화이므로 borrower 로 더 가르지
+	// 않는다(journal §111).
 	var searchAll, searchGame, mateAll []float64
 	for _, s := range r.PoolWait.DrainSamplesAll() {
 		switch s.Labels["pool"] {
@@ -218,8 +204,7 @@ func (e *Emitter) delta(name string, total float64) float64 {
 	d := total - e.prev[name]
 	e.prev[name] = total
 	if d < 0 {
-		// 카운터가 줄 수는 없다. 여기 오면 우리 버그이고, 음수를 올리면 그래프가
-		// 아래로 튀어 원인을 찾는 데 시간을 쓴다.
+		// 카운터가 줄 수는 없다. 여기 오면 우리 버그이고, 음수를 올리면 그래프가 아래로 튄다.
 		return 0
 	}
 	return d

@@ -16,8 +16,8 @@ import (
 // 거절 셋과 왕복 하나. 거절(로그인·이름·수순)은 기록에 닿기 전에 끝나므로 DB 없이 확인하고,
 // 그래서 그 셋은 CI에서도 돈다.
 
-// snapshotWalls 는 store 없는 핸들러다. 거절되는 요청은 기록에 닿지 않으므로,
-// 여기서 500이 나오면 그 요청이 검사를 통과한 것이다.
+// snapshotWalls 는 store 없는 핸들러다. 거절되는 요청은 기록에 닿지 않으므로, 여기서
+// 500이 나오면 그 요청이 검사를 통과한 것이다.
 func snapshotWalls(t *testing.T) (*exploreSnapshotHandler, *http.Cookie) {
 	t.Helper()
 
@@ -148,7 +148,7 @@ func TestSnapshotsNeedLogin(t *testing.T) {
 
 // 둘 수 없는 수는 저장되지 않는다. 막지 않으면 불러올 때마다 거절되는 행이 기록에 남는다.
 //
-// store 가 nil이라 검사를 통과하면 패닉이다 — 통과하지 않는 것이 이 테스트다.
+// store 가 nil이라 검사를 통과하면 패닉이다.
 func TestSnapshotsRejectAnIllegalLine(t *testing.T) {
 	h, who := snapshotWalls(t)
 
@@ -221,7 +221,7 @@ func TestSnapshotRoundTrip(t *testing.T) {
 	}
 }
 
-// 0手目도 저장할 수 있고, 이름을 비우면 서버가 짓는다. 그 둘이 한 요청에서 만난다 —
+// 0手目도 저장할 수 있고, 이름을 비우면 서버가 짓는다. 그 둘이 한 요청에서 만나면
 // text[] 컬럼에 빈 배열이 가야 하고(store.SaveExploreSnapshot) 이름은 비면 안 된다.
 func TestSnapshotAtTheStartGetsAName(t *testing.T) {
 	h, who, _ := snapshotStore(t)

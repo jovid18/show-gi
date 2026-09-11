@@ -23,9 +23,8 @@ const (
 
 // forkJudgement 는 「사람 관점으로 before → after」인 판정을 만든다.
 //
-// 저장 관점이 先手라서 여기서 한 번 옮긴다(senteCp). 그 변환을 테스트가 직접
-// 하는 것은, 게이트가 같은 변환을 반대 방향으로 하기 때문이다(cpFor) — 둘 다 틀리면
-// 부호 버그가 상쇄되어 잡히지 않는다.
+// 저장 관점이 先手라서 여기서 한 번 옮긴다(senteCp). 게이트가 같은 변환을 반대
+// 방향으로 하므로(cpFor) 둘 다 틀리면 부호 버그가 상쇄되어 잡히지 않는다.
 func forkJudgement(before, after int, human shogi.Color) Judgement {
 	return Judgement{
 		SenteBefore: senteScore(eval.Cp(before), human),
@@ -66,10 +65,9 @@ func has(tags []tag.Tag, code string) bool {
 	return false
 }
 
-// 이 게이트가 왜 있는지가 여기서 드러난다. 桂로 金 둘을 노렸지만 그 桂가 歩에 잡히는 자리였던
-// 국면을 손으로 쓴 1수 읽기가 통과시켰다(docs/09-tags.md §5). 룰은 이제 형태만 보므로
-// (tag.TestTheRuleLayerDoesNotAskWhetherTheForkerSurvives 가 같은 국면을 그쪽에서
-// 잰다) 이름을 막는 일은 전부 여기 달려 있다.
+// 이 게이트가 왜 있는지가 여기서 드러난다. 桂로 金 둘을 노렸지만 그 桂가 歩에 잡히는
+// 자리였던 국면을 손으로 쓴 1수 읽기가 통과시켰다(09-tags.md §5). 룰은 이제 형태만
+// 보므로 이름을 막는 일은 전부 여기 달려 있다.
 func TestForkThatHangsIsNotNamed(t *testing.T) {
 	before, after := forkPositions(t, hangingForkStart, forkMove)
 	// 전제 — 룰 층은 이 형태에 이름을 붙인다. 이것이 거짓이면 아래가 다른 이유로 통과한다.
@@ -126,9 +124,8 @@ func TestTesujiGateComparesAgainstTheLossLimit(t *testing.T) {
 	}
 }
 
-// 後手로 잡은 판에서만 반대로 뜨는 버그를 막는다. 저장 관점이 先手라 게이트는 부호를
-// 되돌려야 하는데, 되돌리지 않아도 「손해」 쪽에서만 답이 갈린다 — 이득 쪽은 부호가 상쇄되어
-// 그냥 통과한다. 그래서 이 테스트는 손해 국면으로 잰다.
+// 後手로 잡은 판에서만 반대로 뜨는 버그를 막는다. 부호를 되돌리지 않아도 이득 쪽은
+// 상쇄되어 그냥 통과하므로, 이 테스트는 손해 국면으로 잰다.
 func TestTesujiGateFlipsForGote(t *testing.T) {
 	// 위 국면의 거울상 — 5五에 打った 後手 桂가 4七金·6七金을 노린다.
 	before, err := shogi.ParseSFEN("8K/9/9/9/9/9/3G1G3/9/8k w - 1")
@@ -151,9 +148,8 @@ func TestTesujiGateFlipsForGote(t *testing.T) {
 
 // 이름은 판정을 통과한 그 국면에서만 뜬다.
 //
-// 게이지와 같은 규약이고(state.mateGen), 여기는 이유가 하나 더 있다 — 이름을 통과시킨
-// 것은 그 국면의 평가치다. 국면이 움직인 뒤에도 남겨두면 엔진에게 묻지 않은 형태에
-// 이름을 붙이는 것이 되고, 형태는 그대로 서 있으므로 화면에서는 아무 이상이 보이지 않는다.
+// 게이지와 같은 규약이다(state.mateGen). 이름을 통과시킨 것은 그 국면의 평가치라,
+// 국면이 움직인 뒤에도 남겨두면 엔진에게 묻지 않은 형태에 이름을 붙이게 된다.
 func TestTesujiNameDoesNotOutliveItsPosition(t *testing.T) {
 	// 상대는 玉을 한 칸 옮긴다 — 両取り는 그대로 서 있다. 형태가 사라지는 수를 두면
 	// 이 테스트가 세대 대신 기하 때문에 통과한다.
@@ -205,14 +201,12 @@ func TestTesujiNameDoesNotOutliveItsPosition(t *testing.T) {
 // TestRealEngineGatesTesujiShapes 는 게이트를 엔진에게 맡긴 것이 실제로 갈리는지 잰다.
 // 룰 층은 셋 다 이름을 내고, 통과시킬지는 水匠5가 읽는다.
 //
-// 손으로 쓴 1수 읽기를 지운 PR이라 여기가 첫 관문이다 — go test ./... 만으로는
-// 이 테스트가 경고 없이 skip 되고 초록으로 보인다(apps/server/README.md 「테스트」 ③).
+// go test ./... 만으로는 경고 없이 skip 되고 초록으로 보인다(apps/server/README.md).
 //
-// 실전 국면으로 잰다. 駒를 몇 개만 놓은 국면에서는 평가치를 쓸 수 없다(journal §34) —
-// 그래서 마지막 하나만 인공 국면이고, 그것은 떨어지는 쪽이다.
+// 실전 국면으로 잰다. 駒를 몇 개만 놓은 국면에서는 평가치를 쓸 수 없어서(journal §34)
+// 마지막 하나만 인공 국면이고, 그것은 떨어지는 쪽이다.
 //
-// 낙폭에 붙은 값은 실측이다. 흔들림 폭(§34)만큼 한계선에서 떨어진 국면만 골랐다 —
-// 여기가 흔들려서 깨지면 그것 자체가 알아야 할 사실이다.
+// 낙폭에 붙은 값은 실측이다. 흔들림 폭(§34)만큼 한계선에서 떨어진 국면만 골랐다.
 //
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/game/ -run RealEngineGates -v
 func TestRealEngineGatesTesujiShapes(t *testing.T) {
@@ -278,9 +272,8 @@ func TestRealEngineGatesTesujiShapes(t *testing.T) {
 	}
 }
 
-// 打つ 手筋도 같은 게이트를 지난다. 이름을 정하는 사실이 판에 없을 뿐(打った 것인가)
-// 이득을 정하는 쪽은 그대로다 — 오히려 이 부류는 게이트가 없으면 들어올 수 없다. 歩를
-// 던지는 것이 내용이라 「잡히지 않는가」로 물으면 정의상 전부 탈락하기 때문이다.
+// 打つ 手筋도 같은 게이트를 지난다. 이 부류는 게이트가 없으면 들어올 수 없다. 歩를
+// 던지는 것이 내용이라 「잡히지 않는가」로 물으면 정의상 전부 탈락한다.
 func TestDropTesujiPassesThroughTheSameGate(t *testing.T) {
 	// 5三의 後手 金 머리에 歩를 打つ. 持ち駒에 歩 하나를 둔다
 	before, after := forkPositions(t, "4k4/9/4g4/9/9/9/9/9/4K4 b P 1", "P*5d")
@@ -296,14 +289,13 @@ func TestDropTesujiPassesThroughTheSameGate(t *testing.T) {
 	}
 }
 
-// 게이트가 껐던 형태가 두 수 뒤에 이름을 받으면 안 된다.
+// 게이트가 껐던 형태가 두 수 뒤에 이름을 받으면 안 된다(journal §34 ⑦).
 //
-// 리뷰가 짚은 구멍이고, 실제로 그렇게 돌고 있었다. 게이트는 「이 수가 손해인가」에
-// 답하는데 그 답을 판 위의 형태 전부에 나눠 주면, 낙폭 500cp로 만들어 한 번 꺼진
-// 両取り가 그대로 서 있다가 아무 상관 없는 조용한 수에 이름을 받는다.
+// 게이트는 「이 수가 손해인가」에 답하는데 그 답을 판 위의 형태 전부에 나눠 주면,
+// 낙폭 500cp로 한 번 꺼진 両取り가 그대로 서 있다가 조용한 수에 이름을 받는다.
 //
 // 화면이 이름을 한 대국에 한 번만 띄우므로(useTagAnnounce) 플레이어가 보는 것은
-// 그 틀린 쪽이 된다 — 올바른 판정이 늦게 와도 띄울 수 없다.
+// 그 틀린 쪽이 된다.
 func TestARejectedShapeIsNotNamedByALaterQuietMove(t *testing.T) {
 	// 상대는 玉만 왔다 갔다 한다 — 両取り는 계속 서 있다.
 	opp := &scriptedOpponent{moves: []string{"1a1b", "1b1a"}, delay: 120 * time.Millisecond}

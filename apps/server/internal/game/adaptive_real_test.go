@@ -12,10 +12,8 @@ import (
 // TestRealEngineAdaptiveKeepsTheGamePlayable 는 이 상대가 존재하는 이유를 잰다.
 //
 // 초기 국면부터 아무 수나 두게 했더니 20수 만에 개입이 한 번도 걸리지 않았다
-// (journal §13 · §16).
-//
-// 즉 적응형 상대는 개입이 걸리는 구간을 유지하는 장치다. 그래서 같은 약한 기보를
-// 두 상대에게 두게 하고 형세를 견준다.
+// (journal §13 · §16). 적응형 상대는 개입이 걸리는 구간을 유지하는 장치이고, 여기서는
+// 같은 약한 기보를 두 상대에게 두게 하고 형세를 견준다.
 //
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/game/ -run RealEngineAdaptive -v
 func TestRealEngineAdaptiveKeepsTheGamePlayable(t *testing.T) {
@@ -50,17 +48,16 @@ func TestRealEngineAdaptiveKeepsTheGamePlayable(t *testing.T) {
 	}
 }
 
-// playWeakly 는 일부러 약하게 둔다 — 늘 합법수 목록의 첫 수다.
+// playWeakly 는 일부러 약하게 둔다. 늘 합법수 목록의 첫 수다.
 //
-// 초심자보다도 못 두는 쪽을 잡아 하한을 본다. 여기서 판이 유지되면 실제
-// 플레이어에게는 더 유지된다.
+// 초심자보다도 못 두는 쪽을 잡아 하한을 본다.
 func playWeakly(t *testing.T, pool *usi.Pool, opp Opponent, plies int) int {
 	t.Helper()
 	return playWeaklyWith(t, pool, opp, plies, skill.Unknown)
 }
 
-// playWeaklyWith 는 상대에게 넘길 추정치를 밖에서 정한다 — 그 값이 강함을 어디까지
-// 움직이는지를 재는 자리가 rating_measure_test.go 다.
+// playWeaklyWith 는 상대에게 넘길 추정치를 밖에서 정한다. 그 값이 강함을 어디까지
+// 움직이는지는 rating_measure_test.go 가 잰다.
 func playWeaklyWith(t *testing.T, pool *usi.Pool, opp Opponent, plies int, sk skill.Estimate) int {
 	t.Helper()
 

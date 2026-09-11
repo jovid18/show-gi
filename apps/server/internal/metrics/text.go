@@ -9,12 +9,12 @@ import (
 
 // WriteText 는 Prometheus 텍스트 형식으로 쓴다.
 //
-// 이 표면은 태스크 안에서만 닿는다 — Caddy 가 /ws·/api·/healthz 만 프록시하므로
-// 새 경로는 밖에서 보이지 않는다(apps/web/Caddyfile). 그래서 인증을 따로 두지 않았다.
+// 이 표면은 태스크 안에서만 닿는다. Caddy 가 /ws·/api·/healthz 만 프록시하므로 새 경로는
+// 밖에서 보이지 않고(apps/web/Caddyfile), 그래서 인증을 따로 두지 않았다.
 //
-// 다 만든 뒤에 한 번 쓴다. w 에 직접 쓰면서 잠금을 잡고 있으면, 읽는 쪽이 중간에
-// 멈춘 순간(ECS Exec 세션이 끊긴다) 그 계열의 잠금이 풀리지 않고 — 서버에 WriteTimeout
-// 이 없다 — 모든 요청과 엔진 대여가 같이 멈춘다.
+// 다 만든 뒤에 한 번 쓴다. w 에 직접 쓰면서 잠금을 잡고 있으면 읽는 쪽이 중간에 멈춘
+// 순간(ECS Exec 세션이 끊긴다) 그 계열의 잠금이 풀리지 않고(서버에 WriteTimeout 이 없다)
+// 모든 요청과 엔진 대여가 같이 멈춘다.
 func (r *Registry) WriteText(w io.Writer) error {
 	bw := &bytes.Buffer{}
 
@@ -50,8 +50,8 @@ func (r *Registry) WriteText(w io.Writer) error {
 
 // writeHistogram 은 계열 하나를 버킷·합·개수 세 종류로 쓴다.
 //
-// 버킷은 누적이다. counts 가 이미 「경계 이하의 관측 수」로 쌓여 있고(Observe),
-// 마지막 +Inf 는 전체 관측 수와 같다.
+// 버킷은 누적이다. counts 가 이미 「경계 이하의 관측 수」이고(Observe) 마지막 +Inf 는
+// 전체 관측 수와 같다.
 func writeHistogram(bw *bytes.Buffer, f *family, s *series) {
 	for i, b := range f.buckets {
 		writeLine(bw, f.name, "_bucket", labelText(f.labels, s.labelValues, "le", num(b)), strconv.FormatUint(s.counts[i], 10))

@@ -4,22 +4,21 @@ import { hrefOf, navigate } from '@/routes/router';
 /**
  * 처음 온 사람에게 이 앱이 무엇을 하는지를 한 화면으로 말한다.
  *
- * 대국 화면이 스스로 설명하지 못하는 것이 셋이라 이 자리가 생겼다 — 개입은 일어나야
- * 보이고(그때는 이미 판이 되물러져 있다), 버튼의 예산은 눌러 봐야 알고, 카테고리 열 개는
- * 한 판에 두세 개밖에 나오지 않는다.
+ * 대국 화면이 스스로 설명하지 못하는 것이 셋이다. 개입은 일어나야 보이고(그때는 이미 판이
+ * 되물러져 있다), 버튼의 예산은 눌러 봐야 알고, 카테고리 열 개는 한 판에 두세 개밖에 나오지
+ * 않는다.
  *
- * 화면 캡처를 쓰지 않는다. 아래의 눈금·버튼·불꽃은 대국 화면과 같은 CSS 라 판이 바뀌면
- * 여기도 같이 바뀐다 — 캡처는 그 자리에서 낡고, 오래된 것을 누구도 잡지 않는다.
+ * 화면 캡처를 쓰지 않는다. 아래의 눈금·버튼·불꽃은 대국 화면과 같은 CSS 라 판이 바뀌면 여기도
+ * 같이 바뀐다. 캡처는 그 자리에서 낡는다.
  *
- * 숫자(3·5·6·10)를 여기 적는 것은 사람이 보는 값이라서다. 서버가 예산을 스냅샷으로
- * 보내지만 그건 「지금 몇 번 남았나」이고, 이 화면은 대국 밖이라 받을 판이 없다.
- * 주인은 `internal/game/session.go` 의 상수들이다.
+ * 숫자(3·5·6·10)가 여기 적혀 있다. 서버가 보내는 예산은 「지금 몇 번 남았나」이고 이 화면은
+ * 대국 밖이라 받을 판이 없다. 주인은 `internal/game/session.go` 의 상수들이다.
  */
 export function GuideScreen() {
   return (
     <article className="guide">
       <header className="guide__hero">
-        {/* 로고는 `public/` 에 있다(brand/icons.sh). 여기만 큰 것을 쓰므로 192를 부른다 —
+        {/* 로고는 `public/` 에 있다(brand/icons.sh). 여기만 큰 것을 쓰므로 192를 부른다.
             헤더의 96과 따로 두면 둘 다 자기 크기에 맞는 파일을 받는다. */}
         <img className="guide__logo" src="/icon-192.png" alt="" width={96} height={96} decoding="async" />
         <div>
@@ -83,8 +82,7 @@ export function GuideScreen() {
           。指した瞬間に戻され、まわりが暗くなって説明のカードが出ます。
         </p>
 
-        {/* 세 걸음을 가로로 늘어놓는다. 순서를 말하는 그림이라 판을 그리지 않는다 —
-            판을 그리면 「그때 판이 이렇게 생겼다」로 읽힌다. */}
+        {/* 세 걸음을 가로로 늘어놓는다. 판을 그리면 「그때 판이 이렇게 생겼다」로 읽힌다. */}
         <ol className="guide__flow">
           <li className="guide__flow-step">
             <span className="guide__flow-num" aria-hidden="true">
@@ -130,7 +128,7 @@ export function GuideScreen() {
         </dl>
 
         {/* 원칙 하나를 눈에 띄게 내건다. 이걸 모르면 「왜 정답을 안 알려주지」가 고장으로
-            읽힌다 — 실제로 그 자리에서 갈렸다(docs/01-core.md §1). */}
+            읽힌다(docs/01-core.md §1). */}
         <p className="guide__note">
           カードは<strong>「次にこう指せ」とは言いません。</strong>
           悪い理由と相手の反撃までを示して、指し直すのはあなたです。答えが欲しいときは、下の「ヒント」を自分で呼びます。
@@ -163,8 +161,8 @@ export function GuideScreen() {
           盤の右側に3つのボタンがあります。<strong>回数は対局ごと</strong>で、使い切ると押せなくなります。
         </p>
 
-        {/* 대국 화면과 같은 클래스다. 見本이 진짜 버튼이라 모양이 어긋날 수가 없다.
-            `disabled` 로 둔다 — 안내 화면에서 눌러도 갈 곳이 없다. */}
+        {/* 대국 화면과 같은 클래스다. 見本이 진짜 버튼이라 모양이 어긋날 수가 없다. 안내
+            화면에서 눌러도 갈 곳이 없어 `disabled` 로 둔다. */}
         <div className="guide__buttons">
           <div className="guide__button-row">
             <button type="button" className="btn" disabled>
@@ -305,9 +303,9 @@ export function GuideScreen() {
       </section>
 
       <footer className="guide__cta">
-        {/* `navigate` 를 탄다. 이 화면이 새 탭이 아니게 되면서(journal §86) 앱 안의
-            이동이 됐고, 그냥 링크로 두면 브라우저가 문서를 통째로 새로 받아 상시
-            마운트된 대국 화면이 갖고 있던 총평이 사라진다. */}
+        {/* `navigate` 를 탄다. 이 화면이 새 탭이 아니게 되면서(journal §86) 앱 안의 이동이
+            됐고, 그냥 링크로 두면 브라우저가 문서를 새로 받아 상시 마운트된 대국 화면이 갖고
+            있던 총평이 사라진다. */}
         <a
           className="btn btn--primary"
           href={hrefOf({ name: 'game' })}

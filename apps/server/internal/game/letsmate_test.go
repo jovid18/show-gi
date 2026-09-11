@@ -13,17 +13,16 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// lets_mate 의 배선을 본다 — 「상대가 나를 詰ます」를 엔진에 어떻게 묻고, 언제 말하지 않는가.
+// lets_mate 의 배선을 본다. 「상대가 나를 詰ます」를 엔진에 어떻게 묻고, 언제 말하지
+// 않는가.
 //
-// solver 없이 돈다. 여기서 확인할 것은 어느 국면을 묻고 그 답을 어떻게 쓰는가이고,
-// 詰み 판정의 정확도는 보지 않는다 — 진짜 엔진을 쓰면 오히려 그 구분이 보이지
-// 않는다(journal §40).
+// solver 없이 돈다. 확인할 것은 어느 국면을 묻고 그 답을 어떻게 쓰는가이고, 詰み 판정의
+// 정확도는 보지 않는다(journal §40).
 
 // perLineMate 는 수순마다 다른 답을 주는 solver다.
 //
-// scriptedMate 로는 이걸 볼 수 없다 — 그쪽은 어느 국면에나 같은 手数를 주므로
-// 「둔 수 뒤에는 詰み, 최선수 뒤에는 없음」을 표현할 수 없고, 그 구분이 정확히 이
-// 카테고리의 조건이다.
+// scriptedMate 는 어느 국면에나 같은 手数를 주므로 「둔 수 뒤에는 詰み, 최선수 뒤에는
+// 없음」을 표현할 수 없다. 그 구분이 정확히 이 카테고리의 조건이다.
 type perLineMate struct {
 	// plies 는 수순(공백으로 이은 USI)마다의 詰み 手数다. 없는 수순은 詰み 없음.
 	plies map[string]int
@@ -40,14 +39,14 @@ func (m *perLineMate) SearchMate(_ context.Context, _ string, moves []string) (u
 	if n == 0 {
 		return usi.MateResult{Proven: true}, nil
 	}
-	// 내용은 보지 않는다 — 길이가 手数다. 합법이 아니어도 되는 것은 이 테스트가 수순을 판에
-	// 놓지 않기 때문이고, 놓는 쪽(refutationLine)은 아래 별도 테스트가 본다.
+	// 내용은 보지 않는다. 길이가 手数다. 합법이 아니어도 되는 것은 이 테스트가 수순을
+	// 판에 놓지 않기 때문이고, 놓는 쪽(refutationLine)은 아래 별도 테스트가 본다.
 	return usi.MateResult{Moves: make([]string, n), Proven: true}, nil
 }
 
 // mateSearcher 는 착수 후 국면이 「수번 측이 詰ます」로 나오는 탐색 결과다.
 //
-// 그것이 opponentMate 의 게이트다 — 이 값이 없으면 solver를 아예 부르지 않는다.
+// 그것이 opponentMate 의 게이트다. 이 값이 없으면 solver를 아예 부르지 않는다.
 func mateSearcher(mateIn int) usi.SearchResult {
 	return usi.SearchResult{Best: "7g7f", Score: eval.Mate(mateIn)}
 }
@@ -152,9 +151,9 @@ func TestOpponentMateStaysQuietWhenSolverFails(t *testing.T) {
 
 // 詰み 수순은 자르지 않는다. 자르면 「合の応手가 있는 것 아닌가」로 읽힌다.
 func TestMateRefutationIsNotTrimmed(t *testing.T) {
-	// 一手詰め. ▲1一飛成 뒤 후수 玉에 詰み이 걸린 국면을 쓰는 대신, 조용한 수가 이어지는
-	// 수순으로 「자르지 않는다」만 본다 — trimRefutation 은 조용한 수에서 1로 자른다.
-	// 「1g1f」 뒤는 후수 차례다 — 수순이 그쪽부터 번갈아야 룰 엔진이 끊지 않는다.
+	// 조용한 수가 이어지는 수순으로 「자르지 않는다」만 본다. trimRefutation 은 조용한
+	// 수에서 1로 자른다. 「1g1f」 뒤는 후수 차례이고, 수순이 그쪽부터 번갈아야 룰
+	// 엔진이 끊지 않는다.
 	pv := []string{"3c3d", "2g2f", "8c8d", "6g6f"}
 
 	trimmed := refutationLine(shogi.StartSFEN, []string{"1g1f"}, pv, RefutationPlies, false).line
@@ -185,7 +184,8 @@ func TestMateRefutationIgnoresThePlyCap(t *testing.T) {
 	}
 }
 
-// 순서가 규칙의 일부다. 玉이 죽는 국면에서 駒 이야기를 하면 초심자는 駒를 지키고 다음 수에 詰む.
+// 순서가 규칙의 일부다. 玉이 죽는 국면에서 駒 이야기를 하면 초심자는 駒를 지키고
+// 다음 수에 詰む.
 func TestLetsMateOutranksMaterialCategories(t *testing.T) {
 	base := intervene.Features{
 		Known:             true,

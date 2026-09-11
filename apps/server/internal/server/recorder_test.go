@@ -37,10 +37,8 @@ func openStoreForTest(t *testing.T) *store.Store {
 	return s
 }
 
-// 끝나지 않고 연결이 끊긴 판은 abandoned 로 남아야 한다.
-//
-// 빈 result 로 두면 「아직 두는 중인 판」과 구별할 수 없다. 기록을 나중에 훑을 때
-// 그 둘이 섞이면 어느 판이 실제 대국인지 셀 수 없다.
+// 끝나지 않고 연결이 끊긴 판은 abandoned 로 남아야 한다. 빈 result 로 두면 「아직 두는
+// 중인 판」과 구별할 수 없고, 기록을 훑을 때 어느 판이 실제 대국인지 셀 수 없다.
 func TestRecordAbandonsOnDisconnect(t *testing.T) {
 	st := openStoreForTest(t)
 
@@ -74,7 +72,7 @@ func TestRecordAbandonsOnDisconnect(t *testing.T) {
 	gameID := waitForNewGame(t, st, before)
 	waitForResult(t, st, gameID, string(store.ResultAbandoned))
 
-	// 기보는 남아 있어야 한다 — 끊겼다고 지우면 실력 추정의 원본이 사라진다.
+	// 기보는 남아 있어야 한다. 끊겼다고 지우면 실력 추정의 원본이 사라진다.
 	var moves int
 	row := st.Pool().QueryRow(t.Context(), `SELECT count(*) FROM game_moves WHERE game_id = $1`, gameID)
 	if err := row.Scan(&moves); err != nil {
@@ -135,10 +133,9 @@ func maxGameID(t *testing.T, st *store.Store) int64 {
 
 // waitForNewGame 은 이 테스트가 연 대국이 기록에 나타날 때까지 기다린다.
 //
-// max(id) 하나로 찾지 않는다. DB는 워크트리끼리 공유하고(CLAUDE.md), go test ./...
-// 는 패키지마다 다른 프로세스를 동시에 돌린다 — internal/store 의 테스트가 같은 순간에
-// 대국을 만든다. 그때 max(id)는 남의 판을 집어 오고, 그 판에는 result 가 영영 찍히지 않아서
-// 10초를 기다리다 「abandoned 로 찍히지 않았다」로 죽는다. 실제로 그렇게 깨졌다.
+// max(id) 하나로 찾지 않는다. DB는 워크트리끼리 공유하고(CLAUDE.md) go test ./... 는
+// 패키지마다 다른 프로세스를 동시에 돌려서, internal/store 의 테스트가 같은 순간에 대국을
+// 만든다. 그때 max(id)는 남의 판을 집어 오고, 그 판에는 result 가 영영 찍히지 않는다.
 //
 // 그래서 시작 국면으로 한 번 더 거른다. 대국 세션은 平手 초기 국면을 이 문자열
 // 그대로 적고(session.go), 다른 패키지의 테스트는 자기 이름을 적는다.
@@ -188,7 +185,7 @@ func deleteGame(t *testing.T, st *store.Store, id int64) {
 // 사람의 수 뒤와 그 직전 상대 수 뒤 두 행이 채워진다. 앞쪽은 판정의 「착수 전」
 // 국면이라 상대 수의 평가치가 한 수 늦게 들어가는 구조다(session.recordEvals).
 //
-// 세션·store 는 각자 테스트가 있지만 그 사이의 이벤트 배선은 여기서만 지켜진다 —
+// 세션·store 는 각자 테스트가 있지만 그 사이의 이벤트 배선은 여기서만 지켜진다.
 // dbRecorder 가 evEvaluated 를 흘리면 아무 데서도 터지지 않고 칸만 계속 NULL 로 남는다.
 // 실제로 그렇게 기록된 판이 있다(08-playtest.md §11).
 func TestRecordFillsEvalTrajectory(t *testing.T) {
@@ -272,7 +269,7 @@ func (evalOnlyAnalyst) Judge(_ context.Context, _ string, _ []string, _ int) (ga
 
 // 개입 하나가 interventions 행까지 간다.
 //
-// 앞의 두 테스트(game·store)가 다 초록인데 행이 계속 생기지 않을 수 있다 — 그 사이의 배선이
+// 앞의 두 테스트(game·store)가 다 초록인데 행이 계속 생기지 않을 수 있다. 그 사이의 배선이
 // dbRecorder 이고, 여기서 이벤트를 흘리면 아무 에러도 나지 않는다. game_moves.eval_cp 가
 // 실제로 그렇게 109행 전부 비었다(08-playtest.md §11).
 func TestRecordFillsIntervention(t *testing.T) {
@@ -299,7 +296,7 @@ func TestRecordFillsIntervention(t *testing.T) {
 	if err := wsjson.Write(ctx, conn, clientMsg{Type: "move", USI: "7g7f"}); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
-	// 카드에 나간 문장도 explain.Render 의 것이어야 한다 — 여기가 끊기면 화면만 옛 문구다.
+	// 카드에 나간 문장도 explain.Render 의 것이어야 한다. 끊기면 화면만 옛 문구다.
 	got := readUntil(t, ctx, conn, func(m serverMsg) bool {
 		return m.Type == "snapshot" && m.Snapshot.Intervention != nil
 	}, "개입")

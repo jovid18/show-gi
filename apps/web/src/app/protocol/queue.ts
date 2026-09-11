@@ -1,10 +1,10 @@
 // 대기열의 계약. 서버의 `internal/server/queue.go` 와 짝이다.
 //
-// `protocol/match.ts` 와 따로 둔 것은 여기 판이 하나도 없기 때문이다. 대기열에 서는 것은
-// 방을 만들기 전의 일이고, 짝이 잡히면 답은 방 id 하나다 — 그 뒤로는 저쪽 계약이 맡는다.
+// `protocol/match.ts` 와 따로 둔 것은 여기 판이 하나도 없기 때문이다. 대기열에 서는 것은 방을
+// 만들기 전의 일이고, 짝이 잡히면 답은 방 id 하나다. 그 뒤로는 저쪽 계약이 맡는다.
 //
-// 상대에 대해 아무것도 오지 않는다. 이름도 레이팅도 없다 — 레이팅은 어느 API 도 돌려주지 않고
-// (docs/01-core.md §5), 이름은 방에 붙으면 스냅샷이 준다.
+// 상대에 대해 아무것도 오지 않는다. 레이팅은 어느 API 도 돌려주지 않고(01-core.md §5), 이름은
+// 방에 붙으면 스냅샷이 준다.
 
 import type { Color } from '@/protocol/game';
 
@@ -28,9 +28,8 @@ export type QueueStatus =
 /**
  * 대기열에 서거나, 이미 서 있으면 다시 물어본다.
  *
- * 같은 호출 하나가 셋을 한다 — 대기열에 서기 · 살아 있다고 알리기 · 짝짓기. 그래서 화면은
- * 이것을 주기적으로 부르기만 하면 되고, 멈추면 서버가 알아서 대기열에서 걷어낸다
- * (서버의 `queue.StaleAfter`).
+ * 같은 호출 하나가 셋을 한다. 대기열에 서기 · 살아 있다고 알리기 · 짝짓기. 그래서 화면은
+ * 이것을 주기적으로 부르기만 하면 되고, 멈추면 서버가 걷어낸다(서버의 `queue.StaleAfter`).
  */
 export async function pollQueue(signal: AbortSignal): Promise<QueueStatus> {
   const res = await fetch('/api/queue', { method: 'POST', signal });
@@ -40,12 +39,12 @@ export async function pollQueue(signal: AbortSignal): Promise<QueueStatus> {
 }
 
 /**
- * 대기열에서 빠진다. 부르지 않고 화면을 떠나도 서버가 걷어가지만, 그때까지 상대에게는
- * 내가 대기열에 있는 것으로 보인다 — 그 사이에 잡힌 짝은 누구도 오지 않는 방이 된다.
+ * 대기열에서 빠진다. 부르지 않고 화면을 떠나도 서버가 걷어가지만, 그때까지 상대에게는 내가
+ * 대기열에 있는 것으로 보인다. 그 사이에 잡힌 짝은 누구도 오지 않는 방이 된다.
  */
 export async function leaveQueue(): Promise<void> {
-  // `keepalive` 다. 탭을 닫는 자리에서도 부르므로(`useQueue`) 언마운트와 함께 취소되면
-  // 이 요청이 아예 나가지 않는다.
+  // `keepalive` 다. 탭을 닫는 자리에서도 부르므로(`useQueue`) 언마운트와 함께 취소되면 이
+  // 요청이 아예 나가지 않는다.
   await fetch('/api/queue', { method: 'DELETE', keepalive: true }).catch(() => {
     // 실패해도 할 일이 없다. 서버가 만료로 걷어간다
   });

@@ -13,8 +13,7 @@ import (
 
 // 실제 플레이 테스트 기보. 77·81수째에서 「생각한 수가 전부 물러졌다」고 보고됐다.
 //
-// 보고는 직접 둬본 몇 수가 전부 걸렸다는 것이고, 전수 조사를 지나지 않았다. 아래 조사가
-// 합법수 전부를 돌려 그 보고를 설명한다.
+// 보고는 직접 둬본 몇 수가 전부 걸렸다는 것이라 아래 조사가 합법수 전부를 돌린다.
 const stuckKifu = `▲7六歩 △7二銀 ▲6八飛 △5二金右 ▲5八金左 △9四歩 ▲4八玉 △2四歩
 ▲3八玉 △2五歩 ▲2八玉 △3二金 ▲3八銀 △3四歩 ▲6六歩 △3三角
 ▲9六歩 △1四歩 ▲1六歩 △2二銀 ▲5六歩 △8四歩 ▲5七金 △4二金右
@@ -28,8 +27,8 @@ const stuckKifu = `▲7六歩 △7二銀 ▲6八飛 △5二金右 ▲5八金左 
 
 // kifuToUSI 는 棋譜 표기를 USI로 되돌린다.
 //
-// 손으로 옮기지 않는다 — 합법수마다 우리 MoveJa 를 돌려 표기가 일치하는 것을 찾는다.
-// 표기를 두 벌로 만들면 어긋났을 때 어느 쪽이 맞는지 알 수 없다(§6 ④와 같은 판단이다).
+// 손으로 옮기지 않는다. 합법수마다 우리 MoveJa 를 돌려 표기가 일치하는 것을
+// 찾는다(journal §6 ④와 같은 판단이다).
 func kifuToUSI(t *testing.T, kifu string) ([]string, shogi.Position) {
 	t.Helper()
 
@@ -75,8 +74,7 @@ func TestKifuRoundTrips(t *testing.T) {
 
 // TestRealEngineStuckPosition 은 「무엇을 둬도 블런더」가 사실인지 잰다.
 //
-// 플레이 테스트에서 나온 보고이고, 사실이라면 판정식이 「이 수가 얼마나 나쁜가」만 보고
-// 「더 나은 선택지가 실제로 있었나」를 보지 않기 때문이다.
+// 사실이라면 판정식이 「더 나은 선택지가 실제로 있었나」를 보지 않기 때문이다.
 //
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/game/ -run RealEngineStuck -v
 func TestRealEngineStuckPosition(t *testing.T) {
@@ -124,7 +122,7 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 		t.Fatalf("후보 사다리: %v", err)
 	}
 
-	// 최선수가 움직이는 駒. 板 위의 수는 출발 칸, 打는 駒 종류로 잡는다.
+	// 최선수가 움직이는 駒(sameMover).
 	//
 	// 「그 駒를 짚어주면 웬만하면 잘 둔다」가 계단식 힌트의 전제다. 그 駒를 움직이는
 	// 수 중 통과가 하나뿐이면 1단계는 2단계로 가는 계단일 뿐이다.
@@ -143,8 +141,8 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 	// 그중 몇 개가 반전 폭 임계치별로 shallow_trap 이 되는가
 	reversalHits := map[int]int{}
 
-	// 반박 수순이 실제로 몇 수가 되는가. 길이를 상수로 박지 않기로 한 근거이고,
-	// 여기서 전부 1수로 쪼그라들면 이 기능이 겨냥한 자리(§17)를 덮지 못한다.
+	// 반박 수순이 실제로 몇 수가 되는가. 전부 1수로 쪼그라들면 이 기능이 겨냥한
+	// 자리(journal §17)를 덮지 못한다.
 	lineLen := map[int]int{}
 	var lineSamples []string
 
@@ -263,8 +261,7 @@ func surveyPly(t *testing.T, pool *usi.Pool, allUSIs []string, ply int) {
 
 // sameMover 는 두 수가 같은 駒를 움직이는가다.
 //
-// 板 위의 수는 출발 칸이 같으면 같은 駒이고, 打는 손에서 나오므로 종류가 같으면 같은
-// 駒다(같은 종류가 둘 있으면 어느 쪽인지 구분할 수 없고, 구분할 필요도 없다).
+// 板 위의 수는 출발 칸이 같으면 같은 駒이고, 打는 종류가 같으면 같은 駒다.
 func sameMover(a, b shogi.Move) bool {
 	if a.IsDrop() != b.IsDrop() {
 		return false

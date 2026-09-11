@@ -79,7 +79,7 @@ func TestObservingStillSaves(t *testing.T) {
 	}
 }
 
-// 추정기 goroutine이 쓰고 총평 goroutine이 읽는다 — -race 가 잡는 자리다.
+// 추정기 goroutine 이 쓰고 총평 goroutine 이 읽는다. -race 가 잡는 자리다.
 func TestConcurrentObserveAndRead(t *testing.T) {
 	r := newSkillRun(skill.Estimate{Loss: 0.5, Samples: 9})
 	cb := r.observing(nil)
@@ -110,8 +110,8 @@ func mustRank(t *testing.T, absLoss float64) skill.Rank {
 	return got
 }
 
-// estimate 는 段級이 붙을 만한 추정치다. 이름은 절대 낙폭에서만 나오므로(skill.RankOf)
-// 두 쪽을 같은 개수로 채운다 — 대국 중에 오는 값이 그 모양이다.
+// estimate 는 段級이 붙을 만한 추정치다. 이름은 절대 낙폭에서만 나오므로(skill.RankOf) 두
+// 쪽을 같은 개수로 채운다. 대국 중에 오는 값이 그 모양이다.
 //
 // 밴드가 보는 Loss 는 아무 값이나 둔다. 段級이 그 칸을 보지 않는 것이 이 파일이 확인하는
 // 것 중 하나다.

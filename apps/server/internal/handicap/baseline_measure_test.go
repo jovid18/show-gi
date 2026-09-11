@@ -16,14 +16,10 @@ import (
 //
 //	SHOWGI_MEASURE=1 SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/handicap/ -run MeasureBaseline -v
 //
-// 깊이가 14다. 기준점은 표에 박히는 상수라 우리가 신뢰하는 가장 깊은 값으로 잡는다 —
-// 여기서 얕게 재면 그 오차가 판 전체의 판정 기준으로 굳는다.
+// 깊이가 14다. 판정이 쓰는 깊이와 같아야 이 표와 화면 값이 같은 자를 쓴다(journal §130).
 //
-// 이제 JudgeDepth 도 14다(journal §130). 이 표와 화면 값이 서로 다른 자를 쓰고
-// 있었던 것이 그 상수를 올린 근거이고, 두 값은 지금 같은 깊이를 가리킨다.
-//
-// 표를 고치지 않는다. 어긋나면 문장으로 말하고 사람이 옮긴다 — 자동으로 맞추면 엔진이
-// 흔들릴 때마다 판정 기준이 경고 없이 따라 움직이고, 그건 결정적이라는 성질을 잃는 것이다.
+// 표를 고치지 않는다. 어긋나면 문장으로 말하고 사람이 옮긴다. 자동으로 맞추면 엔진이
+// 흔들릴 때마다 판정 기준이 경고 없이 따라 움직인다.
 func TestMeasureBaseline(t *testing.T) {
 	if os.Getenv("SHOWGI_MEASURE") == "" {
 		t.Skip("SHOWGI_MEASURE 미설정")
@@ -41,8 +37,7 @@ func TestMeasureBaseline(t *testing.T) {
 	}
 	defer pool.Close()
 
-	// 平手를 같이 잰다. 표에 없는 값이라 여기가 그 숫자를 남기는 하나뿐인 자리이고,
-	// 「기준점 0을 쓰기로 했다」의 근거가 그 값이다(패키지 주석).
+	// 平手를 같이 잰다. 표에 없는 값이라 여기가 그 숫자를 남기는 하나뿐인 자리다.
 	type row struct {
 		name string
 		sfen string
@@ -65,17 +60,17 @@ func TestMeasureBaseline(t *testing.T) {
 			t.Errorf("%s: %v", r.name, err)
 			continue
 		}
-		// 駒落ち의 0手目는 上手 차례라 엔진의 관점이 上手다(handicap.Handicap.SFEN).
-		// 표는 언제나 下手 관점이므로(Handicap.BaselineCp) 그때 부호를 뒤집는다 — 手番을
-		// SFEN에서 읽는 것은 이 파일이 그 규약을 두 벌 적지 않게 하려는 것이다.
-		// 手合割의 기준점은 언제나 cp 다 — 0手目에 詰み이 있을 리 없다.
+		// 駒落ち의 0手目는 上手 차례라 엔진의 관점이 上手다(handicap.Handicap.SFEN). 표는
+		// 언제나 下手 관점이므로(Handicap.BaselineCp) 그때 부호를 뒤집는다. 手番을 SFEN
+		// 에서 읽어야 이 파일이 그 규약을 두 벌 적지 않는다.
+		// 기준점은 언제나 cp 다. 0手目에 詰み이 있을 리 없다.
 		got, _ := res.Score.Centipawns()
 		if turnOf(sfen) == "w" {
 			got = -got
 		}
-		// 두 칸 다 실측값에서 센다. 「지금」 칸은 기준점을 뺀 자리에서 세므로
-		// (got - want) 平手 줄은 두 칸이 같아진다 — 기준점이 0이라 그 판의 판정이
-		// 한 비트도 바뀌지 않는다는 사실이 표에서 그대로 보여야 한다.
+		// 두 칸 다 실측값에서 센다. 「지금」 칸이 기준점을 뺀 자리에서 세므로(got - want)
+		// 平手 줄은 두 칸이 같아진다. 기준점 0이 판정을 바꾸지 않는다는 사실이 표에서
+		// 그대로 보여야 한다.
 		fmt.Printf("%-10s %8d %8d %8d %10d %10d\n",
 			r.name, got, r.want, got-r.want, triggerCp(got), triggerCp(got-r.want))
 	}
@@ -83,13 +78,12 @@ func TestMeasureBaseline(t *testing.T) {
 	fmt.Println("표를 옮길 때는 docs/journal 의 절과 이 패키지 주석의 숫자를 같이 고친다.")
 }
 
-// hirateSFEN 은 平手 초기 국면이다. shogi.StartSFEN 을 쓰지 않는다 — 이 파일이
-// handicap_test 패키지라 표 밖의 값을 직접 갖고 있는 편이 의존을 늘리지 않는다.
+// hirateSFEN 은 平手 초기 국면이다. 이 파일이 handicap_test 패키지라 shogi.StartSFEN 을
+// 들여오는 대신 값을 직접 갖고 있다.
 const hirateSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1"
 
-// turnOf 는 SFEN의 手番 칸이다. 읽지 못하면 平手의 手番인 "b" 로 답한다 — 표의 값이
-// 부호를 잘못 쓴 채 초록으로 지나가는 것보다, 여기서 平手처럼 취급해 차이 칸이 크게
-// 벌어지는 편이 눈에 띈다.
+// turnOf 는 SFEN의 手番 칸이다. 읽지 못하면 平手의 手番인 "b" 로 답한다. 그러면 차이
+// 칸이 크게 벌어져서 눈에 띈다.
 func turnOf(sfen string) string {
 	f := strings.Fields(sfen)
 	if len(f) < 2 {
@@ -99,9 +93,9 @@ func turnOf(sfen string) string {
 }
 
 // triggerCp 는 from 에서 입문 임계치를 넘기는 최소 낙폭이다. 이 숫자 때문에 이 패키지가
-// 있다 — 기준점을 쓰지 않은 값과 쓴 값의 차이는 journal §88.
+// 있고, 기준점을 쓰지 않은 값과 쓴 값의 차이는 journal §88.
 //
-// 무엇을 넣느냐가 옛 식과 지금 식을 가른다(위 Printf) — 옛 식은 실측 그대로, 지금 식은
+// 무엇을 넣느냐가 옛 식과 지금 식을 가른다(위 Printf). 옛 식은 실측 그대로, 지금 식은
 // 기준점을 뺀 값이다.
 func triggerCp(from int) int {
 	const threshold = 0.25

@@ -1,7 +1,7 @@
 // `/api/games`의 계약. 서버의 `internal/server/review.go`와 짝이다.
 //
-// 대국(`/ws/game`)과 달리 여기는 요청/응답이다 — 끝난 판은 스스로 움직이지 않으므로
-// 사람이 넘길 때만 오간다.
+// 대국(`/ws/game`)과 달리 여기는 요청/응답이다. 끝난 판은 스스로 움직이지 않으므로 사람이
+// 넘길 때만 오간다.
 
 import type { Player } from '@/protocol/game';
 
@@ -14,7 +14,7 @@ export type GameResult = 'win' | 'loss' | 'draw' | 'abandoned';
 export interface GameSummary {
   id: number;
   myColor: MyColor;
-  /** RFC3339. 끝나지 않은 판에는 `finishedAt`이 없다 — 빈 값으로 오면 1970년이 그려진다. */
+  /** RFC3339. 끝나지 않은 판에는 `finishedAt`이 없다. 빈 값으로 오면 1970년이 그려진다. */
   startedAt: string;
   finishedAt?: string;
   result?: GameResult;
@@ -24,9 +24,8 @@ export interface GameSummary {
    * 그 판의 手合割 이름(二枚落ち). 平手면 오지 않는다. 이름에 `Ja` 가 붙는 규약은
    * `Snapshot.handicapJa` 에 있다.
    *
-   * 없으면 平手다 — `isMatch` 와 같은 규약이고, 서버가 시작 국면에서 파생한다
-   * (`handicap.NameOf`). 이 줄이 없으면 駒落ち 판의 형세 그래프가 +2000대에서 시작하는
-   * 이유가 화면 어디에도 없어서, 되짚는 사람이 그것을 자기 실력으로 읽는다.
+   * 이 줄이 없으면 駒落ち 판의 형세 그래프가 +2000대에서 시작하는 이유가 화면 어디에도
+   * 없어서, 되짚는 사람이 그것을 자기 실력으로 읽는다.
    */
   handicapJa?: string;
   /**
@@ -34,25 +33,25 @@ export interface GameSummary {
    *
    * 없으면 AI 연습 대국이다(서버가 false 를 보내지 않는다). 대인전에는 엔진 판정이 없어서
    * 개입이 0건이고 평가치가 비는데, 화면이 그것을 「블런더 없이 잘 둔 판」으로 그리면
-   * 거짓말이 된다 — 값이 0인 것과 없는 것은 다르다(docs/journal §83).
+   * 거짓말이 된다(journal §83).
    */
   isMatch?: boolean;
   /**
    * 밖에서 둔 판을 가져온 것인가.
    *
    * 없으면 여기서 둔 판이다(서버가 false 를 보내지 않는다). 그 판에도 평가치와 개입이
-   * 있지만 **누구도 그 수를 막지 않았다** — 그 수는 기보에 그대로 남아 있다. 그래서
-   * 화면이 이 값으로 표식을 「介入」에서 「悪手」로 옮긴다(docs/journal §126).
+   * 있지만 **누구도 그 수를 막지 않았다**. 그 수는 기보에 그대로 남아 있고, 그래서 화면이
+   * 이 값으로 표식을 「介入」에서 「悪手」로 옮긴다(journal §126).
    */
   imported?: boolean;
   /**
    * 평가치를 지금 채우는 중인가. 대인전에만 온다.
    *
    * 대인전은 두는 동안 엔진이 돌지 않아서 평가치가 비어 있고, 판이 끝난 뒤 서버가 채운다.
-   * 기보는 기다리지 않는다 — 이 값이 참인 동안에도 판과 棋譜는 그대로 보인다.
+   * 기보는 기다리지 않는다. 이 값이 참인 동안에도 판과 棋譜는 그대로 보인다.
    *
-   * 서버 메모리라 배포에 끊긴다. 그때는 이 값이 사라지고 화면은 「남지 않았다」로
-   * 돌아간다 — 실제로 그 판에는 평가치가 붙지 않는다.
+   * 서버 메모리라 배포에 끊긴다. 그때는 이 값이 사라지고 화면은 「남지 않았다」로 돌아간다.
+   * 실제로 그 판에는 평가치가 붙지 않는다.
    */
   analyzing?: boolean;
 }
@@ -60,9 +59,8 @@ export interface GameSummary {
 /**
  * 기보의 한 수.
  *
- * `sfen`이 있어서 화면은 수를 두지 않는다. 대국의 반박 수순과 같은 자리다 —
- * 클라이언트가 스스로 두면 규칙 엔진을 한 벌 더 갖는 것이고, 어긋났을 때 어느 쪽이
- * 맞는지 알 수 없다.
+ * `sfen` 이 있어서 화면은 수를 두지 않는다. 대국의 반박 수순과 같은 자리다
+ * (`RefutationMove`).
  */
 export interface ReviewMove {
   ply: number;
@@ -80,13 +78,13 @@ export interface ReviewMove {
   /**
    * 플레이어 관점 cp. 없으면 그 手数에 평가치가 붙지 않았거나 詰み이고, 0(호각)과 다르다.
    *
-   * 詰み이면 이 칸이 비고 `mateIn` 이 찬다. 두 칸이 같이 오지 않는 것이 서버 쪽 규약이고
-   * (`store.Candidate` 와 같다), 그래서 화면은 언제나 `mateIn` 을 먼저 본다.
+   * 詰み이면 이 칸이 비고 `mateIn` 이 찬다. 두 칸이 같이 오지 않는 것이 서버 쪽 규약이라
+   * (`store.Candidate`) 화면은 언제나 `mateIn` 을 먼저 본다.
    */
   evalCp?: number;
   /** 詰み까지의 手数(플레이어 관점). 양수면 내가 詰ます 쪽이다. */
   mateIn?: number;
-  /** 王手를 받고 있는 玉의 칸(`5a`). 서버가 짚는다 — 화면은 규칙을 모른다. */
+  /** 王手를 받고 있는 玉의 칸(`5a`). 서버가 짚는다. 화면은 규칙을 모른다. */
   checked?: string;
 }
 
@@ -94,12 +92,12 @@ export interface ReviewMove {
  * 물러진 수 하나.
  *
  * 기보에 없는 것이 여기에 있다. `ply`는 물러진 수의 手数이고 그 수는 확정되지 않았으므로,
- * 그 국면을 보려면 `ply - 1` 手目의 판을 그려야 한다 — 물러진 수는 거기서 두어졌다.
+ * 그 국면을 보려면 `ply - 1` 手目의 판을 그려야 한다. 물러진 수는 거기서 두어졌다.
  */
 export interface ReviewIntervention {
   ply: number;
   kind: string;
-  /** 기계용 코드. 화면에 나가지 않는다 — 나가는 것은 `categoryJa`다. */
+  /** 기계용 코드. 화면에 나가지 않는다. 나가는 것은 `categoryJa`다. */
   category: string;
   /** 카테고리의 짧은 이름(タダ捨て). 서버가 만든다. */
   categoryJa?: string;
@@ -110,11 +108,11 @@ export interface ReviewIntervention {
   levelBucket?: string;
   retractedUsi?: string;
   /**
-   * 그 수를 두면 얼마가 되나 — 플레이어 관점 cp. `moves[].evalCp` 와 같은 자다.
+   * 그 수를 두면 얼마가 되나(플레이어 관점 cp). `moves[].evalCp` 와 같은 자다.
    *
-   * 없을 수 있다. `005_intervention_cp.sql` 앞에 기록된 판에는 영원히 없다 — 그때는
-   * 낙폭만 남겼고 그것은 되돌릴 수 없다(승률 차라서 미지수 둘에 식 하나다). 화면은 그
-   * 자리를 다시 재서 채운다(`useMoveEvals`).
+   * 없을 수 있다. `005_intervention_cp.sql` 앞에 기록된 판에는 영원히 없다. 그때는 낙폭만
+   * 남겼고 그것은 되돌릴 수 없다(승률 차라서 미지수 둘에 식 하나다). 화면은 그 자리를 다시
+   * 재서 채운다(`useMoveEvals`).
    */
   afterCp?: number;
   /** 그 수 뒤의 詰み까지의 手数(플레이어 관점). `afterCp` 와 배타적이다. */
@@ -128,9 +126,9 @@ export interface ReviewIntervention {
 /**
  * 사람이 스스로 무른 수 하나(待った).
  *
- * `ReviewIntervention` 과 갈라져 있다. 판이 되돌아간 것은 같지만 시작한 쪽이
- * 반대다 — 저쪽은 AI가 막은 것이고 이쪽은 사람이 되돌리고 싶었던 것이라, 되짚기에서
- * 읽는 이야기가 정반대다. 카테고리도 문구도 없는 것이 그래서다: 무르기에는 판정이 없다.
+ * `ReviewIntervention` 과 갈라져 있다. 저쪽은 AI가 막은 것이고 이쪽은 사람이 되돌리고
+ * 싶었던 것이라, 되짚기에서 읽는 이야기가 정반대다. 무르기에는 판정이 없어서 카테고리도
+ * 문구도 없다.
  */
 export interface ReviewUndo {
   /** 무른 수의 手数. 그 수는 기보에 없으므로 그 국면은 `ply-1` 手目의 판이다. */
@@ -150,7 +148,7 @@ export interface GameDetail extends GameSummary {
   /**
    * 이 판의 「형세 0」(플레이어 관점 cp). 平手면 오지 않는다.
    *
-   * `evalCp` 와 같은 관점이라 그대로 빼면 된다. 두 자리가 이 값을 뺀다 — 형세
+   * `evalCp` 와 같은 관점이라 그대로 빼면 된다. 두 자리가 이 값을 뺀다. 형세
    * 그래프(`EvalGraph`)와 후보 줄의 색(`evalTone`)이다. 빼지 않으면 駒落ち 판의 곡선이
    * 천장에 붙고 「호각」 선이 핸디캡을 다 잃은 자리에 그려지며, 후보 줄은 전부 최대 파랑이 된다.
    */
@@ -158,8 +156,8 @@ export interface GameDetail extends GameSummary {
   moves: ReviewMove[];
   interventions: ReviewIntervention[];
   /**
-   * 사람이 스스로 무른 수들. 옛 판에는 빈 배열이다 — `008_game_undos.sql` 앞에
-   * 둔 판에는 이 기록이 아예 없다.
+   * 사람이 스스로 무른 수들. 옛 판에는 빈 배열이다. `008_game_undos.sql` 앞에 둔 판에는
+   * 이 기록이 아예 없다.
    */
   undos: ReviewUndo[];
 }

@@ -50,8 +50,7 @@ var ErrNoQueueSeat = errors.New("store: no queue seat")
 
 // SweepQueue 는 오래된 행을 걷는다. 다시 물어보지 않는 대기자와 찾아가지 않은 자리 둘이다.
 //
-// 대기열에 서는 그 요청이 부른다 — 리더도 sweeper 도 두지 않는 것이 이 대기열의
-// 설계다(journal §92).
+// 대기열에 서는 그 요청이 부른다. 리더도 sweeper 도 두지 않는 근거는 journal §92.
 func (s *Store) SweepQueue(ctx context.Context, staleBefore, pickupBefore time.Time) error {
 	err := s.q.SweepQueue(ctx, db.SweepQueueParams{
 		SeenAt:    stamp(staleBefore),
@@ -84,8 +83,7 @@ func (s *Store) JoinQueue(ctx context.Context, userID int64, rating, deviation f
 
 // TakeQueueSeat 은 잡힌 자리를 가져오고 그 행을 지운다. 아직이면 ErrNoQueueSeat.
 //
-// 한 번만 답한다. 읽는 것과 지우는 것이 한 문장이라(query/queue.sql) 같은 자리가 두 번
-// 나가지 않는다 — 나가면 화면이 두 번 방으로 가고, 두 번째는 남의 자리를 노린다.
+// 한 번만 답한다. 읽는 것과 지우는 것이 한 문장이다(query/queue.sql).
 func (s *Store) TakeQueueSeat(ctx context.Context, userID int64) (QueueSeat, error) {
 	row, err := s.q.TakeQueueSeat(ctx, userID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -112,7 +110,7 @@ func (s *Store) LeaveQueue(ctx context.Context, userID int64) error {
 	return nil
 }
 
-// QueueWaiting 은 지금 대기열에 서 있는 사람 수다. 화면에 나가지 않는다 — 확인용이다.
+// QueueWaiting 은 지금 대기열에 서 있는 사람 수다. 화면에 나가지 않는다.
 func (s *Store) QueueWaiting(ctx context.Context, freshAfter time.Time) (int, error) {
 	n, err := s.q.CountQueueWaiting(ctx, stamp(freshAfter))
 	if err != nil {
@@ -121,8 +119,7 @@ func (s *Store) QueueWaiting(ctx context.Context, freshAfter time.Time) (int, er
 	return int(n), nil
 }
 
-// QueuePairOptions 는 후보를 고르는 창이다. 정책은 부르는 쪽이 정한다 — 여기 값을 두면
-// 그것을 흔들어 보는 데 DB 가 필요해진다(internal/queue).
+// QueuePairOptions 는 후보를 고르는 창이다. 값은 부르는 쪽이 정한다(internal/queue).
 type QueuePairOptions struct {
 	// FreshAfter 는 후보를 이 시각 뒤로 다시 물어본 사람으로 한정한다.
 	FreshAfter time.Time
@@ -138,9 +135,8 @@ type QueuePairOptions struct {
 // 트랜잭션 하나 안에서 세 가지를 한다: 내 행과 후보들을 잠그고(FOR UPDATE SKIP LOCKED),
 // choose 가 고르고, 그 결과를 짝의 행에 적고 내 행을 지운다.
 //
-// 잠금이 전부 SKIP LOCKED 라 누구도 기다리지 않는다. 그래서 A가 B를, B가 A를 동시에
-// 집어도 교착이 없고 — 한쪽만 성공한다. 다른 쪽은 자기 행을 잠그지 못해서 이번 시도를
-// 포기하고, 다음 재시도에서 방 쪽지를 읽는다.
+// 잠금이 전부 SKIP LOCKED 라 누구도 기다리지 않는다. A가 B를, B가 A를 동시에 집어도
+// 교착이 없고 한쪽만 성공한다(journal §98).
 //
 // choose 는 판단만 한다. DB를 만지지 않고 즉시 돌아와야 한다 — 트랜잭션이 열려 있고
 // 그 안에 남의 행이 잠겨 있다.
@@ -168,9 +164,8 @@ func (s *Store) PairInQueue(
 		return QueuePairing{}, fmt.Errorf("lock queue waiter %d: %w", userID, err)
 	}
 
-	// 잠그는 폭이 내 레이팅 주변이다. 전부 잠그면 붙을 수 없는 사람까지 잠기고, 그동안
-	// 그 행을 노리던 다른 짝짓기가 헛돈다 — 누구도 기다리지 않는 대신(SKIP LOCKED)
-	// 그 시도를 포기하기 때문이다.
+	// 잠그는 폭이 내 레이팅 주변이다. 전부 잠그면 붙을 수 없는 사람까지 잠기고, 그 행을
+	// 노리던 다른 짝짓기가 헛돈다(query/queue.sql).
 	rows, err := q.LockQueueCandidates(ctx, db.LockQueueCandidatesParams{
 		UserID:   userID,
 		SeenAt:   stamp(opts.FreshAfter),

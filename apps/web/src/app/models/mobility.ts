@@ -1,12 +1,7 @@
-// 駒에 찍히는 움직임 표식.
+// 駒에 찍히는 움직임 표식. 무엇을 어떤 모양으로 그리는지는 journal §22.
 //
-// 초심자용 실물 駒가 하는 것과 같다 — 한 칸 가는 곳은 점, 쭉 가는 곳은 화살표,
-// 뛰어넘는 곳은 점선. 「香車가 어떻게 가더라」를 외우게 하지 않는 것이 이 앱의
-// 목적에 곧바로 닿는다.
-//
-// 규칙 판단을 하지 않는다. 여기 있는 것은 駒의 *생김새*뿐이다.
-// 실제로 어디에 둘 수 있는지는 서버가 `legalMoves` 로 주고, 이 파일은 그걸 모른다 —
-// 막힌 길도 화살표는 그대로 그려진다. 실물 駒에 새겨진 그림과 같은 성격이다.
+// 규칙 판단을 하지 않는다. 여기 있는 것은 駒의 생김새뿐이고, 어디에 둘 수 있는지는 서버가
+// `legalMoves` 로 준다. 막힌 길도 화살표는 그대로 그려진다.
 
 /** 3×3 격자 위의 방향. `n` 이 그 駒가 나아가는 쪽이다(後手는 駒째로 뒤집혀서 같이 돈다). */
 export type GridDirection = 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'nw';
@@ -17,9 +12,8 @@ export type JumpDirection = 'nne' | 'nnw';
 export type Direction = GridDirection | JumpDirection;
 
 /**
- * 표식 하나. 뜀을 따로 가르는 것은 뜻이 다르기 때문이다 — 점은 「그 칸」이라 두 칸 앞을
- * 가리킬 수 없고, 화살표는 「지나간다」라서 桂가 하지 않는 일을 가르친다. 표식의 종류가 곧
- * 규칙이라 세 번째가 필요하다.
+ * 표식 하나. 뜀을 따로 가르는 것은 점이 「그 칸」이라 두 칸 앞을 가리킬 수 없고, 화살표는
+ * 「지나간다」라서 桂가 하지 않는 일을 가르치기 때문이다.
  */
 export type Mark = { reach: 'step' | 'slide'; direction: GridDirection } | { reach: 'jump'; direction: JumpDirection };
 
@@ -28,7 +22,7 @@ const slide = (...directions: GridDirection[]): Mark[] =>
   directions.map((direction) => ({ reach: 'slide', direction }));
 const jump = (...directions: JumpDirection[]): Mark[] => directions.map((direction) => ({ reach: 'jump', direction }));
 
-/** 金의 움직임. 성한 歩·香·桂·銀이 전부 이것이 된다 — 그래서 한 곳에 둔다. */
+/** 金의 움직임. 성한 歩·香·桂·銀이 전부 이것이 되어서 한 곳에 둔다. */
 const GOLD = step('n', 'ne', 'e', 's', 'w', 'nw');
 
 const MOBILITY: Record<string, Mark[]> = {

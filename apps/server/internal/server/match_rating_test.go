@@ -42,7 +42,7 @@ func ratingRecords(t *testing.T) (*matchRecords, int64, int64) {
 	return newMatchRecords(st, intervene.Beginner), ids[0], ids[1]
 }
 
-// entry 는 판이 끝난 방 하나를 손으로 세운다. 기록기는 만들지 않는다 — 여기서 재는 것은
+// entry 는 판이 끝난 방 하나를 손으로 세운다. 기록기는 만들지 않는다. 여기서 재는 것은
 // 그 뒤의 레이팅 갱신이다(match_test.go 의 곁장부와 같은 방식).
 func finishedEntry(black, white int64, blackResult, whiteResult match.Result) *roomRecord {
 	return &roomRecord{
@@ -82,8 +82,7 @@ func TestADecidedMatchMovesBothRatings(t *testing.T) {
 	if lost.Value >= rating.Default {
 		t.Errorf("진 쪽이 %.1f, want %d 아래", lost.Value, rating.Default)
 	}
-	// 판을 뒀으므로 불확실성이 줄어야 한다. 그것이 「알게 됐다」의 표현이고,
-	// 매칭 밴드가 이 값을 그대로 더한다.
+	// 판을 뒀으므로 불확실성이 줄어야 한다. 매칭 밴드가 이 값을 그대로 더한다.
 	if won.Deviation >= rating.MaxDeviation {
 		t.Errorf("불확실성이 %.1f, want %d 아래", won.Deviation, rating.MaxDeviation)
 	}
@@ -125,8 +124,7 @@ func TestAHalfFinishedMatchMovesNothing(t *testing.T) {
 	}
 }
 
-// 무승부는 같은 실력끼리라면 누구도 움직이지 않는다. 그래도 판 수는 는다 —
-// 불확실성이 줄었기 때문이다.
+// 무승부는 같은 실력끼리라면 누구도 움직이지 않는다. 그래도 불확실성이 줄어 판 수는 는다.
 func TestADrawStillCountsAsAGame(t *testing.T) {
 	records, black, white := ratingRecords(t)
 
@@ -164,8 +162,8 @@ func TestTheFirstRatingComesFromTheEngineEstimate(t *testing.T) {
 	}
 }
 
-// 표본이 모자라면 시드를 만들지 않는다. 하한은 skill 이 정한다 — 여기서 따로 정하면
-// 이름만 다른 두 하한이 생긴다.
+// 표본이 모자라면 시드를 만들지 않는다. 하한은 skill 이 정한다. 여기서 따로 정하면 이름만
+// 다른 두 하한이 생긴다.
 func TestTooFewSamplesStayUnrated(t *testing.T) {
 	records, uid, _ := ratingRecords(t)
 

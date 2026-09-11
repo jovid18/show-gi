@@ -13,9 +13,9 @@ import (
 //
 //	SHOWGI_MEASURE=1 go test ./internal/game/ -run MeasureTagHintLoad -v
 //
-// 재는 판은 사람이 둔 첫 판이다(games.id=397 · 298手 · 先手 · docs/playtests/2026-08-13-human-1.md).
-// 그 판이 종반에 멈췄고, 여기서 나오는 두 숫자가 그 원인의 절반이다 — 몇 번 여는가와
-// 한 번이 얼마인가. 나머지 절반은 엔진 쪽 시한이고 그건 deadline_test.go 다.
+// 재는 판은 사람이 둔 첫 판이다(games.id=397 · 298手 · 先手 ·
+// docs/playtests/2026-08-13-human-1.md). 그 판이 종반에 멈췄고, 여기서 나오는 두
+// 숫자가 그 원인의 절반이다. 나머지 절반은 엔진 쪽 시한이고 deadline_test.go 가 잰다.
 
 // humanOneKifu 는 그 판의 기보다. 로컬 DB가 초기화되면 위 문서와 이 파일만 남는다.
 func humanOneKifu(t *testing.T) []string {
@@ -68,7 +68,7 @@ func TestMeasureTagHintLoad(t *testing.T) {
 			if len(opts) > 0 {
 				openEvery++
 				// 탐색은 후보 수와 무관하게 한 번이다(gateTesujiOptions). 옛 자는
-				// 1 + min(후보, 상한) 이었고 그 숫자가 §56의 586·131이다 — §74에서 바뀌었다.
+				// 1 + min(후보, 상한) 이었고 그 숫자가 §56의 586·131이다(§74에서 바뀌었다).
 				searchesEvery++
 				cands += len(opts)
 				mostCands = max(mostCands, len(opts))

@@ -4,8 +4,8 @@ import { hrefOf, navigate } from '@/routes/router';
 /**
  * 段級 하나를 눈금과 이름으로 그린다.
  *
- * 눈금이 17칸이라 하나하나가 가늘다 — 그래서 막대 하나에 채운 만큼만 칠한다. 게이지를
- * 도트로 그리는 相手の強さ(5칸)와는 칸 수만 다르다.
+ * 눈금이 17칸이라 하나하나가 가늘어서 막대 하나에 채운 만큼만 칠한다. 게이지를 도트로 그리는
+ * 相手の強さ(5칸)와는 칸 수만 다르다.
  */
 function Rank({ rank, label }: { rank: SkillRank; label: string }) {
   const filled = rank.max > 0 ? (rank.step / rank.max) * 100 : 0;
@@ -23,9 +23,9 @@ function Rank({ rank, label }: { rank: SkillRank; label: string }) {
 /**
  * 이 판에서 棋力の目安가 어떻게 움직였나.
  *
- * 「目安」라고 적는 것이 이 블록에서 제일 중요한 한 글자다. 우리가 아는 것은 임계치에
- * 대한 낙폭뿐이고(`skill.Estimate`) 그것을 道場や将棋ウォーズ의 段級에 맞춰 본 적이 없다 —
- * 그냥 「8級」이라고 쓰면 초심자는 그것을 공인된 실력으로 읽는다.
+ * 「目安」를 빼지 않는다. 우리가 아는 것은 임계치에 대한 낙폭뿐이고(`skill.Estimate`) 그것을
+ * 道場や将棋ウォーズ의 段級에 맞춰 본 적이 없다. 그냥 「8級」이라고 쓰면 초심자는 그것을 공인된
+ * 실력으로 읽는다.
  *
  * before 가 없으면 화살표를 그리지 않는다. 첫 판이면 잰 적이 없고, 그때 기준선을 「시작할
  * 때의 실력」으로 그리면 누구도 재지 않은 숫자가 사람에 대한 판정으로 굳는다.
@@ -53,13 +53,12 @@ function SkillChange({ skill }: { skill: NonNullable<GameSummary['skill']> }) {
 }
 
 /**
- * 「이 국면을 다시 봐라」 — 그 판에서 낙폭이 가장 컸던 자리 하나.
+ * 「이 국면을 다시 봐라」. 그 판에서 낙폭이 가장 컸던 자리 하나다.
  *
- * 링크로 그린다. 회차 2 #2가 요구한 것은 「총평이 국면을 안 짚는다」인데,
- * 手数를 문장에 적어 두면 사람이 그 숫자를 들고 되짚기에서 직접 찾아가야 한다.
+ * 문장이 아니라 링크로 그린다(회차 2 #2 · journal §64).
  *
  * 여는 자리는 물러진 수의 한 수 앞이다. 물러진 수는 기보에 없으므로(`game.Recorder`)
- * `ply` 그 자체를 열면 그 수가 없는 판이 나온다. `ply - 1` 이 「다시 생각할 국면」이다.
+ * `ply` 그 자체를 열면 그 수가 없는 판이 나온다.
  */
 function Focus({ focus, gameId }: { focus: NonNullable<GameSummary['stats']['focus']>; gameId: number }) {
   const route = { name: 'review', id: gameId, ply: Math.max(focus.ply - 1, 0) } as const;
@@ -86,9 +85,8 @@ function Focus({ focus, gameId }: { focus: NonNullable<GameSummary['stats']['foc
 /**
  * 대국이 끝난 뒤의 총평.
  *
- * 문장과 숫자를 나눠 그린다. 문장은 판이 어떤 모양이었는지를 말하고 숫자는 표로 나온다 —
- * 같은 수를 두 곳에 두면 어긋났을 때 어느 쪽이 맞는지 알 수 없어서, 문장을 만드는 쪽이
- * 애초에 숫자를 받지 않는다(`explain.GameFacts`).
+ * 문장과 숫자를 나눠 그린다. 같은 수를 두 곳에 두면 어긋났을 때 어느 쪽이 맞는지 알 수 없어서,
+ * 문장을 만드는 쪽이 애초에 숫자를 받지 않는다(`explain.GameFacts`).
  *
  * 아직 오지 않은 동안에도 자리를 잡는다. 기록이 다 쓰이기를 기다려 늦게 오는데, 그때 자리가
  * 없으면 문장이 도착하는 순간 아래 버튼들이 밀려 내려가 누르던 손이 어긋난다.
@@ -133,11 +131,11 @@ export function Summary({ summary, imported = false }: { summary: GameSummary | 
             </ul>
           )}
 
-          {/* 짚는 자리는 표 바로 아래다 — 카테고리 목록이 「무엇에 걸렸나」이고
-              이 줄이 「그중 어디를 보면 되나」라, 붙어 있어야 이어서 읽힌다.
+          {/* 짚는 자리는 표 바로 아래다. 카테고리 목록이 「무엇에 걸렸나」이고 이 줄이
+              「그중 어디를 보면 되나」라, 붙어 있어야 이어서 읽힌다.
 
-              번호가 없으면 그리지 않는다. 되짚기가 부르는 총평에는 `gameId` 가 없고,
-              그쪽 화면은 이미 그 판을 열고 있다. */}
+              번호가 없으면 그리지 않는다. 되짚기가 부르는 총평에는 `gameId` 가 없고, 그쪽
+              화면은 이미 그 판을 열고 있다. */}
           {summary.stats.focus && summary.gameId !== undefined && (
             <Focus focus={summary.stats.focus} gameId={summary.gameId} />
           )}

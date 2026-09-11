@@ -15,9 +15,8 @@ const kataminoOneMoveAway = "8k/9/9/9/9/9/9/6SK1/5G3 b - 1"
 
 // 囲い는 착수 전에 권하지 않는다.
 //
-// 이름을 붙이는 쪽(styleTags)에는 그대로 남는다 — 완성된 형태에 이름을 다는 것은 사실이다.
-// 뺀 것은 「이 수를 두면 이름이 생긴다」 쪽이다. 짓다 만 형태에 이름이 없어서 권할
-// 「그 한 수」가 구현한 종류 수로 정해진다 — 실측은 journal §44.
+// 이름을 붙이는 쪽(styleTags)에는 그대로 남는다. 뺀 것은 「이 수를 두면 이름이
+// 생긴다」 쪽이고, 근거는 journal §44.
 func TestPreMoveHintsLeaveCastlesOut(t *testing.T) {
 	s := newSession(t, Config{
 		Opponent:   legalOpponent{},
@@ -62,9 +61,8 @@ func TestFinishedCastlesStillGetTheirName(t *testing.T) {
 
 // 전법도 착수 전에 권하지 않는다.
 //
-// 囲い와 이유가 다르다. 저쪽은 「짓다 만 형태에 이름이 없다」였고(§44), 이쪽은 飛를 어느
-// 筋으로 振るか가 그 사람이 고르는 것이라서다. 첫 수 앞에서 「中飛車になります」가 뜨면
-// 그건 지시가 되고, 사람이 실제로 그렇게 읽었다(회차 1 #0 · §71).
+// 囲い와 이유가 다르다. 飛를 어느 筋으로 振るか는 그 사람이 고르는 것이라, 첫 수
+// 앞에서 「中飛車になります」가 뜨면 지시가 된다(회차 1 #0 · journal §71).
 func TestPreMoveHintsLeaveFormationsOut(t *testing.T) {
 	s := newSession(t, Config{
 		Opponent:   legalOpponent{},

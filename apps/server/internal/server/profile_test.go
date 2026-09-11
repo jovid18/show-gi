@@ -36,8 +36,7 @@ func TestShareUsesTheWholeCount(t *testing.T) {
 	}
 }
 
-// 순서는 총평과 같은 규칙이다 — 많은 순, 같으면 코드 순. 무작위면 새로고침마다
-// 「1위」가 바뀐다.
+// 순서는 총평과 같은 규칙이다. 무작위면 새로고침마다 「1위」가 바뀐다.
 func TestWeaknessOrderIsStable(t *testing.T) {
 	counts := map[string]int{"zeta": 4, "alpha": 4, "mid": 9, "low": 2}
 	for range 20 {
@@ -88,7 +87,7 @@ func TestStylesOfDropsUnknownCodes(t *testing.T) {
 	}
 }
 
-// 순서가 흔들리면 새로고침마다 목록이 뒤집힌다 — 약점 목록과 같은 규칙이다.
+// 순서가 흔들리면 새로고침마다 목록이 뒤집힌다. 약점 목록과 같은 규칙이다.
 func TestStylesOfOrdersByGamesThenCode(t *testing.T) {
 	got := stylesOf(map[string]int{"hon_mino": 1, "kin_yagura": 5, "kata_mino": 1})
 	if len(got) != 3 {

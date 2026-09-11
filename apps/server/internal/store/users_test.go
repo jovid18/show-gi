@@ -67,8 +67,8 @@ func TestCreateGameKeepsUserID(t *testing.T) {
 	}
 }
 
-// 여기가 이 PR이 닫은 구멍이다. 로그인이 붙는 순간 /api/games 가 남의 기보와
-// 「그 사람이 어디서 막혔나」를 그대로 열게 된다(docs/02-architecture.md §7 위협 2).
+// 주인을 거르지 않으면 /api/games 가 남의 기보와 「그 사람이 어디서 막혔나」를 그대로
+// 연다(docs/02-architecture.md §7 위협 2).
 func TestGameRecordIsScopedToOwner(t *testing.T) {
 	s := open(t)
 	mine, theirs := owner(t, s, "mine"), owner(t, s, "theirs")

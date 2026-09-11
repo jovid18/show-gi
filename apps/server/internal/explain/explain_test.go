@@ -9,8 +9,8 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 )
 
-// allCategories 는 카테고리 전부다. 새 카테고리가 붙으면 여기에 더한다 —
-// 아래 테스트들이 「전부에 대해」를 단정하므로, 빠뜨리면 그 단정이 경고 없이 약해진다.
+// allCategories 는 카테고리 전부다. 아래 테스트들이 「전부에 대해」를 단정하므로,
+// 새 카테고리를 빠뜨리면 그 단정이 경고 없이 약해진다.
 var allCategories = []intervene.Category{
 	intervene.CategoryMissedMate,
 	intervene.CategoryLetsMate,
@@ -33,7 +33,7 @@ func TestRenderCarriesTheFacts(t *testing.T) {
 		facts Facts
 		want  []string
 	}{{
-		// 08-playtest.md §7: 「어느 駒인지, 몇 개가 노리는지를 숫자로」.
+		// 08-playtest.md §7: 「어느 駒인지, 몇 개가 지키고 있는지를 숫자로」.
 		name: "タダ捨ては駒と枚数を言う",
 		facts: Facts{
 			Category: intervene.CategoryHangsPiece, Known: true,
@@ -67,8 +67,8 @@ func TestRenderCarriesTheFacts(t *testing.T) {
 	}
 }
 
-// 사실이 없으면 지어내지 않는다. 카테고리별 기본 문구로 떨어지고, 그 문구는 숫자를
-// 말하지 않는다 — 「0枚」이나 「그 駒」처럼 비어 있는 값이 문장에 새면 그것이 곧 거짓이다.
+// 사실이 없으면 지어내지 않는다. 카테고리별 기본 문구로 떨어지고, 「0枚」처럼 비어 있는
+// 값이 문장에 새지 않는다.
 func TestRenderInventsNothingWithoutFacts(t *testing.T) {
 	for _, c := range allCategories {
 		got := Render(Facts{Category: c})
@@ -85,11 +85,10 @@ func TestRenderInventsNothingWithoutFacts(t *testing.T) {
 
 // 결정적 문구는 수를 짚지 않는다(01-core.md §1). 짚어주는 순간 플레이어가 생각을 멈춘다.
 //
-// 칸은 「숫자 + 段」의 모양이다(8四). 段의 한자만 찾으면 「一手」의 一에 걸리므로
-// 붙어 있는 것만 본다 — 「2枚」에는 段이 없어서 걸리지 않는다.
+// 칸은 「숫자 + 段」의 모양이다(8四). 段의 한자만 찾으면 「一手」의 一에 걸리므로 붙어
+// 있는 것만 본다.
 //
-// Facts 에 칸이 아예 없으므로 지금은 나올 수 없고, 이 테스트는 누가 칸을 Facts 에
-// 더하는 날 그것을 잡는다.
+// Facts 에 칸이 아예 없어 지금은 나올 수 없다. 누가 칸을 Facts 에 더하는 날 걸린다.
 func TestRenderNamesNoSquare(t *testing.T) {
 	square := regexp.MustCompile(`[0-9０-９][一二三四五六七八九]`)
 	full := Facts{
@@ -106,8 +105,7 @@ func TestRenderNamesNoSquare(t *testing.T) {
 
 // 한글이 한 글자도 없어야 한다.
 //
-// 사람 눈으로 지키면 결국 샌다(shogi 의 사유 문구에 같은 테스트가 있다). 문구가 코드에
-// 박혀 있으니 기계가 전수로 볼 수 있고, 그러면 새는 길이 남지 않는다.
+// 사람 눈으로 지키면 결국 샌다. 문구가 코드에 박혀 있으니 기계가 전수로 본다.
 func TestNoKoreanReachesTheUser(t *testing.T) {
 	texts := map[string]string{"unknownMessage": unknownMessage}
 	for c, m := range baseMessages {

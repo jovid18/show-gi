@@ -16,8 +16,8 @@ import (
 
 // scriptedMate 는 정해진 手数의 詰み을 돌려준다. solver 없이 게이지 배선만 본다.
 //
-// 무엇을 물었는지도 남긴다. 게이지의 요점이 「어느 국면을 묻는가」라서, 세기만
-// 확인하면 한 수 어긋난 국면을 물어도 테스트가 초록으로 남는다.
+// 무엇을 물었는지도 남긴다. 세기만 확인하면 한 수 어긋난 국면을 물어도 테스트가
+// 초록으로 남는다.
 type scriptedMate struct {
 	mu    sync.Mutex
 	plies int
@@ -177,7 +177,7 @@ func TestMateGaugeAsksTheCurrentPosition(t *testing.T) {
 	}
 }
 
-// 상대가 생각하는 동안에는 게이지가 꺼진다 — 그 세기는 이미 지나간 국면의 것이다.
+// 상대가 생각하는 동안에는 게이지가 꺼진다. 그 세기는 이미 지나간 국면의 것이다.
 func TestMateGaugeGoesDarkWhileOpponentThinks(t *testing.T) {
 	mate := &scriptedMate{plies: 1}
 	opp := &scriptedOpponent{moves: []string{"3c3d"}, delay: 300 * time.Millisecond}
@@ -224,7 +224,7 @@ func TestMateGaugeFailureDoesNotStopTheGame(t *testing.T) {
 	}
 }
 
-// Mate 가 없으면 게이지 없이 대국한다 — 엔진·DB와 같은 판단이다.
+// Mate 가 없으면 게이지 없이 대국한다.
 func TestNoMateSearcherMeansNoGauge(t *testing.T) {
 	opp := &scriptedOpponent{moves: []string{"3c3d"}}
 	s := newSession(t, Config{Opponent: opp, HumanColor: shogi.Black})
@@ -246,9 +246,9 @@ func TestNoMateSearcherMeansNoGauge(t *testing.T) {
 
 // 실제 solver 로 게이지가 끝까지 도는가.
 //
-// 가짜로는 잡히지 않는 것이 하나 있다 — solver 가 「수번 측의 詰み」을 답한다는 전제다.
-// 그 전제가 틀리면 게이지는 내 玉이 위험할 때 켜지는, 정확히 반대의 물건이 된다.
-// SHOWGI_MATE_CMD 가 없으면 건너뛴다 — CI 러너에는 엔진이 없다(README).
+// 가짜로는 잡히지 않는 전제가 하나 있다. solver 가 「수번 측의 詰み」을 답한다는 것이고,
+// 틀리면 게이지가 내 玉이 위험할 때 켜지는 정확히 반대의 물건이 된다.
+// SHOWGI_MATE_CMD 가 없으면 건너뛴다(README).
 //
 //	SHOWGI_MATE_CMD=/opt/yaneuraou/run-mate go test ./internal/game/ -run RealMateEngine -v
 func TestMateGaugeAgainstRealMateEngine(t *testing.T) {

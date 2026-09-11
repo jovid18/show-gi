@@ -20,47 +20,42 @@ import (
 
 // 밖에서 둔 자기 기보를 가져오는 표면. 근거와 정한 것은 journal §126.
 //
-// 두 단계다. 읽기(POST /api/kifu/parse)는 엔진도 DB도 쓰지 않고 즉시 답하며, 가져오기
-// (POST /api/kifu/import)가 판을 만들어 줄에 세운다 — 잘못 읽은 기보에 엔진 몇 분을
-// 쓰지 않기 위해서고, 그 사이에 사람이 手数와 앞뒤의 수를 눈으로 확인한다.
+// 두 단계다. 읽기(POST /api/kifu/parse)는 엔진도 DB도 쓰지 않고 즉시 답하고, 가져오기
+// (POST /api/kifu/import)가 판을 만들어 줄에 세운다. 그 사이에 사람이 手数와 앞뒤의 수를
+// 눈으로 확인하므로, 잘못 읽은 기보에 엔진 몇 분을 쓰지 않는다.
 //
-// 원문을 두 번 받는다. 서버에 중간 상태를 두지 않기 위해서다 — 파싱이 결정적이라 같은
-// 원문이 같은 결과를 주고, 그 한 번을 아끼자고 세션 표를 만들 값이 없다.
+// 원문을 두 번 받는다. 서버에 중간 상태를 두지 않기 위해서다. 파싱이 결정적이라 같은
+// 원문이 같은 결과를 준다.
 //
 // 로그인한 사람만이다. 익명끼리는 구별할 수단이 없어서(002_anonymous_games.sql)
 // 「누구의 기보인가」에 답할 수가 없다.
 
-// maxImportsPerDay 는 한 사람이 하루에 가져올 수 있는 판 수다.
+// maxImportsPerDay 는 한 사람이 하루에 가져올 수 있는 판 수다. 엔진 예산의 상한이고,
+// 판 하나가 §91 실측으로 2~8분이다.
 //
-// 엔진 예산의 상한이다. 판 하나가 手数만큼의 판정이고 §91 실측으로 판당 2~8분이라,
-// 이 값이 곧 「한 사람이 분석 대를 얼마나 오래 잡을 수 있나」다.
-//
-// [미확정] 표본 없이 정한 값이다. 사람이 하루에 되짚고 싶은 판이 몇인지를 재 보면
-// 그때 옮긴다.
+// [미확정] 표본 없이 정한 값이다.
 const maxImportsPerDay = 10
 
 // maxImportPlies 는 한 판으로 받아들이는 手数의 상한이다.
 //
 // 결정적 파서에도 건다. 정규화 계층의 같은 상한은(kifunorm.MaxMoves) 자기 응답을 묶는
-// 것이라, 여기를 걸지 않으면 KIF 하나로 건너뛴다 — 千日手를 ValidateMove 가 막지 않으므로
+// 것이라 여기를 걸지 않으면 KIF 하나로 건너뛴다. 千日手를 ValidateMove 가 막지 않으므로
 // 합법 수순만으로 몇 천 手를 적을 수 있고, 그 판이 手数만큼의 판정을 줄에 세운다.
 //
 // 값을 실측으로 잡지 않았다 [미확정]. 막으려는 것은 千日手를 이어 붙인 수순이고,
 // 「사람이 둔 한 판」은 이 값에 닿지 않는다. 실사용에서 닿는 기보가 나오면 그때 옮긴다.
 const maxImportPlies = 512
 
-// importPreviewHead·importPreviewTail 은 미리보기에 세우는 手数다.
-//
-// 앞뒤를 같이 보여 준다. 앞만 보여 주면 「뒤가 잘렸는가」를 사람이 알 수 없고, 그것이
-// 가져오기에서 가장 흔한 오류다.
+// importPreviewHead·importPreviewTail 은 미리보기에 세우는 手数다. 앞만 보여 주면 「뒤가
+// 잘렸는가」를 사람이 알 수 없고, 그것이 가져오기에서 가장 흔한 오류다.
 const (
 	importPreviewHead = 6
 	importPreviewTail = 3
 )
 
-// importBodyMax 는 요청 몸통의 상한이다. 원문 상한(kifunorm.MaxInput)보다 넉넉하다 —
-// JSON 이스케이프와 나머지 칸이 원문 위에 얹히므로, 딱 맞게 걸면 상한 안쪽의 기보가
-// 길이 때문에 거절된다.
+// importBodyMax 는 요청 몸통의 상한이다. 원문 상한(kifunorm.MaxInput)보다 넉넉하다.
+// JSON 이스케이프와 나머지 칸이 원문 위에 얹히므로, 딱 맞게 걸면 상한 안쪽의 기보가 길이
+// 때문에 거절된다.
 const importBodyMax = 4*kifunorm.MaxInput + 1<<10
 
 type kifuHandler struct {
@@ -90,7 +85,7 @@ type importRequest struct {
 // importPreview 는 읽은 결과다. 판은 아직 만들어지지 않았다.
 type importPreview struct {
 	Plies int `json:"plies"`
-	// HandicapJa 는 手合割 이름이다. 平手면 보내지 않는다 — 되짚기의 같은 칸과 규약이 같다.
+	// HandicapJa 는 手合割 이름이다. 平手면 보내지 않는다(되짚기의 같은 칸과 같은 규약).
 	HandicapJa string `json:"handicapJa,omitempty"`
 	Sente      string `json:"sente,omitempty"`
 	Gote       string `json:"gote,omitempty"`
@@ -98,8 +93,8 @@ type importPreview struct {
 	// 화면이 사람에게 묻는다.
 	Result string `json:"result,omitempty"`
 	// Transcribed 는 결정적 파서가 읽지 못해 정규화 계층을 지났는가다. 참이면 화면이
-	// 「AI が書式を読み取りました」를 한 줄 붙인다 — 사람이 확인할 수 있게 하는 것이
-	// 지어내기에 대한 두 번째 방어다(첫 번째는 룰 엔진의 전수 검증).
+	// 「AI が書式を読み取りました」를 한 줄 붙인다. 사람이 확인하는 것이 지어내기에 대한
+	// 두 번째 방어다(첫 번째는 룰 엔진의 전수 검증).
 	Transcribed bool `json:"transcribed"`
 	// Head·Tail 은 棋譜 표기의 앞뒤다. 사람이 자기 판인지 알아보는 하나뿐인 단서다.
 	Head []string `json:"head"`
@@ -146,8 +141,8 @@ func (h *kifuHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 몫을 먼저 센다. 읽기는 값이 들고(정규화 계층은 돈을 쓴다) 그 뒤가 엔진 몇 분이라,
-	// 넘긴 요청은 아무것도 하기 전에 돌려보낸다.
+	// 몫을 먼저 센다. 읽기는 값이 들고 그 뒤가 엔진 몇 분이라, 넘긴 요청은 아무것도 하기
+	// 전에 돌려보낸다.
 	if n, err := h.store.CountImportsSince(r.Context(), s.UserID, time.Now().Add(-24*time.Hour)); err != nil {
 		log.Printf("kifu: could not count today's imports for %d: %v", s.UserID, err)
 	} else if n >= maxImportsPerDay {
@@ -181,8 +176,8 @@ func (h *kifuHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 줄에 세우는 데 실패해도 판은 남는다. 평가치 없는 판이 되짚기에 그대로 뜨고,
-	// 사람은 자기 기보를 잃지 않는다 — 다시 가져오면 새 판으로 다시 줄에 선다.
+	// 줄에 세우는 데 실패해도 판은 남는다. 평가치 없는 판이 되짚기에 그대로 뜨고, 다시
+	// 가져오면 새 판으로 다시 줄에 선다.
 	if err := h.analyzer.enqueueImport(r.Context(), gameID, g.StartSFEN, g.Moves); err != nil {
 		log.Printf("kifu: could not queue imported game %d: %v", gameID, err)
 	}
@@ -190,10 +185,8 @@ func (h *kifuHandler) create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, importResponse{GameID: gameID})
 }
 
-// read 는 결정적 파서를 먼저 대 보고, 전부 실패했을 때만 정규화 계층을 부른다.
-//
-// 순서가 이 기능의 전제다(CLAUDE.md · journal §126). 정규화는 결정적 파서가 전부
-// 실패한 자리에서만 돈다(internal/kifunorm).
+// read 는 결정적 파서를 먼저 대 보고, 전부 실패했을 때만 정규화 계층을 부른다. 그 순서가
+// 이 기능의 전제다(journal §126).
 func (h *kifuHandler) read(ctx context.Context, userID int64, text string) (kifu.ParsedGame, kifu.Notation, error) {
 	if len(text) > kifunorm.MaxInput {
 		return kifu.ParsedGame{}, "", kifunorm.ErrTooLarge
@@ -206,16 +199,15 @@ func (h *kifuHandler) read(ctx context.Context, userID int64, text string) (kifu
 		return kifu.ParsedGame{}, "", err
 	}
 
-	// 방금 옮겨 적은 것이 있으면 그것을 쓴다. 미리보기와 가져오기가 원문을 두 번
-	// 보내는데(위 패키지 주석) 「같은 원문이면 같은 결과」가 이 계층에는 없어서,
-	// 다시 물으면 사람이 확인한 것과 다른 판이 들어올 수 있다.
+	// 방금 옮겨 적은 것이 있으면 그것을 쓴다. 「같은 원문이면 같은 결과」가 이 계층에는
+	// 없어서, 다시 물으면 사람이 확인한 것과 다른 판이 들어올 수 있다.
 	if got, ok := h.cached.get(userID, text); ok {
 		return replay(got)
 	}
 
-	// 부르기 전에 몫을 센다. 여기서 막히면 결정적 파서가 낸 오류가 그대로 나가고,
-	// 사람에게는 「읽을 수 없는 기보」와 같은 화면이다 — 상한에 닿았다는 것을 알려 줄
-	// 값이 없다(알려 주면 그것이 곧 「다시 시도하면 된다」로 읽힌다).
+	// 부르기 전에 몫을 센다. 여기서 막히면 결정적 파서가 낸 오류가 그대로 나가고, 사람에게는
+	// 「읽을 수 없는 기보」와 같은 화면이다. 상한에 닿았다고 알려 주면 그것이 곧 「다시
+	// 시도하면 된다」로 읽힌다.
 	if !h.budget.take(userID) {
 		log.Printf("kifu: user %d is over the transcription budget", userID)
 		return kifu.ParsedGame{}, "", err
@@ -236,7 +228,7 @@ func (h *kifuHandler) read(ctx context.Context, userID int64, text string) (kifu
 // replay 는 옮겨 적은 표기를 룰 엔진으로 지나 판을 만든다.
 //
 // 여기가 정규화 계층의 출력이 수가 되는 하나뿐인 문이다. 캐시에서 온 것도 같은 문을
-// 지난다 — 캐시가 담는 것은 옮겨 적은 글자까지다.
+// 지난다. 캐시가 담는 것은 옮겨 적은 글자까지다.
 //
 // 오류는 룰 엔진의 것을 그대로 돌려준다. 「몇 手目가 이상한가」를 아는 것이 그쪽이다.
 func replay(got kifunorm.Result) (kifu.ParsedGame, kifu.Notation, error) {
@@ -244,7 +236,7 @@ func replay(got kifunorm.Result) (kifu.ParsedGame, kifu.Notation, error) {
 	if err != nil {
 		return kifu.ParsedGame{}, "", err
 	}
-	// 이름은 옮겨 적는 쪽이 내놓은 값이다. 길이를 잘라 담는다 — 스키마가 모양만 묶고 크기는
+	// 이름은 옮겨 적는 쪽이 내놓은 값이라 길이를 잘라 담는다. 스키마가 모양만 묶고 크기는
 	// 묶지 않아서, 그대로 두면 남의 응답 하나가 미리보기의 크기를 정한다.
 	g.Sente, g.Gote = clip(got.Sente), clip(got.Gote)
 	if g.Result == kifu.ResultUnknown {
@@ -275,7 +267,7 @@ func clip(v string) string {
 	return string(r[:maxNameRunes])
 }
 
-// save 는 판과 기보를 남긴다. 평가치는 아직 비어 있다 — 채우는 것은 분석 워커다.
+// save 는 판과 기보를 남긴다. 평가치는 분석 워커가 채운다.
 func (h *kifuHandler) save(
 	ctx context.Context, userID int64, color, notation string, g kifu.ParsedGame, result store.GameResult,
 ) (int64, error) {
@@ -288,8 +280,7 @@ func (h *kifuHandler) save(
 			return 0, err
 		}
 	}
-	// 결과를 여기서 적는다. 되짚기 목록에 뜨는 조건이 result IN (win, loss, draw) 라,
-	// 적지 않으면 방금 가져온 판이 어디에도 보이지 않는다.
+	// 결과를 여기서 적는다. 되짚기 목록에 뜨는 조건이 result IN (win, loss, draw) 다.
 	if err := h.store.FinishGame(ctx, gameID, result); err != nil {
 		return 0, err
 	}
@@ -310,9 +301,6 @@ func (h *kifuHandler) viewer(w http.ResponseWriter, r *http.Request) (auth.Sessi
 func decodeImport(w http.ResponseWriter, r *http.Request) (importRequest, bool) {
 	var req importRequest
 	// 원문 상한을 몸통에서 건다. 여기서 걸지 않으면 남이 이 프로세스의 메모리를 정한다.
-	//
-	// 여유를 준다. JSON 이스케이프와 나머지 칸이 원문보다 크므로, 딱 맞게 걸면 상한
-	// 안쪽의 기보가 「형식이 틀렸다」로 거절된다.
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, importBodyMax)).Decode(&req); err != nil {
 		// 넘쳐서 끊긴 것은 「읽지 못했다」와 다르다. 같은 문장을 주면 사람이 형식을
 		// 고치려 들고, 고칠 것은 길이다.
@@ -335,10 +323,8 @@ func decodeImport(w http.ResponseWriter, r *http.Request) (importRequest, bool) 
 	return req, true
 }
 
-// writeImportError 는 읽지 못한 이유를 일본어 한 줄로 만든다.
-//
-// 手数를 같이 말한다. 「読み取れませんでした」만으로는 사람이 자기
-// 기보의 어디를 고쳐야 하는지 모른다(kifu.MoveError).
+// writeImportError 는 읽지 못한 이유를 일본어 한 줄로 만든다. 手数를 같이 말한다.
+// 「読み取れませんでした」만으로는 사람이 어디를 고쳐야 하는지 모른다(kifu.MoveError).
 func writeImportError(w http.ResponseWriter, err error) {
 	var me *kifu.MoveError
 	switch {
@@ -373,7 +359,7 @@ func jaMoveError(ply int) string {
 
 // previewOf 는 읽은 것을 미리보기로 옮긴다.
 //
-// 표기를 여기서 만든다 — 원문 표기를 그대로 주면 정규화를 지난 판과 지나지 않은 판이
+// 표기를 여기서 만든다. 원문 표기를 그대로 주면 정규화를 지난 판과 지나지 않은 판이
 // 화면에서 달라 보인다.
 func previewOf(g kifu.ParsedGame, notation kifu.Notation) importPreview {
 	out := importPreview{
@@ -396,8 +382,8 @@ func previewOf(g kifu.ParsedGame, notation kifu.Notation) importPreview {
 	return out
 }
 
-// lineJa 는 수순을 棋譜 표기로 옮긴다. 옮기지 못하면 빈 목록이다 — 미리보기가 없는 것은
-// 手数만 보고 가져오는 화면이고, 그것 때문에 임포트를 막지는 않는다.
+// lineJa 는 수순을 棋譜 표기로 옮긴다. 옮기지 못하면 빈 목록이다. 미리보기가 없으면 手数만
+// 보고 가져오는 화면이 되고, 그것 때문에 임포트를 막지는 않는다.
 func lineJa(g kifu.ParsedGame) []string {
 	pos, err := shogi.ParseSFEN(g.StartSFEN)
 	if err != nil {
@@ -446,7 +432,7 @@ func resultFromWord(v string) kifu.GameResult {
 }
 
 // importedResultOf 는 기록에 적을 결과를 정한다. games.result 는 주인 관점이라 기보의
-// 先手/後手 승패를 자리로 뒤집는다 — 뒤집지 않으면 後手로 둔 판의 승패 전체가 반대가 된다.
+// 先手/後手 승패를 자리로 뒤집는다. 뒤집지 않으면 後手로 둔 판의 승패 전체가 반대가 된다.
 //
 // 기보가 말하면 그쪽이 이긴다. 사람이 자기 승패를 잘못 고르는 것보다 기록이 맞고,
 // 말하지 않을 때만 사람이 고른 값을 쓴다.

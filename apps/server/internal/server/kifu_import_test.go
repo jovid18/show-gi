@@ -42,7 +42,7 @@ func TestImportedResultIsFromTheOwnersSide(t *testing.T) {
 		{"gote won, I was gote", kifu.ResultGoteWin, "w", "", store.ResultWin, true},
 		{"gote won, I was sente", kifu.ResultGoteWin, "b", "", store.ResultLoss, true},
 		{"a draw is a draw", kifu.ResultDraw, "w", "", store.ResultDraw, true},
-		// 기보가 말하면 그쪽이 이긴다 — 사람이 자기 승패를 잘못 골라도 기록이 맞다.
+		// 기보가 말하면 그쪽이 이긴다. 사람이 자기 승패를 잘못 골라도 기록이 맞다.
 		{"the record wins over the choice", kifu.ResultSenteWin, "b", "loss", store.ResultWin, true},
 		{"unknown falls back to the choice", kifu.ResultUnknown, "b", "loss", store.ResultLoss, true},
 		{"unknown with no choice is refused", kifu.ResultUnknown, "b", "", "", false},
@@ -287,7 +287,8 @@ func TestTranscribeBudgetCapsTheHour(t *testing.T) {
 	if !b.take(1) {
 		t.Error("the budget never came back after the window passed")
 	}
-	// 창 밖으로 나간 사람은 표에서 지운다 — 지우지 않으면 이 맵이 로그인한 사람 수만큼 자란다.
+	// 창 밖으로 나간 사람은 표에서 지운다. 지우지 않으면 이 맵이 로그인한 사람 수만큼
+	// 자란다.
 	if _, still := b.hits[2]; still {
 		t.Error("a person whose calls all fell out of the window is still held")
 	}
@@ -321,7 +322,7 @@ func TestAnOversizedBodySaysItIsTooLarge(t *testing.T) {
 }
 
 // 千日手는 shogi.ValidateMove 가 막지 않는다. 합법 수순만으로 몇 천 手를 적을 수 있고,
-// 그 판이 手数만큼의 엔진 판정을 줄에 세운다 — 정규화 계층의 상한은 그 길을 막지 않는다.
+// 그 판이 手数만큼의 엔진 판정을 줄에 세운다.
 func TestADeterministicallyReadKifuIsStillCapped(t *testing.T) {
 	h := &kifuHandler{}
 	long := shuffleGameUSI(maxImportPlies + 2)
@@ -372,7 +373,7 @@ func TestAHandicapImportBlamesTheRightSide(t *testing.T) {
 		t.Fatalf("StartSFEN = %q, want the 香落ち position", g.StartSFEN)
 	}
 
-	// 사람은 下手다 — 색으로는 b 이고, 그쪽이 2手目부터 둔다.
+	// 사람은 下手다. 색으로는 b 이고, 그쪽이 2手目부터 둔다.
 	h := &kifuHandler{store: st}
 	gameID, err := h.save(t.Context(), userID, "b", string(notation), g, store.ResultWin)
 	if err != nil {
@@ -406,8 +407,8 @@ func TestAHandicapImportBlamesTheRightSide(t *testing.T) {
 // 미리보기에서 확인한 판이 가져오는 판과 같아야 한다.
 //
 // 원문을 두 번 보내는 설계는 「같은 원문이면 같은 결과」에 기대는데, 그 전제가 정규화
-// 계층에는 없다 — 다시 물으면 다른 표기가 올 수 있고, 그러면 확인한 것과 들어온 것이
-// 갈린다(journal §126).
+// 계층에는 없다. 다시 물으면 다른 표기가 오고, 확인한 것과 들어온 것이 갈린다
+// (journal §126).
 func TestATranscriptionIsReusedForTheImport(t *testing.T) {
 	calls := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

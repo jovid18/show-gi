@@ -8,7 +8,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// ja 는 실패 문장을 읽을 수 있게 하려고만 있다 — shogi.PieceType 에 String() 이 없다.
+// ja 는 실패 문장을 읽을 수 있게 하려고만 있다. shogi.PieceType 에 String() 이 없다.
 func ja(t shogi.PieceType) string {
 	switch t {
 	case shogi.Lance:
@@ -57,8 +57,8 @@ func TestSFENIsTheHandicapItSaysItIs(t *testing.T) {
 			continue
 		}
 
-		// 上手부터 둔다(journal §88). 이 한 글자가 기준점 표 전체를 옮기고, 뒤집히면
-		// 사람이 접어 준 쪽의 先指까지 가져가는 판이 열린다.
+		// 上手부터 둔다(journal §88). 이 한 글자가 기준점 표 전체를 옮기고, 뒤집히면 사람이
+		// 접어 준 쪽의 先指까지 가져가는 판이 열린다.
 		if pos.Turn != shogi.White {
 			t.Errorf("%s: 手番이 %v다. 上手(White)여야 한다", h.ID, pos.Turn)
 		}
@@ -104,8 +104,8 @@ func TestSFENIsTheHandicapItSaysItIs(t *testing.T) {
 
 // TestLeftLanceIsTheOneThatGoes 는 落とす 香가 上手의 왼쪽인지 본다.
 //
-// 좌우를 바꿔 적어도 위 테스트는 통과한다(빠진 종류와 개수가 같다). 上手는 판을 반대에서
-// 보므로 1筋이 왼쪽이고, 手合割의 香落ち는 그 香다.
+// 좌우를 바꿔 적어도 위 테스트는 통과한다. 上手는 판을 반대에서 보므로 1筋이 왼쪽이고,
+// 手合割의 香落ち는 그 香다.
 func TestLeftLanceIsTheOneThatGoes(t *testing.T) {
 	for _, id := range []string{"kyoochi", "hikyoochi"} {
 		h, ok := Find(id)
@@ -145,7 +145,7 @@ func TestFindAndOfRoundTrip(t *testing.T) {
 
 // TestOfIgnoresMoveNumber 는 手数가 달라도 같은 手合으로 붙는지 본다.
 //
-// 왕복이 실제로 일어난다 — 되짚기가 Position.SFEN() 으로 다시 적은 문자열을 쓰고
+// 왕복이 실제로 일어난다. 되짚기가 Position.SFEN() 으로 다시 적은 문자열을 쓰고
 // (server/review.go), 이어하는 판은 games.start_sfen 에 적힌 것을 쓴다.
 func TestOfIgnoresMoveNumber(t *testing.T) {
 	h, _ := Find("nimaiochi")
@@ -176,9 +176,8 @@ func TestOfIgnoresTurn(t *testing.T) {
 	}
 }
 
-// TestHirateIsNotInTheTable 는 平手가 「手合割 없음」으로 답하는지 본다. 표에 넣는 날
-// 기준점이 0에서 91(실측)로 옮겨 가고, 그러면 지금까지의 상수 측정이 다른 기준의 것이 된다
-// (패키지 주석).
+// TestHirateIsNotInTheTable 는 平手가 「手合割 없음」으로 답하는지 본다. 표에 넣으면
+// 기준점이 0에서 91(실측)로 옮겨 가고, 지금까지의 상수 측정이 다른 기준의 것이 된다.
 func TestHirateIsNotInTheTable(t *testing.T) {
 	for _, sfen := range []string{"", shogi.StartSFEN} {
 		if h, ok := Of(sfen); ok {
@@ -207,7 +206,7 @@ func TestBaselineCpForFlipsForUwate(t *testing.T) {
 	if got := BaselineCpFor(h.SFEN, shogi.White); got != -h.BaselineCp {
 		t.Errorf("上手 관점 = %d, want %d", got, -h.BaselineCp)
 	}
-	// 平手는 어느 관점에서도 0이다 — 뒤집을 것이 없다.
+	// 平手는 어느 관점에서도 0이다.
 	if got := BaselineCpFor("", shogi.White); got != 0 {
 		t.Errorf("平手 上手 관점 = %d, want 0", got)
 	}
@@ -215,9 +214,8 @@ func TestBaselineCpForFlipsForUwate(t *testing.T) {
 
 // TestBaselineRisesWithTheHandicap 은 표의 순서와 기준점의 순서가 같은지 본다.
 //
-// 값을 다시 재서 옮기는 날(baseline_measure_test.go) 한 줄만 고치면 순서가 깨지고,
-// 그러면 화면의 목록이 「조금 접는 것」부터가 아니게 된다. 지금은 건너뛸 예외가 없다
-// (journal §88).
+// 값을 다시 재서 옮기는 날(baseline_measure_test.go) 한 줄만 고치면 순서가 깨지고, 화면의
+// 목록이 「조금 접는 것」부터가 아니게 된다. 지금은 건너뛸 예외가 없다(journal §88).
 func TestBaselineRisesWithTheHandicap(t *testing.T) {
 	prev := 0
 	for _, h := range All() {

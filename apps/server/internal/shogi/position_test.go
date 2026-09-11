@@ -122,7 +122,7 @@ func TestFaultsReportsEveryProblemAtOnce(t *testing.T) {
 	}
 }
 
-// 玉이 없는 판에서 王手 검사가 경고 없이 통과하면 안 된다 — KingSquare 가 -1을 주고
+// 玉이 없는 판에서 王手 검사가 경고 없이 통과하면 안 된다. KingSquare 가 -1을 주고
 // InCheck 이 언제나 거짓이라, 그 거짓이 「王手가 없다」로 읽힌다.
 func TestFaultsDoesNotAskAboutCheckWithoutAKing(t *testing.T) {
 	pos, err := ParseSFEN("9/9/9/9/9/9/9/9/4KR3 b - 1")
@@ -204,9 +204,9 @@ func faultErrors(faults []PositionFault) []string {
 	return out
 }
 
-// 持ち駒 수가 Hands 의 int8 을 넘으면 경고 없이 음수가 된다. 그 판은 예전에 Faults 를
-// 통과하면서 movegen 이 打을 만들어 냈고(== 0 만 본다), 엔진에는 다시 직렬화한
-// 「1장」이 나갔다 — 룰 엔진과 엔진이 다른 판을 보게 된다. 셀프리뷰가 잡았다.
+// 持ち駒 수가 Hands 의 int8 을 넘으면 경고 없이 음수가 된다. 그 판은 Faults 를 통과하면서
+// movegen 이 打을 만들어 내고(== 0 만 본다), 엔진에는 다시 직렬화한 「1장」이 나가
+// 룰 엔진과 엔진이 다른 판을 보게 된다.
 func TestParseSFENRefusesAHandThatCannotFit(t *testing.T) {
 	for _, sfen := range []string{
 		"9/9/9/9/4k4/9/9/9/4K4 b 200P 1",
@@ -227,8 +227,8 @@ func TestParseSFENRefusesAHandThatCannotFit(t *testing.T) {
 	}
 }
 
-// 음수 持ち駒는 InventoryExcess 를 통과한다 — 합이 줄어들 뿐이라 「많다」로 걸리지 않는다.
-// Apply 가 미검증 투입으로 음수를 만들 수 있으므로(그 함수 주석) 여기서 짚어야 한다.
+// 음수 持ち駒는 합이 줄어들 뿐이라 InventoryExcess 를 통과한다. Apply 가 미검증 투입으로
+// 음수를 만들 수 있으므로 여기서 짚어야 한다.
 func TestFaultsCatchesANegativeHand(t *testing.T) {
 	pos, err := ParseSFEN("9/9/9/9/4k4/9/9/9/4K4 b - 1")
 	if err != nil {

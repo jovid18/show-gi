@@ -23,8 +23,7 @@ func (f *fixedBest) SearchMultiPV(
 	return usi.SearchResult{Best: f.best}, nil
 }
 
-// countingRater 는 추정기로 몇 건이 갔는지만 센다. 값은 보지 않는다 — 이
-// 테스트가 재는 것은 「갔는가」이고, 얼마였는가는 skill 패키지가 따로 잰다.
+// countingRater 는 추정기로 몇 건이 갔는지만 센다. 얼마였는가는 skill 패키지가 잰다.
 type countingRater struct {
 	mu sync.Mutex
 	n  int
@@ -47,9 +46,8 @@ func (r *countingRater) count() int {
 
 // askStage 는 힌트를 부르고 그 단계가 화면에 실릴 때까지 기다린다.
 //
-// 「힌트가 있다」로 기다리면 안 된다. 1단계가 이미 떠 있는 채로 2단계를 부르면 그 조건이
-// 그 자리에서 참이라, 답이 오기 전에 다음 줄로 넘어간다 — 실제로 그렇게 통과했다가 전체
-// 스위트에서 깨졌다.
+// 「힌트가 있다」로 기다리면 안 된다. 1단계가 이미 떠 있는 채로 2단계를 부르면 그
+// 조건이 그 자리에서 참이라, 답이 오기 전에 다음 줄로 넘어간다.
 func askStage(t *testing.T, s *Session, ch <-chan Snapshot, stage int) Snapshot {
 	t.Helper()
 	if _, err := s.Hint(t.Context()); err != nil {
@@ -156,8 +154,8 @@ func TestHintedMoveIsNotRated(t *testing.T) {
 	}
 	defer cancel()
 
-	// 답까지 본다. 2단계가 실제로 실린 뒤에 둬야 한다 — 그 전에 두면 아직 답을 보지 않은
-	// 것이고, 그때 레이팅에 들어가는 것이 오히려 맞다.
+	// 답까지 본다. 2단계가 실제로 실린 뒤에 둬야 한다. 그 전에 둔 수는 아직 답을 보지
+	// 않은 것이라 레이팅에 들어가는 것이 맞다.
 	for stage := 1; stage <= HintStageMax; stage++ {
 		askStage(t, s, ch, stage)
 	}
@@ -170,7 +168,7 @@ func TestHintedMoveIsNotRated(t *testing.T) {
 		t.Fatalf("답을 본 수가 추정기로 갔다: %d건", n)
 	}
 
-	// 힌트를 부르지 않은 다음 수는 평소대로 센다 — 규칙이 판 전체로 새면 안 된다.
+	// 힌트를 부르지 않은 다음 수는 평소대로 센다. 규칙이 판 전체로 새면 안 된다.
 	if _, err := s.Play(t.Context(), "2g2f"); err != nil {
 		t.Fatalf("Play 2: %v", err)
 	}
@@ -180,7 +178,7 @@ func TestHintedMoveIsNotRated(t *testing.T) {
 	}
 }
 
-// 알려준 수를 실제로 뒀는지가 기록으로 간다 — 01-core.md §5의 taken 이 이것이다.
+// 알려준 수를 실제로 뒀는지가 기록으로 간다(01-core.md §5의 taken).
 func TestHintTakenIsRecorded(t *testing.T) {
 	rec := &fakeRecorder{}
 	s := hintSession(t, rec)
@@ -202,7 +200,7 @@ func TestHintTakenIsRecorded(t *testing.T) {
 	if !contains(rec.all(), "hint-taken false") {
 		t.Fatalf("알려준 수를 안 뒀다는 것이 안 남았다: %v", rec.all())
 	}
-	// 1단계와 2단계가 둘 다 남는다 — 무엇을 알려주려 했는지가 남아야 나중에 셀 수 있다.
+	// 1단계와 2단계가 둘 다 남는다. 무엇을 알려주려 했는지가 남아야 나중에 셀 수 있다.
 	var stages int
 	for _, e := range rec.all() {
 		if strings.HasPrefix(e, "hinted ") {

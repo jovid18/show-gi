@@ -78,8 +78,8 @@ func (s *Store) ClaimAnalysisPly(ctx context.Context, leaseBefore time.Time) (An
 	}, nil
 }
 
-// FinishAnalysisPly 는 잰 값을 그 행에 적는다. 행이 없으면 아무 일도 일어나지 않는다 —
-// 판이 끝나 걷힌 뒤에 도착한 늦은 측정이 판을 되살리지 않는다(query/analysis.sql).
+// FinishAnalysisPly 는 잰 값을 그 행에 적는다. 행이 없으면 아무 일도 일어나지 않는다
+// (query/analysis.sql).
 func (s *Store) FinishAnalysisPly(ctx context.Context, matchID string, m MeasuredPly) error {
 	beforeCp, beforeMate := evalColumns(&m.Before)
 	afterCp, afterMate := evalColumns(&m.After)
@@ -115,7 +115,7 @@ func (s *Store) StopAnalysisAhead(ctx context.Context, matchID string) error {
 
 // MeasuredAnalysisPlies 는 그 판에서 미리 재 둔 것을 手数 순으로 준다.
 //
-// NULL 인 칸은 제로값으로 온다. 그런 행은 만들어지지 않는다 — 일곱 칸이 한 UPDATE 에서
+// NULL 인 칸은 제로값으로 온다. 그런 행은 만들어지지 않는다. 값 칸이 한 UPDATE 에서
 // 같이 차고 done_at 이 그 증거다(FinishAnalysisPly).
 func (s *Store) MeasuredAnalysisPlies(ctx context.Context, matchID string) ([]MeasuredPly, error) {
 	rows, err := s.q.MeasuredAnalysisPlies(ctx, matchID)
@@ -165,8 +165,7 @@ func (s *Store) DiscardAnalysisMatch(ctx context.Context, matchID string) error 
 	return nil
 }
 
-// SweepAnalysisPlies 는 그 시각보다 오래된 행을 걷는다. 판이 비정상으로 끝나 걷는 쪽이
-// 돌지 않았을 때 남는 행이 이 표의 하나뿐인 누수다.
+// SweepAnalysisPlies 는 그 시각보다 오래된 행을 걷는다(query/analysis.sql).
 func (s *Store) SweepAnalysisPlies(ctx context.Context, before time.Time) error {
 	if err := s.q.SweepAnalysisPlies(ctx, stamp(before)); err != nil {
 		return fmt.Errorf("sweep analysis plies: %w", err)
@@ -299,8 +298,8 @@ func (s *Store) ImportSeat(ctx context.Context, gameID int64) (MatchSeat, error)
 	return MatchSeat{GameID: row.ID, UserID: user, Color: row.MyColor}, nil
 }
 
-// BulkEnqueueAnalysisPlies 는 판 하나의 手를 한 번에 세운다. 가져온 기보만 부른다 —
-// 수순 전부를 이미 알기 때문이고, 그래서 워커가 몇이든 手들이 병렬로 재어진다.
+// BulkEnqueueAnalysisPlies 는 판 하나의 手를 한 번에 세운다. 가져온 기보만 부른다
+// (query/analysis.sql).
 func (s *Store) BulkEnqueueAnalysisPlies(ctx context.Context, plies []AnalysisPly) error {
 	if len(plies) == 0 {
 		return nil
@@ -328,7 +327,8 @@ func (s *Store) MatchSeats(ctx context.Context, matchID string) ([]MatchSeat, er
 	}
 	out := make([]MatchSeat, 0, len(rows))
 	for _, r := range rows {
-		// 익명 판은 여기 오지 않는다 — 대인전은 로그인이 전제라(journal §83) user_id 가 늘 있다.
+		// 익명 판은 여기 오지 않는다. 대인전은 로그인이 전제라(journal §83)
+		// user_id 가 늘 있다.
 		var user int64
 		if r.UserID != nil {
 			user = *r.UserID
@@ -338,8 +338,7 @@ func (s *Store) MatchSeats(ctx context.Context, matchID string) ([]MatchSeat, er
 	return out, nil
 }
 
-// SweepAnalysisJobs 는 그 시각보다 오래된 행을 걷는다. 자리가 영영 차지 않는 반쪽 판이
-// 이 표의 누수다.
+// SweepAnalysisJobs 는 그 시각보다 오래된 행을 걷는다(query/analysis.sql).
 func (s *Store) SweepAnalysisJobs(ctx context.Context, before time.Time) error {
 	if err := s.q.SweepAnalysisJobs(ctx, stamp(before)); err != nil {
 		return fmt.Errorf("sweep analysis jobs: %w", err)
@@ -418,12 +417,10 @@ func (s *Store) IsQuizQueued(ctx context.Context, gameID int64, maxAttempts int)
 	return ok, nil
 }
 
-// SweepQuizJobs 는 그 시각보다 오래된 행을 걷고 몇 개를 걷었는지 준다.
+// SweepQuizJobs 는 그 시각보다 오래된 행을 걷고 몇 개를 걷었는지 준다. 0이 아닌 것은
+// 그 자체로 사고다. 여기서 걷히는 판은 문항 없이 남는다.
 //
-// 0이 아닌 것은 그 자체로 사고다. 여기서 걷히는 판은 문항 없이 남는다.
-//
-// 지금 만드는 중인 행은 두고 간다(leaseBefore). 걷으면 다 만든 뒤에 지울 것이 없어질 뿐
-// 아니라 「이 판은 문항이 없다」가 거짓으로 세어진다.
+// 지금 만드는 중인 행은 두고 간다(leaseBefore, query/analysis.sql).
 func (s *Store) SweepQuizJobs(ctx context.Context, before, leaseBefore time.Time) (int, error) {
 	n, err := s.q.SweepQuizJobs(ctx, db.SweepQuizJobsParams{
 		OlderThan:   stamp(before),

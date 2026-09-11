@@ -2,18 +2,15 @@ package shogi
 
 // 국면 하나가 그 자체로 성립하는가. 수의 합법성(ValidateMove)과 다른 물음이다.
 //
-// 이 파일이 있는 것은 밖에서 들어온 국면 때문이다. 다른 표면은 뿌리를 서버가 만들고
-// 수순을 한 수씩 ValidateMove 로 지나가므로 「재생이 곧 보증인」인데, 사진에서 읽어 온
-// 국면은 재생할 수순이 없다 — 그 보증인을 여기가 대신한다(journal §129).
-//
-// 잡는 것은 룰이 금지하는 모양뿐이다. 銀을 成銀으로 잘못 읽은 판은 여전히 합법적인
-// 국면이라 여기서 걸리지 않는다 — 그쪽의 검증자는 사람이고, 그래서 확인 화면이 있다.
+// 이 파일이 있는 것은 사진에서 읽어 온 국면 때문이다. 다른 표면은 수순을 한 수씩
+// ValidateMove 로 지나가므로 재생이 곧 보증인인데, 사진에는 재생할 수순이 없다.
+// 여기가 잡는 것은 룰이 금지하는 모양뿐이고 나머지는 확인 화면이 맡는다(journal §129).
 
 import "fmt"
 
 // PositionReason 은 국면이 성립하지 않는 사유다.
 //
-// Reason(수의 사유)과 따로 둔다. 하나로 묶으면 「二歩」가 두 뜻을 갖는다 — 저쪽은
+// Reason(수의 사유)과 따로 둔다. 하나로 묶으면 「二歩」가 두 뜻을 갖는다. 저쪽은
 // 「그 수를 두면 二歩가 된다」이고 여기는 「이미 二歩인 판이다」다.
 type PositionReason int
 
@@ -65,11 +62,11 @@ type PositionFault struct {
 	Square int
 	// Type 은 문제가 된 말 종류다. 없으면 NoPieceType.
 	Type PieceType
-	// Count 는 그 사유가 말하는 수다 — 말 수의 초과분, 玉의 개수. 나머지는 0.
+	// Count 는 그 사유가 말하는 수다(말 수의 초과분, 玉의 개수). 나머지는 0.
 	Count int
 }
 
-// Error 는 로그용이다 — 영어. 화면에는 Message 쪽이 나간다.
+// Error 는 로그용 영어다. 화면에는 Message 쪽이 나간다.
 func (f PositionFault) Error() string {
 	s := f.Reason.String()
 	if f.HasColor {
@@ -118,15 +115,12 @@ func (f PositionFault) Message() string {
 //
 // 하나에서 멈추지 않는다. 잘못 읽은 사진은 여러 자리가 함께 틀린다(journal §129).
 //
-// 말이 부족한 것은 여기서 보지 않는다. 詰将棋처럼 말이 빠진 국면이 정상인 경우가 있어
-// InventoryExcess 가 이미 그렇게 나눠 두었고, 사진에서 온 판의 「39枚」는 거절 대신
-// 경고로 화면에 나간다(InventoryShortage).
+// 말이 부족한 것은 여기서 보지 않는다. 거절 대신 경고로 나간다(InventoryShortage).
 func (pos Position) Faults() []PositionFault {
 	var out []PositionFault
 
-	// 한 벌을 넘은 말. 넘치는 판에 엔진이 무엇을 돌려줄지는 정의되어 있지 않다
-	// (InventoryExcess). 말 종류 순으로 돈다 — 맵을 그대로 훑으면 같은 판이 요청마다
-	// 다른 순서의 목록을 준다.
+	// 한 벌을 넘은 말(InventoryExcess). 말 종류 순으로 돈다. 맵을 그대로 훑으면 같은
+	// 판이 요청마다 다른 순서의 목록을 준다.
 	excess := pos.InventoryExcess()
 	for t := Pawn; t <= King; t++ {
 		if n, ok := excess[t]; ok {
@@ -139,17 +133,16 @@ func (pos Position) Faults() []PositionFault {
 	for c := range 2 {
 		color := Color(c)
 
-		// 玉은 양쪽에 하나씩이다. 없으면 InCheck 이 언제나 거짓이 되어 아래 王手
-		// 검사가 경고 없이 통과하고, 둘이면 엔진 쪽이 정의되어 있지 않다.
+		// 玉은 양쪽에 하나씩이다. 없으면 InCheck 이 언제나 거짓이 되어 아래 王手 검사가
+		// 경고 없이 통과하고, 둘이면 엔진 쪽이 정의되어 있지 않다.
 		if n := kingCount(pos, color); n != 1 {
 			out = append(out, PositionFault{
 				Reason: PositionKingCount, Color: color, HasColor: true, Square: -1, Type: King, Count: n,
 			})
 		}
 
-		// 음수 持ち駒. ParseSFEN 이 막지만 Apply 로도 음수가 될 수 있고(그 함수 주석),
-		// 음수는 InventoryExcess 를 통과한다 — 합이 줄어들 뿐이라 「많다」로 걸리지 않는다.
-		// 그런데 movegen 은 == 0 만 보므로 打을 만들어 낸다.
+		// 음수 持ち駒. ParseSFEN 이 막지만 Apply 로도 음수가 될 수 있고, 음수는 합이 줄어들
+		// 뿐이라 InventoryExcess 를 통과한다. 그런데 movegen 은 == 0 만 보므로 打을 만든다.
 		for t := Pawn; t <= Rook; t++ {
 			if pos.Hands[color][t] < 0 {
 				out = append(out, PositionFault{
@@ -163,9 +156,9 @@ func (pos Position) Faults() []PositionFault {
 		out = append(out, deadPieceFaults(pos, color)...)
 	}
 
-	// 수번이 아닌 쪽이 王手를 받고 있으면 그 쪽이 직전에 자기 玉을 잡히게 두고
-	// 넘긴 판이다. 玉 수가 이미 틀렸으면 묻지 않는다 — KingSquare 가 -1을 주어
-	// 언제나 거짓이고, 그 거짓이 「王手가 없다」로 읽힌다.
+	// 수번이 아닌 쪽이 王手를 받고 있으면 그 쪽이 직전에 자기 玉을 잡히게 두고 넘긴 판이다.
+	// 玉 수가 이미 틀렸으면 묻지 않는다. KingSquare 가 -1을 주어 언제나 거짓이고, 그
+	// 거짓이 「王手가 없다」로 읽힌다.
 	if kingCount(pos, pos.Turn.Other()) == 1 && pos.InCheck(pos.Turn.Other()) {
 		out = append(out, PositionFault{
 			Reason: PositionCheckIgnored, Color: pos.Turn.Other(), HasColor: true, Square: pos.KingSquare(pos.Turn.Other()),
@@ -197,8 +190,7 @@ func nifuFaults(pos Position, c Color) []PositionFault {
 				continue
 			}
 			seen++
-			// 첫 장은 정상이다. 둘째부터가 二歩이고, 짚는 칸이 그 둘째 장이라
-			// 화면이 「지울 후보」를 가리킨다.
+			// 짚는 칸이 둘째 장이라 화면이 「지울 후보」를 가리킨다.
 			if seen >= 2 {
 				out = append(out, PositionFault{
 					Reason: PositionNifu, Color: c, HasColor: true, Square: sq, Type: Pawn,
@@ -241,8 +233,8 @@ func deadPieceFaults(pos Position, c Color) []PositionFault {
 
 // InventoryShortage 는 한 벌에서 빠진 말 종류와 그 수다(비면 40장이 다 있다).
 //
-// 거절 사유로 쓰지 않는다. 사진에서 읽어 온 판에서는 이것이 곧 「한 장을 놓쳤다」의 신호이지만
-// (실물 한 판은 언제나 40장이다) 駒台가 잘려 나간 사진도 정상이라, 화면이 경고로만 쓴다.
+// 거절 사유로 쓰지 않는다. 사진에서는 이것이 곧 「한 장을 놓쳤다」의 신호이지만 駒台가
+// 잘려 나간 사진도 정상이라, 화면이 경고로만 쓴다.
 func (pos Position) InventoryShortage() map[PieceType]int {
 	count := map[PieceType]int{}
 	for _, p := range pos.Board {

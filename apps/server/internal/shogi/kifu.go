@@ -4,10 +4,10 @@ import "fmt"
 
 // 棋譜 표기 생성: ▲2四歩, △同銀, ▲7七金上, ▲5三桂不成.
 //
-// 엔진이 돌려주는 수순은 USI 뿐인데(7g7f), 그대로는 사람이 읽을 수 없다.
-// 개입 화면과 리뷰 화면에서 "왜 그 수가 나쁜가"를 말하려면 수를 부를 이름이 있어야 한다.
+// 엔진이 돌려주는 수순은 USI 뿐인데(7g7f) 그대로는 사람이 읽을 수 없고, "왜 그 수가
+// 나쁜가"를 말하려면 수를 부를 이름이 있어야 한다.
 //
-// 출력이 처음부터 일본어라 UI에 그대로 나간다 — 여기서 만든 문자열은 번역을 거치지 않는다.
+// 출력이 처음부터 일본어라 UI에 그대로 나간다. 번역을 거치지 않는다.
 
 var kanjiPiece = map[PieceType]string{
 	Pawn: "歩", Lance: "香", Knight: "桂", Silver: "銀", Gold: "金",
@@ -18,13 +18,12 @@ var kanjiPiece = map[PieceType]string{
 
 var kanjiRank = [...]string{"", "一", "二", "三", "四", "五", "六", "七", "八", "九"}
 
-// PieceJa 는 駒 종류의 한자다 — 「銀」「成銀」「と」.
-// 棋譜와 같은 표(kanjiPiece)를 본다 — 카드가 「▲8四銀不成」인데 문장이 그 駒를 달리 부르면
-// 초심자는 둘이 같은 것인 줄 모른다.
+// PieceJa 는 駒 종류의 한자다(「銀」「成銀」「と」).
+// 棋譜와 같은 표(kanjiPiece)를 본다. 문장이 그 駒를 달리 부르면 초심자는 둘이 같은 것인
+// 줄 모른다.
 func PieceJa(t PieceType) string { return kanjiPiece[t] }
 
-// SquareJa 는 「2四」 형식으로 칸을 적는다. 棋譜와 같은 표기다 — 문장이 칸을 달리 부르면
-// 초심자는 그것이 카드에 적힌 칸과 같은 칸인지 모른다(PieceJa 와 같은 이유).
+// SquareJa 는 「2四」 형식으로 칸을 적는다. 棋譜와 같은 표기다(PieceJa 와 같은 이유).
 func SquareJa(sq int) string {
 	return fmt.Sprintf("%d%s", FileOf(sq), kanjiRank[RankOf(sq)])
 }
@@ -55,7 +54,7 @@ func (pos Position) movers(t PieceType, to int, c Color) []int {
 	return out
 }
 
-// 이동 방향 — 두는 쪽 기준. 先手는 위(段 감소)가 전진이다.
+// 이동 방향. 두는 쪽 기준이고 先手는 위(段 감소)가 전진이다.
 func vertJa(from, to int, c Color) string {
 	df := RankOf(to) - RankOf(from)
 	if c == White {
@@ -70,12 +69,12 @@ func vertJa(from, to int, c Color) string {
 	return "寄"
 }
 
-// 좌우 — 두는 쪽에서 봤을 때 어느 쪽에서 왔는가.
+// 좌우. 두는 쪽에서 봤을 때 어느 쪽에서 왔는가다.
 // 先手는 1筋이 오른쪽이므로 筋 번호가 작을수록 오른쪽이다.
 //
-// 같은 筋(d==0)은 좌우가 없어서 빈 문자열이다. 그 자리를 「左」로 메우면 진짜 왼쪽에서
-// 온 駒와 라벨이 같아져 disambiguate 가 둘을 가르지 못하고, 그러면 같은 표기가 두 수를 가리킨다 —
-// 실 코퍼스 296판 중 16판에서 실제로 나왔다(journal §126). 그 자리는 直이나 상하가 맡는다.
+// 같은 筋(d==0)은 좌우가 없어서 빈 문자열이다. 그 자리를 「左」로 메우면 진짜 왼쪽에서 온
+// 駒와 라벨이 같아져 같은 표기가 두 수를 가리킨다(실 코퍼스 296판 중 16판, journal §126).
+// 그 자리는 直이나 상하가 맡는다.
 func horizJa(from, to int, c Color) string {
 	d := FileOf(from) - FileOf(to)
 	if c == White {
@@ -91,7 +90,7 @@ func horizJa(from, to int, c Color) string {
 }
 
 // MoveJa 는 수 하나를 棋譜 표기로 적는다.
-// prevTo 는 직전 수의 목적칸(없으면 -1) — 같으면 「同」을 쓴다.
+// prevTo 는 직전 수의 목적칸(없으면 -1)이고, 같으면 「同」을 쓴다.
 func (pos Position) MoveJa(m Move, prevTo int) string {
 	mark := "▲"
 	if pos.Turn == White {
@@ -144,7 +143,7 @@ func disambiguate(from, to int, cands []int, c Color) string {
 	if s := try(func(f int) string { return vertJa(f, to, c) }); s != "" {
 		return s
 	}
-	// 直 은 둘 다 「위로 올라오는」 경우에만 쓴다 — 그중 바로 아래에서 곧장 올라온 쪽.
+	// 直 은 둘 다 「위로 올라오는」 경우에만 쓴다(그중 바로 아래에서 곧장 올라온 쪽).
 	if FileOf(from) == FileOf(to) && vertJa(from, to, c) == "上" {
 		others := 0
 		for _, f := range cands {
@@ -165,10 +164,10 @@ func disambiguate(from, to int, cands []int, c Color) string {
 	return "" // 여기까지 와서 갈리지 않는 경우는 실질적으로 없다
 }
 
-// IsOriginModifier 는 그 글자가 원위치 수식어인가 — 右左上引寄直.
+// IsOriginModifier 는 그 글자가 원위치 수식어인가다(右左上引寄直).
 //
 // disambiguate 가 붙이는 어휘와 같은 표를 본다. 읽는 쪽과 쓰는 쪽이 다른 표를 보면
-// 이쪽이 만든 표기를 저쪽이 읽을 수 없는 자리가 생긴다.
+// 이쪽이 만든 표기를 저쪽이 읽을 수 없다.
 func IsOriginModifier(r rune) bool {
 	switch r {
 	case '右', '左', '上', '引', '寄', '直':
@@ -177,15 +176,14 @@ func IsOriginModifier(r rune) bool {
 	return false
 }
 
-// ResolveOrigin 은 원위치가 적히지 않은 표기에서 출발칸을 되찾는다. disambiguate 의 반대 방향이다.
+// ResolveOrigin 은 원위치가 적히지 않은 표기에서 출발칸을 되찾는다. disambiguate 의 역이다.
 //
 // KIF 는 「７六歩(77)」처럼 출발칸을 적지만 KI2 와 사람이 쓴 평문은 적지 않는다. 후보는 룰
-// 엔진이 뽑고(movers) mods 가 거른다.
+// 엔진이 뽑고(movers) mods 가 거른다. mods 는 표기에 붙은 수식어를 순서 그대로 이어 붙인
+// 것이라 「右上」이면 둘 다 건다.
 //
 // 하나로 좁혀지지 않으면 실패한다. 골라 버리면 그 뒤의 수순 전체가 다른 판이 되고, 결과가
 // 합법수라 ValidateMove 도 잡지 않는다.
-//
-// mods 는 표기에 붙은 수식어를 순서 그대로 이어 붙인 것이다 — 「右上」이면 둘 다 건다.
 func (pos Position) ResolveOrigin(t PieceType, to int, mods string) (int, error) {
 	cands := pos.movers(t, to, pos.Turn)
 	switch len(cands) {
@@ -204,9 +202,8 @@ func (pos Position) ResolveOrigin(t PieceType, to int, mods string) (int, error)
 	// ① 이 패키지가 그 국면에서 쓸 표기와 글자까지 같은 후보. disambiguate 의 정확한
 	//    반대라, 스스로 적은 표기는 언제나 여기서 걸린다.
 	//
-	//    독립 조건으로 거르는 것만으로는 모자란다 — 같은 筋의 駒는 좌우가 없어서
-	//    「引」 하나로 적히는데, 그것을 「vertJa 가 引인 것」으로 읽으면 왼쪽에서 온
-	//    「左引」의 駒까지 같이 걸린다(journal §126).
+	//    독립 조건으로 거르면 모자란다. 같은 筋의 駒는 좌우가 없어 「引」 하나로 적히는데,
+	//    그것을 「vertJa 가 引인 것」으로 읽으면 「左引」의 駒까지 걸린다(journal §126).
 	if f, ok := onlyOne(cands, func(f int) bool {
 		return disambiguate(f, to, cands, pos.Turn) == mods
 	}); ok {

@@ -4,25 +4,23 @@ import { SIGN_IN_PATH } from '@/protocol/auth';
 import { hrefOf, navigate } from '@/routes/router';
 
 /**
- * 마이페이지. 판을 가로질러 보는 하나뿐인 화면이다 — 되짚기는 판 하나를 열고 총평은
- * 판 하나를 세지만, 여기는 「지금까지 어땠나」에 답한다.
+ * 마이페이지. 판을 가로질러 「지금까지 어땠나」에 답하는 하나뿐인 화면이다.
  *
- * 넷을 그린다: 段級 · 전적 · 崩れやすいところ · 組んだ形. 그 이상은 그리지 않는다 — 이 화면은 사람이
- * 자기를 확인하러 오는 자리이고, 판마다의 이야기는 되짚기가 이미 한다.
+ * 넷을 그린다: 段級 · 전적 · 崩れやすいところ · 組んだ形. 판마다의 이야기는 되짚기가 이미 하므로
+ * 그 이상은 그리지 않는다.
  *
- * 마지막 하나가 나머지 셋과 방향이 반대다. 앞의 셋은 「얼마나 못했나」를 세는데, 그것만
- * 있으면 판을 가로질러 보는 하나뿐인 화면이 지적만 하는 자리가 된다(journal §77).
+ * 마지막 하나가 나머지 셋과 방향이 반대다. 앞의 셋은 「얼마나 못했나」를 세는데, 그것만 있으면
+ * 이 화면이 지적만 하는 자리가 된다(journal §77).
  *
- * 로그아웃도 여기 있다(journal §86) — 「내 계정」을 여는 화면이 이미 있으면 그 안이
- * 그것의 자리다.
+ * 로그아웃도 여기 있다(journal §86).
  */
 export function ProfileScreen({ onSignOut }: { onSignOut: () => void }) {
   const state = useProfile();
 
   if (state.status === 'loading') return <p className="review-status">読み込み中…</p>;
 
-  // 로그인하지 않은 것을 오류로 다루지 않는다. 익명 판은 서로 구별할 수단이 없어서 이
-  // 화면이 답할 것이 애초에 없다 — 그러니 「失敗しました」 대신 무엇을 하면 되는지를 쓴다.
+  // 로그인하지 않은 것을 오류로 다루지 않는다. 익명 판은 서로 구별할 수단이 없어 이 화면이
+  // 답할 것이 애초에 없고, 「失敗しました」 대신 무엇을 하면 되는지를 쓴다.
   if (state.status === 'anonymous') {
     return (
       <section className="profile">
@@ -31,8 +29,8 @@ export function ProfileScreen({ onSignOut }: { onSignOut: () => void }) {
           <br />
           ログインしていない対局は記録が誰のものか分からないため、ここには出ません。
         </p>
-        {/* 여기까지 온 사람에게 갈 곳을 준다. 메뉴에서는 이 줄이 로그인한 사람에게만
-            보이지만(HomeScreen), 주소를 직접 열거나 로그아웃한 뒤에는 익명으로 여기 들어온다 —
+        {/* 여기까지 온 사람에게 갈 곳을 준다. 메뉴에는 이 줄이 로그인한 사람에게만
+            보이지만(HomeScreen) 주소를 직접 열거나 로그아웃한 뒤에는 익명으로 들어오고,
             그때 안내만 있고 누를 것이 없으면 막다른 화면이 된다. */}
         <p className="profile__signin">
           <a className="btn btn--primary" href={SIGN_IN_PATH}>
@@ -92,7 +90,7 @@ export function ProfileScreen({ onSignOut }: { onSignOut: () => void }) {
         ) : (
           <p className="profile__empty">
             まだ終わった対局がありません。{' '}
-            {/* 안내 화면과 같은 판단으로 `navigate` 를 탄다 — 문서를 새로 받으면 상시
+            {/* 안내 화면과 같은 판단으로 `navigate` 를 탄다. 문서를 새로 받으면 상시
                 마운트된 대국 화면이 갖고 있던 총평이 사라진다(GuideScreen). */}
             <a
               href={hrefOf({ name: 'game' })}
@@ -110,7 +108,7 @@ export function ProfileScreen({ onSignOut }: { onSignOut: () => void }) {
 
       <section className="profile__block" aria-label="崩れやすいところ">
         {/* 「弱点」이라고 쓰지 않는다. 사람에 대한 판정으로 읽히는 낱말이고, 세는 것은
-            어디까지나 「어떤 수에서 몇 번 물러졌나」다. */}
+            「어떤 수에서 몇 번 물러졌나」다. */}
         <h2 className="profile__head">崩れやすいところ</h2>
         {profile.weaknesses && profile.weaknesses.length > 0 ? (
           <ul className="profile__weak">
@@ -136,15 +134,15 @@ export function ProfileScreen({ onSignOut }: { onSignOut: () => void }) {
       </section>
 
       {/* 「崩れやすいところ」의 반대편이다. 저쪽이 무너진 자리라면 이쪽은 실제로 지은
-          것이고, 마이페이지가 지적만 하는 화면이 되지 않게 하는 것이 이 절의 몫이다. */}
+          것이고, 이 절이 있어서 마이페이지가 지적만 하는 화면이 되지 않는다. */}
       <section className="profile__block" aria-label="組んだ形">
         <h2 className="profile__head">組んだ形</h2>
         {profile.styles && profile.styles.length > 0 ? (
           <ul className="profile__styles">
             {profile.styles.map((s) => (
               <li key={s.code}>
-                {/* 축을 먼저 적는다 — 「美濃囲い」와 「中飛車」가 한 목록에 서므로,
-                    없으면 둘이 같은 종류로 읽힌다. 대국 중의 알림과 같은 표다. */}
+                {/* 축을 먼저 적는다. 「美濃囲い」와 「中飛車」가 한 목록에 서므로 없으면
+                    둘이 같은 종류로 읽힌다. 대국 중의 알림과 같은 표다. */}
                 <span className="profile__styles-kind">{TAG_KIND_JA[s.kind]}</span>
                 <span className="profile__styles-name">{s.nameJa}</span>
                 {/* 단위는 「回」 대신 「局」이다. 한 판에 같은 이름은 한 번만 담긴다. */}
@@ -159,8 +157,8 @@ export function ProfileScreen({ onSignOut }: { onSignOut: () => void }) {
         )}
       </section>
 
-      {/* 맨 아래이고, 눈에 띄지 않는다. 이 화면에서 사람이 보러 온 것은 위의 넷이고
-          이건 가끔 한 번 쓰는 것이라, 위에 두면 성적을 보러 온 사람이 매번 지나친다. */}
+      {/* 맨 아래이고 눈에 띄지 않는다. 가끔 한 번 쓰는 것이라, 위에 두면 성적을 보러 온
+          사람이 매번 지나친다. */}
       <div className="profile__signout">
         <button type="button" className="btn" onClick={onSignOut}>
           ログアウト

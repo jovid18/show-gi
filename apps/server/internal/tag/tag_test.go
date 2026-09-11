@@ -229,7 +229,8 @@ func TestIbishaNeedsACastleFirst(t *testing.T) {
 // 수순이 없으면 居飛車라고 말하지 않는다. StartSFEN 으로 중간부터 시작한 세션이
 // 그렇다 — 기록이 비어 있는 것과 振っていない은 다르다.
 //
-// 판을 함께 보는 것이 그것을 막는다. 飛가 6筋에 있으면 수순이 비어 있어도 居飛車를 붙이지 않는다.
+// 판을 함께 보는 것이 그것을 막는다. 飛가 6筋에 있으면 수순이 비어 있어도 居飛車를
+// 붙이지 않는다.
 func TestIbishaIsNotClaimedWhenTheHistoryIsMissing(t *testing.T) {
 	ss := append(append([]square{}, shapeByCode(t, "kin_yagura").squares...),
 		square{6, 8, shogi.Rook}) // 이미 振ってある 국면

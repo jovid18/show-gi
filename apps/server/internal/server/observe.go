@@ -25,8 +25,8 @@ const maxRequestIDLen = 64
 // 걸리지 않은 경로를 그대로 라벨로 쓰면 계열이 무한히 늘어난다(journal §90).
 const routeOther = "other"
 
-// statusClientGone 은 부르는 쪽이 먼저 끊은 요청의 status 라벨이다. nginx 의 499 를 쓴다 —
-// HTTP 표준에 없는 값이지만 「서버는 멀쩡하다」를 5xx 와 가르는 자리가 필요하다.
+// statusClientGone 은 부르는 쪽이 먼저 끊은 요청의 status 라벨이다. HTTP 표준에 없지만
+// 「서버는 멀쩡하다」를 5xx 와 가르려고 nginx 의 499 를 쓴다.
 const statusClientGone = "499"
 
 // ctxKey 는 이 패키지가 ctx 에 넣는 값의 키 타입이다.
@@ -43,9 +43,8 @@ func RequestIDOf(ctx context.Context) string {
 
 // LogHandler 는 ctx 에 실린 요청 ID 를 모든 로그 줄에 붙인다.
 //
-// 핸들러가 slog 의 ...Context 함수를 쓰면 request_id 를 직접 넘기지 않아도 붙는다 —
-// 넘기게 두면 어느 줄에서든 빠뜨릴 수 있고, 빠진 줄은 요청 하나를 되짚을 때 바로 그
-// 없는 줄이 된다.
+// 핸들러가 slog 의 ...Context 함수를 쓰면 request_id 를 직접 넘기지 않아도 붙는다. 넘기게
+// 두면 어느 줄에서든 빠뜨릴 수 있고, 빠진 줄이 요청 하나를 되짚을 때 없는 줄이 된다.
 func LogHandler(inner slog.Handler) slog.Handler { return logHandler{inner} }
 
 type logHandler struct{ slog.Handler }
@@ -67,8 +66,8 @@ func (h logHandler) WithGroup(name string) slog.Handler {
 
 // observe 는 요청 하나를 로그와 지표로 남긴다. reg 가 nil 이면 로그만 남는다.
 //
-// mux 를 안쪽에 두는 것이 조건이다. route 라벨로 쓰는 r.Pattern 은 ServeMux 가 요청에
-// 직접 채우므로, 감싸는 쪽에서 읽으려면 mux.ServeHTTP 가 돌아온 뒤여야 한다.
+// mux 를 안쪽에 둬야 한다. route 라벨로 쓰는 r.Pattern 을 ServeMux 가 요청에 직접
+// 채우므로, 읽으려면 mux.ServeHTTP 가 돌아온 뒤여야 한다.
 func observe(reg *metrics.Registry, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := requestID()
@@ -78,9 +77,8 @@ func observe(reg *metrics.Registry, next http.Handler) http.Handler {
 		rec := &recorder{ResponseWriter: w}
 		start := time.Now()
 
-		// 요청 한 줄을 defer 로 남긴다. 핸들러가 panic 하면 net/http 가 연결만 끊는데,
-		// 그러면 상태 코드도 로그 줄도 지표도 남지 않는다 — 가장 흔한 장애가 지표에서
-		// 보이지 않고 5xx 알람이 영원히 조용하다.
+		// 요청 한 줄을 defer 로 남긴다. 핸들러가 panic 하면 net/http 가 연결만 끊고, 그러면
+		// 상태 코드도 로그 줄도 지표도 남지 않아 5xx 알람이 영원히 조용하다.
 		defer func() {
 			p := recover()
 			if p != nil && p != http.ErrAbortHandler {
@@ -113,8 +111,7 @@ func observed(reg *metrics.Registry, r *http.Request, rec *recorder, took time.D
 	//
 	// 검토·가정 수순은 엔진을 기다리는 동안 요청 ctx 가 죽으면 그 에러를 503으로 답한다
 	// (explore.go·whatif.go 의 default 갈래). 탐색이 몇 초라 「눌러 놓고 다른 화면으로
-	// 가는」 것이 흔하고, 그것을 5xx 로 세면 알람이 정상 사용에 울린다. 499는 nginx 가
-	// 쓰는 그 뜻이다 — 서버는 멀쩡하고 부르는 쪽이 없어졌다.
+	// 가는」 것이 흔하고, 그것을 5xx 로 세면 알람이 정상 사용에 울린다.
 	label := strconv.Itoa(status)
 	canceled := status >= http.StatusInternalServerError && r.Context().Err() != nil
 	if canceled {
@@ -134,20 +131,20 @@ func observed(reg *metrics.Registry, r *http.Request, rec *recorder, took time.D
 		// 다 갖고 있어야 「왜 499로 세어졌나」를 되짚을 수 있다.
 		attrs = append(attrs, slog.Bool("client_gone", true))
 	}
-	// ALB 가 붙이는 추적 ID. 있으면 같이 남긴다 — 우리 로그와 ALB 로그를 잇는
-	// 하나뿐인 값이고, 없는 환경(로컬·테스트)에서는 그냥 없다.
+	// ALB 가 붙이는 추적 ID. 우리 로그와 ALB 로그를 잇는 하나뿐인 값이다.
 	if trace := r.Header.Get("X-Amzn-Trace-Id"); trace != "" {
 		attrs = append(attrs, slog.String("trace_id", trace))
 	}
-	// 밖에서 온 ID. 우리 것을 대신하지 않고 한 필드로만 남는다.
+	// 밖에서 온 ID. 우리 것을 대신하지 않고, 앞단이나 스크립트가 자기 ID 로 되짚을 수
+	// 있게 한 필드로만 남는다.
 	if given := clientRequestID(r); given != "" {
 		attrs = append(attrs, slog.String("client_request_id", given))
 	}
 
 	if p != nil {
 		reg.ObservePanic(route)
-		// 스택을 같이 남긴다. panic 은 로그 한 줄로는 어디서 났는지 알 수 없고,
-		// 여기서 남기지 않으면 net/http 가 자기 로거로 찍어 급이 INFO 가 된다.
+		// 스택을 같이 남긴다. 여기서 남기지 않으면 net/http 가 자기 로거로 찍어 급이
+		// INFO 가 된다.
 		attrs = append(attrs, slog.Any("panic", p), slog.String("stack", string(debug.Stack())))
 		slog.ErrorContext(r.Context(), "request panicked", attrs...)
 		return
@@ -163,8 +160,8 @@ func observed(reg *metrics.Registry, r *http.Request, rec *recorder, took time.D
 func levelFor(r *http.Request, status int, canceled bool) slog.Level {
 	switch {
 	case canceled:
-		// 사람이 화면을 떠난 것이라 우리 잘못이 없다. Error 로 남기면 로그를 급으로
-		// 훑을 때 진짜 고장에 섞인다.
+		// 사람이 화면을 떠난 것이다. Error 로 남기면 로그를 급으로 훑을 때 진짜 고장에
+		// 섞인다.
 		return slog.LevelInfo
 	case status >= http.StatusInternalServerError:
 		return slog.LevelError
@@ -178,9 +175,8 @@ func levelFor(r *http.Request, status int, canceled bool) slog.Level {
 // requestID 는 이 요청의 ID 다. 언제나 우리가 만든다.
 //
 // 밖에서 온 값을 채택하지 않는다. Caddy 가 이 헤더를 붙이지도 지우지도 않으므로
-// (apps/web/Caddyfile) 누구나 같은 값을 계속 보낼 수 있고, 그러면 request_id 가
-// 요청 하나를 가리키지 못한다 — 장애를 되짚어야 하는 바로 그때. 앞단이 이 헤더를
-// 실제로 소유하는 날 여기를 바꾼다. 온 값은 버리지 않고 따로 남긴다(clientRequestID).
+// (apps/web/Caddyfile) 누구나 같은 값을 계속 보낼 수 있고, 그러면 request_id 가 요청
+// 하나를 가리키지 못한다. 온 값은 따로 남긴다(clientRequestID).
 func requestID() string {
 	var b [8]byte
 	if _, err := rand.Read(b[:]); err != nil {
@@ -191,9 +187,6 @@ func requestID() string {
 }
 
 // clientRequestID 는 밖에서 온 요청 ID 다. 쓸 만하지 않으면 빈 문자열이다.
-//
-// 우리 ID 를 대신하지 않는다. 로그에 한 필드로만 실려서, 앞단이나 스크립트가 자기
-// ID 로 요청을 되짚을 수 있게만 해 준다.
 func clientRequestID(r *http.Request) string {
 	given := r.Header.Get(requestIDHeader)
 	if !safeRequestID(given) {
@@ -204,9 +197,8 @@ func clientRequestID(r *http.Request) string {
 
 // safeRequestID 는 밖에서 온 ID 를 그대로 로그에 실어도 되는지 본다.
 //
-// 글자를 제한하는 것은 JSON 이 깨지는 것과는 무관하다(그건 인코더가 막는다) —
-// 로그를 보는 사람이 값의 끝을 알 수 있어야 하고, 길이가 무제한이면 한 요청이
-// 로그 한 줄 전체를 차지할 수 있다.
+// 글자를 제한하는 것은 JSON 이 깨지는 것과 무관하다(그건 인코더가 막는다). 길이가
+// 무제한이면 한 요청이 로그 한 줄 전체를 차지할 수 있다.
 func safeRequestID(v string) bool {
 	if v == "" || len(v) > maxRequestIDLen {
 		return false

@@ -31,10 +31,8 @@ func open(t *testing.T) *Store {
 	return s
 }
 
-// 테스트마다 다른 키를 쓰고, 시작할 때 지운다.
-//
-// 지우지 않으면 이전 실행이 남긴 행이 남아 두 번째부터 결과가 달라진다. CI는 매번 빈
-// DB라 통과하고 로컬에서만 깨지는데, 그런 테스트는 있으나 마나다.
+// 테스트마다 다른 키를 쓰고, 시작할 때 지운다. 지우지 않으면 이전 실행이 남긴 행이
+// 남아 두 번째부터 결과가 달라진다.
 func key(t *testing.T, s *Store) string {
 	t.Helper()
 	k := "test/" + t.Name()
@@ -149,7 +147,7 @@ func TestAnEdgeWrittenBeforeTheMateColumnStillReadsBack(t *testing.T) {
 	}
 }
 
-// 이 PR의 핵심. 얕은 결과가 깊은 결과를 덮으면 개입 판정이 얕은 값 위에서 돈다.
+// 얕은 결과가 깊은 결과를 덮으면 개입 판정이 얕은 값 위에서 돈다.
 func TestShallowerResultDoesNotOverwrite(t *testing.T) {
 	s := open(t)
 	k := key(t, s)
@@ -381,7 +379,7 @@ func TestSetMoveEvalFillsOnlyTheEval(t *testing.T) {
 
 // ── 리뷰(읽기) ───────────────────────────────────────────
 
-// 한 판을 넣고 그대로 꺼낸다. 읽는 쪽이 없어서 지금까지 누구도 확인하지 않던 자리다.
+// 한 판을 넣고 그대로 꺼낸다.
 func TestGameRecordRoundTrip(t *testing.T) {
 	s := open(t)
 	id := newGame(t, s)
@@ -573,8 +571,8 @@ func TestGameQuizRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GameQuiz: %v", err)
 	}
-	// 바이트가 같기를 기대하지 않는다. jsonb는 넣은 글자를 그대로 두지 않고 다시 쓴다
-	// (키 순서도 공백도 갈린다). 읽는 쪽이 하는 일과 같게 풀어서 본다.
+	// 바이트가 같기를 기대하지 않는다. jsonb는 키 순서도 공백도 다시 쓴다. 읽는 쪽이
+	// 하는 일과 같게 풀어서 본다.
 	var back struct {
 		Mate *struct{ Plies int } `json:"mate"`
 	}

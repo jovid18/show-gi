@@ -19,7 +19,7 @@ func hangsPieceVerdict() intervene.Verdict {
 // 카드의 문장은 explain.Render 가 만든다. 세션이 문구를 직접 짓지 않는다.
 //
 // 갈라지면 같은 수가 대국 중과 되짚기에서 다른 이유로 나쁜 것이 되고, 그 사실이 아무
-// 에러도 내지 않는다 — 화면만 경고 없이 다른 말을 한다.
+// 에러도 내지 않는다.
 func TestInterventionMessageComesFromRender(t *testing.T) {
 	facts := explain.Facts{
 		Kind: intervene.KindBlunder, Category: intervene.CategoryHangsPiece,
@@ -72,8 +72,7 @@ func TestNoCardForMovesThatStand(t *testing.T) {
 	}
 }
 
-// 판정이 실패해도 카드를 만들지 않는다. 이유를 모르는데 문장을 내보낼 수는 없고,
-// 무엇보다 대국이 그대로 이어져야 한다 — 개입은 부가 기능이다.
+// 판정이 실패해도 카드를 만들지 않는다. 이유를 모르는데 문장을 내보낼 수 없다.
 func TestNoCardWhenJudgingFails(t *testing.T) {
 	an := &fixedAnalyst{err: errors.New("engine down")}
 	s := newSession(t, Config{
@@ -98,9 +97,9 @@ func TestNoCardWhenJudgingFails(t *testing.T) {
 
 // 플레이 기록의 그 국면에서 다시 확인한다.
 //
-// 69手 ▲2五飛 — 카테고리가 other 로 떨어져 「その手は形勢を大きく損ねます。もう一度
-// 考えてみてください。」만 나갔던 자리다(08-playtest.md §5·§7). 기록자는 8九桂를 金 하나가
-// 지킨다고 셌는데 9九馬도 그 자리를 보고 있었다(§6-2).
+// 69手 ▲2五飛. 카테고리가 other 로 떨어져 「その手は形勢を大きく損ねます。もう一度
+// 考えてみてください。」만 나갔던 자리다(08-playtest.md §5·§7). 기록자는 8九桂를 金
+// 하나가 지킨다고 셌는데 9九馬도 그 자리를 보고 있었다(§6-2).
 //
 // 반박 수순의 첫 수가 그 桂를 딴다. 엔진이 실제로 돌려준 PV는 [§25](journal/21-40.md)에 적혀
 // 있으므로 엔진 없이 같은 것을 확인할 수 있다.

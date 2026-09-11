@@ -1,15 +1,5 @@
 import type { ResumableGame } from '@/protocol/resume';
 
-/**
- * 두다 만 판이 있을 때 시작 화면 대신 뜨는 물음.
- *
- * 고르는 화면(`Setup`)보다 앞이다. 두던 판이 있는데 선후공부터 다시 고르게 하면
- * 그 판은 사람이 존재를 모르는 채로 사라진다.
- *
- * 로그인한 사람에게만 뜬다. 서버가 익명에게는 후보를 주지 않는다 — 익명 판은 서로 구별할
- * 수단이 없어서 「누구의 중단된 판인가」에 답할 수가 없다(`internal/server/resume.go`).
- */
-
 const COLOR_JA: Record<ResumableGame['myColor'], string> = {
   b: '先手',
   w: '後手',
@@ -24,6 +14,15 @@ interface ResumeProps {
   onDecline: () => void;
 }
 
+/**
+ * 두다 만 판이 있을 때 시작 화면 대신 뜨는 물음.
+ *
+ * 고르는 화면(`Setup`)보다 앞이다. 두던 판이 있는데 선후공부터 다시 고르게 하면 그 판은
+ * 사람이 존재를 모르는 채로 사라진다.
+ *
+ * 로그인한 사람에게만 뜬다. 익명 판은 서로 구별할 수단이 없어 「누구의 중단된 판인가」에 답할
+ * 수가 없고, 그래서 서버가 익명에게는 후보를 주지 않는다(`internal/server/resume.go`).
+ */
 export function Resume({ game, onResume, onDecline }: ResumeProps) {
   return (
     <div className="setup resume">
@@ -35,12 +34,12 @@ export function Resume({ game, onResume, onDecline }: ResumeProps) {
           {/* 駒落ち에서는 이 판의 어휘가 下手/上手로 갈린다. */}
           <dd>{game.handicapJa === undefined ? COLOR_JA[game.myColor] : SHITATE_JA}</dd>
         </div>
-        {/* 駒落ち 판에는 戦型이 없다. 진형과 手合割은 같이 고를 수 없으므로(Setup) 그 자리에
-            「おまかせ」를 적으면 고를 수 있었던 것처럼 읽힌다. */}
+        {/* 駒落ち 판에는 戦型이 없다. 진형과 手合割은 같이 고를 수 없으므로(Setup) 그
+            자리에 「おまかせ」를 적으면 고를 수 있었던 것처럼 읽힌다. */}
         {game.handicapJa === undefined ? (
           <div>
             <dt>相手の戦型</dt>
-            {/* 이름이 없으면 「おまかせ」다. id를 그리지 않는다 — 화면이 코드로 문장을 짓지 않는다. */}
+            {/* 이름이 없으면 「おまかせ」다. 화면이 id 로 문장을 짓지 않는다. */}
             <dd>{game.openingJa ?? 'おまかせ'}</dd>
           </div>
         ) : (

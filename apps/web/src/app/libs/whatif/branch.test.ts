@@ -6,7 +6,7 @@ import { fromUsi, toIndex } from '@/models/square';
 
 const sq = (usi: string): number => toIndex(fromUsi(usi));
 
-// 手数 하나를 넘어갈 때 필요한 것은 USI 하나뿐이다 — 기보든 분기든 같은 함수가 본다.
+// 手数 하나를 넘어갈 때 필요한 것은 USI 하나뿐이고, 기보든 분기든 같은 함수가 본다.
 function moves(...usis: string[]): { usi: string }[] {
   return usis.map((usi) => ({ usi }));
 }
@@ -75,8 +75,8 @@ describe('branchMotion', () => {
   });
 });
 
-// 詰み은 cp로 말하지 않는다. 서버가 그때 cp 를 아예 보내지 않고, 억지로 환산해 봐야
-// 초심자에게 큰 숫자는 아무것도 아니다.
+// 詰み은 cp 로 말하지 않는다. 서버가 그때 cp 를 아예 보내지 않고, 초심자에게 큰 숫자는
+// 아무것도 아니다.
 describe('scoreJa', () => {
   it('詰み은 手数로 말한다', () => {
     expect(scoreJa(undefined, 5)).toBe('5手で詰み');
@@ -95,24 +95,24 @@ describe('scoreJa', () => {
     expect(scoreJa(0, undefined)).toBe('0');
   });
 
-  // 없는 값을 0으로 채우지 않는다 — 0은 호각이라는 다른 사실이다.
+  // 없는 값을 0으로 채우지 않는다. 0은 호각이라는 다른 사실이다.
   it('값이 없으면 빈 문자열', () => {
     expect(scoreJa(undefined, undefined)).toBe('');
   });
 });
 
 // 두 화면(대국 중의 블런더 목록 · 되짚기의 「この局面で指せた手」)이 이 두 함수를 같이 쓴다.
-// 부호 규칙이 두 벌이면 한쪽만 어긋난다 — 실제로 되짚기 쪽이 뒤집기 없이 자라 있었다.
+// 부호 규칙이 두 벌이면 한쪽만 어긋난다.
 describe('rowScoreJa', () => {
-  // 手数는 세는 값이라 관점을 바꿔도 자가 갈리지 않는다. 뒤집지 않으면 상대의 詰み을 내 詰み으로
-  // 말하게 된다 — `lets_mate` 카테고리 전체가 그 자리다.
+  // 手数는 세는 값이라 관점을 바꿔도 자가 갈리지 않는다. 뒤집지 않으면 상대의 詰み을 내
+  // 詰み으로 말하게 되고, `lets_mate` 카테고리 전체가 그 자리다.
   it('상대가 두는 자리면 詰み의 주어가 바뀐다', () => {
     const row = { cp: undefined, mateIn: 3 };
     expect(rowScoreJa(row, false)).toBe('3手で詰み');
     expect(rowScoreJa(row, true)).toBe('3手で詰まされる');
   });
 
-  // cp는 열의 자(둔 쪽 관점)를 지킨다. 뒤집는 것은 詰み의 주어와 색뿐이다.
+  // cp 는 열의 자(둔 쪽 관점)를 지킨다. 뒤집는 것은 詰み의 주어와 색뿐이다.
   it('詰み이 아니면 cp를 그대로 적는다', () => {
     expect(rowScoreJa({ cp: -151, mateIn: undefined }, true)).toBe('-151');
     expect(rowScoreJa({ cp: -151, mateIn: undefined }, false)).toBe('-151');
@@ -138,7 +138,7 @@ describe('playerCp', () => {
   });
 });
 
-// 詰み이 cp보다 언제나 바깥이다. cp만으로 줄 세우면 「3手で詰み」과 「+2900」이 이웃으로
+// 詰み이 cp 보다 언제나 바깥이다. cp 만으로 줄 세우면 「3手で詰み」과 「+2900」이 이웃으로
 // 놓이는데, 그 둘은 서로 다른 자의 값이다. 그리고 빨리 죽는 쪽이 더 나쁘다.
 describe('rankOf', () => {
   it('詰み이 어떤 cp보다 위다', () => {
@@ -149,7 +149,7 @@ describe('rankOf', () => {
     expect(rankOf({ cp: undefined, mateIn: 1 })).toBeGreaterThan(rankOf({ cp: undefined, mateIn: 9 }));
   });
 
-  // 부호만 보고 자르면 이 순서가 뒤집힌다 — 빨리 죽는 쪽이 더 나쁜 자리다.
+  // 부호만 보고 자르면 이 순서가 뒤집힌다. 빨리 죽는 쪽이 더 나쁜 자리다.
   it('빨리 詰まされる 쪽이 맨 아래다', () => {
     expect(rankOf({ cp: undefined, mateIn: -1 })).toBeLessThan(rankOf({ cp: undefined, mateIn: -9 }));
   });
@@ -175,8 +175,7 @@ describe('branchStatusJa', () => {
     expect(branchStatusJa(node(), false)).toContain('あなたの番');
   });
 
-  // 상대 차례에도 막지 않는다. 「상대라면 어떻게 둘까」를 둬 보는 것이
-  // 이 화면의 내용이라, 그 자리에서 손을 놓게 만들면 절반이 사라진다.
+  // 상대 차례에도 막지 않는다. 「상대라면 어떻게 둘까」를 둬 보는 것이 이 화면의 내용이다.
   it('상대 차례면 상대의 수도 둬 보라고 말한다', () => {
     expect(branchStatusJa(node({ turn: 'w', yourTurn: false }), false)).toContain('相手の手も');
   });
@@ -189,7 +188,7 @@ describe('evalTone', () => {
     expect(evalTone(0)).toBe('rgb(var(--hint) / 0.00)');
     expect(evalTone(800)).toBe('rgb(var(--hint) / 0.50)');
     expect(evalTone(-800)).toBe('rgb(var(--ray-check) / 0.50)');
-    // 그 밖은 잘린다 — 넘겨서 더 진해지지 않는다.
+    // 그 밖은 잘린다. 넘겨서 더 진해지지 않는다.
     expect(evalTone(4000)).toBe('rgb(var(--hint) / 0.50)');
   });
 
@@ -197,7 +196,7 @@ describe('evalTone', () => {
   // 기준점을 빼지 않으면 한 줄도 빠짐없이 최대 파랑이 된다(journal §84).
   it('기준점을 빼서 「그 手合에서 좋은가」로 칠한다', () => {
     const rokumai = 2003;
-    // 접어 준 만큼 그대로 갖고 있으면 호각이다 — 색이 붙지 않는다.
+    // 접어 준 만큼 그대로 갖고 있으면 호각이라 색이 붙지 않는다.
     expect(evalTone(rokumai, rokumai)).toBe('rgb(var(--hint) / 0.00)');
     // 핸디캡의 절반을 흘렸으면 빨강 쪽 끝이다.
     expect(evalTone(1100, rokumai)).toBe('rgb(var(--ray-check) / 0.50)');

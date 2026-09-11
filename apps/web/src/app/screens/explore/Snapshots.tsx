@@ -7,8 +7,8 @@ import type { ExploreSnapshot } from '@/protocol/explore';
 /**
  * 검토에서 저장한 국면. 목록·불러오기·이름 고치기·삭제가 판 옆에서 다 된다.
  *
- * 불러오기는 주소를 고치는 일 하나다 — 이 화면의 정본이 주소라(ExploreScreen) 불러온
- * 자리도 새로고침·뒤로 가기·링크 공유에 그대로 살아 있다.
+ * 불러오기는 주소를 고치는 일 하나다. 이 화면의 정본이 주소라(ExploreScreen) 불러온 자리도
+ * 새로고침·뒤로 가기·링크 공유에 그대로 살아 있다.
  *
  * 이름이 비면 서버가 짓는다. 그 문구를 여기 옮겨 적지 않는다
  * (`exploreSnapshotDefaultName`).
@@ -19,15 +19,15 @@ interface SnapshotsProps {
   /** 지금까지 둔 수순. 저장은 이 두 칸을 그대로 보낸다. */
   moves: readonly string[];
   /**
-   * 저장할 수 있는 자리인가. 판이 아직 서지 않았으면 false다 — 거절된 줄은 서버가 어차피
-   * 막지만 그 실패를 사람에게 보일 이유가 없다.
+   * 저장할 수 있는 자리인가. 판이 아직 서지 않았으면 false다. 거절된 줄은 서버가 어차피 막지만
+   * 그 실패를 사람에게 보일 이유가 없다.
    */
   savable: boolean;
   /** 저장된 국면을 판에 올린다. 부르는 쪽이 주소를 고친다. */
   onLoad: (handicap: string, moves: string[]) => void;
 }
 
-/** 이름 칸의 상한. 서버와 같은 값이다(exploreSnapshotNameMax) — 여기서 먼저 막는다. */
+/** 이름 칸의 상한. 서버와 같은 값이고(exploreSnapshotNameMax) 여기서 먼저 막는다. */
 const NAME_MAX = 40;
 
 export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) {
@@ -38,12 +38,12 @@ export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) 
   /** 지우기를 한 번 누른 줄. 두 번 눌러야 지워진다. */
   const [confirming, setConfirming] = useState<number | null>(null);
 
-  // 기록이 없는 배포에는 이 표면이 아예 없다. 그때는 자리를 만들지 않는다 — 열 방법이 없는
-  // 기능을 한 줄로 알려 줘도 읽는 사람이 할 일이 없다(아래 로그인 검사와 갈리는 자리).
+  // 기록이 없는 배포에는 이 표면이 아예 없어 자리를 만들지 않는다. 열 방법이 없는 기능을
+  // 한 줄로 알려 줘도 읽는 사람이 할 일이 없다(아래 로그인 검사와 갈리는 자리).
   if (unavailable) return null;
 
   // 로그인하지 않은 사람에게는 한 줄만 남긴다. 검토 자체는 로그인 없이 돌므로(journal §100)
-  // 이 패널 전체를 지우면 저장이 「없는 기능」으로 보인다 — 목록도 저장 칸도 그리지 않는다.
+  // 이 패널 전체를 지우면 저장이 「없는 기능」으로 보인다.
   if (signedOut) {
     return (
       <section className="review-panel explore-snapshots" aria-label="保存した局面">
@@ -171,8 +171,8 @@ export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) 
                     >
                       名前
                     </button>
-                    {/* 두 번 눌러야 지워진다. 불러오기 버튼 바로 옆이라 한 번에
-                        지워지면 잘못 누른 것이 곧 잃는 것이 된다. */}
+                    {/* 두 번 눌러야 지워진다. 불러오기 버튼 바로 옆이라 한 번에 지워지면
+                        잘못 누른 것이 곧 잃는 것이 된다. */}
                     <button
                       type="button"
                       className="explore-snapshot-act"
@@ -200,8 +200,8 @@ export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) 
 }
 
 /**
- * 한 줄의 곁 정보 — 手合割·手数·저장 시각. 이름에 UNIQUE 가 없으므로(migrations/015)
- * 같은 이름 둘을 가르는 것이 이 셋이다.
+ * 한 줄의 곁 정보. 手合割·手数·저장 시각이다. 이름에 UNIQUE 가 없으므로(migrations/015) 같은
+ * 이름 둘을 가르는 것이 이 셋이다.
  */
 function SnapshotMeta({ snapshot }: { snapshot: ExploreSnapshot }) {
   return (

@@ -1,10 +1,9 @@
 // Package kifunorm 은 읽을 수 없는 형식의 기보 텍스트를 결정적 파서가 읽는 표기로 옮긴다.
 //
-// 여기는 글자만 만진다. 목적지도 출발칸도 성/불성도 정하지 않고, 합법수인지도 보지 않는다 —
-// 그 전부를 룰 엔진이 뒤에서 다시 하므로(shogi.ValidateMove) 이 출력에 믿는 부분이 없다.
+// 여기는 글자만 만진다. 목적지도 출발칸도 성/불성도 정하지 않고, 합법수인지도 보지 않는다.
 //
-// 경계와 그 근거는 CLAUDE.md 와 journal §126 에 있다: 좌표를 시키지 않고, 판을 프롬프트에
-// 넣지 않고, 결정적 파서가 전부 실패한 자리에서만 돈다(kifu.Read).
+// 경계와 그 근거는 journal §126 에 있다: 좌표를 시키지 않고, 판을 프롬프트에 넣지 않고,
+// 결정적 파서가 전부 실패한 자리에서만 돈다(kifu.Read).
 //
 // 키가 없으면 이 계층만 꺼진다. 결정적 파서로 읽히는 기보는 그대로 들어온다.
 package kifunorm
@@ -20,18 +19,16 @@ import (
 	"time"
 )
 
-// MaxInput 은 받는 원문의 상한이다. 토큰 값과 지연을 여기서 묶는다 —
-// 300手 KIF 가 30KB 안쪽이라 그 두 배면 사람이 붙여 넣는 것은 다 들어온다.
+// MaxInput 은 받는 원문의 상한이다. 300手 KIF 가 30KB 안쪽이라 그 두 배로 둔다.
 const MaxInput = 64 << 10
 
-// MaxMoves 는 받아들이는 手数의 상한이다. 넘으면 거절한다 — 사람이 둔 한 판을 벗어난 手数다.
+// MaxMoves 는 받아들이는 手数의 상한이다. 사람이 둔 한 판을 벗어나면 거절한다.
 const MaxMoves = 512
 
 // DefaultModel 은 값이 주어지지 않았을 때의 모델이다. 하는 일이 글자 옮기기라 mini 로 충분하다.
 const DefaultModel = "gpt-5.4-mini"
 
-// defaultTimeout 은 한 번의 호출에 주는 시한이다. 넘으면 그 임포트는 거절이다 —
-// 사람이 미리보기 화면 앞에서 기다리는 자리라 길게 잡을 수 없다.
+// defaultTimeout 은 한 번의 호출에 주는 시한이다. 사람이 미리보기 앞에서 기다린다.
 const defaultTimeout = 30 * time.Second
 
 const endpoint = "https://api.openai.com/v1/responses"
@@ -43,7 +40,7 @@ var ErrDisabled = errors.New("kifunorm: no api key")
 var ErrTooLarge = errors.New("kifunorm: input too large")
 
 // Client 는 정규화 창구다. 키가 없으면 New 가 nil 을 주고, nil 에 Normalize 를 불러도
-// 안전하게 ErrDisabled 다 — 부르는 쪽이 nil 검사를 흘리지 않게 하는 자리다.
+// 안전하게 ErrDisabled 다. 부르는 쪽이 nil 검사를 흘리지 않게 하는 자리다.
 type Client struct {
 	key   string
 	model string
@@ -51,8 +48,7 @@ type Client struct {
 	url   string
 }
 
-// New 는 창구를 만든다. 키가 비면 nil 이다 — Google 로그인이 값 하나만 비어도 표면째
-// 닫히는 것과 같은 규약이다.
+// New 는 창구를 만든다. 키가 비면 nil 이다.
 func New(key, model string) *Client {
 	if key == "" {
 		return nil
@@ -68,8 +64,7 @@ func New(key, model string) *Client {
 	}
 }
 
-// Result 는 옮겨 적은 것이다. 담긴 것은 아직 글자다 — 수가 되는 것은 kifu.ParseMoves 를
-// 지난 뒤다.
+// Result 는 옮겨 적은 것이다. 담긴 것은 아직 글자이고, 수가 되는 것은 kifu.ParseMoves 뒤다.
 type Result struct {
 	// Handicap 은 원문이 말한 手合割 이름이다. 없으면 빈 값(平手).
 	Handicap string
@@ -78,8 +73,7 @@ type Result struct {
 	// Result 는 "sente" | "gote" | "draw" | "unknown".
 	Result string
 	Moves  []string
-	// Tokens 는 이 호출이 쓴 토큰 수다. 로그에만 나간다 — 비용이 판당 한 번인 것을
-	// 실측으로 확인하는 자리다.
+	// Tokens 는 이 호출이 쓴 토큰 수다. 로그에만 나간다.
 	Tokens int
 }
 
@@ -93,11 +87,11 @@ func (c *Client) Model() string {
 
 // Normalize 는 원문을 결정적 파서가 읽는 표기로 옮긴다.
 //
-// 실패·시한·스키마 위반이 전부 같은 결과다 — 거절. 반쯤 옮긴 것을 쓰면 사람이 둔 판의
-// 뒷부분이 경고 없이 없어진 기보가 되고, 그 위에서 평가치와 段級이 돈다.
+// 실패·시한·스키마 위반이 전부 거절이다. 반쯤 옮긴 것을 쓰면 뒷부분이 경고 없이 없어진
+// 기보가 되고, 그 위에서 평가치와 段級이 돈다.
 //
 // 한 번만 다시 해 본다. 5xx 와 끊긴 연결은 다음 번에 붙지만, 스키마를 어긴 응답은 다시
-// 물어도 같은 자리에서 같은 답이다.
+// 물어도 같은 답이다.
 func (c *Client) Normalize(ctx context.Context, text string) (Result, error) {
 	if c == nil {
 		return Result{}, ErrDisabled
@@ -145,8 +139,7 @@ func (c *Client) once(ctx context.Context, text string) (Result, bool, error) {
 	}
 	defer res.Body.Close()
 
-	// 응답 전체를 읽되 상한을 건다. 여기서 무한정 읽으면 남의 서버가 이 프로세스의
-	// 메모리를 정하게 된다.
+	// 응답에 상한을 건다. 무한정 읽으면 남의 서버가 이 프로세스의 메모리를 정한다.
 	raw, err := io.ReadAll(io.LimitReader(res.Body, 4<<20))
 	if err != nil {
 		return Result{}, true, fmt.Errorf("kifunorm: read: %w", err)
@@ -161,8 +154,7 @@ func (c *Client) once(ctx context.Context, text string) (Result, bool, error) {
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return Result{}, false, fmt.Errorf("kifunorm: decode: %w", err)
 	}
-	// 잘린 응답은 반쪽 기보다. 시한이나 토큰 상한에 걸린 자리이고, 그대로 쓰면 뒷부분이
-	// 경고 없이 없어진다.
+	// 잘린 응답은 반쪽 기보다. 시한이나 토큰 상한에 걸린 자리다.
 	if out.Status != "" && out.Status != "completed" {
 		return Result{}, false, fmt.Errorf("kifunorm: response %s", out.Status)
 	}
@@ -201,8 +193,7 @@ func snippet(b []byte) string {
 	return string(b)
 }
 
-// SetURLForTest 는 부르는 주소를 갈아 끼운다. 테스트 전용이다 — 이 패키지 밖에서
-// 배선을 확인하려면 창구를 stub 서버로 돌릴 자리가 있어야 한다(server 의 가져오기 시험).
+// SetURLForTest 는 부르는 주소를 갈아 끼운다. 테스트 전용이다.
 func SetURLForTest(c *Client, url string) {
 	if c != nil {
 		c.url = url

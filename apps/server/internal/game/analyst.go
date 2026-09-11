@@ -30,23 +30,19 @@ type engineAnalyst struct {
 // JudgeDepth 는 개입 판정에 쓰는 탐색 깊이다. DefaultDepth 와 같은 값이어야 한다.
 //
 // 같은 값인 것이 캐시의 조건이다. 상대 수와 판정이 같은 국면을 묻는데 깊이가 갈리면
-// positions 가 서로 쓸 수 없는 두 무리가 된다(internal/archive) — 상수를 한 값에
-// 묶어 두면 한쪽만 옮기는 일이 일어나지 않는다.
-//
-// 짧게 잡던 자리였다. 「판정은 정밀도보다 속도」로 12를 골랐는데(depth 10 × k=1 이
-// 최장 144ms, 12가 400ms) 판정 결과가 곧 개입 여부라 정밀도 쪽으로 바꿨다(journal §130).
+// positions 가 서로 쓸 수 없는 두 무리가 된다(internal/archive, journal §130).
 const JudgeDepth = DefaultDepth
 
 // ShallowDepth 는 초보자의 시야를 모사하는 깊이다.
 //
 // 「얕은 이득에 낚임」은 여기서 좋아 보이는데 JudgeDepth 에서 나쁜 수다(01-core.md §3).
-// 2로 둔 것은 捨て駒가 얕게 보면 반드시 손해로 보이기 때문이다 — 그게 捨て駒의 정의이고,
-// 그 거울상이 「한 수만 보면 이득」이다.
+// 2로 둔 것은 捨て駒가 얕게 보면 반드시 손해로 보이기 때문이다. 그 거울상이
+// 「한 수만 보면 이득」이다.
 const ShallowDepth = 2
 
 // NewEngineAnalyst 는 엔진으로 판정하는 Analyst 를 만든다.
 //
-// mate 가 nil이면 종반 판정을 건너뛴다 — 승률 낙폭은 그대로 돌므로 대국은 된다.
+// mate 가 nil이면 종반 판정을 건너뛴다. 승률 낙폭은 그대로 돈다.
 func NewEngineAnalyst(s Searcher, mate MateSearcher, level intervene.Level) Analyst {
 	return &engineAnalyst{search: s, mate: mate, depth: JudgeDepth, level: level}
 }
@@ -75,20 +71,19 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		Level: a.level,
 	}
 
-	// 카테고리에 쓸 국면 사실. 판정 자체는 여기에 매이지 않는다 — 읽지 못하면
-	// Known 이 false로 남고 카테고리만 other 가 된다. 개입은 그대로 걸린다.
-	// 둔 쪽의 색. 평가치를 先手 관점으로 옮기는 데 쓴다 — 판을 읽지 못하면 적지 않는다.
+	// mover 는 둔 쪽의 색. 평가치를 先手 관점으로 옮기는 데 쓴다(senteScore).
+	// 판을 읽지 못하면 Known 이 false 로 남아 카테고리만 other 가 되고, 개입은
+	// 그대로 걸린다.
 	mover, moverKnown := shogi.Black, false
 	// 설명에 쓸 사실. 판정용과 같은 자리에서 한 번에 나온다(moveFacts).
 	var facts explain.Facts
 
 	if pos, m, err := replay(startSFEN, moves); err == nil {
 		mover, moverKnown = pos.Turn, true
-		// 이 판의 「형세 0」. 위 두 cp와 관점이 같아야 한다 — 駒落ち에서 유리한 쪽은
-		// 언제나 下手라, 上手의 수를 판정할 때는 부호가 뒤집힌다(handicap.BaselineCpFor).
+		// 이 판의 「형세 0」. 위 두 cp와 관점이 같아야 한다. 駒落ち에서 유리한 쪽은 언제나
+		// 下手라, 上手의 수를 판정할 때는 부호가 뒤집힌다(handicap.BaselineCpFor).
 		//
-		// 판을 읽지 못했으면 0으로 남는다. 그때 駒落ち 판정은 기준점 없이 도는데, 그 방향은
-		// 개입을 덜 하는 쪽이라 카테고리가 other 로 가는 것과 같은 종류의 후퇴다.
+		// 판을 읽지 못했으면 0으로 남고, 駒落ち 판정이 기준점 없이 돈다.
 		in.BaselineCp = handicap.BaselineCpFor(startSFEN, mover)
 		in.Features, facts = moveFacts(pos, m)
 		in.Features.UnpromotedOnly = UnpromotedOnly(m, best.Best)
@@ -111,7 +106,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		}
 	}
 
-	// 착수 후에도 남았는가는 solver 로 물으면 안 된다 — 그 국면의 수번은 상대라
+	// 착수 후에도 남았는가는 solver 로 물으면 안 된다. 그 국면의 수번은 상대라
 	// go mate 가 「상대의 詰み」을 답한다. 내가 알아야 하는 것과 반대다.
 	//
 	// 대신 이미 구해둔 탐색 결과를 쓴다. 착수 후 국면이 수번 측에게 불리한 mate로
@@ -122,17 +117,15 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 
 	// 반대 부호가 반대 카테고리다. MateIn > 0 은 착수 후 국면의 수번(=상대)이 詰ます
 	// 쪽이라는 뜻이므로 「상대가 나를 詰ます」다. 위의 MateIn < 0 과 같은 값에서 갈리는
-	// 두 질문이고, 아래쪽 답을 여기서 버리고 있었다 — 그래서 종반 개입의 절반이
-	// 이유 없이 other 로 갔다(journal §40).
+	// 두 질문이다(journal §40).
 	mateLine := a.opponentMate(ctx, startSFEN, moves, before, best.Best, after)
 	in.Features.OpponentMatePlies = len(mateLine)
 
 	v := intervene.Judge(in)
 	j := Judgement{Verdict: v, BestUSI: best.Best, Threshold: a.level.Threshold(), Ply: ply}
 
-	// 판정에 쓴 두 탐색이 그대로 기보의 평가치가 된다. 추가 탐색이 없다.
-	// 앞쪽은 착수 전 국면이라 그것이 곧 직전 상대 수 뒤의 평가치다 —
-	// 상대가 둘 때는 그 값을 아는 코드가 없으므로 여기서 한 수 늦게 채워진다.
+	// 판정에 쓴 두 탐색이 그대로 기보의 평가치가 된다. 앞쪽은 착수 전 국면이라 곧 직전
+	// 상대 수 뒤의 평가치이고, 상대가 둘 때는 그 값을 아는 코드가 없어 한 수 늦게 채워진다.
 	if moverKnown {
 		j.SenteBefore = senteScore(best.Score, mover)
 		j.SenteAfter = senteScore(after.Score.Neg(), mover) // after 는 상대 관점이다
@@ -141,26 +134,22 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	if v.Kind != intervene.KindNone {
 		// 「상대는 이렇게 벌한다」의 수순이고, 출처가 셋이다.
 		//
-		// 기본은 이미 손에 든 착수 후 탐색의 PV다 — 공짜이고 분류도 필요 없어서, 카테고리가
+		// 기본은 이미 손에 든 착수 후 탐색의 PV다. 공짜이고 분류도 필요 없어서, 카테고리가
 		// 이유를 대지 못하는 3분의 2(journal §17)가 여기서 설명을 갖는다.
 		//
 		// 詰まされる 국면은 증명된 詰み 수순을 쓴다. PV는 깊이 14에서의 읽기라 뒤로 갈수록
 		// 확실하지 않은데, 詰み 수순은 모든 응수에 대해 증명된 것이라 끝까지 참이다.
 		//
-		// other 는 카드와 같은 질문을 다시 던진다(cardPV). 그 카테고리만 문장에 수를
-		// 적으므로, 거기서만 「화면이 한 국면의 최선수를 둘로 말한다」가 성립한다(§58).
+		// other 는 카드와 같은 질문을 다시 던진다(cardPV, journal §58).
 		pv, full := after.PV, false
 		switch {
 		case len(mateLine) > 0:
 			pv, full = mateLine, true
 		case v.Category == intervene.CategoryOther && facts.Known:
-			// 문장이 수를 적는 카테고리가 이것뿐이다(explain.Facts.used). 그래서 여기만
-			// 카드와 같은 질문의 답을 쓴다 — 이유를 이름으로 대는 카테고리는 수를 적지 않으므로
-			// 갈릴 자리가 없고, 탐색을 하나 더 걸 이유도 없다.
-			//
-			// Known 을 보는 것도 같은 판단이다. 판을 읽지 못하면 카테고리가 other 로
-			// 떨어지는데(intervene.classify) 그때는 used 가 이 수를 지워서 문장에
-			// 나가지 않는다 — 말하지 않을 것을 위해 탐색을 걸지 않는다.
+			// 문장이 수를 적는 카테고리가 이것뿐이라(explain.Facts.used) 여기만 카드와
+			// 같은 질문의 답을 쓴다. Known 을 보는 것도 같은 판단이다. 판을 읽지 못하면
+			// used 가 이 수를 지워 문장에 나가지 않으므로, 말하지 않을 것을 위해 탐색을
+			// 걸지 않는다.
 			if top := a.cardPV(ctx, startSFEN, moves); len(top) > 0 {
 				pv = top
 			}
@@ -168,21 +157,18 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		r := refutationLine(startSFEN, moves, pv, RefutationPlies, full)
 		j.RetractedSFEN, j.RetractedChecks = r.retractedSFEN, r.checks
 		if full {
-			// 화면에 나가는 수순은 증명된 詰み뿐이다. PV를 잘라 내보내던 자리인데,
-			// 어디서 자를지가 국면마다 달라(trimRefutation) 두 수에서 끊기기도 했고
-			// 읽는 사람이 「그래서 뭐」로 남았다. 그 자리는 이제 후보 셋을 직접 둬 보는
-			// 쪽이 맡는다(journal §54). 詰み 수순만 남기는 것은 그것이 끝까지
-			// 참이기 때문이다 — 자를 필요가 없어서 애매한 자리가 아예 없다.
+			// 화면에 나가는 수순은 증명된 詰み뿐이다. 끝까지 참이라 어디서 자를지가
+			// 애매한 자리가 아예 없다(journal §54).
 			j.Refutation = r.line
 		}
 
-		// 설명이 쓸 사실을 여기서 닫는다. 판정이 끝난 뒤여야 한다 — 무엇을 말해도
-		// 되는지가 카테고리에 달려 있고(explain.Facts.used), 카테고리는 방금 정해졌다.
+		// 설명이 쓸 사실을 여기서 닫는다. 판정이 끝난 뒤여야 한다. 무엇을 말해도 되는지가
+		// 카테고리에 달려 있고(explain.Facts.used), 카테고리는 방금 정해졌다.
 		facts.Kind, facts.Category, facts.Level, facts.LostMate = v.Kind, v.Category, a.level, v.LostMate
 		facts.Threatened = r.threatened
 		facts.MatePlies = in.Features.OpponentMatePlies
-		// solver 가 증명한 값 그대로다. 착수 후의 手数(in.MateAfter)는 탐색이 준
-		// 미증명 값이라 넘기지 않는다 — 넘기면 문장이 그 숫자를 말한다(explain.Facts.MateBefore).
+		// solver 가 증명한 값 그대로다. 착수 후의 手数(in.MateAfter)는 탐색이 준 미증명
+		// 값이라 넘기지 않는다(explain.Facts.MateBefore).
 		facts.MateBefore = in.MateBefore
 		if v.Category == intervene.CategoryOther {
 			// 위에서 정한 그 PV다. after.PV 를 여기서 다시 읽으면 문장의 첫 수와
@@ -194,9 +180,10 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	return j, nil
 }
 
-// opponentMate 는 그 수가 상대에게 詰み을 줬는가이고, 줬으면 그 수순을 돌려준다(len 이 手数).
-// ②「최선수 뒤에는 詰み이 없다」가 없으면 이미 詰んでいた 국면에 그 수의 죄를 씌운다 — 아직
-// 시험된 적이 없어서 남긴다(journal §40 ③). 비용과 게이트 적중은 같은 절 ⑥.
+// opponentMate 는 그 수가 상대에게 詰み을 줬는가다. 줬으면 그 수순을 돌려준다(len 이 手数).
+//
+// ②「최선수 뒤에는 詰み이 없다」가 없으면 이미 詰んでいた 국면에 그 수의 죄를
+// 씌운다(journal §40 ③⑥).
 func (a *engineAnalyst) opponentMate(
 	ctx context.Context, startSFEN string, moves, before []string, bestUSI string, after usi.SearchResult,
 ) []string {
@@ -208,8 +195,8 @@ func (a *engineAnalyst) opponentMate(
 		return nil
 	}
 
-	// ① 둔 수 뒤. 이 국면의 수번은 상대이므로 go mate 가 상대의 詰み을 답한다 —
-	// 위쪽 MateBefore 가 같은 호출을 반대 국면에 쓰는 것과 정확히 대칭이다.
+	// ① 둔 수 뒤. 이 국면의 수번은 상대이므로 go mate 가 상대의 詰み을 답한다.
+	// 위쪽 MateBefore 가 같은 호출을 반대 국면에 쓰는 것과 대칭이다.
 	played, err := a.mate.SearchMate(ctx, startSFEN, moves)
 	if err != nil || !played.Found() {
 		return nil
@@ -218,30 +205,26 @@ func (a *engineAnalyst) opponentMate(
 	// ② 최선수 뒤. 여기서도 詰まされる면 이미 진 국면이라 그 수에 죄가 없다.
 	bestLine := append(append([]string(nil), before...), bestUSI)
 	if b, err := a.mate.SearchMate(ctx, startSFEN, bestLine); err != nil || b.Found() {
-		// 탐색이 실패해도 붙이지 않는다. ②를 확인하지 못한 채 붙이면 그 문구가 거짓일 수
-		// 있고, 모를 때는 말하지 않는 쪽이 이 제품의 규칙이다.
+		// 탐색이 실패해도 붙이지 않는다. ②를 확인하지 못한 채 붙이면 그 문구가 거짓일
+		// 수 있다.
 		return nil
 	}
 	return played.Moves
 }
 
-// OtherBranches 는 other 설명이 펼치는 갈래의 수다. 화면의 후보 목록과 같은 셋이라,
-// 문장과 목록이 같은 것을 말한다 — 그래서 cardPV 도 이 k로 묻는다(server.whatifCandidates).
+// OtherBranches 는 other 설명이 펼치는 갈래의 수다. 화면의 후보 목록과 같은 셋이라
+// 문장과 목록이 같은 것을 말한다(cardPV · server.whatifCandidates).
 const OtherBranches = 3
 
 // cardPV 는 물러진 수 뒤 국면의 정본 PV다. 구하지 못하면 nil.
 //
-// 개입 카드가 후보 목록을 얻는 것과 같은 질문이다 — 같은 국면·같은 깊이·k=OtherBranches.
-// 판정이 손에 든 착수 후 탐색은 k=1이고, 같은 국면·같은 깊이라도 k가 다르면 1위가 갈린다
-// (journal §34 ②). 화면이 한 국면의 최선수를 둘로 말한 원인은 그 PV를 문장에 쓰고
-// 있었던 것 하나다 — 얼마나 자주 갈리는지는 §58의 실측 표.
+// 개입 카드가 후보 목록을 얻는 것과 같은 질문이다(같은 국면·같은 깊이·k=OtherBranches).
+// 판정이 손에 든 착수 후 탐색은 k=1이고, k가 다르면 1위가 갈린다(journal §34 ② · §58).
 //
-// 엔진을 부르는 총 횟수는 그대로다. 여기서 거는 탐색이 곧 화면이 물을 그 탐색이고, 결과가
-// positions 에 남아 카드의 요청이 캐시에서 답한다(internal/archive · server.evalOf). 늘어난
-// 것은 카드가 뜨기 전에 도는 몫이다.
+// 엔진 호출 총 횟수는 그대로다. 여기서 거는 탐색이 곧 화면이 물을 그 탐색이고, 결과가
+// positions 에 남아 카드의 요청이 캐시에서 답한다(internal/archive · server.evalOf).
 //
-// 판정 자체는 건드리지 않는다 — 착수 직후에 도는 하나뿐인 탐색을 무겁게 하면 개입이
-// 걸리지 않은 수까지 느려진다(JudgeDepth).
+// 판정 자체는 건드리지 않는다(JudgeDepth).
 func (a *engineAnalyst) cardPV(ctx context.Context, startSFEN string, moves []string) []string {
 	multi, ok := a.search.(MultiSearcher)
 	if !ok {
@@ -263,13 +246,11 @@ func (a *engineAnalyst) cardPV(ctx context.Context, startSFEN string, moves []st
 
 // otherBranches 는 「그 수를 두면 이렇게 된다」를 세 갈래로 만든다. 첫 값은 상대의 최선수다.
 //
-// other 는 이유를 대지 못하는 자리이고, 그때 남는 정직한 설명이 「그래서 어떻게 되는가」
-// 하나다. 상대의 최선수는 주어진 pv의 첫 수이고 — 부르는 쪽이 카드와 같은 질문으로
-// 구해다 준다(cardPV) — 여기서 하는 탐색은 A+B 국면의 MultiPV 한 번뿐이다. 그 한 번이
-// 내 후보 셋과 각 줄의 PV(=상대의 응수)와 결말 cp를 함께 준다.
+// 상대의 최선수는 주어진 pv의 첫 수라(cardPV) 여기서 하는 탐색은 A+B 국면의 MultiPV
+// 한 번뿐이다. 그 한 번이 내 후보 셋과 각 줄의 PV(=상대의 응수)와 결말 cp를 함께 준다.
 //
-// 구하지 못하면 그 갈래를 주지 않는다. 반쪽짜리 갈래는 문장에서 곧 거짓이 되고,
-// 여기 없는 것은 설명 계층이 지어낼 수 없다(explain 패키지 doc).
+// 구하지 못하면 그 갈래를 주지 않는다. 여기 없는 것은 설명 계층이 지어낼 수
+// 없다(explain 패키지 doc).
 func (a *engineAnalyst) otherBranches(
 	ctx context.Context, startSFEN string, moves, pv []string,
 ) (string, []explain.Branch) {
@@ -286,7 +267,7 @@ func (a *engineAnalyst) otherBranches(
 		return "", nil
 	}
 
-	// 상대의 최선수. 엔진 출력을 룰 엔진으로 검증한다 — refutationLine 과 같은 자리다.
+	// 상대의 최선수. 엔진 출력을 룰 엔진으로 검증한다(refutationLine 과 같은 자리).
 	reply, err := shogi.ParseUSIMove(pv[0])
 	if err != nil || pos.ValidateMove(reply) != nil {
 		return "", nil
@@ -302,14 +283,13 @@ func (a *engineAnalyst) otherBranches(
 	}
 
 	// 점수는 이 국면의 수번 관점이고, 그 수번은 사람이다(A가 사람의 수이고 B가 상대의
-	// 응수다). 그래서 뒤집지 않는다 — 뒤집으면 문장의 부호 전체가 거짓말이 된다.
+	// 응수다). 그래서 뒤집지 않는다. 뒤집으면 문장의 부호 전체가 거짓이 된다.
 	out := make([]explain.Branch, 0, OtherBranches)
 	for _, l := range res.Lines {
 		if len(out) == OtherBranches {
 			break
 		}
-		// 상대의 응수까지 있어야 「그래서 어떻게 되는가」가 닫힌다. 결말 cp만 적으면
-		// 무엇 때문에 그렇게 되는지가 빠진다.
+		// 상대의 응수까지 있어야 「그래서 어떻게 되는가」가 닫힌다.
 		if len(l.PV) < 2 {
 			continue
 		}
@@ -401,10 +381,10 @@ const RefutationPlies = 8
 
 // refutationLine 은 착수 후 PV를 棋譜 표기·국면이 붙은 수순으로 옮긴다. 첫 값은 물러진 수 직후.
 //
-// 엔진 출력을 믿지 않는다 — 각 수를 룰 엔진으로 검증하고 둘 수 없는 수에서 끊는다.
+// 엔진 출력을 믿지 않는다. 각 수를 룰 엔진으로 검증하고 둘 수 없는 수에서 끊는다.
 // 표기·국면을 서버가 만드는 근거는 journal §6 ④.
 //
-// full(증명된 詰み)이면 자르지 않는다. 그때 limit 은 보지 않는다 — 상한은 solver 의
+// full(증명된 詰み)이면 자르지 않는다. 그때 limit 은 보지 않는다. 상한은 solver 의
 // DepthLimit 이 이미 걸었다.
 func refutationLine(startSFEN string, moves []string, pv []string, limit int, full bool) refutation {
 	if full {
@@ -446,9 +426,8 @@ func refutationLine(startSFEN string, moves []string, pv []string, limit int, fu
 		step := refutationStep{captureSq: -1}
 		if !m.IsDrop() && !pos.Board[m.To].Empty() {
 			step.captureSq = int(m.To)
-			// 첫 수가 따는 수면 그것이 「무엇을 잃는가」다. 첫 수는 언제나 상대의
-			// 수이고(판정하는 것은 늘 사람의 수다), 거기서 따이는 것은 내 駒다.
-			// 두 번째 수부터는 내 되따기가 섞여 「내가 무엇을 잃는가」가 아니게 된다.
+			// 첫 수가 따는 수면 그것이 「무엇을 잃는가」다. 첫 수는 언제나 상대의 수라
+			// 거기서 따이는 것이 내 駒이고, 두 번째 수부터는 내 되따기가 섞인다.
 			if len(line) == 0 {
 				out.threatened = shogi.PieceJa(pos.Board[m.To].Type())
 			}
@@ -473,8 +452,7 @@ func refutationLine(startSFEN string, moves []string, pv []string, limit int, fu
 	if len(line) == 0 {
 		return refutation{}
 	}
-	// 증명된 詰み 수순은 그대로 간다. steps 는 여기서 쓰이지 않는다 — 자를 자리를 찾는
-	// 값이고, 자르지 않기로 한 자리다.
+	// 증명된 詰み 수순은 자르지 않는다. steps 는 여기서 쓰이지 않는다.
 	if full {
 		out.line = line
 		return out
@@ -484,7 +462,7 @@ func refutationLine(startSFEN string, moves []string, pv []string, limit int, fu
 }
 
 // refutation 은 반박 수순 하나와, 그것을 그리고 설명하는 데 필요한 것들이다.
-// PV를 한 번 재생하며 공짜로 얻는 것들이라 묶었다 — 하나를 위해 다시 재생하면 둘이 어긋난다.
+// PV를 한 번 재생하며 함께 얻는다. 하나를 위해 다시 재생하면 둘이 어긋난다.
 type refutation struct {
 	// retractedSFEN 은 물러진 수를 둔 직후의 국면. 수순을 넘겨 볼 때의 첫 장면이다.
 	retractedSFEN string
@@ -498,9 +476,9 @@ type refutation struct {
 
 // checkLines 는 지금 수번인 쪽의 玉을 잡으러 오는 말들을 판 위의 선으로 옮긴다.
 //
-// 「王手다」와 「누가 걸고 있는가」는 다른 질문이다. 앞은 국면만 봐도 알지만 뒤는
-// 규칙을 알아야 하고, 그건 클라이언트가 갖지 않기로 한 것이다(D2). 両王手가 여기서 두 줄로
-// 나오고, 그 두 줄이 「먹어서 풀 수 없다」를 설명한다 — 실제로 그 물음이 나왔다(§20).
+// 「王手다」와 「누가 걸고 있는가」는 다른 질문이다. 뒤는 규칙을 알아야 하고, 그건
+// 클라이언트가 갖지 않는다. 両王手가 여기서 두 줄로 나오고, 그 두 줄이 「먹어서 풀 수
+// 없다」를 설명한다(journal §20).
 func checkLines(pos shogi.Position) []Attack {
 	king := pos.KingSquare(pos.Turn)
 	if king < 0 {
@@ -520,7 +498,7 @@ func checkLines(pos shogi.Position) []Attack {
 
 // refutationStep 은 반박 수순의 한 수에서 자를 자리를 정하는 데 필요한 사실이다.
 type refutationStep struct {
-	// settles 는 그 수에서 손익이 바뀌는가 — 駒를 따거나 王手를 건다.
+	// settles 는 그 수에서 손익이 바뀌는가. 駒를 따거나 王手를 건다.
 	settles bool
 	// captureSq 는 딴 칸. 따지 않았으면 -1. 교환은 한 칸에서 벌어지는 것이라 이어지는지를
 	// 이 값이 정한다.
@@ -530,8 +508,9 @@ type refutationStep struct {
 }
 
 // trimRefutation 은 손익이 바뀌는 첫 수(딴다·王手)부터 같은 칸에서 주고받는 동안은 이어
-// 붙이고, 그 주고받기가 끝나는 자리에서 끊는다. 상수 길이가 국면마다 틀리고, 교환·王手는 반쪽만 보여주면 거짓이 되기 때문이다
-// (규칙 비교와 실측 8수 사례는 journal §20). 그런 수가 없으면 첫 수만 남긴다.
+// 붙이고, 그 주고받기가 끝나는 자리에서 끊는다. 그런 수가 없으면 첫 수만 남긴다.
+//
+// 상수 길이가 국면마다 틀리고, 교환·王手는 반쪽만 보여주면 거짓이 된다(journal §20).
 func trimRefutation(steps []refutationStep) int {
 	for i, s := range steps {
 		if !s.settles {

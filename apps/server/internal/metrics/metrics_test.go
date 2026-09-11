@@ -178,9 +178,8 @@ func text(t *testing.T, r *Registry) string {
 
 // 주기를 여러 번 비워도 표본이 그 주기 전체를 대표해야 한다.
 //
-// 교체 확률의 분모를 누적 관측 수로 두면 주기가 지날수록 확률이 0으로 내려가서,
-// 배열이 「그 주기 앞머리 100건」으로 굳는다. 그러면 앞이 조용하고 뒤가 밀린 분에
-// p95 가 0.01초로 나온다 — 하필 알람이 울려야 하는 분이다.
+// 교체 확률의 분모를 누적 관측 수로 두면 배열이 주기 앞머리 100건으로 굳고, 앞이 조용하고
+// 뒤가 밀린 분에 p95 가 0.01초로 나온다.
 func TestSamplesRepresentEachInterval(t *testing.T) {
 	const rounds, perRound = 20, 500
 
@@ -209,7 +208,7 @@ func TestSamplesRepresentEachInterval(t *testing.T) {
 }
 
 // 레지스트리가 없어도 배선이 그대로 돈다. 「nil 이면 계측만 꺼진다」가 창구 둘에서도
-// 성립해야 한다 — 안 그러면 지표를 끈 배포가 기동에서 죽는다.
+// 성립하지 않으면 지표를 끈 배포가 기동에서 죽는다.
 func TestNilRegistryHooksAreSilent(t *testing.T) {
 	var r *Registry
 	p := r.Pool(PoolSearch)
@@ -220,8 +219,8 @@ func TestNilRegistryHooksAreSilent(t *testing.T) {
 	r.ObservePanic("GET /x")
 }
 
-// 라벨이 없는 계열도 텍스트 표면에 나가야 한다. 대기열의 셋이 이 앱의 첫 라벨 없는
-// 지표이고(match_pairings_total 외 둘), EMF 에는 올리지 않으므로 여기가 하나뿐인 출구다.
+// 라벨이 없는 계열도 텍스트 표면에 나가야 한다. 대기열의 셋은 EMF 에 올리지 않으므로
+// 여기가 하나뿐인 출구다.
 func TestUnlabeledFamiliesReachTheTextSurface(t *testing.T) {
 	r := New("api", "test")
 	// 짝 하나. 대기 시간은 두 사람 몫이 들어간다.
@@ -243,8 +242,8 @@ func TestUnlabeledFamiliesReachTheTextSurface(t *testing.T) {
 	}
 }
 
-// 사후 분석의 창구도 nil 레지스트리에서 조용해야 한다. 분석기가 구조체 리터럴로도
-// 서므로(match_analysis_test) 창구 자체가 nil 인 자리까지 같이 본다.
+// 사후 분석의 창구도 nil 레지스트리에서 조용해야 한다. 분석기가 구조체 리터럴로도 서므로
+// 창구 자체가 nil 인 자리까지 같이 본다.
 func TestAnalysisHooksAreSilentWithoutRegistry(t *testing.T) {
 	var r *Registry
 	r.Analysis().SetBacklog(3, 300)
@@ -255,8 +254,8 @@ func TestAnalysisHooksAreSilentWithoutRegistry(t *testing.T) {
 	a.ObserveGame(AnalysisDropped, 0)
 }
 
-// 버려진 판은 시간을 남기지 않는다. 재 보지도 않고 나간 것이라, 그 0이 분포에 섞이면
-// 「판 하나를 재는 데 얼마나 걸리나」가 아래로 끌린다.
+// 버려진 판은 시간을 남기지 않는다. 재 보지도 않고 나간 0이 분포에 섞이면 「판 하나를
+// 재는 데 얼마나 걸리나」가 아래로 끌린다.
 func TestDroppedGamesLeaveNoDuration(t *testing.T) {
 	r := New("api", "test")
 	an := r.Analysis()

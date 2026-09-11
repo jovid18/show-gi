@@ -18,25 +18,23 @@ import (
 //
 //	SHOWGI_MEASURE=1 SHOWGI_OPENAI_KEY=… go test ./internal/boardread/ -run MeasureBoardRead -v
 //
-// 그림을 레포에 커밋하지 않는다. 남의 것이고 이 레포는 퍼블릭이다 — 경로가
-// .gitignore 에 있다.
+// 그림을 레포에 커밋하지 않는다. 남의 것이고 이 레포는 퍼블릭이다(.gitignore).
 //
-// 표를 고치지 않고 임계치도 걸지 않는다. 자동으로 통과선을 두면 모델이나 프롬프트가
-// 흔들릴 때 그 선이 경고 없이 따라 움직인다(handicap 의 TestMeasureBaseline 과 같은 판단).
+// 임계치를 걸지 않는다. 자동으로 통과선을 두면 모델이나 프롬프트가 흔들릴 때 그 선이
+// 경고 없이 따라 움직인다(handicap 의 TestMeasureBaseline 과 같은 판단).
 //
 // 재는 것이 둘이다.
 //
-//   - 룰 검산의 사유 수. 라벨이 없어도 나온다 — 실물 한 판은 언제나 40장이고
-//     성립하는 국면이라, 사유가 하나라도 있으면 그 판독은 틀렸다.
+//   - 룰 검산의 사유 수. 실물 한 판은 언제나 40장이고 성립하는 국면이라, 라벨이 없어도
+//     사유가 하나라도 있으면 그 판독은 틀렸다.
 //   - 칸 단위 정확도. 그림 옆에 <이름>.sfen 을 두면 칸 81개와 駒台를 맞춰 본다.
-//     그 파일은 확인 화면에서 판을 고친 뒤 주소의 s= 를 그대로 붙여 만들면 된다 —
-//     이 기능 자체가 라벨을 만드는 도구다.
+//     그 파일은 확인 화면에서 판을 고친 뒤 주소의 s= 를 붙여 만든다.
 
 // measureDir 은 그림을 두는 곳이다. 환경변수로 덮을 수 있다.
 const measureDir = "testdata/images"
 
-// measureTimeout 은 한 장에 주는 시한이다. Client 의 것보다 넉넉하다 — 여기서 끊기면
-// 그 장이 표에서 빠지고, 표본이 경고 없이 줄어드는 것이 가장 나쁘다.
+// measureTimeout 은 한 장에 주는 시한이다. Client 의 것보다 넉넉하다. 여기서 끊기면
+// 그 장이 표본에서 경고 없이 빠진다.
 const measureTimeout = 3 * time.Minute
 
 // boardReadScore 는 그림 한 장의 결과다.
@@ -49,8 +47,7 @@ type boardReadScore struct {
 	short int
 	// Squares 는 라벨과 맞은 칸 수다. 라벨이 없으면 -1.
 	squares int
-	// Missed 는 틀린 칸이다. 어느 종류를 어느 종류로 읽는지가 다음에 무엇을 고칠지를
-	// 정하므로, 수만 세면 표를 보고도 할 일을 고를 수 없다.
+	// Missed 는 틀린 칸이다. 어느 종류를 어느 종류로 읽는지가 다음에 고칠 것을 정한다.
 	missed []string
 	// Hands 는 라벨과 駒台가 맞는가다. 라벨이 없으면 이 값을 보지 않는다.
 	hands  bool
@@ -83,8 +80,8 @@ func TestMeasureBoardRead(t *testing.T) {
 
 	scores := make([]boardReadScore, 0, len(images))
 	for _, path := range images {
-		// 한 장씩 순서대로 부른다. 병렬로 부르면 시간당 몫에 그만큼 빨리 닿고
-		// (서버의 maxBoardReadsPerHour), 실패가 한 장의 것인지 상한의 것인지 흐려진다.
+		// 한 장씩 순서대로 부른다. 병렬로 부르면 시간당 몫(maxBoardReadsPerHour)에 걸려
+		// 실패가 한 장의 것인지 상한의 것인지 흐려진다.
 		scores = append(scores, measureOne(t, c, path))
 	}
 
@@ -144,8 +141,7 @@ func labelFor(t *testing.T, path string) (shogi.Position, bool) {
 	}
 	pos, err := shogi.ParseSFEN(strings.TrimSpace(string(raw)))
 	if err != nil {
-		// 라벨이 깨진 것은 사람이 고칠 일이다. 경고 없이 넘기면 그 장이 「라벨 없음」으로
-		// 세어지고 표가 실제보다 좋아 보인다.
+		// 깨진 라벨을 넘기면 그 장이 「라벨 없음」으로 세어지고 표가 좋아 보인다.
 		t.Errorf("%s: %v", filepath.Base(label), err)
 		return shogi.Position{}, false
 	}
@@ -154,8 +150,7 @@ func labelFor(t *testing.T, path string) (shogi.Position, bool) {
 
 // compare 는 라벨과 판독을 맞춘다. 맞은 칸 수(81까지) · 駒台가 맞는가 · 틀린 칸이다.
 //
-// 手番을 보지 않는다. 사진이 말해 주지 않는 값이라 이 계층은 언제나 "b" 를 적고, 고르는
-// 것은 사람이다(Result.SFEN).
+// 手番을 보지 않는다. 이 계층은 언제나 "b" 를 적는다(Result.SFEN).
 func compare(want, got shogi.Position) (int, bool, []string) {
 	same := 0
 	var missed []string
@@ -172,8 +167,7 @@ func compare(want, got shogi.Position) (int, bool, []string) {
 
 // pieceJa 는 駒 하나를 「▲銀」처럼 적는다. 빈 칸은 「空」이다.
 //
-// 편을 붙인다. 종류만 적으면 「銀→銀」이 나오는데, 그건 편을 뒤집어 읽은 자리이고
-// 이 계층에서 가장 흔한 오독일 수 있다.
+// 편을 붙인다. 종류만 적으면 편을 뒤집어 읽은 자리가 「銀→銀」으로 나온다.
 func pieceJa(p shogi.Piece) string {
 	if p.Empty() {
 		return "空"
@@ -187,8 +181,7 @@ func pieceJa(p shogi.Piece) string {
 
 // boardImages 는 폴더의 그림을 이름 순으로 준다.
 //
-// 순서를 고정한다. 폴더가 주는 순서에 맡기면 측정마다 표의 줄이 섞이고, 「고쳐서
-// 나아진 것」을 두 표를 함께 놓고 읽을 수가 없다(floodgate 의 seed 와 같은 이유).
+// 순서를 고정한다. 측정마다 표의 줄이 섞이면 두 표를 나란히 놓고 읽을 수 없다.
 func boardImages(dir string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -210,8 +203,7 @@ func boardImages(dir string) ([]string, error) {
 
 // reportBoardRead 는 표 하나와 한 줄 요약을 찍는다.
 //
-// 실패해도 t.Fatal 하지 않는다. 이 시험이 답하는 것은 「지금 얼마나 맞나」이고, 그 값을
-// 읽지 못하게 만드는 것이 가장 나쁘다 — 한 장이 죽어도 나머지 표는 나와야 한다.
+// 실패해도 t.Fatal 하지 않는다. 한 장이 죽어도 나머지 표는 나와야 한다.
 func reportBoardRead(t *testing.T, scores []boardReadScore) {
 	t.Helper()
 
@@ -256,8 +248,7 @@ func reportBoardRead(t *testing.T, scores []boardReadScore) {
 		}
 	}
 
-	// 어느 짝으로 헷갈리는지를 모아 센다. 한 그림에서만 나는 것과 여러 그림에서 나는
-	// 것을 갈라야, 고칠 값이 있는 자리를 고를 수 있다.
+	// 어느 짝으로 헷갈리는지를 모아 센다. 여러 그림에서 나는 것이 고칠 값이 있는 자리다.
 	pairs := map[string]int{}
 	for _, s := range scores {
 		for _, m := range s.missed {

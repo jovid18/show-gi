@@ -9,7 +9,7 @@ const at = (count: Uint8Array, usi: string) => count[toIndex(fromUsi(usi))];
 
 const lit = (count: Uint8Array) => new Set(Array.from(count, (n, i) => (n > 0 ? i : -1)).filter((i) => i >= 0));
 
-/** 판만 있는 SFEN. 持ち駒는 利き과 무관하다 — 打은 駒가 판에 놓인 뒤의 일이다. */
+/** 판만 있는 SFEN. 持ち駒는 利き과 무관하다. 打은 駒가 판에 놓인 뒤의 일이다. */
 const board = (rows: string) => parseSfen(`${rows} b -`);
 
 describe('influenceOf', () => {
@@ -22,8 +22,8 @@ describe('influenceOf', () => {
   });
 
   it('쭉 가는 駒는 처음 만난 駒에서 멈추고 **그 칸까지 센다**', () => {
-    // 5九香 위로. 5六에 상대 歩가 막고 서 있다 — 자기 歩로 막으면 그 歩의 利き이
-    // 5五에 얹혀서 「香가 뚫고 갔는가」를 이 자리에서 가를 수 없다.
+    // 5九香 위로. 5六에 상대 歩가 막고 서 있다. 자기 歩로 막으면 그 歩의 利き이 5五에
+    // 얹혀서 「香가 뚫고 갔는가」를 이 자리에서 가를 수 없다.
     const { black } = influenceOf(board('9/9/9/9/9/4p4/9/9/4L4'));
     expect(at(black, '5h')).toBe(1);
     expect(at(black, '5g')).toBe(1);
@@ -71,8 +71,8 @@ describe('influenceOf', () => {
 
 describe('exposure', () => {
   it('받고 있는 만큼 뺀다 — 음수는 0이다', () => {
-    // 5五를 後手 歩(5四)가 겨누고, 先手 金(5六)이 받는다. 매수가 같으면 어느 쪽에서
-    // 봐도 그늘이 없다 — 뺄셈 하나로 두 방향이 같이 닫힌다.
+    // 5五를 後手 歩(5四)가 겨누고, 先手 金(5六)이 받는다. 매수가 같으면 어느 쪽에서 봐도
+    // 그늘이 없다.
     const influence = influenceOf(board('9/9/9/4p4/9/4G4/9/9/9'));
     expect(exposure(influence, 'black')[toIndex(fromUsi('5e'))]).toBe(0);
     expect(exposure(influence, 'white')[toIndex(fromUsi('5e'))]).toBe(0);

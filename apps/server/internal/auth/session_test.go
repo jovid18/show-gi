@@ -25,7 +25,7 @@ func TestSessionRoundTrip(t *testing.T) {
 	}
 }
 
-// 서명 키가 없으면 코덱이 없다 — 서명 없는 세션을 만드느니 로그인을 끈다.
+// 서명 키가 없으면 코덱이 없다. 서명 없는 세션을 만드느니 로그인을 끈다.
 func TestNewCodecWithoutSecret(t *testing.T) {
 	if NewCodec("") != nil {
 		t.Error("NewCodec(\"\") is not nil")

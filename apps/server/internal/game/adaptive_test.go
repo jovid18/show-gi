@@ -55,11 +55,10 @@ func TestAdaptivePicksTheBandNotTheBest(t *testing.T) {
 	}
 }
 
-// 이미 지고 있어도 최선수로 버티지 않는다 — 한 칸씩 양보한다.
+// 이미 지고 있어도 최선수로 버티지 않는다. 한 칸씩 양보한다.
 //
-// 후보가 전부 밴드 위(플레이어가 이미 크게 유리)라 절대 좌표가 뜻을 잃는 자리다. 여기서
-// 거리를 최소화하면 「+300으로 되돌려라」가 되어 최선수가 뽑히고, 조절이 가장 필요한
-// 자리에서 조절이 꺼진다. 한 판이 298手가 되고 사람이 끝내지 못한다(journal §55).
+// 후보가 전부 밴드 위라 절대 좌표가 뜻을 잃는 자리다. 거리를 최소화하면 최선수가
+// 뽑히고, 한 판이 298手가 되어 사람이 끝내지 못한다(journal §55).
 func TestAdaptiveKeepsConcedingWhenAlreadyLost(t *testing.T) {
 	got := chooseFrom(t, "7g7f",
 		line("7g7f", -1500), // 플레이어 +1500 — 상대의 최선수
@@ -72,11 +71,10 @@ func TestAdaptiveKeepsConcedingWhenAlreadyLost(t *testing.T) {
 }
 
 // 잘 두는 사람에게는 그 자리에서도 버틴다. 실력 추정이 바닥을 기준점 아래로 내리므로
-// 최선수가 다시 후보가 된다 — 조절의 손잡이가 하나로 들어온다는 것이 이 테스트다.
+// 최선수가 다시 후보가 된다.
 func TestConcedingFollowsTheSkillEstimate(t *testing.T) {
 	// 플레이어 관점 +1500(최선) · +1700 · +2000. 밴드가 낙폭에 따라 1300~1500 →
-	// 1600~1800 → 1900~2100 으로
-	// 오르므로 셋이 각각 다른 수를 고른다.
+	// 1600~1800 → 1900~2100 으로 오르므로 셋이 각각 다른 수를 고른다.
 	candidates := []usi.SearchLine{
 		line("7g7f", -1500), // 최선수
 		line("2g2f", -1700),
@@ -140,9 +138,7 @@ func TestAdaptiveEasesOffWhenWinning(t *testing.T) {
 	}
 }
 
-// 「던지지 않는다」 — 밴드에 아무리 잘 맞아도 駒를 그냥 주는 수는 고르지 않는다.
-//
-// 이 필터는 엔진이 필요 없다. 룰 엔진만으로 된다.
+// 「던지지 않는다」. 밴드에 아무리 잘 맞아도 駒를 그냥 주는 수는 고르지 않는다.
 func TestAdaptiveNeverThrowsAPiece(t *testing.T) {
 	// ▲7六歩 뒤 後手 차례. △8八角成(2b8h+)은 角을 7九銀에게 그냥 준다.
 	s := &stubMulti{res: usi.SearchResult{
@@ -191,7 +187,7 @@ func TestAdaptivePropagatesSearchFailure(t *testing.T) {
 	if _, err := o.Choose(t.Context(), shogi.StartSFEN, nil, skill.Unknown); err == nil {
 		t.Fatal("탐색 실패가 전달되지 않음")
 	}
-	// 수가 하나도 없으면 경고 없이 빈 문자열을 돌려주지 않는다 — 세션이 그걸 두려 한다
+	// 수가 하나도 없으면 경고 없이 빈 문자열을 돌려주지 않는다. 세션이 그걸 두려 한다
 	o2 := NewAdaptiveOpponent(&stubMulti{res: usi.SearchResult{}}, 12, DefaultBand)
 	if _, err := o2.Choose(t.Context(), shogi.StartSFEN, nil, skill.Unknown); err == nil {
 		t.Fatal("빈 결과가 에러가 아니다")
@@ -265,7 +261,7 @@ func chooseWith(t *testing.T, sk skill.Estimate, best string, lines ...usi.Searc
 }
 
 // 같은 후보에서 다른 수가 나온다. 헤매는 사람에게는 더 양보하고, 잘 두는 사람에게는
-// 이기려 든다 — 이 두 줄이 「적응형이 적응하는 대상이 사람이 아니었다」를 닫는다(§21 ①).
+// 이기려 든다(journal §21 ①).
 func TestBandFollowsHowMuchThePlayerIsStruggling(t *testing.T) {
 	// 플레이어 관점으로 −200(최선) · +200(기본 밴드 안) · +400(가장 너그러운 밴드 안).
 	// 최선수 대비 600cp 안에서 세 단계가 모두 갈린다.
@@ -295,10 +291,9 @@ func TestBandHoldsUntilEnoughMoves(t *testing.T) {
 	}
 }
 
-// 양보는 밴드까지다. 아무리 헤매도 駒를 그냥 주는 수는 고르지 않는다 — 화면이
-// 「取り返せない場所」라고 가르친 수를 상대가 두면 방금 배운 것이 깨진다(§16).
+// 양보는 밴드까지다. 아무리 헤매도 駒를 그냥 주는 수는 고르지 않는다(journal §16).
 func TestEasingOffNeverThrowsAPiece(t *testing.T) {
-	// ▲7六歩 뒤 後手 차례. △8八角成은 角을 그냥 준다 — 밴드가 어디로 가든 후보에 들지 않는다.
+	// ▲7六歩 뒤 後手 차례. △8八角成은 角을 그냥 준다. 밴드가 어디로 가든 후보에 들지 않는다.
 	s := &stubMulti{res: usi.SearchResult{
 		Best: "3c3d",
 		Lines: []usi.SearchLine{
@@ -338,9 +333,8 @@ func TestStrengthStepTracksTheShift(t *testing.T) {
 
 // TestBandFollowsTheHandicapOrigin 은 핸디캡을 흘린 사람에게 상대가 되돌려 주는지를 본다.
 //
-// 二枚落ち(+1386)에서 사람이 +500까지 흘린 자리다. 기준점을 옮기지 않으면 이 국면이 「구간 위」로
-// 읽혀서(500 > 300) 상대가 「지금 형세에서 100~300 더」만 겨냥하고, 그 좌표에서는 상대의
-// 최선수가 그대로 뽑힌다 — 조절이 가장 필요한 자리에서 꺼지는 것이다(Choose).
+// 二枚落ち(+1386)에서 사람이 +500까지 흘린 자리다. 기준점을 옮기지 않으면 이 국면이
+// 「구간 위」로 읽혀서(500 > 300) 상대의 최선수가 그대로 뽑힌다(Choose).
 func TestBandFollowsTheHandicapOrigin(t *testing.T) {
 	nimai, ok := handicap.Find("nimaiochi")
 	if !ok {

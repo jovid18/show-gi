@@ -1,13 +1,11 @@
 /**
- * 착수음. 파일을 쓰지 않고 그 자리에서 만든다.
+ * 착수음. 파일을 쓰지 않고 그 자리에서 만든다(journal §70).
  *
  * 레포가 퍼블릭이라 음원을 하나 넣으면 그 파일의 라이선스가 레포의 문제가 된다. 駒가 판에
- * 닿는 소리는 「짧은 충격 + 나무의 울림」이라 합성으로 충분히 가깝고, 그러면 출처를 적을
- * 것도 받아 올 것도 없다 — journal §70.
+ * 닿는 소리는 「짧은 충격 + 나무의 울림」이라 합성으로 충분히 가깝다.
  *
  * AudioContext 를 미리 만들지 않는다. 브라우저는 사용자가 무엇이든 누르기 전에 만든
- * 컨텍스트를 `suspended` 로 둔다. 첫 착수가 곧 클릭이라 그때 만들면 되고, 그 뒤로는
- * 상대의 수(클릭 없이 오는 것)에도 울린다.
+ * 컨텍스트를 `suspended` 로 둔다. 첫 착수가 곧 클릭이라 그때 만들면 된다.
  */
 
 /** 나무의 울림. 두 배음이 서로 조금 어긋나야 「종」 대신 「판」으로 들린다. */
@@ -21,16 +19,13 @@ const NOISE_MS = 22;
 const NOISE_HZ = 2100;
 const NOISE_GAIN = 0.45;
 
-/** 전체 크기. 게임 소리는 작게 시작한다 — 크면 한 번 듣고 끄고, 그러면 없는 것과 같다. */
+/** 전체 크기. 게임 소리는 작게 시작한다. 크면 한 번 듣고 끈다. */
 const VOLUME = 0.22;
 
 let ctx: AudioContext | null = null;
 let noise: AudioBuffer | null = null;
 
-/**
- * 이 브라우저가 소리를 낼 수 있는가. 없으면 경고 없이 아무것도 하지 않는다 — 착수음은
- * 감촉이라, 없다고 판을 두지 못하게 할 이유가 없다.
- */
+/** 이 브라우저가 소리를 낼 수 있는가. 없으면 경고 없이 아무것도 하지 않는다. */
 function audio(): AudioContext | null {
   if (ctx) return ctx;
   const Ctor = window.AudioContext ?? (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -39,7 +34,7 @@ function audio(): AudioContext | null {
   return ctx;
 }
 
-/** 짧은 백색소음 한 조각. 한 번만 만들어 돌려 쓴다 — 수마다 만들면 착수마다 GC가 돈다. */
+/** 짧은 백색소음 한 조각. 한 번만 만들어 돌려 쓴다. 수마다 만들면 착수마다 GC 가 돈다. */
 function noiseBuffer(c: AudioContext): AudioBuffer {
   if (noise) return noise;
   const frames = Math.ceil((c.sampleRate * NOISE_MS) / 1000);
@@ -56,8 +51,8 @@ function noiseBuffer(c: AudioContext): AudioBuffer {
 /**
  * 駒 하나가 판에 닿는 소리.
  *
- * 울리지 못해도 던지지 않는다. 자동 재생 정책·오디오 장치 없음·탭이 백그라운드 —
- * 전부 정상적인 상황이고, 그때 예외가 화면까지 올라가면 판이 멈춘다.
+ * 울리지 못해도 던지지 않는다. 자동 재생 정책·오디오 장치 없음·백그라운드 탭이 전부 정상적인
+ * 상황이고, 그때 예외가 화면까지 올라가면 판이 멈춘다.
  */
 export function clack(): void {
   const c = audio();

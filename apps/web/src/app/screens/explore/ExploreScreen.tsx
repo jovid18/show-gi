@@ -23,21 +23,17 @@ import { fetchHandicaps, type Handicap } from '@/protocol/handicaps';
 import { navigate } from '@/routes/router';
 
 /**
- * 「検討」 — 手合割을 골라 0手目부터 직접 판을 움직여 보면서 형세와 최선수 셋을 읽는다.
+ * 「検討」. 手合割을 골라 0手目부터 직접 판을 움직여 보면서 형세와 최선수 셋을 읽는다.
  *
- * 되짚기·개입 카드와 같은 장치를 쓴다(`useWhatIf`). 갈리는 것은 뿌리뿐이고
- * (journal §37 · §85) 여기의 뿌리는 둘이다 — 手合割 표 하나와, 사진에서 읽어 와 사람이
- * 확인한 국면 하나다(§129). 手合割 뿌리는 id와 수순만 보내고 서버가 매번 되짚어 한 수씩
- * 룰 엔진에 검증시키고, 판 뿌리는 그 재생이 불가능하므로 서버가 국면 자체를 검사한다
- * (`shogi.Faults`).
+ * 되짚기·개입 카드와 같은 장치를 쓴다(`useWhatIf`, journal §37 · §85). 갈리는 것은 뿌리뿐이고
+ * 여기의 뿌리는 둘이다: 手合割 표 하나와, 사진에서 읽어 와 사람이 확인한 국면 하나(§129).
+ * 뒤쪽은 재생할 수순이 없어 서버가 국면 자체를 검사한다(`shogi.Faults`).
  *
- * 줄의 정본은 주소다. 화면이 상태로 들고 있지 않고 `?m=` 에 적는다 — 새로고침·뒤로
- * 가기·링크 공유가 그것으로 살아난다. 한 수 두는 것은 「주소를 고쳐 쓰는 일」이고, 그러면
- * 줄을 갖고 있는 자리가 하나뿐이라 판과 주소가 어긋날 수 없다.
+ * 줄의 정본은 주소다. 화면이 상태로 들고 있지 않고 `?m=` 에 적으므로 새로고침·뒤로 가기·링크
+ * 공유가 살아나고, 줄을 갖고 있는 자리가 하나뿐이라 판과 주소가 어긋날 수 없다.
  *
- * 대국 중에는 열지 않는다. 최선수 셋을 아무 국면에서나 답하는 화면이라, 두는 중에
- * 열리면 「평소엔 최선수를 보여주지 않는다」가 탭 하나로 뚫린다(01-core.md §1 · §7).
- * 헤더도 그때 이 탭을 그리지 않는다(App.tsx) — 막는 자리가 둘이다.
+ * 대국 중에는 열지 않는다. 아무 국면에서나 최선수 셋을 답하는 화면이라, 두는 중에 열리면
+ * 01-core.md §1 · §7이 탭 하나로 뚫린다. 헤더도 그때 이 탭을 그리지 않는다(App.tsx).
  */
 interface ExploreScreenProps {
   /** 手合割 id. 빈 값이 平手다. 주소에서 온다. */
@@ -47,8 +43,8 @@ interface ExploreScreenProps {
   /**
    * 뿌리 국면. 사진에서 읽어 와 사람이 확인한 판이 여기로 온다(journal §129).
    *
-   * 비어 있으면 `handicap` 이 뿌리다. 둘은 같이 올 수 없으므로(서버가 `bad_root` 로
-   * 거절한다) 값이 있는 쪽 하나만 채워져서 온다.
+   * 비어 있으면 `handicap` 이 뿌리다. 둘은 같이 올 수 없어(서버가 `bad_root` 로 거절한다)
+   * 값이 있는 쪽 하나만 채워져서 온다.
    */
   sfen: string;
 }
@@ -65,22 +61,21 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
   }, []);
 
   /**
-   * 줄의 열쇠. 배열 대신 문자열로 의존성에 넣는다 — `moves` 는 주소를 읽을 때마다
-   * 새 배열이라(routes/router.ts) 그대로 걸면 매 렌더마다 같은 자리를 다시 묻는다.
+   * 줄의 열쇠. 배열 대신 문자열로 의존성에 넣는다. `moves` 는 주소를 읽을 때마다 새
+   * 배열이라(routes/router.ts) 그대로 걸면 매 렌더마다 같은 자리를 다시 묻는다.
    */
   const line = moves.join(',');
   const urlMoves = useMemo(() => (line === '' ? [] : line.split(',')), [line]);
 
   const send = useMemo(() => exploreSend(handicap, sfen), [handicap, sfen]);
-  // `resetKey` 가 뿌리다. 열쇠는 줄만 보므로(`useWhatIf` 의 `keyOf`) 비우지 않으면
-  // 六枚落ち의 0手目가 平手의 0手目와 같은 자리로 읽힌다 — 사진에서 읽어 온 국면도
-  // 그래서 여기 들어간다.
+  // `resetKey` 가 뿌리다. 열쇠는 줄만 보므로(`useWhatIf` 의 `keyOf`) 비우지 않으면 六枚落ち의
+  // 0手目가 平手의 0手目와 같은 자리로 읽힌다. 사진에서 읽어 온 국면도 그래서 여기 들어간다.
   const whatif = useWhatIf<ExploreNode>(send, sfen || handicap);
   const { node, pending, error, at } = whatif;
 
   /**
-   * 주소가 바뀌면 그 국면을 묻는다. 이 효과가 이 화면의 하나뿐인 흐름이다 — 누르는 쪽은
-   * 주소만 고치고, 판이 그려지는 것은 여기서 시작된다.
+   * 주소가 바뀌면 그 국면을 묻는다. 누르는 쪽은 주소만 고치고, 판이 그려지는 것은 여기서
+   * 시작된다.
    *
    * 서버가 이미 잰 국면이면 왕복도 탐색도 없고(`positions`), 지나온 자리면 왕복조차
    * 없다(`useWhatIf` 의 `seen`).
@@ -97,7 +92,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
    * 있으므로, 그 국면의 합법수로 지금 줄에 수를 더하면 서버가 거절한다.
    */
   const active = node && node.line.length === urlMoves.length ? node : null;
-  /** 그리고 있는 것. 기다리는 동안 직전 것을 그대로 둔다 — 흐리게만 한다(`stale`). */
+  /** 그리고 있는 것. 기다리는 동안 직전 것을 그대로 두고 흐리게만 한다(`stale`). */
   const shown = node;
   const stale = !active;
 
@@ -111,9 +106,8 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
   /**
    * 줄이 바뀌면 고르던 것을 버린다.
    *
-   * `go` 도 같은 둘을 비우지만 그것만으로는 부족하다 — 주소는 뒤로 가기·앞으로 가기·
-   * 트랙패드 스와이프로도 바뀌고, 그 길에는 `go` 가 없다. 그때 成りますか가 그대로 떠 있으면
-   * 남의 국면에 대한 `{origin, to}` 를 갖고 있게 되고, `成る` 가 새 줄에 그 수를 붙인다.
+   * `go` 도 같은 둘을 비우지만 부족하다. 주소는 뒤로 가기·앞으로 가기·트랙패드 스와이프로도
+   * 바뀌고 그 길에는 `go` 가 없어서, 그때 남아 있는 `成る` 가 새 줄에 그 수를 붙인다.
    */
   useEffect(() => {
     setOrigin(null);
@@ -125,8 +119,8 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
     (next: string[]) => {
       setOrigin(null);
       setPromoting(null);
-      // 이력을 쌓지 않는다. 주소는 공유와 새로고침을 위해 따라와야 하지만, 40手를
-      // 걸어 본 사람이 화면을 벗어나려고 뒤로 가기를 40번 누르게 두지 않는다.
+      // 이력을 쌓지 않는다. 40手를 걸어 본 사람이 화면을 벗어나려고 뒤로 가기를 40번 누르게
+      // 두지 않는다.
       navigate({ name: 'explore', handicap, moves: next, sfen }, { replace: true });
     },
     [handicap, sfen],
@@ -139,16 +133,17 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
   /**
    * 같은 자리를 다시 묻는다. 없으면 첫 요청이 실패한 자리가 막다른 길이다.
    *
-   * 이 표면의 실패 둘은 설계된 것이다 — 검토가 이미 하나 돌고 있으면 429이고
-   * (`exploreSlots`), 엔진이 답하지 못하면 503이다. 그런데 0手目에서 그러면 판이 그려지지
-   * 않고 되돌릴 줄도 없어서(`branching` 이 false다) 누를 것이 하나도 남지 않는다. 주소가
-   * 같으니 手合割을 다시 눌러도 `navigate` 가 같은 자리로 보고 아무것도 하지 않는다.
+   * 이 표면의 실패 둘은 설계된 것이다. 검토가 이미 하나 돌고 있으면 429이고(`exploreSlots`)
+   * 엔진이 답하지 못하면 503인데, 0手目에서 그러면 판도 없고 되돌릴 줄도 없어서(`branching`
+   * 이 false다) 누를 것이 남지 않는다. 주소가 같아 手合割을 다시 눌러도 `navigate` 가 같은
+   * 자리로 보고 아무것도 하지 않는다.
    */
   const reload = useCallback(() => at(0, urlMoves), [at, urlMoves]);
 
   /**
-   * 다른 줄을 연다 — 手合割을 고르는 것과 저장한 국면을 불러오는 것 둘이다. 이쪽은
-   * 이력을 쌓는다(`replace` 없이): 걸어 보던 줄 전체가 없어지지만 뒤로 가기 한 번으로
+   * 다른 줄을 연다. 手合割을 고르는 것과 저장한 국면을 불러오는 것 둘이다.
+   *
+   * 이쪽은 이력을 쌓는다(`replace` 없이). 걸어 보던 줄 전체가 없어지지만 뒤로 가기 한 번으로
    * 돌아오므로 「정말 버립니까」를 묻지 않는다.
    */
   const openLine = useCallback((id: string, next: string[]) => {
@@ -201,24 +196,23 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
   }, [shown]);
 
   /**
-   * 판 위의 초록 화살표 — 수번 쪽의 최선수다.
+   * 판 위의 초록 화살표. 수번 쪽의 최선수다.
    *
-   * 되짚기와 갈리는 자리다. 저쪽은 확정된 판 위에 긋지 않는다: 넘겨 보는 것만으로 답이
-   * 그려지면 스스로 찾을 자리가 없어지기 때문이다(ReviewDetail 의 `ray`). 검토는 답을
-   * 보러 오는 화면이라 그 근거가 성립하지 않는다 — 옆의 목록이 이미 같은 수를 첫 줄에
-   * 적어 두고 있고, 판에 긋지 않으면 그 수가 어디서 어디로 가는지를 좌표로 읽어야 한다.
+   * 되짚기와 갈리는 자리다. 저쪽은 확정된 판 위에 긋지 않는다(ReviewDetail 의 `ray`). 검토는
+   * 답을 보러 오는 화면이라 그 근거가 성립하지 않고, 판에 긋지 않으면 옆 목록의 첫 줄이 어디서
+   * 어디로 가는지를 좌표로 읽어야 한다.
    */
   const ray = useMemo<Ray | null>(() => {
     const best = active?.candidates[0];
     if (!best) return null;
     const squares = squaresOf(best.usi);
     if (!squares) return null;
-    // 打도 긋는다. 판 위에 출발 칸이 없어서 駒台에서 자리를 재야 하고, 그것은
-    // `useDropAnchor` 가 한다 — 세 화면이 같은 훅을 쓴다(journal §99).
+    // 打도 긋는다. 판 위에 출발 칸이 없어 駒台에서 자리를 재야 하고, 그것은 `useDropAnchor`
+    // 가 한다(세 화면이 같은 훅을 쓴다, journal §99).
     return { from: squares.from, to: squares.to, by: active.yourTurn ? 'human' : 'engine' };
   }, [active]);
 
-  /** 화살표가 駒台에서 출발하는가. 그렇다면 어느 쪽의 무슨 駒인가 — 되짚기와 같은 자리다. */
+  /** 화살표가 駒台에서 출발하는가. 그렇다면 어느 쪽의 무슨 駒인가(되짚기와 같은 자리). */
   const dropping = useMemo(() => {
     if (!ray || ray.from !== null) return null;
     const move = parseUsi(active?.candidates[0]?.usi ?? '');
@@ -233,11 +227,11 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
    * 한 수가 판 위에서 움직인다. 판 전체가 바뀌면 초심자는 무엇이 변했는지 보지 못한다
    * (03-frontend.md §3).
    *
-   * 줄이 자랐을 때만 그린다. 물리는 것은 판을 새로 받는 일이라(`branchMotion`) 거기에
-   * 움직임을 얹으면 방금 지운 수가 한 번 더 놓이는 것처럼 보인다.
+   * 줄이 자랐을 때만 그린다. 물리는 것은 판을 새로 받는 일이라(`branchMotion`) 거기에 움직임을
+   * 얹으면 방금 지운 수가 한 번 더 놓이는 것처럼 보인다.
    *
-   * `useLayoutEffect` 여야 한다. 페인트 뒤에 붙이면 駒가 도착 칸에 한 번 뜬 다음
-   * 출발 칸으로 되돌아가 다시 와서, 한 수에 駒가 두 번 움직인다(되짚기에서 물린 자리다).
+   * `useLayoutEffect` 여야 한다. 페인트 뒤에 붙이면 駒가 도착 칸에 한 번 뜬 다음 출발 칸으로
+   * 되돌아가 다시 와서, 한 수에 駒가 두 번 움직인다.
    */
   const prevLine = useRef(0);
   useLayoutEffect(() => {
@@ -251,8 +245,8 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      // 글자를 넣고 있는 중이면 그 키는 그쪽 것이다(되짚기와 같은 가드). 없으면 국면
-      // 이름을 적다가 누른 `←` 가 캐럿 대신 줄을 옮기고, 적던 이름이 남의 국면에 붙는다.
+      // 글자를 넣고 있는 중이면 그 키는 그쪽 것이다(되짚기와 같은 가드). 없으면 국면 이름을
+      // 적다가 누른 `←` 가 캐럿 대신 줄을 옮기고, 적던 이름이 남의 국면에 붙는다.
       if (e.target instanceof HTMLInputElement) return;
       // 成りますか가 떠 있는 동안은 받지 않는다. 이 키가 자리를 옮기면 `go` 가 물음을 지우고
       // 판이 다른 국면으로 가서, 답이 없는 취소가 하나 생긴다(journal §99).
@@ -267,8 +261,8 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
   }, [back, toStart, promoting]);
 
   /**
-   * 駒台 하나. 부르는 쪽이 자리를 보고 색을 정한다 — 판이 뒤집히면 持ち駒도 따라와야
-   * 하는데, 색으로 박아 두면 판만 돌고 駒台가 그대로 남는다(되짚기와 같은 자리).
+   * 駒台 하나. 부르는 쪽이 자리를 보고 색을 정한다. 색으로 박아 두면 판이 뒤집혀도 駒台가
+   * 그대로 남는다(되짚기와 같은 자리).
    */
   const hand = (side: Side): ReactElement => (
     <Hand
@@ -277,8 +271,8 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
       pieces={board?.hands[side] ?? {}}
       selected={handSide === side && origin?.endsWith('*') ? origin : null}
       playable={handSide === side ? droppable : new Set()}
-      // 재는 것만이다. `dropping` 으로 넘기면 駒台 駒에 초록 링이 붙는데, 그 링은
-      // 「상대가 무엇을 하는가」이고 이 화면의 화살표는 수번 쪽의 최선수다(되짚기와 같다).
+      // 재는 것만이다. `dropping` 으로 넘기면 駒台 駒에 초록 링이 붙는데, 그 링은 「상대가
+      // 무엇을 하는가」이고 이 화면의 화살표는 수번 쪽의 최선수다.
       measure={dropping?.side === side ? dropping.kind : null}
       droppingRef={pieceRef}
       onPick={handSide === side && playable ? (next) => setOrigin(next === origin ? null : next) : () => {}}
@@ -286,8 +280,8 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
   );
 
   if (playing) {
-    // 두는 중에는 열지 않는다(위 컴포넌트 주석). 헤더가 이 탭을 그리지 않으므로 여기 오는
-    // 길은 링크와 새로고침뿐이고, 그때 판을 그려 놓고 잠그면 고장으로 읽힌다.
+    // 두는 중에는 열지 않는다(위 컴포넌트 주석). 여기 오는 길이 링크와 새로고침뿐이라,
+    // 판을 그려 놓고 잠그면 고장으로 읽힌다.
     return (
       <div className="explore-closed">
         <h1 className="explore-title">検討</h1>
@@ -306,12 +300,12 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
     <div className="explore">
       <div className="game" data-flipped={flipped || undefined}>
         <div className="game-board">
-          {/* 手合割. 목록에 平手가 없다 — 접지 않는 것이 기본값이라 이 자리가 그 버튼을
-              직접 그린다(protocol/handicaps.ts). */}
+          {/* 手合割. 접지 않는 것이 기본값이라 목록에 平手가 없고, 이 자리가 그 버튼을 직접
+              그린다(protocol/handicaps.ts). */}
           <div className="explore-handicaps" role="group" aria-label="手合割">
-            {/* 판이 뿌리면 어느 手合割도 눌린 것으로 그리지 않는다. 이 국면은 사진에서 온
-                것이라, 「平手」에 불이 들어와 있으면 그 버튼이 아무 일도 하지 않을 것처럼
-                보이는데 실제로는 읽어 온 국면을 버린다(journal §129). */}
+            {/* 판이 뿌리면 어느 手合割도 눌린 것으로 그리지 않는다. 「平手」에 불이 들어와
+                있으면 그 버튼이 아무 일도 하지 않을 것처럼 보이는데, 실제로는 읽어 온 국면을
+                버린다(journal §129). */}
             {rooted && <span className="explore-rooted">画像から読み取った局面</span>}
             <button
               type="button"
@@ -338,8 +332,8 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
           </div>
 
           {/* 판이 없으면 駒台도 그리지 않는다. 빈 받침 둘만 남으면 판이 있어야 할 자리에
-              구멍이 뚫린 그림이 되고, 그건 고장으로 읽힌다 — 거절된 링크로 들어오면 실제로
-              그 그림이었다. 받침이 자리를 지키는 규칙은 판이 있을 때의 것이다(`Hand`). */}
+              구멍이 뚫린 그림이 되고, 거절된 링크로 들어오면 실제로 그 그림이었다. 받침이
+              자리를 지키는 규칙은 판이 있을 때의 것이다(`Hand`). */}
           {board ? (
             <>
               {hand(flipped ? 'black' : 'white')}
@@ -355,14 +349,14 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
                 ray={ray}
                 motion={motion}
                 checks={[]}
-                // 탈색하지 않는다. 탈색은 「지금이 아니다」를 말하는 장치인데, 이 화면은
-                // 전부가 과거다 — 되짚기와 같은 판단이다.
+                // 탈색하지 않는다. 탈색은 「지금이 아니다」를 말하는 장치인데 이 화면은
+                // 전부가 과거다(되짚기와 같은 판단).
                 dimmed={false}
                 dropFrom={dropFrom}
                 hintSquare={null}
                 hintRay={null}
                 mateHeat={0}
-                // 그늘(`相手の利き`)의 기준. 아래에 있는 쪽이다 — 검토에는 「나」가 없어서
+                // 그늘(`相手の利き`)의 기준. 검토에는 「나」가 없어서 아래에 있는 쪽이고,
                 // 판을 돌리면 보는 쪽도 함께 돈다.
                 me={flipped ? 'white' : 'black'}
                 flipped={flipped}
@@ -378,16 +372,13 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
           ) : shown ? (
             <p className="review-broken">この局面は表示できません。</p>
           ) : (
-            // 아직 국면이 없다. 「표시할 수 없다」로 적으면 안 된다 — 링크의 수순이
-            // 거절된 자리에서도 그 문장이 뜨고, 그때 그릴 수 없는 것은 그 줄이다.
-            // 엔진이 없으면 기다릴 것도 없어서 「읽는 중」이 영원히 오지 않는 약속이 된다.
-            // 둘 다 옆 패널이 이미 말한다(`error`).
+            // 아직 국면이 없다. 「표시할 수 없다」로 적으면 링크의 수순이 거절된 자리에서도
+            // 그 문장이 뜨는데, 그때 그릴 수 없는 것은 그 줄이다. 엔진이 없으면 기다릴 것도
+            // 없어 「읽는 중」이 영원히 오지 않는 약속이 된다. 둘 다 옆 패널이 말한다(`error`).
             <p className="review-status">{error || engineReady === false ? '' : '局面を読み込んでいます…'}</p>
           )}
 
-          {/* 되돌리는 둘. 줄이 없으면 이 줄 자체가 뜨지 않는다 — 눌러도 아무 일도
-              일어나지 않는 버튼을 그려 두면 다음에 진짜로 누를 수 없을 때 같이
-              무시된다(홈 메뉴와 같은 규칙).
+          {/* 되돌리는 둘. 줄이 없으면 이 줄 자체가 뜨지 않는다(홈 메뉴와 같은 규칙).
               `.btn` 에는 disabled 모양이 따로 없어서 더 그렇다.
 
               「盤を反転」은 판이 주는 손잡이 줄에 있다(`Board` 의 `flip`, journal §96). */}
@@ -421,8 +412,8 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
                 : exploreStatusJa(shown, pending)}
             </p>
 
-            {/* 「이 手合의 互角은 얼마인가」. 평가치를 옮기는 대신 기준선을 말한다 —
-                숫자의 자를 되짚기 그래프와 같게 두려면 값을 옮길 수가 없다(journal §84). */}
+            {/* 「이 手合의 互角은 얼마인가」. 숫자의 자를 되짚기 그래프와 같게 두려면 값을
+                옮길 수 없어서, 평가치를 옮기는 대신 기준선을 말한다(journal §84). */}
             {baseline && <p className="explore-baseline">{baseline}</p>}
 
             {error && (
@@ -439,14 +430,13 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
 
           {promoting && <Promotion onChoose={(promote) => play(toUsiMove(promoting.origin, promoting.to, promote))} />}
 
-          {/* `active` 대신 `shown` 을 넘긴다. `active` 는 「이 줄의 노드인가」라
-              판을 잠그는 데 쓰는 값이고, 이 목록에 넘기면 한 수 둘 때마다 세 줄이 사라졌다가
-              다시 그려진다 — `Candidates` 가 막겠다고 적어 둔 그 그림이다. 자리는 지키고
+          {/* `active` 대신 `shown` 을 넘긴다. `active` 는 판을 잠그는 데 쓰는 값이라 이
+              목록에 넘기면 한 수 둘 때마다 세 줄이 사라졌다가 다시 그려진다. 자리는 지키고
               흐리게 하고 누르지 못하게 한다(`stale`). */}
           <Candidates node={shown} stale={stale} onPick={play} />
 
-          {/* 지금까지의 줄. 실제 기보와 같은 어휘로 같은 모양으로 그려진다 — 手数 · 수 · cp.
-              값은 지나온 자리에서 꺼낸다(`evalOf`) — 다시 묻지 않으므로 추가 탐색이 0이다. */}
+          {/* 지금까지의 줄. 실제 기보와 같은 어휘·같은 모양이다(手数 · 수 · cp). 값은 지나온
+              자리에서 꺼내므로(`evalOf`) 추가 탐색이 0이다. */}
           {shown && shown.line.length > 0 && (
             <section className="review-panel explore-line-panel" aria-label="並べた手順">
               <h2 className="panel-title">ならべた手順</h2>
@@ -465,11 +455,11 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
             </section>
           )}
 
-          {/* 저장한 국면. 목록의 마지막이다 — 위 셋은 판을 보며 읽는 것이고 이쪽은 갈래가
-              다르다. 줄 수에 상한이 없어서 위에 두면 그 아래가 화면 밖으로 밀린다. */}
-          {/* 판이 뿌리면 저장을 그리지 않는다. 저장하는 것이 手合割 id 와 수순뿐이라
-              (journal §96) 이 국면을 저장하면 **다른 국면**(平手 0手目 + 같은 수순)이
-              남는다 — 조용히 틀린 것을 남기느니 그 손잡이를 주지 않는다. */}
+          {/* 저장한 국면. 목록의 마지막이다. 줄 수에 상한이 없어서 위에 두면 그 아래가
+              화면 밖으로 밀린다.
+
+              판이 뿌리면 저장을 그리지 않는다. 저장하는 것이 手合割 id 와 수순뿐이라(journal
+              §96) 이 국면을 저장하면 다른 국면(平手 0手目 + 같은 수순)이 남는다. */}
           {rooted ? (
             <section className="review-panel explore-note">
               <p className="review-status">

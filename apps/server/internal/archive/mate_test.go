@@ -63,7 +63,7 @@ func (s *fakeMateStore) PutMate(_ context.Context, m store.Mate) (bool, error) {
 		return false, s.putErr
 	}
 	s.puts++
-	// 얕은 한계가 깊은 한계를 덮지 않는다 — 질의가 하는 일을 여기서도 흉내낸다.
+	// 얕은 한계가 깊은 한계를 덮지 않는다. 질의가 하는 일을 여기서도 흉내낸다.
 	if old, ok := s.rows[m.SFENKey]; ok && old.DepthLimit >= m.DepthLimit {
 		return false, nil
 	}
@@ -84,8 +84,8 @@ func (s *fakeMateStore) putCount() int {
 	return s.puts
 }
 
-// keyOf 는 그 수순 뒤 국면의 캐시 키다. 테스트가 키를 직접 만들지 않는다 —
-// 부르는 쪽과 같은 자를 써야 「히트해야 하는데 하지 않는다」를 잡는다.
+// keyOf 는 그 수순 뒤 국면의 캐시 키다. 부르는 쪽과 같은 자를 써야 「히트해야 하는데
+// 하지 않는다」를 잡는다.
 func keyOf(t *testing.T, startSFEN string, moves []string) string {
 	t.Helper()
 	pos, err := positionAfter(startSFEN, moves)
@@ -147,7 +147,7 @@ func TestMateSecondCallHitsTheCache(t *testing.T) {
 	}
 }
 
-// 「詰み이 없다」도 캐시한다. 그 답이 가장 비싸다 — 한계까지 다 뒤진 뒤에야 나온다.
+// 「詰み이 없다」도 캐시한다. 한계까지 다 뒤진 뒤에야 나오는 가장 비싼 답이다.
 func TestMateCachesProvenNoMate(t *testing.T) {
 	eng := &fakeMateEngine{res: usi.MateResult{Proven: true}}
 	st := newMateStore()
@@ -224,7 +224,7 @@ func TestMateIgnoresShallowerLimit(t *testing.T) {
 	}
 }
 
-// 깊은 한계가 찾은 긴 詰み은 얕은 한계로 묻는 쪽에 줄 수 없다 — 그 한계로는 증명되지 않았다.
+// 깊은 한계가 찾은 긴 詰み은 얕은 한계로 묻는 쪽에 줄 수 없다. 그 한계로는 증명되지 않았다.
 func TestMateIgnoresLineLongerThanLimit(t *testing.T) {
 	eng := &fakeMateEngine{res: usi.MateResult{Proven: true}}
 	st := newMateStore()
@@ -288,7 +288,7 @@ func TestMateGaugeAnswersTheNextJudgement(t *testing.T) {
 	}
 }
 
-// 다른 수순으로 같은 국면에 오면 같은 행이다 — 키가 手数를 뺀 SFEN 이라 전치가 합쳐진다.
+// 다른 수순으로 같은 국면에 오면 같은 행이다. 키가 手数를 뺀 SFEN 이라 전치가 합쳐진다.
 func TestMateSharesRowsAcrossTranspositions(t *testing.T) {
 	eng := &fakeMateEngine{res: usi.MateResult{Proven: true}}
 	st := newMateStore()
@@ -308,8 +308,8 @@ func TestMateSharesRowsAcrossTranspositions(t *testing.T) {
 	}
 }
 
-// 퀴즈는 국면을 SFEN 으로 직접 넘긴다(quiz.MateSearcher). 그 경로도 같은 키여야 한다 —
-// 아니면 퀴즈가 게이지·판정이 쌓아 둔 것을 한 건도 쓸 수 없다.
+// 퀴즈는 국면을 SFEN 으로 직접 넘긴다(quiz.MateSearcher). 그 경로도 같은 키여야 퀴즈가
+// 게이지·판정이 쌓아 둔 것을 쓸 수 있다.
 func TestMateSFENPathSharesRowsWithMovePath(t *testing.T) {
 	eng := &fakeMateEngine{res: usi.MateResult{Proven: true}}
 	st := newMateStore()
@@ -348,7 +348,7 @@ func TestMateWithoutStore(t *testing.T) {
 	a.Wait()
 }
 
-// 읽기가 실패해도 대국은 돈다 — solver 에게 다시 묻는다.
+// 읽기가 실패해도 대국은 돈다. solver 에게 다시 묻는다.
 func TestMateFallsBackWhenReadFails(t *testing.T) {
 	eng := &fakeMateEngine{res: usi.MateResult{Moves: []string{"1a1b"}, Proven: true}}
 	st := newMateStore()

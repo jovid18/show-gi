@@ -3,9 +3,8 @@
 // 개입이 없다. 판정도 힌트도 무르기도 여기 없고, 그래서 internal/game 과 갈라져
 // 있다(02-architecture.md §7 위협 1, journal §83).
 //
-// 상태 주인이 둘이고 지키는 방법이 다르다. 방은 Hub.mu 가 지키고, 대국은 Table
-// 의 goroutine 이 소유한다(internal/game 과 같은 규약). 방은 「누가 들어올 수 있나」만,
-// 대국은 「누가 무엇을 뒀나」만 안다.
+// 상태 주인이 둘이고 지키는 방법이 다르다. 방은 Hub.mu 가 지키고, 대국은 Table 의
+// goroutine 이 소유한다(internal/game 과 같은 규약).
 //
 // 세션이 연결에 매여 있지 않다. 한쪽이 끊겨도 상대가 남아 있어 끝낼 수가 없고, 그래서
 // 시계가 돈다(journal §83).
@@ -24,8 +23,8 @@ import (
 // 끝나게 하려고 있다. 60초는 실측 없이 정한 값이다(journal §83).
 const DefaultTurnLimit = 60 * time.Second
 
-// OpenTTL 은 상대가 들어오지 않은 방이 사는 시간이다. 넘으면 링크가 죽는다 — 초대 링크가
-// 곧 열쇠라(NewRoomID), 링크가 오래 살수록 새어 나간 링크가 오래 통한다.
+// OpenTTL 은 상대가 들어오지 않은 방이 사는 시간이다. 초대 링크가 곧 열쇠라
+// (NewRoomID) 링크가 오래 살수록 새어 나간 링크가 오래 통한다.
 const OpenTTL = 30 * time.Minute
 
 // FinishedTTL 은 끝난 판을 방에 남겨 두는 시간이다. 둘 다 결과를 보고 나갈 만큼만이고,
@@ -39,8 +38,8 @@ const FinishedTTL = 10 * time.Minute
 // 찍어도 1% 확률에 250일이 걸리지만, 방이 수만 개가 되면 그 계산이 달라진다.
 const roomIDLen = 8
 
-// roomIDAlphabet 은 영문 대소문자와 숫자뿐이다. -·_ 를 넣지 않는다 —
-// 링크를 손으로 옮겨 적거나 읽어 주는 자리가 있고, 그 둘이 거기서 가장 잘 틀린다.
+// roomIDAlphabet 은 영문 대소문자와 숫자뿐이다. -·_ 를 넣지 않는다. 링크를 손으로
+// 옮겨 적거나 읽어 주는 자리에서 그 둘이 가장 잘 틀린다.
 const roomIDAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 
 // ErrNoRoom 은 그 사람이 그 방에 들어갈 수 없다는 것 하나다.
@@ -51,9 +50,8 @@ var ErrNoRoom = errors.New("match: no such room")
 
 // ErrNotYourTurn·ErrFinished 는 착수 거절이다. 룰 위반은 shogi 가 내보낸다.
 //
-// 「아직 시작하지 않았다」가 없다. 그 상태에서는 착수가 도달할 자리가 없다 — 읽는 쪽이
-// room.Ready() 뒤에야 돌기 때문이다(server/ws_match.go). 문구를 만들어 두면 영영
-// 뜨지 않는 문구가 하나 생긴다.
+// 「아직 시작하지 않았다」가 없다. 읽는 쪽이 room.Ready() 뒤에야 돌아서
+// (server/ws_match.go) 그 상태에서는 착수가 도달할 자리가 없다.
 var (
 	ErrNotYourTurn = errors.New("match: not your turn")
 	ErrFinished    = errors.New("match: the game is over")
@@ -61,9 +59,8 @@ var (
 	ErrClosed = errors.New("match: table closed")
 )
 
-// Player 는 대국자 하나다. skill_profile 에서 오는 것이 하나도 없다 —
-// 실력 프로파일은 본인만 보는 값이고, 대인전 상대에게 넘어가면 안 된다
-// (02-architecture.md §7 위협 2).
+// Player 는 대국자 하나다. skill_profile 에서 오는 것이 하나도 없다. 실력
+// 프로파일은 본인만 보는 값이다(02-architecture.md §7 위협 2).
 type Player struct {
 	UserID int64
 	// Name 은 화면에 나가는 이름이다(users.display_name).
@@ -91,7 +88,7 @@ func NewRoomID() string {
 	return string(id)
 }
 
-// RandomColor 는 振り駒다. 방을 만든 사람도 결과를 모른다 — 응답의 yourColor 가
+// RandomColor 는 振り駒다. 방을 만든 사람도 결과를 모르고, 응답의 yourColor 가
 // 처음 알려 준다.
 func RandomColor() shogi.Color {
 	var b [1]byte
@@ -100,7 +97,7 @@ func RandomColor() shogi.Color {
 }
 
 // ColorCode 는 先手·後手를 화면·games.my_color 와 같은 어휘로 옮긴다. 이 규약의
-// 자리는 여기 하나다 — 두 벌이면 한쪽을 고칠 때 기록과 화면이 갈린다.
+// 자리는 여기 하나다. 두 벌이면 한쪽을 고칠 때 기록과 화면이 갈린다.
 func ColorCode(c shogi.Color) string {
 	if c == shogi.White {
 		return "w"

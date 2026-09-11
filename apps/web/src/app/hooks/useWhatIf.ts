@@ -3,19 +3,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WhatIfNode, WhatIfRequest } from '@/protocol/whatif';
 
 /**
- * 「そのとき、こう指していたら」 — 가정 수순 한 줄을 맡는다.
+ * 「そのとき、こう指していたら」. 가정 수순 한 줄을 맡는다.
  *
- * 분기는 화면이 소유한다. 서버는 매번 전부 받아 그 국면 하나를 답해 줄 뿐이고,
- * 한 수도 대신 두지 않는다. 되돌릴 상태가 없어서 그럴 수 있다 — 끝난 판의 가정이든
- * 물러진 수 뒤의 가정이든 누구도 잃지 않는다.
+ * 분기는 화면이 소유한다. 서버는 매번 전부 받아 그 국면 하나를 답해 줄 뿐이고, 한 수도
+ * 대신 두지 않는다.
  *
- * 오가는 길은 세 가지다. 되짚는 판은 HTTP, 대국 중의 블런더 화면은 그 대국의
- * WebSocket, 검토는 또 다른 HTTP다(`/api/explore`). 그 차이를 `send` 하나로 밀어내서
- * 장치는 하나로 둔다.
+ * 오가는 길은 세 가지다. 되짚는 판은 HTTP, 대국 중의 블런더 화면은 그 대국의 WebSocket,
+ * 검토는 또 다른 HTTP다(`/api/explore`). 그 차이를 `send` 하나로 밀어낸다.
  *
- * 노드 타입이 표면마다 늘어날 수 있다. 검토는 `WhatIfNode` 에 그 手合의 「형세 0」을
- * 얹어서 받는데(`ExploreNode`), 그 칸을 여기 공용 타입에 넣으면 되짚기·대국이 절대
- * 오지 않는 필드를 달고 다니게 된다 — 늘어난 쪽만 자기 타입을 준다.
+ * 노드 타입이 표면마다 늘어날 수 있다. 검토는 `WhatIfNode` 에 그 手合의 「형세 0」을 얹어서
+ * 받는다(`ExploreNode`). 늘어난 쪽만 자기 타입을 준다.
  */
 export interface WhatIf<T extends WhatIfNode = WhatIfNode> {
   /** 지금 서 있는 자리. null이면 아직 아무것도 받지 못했다. */
@@ -28,13 +25,13 @@ export interface WhatIf<T extends WhatIfNode = WhatIfNode> {
   play: (usi: string) => void;
   /** 한 수 물린다. */
   back: () => void;
-  /** 분기 전으로 돌아간다 — 갈라져 나온 그 手数, 정확히는 바닥이다. */
+  /** 분기 전으로 돌아간다. 갈라져 나온 그 手数, 정확히는 바닥이다. */
   toRoot: () => void;
   /**
-   * 줄이 그 길이였을 때의 값 — 수마다의 cp가 여기서 나온다.
+   * 줄이 그 길이였을 때의 값. 수마다의 cp가 여기서 나온다.
    *
    * 다시 묻지 않는다. 지나온 자리는 이미 받아 뒀으므로 꺼내 오면 되고, 아직 가 보지 않은
-   * 자리는 `null` 이다 — 없는 값을 지어내지 않는다.
+   * 자리는 `null` 이다.
    */
   evalOf: (lineLength: number) => { cp: number | undefined; mateIn: number | undefined } | null;
   /** 분기에 들어가 있는가. 바닥 위로 한 수라도 뒀으면 그렇다. */
@@ -49,30 +46,27 @@ export type Send<T extends WhatIfNode = WhatIfNode> = (req: WhatIfRequest, signa
 const FALLBACK_ERROR = 'この手順を試せませんでした。';
 
 /**
- * 같은 줄은 같은 자리다.
+ * 같은 줄은 같은 자리다. 보낸 것과 받은 것의 열쇠가 같다.
  *
- * 보낸 것과 받은 것의 열쇠가 같다. 서버가 응수를 대신 두던 때는 그렇지 않아서
- * (보낸 줄에 한 수가 더 붙어 왔다) 물릴 때마다 캐시가 헛쳤고, 그러면 같은 자리의 후보
- * 평가치가 조금씩 달라졌다 — 같은 국면·같은 깊이가 늘 같은 답을 주지는 않기 때문이다
- * (journal §34 ②). 대신 두지 않기로 하면서 그 버그 전체가 사라졌다.
+ * 캐시가 헛치면 같은 자리의 후보 평가치가 조금씩 달라진다. 같은 국면·같은 깊이가 늘 같은
+ * 답을 주지는 않는다(journal §34 ②).
  */
 function keyOf(req: WhatIfRequest): string {
   return `${req.ply}:${req.moves.join(' ')}`;
 }
 
-/** 바닥이 없는 분기. 되짚기가 이쪽이다 — 어느 手数에서든 아무것도 깔지 않고 시작한다. */
+/** 바닥이 없는 분기. 되짚기가 이쪽이라 어느 手数에서든 아무것도 깔지 않고 시작한다. */
 const NO_FLOOR: readonly string[] = [];
 
 /**
- * `send` 는 매 렌더마다 새로 만들어져도 된다 — ref로 잡으므로 아래 콜백이 흔들리지 않는다.
- * `resetKey` 가 바뀌면 갖고 있던 것을 버린다(다른 판·다른 연결의 분기다).
+ * 가정 수순 한 줄을 맡는다(`WhatIf`). `send` 는 매 렌더마다 새로 만들어져도 되고,
+ * `resetKey` 가 바뀌면 갖고 있던 것을 버린다.
  *
- * `floor` 는 줄에서 뺄 수 없는 앞머리다. 대국 중에는 물러진 수 하나가 여기 들어간다 —
- * 그 앞은 지금 다시 둘 국면이라, 거기까지 물러나면 이 장치가 최선수 셋으로 「지금 어떻게
- * 두라」를 답하게 된다(01-core.md §7).
+ * `floor` 는 줄에서 뺄 수 없는 앞머리다. 대국 중에는 물러진 수 하나가 여기 들어간다. 거기까지
+ * 물러나면 이 장치가 최선수 셋으로 「지금 어떻게 두라」를 답한다(01-core.md §7).
  *
- * 서버도 같은 제한을 갖고 있고(ws.go 의 `branchRoot`), 두 벌인 것이 맞다 — 화면은 버튼을
- * 그리지 않고 서버는 요청을 거절하므로, 하나가 뚫려도 다른 하나가 남는다.
+ * 서버도 같은 제한을 갖고 있고(ws.go 의 `branchRoot`) 두 벌인 것이 맞다. 화면은 버튼을 그리지
+ * 않고 서버는 요청을 거절하므로 하나가 뚫려도 다른 하나가 남는다.
  */
 export function useWhatIf<T extends WhatIfNode = WhatIfNode>(
   send: Send<T>,
@@ -86,8 +80,8 @@ export function useWhatIf<T extends WhatIfNode = WhatIfNode>(
   const sendRef = useRef(send);
   sendRef.current = send;
 
-  // 아래 콜백들이 매 렌더마다 새로 만들어지지 않게 ref로 잡는다. `send` 와 같은 판단이다 —
-  // 이 값이 의존성에 들어가면 배열 identity 하나로 「같은 자리를 두 번 묻는」 고리가 산다.
+  // 아래 콜백들이 매 렌더마다 새로 만들어지지 않게 ref로 잡는다(`send` 와 같은 판단). 이
+  // 값이 의존성에 들어가면 배열 identity 하나로 「같은 자리를 두 번 묻는」 고리가 산다.
   const floorRef = useRef(floor);
   floorRef.current = floor;
 
@@ -95,9 +89,8 @@ export function useWhatIf<T extends WhatIfNode = WhatIfNode>(
    * 이미 받아 본 자리.
    *
    * 되돌아가면 그때 그 자리가 다시 보여야 한다(03-frontend.md §3). 다시 물으면 후보의
-   * 평가치가 흔들리므로(§34 ②), 물러났다 나아가는 것만으로 숫자가 바뀌면 그건 판의
-   * 사실이 아니게 된다. 서버 쪽 `positions` 캐시가 같은 일을 하지만, 여기가 있으면
-   * 왕복 자체가 없어서 누른 즉시 판이 그려진다.
+   * 평가치가 흔들리므로(journal §34 ②) 물러났다 나아가는 것만으로 숫자가 바뀐다. 서버 쪽
+   * `positions` 캐시가 같은 일을 하지만, 여기가 있으면 왕복 자체가 없다.
    */
   const seen = useRef(new Map<string, T>());
   /** 떠난 요청은 버린다. 빠르게 두면 응답이 순서대로 오지 않는다. */
@@ -106,10 +99,9 @@ export function useWhatIf<T extends WhatIfNode = WhatIfNode>(
   /**
    * 지금 답을 기다리는 요청의 열쇠.
    *
-   * 같은 자리를 두 번 묻지 않는다. 낭비로 끝나지 않고 깨진다 — 대국 쪽 길은 한
-   * 연결에 한 번만 돌리므로(ws.go 의 슬롯) 두 번째 요청이 `busy` 로 튕기고, 그 에러가
-   * 먼저 도착해 화면에 뜬 다음 첫 응답은 주인을 잃고 버려진다. 개입 카드가 뜬 순간
-   * 실제로 그렇게 됐다(StrictMode가 효과를 두 번 돌린다).
+   * 같은 자리를 두 번 묻지 않는다. 대국 쪽 길은 한 연결에 한 번만 돌리므로(ws.go 의 슬롯)
+   * 두 번째 요청이 `busy` 로 튕기고, 그 에러가 먼저 도착해 화면에 뜬 다음 첫 응답은 주인을
+   * 잃고 버려진다. 개입 카드가 뜬 순간 실제로 그렇게 됐다(StrictMode가 효과를 두 번 돌린다).
    */
   const asked = useRef<string | null>(null);
 
@@ -150,8 +142,8 @@ export function useWhatIf<T extends WhatIfNode = WhatIfNode>(
       .current(req, controller.signal)
       .then((data) => {
         if (asked.current === key) asked.current = null;
-        // 캐시는 늦게 온 응답도 받는다. 버리는 것은 화면에 그리는 일뿐이고, 잰 값을
-        // 버릴 이유는 없다 — 다음에 그 자리로 돌아오면 그대로 쓴다.
+        // 캐시는 늦게 온 응답도 받는다. 버리는 것은 화면에 그리는 일뿐이고, 다음에 그
+        // 자리로 돌아오면 그대로 쓴다.
         seen.current.set(key, data);
         if (latest.current !== mine) return;
         setNode(data);
@@ -191,14 +183,13 @@ export function useWhatIf<T extends WhatIfNode = WhatIfNode>(
    * 지나온 자리의 값.
    *
    * 렌더 중에 ref를 읽는다. 캐시는 늘기만 하고 새 값이 들어올 때마다 `setNode` 가
-   * 따라오므로(위) 화면이 뒤처지지 않는다 — 같은 것을 상태로 한 벌 더 갖고 있으면
-   * 둘이 어긋날 자리만 생긴다.
+   * 따라오므로(위) 화면이 뒤처지지 않는다.
    */
   const evalOf = useCallback(
     (lineLength: number) => {
-      // 지금 줄보다 긴 자리는 모른다. `slice` 는 넘치면 경고 없이 짧게 잘라 주므로,
-      // 막지 않으면 아직 가 보지 않은 장면에 직전 장면의 값이 붙는다 — 개입 카드에서
-      // 물러진 수와 그 다음 수가 같은 숫자로 나왔다(브라우저에서 그 그림을 봤다).
+      // 지금 줄보다 긴 자리는 모른다. `slice` 는 넘치면 경고 없이 짧게 잘라 주므로, 막지
+      // 않으면 아직 가 보지 않은 장면에 직전 장면의 값이 붙는다. 개입 카드에서 물러진 수와
+      // 그 다음 수가 같은 숫자로 나왔다.
       if (!node || lineLength > node.line.length) return null;
       const line = node.line.slice(0, lineLength).map((m) => m.usi);
       const found = seen.current.get(keyOf({ ply: node.basePly, moves: line }));

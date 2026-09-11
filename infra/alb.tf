@@ -1,9 +1,7 @@
-# ALB가 TLS를 끝낸다. Caddy가 하던 인증서 발급·갱신이 ACM으로 넘어간다.
+# ALB 가 TLS 를 끝낸다. Caddy 가 하던 인증서 발급·갱신이 ACM 으로 넘어간다.
 #
-# Fargate로 옮기면서 이건 필수가 됐다 — Fargate는 로컬 디스크가
-# 휘발성이라 Caddy가 받아둔 인증서가 배포마다 사라지고, 재발급을 반복하면
-# Let's Encrypt의 주당 5회 실패 한도에 걸려 사이트가 평문으로 떨어진다.
-# ACM 인증서는 AWS가 보관하고 자동 갱신한다.
+# Caddy 가 받아둔 인증서는 배포마다 사라지고, 재발급을 반복하면 Let's Encrypt 의 주당 5회
+# 실패 한도에 걸려 사이트가 평문으로 떨어진다. ACM 인증서는 AWS 가 보관하고 갱신한다.
 
 resource "aws_security_group" "alb" {
   name        = "show-gi-alb"
@@ -11,9 +9,8 @@ resource "aws_security_group" "alb" {
   vpc_id      = data.aws_vpc.default.id
 }
 
-# HTTPS로 넘기기 위한 리다이렉트를 받는다.
-# description에는 ASCII만 넣는다 — AWS가 허용하는 문자 집합이 정해져 있어
-# 한글을 넣으면 InvalidParameterValue로 규칙 생성이 실패한다.
+# HTTPS 로 넘기기 위한 리다이렉트를 받는다. description 에는 ASCII 만 넣는다. 한글을 넣으면
+# AWS 가 InvalidParameterValue 로 규칙 생성을 거절한다.
 resource "aws_vpc_security_group_ingress_rule" "alb_http" {
   security_group_id = aws_security_group.alb.id
   description       = "redirect to HTTPS"
@@ -39,8 +36,8 @@ resource "aws_vpc_security_group_egress_rule" "alb_to_task" {
   ip_protocol                  = "tcp"
 }
 
-# AZ 수만큼 퍼블릭 IPv4가 과금되므로 ALB의 하한인 2개만 쓴다.
-# sort는 data 소스의 순서가 보장되지 않아 plan을 결정적으로 만들기 위한 것
+# AZ 수만큼 퍼블릭 IPv4 가 과금되므로 ALB 의 하한인 2개만 쓴다. sort 는 data 소스의 순서가
+# 보장되지 않아 plan 을 결정적으로 만든다
 locals {
   alb_subnet_ids = slice(sort(data.aws_subnets.default.ids), 0, 2)
 }
@@ -51,16 +48,14 @@ resource "aws_lb" "main" {
   subnets            = local.alb_subnet_ids
   security_groups    = [aws_security_group.alb.id]
 
-  # 대국은 WebSocket 하나로 오래 열려 있고, 플레이어가 한 수를 몇 분씩 고민한다.
-  # 기본값 60초를 그대로 두면 그 사이 연결이 끊긴다 — 이 한 줄이 그 방어다.
+  # 대국은 WebSocket 하나로 오래 열려 있고 플레이어가 한 수를 몇 분씩 고민한다. 기본값
+  # 60초를 그대로 두면 그 사이 연결이 끊긴다.
   idle_timeout = 900
 }
 
-# 이름을 접두사로 받는다. target_type 은 바꿀 수 없는 속성이라 값을 고치면 타깃
-# 그룹이 교체되는데, 이름이 고정이면 terraform 이 「지우고 만들기」 순서로 잡는다 —
-# 리스너가 아직 가리키고 있어서 지우기가 ResourceInUse 로 실패하고 apply 가 교착한다.
-# 접두사 + create_before_destroy 면 새 것을 먼저 만들고 리스너를 옮긴 뒤 옛 것을 지운다.
-# (접두사는 6자가 상한이다.)
+# 이름을 접두사로 받는다. target_type 을 고치면 타깃 그룹이 교체되는데, 이름이 고정이면
+# terraform 이 「지우고 만들기」 순서로 잡고 리스너가 아직 가리켜서 apply 가 교착한다.
+# 접두사는 6자가 상한이다.
 resource "aws_lb_target_group" "web" {
   name_prefix = "showgi"
   port        = 80
@@ -70,8 +65,8 @@ resource "aws_lb_target_group" "web" {
 
   health_check {
     path = "/healthz"
-    # api까지 닿는 경로를 본다. Caddy만 살아 있고 api가
-    # 죽은 상태를 "정상"으로 보면, 배포가 성공한 척하고 끝난다
+    # api 까지 닿는 경로를 본다. Caddy 만 살아 있고 api 가 죽은 상태를 정상으로 보면
+    # 배포가 성공한 척하고 끝난다
     matcher             = "200"
     interval            = 15
     timeout             = 5
@@ -159,8 +154,8 @@ data "aws_route53_zone" "main" {
   private_zone = false
 }
 
-# ALB를 가리키는 별칭 레코드다. ALB의 IP는 바뀌므로 A 레코드에
-# 주소를 박으면 언젠가 경고 없이 끊긴다
+# ALB 를 가리키는 별칭 레코드다. ALB 의 IP 는 바뀌므로 A 레코드에 주소를 박으면 언젠가
+# 경고 없이 끊긴다
 resource "aws_route53_record" "apex" {
   zone_id = data.aws_route53_zone.main.zone_id
   name    = var.domain

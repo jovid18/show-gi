@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { shouldRing, soundOnFrom } from './useMoveSound';
 
 // 저장된 값이 없는 것과 읽지 못하는 것이 같은 답이어야 한다. 갈리면 localStorage 를 막아 둔
-// 브라우저에서만 소리가 나지 않고, 그건 화면에서 버그로 보이지 않는다.
+// 브라우저에서만 소리가 나지 않는다.
 describe('soundOnFrom', () => {
   it('저장된 것이 없으면 켜짐이다', () => {
     expect(soundOnFrom(null)).toBe(true);
@@ -21,7 +21,7 @@ describe('shouldRing', () => {
     expect(shouldRing(4, 5)).toBe(true);
   });
 
-  // 개입이 걸리면 手数가 뒤로 간다. 그때 우는 것은 「두어졌다」는 거짓말이다.
+  // 개입이 걸리면 手数가 뒤로 간다(`shouldRing`).
   it('되물러서 手数가 뒤로 가면 울지 않는다', () => {
     expect(shouldRing(5, 4)).toBe(false);
   });

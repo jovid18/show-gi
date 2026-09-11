@@ -6,12 +6,12 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// 클라이언트가 보는 타입들이다. json 태그가 곧 웹과의 계약이다 — game.Snapshot 과
-// 같은 규약이고, 따로 둔 것은 여기 없는 것들 때문이다: 개입·힌트·무르기·게이지·
-// 태그·상대의 강함이 전부 없고, 대신 시계와 상대의 접속이 있다.
+// 클라이언트가 보는 타입들이다. json 태그가 곧 웹과의 계약이다. game.Snapshot 과
+// 같은 규약이고, 개입·힌트·무르기·게이지·태그·상대의 강함이 전부 없는 대신 시계와
+// 상대의 접속이 있다.
 //
-// 스냅샷은 언제나 전부 나간다 — 저쪽과 같고, 여기는 하나가 더 있다:
-// 화면이 둘이라 부분 갱신을 재구성하게 두면 두 화면이 서로 다르게 어긋난다.
+// 스냅샷은 언제나 전부 나간다. 화면이 둘이라 부분 갱신을 재구성하게 두면 두 화면이
+// 서로 다르게 어긋난다.
 
 // Status 는 판이 끝났는지, 끝났다면 왜인지다.
 type Status string
@@ -22,16 +22,14 @@ const (
 	StatusStalemate  Status = "stalemate"
 	StatusResigned   Status = "resigned"
 	StatusRepetition Status = "repetition"
-	// StatusTimeout 은 수번 쪽이 1手 제한시간을 넘긴 것이다. 승패가 난다 —
-	// 엔진 대국의 aborted(상대의 수를 얻지 못해 접은 것)와 따로 두는 자리다.
+	// StatusTimeout 은 수번 쪽이 1手 제한시간을 넘긴 것이다. 승패가 난다.
 	StatusTimeout Status = "timeout"
 	// StatusAborted 는 승패 없이 접힌 것이다. 서버가 내려갈 때뿐이다.
 	StatusAborted Status = "aborted"
 	// StatusExpired 는 한 수도 두지 않은 채 시간이 다 된 것이다. 승패가 없다.
 	//
-	// aborted 와 따로 둔다. 둘 다 승패가 없지만 화면이 할 말이 정반대다 — 저쪽은
-	// 「서버 사정」이고 이쪽은 「누구도 두지 않았다」인데, 하나로 뭉치면 그냥 자리를 비운 판에서
-	// 두 사람 다 서버를 탓하게 된다.
+	// aborted 와 따로 둔다. 하나로 뭉치면 그냥 자리를 비운 판에서 두 사람 다 서버를
+	// 탓하게 된다.
 	StatusExpired Status = "expired"
 )
 
@@ -57,9 +55,8 @@ type Snapshot struct {
 	Ply      int    `json:"ply"`
 	Turn     string `json:"turn"` // "b" | "w"
 	YourTurn bool   `json:"yourTurn"`
-	// InCheck 는 수번 쪽이 王手를 받고 있는가다. 보는 사람 기준을 쓰지 않는다 — 王手를
-	// 건 쪽도 상대 玉에 표시가 떠야 하고(엔진 대국과 같다), 어느 玉인지는 화면이
-	// turn 으로 짚는다.
+	// InCheck 는 수번 쪽이 王手를 받고 있는가다. 보는 사람 기준을 쓰지 않는다. 王手를
+	// 건 쪽도 상대 玉에 표시가 떠야 하고, 어느 玉인지는 화면이 turn 으로 짚는다.
 	InCheck bool `json:"inCheck"`
 
 	// YourColor 는 이 사람이 잡은 쪽이다. 판을 어느 쪽에서 그릴지가 여기 걸려 있고,
@@ -67,7 +64,7 @@ type Snapshot struct {
 	YourColor string `json:"yourColor"`
 
 	// LegalMoves 는 자기 차례일 때만 채운다. 상대 차례에 주면 그 사람이 상대의 수를
-	// 화면에서 훑어볼 수 있고, 그건 대인전에서 그냥 부정행위 보조다.
+	// 화면에서 훑어볼 수 있다.
 	LegalMoves []string `json:"legalMoves"`
 
 	Moves  []Move `json:"moves"`
@@ -76,17 +73,15 @@ type Snapshot struct {
 
 	// OpponentName 은 상대의 표시 이름이다(users.display_name).
 	//
-	// 여기서 나가는 상대 정보는 이 하나뿐이다. 段級도 전적도 보내지 않는다 —
-	// 실력 프로파일은 본인만 보는 값이다(02-architecture.md §7 위협 2).
+	// 여기서 나가는 상대 정보는 이 하나뿐이다. 段級도 전적도 보내지 않는다(Player).
 	OpponentName string `json:"opponentName"`
 	// OpponentOnline 은 상대가 지금 화면을 보고 있는가다.
 	//
-	// 판은 이 값과 무관하게 돈다. 나가 있어도 시계는 흐르고, 그것이 판이 끝나는
-	// 하나뿐인 장치다(DefaultTurnLimit).
+	// 판은 이 값과 무관하게 돈다. 나가 있어도 시계는 흐른다(DefaultTurnLimit).
 	OpponentOnline bool `json:"opponentOnline"`
 
-	// TurnLimitMs·TurnLeftMs 는 시계다. 서버가 정본이고 화면은 세기만 한다 —
-	// 남은 시간을 화면이 계산하면 탭을 멈춰 둔 브라우저에서 시간이 가지 않는다.
+	// TurnLimitMs·TurnLeftMs 는 시계다. 서버가 정본이고 화면은 세기만 한다. 남은
+	// 시간을 화면이 계산하면 탭을 멈춰 둔 브라우저에서 시간이 가지 않는다.
 	TurnLimitMs int `json:"turnLimitMs"`
 	TurnLeftMs  int `json:"turnLeftMs"`
 }
@@ -152,9 +147,9 @@ func (d *snapshotData) for_(you shogi.Color) Snapshot {
 	if s.YourTurn {
 		s.LegalMoves = d.legal
 	}
-	// 시계도 자기 차례일 때만 흐르는 값이다. 상대 차례의 남은 시간을 그대로 보내면
-	// 두 화면이 같은 숫자를 세면서 서로 다른 사람의 시간이라고 말한다 — 그래서 「지금
-	// 수번에 남은 시간」 하나로만 보내고, 누구의 것인지는 YourTurn 이 말한다.
+	// 「지금 수번에 남은 시간」 하나로만 보내고, 누구의 것인지는 YourTurn 이 말한다.
+	// 상대 차례의 남은 시간까지 보내면 두 화면이 같은 숫자를 세면서 서로 다른 사람의
+	// 시간이라고 말한다.
 	if d.status == StatusPlaying {
 		left := d.left
 		if left < 0 {

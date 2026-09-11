@@ -10,11 +10,10 @@ import (
 // ErrPoolClosed 는 닫힌 풀에서 엔진을 빌리려 할 때 나온다.
 var ErrPoolClosed = errors.New("usi: pool closed")
 
-// Pool 은 Engine 여러 개를 돌려쓴다 — Engine 하나는 탐색을 직렬화하는데(프로세스 1개 = 동시 탐색 1개),
-// 선행 계산 때문에 대국 한 판에도 동시 탐색이 필요하다.
-// 빌린 동안 단독 소유다. 옵션은 Engine에 남으므로 값에 기대는 쪽은 매번 직접 건다(journal §6 ②).
+// Pool 은 Engine 여러 개를 돌려쓴다. 선행 계산 때문에 대국 한 판에도 동시 탐색이 필요하다.
+// 빌린 동안 단독 소유다. 옵션은 Engine에 남으므로 값에 기대는 쪽이 매번 건다(journal §6 ②).
 type Pool struct {
-	// mu 아래가 한 벌이다. free 채널 대신 손으로 큐를 세우는 것은 우선순위 때문이다 —
+	// mu 아래가 한 벌이다. free 채널 대신 손으로 큐를 세우는 것은 우선순위 때문이다.
 	// 채널은 먼저 기다린 쪽에 주고, 우리는 사람이 기다리는 쪽에 먼저 줘야 한다.
 	mu   sync.Mutex
 	idle []*Engine
@@ -30,15 +29,12 @@ type Pool struct {
 	metrics Metrics
 }
 
-// Metrics 는 풀이 밖으로 내보내는 숫자를 받는 자리다.
-//
-// 이 패키지가 지표 표면을 모르게 두려고 인터페이스로 받는다 — 풀의 일은 엔진을
-// 빌려주는 것이고, 그 숫자를 어디에 어떤 이름으로 쌓는지는 밖의 판단이다.
+// Metrics 는 풀이 밖으로 내보내는 숫자를 받는 자리다. 인터페이스로 받아 이 패키지가
+// 지표 표면을 모르게 둔다.
 type Metrics interface {
 	// SetSize 는 풀 크기다. 점유 수만으로는 포화를 읽을 수 없다.
 	SetSize(n int)
 	// ObserveWait 는 빌리기까지 기다린 시간이다. 기다리지 않았으면 0이 들어간다.
-	// borrower 는 누가 빌렸나다(WithBorrower).
 	ObserveWait(d time.Duration, borrower string)
 	// ObserveInUse 는 빌려 나간 엔진 수의 변화다. +1 과 -1 만 들어간다.
 	ObserveInUse(delta int)
@@ -46,8 +42,8 @@ type Metrics interface {
 
 // NewPool 은 엔진 size개를 띄운다. 하나라도 실패하면 이미 띄운 것을 정리하고 에러를 낸다.
 //
-// opts 는 엔진마다 핸드셰이크 중에 걸린다(New 참조). 엔진 전체의 설정만 여기 둔다 —
-// USI_Hash 는 엔진 하나 전체가 잡는 메모리라 풀 크기를 곱한 만큼 쓴다.
+// opts 는 엔진마다 핸드셰이크 중에 걸린다(New). 엔진 전체의 설정만 여기 둔다. USI_Hash 는
+// 엔진 하나가 잡는 메모리라 풀 크기를 곱한 만큼 쓴다.
 func NewPool(size int, path string, opts map[string]string, args ...string) (*Pool, error) {
 	if size < 1 {
 		return nil, errors.New("usi: pool size must be at least 1")
@@ -72,8 +68,8 @@ func NewPool(size int, path string, opts map[string]string, args ...string) (*Po
 // Size 는 풀에 있는 엔진 수다.
 func (p *Pool) Size() int { return len(p.all) }
 
-// Observe 는 계측을 붙인다. 기동 중에 한 번만 부른다 —
-// 탐색이 돌기 시작한 뒤에 부르면 그 필드를 읽는 Acquire 와 경합한다.
+// Observe 는 계측을 붙인다. 기동 중에 한 번만 부른다. 탐색이 돌기 시작한 뒤에 부르면
+// 그 필드를 읽는 Acquire 와 경합한다.
 func (p *Pool) Observe(m Metrics) {
 	p.metrics = m
 	m.SetSize(p.Size())
@@ -82,8 +78,8 @@ func (p *Pool) Observe(m Metrics) {
 // Acquire 는 엔진 하나를 빌린다. 빈 게 없으면 ctx가 끝날 때까지 기다린다.
 // 빌린 쪽은 반드시 Release 해야 한다.
 //
-// 기다리는 큐가 우선순위별로 갈린다(priorityOf). 사람이 화면 앞에서 기다리는 요청이
-// 사후 분석보다 먼저 받는다 — 그래야 분석이 풀을 다 쓰고 있어도 착수가 밀리지 않는다.
+// 기다리는 큐가 우선순위별로 갈린다(priorityOf). 분석이 풀을 다 쓰고 있어도 착수가
+// 밀리지 않아야 한다.
 func (p *Pool) Acquire(ctx context.Context) (*Engine, error) {
 	select {
 	case <-p.done:
@@ -123,7 +119,7 @@ func (p *Pool) Acquire(ctx context.Context) (*Engine, error) {
 	}
 }
 
-// giveUpWaiting 은 큐에서 빠진다. 빠지기 전에 이미 받았으면 그 엔진을 돌려준다 —
+// giveUpWaiting 은 큐에서 빠진다. 빠지기 전에 이미 받았으면 그 엔진을 돌려준다.
 // 돌려주지 않으면 그 엔진이 아무 데도 없는 채로 사라진다.
 func (p *Pool) giveUpWaiting(prio int, ch chan *Engine) {
 	p.mu.Lock()
@@ -146,9 +142,8 @@ const prioCount = 2
 
 // priorityOf 는 빌리는 쪽을 대기 큐로 나눈다. 0이 먼저 받는다.
 //
-// 가르는 기준은 「사람이 지금 그 응답을 기다리는가」 하나다. 대국·검토·가정 수순은
-// 화면이 멈춰 서 있고, 사후 분석과 퀴즈 생성은 누구도 기다리지 않는다 — 되짚기가 나중에
-// 폴링해서 받는다.
+// 가르는 기준은 「사람이 지금 그 응답을 기다리는가」 하나다. 대국·검토·가정 수순은 화면이
+// 멈춰 서 있고, 사후 분석과 퀴즈 생성은 나중에 폴링해서 받는다.
 //
 // 대국 안에서 판정과 상대 수를 더 가르지 않는다. 둘이 같은 사람의 대기 안에서 차례로
 // 일어나므로 순서를 바꿔도 그 사람이 기다리는 총 시간이 같다(journal §106).
@@ -175,8 +170,8 @@ type borrowerKey struct{}
 
 // 빌리는 쪽의 이름들. engine_pool_wait_seconds 의 borrower 라벨이 된다.
 //
-// BorrowerGame 이 기본값이다 — 대국 중의 경로가 그것이고, 상대 수·개입 판정·詰み
-// 게이지·힌트가 전부 세션에서 곧장 부른다. 나머지는 부르는 자리에서 붙인다.
+// BorrowerGame 이 기본값이다. 상대 수·개입 판정·詰み 게이지·힌트가 전부 세션에서 곧장
+// 부르고, 나머지는 부르는 자리에서 붙인다.
 const (
 	BorrowerGame     = "game"
 	BorrowerAnalysis = "analysis"
@@ -188,8 +183,7 @@ const (
 // WithBorrower 는 이 컨텍스트로 빌리는 쪽의 이름을 정한다.
 //
 // 인자로 받지 않고 컨텍스트로 나르는 것은 부르는 자리와 빌리는 자리 사이에 탐색부가
-// 끼어 있기 때문이다. 이름은 맨 위(핸들러·분석기)에서만 알고, 그 사이의 함수들은
-// 누가 왜 부르는지 알 필요가 없다.
+// 끼어 있기 때문이다. 이름은 맨 위(핸들러·분석기)에서만 안다.
 func WithBorrower(ctx context.Context, name string) context.Context {
 	if name == "" {
 		return ctx
@@ -214,8 +208,8 @@ func (p *Pool) Release(e *Engine) {
 		return
 	}
 	p.mu.Lock()
-	// 빌려준 것보다 많이 돌아올 수는 없다. 여기 걸리면 호출 측 버그이므로 그 엔진을
-	// 버린다 — 넣으면 같은 엔진이 둘로 보이고 두 사람이 같이 쓴다.
+	// 빌려준 것보다 많이 돌아올 수는 없다. 여기 걸리면 호출 측 버그이므로 그 엔진을 버린다.
+	// 넣으면 같은 엔진이 둘로 보이고 두 사람이 같이 쓴다.
 	if len(p.idle) >= len(p.all) {
 		p.mu.Unlock()
 		return
@@ -252,14 +246,15 @@ func (p *Pool) Do(ctx context.Context, fn func(*Engine) error) error {
 	return fn(e)
 }
 
-// SearchDepth 는 엔진을 빌려 고정 깊이 탐색을 한 번 돌린다. 후보는 1개다.
-// 시간 기반 탐색은 이 패키지에 없다 — Engine.SearchDepth 주석 참조.
+// SearchDepth 는 엔진을 빌려 고정 깊이 탐색을 한 번 돌린다. 후보는 1개다
+// (Engine.SearchDepth).
 func (p *Pool) SearchDepth(ctx context.Context, startSFEN string, moves []string, depth int) (SearchResult, error) {
 	return p.SearchMultiPV(ctx, startSFEN, moves, depth, 1)
 }
 
-// SearchMultiPV 는 상위 multiPV개 후보를 함께 받아온다. MultiPV를 탐색 직전에 매번 건다 —
-// 옵션이 Engine에 남아 다음에 빌리는 쪽으로 새기 때문이다. SearchDepth 도 여기를 지나며 1을 명시한다(journal §16).
+// SearchMultiPV 는 상위 multiPV개 후보를 함께 받아온다. MultiPV를 탐색 직전에 매번 거는
+// 것은 옵션이 Engine에 남아 다음에 빌리는 쪽으로 새기 때문이다. SearchDepth 도 여기를
+// 지나며 1을 명시한다(journal §16).
 func (p *Pool) SearchMultiPV(ctx context.Context, startSFEN string, moves []string, depth, multiPV int) (SearchResult, error) {
 	if multiPV < 1 {
 		multiPV = 1
@@ -276,8 +271,8 @@ func (p *Pool) SearchMultiPV(ctx context.Context, startSFEN string, moves []stri
 	return res, err
 }
 
-// SearchMate 는 엔진을 빌려 詰み 탐색을 한 번 돌린다.
-// 詰将棋 solver 로 만든 풀에만 쓴다 — 탐색부는 checkmate 로 답하지 않는다.
+// SearchMate 는 엔진을 빌려 詰み 탐색을 한 번 돌린다. 詰将棋 solver 로 만든 풀에만 쓴다
+// (탐색부는 checkmate 로 답하지 않는다).
 func (p *Pool) SearchMate(ctx context.Context, startSFEN string, moves []string) (MateResult, error) {
 	var res MateResult
 	err := p.Do(ctx, func(e *Engine) error {
@@ -289,7 +284,7 @@ func (p *Pool) SearchMate(ctx context.Context, startSFEN string, moves []string)
 }
 
 // Close 는 엔진을 전부 종료한다. 빌려나간 엔진도 함께 죽는다.
-// 다만 탐색 중이면 그 탐색이 끝날 때까지 막힌다 — Engine.Close 가 같은 mutex를 잡는다.
+// 탐색 중이면 그 탐색이 끝날 때까지 막힌다(Engine.Close 가 같은 mutex를 잡는다).
 // 지금은 모든 탐색이 세션 ctx를 타서 풀린다. context.Background() 로 걸면 종료가 걸린다.
 func (p *Pool) Close() {
 	p.closeOnce.Do(func() {

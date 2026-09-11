@@ -14,14 +14,12 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
-// png 는 앞머리만 맞는 가짜 그림이다. 형식은 앞머리로 정하므로(imageMIME) 이 여덟 바이트가
-// 곧 「png 다」이고, 뒤에 무엇이 붙어도 이 계층은 그림을 보지 않는다.
+// png 는 앞머리만 맞는 가짜 그림이다. imageMIME 이 그 여덟 바이트만 보므로 뒤는 아무거나다.
 var png = append([]byte("\x89PNG\r\n\x1a\n"), []byte("not really a png")...)
 
-// 이 시험이 이 패키지의 요점이다. 그림의 위 줄부터·왼쪽부터가 곧 SFEN 판 칸의 순서라
-// 옮기는 코드에 좌표 계산이 없다는 것을, 平手 초기 국면 한 판으로 확인한다.
+// 그림의 위 줄부터·왼쪽부터가 곧 SFEN 판 칸의 순서라는 것을 平手 초기 국면으로 확인한다.
 //
-// 격자는 「先手로 앉은 사람이 보는 화면」이다 — 자기 駒(대문자)가 아래 줄에 있다.
+// 격자는 「先手로 앉은 사람이 보는 화면」이다. 자기 駒(대문자)가 아래 줄에 있다.
 func TestReadMapsTheDrawnGridStraightToSFEN(t *testing.T) {
 	rows := [][]string{
 		far("l", "n", "s", "g", "k", "g", "s", "n", "l"),
@@ -40,15 +38,13 @@ func TestReadMapsTheDrawnGridStraightToSFEN(t *testing.T) {
 	if got.SFEN != want {
 		t.Fatalf("SFEN =\n%q\nwant\n%q", got.SFEN, want)
 	}
-	// 룰 엔진이 읽을 수 있어야 쓸 수 있다. 여기서 걸리면 위의 문자열 비교가 맞아도
-	// 국면이 만들어지지 않는다.
+	// 문자열 비교가 맞아도 룰 엔진이 읽지 못하면 국면이 만들어지지 않는다.
 	if _, err := shogi.ParseSFEN(got.SFEN); err != nil {
 		t.Fatalf("ParseSFEN(%q): %v", got.SFEN, err)
 	}
 }
 
-// 手番은 언제나 "b" 다. 사진이 말해 주지 않는 값이라 이 계층은 모르고, 사람이 고른 값이
-// 그 자리를 덮는다.
+// 手番은 언제나 "b" 다. 사진이 말해 주지 않는 값이라 사람이 고른 값이 덮는다.
 func TestReadAlwaysSaysBlackToMove(t *testing.T) {
 	got := mustRead(t, stub(t, read{Found: true, Rows: onlyKings()}))
 	if fields := strings.Fields(got.SFEN); fields[1] != "b" {
@@ -79,8 +75,7 @@ func TestReadWritesADashForEmptyHands(t *testing.T) {
 	}
 }
 
-// 종류마다 한 벌의 수로 깎지 않는다. 넘치는 것은 국면에 실려 나가 룰 엔진이 짚어 주고
-// (shogi.Faults), 여기서 막는 것은 int8 이 넘치는 값뿐이다.
+// 종류마다 한 벌의 수로 깎지 않는다. 여기서 막는 것은 int8 이 넘치는 값뿐이다.
 func TestReadKeepsTooManyPiecesButStaysWithinInt8(t *testing.T) {
 	got := mustRead(t, stub(t, read{
 		Found: true, Rows: onlyKings(), NearHand: hand{P: 19}, FarHand: hand{S: 900},
@@ -99,8 +94,7 @@ func TestReadKeepsTooManyPiecesButStaysWithinInt8(t *testing.T) {
 	}
 }
 
-// 판이 없는 그림은 고장 없이도 나오는 답이다. 사유를 따로 두면 화면이 「다시 눌러 보라」
-// 대신 「판이 보이는 그림을 올려라」를 말할 수 있다.
+// 판이 없는 그림은 고장 없이도 나오는 답이라 사유를 따로 둔다(ErrNoBoard).
 func TestReadRefusesAnImageWithNoBoard(t *testing.T) {
 	c := stub(t, read{Found: false})
 	if _, err := c.Read(context.Background(), png); !errors.Is(err, ErrNoBoard) {
@@ -127,7 +121,7 @@ func TestReadRefusesAGridThatIsNotNine(t *testing.T) {
 func TestReadChecksTheImageItself(t *testing.T) {
 	c := stub(t, read{Found: true, Rows: onlyKings()})
 
-	// 클라이언트가 말한 형식을 믿지 않는다. 앞머리가 아는 셋이 아니면 저쪽 API 로 나가지 않는다.
+	// 클라이언트가 말한 형식을 믿지 않는다. 앞머리가 아는 셋이 아니면 나가지 않는다.
 	if _, err := c.Read(context.Background(), []byte("<html>hello</html>")); !errors.Is(err, ErrNotImage) {
 		t.Fatalf("Read(html) error = %v, want ErrNotImage", err)
 	}
@@ -193,8 +187,7 @@ func TestReadDoesNotRetryABadPayload(t *testing.T) {
 	}
 }
 
-// 그림은 요청 하나에 실려 나가고 어디에도 남지 않는다. 그리고 판을 판단하게 하지 않는다 —
-// 프롬프트에 「좋은 수」를 묻는 말이 없어야 이 레포의 전제가 성립한다(CLAUDE.md).
+// 그림은 요청 하나에 실려 나가고 어디에도 남지 않는다. 판을 판단하게 하지도 않는다.
 func TestRequestSendsTheImageAndAsksNothingElse(t *testing.T) {
 	var body []byte
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -228,17 +221,14 @@ func TestRequestSendsTheImageAndAsksNothingElse(t *testing.T) {
 // 프롬프트가 좌표를 한 번도 말하지 않는 것이 이 계층의 경계다(journal §126 · §129).
 // 여기에 「5五」나 「筋」이 들어오는 순간 kifunorm 이 실측으로 그은 선을 넘는다.
 func TestInstructionsNeverNameASquareOrJudgeTheBoard(t *testing.T) {
-	// 좌표와 선후의 낱말은 부정문으로도 쓰지 않는다. 프롬프트에 한 번 나오면 그것이 곧
-	// 「그런 것을 아는 계층」이라는 신호이고, 다음 사람이 거기에 한 줄을 더한다.
+	// 좌표와 선후의 낱말은 부정문으로도 쓰지 않는다. 한 번 나오면 다음 사람이 한 줄을 더한다.
 	for _, w := range []string{"筋", "段", "先手", "後手", "sente", "gote", "file", "rank"} {
 		if strings.Contains(instructions, w) {
 			t.Errorf("the prompt says %q — this layer does not work out coordinates or sides", w)
 		}
 	}
 
-	// 판단은 스키마가 막는다. 담을 칸이 없으면 프롬프트가 무엇을 말해도 판단이 나오지 않는다 —
-	// 낱말 검사로는 「do not evaluate」와 「evaluate」를 가를 수 없어서, 강제하는 자리를
-	// 여기로 둔다.
+	// 판단은 스키마가 막는다. 낱말 검사로는 「do not evaluate」와 「evaluate」를 가를 수 없다.
 	schema, err := json.Marshal(schemaFormat().Schema)
 	if err != nil {
 		t.Fatalf("marshal schema: %v", err)
@@ -308,8 +298,7 @@ func mustReadAll(t *testing.T, r *http.Request) []byte {
 	return b
 }
 
-// near·far 는 격자 한 줄을 적는 자리다. 이름이 그림의 위아래를 말한다 — 대문자가
-// 아래쪽 편이고, 그것이 곧 SFEN 의 대문자다.
+// near·far 는 격자 한 줄을 적는 자리다. 이름이 그림의 위아래를 말하고, 아래쪽이 대문자다.
 func near(cells ...string) []string { return cells }
 
 func far(cells ...string) []string { return cells }

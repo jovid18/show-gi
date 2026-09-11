@@ -12,8 +12,7 @@ describe('startingLoad', () => {
     expect(startingLoad(ready, true)).toBe(ready);
   });
 
-  // 남기면 새 판을 받는 동안 앞 판의 기보가 그대로 보인다. 늦게 온 답을 버리는 규약과
-  // 같은 자리다.
+  // 남기면 새 판을 받는 동안 앞 판의 기보가 그대로 보인다.
   it('주소가 바뀌면 비운다', () => {
     expect(startingLoad(ready, false)).toEqual({ state: 'loading' });
   });

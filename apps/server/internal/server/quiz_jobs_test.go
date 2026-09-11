@@ -15,10 +15,8 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 판을 다 재고 나면 「분석 중」이 곧바로 꺼진다. 문항은 그때부터 따로 만들어진다.
-//
-// 한 잡에 묶여 있던 동안은 그래프가 다 찬 뒤에도 최대 5분(quizTimeout) 동안 이 값이
-// 참이었고, 되짚기가 그동안 5초마다 판 전체를 다시 받았다(journal §138).
+// 판을 다 재고 나면 「분석 중」이 곧바로 꺼진다. 문항은 그때부터 따로 만들어진다
+// (journal §138).
 //
 //	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/
 func TestAMeasuredGameStopsSayingItIsBeingAnalyzed(t *testing.T) {
@@ -55,12 +53,12 @@ func TestAQueuedQuizIsBuiltByAWorker(t *testing.T) {
 	}
 
 	// 목표치로 돈다. 집는 질의가 판을 가리지 않아서 띄워 둔 api 컨테이너의 워커가 먼저
-	// 가져갈 수 있는데, 그쪽도 같은 코드로 만들어 남긴다 — 재려는 것은 「누가 집었나」가
-	// 아니라 「집으면 만들어져 남고 큐에서 걷히나」다(measureAhead 와 같은 규약).
+	// 가져갈 수 있는데, 그쪽도 같은 코드로 만들어 남긴다. 재려는 것은 「집으면 만들어져
+	// 남고 큐에서 걷히나」다(measureAhead 와 같은 규약).
 	deadline := time.Now().Add(20 * time.Second)
 	for {
 		a.runOneQuiz(t.Context())
-		// 생성기가 없는 분석기다. 문항은 비어 있고 행은 남는다 — 그러지 않으면 화면이
+		// 생성기가 없는 분석기다. 문항은 비어 있고 행은 남는다. 그러지 않으면 화면이
 		// 「아직 만드는 중」에서 벗어나지 못한다(generateQuiz).
 		if _, err := st.GameQuiz(t.Context(), gameID, quiz.Version); err == nil {
 			break
@@ -75,8 +73,8 @@ func TestAQueuedQuizIsBuiltByAWorker(t *testing.T) {
 	}
 }
 
-// 집어 간 판은 리스가 낡아야 다시 잡힌다. 위와 같은 이유로 이 자리도 컨테이너와 다툰다. 판·手 큐와 같은 규약이고, 여기서 그 규약이
-// 재시도를 판다 — 배포가 생성 도중에 끼면 그 판을 다음 워커가 도로 집는다.
+// 집어 간 판은 리스가 낡아야 다시 잡힌다. 위와 같은 이유로 이 자리도 컨테이너와 다툰다.
+// 판·手 큐와 같은 규약이고, 그 규약이 재시도를 판다.
 func TestAStaleQuizClaimIsTakenBack(t *testing.T) {
 	st := testStore(t)
 	clearQueues(t, st)
@@ -96,8 +94,8 @@ func TestAStaleQuizClaimIsTakenBack(t *testing.T) {
 	}
 }
 
-// 만들지 못한 판은 큐에 남는다. 그 자리가 이 큐의 재시도다 — 배포가 생성 도중에 끼면
-// 풀이 먼저 닫혀 모든 탐색이 즉시 실패하는데, 걷어 버리면 그 판은 영영 문항을 갖지 못한다.
+// 만들지 못한 판은 큐에 남는다. 배포가 생성 도중에 끼면 풀이 먼저 닫혀 모든 탐색이 즉시
+// 실패하는데, 걷어 버리면 그 판은 영영 문항을 갖지 못한다.
 func TestAQuizThatCouldNotBeBuiltStaysInTheQueue(t *testing.T) {
 	st := testStore(t)
 	clearQueues(t, st)
@@ -117,8 +115,8 @@ func TestAQuizThatCouldNotBeBuiltStaysInTheQueue(t *testing.T) {
 	}
 }
 
-// 되풀이는 횟수가 묶는다. 상한까지 실패한 판은 그때부터 집히지 않는다 — 한 번이 최대
-// 5분이라 상한이 곧 그 판에 쓸 엔진 시간이다.
+// 되풀이는 횟수가 묶는다. 상한까지 실패한 판은 그때부터 집히지 않는다. 한 번이 최대 5분이라
+// 상한이 곧 그 판에 쓸 엔진 시간이다.
 func TestAQuizStopsBeingClaimedAfterTooManyTries(t *testing.T) {
 	st := testStore(t)
 	clearQueues(t, st)
@@ -152,11 +150,11 @@ func TestAQuizStopsBeingClaimedAfterTooManyTries(t *testing.T) {
 	}
 }
 
-// 한 번도 집히지 않은 판이 먼저다.
+// 한 번도 집히지 않은 판이 먼저다. 만들지 못해 남은 판이 30분마다 새 판을 제치면, 워커가
+// 둘인 배포에서 만들 수 있는 판이 그만큼 늦어진다.
 //
-// 집어서 잰다. 띄워 둔 api 컨테이너의 워커가 먼저 가져가면 갈린다 — 06-status §7 의
-// 「DB 테스트 셋」과 같은 자리이고, 실제로 갈리는 것을 봤다. 컨테이너를 내리면 통과한다. 만들지 못해 남은 판이 30분마다 새 판을 제치면,
-// 워커가 둘인 배포에서 만들 수 있는 판이 그만큼 늦어진다.
+// 집어서 잰다. 띄워 둔 api 컨테이너의 워커가 먼저 가져가면 갈리고(06-status §7 의 「DB
+// 테스트 셋」), 컨테이너를 내리면 통과한다.
 func TestANeverClaimedQuizGoesFirst(t *testing.T) {
 	st := testStore(t)
 	clearQueues(t, st)
@@ -170,8 +168,8 @@ func TestANeverClaimedQuizGoesFirst(t *testing.T) {
 	_, newer := importedGameInTheQueue(t, st)
 	a.queueQuiz(t.Context(), newer)
 
-	// 리스를 미래로 줘서 둘 다 집을 수 있게 해 놓는다. 그때 앞에 오는 것은 한 번도
-	// 집히지 않은 쪽이다 — 나이만 보면 실패한 older 가 30분마다 새 판을 제친다.
+	// 리스를 미래로 줘서 둘 다 집을 수 있게 해 놓는다. 그때 앞에 오는 것은 한 번도 집히지
+	// 않은 쪽이다. 나이만 보면 실패한 older 가 30분마다 새 판을 제친다.
 	if got, err := st.ClaimQuizJob(t.Context(), time.Now().Add(time.Minute), quizAttempts); err != nil || got != newer {
 		t.Errorf("claim = %d, %v; want the never-claimed game %d", got, err, newer)
 	}
@@ -206,7 +204,7 @@ func TestAGameStillBeingAnalyzedCountsAsComing(t *testing.T) {
 // 이유가 된다(journal §138).
 //
 // 개수를 못 박지 않는다. 두 게이지가 표를 전역으로 세므로 띄워 둔 api 컨테이너의 워커가
-// 하나를 집어 가면 값이 달라진다 — 재려는 것은 문항이 판 몫에 섞이지 않는다이지 개수가 아니다.
+// 하나를 집어 가면 값이 달라진다. 재려는 것은 문항이 판 몫에 섞이지 않는가다.
 func TestQueuedQuizzesAreCountedOnTheirOwn(t *testing.T) {
 	st := testStore(t)
 	clearQueues(t, st)
@@ -225,7 +223,7 @@ func TestQueuedQuizzesAreCountedOnTheirOwn(t *testing.T) {
 	}
 }
 
-// 세울 자리가 없으면 거짓을 준다. 부르는 쪽이 그것으로 「그 자리에서 만든다」로 갈린다 —
+// 세울 자리가 없으면 거짓을 준다. 부르는 쪽이 그것으로 「그 자리에서 만든다」로 갈린다.
 // 세우지도 만들지도 않으면 그 판이 영영 문항을 갖지 못한다.
 func TestQueueingAQuizWithoutAnAnalyzerSaysSo(t *testing.T) {
 	var a *matchAnalyzer
@@ -270,7 +268,7 @@ func importedGameInTheQueue(t *testing.T, st *store.Store) (*matchAnalyzer, int6
 // quizQueued 는 그 판의 문항이 아직 큐에 있는가다.
 //
 // 집어 보지 않는다. 집는 질의는 판을 가리지 않아서(query/analysis.sql) 띄워 둔 api
-// 컨테이너의 워커가 먼저 가져가면 답이 달라진다 — 이 질의는 판 하나만 본다.
+// 컨테이너의 워커가 먼저 가져가면 답이 달라진다. 이 질의는 판 하나만 본다.
 func quizQueued(t *testing.T, st *store.Store, gameID int64) bool {
 	t.Helper()
 	ok, err := st.IsQuizQueued(t.Context(), gameID, quizAttempts)

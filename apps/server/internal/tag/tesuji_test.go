@@ -58,7 +58,7 @@ func TestPawnsAreNotForkTargets(t *testing.T) {
 }
 
 // 값 비교는 여기서 하지 않는다. 飛로 桂 둘을 노리는 것도 형태는 十字飛車이고, 「그래서
-// 得인가」는 엔진이 답한다(game/tesuji.go). 원래는 이 조건을 여기서 걸었다.
+// 得인가」는 엔진이 답한다(game/tesuji.go).
 func TestCheaperTargetsAreStillTheShapeOfAFork(t *testing.T) {
 	// 5五飛가 5三桂와 8五桂를 노린다. 桂(4) < 飛(10)
 	pos := forkBoard(t, "8k/9/4n4/9/1n2R4/9/9/9/8K b - 1")
@@ -115,15 +115,12 @@ func TestFindForksScansTheBoardWithoutDuplicates(t *testing.T) {
 	}
 }
 
-// 이 국면 때문에 자리를 나눴다. 桂로 金 둘을 노렸는데 그 桂가 상대 歩에 잡히는
-// 자리였고, 손으로 쓴 1수 읽기가 그것을 통과시켰다(사람이 짚어 줘서 알았다).
-//
-// 그래서 안전을 여기서 묻지 않기로 했다. 룰은 형태만 말한다 — 이 국면에서
-// ふんどしの桂가 뜨는 것이 맞고, 이름을 화면에 내보내지 않는 일은 엔진 게이트가 한다
+// 안전을 여기서 묻지 않는다. 桂로 金 둘을 노렸는데 그 桂가 상대 歩에 잡히는 국면이고,
+// ふんどしの桂가 뜨는 것이 맞다. 이름을 화면에 내보내지 않는 일은 엔진 게이트가 한다
 // (game.TestForkThatHangsIsNotNamed 가 같은 국면을 그쪽에서 다시 잰다).
 //
-// 룰이 지웠던 조건을 다시 여기 넣으면 두 층이 같은 질문을 두 번 하고, 그때 답이
-// 갈리는 쪽은 언제나 얕게 읽는 이쪽이다.
+// 조건을 다시 여기 넣으면 두 층이 같은 질문을 두 번 하고, 그때 답이 갈리는 쪽은
+// 언제나 얕게 읽는 이쪽이다.
 func TestTheRuleLayerDoesNotAskWhetherTheForkerSurvives(t *testing.T) {
 	// 4三金·6三金을 5五桂가 노린다. 5四에 後手 歩가 있어 桂를 공짜에 가깝게 딴다.
 	pos := forkBoard(t, "8k/9/3g1g3/4p4/4N4/9/9/9/8K b - 1")

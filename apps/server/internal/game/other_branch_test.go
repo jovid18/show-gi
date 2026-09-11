@@ -12,9 +12,9 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
-// branchStub 은 두 API를 다 만족한다. analyst 가 갖고 있는 것은 Searcher 이고
-// 갈래 수집은 거기서 MultiSearcher 로 타입 단언을 하므로, 한쪽만 있으면 그 자리가 경고 없이
-// 비어 버린다 — 그 단언 자체도 여기서 확인된다.
+// branchStub 은 두 API를 다 만족한다. analyst 가 갖고 있는 것은 Searcher 이고 갈래
+// 수집은 거기서 MultiSearcher 로 타입 단언을 하므로, 한쪽만 있으면 그 자리가 경고
+// 없이 빈다.
 type branchStub struct {
 	res usi.SearchResult
 	err error
@@ -32,7 +32,7 @@ func (s *branchStub) SearchMultiPV(_ context.Context, _ string, moves []string, 
 	return s.res, s.err
 }
 
-// thrownBishopMoves 는 §50의 그 수순이다 — ▲7六歩 △3四歩 ▲3三角成.
+// thrownBishopMoves 는 journal §50의 그 수순이다. ▲7六歩 △3四歩 ▲3三角成.
 var thrownBishopMoves = []string{"7g7f", "3c3d", "8h3c+"}
 
 func pvLine(rank int, cp int, pv ...string) usi.SearchLine {
@@ -81,7 +81,7 @@ func TestOtherBranchesCarriesTheWholeFork(t *testing.T) {
 	}
 }
 
-// 엔진 출력을 믿지 않는다. 둘 수 없는 수가 섞이거나 응수가 없으면 그 줄만 버린다 —
+// 엔진 출력을 믿지 않는다. 둘 수 없는 수가 섞이거나 응수가 없으면 그 줄만 버린다.
 // 반쪽짜리 갈래는 문장에서 곧 거짓이 된다.
 func TestOtherBranchesDropsWhatItCannotVerify(t *testing.T) {
 	_, best, got := collect(t, usi.SearchResult{Lines: []usi.SearchLine{
@@ -113,7 +113,7 @@ func TestOtherBranchesKeepsMateOutOfCp(t *testing.T) {
 	}
 }
 
-// 탐색이 실패해도 상대의 최선수까지는 말할 수 있다 — 그것은 판정이 이미 손에 든 값이다.
+// 탐색이 실패해도 상대의 최선수까지는 말할 수 있다. 판정이 이미 손에 든 값이다.
 func TestOtherBranchesStillNamesTheReplyWhenTheSearchFails(t *testing.T) {
 	s := &branchStub{err: errors.New("engine")}
 	a := &engineAnalyst{search: s, depth: JudgeDepth, level: intervene.Beginner}

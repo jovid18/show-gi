@@ -107,8 +107,8 @@ func TestParseScoreMate(t *testing.T) {
 	}
 }
 
-// mate 0 은 어느 쪽이 詰んでいる인지를 말하지 않는다. 이 엔진은 내보내지 않으므로(실측: mated
-// 국면에 mate -1) 오면 우리가 모르는 출력이고, 모르는 것에 뜻을 주지 않는다.
+// mate 0 은 어느 쪽이 詰んでいる인지를 말하지 않는다. 이 엔진은 내보내지 않으므로
+// (실측: mated 국면에 mate -1) 오면 모르는 출력이다.
 func TestParseScoreDropsMateZero(t *testing.T) {
 	var res SearchResult
 	parseScore("info depth 8 multipv 1 score cp 120 pv 7g7f 3c3d 2g2f", &res)
@@ -127,8 +127,7 @@ func TestParseScoreDropsMateZero(t *testing.T) {
 		t.Errorf("버린 줄의 PV 가 남았다: %v", res.PV)
 	}
 
-	// "-0" 도 같은 자리로 온다. Atoi 가 부호를 지우므로 갈라 볼 방법이 없고,
-	// 갈라 봐야 뜻이 정해지지도 않는다.
+	// "-0" 도 같은 자리로 온다. Atoi 가 부호를 지워 갈라 볼 방법이 없다.
 	parseScore("info depth 9 multipv 1 score mate -0 pv 3g3f", &res)
 	if res.Score != eval.Cp(120) {
 		t.Errorf("mate -0 이 점수를 덮었다: %+v", res.Score)
@@ -138,7 +137,7 @@ func TestParseScoreDropsMateZero(t *testing.T) {
 	}
 }
 
-// fail-high/low 속보(lowerbound/upperbound)의 짧은 pv가 이미 받은 exact 수순을 덮어쓰면 안 된다.
+// 속보(lowerbound/upperbound)의 짧은 pv가 이미 받은 exact 수순을 덮어쓰면 안 된다.
 func TestParseScoreBoundKeepsExactPv(t *testing.T) {
 	var res SearchResult
 	parseScore("info depth 18 multipv 1 score cp 900 pv 7g7f 3c3d 6g6f 5a5b", &res)
@@ -163,11 +162,11 @@ func TestParseScoreBoundKeepsExactPv(t *testing.T) {
 	}
 }
 
-// 후보 순서는 여기 한 자리에서 나온다. 캐시에 쌓는 목록과 개입 문장이 말하는 상대의
-// 최선수가 이 순서를 같이 보므로, 갈리면 한 국면의 최선수가 화면에서 둘이 된다(§58).
+// 후보 순서는 여기 한 자리에서 나온다(Ranked). 갈리면 한 국면의 최선수가 화면에서
+// 둘이 된다(journal §58).
 func TestRankedPutsTheHighestScoreFirst(t *testing.T) {
 	var res SearchResult
-	// 2위가 먼저 왔다. 그러면 1위 자리가 빈 줄로 남는다 — 실제로 벌어지는 순서다
+	// 2위가 먼저 왔다. 그러면 1위 자리가 빈 줄로 남는다
 	// (위 TestParseScoreBoundKeepsExactPv 의 res2 가 그 모양이다).
 	parseScore("info depth 12 multipv 2 score cp 120 pv 2g2f 8c8d", &res)
 	parseScore("info depth 12 multipv 1 score cp 300 pv 7g7f 3c3d", &res)
@@ -188,9 +187,8 @@ func TestRankedPutsTheHighestScoreFirst(t *testing.T) {
 	}
 }
 
-// 같은 수가 두 순위를 차지한다 — 순위 칸은 깊이마다 덮어써지는데, 마지막 iteration에서 오지 않은
-// 순위는 얕은 깊이의 줄을 그대로 지닌 채 남기 때문이다. 그대로 내보내면 검토 화면의 후보
-// 셋에 같은 수가 두 번 들어가고, 그 목록은 화면에서 지워지지 않는 줄을 하나 남긴다(§87).
+// 같은 수가 두 순위를 차지한다(Ranked). 그대로 내보내면 검토 화면의 후보 셋에 같은 수가
+// 두 번 들어가고, 그 목록은 화면에서 지워지지 않는 줄을 하나 남긴다(journal §87).
 func TestRankedDropsTheSameMoveTwice(t *testing.T) {
 	var res SearchResult
 	// 얕은 깊이에서 3위였던 8g8f 가 깊은 깊이에서 2위가 됐다. 3위 자리는 다시 오지 않았다.
@@ -210,7 +208,7 @@ func TestRankedDropsTheSameMoveTwice(t *testing.T) {
 		t.Fatalf("얕은 줄이 남았다: %+v", got[1])
 	}
 
-	// 기준은 깊이다 — 깊은 줄이 뒤 순위에 있어도 그쪽이 남는다.
+	// 기준은 깊이다. 깊은 줄이 뒤 순위에 있어도 그쪽이 남는다.
 	var late SearchResult
 	parseScore("info depth 6 multipv 1 score cp 80 pv 3g3f 8c8d 2g2f", &late)
 	parseScore("info depth 14 multipv 2 score cp 60 pv 3g3f 8c8d 6i7h", &late)
@@ -236,7 +234,7 @@ func TestRankedPutsMateAboveTheEnginesRawCeiling(t *testing.T) {
 	}
 }
 
-// 엔진이 마지막 iteration을 중간에 접으면 bound 표기 없이도 pv가 1~2수만 찍힌다 —
+// 엔진이 마지막 iteration을 중간에 접으면 bound 표기 없이도 pv가 1~2수만 찍힌다.
 // 직전 iteration의 완결된 수순을 유지해야 한다.
 func TestParseScoreTruncatedFinalIterationKeepsFullPv(t *testing.T) {
 	var res SearchResult
@@ -252,7 +250,6 @@ func TestParseScoreTruncatedFinalIterationKeepsFullPv(t *testing.T) {
 	}
 }
 
-// 원본 파서는 같은 순위를 계속 덮어써서 마지막 깊이만 남겼다.
 // 깊이별로 남지 않으면 "얕게는 좋아 보이는데 깊게는 나쁜 수"를 찾을 수 없다.
 func TestEvalByDepth(t *testing.T) {
 	e := newFake(t)
@@ -329,11 +326,10 @@ func TestSearchCancelSwallowsBestmove(t *testing.T) {
 
 // TestRealEngine 은 진짜 USI 엔진에 붙여 파서를 확인한다.
 //
-// 가짜 엔진은 우리가 적은 것만 돌려주므로, 실제 출력을 읽는다는 증거가 되지 못한다.
+// 가짜 엔진은 우리가 적은 것만 돌려주므로 실제 출력을 읽는다는 증거가 되지 못한다.
 // 엔진마다 info 라인의 필드 순서와 잡토큰이 다르고, 거기서 깨지면 경고 없이 깨진다.
 //
-// SHOWGI_USI_CMD 가 없으면 건너뛴다 — CI 러너에는 엔진이 없다.
-// 엔진을 갈아끼울 때(YaneuraOu) 이 테스트가 첫 관문이다:
+// SHOWGI_USI_CMD 가 없으면 건너뛴다(CI 러너에는 엔진이 없다). 엔진을 갈아끼울 때 첫 관문이다:
 //
 //	SHOWGI_USI_CMD=fairy-stockfish go test ./internal/usi/ -run RealEngine -v
 func TestRealEngine(t *testing.T) {
@@ -372,7 +368,7 @@ func TestRealEngine(t *testing.T) {
 		}
 	}
 
-	// 깊이별 기록이 실제로 여러 깊이에 걸쳐 쌓였는가 — 이게 이 PR의 핵심이다
+	// 깊이별 기록이 실제로 여러 깊이에 걸쳐 쌓였는가
 	byDepth := res.EvalByDepth(res.Lines[0].Move)
 	if len(byDepth) < 3 {
 		t.Fatalf("깊이별 기록이 %d개뿐 — iterative deepening을 못 줍고 있다: %+v", len(byDepth), byDepth)
@@ -405,8 +401,8 @@ func TestSearchCancelRestartsDeafEngine(t *testing.T) {
 	}
 }
 
-// 詰み 탐색의 세 응답을 전부 가른다. timeout 을 "없음"으로 읽으면 안 된다 —
-// 있는 詰み을 놓친 채 종반 판정이 돈다.
+// 詰み 탐색의 세 응답을 전부 가른다. timeout 을 "없음"으로 읽으면 있는 詰み을 놓친 채
+// 종반 판정이 돈다.
 func TestSearchMateResponses(t *testing.T) {
 	e := newFake(t)
 

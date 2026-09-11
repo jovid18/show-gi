@@ -61,8 +61,8 @@ func newTestTable(t *testing.T, limit time.Duration) (*Table, *fakeRecorder, *fa
 	return table, black, white
 }
 
-// 수번이 아닌 쪽은 둘 수 없다. 어느 쪽인지를 클라이언트가 보내지 않으므로 이건 서버가 자리에서
-// 정한 쪽 하나로 갈린다(Hub.Enter).
+// 수번이 아닌 쪽은 둘 수 없다. 어느 쪽인지를 클라이언트가 보내지 않으므로 서버가
+// 자리에서 정한 쪽 하나로 갈린다(Hub.Enter).
 func TestOnlyTheSideToMoveCanPlay(t *testing.T) {
 	table, _, _ := newTestTable(t, time.Minute)
 	ctx := context.Background()
@@ -78,8 +78,7 @@ func TestOnlyTheSideToMoveCanPlay(t *testing.T) {
 	}
 }
 
-// 상대 차례에는 합법수 목록을 주지 않는다. 주면 그 사람이 상대의 수를 화면에서 훑어볼 수
-// 있고, 대인전에서 그건 그냥 부정행위 보조다.
+// 상대 차례에는 합법수 목록을 주지 않는다(Snapshot.LegalMoves).
 func TestLegalMovesGoOnlyToTheSideToMove(t *testing.T) {
 	table, _, _ := newTestTable(t, time.Minute)
 	ctx := context.Background()
@@ -187,8 +186,7 @@ func TestBothRecordsGetEveryMove(t *testing.T) {
 	}
 }
 
-// 시간을 넘기면 진다. 이 하나가 「판이 끝나기는 하는가」의 답이다 — 상대가 탭을
-// 닫아도 그 판은 여기서 닫힌다.
+// 시간을 넘기면 진다. 상대가 탭을 닫아도 그 판은 여기서 닫힌다.
 func TestRunningOutOfTimeLosesTheGame(t *testing.T) {
 	table, black, white := newTestTable(t, 250*time.Millisecond)
 
@@ -233,8 +231,7 @@ func TestATimeoutWithNoMovesIsNotALoss(t *testing.T) {
 	if err != nil {
 		t.Fatalf("snapshot: %v", err)
 	}
-	// aborted 대신 expired 다. 화면이 할 말이 정반대라 따로 뒀다 —
-	// 저쪽은 「서버 사정」이고 이쪽은 「누구도 두지 않았다」다.
+	// aborted 대신 expired 다(StatusExpired).
 	if snap.Status != StatusExpired || snap.Winner != "" {
 		t.Fatalf("the screen sees %s/%q, want expired with no winner", snap.Status, snap.Winner)
 	}
@@ -261,8 +258,7 @@ func TestPlayingRestartsTheClock(t *testing.T) {
 	}
 }
 
-// 끝난 판도 한동안 답한다. 投了를 받은 쪽이 그때 새로고침하는 것은 흔한 일이고,
-// 그때 결과 대신 오류가 뜨면 그 사람은 무슨 일이 났는지 모른다.
+// 끝난 판도 한동안 답한다(finishedGrace).
 func TestAFinishedTableStillAnswers(t *testing.T) {
 	table, _, _ := newTestTable(t, time.Minute)
 	ctx := context.Background()
@@ -295,7 +291,7 @@ func TestAFinishedTableStillAnswers(t *testing.T) {
 	}
 }
 
-// 상대가 붙어 있는지가 화면에 나간다. 판은 그 값과 무관하게 돈다 — 나가 있어도
+// 상대가 붙어 있는지가 화면에 나간다. 판은 그 값과 무관하게 돌고, 나가 있어도
 // 시계는 흐른다.
 func TestPresenceShowsTheOpponent(t *testing.T) {
 	table, _, _ := newTestTable(t, time.Minute)

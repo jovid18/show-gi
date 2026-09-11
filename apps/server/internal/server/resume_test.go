@@ -9,8 +9,8 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
-// 기록이 없는 배포에서도 200이다. 첫 화면이 늘 부르는 자리라 503이면 물음 카드가
-// 뜰 자리에 오류가 뜬다 — /api/me 와 같은 판단이다(journal §46).
+// 기록이 없는 배포에서도 200이다. 첫 화면이 늘 부르는 자리라 503이면 물음 카드가 뜰 자리에
+// 오류가 뜬다(journal §46).
 func TestResumableWithoutStoreSaysThereIsNone(t *testing.T) {
 	rec := httptest.NewRecorder()
 	Handler(Options{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/resumable", nil))

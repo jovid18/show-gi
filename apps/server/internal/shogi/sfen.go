@@ -10,11 +10,10 @@ const StartSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b -
 
 // Position 은 국면 전체: 판, 양측 持ち駒, 수번(手番), 수 번호.
 //
-// 값 타입이다. Apply가 복사본을 돌려주므로 롤백은 이전 값을 갖고 있기만 하면 된다 —
-// 되돌리기가 제품 기능인 이상 이 성질이 설계의 핵심이다.
+// 값 타입이다. Apply가 복사본을 돌려주므로 롤백은 이전 값을 갖고 있기만 하면 된다.
 type Position struct {
 	Board [81]Piece
-	// Hands 는 PieceType 값 그대로 색인한다 — 0-based 오프셋을 쓰지 않는다. 크기 8은 Rook=7 때문이고
+	// Hands 는 PieceType 값 그대로 색인한다(0-based 오프셋이 아니다). 크기 8은 Rook=7 때문이고
 	// index 0(NoPieceType)은 영구 미사용. 王은 잡혀도 持ち駒가 되지 않아 index 8이 없다.
 	Hands   [2][8]int8 // [Color][PieceType Pawn..Rook]
 	Turn    Color
@@ -32,8 +31,8 @@ func StartPosition() Position {
 // handComplement 는 持ち駒 한 종류에 적을 수 있는 최대 수다. 한 판의 말 수다.
 //
 // 종류마다의 한 벌 수(歩 18·香 4…)로 자르지 않는다. 넘치는 것은 국면에 실려 나가
-// InventoryExcess 가 「歩가 몇 장 많다」로 짚어 주는 편이, 파싱에서 거절해 「왜 안 되는지」를
-// 말하지 않는 것보다 낫다 — 여기서 막는 것은 Hands 의 int8 이 넘치는 값뿐이다.
+// InventoryExcess 가 「歩가 몇 장 많다」로 짚는다. 여기서 막는 것은 Hands 의 int8 이
+// 넘치는 값뿐이다.
 const handComplement = 40
 
 func ParseSFEN(s string) (Position, error) {
@@ -47,8 +46,8 @@ func ParseSFEN(s string) (Position, error) {
 	if len(ranks) != 9 {
 		return pos, fmt.Errorf("sfen: board must have 9 ranks, got %q", fields[0])
 	}
-	// SFEN 보드는 段一부터, 각 단 안에서 筋9→筋1 순이다 — 내부 인덱스(row*9+col)와 순서가 그대로
-	// 맞아서 좌표 변환이 없다. 뒤집으면 파싱·출력이 함께 틀려 왕복 테스트로는 잡히지 않는다.
+	// SFEN 보드는 段一부터, 각 단 안에서 筋9→筋1 순이다. 내부 인덱스(row*9+col)와 순서가
+	// 그대로 맞아 좌표 변환이 없다. 뒤집으면 파싱·출력이 함께 틀려 왕복 테스트가 잡지 못한다.
 	for row, rs := range ranks {
 		col := 0
 		promoted := false
@@ -64,7 +63,7 @@ func ParseSFEN(s string) (Position, error) {
 				promoted = true
 			default:
 				// SFEN은 대문자=선수, 소문자=후수다. 0x20이 ASCII 대소문자 비트라
-				// &^ 로 종류를, >= 'a' 로 색을 본다 (이 파일에 여섯 자리).
+				// &^ 로 종류를, >= 'a' 로 색을 본다.
 				upper := ch &^ 0x20
 				t, ok := letterTypes[upper]
 				if !ok {
@@ -115,9 +114,9 @@ func ParseSFEN(s string) (Position, error) {
 			if !ok || t == King {
 				return pos, fmt.Errorf("sfen: invalid piece in hand %q", string(ch))
 			}
-			// 한 벌보다 많은 수는 개수를 벗어난다. Hands 가 int8 이라 여기서 막지 않으면
-			// 경고 없이 음수가 된다 — 200 이 −56 이 되고, 그 판은 Faults 를 통과하면서
-			// 룰 엔진이 打 70개를 내주는데 엔진에는 「1장」이 나간다(journal §97).
+			// Hands 가 int8 이라 여기서 막지 않으면 경고 없이 음수가 된다. 200 이 −56 이 되고,
+			// 그 판은 Faults 를 통과하면서 룰 엔진이 打 70개를 내주는데 엔진에는 「1장」이
+			// 나간다(journal §97).
 			if count > handComplement {
 				return pos, fmt.Errorf("sfen: %d %c in hand is more than one set", count, upper)
 			}
@@ -217,10 +216,8 @@ func (pos Position) SFEN() string {
 	return b.String()
 }
 
-// RepetitionKey 는 千日手 판정용 키 — SFEN에서 手数만 뗀다. 手番은 남긴다(배치가 같아도
-// 둘 차례가 다르면 다른 국면이다).
-//
-// positions 테이블의 sfen_key 와 같은 형태다 — 전치(transposition)가 자연히 합쳐진다.
+// RepetitionKey 는 千日手 판정용 키다. SFEN에서 手数만 떼고 手番은 남긴다(배치가 같아도
+// 둘 차례가 다르면 다른 국면이다). positions 테이블의 sfen_key 와 같은 형태다.
 func (pos Position) RepetitionKey() string {
 	s := pos.SFEN()
 	return s[:strings.LastIndexByte(s, ' ')]
@@ -228,12 +225,12 @@ func (pos Position) RepetitionKey() string {
 
 // PositionKey 는 手数를 뺀 SFEN이다. 국면 하나를 가리키는 정본 키다.
 //
-// 手数를 빼야 전치(다른 수순으로 같은 국면에 도달)가 한 자리로 합쳐진다 —
+// 手数를 빼야 전치(다른 수순으로 같은 국면에 도달)가 한 자리로 합쳐진다.
 // positions.sfen_key(001_init.sql)와 game_hints.sfen_key(010)가 같은 뜻이다.
 //
-// 부르는 쪽이 이걸 다시 만들지 않는다. 키를 각자 만들면 한 글자만 갈려도 히트율이
-// 0이 되고, 그건 에러 없이 경고 없이 느려지는 종류다. internal/archive 가 이것을 쓰고,
-// internal/game 도 같은 자를 쓴다 — 저 둘은 서로를 들여올 수 없으므로 여기가 하나뿐인 자리다.
+// 부르는 쪽이 이걸 다시 만들지 않는다. 키를 각자 만들면 한 글자만 갈려도 히트율이 0이
+// 되고, 그건 경고 없이 느려지는 종류다. archive 와 game 이 서로를 들여올 수 없으므로
+// 여기가 하나뿐인 자리다.
 func PositionKey(pos Position) string {
 	sfen := pos.SFEN()
 	if i := strings.LastIndexByte(sfen, ' '); i > 0 {

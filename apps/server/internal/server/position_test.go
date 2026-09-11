@@ -16,7 +16,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/boardread"
 )
 
-// 사진에서 국면을 가져오는 표면은 경계가 넷이다 — 로그인 · 시간당 몫 · 그림이 그림인가 ·
+// 사진에서 국면을 가져오는 표면은 경계가 넷이다. 로그인 · 시간당 몫 · 그림이 그림인가 ·
 // 룰 엔진이 무엇을 말하는가. 판독 자체는 internal/boardread 가 확인한다.
 
 const startSFEN = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1"
@@ -261,8 +261,8 @@ func TestCheckWarnsAboutMissingPieces(t *testing.T) {
 	}
 }
 
-// 이미 끝난 국면은 분석할 것이 없다. 사유가 없을 때만 묻는다 — 성립하지 않는 판의
-// 합법수는 물어봐야 뜻이 없다.
+// 이미 끝난 국면은 분석할 것이 없다. 사유가 없을 때만 묻는다. 성립하지 않는 판의
+// 합법수는 뜻이 없다.
 func TestCheckWarnsWhenThePositionIsAlreadyOver(t *testing.T) {
 	// 頭金. 5二의 金이 玉의 도망 칸 다섯을 다 덮고, 그 金을 5九의 香가 받치고 있다.
 	res := decodePosition(t, postCheck(t, "4k4/4G4/9/9/9/9/9/9/4L3K w - 1"))
@@ -282,8 +282,7 @@ func TestCheckRefusesWhatIsNotAPosition(t *testing.T) {
 	}
 }
 
-// 브라우저는 data: URL 을 준다. 화면이 앞머리를 떼는 코드를 갖는 것보다 여기서 떼는
-// 편이 낫다.
+// 브라우저는 data: URL 을 준다. 앞머리는 여기서 뗀다.
 func TestDecodeImageAcceptsADataURL(t *testing.T) {
 	raw := base64.StdEncoding.EncodeToString(fakePNG)
 	for name, in := range map[string]string{
@@ -416,7 +415,7 @@ func TestLabelRefusesANameItDidNotMake(t *testing.T) {
 	}
 }
 
-// 틀린 라벨은 없는 라벨보다 나쁘다 — 측정이 이유 없이 나빠 보이고 원인을 모델에서 찾게 된다.
+// 틀린 라벨은 측정을 이유 없이 나빠 보이게 하고, 원인을 모델에서 찾게 만든다.
 func TestLabelRefusesAPositionThatCannotStand(t *testing.T) {
 	h, dir := labelTest(t)
 	id := decodePosition(t, h.postRead(t, 7, fakePNG)).ImageID
@@ -454,7 +453,7 @@ func TestLabelNeedsASignIn(t *testing.T) {
 }
 
 // 읽지 못하는 SFEN 에 빈 사유 목록을 주면 「이 판은 성립한다」로 읽힌다. 읽기는 판독 계층이
-// 내놓은 글자를 그대로 넘기므로 부르는 쪽이 이미 읽어 봤다는 보장이 없다. 셀프리뷰가 잡았다.
+// 내놓은 글자를 그대로 넘기므로 부르는 쪽이 이미 읽어 봤다는 보장이 없다.
 func TestCheckedSaysSomethingWhenTheSFENDoesNotParse(t *testing.T) {
 	res := checked("not a position")
 	if len(res.Faults) == 0 {
@@ -466,7 +465,7 @@ func TestCheckedSaysSomethingWhenTheSFENDoesNotParse(t *testing.T) {
 }
 
 // 이름을 고르고 쓰는 사이가 벌어져 있다. 같은 이름을 두 번 지으면 먼저 올린 사람의
-// imageId 가 남의 그림에 라벨을 붙인다 — 틀린 라벨은 없는 라벨보다 나쁘다.
+// imageId 가 남의 그림에 라벨을 붙인다.
 func TestKeepImageNeverOverwrites(t *testing.T) {
 	h, dir := labelTest(t)
 

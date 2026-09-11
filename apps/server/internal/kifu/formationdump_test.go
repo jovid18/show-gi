@@ -14,9 +14,8 @@ import (
 
 // 전법 태그가 붙은 실제 사례를 사람이 읽을 수 있게 떨어뜨린다.
 //
-// 숫자로는 여기까지가 끝이다 — 「四間飛車가 48번 붙었고 중앙 8수」는 맞는지를 말하지
-// 않는다. 라벨이 없으므로 결국 수순을 보고 판단해야 하고, 그러려면 수순이 日本語 표기로
-// 나와 있어야 한다.
+// 숫자로는 여기까지다. 「四間飛車가 48번 붙었고 중앙 8수」는 맞는지를 말하지 않고,
+// 라벨이 없으므로 결국 수순을 日本語 표기로 보고 판단해야 한다.
 //
 //	SHOWGI_KIFU_DUMP=/tmp/formations go test ./internal/kifu/ -run DumpFormations
 const dumpOpeningPlies = 40
@@ -101,8 +100,7 @@ func TestDumpFormationCases(t *testing.T) {
 		}
 	}
 
-	// 엣지 하나에 파일 하나. 서브에이전트 하나가 케이스 하나만 보게 하려는 것이라,
-	// 태그별로 묶으면 안 된다 — 묶으면 「이 태그는 대체로 맞다」 같은 뭉뚱그린 답이 온다.
+	// 엣지 하나에 파일 하나. 태그별로 묶으면 「이 태그는 대체로 맞다」가 답으로 온다.
 	codes := make([]string, 0, len(byCode))
 	for c := range byCode {
 		codes = append(codes, c)

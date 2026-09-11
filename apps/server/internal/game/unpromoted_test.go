@@ -28,8 +28,8 @@ var playtestUpTo103 = []string{
 
 // TestRealEngineUnpromotedIsNotGreed 는 제품이 틀린 것을 가르쳤던 그 국면을 다시 판정한다.
 //
-// ▲同銀不成이 greedy_capture 로 나가 「잡으면 안 된다」로 읽히던 국면이다 — 최선수가
-// 같은 이동의 成이었고 差는 成하느냐뿐이었다(08-playtest.md §8).
+// ▲同銀不成이 greedy_capture 로 나가 「잡으면 안 된다」로 읽히던 국면이다. 최선수가
+// 같은 이동의 成이었다(08-playtest.md §8).
 //
 //	SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/game/ -run RealEngineUnpromoted -v
 func TestRealEngineUnpromotedIsNotGreed(t *testing.T) {

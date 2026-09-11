@@ -17,7 +17,7 @@ import (
 //	6三金 · 4三金   後手
 //	6七桂           先手 — 5五로 뛰면 두 金을 동시에 노린다(ふんどしの桂)
 //
-// 玉을 양쪽 다 넣는 것은 LegalMoves 가 王手 회피를 따지기 때문이다(tag/tesuji_test.go).
+// 玉을 양쪽 다 넣는 것은 LegalMoves 가 王手 회피를 따지기 때문이다.
 const forkOneMoveAway = "8k/9/3g1g3/9/9/9/3N5/9/8K b - 1"
 
 func mustSFEN(t *testing.T, sfen string) shogi.Position {
@@ -53,8 +53,7 @@ func TestTesujiOptionsFindsAMoveThatWouldFork(t *testing.T) {
 }
 
 // 이미 서 있는 형태는 후보에서 뺀다. 桂를 5五에 미리 놓아 두면 両取り가 이미
-// 성립해 있고, 그 국면에서 아무 수나 두는 것이 手筋이 되어서는 안 된다 —
-// journal §34 ⑦이 잡은 「두 수 뒤 조용한 수가 이름을 받는다」와 같은 자리다.
+// 성립해 있고, 그 국면에서 아무 수나 두는 것이 手筋이 되어서는 안 된다(journal §34 ⑦).
 func TestTesujiOptionsIgnoresShapesAlreadyOnTheBoard(t *testing.T) {
 	const alreadyForking = "8k/9/3g1g3/9/4N4/9/9/9/8K b - 1"
 
@@ -96,9 +95,8 @@ func (s *rootSearch) SearchMultiPV(_ context.Context, _ string, _ []string, _, m
 // rootLine 은 뿌리 줄 하나다. 점수는 뿌리에서 수번인 쪽 관점이라 게이트가 부호를
 // 뒤집지 않는다.
 //
-// 순위를 받는다. Ranked 가 같은 순위를 하나로 접으므로(중복 제거) 전부 1위로 만들면
-// 줄이 한 개로 줄어든다 — adaptive_test.go 의 line 이 그렇게 생겼고, 저쪽은 Lines 를
-// 그대로 읽어서 걸리지 않는다.
+// 순위를 받는다. Ranked 가 같은 순위를 하나로 접으므로 전부 1위로 만들면 줄이 한 개로
+// 줄어든다.
 func rootLine(rank int, move string, cp int) usi.SearchLine {
 	return usi.SearchLine{Depth: 12, MultiPV: rank, Move: move, Score: eval.Cp(cp)}
 }
@@ -192,8 +190,7 @@ func TestGateWithoutASearcherNamesNothing(t *testing.T) {
 }
 
 // 줄 밖에서도 둘이 갈린다. 마지막 줄이 이미 상한 밖이면 그보다 나쁜 것들은 확정
-// 탈락이고, 안이면 모르는 것이다. 둘을 같은 침묵으로 섞으면 「手筋이 없었다」와
-// 「보지 못했다」가 같은 화면이 된다.
+// 탈락이고, 안이면 모르는 것이다(gateTesujiOptions 의 decided).
 func TestGateCountsOnlyTheCandidatesItCouldNotDecide(t *testing.T) {
 	outside := []TesujiOption{{USI: "1a1b"}, {USI: "2a2b"}}
 
@@ -323,7 +320,7 @@ func hasTag(tags []tag.Tag, code string) bool {
 	return false
 }
 
-// 세션 끝에서 본다 — 사람 차례가 되면 手筋 이름이 스냅샷에 실려 나간다.
+// 세션 끝에서 본다. 사람 차례가 되면 手筋 이름이 스냅샷에 실려 나간다.
 //
 // 비동기라 첫 스냅샷에는 없고 몇 밀리초 뒤에 합류한다. 그래서 waitFor 를 쓴다.
 func TestSessionAnnouncesATesujiThePlayerCouldMake(t *testing.T) {

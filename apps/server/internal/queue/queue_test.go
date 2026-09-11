@@ -7,8 +7,8 @@ import (
 
 var now = time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 
-// waiter 는 밴드만 보는 대기자다. 불확실성을 0으로 두면 밴드가 base 그대로라
-// 아래 표에서 두 손잡이(기다린 시간·격차)만 흔들 수 있다.
+// waiter 는 밴드만 보는 대기자다. 불확실성이 0이면 밴드가 base 그대로라 기다린 시간과
+// 격차만 흔들 수 있다.
 func waiter(id int64, r float64, waited time.Duration) Waiter {
 	return Waiter{UserID: id, Rating: r, JoinedAt: now.Add(-waited)}
 }
@@ -31,8 +31,8 @@ func TestBandWidens(t *testing.T) {
 	}
 }
 
-// 불확실성이 밴드에 그대로 더해진다. 두 사람 것이 다 더해지는 것이 규약이다 —
-// 한쪽만 더하면 「모르는 사람」이 「아는 사람」의 좁은 밴드에 갇힌다.
+// 불확실성이 밴드에 그대로 더해진다. 한쪽만 더하면 「모르는 사람」이 「아는 사람」의
+// 좁은 밴드에 갇힌다.
 func TestBandAddsBothDeviations(t *testing.T) {
 	if got, want := Band(0, 350, 350), float64(Base0+700); got != want {
 		t.Errorf("Band = %.0f, want %.0f", got, want)
@@ -67,7 +67,7 @@ func TestPairableIncludesTheEdge(t *testing.T) {
 	}
 }
 
-// 밴드 안에서 FIFO 다. 최근접을 고르지 않는다 — 가까운 짝을 가로채면 남은 둘이 최악으로 붙는다.
+// 밴드 안에서 FIFO 다. 최근접으로 고르면 가까운 짝을 가로채서 남은 둘이 최악으로 붙는다.
 func TestPickIsFifoInsideTheBand(t *testing.T) {
 	me := waiter(9, 1500, 0)
 	// 셋 다 밴드 안이다(격차 100·50·10). 오래 기다린 순으로 온다.
@@ -84,8 +84,7 @@ func TestPickIsFifoInsideTheBand(t *testing.T) {
 	}
 }
 
-// 밴드 밖은 건너뛴다. 첫 후보가 맞지 않으면 다음을 본다 — 앞에서 멈추면 후보 하나가
-// 뒤의 모든 짝을 막는다.
+// 밴드 밖은 건너뛴다. 앞에서 멈추면 후보 하나가 뒤의 모든 짝을 막는다.
 func TestPickSkipsOutsideTheBand(t *testing.T) {
 	me := waiter(9, 1500, 0)
 	got, ok := Pick(me, []Waiter{
@@ -100,8 +99,8 @@ func TestPickSkipsOutsideTheBand(t *testing.T) {
 	}
 }
 
-// 자기 자신은 짝에서 뺀다. 질의가 이미 빼고 주지만, 여기서 한 번 더 보는 것은
-// 혼자 두는 판이 경고 없이 만들어지는 것을 막기 위해서다.
+// 자기 자신은 짝에서 뺀다. 질의가 이미 빼고 주지만, 여기서 한 번 더 보아 혼자 두는
+// 판이 경고 없이 만들어지는 것을 막는다.
 func TestPickNeverPicksItself(t *testing.T) {
 	me := waiter(9, 1500, 0)
 	if _, ok := Pick(me, []Waiter{me}, now); ok {

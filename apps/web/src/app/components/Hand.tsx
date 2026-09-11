@@ -13,8 +13,8 @@ interface HandProps {
   /**
    * 회상에서 지금 판에 놓이는 持ち駒의 종류.
    *
-   * 打은 판 위에 출발 칸이 없어서 화살표가 「어디서 왔는지」를 말할 수 없다. 그 자리를
-   * 여기가 메운다 — 어느 駒가 나가는지는 駒台가 말한다.
+   * 打은 판 위에 출발 칸이 없어 화살표가 「어디서 왔는지」를 말할 수 없다. 어느 駒가
+   * 나가는지는 駒台가 말한다.
    */
   dropping?: string | null;
   /** 그 駒의 실제 DOM. 화살표가 어디서 출발하는지를 여기서 잰다. */
@@ -22,16 +22,15 @@ interface HandProps {
   /**
    * 자리를 재야 하는 駒. 회상이면 `dropping` 과 같고, 갇힘 힌트면 힌트가 짚는 駒다.
    *
-   * `dropping` 과 따로 둔 것은 빛이 채널이기 때문이다. `dropping` 은 초록 링을 켜는데
-   * 그건 「상대가 무엇을 하는가」이고, 힌트는 파란 테다 — 하나로 쓰면 힌트가 걸린 駒에
-   * 둘이 동시에 붙는다.
+   * `dropping` 과 따로 둔 것은 빛이 채널이기 때문이다. `dropping` 은 초록 링이고 힌트는
+   * 파란 테라, 하나로 쓰면 힌트가 걸린 駒에 둘이 동시에 붙는다.
    */
   measure?: string | null;
   /**
    * 갇힘 힌트가 짚는 持ち駒의 종류. 파란 테를 두른다.
    *
-   * 최선수가 打일 때 「그 駒」는 판 위에 없다. 駒台를 짚지 않으면 3회 단계가 打에서만
-   * 전부 사라진다 — 실측한 국면 둘 중 하나가 바로 打이었다(journal §22).
+   * 최선수가 打일 때 「그 駒」는 판 위에 없다. 駒台를 짚지 않으면 3회 단계가 打에서만 전부
+   * 사라진다. 실측한 국면 둘 중 하나가 打이었다(journal §23).
    */
   hintDrop?: string | null;
   onPick: (origin: string) => void;
@@ -40,8 +39,8 @@ interface HandProps {
 /**
  * 駒台. 실제 대국에서 잡은 말이 놓이는 받침이다.
  *
- * 빈 받침도 자리를 지킨다 — 말이 늘고 줄 때마다 판이 위아래로 흔들리면
- * 초심자는 무엇이 변했는지 보지 못한다.
+ * 빈 받침도 자리를 지킨다. 말이 늘고 줄 때마다 판이 위아래로 흔들리면 초심자는 무엇이
+ * 변했는지 보지 못한다.
  */
 export function Hand({
   side,
@@ -81,9 +80,8 @@ export function Hand({
               aria-label={`${nameOf(kind)} ${count}枚`}
               onClick={() => onPick(origin)}
             >
-              {/* 駒台에서는 움직임 표식을 끈다. 아직 판 위에 없어서 방향이 뜻을 갖지 않고,
-                  持ち駒는 성하지 않은 것뿐이라 붉은 글자도 나오지 않는다. */}
               {hintDrop === kind && <span className="hint-outline" aria-hidden="true" />}
+              {/* 駒台에서는 움직임 표식을 끈다. 아직 판 위에 없어서 방향이 뜻을 갖지 않는다 */}
               <Koma kind={kind} side={side} marks={false} />
               {count > 1 && <span className="hand-count">{count}</span>}
             </button>

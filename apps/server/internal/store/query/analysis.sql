@@ -36,8 +36,7 @@ ON CONFLICT (match_id, ply) DO NOTHING;
 --
 -- 고르는 쪽을 MATERIALIZED CTE 로 고정한다. IN (SELECT ... LIMIT 1 FOR UPDATE) 로 쓰면
 -- 계획에 따라 그 서브쿼리가 바깥 행마다 다시 돌아 여러 행을 잠그는데, 돌려받는 것은
--- 한 행이라 나머지는 누구도 재지 않은 채 「집힌」 상태로 남는다. 워커 하나로 재 봤더니
--- 그 값이 여덟까지 갔다(journal §115).
+-- 한 행이라 나머지는 누구도 재지 않은 채 「집힌」 상태로 남는다(journal §115).
 WITH next AS MATERIALIZED (
     SELECT p.match_id, p.ply FROM analysis_plies p
     WHERE p.done_at IS NULL AND NOT p.dead
@@ -53,9 +52,9 @@ RETURNING t.match_id, t.ply, t.start_sfen, t.moves;
 
 -- name: BulkEnqueueAnalysisPlies :copyfrom
 --
--- 판 하나의 手를 한 번에 세운다. 가져온 기보만 이 문장을 쓴다 — 대인전은 두는 동안 한
--- 手씩 쌓지만(EnqueueAnalysisPly) 가져온 판은 수순 전부를 이미 알고, 그래서 워커가 몇이든
--- 手들이 병렬로 재어진다.
+-- 판 하나의 手를 한 번에 세운다. 가져온 기보만 이 문장을 쓴다. 대인전은 두는 동안 한
+-- 手씩 쌓지만(EnqueueAnalysisPly) 가져온 판은 수순 전부를 이미 알고, 그래서 워커가
+-- 몇이든 手들이 병렬로 재어진다.
 --
 -- ON CONFLICT 가 없다. 방금 만든 판의 번호라 (match_id, ply) 가 부딪힐 수가 없고,
 -- COPY 는 애초에 그 절을 담을 수 없다.
@@ -63,10 +62,8 @@ INSERT INTO analysis_plies (match_id, ply, start_sfen, moves) VALUES ($1, $2, $3
 
 -- name: FinishAnalysisPly :exec
 --
--- 잰 값을 그 행에 적는다.
---
--- 행이 없으면 아무 일도 일어나지 않는다. 그것이 규약이다 — 판이 끝나 자리가 걷힌 뒤에
--- 도착한 늦은 측정이 판을 되살리면 그 항목을 누구도 지우지 않는다(journal §106).
+-- 잰 값을 그 행에 적는다. 행이 없으면 아무 일도 일어나지 않는다. 판이 끝나 자리가 걷힌
+-- 뒤에 도착한 늦은 측정이 판을 되살리면 그 항목을 누구도 지우지 않는다(journal §106).
 UPDATE analysis_plies
 SET done_at     = now(),
     before_cp   = $2,
@@ -97,10 +94,8 @@ WHERE match_id = $1 AND done_at IS NULL;
 
 -- name: MeasuredAnalysisPlies :many
 --
--- 그 판에서 미리 재 둔 것을 한 번에 읽는다.
---
--- 手마다 묻지 않는다. 판이 끝나는 자리에서 手数만큼 왕복하면 그 자체가 밀리는 값이고,
--- 이 표는 판 하나가 곧 한 묶음이라 한 번에 읽는 것이 자연스럽다.
+-- 그 판에서 미리 재 둔 것을 한 번에 읽는다. 手마다 묻지 않는다. 판이 끝나는 자리에서
+-- 手数만큼 왕복하면 그 자체가 밀리는 값이다.
 SELECT ply, before_cp, after_cp, before_mate, after_mate,
        blunder, delta_win, threshold, decided, category, best_cp, best_mate
 FROM analysis_plies
@@ -176,7 +171,8 @@ DELETE FROM analysis_jobs WHERE match_id = $1;
 
 -- name: AnalysisJobBacklog :one
 --
--- 아직 집히지 않은 판의 수와 그 판들이 재지 않은 手数다. 밀린 양의 판 몫과 手 몫이 이 한 행이다.
+-- 아직 집히지 않은 판의 수와 그 판들이 재지 않은 手数다. 밀린 양의 판 몫과 手 몫이
+-- 이 한 행이다.
 --
 -- 집힌 판은 세지 않는다. 그것은 지금 도는 일이다 — 리스가 낡으면 다시 센다.
 SELECT count(*) AS games, coalesce(sum(plies), 0)::bigint AS plies
@@ -189,7 +185,8 @@ WHERE plies IS NOT NULL
 -- 그 판이 아직 큐에 있거나 도는 중인가. 되짚기가 이 값으로 「분석 중」과 「남지 않았다」를
 -- 가른다(server/review.go).
 --
--- games 를 지나 찾는다. 자리를 표에 옮겨 적지 않기 때문이고, 그 조인은 games_match_idx 가 받는다.
+-- games 를 지나 찾는다. 자리를 표에 옮겨 적지 않기 때문이고, 그 조인은
+-- games_match_idx 가 받는다.
 SELECT (
     EXISTS (
         SELECT 1 FROM analysis_jobs j
@@ -302,7 +299,7 @@ SELECT EXISTS (
 
 -- name: SweepQuizJobs :execrows
 --
--- 오래된 행을 걷는다. 만들다 계속 실패하는 판이 이 표의 누수이고, 그 판은 문항 없이 남는다.
+-- 오래된 행을 걷는다. 만들다 계속 실패하는 판이 이 표의 누수다.
 --
 -- 걷은 수를 돌려준다. 018·019 와 갈리는 자리다. 여기서 걷히는 판은 문항 없이 남으므로
 -- 0이 아닌 것 자체가 사고이고, 세어 두면 부르는 쪽이 로그와 지표를 남긴다.

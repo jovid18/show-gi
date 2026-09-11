@@ -7,14 +7,13 @@ import type { MyColor } from '@/protocol/review';
 import { navigate } from '@/routes/router';
 
 /**
- * 밖에서 둔 자기 기보를 가져오는 화면(docs/journal §126).
+ * 밖에서 둔 자기 기보를 가져오는 화면(journal §126).
  *
- * 두 단계로 나눠 놓았다. 먼저 읽어서 手数와 앞뒤 수를 보여 주고, 사람이 「이 판이 맞다」와
- * 「내가 어느 쪽이었나」를 확인한 뒤에야 가져온다 — 잘못 읽은 기보 하나가 엔진 몇 분이라,
- * 확인이 없으면 그 시간 전체가 버려진다.
+ * 두 단계다. 먼저 읽어서 手数와 앞뒤 수를 보여 주고, 사람이 「이 판이 맞다」와 「내가 어느
+ * 쪽이었나」를 확인한 뒤에야 가져온다. 잘못 읽은 기보 하나가 엔진 몇 분이다.
  *
- * 붙여 넣기와 파일 선택이 같은 자리로 흘러간다. 파일은 글자를 읽어 같은 상자에 넣을 뿐이라
- * (`readAsText`) 그 뒤가 한 갈래다.
+ * 붙여 넣기와 파일 선택이 같은 자리로 흘러간다. 파일은 글자를 읽어 같은 상자에 넣을
+ * 뿐이라(`readAsText`) 그 뒤가 한 갈래다.
  */
 
 /** 받는 파일. 어느 쪽이든 안이 글자라 브라우저가 읽어 상자에 붓는다. */
@@ -23,21 +22,21 @@ const ACCEPT = '.kif,.kifu,.ki2,.csa,.txt,text/plain';
 /**
  * 받는 파일의 크기. 서버의 원문 상한과 같다(`kifunorm.MaxInput`).
  *
- * 읽기 전에 본다. 읽고 나서 막으면 브라우저가 그 파일 전체를 문자열로 만든 뒤이고,
- * 큰 파일에서는 그 사이에 탭이 멈춘다.
+ * 읽기 전에 본다. 읽고 나서 막으면 브라우저가 그 파일 전체를 문자열로 만든 뒤이고, 큰
+ * 파일에서는 그 사이에 탭이 멈춘다.
  */
 const MAX_BYTES = 64 * 1024;
 
 export function ImportScreen({ me }: { me: MeResponse }) {
-  // 로그인하지 않은 것을 오류로 다루지 않는다. 메뉴에서는 이 줄이 로그인한 사람에게만
-  // 보이지만(HomeScreen) 주소를 직접 열면 익명으로 여기 들어온다 — 그때 상자를 그려 주면
-  // 사람이 기보를 다 붙여 넣고 누른 뒤에야 로그인이 필요하다는 것을 알게 된다.
+  // 로그인하지 않은 것을 오류로 다루지 않는다. 메뉴에는 이 줄이 로그인한 사람에게만
+  // 보이지만(HomeScreen) 주소를 직접 열면 익명으로 들어오고, 그때 상자를 그려 주면 기보를
+  // 다 붙여 넣고 누른 뒤에야 로그인이 필요하다는 것을 알게 된다.
   if (me.user === null) return <SignInFirst enabled={me.enabled} />;
   return <ImportForm />;
 }
 
 /**
- * 가져오기가 로그인을 요구하는 이유를 먼저 말한다. 익명끼리는 구별할 수단이 없어서
+ * 가져오기가 로그인을 요구하는 이유를 먼저 말한다. 익명끼리는 구별할 수단이 없어
  * (`002_anonymous_games.sql`) 「누구의 기보인가」에 답할 수가 없다.
  */
 function SignInFirst({ enabled }: { enabled: boolean }) {
@@ -72,8 +71,8 @@ function ImportForm() {
   const changeText = useCallback(
     (next: string) => {
       setText(next);
-      // 원문이 바뀌면 앞의 미리보기는 다른 판의 것이다. 남겨 두면 사람이 남의 手数를
-      // 보면서 가져오기를 누른다.
+      // 원문이 바뀌면 앞의 미리보기는 다른 판의 것이다. 남겨 두면 사람이 남의 手数를 보면서
+      // 가져오기를 누른다.
       if (preview || error) reset();
     },
     [preview, error, reset],
@@ -127,7 +126,7 @@ function ImportForm() {
       <div className="import__row">
         {/* 파일 상자는 감추고 라벨을 버튼처럼 쓴다. `<input type="file">` 의 기본 버튼은
             글자를 브라우저가 정하므로(한국어 브라우저에서 「파일 선택」이 뜬다) 화면에
-            일본어가 아닌 것이 섞인다 — 이 앱에서 그건 그 자리에서 「번역이 덜 된 앱」이다. */}
+            일본어가 아닌 것이 섞인다. */}
         <label className="import__button" data-disabled={busy || undefined}>
           ファイルを選ぶ
           <input
@@ -159,9 +158,8 @@ function ImportForm() {
         <div className="import__preview">
           <h2 className="import__subtitle">読み取った内容</h2>
 
-          {/* 옮겨 적힌 판은 그렇다고 말한다. 그 수도 전부 룰 엔진을 지나 왔지만,
-              사람이 자기 기보인지 눈으로 확인할 수 있게 하는 것이 지어내기에 대한
-              두 번째 방어다. */}
+          {/* 옮겨 적힌 판은 그렇다고 말한다. 그 수도 전부 룰 엔진을 지나 왔지만, 사람이
+              자기 기보인지 눈으로 확인하는 것이 지어내기에 대한 두 번째 방어다. */}
           {preview.transcribed && <p className="import__note">AI が書式を読み取りました。下の手順をご確認ください。</p>}
 
           <dl className="import__facts">
@@ -195,8 +193,8 @@ function ImportForm() {
             )}
           </dl>
 
-          {/* 앞뒤를 같이 보여 준다. 앞만 보여 주면 「뒤가 잘렸는가」를 알 수 없고,
-              그것이 가져오기에서 가장 흔한 오류다. */}
+          {/* 앞뒤를 같이 보여 준다. 앞만 보여 주면 「뒤가 잘렸는가」를 알 수 없고, 그것이
+              가져오기에서 가장 흔한 오류다. */}
           <p className="import__moves">
             {preview.head.join(' ')}
             {preview.tail !== undefined && preview.tail.length > 0 && ` … ${preview.tail.join(' ')}`}

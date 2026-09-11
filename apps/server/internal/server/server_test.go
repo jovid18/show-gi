@@ -29,8 +29,8 @@ func TestHealthz(t *testing.T) {
 	if !body.OK {
 		t.Errorf("ok = false, want true")
 	}
-	// 엔진 없이 만든 Handler다. 200이되 engine 은 false여야 한다 —
-	// 여기가 true면 "배포는 성공했는데 대국만 되지 않는" 상태를 다시 잡지 못한다.
+	// 엔진 없이 만든 Handler다. 200이되 engine 은 false여야 한다. 여기가 true면 "배포는
+	// 성공했는데 대국만 되지 않는" 상태를 다시 잡지 못한다.
 	if body.Engine {
 		t.Errorf("engine = true, want false (엔진 없이 만든 Handler)")
 	}

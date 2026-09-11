@@ -2,8 +2,8 @@ package boardread
 
 import "strings"
 
-// 이 파일은 OpenAI Responses API 의 요청·응답 모양과 프롬프트다. 필요한 칸만 담는다 —
-// 남의 스키마 전체를 옮겨 적으면 그쪽이 칸을 늘릴 때마다 이 파일이 어긋난다.
+// 이 파일은 OpenAI Responses API 의 요청·응답 모양과 프롬프트다. 남의 스키마 전체를
+// 옮겨 적으면 그쪽이 칸을 늘릴 때마다 어긋나므로 필요한 칸만 담는다.
 
 // emptyCell 은 빈 칸의 토큰이다. 스키마의 enum 에도 이 글자가 들어간다.
 const emptyCell = "."
@@ -11,18 +11,16 @@ const emptyCell = "."
 // instructions 는 시스템 프롬프트다.
 //
 // 筋도 段도 「5五」도 한 번 나오지 않는다. 시키는 일이 「위 줄부터, 왼쪽부터, 그려진
-// 대로」 하나이고, 좌표는 코드가 그 순서에서 얻는다 — 좌표를 시키면 틀린다는 것이
-// kifunorm 에서 실측으로 나왔다(journal §126).
+// 대로」 하나이고, 좌표는 코드가 그 순서에서 얻는다(journal §126).
 //
-// 先手·後手도 나오지 않는다. 그림에서 알 수 있는 것은 駒의 뾰족한 쪽이 위를 보는가
-// 아래를 보는가뿐이고, 그것이 곧 대소문자다.
+// 先手·後手도 나오지 않는다. 편을 가르는 단서는 글자가 똑바로 서 있는가이고, 그것이
+// 곧 대소문자다(journal §129).
 //
-// 판을 판단하게 하지 않는다. 「좋은 수」·「형세」·「어느 쪽이 유리한가」를 묻는 말이
-// 한 줄도 없고, 스키마에도 그것을 담을 칸이 없다.
+// 판을 판단하게 하지 않는다. 「좋은 수」·「형세」를 묻는 말이 한 줄도 없고, 스키마에도
+// 그것을 담을 칸이 없다.
 //
-// 그림에 적힌 글을 안 따른다. 방송 화면 캡처에는 「アドバイス・形勢判断ご遠慮ください」
-// 처럼 읽는 이에게 무언가를 시키는 글이 실제로 찍혀 온다 — 그 글을 지시로 읽으면
-// 이 계층이 판독을 거부한다.
+// 그림에 적힌 글을 따르지 않는다. 방송 화면 캡처에는 읽는 이에게 무언가를 시키는 글이
+// 실제로 찍혀 오고, 그것을 지시로 읽으면 이 계층이 판독을 거부한다.
 const instructions = `You transcribe what is drawn on a shogi board in an image. You do not play, judge or
 evaluate shogi. You never say who is winning and you never suggest a move.
 
@@ -92,11 +90,9 @@ type message struct {
 
 type part struct {
 	Type string `json:"type"`
-	// ImageURL 은 data: URL 이다. 그림을 남의 저장소에 올리지 않는다 — 이 요청 하나에
-	// 실어 보내고 어디에도 남기지 않는다.
+	// ImageURL 은 data: URL 이다. 이 요청 하나에 실어 보내고 어디에도 남기지 않는다.
 	ImageURL string `json:"image_url,omitempty"`
-	// Detail 은 그림을 얼마나 크게 보는가다. 81칸의 작은 글자와 그 방향을 읽는 일이라
-	// 낮추면 이 기능이 성립하지 않는다.
+	// Detail 은 그림을 얼마나 크게 보는가다. 낮추면 81칸의 작은 글자를 읽지 못한다.
 	Detail string `json:"detail,omitempty"`
 }
 
@@ -120,9 +116,8 @@ type format struct {
 
 // cellTokens 는 칸에 올 수 있는 값 전부다.
 //
-// enum 으로 묶는 것이 이 스키마에서 가장 값진 자리다. 글자를 자유롭게 쓰게 두면
-// 「龍」과 「竜」·「成銀」과 「全」이 섞여 오고, 그 변형을 옮기는 표가 여기 대신
-// 코드에 생긴다 — 표가 있으면 새 변형이 나올 때마다 경고 없이 빠진다.
+// enum 으로 묶는다. 글자를 자유롭게 쓰게 두면 「龍」과 「竜」·「成銀」과 「全」이 섞여
+// 오고, 그 변형을 옮기는 표가 코드에 생긴다. 그 표는 새 변형마다 경고 없이 빠진다.
 func cellTokens() []string {
 	out := []string{emptyCell}
 	for _, base := range []string{"P", "L", "N", "S", "G", "B", "R", "K"} {
@@ -136,11 +131,10 @@ func cellTokens() []string {
 
 // schemaFormat 은 출력 스키마다. strict 라서 모르는 칸도 빠진 칸도 응답에 올 수 없다.
 //
-// 手番 칸이 없다. 사진이 말해 주지 않는 값이라 물어봐도 지어낸 답이 오고, 그것이 곧
-// 「이 계층은 手番을 모른다」를 강제하는 자리다.
+// 手番 칸이 없다. 사진이 말해 주지 않는 값이라 물어봐도 지어낸 답이 온다.
 //
-// 격자 크기는 스키마로 묶을 수 없다(JSON Schema 에 고정 길이가 없다). 9×9인지는 옮기는
-// 코드가 본다(sfenOf).
+// 격자 크기는 스키마로 묶을 수 없다(JSON Schema 에 고정 길이가 없다). 9×9인지는
+// sfenOf 가 본다.
 func schemaFormat() format {
 	count := map[string]any{"type": "integer"}
 	handSchema := map[string]any{

@@ -21,23 +21,23 @@ import (
 // 판이 찍힌 그림에서 국면을 가져오는 표면. 근거와 정한 것은 journal §129.
 //
 // 경로가 둘이다. 읽기(POST /api/position/read)가 그림을 국면 하나로 옮기고, 검사
-// (POST /api/position/check)가 「이 국면이 성립하는가」에 답한다 — 확인 화면이 한 칸을
-// 고칠 때마다 후자를 부르므로, 二歩가 되는 순간 그 자리에서 보인다.
+// (POST /api/position/check)가 「이 국면이 성립하는가」에 답한다. 확인 화면이 한 칸을 고칠
+// 때마다 후자를 부르므로, 二歩가 되는 순간 그 자리에서 보인다.
 //
-// 검사가 엔진을 쓰지 않는다. 순수 룰 계산이라 슬롯도 로그인도 필요 없고, 그래서 편집이
-// 얼마나 잦아도 대국이 쓰는 풀에 닿지 않는다.
+// 검사가 엔진을 쓰지 않는다. 순수 룰 계산이라 슬롯도 로그인도 필요 없고, 편집이 얼마나
+// 잦아도 대국이 쓰는 풀에 닿지 않는다.
 //
-// 그림을 남기지 않는다. 요청 하나에 실려 저쪽 API 로 나가고 응답을 만든 뒤 버린다 —
-// 남겨 두면 「사람이 올린 사진」이라는 지울 규약이 하나 더 생기고, 그 값이 없다.
+// 그림을 남기지 않는다. 요청 하나에 실려 저쪽 API 로 나가고 응답을 만든 뒤 버린다. 남겨
+// 두면 「사람이 올린 사진」이라는 지울 규약이 하나 더 생긴다.
 //
 // 읽기는 로그인한 사람만이다. 지키는 것이 돈이라 사람마다 세야 하고, 익명끼리는
 // 구별할 수단이 없다(002_anonymous_games.sql). 검사와 분석에는 로그인이 필요 없다.
 
 // maxBoardReadsPerHour 는 한 사람이 한 시간에 그림을 읽힐 수 있는 횟수다.
 //
-// 기보 정규화(maxTranscribesPerHour=20)보다 빡빡하다. 그림 한 장이 큰 해상도로 보는
-// 호출이라 한 번의 값이 저쪽보다 크고, 여기서는 「형식을 고쳐 가며 다시 붙여 넣는」
-// 정상적인 반복이 없다 — 같은 사진을 다시 읽혀도 같은 판이 나온다.
+// 기보 정규화(maxTranscribesPerHour)보다 빡빡하다. 그림 한 장이 큰 해상도로 보는 호출이라
+// 한 번의 값이 저쪽보다 크고, 여기서는 「형식을 고쳐 가며 다시 붙여 넣는」 정상적인 반복이
+// 없다.
 //
 // [미확정] 실측으로 잡지 않았다. 사람이 한 판을 읽히는 데 몇 장을 올리는지를 재 보면 옮긴다.
 const maxBoardReadsPerHour = 10
@@ -58,11 +58,10 @@ type positionHandler struct {
 	budget *hourlyBudget
 	// keep 은 그림과 라벨을 모아 두는 폴더다. 비어 있으면 그 경로 전체가 열리지 않는다.
 	//
-	// 판독을 재는 그림을 모으는 자리다(apps/server/README.md). 사람이 확인 화면에서
-	// 고친 판이 곧 라벨이라, 이 폴더가 켜져 있으면 「올리고 · 고치고 · 누르고」 세 걸음이
-	// 그림과 라벨의 짝을 하나 남긴다.
+	// 판독을 재는 그림을 모으는 자리다(apps/server/README.md). 사람이 확인 화면에서 고친
+	// 판이 곧 라벨이라, 이 폴더가 켜져 있으면 그림과 라벨의 짝이 하나씩 남는다.
 	//
-	// 프로덕션은 이 값을 주지 않는다 — 태스크 정의에 없다.
+	// 프로덕션은 이 값을 주지 않는다.
 	keep string
 }
 
@@ -72,17 +71,16 @@ type positionHandler struct {
 // ../ 하나로 폴더 밖에 쓸 수 있다.
 var keptName = regexp.MustCompile(`^board-[0-9]{2,4}$`)
 
-// keptPrefix 는 그 이름의 앞머리다. 번호만 이어서 붙는다.
+// keptPrefix 는 그 이름의 앞머리다.
 const keptPrefix = "board-"
 
 // positionReadRequest 는 그림 한 장이다.
 type positionReadRequest struct {
-	// Image 는 base64 다. 브라우저가 주는 data: URL 앞머리가 붙어 있어도 받는다 —
-	// 화면이 그 앞머리를 떼는 코드를 갖는 것보다 여기서 떼는 편이 낫다.
+	// Image 는 base64 다. 브라우저가 주는 data: URL 앞머리가 붙어 있어도 받는다.
 	Image string `json:"image"`
 }
 
-// positionCheckRequest 는 국면 하나다. 手番이 그 안에 들어 있다.
+// positionCheckRequest 는 국면 하나다. 手番이 SFEN 안에 있다.
 type positionCheckRequest struct {
 	SFEN string `json:"sfen"`
 }
@@ -95,8 +93,8 @@ type positionResponse struct {
 	SFEN string `json:"sfen"`
 	// ImageID 는 남겨 둔 그림의 이름이다(board-01). 폴더가 켜져 있지 않으면 오지 않는다.
 	//
-	// 화면이 이 값을 갖고 있다가 「解析する」를 누를 때 되돌려준다 — 그때 사람이 고친
-	// 판이 이 그림의 라벨이 된다(POST /api/position/label).
+	// 화면이 이 값을 갖고 있다가 「解析する」를 누를 때 되돌려주고, 그때 사람이 고친 판이
+	// 이 그림의 라벨이 된다(POST /api/position/label).
 	ImageID string `json:"imageId,omitempty"`
 	// Faults 는 이 국면이 어긴 규칙 전부다. 비어 있어야 분석으로 넘어갈 수 있다.
 	Faults []positionFault `json:"faults"`
@@ -108,9 +106,9 @@ type positionResponse struct {
 type positionFault struct {
 	// Reason 은 사유의 영어 이름이다. 화면이 분기할 자리가 생기면 이것을 본다.
 	Reason string `json:"reason"`
-	// Square 는 화면 배열 인덱스(0~80)다. 칸으로 짚을 수 없는 사유면 오지 않는다 —
-	// 판 위의 좌표 규약이 서버와 화면에서 같으므로(internal/shogi 패키지 doc ·
-	// models/sfen.ts) 변환이 없다.
+	// Square 는 화면 배열 인덱스(0~80)다. 칸으로 짚을 수 없는 사유면 오지 않는다. 판 위의
+	// 좌표 규약이 서버와 화면에서 같아서(internal/shogi 패키지 doc · models/sfen.ts)
+	// 변환이 없다.
 	Square *int `json:"square,omitempty"`
 	// Message 는 화면에 그대로 나가는 일본어다. 화면이 문장을 만들지 않는다.
 	Message string `json:"message"`
@@ -142,8 +140,7 @@ func (h *positionHandler) readImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 몫을 먼저 센다. 부른 뒤에 세면 시한에 걸린 호출이 몫을 쓰지 않는데, 그 실패가 가장
-	// 비싼 호출이다(hourlyBudget.take).
+	// 몫을 먼저 센다(hourlyBudget.take).
 	if !h.budget.take(s.UserID) {
 		writeJSON(w, http.StatusTooManyRequests, map[string]any{
 			"error": "quota",
@@ -197,11 +194,10 @@ type positionLabelRequest struct {
 	SFEN    string `json:"sfen"`
 }
 
-// label 은 사람이 확인한 국면을 그 그림의 라벨로 저장한다.
+// label 은 사람이 확인한 국면을 그 그림의 라벨로 저장한다. 폴더가 켜져 있을 때만
+// 라우팅된다(server.go).
 //
-// 성립하지 않는 판은 받지 않는다 — 틀린 라벨이 없는 라벨보다 나쁜 이유는 journal §129.
-//
-// 이 경로는 폴더가 켜져 있을 때만 라우팅된다(server.go).
+// 성립하지 않는 판은 받지 않는다(journal §129).
 func (h *positionHandler) label(w http.ResponseWriter, r *http.Request) {
 	if _, ok := h.viewer(w, r); !ok {
 		return
@@ -214,7 +210,7 @@ func (h *positionHandler) label(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	// 모양을 먼저 본다. 이 값이 파일 경로가 되므로 여기가 하나뿐인 방어다.
+	// 이 값이 파일 경로가 되므로 여기가 하나뿐인 방어다.
 	if !keptName.MatchString(req.ImageID) {
 		writeJSON(w, http.StatusBadRequest, map[string]any{
 			"error": "bad_image_id", "message": "画像の名前が正しくありません。",
@@ -243,14 +239,13 @@ func (h *positionHandler) label(w http.ResponseWriter, r *http.Request) {
 
 // keepImage 는 읽은 그림을 폴더에 남기고 그 이름을 준다. 폴더가 켜져 있지 않으면 빈 값이다.
 //
-// 이름을 서버가 짓는다. board-01 부터 번호만 이어 붙고, 클라이언트가 준 글자는
-// 한 자도 들어가지 않는다 — 파일 이름을 남이 정하게 두는 것이 이런 자리의 하나뿐인 위험이다.
-// 확장자도 앞머리로 정한 형식에서 온다(boardread.Ext).
+// 이름을 서버가 짓는다. board-01 부터 번호만 이어 붙고 클라이언트가 준 글자는 한 자도
+// 들어가지 않는다. 확장자도 앞머리로 정한 형식에서 온다(boardread.Ext).
 //
-// 폴더를 만들지 않는다. 없으면 로그 한 줄로 끝난다 — 오타 하나로 엉뚱한 곳에 폴더가
-// 생기는 것보다 써지지 않는 편이 낫다.
+// 폴더를 만들지 않는다. 없으면 로그 한 줄로 끝난다. 오타 하나로 엉뚱한 곳에 폴더가
+// 생기는 것을 막는다.
 //
-// 실패해도 요청은 성공이다. 이건 곁다리이고, 사람이 기다리는 것은 읽어 낸 국면이다.
+// 실패해도 요청은 성공이다. 사람이 기다리는 것은 읽어 낸 국면이다.
 func (h *positionHandler) keepImage(image []byte) string {
 	if h.keep == "" {
 		return ""
@@ -259,10 +254,9 @@ func (h *positionHandler) keepImage(image []byte) string {
 	if ext == "" {
 		return ""
 	}
-	// 이름을 고르고 쓰는 사이가 벌어져 있다. O_EXCL 로 「내가 만든 것」만 받아들이고,
-	// 남이 먼저 만들었으면 다음 번호로 넘어간다 — 그러지 않으면 동시에 올린 두 장이 같은
-	// 이름을 골라 하나가 지워지고, 먼저 올린 사람의 imageId 가 남의 그림에 라벨을
-	// 붙인다. 틀린 라벨은 없는 라벨보다 나쁘다.
+	// 이름을 고르고 쓰는 사이가 벌어져 있다. O_EXCL 로 「내가 만든 것」만 받아들이고, 남이
+	// 먼저 만들었으면 다음 번호로 넘어간다. 그러지 않으면 동시에 올린 두 장이 같은 이름을
+	// 골라 먼저 올린 사람의 imageId 가 남의 그림에 라벨을 붙인다.
 	for n := nextKeptNumber(h.keep); n <= maxKept; n++ {
 		name := fmt.Sprintf("%s%02d", keptPrefix, n)
 		path := filepath.Join(h.keep, name+ext)
@@ -295,12 +289,12 @@ const maxKept = 99
 
 // nextKeptNumber 는 폴더에서 다음 번호를 고른다. 비어 있으면 1이다.
 //
-// 있는 것 중 가장 큰 값 다음이다. 개수를 세지 않는다 — 중간을 지우면 개수가 줄어서
-// 이미 있는 이름을 다시 짓고, 그러면 남의 그림을 덮는다.
+// 있는 것 중 가장 큰 값 다음이다. 개수를 세면 중간을 지웠을 때 이미 있는 이름을 다시
+// 짓고, 그러면 남의 그림을 덮는다.
 func nextKeptNumber(dir string) int {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		// 폴더가 없으면 쓰기에서 걸린다. 여기서 말하지 않는다 — 로그가 두 줄이 된다.
+		// 폴더가 없으면 쓰기에서 걸린다. 여기서 또 말하면 로그가 두 줄이 된다.
 		return 1
 	}
 	max := 0
@@ -329,8 +323,8 @@ func (h *positionHandler) viewer(w http.ResponseWriter, r *http.Request) (auth.S
 // checked 는 국면 하나에 룰 엔진이 말할 수 있는 것을 붙인다.
 //
 // 읽지 못하는 SFEN 도 사유를 하나 담는다. 빈 목록은 「이 판은 성립한다」로 읽히는데,
-// 읽기(readImage)는 판독 계층이 내놓은 글자를 그대로 여기 넘기므로 부르는 쪽이 이미
-// 읽어 봤다는 보장이 없다 — 그 자리에서 빈 목록을 주면 없는 국면이 성립한다고 답한다.
+// 읽기(readImage)는 판독 계층이 내놓은 글자를 그대로 넘기므로 부르는 쪽이 이미 읽어
+// 봤다는 보장이 없다.
 func checked(sfen string) positionResponse {
 	res := positionResponse{SFEN: sfen, Faults: []positionFault{}, Warnings: []string{}}
 
@@ -357,8 +351,7 @@ func checked(sfen string) positionResponse {
 		res.Warnings = append(res.Warnings, shortageJa(short))
 	}
 
-	// 이미 끝난 국면인지는 사유가 없을 때만 묻는다. 성립하지 않는 판의 합법수는
-	// 물어봐야 뜻이 없다.
+	// 이미 끝난 국면인지는 사유가 없을 때만 묻는다. 성립하지 않는 판의 합법수는 뜻이 없다.
 	if len(res.Faults) == 0 && pos.NoLegalMoves() {
 		if pos.InCheck(pos.Turn) {
 			res.Warnings = append(res.Warnings, "この局面はすでに詰んでいます。指す手がありません。")
@@ -450,7 +443,7 @@ func writeBoardReadError(w http.ResponseWriter, err error) {
 		}
 	}
 	// 남은 것은 저쪽 API 의 사정이다. 사람이 고칠 것이 없으므로 다시 눌러 볼 수 있는
-	// 실패로 내보낸다 — 국면은 아직 아무것도 만들어지지 않았으니 잃는 것이 없다.
+	// 실패로 내보낸다.
 	writeJSON(w, http.StatusServiceUnavailable, map[string]any{
 		"error":   "read_failed",
 		"message": "画像から局面を読み取れませんでした。もう一度お試しください。",

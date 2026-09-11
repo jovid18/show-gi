@@ -24,8 +24,7 @@ func mustMove(t *testing.T, usi string) Move {
 	return m
 }
 
-// wantReason 은 수가 불법이고 그 사유가 want 인지 확인한다.
-// 문구 대신 코드로 본다 — 문구는 언제든 다듬을 수 있고, 판정은 그러면 안 된다.
+// wantReason 은 수가 불법이고 그 사유가 want 인지 확인한다. 문구 대신 코드로 본다.
 func wantReason(t *testing.T, err error, want Reason, ctx string) {
 	t.Helper()
 	if err == nil {
@@ -278,7 +277,7 @@ func TestInventoryExcess(t *testing.T) {
 	if got := StartPosition().InventoryExcess(); len(got) != 0 {
 		t.Fatalf("초기국면에 초과 말이 있음: %v", got)
 	}
-	// 飛가 3장 — 밖에서 들어온 SFEN이 판을 잘못 옮긴 경우
+	// 飛가 3장. 밖에서 들어온 SFEN이 판을 잘못 옮긴 경우
 	pos := mustPos(t, "k8/9/9/9/4R4/9/2R6/2R6/4K4 b - 1")
 	got := pos.InventoryExcess()
 	if got[Rook] != 1 {
@@ -299,17 +298,14 @@ func TestMoveJa(t *testing.T) {
 		}
 	}
 
-	// 불법수가 섞이면 에러로 끊긴다 — 표기는 합법 수순에만 붙인다
+	// 불법수가 섞이면 에러로 끊긴다. 표기는 합법 수순에만 붙인다
 	if _, err := StartPosition().LineJa([]string{"7g7f", "7f7e"}); err == nil {
 		t.Fatal("후수 차례에 선수 수를 두었는데 통과함")
 	}
 }
 
 // TestReasonTextIsComplete 는 사유 코드마다 로그용 이름과 사용자용 일본어 문구가
-// 빠짐없이 있는지, 그리고 문구에 한글이 섞이지 않았는지 본다.
-//
-// 화면에 한글이 한 글자라도 나가면 그 자리에서 "번역이 덜 된 앱"이 된다.
-// 사람 눈으로 지키는 규칙은 결국 새므로 여기서 기계가 막는다.
+// 빠짐없이 있는지, 그리고 문구에 한글이 섞이지 않았는지 본다(CLAUDE.md).
 func TestReasonTextIsComplete(t *testing.T) {
 	const last = ReasonLeavesKingInCheck
 
@@ -337,7 +333,7 @@ func TestReasonTextIsComplete(t *testing.T) {
 		}
 	}
 
-	// Message()는 등록되지 않은 사유에도 무언가를 돌려줘야 한다 — 화면이 비면 안 된다.
+	// Message()는 등록되지 않은 사유에도 무언가를 돌려줘야 한다. 화면이 비면 안 된다.
 	e := &IllegalMoveError{Reason: Reason(9999), Move: Move{From: -1, To: 40, Drop: Pawn}}
 	if e.Message() == "" {
 		t.Error("알 수 없는 사유에서 빈 문구")
@@ -359,8 +355,7 @@ func hasHangul(s string) bool {
 	return false
 }
 
-// AttackCount 는 IsAttacked 가 할 수 없는 「몇 개인가」를 답한다. 玉 주변의 攻め와 守り를
-// 견주는 데 쓰므로, 여기서 세다 말면 위에서 「지키던 말이 하나 줄었다」가 보이지 않는다.
+// AttackCount 는 IsAttacked 가 할 수 없는 「몇 개인가」를 답한다.
 func TestAttackCount(t *testing.T) {
 	// 5五에 선수 金 둘이 5六·4六에서 닿고, 후수 飛가 5一에서 세로로 닿는다.
 	pos := mustPos(t, "4r4/9/9/9/9/4GG3/9/9/4K4 b - 1")
@@ -372,8 +367,7 @@ func TestAttackCount(t *testing.T) {
 		t.Errorf("5五를 노리는 후수 말은 飛 하나다: %d", got)
 	}
 
-	// 자기 말이 있는 칸도 센다. 방어 利き을 세는 것이 이 함수의 용도라,
-	// 지키는 말 위의 利き을 빼면 셀 것이 없어진다.
+	// 자기 말이 있는 칸도 센다. 지키는 말 위의 利き을 빼면 셀 것이 없어진다.
 	if got := pos.AttackCount(SquareOf(5, 6), Black); got != 1 {
 		t.Errorf("5六金은 4六金이 지킨다: %d", got)
 	}
@@ -398,7 +392,7 @@ func TestNeighbors8ClipsAtTheEdge(t *testing.T) {
 	if got := len(Neighbors8(SquareOf(5, 1))); got != 5 {
 		t.Errorf("가장자리는 5칸이다: %d", got)
 	}
-	// 자기 자신은 들어가지 않는다 — 玉 자신의 칸은 「주변」에서 뺀다
+	// 자기 자신은 들어가지 않는다. 玉 자신의 칸은 「주변」에서 뺀다
 	for _, sq := range Neighbors8(SquareOf(5, 5)) {
 		if sq == SquareOf(5, 5) {
 			t.Error("자기 칸이 이웃에 들어갔다")
