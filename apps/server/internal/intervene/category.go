@@ -2,7 +2,7 @@ package intervene
 
 import "github.com/jovid18/show-gi/apps/server/internal/eval"
 
-// Category 는 블런더가 왜 나쁜가다. DB의 interventions.category 에 그대로 들어간다.
+// Category 는 블런더의 원인을 분류한 값이다. DB의 interventions.category 에 그대로 저장한다.
 //
 // 목록과 판정 룰은 01-core.md §3.
 type Category string
@@ -11,12 +11,12 @@ const (
 	// CategoryNone 은 개입하지 않았을 때다.
 	CategoryNone Category = ""
 
-	// CategoryMissedMate 는 詰み을 놓친 것이다. 종반에는 이것만이 하나뿐인 신호다(§2).
+	// CategoryMissedMate 는 詰み을 놓친 수다. 승률 낙폭이 포화하는 종반에도 판정한다(§2).
 	CategoryMissedMate Category = "missed_mate"
 
 	// CategorySlowerMate 는 詰み이 남았는데 멀어진 것이다.
 	//
-	// missed_mate 와 따로 두는 것은 사람에게 할 말이 정반대라서다(journal §76).
+	// 詰み을 놓친 경우와 남아 있는 경우를 구분해 설명한다(journal §76).
 	CategorySlowerMate Category = "slower_mate"
 
 	// CategoryLetsMate 는 그 수로 내 玉이 詰まされる 것이다. missed_mate 의 거울상이다.

@@ -1,14 +1,14 @@
-// 경로 문자열은 여기만 안다. 트리와 따로 두면 「어떤 주소가 있나」를 파일 하나로 읽는다.
+// 경로 문자열을 라우트 트리와 분리해 이 파일에서 관리한다.
 
 /**
- * 홈. 세로 메뉴 하나가 전부인 화면이다(journal §86).
+ * 홈 메뉴의 주소다(journal §86).
  *
  * 주소가 `/` 여야 한다. 로그인이 끝나면 서버가 이 주소로 되돌려보내고(`auth.go`),
  * `canonical` 과 `sitemap.xml` 도 여기를 가리킨다.
  */
 export const ROUTE_HOME = '/';
 
-/** 대국. `/` 에서 내려왔다(journal §86). 그 자리는 홈이 가졌다. */
+/** 대국 화면의 주소다(journal §86). */
 export const ROUTE_GAME = '/play';
 
 /** `/play` 의 첫 조각. */
@@ -20,14 +20,13 @@ export const ROUTE_REVIEWS = '/reviews';
 export const ROUTE_ME = '/me';
 
 /**
- * 검토. 판을 주소에 담는 하나뿐인 화면이다.
+ * 검토 화면의 주소다. 시작 국면과 수순을 쿼리로 전달한다.
  *
- * 手合割 하나와 지금까지 둔 수순이 쿼리에 실린다(`?h=nimaiochi&m=7g7f,3c3d`). 새로고침·
- * 뒤로 가기·링크 공유가 그것으로 살아난다.
+ * 手合割과 수순을 저장해 새로고침·뒤로 가기·링크 공유 시 국면을 복원한다(`?h=nimaiochi&m=7g7f,3c3d`).
  *
- * 뿌리가 둘이다. 手合割 id 가 하나이고, 사진에서 읽어 온 국면(`?s=<SFEN>`)이 다른
- * 하나다(journal §129). 뒤엣것은 手合割과 수순으로 표현할 수 없어서 판이 실린다.
- * 남이 준 링크가 「있을 수 없는 판」을 여는 것은 서버가 막는다(`shogi.Faults`).
+ * 시작 국면은 手合割 id 또는 사진에서 읽은 SFEN으로 지정한다(`?s=<SFEN>`, journal §129).
+ * 사진의 국면은 手合割과 수순만으로 표현할 수 없으므로 SFEN을 전달한다.
+ * 국면의 합법성은 서버의 `shogi.Faults`가 검증한다.
  */
 export const ROUTE_EXPLORE = '/explore';
 
@@ -59,8 +58,8 @@ export const routeExplore = (handicap: string, moves: readonly string[], sfen = 
 };
 
 /**
- * 안내. 서버에 아무것도 묻지 않고 로그인도 보지 않는 하나뿐인 화면이다. 그래도 주소가
- * 있는 것은 검색 결과와 공유 링크가 여기로 오기 때문이다.
+ * 안내 화면의 주소다. 서버 요청이나 로그인 없이 표시한다.
+ * 검색 결과와 공유 링크에서 직접 접근할 수 있도록 별도 주소를 둔다.
  */
 export const ROUTE_GUIDE = '/guide';
 
@@ -84,7 +83,7 @@ export const ROUTE_POSITION = '/position';
 export const POSITION_SEGMENT = 'position';
 
 /**
- * 판 하나. 주소에 id가 들어가는 하나뿐인 자리다.
+ * 대국 id와 선택한 手数로 되짚기 주소를 만든다.
  *
  * `ply` 를 주면 그 手数에서 열린다. 총평이 짚은 국면이 링크가 되려면 手数도 주소에
  * 있어야 한다. 화면 안의 상태로 두면 새로고침에 사라진다.

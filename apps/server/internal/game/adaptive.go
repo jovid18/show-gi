@@ -13,8 +13,7 @@ import (
 
 // MultiSearcher 는 후보 여러 개를 한 번에 받아오는 탐색이다. usi.Pool 이 만족한다.
 //
-// 강함을 탐색 길이가 아니라 고르는 쪽이 정하는 설계가 곧 MultiPV를
-// 요구한다(01-core.md §6).
+// 여러 후보 중에서 수를 선택해 강함을 조절하므로 MultiPV가 필요하다(01-core.md §6).
 type MultiSearcher interface {
 	SearchMultiPV(ctx context.Context, startSFEN string, moves []string, depth, multiPV int) (usi.SearchResult, error)
 }
@@ -23,16 +22,14 @@ type MultiSearcher interface {
 //
 // 양수면 플레이어가 유리하다는 뜻이므로, 상대는 자기가 조금 지는 쪽을 겨냥한다.
 //
-// 좌표가 둘이다. 구간 안이나 아래에서는 절대 좌표로 읽고(플레이어가 아직 이기지
-// 못하고 있으므로 「+100~+300으로 끌어올린다」가 곧 뜻이다), 구간 위에서는 지금
-// 형세에 대한 양보 폭으로 읽는다. 절대 좌표 하나로 쓰면 이 숫자가 그 구간에서
-// 정반대를 뜻한다. 「+300으로 되돌려라」가 되어 그 자리에서 조절이 꺼진다(journal §55).
+// 현재 형세가 구간 안이나 아래면 목표 형세로, 구간 위면 현재 형세에 더할 양보 폭으로 쓴다.
+// 구간 위에서도 절대 좌표를 쓰면 플레이어의 우세를 줄이게 된다(journal §55).
 //
 // 그 절대 좌표의 원점은 手合割이 정한다. 平手는 0cp이고 駒落ち는 그 手合의 초기
 // 평가치다. 옮기는 자리는 Choose 하나뿐이다.
 type Band struct{ LoCp, HiCp int }
 
-// DefaultBand 는 「조금씩 지고 있지만 아직 모른다」 구간이다. 플레이어 관점 cp.
+// DefaultBand 는 플레이어가 조금 유리하도록 설정한 기본 구간이다. 플레이어 관점 cp다.
 //
 // [미확정] 「초심자에게 맞는 폭인가」는 아직 재지 못했다. 근거와 숫자는 journal §39 ③.
 var DefaultBand = Band{LoCp: 100, HiCp: 300}
@@ -42,12 +39,10 @@ var DefaultBand = Band{LoCp: 100, HiCp: 300}
 // 낙폭이 skill.PriorLoss 면 0이고, 매 수 블런더면 +300(플레이어가 더 유리한 쪽으로 겨냥한다),
 // 매 수 최선이면 -300이다. 즉 잘 두는 사람에게는 상대가 이기려 든다.
 //
-// 입력은 수의 질뿐이다(skill.Track.Observe 가 낙폭 하나를 먹는다). 대국 결과도 형세도
-// 보지 않는다(journal §55).
+// skill.Track.Observe 가 받은 낙폭만 사용하며 대국 결과와 형세는 입력에 포함하지 않는다(journal §55).
 //
-// 조절하는 것은 밴드뿐이고 두 안전 필터도 후보 k도 건드리지 않는다. 화면이
-// 「取り返せない場所」라고 가르친 수를 상대가 두면 방금 배운 것이
-// 깨진다(journal §16 · §21 ①).
+// 밴드만 조절하고 두 안전 필터와 후보 k는 유지한다.
+// 상대도 플레이어에게 설명한 안전 기준을 따르도록 한다(journal §16 · §21 ①).
 //
 // [미확정] 초기값이다. 근거와 남은 것은 journal §47.
 const SkillShiftCp = 300
@@ -74,10 +69,9 @@ type adaptiveOpponent struct {
 	base Band
 }
 
-// NewAdaptiveOpponent 는 「지지만 던지지 않는」 상대를 만든다.
+// NewAdaptiveOpponent 는 안전한 후보 중에서 실력에 맞춰 수를 고르는 상대를 만든다.
 //
-// 약화는 고르는 자리에서 한다. 엔진이 스스로 실수를 섞으면 고른 수가 얼마나 나쁜지를
-// 우리가 모르게 되고, 그 평가치 위에 선 밴드 제어가 함께 무너진다(01-core.md §6).
+// 엔진 자체를 약화하면 후보의 손해를 정확히 비교할 수 없으므로 후보 선택으로만 강함을 조절한다(01-core.md §6).
 //
 // band 는 기준선이다. 실제로 겨냥하는 구간은 매 수 실력 추정이 옮긴다(Choose).
 func NewAdaptiveOpponent(s MultiSearcher, depth int, band Band) Opponent {

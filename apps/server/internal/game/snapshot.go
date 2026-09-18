@@ -47,8 +47,8 @@ type Move struct {
 	By  Side   `json:"by"`
 }
 
-// Snapshot 은 클라이언트가 보는 대국 상태 전부다. 부분 갱신을 보내지 않는 근거는
-// 파일 첫머리.
+// Snapshot 은 클라이언트에 전달하는 전체 대국 상태다.
+// 부분 갱신을 사용하지 않는 이유는 파일 첫머리에 있다.
 type Snapshot struct {
 	SFEN     string `json:"sfen"`
 	Ply      int    `json:"ply"`

@@ -287,10 +287,10 @@ func scoresByDepth(cps, mates []*int32) []eval.Score {
 // CountEdges 는 쌓인 수의 개수다.
 func (s *Store) CountEdges(ctx context.Context) (int64, error) { return s.q.CountEdges(ctx) }
 
-// Edges 는 그 국면에서 나가는 수들이다.
+// Edges 는 해당 국면에서 나가는 수의 저장된 간선과 깊이별 평가치를 조회한다.
 //
-// 깊이별 평가치를 되찾는 하나뿐인 길이다 — positions.candidates 에는 마지막 깊이의
-// 값만 있고, 개입 판정이 보는 얕은 값(depth 2)은 여기서만 나온다(01-core.md §3).
+// positions.candidates 에는 마지막 깊이의 값만 있으므로,
+// 개입 판정에 필요한 얕은 평가치(depth 2)는 이 조회로 가져온다(01-core.md §3).
 func (s *Store) Edges(ctx context.Context, parentKey string) ([]Edge, error) {
 	rows, err := s.q.ListEdges(ctx, parentKey)
 	if err != nil {
@@ -1032,8 +1032,8 @@ func (s *Store) AddStyleTag(ctx context.Context, gameID int64, code string) erro
 	return s.q.AddGameStyleTag(ctx, db.AddGameStyleTagParams{GameID: gameID, Code: code})
 }
 
-// listLimit 은 LIMIT 을 int32 칸에 맞춘다. 자르는 변환을 하는 자리가 스스로 막아야 한다.
-// 큰 값이 경고 없이 음수가 되면 LIMIT 이 거짓말을 한다.
+// listLimit 은 LIMIT 을 1 이상 math.MaxInt32 이하로 제한한다.
+// int32 변환 시 큰 값이 음수로 넘치지 않도록 변환 전에 범위를 검사한다.
 func listLimit(limit int) int32 {
 	if limit < 1 {
 		return 1
