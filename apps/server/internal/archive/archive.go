@@ -5,8 +5,8 @@
 // 빠진 것은 「데이터가 왜 이것만 있지」로 한참 뒤에 나타난다. 그래서 usi.Pool 을 한 겹
 // 감싸고, 부르는 쪽은 감싼 줄도 모른다.
 //
-// 기준이 같아야 재활용이 된다. 기본 깊이는 여섯 자리가 모두 14이고(game.DefaultDepth,
-// journal §130) 갈리는 것은 MultiPV뿐이다. 그건 「같은 깊이면 후보가 많은 쪽이 이긴다」로
+// 기준이 같아야 재활용이 된다. 기본 깊이는 여섯 자리가 모두 12이고(game.DefaultDepth,
+// journal §140) 갈리는 것은 MultiPV뿐이다. 그건 「같은 깊이면 후보가 많은 쪽이 이긴다」로
 // 질의가 정리한다(query/positions.sql). ENGINE_DEPTH 가 그 여섯을 가르는 자리는
 // cmd/api/main.go 의 engineDepth 에 있다.
 //
