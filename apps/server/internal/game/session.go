@@ -74,9 +74,9 @@ func chooseBest(
 
 // Rater 는 사람의 착수를 받아 실력 추정치를 돌려준다. nil이면 밴드가 기준선에 고정된다.
 //
-// 두 메서드의 방향이 다르다. Observe 는 세션 goroutine 이 부르므로 즉시 돌아와야 하고
-// (Recorder 와 같은 규약), Estimates 는 채널이라 읽는 쪽을 세션이 소유한다. 추정기가
-// 공유 변수를 직접 쓰면 상태 소유 규약이 그 자리에서 깨진다.
+// Observe 는 세션 goroutine 에서 호출하므로 즉시 반환해야 한다(Recorder 와 같은 규약).
+// 추정 결과는 Estimates 채널로 전달하고 세션이 읽어 상태에 반영한다.
+// 추정기가 공유 상태를 직접 변경해서는 안 된다.
 type Rater interface {
 	Observe(m skill.Move)
 	Estimates() <-chan skill.Estimate
@@ -840,8 +840,9 @@ func (st *state) applySkill(e skill.Estimate) {
 	}
 }
 
-// rollback 은 직전 사람의 수를 물린다. 되돌리는 것은 국면·기보·표기·千日手 계수까지
-// 전부다. 하나라도 남으면 다음 판정이 그 흔적 위에서 돈다.
+// rollback 은 직전 사람의 수를 되돌린다.
+//
+// 다음 판정에 이전 착수의 상태가 남지 않도록 국면·기보·표기·千日手 계수를 함께 복원한다.
 func (st *state) rollback(r judgeResult) {
 	key := st.pos.RepetitionKey()
 	if n := st.repeats[key]; n > 0 {
