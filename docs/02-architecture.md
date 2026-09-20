@@ -93,7 +93,7 @@ create index on edges using gin (tags);
 
 ### `eval_by_depth`는 공짜로 얻는다
 
-지금 프로덕션에서 도는 것은 판정·상대 수·가정 수순이 전부 14다(`game.JudgeDepth` · `game.DefaultDepth` 가 한 값을 함께 쓴다, [journal §130](journal/121-140.md)) — 手合割 기준점 표가 처음부터 depth 14라 화면 값과 자를 맞춘 것이다. 선행 계산은 그것과 별개로 14에 붙이지 않는다: 한때 붙여 봤는데 8.4초가 나와 쓰지 못했고([journal §10](journal/06-20.md)), 초반 캐시 히트율 65.7%를 재고 닫았다([journal §91](journal/82-100.md)).
+지금 프로덕션에서 도는 것은 판정·상대 수·가정 수순이 전부 12다(`game.JudgeDepth` · `game.DefaultDepth` 가 한 값을 함께 쓴다, [journal §140](journal/121-140.md)). [journal §130](journal/121-140.md)에서 手合割 기준점 표에 맞춰 14로 올렸다가 지연 때문에 되돌렸고, 기준점 표는 12로 다시 재야 한다. 선행 계산은 그것과 별개로 14에 붙이지 않는다: 한때 붙여 봤는데 8.4초가 나와 쓰지 못했고([journal §10](journal/06-20.md)), 초반 캐시 히트율 65.7%를 재고 닫았다([journal §91](journal/82-100.md)).
 
 USI 엔진은 iterative deepening 중 `info depth 1 score cp … / info depth 2 …`를 계속 뱉는다. `go` 한 번의 info 라인을 깊이별로 주워담으면 그게 곧 이 배열이다. 별도 탐색을 깊이마다 다시 돌릴 필요가 없다.
 

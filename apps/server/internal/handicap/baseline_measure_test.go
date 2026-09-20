@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jovid18/show-gi/apps/server/internal/game"
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/usi"
@@ -16,7 +17,9 @@ import (
 //
 //	SHOWGI_MEASURE=1 SHOWGI_USI_CMD=/opt/yaneuraou/run go test ./internal/handicap/ -run MeasureBaseline -v
 //
-// 깊이가 14다. 판정이 쓰는 깊이와 같아야 이 표와 화면 값이 같은 자를 쓴다(journal §130).
+// 깊이는 판정이 쓰는 값(game.JudgeDepth)이다. 같아야 이 표와 화면 값이 같은 자를 쓴다
+// (journal §130). 표의 숫자는 depth 14 실측이라 12 에서는 어긋난 만큼이 차이 칸에 나온다
+// (journal §140).
 //
 // 표를 고치지 않는다. 어긋나면 문장으로 말하고 사람이 옮긴다. 자동으로 맞추면 엔진이
 // 흔들릴 때마다 판정 기준이 경고 없이 따라 움직인다.
@@ -48,7 +51,7 @@ func TestMeasureBaseline(t *testing.T) {
 		rows = append(rows, row{name: h.Name, sfen: h.SFEN, want: h.BaselineCp})
 	}
 
-	const depth = 14
+	const depth = game.JudgeDepth
 	fmt.Printf("\n%-10s %8s %8s %8s %10s %10s\n", "手合", "실측cp", "표cp", "차이", "발화선(옛)", "발화선(지금)")
 	for _, r := range rows {
 		sfen := r.sfen

@@ -87,8 +87,8 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		in.BaselineCp = handicap.BaselineCpFor(startSFEN, mover)
 		in.Features, facts = moveFacts(pos, m)
 		in.Features.UnpromotedOnly = UnpromotedOnly(m, best.Best)
-		// 얕은 평가는 이미 받아 둔 info 라인에 있다. PvInterval=0 덕에 depth 14
-		// 탐색 한 번이 depth 1~12를 전부 돌려주므로 추가 탐색이 없다(01-core.md §4).
+		// 얕은 평가는 이미 받아 둔 info 라인에 있다. PvInterval=0 덕에 JudgeDepth
+		// 탐색 한 번이 depth 1~JudgeDepth 를 전부 돌려주므로 추가 탐색이 없다(01-core.md §4).
 		if sc, ok := after.ScoreAtDepth(ShallowDepth); ok {
 			in.Features.Shallow, in.Features.HasShallow = sc.Neg(), true // 사람 관점
 		}
@@ -137,7 +137,7 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 		// 기본은 이미 손에 든 착수 후 탐색의 PV다. 공짜이고 분류도 필요 없어서, 카테고리가
 		// 이유를 대지 못하는 3분의 2(journal §17)가 여기서 설명을 갖는다.
 		//
-		// 詰まされる 국면은 증명된 詰み 수순을 쓴다. PV는 깊이 14에서의 읽기라 뒤로 갈수록
+		// 詰まされる 국면은 증명된 詰み 수순을 쓴다. PV는 JudgeDepth 에서의 읽기라 뒤로 갈수록
 		// 확실하지 않은데, 詰み 수순은 모든 응수에 대해 증명된 것이라 끝까지 참이다.
 		//
 		// other 는 카드와 같은 질문을 다시 던진다(cardPV, journal §58).
@@ -375,7 +375,7 @@ func senteScore(mover eval.Score, c shogi.Color) eval.Score {
 
 // RefutationPlies 는 반박 수순의 상한이다. 실제 길이는 국면이 정한다(trimRefutation).
 //
-// 깊이 14 탐색의 PV는 뒤로 갈수록 확실하지 않고, 화면에서는 「왜 나쁜가」가 강의로
+// JudgeDepth 탐색의 PV는 뒤로 갈수록 확실하지 않고, 화면에서는 「왜 나쁜가」가 강의로
 // 바뀐다. 여기는 그 두 가지를 막는 한도이고, 보통은 이보다 훨씬 앞에서 잘린다.
 const RefutationPlies = 8
 

@@ -17,11 +17,12 @@ type engineOpponent struct {
 	depth  int
 }
 
-// DefaultDepth 는 상대 수를 고를 때의 탐색 깊이다. 실측으로 정한다(journal §130).
+// DefaultDepth 는 상대 수를 고를 때의 탐색 깊이다. 실측으로 정한다(journal §140).
 //
 // 값이 지연이다. depth 14 는 12의 약 네 배다(journal §10 의 k≈10 에서 8.4s 대 2.0s).
-// 옮기면 positions 의 기존 행이 전부 무효가 된다(computed_depth, journal §37).
-const DefaultDepth = 14
+// 올리면 positions 의 기존 행이 전부 무효가 된다(computed_depth, journal §37). 내리면
+// 깊게 잰 행이 그대로 히트한다(journal §140).
+const DefaultDepth = 12
 
 // NewEngineOpponent 는 엔진의 최선수를 그대로 두는 상대를 만든다.
 //

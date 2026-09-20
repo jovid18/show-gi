@@ -39,7 +39,8 @@ type Handicap struct {
 	// 水匠5 · depth 14 · FV_SCALE=24 실측이다. FV_SCALE 을 걸지 않고 재면 같은 국면이
 	// 1.5배로 나와서 표가 전부 다른 척도가 된다(journal §84).
 	//
-	// [미확정] K=600이 초기값인 것과 같은 처지다. 재측정은 baseline_measure_test.go.
+	// [미확정] 실행 깊이가 12로 내려가(journal §140) 이 표와 자가 다시 어긋났다. depth 12
+	// 재측정은 baseline_measure_test.go 로 하고 사람이 옮긴다. K=600과 같은 처지다.
 	BaselineCp int
 }
 
