@@ -41,7 +41,7 @@ fairy-stockfish로 시작했다가 갈아탔다. `go mate` 가 없어서다. 그
 | **詰み 탐색** | **`YANEURAOU_MATE_ENGINE` — 별도 바이너리다** |
 | 평가함수      | 水匠5 (`nn.bin`, 63MB). `FV_SCALE=24`         |
 
-**`go mate`는 詰将棋 solver 에디션이 답한다.** 탐색부가 아니다. 같은 소스를 다른 `YANEURAOU_EDITION`으로 두 번 빌드해야 하고 탐색부에 `go mate`를 보내면 YaneuraOu에서도 `bestmove`가 돌아온다. 실측으로 확인했다. solver 쪽은 규격대로 `checkmate G*5b`를 준다.
+**`go mate`는 탐색부가 아니라 詰将棋 solver 에디션이 답한다.** 같은 소스를 다른 `YANEURAOU_EDITION`으로 두 번 빌드해야 한다. 탐색부에 `go mate`를 보내면 YaneuraOu에서도 `bestmove`가 돌아온다. solver는 규격대로 `checkmate G*5b`를 준다. 두 반응은 실측으로 확인했다.
 
 라이선스는 GPLv3(やねうら王·NNUE 모두). 水匠5는 やねうら王 릴리스에서 무료로 공개된 단체 파일이다. 최신 水匠은 지원자 전용 배포라 쓸 수 없다. 엔진은 파이프 너머의 별도 프로세스라 GPL이 우리 코드로 전파되지 않는다. 다만 이미지에 바이너리를 담는 것은 배포이므로 어느 태그를 빌드했는지 Dockerfile에 남긴다.
 
@@ -108,7 +108,7 @@ USI 엔진은 iterative deepening 중 `info depth 1 score cp … / info depth 2 
 
 > 리뷰 화면은 이 배열을 쓰지 않는다. 한때 스파크라인의 원본으로 적혀 있었는데 그 자리는 [평가치 궤적 그래프](03-frontend.md#3-리뷰-화면)가 대신 닫았고 그쪽은 `game_moves.eval_cp` 를 읽는다([journal §41](journal/41-60.md)). 판정만 이 배열을 쓰고 나머지는 `archive` 가 캐시로 다시 꺼내 쓰는 쪽이다.
 
-> 단 얕은 값은 MultiPV info 라인에서 주울 수 없다. 捨て駒는 얕은 깊이에서 상위 k에 들지 못해 애초에 라인에 나오지 않는다. 손해로 보이는 수를 그렇게 부른다. shallow는 그 수를 둔 국면을 따로 depth 2로 평가해서 얻는다.
+> 단 얕은 값은 MultiPV info 라인에서 주울 수 없다. 捨て駒는 얕은 깊이에서 상위 k에 들지 못해 애초에 라인에 나오지 않는다. 捨て駒는 얕게 보면 손해인 수다. shallow는 그 수를 둔 국면을 따로 depth 2로 평가해서 얻는다.
 
 > 단 엔진이 깊이별로 찍어주게 만들어야 한다. YaneuraOu의 `PvInterval` 기본값은 300(ms)이고, 그 간격으로만 PV를 찍는다. 우리 탐색은 그보다 빨리 끝나므로 마지막 깊이 하나만 남는다. 그러면 이 배열 전체가 사라진다. `PvInterval=0`으로 껐고, 이건 파서가 동작하기 위한 조건이라 핸드셰이크에 넣었다. 엔진을 또 바꾸면 같은 종류의 옵션이 있는지 먼저 본다.
 
@@ -236,7 +236,7 @@ explore_snapshots(id, user_id, name, handicap, moves text[], created_at)
    └─────────────────┘     └────────────────┘
 ```
 
-**엔진은 풀로 띄운다.** 최소 3개다. ① 상대 수 결정 ② 플레이어 후보 선행 계산 ③ mate 탐색(詰み 게이지). 손잡이는 탐색부의 `ENGINE_POOL_SIZE`(기본 3)와 詰将棋 solver의 `ENGINE_MATE_POOL_SIZE`(기본 2) 둘이다.
+**엔진은 풀로 띄운다.** 상대 수 결정, 플레이어 후보 선행 계산, mate 탐색(詰み 게이지)에 최소 3개가 필요하다. 조절값은 탐색부의 `ENGINE_POOL_SIZE`(기본 3)와 詰将棋 solver의 `ENGINE_MATE_POOL_SIZE`(기본 2)다.
 
 > ③은 다른 바이너리다(§3). 詰将棋 solver 에디션을 따로 빌드해 띄운다. 스레드는 엔진당 1로 고정한다. 동시성은 풀에서 얻고 멀티스레드는 고정 깊이에서도 결과가 흔들려 `positions` 캐시를 쓸 수 없게 만든다.
 
