@@ -1,0 +1,13 @@
+# Orca(병렬 에이전트 워크트리 앱)의 레포 공유 설정. 규약은 CLAUDE.md 「워크트리」.
+scripts:
+  setup: bash tools/orca/worktree.sh setup
+  archive: bash tools/orca/worktree.sh archive
+
+# 에이전트가 .env 의 포트가 적히기 전에 docker compose 를 부르지 않게 setup 을 기다린다.
+setupAgentStartupPolicy: wait-for-setup
+
+worktree:
+  # gitignore 된 디렉터리를 메인에서 심링크한다. floodgate 기보는 5MB 넘는 남의 대국 기록이라
+  # 커밋하지 않고, 이것이 없으면 해당 테스트가 건너뛴다.
+  sharedDirectories:
+    - apps/server/internal/kifu/testdata/floodgate
