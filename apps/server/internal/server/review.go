@@ -385,10 +385,11 @@ func detailOf(rec store.GameRecord) gameDetail {
 			LevelBucket:  iv.LevelBucket,
 			RetractedUSI: iv.RetractedUSI,
 		}
-		// 관점은 여기서 맞춘다. 개입은 늘 사람이 둔 수라 그 국면의 수번이 사람이고, 색만
-		// 보면 된다(playerEvalJSON).
-		view.AfterCp, view.AfterMate = playerEvalJSON(iv.After, humanColor)
-		view.BestCp, view.BestMate = playerEvalJSON(iv.Best, humanColor)
+		// 저장된 두 값은 수번 측 관점이다(store.Intervention). 개입은 늘 사람이 둔 수라
+		// 그 관점이 곧 플레이어 관점이고, 뒤집지 않는다. 先手 관점을 받는 playerEvalJSON 에
+		// 넘기면 後手 판에서 부호가 반대가 된다.
+		view.AfterCp, view.AfterMate = scoreJSON(iv.After)
+		view.BestCp, view.BestMate = scoreJSON(iv.Best)
 		// 물러진 수는 Ply-1 手目의 국면에서 두어졌다. 거기까지 재현했을 때만 표기가 나온다.
 		if iv.RetractedUSI != "" && iv.Ply >= 1 && iv.Ply-1 < len(posAt) {
 			if _, ja, ok := advance(posAt[iv.Ply-1], toAt[iv.Ply-1], iv.RetractedUSI); ok {
@@ -428,9 +429,17 @@ func playerEvalJSON(s *eval.Score, human shogi.Color) (*int, int) {
 	if human == shogi.White {
 		v = v.Neg()
 	}
-	if n, ok := v.MateIn(); ok {
+	return scoreJSON(&v)
+}
+
+// scoreJSON 은 이미 플레이어 관점인 점수를 두 칸으로 옮긴다. 詰み 규약은 playerEvalJSON 과 같다.
+func scoreJSON(s *eval.Score) (*int, int) {
+	if s == nil {
+		return nil, 0
+	}
+	if n, ok := s.MateIn(); ok {
 		return nil, n
 	}
-	cp, _ := v.Centipawns()
+	cp, _ := s.Centipawns()
 	return &cp, 0
 }

@@ -433,6 +433,24 @@ func TestDetailFlipsUndoEvalForWhite(t *testing.T) {
 	}
 }
 
+// 개입의 두 값은 수번 측 관점으로 저장된다(store.Intervention). 개입은 사람의 수라 그대로가
+// 플레이어 관점이고, 後手 판에서 뒤집으면 물러진 悪手가 좋은 수로 보인다.
+func TestDetailKeepsInterventionScoresForWhite(t *testing.T) {
+	best, after := eval.Cp(50), eval.Mate(-3)
+	for _, color := range []string{"b", "w"} {
+		rec := recordOf(color, "7g7f")
+		rec.Interventions = []store.RecordedIntervention{{Ply: 2, Kind: "blunder", Best: &best, After: &after}}
+
+		got := detailOf(rec).Interventions[0]
+		if got.BestCp == nil || *got.BestCp != 50 {
+			t.Errorf("%s: bestCp = %v, want 50", color, got.BestCp)
+		}
+		if got.AfterCp != nil || got.AfterMate != -3 {
+			t.Errorf("%s: afterCp = %v afterMate = %d, want nil and -3", color, got.AfterCp, got.AfterMate)
+		}
+	}
+}
+
 // 무르기는 개입 횟수에 섞이지 않는다. 목록의 그 숫자는 「AI가 몇 번 막았나」다.
 func TestUndosDoNotCountAsInterventions(t *testing.T) {
 	rec := recordOf("b", "7g7f")

@@ -256,9 +256,8 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
             axisLine={{ stroke: 'var(--line-2)' }}
             height={16}
           />
-          {/* 위쪽이 先手다. `eval_cp` 가 先手 관점으로 저장된다(journal §26). 後手로 둔
-              판에서는 위가 상대가 되므로 이 축은 아직 「나」를 말하지 못하고, 그 자리는 서버가
-              관점을 뒤집어 주는 것으로 따로 닫는다. */}
+          {/* 위쪽이 「나」다. `eval_cp` 는 先手 관점으로 저장되고(journal §26) 서버가 플레이어
+              관점으로 뒤집어 보낸다(review.go 의 playerEvalJSON). */}
           <YAxis
             domain={Y_DOMAIN}
             ticks={Y_TICKS}
