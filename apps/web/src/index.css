@@ -2513,11 +2513,16 @@ body {
   opacity: 0.45;
 }
 
-/* 폰 폭에서는 숫자 칸이 넷이라 첫 칸(날짜)이 눌린다. 간격만 줄인다. */
+/* 폰 폭에서는 숫자 칸 넷이 첫 칸(날짜)을 눌러 딱지가 옆 칸에 겹친다. 날짜 줄을 위로 올리고
+   숫자 넷을 그 아래 한 줄에 같은 폭으로 둔다. */
 @media (max-width: 30rem) {
   .review-card {
-    gap: 0.5rem;
-    padding: 0.75rem 0.75rem;
+    grid-template-columns: repeat(4, 1fr);
+    row-gap: 0.35rem;
+  }
+
+  .review-card-when {
+    grid-column: 1 / -1;
   }
 }
 
