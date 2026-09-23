@@ -1437,6 +1437,11 @@ components:
                 ply: { type: integer }
                 category: { type: string }
                 nameJa: { type: string }
+            accuracy:
+              type: integer
+              minimum: 0
+              maximum: 100
+              description: 사람 쪽 精度(Lichess accuracy 방식, journal §144). 확정한 수순만 센다. 평가치가 없거나 분석 중이면 없다
         skill:
           type: object
           description: |

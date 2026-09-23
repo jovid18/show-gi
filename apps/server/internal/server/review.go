@@ -256,7 +256,12 @@ func (h *reviewHandler) summary(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	writeJSON(w, http.StatusOK, summarize(rec, h.level))
+	out := summarize(rec, h.level)
+	// 분석 중인 판의 精度는 덜 찬 평가치로 센 값이다. 끝나면 화면이 총평을 다시 받는다.
+	if h.analyzer.analyzing(r.Context(), rec.ID) {
+		out.Stats.Accuracy = nil
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // record 는 {id} 가 가리키는 기록을 읽고, 실패면 그 자리에서 답하고 false 를 준다.

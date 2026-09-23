@@ -116,6 +116,13 @@ export function Summary({ summary, imported = false }: { summary: GameSummary | 
               <dt>{imported ? '悪手の数' : '戻した回数'}</dt>
               <dd>{summary.stats.interventions}</dd>
             </div>
+            {/* 평가치가 아직 없으면 칸을 두지 않는다. 「0%」는 모든 수가 悪手였다는 뜻이다. */}
+            {summary.stats.accuracy !== undefined && (
+              <div>
+                <dt>精度</dt>
+                <dd>{summary.stats.accuracy}%</dd>
+              </div>
+            )}
           </dl>
 
           {/* 카테고리는 서버가 정한 순서를 그대로 그린다. 화면이 다시 세면 문장이

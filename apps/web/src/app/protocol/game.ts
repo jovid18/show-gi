@@ -157,6 +157,8 @@ export interface GameSummary {
     categories?: { code: string; nameJa: string; count: number }[];
     /** 낙폭이 가장 큰 개입. `ply` 는 물러진 수의 手数라, 그 국면은 `ply - 1` 手目 판이다. */
     focus?: { ply: number; category: string; nameJa: string };
+    /** 사람 쪽 精度(0~100). 평가치가 없거나 분석 중이면 없다. 확정한 수순만 센다. */
+    accuracy?: number;
   };
 }
 

@@ -302,3 +302,30 @@ func TestStandingOfReadsTheLastFilledEval(t *testing.T) {
 		})
 	}
 }
+
+// 精度는 사람 자리만 센다. 저장된 점수는 先手 관점이라 後手 자리에서 뒤집지 않으면 상대의
+// 悪手가 내 것이 된다.
+func TestAccuracyCountsTheHumanSeatOnly(t *testing.T) {
+	cp := func(v int) *eval.Score { s := eval.Cp(v); return &s }
+	// 2手目(後手)가 크게 망쳤다. 先手의 수는 전부 형세를 지켰다.
+	moves := []store.RecordedMove{{Ply: 1, Score: cp(0)}, {Ply: 2, Score: cp(1500)}, {Ply: 3, Score: cp(1500)}, {Ply: 4, Score: cp(1500)}}
+	for color, check := range map[string]func(int) bool{
+		"b": func(v int) bool { return v == 100 },
+		"w": func(v int) bool { return v < 50 },
+	} {
+		rec := store.GameRecord{Moves: moves}
+		rec.MyColor = color
+		_, stats := factsOf(rec, intervene.Beginner)
+		if stats.Accuracy == nil || !check(*stats.Accuracy) {
+			t.Errorf("%s: Accuracy = %v", color, stats.Accuracy)
+		}
+	}
+}
+
+// 평가치가 없는 판에는 精度가 없다. 0으로 채우면 「0%」로 읽힌다.
+func TestNoEvalsNoAccuracy(t *testing.T) {
+	_, stats := factsOf(recordFor("b", 10), intervene.Beginner)
+	if stats.Accuracy != nil {
+		t.Errorf("Accuracy = %d, want nil", *stats.Accuracy)
+	}
+}
