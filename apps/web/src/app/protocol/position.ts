@@ -71,9 +71,10 @@ export class PositionError extends Error {
  * 그림 한 장을 국면으로 읽힌다.
  *
  * 그림을 base64 로 실어 보낸다. 서버는 그것을 어디에도 남기지 않고, 응답을 만든 뒤 버린다.
+ *
+ * `signal` 기본값이 `null` 이다. `undefined` 는 `exactOptionalPropertyTypes` 에서
+ * `RequestInit.signal` 에 들어갈 수 없고, 사람이 누른 한 번은 끊을 자리가 없다.
  */
-// `signal` 이 `null` 을 받는다. `undefined` 는 `exactOptionalPropertyTypes` 에서
-// `RequestInit.signal` 에 들어갈 수 없고, 사람이 누른 한 번은 끊을 자리가 없다.
 export async function readPosition(image: string, signal: AbortSignal | null = null): Promise<PositionResponse> {
   const res = await fetch('/api/position/read', {
     method: 'POST',
@@ -84,9 +85,7 @@ export async function readPosition(image: string, signal: AbortSignal | null = n
   return unwrap(res);
 }
 
-/**
- * 이 국면이 성립하는가. 엔진도 로그인도 쓰지 않는 자리라 한 칸을 고칠 때마다 물어도 된다.
- */
+/** 이 국면이 성립하는가. 엔진도 로그인도 쓰지 않으므로 한 칸을 고칠 때마다 물어도 된다. */
 export async function checkPosition(sfen: string, signal: AbortSignal | null = null): Promise<PositionResponse> {
   const res = await fetch('/api/position/check', {
     method: 'POST',
@@ -138,7 +137,7 @@ export async function readImageFile(file: File): Promise<string> {
   const bytes = new Uint8Array(await file.arrayBuffer());
 
   // 조각내어 옮긴다. `String.fromCharCode(...bytes)` 는 인자를 바이트 수만큼 펼치므로 몇
-  // MB짜리 그림에서 호출 스택이 넘친다. 큰 스크린샷에서만 터지는 고장이다.
+  // MB짜리 그림에서 호출 스택이 넘친다.
   let binary = '';
   for (let i = 0; i < bytes.length; i += CHUNK) {
     binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));

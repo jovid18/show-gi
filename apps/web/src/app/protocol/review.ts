@@ -1,6 +1,6 @@
 // `/api/games`의 계약. 서버의 `internal/server/review.go`와 짝이다.
 //
-// 대국(`/ws/game`)과 달리 요청/응답으로 통신한다. 사용자가 조회할 때 완료된 대국을 가져온다.
+// 대국(`/ws/game`)과 달리 요청/응답이다. 끝난 대국을 조회할 때 가져온다.
 
 import type { Player } from '@/protocol/game';
 
@@ -114,9 +114,8 @@ export interface ReviewIntervention {
   /**
    * 그 수를 두면 얼마가 되나(플레이어 관점 cp). `moves[].evalCp` 와 같은 자다.
    *
-   * 없을 수 있다. `005_intervention_cp.sql` 앞에 기록된 판에는 영원히 없다. 그때는 낙폭만
-   * 남겼고 그것은 되돌릴 수 없다(승률 차라서 미지수 둘에 식 하나다). 화면은 그 자리를 다시
-   * 재서 채운다(`useMoveEvals`).
+   * `005_intervention_cp.sql` 앞에 기록된 판에는 영원히 없다. 남은 낙폭은 승률 차라 되돌릴
+   * 수 없다(미지수 둘에 식 하나). 화면은 그 자리를 다시 재서 채운다(`useMoveEvals`).
    */
   afterCp?: number;
   /** 그 수 뒤의 詰み까지의 手数(플레이어 관점). `afterCp` 와 배타적이다. */
@@ -152,9 +151,9 @@ export interface GameDetail extends GameSummary {
   /**
    * 이 판의 「형세 0」(플레이어 관점 cp). 平手면 오지 않는다.
    *
-   * `evalCp` 와 같은 관점이라 그대로 빼면 된다. 두 자리가 이 값을 뺀다. 형세
-   * 그래프(`EvalGraph`)와 후보 줄의 색(`evalTone`)이다. 빼지 않으면 駒落ち 판의 곡선이
-   * 천장에 붙고 「호각」 선이 핸디캡을 다 잃은 자리에 그려지며, 후보 줄은 전부 최대 파랑이 된다.
+   * `evalCp` 와 같은 관점이라 그대로 뺀다. 빼는 자리는 형세 그래프(`EvalGraph`)와 후보 줄의
+   * 색(`evalTone`)이다. 빼지 않으면 駒落ち 판의 곡선이 천장에 붙고 「호각」 선이 핸디캡을 다
+   * 잃은 자리에 그려지며, 후보 줄은 전부 최대 파랑이 된다.
    */
   baselineCp?: number;
   moves: ReviewMove[];
