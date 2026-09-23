@@ -107,11 +107,13 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
     /**
      * 다시 잰 값을 이 열의 자로 옮긴다. `measured` 는 플레이어 관점이고 열은 둔 쪽 관점이다.
      *
-     * 手数는 뒤집지 않는다. 세는 값이라 관점을 바꿔도 자가 갈리지 않고, 「누가 詰ますのか」는
-     * 그리는 쪽이 정한다(`rowScoreJa`).
+     * 手数도 뒤집는다. 부호가 「누가 詰ますのか」다. 두지 않으면 상대 차례의 줄에서
+     * `rowScoreJa` 가 한 번 더 뒤집어 내 詰み을 「詰まされる」로 말하고, `rankOf` 가 그 줄을
+     * 상대의 최선으로 올린다.
      */
+    const flip = (v: number | undefined): number | undefined => (v === undefined || !byOpponent ? v : -v);
     const moverScore = (at: MoveEval | undefined): Partial<Option> =>
-      at === undefined ? {} : { cp: at.cp === undefined ? undefined : byOpponent ? -at.cp : at.cp, mateIn: at.mateIn };
+      at === undefined ? {} : { cp: flip(at.cp), mateIn: flip(at.mateIn) };
 
     for (const c of node?.candidates ?? []) {
       put(c.usi, c.ja || c.usi, { cp: c.evalCp, mateIn: c.mateIn, best: true });
