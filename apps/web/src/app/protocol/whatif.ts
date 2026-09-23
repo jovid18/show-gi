@@ -1,89 +1,59 @@
-// 「そのとき、こう指していたら」의 계약. 서버의 `internal/server/whatif.go` 와 짝이다.
-//
-// 두 화면이 같은 것을 쓴다. 되짚는 판(HTTP)과 대국 중의 블런더 화면(WebSocket)이 오가는 길만
-// 다르고 주고받는 모양은 하나다. 따로 두면 같은 장치가 두 화면에서 다르게 자란다.
-
 import type { Player } from '@/protocol/game';
 
-/** 手番. SFEN·기록과 같은 한 글자다. */
 export type Turn = 'b' | 'w';
 
 /**
- * 「ply 手目에서 이 수순을 뒀다면」.
+ * 국면(SFEN)을 보내지 않는다. 서버가 자기 기록의 수를 `ply` 까지 다시 둬서 시작 국면을 만든다.
+ * SFEN 을 받으면 아무 국면이나 평가해 주는 공개 엔진으로 쓰일 수 있다(whatif.go).
  *
- * 판을 보내지 않는다. 뿌리 국면은 서버가 자기 기록에서 다시 둬서 만든다. SFEN 을 받는
- * 표면이면 그건 아무 국면이나 재 주는 공개 엔진이 된다(whatif.go).
- *
- * `moves` 에는 사람이 양쪽으로 둔 수가 전부 들어 있다. 서버는 한 수도 대신 두지 않는다.
+ * `moves` 에는 양쪽 수가 모두 들어간다. 서버는 상대 쪽 수를 대신 두지 않는다.
  */
 export interface WhatIfRequest {
   ply: number;
   moves: string[];
 }
 
-/** 분기의 한 수. `ReviewMove` 와 같은 어휘다. 다른 타입이면 화면이 실제 기보와 가정 수순에서 갈린다. */
 export interface WhatIfMove {
   ply: number;
   usi: string;
   ja: string;
   by: Player;
-  /** 이 수를 둔 뒤의 국면. 화면은 그대로 그린다. */
   sfen: string;
   checked?: string;
 }
 
-/**
- * 그 국면에서 수번 쪽이 둘 수 있는 좋은 수 하나.
- *
- * 첫 번째가 최선수이고 그것이 판 위의 초록 화살표다. 「다음에 올 수」에 이미 배정된 채널이라
- * 새 신호를 꺼내지 않는다(03-frontend.md §2).
- */
 export interface WhatIfCandidate {
   usi: string;
   ja: string;
   /**
-   * 그 수를 둔 쪽 관점 cp. 주인은 노드의 `turn` 이다.
+   * 노드의 `turn` 쪽 관점 cp 다. 노드의 `evalCp` 와 관점이 다르다.
    *
-   * 詰み이면 오지 않는다. `mateIn` 과 배타적이고, 저장 쪽도 같은 규약이다. 한 숫자에 둘을
-   * 담았더니 화살표가 1手詰み을 가리키지 않았다(journal §131).
+   * `mateIn` 과 함께 오지 않는다(journal §131).
    */
   evalCp?: number;
-  /**
-   * 최선수 대비 낙폭(「이 수를 고르면 얼마를 내주나」).
-   *
-   * 없는 자리가 둘이다: 최선수 자신(기준)과 詰み이 섞인 줄. 뒤엣것은 뺄 cp 자체가 없다.
-   * 자가 다른 두 값의 차가 낙폭일 수 없다(서버의 `candidatesOf`).
-   */
+  /** 최선수와의 차이. 최선수 자신과 詰み이 걸린 수에는 없다. */
   lossCp?: number;
-  /** 詰み까지의 手数. 이 칸이 비면 詰み이 없고, 차면 `evalCp` 는 오지 않는다. */
   mateIn?: number;
 }
 
-/**
- * 분기에서 지금 서 있는 자리. 국면 하나 = 노드 하나다.
- *
- * 넘겨 보는 것도 둬 보는 것도 이 하나를 묻는 일이라 두 화면이 같은 훅을 쓴다.
- */
 export interface WhatIfNode {
-  /** 분기가 갈라져 나온 手数. 「分岐の前へ」가 돌아가는 자리다. */
+  /** 분기가 시작된 手数. `ply` 는 지금 보고 있는 手数다. */
   basePly: number;
   ply: number;
   sfen: string;
-  /** 지금 手番. 합법수와 후보가 이 쪽의 것이고, 집을 수 있는 駒台도 이 값이 정한다. */
+  /** 가정 수순에서는 사람이 양쪽을 두므로, 합법수·후보·쓸 수 있는 駒台는 이 값을 따른다. */
   turn: Turn;
   yourTurn: boolean;
   checked?: string;
   status: 'playing' | 'checkmate' | 'stalemate' | 'resigned';
   /**
-   * 화면이 규칙을 모르기 때문에 온다. 대국의 스냅샷과 같은 자리다.
-   *
-   * `null` 로 올 수 있다(`protocol/game.ts` 머리말). 詰み·手詰まり 국면에는 둘 수가 없고,
-   * 타입에서 그걸 숨기면 `??` 사슬이 대국 판의 합법수로 흘러내린다(journal §37).
+   * 詰み·手詰まり 국면에서는 `null` 이다. `??` 로 대국 판의 합법수를 대신 쓰지 않는다(journal §37).
    */
   legalMoves: string[] | null;
-  /** 플레이어 관점 cp. 끝난 국면이면 없다. */
+  /** 플레이어 관점 cp. */
   evalCp?: number;
   mateIn?: number;
   line: WhatIfMove[];
+  /** 첫 번째가 최선수다. */
   candidates: WhatIfCandidate[];
 }

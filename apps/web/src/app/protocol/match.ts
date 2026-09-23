@@ -1,18 +1,14 @@
-// 대인전의 계약. 서버의 `internal/match` · `internal/server/ws_match.go` 와 짝이다.
-//
-// 대인전에는 개입·힌트·待った·詰み 게이지·태그·상대의 강함이 없고 시계와 상대 접속 상태가 있다.
-// 사용하지 않는 필드를 공유하지 않도록 `protocol/game.ts`와 분리한다.
-
 import type { Color } from '@/protocol/game';
 
 /**
- * 승패가 없는 끝이 둘이다. 따로 두는 것은 화면이 할 말이 정반대이기 때문이다.
+ * `aborted` 와 `expired` 는 둘 다 승패 없이 끝나지만 원인이 다르다.
  *
- * - `aborted` — 서버가 내려갔다. 두 사람 다 잘못한 것이 없다
- * - `expired` — 한 수도 두지 않은 채 시간이 다 됐다. 누구도 두지 않았으면 판이 없었던 것이라
- *   승패를 적지 않는다
+ * - `aborted`: 서버가 내려가 대국이 중단됐다.
+ * - `expired`: 첫 수가 나오기 전에 시간이 다 됐다. 대국이 성립하지 않은 것으로 본다.
  *
- * `timeout` 은 수를 두고 나서 시간을 넘긴 것이고, 그쪽은 승부가 난다.
+ * 둘을 합치면 아무도 두지 않은 판에 「サーバーの都合」 문구가 떠서, 없는 서버 장애를 알린다.
+ *
+ * `timeout` 은 수를 둔 뒤에 시간을 넘긴 경우라 승패가 난다.
  */
 export type MatchStatus =
   | 'playing'
@@ -25,16 +21,13 @@ export type MatchStatus =
   | 'aborted';
 
 /**
- * 기보의 한 수를 누가 뒀나. 보는 사람 기준이다.
- *
- * 서버가 같은 기보를 두 관점으로 펴서 보낸다. 절대 이름(先手/後手)을 쓰면 두 화면이 같은
- * 수를 같은 색으로 그린다.
+ * 先手/後手가 아니라 보는 사람 기준이다. 棋譜가 이 값으로 내 수와 상대 수를 다른 색으로
+ * 칠한다(`Kifu` 의 `data-by`). 先手/後手로 바꾸면 두 사람 화면에서 같은 수가 같은 색이 된다.
  */
 export type MatchSide = 'you' | 'opponent';
 
 export interface MatchMove {
   usi: string;
-  /** 棋譜 표기(▲7六歩). 서버가 만든 것을 그대로 그린다. */
   ja: string;
   by: MatchSide;
 }
@@ -45,51 +38,25 @@ export interface MatchSnapshot {
   turn: Color;
   yourTurn: boolean;
   inCheck: boolean;
-  /** 이 사람이 잡은 쪽. 한 판에서 바뀌지 않는다. */
   yourColor: Color;
-  /**
-   * 둘 수 있는 수. 자기 차례가 아니면 오지 않는다. 주면 상대의 수를 화면에서 훑어볼 수
-   * 있고, 대인전에서 그건 부정행위 보조다.
-   */
+  /** 상대 차례에는 `null` 이다(02-architecture.md §7 위협 1). */
   legalMoves: string[] | null;
   moves: MatchMove[] | null;
   status: MatchStatus;
   winner?: MatchSide;
-  /**
-   * 상대의 표시 이름. 여기 오는 상대 정보는 이것뿐이다. 段級도 전적도 오지 않는다(실력
-   * 프로파일은 본인만 보는 값이다).
-   */
   opponentName: string;
-  /**
-   * 상대가 접속 중인지 나타낸다.
-   *
-   * 상대가 연결을 끊어도 대국과 시계는 계속 진행되며, 시간 초과로 대국을 종료한다.
-   */
   opponentOnline: boolean;
-  /** 한 수에 주는 시간(ms). 한 판에서 바뀌지 않는다. */
   turnLimitMs: number;
-  /**
-   * 지금 수번에 남은 시간(ms). 누구의 것인지는 `yourTurn` 이 말한다. 서버가 정본이고 화면은
-   * 세기만 한다(`useTurnClock`).
-   */
+  /** 지금 두는 쪽의 남은 시간이다. 내 시간인지는 `yourTurn` 으로 안다. */
   turnLeftMs: number;
 }
 
-/** 방 하나. id 말고는 아무것도 없다. */
 export interface Room {
   id: string;
-  /** 이 사람이 잡을 쪽. */
   yourColor: Color;
-  /** 방을 만든 사람의 이름. */
   hostName: string;
-  /** 아직 상대가 들어오지 않았는가. 참이면 화면이 초대 링크를 그린다. */
+  /** 상대 자리가 비어 있는가. 상대가 입장한 뒤 연결이 끊긴 동안에는 `false` 다. */
   waiting: boolean;
-  /**
-   * 보는 사람이 이 방을 만들었는가.
-   *
-   * `waiting` 과 함께 「아직 앉지 않은 손님」을 가른다. 그 사람에게만 확인 화면이 뜬다.
-   * 앉는 순간 자리가 확정되고 시계가 돈다.
-   */
   isHost: boolean;
 }
 
@@ -97,20 +64,13 @@ export type MatchServerMessage =
   | { type: 'waiting'; room: Room }
   | { type: 'snapshot'; snapshot: MatchSnapshot }
   | { type: 'error'; reason: string; message: string }
-  // 판이 끝난 뒤 한 번 온다. 「振り返り」로 건너가는 링크가 이 값으로 만들어진다.
   | { type: 'record'; gameId: number };
 
 export type MatchClientMessage = { type: 'move'; usi: string } | { type: 'resign' };
 
-/** 방을 만들 때 고르는 手番. `'r'` 는 振り駒이고, 뽑는 것은 서버다(createRoom). */
+/** `'r'` 은 振り駒. */
 export type SeatChoice = Color | 'r';
 
-/**
- * 방을 연다. 로그인하지 않았으면 401이다.
- *
- * 手番은 방을 만드는 사람이 고르고, 상대는 나머지를 잡는다. 振り駒를 골랐으면 결과는 돌아온
- * `yourColor` 에 있다. 만든 사람도 그때 안다.
- */
 export async function createRoom(choice: SeatChoice, signal: AbortSignal): Promise<Room> {
   const res = await fetch(`/api/rooms?color=${choice}`, { method: 'POST', signal });
   if (!res.ok) throw new Error(res.status === 401 ? 'ログインが必要です。' : '対局部屋を作れませんでした。');
@@ -118,10 +78,8 @@ export async function createRoom(choice: SeatChoice, signal: AbortSignal): Promi
 }
 
 /**
- * 링크로 들어온 방을 확인한다. 자리를 잡지 않는다. 앉는 것은 WebSocket 이 붙을 때다.
- *
- * 볼 수 없으면 404 하나다. 없는 방·만료된 방·남이 이미 찬 방·로그인하지 않은 요청이 전부
- * 같은 답이라야 방 id 를 훑어보는 것이 성립하지 않는다.
+ * 볼 수 없는 방은 이유와 상관없이 404다. 없는 방·만료된 방·이미 찬 방·로그인하지 않은 요청을
+ * 구분해 답하면, 방 id 를 하나씩 넣어 보며 있는 방을 찾아낼 수 있다.
  */
 export async function fetchRoom(id: string, signal: AbortSignal): Promise<Room | null> {
   const res = await fetch(`/api/rooms/${encodeURIComponent(id)}`, { signal });
