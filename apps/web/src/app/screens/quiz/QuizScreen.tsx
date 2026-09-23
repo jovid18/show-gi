@@ -435,9 +435,8 @@ function QuizBoard({
   /**
    * 사람이 잡은 쪽. 문항의 국면에서 얻어 밖에서 넘긴다.
    *
-   * 여기 판의 手番으로 다시 세면 안 된다. 문항이 끝난 뒤의 판은 상대 차례라 駒台의 이름이
-   * 뒤집혀 자기 駒台가 `相手` 가 된다. 판을 뒤집지 않으므로(아래) 그 이름이 누가 누구인지를
-   * 말하는 하나뿐인 자리다(ReviewDetail 도 같은 판단으로 `myColor` 를 쓴다).
+   * 여기 판의 手番으로 다시 세면 안 된다. 문항이 끝난 뒤의 판은 상대 차례라 판이 뒤집히고
+   * 駒台의 이름도 바뀐다(ReviewDetail 도 같은 판단으로 `myColor` 를 쓴다).
    */
   me: Side;
   legalMoves: readonly string[];
@@ -511,18 +510,23 @@ function QuizBoard({
     setOrigin(next === origin ? null : next);
   };
 
+  // 자기 쪽이 아래다. 되짚기의 기본 방향과 같아야 그 판에서 건너온 자리로 읽힌다
+  // (ReviewDetail 의 `flipped`, journal §76).
+  const flipped = me === 'white';
+  const hand = (side: Side) => (
+    <Hand
+      side={side}
+      label={me === side ? 'あなた' : '相手'}
+      pieces={board.hands[side]}
+      selected={origin?.endsWith('*') && board.turn === side ? origin : null}
+      playable={board.turn === side ? droppable : new Set()}
+      onPick={board.turn === side ? pickHand : () => {}}
+    />
+  );
+
   return (
-    <div className="quiz-board">
-      {/* 문항의 판은 뒤집지 않는다. 되짚기와 같은 방향이라야 같은 판을 보고 있다는 것이
-          읽히고, 이 화면은 그 판에서 곧바로 건너온 자리다. */}
-      <Hand
-        side="white"
-        label={me === 'white' ? 'あなた' : '相手'}
-        pieces={board.hands.white}
-        selected={origin?.endsWith('*') && board.turn === 'white' ? origin : null}
-        playable={board.turn === 'white' ? droppable : new Set()}
-        onPick={board.turn === 'white' ? pickHand : () => {}}
-      />
+    <div className="quiz-board" data-flipped={flipped || undefined}>
+      {hand(flipped ? 'black' : 'white')}
 
       <Board
         board={board}
@@ -541,19 +545,12 @@ function QuizBoard({
         hintRay={null}
         mateHeat={0}
         me={me}
-        flipped={false}
+        flipped={flipped}
         interactive={interactive}
         onSquare={onSquare}
       />
 
-      <Hand
-        side="black"
-        label={me === 'black' ? 'あなた' : '相手'}
-        pieces={board.hands.black}
-        selected={origin?.endsWith('*') && board.turn === 'black' ? origin : null}
-        playable={board.turn === 'black' ? droppable : new Set()}
-        onPick={board.turn === 'black' ? pickHand : () => {}}
-      />
+      {hand(flipped ? 'white' : 'black')}
 
       {promoting && <Promotion onChoose={(promote) => send(toUsiMove(promoting.origin, promoting.to, promote))} />}
     </div>

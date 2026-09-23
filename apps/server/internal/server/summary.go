@@ -7,6 +7,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
+	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
@@ -104,8 +105,16 @@ func factsOf(rec store.GameRecord, level intervene.Level) (explain.GameFacts, su
 	// 사람이 둔 수만 센다. Moves 는 확정된 수 전부라 상대의 것이 섞여 있다.
 	//
 	// 手数의 짝으로 가른다. 기록에 「누가 뒀나」가 없고(game_moves 에는 ply 와 usi 뿐),
-	// 手数는 1부터 번갈아 붙으므로 사람의 색이 곧 홀짝이다.
-	humanOdd := rec.MyColor == "b"
+	// 手数는 1부터 번갈아 붙는다. 1手目는 시작 국면의 手番이 둔다. 駒落ち에서는 上手(後手)라
+	// 사람의 색만으로 홀짝을 정하면 상대의 수를 센다(journal §88, detailOf 와 같은 판단).
+	humanColor := shogi.Black
+	if rec.MyColor == "w" {
+		humanColor = shogi.White
+	}
+	humanOdd := humanColor == shogi.Black
+	if start, err := shogi.ParseSFEN(startSFENOf(rec.StartSFEN)); err == nil {
+		humanOdd = start.Turn == humanColor
+	}
 	var stats summaryStats
 	last := 0
 	for _, m := range rec.Moves {

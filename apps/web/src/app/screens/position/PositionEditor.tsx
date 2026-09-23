@@ -96,8 +96,8 @@ interface SquareProps {
 /**
  * 칸 하나. 누르면 그 자리에 팝오버가 뜬다.
  *
- * 칸에 좌표를 적지 않는다. 판 옆의 筋·段 눈금이 이미 그 일을 하고, 글자를 넣으면 駒 글자와
- * 겹쳐 읽힌다. 스크린리더에는 「몇筋 몇段」을 준다.
+ * 칸에 좌표를 적지 않는다. 글자를 넣으면 駒 글자와 겹쳐 읽힌다. 판 옆의 筋·段 눈금도 아직
+ * 없어서 좌표는 스크린리더의 「몇筋 몇段」에만 있다.
  */
 function Square({ square, piece, faulty, open, onOpen, onPick, onClose }: SquareProps) {
   const file = BOARD_SIZE - (square % BOARD_SIZE);

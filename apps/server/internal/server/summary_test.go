@@ -7,6 +7,7 @@ import (
 
 	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
+	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
@@ -43,6 +44,19 @@ func TestPlayerMovesCountByColor(t *testing.T) {
 		if stats.PlayerMoves != c.want {
 			t.Errorf("%s %d手: PlayerMoves = %d, want %d", c.color, c.plies, stats.PlayerMoves, c.want)
 		}
+	}
+}
+
+// 駒落ち에서는 上手가 1手目를 둔다. 下手인 사람의 수는 짝수 手数다(journal §88).
+func TestPlayerMovesCountInHandicap(t *testing.T) {
+	nimai, ok := handicap.Find("nimaiochi")
+	if !ok {
+		t.Fatal("nimaiochi 가 표에 없다")
+	}
+	rec := recordFor("b", 9)
+	rec.StartSFEN = nimai.SFEN
+	if _, stats := factsOf(rec, intervene.Beginner); stats.PlayerMoves != 4 {
+		t.Errorf("PlayerMoves = %d, want 4", stats.PlayerMoves)
 	}
 }
 

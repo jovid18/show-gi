@@ -198,7 +198,8 @@ function MatchBoard({
   const over = snapshot.status !== 'playing';
 
   return (
-    <div className="game">
+    // data-flipped 는 駒의 방향이다. 자리는 Board 의 `flipped` 가 뒤집는다(GameScreen 과 같다).
+    <div className="game" data-flipped={flipped || undefined}>
       <div className="game-main">
         {/* 駒台 라벨은 「相手」로 고정한다. 표시 이름은 사람이 정하는 값이라 길 수 있고
             (`users.display_name`) 라벨 폭이 3.2em 고정이라, 넘치면 줄이 접혀 駒台가 통째로
