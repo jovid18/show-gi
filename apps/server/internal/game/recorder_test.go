@@ -33,6 +33,8 @@ func (r *fakeRecorder) Evaluated(ply int, sente eval.Score) {
 	r.add(fmt.Sprintf("eval %d %s", ply, sente))
 }
 
+func (r *fakeRecorder) Good(ply int) { r.add(fmt.Sprintf("good %d", ply)) }
+
 func (r *fakeRecorder) Moved(ply int, usi string, by Side) {
 	r.add(fmt.Sprintf("moved %d %s %s", ply, usi, by))
 }

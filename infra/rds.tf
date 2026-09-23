@@ -40,14 +40,20 @@ resource "aws_vpc_security_group_ingress_rule" "db_from_app" {
 #
 # 실질 방어선이 이 규칙이다. 여기 없는 주소는 포트에 닿지도 못하고, 비밀번호는 그 다음 겹이다.
 #
-# admin_cidr 이 없으면 규칙 자체가 생기지 않는다. 값을 주지 않고 apply 하면 이미 있던 규칙이
-# 지워지고, 그게 의도다.
+# admin_cidr · admin_cidrs 가 둘 다 비면 규칙 자체가 생기지 않는다. 값을 주지 않고 apply
+# 하면 이미 있던 규칙이 지워지고, 그게 의도다.
+#
+# 키가 CIDR 이다. 주소 하나를 빼도 나머지 규칙은 그대로 남는다.
+locals {
+  admin_cidrs = toset(concat(var.admin_cidr == null ? [] : [var.admin_cidr], var.admin_cidrs))
+}
+
 resource "aws_vpc_security_group_ingress_rule" "db_from_admin" {
-  count = var.admin_cidr == null ? 0 : 1
+  for_each = local.admin_cidrs
 
   security_group_id = aws_security_group.db.id
   description       = "postgres from the operator laptop"
-  cidr_ipv4         = var.admin_cidr
+  cidr_ipv4         = each.value
   from_port         = 5432
   to_port           = 5432
   ip_protocol       = "tcp"

@@ -86,6 +86,13 @@ func (imp *Importer) ImportGame(ctx context.Context, g ParsedGame) (ImportResult
 			}
 		}
 
+		game.CheckGood(ctx, imp.analyst, &j)
+		if j.Good {
+			if err := imp.store.SetMoveGood(ctx, gameID, ply); err != nil {
+				log.Printf("kifu: good ply %d: %v", ply, err)
+			}
+		}
+
 		v := j.Verdict
 		if v.Kind != intervene.KindNone {
 			// TODO: 아래 LevelBucket 은 "pro" 인데 판정은 intervene.Beginner 로 돈다

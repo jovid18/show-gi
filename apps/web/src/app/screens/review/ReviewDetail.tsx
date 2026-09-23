@@ -582,6 +582,12 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
                             {game.imported === true ? '悪手' : '介入'}
                           </span>
                         )}
+                        {/* 그래프의 파란 점과 같은 手다. */}
+                        {move.good === true && (
+                          <span className="review-kifu-mark" data-kind="good" aria-label="好手">
+                            好手
+                          </span>
+                        )}
                         {/* 詰み은 cp 로 말하지 않는다. 뜻이 있는 말이 手数 하나뿐이고, 서버가
                         그때 `evalCp` 를 아예 보내지 않는다(`ReviewMove.evalCp`). */}
                         {(move.mateIn !== undefined || move.evalCp !== undefined) && (

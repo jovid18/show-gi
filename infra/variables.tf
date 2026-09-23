@@ -171,6 +171,22 @@ variable "admin_cidr" {
   }
 }
 
+variable "admin_cidrs" {
+  description = <<-EOT
+    admin_cidr 말고 더 열 주소들(CIDR). 집과 사무실처럼 노트북이 붙는 곳이 둘 이상일 때 쓴다.
+
+    admin_cidr 와 합쳐서 규칙을 만든다(rds.tf). 커밋하지 않는 이유와 비웠을 때의 동작은
+    admin_cidr 와 같다.
+  EOT
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for c in var.admin_cidrs : can(cidrhost(c, 0))])
+    error_message = "admin_cidrs 의 값은 CIDR 표기여야 한다 (예: 203.0.113.9/32)."
+  }
+}
+
 variable "alarm_email" {
   description = <<-EOT
     알람을 받을 메일 주소. 비워 두는 것이 기본이다. 레포가 퍼블릭이라 주소를 커밋할

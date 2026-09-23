@@ -132,6 +132,8 @@ type reviewMove struct {
 	MateIn int `json:"mateIn,omitempty"`
 	// Checked 는 이 수 뒤에 王手를 받고 있는 玉의 칸이다(5a). 아니면 빈 값(checkedSquare).
 	Checked string `json:"checked,omitempty"`
+	// Good 은 사람이 둔 이 수가 好手였는가다(intervene.IsGood). 되짚기 그래프가 점을 찍는다.
+	Good bool `json:"good,omitempty"`
 }
 
 // reviewIntervention 은 그 판에서 물러진 수 하나다.
@@ -349,7 +351,7 @@ func detailOf(rec store.GameRecord) gameDetail {
 	for i, m := range rec.Moves {
 		// 배열의 자리 대신 手数로 정한다. 기보에 구멍이 나면 그 뒤가 한 칸씩
 		// 밀리는데, 그때 자리로 세면 리뷰가 남의 실수를 내 것으로 보여준다.
-		view := reviewMove{Ply: m.Ply, USI: m.USI, By: game.SideEngine}
+		view := reviewMove{Ply: m.Ply, USI: m.USI, By: game.SideEngine, Good: m.Good}
 		if (m.Ply%2 == 1) == humanFirst {
 			view.By = game.SideHuman
 		}

@@ -507,6 +507,7 @@ type fixedAnalyst struct {
 	evalAfter  int
 	err        error
 	delay      time.Duration
+	good       bool
 	calls      atomic.Int32
 }
 
@@ -522,7 +523,7 @@ func (a *fixedAnalyst) Judge(ctx context.Context, startSFEN string, moves []stri
 	// 실제 analyst 와 같은 규약으로 뒤집는다 — 여기서 그냥 넘기면 부호 테스트가 무의미해진다.
 	j := Judgement{
 		Verdict: a.verdict, Refutation: a.refutation, BestUSI: a.bestUSI,
-		Facts: a.facts, Threshold: a.threshold,
+		Facts: a.facts, Threshold: a.threshold, Good: a.good,
 	}
 	if a.evalAfter != 0 || a.evalBefore != 0 {
 		pos, _, err := replay(startSFEN, moves)

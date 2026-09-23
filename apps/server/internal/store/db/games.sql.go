@@ -728,7 +728,7 @@ func (q *Queries) ListGameInterventions(ctx context.Context, gameID int64) ([]Li
 }
 
 const listGameMoves = `-- name: ListGameMoves :many
-SELECT ply, usi, eval_cp, eval_mate FROM game_moves WHERE game_id = $1 ORDER BY ply
+SELECT ply, usi, eval_cp, eval_mate, good FROM game_moves WHERE game_id = $1 ORDER BY ply
 `
 
 type ListGameMovesRow struct {
@@ -736,6 +736,7 @@ type ListGameMovesRow struct {
 	USI      string
 	EvalCp   *int32
 	EvalMate *int32
+	Good     bool
 }
 
 // 점수는 先手 관점이고 둘 다 NULL일 수 있다(store.RecordedMove). eval_cp 와 eval_mate 는
@@ -754,6 +755,7 @@ func (q *Queries) ListGameMoves(ctx context.Context, gameID int64) ([]ListGameMo
 			&i.USI,
 			&i.EvalCp,
 			&i.EvalMate,
+			&i.Good,
 		); err != nil {
 			return nil, err
 		}
@@ -1069,5 +1071,20 @@ func (q *Queries) SetMoveEval(ctx context.Context, arg SetMoveEvalParams) error 
 		arg.EvalCp,
 		arg.EvalMate,
 	)
+	return err
+}
+
+const setMoveGood = `-- name: SetMoveGood :exec
+UPDATE game_moves SET good = true WHERE game_id = $1 AND ply = $2
+`
+
+type SetMoveGoodParams struct {
+	GameID int64
+	Ply    int32
+}
+
+// 그 手가 好手였다고 적는다. SetMoveEval 과 같은 이유로 수를 덮지 않는다.
+func (q *Queries) SetMoveGood(ctx context.Context, arg SetMoveGoodParams) error {
+	_, err := q.db.Exec(ctx, setMoveGood, arg.GameID, arg.Ply)
 	return err
 }

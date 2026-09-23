@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"slices"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
+	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
 // Analyst 는 착수 한 수를 판정한다. 세션은 「이 수가 블런더인가」만 알고 그것을
@@ -258,6 +260,12 @@ type judgeResult struct {
 	err       error
 }
 
+// goodResult 는 확정 뒤에 따로 물은 好手의 답이다. line 은 그 手까지의 수순이다.
+type goodResult struct {
+	line []string
+	good bool
+}
+
 // Session 은 대국 하나다. 모든 메서드는 안전하게 동시 호출할 수 있다 —
 // 실제로 하는 일은 세션 goroutine에 명령을 보내고 답을 기다리는 것뿐이다.
 type Session struct {
@@ -298,6 +306,11 @@ type state struct {
 	hint *Hint
 	// notice 는 우리가 해주지 못한 것이다. 위 둘과 수명이 같고 뜻이 또 다르다(Notice).
 	notice *Notice
+	// goodBlocked 는 지금 판정 중인 수에 好手를 붙이지 않는가다. 힌트가 짚은 국면에서
+	// 둔 수는 스스로 찾은 것이 아니다(playHuman).
+	goodBlocked bool
+	// goodDone 은 따로 물은 好手의 답이 오는 자리다. run 이 만들고 세션 goroutine 만 읽는다.
+	goodDone chan goodResult
 
 	// 詰み 게이지도 세션 goroutine 밖에서 돈다(탐색·판정과 같다).
 	//
@@ -479,6 +492,7 @@ func (s *Session) run(ctx context.Context, st *state) {
 	gaugeDone := make(chan mateResult, 1)
 	hintDone := make(chan hintResult, 1)
 	tesujiDone := make(chan tesujiHintResult, 1)
+	st.goodDone = make(chan goodResult, 1)
 
 	// 기록도 세션 goroutine 안에서 시작한다. 상태를 만지는 순서와 같은 줄에 둔다.
 	if st.cfg.Recorder != nil {
@@ -524,6 +538,9 @@ func (s *Session) run(ctx context.Context, st *state) {
 
 		case r := <-tesujiDone:
 			st.applyTesujiHint(r)
+
+		case r := <-st.goodDone:
+			st.applyGood(r)
 
 		case e := <-rated:
 			st.applySkill(e)
@@ -685,6 +702,9 @@ func (st *state) playHuman(ctx context.Context, usi string, engineDone chan engi
 		return st.snapshot(), err
 	}
 
+	// 갇힘 힌트가 떠 있던 국면이다. 지우기 전에 봐야 한다.
+	st.goodBlocked = st.hint != nil
+
 	// 개입·힌트·알림은 전부 직전 수에 대한 말이라, 남아 있으면 방금 둔 수를 가리키는
 	// 것처럼 보인다.
 	st.intervention, st.hint, st.notice = nil, nil, nil
@@ -702,6 +722,7 @@ func (st *state) playHuman(ctx context.Context, usi string, engineDone chan engi
 	// 착수 전에 봐야 한다. 아래 apply 가 국면을 옮기면 이 국면의 키가 사라진다. 국면이
 	// 열쇠라 따로 지울 필요는 없고, 되물러 돌아오면 다시 맞는다.
 	st.skipRating = st.hintedKey != "" && st.hintedKey == shogi.PositionKey(st.pos)
+	st.goodBlocked = st.goodBlocked || st.skipRating
 	if st.skipRating && !st.hintReported {
 		// 첫 시도만 적는다. taken 은 「답을 쥔 채 무엇을 뒀나」이고 「몇 번 시도했나」를
 		// 세지 않는다.
@@ -805,6 +826,7 @@ func (st *state) applyVerdict(ctx context.Context, r judgeResult, engineDone cha
 
 	st.recordLastMove()
 	st.recordEvals(r.judgement)
+	st.maybeAskGood(ctx, r)
 	st.maybeThink(ctx, engineDone)
 	st.maybeGauge(ctx, gaugeDone)
 	st.broadcast()
@@ -976,6 +998,54 @@ func (st *state) recordEvals(j Judgement) {
 	if ply >= 2 {
 		st.cfg.Recorder.Evaluated(ply-1, j.SenteBefore)
 	}
+}
+
+// maybeAskGood 은 방금 확정된 사람의 수가 好手인지 묻는다. recordLastMove 뒤에 불러야
+// 한다. 그 手数의 기보 행이 먼저 있어야 적힌다.
+//
+// 대국은 이 답을 기다리지 않는다. 好手는 화면에 나가지 않고 되짚기가 읽으므로
+// (journal §141), 상대의 수 탐색보다 뒤에 줄을 선다. 판정이 이미 답을 채웠으면 그대로 적는다.
+func (st *state) maybeAskGood(ctx context.Context, r judgeResult) {
+	if st.cfg.Recorder == nil || r.err != nil || st.goodBlocked {
+		return
+	}
+	if r.judgement.Good {
+		st.cfg.Recorder.Good(len(st.moves))
+		return
+	}
+	asker, ok := st.cfg.Analyst.(goodAsker)
+	if !ok || r.judgement.goodQuery == nil {
+		return
+	}
+	q := *r.judgement.goodQuery
+	line := append([]string(nil), st.usis...)
+	deadline := st.moveDeadline()
+	done := st.goodDone
+	go func() {
+		// 뒤에 줄을 선다. 같은 순간 maybeThink 가 상대의 수를 빌리러 가고, 이 탐색이 먼저
+		// 엔진을 잡으면 대국이 탐색 하나만큼 기다린다.
+		gctx, cancel := context.WithTimeout(usi.WithBorrower(ctx, usi.BorrowerGood), deadline)
+		g := asker.askGood(gctx, q)
+		cancel()
+		if !g.Good {
+			return
+		}
+		select {
+		case done <- goodResult{line: line, good: true}:
+		case <-ctx.Done():
+		}
+	}()
+}
+
+// applyGood 은 따로 물은 好手의 답을 기록에 넘긴다.
+//
+// 그 사이 待った로 수순이 바뀌었으면 버린다. 같은 手数에 다른 수가 들어와 있을 수 있다.
+func (st *state) applyGood(r goodResult) {
+	ply := len(r.line)
+	if st.cfg.Recorder == nil || ply == 0 || len(st.usis) < ply || !slices.Equal(st.usis[:ply], r.line) {
+		return
+	}
+	st.cfg.Recorder.Good(ply)
 }
 
 // maybeThink 는 엔진 차례면 탐색을 띄운다.

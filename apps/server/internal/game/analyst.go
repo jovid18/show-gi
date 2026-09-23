@@ -77,9 +77,12 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	mover, moverKnown := shogi.Black, false
 	// 설명에 쓸 사실. 판정용과 같은 자리에서 한 번에 나온다(moveFacts).
 	var facts explain.Facts
+	// obvious 는 好手 후보에서 빼는 이유다. 판을 읽지 못하면 아래 moverKnown 이 막는다.
+	obvious := ObviousNone
 
 	if pos, m, err := replay(startSFEN, moves); err == nil {
 		mover, moverKnown = pos.Turn, true
+		obvious = ObviousMove(pos, m, prevDest(moves))
 		// 이 판의 「형세 0」. 위 두 cp와 관점이 같아야 한다. 駒落ち에서 유리한 쪽은 언제나
 		// 下手라, 上手의 수를 판정할 때는 부호가 뒤집힌다(handicap.BaselineCpFor).
 		//
@@ -123,6 +126,16 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 
 	v := intervene.Judge(in)
 	j := Judgement{Verdict: v, BestUSI: best.Best, Threshold: a.level.Threshold(), Ply: ply}
+
+	// 好手는 통과한 수에서만 묻는다. 詰み이 있던 국면은 게이지가 맡는다(intervene.IsGood).
+	// 여기서는 물음만 남긴다. 묻는 것은 부르는 쪽이다(CheckGood · state.maybeAskGood).
+	j.Obvious = obvious
+	if v.Kind == intervene.KindNone && moverKnown && obvious == ObviousNone &&
+		in.MateBefore == 0 && best.Best == moves[len(moves)-1] {
+		j.goodQuery = &goodQuery{
+			startSFEN: startSFEN, before: before, played: best.Best, baselineCp: in.BaselineCp,
+		}
+	}
 
 	// 판정에 쓴 두 탐색이 그대로 기보의 평가치가 된다. 앞쪽은 착수 전 국면이라 곧 직전
 	// 상대 수 뒤의 평가치이고, 상대가 둘 때는 그 값을 아는 코드가 없어 한 수 늦게 채워진다.

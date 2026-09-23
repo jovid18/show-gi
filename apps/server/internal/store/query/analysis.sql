@@ -76,7 +76,8 @@ SET done_at     = now(),
     decided     = $9,
     category    = $10,
     best_cp     = $11,
-    best_mate   = $12
+    best_mate   = $12,
+    good        = $14
 WHERE match_id = $1 AND ply = $13 AND done_at IS NULL;
 
 -- name: StopAnalysisAhead :exec
@@ -97,7 +98,7 @@ WHERE match_id = $1 AND done_at IS NULL;
 -- 그 판에서 미리 재 둔 것을 한 번에 읽는다. 手마다 묻지 않는다. 판이 끝나는 자리에서
 -- 手数만큼 왕복하면 그 자체가 밀리는 값이다.
 SELECT ply, before_cp, after_cp, before_mate, after_mate,
-       blunder, delta_win, threshold, decided, category, best_cp, best_mate
+       blunder, delta_win, threshold, decided, category, best_cp, best_mate, good
 FROM analysis_plies
 WHERE match_id = $1 AND done_at IS NOT NULL
 ORDER BY ply;

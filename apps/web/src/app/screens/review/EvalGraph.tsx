@@ -7,8 +7,8 @@ import type { WhatIf } from '@/hooks/useWhatIf';
 /**
  * 한 판의 평가치 궤적. 이 그림이 곧 이동 장치다.
  *
- * 세 가지가 한 자리에 겹친다: 실제로 둔 판(검정) · 지금 둬 보고 있는 분기(초록) · 물러진 수가
- * 있던 자리(빨강). 「어디서 무너졌나」를 목록 셋으로 나눠 읽게 하는 대신 한 장으로 보여주고
+ * 네 가지가 한 자리에 겹친다: 실제로 둔 판(검정) · 지금 둬 보고 있는 분기(초록) · 물러진 수가
+ * 있던 자리(빨강) · 好手를 둔 자리(파랑). 「어디서 무너졌나」를 목록 셋으로 나눠 읽게 하는 대신 한 장으로 보여주고
  * 거기를 눌러 돌아가게 한다.
  *
  * 점을 누르면 그 手数로 간다. 手数를 고르는 길이 이것과 기보 목록 둘인데, 이쪽은 「어디가
@@ -37,7 +37,7 @@ const CLAMP = 1200;
 /*
  색을 새로 만들지 않았다. 판 위에서 쓰는 넷 안에서 고른다(index.css): 초록은 「보여주는
  수순」(`--ray`), 빨강은 「지금 위험한 것」(`--ray-check`), 검정은 글자색(`--fg`)이라 「실제로
- 벌어진 것」에 맞다.
+ 벌어진 것」에 맞다. 파랑은 판에서 「둘 수」를 짚는 힌트색(`--hint`)이라 好手에 맞다.
 */
 
 const clamp = (cp: number): number => Math.max(-CLAMP, Math.min(CLAMP, cp));
@@ -162,6 +162,11 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
   }, [game.interventions]);
 
   /**
+   * 好手를 둔 자리. 확정된 수라 그 手数에 그대로 찍는다(물러진 수와 다르다).
+   */
+  const goods = useMemo(() => new Set(game.moves.filter((m) => m.good === true).map((m) => m.ply)), [game.moves]);
+
+  /**
    * 확대의 중심 手数. `null` 이면 전체 보기다.
    *
    * 같은 점을 다시 누르면 전체로 돌아온다. 상태가 둘이라 손잡이도 하나로 족하다.
@@ -276,7 +281,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
             // 값이 빠진 手数에서 선을 잇지 않는다. 이으면 없는 값을 지어낸 것이 된다.
             connectNulls={false}
             isAnimationActive={false}
-            dot={(props) => <MainDot {...props} here={tip === null ? ply : null} stops={stops} />}
+            dot={(props) => <MainDot {...props} here={tip === null ? ply : null} stops={stops} goods={goods} />}
             activeDot={false}
           />
 
@@ -300,8 +305,8 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
 /**
  * 검은선의 점 하나.
  *
- * 109개를 다 찍으면 선이 점선이 되므로 그릴 이유가 있는 자리만 찍는다: 지금 보고 있는 곳과
- * 물러진 수가 있던 곳이다.
+ * 109개를 다 찍으면 선이 점선이 되므로 그릴 이유가 있는 자리만 찍는다: 지금 보고 있는 곳,
+ * 물러진 수가 있던 곳, 好手를 둔 곳이다.
  */
 function MainDot(props: {
   cx?: number;
@@ -310,18 +315,25 @@ function MainDot(props: {
   /** 링을 찍을 手数. 분기에 들어가 있으면 `null` 이고, 그때 링은 초록선 끝에 있다. */
   here: number | null;
   stops: Map<number, number>;
+  goods: Set<number>;
 }) {
-  const { cx, cy, payload, here, stops } = props;
+  const { cx, cy, payload, here, stops, goods } = props;
   if (cx === undefined || cy === undefined || !payload) return null;
 
   const standing = payload.ply === here;
   const stopped = stops.get(payload.ply);
-  if (!standing && !stopped) return null;
+  const good = goods.has(payload.ply);
+  if (!standing && !stopped && !good) return null;
 
+  // 빨강은 물러진 手의 한 수 앞(상대 手)에 찍혀서 여기서 둔 판에서는 파랑과 겹치지 않는다.
+  // 양쪽 수를 다 적는 기보 임포트 판에서는 겹칠 수 있고, 그때는 빨강을 위에 그린다.
   return (
     <g>
+      {good && <circle cx={cx} cy={cy} r={3.5} fill="rgb(var(--hint))" />}
       {stopped && <circle cx={cx} cy={cy} r={3.5} fill="rgb(var(--ray-check))" />}
-      {standing && <circle cx={cx} cy={cy} r={stopped ? 6 : 4} fill="none" stroke="var(--fg)" strokeWidth={1.5} />}
+      {standing && (
+        <circle cx={cx} cy={cy} r={stopped || good ? 6 : 4} fill="none" stroke="var(--fg)" strokeWidth={1.5} />
+      )}
     </g>
   );
 }

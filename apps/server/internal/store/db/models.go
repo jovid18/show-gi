@@ -35,6 +35,7 @@ type AnalysisPly struct {
 	BeforeMate *int32
 	AfterMate  *int32
 	BestMate   *int32
+	Good       bool
 }
 
 type Edge struct {
@@ -88,6 +89,7 @@ type GameMove struct {
 	SFENKey  *string
 	EvalCp   *int32
 	EvalMate *int32
+	Good     bool
 }
 
 type GameQuiz struct {

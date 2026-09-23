@@ -111,6 +111,8 @@ type judged struct {
 	// 판정을 지나 값이 차지만, 개입이 없는 갈래라 그쪽은 이 칸을 보지 않는다.
 	category string
 	best     eval.Score
+	// good 은 그 手가 好手였는가다. 가져온 판의 기보에만 옮겨 적는다(game_moves.good).
+	good bool
 }
 
 // errCannotReplay 는 엔진은 답했는데 판정이 국면을 되만들지 못한 자리다(Judgement.HasEvals).
@@ -446,7 +448,7 @@ func (a *matchAnalyzer) measureOnePly(ctx context.Context, analyst game.Analyst)
 // 그만둔 판인지 여기서 보지 않는다. 집는 질의가 이미 그 행을 주지 않는다
 // (query/analysis.sql).
 func (a *matchAnalyzer) lookAhead(ctx context.Context, analyst game.Analyst, p store.AnalysisPly) {
-	got, err := a.judgeOne(ctx, analyst, p.StartSFEN, p.Moves, p.Ply)
+	got, err := a.judgeOne(ctx, analyst, p.StartSFEN, p.Moves, p.Ply, a.seatMoves(ctx, p))
 	if err != nil {
 		// 프로세스가 멈추는 중이면 그만두지 않는다. 그만두면 배포 한 번이 그때 두고 있던
 		// 판들의 미리 재기 전체를 끈다(journal §115).
@@ -459,6 +461,21 @@ func (a *matchAnalyzer) lookAhead(ctx context.Context, analyst game.Analyst, p s
 		return
 	}
 	a.remember(ctx, p.MatchID, got)
+}
+
+// seatMoves 는 그 手가 가져온 판의 주인이 둔 수인가다. 好手는 그 자리만 적으므로
+// (analyze) 상대의 手에는 k=2 탐색을 걸지 않는다. 모르면 false 다.
+func (a *matchAnalyzer) seatMoves(ctx context.Context, p store.AnalysisPly) bool {
+	id, ok := importedGameID(p.MatchID)
+	if !ok {
+		return false
+	}
+	pos, err := shogi.ParseSFEN(p.StartSFEN)
+	if err != nil {
+		return false
+	}
+	seats := a.importSeat(ctx, id)
+	return len(seats) > 0 && moverAt(pos.Turn, p.Ply) == seats[0].color
 }
 
 // remember 는 잰 것을 그 手의 행에 적는다. 행을 만드는 것은 writePly 뿐이다.
@@ -476,6 +493,7 @@ func (a *matchAnalyzer) remember(ctx context.Context, matchID string, got judged
 		Decided:   got.move.Decided,
 		Category:  got.category,
 		Best:      got.best,
+		Good:      got.good,
 	})
 	if err != nil && ctx.Err() == nil {
 		log.Printf("match: could not store ply %d of %s: %v", got.move.Ply, matchID, err)
@@ -523,6 +541,7 @@ func (a *matchAnalyzer) measuredOf(ctx context.Context, matchID string) map[int]
 			after:    r.After,
 			category: r.Category,
 			best:     r.Best,
+			good:     r.Good,
 			move: skill.Move{
 				Blunder:   r.Blunder,
 				DeltaWin:  r.DeltaWin,
@@ -748,7 +767,8 @@ func (a *matchAnalyzer) analyze(ctx context.Context, key string, seats []analysi
 		got, ok := measured[ply]
 		var err error
 		if !ok {
-			got, err = a.judgeOne(ctx, analyst, start, moves[:ply], ply)
+			good := imported && firstKnown && moverAt(first, ply) == seats[0].color
+			got, err = a.judgeOne(ctx, analyst, start, moves[:ply], ply, good)
 		}
 		// 끊기는 이유가 둘이고 성질이 같다. 엔진이 답하지 못했거나 판정이 국면을 되만들지
 		// 못했거나(HasEvals), 어느 쪽이든 뒤의 手도 전부 같은 자리에서 실패한다. 매번 같은
@@ -781,6 +801,10 @@ func (a *matchAnalyzer) analyze(ctx context.Context, key string, seats []analysi
 			if imported && got.move.Blunder && c == seats[0].color {
 				a.recordBlunder(ctx, seats[0].gameID, ply, c, got)
 			}
+			// 好手도 같은 자리만 남긴다. 되짚기 그래프가 그 사람의 手에 점을 찍는다.
+			if imported && got.good && c == seats[0].color {
+				a.recordGood(ctx, seats[0].gameID, ply)
+			}
 		}
 		a.setEval(ctx, ids, ply, got.after)
 		if ply > 1 {
@@ -807,12 +831,19 @@ func (a *matchAnalyzer) analyze(ctx context.Context, key string, seats []analysi
 
 // judge 는 한 手를 시한 안에서 잰다. 시한을 넘기면 그 자리에서 끊긴 것으로 친다. 뒤의 手도
 // 같은 국면을 지나야 하므로 다음도 넘길 공산이 크다(analysisJudgeDeadline).
+//
+// good 이면 好手도 같은 시한 안에서 묻는다. 기록하는 것은 가져온 판뿐이라 대인전은 묻지
+// 않는다(recordGood).
 func (a *matchAnalyzer) judge(
-	ctx context.Context, analyst game.Analyst, start string, moves []string, ply int,
+	ctx context.Context, analyst game.Analyst, start string, moves []string, ply int, good bool,
 ) (game.Judgement, error) {
 	ctx, cancel := context.WithTimeout(ctx, a.deadlineOf())
 	defer cancel()
-	return analyst.Judge(ctx, start, moves, ply)
+	j, err := analyst.Judge(ctx, start, moves, ply)
+	if err == nil && good {
+		game.CheckGood(ctx, analyst, &j)
+	}
+	return j, err
 }
 
 // judgeOne 은 手 하나를 재서 필요한 칸만 남긴다.
@@ -820,9 +851,9 @@ func (a *matchAnalyzer) judge(
 // HasEvals 가 false 면 오류로 바꾼다. 부르는 쪽 둘이 그 자리를 같게 다뤄야 해서다. 미리
 // 재는 쪽은 그 판을 그만두고, 판이 끝날 때는 거기서 멈춘다.
 func (a *matchAnalyzer) judgeOne(
-	ctx context.Context, analyst game.Analyst, start string, moves []string, ply int,
+	ctx context.Context, analyst game.Analyst, start string, moves []string, ply int, good bool,
 ) (judged, error) {
-	j, err := a.judge(ctx, analyst, start, moves, ply)
+	j, err := a.judge(ctx, analyst, start, moves, ply, good)
 	if err != nil {
 		return judged{}, err
 	}
@@ -835,6 +866,7 @@ func (a *matchAnalyzer) judgeOne(
 		move:     skillMoveOf(j, ply),
 		category: string(j.Verdict.Category),
 		best:     j.Verdict.Best,
+		good:     j.Good,
 	}, nil
 }
 

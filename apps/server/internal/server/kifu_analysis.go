@@ -86,6 +86,13 @@ func (a *matchAnalyzer) importSeat(ctx context.Context, gameID int64) []analysis
 	return []analysisSeat{{gameID: row.GameID, userID: row.UserID, color: colorOf(row.Color)}}
 }
 
+// recordGood 은 그 手가 好手였다고 기보에 적는다. 기보 행은 가져올 때 이미 들어가 있다.
+func (a *matchAnalyzer) recordGood(ctx context.Context, gameID int64, ply int) {
+	if err := a.store.SetMoveGood(ctx, gameID, ply); err != nil && ctx.Err() == nil {
+		log.Printf("kifu: could not record the good move at ply %d of game %d: %v", ply, gameID, err)
+	}
+}
+
 // recordBlunder 는 그 手의 판정을 悪手 줄로 남긴다.
 //
 // 여기서 둔 판의 개입과 같은 표를 쓴다(interventions). 그래야 되짚기의 목록도 마이페이지의

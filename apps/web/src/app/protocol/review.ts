@@ -84,6 +84,12 @@ export interface ReviewMove {
   mateIn?: number;
   /** 王手를 받고 있는 玉의 칸(`5a`). 서버가 짚는다. 화면은 규칙을 모른다. */
   checked?: string;
+  /**
+   * 사람이 둔 이 수가 好手였는가. 판정은 서버가 한다(`intervene.IsGood`).
+   *
+   * 오지 않으면 好手가 아니다. 대인전과 `024_move_good.sql` 앞의 판은 판정이 없어서 늘 오지 않는다.
+   */
+  good?: boolean;
 }
 
 /**
