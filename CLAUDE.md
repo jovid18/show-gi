@@ -101,6 +101,8 @@ SHOWGI_TEST_DATABASE_URL='postgres://showgi:showgi@localhost:5432/showgi' go tes
 | compose 프로젝트  | `show-gi-mate-gauge`            |
 | api 컨테이너      | `show-gi-mate-gauge-api`        |
 
+Orca 앱에서 만든 워크트리는 `~/orca/workspaces/show-gi/<slug>`에 생긴다. 레포 루트의 `orca.yaml`이 `tools/orca/worktree.sh`로 `/worktree` 스킬 §4의 `.env` 블록과 `pnpm install`을 대신하고, 워크트리를 보관하면 api 컨테이너를 내린다. api 컨테이너는 띄우지 않으므로 필요할 때 아래 명령으로 직접 띄운다. 분담과 `WORKTREE.md`는 여전히 `/worktree` 스킬 몫이다.
+
 분기는 항상 최신 `origin/main`에서 한다. 다른 작업의 미완성 커밋이 PR diff에 섞이지 않도록 워크트리끼리 분기하지 않는다.
 
 **워크트리에서 일을 시작하면 `WORKTREE.md`를 먼저 읽는다.** 그 워크트리가 맡은 범위와 건드리면 안 되는 파일(다른 워크트리가 이미 점유한 것)이 거기 있다. gitignore 대상이라 커밋되지 않는다.

@@ -85,7 +85,7 @@ gh pr view <번호> --json files --jq '.files[].path'
 slug마다 아래를 그대로 돈다. 포트는 먼저 정한다 — 기존 워크트리의 `.env`에서 쓰이는 것을 걷어내고, 비어 있는 다음 번호를 준다:
 
 ```bash
-grep -h SHOWGI_API_PORT ~/personal/show-gi-*/.env 2>/dev/null   # 이미 쓰는 포트
+grep -h SHOWGI_API_PORT ~/personal/show-gi-*/.env ~/orca/workspaces/show-gi/*/.env 2>/dev/null   # 이미 쓰는 포트 (Orca 워크트리 포함)
 lsof -nP -iTCP:8081 -sTCP:LISTEN                                 # 진짜 비었는지
 ```
 
