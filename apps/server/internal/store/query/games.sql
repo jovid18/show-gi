@@ -86,6 +86,11 @@ SELECT count(*) FROM interventions;
 -- 없는 ply면 아무 일도 하지 않는다(평가치가 수보다 먼저 오는 경로가 없다).
 UPDATE game_moves SET eval_cp = $3, eval_mate = $4 WHERE game_id = $1 AND ply = $2;
 
+-- name: SetMoveGood :exec
+--
+-- 그 手가 好手였다고 적는다. SetMoveEval 과 같은 이유로 수를 덮지 않는다.
+UPDATE game_moves SET good = true WHERE game_id = $1 AND ply = $2;
+
 -- ─── 리뷰(읽기) ─────────────────────────────────────────────
 
 -- name: ListGames :many
@@ -254,7 +259,7 @@ WHERE id = $1
 --
 -- 점수는 先手 관점이고 둘 다 NULL일 수 있다(store.RecordedMove). eval_cp 와 eval_mate 는
 -- 배타적이고, 그것을 맡는 것은 CHECK 다(021_tagged_evals.sql).
-SELECT ply, usi, eval_cp, eval_mate FROM game_moves WHERE game_id = $1 ORDER BY ply;
+SELECT ply, usi, eval_cp, eval_mate, good FROM game_moves WHERE game_id = $1 ORDER BY ply;
 
 -- name: ListGameInterventions :many
 --

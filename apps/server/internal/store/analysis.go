@@ -40,6 +40,8 @@ type MeasuredPly struct {
 	// 같은 판정을 지나므로 값은 채워지지만 그쪽은 이 칸을 보지 않는다(020_imported_games.sql).
 	Category string
 	Best     eval.Score
+	// Good 은 그 手가 好手였는가다. 가져온 판의 기보에만 옮겨 적는다(game_moves.good).
+	Good bool
 }
 
 // ErrNoAnalysisPly 는 지금 집을 手가 없다는 것 하나다.
@@ -98,6 +100,7 @@ func (s *Store) FinishAnalysisPly(ctx context.Context, matchID string, m Measure
 		Category:   nilIfEmpty(m.Category),
 		BestCp:     bestCp,
 		BestMate:   bestMate,
+		Good:       m.Good,
 	})
 	if err != nil {
 		return fmt.Errorf("finish analysis ply: %w", err)
@@ -134,6 +137,7 @@ func (s *Store) MeasuredAnalysisPlies(ctx context.Context, matchID string) ([]Me
 			Decided:   derefBool(r.Decided),
 			Category:  derefString(r.Category),
 			Best:      derefScore(scoreOf(r.BestCp, r.BestMate)),
+			Good:      r.Good,
 		})
 	}
 	return out, nil

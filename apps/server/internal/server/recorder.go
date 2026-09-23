@@ -35,6 +35,7 @@ const (
 	evStarted recordKind = iota
 	evMoved
 	evEvaluated
+	evGood
 	evRetracted
 	evUndone
 	evNamed
@@ -113,6 +114,10 @@ func (r *dbRecorder) Moved(ply int, usi string, by game.Side) {
 // 순서가 저절로 지켜진다. 큐를 따로 두면 평가치가 먼저 도착해 경고 없이 버려질 수 있다.
 func (r *dbRecorder) Evaluated(ply int, sente eval.Score) {
 	r.send(recordEvent{kind: evEvaluated, ply: ply, score: sente})
+}
+
+func (r *dbRecorder) Good(ply int) {
+	r.send(recordEvent{kind: evGood, ply: ply})
 }
 
 func (r *dbRecorder) Retracted(ply int, usi string, v intervene.Verdict) {
@@ -214,6 +219,14 @@ func (r *dbRecorder) run(ctx context.Context, st *store.Store, level intervene.L
 			}
 			if err := st.SetMoveEval(write, gameID, ev.ply, ev.score); err != nil {
 				log.Printf("game record: eval %d: %v", ev.ply, err)
+			}
+
+		case evGood:
+			if gameID == 0 {
+				return
+			}
+			if err := st.SetMoveGood(write, gameID, ev.ply); err != nil {
+				log.Printf("game record: good %d: %v", ev.ply, err)
 			}
 
 		case evRetracted:

@@ -192,6 +192,18 @@ type Judgement struct {
 	// Ply 는 판정한 手数다. 실력 추정이 창을 쓰기 때문에 필요하다
 	// (skill.AnchorFromPly, journal §94).
 	Ply int
+
+	// Good 은 이 수가 好手인가다(intervene.IsGood). 개입이 걸린 수는 늘 false 다.
+	Good bool
+	// GoodAsked 는 차선수를 물었는가, GoodGap 은 그때의 승률 차다. 임계치를 바꿔 다시
+	// 세는 측정이 쓴다(journal §141).
+	GoodAsked bool
+	GoodGap   float64
+	// Obvious 는 好手 후보에서 뺀 이유다. 빼지 않았으면 비어 있다.
+	Obvious Obvious
+
+	// goodQuery 는 아직 묻지 않은 好手 물음이다. Good 을 채우는 것은 CheckGood 이다.
+	goodQuery *goodQuery
 }
 
 // DecidedWinRate 는 「이미 갈렸다」의 경계다. 최선수의 승률이 이 밖이면 그 국면의

@@ -781,6 +781,14 @@ func (s *Store) SetMoveEval(ctx context.Context, gameID int64, ply int, score ev
 	return nil
 }
 
+// SetMoveGood 은 그 手가 好手였다고 적는다. 없는 ply면 아무 일도 하지 않는다.
+func (s *Store) SetMoveGood(ctx context.Context, gameID int64, ply int) error {
+	if err := s.q.SetMoveGood(ctx, db.SetMoveGoodParams{GameID: gameID, Ply: int32(ply)}); err != nil {
+		return fmt.Errorf("set move good: %w", err)
+	}
+	return nil
+}
+
 // Intervention 은 기록할 개입 하나다.
 type Intervention struct {
 	Ply         int
@@ -874,6 +882,8 @@ type RecordedMove struct {
 	// Score 는 先手 관점 점수이고 nil일 수 있다 — 평가치는 수보다 늦게 오므로
 	// 연결이 끊긴 판의 마지막 몇 수는 채워지지 않은 채로 남는다.
 	Score *eval.Score
+	// Good 은 사람이 둔 그 手가 好手였는가다(intervene.IsGood).
+	Good bool
 }
 
 // RecordedIntervention 은 남아 있는 개입 하나다.
@@ -1147,7 +1157,7 @@ func (s *Store) recordOf(ctx context.Context, head gameHead) (GameRecord, error)
 	}
 
 	for _, m := range moves {
-		rec := RecordedMove{Ply: int(m.Ply), USI: m.USI, Score: scoreOf(m.EvalCp, m.EvalMate)}
+		rec := RecordedMove{Ply: int(m.Ply), USI: m.USI, Score: scoreOf(m.EvalCp, m.EvalMate), Good: m.Good}
 		out.Moves = append(out.Moves, rec)
 	}
 	for _, iv := range ivs {

@@ -34,6 +34,11 @@ type Recorder interface {
 	// 관점」으로 적으면 색이 다른 두 판을 함께 놓을 수 없다.
 	Evaluated(ply int, sente eval.Score)
 
+	// Good 은 확정된 사람의 수가 好手였다는 것이다. 그 手数의 Moved 뒤에만 온다.
+	//
+	// 대국 화면에는 띄우지 않고 되짚기가 읽는다(journal §141).
+	Good(ply int)
+
 	// Retracted 는 개입으로 물러진 수를 기록한다.
 	//
 	// 개입 전에 선택한 수이므로 실력 추정에 사용한다(01-core.md §5).

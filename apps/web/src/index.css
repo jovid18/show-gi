@@ -2829,6 +2829,12 @@ body {
   color: var(--muted);
 }
 
+/* 好手는 그래프의 파란 점과 같은 색을 쓴다. */
+.review-kifu-mark[data-kind='good'] {
+  border-color: rgb(var(--hint) / 0.6);
+  color: rgb(var(--hint));
+}
+
 /* 평가치는 **플레이어 관점**이다. 부호를 색으로 나누지 않는다 — 판 위에서 색이
    무엇을 뜻하는지가 이미 정해져 있고, 여기서 초록·빨강을 쓰면 그 뜻이 흐려진다. */
 .review-kifu-eval {
@@ -3111,6 +3117,10 @@ body {
   background: var(--fg-2);
   text-indent: -99em;
   align-self: center;
+}
+
+.review-kifu-pair .review-kifu-mark[data-kind='good'] {
+  background: rgb(var(--hint));
 }
 
 /* 좁은 화면에서는 판이 먼저다. 목록이 길어져 판을 밀어내지 않게 더 낮춘다. */

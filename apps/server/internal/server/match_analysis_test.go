@@ -351,7 +351,7 @@ func TestAJudgementCannotHangTheAnalyzer(t *testing.T) {
 	a := &matchAnalyzer{judgeDeadline: deadline}
 
 	start := time.Now()
-	_, err := a.judge(t.Context(), hangingAnalyst{}, shogi.StartSFEN, []string{"7g7f"}, 1)
+	_, err := a.judge(t.Context(), hangingAnalyst{}, shogi.StartSFEN, []string{"7g7f"}, 1, false)
 	if err == nil {
 		t.Fatal("멈추지 않는 판정이 답을 냈다")
 	}
