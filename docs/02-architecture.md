@@ -89,7 +89,7 @@ create index on edges using gin (tags);
 >
 > 플레이어에 매인 값이 없다. cp는 수번 관점, `tags` 는 둔 쪽 기준이라 A가 잰 국면이 B에게 그대로 유효하다. `user_id`도 `game_id`도 없어서 로그인이 붙어도 여기는 위협 밖이다(§7 위협 2가 말하는 것은 `games`·`game_moves` 쪽이다).
 >
-> `computed_depth` 는 깊이만 견주면 모자란다. 같은 깊이에서도 MultiPV가 갈리므로(상대 수 k=10 · 개입 판정 k=1 · 가정 수순 k=3) 같은 깊이면 후보가 많은 쪽이 이기도록 질의를 고쳤다.
+> `computed_depth` 는 깊이만 견주면 모자란다. 같은 깊이에서도 MultiPV가 갈리므로(상대 수 k=10 · 개입 판정 k=1, 가져온 기보는 k=3 · 가정 수순 k=3) 같은 깊이면 후보가 많은 쪽이 이기도록 질의를 고쳤다.
 
 ### `eval_by_depth`는 공짜로 얻는다
 

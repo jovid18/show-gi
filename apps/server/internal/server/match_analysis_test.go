@@ -351,7 +351,7 @@ func TestAJudgementCannotHangTheAnalyzer(t *testing.T) {
 	a := &matchAnalyzer{judgeDeadline: deadline}
 
 	start := time.Now()
-	_, err := a.judge(t.Context(), hangingAnalyst{}, shogi.StartSFEN, []string{"7g7f"}, 1, false)
+	_, err := a.judge(t.Context(), hangingAnalyst{}, shogi.StartSFEN, []string{"7g7f"}, 1, false, false)
 	if err == nil {
 		t.Fatal("멈추지 않는 판정이 답을 냈다")
 	}
@@ -369,6 +369,37 @@ type hangingAnalyst struct{}
 func (hangingAnalyst) Judge(ctx context.Context, _ string, _ []string, _ int) (game.Judgement, error) {
 	<-ctx.Done()
 	return game.Judgement{}, ctx.Err()
+}
+
+// wideningAnalyst 는 판정이 몇 개의 후보로 걸렸는지 적는다.
+type wideningAnalyst struct{ k *int }
+
+func (w wideningAnalyst) Judge(context.Context, string, []string, int) (game.Judgement, error) {
+	return game.Judgement{}, nil
+}
+
+func (w wideningAnalyst) Wide(k int) game.Analyst {
+	*w.k = k
+	return w
+}
+
+// 가져온 판은 되짚기가 묻는 후보 수로 잰다. 대인전은 넓히지 않는다. 판이 도는 동안 手마다
+// 재는 쪽이라 용량이 그 탐색 비용에 매여 있다(journal §109).
+func TestOnlyAnImportedGameIsJudgedWide(t *testing.T) {
+	a := &matchAnalyzer{}
+	for _, imported := range []bool{false, true} {
+		k := 0
+		if _, err := a.judge(t.Context(), wideningAnalyst{&k}, shogi.StartSFEN, []string{"7g7f"}, 1, false, imported); err != nil {
+			t.Fatalf("judge: %v", err)
+		}
+		want := 0
+		if imported {
+			want = whatifCandidates
+		}
+		if k != want {
+			t.Errorf("imported=%v: 후보 %d 로 넓혔다, want %d", imported, k, want)
+		}
+	}
 }
 
 // 읽지 못한 행이 있으면 실력을 쌓지 않는다. 「판 끝까지인가」는 두 행을 견줘 아는 값이라

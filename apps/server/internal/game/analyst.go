@@ -25,6 +25,8 @@ type engineAnalyst struct {
 	mate   MateSearcher
 	depth  int
 	level  intervene.Level
+	// breadth 는 판정의 두 탐색에 거는 후보 수다. 0이면 1이다(Wide).
+	breadth int
 }
 
 // JudgeDepth 는 개입 판정에 쓰는 탐색 깊이다. DefaultDepth 와 같은 값이어야 한다.
@@ -47,6 +49,30 @@ func NewEngineAnalyst(s Searcher, mate MateSearcher, level intervene.Level) Anal
 	return &engineAnalyst{search: s, mate: mate, depth: JudgeDepth, level: level}
 }
 
+// Widener 는 판정의 두 탐색을 후보 k개로 거는 판정기를 만든다.
+type Widener interface {
+	Wide(k int) Analyst
+}
+
+// Wide 는 판정의 두 탐색을 후보 k개로 거는 복사본이다.
+//
+// 되짚기 화면은 국면마다 후보 셋을 묻는다(server.evalOf). 판정이 후보 하나로만 재 두면
+// 그 국면을 누를 때 캐시가 모자라 엔진이 다시 돈다. 상대 엔진이 없는 가져온 기보가 그
+// 자리다. 탐색이 MultiPV 를 받지 못하면 후보 하나로 잰다.
+func (a *engineAnalyst) Wide(k int) Analyst {
+	c := *a
+	c.breadth = k
+	return &c
+}
+
+// searchAt 은 판정의 탐색 하나다. 후보 수만 breadth 를 따른다.
+func (a *engineAnalyst) searchAt(ctx context.Context, startSFEN string, moves []string) (usi.SearchResult, error) {
+	if multi, ok := a.search.(MultiSearcher); ok && a.breadth > 1 {
+		return multi.SearchMultiPV(ctx, startSFEN, moves, a.depth, a.breadth)
+	}
+	return a.search.SearchDepth(ctx, startSFEN, moves, a.depth)
+}
+
 func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []string, ply int) (Judgement, error) {
 	if len(moves) == 0 {
 		return Judgement{}, fmt.Errorf("judge: no move to judge")
@@ -54,13 +80,13 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	before := moves[:len(moves)-1]
 
 	// 착수 전 국면의 최선수. 두는 쪽(=사람) 관점이다.
-	best, err := a.search.SearchDepth(ctx, startSFEN, before, a.depth)
+	best, err := a.searchAt(ctx, startSFEN, before)
 	if err != nil {
 		return Judgement{}, fmt.Errorf("judge: search before: %w", err)
 	}
 
 	// 착수 후 국면. 엔진은 늘 수번 측 관점으로 답하므로 지금은 상대 관점이다.
-	after, err := a.search.SearchDepth(ctx, startSFEN, moves, a.depth)
+	after, err := a.searchAt(ctx, startSFEN, moves)
 	if err != nil {
 		return Judgement{}, fmt.Errorf("judge: search after: %w", err)
 	}
