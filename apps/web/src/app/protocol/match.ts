@@ -1,17 +1,18 @@
-// 대인전 계약이다. 서버 쪽 짝은 `internal/match` 와 `internal/server/ws_match.go` 다.
+// 대인전의 계약. 서버의 `internal/match` · `internal/server/ws_match.go` 와 짝이다.
 //
-// 대인전에는 개입·힌트·待った·詰み 게이지·태그·상대 강함이 없고, 시계와 상대 접속 상태가
-// 있다. 쓰지 않는 필드를 함께 쓰지 않도록 `protocol/game.ts` 와 나눈다.
+// 대인전에는 개입·힌트·待った·詰み 게이지·태그·상대의 강함이 없고 시계와 상대 접속 상태가 있다.
+// 사용하지 않는 필드를 공유하지 않도록 `protocol/game.ts`와 분리한다.
 
 import type { Color } from '@/protocol/game';
 
 /**
- * 승패 없이 끝나는 상태가 둘이고, 화면 문구가 정반대라 따로 둔다.
+ * 승패가 없는 끝이 둘이다. 화면이 할 말이 정반대라 따로 둔다.
  *
- * - `aborted`: 서버가 내려갔다. 양쪽 모두 과실이 없다.
- * - `expired`: 한 수도 두지 않은 채 시간이 다 됐다. 판이 없었던 것으로 보고 승패를 기록하지
- *   않는다.
- * - `timeout`: 수를 둔 뒤 시간을 넘겼다. 승부가 난다.
+ * - `aborted` — 서버가 내려갔다. 두 사람 다 잘못한 것이 없다
+ * - `expired` — 한 수도 두지 않은 채 시간이 다 됐다. 누구도 두지 않았으면 판이 없었던 것이라
+ *   승패를 적지 않는다
+ *
+ * `timeout` 은 수를 두고 나서 시간을 넘긴 것이고, 그쪽은 승부가 난다.
  */
 export type MatchStatus =
   | 'playing'
@@ -24,16 +25,16 @@ export type MatchStatus =
   | 'aborted';
 
 /**
- * 기보의 한 수를 둔 쪽이다. 보는 사람 기준이다.
+ * 기보의 한 수를 누가 뒀나. 보는 사람 기준이다.
  *
- * 서버는 같은 기보를 두 관점으로 펼쳐 보낸다. 先手/後手 같은 절대 이름을 쓰면 두 화면이 같은
- * 수를 같은 색으로 표시한다.
+ * 서버가 같은 기보를 두 관점으로 펴서 보낸다. 절대 이름(先手/後手)을 쓰면 두 화면이 같은
+ * 수를 같은 색으로 그린다.
  */
 export type MatchSide = 'you' | 'opponent';
 
 export interface MatchMove {
   usi: string;
-  /** 棋譜 표기다(▲7六歩). 서버가 만든 값을 그대로 표시한다. */
+  /** 棋譜 표기(▲7六歩). 서버가 만든 것을 그대로 그린다. */
   ja: string;
   by: MatchSide;
 }
@@ -44,44 +45,46 @@ export interface MatchSnapshot {
   turn: Color;
   yourTurn: boolean;
   inCheck: boolean;
-  /** 한 판 동안 바뀌지 않는다. */
+  /** 이 사람이 잡은 쪽. 한 판에서 바뀌지 않는다. */
   yourColor: Color;
   /**
-   * 자기 차례가 아니면 오지 않는다. 보내면 상대의 가능한 수를 볼 수 있어 대인전에서
-   * 부정행위를 돕는다.
+   * 둘 수 있는 수. 자기 차례가 아니면 오지 않는다. 주면 상대의 수를 화면에서 훑어볼 수
+   * 있고, 대인전에서 그건 부정행위 보조다.
    */
   legalMoves: string[] | null;
   moves: MatchMove[] | null;
   status: MatchStatus;
   winner?: MatchSide;
   /**
-   * 상대에 대해 오는 정보는 이것뿐이고 段級·전적은 보내지 않는다. 실력 프로파일은 본인만 보는
-   * 값이다.
+   * 상대의 표시 이름. 여기 오는 상대 정보는 이것뿐이다. 段級도 전적도 오지 않는다(실력
+   * 프로파일은 본인만 보는 값이다).
    */
   opponentName: string;
-  /** 접속이 끊겨도 대국과 시계는 계속되고, 시간 초과로 끝난다. */
+  /** 상대가 접속 중인가. 끊어도 대국과 시계는 계속 돌고, 판은 시간 초과로 끝난다. */
   opponentOnline: boolean;
-  /** 한 수 제한 시간이다. 한 판 동안 바뀌지 않는다. */
+  /** 한 수에 주는 시간(ms). 한 판에서 바뀌지 않는다. */
   turnLimitMs: number;
   /**
-   * 현재 수번의 남은 시간이다. 누구의 시간인지는 `yourTurn` 으로 안다.
-   *
-   * 정본은 서버 값이고 화면은 카운트만 한다(`useTurnClock`).
+   * 지금 수번에 남은 시간(ms). 누구의 것인지는 `yourTurn` 이 말한다. 서버가 정본이고 화면은
+   * 세기만 한다(`useTurnClock`).
    */
   turnLeftMs: number;
 }
 
+/** 방 하나. id 말고는 아무것도 없다. */
 export interface Room {
   id: string;
+  /** 이 사람이 잡을 쪽. */
   yourColor: Color;
+  /** 방을 만든 사람의 이름. */
   hostName: string;
-  /** 상대가 아직 들어오지 않았는지다. true 면 화면이 초대 링크를 표시한다. */
+  /** 아직 상대가 들어오지 않았는가. 참이면 화면이 초대 링크를 그린다. */
   waiting: boolean;
   /**
-   * 보는 사람이 방을 만든 사람인지다. `waiting` 과 함께 보면 「아직 앉지 않은 손님」을
-   * 가린다. 그 손님에게만 확인 화면을 표시한다.
+   * 보는 사람이 이 방을 만들었는가.
    *
-   * 앉는 순간 자리가 정해지고 시계가 시작된다.
+   * `waiting` 과 함께 「아직 앉지 않은 손님」을 가른다. 그 사람에게만 확인 화면이 뜬다.
+   * 앉는 순간 자리가 확정되고 시계가 돈다.
    */
   isHost: boolean;
 }
@@ -90,18 +93,19 @@ export type MatchServerMessage =
   | { type: 'waiting'; room: Room }
   | { type: 'snapshot'; snapshot: MatchSnapshot }
   | { type: 'error'; reason: string; message: string }
-  // 판이 끝난 뒤 한 번 온다. 「振り返り」로 가는 링크를 만드는 데 쓴다.
+  // 판이 끝난 뒤 한 번 온다. 「振り返り」로 건너가는 링크가 이 값으로 만들어진다.
   | { type: 'record'; gameId: number };
 
 export type MatchClientMessage = { type: 'move'; usi: string } | { type: 'resign' };
 
-/** 방을 만들 때 고르는 手番이다. `'r'` 은 振り駒이고 서버가 추첨한다(createRoom). */
+/** 방을 만들 때 고르는 手番. `'r'` 는 振り駒이고, 뽑는 것은 서버다(createRoom). */
 export type SeatChoice = Color | 'r';
 
 /**
- * 로그인하지 않았으면 401이다. 만든 사람이 手番을 고르고 상대는 나머지를 잡는다.
+ * 방을 연다. 로그인하지 않았으면 401이다.
  *
- * 振り駒를 고르면 결과는 응답의 `yourColor` 로 오고, 만든 사람도 이때 안다.
+ * 手番은 방을 만드는 사람이 고르고, 상대는 나머지를 잡는다. 振り駒를 골랐으면 결과는 돌아온
+ * `yourColor` 에 있다. 만든 사람도 그때 안다.
  */
 export async function createRoom(choice: SeatChoice, signal: AbortSignal): Promise<Room> {
   const res = await fetch(`/api/rooms?color=${choice}`, { method: 'POST', signal });
@@ -110,10 +114,10 @@ export async function createRoom(choice: SeatChoice, signal: AbortSignal): Promi
 }
 
 /**
- * 링크로 들어온 방을 확인한다. 자리를 확보하지 않는다. 착석은 WebSocket 을 연결할 때다.
+ * 링크로 들어온 방을 확인한다. 자리를 잡지 않는다. 앉는 것은 WebSocket 이 붙을 때다.
  *
- * 없는 방·만료된 방·이미 찬 방·로그인하지 않은 요청은 모두 404 하나로 답한다. 나누어 답하면
- * 방 id 를 열거해 탐색할 수 있다.
+ * 볼 수 없으면 404 하나다. 없는 방·만료된 방·남이 이미 찬 방·로그인하지 않은 요청이 전부
+ * 같은 답이라야 방 id 를 훑어보는 것이 성립하지 않는다.
  */
 export async function fetchRoom(id: string, signal: AbortSignal): Promise<Room | null> {
   const res = await fetch(`/api/rooms/${encodeURIComponent(id)}`, { signal });
