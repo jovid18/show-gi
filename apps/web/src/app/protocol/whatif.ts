@@ -50,7 +50,7 @@ export interface WhatIfCandidate {
   /**
    * 최선수 대비 낙폭(「이 수를 고르면 얼마를 내주나」).
    *
-   * 최선수 자신(기준)과 詰み이 섞인 줄에는 없다. 뒤엣것은 뺄 cp 가 없다(서버의 `candidatesOf`).
+   * 최선수 자신(기준)과 詰み이 섞인 줄에는 없다. 詰み과 cp 는 자가 달라 뺄 수 없다(서버의 `candidatesOf`).
    */
   lossCp?: number;
   /** 詰み까지의 手数. 이 칸이 비면 詰み이 없고, 차면 `evalCp` 는 오지 않는다. */
