@@ -458,7 +458,7 @@ psql "$(aws ssm get-parameter --name /show-gi/prod/DATABASE_URL --with-decryptio
 
 > `psql` 이 없어도 된다. GUI 클라이언트(DataGrip 등)로 붙어 `.sql` 파일을 그대로 실행하면 같은 일이다. SSL은 필수다 — 서버가 `rds.force_ssl` 로 강제하므로 끄면 거부당한다.
 
-> 공인 IP가 바뀌면 붙지 못한다. `infra/terraform.tfvars` 의 `admin_cidr` 을 고치고 apply 한다(보안그룹 규칙 하나라 수십 초). 그 파일은 `.gitignore` 가 막는다 — 퍼블릭 레포라 IP를 커밋하면 그대로 공개된다.
+> 공인 IP가 바뀌면 붙지 못한다. `infra/terraform.tfvars` 의 `admin_cidr` 을 고치고 apply 한다(보안그룹 규칙 하나라 수십 초). 붙는 곳이 둘 이상이면 나머지를 `admin_cidrs` 목록에 둔다. 그 파일은 `.gitignore` 가 막는다 — 퍼블릭 레포라 IP를 커밋하면 그대로 공개된다.
 
 ### 그래도 남겨두는 길 — 일회용 태스크
 
