@@ -206,10 +206,13 @@ func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiP
 	}
 
 	// 깊이별 값은 수마다 다른 행에 있다. 한 번에 읽어 수로 묶는다.
-	byMove := map[string][]eval.Score{}
+	//
+	// 마지막 깊이가 이 국면의 깊이와 다른 행은 쓰지 않는다. 빠진 깊이를 건너뛰고 붙여 쓰던
+	// 옛 행이 그 모양이고, 칸마다 실제보다 얕은 깊이로 읽힌다(journal §142).
+	byMove := map[string][]store.DepthScore{}
 	if edges, err := a.store.Edges(ctx, key); err == nil {
 		for _, e := range edges {
-			if len(e.ByDepth) > 0 {
+			if n := len(e.ByDepth); n > 0 && e.ByDepth[n-1].Depth == p.ComputedDepth {
 				byMove[e.USI] = e.ByDepth
 			}
 		}
@@ -229,9 +232,9 @@ func (a *Searcher) lookup(ctx context.Context, pos shogi.Position, depth, multiP
 
 		// 저장은 先手 관점이고 탐색 결과는 수번 관점이다. 되돌리는 것을 빠뜨리면
 		// 後手로 잡은 판에서만 부호가 뒤집히고, 에러는 나지 않는다.
-		for d, sc := range byMove[c.USI] {
+		for _, d := range byMove[c.USI] {
 			res.History = append(res.History, usi.SearchLine{
-				Depth: d + 1, MultiPV: i + 1, Move: c.USI, Score: senteScore(sc, pos.Turn),
+				Depth: d.Depth, MultiPV: i + 1, Move: c.USI, Score: senteScore(d.Score, pos.Turn),
 			})
 		}
 	}
@@ -360,9 +363,15 @@ func (a *Searcher) record(startSFEN string, moves []string, res usi.SearchResult
 		if len(byDepth) == 0 {
 			continue
 		}
-		scores := make([]eval.Score, 0, len(byDepth))
+		scores := make([]store.DepthScore, 0, len(byDepth))
 		for _, d := range byDepth {
-			scores = append(scores, senteScore(d.Score, pos.Turn))
+			sc := store.DepthScore{Depth: d.Depth, Score: senteScore(d.Score, pos.Turn)}
+			// 엔진이 한 수를 두 순위에 낸 깊이가 있다(usi.SearchResult.Ranked). 한 깊이에 한 값만 둔다.
+			if n := len(scores); n > 0 && scores[n-1].Depth == d.Depth {
+				scores[n-1] = sc
+				continue
+			}
+			scores = append(scores, sc)
 		}
 		if err := a.store.PutEdge(ctx, store.Edge{ParentKey: key, USI: c.USI, ByDepth: scores}); err != nil {
 			log.Printf("archive: put edge %s %s: %v", key, c.USI, err)

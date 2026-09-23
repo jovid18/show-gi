@@ -193,11 +193,18 @@ type Edge struct {
 	ChildKey string
 	// Tags 는 이 수가 새로 만든 囲い·전법·手筋의 코드다.
 	Tags []string
-	// ByDepth 는 깊이 1..N의 先手 관점 점수다(schema 주석과 같은 규약). PvInterval=0 덕에
+	// ByDepth 는 깊이별 先手 관점 점수를 깊이 오름차순으로 담는다. PvInterval=0 덕에
 	// depth N 탐색 한 번이 1..N을 전부 주므로 추가 탐색이 없다.
 	//
-	// 행에서는 배열 둘이다. cp 와 詰み이 배타적인 것은 CHECK 가 맡는다(021_tagged_evals.sql).
-	ByDepth []eval.Score
+	// 그 수가 후보 줄에 없던 깊이는 빠진다. 행에서는 배열 둘이고 i 번째 칸이 depth i+1이며,
+	// 빠진 깊이는 두 칸이 다 NULL 이다(journal §142).
+	ByDepth []DepthScore
+}
+
+// DepthScore 는 한 깊이의 점수다.
+type DepthScore struct {
+	Depth int
+	Score eval.Score
 }
 
 // PutEdge 는 한 수의 분석을 남긴다. 이미 있는 칸은 덮지 않는다.
@@ -209,13 +216,24 @@ func (s *Store) PutEdge(ctx context.Context, e Edge) error {
 	if arg.Tags == nil {
 		arg.Tags = []string{} // NOT NULL 칸이다. nil을 보내면 거절된다
 	}
-	for _, sc := range e.ByDepth {
-		if n, ok := sc.MateIn(); ok {
+	// 자리가 곧 깊이다. 빠진 깊이를 건너뛰고 붙이면 뒤 전체가 한 칸씩 얕은 깊이로 읽힌다.
+	for _, d := range e.ByDepth {
+		if d.Depth < 1 {
+			return fmt.Errorf("store: edge %s %s: depth %d", e.ParentKey, e.USI, d.Depth)
+		}
+		for len(arg.EvalByDepth) < d.Depth-1 {
+			arg.EvalByDepth = append(arg.EvalByDepth, nil)
+			arg.MateByDepth = append(arg.MateByDepth, nil)
+		}
+		if len(arg.EvalByDepth) >= d.Depth {
+			return fmt.Errorf("store: edge %s %s: depth %d out of order", e.ParentKey, e.USI, d.Depth)
+		}
+		if n, ok := d.Score.MateIn(); ok {
 			arg.EvalByDepth = append(arg.EvalByDepth, nil)
 			arg.MateByDepth = append(arg.MateByDepth, ptr(int32(n)))
 			continue
 		}
-		cp, _ := sc.Centipawns()
+		cp, _ := d.Score.Centipawns()
 		arg.EvalByDepth = append(arg.EvalByDepth, ptr(int32(cp)))
 		arg.MateByDepth = append(arg.MateByDepth, nil)
 	}
@@ -258,28 +276,33 @@ func evalColumns(s *eval.Score) (cp, mate *int32) {
 	return ptr(int32(v)), nil
 }
 
-// scoresByDepth 는 배열 둘을 깊이 순 점수로 합친다. 한 자리라도 「둘 다 있음」이나
-// 「둘 다 없음」이면 nil 이다 — 자리가 곧 깊이라 부분 복구가 곧 깊이 어긋남이다.
+// scoresByDepth 는 배열 둘을 깊이 순 점수로 합친다. i 번째 칸이 depth i+1이고, 두 칸이 다
+// NULL 이면 그 깊이가 빠진 것이다. 한 자리라도 「둘 다 있음」이면 nil 이다.
 //
 // 詰み 배열 전체가 비어 있는 것은 「전부 cp」다. 021 앞에 쌓인 행이 그 모양이고, 길이가
 // 다르다고 버리면 그 행들의 깊이별 값이 전부 사라진다(journal §131).
-func scoresByDepth(cps, mates []*int32) []eval.Score {
+func scoresByDepth(cps, mates []*int32) []DepthScore {
 	if len(mates) == 0 {
 		mates = make([]*int32, len(cps))
 	}
 	if len(cps) != len(mates) {
 		return nil
 	}
-	out := make([]eval.Score, 0, len(cps))
+	out := make([]DepthScore, 0, len(cps))
 	for i := range cps {
 		switch {
 		case cps[i] != nil && mates[i] == nil:
-			out = append(out, eval.Cp(int(*cps[i])))
+			out = append(out, DepthScore{Depth: i + 1, Score: eval.Cp(int(*cps[i]))})
 		case cps[i] == nil && mates[i] != nil:
-			out = append(out, eval.Mate(int(*mates[i])))
+			out = append(out, DepthScore{Depth: i + 1, Score: eval.Mate(int(*mates[i]))})
+		case cps[i] == nil && mates[i] == nil:
+			// 그 깊이에 이 수의 줄이 없었다.
 		default:
 			return nil
 		}
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	return out
 }
