@@ -76,8 +76,8 @@ export interface ReviewMove {
   /**
    * 플레이어 관점 cp. 없으면 그 手数에 평가치가 붙지 않았거나 詰み이고, 0(호각)과 다르다.
    *
-   * 詰み이면 이 칸이 비고 `mateIn` 이 찬다. 두 칸이 같이 오지 않는 것이 서버 쪽 규약이라
-   * (`store.Candidate`) 화면은 언제나 `mateIn` 을 먼저 본다.
+   * 詰み이면 이 칸이 비고 `mateIn` 이 찬다. 두 칸이 같이 오지 않는 것이 서버 쪽
+   * 규약이다(`store.Candidate`). 화면은 언제나 `mateIn` 을 먼저 본다.
    */
   evalCp?: number;
   /** 詰み까지의 手数(플레이어 관점). 양수면 내가 詰ます 쪽이다. */
@@ -129,9 +129,8 @@ export interface ReviewIntervention {
 /**
  * 사람이 스스로 무른 수 하나(待った).
  *
- * `ReviewIntervention` 과 갈라져 있다. 저쪽은 AI가 막은 것이고 이쪽은 사람이 되돌리고
- * 싶었던 것이라, 되짚기에서 읽는 이야기가 정반대다. 무르기에는 판정이 없어서 카테고리도
- * 문구도 없다.
+ * `ReviewIntervention` 과 갈라져 있다. 저쪽은 AI가 막은 것이고 이쪽은 사람이 되돌리고 싶었던
+ * 것이다. 되짚기에서 읽는 이야기가 정반대다. 무르기에는 판정이 없어서 카테고리도 문구도 없다.
  */
 export interface ReviewUndo {
   /** 무른 수의 手数. 그 수는 기보에 없으므로 그 국면은 `ply-1` 手目의 판이다. */

@@ -116,8 +116,8 @@ export async function createRoom(choice: SeatChoice, signal: AbortSignal): Promi
 /**
  * 링크로 들어온 방을 확인한다. 자리를 잡지 않는다. 앉는 것은 WebSocket 이 붙을 때다.
  *
- * 볼 수 없으면 404 하나다. 없는 방·만료된 방·남이 이미 찬 방·로그인하지 않은 요청이 전부
- * 같은 답이라야 방 id 를 훑어보는 것이 성립하지 않는다.
+ * 볼 수 없으면 404 하나다. 없는 방·만료된 방·남이 이미 찬 방·로그인하지 않은 요청에 전부 같은
+ * 답을 준다. 그래야 방 id 를 훑어보는 것이 성립하지 않는다.
  */
 export async function fetchRoom(id: string, signal: AbortSignal): Promise<Room | null> {
   const res = await fetch(`/api/rooms/${encodeURIComponent(id)}`, { signal });
