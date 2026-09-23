@@ -952,6 +952,24 @@ type GameRecord struct {
 	Undos []RecordedUndo
 }
 
+// MoveEvals 는 판마다 手 순서의 평가치다. 수순은 담지 않는다. 목록이 精度를 세는 데만 쓴다.
+//
+// 평가치가 한 手도 없는 판도 기보가 있으면 들어온다. 비어 있는 칸은 nil 이다.
+func (s *Store) MoveEvals(ctx context.Context, gameIDs []int64) (map[int64][]RecordedMove, error) {
+	out := make(map[int64][]RecordedMove, len(gameIDs))
+	if len(gameIDs) == 0 {
+		return out, nil
+	}
+	rows, err := s.q.ListMoveEvalsForGames(ctx, gameIDs)
+	if err != nil {
+		return nil, fmt.Errorf("list move evals: %w", err)
+	}
+	for _, r := range rows {
+		out[r.GameID] = append(out[r.GameID], RecordedMove{Ply: int(r.Ply), Score: scoreOf(r.EvalCp, r.EvalMate)})
+	}
+	return out, nil
+}
+
 // ErrNoGame 은 그런 대국이 없을 때.
 var ErrNoGame = errors.New("store: game not found")
 

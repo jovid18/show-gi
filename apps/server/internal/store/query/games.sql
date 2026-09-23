@@ -261,6 +261,14 @@ WHERE id = $1
 -- 배타적이고, 그것을 맡는 것은 CHECK 다(021_tagged_evals.sql).
 SELECT ply, usi, eval_cp, eval_mate, good FROM game_moves WHERE game_id = $1 ORDER BY ply;
 
+-- name: ListMoveEvalsForGames :many
+--
+-- 목록의 판들에서 手마다 평가치만 한 번에 읽는다. 목록이 精度를 세는 자리다
+-- (server.accuracyOf). 판마다 물으면 질의가 판 수만큼 는다.
+SELECT game_id, ply, eval_cp, eval_mate FROM game_moves
+WHERE game_id = ANY(sqlc.arg('game_ids')::bigint[])
+ORDER BY game_id, ply;
+
 -- name: ListGameInterventions :many
 --
 -- 같은 ply에 여러 행이 온다(InsertIntervention). id 로 이어 정렬해 물러진 순서를

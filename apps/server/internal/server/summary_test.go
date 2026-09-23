@@ -9,6 +9,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
+	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/store"
 )
 
@@ -327,5 +328,25 @@ func TestNoEvalsNoAccuracy(t *testing.T) {
 	_, stats := factsOf(recordFor("b", 10), intervene.Beginner)
 	if stats.Accuracy != nil {
 		t.Errorf("Accuracy = %d, want nil", *stats.Accuracy)
+	}
+}
+
+// 사람의 手 하나라도 앞뒤 평가치가 비면 精度를 내지 않는다. 분석 중인 판이 그 모양이고, 덜
+// 찬 값을 내면 목록과 총평의 숫자가 분석이 진행되며 움직인다.
+func TestAccuracyWaitsForEveryHumanMove(t *testing.T) {
+	cp := func(v int) *eval.Score { s := eval.Cp(v); return &s }
+	full := []store.RecordedMove{{Ply: 1, Score: cp(0)}, {Ply: 2, Score: cp(0)}, {Ply: 3, Score: cp(0)}}
+	if accuracyOf(full, shogi.StartSFEN, shogi.Black) == nil {
+		t.Fatal("다 잰 판에 精度가 없다")
+	}
+	// 3手目(先手)의 착수 전이 비었다.
+	hole := []store.RecordedMove{{Ply: 1, Score: cp(0)}, {Ply: 2}, {Ply: 3, Score: cp(0)}}
+	if got := accuracyOf(hole, shogi.StartSFEN, shogi.Black); got != nil {
+		t.Errorf("빈 칸이 있는데 %d 가 나왔다", *got)
+	}
+	// 상대의 마지막 手만 비어 있는 것은 괜찮다. 엔진이 둔 마지막 手에는 평가치가 붙지 않는다.
+	tail := []store.RecordedMove{{Ply: 1, Score: cp(0)}, {Ply: 2}}
+	if accuracyOf(tail, shogi.StartSFEN, shogi.Black) == nil {
+		t.Error("상대의 마지막 手가 비었을 뿐인데 精度가 없다")
 	}
 }

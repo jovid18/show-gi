@@ -131,7 +131,7 @@ func factsOf(rec store.GameRecord, level intervene.Level) (explain.GameFacts, su
 		}
 	}
 
-	stats.Accuracy = accuracyOf(rec, humanColor)
+	stats.Accuracy = accuracyOf(rec.Moves, startSFENOf(rec.StartSFEN), humanColor)
 
 	stats.Interventions = len(rec.Interventions)
 	if stats.Interventions == 0 {
@@ -165,20 +165,37 @@ func factsOf(rec store.GameRecord, level intervene.Level) (explain.GameFacts, su
 	return f, stats
 }
 
-// accuracyOf 는 기보에 남은 평가치로 그 사람의 精度를 센다. 물러진 수는 기보에 없으므로
-// 세지 않는다. 확정한 수순의 精度다.
-func accuracyOf(rec store.GameRecord, human shogi.Color) *int {
+// accuracyOf 는 기보에 남은 평가치로 그 사람의 精度를 센다. 총평과 대국 목록이 같이 쓴다.
+//
+// 물러진 수는 기보에 없으므로 세지 않는다. 확정한 수순의 精度다.
+//
+// 그 사람의 手 가운데 앞뒤 평가치가 하나라도 비면 내지 않는다. 분석 중인 판이 그 모양이고,
+// 덜 찬 값은 분석이 진행되며 움직인다. 0手 국면은 저장되지 않아 기준점으로 본다
+// (accuracy.Game).
+func accuracyOf(moves []store.RecordedMove, startSFEN string, human shogi.Color) *int {
+	start, err := shogi.ParseSFEN(startSFEN)
+	if err != nil {
+		return nil
+	}
 	last := 0
-	for _, m := range rec.Moves {
+	for _, m := range moves {
 		last = max(last, m.Ply)
 	}
 	scores := make([]*eval.Score, last)
-	for _, m := range rec.Moves {
+	for _, m := range moves {
 		if m.Ply >= 1 {
 			scores[m.Ply-1] = m.Score
 		}
 	}
-	acc, ok := accuracy.Game(startSFENOf(rec.StartSFEN), human, scores)
+	for ply := 1; ply <= last; ply++ {
+		if moverAt(start.Turn, ply) != human {
+			continue
+		}
+		if scores[ply-1] == nil || (ply > 1 && scores[ply-2] == nil) {
+			return nil
+		}
+	}
+	acc, ok := accuracy.Game(startSFEN, human, scores)
 	if !ok {
 		return nil
 	}

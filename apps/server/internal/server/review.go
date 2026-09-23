@@ -83,6 +83,8 @@ type gameSummary struct {
 	// 화면이 이 값으로 개입 줄의 이름을 옮긴다. 여기서 둔 판의 그 줄은 「止められた手」지만
 	// 가져온 판에서는 누구도 막지 않았고 그 수가 기보에 그대로 남아 있다.
 	Imported bool `json:"imported,omitempty"`
+	// Accuracy 는 그 판의 사람 쪽 精度(0~100)다. 총평의 값과 같다(accuracyOf).
+	Accuracy *int `json:"accuracy,omitempty"`
 	// Analyzing 은 평가치를 지금 채우는 중인가다. 대인전에만 뜬다(matchAnalyzer).
 	//
 	// 따로 두지 않으면 판이 끝나자마자 들어온 사람이 「평가치가 남지 않았습니다」를 보고
@@ -214,9 +216,26 @@ func (h *reviewHandler) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 精度는 手마다의 평가치로 센다. 목록의 판을 한 번에 읽는다(store.MoveEvals). 읽지 못하면
+	// 그 칸만 비우고 목록은 낸다.
+	ids := make([]int64, 0, len(games))
+	for _, g := range games {
+		ids = append(ids, g.ID)
+	}
+	evals, err := h.store.MoveEvals(r.Context(), ids)
+	if err != nil {
+		log.Printf("review: list move evals: %v", err)
+	}
+
 	out := make([]gameSummary, 0, len(games))
 	for _, g := range games {
-		out = append(out, summaryOf(g))
+		row := summaryOf(g)
+		human := shogi.Black
+		if g.MyColor == "w" {
+			human = shogi.White
+		}
+		row.Accuracy = accuracyOf(evals[g.ID], startSFENOf(g.StartSFEN), human)
+		out = append(out, row)
 	}
 	// 배열 대신 객체로 감싼다. 나중에 커서를 붙일 때 형태를 바꾸지 않아도 된다.
 	writeJSON(w, http.StatusOK, map[string]any{"games": out})
@@ -256,12 +275,7 @@ func (h *reviewHandler) summary(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	out := summarize(rec, h.level)
-	// 분석 중인 판의 精度는 덜 찬 평가치로 센 값이다. 끝나면 화면이 총평을 다시 받는다.
-	if h.analyzer.analyzing(r.Context(), rec.ID) {
-		out.Stats.Accuracy = nil
-	}
-	writeJSON(w, http.StatusOK, out)
+	writeJSON(w, http.StatusOK, summarize(rec, h.level))
 }
 
 // record 는 {id} 가 가리키는 기록을 읽고, 실패면 그 자리에서 답하고 false 를 준다.
