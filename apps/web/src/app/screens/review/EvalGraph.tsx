@@ -325,8 +325,8 @@ function MainDot(props: {
   const good = goods.has(payload.ply);
   if (!standing && !stopped && !good) return null;
 
-  // 한 手数에 빨강과 파랑이 겹칠 수 있다. 빨강은 다음 수 앞에서 물러진 자리라서다. 그때는
-  // 빨강을 위에 그린다. 막혔다는 사실이 더 급한 소식이다.
+  // 빨강은 물러진 手의 한 수 앞(상대 手)에 찍혀서 여기서 둔 판에서는 파랑과 겹치지 않는다.
+  // 양쪽 수를 다 적는 기보 임포트 판에서는 겹칠 수 있고, 그때는 빨강을 위에 그린다.
   return (
     <g>
       {good && <circle cx={cx} cy={cy} r={3.5} fill="rgb(var(--hint))" />}

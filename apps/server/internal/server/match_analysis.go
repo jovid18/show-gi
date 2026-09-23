@@ -448,8 +448,7 @@ func (a *matchAnalyzer) measureOnePly(ctx context.Context, analyst game.Analyst)
 // 그만둔 판인지 여기서 보지 않는다. 집는 질의가 이미 그 행을 주지 않는다
 // (query/analysis.sql).
 func (a *matchAnalyzer) lookAhead(ctx context.Context, analyst game.Analyst, p store.AnalysisPly) {
-	_, imported := importedGameID(p.MatchID)
-	got, err := a.judgeOne(ctx, analyst, p.StartSFEN, p.Moves, p.Ply, imported)
+	got, err := a.judgeOne(ctx, analyst, p.StartSFEN, p.Moves, p.Ply, a.seatMoves(ctx, p))
 	if err != nil {
 		// 프로세스가 멈추는 중이면 그만두지 않는다. 그만두면 배포 한 번이 그때 두고 있던
 		// 판들의 미리 재기 전체를 끈다(journal §115).
@@ -462,6 +461,21 @@ func (a *matchAnalyzer) lookAhead(ctx context.Context, analyst game.Analyst, p s
 		return
 	}
 	a.remember(ctx, p.MatchID, got)
+}
+
+// seatMoves 는 그 手가 가져온 판의 주인이 둔 수인가다. 好手는 그 자리만 적으므로
+// (analyze) 상대의 手에는 k=2 탐색을 걸지 않는다. 모르면 false 다.
+func (a *matchAnalyzer) seatMoves(ctx context.Context, p store.AnalysisPly) bool {
+	id, ok := importedGameID(p.MatchID)
+	if !ok {
+		return false
+	}
+	pos, err := shogi.ParseSFEN(p.StartSFEN)
+	if err != nil {
+		return false
+	}
+	seats := a.importSeat(ctx, id)
+	return len(seats) > 0 && moverAt(pos.Turn, p.Ply) == seats[0].color
 }
 
 // remember 는 잰 것을 그 手의 행에 적는다. 행을 만드는 것은 writePly 뿐이다.
@@ -753,7 +767,8 @@ func (a *matchAnalyzer) analyze(ctx context.Context, key string, seats []analysi
 		got, ok := measured[ply]
 		var err error
 		if !ok {
-			got, err = a.judgeOne(ctx, analyst, start, moves[:ply], ply, imported)
+			good := imported && firstKnown && moverAt(first, ply) == seats[0].color
+			got, err = a.judgeOne(ctx, analyst, start, moves[:ply], ply, good)
 		}
 		// 끊기는 이유가 둘이고 성질이 같다. 엔진이 답하지 못했거나 판정이 국면을 되만들지
 		// 못했거나(HasEvals), 어느 쪽이든 뒤의 手도 전부 같은 자리에서 실패한다. 매번 같은

@@ -77,8 +77,8 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 	mover, moverKnown := shogi.Black, false
 	// 설명에 쓸 사실. 판정용과 같은 자리에서 한 번에 나온다(moveFacts).
 	var facts explain.Facts
-	// obvious 는 好手 후보에서 빼는 이유다. 판을 읽지 못하면 묻지 않는다(checkGood).
-	obvious := ObviousEvasion
+	// obvious 는 好手 후보에서 빼는 이유다. 판을 읽지 못하면 아래 moverKnown 이 막는다.
+	obvious := ObviousNone
 
 	if pos, m, err := replay(startSFEN, moves); err == nil {
 		mover, moverKnown = pos.Turn, true

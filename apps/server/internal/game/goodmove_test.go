@@ -10,6 +10,7 @@ import (
 
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
+	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
 func TestObviousMove(t *testing.T) {
@@ -122,15 +123,19 @@ func TestGoodMoveIsNotRecordedAfterAStuckHint(t *testing.T) {
 }
 
 // laterAnalyst 는 판정에서 물음만 남기고, 好手는 따로 물을 때 답한다(engineAnalyst 와 같은 모양).
-type laterAnalyst struct{ asked atomic.Int32 }
+type laterAnalyst struct {
+	asked    atomic.Int32
+	borrower atomic.Value
+}
 
 func (a *laterAnalyst) Judge(_ context.Context, start string, moves []string, _ int) (Judgement, error) {
 	q := &goodQuery{startSFEN: start, before: moves[:len(moves)-1], played: moves[len(moves)-1]}
 	return Judgement{goodQuery: q}, nil
 }
 
-func (a *laterAnalyst) askGood(context.Context, goodQuery) goodCheck {
+func (a *laterAnalyst) askGood(ctx context.Context, _ goodQuery) goodCheck {
 	a.asked.Add(1)
+	a.borrower.Store(usi.BorrowerFrom(ctx))
 	return goodCheck{Asked: true, Gap: 0.3, Good: true}
 }
 
@@ -154,5 +159,9 @@ func TestGoodMoveIsAskedAfterTheMoveStands(t *testing.T) {
 			t.Fatalf("好手가 기록되지 않았다: %v (asked %d)", rec.all(), an.asked.Load())
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+	// 상대의 수 탐색보다 뒤에 줄을 서야 한다(usi.priorityOf).
+	if got := an.borrower.Load(); got != usi.BorrowerGood {
+		t.Errorf("borrower = %v, want %q", got, usi.BorrowerGood)
 	}
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 	"github.com/jovid18/show-gi/apps/server/internal/skill"
 	"github.com/jovid18/show-gi/apps/server/internal/tag"
+	"github.com/jovid18/show-gi/apps/server/internal/usi"
 )
 
 // Analyst 는 착수 한 수를 판정한다. 세션은 「이 수가 블런더인가」만 알고 그것을
@@ -1003,7 +1004,7 @@ func (st *state) recordEvals(j Judgement) {
 // 한다. 그 手数의 기보 행이 먼저 있어야 적힌다.
 //
 // 대국은 이 답을 기다리지 않는다. 好手는 화면에 나가지 않고 되짚기가 읽으므로
-// (journal §141), 상대의 탐색과 나란히 돈다. 판정이 이미 답을 채웠으면 그대로 적는다.
+// (journal §141), 상대의 수 탐색보다 뒤에 줄을 선다. 판정이 이미 답을 채웠으면 그대로 적는다.
 func (st *state) maybeAskGood(ctx context.Context, r judgeResult) {
 	if st.cfg.Recorder == nil || r.err != nil || st.goodBlocked {
 		return
@@ -1021,7 +1022,9 @@ func (st *state) maybeAskGood(ctx context.Context, r judgeResult) {
 	deadline := st.moveDeadline()
 	done := st.goodDone
 	go func() {
-		gctx, cancel := context.WithTimeout(ctx, deadline)
+		// 뒤에 줄을 선다. 같은 순간 maybeThink 가 상대의 수를 빌리러 가고, 이 탐색이 먼저
+		// 엔진을 잡으면 대국이 탐색 하나만큼 기다린다.
+		gctx, cancel := context.WithTimeout(usi.WithBorrower(ctx, usi.BorrowerGood), deadline)
 		g := asker.askGood(gctx, q)
 		cancel()
 		if !g.Good {

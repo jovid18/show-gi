@@ -149,7 +149,7 @@ const prioCount = 2
 // 일어나므로 순서를 바꿔도 그 사람이 기다리는 총 시간이 같다(journal §106).
 func priorityOf(borrower string) int {
 	switch borrower {
-	case BorrowerAnalysis, BorrowerQuiz:
+	case BorrowerAnalysis, BorrowerQuiz, BorrowerGood:
 		return 1
 	default:
 		return 0
@@ -178,6 +178,9 @@ const (
 	BorrowerExplore  = "explore"
 	BorrowerWhatIf   = "whatif"
 	BorrowerQuiz     = "quiz"
+	// BorrowerGood 은 대국에서 확정 뒤에 따로 묻는 好手 탐색이다. 화면에 나가지 않는 값이라
+	// 상대의 수 탐색보다 뒤에 선다(game.state.maybeAskGood).
+	BorrowerGood = "good"
 )
 
 // WithBorrower 는 이 컨텍스트로 빌리는 쪽의 이름을 정한다.
