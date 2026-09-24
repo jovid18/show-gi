@@ -12,8 +12,8 @@ export interface ExploreRequest {
 }
 
 /**
- * `baselineCp` 는 언제나 下手 관점이다. 되짚기의 `GameDetail.baselineCp` 는 사람이 上手면 뒤집혀
- * 오지만, 검토는 뒤집지 않는다(서버의 `exploreRoot`). 駒落ち의 0手目가 上手 차례여도 같다.
+ * `evalCp` 와 `baselineCp` 는 언제나 下手(`b` 쪽) 관점이다. 되짚기는 사람이 上手면 뒤집혀
+ * 오지만, 검토에는 플레이어가 없어 뒤집지 않는다(서버의 `exploreRoot`). 0手目가 上手 차례여도 같다.
  */
 export interface ExploreNode extends WhatIfNode {
   /**

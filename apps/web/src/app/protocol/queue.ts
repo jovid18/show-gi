@@ -1,4 +1,4 @@
-// 상대의 레이팅을 싣지 않는다. 레이팅은 어느 API 도 돌려주지 않는다(01-core.md §5).
+// 상대의 Glicko 를 싣지 않는다. 매칭이 쓰는 내부 값이라 어느 API 도 돌려주지 않는다(01-core.md §5).
 
 import type { Color } from '@/protocol/game';
 
