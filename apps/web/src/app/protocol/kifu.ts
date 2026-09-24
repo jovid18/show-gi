@@ -1,15 +1,9 @@
-// `/api/kifu/*` 의 계약. 서버의 `internal/server/kifu_import.go` 와 짝이다.
-//
-// 두 단계다. 읽기(`/parse`)는 판을 만들지 않고 즉시 답하며, 가져오기(`/import`)가 판을 만들어
-// 분석 줄에 세운다. 그 사이에 사람이 手数와 앞뒤 수를 눈으로 확인하므로, 잘못 읽은 기보에
-// 엔진 몇 분을 쓰지 않는다.
-//
-// 원문을 두 번 보낸다. 서버에 중간 상태가 없기 때문이고(파싱이 결정적이다), 화면은 붙여 넣은
-// 글을 그대로 갖고 있다가 두 번째 요청에 다시 싣는다.
+// `/parse` 는 판을 만들지 않고, `/import` 가 판을 만든다. 서버가 `/parse` 의 결과를 들고 있지
+// 않으므로 `/import` 에도 원문을 다시 싣는다.
 
 import type { MyColor } from '@/protocol/review';
 
-/** 사람이 고른 결과. 기보가 결과를 말하지 않을 때만 보낸다. */
+/** 사람 관점의 결과. 기보가 결과를 말하지 않을 때만 보낸다. */
 export type ChosenResult = 'win' | 'loss' | 'draw';
 
 export interface KifuRequest {
@@ -18,26 +12,21 @@ export interface KifuRequest {
   result?: ChosenResult;
 }
 
-/** 기보가 말한 결과. 말하지 않으면 아예 오지 않고, 그때 화면이 사람에게 묻는다. */
+/** 기보가 말한 결과. 先手/後手 기준이다. 말하지 않으면 오지 않고, 그때 화면이 사람에게 묻는다. */
 export type RecordedResult = 'sente' | 'gote' | 'draw';
 
 export interface KifuPreview {
   plies: number;
-  /** 手合割 이름(香落ち). 平手면 오지 않는다. `GameSummary.handicapJa` 와 같은 규약이다. */
   handicapJa?: string;
   sente?: string;
   gote?: string;
   result?: RecordedResult;
   /**
-   * 결정적 파서가 읽지 못해 AI 가 서식을 옮겨 적었나.
-   *
-   * 참이면 화면이 한 줄 붙인다. 옮겨 적은 수도 전부 룰 엔진을 지나 왔지만(서버의
-   * `kifu.ParseMoves`), 사람이 눈으로 확인하는 것이 지어내기에 대한 두 번째 방어다.
+   * 결정적 파서가 읽지 못해 AI 가 서식을 옮겨 적었나. 옮겨 적은 수도 룰 엔진을 지나 왔지만
+   * (서버의 `kifu.ParseMoves`), 참이면 사람이 수순을 눈으로 확인하게 한 줄 붙인다.
    */
   transcribed: boolean;
-  /** 棋譜 표기의 앞쪽. 사람이 자기 판인지 알아보는 단서다. */
   head: string[];
-  /** 뒤쪽. 짧은 판에는 오지 않는다. 앞쪽이 이미 전부다. */
   tail?: string[];
 }
 
