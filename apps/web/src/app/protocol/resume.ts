@@ -1,34 +1,21 @@
-// `GET /api/resumable` · `POST /api/resumable/{id}/decline` 의 계약.
-// 서버의 `internal/server/resume.go` 와 짝이다.
-//
-// 기보가 여기 없다. 물음 카드가 그릴 것은 「몇 手目까지 두던 판인가」뿐이고, 수순을 실으면
-// 이 표면이 되짚기의 우회로가 된다(그쪽은 결과가 나온 판만 연다).
+// 수순을 싣지 않는다. 실으면 이 API 가 결과가 나오지 않은 판의 기보를 여는 우회로가 된다
+// (되짚기는 결과가 나온 판만 연다).
 
-/** 이어할 수 있는 판. */
 export interface ResumableGame {
   id: number;
-  /** 그 판에서 사람이 잡은 쪽. 이어하면 그대로 이어진다. */
   myColor: 'b' | 'w';
   startedAt: string;
   moveCount: number;
-  /** 그때 고른 상대의 진형 id. 「おまかせ」였으면 오지 않는다. */
   opening?: string;
-  /** 그 진형의 일본어 이름. 화면이 id로 문장을 짓지 않는다. */
   openingJa?: string;
-  /** 그 판의 手合割 id. 平手였으면 오지 않는다. */
   handicap?: string;
-  /** 그 手合割의 일본어 이름(二枚落ち). 위 진형과 같은 짝이다. */
   handicapJa?: string;
 }
 
 /**
  * 이어할 수 있는 판을 묻는다. 없으면 null.
  *
- * 실패해도 null이다. 「이어할 판이 없다」와 그림이 같고, 여기가 막혀도 새 대국은 그대로
- * 시작할 수 있어야 한다(`fetchOpenings` 와 같은 판단).
- *
- * 로그인하지 않았으면 서버가 늘 null을 준다. 익명 판은 서로 구별할 수단이 없어서 「누구의
- * 중단된 판인가」에 답할 수가 없다.
+ * 실패해도 던지지 않고 null 을 준다. 여기가 막혀도 새 대국은 시작할 수 있어야 한다.
  */
 export async function fetchResumable(signal: AbortSignal): Promise<ResumableGame | null> {
   try {
@@ -43,12 +30,9 @@ export async function fetchResumable(signal: AbortSignal): Promise<ResumableGame
 
 /**
  * 「いいえ」를 남긴다. 그 판은 중단된 채로 끝나고 다시 물어보지 않는다.
- *
- * 답을 기다리지 않는다. 실패의 결과는 「다음에 한 번 더 물어본다」뿐이고, 그것 때문에 시작
- * 화면을 막지 않는다.
  */
 export function declineResume(id: number): void {
   void fetch(`/api/resumable/${id}/decline`, { method: 'POST' }).catch(() => {
-    // 화면에 말하지 않는다. 위 주석 참조.
+    // 실패하면 다음에 한 번 더 묻는다. 화면에 알리지 않는다.
   });
 }
