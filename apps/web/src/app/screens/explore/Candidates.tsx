@@ -11,8 +11,8 @@ import type { ExploreNode } from '@/protocol/explore';
  * 늘어놓는 목록인데, 확정된 기보가 없는 검토에는 그 둘이 아예 없다. 같은 컴포넌트에 넣으면
  * 절반이 언제나 빈 채로 도는 분기가 두 화면을 동시에 잡는다.
  *
- * 판 위의 초록 화살표가 첫 줄과 같은 수다(03-frontend.md §2). 여기서 색을 새로 꺼내지 않고
- * 판이 이미 쓰는 토큰을 그대로 쓴다(`evalTone`).
+ * 판 위의 화살표 셋이 이 세 줄과 같은 수이고, 순위 숫자가 그 화살표의 색을 쓴다
+ * (03-frontend.md §2). 줄 배경은 판이 이미 쓰는 값 토큰이다(`evalTone`).
  */
 interface CandidatesProps {
   node: ExploreNode | null;
@@ -54,9 +54,9 @@ export function Candidates({ node, stale, onPick }: CandidatesProps) {
                 <button
                   type="button"
                   className="explore-option"
-                  // 첫 줄이 판 위의 초록 화살표다. 판과 목록이 같은 것을 두 채널로 말하지
-                  // 않도록 순위 숫자로만 짚는다.
-                  data-best={i === 0 || undefined}
+                  // 판 위의 화살표와 순위 숫자의 색이 같다. 판과 목록이 같은 것을 두 채널로
+                  // 말하지 않도록 숫자로만 짚는다.
+                  data-rank={i < 3 ? i + 1 : undefined}
                   disabled={stale}
                   onClick={() => onPick(c.usi)}
                   style={{ '--tone': evalTone(playerCp(score, byOpponent), node.baselineCp ?? 0) } as CSSProperties}

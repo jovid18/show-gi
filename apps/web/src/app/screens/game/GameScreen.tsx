@@ -347,7 +347,7 @@ export function GameScreen() {
    * `data-dropping` 을 켜서, 파란 테와 초록 링이 같은 駒에 동시에 걸린다.
    */
   const dropping = branchDrop ?? (hint?.drop ? { side: me, kind: hint.drop } : null);
-  const { dropFrom, boardRef, pieceRef } = useDropAnchor(dropping);
+  const { dropFrom, boardRef } = useDropAnchor(dropping?.side ?? null, dropping ? [dropping.kind] : []);
 
   /**
    * 물러진 수가 지나간 두 칸.
@@ -539,8 +539,6 @@ export function GameScreen() {
           // 언제나 비어 있다.
           playable={playable && handTurn === them ? dropOrigins : EMPTY_SET}
           dropping={branchDrop?.side === them ? branchDrop.kind : null}
-          droppingRef={pieceRef}
-          measure={dropping?.side === them ? dropping.kind : null}
           onPick={playable && handTurn === them ? pick : noop}
         />
 
@@ -556,7 +554,7 @@ export function GameScreen() {
           replay={replay}
           // 개입 중에는 수번 쪽의 최선수다. 그 국면은 되물러서 사라진 자리라 지금 판의
           // 최선수는 여기 뜨지 않는다(01-core.md §7).
-          ray={branchRay}
+          rays={branchRay ? [branchRay] : []}
           // 대국 화면은 미끄러뜨리지 않는다. 판이 움직이는 자리는 유령 駒이고, 둘을 같이
           // 켜면 같은 수를 두 방식으로 두 번 그린다.
           motion={null}
@@ -583,8 +581,6 @@ export function GameScreen() {
           selected={handTurn === me && origin?.endsWith('*') ? origin : null}
           playable={playable && handTurn === me ? dropOrigins : EMPTY_SET}
           dropping={branchDrop?.side === me ? branchDrop.kind : null}
-          droppingRef={pieceRef}
-          measure={dropping?.side === me ? dropping.kind : null}
           hintDrop={hint?.drop ?? null}
           onPick={playable && handTurn === me ? pick : noop}
         />

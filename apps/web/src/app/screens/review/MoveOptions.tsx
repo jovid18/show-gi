@@ -51,7 +51,8 @@ interface Option {
   cp: number | undefined;
   /** 詰み까지의 手数, 둔 쪽 관점. 있으면 cp 대신 이것으로 말한다(`scoreJa`). */
   mateIn: number | undefined;
-  best: boolean;
+  /** 후보 순위. 판 위 화살표의 색과 같은 색으로 줄 왼쪽에 띠를 친다. 후보가 아니면 null. */
+  rank: 1 | 2 | 3 | null;
   /** 실제로 이 국면에서 둔 수인가. 누가 뒀는지까지 — 상대 차례면 컴퓨터가 둔 것이다. */
   played: 'human' | 'engine' | null;
   /** 물러진 수라면 그 카테고리. 몇 번 시도했는지도 센다. */
@@ -96,7 +97,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
         ja: at?.ja || ja,
         cp: patch.cp ?? at?.cp,
         mateIn: patch.mateIn ?? at?.mateIn,
-        best: patch.best ?? at?.best ?? false,
+        rank: patch.rank ?? at?.rank ?? null,
         played: patch.played ?? at?.played ?? null,
         retracted: patch.retracted ?? at?.retracted ?? null,
         undone: patch.undone ?? at?.undone ?? null,
@@ -115,9 +116,9 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
     const moverScore = (at: MoveEval | undefined): Partial<Option> =>
       at === undefined ? {} : { cp: flip(at.cp), mateIn: flip(at.mateIn) };
 
-    for (const c of node?.candidates ?? []) {
-      put(c.usi, c.ja || c.usi, { cp: c.evalCp, mateIn: c.mateIn, best: true });
-    }
+    (node?.candidates ?? []).slice(0, 3).forEach((c, i) => {
+      put(c.usi, c.ja || c.usi, { cp: c.evalCp, mateIn: c.mateIn, rank: (i + 1) as 1 | 2 | 3 });
+    });
 
     // 이 국면에서 실제로 둔 수. 다음 手数의 것이고 누가 뒀는지까지 적는다. 가정으로 들어간
     // 국면에는 「실제로 둔 수」가 없으므로 뿌리에서만이다.
@@ -209,6 +210,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
               type="button"
               className="review-options-row"
               data-chosen={chosen === o.usi || undefined}
+              data-rank={o.rank ?? undefined}
               // 색이 값이라, 값이 없는 줄은 색도 없다. 0으로 채우면 호각으로 읽힌다.
               // 駒落ち에서 색이 뜻을 잃지 않게 기준점을 같이 넘긴다(evalTone).
               style={{ '--tone': evalTone(playerCp(o, byOpponent), game.baselineCp ?? 0) } as React.CSSProperties}

@@ -39,10 +39,25 @@ export function rayOf(usi: string, by: Player): Ray | null {
   const move = parseUsi(usi);
   if (!move) return null;
   try {
-    return { from: move.kind === 'drop' ? null : toIndex(fromUsi(move.from)), to: toIndex(fromUsi(move.to)), by };
+    const to = toIndex(fromUsi(move.to));
+    if (move.kind === 'drop') return { from: null, to, by, drop: move.piece };
+    return { from: toIndex(fromUsi(move.from)), to, by };
   } catch {
     return null; // 읽을 수 없는 좌표로 엉뚱한 화살표를 긋느니 긋지 않는다
   }
+}
+
+/**
+ * 후보 수 위에서 셋까지를 순위별 화살표로 옮긴다. 읽지 못한 수는 버리고, 버린 자리만큼
+ * 순위를 당기지 않는다. 옆 목록의 순위와 화살표의 색이 같아야 한다.
+ */
+export function candidateRays(candidates: readonly { usi: string }[], by: Player): Ray[] {
+  const out: Ray[] = [];
+  candidates.slice(0, 3).forEach((c, i) => {
+    const r = rayOf(c.usi, by);
+    if (r) out.push({ ...r, rank: (i + 1) as 1 | 2 | 3 });
+  });
+  return out;
 }
 
 /**

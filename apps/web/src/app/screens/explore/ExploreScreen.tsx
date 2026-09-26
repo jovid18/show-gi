@@ -3,14 +3,15 @@ import type { ReactElement } from 'react';
 
 import { Candidates } from './Candidates';
 import { Snapshots } from './Snapshots';
-import { Board, type Ray } from '@/components/Board';
+import { Board } from '@/components/Board';
 import { Hand } from '@/components/Hand';
 import { Promotion } from '@/components/Promotion';
 import { useDropAnchor } from '@/hooks/useDropAnchor';
 import { useEngineReady } from '@/hooks/useReview';
 import { useMoveSound } from '@/hooks/useMoveSound';
 import { useWhatIf } from '@/hooks/useWhatIf';
-import { groupByOrigin, parseUsi, squaresOf, toUsiMove, type Destination } from '@/libs/game/moves';
+import { candidateRays } from '@/libs/game/board-view';
+import { groupByOrigin, squaresOf, toUsiMove, type Destination } from '@/libs/game/moves';
 import { getPlaying, subscribePlaying } from '@/libs/game/playing';
 import { exploreSend } from '@/libs/explore/http';
 import { baselineNoteJa, exploreStatusJa, sideJa } from '@/libs/explore/text';
@@ -196,32 +197,22 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
   }, [shown]);
 
   /**
-   * 판 위의 초록 화살표. 수번 쪽의 최선수다.
+   * 판 위의 화살표. 수번 쪽의 후보 셋이고 순위마다 색과 굵기가 다르다(`Ray.rank`).
    *
-   * 되짚기와 갈리는 자리다. 저쪽은 확정된 판 위에 긋지 않는다(ReviewDetail 의 `ray`). 검토는
-   * 답을 보러 오는 화면이라 그 근거가 성립하지 않고, 판에 긋지 않으면 옆 목록의 첫 줄이 어디서
-   * 어디로 가는지를 좌표로 읽어야 한다.
+   * 판에 긋지 않으면 옆 목록의 줄이 어디서 어디로 가는지를 좌표로 읽어야 한다. 되짚기도 같은
+   * 규칙이다(ReviewDetail 의 `rays`).
    */
-  const ray = useMemo<Ray | null>(() => {
-    const best = active?.candidates[0];
-    if (!best) return null;
-    const squares = squaresOf(best.usi);
-    if (!squares) return null;
-    // 打도 긋는다. 판 위에 출발 칸이 없어 駒台에서 자리를 재야 하고, 그것은 `useDropAnchor`
-    // 가 한다(세 화면이 같은 훅을 쓴다, journal §99).
-    return { from: squares.from, to: squares.to, by: active.yourTurn ? 'human' : 'engine' };
-  }, [active]);
+  const rays = useMemo(
+    () => (active ? candidateRays(active.candidates, active.yourTurn ? 'human' : 'engine') : []),
+    [active],
+  );
 
-  /** 화살표가 駒台에서 출발하는가. 그렇다면 어느 쪽의 무슨 駒인가(되짚기와 같은 자리). */
-  const dropping = useMemo(() => {
-    if (!ray || ray.from !== null) return null;
-    const move = parseUsi(active?.candidates[0]?.usi ?? '');
-    if (move?.kind !== 'drop') return null;
-    // 打은 수번 측 駒台에서 나온다. `handSide` 가 이미 그 쪽이다.
-    return { side: handSide, kind: move.piece };
-  }, [ray, active, handSide]);
-
-  const { dropFrom, boardRef, pieceRef } = useDropAnchor(dropping);
+  /**
+   * 打 화살표가 출발하는 駒들. 打은 수번 측 駒台에서 나오고 `handSide` 가 이미 그 쪽이다.
+   * 판 위에 출발 칸이 없어 駒台에서 자리를 잰다(세 화면이 같은 훅을 쓴다, journal §99).
+   */
+  const dropKinds = rays.flatMap((r) => (r.drop ? [r.drop] : []));
+  const { dropFrom, boardRef } = useDropAnchor(handSide, dropKinds);
 
   /**
    * 한 수가 판 위에서 움직인다. 판 전체가 바뀌면 초심자는 무엇이 변했는지 보지 못한다
@@ -271,10 +262,6 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
       pieces={board?.hands[side] ?? {}}
       selected={handSide === side && origin?.endsWith('*') ? origin : null}
       playable={handSide === side ? droppable : new Set()}
-      // 재는 것만이다. `dropping` 으로 넘기면 駒台 駒에 초록 링이 붙는데, 그 링은 「상대가
-      // 무엇을 하는가」이고 이 화면의 화살표는 수번 쪽의 최선수다.
-      measure={dropping?.side === side ? dropping.kind : null}
-      droppingRef={pieceRef}
       onPick={handSide === side && playable ? (next) => setOrigin(next === origin ? null : next) : () => {}}
     />
   );
@@ -346,7 +333,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
                 checked={shown?.checked ?? null}
                 played={null}
                 replay={null}
-                ray={ray}
+                rays={rays}
                 motion={motion}
                 checks={[]}
                 // 탈색하지 않는다. 탈색은 「지금이 아니다」를 말하는 장치인데 이 화면은

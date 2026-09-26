@@ -70,6 +70,12 @@
      저쪽은 駒에 **인쇄된 것**이고 이쪽은 회상 중에만 나오는 선이다. */
   --ray-check: 232 76 60;
 
+  /* 후보 2위·3위의 화살표. 1위는 --ray 다. 검토와 되짚기에만 나온다.
+     보라는 詰み 게이지(--mate)와 색상이 가깝지만 그 게이지는 대국 화면의 테두리에만 있어서
+     한 화면에 같이 뜨지 않는다. */
+  --ray-second: 176 120 236;
+  --ray-third: 184 120 64;
+
   /* 갇힘 힌트. 판 위에서 파랑을 쓰는 유일한 자리다.
      초록·빨강과 **모양은 같고 색만 다른** 것이 요점이다 — 저 둘은 「상대가 무엇을
      하는가」이고 이쪽은 「네가 무엇을 두면 되는가」라 **가리키는 쪽이 반대**다.
@@ -985,8 +991,9 @@ body {
 
 /* 그 화면에서 벌어진 한 수가 지나간 길. 칸 한가운데에서 칸 한가운데로 뻗는다.
 
-   **한 화면에 한 줄뿐이다.** 판은 늘 그 수를 둔 뒤의 국면이라 이 선은 지금 화면에 대한
-   사실이고, 수순을 겹쳐 그으면 그 순간 거짓말이 된다(Board.tsx 의 Ray).
+   수순을 겹쳐 긋지 않는다. 판은 늘 그 수를 둔 뒤의 국면이라 이 선은 지금 화면에 대한
+   사실이고, 수순을 이어 그으면 그 순간 거짓말이 된다(Board.tsx 의 Ray). 같은 국면의 후보
+   셋을 나란히 긋는 것은 이와 다르다(`data-rank`).
 
    길이(--len)와 각도(--angle)는 컴포넌트가 계산해 넘긴다. sqrt()·atan2() 를 CSS에서
    쓰면 브라우저에 따라 판 위에 엉뚱한 선이 그어지는데, 그 대가로 얻을 것이 없다.
@@ -1005,8 +1012,8 @@ body {
   pointer-events: none;
   width: calc(var(--len, 0) * (var(--sq) + 1px));
   /* 판 위에서 읽히려면 두께가 있어야 한다. 칸에 비례해 두니 좁은 화면에서도 같은 굵기다 */
-  height: calc(var(--sq) * 0.13);
-  margin-top: calc(var(--sq) * -0.065);
+  height: calc(var(--sq) * 0.13 * var(--weight, 1));
+  margin-top: calc(var(--sq) * -0.065 * var(--weight, 1));
   border-radius: 999px;
   transform-origin: 0 50%;
   rotate: var(--angle, 0deg);
@@ -1041,6 +1048,18 @@ body {
   --ray: var(--ray-check);
 }
 
+/* 후보 순위. 색과 함께 굵기도 줄인다. 같은 칸을 지나는 두 줄이 겹쳐도 1위가 위에서
+   가장 굵어 가려지지 않는다(Board 가 낮은 순위부터 긋는다). */
+.refutation-ray[data-rank='2'] {
+  --ray: var(--ray-second);
+  --weight: 0.78;
+}
+
+.refutation-ray[data-rank='3'] {
+  --ray: var(--ray-third);
+  --weight: 0.6;
+}
+
 /* 갇힘 힌트의 마지막 단계. 색만 갈아 끼우는 것은 王手와 같은 판단이다. */
 .refutation-ray[data-hint] {
   --ray: var(--hint);
@@ -1066,12 +1085,12 @@ body {
   /* **자루보다 앞으로 나와야 한다.** 자루 끝은 `border-radius: 999px` 의 둥근 마구리라
      촉의 뾰족한 끝보다 두껍다 — 촉 끝에 맞춰 두면 그 마구리가 촉 위로 반원처럼 삐져나와
      화살표가 압정처럼 보인다. 촉이 마구리를 덮을 만큼만 내보낸다. */
-  right: calc(var(--sq) * -0.09);
+  right: calc(var(--sq) * -0.09 * var(--weight, 1));
   top: 50%;
   /* 자루(0.13칸)보다 확실히 커야 「촉」으로 읽힌다. 도착 칸에는 待った 표식의 흰빛이
      같이 켜져 있어서, 작으면 그 안에서 묻힌다 */
-  width: calc(var(--sq) * 0.42);
-  height: calc(var(--sq) * 0.56);
+  width: calc(var(--sq) * 0.42 * var(--weight, 1));
+  height: calc(var(--sq) * 0.56 * var(--weight, 1));
   translate: 0 -50%;
   background: rgb(var(--ray) / var(--glow));
   clip-path: polygon(0 0, 100% 50%, 0 100%);
@@ -3250,6 +3269,24 @@ body {
   border-bottom-color: var(--line-2);
 }
 
+/* 후보 순위의 띠. 판 위 화살표와 같은 색이다. 후보가 아닌 줄도 같은 폭을 비워 둬서
+   글자 자리가 줄마다 흔들리지 않는다. */
+.review-options-row {
+  border-left: 3px solid transparent;
+}
+
+.review-options-row[data-rank='1'] {
+  border-left-color: rgb(var(--ray));
+}
+
+.review-options-row[data-rank='2'] {
+  border-left-color: rgb(var(--ray-second));
+}
+
+.review-options-row[data-rank='3'] {
+  border-left-color: rgb(var(--ray-third));
+}
+
 /* 지금 둬 보고 있는 수. 테로 짚는다 — 색은 이미 값이 쓰고 있다 */
 .review-options-row[data-chosen] {
   box-shadow: inset 0 0 0 1px var(--brand);
@@ -4602,10 +4639,21 @@ body {
   cursor: default;
 }
 
-/* 1위. **판 위의 초록 화살표와 같은 수**라 색을 한 번 더 쓰지 않고 순위 숫자만 굵게 한다. */
-.explore-option[data-best] .explore-option-rank {
-  color: var(--brand-strong);
+/* 순위 숫자가 판 위 화살표의 색을 쓴다. 어느 화살표가 어느 줄인지를 여기서 잇는다. */
+.explore-option[data-rank] .explore-option-rank {
   font-weight: 700;
+}
+
+.explore-option[data-rank='1'] .explore-option-rank {
+  color: rgb(var(--ray));
+}
+
+.explore-option[data-rank='2'] .explore-option-rank {
+  color: rgb(var(--ray-second));
+}
+
+.explore-option[data-rank='3'] .explore-option-rank {
+  color: rgb(var(--ray-third));
 }
 
 .explore-option-rank {
