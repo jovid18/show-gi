@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"slices"
 	"testing"
 
 	"github.com/jovid18/show-gi/apps/server/internal/eval"
@@ -141,9 +142,31 @@ func TestAnEdgeWrittenBeforeTheMateColumnStillReadsBack(t *testing.T) {
 		t.Fatalf("byDepth = %v, want %v", edges[0].ByDepth, want)
 	}
 	for i, w := range want {
-		if edges[0].ByDepth[i] != w {
-			t.Errorf("depth %d = %v, want %v", i+1, edges[0].ByDepth[i], w)
+		if got := edges[0].ByDepth[i]; got.Depth != i+1 || got.Score != w {
+			t.Errorf("depth %d = %+v, want %v", i+1, got, w)
 		}
+	}
+}
+
+// 빠진 깊이는 두 칸이 다 NULL 로 남고, 읽을 때 그 깊이만 빠진다. 당겨 쓰면 뒤의 칸이
+// 전부 얕은 깊이로 읽힌다(journal §142).
+func TestAnEdgeKeepsTheDepthAcrossAGap(t *testing.T) {
+	s := open(t)
+	k := key(t, s)
+
+	if _, err := s.PutPosition(t.Context(), Position{SFENKey: k, SideToMove: "b", ComputedDepth: 4}); err != nil {
+		t.Fatalf("PutPosition: %v", err)
+	}
+	want := []DepthScore{{Depth: 1, Score: eval.Cp(10)}, {Depth: 3, Score: eval.Mate(5)}, {Depth: 4, Score: eval.Cp(40)}}
+	if err := s.PutEdge(t.Context(), Edge{ParentKey: k, USI: "7g7f", ByDepth: want}); err != nil {
+		t.Fatalf("PutEdge: %v", err)
+	}
+	edges, err := s.Edges(t.Context(), k)
+	if err != nil {
+		t.Fatalf("Edges: %v", err)
+	}
+	if len(edges) != 1 || !slices.Equal(edges[0].ByDepth, want) {
+		t.Fatalf("byDepth = %+v, want %+v", edges, want)
 	}
 }
 

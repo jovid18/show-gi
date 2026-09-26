@@ -77,7 +77,7 @@ edges (
   child_key      text references positions,
   tags           text[],         -- ['mino','bougin','ryoudori'] — 이 수로 성립한 태그
   eval_by_depth  int[],          -- [d1, d2, ... dN] 선수(sente) 관점 cp
-  mate_by_depth  int[],          -- 같은 자리의 詰み 手数. 둘 중 하나만 값이 있다 (021)
+  mate_by_depth  int[],          -- 같은 자리의 詰み 手数. 둘 중 하나만 값이 있고, 둘 다 NULL 이면 그 깊이에 줄이 없었다
   primary key (parent_key, usi)
 );
 create index on edges using gin (tags);
@@ -89,13 +89,15 @@ create index on edges using gin (tags);
 >
 > 플레이어에 매인 값이 없다. cp는 수번 관점, `tags` 는 둔 쪽 기준이라 A가 잰 국면이 B에게 그대로 유효하다. `user_id`도 `game_id`도 없어서 로그인이 붙어도 여기는 위협 밖이다(§7 위협 2가 말하는 것은 `games`·`game_moves` 쪽이다).
 >
-> `computed_depth` 는 깊이만 견주면 모자란다. 같은 깊이에서도 MultiPV가 갈리므로(상대 수 k=10 · 개입 판정 k=1 · 가정 수순 k=3) 같은 깊이면 후보가 많은 쪽이 이기도록 질의를 고쳤다.
+> `computed_depth` 는 깊이만 견주면 모자란다. 같은 깊이에서도 MultiPV가 갈리므로(상대 수 k=10 · 개입 판정 k=1, 가져온 기보는 k=3 · 가정 수순 k=3) 같은 깊이면 후보가 많은 쪽이 이기도록 질의를 고쳤다.
 
 ### `eval_by_depth`는 공짜로 얻는다
 
 지금 프로덕션에서는 판정·상대 수·가정 수순이 전부 12로 돈다(`game.JudgeDepth` · `game.DefaultDepth` 가 한 값을 함께 쓴다, [journal §140](journal/121-140.md)). [journal §130](journal/121-140.md)에서 手合割 기준점 표에 맞춰 14로 올렸다가 지연 때문에 되돌렸고, 기준점 표는 12로 다시 재야 한다. 선행 계산은 그것과 별개로 14에 붙이지 않는다: 한때 붙여 봤는데 8.4초가 나와 쓰지 못했고([journal §10](journal/06-20.md)), 초반 캐시 히트율 65.7%를 재고 닫았다([journal §91](journal/82-100.md)).
 
 USI 엔진은 iterative deepening 중 `info depth 1 score cp … / info depth 2 …`를 계속 뱉는다. `go` 한 번의 info 라인을 깊이별로 주워담으면 이 배열이 나온다. 별도 탐색을 깊이마다 다시 돌릴 필요가 없다.
+
+배열의 자리가 곧 깊이다. 그 수가 후보 줄에 없던 깊이는 두 칸 다 NULL 로 남긴다. 건너뛰고 당겨 쓰면 뒤의 칸이 전부 얕은 깊이로 읽힌다([journal §142](journal/141-160.md)).
 
 **이 배열은 개입 판정의 입력이다.** 초보자는 깊게 읽지 않으므로, 얕은 평가와 깊은 평가의 차이가 "초보자에게 보이는 것과 실제의 격차"다. 그 격차의 부호가 양쪽 개입을 그대로 정의한다.
 

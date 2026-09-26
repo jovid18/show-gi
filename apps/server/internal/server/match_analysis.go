@@ -448,7 +448,8 @@ func (a *matchAnalyzer) measureOnePly(ctx context.Context, analyst game.Analyst)
 // 그만둔 판인지 여기서 보지 않는다. 집는 질의가 이미 그 행을 주지 않는다
 // (query/analysis.sql).
 func (a *matchAnalyzer) lookAhead(ctx context.Context, analyst game.Analyst, p store.AnalysisPly) {
-	got, err := a.judgeOne(ctx, analyst, p.StartSFEN, p.Moves, p.Ply, a.seatMoves(ctx, p))
+	_, imported := importedGameID(p.MatchID)
+	got, err := a.judgeOne(ctx, analyst, p.StartSFEN, p.Moves, p.Ply, a.seatMoves(ctx, p), imported)
 	if err != nil {
 		// 프로세스가 멈추는 중이면 그만두지 않는다. 그만두면 배포 한 번이 그때 두고 있던
 		// 판들의 미리 재기 전체를 끈다(journal §115).
@@ -768,7 +769,7 @@ func (a *matchAnalyzer) analyze(ctx context.Context, key string, seats []analysi
 		var err error
 		if !ok {
 			good := imported && firstKnown && moverAt(first, ply) == seats[0].color
-			got, err = a.judgeOne(ctx, analyst, start, moves[:ply], ply, good)
+			got, err = a.judgeOne(ctx, analyst, start, moves[:ply], ply, good, imported)
 		}
 		// 끊기는 이유가 둘이고 성질이 같다. 엔진이 답하지 못했거나 판정이 국면을 되만들지
 		// 못했거나(HasEvals), 어느 쪽이든 뒤의 手도 전부 같은 자리에서 실패한다. 매번 같은
@@ -834,11 +835,17 @@ func (a *matchAnalyzer) analyze(ctx context.Context, key string, seats []analysi
 //
 // good 이면 好手도 같은 시한 안에서 묻는다. 기록하는 것은 가져온 판뿐이라 대인전은 묻지
 // 않는다(recordGood).
+//
+// 가져온 판은 두 국면을 되짚기가 묻는 후보 수로 잰다(game.Widener). 사용자는 그래프가 다 찬
+// 뒤에 점을 누르므로, 그때 엔진이 다시 돌면 끝난 분석이 끝나지 않은 것처럼 보인다.
 func (a *matchAnalyzer) judge(
-	ctx context.Context, analyst game.Analyst, start string, moves []string, ply int, good bool,
+	ctx context.Context, analyst game.Analyst, start string, moves []string, ply int, good, imported bool,
 ) (game.Judgement, error) {
 	ctx, cancel := context.WithTimeout(ctx, a.deadlineOf())
 	defer cancel()
+	if w, ok := analyst.(game.Widener); ok && imported {
+		analyst = w.Wide(whatifCandidates)
+	}
 	j, err := analyst.Judge(ctx, start, moves, ply)
 	if err == nil && good {
 		game.CheckGood(ctx, analyst, &j)
@@ -851,9 +858,9 @@ func (a *matchAnalyzer) judge(
 // HasEvals 가 false 면 오류로 바꾼다. 부르는 쪽 둘이 그 자리를 같게 다뤄야 해서다. 미리
 // 재는 쪽은 그 판을 그만두고, 판이 끝날 때는 거기서 멈춘다.
 func (a *matchAnalyzer) judgeOne(
-	ctx context.Context, analyst game.Analyst, start string, moves []string, ply int, good bool,
+	ctx context.Context, analyst game.Analyst, start string, moves []string, ply int, good, imported bool,
 ) (judged, error) {
-	j, err := a.judge(ctx, analyst, start, moves, ply, good)
+	j, err := a.judge(ctx, analyst, start, moves, ply, good, imported)
 	if err != nil {
 		return judged{}, err
 	}

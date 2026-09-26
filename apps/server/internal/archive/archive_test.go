@@ -175,8 +175,8 @@ func TestRecordsThePositionAndItsCandidates(t *testing.T) {
 	if len(e.ByDepth) != 12 {
 		t.Fatalf("byDepth = %v", e.ByDepth)
 	}
-	if e.ByDepth[11] != eval.Cp(60) {
-		t.Errorf("가장 깊은 값 = %+v, want cp 60", e.ByDepth[11])
+	if d := e.ByDepth[11]; d.Depth != 12 || d.Score != eval.Cp(60) {
+		t.Errorf("가장 깊은 값 = %+v, want depth 12 cp 60", d)
 	}
 }
 
@@ -197,8 +197,8 @@ func TestFlipsEvalToSentePointOfView(t *testing.T) {
 	if !ok {
 		t.Fatal("간선이 안 쌓였다")
 	}
-	if e.ByDepth[3] != eval.Cp(-100) {
-		t.Errorf("후手 +100 이 先手 관점 %+v 으로 쌓였다, want cp -100", e.ByDepth[3])
+	if d := e.ByDepth[3]; d.Score != eval.Cp(-100) {
+		t.Errorf("후手 +100 이 先手 관점 %+v 으로 쌓였다, want cp -100", d)
 	}
 }
 
@@ -413,6 +413,78 @@ func TestCacheKeepsTheMoverPointOfView(t *testing.T) {
 		if !ok || got != want {
 			t.Errorf("depth %d = %+v(ok=%v), want %+v", d, got, ok, want)
 		}
+	}
+}
+
+// 최선수가 1위가 아니던 깊이는 줄이 없다. 그 깊이를 건너뛰고 붙여 저장하면 뒤의 칸이 전부
+// 한 깊이씩 얕게 읽힌다(journal §142).
+func TestCacheKeepsTheDepthOfEveryLineAcrossAGap(t *testing.T) {
+	st := newStore()
+	res := result(6, "7g7f")
+	// depth 2 에서는 다른 수가 1위였다. 7g7f 의 depth 2 줄이 없다.
+	res.History = slices.DeleteFunc(res.History, func(l usi.SearchLine) bool { return l.Depth == 2 })
+	eng := &fakeEngine{res: res}
+	a := Wrap(eng, st)
+
+	first, err := a.SearchMultiPV(t.Context(), shogi.StartSFEN, nil, 6, 1)
+	if err != nil {
+		t.Fatalf("첫 탐색: %v", err)
+	}
+	a.Wait()
+	second, err := a.SearchMultiPV(t.Context(), shogi.StartSFEN, nil, 6, 1)
+	if err != nil {
+		t.Fatalf("두 번째: %v", err)
+	}
+	if eng.calls != 1 {
+		t.Fatalf("엔진을 %d번 불렀다, want 1", eng.calls)
+	}
+	for _, d := range []int{1, 3, 5, 6} {
+		want, _ := first.ScoreAtDepth(d)
+		got, ok := second.ScoreAtDepth(d)
+		if !ok || got != want {
+			t.Errorf("depth %d = %+v(ok=%v), want %+v", d, got, ok, want)
+		}
+	}
+	if got, ok := second.ScoreAtDepth(2); ok {
+		t.Errorf("없던 depth 2 = %+v 가 생겼다", got)
+	}
+}
+
+// 빠진 깊이를 당겨 쓰던 옛 행은 마지막 칸이 국면의 깊이에 닿지 않는다. 어느 칸이 어느
+// 깊이인지 알 수 없으므로 깊이별 값을 쓰지 않는다. 후보와 최종 점수는 그대로 쓴다.
+func TestCacheDropsAnOldCompactedDepthRow(t *testing.T) {
+	st := newStore()
+	eng := &fakeEngine{res: result(6, "7g7f")}
+	a := Wrap(eng, st)
+	if _, err := a.SearchMultiPV(t.Context(), shogi.StartSFEN, nil, 6, 1); err != nil {
+		t.Fatalf("첫 탐색: %v", err)
+	}
+	a.Wait()
+	// 옛 기록기가 depth 2 를 건너뛰고 쓴 모양. 다섯 칸이 depth 1..5 로 읽힌다.
+	st.mu.Lock()
+	for i := range st.edges {
+		if st.edges[i].USI == "7g7f" {
+			var old []store.DepthScore
+			for j, d := range slices.DeleteFunc(st.edges[i].ByDepth, func(d store.DepthScore) bool { return d.Depth == 2 }) {
+				old = append(old, store.DepthScore{Depth: j + 1, Score: d.Score})
+			}
+			st.edges[i].ByDepth = old
+		}
+	}
+	st.mu.Unlock()
+
+	second, err := a.SearchMultiPV(t.Context(), shogi.StartSFEN, nil, 6, 1)
+	if err != nil {
+		t.Fatalf("두 번째: %v", err)
+	}
+	if eng.calls != 1 {
+		t.Fatalf("엔진을 %d번 불렀다, want 1", eng.calls)
+	}
+	if got, ok := second.ScoreAtDepth(2); ok {
+		t.Errorf("옛 행에서 depth 2 = %+v 가 나왔다. 실제로는 depth 3 의 값이다", got)
+	}
+	if second.Best != "7g7f" || second.Score != eval.Cp(100) {
+		t.Errorf("후보가 사라졌다: %+v", second)
 	}
 }
 
