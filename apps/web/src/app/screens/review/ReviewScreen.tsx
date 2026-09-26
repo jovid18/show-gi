@@ -102,6 +102,10 @@ function GameCard({ game }: { game: GameSummary }) {
           {game.imported === true ? '悪手' : '介入'} {game.interventionCount}回
         </span>
       )}
+      {/* 없으면 「—」다. 빈칸으로 두면 칸이 어긋나고, 0%로 두면 모든 수가 悪手였다는 뜻이 된다. */}
+      <span className="review-card-acc" data-none={game.accuracy === undefined || undefined}>
+        精度 {game.accuracy === undefined ? '—' : `${game.accuracy}%`}
+      </span>
     </>
   );
 }

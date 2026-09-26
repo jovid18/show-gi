@@ -641,3 +641,40 @@ func TestGameQuizWithNoItems(t *testing.T) {
 		t.Error("payload가 비었다 — 「만들어졌고 문항이 없다」가 「아직 안 만들어졌다」와 같아진다")
 	}
 }
+
+// 목록은 판 여럿의 평가치를 한 번에 읽는다. 판이 섞이거나 빈 칸이 0으로 채워지면 精度가 틀린다.
+func TestMoveEvalsGroupsByGame(t *testing.T) {
+	s := open(t)
+	ctx := t.Context()
+	var ids []int64
+	for range 2 {
+		id, err := s.CreateGame(ctx, nil, "b", "", "")
+		if err != nil {
+			t.Fatalf("CreateGame: %v", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := s.InsertMove(ctx, ids[0], 1, "7g7f"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.InsertMove(ctx, ids[0], 2, "3c3d"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetMoveEval(ctx, ids[0], 1, eval.Cp(40)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.InsertMove(ctx, ids[1], 1, "2g2f"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.MoveEvals(ctx, ids)
+	if err != nil {
+		t.Fatalf("MoveEvals: %v", err)
+	}
+	a, b := got[ids[0]], got[ids[1]]
+	if len(a) != 2 || a[0].Score == nil || *a[0].Score != eval.Cp(40) || a[1].Score != nil {
+		t.Errorf("첫 판 = %+v", a)
+	}
+	if len(b) != 1 || b[0].Score != nil {
+		t.Errorf("둘째 판 = %+v", b)
+	}
+}

@@ -967,6 +967,46 @@ func (q *Queries) ListGamesForOwner(ctx context.Context, arg ListGamesForOwnerPa
 	return items, nil
 }
 
+const listMoveEvalsForGames = `-- name: ListMoveEvalsForGames :many
+SELECT game_id, ply, eval_cp, eval_mate FROM game_moves
+WHERE game_id = ANY($1::bigint[])
+ORDER BY game_id, ply
+`
+
+type ListMoveEvalsForGamesRow struct {
+	GameID   int64
+	Ply      int32
+	EvalCp   *int32
+	EvalMate *int32
+}
+
+// 목록의 판들에서 手마다 평가치만 한 번에 읽는다. 목록이 精度를 세는 자리다
+// (server.accuracyOf). 판마다 물으면 질의가 판 수만큼 는다.
+func (q *Queries) ListMoveEvalsForGames(ctx context.Context, gameIds []int64) ([]ListMoveEvalsForGamesRow, error) {
+	rows, err := q.db.Query(ctx, listMoveEvalsForGames, gameIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMoveEvalsForGamesRow
+	for rows.Next() {
+		var i ListMoveEvalsForGamesRow
+		if err := rows.Scan(
+			&i.GameID,
+			&i.Ply,
+			&i.EvalCp,
+			&i.EvalMate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markHintTaken = `-- name: MarkHintTaken :exec
 UPDATE game_hints
 SET taken = $1

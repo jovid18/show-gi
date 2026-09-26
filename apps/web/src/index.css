@@ -2444,7 +2444,7 @@ body {
   display: grid;
   /* 뒤 세 칸의 폭을 고정한다. `auto` 로 두면 「10手」와 「2手」가 서로 다른 폭을 잡아
      줄마다 오른쪽 세 칸이 어긋나고, 목록을 세로로 훑을 수 없다. */
-  grid-template-columns: 1fr 4rem 3.5rem 4.5rem;
+  grid-template-columns: 1fr 4rem 3.5rem 4.5rem 4.5rem;
   align-items: baseline;
   gap: 0.9rem;
   width: 100%;
@@ -2494,7 +2494,8 @@ body {
 }
 
 .review-card-moves,
-.review-card-iv {
+.review-card-iv,
+.review-card-acc {
   font-size: 0.75rem;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -2505,6 +2506,24 @@ body {
 /* 한 번도 막히지 않은 판. **0회도 성적이다** — 그래서 지우지 않고 낮춘다. */
 .review-card-iv[data-none] {
   opacity: 0.45;
+}
+
+/* 精度를 셀 수 없는 판. 잰 값이 아니므로 옅게 낮춘다. */
+.review-card-acc[data-none] {
+  opacity: 0.45;
+}
+
+/* 폰 폭에서는 숫자 칸 넷이 첫 칸(날짜)을 눌러 딱지가 옆 칸에 겹친다. 날짜 줄을 위로 올리고
+   숫자 넷을 그 아래 한 줄에 같은 폭으로 둔다. */
+@media (max-width: 30rem) {
+  .review-card {
+    grid-template-columns: repeat(4, 1fr);
+    row-gap: 0.35rem;
+  }
+
+  .review-card-when {
+    grid-column: 1 / -1;
+  }
 }
 
 /* 대인전. **같은 자리에 오지만 숫자가 아니라 종류다** — 그래서 옅게 낮추지 않는다.

@@ -103,7 +103,18 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
    * 읽지 못했을 때는 카드를 아예 그리지 않는다. `null` 로 넘기면 「まとめています…」가 영원히
    * 떠 있고, 그건 기다리면 온다는 거짓이다.
    */
-  const summary = useGameSummary(game.id).loaded;
+  const { loaded: summary, reload: reloadSummary } = useGameSummary(game.id);
+
+  /**
+   * 분석이 끝나면 총평을 다시 받는다. 분석 중에는 서버가 精度를 싣지 않고(덜 찬 평가치로 센
+   * 값이다), 판은 폴링으로 차지만 총평은 처음 한 번만 받아서다.
+   */
+  const analyzing = game.analyzing === true;
+  const wasAnalyzing = useRef(analyzing);
+  useEffect(() => {
+    if (wasAnalyzing.current && !analyzing) reloadSummary();
+    wasAnalyzing.current = analyzing;
+  }, [analyzing, reloadSummary]);
   const whatif = useWhatIf(httpSend(game.id), game.id);
   const { node, pending, branching, at, play, back, toRoot, clear } = whatif;
 

@@ -1,8 +1,10 @@
 package server
 
 import (
+	"math"
 	"sort"
 
+	"github.com/jovid18/show-gi/apps/server/internal/accuracy"
 	"github.com/jovid18/show-gi/apps/server/internal/eval"
 	"github.com/jovid18/show-gi/apps/server/internal/explain"
 	"github.com/jovid18/show-gi/apps/server/internal/handicap"
@@ -27,6 +29,9 @@ type summaryStats struct {
 	Categories []categoryCount `json:"categories,omitempty"`
 	// Focus 는 「이 국면을 다시 봐라」다. 개입이 없으면 nil.
 	Focus *focusPoint `json:"focus,omitempty"`
+	// Accuracy 는 사람 쪽 精度(0~100, 반올림)다(internal/accuracy). 잰 手가 없거나 분석이
+	// 끝나지 않은 판에서는 없다. 덜 찬 값은 분석이 진행되며 움직인다.
+	Accuracy *int `json:"accuracy,omitempty"`
 }
 
 // focusPoint 는 그 판에서 가장 크게 갈린 자리 하나다. 문장 대신 숫자 쪽에 둔다(위 주석).
@@ -126,6 +131,8 @@ func factsOf(rec store.GameRecord, level intervene.Level) (explain.GameFacts, su
 		}
 	}
 
+	stats.Accuracy = accuracyOf(rec.Moves, startSFENOf(rec.StartSFEN), humanColor)
+
 	stats.Interventions = len(rec.Interventions)
 	if stats.Interventions == 0 {
 		return f, stats
@@ -156,6 +163,44 @@ func factsOf(rec store.GameRecord, level intervene.Level) (explain.GameFacts, su
 	f.Phase = phaseOf(rec.Interventions)
 	f.Trend = trendOf(rec.Interventions, last)
 	return f, stats
+}
+
+// accuracyOf 는 기보에 남은 평가치로 그 사람의 精度를 센다. 총평과 대국 목록이 같이 쓴다.
+//
+// 물러진 수는 기보에 없으므로 세지 않는다. 확정한 수순의 精度다.
+//
+// 그 사람의 手 가운데 앞뒤 평가치가 하나라도 비면 내지 않는다. 분석 중인 판이 그 모양이고,
+// 덜 찬 값은 분석이 진행되며 움직인다. 0手 국면은 저장되지 않아 기준점으로 본다
+// (accuracy.Game).
+func accuracyOf(moves []store.RecordedMove, startSFEN string, human shogi.Color) *int {
+	start, err := shogi.ParseSFEN(startSFEN)
+	if err != nil {
+		return nil
+	}
+	last := 0
+	for _, m := range moves {
+		last = max(last, m.Ply)
+	}
+	scores := make([]*eval.Score, last)
+	for _, m := range moves {
+		if m.Ply >= 1 {
+			scores[m.Ply-1] = m.Score
+		}
+	}
+	for ply := 1; ply <= last; ply++ {
+		if moverAt(start.Turn, ply) != human {
+			continue
+		}
+		if scores[ply-1] == nil || (ply > 1 && scores[ply-2] == nil) {
+			return nil
+		}
+	}
+	acc, ok := accuracy.Game(startSFEN, human, scores)
+	if !ok {
+		return nil
+	}
+	v := int(math.Round(acc))
+	return &v
 }
 
 // focusOf 는 「이 국면을 다시 봐라」로 짚을 자리 하나다. 낙폭이 가장 큰 개입을 고른다.
