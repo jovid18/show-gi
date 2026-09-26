@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { Player, Snapshot, Status } from '@/protocol/game';
 
-import { resultText } from './board-view';
+import { candidateRays, resultText } from './board-view';
 
 /** 결과 문구는 `status` 와 `winner` 만 본다. 나머지는 읽지 않으므로 최소한만 채운다. */
 function ended(status: Status, winner?: Player): Snapshot {
@@ -46,5 +46,20 @@ describe('resultText', () => {
 
   it('두는 중에는 결과 문구가 없다', () => {
     expect(resultText(ended('playing'))).toBeNull();
+  });
+});
+
+describe('candidateRays', () => {
+  it('ranks the first three candidates and carries the dropped piece', () => {
+    const rays = candidateRays([{ usi: '7g7f' }, { usi: 'P*5e' }, { usi: '2g2f' }, { usi: '3g3f' }], 'human');
+    expect(rays.map((r) => r.rank)).toEqual([1, 2, 3]);
+    expect(rays[1]).toMatchObject({ from: null, drop: 'P', by: 'human' });
+    expect(rays[0]?.drop).toBeUndefined();
+  });
+
+  it('keeps the list rank when a candidate cannot be read', () => {
+    // 목록의 순위 숫자와 화살표 색이 같아야 한다. 읽지 못한 줄 때문에 3위가 2위 색을 받으면 안 된다.
+    const rays = candidateRays([{ usi: '7g7f' }, { usi: '' }, { usi: '2g2f' }], 'engine');
+    expect(rays.map((r) => r.rank)).toEqual([1, 3]);
   });
 });

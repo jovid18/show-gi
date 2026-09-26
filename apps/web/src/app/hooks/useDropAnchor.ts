@@ -4,20 +4,14 @@ import type { DropFrom } from '@/components/Board';
 import { offsetWithin } from '@/libs/game/board-view';
 import type { Side } from '@/models/piece';
 
-/** 화살표가 駒台에서 출발하는가. 그렇다면 어느 쪽의 무슨 駒인가. */
-export interface DropPiece {
-  side: Side;
-  kind: string;
-}
-
 export interface DropAnchor {
-  /** `Board` 의 `dropFrom`. 아직 재지 못했으면 null이고, 그때 打 화살표는 그려지지 않는다. */
-  dropFrom: DropFrom | null;
+  /** `Board` 의 `dropFrom`. 駒 종류로 찾고, 아직 재지 못한 駒는 빠져 있다. 그 打 화살표는 그려지지 않는다. */
+  dropFrom: Readonly<Record<string, DropFrom>>;
   /** 판 격자. `Board` 의 `boardRef` 에 그대로 넘긴다. */
   boardRef: RefObject<HTMLDivElement | null>;
-  /** 그 駒의 DOM. `Hand` 의 `droppingRef` 에 그대로 넘긴다. */
-  pieceRef: (el: HTMLButtonElement | null) => void;
 }
+
+const NONE: Readonly<Record<string, DropFrom>> = {};
 
 /**
  * 打 화살표의 출발점을 재는 훅. 대국·되짚기·검토가 같이 쓴다(journal §99).
@@ -25,60 +19,59 @@ export interface DropAnchor {
  * 칸 산수로는 나오지 않는다. 駒台는 판 밖의 형제 요소이고 그 안에서 持ち駒가 몇 종류인지와
  * 라벨이 얼마나 넓은지에 따라 자리가 달라진다.
  *
- * 인자의 identity 는 보지 않는다. 부르는 쪽이 매 렌더마다 새 객체를 줘도 되고, 여기는
- * `side`·`kind` 와 값 비교만으로 돈다. 그것을 의존성으로 걸면 효과가 다시 돌고
- * `setDropFrom` 이 또 새 객체를 넣어 화면이 하얘진다.
+ * 駒는 DOM 에서 찾는다(`.hand[data-side] .hand-piece[data-kind]`). 후보 셋이 서로 다른 駒를
+ * 打할 수 있어서 ref 하나로는 모자란다.
+ *
+ * 인자의 identity 는 보지 않는다. 부르는 쪽이 매 렌더마다 새 배열을 줘도 되고, 여기는 값
+ * 비교만으로 돈다. 그것을 의존성으로 걸면 효과가 다시 돌고 `setDropFrom` 이 또 새 객체를
+ * 넣어 화면이 하얘진다.
  */
-export function useDropAnchor(dropping: DropPiece | null): DropAnchor {
-  const [dropFrom, setDropFrom] = useState<DropFrom | null>(null);
+export function useDropAnchor(side: Side | null, kinds: readonly string[]): DropAnchor {
+  const [dropFrom, setDropFrom] = useState<Readonly<Record<string, DropFrom>>>(NONE);
   const boardRef = useRef<HTMLDivElement>(null);
-  const piece = useRef<HTMLButtonElement | null>(null);
   // 폭이 바뀌는 것을 지켜보는 쪽. 판이 늦게 그려지는 화면이 있어서 「누구를 보고 있나」를 기억해 둔다.
   const observer = useRef<ResizeObserver | null>(null);
   const watched = useRef<HTMLElement | null>(null);
-
-  const pieceRef = useCallback((el: HTMLButtonElement | null) => {
-    piece.current = el;
-  }, []);
+  // ResizeObserver 가 부르는 `measure` 는 한 번 만든 것이다. 지금 재야 할 駒를 여기서 읽는다.
+  const want = useRef<{ hand: Side | null; pieces: readonly string[] }>({ hand: side, pieces: kinds });
 
   const measure = useCallback(() => {
+    const { hand, pieces } = want.current;
     const grid = boardRef.current;
-    const from = piece.current;
     const stage = grid?.closest('.game-board');
-    if (!grid || !from || !(stage instanceof HTMLElement)) {
-      setDropFrom(null);
-      return;
-    }
-    const pieceAt = offsetWithin(from, stage);
-    const gridAt = offsetWithin(grid, stage);
     // 칸을 클래스로 찾는다. `firstElementChild` 로 잡으면 `useBoardSurface` 가 붙인 캔버스가
     // 걸리고, 그때 한 칸 크기가 판 전체 폭이 되어 화살표가 판 밖까지 뻗는다(journal §127).
-    const square = grid.querySelector('.square');
-    if (!pieceAt || !gridAt || !(square instanceof HTMLElement)) {
-      setDropFrom(null);
+    const square = grid?.querySelector('.square');
+    const gridAt = grid && stage instanceof HTMLElement ? offsetWithin(grid, stage) : null;
+    if (!hand || !grid || !(stage instanceof HTMLElement) || !gridAt || !(square instanceof HTMLElement)) {
+      setDropFrom(NONE);
       return;
     }
-    // 판의 테두리 안쪽이 기준이다. 화살표가 그 안에 놓인다.
-    const next = {
-      x: pieceAt.x + from.offsetWidth / 2 - (gridAt.x + grid.clientLeft),
-      y: pieceAt.y + from.offsetHeight / 2 - (gridAt.y + grid.clientTop),
-      sq: square.offsetWidth,
-    };
+    const next: Record<string, DropFrom> = {};
+    for (const kind of pieces) {
+      const from = stage.querySelector(`.hand[data-side="${hand}"] .hand-piece[data-kind="${kind}"]`);
+      const pieceAt = from instanceof HTMLElement ? offsetWithin(from, stage) : null;
+      if (!(from instanceof HTMLElement) || !pieceAt) continue;
+      // 판의 테두리 안쪽이 기준이다. 화살표가 그 안에 놓인다.
+      next[kind] = {
+        x: pieceAt.x + from.offsetWidth / 2 - (gridAt.x + grid.clientLeft),
+        y: pieceAt.y + from.offsetHeight / 2 - (gridAt.y + grid.clientTop),
+        sq: square.offsetWidth,
+      };
+    }
     // 같은 값이면 상태를 건드리지 않는다. 재는 일이 리렌더를 부르고 리렌더가 다시 재는 고리를 끊는다.
-    setDropFrom((prev) => (prev && prev.x === next.x && prev.y === next.y && prev.sq === next.sq ? prev : next));
+    setDropFrom((prev) => (sameAnchors(prev, next) ? prev : next));
   }, []);
-
-  const side = dropping?.side ?? null;
-  const kind = dropping?.kind ?? null;
 
   // 렌더마다 다시 잰다. 의존성 목록이 없는 것이 의도다. 駒台 駒의 자리는 판을 뒤집는 것,
   // 持ち駒가 한 종류 늘거나 주는 것, 옆 패널이 생기는 것으로 다 옮겨 가는데 그 셋 중 어느
-  // 것도 `side`·`kind` 를 바꾸지 않는다.
+  // 것도 `side`·`kinds` 를 바꾸지 않는다.
   //
   // 값이 같으면 상태를 건드리지 않으므로 고리가 생기지 않는다(`measure`).
   useLayoutEffect(() => {
-    if (!side || !kind) {
-      setDropFrom(null);
+    want.current = { hand: side, pieces: kinds };
+    if (!side || kinds.length === 0) {
+      setDropFrom(NONE);
       return;
     }
     measure();
@@ -103,5 +96,15 @@ export function useDropAnchor(dropping: DropPiece | null): DropAnchor {
     [],
   );
 
-  return { dropFrom, boardRef, pieceRef };
+  return { dropFrom, boardRef };
+}
+
+function sameAnchors(a: Readonly<Record<string, DropFrom>>, b: Readonly<Record<string, DropFrom>>): boolean {
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  return keys.every((k) => {
+    const p = a[k];
+    const q = b[k];
+    return !!q && p!.x === q.x && p!.y === q.y && p!.sq === q.sq;
+  });
 }

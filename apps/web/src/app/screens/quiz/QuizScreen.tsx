@@ -536,11 +536,11 @@ function QuizBoard({
         checked={checked}
         played={null}
         replay={null}
-        ray={null}
+        rays={[]}
         motion={null}
         checks={[]}
         dimmed={false}
-        dropFrom={null}
+        dropFrom={{}}
         hintSquare={null}
         hintRay={null}
         mateHeat={0}

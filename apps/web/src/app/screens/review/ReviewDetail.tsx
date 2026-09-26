@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
-import { Board, type Ray } from '@/components/Board';
+import { Board } from '@/components/Board';
 import { Hand } from '@/components/Hand';
 import { Promotion } from '@/components/Promotion';
 // 대국 화면의 카드를 그대로 쓴다. 같은 판을 두 모양으로 그리면 「끝난 그 자리에서 본 것」과
@@ -9,12 +9,13 @@ import { Summary } from '@/screens/game/Summary';
 import { EvalGraph } from './EvalGraph';
 import { MoveOptions } from './MoveOptions';
 import { WhatIfPanel } from './WhatIfPanel';
-import { groupByOrigin, parseUsi, squaresOf, toUsiMove, type Destination } from '@/libs/game/moves';
+import { groupByOrigin, squaresOf, toUsiMove, type Destination } from '@/libs/game/moves';
 import { dateJa, resultJa } from '@/libs/review/labels';
 import { hrefOf, navigate } from '@/routes/router';
 import type { GameDetail, ReviewMove } from '@/protocol/review';
 import type { WhatIfNode } from '@/protocol/whatif';
 import { useDropAnchor } from '@/hooks/useDropAnchor';
+import { candidateRays } from '@/libs/game/board-view';
 import { useEngineReady, useGameSummary } from '@/hooks/useReview';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
 import type { Side } from '@/models/piece';
@@ -294,25 +295,15 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   }, [branching, active, current]);
 
   /**
-   * 판 위의 화살표. 회상에서는 물러진 수, 분기에서는 수번 쪽의 최선수다.
+   * 판 위의 화살표. 수번 쪽의 후보 셋이고 순위마다 색과 굵기가 다르다(`Ray.rank`).
    *
-   * 확정된 판 위에는 긋지 않는다. 手数에 멈추기만 해도 그어지면 「둬 보면 최선수가 나온다」와
-   * 어긋나고(03-frontend.md §3), 넘겨 보는 것만으로 답이 판에 그려진다.
-   *
-   * 두 뜻이 같은 초록 화살표를 쓴다. 회상의 것은 「네가 두려던 나쁜 수」이고 분기의 것은 「지금
-   * 최선은 무엇인가」라 정반대인데, 모양이 같아 어느 쪽인지는 옆 패널이 말한다. 그래서 「지금
-   * 무엇을 보고 있나」가 분명한 때만 긋는다.
+   * 확정된 手数에도 긋는다. 넘겨 보는 것만으로 그 국면의 답이 판에 보이는 것이 이 화면의
+   * 쓰임새다(journal §145). 분기에서도 같은 규칙이다.
    */
-  const ray = useMemo<Ray | null>(() => {
-    if (!branching) return null;
-    const best = active?.candidates[0];
-    if (!best) return null;
-    const squares = squaresOf(best.usi);
-    if (!squares) return null;
-    // 打도 긋는다. 판 위에 출발 칸이 없어 駒台에서 자리를 재야 하고, 그것은 `useDropAnchor`
-    // 가 한다. 그리지 않으면 최선수가 打인 국면에서만 화살표 전체가 사라진다.
-    return { from: squares.from, to: squares.to, by: active.yourTurn ? 'human' : 'engine' };
-  }, [branching, active]);
+  const rays = useMemo(
+    () => (active ? candidateRays(active.candidates, active.yourTurn ? 'human' : 'engine') : []),
+    [active],
+  );
 
   /**
    * 한 번이라도 막힌 手数. 기보 줄에 표식을 붙이는 데 쓴다.
@@ -396,16 +387,9 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
     // 아래에 있다.
   }, [ply, kifuOpen]);
 
-  /** 지금 화살표가 駒台에서 출발하는가. 그렇다면 어느 쪽의 무슨 駒인가. */
-  const dropping = useMemo(() => {
-    if (!ray || ray.from !== null) return null;
-    const move = parseUsi(active?.candidates[0]?.usi ?? '');
-    if (move?.kind !== 'drop') return null;
-    // 打은 수번 측 駒台에서 나온다. `handSide` 가 이미 그 쪽이다.
-    return { side: handSide, kind: move.piece };
-  }, [ray, active, handSide]);
-
-  const { dropFrom, boardRef, pieceRef } = useDropAnchor(dropping);
+  /** 打 화살표가 출발하는 駒들. 打은 수번 측 駒台에서 나오고 `handSide` 가 이미 그 쪽이다. */
+  const dropKinds = rays.flatMap((r) => (r.drop ? [r.drop] : []));
+  const { dropFrom, boardRef } = useDropAnchor(handSide, dropKinds);
 
   const rows = useMemo(() => pairRows(game.moves), [game.moves]);
 
@@ -433,8 +417,6 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
       pieces={board?.hands[side] ?? {}}
       selected={handSide === side && origin?.endsWith('*') ? origin : null}
       playable={handSide === side ? droppable : new Set()}
-      measure={dropping?.side === side ? dropping.kind : null}
-      droppingRef={pieceRef}
       onPick={handSide === side ? pickHand : () => {}}
     />
   );
@@ -476,7 +458,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
             checked={branching && active ? (active.checked ?? null) : (current?.checked ?? null)}
             played={null}
             replay={null}
-            ray={ray}
+            rays={rays}
             motion={motion}
             me={me}
             flipped={flipped}

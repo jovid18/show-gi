@@ -57,6 +57,15 @@ export interface Ray {
   by: Player;
   /** 王手를 거는 줄인가. 다음 수(초록)와 색만 다르고 모양은 같다. */
   check?: boolean;
+  /** 打이면 그 駒의 종류. 駒台의 어느 駒에서 출발하는지를 이것으로 찾는다. */
+  drop?: string;
+  /**
+   * 후보 순위. 1위(없으면 1위다)는 초록, 2위는 보라, 3위는 갈색이고 순위가 낮을수록 가늘다.
+   *
+   * 한 판에 여러 줄을 긋지만 모두 같은 국면에서 둘 수 있는 수다. 수순을 이어 긋는 것과 달라
+   * 판이 거짓을 말하지 않는다(journal §20).
+   */
+  rank?: 1 | 2 | 3;
   /**
    * 갇힘 힌트인가. 파랑으로 긋는다.
    *
@@ -80,8 +89,8 @@ interface BoardProps {
   replay: Replay | null;
   /** 지금 판을 만든 수. 흰빛 두 칸으로 짚는다. 방금 벌어진 것이다. */
   played: LastMove | null;
-  /** 다음에 올 한 수. 초록 화살표로 긋는다. 다음에 벌어질 것이다. */
-  ray: Ray | null;
+  /** 다음에 올 수. 순위별 화살표로 긋는다(`Ray.rank`). 다음에 벌어질 것이다. */
+  rays: readonly Ray[];
   /** 방금 이 판을 만든 수의 움직임. 도착 칸의 駒가 출발 칸에서 미끄러져 들어온다. */
   motion: Motion | null;
   /**
@@ -93,8 +102,8 @@ interface BoardProps {
   checks: readonly Ray[];
   /** 회상 중인가. 판이 색을 잃고 낮아져서 그 위의 빛이 읽힌다. */
   dimmed: boolean;
-  /** 打 화살표의 출발점. 재기 전이거나 打이 아니면 null. */
-  dropFrom: DropFrom | null;
+  /** 打 화살표의 출발점. 駒 종류로 찾는다. 아직 재지 못한 駒는 빠져 있고, 그 화살표는 그리지 않는다. */
+  dropFrom: Readonly<Record<string, DropFrom>>;
   /** 갇힘 힌트가 짚는 칸. 파란 테를 두른다. 打이거나 아직 열리지 않았으면 null. */
   hintSquare: string | null;
   /** 갇힘 힌트의 마지막 단계, 곧 그 수 자체. 파란 화살표로 긋는다. */
@@ -192,6 +201,7 @@ function RefutationRay({
         className="refutation-ray"
         data-by={ray.by}
         data-anchored
+        data-rank={ray.rank}
         data-hint={ray.hint || undefined}
         data-wait={waitForGhost || undefined}
         style={style}
@@ -217,6 +227,7 @@ function RefutationRay({
       className="refutation-ray"
       data-by={ray.by}
       data-check={ray.check || undefined}
+      data-rank={ray.rank}
       data-hint={ray.hint || undefined}
       // 유령 駒가 나는 장면에서만 기다렸다 켜진다. 넘기며 보는 동안에는 기다릴 것이 없다.
       data-wait={waitForGhost || undefined}
@@ -234,7 +245,7 @@ export function Board({
   checked,
   replay,
   played,
-  ray,
+  rays,
   motion,
   checks,
   dimmed,
@@ -259,6 +270,7 @@ export function Board({
   const seat = (i: number): number => (flipped ? 80 - i : i);
   const seatRay = (r: Ray): Ray =>
     flipped ? { ...r, from: r.from === null ? null : seat(r.from), to: seat(r.to) } : r;
+  const anchorOf = (r: Ray): DropFrom | null => (r.drop ? (dropFrom[r.drop] ?? null) : null);
   // 판을 재는 쪽이 ref 를 잡고 있으면 그걸 같이 쓴다. 두 번째 ref 를 붙이면 three.js 표면이
   // 아무것도 붙지 않은 요소를 잰다.
   const ownRef = useRef<HTMLDivElement>(null);
@@ -351,10 +363,13 @@ export function Board({
           <RefutationRay key={`${c.from}-${c.to}`} ray={seatRay(c)} waitForGhost={false} dropFrom={null} />
         ))}
 
-        {ray && <RefutationRay ray={seatRay(ray)} waitForGhost={replay !== null} dropFrom={dropFrom} />}
+        {/* 낮은 순위부터 긋는다. 겹치면 1위가 위에 남는다. */}
+        {rays.toReversed().map((r) => (
+          <RefutationRay key={r.rank ?? 1} ray={seatRay(r)} waitForGhost={replay !== null} dropFrom={anchorOf(r)} />
+        ))}
 
         {/* 힌트는 마지막에 켠다. 상대 쪽 광선과 겹칠 때 가려지면 안 되는 쪽이 이쪽이다 */}
-        {hintRay && <RefutationRay ray={seatRay(hintRay)} waitForGhost={false} dropFrom={dropFrom} />}
+        {hintRay && <RefutationRay ray={seatRay(hintRay)} waitForGhost={false} dropFrom={anchorOf(hintRay)} />}
 
         {replay && (
           <ReplayKoma

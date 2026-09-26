@@ -216,11 +216,11 @@ function MatchBoard({
           // 아래 일곱은 개입이 쓰던 자리다. 대인전에는 개입이 없어 늘 비어 있다.
           replay={null}
           played={null}
-          ray={null}
+          rays={[]}
           motion={null}
           checks={[]}
           dimmed={false}
-          dropFrom={null}
+          dropFrom={{}}
           hintSquare={null}
           hintRay={null}
           mateHeat={0}
