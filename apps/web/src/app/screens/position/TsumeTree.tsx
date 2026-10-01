@@ -119,60 +119,50 @@ function Line({ from, ply, picked, onPick }: LineProps) {
   return (
     <ol className="tsume__line">
       {steps.map((s) => (
-        <li key={s.ply} className="tsume__step">
-          <button
-            type="button"
-            className="tsume__move"
-            data-picked={picked === s.move || undefined}
-            data-futile={s.move.futile || undefined}
-            onClick={() => onPick(s.move)}
-          >
-            <span className="tsume__ply">{s.ply}</span>
-            {s.move.ja}
-            {s.move.futile && <span className="tsume__note">無駄合い</span>}
-          </button>
-          {s.alts.length > 0 && <Variations moves={s.alts} ply={s.ply} picked={picked} onPick={onPick} />}
-        </li>
+        <Row key={s.ply} step={s} picked={picked} onPick={onPick} />
       ))}
     </ol>
   );
 }
 
-/** 本手順이 아닌 응수들. 처음에는 접혀 있다. */
-function Variations({
-  moves,
-  ply,
+/**
+ * 棋譜 한 줄. 手数·수·갈래 손잡이가 한 행에 선다. 갈래를 열면 그 행 바로 아래에 들여 쓴 줄로
+ * 펼쳐져, 어느 수의 変化인지가 자리로 보인다.
+ */
+function Row({
+  step,
   picked,
   onPick,
-}: { moves: TsumeMove[]; ply: number } & Omit<LineProps, 'from' | 'ply'>) {
+}: { step: { move: TsumeMove; ply: number; alts: TsumeMove[] } } & Omit<LineProps, 'from' | 'ply'>) {
   const [open, setOpen] = useState(false);
-  const futile = moves.filter((m) => m.futile);
-  const real = moves.filter((m) => !m.futile);
+  const real = step.alts.filter((m) => !m.futile);
+  const futile = step.alts.filter((m) => m.futile);
   return (
-    <div className="tsume__variations">
-      {real.length > 0 && (
-        <button type="button" className="tsume__toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-          {open ? '変化を閉じる' : `変化 ${real.length}`}
+    <li className="tsume__row">
+      <div className="tsume__head">
+        <span className="tsume__ply">{step.ply}</span>
+        <button
+          type="button"
+          className="tsume__move"
+          data-picked={picked === step.move || undefined}
+          onClick={() => onPick(step.move)}
+        >
+          {step.move.ja}
         </button>
-      )}
-      {open && (
-        <ul className="tsume__branches">
-          {real.map((m) => (
-            <li key={m.usi}>
-              <span className="tsume__rest">あと{m.rest}手</span>
-              <Line from={m} ply={ply} picked={picked} onPick={onPick} />
-            </li>
-          ))}
-        </ul>
-      )}
+        {real.length > 0 && (
+          <button type="button" className="tsume__toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+            {open ? '変化を閉じる' : `ほかの応手 ${real.length}`}
+          </button>
+        )}
+      </div>
       {futile.length > 0 && (
         <p className="tsume__futile">
-          無駄合い:
+          <span>無駄合い</span>
           {futile.map((m) => (
             <button
               key={m.usi}
               type="button"
-              className="tsume__move"
+              className="tsume__chip"
               data-picked={picked === m || undefined}
               onClick={() => onPick(m)}
             >
@@ -181,6 +171,18 @@ function Variations({
           ))}
         </p>
       )}
-    </div>
+      {open && (
+        <ul className="tsume__branches">
+          {real.map((m) => (
+            <li key={m.usi}>
+              <span className="tsume__rest">
+                {m.ja}なら、あと{m.rest}手で詰み
+              </span>
+              <Line from={m} ply={step.ply} picked={picked} onPick={onPick} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
   );
 }

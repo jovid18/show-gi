@@ -5211,67 +5211,69 @@ label.import__button:focus-within {
   min-width: 0;
 }
 
-/* 한 줄은 棋譜처럼 이어 적는다. 갈래가 열리면 그 수 아래로 들여 쓴다. */
+/* 한 줄은 棋譜처럼 한 수에 한 행이다. 갈래를 열면 그 행 바로 아래에 들여 쓴다. */
 .tsume__line {
   margin: 0;
   padding: 0;
   list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.35rem;
-  align-items: flex-start;
+  display: grid;
 }
 
-.tsume__step {
+.tsume__row {
   display: grid;
   gap: 0.25rem;
-  /* 갈래가 달린 칸은 넓어진다. 수 버튼까지 따라 늘어나면 한 수가 한 줄을 차지한다. */
-  justify-items: start;
+  padding: 0.15rem 0;
+  border-bottom: 1px solid var(--line);
 }
 
-.tsume__move {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.25rem;
-  padding: 0.2rem 0.45rem;
-  border: 1px solid var(--line);
+.tsume__head {
+  display: grid;
+  grid-template-columns: 2rem auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tsume__ply {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tsume__move,
+.tsume__chip {
+  justify-self: start;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid transparent;
   border-radius: var(--r-sm);
-  background: var(--surface-2);
+  background: none;
   font: inherit;
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   color: var(--fg);
   cursor: pointer;
 }
 
+.tsume__chip {
+  font-size: 0.8125rem;
+  color: var(--fg-2);
+}
+
 .tsume__move:hover,
-.tsume__move:focus-visible {
+.tsume__move:focus-visible,
+.tsume__chip:hover,
+.tsume__chip:focus-visible {
   border-color: var(--brand-line);
 }
 
-.tsume__move[data-picked] {
+.tsume__move[data-picked],
+.tsume__chip[data-picked] {
   border-color: var(--brand);
   background: var(--brand-soft);
   color: var(--brand-strong);
 }
 
-.tsume__ply {
-  font-size: 0.6875rem;
-  color: var(--muted);
-}
-
-.tsume__note,
-.tsume__rest {
-  font-size: 0.6875rem;
-  color: var(--muted);
-}
-
-.tsume__variations {
-  display: grid;
-  gap: 0.35rem;
-}
-
 .tsume__toggle {
-  justify-self: start;
+  justify-self: end;
   padding: 0.1rem 0.4rem;
   border: 0;
   background: none;
@@ -5282,21 +5284,28 @@ label.import__button:focus-within {
   text-decoration: underline;
 }
 
+.tsume__rest {
+  display: block;
+  margin-bottom: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
 .tsume__branches {
-  margin: 0;
+  margin: 0 0 0.35rem 2.5rem;
   padding: 0 0 0 0.75rem;
   border-left: 2px solid var(--line-2);
   list-style: none;
   display: grid;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 
 .tsume__futile {
-  margin: 0;
+  margin: 0 0 0 2.5rem;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.2rem;
   font-size: 0.75rem;
   color: var(--muted);
 }
