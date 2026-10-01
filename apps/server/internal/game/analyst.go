@@ -193,6 +193,19 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 				pv = top
 			}
 		}
+		// 이유를 대지 못한 수에는 반박 트리를 펼친다. 닿으면 카테고리가 바뀐다. 판정은
+		// 여전히 intervene 이 하고, 트리는 사실 하나(ForcedLoss)를 건넬 뿐이다.
+		var losses []explain.Loss
+		var lossBest string
+		if v.Category == intervene.CategoryOther && facts.Known && len(pv) > 0 {
+			if best, ls, ok := a.proveLoss(ctx, startSFEN, moves, pv[0]); ok {
+				in.Features.ForcedLoss = true
+				v = intervene.Judge(in)
+				j.Verdict = v
+				losses, lossBest = ls, best
+			}
+		}
+
 		r := refutationLine(startSFEN, moves, pv, RefutationPlies, full)
 		j.RetractedSFEN, j.RetractedChecks = r.retractedSFEN, r.checks
 		if full {
@@ -213,6 +226,9 @@ func (a *engineAnalyst) Judge(ctx context.Context, startSFEN string, moves []str
 			// 위에서 정한 그 PV다. after.PV 를 여기서 다시 읽으면 문장의 첫 수와
 			// 「무엇을 취할 수 있는가」(r.threatened)가 서로 다른 수의 것이 된다.
 			facts.OpponentBest, facts.Branches = a.otherBranches(ctx, startSFEN, moves, pv)
+		}
+		if v.Category == intervene.CategoryForcedLoss {
+			facts.OpponentBest, facts.Losses = lossBest, losses
 		}
 		j.Facts = facts
 	}

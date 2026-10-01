@@ -342,11 +342,11 @@ sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다
 | Search      | 가정 수순 · 手筋 힌트              |
 | Store       | 기록과 캐시 (대국은 된다)          |
 
-### ④ 카테고리를 하나 더하면 네 곳이다
+### ④ 카테고리를 하나 더하면 여섯 곳이다
 
-어느 하나를 빠뜨려도 컴파일도 테스트도 깨지지 않고, 화면이 경고 없이 미분류로 떨어진다.
+`intervene/category.go`(상수 + `classify` 의 순서 있는 switch) → `explain/render.go` → `explain/label.go` → `explain/facts.go` 의 `used()` → 테스트의 `allCategories` → 안내 화면의 `apps/web/src/app/libs/game/categories.ts`.
 
-`intervene/category.go`(상수 + `classify` 의 순서 있는 switch) → `explain/render.go` → `explain/label.go` → `explain/facts.go` 의 `used()` → 테스트의 `allCategories`.
+앞의 다섯은 어느 하나를 빠뜨려도 컴파일도 테스트도 깨지지 않고, 화면이 경고 없이 미분류로 떨어진다. 마지막 하나만 `label_guide_test.go` 가 대조한다.
 
 ### WebSocket 메시지
 

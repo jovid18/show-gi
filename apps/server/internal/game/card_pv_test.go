@@ -104,14 +104,15 @@ func TestSentenceNamesTheMoveTheCardPoints(t *testing.T) {
 	if len(j.Facts.Branches) != 1 || j.Facts.Branches[0].PlayerJa != "▲2六歩" {
 		t.Errorf("갈래 = %+v", j.Facts.Branches)
 	}
-	// 물은 국면이 둘이고 순서가 정해져 있다. 카드 국면 먼저, 그 뒤가 갈래 국면이다.
-	want := [][]string{{"1g1f"}, {"1g1f", "8c8d"}}
-	if len(stub.asked) != len(want) {
+	// 카드 국면을 맨 먼저 묻고, 갈래 국면을 맨 나중에 묻는다. 그 사이는 반박 트리의 몫이고
+	// 트리도 카드의 1위(△8四歩) 뒤에서 자란다.
+	n := len(stub.asked)
+	if n < 2 || !slices.Equal(stub.asked[0], []string{"1g1f"}) || !slices.Equal(stub.asked[n-1], []string{"1g1f", "8c8d"}) {
 		t.Fatalf("MultiPV로 물은 국면 = %v", stub.asked)
 	}
-	for i := range want {
-		if !slices.Equal(stub.asked[i], want[i]) {
-			t.Errorf("[%d] 물은 수순 = %v, want %v", i, stub.asked[i], want[i])
+	for _, a := range stub.asked[1:] {
+		if len(a) < 2 || a[1] != "8c8d" {
+			t.Errorf("카드의 1위 밖에서 물었다: %v", a)
 		}
 	}
 }

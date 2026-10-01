@@ -20,6 +20,7 @@ var allCategories = []intervene.Category{
 	intervene.CategoryGreedyCapture,
 	intervene.CategoryIdleCheck,
 	intervene.CategoryKingExposed,
+	intervene.CategoryForcedLoss,
 	intervene.CategoryOther,
 }
 
@@ -53,6 +54,31 @@ func TestRenderCarriesTheFacts(t *testing.T) {
 			Category: intervene.CategoryOther, Known: true, Threatened: "桂",
 		},
 		want: []string{"桂を取れます"},
+	}, {
+		// journal §146: 상대 한 수로 손해가 확정되면 그 수와 잃는 駒만 말한다.
+		name: "一手で決まる損は駒を言う",
+		facts: Facts{
+			Category: intervene.CategoryForcedLoss, Known: true, OpponentBest: "△同角",
+			Losses: []Loss{{Taken: []string{"馬"}}},
+		},
+		want: []string{"△同角が厳しく", "馬を取られて駒損になります"},
+	}, {
+		name: "受けごとに終わりまで並べる",
+		facts: Facts{
+			Category: intervene.CategoryForcedLoss, Known: true, OpponentBest: "△8八角成",
+			Losses: []Loss{
+				{Moves: []string{"▲同銀"}, MatePlies: 5},
+				{Moves: []string{"▲7七桂", "△9九馬"}, Promoted: "馬"},
+			},
+		},
+		want: []string{"有力な受けを調べても", "\n▲同銀 → 5手で詰まされる", "\n▲7七桂 → △9九馬 → 取り返せない馬を作られる"},
+	}, {
+		name: "成り込みで決まる",
+		facts: Facts{
+			Category: intervene.CategoryForcedLoss, Known: true, OpponentBest: "△2八飛成",
+			Losses: []Loss{{Promoted: "龍"}},
+		},
+		want: []string{"取り返せない龍を作られます"},
 	}}
 
 	for _, tt := range tests {

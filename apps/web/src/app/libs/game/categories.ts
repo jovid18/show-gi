@@ -5,7 +5,7 @@
  * `categoryJa` 를 그대로 받아 쓰고, 코드(`hangs_piece`)를 일본어로 바꾸는 자리가 없다.
  *
  * 여기만 예외다. 안내 화면은 대국 없이 「무엇이 있나」를 미리 보여 주는 자리라 실제로 걸린
- * 개입이 없고 받을 데가 없다. 대신 `label_guide_test.go` 가 이 파일을 읽어 열 개가 이름까지
+ * 개입이 없고 받을 데가 없다. 대신 `label_guide_test.go` 가 이 파일을 읽어 열한 개가 이름까지
  * 서버와 같은지 본다.
  *
  * `note` 는 화면이 직접 적는다. 서버 문구는 그 판의 그 수에 하는 말이라(`baseMessages`)
@@ -27,5 +27,6 @@ export const GUIDE_CATEGORIES: readonly GuideCategory[] = [
   { code: 'greedy_capture', nameJa: '割に合わない取り', note: '駒は取れるけれど、払う代償のほうが大きいとき。' },
   { code: 'idle_check', nameJa: '追う手', note: '王手はかかるものの続きがなく、手番を渡すだけのとき。' },
   { code: 'king_exposed', nameJa: '玉が薄い', note: '自玉のまわりが手薄になり、相手の攻めが届くとき。' },
+  { code: 'forced_loss', nameJa: '受けきれない損', note: '有力な受けを試しても、駒損か詰みが避けられないとき。' },
   { code: 'other', nameJa: '大きな形勢損', note: '上のどれにも当てはまらないけれど、形勢を大きく損ねるとき。' },
 ];

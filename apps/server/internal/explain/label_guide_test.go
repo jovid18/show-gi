@@ -8,7 +8,7 @@ import (
 	"github.com/jovid18/show-gi/apps/server/internal/intervene"
 )
 
-// 안내 화면(あそびかた)이 카테고리 열 개를 미리 늘어놓는다. 걸린 개입이 없어 서버에서
+// 안내 화면(あそびかた)이 카테고리 열한 개를 미리 늘어놓는다. 걸린 개입이 없어 서버에서
 // 받을 데가 없고, 그래서 이 레포에서 어휘가 두 벌인 하나뿐인 자리다.
 //
 // 그 한 벌을 여기서 잠근다. 이름을 고치고 이 테스트를 고치지 않으면 안내 화면만 옛
@@ -33,7 +33,7 @@ func TestGuideCategoriesMatchServer(t *testing.T) {
 		got[m[1]] = m[2]
 	}
 
-	// other 까지 센다. 빠지면 안내 화면이 「열 종류」라고 써 놓고 아홉만 보여준다.
+	// other 까지 센다. 빠지면 안내 화면이 「열한 종류」라고 써 놓고 열만 보여준다.
 	want := map[string]string{}
 	for c := range categoryNames {
 		want[string(c)] = CategoryJa(c)

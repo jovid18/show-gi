@@ -26,6 +26,7 @@ var baseMessages = map[intervene.Category]string{
 	intervene.CategoryGreedyCapture: "駒は取れますが、払う代償のほうが大きくなります。",
 	intervene.CategoryIdleCheck:     "王手はかかりますが続きがなく、手番を渡すだけになります。",
 	intervene.CategoryKingExposed:   "自玉のまわりが手薄になり、相手の攻めが届きます。",
+	intervene.CategoryForcedLoss:    "その手のあとは、有力な受けを調べても駒損か詰みが避けられません。",
 }
 
 // unknownMessage 는 미분류일 때다.
@@ -68,6 +69,11 @@ func Render(f Facts) string {
 			return fmt.Sprintf("%sは取れますが、払う代償のほうが大きくなります。", u.Captured)
 		}
 
+	case intervene.CategoryForcedLoss:
+		if u.OpponentBest != "" && len(u.Losses) > 0 {
+			return renderLosses(u)
+		}
+
 	case intervene.CategoryOther:
 		// 이유는 모르지만 그래서 어떻게 되는지는 안다.
 		if u.namesMoves() {
@@ -107,6 +113,42 @@ func renderBranches(u Facts) string {
 		fmt.Fprintf(&b, "\n%s → %s → %s", br.PlayerJa, br.ReplyJa, BranchScoreJa(br))
 	}
 	return b.String()
+}
+
+// renderLosses 는 반박 트리의 끝점을 줄 단위로 적는다.
+//
+// 「どう指しても」라고 쓰지 않는다. 트리가 본 것은 엔진 상위 응수와 되따기뿐이다.
+func renderLosses(u Facts) string {
+	if l := u.Losses[0]; len(u.Losses) == 1 && len(l.Moves) == 0 {
+		switch {
+		case l.MatePlies > 0:
+			return fmt.Sprintf("この手には%sが厳しく、%d手で詰まされます。", u.OpponentBest, l.MatePlies)
+		case l.Promoted != "":
+			return fmt.Sprintf("この手には%sが厳しく、取り返せない%sを作られます。", u.OpponentBest, l.Promoted)
+		}
+		return fmt.Sprintf("この手には%sが厳しく、%sになります。", u.OpponentBest, LossEndJa(l))
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "この手には%sが厳しく、有力な受けを調べてもどれも損が避けられません。", u.OpponentBest)
+	for _, l := range u.Losses {
+		fmt.Fprintf(&b, "\n%s → %s", strings.Join(l.Moves, " → "), LossEndJa(l))
+	}
+	return b.String()
+}
+
+// LossEndJa 는 끝점 하나를 적는다. 詰み이면 手数를, 龍·馬이면 그 駒를, 아니면 따인 駒와
+// 「駒損」을 말한다.
+func LossEndJa(l Loss) string {
+	switch {
+	case l.MatePlies > 0:
+		return fmt.Sprintf("%d手で詰まされる", l.MatePlies)
+	case l.Promoted != "":
+		return "取り返せない" + l.Promoted + "を作られる"
+	}
+	if len(l.Taken) == 0 {
+		return "駒損"
+	}
+	return strings.Join(l.Taken, "と") + "を取られて駒損"
 }
 
 // BranchScoreJa 는 갈래 하나의 결말을 적는다.

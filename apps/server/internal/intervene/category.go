@@ -43,6 +43,10 @@ const (
 	// CategoryKingExposed 는 玉 주변의 수비를 방치한 것이다.
 	CategoryKingExposed Category = "king_exposed"
 
+	// CategoryForcedLoss 는 그 수 뒤에 둘 만한 응수를 다 둬 봐도 駒損이나 詰み을 피하지 못하는
+	// 것이다. 판정은 반박 트리가 한다(game.proveLoss, journal §146).
+	CategoryForcedLoss Category = "forced_loss"
+
 	// CategoryOther 는 미분류다. 판을 읽지 못했을 때도 여기로 떨어진다.
 	CategoryOther Category = "other"
 )
@@ -86,6 +90,10 @@ type Features struct {
 	// 채우는 쪽(game.engineAnalyst)이 지켜야 할 두 조건은 01-core.md §3. ②(최선수 뒤에는
 	// 그 詰み이 없을 것)는 아직 실전에서 걸러지지 않았다(journal §40 ③).
 	OpponentMatePlies int
+
+	// ForcedLoss 는 반박 트리가 끝점까지 닿았는가다. 채우는 쪽은 game.proveLoss 이고,
+	// 다른 분기에 걸리지 않은 수에만 묻는다.
+	ForcedLoss bool
 }
 
 // HangsPiece 는 놓인 駒를 그냥 내주는가다.
@@ -183,6 +191,11 @@ func classify(in Input, lostMate bool) Category {
 	// 玉을 자연스럽게 옮기는 수까지 걸린다.
 	case f.ShieldLoss > 0 && f.ThreatGain > 0:
 		return CategoryKingExposed
+
+	// 이유를 판의 모양으로 대지 못해도, 받아 본 수순이 전부 손해로 끝나면 그것을 말한다.
+	// 위 분기에 걸린 수에는 트리를 펼치지 않으므로 맨 뒤다.
+	case f.ForcedLoss:
+		return CategoryForcedLoss
 
 	default:
 		return CategoryOther
