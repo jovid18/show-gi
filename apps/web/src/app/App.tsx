@@ -66,6 +66,7 @@ const TITLE_JA: Record<Route['name'], string> = {
   explore: '検討 | show-gi',
   import: '棋譜の取り込み | show-gi',
   position: '局面の読み取り | show-gi',
+  tsume: '詰将棋を解く | show-gi',
 };
 
 export function App() {
@@ -155,6 +156,9 @@ export function App() {
               // 사진에서 국면을 가져오는 화면. 로그인 검사가 있고, 끝나면 다른 화면으로
               // 옮겨 간다(journal §129).
               <PositionScreen me={me} />
+            ) : route.name === 'tsume' ? (
+              // 같은 화면을 詰め将棋로 연다. 주소가 바뀌면 다른 화면이라 새로 만든다.
+              <PositionScreen key="tsume" me={me} mode="tsume" />
             ) : route.name === 'explore' ? (
               // 手合割마다 새로 만든다. 뿌리가 바뀌면 다른 판이라, 컴포넌트가 살아남으면
               // 한 틱 동안 앞 手合의 국면이 새 手合의 이름 아래에 뜬다(퀴즈와 같은 자리).

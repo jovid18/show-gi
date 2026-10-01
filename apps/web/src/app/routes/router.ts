@@ -17,6 +17,7 @@ import {
   ME_SEGMENT,
   PLAY_SEGMENT,
   POSITION_SEGMENT,
+  TSUME_SEGMENT,
   QUIZ_SEGMENT,
   REVIEWS_SEGMENT,
   ROOMS_SEGMENT,
@@ -26,6 +27,7 @@ import {
   ROUTE_IMPORT,
   ROUTE_ME,
   ROUTE_POSITION,
+  ROUTE_TSUME,
   ROUTE_REVIEWS,
   routeExplore,
   routeQuiz,
@@ -54,6 +56,8 @@ export type Route =
   // 국면을 사진에서 가져오기. 여기도 주소가 아무것도 담지 않는다. 확인이 끝나면 그 국면이
   // 검토의 주소가 된다.
   | { name: 'position' }
+  // 詰め将棋. 같은 화면이 다른 걸음으로 끝난다(PositionScreen 의 `tsume`).
+  | { name: 'tsume' }
   // 검토. 주소가 판을 담아서 이 화면만 라우트가 `?` 뒤를 본다(routeExplore).
   //
   // `sfen` 이 있으면 그것이 뿌리다(journal §129). 手合割과 동시에 올 수 없으므로 값이 있는
@@ -138,6 +142,7 @@ export function parseRoute(url: string): Route {
   if (parts[0] === GUIDE_SEGMENT) return { name: 'guide' };
   if (parts[0] === IMPORT_SEGMENT) return { name: 'import' };
   if (parts[0] === POSITION_SEGMENT) return { name: 'position' };
+  if (parts[0] === TSUME_SEGMENT) return { name: 'tsume' };
   if (parts[0] === ME_SEGMENT) return { name: 'me' };
   // 글자를 확인하고 넘긴다. 아무 문자열이나 주소에 실으면 그 값이 그대로 `fetch` 의 경로가
   // 된다. 영숫자 8자가 방 id 의 모양이다(서버의 NewRoomID).
@@ -184,6 +189,8 @@ export function hrefOf(route: Route): string {
       return ROUTE_IMPORT;
     case 'position':
       return ROUTE_POSITION;
+    case 'tsume':
+      return ROUTE_TSUME;
     case 'explore':
       return routeExplore(route.handicap, route.moves, route.sfen);
     case 'room':

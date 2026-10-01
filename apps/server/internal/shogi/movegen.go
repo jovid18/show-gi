@@ -52,7 +52,8 @@ func slidesOf(t PieceType) []delta {
 //
 // 자기 말이 있는 칸도 포함하고, 핀은 보지 않는다. 「그 말이 실제로 갈 수 있는가」 대신
 // 「노리고 있는가」를 세는 것이고, 방어 利き을 세려면 그래야 한다.
-// 아래 세 질의(IsAttacked·AttackCount·Attackers)가 이 규칙을 그대로 물려받는다.
+// AttackCount·Attackers 가 이 규칙을 그대로 물려받는다. IsAttacked 는 같은 규칙을 노려지는
+// 칸에서 바깥으로 훑는다(attacked). 둘이 같은 답인지는 checks_test.go 가 대조한다.
 func (pos *Position) attackTargets(sq int, fn func(to int) bool) {
 	p := pos.Board[sq]
 	if p.Empty() {
@@ -94,27 +95,8 @@ func (pos *Position) attackTargets(sq int, fn func(to int) bool) {
 	}
 }
 
-// IsAttacked: sq가 by 색의 말에게 공격받고 있는가.
-func (pos *Position) IsAttacked(sq int, by Color) bool {
-	for s := 0; s < 81; s++ {
-		p := pos.Board[s]
-		if p.Empty() || p.Color() != by {
-			continue
-		}
-		attacked := false
-		pos.attackTargets(s, func(to int) bool {
-			if to == sq {
-				attacked = true
-				return false
-			}
-			return true
-		})
-		if attacked {
-			return true
-		}
-	}
-	return false
-}
+// IsAttacked: sq가 by 색의 말에게 공격받고 있는가. sq 에서 바깥으로 훑는다(attacked).
+func (pos *Position) IsAttacked(sq int, by Color) bool { return pos.attacked(sq, by) }
 
 // AttackCount: sq를 노리는 by 색 말의 개수. 세는 규칙은 attackTargets 와 같다.
 //

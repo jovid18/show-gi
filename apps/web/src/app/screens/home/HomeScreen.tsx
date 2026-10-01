@@ -47,6 +47,13 @@ const MENU: MenuItem[] = [
     note: '盤の画像から形勢を調べる',
     needsAuth: true,
   },
+  // 같은 판독을 쓴다. 로그인이 필요한 이유도 같고, 푸는 것도 한 사람씩이다(tsume.go).
+  {
+    route: { name: 'tsume' },
+    name: '詰将棋を解く',
+    note: '詰将棋の画像から詰み手順を調べる',
+    needsAuth: true,
+  },
   // 로그인해야 뜬다. 익명에게는 401인 화면이고(profile.go) 그 자리는 아래 ログイン 줄이
   // 맡는다(journal §63).
   { route: { name: 'me' }, name: 'マイページ', note: '成績と棋力の目安', needsAuth: true },

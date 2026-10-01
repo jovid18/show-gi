@@ -83,6 +83,15 @@ export const ROUTE_POSITION = '/position';
 export const POSITION_SEGMENT = 'position';
 
 /**
+ * 詰め将棋를 사진에서 가져와 푸는 화면(journal §147). `/position` 과 같은 화면을 `tsume` 으로 연다.
+ * 주소가 아무것도 담지 않는 것도 같다.
+ */
+export const ROUTE_TSUME = '/tsume';
+
+/** `/tsume` 의 첫 조각. */
+export const TSUME_SEGMENT = 'tsume';
+
+/**
  * 대국 id와 선택한 手数로 되짚기 주소를 만든다.
  *
  * `ply` 를 주면 그 手数에서 열린다. 총평이 짚은 국면이 링크가 되려면 手数도 주소에

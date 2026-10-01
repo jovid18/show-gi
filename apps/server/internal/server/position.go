@@ -83,6 +83,8 @@ type positionReadRequest struct {
 // positionCheckRequest 는 국면 하나다. 手番이 SFEN 안에 있다.
 type positionCheckRequest struct {
 	SFEN string `json:"sfen"`
+	// Tsume 이면 詰め将棋로 본다. 수번 쪽(공격 쪽) 玉이 없어도 사유가 아니다(shogi.TsumeFaults).
+	Tsume bool `json:"tsume,omitempty"`
 }
 
 // positionResponse 는 국면 하나와 그것에 대해 룰 엔진이 말할 수 있는 것을 담는다.
@@ -185,7 +187,7 @@ func (h *positionHandler) check(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	writeJSON(w, http.StatusOK, checked(req.SFEN))
+	writeJSON(w, http.StatusOK, checkedAs(req.SFEN, req.Tsume))
 }
 
 // positionLabelRequest 는 「이 그림의 정답은 이 국면이다」다.
@@ -325,7 +327,10 @@ func (h *positionHandler) viewer(w http.ResponseWriter, r *http.Request) (auth.S
 // 읽지 못하는 SFEN 도 사유를 하나 담는다. 빈 목록은 「이 판은 성립한다」로 읽히는데,
 // 읽기(readImage)는 판독 계층이 내놓은 글자를 그대로 넘기므로 부르는 쪽이 이미 읽어
 // 봤다는 보장이 없다.
-func checked(sfen string) positionResponse {
+func checked(sfen string) positionResponse { return checkedAs(sfen, false) }
+
+// checkedAs 는 checked 와 같고, tsume 이면 사유를 詰め将棋의 규칙으로 고른다.
+func checkedAs(sfen string, tsume bool) positionResponse {
 	res := positionResponse{SFEN: sfen, Faults: []positionFault{}, Warnings: []string{}}
 
 	pos, err := shogi.ParseSFEN(sfen)
@@ -336,7 +341,11 @@ func checked(sfen string) positionResponse {
 		return res
 	}
 
-	for _, f := range pos.Faults() {
+	faults := pos.Faults()
+	if tsume {
+		faults = pos.TsumeFaults()
+	}
+	for _, f := range faults {
 		out := positionFault{Reason: f.Reason.String(), Message: f.Message()}
 		if f.Square >= 0 {
 			sq := f.Square
@@ -347,7 +356,14 @@ func checked(sfen string) positionResponse {
 
 	// 말이 모자라도 거절하지 않는다. 실물 한 판은 언제나 40장이라 이것이 곧 「한 장을
 	// 놓쳤다」의 신호이지만, 駒台가 잘려 나간 사진도 정상이다.
-	if short := pos.InventoryShortage(); len(short) > 0 {
+	short := pos.InventoryShortage()
+	if tsume && short != nil && pos.KingSquare(pos.Turn) < 0 {
+		// 詰め将棋에 공격 쪽 玉이 없는 것은 정상이다(TsumeFaults). 모자란 말로 세지 않는다.
+		if short[shogi.King]--; short[shogi.King] <= 0 {
+			delete(short, shogi.King)
+		}
+	}
+	if len(short) > 0 {
 		res.Warnings = append(res.Warnings, shortageJa(short))
 	}
 

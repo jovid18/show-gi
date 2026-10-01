@@ -5176,6 +5176,140 @@ label.import__button:focus-within {
   color: var(--fg-2);
 }
 
+/* ── 詰め将棋의 답 ── 판과 수순이 나란히 선다. 수순이 길어도 판이 화면에 남도록 판을 붙인다. */
+
+.tsume {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.tsume__verdict {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.tsume__body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 56rem) {
+  .tsume__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.tsume__board {
+  position: sticky;
+  top: 4.5rem;
+}
+
+.tsume__moves {
+  min-width: 0;
+}
+
+/* 한 줄은 棋譜처럼 한 수에 한 행이다. 갈래를 열면 그 행 바로 아래에 들여 쓴다. */
+.tsume__line {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+}
+
+.tsume__row {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.15rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.tsume__head {
+  display: grid;
+  grid-template-columns: 2rem auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tsume__ply {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tsume__move,
+.tsume__chip {
+  justify-self: start;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: none;
+  font: inherit;
+  font-size: 0.9375rem;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.tsume__chip {
+  font-size: 0.8125rem;
+  color: var(--fg-2);
+}
+
+.tsume__move:hover,
+.tsume__move:focus-visible,
+.tsume__chip:hover,
+.tsume__chip:focus-visible {
+  border-color: var(--brand-line);
+}
+
+.tsume__move[data-picked],
+.tsume__chip[data-picked] {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+.tsume__toggle {
+  justify-self: end;
+  padding: 0.1rem 0.4rem;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--brand);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.tsume__rest {
+  display: block;
+  margin-bottom: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.tsume__branches {
+  margin: 0 0 0.35rem 2.5rem;
+  padding: 0 0 0 0.75rem;
+  border-left: 2px solid var(--line-2);
+  list-style: none;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.tsume__futile {
+  margin: 0 0 0 2.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
 /* ── 편집기 ── 대국판을 쓰지 않는다. 왜인지는 PositionEditor 의 컴포넌트 주석에 있다. */
 
 .position .pos-edit {

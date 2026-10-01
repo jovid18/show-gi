@@ -158,6 +158,7 @@ GOMAXPROCS=2 go test -race -count=300 -run '<그 테스트>' ./internal/game/
 | `SHOWGI_MEASURE`                      | 측정 전부 skip                              | `TestMeasure*` — 몇 분 걸린다                                                                                                                                                                                                                                     |
 | `SHOWGI_MEASURE` 만                   | 부하 측정 skip                              | `TestMeasureTagHintLoad` — 手筋 게이트가 한 판에 쓰는 비용(journal §56). 엔진도 DB도 쓰지 않는다                                                                                                                                                                  |
 | `SHOWGI_USI_CMD` + `SHOWGI_MEASURE`   | 기준점 측정 skip                            | `TestMeasureBaseline` — 手合割별 「형세 0」을 표와 함께 찍는다(journal §84). DB는 쓰지 않는다                                                                                                                                                                     |
+| `SHOWGI_TSUME_LONG`                   | 긴 詰め将棋 skip                            | `internal/tsume` 의 `TestOzaEndgameLongMate` — 실전 25手詰め를 최단까지 확인한다. 1분 남짓 걸린다 ([§147](../../docs/journal/141-160.md))                                                                                                                         |
 | `SHOWGI_BOARD_IMAGES`                 | 기본은 `internal/boardread/testdata/images` | 판독을 재는 그림이 있는 폴더. 위의 「판독을 재는 그림」                                                                                                                                                                                                           |
 | `SHOWGI_BOARDREAD_MODEL`              | `boardread.DefaultModel`                    | 그 측정이 쓸 모델. 견주려면 여기를 갈아 끼운다                                                                                                                                                                                                                    |
 | `SHOWGI_OPENAI_KEY`                   | 실 OpenAI 호출 skip                         | `internal/kifunorm` 의 `TestLiveNormalizeReachesTheRuleEngine` — 결정적 파서가 전부 실패하는 텍스트가 정규화를 지나 룰 엔진까지 통과하는지를 본다. 모델은 `SHOWGI_OPENAI_MODEL` 로 갈아 끼운다. CI 에서 돌지 않는다                                               |
@@ -273,33 +274,34 @@ sqlc 는 `go.mod` 의 `tool` 로 고정돼 있어 따로 설치할 것이 없다
 
 ## 배치
 
-|                      |                                                                                                                                    |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `cmd/api`            | 플래그·시그널·배선. 로직은 두지 않는다                                                                                             |
-| `internal/server`    | HTTP 표면, WebSocket 대국 프로토콜, 프로세스 수명                                                                                  |
-| `internal/game`      | 대국 세션 상태머신 — goroutine 1개가 상태를 소유한다                                                                               |
-| `internal/intervene` | 개입 판정. 엔진을 모른다 — 입력이 평가치와 詰み 거리뿐이다                                                                         |
-| `internal/explain`   | 설명 문구. 판단하지 않는다 — 정해진 사실을 문장으로만 바꾼다                                                                       |
-| `internal/skill`     | 실력 추정. 엔진도 DB도 판도 모른다 — 입력이 낙폭과 「걸렸나」뿐이다                                                                |
-| `internal/rating`    | 대인전 Glicko. 같은 성질이고 입력이 레이팅과 승패뿐이다 ([§92](../../docs/journal/82-100.md)). 어느 API 도 이 값을 돌려주지 않는다 |
-| `internal/shogi`     | 룰 엔진 — SFEN, 합법수, 반칙 검증, 棋譜 표기                                                                                       |
-| `internal/usi`       | 엔진 프로세스 풀. MultiPV·깊이별 평가치·詰み 탐색                                                                                  |
-| `internal/archive`   | **모든 탐색을 데이터로 만든다** — `positions`·`edges` (§37)                                                                        |
-| `internal/metrics`   | 카운터·게이지·히스토그램. 의존성이 없다 — Prometheus 텍스트와 EMF 둘                                                               |
-| `internal/store`     | postgres (pgx + sqlc). `db/` 는 생성물이라 손대지 않는다                                                                           |
-| `internal/tag`       | 囲い·전법·戦型·手筋의 이름. 엔진도 DB도 모른다 — 국면과 수순만 받는다                                                              |
-| `internal/auth`      | Google OAuth와 서명 쿠키. 세션을 표에 남기지 않는다 — 마이그레이션이 없다                                                          |
-| `internal/book`      | 상대의 진형 4종 수순. 후보를 만들지 않고 고르기만 한다                                                                             |
-| `internal/handicap`  | 手合割 7종 — 시작 국면과 「형세 0」 ([§84](../../docs/journal/82-100.md)). 엔진도 DB도 모른다                                      |
-| `internal/match`     | 사람끼리 두는 방과 시계 ([§83](../../docs/journal/82-100.md)). 엔진을 부르지 않는다 — 개입도 힌트도 待った도 없다                  |
-| `internal/quiz`      | 되짚기 퀴즈의 생성과 채점. 채점은 저장된 트리라 엔진 0회                                                                           |
-| `internal/kifunorm`  | 읽을 수 없는 서식의 기보를 결정적 파서가 읽는 표기로 옮긴다. 글자만 만진다 ([§126](../../docs/journal/121-140.md))                 |
-| `internal/boardread` | 판이 찍힌 그림에서 격자를 읽는다. 좌표를 시키지 않는다 — 그 순서가 SFEN 판 칸 순서와 같다 ([§129](../../docs/journal/121-140.md))  |
-| `internal/queue`     | 대인전 대기열의 짝짓기. DB도 방도 엔진도 모른다 — 입력이 레이팅·불확실성·선 시각뿐이다 ([§98](../../docs/journal/82-100.md))       |
-| `internal/kifu`      | KIF·CSA 파서와 실 기보 임포트. 서버는 쓰지 않는다 — `cmd/importkifu` 만                                                            |
-| `cmd/importkifu`     | 실 기보를 같은 판정 경로로 다시 둬 DB에 넣는다. 플래그·배선뿐                                                                      |
+|                      |                                                                                                                                                          |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cmd/api`            | 플래그·시그널·배선. 로직은 두지 않는다                                                                                                                   |
+| `internal/server`    | HTTP 표면, WebSocket 대국 프로토콜, 프로세스 수명                                                                                                        |
+| `internal/game`      | 대국 세션 상태머신 — goroutine 1개가 상태를 소유한다                                                                                                     |
+| `internal/intervene` | 개입 판정. 엔진을 모른다 — 입력이 평가치와 詰み 거리뿐이다                                                                                               |
+| `internal/explain`   | 설명 문구. 판단하지 않는다 — 정해진 사실을 문장으로만 바꾼다                                                                                             |
+| `internal/skill`     | 실력 추정. 엔진도 DB도 판도 모른다 — 입력이 낙폭과 「걸렸나」뿐이다                                                                                      |
+| `internal/rating`    | 대인전 Glicko. 같은 성질이고 입력이 레이팅과 승패뿐이다 ([§92](../../docs/journal/82-100.md)). 어느 API 도 이 값을 돌려주지 않는다                       |
+| `internal/shogi`     | 룰 엔진 — SFEN, 합법수, 반칙 검증, 棋譜 표기                                                                                                             |
+| `internal/usi`       | 엔진 프로세스 풀. MultiPV·깊이별 평가치·詰み 탐색                                                                                                        |
+| `internal/archive`   | **모든 탐색을 데이터로 만든다** — `positions`·`edges` (§37)                                                                                              |
+| `internal/metrics`   | 카운터·게이지·히스토그램. 의존성이 없다 — Prometheus 텍스트와 EMF 둘                                                                                     |
+| `internal/store`     | postgres (pgx + sqlc). `db/` 는 생성물이라 손대지 않는다                                                                                                 |
+| `internal/tag`       | 囲い·전법·戦型·手筋의 이름. 엔진도 DB도 모른다 — 국면과 수순만 받는다                                                                                    |
+| `internal/auth`      | Google OAuth와 서명 쿠키. 세션을 표에 남기지 않는다 — 마이그레이션이 없다                                                                                |
+| `internal/book`      | 상대의 진형 4종 수순. 후보를 만들지 않고 고르기만 한다                                                                                                   |
+| `internal/handicap`  | 手合割 7종 — 시작 국면과 「형세 0」 ([§84](../../docs/journal/82-100.md)). 엔진도 DB도 모른다                                                            |
+| `internal/match`     | 사람끼리 두는 방과 시계 ([§83](../../docs/journal/82-100.md)). 엔진을 부르지 않는다 — 개입도 힌트도 待った도 없다                                        |
+| `internal/quiz`      | 되짚기 퀴즈의 생성과 채점. 채점은 저장된 트리라 엔진 0회                                                                                                 |
+| `internal/kifunorm`  | 읽을 수 없는 서식의 기보를 결정적 파서가 읽는 표기로 옮긴다. 글자만 만진다 ([§126](../../docs/journal/121-140.md))                                       |
+| `internal/boardread` | 판이 찍힌 그림에서 격자를 읽는다. 좌표를 시키지 않는다 — 그 순서가 SFEN 판 칸 순서와 같다 ([§129](../../docs/journal/121-140.md))                        |
+| `internal/tsume`     | 詰め将棋 풀이. 엔진을 부르지 않는다 — df-pn 이 이 프로세스 안에서 王手만으로 풀고 수비 응수 전부의 트리를 꺼낸다 ([§147](../../docs/journal/141-160.md)) |
+| `internal/queue`     | 대인전 대기열의 짝짓기. DB도 방도 엔진도 모른다 — 입력이 레이팅·불확실성·선 시각뿐이다 ([§98](../../docs/journal/82-100.md))                             |
+| `internal/kifu`      | KIF·CSA 파서와 실 기보 임포트. 서버는 쓰지 않는다 — `cmd/importkifu` 만                                                                                  |
+| `cmd/importkifu`     | 실 기보를 같은 판정 경로로 다시 둬 DB에 넣는다. 플래그·배선뿐                                                                                            |
 
-패키지가 스물셋이고, 그림으로 본 의존 방향은 [docs/spec/architecture.md](../../docs/spec/architecture.md) §2 다 — 거기서는 없는 화살표가 내용이다.
+패키지가 스물넷이고, 그림으로 본 의존 방향은 [docs/spec/architecture.md](../../docs/spec/architecture.md) §2 다 — 거기서는 없는 화살표가 내용이다.
 
 `go.mod`는 레포 루트 대신 여기 있다. `apps/web`이 Node 워크스페이스라 루트를 한쪽 언어에 내주지 않으려는 것이고, 대신 Go 명령은 전부 이 디렉터리에서 돌린다.
 

@@ -53,11 +53,16 @@ export async function readPosition(image: string, signal: AbortSignal | null = n
   return unwrap(res);
 }
 
-export async function checkPosition(sfen: string, signal: AbortSignal | null = null): Promise<PositionResponse> {
+/** `tsume` 이면 詰め将棋로 본다. 수번 쪽(공격 쪽) 玉이 없어도 사유가 아니다. */
+export async function checkPosition(
+  sfen: string,
+  signal: AbortSignal | null = null,
+  tsume = false,
+): Promise<PositionResponse> {
   const res = await fetch('/api/position/check', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sfen }),
+    body: JSON.stringify({ sfen, tsume }),
     signal,
   });
   return unwrap(res);

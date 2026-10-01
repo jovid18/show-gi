@@ -202,7 +202,7 @@ explore_snapshots(id, user_id, name, handicap, moves text[], created_at)
 
 ## 5. 시스템 구성
 
-> 그림으로 본 것은 [spec/architecture.md](spec/architecture.md)에 있다. 모듈 의존 방향(없는 화살표 다섯) · 개입 루프 시퀀스 · 배포 토폴로지를 그렸다.
+> 그림으로 본 것은 [spec/architecture.md](spec/architecture.md)에 있다. 모듈 의존 방향(없는 화살표 열넷) · 개입 루프 시퀀스 · 배포 토폴로지를 그렸다.
 
 ```
                   브라우저 (React + three.js)
