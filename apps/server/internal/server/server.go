@@ -383,6 +383,9 @@ func Handler(opts Options) http.Handler {
 		mux.HandleFunc("POST /api/position/read", boardReadUnavailable)
 	}
 
+	// 詰め将棋(tsume.go). 엔진도 DB도 쓰지 않고 이 프로세스 안에서 푼다.
+	mux.HandleFunc("POST /api/tsume/solve", newTsumeHandler(ah).solve)
+
 	// 검토(explore.go). DB 블록 밖이다. 뿌리가 手合割 표라 기록이 없어도 경로가 열리고,
 	// positions 는 있으면 캐시로 쓴다(없으면 답은 같고 매번 다시 잰다).
 	//

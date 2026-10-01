@@ -248,6 +248,8 @@ describe('뿌리 국면', () => {
   it('사진에서 국면을 가져오는 화면은 주소가 아무것도 담지 않는다', () => {
     expect(parseRoute('/position')).toEqual({ name: 'position' });
     expect(hrefOf({ name: 'position' })).toBe('/position');
+    expect(parseRoute('/tsume')).toEqual({ name: 'tsume' });
+    expect(hrefOf({ name: 'tsume' })).toBe('/tsume');
   });
 });
 

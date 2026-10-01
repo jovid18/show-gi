@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 
 import { PositionEditor } from './PositionEditor';
+import { TsumeTree } from './TsumeTree';
 import { SIGN_IN_PATH, type MeResponse } from '@/protocol/auth';
 import {
   IMAGE_ACCEPT,
@@ -11,6 +12,7 @@ import {
   saveLabel,
   type PositionFault,
 } from '@/protocol/position';
+import { TsumeError, solveTsume, type TsumeResponse } from '@/protocol/tsume';
 import { parseSfen, toSfen, type Board as BoardModel } from '@/models/sfen';
 import { navigate } from '@/routes/router';
 
@@ -26,21 +28,31 @@ import { navigate } from '@/routes/router';
  *
  * 읽는 걸음에만 로그인이 필요하다. 고치는 것과 분석하는 것은 룰 계산과 엔진 슬롯이라 익명에게
  * 열려 있다.
+ *
+ * `tsume` 은 같은 화면을 詰め将棋에 쓴다(「詰将棋を解く」, journal §147). 手番을 묻지 않는다. 아래쪽
+ * 사람이 언제나 다음에 두는 공격 쪽이다. 확인이 끝나면 화면을 떠나지 않고 그 자리에 수순 트리를
+ * 그린다.
  */
-export function PositionScreen({ me }: { me: MeResponse }) {
+export function PositionScreen({ me, mode = 'explore' }: { me: MeResponse; mode?: Mode }) {
   // 로그인하지 않은 것을 오류로 다루지 않는다. 메뉴에는 이 줄이 로그인한 사람에게만 보이지만
   // 주소를 직접 열면 익명으로 들어오고, 그때 상자를 그려 주면 그림을 고르고 누른 뒤에야
   // 로그인이 필요하다는 것을 알게 된다(ImportScreen 과 같은 자리).
-  if (me.user === null) return <SignInFirst enabled={me.enabled} />;
-  return <PositionForm />;
+  if (me.user === null) return <SignInFirst enabled={me.enabled} mode={mode} />;
+  return <PositionForm mode={mode} />;
 }
 
-function SignInFirst({ enabled }: { enabled: boolean }) {
+type Mode = 'explore' | 'tsume';
+
+const TITLE: Record<Mode, string> = { explore: '局面を読み取る', tsume: '詰将棋を解く' };
+
+function SignInFirst({ enabled, mode }: { enabled: boolean; mode: Mode }) {
   return (
     <section className="import">
-      <h1 className="import__title">局面を読み取る</h1>
+      <h1 className="import__title">{TITLE[mode]}</h1>
       <p className="import__lead">
-        将棋盤が写った画像を上げると、その局面を読み取って形勢と最善手を調べます。
+        {mode === 'tsume'
+          ? '詰将棋が写った画像を上げると、その局面を読み取って詰み手順を調べます。'
+          : '将棋盤が写った画像を上げると、その局面を読み取って形勢と最善手を調べます。'}
         <br />
         画像の読み取りには回数の上限があるため、ログインが必要です。
       </p>
@@ -55,7 +67,7 @@ function SignInFirst({ enabled }: { enabled: boolean }) {
   );
 }
 
-function PositionForm() {
+function PositionForm({ mode }: { mode: Mode }) {
   /** 올린 그림. data URL 그대로 갖고 있다 — `<img src>` 와 요청 본문이 같은 값이다. */
   const [image, setImage] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
@@ -94,7 +106,7 @@ function PositionForm() {
     if (sfen === '') return;
     const mine = ++checkID.current;
     const controller = new AbortController();
-    void checkPosition(sfen, controller.signal)
+    void checkPosition(sfen, controller.signal, mode === 'tsume')
       .then((res) => {
         if (mine !== checkID.current) return;
         setFaults(res.faults);
@@ -106,30 +118,38 @@ function PositionForm() {
         // 성립하지 않는 판이 분석으로 넘어가므로, 직전 판정을 그대로 둔다.
       });
     return () => controller.abort();
-  }, [sfen]);
+  }, [sfen, mode]);
 
-  const read = useCallback(async (dataURL: string) => {
-    setImage(dataURL);
-    setBoard(null);
-    setFaults([]);
-    setWarnings([]);
-    setCheckedSfen('');
-    setImageId(null);
-    setError(null);
-    setReading(true);
-    try {
-      const res = await readPosition(dataURL);
-      setBoard(parseSfen(res.sfen));
-      setFaults(res.faults);
-      setWarnings(res.warnings);
-      setCheckedSfen(res.sfen);
-      setImageId(res.imageId ?? null);
-    } catch (e) {
-      setError(e instanceof PositionError ? e.message : '画像から局面を読み取れませんでした。');
-    } finally {
-      setReading(false);
-    }
-  }, []);
+  const read = useCallback(
+    async (dataURL: string) => {
+      setImage(dataURL);
+      setBoard(null);
+      setFaults([]);
+      setWarnings([]);
+      setCheckedSfen('');
+      setImageId(null);
+      setError(null);
+      setReading(true);
+      try {
+        const res = await readPosition(dataURL);
+        const got = parseSfen(res.sfen);
+        // 詰め将棋는 언제나 아래쪽(사람)이 둘 차례다. 판독이 정한 手番을 쓰지 않는다.
+        setBoard(mode === 'tsume' ? { ...got, turn: 'black' } : got);
+        setImageId(res.imageId ?? null);
+        // 판독이 붙인 사유는 보통 국면의 규칙으로 잰 것이다. 詰め将棋는 위 effect 의 검사를 기다린다.
+        if (mode !== 'tsume') {
+          setFaults(res.faults);
+          setWarnings(res.warnings);
+          setCheckedSfen(res.sfen);
+        }
+      } catch (e) {
+        setError(e instanceof PositionError ? e.message : '画像から局面を読み取れませんでした。');
+      } finally {
+        setReading(false);
+      }
+    },
+    [mode],
+  );
 
   const take = useCallback(
     async (file: File | null | undefined) => {
@@ -191,7 +211,33 @@ function PositionForm() {
    */
   const analyzable = board !== null && faults.length === 0 && checkedSfen === sfen;
 
+  /**
+   * 詰め将棋의 답. 어느 판의 답인지를 같이 둔다(`sfen`). 칸을 고치면 그 답은 지금 판의 것이
+   * 아니므로 그리지 않는다.
+   */
+  const [tsume, setTsume] = useState<{ sfen: string; res: TsumeResponse } | null>(null);
+  const [solving, setSolving] = useState(false);
+  /** 푸는 데 실패한 사유. 버튼 바로 아래에 둔다. 판독 오류 자리는 화면 맨 위라 누른 자리에서 보이지 않는다. */
+  const [solveError, setSolveError] = useState<string | null>(null);
+  const solve = async (): Promise<void> => {
+    if (!analyzable || solving) return;
+    if (imageId !== null) void saveLabel(imageId, sfen);
+    setSolving(true);
+    setSolveError(null);
+    try {
+      setTsume({ sfen, res: await solveTsume(sfen) });
+    } catch (e) {
+      setSolveError(e instanceof TsumeError ? e.message : '詰みを調べられませんでした。');
+    } finally {
+      setSolving(false);
+    }
+  };
+
   const analyze = (): void => {
+    if (mode === 'tsume') {
+      void solve();
+      return;
+    }
     if (!analyzable) return;
     // 라벨을 기다리지 않는다. 사람이 누른 일은 분석으로 넘어가는 것이고, 라벨은 곁다리다
     // (`saveLabel` 은 실패를 삼킨다).
@@ -211,9 +257,11 @@ function PositionForm() {
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
-      <h1 className="import__title">局面を読み取る</h1>
+      <h1 className="import__title">{TITLE[mode]}</h1>
       <p className="import__lead">
-        将棋盤が写った画像を上げてください。読み取った局面をあなたが確かめてから、形勢と最善手を調べます。
+        {mode === 'tsume'
+          ? '詰将棋の画像を上げてください。読み取った局面をあなたが確かめてから、王手の連続で詰む手順を調べます。'
+          : '将棋盤が写った画像を上げてください。読み取った局面をあなたが確かめてから、形勢と最善手を調べます。'}
         <br />
         {/* 판이 화면의 절반인 방송 캡처가 크게 틀렸다(journal §129). 자르면 나아지는지는
             아직 재지 않았고, 사람에게 시키는 값이 작아서 먼저 권한다. */}
@@ -256,18 +304,24 @@ function PositionForm() {
             </div>
           </div>
 
-          {/* 手番. 사진이 말해 주지 않는 유일한 값이라 반드시 사람이 고른다. */}
-          <fieldset className="position__turn">
-            <legend className="import__label">この画像は、どちらの手番ですか</legend>
-            <label>
-              <input type="radio" name="turn" checked={board.turn === 'black'} onChange={() => setTurn('black')} />
-              あなたの手番
-            </label>
-            <label>
-              <input type="radio" name="turn" checked={board.turn === 'white'} onChange={() => setTurn('white')} />
-              相手の手番
-            </label>
-          </fieldset>
+          {/* 手番. 사진이 말해 주지 않는 유일한 값이라 반드시 사람이 고른다. 詰め将棋는 묻지 않는다. */}
+          {mode === 'tsume' ? (
+            <p className="import__label">
+              下のあなたが攻め方で、次に指します。持ち駒は駒台に写っているものだけを使います。
+            </p>
+          ) : (
+            <fieldset className="position__turn">
+              <legend className="import__label">この画像は、どちらの手番ですか</legend>
+              <label>
+                <input type="radio" name="turn" checked={board.turn === 'black'} onChange={() => setTurn('black')} />
+                あなたの手番
+              </label>
+              <label>
+                <input type="radio" name="turn" checked={board.turn === 'white'} onChange={() => setTurn('white')} />
+                相手の手番
+              </label>
+            </fieldset>
+          )}
 
           {faults.length > 0 && (
             <ul className="position__faults">
@@ -283,15 +337,21 @@ function PositionForm() {
           ))}
 
           <div className="import__row">
-            <button type="button" className="btn btn--primary" disabled={!analyzable} onClick={analyze}>
-              この局面を解析する
+            <button type="button" className="btn btn--primary" disabled={!analyzable || solving} onClick={analyze}>
+              {mode === 'tsume' ? '詰みを調べる' : 'この局面を解析する'}
             </button>
             {!analyzable && (
               <span className="import__filename">
                 {checkedSfen === sfen ? '局面を直すと解析できます。' : '局面を確かめています…'}
               </span>
             )}
+            {solving && (
+              <span className="import__filename">詰みを調べています。長い詰みは数分かかることがあります…</span>
+            )}
           </div>
+
+          {solveError !== null && <p className="position__error">{solveError}</p>}
+          {mode === 'tsume' && tsume !== null && tsume.sfen === sfen && <TsumeTree start={sfen} res={tsume.res} />}
         </>
       )}
     </section>

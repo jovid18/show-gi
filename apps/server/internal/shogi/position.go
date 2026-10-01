@@ -111,6 +111,21 @@ func (f PositionFault) Message() string {
 	return "この局面は成り立ちません。"
 }
 
+// TsumeFaults 는 詰め将棋로 볼 때 이 국면이 어긴 규칙이다. Faults 에서 「수번 쪽 玉이 없다」 하나를 뺀다.
+//
+// 詰め将棋는 공격 쪽 玉을 놓지 않는 것이 보통이다. 수번 쪽이 공격 쪽이고(internal/tsume), 그 쪽
+// 玉이 없으면 王手放置도 自殺手도 생기지 않아 룰 계산이 그대로 성립한다. 둘 이상이면 여전히 사유다.
+func (pos Position) TsumeFaults() []PositionFault {
+	var out []PositionFault
+	for _, f := range pos.Faults() {
+		if f.Reason == PositionKingCount && f.Color == pos.Turn && f.Count == 0 {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
 // Faults 는 이 국면이 어긴 규칙 전부다. 비면 성립하는 국면이다.
 //
 // 하나에서 멈추지 않는다. 잘못 읽은 사진은 여러 자리가 함께 틀린다(journal §129).
