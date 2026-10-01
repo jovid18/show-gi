@@ -17,6 +17,7 @@ var categoryNames = map[intervene.Category]string{
 	intervene.CategoryGreedyCapture: "割に合わない取り",
 	intervene.CategoryIdleCheck:     "追う手",
 	intervene.CategoryKingExposed:   "玉が薄い",
+	intervene.CategoryForcedLoss:    "受けきれない損",
 	intervene.CategoryOther:         "大きな形勢損",
 }
 

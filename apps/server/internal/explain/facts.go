@@ -55,8 +55,8 @@ type Facts struct {
 
 	// OpponentBest 는 물러진 수 뒤의 상대 최선수의 棋譜 표기(▲3三角成)다. 없으면 빈 값.
 	//
-	// other 에서만 채워진다. 적기 시작하면 「최선수를 보여주지 않는다」(01-core.md §1)가
-	// 카테고리마다 갈린다.
+	// other 와 forced_loss 에서만 채워진다. 둘 다 이미 물러진 국면의 수라 「최선수를
+	// 보여주지 않는다」(01-core.md §1)에 걸리지 않는다.
 	OpponentBest string
 
 	// Branches 는 그 상대 수 뒤에 내가 둘 수 있는 갈래 셋이다. 없으면 빈 슬라이스.
@@ -64,6 +64,12 @@ type Facts struct {
 	// 이것이 붙는 자리는 되물러서 이미 사라진 국면이라 「지금 어떻게 두라」가 되지 않는다.
 	// 채우는 쪽은 game.engineAnalyst.otherBranches.
 	Branches []Branch
+
+	// Losses 는 반박 트리가 닿은 끝점들이다. 내 응수 하나에 한 줄이고, 없으면 빈 슬라이스.
+	//
+	// 한 줄에 Moves 가 비어 있으면 상대의 최선수(OpponentBest) 한 수로 이미 손해가 확정된
+	// 것이다. 채우는 쪽은 game.engineAnalyst.proveLoss.
+	Losses []Loss
 
 	// Tags 는 이 국면에서 감지된 囲い·전법·戦型의 태그 코드다(tag.Detect가 준다).
 	//
@@ -84,6 +90,18 @@ type Branch struct {
 	// MateIn 은 詰み까지의 手数. 양수면 내가 詰ます 쪽이다. 없으면 0.
 	// 0이 아니면 Cp 칸을 보지 않는다. 詰み에는 cp 가 없다.
 	MateIn int
+}
+
+// Loss 는 「그렇게 받으면 이렇게 끝난다」 한 줄이다.
+type Loss struct {
+	// Moves 는 내 응수부터 끝점까지의 棋譜 표기다. 내 수와 상대 수가 번갈아 온다.
+	Moves []string
+	// Taken 은 이 수순에서 상대가 딴 내 駒의 한자다. 상대의 최선수가 딴 것부터 센다.
+	Taken []string
+	// MatePlies 가 0이 아니면 끝점이 詰み이다. solver 가 증명한 手数만 온다.
+	MatePlies int
+	// Promoted 가 비어 있지 않으면 끝점이 「상대가 그 駒(龍·馬)를 만들고 내가 딸 수 없다」다.
+	Promoted string
 }
 
 // namesMoves 는 이 문장이 棋譜 표기를 적는가다.
@@ -126,6 +144,11 @@ func (f Facts) used() Facts {
 		// 「駒は取れますが」의 그 駒를 이름으로 부른다.
 		u.Known = true
 		u.Captured = f.Captured
+
+	case intervene.CategoryForcedLoss:
+		// 끝점까지 닿은 수순만 말한다. 닿지 못했으면 이 카테고리가 되지 않는다.
+		u.Known = true
+		u.OpponentBest, u.Losses = f.OpponentBest, f.Losses
 
 	case intervene.CategoryOther:
 		// 이유를 모르는 자리다. 지어내지 않고 그래서 어떻게 되는가를 말한다. 잡히는 駒
