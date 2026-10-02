@@ -164,7 +164,8 @@ func (h *positionHandler) readImage(w http.ResponseWriter, r *http.Request) {
 		writeBoardReadError(w, err)
 		return
 	}
-	log.Printf("position: read an image for %d with %s in %d tokens", s.UserID, h.read.Model(), got.Tokens)
+	log.Printf("position: read an image for %d with %s (effort %s) in %d tokens", s.UserID, h.read.Model(),
+		h.read.Effort(), got.Tokens)
 
 	res := checked(got.SFEN)
 	res.ImageID = h.keepImage(image)

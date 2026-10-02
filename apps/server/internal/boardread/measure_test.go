@@ -50,8 +50,10 @@ type boardReadScore struct {
 	// Missed 는 틀린 칸이다. 어느 종류를 어느 종류로 읽는지가 다음에 고칠 것을 정한다.
 	missed []string
 	// Hands 는 라벨과 駒台가 맞는가다. 라벨이 없으면 이 값을 보지 않는다.
-	hands  bool
-	tokens int
+	hands     bool
+	tokens    int
+	reasoning int
+	elapsed   time.Duration
 }
 
 func TestMeasureBoardRead(t *testing.T) {
@@ -75,8 +77,8 @@ func TestMeasureBoardRead(t *testing.T) {
 		t.Skipf("%s 에 그림이 없다 — 절차는 apps/server/README.md", dir)
 	}
 
-	c := New(key, os.Getenv("SHOWGI_BOARDREAD_MODEL"))
-	t.Logf("model=%s  images=%d  dir=%s", c.Model(), len(images), dir)
+	c := New(key, os.Getenv("SHOWGI_BOARDREAD_MODEL")).WithEffort(os.Getenv("SHOWGI_BOARDREAD_EFFORT"))
+	t.Logf("model=%s  effort=%q  images=%d  dir=%s", c.Model(), c.Effort(), len(images), dir)
 
 	scores := make([]boardReadScore, 0, len(images))
 	for _, path := range images {
@@ -103,12 +105,15 @@ func measureOne(t *testing.T, c *Client, path string) boardReadScore {
 	ctx, cancel := context.WithTimeout(t.Context(), measureTimeout)
 	defer cancel()
 
+	start := time.Now()
 	got, err := c.Read(ctx, image)
+	score.elapsed = time.Since(start)
 	if err != nil {
 		score.err = err
 		return score
 	}
 	score.tokens = got.Tokens
+	score.reasoning = got.ReasoningTokens
 
 	pos, err := shogi.ParseSFEN(got.SFEN)
 	if err != nil {
@@ -209,14 +214,16 @@ func reportBoardRead(t *testing.T, scores []boardReadScore) {
 
 	var clean, labelled, exact, squares, total int
 	t.Log("")
-	t.Log("| 그림 | 사유 | 부족 | 맞은 칸 | 駒台 | 토큰 |")
-	t.Log("| ---- | ---: | ---: | ------: | ---- | ---: |")
+	var elapsed []time.Duration
+	t.Log("| 그림 | 사유 | 부족 | 맞은 칸 | 駒台 | 토큰 | 추론 | 시간 |")
+	t.Log("| ---- | ---: | ---: | ------: | ---- | ---: | ---: | ---: |")
 	for _, s := range scores {
 		if s.err != nil {
-			t.Logf("| %s | — | — | — | — | 실패: %v |", s.name, s.err)
+			t.Logf("| %s | — | — | — | — | 실패: %v | — | %.1fs |", s.name, s.err, s.elapsed.Seconds())
 			continue
 		}
 		total++
+		elapsed = append(elapsed, s.elapsed)
 		if len(s.faults) == 0 && s.short == 0 {
 			clean++
 		}
@@ -233,7 +240,8 @@ func reportBoardRead(t *testing.T, scores []boardReadScore) {
 				exact++
 			}
 		}
-		t.Logf("| %s | %d | %d | %s | %s | %d |", s.name, len(s.faults), s.short, cells, hands, s.tokens)
+		t.Logf("| %s | %d | %d | %s | %s | %d | %d | %.1fs |", s.name, len(s.faults), s.short, cells, hands,
+			s.tokens, s.reasoning, s.elapsed.Seconds())
 	}
 
 	// 틀린 칸을 그림마다 풀어 적는다. 「무엇을 무엇으로 읽는가」가 표의 숫자보다 값지다.
@@ -302,6 +310,8 @@ func reportBoardRead(t *testing.T, scores []boardReadScore) {
 		return
 	}
 	t.Logf("성립하는 판: %d/%d", clean, total)
+	slices.Sort(elapsed)
+	t.Logf("시간: 중앙 %.1fs · 최대 %.1fs", elapsed[len(elapsed)/2].Seconds(), elapsed[len(elapsed)-1].Seconds())
 	if labelled > 0 {
 		t.Logf("칸 정확도: %.1f%% (%d/%d) · 완전 일치 %d/%d", 100*float64(squares)/float64(labelled*81),
 			squares, labelled*81, exact, labelled)

@@ -81,6 +81,12 @@ type request struct {
 	Instructions string     `json:"instructions"`
 	Input        []message  `json:"input"`
 	Text         textFormat `json:"text"`
+	// Reasoning 이 nil 이면 모델의 기본 강도로 생각한다.
+	Reasoning *reasoning `json:"reasoning,omitempty"`
+}
+
+type reasoning struct {
+	Effort string `json:"effort"`
 }
 
 type message struct {
@@ -200,7 +206,10 @@ type response struct {
 		} `json:"content"`
 	} `json:"output"`
 	Usage struct {
-		TotalTokens int `json:"total_tokens"`
+		TotalTokens         int `json:"total_tokens"`
+		OutputTokensDetails struct {
+			ReasoningTokens int `json:"reasoning_tokens"`
+		} `json:"output_tokens_details"`
 	} `json:"usage"`
 }
 
