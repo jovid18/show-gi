@@ -87,7 +87,8 @@ func main() {
 
 	// 판이 찍힌 그림에서 국면을 읽는 창구(internal/boardread). 키는 위와 같은 것을 쓰고
 	// 모델만 따로 둔다. 글자를 옮기는 일과 81칸을 읽는 일에 같은 모델을 댈 이유가 없다.
-	opts.BoardRead = boardread.New(os.Getenv("OPENAI_API_KEY"), os.Getenv("BOARDREAD_MODEL"))
+	opts.BoardRead = boardread.New(os.Getenv("OPENAI_API_KEY"), os.Getenv("BOARDREAD_MODEL")).
+		WithEffort(os.Getenv("BOARDREAD_EFFORT"))
 	if opts.BoardRead == nil {
 		slog.Info("position: no OPENAI_API_KEY, reading a position from an image is off")
 	}

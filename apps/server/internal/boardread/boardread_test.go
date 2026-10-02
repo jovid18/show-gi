@@ -216,6 +216,22 @@ func TestRequestSendsTheImageAndAsksNothingElse(t *testing.T) {
 	if part.Detail != "high" {
 		t.Fatalf("detail = %q, want high — 81 squares of small glyphs", part.Detail)
 	}
+	if sent.Reasoning == nil || sent.Reasoning.Effort != DefaultEffort {
+		t.Fatalf("reasoning = %+v, want effort %q — the model's own default thinks for most of a minute", sent.Reasoning, DefaultEffort)
+	}
+}
+
+// 빈 값은 기본 강도를 지우지 않는다. 환경변수가 비면 모델의 기본(medium)으로 돌아가는 일이 없어야 한다.
+func TestWithEffortKeepsTheDefaultOnAnEmptyValue(t *testing.T) {
+	if got := New("key", "").WithEffort("").Effort(); got != DefaultEffort {
+		t.Fatalf("Effort() = %q, want %q", got, DefaultEffort)
+	}
+	if got := New("key", "").WithEffort("low").Effort(); got != "low" {
+		t.Fatalf("Effort() = %q, want low", got)
+	}
+	if New("", "").WithEffort("low") != nil {
+		t.Fatal("WithEffort on a nil client should stay nil")
+	}
 }
 
 // 프롬프트가 좌표를 한 번도 말하지 않는 것이 이 계층의 경계다(journal §126 · §129).

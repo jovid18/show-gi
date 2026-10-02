@@ -38,6 +38,12 @@ const MaxImage = 6 << 20
 // 손잡이였다(journal §129). 갈아 끼울 자리를 남긴다(BOARDREAD_MODEL).
 const DefaultModel = "gpt-5.5"
 
+// DefaultEffort 는 값이 주어지지 않았을 때의 추론 강도다.
+//
+// 지연이 거의 전부 추론 토큰에서 난다. none 은 칸 정확도를 내주고 응답을 수 초로 줄인다
+// (journal §148). 갈아 끼울 자리를 남긴다(BOARDREAD_EFFORT).
+const DefaultEffort = "none"
+
 // defaultTimeout 은 한 번의 호출에 주는 시한이다.
 //
 // kifunorm(30s)보다 한참 길다. 81칸을 큰 해상도로 보는 호출이라 더 걸리고, 걸린 호출은
@@ -62,10 +68,11 @@ var ErrNoBoard = errors.New("boardread: no board in the image")
 // Client 는 읽기 창구다. 키가 없으면 New 가 nil 을 주고, nil 에 Read 를 불러도 안전하게
 // ErrDisabled 다(kifunorm.Client 와 같다).
 type Client struct {
-	key   string
-	model string
-	http  *http.Client
-	url   string
+	key    string
+	model  string
+	effort string
+	http   *http.Client
+	url    string
 }
 
 // New 는 창구를 만든다. 키가 비면 nil 이다.
@@ -77,10 +84,11 @@ func New(key, model string) *Client {
 		model = DefaultModel
 	}
 	return &Client{
-		key:   key,
-		model: model,
-		http:  &http.Client{Timeout: defaultTimeout},
-		url:   endpoint,
+		key:    key,
+		model:  model,
+		effort: DefaultEffort,
+		http:   &http.Client{Timeout: defaultTimeout},
+		url:    endpoint,
 	}
 }
 
@@ -92,6 +100,24 @@ type Result struct {
 	SFEN string
 	// Tokens 는 이 호출이 쓴 토큰 수다. 로그에만 나간다.
 	Tokens int
+	// ReasoningTokens 는 Tokens 중 추론에 쓴 몫이다. 지연의 대부분이 여기서 난다.
+	ReasoningTokens int
+}
+
+// WithEffort 는 추론 강도를 바꾼다. 빈 값이면 DefaultEffort 그대로다. nil 에 불러도 nil 이다.
+func (c *Client) WithEffort(effort string) *Client {
+	if c != nil && effort != "" {
+		c.effort = effort
+	}
+	return c
+}
+
+// Effort 는 지금의 추론 강도다.
+func (c *Client) Effort() string {
+	if c == nil {
+		return ""
+	}
+	return c.effort
 }
 
 // Model 은 부르고 있는 모델 이름이다. 로그가 그것을 적는다.
@@ -137,12 +163,16 @@ func (c *Client) Read(ctx context.Context, image []byte) (Result, error) {
 
 // once 는 한 번 부른다. retry 가 참이면 다시 해 볼 값이 있는 실패다.
 func (c *Client) once(ctx context.Context, dataURL string) (Result, bool, error) {
-	body, err := json.Marshal(request{
+	r := request{
 		Model:        c.model,
 		Instructions: instructions,
 		Input:        imageInput(dataURL),
 		Text:         textFormat{Format: schemaFormat()},
-	})
+	}
+	if c.effort != "" {
+		r.Reasoning = &reasoning{Effort: c.effort}
+	}
+	body, err := json.Marshal(r)
 	if err != nil {
 		return Result{}, false, err
 	}
@@ -195,7 +225,11 @@ func (c *Client) once(ctx context.Context, dataURL string) (Result, bool, error)
 	if err != nil {
 		return Result{}, false, err
 	}
-	return Result{SFEN: sfen, Tokens: out.Usage.TotalTokens}, false, nil
+	return Result{
+		SFEN:            sfen,
+		Tokens:          out.Usage.TotalTokens,
+		ReasoningTokens: out.Usage.OutputTokensDetails.ReasoningTokens,
+	}, false, nil
 }
 
 // imageMIME 은 앞머리로 형식을 정한다. 아는 셋이 아니면 거짓이다.
