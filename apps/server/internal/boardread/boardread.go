@@ -50,6 +50,18 @@ const DefaultEffort = "none"
 // 사람에게 「読み取れませんでした」로 보인다. 60초에서 올렸다(journal §129).
 const defaultTimeout = 2 * time.Minute
 
+// quickTimeout 은 추론 없이(none) 부를 때 한 번에 주는 시한이다.
+//
+// none 은 한 장이 길어야 8초였다(journal §148). 그 몇 배를 넘긴 호출은 걸린 것으로 보고
+// 끊은 뒤 다시 부른다. 2분을 기다리게 두지 않는다.
+const quickTimeout = 30 * time.Second
+
+// maxAttempts 는 한 그림에 부르는 최대 횟수다. 처음 한 번에 다시 두 번이다.
+const maxAttempts = 3
+
+// retryBackoff 는 n 번째 실패 뒤에 쉬는 시간이다. 429 가 곧바로 다시 걸리지 않게 둔다.
+var retryBackoff = func(n int) time.Duration { return time.Duration(n) * 500 * time.Millisecond }
+
 const endpoint = "https://api.openai.com/v1/responses"
 
 // ErrDisabled 는 키가 없어 이 계층이 꺼져 있는 자리다.
@@ -130,8 +142,9 @@ func (c *Client) Model() string {
 
 // Read 는 그림 한 장에서 국면을 읽는다. 실패·시한·스키마 위반이 전부 거절이다.
 //
-// 한 번만 다시 해 본다. 5xx 와 끊긴 연결은 다음 번에 붙지만, 스키마를 어긴 응답은 다시
-// 물어도 같은 답이다(kifunorm.Normalize 와 같은 판단).
+// 실패하면 maxAttempts 까지 다시 부른다. 5xx·429·끊긴 연결·시한은 다음 번에 붙는다.
+// 스키마를 어긴 응답도 다시 묻는다. none 에서는 같은 그림에도 부를 때마다 답이 달라진다
+// (journal §148). 「판이 없다」·크레딧 소진·그 밖의 4xx 는 다시 물어도 같은 답이다.
 func (c *Client) Read(ctx context.Context, image []byte) (Result, error) {
 	if c == nil {
 		return Result{}, ErrDisabled
@@ -148,17 +161,39 @@ func (c *Client) Read(ctx context.Context, image []byte) (Result, error) {
 	dataURL := "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(image)
 
 	var last error
-	for attempt := range 2 {
-		got, retry, err := c.once(ctx, dataURL)
+	for attempt := range maxAttempts {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return Result{}, last
+			case <-time.After(retryBackoff(attempt)):
+			}
+		}
+		got, retry, err := c.attempt(ctx, dataURL)
 		if err == nil {
 			return got, nil
 		}
 		last = err
-		if !retry || ctx.Err() != nil || attempt == 1 {
+		if !retry || ctx.Err() != nil {
 			break
 		}
 	}
 	return Result{}, last
+}
+
+// attempt 는 한 번을 시한 안에서 부른다. 시한에 걸리면 다시 해 볼 값이 있는 실패다.
+func (c *Client) attempt(ctx context.Context, dataURL string) (Result, bool, error) {
+	limit := defaultTimeout
+	if c.effort == "none" {
+		limit = quickTimeout
+	}
+	actx, cancel := context.WithTimeout(ctx, limit)
+	defer cancel()
+	got, retry, err := c.once(actx, dataURL)
+	if err != nil && ctx.Err() == nil && actx.Err() != nil {
+		retry = true
+	}
+	return got, retry, err
 }
 
 // once 는 한 번 부른다. retry 가 참이면 다시 해 볼 값이 있는 실패다.
@@ -196,26 +231,29 @@ func (c *Client) once(ctx context.Context, dataURL string) (Result, bool, error)
 		return Result{}, true, fmt.Errorf("boardread: read: %w", err)
 	}
 	if res.StatusCode != http.StatusOK {
-		retry := res.StatusCode >= 500 || res.StatusCode == http.StatusTooManyRequests
+		// 크레딧 소진도 429 로 온다. 다시 물어도 같은 답이다.
+		retry := res.StatusCode >= 500 ||
+			(res.StatusCode == http.StatusTooManyRequests && !bytes.Contains(raw, []byte("insufficient_quota")))
 		return Result{}, retry, fmt.Errorf("boardread: http %d: %s", res.StatusCode, snippet(raw))
 	}
 
+	// 여기부터의 실패는 다시 묻는다. 200 이 왔으니 요청은 맞았고 답만 틀렸다.
 	var out response
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return Result{}, false, fmt.Errorf("boardread: decode: %w", err)
+		return Result{}, true, fmt.Errorf("boardread: decode: %w", err)
 	}
 	// 잘린 응답은 반쪽 판이다. 시한이나 토큰 상한에 걸린 자리다.
 	if out.Status != "" && out.Status != "completed" {
-		return Result{}, false, fmt.Errorf("boardread: response %s", out.Status)
+		return Result{}, true, fmt.Errorf("boardread: response %s", out.Status)
 	}
 
 	payload, ok := out.text()
 	if !ok {
-		return Result{}, false, errors.New("boardread: no message in the response")
+		return Result{}, true, errors.New("boardread: no message in the response")
 	}
 	var got read
 	if err := json.Unmarshal([]byte(payload), &got); err != nil {
-		return Result{}, false, fmt.Errorf("boardread: payload: %w", err)
+		return Result{}, true, fmt.Errorf("boardread: payload: %w", err)
 	}
 	if !got.Found {
 		return Result{}, false, ErrNoBoard
@@ -223,7 +261,7 @@ func (c *Client) once(ctx context.Context, dataURL string) (Result, bool, error)
 
 	sfen, err := sfenOf(got)
 	if err != nil {
-		return Result{}, false, err
+		return Result{}, true, err
 	}
 	return Result{
 		SFEN:            sfen,

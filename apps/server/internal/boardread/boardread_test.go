@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
@@ -104,6 +105,7 @@ func TestReadRefusesAnImageWithNoBoard(t *testing.T) {
 
 // 반쯤 읽은 판을 쓰면 없는 국면 위에서 형세와 최선수가 돈다.
 func TestReadRefusesAGridThatIsNotNine(t *testing.T) {
+	noBackoff(t)
 	cases := map[string][][]string{
 		"줄이 여덟이다":   onlyKings()[:8],
 		"한 줄이 여덟 칸": append(onlyKings()[:8], far(".", ".", ".", ".", ".", ".", ".", ".")),
@@ -147,29 +149,34 @@ func TestReadOnANilClientIsDisabled(t *testing.T) {
 	}
 }
 
-// 5xx 는 다음 번에 붙을 수 있다. 스키마를 어긴 응답은 다시 물어도 같은 답이라 묻지 않는다.
-func TestReadRetriesOnceOnAServerError(t *testing.T) {
+// 실패하면 maxAttempts 까지 다시 부른다. 5xx 와 9×9 가 아닌 격자가 둘 다 그렇다.
+func TestReadRetriesUntilAReadStands(t *testing.T) {
+	noBackoff(t)
 	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if calls.Add(1) == 1 {
+		switch calls.Add(1) {
+		case 1:
 			w.WriteHeader(http.StatusBadGateway)
-			return
+		case 2:
+			writeStub(t, w, read{Found: true, Rows: onlyKings()[:3]})
+		default:
+			writeStub(t, w, read{Found: true, Rows: onlyKings()})
 		}
-		writeStub(t, w, read{Found: true, Rows: onlyKings()})
 	}))
 	t.Cleanup(srv.Close)
 
 	c := New("key", "")
 	SetURLForTest(c, srv.URL)
 	if _, err := c.Read(context.Background(), png); err != nil {
-		t.Fatalf("Read() = %v, want the retry to succeed", err)
+		t.Fatalf("Read() = %v, want the third call to stand", err)
 	}
-	if got := calls.Load(); got != 2 {
-		t.Fatalf("calls = %d, want 2", got)
+	if got := calls.Load(); got != 3 {
+		t.Fatalf("calls = %d, want 3", got)
 	}
 }
 
-func TestReadDoesNotRetryABadPayload(t *testing.T) {
+func TestReadGivesUpAfterMaxAttempts(t *testing.T) {
+	noBackoff(t)
 	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
@@ -182,9 +189,49 @@ func TestReadDoesNotRetryABadPayload(t *testing.T) {
 	if _, err := c.Read(context.Background(), png); err == nil {
 		t.Fatal("Read() = nil error, want a refusal")
 	}
-	if got := calls.Load(); got != 1 {
-		t.Fatalf("calls = %d, want 1", got)
+	if got := calls.Load(); got != maxAttempts {
+		t.Fatalf("calls = %d, want %d", got, maxAttempts)
 	}
+}
+
+// 다시 물어도 같은 답인 실패는 한 번에 멈춘다.
+func TestReadDoesNotRetryAFinalAnswer(t *testing.T) {
+	noBackoff(t)
+	cases := map[string]http.HandlerFunc{
+		"no board": func(w http.ResponseWriter, r *http.Request) { writeStub(t, w, read{Found: false}) },
+		"no credits": func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"error":{"type":"insufficient_quota"}}`))
+		},
+		"bad request": func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusBadRequest) },
+	}
+	for name, h := range cases {
+		t.Run(name, func(t *testing.T) {
+			var calls atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				h(w, r)
+			}))
+			t.Cleanup(srv.Close)
+
+			c := New("key", "")
+			SetURLForTest(c, srv.URL)
+			if _, err := c.Read(context.Background(), png); err == nil {
+				t.Fatal("Read() = nil error, want a refusal")
+			}
+			if got := calls.Load(); got != 1 {
+				t.Fatalf("calls = %d, want 1", got)
+			}
+		})
+	}
+}
+
+// noBackoff 는 시험 동안 다시 부르기 전의 쉼을 없앤다.
+func noBackoff(t *testing.T) {
+	t.Helper()
+	saved := retryBackoff
+	retryBackoff = func(int) time.Duration { return 0 }
+	t.Cleanup(func() { retryBackoff = saved })
 }
 
 // 그림은 요청 하나에 실려 나가고 어디에도 남지 않는다. 판을 판단하게 하지도 않는다.
