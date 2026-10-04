@@ -42,7 +42,6 @@ export function PositionEditor({ board, faults, onChange }: PositionEditorProps)
     const squares = [...board.squares];
     squares[square] = piece;
     onChange({ ...board, squares });
-    setPicking(null);
   };
 
   const setHand = (side: Side, kind: string, n: number): void => {
@@ -118,6 +117,9 @@ function Square({ square, piece, faulty, open, onOpen, onPick, onClose }: Square
 /**
  * 무엇을 놓을지 고르는 팝오버.
  *
+ * 고른 뒤에도 닫지 않는다. 한 칸에서 종류·편·成을 차례로 고치는 일이 잦아, 누를 때마다
+ * 닫히면 그 수만큼 다시 열어야 한다. 바깥이나 다른 칸을 누르면 닫힌다.
+ *
  * 편과 成은 종류를 다시 고르지 않고 토글 하나로 넘어간다. 그 둘이 「종류는 맞는데 뭔가
  * 다르다」의 전부이고, 어느 쪽이 잦은지는 재지 않았다(journal §129).
  */
@@ -149,8 +151,11 @@ function Picker({
 
   /** 바깥을 누르거나 Escape 면 닫는다. 팝오버가 판을 덮은 채로 남으면 다른 칸을 누를 수 없다. */
   useEffect(() => {
+    // 연 칸 자신은 바깥으로 치지 않는다. 치면 여기서 닫고 그 칸의 click 이 다시 열어,
+    // 같은 칸을 눌러 닫을 수 없다.
     const onDown = (e: MouseEvent): void => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      const square = ref.current?.parentElement;
+      if (square && !square.contains(e.target as Node)) onClose();
     };
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') onClose();
