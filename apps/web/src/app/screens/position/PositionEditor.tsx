@@ -42,7 +42,6 @@ export function PositionEditor({ board, faults, onChange }: PositionEditorProps)
     const squares = [...board.squares];
     squares[square] = piece;
     onChange({ ...board, squares });
-    setPicking(null);
   };
 
   const setHand = (side: Side, kind: string, n: number): void => {
@@ -149,8 +148,10 @@ function Picker({
 
   /** 바깥을 누르거나 Escape 면 닫는다. 팝오버가 판을 덮은 채로 남으면 다른 칸을 누를 수 없다. */
   useEffect(() => {
+    // 연 칸까지 바깥으로 보면 그 칸을 눌러 닫을 때 mousedown 에 닫히고 click 에 다시 열린다.
     const onDown = (e: MouseEvent): void => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      const square = ref.current?.parentElement;
+      if (square && !square.contains(e.target as Node)) onClose();
     };
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') onClose();
