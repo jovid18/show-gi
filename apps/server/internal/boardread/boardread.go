@@ -59,6 +59,15 @@ const quickTimeout = 30 * time.Second
 // maxAttempts 는 한 그림에 부르는 최대 횟수다. 처음 한 번에 다시 두 번이다.
 const maxAttempts = 3
 
+// fallbackEffort 는 none 이 9x9 가 아닌 판을 냈을 때 다시 부르는 강도다.
+//
+// none 은 빈 단을 통째로 건너뛰어 8단을 내고, 같은 그림이면 몇 번을 물어도 그렇다.
+// low 는 같은 그림에서 빈 단을 지켰다(journal §149).
+const fallbackEffort = "low"
+
+// errShape 는 답이 9x9 격자가 아닌 자리다. none 이면 강도를 올려 다시 부른다.
+var errShape = errors.New("boardread: not a 9x9 grid")
+
 // retryBackoff 는 n 번째 실패 뒤에 쉬는 시간이다. 429 가 곧바로 다시 걸리지 않게 둔다.
 var retryBackoff = func(n int) time.Duration { return time.Duration(n) * 500 * time.Millisecond }
 
@@ -114,6 +123,8 @@ type Result struct {
 	Tokens int
 	// ReasoningTokens 는 Tokens 중 추론에 쓴 몫이다. 지연의 대부분이 여기서 난다.
 	ReasoningTokens int
+	// Effort 는 이 답을 낸 호출의 추론 강도다. fallbackEffort 로 올라갔을 수 있다.
+	Effort string
 }
 
 // WithEffort 는 추론 강도를 바꾼다. 빈 값이면 DefaultEffort 그대로다. nil 에 불러도 nil 이다.
@@ -145,6 +156,7 @@ func (c *Client) Model() string {
 // 실패하면 maxAttempts 까지 다시 부른다. 5xx·429·끊긴 연결·시한은 다음 번에 붙는다.
 // 스키마를 어긴 응답도 다시 묻는다. none 에서는 같은 그림에도 부를 때마다 답이 달라진다
 // (journal §148). 「판이 없다」·크레딧 소진·그 밖의 4xx 는 다시 물어도 같은 답이다.
+// none 의 답이 9x9 가 아니면 남은 번은 fallbackEffort 로 부른다.
 func (c *Client) Read(ctx context.Context, image []byte) (Result, error) {
 	if c == nil {
 		return Result{}, ErrDisabled
@@ -160,6 +172,7 @@ func (c *Client) Read(ctx context.Context, image []byte) (Result, error) {
 
 	dataURL := "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(image)
 
+	effort := c.effort
 	var last error
 	for attempt := range maxAttempts {
 		if attempt > 0 {
@@ -169,27 +182,31 @@ func (c *Client) Read(ctx context.Context, image []byte) (Result, error) {
 			case <-time.After(retryBackoff(attempt)):
 			}
 		}
-		got, retry, err := c.attempt(ctx, dataURL)
+		got, retry, err := c.attempt(ctx, dataURL, effort)
 		if err == nil {
+			got.Effort = effort
 			return got, nil
 		}
 		last = err
 		if !retry || ctx.Err() != nil {
 			break
 		}
+		if effort == "none" && errors.Is(err, errShape) {
+			effort = fallbackEffort
+		}
 	}
 	return Result{}, last
 }
 
 // attempt 는 한 번을 시한 안에서 부른다. 시한에 걸리면 다시 해 볼 값이 있는 실패다.
-func (c *Client) attempt(ctx context.Context, dataURL string) (Result, bool, error) {
+func (c *Client) attempt(ctx context.Context, dataURL, effort string) (Result, bool, error) {
 	limit := defaultTimeout
-	if c.effort == "none" {
+	if effort == "none" {
 		limit = quickTimeout
 	}
 	actx, cancel := context.WithTimeout(ctx, limit)
 	defer cancel()
-	got, retry, err := c.once(actx, dataURL)
+	got, retry, err := c.once(actx, dataURL, effort)
 	if err != nil && ctx.Err() == nil && actx.Err() != nil {
 		retry = true
 	}
@@ -197,15 +214,15 @@ func (c *Client) attempt(ctx context.Context, dataURL string) (Result, bool, err
 }
 
 // once 는 한 번 부른다. retry 가 참이면 다시 해 볼 값이 있는 실패다.
-func (c *Client) once(ctx context.Context, dataURL string) (Result, bool, error) {
+func (c *Client) once(ctx context.Context, dataURL, effort string) (Result, bool, error) {
 	r := request{
 		Model:        c.model,
 		Instructions: instructions,
 		Input:        imageInput(dataURL),
 		Text:         textFormat{Format: schemaFormat()},
 	}
-	if c.effort != "" {
-		r.Reasoning = &reasoning{Effort: c.effort}
+	if effort != "" {
+		r.Reasoning = &reasoning{Effort: effort}
 	}
 	body, err := json.Marshal(r)
 	if err != nil {
@@ -318,12 +335,12 @@ func SetURLForTest(c *Client, url string) {
 // 단에서 筋9→筋1), 대문자가 아래쪽 편인 것이 곧 SFEN 의 대문자=先手다.
 func sfenOf(got read) (string, error) {
 	if len(got.Rows) != 9 {
-		return "", fmt.Errorf("boardread: %d rows, want 9", len(got.Rows))
+		return "", fmt.Errorf("%w: %d rows", errShape, len(got.Rows))
 	}
 	var board strings.Builder
 	for i, row := range got.Rows {
 		if len(row) != 9 {
-			return "", fmt.Errorf("boardread: row %d has %d squares, want 9", i+1, len(row))
+			return "", fmt.Errorf("%w: row %d has %d squares", errShape, i+1, len(row))
 		}
 		if i > 0 {
 			board.WriteByte('/')

@@ -5109,6 +5109,13 @@ label.import__button:focus-within {
   top: 4.5rem;
 }
 
+@media (max-width: 56rem) {
+  /* 쌓이면 붙이지 않는다. 붙은 그림 위로 아래의 판이 지나가며 겹친다. */
+  .position__shot {
+    position: static;
+  }
+}
+
 .position__shot img {
   width: 100%;
   border: 1px solid var(--line-2);
@@ -5205,6 +5212,13 @@ label.import__button:focus-within {
 .tsume__board {
   position: sticky;
   top: 4.5rem;
+}
+
+@media (max-width: 56rem) {
+  /* 쌓이면 붙이지 않는다. 붙은 판 위로 아래의 수순이 지나가며 겹친다. */
+  .tsume__board {
+    position: static;
+  }
 }
 
 .tsume__moves {

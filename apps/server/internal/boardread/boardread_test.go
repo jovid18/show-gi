@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -191,6 +192,41 @@ func TestReadGivesUpAfterMaxAttempts(t *testing.T) {
 	}
 	if got := calls.Load(); got != maxAttempts {
 		t.Fatalf("calls = %d, want %d", got, maxAttempts)
+	}
+}
+
+// none 이 9x9 가 아닌 격자를 내면 남은 번은 fallbackEffort 로 묻는다. 5xx 는 강도를 올리지 않는다.
+func TestReadRaisesTheEffortAfterAGridThatIsNotNineByNine(t *testing.T) {
+	noBackoff(t)
+	var efforts []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var sent request
+		if err := json.Unmarshal(mustReadAll(t, r), &sent); err != nil {
+			t.Errorf("the request is not json: %v", err)
+		}
+		efforts = append(efforts, sent.Reasoning.Effort)
+		switch len(efforts) {
+		case 1:
+			w.WriteHeader(http.StatusBadGateway)
+		case 2:
+			writeStub(t, w, read{Found: true, Rows: onlyKings()[:8]})
+		default:
+			writeStub(t, w, read{Found: true, Rows: onlyKings()})
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	c := New("key", "").WithEffort("none")
+	SetURLForTest(c, srv.URL)
+	got, err := c.Read(context.Background(), png)
+	if err != nil {
+		t.Fatalf("Read() = %v, want the third call to stand", err)
+	}
+	if want := []string{"none", "none", fallbackEffort}; !slices.Equal(efforts, want) {
+		t.Fatalf("efforts = %v, want %v", efforts, want)
+	}
+	if got.Effort != fallbackEffort {
+		t.Fatalf("Result.Effort = %q, want %q", got.Effort, fallbackEffort)
 	}
 }
 
