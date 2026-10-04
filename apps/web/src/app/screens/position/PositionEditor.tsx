@@ -117,9 +117,6 @@ function Square({ square, piece, faulty, open, onOpen, onPick, onClose }: Square
 /**
  * 무엇을 놓을지 고르는 팝오버.
  *
- * 골라도 닫지 않는다. 한 칸에서 종류·편·成을 여러 번 고칠 수 있게 한다.
- * 바깥을 누르거나 Escape 를 누르면 닫힌다.
- *
  * 편과 成은 종류를 다시 고르지 않고 토글 하나로 넘어간다. 그 둘이 「종류는 맞는데 뭔가
  * 다르다」의 전부이고, 어느 쪽이 잦은지는 재지 않았다(journal §129).
  */
@@ -151,8 +148,7 @@ function Picker({
 
   /** 바깥을 누르거나 Escape 면 닫는다. 팝오버가 판을 덮은 채로 남으면 다른 칸을 누를 수 없다. */
   useEffect(() => {
-    // 팝오버를 연 칸은 바깥으로 보지 않는다. 그 칸을 누르면 칸의 onOpen 이 닫는다.
-    // 여기서도 닫으면 mousedown 에 닫히고 이어지는 click 에 다시 열린다.
+    // 연 칸까지 바깥으로 보면 그 칸을 눌러 닫을 때 mousedown 에 닫히고 click 에 다시 열린다.
     const onDown = (e: MouseEvent): void => {
       const square = ref.current?.parentElement;
       if (square && !square.contains(e.target as Node)) onClose();
