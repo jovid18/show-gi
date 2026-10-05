@@ -181,15 +181,18 @@ func (b *builder) count() error {
 //
 // 탐색은 수를 실제로 센다. 無駄合い를 빼고 세면 더 짧은 수가 있을 수 있어서, 멀리서 거는 王手는
 // 合駒가 들 칸 하나마다 두 수씩 더 길어도 후보로 펼쳐 보고 관례의 手数(Rest)가 가장 짧은 것을
-// 고른다. 같으면 수의 순서(shogi.Checks)에서 앞의 것이다.
+// 고른다. 같으면 펼쳐지는 응수(無駄合い를 뺀 것)가 적은 것, 그것도 같으면 수의 순서(shogi.Checks)에서
+// 앞의 것이다.
 func (b *builder) attack(pos shogi.Position, bound int16, prevTo int) (*Move, error) {
 	length, _ := b.s.shorten(pos, bound, b.lim.BranchNodes)
 	var best *Move
-	plain := false // 合駒가 들 수 없는 王手 중 가장 짧은 것을 이미 펼쳤는가
+	// plain 은 펼친 王手 중 合駒가 들 수 없는 것의 가장 적은 응수 수다. 그런 王手는 無駄合い가 없어
+	// 응수 수를 펼치기 전에 셀 수 있으므로, 이보다 적지 않은 것은 펼치지 않는다.
+	plain := -1
 	for _, m := range pos.Checks() {
 		after := pos.Apply(m)
 		gap := int16(interpositions(after))
-		if gap == 0 && plain {
+		if gap == 0 && plain >= 0 && len(after.Evasions()) >= plain {
 			continue
 		}
 		// 실제 수의 상한은 부모에게서 받은 bound 보다 언제나 작다. 그래야 王手가 돌고 도는 수순에서도
@@ -208,10 +211,10 @@ func (b *builder) attack(pos shogi.Position, bound int16, prevTo int) (*Move, er
 		if err := b.defend(after, limit, int(m.To), mv); err != nil {
 			return nil, err
 		}
-		if gap == 0 {
-			plain = true
+		if gap == 0 && (plain < 0 || mv.branches() < plain) {
+			plain = mv.branches()
 		}
-		if best == nil || mv.Rest < best.Rest {
+		if best == nil || mv.Rest < best.Rest || mv.Rest == best.Rest && mv.branches() < best.branches() {
 			if best != nil {
 				b.moves -= best.size()
 			}
@@ -235,6 +238,17 @@ func (m *Move) size() int {
 	n := 1
 	for _, r := range m.Replies {
 		n += r.size()
+	}
+	return n
+}
+
+// branches 는 화면에서 펼쳐지는 응수의 수다. 無駄合い는 접히므로 세지 않는다.
+func (m *Move) branches() int {
+	n := 0
+	for _, r := range m.Replies {
+		if !r.Futile {
+			n++
+		}
 	}
 	return n
 }
