@@ -32,7 +32,8 @@ export type PositionErrorCode =
   | 'too_large'
   | 'not_image'
   | 'no_board'
-  | 'read_failed';
+  | 'read_failed'
+  | 'bad_text';
 
 export class PositionError extends Error {
   readonly code: PositionErrorCode;
@@ -63,6 +64,24 @@ export async function checkPosition(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sfen, tsume }),
+    signal,
+  });
+  return unwrap(res);
+}
+
+/**
+ * 글자로 적은 국면을 읽는다. SFEN 한 줄이거나 `position sfen … moves …` 다. 응답의 `sfen` 은
+ * `moves` 뒤의 수까지 둔 판이다. 둘 수 없는 수는 몇 手目인지를 담아 `bad_text` 로 온다.
+ */
+export async function readPositionText(
+  text: string,
+  signal: AbortSignal | null = null,
+  tsume = false,
+): Promise<PositionResponse> {
+  const res = await fetch('/api/position/check', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, tsume }),
     signal,
   });
   return unwrap(res);

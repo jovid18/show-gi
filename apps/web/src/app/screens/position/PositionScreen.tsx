@@ -9,6 +9,7 @@ import {
   checkPosition,
   readImageFile,
   readPosition,
+  readPositionText,
   saveLabel,
   type PositionFault,
 } from '@/protocol/position';
@@ -31,7 +32,7 @@ import { navigate } from '@/routes/router';
  *
  * `tsume` 은 같은 화면을 詰め将棋에 쓴다(「詰将棋を解く」, journal §147). 手番을 묻지 않는다. 아래쪽
  * 사람이 언제나 다음에 두는 공격 쪽이다. 확인이 끝나면 화면을 떠나지 않고 그 자리에 수순 트리를
- * 그린다.
+ * 그린다. 국면을 글자(SFEN·`position sfen … moves …`)로도 받는다. 글자는 手番을 담고 있어 그대로 쓴다.
  */
 export function PositionScreen({ me, mode = 'explore' }: { me: MeResponse; mode?: Mode }) {
   // 로그인하지 않은 것을 오류로 다루지 않는다. 메뉴에는 이 줄이 로그인한 사람에게만 보이지만
@@ -151,6 +152,27 @@ function PositionForm({ mode }: { mode: Mode }) {
     [mode],
   );
 
+  /** 붙여 넣은 글자. 읽은 판은 그림에서 읽은 판과 같은 자리(`board`)로 간다. */
+  const [text, setText] = useState('');
+  const readText = async (): Promise<void> => {
+    const t = text.trim();
+    if (t === '') return;
+    setImage(null);
+    setBoard(null);
+    setFaults([]);
+    setWarnings([]);
+    setCheckedSfen('');
+    setImageId(null);
+    setError(null);
+    try {
+      const res = await readPositionText(t, null, mode === 'tsume');
+      // 사유는 위 effect 의 검사를 기다린다. 판을 그리는 것이 먼저다.
+      setBoard(parseSfen(res.sfen));
+    } catch (e) {
+      setError(e instanceof PositionError ? e.message : '局面を読み取れませんでした。');
+    }
+  };
+
   const take = useCallback(
     async (file: File | null | undefined) => {
       if (!file) return;
@@ -167,8 +189,8 @@ function PositionForm({ mode }: { mode: Mode }) {
   /**
    * 붙여 넣기로도 받는다. `navigator.clipboard.read()` 를 쓰지 않는 이유는 journal §129.
    *
-   * 창 전체에서 듣는다. 이 화면에 글자를 넣는 자리가 없어 남의 붙여넣기를 가로챌 일이 없고,
-   * 사람이 어디를 눌러 두었는지를 신경 쓰지 않아도 된다.
+   * 창 전체에서 듣는다. 그림 파일이 든 붙여넣기만 가져가므로 글자 상자에 붙여 넣는 글자는
+   * 가로채지 않고, 사람이 어디를 눌러 두었는지를 신경 쓰지 않아도 된다.
    */
   useEffect(() => {
     const onPaste = (e: ClipboardEvent): void => {
@@ -260,7 +282,7 @@ function PositionForm({ mode }: { mode: Mode }) {
       <h1 className="import__title">{TITLE[mode]}</h1>
       <p className="import__lead">
         {mode === 'tsume'
-          ? '詰将棋の画像を上げてください。読み取った局面をあなたが確かめてから、王手の連続で詰む手順を調べます。'
+          ? '詰将棋の画像を上げるか、局面を文字で入力してください。局面をあなたが確かめてから、王手の連続で詰む手順を調べます。'
           : '将棋盤が写った画像を上げてください。読み取った局面をあなたが確かめてから、形勢と最善手を調べます。'}
         <br />
         {/* 판이 화면의 절반인 방송 캡처가 크게 틀렸다(journal §129). 자르면 나아지는지는
@@ -285,21 +307,52 @@ function PositionForm({ mode }: { mode: Mode }) {
         </span>
       </div>
 
+      {mode === 'tsume' && (
+        <>
+          <label className="import__label" htmlFor="position-text">
+            文字で入力する（SFEN・「position sfen …」）
+          </label>
+          <textarea
+            id="position-text"
+            className="import__text"
+            value={text}
+            rows={3}
+            spellCheck={false}
+            placeholder="position sfen lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1 moves 7g7f"
+            onChange={(e) => setText(e.target.value)}
+          />
+          <div className="import__row">
+            <button
+              type="button"
+              className="import__button"
+              disabled={text.trim() === ''}
+              onClick={() => void readText()}
+            >
+              この局面を使う
+            </button>
+          </div>
+        </>
+      )}
+
       {error !== null && <p className="position__error">{error}</p>}
       {reading && <p className="review-status">画像から局面を読み取っています…</p>}
 
-      {image !== null && board !== null && (
+      {board !== null && (
         <>
           <div className="position__compare">
             {/* 올린 그림을 판 옆에 그대로 둔다. 대조할 원본이 화면에 없으면 확인이라는
                 걸음 자체가 성립하지 않는다(journal §129). */}
-            <figure className="position__shot">
-              <img src={image} alt="上げた画像" />
-              <figcaption>上げた画像</figcaption>
-            </figure>
+            {image !== null && (
+              <figure className="position__shot">
+                <img src={image} alt="上げた画像" />
+                <figcaption>上げた画像</figcaption>
+              </figure>
+            )}
             <div className="position__read">
               <h2 className="position__subtitle">読み取った局面</h2>
-              <p className="import__label">ちがうマスを押すと駒を直せます。下があなたの側です。</p>
+              <p className="import__label">
+                ちがうマスを押すと駒を直せます。{image !== null ? '下があなたの側です。' : '下が先手です。'}
+              </p>
               <PositionEditor board={board} faults={faultSquares} onChange={setBoard} />
             </div>
           </div>
@@ -307,7 +360,9 @@ function PositionForm({ mode }: { mode: Mode }) {
           {/* 手番. 사진이 말해 주지 않는 유일한 값이라 반드시 사람이 고른다. 詰め将棋는 묻지 않는다. */}
           {mode === 'tsume' ? (
             <p className="import__label">
-              下のあなたが攻め方で、次に指します。持ち駒は駒台に写っているものだけを使います。
+              {image !== null
+                ? '下のあなたが攻め方で、次に指します。持ち駒は駒台に写っているものだけを使います。'
+                : `${board.turn === 'black' ? '下の先手' : '上の後手'}が攻め方で、次に指します。持ち駒は入力したものだけを使います。`}
             </p>
           ) : (
             <fieldset className="position__turn">

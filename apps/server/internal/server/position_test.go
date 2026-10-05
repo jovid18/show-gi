@@ -209,6 +209,36 @@ func TestCheckAnswersWithoutASignIn(t *testing.T) {
 	}
 }
 
+// 글자로 붙여 넣은 국면은 moves 뒤의 수까지 둔 판이 응답의 sfen 이다.
+func TestCheckReadsPastedText(t *testing.T) {
+	const tsume = "ksGp+R4/l1s+P2+R2/2n4pp/2p6/p1n6/P1P2P3/1S6P/L5+p2/KNG5L b 2BGSL6Pgnp 1"
+	for _, c := range []struct{ text, want string }{
+		{tsume, tsume},
+		{"sfen " + tsume, tsume},
+		{"position sfen " + tsume + " moves", tsume},
+		{"position startpos moves 7g7f 3c3d", "lnsgkgsnl/1r5b1/pppppp1pp/6p2/9/2P6/PP1PPPPPP/1B5R1/LNSGKGSNL b - 3"},
+	} {
+		body, _ := json.Marshal(positionCheckRequest{Text: c.text})
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/position/check", strings.NewReader(string(body)))
+		rec := httptest.NewRecorder()
+		(&positionHandler{}).check(rec, r)
+		if res := decodePosition(t, rec); res.SFEN != c.want {
+			t.Errorf("%q: sfen = %q, want %q", c.text, res.SFEN, c.want)
+		}
+	}
+}
+
+// 둘 수 없는 수는 몇 手目인지를 말한다.
+func TestCheckNamesTheIllegalPastedMove(t *testing.T) {
+	body, _ := json.Marshal(positionCheckRequest{Text: "position startpos moves 7g7f 7f7e"})
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/position/check", strings.NewReader(string(body)))
+	rec := httptest.NewRecorder()
+	(&positionHandler{}).check(rec, r)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "2手目の指し手（7f7e）") {
+		t.Errorf("status %d body %s", rec.Code, rec.Body.String())
+	}
+}
+
 // 사유에 칸이 담긴다. 주지 않으면 사람이 81칸에서 二歩를 눈으로 찾아야 한다.
 func TestCheckPointsAtTheSquare(t *testing.T) {
 	res := decodePosition(t, postCheck(t, "4k4/9/9/9/4P4/9/4P4/9/4K4 b - 1"))

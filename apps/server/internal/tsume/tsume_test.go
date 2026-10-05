@@ -96,6 +96,26 @@ func TestFutileInterpositionsDoNotCount(t *testing.T) {
 	}
 }
 
+// 같은 手数의 王手가 여럿이면 응수가 적은 것을 고른다. 두 국면은 아래 113手目 직전 트리의 갈래다.
+// 수의 순서로는 앞의 것(▲5五歩 응수 2, ▲7三銀成 응수 3)이 나왔었다.
+func TestEqualMatesPreferFewerReplies(t *testing.T) {
+	for _, c := range []struct {
+		sfen    string
+		plies   int
+		first   string
+		replies int
+	}{
+		{"l5sn1/4+R1g2/p3gp1Pp/3pk1P2/3n2S2/2P4p1/P1pP1P2P/r1BK5/5G1NL b G5Pb2sn2l 127", 5, "▲5五金", 1},
+		{"l5sn1/2kS2g2/p3+Rp1Pp/3p2P2/3n2S2/2P4p1/P1pP1P2P/r1BK5/5G1NL b G4Pbgsn2lp 127", 3, "▲7三龍", 1},
+	} {
+		res := solve(t, c.sfen, DefaultLimits)
+		if res.Status != Mate || res.Plies != c.plies || res.First.Ja != c.first || res.First.branches() != c.replies {
+			t.Errorf("%s: got %d手 %s with %d replies, want %d手 %s with %d",
+				c.sfen, res.Plies, res.First.Ja, res.First.branches(), c.plies, c.first, c.replies)
+		}
+	}
+}
+
 // 王座戦 第74期 第2局(2026-09-15) 115手 끝의 국면들. 先手가 107手目부터 王手만으로 몰았다.
 // 113手目 직전: ▲６一角成 △４一玉 ▲５一金 까지 둔 실전 수순이 있다.
 func TestOzaEndgameShortMate(t *testing.T) {
