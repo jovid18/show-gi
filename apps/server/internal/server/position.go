@@ -15,6 +15,7 @@ import (
 
 	"github.com/jovid18/show-gi/apps/server/internal/auth"
 	"github.com/jovid18/show-gi/apps/server/internal/boardread"
+	"github.com/jovid18/show-gi/apps/server/internal/kifu"
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
 )
 
@@ -83,6 +84,9 @@ type positionReadRequest struct {
 // positionCheckRequest 는 국면 하나다. 手番이 SFEN 안에 있다.
 type positionCheckRequest struct {
 	SFEN string `json:"sfen"`
+	// Text 는 사람이 글자로 붙여 넣은 국면이다(positionFromText). 있으면 SFEN 대신 이것을 읽고,
+	// 응답의 sfen 이 읽은 결과다.
+	Text string `json:"text,omitempty"`
 	// Tsume 이면 詰め将棋로 본다. 수번 쪽(공격 쪽) 玉이 없어도 사유가 아니다(shogi.TsumeFaults).
 	Tsume bool `json:"tsume,omitempty"`
 }
@@ -180,6 +184,14 @@ func (h *positionHandler) check(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	if req.Text != "" {
+		sfen, err := positionFromText(req.Text)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "bad_text", "message": textErrorJa(err)})
+			return
+		}
+		req.SFEN = sfen
+	}
 	if _, err := shogi.ParseSFEN(req.SFEN); err != nil {
 		// SFEN 자체가 읽히지 않는 것은 화면의 버그다. 사람이 편집기에서 만들 수 없는
 		// 모양이므로, 문구도 그 사실대로 둔다.
@@ -189,6 +201,44 @@ func (h *positionHandler) check(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, checkedAs(req.SFEN, req.Tsume))
+}
+
+// positionFromText 는 글자로 적은 국면을 SFEN 으로 옮긴다. SFEN 한 줄(앞의 "sfen" 은 있어도
+// 된다)이거나 USI 의 position 명령이다. moves 뒤의 수는 룰 엔진으로 검사하며 차례로 둔다.
+func positionFromText(text string) (string, error) {
+	text = strings.TrimSpace(text)
+	if !strings.HasPrefix(text, "position") {
+		pos, err := shogi.ParseSFEN(strings.TrimPrefix(text, "sfen "))
+		if err != nil {
+			return "", err
+		}
+		return pos.SFEN(), nil
+	}
+	g, err := kifu.ParseUSI(text)
+	if err != nil {
+		return "", err
+	}
+	pos, err := shogi.ParseSFEN(g.StartSFEN)
+	if err != nil {
+		return "", err
+	}
+	for _, u := range g.Moves {
+		m, err := shogi.ParseUSIMove(u)
+		if err != nil {
+			return "", err
+		}
+		pos = pos.Apply(m)
+	}
+	return pos.SFEN(), nil
+}
+
+// textErrorJa 는 positionFromText 의 실패를 화면의 문장으로 옮긴다.
+func textErrorJa(err error) string {
+	var me *kifu.MoveError
+	if errors.As(err, &me) {
+		return fmt.Sprintf("%d手目の指し手（%s）が指せません。", me.Ply, me.Text)
+	}
+	return "局面を読み取れませんでした。SFEN か「position sfen …」の形で入力してください。"
 }
 
 // positionLabelRequest 는 「이 그림의 정답은 이 국면이다」다.
