@@ -42,3 +42,31 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+
+  # 서버 없이 화면만 띄우고 `/api`·`/ws` 를 테스트가 가로챈다(apps/web/e2e). 엔진·DB 가 필요
+  # 없어 여기서 돈다. 필수 체크가 아니다. 룰셋에 넣는 것은 사람이 GitHub 화면에서 한다.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @show-gi/web exec playwright install --with-deps chromium
+
+      - run: pnpm e2e
+
+      # 실패한 판의 trace. `npx playwright show-trace` 로 연다.
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-traces
+          path: apps/web/test-results/
+          retention-days: 7
