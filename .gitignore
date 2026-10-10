@@ -35,6 +35,9 @@ node_modules/
 dist/
 build/
 coverage/
+# Playwright 가 실패한 판의 trace 를 떨어뜨리는 자리
+/apps/web/test-results/
+/apps/web/playwright-report/
 .pnpm-store/
 *.tsbuildinfo
 

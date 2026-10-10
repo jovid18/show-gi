@@ -230,6 +230,7 @@ pnpm dev                      # http://localhost:5173
 ```sh
 # 검증
 pnpm lint && pnpm typecheck && pnpm test && pnpm build
+pnpm e2e                      # 서버 없이 대국 화면을 브라우저로 (apps/web/README.md)
 cd apps/server && gofmt -l . && go vet ./... && go test -race ./...
 terraform -chdir=infra fmt -check && terraform -chdir=infra validate
 ```

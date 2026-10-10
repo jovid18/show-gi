@@ -56,6 +56,7 @@ LLM에 좌표 변환을 맡기지 않는다. 서양식 표기(P-7f)를 일본어
 
 ```sh
 pnpm lint && pnpm typecheck && pnpm test && pnpm build   # 루트. 웹 전체 + 마크다운 포맷
+pnpm e2e                                                  # 서버 없이 대국 화면을 브라우저로
 cd apps/server && gofmt -l . && go vet ./... && go test -race ./...
 terraform -chdir=infra fmt -check && terraform -chdir=infra validate
 ```
