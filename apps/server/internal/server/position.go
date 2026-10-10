@@ -259,7 +259,7 @@ func textErrorJa(err error) string {
 		}
 		return "局面図の段が九つではありません。"
 	}
-	return "局面を読み取れませんでした。SFEN、「position sfen …」、棋譜の局面図のいずれかで入力してください。"
+	return "局面を読み取れませんでした。SFEN・USI・KIF のいずれかの形式で入力してください。"
 }
 
 // positionLabelRequest 는 「이 그림의 정답은 이 국면이다」다.

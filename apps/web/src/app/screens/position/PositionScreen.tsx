@@ -310,7 +310,7 @@ function PositionForm({ mode }: { mode: Mode }) {
       {mode === 'tsume' && (
         <>
           <label className="import__label" htmlFor="position-text">
-            文字で入力する（SFEN・「position sfen …」・棋譜の局面図）
+            文字で入力する（SFEN・USI・KIF）
           </label>
           <textarea
             id="position-text"
@@ -330,7 +330,6 @@ function PositionForm({ mode }: { mode: Mode }) {
             >
               この局面を使う
             </button>
-            <span className="import__filename">将棋ウォーズ・ぴよ将棋の詰将棋の棋譜も、そのまま貼り付けられます。</span>
           </div>
         </>
       )}
