@@ -49,8 +49,10 @@ const maxBoardReadsPerHour = 10
 // 걸면 상한 안쪽의 사진이 길이 때문에 거절된다(importBodyMax 와 같은 이유).
 const positionBodyMax = boardread.MaxImage/3*4 + 1<<10
 
-// positionCheckBodyMax 는 검사 요청 몸통의 상한이다. SFEN 한 줄만 온다.
-const positionCheckBodyMax = 4 << 10
+// positionCheckBodyMax 는 검사 요청 몸통의 상한이다.
+//
+// 붙여 넣은 KIF 가 가장 길다. 局面図만 1.5KB 안팎이고 둬 본 수순이 뒤에 붙는다.
+const positionCheckBodyMax = 16 << 10
 
 type positionHandler struct {
 	auth *authHandler
@@ -205,8 +207,14 @@ func (h *positionHandler) check(w http.ResponseWriter, r *http.Request) {
 
 // positionFromText 는 글자로 적은 국면을 SFEN 으로 옮긴다. SFEN 한 줄(앞의 "sfen" 은 있어도
 // 된다)이거나 USI 의 position 명령이다. moves 뒤의 수는 룰 엔진으로 검사하며 차례로 둔다.
+//
+// KIF 의 局面図도 받는다. 将棋ウォーズ·ぴよ将棋가 詰将棋를 내보내는 모양이다. 그 뒤의 수순은
+// 둬 본 기록이라 문제의 국면은 局面図 쪽이다.
 func positionFromText(text string) (string, error) {
 	text = strings.TrimSpace(text)
+	if sfen, err := kifu.ParseBOD(text); !errors.Is(err, kifu.ErrNoBOD) {
+		return sfen, err
+	}
 	if !strings.HasPrefix(text, "position") {
 		pos, err := shogi.ParseSFEN(strings.TrimPrefix(text, "sfen "))
 		if err != nil {
@@ -232,13 +240,26 @@ func positionFromText(text string) (string, error) {
 	return pos.SFEN(), nil
 }
 
+// rankJa 는 段의 한자다. 局面図 오른쪽 끝에 적힌 글자와 같다.
+var rankJa = [9]string{"一", "二", "三", "四", "五", "六", "七", "八", "九"}
+
 // textErrorJa 는 positionFromText 의 실패를 화면의 문장으로 옮긴다.
 func textErrorJa(err error) string {
 	var me *kifu.MoveError
 	if errors.As(err, &me) {
 		return fmt.Sprintf("%d手目の指し手（%s）が指せません。", me.Ply, me.Text)
 	}
-	return "局面を読み取れませんでした。SFEN か「position sfen …」の形で入力してください。"
+	var be *kifu.BODError
+	if errors.As(err, &be) {
+		if be.Rank >= 1 && be.Rank <= 9 {
+			return fmt.Sprintf("局面図の%s段目を読み取れませんでした。", rankJa[be.Rank-1])
+		}
+		if be.Line != "" {
+			return fmt.Sprintf("局面図の「%s」を読み取れませんでした。", be.Line)
+		}
+		return "局面図の段が九つではありません。"
+	}
+	return "局面を読み取れませんでした。SFEN、「position sfen …」、棋譜の局面図のいずれかで入力してください。"
 }
 
 // positionLabelRequest 는 「이 그림의 정답은 이 국면이다」다.
