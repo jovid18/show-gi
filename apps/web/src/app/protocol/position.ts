@@ -70,8 +70,9 @@ export async function checkPosition(
 }
 
 /**
- * 글자로 적은 국면을 읽는다. SFEN 한 줄이거나 `position sfen … moves …` 다. 응답의 `sfen` 은
- * `moves` 뒤의 수까지 둔 판이다. 둘 수 없는 수는 몇 手目인지를 담아 `bad_text` 로 온다.
+ * 글자로 적은 국면을 읽는다. SFEN 한 줄이거나 `position sfen … moves …` 거나 KIF 의 局面図다.
+ * `position` 의 응답 `sfen` 은 `moves` 뒤의 수까지 둔 판이고, 局面図는 그림 그대로다(뒤의 수순은
+ * 두지 않는다). 둘 수 없는 수는 몇 手目인지를 담아 `bad_text` 로 온다.
  */
 export async function readPositionText(
   text: string,

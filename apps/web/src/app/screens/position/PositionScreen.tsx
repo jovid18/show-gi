@@ -32,7 +32,7 @@ import { navigate } from '@/routes/router';
  *
  * `tsume` 은 같은 화면을 詰め将棋에 쓴다(「詰将棋を解く」, journal §147). 手番을 묻지 않는다. 아래쪽
  * 사람이 언제나 다음에 두는 공격 쪽이다. 확인이 끝나면 화면을 떠나지 않고 그 자리에 수순 트리를
- * 그린다. 국면을 글자(SFEN·`position sfen … moves …`)로도 받는다. 글자는 手番을 담고 있어 그대로 쓴다.
+ * 그린다. 국면을 글자(SFEN·`position sfen … moves …`·KIF 의 局面図)로도 받는다. 글자는 手番을 담고 있어 그대로 쓴다.
  */
 export function PositionScreen({ me, mode = 'explore' }: { me: MeResponse; mode?: Mode }) {
   // 로그인하지 않은 것을 오류로 다루지 않는다. 메뉴에는 이 줄이 로그인한 사람에게만 보이지만
@@ -310,7 +310,7 @@ function PositionForm({ mode }: { mode: Mode }) {
       {mode === 'tsume' && (
         <>
           <label className="import__label" htmlFor="position-text">
-            文字で入力する（SFEN・「position sfen …」）
+            文字で入力する（SFEN・USI・KIF）
           </label>
           <textarea
             id="position-text"

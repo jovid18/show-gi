@@ -47,7 +47,7 @@ function SkillChange({ skill }: { skill: NonNullable<GameSummary['skill']> }) {
           <Rank rank={skill.after} label="今の目安" />
         </div>
       )}
-      <p className="skill-change__note">指し手の精度から算出した目安です。道場や将棋ウォーズの段級とは異なります。</p>
+      <p className="skill-change__note">指し手の精度から算出した目安です。道場や他のアプリの段級とは異なります。</p>
     </section>
   );
 }

@@ -57,7 +57,7 @@ export function ProfileScreen({ onSignOut }: { onSignOut: () => void }) {
             </span>
             {/* 총평과 같은 문장이다. 段級을 공인된 실력으로 읽지 않게 하는 한 줄이라
                 한쪽에만 두면 다른 쪽에서 그대로 오해가 산다(journal §62). */}
-            <p className="profile__note">指し手の精度から算出した目安です。道場や将棋ウォーズの段級とは異なります。</p>
+            <p className="profile__note">指し手の精度から算出した目安です。道場や他のアプリの段級とは異なります。</p>
           </>
         ) : (
           <p className="profile__empty">まだ測っていません。何局か指すと出ます。</p>

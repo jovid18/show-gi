@@ -228,6 +228,43 @@ func TestCheckReadsPastedText(t *testing.T) {
 	}
 }
 
+// KIF 의 局面図는 판 그림이 국면이다. 뒤의 수순은 둬 본 기록이라 두지 않는다.
+func TestCheckReadsAPastedBoardDiagram(t *testing.T) {
+	const bod = `後手の持駒：なし
+  ９ ８ ７ ６ ５ ４ ３ ２ １
++---------------------------+
+| ・ ・ ・ ・v玉 ・ ・ ・ ・|一
+| ・ ・ ・ ・ ・ ・ ・ ・ ・|二
+| ・ ・ ・ ・ 歩 ・ ・ ・ ・|三
+| ・ ・ ・ ・ ・ ・ ・ ・ ・|四
+| ・ ・ ・ ・ ・ ・ ・ ・ ・|五
+| ・ ・ ・ ・ ・ ・ ・ ・ ・|六
+| ・ ・ ・ ・ ・ ・ ・ ・ ・|七
+| ・ ・ ・ ・ ・ ・ ・ ・ ・|八
+| ・ ・ ・ ・ 玉 ・ ・ ・ ・|九
++---------------------------+
+先手の持駒：金
+手数----指手---------消費時間--
+   1 ５二金打   ( 0:01/00:00:01)
+`
+	body, _ := json.Marshal(positionCheckRequest{Text: bod})
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/position/check", strings.NewReader(string(body)))
+	rec := httptest.NewRecorder()
+	(&positionHandler{}).check(rec, r)
+	if res := decodePosition(t, rec); res.SFEN != "4k4/9/4P4/9/9/9/9/9/4K4 b G 1" {
+		t.Errorf("sfen = %q", res.SFEN)
+	}
+
+	broken := strings.Replace(bod, "| ・ ・ ・ ・ 歩 ・ ・ ・ ・|三", "| ・ ・ ・ ・ 步 ・ ・ ・ ・|三", 1)
+	body, _ = json.Marshal(positionCheckRequest{Text: broken})
+	r = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/position/check", strings.NewReader(string(body)))
+	rec = httptest.NewRecorder()
+	(&positionHandler{}).check(rec, r)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "局面図の三段目") {
+		t.Errorf("status %d body %s", rec.Code, rec.Body.String())
+	}
+}
+
 // 둘 수 없는 수는 몇 手目인지를 말한다.
 func TestCheckNamesTheIllegalPastedMove(t *testing.T) {
 	body, _ := json.Marshal(positionCheckRequest{Text: "position startpos moves 7g7f 7f7e"})
