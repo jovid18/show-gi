@@ -222,12 +222,13 @@ func (p *Pool) Release(e *Engine) {
 			ch := q[0]
 			p.waiting[prio] = q[1:]
 			p.mu.Unlock()
-			// 버퍼가 1이라 막히지 않는다. 받는 쪽이 그 사이에 포기했으면 giveUpWaiting 이
-			// 이 값을 꺼내 다시 돌려준다.
-			ch <- e
+			// 넘기기 전에 내린다. 받는 쪽이 먼저 +1 을 적으면 풀 크기를 넘는 점유가 찍힌다.
 			if p.metrics != nil {
 				p.metrics.ObserveInUse(-1)
 			}
+			// 버퍼가 1이라 막히지 않는다. 받는 쪽이 그 사이에 포기했으면 giveUpWaiting 이
+			// 이 값을 꺼내 다시 돌려준다.
+			ch <- e
 			return
 		}
 	}
