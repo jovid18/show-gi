@@ -13,6 +13,7 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"math"
 	"slices"
 
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
@@ -121,9 +122,9 @@ func (s *solver) solve(pos shogi.Position, lim Limits) (Result, error) {
 	}
 
 	length, shortest := s.shorten(pos, unbounded, lim.ShortenNodes)
-	b := builder{s: s, lim: lim}
+	b := builder{s: s, lim: lim, memo: map[memoKey]*Move{}}
 	// 뿌리는 실제 수로 가장 짧은 것보다 合駒 칸 일곱 개만큼(14수) 긴 수순까지 후보로 본다(attack).
-	first, err := b.attack(pos, length+rootSlack, -1)
+	first, err := b.attack(pos, length+rootSlack, -1, math.MaxInt)
 	if err != nil {
 		return Result{}, err
 	}
@@ -166,7 +167,22 @@ type builder struct {
 	s     *solver
 	lim   Limits
 	moves int
+	// memo 는 다 지은 공격 마디다. 合駒를 잡고 나면 같은 국면으로 모이는 갈래가 많다(journal §152).
+	// 공유한 수는 다시 고치지 않는다.
+	memo map[memoKey]*Move
 }
+
+// memoKey 는 attack 의 결과를 정하는 것이다. hashOf 는 手数를 빼므로 SFEN 이 같도록 MoveNum 을,
+// 「同」 표기가 같도록 prevTo 를 더한다.
+type memoKey struct {
+	h       uint64
+	moveNum int
+	bound   int16
+	prevTo  int
+}
+
+// errCut 는 cutoff 안의 Rest 로 끝나는 수가 없다는 표시다.
+var errCut = errors.New("tsume: cut")
 
 func (b *builder) count() error {
 	b.moves++
@@ -183,7 +199,25 @@ func (b *builder) count() error {
 // 合駒가 들 칸 하나마다 두 수씩 더 길어도 후보로 펼쳐 보고 관례의 手数(Rest)가 가장 짧은 것을
 // 고른다. 같으면 펼쳐지는 응수(無駄合い를 뺀 것)가 적은 것, 그것도 같으면 수의 순서(shogi.Checks)에서
 // 앞의 것이다.
-func (b *builder) attack(pos shogi.Position, bound int16, prevTo int) (*Move, error) {
+//
+// cutoff 는 받아 줄 Rest 의 상한이다. 넘는 것이 정해지면 그 자리에서 errCut 으로 그만 짓는다.
+// 넘는 후보는 어차피 고르지 않으므로 다 지은 결과는 cutoff 와 무관하고, 그래서 memo 에 둔다.
+func (b *builder) attack(pos shogi.Position, bound int16, prevTo int, cutoff int) (*Move, error) {
+	if cutoff < 0 {
+		return nil, errCut
+	}
+	key := memoKey{hashOf(&pos), pos.MoveNum, bound, prevTo}
+	if hit, ok := b.memo[key]; ok {
+		if hit.Rest > cutoff {
+			return nil, errCut
+		}
+		b.moves += hit.size()
+		if b.moves > b.lim.MaxMoves {
+			return nil, ErrTooLarge
+		}
+		return hit, nil
+	}
+	cut := false
 	length, _ := b.s.shorten(pos, bound, b.lim.BranchNodes)
 	var best *Move
 	// plain 은 펼친 王手 중 合駒가 들 수 없는 것의 가장 적은 응수 수다. 그런 王手는 無駄合い가 없어
@@ -208,7 +242,17 @@ func (b *builder) attack(pos shogi.Position, bound int16, prevTo int) (*Move, er
 		if err := b.count(); err != nil {
 			return nil, err
 		}
-		if err := b.defend(after, limit, int(m.To), mv); err != nil {
+		// 같은 Rest 는 응수 수로 견주므로 끝까지 짓는다.
+		c := cutoff
+		if best != nil && best.Rest < c {
+			c = best.Rest
+		}
+		if err := b.defend(after, limit, int(m.To), mv, c); err != nil {
+			if errors.Is(err, errCut) {
+				b.moves = kept
+				cut = true
+				continue
+			}
 			return nil, err
 		}
 		if gap == 0 && (plain < 0 || mv.branches() < plain) {
@@ -223,6 +267,9 @@ func (b *builder) attack(pos shogi.Position, bound int16, prevTo int) (*Move, er
 			b.moves = kept
 		}
 	}
+	if best == nil && cut {
+		return nil, errCut
+	}
 	if best == nil {
 		// 마디가 모자라 후보를 하나도 증명하지 못했다. 상한이 남아 있었는데 그렇다면 치환표가 틀린 것이다.
 		if b.s.total > 0 && b.s.nodes >= b.s.total || b.s.tt.full {
@@ -230,6 +277,7 @@ func (b *builder) attack(pos shogi.Position, bound int16, prevTo int) (*Move, er
 		}
 		return nil, errors.New("tsume: a proven position has no mating check")
 	}
+	b.memo[key] = best
 	return best, nil
 }
 
@@ -278,7 +326,7 @@ func abs(x int) int {
 
 // defend 는 공격 쪽이 mv 를 둔 뒤의 pos 에서 수비 쪽 응수 전부를 펼친다. pos 는 bound 수 안에
 // 詰む.
-func (b *builder) defend(pos shogi.Position, bound int16, prevTo int, mv *Move) error {
+func (b *builder) defend(pos shogi.Position, bound int16, prevTo int, mv *Move, cutoff int) error {
 	for _, r := range pos.Evasions() {
 		if err := b.count(); err != nil {
 			return err
@@ -290,7 +338,8 @@ func (b *builder) defend(pos shogi.Position, bound int16, prevTo int, mv *Move) 
 			mv.Replies = append(mv.Replies, reply)
 			continue
 		}
-		next, err := b.attack(after, bound-1, int(r.To))
+		// mv.Rest 는 next.Rest+2 다.
+		next, err := b.attack(after, bound-1, int(r.To), cutoff-2)
 		if err != nil {
 			return err
 		}
