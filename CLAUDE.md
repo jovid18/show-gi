@@ -85,6 +85,8 @@ SHOWGI_TEST_DATABASE_URL='postgres://showgi:showgi@localhost:5432/showgi' go tes
 
 `git-workflow:create-pull-request`는 회사(Ecube Labs) 템플릿이라 Jira 링크와 한글 섹션이 들어간다. 이 레포에서는 쓰지 않는다.
 
+PR을 올리기 전에 리뷰가 필요하면 `/self-review`를 쓴다. 필수 단계는 아니다. 검증된 finding만 터미널에 보고하고 코드를 고치지 않는다. 산출물은 `_workspace/self-review/`에 남는다(gitignore). 심각도와 Never Review의 정본은 `review-criteria` 스킬이다.
+
 **문서 수정이나 사소한 변경은 별도 PR로 쪼개지 않는다.** 작업 중에 나온 문서·설정 수정은 진행 중인 PR에 같이 넣는다. 혼자 쓰는 레포에서 PR을 나누는 이득보다 따로 머지하는 비용이 크다.
 
 한 워크트리에서 브랜치를 여러 개 만들지 않는다. 브랜치를 바꾸면 아직 머지되지 않은 `.gitignore` 규칙이 없어져 `git add -A`가 무시해야 할 파일까지 포함할 수 있다. 병렬 작업은 아래 절차에 따라 워크트리를 나눈다.

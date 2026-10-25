@@ -29,6 +29,8 @@ Codex는 `.agents/skills`에서 아래 스킬을 찾는다. 각 디렉터리는 
 | 병렬 작업용 워크트리 생성·정리 | `$worktree`  | `.claude/skills/worktree/SKILL.md`  |
 | 프로덕션 플레이테스트          | `$playtest`  | `.claude/skills/playtest/SKILL.md`  |
 
+`self-review`와 `review-criteria`는 링크하지 않는다. `.claude/agents/`의 서브 에이전트를 스폰하는 Claude Code 전용 하네스다.
+
 이 레포의 PR에는 `$create-pr`를 쓴다. 회사 템플릿인 `git-workflow:create-pull-request`는 쓰지 않는다.
 공통 가이드나 스킬의 `/create-pr`, `/worktree`, `/playtest`는 위 Codex 호출로 바꿔 읽는다.
 

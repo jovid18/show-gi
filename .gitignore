@@ -89,3 +89,6 @@ apps/server/internal/kifu/testdata/import10/
 
 # python 검사기 캐시 (tools/prose)
 __pycache__/
+
+# /self-review 산출물. diff·PR 본문 사본과 리뷰 보고서가 쌓인다. 리뷰 트리(tree/)도 여기 생긴다
+_workspace/
