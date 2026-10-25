@@ -284,6 +284,20 @@ body {
   color: var(--brand-strong);
 }
 
+/* 언어 전환. 헤더 오른쪽 끝에 붙는다. 돌아가기 화살표처럼 면을 칠하지 않는 회색 트랙이다. */
+.app-locale {
+  flex: none;
+  margin-left: auto;
+  height: 1.9rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--fg-2);
+  font: inherit;
+  font-size: 0.8125rem;
+}
+
 /* ── ホーム ───────────────────────────────────────────────
    **세로로 한 줄씩 선 메뉴가 전부인 화면**(journal §86).
 
@@ -5574,4 +5588,41 @@ label.import__button:focus-within {
   background: var(--brand-soft);
   font-size: 0.75rem;
   color: var(--brand-strong);
+}
+
+/* ── 한국어 ───────────────────────────────────────────────
+   위의 규칙은 일본어 기준이다. `lang` 은 `i18n/locale.ts` 가 바꾼다.
+
+   한국어는 낱말 사이를 띄우므로 낱말 안에서 줄을 바꾸지 않는다. 일본어 라벨의 넓은 자간은
+   띄어쓰기와 섞이면 낱말 경계가 흐려져 좁힌다. */
+html:lang(ko) {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+html:lang(ko)
+  :is(
+    .intervention-label,
+    .strength__head,
+    .opening__head,
+    .setup__legend,
+    .resume__facts dt,
+    .tag-flash__kind,
+    .tag-hint__kind,
+    .panel-title,
+    .kifu-copy,
+    .review-card-iv[data-match],
+    .review-result,
+    .review-kifu-mark,
+    .review-branch-badge,
+    .review-whatif-sub,
+    .summary__head,
+    .summary__focus-head,
+    .skill-change__head,
+    .quiz-line__head,
+    .profile__head,
+    .profile__styles-kind,
+    .explore-title
+  ) {
+  letter-spacing: 0.02em;
 }

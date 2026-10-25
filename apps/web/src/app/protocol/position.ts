@@ -1,4 +1,8 @@
+import type { Messages } from '@/i18n';
 import type { ApiError } from '@/protocol/review';
+
+/** 서버가 사유를 말하지 않았을 때 쓰는 문구. */
+type Errors = Messages['position']['errors'];
 
 /** 서버의 `boardread.MaxImage` 와 같아야 한다. */
 export const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
@@ -44,19 +48,24 @@ export class PositionError extends Error {
   }
 }
 
-export async function readPosition(image: string, signal: AbortSignal | null = null): Promise<PositionResponse> {
+export async function readPosition(
+  image: string,
+  errors: Errors,
+  signal: AbortSignal | null = null,
+): Promise<PositionResponse> {
   const res = await fetch('/api/position/read', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ image }),
     signal,
   });
-  return unwrap(res);
+  return unwrap(res, errors.readImage);
 }
 
 /** `tsume` 이면 詰め将棋로 본다. 수번 쪽(공격 쪽) 玉이 없어도 사유가 아니다. */
 export async function checkPosition(
   sfen: string,
+  errors: Errors,
   signal: AbortSignal | null = null,
   tsume = false,
 ): Promise<PositionResponse> {
@@ -66,7 +75,7 @@ export async function checkPosition(
     body: JSON.stringify({ sfen, tsume }),
     signal,
   });
-  return unwrap(res);
+  return unwrap(res, errors.readImage);
 }
 
 /**
@@ -76,6 +85,7 @@ export async function checkPosition(
  */
 export async function readPositionText(
   text: string,
+  errors: Errors,
   signal: AbortSignal | null = null,
   tsume = false,
 ): Promise<PositionResponse> {
@@ -85,7 +95,7 @@ export async function readPositionText(
     body: JSON.stringify({ text, tsume }),
     signal,
   });
-  return unwrap(res);
+  return unwrap(res, errors.readImage);
 }
 
 export async function saveLabel(imageId: string, sfen: string): Promise<void> {
@@ -100,21 +110,18 @@ export async function saveLabel(imageId: string, sfen: string): Promise<void> {
   }
 }
 
-async function unwrap(res: Response): Promise<PositionResponse> {
+async function unwrap(res: Response, fallback: string): Promise<PositionResponse> {
   if (res.ok) return (await res.json()) as PositionResponse;
   const err = (await res.json().catch(() => null)) as ApiError | null;
-  throw new PositionError(
-    (err?.error as PositionErrorCode) || 'read_failed',
-    err?.message || '画像から局面を読み取れませんでした。',
-  );
+  throw new PositionError((err?.error as PositionErrorCode) || 'read_failed', err?.message || fallback);
 }
 
 /**
  * 크기는 파일을 읽기 전에 확인한다. 읽은 뒤에 막으면 큰 파일을 메모리에 올리는 동안 탭이 멈춘다.
  */
-export async function readImageFile(file: File): Promise<string> {
+export async function readImageFile(file: File, errors: Errors): Promise<string> {
   if (file.size > MAX_IMAGE_BYTES) {
-    throw new PositionError('too_large', '画像が大きすぎます。6MB までのスクリーンショットをお使いください。');
+    throw new PositionError('too_large', errors.tooLarge);
   }
   const bytes = new Uint8Array(await file.arrayBuffer());
 

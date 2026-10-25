@@ -48,7 +48,8 @@ export function useMoveEvals(gameId: number, basePly: number, usis: readonly str
     }
 
     const controller = new AbortController();
-    const send = httpSend(gameId);
+    // 실패는 그 줄을 비워 둘 뿐 문구를 띄우지 않는다(아래 `catch`).
+    const send = httpSend(gameId, '');
     let alive = true;
 
     void (async () => {

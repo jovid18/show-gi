@@ -8,25 +8,24 @@
  * 개입이 없고 받을 데가 없다. 대신 `label_guide_test.go` 가 이 파일을 읽어 열한 개가 이름까지
  * 서버와 같은지 본다.
  *
- * `note` 는 화면이 직접 적는다. 서버 문구는 그 판의 그 수에 하는 말이라(`baseMessages`)
- * 시제도 주어도 다르다.
+ * 풀이(note)는 화면이 직접 적고 `i18n/ns/guide.ts` 에 code 로 둔다. 서버 문구는 그 판의 그
+ * 수에 하는 말이라(`baseMessages`) 시제도 주어도 다르다.
  */
 export interface GuideCategory {
   code: string;
   nameJa: string;
-  note: string;
 }
 
 export const GUIDE_CATEGORIES: readonly GuideCategory[] = [
-  { code: 'missed_mate', nameJa: '詰み逃し', note: '詰ませられたのに、別の手を選んだとき。' },
-  { code: 'slower_mate', nameJa: '詰みの遠回り', note: '詰みは残っているけれど、手数が伸びる手を選んだとき。' },
-  { code: 'lets_mate', nameJa: '詰まされる', note: 'その手を指すと、逆に自分の玉が詰まされるとき。' },
-  { code: 'hangs_piece', nameJa: 'タダ捨て', note: '取り返せない場所に駒を置いてしまったとき。' },
-  { code: 'shallow_trap', nameJa: '浅い得', note: '一手先までは得なのに、その先で形勢が入れ替わるとき。' },
-  { code: 'unpromoted', nameJa: '不成', note: '動かす駒も行き先も合っているのに、成っていないとき。' },
-  { code: 'greedy_capture', nameJa: '割に合わない取り', note: '駒は取れるけれど、払う代償のほうが大きいとき。' },
-  { code: 'idle_check', nameJa: '追う手', note: '王手はかかるものの続きがなく、手番を渡すだけのとき。' },
-  { code: 'king_exposed', nameJa: '玉が薄い', note: '自玉のまわりが手薄になり、相手の攻めが届くとき。' },
-  { code: 'forced_loss', nameJa: '受けきれない損', note: '有力な受けを試しても、駒損か詰みが避けられないとき。' },
-  { code: 'other', nameJa: '大きな形勢損', note: '上のどれにも当てはまらないけれど、形勢を大きく損ねるとき。' },
+  { code: 'missed_mate', nameJa: '詰み逃し' },
+  { code: 'slower_mate', nameJa: '詰みの遠回り' },
+  { code: 'lets_mate', nameJa: '詰まされる' },
+  { code: 'hangs_piece', nameJa: 'タダ捨て' },
+  { code: 'shallow_trap', nameJa: '浅い得' },
+  { code: 'unpromoted', nameJa: '不成' },
+  { code: 'greedy_capture', nameJa: '割に合わない取り' },
+  { code: 'idle_check', nameJa: '追う手' },
+  { code: 'king_exposed', nameJa: '玉が薄い' },
+  { code: 'forced_loss', nameJa: '受けきれない損' },
+  { code: 'other', nameJa: '大きな形勢損' },
 ];

@@ -1,5 +1,6 @@
 import { Koma } from './Koma';
 import { HAND_ORDER, nameOf, type Side } from '@/models/piece';
+import { useT } from '@/i18n';
 
 interface HandProps {
   side: Side;
@@ -34,6 +35,7 @@ interface HandProps {
  * 변했는지 보지 못한다.
  */
 export function Hand({ side, pieces, label, selected, playable, dropping, hintDrop, onPick }: HandProps) {
+  const t = useT();
   const held = HAND_ORDER.filter((kind) => (pieces[kind] ?? 0) > 0);
 
   return (
@@ -41,7 +43,7 @@ export function Hand({ side, pieces, label, selected, playable, dropping, hintDr
       <span className="hand-label">{label}</span>
 
       <div className="hand-pieces">
-        {held.length === 0 && <span className="hand-empty">なし</span>}
+        {held.length === 0 && <span className="hand-empty">{t.board.hand.empty}</span>}
 
         {held.map((kind) => {
           const origin = `${kind}*`;
@@ -58,7 +60,7 @@ export function Hand({ side, pieces, label, selected, playable, dropping, hintDr
               data-selected={selected === origin || undefined}
               data-dropping={dropping === kind || undefined}
               disabled={!canDrop}
-              aria-label={`${nameOf(kind)} ${count}枚`}
+              aria-label={t.board.hand.count(nameOf(kind), count)}
               onClick={() => onPick(origin)}
             >
               {hintDrop === kind && <span className="hint-outline" aria-hidden="true" />}

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 
 import { Board } from '@/components/Board';
 import { Hand } from '@/components/Hand';
+import { useT } from '@/i18n';
 import { lastMoveOf } from '@/libs/game/board-view';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
 import type { TsumeMove, TsumeResponse } from '@/protocol/tsume';
@@ -14,6 +15,7 @@ import type { TsumeMove, TsumeResponse } from '@/protocol/tsume';
  * 시작하는 줄이 같은 모양으로 펼쳐진다. 無駄合い는 펼치지 않고 이름만 적는다.
  */
 export function TsumeTree({ start, res }: { start: string; res: TsumeResponse }) {
+  const p = useT().position;
   const [picked, setPicked] = useState<TsumeMove | null>(null);
   const sfen = picked?.sfen ?? start;
   const board = useMemo<BoardModel | null>(() => {
@@ -36,7 +38,7 @@ export function TsumeTree({ start, res }: { start: string; res: TsumeResponse })
               <>
                 <Hand
                   side="white"
-                  label="相手"
+                  label={p.opponent}
                   pieces={board.hands.white}
                   selected={null}
                   playable={new Set()}
@@ -65,7 +67,7 @@ export function TsumeTree({ start, res }: { start: string; res: TsumeResponse })
                 />
                 <Hand
                   side="black"
-                  label="あなた"
+                  label={p.you}
                   pieces={board.hands.black}
                   selected={null}
                   playable={new Set()}
@@ -74,7 +76,7 @@ export function TsumeTree({ start, res }: { start: string; res: TsumeResponse })
               </>
             )}
             <button type="button" className="btn" disabled={picked === null} onClick={() => setPicked(null)}>
-              最初の局面
+              {p.tree.start}
             </button>
           </div>
           <div className="tsume__moves">
@@ -134,6 +136,7 @@ function Row({
   picked,
   onPick,
 }: { step: { move: TsumeMove; ply: number; alts: TsumeMove[] } } & Omit<LineProps, 'from' | 'ply'>) {
+  const tree = useT().position.tree;
   const [open, setOpen] = useState(false);
   const real = step.alts.filter((m) => !m.futile);
   const futile = step.alts.filter((m) => m.futile);
@@ -151,13 +154,13 @@ function Row({
         </button>
         {real.length > 0 && (
           <button type="button" className="tsume__toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-            {open ? '変化を閉じる' : `ほかの応手 ${real.length}`}
+            {open ? tree.closeBranches : tree.otherReplies(real.length)}
           </button>
         )}
       </div>
       {futile.length > 0 && (
         <p className="tsume__futile">
-          <span>無駄合い</span>
+          <span>{tree.futile}</span>
           {futile.map((m) => (
             <button
               key={m.usi}
@@ -175,9 +178,7 @@ function Row({
         <ul className="tsume__branches">
           {real.map((m) => (
             <li key={m.usi}>
-              <span className="tsume__rest">
-                {m.ja}なら、あと{m.rest}手で詰み
-              </span>
+              <span className="tsume__rest">{tree.rest(m.ja, m.rest)}</span>
               <Line from={m} ply={step.ply} picked={picked} onPick={onPick} />
             </li>
           ))}

@@ -34,7 +34,12 @@ export class TsumeError extends Error {
   }
 }
 
-export async function solveTsume(sfen: string, signal: AbortSignal | null = null): Promise<TsumeResponse> {
+/** `fallback` 은 서버가 사유를 말하지 않았을 때 쓰는 문구다. */
+export async function solveTsume(
+  sfen: string,
+  fallback: string,
+  signal: AbortSignal | null = null,
+): Promise<TsumeResponse> {
   const res = await fetch('/api/tsume/solve', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -43,5 +48,5 @@ export async function solveTsume(sfen: string, signal: AbortSignal | null = null
   });
   if (res.ok) return (await res.json()) as TsumeResponse;
   const err = (await res.json().catch(() => null)) as ApiError | null;
-  throw new TsumeError(err?.error || 'internal', err?.message || '詰みを調べられませんでした。');
+  throw new TsumeError(err?.error || 'internal', err?.message || fallback);
 }

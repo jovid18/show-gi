@@ -1,5 +1,6 @@
 // 상대의 Glicko 를 싣지 않는다. 매칭이 쓰는 내부 값이라 어느 API 도 돌려주지 않는다(01-core.md §5).
 
+import type { Messages } from '@/i18n';
 import type { Color } from '@/protocol/game';
 
 export type QueueStatus =
@@ -19,10 +20,10 @@ export type QueueStatus =
  * 대기열에 서기 · 살아 있다고 알리기 · 짝짓기를 한 호출이 한다. 화면이 주기적으로 부르기를
  * 멈추면 서버가 대기열에서 걷어낸다(서버의 `queue.StaleAfter`).
  */
-export async function pollQueue(signal: AbortSignal): Promise<QueueStatus> {
+export async function pollQueue(signal: AbortSignal, errors: Messages['match']['errors']): Promise<QueueStatus> {
   const res = await fetch('/api/queue', { method: 'POST', signal });
-  if (res.status === 401) throw new Error('ログインが必要です。');
-  if (!res.ok) throw new Error('対局相手を探せませんでした。');
+  if (res.status === 401) throw new Error(errors.signInRequired);
+  if (!res.ok) throw new Error(errors.searchOpponent);
   return (await res.json()) as QueueStatus;
 }
 

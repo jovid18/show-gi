@@ -7,6 +7,7 @@ import { groupByOrigin, toUsiMove, type Destination } from '@/libs/game/moves';
 import { lastMoveOf } from '@/libs/game/board-view';
 import { Kifu } from '@/screens/game/Kifu';
 import { useMatch, useTurnClock, type MatchConnection } from '@/hooks/useMatch';
+import { useT, type Messages } from '@/i18n';
 import { fetchRoom, type MatchSnapshot, type Room } from '@/protocol/match';
 import type { Side } from '@/models/piece';
 import { parseSfen } from '@/models/sfen';
@@ -29,6 +30,7 @@ const EMPTY_SET: ReadonlySet<string> = new Set();
 const noop = (): void => {};
 
 export function MatchScreen({ roomId }: { roomId: string }) {
+  const t = useT();
   /**
    * 붙기 전에 한 번 물어본다.
    *
@@ -41,15 +43,16 @@ export function MatchScreen({ roomId }: { roomId: string }) {
 
   useEffect(() => {
     const ac = new AbortController();
-    void fetchRoom(roomId, ac.signal)
+    void fetchRoom(roomId, ac.signal, t.match.errors)
       .then((room) => setPeek({ room, done: true }))
       // 읽지 못해도 화면은 뜨고 아래가 「열 수 없다」를 그린다. 실패와 404를 같이 두는 것은
       // 서버가 이미 그 둘을 같은 답으로 주기 때문이다.
       .catch(() => setPeek({ room: null, done: true }));
     return () => ac.abort();
+    // 실패 문구는 그리지 않으므로 의존성에 넣지 않는다. 언어가 바뀌어도 다시 묻지 않는다.
   }, [roomId]);
 
-  if (!peek.done) return <p className="review-status">対局部屋を確認しています…</p>;
+  if (!peek.done) return <p className="review-status">{t.match.board.checkingRoom}</p>;
   if (!peek.room) return <Unavailable />;
   if (!peek.room.isHost && peek.room.waiting && !joined) {
     return <Join room={peek.room} onJoin={() => setJoined(true)} />;
@@ -58,14 +61,15 @@ export function MatchScreen({ roomId }: { roomId: string }) {
 }
 
 function MatchLive({ roomId }: { roomId: string }) {
+  const title = useT().common.title.room;
   const { connection, room, snapshot, rejection, gameId, play, resign, dismissRejection } = useMatch(roomId);
   const [origin, setOrigin] = useState<string | null>(null);
   const [pending, setPending] = useState<{ origin: string; to: string } | null>(null);
   const [confirmingResign, setConfirmingResign] = useState(false);
 
   useEffect(() => {
-    document.title = '対人戦 | show-gi';
-  }, []);
+    document.title = title;
+  }, [title]);
 
   if (!snapshot) {
     return <Waiting connection={connection} room={room} roomId={roomId} rejection={rejection} />;
@@ -121,6 +125,8 @@ function MatchBoard({
   dismissRejection,
 }: BoardProps) {
   const left = useTurnClock(snapshot);
+  const t = useT();
+  const m = t.match;
 
   const board = useMemo(() => {
     try {
@@ -192,9 +198,9 @@ function MatchBoard({
     setOrigin(null);
   };
 
-  if (!board) return <p className="review-status">局面を読み込めませんでした。</p>;
+  if (!board) return <p className="review-status">{m.board.loadFailed}</p>;
 
-  const result = matchResultText(snapshot);
+  const result = matchResultText(snapshot, m.result);
   const over = snapshot.status !== 'playing';
 
   return (
@@ -205,7 +211,14 @@ function MatchBoard({
             (`users.display_name`) 라벨 폭이 3.2em 고정이라, 넘치면 줄이 접혀 駒台가 통째로
             부푼다. 일곱 글자 이름에서 세 줄이 됐다. 누구인가는 옆 패널이 말한다
             (아래 `.match-who`). */}
-        <Hand side={them} label="相手" pieces={board.hands[them]} selected={null} playable={EMPTY_SET} onPick={noop} />
+        <Hand
+          side={them}
+          label={m.opponent}
+          pieces={board.hands[them]}
+          selected={null}
+          playable={EMPTY_SET}
+          onPick={noop}
+        />
 
         <Board
           board={board}
@@ -232,7 +245,7 @@ function MatchBoard({
 
         <Hand
           side={me}
-          label="あなた"
+          label={m.you}
           pieces={board.hands[me]}
           selected={origin?.endsWith('*') ? origin : null}
           playable={playable ? dropOrigins : EMPTY_SET}
@@ -245,11 +258,11 @@ function MatchBoard({
           {/* 상대가 누구인지는 판 내내 떠 있어야 한다. 차례 문구에만 실으면 자기 차례일
               때 그 사람이 화면에서 사라진다. */}
           <p className="match-who">
-            対戦相手 <strong>{snapshot.opponentName}</strong>
+            {m.board.vs} <strong>{snapshot.opponentName}</strong>
           </p>
 
           <p className="status" data-tone={over ? 'result' : snapshot.yourTurn ? 'turn' : 'wait'}>
-            {result ?? (snapshot.yourTurn ? 'あなたの番です。' : '相手の番です。')}
+            {result ?? (snapshot.yourTurn ? m.board.yourTurn : m.board.theirTurn)}
           </p>
 
           {/* 시계는 판이 도는 동안만 그린다. 끝난 판에 0초가 떠 있으면 시간패로 끝난 것처럼
@@ -258,18 +271,16 @@ function MatchBoard({
 
           {/* 상대가 나가 있는 것은 알리되 판은 멈추지 않는다. 멈추면 지고 있는 쪽이 탭을
               닫아 판을 얼릴 수 있고, 시계를 둔 것이 정확히 그 때문이다. */}
-          {!over && !snapshot.opponentOnline && (
-            <p className="match-away">相手は今、画面を離れています。持ち時間はそのまま進みます。</p>
-          )}
+          {!over && !snapshot.opponentOnline && <p className="match-away">{m.board.away}</p>}
 
           {/* 내 연결이 끊긴 것은 조용히 넘길 수 없다. 판은 서버에서 그대로 돌고 내 시계도
               흐르는데, 화면은 마지막 스냅샷을 갖고 있어 아무 일도 없어 보인다. 그래서 여기만
               색을 쓰고 되돌아가는 길을 같이 준다. */}
           {!over && connection === 'closed' && (
             <div className="match-lost" role="alert">
-              <p>接続が切れました。持ち時間は進んでいます。</p>
+              <p>{m.board.lost}</p>
               <button type="button" className="btn btn--primary" onClick={() => window.location.reload()}>
-                対局にもどる
+                {m.board.backToMatch}
               </button>
             </div>
           )}
@@ -288,8 +299,8 @@ function MatchBoard({
 
         {!over &&
           (confirmingResign ? (
-            <div className="resign-confirm" role="group" aria-label="投了の確認">
-              <span>投了しますか。</span>
+            <div className="resign-confirm" role="group" aria-label={m.resign.group}>
+              <span>{m.resign.ask}</span>
               <button
                 type="button"
                 className="btn btn--danger"
@@ -298,15 +309,15 @@ function MatchBoard({
                   resign();
                 }}
               >
-                投了する
+                {m.resign.confirm}
               </button>
               <button type="button" className="btn" onClick={() => setConfirmingResign(false)}>
-                やめる
+                {m.resign.cancel}
               </button>
             </div>
           ) : (
             <button type="button" className="btn" onClick={() => setConfirmingResign(true)}>
-              投了
+              {m.resign.button}
             </button>
           ))}
 
@@ -323,11 +334,11 @@ function MatchBoard({
                   navigate({ name: 'review', id: gameId });
                 }}
               >
-                この対局を振り返る
+                {m.board.review}
               </a>
             )}
             <button type="button" className="btn btn--primary" onClick={() => navigate({ name: 'game' })}>
-              対局画面にもどる
+              {m.backToGame}
             </button>
           </div>
         )}
@@ -349,11 +360,12 @@ function Clock({ leftMs, limitMs, yours }: { leftMs: number; limitMs: number; yo
   // 마지막 10초는 눈에 띄어야 한다. 소리는 착수음과 겹치면 무엇이 울린 것인지 몰라 내지
   // 않는다.
   const urgent = seconds <= 10;
+  const c = useT().match.clock;
   return (
     <p className="match-clock" data-urgent={urgent || undefined} data-yours={yours || undefined}>
-      <span className="match-clock__who">{yours ? 'あなたの持ち時間' : '相手の持ち時間'}</span>
-      <span className="match-clock__value">{seconds}秒</span>
-      <span className="sr-only">（一手 {Math.round(limitMs / 1000)}秒）</span>
+      <span className="match-clock__who">{yours ? c.yours : c.theirs}</span>
+      <span className="match-clock__value">{c.seconds(seconds)}</span>
+      <span className="sr-only">{c.perMove(Math.round(limitMs / 1000))}</span>
     </p>
   );
 }
@@ -362,30 +374,28 @@ function Clock({ leftMs, limitMs, yours }: { leftMs: number; limitMs: number; yo
  * 결과 한 줄. `board-view.ts` 의 것과 따로 둔다. 저쪽은 승자를 `human`/`engine` 으로 읽는데
  * 여기는 사람이 둘이라 `you`/`opponent` 이고, 시간패도 여기에만 있다.
  */
-function matchResultText(snapshot: MatchSnapshot): string | null {
+function matchResultText(snapshot: MatchSnapshot, r: Messages['match']['result']): string | null {
   const won = snapshot.winner === 'you';
   switch (snapshot.status) {
     case 'checkmate':
-      return won ? '詰み。あなたの勝ちです。' : '詰み。あなたの負けです。';
+      return won ? r.checkmateWon : r.checkmateLost;
     case 'stalemate':
-      return won ? '手詰まり。あなたの勝ちです。' : '手詰まり。あなたの負けです。';
+      return won ? r.stalemateWon : r.stalemateLost;
     case 'resigned':
-      return won ? '相手が投了しました。あなたの勝ちです。' : '投了しました。';
+      return won ? r.resignedWon : r.resignedLost;
     case 'repetition':
-      return '千日手。引き分けです。';
+      return r.repetition;
     // 시간패는 누가 넘겼는지를 말한다. 「時間切れです」만 쓰면 진 쪽이 자기가 넘긴 것인지를
     // 판에서 되짚어야 한다.
     case 'timeout':
-      return won
-        ? '相手の持ち時間がなくなりました。あなたの勝ちです。'
-        : '持ち時間がなくなりました。あなたの負けです。';
+      return won ? r.timeoutWon : r.timeoutLost;
     // 승패를 말하지 않는다. 서버가 내려간 것이라 두 사람 다 잘못한 것이 없다.
     case 'aborted':
-      return 'サーバーの都合でこの対局は中断しました。';
+      return r.aborted;
     // 여기도 승패가 없고 이유만 반대다. 누구도 두지 않은 것을 「サーバーの都合」로 적으면
     // 없는 고장을 알리게 된다.
     case 'expired':
-      return '一手も指されないまま持ち時間が過ぎました。この対局は成立しませんでした。';
+      return r.expired;
     default:
       return null;
   }

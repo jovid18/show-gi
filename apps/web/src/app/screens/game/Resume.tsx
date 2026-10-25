@@ -1,12 +1,5 @@
 import type { ResumableGame } from '@/protocol/resume';
-
-const COLOR_JA: Record<ResumableGame['myColor'], string> = {
-  b: '先手',
-  w: '後手',
-};
-
-/** 駒落ち는 先手/後手 대신 下手/上手로 부른다. 사람은 언제나 下手다(`newSetup`). */
-const SHITATE_JA = '下手';
+import { useT } from '@/i18n';
 
 interface ResumeProps {
   game: ResumableGame;
@@ -24,48 +17,49 @@ interface ResumeProps {
  * 수가 없고, 그래서 서버가 익명에게는 후보를 주지 않는다(`internal/server/resume.go`).
  */
 export function Resume({ game, onResume, onDecline }: ResumeProps) {
+  const t = useT();
   return (
     <div className="setup resume">
-      <h2 className="setup__head">前の対局が残っています</h2>
+      <h2 className="setup__head">{t.game.resume.head}</h2>
 
       <dl className="resume__facts">
         <div>
-          <dt>手番</dt>
+          <dt>{t.game.resume.turn}</dt>
           {/* 駒落ち에서는 이 판의 어휘가 下手/上手로 갈린다. */}
-          <dd>{game.handicapJa === undefined ? COLOR_JA[game.myColor] : SHITATE_JA}</dd>
+          <dd>{game.handicapJa === undefined ? t.game.side[game.myColor] : t.game.side.shitate}</dd>
         </div>
         {/* 駒落ち 판에는 戦型이 없다. 진형과 手合割은 같이 고를 수 없으므로(Setup) 그
             자리에 「おまかせ」를 적으면 고를 수 있었던 것처럼 읽힌다. */}
         {game.handicapJa === undefined ? (
           <div>
-            <dt>相手の戦型</dt>
+            <dt>{t.game.opponentOpening}</dt>
             {/* 이름이 없으면 「おまかせ」다. 화면이 id 로 문장을 짓지 않는다. */}
-            <dd>{game.openingJa ?? 'おまかせ'}</dd>
+            <dd>{game.openingJa ?? t.game.omakase}</dd>
           </div>
         ) : (
           <div>
-            <dt>手合割</dt>
+            <dt>{t.game.handicap}</dt>
             <dd>{game.handicapJa}</dd>
           </div>
         )}
         <div>
-          <dt>進んだ手数</dt>
-          <dd>{game.moveCount}手</dd>
+          <dt>{t.game.resume.moveCount}</dt>
+          <dd>{t.game.moves(game.moveCount)}</dd>
         </div>
       </dl>
 
       <p className="setup__caveat">
         {/* 그만두면 어떻게 되는지를 누르기 전에 말한다. 그 판은 되짚기에도 나오지 않으므로
             (journal §51) 여기서 적지 않으면 사라진 이유를 알 길이 없다. */}
-        「はじめから」を選ぶと、この対局は中断のまま終わります。振り返りには出ません。
+        {t.game.resume.caveat}
       </p>
 
       <div className="resume__actions">
         <button type="button" className="btn btn--primary" onClick={onResume}>
-          続きから指す
+          {t.game.resume.resume}
         </button>
         <button type="button" className="btn" onClick={onDecline}>
-          はじめから
+          {t.game.resume.restart}
         </button>
       </div>
     </div>

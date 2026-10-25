@@ -1,6 +1,7 @@
 // 가정 수순과 되짚기가 함께 쓰는 순수 계산들. 합법수도 국면도 서버가 주고, 여기는 좌표와
 // 문구다.
 
+import type { Messages } from '@/i18n';
 import { parseUsi } from '@/libs/game/moves';
 import type { WhatIfNode } from '@/protocol/whatif';
 import { fromUsi, toIndex, type Motion } from '@/models/square';
@@ -117,9 +118,9 @@ export function evalTone(cp: number | undefined, base = 0): string {
  * 詰み은 cp 로 말하지 않는다. 서버가 그때 `cp` 를 아예 보내지 않고, 초심자에게 큰 숫자는
  * 아무것도 아니다.
  */
-export function scoreJa(cp: number | undefined, mateIn?: number): string {
+export function scoreJa(cp: number | undefined, mateIn: number | undefined, t: Messages): string {
   if (mateIn) {
-    return mateIn > 0 ? `${mateIn}手で詰み` : `${-mateIn}手で詰まされる`;
+    return mateIn > 0 ? t.review.score.mates(mateIn) : t.review.score.mated(-mateIn);
   }
   return cp === undefined ? '' : evalText(cp);
 }
@@ -142,9 +143,9 @@ export interface MoverScore {
  * 않고, 그대로 두면 상대의 詰み을 내 詰み으로 말하게 된다(`lets_mate` 카테고리 전체가 그
  * 자리다). cp 는 열의 자를 지켜 둔 쪽 관점으로 남는다.
  */
-export function rowScoreJa(row: MoverScore, byOpponent: boolean): string {
-  if (!row.mateIn) return scoreJa(row.cp, undefined);
-  return scoreJa(undefined, byOpponent ? -row.mateIn : row.mateIn);
+export function rowScoreJa(row: MoverScore, byOpponent: boolean, t: Messages): string {
+  if (!row.mateIn) return scoreJa(row.cp, undefined, t);
+  return scoreJa(undefined, byOpponent ? -row.mateIn : row.mateIn, t);
 }
 
 /**
@@ -160,18 +161,19 @@ export function playerCp(row: MoverScore, byOpponent: boolean): number | undefin
 }
 
 /** 지금 분기가 어떤 상태인지 한 줄로. 상태도 차례도 서버가 정한 것을 말로 옮길 뿐이다. */
-export function branchStatusJa(node: WhatIfNode, pending: boolean): string {
-  if (pending) return '読んでいます…';
+export function branchStatusJa(node: WhatIfNode, pending: boolean, t: Messages): string {
+  const m = t.review.whatif;
+  if (pending) return m.reading;
   switch (node.status) {
     case 'checkmate':
-      return node.yourTurn ? '詰みです。あなたの負けでした。' : '詰みです。あなたの勝ちでした。';
+      return node.yourTurn ? m.checkmateLost : m.checkmateWon;
     case 'stalemate':
       // 쇼기에서 手詰まり는 패배다(체스의 무승부와 다르다).
-      return node.yourTurn ? '手詰まりです。あなたの負けでした。' : '手詰まりです。あなたの勝ちでした。';
+      return node.yourTurn ? m.stalemateLost : m.stalemateWon;
     case 'resigned':
-      return '相手が投了しました。';
+      return m.resigned;
     default:
       // 어느 쪽이든 사람이 둔다. 상대 차례면 「상대라면 어떻게 둘까」를 직접 둬 보는 자리다.
-      return node.yourTurn ? 'あなたの番。盤の上で指してみてください。' : '相手の番。相手の手も指してみられます。';
+      return node.yourTurn ? m.yourTurn : m.theirTurn;
   }
 }

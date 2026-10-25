@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 
+import { useT } from '@/i18n';
 import { evalTone, playerCp, rowScoreJa } from '@/libs/whatif/branch';
 import { sideJa } from '@/libs/explore/text';
 import type { ExploreNode } from '@/protocol/explore';
@@ -22,6 +23,7 @@ interface CandidatesProps {
 }
 
 export function Candidates({ node, stale, onPick }: CandidatesProps) {
+  const t = useT();
   const handicap = !!node?.handicapJa;
   /**
    * 색은 下手 관점이다. 파랑·빨강이 이 앱 어디서나 「나에게 좋은가」이고(`evalTone`) 검토의
@@ -31,15 +33,15 @@ export function Candidates({ node, stale, onPick }: CandidatesProps) {
   const byOpponent = node?.turn === 'w';
 
   return (
-    <section className="review-panel explore-options" aria-label="最善手">
+    <section className="review-panel explore-options" aria-label={t.explore.candidates.label}>
       <h2 className="panel-title">
-        {node ? `${node.ply + 1}手目 · ${sideJa(node.turn, handicap)}の最善手` : '最善手'}
+        {node ? t.explore.candidates.title(node.ply + 1, sideJa(node.turn, handicap, t)) : t.explore.candidates.label}
       </h2>
 
       {/* 자리를 지키고 내용만 기다린다. 통째로 다른 것으로 바꾸면 한 수 둘 때마다 옆
           열이 무너지고 다시 그려져서, 「3개 보였다가 0개 보였다가」로 보인다. */}
       {!node || node.candidates.length === 0 ? (
-        <p className="review-empty">{node ? 'この局面に指す手はありません。' : '読み込むと、ここに三つ出ます。'}</p>
+        <p className="review-empty">{node ? t.explore.candidates.none : t.explore.candidates.waiting}</p>
       ) : (
         <ol className="explore-option-list" data-stale={stale || undefined}>
           {node.candidates.map((c, i) => {
@@ -63,7 +65,7 @@ export function Candidates({ node, stale, onPick }: CandidatesProps) {
                 >
                   <span className="explore-option-rank">{i + 1}</span>
                   <span className="explore-option-move">{c.ja || c.usi}</span>
-                  <span className="explore-option-score">{rowScoreJa(score, byOpponent)}</span>
+                  <span className="explore-option-score">{rowScoreJa(score, byOpponent, t)}</span>
                   {/* 낙폭은 최선수 대비다. 첫 줄에는 없다(기준이라 0). 서버가 그 자리를
                       비워서 보내므로 화면이 뺄셈을 하지 않는다(whatifCandidate 의 LossCp). */}
                   <span className="explore-option-loss">{c.lossCp ? `−${c.lossCp}` : ''}</span>

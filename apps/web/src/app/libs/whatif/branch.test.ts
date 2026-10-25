@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { branchMotion, branchStatusJa, evalTone, playerCp, rankOf, rowScoreJa, scoreJa, stepMotion } from './branch';
+import { messagesOf } from '@/i18n';
 import type { WhatIfNode } from '@/protocol/whatif';
 import { fromUsi, toIndex } from '@/models/square';
+
+const ja = messagesOf('ja');
 
 const sq = (usi: string): number => toIndex(fromUsi(usi));
 
@@ -79,25 +82,25 @@ describe('branchMotion', () => {
 // 아무것도 아니다.
 describe('scoreJa', () => {
   it('詰み은 手数로 말한다', () => {
-    expect(scoreJa(undefined, 5)).toBe('5手で詰み');
-    expect(scoreJa(undefined, -3)).toBe('3手で詰まされる');
+    expect(scoreJa(undefined, 5, ja)).toBe('5手で詰み');
+    expect(scoreJa(undefined, -3, ja)).toBe('3手で詰まされる');
   });
 
   // cp 가 같이 와도 手数가 이긴다. 서버는 둘을 같이 보내지 않지만, 그 규약이 깨지는
   // 날에도 화면이 큰 숫자를 그리지는 않아야 한다.
   it('cp 가 같이 와도 手数가 이긴다', () => {
-    expect(scoreJa(29990, 1)).toBe('1手で詰み');
+    expect(scoreJa(29990, 1, ja)).toBe('1手で詰み');
   });
 
   it('평가치는 부호까지 적는다', () => {
-    expect(scoreJa(120, undefined)).toBe('+120');
-    expect(scoreJa(-40, 0)).toBe('-40');
-    expect(scoreJa(0, undefined)).toBe('0');
+    expect(scoreJa(120, undefined, ja)).toBe('+120');
+    expect(scoreJa(-40, 0, ja)).toBe('-40');
+    expect(scoreJa(0, undefined, ja)).toBe('0');
   });
 
   // 없는 값을 0으로 채우지 않는다. 0은 호각이라는 다른 사실이다.
   it('값이 없으면 빈 문자열', () => {
-    expect(scoreJa(undefined, undefined)).toBe('');
+    expect(scoreJa(undefined, undefined, ja)).toBe('');
   });
 });
 
@@ -108,14 +111,14 @@ describe('rowScoreJa', () => {
   // 詰み으로 말하게 되고, `lets_mate` 카테고리 전체가 그 자리다.
   it('상대가 두는 자리면 詰み의 주어가 바뀐다', () => {
     const row = { cp: undefined, mateIn: 3 };
-    expect(rowScoreJa(row, false)).toBe('3手で詰み');
-    expect(rowScoreJa(row, true)).toBe('3手で詰まされる');
+    expect(rowScoreJa(row, false, ja)).toBe('3手で詰み');
+    expect(rowScoreJa(row, true, ja)).toBe('3手で詰まされる');
   });
 
   // cp 는 열의 자(둔 쪽 관점)를 지킨다. 뒤집는 것은 詰み의 주어와 색뿐이다.
   it('詰み이 아니면 cp를 그대로 적는다', () => {
-    expect(rowScoreJa({ cp: -151, mateIn: undefined }, true)).toBe('-151');
-    expect(rowScoreJa({ cp: -151, mateIn: undefined }, false)).toBe('-151');
+    expect(rowScoreJa({ cp: -151, mateIn: undefined }, true, ja)).toBe('-151');
+    expect(rowScoreJa({ cp: -151, mateIn: undefined }, false, ja)).toBe('-151');
   });
 });
 
@@ -162,22 +165,22 @@ describe('rankOf', () => {
 
 describe('branchStatusJa', () => {
   it('읽는 중이 다른 무엇보다 먼저다', () => {
-    expect(branchStatusJa(node({ status: 'checkmate' }), true)).toBe('読んでいます…');
+    expect(branchStatusJa(node({ status: 'checkmate' }), true, ja)).toBe('読んでいます…');
   });
 
   // 詰み은 누구 차례인가로 승패가 갈린다. 뒤집히면 진 판이 이긴 판으로 보인다.
   it('詰み은 차례로 승패가 갈린다', () => {
-    expect(branchStatusJa(node({ status: 'checkmate', yourTurn: true }), false)).toContain('負け');
-    expect(branchStatusJa(node({ status: 'checkmate', yourTurn: false }), false)).toContain('勝ち');
+    expect(branchStatusJa(node({ status: 'checkmate', yourTurn: true }), false, ja)).toContain('負け');
+    expect(branchStatusJa(node({ status: 'checkmate', yourTurn: false }), false, ja)).toContain('勝ち');
   });
 
   it('둘 차례면 판 위에서 두라고 말한다', () => {
-    expect(branchStatusJa(node(), false)).toContain('あなたの番');
+    expect(branchStatusJa(node(), false, ja)).toContain('あなたの番');
   });
 
   // 상대 차례에도 막지 않는다. 「상대라면 어떻게 둘까」를 둬 보는 것이 이 화면의 내용이다.
   it('상대 차례면 상대의 수도 둬 보라고 말한다', () => {
-    expect(branchStatusJa(node({ turn: 'w', yourTurn: false }), false)).toContain('相手の手も');
+    expect(branchStatusJa(node({ turn: 'w', yourTurn: false }), false, ja)).toContain('相手の手も');
   });
 });
 

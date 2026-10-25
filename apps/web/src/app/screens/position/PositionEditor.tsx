@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { Koma } from '@/components/Koma';
+import { useT } from '@/i18n';
 import { HAND_ORDER, kanjiOf, nameOf, type Piece, type Side } from '@/models/piece';
 import type { Board as BoardModel } from '@/models/sfen';
 
@@ -36,6 +37,7 @@ const NEAR: Side = 'black';
 const FAR: Side = 'white';
 
 export function PositionEditor({ board, faults, onChange }: PositionEditorProps) {
+  const p = useT().position;
   const [picking, setPicking] = useState<number | null>(null);
 
   const put = (square: number, piece: Piece | null): void => {
@@ -55,9 +57,14 @@ export function PositionEditor({ board, faults, onChange }: PositionEditorProps)
 
   return (
     <div className="pos-edit">
-      <HandTray side={FAR} label="相手の持ち駒" pieces={board.hands[FAR]} onSet={(kind, n) => setHand(FAR, kind, n)} />
+      <HandTray
+        side={FAR}
+        label={p.editor.opponentHand}
+        pieces={board.hands[FAR]}
+        onSet={(kind, n) => setHand(FAR, kind, n)}
+      />
 
-      <div className="pos-edit__board" role="grid" aria-label="読み取った局面">
+      <div className="pos-edit__board" role="grid" aria-label={p.form.readTitle}>
         {board.squares.map((piece, square) => (
           <Square
             key={square}
@@ -74,7 +81,7 @@ export function PositionEditor({ board, faults, onChange }: PositionEditorProps)
 
       <HandTray
         side={NEAR}
-        label="あなたの持ち駒"
+        label={p.editor.yourHand}
         pieces={board.hands[NEAR]}
         onSet={(kind, n) => setHand(NEAR, kind, n)}
       />
@@ -101,8 +108,9 @@ interface SquareProps {
 function Square({ square, piece, faulty, open, onOpen, onPick, onClose }: SquareProps) {
   const file = BOARD_SIZE - (square % BOARD_SIZE);
   const rank = Math.floor(square / BOARD_SIZE) + 1;
-  const label =
-    `${file}筋${rank}段` + (piece ? ` ${piece.side === NEAR ? 'あなた' : '相手'}の${nameOf(piece.kind)}` : ' 空');
+  const e = useT().position.editor;
+  // 좌표는 번역하지 않는다. 駒 이름(`nameOf`)도 일본어 그대로다.
+  const label = `${file}筋${rank}段` + (piece ? e.occupant(piece.side === NEAR, nameOf(piece.kind)) : e.empty);
 
   return (
     <div className="pos-square" data-faulty={faulty || undefined} data-open={open || undefined}>
@@ -132,6 +140,7 @@ function Picker({
   const [side, setSide] = useState<Side>(current?.side ?? NEAR);
   const [promoted, setPromoted] = useState(current?.kind.startsWith('+') ?? false);
   const ref = useRef<HTMLDivElement>(null);
+  const p = useT().position;
 
   const flip = (next: Side): void => {
     setSide(next);
@@ -167,16 +176,16 @@ function Picker({
   }, [onClose]);
 
   return (
-    <div className="pos-picker" ref={ref} role="dialog" aria-label="この駒を直す">
-      <div className="pos-picker__row" role="group" aria-label="どちらの駒か">
+    <div className="pos-picker" ref={ref} role="dialog" aria-label={p.editor.picker}>
+      <div className="pos-picker__row" role="group" aria-label={p.editor.pickerSide}>
         <button type="button" className="pos-picker__toggle" aria-pressed={side === NEAR} onClick={() => flip(NEAR)}>
-          あなた
+          {p.you}
         </button>
         <button type="button" className="pos-picker__toggle" aria-pressed={side === FAR} onClick={() => flip(FAR)}>
-          相手
+          {p.opponent}
         </button>
         <button type="button" className="pos-picker__toggle" aria-pressed={promoted} onClick={() => toggle(!promoted)}>
-          成
+          {p.editor.promoted}
         </button>
       </div>
 
@@ -199,7 +208,7 @@ function Picker({
       </div>
 
       <button type="button" className="pos-picker__clear" onClick={() => onPick(null)}>
-        このマスを空にする
+        {p.editor.clear}
       </button>
     </div>
   );
@@ -225,6 +234,7 @@ function HandTray({
   pieces: Record<string, number>;
   onSet: (kind: string, n: number) => void;
 }) {
+  const e = useT().position.editor;
   return (
     <div className="pos-hand" data-side={side}>
       <span className="pos-hand__label">{label}</span>
@@ -239,19 +249,19 @@ function HandTray({
               <button
                 type="button"
                 className="pos-hand__step"
-                aria-label={`${nameOf(kind)}を一枚減らす`}
+                aria-label={e.decrement(nameOf(kind))}
                 disabled={n === 0}
                 onClick={() => onSet(kind, n - 1)}
               >
                 −
               </button>
-              <span className="pos-hand__count" aria-label={`${nameOf(kind)} ${n}枚`}>
+              <span className="pos-hand__count" aria-label={e.count(nameOf(kind), n)}>
                 {n}
               </span>
               <button
                 type="button"
                 className="pos-hand__step"
-                aria-label={`${nameOf(kind)}を一枚増やす`}
+                aria-label={e.increment(nameOf(kind))}
                 onClick={() => onSet(kind, n + 1)}
               >
                 ＋

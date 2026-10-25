@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { messagesOf } from '@/i18n';
 import type { Player, Snapshot, Status } from '@/protocol/game';
 
 import { candidateRays, resultText } from './board-view';
@@ -28,10 +29,12 @@ function ended(status: Status, winner?: Player): Snapshot {
 }
 
 describe('resultText', () => {
+  const ja = messagesOf('ja').game.result;
+
   it('中断は勝ち負けを言わない', () => {
     // 서버가 상대의 수를 구하지 못해 접은 판이다. 「相手が投了しました」로 그리면 지고
     // 있던 판이 화면에서 이긴 판이 된다.
-    const text = resultText(ended('aborted'));
+    const text = resultText(ended('aborted'), ja);
 
     expect(text).not.toBeNull();
     expect(text).not.toContain('勝ち');
@@ -41,11 +44,11 @@ describe('resultText', () => {
 
   it('相手が投了した局は勝ちのままだ', () => {
     // 中断과 갈리는 자리. 엔진이 스스로 `resign` 이라고 답한 것은 정말로 사람의 승리다.
-    expect(resultText(ended('resigned', 'human'))).toContain('あなたの勝ちです');
+    expect(resultText(ended('resigned', 'human'), ja)).toContain('あなたの勝ちです');
   });
 
   it('두는 중에는 결과 문구가 없다', () => {
-    expect(resultText(ended('playing'))).toBeNull();
+    expect(resultText(ended('playing'), ja)).toBeNull();
   });
 });
 

@@ -10,7 +10,7 @@ import { Setup } from './Setup';
 import { Summary } from './Summary';
 import { groupByOrigin, parseUsi, toUsiMove, type Destination } from '@/libs/game/moves';
 import { setPlaying } from '@/libs/game/playing';
-import { TAG_KIND_JA } from '@/libs/game/tags';
+import { tagKindName } from '@/libs/game/tags';
 import { useGame } from '@/hooks/useGame';
 import { useResumable } from '@/hooks/useResumable';
 import { useUnloadGuard } from '@/hooks/useUnloadGuard';
@@ -24,13 +24,7 @@ import { useWhatIf } from '@/hooks/useWhatIf';
 import { useTagAnnounce } from './hooks';
 import { useMoveSound } from '@/hooks/useMoveSound';
 import { checkRays, lastMoveOf, rayOf, resultText } from '@/libs/game/board-view';
-
-/**
- * 상대의 강함 눈금에 붙는 말(`snapshot.opponentStrength`).
- *
- * 3이 「아무것도 모르는 상태」이고 거기서 양쪽으로 움직이는 값이라 이름도 좌우 대칭이다.
- */
-const STRENGTH_JA = ['かなり弱め', '弱め', 'ふつう', '強め', 'かなり強め'];
+import { useT } from '@/i18n';
 
 /** 빈 것을 매 렌더마다 새로 만들지 않는다. identity가 흔들리면 아래 자식들이 헛돈다. */
 const EMPTY_SET: ReadonlySet<string> = new Set();
@@ -55,6 +49,7 @@ export function GameScreen() {
     whatif,
   } = useGame();
   const resumable = useResumable();
+  const t = useT();
 
   const playing = snapshot?.status === 'playing';
 
@@ -233,7 +228,7 @@ export function GameScreen() {
    */
   const retractedEval = useMemo(() => {
     const at = branch.evalOf(1);
-    return at ? scoreJa(at.cp, at.mateIn) : '';
+    return at ? scoreJa(at.cp, at.mateIn, t) : '';
   }, [branch.evalOf]);
 
   /**
@@ -405,9 +400,9 @@ export function GameScreen() {
   if (connection === 'closed') {
     return (
       <div className="notice" role="status">
-        <p>接続が切れました。</p>
+        <p>{t.game.connection.closed}</p>
         <button type="button" className="btn" onClick={newGame}>
-          もう一度はじめる
+          {t.game.connection.restart}
         </button>
       </div>
     );
@@ -415,7 +410,7 @@ export function GameScreen() {
   if (!snapshot || !board) {
     return (
       <p className="notice" role="status">
-        接続しています。
+        {t.game.connection.connecting}
       </p>
     );
   }
@@ -442,13 +437,13 @@ export function GameScreen() {
     else play(usi);
   };
 
-  const result = resultText(snapshot);
+  const result = resultText(snapshot, t.game.result);
 
   // 개입 중에도 여기는 차례만 말한다. 물러진 뒤에는 실제로 다시 사람 차례이고, 무엇을
   // 물렀는지는 바로 위 문구가 이미 말한다.
   const statusText =
     result ??
-    (snapshot.judging ? '今の手を確かめています。' : snapshot.thinking ? '相手が考えています。' : 'あなたの番です。');
+    (snapshot.judging ? t.game.status.judging : snapshot.thinking ? t.game.status.thinking : t.game.status.yourTurn);
   const statusTone = result ? 'result' : snapshot.judging || snapshot.thinking ? 'wait' : 'turn';
 
   // 서버가 보내지 않으면 조절이 꺼져 있다. 기본값으로 메우지 않는다(protocol/game.ts).
@@ -523,7 +518,7 @@ export function GameScreen() {
             이름까지 함께 뜨면 두 소식이 한 자리를 다툰다. */}
         {announced && !intervening && (
           <div className="tag-flash" role="status" key={announced.code} onAnimationEnd={clearAnnounced}>
-            <span className="tag-flash__kind">{TAG_KIND_JA[announced.kind]}</span>
+            <span className="tag-flash__kind">{tagKindName(t, announced.kind)}</span>
             <span className="tag-flash__name">{announced.nameJa}</span>
           </div>
         )}
@@ -532,7 +527,7 @@ export function GameScreen() {
             있어야 판과 같은 방향으로 읽힌다(Board 의 `flipped`). */}
         <Hand
           side={them}
-          label="相手"
+          label={t.board.hand.them}
           pieces={board.hands[them]}
           selected={handTurn === them && origin?.endsWith('*') ? origin : null}
           // 분기에서는 상대의 駒台도 집는다. 둬 보는 수가 打일 수 있다. 대국 중에는 여기가
@@ -576,7 +571,7 @@ export function GameScreen() {
 
         <Hand
           side={me}
-          label="あなた"
+          label={t.board.hand.you}
           pieces={board.hands[me]}
           selected={handTurn === me && origin?.endsWith('*') ? origin : null}
           playable={playable && handTurn === me ? dropOrigins : EMPTY_SET}
@@ -637,13 +632,13 @@ export function GameScreen() {
             {/* 상대의 강함. 눈금이 조용히 바뀌는 것만으로 충분해서 숫자도 % 도 쓰지 않는다. */}
             {strength !== undefined && (
               <p className="strength" role="status">
-                <span className="strength__head">相手の強さ</span>
+                <span className="strength__head">{t.game.strength.head}</span>
                 <span className="strength__pips" aria-hidden="true">
                   {[1, 2, 3, 4, 5].map((n) => (
                     <i key={n} data-on={n <= strength || undefined} />
                   ))}
                 </span>
-                <span className="strength__label">{STRENGTH_JA[strength - 1]}</span>
+                <span className="strength__label">{t.game.strength.levels[strength - 1]}</span>
               </p>
             )}
 
@@ -651,7 +646,7 @@ export function GameScreen() {
                 자리가 없으면 駒落ち 판에서 「왜 상대 駒가 적은가」에 화면이 답하지 않는다. */}
             {snapshot.handicapJa && (
               <p className="opening" role="note">
-                <span className="opening__head">手合割</span>
+                <span className="opening__head">{t.game.handicap}</span>
                 <span className="opening__name">{snapshot.handicapJa}</span>
               </p>
             )}
@@ -661,7 +656,7 @@ export function GameScreen() {
                 아닌 근거는 서버의 `Snapshot.OpponentOpening` 주석. */}
             {snapshot.opponentOpening && (
               <p className="opening" role="note">
-                <span className="opening__head">相手の戦型</span>
+                <span className="opening__head">{t.game.opponentOpening}</span>
                 <span className="opening__name">{snapshot.opponentOpening}</span>
               </p>
             )}
@@ -670,12 +665,12 @@ export function GameScreen() {
 
         {!intervening && snapshot.tagHints && snapshot.tagHints.length > 0 && (
           <div className="tag-hint" role="note">
-            <p className="tag-hint__head">名前のある手があります</p>
+            <p className="tag-hint__head">{t.game.tagHints}</p>
             <ul className="tag-hint__list">
-              {snapshot.tagHints.map((t) => (
-                <li key={t.code}>
-                  <span className="tag-hint__kind">{TAG_KIND_JA[t.kind]}</span>
-                  <span className="tag-hint__name">{t.nameJa}</span>
+              {snapshot.tagHints.map((tag) => (
+                <li key={tag.code}>
+                  <span className="tag-hint__kind">{tagKindName(t, tag.kind)}</span>
+                  <span className="tag-hint__name">{tag.nameJa}</span>
                 </li>
               ))}
             </ul>
@@ -710,7 +705,7 @@ export function GameScreen() {
         {snapshot.status !== 'playing' && (
           <div className="end-actions">
             <button type="button" className="btn btn--primary" onClick={newGame}>
-              もう一局
+              {t.game.actions.again}
             </button>
 
             {/* 회차 2 #5. 총평이 와야 뜬다. 판 번호가 거기 실려 오고(journal §64) 대국
@@ -726,7 +721,7 @@ export function GameScreen() {
                   navigate(reviewRoute);
                 }}
               >
-                分析を見る
+                {t.game.actions.analysis}
               </a>
             )}
           </div>
@@ -734,8 +729,8 @@ export function GameScreen() {
 
         {snapshot.status === 'playing' &&
           (confirmingResign ? (
-            <div className="resign-confirm" role="group" aria-label="投了の確認">
-              <span>投了しますか。</span>
+            <div className="resign-confirm" role="group" aria-label={t.game.actions.resignConfirmLabel}>
+              <span>{t.game.actions.resignAsk}</span>
               <button
                 type="button"
                 className="btn btn--danger"
@@ -744,10 +739,10 @@ export function GameScreen() {
                   setConfirmingResign(false);
                 }}
               >
-                投了する
+                {t.game.actions.resignConfirm}
               </button>
               <button type="button" className="btn" onClick={() => setConfirmingResign(false)}>
-                やめる
+                {t.game.actions.resignCancel}
               </button>
             </div>
           ) : (
@@ -760,11 +755,11 @@ export function GameScreen() {
                 className="btn"
                 disabled={!snapshot.canUndo}
                 onClick={undo}
-                aria-label={`待った 残り${snapshot.undoLeft}回`}
+                aria-label={`${t.game.actions.undo} ${t.game.left(snapshot.undoLeft)}`}
               >
-                待った
+                {t.game.actions.undo}
                 <span className="play-actions__left" aria-hidden="true">
-                  残り{snapshot.undoLeft}回
+                  {t.game.left(snapshot.undoLeft)}
                 </span>
               </button>
               {/* 待った와 나란히 선다. 둘 다 사람이 부르는 것이고 예산이 있다. 다른 것은
@@ -777,15 +772,15 @@ export function GameScreen() {
                 className="btn"
                 disabled={!snapshot.canHint}
                 onClick={askHint}
-                aria-label={`ヒント 残り${snapshot.hintLeft}回`}
+                aria-label={`${t.game.actions.hint} ${t.game.left(snapshot.hintLeft)}`}
               >
-                ヒント
+                {t.game.actions.hint}
                 <span className="play-actions__left" aria-hidden="true">
-                  残り{snapshot.hintLeft}回
+                  {t.game.left(snapshot.hintLeft)}
                 </span>
               </button>
               <button type="button" className="btn" onClick={() => setConfirmingResign(true)}>
-                投了
+                {t.game.actions.resign}
               </button>
             </div>
           ))}

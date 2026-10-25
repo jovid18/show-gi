@@ -5,6 +5,7 @@ import type { LastMove, Ray } from '@/components/Board';
 import type { Attack, Player, Snapshot } from '@/protocol/game';
 import { fromUsi, toIndex } from '@/models/square';
 import { parseUsi } from '@/libs/game/moves';
+import type { Messages } from '@/i18n';
 
 /**
  * 직전 수가 지나간 두 칸. 도착만 짚으면 「저기 뭔가 있다」까지이고, 초심자가 알아야 하는
@@ -78,21 +79,21 @@ export function offsetWithin(el: HTMLElement, ancestor: HTMLElement): { x: numbe
   return node === ancestor ? { x, y } : null;
 }
 
-export function resultText(snapshot: Snapshot): string | null {
+export function resultText(snapshot: Snapshot, t: Messages['game']['result']): string | null {
   const won = snapshot.winner === 'human';
   switch (snapshot.status) {
     case 'checkmate':
-      return won ? '詰み。あなたの勝ちです。' : '詰み。あなたの負けです。';
+      return won ? t.checkmateWon : t.checkmateLost;
     case 'stalemate':
-      return won ? '手詰まり。あなたの勝ちです。' : '手詰まり。あなたの負けです。';
+      return won ? t.stalemateWon : t.stalemateLost;
     case 'resigned':
-      return won ? '相手が投了しました。あなたの勝ちです。' : '投了しました。';
+      return won ? t.resignedWon : t.resignedLost;
     case 'repetition':
-      return '千日手。引き分けです。';
+      return t.repetition;
     // 승패를 말하지 않는다. 상대의 수를 구하지 못해 접은 판이다. 「이어할 수 있다」도 붙이지
     // 않는다. 이어하기는 로그인한 사람만이라(서버의 resumeSetup) 익명 대국에서는 거짓이 된다.
     case 'aborted':
-      return '相手の思考が終わりませんでした。この対局は中断しました。';
+      return t.aborted;
     default:
       return null;
   }

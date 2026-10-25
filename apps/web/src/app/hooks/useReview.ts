@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useT } from '@/i18n';
 import type { GameSummary as PostGameSummary } from '@/protocol/game';
 import type { ApiError, GameDetail, GameListResponse, GameSummary } from '@/protocol/review';
 
@@ -17,15 +18,13 @@ export interface Source<T> {
   reload: () => void;
 }
 
-/** 실패했을 때 화면에 나갈 문구. 서버가 준 일본어를 우선한다. */
-const FALLBACK_ERROR = '対局の記録を読み込めませんでした。';
-
-async function getJSON<T>(path: string, signal: AbortSignal): Promise<T> {
+/** `fallback` 은 실패했을 때 화면에 나갈 문구다. 서버가 준 일본어를 우선한다. */
+async function getJSON<T>(path: string, signal: AbortSignal, fallback: string): Promise<T> {
   const res = await fetch(path, { signal });
   if (!res.ok) {
     // 서버가 이유를 일본어로 준다(review.go). 읽지 못할 때만 우리 문구를 쓴다.
     const body = (await res.json().catch(() => null)) as ApiError | null;
-    throw new Error(body?.message || FALLBACK_ERROR);
+    throw new Error(body?.message || fallback);
   }
   return (await res.json()) as T;
 }
@@ -46,6 +45,9 @@ export function useFetch<T>(path: string): Source<T> {
   // 지금 화면에 그려진 것이 어느 주소의 답인가. 같은 주소를 다시 묻는 것과 다른 판으로
   // 옮겨 가는 것을 이 값 하나가 가른다.
   const shown = useRef<string | null>(null);
+  // 언어가 바뀌어도 다시 묻지 않는다. 문구만 실패한 시점의 언어를 따른다.
+  const fallback = useRef('');
+  fallback.current = useT().review.loadFailed;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -53,12 +55,12 @@ export function useFetch<T>(path: string): Source<T> {
     shown.current = path;
     setLoaded((prev) => startingLoad(prev, samePath));
 
-    getJSON<T>(path, controller.signal)
+    getJSON<T>(path, controller.signal, fallback.current)
       .then((data) => setLoaded({ state: 'ready', data }))
       .catch((err: unknown) => {
         // 우리가 취소한 것이다. 화면에 오류를 띄우면 사실과 어긋난다.
         if (controller.signal.aborted) return;
-        setLoaded((prev) => afterFailure(prev, err instanceof Error ? err.message : FALLBACK_ERROR));
+        setLoaded((prev) => afterFailure(prev, err instanceof Error ? err.message : fallback.current));
       });
 
     return () => controller.abort();

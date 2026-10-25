@@ -1,10 +1,11 @@
+import { useT, type Messages } from '@/i18n';
 import { SIGN_IN_PATH, type MeResponse } from '@/protocol/auth';
 import { hrefOf, navigate, type Route } from '@/routes/router';
 
 interface MenuItem {
   route: Route;
-  name: string;
-  note: string;
+  /** 이름과 한 줄 설명. 키는 `common.menu` 의 것이다. */
+  label: Exclude<keyof Messages['common']['menu'], 'label' | 'signIn'>;
   /** 눈에 먼저 들어오는 한 줄. 둘이 되면 첫째가 사라져서 대국 하나뿐이다. */
   primary?: boolean;
   /** 로그인한 사람에게만 그린다. 눌러도 401인 줄을 그리면 고장으로 읽힌다(journal §63). */
@@ -19,44 +20,40 @@ interface MenuItem {
 }
 
 const MENU: MenuItem[] = [
-  { route: { name: 'game' }, name: '対局', note: 'コンピュータと一局指す', primary: true },
-  { route: { name: 'reviews' }, name: '振り返り', note: '終わった対局を見直す' },
+  { route: { name: 'game' }, label: 'game', primary: true },
+  { route: { name: 'reviews' }, label: 'reviews' },
   // 두는 중에는 줄 자체가 사라진다(01-core.md §1). 화면 쪽에도 같은 장치가 있고
   // (ExploreScreen), 링크와 새로고침으로 들어오는 길이 남는다.
   {
     route: { name: 'explore', handicap: '', moves: [] },
-    name: '検討',
-    note: '好きな局面を並べて調べる',
+    label: 'explore',
     hideWhilePlaying: true,
   },
   // 여기가 안내의 하나뿐인 입구다(journal §86). 메뉴의 다른 줄과 같은 탭으로 간다.
-  { route: { name: 'guide' }, name: 'あそびかた', note: 'このアプリの遊びかた' },
+  { route: { name: 'guide' }, label: 'guide' },
   // 로그인해야 뜬다. 익명은 401이고(kifu_import.go), 가져온 판은 그 사람의 것으로 남아야
   // 되짚기에서 다시 열린다.
   {
     route: { name: 'import' },
-    name: '棋譜を取り込む',
-    note: 'ほかで指した対局を解析する',
+    label: 'import',
     needsAuth: true,
   },
   // 그림을 읽는 것이 돈을 쓰는 일이라 사람마다 세야 하는데, 익명끼리는 구별할 수단이
   // 없다(position.go).
   {
     route: { name: 'position' },
-    name: '局面を読み取る',
-    note: '盤の画像から形勢を調べる',
+    label: 'position',
     needsAuth: true,
   },
   // 같은 판독을 쓴다. 로그인이 필요한 이유도 같고, 푸는 것도 한 사람씩이다(tsume.go).
   {
     route: { name: 'tsume' },
-    name: '詰将棋を解く',
-    note: '詰将棋の画像から詰み手順を調べる',
+    label: 'tsume',
     needsAuth: true,
   },
   // 로그인해야 뜬다. 익명에게는 401인 화면이고(profile.go) 그 자리는 아래 ログイン 줄이
   // 맡는다(journal §63).
-  { route: { name: 'me' }, name: 'マイページ', note: '成績と棋力の目安', needsAuth: true },
+  { route: { name: 'me' }, label: 'me', needsAuth: true },
 ];
 
 /**
@@ -66,6 +63,7 @@ const MENU: MenuItem[] = [
  * 번 더 물으면 첫 화면에 요청이 하나 늘고, 늘어난 만큼 메뉴가 늦게 뜬다.
  */
 export function HomeScreen({ me, playing }: { me: MeResponse; playing: boolean }) {
+  const t = useT();
   return (
     <section className="home">
       <div className="home__hero">
@@ -81,10 +79,10 @@ export function HomeScreen({ me, playing }: { me: MeResponse; playing: boolean }
           decoding="async"
         />
         <h1 className="home__title">show-gi</h1>
-        <p className="home__tagline">口を出すときを自分で決める将棋の相手</p>
+        <p className="home__tagline">{t.common.tagline}</p>
       </div>
 
-      <nav className="home__menu" aria-label="メニュー">
+      <nav className="home__menu" aria-label={t.common.menu.label}>
         {MENU.filter((item) => (!item.needsAuth || me.user !== null) && !(item.hideWhilePlaying && playing)).map(
           (item) => {
             // 링크로 그린다. 주소가 화면을 정하므로 가운데 클릭·링크 복사·새 탭이 그냥
@@ -103,8 +101,8 @@ export function HomeScreen({ me, playing }: { me: MeResponse; playing: boolean }
                 }}
               >
                 <span className="home__item-body">
-                  <span className="home__item-name">{item.name}</span>
-                  <span className="home__item-note">{item.note}</span>
+                  <span className="home__item-name">{t.common.menu[item.label].name}</span>
+                  <span className="home__item-note">{t.common.menu[item.label].note}</span>
                 </span>
                 <span className="home__item-arrow" aria-hidden="true">
                   →
@@ -122,8 +120,8 @@ export function HomeScreen({ me, playing }: { me: MeResponse; playing: boolean }
         {me.enabled && me.user === null && (
           <a className="home__item" href={SIGN_IN_PATH}>
             <span className="home__item-body">
-              <span className="home__item-name">ログイン</span>
-              <span className="home__item-note">対局の記録が残り、成績を見られます</span>
+              <span className="home__item-name">{t.common.menu.signIn.name}</span>
+              <span className="home__item-note">{t.common.menu.signIn.note}</span>
             </span>
             <span className="home__item-arrow" aria-hidden="true">
               →

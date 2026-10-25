@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { Board } from '@/components/Board';
+import { useT } from '@/i18n';
 import { Hand } from '@/components/Hand';
 import { Promotion } from '@/components/Promotion';
 import { groupByOrigin, squaresOf, toUsiMove, type Destination, type MoveSquares } from '@/libs/game/moves';
@@ -20,21 +21,22 @@ import { useBestGrader, useMateGrader, useQuiz } from '@/hooks/useQuiz';
  * 없다.
  */
 export function QuizScreen({ id }: { id: number }) {
+  const t = useT();
   const { loaded, reload, gaveUp } = useQuiz(id);
   const back = (): void => navigate({ name: 'review', id });
 
   if (loaded.state === 'loading') {
-    return <p className="review-status">読み込み中…</p>;
+    return <p className="review-status">{t.common.loading}</p>;
   }
   if (loaded.state === 'error') {
     return (
       <p className="review-status" role="alert">
         {loaded.message}
         <button type="button" className="review-retry" onClick={reload}>
-          もう一度
+          {t.quiz.retry}
         </button>
         <button type="button" className="review-retry" onClick={back}>
-          この対局へ
+          {t.quiz.toGame}
         </button>
       </p>
     );
@@ -55,6 +57,7 @@ function Questions({
   reload: () => void;
   onBack: () => void;
 }) {
+  const t = useT();
   const best = quiz.best ?? [];
   const empty = !quiz.mate && best.length === 0;
 
@@ -74,11 +77,11 @@ function Questions({
   }, [id, quiz.mate, best]);
 
   return (
-    <section className="quiz" aria-label="この対局から出た問題">
+    <section className="quiz" aria-label={t.quiz.title}>
       <div className="quiz-head">
-        <h2 className="panel-title">この対局から出た問題</h2>
+        <h2 className="panel-title">{t.quiz.title}</h2>
         <button type="button" className="review-retry" onClick={onBack}>
-          この対局へ
+          {t.quiz.toGame}
         </button>
       </div>
 
@@ -87,20 +90,20 @@ function Questions({
           뿐이라, 없다고 단정하면 둘 다에서 거짓이 된다. */}
       {!quiz.ready && gaveUp ? (
         <p className="quiz-status">
-          問題がまだ届きません。時間をおいてから、もう一度開いてみてください。
+          {t.quiz.gaveUp}
           <button type="button" className="review-retry" onClick={reload}>
-            もう一度
+            {t.quiz.retry}
           </button>
         </p>
       ) : !quiz.ready ? (
         <p className="quiz-status" role="status">
-          この対局から問題を作っています。しばらくお待ちください。
+          {t.quiz.generating}
         </p>
       ) : empty ? (
         // 이유를 말하지 않는다. 「詰み이 없었고 뚜렷한 한 수도 없었다」는 서버가 모른다.
         // 생성기가 없는 배포는 아무것도 찾아보지 않고 빈 행을 남기고(server/quiz_jobs.go),
         // 트리가 깨져 詰み 문항이 빠진 판도 여기로 온다(quiz.go get).
-        <p className="quiz-status">この対局からは問題が作れませんでした。</p>
+        <p className="quiz-status">{t.quiz.empty}</p>
       ) : null}
 
       {pages.length > 0 && (
@@ -117,9 +120,9 @@ function Questions({
             </div>
           ))}
 
-          <nav className="quiz-nav" aria-label="問題の切り替え">
+          <nav className="quiz-nav" aria-label={t.quiz.nav}>
             <button type="button" className="review-retry" onClick={() => setAt(at - 1)} disabled={at === 0}>
-              ← 前の問題
+              {t.quiz.prev}
             </button>
             {/* 「어디쯤인가」는 한 자리에서만 말한다(되짚기의 이동 바와 같은 판단). */}
             <span className="quiz-nav-count">
@@ -131,7 +134,7 @@ function Questions({
               onClick={() => setAt(at + 1)}
               disabled={at === pages.length - 1}
             >
-              次の問題 →
+              {t.quiz.next}
             </button>
           </nav>
         </>
@@ -147,6 +150,7 @@ function Questions({
  * 화면이 판으로 가르치는 자리다. 글로만 적어 두면 초심자는 그것을 모른 채 오답을 받는다.
  */
 function MateQuestion({ id, item }: { id: number; item: MateItem }) {
+  const t = useT();
   const [grading, grade, clear] = useMateGrader(id);
   // 내가 낸 수만 갖고 있다. 玉方의 응수는 서버가 트리에서 꺼내 두므로 화면이 기억하면 두
   // 벌이 된다(protocol/quiz.ts).
@@ -185,19 +189,15 @@ function MateQuestion({ id, item }: { id: number; item: MateItem }) {
   };
 
   return (
-    <article className="quiz-item" aria-label="詰みの問題">
+    <article className="quiz-item" aria-label={t.quiz.mate.label}>
       <header className="quiz-item-head">
         <h3>
-          {item.plies}手詰め
-          <span className="quiz-item-ply">{item.ply}手目の局面</span>
+          {t.quiz.mate.title(item.plies)}
+          <span className="quiz-item-ply">{t.quiz.plyPosition(item.ply)}</span>
         </h3>
         {/* 놓친 詰み과 決めた 詰み은 사람에게 전혀 다른 이야기다. 같은 문장으로 두면 이미
             이긴 사람에게 「놓쳤다」고 말하게 된다. */}
-        <p className="quiz-item-lead">
-          {item.converted
-            ? 'この対局であなたが決めた詰みです。もう一度指してみてください。'
-            : 'この局面に詰みがありました。王手を続けて詰ませてください。'}
-        </p>
+        <p className="quiz-item-lead">{item.converted ? t.quiz.mate.converted : t.quiz.mate.missed}</p>
       </header>
 
       <QuizBoard
@@ -220,13 +220,15 @@ function MateQuestion({ id, item }: { id: number; item: MateItem }) {
 
       {!done && plies > 0 && (
         <p className="quiz-item-note">
-          残り{plies}手。<strong>王手になる手だけ</strong>が指せます。
+          {t.quiz.mate.remaining(plies)}
+          <strong>{t.quiz.mate.onlyChecks}</strong>
+          {t.quiz.mate.canPlay}
         </p>
       )}
 
       {(done || mine.length > 0) && (
         <button type="button" className="review-retry" onClick={retry}>
-          最初から
+          {t.quiz.mate.restart}
         </button>
       )}
     </article>
@@ -254,6 +256,7 @@ function verdictTone(res: MateResult | null, error: string | null): VerdictTone 
  * 판정에 엔진이 다시 필요하다(journal §53).
  */
 function BestQuestion({ id, item }: { id: number; item: BestItem }) {
+  const t = useT();
   const [grading, grade, clear] = useBestGrader(id);
   /** 이 문항을 몇 번 틀렸나. 「もう一度」로 지워지지 않는다(詰み 쪽과 같다). */
   const [wrongs, setWrongs] = useState(0);
@@ -299,13 +302,13 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
   };
 
   return (
-    <article className="quiz-item" aria-label="最善手の問題">
+    <article className="quiz-item" aria-label={t.quiz.best.label}>
       <header className="quiz-item-head">
         <h3>
-          最善手はどれ?
-          <span className="quiz-item-ply">{item.ply}手目の局面</span>
+          {t.quiz.best.title}
+          <span className="quiz-item-ply">{t.quiz.plyPosition(item.ply)}</span>
         </h3>
-        <p className="quiz-item-lead">この局面には、はっきり良い一手があります。</p>
+        <p className="quiz-item-lead">{t.quiz.best.lead}</p>
       </header>
 
       {/* 판은 낸 수 뒤의 국면에서 멈춘다. 빛나는 칸은 문제 국면의 합법수라, 그 국면을 그린
@@ -331,13 +334,13 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
       {solved && res.answerCp !== undefined && res.secondCp !== undefined && (
         <dl className="quiz-scores">
           <div>
-            <dt>最善手</dt>
+            <dt>{t.quiz.best.best}</dt>
             <dd>
               {res.answerJa || res.answer} ({signed(res.answerCp)})
             </dd>
           </div>
           <div>
-            <dt>次善手</dt>
+            <dt>{t.quiz.best.second}</dt>
             <dd>{signed(res.secondCp)}</dd>
           </div>
         </dl>
@@ -350,7 +353,7 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
           칸이 없어서 이 줄이 통째로 뜨지 않는다. */}
       {line.length > 0 && (
         <div className="quiz-line">
-          <span className="quiz-line__head">このあとの進み方</span>
+          <span className="quiz-line__head">{t.quiz.best.line}</span>
           <ol className="quiz-line__moves">
             {line.map((m, i) => (
               <li key={m.usi}>
@@ -374,7 +377,7 @@ function BestQuestion({ id, item }: { id: number; item: BestItem }) {
           틀린 뒤의 그것은 아직 끝나지 않은 문항을 이어 푸는 자리다. */}
       {res && (
         <button type="button" className="review-retry" onClick={reset}>
-          {solved ? 'もう一度' : 'もう一度考える'}
+          {solved ? t.quiz.retry : t.quiz.best.thinkAgain}
         </button>
       )}
     </article>
@@ -409,9 +412,10 @@ type VerdictTone = 'none' | 'right' | 'wrong' | 'note' | 'error';
  * 바뀌었는지를 눈이 따라가지 못한다(WhatIfPanel 과 같은 자리).
  */
 function QuizVerdict({ message, tone, pending }: { message: string | null; tone: VerdictTone; pending: boolean }) {
+  const t = useT();
   return (
     <p className="quiz-verdict" data-tone={tone} role={tone === 'error' ? 'alert' : 'status'}>
-      {pending ? '採点しています…' : (message ?? ' ')}
+      {pending ? t.quiz.grading : (message ?? ' ')}
     </p>
   );
 }
@@ -451,6 +455,7 @@ function QuizBoard({
   interactive: boolean;
   onPlay: (usi: string) => void;
 }) {
+  const t = useT();
   const [origin, setOrigin] = useState<string | null>(null);
   const [promoting, setPromoting] = useState<{ origin: string; to: string } | null>(null);
 
@@ -502,7 +507,7 @@ function QuizBoard({
   };
 
   if (!board) {
-    return <p className="review-broken">この局面を再現できません。</p>;
+    return <p className="review-broken">{t.quiz.broken}</p>;
   }
 
   const pickHand = (next: string): void => {
@@ -516,7 +521,7 @@ function QuizBoard({
   const hand = (side: Side) => (
     <Hand
       side={side}
-      label={me === side ? 'あなた' : '相手'}
+      label={me === side ? t.review.you : t.review.opponent}
       pieces={board.hands[side]}
       selected={origin?.endsWith('*') && board.turn === side ? origin : null}
       playable={board.turn === side ? droppable : new Set()}

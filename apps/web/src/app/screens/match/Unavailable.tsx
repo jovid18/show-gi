@@ -1,3 +1,4 @@
+import { useT } from '@/i18n';
 import { navigate } from '@/routes/router';
 
 /**
@@ -10,14 +11,13 @@ import { navigate } from '@/routes/router';
  * 대신 가능한 이유를 전부 늘어놓는다. 하나만 적으면 다른 경우에 그것이 거짓이 된다.
  */
 export function Unavailable() {
+  const t = useT();
   return (
     <div className="setup">
-      <h2 className="setup__head">この対局部屋は開けません</h2>
-      <p className="setup__caveat">
-        リンクが違うか、期限が切れたか、すでに二人が入っています。対局部屋は誰も入らないまま30分たつと閉じます。ログインしていない場合も同じ画面になります。
-      </p>
+      <h2 className="setup__head">{t.match.unavailable.head}</h2>
+      <p className="setup__caveat">{t.match.unavailable.body}</p>
       <button type="button" className="btn btn--primary setup__start" onClick={() => navigate({ name: 'game' })}>
-        対局画面にもどる
+        {t.match.backToGame}
       </button>
     </div>
   );

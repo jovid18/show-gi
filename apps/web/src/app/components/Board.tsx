@@ -6,6 +6,7 @@ import type { Board as BoardModel } from '@/models/sfen';
 import { nameOf, type Side } from '@/models/piece';
 import { fromIndex, toUsi, type Motion } from '@/models/square';
 import { useBoardSurface } from '@/hooks/useBoardSurface';
+import { useT } from '@/i18n';
 
 const FILES = [9, 8, 7, 6, 5, 4, 3, 2, 1];
 const RANKS = ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
@@ -277,6 +278,7 @@ export function Board({
   const surfaceRef = boardRef ?? ownRef;
 
   /** 그늘을 켜 두었는가. 사람이 토글로 켤 때만 참이다. */
+  const t = useT();
   const [showExposure, setShowExposure] = useState(false);
   /**
    * 그늘을 지금 그리나. 회상 중이라고 강제로 켜지지 않는다.
@@ -403,10 +405,10 @@ export function Board({
               type="button"
               className="board-toggle"
               aria-pressed={sound.on}
-              title="駒を置く音を鳴らす"
+              title={t.board.toggle.sound.title}
               onClick={sound.toggle}
             >
-              駒音
+              {t.board.toggle.sound.label}
             </button>
           )}
           {ready && (
@@ -414,10 +416,10 @@ export function Board({
               type="button"
               className="board-toggle"
               aria-pressed={exposed}
-              title="相手の駒が利いていて、こちらが受けていないマスに影が落ちる"
+              title={t.board.toggle.exposure.title}
               onClick={() => setShowExposure((on) => !on)}
             >
-              相手の利き
+              {t.board.toggle.exposure.label}
             </button>
           )}
           {flip && (
@@ -425,10 +427,10 @@ export function Board({
               type="button"
               className="board-toggle"
               aria-pressed={flip.on}
-              title="盤の上下を入れかえる"
+              title={t.board.toggle.flip.title}
               onClick={flip.toggle}
             >
-              盤を反転
+              {t.board.toggle.flip.label}
             </button>
           )}
         </div>

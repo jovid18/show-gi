@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { useExploreSnapshots } from '@/hooks/useExploreSnapshots';
+import { useLocale, useT } from '@/i18n';
 import { dateJa } from '@/libs/review/labels';
 import type { ExploreSnapshot } from '@/protocol/explore';
 
@@ -31,6 +32,8 @@ interface SnapshotsProps {
 const NAME_MAX = 40;
 
 export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) {
+  const t = useT();
+  const s = t.explore.snapshots;
   const { loaded, signedOut, unavailable, pending, error, save, rename, remove, reload } = useExploreSnapshots();
   const [name, setName] = useState('');
   /** 이름을 고치는 중인 줄. 한 번에 하나다. */
@@ -46,9 +49,9 @@ export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) 
   // 이 패널 전체를 지우면 저장이 「없는 기능」으로 보인다.
   if (signedOut) {
     return (
-      <section className="review-panel explore-snapshots" aria-label="保存した局面">
-        <h2 className="panel-title">保存した局面</h2>
-        <p className="explore-snapshot-empty">ログインすると、ならべた局面に名前をつけて残せます。</p>
+      <section className="review-panel explore-snapshots" aria-label={s.label}>
+        <h2 className="panel-title">{s.label}</h2>
+        <p className="explore-snapshot-empty">{s.signedOut}</p>
       </section>
     );
   }
@@ -71,8 +74,8 @@ export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) 
   };
 
   return (
-    <section className="review-panel explore-snapshots" aria-label="保存した局面">
-      <h2 className="panel-title">保存した局面</h2>
+    <section className="review-panel explore-snapshots" aria-label={s.label}>
+      <h2 className="panel-title">{s.label}</h2>
 
       {/* 저장. 폼이라 이름을 치고 Enter 하나로 끝난다. */}
       <form
@@ -87,12 +90,12 @@ export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) 
           type="text"
           value={name}
           maxLength={NAME_MAX}
-          placeholder="名前（未入力なら手数が入ります）"
-          aria-label="この局面の名前"
+          placeholder={s.namePlaceholder}
+          aria-label={s.nameLabel}
           onChange={(e) => setName(e.target.value)}
         />
         <button type="submit" className="btn btn--primary" disabled={!savable || pending}>
-          この局面を保存
+          {s.save}
         </button>
       </form>
 
@@ -104,20 +107,20 @@ export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) 
         </p>
       )}
 
-      {loaded.state === 'loading' && <p className="review-empty">読み込み中…</p>}
+      {loaded.state === 'loading' && <p className="review-empty">{t.common.loading}</p>}
 
       {loaded.state === 'error' && (
         <div className="explore-error" role="alert">
           <p className="rejection">{loaded.message}</p>
           <button type="button" className="btn" onClick={reload}>
-            もう一度読み込む
+            {t.explore.reload}
           </button>
         </div>
       )}
 
       {loaded.state === 'ready' &&
         (loaded.data.length === 0 ? (
-          <p className="review-empty">気になる局面まで並べて、ここに残しておけます。</p>
+          <p className="review-empty">{s.empty}</p>
         ) : (
           <ul className="explore-snapshot-list">
             {loaded.data.map((snapshot) => (
@@ -135,14 +138,14 @@ export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) 
                       type="text"
                       value={editing.name}
                       maxLength={NAME_MAX}
-                      aria-label="新しい名前"
+                      aria-label={s.newNameLabel}
                       onChange={(e) => setEditing({ id: snapshot.id, name: e.target.value })}
                     />
                     <button type="submit" className="btn btn--primary" disabled={pending}>
-                      変更
+                      {s.rename}
                     </button>
                     <button type="button" className="btn" disabled={pending} onClick={() => setEditing(null)}>
-                      やめる
+                      {s.cancel}
                     </button>
                   </form>
                 ) : (
@@ -169,7 +172,7 @@ export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) 
                         setEditing({ id: snapshot.id, name: snapshot.name });
                       }}
                     >
-                      名前
+                      {s.name}
                     </button>
                     {/* 두 번 눌러야 지워진다. 불러오기 버튼 바로 옆이라 한 번에 지워지면
                         잘못 누른 것이 곧 잃는 것이 된다. */}
@@ -187,7 +190,7 @@ export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) 
                         void remove(snapshot.id);
                       }}
                     >
-                      {confirming === snapshot.id ? '本当に削除' : '削除'}
+                      {confirming === snapshot.id ? s.confirmRemove : s.remove}
                     </button>
                   </div>
                 )}
@@ -204,12 +207,14 @@ export function Snapshots({ handicap, moves, savable, onLoad }: SnapshotsProps) 
  * 이름 둘을 가르는 것이 이 셋이다.
  */
 function SnapshotMeta({ snapshot }: { snapshot: ExploreSnapshot }) {
+  const t = useT();
+  const locale = useLocale();
   return (
     <span className="explore-snapshot-meta">
       {/* 平手면 오지 않는다. 접지 않는 것이 기본값이라 적을 것이 없다(protocol/handicaps.ts). */}
       {snapshot.handicapJa !== undefined && <span className="explore-snapshot-handicap">{snapshot.handicapJa}</span>}
-      <span>{snapshot.moves.length}手</span>
-      <time dateTime={snapshot.savedAt}>{dateJa(snapshot.savedAt)}</time>
+      <span>{t.explore.snapshots.moves(snapshot.moves.length)}</span>
+      <time dateTime={snapshot.savedAt}>{dateJa(snapshot.savedAt, locale)}</time>
     </span>
   );
 }

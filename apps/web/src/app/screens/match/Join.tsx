@@ -1,3 +1,4 @@
+import { useT } from '@/i18n';
 import type { Room } from '@/protocol/match';
 import { navigate } from '@/routes/router';
 
@@ -8,28 +9,40 @@ import { navigate } from '@/routes/router';
  * 돌기 시작한다. 링크를 잘못 누른 사람이 모르는 사이에 남의 방을 닫아 버리면 안 된다.
  */
 export function Join({ room, onJoin }: { room: Room; onJoin: () => void }) {
+  const t = useT();
   return (
     <div className="setup">
-      <h2 className="setup__head">{room.hostName}さんと対局しますか</h2>
+      <h2 className="setup__head">{t.match.join.head(room.hostName)}</h2>
 
       <p className="setup__caveat">
-        あなたは<strong>{room.yourColor === 'b' ? '先手' : '後手'}</strong>です。持ち時間は<strong>一手60秒</strong>
-        で、切れるとその場で負けになります。
+        <SeatText room={room} />
       </p>
 
       {/* 개입이 없다는 것을 먼저 말한다. 이 앱을 개입으로 알고 온 사람에게는 뜨지 않는
           것이 「고장」으로 읽힌다. */}
-      <p className="setup__caveat">
-        対人戦では、口出し（悪手の巻き戻し）もヒントも待ったも出ません。終わったあとに棋譜を振り返れます。
-      </p>
+      <p className="setup__caveat">{t.match.join.noHelp}</p>
 
       <button type="button" className="btn btn--primary setup__start" onClick={onJoin}>
-        対局に参加する
+        {t.match.join.submit}
       </button>
 
       <button type="button" className="btn setup__guide" onClick={() => navigate({ name: 'game' })}>
-        やめておく
+        {t.match.join.cancel}
       </button>
     </div>
+  );
+}
+
+/** 내 자리와 시간 규칙 한 줄. 강조 둘이 끼어 있어 문장을 앞뒤로 나눠 둔다. `Waiting` 도 쓴다. */
+export function SeatText({ room }: { room: Room }) {
+  const seat = useT().match.seat;
+  return (
+    <>
+      {seat.before}
+      <strong>{room.yourColor === 'b' ? seat.black : seat.white}</strong>
+      {seat.middle}
+      <strong>{seat.perMove}</strong>
+      {seat.after}
+    </>
   );
 }

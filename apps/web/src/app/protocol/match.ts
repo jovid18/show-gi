@@ -1,3 +1,4 @@
+import type { Messages } from '@/i18n';
 import type { Color } from '@/protocol/game';
 
 /**
@@ -71,9 +72,13 @@ export type MatchClientMessage = { type: 'move'; usi: string } | { type: 'resign
 /** `'r'` 은 振り駒. */
 export type SeatChoice = Color | 'r';
 
-export async function createRoom(choice: SeatChoice, signal: AbortSignal): Promise<Room> {
+export async function createRoom(
+  choice: SeatChoice,
+  signal: AbortSignal,
+  errors: Messages['match']['errors'],
+): Promise<Room> {
   const res = await fetch(`/api/rooms?color=${choice}`, { method: 'POST', signal });
-  if (!res.ok) throw new Error(res.status === 401 ? 'ログインが必要です。' : '対局部屋を作れませんでした。');
+  if (!res.ok) throw new Error(res.status === 401 ? errors.signInRequired : errors.createRoom);
   return (await res.json()) as Room;
 }
 
@@ -81,9 +86,13 @@ export async function createRoom(choice: SeatChoice, signal: AbortSignal): Promi
  * 볼 수 없는 방은 이유와 상관없이 404다. 없는 방·만료된 방·이미 찬 방·로그인하지 않은 요청을
  * 구분해 답하면, 방 id 를 하나씩 넣어 보며 있는 방을 찾아낼 수 있다.
  */
-export async function fetchRoom(id: string, signal: AbortSignal): Promise<Room | null> {
+export async function fetchRoom(
+  id: string,
+  signal: AbortSignal,
+  errors: Messages['match']['errors'],
+): Promise<Room | null> {
   const res = await fetch(`/api/rooms/${encodeURIComponent(id)}`, { signal });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error('対局部屋を読み込めませんでした。');
+  if (!res.ok) throw new Error(errors.loadRoom);
   return (await res.json()) as Room;
 }

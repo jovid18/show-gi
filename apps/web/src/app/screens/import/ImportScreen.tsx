@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 
 import { useKifuImport } from '@/hooks/useKifuImport';
+import { useT } from '@/i18n';
 import { SIGN_IN_PATH, type MeResponse } from '@/protocol/auth';
 import type { ChosenResult } from '@/protocol/kifu';
 import type { MyColor } from '@/protocol/review';
@@ -40,18 +41,19 @@ export function ImportScreen({ me }: { me: MeResponse }) {
  * (`002_anonymous_games.sql`) 「누구의 기보인가」에 답할 수가 없다.
  */
 function SignInFirst({ enabled }: { enabled: boolean }) {
+  const t = useT();
   return (
     <section className="import">
-      <h1 className="import__title">棋譜を取り込む</h1>
+      <h1 className="import__title">{t.importer.title}</h1>
       <p className="import__lead">
-        ほかで指した自分の対局を貼り付けると、この場で解析してクイズと棋力の目安を出します。
+        {t.importer.lead}
         <br />
-        取り込んだ一局はあなたの記録として残るため、ログインが必要です。
+        {t.importer.signInReason}
       </p>
       {enabled && (
         <p className="profile__signin">
           <a className="btn btn--primary" href={SIGN_IN_PATH}>
-            ログイン
+            {t.importer.signIn}
           </a>
         </p>
       )}
@@ -60,6 +62,7 @@ function SignInFirst({ enabled }: { enabled: boolean }) {
 }
 
 function ImportForm() {
+  const t = useT();
   const [text, setText] = useState('');
   const [color, setColor] = useState<MyColor | null>(null);
   const [chosen, setChosen] = useState<ChosenResult | null>(null);
@@ -83,12 +86,12 @@ function ImportForm() {
       if (!file) return;
       setFileName(file.name);
       if (file.size > MAX_BYTES) {
-        fail('棋譜が大きすぎます。1局分だけ貼り付けてください。');
+        fail(t.importer.tooLarge);
         return;
       }
       changeText(await file.text());
     },
-    [changeText, fail],
+    [changeText, fail, t],
   );
 
   /** 기보가 결과를 말하면 묻지 않는다. 기록이 사람의 기억보다 맞다. */
@@ -103,14 +106,14 @@ function ImportForm() {
 
   return (
     <section className="import">
-      <h1 className="import__title">棋譜を取り込む</h1>
+      <h1 className="import__title">{t.importer.title}</h1>
       <p className="import__lead">
-        ほかで指した自分の対局を貼り付けると、この場で解析してクイズと棋力の目安を出します。 KIF・KI2・CSA・USI
-        に対応しています。
+        {t.importer.lead}
+        {t.importer.formats}
       </p>
 
       <label className="import__label" htmlFor="import-text">
-        棋譜
+        {t.importer.kifuLabel}
       </label>
       <textarea
         id="import-text"
@@ -128,7 +131,7 @@ function ImportForm() {
             글자를 브라우저가 정하므로(한국어 브라우저에서 「파일 선택」이 뜬다) 화면에
             일본어가 아닌 것이 섞인다. */}
         <label className="import__button" data-disabled={busy || undefined}>
-          ファイルを選ぶ
+          {t.importer.pickFile}
           <input
             type="file"
             accept={ACCEPT}
@@ -144,7 +147,7 @@ function ImportForm() {
           disabled={busy || text.trim() === ''}
           onClick={() => void read(text)}
         >
-          {phase === 'reading' ? '読み取っています…' : '読み取る'}
+          {phase === 'reading' ? t.importer.reading : t.importer.read}
         </button>
       </div>
 
@@ -156,39 +159,39 @@ function ImportForm() {
 
       {preview !== null && (
         <div className="import__preview">
-          <h2 className="import__subtitle">読み取った内容</h2>
+          <h2 className="import__subtitle">{t.importer.previewTitle}</h2>
 
           {/* 옮겨 적힌 판은 그렇다고 말한다. 그 수도 전부 룰 엔진을 지나 왔지만, 사람이
               자기 기보인지 눈으로 확인하는 것이 지어내기에 대한 두 번째 방어다. */}
-          {preview.transcribed && <p className="import__note">AI が書式を読み取りました。下の手順をご確認ください。</p>}
+          {preview.transcribed && <p className="import__note">{t.importer.transcribed}</p>}
 
           <dl className="import__facts">
             <div>
-              <dt>手数</dt>
-              <dd>{preview.plies}手</dd>
+              <dt>{t.importer.facts.plies}</dt>
+              <dd>{t.importer.facts.pliesValue(preview.plies)}</dd>
             </div>
             {preview.handicapJa !== undefined && (
               <div>
-                <dt>手合割</dt>
+                <dt>{t.importer.facts.handicap}</dt>
                 <dd>{preview.handicapJa}</dd>
               </div>
             )}
             {preview.sente !== undefined && preview.sente !== '' && (
               <div>
-                <dt>先手</dt>
+                <dt>{t.importer.facts.sente}</dt>
                 <dd>{preview.sente}</dd>
               </div>
             )}
             {preview.gote !== undefined && preview.gote !== '' && (
               <div>
-                <dt>後手</dt>
+                <dt>{t.importer.facts.gote}</dt>
                 <dd>{preview.gote}</dd>
               </div>
             )}
             {preview.result !== undefined && (
               <div>
-                <dt>結果</dt>
-                <dd>{RESULT_JA[preview.result]}</dd>
+                <dt>{t.importer.facts.result}</dt>
+                <dd>{t.importer.result[preview.result]}</dd>
               </div>
             )}
           </dl>
@@ -201,18 +204,18 @@ function ImportForm() {
           </p>
 
           <fieldset className="import__choice">
-            <legend>あなたはどちらでしたか</legend>
+            <legend>{t.importer.colorLegend}</legend>
             {(['b', 'w'] as const).map((c) => (
               <label key={c}>
                 <input type="radio" name="color" checked={color === c} disabled={busy} onChange={() => setColor(c)} />
-                {COLOR_JA[c]}
+                {t.importer.color[c]}
               </label>
             ))}
           </fieldset>
 
           {asksResult && (
             <fieldset className="import__choice">
-              <legend>この対局の結果</legend>
+              <legend>{t.importer.chosenLegend}</legend>
               {(['win', 'loss', 'draw'] as const).map((r) => (
                 <label key={r}>
                   <input
@@ -222,31 +225,21 @@ function ImportForm() {
                     disabled={busy}
                     onChange={() => setChosen(r)}
                   />
-                  {CHOSEN_JA[r]}
+                  {t.importer.chosen[r]}
                 </label>
               ))}
             </fieldset>
           )}
 
           <button type="button" className="import__button" data-primary disabled={!ready || busy} onClick={onSubmit}>
-            {phase === 'importing' ? '取り込んでいます…' : 'この内容で取り込む'}
+            {phase === 'importing' ? t.importer.importing : t.importer.submit}
           </button>
 
           {/* 몇 분 걸린다는 것을 미리 말한다. 말하지 않으면 되짚기 화면의 「解析しています」를
               고장으로 읽는다. */}
-          <p className="import__note">解析には数分かかります。振り返りの画面で待てます。</p>
+          <p className="import__note">{t.importer.waitNote}</p>
         </div>
       )}
     </section>
   );
 }
-
-const COLOR_JA: Record<MyColor, string> = { b: '先手（下手）', w: '後手（上手）' };
-
-const RESULT_JA: Record<'sente' | 'gote' | 'draw', string> = {
-  sente: '先手の勝ち',
-  gote: '後手の勝ち',
-  draw: '引き分け',
-};
-
-const CHOSEN_JA: Record<ChosenResult, string> = { win: '勝ち', loss: '負け', draw: '引き分け' };
