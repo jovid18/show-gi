@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jovid18/show-gi/apps/server/internal/shogi"
+	"github.com/jovid18/show-gi/apps/server/internal/store"
 	"github.com/jovid18/show-gi/apps/server/internal/tsume"
 )
 
@@ -20,6 +21,9 @@ import (
 // 200MB 를 오래(상한까지 3분) 쥐므로 동시에 하나만 돈다(tsumeSlots).
 //
 // 로그인한 사람만이다. 익명끼리는 구별할 수단이 없어 한 사람이 자리를 계속 쥘 수 있다.
+//
+// 기록이 있으면 증명된 답을 국면마다 남기고(tsume_results), 같은 국면은 자리를 기다리지 않고
+// 거기서 답한다. 푼 사람의 기록(tsume_solves)도 여기서 남긴다. 근거는 journal §155.
 
 const (
 	// tsumeSlots 는 동시에 푸는 수다. 태스크 메모리가 엔진까지 합쳐 1.5GB 라(infra 의
@@ -36,13 +40,15 @@ const (
 )
 
 type tsumeHandler struct {
-	auth  *authHandler
+	auth *authHandler
+	// store 는 nil 일 수 있다. 그때는 캐시도 기록도 없이 매번 푼다.
+	store *store.Store
 	slots chan struct{}
 	lim   tsume.Limits
 }
 
-func newTsumeHandler(ah *authHandler) *tsumeHandler {
-	return &tsumeHandler{auth: ah, slots: make(chan struct{}, tsumeSlots), lim: tsume.DefaultLimits}
+func newTsumeHandler(ah *authHandler, st *store.Store) *tsumeHandler {
+	return &tsumeHandler{auth: ah, store: st, slots: make(chan struct{}, tsumeSlots), lim: tsume.DefaultLimits}
 }
 
 type tsumeRequest struct {
@@ -106,6 +112,13 @@ func (h *tsumeHandler) solve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	key := shogi.PositionKey(pos)
+	if out, ok := h.cached(r.Context(), key); ok {
+		h.record(r.Context(), s.UserID, key, out)
+		writeJSON(w, http.StatusOK, out)
+		return
+	}
+
 	wait, cancel := context.WithTimeout(r.Context(), tsumeWait)
 	defer cancel()
 	select {
@@ -115,6 +128,13 @@ func (h *tsumeHandler) solve(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
 			"error": "busy", "message": "ほかの詰将棋を解いています。しばらくしてからお試しください。",
 		})
+		return
+	}
+
+	// 기다리는 동안 앞사람이 같은 국면을 풀었을 수 있다.
+	if out, ok := h.cached(r.Context(), key); ok {
+		h.record(r.Context(), s.UserID, key, out)
+		writeJSON(w, http.StatusOK, out)
 		return
 	}
 
@@ -145,19 +165,93 @@ func (h *tsumeHandler) solve(w http.ResponseWriter, r *http.Request) {
 	log.Printf("tsume: %s for %d: status %d, %d plies, %d nodes in %s",
 		req.SFEN, s.UserID, res.Status, res.Plies, res.Nodes, time.Since(start).Round(time.Millisecond))
 
-	writeJSON(w, http.StatusOK, tsumeOut(res))
+	out := tsumeOut(res)
+	h.remember(r.Context(), key, res, out)
+	h.record(r.Context(), s.UserID, key, out)
+	writeJSON(w, http.StatusOK, out)
 }
 
-// tsumeOut 은 결과를 응답으로 옮기고 문장을 붙인다.
+// cached 는 캐시된 답이다. 기록이 없거나 읽지 못하면 false 이고, 부르는 쪽은 그냥 푼다.
+func (h *tsumeHandler) cached(ctx context.Context, key string) (tsumeResponse, bool) {
+	if !h.cacheable() {
+		return tsumeResponse{}, false
+	}
+	row, ok, err := h.store.TsumeResult(ctx, key, tsume.Version)
+	if err != nil {
+		log.Printf("tsume: read cache for %s: %v", key, err)
+		return tsumeResponse{}, false
+	}
+	if !ok {
+		return tsumeResponse{}, false
+	}
+	var tree *tsumeMove
+	if row.Tree != nil {
+		tree = new(tsumeMove)
+		if err := json.Unmarshal(row.Tree, tree); err != nil {
+			log.Printf("tsume: broken cached tree for %s: %v", key, err)
+			return tsumeResponse{}, false
+		}
+	}
+	return tsumeMessage(row.Status, row.Plies, row.Shortest, tree), true
+}
+
+// remember 는 증명된 답을 남긴다. unknown 은 남기지 않는다(025 마이그레이션). 실패해도
+// 답은 이미 손에 있으므로 로그만 남긴다.
+func (h *tsumeHandler) remember(ctx context.Context, key string, res tsume.Result, out tsumeResponse) {
+	if !h.cacheable() || out.Status == "unknown" {
+		return
+	}
+	row := store.TsumeResult{Status: out.Status, Plies: out.Plies, Shortest: out.Shortest, Nodes: res.Nodes}
+	if out.Tree != nil {
+		tree, err := json.Marshal(out.Tree)
+		if err != nil {
+			log.Printf("tsume: encode tree for %s: %v", key, err)
+			return
+		}
+		row.Tree = tree
+	}
+	if err := h.store.SaveTsumeResult(ctx, key, tsume.Version, row); err != nil {
+		log.Printf("tsume: save cache for %s: %v", key, err)
+	}
+}
+
+// cacheable 은 캐시를 읽고 써도 되는가다. 캐시의 키는 tsume.Version 하나라, 다른 몫(테스트의
+// 작은 상한)으로 낸 답을 그 판의 답으로 남기면 안 된다.
+func (h *tsumeHandler) cacheable() bool {
+	return h.store != nil && h.lim == tsume.DefaultLimits
+}
+
+// record 는 그 사람이 그 국면을 풀었다는 것을 남긴다. 실패해도 답은 돌려준다.
+func (h *tsumeHandler) record(ctx context.Context, userID int64, key string, out tsumeResponse) {
+	if h.store == nil {
+		return
+	}
+	if err := h.store.RecordTsumeSolve(ctx, userID, key, out.Status, out.Plies); err != nil {
+		log.Printf("tsume: record %s for %d: %v", key, userID, err)
+	}
+}
+
+// tsumeOut 은 결과를 응답으로 옮긴다.
 func tsumeOut(res tsume.Result) tsumeResponse {
 	switch res.Status {
 	case tsume.Mate:
-		msg := fmt.Sprintf("%d手詰めです。", res.Plies)
-		if !res.Shortest {
-			msg = fmt.Sprintf("%d手で詰みます。これより短い詰みがないかは調べきれませんでした。", res.Plies)
-		}
-		return tsumeResponse{Status: "mate", Plies: res.Plies, Shortest: res.Shortest, Tree: wireMove(res.First), Message: msg}
+		return tsumeMessage("mate", res.Plies, res.Shortest, wireMove(res.First))
 	case tsume.NoMate:
+		return tsumeMessage("nomate", 0, false, nil)
+	}
+	return tsumeMessage("unknown", 0, false, nil)
+}
+
+// tsumeMessage 는 답에 문장을 붙인다. 캐시에서 꺼낸 답도 여기를 지나 같은 문장을 얻는다.
+func tsumeMessage(status string, plies int, shortest bool, tree *tsumeMove) tsumeResponse {
+	switch status {
+	case "mate":
+		msg := fmt.Sprintf("%d手詰めです。", plies)
+		if !shortest {
+			msg = fmt.Sprintf("%d手で詰みます。これより短い詰みがないかは調べきれませんでした。", plies)
+		}
+		return tsumeResponse{Status: "mate", Plies: plies, Shortest: shortest, Tree: tree, Message: msg}
+	case "nomate":
 		return tsumeResponse{Status: "nomate", Message: "王手を続けても詰みません。"}
 	}
 	return tsumeResponse{Status: "unknown", Message: "詰むかどうかを調べきれませんでした。"}

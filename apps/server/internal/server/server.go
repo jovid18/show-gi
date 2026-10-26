@@ -383,8 +383,25 @@ func Handler(opts Options) http.Handler {
 		mux.HandleFunc("POST /api/position/read", boardReadUnavailable)
 	}
 
-	// 詰め将棋(tsume.go). 엔진도 DB도 쓰지 않고 이 프로세스 안에서 푼다.
-	mux.HandleFunc("POST /api/tsume/solve", newTsumeHandler(ah).solve)
+	// 詰め将棋(tsume.go). 엔진을 쓰지 않고 이 프로세스 안에서 푼다. DB는 있으면 답의 캐시와
+	// 기록에 쓰고, 없어도 풀기는 연다.
+	mux.HandleFunc("POST /api/tsume/solve", newTsumeHandler(ah, opts.Store).solve)
+	if opts.Store != nil {
+		th := &tsumeSolveHandler{store: opts.Store, auth: ah}
+		mux.HandleFunc("GET /api/tsume/solves", th.list)
+		mux.HandleFunc("PATCH /api/tsume/solves/{id}", th.rename)
+		mux.HandleFunc("DELETE /api/tsume/solves/{id}", th.remove)
+	} else {
+		// 검토의 저장 국면과 같은 이유로 503이다.
+		solvesUnavailable := func(w http.ResponseWriter, _ *http.Request) {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+				"error": "store_unavailable", "message": "記録を利用できません。",
+			})
+		}
+		mux.HandleFunc("GET /api/tsume/solves", solvesUnavailable)
+		mux.HandleFunc("PATCH /api/tsume/solves/{id}", solvesUnavailable)
+		mux.HandleFunc("DELETE /api/tsume/solves/{id}", solvesUnavailable)
+	}
 
 	// 검토(explore.go). DB 블록 밖이다. 뿌리가 手合割 표라 기록이 없어도 경로가 열리고,
 	// positions 는 있으면 캐시로 쓴다(없으면 답은 같고 매번 다시 잰다).

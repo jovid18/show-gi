@@ -1422,6 +1422,129 @@ func (s *Store) DeleteExploreSnapshot(ctx context.Context, id, userID int64) err
 	return nil
 }
 
+// ─── 詰め将棋 ─────────────────────────────────────────────────
+// 국면마다의 답(tsume_results)과 사람마다의 기록(tsume_solves). 근거는 025 마이그레이션.
+
+// TsumeResult 는 캐시된 답 하나다. Status 는 mate · nomate 뿐이다.
+type TsumeResult struct {
+	Status   string
+	Plies    int
+	Shortest bool
+	// Tree 는 화면이 받는 트리의 JSON 그대로다. mate 가 아니면 nil.
+	Tree  []byte
+	Nodes int64
+}
+
+// TsumeResult 는 그 국면의 답이다. 없으면 found 가 false.
+func (s *Store) TsumeResult(ctx context.Context, sfenKey string, solver int) (TsumeResult, bool, error) {
+	row, err := s.q.GetTsumeResult(ctx, db.GetTsumeResultParams{SFENKey: sfenKey, Solver: int32(solver)})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return TsumeResult{}, false, nil
+	}
+	if err != nil {
+		return TsumeResult{}, false, fmt.Errorf("get tsume result: %w", err)
+	}
+	out := TsumeResult{Status: row.Status, Shortest: row.Shortest, Tree: row.Tree, Nodes: row.Nodes}
+	if row.Plies != nil {
+		out.Plies = int(*row.Plies)
+	}
+	return out, true, nil
+}
+
+// SaveTsumeResult 는 답을 남긴다. 이미 있으면 그대로 둔다(query/tsume.sql).
+func (s *Store) SaveTsumeResult(ctx context.Context, sfenKey string, solver int, r TsumeResult) error {
+	err := s.q.InsertTsumeResult(ctx, db.InsertTsumeResultParams{
+		SFENKey:  sfenKey,
+		Solver:   int32(solver),
+		Status:   r.Status,
+		Plies:    tsumePlies(r.Plies),
+		Shortest: r.Shortest,
+		Tree:     r.Tree,
+		Nodes:    r.Nodes,
+	})
+	if err != nil {
+		return fmt.Errorf("insert tsume result: %w", err)
+	}
+	return nil
+}
+
+// TsumeSolve 는 기록 한 줄이다. Status 는 mate · nomate · unknown 이다.
+type TsumeSolve struct {
+	ID       int64
+	SFENKey  string
+	Name     string
+	Status   string
+	Plies    int
+	SolvedAt time.Time
+}
+
+// RecordTsumeSolve 는 그 사람이 그 국면을 풀었다는 것을 남긴다. 같은 국면이면 답과 시각만 고친다.
+func (s *Store) RecordTsumeSolve(ctx context.Context, userID int64, sfenKey, status string, plies int) error {
+	err := s.q.UpsertTsumeSolve(ctx, db.UpsertTsumeSolveParams{
+		UserID:  userID,
+		SFENKey: sfenKey,
+		Status:  status,
+		Plies:   tsumePlies(plies),
+	})
+	if err != nil {
+		return fmt.Errorf("upsert tsume solve: %w", err)
+	}
+	return nil
+}
+
+// TsumeSolves 는 그 사람의 기록 전부다. 최근에 푼 것이 앞이다.
+func (s *Store) TsumeSolves(ctx context.Context, userID int64) ([]TsumeSolve, error) {
+	rows, err := s.q.ListTsumeSolves(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list tsume solves: %w", err)
+	}
+	out := make([]TsumeSolve, 0, len(rows))
+	for _, r := range rows {
+		row := TsumeSolve{ID: r.ID, SFENKey: r.SFENKey, Name: r.Name, Status: r.Status, SolvedAt: r.SolvedAt.Time}
+		if r.Plies != nil {
+			row.Plies = int(*r.Plies)
+		}
+		out = append(out, row)
+	}
+	return out, nil
+}
+
+// ErrNoTsumeSolve 는 그 번호의 기록이 없거나 남의 것일 때다. 둘을 가르지 않는 것은 ErrNoGame 과 같다.
+var ErrNoTsumeSolve = errors.New("store: tsume solve not found")
+
+// RenameTsumeSolve 는 이름만 고친다. 없거나 남의 것이면 ErrNoTsumeSolve.
+func (s *Store) RenameTsumeSolve(ctx context.Context, id, userID int64, name string) error {
+	n, err := s.q.RenameTsumeSolve(ctx, db.RenameTsumeSolveParams{ID: id, UserID: userID, Name: name})
+	if err != nil {
+		return fmt.Errorf("rename tsume solve %d: %w", id, err)
+	}
+	if n == 0 {
+		return ErrNoTsumeSolve
+	}
+	return nil
+}
+
+// DeleteTsumeSolve 는 기록 하나를 지운다. 캐시된 답은 남는다. 없거나 남의 것이면 ErrNoTsumeSolve.
+func (s *Store) DeleteTsumeSolve(ctx context.Context, id, userID int64) error {
+	n, err := s.q.DeleteTsumeSolve(ctx, db.DeleteTsumeSolveParams{ID: id, UserID: userID})
+	if err != nil {
+		return fmt.Errorf("delete tsume solve %d: %w", id, err)
+	}
+	if n == 0 {
+		return ErrNoTsumeSolve
+	}
+	return nil
+}
+
+// tsumePlies 는 手数를 칸에 맞춘다. 0 은 詰み가 아닌 답이라 NULL 이다.
+func tsumePlies(n int) *int32 {
+	if n <= 0 {
+		return nil
+	}
+	v := int32(n)
+	return &v
+}
+
 // timingCol 은 int 를 int32 칸에 맞춘다. 깊이와 후보 수는 CLI 플래그에서 오고
 // (cmd/importkifu) 그 값에 상한이 없어서, 그대로 자르면 음수가 표에 남는다.
 func timingCol(n int) int32 {

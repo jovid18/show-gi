@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 
 import { PositionEditor } from './PositionEditor';
+import { TsumeSolves } from './TsumeSolves';
 import { TsumeTree } from './TsumeTree';
 import { useT } from '@/i18n';
 import { SIGN_IN_PATH, type MeResponse } from '@/protocol/auth';
@@ -244,18 +245,43 @@ function PositionForm({ mode }: { mode: Mode }) {
   const [solving, setSolving] = useState(false);
   /** 푸는 데 실패한 사유. 버튼 바로 아래에 둔다. 판독 오류 자리는 화면 맨 위라 누른 자리에서 보이지 않는다. */
   const [solveError, setSolveError] = useState<string | null>(null);
-  const solve = async (): Promise<void> => {
-    if (!analyzable || solving) return;
-    if (imageId !== null) void saveLabel(imageId, sfen);
+  /** 푼 횟수. 늘면 기록 목록이 다시 묻는다(서버가 풀 때마다 남긴다). */
+  const [solved, setSolved] = useState(0);
+  const runSolve = async (target: string): Promise<void> => {
     setSolving(true);
     setSolveError(null);
     try {
-      setTsume({ sfen, res: await solveTsume(sfen, p.errors.solve) });
+      setTsume({ sfen: target, res: await solveTsume(target, p.errors.solve) });
+      setSolved((n) => n + 1);
     } catch (e) {
       setSolveError(e instanceof TsumeError ? e.message : p.errors.solve);
     } finally {
       setSolving(false);
     }
+  };
+  const solve = async (): Promise<void> => {
+    if (!analyzable || solving) return;
+    if (imageId !== null) void saveLabel(imageId, sfen);
+    await runSolve(sfen);
+  };
+
+  /**
+   * 기록의 국면을 판에 올리고 바로 푼다. 판 검사를 기다리지 않는다. 한 번 풀린 국면이라
+   * 검사를 통과한 판이고, 답은 서버 캐시에서 곧바로 온다.
+   */
+  const openSaved = (saved: string): void => {
+    if (solving) return;
+    const got = parseSfen(saved);
+    setImage(null);
+    setImageId(null);
+    setError(null);
+    setText('');
+    setFaults([]);
+    setWarnings([]);
+    setCheckedSfen('');
+    setBoard(got);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    void runSolve(toSfen(got));
   };
 
   const analyze = (): void => {
@@ -403,6 +429,8 @@ function PositionForm({ mode }: { mode: Mode }) {
           {mode === 'tsume' && tsume !== null && tsume.sfen === sfen && <TsumeTree start={sfen} res={tsume.res} />}
         </>
       )}
+
+      {mode === 'tsume' && <TsumeSolves solved={solved} current={sfen} onOpen={openSaved} />}
     </section>
   );
 }

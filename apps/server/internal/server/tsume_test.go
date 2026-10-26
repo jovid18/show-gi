@@ -28,7 +28,7 @@ func postTsume(t *testing.T, h *tsumeHandler, userID int64, sfen string) *httpte
 }
 
 func TestTsumeSolvesHeadGold(t *testing.T) {
-	h := newTsumeHandler(signedInHandler())
+	h := newTsumeHandler(signedInHandler(), nil)
 	rec := postTsume(t, h, 7, "4k4/9/4P4/9/9/9/9/9/9 b G 1")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body)
@@ -47,7 +47,7 @@ func TestTsumeSolvesHeadGold(t *testing.T) {
 }
 
 func TestTsumeSaysWhenThereIsNoMate(t *testing.T) {
-	h := newTsumeHandler(signedInHandler())
+	h := newTsumeHandler(signedInHandler(), nil)
 	rec := postTsume(t, h, 7, "4k4/9/9/9/9/9/9/9/9 b P 1")
 	var res tsumeResponse
 	_ = json.Unmarshal(rec.Body.Bytes(), &res)
@@ -57,7 +57,7 @@ func TestTsumeSaysWhenThereIsNoMate(t *testing.T) {
 }
 
 func TestTsumeNeedsASignIn(t *testing.T) {
-	h := newTsumeHandler(signedInHandler())
+	h := newTsumeHandler(signedInHandler(), nil)
 	if rec := postTsume(t, h, 0, "4k4/9/4P4/9/9/9/9/9/9 b G 1"); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status %d, want 401", rec.Code)
 	}
@@ -65,7 +65,7 @@ func TestTsumeNeedsASignIn(t *testing.T) {
 
 // 二歩인 판은 확인 화면이 막는다. 여기 오면 화면의 버그라 풀지 않고 거절한다.
 func TestTsumeRefusesAnImpossiblePosition(t *testing.T) {
-	h := newTsumeHandler(signedInHandler())
+	h := newTsumeHandler(signedInHandler(), nil)
 	rec := postTsume(t, h, 7, "4k4/9/4P4/4P4/9/9/9/9/9 b G 1")
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status %d, want 400: %s", rec.Code, rec.Body)
@@ -74,7 +74,7 @@ func TestTsumeRefusesAnImpossiblePosition(t *testing.T) {
 
 // 자리가 차 있으면 기다리다 「混み合っています」로 답한다. 둘이 함께 돌면 치환표 둘이 메모리에 선다.
 func TestTsumeWaitsForTheSlot(t *testing.T) {
-	h := newTsumeHandler(signedInHandler())
+	h := newTsumeHandler(signedInHandler(), nil)
 	h.slots <- struct{}{}
 	defer func() { <-h.slots }()
 
@@ -108,5 +108,48 @@ func TestTsumeCheckAllowsAMissingAttackerKing(t *testing.T) {
 	}
 	if res := checkedAs("9/9/4P4/9/9/9/9/9/4K4 b G 1", true); len(res.Faults) == 0 {
 		t.Fatal("the tsume check accepts a position without the defending king")
+	}
+}
+
+// 진짜 DB 위에서 한 번 풀고, 같은 국면을 자리가 막힌 채로 다시 묻는다. 두 번째가 답하면 그
+// 답은 캐시에서 온 것이다. 기록에는 한 줄만 남는다.
+//
+//	SHOWGI_TEST_DATABASE_URL=postgres://showgi:showgi@localhost:5432/showgi go test ./internal/server/ -run TsumeCache
+func TestTsumeCacheAnswersWithoutTheSlot(t *testing.T) {
+	st := openStoreForTest(t)
+	const sfen = "4k4/9/4P4/9/9/9/9/9/9 b G 1"
+	if _, err := st.Pool().Exec(t.Context(), `DELETE FROM tsume_results WHERE sfen_key = $1`, strings.TrimSuffix(sfen, " 1")); err != nil {
+		t.Fatalf("이전 실행 정리: %v", err)
+	}
+	user, err := st.UpsertUser(t.Context(), "test", t.Name()+"-"+time.Now().Format("150405.000000000"), "テスト")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newTsumeHandler(signedInHandler(), st)
+
+	if rec := postTsume(t, h, user, sfen); rec.Code != http.StatusOK {
+		t.Fatalf("첫 풀이 %d: %s", rec.Code, rec.Body)
+	}
+
+	h.slots <- struct{}{} // 다른 풀이가 자리를 쥐고 있다
+	defer func() { <-h.slots }()
+	rec := postTsume(t, h, user, sfen)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("캐시 풀이 %d: %s", rec.Code, rec.Body)
+	}
+	var res tsumeResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &res); err != nil {
+		t.Fatal(err)
+	}
+	if res.Status != "mate" || res.Plies != 1 || res.Tree == nil || res.Tree.USI != "G*5b" || res.Message != "1手詰めです。" {
+		t.Fatalf("got %+v", res)
+	}
+
+	rows, err := st.TsumeSolves(t.Context(), user)
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("기록 %v %+v", err, rows)
+	}
+	if rows[0].Status != "mate" || rows[0].Plies != 1 || rows[0].SFENKey+" 1" != sfen {
+		t.Fatalf("기록 %+v", rows[0])
 	}
 }

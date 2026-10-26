@@ -25,6 +25,27 @@ export interface TsumeResponse {
   message: string;
 }
 
+/**
+ * 푼 詰め将棋의 기록 한 줄(`GET /api/tsume/solves`). 풀 때마다 서버가 남긴다.
+ *
+ * 트리를 들지 않는다. 다시 열면 `sfen` 으로 풀기를 다시 부르고, 서버가 캐시에서 답한다.
+ */
+export interface TsumeSolve {
+  id: number;
+  /** 사람이 붙인 이름. 비어 있으면 화면이 결과를 이름 자리에 쓴다. */
+  name: string;
+  /** 풀기에 그대로 보낼 수 있는 국면. */
+  sfen: string;
+  status: TsumeResponse['status'];
+  /** `mate` 일 때만 온다. */
+  plies?: number;
+  solvedAt: string;
+}
+
+export interface TsumeSolveListResponse {
+  solves: TsumeSolve[];
+}
+
 export class TsumeError extends Error {
   readonly code: string;
 

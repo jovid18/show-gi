@@ -51,6 +51,12 @@ var DefaultLimits = Limits{
 	MaxMoves:     5000,
 }
 
+// Version 은 풀이의 판 번호다. 서버가 답을 캐시하는 키에 들어간다(tsume_results.solver).
+//
+// 같은 국면의 답(手数·Shortest·트리의 모양)이 바뀌는 수정이면 올린다. DefaultLimits 를 바꿀
+// 때도 올린다. 올리지 않으면 옛 풀이가 낸 트리를 캐시가 계속 내준다.
+const Version = 1
+
 var (
 	// ErrNoKing 은 수비 쪽(수번이 아닌 쪽) 玉이 없는 국면이다.
 	ErrNoKing = errors.New("tsume: the defending king is missing")
