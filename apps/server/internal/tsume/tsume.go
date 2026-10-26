@@ -220,8 +220,9 @@ func (b *builder) attack(pos shogi.Position, bound int16, prevTo int, cutoff int
 	cut := false
 	length, _ := b.s.shorten(pos, bound, b.lim.BranchNodes)
 	var best *Move
-	// plain 은 펼친 王手 중 合駒가 들 수 없는 것의 가장 적은 응수 수다. 그런 王手는 無駄合い가 없어
-	// 응수 수를 펼치기 전에 셀 수 있으므로, 이보다 적지 않은 것은 펼치지 않는다.
+	// plain 은 증명한 王手 중 合駒가 들 수 없는 것의 가장 적은 응수 수다. 그런 王手는 無駄合い가 없어
+	// 응수 수를 펼치기 전에 셀 수 있으므로, 이보다 적지 않은 것은 펼치지 않는다. 잘린 王手도 세야
+	// 뒤 후보의 건너뛰기가 cutoff 에 매이지 않는다.
 	plain := -1
 	for _, m := range pos.Checks() {
 		after := pos.Apply(m)
@@ -237,12 +238,17 @@ func (b *builder) attack(pos shogi.Position, bound int16, prevTo int, cutoff int
 		if err != nil || !ok {
 			continue
 		}
+		if gap == 0 {
+			if n := len(after.Evasions()); plain < 0 || n < plain {
+				plain = n
+			}
+		}
 		kept := b.moves
 		mv := &Move{USI: m.USI(), Ja: pos.MoveJa(m, prevTo), SFEN: after.SFEN()}
 		if err := b.count(); err != nil {
 			return nil, err
 		}
-		// 같은 Rest 는 응수 수로 견주므로 끝까지 짓는다.
+		// 동률은 응수 수로 가리므로 best.Rest 와 같은 후보는 자르지 않는다.
 		c := cutoff
 		if best != nil && best.Rest < c {
 			c = best.Rest
@@ -254,9 +260,6 @@ func (b *builder) attack(pos shogi.Position, bound int16, prevTo int, cutoff int
 				continue
 			}
 			return nil, err
-		}
-		if gap == 0 && (plain < 0 || mv.branches() < plain) {
-			plain = mv.branches()
 		}
 		if best == nil || mv.Rest < best.Rest || mv.Rest == best.Rest && mv.branches() < best.branches() {
 			if best != nil {
