@@ -24,6 +24,7 @@ codex
 
 레포 스킬은 `$create-pr`, `$worktree`, `$playtest`다. `.agents/skills/`의 상대 심볼릭 링크가
 `.claude/skills/`의 원본을 가리키므로 전역 설치는 필요 없다.
+`self-review`와 `review-criteria`는 링크하지 않는다. Claude Code의 서브 에이전트를 스폰하는 하네스라 Codex에서는 돌지 않는다.
 스킬을 찾지 못하면 레포 디렉터리에서 세션을 열었는지 확인하고 링크를 검사한다.
 
 ```sh
