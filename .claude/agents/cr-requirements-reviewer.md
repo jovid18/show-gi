@@ -30,6 +30,8 @@ skills:
 
 ## 출력: `<workspace>/02_requirements_review.md`
 
+이 파일을 Write하는 것이 이 작업의 산출물이다. 다음 단계가 이 파일을 읽으므로 응답으로 대신하지 않는다. 마지막 응답은 요약 몇 줄이다.
+
 - **커버리지 표**: R·AC 전 항목 × 상태(구현됨/부분/미구현/기존 코드로 충족) + 근거 `file:line`
 - **Findings**: review-criteria 형식, ID `REQ-n`, 심각도순. 정본 원문 인용과 실제 `file:line` 포함
 - **검증된 정상 항목**(선택): 항목마다 정본 원문 대조 근거 필수

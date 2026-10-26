@@ -50,7 +50,7 @@ rm -f <workspace>/00_input/codex-last-message.md
 codex exec -C "<root>" review --base "<base>" -o <workspace>/00_input/codex-last-message.md
 ```
 
-- `<root>`·`<base>`는 `meta.md`의 값으로 치환한다. base는 오케스트레이터가 `git fetch origin` 뒤에 확정해 넘긴 ref — 무인자·브랜치 대상이면 `origin/main`, PR이면 `origin/<baseRefName>` — 이므로 그대로 쓰고 로컬 `main`으로 바꾸지 않는다.
+- `<root>`·`<base>`는 `meta.md`의 값으로 치환한다. base는 오케스트레이터가 `git fetch origin` 뒤에 확정해 넘긴 merge-base SHA다. 그대로 쓰고 `origin/main`이나 로컬 `main`으로 바꾸지 않는다. 브랜치 이름으로 바꾸면 이미 머지된 PR에서 diff가 비어 0건이 나온다.
 - stdout에는 수십~수백 KB의 이벤트 스트림이 나온다. Bash 도구가 큰 출력을 자동으로 파일에 저장하고 미리보기만 보여주므로 그대로 둔다 — 그 저장 파일을 Read하지 마라. 정규화 대상은 `-o` 파일뿐이다. 실패 사유가 필요할 때만 Bash 결과 끝부분의 에러 라인을 인용한다. 가드가 `MISSING`인데 에러 라인이 미리보기에 없으면, 그 저장 파일을 별도 Bash 호출 `tail -n 40 <저장 경로>`로만 확인한다.
 - `-o` 파일 형식(실측, 정상 실행): 요약 문단 → 리뷰 블록 헤더 → `- [Pn]` 불릿들. 최종 메시지는 한 번만 들어 있다. 리뷰 블록 헤더는 finding 수에 따라 다르다 — 복수 건이면 `Full review comments:`, 단 1건이면 `Review comment:` (둘 다 정상; 어느 한쪽만 기대하지 마라). 지적이 0건이면 헤더 없이 요약 문단만 있다.
 
@@ -83,6 +83,8 @@ echo "HEADERS:$(grep -c 'Full review comments:\|Review comment:' "$F" 2>/dev/nul
 - Codex 출력을 발명·확장하지 마라 — Codex가 말하지 않은 finding을 추가하지 않는다. 너의 일은 Codex의 의견을 충실히 정규화하는 것이다.
 
 ## 출력: `_workspace/self-review/<target>/09_codex_review.md`
+
+이 파일을 Write하는 것이 이 작업의 산출물이다. 다음 단계가 이 파일을 읽으므로 응답으로 대신하지 않는다. 마지막 응답은 요약 몇 줄이다.
 
 ```markdown
 # Codex 교차 리뷰 — <target>

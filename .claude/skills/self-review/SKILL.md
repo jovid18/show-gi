@@ -16,6 +16,8 @@ disable-model-invocation: true
 
 에이전트는 네 대화를 물려받지 않는다. 모든 스폰 프롬프트에 target·`root`·워크스페이스 절대 경로를 담는다. 부분 재실행이면 `rerun` 지시와 기존 산출물 경로도 담는다. 모델은 에이전트 정의의 frontmatter를 따르고 스폰 시 `model`로 덮어쓰지 않는다.
 
+**산출물 파일은 에이전트가 쓴다.** 스폰 프롬프트마다 「`<workspace>/NN_*.md`를 Write하는 것이 이 작업의 산출물이다. 다음 단계가 그 파일을 읽는다. 마지막 응답은 요약 몇 줄」을 적는다. 이 문장이 없으면 일부 에이전트가 보고서 파일 쓰기를 피하고 전문을 응답으로 돌려준다. 끝난 에이전트의 파일이 없으면 응답으로 온 보고서를 그대로 그 파일에 저장하고 첫 줄에 「오케스트레이터가 옮겨 적음」을 적는다. 이 경우는 재스폰하지 않는다.
+
 외부 조회(`gh`)는 전부 네가 Phase 1에서 해서 파일로 스테이징한다. 에이전트는 `gh`를 쓰지 않는다.
 
 **에이전트와 산출물** (워크스페이스 `_workspace/self-review/<target>/` 기준):
@@ -54,6 +56,7 @@ disable-model-invocation: true
    - 무인자: `gh pr view --json number,title,body,baseRefName,headRefName`로 열린 PR을 찾는다. 있으면 base=`origin/<baseRefName>`, PR 제목·본문은 정본 체인에 쓴다. 없으면 base=`origin/main`. head=`HEAD`.
    - PR 번호·URL: `gh pr view <n>`으로 base를 정하고 `git fetch origin pull/<n>/head` 후 head=`FETCH_HEAD`의 SHA.
    - 다른 브랜치: base=`origin/main`, head=그 브랜치(로컬에 없으면 `origin/<branch>`).
+   - 위에서 정한 base는 브랜치(`base_ref`)다. 실제 base는 `git merge-base <base_ref> <head>`의 SHA로 고정하고, 이후 diff·Codex·스폰 프롬프트는 전부 이 SHA를 쓴다. 이미 머지된 PR은 `origin/main`이 그 PR을 품고 있어서 브랜치 이름으로 비교하면 diff가 비고 Codex도 0건을 낸다. 열린 PR에서는 SHA로 바꿔도 diff가 같다. `meta.md`에 `base_ref`와 base SHA를 둘 다 적는다.
    - 즉시 리뷰 불가로 보고하고 끝내는 경우는 셋이다. 무인자인데 현재 브랜치가 `main`, diff가 비어 있음, 재시도 후에도 fetch 실패. fetch 실패면 사용자에게 `! git fetch origin`을 직접 실행하고 다시 부르라고 안내한다. 낡은 `origin/*`로 진행하면 남의 커밋이 diff에 섞인다.
    - 커밋되지 않은 변경이 있으면 리뷰하지 않는다는 것을 `meta.md`에 적는다. diff는 `<base>...<head>` 커밋만 본다.
 2. **리뷰 트리 확정** — head가 현재 `HEAD`와 같으면 `root`는 레포 루트다. 다르면 `git worktree add --detach <workspace>/tree <head>`로 체크아웃하고 `root`는 그 절대 경로다. 에이전트는 Read·Grep·라인 확정을 `root` 기준으로 한다. `tree/`는 부분 재실행을 위해 보존한다.

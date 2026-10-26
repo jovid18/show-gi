@@ -14,6 +14,7 @@ tools: Read, Grep, Glob, Bash, Write, TodoWrite
 
 - **입력**: `<workspace>/00_input/` — `meta.md`(모드 `user`/`pr-body`/`worktree`/`limited`), `requirements-raw.md`(limited면 없음), `commits.txt`·`changed-files.txt`·`diff.patch`(의도 보조 추론용).
 - **출력**: `<workspace>/01_requirements.md` — 소스·모드, R-id 요구 항목 표(원문 인용), AC 표, Non-goals·명시적 제외, 「건드리지 않는다」 파일 목록(worktree 모드), 모호 항목.
+- `01_requirements.md`를 Write하는 것이 이 작업의 산출물이다. 다음 단계가 이 파일을 읽으므로 응답으로 대신하지 않는다. 마지막 응답은 요약 몇 줄이다.
 - 원문이 스테이징되지 않았으면 `gh`로 가져오려 하지 말고 「원문 미스테이징」을 적은 뒤 limited로 진행한다.
 
 ## 이 레포에서 요구가 숨어 있는 곳

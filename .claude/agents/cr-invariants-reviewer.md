@@ -59,6 +59,8 @@ skills:
 
 ## 출력: `<workspace>/06_invariants_review.md`
 
+이 파일을 Write하는 것이 이 작업의 산출물이다. 다음 단계가 이 파일을 읽으므로 응답으로 대신하지 않는다. 마지막 응답은 요약 몇 줄이다.
+
 - **검토 대장**: 위 체크 16개 × `해당 없음(diff가 닿지 않음)` / `정상(확인한 코드 인용)` / `finding n건`. 파일 대장이 아니라 체크 대장이다. 맨 아래에 scope.md 전 파일 수와 실제로 연 파일 수를 적는다
 - **Findings**: review-criteria 형식, ID `INV-n`, 심각도순. 근거에 CLAUDE.md 원문 인용
 - **판정 불가**
