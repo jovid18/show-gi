@@ -29,9 +29,9 @@ pnpm dev                  # :5173. 레포 루트에서
 
 ## 언어
 
-**화면에 나가는 문자열은 전부 일본어다.** 사용자는 일본인이다. 주석과 이 문서는 한글이지만, JSX 안의 텍스트·에러 메시지·빈 상태 문구에 한글이 섞이면 안 된다.
+**화면 문자열의 원본은 일본어다.** 사용자는 일본인이고, 한국어는 헤더에서 고를 수 있다([journal §153](../../docs/journal/141-160.md)). 문자열은 JSX에 직접 쓰지 않고 `i18n/ns/*.ts`에 키로 둔다. 한글은 그 파일의 `ko` 객체에만 들어간다. 예외는 언어 전환기의 언어 이름(`LocaleSwitch.tsx`의 `NATIVE`) 하나다. 서버가 만든 문장은 한국어 화면에서도 일본어로 나온다.
 
-`index.html`의 `lang="ja"`와 `index.css`의 폰트 스택(Hiragino / Noto Sans JP)이 그 전제 위에 있다.
+`index.html`의 `lang="ja"`는 정적 기본값이고, 화면 언어를 고르면 `i18n/locale.ts`가 바꾼다. `index.css`의 폰트 스택(Hiragino / Noto Sans JP)은 일본어 기준이며 한국어 조판은 `html:lang(ko)`에만 건다.
 
 ## 배치
 
@@ -55,6 +55,7 @@ pnpm dev                  # :5173. 레포 루트에서
 | `libs/whatif`     | 가정 수순의 분기를 화면이 갖고 있는 자리. 서버에 저장하지 않는다([03-frontend §3](../../docs/03-frontend.md)) |
 | `libs/sound`      | 착수음을 그 자리에서 만든다 — 파일이 없다([journal §70](../../docs/journal/61-81.md))                         |
 | `routes`          | 경로 문자열과 파서. `const.ts` 만 주소를 안다                                                                 |
+| `i18n`            | 화면 문자열(`ns/*.ts`, `ja` 원본·`ko` 는 `typeof ja`)과 화면 언어 상태(`locale.ts`)                           |
 
 `@`는 `src/app`이다. 별칭은 `tsconfig.json`과 `vite.config.ts` 두 곳에 적혀 있으니 한쪽만 고치지 말 것.
 

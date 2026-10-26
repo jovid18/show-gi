@@ -10,12 +10,13 @@ import { useDropAnchor } from '@/hooks/useDropAnchor';
 import { useEngineReady } from '@/hooks/useReview';
 import { useMoveSound } from '@/hooks/useMoveSound';
 import { useWhatIf } from '@/hooks/useWhatIf';
+import { useT } from '@/i18n';
 import { candidateRays } from '@/libs/game/board-view';
 import { groupByOrigin, squaresOf, toUsiMove, type Destination } from '@/libs/game/moves';
 import { getPlaying, subscribePlaying } from '@/libs/game/playing';
 import { exploreSend } from '@/libs/explore/http';
-import { baselineNoteJa, exploreStatusJa, sideJa } from '@/libs/explore/text';
-import { branchMotion, scoreJa } from '@/libs/whatif/branch';
+import { baselineNoteText, exploreStatusText, sideName } from '@/libs/explore/text';
+import { branchMotion, scoreText } from '@/libs/whatif/branch';
 import type { Side } from '@/models/piece';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
 import type { Motion } from '@/models/square';
@@ -51,6 +52,7 @@ interface ExploreScreenProps {
 }
 
 export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
+  const t = useT();
   const playing = useSyncExternalStore(subscribePlaying, getPlaying);
   const engineReady = useEngineReady();
 
@@ -68,7 +70,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
   const line = moves.join(',');
   const urlMoves = useMemo(() => (line === '' ? [] : line.split(',')), [line]);
 
-  const send = useMemo(() => exploreSend(handicap, sfen), [handicap, sfen]);
+  const send = useMemo(() => exploreSend(handicap, sfen, t), [handicap, sfen, t]);
   // `resetKey` 가 뿌리다. 열쇠는 줄만 보므로(`useWhatIf` 의 `keyOf`) 비우지 않으면 六枚落ち의
   // 0手目가 平手의 0手目와 같은 자리로 읽힌다. 사진에서 읽어 온 국면도 그래서 여기 들어간다.
   const whatif = useWhatIf<ExploreNode>(send, sfen || handicap);
@@ -258,7 +260,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
   const hand = (side: Side): ReactElement => (
     <Hand
       side={side}
-      label={sideJa(side === 'black' ? 'b' : 'w', !!shown?.handicapJa)}
+      label={sideName(side === 'black' ? 'b' : 'w', !!shown?.handicapJa, t)}
       pieces={board?.hands[side] ?? {}}
       selected={handSide === side && origin?.endsWith('*') ? origin : null}
       playable={handSide === side ? droppable : new Set()}
@@ -271,16 +273,16 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
     // 판을 그려 놓고 잠그면 고장으로 읽힌다.
     return (
       <div className="explore-closed">
-        <h1 className="explore-title">検討</h1>
-        <p className="review-status">対局中は検討できません。対局を終えると、ここで自由に並べられます。</p>
+        <h1 className="explore-title">{t.explore.title}</h1>
+        <p className="review-status">{t.explore.closed}</p>
       </div>
     );
   }
 
   /** 뿌리가 사진에서 읽어 온 판인가. 手合割 줄과 저장이 이 값으로 갈린다. */
   const rooted = sfen !== '';
-  const score = shown ? scoreJa(shown.evalCp, shown.mateIn) : '';
-  const baseline = baselineNoteJa(shown);
+  const score = shown ? scoreText(shown.evalCp, shown.mateIn, t) : '';
+  const baseline = baselineNoteText(shown, t);
   const branching = urlMoves.length > 0;
 
   return (
@@ -289,11 +291,11 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
         <div className="game-board">
           {/* 手合割. 접지 않는 것이 기본값이라 목록에 平手가 없고, 이 자리가 그 버튼을 직접
               그린다(protocol/handicaps.ts). */}
-          <div className="explore-handicaps" role="group" aria-label="手合割">
+          <div className="explore-handicaps" role="group" aria-label={t.explore.handicapsLabel}>
             {/* 판이 뿌리면 어느 手合割도 눌린 것으로 그리지 않는다. 「平手」에 불이 들어와
                 있으면 그 버튼이 아무 일도 하지 않을 것처럼 보이는데, 실제로는 읽어 온 국면을
                 버린다(journal §129). */}
-            {rooted && <span className="explore-rooted">画像から読み取った局面</span>}
+            {rooted && <span className="explore-rooted">{t.explore.rooted}</span>}
             <button
               type="button"
               className="explore-handicap"
@@ -301,7 +303,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
               aria-pressed={!rooted && handicap === ''}
               onClick={() => pickHandicap('')}
             >
-              平手
+              {t.explore.even}
             </button>
             {handicaps.map((h) => (
               <button
@@ -357,12 +359,12 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
               {hand(flipped ? 'white' : 'black')}
             </>
           ) : shown ? (
-            <p className="review-broken">この局面は表示できません。</p>
+            <p className="review-broken">{t.explore.broken}</p>
           ) : (
             // 아직 국면이 없다. 「표시할 수 없다」로 적으면 링크의 수순이 거절된 자리에서도
             // 그 문장이 뜨는데, 그때 그릴 수 없는 것은 그 줄이다. 엔진이 없으면 기다릴 것도
             // 없어 「읽는 중」이 영원히 오지 않는 약속이 된다. 둘 다 옆 패널이 말한다(`error`).
-            <p className="review-status">{error || engineReady === false ? '' : '局面を読み込んでいます…'}</p>
+            <p className="review-status">{error || engineReady === false ? '' : t.explore.loadingPosition}</p>
           )}
 
           {/* 되돌리는 둘. 줄이 없으면 이 줄 자체가 뜨지 않는다(홈 메뉴와 같은 규칙).
@@ -372,19 +374,19 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
           {branching && (
             <div className="explore-controls">
               <button type="button" className="btn" disabled={pending} onClick={back}>
-                一手戻る
+                {t.explore.back}
               </button>
               <button type="button" className="btn" disabled={pending} onClick={toStart}>
-                最初へ
+                {t.explore.toStart}
               </button>
             </div>
           )}
         </div>
 
         <aside className="game-side">
-          <section className="review-panel explore-head" aria-label="形勢">
+          <section className="review-panel explore-head" aria-label={t.explore.headLabel}>
             <div className="explore-head-top">
-              <h1 className="explore-title">検討</h1>
+              <h1 className="explore-title">{t.explore.title}</h1>
               {/* 값은 끝난 국면에는 없다. 0으로 채우면 호각과 구별되지 않는다. */}
               {score && (
                 <span className="explore-score" data-stale={stale || undefined}>
@@ -394,9 +396,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
             </div>
 
             <p className="explore-status" data-stale={stale || undefined}>
-              {engineReady === false
-                ? 'エンジンが動いていないため、いまは検討できません。'
-                : exploreStatusJa(shown, pending)}
+              {engineReady === false ? t.explore.engineDown : exploreStatusText(shown, pending, t)}
             </p>
 
             {/* 「이 手合의 互角은 얼마인가」. 숫자의 자를 되짚기 그래프와 같게 두려면 값을
@@ -409,7 +409,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
                 {/* 다시 누를 수 있어야 한다. 429·503은 설계된 실패라(위 `reload`)
                     한 번 더 물으면 그냥 되는 경우가 대부분이다. */}
                 <button type="button" className="btn" disabled={pending} onClick={reload}>
-                  もう一度読み込む
+                  {t.explore.reload}
                 </button>
               </div>
             )}
@@ -425,8 +425,8 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
           {/* 지금까지의 줄. 실제 기보와 같은 어휘·같은 모양이다(手数 · 수 · cp). 값은 지나온
               자리에서 꺼내므로(`evalOf`) 추가 탐색이 0이다. */}
           {shown && shown.line.length > 0 && (
-            <section className="review-panel explore-line-panel" aria-label="並べた手順">
-              <h2 className="panel-title">ならべた手順</h2>
+            <section className="review-panel explore-line-panel" aria-label={t.explore.lineLabel}>
+              <h2 className="panel-title">{t.explore.lineTitle}</h2>
               <ol className="review-whatif-line" data-stale={stale || undefined}>
                 {shown.line.map((move, i) => {
                   const scored = whatif.evalOf(i + 1);
@@ -434,7 +434,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
                     <li key={move.ply} data-by={move.by}>
                       <span className="review-kifu-number">{move.ply}</span>
                       <span className="review-kifu-move">{move.ja || move.usi}</span>
-                      <span className="review-kifu-eval">{scored ? scoreJa(scored.cp, scored.mateIn) : ''}</span>
+                      <span className="review-kifu-eval">{scored ? scoreText(scored.cp, scored.mateIn, t) : ''}</span>
                     </li>
                   );
                 })}
@@ -449,9 +449,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
               §96) 이 국면을 저장하면 다른 국면(平手 0手目 + 같은 수순)이 남는다. */}
           {rooted ? (
             <section className="review-panel explore-note">
-              <p className="review-status">
-                画像から読み取った局面は保存できません。このページのURLがそのまま局面です。
-              </p>
+              <p className="review-status">{t.explore.rootedNoSave}</p>
             </section>
           ) : (
             <Snapshots handicap={handicap} moves={urlMoves} savable={!!active} onLoad={openLine} />

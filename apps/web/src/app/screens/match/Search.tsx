@@ -1,3 +1,4 @@
+import { useT } from '@/i18n';
 import { useQueue } from '@/hooks/useQueue';
 import { useViewer } from '@/hooks/useViewer';
 import { navigate } from '@/routes/router';
@@ -12,6 +13,8 @@ import { navigate } from '@/routes/router';
  * 지키려 두기 시작한다(docs/01-core.md §5).
  */
 export function Search() {
+  const t = useT();
+  const m = t.match.search;
   const { me } = useViewer();
   const { searching, waiting, waitedMs, error, start, stop } = useQueue((roomId) =>
     navigate({ name: 'room', id: roomId }),
@@ -22,38 +25,37 @@ export function Search() {
 
   return (
     <div className="setup__friend">
-      <h3 className="setup__legend">誰かと対局</h3>
+      <h3 className="setup__legend">{m.legend}</h3>
       {me.user === null ? (
-        <p className="setup__caveat">誰かと指すにはログインが必要です。</p>
+        <p className="setup__caveat">{m.signIn}</p>
       ) : (
         <>
           <p className="setup__caveat">
             {/* 정한 것 넷을 누르기 전에 말한다. 적어 두지 않으면 위에서 고른 것이 무시된
                 것으로 읽힌다. */}
-            近い実力の相手を探します。<strong>平手</strong>で、先手・後手はランダムです。持ち時間は一手60秒で、
-            対人戦では口出しもヒントも出ません。
+            {m.rulesBefore}
+            <strong>{m.even}</strong>
+            {m.rulesAfter}
           </p>
 
           {searching ? (
             <>
               <p className="review-status" aria-live="polite">
-                相手を探しています… <strong>{Math.floor(waitedMs / 1000)}秒</strong>
+                {m.searching} <strong>{m.seconds(Math.floor(waitedMs / 1000))}</strong>
               </p>
               <p className="setup__caveat">
                 {/* 「짝이 잡히지 않는 것」과 「고장」을 여기서 가른다. 동시에 기다리는
                     사람이 없으면 잡히지 않는 것을 그대로 받아들이기로 정했고(journal §92),
                     그 사실을 알려 줄 자리가 하나 필요하다. */}
-                {waiting > 1
-                  ? `いま${waiting}人が待っています。待つほど相手の範囲が広がります。`
-                  : 'いま待っているのはあなただけです。相手が来るまでこのままお待ちください。'}
+                {waiting > 1 ? m.othersWaiting(waiting) : m.aloneWaiting}
               </p>
               <button type="button" className="btn setup__guide" onClick={stop}>
-                さがすのをやめる
+                {m.stop}
               </button>
             </>
           ) : (
             <button type="button" className="btn setup__start" onClick={start}>
-              相手をさがす
+              {m.start}
             </button>
           )}
 

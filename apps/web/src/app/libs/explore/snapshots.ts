@@ -1,3 +1,4 @@
+import type { Messages } from '@/i18n';
 import type { ExploreSnapshot, ExploreSnapshotListResponse } from '@/protocol/explore';
 import type { ApiError } from '@/protocol/review';
 
@@ -19,8 +20,6 @@ export class SignedOutError extends Error {}
  */
 export class UnavailableError extends Error {}
 
-const FALLBACK_ERROR = '保存した局面を読み込めませんでした。';
-
 /** 서버가 준 일본어를 그대로 올린다. 문구의 주인이 서버이고, 읽지 못할 때만 우리 것이다. */
 async function reject(res: Response, fallback: string): Promise<never> {
   if (res.status === 401) throw new SignedOutError();
@@ -29,9 +28,9 @@ async function reject(res: Response, fallback: string): Promise<never> {
   throw new Error(err?.message || fallback);
 }
 
-export async function fetchSnapshots(signal: AbortSignal): Promise<ExploreSnapshot[]> {
+export async function fetchSnapshots(signal: AbortSignal, t: Messages): Promise<ExploreSnapshot[]> {
   const res = await fetch('/api/explore/snapshots', { signal });
-  if (!res.ok) return reject(res, FALLBACK_ERROR);
+  if (!res.ok) return reject(res, t.explore.snapshots.loadFailed);
   return ((await res.json()) as ExploreSnapshotListResponse).snapshots;
 }
 
@@ -40,27 +39,32 @@ export async function fetchSnapshots(signal: AbortSignal): Promise<ExploreSnapsh
  *
  * 판을 보내지 않는다. 手合割 id 와 수순이고, 합법성은 서버가 되짚어 확인한다.
  */
-export async function saveSnapshot(name: string, handicap: string, moves: readonly string[]): Promise<ExploreSnapshot> {
+export async function saveSnapshot(
+  name: string,
+  handicap: string,
+  moves: readonly string[],
+  t: Messages,
+): Promise<ExploreSnapshot> {
   const res = await fetch('/api/explore/snapshots', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, handicap, moves }),
   });
-  if (!res.ok) return reject(res, 'この局面を保存できませんでした。');
+  if (!res.ok) return reject(res, t.explore.snapshots.saveFailed);
   return (await res.json()) as ExploreSnapshot;
 }
 
 /** 이름만 고친다. 국면은 그대로이고, 서버도 그 칸만 쓴다. */
-export async function renameSnapshot(id: number, name: string): Promise<void> {
+export async function renameSnapshot(id: number, name: string, t: Messages): Promise<void> {
   const res = await fetch(`/api/explore/snapshots/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   });
-  if (!res.ok) await reject(res, '名前を変更できませんでした。');
+  if (!res.ok) await reject(res, t.explore.snapshots.renameFailed);
 }
 
-export async function deleteSnapshot(id: number): Promise<void> {
+export async function deleteSnapshot(id: number, t: Messages): Promise<void> {
   const res = await fetch(`/api/explore/snapshots/${id}`, { method: 'DELETE' });
-  if (!res.ok) await reject(res, 'この局面を削除できませんでした。');
+  if (!res.ok) await reject(res, t.explore.snapshots.removeFailed);
 }

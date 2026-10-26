@@ -1,10 +1,12 @@
 import { lazy, Suspense, useEffect, useSyncExternalStore } from 'react';
 
 import { useViewer } from '@/hooks/useViewer';
+import { useT } from '@/i18n';
+import { LocaleSwitch } from '@/i18n/LocaleSwitch';
 import { getPlaying, subscribePlaying } from '@/libs/game/playing';
 import { GameScreen } from '@/screens/game/GameScreen';
 import { HomeScreen } from '@/screens/home/HomeScreen';
-import { hrefOf, navigate, useRoute, type Route } from '@/routes/router';
+import { hrefOf, navigate, useRoute } from '@/routes/router';
 
 /**
  * 되짚기는 나중에 받는다.
@@ -46,29 +48,6 @@ const MatchScreen = lazy(async () => ({
   default: (await import('@/screens/match/MatchScreen')).MatchScreen,
 }));
 
-/**
- * 화면마다 다른 제목. 검색 결과에 나가고, 탭을 여러 개 열어 둔 사람이 구분하는 줄이다.
- *
- * `index.html` 의 것과 어휘를 맞춘다. 저쪽이 첫 로드와 크롤러가 보는 값이라, 같은 화면이
- * 두 이름을 가지면 안 된다.
- */
-const TITLE_JA: Record<Route['name'], string> = {
-  // 홈만 「화면 이름 | show-gi」 꼴에서 빠진다. `index.html` 의 `<title>` 이 가리키는 바로
-  // 그 자리다(canonical · OG · sitemap 도 같다).
-  home: 'show-gi — 口を出すときを自分で決める将棋の相手',
-  game: '対局 | show-gi',
-  reviews: '振り返り | show-gi',
-  review: '振り返り | show-gi',
-  quiz: 'クイズ | show-gi',
-  me: 'マイページ | show-gi',
-  guide: 'あそびかた | show-gi',
-  room: '対人戦 | show-gi',
-  explore: '検討 | show-gi',
-  import: '棋譜の取り込み | show-gi',
-  position: '局面の読み取り | show-gi',
-  tsume: '詰将棋を解く | show-gi',
-};
-
 export function App() {
   const route = useRoute();
   const onHome = route.name === 'home';
@@ -76,6 +55,7 @@ export function App() {
   const onMe = route.name === 'me';
   const onGuide = route.name === 'guide';
   const { me, signOut } = useViewer();
+  const t = useT();
 
   /** 두는 중인가. 아래 되돌리기가 이 값 하나에 걸린다. 소유권은 `libs/game/playing.ts`. */
   const playing = useSyncExternalStore(subscribePlaying, getPlaying);
@@ -90,9 +70,10 @@ export function App() {
     if (playing && !onGame) navigate({ name: 'game' }, { replace: true });
   }, [playing, onGame]);
 
+  // 제목은 `index.html` 과 어휘를 맞춘다. 저쪽이 첫 로드와 크롤러가 보는 값이다.
   useEffect(() => {
-    document.title = TITLE_JA[route.name];
-  }, [route.name]);
+    document.title = t.common.title[route.name];
+  }, [route.name, t]);
 
   return (
     <>
@@ -105,7 +86,7 @@ export function App() {
             <a
               className="app-back"
               href={hrefOf({ name: 'home' })}
-              aria-label="メニューにもどる"
+              aria-label={t.common.backToMenu}
               onClick={(e) => {
                 if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
                 e.preventDefault();
@@ -117,6 +98,7 @@ export function App() {
           )}
 
           <BrandMark locked={playing} />
+          <LocaleSwitch />
         </div>
       </header>
 
@@ -138,7 +120,7 @@ export function App() {
 
         {/* 리뷰는 열 때마다 새로 부른다. 방금 끝난 판이 목록 맨 위에 있어야 한다. */}
         {!onGame && !onHome && (
-          <Suspense fallback={<p className="review-status">読み込み中…</p>}>
+          <Suspense fallback={<p className="review-status">{t.common.loading}</p>}>
             {onGuide ? (
               <GuideScreen />
             ) : onMe ? (
@@ -192,6 +174,7 @@ export function App() {
  * 안쪽이 같고 겉이 갈리는 것뿐이라 한 자리에 둔다.
  */
 function BrandMark({ locked }: { locked: boolean }) {
+  const t = useT();
   const inner = (
     <>
       {/* 마크. 파일은 `public/` 에 있다(brand/icons.sh 가 로고 한 장에서 만든다). 번들에
@@ -209,7 +192,7 @@ function BrandMark({ locked }: { locked: boolean }) {
       />
       <span className="app-brand__text">
         <span className="app-title">show-gi</span>
-        <span className="app-tagline">口を出すときを自分で決める将棋の相手</span>
+        <span className="app-tagline">{t.common.tagline}</span>
       </span>
     </>
   );

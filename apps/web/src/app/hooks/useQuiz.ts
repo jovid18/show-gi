@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useT } from '@/i18n';
 import type { ApiError } from '@/protocol/review';
 import type { BestAttempt, BestResult, MateAttempt, MateResult, QuizPayload } from '@/protocol/quiz';
 import { type Source, useFetch } from './useReview';
@@ -150,9 +151,7 @@ export interface Grading<T> {
   error: string | null;
 }
 
-const FALLBACK_ERROR = '採点できませんでした。';
-
-async function postJSON<Req, Res>(path: string, body: Req, signal: AbortSignal): Promise<Res> {
+async function postJSON<Req, Res>(path: string, body: Req, signal: AbortSignal, fallback: string): Promise<Res> {
   const res = await fetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -162,7 +161,7 @@ async function postJSON<Req, Res>(path: string, body: Req, signal: AbortSignal):
   if (!res.ok) {
     // 서버가 이유를 일본어로 준다(quiz.go). 읽지 못할 때만 우리 문구를 쓴다.
     const err = (await res.json().catch(() => null)) as ApiError | null;
-    throw new Error(err?.message || FALLBACK_ERROR);
+    throw new Error(err?.message || fallback);
   }
   return (await res.json()) as Res;
 }
@@ -176,6 +175,8 @@ async function postJSON<Req, Res>(path: string, body: Req, signal: AbortSignal):
 function useGrader<Req, Res>(path: string): [Grading<Res>, (body: Req) => Promise<Res | null>, () => void] {
   const [state, setState] = useState<Grading<Res>>({ result: null, pending: false, error: null });
   const inflight = useRef<AbortController | null>(null);
+  const failed = useRef('');
+  failed.current = useT().quiz.gradeFailed;
 
   useEffect(() => () => inflight.current?.abort(), []);
 
@@ -187,7 +188,7 @@ function useGrader<Req, Res>(path: string): [Grading<Res>, (body: Req) => Promis
       setState((s) => ({ ...s, pending: true, error: null }));
 
       try {
-        const res = await postJSON<Req, Res>(path, body, controller.signal);
+        const res = await postJSON<Req, Res>(path, body, controller.signal, failed.current);
         setState({ result: res, pending: false, error: null });
         return res;
       } catch (err: unknown) {
@@ -198,7 +199,7 @@ function useGrader<Req, Res>(path: string): [Grading<Res>, (body: Req) => Promis
         setState((prev) => ({
           ...prev,
           pending: false,
-          error: err instanceof Error ? err.message : FALLBACK_ERROR,
+          error: err instanceof Error ? err.message : failed.current,
         }));
         return null;
       }

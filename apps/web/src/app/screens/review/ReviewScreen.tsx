@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 
 import { ReviewDetail } from './ReviewDetail';
-import { dateJa, resultJa } from '@/libs/review/labels';
+import { useLocale, useT } from '@/i18n';
+import { dateText, resultLabel } from '@/libs/review/labels';
 import { hrefOf, navigate, type Route } from '@/routes/router';
 import type { GameSummary } from '@/protocol/review';
 import { useGameDetail, useGameList } from '@/hooks/useReview';
@@ -23,29 +24,30 @@ export function ReviewScreen({ route }: { route: Route }) {
 }
 
 function GameList() {
+  const t = useT();
   const { loaded, reload } = useGameList();
 
   if (loaded.state === 'loading') {
-    return <p className="review-status">読み込み中…</p>;
+    return <p className="review-status">{t.common.loading}</p>;
   }
   if (loaded.state === 'error') {
     return (
       <p className="review-status" role="alert">
         {loaded.message}
         <button type="button" className="review-retry" onClick={reload}>
-          もう一度
+          {t.review.retry}
         </button>
       </p>
     );
   }
   // 한 수도 두지 않은 판은 서버가 이미 걸렀다(review.go). 여기가 비면 정말로 없는 것이다.
   if (loaded.data.length === 0) {
-    return <p className="review-status">まだ対局の記録がありません。一局指してみてください。</p>;
+    return <p className="review-status">{t.review.list.empty}</p>;
   }
 
   return (
-    <section className="review-list" aria-label="対局一覧">
-      <h2 className="panel-title">対局一覧</h2>
+    <section className="review-list" aria-label={t.review.list.title}>
+      <h2 className="panel-title">{t.review.list.title}</h2>
       <ul>
         {loaded.data.map((game) => (
           <li key={game.id}>
@@ -69,6 +71,8 @@ function GameList() {
 }
 
 function GameCard({ game }: { game: GameSummary }) {
+  const t = useT();
+  const locale = useLocale();
   return (
     <>
       {/* 날짜와 手合割이 첫 칸을 같이 쓴다. 뒤 세 칸은 폭이 고정된 숫자 칸이고 手合割은
@@ -76,22 +80,22 @@ function GameCard({ game }: { game: GameSummary }) {
           `.review-card`). */}
       <span className="review-card-when">
         <time className="review-card-date" dateTime={game.startedAt}>
-          {dateJa(game.startedAt)}
+          {dateText(game.startedAt, locale)}
         </time>
         {game.handicapJa !== undefined && <span className="review-card-handicap">{game.handicapJa}</span>}
         {/* 가져온 판은 그렇다고 말한다. 여기서 둔 판과 같은 목록에 서므로, 적지 않으면
             「언제 이런 판을 뒀지」가 된다(journal §126). 첫 칸에 붙는 것은 手合割과 같다. */}
-        {game.imported === true && <span className="review-card-source">取り込み</span>}
+        {game.imported === true && <span className="review-card-source">{t.review.list.imported}</span>}
       </span>
       <span className="review-card-result" data-result={game.result}>
-        {resultJa(game.result)}
+        {resultLabel(game.result, t)}
       </span>
-      <span className="review-card-moves">{game.moveCount}手</span>
+      <span className="review-card-moves">{t.review.list.moves(game.moveCount)}</span>
       {/* 대인전은 개입 횟수 자리에 「対人」이 온다. 거기에 「介入 0回」를 적으면 「한 번도
           걸리지 않은 잘 둔 판」으로 읽히는데, 사실은 재지 않은 것이다(journal §83). */}
       {game.isMatch === true ? (
         <span className="review-card-iv" data-match>
-          対人
+          {t.review.list.match}
         </span>
       ) : (
         // 0회도 적는다. 빈 자리로 두면 셌는지조차 보이지 않는다.
@@ -99,12 +103,14 @@ function GameCard({ game }: { game: GameSummary }) {
         // 가져온 판은 「悪手」다. 누구도 막지 않았으므로 「介入」이라고 적으면 없던 일을 있었다고
         // 말하는 것이 된다(journal §126).
         <span className="review-card-iv" data-none={game.interventionCount === 0 || undefined}>
-          {game.imported === true ? '悪手' : '介入'} {game.interventionCount}回
+          {game.imported === true
+            ? t.review.list.blunders(game.interventionCount)
+            : t.review.list.interventions(game.interventionCount)}
         </span>
       )}
       {/* 없으면 「—」다. 빈칸으로 두면 칸이 어긋나고, 0%로 두면 모든 수가 悪手였다는 뜻이 된다. */}
       <span className="review-card-acc" data-none={game.accuracy === undefined || undefined}>
-        精度 {game.accuracy === undefined ? '—' : `${game.accuracy}%`}
+        {t.review.list.accuracy(game.accuracy === undefined ? '—' : `${game.accuracy}%`)}
       </span>
     </>
   );
@@ -117,6 +123,7 @@ const analysisPollMs = 5000;
 const toList = (): void => navigate({ name: 'reviews' });
 
 function SelectedGame({ id, initialPly }: { id: number; initialPly?: number | undefined }) {
+  const t = useT();
   const { loaded, reload } = useGameDetail(id);
 
   // 분석 중일 때만 다시 묻는다. 대인전의 평가치는 판이 끝난 뒤에 채워지므로(서버의
@@ -129,17 +136,17 @@ function SelectedGame({ id, initialPly }: { id: number; initialPly?: number | un
   }, [analyzing, reload]);
 
   if (loaded.state === 'loading') {
-    return <p className="review-status">読み込み中…</p>;
+    return <p className="review-status">{t.common.loading}</p>;
   }
   if (loaded.state === 'error') {
     return (
       <p className="review-status" role="alert">
         {loaded.message}
         <button type="button" className="review-retry" onClick={reload}>
-          もう一度
+          {t.review.retry}
         </button>
         <button type="button" className="review-retry" onClick={toList}>
-          対局一覧へ
+          {t.review.list.toList}
         </button>
       </p>
     );

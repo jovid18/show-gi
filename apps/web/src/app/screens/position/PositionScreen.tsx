@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } fro
 
 import { PositionEditor } from './PositionEditor';
 import { TsumeTree } from './TsumeTree';
+import { useT } from '@/i18n';
 import { SIGN_IN_PATH, type MeResponse } from '@/protocol/auth';
 import {
   IMAGE_ACCEPT,
@@ -44,23 +45,20 @@ export function PositionScreen({ me, mode = 'explore' }: { me: MeResponse; mode?
 
 type Mode = 'explore' | 'tsume';
 
-const TITLE: Record<Mode, string> = { explore: '局面を読み取る', tsume: '詰将棋を解く' };
-
 function SignInFirst({ enabled, mode }: { enabled: boolean; mode: Mode }) {
+  const p = useT().position;
   return (
     <section className="import">
-      <h1 className="import__title">{TITLE[mode]}</h1>
+      <h1 className="import__title">{p.title[mode]}</h1>
       <p className="import__lead">
-        {mode === 'tsume'
-          ? '詰将棋が写った画像を上げると、その局面を読み取って詰み手順を調べます。'
-          : '将棋盤が写った画像を上げると、その局面を読み取って形勢と最善手を調べます。'}
+        {mode === 'tsume' ? p.signIn.leadTsume : p.signIn.leadExplore}
         <br />
-        画像の読み取りには回数の上限があるため、ログインが必要です。
+        {p.signIn.quota}
       </p>
       {enabled && (
         <p className="profile__signin">
           <a className="btn btn--primary" href={SIGN_IN_PATH}>
-            ログイン
+            {p.signIn.button}
           </a>
         </p>
       )}
@@ -69,6 +67,11 @@ function SignInFirst({ enabled, mode }: { enabled: boolean; mode: Mode }) {
 }
 
 function PositionForm({ mode }: { mode: Mode }) {
+  const p = useT().position;
+  const form = p.form;
+  /** 요청 함수에 넘기는 실패 문구. 판 검사 effect 가 언어 때문에 다시 돌지 않게 ref 로 본다. */
+  const errors = useRef(p.errors);
+  errors.current = p.errors;
   /** 올린 그림. data URL 그대로 갖고 있다 — `<img src>` 와 요청 본문이 같은 값이다. */
   const [image, setImage] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
@@ -107,7 +110,7 @@ function PositionForm({ mode }: { mode: Mode }) {
     if (sfen === '') return;
     const mine = ++checkID.current;
     const controller = new AbortController();
-    void checkPosition(sfen, controller.signal, mode === 'tsume')
+    void checkPosition(sfen, errors.current, controller.signal, mode === 'tsume')
       .then((res) => {
         if (mine !== checkID.current) return;
         setFaults(res.faults);
@@ -132,7 +135,7 @@ function PositionForm({ mode }: { mode: Mode }) {
       setError(null);
       setReading(true);
       try {
-        const res = await readPosition(dataURL);
+        const res = await readPosition(dataURL, errors.current);
         const got = parseSfen(res.sfen);
         // 詰め将棋는 언제나 아래쪽(사람)이 둘 차례다. 판독이 정한 手番을 쓰지 않는다.
         setBoard(mode === 'tsume' ? { ...got, turn: 'black' } : got);
@@ -144,7 +147,7 @@ function PositionForm({ mode }: { mode: Mode }) {
           setCheckedSfen(res.sfen);
         }
       } catch (e) {
-        setError(e instanceof PositionError ? e.message : '画像から局面を読み取れませんでした。');
+        setError(e instanceof PositionError ? e.message : errors.current.readImage);
       } finally {
         setReading(false);
       }
@@ -155,8 +158,8 @@ function PositionForm({ mode }: { mode: Mode }) {
   /** 붙여 넣은 글자. 읽은 판은 그림에서 읽은 판과 같은 자리(`board`)로 간다. */
   const [text, setText] = useState('');
   const readText = async (): Promise<void> => {
-    const t = text.trim();
-    if (t === '') return;
+    const typed = text.trim();
+    if (typed === '') return;
     setImage(null);
     setBoard(null);
     setFaults([]);
@@ -165,11 +168,11 @@ function PositionForm({ mode }: { mode: Mode }) {
     setImageId(null);
     setError(null);
     try {
-      const res = await readPositionText(t, null, mode === 'tsume');
+      const res = await readPositionText(typed, p.errors, null, mode === 'tsume');
       // 사유는 위 effect 의 검사를 기다린다. 판을 그리는 것이 먼저다.
       setBoard(parseSfen(res.sfen));
     } catch (e) {
-      setError(e instanceof PositionError ? e.message : '局面を読み取れませんでした。');
+      setError(e instanceof PositionError ? e.message : p.errors.readText);
     }
   };
 
@@ -178,9 +181,9 @@ function PositionForm({ mode }: { mode: Mode }) {
       if (!file) return;
       setError(null);
       try {
-        await read(await readImageFile(file));
+        await read(await readImageFile(file, errors.current));
       } catch (e) {
-        setError(e instanceof PositionError ? e.message : '画像を読み込めませんでした。');
+        setError(e instanceof PositionError ? e.message : errors.current.loadImage);
       }
     },
     [read],
@@ -247,9 +250,9 @@ function PositionForm({ mode }: { mode: Mode }) {
     setSolving(true);
     setSolveError(null);
     try {
-      setTsume({ sfen, res: await solveTsume(sfen) });
+      setTsume({ sfen, res: await solveTsume(sfen, p.errors.solve) });
     } catch (e) {
-      setSolveError(e instanceof TsumeError ? e.message : '詰みを調べられませんでした。');
+      setSolveError(e instanceof TsumeError ? e.message : p.errors.solve);
     } finally {
       setSolving(false);
     }
@@ -279,22 +282,20 @@ function PositionForm({ mode }: { mode: Mode }) {
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
-      <h1 className="import__title">{TITLE[mode]}</h1>
+      <h1 className="import__title">{p.title[mode]}</h1>
       <p className="import__lead">
-        {mode === 'tsume'
-          ? '詰将棋の画像を上げるか、局面を文字で入力してください。局面をあなたが確かめてから、王手の連続で詰む手順を調べます。'
-          : '将棋盤が写った画像を上げてください。読み取った局面をあなたが確かめてから、形勢と最善手を調べます。'}
+        {mode === 'tsume' ? form.leadTsume : form.leadExplore}
         <br />
         {/* 판이 화면의 절반인 방송 캡처가 크게 틀렸다(journal §129). 자르면 나아지는지는
             아직 재지 않았고, 사람에게 시키는 값이 작아서 먼저 권한다. */}
-        盤のまわりを切り取って、盤と駒台だけが写るようにすると読み取りやすくなります。
+        {form.cropHint}
         <br />
-        画像は解析のあと保存されません。
+        {form.notStored}
       </p>
 
       <div className="import__row">
         <label className="import__button">
-          画像を選ぶ
+          {form.pickImage}
           <input
             className="import__file"
             type="file"
@@ -302,15 +303,13 @@ function PositionForm({ mode }: { mode: Mode }) {
             onChange={(e) => void take(e.target.files?.[0])}
           />
         </label>
-        <span className="import__filename">
-          スクリーンショットをそのまま貼り付け（⌘V）ても、ここにドラッグしてもかまいません。
-        </span>
+        <span className="import__filename">{form.pasteHint}</span>
       </div>
 
       {mode === 'tsume' && (
         <>
           <label className="import__label" htmlFor="position-text">
-            文字で入力する（SFEN・USI・KIF）
+            {form.textLabel}
           </label>
           <textarea
             id="position-text"
@@ -328,14 +327,14 @@ function PositionForm({ mode }: { mode: Mode }) {
               disabled={text.trim() === ''}
               onClick={() => void readText()}
             >
-              この局面を使う
+              {form.useText}
             </button>
           </div>
         </>
       )}
 
       {error !== null && <p className="position__error">{error}</p>}
-      {reading && <p className="review-status">画像から局面を読み取っています…</p>}
+      {reading && <p className="review-status">{form.reading}</p>}
 
       {board !== null && (
         <>
@@ -344,14 +343,15 @@ function PositionForm({ mode }: { mode: Mode }) {
                 걸음 자체가 성립하지 않는다(journal §129). */}
             {image !== null && (
               <figure className="position__shot">
-                <img src={image} alt="上げた画像" />
-                <figcaption>上げた画像</figcaption>
+                <img src={image} alt={form.uploaded} />
+                <figcaption>{form.uploaded}</figcaption>
               </figure>
             )}
             <div className="position__read">
-              <h2 className="position__subtitle">読み取った局面</h2>
+              <h2 className="position__subtitle">{form.readTitle}</h2>
               <p className="import__label">
-                ちがうマスを押すと駒を直せます。{image !== null ? '下があなたの側です。' : '下が先手です。'}
+                {form.fixHint}
+                {image !== null ? form.nearIsYou : form.nearIsBlack}
               </p>
               <PositionEditor board={board} faults={faultSquares} onChange={setBoard} />
             </div>
@@ -360,20 +360,18 @@ function PositionForm({ mode }: { mode: Mode }) {
           {/* 手番. 사진이 말해 주지 않는 유일한 값이라 반드시 사람이 고른다. 詰め将棋는 묻지 않는다. */}
           {mode === 'tsume' ? (
             <p className="import__label">
-              {image !== null
-                ? '下のあなたが攻め方で、次に指します。持ち駒は駒台に写っているものだけを使います。'
-                : `${board.turn === 'black' ? '下の先手' : '上の後手'}が攻め方で、次に指します。持ち駒は入力したものだけを使います。`}
+              {image !== null ? form.tsumeAttackerImage : form.tsumeAttackerText(board.turn === 'black')}
             </p>
           ) : (
             <fieldset className="position__turn">
-              <legend className="import__label">この画像は、どちらの手番ですか</legend>
+              <legend className="import__label">{form.turnLegend}</legend>
               <label>
                 <input type="radio" name="turn" checked={board.turn === 'black'} onChange={() => setTurn('black')} />
-                あなたの手番
+                {form.yourTurn}
               </label>
               <label>
                 <input type="radio" name="turn" checked={board.turn === 'white'} onChange={() => setTurn('white')} />
-                相手の手番
+                {form.theirTurn}
               </label>
             </fieldset>
           )}
@@ -393,16 +391,12 @@ function PositionForm({ mode }: { mode: Mode }) {
 
           <div className="import__row">
             <button type="button" className="btn btn--primary" disabled={!analyzable || solving} onClick={analyze}>
-              {mode === 'tsume' ? '詰みを調べる' : 'この局面を解析する'}
+              {mode === 'tsume' ? form.solve : form.analyze}
             </button>
             {!analyzable && (
-              <span className="import__filename">
-                {checkedSfen === sfen ? '局面を直すと解析できます。' : '局面を確かめています…'}
-              </span>
+              <span className="import__filename">{checkedSfen === sfen ? form.fixToAnalyze : form.checking}</span>
             )}
-            {solving && (
-              <span className="import__filename">詰みを調べています。長い詰みは数分かかることがあります…</span>
-            )}
+            {solving && <span className="import__filename">{form.solving}</span>}
           </div>
 
           {solveError !== null && <p className="position__error">{solveError}</p>}

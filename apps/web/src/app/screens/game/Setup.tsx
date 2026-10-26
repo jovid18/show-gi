@@ -9,6 +9,7 @@ import { fetchOpenings, type Opening } from '@/protocol/openings';
 import { ROUTE_GUIDE } from '@/routes/const';
 import { navigate } from '@/routes/router';
 import { Search } from '@/screens/match/Search';
+import { useT, type Messages } from '@/i18n';
 
 /**
  * 대국을 시작하기 전에 고르는 화면.
@@ -24,16 +25,17 @@ import { Search } from '@/screens/match/Search';
  * 그 규칙을 되비추기만 한다.
  */
 
-const COLORS: { value: Color; label: string; note: string }[] = [
-  { value: 'b', label: '先手', note: '自分から先に指します' },
-  { value: 'w', label: '後手', note: '相手の出方を見てから指します' },
-];
+function colorsOf(t: Messages['game']): { value: Color; label: string; note: string }[] {
+  return [
+    { value: 'b', label: t.side.b, note: t.setup.colorNote.b },
+    { value: 'w', label: t.side.w, note: t.setup.colorNote.w },
+  ];
+}
 
 /** 사람과 둘 때의 手番. 상대가 사람이면 振り駒가 원래 정하는 법이라 그것이 하나 더 있다. */
-const SEATS: { value: SeatChoice; label: string; note: string }[] = [
-  { value: 'r', label: '振り駒', note: '部屋をつくったときに決まります' },
-  ...COLORS,
-];
+function seatsOf(t: Messages['game']): { value: SeatChoice; label: string; note: string }[] {
+  return [{ value: 'r', label: t.setup.furigoma.name, note: t.setup.furigoma.note }, ...colorsOf(t)];
+}
 
 interface SetupProps {
   /** 지난 판의 설정. 매번 처음부터 고르게 하면 「もう一局」이 두 번 더 눌러야 하는 일이 된다. */
@@ -42,6 +44,7 @@ interface SetupProps {
 }
 
 export function Setup({ initial, onStart }: SetupProps) {
+  const t = useT().game;
   const [color, setColor] = useState<Color>(initial?.color ?? 'b');
   const [opening, setOpening] = useState<string | null>(initial?.opening ?? null);
   const [openings, setOpenings] = useState<Opening[]>([]);
@@ -59,10 +62,10 @@ export function Setup({ initial, onStart }: SetupProps) {
 
   return (
     <div className="setup">
-      <h2 className="setup__head">対局のじゅんび</h2>
+      <h2 className="setup__head">{t.setup.head}</h2>
 
       <fieldset className="setup__group">
-        <legend className="setup__legend">手合割</legend>
+        <legend className="setup__legend">{t.handicap}</legend>
         {/* `--wrap` 대신 `--handicap` 이다. 저쪽은 첫 칸을 전폭으로 빼는 것이
             전제라(index.css) 여기서 쓰면 여덟 중 하나가 마지막 줄에 혼자 남는다. */}
         <div className="setup__choices setup__choices--handicap">
@@ -76,8 +79,8 @@ export function Setup({ initial, onStart }: SetupProps) {
             aria-pressed={handicap === null}
             onClick={() => setHandicap(null)}
           >
-            <span className="setup__choice-name">平手</span>
-            <span className="setup__choice-note">駒を落とさずに指します</span>
+            <span className="setup__choice-name">{t.setup.hirate.name}</span>
+            <span className="setup__choice-note">{t.setup.hirate.note}</span>
           </button>
 
           {handicaps.map((h) => (
@@ -98,9 +101,7 @@ export function Setup({ initial, onStart }: SetupProps) {
         {handicap !== null && (
           /* 아래 둘이 사라지는 이유를 화면이 먼저 말한다. 적어 두지 않으면 방금 고른
              手番이 없어진 것이 고장으로 읽힌다. */
-          <p className="setup__caveat">
-            駒落ちでは、あなたが下手です。駒を落とした上手（相手）から先に指すので、最初の一手は相手が指します。戦型は選べません。
-          </p>
+          <p className="setup__caveat">{t.setup.handicapCaveat}</p>
         )}
       </fieldset>
 
@@ -123,7 +124,7 @@ export function Setup({ initial, onStart }: SetupProps) {
           onStart(handicap === null ? { color, opening, handicap: null } : { color: 'b', opening: null, handicap })
         }
       >
-        対局をはじめる
+        {t.setup.start}
       </button>
 
       {/* 상대가 사람인 갈래는 여기서 갈린다. 위에서 고른 것을 하나도 쓰지 않는다. 手番은
@@ -149,7 +150,7 @@ export function Setup({ initial, onStart }: SetupProps) {
           navigate({ name: 'guide' });
         }}
       >
-        はじめての方へ — このアプリの遊びかた
+        {t.setup.guide}
       </a>
     </div>
   );
@@ -174,12 +175,13 @@ function HirateChoices({
   setOpening: (id: string | null) => void;
   openings: Opening[];
 }) {
+  const t = useT().game;
   return (
     <>
       <fieldset className="setup__group">
-        <legend className="setup__legend">あなたの手番</legend>
+        <legend className="setup__legend">{t.setup.yourSide}</legend>
         <div className="setup__choices">
-          {COLORS.map((c) => (
+          {colorsOf(t).map((c) => (
             <button
               key={c.value}
               type="button"
@@ -196,7 +198,7 @@ function HirateChoices({
       </fieldset>
 
       <fieldset className="setup__group">
-        <legend className="setup__legend">相手の戦型</legend>
+        <legend className="setup__legend">{t.opponentOpening}</legend>
         <div className="setup__choices setup__choices--wrap">
           {/* 「おまかせ」가 기본이다. 이름을 모르는 사람이 첫 화면에서 고민하게 만들지
               않는다 — 골라 보고 싶은 사람만 아래에서 고른다. */}
@@ -207,8 +209,8 @@ function HirateChoices({
             aria-pressed={opening === null}
             onClick={() => setOpening(null)}
           >
-            <span className="setup__choice-name">おまかせ</span>
-            <span className="setup__choice-note">相手が自由に指します</span>
+            <span className="setup__choice-name">{t.omakase}</span>
+            <span className="setup__choice-note">{t.setup.omakaseNote}</span>
           </button>
 
           {openings.map((o) => (
@@ -233,7 +235,7 @@ function HirateChoices({
       <p className="setup__caveat">
         {/* 진형은 초반뿐이라고 화면이 먼저 말한다. 적어 두지 않으면 상대가 진형을 벗어나는
             순간이 고장으로 읽힌다 — 손을 놓는 조건은 book_opponent.go 에 있다. */}
-        戦型を選ぶと、相手は序盤だけその形に組みます。駒がぶつかってからは自分で考えます。
+        {t.setup.openingCaveat}
       </p>
     </>
   );
@@ -251,6 +253,8 @@ function HirateChoices({
  * 엔진 대국으로도 새어 나간다.
  */
 function FriendMatch() {
+  const messages = useT();
+  const t = messages.game;
   const { me } = useViewer();
   const [seat, setSeat] = useState<SeatChoice>('r');
   const [busy, setBusy] = useState(false);
@@ -262,21 +266,20 @@ function FriendMatch() {
 
   return (
     <div className="setup__friend">
-      <h3 className="setup__legend">友だちと対局</h3>
+      <h3 className="setup__legend">{t.setup.friend.head}</h3>
       {me.user === null ? (
-        <p className="setup__caveat">友だちと指すにはログインが必要です。</p>
+        <p className="setup__caveat">{t.setup.friend.needLogin}</p>
       ) : (
         <>
           <p className="setup__caveat">
             {/* 정한 것 셋을 누르기 전에 말한다. 시계는 판을 지게 만들 수 있고,
                 개입이 없는 것은 이 앱을 개입으로 알고 온 사람에게 고장으로 읽힌다. */}
-            部屋をつくるとリンクが出ます。それを送った相手が開くと対局がはじまります。持ち時間は一手60秒で、
-            対人戦では口出しもヒントも出ません。
+            {t.setup.friend.caveat}
           </p>
           <fieldset className="setup__group">
-            <legend className="setup__legend">あなたの手番</legend>
+            <legend className="setup__legend">{t.setup.yourSide}</legend>
             <div className="setup__choices setup__choices--seat">
-              {SEATS.map((s) => (
+              {seatsOf(t).map((s) => (
                 <button
                   key={s.value}
                   type="button"
@@ -301,13 +304,13 @@ function FriendMatch() {
               const ac = new AbortController();
               // 성공해도 되돌린다. 이 화면은 방으로 옮겨 가도 `App` 이 `hidden` 으로만
               // 감추므로, 여기서 되돌리지 않으면 돌아왔을 때 버튼이 영영 눌리지 않는다.
-              void createRoom(seat, ac.signal)
+              void createRoom(seat, ac.signal, messages.match.errors)
                 .then((room) => navigate({ name: 'room', id: room.id }))
                 .catch((e: Error) => setError(e.message))
                 .finally(() => setBusy(false));
             }}
           >
-            {busy ? '部屋をつくっています…' : '対局部屋をつくる'}
+            {busy ? t.setup.friend.creating : t.setup.friend.create}
           </button>
           {error !== null && (
             <p className="rejection" role="alert">
@@ -321,12 +324,13 @@ function FriendMatch() {
 }
 
 function SourceLink({ openings, id }: { openings: Opening[]; id: string }) {
+  const t = useT().game;
   const found = openings.find((o) => o.id === id);
   if (!found) return null;
   return (
     <p className="setup__source">
       <a href={found.source} target="_blank" rel="noreferrer noopener">
-        {found.name}について
+        {t.setup.sourceOf(found.name)}
       </a>
     </p>
   );

@@ -10,7 +10,8 @@ import { EvalGraph } from './EvalGraph';
 import { MoveOptions } from './MoveOptions';
 import { WhatIfPanel } from './WhatIfPanel';
 import { groupByOrigin, squaresOf, toUsiMove, type Destination } from '@/libs/game/moves';
-import { dateJa, resultJa } from '@/libs/review/labels';
+import { useLocale, useT } from '@/i18n';
+import { dateText, resultLabel } from '@/libs/review/labels';
 import { hrefOf, navigate } from '@/routes/router';
 import type { GameDetail, ReviewMove } from '@/protocol/review';
 import type { WhatIfNode } from '@/protocol/whatif';
@@ -20,7 +21,7 @@ import { useEngineReady, useGameSummary } from '@/hooks/useReview';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
 import type { Side } from '@/models/piece';
 import type { Motion } from '@/models/square';
-import { branchMotion, scoreJa, stepMotion } from '@/libs/whatif/branch';
+import { branchMotion, scoreText, stepMotion } from '@/libs/whatif/branch';
 import { httpSend } from '@/libs/whatif/http';
 import { useWhatIf } from '@/hooks/useWhatIf';
 import { useMoveEvals } from '@/hooks/useMoveEvals';
@@ -76,6 +77,8 @@ function pairRows(moves: readonly ReviewMove[]): (ReviewMove | null)[][] {
 }
 
 export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
+  const t = useT();
+  const locale = useLocale();
   /**
    * 지금 보고 있는 手数. 0이면 시작 국면이다.
    *
@@ -116,7 +119,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
     if (wasAnalyzing.current && !analyzing) reloadSummary();
     wasAnalyzing.current = analyzing;
   }, [analyzing, reloadSummary]);
-  const whatif = useWhatIf(httpSend(game.id), game.id);
+  const whatif = useWhatIf(httpSend(game.id, t.review.whatif.failed), game.id);
   const { node, pending, branching, at, play, back, toRoot, clear } = whatif;
 
   /**
@@ -402,9 +405,9 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
    * 수의 이름이 남의 판 위에 떠 있게 된다.
    */
   const jumpLabel = useMemo(() => {
-    const here = ply === 0 ? '開始局面' : `${ply} ${game.moves[ply - 1]?.ja ?? ''}`.trim();
-    return branching ? `${here} · もしも` : here;
-  }, [ply, game.moves, branching]);
+    const here = ply === 0 ? t.review.detail.start : `${ply} ${game.moves[ply - 1]?.ja ?? ''}`.trim();
+    return branching ? `${here} · ${t.review.detail.branchSuffix}` : here;
+  }, [ply, game.moves, branching, t]);
 
   /**
    * 駒台 하나를 그린다. 부르는 쪽이 자리를 보고 색을 정한다. 색으로 박아 두면 판이 뒤집혀도
@@ -413,7 +416,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
   const hand = (side: Side): ReactElement => (
     <Hand
       side={side}
-      label={side === me ? 'あなた' : '相手'}
+      label={side === me ? t.review.you : t.review.opponent}
       pieces={board?.hands[side] ?? {}}
       selected={handSide === side && origin?.endsWith('*') ? origin : null}
       playable={handSide === side ? droppable : new Set()}
@@ -427,7 +430,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
     <div className="game review" data-flipped={flipped || undefined}>
       <div className="game-board">
         {/* 평가치 궤적이 곧 이동 장치다. 빨간 점이 물러진 수가 있던 자리다(EvalGraph). */}
-        <section className="review-panel review-graph-panel" aria-label="評価値">
+        <section className="review-panel review-graph-panel" aria-label={t.review.detail.evalLabel}>
           <EvalGraph game={game} ply={ply} whatif={whatif} onPick={onGraphPick} />
         </section>
 
@@ -435,7 +438,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
             동안 그 사실이 남지 않는다. */}
         {branching && (
           <p className="review-branch-badge" role="status">
-            もしもの局面
+            {t.review.detail.branchBadge}
           </p>
         )}
 
@@ -443,7 +446,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
             보나」라, 아래 바에 넣지 않고 판에 붙여 둔다. */}
         <div className="review-board-controls">
           <button type="button" className="review-flip" aria-pressed={flipped} onClick={() => setFlipped((f) => !f)}>
-            盤を反転
+            {t.review.detail.flip}
           </button>
         </div>
 
@@ -477,7 +480,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
             onSquare={onSquare}
           />
         ) : (
-          <p className="review-broken">この手からは局面を再現できません。</p>
+          <p className="review-broken">{t.review.detail.broken}</p>
         )}
 
         {hand(flipped ? 'white' : 'black')}
@@ -486,17 +489,22 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
 
             제목 줄을 두지 않는다. `棋譜 167手` 는 숫자 하나로 한 줄을 쓰고, 그 숫자는 아래
             칸의 빈 자리에 들어간다. 화면 낭독기는 `aria-label` 을 읽는다. */}
-        <section className="review-panel review-transport" aria-label="棋譜">
+        <section className="review-panel review-transport" aria-label={t.review.detail.kifu}>
           <div className="review-transport-row">
             <div className="review-buttons">
-              <button type="button" onClick={() => goto(0)} disabled={ply === 0 && !branching} aria-label="開始局面">
+              <button
+                type="button"
+                onClick={() => goto(0)}
+                disabled={ply === 0 && !branching}
+                aria-label={t.review.detail.start}
+              >
                 ⏮
               </button>
               <button
                 type="button"
                 onClick={() => goto(ply - 1)}
                 disabled={ply === 0 && !branching}
-                aria-label="一手戻る"
+                aria-label={t.review.detail.prev}
               >
                 ◀
               </button>
@@ -504,7 +512,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
                 type="button"
                 onClick={() => goto(ply + 1)}
                 disabled={ply === last && !branching}
-                aria-label="一手進む"
+                aria-label={t.review.detail.next}
               >
                 ▶
               </button>
@@ -512,7 +520,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
                 type="button"
                 onClick={() => goto(last)}
                 disabled={ply === last && !branching}
-                aria-label="最終局面"
+                aria-label={t.review.detail.end}
               >
                 ⏭
               </button>
@@ -548,7 +556,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
                   onClick={() => jumpTo(0)}
                 >
                   <span className="review-kifu-number">0</span>
-                  <span className="review-kifu-move">開始局面</span>
+                  <span className="review-kifu-move">{t.review.detail.start}</span>
                 </button>
               </li>
               {rows.map((pair, i) => (
@@ -571,14 +579,19 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
                         가져온 판에서는 「悪手」다. 그 수가 기보에 그대로 남아 있어서 「介入」
                         이라고 적으면 없던 일을 있었다고 말하게 된다(journal §126). */}
                         {stopped.has(move.ply) && (
-                          <span className="review-kifu-mark" aria-label={game.imported === true ? '悪手' : '介入あり'}>
-                            {game.imported === true ? '悪手' : '介入'}
+                          <span
+                            className="review-kifu-mark"
+                            aria-label={
+                              game.imported === true ? t.review.detail.blunder : t.review.detail.interventionLabel
+                            }
+                          >
+                            {game.imported === true ? t.review.detail.blunder : t.review.detail.intervention}
                           </span>
                         )}
                         {/* 그래프의 파란 점과 같은 手다. */}
                         {move.good === true && (
-                          <span className="review-kifu-mark" data-kind="good" aria-label="好手">
-                            好手
+                          <span className="review-kifu-mark" data-kind="good" aria-label={t.review.detail.good}>
+                            {t.review.detail.good}
                           </span>
                         )}
                         {/* 詰み은 cp 로 말하지 않는다. 뜻이 있는 말이 手数 하나뿐이고, 서버가
@@ -588,7 +601,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
                             className="review-kifu-eval"
                             data-sign={(move.mateIn ?? move.evalCp ?? 0) >= 0 ? 'plus' : 'minus'}
                           >
-                            {scoreJa(move.evalCp, move.mateIn)}
+                            {scoreText(move.evalCp, move.mateIn, t)}
                           </span>
                         )}
                       </button>
@@ -607,12 +620,12 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
       <aside className="game-side">
         <div className="review-head">
           <button type="button" className="review-back" onClick={onBack}>
-            ← 対局一覧
+            {t.review.detail.back}
           </button>
           <p className="review-meta">
-            <time dateTime={game.startedAt}>{dateJa(game.startedAt)}</time>
+            <time dateTime={game.startedAt}>{dateText(game.startedAt, locale)}</time>
             <span className="review-result" data-result={game.result}>
-              {resultJa(game.result)}
+              {resultLabel(game.result, t)}
             </span>
             {/* 手合割은 형세 그래프의 전제다. 이 딱지가 없으면 +2000에서 시작하는 곡선을
                 되짚는 사람이 자기 실력으로 읽는다(`GameSummary.handicapJa`). */}
@@ -642,7 +655,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
               navigate({ name: 'quiz', id: game.id });
             }}
           >
-            この対局から出た問題を解く
+            {t.review.detail.quizLink}
           </a>
         )}
 

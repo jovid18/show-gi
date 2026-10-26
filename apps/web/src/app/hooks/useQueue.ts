@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useT } from '@/i18n';
 import { leaveQueue, pollQueue, type QueueStatus } from '@/protocol/queue';
 
 /** 대기열에 서 있는 동안 다시 물어보는 주기. 서버가 걷어가는 시한보다 넉넉히 짧아야 한다. */
@@ -42,6 +43,11 @@ export function useQueue(onMatched: (roomId: string) => void): QueueState {
   const matched = useRef(onMatched);
   matched.current = onMatched;
 
+  // 실패 문구도 ref 로 본다. 언어가 바뀐다고 폴링을 다시 걸면 대기열에서 나갔다 다시 선다.
+  const messages = useT().match.errors;
+  const errors = useRef(messages);
+  errors.current = messages;
+
   useEffect(() => {
     if (!searching) return;
 
@@ -51,7 +57,7 @@ export function useQueue(onMatched: (roomId: string) => void): QueueState {
     let current = true;
 
     const ask = (): void => {
-      void pollQueue(ac.signal)
+      void pollQueue(ac.signal, errors.current)
         .then((status: QueueStatus) => {
           if (!current) return;
           if (status.status === 'matched') {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { Loaded } from '@/hooks/useReview';
+import { useT } from '@/i18n';
 import {
   deleteSnapshot,
   fetchSnapshots,
@@ -51,6 +52,10 @@ export function useExploreSnapshots(): SnapshotSource {
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
+  // 실패 문구만 읽는다. 의존성에 넣으면 언어를 바꿀 때 목록을 다시 묻는다.
+  const t = useT();
+  const tRef = useRef(t);
+  tRef.current = t;
 
   /** 떠난 뒤에 온 답으로 상태를 고치지 않는다. 고치기 셋은 취소를 걸지 않는다. */
   const alive = useRef(true);
@@ -65,7 +70,7 @@ export function useExploreSnapshots(): SnapshotSource {
     const controller = new AbortController();
     setLoaded({ state: 'loading' });
 
-    fetchSnapshots(controller.signal)
+    fetchSnapshots(controller.signal, tRef.current)
       .then((snapshots) => setLoaded({ state: 'ready', data: snapshots }))
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;
@@ -113,7 +118,7 @@ export function useExploreSnapshots(): SnapshotSource {
   const save = useCallback(
     (name: string, handicap: string, moves: readonly string[]) =>
       mutate(async () => {
-        const created = await saveSnapshot(name, handicap, moves);
+        const created = await saveSnapshot(name, handicap, moves, tRef.current);
         if (!alive.current) return;
         // 앞에 붙인다. 서버도 최근 저장한 것을 앞에 두므로(query/explore.sql) 다시
         // 물어본 순서와 같다.
@@ -125,7 +130,7 @@ export function useExploreSnapshots(): SnapshotSource {
   const rename = useCallback(
     (id: number, name: string) =>
       mutate(async () => {
-        await renameSnapshot(id, name);
+        await renameSnapshot(id, name, tRef.current);
         if (!alive.current) return;
         setLoaded((prev) =>
           prev.state === 'ready'
@@ -139,7 +144,7 @@ export function useExploreSnapshots(): SnapshotSource {
   const remove = useCallback(
     (id: number) =>
       mutate(async () => {
-        await deleteSnapshot(id);
+        await deleteSnapshot(id, tRef.current);
         if (!alive.current) return;
         setLoaded((prev) =>
           prev.state === 'ready' ? { state: 'ready', data: prev.data.filter((s) => s.id !== id) } : prev,

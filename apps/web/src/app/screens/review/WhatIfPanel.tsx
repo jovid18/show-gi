@@ -1,4 +1,5 @@
-import { branchStatusJa, scoreJa } from '@/libs/whatif/branch';
+import { useT } from '@/i18n';
+import { branchStatusText, scoreText } from '@/libs/whatif/branch';
 import type { WhatIfNode } from '@/protocol/whatif';
 
 /**
@@ -52,14 +53,15 @@ export function WhatIfPanel({
   onBack,
   onRoot,
 }: WhatIfPanelProps) {
-  const score = node ? scoreJa(node.evalCp, node.mateIn) : '';
+  const t = useT();
+  const score = node ? scoreText(node.evalCp, node.mateIn, t) : '';
   const branching = (node?.line.length ?? 0) > 0;
   const down = engineReady === false;
 
   return (
-    <section className="review-panel review-whatif" aria-label="もしもの手順">
+    <section className="review-panel review-whatif" aria-label={t.review.whatif.label}>
       <div className="review-whatif-head">
-        <h2 className="panel-title">もしも — {basePly}手目から</h2>
+        <h2 className="panel-title">{t.review.whatif.title(basePly)}</h2>
         {/* 값은 끝난 국면에는 없다. 0으로 채우면 호각과 구별되지 않는다(리뷰 전체가 그렇다). */}
         {score && (
           <span className="review-whatif-score" data-stale={stale || undefined}>
@@ -76,11 +78,7 @@ export function WhatIfPanel({
         data-tone={node?.status === 'playing' ? 'turn' : 'result'}
         data-stale={stale || undefined}
       >
-        {down
-          ? 'エンジンが動いていないため、この局面から指し直すことはできません。'
-          : node
-            ? branchStatusJa(node, false)
-            : 'この局面の駒を動かすと、そこから指し直せます。'}
+        {down ? t.review.whatif.engineDown : node ? branchStatusText(node, false, t) : t.review.whatif.idle}
       </p>
 
       {error && (
@@ -101,7 +99,7 @@ export function WhatIfPanel({
               <li key={move.ply} data-by={move.by}>
                 <span className="review-kifu-number">{move.ply}</span>
                 <span className="review-kifu-move">{move.ja || move.usi}</span>
-                <span className="review-kifu-eval">{at ? scoreJa(at.cp, at.mateIn) : ''}</span>
+                <span className="review-kifu-eval">{at ? scoreText(at.cp, at.mateIn, t) : ''}</span>
               </li>
             );
           })}
@@ -117,10 +115,10 @@ export function WhatIfPanel({
       {branching && (
         <div className="review-whatif-actions">
           <button type="button" className="btn" disabled={pending || stale} onClick={onBack}>
-            一手戻る
+            {t.review.whatif.back}
           </button>
           <button type="button" className="btn" disabled={pending || stale} onClick={onRoot}>
-            分岐の前へ
+            {t.review.whatif.root}
           </button>
         </div>
       )}

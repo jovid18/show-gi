@@ -1,3 +1,4 @@
+import type { Messages } from '@/i18n';
 import type { ExploreNode } from '@/protocol/explore';
 import type { ApiError } from '@/protocol/review';
 import type { Send } from '@/hooks/useWhatIf';
@@ -12,7 +13,7 @@ import type { Send } from '@/hooks/useWhatIf';
  * `req.ply` 를 보내지 않는다. 검토의 뿌리는 언제나 0手目라 그 값이 상수이고, 훅이 그것을
  * 열쇠에 넣어 캐시를 거는 데만 쓴다(`useWhatIf` 의 `keyOf`).
  */
-export function exploreSend(handicap: string, sfen = ''): Send<ExploreNode> {
+export function exploreSend(handicap: string, sfen: string, t: Messages): Send<ExploreNode> {
   return async (req, signal): Promise<ExploreNode> => {
     const root = sfen ? { sfen } : { handicap };
     const res = await fetch('/api/explore', {
@@ -24,7 +25,7 @@ export function exploreSend(handicap: string, sfen = ''): Send<ExploreNode> {
     if (!res.ok) {
       // 서버가 이유를 일본어로 준다(explore.go 와 whatifMessages). 읽지 못할 때만 우리 문구다.
       const err = (await res.json().catch(() => null)) as ApiError | null;
-      throw new Error(err?.message || 'この手順を試せませんでした。');
+      throw new Error(err?.message || t.explore.tryFailed);
     }
     return (await res.json()) as ExploreNode;
   };

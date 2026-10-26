@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import { useT } from '@/i18n';
 import type { ChosenResult, KifuImported, KifuPreview, KifuRequest } from '@/protocol/kifu';
 import type { ApiError, MyColor } from '@/protocol/review';
 
@@ -21,10 +22,11 @@ interface State {
 
 const initial: State = { phase: 'idle', preview: null, error: null };
 
-/** 서버가 답을 주지 않은 자리. 통신이 끊긴 것과 500 이 같은 문장이다. 사람이 할 일이 같다. */
-const UNREACHABLE_JA = '棋譜を読み取れませんでした。しばらくしてからもう一度お試しください。';
-
-async function post<T>(path: string, body: KifuRequest): Promise<T> {
+/**
+ * `unreachable` 은 서버가 답을 주지 않은 자리의 문장이다. 통신이 끊긴 것과 500 이 같은 문장이다.
+ * 사람이 할 일이 같다.
+ */
+async function post<T>(path: string, body: KifuRequest, unreachable: string): Promise<T> {
   const res = await fetch(path, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -33,7 +35,7 @@ async function post<T>(path: string, body: KifuRequest): Promise<T> {
   if (res.ok) return (await res.json()) as T;
 
   // 서버가 문구를 만든다. 읽지 못하면 우리 문장을 쓴다.
-  let message = UNREACHABLE_JA;
+  let message = unreachable;
   try {
     message = ((await res.json()) as ApiError).message || message;
   } catch {
@@ -44,33 +46,40 @@ async function post<T>(path: string, body: KifuRequest): Promise<T> {
 
 export function useKifuImport() {
   const [state, setState] = useState<State>(initial);
+  const unreachable = useT().importer.unreachable;
 
   /** 읽기만 한다. 판도 만들지 않고 엔진도 쓰지 않는다. */
-  const read = useCallback(async (text: string) => {
-    setState({ phase: 'reading', preview: null, error: null });
-    try {
-      const preview = await post<KifuPreview>('/api/kifu/parse', { text });
-      setState({ phase: 'idle', preview, error: null });
-    } catch (e) {
-      setState({ phase: 'idle', preview: null, error: (e as Error).message });
-    }
-  }, []);
+  const read = useCallback(
+    async (text: string) => {
+      setState({ phase: 'reading', preview: null, error: null });
+      try {
+        const preview = await post<KifuPreview>('/api/kifu/parse', { text }, unreachable);
+        setState({ phase: 'idle', preview, error: null });
+      } catch (e) {
+        setState({ phase: 'idle', preview: null, error: (e as Error).message });
+      }
+    },
+    [unreachable],
+  );
 
   /** 가져온다. 성공하면 판 번호를 준다. 화면이 그 자리에서 되짚기로 옮겨 간다. */
-  const submit = useCallback(async (text: string, myColor: MyColor, result?: ChosenResult): Promise<number | null> => {
-    setState((s) => ({ ...s, phase: 'importing', error: null }));
-    try {
-      // `result` 는 있을 때만 싣는다. `exactOptionalPropertyTypes` 라 undefined 를
-      // 그대로 넘길 수 없고, 넘겨 봐야 JSON 에서 사라지는 값이다.
-      const body: KifuRequest = result === undefined ? { text, myColor } : { text, myColor, result };
-      const got = await post<KifuImported>('/api/kifu/import', body);
-      setState((s) => ({ ...s, phase: 'idle' }));
-      return got.gameId;
-    } catch (e) {
-      setState((s) => ({ ...s, phase: 'idle', error: (e as Error).message }));
-      return null;
-    }
-  }, []);
+  const submit = useCallback(
+    async (text: string, myColor: MyColor, result?: ChosenResult): Promise<number | null> => {
+      setState((s) => ({ ...s, phase: 'importing', error: null }));
+      try {
+        // `result` 는 있을 때만 싣는다. `exactOptionalPropertyTypes` 라 undefined 를
+        // 그대로 넘길 수 없고, 넘겨 봐야 JSON 에서 사라지는 값이다.
+        const body: KifuRequest = result === undefined ? { text, myColor } : { text, myColor, result };
+        const got = await post<KifuImported>('/api/kifu/import', body, unreachable);
+        setState((s) => ({ ...s, phase: 'idle' }));
+        return got.gameId;
+      } catch (e) {
+        setState((s) => ({ ...s, phase: 'idle', error: (e as Error).message }));
+        return null;
+      }
+    },
+    [unreachable],
+  );
 
   /** 원문이 바뀌면 미리보기는 다른 판의 것이 된다. 남겨 두면 남의 手数를 보고 가져온다. */
   const reset = useCallback(() => setState(initial), []);

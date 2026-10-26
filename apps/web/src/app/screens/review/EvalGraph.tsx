@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 
+import { useT } from '@/i18n';
 import type { GameDetail } from '@/protocol/review';
 import type { WhatIf } from '@/hooks/useWhatIf';
 
@@ -106,6 +107,7 @@ interface Point {
 }
 
 export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
+  const t = useT();
   const { node, evalOf } = whatif;
 
   const base = game.baselineCp ?? 0;
@@ -219,7 +221,7 @@ export function EvalGraph({ game, ply, whatif, onPick }: EvalGraphProps) {
   if (data.every((p) => p.main === null)) {
     return (
       <p className="review-empty" role="status">
-        {game.analyzing === true ? '評価値を分析しています…' : 'この対局には評価値が残っていません。'}
+        {game.analyzing === true ? t.review.graph.analyzing : t.review.graph.noEval}
       </p>
     );
   }

@@ -130,7 +130,7 @@ type reviewMove struct {
 	// nil이면 그 手数에 평가치가 붙지 않았거나 詰み이다. 0은 호각이라는 값이라 다르다.
 	EvalCp *int `json:"evalCp,omitempty"`
 	// MateIn 은 詰み까지의 手数다(플레이어 관점). 0은 詰み이 없다는 표시다. 이 칸이 차면
-	// EvalCp 는 비어 있고, 화면은 手数로 말한다(scoreJa).
+	// EvalCp 는 비어 있고, 화면은 手数로 말한다(scoreText).
 	MateIn int `json:"mateIn,omitempty"`
 	// Checked 는 이 수 뒤에 王手를 받고 있는 玉의 칸이다(5a). 아니면 빈 값(checkedSquare).
 	Checked string `json:"checked,omitempty"`
@@ -439,7 +439,7 @@ func detailOf(rec store.GameRecord) gameDetail {
 // playerEvalJSON 은 저장된 先手 관점 점수를 화면이 받는 두 칸으로 옮긴다.
 //
 // 詰み이면 cp 칸을 비운다. 여기 숫자를 넣으려면 환산해야 하는데, 환산값과 평가치는 다르다.
-// 화면은 手数가 있으면 그것으로 말한다(scoreJa). 둘 다 없으면 「아직 재지 않은 手数」다.
+// 화면은 手数가 있으면 그것으로 말한다(scoreText). 둘 다 없으면 「아직 재지 않은 手数」다.
 func playerEvalJSON(s *eval.Score, human shogi.Color) (*int, int) {
 	if s == nil {
 		return nil, 0

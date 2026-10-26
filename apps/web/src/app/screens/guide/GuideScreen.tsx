@@ -1,3 +1,6 @@
+import { Fragment } from 'react';
+
+import { useT } from '@/i18n';
 import { GUIDE_CATEGORIES } from '@/libs/game/categories';
 import { hrefOf, navigate } from '@/routes/router';
 
@@ -15,6 +18,8 @@ import { hrefOf, navigate } from '@/routes/router';
  * 대국 밖이라 받을 판이 없다. 주인은 `internal/game/session.go` 의 상수들이다.
  */
 export function GuideScreen() {
+  const t = useT();
+  const g = t.guide;
   return (
     <article className="guide">
       <header className="guide__hero">
@@ -22,52 +27,42 @@ export function GuideScreen() {
             헤더의 96과 따로 두면 둘 다 자기 크기에 맞는 파일을 받는다. */}
         <img className="guide__logo" src="/icon-192.png" alt="" width={96} height={96} decoding="async" />
         <div>
-          <h1 className="guide__title">はじめての方へ</h1>
+          <h1 className="guide__title">{g.title}</h1>
           <p className="guide__lead">
-            show-gi は、<strong>悪手を指した瞬間に盤を戻して理由を説明する</strong>将棋の相手です。
-            <br />
-            対局しながら「なぜその手が悪いのか」を覚えていくための道具なので、ふつうの対戦アプリとは少し違います。
+            <Rich text={g.lead} />
           </p>
         </div>
       </header>
 
-      <nav className="guide__toc" aria-label="目次">
-        {SECTIONS.map((s) => (
-          <a key={s.id} className="guide__toc-link" href={`#${s.id}`}>
-            {s.title}
+      <nav className="guide__toc" aria-label={g.tocLabel}>
+        {SECTIONS.map((id) => (
+          <a key={id} className="guide__toc-link" href={`#${id}`}>
+            {g.toc[id]}
           </a>
         ))}
       </nav>
 
       <section className="guide__section" id="start" aria-labelledby="start-h">
         <h2 className="guide__head" id="start-h">
-          はじめかた
+          {g.start.head}
         </h2>
         <ol className="guide__steps">
           <li className="guide__step">
-            <h3 className="guide__step-head">手合割と手番、相手の戦型をえらぶ</h3>
+            <h3 className="guide__step-head">{g.start.setupHead}</h3>
             <p className="guide__text">
-              まず<strong>手合割</strong>です。<strong>「平手」</strong>は駒を落とさない対局で、
-              <strong>「二枚落ち」</strong>のように選ぶと相手（上手）の駒が落ちた状態からはじまり、
-              駒を落とした上手から先に指します。平手ならつぎに先手か後手か、そして相手がどんな形に組むかを選びます。分からなければ
-              <strong>「平手」</strong>と<strong>「おまかせ」</strong>のままで大丈夫です。
-              <br />
-              強さはここで選びません。指しているあいだに相手のほうが合わせてきます。
+              <Rich text={g.start.setupText} />
             </p>
           </li>
           <li className="guide__step">
-            <h3 className="guide__step-head">ふつうに指す</h3>
+            <h3 className="guide__step-head">{g.start.playHead}</h3>
             <p className="guide__text">
-              駒をクリックすると動ける場所が光ります。持ち駒は盤の下の駒台から打てます。
-              <br />
-              悪手のときだけ相手が口を出すので、それ以外は最後までふつうの対局です。
+              <Rich text={g.start.playText} />
             </p>
           </li>
           <li className="guide__step">
-            <h3 className="guide__step-head">ログインは任意です</h3>
+            <h3 className="guide__step-head">{g.start.signInHead}</h3>
             <p className="guide__text">
-              ログインしなくても対局できます。ログインすると対局が記録に残り、
-              <strong>振り返り・マイページ・中断した対局のつづき</strong>が使えるようになります。
+              <Rich text={g.start.signInText} />
             </p>
           </li>
         </ol>
@@ -75,54 +70,42 @@ export function GuideScreen() {
 
       <section className="guide__section" id="intervene" aria-labelledby="intervene-h">
         <h2 className="guide__head" id="intervene-h">
-          口出し — このアプリの中心
+          {g.intervene.head}
         </h2>
         <p className="guide__text">
-          大きく形勢を損ねる手を指すと、その手は<strong>盤に残りません</strong>
-          。指した瞬間に戻され、まわりが暗くなって説明のカードが出ます。
+          <Rich text={g.intervene.text} />
         </p>
 
         {/* 세 걸음을 가로로 늘어놓는다. 판을 그리면 「그때 판이 이렇게 생겼다」로 읽힌다. */}
         <ol className="guide__flow">
-          <li className="guide__flow-step">
-            <span className="guide__flow-num" aria-hidden="true">
-              1
-            </span>
-            <span className="guide__flow-text">悪手を指す</span>
-          </li>
-          <li className="guide__flow-step">
-            <span className="guide__flow-num" aria-hidden="true">
-              2
-            </span>
-            <span className="guide__flow-text">その手が盤から戻る</span>
-          </li>
-          <li className="guide__flow-step">
-            <span className="guide__flow-num" aria-hidden="true">
-              3
-            </span>
-            <span className="guide__flow-text">理由のカードが出る</span>
-          </li>
+          {g.intervene.flow.map((text, i) => (
+            <li key={i} className="guide__flow-step">
+              <span className="guide__flow-num" aria-hidden="true">
+                {i + 1}
+              </span>
+              <span className="guide__flow-text">{text}</span>
+            </li>
+          ))}
         </ol>
 
-        <h3 className="guide__sub">カードに書いてあること</h3>
+        <h3 className="guide__sub">{g.intervene.cardHead}</h3>
         <dl className="guide__defs">
           <div>
-            <dt>指そうとした手</dt>
-            <dd>戻された手そのものと、その手の評価。</dd>
+            <dt>{g.intervene.moveTerm}</dt>
+            <dd>{g.intervene.moveDef}</dd>
           </div>
           <div>
-            <dt>なぜ悪いのか</dt>
-            <dd>相手の駒が何枚利いているか、何手で詰まされるかなど、その局面の事実で説明します。</dd>
+            <dt>{g.intervene.whyTerm}</dt>
+            <dd>{g.intervene.whyDef}</dd>
           </div>
           <div>
-            <dt>相手の反撃</dt>
-            <dd>その手を指していたら相手が何をしてくるか。候補が並び、最善手からどれだけ損かも出ます。</dd>
+            <dt>{g.intervene.replyTerm}</dt>
+            <dd>{g.intervene.replyDef}</dd>
           </div>
           <div>
-            <dt>そのまま試せる</dt>
+            <dt>{g.intervene.tryTerm}</dt>
             <dd>
-              カードが出ているあいだ、盤は<strong>「その手を指していたら」の世界</strong>
-              になります。相手の手も自分で指して確かめられます。閉じると対局の盤に戻ります。
+              <Rich text={g.intervene.tryDef} />
             </dd>
           </div>
         </dl>
@@ -130,24 +113,22 @@ export function GuideScreen() {
         {/* 원칙 하나를 눈에 띄게 내건다. 이걸 모르면 「왜 정답을 안 알려주지」가 고장으로
             읽힌다(docs/01-core.md §1). */}
         <p className="guide__note">
-          カードは<strong>「次にこう指せ」とは言いません。</strong>
-          悪い理由と相手の反撃までを示して、指し直すのはあなたです。答えが欲しいときは、下の「ヒント」を自分で呼びます。
+          <Rich text={g.intervene.note} />
         </p>
       </section>
 
       <section className="guide__section" id="kinds" aria-labelledby="kinds-h">
         <h2 className="guide__head" id="kinds-h">
-          口出しの種類
+          {g.kinds.head}
         </h2>
         <p className="guide__text">
-          「なぜ悪いのか」は{GUIDE_CATEGORIES.length}種類に分けて記録されます。対局後のマイページでは、この名前ごとに
-          <strong>あなたが崩れやすいところ</strong>が集計されます。
+          <Rich text={g.kinds.text(GUIDE_CATEGORIES.length)} />
         </p>
         <ul className="guide__cats">
           {GUIDE_CATEGORIES.map((c) => (
             <li key={c.code} className="guide__cat">
               <span className="guide__cat-name">{c.nameJa}</span>
-              <span className="guide__cat-note">{c.note}</span>
+              <span className="guide__cat-note">{g.kinds.notes[c.code]}</span>
             </li>
           ))}
         </ul>
@@ -155,10 +136,10 @@ export function GuideScreen() {
 
       <section className="guide__section" id="ask" aria-labelledby="ask-h">
         <h2 className="guide__head" id="ask-h">
-          自分から呼ぶもの
+          {g.ask.head}
         </h2>
         <p className="guide__text">
-          盤の右側に3つのボタンがあります。<strong>回数は対局ごと</strong>で、使い切ると押せなくなります。
+          <Rich text={g.ask.text} />
         </p>
 
         {/* 대국 화면과 같은 클래스다. 見本이 진짜 버튼이라 모양이 어긋날 수가 없다. 안내
@@ -166,74 +147,69 @@ export function GuideScreen() {
         <div className="guide__buttons">
           <div className="guide__button-row">
             <button type="button" className="btn" disabled>
-              ヒント
+              {g.ask.hint}
               <span className="play-actions__left" aria-hidden="true">
-                残り6回
+                {g.ask.left(6)}
               </span>
             </button>
             <p className="guide__text">
-              いまの局面の最善手を教えます。<strong>同じ局面で2段階</strong>
-              ——1回目は「どの駒か」まで、2回目は「どう動かすか」まで。3回目はありません。
+              <Rich text={g.ask.hintText} />
               <br />
-              1局に6回なので、答えまで見られるのは<strong>最大3手ぶん</strong>です。
-              <br />
-              <span className="guide__muted">答えを見た手は、棋力の計算から外れます。</span>
+              <span className="guide__muted">{g.ask.hintMuted}</span>
             </p>
           </div>
 
           <div className="guide__button-row">
             <button type="button" className="btn" disabled>
-              待った
+              {g.ask.undo}
               <span className="play-actions__left" aria-hidden="true">
-                残り3回
+                {g.ask.left(3)}
               </span>
             </button>
             <p className="guide__text">
-              自分の指した手を1手戻します。口出しで戻されるのとは別で、こちらは<strong>あなたが決めて戻す</strong>
-              ものです。
+              <Rich text={g.ask.undoText} />
               <br />
-              <span className="guide__muted">戻した手は記録に残り、振り返りに「待った」として出ます。</span>
+              <span className="guide__muted">{g.ask.undoMuted}</span>
             </p>
           </div>
 
           <div className="guide__button-row">
             <button type="button" className="btn btn--danger" disabled>
-              投了
+              {g.ask.resign}
             </button>
-            <p className="guide__text">その対局を負けとして終えます。押すともう一度確認します。</p>
+            <p className="guide__text">{g.ask.resignText}</p>
           </div>
         </div>
       </section>
 
       <section className="guide__section" id="board" aria-labelledby="board-h">
         <h2 className="guide__head" id="board-h">
-          盤と、そのまわりの見かた
+          {g.board.head}
         </h2>
         <dl className="guide__defs">
           <div>
-            <dt>駒に打たれた点</dt>
-            <dd>その駒がどの向きに動けるか。文字が読めなくても動きが分かるようにしてあります。</dd>
+            <dt>{g.board.dotsTerm}</dt>
+            <dd>{g.board.dotsDef}</dd>
           </div>
           <div>
-            <dt>盤のふちの炎</dt>
+            <dt>{g.board.flameTerm}</dt>
             <dd>
               <span className="guide__flame" aria-hidden="true" />
-              詰みが近いほど強くなります。あなたが詰ませられる側のときだけ灯ります。
+              {g.board.flameDef}
             </dd>
           </div>
           <div>
-            <dt>赤い線</dt>
-            <dd>王手をかけている筋です。緑の矢印（相手の次の手）とは色で分けています。</dd>
+            <dt>{g.board.redTerm}</dt>
+            <dd>{g.board.redDef}</dd>
           </div>
           <div>
-            <dt>青いふち</dt>
+            <dt>{g.board.blueTerm}</dt>
             <dd>
-              行きづまったときのヒントです。<strong>同じ局面で3回戻されると「どの駒か」、5回で「どう動かすか」</strong>
-              が自動で出ます。
+              <Rich text={g.board.blueDef} />
             </dd>
           </div>
           <div>
-            <dt>相手の強さ</dt>
+            <dt>{g.board.strengthTerm}</dt>
             <dd>
               {/* 실제 눈금과 같은 마크업. 3(ふつう)이 초기값이다. */}
               <span className="strength__pips guide__pips" aria-hidden="true">
@@ -241,15 +217,13 @@ export function GuideScreen() {
                   <i key={n} data-on={n <= 3 || undefined} />
                 ))}
               </span>
-              あなたの指し手の精度に合わせて、対局中に静かに動きます。自分では設定しません。
+              {g.board.strengthDef}
             </dd>
           </div>
           <div>
-            <dt>形の名前</dt>
+            <dt>{g.board.shapeTerm}</dt>
             <dd>
-              美濃囲いのような形が完成すると、盤の上に名前が一瞬だけ出ます。
-              <br />
-              まだ組んでいない戦型が1手で組めるときは、右側に「名前のある手があります」と出ることがあります（1局に3回まで）。
+              <Rich text={g.board.shapeDef} />
             </dd>
           </div>
         </dl>
@@ -257,51 +231,40 @@ export function GuideScreen() {
 
       <section className="guide__section" id="after" aria-labelledby="after-h">
         <h2 className="guide__head" id="after-h">
-          対局のあと
+          {g.after.head}
         </h2>
         <dl className="guide__defs">
           <div>
-            <dt>総評</dt>
+            <dt>{g.after.summaryTerm}</dt>
+            <dd>{g.after.summaryDef}</dd>
+          </div>
+          <div>
+            <dt>{g.after.reviewTerm}</dt>
             <dd>
-              対局が終わった場所に出ます。何で口出しが多かったか、棋力の目安がどう動いたか、どの局面を見直すとよいか。
+              <Rich text={g.after.reviewDef} />
             </dd>
           </div>
           <div>
-            <dt>振り返り</dt>
-            <dd>
-              評価値のグラフをクリックしてその局面へ移動できます。
-              <strong>最善手・実際に指した手・戻された手・自分で待ったした手</strong>
-              が同じ並びに出て、そこから別の手も試せます。
-              <br />
-              グラフの青い点は<strong>好手</strong>
-              です。ほかの手では形勢を大きく損ねる局面で、そのただ一つの手を指した場所に付きます。王手を受ける手、取り返す手、駒得がすぐ分かる手、ヒントで教わった手には付きません。
-            </dd>
+            <dt>{g.after.quizTerm}</dt>
+            <dd>{g.after.quizDef}</dd>
           </div>
           <div>
-            <dt>クイズ</dt>
-            <dd>
-              その対局から作られます。正解するまで答えは出ません（3回目に「どの駒を動かすか」だけ出ます）。作れる問題がない対局もあります。
-            </dd>
-          </div>
-          <div>
-            <dt>マイページ</dt>
-            <dd>
-              対局をまたいで見る唯一の画面です。棋力の目安・成績・崩れやすいところ・組んだ形。ログインした対局だけが数えられます。
-            </dd>
+            <dt>{g.after.meTerm}</dt>
+            <dd>{g.after.meDef}</dd>
           </div>
         </dl>
       </section>
 
       <section className="guide__section" id="notes" aria-labelledby="notes-h">
         <h2 className="guide__head" id="notes-h">
-          おぼえておくこと
+          {g.notes.head}
         </h2>
         <ul className="guide__notes">
-          <li>
-            段級は<strong>指し手の精度から出した目安</strong>です。道場や他のアプリの段級とは異なります。
-          </li>
-          <li>ログインしていない対局は、誰のものか分からないため記録に残りません。</li>
-          <li>相手が考えているあいだ、少し待つことがあります。同じ局面は2回目から速くなります。</li>
+          {g.notes.items.map((text, i) => (
+            <li key={i}>
+              <Rich text={text} />
+            </li>
+          ))}
         </ul>
       </section>
 
@@ -318,20 +281,22 @@ export function GuideScreen() {
             navigate({ name: 'game' });
           }}
         >
-          対局をはじめる
+          {g.cta}
         </a>
       </footer>
     </article>
   );
 }
 
-/** 목차. 절과 같은 순서·같은 제목이어야 해서 한 자리에 둔다. */
-const SECTIONS: { id: string; title: string }[] = [
-  { id: 'start', title: 'はじめかた' },
-  { id: 'intervene', title: '口出し' },
-  { id: 'kinds', title: '口出しの種類' },
-  { id: 'ask', title: '自分から呼ぶもの' },
-  { id: 'board', title: '盤の見かた' },
-  { id: 'after', title: '対局のあと' },
-  { id: 'notes', title: 'おぼえておくこと' },
-];
+/** 목차. 절과 같은 순서여야 해서 한 자리에 둔다. 제목은 `guide.toc` 에 있다. */
+const SECTIONS = ['start', 'intervene', 'kinds', 'ask', 'board', 'after', 'notes'] as const;
+
+/** `**굵게**` 와 줄바꿈(`\n`)만 아는 작은 렌더러. 문구를 앞뒤 조각으로 쪼개지 않으려고 둔다. */
+function Rich({ text }: { text: string }) {
+  return text.split('\n').map((line, i) => (
+    <Fragment key={i}>
+      {i > 0 && <br />}
+      {line.split('**').map((part, j) => (j % 2 === 1 ? <strong key={j}>{part}</strong> : part))}
+    </Fragment>
+  ));
+}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useT } from '@/i18n';
 import type { WhatIfNode, WhatIfRequest } from '@/protocol/whatif';
 
 /**
@@ -43,8 +44,6 @@ export interface WhatIf<T extends WhatIfNode = WhatIfNode> {
 /** 요청 하나를 실어 보내는 길. HTTP든 WebSocket이든 이 모양이면 된다. */
 export type Send<T extends WhatIfNode = WhatIfNode> = (req: WhatIfRequest, signal: AbortSignal) => Promise<T>;
 
-const FALLBACK_ERROR = 'この手順を試せませんでした。';
-
 /**
  * 같은 줄은 같은 자리다. 보낸 것과 받은 것의 열쇠가 같다.
  *
@@ -79,6 +78,8 @@ export function useWhatIf<T extends WhatIfNode = WhatIfNode>(
 
   const sendRef = useRef(send);
   sendRef.current = send;
+  const failed = useRef('');
+  failed.current = useT().review.whatif.failed;
 
   // 아래 콜백들이 매 렌더마다 새로 만들어지지 않게 ref로 잡는다(`send` 와 같은 판단). 이
   // 값이 의존성에 들어가면 배열 identity 하나로 「같은 자리를 두 번 묻는」 고리가 산다.
@@ -152,7 +153,7 @@ export function useWhatIf<T extends WhatIfNode = WhatIfNode>(
       .catch((err: unknown) => {
         if (asked.current === key) asked.current = null;
         if (controller.signal.aborted || latest.current !== mine) return;
-        setError(err instanceof Error ? err.message : FALLBACK_ERROR);
+        setError(err instanceof Error ? err.message : failed.current);
         setPending(false);
       });
   }, []);

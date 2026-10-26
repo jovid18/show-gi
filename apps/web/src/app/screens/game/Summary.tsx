@@ -1,5 +1,6 @@
 import type { GameSummary, SkillRank } from '@/protocol/game';
 import { hrefOf, navigate } from '@/routes/router';
+import { useT } from '@/i18n';
 
 /**
  * 段級 하나를 눈금과 이름으로 그린다.
@@ -31,23 +32,24 @@ function Rank({ rank, label }: { rank: SkillRank; label: string }) {
  * 때의 실력」으로 그리면 누구도 재지 않은 숫자가 사람에 대한 판정으로 굳는다.
  */
 function SkillChange({ skill }: { skill: NonNullable<GameSummary['skill']> }) {
+  const t = useT().game.summary.skill;
   return (
-    <section className="skill-change" aria-label="棋力の目安">
-      <h3 className="skill-change__head">棋力の目安</h3>
+    <section className="skill-change" aria-label={t.title}>
+      <h3 className="skill-change__head">{t.title}</h3>
       {skill.before ? (
         <div className="skill-change__pair">
-          <Rank rank={skill.before} label="対局前" />
+          <Rank rank={skill.before} label={t.before} />
           <span className="skill-change__arrow" aria-hidden="true">
             →
           </span>
-          <Rank rank={skill.after} label="対局後" />
+          <Rank rank={skill.after} label={t.after} />
         </div>
       ) : (
         <div className="skill-change__pair skill-change__pair--single">
-          <Rank rank={skill.after} label="今の目安" />
+          <Rank rank={skill.after} label={t.now} />
         </div>
       )}
-      <p className="skill-change__note">指し手の精度から算出した目安です。道場や他のアプリの段級とは異なります。</p>
+      <p className="skill-change__note">{t.note}</p>
     </section>
   );
 }
@@ -61,6 +63,7 @@ function SkillChange({ skill }: { skill: NonNullable<GameSummary['skill']> }) {
  * `ply` 그 자체를 열면 그 수가 없는 판이 나온다.
  */
 function Focus({ focus, gameId }: { focus: NonNullable<GameSummary['stats']['focus']>; gameId: number }) {
+  const t = useT().game.summary;
   const route = { name: 'review', id: gameId, ply: Math.max(focus.ply - 1, 0) } as const;
   return (
     <a
@@ -73,9 +76,9 @@ function Focus({ focus, gameId }: { focus: NonNullable<GameSummary['stats']['foc
         navigate(route);
       }}
     >
-      <span className="summary__focus-head">見直すならこの局面</span>
+      <span className="summary__focus-head">{t.focusHead}</span>
       <span className="summary__focus-body">
-        <span className="summary__focus-ply">{focus.ply}手目</span>
+        <span className="summary__focus-ply">{t.ply(focus.ply)}</span>
         <span className="summary__focus-name">{focus.nameJa}</span>
       </span>
     </a>
@@ -92,13 +95,14 @@ function Focus({ focus, gameId }: { focus: NonNullable<GameSummary['stats']['foc
  * 없으면 문장이 도착하는 순간 아래 버튼들이 밀려 내려가 누르던 손이 어긋난다.
  */
 export function Summary({ summary, imported = false }: { summary: GameSummary | null; imported?: boolean }) {
+  const t = useT().game.summary;
   return (
-    <section className="summary" aria-label="この対局のふりかえり">
-      <h2 className="summary__head">ふりかえり</h2>
+    <section className="summary" aria-label={t.label}>
+      <h2 className="summary__head">{t.head}</h2>
 
       {summary === null ? (
         <p className="summary__waiting" role="status">
-          まとめています…
+          {t.waiting}
         </p>
       ) : (
         <>
@@ -106,20 +110,20 @@ export function Summary({ summary, imported = false }: { summary: GameSummary | 
 
           <dl className="summary__stats">
             <div>
-              <dt>あなたの手数</dt>
+              <dt>{t.playerMoves}</dt>
               <dd>{summary.stats.playerMoves}</dd>
             </div>
             <div>
               {/* 가져온 판에서는 아무도 그 수를 막지 않았다. 「戻した回数」라고 적으면
                   없던 일을 있었다고 말하는 것이 된다 — 문장도 같은 자리에서 갈린다
                   (`explain.GameFacts.Intervened`). */}
-              <dt>{imported ? '悪手の数' : '戻した回数'}</dt>
+              <dt>{imported ? t.blunders : t.undone}</dt>
               <dd>{summary.stats.interventions}</dd>
             </div>
             {/* 평가치가 아직 없으면 칸을 두지 않는다. 「0%」는 모든 수가 悪手였다는 뜻이다. */}
             {summary.stats.accuracy !== undefined && (
               <div>
-                <dt>精度</dt>
+                <dt>{t.accuracy}</dt>
                 <dd>{summary.stats.accuracy}%</dd>
               </div>
             )}

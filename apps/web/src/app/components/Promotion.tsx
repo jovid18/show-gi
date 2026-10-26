@@ -1,6 +1,8 @@
 import { useEffect, useRef, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 
+import { useT } from '@/i18n';
+
 /**
  * 카드 밖을 눌러도 초점이 버튼에 남는다.
  *
@@ -29,6 +31,7 @@ interface PromotionProps {
  * 만들어서, 그 안에 두면 개입 카드(60)가 이 모달 위에 온다.
  */
 export function Promotion({ onChoose }: PromotionProps) {
+  const t = useT();
   const cardRef = useRef<HTMLDivElement>(null);
   const promoteRef = useRef<HTMLButtonElement>(null);
 
@@ -84,15 +87,15 @@ export function Promotion({ onChoose }: PromotionProps) {
 
   return createPortal(
     <div className="promotion-scrim" onMouseDown={hold}>
-      <div className="promotion" role="dialog" aria-modal="true" aria-label="成りの選択" ref={cardRef}>
-        <p className="promotion__ask">成りますか。</p>
+      <div className="promotion" role="dialog" aria-modal="true" aria-label={t.board.promotion.label} ref={cardRef}>
+        <p className="promotion__ask">{t.board.promotion.ask}</p>
 
         <div className="promotion__choices">
           <button ref={promoteRef} type="button" className="btn btn--primary" onClick={() => onChoose(true)}>
-            成る
+            {t.board.promotion.promote}
           </button>
           <button type="button" className="btn" onClick={() => onChoose(false)}>
-            不成
+            {t.board.promotion.decline}
           </button>
         </div>
       </div>

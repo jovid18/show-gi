@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { KifuMove } from '@/protocol/game';
 import type { MatchMove } from '@/protocol/match';
+import { useT } from '@/i18n';
 
 interface KifuProps {
   /**
@@ -18,6 +19,7 @@ interface KifuProps {
  * 어긋났을 때 어느 쪽이 맞는지 알 수 없다.
  */
 export function Kifu({ moves }: KifuProps) {
+  const t = useT();
   const listRef = useRef<HTMLOListElement>(null);
   const [copied, setCopied] = useState(false);
 
@@ -53,18 +55,18 @@ export function Kifu({ moves }: KifuProps) {
   };
 
   return (
-    <section className="kifu" aria-label="棋譜">
+    <section className="kifu" aria-label={t.game.kifu.title}>
       <div className="kifu-head">
-        <h2 className="panel-title">棋譜</h2>
+        <h2 className="panel-title">{t.game.kifu.title}</h2>
         {moves.length > 0 && (
           <button type="button" className="kifu-copy" onClick={copy}>
-            {copied ? 'コピーしました' : 'コピー'}
+            {copied ? t.game.kifu.copied : t.game.kifu.copy}
           </button>
         )}
       </div>
 
       {moves.length === 0 ? (
-        <p className="kifu-empty">最初の一手を指してください。</p>
+        <p className="kifu-empty">{t.game.kifu.empty}</p>
       ) : (
         <ol className="kifu-list" ref={listRef}>
           {moves.map((move, i) => (

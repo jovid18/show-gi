@@ -103,7 +103,7 @@ func whatifNodeOf(
 	// 캐시의 점수는 수번 측 관점이다(store.Candidate). 여기서 플레이어 관점으로 뒤집는다.
 	//
 	// 詰み이면 cp 칸을 비운다. 되짚기의 기보 줄과 같은 규약이고(reviewMove.EvalCp), 화면은
-	// 手数가 있으면 그것으로 말한다(scoreJa).
+	// 手数가 있으면 그것으로 말한다(scoreText).
 	top := playerScore(cands[0].Score, pos.Turn, human)
 	if n, ok := top.MateIn(); ok {
 		node.MateIn = n

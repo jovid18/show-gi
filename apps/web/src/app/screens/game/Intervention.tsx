@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef } from 'react';
 
-import { evalTone, playerCp, rankOf, rowScoreJa, type ExploredMove } from '@/libs/whatif/branch';
+import { evalTone, playerCp, rankOf, rowScoreText, type ExploredMove } from '@/libs/whatif/branch';
 import type { Intervention as InterventionData } from '@/protocol/game';
 import type { WhatIfNode } from '@/protocol/whatif';
+import { useT, type Messages } from '@/i18n';
+
+type InterventionText = Messages['game']['intervention'];
 
 interface InterventionProps {
   intervention: InterventionData;
@@ -61,30 +64,30 @@ interface Row {
  *
  * 낙폭이 없는 줄은 비운다. 0으로 채우면 「최선수와 같다」는 거짓이 된다.
  */
-function lossJa(row: Row): string {
-  if (row.best) return '最善';
+function lossText(row: Row, t: InterventionText): string {
+  if (row.best) return t.best;
   return row.lossCp ? `−${row.lossCp}` : '';
 }
 
 /**
  * 지금 분기가 어떤 상태인지 한 줄로. 상태도 차례도 서버가 정한 것을 말로 옮길 뿐이다.
  *
- * 되짚기의 `branchStatusJa` 와 시제가 다르다. 저쪽은 끝난 판을 보는 자리라 「負けでした」이고,
+ * 되짚기의 `branchStatusText` 와 시제가 다르다. 저쪽은 끝난 판을 보는 자리라 「負けでした」이고,
  * 여기는 아직 벌어지지 않은 일이라 「負けになります」다.
  */
-function noteJa(node: WhatIfNode | null, pending: boolean, failed: boolean): string {
+function noteText(node: WhatIfNode | null, pending: boolean, failed: boolean, t: InterventionText['note']): string {
   // 튕겼으면 「조사 중」이라고 말하지 않는다. 기다리면 온다는 거짓이 된다.
-  if (failed) return 'もう一度読み込むと、この手のあとを試せます。';
-  if (!node) return pending ? '読んでいます…' : 'この手のあとを調べています。';
+  if (failed) return t.failed;
+  if (!node) return pending ? t.pending : t.loading;
   switch (node.status) {
     case 'checkmate':
-      return node.yourTurn ? '詰みです。ここで負けになります。' : '詰みです。ここで勝ちになります。';
+      return node.yourTurn ? t.checkmateLost : t.checkmateWon;
     case 'stalemate':
       // 쇼기에서 手詰まり는 패배다(체스의 무승부와 다르다).
-      return node.yourTurn ? '手詰まりです。ここで負けになります。' : '手詰まりです。ここで勝ちになります。';
+      return node.yourTurn ? t.stalemateLost : t.stalemateWon;
     default:
       // 어느 쪽 차례든 사람이 둔다. 상대 차례에는 초록 화살표가 엔진의 답을 짚고 있다.
-      return node.yourTurn ? 'あなたの番。盤の上でも指せます。' : '相手の番。相手の手も指せます。';
+      return node.yourTurn ? t.yourTurn : t.theirTurn;
   }
 }
 
@@ -113,6 +116,8 @@ export function Intervention({
   onRetry,
   onDismiss,
 }: InterventionProps) {
+  const messages = useT();
+  const t = messages.game.intervention;
   const dismissRef = useRef<HTMLButtonElement>(null);
 
   // 입력이 판 쪽으로 열려 있어도 초점의 첫 자리는 여기다. 키보드·스크린리더 사용자가 판을
@@ -165,11 +170,11 @@ export function Intervention({
 
   return (
     <div className="intervention" role="alert">
-      <p className="intervention-label">待った</p>
+      <p className="intervention-label">{t.label}</p>
 
       <p className="intervention-move">
         <span className="intervention-move-ja">{intervention.retractedJa}</span>
-        <span className="intervention-move-tail">を戻しました</span>
+        <span className="intervention-move-tail">{t.retracted}</span>
         {/* 그 수를 두면 얼마가 되나. 낙폭(%)은 판정의 값이고 이건 국면의 값이다. 아래
             목록의 cp와 같은 자를 쓰므로 「거기서 더 나빠지는가」가 견줘진다. */}
         {retractedEval && <span className="intervention-move-eval">{retractedEval}</span>}
@@ -179,7 +184,7 @@ export function Intervention({
 
       {mateLine.length > 0 && (
         <div className="refutation">
-          <p className="refutation-label">このあと詰まされます</p>
+          <p className="refutation-label">{t.mated}</p>
           <ol className="refutation-line">
             {mateLine.map((move, i) => (
               // 같은 수가 수순에 두 번 나올 수 있다(왕복). 자리까지 키에 넣는다.
@@ -193,8 +198,8 @@ export function Intervention({
 
       <div className="intervention-branch">
         <p className="intervention-branch-head">
-          <span className="intervention-branch-title">そのまま指していたら</span>
-          {node && <span className="intervention-branch-turn">{node.yourTurn ? 'あなたの番' : '相手の番'}</span>}
+          <span className="intervention-branch-title">{t.branchTitle}</span>
+          {node && <span className="intervention-branch-turn">{node.yourTurn ? t.yourTurn : t.theirTurn}</span>}
         </p>
 
         {/* 지금까지 둬 본 줄. 뿌리에서는 아예 그리지 않는다. 빈 자리를 만들어 두면 목록이
@@ -229,15 +234,15 @@ export function Intervention({
                 onClick={() => onPlay(r.usi)}
               >
                 <span className="intervention-options-move">{r.ja}</span>
-                <span className="intervention-options-cp">{rowScoreJa(r, byOpponent)}</span>
-                <span className="intervention-options-loss">{lossJa(r)}</span>
+                <span className="intervention-options-cp">{rowScoreText(r, byOpponent, messages)}</span>
+                <span className="intervention-options-loss">{lossText(r, t)}</span>
               </button>
             </li>
           ))}
         </ul>
 
         <p className="intervention-branch-note" data-tone={node?.status === 'playing' ? 'turn' : 'result'}>
-          {noteJa(node, pending, stuck)}
+          {noteText(node, pending, stuck, t.note)}
         </p>
 
         {error && (
@@ -251,7 +256,7 @@ export function Intervention({
         {stuck && (
           <div className="intervention-branch-actions">
             <button type="button" className="btn btn--step" disabled={pending} onClick={onRetry}>
-              もう一度読む
+              {t.retry}
             </button>
           </div>
         )}
@@ -261,17 +266,17 @@ export function Intervention({
         {branching && (
           <div className="intervention-branch-actions">
             <button type="button" className="btn btn--step" disabled={pending} onClick={onBack}>
-              一手戻る
+              {t.back}
             </button>
             <button type="button" className="btn btn--step" disabled={pending} onClick={onRoot}>
-              最初へ
+              {t.root}
             </button>
           </div>
         )}
       </div>
 
       <p className="intervention-delta">
-        <span className="intervention-delta-text">勝率 −{drop}%</span>
+        <span className="intervention-delta-text">{t.drop(drop)}</span>
         <span className="intervention-delta-track" aria-hidden="true">
           <span className="intervention-delta-fill" style={{ width: `${drop}%` }} />
         </span>
@@ -279,7 +284,7 @@ export function Intervention({
 
       <div className="intervention-actions">
         <button ref={dismissRef} type="button" className="btn btn--primary" onClick={onDismiss}>
-          指し直す
+          {t.dismiss}
         </button>
       </div>
     </div>

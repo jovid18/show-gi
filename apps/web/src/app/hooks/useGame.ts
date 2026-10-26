@@ -4,6 +4,7 @@ import type { ClientMessage, Color, GameSummary, ServerMessage, Snapshot } from 
 import type { WhatIfNode, WhatIfRequest } from '@/protocol/whatif';
 import type { ResumableGame } from '@/protocol/resume';
 import type { Send } from '@/hooks/useWhatIf';
+import { useT } from '@/i18n';
 
 export type Connection = 'idle' | 'connecting' | 'open' | 'closed';
 
@@ -127,6 +128,12 @@ export function useGame(): GameState {
   // 새 대국은 새 연결이다. 서버가 연결 하나에 대국 하나를 여니, 다시 붙는 것이 곧 새 판이다.
   const [generation, setGeneration] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
+  // 거절 문구는 ref 로 읽는다. 연결 effect 의 의존성에 넣으면 언어를 바꿀 때 판이 다시 열린다.
+  const connectionText = useT().game.connection;
+  const textRef = useRef(connectionText);
+  useEffect(() => {
+    textRef.current = connectionText;
+  }, [connectionText]);
   // 직전 스냅샷에 개입이 실려 있었는가. 번호를 세는 데만 쓴다.
   const hadIntervention = useRef(false);
 
@@ -203,7 +210,7 @@ export function useGame(): GameState {
       current = false;
       socketRef.current = null;
       // 끊긴 연결에는 답이 오지 않는다. 기다리는 쪽을 영원히 매달아 두지 않는다.
-      settle((p) => p.reject(new Error('接続が切れました。')));
+      settle((p) => p.reject(new Error(textRef.current.closed)));
       socket.close();
     };
   }, [generation, live, setup, resumeId, settle]);
@@ -224,13 +231,15 @@ export function useGame(): GameState {
       new Promise<WhatIfNode>((resolve, reject) => {
         const socket = socketRef.current;
         if (socket?.readyState !== WebSocket.OPEN) {
-          reject(new Error('接続していません。'));
+          reject(new Error(textRef.current.notConnected));
           return;
         }
         // 앞의 것이 아직 매달려 있으면 접는다. 답은 하나만 온다.
-        settle((p) => p.reject(new Error('やり直しました。')));
+        settle((p) => p.reject(new Error(textRef.current.superseded)));
         asking.current = { resolve, reject };
-        signal.addEventListener('abort', () => settle((p) => p.reject(new Error('やめました。'))), { once: true });
+        signal.addEventListener('abort', () => settle((p) => p.reject(new Error(textRef.current.aborted))), {
+          once: true,
+        });
         socket.send(JSON.stringify({ type: 'whatif', ply: req.ply, moves: req.moves } satisfies ClientMessage));
       }),
     [settle],
