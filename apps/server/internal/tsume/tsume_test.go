@@ -146,8 +146,8 @@ func TestOzaEndgameLongMate(t *testing.T) {
 	}
 }
 
-// ぴよ将棋에서 붙여 넣은 7手詰め. 수비 쪽 持ち駒가 많아 飛車 王手마다 合駒 갈래가 퍼진다. 트리를
-// 지을 때 같은 국면을 다시 짓던 동안 7.6M 마디(로컬 72초)가 들었다(journal §152).
+// TestInterpositionHeavyTreeStaysSmall 은 合駒 갈래가 많은 7手詰め에서 트리가 같은 국면을 다시
+// 짓지 않는지 마디 수로 본다(journal §152).
 func TestInterpositionHeavyTreeStaysSmall(t *testing.T) {
 	res := solve(t, "6knl/4S1+b2/6p1p/1p2+B1l2/P5S2/3PPPP2/1PS1S4/2K1G4/LN1G5 b 2R4P2g2nl5p 1", DefaultLimits)
 	if res.Status != Mate || res.Plies != 7 || !res.Shortest || res.First.Ja != "▲3二馬" {
