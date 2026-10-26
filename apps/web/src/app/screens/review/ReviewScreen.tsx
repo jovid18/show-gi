@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 import { ReviewDetail } from './ReviewDetail';
 import { useLocale, useT } from '@/i18n';
-import { dateJa, resultJa } from '@/libs/review/labels';
+import { dateText, resultLabel } from '@/libs/review/labels';
 import { hrefOf, navigate, type Route } from '@/routes/router';
 import type { GameSummary } from '@/protocol/review';
 import { useGameDetail, useGameList } from '@/hooks/useReview';
@@ -80,7 +80,7 @@ function GameCard({ game }: { game: GameSummary }) {
           `.review-card`). */}
       <span className="review-card-when">
         <time className="review-card-date" dateTime={game.startedAt}>
-          {dateJa(game.startedAt, locale)}
+          {dateText(game.startedAt, locale)}
         </time>
         {game.handicapJa !== undefined && <span className="review-card-handicap">{game.handicapJa}</span>}
         {/* 가져온 판은 그렇다고 말한다. 여기서 둔 판과 같은 목록에 서므로, 적지 않으면
@@ -88,7 +88,7 @@ function GameCard({ game }: { game: GameSummary }) {
         {game.imported === true && <span className="review-card-source">{t.review.list.imported}</span>}
       </span>
       <span className="review-card-result" data-result={game.result}>
-        {resultJa(game.result, t)}
+        {resultLabel(game.result, t)}
       </span>
       <span className="review-card-moves">{t.review.list.moves(game.moveCount)}</span>
       {/* 대인전은 개입 횟수 자리에 「対人」이 온다. 거기에 「介入 0回」를 적으면 「한 번도

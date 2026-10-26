@@ -118,7 +118,7 @@ export function evalTone(cp: number | undefined, base = 0): string {
  * 詰み은 cp 로 말하지 않는다. 서버가 그때 `cp` 를 아예 보내지 않고, 초심자에게 큰 숫자는
  * 아무것도 아니다.
  */
-export function scoreJa(cp: number | undefined, mateIn: number | undefined, t: Messages): string {
+export function scoreText(cp: number | undefined, mateIn: number | undefined, t: Messages): string {
   if (mateIn) {
     return mateIn > 0 ? t.review.score.mates(mateIn) : t.review.score.mated(-mateIn);
   }
@@ -143,9 +143,9 @@ export interface MoverScore {
  * 않고, 그대로 두면 상대의 詰み을 내 詰み으로 말하게 된다(`lets_mate` 카테고리 전체가 그
  * 자리다). cp 는 열의 자를 지켜 둔 쪽 관점으로 남는다.
  */
-export function rowScoreJa(row: MoverScore, byOpponent: boolean, t: Messages): string {
-  if (!row.mateIn) return scoreJa(row.cp, undefined, t);
-  return scoreJa(undefined, byOpponent ? -row.mateIn : row.mateIn, t);
+export function rowScoreText(row: MoverScore, byOpponent: boolean, t: Messages): string {
+  if (!row.mateIn) return scoreText(row.cp, undefined, t);
+  return scoreText(undefined, byOpponent ? -row.mateIn : row.mateIn, t);
 }
 
 /**
@@ -161,7 +161,7 @@ export function playerCp(row: MoverScore, byOpponent: boolean): number | undefin
 }
 
 /** 지금 분기가 어떤 상태인지 한 줄로. 상태도 차례도 서버가 정한 것을 말로 옮길 뿐이다. */
-export function branchStatusJa(node: WhatIfNode, pending: boolean, t: Messages): string {
+export function branchStatusText(node: WhatIfNode, pending: boolean, t: Messages): string {
   const m = t.review.whatif;
   if (pending) return m.reading;
   switch (node.status) {

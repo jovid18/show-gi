@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 
-import { evalTone, playerCp, rankOf, rowScoreJa, type ExploredMove } from '@/libs/whatif/branch';
+import { evalTone, playerCp, rankOf, rowScoreText, type ExploredMove } from '@/libs/whatif/branch';
 import type { Intervention as InterventionData } from '@/protocol/game';
 import type { WhatIfNode } from '@/protocol/whatif';
 import { useT, type Messages } from '@/i18n';
@@ -64,7 +64,7 @@ interface Row {
  *
  * 낙폭이 없는 줄은 비운다. 0으로 채우면 「최선수와 같다」는 거짓이 된다.
  */
-function lossJa(row: Row, t: InterventionText): string {
+function lossText(row: Row, t: InterventionText): string {
   if (row.best) return t.best;
   return row.lossCp ? `−${row.lossCp}` : '';
 }
@@ -72,10 +72,10 @@ function lossJa(row: Row, t: InterventionText): string {
 /**
  * 지금 분기가 어떤 상태인지 한 줄로. 상태도 차례도 서버가 정한 것을 말로 옮길 뿐이다.
  *
- * 되짚기의 `branchStatusJa` 와 시제가 다르다. 저쪽은 끝난 판을 보는 자리라 「負けでした」이고,
+ * 되짚기의 `branchStatusText` 와 시제가 다르다. 저쪽은 끝난 판을 보는 자리라 「負けでした」이고,
  * 여기는 아직 벌어지지 않은 일이라 「負けになります」다.
  */
-function noteJa(node: WhatIfNode | null, pending: boolean, failed: boolean, t: InterventionText['note']): string {
+function noteText(node: WhatIfNode | null, pending: boolean, failed: boolean, t: InterventionText['note']): string {
   // 튕겼으면 「조사 중」이라고 말하지 않는다. 기다리면 온다는 거짓이 된다.
   if (failed) return t.failed;
   if (!node) return pending ? t.pending : t.loading;
@@ -234,15 +234,15 @@ export function Intervention({
                 onClick={() => onPlay(r.usi)}
               >
                 <span className="intervention-options-move">{r.ja}</span>
-                <span className="intervention-options-cp">{rowScoreJa(r, byOpponent, messages)}</span>
-                <span className="intervention-options-loss">{lossJa(r, t)}</span>
+                <span className="intervention-options-cp">{rowScoreText(r, byOpponent, messages)}</span>
+                <span className="intervention-options-loss">{lossText(r, t)}</span>
               </button>
             </li>
           ))}
         </ul>
 
         <p className="intervention-branch-note" data-tone={node?.status === 'playing' ? 'turn' : 'result'}>
-          {noteJa(node, pending, stuck, t.note)}
+          {noteText(node, pending, stuck, t.note)}
         </p>
 
         {error && (

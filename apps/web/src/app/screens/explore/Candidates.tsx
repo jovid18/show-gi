@@ -1,8 +1,8 @@
 import type { CSSProperties } from 'react';
 
 import { useT } from '@/i18n';
-import { evalTone, playerCp, rowScoreJa } from '@/libs/whatif/branch';
-import { sideJa } from '@/libs/explore/text';
+import { evalTone, playerCp, rowScoreText } from '@/libs/whatif/branch';
+import { sideName } from '@/libs/explore/text';
 import type { ExploreNode } from '@/protocol/explore';
 
 /**
@@ -35,7 +35,7 @@ export function Candidates({ node, stale, onPick }: CandidatesProps) {
   return (
     <section className="review-panel explore-options" aria-label={t.explore.candidates.label}>
       <h2 className="panel-title">
-        {node ? t.explore.candidates.title(node.ply + 1, sideJa(node.turn, handicap, t)) : t.explore.candidates.label}
+        {node ? t.explore.candidates.title(node.ply + 1, sideName(node.turn, handicap, t)) : t.explore.candidates.label}
       </h2>
 
       {/* 자리를 지키고 내용만 기다린다. 통째로 다른 것으로 바꾸면 한 수 둘 때마다 옆
@@ -65,7 +65,7 @@ export function Candidates({ node, stale, onPick }: CandidatesProps) {
                 >
                   <span className="explore-option-rank">{i + 1}</span>
                   <span className="explore-option-move">{c.ja || c.usi}</span>
-                  <span className="explore-option-score">{rowScoreJa(score, byOpponent, t)}</span>
+                  <span className="explore-option-score">{rowScoreText(score, byOpponent, t)}</span>
                   {/* 낙폭은 최선수 대비다. 첫 줄에는 없다(기준이라 0). 서버가 그 자리를
                       비워서 보내므로 화면이 뺄셈을 하지 않는다(whatifCandidate 의 LossCp). */}
                   <span className="explore-option-loss">{c.lossCp ? `−${c.lossCp}` : ''}</span>

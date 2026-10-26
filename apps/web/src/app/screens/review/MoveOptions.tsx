@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import { useT } from '@/i18n';
-import { evalTone, playerCp, rankOf, rowScoreJa } from '@/libs/whatif/branch';
+import { evalTone, playerCp, rankOf, rowScoreText } from '@/libs/whatif/branch';
 import type { MoveEval } from '@/hooks/useMoveEvals';
 import type { GameDetail, ReviewIntervention, ReviewMove } from '@/protocol/review';
 import type { WhatIfNode } from '@/protocol/whatif';
@@ -50,7 +50,7 @@ interface Option {
   ja: string;
   /** 지금 잰 평가치, 둔 쪽 관점. 재지 못한 줄은 undefined 이고 자리만 지킨다. */
   cp: number | undefined;
-  /** 詰み까지의 手数, 둔 쪽 관점. 있으면 cp 대신 이것으로 말한다(`scoreJa`). */
+  /** 詰み까지의 手数, 둔 쪽 관점. 있으면 cp 대신 이것으로 말한다(`scoreText`). */
   mateIn: number | undefined;
   /** 후보 순위. 판 위 화살표의 색과 같은 색으로 줄 왼쪽에 띠를 친다. 후보가 아니면 null. */
   rank: 1 | 2 | 3 | null;
@@ -111,7 +111,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
      * 다시 잰 값을 이 열의 자로 옮긴다. `measured` 는 플레이어 관점이고 열은 둔 쪽 관점이다.
      *
      * 手数도 뒤집는다. 부호가 「누가 詰ますのか」다. 두지 않으면 상대 차례의 줄에서
-     * `rowScoreJa` 가 한 번 더 뒤집어 내 詰み을 「詰まされる」로 말하고, `rankOf` 가 그 줄을
+     * `rowScoreText` 가 한 번 더 뒤집어 내 詰み을 「詰まされる」로 말하고, `rankOf` 가 그 줄을
      * 상대의 최선으로 올린다.
      */
     const flip = (v: number | undefined): number | undefined => (v === undefined || !byOpponent ? v : -v);
@@ -248,7 +248,7 @@ export function MoveOptions({ game, ply, node, measured, chosen, onPick }: MoveO
                 )}
               </span>
 
-              <span className="review-options-cp">{rowScoreJa(o, byOpponent, t)}</span>
+              <span className="review-options-cp">{rowScoreText(o, byOpponent, t)}</span>
             </button>
 
             {/* 왜 나빴는지는 고른 줄에만. 넷을 한꺼번에 펼치면 목록이 글이 된다. */}

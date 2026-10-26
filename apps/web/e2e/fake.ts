@@ -62,6 +62,8 @@ type Received<T extends ClientMessage['type']> = Extract<ClientMessage, { type: 
  * 답을 보내야 실제 서버와 같은 순서가 된다.
  */
 export class FakeGame {
+  /** 화면이 연 연결 수. 다시 붙으면 늘어난다. */
+  connections = 0;
   private socket: WebSocketRoute | null = null;
   private opened: Array<(url: URL) => void> = [];
   private inbox: ClientMessage[] = [];
@@ -71,6 +73,7 @@ export class FakeGame {
     const game = new FakeGame();
     await page.routeWebSocket('**/ws/game**', (ws) => {
       game.socket = ws;
+      game.connections += 1;
       ws.onMessage((raw) => game.receive(JSON.parse(String(raw)) as ClientMessage));
       for (const resolve of game.opened.splice(0)) resolve(new URL(ws.url()));
     });

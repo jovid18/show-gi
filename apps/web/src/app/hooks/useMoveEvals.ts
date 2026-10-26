@@ -10,7 +10,7 @@ import { httpSend } from '@/libs/whatif/http';
  * 뒤집어서 쓴다.
  *
  * 둘은 배타적이다. 詰み인 자리에는 `mateIn` 만 오고 `cp` 는 오지 않는다. 화면은 手数로
- * 말한다(`scoreJa`).
+ * 말한다(`scoreText`).
  */
 export interface MoveEval {
   cp: number | undefined;

@@ -145,7 +145,7 @@ type whatifCandidate struct {
 	// 0을 내보내지 않는다. 화면이 「낙폭 0」과 「낙폭을 모른다」를 갈라야 한다.
 	LossCp int `json:"lossCp,omitempty"`
 	// MateIn 은 詰み까지의 手数다. 0은 詰み이 없다는 표시다. 이 칸이 차면 EvalCp 는 비어
-	// 있고, 화면은 手数로 말한다(scoreJa).
+	// 있고, 화면은 手数로 말한다(scoreText).
 	MateIn int `json:"mateIn,omitempty"`
 }
 

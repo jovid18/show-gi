@@ -128,7 +128,7 @@ export function GuideScreen() {
           {GUIDE_CATEGORIES.map((c) => (
             <li key={c.code} className="guide__cat">
               <span className="guide__cat-name">{c.nameJa}</span>
-              <span className="guide__cat-note">{(g.kinds.notes as Record<string, string | undefined>)[c.code]}</span>
+              <span className="guide__cat-note">{g.kinds.notes[c.code]}</span>
             </li>
           ))}
         </ul>

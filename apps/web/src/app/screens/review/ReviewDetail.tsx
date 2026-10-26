@@ -11,7 +11,7 @@ import { MoveOptions } from './MoveOptions';
 import { WhatIfPanel } from './WhatIfPanel';
 import { groupByOrigin, squaresOf, toUsiMove, type Destination } from '@/libs/game/moves';
 import { useLocale, useT } from '@/i18n';
-import { dateJa, resultJa } from '@/libs/review/labels';
+import { dateText, resultLabel } from '@/libs/review/labels';
 import { hrefOf, navigate } from '@/routes/router';
 import type { GameDetail, ReviewMove } from '@/protocol/review';
 import type { WhatIfNode } from '@/protocol/whatif';
@@ -21,7 +21,7 @@ import { useEngineReady, useGameSummary } from '@/hooks/useReview';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
 import type { Side } from '@/models/piece';
 import type { Motion } from '@/models/square';
-import { branchMotion, scoreJa, stepMotion } from '@/libs/whatif/branch';
+import { branchMotion, scoreText, stepMotion } from '@/libs/whatif/branch';
 import { httpSend } from '@/libs/whatif/http';
 import { useWhatIf } from '@/hooks/useWhatIf';
 import { useMoveEvals } from '@/hooks/useMoveEvals';
@@ -601,7 +601,7 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
                             className="review-kifu-eval"
                             data-sign={(move.mateIn ?? move.evalCp ?? 0) >= 0 ? 'plus' : 'minus'}
                           >
-                            {scoreJa(move.evalCp, move.mateIn, t)}
+                            {scoreText(move.evalCp, move.mateIn, t)}
                           </span>
                         )}
                       </button>
@@ -623,9 +623,9 @@ export function ReviewDetail({ game, onBack, initialPly }: ReviewDetailProps) {
             {t.review.detail.back}
           </button>
           <p className="review-meta">
-            <time dateTime={game.startedAt}>{dateJa(game.startedAt, locale)}</time>
+            <time dateTime={game.startedAt}>{dateText(game.startedAt, locale)}</time>
             <span className="review-result" data-result={game.result}>
-              {resultJa(game.result, t)}
+              {resultLabel(game.result, t)}
             </span>
             {/* 手合割은 형세 그래프의 전제다. 이 딱지가 없으면 +2000에서 시작하는 곡선을
                 되짚는 사람이 자기 실력으로 읽는다(`GameSummary.handicapJa`). */}

@@ -1,5 +1,5 @@
 import { useT } from '@/i18n';
-import { branchStatusJa, scoreJa } from '@/libs/whatif/branch';
+import { branchStatusText, scoreText } from '@/libs/whatif/branch';
 import type { WhatIfNode } from '@/protocol/whatif';
 
 /**
@@ -54,7 +54,7 @@ export function WhatIfPanel({
   onRoot,
 }: WhatIfPanelProps) {
   const t = useT();
-  const score = node ? scoreJa(node.evalCp, node.mateIn, t) : '';
+  const score = node ? scoreText(node.evalCp, node.mateIn, t) : '';
   const branching = (node?.line.length ?? 0) > 0;
   const down = engineReady === false;
 
@@ -78,7 +78,7 @@ export function WhatIfPanel({
         data-tone={node?.status === 'playing' ? 'turn' : 'result'}
         data-stale={stale || undefined}
       >
-        {down ? t.review.whatif.engineDown : node ? branchStatusJa(node, false, t) : t.review.whatif.idle}
+        {down ? t.review.whatif.engineDown : node ? branchStatusText(node, false, t) : t.review.whatif.idle}
       </p>
 
       {error && (
@@ -99,7 +99,7 @@ export function WhatIfPanel({
               <li key={move.ply} data-by={move.by}>
                 <span className="review-kifu-number">{move.ply}</span>
                 <span className="review-kifu-move">{move.ja || move.usi}</span>
-                <span className="review-kifu-eval">{at ? scoreJa(at.cp, at.mateIn, t) : ''}</span>
+                <span className="review-kifu-eval">{at ? scoreText(at.cp, at.mateIn, t) : ''}</span>
               </li>
             );
           })}

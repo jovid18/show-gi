@@ -11,7 +11,7 @@ import type { Turn } from '@/protocol/whatif';
  * 駒落ち에서는 下手/上手다. 그것이 手合割의 말이고(journal §84), 平手에서 「下手」라고 쓰면
  * 접지도 않은 판에 없는 상하가 생긴다.
  */
-export function sideJa(turn: Turn, handicap: boolean, t: Messages): string {
+export function sideName(turn: Turn, handicap: boolean, t: Messages): string {
   const side = t.explore.side;
   if (handicap) return turn === 'b' ? side.shitate : side.uwate;
   return turn === 'b' ? side.sente : side.gote;
@@ -20,15 +20,15 @@ export function sideJa(turn: Turn, handicap: boolean, t: Messages): string {
 /**
  * 지금 판이 어떤 상태인지 한 줄로.
  *
- * 「あなた」라고 부르지 않는다. 검토에는 플레이어가 없어서 되짚기의 `branchStatusJa`
+ * 「あなた」라고 부르지 않는다. 검토에는 플레이어가 없어서 되짚기의 `branchStatusText`
  * (「あなたの番」)를 그대로 쓸 수 없다.
  */
-export function exploreStatusJa(node: ExploreNode | null, pending: boolean, t: Messages): string {
+export function exploreStatusText(node: ExploreNode | null, pending: boolean, t: Messages): string {
   const status = t.explore.status;
   if (pending && !node) return status.reading;
   if (!node) return status.empty;
 
-  const side = sideJa(node.turn, !!node.handicapJa, t);
+  const side = sideName(node.turn, !!node.handicapJa, t);
   switch (node.status) {
     case 'checkmate':
       // 詰み은 수번 쪽이 지는 것이다. 부호를 뒤집으면 이기는 판이 지는 판으로 읽힌다.
@@ -48,7 +48,7 @@ export function exploreStatusJa(node: ExploreNode | null, pending: boolean, t: M
  * 이 줄이 없으면 二枚落ち의 0手目에 뜨는 `+1383` 이 「압승 중」으로 읽힌다. 화면에서는 값을
  * 빼는 대신 기준선을 말한다(journal §84). 숫자의 자가 되짚기 그래프와 같아야 한다.
  */
-export function baselineNoteJa(node: ExploreNode | null, t: Messages): string {
+export function baselineNoteText(node: ExploreNode | null, t: Messages): string {
   if (!node?.handicapJa || !node.baselineCp) return '';
   // 手合割 이름은 서버가 준 일본어 그대로다.
   return t.explore.baseline(node.handicapJa, evalText(node.baselineCp));

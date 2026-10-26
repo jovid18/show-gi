@@ -1,8 +1,10 @@
-import type { Messages } from '@/i18n';
 import type { ApiError } from '@/protocol/review';
 
-/** 서버가 사유를 말하지 않았을 때 쓰는 문구. */
-type Errors = Messages['position']['errors'];
+/** 서버가 사유를 말하지 않았을 때 쓰는 문구. 화면 언어의 것을 부르는 쪽이 넘긴다. */
+interface Errors {
+  readImage: string;
+  tooLarge: string;
+}
 
 /** 서버의 `boardread.MaxImage` 와 같아야 한다. */
 export const MAX_IMAGE_BYTES = 6 * 1024 * 1024;

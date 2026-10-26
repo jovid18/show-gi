@@ -11,7 +11,7 @@ import type { GameResult } from '@/protocol/review';
  *
  * `ongoing` 은 「中断」과 다르다. 그쪽은 끝난 것으로 닫힌 판이다.
  */
-export function resultJa(result: GameResult | undefined, t: Messages): string {
+export function resultLabel(result: GameResult | undefined, t: Messages): string {
   const r = t.review.result;
   return result ? (r[result] ?? r.ongoing) : r.ongoing;
 }
@@ -26,7 +26,7 @@ const DATE_FORMATS: Record<Locale, Intl.DateTimeFormat> = {
   ko: new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
 };
 
-export function dateJa(iso: string, locale: Locale): string {
+export function dateText(iso: string, locale: Locale): string {
   const at = new Date(iso);
   // 읽을 수 없는 값으로 「Invalid Date」를 화면에 내보내지 않는다.
   return Number.isNaN(at.getTime()) ? '' : DATE_FORMATS[locale].format(at);

@@ -19,7 +19,7 @@ import { hrefOf, navigate } from '@/routes/router';
 import type { Side } from '@/models/piece';
 import { parseSfen } from '@/models/sfen';
 import { fromIndex, fromUsi, toIndex, toUsi } from '@/models/square';
-import { scoreJa, type ExploredMove } from '@/libs/whatif/branch';
+import { scoreText, type ExploredMove } from '@/libs/whatif/branch';
 import { useWhatIf } from '@/hooks/useWhatIf';
 import { useTagAnnounce } from './hooks';
 import { useMoveSound } from '@/hooks/useMoveSound';
@@ -228,8 +228,8 @@ export function GameScreen() {
    */
   const retractedEval = useMemo(() => {
     const at = branch.evalOf(1);
-    return at ? scoreJa(at.cp, at.mateIn, t) : '';
-  }, [branch.evalOf]);
+    return at ? scoreText(at.cp, at.mateIn, t) : '';
+  }, [branch.evalOf, t]);
 
   /**
    * 지금 고를 수 있는 수. 개입 중에는 분기의 것이고 아니면 대국의 것이다.

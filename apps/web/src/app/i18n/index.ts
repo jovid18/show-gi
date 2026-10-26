@@ -16,8 +16,8 @@ import * as match from './ns/match';
 /**
  * 화면 문자열 전부. 이름공간 하나가 `ns/` 의 파일 하나다.
  *
- * 일본어가 원본이다. 각 파일의 `ko` 는 `typeof ja` 로 선언하므로 키가 빠지거나 인자 모양이
- * 다르면 typecheck 가 막는다.
+ * 일본어가 원본이다. 각 파일의 `ko` 는 `typeof ja` 로 선언하므로 키가 빠지거나 인자 타입이
+ * 다르면 typecheck 가 막는다. 인자를 덜 받는 함수는 타입으로 막히지 않아 `messages.test.ts` 가 본다.
  */
 const ja = {
   common: common.ja,

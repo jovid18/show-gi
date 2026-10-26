@@ -9,14 +9,15 @@
  * 서버와 같은지 본다.
  *
  * 풀이(note)는 화면이 직접 적고 `i18n/ns/guide.ts` 에 code 로 둔다. 서버 문구는 그 판의 그
- * 수에 하는 말이라(`baseMessages`) 시제도 주어도 다르다.
+ * 수에 하는 말이라(`baseMessages`) 시제도 주어도 다르다. `as const` 라 풀이가 빠진 code 는
+ * typecheck 가 막는다.
  */
 export interface GuideCategory {
   code: string;
   nameJa: string;
 }
 
-export const GUIDE_CATEGORIES: readonly GuideCategory[] = [
+export const GUIDE_CATEGORIES = [
   { code: 'missed_mate', nameJa: '詰み逃し' },
   { code: 'slower_mate', nameJa: '詰みの遠回り' },
   { code: 'lets_mate', nameJa: '詰まされる' },
@@ -28,4 +29,4 @@ export const GUIDE_CATEGORIES: readonly GuideCategory[] = [
   { code: 'king_exposed', nameJa: '玉が薄い' },
   { code: 'forced_loss', nameJa: '受けきれない損' },
   { code: 'other', nameJa: '大きな形勢損' },
-];
+] as const satisfies readonly GuideCategory[];

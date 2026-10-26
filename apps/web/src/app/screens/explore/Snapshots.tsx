@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { useExploreSnapshots } from '@/hooks/useExploreSnapshots';
 import { useLocale, useT } from '@/i18n';
-import { dateJa } from '@/libs/review/labels';
+import { dateText } from '@/libs/review/labels';
 import type { ExploreSnapshot } from '@/protocol/explore';
 
 /**
@@ -214,7 +214,7 @@ function SnapshotMeta({ snapshot }: { snapshot: ExploreSnapshot }) {
       {/* 平手면 오지 않는다. 접지 않는 것이 기본값이라 적을 것이 없다(protocol/handicaps.ts). */}
       {snapshot.handicapJa !== undefined && <span className="explore-snapshot-handicap">{snapshot.handicapJa}</span>}
       <span>{t.explore.snapshots.moves(snapshot.moves.length)}</span>
-      <time dateTime={snapshot.savedAt}>{dateJa(snapshot.savedAt, locale)}</time>
+      <time dateTime={snapshot.savedAt}>{dateText(snapshot.savedAt, locale)}</time>
     </span>
   );
 }

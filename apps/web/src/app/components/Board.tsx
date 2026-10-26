@@ -277,8 +277,8 @@ export function Board({
   const ownRef = useRef<HTMLDivElement>(null);
   const surfaceRef = boardRef ?? ownRef;
 
-  /** 그늘을 켜 두었는가. 사람이 토글로 켤 때만 참이다. */
   const t = useT();
+  /** 그늘을 켜 두었는가. 사람이 토글로 켤 때만 참이다. */
   const [showExposure, setShowExposure] = useState(false);
   /**
    * 그늘을 지금 그리나. 회상 중이라고 강제로 켜지지 않는다.

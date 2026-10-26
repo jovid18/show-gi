@@ -15,8 +15,8 @@ import { candidateRays } from '@/libs/game/board-view';
 import { groupByOrigin, squaresOf, toUsiMove, type Destination } from '@/libs/game/moves';
 import { getPlaying, subscribePlaying } from '@/libs/game/playing';
 import { exploreSend } from '@/libs/explore/http';
-import { baselineNoteJa, exploreStatusJa, sideJa } from '@/libs/explore/text';
-import { branchMotion, scoreJa } from '@/libs/whatif/branch';
+import { baselineNoteText, exploreStatusText, sideName } from '@/libs/explore/text';
+import { branchMotion, scoreText } from '@/libs/whatif/branch';
 import type { Side } from '@/models/piece';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
 import type { Motion } from '@/models/square';
@@ -260,7 +260,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
   const hand = (side: Side): ReactElement => (
     <Hand
       side={side}
-      label={sideJa(side === 'black' ? 'b' : 'w', !!shown?.handicapJa, t)}
+      label={sideName(side === 'black' ? 'b' : 'w', !!shown?.handicapJa, t)}
       pieces={board?.hands[side] ?? {}}
       selected={handSide === side && origin?.endsWith('*') ? origin : null}
       playable={handSide === side ? droppable : new Set()}
@@ -281,8 +281,8 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
 
   /** 뿌리가 사진에서 읽어 온 판인가. 手合割 줄과 저장이 이 값으로 갈린다. */
   const rooted = sfen !== '';
-  const score = shown ? scoreJa(shown.evalCp, shown.mateIn, t) : '';
-  const baseline = baselineNoteJa(shown, t);
+  const score = shown ? scoreText(shown.evalCp, shown.mateIn, t) : '';
+  const baseline = baselineNoteText(shown, t);
   const branching = urlMoves.length > 0;
 
   return (
@@ -396,7 +396,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
             </div>
 
             <p className="explore-status" data-stale={stale || undefined}>
-              {engineReady === false ? t.explore.engineDown : exploreStatusJa(shown, pending, t)}
+              {engineReady === false ? t.explore.engineDown : exploreStatusText(shown, pending, t)}
             </p>
 
             {/* 「이 手合의 互角은 얼마인가」. 숫자의 자를 되짚기 그래프와 같게 두려면 값을
@@ -434,7 +434,7 @@ export function ExploreScreen({ handicap, moves, sfen }: ExploreScreenProps) {
                     <li key={move.ply} data-by={move.by}>
                       <span className="review-kifu-number">{move.ply}</span>
                       <span className="review-kifu-move">{move.ja || move.usi}</span>
-                      <span className="review-kifu-eval">{scored ? scoreJa(scored.cp, scored.mateIn, t) : ''}</span>
+                      <span className="review-kifu-eval">{scored ? scoreText(scored.cp, scored.mateIn, t) : ''}</span>
                     </li>
                   );
                 })}
