@@ -268,20 +268,26 @@ function PositionForm({ mode }: { mode: Mode }) {
   /**
    * 기록의 국면을 판에 올리고 바로 푼다. 판 검사를 기다리지 않는다. 한 번 풀린 국면이라
    * 검사를 통과한 판이고, 답은 서버 캐시에서 곧바로 온다.
+   *
+   * 지금 판과 같은 국면이면 검사 상태를 비우지 않는다. `sfen` 이 그대로라 판 검사 effect 가
+   * 다시 돌지 않고, 비우면 버튼이 닫힌 채 남는다.
    */
   const openSaved = (saved: string): void => {
     if (solving) return;
     const got = parseSfen(saved);
+    const next = toSfen(got);
     setImage(null);
     setImageId(null);
     setError(null);
     setText('');
-    setFaults([]);
-    setWarnings([]);
-    setCheckedSfen('');
+    if (next !== sfen) {
+      setFaults([]);
+      setWarnings([]);
+      setCheckedSfen('');
+    }
     setBoard(got);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    void runSolve(toSfen(got));
+    void runSolve(next);
   };
 
   const analyze = (): void => {

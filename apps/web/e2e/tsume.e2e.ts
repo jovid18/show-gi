@@ -73,3 +73,65 @@ test('解くと、解いた詰将棋の一覧を読み直す', async ({ page }) 
   await expect(page.getByText('1手詰めです。')).toBeVisible();
   await expect(panel.getByRole('button', { name: /1手詰め/ })).toBeVisible();
 });
+
+test('いまの盤と同じ詰将棋を押し直しても、詰みを調べるは閉じない', async ({ page }) => {
+  const saved: TsumeSolve = {
+    id: 1,
+    name: '',
+    sfen: HEAD_GOLD,
+    status: 'mate',
+    plies: 1,
+    solvedAt: '2026-10-27T00:00:00Z',
+  };
+  const fake = await signedIn(page, [saved]);
+  await page.goto('/tsume');
+
+  const panel = page.getByRole('region', { name: '解いた詰将棋' });
+  const solveButton = page.getByRole('button', { name: '詰みを調べる' });
+  await panel.getByRole('button', { name: /1手詰め/ }).click();
+  await expect(solveButton).toBeEnabled();
+
+  await panel.getByRole('button', { name: /1手詰め/ }).click();
+  await expect.poll(() => fake.solved.length).toBe(2);
+  await expect(solveButton).toBeEnabled();
+});
+
+test('名前を変えると一覧に出て、空にすると結果に戻る。削除は二度押す', async ({ page }) => {
+  const saved: TsumeSolve = {
+    id: 1,
+    name: '',
+    sfen: HEAD_GOLD,
+    status: 'mate',
+    plies: 1,
+    solvedAt: '2026-10-27T00:00:00Z',
+  };
+  await signedIn(page, [saved]);
+  const changed: { method: string; body: unknown }[] = [];
+  await page.route('**/api/tsume/solves/1', async (r) => {
+    const req = r.request();
+    changed.push({ method: req.method(), body: req.method() === 'PATCH' ? req.postDataJSON() : null });
+    await r.fulfill({ status: 204 });
+  });
+  await page.goto('/tsume');
+
+  const panel = page.getByRole('region', { name: '解いた詰将棋' });
+  await panel.getByRole('button', { name: '名前' }).click();
+  await panel.getByLabel('新しい名前').fill('頭金');
+  await panel.getByRole('button', { name: '変更' }).click();
+  await expect(panel.getByRole('button', { name: /頭金/ })).toBeVisible();
+
+  await panel.getByRole('button', { name: '名前' }).click();
+  await panel.getByLabel('新しい名前').fill('');
+  await panel.getByRole('button', { name: '変更' }).click();
+  await expect(panel.getByRole('button', { name: /^1手詰め/ })).toBeVisible();
+
+  await panel.getByRole('button', { name: '削除' }).click();
+  expect(changed.map((c) => c.method)).toEqual(['PATCH', 'PATCH']);
+  await panel.getByRole('button', { name: '本当に削除' }).click();
+  await expect(panel.getByText('詰みを調べた局面は、ここに残ります。', { exact: false })).toBeVisible();
+  expect(changed).toEqual([
+    { method: 'PATCH', body: { name: '頭金' } },
+    { method: 'PATCH', body: { name: '' } },
+    { method: 'DELETE', body: null },
+  ]);
+});

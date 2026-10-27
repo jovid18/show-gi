@@ -2,7 +2,7 @@
 
 **이 문서는 「무엇이 어떻게 생겼나」다.** 왜 그 모양인가는 [02-architecture §4](../02-architecture.md#4-데이터-모델--그래프-db를-쓰지-않는-이유)에 있고, 여기서 다시 쓰지 않는다 — 두 벌이면 한쪽이 경고 없이 어긋난다.
 
-정본은 `apps/server/internal/store/migrations/*.sql` 이고, 이 문서는 그 23개 파일을 한 장으로 본 것이다. 레포에 파일이 있는 것과 프로덕션에 적용된 것은 다르다 — 어디까지 적용됐는지는 [06-status §3](../06-status.md).
+정본은 `apps/server/internal/store/migrations/*.sql` 이고, 이 문서는 그 25개 파일을 한 장으로 본 것이다. 레포에 파일이 있는 것과 프로덕션에 적용된 것은 다르다 — 어디까지 적용됐는지는 [06-status §3](../06-status.md).
 
 ---
 
@@ -13,6 +13,7 @@ erDiagram
     users ||--o| skill_profile : "1:0..1"
     users ||--o{ games : "0..N (익명 판은 NULL)"
     users ||--o{ explore_snapshots : "0..N"
+    users ||--o{ tsume_solves : "0..N (같은 국면은 한 행)"
     users ||--o| match_queue : "1:0..1 (대기열에 서 있는 동안만)"
 
     games ||--o{ game_moves : "확정된 수만"
@@ -158,6 +159,27 @@ erDiagram
         timestamptz created_at
     }
 
+    tsume_results {
+        text sfen_key PK "手数를 뺀 SFEN · FK 는 안 건다"
+        int solver PK "tsume.Version"
+        text status "'mate' | 'nomate' — 증명된 답만"
+        int plies "mate 일 때만"
+        boolean shortest
+        jsonb tree "화면이 받는 트리 그대로 · mate 일 때만"
+        bigint nodes
+        timestamptz created_at
+    }
+
+    tsume_solves {
+        bigserial id PK
+        bigint user_id FK
+        text sfen_key UK "user_id 와 함께 UNIQUE"
+        text name "빈 값이면 결과가 이름 자리에 선다"
+        text status "'mate' | 'nomate' | 'unknown'"
+        int plies
+        timestamptz solved_at "다시 풀면 답과 함께 고친다"
+    }
+
     analysis_plies {
         text match_id PK "분석 키 · FK 는 안 건다"
         int ply PK
@@ -206,13 +228,13 @@ erDiagram
 
 ## 2. 다섯 덩어리로 갈린다
 
-표가 17개이고 다섯 덩어리로 갈린다. 덩어리를 잇는 FK 가 둘뿐이고, 이 경계가 이 스키마의 전부다.
+표가 19개이고 다섯 덩어리로 갈린다. 덩어리를 잇는 FK 가 둘뿐이고, 이 경계가 이 스키마의 전부다.
 
 | 덩어리                  | 표                                                                                      | 키가 무엇인가     | 사람에 매여 있나     |
 | ----------------------- | --------------------------------------------------------------------------------------- | ----------------- | -------------------- |
-| **사람** (4)            | `users` · `skill_profile` · `explore_snapshots` · `match_queue`                         | `user_id`         | 그렇다               |
+| **사람** (5)            | `users` · `skill_profile` · `explore_snapshots` · `match_queue` · `tsume_solves`        | `user_id`         | 그렇다               |
 | **판** (6)              | `games` · `game_moves` · `interventions` · `game_undos` · `game_hints` · `game_quizzes` | `game_id`         | `games.user_id` 로만 |
-| **국면** (3, 엔진 캐시) | `positions` · `edges` · `mate_positions`                                                | `sfen_key`        | **아니다**           |
+| **국면** (4, 풀이 캐시) | `positions` · `edges` · `mate_positions` · `tsume_results`                              | `sfen_key`        | **아니다**           |
 | **작업 큐** (3)         | `analysis_plies` · `analysis_jobs` · `quiz_jobs`                                        | 분석 키 · 판 번호 | **아니다**           |
 | **계측** (1)            | `search_timings`                                                                        | 없다              | **아니다**           |
 
@@ -368,6 +390,8 @@ USI 엔진이 iterative deepening 중 `info depth 1 … / info depth 2 …` 를 
 | `021` | 詰み 칸 일곱 + CHECK 넷 (cp 와 詰み 을 배타로)                            | 칸 추가            |
 | `022` | `search_timings` + 인덱스 둘                                              | 표 추가            |
 | `023` | `quiz_jobs` + 인덱스                                                      | 표 추가            |
+| `024` | `game_moves.good` · `analysis_plies.good`                                 | 칸 추가            |
+| `025` | `tsume_results` · `tsume_solves` + 인덱스                                 | 표 추가            |
 
 **`011` 을 뺀 전부가 추가만 한다.** 그래서 워크트리를 병렬로 돌려도 다른 세션의 서버가 모른 채 그냥 돈다 — `DROP`·`RENAME`·`NOT NULL` 추가는 남의 서버를 그 자리에서 깨뜨리므로 혼자 돌린다.
 

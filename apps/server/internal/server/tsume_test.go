@@ -153,3 +153,33 @@ func TestTsumeCacheAnswersWithoutTheSlot(t *testing.T) {
 		t.Fatalf("기록 %+v", rows[0])
 	}
 }
+
+// DB가 없으면 기록 셋은 503 store_unavailable 이다. 화면은 이 코드를 보고 패널을 숨긴다.
+func TestTsumeSolvesWithoutStore(t *testing.T) {
+	h := Handler(Options{})
+	for _, c := range []struct{ method, path string }{
+		{http.MethodGet, "/api/tsume/solves"},
+		{http.MethodPatch, "/api/tsume/solves/1"},
+		{http.MethodDelete, "/api/tsume/solves/1"},
+	} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(c.method, c.path, strings.NewReader(`{"name":""}`)))
+
+		if rec.Code != http.StatusServiceUnavailable {
+			t.Errorf("%s %s: status = %d, want %d", c.method, c.path, rec.Code, http.StatusServiceUnavailable)
+		}
+		var body struct {
+			Error   string `json:"error"`
+			Message string `json:"message"`
+		}
+		if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+			t.Fatalf("%s %s: decode: %v", c.method, c.path, err)
+		}
+		if body.Error != "store_unavailable" {
+			t.Errorf("%s %s: error = %q", c.method, c.path, body.Error)
+		}
+		if body.Message == "" {
+			t.Errorf("%s %s: message is empty", c.method, c.path)
+		}
+	}
+}
