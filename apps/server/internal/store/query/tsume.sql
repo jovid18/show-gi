@@ -14,18 +14,19 @@ ON CONFLICT (sfen_key, solver) DO NOTHING;
 -- name: UpsertTsumeSolve :exec
 --
 -- 같은 국면을 다시 풀면 답과 시각만 고친다. 사람이 붙인 이름은 그대로 둔다.
-INSERT INTO tsume_solves (user_id, sfen_key, status, plies)
-VALUES ($1, $2, $3, $4)
+INSERT INTO tsume_solves (user_id, sfen_key, status, plies, shortest)
+VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (user_id, sfen_key) DO UPDATE
 SET status    = EXCLUDED.status,
     plies     = EXCLUDED.plies,
+    shortest  = EXCLUDED.shortest,
     solved_at = now();
 
 -- name: ListTsumeSolves :many
 --
 -- LIMIT 이 없다. 개수 상한이 없으므로 여기서 자르면 지울 수 없는 행이 생긴다
 -- (ListExploreSnapshots 와 같은 판단).
-SELECT id, sfen_key, name, status, plies, solved_at
+SELECT id, sfen_key, name, status, plies, shortest, solved_at
 FROM tsume_solves
 WHERE user_id = $1
 ORDER BY solved_at DESC, id DESC;

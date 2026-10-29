@@ -89,7 +89,7 @@ func (q *Queries) InsertTsumeResult(ctx context.Context, arg InsertTsumeResultPa
 }
 
 const listTsumeSolves = `-- name: ListTsumeSolves :many
-SELECT id, sfen_key, name, status, plies, solved_at
+SELECT id, sfen_key, name, status, plies, shortest, solved_at
 FROM tsume_solves
 WHERE user_id = $1
 ORDER BY solved_at DESC, id DESC
@@ -101,6 +101,7 @@ type ListTsumeSolvesRow struct {
 	Name     string
 	Status   string
 	Plies    *int32
+	Shortest bool
 	SolvedAt pgtype.Timestamptz
 }
 
@@ -121,6 +122,7 @@ func (q *Queries) ListTsumeSolves(ctx context.Context, userID int64) ([]ListTsum
 			&i.Name,
 			&i.Status,
 			&i.Plies,
+			&i.Shortest,
 			&i.SolvedAt,
 		); err != nil {
 			return nil, err
@@ -156,19 +158,21 @@ func (q *Queries) RenameTsumeSolve(ctx context.Context, arg RenameTsumeSolvePara
 }
 
 const upsertTsumeSolve = `-- name: UpsertTsumeSolve :exec
-INSERT INTO tsume_solves (user_id, sfen_key, status, plies)
-VALUES ($1, $2, $3, $4)
+INSERT INTO tsume_solves (user_id, sfen_key, status, plies, shortest)
+VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (user_id, sfen_key) DO UPDATE
 SET status    = EXCLUDED.status,
     plies     = EXCLUDED.plies,
+    shortest  = EXCLUDED.shortest,
     solved_at = now()
 `
 
 type UpsertTsumeSolveParams struct {
-	UserID  int64
-	SFENKey string
-	Status  string
-	Plies   *int32
+	UserID   int64
+	SFENKey  string
+	Status   string
+	Plies    *int32
+	Shortest bool
 }
 
 // 같은 국면을 다시 풀면 답과 시각만 고친다. 사람이 붙인 이름은 그대로 둔다.
@@ -178,6 +182,7 @@ func (q *Queries) UpsertTsumeSolve(ctx context.Context, arg UpsertTsumeSolvePara
 		arg.SFENKey,
 		arg.Status,
 		arg.Plies,
+		arg.Shortest,
 	)
 	return err
 }

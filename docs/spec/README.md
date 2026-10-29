@@ -6,7 +6,7 @@
 | ---------------------------------- | ------------------------------------------------------------------------- |
 | [api.md](api.md)                   | REST 27개의 요청·응답·상태코드 + WebSocket 둘의 프로토콜                  |
 | [openapi.yaml](openapi.yaml)       | 위의 REST 부분의 기계용 정본 (OpenAPI 3.1)                                |
-| [data-model.md](data-model.md)     | 표 19개의 ERD 와 표 사이의 관계 · 마이그레이션 25개의 이력                |
+| [data-model.md](data-model.md)     | 표 19개의 ERD 와 표 사이의 관계 · 마이그레이션 26개의 이력                |
 | [architecture.md](architecture.md) | 그림 여섯 장 — 시스템 구성 · 모듈 의존 · 개입 루프 시퀀스 · 배포 토폴로지 |
 
 ## 어디가 정본인가

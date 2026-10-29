@@ -39,6 +39,7 @@ test('解いた詰将棋を押すと、その局面をもう一度解く', async
     sfen: HEAD_GOLD,
     status: 'mate',
     plies: 1,
+    shortest: true,
     solvedAt: '2026-10-27T00:00:00Z',
   };
   const fake = await signedIn(page, [saved]);
@@ -58,6 +59,7 @@ test('解くと、解いた詰将棋の一覧を読み直す', async ({ page }) 
     sfen: HEAD_GOLD,
     status: 'mate',
     plies: 1,
+    shortest: true,
     solvedAt: '2026-10-27T00:00:00Z',
   };
   await signedIn(page, [], [saved]);
@@ -81,6 +83,7 @@ test('いまの盤と同じ詰将棋を押し直しても、詰みを調べる�
     sfen: HEAD_GOLD,
     status: 'mate',
     plies: 1,
+    shortest: true,
     solvedAt: '2026-10-27T00:00:00Z',
   };
   const fake = await signedIn(page, [saved]);
@@ -103,6 +106,7 @@ test('名前を変えると一覧に出て、空にすると結果に戻る。�
     sfen: HEAD_GOLD,
     status: 'mate',
     plies: 1,
+    shortest: true,
     solvedAt: '2026-10-27T00:00:00Z',
   };
   await signedIn(page, [saved]);
@@ -134,4 +138,22 @@ test('名前を変えると一覧に出て、空にすると結果に戻る。�
     { method: 'PATCH', body: { name: '' } },
     { method: 'DELETE', body: null },
   ]);
+});
+
+test('最短を確かめられなかった詰みは、一覧で「N手詰め」と言い切らない', async ({ page }) => {
+  const saved: TsumeSolve = {
+    id: 1,
+    name: '',
+    sfen: HEAD_GOLD,
+    status: 'mate',
+    plies: 7,
+    shortest: false,
+    solvedAt: '2026-10-27T00:00:00Z',
+  };
+  await signedIn(page, [saved]);
+  await page.goto('/tsume');
+
+  const panel = page.getByRole('region', { name: '解いた詰将棋' });
+  await expect(panel.getByRole('button', { name: /7手で詰み/ })).toBeVisible();
+  await expect(panel.getByText('7手詰め')).toHaveCount(0);
 });

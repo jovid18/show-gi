@@ -137,7 +137,7 @@
 
 - 풀기는 `{sfen}` 을 받아 `{status, plies?, shortest, tree?, message}` 를 준다. `status` 는 `mate`·`nomate`·`unknown`
 - DB가 있으면 증명된 답(`mate`·`nomate`)을 국면마다 캐시하고, 같은 국면은 풀이 자리를 기다리지 않고 답한다. 풀 때마다 그 사람의 기록에 한 줄을 남긴다. 같은 국면은 한 줄이고 답과 시각만 고친다. 사람이 붙인 이름은 그대로다([§155](../journal/141-160.md))
-- 기록 한 줄은 `{id, name, sfen, status, plies?, solvedAt}` 이다. 트리를 싣지 않는다. 다시 열 때는 `sfen` 으로 풀기를 다시 부른다
+- 기록 한 줄은 `{id, name, sfen, status, plies?, shortest, solvedAt}` 이다. `shortest` 가 거짓인 詰み는 화면이 「N手詰め」로 단정하지 않는다. 트리를 싣지 않는다. 다시 열 때는 `sfen` 으로 풀기를 다시 부른다
 - 저장 요청이 없다. `PATCH` 는 이름만 고치고 빈 이름도 받는다(화면이 결과를 이름 자리에 쓴다). `DELETE` 는 기록만 지우고 캐시된 답은 남긴다
 
 ### 가정 수순 · 검토 (엔진 필요)

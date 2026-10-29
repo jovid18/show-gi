@@ -1986,11 +1986,12 @@ components:
           items: { $ref: '#/components/schemas/TsumeMove' }
     TsumeSolve:
       type: object
-      required: [id, name, sfen, status, solvedAt]
+      required: [id, name, sfen, status, shortest, solvedAt]
       properties:
         id: { type: integer, format: int64 }
         name: { type: string, description: 비면 화면이 결과를 이름 자리에 쓴다 }
         sfen: { type: string, description: 手数는 늘 1 이다 }
         status: { type: string, enum: [mate, nomate, unknown] }
         plies: { type: integer, description: mate 일 때만 }
+        shortest: { type: boolean, description: 거짓이면 화면이 「N手詰め」로 단정하지 않는다 }
         solvedAt: { type: string, format: date-time }

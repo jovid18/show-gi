@@ -78,6 +78,7 @@ export const ja = {
     confirmRemove: '本当に削除',
     result: {
       mate: (n: number) => `${n}手詰め`,
+      mateUnproven: (n: number) => `${n}手で詰み`,
       nomate: '詰みなし',
       unknown: '調べきれず',
     },
@@ -164,6 +165,7 @@ export const ko: typeof ja = {
     confirmRemove: '정말 삭제',
     result: {
       mate: (n: number) => `${n}수 외통`,
+      mateUnproven: (n: number) => `${n}수로 외통`,
       nomate: '외통 없음',
       unknown: '판정 못 함',
     },

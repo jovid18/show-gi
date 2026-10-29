@@ -26,7 +26,9 @@ type tsumeSolveView struct {
 	SFEN   string `json:"sfen"`
 	Status string `json:"status"`
 	// Plies 는 mate 일 때만 온다.
-	Plies    int       `json:"plies,omitempty"`
+	Plies int `json:"plies,omitempty"`
+	// Shortest 는 Plies 보다 짧은 詰み가 없음을 확인했는가다. 화면이 「N手詰め」로 단정할지를 가른다.
+	Shortest bool      `json:"shortest"`
 	SolvedAt time.Time `json:"solvedAt"`
 }
 
@@ -58,6 +60,7 @@ func (h *tsumeSolveHandler) list(w http.ResponseWriter, r *http.Request) {
 			SFEN:     row.SFENKey + " 1",
 			Status:   row.Status,
 			Plies:    row.Plies,
+			Shortest: row.Shortest,
 			SolvedAt: row.SolvedAt,
 		})
 	}

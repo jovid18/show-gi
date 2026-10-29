@@ -1475,16 +1475,18 @@ type TsumeSolve struct {
 	Name     string
 	Status   string
 	Plies    int
+	Shortest bool
 	SolvedAt time.Time
 }
 
 // RecordTsumeSolve 는 그 사람이 그 국면을 풀었다는 것을 남긴다. 같은 국면이면 답과 시각만 고친다.
-func (s *Store) RecordTsumeSolve(ctx context.Context, userID int64, sfenKey, status string, plies int) error {
+func (s *Store) RecordTsumeSolve(ctx context.Context, userID int64, sfenKey, status string, plies int, shortest bool) error {
 	err := s.q.UpsertTsumeSolve(ctx, db.UpsertTsumeSolveParams{
-		UserID:  userID,
-		SFENKey: sfenKey,
-		Status:  status,
-		Plies:   tsumePlies(plies),
+		UserID:   userID,
+		SFENKey:  sfenKey,
+		Status:   status,
+		Plies:    tsumePlies(plies),
+		Shortest: shortest,
 	})
 	if err != nil {
 		return fmt.Errorf("upsert tsume solve: %w", err)
@@ -1500,7 +1502,7 @@ func (s *Store) TsumeSolves(ctx context.Context, userID int64) ([]TsumeSolve, er
 	}
 	out := make([]TsumeSolve, 0, len(rows))
 	for _, r := range rows {
-		row := TsumeSolve{ID: r.ID, SFENKey: r.SFENKey, Name: r.Name, Status: r.Status, SolvedAt: r.SolvedAt.Time}
+		row := TsumeSolve{ID: r.ID, SFENKey: r.SFENKey, Name: r.Name, Status: r.Status, Shortest: r.Shortest, SolvedAt: r.SolvedAt.Time}
 		if r.Plies != nil {
 			row.Plies = int(*r.Plies)
 		}

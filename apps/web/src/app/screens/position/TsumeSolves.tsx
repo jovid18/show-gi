@@ -151,8 +151,9 @@ function positionKey(sfen: string): string {
 
 type ResultWords = Messages['position']['solves']['result'];
 
+/** 최단을 확인하지 못한 詰み는 「N手詰め」로 단정하지 않는다. 풀기의 문구(tsumeMessage)와 같은 갈래다. */
 function resultText(solve: TsumeSolve, words: ResultWords): string {
-  if (solve.status === 'mate') return words.mate(solve.plies ?? 0);
+  if (solve.status === 'mate') return (solve.shortest ? words.mate : words.mateUnproven)(solve.plies ?? 0);
   return words[solve.status];
 }
 

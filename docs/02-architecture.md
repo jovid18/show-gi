@@ -51,7 +51,7 @@ fairy-stockfish로 시작했다가 갈아탔다. `go mate` 가 없어서다. 그
 
 ## 4. 데이터 모델 — 그래프 DB를 쓰지 않는 이유
 
-> 표 19개를 한 장으로 본 ERD와 마이그레이션 25개의 이력은 [spec/data-model.md](spec/data-model.md)에 있다. 이 절은 왜 이 모양이 됐는지만 담는다.
+> 표 19개를 한 장으로 본 ERD와 마이그레이션 26개의 이력은 [spec/data-model.md](spec/data-model.md)에 있다. 이 절은 왜 이 모양이 됐는지만 담는다.
 
 원래 요구는 이랬다.
 
@@ -186,9 +186,10 @@ explore_snapshots(id, user_id, name, handicap, moves text[], created_at)
 tsume_results(sfen_key, solver, status, plies, shortest, tree jsonb, nodes, created_at)
              -- 詰め将棋 풀이의 답 캐시 (025, §155). PK 가 (sfen_key, solver) 라 풀이를 고치면
              -- 옛 행은 읽히지 않는다. 증명된 답(mate·nomate)만 든다
-tsume_solves(id, user_id, sfen_key, name, status, plies, solved_at)
+tsume_solves(id, user_id, sfen_key, name, status, plies, shortest, solved_at)
              -- 사람이 푼 국면 (025, §155). (user_id, sfen_key) 가 UNIQUE 라 다시 풀면
              -- 답과 시각만 고친다. 트리를 들지 않는다. 다시 열면 위 캐시가 답한다
+             -- shortest 는 026 에서 더했다. 목록이 최단 미확인 詰み를 단정하지 않게 한다
 ```
 
 > `explain_cache` 와 `kb_chunks` 는 지웠다(011). 개입 문구가 LLM을 거치지 않고 카테고리에서

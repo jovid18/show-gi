@@ -39,6 +39,8 @@ export interface TsumeSolve {
   status: TsumeResponse['status'];
   /** `mate` 일 때만 온다. */
   plies?: number;
+  /** `plies` 보다 짧은 詰み가 없음을 확인했는가. 거짓이면 「N手詰め」로 단정하지 않는다. */
+  shortest: boolean;
   solvedAt: string;
 }
 

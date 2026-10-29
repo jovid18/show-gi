@@ -61,7 +61,7 @@ func TestTsumeSolveKeepsTheNameOnResolve(t *testing.T) {
 	user := tsumeUser(t, s)
 	k := "test/" + t.Name()
 
-	if err := s.RecordTsumeSolve(t.Context(), user, k, "unknown", 0); err != nil {
+	if err := s.RecordTsumeSolve(t.Context(), user, k, "unknown", 0, false); err != nil {
 		t.Fatalf("RecordTsumeSolve: %v", err)
 	}
 	rows, err := s.TsumeSolves(t.Context(), user)
@@ -72,7 +72,7 @@ func TestTsumeSolveKeepsTheNameOnResolve(t *testing.T) {
 		t.Fatalf("RenameTsumeSolve: %v", err)
 	}
 
-	if err := s.RecordTsumeSolve(t.Context(), user, k, "mate", 7); err != nil {
+	if err := s.RecordTsumeSolve(t.Context(), user, k, "mate", 7, true); err != nil {
 		t.Fatalf("다시 RecordTsumeSolve: %v", err)
 	}
 	rows, err = s.TsumeSolves(t.Context(), user)
@@ -80,7 +80,7 @@ func TestTsumeSolveKeepsTheNameOnResolve(t *testing.T) {
 		t.Fatalf("같은 국면이 두 줄이 됐다: %v %+v", err, rows)
 	}
 	got := rows[0]
-	if got.Name != "第1問" || got.Status != "mate" || got.Plies != 7 || got.SFENKey != k {
+	if got.Name != "第1問" || got.Status != "mate" || got.Plies != 7 || !got.Shortest || got.SFENKey != k {
 		t.Fatalf("got %+v", got)
 	}
 }
@@ -92,7 +92,7 @@ func TestTsumeSolveBelongsToItsOwner(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertUser: %v", err)
 	}
-	if err := s.RecordTsumeSolve(t.Context(), owner, "test/"+t.Name(), "nomate", 0); err != nil {
+	if err := s.RecordTsumeSolve(t.Context(), owner, "test/"+t.Name(), "nomate", 0, false); err != nil {
 		t.Fatalf("RecordTsumeSolve: %v", err)
 	}
 	rows, err := s.TsumeSolves(t.Context(), owner)

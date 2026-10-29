@@ -206,6 +206,7 @@ type TsumeSolf struct {
 	Status   string
 	Plies    *int32
 	SolvedAt pgtype.Timestamptz
+	Shortest bool
 }
 
 type User struct {

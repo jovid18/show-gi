@@ -2,7 +2,7 @@
 
 **이 문서는 「무엇이 어떻게 생겼나」다.** 왜 그 모양인가는 [02-architecture §4](../02-architecture.md#4-데이터-모델--그래프-db를-쓰지-않는-이유)에 있고, 여기서 다시 쓰지 않는다 — 두 벌이면 한쪽이 경고 없이 어긋난다.
 
-정본은 `apps/server/internal/store/migrations/*.sql` 이고, 이 문서는 그 25개 파일을 한 장으로 본 것이다. 레포에 파일이 있는 것과 프로덕션에 적용된 것은 다르다 — 어디까지 적용됐는지는 [06-status §3](../06-status.md).
+정본은 `apps/server/internal/store/migrations/*.sql` 이고, 이 문서는 그 26개 파일을 한 장으로 본 것이다. 레포에 파일이 있는 것과 프로덕션에 적용된 것은 다르다 — 어디까지 적용됐는지는 [06-status §3](../06-status.md).
 
 ---
 
@@ -177,6 +177,7 @@ erDiagram
         text name "빈 값이면 결과가 이름 자리에 선다"
         text status "'mate' | 'nomate' | 'unknown'"
         int plies
+        boolean shortest "거짓이면 「N手詰め」로 단정하지 않는다"
         timestamptz solved_at "다시 풀면 답과 함께 고친다"
     }
 
@@ -392,6 +393,7 @@ USI 엔진이 iterative deepening 중 `info depth 1 … / info depth 2 …` 를 
 | `023` | `quiz_jobs` + 인덱스                                                      | 표 추가            |
 | `024` | `game_moves.good` · `analysis_plies.good`                                 | 칸 추가            |
 | `025` | `tsume_results` · `tsume_solves` + 인덱스                                 | 표 추가            |
+| `026` | `tsume_solves.shortest`                                                   | 칸 추가            |
 
 **`011` 을 뺀 전부가 추가만 한다.** 그래서 워크트리를 병렬로 돌려도 다른 세션의 서버가 모른 채 그냥 돈다 — `DROP`·`RENAME`·`NOT NULL` 추가는 남의 서버를 그 자리에서 깨뜨리므로 혼자 돌린다.
 

@@ -226,7 +226,7 @@ func (h *tsumeHandler) record(ctx context.Context, userID int64, key string, out
 	if h.store == nil {
 		return
 	}
-	if err := h.store.RecordTsumeSolve(ctx, userID, key, out.Status, out.Plies); err != nil {
+	if err := h.store.RecordTsumeSolve(ctx, userID, key, out.Status, out.Plies, out.Shortest); err != nil {
 		log.Printf("tsume: record %s for %d: %v", key, userID, err)
 	}
 }
