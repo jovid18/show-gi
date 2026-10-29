@@ -66,6 +66,26 @@ export const ja = {
     futile: '無駄合い',
     rest: (move: string, n: number) => `${move}なら、あと${n}手で詰み`,
   },
+  solves: {
+    label: '解いた詰将棋',
+    empty: '詰みを調べた局面は、ここに残ります。押すと、もう一度ひらけます。',
+    namePlaceholder: '未入力なら結果が名前になります',
+    newNameLabel: '新しい名前',
+    rename: '変更',
+    cancel: 'やめる',
+    name: '名前',
+    remove: '削除',
+    confirmRemove: '本当に削除',
+    result: {
+      mate: (n: number) => `${n}手詰め`,
+      mateUnproven: (n: number) => `${n}手で詰み`,
+      nomate: '詰みなし',
+      unknown: '調べきれず',
+    },
+    loadFailed: '解いた詰将棋を読み込めませんでした。',
+    renameFailed: '名前を変更できませんでした。',
+    removeFailed: '削除できませんでした。',
+  },
 };
 
 export const ko: typeof ja = {
@@ -132,5 +152,25 @@ export const ko: typeof ja = {
     otherReplies: (n: number) => `다른 응수 ${n}`,
     futile: '무의미한 막기',
     rest: (move: string, n: number) => `${move} 이후 ${n}수 만에 외통`,
+  },
+  solves: {
+    label: '풀어 본 츠메쇼기',
+    empty: '외통을 찾은 국면은 여기에 남습니다. 누르면 다시 열 수 있습니다.',
+    namePlaceholder: '비워 두면 결과가 이름이 됩니다',
+    newNameLabel: '새 이름',
+    rename: '변경',
+    cancel: '취소',
+    name: '이름',
+    remove: '삭제',
+    confirmRemove: '정말 삭제',
+    result: {
+      mate: (n: number) => `${n}수 외통`,
+      mateUnproven: (n: number) => `${n}수로 외통`,
+      nomate: '외통 없음',
+      unknown: '판정 못 함',
+    },
+    loadFailed: '풀어 본 츠메쇼기를 불러오지 못했습니다.',
+    renameFailed: '이름을 변경하지 못했습니다.',
+    removeFailed: '삭제하지 못했습니다.',
   },
 };

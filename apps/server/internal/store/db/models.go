@@ -187,6 +187,28 @@ type SkillProfile struct {
 	SkillAbsSamples int32
 }
 
+type TsumeResult struct {
+	SFENKey   string
+	Solver    int32
+	Status    string
+	Plies     *int32
+	Shortest  bool
+	Tree      []byte
+	Nodes     int64
+	CreatedAt pgtype.Timestamptz
+}
+
+type TsumeSolf struct {
+	ID       int64
+	UserID   int64
+	SFENKey  string
+	Name     string
+	Status   string
+	Plies    *int32
+	SolvedAt pgtype.Timestamptz
+	Shortest bool
+}
+
 type User struct {
 	ID          int64
 	Provider    string
