@@ -327,6 +327,10 @@ func analysisRole() string {
 	}
 }
 
+// minSessionSecret 은 서명 키의 최소 글자 수다. base64 32글자면 24바이트(192비트)라
+// 무차별 대입이 닿지 않는다.
+const minSessionSecret = 32
+
 // startAuth 는 Google 로그인을 켠다. 키가 없으면 nil 이고 익명 대국으로 남는다.
 //
 // 없다고 프로세스를 죽이지 않는다. 엔진·DB 와 같은 판단이고, 로그인이 바꾸는 것은 그
@@ -341,6 +345,11 @@ func startAuth() *auth.Google {
 		// 서명 키가 없으면 쿠키를 위조할 수 있다. 그건 로그인이 없는 것보다 나쁘다.
 		slog.Warn("google sign-in is off", "reason", "SESSION_SECRET is not set")
 		return nil
+	}
+	if len(os.Getenv("SESSION_SECRET")) < minSessionSecret {
+		// 끄지 않는다. 이미 돌고 있는 배포의 로그인이 기동 한 번에 꺼진다. 짧은 키는
+		// 쿠키 하나만 손에 넣으면 밖에서 맞춰 볼 수 있으니 로그로 알린다.
+		slog.Warn("SESSION_SECRET is short", "min", minSessionSecret, "hint", "openssl rand -base64 32")
 	}
 	slog.Info("google sign-in ready")
 	return g

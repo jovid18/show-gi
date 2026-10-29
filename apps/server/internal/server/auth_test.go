@@ -203,7 +203,7 @@ func TestViewerReadsSignedCookie(t *testing.T) {
 	}
 
 	r := httptest.NewRequest(http.MethodGet, "/api/me", nil)
-	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: value})
+	r.AddCookie(&http.Cookie{Name: hostPrefix + sessionCookie, Value: value})
 	s, ok := h.viewer(r)
 	if !ok || s.UserID != 7 || s.Name != "さとし" {
 		t.Fatalf("viewer = %+v, %v", s, ok)
@@ -211,7 +211,7 @@ func TestViewerReadsSignedCookie(t *testing.T) {
 
 	// 한 글자만 바꿔도 서명이 깨진다.
 	r2 := httptest.NewRequest(http.MethodGet, "/api/me", nil)
-	r2.AddCookie(&http.Cookie{Name: sessionCookie, Value: value + "x"})
+	r2.AddCookie(&http.Cookie{Name: hostPrefix + sessionCookie, Value: value + "x"})
 	if _, ok := h.viewer(r2); ok {
 		t.Error("a tampered cookie was accepted")
 	}
@@ -225,7 +225,7 @@ func TestViewerIgnoresCookieWhenDisabled(t *testing.T) {
 		t.Fatalf("encode: %v", err)
 	}
 	r := httptest.NewRequest(http.MethodGet, "/api/me", nil)
-	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: value})
+	r.AddCookie(&http.Cookie{Name: hostPrefix + sessionCookie, Value: value})
 
 	h := &authHandler{codec: auth.NewCodec("session-secret")} // google·store 없음
 	if _, ok := h.viewer(r); ok {
@@ -300,7 +300,7 @@ func TestOwnerFollowsTheSession(t *testing.T) {
 		t.Fatalf("encode: %v", err)
 	}
 	r := httptest.NewRequest(http.MethodGet, "/api/games", nil)
-	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: value})
+	r.AddCookie(&http.Cookie{Name: hostPrefix + sessionCookie, Value: value})
 	got := h.owner(r)
 	if got == nil || *got != 7 {
 		t.Errorf("owner = %v, want 7", got)
@@ -308,7 +308,7 @@ func TestOwnerFollowsTheSession(t *testing.T) {
 
 	// 위조된 쿠키는 익명으로 떨어진다. 남의 판 대신 익명 판을 본다.
 	r2 := httptest.NewRequest(http.MethodGet, "/api/games", nil)
-	r2.AddCookie(&http.Cookie{Name: sessionCookie, Value: value + "x"})
+	r2.AddCookie(&http.Cookie{Name: hostPrefix + sessionCookie, Value: value + "x"})
 	if got := h.owner(r2); got != nil {
 		t.Errorf("위조 쿠키의 owner = %v, want nil", *got)
 	}
@@ -320,5 +320,80 @@ func TestOwnerOnNilHandler(t *testing.T) {
 	var h *authHandler
 	if got := h.owner(httptest.NewRequest(http.MethodGet, "/api/games", nil)); got != nil {
 		t.Errorf("owner = %v, want nil", *got)
+	}
+}
+
+// HTTPS 에서는 쿠키 이름에 __Host- 가 붙고, 읽는 쪽도 그 이름만 본다. 접두사 없는 같은
+// 이름의 쿠키는 다른 서브도메인이 심었을 수 있으므로 세션으로 받지 않는다.
+func TestCookiesUseHostPrefixOverHTTPS(t *testing.T) {
+	h := signedInHandler()
+	rec := httptest.NewRecorder()
+	h.start(rec, httptest.NewRequest(http.MethodGet, "https://show-gi.com/api/auth/google/start", nil))
+	for _, name := range []string{stateCookie, verifierCookie} {
+		c := cookieOf(rec, hostPrefix+name)
+		if c == nil {
+			t.Fatalf("no %s cookie", hostPrefix+name)
+		}
+		if !c.Secure || c.Path != "/" || c.Domain != "" {
+			t.Errorf("%s: Secure=%v Path=%q Domain=%q", c.Name, c.Secure, c.Path, c.Domain)
+		}
+	}
+
+	value, err := h.codec.Encode(1, "さとし", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest(http.MethodGet, "https://show-gi.com/api/me", nil)
+	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: value})
+	if _, ok := h.viewer(r); ok {
+		t.Error("an unprefixed session cookie was accepted over HTTPS")
+	}
+	r = httptest.NewRequest(http.MethodGet, "https://show-gi.com/api/me", nil)
+	r.AddCookie(&http.Cookie{Name: hostPrefix + sessionCookie, Value: value})
+	if _, ok := h.viewer(r); !ok {
+		t.Error("the prefixed session cookie was not accepted")
+	}
+
+	// 로컬은 평문이라 브라우저가 __Host- 쿠키를 거부한다. 접두사 없이 굽는다.
+	rec = httptest.NewRecorder()
+	h.start(rec, httptest.NewRequest(http.MethodGet, "http://localhost:5173/api/auth/google/start", nil))
+	if cookieOf(rec, stateCookie) == nil {
+		t.Error("no unprefixed state cookie on localhost")
+	}
+}
+
+func TestSameOrigin(t *testing.T) {
+	reached := false
+	h := sameOrigin(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		reached = true
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	for _, c := range []struct {
+		name, method, origin string
+		pass                 bool
+	}{
+		{"같은 출처", http.MethodPost, "https://show-gi.com", true},
+		{"Origin 없음", http.MethodPost, "", true},
+		{"GET 은 보지 않는다", http.MethodGet, "https://evil.example", true},
+		{"다른 서브도메인", http.MethodPost, "https://blog.show-gi.com", false},
+		{"다른 사이트", http.MethodDelete, "https://evil.example", false},
+		{"null", http.MethodPatch, "null", false},
+		{"포트가 다르다", http.MethodPost, "https://show-gi.com:8443", false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			reached = false
+			r := httptest.NewRequest(c.method, "https://show-gi.com/api/explore/snapshots", nil)
+			if c.origin != "" {
+				r.Header.Set("Origin", c.origin)
+			}
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, r)
+			if reached != c.pass {
+				t.Errorf("reached = %v, want %v (status %d)", reached, c.pass, rec.Code)
+			}
+			if !c.pass && rec.Code != http.StatusForbidden {
+				t.Errorf("status = %d, want 403", rec.Code)
+			}
+		})
 	}
 }

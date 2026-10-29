@@ -38,7 +38,7 @@ func matchTestServer(t *testing.T) (http.Handler, *match.Hub, func(userID int64,
 		if err != nil {
 			t.Fatalf("encode session: %v", err)
 		}
-		return &http.Cookie{Name: sessionCookie, Value: value}
+		return &http.Cookie{Name: hostPrefix + sessionCookie, Value: value}
 	}
 	return Handler(opts), m.hub, signIn
 }

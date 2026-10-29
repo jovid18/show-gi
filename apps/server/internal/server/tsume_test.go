@@ -20,7 +20,7 @@ func postTsume(t *testing.T, h *tsumeHandler, userID int64, sfen string) *httpte
 		if err != nil {
 			t.Fatal(err)
 		}
-		req.AddCookie(&http.Cookie{Name: sessionCookie, Value: value})
+		req.AddCookie(&http.Cookie{Name: hostPrefix + sessionCookie, Value: value})
 	}
 	rec := httptest.NewRecorder()
 	h.solve(rec, req)
@@ -81,7 +81,7 @@ func TestTsumeWaitsForTheSlot(t *testing.T) {
 	body, _ := json.Marshal(tsumeRequest{SFEN: "4k4/9/4P4/9/9/9/9/9/9 b G 1"})
 	req := httptest.NewRequest(http.MethodPost, "/api/tsume/solve", bytes.NewReader(body))
 	value, _ := h.auth.codec.Encode(7, "さとし", time.Now())
-	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: value})
+	req.AddCookie(&http.Cookie{Name: hostPrefix + sessionCookie, Value: value})
 	ctx, cancel := context.WithTimeout(req.Context(), 50*time.Millisecond)
 	defer cancel()
 	rec := httptest.NewRecorder()

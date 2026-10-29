@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -33,6 +34,11 @@ const (
 	// callbackPath 는 Google에 등록한 리디렉션 경로다. /api 아래여야 한다. Caddy와 Vite
 	// 둘 다 그 접두사만 서버로 넘긴다(apps/web/Caddyfile).
 	callbackPath = "/api/auth/google/callback"
+
+	// hostPrefix 는 HTTPS 에서 쿠키 이름 앞에 붙는다. 브라우저가 이 이름의 쿠키에 Secure·
+	// Path=/·Domain 없음을 강제해서, 다른 서브도메인이 state·verifier·세션을 미리 심어
+	// 둘 수 없다. 평문인 로컬에서는 브라우저가 이 쿠키를 거부하므로 붙이지 않는다.
+	hostPrefix = "__Host-"
 )
 
 // authHandler 는 로그인 세 경로를 갖는다. google 이나 codec 이 nil이면 라우팅되지 않는다.
@@ -68,7 +74,7 @@ func (h *authHandler) start(w http.ResponseWriter, r *http.Request) {
 	secure := h.secure(r)
 	for _, c := range [][2]string{{stateCookie, state}, {verifierCookie, verifier}} {
 		http.SetCookie(w, &http.Cookie{
-			Name:     c[0],
+			Name:     h.cookieName(r, c[0]),
 			Value:    c[1],
 			Path:     "/",
 			MaxAge:   int(stateTTL.Seconds()),
@@ -87,8 +93,8 @@ func (h *authHandler) start(w http.ResponseWriter, r *http.Request) {
 // 실패해도 화면으로 돌려보낸다. 브라우저가 주소창으로 들어오는 자리라 JSON을 쓰면 사람이
 // 그 JSON을 보게 된다. 무엇이 틀렸는지는 로그가 갖는다.
 func (h *authHandler) callback(w http.ResponseWriter, r *http.Request) {
-	clearCookie(w, stateCookie, h.secure(r))
-	clearCookie(w, verifierCookie, h.secure(r))
+	clearCookie(w, h.cookieName(r, stateCookie), h.secure(r))
+	clearCookie(w, h.cookieName(r, verifierCookie), h.secure(r))
 
 	q := r.URL.Query()
 	if e := q.Get("error"); e != "" {
@@ -98,7 +104,7 @@ func (h *authHandler) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	state, err := r.Cookie(stateCookie)
+	state, err := r.Cookie(h.cookieName(r, stateCookie))
 	if err != nil || state.Value == "" || state.Value != q.Get("state") {
 		// 우리가 시작하지 않은 콜백이다. 남이 자기 계정으로 로그인시키려는 시도가 이
 		// 모양으로 온다.
@@ -107,7 +113,7 @@ func (h *authHandler) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	verifier, err := r.Cookie(verifierCookie)
+	verifier, err := r.Cookie(h.cookieName(r, verifierCookie))
 	if err != nil || verifier.Value == "" {
 		// state 와 같이 구웠으니 이쪽만 없는 것은 배포 직전에 시작한 로그인뿐이다.
 		log.Print("auth: no PKCE verifier, ignoring callback")
@@ -136,7 +142,7 @@ func (h *authHandler) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookie,
+		Name:     h.cookieName(r, sessionCookie),
 		Value:    value,
 		Path:     "/",
 		MaxAge:   int(auth.SessionTTL.Seconds()),
@@ -149,7 +155,7 @@ func (h *authHandler) callback(w http.ResponseWriter, r *http.Request) {
 
 // logout 은 쿠키를 지운다. 서버에는 지울 것이 없다(서명 쿠키의 값이자 한계다).
 func (h *authHandler) logout(w http.ResponseWriter, r *http.Request) {
-	clearCookie(w, sessionCookie, h.secure(r))
+	clearCookie(w, h.cookieName(r, sessionCookie), h.secure(r))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -161,7 +167,7 @@ func (h *authHandler) viewer(r *http.Request) (auth.Session, bool) {
 	if !h.enabled() {
 		return auth.Session{}, false
 	}
-	c, err := r.Cookie(sessionCookie)
+	c, err := r.Cookie(h.cookieName(r, sessionCookie))
 	if err != nil {
 		return auth.Session{}, false
 	}
@@ -218,6 +224,15 @@ func (h *authHandler) secure(r *http.Request) bool {
 	return strings.HasPrefix(h.origin(r), "https://")
 }
 
+// cookieName 은 그 요청에서 쓰는 쿠키 이름이다. 굽는 곳과 읽는 곳이 모두 이것을 거친다.
+// secure 와 같은 판단이라 Secure 가 붙는 쿠키에만 접두사가 붙는다.
+func (h *authHandler) cookieName(r *http.Request, name string) string {
+	if h.secure(r) {
+		return hostPrefix + name
+	}
+	return name
+}
+
 func isLocalHost(host string) bool {
 	name, _, found := strings.Cut(host, ":")
 	if !found {
@@ -244,4 +259,37 @@ func randomState() (string, error) {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+// sameOrigin 은 상태를 바꾸는 요청 중 다른 출처에서 온 것을 거부한다.
+//
+// SameSite=Lax 는 다른 사이트의 POST 에 쿠키를 싣지 않지만, 같은 사이트의 다른
+// 서브도메인은 막지 못한다. 브라우저는 GET·HEAD 가 아닌 요청에 Origin 을 늘 싣는다.
+//
+// Origin 이 없으면 통과시킨다. 브라우저가 아닌 호출(부하 도구·curl)이고 쿠키를 훔친 쪽이
+// 아니면 남의 세션을 실을 수 없다. "null" 은 샌드박스 iframe·file:// 이라 거부한다.
+//
+// 비교 대상은 PUBLIC_ORIGIN 이 아니라 요청의 Host 다. Vite 프록시는 Host 를 바꾸지 않고
+// (changeOrigin: false), 앞단의 ALB·Caddy 도 Host 를 그대로 넘긴다.
+func sameOrigin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet, http.MethodHead, http.MethodOptions:
+			next.ServeHTTP(w, r)
+			return
+		}
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if u, err := url.Parse(origin); err != nil || u.Host == "" || u.Host != r.Host {
+			log.Printf("origin: rejected %s %s from %q", r.Method, r.URL.Path, origin)
+			writeJSON(w, http.StatusForbidden, map[string]any{
+				"error": "forbidden", "message": "このページからは操作できません。",
+			})
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
