@@ -61,8 +61,7 @@ func isUnset(v string) bool { return v == "" || v == "unset" }
 // 계정의 콜백 URL을 우리 사용자에게 열게 하는 공격이 이것으로 막힌다.
 //
 // verifier 는 PKCE 다. 주소에는 해시(code_challenge)만 나가고 원문은 교환 때 보낸다.
-// state 가 막지 못하는 code 주입을 막는다. 남의 code 를 빼낸 쪽이 그것을 자기 브라우저의
-// 콜백에 넣어도, 그 code 를 받아 낸 verifier 가 그 브라우저에 없어 Google이 거부한다.
+// state 가 막지 못하는 code 주입을 막는다(journal §156).
 func (g *Google) AuthURL(redirectURI, state, verifier string) string {
 	q := url.Values{
 		"client_id":             {g.clientID},

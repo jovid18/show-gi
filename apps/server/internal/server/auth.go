@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -233,12 +234,14 @@ func (h *authHandler) cookieName(r *http.Request, name string) string {
 	return name
 }
 
+// isLocalHost 는 평문으로 도는 로컬 호스트인지다. [::1]:8080 을 첫 콜론에서 자르지
+// 않도록 SplitHostPort 로 포트를 뗀다.
 func isLocalHost(host string) bool {
-	name, _, found := strings.Cut(host, ":")
-	if !found {
-		name = host
+	name, _, err := net.SplitHostPort(host)
+	if err != nil {
+		name = strings.TrimSuffix(strings.TrimPrefix(host, "["), "]")
 	}
-	return name == "localhost" || name == "127.0.0.1" || name == "[::1]" || name == "::1"
+	return name == "localhost" || name == "127.0.0.1" || name == "::1"
 }
 
 func clearCookie(w http.ResponseWriter, name string, secure bool) {

@@ -242,6 +242,8 @@ func TestOriginIsHTTPSOutsideLocalhost(t *testing.T) {
 		{"show-gi.com", "https://show-gi.com"},
 		{"localhost:5173", "http://localhost:5173"},
 		{"127.0.0.1:8080", "http://127.0.0.1:8080"},
+		{"[::1]:8080", "http://[::1]:8080"},
+		{"[::1]", "http://[::1]"},
 	} {
 		r := httptest.NewRequest(http.MethodGet, "/api/me", nil)
 		r.Host = c.host
@@ -352,6 +354,17 @@ func TestCookiesUseHostPrefixOverHTTPS(t *testing.T) {
 	r.AddCookie(&http.Cookie{Name: hostPrefix + sessionCookie, Value: value})
 	if _, ok := h.viewer(r); !ok {
 		t.Error("the prefixed session cookie was not accepted")
+	}
+
+	// 로그아웃은 굽는 쪽과 같은 이름·속성으로 지운다. 이름이 갈리면 세션이 남는다.
+	rec = httptest.NewRecorder()
+	h.logout(rec, httptest.NewRequest(http.MethodPost, "https://show-gi.com/api/auth/logout", nil))
+	c := cookieOf(rec, hostPrefix+sessionCookie)
+	if c == nil {
+		t.Fatalf("logout did not clear %s", hostPrefix+sessionCookie)
+	}
+	if !c.Secure || c.Path != "/" || c.Domain != "" || c.MaxAge >= 0 {
+		t.Errorf("%s: Secure=%v Path=%q Domain=%q MaxAge=%d", c.Name, c.Secure, c.Path, c.Domain, c.MaxAge)
 	}
 
 	// 로컬은 평문이라 브라우저가 __Host- 쿠키를 거부한다. 접두사 없이 굽는다.
