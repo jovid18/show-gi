@@ -26,6 +26,7 @@ info:
     | DB 가 없다 | `503 store_unavailable` |
     | 엔진이 없다 | `503 engine_unavailable` |
     | 로그인하지 않았다 | `401 unauthorized` / `login_required` |
+    | 다른 출처의 쓰기 요청 | `403 forbidden` (GET·HEAD·OPTIONS 는 보지 않는다) |
     | 남의 것 · 없는 것 | **같은** `404 not_found` |
 
     마지막 줄이 의도다. 구별해 주면 id 를 하나씩 올려 보며 남의 기록이 있는지 셀 수 있다.
@@ -224,6 +225,7 @@ paths:
       description: 서버에는 지울 것이 없다 — 세션이 표가 아니라 서명 쿠키다.
       responses:
         '204': { description: 지웠다 }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
 
   /api/me/profile:
     get:
@@ -271,6 +273,7 @@ paths:
               schema: { $ref: '#/components/schemas/KifuPreview' }
         '400': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/LoginRequired' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
         '503': { $ref: '#/components/responses/StoreUnavailable' }
 
   /api/kifu/import:
@@ -309,6 +312,7 @@ paths:
                   gameId: { type: integer, format: int64 }
         '400': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/LoginRequired' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
         '429': { $ref: '#/components/responses/Error' }
         '500': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/StoreUnavailable' }
@@ -459,6 +463,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
         '404':
           description: '`not_found` · `not_ready`(만드는 중) · `no_item`(詰み 문항이 없다)'
           content:
@@ -500,6 +505,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
         '404':
           description: '`not_found` · `not_ready` · `no_item`'
           content:
@@ -547,6 +553,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/Error' }
         '503':
@@ -609,6 +616,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
         '413':
           description: '`too_large` — 그림이 6 MiB 를 넘었다'
           content:
@@ -665,6 +673,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
 
   /api/explore:
     post:
@@ -726,6 +735,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
         '429':
           description: |
             `busy` — 엔진 슬롯을 3초 기다려도 나지 않았다. **이 API 에서 429 가 나가는
@@ -799,6 +809,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
         '401': { $ref: '#/components/responses/LoginRequired' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
         '500': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/SnapshotStoreUnavailable' }
 
@@ -838,6 +849,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
         '401': { $ref: '#/components/responses/LoginRequired' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/SnapshotStoreUnavailable' }
@@ -849,6 +861,7 @@ paths:
         '204': { description: 지웠다 }
         '400': { $ref: '#/components/responses/BadID' }
         '401': { $ref: '#/components/responses/LoginRequired' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/SnapshotStoreUnavailable' }
@@ -885,6 +898,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
         '401': { $ref: '#/components/responses/LoginRequired' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
         '422':
           description: '`too_large` — 변화가 많아 트리를 그릴 수 없다'
           content:
@@ -953,6 +967,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
         '401': { $ref: '#/components/responses/LoginRequired' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/TsumeStoreUnavailable' }
@@ -965,6 +980,7 @@ paths:
         '204': { description: 지웠다 }
         '400': { $ref: '#/components/responses/BadID' }
         '401': { $ref: '#/components/responses/LoginRequired' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/TsumeStoreUnavailable' }
@@ -1006,6 +1022,7 @@ paths:
       responses:
         '204': { description: 닫았다 }
         '400': { $ref: '#/components/responses/BadID' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/StoreUnavailable' }
@@ -1038,6 +1055,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
 
   /api/rooms/{id}:
     get:
@@ -1090,6 +1108,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/QueueStatus' }
         '401': { $ref: '#/components/responses/LoginRequired' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
         '503': { $ref: '#/components/responses/QueueUnavailable' }
     delete:
       tags: [match]
@@ -1100,6 +1119,7 @@ paths:
       responses:
         '204': { description: 빠졌다 }
         '401': { $ref: '#/components/responses/LoginRequired' }
+        '403': { $ref: '#/components/responses/CrossOrigin' }
         '503': { $ref: '#/components/responses/QueueUnavailable' }
 
   /ws/game:
@@ -1168,10 +1188,11 @@ components:
     sessionCookie:
       type: apiKey
       in: cookie
-      name: session
+      name: __Host-showgi_session
       description: |
         **서명 쿠키 하나.** `HttpOnly` 이고 세션이 표가 아니라 서명된 값이라 서버에
         지울 것이 없다. Bearer 토큰도 API 키도 없다 — 클라이언트가 브라우저 하나뿐이다.
+        이름은 HTTPS 에서 `__Host-showgi_session`, 로컬 평문에서 `showgi_session` 이다.
 
   parameters:
     GameID:
@@ -1208,6 +1229,11 @@ components:
           schema: { $ref: '#/components/schemas/ApiError' }
     BadID:
       description: '`bad_id` — 경로의 번호가 정수가 아니다'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    CrossOrigin:
+      description: '`forbidden` — 상태를 바꾸는 요청의 `Origin` 이 요청 Host 와 다르다. `Origin` 이 없으면 통과한다'
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ApiError' }

@@ -147,6 +147,32 @@ resource "aws_lb_listener" "https" {
   }
 }
 
+# www 는 apex 로 보낸다. 서버는 PUBLIC_ORIGIN(apex)으로 Google redirect URI 를 만드는데,
+# www 에서 로그인을 시작하면 state·verifier 쿠키가 www 에 구워지고 콜백은 apex 로 돌아와
+# 쿠키가 실리지 않는다. 세션 쿠키도 호스트마다 따로라 www 와 apex 가 다른 로그인이 된다.
+resource "aws_lb_listener_rule" "www_to_apex" {
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 1
+
+  condition {
+    host_header {
+      values = ["www.${var.domain}"]
+    }
+  }
+
+  action {
+    type = "redirect"
+    redirect {
+      host        = var.domain
+      port        = "#{port}"
+      protocol    = "#{protocol}"
+      path        = "/#{path}"
+      query       = "#{query}"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
 # ─── DNS ────────────────────────────────────────────────────
 
 data "aws_route53_zone" "main" {

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -58,13 +59,18 @@ func isUnset(v string) bool { return v == "" || v == "unset" }
 //
 // state 는 CSRF 막이다. 같은 값을 쿠키에도 심어 두고 콜백에서 맞춰 본다. 남이 자기
 // 계정의 콜백 URL을 우리 사용자에게 열게 하는 공격이 이것으로 막힌다.
-func (g *Google) AuthURL(redirectURI, state string) string {
+//
+// verifier 는 PKCE 다. 주소에는 해시(code_challenge)만 나가고 원문은 교환 때 보낸다.
+// state 가 막지 못하는 code 주입을 막는다(journal §156).
+func (g *Google) AuthURL(redirectURI, state, verifier string) string {
 	q := url.Values{
-		"client_id":     {g.clientID},
-		"redirect_uri":  {redirectURI},
-		"response_type": {"code"},
-		"scope":         {"openid email profile"},
-		"state":         {state},
+		"client_id":             {g.clientID},
+		"redirect_uri":          {redirectURI},
+		"response_type":         {"code"},
+		"scope":                 {"openid email profile"},
+		"state":                 {state},
+		"code_challenge":        {challenge(verifier)},
+		"code_challenge_method": {"S256"},
 		// 새로고침 토큰이 필요 없다. 우리가 Google API를 대신 부르는 일이 없고,
 		// 받아 두면 보관 의무만 생긴다.
 		"access_type": {"online"},
@@ -73,6 +79,12 @@ func (g *Google) AuthURL(redirectURI, state string) string {
 		"prompt": {"select_account"},
 	}
 	return authEndpoint + "?" + q.Encode()
+}
+
+// challenge 는 PKCE S256 이다(RFC 7636 §4.2).
+func challenge(verifier string) string {
+	sum := sha256.Sum256([]byte(verifier))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
 // Identity 는 Google이 말해 주는 그 사람이다.
@@ -96,13 +108,14 @@ func (id Identity) DisplayName() string {
 }
 
 // Exchange 는 콜백으로 받은 code 를 사람으로 바꾼다.
-func (g *Google) Exchange(ctx context.Context, code, redirectURI string) (Identity, error) {
+func (g *Google) Exchange(ctx context.Context, code, redirectURI, verifier string) (Identity, error) {
 	form := url.Values{
 		"code":          {code},
 		"client_id":     {g.clientID},
 		"client_secret": {g.clientSecret},
 		"redirect_uri":  {redirectURI},
 		"grant_type":    {"authorization_code"},
+		"code_verifier": {verifier},
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenEndpoint, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -136,7 +149,13 @@ func (g *Google) Exchange(ctx context.Context, code, redirectURI string) (Identi
 	if tok.IDToken == "" {
 		return Identity{}, fmt.Errorf("auth: token response has no id_token")
 	}
-	return g.identityFrom(tok.IDToken)
+	return g.identityFrom(tok.IDToken, time.Now())
+}
+
+// issuers 는 Google이 iss 에 쓰는 두 값이다. 스킴이 붙은 것과 없는 것이 섞여 온다.
+var issuers = map[string]bool{
+	"https://accounts.google.com": true,
+	"accounts.google.com":         true,
 }
 
 // identityFrom 은 ID 토큰의 본문을 읽는다.
@@ -145,9 +164,12 @@ func (g *Google) Exchange(ctx context.Context, code, redirectURI string) (Identi
 // Google의 토큰 엔드포인트에서 왔다. 가운데에 낄 수 있는 것이 없어서 검증할 것이 없고,
 // Google 문서도 그 경우를 예외로 고정해 둔다. 브라우저가 들고 온 토큰이면 정반대다.
 //
-// 그래서 JWT 라이브러리를 끌어오지 않는다. 하는 일은 base64 한 번과 JSON 한 번이고,
-// 설정 실수를 잡으려고 aud 만 확인한다.
-func (g *Google) identityFrom(idToken string) (Identity, error) {
+// 그래서 JWT 라이브러리를 끌어오지 않는다. 하는 일은 base64 한 번과 JSON 한 번이다.
+// 서명을 생략해도 iss·aud·exp 는 본다(OIDC Core §3.1.3.7).
+//
+// aud 는 문자열로만 받는다. 배열로 오면 JSON 해석이 실패해 로그인이 거부된다. Google은
+// 문자열을 주고, 배열이면 azp 까지 봐야 해서 받아 줄 이유가 없다.
+func (g *Google) identityFrom(idToken string, now time.Time) (Identity, error) {
 	parts := strings.Split(idToken, ".")
 	if len(parts) != 3 {
 		return Identity{}, fmt.Errorf("auth: id_token is not a JWT")
@@ -157,8 +179,10 @@ func (g *Google) identityFrom(idToken string) (Identity, error) {
 		return Identity{}, fmt.Errorf("auth: decode id_token: %w", err)
 	}
 	var claims struct {
+		Iss   string `json:"iss"`
 		Sub   string `json:"sub"`
 		Aud   string `json:"aud"`
+		Exp   int64  `json:"exp"` // Unix 초
 		Name  string `json:"name"`
 		Email string `json:"email"`
 	}
@@ -168,8 +192,14 @@ func (g *Google) identityFrom(idToken string) (Identity, error) {
 	if claims.Sub == "" {
 		return Identity{}, fmt.Errorf("auth: id_token has no sub")
 	}
+	if !issuers[claims.Iss] {
+		return Identity{}, fmt.Errorf("auth: id_token was issued by %q", claims.Iss)
+	}
 	if claims.Aud != g.clientID {
 		return Identity{}, fmt.Errorf("auth: id_token was issued for another client")
+	}
+	if now.Unix() >= claims.Exp {
+		return Identity{}, fmt.Errorf("auth: id_token has expired")
 	}
 	return Identity{Sub: claims.Sub, Name: claims.Name, Email: claims.Email}, nil
 }

@@ -103,7 +103,7 @@ func queueServer(t *testing.T, people int) queueFixture {
 		if err != nil {
 			t.Fatalf("encode session: %v", err)
 		}
-		users = append(users, queueUser{id: id, name: uid, cookie: &http.Cookie{Name: sessionCookie, Value: value}})
+		users = append(users, queueUser{id: id, name: uid, cookie: &http.Cookie{Name: hostPrefix + sessionCookie, Value: value}})
 	}
 
 	f := queueFixture{h: Handler(opts), hub: m.hub, store: st, users: users, base: queueBase(t)}

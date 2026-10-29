@@ -38,6 +38,9 @@ locals {
     { name = "ENGINE_HASH_MB", value = "64" },
     { name = "ENVIRONMENT", value = "prod" },
     { name = "LOG_LEVEL", value = "info" },
+    # Google redirect URI 의 정본이다. 비면 서버가 요청의 Host 로 되짚는다(server/auth.go
+    # origin). www 는 ALB 가 apex 로 보내므로(alb.tf www_to_apex) apex 하나로 충분하다.
+    { name = "PUBLIC_ORIGIN", value = "https://${var.domain}" },
   ]
 
   # 빈 목록 셋과 hostPort 를 적어 둔다. 적지 않으면 AWS 가 채운 값과 우리 JSON 이 달라서

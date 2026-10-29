@@ -26,7 +26,7 @@ func snapshotWalls(t *testing.T) (*exploreSnapshotHandler, *http.Cookie) {
 	if err != nil {
 		t.Fatalf("encode session: %v", err)
 	}
-	return &exploreSnapshotHandler{store: nil, auth: ah}, &http.Cookie{Name: sessionCookie, Value: value}
+	return &exploreSnapshotHandler{store: nil, auth: ah}, &http.Cookie{Name: hostPrefix + sessionCookie, Value: value}
 }
 
 // snapshotStore 는 진짜 DB에 붙은 핸들러와 서로 다른 두 사람이다. 왕복과 주인 검사가
@@ -59,7 +59,7 @@ func snapshotStore(t *testing.T) (*exploreSnapshotHandler, *http.Cookie, *http.C
 		if err != nil {
 			t.Fatalf("encode %s: %v", who, err)
 		}
-		cookies = append(cookies, &http.Cookie{Name: sessionCookie, Value: value})
+		cookies = append(cookies, &http.Cookie{Name: hostPrefix + sessionCookie, Value: value})
 	}
 	return &exploreSnapshotHandler{store: st, auth: ah}, cookies[0], cookies[1]
 }

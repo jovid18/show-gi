@@ -482,7 +482,7 @@ func Handler(opts Options) http.Handler {
 
 	// 감싸는 것이 mux 밖이어야 한다. route 라벨로 쓰는 r.Pattern 을 ServeMux 가 채우므로
 	// 안쪽에 두면 그 값을 읽을 수 없다(observe.go).
-	return observe(opts.Metrics, mux)
+	return observe(opts.Metrics, sameOrigin(mux))
 }
 
 // Run 은 서버를 띄우고 ctx가 취소될 때까지 막힌다.

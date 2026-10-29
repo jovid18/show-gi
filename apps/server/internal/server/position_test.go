@@ -68,7 +68,7 @@ func signIn(t *testing.T, h *positionHandler, r *http.Request, userID int64) {
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
-	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: value})
+	r.AddCookie(&http.Cookie{Name: hostPrefix + sessionCookie, Value: value})
 }
 
 func (h *positionHandler) postRead(t *testing.T, userID int64, image []byte) *httptest.ResponseRecorder {

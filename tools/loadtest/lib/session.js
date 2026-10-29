@@ -6,6 +6,8 @@
 import crypto from 'k6/crypto';
 import encoding from 'k6/encoding';
 
+import { BASE } from './config.js';
+
 // mintSession 은 그 사용자의 쿠키 값을 만든다. ttl 은 초다.
 export function mintSession(secret, userID, name, ttlSeconds) {
   const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
@@ -16,6 +18,13 @@ export function mintSession(secret, userID, name, ttlSeconds) {
 }
 
 // cookieHeader 는 요청에 실을 헤더다. 쿠키 이름은 서버가 정한 것이다.
+//
+// 서버는 localhost 가 아닌 호스트에서 이름 앞에 `__Host-` 를 붙인다(server/auth.go
+// cookieName). 판단이 호스트로 갈리므로 여기서도 BASE 의 호스트로 가른다.
 export function cookieHeader(value) {
-  return { Cookie: `showgi_session=${value}` };
+  const host = BASE.replace(/^[a-z]+:\/\//, '')
+    .split('/')[0]
+    .replace(/:\d+$/, '');
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(host);
+  return { Cookie: `${local ? '' : '__Host-'}showgi_session=${value}` };
 }
