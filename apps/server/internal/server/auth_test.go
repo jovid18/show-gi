@@ -1,6 +1,8 @@
 package server
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -104,6 +106,44 @@ func TestStartRedirectsToGoogle(t *testing.T) {
 	// 콜백은 accounts.google.com 에서 오는 최상위 이동이다. Strict 면 그때 실리지 않는다.
 	if state.SameSite != http.SameSiteLaxMode {
 		t.Errorf("SameSite = %v, want Lax", state.SameSite)
+	}
+
+	// PKCE 원문은 쿠키에만 있고 주소에는 그 해시만 나간다.
+	verifier := cookieOf(rec, verifierCookie)
+	if verifier == nil || verifier.Value == "" {
+		t.Fatal("no verifier cookie")
+	}
+	if !verifier.HttpOnly || verifier.SameSite != http.SameSiteLaxMode {
+		t.Errorf("verifier cookie HttpOnly=%v SameSite=%v", verifier.HttpOnly, verifier.SameSite)
+	}
+	if verifier.Value == state.Value {
+		t.Error("the verifier is the state")
+	}
+	sum := sha256.Sum256([]byte(verifier.Value))
+	if got, want := u.Query().Get("code_challenge"), base64.RawURLEncoding.EncodeToString(sum[:]); got != want {
+		t.Errorf("code_challenge = %q, want %q", got, want)
+	}
+	if strings.Contains(u.String(), verifier.Value) {
+		t.Error("the auth URL carries the verifier")
+	}
+}
+
+// state 가 맞아도 verifier 가 없으면 교환할 수 없다. Google에 묻기 전에 돌려보낸다.
+func TestCallbackRejectsMissingVerifier(t *testing.T) {
+	h := signedInHandler()
+	r := httptest.NewRequest(http.MethodGet, "http://localhost:5173"+callbackPath+"?code=x&state=abc", nil)
+	r.AddCookie(&http.Cookie{Name: stateCookie, Value: "abc"})
+	rec := httptest.NewRecorder()
+	h.callback(rec, r)
+
+	if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/" {
+		t.Errorf("status %d → %q, want 302 → /", rec.Code, rec.Header().Get("Location"))
+	}
+	if c := cookieOf(rec, sessionCookie); c != nil && c.Value != "" {
+		t.Errorf("a session cookie was issued: %q", c.Value)
+	}
+	if c := cookieOf(rec, verifierCookie); c == nil || c.MaxAge >= 0 {
+		t.Error("the callback did not clear the verifier cookie")
 	}
 }
 

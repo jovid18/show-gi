@@ -24,6 +24,9 @@ const (
 	// stateCookie 는 Google 왕복 한 번에만 산다. CSRF 막이라 콜백에서 지운다.
 	stateCookie = "showgi_oauth_state"
 
+	// verifierCookie 는 PKCE 원문이다(auth.Google.AuthURL). state 와 같이 살고 같이 지운다.
+	verifierCookie = "showgi_oauth_verifier"
+
 	// stateTTL 은 사람이 Google 화면에서 계정을 고르는 데 주는 시간이다.
 	stateTTL = 10 * time.Minute
 
@@ -49,7 +52,11 @@ func (h *authHandler) enabled() bool {
 
 // start 는 Google로 보낸다.
 func (h *authHandler) start(w http.ResponseWriter, r *http.Request) {
+	var verifier string
 	state, err := randomState()
+	if err == nil {
+		verifier, err = randomState()
+	}
 	if err != nil {
 		// 난수가 나오지 않는 것은 프로세스가 이상한 것이다. 로그인만 접는다.
 		log.Printf("auth: cannot make state: %v", err)
@@ -59,18 +66,20 @@ func (h *authHandler) start(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	secure := h.secure(r)
-	http.SetCookie(w, &http.Cookie{
-		Name:     stateCookie,
-		Value:    state,
-		Path:     "/",
-		MaxAge:   int(stateTTL.Seconds()),
-		HttpOnly: true,
-		Secure:   secure,
-		// Lax 여야 한다. 콜백은 accounts.google.com 에서 오는 최상위 GET 이동이라
-		// Strict 로 두면 그때 쿠키가 실리지 않아 로그인이 매번 실패한다.
-		SameSite: http.SameSiteLaxMode,
-	})
-	http.Redirect(w, r, h.google.AuthURL(h.redirectURI(r), state), http.StatusFound)
+	for _, c := range [][2]string{{stateCookie, state}, {verifierCookie, verifier}} {
+		http.SetCookie(w, &http.Cookie{
+			Name:     c[0],
+			Value:    c[1],
+			Path:     "/",
+			MaxAge:   int(stateTTL.Seconds()),
+			HttpOnly: true,
+			Secure:   secure,
+			// Lax 여야 한다. 콜백은 accounts.google.com 에서 오는 최상위 GET 이동이라
+			// Strict 로 두면 그때 쿠키가 실리지 않아 로그인이 매번 실패한다.
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
+	http.Redirect(w, r, h.google.AuthURL(h.redirectURI(r), state, verifier), http.StatusFound)
 }
 
 // callback 은 Google이 돌려보낸 사람을 받는다.
@@ -79,6 +88,7 @@ func (h *authHandler) start(w http.ResponseWriter, r *http.Request) {
 // 그 JSON을 보게 된다. 무엇이 틀렸는지는 로그가 갖는다.
 func (h *authHandler) callback(w http.ResponseWriter, r *http.Request) {
 	clearCookie(w, stateCookie, h.secure(r))
+	clearCookie(w, verifierCookie, h.secure(r))
 
 	q := r.URL.Query()
 	if e := q.Get("error"); e != "" {
@@ -97,7 +107,15 @@ func (h *authHandler) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := h.google.Exchange(r.Context(), q.Get("code"), h.redirectURI(r))
+	verifier, err := r.Cookie(verifierCookie)
+	if err != nil || verifier.Value == "" {
+		// state 와 같이 구웠으니 이쪽만 없는 것은 배포 직전에 시작한 로그인뿐이다.
+		log.Print("auth: no PKCE verifier, ignoring callback")
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+
+	id, err := h.google.Exchange(r.Context(), q.Get("code"), h.redirectURI(r), verifier.Value)
 	if err != nil {
 		log.Printf("auth: %v", err)
 		http.Redirect(w, r, "/", http.StatusFound)
