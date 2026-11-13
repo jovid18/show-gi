@@ -14,6 +14,10 @@ export interface TsumeMove {
   rest: number;
   futile?: boolean;
   replies?: TsumeMove[];
+  /** 1手必至의 응수 그룹. 이 응수와 공격 쪽 수순이 같은 다른 응수들이다. 뒤를 펼치지 않는다. */
+  same?: TsumeMove[];
+  /** 이 그룹의 수순이 수비가 손을 뺐을 때의 詰み(詰めろ) 수순과 같다. */
+  threat?: boolean;
 }
 
 export interface TsumeResponse {
@@ -70,6 +74,31 @@ export async function solveTsume(
     signal,
   });
   if (res.ok) return (await res.json()) as TsumeResponse;
+  const err = (await res.json().catch(() => null)) as ApiError | null;
+  throw new TsumeError(err?.error || 'internal', err?.message || fallback);
+}
+
+/**
+ * 1手必至의 답(`POST /api/tsume/hisshi`). `tree` 는 必至 수에서 자라고, 그 `replies` 는 수비 쪽 응수
+ * 전부(긴 것부터)다. 응수마다 詰み 수순 한 줄이 이어진다.
+ */
+export interface HisshiResponse {
+  status: 'hisshi' | 'nohisshi' | 'mate' | 'unknown';
+  tree?: TsumeMove;
+  /** 必至인 수 전부의 棋譜 표기. */
+  answers?: string[];
+  /** 화면에 그대로 나가는 일본어. */
+  message: string;
+}
+
+/** `fallback` 은 서버가 사유를 말하지 않았을 때 쓰는 문구다. */
+export async function solveHisshi(sfen: string, fallback: string): Promise<HisshiResponse> {
+  const res = await fetch('/api/tsume/hisshi', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sfen }),
+  });
+  if (res.ok) return (await res.json()) as HisshiResponse;
   const err = (await res.json().catch(() => null)) as ApiError | null;
   throw new TsumeError(err?.error || 'internal', err?.message || fallback);
 }

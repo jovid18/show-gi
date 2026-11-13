@@ -33,10 +33,12 @@ export const ja = {
     yourTurn: 'あなたの手番',
     theirTurn: '相手の手番',
     solve: '詰みを調べる',
+    solveHisshi: '必至を調べる',
     analyze: 'この局面を解析する',
     fixToAnalyze: '局面を直すと解析できます。',
     checking: '局面を確かめています…',
     solving: '詰みを調べています。長い詰みは数分かかることがあります…',
+    solvingHisshi: '必至を調べています…',
   },
   errors: {
     readImage: '画像から局面を読み取れませんでした。',
@@ -44,6 +46,7 @@ export const ja = {
     loadImage: '画像を読み込めませんでした。',
     tooLarge: '画像が大きすぎます。6MB までのスクリーンショットをお使いください。',
     solve: '詰みを調べられませんでした。',
+    hisshi: '必至を調べられませんでした。',
   },
   editor: {
     opponentHand: '相手の持ち駒',
@@ -64,6 +67,9 @@ export const ja = {
     closeBranches: '変化を閉じる',
     otherReplies: (n: number) => `ほかの応手 ${n}`,
     futile: '無駄合い',
+    threat: '受けになっていない',
+    same: (n: number) => `同じ手順で詰む応手 ほか${n}`,
+    closeSame: '閉じる',
     rest: (move: string, n: number) => `${move}なら、あと${n}手で詰み`,
   },
   solves: {
@@ -121,10 +127,12 @@ export const ko: typeof ja = {
     yourTurn: '당신 차례',
     theirTurn: '상대 차례',
     solve: '외통 찾기',
+    solveHisshi: '필지 찾기',
     analyze: '이 국면 분석',
     fixToAnalyze: '국면을 고치면 분석할 수 있습니다.',
     checking: '국면을 확인하고 있습니다…',
     solving: '외통을 찾고 있습니다. 긴 외통은 몇 분 걸릴 수 있습니다…',
+    solvingHisshi: '필지를 찾고 있습니다…',
   },
   errors: {
     readImage: '이미지에서 국면을 읽지 못했습니다.',
@@ -132,6 +140,7 @@ export const ko: typeof ja = {
     loadImage: '이미지를 불러오지 못했습니다.',
     tooLarge: '이미지가 너무 큽니다. 6MB 이하의 스크린샷을 사용해 주세요.',
     solve: '외통을 찾지 못했습니다.',
+    hisshi: '필지를 찾지 못했습니다.',
   },
   editor: {
     opponentHand: '상대의 지닌 말',
@@ -151,6 +160,9 @@ export const ko: typeof ja = {
     closeBranches: '변화 닫기',
     otherReplies: (n: number) => `다른 응수 ${n}`,
     futile: '무의미한 막기',
+    threat: '받는 수가 되지 않음',
+    same: (n: number) => `같은 수순으로 외통인 응수 외 ${n}`,
+    closeSame: '닫기',
     rest: (move: string, n: number) => `${move} 이후 ${n}수 만에 외통`,
   },
   solves: {

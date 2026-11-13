@@ -15,7 +15,7 @@ import {
   saveLabel,
   type PositionFault,
 } from '@/protocol/position';
-import { TsumeError, solveTsume, type TsumeResponse } from '@/protocol/tsume';
+import { TsumeError, solveHisshi, solveTsume, type HisshiResponse, type TsumeResponse } from '@/protocol/tsume';
 import { parseSfen, toSfen, type Board as BoardModel } from '@/models/sfen';
 import { navigate } from '@/routes/router';
 
@@ -241,14 +241,15 @@ function PositionForm({ mode }: { mode: Mode }) {
    * 詰め将棋의 답. 어느 판의 답인지를 같이 둔다(`sfen`). 칸을 고치면 그 답은 지금 판의 것이
    * 아니므로 그리지 않는다.
    */
-  const [tsume, setTsume] = useState<{ sfen: string; res: TsumeResponse } | null>(null);
-  const [solving, setSolving] = useState(false);
+  const [tsume, setTsume] = useState<{ sfen: string; res: TsumeResponse | HisshiResponse } | null>(null);
+  /** 지금 푸는 것. 기다리는 문구가 둘에서 다르다. */
+  const [solving, setSolving] = useState<'tsume' | 'hisshi' | null>(null);
   /** 푸는 데 실패한 사유. 버튼 바로 아래에 둔다. 판독 오류 자리는 화면 맨 위라 누른 자리에서 보이지 않는다. */
   const [solveError, setSolveError] = useState<string | null>(null);
   /** 푼 횟수. 늘면 기록 목록이 다시 묻는다(서버가 풀 때마다 남긴다). */
   const [solved, setSolved] = useState(0);
   const runSolve = async (target: string): Promise<void> => {
-    setSolving(true);
+    setSolving('tsume');
     setSolveError(null);
     try {
       setTsume({ sfen: target, res: await solveTsume(target, p.errors.solve) });
@@ -256,11 +257,25 @@ function PositionForm({ mode }: { mode: Mode }) {
     } catch (e) {
       setSolveError(e instanceof TsumeError ? e.message : p.errors.solve);
     } finally {
-      setSolving(false);
+      setSolving(null);
+    }
+  };
+
+  /** 1手必至. 기록에는 남기지 않는다(서버가 아직 남기지 않는다). */
+  const hisshi = async (): Promise<void> => {
+    if (!analyzable || solving !== null) return;
+    setSolving('hisshi');
+    setSolveError(null);
+    try {
+      setTsume({ sfen, res: await solveHisshi(sfen, p.errors.hisshi) });
+    } catch (e) {
+      setSolveError(e instanceof TsumeError ? e.message : p.errors.hisshi);
+    } finally {
+      setSolving(null);
     }
   };
   const solve = async (): Promise<void> => {
-    if (!analyzable || solving) return;
+    if (!analyzable || solving !== null) return;
     if (imageId !== null) void saveLabel(imageId, sfen);
     await runSolve(sfen);
   };
@@ -273,7 +288,7 @@ function PositionForm({ mode }: { mode: Mode }) {
    * 다시 돌지 않고, 비우면 버튼이 닫힌 채 남는다.
    */
   const openSaved = (saved: string): void => {
-    if (solving) return;
+    if (solving !== null) return;
     const got = parseSfen(saved);
     const next = toSfen(got);
     setImage(null);
@@ -422,13 +437,30 @@ function PositionForm({ mode }: { mode: Mode }) {
           ))}
 
           <div className="import__row">
-            <button type="button" className="btn btn--primary" disabled={!analyzable || solving} onClick={analyze}>
+            <button
+              type="button"
+              className="btn btn--primary"
+              disabled={!analyzable || solving !== null}
+              onClick={analyze}
+            >
               {mode === 'tsume' ? form.solve : form.analyze}
             </button>
+            {mode === 'tsume' && (
+              <button
+                type="button"
+                className="btn"
+                disabled={!analyzable || solving !== null}
+                onClick={() => void hisshi()}
+              >
+                {form.solveHisshi}
+              </button>
+            )}
             {!analyzable && (
               <span className="import__filename">{checkedSfen === sfen ? form.fixToAnalyze : form.checking}</span>
             )}
-            {solving && <span className="import__filename">{form.solving}</span>}
+            {solving !== null && (
+              <span className="import__filename">{solving === 'tsume' ? form.solving : form.solvingHisshi}</span>
+            )}
           </div>
 
           {solveError !== null && <p className="position__error">{solveError}</p>}

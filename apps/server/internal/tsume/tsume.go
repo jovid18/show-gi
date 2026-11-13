@@ -102,6 +102,11 @@ type Move struct {
 	// Futile 은 이 응수가 無駄合い라는 표시다. 그 뒤를 펼치지 않는다(Replies 가 비어 있다).
 	Futile  bool
 	Replies []*Move
+	// Same 은 1手必至의 응수 그룹이다. 이 응수와 공격 쪽 수순이 같은 다른 응수들이고, 그 뒤를
+	// 펼치지 않는다. 詰め将棋에서는 비어 있다.
+	Same []*Move
+	// Threat 는 이 그룹의 수순이 수비가 손을 뺐을 때의 詰み(詰めろ) 수순과 같다는 표시다.
+	Threat bool
 }
 
 // Solve 는 수번 쪽을 공격 쪽으로 보고 詰め将棋를 푼다. ctx 가 끝나면 ctx.Err() 를 돌려준다.
