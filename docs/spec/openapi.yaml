@@ -897,6 +897,46 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ApiError' }
 
+  /api/tsume/hisshi:
+    post:
+      tags: [tsume]
+      summary: 1手必至를 푼다
+      description: |
+        공격 쪽 합법수 전부를 수비 쪽 합법 응수 전부와 맞춰 보고, 모든 응수 뒤에 詰み가 증명된 수만
+        必至로 인정한다. 詰め将棋와 같은 풀이 자리를 나눠 쓴다. 캐시와 기록은 아직 없다(journal §156).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sfen]
+              properties:
+                sfen: { type: string }
+      responses:
+        '200':
+          description: 푼 결과
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HisshiResponse' }
+        '400':
+          description: '`bad_request` · `bad_position` · `no_king` · `attacker_king`(공격 쪽 玉이 판에 있다)'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '401': { $ref: '#/components/responses/LoginRequired' }
+        '422':
+          description: '`too_large` — 변화가 많아 트리를 그릴 수 없다'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '500': { $ref: '#/components/responses/Error' }
+        '503':
+          description: '`busy` — 다른 풀이가 자리를 잡고 있다'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+
   /api/tsume/solves:
     get:
       tags: [tsume]
@@ -1984,6 +2024,24 @@ components:
         replies:
           type: array
           items: { $ref: '#/components/schemas/TsumeMove' }
+        same:
+          type: array
+          description: 1手必至의 응수 그룹. 이 응수와 공격 쪽 수순이 같은 다른 응수들이고 그 뒤는 펼치지 않는다
+          items: { $ref: '#/components/schemas/TsumeMove' }
+        threat: { type: boolean, description: 이 그룹의 수순이 詰めろ 수순과 같다. 1手必至에서 참일 때만 온다 }
+    HisshiResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status: { type: string, enum: [hisshi, nohisshi, mate, unknown] }
+        tree:
+          $ref: '#/components/schemas/TsumeMove'
+          description: 必至 수에서 자라는 트리. replies 는 응수 그룹의 대표다. hisshi 일 때만
+        answers:
+          type: array
+          description: 必至인 수 전부의 棋譜 표기. hisshi 일 때만
+          items: { type: string }
+        message: { type: string, description: 서버가 만든 일본어 }
     TsumeSolve:
       type: object
       required: [id, name, sfen, status, shortest, solvedAt]

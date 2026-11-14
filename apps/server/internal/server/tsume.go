@@ -45,10 +45,13 @@ type tsumeHandler struct {
 	store *store.Store
 	slots chan struct{}
 	lim   tsume.Limits
+	// hlim 은 1手必至의 몫이다(hisshi.go).
+	hlim tsume.HisshiLimits
 }
 
 func newTsumeHandler(ah *authHandler, st *store.Store) *tsumeHandler {
-	return &tsumeHandler{auth: ah, store: st, slots: make(chan struct{}, tsumeSlots), lim: tsume.DefaultLimits}
+	return &tsumeHandler{auth: ah, store: st, slots: make(chan struct{}, tsumeSlots), lim: tsume.DefaultLimits,
+		hlim: tsume.DefaultHisshiLimits}
 }
 
 type tsumeRequest struct {
@@ -76,6 +79,9 @@ type tsumeMove struct {
 	Rest    int          `json:"rest"`
 	Futile  bool         `json:"futile,omitempty"`
 	Replies []*tsumeMove `json:"replies,omitempty"`
+	// Same 과 Threat 는 1手必至의 응수 그룹이다(tsume.Move).
+	Same   []*tsumeMove `json:"same,omitempty"`
+	Threat bool         `json:"threat,omitempty"`
 }
 
 func wireMove(m *tsume.Move) *tsumeMove {
@@ -83,6 +89,10 @@ func wireMove(m *tsume.Move) *tsumeMove {
 	for _, r := range m.Replies {
 		out.Replies = append(out.Replies, wireMove(r))
 	}
+	for _, r := range m.Same {
+		out.Same = append(out.Same, wireMove(r))
+	}
+	out.Threat = m.Threat
 	return out
 }
 
@@ -95,20 +105,8 @@ func (h *tsumeHandler) solve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req tsumeRequest
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, tsumeBodyMax)).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"error": "bad_request", "message": "リクエストを読み取れませんでした。",
-		})
-		return
-	}
-	pos, err := shogi.ParseSFEN(req.SFEN)
-	if err != nil || len(pos.TsumeFaults()) > 0 {
-		// 확인 화면이 같은 검사(POST /api/position/check)를 통과한 판만 보낸다. 여기 오는 것은
-		// 화면의 버그다.
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"error": "bad_position", "message": "成り立たない局面は調べられません。",
-		})
+	req, pos, ok := readTsumeRequest(w, r)
+	if !ok {
 		return
 	}
 
@@ -169,6 +167,27 @@ func (h *tsumeHandler) solve(w http.ResponseWriter, r *http.Request) {
 	h.remember(r.Context(), key, res, out)
 	h.record(r.Context(), s.UserID, key, out)
 	writeJSON(w, http.StatusOK, out)
+}
+
+// readTsumeRequest 는 본문의 국면을 읽고 검사한다. 실패하면 답을 쓰고 false 를 돌려준다.
+func readTsumeRequest(w http.ResponseWriter, r *http.Request) (tsumeRequest, shogi.Position, bool) {
+	var req tsumeRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, tsumeBodyMax)).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"error": "bad_request", "message": "リクエストを読み取れませんでした。",
+		})
+		return req, shogi.Position{}, false
+	}
+	pos, err := shogi.ParseSFEN(req.SFEN)
+	if err != nil || len(pos.TsumeFaults()) > 0 {
+		// 확인 화면이 같은 검사(POST /api/position/check)를 통과한 판만 보낸다. 여기 오는 것은
+		// 화면의 버그다.
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"error": "bad_position", "message": "成り立たない局面は調べられません。",
+		})
+		return req, shogi.Position{}, false
+	}
+	return req, pos, true
 }
 
 // cached 는 캐시된 답이다. 기록이 없거나 읽지 못하면 false 이고, 부르는 쪽은 그냥 푼다.

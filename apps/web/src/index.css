@@ -5328,6 +5328,14 @@ label.import__button:focus-within {
   gap: 0.6rem;
 }
 
+/* 1手必至에서 받는 수가 되지 않은 응수 그룹의 표시. */
+.tsume__threat {
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--r-sm);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
 .tsume__futile {
   margin: 0 0 0 2.5rem;
   display: flex;

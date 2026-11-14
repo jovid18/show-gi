@@ -5,7 +5,7 @@ import { Hand } from '@/components/Hand';
 import { useT } from '@/i18n';
 import { lastMoveOf } from '@/libs/game/board-view';
 import { parseSfen, type Board as BoardModel } from '@/models/sfen';
-import type { TsumeMove, TsumeResponse } from '@/protocol/tsume';
+import type { HisshiResponse, TsumeMove, TsumeResponse } from '@/protocol/tsume';
 
 /**
  * 詰め将棋의 답. 왼쪽에 판, 오른쪽에 수순이다. 수를 누르면 그 수를 둔 뒤의 판을 그린다.
@@ -13,8 +13,10 @@ import type { TsumeMove, TsumeResponse } from '@/protocol/tsume';
  * 수순은 本手順 한 줄로 펼친다. 서버가 응수를 긴 것부터 주므로 첫 응수를 따라가면 수비 쪽이
  * 가장 오래 버티는 줄이 된다. 다른 응수는 그 응수 아래 「変化」로 접어 두고, 열면 그 응수에서
  * 시작하는 줄이 같은 모양으로 펼쳐진다. 無駄合い는 펼치지 않고 이름만 적는다.
+ *
+ * 1手必至의 답도 같은 모양이다. 첫 수가 必至 수이고, 그 응수 아래로 詰み 수순이 이어진다.
  */
-export function TsumeTree({ start, res }: { start: string; res: TsumeResponse }) {
+export function TsumeTree({ start, res }: { start: string; res: TsumeResponse | HisshiResponse }) {
   const p = useT().position;
   const [picked, setPicked] = useState<TsumeMove | null>(null);
   const sfen = picked?.sfen ?? start;
@@ -174,6 +176,9 @@ function Row({
           ))}
         </p>
       )}
+      {((step.move.same?.length ?? 0) > 0 || step.move.threat) && (
+        <SameGroup move={step.move} same={step.move.same ?? []} picked={picked} onPick={onPick} />
+      )}
       {open && (
         <ul className="tsume__branches">
           {real.map((m) => (
@@ -185,5 +190,41 @@ function Row({
         </ul>
       )}
     </li>
+  );
+}
+
+/**
+ * 1手必至에서 이 응수와 같은 수순으로 詰む 다른 응수들. 수백 개일 수 있어 접어 둔다.
+ * 詰めろ와 같은 수순이면 그 응수들은 받는 수가 되지 않았다는 표시를 붙인다. 다른 응수가 없어도 표시는 붙는다.
+ */
+function SameGroup({
+  move,
+  same,
+  picked,
+  onPick,
+}: { move: TsumeMove; same: TsumeMove[] } & Omit<LineProps, 'from' | 'ply'>) {
+  const tree = useT().position.tree;
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="tsume__futile">
+      {move.threat && <span className="tsume__threat">{tree.threat}</span>}
+      {same.length > 0 && (
+        <button type="button" className="tsume__toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+          {open ? tree.closeSame : tree.same(same.length)}
+        </button>
+      )}
+      {open &&
+        same.map((m) => (
+          <button
+            key={m.usi}
+            type="button"
+            className="tsume__chip"
+            data-picked={picked === m || undefined}
+            onClick={() => onPick(m)}
+          >
+            {m.ja}
+          </button>
+        ))}
+    </div>
   );
 }

@@ -385,7 +385,10 @@ func Handler(opts Options) http.Handler {
 
 	// 詰め将棋(tsume.go). 엔진을 쓰지 않고 이 프로세스 안에서 푼다. DB는 있으면 답의 캐시와
 	// 기록에 쓰고, 없어도 풀기는 연다.
-	mux.HandleFunc("POST /api/tsume/solve", newTsumeHandler(ah, opts.Store).solve)
+	// 1手必至(hisshi.go)도 같은 자리(tsumeSlots)를 나눠 쓴다.
+	tsh := newTsumeHandler(ah, opts.Store)
+	mux.HandleFunc("POST /api/tsume/solve", tsh.solve)
+	mux.HandleFunc("POST /api/tsume/hisshi", tsh.hisshi)
 	if opts.Store != nil {
 		th := &tsumeSolveHandler{store: opts.Store, auth: ah}
 		mux.HandleFunc("GET /api/tsume/solves", th.list)
