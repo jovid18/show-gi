@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fakeApi } from './fake';
-import type { TsumeResponse, TsumeSolve } from '../src/app/protocol/tsume';
+import type { HisshiResponse, TsumeResponse, TsumeSolve } from '../src/app/protocol/tsume';
 
 // 푼 詰め将棋의 기록(journal §155). 다시 열면 같은 국면으로 풀기를 부르고, 풀면 목록을 다시 묻는다.
 
@@ -156,4 +156,67 @@ test('最短を確かめられなかった詰みは、一覧で「N手詰め」�
   const panel = page.getByRole('region', { name: '解いた詰将棋' });
   await expect(panel.getByRole('button', { name: /7手で詰み/ })).toBeVisible();
   await expect(panel.getByText('7手詰め')).toHaveCount(0);
+});
+
+// 1手必至의 답(journal §156). 응수 그룹의 나머지는 접혀 있고, 詰めろ 그룹에는 다른 응수가 없어도 표시가 붙는다.
+const HISSHI_START = '5RSk1/6g1l/6s1p/9/9/9/9/9/9 b Sr2b3gs4n3l17p 1';
+const HISSHI_AFTER = '5RSk1/6g1l/6sSp/9/9/9/9/9/9 w r2b3gs4n3l17p 2';
+
+const HISSHI: HisshiResponse = {
+  status: 'hisshi',
+  message: '1手必至です。',
+  answers: ['▲2三銀'],
+  tree: {
+    usi: 'S*2c',
+    ja: '▲2三銀',
+    sfen: HISSHI_AFTER,
+    rest: 2,
+    replies: [
+      {
+        usi: 'P*9i',
+        ja: '△9九歩',
+        sfen: HISSHI_AFTER,
+        rest: 1,
+        replies: [{ usi: 'S*2a', ja: '▲2一銀', sfen: HISSHI_AFTER, rest: 0 }],
+        same: [
+          { usi: 'P*8i', ja: '△8九歩', sfen: HISSHI_AFTER, rest: 1 },
+          { usi: 'P*7i', ja: '△7九歩', sfen: HISSHI_AFTER, rest: 1 },
+          { usi: 'P*6i', ja: '△6九歩', sfen: HISSHI_AFTER, rest: 1 },
+        ],
+      },
+      {
+        usi: '3b3a',
+        ja: '△3一金',
+        sfen: HISSHI_AFTER,
+        rest: 1,
+        threat: true,
+        replies: [{ usi: '2c2b+', ja: '▲2二銀成', sfen: HISSHI_AFTER, rest: 0 }],
+      },
+    ],
+  },
+};
+
+test('必至を調べると、同じ手順の応手は畳まれ、詰めろの手順には印が付く', async ({ page }) => {
+  await signedIn(page, []);
+  const asked: string[] = [];
+  await page.route('**/api/tsume/hisshi', async (r) => {
+    asked.push((r.request().postDataJSON() as { sfen: string }).sfen);
+    await r.fulfill({ json: HISSHI });
+  });
+  await page.goto('/tsume');
+
+  await page.getByLabel('文字で入力する（SFEN・USI・KIF）').fill(HISSHI_START);
+  await page.getByRole('button', { name: 'この局面を使う' }).click();
+  await page.getByRole('button', { name: '必至を調べる' }).click();
+
+  await expect(page.getByText('1手必至です。')).toBeVisible();
+  expect(asked).toEqual([HISSHI_START]);
+
+  await page.getByRole('button', { name: '同じ手順で詰む応手 ほか3' }).click();
+  await expect(page.getByRole('button', { name: '△7九歩' })).toBeVisible();
+
+  // 詰めろ 그룹은 「ほかの応手」 아래에 있고, 같은 응수가 없어도 표시가 붙는다.
+  await expect(page.getByText('受けになっていない')).toHaveCount(0);
+  await page.getByRole('button', { name: 'ほかの応手 1' }).click();
+  await expect(page.getByText('受けになっていない')).toBeVisible();
 });

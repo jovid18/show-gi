@@ -12,6 +12,9 @@ import (
 
 // HisshiLimits 는 1手必至 한 번에 쓸 수 있는 몫이다. 시간이 아니라 마디 수다.
 type HisshiLimits struct {
+	// MateNodes 는 뿌리 국면이 이미 詰む 국면인지 가리는 데 쓰는 마디 상한이다. 결론이 나지 않으면
+	// 必至를 찾지 않고 Unknown 이다. 詰む 국면의 첫 王手를 必至로 내지 않기 위해서다.
+	MateNodes int64
 	// ReplyNodes 는 수비 응수 하나 뒤의 詰み를 증명하는 데 쓰는 마디 상한이다. 다 쓰면 그 응수는
 	// 「모른다」이고, 그 공격 수는 必至로 인정하지 않는다.
 	ReplyNodes int64
@@ -19,20 +22,23 @@ type HisshiLimits struct {
 	TotalNodes int64
 	// Slots 는 치환표 칸 수의 상한이다. 모든 응수의 풀이가 표 하나를 나눠 쓴다.
 	Slots int
-	// Tree 는 정답 트리에서 응수마다 詰み 수순을 지을 때의 몫이다.
+	// Tree 는 정답 트리에서 응수마다 詰み 수순을 지을 때의 몫이다. Tree.TotalNodes 는 트리를 짓는
+	// 동안의 마디 합의 상한이고, 닿으면 ErrTooLarge 다.
 	Tree Limits
 }
 
 // DefaultHisshiLimits 는 서버가 쓰는 값이다.
 //
-// [미확정] 책의 1手必至 두 문제로만 정했다. 둘 다 로컬 5초 안이었다.
+// [미확정] 책의 1手必至 두 문제로만 정했다(journal §156). MateNodes 는 詰め将棋의 Nodes 와 같다.
 var DefaultHisshiLimits = HisshiLimits{
+	MateNodes:  8_000_000,
 	ReplyNodes: 300_000,
 	TotalNodes: 40_000_000,
 	Slots:      1 << 23,
 	Tree: Limits{
 		ShortenNodes: 200_000,
 		BranchNodes:  50_000,
+		TotalNodes:   20_000_000,
 		MaxMoves:     5000,
 	},
 }
@@ -62,6 +68,9 @@ type HisshiResult struct {
 	First *Move
 	// Answers 는 必至인 수 전부의 棋譜 표기다. 수의 순서(LegalMoves)대로다.
 	Answers []string
+	// Incomplete 는 상한에 걸려 必至인지 가리지 못한 수가 있었다는 표시다. 그러면 Answers 가 必至인
+	// 수 전부라고 말할 수 없다.
+	Incomplete bool
 	// Nodes 는 쓴 마디 수다.
 	Nodes int64
 }
@@ -78,11 +87,20 @@ func SolveHisshi(ctx context.Context, pos shogi.Position, lim HisshiLimits) (His
 	if pos.KingSquare(pos.Turn) >= 0 {
 		return HisshiResult{}, ErrAttackerKing
 	}
-	s := newSolver(ctx, lim.ReplyNodes, lim.Slots)
+	s := newSolver(ctx, lim.MateNodes, lim.Slots)
 	s.total = lim.TotalNodes
 
-	// 이미 詰む 국면은 必至 문제가 아니다.
-	if ok, err := s.prove(pos, unbounded); err == nil && ok {
+	// 이미 詰む 국면은 必至 문제가 아니다. 가리지 못했는데 必至를 찾으면 詰み 수순의 첫 王手가
+	// 必至로 나갈 수 있으므로 거기서 그만둔다.
+	ok, err := s.prove(pos, unbounded)
+	switch {
+	case s.cancelled:
+		return HisshiResult{}, ctx.Err()
+	case errors.Is(err, ErrBudget):
+		return HisshiResult{Status: HisshiUnknown, Nodes: s.nodes}, nil
+	case err != nil:
+		return HisshiResult{}, err
+	case ok:
 		return HisshiResult{Status: HisshiMate, Nodes: s.nodes}, nil
 	}
 
@@ -116,8 +134,11 @@ func SolveHisshi(ctx context.Context, pos shogi.Position, lim HisshiLimits) (His
 	for i, m := range proven {
 		answers[i] = pos.MoveJa(m, -1)
 	}
-	// 트리를 짓는 동안은 전체 상한을 풀어 둔다. 必至는 이미 증명했고, 트리의 크기는 MaxMoves 가 막는다.
+	// 트리는 응수마다 몫을 새로 받으므로 따로 합의 상한을 건다.
 	s.total = 0
+	if lim.Tree.TotalNodes > 0 {
+		s.total = s.nodes + lim.Tree.TotalNodes
+	}
 	first, err := s.hisshiTree(pos, proven[0], lim.Tree)
 	if s.cancelled {
 		return HisshiResult{}, ctx.Err()
@@ -125,7 +146,7 @@ func SolveHisshi(ctx context.Context, pos shogi.Position, lim HisshiLimits) (His
 	if err != nil {
 		return HisshiResult{}, err
 	}
-	return HisshiResult{Status: HisshiFound, First: first, Answers: answers, Nodes: s.nodes}, nil
+	return HisshiResult{Status: HisshiFound, First: first, Answers: answers, Incomplete: unknown, Nodes: s.nodes}, nil
 }
 
 // holds 는 after(수비 쪽 수번)의 모든 응수 뒤에 詰み가 있는가다. 응수 하나를 반증하면 바로

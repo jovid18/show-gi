@@ -88,8 +88,15 @@ func (h *tsumeHandler) hisshi(w http.ResponseWriter, r *http.Request) {
 func hisshiOut(res tsume.HisshiResult) hisshiResponse {
 	switch res.Status {
 	case tsume.HisshiFound:
+		// 상한에 걸린 수가 있으면 必至인 수가 더 있을 수 있으므로 개수를 단정하지 않는다.
+		n := len(res.Answers) - 1
 		msg := "1手必至です。"
-		if n := len(res.Answers) - 1; n > 0 {
+		switch {
+		case res.Incomplete && n > 0:
+			msg = fmt.Sprintf("1手必至です。必至になる手はほかに少なくとも%d通りあります。", n)
+		case res.Incomplete:
+			msg = "1手必至です。ほかの手には調べきれなかったものがあります。"
+		case n > 0:
 			msg = fmt.Sprintf("1手必至です。必至になる手はほかに%d通りあります。", n)
 		}
 		return hisshiResponse{Status: "hisshi", Tree: wireMove(res.First), Answers: res.Answers, Message: msg}

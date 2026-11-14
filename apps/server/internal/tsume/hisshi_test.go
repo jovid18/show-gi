@@ -67,6 +67,26 @@ func TestHisshiFindsTheOnlyAnswer(t *testing.T) {
 	}
 }
 
+// 두 문제 모두 詰め将棋로는 詰まない. 王手만으로는 풀리지 않는다는 것이 必至를 따로 푸는 이유다.
+func TestHisshiProblemsDoNotMate(t *testing.T) {
+	for _, sfen := range []string{
+		"5RSk1/6g1l/6s1p/9/9/9/9/9/9 b Sr2b3gs4n3l17p 1",
+		"7+P1/4+b4/6+Rgk/5R2p/9/9/9/9/9 b b3g4s4n4l16p 1",
+	} {
+		pos, err := shogi.ParseSFEN(sfen)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res, err := Solve(context.Background(), pos, DefaultLimits)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Status != NoMate {
+			t.Errorf("%s: tsume status %d, want NoMate", sfen, res.Status)
+		}
+	}
+}
+
 func TestHisshiTellsMateApart(t *testing.T) {
 	// 頭金 1手詰め.
 	res := solveHisshi(t, "4k4/9/4P4/9/9/9/9/9/9 b G2r2b3g4s4n4l17p 1")
@@ -90,5 +110,48 @@ func TestHisshiNoneWhenTheKingRunsFree(t *testing.T) {
 	res := solveHisshi(t, "9/9/9/9/4k4/9/9/9/9 b P2r2b4g4s4n4l17p 1")
 	if res.Status != HisshiNone {
 		t.Fatalf("status %d, want HisshiNone", res.Status)
+	}
+}
+
+// 상한에 걸리면 必至를 놓칠 수는 있어도 지어내지는 않는다.
+func TestHisshiNeverInventsOneOnABudget(t *testing.T) {
+	solve := func(sfen string, lim HisshiLimits) HisshiResult {
+		t.Helper()
+		pos, err := shogi.ParseSFEN(sfen)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res, err := SolveHisshi(context.Background(), pos, lim)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res
+	}
+
+	// 응수 하나 몫이 모자라면 정답 수도 必至로 인정하지 않는다.
+	lim := DefaultHisshiLimits
+	lim.ReplyNodes = 10
+	if res := solve("5RSk1/6g1l/6s1p/9/9/9/9/9/9 b Sr2b3gs4n3l17p 1", lim); res.Status != HisshiUnknown || len(res.Answers) != 0 {
+		t.Errorf("tiny ReplyNodes: status %d, answers %v, want HisshiUnknown", res.Status, res.Answers)
+	}
+
+	// 전체 상한에 닿아도 Unknown 이다.
+	lim = DefaultHisshiLimits
+	lim.TotalNodes = 1000
+	if res := solve("5RSk1/6g1l/6s1p/9/9/9/9/9/9 b Sr2b3gs4n3l17p 1", lim); res.Status != HisshiUnknown {
+		t.Errorf("tiny TotalNodes: status %d, want HisshiUnknown", res.Status)
+	}
+
+	// 詰む 국면인지 가리지 못하면 必至를 찾지 않는다. 찾으면 詰み 수순의 첫 王手(▲9一飛成)가
+	// 모든 응수 뒤에 詰む 수로 나온다.
+	const mate = "4k4/2S6/R3G4/9/9/9/9/9/9 b p 1"
+	if res := solve(mate, DefaultHisshiLimits); res.Status != HisshiMate {
+		t.Fatalf("%s: status %d, want HisshiMate", mate, res.Status)
+	}
+	lim = DefaultHisshiLimits
+	lim.MateNodes = 20
+	lim.ReplyNodes = 20
+	if res := solve(mate, lim); res.Status != HisshiUnknown {
+		t.Errorf("tiny MateNodes: status %d, answers %v, want HisshiUnknown", res.Status, res.Answers)
 	}
 }

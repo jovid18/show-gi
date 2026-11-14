@@ -176,8 +176,8 @@ function Row({
           ))}
         </p>
       )}
-      {step.move.same && step.move.same.length > 0 && (
-        <SameGroup move={step.move} same={step.move.same} picked={picked} onPick={onPick} />
+      {((step.move.same?.length ?? 0) > 0 || step.move.threat) && (
+        <SameGroup move={step.move} same={step.move.same ?? []} picked={picked} onPick={onPick} />
       )}
       {open && (
         <ul className="tsume__branches">
@@ -195,7 +195,7 @@ function Row({
 
 /**
  * 1手必至에서 이 응수와 같은 수순으로 詰む 다른 응수들. 수백 개일 수 있어 접어 둔다.
- * 詰めろ와 같은 수순이면 그 응수들은 받는 수가 되지 않았다는 표시를 붙인다.
+ * 詰めろ와 같은 수순이면 그 응수들은 받는 수가 되지 않았다는 표시를 붙인다. 다른 응수가 없어도 표시는 붙는다.
  */
 function SameGroup({
   move,
@@ -208,9 +208,11 @@ function SameGroup({
   return (
     <div className="tsume__futile">
       {move.threat && <span className="tsume__threat">{tree.threat}</span>}
-      <button type="button" className="tsume__toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-        {open ? tree.closeSame : tree.same(same.length)}
-      </button>
+      {same.length > 0 && (
+        <button type="button" className="tsume__toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+          {open ? tree.closeSame : tree.same(same.length)}
+        </button>
+      )}
       {open &&
         same.map((m) => (
           <button

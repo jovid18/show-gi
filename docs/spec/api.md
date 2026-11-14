@@ -1,4 +1,4 @@
-# API 명세 — REST 27개와 WebSocket 둘
+# API 명세 — REST와 WebSocket 둘
 
 **이 문서는 「무엇이 어떻게 생겼나」다.** 각 라우트가 왜 그 의존성을 갖는지는 [apps/server/README.md](../../apps/server/README.md)의 라우트 표에 있다.
 
@@ -128,14 +128,16 @@
 
 ### 詰め将棋 (로그인 필요)
 
-| 메서드 · 경로                   | 성공                  | 실패                                                                                      |
-| ------------------------------- | --------------------- | ----------------------------------------------------------------------------------------- |
-| `POST /api/tsume/solve`         | `200 TsumeResponse`   | `400 bad_request`/`bad_position`/`no_king` · `401` · `422 too_large` · `503 busy` · `500` |
-| `GET /api/tsume/solves`         | `200 {solves: [...]}` | `401` · `503 store_unavailable` · `500`                                                   |
-| `PATCH /api/tsume/solves/{id}`  | `200 {id, name}`      | `400 bad_id`/`bad_name` · `404 not_found`                                                 |
-| `DELETE /api/tsume/solves/{id}` | `204`                 | `400 bad_id` · `404 not_found`                                                            |
+| 메서드 · 경로                   | 성공                  | 실패                                                                                                      |
+| ------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------- |
+| `POST /api/tsume/solve`         | `200 TsumeResponse`   | `400 bad_request`/`bad_position`/`no_king` · `401` · `422 too_large` · `503 busy` · `500`                 |
+| `POST /api/tsume/hisshi`        | `200 HisshiResponse`  | `400 bad_request`/`bad_position`/`no_king`/`attacker_king` · `401` · `422 too_large` · `503 busy` · `500` |
+| `GET /api/tsume/solves`         | `200 {solves: [...]}` | `401` · `503 store_unavailable` · `500`                                                                   |
+| `PATCH /api/tsume/solves/{id}`  | `200 {id, name}`      | `400 bad_id`/`bad_name` · `404 not_found`                                                                 |
+| `DELETE /api/tsume/solves/{id}` | `204`                 | `400 bad_id` · `404 not_found`                                                                            |
 
 - 풀기는 `{sfen}` 을 받아 `{status, plies?, shortest, tree?, message}` 를 준다. `status` 는 `mate`·`nomate`·`unknown`
+- 1手必至는 `{sfen}` 을 받아 `{status, tree?, answers?, message}` 를 준다. `status` 는 `hisshi`·`nohisshi`·`mate`·`unknown`. 트리의 응수는 공격 쪽 수순이 같은 것끼리 묶여 대표만 `replies` 에 오고 나머지는 대표의 `same` 에 온다. 詰めろ와 수순이 같은 그룹에 `threat` 가 붙는다. 공격 쪽 玉이 판에 있으면 `400 attacker_king`. 詰め将棋와 풀이 자리를 나눠 쓰고 캐시·기록은 없다([§156](../journal/141-160.md))
 - DB가 있으면 증명된 답(`mate`·`nomate`)을 국면마다 캐시하고, 같은 국면은 풀이 자리를 기다리지 않고 답한다. 풀 때마다 그 사람의 기록에 한 줄을 남긴다. 같은 국면은 한 줄이고 답과 시각만 고친다. 사람이 붙인 이름은 그대로다([§155](../journal/141-160.md))
 - 기록 한 줄은 `{id, name, sfen, status, plies?, shortest, solvedAt}` 이다. `shortest` 가 거짓인 詰み는 화면이 「N手詰め」로 단정하지 않는다. 트리를 싣지 않는다. 다시 열 때는 `sfen` 으로 풀기를 다시 부른다
 - 저장 요청이 없다. `PATCH` 는 이름만 고치고 빈 이름도 받는다(화면이 결과를 이름 자리에 쓴다). `DELETE` 는 기록만 지우고 캐시된 답은 남긴다
